@@ -170,6 +170,7 @@ fn extra_dev_toggles_flip_their_non_developer_resources() {
         #[cfg(feature = "portal_render")]
         portal_camera: None,
         base_gravity: None,
+        gravity_room: None,
     });
     let read = |id: DevToggleId| snap.values.iter().find(|(d, _, _)| *d == id).unwrap().1;
     assert_eq!(read(DevToggleId::DebugOverlay), dev_state.debug);
@@ -204,6 +205,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
             #[cfg(feature = "portal_render")]
             portal_camera: None,
             base_gravity: None,
+            gravity_room: None,
         })
         .values
         .iter()
@@ -294,6 +296,7 @@ fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
         #[cfg(feature = "portal_render")]
         portal_camera: None,
         base_gravity: None,
+        gravity_room: None,
     });
     let on = snap
         .values
@@ -1548,6 +1551,7 @@ fn scroll_total_rows(app: &App) -> usize {
         #[cfg(feature = "portal_render")]
         portal_camera: None,
         base_gravity: None,
+        gravity_room: None,
     });
     let model = SystemMenuModel::build(settings, &RadioSnapshot::default(), &snap);
     system_rows(&model, Some(SystemMenuEntryId::Developer)).len()
@@ -2721,4 +2725,68 @@ fn the_cached_rows_resolve_a_system_action_exactly_as_a_fresh_model_does() {
         "off the System face the cache holds no rows, and a guard that still \
          said yes would resolve every off-face System hover to row zero",
     );
+}
+
+fn cube_mode(app: &App) -> GameMode {
+    *app.world().resource::<State<GameMode>>().get()
+}
+
+fn cube_is_open(app: &App) -> bool {
+    app.world()
+        .resource::<ambition_platformer2d::inventory_ui::InventoryUiState>()
+        .visible
+}
+
+/// One press and its release: the routing acts on the rising edge.
+fn cube_press(app: &mut App, f: fn(&mut MenuControlFrame)) {
+    let mut frame = MenuControlFrame::default();
+    f(&mut frame);
+    app.insert_resource(frame);
+    app.update();
+    app.insert_resource(MenuControlFrame::default());
+    app.update();
+}
+
+/// `Q75`: Start during a conversation opens the cube on the System face and
+/// pauses the world; closing returns to the conversation, not to gameplay.
+#[test]
+fn start_during_a_conversation_opens_the_cube_and_closes_back_to_it() {
+    let mut app = open_app();
+    app.world_mut()
+        .resource_mut::<NextState<GameMode>>()
+        .set(GameMode::Dialogue);
+    app.update();
+    cube_press(&mut app, |f| f.start = true);
+    assert!(cube_is_open(&app), "Start opens the cube over the conversation");
+    assert_eq!(active_page(&app), Some(MenuPage::System));
+    assert_eq!(
+        cube_mode(&app),
+        GameMode::Paused,
+        "the cube pauses the world, which a conversation need not stop"
+    );
+    cube_press(&mut app, |f| f.start = true);
+    assert!(!cube_is_open(&app), "Start closes the cube");
+    assert_eq!(cube_mode(&app), GameMode::Dialogue, "closing returns to the conversation");
+}
+
+/// `Q75`: the map and the inventory are faces of one cube. A face key turns the
+/// open cube to its own face; pressed on its own face, it closes the cube.
+#[test]
+fn a_face_key_turns_the_open_cube_to_its_face_and_closes_it_from_there() {
+    let mut app = open_app();
+    cube_press(&mut app, |f| f.inventory = true);
+    assert!(cube_is_open(&app));
+    assert_eq!(active_page(&app), Some(MenuPage::Items));
+    cube_press(&mut app, |f| f.map = true);
+    assert!(cube_is_open(&app), "the map key over the inventory turns, it does not close");
+    assert_eq!(active_page(&app), Some(MenuPage::Map));
+    cube_press(&mut app, |f| f.inventory = true);
+    assert!(cube_is_open(&app), "the inventory key over the map turns, it does not close");
+    assert_eq!(active_page(&app), Some(MenuPage::Items));
+    cube_press(&mut app, |f| f.inventory = true);
+    assert!(!cube_is_open(&app), "the inventory key on its own face closes the cube");
+    cube_press(&mut app, |f| f.map = true);
+    assert_eq!(active_page(&app), Some(MenuPage::Map));
+    cube_press(&mut app, |f| f.map = true);
+    assert!(!cube_is_open(&app), "the map key on its own face closes the cube");
 }

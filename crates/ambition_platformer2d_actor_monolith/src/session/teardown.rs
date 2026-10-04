@@ -71,11 +71,19 @@ pub struct SessionScopedResources<'w> {
     /// `Option` because a composition without the boss capability has none.
     boss_defeats_since_checkpoint:
         Option<ResMut<'w, ambition_boss_encounter::BossDefeatsSinceCheckpoint>>,
-    /// The respawn due times of broken breakables, on this session's clock
-    /// (OW5). The next session's clock starts again at zero, and its rooms
-    /// are built whole.
-    breakable_respawns:
-        Option<ResMut<'w, crate::features::ecs::breakable_respawns::BreakableRespawnSchedule>>,
+    /// When broken breakables respawn and collected pickups regrow, on this
+    /// session's clock (OW5). The next session's clock starts again at zero,
+    /// and its rooms are built whole.
+    world_time_schedule:
+        Option<ResMut<'w, crate::features::ecs::world_time_schedule::WorldTimeSchedule>>,
+    /// The one-time pickups consumed since the last checkpoint, with their
+    /// owners. The next session's file is its baseline.
+    consumed_since_checkpoint:
+        Option<ResMut<'w, crate::features::ecs::pickups::ConsumedSinceCheckpoint>>,
+    /// The grants of the mints collected since the last checkpoint. The next
+    /// session's file is its baseline, so a retraction there must take back
+    /// none of this session's.
+    reward_grants: Option<ResMut<'w, crate::items::pickup::RewardGrantsSinceCheckpoint>>,
     /// Quest progress; the next activation reloads it from the session save.
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Transient per-room bookkeeping (room-transition cooldown, etc.).
@@ -107,29 +115,26 @@ pub struct SessionScopedResources<'w> {
     /// checkpoint baseline from the previous session is a baseline for a world
     /// that no longer exists.
     ///
-    /// ⛔⛤ **THERE IS A FOURTH CHECKPOINT BASELINE AND IT IS DELIBERATELY NOT
-    /// HERE — stated 2026-09-18, because until then its absence was a default
-    /// and the sentence above says "the same three facts" without saying which
-    /// fact is not one of them.** `OwnedItemsBaseline`
-    /// (`items/pickup/minted_horizon.rs`) is captured on the same
-    /// `CheckpointCommitted` as these three, and it is NOT session-scoped
-    /// because the value it baselines is not either: `OwnedItems` appears
-    /// nowhere in this file. ⇒ The three above describe WORLD PLACEMENT, which a
-    /// new session invalidates; stored quantities are the player's and travel
-    /// with the bag. Resetting the baseline without resetting the bag would
-    /// make a death in session B restore to an empty entitlement while the bag
-    /// still held items.
+    /// ⭐ THE FOURTH CHECKPOINT BASELINE, `OwnedItemsBaseline`, IS A MEMBER SINCE
+    /// 2026-10-04 ([`owned_items_baseline`](Self::owned_items_baseline)). It
+    /// was left out on purpose on 2026-09-18, and the argument was real but its
+    /// premise was wrong, so the argument stays here with the measurement.
     ///
-    /// ⚠ **AND THE ARGUMENT THAT PUT `projectile_seq` HERE DOES NOT TRANSFER,
-    /// which is worth saying because it looks like it should.** That one is
-    /// session-scoped because it is CHECKSUMMED and process-monotonic, so two
-    /// hosts with different local histories disagree at frame 0.
-    /// `OwnedItemsBaseline` is checksummed too — but the divergence it would
-    /// carry is the two peers' SAVE FILES differing, which resetting at the
-    /// session edge does not cure: the first `CheckpointCommitted` copies the
-    /// live bag straight back in. That belongs to
-    /// `awaiting-maintainer-decision.md`'s Q129 (must a save file be part of
-    /// what two peers agree on), not to this reset.
+    /// The argument: these three describe WORLD PLACEMENT, which a new session
+    /// invalidates. Stored quantities are the player's and travel with the bag
+    /// (`OwnedItems` is not in this file), so "resetting the baseline without
+    /// resetting the bag would make a death in session B restore to an empty
+    /// entitlement while the bag still held items". And the peer divergence it
+    /// could carry "is the two peers' SAVE FILES differing, which resetting at
+    /// the session edge does not cure".
+    ///
+    /// The measurement (shell host, rollback, two hosts with EQUAL saves): at
+    /// tick 0 of a session that followed another one the baseline held the old
+    /// session's bag, and on a fresh host it held zeros. The two agreed from
+    /// tick 1, when the restore writes it. So the row differed with equal
+    /// saves, because a fresh process has captured no baseline. And the hazard
+    /// (a zero baseline, a full bag) is the state each first session has at
+    /// tick 0. The reset adds no state that a first session does not have.
     occurrence_baseline:
         ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
     custody_baseline: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,
@@ -263,7 +268,7 @@ pub struct SessionScopedResources<'w> {
     match_ordinal: ResMut<'w, ambition_match::seating::SessionMatchOrdinal>,
     /// ⛔⛤ **AN ABSOLUTE PER-APP ACCUMULATOR THAT WAS INSIDE THE PEER CHECKSUM,
     /// FOUND 2026-09-16 BY THE TWO-HOST PEER-VISIBLE CENSUS.** `GameplayElapsed`
-    /// has exactly one writer — `advance_gameplay_elapsed`, `+= scaled_dt` every
+    /// has exactly one writer — `advance_gameplay_elapsed`, `+= sim_dt` every
     /// frame — is `init_resource`'d once at App build, and was reset nowhere. It
     /// is registered `rollback_resource_canonical`, so its WHOLE value is
     /// compared between peers. Two hosts that reached the same route by different
@@ -272,13 +277,47 @@ pub struct SessionScopedResources<'w> {
     /// (`actors/update.rs` hands it to the brain as the reaction-latency
     /// lookback, which is its only consumer).
     ///
-    /// ⭐ **AND UNLIKE `SimTick` IT NEEDS NO RULING, WHICH IS THE WHOLE
-    /// DIFFERENCE.** `Q128` is open because a projection excluding the tick would
-    /// exclude the TIMELINE — the thing a rollback comparison is about. This is a
-    /// lookback clock: its consumer asks how long ago something was seen, which a
-    /// session-relative clock answers identically. So the repair is the one this
-    /// group already is, rather than a new authority or a maintainer decision.
+    /// Its consumer asks how long ago something was seen, which a
+    /// session-relative clock answers identically. `SimTick` (below) took the
+    /// same road when `Q128` was decided.
     gameplay_elapsed: ResMut<'w, crate::features::GameplayElapsed>,
+    /// The canonical timeline (`Q128`). A session starts at tick `0` on every
+    /// peer, whatever the App ran before it. `Option` because a composition
+    /// without the sim clock has none.
+    sim_tick: Option<ResMut<'w, ambition_time::SimTick>>,
+    /// The impact freeze holds an absolute expiry on [`ambition_time::SimTick`].
+    /// Kept across the reset of the tick, a freeze from the previous session
+    /// would hold the new one until that session's tick came round again.
+    impact_hitstop: Option<ResMut<'w, ambition_combat::impact_hitstop::ImpactHitstop>>,
+    /// The pace the simulation clock is asked for, and the pace it runs at
+    /// ([`clock_state`](Self::clock_state)). The two are peer-compared, and a
+    /// session that ends in a hitstop leaves them below neutral. Measured
+    /// 2026-10-04 on the shipped host: the session that replaced it began with
+    /// a pace of 0.42 and ran its first two ticks at 0.65 and 0.88, on that
+    /// host only. A session starts at the neutral pace on every peer.
+    /// `Option` as for `sim_tick`.
+    requested_clock_scale: Option<ResMut<'w, ambition_time::time_control::RequestedClockScale>>,
+    clock_state: Option<ResMut<'w, ambition_time::ClockState>>,
+    /// The step of the last tick. It is peer-compared, and the first tick of a
+    /// session writes it, so before that tick it was the last step of the
+    /// session that ended (measured 2026-10-04: 0.0167, or 0.0097 after a
+    /// hitstop, against 0.0 on a fresh host). `Option` as for `sim_tick`.
+    world_time: Option<ResMut<'w, ambition_time::WorldTime>>,
+    /// ⛔ THE PHASE OF EACH GATE PORTAL, WHICH DECIDES IF A BODY CAN GO THROUGH.
+    /// The tick integrates it from the switch in the save, and nothing put it
+    /// back when a session ended. Measured 2026-10-04 on the shell host, two
+    /// hosts with equal saves and the switch on: the portal of a session that
+    /// followed another one was `On` from tick 0, and the portal of a fresh
+    /// host was `Opening` until tick 40. For 39 ticks one peer could take the
+    /// gate and the other could not. Each session now starts with no phase, so
+    /// its portals open from `Off` on every peer. `Option` because a
+    /// composition without the room domain has none.
+    gate_portal_phases: Option<ResMut<'w, ambition_platformer2d_world::rooms::GatePortalPhases>>,
+    /// The bag at the last checkpoint. See the note above `occurrence_baseline`
+    /// for why it was not a member until 2026-10-04. `Option` because a
+    /// composition without the pickup domain has none.
+    owned_items_baseline:
+        Option<ResMut<'w, crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -291,7 +330,11 @@ pub struct SessionScopedResources<'w> {
 /// (MEASURED 2026-09-16 across every `.rs` in `crates/` and `game/`, over all ten
 /// `rollback_resource_*` methods the registrar declares. This line read SIXTEEN,
 /// then TWENTY-TWO; ⚠ the count is load-bearing for the argument below, so it is
-/// stated with the method that produced it. The 22 -> 23 step is re-derived
+/// stated with the method that produced it. Five more were added 2026-10-04:
+/// `RequestedClockScale`, `ClockState` and `WorldTime`
+/// (`rollback_resource_canonical`), and `GatePortalPhases` and
+/// `OwnedItemsBaseline` (`rollback_resource_clone_checksum`);
+/// the total was not measured again. The 22 -> 23 step is re-derived
 /// rather than decremented by hand: `AuthoredOccurrences` moved from
 /// `declare_rollback_derived_resource` to `rollback_resource_clone_checksum` in
 /// schema v195, which `rollback_schema_baseline.txt` records as exactly one row
@@ -452,7 +495,9 @@ fn reset(resources: SessionScopedResources) {
         mut encounter_view,
         mut boss_registry,
         boss_defeats_since_checkpoint,
-        breakable_respawns,
+        world_time_schedule,
+        consumed_since_checkpoint,
+        reward_grants,
         mut quest_registry,
         mut sim_state,
         mut slot_interactions,
@@ -476,6 +521,13 @@ fn reset(resources: SessionScopedResources) {
         mut live_match_ticks,
         mut match_ordinal,
         mut gameplay_elapsed,
+        sim_tick,
+        impact_hitstop,
+        requested_clock_scale,
+        clock_state,
+        world_time,
+        gate_portal_phases,
+        owned_items_baseline,
     } = resources;
     *possession = PossessionState::default();
     *controlled_subject = ControlledSubject::default();
@@ -484,8 +536,14 @@ fn reset(resources: SessionScopedResources) {
     if let Some(mut since) = boss_defeats_since_checkpoint {
         since.forget_all();
     }
-    if let Some(mut schedule) = breakable_respawns {
+    if let Some(mut schedule) = world_time_schedule {
         schedule.forget_all();
+    }
+    if let Some(mut since) = consumed_since_checkpoint {
+        since.forget_all();
+    }
+    if let Some(mut grants) = reward_grants {
+        grants.forget_all();
     }
     *quest_registry = QuestRegistry::default();
     *sim_state = RoomTransitionCooldown::default();
@@ -512,6 +570,27 @@ fn reset(resources: SessionScopedResources) {
         crate::character_runtime::live_match_clock::LiveMatchTicks::default();
     *match_ordinal = ambition_match::seating::SessionMatchOrdinal::default();
     *gameplay_elapsed = crate::features::GameplayElapsed::default();
+    if let Some(mut tick) = sim_tick {
+        *tick = ambition_time::SimTick::default();
+    }
+    if let Some(mut hitstop) = impact_hitstop {
+        *hitstop = ambition_combat::impact_hitstop::ImpactHitstop::default();
+    }
+    if let Some(mut requested) = requested_clock_scale {
+        *requested = ambition_time::time_control::RequestedClockScale::default();
+    }
+    if let Some(mut clock) = clock_state {
+        *clock = ambition_time::ClockState::default();
+    }
+    if let Some(mut time) = world_time {
+        *time = ambition_time::WorldTime::default();
+    }
+    if let Some(mut phases) = gate_portal_phases {
+        *phases = ambition_platformer2d_world::rooms::GatePortalPhases::default();
+    }
+    if let Some(mut baseline) = owned_items_baseline {
+        *baseline = crate::items::pickup::minted_horizon::OwnedItemsBaseline::default();
+    }
 }
 
 /// Installs session-resource re-establishment at both edges of a session.

@@ -751,11 +751,21 @@ pub fn session_world_component_mut_at<T: Component<Mutability = Mutable>>(
     world.get_mut::<T>(root)
 }
 
+/// The one session scope of a direct host or a focused test: a composition with
+/// no [`SessionGatedSimulation`], so no shell names its sessions. Its root is
+/// built here when no scope is active.
+const DIRECT_HOST_SESSION_SCOPE: SessionScopeId = SessionScopeId(0);
+
 /// Insert one component into the canonical direct/test session-world root.
 ///
 /// Provider activations should insert a complete prepared bundle through the
 /// shell. This helper exists for small direct hosts and focused tests that
 /// intentionally assemble the same root one component at a time.
+///
+/// A session-gated composition with no root and no active scope refuses: a
+/// root built there would carry an identity no shell gave it (C07). Measured
+/// 2026-10-03: that branch was reached only by ungated lib-test fixtures, never
+/// by `app_it` or the demo suites.
 pub fn insert_session_world_component<T: Component>(world: &mut World, component: T) -> Entity {
     let active_scope = world
         .get_resource::<ActiveSessionScope>()
@@ -770,7 +780,13 @@ pub fn insert_session_world_component<T: Component>(world: &mut World, component
             entity
         }
         None => {
-            let owner = active_scope.unwrap_or(SessionScopeId(0));
+            assert!(
+                !gated || active_scope.is_some(),
+                "a session-gated composition has no session root and no active scope, so \
+                 session-world state has no session to belong to; a root built here \
+                 would carry an identity no shell gave it"
+            );
+            let owner = active_scope.unwrap_or(DIRECT_HOST_SESSION_SCOPE);
             world
                 .spawn((Name::new("direct session world"), SessionRoot(owner)))
                 .id()
@@ -1032,6 +1048,7 @@ impl Plugin for SessionScopePlugin {
                 Update,
                 despawn_retired_session_entities.in_set(SessionScopeSet::Cleanup),
             );
+        super::session_messages::install(app);
     }
 }
 

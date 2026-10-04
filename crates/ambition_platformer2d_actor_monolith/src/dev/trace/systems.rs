@@ -32,6 +32,8 @@ pub fn record_simulation_frame(
     game_mode: &str,
     active_area: &str,
     moving_platforms: &[ambition_platformer2d_world::platforms::MovingPlatformState],
+    // The toward-feet direction of the body's resolved movement frame.
+    feet_dir: ae::Vec2,
     locomotion: &str,
     body_mode: &str,
     timeline: (Option<ae::ConfirmedFrameBoundary>, bool),
@@ -59,6 +61,7 @@ pub fn record_simulation_frame(
         buffer.sequence,
         buffer.tick,
         moving_platforms,
+        feet_dir,
         locomotion,
         body_mode,
     );
@@ -190,6 +193,8 @@ pub fn record_frame_system(
             // through a mirror.
             ambition_combat::moveset::MeleeSwingQuery,
             Option<&ae::BodyLifeStats>,
+            // The body's resolved movement frame: which face its feet are on.
+            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         ),
         // SLOT-0 BY DESIGN: the deterministic replay trace records ONE body's
         // trajectory, and the replay harness drives slot 0's input stream. A
@@ -208,7 +213,7 @@ pub fn record_frame_system(
     if teleported.read().next().is_some() {
         buffer.teleport_suppress_ticks = ambition_gameplay_trace::PORTAL_TELEPORT_SUPPRESS_FRAMES;
     }
-    let Ok((player, mut cluster_item, model, facts, player_health, safety, combat, melee, life)) =
+    let Ok((player, mut cluster_item, model, facts, player_health, safety, combat, melee, life, motion_frame)) =
         player_q.single_mut()
     else {
         return;
@@ -268,6 +273,7 @@ pub fn record_frame_system(
         &mode_label,
         &active_area,
         platform_set.of(player).map_or(&[][..], |platforms| &platforms.0[..]),
+        motion_frame.map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down()),
         &locomotion,
         &body_mode,
         (

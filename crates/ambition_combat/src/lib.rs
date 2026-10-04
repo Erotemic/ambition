@@ -132,6 +132,7 @@ const CHEST_FALL_MAX_SPEED: f32 = 900.0;
 
 // Shared imports the module tree reaches via `use super::*` (the historical
 // combat/mod.rs surface, kept so the moved files stay byte-similar).
+use ambition_characters::actor::ActorFaction;
 use ambition_platformer2d_core as ae;
 #[allow(unused_imports)]
 use ambition_platformer2d_shared_tangle::lifecycle::RoomVisual;

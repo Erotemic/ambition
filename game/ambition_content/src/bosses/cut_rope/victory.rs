@@ -12,8 +12,14 @@ use super::*;
 ///
 /// Per live cut-rope room: the NPC crawls out of that room's behemoth and is
 /// stamped into that room.
+///
+/// The NPC takes the session of the system, as each other room occupant does.
+/// Until 2026-10-04 it was a plain `spawn` with the room stamps put on by
+/// hand, so no session owned it: it was in the world at the title after its
+/// session ended, and the next session had the same entity. Held by
+/// `shell_host_lifecycle::the_victory_npc_of_a_cleared_boss_ends_with_its_session`.
 pub fn spawn_cut_rope_victory_npc(
-    mut commands: Commands,
+    mut commands: ambition_platformer2d::platformer::lifecycle::SessionCommands,
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
@@ -37,6 +43,11 @@ pub fn spawn_cut_rope_victory_npc(
     // and refills, so the allocation happens once and its capacity is reused.
     released_hosts.clear();
     released_hosts.extend(released.read().map(|m| m.host));
+    // After the drain: with no session there is no room to spawn into, and
+    // the release signal of this frame is still read.
+    let Some(session_scope) = commands.spawn_scope() else {
+        return;
+    };
     let arenas: Vec<_> = rooms
         .live_rooms()
         .filter(|(_, definition)| rooms.rooms().spec(*definition).id == CUT_ROPE_ROOM_ID)
@@ -77,15 +88,13 @@ pub fn spawn_cut_rope_victory_npc(
         }
         let boss_bottom_y = boss_aabb.center.y + boss_aabb.half_size.y;
         let spawn_pos = ae::Vec2::new(boss.kin.pos.x, boss_bottom_y - CUT_ROPE_VICTORY_NPC_H * 0.5);
-        let npc = spawn_victory_npc_entity(
+        spawn_victory_npc_entity(
             &mut commands,
+            session_scope.in_room(Some(room)),
             &character_catalog,
             &authored_sheets,
             spawn_pos,
         );
-        commands
-            .entity(npc)
-            .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
     }
 }
 
@@ -95,10 +104,11 @@ fn victory_npc_size() -> ae::Vec2 {
 
 fn spawn_victory_npc_entity(
     commands: &mut Commands,
+    session_scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     pos: ae::Vec2,
-) -> Entity {
+) {
     let size = victory_npc_size();
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let interactable = ambition_interaction::Interactable {
@@ -145,8 +155,10 @@ fn spawn_victory_npc_entity(
             ambition_combat::components::ActorDisposition::Peaceful,
         );
     let cluster_bundle = seed.into_components();
-    commands
-        .spawn((
+    use ambition_platformer2d::platformer::lifecycle::SpawnSessionScopedExt as _;
+    commands.spawn_session_scoped(
+            session_scope,
+            (
             Name::new("Post-boss NPC: Smirking Behemoth victory"),
             SmirkingBehemothVictoryNpc,
             PostBossNpc,
@@ -157,7 +169,7 @@ fn spawn_victory_npc_entity(
                     CenteredAabb::from_aabb(aabb),
                 ),
                 disposition,
-                faction: ambition_combat::components::ActorFaction::Npc,
+                faction: ambition_characters::actor::ActorFaction::Npc,
                 target: ambition_combat::components::ActorTarget::default(),
                 motion_model: ambition_platformer2d_core::movement::MotionModel::default(),
                 identity_kit,
@@ -174,8 +186,8 @@ fn spawn_victory_npc_entity(
             ambition_combat::moveset::ActorMoveset::default(),
             ActorControl::default(),
             interaction,
-        ))
-        .id()
+            ),
+        );
 }
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SmirkingBehemothVictoryNpc;

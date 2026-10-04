@@ -1370,6 +1370,7 @@ fn on_a_platform(me_x: f32, foe_x: f32, platform: (f32, f32)) -> WorldView {
             max: ae::Vec2::new(platform.1, 380.0),
         },
         kind: SolidKind::Solid,
+        open_for_self: false,
     }];
     view
 }

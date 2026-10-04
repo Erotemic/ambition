@@ -2347,12 +2347,14 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// from the save here and installed only at adoption, so "candidate
     /// construction reads a live resource" is not a mistake this type can make.
     ///
-    /// `Option` because a composition with no durable horizon registers no save,
-    /// and an empty horizon is the honest answer there — not a reason to refuse
-    /// to build a world.
-    save: Option<
-        Res<'w, ambition_platformer2d_actor_monolith::session::durable_horizon::AmbitionGameSave>,
-    >,
+    /// ⛔ REVIEW FINDING B, 2026-10-04: THE SAVE WAS ALSO THE OUTGOING
+    /// SESSION'S. This field was `Res<AmbitionGameSave>`, the live save, which
+    /// belongs to the session that plays until the activation gives it to the
+    /// experience of the candidate. So a candidate of another experience was
+    /// built from the wrong durable horizon, and the paragraph above was not
+    /// true of it. `CandidateSave` gives the save of the candidate's own
+    /// experience.
+    save: ambition_platformer2d_actor_monolith::session::durable_horizon::CandidateSave<'w>,
     /// What each experience puts into its own session. See
     /// [`crate::session_contents`].
     session_contents: Res<'w, crate::SessionContentsCatalog>,
@@ -2403,12 +2405,10 @@ impl PlatformerSessionBuilder<'_, '_> {
         route: ambition_game_shell::ShellRouteId,
     ) -> PreparedCandidateSession {
         // ⛔ THE CANDIDATE'S DURABLE HORIZON, BUILT AS A VALUE BEFORE ANYTHING
-        // IS CONSTRUCTED. No resource is written here; `adopt` installs it if
-        // and only if this candidate becomes the live session.
-        let horizon = self.save.as_deref().map_or_else(
-            ambition_platformer2d_actor_monolith::session::durable_horizon::CandidateDurableHorizon::default,
-            ambition_platformer2d_actor_monolith::session::durable_horizon::CandidateDurableHorizon::from_save,
-        );
+        // IS CONSTRUCTED, FROM THE SAVE OF THE CANDIDATE'S EXPERIENCE. No
+        // session resource is written here; `adopt` installs it if and only if
+        // this candidate becomes the live session.
+        let horizon = self.save.horizon_of(experience_id.as_str());
         let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();
         // The authoring format's own session state, installed beside the
         // canonical bundle rather than inside it. `None` for every
@@ -2525,6 +2525,10 @@ impl PlatformerSessionBuilder<'_, '_> {
                 // room it was built around published.
                 publication_retention:
                     ambition_platformer2d_actor_monolith::rooms::PublicationRetention::UntilOwnerRetires,
+                // ⛔ THE FATES OF THE FIRST ROOM'S BODIES, FROM THE CANDIDATE'S
+                // OWN SAVE. The commit lands in a world where the live save
+                // can be another session's. See `CommitFactsSource`.
+                first_room_facts: horizon.first_room_facts(),
                 world: &geometry,
                 room_set: &room_set,
                 tuning: &self.tuning,
@@ -3864,7 +3868,7 @@ mod tests {
         let mut live = content.source().instantiate_live();
         live.requests
             .encounter_music
-            .claim_priority("test", "runtime-boss");
+            .claim_priority(None, "test", "runtime-boss");
         assert_eq!(content.identity(), before);
     }
 

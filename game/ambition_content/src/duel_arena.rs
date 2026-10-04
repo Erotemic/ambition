@@ -25,7 +25,7 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use ambition_combat::components::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 use ambition_platformer2d::actor::{
     RoomContentStagingRegistry, SpawnActorKind, SpawnActorRequest,
 };

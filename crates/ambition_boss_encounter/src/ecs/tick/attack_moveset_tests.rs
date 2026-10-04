@@ -132,8 +132,8 @@ fn telegraph_boss_app() -> (App, Entity) {
     app.init_resource::<ambition_time::WorldTime>();
     {
         let mut wt = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-        wt.scaled_dt = 0.05;
-        wt.raw_dt = 0.05;
+        wt.set_sim_dt(0.05);
+        wt.set_wall_dt(0.05);
     }
     app.add_message::<ambition_combat::moveset::MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
@@ -159,7 +159,7 @@ fn telegraph_boss_app() -> (App, Entity) {
             intent,
             BossAttackState::default(),
             moveset,
-            ambition_combat::components::ActorFaction::Boss,
+            ambition_characters::actor::ActorFaction::Boss,
             ambition_platformer2d_core::BodyKinematics {
                 pos: ambition_platformer2d_core::Vec2::ZERO,
                 vel: ambition_platformer2d_core::Vec2::ZERO,

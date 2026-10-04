@@ -90,7 +90,7 @@ pub(super) fn convert_loading_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
         )
     })?;
     Ok(RoomEmission::zone(LoadingZone {
-        id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
+        id: loading_zone_id(entity),
         name,
         activation,
         aabb: object_aabb(min, size),
@@ -445,24 +445,24 @@ pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
     // "NpcSpawn"). `spawn_static::lower_interactable_placement` resolves the
     // display name from the catalog at spawn, using the character_id in
     // `InteractionKindSpec::Npc`.
-    let character_id = field_string(entity, "character_id").unwrap_or_default();
-    let display_name = if character_id.is_empty() {
-        name
-    } else {
-        character_id.clone()
-    };
+    //
+    // The three ids below are read with `field_text`, the rule the content
+    // validator judges them by: an id is its trimmed value, and a blank id is
+    // no id.
+    let character_id = field_text(entity, "character_id");
+    let display_name = character_id.clone().unwrap_or(name);
     let interactable = ambition_platformer2d_world::rooms::InteractableSpec::new(
         field_string(entity, "prompt").unwrap_or_else(|| "Talk".to_string()),
         ambition_platformer2d_world::rooms::InteractionKindSpec::Npc {
-            character_id: (!character_id.is_empty()).then(|| character_id.clone()),
-            dialogue_id: field_string(entity, "dialogue_id"),
+            character_id,
+            dialogue_id: field_text(entity, "dialogue_id"),
             // Optional `patrol_radius`: a lane-radius parameter for a patrol brain
             // preset. It does not select the brain.
             patrol_radius: field_f32(entity, "patrol_radius").unwrap_or(0.0),
             patrol_path_id: field_string(entity, "path_id"),
             // Optional initial brain preset override. Absent or empty uses the
             // character's catalog `default_brain`.
-            brain_override: field_string(entity, "brain_override"),
+            brain_override: field_text(entity, "brain_override"),
         },
     );
     let (id, name, aabb) = authored_triple(entity, display_name, min, size);
@@ -485,6 +485,25 @@ pub(super) fn convert_pickup_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
     if let Some(sprite) = field_string(entity, "sprite").filter(|s| !s.trim().is_empty()) {
         pickup.sprite = Some(sprite.trim().to_string());
     }
+    // Q152: a pickup can regrow on the world clock, in the grammar a breakable
+    // respawns in. A misspelled policy is refused, not read as `Never`.
+    // Q154: a pickup that authors no policy is back when its room is built
+    // again; `Never` must be written to mean gone for the run.
+    let authored_policy = field_string(entity, "respawn").is_some_and(|raw| !raw.trim().is_empty());
+    pickup.respawn = match crate::surfaces::parse_timed_respawn(entity)
+        .map_err(|error| format!("PickupSpawn `{name}`: {error}"))?
+    {
+        crate::surfaces::SurfaceRespawn::Never if !authored_policy => {
+            ambition_entity_catalog::placements::HazardRespawn::OnRoomReload
+        }
+        crate::surfaces::SurfaceRespawn::Never => ambition_entity_catalog::placements::HazardRespawn::Never,
+        crate::surfaces::SurfaceRespawn::OnRoomReload => {
+            ambition_entity_catalog::placements::HazardRespawn::OnRoomReload
+        }
+        crate::surfaces::SurfaceRespawn::AfterSeconds(seconds) => {
+            ambition_entity_catalog::placements::HazardRespawn::AfterSeconds(seconds)
+        }
+    };
     let (id, name, aabb) = authored_triple(entity, name, min, size);
     let mut record = ambition_platformer2d_world::placements::PlacementRecord::new(
         id,

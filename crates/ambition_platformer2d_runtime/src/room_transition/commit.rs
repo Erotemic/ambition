@@ -62,11 +62,12 @@ impl RoomTransitionCombatReset<'_, '_> {
     ///
     /// ⭐ ONLY WHAT THE CROSSING LEAVES BEHIND (OW1, customer 2). With no
     /// other live room standing, the crossing replaces the whole world: every
-    /// projectile goes, and the ambient gravity, one fact for the whole world,
-    /// goes back to its default. While another live room stays (another
-    /// player is in the room left, or in a room of its own), its shots and the
-    /// world's gravity are that room's: only the shots stamped into the room
-    /// left go, and only when that room retires.
+    /// projectile goes, and every ambient gravity goes back to its default.
+    /// While another live room stays (another player is in the room left, or
+    /// in a room of its own), its shots and its gravity are that room's: only
+    /// the shots stamped into the room left go, and only the gravity of the
+    /// room left is forgotten, and only when that room retires. The room
+    /// entered has a new identity, so it starts under the default.
     pub fn clear_carryover(&mut self, scope: &CrossingScope) {
         for (entity, stamp) in &self.live_projectiles {
             let left_behind = !scope.other_rooms_stay
@@ -77,11 +78,13 @@ impl RoomTransitionCombatReset<'_, '_> {
                 self.commands.entity(entity).despawn();
             }
         }
+        // Resetting the AMBIENT is the real gravity reset; the presentation
+        // `GravityField` is a per-tick mirror of the primary body's resolved
+        // frame and has exactly one writer (`resolve_active_gravity`).
         if !scope.other_rooms_stay {
-            // Resetting the AMBIENT is the real gravity reset; the presentation
-            // `GravityField` is a per-tick mirror of the primary body's resolved
-            // frame and has exactly one writer (`resolve_active_gravity`).
             *self.base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
+        } else if scope.departing_retires && scope.departing.is_some() {
+            self.base_gravity.forget(scope.departing);
         }
     }
 }
@@ -95,8 +98,8 @@ pub struct CrossingScope {
     pub departing_retires: bool,
     /// Whether a live room stays standing through the crossing: the room
     /// left (another player stays in it), or another live room. Then the
-    /// crossing does not replace the world, and the world's shared facts (the
-    /// sim clock, the ambient gravity) are not reset.
+    /// crossing does not replace the world: the world's shared sim clock is
+    /// not reset, and each room that stays keeps its ambient gravity.
     pub other_rooms_stay: bool,
 }
 
@@ -335,6 +338,10 @@ impl RoomTransitionApplication<'_, '_> {
         arrival_at: Option<ae::Vec2>,
         edge_exit: bool,
         zone_sfx: Option<&str>,
+        // A whole-session restart (a New Game, Q151): every other live room
+        // retires with the one this rebuilds, and no other player's body
+        // keeps a room live.
+        restart: bool,
     ) -> Result<StagedRoomTransition, RoomTransitionApplyError> {
         // ── PREFLIGHT ────────────────────────────────────────────────────────
         if self.session.iter().next().is_none() {
@@ -506,7 +513,7 @@ impl RoomTransitionApplication<'_, '_> {
         let mints = self.session.iter().next().map(|rooms| rooms.next_live_room());
         // Whether another player's body stays in the room being left: then
         // the crossing opens a live room and the room it leaves stays whole.
-        let another_player_stays = departing.is_some_and(|departing| {
+        let another_player_stays = !restart && departing.is_some_and(|departing| {
             another_player_stays(
                 subject,
                 participant,
@@ -519,7 +526,7 @@ impl RoomTransitionApplication<'_, '_> {
         // The live room of the target room that another player holds, which
         // the crossing joins rather than build a second one.
         let target = self.session.iter().next().and_then(|rooms| rooms.definition(target_room));
-        let joins = departing.zip(target).and_then(|(departing, target)| {
+        let joins = departing.zip(target).filter(|_| !restart).and_then(|(departing, target)| {
             joined_room(
                 participant,
                 departing,
@@ -538,6 +545,13 @@ impl RoomTransitionApplication<'_, '_> {
                 joins,
             )
         });
+        // A restart retires every other live room, root and residents.
+        let retires_beside: Vec<_> = self
+            .definitions
+            .iter()
+            .map(|(live, _)| *live)
+            .filter(|live| restart && Some(*live) != departing)
+            .collect();
         let publication = plan.replace_live_world(
             &mut self.commands,
             // A room that stays live retires nothing.
@@ -545,21 +559,24 @@ impl RoomTransitionApplication<'_, '_> {
                 .iter()
                 .filter(|_| !another_player_stays)
                 .filter(|(_, _, room)| {
-                    ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance::leaves_with(
-                        *room, departing,
-                    )
+                    restart
+                        || ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance::leaves_with(
+                            *room, departing,
+                        )
                 })
                 .map(|(entity, physics, _)| (entity, physics.is_some())),
             carry_body,
             None,
             staged_arrival,
             succession,
+            retires_beside,
         );
 
         // Every live room but the one left stays standing; the one left stays
         // too when another player is in it.
-        let other_rooms_stay = another_player_stays
-            || self.definitions.iter().any(|(live, _)| Some(*live) != departing);
+        let other_rooms_stay = !restart
+            && (another_player_stays
+                || self.definitions.iter().any(|(live, _)| Some(*live) != departing));
         Ok(StagedRoomTransition {
             publication,
             scope: CrossingScope {
@@ -993,6 +1010,11 @@ pub fn commit_ready_room_transition_system(
         // happened.
         ResMut<PendingRoomTransitionFinalize>,
     ),
+    // Whether the checkpoint operation this commit carries is a fresh run (a
+    // New Game): then it is a whole-session restart.
+    accepted_restores: Option<
+        Res<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
+    >,
 ) {
     let (
         active_session,
@@ -1218,6 +1240,11 @@ pub fn commit_ready_room_transition_system(
     // verdict — so a room the transaction went on to REFUSE had already been
     // reported as a completed crossing. Staging builds the candidate and hands
     // the exact publication to the finalizer chained after this system.
+    let restart = active
+        .checkpoint_operation
+        .zip(accepted_restores.as_deref())
+        .and_then(|(key, accepted)| accepted.inputs_for_key(key))
+        .is_some_and(|accepted| accepted.fresh);
     let staged = match application.stage(
         construction_plan,
         subject,
@@ -1226,6 +1253,7 @@ pub fn commit_ready_room_transition_system(
         intent.arrival(),
         intent.edge_exit(),
         intent.zone_sfx(),
+        restart,
     ) {
         Ok(staged) => staged,
         Err(error) => {

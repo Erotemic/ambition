@@ -17,8 +17,8 @@ fn app(fill: LimitMeterFill) -> App {
         let mut time = app
             .world_mut()
             .resource_mut::<ambition_platformer2d::time::WorldTime>();
-        time.scaled_dt = 1.0 / 60.0;
-        time.raw_dt = 1.0 / 60.0;
+        time.set_sim_dt(1.0 / 60.0);
+        time.set_wall_dt(1.0 / 60.0);
     }
     app.add_systems(Update, (fill_limit_meters, apply_authored_meter_fills).chain());
     app
@@ -560,11 +560,7 @@ fn a_meter_fills_by_the_rule_of_its_own_live_room() {
     app.add_message::<ActorActionMessage>();
     app.add_message::<ResolvedBodyHit>();
     app.add_message::<BlockedBodyHit>();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        raw_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.declare_rules(RulesScope::Mode("smash"), SmashLimitFill(SMASH_LIMIT));
     app.add_systems(Update, fill_limit_meters);
     app.world_mut().spawn((

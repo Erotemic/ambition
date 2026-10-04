@@ -95,8 +95,8 @@ mod tests {
     /// `the_presses_george_leaves_unanswered_are_the_ones_the_genre_lacks`,
     /// **7**). Two counts do not say one set is inside the other, so this
     /// asserts the relation: George's silent set is a strict subset of the
-    /// stand-in's, and the rest is exactly eight `special` presses. The
-    /// stand-in is George's genre shape without the special button.
+    /// stand-in's, and the rest is exactly two `special` presses. A stand-in
+    /// may keep an incomplete kit on purpose (Q89).
     ///
     /// A ratchet. Authoring a stand-in special fails the second assertion (lower
     /// the number in the same commit). Losing a George special breaks the subset,

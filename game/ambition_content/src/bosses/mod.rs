@@ -158,7 +158,8 @@ boss_encounter_sources!(
 ///   pulls `bevy_render`; migrating it needs the same placement analysis the
 ///   profile vocabulary got, not just a handler;
 /// * `boss_art_keys.ron` — the sprite file of each sheet and the rows each
-///   special claims. It is authored data, and no schema owns it yet.
+///   special and each geometry strike claims. It is authored data, and no
+///   schema owns it yet.
 ///
 /// Stated here rather than left implied, because "the boss content goes through
 /// the compiler" is the kind of half-true claim this whole effort exists to stop
@@ -250,8 +251,8 @@ pub fn register_rollback_state(
         .rollback_resource_clone_checksum_with_schema_detail::<PendingCutRopeRoomReplay>(
             "ambition_content::bosses",
             "content.pending_cut_rope_room_replay",
-            "the dialogue-authored room replay, latched until the conversation ends, and the re-fight, latched until its replay is admitted",
-            |pending| u64::from(pending.requested) | (u64::from(pending.refight) << 1),
+            "the dialogue-authored room replay, latched until the conversation ends",
+            |pending| u64::from(pending.requested),
         )
         .clear_message_on_rollback::<CutRopeRoomReplayRequested>(
             "ambition_content::bosses",
@@ -296,6 +297,14 @@ impl Plugin for AmbitionBossContentPlugin {
         // never by the host's sim plugin (anti-god rule 5).
         app.init_resource::<CutRopeBossArenaState>();
         app.init_resource::<CutRopeHeavyObjectCycle>();
+        // A composition with no session lifecycle has no activation. The
+        // reader then reads an empty channel.
+        app.add_message::<ambition_platformer2d::platformer::lifecycle::SessionScopeActivated>();
+        app.add_systems(
+            Update,
+            cut_rope::restart_heavy_object_cycle_on_activation
+                .in_set(ambition_platformer2d::platformer::lifecycle::SessionScopeSet::Activate),
+        );
         app.init_resource::<PendingCutRopeRoomReplay>();
         // Content's own narrative vocabulary, registered the same way the
         // engine registers its own — which is the whole reason the ledger is
@@ -466,13 +475,14 @@ mod apple_rain_animation_key_tests {
     /// `BossAnimationFrameSample` can drop `BossAttackProfile` and become
     /// character-generic. For every profile the ENGINE names, the sample writer's
     /// key still lands inside the profile's own key list, so the swap would be
-    /// safe (`every_hardcoded_sample_key_names_a_row_its_profile_claims`).
+    /// safe (`every_authored_sample_row_names_a_row_its_strike_claims`).
     ///
     /// `apple_rain` is the exception, and it is CONTENT, which is why the
     /// engine could not answer it. It is a `Special`, so its key list comes
     /// from this crate's `boss_art_keys.ron` — and it is not in that map.
-    /// The profile therefore claims NOTHING, while
-    /// `boss_animation_key_for_sample` emits `"head_down"` for it.
+    /// The profile therefore claims NOTHING, while its authored hurtbox
+    /// sample row (`hurtbox_sample_rows`, read by
+    /// `BossCatalog::hurtbox_sample_row`) is `"head_down"`.
     ///
     /// So today the hurtbox row is found only because the profile matched:
     /// `runtime_animation_keys` pushes the sample's own key into the list when
@@ -492,7 +502,7 @@ mod apple_rain_animation_key_tests {
         assert!(
             claimed.is_empty(),
             "`apple_rain` now claims {claimed:?}. If that list contains \
-             \"head_down\" — the key `boss_animation_key_for_sample` emits for it \
+             \"head_down\" — its authored hurtbox sample row \
              — then the last blocker on the boss-animator fold's first slice is \
              gone and the profile identity can be replaced by a key comparison. \
              Update the fold's row in the 72h queue rather than just this test"

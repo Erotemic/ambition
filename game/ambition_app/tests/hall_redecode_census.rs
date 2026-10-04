@@ -50,7 +50,7 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{VisibleRenderMode, build_visible_app, shell_host};
+use ambition_app::app::{VisibleRenderMode, build_visible_app};
 use ambition_platformer2d::game_shell::ShellCommand;
 use ambition_platformer2d::sprite_sheet::game_assets::image_stages;
 
@@ -134,7 +134,7 @@ fn the_halls_entry_is_counted_for_art_it_decodes_twice() {
     settle_cast_or_fail(&mut app, 10, "booting the shell");
 
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     settle_cast_or_fail(&mut app, 20, "entering gameplay");
     let before_cast = staged_cast_len(&app);

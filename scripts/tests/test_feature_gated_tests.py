@@ -67,6 +67,22 @@ def test_a_gated_mod_block_is_seen(tmp_path):
     assert (total, gated) == (4, 2), 'the gated block must not leak, and must not over-reach'
 
 
+def test_a_gate_on_a_statement_ends_with_the_statement(tmp_path):
+    """A `#[cfg(feature)]` on a statement gates that statement only. The test
+    module after it runs by default."""
+    path = tmp_path / 'c.rs'
+    path.write_text(
+        'fn build(app: &mut App) {\n'
+        '  #[cfg(feature = "input")]\n  app.add_systems(sim, one);\n'
+        '  app.add_systems(sim, two);\n'
+        '}\n'
+        '#[cfg(test)]\nmod tests {\n  #[test]\n  fn one() {}\n  #[test]\n  fn two() {}\n}\n',
+        encoding='utf8',
+    )
+    total, gated, _ = fgt.scan_file(path)
+    assert (total, gated) == (2, 0)
+
+
 def test_a_gated_mod_declaration_pulls_in_its_whole_file(tmp_path):
     """⛔ **the case the first draft got wrong.** `ambition_touch_input` gates
     `bevy_plugin` as a bare declaration, so its tests live in a file the

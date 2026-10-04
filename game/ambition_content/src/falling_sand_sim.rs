@@ -334,10 +334,7 @@ pub fn prepare_sand_world(
     // deliberately skipped — falling material passes through them the way the
     // player drops through with a down-press.
     for block in &world.blocks {
-        if !matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-        ) {
+        if !ae::collision_semantics::is_full_collision_surface(block.kind) {
             continue;
         }
         let min = block.aabb.min;

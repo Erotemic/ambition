@@ -73,6 +73,18 @@
 /// make this type claim a freeze the fingerprint cannot corroborate, and
 /// extending the identity without extending the ownership leaves the gap above.
 /// The two move together or neither moves.
+///
+/// ⭐ **ABSENT MEANS THAT NO SESSION RUNS, AND A LIVE READER THEN DOES
+/// NOTHING.** This resource is inserted when a generation is activated and
+/// REMOVED when the session is retired (`session::teardown`). Two states have
+/// none (measured 2026-10-04): a host before its first session, and the
+/// remainder of the schedule run that retired the session. The session gate
+/// (`simulation_authorized`) answers once for a run, before the retirement, so
+/// the later systems of that run still execute, with no root, no scope and no
+/// body. ⇒ A live system reads this as `Option` and returns on `None`. It must
+/// not read the App's registries in its place: that is the fallback this type
+/// replaced. A required `Res` is also wrong, because it fails parameter
+/// validation in that remainder.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct SessionMechanics {
     // ⭐ THE CAST IS NOT HERE ANY MORE (2026-10-01). It is

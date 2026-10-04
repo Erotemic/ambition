@@ -94,6 +94,20 @@ pub(crate) fn texture_is_ready(
     }
 }
 
+/// Whether every image a body drawn from `asset` needs is ready: its part
+/// pages when it is drawn from parts alone, else its baked page
+/// (`CharacterSpriteAsset::presentation_images`).
+pub(crate) fn realization_is_ready(
+    asset_server: &AssetServer,
+    images: &Assets<Image>,
+    asset: &ambition_sprite_sheet::character::CharacterSpriteAsset,
+) -> bool {
+    asset
+        .presentation_images()
+        .into_iter()
+        .all(|handle| texture_is_ready(asset_server, images, handle))
+}
+
 mod animation;
 pub mod rigged;
 mod boss;
@@ -696,66 +710,39 @@ pub fn upgrade_actor_sprites(
         if !actor.geometry.is_settled() {
             continue;
         }
-        // Resolution order: the actor's art identity, then its display name. The
-        // name stays so a direct `EnemySpawn` with no id still resolves a sheet.
+        // The actor's art identity is the one key: a sheet is declared and
+        // published under its character id. Wait for a declared sheet; do not
+        // substitute. Sheets load on demand, and the binding is keyed on kind
+        // and size, which the late art does not change, so a substitute would
+        // stay.
         let art_identity = actor.sprite_character_id.as_deref();
-        let actor_name = Some(actor.name.as_str());
-        // Wait for a declared art identity's sheet; do not substitute. Sheets
-        // load on demand, and the binding is keyed on kind and size, which the
-        // late art does not change, so a substitute would stay. Only an
-        // identity that no content declares falls back to the name.
-        let own = art_identity.map(|n| assets.characters.sheet_state(n));
+        let own = art_identity.map(|id| assets.characters.sheet_state(id));
         if own
             .as_ref()
             .is_some_and(|state| state.declared_character_id().is_some())
         {
             continue;
         }
-        let named = match own {
-            Some(ambition_sprite_sheet::character::CharacterSheetState::Ready(asset)) => Some(asset),
-            _ => actor_name.and_then(|n| assets.characters.sheet(n)),
-        };
-        let Some(character_asset) = named else {
+        let Some(ambition_sprite_sheet::character::CharacterSheetState::Ready(character_asset)) = own
+        else {
             // An actor with no resolvable sheet draws the marked placeholder,
             // and the warning names the id, so missing art stays visible.
             if kind_bound {
                 continue;
             }
-            if let Some(missed) = actor_name {
-                if warned_sprite_names.insert(missed.to_string()) {
-                    // Name what the table knows, so a typo and an undecoded
-                    // sheet read differently.
-                    let diagnosis = match assets.characters.sheet_state(missed) {
-                        ambition_sprite_sheet::character::CharacterSheetState::Declared {
-                            character_id,
-                        } => {
-                            // `Declared` has two meanings: never realized, or
-                            // retired by a quality change. They look the same;
-                            // only `retired_tier` tells them apart.
-                            match assets.characters.retired_tier(missed) {
-                                Some(tier) => format!(
-                                    "declared as '{character_id}' and RETIRED from {tier:?} — it \
-                                     was decoded and then dropped by a quality transition, so this \
-                                     is a re-realization that has not happened yet, not art \
-                                     nobody asked for"
-                                ),
-                                None => format!(
-                                    "declared as '{character_id}' but never materialized — no \
-                                     realization of it has ever been resident, so nothing has \
-                                     decoded its sheet"
-                                ),
-                            }
-                        }
-                        _ => "no loaded content declares this name — check for a typo or a \
-                              decorated display name (\"Puppy Slug (ally)\"), or publish its art"
-                            .to_string(),
-                    };
-                    bevy::log::warn!(
-                        target: "ambition_platformer2d::sprites",
-                        "actor '{missed}' resolved no sprite and is drawing the placeholder \
-                         rectangle: {diagnosis}",
-                    );
-                }
+            let missed = art_identity.unwrap_or(actor.name.as_str());
+            if warned_sprite_names.insert(missed.to_string()) {
+                let diagnosis = match art_identity {
+                    Some(_) => "no loaded content declares this character id — check for a \
+                                typo, or publish its art",
+                    None => "it wears no character, so it names no art",
+                };
+                bevy::log::warn!(
+                    target: "ambition_platformer2d::sprites",
+                    "actor '{}' ('{missed}') resolved no sprite and is drawing the placeholder \
+                     rectangle: {diagnosis}",
+                    actor.name,
+                );
             }
             continue;
         };
@@ -769,7 +756,7 @@ pub fn upgrade_actor_sprites(
         // colored fallback with an atlas sprite until the texture is actually
         // present in Assets<Image>; otherwise a failed or delayed load renders
         // the NPC/enemy invisible.
-        if !texture_is_ready(&asset_server, &images, &character_asset.texture) {
+        if !realization_is_ready(&asset_server, &images, character_asset) {
             // Diagnostic: log the asset path of each texture that blocks a bind.
             // Compare it with the handles the room barrier waited on. If they
             // differ, the barrier must wait on the textures the resident sheets
@@ -895,7 +882,7 @@ pub fn refresh_player_sprites_for_resident_quality(
         if bound_quality.is_some_and(|q| q.scale == asset.resolved_tier) {
             continue;
         }
-        if !texture_is_ready(&asset_server, &images, &asset.texture) {
+        if !realization_is_ready(&asset_server, &images, asset) {
             continue;
         }
         let collision = BVec2::new(pose.base_size.x, pose.base_size.y);
@@ -955,7 +942,7 @@ pub fn refresh_prop_sprites_on_game_assets_change(
         if bound_quality.is_some_and(|q| q.scale == asset.resolved_tier) {
             continue;
         }
-        if !texture_is_ready(&asset_server, &images, &asset.texture) {
+        if !realization_is_ready(&asset_server, &images, asset) {
             continue;
         }
         let bundle =

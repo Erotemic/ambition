@@ -1396,10 +1396,11 @@ pub struct PublicationGateEvaluator(
 ///
 /// `admit_candidate` checks [`publication_boundary`] once, but the generation
 /// then waits in [`PendingGeneration`] until `RouteActivated`, and
-/// `commit_content_generation` asks nothing. The shipped schedule does not
-/// order `LocalSessionSet::Maintain` against the commit
-/// (`nothing_orders_the_rollback_session_start_against_the_generation_commit`),
-/// so the boundary can change in between.
+/// `commit_content_generation` asks nothing. The shipped host orders
+/// `LocalSessionSet::Maintain` after the commit on one frame
+/// (`the_rollback_session_start_is_ordered_after_the_generation_commit`), but
+/// a session that starts on an earlier frame of the wait is not held by an
+/// edge, so the boundary can change in between.
 ///
 /// This cancels the whole shell transaction instead of refusing at the commit.
 /// A fallible content half at the commit would activate the route at N+1 with

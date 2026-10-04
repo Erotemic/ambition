@@ -165,11 +165,6 @@ fn a_match_roster_survives_resimulation_checksum_clean() {
         .get_resource::<ActiveMatch>()
         .expect("the match is still live");
     assert_eq!(active.seats(), 2);
-    assert_eq!(
-        active.seat_topology(),
-        Some(11),
-        "the activation forgot which frozen topology decided it"
-    );
 }
 
 /// The latch and the world must not be able to disagree.
@@ -435,11 +430,6 @@ fn rewinds_across_the_activation_frame_and_reconstructs_the_same_match() {
         .get_resource::<ActiveMatch>()
         .expect("the match is live again after the window closed");
     assert_eq!(active.seats(), 2);
-    assert_eq!(
-        active.seat_topology(),
-        Some(11),
-        "the reconstructed activation forgot which frozen topology decided it"
-    );
 }
 
 /// A stocks fighter's PERCENT and death policy survive a real rewind.

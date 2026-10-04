@@ -30,10 +30,10 @@ pub fn ensure_sim_id(
             // system tells "a body it cannot name" from "a body whose namelessness
             // is a determinism defect".
             Option<&ambition_combat::components::CenteredAabb>,
-            Option<&ambition_combat::components::ActorFaction>,
+            Option<&ambition_characters::actor::ActorFaction>,
         ),
         (
-            bevy::ecs::query::With<ambition_platformer2d_shared_tangle::body::BodyKinematics>,
+            bevy::ecs::query::With<ambition_platformer2d_core::BodyKinematics>,
             bevy::ecs::query::Without<ambition_platformer2d_shared_tangle::sim_id::SimId>,
         ),
     >,
@@ -313,11 +313,11 @@ pub fn observe_unminted_bodies(
             // and it is the only field here that says where to go and edit.
             Option<&ambition_platformer2d_shared_tangle::construction::SpawnOrigin>,
         ),
-        bevy::ecs::query::With<ambition_platformer2d_shared_tangle::body::BodyKinematics>,
+        bevy::ecs::query::With<ambition_platformer2d_core::BodyKinematics>,
     >,
     born_this_tick: bevy::ecs::system::Query<
         bevy::ecs::entity::Entity,
-        bevy::ecs::query::Added<ambition_platformer2d_shared_tangle::body::BodyKinematics>,
+        bevy::ecs::query::Added<ambition_platformer2d_core::BodyKinematics>,
     >,
 ) {
     for (entity, sim_id, feature_id, primary, name, origin) in &bodies {
@@ -350,7 +350,7 @@ pub fn observe_unminted_bodies(
 #[cfg(test)]
 mod unminted_body_census_tests {
     use super::*;
-    use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+    use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
     use bevy::prelude::*;
 

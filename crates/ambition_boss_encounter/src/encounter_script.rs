@@ -75,7 +75,8 @@ pub fn tick_encounter_scripts(
     // live script emits `SetMusic(None)`. An encounter that ends without that
     // beat, or despawns when the player leaves its room, would keep its claim,
     // and the priority tier outranks room music. So with no scripts alive,
-    // release the claim here (as the boss-music system does). It is scoped to
+    // release the claim here (as the boss-music system does), in each room
+    // with no live script. It is scoped to
     // this owner, so a conversation cue or the boss owner keep theirs.
     //
     // No shipped encounter authors `EncounterEffect::SetMusic` yet; this keeps
@@ -90,9 +91,10 @@ pub fn tick_encounter_scripts(
     // durable `encounter_id` (widening `priority_owner` for all owners) or one
     // deterministic aggregator. Do not key it by ECS `Entity`, which does not
     // survive a rewind. Add a two-script test with the fix.
-    if scripts.is_empty() {
-        music.release_priority(SCRIPT_MUSIC_OWNER);
-    }
+    // Each live room's own claim: release it in each room with no live script.
+    let scripted: Vec<Option<LiveRoomInstance>> =
+        scripts.iter().map(|(occurrence, ..)| live.of(occurrence)).collect();
+    music.release_priority_where(SCRIPT_MUSIC_OWNER, |room| !scripted.contains(&room));
 
     for (occurrence, participants, mut script, encounter_id, mut counter) in &mut scripts {
         let room = live.of(occurrence);
@@ -117,8 +119,8 @@ pub fn tick_encounter_scripts(
                 }
                 EncounterEffect::Banner { text, secs } => banner.show(text.clone(), *secs),
                 EncounterEffect::SetMusic(track) => match track {
-                    Some(track) => music.claim_priority(SCRIPT_MUSIC_OWNER, track.clone()),
-                    None => music.release_priority(SCRIPT_MUSIC_OWNER),
+                    Some(track) => music.claim_priority(room, SCRIPT_MUSIC_OWNER, track.clone()),
+                    None => music.release_priority(room, SCRIPT_MUSIC_OWNER),
                 },
                 EncounterEffect::CommandMoveTo {
                     member,

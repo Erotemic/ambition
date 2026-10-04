@@ -13,12 +13,12 @@ use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInsta
 
 use crate::common::{a_save_that_has_seen_the_hub_intro, base, fixed_60hz_room_options, walk_through_the_door_to};
 
-const ROOM: &str = "switch_lab";
+pub(crate) const ROOM: &str = "switch_lab";
 const HUB: &str = "central_hub_complex";
 const BOB: &str = "ow1_bob";
 
 /// The live rooms, by instance, and the id of the room each instantiates.
-fn live_rooms(sim: &mut Platformer2dSimHarness) -> Vec<(LiveRoomInstance, String)> {
+pub(crate) fn live_rooms(sim: &mut Platformer2dSimHarness) -> Vec<(LiveRoomInstance, String)> {
     let world = sim.world_mut();
     let definitions: Vec<_> = world
         .query_filtered::<
@@ -42,7 +42,7 @@ fn live_rooms(sim: &mut Platformer2dSimHarness) -> Vec<(LiveRoomInstance, String
 
 /// The live room each of Alice and Bob is in; `None` for Bob when his body
 /// is gone.
-fn where_they_are(
+pub(crate) fn where_they_are(
     sim: &mut Platformer2dSimHarness,
 ) -> (Option<LiveRoomInstance>, Option<Option<LiveRoomInstance>>) {
     let world = sim.world_mut();
@@ -57,6 +57,15 @@ fn where_they_are(
         .find(|(feature, _)| feature.0 == BOB)
         .map(|(_, room)| room.map(|room| room.0));
     (alice, bob)
+}
+
+/// Alice's live room: her stamp, or with one room live, that room.
+fn alices_room(sim: &mut Platformer2dSimHarness) -> LiveRoomInstance {
+    let (alice, _) = where_they_are(sim);
+    let live = live_rooms(sim);
+    alice
+        .or_else(|| (live.len() == 1).then(|| live[0].0))
+        .expect("Alice stands in a live room")
 }
 
 /// How far Bob's slot runs his body in 30 ticks, holding `direction`.
@@ -147,6 +156,17 @@ pub(crate) fn alice_leaves_bob_for_a_replay() -> (Platformer2dSimHarness, LiveRo
     alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)))
 }
 
+/// Bob, driven by slot 1, beside Alice in `switch_lab`, and Alice stays.
+/// Returns their shared live room.
+pub(crate) fn alice_beside_bob() -> (Platformer2dSimHarness, LiveRoomInstance) {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+    )
+    .unwrap_or_else(|error| panic!("{ROOM} boots: {error:?}"));
+    let first = bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    (sim, first)
+}
+
 /// [`alice_leaves_bob`], with Alice crossing by `cross`.
 fn alice_leaves_bob_by(
     slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
@@ -183,6 +203,21 @@ fn alice_leaves_bob_with(
     slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
     cross: fn(&mut Platformer2dSimHarness, &str) -> String,
 ) -> (Platformer2dSimHarness, LiveRoomInstance) {
+    let first = bob_beside_alice(&mut sim, start, slot);
+    assert_eq!(cross(&mut sim, target), target);
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    (sim, first)
+}
+
+/// Put Bob, driven by `slot` or by nobody, beside Alice in `start`, the room
+/// `sim` booted in. Returns their live room.
+pub(crate) fn bob_beside_alice(
+    sim: &mut Platformer2dSimHarness,
+    start: &str,
+    slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,
+) -> LiveRoomInstance {
     assert_eq!(sim.observation().active_room, start, "precondition: the harness did not boot in {start}");
     for _ in 0..10 {
         sim.step(base());
@@ -233,19 +268,15 @@ fn alice_leaves_bob_with(
     // starts again from here. Without rollback, this does nothing.
     sim.rebase_rollback_history().expect("the rollback history rebases over Bob");
     assert_eq!(
-        where_they_are(&mut sim),
+        where_they_are(sim),
         (Some(first), Some(Some(first))),
         "precondition: Alice and Bob are not both in the first live room"
     );
     if slot.is_some() {
-        let ahead = bob_runs(&mut sim, 1.0);
+        let ahead = bob_runs(sim, 1.0);
         assert!(ahead > 1.0, "control: slot 1 moved Bob's body {ahead} before anyone left");
     }
-    assert_eq!(cross(&mut sim, target), target);
-    for _ in 0..30 {
-        sim.step(base());
-    }
-    (sim, first)
+    first
 }
 
 /// Alice goes through the door to the hub while Bob, driven by slot 1, stays
@@ -335,8 +366,120 @@ fn a_gravity_well_lifts_only_the_bodies_of_its_own_live_room() {
     );
 }
 
+/// The resolved down of each player's body: (Alice's, Bob's).
+fn downs(sim: &mut Platformer2dSimHarness) -> (ambition_platformer2d::engine_core::Vec2, ambition_platformer2d::engine_core::Vec2) {
+    let world = sim.world_mut();
+    let alice = world
+        .query_filtered::<&ambition_platformer2d::world::ResolvedMotionFrame, bevy::prelude::With<ambition_platformer2d::platformer::body::PrimaryBody>>()
+        .single(world)
+        .expect("Alice has a resolved frame")
+        .get()
+        .down();
+    let bob = world
+        .query::<(&ambition_platformer2d::combat::components::FeatureId, &ambition_platformer2d::world::ResolvedMotionFrame)>()
+        .iter(world)
+        .find(|(feature, _)| feature.0 == BOB)
+        .map(|(_, frame)| frame.get().down())
+        .expect("Bob has a resolved frame");
+    (alice, bob)
+}
+
+/// OW1 (customer 2): a wave zooms the views of its own live room. Bob holds
+/// the hub (#0) and Alice starts the goblin wave in `goblin_encounter` (#1).
+/// The zoom the encounter publishes is in #1 (the control: the wave's own
+/// room zooms) and not in #0. Before, the zoom was one value for the session,
+/// and Bob's view zoomed out for Alice's fight.
+#[test]
+fn a_wave_zooms_only_the_views_of_its_own_live_room() {
+    const ARENA: &str = "goblin_encounter";
+    let (mut sim, first) = alice_leaves_bob_in(
+        HUB,
+        ARENA,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    let second = first.next();
+    assert_eq!(where_they_are(&mut sim), (Some(second), Some(Some(first))), "precondition: Alice in #1, Bob in #0");
+    let trigger = {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::encounter::EncounterWaves, &InRoomInstance)>()
+            .iter(world)
+            .find(|(waves, room)| waves.spec.id == ARENA && room.0 == second)
+            .map(|(waves, _)| waves.spec.trigger_aabb())
+            .expect("precondition: #1 has an occurrence of the goblin encounter")
+    };
+    {
+        use ambition_platformer2d::engine_core::AabbExt as _;
+        let center = trigger.center();
+        sim.teleport_player((center.x, center.y));
+    }
+    let zooms = |sim: &mut Platformer2dSimHarness| {
+        let view = sim.world_mut().resource::<ambition_platformer2d::encounter::EncounterView>().clone();
+        (view.camera_zoom_in(Some(first)), view.camera_zoom_in(Some(second)))
+    };
+    let mut seen = zooms(&mut sim);
+    for _ in 0..900 {
+        sim.step(base());
+        seen = zooms(&mut sim);
+        if seen.1 > 1.0 {
+            break;
+        }
+    }
+    assert!(seen.1 > 1.0, "precondition: the goblin wave in #1 never asked for a zoom: {seen:?}");
+    assert_eq!(seen.0, 1.0, "the wave in #1 zoomed the views of #0: {seen:?}");
+    // And each view's camera reads the zoom of the room it frames: the view
+    // of #1 zooms out (the control), the view of #0 does not.
+    for _ in 0..120 {
+        sim.step(base());
+    }
+    let world = sim.world_mut();
+    let mut frames: Vec<_> = world
+        .query::<&ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>()
+        .iter(world)
+        .filter_map(|resolved| resolved.0.as_ref().map(|frame| (frame.room, frame.snapshot.zoom_multiplier)))
+        .collect();
+    frames.sort_by_key(|(room, _)| *room);
+    assert_eq!(frames.len(), 2, "precondition: two views: {frames:?}");
+    assert!(
+        frames[0].0 == first && frames[1].0 == second && frames[1].1 > frames[0].1,
+        "(the view of #0, the view of #1) by (room, zoom): the view of #1 must zoom out past #0's: {frames:?}"
+    );
+}
+
+/// OW1 (customer 2): a gravity switch turns the ambient of its own live room.
+/// Alice holds the hub and Bob holds `switch_lab`; a `FlipGravity` switch is
+/// pressed in Bob's room. Bob falls up (the control: the switch acted), and
+/// Alice still falls down. Before, `BaseGravity` was one direction for the
+/// whole world, and Bob's switch turned Alice upside down in her room.
+#[test]
+fn a_gravity_switch_turns_only_the_live_room_it_is_in() {
+    use ambition_platformer2d::encounter::switches::{QueuedSwitchActivation, SwitchActivationQueue};
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let (alice, bob) = where_they_are(&mut sim);
+    assert_eq!((alice, bob), (Some(first.next()), Some(Some(first))), "Alice in the hub, Bob in switch_lab");
+    let down = ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0);
+    assert_eq!(downs(&mut sim), (down, down), "precondition: both players fall down");
+    sim.world_mut().resource_mut::<SwitchActivationQueue>().0.push(QueuedSwitchActivation {
+        activation: ambition_platformer2d::encounter::registry::SwitchActivation {
+            id: "ow1_bobs_flip".to_string(),
+            action: "FlipGravity".to_string(),
+            target_encounter: String::new(),
+        },
+        room: Some(first),
+    });
+    for _ in 0..3 {
+        sim.step(base());
+    }
+    assert_eq!(
+        downs(&mut sim),
+        (down, -down),
+        "(Alice's down, Bob's down) after a switch in Bob's room"
+    );
+}
+
 /// The Door from authored room `room` to `target`.
-fn door_of(sim: &mut Platformer2dSimHarness, room: &str, target: &str) -> ambition_platformer2d::world::rooms::LoadingZone {
+pub(crate) fn door_of(sim: &mut Platformer2dSimHarness, room: &str, target: &str) -> ambition_platformer2d::world::rooms::LoadingZone {
     let world = sim.world_mut();
     let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
         ambition_platformer2d::world::rooms::RoomSet,
@@ -359,7 +502,7 @@ fn door_of(sim: &mut Platformer2dSimHarness, room: &str, target: &str) -> ambiti
 }
 
 /// Move Bob's body to `at`, at rest.
-fn put_bob_at(sim: &mut Platformer2dSimHarness, at: ambition_platformer2d::engine_core::Vec2) {
+pub(crate) fn put_bob_at(sim: &mut Platformer2dSimHarness, at: ambition_platformer2d::engine_core::Vec2) {
     let world = sim.world_mut();
     let mut bob = world.query::<(
         &ambition_platformer2d::combat::components::FeatureId,
@@ -592,7 +735,7 @@ fn a_crossing_is_the_participant_it_was_accepted_for_when_it_joins_a_room() {
 #[cfg(feature = "rl_sim")]
 #[test]
 fn a_boss_in_one_of_two_live_rooms_fights_and_drops_its_chest_in_its_own_room() {
-    use crate::boss_lifecycle::{boss_cleared, force_kill_boss, music_track, spawn_mockingbird, MOCKINGBIRD_TRACK};
+    use crate::boss_lifecycle::{boss_cleared, force_kill_boss, music_track_in, spawn_mockingbird, MOCKINGBIRD_TRACK};
     const BOSS: &str = "ow1_boss";
     let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
     let second = first.next();
@@ -613,9 +756,10 @@ fn a_boss_in_one_of_two_live_rooms_fights_and_drops_its_chest_in_its_own_room() 
         sim.step(base());
     }
     assert_eq!(
-        music_track(&sim).as_deref(),
-        Some(MOCKINGBIRD_TRACK),
-        "the boss in #1 did not wake while two rooms are live"
+        (music_track_in(&sim, Some(first)).as_deref(), music_track_in(&sim, Some(second)).as_deref()),
+        (None, Some(MOCKINGBIRD_TRACK)),
+        "(the fight music of #0, of #1): the boss in #1 did not wake while two rooms are live, \
+         or its music was claimed in the other room"
     );
     force_kill_boss(&mut sim, BOSS);
     for _ in 0..200 {
@@ -630,7 +774,7 @@ fn a_boss_in_one_of_two_live_rooms_fights_and_drops_its_chest_in_its_own_room() 
             .collect()
     };
     assert_eq!(
-        (boss_cleared(&sim, BOSS), chests, music_track(&sim)),
+        (boss_cleared(&sim, BOSS), chests, music_track_in(&sim, Some(second))),
         (true, vec![Some(second)], None),
         "the boss in #1 was not recorded cleared with one chest in its own room and its music released"
     );
@@ -859,13 +1003,14 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
     let mut dropped = false;
     let mut dead = false;
     // The rooms the arena's effect requests name: the rope sparks and the
-    // blast (`FxRequest`), and the death fireworks.
+    // blast (`FxRequest`), the death fireworks, and the debris of the death.
     let mut fx_rooms = std::collections::BTreeSet::new();
     let mut firework_rooms = Vec::new();
+    let mut debris_rooms = std::collections::BTreeSet::new();
     for _ in 0..1800 {
         sim.step(base());
         let world = sim.world_mut();
-        effect_request_rooms(world, &mut fx_rooms, &mut firework_rooms);
+        effect_request_rooms(world, &mut fx_rooms, &mut firework_rooms, &mut debris_rooms);
         if let Some(gates) = world.get_resource::<bevy::ecs::message::Messages<EncounterGate>>() {
             for gate in gates.iter_current_update_messages() {
                 match gate.gate.as_str() {
@@ -906,7 +1051,7 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
     // blast and fireworks answer the impact gate on the tick after it.
     for _ in 0..300 {
         sim.step(base());
-        effect_request_rooms(sim.world_mut(), &mut fx_rooms, &mut firework_rooms);
+        effect_request_rooms(sim.world_mut(), &mut fx_rooms, &mut firework_rooms, &mut debris_rooms);
     }
     let world = sim.world_mut();
     let cleared = matches!(
@@ -936,6 +1081,7 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
             victory_npcs,
             fx_rooms.into_iter().collect::<Vec<_>>(),
             firework_rooms,
+            debris_rooms.into_iter().collect::<Vec<_>>(),
         ),
         (
             vec![Some(second)],
@@ -949,20 +1095,22 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
             vec![Some(second)],
             vec![Some(second)],
             vec![Some(second)],
+            vec![Some(second)],
         ),
         "the cut-rope road did not run whole in #1: (rope_cut rooms, lured to #1's anvil, \
          walked toward it, hazard rooms, it fell, impact rooms, the behemoth died, it is \
          recorded cleared, victory NPC rooms, the rooms its effect requests name, the rooms \
-         its fireworks name)"
+         its fireworks name, the rooms its debris names)"
     );
 }
 
 /// The cut-rope boss's music claim is released while no live room is its
 /// room, and kept while one is. A claim under the boss's owner name is put on
-/// the session's music request, and the release system runs one time, alone.
+/// the music of each live room, and the release system runs one time, alone.
 /// With two live rooms that are not the arena (`switch_lab` and the hub), the
-/// claim is released. With two live rooms of which one is the arena (the hall
-/// and the arena), the claim is kept. The first fixture then runs 5 ticks
+/// claim is released in both. With two live rooms of which one is the arena
+/// (the hall and the arena), the claim is kept in the arena and released in
+/// the hall. The first fixture then runs 5 ticks
 /// with a new claim, which shows that the scheduled system does the same.
 /// When the release read the sole live room, it did not run while two rooms
 /// were live, so a claim left behind was kept for as long as two rooms were
@@ -979,17 +1127,26 @@ fn the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room() {
     use bevy::ecs::system::RunSystemOnce;
     const TRACK: &str = "ow_probe_track";
     fn claim(sim: &mut Platformer2dSimHarness) {
-        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<EncounterMusicRequest>(
+        let rooms = live_rooms(sim);
+        let mut music = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<EncounterMusicRequest>(
             sim.world_mut(),
         )
-        .expect("the session has a music request")
-        .claim_priority(CUT_ROPE_MUSIC_OWNER, TRACK);
+        .expect("the session has a music request");
+        for (room, _) in rooms {
+            music.claim_priority(Some(room), CUT_ROPE_MUSIC_OWNER, TRACK);
+        }
     }
-    fn claimed(sim: &Platformer2dSimHarness) -> Option<String> {
-        ambition_platformer2d::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(sim.world())
-            .expect("the session has a music request")
-            .priority_track()
-            .map(str::to_string)
+    /// Each live room by its authored id, and whether it keeps the claim.
+    fn claimed(sim: &mut Platformer2dSimHarness) -> Vec<(String, bool)> {
+        let rooms = live_rooms(sim);
+        let music = ambition_platformer2d::platformer::lifecycle::session_world_component::<EncounterMusicRequest>(sim.world())
+            .expect("the session has a music request");
+        let mut claimed: Vec<_> = rooms
+            .into_iter()
+            .map(|(room, id)| (id, music.priority_track(Some(room)) == Some(TRACK)))
+            .collect();
+        claimed.sort();
+        claimed
     }
     let claim_after_one_release = |sim: &mut Platformer2dSimHarness| {
         assert_eq!(live_rooms(sim).len(), 2, "precondition: two rooms are live");
@@ -1009,20 +1166,32 @@ fn the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room() {
         elsewhere.step(base());
     }
     assert_eq!(
-        (released_elsewhere, claimed(&elsewhere), kept_beside_the_arena),
-        (None, None, Some(TRACK.to_string())),
+        (released_elsewhere, claimed(&mut elsewhere), kept_beside_the_arena),
+        (
+            vec![(HUB.to_string(), false), (ROOM.to_string(), false)],
+            vec![(HUB.to_string(), false), (ROOM.to_string(), false)],
+            vec![("hall_of_bosses".to_string(), false), ("you_have_to_cut_the_rope".to_string(), true)],
+        ),
         "(the claim after one release with no live arena, the same after 5 ticks, the claim after one \
          release with the arena live beside the hall)"
     );
 }
 
 /// Add the rooms that this tick's `FxRequest` rows and `FireworksRequest` rows
-/// name to `fx` and `fireworks`.
+/// name to `fx` and `fireworks`, and the rooms that its debris rows name to
+/// `debris`.
 fn effect_request_rooms(
     world: &bevy::prelude::World,
     fx: &mut std::collections::BTreeSet<Option<LiveRoomInstance>>,
     fireworks: &mut Vec<Option<LiveRoomInstance>>,
+    debris: &mut std::collections::BTreeSet<Option<LiveRoomInstance>>,
 ) {
+    debris.extend(
+        world
+            .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::vfx::DebrisBurstMessage>>()
+            .iter_current_update_messages()
+            .map(|row| row.room),
+    );
     fx.extend(
         world
             .resource::<bevy::ecs::message::Messages<ambition_platformer2d::vfx::FxRequest>>()
@@ -2310,6 +2479,10 @@ fn the_map_records_a_room_visited_beside_another_live_room() {
 #[derive(bevy::prelude::Resource, Default)]
 struct CrossingResetTheClock(bool);
 
+/// The live room Alice crossed out of.
+#[derive(bevy::prelude::Resource)]
+struct TheRoomLeft(LiveRoomInstance);
+
 /// [`walk_through_the_door_to`], with two facts of the room being left
 /// planted first, a projectile stamped into it and the ambient gravity
 /// flipped, and with each tick of the walk read for the crossing's request to
@@ -2330,8 +2503,10 @@ fn walk_through_the_door_leaving_a_shot_and_flipped_gravity(
             ambition_platformer2d::combat::components::FeatureId("ow1_bob_shot".to_string()),
         ));
         let mut gravity = world.resource_mut::<ambition_platformer2d::world::BaseGravity>();
-        gravity.dir = -gravity.dir;
+        let up = -gravity.dir_in(Some(room));
+        gravity.turn(Some(room), up);
         world.insert_resource(CrossingResetTheClock(false));
+        world.insert_resource(TheRoomLeft(room));
     }
     let before = sim.observation().active_room.clone();
     let door = crate::common::door_to(sim, target);
@@ -2353,13 +2528,14 @@ fn walk_through_the_door_leaving_a_shot_and_flipped_gravity(
 }
 
 /// OW1, customer 2: a crossing resets only what it leaves behind. Before
-/// Alice leaves `switch_lab`, the room holds a shot and gravity is flipped.
-/// With Bob driven, the room stays live with him: the shot stays, and the
-/// world's gravity and sim clock (one of each for every live room) are not
-/// reset. The control, Bob not driven: the crossing replaces the world, and
-/// the shot goes, gravity is put back down and the clock reset is asked for,
-/// as before. Before, every crossing did all three, so Alice's door
-/// unflipped Bob's room and cancelled his bullet time.
+/// Alice leaves `switch_lab`, the room holds a shot and its gravity is
+/// flipped. With Bob driven, the room stays live with him: the shot stays,
+/// the room keeps its gravity, and the world's sim clock is not reset. The
+/// control, Bob not driven: the crossing replaces the world, and the shot
+/// goes, gravity is put back down and the clock reset is asked for, as
+/// before. In both, Alice enters the hub under the default gravity. Before,
+/// every crossing did all three, so Alice's door unflipped Bob's room and
+/// cancelled his bullet time.
 #[test]
 fn a_crossing_resets_only_what_it_leaves_behind() {
     use ambition_platformer2d::characters::control::PlayerSlot;
@@ -2372,8 +2548,13 @@ fn a_crossing_resets_only_what_it_leaves_behind() {
             .iter(world)
             .any(|feature| feature.0 == "ow1_bob_shot");
         let clock_reset = world.resource::<CrossingResetTheClock>().0;
-        let flipped = world.resource::<ambition_platformer2d::world::BaseGravity>().dir
-            != ambition_platformer2d::world::BaseGravity::default().dir;
+        let left = world.resource::<TheRoomLeft>().0;
+        let gravity = world.resource::<ambition_platformer2d::world::BaseGravity>();
+        let default = ambition_platformer2d::world::BaseGravity::default().dir_in(None);
+        let flipped = gravity.dir_in(Some(left)) != default;
+        let alice = alices_room(&mut sim);
+        let gravity = sim.world_mut().resource::<ambition_platformer2d::world::BaseGravity>();
+        assert_eq!(gravity.dir_in(Some(alice)), default, "Alice entered the hub under a turned gravity with {rooms} live room(s)");
         assert_eq!(
             (shot, clock_reset, flipped),
             expected,
@@ -2382,24 +2563,31 @@ fn a_crossing_resets_only_what_it_leaves_behind() {
     }
 }
 
-/// OW1: a replay of one player's room keeps the world's shared facts while
-/// another live room stays. Alice, in the hub with gravity flipped, asks for
-/// a replay. With Bob driven (two rooms): no reset of the sim clock is asked
-/// for, and gravity stays flipped. The control, Bob not driven (one room):
-/// the clock reset is asked for and gravity is put back down, as before.
-/// Before, every replay did both, so Alice's retry cancelled Bob's bullet
-/// time and unflipped his room.
+/// OW1: a replay of one player's room keeps the world's sim clock while
+/// another live room stays, and puts down only the gravity of the room it
+/// replays. Every live room is flipped; Alice, in the hub, asks for a
+/// replay. With Bob driven (two rooms): no reset of the sim clock is asked
+/// for, the hub is put back down and Bob's room stays flipped. The control,
+/// Bob not driven (one room): the clock reset is asked for and the hub is
+/// put back down, as before. Before, every replay did both for the whole
+/// world, so Alice's retry cancelled Bob's bullet time and unflipped his
+/// room.
 #[test]
 fn a_replay_keeps_the_worlds_clock_and_gravity_while_another_room_is_live() {
     use ambition_platformer2d::characters::control::PlayerSlot;
     use ambition_platformer2d::time::time_control::ClockResetRequest;
-    for (slot, rooms, expected) in [(None, 1, (true, false)), (Some(PlayerSlot(1)), 2, (false, true))] {
+    let up = ambition_platformer2d::engine_core::Vec2::new(0.0, -1.0);
+    for (slot, rooms, expected) in [(None, 1, (true, false, false)), (Some(PlayerSlot(1)), 2, (false, false, true))] {
         let (mut sim, _) = alice_leaves_bob(slot);
-        assert_eq!(live_rooms(&mut sim).len(), rooms, "precondition ({slot:?}): the live room count");
+        let live = live_rooms(&mut sim);
+        assert_eq!(live.len(), rooms, "precondition ({slot:?}): the live room count");
+        let alice = alices_room(&mut sim);
         {
             let world = sim.world_mut();
             let mut gravity = world.resource_mut::<ambition_platformer2d::world::BaseGravity>();
-            gravity.dir = -gravity.dir;
+            for (room, _) in &live {
+                gravity.turn(Some(*room), up);
+            }
             world.write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
         }
         let mut clock_reset = false;
@@ -2418,12 +2606,13 @@ fn a_replay_keeps_the_worlds_clock_and_gravity_while_another_room_is_live() {
                 .is_some();
         }
         assert!(admitted, "precondition ({slot:?}): the replay was not admitted");
-        let flipped = sim.world_mut().resource::<ambition_platformer2d::world::BaseGravity>().dir
-            != ambition_platformer2d::world::BaseGravity::default().dir;
+        let gravity = sim.world_mut().resource::<ambition_platformer2d::world::BaseGravity>();
+        let hub_flipped = gravity.dir_in(Some(alice)) == up;
+        let other_flipped = live.iter().any(|(room, _)| *room != alice && gravity.dir_in(Some(*room)) == up);
         assert_eq!(
-            (clock_reset, flipped),
+            (clock_reset, hub_flipped, other_flipped),
             expected,
-            "with {rooms} live room(s): (the clock reset was asked for, gravity is flipped)"
+            "with {rooms} live room(s): (the clock reset was asked for, the hub is flipped, Bob's room is flipped)"
         );
     }
 }
@@ -2779,7 +2968,7 @@ fn plant_a_long_lived_sentry(sim: &mut Platformer2dSimHarness) -> LiveRoomInstan
         },
         Spawner {
             scope,
-            side: ambition_platformer2d::combat::components::ActorFaction::Player,
+            side: ambition_platformer2d::actor::ActorFaction::Player,
             team: None,
             presentation: None,
             id: ambition_platformer2d::platformer::sim_id::SimId::placement("ow1_long_lived_sentry"),
@@ -2802,9 +2991,15 @@ fn module_entities(sim: &mut Platformer2dSimHarness) -> Vec<(Option<LiveRoomInst
 
 /// Bob, on slot 1, goes through `switch_lab`'s door to the hub, as
 /// `the_second_player_goes_through_a_door_of_his_own_room` sends him.
-fn bob_goes_to_the_hub(sim: &mut Platformer2dSimHarness, hub: LiveRoomInstance) {
+pub(crate) fn bob_goes_to_the_hub(sim: &mut Platformer2dSimHarness, hub: LiveRoomInstance) {
+    bob_goes_from(sim, ROOM, HUB, hub);
+}
+
+/// Bob, driven by slot 1, goes through the door of `room` to `target` and
+/// arrives in the live room `arrival`.
+pub(crate) fn bob_goes_from(sim: &mut Platformer2dSimHarness, room: &str, target: &str, arrival: LiveRoomInstance) {
     use ambition_platformer2d::engine_core::AabbExt as _;
-    let door = door_of(sim, ROOM, HUB).aabb.center();
+    let door = door_of(sim, room, target).aabb.center();
     {
         let world = sim.world_mut();
         let mut bob = world.query::<(
@@ -2834,7 +3029,7 @@ fn bob_goes_to_the_hub(sim: &mut Platformer2dSimHarness, hub: LiveRoomInstance) 
             },
         );
         sim.step(base());
-        if where_they_are(sim).1 == Some(Some(hub)) {
+        if where_they_are(sim).1 == Some(Some(arrival)) {
             break;
         }
     }
@@ -2934,6 +3129,112 @@ fn a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_m
     bob_goes_to_the_hub(&mut sim, held.next());
     assert_eq!(live_rooms(&mut sim).len(), 1, "precondition: Bob did not join Alice");
     assert_eq!(the_views(&mut sim), vec![(0, None, false)], "the players met, and the split did not close");
+}
+
+/// Q150: each view's HUD shows the purse of the participant it follows.
+/// Alice crosses and Bob stays; the split opens Bob's view, and its HUD
+/// facts show Bob's purse while view 0 shows Alice's. Before, one HUD showed
+/// the controlled body (Alice) for every view.
+#[test]
+fn each_view_of_the_split_shows_its_own_participants_purse() {
+    use ambition_platformer2d::characters::actor::BodyWallet;
+    let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    {
+        let world = sim.world_mut();
+        let mut bodies = world.query::<(
+            bevy::prelude::Entity,
+            Option<&ambition_platformer2d::combat::components::FeatureId>,
+            bevy::prelude::Has<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        )>();
+        let (alice, bob) = {
+            let rows: Vec<_> = bodies.iter(world).collect();
+            let alice = rows.iter().find(|(_, _, primary)| *primary).map(|(body, ..)| *body);
+            let bob = rows
+                .iter()
+                .find(|(_, feature, _)| feature.is_some_and(|feature| feature.0 == BOB))
+                .map(|(body, ..)| *body);
+            (alice.expect("Alice's body"), bob.expect("Bob's body"))
+        };
+        world.entity_mut(alice).insert(BodyWallet { balance: 3 });
+        world.entity_mut(bob).insert(BodyWallet { balance: 11 });
+    }
+    sim.step_n(base(), 2);
+    let world = sim.world_mut();
+    // And whose each HUD is (`ViewHudSeat`), so that two HUDs on one screen
+    // can say so.
+    let mut shown: Vec<(u8, bool, i32, Option<u8>)> = world
+        .query_filtered::<(
+            &ambition_platformer2d::sim_view::LocalViewId,
+            &ambition_platformer2d::sim_view::ViewHudFacts,
+            &ambition_platformer2d::sim_view::ViewHudSeat,
+        ), bevy::prelude::With<ambition_platformer2d::sim_view::LocalView>>()
+        .iter(world)
+        .map(|(id, facts, seat)| (id.0, facts.0.present, facts.0.balance, seat.0.map(|seat| seat.0)))
+        .collect();
+    shown.sort();
+    assert_eq!(
+        shown,
+        vec![(0, true, 3, Some(0)), (1, true, 11, Some(1))],
+        "(view, its HUD shows a body, the purse it shows, its seat): view 0 follows Alice, view 1 Bob's seat"
+    );
+}
+
+/// Q150 on a merged screen: Alice and Bob in one live room share view 0,
+/// and Bob's purse is on it beside Alice's (`SharedViewHudFacts`). The
+/// control is the split: when Alice leaves, Bob's view shows his purse and
+/// view 0 shows no other participant.
+#[test]
+fn bob_beside_alice_has_his_own_hud_on_the_shared_view() {
+    use ambition_platformer2d::characters::actor::BodyWallet;
+    fn give_purses(sim: &mut Platformer2dSimHarness) {
+        let world = sim.world_mut();
+        let mut bodies = world.query::<(
+            bevy::prelude::Entity,
+            Option<&ambition_platformer2d::combat::components::FeatureId>,
+            bevy::prelude::Has<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        )>();
+        let rows: Vec<_> = bodies.iter(world).collect();
+        let alice = rows.iter().find(|(_, _, primary)| *primary).map(|(body, ..)| *body);
+        let bob = rows
+            .iter()
+            .find(|(_, feature, _)| feature.is_some_and(|feature| feature.0 == BOB))
+            .map(|(body, ..)| *body);
+        world.entity_mut(alice.expect("Alice's body")).insert(BodyWallet { balance: 3 });
+        world.entity_mut(bob.expect("Bob's body")).insert(BodyWallet { balance: 11 });
+    }
+    fn shown(sim: &mut Platformer2dSimHarness) -> Vec<(u8, i32, Vec<(u8, i32)>)> {
+        let world = sim.world_mut();
+        let mut shown: Vec<_> = world
+            .query_filtered::<(
+                &ambition_platformer2d::sim_view::LocalViewId,
+                &ambition_platformer2d::sim_view::ViewHudFacts,
+                &ambition_platformer2d::sim_view::SharedViewHudFacts,
+            ), bevy::prelude::With<ambition_platformer2d::sim_view::LocalView>>()
+            .iter(world)
+            .map(|(id, own, shared)| {
+                let others = shared.0.iter().map(|(slot, facts)| (slot.0, facts.balance)).collect();
+                (id.0, own.0.balance, others)
+            })
+            .collect();
+        shown.sort();
+        shown
+    }
+    let (mut sim, _) = alice_beside_bob();
+    give_purses(&mut sim);
+    sim.step_n(base(), 2);
+    assert_eq!(
+        shown(&mut sim),
+        vec![(0, 3, vec![(1, 11)])],
+        "(view, its own purse, the other seats on it) with Alice and Bob in one room"
+    );
+    let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    give_purses(&mut sim);
+    sim.step_n(base(), 2);
+    assert_eq!(
+        shown(&mut sim),
+        vec![(0, 3, vec![]), (1, 11, vec![])],
+        "control: in two rooms each has a view of his own"
+    );
 }
 
 /// Where Alice's and Bob's bodies are. Bob's is `None` when his body is gone.
@@ -3383,3 +3684,124 @@ fn a_death_in_one_room_restarts_that_player_and_leaves_the_other_players_room() 
         "Alice is still out of play after the reset"
     );
 }
+
+/// Alice replays (or resets to a checkpoint in) the room Bob is in, and
+/// asks again for whatever leaves it: one live room per room
+/// (`DefinitionAlreadyLive`, OW3).
+fn one_room_after(reset: fn(&mut Platformer2dSimHarness)) -> (Vec<(LiveRoomInstance, String)>, (Option<LiveRoomInstance>, Option<Option<LiveRoomInstance>>)) {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(ROOM).with_save(a_save_that_has_seen_the_hub_intro()),
+    )
+    .expect("switch_lab boots");
+    let first = bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    reset(&mut sim);
+    for _ in 0..30 {
+        sim.step(base());
+    }
+    let rooms = live_rooms(&mut sim);
+    assert!(rooms.iter().all(|(room, _)| *room != first), "precondition: the reset did not rebuild the room: {rooms:?}");
+    (rooms, where_they_are(&mut sim))
+}
+
+/// OW3: the durable rows name a place by its room id, so a room has at most
+/// one live room. Alice and Bob (slot 1) stand in `switch_lab` (#0). A
+/// replay, and a reset to a checkpoint, each rebuild it as #1 with both of
+/// them in it: neither opens a second live room of `switch_lab` beside Bob's.
+/// Measured before the refusal was added; it pins the roads it relies on.
+#[test]
+fn a_reset_beside_a_player_in_the_same_room_rebuilds_the_one_live_room() {
+    let second = LiveRoomInstance::ACTIVATION.next();
+    let replay = one_room_after(|sim| {
+        sim.world_mut().write_message(ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual());
+    });
+    let checkpoint = one_room_after(|sim| {
+        sim.world_mut().write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
+    });
+    let one = (vec![(second, ROOM.to_string())], (Some(second), Some(Some(second))));
+    assert_eq!((replay, checkpoint), (one.clone(), one), "(replay, checkpoint reset): (live rooms, (Alice's room, Bob's room))");
+}
+
+/// Nudge every body in the activation room (Bob's, once Alice has left it)
+/// by a count that does not rewind, so a resimulated frame differs from the
+/// first simulation of it.
+/// Armed once Alice has left Bob's room, so the nudge reaches only his.
+#[derive(bevy::prelude::Resource, Default)]
+struct NudgeBobsRoom(bool);
+
+fn nudge_bobs_room_from_outside_the_timeline(
+    armed: bevy::prelude::Res<NudgeBobsRoom>,
+    mut count: bevy::prelude::Local<u32>,
+    mut bodies: bevy::prelude::Query<(&mut ambition_platformer2d::engine_core::BodyKinematics, &InRoomInstance)>,
+) {
+    if !armed.0 {
+        return;
+    }
+    *count += 1;
+    for (mut kin, room) in &mut bodies {
+        if room.0 == LiveRoomInstance::ACTIVATION {
+            kin.pos.x += (*count % 7) as f32 * 0.01;
+        }
+    }
+}
+
+/// (the rollback session ran, its health) after 300 frames with Alice in the
+/// hub and Bob in `switch_lab`, under a sync test that rewinds and replays
+/// every frame. With `poison`, a system nudges Bob's room from outside the
+/// timeline.
+fn two_rooms_under_a_sync_test(poison: bool) -> (bool, Result<(), String>) {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    let options = fixed_60hz_room_options(ROOM)
+        .with_save(a_save_that_has_seen_the_hub_intro())
+        .with_sync_test_rollback_settings(4, 10);
+    let sim = Platformer2dSimHarness::build(options, |app, options| {
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        app.init_resource::<NudgeBobsRoom>();
+        if poison {
+            let label = app.sim_schedule();
+            app.add_systems(label, nudge_bobs_room_from_outside_the_timeline);
+        }
+        Ok(())
+    })
+    .expect("switch_lab boots under a sync test");
+    let (mut sim, first) = alice_leaves_bob_with(
+        sim,
+        ROOM,
+        HUB,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    assert_eq!(first, LiveRoomInstance::ACTIVATION, "precondition: Bob's room is the activation room");
+    assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: both rooms are live");
+    sim.world_mut().resource_mut::<NudgeBobsRoom>().0 = true;
+    // `try_step`: an unhealthy session refuses the step, and that refusal is
+    // the reading, so the loop ends at it.
+    for _ in 0..300 {
+        if sim.try_step(base()).is_err() {
+            break;
+        }
+    }
+    (
+        ambition_platformer2d::rollback::session_is_active(sim.world()),
+        ambition_platformer2d::rollback::session_health(sim.world()),
+    )
+}
+
+/// Two live rooms hold under a sync test. Both live room roots carry
+/// `session:room_instance`, which is right under Q109: the live occurrence is
+/// (`LiveRoomInstance`, `SimId`), and the construction baseline is scoped to
+/// a transaction's rooms. This shows that both rooms' rollback state
+/// resimulates to the same checksums. The control is the poison: a nudge of
+/// Bob's room from outside the timeline is a mismatch, so the checksum covers
+/// the room that is not the primary's. A single peer cannot show the order
+/// two peers fold the roots in; that is the remote-peer row.
+#[test]
+fn two_live_rooms_hold_under_a_sync_test() {
+    let (active, health) = two_rooms_under_a_sync_test(true);
+    assert!(
+        active && health.is_err(),
+        "control: a nudge of Bob's room from outside the timeline must be a mismatch, \
+         or this sync test does not see his room (active {active}, health {health:?})"
+    );
+    assert_eq!(two_rooms_under_a_sync_test(false), (true, Ok(())));
+}
+

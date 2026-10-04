@@ -39,7 +39,7 @@ use ambition_vfx::vfx::VfxWriter;
 
 /// One side of a combat relationship, as this module reads it off a body.
 type CombatSide<'w> = (
-    &'w ambition_combat::components::ActorFaction,
+    &'w ambition_characters::actor::ActorFaction,
     Option<&'w ambition_characters::control::DrivingParticipant>,
     Option<&'w ambition_combat::targeting::MatchTeam>,
 );
@@ -125,17 +125,12 @@ pub struct FeatureHitWriters<'w, 's> {
     /// (actor, boss, breakable) already take `writers`, and a coin, a heart and
     /// an ability pickup each have to state their parent's identity or no render
     /// family will claim them — see `damage_drops::dynamic_drop_origin`.
-    ///
-    /// With the live room the body is in: what falls out of a death lands in
-    /// the dead body's room (see [`Self::spawn_scope_from`]).
-    pub identities: Query<
-        'w,
-        's,
-        (
-            &'static ambition_platformer2d_shared_tangle::sim_id::SimId,
-            Option<&'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-        ),
-    >,
+    pub identities: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    /// The live room each body is in, by its stamp: what falls out of a death
+    /// lands in the dead body's room (see [`Self::spawn_scope_from`]). Read
+    /// apart from `identities`, because a body's room does not depend on
+    /// whether it has an identity.
+    pub live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
     /// Which character a struck body IS right now, by entity — the gameplay
     /// identity a bark speaks in, which a runtime re-wear changes.
     pub worn: Query<'w, 's, &'static ambition_characters::actor::WornCharacter>,
@@ -171,7 +166,7 @@ impl FeatureHitWriters<'_, '_> {
         &self,
         entity: bevy::prelude::Entity,
     ) -> Option<ambition_platformer2d_shared_tangle::sim_id::SimId> {
-        self.identities.get(entity).ok().map(|(id, _)| id.clone())
+        self.identities.get(entity).ok().cloned()
     }
 
     /// The spawn scope for work that falls out of `source` (loot, a blast, a
@@ -182,12 +177,7 @@ impl FeatureHitWriters<'_, '_> {
         &self,
         source: bevy::prelude::Entity,
     ) -> ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope {
-        let room = self
-            .identities
-            .get(source)
-            .ok()
-            .and_then(|(_, room)| room.map(|room| room.0));
-        self.session_spawn_scope().in_room(room)
+        self.session_spawn_scope().in_room(self.live_rooms.of(source))
     }
 }
 
@@ -349,18 +339,15 @@ fn drop_parent(
 #[derive(SystemParam)]
 pub struct FeatureHitCatalogs<'w> {
     pub characters: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
-    /// Provider-authored sheets (U1 stage B): a split offspring sizes its body
-    /// from its sheet like anything else, so the damage path carries it beside
-    /// the catalog it already carries.
-    pub sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    pub bosses: Res<'w, ambition_boss_encounter::BossCatalog>,
     /// AD8: the prepared cast, so a struck or provoked character speaks in its
     /// OWN voice rather than the engine's. `Option` because a bare engine App
     /// legitimately has no prepared cast — the same shape the ambient ticker
     /// already uses.
     pub prepared: crate::session::mechanics::SessionCast<'w>,
-    /// The activated generation: its sheets and boss catalog outrank the App's,
-    /// as for every construction road (`GenerationMechanics`).
+    /// The running session's generation. A split offspring sizes its body from
+    /// its sheet like anything else (U1 stage B), and that sheet is the
+    /// generation's, as for every construction road (`GenerationMechanics`).
+    /// `None`: no session runs, see `SessionMechanics`.
     pub generation: Option<Res<'w, crate::session::mechanics::SessionMechanics>>,
     /// The item catalog, for the ability a defeated boss drops.
     pub items: ambition_items::ItemCatalogRead<'w>,
@@ -597,7 +584,7 @@ pub fn apply_feature_hit_events(
         // that read the authored faction would have it defending the team it was
         // taken from.
         Query<(
-            &'static ambition_combat::components::ActorFaction,
+            &'static ambition_characters::actor::ActorFaction,
             Option<&'static ambition_characters::control::DrivingParticipant>,
             Option<&'static ambition_combat::targeting::MatchTeam>,
         )>,
@@ -608,6 +595,9 @@ pub fn apply_feature_hit_events(
     // encounter resources — death save/quest/music resolution lives in
     // `update_boss_encounters`.
 ) {
+    let Some(generation) = catalogs.generation.as_deref() else {
+        return;
+    };
     let base_feel = bark_draw.feel();
     let catalog = &*catalogs.characters;
     // AD8: the prepared cast, borrowed once beside the catalog it stands behind.
@@ -810,7 +800,7 @@ pub fn apply_feature_hit_events(
                 &event,
                 catalog,
                 prepared,
-                catalogs.generation.as_deref().map_or(&*catalogs.sheets, |generation| &generation.sheets),
+                &generation.sheets,
                 actor_entity,
                 *disposition,
                 ruleset_owns_death,
@@ -848,7 +838,7 @@ pub fn apply_feature_hit_events(
                 // same answer or the bubble flickers on a rewind.
                 bark_draw.allows(
                     &resolved_rules,
-                    writers.identities.get(actor_entity).ok().map(|(id, _)| id),
+                    writers.identities.get(actor_entity).ok(),
                 ),
                 &mut writers,
             ) {

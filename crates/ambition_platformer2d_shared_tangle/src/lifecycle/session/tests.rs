@@ -506,3 +506,26 @@ fn discarding_a_candidate_session_takes_its_whole_population_and_nothing_else() 
         "the live session's body must be the one that remains"
     );
 }
+
+/// C07: a session-gated composition does not mint an anonymous session root.
+/// With no root and no active scope, session-world state has no session to
+/// belong to, and the helper refuses rather than build `SessionRoot(0)`.
+#[test]
+#[should_panic(expected = "a session-gated composition has no session root and no active scope")]
+fn a_gated_composition_with_no_active_scope_refuses_to_mint_a_session_root() {
+    let mut app = App::new();
+    app.insert_resource(SessionGatedSimulation);
+    insert_session_world_component(app.world_mut(), SessionWorldFixture(1));
+}
+
+/// The control: a direct host (no gate) builds its one root at the direct-host
+/// scope.
+#[test]
+fn a_direct_host_builds_its_one_session_root_at_the_direct_host_scope() {
+    let mut app = App::new();
+    let root = insert_session_world_component(app.world_mut(), SessionWorldFixture(1));
+    assert_eq!(
+        app.world().get::<SessionRoot>(root).map(|root| root.0),
+        Some(DIRECT_HOST_SESSION_SCOPE)
+    );
+}

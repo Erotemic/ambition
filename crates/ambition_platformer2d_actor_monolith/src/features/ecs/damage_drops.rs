@@ -291,7 +291,7 @@ pub(super) fn spawn_split_offspring(
             SPLIT_OFFSPRING_HALF,
             offspring,
             format!("{parent_id}:split"),
-            ambition_combat::components::ActorFaction::Enemy,
+            ambition_characters::actor::ActorFaction::Enemy,
             ambition_combat::components::ActorAggression::hostile(),
         );
     }

@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-use ambition_boss_encounter::sprites;
+use ambition_sprite_sheet::boss as sprites;
 use crate::character_sprites;
 use ambition_platformer2d_world::rooms::RoomMetadata;
 use ambition_persistence::settings::VisualQualityBudget;
@@ -305,19 +305,14 @@ pub fn boss_sheet_keys_for_room(
     room: &ambition_platformer2d_world::rooms::RoomSpec,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
 ) -> std::collections::BTreeSet<String> {
-    use ambition_boss_encounter::BossBehaviorProfileExt as _;
     room.boss_spawns
         .iter()
         .map(|spawn| {
-            let canonical = ambition_boss_encounter::behavior::canonical_boss_id_from(
+            let profile = ambition_boss_encounter::behavior::authored_boss_behavior(
+                boss_catalog,
                 &spawn.name,
                 &spawn.payload,
             );
-            let profile =
-                ambition_boss_encounter::pattern::profile::BossBehaviorProfile::for_authored_boss(
-                    boss_catalog,
-                    &canonical,
-                );
             profile.id.to_ascii_lowercase().replace('-', "_")
         })
         .filter(|key| boss_catalog.has_authored_sheet(key))

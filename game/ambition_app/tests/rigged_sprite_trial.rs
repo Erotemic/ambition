@@ -1,9 +1,15 @@
-//! Rig packet 6: with the rigged sprites admitted, a pirate is drawn from its
-//! transform flipbook; with the switch off, nothing changes. Since 2026-10-01
-//! the shipped game admits them when it inserts nothing (Jon's go-ahead).
+//! Rig packet 6: with the rigged sprites admitted, a rig character is drawn
+//! from its part flipbook; with the switch off, nothing changes. Since
+//! 2026-10-01 the shipped game admits them when it inserts nothing (Jon's
+//! go-ahead).
+//!
+//! The subject is Carl Stargan, a rig the publish's cost verdict draws from
+//! parts. It was the pirate admiral until 2026-10-03, when the admiral's parts
+//! measured costlier than its sheet and it became `realize: baked` (drawn
+//! baked whatever the switch says), which these arms are not about.
 //!
 //! ⛔ IN THE SHIPPED COMPOSITION, for the reason `admiral_gun_sword` gives: the
-//! demo shell's catalog cannot seat `npc_pirate_admiral`.
+//! demo shell's catalog cannot seat the hall's NPCs.
 //!
 //! Not here: that a body stays baked while its part pages load. In this
 //! composition the pages have loaded before a body binds, so a check on every
@@ -18,9 +24,9 @@ use ambition_platformer2d::render::rendering::actors::rigged::{
 use ambition_platformer2d::sprite_sheet::character::rigged::RiggedSpriteAdmission;
 use bevy::prelude::*;
 
-/// Seat two admirals in the shipped game and let the match settle. `admit`
+/// Seat two Carl Stargans in the shipped game and let the match settle. `admit`
 /// inserts that switch; `None` inserts nothing, as the shipped game does.
-fn seated_admirals(admit: Option<bool>) -> App {
+fn seated_pair(admit: Option<bool>) -> App {
     use ambition_platformer2d::actor::MatchSeat;
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::NoWindow,
@@ -35,8 +41,8 @@ fn seated_admirals(admit: Option<bool>) -> App {
         app.update();
     }
     app.world_mut().insert_resource(ambition_demo_smash::smash_roster([
-        "npc_pirate_admiral",
-        "npc_pirate_admiral",
+        "npc_carl_stargan",
+        "npc_carl_stargan",
     ]));
     app.world_mut().write_message(ShellCommand::GoTo(ShellRouteId::new(
         ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
@@ -57,8 +63,8 @@ fn seated_admirals(admit: Option<bool>) -> App {
 }
 
 #[test]
-fn an_admitted_admiral_is_drawn_from_its_parts() {
-    let mut app = seated_admirals(Some(true));
+fn an_admitted_rig_character_is_drawn_from_its_parts() {
+    let mut app = seated_pair(Some(true));
     let presentations: Vec<Entity> = app
         .world()
         .resource::<RiggedPresentations>()
@@ -66,7 +72,7 @@ fn an_admitted_admiral_is_drawn_from_its_parts() {
         .values()
         .copied()
         .collect();
-    assert_eq!(presentations.len(), 2, "each seated admiral has one rigged presentation");
+    assert_eq!(presentations.len(), 2, "each seated body has one rigged presentation");
     for owner in presentations {
         let world = app.world();
         let presentation = world.get::<RiggedPresentation>(owner).unwrap();
@@ -100,7 +106,18 @@ fn an_admitted_admiral_is_drawn_from_its_parts() {
                 server.get_path(page.id())
             );
         }
-        assert_eq!(world.get::<Sprite>(root).unwrap().color.alpha(), 0.0);
+        // The root draws its cell of the impostor atlas its parts are
+        // composited into.
+        let atlas = world
+            .resource::<ambition_platformer2d::render::rendering::actors::rigged::RiggedImpostorAtlas>()
+            .page(&presentation.impostor)
+            .expect("the impostor atlas page");
+        let sprite = world.get::<Sprite>(root).unwrap();
+        assert!(
+            sprite.image == atlas.image
+                && sprite.texture_atlas.as_ref().map(|frame| frame.index) == Some(presentation.impostor.cell as usize),
+            "the root does not draw its impostor cell"
+        );
     }
     // Every slot belongs to a presentation: none leaked from a rebind.
     let mut owners = app.world_mut().query::<&RiggedPresentation>();
@@ -111,33 +128,33 @@ fn an_admitted_admiral_is_drawn_from_its_parts() {
 
 #[test]
 fn with_the_switch_off_no_part_is_drawn() {
-    let mut app = seated_admirals(Some(false));
+    let mut app = seated_pair(Some(false));
     assert!(app.world().resource::<RiggedPresentations>().0.is_empty());
     let mut slots = app.world_mut().query::<&RiggedPartSlot>();
     assert_eq!(slots.iter(app.world()).count(), 0);
 }
 
-/// The shipped game, which inserts no switch, draws each admiral from its
+/// The shipped game, which inserts no switch, draws each body from its
 /// parts (the go-ahead of 2026-10-01).
 #[test]
-fn the_shipped_game_draws_the_admirals_from_their_parts() {
+fn the_shipped_game_draws_the_rig_characters_from_their_parts() {
     assert!(
         !std::env::var(ambition_platformer2d::sprite_sheet::character::rigged::RIGGED_SPRITE_ADMISSION_ENV)
             .is_ok_and(|value| !RiggedSpriteAdmission::from_setting(Some(&value)).admit),
         "precondition: the environment does not turn the rigged sprites off"
     );
-    let mut app = seated_admirals(None);
+    let mut app = seated_pair(None);
     assert_eq!(
         app.world().resource::<RiggedPresentations>().0.len(),
         2,
-        "each seated admiral has one rigged presentation"
+        "each seated body has one rigged presentation"
     );
     let mut slots = app.world_mut().query::<&RiggedPartSlot>();
-    assert!(slots.iter(app.world()).count() > 0, "the admirals' part slots exist");
+    assert!(slots.iter(app.world()).count() > 0, "the part slots exist");
 }
 
-/// Rig packet 7: a second local view draws the same parts. It does not make
-/// more of them.
+/// Rig packet 7, with the impostor (decision D4): a second local view draws the
+/// same body and makes no more parts.
 ///
 /// The second pane is made as TwinTrack makes its laboratory pane: a
 /// `LocalView` with its facts and a column placement, and a `MainCamera` on
@@ -145,12 +162,8 @@ fn the_shipped_game_draws_the_admirals_from_their_parts() {
 ///
 /// * the presentations and the very same slot entities stay as they were with
 ///   one view: the parts belong to the body, not to a view;
-/// * each main camera that draws a rigged root draws its parts (the render
-///   layers agree), so neither pane shows a body without its parts.
-///
-/// Today no actor root carries render layers, so the second check passes on
-/// defaults; `the_parts_are_drawn_by_each_camera_that_draws_their_root` (in
-/// `ambition_render`) is the one that fails when the slots stop following.
+/// * no main camera draws a part: the parts stand on the private impostor
+///   layer, and every view draws the ROOT, which draws the impostor.
 ///
 /// ⛔ Not each camera's `VisibleEntities`: without a window the host camera
 /// lists no sprite at all, so those lists cannot tell a missing part from a
@@ -161,7 +174,7 @@ fn a_second_view_draws_the_same_parts_and_makes_no_more() {
     use ambition_platformer2d::sim_view::{local_view_facts, LocalView, LocalViewId, PresentsView, ViewPlacement};
     use bevy::camera::visibility::RenderLayers;
 
-    let mut app = seated_admirals(Some(true));
+    let mut app = seated_pair(Some(true));
     // The slot entities themselves, not a count: a count cannot see a slot
     // despawned and another spawned.
     let census = |app: &mut App| {
@@ -174,7 +187,7 @@ fn a_second_view_draws_the_same_parts_and_makes_no_more() {
         (owners, slots)
     };
     let before = census(&mut app);
-    assert_eq!(before.0.len(), 2, "two seated admirals, two presentations");
+    assert_eq!(before.0.len(), 2, "two seated bodies, two presentations");
 
     let view = app
         .world_mut()
@@ -205,17 +218,16 @@ fn a_second_view_draws_the_same_parts_and_makes_no_more() {
     let mut checked = 0;
     for presentation in presentations.iter(world) {
         let root = layers_of(world, presentation.root);
+        for camera in &cameras {
+            assert!(camera.intersects(&root), "a view on {camera:?} does not draw the root on {root:?}");
+        }
         for slot in &presentation.slots {
             if world.get::<Visibility>(*slot) == Some(&Visibility::Hidden) {
                 continue;
             }
             let part = layers_of(world, *slot);
             for camera in &cameras {
-                assert_eq!(
-                    camera.intersects(&root),
-                    camera.intersects(&part),
-                    "a camera on {camera:?} draws the root on {root:?} but not its part on {part:?}, or the reverse"
-                );
+                assert!(!camera.intersects(&part), "a view on {camera:?} draws a loose part on {part:?}");
             }
             checked += 1;
         }

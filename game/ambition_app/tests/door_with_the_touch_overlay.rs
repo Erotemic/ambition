@@ -70,7 +70,7 @@ fn a_door_still_opens_with_the_touch_overlay_installed() {
         app.update();
     }
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     for _ in 0..40 {
         app.update();
@@ -110,7 +110,7 @@ fn a_door_still_opens_with_the_touch_overlay_installed() {
                 })
                 .cloned()
                 .expect("the gameplay start room authors a Door zone");
-            let mut player = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+            let mut player = world.query_filtered::<&mut ambition_platformer2d::actor::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
             if let Ok(mut kin) = player.single_mut(world) {
                 kin.pos = ambition_platformer2d::engine_core::AabbExt::center(zone.aabb);
                 kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;

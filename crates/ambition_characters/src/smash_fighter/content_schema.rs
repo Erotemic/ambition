@@ -139,7 +139,7 @@ pub fn facet<'a>(
 /// wherever the character appears, and its move damage, which the definition
 /// only carries. Its move damage is folded under [`super::FIGHTER_DAMAGE`], and a
 /// match that plays in that scale applies it
-/// (`ambition_combat::worn_kit::WornKit::resolve`). One of the folds in
+/// (`ambition_combat::worn_kit::WornKit::of`). One of the folds in
 /// [`crate::pack_facets`]. The fighter body is a match fact; see
 /// [`fighter_body`].
 pub fn fold_into_definition(

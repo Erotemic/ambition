@@ -62,7 +62,8 @@
 //! the case above is exactly why that judgement was right: the first thing this
 //! observer found was legitimate.
 
-use ambition_combat::components::{ActorFaction, CenteredAabb};
+use ambition_combat::components::CenteredAabb;
+use ambition_characters::actor::ActorFaction;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::*;
 

@@ -156,7 +156,8 @@ fn blink_destination_to_point_internal(
 
 fn blink_path_blocker_abilities(abilities: &crate::abilities::AbilitySet, kind: BlockKind) -> bool {
     match kind {
-        BlockKind::Solid => true,
+        // No upgrade passes a solid or a barrier.
+        BlockKind::Solid | BlockKind::Barrier => true,
         BlockKind::BlinkWall { tier } => !abilities_can_blink_through(abilities, tier),
         // Neither directional kind blocks a blink PATH: a one-way is not a wall
         // and a bonk-only block is not there at all unless a head is coming up
@@ -215,7 +216,7 @@ fn blink_collision_abilities(
             continue;
         }
         match block.kind {
-            BlockKind::Solid => return BlinkCollision::Blocked,
+            BlockKind::Solid | BlockKind::Barrier => return BlinkCollision::Blocked,
             BlockKind::BlinkWall { tier } => {
                 if abilities_can_blink_through(abilities, tier) {
                     pass_through = true;

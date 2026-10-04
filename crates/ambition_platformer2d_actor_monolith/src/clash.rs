@@ -94,7 +94,7 @@ pub fn arbitrate_attack_clashes(
         With<ambition_projectiles::LiveProjectile>,
     >,
     owner_pos: Query<&ae::BodyKinematics>,
-    factions: Query<&ambition_combat::components::ActorFaction>,
+    factions: Query<&ambition_characters::actor::ActorFaction>,
     teams: Query<&ambition_combat::targeting::MatchTeam>,
     mut playing: Query<&mut ambition_combat::moveset::MovePlayback>,
     // The rules of each contender's own live room.
@@ -490,7 +490,7 @@ mod tests {
                 ambition_projectiles::ProjectileOwner(owner),
                 ambition_projectiles::LiveProjectile,
                 crate::projectile::ProjectileAllegiance {
-                    faction: ambition_combat::components::ActorFaction::Player,
+                    faction: ambition_characters::actor::ActorFaction::Player,
                     team: team
                         .map(|t| ambition_combat::targeting::MatchTeam::new(t.to_string())),
                 },
@@ -873,8 +873,8 @@ mod tests {
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.add_message::<AttacksClanked>();
         app.init_resource::<ambition_time::WorldTime>();
-        app.world_mut().resource_mut::<ambition_time::WorldTime>().scaled_dt = 0.016;
-        app.world_mut().resource_mut::<ambition_time::WorldTime>().raw_dt = 0.016;
+        app.world_mut().resource_mut::<ambition_time::WorldTime>().set_sim_dt(0.016);
+        app.world_mut().resource_mut::<ambition_time::WorldTime>().set_wall_dt(0.016);
         app.insert_resource(ambition_combat::rules::ResolvedCombatTuning {
             clank_damage_window: 9.0,
             ..Default::default()
@@ -885,7 +885,7 @@ mod tests {
         );
 
         // Two fighters facing each other, close enough that their swings meet.
-        let fighter = |app: &mut App, x: f32, faction: ambition_combat::components::ActorFaction, facing: f32| {
+        let fighter = |app: &mut App, x: f32, faction: ambition_characters::actor::ActorFaction, facing: f32| {
             app.world_mut()
                 .spawn((
                     ae::BodyKinematics {
@@ -899,8 +899,8 @@ mod tests {
                 ))
                 .id()
         };
-        let left = fighter(&mut app, 0.0, ambition_combat::components::ActorFaction::Player, 1.0);
-        let right = fighter(&mut app, 30.0, ambition_combat::components::ActorFaction::Enemy, -1.0);
+        let left = fighter(&mut app, 0.0, ambition_characters::actor::ActorFaction::Player, 1.0);
+        let right = fighter(&mut app, 30.0, ambition_characters::actor::ActorFaction::Enemy, -1.0);
 
         // ⛔ STOP ON THE TICK OF THE TRADE. A Bevy message survives two updates, so
         // running on past it and then reading would report zero announcements and

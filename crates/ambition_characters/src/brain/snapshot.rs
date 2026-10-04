@@ -95,6 +95,18 @@ pub struct BrainSnapshot {
     /// and for an inert test snapshot: `generate_options` then produces no
     /// attacks and the fighter plays movement only.
     pub attack_kit: Vec<crate::brain::attack_kit::AttackCandidate>,
+    /// How far the attack press of this body reaches (px, body-local, toward
+    /// its facing), from the geometry of the move that the press starts.
+    ///
+    /// The moveset owns reach (Q35). This is the reach of the Active volumes
+    /// of that move, so it is also the correct number during startup, before
+    /// a volume is live. It is never a sprite bound, and it is never a number
+    /// that a brain profile authors. The snapshot builder fills it from the
+    /// live `ActorMoveset` of the body, like [`Self::attack_kit`].
+    ///
+    /// `None` when the body has no move on its attack press, and in a
+    /// snapshot that no body built. A reader then uses its own fallback band.
+    pub melee_reach: Option<f32>,
     /// Which body this is, as the integration layer names it.
     ///
     /// The brain genuinely cannot know: a snapshot is pure body state, and a
@@ -283,6 +295,7 @@ impl BrainSnapshot {
             ground_ends_ahead: false,
             actor_aerial: false,
             attack_kit: Vec::new(),
+            melee_reach: None,
             subject: None,
             alive: true,
             target_pos: ae::Vec2::ZERO,

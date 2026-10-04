@@ -37,7 +37,7 @@ use ambition_combat::hand::{RepertoireQuery, RepertoireQueryItem};
 use ambition_combat::held_items::HeldItem;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_platformer2d_shared_tangle::prelude::SpawnScopedExt;
+use ambition_platformer2d_shared_tangle::lifecycle::{SessionCommands, SpawnSessionScopedExt};
 use ambition_platformer2d_shared_tangle::schedule::{HeldItemStep, ItemPickupSet, SimScheduleExt};
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, LiveRooms};
 #[cfg(feature = "portal")]
@@ -60,10 +60,13 @@ impl Plugin for HeldItemSimulationPlugin {
             app.publish_condition(conditions::is_held_descriptor(), conditions::is_held);
         }
         // Durable room state, and the only leg of it that has a producer.
-        // Inserted here because this is where the producer is registered; every
-        // consumer takes it as an `Option`, so a composition without this plugin
-        // remembers nothing and authors every room from its records — which is
-        // exactly what it did before the ledger existed.
+        // Inserted here because this is where the producer is registered. A
+        // consumer that a composition can schedule without this plugin takes it
+        // as an `Option`: such a composition remembers nothing and authors every
+        // room from its records, which is what it did before the ledger
+        // existed. The two writers scheduled with this plugin take it as
+        // required (`project_custody_onto_authored_occurrences` here, and
+        // `record_placed_bodies` in the runtime that adds this plugin).
         app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>();
         // ⛔ THE SET THIS DOMAIN OWNS, configured END TO END here: its phase
         // and its custody edge. The kernel adds the edge to its two sibling
@@ -469,10 +472,8 @@ pub fn carry_or_wake_settled_items(
             item.half_extent + Vec2::new(0.0, 1.0),
         );
         let support = world.blocks.iter().find(|block| {
-            matches!(
-                block.kind,
-                ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
-            ) && probe.strict_intersects(block.aabb.translated(-block.velocity))
+            ae::collision_semantics::is_support_surface(block.kind)
+                && probe.strict_intersects(block.aabb.translated(-block.velocity))
         });
         match support {
             None => {
@@ -561,10 +562,8 @@ pub fn ground_item_physics(
         let next = item.pos + item.vel * dt;
         let next_aabb = ae::Aabb::new(next, item.half_extent);
         let blocked = world.blocks.iter().any(|block| {
-            matches!(
-                block.kind,
-                ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
-            ) && next_aabb.strict_intersects(block.aabb)
+            ae::collision_semantics::is_support_surface(block.kind)
+                && next_aabb.strict_intersects(block.aabb)
         });
         // Out of the world rectangle on ANY side (not just world-down) — so an
         // item that flies off the side under a gravity flip parks too.
@@ -1385,7 +1384,7 @@ pub struct ReleasedAs(pub Release);
 /// across the phase boundary; the alternative is an ordering constraint between
 /// two phases that exist to be independent.
 pub fn throw_held_item_system(
-    mut commands: Commands,
+    mut commands: SessionCommands,
     driven: DrivenBodies,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     // With the live room the thrower is in: a minted throw lands there.
@@ -1411,6 +1410,11 @@ pub fn throw_held_item_system(
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
     items: ambition_items::ItemCatalogRead,
 ) {
+    // The session that owns an item this system mints. With no session there
+    // is no driven body, so there is nothing to release.
+    let Some(scope) = commands.spawn_scope() else {
+        return;
+    };
     for player in driven.entities() {
         let Ok((mut control, kin, mut repertoire, room)) = bodies.get_mut(player) else {
             continue;
@@ -1544,11 +1548,14 @@ pub fn throw_held_item_system(
         ) {
             owned.take(item, 1);
         }
-        let mut thrown = commands.spawn_room_scoped((
-            GroundItem::released(spec, throw_pos, throw_vel, MINTED_ITEM_HALF_EXTENT),
-            ReleasedAs(release),
-            Name::new("Ground item: thrown"),
-        ));
+        let mut thrown = commands.spawn_room_in_session(
+            scope,
+            (
+                GroundItem::released(spec, throw_pos, throw_vel, MINTED_ITEM_HALF_EXTENT),
+                ReleasedAs(release),
+                Name::new("Ground item: thrown"),
+            ),
+        );
         if let Some((sim_id, origin)) = minted {
             thrown.insert((sim_id, origin));
         }
@@ -1614,12 +1621,10 @@ pub fn ability_aim_world(
 /// muzzle, cue, recoil, look, flight. `Shield + Attack` is the throw/drop
 /// gesture, so don't fire on it.
 ///
-/// ⚠ ONE DELIBERATE DIFFERENCE FROM THE BRAIN ROAD: a held weapon fired from
-/// the hand applies NO recoil to the body holding it. The deleted held-shot
-/// path never kicked the player; the gun-sword's authored discharge kicks the
-/// PIRATE 380 px/s by design. Whether the player should feel that kick is a
-/// feel ruling and is recorded in `awaiting-maintainer-decision.md`, not
-/// decided here.
+/// Recoil is a property of the weapon, not of the holder (Q40 in
+/// `maintainer-decisions.md`): the body that fires gets the discharge's
+/// authored recoil, a player-driven body too. So this road sends the item's
+/// discharge unchanged.
 pub fn fire_held_ranged_system(
     driven: DrivenBodies,
     bodies: Query<(
@@ -1648,8 +1653,7 @@ pub fn fire_held_ranged_system(
         if dir == Vec2::ZERO {
             continue;
         }
-        let mut discharge = ranged.discharge.clone().unwrap_or_default();
-        discharge.recoil = 0.0;
+        let discharge = ranged.discharge.clone().unwrap_or_default();
         let spec = ranged.with_discharge(discharge);
         actions.write(ambition_characters::brain::ActorActionMessage {
             actor: subject,

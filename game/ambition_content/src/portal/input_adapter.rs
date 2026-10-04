@@ -47,7 +47,7 @@ pub fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
 #[allow(clippy::too_many_arguments)]
 pub fn portal_input_adapter_system(
     nearest: Option<Res<NearestInteractable>>,
-    controlled: Option<Res<ControlledSubject>>,
+    controlled: Res<ControlledSubject>,
     // The controller's slot frame (the sanctioned per-slot input source).
     slots: Res<SlotControls>,
     // The controlled body: its brain (→ slot), position and held gun (if any).
@@ -82,7 +82,7 @@ pub fn portal_input_adapter_system(
     let mut subjects: Vec<Entity> = Vec::new();
     // Held separately, because the held-gun presentation is not per-body. See
     // the `PortalAimHint` write below.
-    let presented_subject = controlled.as_deref().and_then(|held| held.0);
+    let presented_subject = controlled.0;
     if let Some(subject) = presented_subject {
         subjects.push(subject);
     }

@@ -41,7 +41,7 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 from test_paths import file_is_test_only, is_test_path, strip_test_modules  # noqa: E402
 
-from a_rollback_arm_must_refuse_a_frozen_world import code_only  # noqa: E402
+from rust_source import code_only  # noqa: E402
 
 #: Every production file allowed to construct a `SessionRoot`, and why.
 #: RE-MEASURED 2026-09-21. A new entry is a decision about `Q132`'s invariant and
@@ -68,10 +68,10 @@ DECLARED: dict[str, str] = {
     "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs": (
         "`insert_session_world_component`'s fallback, *\"for small direct hosts "
         "and focused tests that intentionally assemble the same root one "
-        "component at a time\"*. ⚠ It mints `active_scope.unwrap_or(SessionScopeId(0))` "
-        "— an anonymous default identity when no session is active, which is the "
-        "shape `Q132`'s scoping rule names. ONE production caller today: "
-        "`game/ambition_app/src/app/dev_runtime.rs:626`"
+        "component at a time\"*. With no root and no active scope it builds the "
+        "direct host's one root at `DIRECT_HOST_SESSION_SCOPE`, and in a "
+        "session-gated composition it refuses instead (C07, 2026-10-03), so a "
+        "shell-hosted session never carries an identity no shell gave it"
     ),
     "crates/ambition_platformer2d_provider/src/lifecycle.rs": (
         "`install_direct_session_root`, the one road for a direct-entry demo "

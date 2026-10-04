@@ -63,12 +63,9 @@ pub struct CutRopeRoomReplayRequested;
 
 /// Latched once the player chooses the replay option. The room reset waits
 /// until the conversation is over, so the final NPC line stays visible until
-/// the player dismisses it.
-///
-/// `refight` is latched when the replay is requested and taken by the next
-/// admitted replay of the cut-rope room: the re-fight the player asked for.
-/// ⚠ A request the lifecycle refuses leaves it latched for the next admitted
-/// replay of that room.
+/// the player dismisses it. The re-fight is not latched here: it travels with
+/// the replay request (`RoomReplayRequested::refight`), so a request the
+/// lifecycle refuses takes it with it.
 ///
 /// This is rollback state because it spans ticks: the choice is made while the
 /// last line is on screen, and the reset happens an unbounded number of ticks
@@ -77,7 +74,6 @@ pub struct CutRopeRoomReplayRequested;
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PendingCutRopeRoomReplay {
     pub requested: bool,
-    pub refight: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -149,6 +145,28 @@ impl CutRopeHeavyObjectCycle {
     }
 }
 
+/// Start the cycle again when a gameplay session activates.
+///
+/// The cycle is the state of one session: a room replay advances it, and it is
+/// in the peer checksum. It is in no save, so a new session has no reason to
+/// start on the prop that the last one stopped on.
+///
+/// MEASURED 2026-10-04 on the shell host: after a session that replayed the
+/// room once, the next session held index 1 on each of its first 31 ticks and
+/// a fresh host held index 0. One host hung the piano and the other hung the
+/// anvil.
+///
+/// The activation is before the session world is live, so the timeline that a
+/// rewind can cross does not exist yet.
+pub fn restart_heavy_object_cycle_on_activation(
+    mut activated: MessageReader<ambition_platformer2d::platformer::lifecycle::SessionScopeActivated>,
+    mut cycle: ResMut<CutRopeHeavyObjectCycle>,
+) {
+    if activated.read().count() > 0 {
+        *cycle = CutRopeHeavyObjectCycle::default();
+    }
+}
+
 /// Convert a dialogue-authored replay choice into the engine's generic
 /// [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested)
 /// once the conversation is over. `AmbitionBossContentPlugin` registers it in
@@ -169,9 +187,8 @@ pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
         return;
     }
     pending.requested = false;
-    pending.refight = true;
     replay_requests
-        .write(ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested::manual());
+        .write(ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested::refight());
 }
 
 /// Reset the Smirking Behemoth encounter so the room can be replayed in-place.
@@ -191,6 +208,8 @@ pub fn reset_cut_rope_boss_attempt(
     registry: &BossEncounterRegistry,
     save: Option<&mut ambition_persistence::save::AmbitionGameSave>,
     music_request: Option<&mut ambition_encounter::EncounterMusicRequest>,
+    // The live room replayed: the intro is claimed in its music only.
+    room: Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>,
     placement_ids: &[String],
 ) {
     let intro_track = registry
@@ -214,13 +233,13 @@ pub fn reset_cut_rope_boss_attempt(
     }
     if let Some(music) = music_request {
         match intro_track.filter(|track| !track.is_empty()) {
-            Some(track) => music.claim_priority(CUT_ROPE_MUSIC_OWNER, track),
-            None => music.release_priority(CUT_ROPE_MUSIC_OWNER),
+            Some(track) => music.claim_priority(room, CUT_ROPE_MUSIC_OWNER, track),
+            None => music.release_priority(room, CUT_ROPE_MUSIC_OWNER),
         }
     }
 }
 
-/// Release the cut-rope boss's music claim once the player is not in its room.
+/// Release the cut-rope boss's music claim in each room that is not its arena.
 ///
 /// `reset_cut_rope_boss_attempt` claims `CUT_ROPE_MUSIC_OWNER` for the intro
 /// track on an admitted room replay, which is what a death is. Its only
@@ -236,7 +255,7 @@ pub fn reset_cut_rope_boss_attempt(
 /// It releases only its own claim (`release_priority` is owner-checked), so a
 /// conversation, a demo death cue or the generic boss owner keep theirs.
 pub fn release_cut_rope_music_outside_its_room(
-    // Every live room: the claim stays while one of them is the boss's room.
+    // Every live room: the claim stays in each live room that is the boss's.
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
@@ -247,13 +266,11 @@ pub fn release_cut_rope_music_outside_its_room(
     let Some(mut music) = music else {
         return;
     };
-    if rooms
-        .live_definitions()
-        .any(|definition| rooms.rooms().spec(definition).id == CUT_ROPE_ROOM_ID)
-    {
-        return;
-    }
-    music.release_priority(CUT_ROPE_MUSIC_OWNER);
+    music.release_priority_where(CUT_ROPE_MUSIC_OWNER, |room| {
+        rooms
+            .definition_named(room)
+            .is_none_or(|definition| rooms.rooms().spec(definition).id != CUT_ROPE_ROOM_ID)
+    });
 }
 
 /// On an admitted replay of the cut-rope room, reset the fight's per-attempt
@@ -279,7 +296,6 @@ pub fn reset_cut_rope_attempt_on_replay(
     // for a replay that never happens.
     mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
-    mut pending: ResMut<PendingCutRopeRoomReplay>,
     registry: Res<BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_persistence::save::AmbitionGameSave>>,
     mut music: Option<
@@ -298,7 +314,7 @@ pub fn reset_cut_rope_attempt_on_replay(
             continue;
         }
         let replayed = replayed.or_else(|| rooms.live().sole());
-        let placements: Vec<String> = if std::mem::take(&mut pending.refight) {
+        let placements: Vec<String> = if replay.refight {
             bosses
                 .iter()
                 .filter(|(entity, config)| {
@@ -315,6 +331,7 @@ pub fn reset_cut_rope_attempt_on_replay(
             // `Single<&mut T>` derefs to `Mut<T>`; peel the extra
             // change-detection layer to `&mut T`.
             music.as_deref_mut().map(|m| &mut **m),
+            replayed,
             &placements,
         );
     }
@@ -422,9 +439,9 @@ mod tests {
     #[test]
     fn the_boss_music_claim_does_not_follow_the_player_out_of_the_room() {
         let mut music = ambition_encounter::EncounterMusicRequest::default();
-        music.claim_priority(CUT_ROPE_MUSIC_OWNER, "smirking_behemoth_intro");
+        music.claim_priority(None, CUT_ROPE_MUSIC_OWNER, "smirking_behemoth_intro");
         assert_eq!(
-            music.desired_track(),
+            music.desired_track(None),
             Some("smirking_behemoth_intro"),
             "premise: the claim is what makes the boss track win"
         );
@@ -436,9 +453,9 @@ mod tests {
         // the release is owner-scoped). The room predicate of
         // `release_cut_rope_music_outside_its_room` has its witness in the app:
         // `the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room`.
-        music.release_priority(CUT_ROPE_MUSIC_OWNER);
+        music.release_priority(None, CUT_ROPE_MUSIC_OWNER);
         assert_eq!(
-            music.desired_track(),
+            music.desired_track(None),
             None,
             "the boss's music claim outlived its room, so it beats room music \
              everywhere the player goes"
@@ -450,10 +467,10 @@ mod tests {
     #[test]
     fn releasing_the_cut_rope_claim_does_not_silence_another_owner() {
         let mut music = ambition_encounter::EncounterMusicRequest::default();
-        music.claim_priority("some_other_fight", "another_track");
-        music.release_priority(CUT_ROPE_MUSIC_OWNER);
+        music.claim_priority(None, "some_other_fight", "another_track");
+        music.release_priority(None, CUT_ROPE_MUSIC_OWNER);
         assert_eq!(
-            music.desired_track(),
+            music.desired_track(None),
             Some("another_track"),
             "leaving the cut-rope room cancelled a claim it does not own"
         );
@@ -464,6 +481,33 @@ mod tests {
         assert!(is_cut_rope_boss(CUT_ROPE_BOSS_ID));
         assert!(!is_cut_rope_boss("gnu_ton_rider"));
         assert!(!is_cut_rope_boss(""));
+    }
+
+    /// A session activation starts the cycle again. The control is a frame
+    /// with no activation: the cycle keeps the prop of the last replay.
+    #[test]
+    fn a_session_activation_starts_the_heavy_object_cycle_again() {
+        use ambition_platformer2d::platformer::lifecycle::{SessionScopeActivated, SessionScopeId};
+        use bevy::prelude::*;
+        let mut app = App::new();
+        app.add_message::<SessionScopeActivated>();
+        app.init_resource::<CutRopeHeavyObjectCycle>();
+        app.add_systems(Update, restart_heavy_object_cycle_on_activation);
+        app.world_mut().resource_mut::<CutRopeHeavyObjectCycle>().advance();
+        app.update();
+        assert_eq!(
+            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(),
+            "piano",
+            "control: with no activation, the cycle keeps the prop of the last replay"
+        );
+        app.world_mut()
+            .write_message(SessionScopeActivated(SessionScopeId(2)));
+        app.update();
+        assert_eq!(
+            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(),
+            "anvil",
+            "the next session starts on the first prop"
+        );
     }
 
     #[test]

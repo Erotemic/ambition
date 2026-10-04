@@ -7,7 +7,8 @@
 //! is the module's: the sentry turret is the first one
 //! (`ambition_content_modules::sentry`).
 
-use ambition_combat::components::{ActorFaction, CenteredAabb};
+use ambition_combat::components::CenteredAabb;
+use ambition_characters::actor::ActorFaction;
 use ambition_combat_port::{
     EndModuleEntityPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, SpawnModuleEntityPort,
 };

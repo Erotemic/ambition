@@ -1,5 +1,5 @@
 // Ambition's boss art keys: which file draws each boss sheet, and which sheet
-// rows each special move claims. Read by `ambition_content::bosses` and by the
+// rows each special move and each geometry strike claims. Read by `ambition_content::bosses` and by the
 // boss crate's test catalog, so the two cannot disagree.
 (
     sprite_filenames: {
@@ -43,5 +43,51 @@
         "noodly_dive": ["dive"],
         "noodly_grasp": ["grasp"],
         "lesser_appendages": ["summon"],
+    },
+    // The sheet rows each geometry strike claims. The first row is the
+    // canonical runtime key; the others are row-name aliases, so a
+    // regenerated manifest and a review image can stay row-oriented. A strike
+    // with no entry (`wing_sweep`, `dive_lane`, `broadside`) keeps its static
+    // boxes.
+    strike_animation_rows: {
+        "floor_slam": ["floor_slam", "mouth_open"],
+        "side_sweep": ["side_sweep"],
+        "full_body_pulse": ["spike_halo", "eye_beam"],
+        "hazard_column": ["dash_echo", "eye_beam"],
+        // GNU-ton's strikes use gameplay keys of their own, so one visual row
+        // can expose several boxes (`hand_slam` and the shockwave). The visual
+        // row name is the alias: without it GNU-ton would fall back to rest
+        // boxes when the generator names the row `head_down`.
+        "hand_slam": ["gnu_hand_slam", "hand_slam"],
+        "converging_shockwave": ["gnu_shockwave", "hand_slam"],
+        "hand_sweep": ["gnu_hand_sweep", "hand_sweep"],
+        "head_descent": ["gnu_head_descent", "head_down"],
+    },
+    // The generic animation row each geometry strike plays while it
+    // telegraphs and while it is active. `None` is a strike that plays no row.
+    // A strike with no entry (`full_body_pulse`, `head_descent`) plays the
+    // spike-halo row, as each special does.
+    strike_animations: {
+        "floor_slam": Some(FloorSlam),
+        "hand_slam": Some(FloorSlam),
+        "converging_shockwave": Some(FloorSlam),
+        "side_sweep": Some(SideSweep),
+        "hand_sweep": Some(SideSweep),
+        "broadside": Some(SideSweep),
+        "hazard_column": Some(DashEcho),
+        "dive_lane": Some(DashEcho),
+        "wing_sweep": None,
+    },
+    // The sheet row the damageable box of a move is sampled from, when it is
+    // not the first row the move claims. GNU-ton's strikes claim a gameplay
+    // key first (`gnu_shockwave`), but his head and body box follows the row
+    // that is drawn, so the authored frames of that row are the source of the
+    // box. `apple_rain` claims no row and reads the head row for its box.
+    hurtbox_sample_rows: {
+        "hand_slam": "hand_slam",
+        "converging_shockwave": "hand_slam",
+        "hand_sweep": "hand_sweep",
+        "head_descent": "head_down",
+        "apple_rain": "head_down",
     },
 )

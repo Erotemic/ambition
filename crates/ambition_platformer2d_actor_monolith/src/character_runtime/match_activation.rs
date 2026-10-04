@@ -556,7 +556,6 @@ pub fn activate_the_prepared_match(
     // happened or it did not.
     commands.insert_resource(ActiveMatch::activated(
         prepared.seats().len(),
-        prepared.seat_topology(),
         prepared.session(),
         // WHEN, so the opening ceremony is a function of the clock rather than
         // a timer somebody has to remember to rewind.

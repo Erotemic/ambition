@@ -62,10 +62,7 @@ pub fn blink_target(
     // the start.
     let landing = ae::Aabb::new(target, half);
     let embeds = world.blocks.iter().any(|b| {
-        matches!(
-            b.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-        ) && landing.strict_intersects(b.aabb)
+        ae::collision_semantics::is_full_collision_surface(b.kind) && landing.strict_intersects(b.aabb)
     });
     if embeds {
         target = from;

@@ -16,8 +16,11 @@ use ambition_characters::control::ActorControl;
 use ambition_characters::control::DrivingParticipant;
 use ambition_characters::control::PlayerSlot;
 use ambition_combat::components::{
-    ActorFaction, DamageableVolumes, PogoPolicy, PogoTargetVolumes,
+    DamageableVolumes,
+    PogoPolicy,
+    PogoTargetVolumes,
 };
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::BodyMelee;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle;
@@ -275,14 +278,15 @@ impl PlayerSimulationBundle {
     ) -> Self {
         // The SAME overlay the runtime re-wear system applies (name + the resolved
         // kit), so spawn and runtime can never disagree on what a character is.
-        // It writes every field of `kit`; the empty values are never read.
+        // For a character of the cast it writes every field of `kit`, and the
+        // empty values are never read.
         let mut kit = HomeBodyKit {
             name: Name::new(character_id.to_string()),
             action_set: ActionSet::peaceful(),
             moveset: ambition_combat::moveset::ActorMoveset(Default::default()),
             identity_kit: Default::default(),
         };
-        *ranged = crate::avatar::apply_worn_character_overlay(
+        let worn = crate::avatar::apply_worn_character_overlay(
             prepared,
             &mut kit.name,
             &mut kit.action_set,
@@ -294,6 +298,16 @@ impl PlayerSimulationBundle {
             // with the roster's kit on its first tick.
             ambition_combat::worn_kit::SeatTerms::default(),
         );
+        *ranged = worn.unwrap_or_else(|| {
+            // ⛔ NO KIT IS MADE FOR AN ID THE CAST DOES NOT HOLD (Q103). The
+            // body keeps the empty kit above, named after the id, and fires
+            // nothing: a charge path is a kit too.
+            bevy::log::error!(
+                "the home body is built for '{character_id}', which is not a character of \
+                 the prepared cast: it has no kit"
+            );
+            ambition_characters::brain::RangedExecution::MovesetVerb
+        });
         let mut bundle = Self::from_kit(scratch, health, kit);
         bundle
             .motion_model

@@ -159,7 +159,7 @@ Apply the same participant, actor, lifetime, world-residency and presentation
 semantics to local, online and mixed participants and to shared/fixed/adaptive
 split presentation. Local different-room play exists in the engine: separated seats
 each keep a live room and each view draws its own room. Ambition has no
-production join road for a second seat yet (Q151). Online transport waits for a real
+production join road for a second seat yet (Q153). Online transport waits for a real
 customer.
 
 Owners: [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)

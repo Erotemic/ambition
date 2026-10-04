@@ -34,7 +34,6 @@ use super::*;
 // file scope, so while this system lived there its real dependencies were
 // invisible — which is part of how the two layers stayed indistinguishable. Four
 // types is the whole of what the summon road needs from outside its own module.
-use ambition_boss_encounter::BossCatalog;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, SessionSpawnScope};
 
@@ -80,14 +79,12 @@ pub fn apply_summon_effects(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<ambition_vfx::EffectRequest>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
-    authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     // `Option` like every other reader of it: a composition with no registered characters is
     // ordinary, not degraded.
     prepared_characters: crate::session::mechanics::SessionCast,
-    boss_catalog: bevy::prelude::Res<BossCatalog>,
-    // The activated generation's frozen boss catalog outranks the App's, like
-    // the cast (`SessionCast`): a reload publishes the App's before the session
-    // that runs it is activated.
+    // The sheets and the boss catalog of the running session, and not those of
+    // the App: a reload publishes the App's before the session that runs them
+    // is activated. `None`: no session runs, see `SessionMechanics`.
     generation: Option<bevy::prelude::Res<crate::session::mechanics::SessionMechanics>>,
     recipes: bevy::prelude::Res<crate::construction::ActorConstructionRegistry>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
@@ -97,9 +94,10 @@ pub fn apply_summon_effects(
 ) {
     use ambition_platformer2d_shared_tangle::construction::{ConstructionPlan, ConstructionScope};
 
-    let Some(session_scope) =
-        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
-    else {
+    let (Some(session_scope), Some(generation)) = (
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref()),
+        generation,
+    ) else {
         requests.clear();
         return;
     };
@@ -202,14 +200,14 @@ pub fn apply_summon_effects(
                 &character_catalog,
                 // The generation's sheets, as every construction road reads
                 // them (`GenerationMechanics::sheets`).
-                generation.as_deref().map_or(&*authored_sheets, |generation| &generation.sheets),
+                &generation.sheets,
             );
             match prepared_characters.get() {
                 Some(prepared) => context.with_prepared(prepared),
                 None => context,
             }
         },
-        boss_catalog: generation.as_deref().map_or(&*boss_catalog, |generation| &generation.bosses).clone(),
+        boss_catalog: generation.bosses.clone(),
     };
 
     // Every minion's body is proved buildable before the batch is planned.

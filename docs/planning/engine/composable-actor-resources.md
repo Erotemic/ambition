@@ -228,7 +228,9 @@ destructive teardown; trigger and cancel roads share it.
 **Economy and progression.** Keep authored base cost -> economy policy ->
 effective payment -> atomic transaction separate. When efficiency changes only
 with equipment or progression, prepare a compact effective cost plan at that
-change. No generic modifier language.
+change. No generic modifier language for resource values, costs or transactions.
+Numeric actor effects are a separate concern owned by
+[`actor-effects-and-modifier-composition.md`](actor-effects-and-modifier-composition.md).
 
 **Resource-set changes during play** create or select a new layout through an
 explicit admitted transition that maps stable identities and applies an
@@ -274,11 +276,13 @@ Keep the logical model fixed while you measure physical layouts.
 
 Bevy component ids are App-local addresses, never portable identities.
 
-Do not create `ActorAttributes`. Promote a numeric fact to a generic attribute
-family only when several capabilities bind to one content-defined fact, content
-must add attributes without a rebuild, the value varies per instance, or
-duplicate storage already exists. A later attribute family may reuse the
-stable-id -> prepared-handle technique with its own storage.
+Do not create one universal untyped `ActorAttributes` map. Promote a numeric fact
+to a generic attribute family only when several capabilities bind to one
+content-defined fact, content must add attributes without a rebuild, the value
+varies per instance, or duplicate modifier storage already exists.
+[`actor-effects-and-modifier-composition.md`](actor-effects-and-modifier-composition.md)
+owns that separate problem. A later attribute family may reuse the stable-id ->
+prepared-handle technique with its own storage.
 
 Keep the resource facility's pure surface small because it can be a high fan-out
 dependency. Do not move game vocabulary into `ambition_platformer2d_core`.

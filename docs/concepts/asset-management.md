@@ -39,6 +39,17 @@ Generated files are not runtime authority merely because they are checked in.
 The generator source/spec and the provider catalog together define how to
 reproduce and address them.
 
+**The layout says what an asset is** (Q82, Q83, 2026-10-04). Source/editor
+artifacts, runtime products, quality tiers and generated intermediates live
+under roots that name them, and every quality tier is a named directory, the
+top tier too. A packager selects roots; it does not keep a long exclusion
+list. A runtime product's dependency closure is its runtime unit, not the
+whole source pack it was cut from.
+
+**Quality is a presentation policy** (Q84). A quality mode may choose a
+cheaper presentation product or implementation. Gameplay and simulation stay
+the same at every quality level.
+
 ## Loading is a pipeline, not one event
 
 Keep these stages conceptually distinct:

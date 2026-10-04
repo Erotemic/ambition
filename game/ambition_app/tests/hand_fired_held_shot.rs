@@ -125,7 +125,18 @@ fn fire_from_the_hand(item: &str) -> (String, f32, f32) {
                 .map(|(_, visual, gameplay)| (visual.0.clone(), gameplay.splash_half_extent))
         };
         if let Some((visual, splash)) = found {
-            shot = Some((visual, splash, vel_x(&app) - before));
+            // Recoil is staged at the launch gateway and the movement model
+            // reads it on a later step, so take the largest change over the
+            // next few ticks, not only this one.
+            let mut kick = vel_x(&app) - before;
+            for _ in 0..6 {
+                app.update();
+                let now = vel_x(&app) - before;
+                if now.abs() > kick.abs() {
+                    kick = now;
+                }
+            }
+            shot = Some((visual, splash, kick));
             break;
         }
     }
@@ -142,11 +153,11 @@ fn a_hand_fired_gun_sword_bolt_flies_the_one_projectile_road() {
         ambition_platformer2d::characters::brain::action_set::LASERSWORD_VISUAL
     );
     assert_eq!(splash, 0.0, "a bolt hits only what it touches");
-    // The deleted held-shot path kicked nobody; the fold must not start to
-    // (awaiting-maintainer-decision.md records whether it SHOULD).
+    // Recoil belongs to the weapon (Q40): the gun-sword kicks whoever fires
+    // it, the player included.
     assert!(
-        kick.abs() < 1.0,
-        "a hand-fired bolt carried {kick} px/s of recoil"
+        kick.abs() > 100.0,
+        "a hand-fired gun-sword bolt carried only {kick} px/s of recoil"
     );
 }
 

@@ -56,7 +56,9 @@ pub(crate) mod enemies;
 pub(crate) mod npcs;
 /// The NPC talk flag and the provocation recorder; the provocation FLAG itself is
 /// `crate::fate_flags::npc_flag_id`, below both features and construction.
-pub use npcs::{npc_talked_flag, record_npc_provocations, NpcProvocationChanged};
+pub use npcs::{
+    npc_talk_dialogue_id, npc_talked_flag, record_npc_provocations, NpcProvocationChanged,
+};
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
 // None of them is player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx
@@ -245,7 +247,7 @@ pub fn advance_gameplay_elapsed(
     mut elapsed: bevy::prelude::ResMut<GameplayElapsed>,
     world_time: bevy::prelude::Res<ambition_time::WorldTime>,
 ) {
-    elapsed.0 += world_time.scaled_dt;
+    elapsed.0 += world_time.sim_dt();
 }
 
 /// Advance each body's diagnostic [`ae::BodyLifeStats`].
@@ -261,7 +263,7 @@ pub fn track_body_life_stats(
             stats.resets += 1;
             stats.time_alive = 0.0;
         } else {
-            stats.time_alive += world_time.scaled_dt;
+            stats.time_alive += world_time.sim_dt();
         }
     }
 }
@@ -1484,24 +1486,42 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 open_ecs_chests,
                 update_ecs_breakables,
                 // OW5: the respawn's due time, after the timer has ticked.
-                ecs::breakable_respawns::mirror_breakable_respawns,
+                ecs::world_time_schedule::mirror_breakable_respawns,
+                // Q152: a collected pickup comes back when its regrowth is due.
+                ecs::world_time_schedule::regrow_pickups,
+                // Q154: a collected pickup authored `Never` is gone for good.
+                ecs::pickups::record_consumed_pickups,
                 update_ecs_falling_chests,
             )
                 .chain()
                 .in_set(FeatureInteractionSet::WorldObjects),
         );
         // A replay rebuilds its room whole, and a checkpoint restore rebuilds
-        // from a save that holds no broken breakable (OW5). The replay set is
-        // in `PlayerInput`, before the mirror's phase; see the system's doc.
-        app.init_resource::<ecs::breakable_respawns::BreakableRespawnSchedule>()
+        // from a save that holds no broken breakable and no collected pickup
+        // (OW5). The replay set is in `PlayerInput`, before the mirror's
+        // phase; see the system's doc.
+        app.init_resource::<ecs::world_time_schedule::WorldTimeSchedule>()
             .add_systems(
                 sim,
-                ecs::breakable_respawns::forget_breakable_respawns_on_replay
+                (
+                    ecs::world_time_schedule::forget_scheduled_returns_on_replay,
+                    ecs::world_time_schedule::disown_scheduled_returns_on_restore,
+                )
                     .in_set(crate::session::reset::ContentRoomReplayResetSet),
             )
             .add_systems(
                 ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
-                ecs::breakable_respawns::forget_breakable_respawns_on_restore,
+                ecs::world_time_schedule::forget_scheduled_returns_on_restore,
+            );
+        // Q151: who owns each one-time pickup consumed since the checkpoint.
+        // The restore's acceptance pins the owned rows into the ledger it
+        // restores, and its admission takes the dying participant out.
+        app.init_resource::<ecs::pickups::ConsumedSinceCheckpoint>()
+            .add_systems(sim, ecs::pickups::forget_consumed_pickups_at_checkpoint)
+            .add_systems(
+                sim,
+                ecs::pickups::disown_consumed_pickups_on_restore
+                    .in_set(crate::session::reset::ContentRoomReplayResetSet),
             );
         // ⭐ The encounter switch index registers itself from
         // `ambition_encounter_features` now (2026-09-03). `FeatureInteractionSet`
@@ -1524,10 +1544,7 @@ mod sim_clock_tests {
     #[test]
     fn gameplay_clock_accumulates_scaled_dt() {
         let mut app = App::new();
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.init_resource::<GameplayElapsed>();
         app.add_systems(Update, advance_gameplay_elapsed);
 
@@ -1540,12 +1557,9 @@ mod sim_clock_tests {
             "three ticks at 1/60 s must accumulate 3/60 s; got {elapsed}"
         );
 
-        // Paused (scaled_dt == 0) the clock freezes — reaction latency, hitstun,
+        // Paused (sim_dt == 0) the clock freezes — reaction latency, hitstun,
         // and every other sim timer that reads it stop together.
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 0.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 0.0));
         app.update();
         let after_pause = app.world().resource::<GameplayElapsed>().0;
         assert_eq!(
@@ -1566,10 +1580,7 @@ mod body_life_stats_tests {
     #[test]
     fn a_restart_is_counted_once_and_restarts_the_clock() {
         let mut app = App::new();
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 0.5,
-            scaled_dt: 0.5,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(0.5, 0.5));
         app.add_systems(
             Update,
             (track_body_life_stats, ae::announce_body_restarts).chain(),

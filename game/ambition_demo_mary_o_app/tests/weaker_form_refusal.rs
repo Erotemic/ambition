@@ -135,7 +135,7 @@ fn wallet(app: &mut App) -> i32 {
 fn block_is_spent(app: &App, id: &ae::GeoId) -> bool {
     app.world()
         .get_resource::<SpentPowerBlocks>()
-        .is_some_and(|spent| spent.is_spent(id))
+        .is_some_and(|spent| spent.is_spent(live_room(app.world()), id))
 }
 
 /// Every uncollected form item in the world, with the row it would equip.
@@ -487,4 +487,10 @@ fn a_small_mary_o_still_collects_the_very_same_wand() {
         "she got the wand AND the consolation coins, so the refusal fired on a \
          pickup the engine also equipped — the item paid twice on one touch",
     );
+}
+
+/// The live room the course is in: this fixture is one room, and a block is
+/// spent in its own live room.
+fn live_room(world: &World) -> ambition_platformer2d::platformer::lifecycle::LiveRoomInstance {
+    *ambition_platformer2d::session::sole_live_room_component(world).expect("the course is one live room")
 }

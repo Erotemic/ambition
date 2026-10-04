@@ -21,7 +21,7 @@
 
 use ambition_abilities::module_entity::{spawn_module_entity, ModuleEntity, Spawner};
 use ambition_projectiles::{ProjectileSpawn, ProjectileStart};
-use ambition_combat::components::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::events::{HitEvent, HitSource};
 use ambition_platformer2d_core as ae;
 use ambition_projectiles::ProjectileSpawnRequest;
@@ -84,7 +84,6 @@ fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHit
 #[test]
 fn a_module_entitys_bolt_damages_the_enemy_it_was_fired_at() {
     let mut app = App::new();
-    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
@@ -95,10 +94,7 @@ fn a_module_entitys_bolt_damages_the_enemy_it_was_fired_at() {
             Vec::new(),
         )),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_message::<HitEvent>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();

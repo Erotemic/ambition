@@ -201,3 +201,66 @@ fn a_spin_dash_rolls_checksum_identical_under_resimulation() {
     ambition_platformer2d::rollback::session_health(app.world())
         .expect("a roll resimulates checksum-identical");
 }
+
+/// Where the save is applied over 60 frames of a sync-test session that rolls
+/// back 4 frames on every frame: `(in the GGRS step, in Update)`.
+///
+/// `SaveRestored` is read at `First`, at the head of `Update` and at `Last`.
+/// GGRS steps the simulation in `PreUpdate`, so a rise between `First` and
+/// `Update` is the simulation's, and a rise between `Update` and `Last` is
+/// `Update`'s. The `Update` reader runs before `DurableRestoreSet`, so a chain
+/// moved back into `Update` is seen there.
+fn where_the_save_is_applied() -> (u32, u32) {
+    use ambition_platformer2d::actors::session::durable_horizon::{
+        DurableRestoreSet, SaveRestored,
+    };
+    #[derive(Resource, Default)]
+    struct Seen {
+        at_first: bool,
+        at_update: bool,
+        in_the_step: u32,
+        in_update: u32,
+    }
+    let mut app = build_rollback_demo_app();
+    app.init_resource::<Seen>();
+    app.add_systems(
+        First,
+        |restored: Res<SaveRestored>, mut seen: ResMut<Seen>| seen.at_first = restored.0,
+    );
+    app.add_systems(
+        Update,
+        (|restored: Res<SaveRestored>, mut seen: ResMut<Seen>| {
+            seen.at_update = restored.0;
+            if !seen.at_first && restored.0 {
+                seen.in_the_step += 1;
+            }
+        })
+        .before(DurableRestoreSet::Lifecycle),
+    );
+    app.add_systems(
+        Last,
+        |restored: Res<SaveRestored>, mut seen: ResMut<Seen>| {
+            if !seen.at_update && restored.0 {
+                seen.in_update += 1;
+            }
+        },
+    );
+    start_gameplay_under_sync_test(&mut app);
+    for _ in 0..60 {
+        app.update();
+    }
+    ambition_platformer2d::rollback::session_health(app.world())
+        .expect("the run stays checksum-identical across the save's application");
+    let seen = app.world().resource::<Seen>();
+    (seen.in_the_step, seen.in_update)
+}
+
+/// The save is applied by the simulation, once, and never by `Update`. This
+/// body is born only once GGRS runs the simulation, so the save is applied on
+/// the timeline; the restore chain runs in the simulation schedule, from
+/// rollback state, so a rewind past it applies it again on the same tick and the
+/// sync test stays healthy (BODY-BORN-ON-THE-TIMELINE).
+#[test]
+fn the_save_is_applied_by_the_simulation() {
+    assert_eq!(where_the_save_is_applied(), (1, 0));
+}

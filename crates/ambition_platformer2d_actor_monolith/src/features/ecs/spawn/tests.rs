@@ -508,6 +508,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
         turns_at_walls: false,
         ground_ends_ahead: false,
         attack_kit: Vec::new(),
+        melee_reach: None,
         actor_aerial: false,
         alive: true,
         target_pos: ae::Vec2::new(72.0, 0.0),
@@ -796,7 +797,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1128,7 +1129,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1257,7 +1258,7 @@ mod authored_enemy_reads_its_character {
                     &profiles,
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1445,7 +1446,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1586,7 +1587,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1652,7 +1653,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1710,7 +1711,7 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &authored,
                     &[],
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
                 );
             },
@@ -1885,10 +1886,31 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
 /// driver); this pins the BEHAVIOUR.
 #[test]
 fn a_spawn_request_on_the_bus_becomes_a_body() {
-    use ambition_characters::brain::Brain;
+    let mut app = spawn_request_app();
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
+    app.update();
+    assert_eq!(
+        bodies_built(&mut app),
+        1,
+        "one SpawnCommand on the bus must build exactly one body — the encounter \
+         domain asks and this crate constructs"
+    );
+}
+
+/// With no generation, no session runs (`SessionMechanics`), and the service
+/// builds no body.
+#[test]
+fn a_spawn_request_with_no_generation_builds_no_body() {
+    let mut app = spawn_request_app();
+    app.update();
+    assert_eq!(bodies_built(&mut app), 0, "a body was built with no generation");
+}
+
+/// The spawn service alone, with one `SpawnCommand` on the bus and no
+/// generation.
+fn spawn_request_app() -> App {
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.insert_resource(smash_fixture_cast());
     app.add_message::<ambition_encounter::EncounterEventMsg>();
     app.add_systems(Update, super::serve_encounter_spawn_commands);
@@ -1905,14 +1927,12 @@ fn a_spawn_request_on_the_bus_becomes_a_body() {
                 size: [20.0, 30.0],
             },
         ));
+    app
+}
 
-    app.update();
-
-    let mut q = app.world_mut().query::<&Brain>();
-    assert_eq!(
-        q.iter(app.world()).count(),
-        1,
-        "one SpawnCommand on the bus must build exactly one body — the encounter \
-         domain asks and this crate constructs"
-    );
+fn bodies_built(app: &mut App) -> usize {
+    let mut q = app
+        .world_mut()
+        .query::<&ambition_characters::brain::Brain>();
+    q.iter(app.world()).count()
 }

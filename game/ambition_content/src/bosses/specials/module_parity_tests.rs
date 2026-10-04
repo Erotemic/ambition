@@ -206,8 +206,8 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
         .init_resource::<ambition_time::WorldTime>();
     {
         let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-        time.scaled_dt = DT;
-        time.raw_dt = DT;
+        time.set_sim_dt(DT);
+        time.set_wall_dt(DT);
     }
     match road {
         Road::NativeSystem => (technique.native)(&mut app),
@@ -279,7 +279,7 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
             boss.status,
             boss.health,
             BossAttackState::default(),
-            ambition_combat::components::ActorFaction::Boss,
+            ambition_characters::actor::ActorFaction::Boss,
             FeatureSimEntity,
         ));
         if let Some(target) = target {

@@ -373,7 +373,7 @@ fn spawn_fighter(
     character_id: &str,
     at: Vec2,
     facing: f32,
-    faction: ambition_combat::components::ActorFaction,
+    faction: ambition_characters::actor::ActorFaction,
 ) -> Entity {
     finalize(app);
     let prepared = app
@@ -463,12 +463,13 @@ fn spawn_fighter(
 fn fight_app() -> App {
     let mut app = App::new();
     app.add_plugins(CharacterRuntimePlugin);
+    // The generation the damage path reads: a fixture states an empty one.
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
     app.insert_resource(
         ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(EMPTY_CATALOG),
         ),
     );
-    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     // Both fighters author explicit rectangles, so no blade is resolved from
     // sprite data here; the resolver is still REQUIRED by `advance_move_playback`,
     // and `disabled()` is the content-free answer for a fixture.
@@ -479,8 +480,8 @@ fn fight_app() -> App {
     app.init_resource::<ambition_time::WorldTime>();
     {
         let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-        time.scaled_dt = TICK;
-        time.raw_dt = TICK;
+        time.set_sim_dt(TICK);
+        time.set_wall_dt(TICK);
     }
     ambition_combat::hitbox::register_strike_outcome_messages(&mut app);
     app.add_message::<ambition_combat::events::SetFlagRequested>();
@@ -601,14 +602,14 @@ fn two_provider_characters_trade_damage_through_the_real_damage_path() {
         "mary_o",
         Vec2::new(0.0, 0.0),
         1.0,
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
     );
     let sanic = spawn_fighter(
         &mut app,
         "sanic",
         Vec2::new(22.0, 0.0),
         -1.0,
-        ambition_combat::components::ActorFaction::Npc,
+        ambition_characters::actor::ActorFaction::Npc,
     );
     assert_eq!(health(&app, mary), 10);
     assert_eq!(health(&app, sanic), 10);
@@ -683,14 +684,14 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
         "mary_o",
         Vec2::new(0.0, 0.0),
         1.0,
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
     );
     let sanic = spawn_fighter(
         &mut app,
         "sanic",
         Vec2::new(sanic_x, 0.0),
         -1.0,
-        ambition_combat::components::ActorFaction::Npc,
+        ambition_characters::actor::ActorFaction::Npc,
     );
     press_attack(&mut app, mary);
     finalize_and_update(&mut app);
@@ -790,14 +791,14 @@ fn a_dying_body_dies_in_its_own_voice() {
         "mary_o",
         Vec2::new(0.0, 0.0),
         1.0,
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
     );
     let sanic = spawn_fighter(
         &mut app,
         "sanic",
         Vec2::new(22.0, 0.0),
         -1.0,
-        ambition_combat::components::ActorFaction::Npc,
+        ambition_characters::actor::ActorFaction::Npc,
     );
 
     // Mary-O's stomp authors 3 damage against 10 HP, and a struck body holds

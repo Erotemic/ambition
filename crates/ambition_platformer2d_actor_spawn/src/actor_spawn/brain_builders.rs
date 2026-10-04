@@ -342,32 +342,27 @@ fn skirmisher_brain_from_tuning(
     })
 }
 
-/// Build a `SmashCfg` from the archetype's tuning row. Heavier archetypes
-/// (Brute) get a longer attack reach + slower chase; lighter archetypes
-/// (Skitter / Lurker) get a tighter engage band.
+/// Build a `SmashCfg` from the driver's policy and the body's own verbs.
 ///
-/// IMPORTANT: the archetype's `attack_range` in `character_archetypes.ron` is the
-/// AI-decision aggro distance (~150 px for goblins). That's the radius at which
-/// the brain commits to "I'm attacking this target", NOT the distance at which
-/// the swing actually hits. The melee swing's reach is in the `SwipeSpec::reach_px`
-/// (~28 px); the brain needs to close to roughly `body_half_width +
-/// swing_reach` before emitting MeleeAttack, otherwise the windup fires from too
-/// far away and the player walks out of the active window.
+/// The profile's `attack_range` is the distance at which the driver decides to
+/// go for a foe (about 150 px for a goblin). It is not the distance at which
+/// the swing hits.
+///
+/// The hit band is not built here. The moveset owns reach (Q35): `tick_smash`
+/// reads the reach of the body's attack move from the snapshot each tick and
+/// sets the three distance bands from it. The bands written here are those of
+/// a body with no attack move, which never swings.
 fn smash_cfg_from_spec(
     profile: &BrainProfile,
     tuning: &ActorTuning,
     body: ambition_platformer2d_core::AbilitySet,
 ) -> SmashCfg {
-    // Heavy vs striker base + per-archetype hit band + dash-to-close are
-    // projected onto `BrainProfile` at spawn (`smash_hit_band`,
-    // `smash_heavy`, `smash_sprint_to_close`), so this builder reads generic
-    // data rather than matching the roster enum. The 36 px hit-band
-    // fallback lives in the projection.
+    // Heavy vs striker base + dash-to-close are projected onto `BrainProfile`
+    // at spawn (`smash_heavy`, `smash_sprint_to_close`), so this builder reads
+    // generic data rather than matching the roster enum.
     // Duelist > heavy > striker. The duelist base brings the neutral game
     // (footsies / neutral hops / spacing + retreat) that makes a platform
-    // fighter MOVE instead of camping point-blank; `attack_range` /
-    // `engage_distance` are still overridden from the body's hit band below, so
-    // the spacing weaves around the body's real reach.
+    // fighter MOVE instead of camping point-blank.
     let base = if profile.smash_duelist {
         SmashCfg::DUELIST_DEFAULT
     } else if profile.smash_heavy {
@@ -375,17 +370,8 @@ fn smash_cfg_from_spec(
     } else {
         SmashCfg::STRIKER_DEFAULT
     };
-    let hit_band = profile.smash_hit_band;
     SmashCfg {
         aggro_radius: profile.aggro_radius,
-        attack_range: hit_band,
-        // Engage band: the brain holds position once inside this radius even if
-        // the swing is on cooldown. Slightly larger than `attack_range` so the
-        // actor does not bob in/out of engage as it inches forward through approach.
-        engage_distance: hit_band * 1.6,
-        // Retreat threshold — well inside the hit band so a player dashing into
-        // the goblin's space pushes it back rather than getting eaten.
-        too_close_distance: (hit_band * 0.5).max(18.0),
         chase_speed: profile.chase_speed(tuning.max_run_speed),
         retreat_speed: profile.chase_speed(tuning.max_run_speed) * 0.75,
         // Goblins dash to close a large gap (richer action set: melee +
@@ -401,6 +387,7 @@ fn smash_cfg_from_spec(
         can_shield: body.shield,
         ..base
     }
+    .with_hit_band(ambition_characters::brain::smash::NO_ATTACK_MOVE_HIT_BAND)
 }
 
 /// **WHO THINKS WHAT — the CPU cognition-stream policy and its one authored

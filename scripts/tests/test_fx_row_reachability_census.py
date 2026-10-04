@@ -1,8 +1,9 @@
 """The fx-row census, which a maintainer decision rests on.
 
-`awaiting-maintainer-decision.md` Q81 asks what to do with the mostly-unreferenced
-FX rows for `npc_pirate_admiral` and `smash_george_booul`. The exact population is
-owned by this census rather than copied into the decision ledger.
+The Q81 ruling (`maintainer-decisions.md`, 2026-10-04) keeps the mostly-unreferenced
+FX rows for `npc_pirate_admiral` and `smash_george_booul` as future art, and
+`demos/smash-parity-inventory.md` plans their consumers. The exact population is
+owned by this census rather than copied into the ledger or the plan.
 
 ⛔ THE SCRIPT IS FLAT — no functions, so there is nothing to unit-test. The
 honest guard is to RUN it and check the invariants its own output must satisfy,

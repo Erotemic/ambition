@@ -8,6 +8,7 @@ This is the repository operating guide for coding agents. Keep it short, session
 * Find the elegant solution. Jon will push back on hacks.
 * Correctness is emergent from elegance.
 * **Pre-release engine, zero dependents.** Behavior and feel are NOT sacred until a polish pass — optimize for the elegant unified design, not for preserving current output. Delete duplicates, compat shims, and bridges on sight. Never fold a richer path onto a simpler one to "preserve" it; make the richer/general path universal and delete the rest.
+* **Usage is not worth.** Never delete an engine concept only because it has no current customer, and never keep one only because it is heavily used. Keep, redesign or delete on semantics, elegance, plausible expressive value and maintenance cost (maintainer ruling Q74; `docs/reviewer-guide.md#keep-redesign-or-delete-usage-is-not-worth`).
 * Unified actors. Player / Enemy / Boss / NPC are controller, capabilities, and authored data—not separate engine types.
 * **ONE BODY, ONE PATH.** The player is an actor; controller kind does not define a simulation path. Before adding behavior keyed to player/enemy/boss, check whether the behavior already exists for another controller kind. If so, unify onto one shared body/capability seam and delete the duplicate path. Do not add a parallel implementation “for now.” See `docs/concepts/one-body-one-path.md`.
 * All new comments and documentation must be written in ASD-STE100 Simplified Technical English.
@@ -269,6 +270,8 @@ Add durable lessons to `dev/benchmark-candidates/`; never transient project stat
 ## Patch discipline
 
 * Do not hand-edit generated LDtk content.
+* A large LDtk (or other editor-format) diff is not a large semantic change. Before you keep, discard or review one, compare it with `python -m ambition_ldtk_tools.edit.semantic_diff semantic BEFORE AFTER` (run in `tools/ambition_ldtk_tools`) and separate authored changes from generated or serializer churn (Q62; `docs/planning/engine/authoring-and-tools.md`).
+* Do not resolve a divergent submodule by recency or by `git submodule update`; list each line's unique commits and keep the semantic superset (Q78, same doc).
 * Formatting is advisory, never an acceptance gate.
 * `./run_tests.sh` is the broad repository test backbone. Prefer narrower checks when they cover the touched invariant.
 * `cargo test -p <crate>` does not cover the `-D warnings` invariant. Use `scripts/check_no_warnings.py` when that invariant matters.
@@ -310,6 +313,8 @@ git -C <submodule> rev-list --count origin/main..HEAD
 ```
 
 Do not push another agent's uncommitted submodule work.
+
+Asset layout says what an asset is: source/editor products, runtime products and every quality tier (the top one too) live under roots that name them. Do not add a packager exclusion where a directory could say it (Q82). Quality is a presentation policy; gameplay must not depend on the highest-fidelity presentation (Q84).
 
 Append-only ledgers are shared state. Commit your own appended rows and let repository merge configuration combine independent appends.
 

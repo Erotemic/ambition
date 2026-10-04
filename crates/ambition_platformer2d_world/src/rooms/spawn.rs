@@ -14,6 +14,7 @@ pub(super) fn block_kind_label(kind: ae::BlockKind) -> &'static str {
     match kind {
         ae::BlockKind::Solid => "solid",
         ae::BlockKind::BlinkWall { .. } => "blink wall",
+        ae::BlockKind::Barrier => "barrier",
         ae::BlockKind::OneWay => "one-way platform",
         ae::BlockKind::BonkOnly => "bonk-only block",
         ae::BlockKind::Hazard => "hazard",
@@ -120,14 +121,8 @@ fn clamp_spawn_to_room(world: &ae::World, pos: ae::Vec2, half: ae::Vec2) -> ae::
 fn player_body_clear(world: &ae::World, center: ae::Vec2, half: ae::Vec2) -> bool {
     let body = ae::Aabb::new(center, half);
     !world.body_overlaps_any(body, |block| {
-        matches!(
-            block.kind,
-            ae::BlockKind::Solid
-                | ae::BlockKind::BlinkWall { .. }
-                | ae::BlockKind::OneWay
-                | ae::BlockKind::Hazard
-                | ae::BlockKind::Rebound { .. }
-        )
+        ae::collision_semantics::is_support_surface(block.kind)
+            || matches!(block.kind, ae::BlockKind::Hazard | ae::BlockKind::Rebound { .. })
     })
 }
 

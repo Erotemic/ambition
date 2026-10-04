@@ -1134,7 +1134,8 @@ def build_parts_variant(ron_src: Path, ron_dst: Path, variant: Variant) -> int:
     The factor is the sibling sheet's (`effective_scale`), so the parts and the
     sheet frames of one tier have one texel density; it is written as
     `texel_scale`. Only `parts` change: the draws stay in full-resolution sheet
-    pixels, which are gameplay coordinates and have no tier.
+    pixels, which are gameplay coordinates and have no tier, so a tier table
+    publishes none (its `clips` are empty).
     """
     sheet_ron = ron_src.with_name(ron_src.name.removesuffix("_parts.ron") + "_spritesheet.ron")
     if not sheet_ron.exists():
@@ -1172,6 +1173,15 @@ def build_parts_variant(ron_src: Path, ron_dst: Path, variant: Variant) -> int:
     _set_list_field(root, "pages", [Str(name) for name in names])
     root.fields = [(k, v) for k, v in root.fields if k != "texel_scale"]
     root.fields.insert(1, ("texel_scale", Num(repr(factor))))
+    # ⛔ THE DRAWS ARE NOT COPIED. They are sheet pixels and have no tier; the
+    # runtime takes them from the full-resolution table
+    # (`RiggedSpriteAsset::for_tier`), which reads only a tier's parts, pages
+    # and texel scale. Copied, each tier of the robot's table was 3 MB more RON
+    # baked into the build and parsed again for every realization at that tier
+    # (120 ms, 2026-10-03).
+    root.fields = [
+        (k, Map_([]) if k == "clips" else v) for k, v in root.fields if k not in ("tracks", "baked_clips")
+    ]
     ron_dst.parent.mkdir(parents=True, exist_ok=True)
     for image, name in zip(packed.pages, names):
         dst = ron_dst.parent / name
@@ -1212,11 +1222,22 @@ def publish_source_quality_target(
     source_scale = effective_source_quality_scale(variant)
     if variant.suffix == "potato":
         source_scale = max(source_scale, POTATO_SOURCE_RENDER_FLOOR)
-    target.render_sheet(
-        out_dir,
-        quality_scale=source_scale,
-        downsample="nearest" if variant.suffix == "potato" else "lanczos",
-    )
+    from ambition_sprite2d_renderer.authoring.sheet_build import quality_tier_render
+
+    # ⛔ A tier render publishes no part flipbook: a tier table must name the
+    # FULL flipbook's parts, so it is derived from that one below
+    # (`build_parts_variant`). Recorded again at the tier's scale, a shape
+    # recording merged differently and 71 tier tables named another part
+    # count, which the game refuses (2026-10-03). A stale one from an older
+    # run must not be installed either.
+    for stale in out_dir.glob("*_parts*"):
+        stale.unlink()
+    with quality_tier_render():
+        target.render_sheet(
+            out_dir,
+            quality_scale=source_scale,
+            downsample="nearest" if variant.suffix == "potato" else "lanczos",
+        )
     if variant.suffix == "potato" and source_scale > variant.nominal_scale:
         ron_src = out_dir / f"{target.name}_spritesheet.ron"
         if not ron_src.exists():

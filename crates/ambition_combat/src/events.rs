@@ -161,6 +161,25 @@ pub struct RoomReplayAdmitted {
     /// the wait. `None` only where a composition genuinely has no controlled
     /// body and the replay is a room rebuild with nobody in it.
     pub subject: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId>,
+    /// An admitted request asked for a re-fight of the room's bosses. Content
+    /// that owns a re-fight (cut-rope's "try again") reads it here, and only
+    /// here: a refused request leaves nothing behind.
+    pub refight: bool,
+    /// The replay is a checkpoint restore (a death's resume, or a New Game).
+    /// A consequence kept since the checkpoint goes back wherever it happened,
+    /// as the bag does, except in the [`Self::spared`] rooms.
+    pub to_checkpoint: bool,
+    /// The live rooms a checkpoint restore does not take back: those another
+    /// participant holds. A death is local to its participant and room (Q151),
+    /// so Bob's boss defeat in his live room stays when Alice dies in hers.
+    /// Empty for a New Game, which restarts the whole session, and for an
+    /// ordinary replay, which is of one room.
+    pub spared: Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    /// The participants a checkpoint restore does not take back: every one
+    /// but the participant whose death it is. A defeat one of them won stays
+    /// also after its room retired, except in the dying participant's own
+    /// room (Q151). Empty for a New Game and for an ordinary replay.
+    pub spared_participants: Vec<ambition_characters::control::PlayerSlot>,
 }
 
 /// "A fresh attempt at this room begins here" — the union of a room LOAD and an
@@ -172,6 +191,12 @@ pub struct RoomReplayAdmitted {
 /// is rebuilt by a load and when an admitted replay redoes the attempt in place.
 /// Every consumer of that fact was reading the two messages itself and
 /// re-solving the same cursor rule below, in its own words.
+///
+/// ⚠ It answers "in ANY room" or "in a named definition", never "in which live
+/// room". Per-attempt state that must be kept per live room
+/// (`AttemptScoped`: the broken bricks, spent power blocks and spent monitors)
+/// is keyed by `LiveRoomInstance` and reads no message; a queued player hit is
+/// the remaining customer.
 ///
 /// ⛔⛔ THE CURSOR RULE, which is the whole reason this is a type and not a
 /// convention: BOTH readers must be drained EVERY frame, unconditionally. The
@@ -245,7 +270,38 @@ impl RoomReplayAdmitted {
         Self {
             reason,
             subject: None,
+            refight: false,
+            to_checkpoint: false,
+            spared: Vec::new(),
+            spared_participants: Vec::new(),
         }
+    }
+
+    /// Mark this replay as a checkpoint restore ([`Self::to_checkpoint`]).
+    #[must_use]
+    pub fn to_the_checkpoint(mut self) -> Self {
+        self.to_checkpoint = true;
+        self
+    }
+
+    /// A checkpoint restore that leaves these live rooms as they are.
+    #[must_use]
+    pub fn sparing(
+        mut self,
+        rooms: Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Self {
+        self.spared = rooms;
+        self
+    }
+
+    /// A checkpoint restore that leaves what these participants won.
+    #[must_use]
+    pub fn sparing_participants(
+        mut self,
+        participants: Vec<ambition_characters::control::PlayerSlot>,
+    ) -> Self {
+        self.spared_participants = participants;
+        self
     }
 
     /// A deliberate retry with no named subject.

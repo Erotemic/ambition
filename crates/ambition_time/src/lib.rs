@@ -69,7 +69,7 @@ pub enum ClockDomain {
 /// leaving this resource shared.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct ClockState {
-    /// `raw_dt * time_scale` is the canonical sim dt. See [`WorldTime`].
+    /// `wall_dt * time_scale` is the canonical sim dt. See [`WorldTime`].
     pub time_scale: f32,
 }
 
@@ -80,7 +80,8 @@ impl Default for ClockState {
 }
 
 /// The canonical timeline (netcode N0.1): the index of the simulation step
-/// currently executing, counting from `0`.
+/// currently executing in this gameplay session. The first step is `1`; `0`
+/// names the moment before the first step.
 ///
 /// This is the clock that identifies a moment of simulation — not a wall-clock
 /// instant and not a rendered frame. N0.2 input streams are keyed by it, N0.4
@@ -88,6 +89,15 @@ impl Default for ClockState {
 ///
 /// It advances even while gameplay is suspended — a paused world still has a timeline; its
 /// `sim_dt` is simply zero.
+///
+/// ⛔ SESSION-RELATIVE (`Q128`, decided 2026-10-03). The session-scope
+/// activation sets it back to `0`, beside the other session-scoped resources
+/// (`session/teardown.rs`). It is canonical rollback state, so its whole value
+/// is in the peer checksum. An absolute per-App count made two hosts that
+/// reached one route by different shell histories disagree from the first
+/// compared frame. A resource that stores a tick to compare with this clock
+/// later must be session-scoped too, or a reset makes it wait for a tick from
+/// the previous session.
 #[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SimTick(pub u64);
 
@@ -100,16 +110,14 @@ impl SimTick {
 
 /// Advance [`SimTick`] at the head of each sim step.
 ///
-/// The first executed step is tick `0`, so the counter names *the step now
-/// running* rather than the number of steps completed — that is the index a
-/// recorded input frame and a post-step state hash must agree on. `first_step`
-/// is what buys that off-by-one: the head of step 0 must not increment.
-pub fn advance_sim_tick(mut tick: ResMut<SimTick>, mut first_step: Local<bool>) {
-    if *first_step {
-        tick.0 = tick.0.wrapping_add(1);
-    } else {
-        *first_step = true;
-    }
+/// The value names *the step now running*. The tick before the first step is
+/// `0`, so the first step is `1`, and "the next step" is always `tick + 1`.
+/// The state is all in the resource: a reset to `0` restarts the count exactly,
+/// and a rewind restores it with the snapshot. (A `Local` that skipped the
+/// first increment did neither: a reset could not clear it, and a rewind to
+/// the first frame did not restore it.)
+pub fn advance_sim_tick(mut tick: ResMut<SimTick>) {
+    tick.0 = tick.0.wrapping_add(1);
 }
 
 /// ADR 0011 — per-entity proper-time scale. `1.0` means
@@ -187,27 +195,47 @@ impl PresentationTime<'_> {
 
 /// Per-simulation-step dt snapshot. Prefer [`WorldTime::sim_dt`] for authoritative gameplay.
 ///
-/// TODO(compat-remove): migrate callers off `raw_dt` / `scaled_dt`, then remove those alias
-/// fields and keep only the canonical time accessors.
+/// The two durations are read through [`WorldTime::wall_dt`] and
+/// [`WorldTime::sim_dt`], and written through [`WorldTime::new`],
+/// [`WorldTime::set_wall_dt`] and [`WorldTime::set_sim_dt`]. The fields are
+/// private, so there is one name for each duration.
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct WorldTime {
-    /// Unscaled duration of the current simulation step. Legacy alias for
-    /// [`WorldTime::wall_dt`]; presentation uses [`PresentationTime::wall_dt`].
-    pub raw_dt: f32,
-    /// `raw_dt * ClockState::time_scale`. The canonical dt for gameplay
-    /// timers and simulation-owned animation state. Zero
-    /// while paused (`time_scale == 0`). Legacy alias for
-    /// [`WorldTime::sim_dt`].
-    pub scaled_dt: f32,
+    /// Unscaled duration of the current simulation step. Presentation uses
+    /// [`PresentationTime::wall_dt`].
+    wall_dt: f32,
+    /// `wall_dt * ClockState::time_scale`. The canonical dt for gameplay
+    /// timers and simulation-owned animation state. Zero while paused
+    /// (`time_scale == 0`).
+    sim_dt: f32,
 }
 
 impl WorldTime {
+    /// A step of `wall_dt` seconds of wall time and `sim_dt` seconds of
+    /// simulation time.
+    #[inline]
+    pub const fn new(wall_dt: f32, sim_dt: f32) -> Self {
+        Self { wall_dt, sim_dt }
+    }
+
+    /// Set the simulation duration of this step.
+    #[inline]
+    pub fn set_sim_dt(&mut self, sim_dt: f32) {
+        self.sim_dt = sim_dt;
+    }
+
+    /// Set the wall duration of this step.
+    #[inline]
+    pub fn set_wall_dt(&mut self, wall_dt: f32) {
+        self.wall_dt = wall_dt;
+    }
+
     /// Dt for the gameplay sim clock — bullet-time / hitstop / pause
     /// scale this. Canonical choice for world-anchored timers,
     /// animation, AI ticks, and any gameplay state machine.
     #[inline]
     pub fn sim_dt(&self) -> f32 {
-        self.scaled_dt
+        self.sim_dt
     }
 
     /// Unscaled duration of this simulation step. This legacy accessor remains
@@ -215,7 +243,7 @@ impl WorldTime {
     /// UI, audio, and debug systems use [`PresentationTime::wall_dt`] instead.
     #[inline]
     pub fn wall_dt(&self) -> f32 {
-        self.raw_dt
+        self.wall_dt
     }
 
     /// The scale this step was taken at: `sim_dt / wall_dt`, read from the same
@@ -223,8 +251,8 @@ impl WorldTime {
     /// itself. `0.0` for a zero-length step, which advanced nothing at any scale.
     #[inline]
     pub fn time_scale(&self) -> f32 {
-        if self.raw_dt > 0.0 {
-            self.scaled_dt / self.raw_dt
+        if self.wall_dt > 0.0 {
+            self.sim_dt / self.wall_dt
         } else {
             0.0
         }
@@ -266,8 +294,8 @@ pub fn refresh_world_time(
     mut world_time: ResMut<WorldTime>,
 ) {
     let raw = time.delta_secs();
-    world_time.raw_dt = raw;
-    world_time.scaled_dt = raw * clock.time_scale;
+    world_time.wall_dt = raw;
+    world_time.sim_dt = raw * clock.time_scale;
 }
 
 /// Drop-in producer for a frame-stepped host: installs [`ClockState`] and [`WorldTime`], then
@@ -307,10 +335,7 @@ mod tests {
 
     #[test]
     fn sp_player_clock_equals_sim_clock() {
-        let wt = WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 240.0,
-        };
+        let wt = WorldTime::new(1.0 / 60.0, 1.0 / 240.0);
         assert_eq!(wt.sim_dt(), 1.0 / 240.0);
         assert_eq!(wt.player_dt(ClockObserver::PRIMARY), wt.sim_dt());
         assert_eq!(wt.player_dt(ClockObserver(7)), wt.sim_dt());
@@ -318,20 +343,14 @@ mod tests {
 
     #[test]
     fn wall_dt_ignores_sim_scale() {
-        let wt = WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 0.0,
-        };
+        let wt = WorldTime::new(1.0 / 60.0, 0.0);
         assert_eq!(wt.wall_dt(), 1.0 / 60.0);
         assert_eq!(wt.sim_dt(), 0.0);
     }
 
     #[test]
     fn dt_for_dispatches_by_domain() {
-        let wt = WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 480.0,
-        };
+        let wt = WorldTime::new(1.0 / 60.0, 1.0 / 480.0);
         assert_eq!(wt.dt_for(ClockDomain::SimClock), wt.sim_dt());
         assert_eq!(wt.dt_for(ClockDomain::WallClock), wt.wall_dt());
         assert_eq!(
@@ -341,30 +360,14 @@ mod tests {
     }
 
     #[test]
-    fn legacy_fields_alias_new_accessors() {
-        let wt = WorldTime {
-            raw_dt: 0.016,
-            scaled_dt: 0.004,
-        };
-        assert_eq!(wt.raw_dt, wt.wall_dt());
-        assert_eq!(wt.scaled_dt, wt.sim_dt());
-    }
-
-    #[test]
     fn entity_dt_default_one_equals_sim_dt() {
-        let wt = WorldTime {
-            raw_dt: 0.016,
-            scaled_dt: 0.008,
-        };
+        let wt = WorldTime::new(0.016, 0.008);
         assert_eq!(wt.entity_dt(ProperTimeScale::ONE), wt.sim_dt());
     }
 
     #[test]
     fn entity_dt_scales_sim_dt_by_proper_time() {
-        let wt = WorldTime {
-            raw_dt: 0.016,
-            scaled_dt: 0.008,
-        };
+        let wt = WorldTime::new(0.016, 0.008);
         assert!((wt.entity_dt(ProperTimeScale(2.0)) - 0.016).abs() < 1e-7);
         assert!((wt.entity_dt(ProperTimeScale(0.5)) - 0.004).abs() < 1e-7);
     }
@@ -393,7 +396,7 @@ mod tests {
             .advance_by(std::time::Duration::from_millis(16));
         app.update();
         let wt = app.world().resource::<WorldTime>();
-        assert!(wt.raw_dt > 0.0);
+        assert!(wt.wall_dt() > 0.0);
         assert!((wt.sim_dt() - wt.wall_dt() * 0.5).abs() < 1e-7);
     }
 
@@ -417,10 +420,7 @@ mod tests {
     fn presentation_time_uses_render_delta_not_the_last_sim_tick() {
         let mut app = App::new();
         app.insert_resource(ClockState { time_scale: 0.25 });
-        app.insert_resource(WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.insert_resource(Time::<()>::default());
         app.init_resource::<ObservedPresentationTime>();
         app.add_systems(Update, capture_presentation_time);

@@ -16,7 +16,8 @@
 
 use bevy::prelude::*;
 
-use ambition_combat::components::{ActorFaction, CenteredAabb, DamageableVolumes};
+use ambition_combat::components::{CenteredAabb, DamageableVolumes};
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::events::HitEvent;
 use ambition_combat::hitbox::{apply_hitbox_damage, HitSide, Hitbox, HitboxHits, HitboxLifetime};
 use ambition_entity_catalog::{HurtboxKeyframe, HurtboxTimeline, VolumeShape};
@@ -441,8 +442,8 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     {
         let mut time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-        time.scaled_dt = 1.0 / 60.0;
-        time.raw_dt = 1.0 / 60.0;
+        time.set_sim_dt(1.0 / 60.0);
+        time.set_wall_dt(1.0 / 60.0);
     }
 
     let body = app

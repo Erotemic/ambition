@@ -1,8 +1,13 @@
 use super::*;
 use crate::components::Grudge;
 use crate::components::{
-    ActiveCombatant, ActorAggression, ActorDisposition, ActorFaction, ActorTarget, CenteredAabb,
+    ActiveCombatant,
+    ActorAggression,
+    ActorDisposition,
+    ActorTarget,
+    CenteredAabb,
 };
+use ambition_characters::actor::ActorFaction;
 use ambition_characters::control::DrivingParticipant;
 use ambition_characters::control::PlayerSlot;
 use ambition_platformer2d_core::BodyKinematics;
@@ -291,7 +296,7 @@ fn an_actor_with_no_foe_points_at_itself() {
 /// normally aggressive toward," driven by data, not a player hard-code.
 #[test]
 fn actor_targets_relationally_hostile_faction_when_no_player() {
-    use crate::components::ActorFaction;
+    use ambition_characters::actor::ActorFaction;
     let mut app = App::new();
     let mut relations = FactionRelations::default();
     relations.set_hostile(ActorFaction::Enemy, ActorFaction::Npc, true);
@@ -337,7 +342,7 @@ fn actor_targets_relationally_hostile_faction_when_no_player() {
 /// proving the relational pool is opt-in and nothing regresses by default.
 #[test]
 fn no_relation_no_player_yields_no_target() {
-    use crate::components::ActorFaction;
+    use ambition_characters::actor::ActorFaction;
     let mut app = App::new();
     app.insert_resource(FactionRelations::default());
     let enemy = app

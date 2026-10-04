@@ -18,7 +18,7 @@
 //! in production that is a component write, and a fixture that stood up the
 //! whole actor tick to perform it would be testing the scheduler.
 
-use super::update::attack_kit_of;
+use super::update::{attack_kit_of, melee_reach_of};
 
 use ambition_characters::actor::attack_gesture::{
     AttackGestureState, AttackGestureTuning, ResolvedAttackGesture,
@@ -1120,4 +1120,108 @@ fn a_move_this_body_keeps_landing_reaches_the_kit_already_worn() {
     );
     // ⭐ AND NO AUTHORITY AT ALL, which is a composition with no stale ring.
     assert_eq!(wear_of(None, "jab"), MoveWear::FRESH);
+}
+
+fn smash_brain() -> Brain {
+    use ambition_characters::brain::smash::{DifficultyProfile, SmashCfg, SmashState};
+    Brain::StateMachine(StateMachineCfg::Smash {
+        // No reaction delay and no chance: the press is the decision.
+        cfg: SmashCfg {
+            difficulty: DifficultyProfile {
+                reaction_delay_s: 0.0,
+                commit_probability: 1.0,
+                accuracy: 1.0,
+                ..DifficultyProfile::HARD
+            },
+            ..SmashCfg::STRIKER_DEFAULT
+        },
+        state: SmashState::default(),
+    })
+}
+
+/// A Smash brain swings where the hitbox of its attack move reaches (Q35).
+///
+/// The two bodies differ only in the hitbox of the one attack move. No
+/// profile number, sprite or action set differs. The foe stands at 60 px. The
+/// body whose hitbox ends at 40 px walks, and the body whose hitbox ends at
+/// 80 px swings.
+///
+/// The chain is the production one: `melee_reach_of` (the snapshot builder's
+/// own function) asks the moveset what the press starts, and `tick_smash`
+/// decides on the answer.
+#[test]
+fn a_smash_brain_swings_where_the_hitbox_of_its_move_reaches() {
+    use ambition_characters::brain::{ActionSet, MeleeActionSpec, SwipeSpec};
+    // `strike` puts a 6 px half extent at the offset: the leading edge is the
+    // offset plus 6.
+    let body_with = |offset: f32| {
+        ActorMoveset(MovesetContract {
+            verbs: BTreeMap::from([("attack".to_string(), "swing".to_string())]),
+            moves: vec![strike("swing", offset)],
+        })
+    };
+    let short = body_with(34.0);
+    let long = body_with(74.0);
+
+    let short_reach = melee_reach_of(Some(&short), true, false);
+    let long_reach = melee_reach_of(Some(&long), true, false);
+    assert_eq!(short_reach, Some(40.0), "the leading edge of the hitbox");
+    assert_eq!(long_reach, Some(80.0), "the hitbox moved, so the reach moved");
+
+    let actions = ActionSet {
+        melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+        ..ActionSet::peaceful()
+    };
+    let swings_at_60 = |melee_reach: Option<f32>| {
+        let Brain::StateMachine(StateMachineCfg::Smash { cfg, mut state }) = smash_brain() else {
+            panic!("fixture built a Smash brain");
+        };
+        let mut snapshot = BrainSnapshot::idle();
+        snapshot.target_pos = ae::Vec2::new(60.0, 0.0);
+        snapshot.target_alive = true;
+        snapshot.actor_on_ground = true;
+        snapshot.melee_reach = melee_reach;
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        ambition_combat::brain::smash::tick_smash(
+            &cfg,
+            &mut state,
+            &actions,
+            &snapshot,
+            None,
+            &mut frame,
+        );
+        frame.melee_pressed
+    };
+    assert!(
+        !swings_at_60(short_reach),
+        "a hitbox that ends at 40 px does not reach a foe at 60 px"
+    );
+    assert!(
+        swings_at_60(long_reach),
+        "a hitbox that ends at 80 px reaches a foe at 60 px"
+    );
+}
+
+/// The reach is that of the move the press starts in the body's real posture:
+/// a running body reads its dash attack, as `trigger_moveset_moves` starts it.
+/// It is a fact of the body, so no brain is asked (Q35): a brain that does not
+/// close to a hit band ignores it.
+#[test]
+fn the_reach_is_that_of_the_move_the_press_starts() {
+    let moveset = ActorMoveset(jab_uptilt_and_dash());
+    assert_eq!(
+        melee_reach_of(Some(&moveset), true, false),
+        Some(16.0),
+        "a standing body presses the jab"
+    );
+    assert_eq!(
+        melee_reach_of(Some(&moveset), true, true),
+        Some(46.0),
+        "a running body presses the dash attack"
+    );
+    assert_eq!(
+        melee_reach_of(None, true, false),
+        None,
+        "a body with no moveset has no attack move"
+    );
 }

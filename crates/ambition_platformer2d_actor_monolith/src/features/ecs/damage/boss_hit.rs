@@ -262,6 +262,7 @@ pub(crate) fn apply_boss_hit(
             kind: ParticleKind::Spark,
         });
         writers.debris.write(DebrisBurstMessage {
+            room,
             pos: boss.kin.pos,
             cue: PhysicsDebrisCue::BossRagdoll,
         });

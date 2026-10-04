@@ -50,23 +50,12 @@ pub fn adopt_occurrence_checkpoint_from_save(
     custody_baseline: Option<ResMut<CustodyBaseline>>,
 ) {
     // ⛔ THE POPULATION IS "EXACTLY ONE", NOT "AT LEAST ONE", AND THE SPELLING
-    // IS `complete_durable_restore`'S ON PURPOSE. This system is the only member
-    // of the restore chain that WRITES rollback state; the other two and the
-    // session-start gate (`durable_hydration_is_pending`) all ask for the
-    // singleton body. A wider guard here adopts the ledger on a population where
-    // the latch can never rise — so the write repeats from `Update` every frame,
-    // over a timeline the gate has already allowed to start.
-    //
-    // ⛔⛤ **AND THE SENTENCE ABOVE WAS A SPECIFICATION, NOT A READING, UNTIL
-    // 2026-09-19.** It said the spelling was the same and it was not: this
-    // query asked for `()` while the gate and the completer ask for
-    // `&BodyWallet`. "One primary player" and "one primary player carrying a
-    // wallet" are different populations, so a world with the first and not the
-    // second let this system write its checkpoint state while the gate it is
-    // supposed to agree with said there was no hydration to do. No shipped
-    // construction road produces that world — the player bundle supplies the
-    // wallet — so there is no witness to point at, which is exactly why a
-    // comment claiming the invariant was the only thing holding it.
+    // IS `complete_durable_restore`'S ON PURPOSE. The completer raises the
+    // latch only for one primary body with a wallet. A wider guard here adopts
+    // the ledger on a population where the latch can never rise, so the write
+    // repeats on every tick and overwrites the baselines the checkpoint commit
+    // keeps. Held by
+    // `a_population_the_restore_cannot_complete_on_is_written_to_by_nobody`.
     if restored.0 || bodies.single().is_err() {
         return;
     }
@@ -111,6 +100,52 @@ pub fn adopt_occurrence_checkpoint_from_save(
 /// [`adopt_occurrence_checkpoint_from_save`] above, which is a different trigger
 /// (the `SaveRestored` latch) rather than a second answer to this question.
 ///
+/// The save that a candidate session is built from: the save of ITS
+/// experience.
+///
+/// ⛔ NOT THE LIVE SAVE. A candidate is built hidden, before its route is
+/// activated, and the activation is what gives the live save to its
+/// experience (`ambition_persistence::save::hand_the_save_to`). Until
+/// 2026-10-04 the builder read `AmbitionGameSave`, so a candidate that was
+/// prepared while another experience played took the durable horizon of that
+/// experience. Measured in `app_it`
+/// (`a_session_prepared_while_another_experience_plays_is_built_from_its_own_save`):
+/// an Ambition session that replaced a Sanic session had, for its first 3
+/// frames, an item that Ambition's save says is gone for good. A fresh host
+/// with the same save never has it.
+///
+/// ⭐ THE VALUE IS THE ONE THE ACTIVATION HANDS OVER. Persistence puts the
+/// prepared save aside for its experience and changes no ownership, so a
+/// refused candidate leaves the live save with the session that plays.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct CandidateSave<'w> {
+    /// Absent in a composition with no durable horizon. An empty horizon is
+    /// the answer there.
+    live: Option<Res<'w, AmbitionGameSave>>,
+    /// Absent in an App that hosts one experience: the live save is its save.
+    ownership: Option<ResMut<'w, ambition_persistence::save::SaveOwner>>,
+    /// Absent in an App that persists nothing: no file is read.
+    root: Option<Res<'w, ambition_persistence::PersistenceRoot>>,
+}
+
+impl CandidateSave<'_> {
+    /// The durable horizon of a candidate session of `experience`.
+    pub fn horizon_of(&mut self, experience: &str) -> CandidateDurableHorizon {
+        let Some(live) = self.live.as_deref() else {
+            return CandidateDurableHorizon::default();
+        };
+        let Some(ownership) = self.ownership.as_deref_mut() else {
+            return CandidateDurableHorizon::from_save(live.data());
+        };
+        CandidateDurableHorizon::from_save(ambition_persistence::save::prepare_the_save_of(
+            experience,
+            ownership,
+            live,
+            self.root.as_deref().map(|root| root.0.as_path()),
+        ))
+    }
+}
+
 /// A candidate session's durable horizon, held as a VALUE.
 ///
 /// ⛔⛤ **REVIEW FINDING 1, 2026-09-15: PREPARING A CANDIDATE MUST NOT WRITE THE
@@ -140,19 +175,35 @@ pub struct CandidateDurableHorizon {
     /// horizon. `OwnedItemsBaseline`, the wallet and the rest do not participate
     /// in candidate room construction and are not pulled in here.
     minted: crate::items::pickup::minted_horizon::MintedItemBaseline,
+    /// What the save says about the bodies of the first room (dead, provoked,
+    /// cleared). The third value that construction reads from a save. It is
+    /// not installed: the first room commit reads it and no resource holds it.
+    fates: crate::construction::PersistedFates,
 }
 
 impl CandidateDurableHorizon {
     /// Read the save into a value. Touches no resource.
-    pub fn from_save(save: &AmbitionGameSave) -> Self {
-        let (rows, custody) = ledger_from_save(save.data());
+    ///
+    /// ⛔ THE SAVE OF THE CANDIDATE'S EXPERIENCE, which is not the live save
+    /// while another experience plays. [`CandidateSave::horizon_of`] is the
+    /// production caller.
+    pub fn from_save(save: &ambition_persistence::save_data::AmbitionGameSaveData) -> Self {
+        let (rows, custody) = ledger_from_save(save);
         let mut occurrences = AuthoredOccurrences::default();
         occurrences.adopt_rows(rows);
         Self {
             occurrences,
             custody,
-            minted: crate::items::pickup::minted_horizon::minted_baseline_from_save(save.data()),
+            minted: crate::items::pickup::minted_horizon::minted_baseline_from_save(save),
+            fates: crate::construction::PersistedFates::from_save(save),
         }
+    }
+
+    /// What the commit of the candidate's first room reads for the fates of
+    /// its bodies: the candidate's own save. No occurrence is scheduled to
+    /// return, because the world-time schedule of a new session is empty.
+    pub fn first_room_facts(&self) -> crate::construction::CommitFactsSource {
+        crate::construction::CommitFactsSource::Stated(self.fates.clone())
     }
 
     /// What the candidate's construction reads to rebuild a runtime mint.
@@ -172,6 +223,7 @@ impl CandidateDurableHorizon {
             occurrences,
             custody,
             minted,
+            fates: _,
         } = self;
         if let Some(mut live) = world.get_resource_mut::<AuthoredOccurrences>() {
             *live = occurrences.clone();
@@ -251,50 +303,6 @@ fn adopt_the_ledger(
 /// touch only their own state; this system states that every adopter in the
 /// chain has had its turn. Keeping the request here prevents an item or lifecycle
 /// domain from becoming the coordinator for its siblings.
-/// Is a durable restore IN FLIGHT in this world — as opposed to finished, or
-/// never applicable here?
-///
-/// ⛔⛤ **THREE-VALUED ON PURPOSE, AND A BOOLEAN LATCH IS THE TRAP.**
-/// [`SaveRestored`] answers "has the adventure's save been applied", and the
-/// obvious reading of `false` — "not yet, wait" — is wrong for any composition
-/// that will never apply one. [`complete_durable_restore`] below needs exactly
-/// one `PrimaryPlayerOnly` body carrying a `BodyWallet`; a smash match never has
-/// that singleton, so its latch reads `false` for the whole process. Measured:
-/// gating GGRS session start on the bare latch failed 66 app tests with *"the
-/// match seats a first fighter"* and *"the opening ceremony never released the
-/// cast"* — every smash composition hung at session start, because "nothing to
-/// hydrate" and "hydration pending" are the same bit.
-///
-/// ⇒ So the question a session-start gate must ask is PENDING, not `!restored`:
-/// the save is unapplied AND this world has the body that lets it be applied.
-///
-/// ⭐ ONE FACT, ONE OWNER. `maintain_local_session` in
-/// `ambition_platformer2d_rollback_ggrs` calls this rather than mirroring a
-/// readiness flag into a lower layer — the latch is read where it lives, over a
-/// dependency edge that already exists.
-///
-/// ⚠ **THE BODY CONDITION RESTATES `complete_durable_restore`'S OWN, AND THE
-/// DRIFT IS GUARDED BY THOSE 66 TESTS.** If this predicate ever says "pending"
-/// where the system says "cannot complete", every smash fixture in `app_it`
-/// hangs again and says so by name. Keep the two in step; do not narrow this one
-/// without narrowing that one.
-pub fn durable_hydration_is_pending(world: &mut World) -> bool {
-    if world
-        .get_resource::<SaveRestored>()
-        .is_none_or(|restored| restored.0)
-    {
-        return false;
-    }
-    world
-        .query_filtered::<
-            &ambition_characters::actor::BodyWallet,
-            ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
-        >()
-        .iter(world)
-        .count()
-        == 1
-}
-
 pub fn complete_durable_restore(
     mut restored: ResMut<SaveRestored>,
     save: Res<AmbitionGameSave>,
@@ -328,7 +336,7 @@ pub enum DurableHorizonSet {
     SessionMirror,
 }
 
-/// Where a loaded file is applied, in top-level `Update`.
+/// Where a loaded file is applied, in the simulation schedule.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DurableRestoreSet {
     /// The lifecycle/occurrence baseline, which the domains' restores build on.
@@ -371,9 +379,19 @@ pub fn install_durable_save_horizon(app: &mut App) {
     // it needs beyond theirs: it fires on the tick a conversation OPENED, so
     // running before the opening would mean the edge is gone by the next tick and
     // the visit is never counted at all.
+    //
+    // ⛔ AND AFTER THE ITEM RESIDENCY CHAIN. The custody rows are read from
+    // `InCustodyOf`, which is derived: a rollback load does not restore it, and
+    // `project_custody_onto_residency` inserts it again through `Commands` each
+    // tick. A mirror that ran before that projection read the value the latest
+    // forward frame left, not the value of the frame being resimulated, and the
+    // sync test saw the save's custody rows diverge after a release
+    // (SAVE-DIVERGES-AFTER-RELEASE). The edge also brings the command flush.
     app.configure_sets(
         sim,
-        (DurableHorizonSet::DomainMirror, DurableHorizonSet::SessionMirror).chain(),
+        (DurableHorizonSet::DomainMirror, DurableHorizonSet::SessionMirror)
+            .chain()
+            .after(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Project),
     );
     app.add_systems(
         sim,
@@ -385,47 +403,48 @@ pub fn install_durable_save_horizon(app: &mut App) {
             .chain()
             .in_set(DurableHorizonSet::SessionMirror),
     );
+    // ⭐ THE SAVE IS APPLIED BY THE SIMULATION (BODY-BORN-ON-THE-TIMELINE,
+    // 2026-10-03). The save, the latch and every value the chain writes are
+    // rollback state, so a step that applies the file is an ordinary
+    // deterministic step: a rewind past it restores the unapplied save and the
+    // resimulation applies it again, on the same tick, to the same values. Two
+    // peers with the same file apply it on the same tick, whether the body was
+    // built before the timeline started or by it.
+    //
+    // ⛔ IT USED TO RUN IN `Update`, and that needed three guards to be safe:
+    // a session-start gate (`Q135`) that waited for hydration, a check that no
+    // save was applied over a live timeline, and a declared exception for the
+    // compositions whose body is born on the timeline (where the gate had
+    // nothing to wait for). All three are gone with the window.
+    //
+    // ⚠ AT THE HEAD OF THE GAMEPLAY ROOT, after the clock names the tick and
+    // before the core step, so a conversation that opens on the first tick a
+    // body exists finds the save applied (the visit counter's `!restored` guard
+    // has nothing to drop).
     app.init_resource::<SaveRestored>()
-        // ⭐ `Update` IS A WINDOW HERE, NOT A WAIVER, AND THE ARGUMENT HAS
-        // THREE PARTS BECAUSE ANY ONE OF THEM ALONE IS INSUFFICIENT. The three
-        // restores (one per `DurableRestoreSet` slot, the item domain's among
-        // them) write only while `SaveRestored` is false; the latch rises once and
-        // has no `true -> false` transition left in the workspace (a New Game
-        // restores through the checkpoint commit and does not touch it); and `maintain_local_session` refuses to start a
-        // rollback session while `durable_hydration_is_pending`. ⇒ These three
-        // run strictly before frame zero of any session, so the rewind they
-        // would otherwise lose their writes to does not exist yet.
-        //
-        // ⛔ THAT HOLDS ONLY WHILE THE GATE AND THESE GUARDS ASK FOR THE SAME
-        // POPULATION. They did not until 2026-09-19: the gate wanted exactly
-        // one primary body and the adopter accepted any non-empty set, so two
-        // primary bodies let the session start over a chain that could never
-        // finish. Do not widen one of the four without widening all of them.
         .configure_sets(
-            Update,
+            sim,
             (
                 DurableRestoreSet::Lifecycle,
                 DurableRestoreSet::Domains,
                 DurableRestoreSet::Complete,
             )
-                .chain(),
+                .chain()
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
+                .after(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
+                .before(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation,
+                ),
         )
         .add_systems(
-            Update,
+            sim,
             (
                 // Lifecycle state first: the room/custody baseline must be present
                 // before the load asks the ordinary checkpoint-resume road to act.
                 adopt_occurrence_checkpoint_from_save.in_set(DurableRestoreSet::Lifecycle),
-                // The host-level completion point comes last: only now is the file
-                // fully applied, and only now may a checkpoint resume be requested.
+                // The completion point comes last: only now is the file fully
+                // applied, and only now may a checkpoint resume be requested.
                 complete_durable_restore.in_set(DurableRestoreSet::Complete),
-                // ⚠ THE MIRRORS USED TO CHAIN HERE AND ARE NOW IN THE SIM SCHEDULE
-                // ABOVE. Their "only after the latch is true" guard is unchanged and
-                // still theirs: each returns early on `!restored.0`. What changed is
-                // that the latch is now read from a schedule that runs BEFORE this
-                // one in the frame, so on the single frame the latch flips they
-                // mirror one frame later. They are value-compared and idempotent, so
-                // that costs a frame of freshness and nothing else.
             )
                 .chain(),
         );

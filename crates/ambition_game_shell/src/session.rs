@@ -328,6 +328,11 @@ impl Plugin for GameplaySessionBridgePlugin {
             // Empty by default. Providers with an SFX bank register its ids
             // here, so session SFX authority covers cues and bank content.
             .init_resource::<SfxBankRegistry>()
+            // The save handover (`hand_the_save_to_the_activating_experience`)
+            // is a session fact, so it does not wait for the file plugin.
+            .init_resource::<ambition_persistence::save::SaveOwner>()
+            .init_resource::<ambition_persistence::save::LastPersistedSave>()
+            .init_resource::<ambition_persistence::save::SaveFileWritable>()
             .add_message::<GameplaySessionEvent>()
             .add_message::<AudioContextChanged>()
             .configure_sets(
@@ -360,7 +365,59 @@ impl Plugin for GameplaySessionBridgePlugin {
                 )
                     .chain()
                     .in_set(GameplaySessionSet::Bridge),
+            )
+            // Before the providers publish the world: the first tick of the
+            // session reads the live save (the durable restore, the
+            // checkpoint).
+            //
+            // ⛔ NOT WHERE CONSTRUCTION GETS ITS SAVE. A session is built
+            // hidden, before this edge, while the live save still belongs to
+            // the session that plays. Its durable horizon comes from
+            // `ambition_persistence::save::prepare_the_save_of`, which puts
+            // aside the value that this system then hands over.
+            .add_systems(
+                Update,
+                hand_the_save_to_the_activating_experience
+                    .in_set(SessionScopeSet::Activate)
+                    .run_if(resource_exists::<ambition_persistence::save::AmbitionGameSave>),
             );
+    }
+}
+
+/// Give the save to the experience being activated (Q129, Q132).
+///
+/// The save is durable data, admitted into the session that owns it. Before
+/// this, one process-wide save went from experience to experience: Sanic's and
+/// Mary-O's room visits reached Ambition's save, so a host that had played
+/// them disagreed with a fresh host in the peer checksum. See
+/// [`ambition_persistence::save::SaveOwner`].
+fn hand_the_save_to_the_activating_experience(
+    mut events: MessageReader<GameplaySessionEvent>,
+    mut ownership: ResMut<ambition_persistence::save::SaveOwner>,
+    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
+    mut last: ResMut<ambition_persistence::save::LastPersistedSave>,
+    mut writable: ResMut<ambition_persistence::save::SaveFileWritable>,
+    // Absent in an App that persists nothing: no file is read.
+    root: Option<Res<ambition_persistence::PersistenceRoot>>,
+) {
+    for event in events.read() {
+        let GameplaySessionEvent::Activated { activation, .. } = event else {
+            continue;
+        };
+        let experience = activation.experience_id.as_str();
+        if ambition_persistence::save::hand_the_save_to(
+            experience,
+            &mut ownership,
+            &mut save,
+            &mut last,
+            &mut writable,
+            root.as_deref().map(|root| root.0.as_path()),
+        ) {
+            info!(
+                target: "ambition_platformer2d::save",
+                "the save now belongs to experience `{experience}`"
+            );
+        }
     }
 }
 

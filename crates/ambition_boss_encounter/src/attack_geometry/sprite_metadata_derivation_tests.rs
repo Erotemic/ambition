@@ -214,7 +214,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
             h: 83,
         }),
         body_pixel_parts: Vec::new(),
-        // Match the BOSS_SHEET render: `max(boss.size) * 1.6`
+        // Match the gradient sentinel's sheet render: `max(boss.size) * 1.6`
         // = `160 * 1.6` = `256` for a (128,160) spawn.
         sprite_render_size: ae::Vec2::new(256.0, 256.0),
         // Zero offset keeps `boss.aabb()` centered on `boss.pos`, so the

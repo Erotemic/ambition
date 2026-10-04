@@ -163,7 +163,7 @@ pub fn compose_ambition_visible_game(
     } else {
         super::shell_host::compose_ambition_shell_host_booting_to(
             app,
-            super::shell_host::AMBITION_GAMEPLAY_ROUTE,
+            ambition_content::provider::AMBITION_GAMEPLAY_ROUTE,
         );
     }
     // NO ROOM WITHOUT THIS. Losing this one line is what made the

@@ -29,10 +29,9 @@
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_boss_encounter`. |
 | [`roster`](src/roster.rs) | The lib's generic boss-encounter base. |
 | [`specs`](src/specs.rs) | App-local boss-encounter spec access. |
-| [`sprites`](src/sprites/mod.rs) | Compatibility facade for boss sprite-sheet types. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems: the per-frame driver. |
 
-_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_24 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

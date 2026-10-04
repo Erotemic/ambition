@@ -17,10 +17,7 @@ fn one_platform() -> MovingPlatformSet {
 
 fn app_with_one_platform(scaled_dt: f32) -> App {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, scaled_dt));
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         one_platform(),

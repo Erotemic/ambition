@@ -476,12 +476,12 @@ fn ambient_gravity_does_not_outlive_the_session_that_flipped_it() {
 
     let mut app = app_with_populated_mirrors();
     let flipped = ambition_platformer2d_core::Vec2::new(0.0, -1.0);
-    app.world_mut().insert_resource(BaseGravity { dir: flipped });
+    app.world_mut().insert_resource(BaseGravity::in_room(None, flipped));
 
     app.update();
     // ⚠ THE PREMISE: an unflipped fixture makes "reset to default" vacuous.
     assert_eq!(
-        app.world().resource::<BaseGravity>().dir,
+        app.world().resource::<BaseGravity>().dir_in(None),
         flipped,
         "the fixture never flipped gravity, so the assertions below compare the \
          default against itself"
@@ -491,8 +491,8 @@ fn ambient_gravity_does_not_outlive_the_session_that_flipped_it() {
         .write_message(SessionScopeRetired(SessionScopeId(0)));
     app.update();
     assert_eq!(
-        app.world().resource::<BaseGravity>().dir,
-        BaseGravity::default().dir,
+        app.world().resource::<BaseGravity>().dir_in(None),
+        BaseGravity::default().dir_in(None),
         "the retired session's flipped ambient gravity survived teardown, so the \
          next session starts upside down"
     );
@@ -500,13 +500,13 @@ fn ambient_gravity_does_not_outlive_the_session_that_flipped_it() {
     // ⭐ AND THE ACTIVATION EDGE, which is the one that is CORRECTNESS rather
     // than hygiene: whatever an abnormal exit left standing is overwritten by
     // the session about to fall through it.
-    app.world_mut().insert_resource(BaseGravity { dir: flipped });
+    app.world_mut().insert_resource(BaseGravity::in_room(None, flipped));
     app.world_mut()
         .write_message(SessionScopeActivated(SessionScopeId(1)));
     app.update();
     assert_eq!(
-        app.world().resource::<BaseGravity>().dir,
-        BaseGravity::default().dir,
+        app.world().resource::<BaseGravity>().dir_in(None),
+        BaseGravity::default().dir_in(None),
         "an activating session inherited the previous run's flipped gravity"
     );
 }
@@ -604,7 +604,7 @@ fn a_match_stamp_from_the_previous_session_cannot_reach_the_next_ones_first_matc
     // Session A's FIRST match — ordinal 0, which is the ordinal session B's
     // first match will also carry. That collision is the whole point: a stale
     // stamp from any LATER match of A would be caught by the ordinal alone.
-    let session_a_match_0 = ActiveMatch::activated(2, None, Some(SessionScopeId(1)), Some(900), Some(0));
+    let session_a_match_0 = ActiveMatch::activated(2, Some(SessionScopeId(1)), Some(900), Some(0));
     app.world_mut()
         .resource_mut::<ambition_match::StocksMatchSettled>()
         .settle(&session_a_match_0, MatchVerdict::Winner("left".to_owned()));
@@ -623,7 +623,7 @@ fn a_match_stamp_from_the_previous_session_cannot_reach_the_next_ones_first_matc
     // Session B's first match carries ordinal 0 as well, and its stamp differs
     // from A's only in the LOCAL term — which is exactly the term no peer
     // checksum may read.
-    let session_b_match_0 = ActiveMatch::activated(2, None, Some(SessionScopeId(2)), Some(12), Some(0));
+    let session_b_match_0 = ActiveMatch::activated(2, Some(SessionScopeId(2)), Some(12), Some(0));
     assert_eq!(
         session_a_match_0.instance().peer_match_digest(),
         session_b_match_0.instance().peer_match_digest(),
@@ -678,7 +678,6 @@ fn a_host_that_played(prior: SessionScopeId, prior_matches: u64, seats: usize) -
     }
     app.insert_resource(ActiveMatch::activated(
         seats,
-        None,
         Some(prior),
         // A local wall-clock-ish stamp; the two hosts differ here by
         // construction and nothing peer-compared may read it.
@@ -778,8 +777,8 @@ fn two_hosts_with_different_prior_match_histories_enter_a_session_with_the_same_
         .world_mut()
         .resource_mut::<SessionMatchOrdinal>()
         .take(Some(SessionScopeId(2)));
-    let a_receipt = ActiveMatch::activated(3, None, Some(SessionScopeId(7)), Some(4_000), Some(a_ordinal));
-    let b_receipt = ActiveMatch::activated(3, None, Some(SessionScopeId(2)), Some(11), Some(b_ordinal));
+    let a_receipt = ActiveMatch::activated(3, Some(SessionScopeId(7)), Some(4_000), Some(a_ordinal));
+    let b_receipt = ActiveMatch::activated(3, Some(SessionScopeId(2)), Some(11), Some(b_ordinal));
     assert_ne!(
         a_receipt, b_receipt,
         "the two receipts no longer differ locally, so their projections agreeing \

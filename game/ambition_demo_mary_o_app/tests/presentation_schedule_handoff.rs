@@ -145,7 +145,7 @@ fn assert_one_coherent_layout(app: &mut App, display: ae::Vec2, label: &str) {
 
 fn player_exists(app: &mut App) -> bool {
     app.world_mut()
-        .query::<&ambition_platformer2d::platformer::body::BodyKinematics>()
+        .query::<&ambition_platformer2d::actor::BodyKinematics>()
         .iter(app.world())
         .next()
         .is_some()

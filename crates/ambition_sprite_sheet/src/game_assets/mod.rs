@@ -51,6 +51,38 @@ pub fn load_sheet_image(
     handle
 }
 
+/// Load a part flipbook's atlas page (`rigged::RiggedSpritePages`): as
+/// [`load_sheet_image`], but its texels are read RAW, not decoded from sRGB.
+///
+/// ⛔ THE PARTS BLEND IN GAMMA SPACE, as the baked frame was composited (PIL
+/// blends stored sRGB values). The impostor composites them into a plain
+/// `Rgba8Unorm` target and its un-premultiplying pass decodes the result once.
+/// Decoded per page, the parts blended in linear light, and every
+/// anti-aliased outline over another part came out lighter: the robot's dark
+/// outline drew 102 where the baked frame has 1, blobs to 68 px (2026-10-03).
+/// Every reader of a part page loads it through here, the parity harness
+/// included, so the gate measures the road the game takes.
+pub fn load_part_page(
+    asset_server: &AssetServer,
+    source: &'static str,
+    path: impl Into<bevy::asset::AssetPath<'static>>,
+) -> Handle<Image> {
+    let path = path.into();
+    let label = path.to_string();
+    let render_world_only = images_render_world_only();
+    let handle = asset_server
+        .load_builder()
+        .with_settings(move |settings: &mut bevy::image::ImageLoaderSettings| {
+            settings.is_srgb = false;
+            if render_world_only {
+                settings.asset_usage = bevy::asset::RenderAssetUsages::RENDER_WORLD;
+            }
+        })
+        .load(path);
+    image_stages::note_demand(handle.id().untyped(), source, label);
+    handle
+}
+
 pub const IMAGES_RENDER_WORLD_ONLY_ENV: &str = "AMBITION_IMAGES_RENDER_WORLD_ONLY";
 
 /// Whether sheet images skip the main-world copy: on unless the environment
@@ -431,11 +463,9 @@ pub struct GameAssets {
     /// (rest/floor_slam/side_sweep/spike_halo/dash_echo/hit/death) that don't fit
     /// `CharacterAnim`. `None` falls back to the static `EntitySprite::BossCore`.
     pub boss: Option<BossSpriteAsset>,
-    /// Dedicated per-boss spritesheets, keyed by the boss's lowercased behavior id (`boss_key`)
-    /// — the renderer looks up `boss_sprites.get(&boss_key)` and falls back to `boss`.
-    ///
-    /// Multi-part bosses store their pieces under suffixed keys: GNU-ton's split
-    /// body/hands render reads `"gnu_ton_body"` / `"gnu_ton_hands"`.
+    /// Dedicated per-boss spritesheets, keyed by the boss catalog's sheet key
+    /// (`BossCatalog::sprite_filenames`) — the renderer looks up
+    /// `boss_sprites.get(&boss_key)` and falls back to `boss`.
     pub boss_sprites: HashMap<String, BossSpriteAsset>,
     /// Optional generated biome sky/background/parallax layers. Missing PNGs
     /// are fine: room rendering simply skips the extra layers and keeps the
@@ -498,9 +528,9 @@ impl FxSheetAssets {
 }
 
 impl GameAssets {
-    /// Dedicated boss spritesheet for `key` (the lowercased boss behavior id, or
-    /// a multi-part suffix like `"gnu_ton_hands"`), if one was loaded. The render
-    /// layer falls back to [`Self::boss`] when this is `None`.
+    /// Dedicated boss spritesheet for `key` (a boss catalog sheet key), if one
+    /// was loaded. The render layer falls back to [`Self::boss`] when this is
+    /// `None`.
     pub fn boss_sprite(&self, key: &str) -> Option<&BossSpriteAsset> {
         self.boss_sprites.get(key)
     }

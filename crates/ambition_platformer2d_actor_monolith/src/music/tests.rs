@@ -230,7 +230,7 @@ fn a_conversations_track_beats_the_rooms_own() {
         Some(&narrative("super_smash_siblings_theme")),
         None,
         &ActiveAudioSelection::default(),
-        &EncounterMusicRequest::default(),
+        None,
     );
     assert_eq!(
         candidates.first().map(String::as_str),
@@ -246,14 +246,14 @@ fn a_conversations_track_beats_the_rooms_own() {
 #[test]
 fn a_fight_outranks_a_conversations_track() {
     let mut encounter = EncounterMusicRequest::default();
-    encounter.claim_priority("test_boss", "you_are_too_slow");
+    encounter.claim_priority(None, "test_boss", "you_are_too_slow");
     let candidates = simple_track_candidates(
         room("for_emmy_forever_ago"),
         None,
         Some(&narrative("super_smash_siblings_theme")),
         None,
         &ActiveAudioSelection::default(),
-        &encounter,
+        encounter.desired_track(None),
     );
     assert_eq!(
         candidates.first().map(String::as_str),
@@ -267,14 +267,14 @@ fn a_fight_outranks_a_conversations_track() {
 #[test]
 fn a_rooms_fight_track_beats_the_fights_own_only_during_a_fight() {
     let mut fight = EncounterMusicRequest::default();
-    fight.claim_priority("test_boss", "flying_spaghetti_monster_roots_boss_choir_backing");
+    fight.claim_priority(None, "test_boss", "flying_spaghetti_monster_roots_boss_choir_backing");
     let candidates = simple_track_candidates(
         room("for_emmy_forever_ago"),
         room("crooked_ascent_boss"),
         None,
         None,
         &ActiveAudioSelection::default(),
-        &fight,
+        fight.desired_track(None),
     );
     assert_eq!(
         candidates.iter().map(String::as_str).take(2).collect::<Vec<_>>(),
@@ -288,7 +288,7 @@ fn a_rooms_fight_track_beats_the_fights_own_only_during_a_fight() {
         None,
         None,
         &ActiveAudioSelection::default(),
-        &EncounterMusicRequest::default(),
+        None,
     );
     assert_eq!(
         quiet.first().map(String::as_str),
@@ -310,7 +310,7 @@ fn an_empty_id_is_not_a_claim() {
         Some(&narrative("")),
         None,
         &ActiveAudioSelection::default(),
-        &EncounterMusicRequest::default(),
+        None,
     );
     assert_eq!(
         candidates.first().map(String::as_str),
@@ -392,4 +392,239 @@ fn a_cleared_encounter_stops_asking_once_its_outro_has_run_out() {
         None,
         "a session starting on a cleared fight played its outro"
     );
+}
+
+// ── The room the music plays for ───────────────────────────────────────────
+
+/// The music intent's candidates with two live rooms (`hall`, the activation
+/// room, and `chapel`), the primary body in `chapel`, and a fight track
+/// claimed in `fight_in`.
+fn candidates_with_two_rooms(
+    fight_in: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+) -> Vec<String> {
+    candidates_with_bob(Some(fight_in), None)
+}
+
+/// [`candidates_with_two_rooms`], with the fight optional and a second
+/// participant's body (slot 1) standing in `bob_in`.
+fn candidates_with_bob(
+    fight_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    bob_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) -> Vec<String> {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, session_world_component, InRoomInstance,
+        LiveRoomInstance, RoomInstanceRoot,
+    };
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.init_resource::<ambition_audio::music::AdaptiveMusicCatalogRegistry>();
+    app.init_resource::<ActiveAudioSelection>();
+    app.init_resource::<ambition_audio::music::MusicIntent>();
+    let room = |id: &str, track: &str| {
+        let mut spec = ambition_platformer2d_world::rooms::RoomSpec::new(
+            id,
+            ambition_platformer2d_core::World::new(id, Vec2::new(800.0, 600.0), Vec2::new(16.0, 16.0), Vec::new()),
+        );
+        spec.metadata.music_track = Some(track.to_string());
+        spec
+    };
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "hall",
+            vec![room("hall", "hall_theme"), room("chapel", "chapel_theme")],
+            Vec::new(),
+        ),
+    );
+    let chapel = session_world_component::<ambition_platformer2d_world::rooms::RoomSet>(app.world())
+        .and_then(|rooms| rooms.definition_by_id("chapel"))
+        .expect("the set has `chapel`");
+    let second = LiveRoomInstance::ACTIVATION.next();
+    app.world_mut().spawn((RoomInstanceRoot, second, chapel));
+    app.world_mut()
+        .spawn((ambition_platformer2d_shared_tangle::body::PrimaryBody, InRoomInstance(second)));
+    if let Some(room) = bob_in {
+        app.world_mut().spawn((
+            ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(1)),
+            InRoomInstance(room),
+        ));
+    }
+    let mut music = EncounterMusicRequest::default();
+    if let Some(room) = fight_in {
+        music.claim_priority(Some(room), "test_boss", "fight_theme");
+    }
+    insert_session_world_component(app.world_mut(), music);
+    app.add_systems(Update, super::intent::compute_music_intent);
+    app.update();
+    app.world().resource::<ambition_audio::music::MusicIntent>().simple_track_candidates.clone()
+}
+
+/// With nobody else in a live room, the music plays for the primary seat's
+/// room. Two live rooms; the primary body is in `chapel` and no participant is
+/// in the hall. The intent offers chapel's music and not the hall's, and a
+/// fight is heard only when it is in chapel (the fight in chapel is the
+/// control). Before, the intent read the sole live room, so
+/// with two rooms it did not run and the music froze. Poisons: read the sole
+/// room (no candidates at all), hear every room's fight (the hall's fight is
+/// heard).
+#[test]
+fn the_music_plays_for_the_primary_seats_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    let hall = LiveRoomInstance::ACTIVATION;
+    let chapel = hall.next();
+    let in_chapel = candidates_with_two_rooms(chapel);
+    let in_hall = candidates_with_two_rooms(hall);
+    assert_eq!(
+        (
+            in_chapel.first().map(String::as_str),
+            in_chapel.contains(&"chapel_theme".to_string()),
+            in_chapel.contains(&"hall_theme".to_string()),
+        ),
+        (Some("fight_theme"), true, false),
+        "a fight in the primary seat's room, over its own music: {in_chapel:?}"
+    );
+    assert_eq!(
+        in_hall.first().map(String::as_str),
+        Some("chapel_theme"),
+        "a fight in the other room is not heard: {in_hall:?}"
+    );
+}
+
+/// Q150 and Q72: the music plays for the participants' room whose music has
+/// the highest authored priority. Bob (slot 1) stands in the hall, Alice (the
+/// primary seat) in chapel. Bob's boss fight in the hall outranks chapel's
+/// own music, so the hall's fight is heard. With no fight, both rooms play
+/// ambient music, the priorities tie, and Alice's chapel wins. With the fight
+/// in chapel, chapel wins on priority. The control is
+/// [`the_music_plays_for_the_primary_seats_room`]: with nobody in the hall,
+/// its fight is not heard. Poison: rank every room 0 (the primary always
+/// wins), and Bob's boss is not heard.
+#[test]
+fn a_participants_boss_outranks_the_primary_seats_room_music() {
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    let hall = LiveRoomInstance::ACTIVATION;
+    let chapel = hall.next();
+    let first = |candidates: Vec<String>| candidates.first().cloned();
+    assert_eq!(
+        (
+            first(candidates_with_bob(Some(hall), Some(hall))),
+            first(candidates_with_bob(None, Some(hall))),
+            first(candidates_with_bob(Some(chapel), Some(hall))),
+        ),
+        (
+            Some("fight_theme".to_string()),
+            Some("chapel_theme".to_string()),
+            Some("fight_theme".to_string()),
+        ),
+        "(Bob's boss in the hall, no fight, Alice's boss in chapel)"
+    );
+}
+
+/// The choice by itself: the highest priority wins, the primary seat wins a
+/// tie, and a tie between two other rooms goes to the lowest one.
+#[test]
+fn the_heard_room_is_the_highest_priority_then_the_primary_then_the_lowest() {
+    use super::intent::the_room_the_music_plays_for as heard;
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    let [a, b, c] = [0, 1, 2].map(LiveRoomInstance::from_ordinal);
+    let ranks = |boss: Option<LiveRoomInstance>| move |room: Option<LiveRoomInstance>| u8::from(room == boss && boss.is_some()) * 2;
+    assert_eq!(heard(Some(b), [a, c], ranks(Some(c))), Some(c), "a boss in another room");
+    assert_eq!(heard(Some(b), [a, c], ranks(None)), Some(b), "a tie keeps the primary's room");
+    assert_eq!(heard(None, [c, a], ranks(None)), Some(a), "with no primary, the lowest room");
+    assert_eq!(heard(None, [], ranks(None)), None, "no room at all");
+}
+
+/// A conversation's track is released when the primary seat goes to another
+/// room, with two rooms live. The primary body stands in chapel with a
+/// narrative track asked for: a tick in chapel keeps it (the control), and
+/// moving the body to the hall clears it. Poison: read the sole live room
+/// and the track is never cleared while two rooms are live.
+#[test]
+fn a_conversation_track_is_released_when_the_primary_seat_changes_room() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_session_world_component, session_world_component, InRoomInstance,
+        LiveRoomInstance, RoomInstanceRoot,
+    };
+    use bevy::prelude::*;
+    let mut app = App::new();
+    let room = |id: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            id,
+            ambition_platformer2d_core::World::new(id, Vec2::new(800.0, 600.0), Vec2::new(16.0, 16.0), Vec::new()),
+        )
+    };
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "hall",
+            vec![room("hall"), room("chapel")],
+            Vec::new(),
+        ),
+    );
+    let chapel = session_world_component::<ambition_platformer2d_world::rooms::RoomSet>(app.world())
+        .and_then(|rooms| rooms.definition_by_id("chapel"))
+        .expect("the set has `chapel`");
+    let hall = LiveRoomInstance::ACTIVATION;
+    let second = hall.next();
+    app.world_mut().spawn((RoomInstanceRoot, second, chapel));
+    let body = app
+        .world_mut()
+        .spawn((ambition_platformer2d_shared_tangle::body::PrimaryBody, InRoomInstance(second)))
+        .id();
+    insert_session_world_component(app.world_mut(), EncounterMusicRequest::default());
+    app.init_resource::<ambition_conversation::NarrativeMusicRequest>();
+    app.add_systems(Update, super::intent::release_narrative_music_on_room_change);
+    // The first tick learns the room.
+    app.update();
+    app.world_mut()
+        .resource_mut::<ambition_conversation::NarrativeMusicRequest>()
+        .request("chapel_hymn");
+    app.update();
+    let kept = app.world().resource::<ambition_conversation::NarrativeMusicRequest>().track().map(str::to_owned);
+    app.world_mut().entity_mut(body).insert(InRoomInstance(hall));
+    app.update();
+    let after_leaving = app.world().resource::<ambition_conversation::NarrativeMusicRequest>().track().map(str::to_owned);
+    assert_eq!(
+        (kept.as_deref(), after_leaving.as_deref()),
+        (Some("chapel_hymn"), None),
+        "(the track after a tick in chapel, after the primary seat went to the hall)"
+    );
+}
+
+/// Adaptive music follows the occurrence in the room the music plays for,
+/// not the authored encounter id. Two live rooms each run an occurrence of
+/// `goblin_encounter`: #1 (heard) is starting, #2 has failed. The cue state
+/// is #1's (the control: the heard room's occurrence drives the cue), in
+/// both query orders. A third order with only #2's occurrence asks for no
+/// starting state. Poison: drop the room filter, and the id map keeps the
+/// last occurrence inserted, so the result depends on order.
+#[test]
+fn adaptive_music_follows_the_heard_rooms_occurrence_in_any_order() {
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    let heard = Some(LiveRoomInstance::ACTIVATION.next());
+    let other = heard.map(LiveRoomInstance::next);
+    let waves = waves_fixture(EncounterRun::default());
+    let director = director_with_active_cue(None);
+    let resolve = |order: Vec<(Option<LiveRoomInstance>, &'static str, EncounterPhase)>| {
+        let states = super::intent::heard_encounter_states(
+            heard,
+            order.into_iter().map(|(room, id, phase)| (room, id, phase, &waves)),
+        );
+        resolve_directive_for_binding(&binding("goblin_encounter", "goblin_cue"), &states, &director)
+    };
+    let heard_first = resolve(vec![
+        (heard, "goblin_encounter", EncounterPhase::Starting { remaining: 1.0 }),
+        (other, "goblin_encounter", EncounterPhase::Failed),
+    ]);
+    let heard_last = resolve(vec![
+        (other, "goblin_encounter", EncounterPhase::Failed),
+        (heard, "goblin_encounter", EncounterPhase::Starting { remaining: 1.0 }),
+    ]);
+    let only_other = resolve(vec![(other, "goblin_encounter", EncounterPhase::Starting { remaining: 1.0 })]);
+    assert_eq!(heard_first, heard_last, "the query order changed the cue");
+    assert!(
+        matches!(&heard_first, Some(AdaptiveCueDirective::Play { state_id, .. }) if state_id == "intro"),
+        "the heard room's starting occurrence drives the cue: {heard_first:?}"
+    );
+    assert_eq!(only_other, None, "another room's fight drove the cue: {only_other:?}");
 }

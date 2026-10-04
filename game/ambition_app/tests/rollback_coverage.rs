@@ -1722,6 +1722,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the registration contract itself",
     ),
     (
+        "::lifecycle::session_messages::SessionMessageChannels",
+        "the list of channels a session activation empties: filled at App build, read at the session edge",
+    ),
+    (
         "ambition_platformer2d_runtime::SimulationHost",
         "host composition mode, fixed for the session",
     ),
@@ -2816,7 +2820,7 @@ fn every_event_created_entity_is_registered_derived_or_waived_and_anchored() {
     use ambition_platformer2d::abilities::module_entity::{spawn_module_entity, ModuleEntity, Spawner};
     use ambition_platformer2d::abilities::thrown::gravity_grenade::open_temporary_gravity_well;
     use ambition_platformer2d::boss_encounter::{drop_hazard, FallingHazard};
-    use ambition_platformer2d::combat::components::ActorFaction;
+    use ambition_platformer2d::actor::ActorFaction;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
     use ambition_platformer2d::platformer::sim_id::SimId;
     use ambition_platformer2d::portal::{PortalFireIntent, PortalGunColor, PortalShot};

@@ -277,7 +277,7 @@ ADJUDICATED: dict[str, str] = {
         "(`crates/ambition_platformer2d_actor_monolith/src/shrine.rs:91`) and the "
         "only reader is `ambition_render`'s shrine visuals "
         "(`crates/ambition_render/src/rendering/shrine_visuals.rs:184`, "
-        "`Res<..>`). ⭐ It also uses the RIGHT clock — `world_time.scaled_dt`, "
+        "`Res<..>`). ⭐ It also uses the RIGHT clock — `world_time.sim_dt()`, "
         "not wall dt — so this is the `PlayerCloneClock` shape with the clock "
         "already correct. A resimulated frame decays `remaining` again, which "
         "makes the pulse fade marginally early on a rewinding host and cannot "

@@ -31,6 +31,13 @@ use crate::save_data::{
 
 pub const SANDBOX_SAVE_FILE: &str = "ambition/sandbox_save.ron";
 
+/// The experience whose save is [`SANDBOX_SAVE_FILE`]: its first directory.
+/// `ambition_content` asserts that it is Ambition's experience id.
+pub const SANDBOX_SAVE_OWNER: &str = "ambition";
+
+/// The save file's name inside its experience's directory.
+const SAVE_FILE_NAME: &str = "sandbox_save.ron";
+
 /// Bevy resource holding the live save state. Mutated by the encounter
 /// + switch systems; written to disk by `autosave_sandbox_save`.
 #[derive(Resource, Clone, Debug, Default)]
@@ -135,6 +142,153 @@ pub fn save_path() -> PathBuf {
 
 pub fn save_path_under(root: &Path) -> PathBuf {
     root.join(SANDBOX_SAVE_FILE)
+}
+
+/// Where experience `owner` keeps its save under `root`: `<owner>/sandbox_save.ron`,
+/// which is [`SANDBOX_SAVE_FILE`] for [`SANDBOX_SAVE_OWNER`]. `None` for an id
+/// that is not one plain path segment; that experience keeps its save in memory
+/// only.
+pub fn save_path_for(root: &Path, owner: &str) -> Option<PathBuf> {
+    let plain = !owner.is_empty()
+        && owner
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    plain.then(|| root.join(owner).join(SAVE_FILE_NAME))
+}
+
+/// Which experience the live save belongs to, and the saves of the other
+/// experiences this process has played.
+///
+/// One process can host several experiences (the shell launches Ambition,
+/// Sanic and Mary-O), and [`AmbitionGameSave`] is one resource. Without an
+/// owner, each experience wrote its progress into the save of the one before
+/// it. Measured 2026-10-03: a host that had played Sanic and Mary-O reached
+/// Ambition with `room_visited_sanic_speedway` and `room_visited_mary_o_1_1`
+/// in its save. That save differed from a fresh host's in the peer checksum
+/// (Q129), and the autosave wrote those flags into Ambition's file.
+///
+/// The save is durable data admitted into a session (Q132), so the session
+/// activation gives it to its experience: [`hand_the_save_to`].
+#[derive(Resource, Debug)]
+pub struct SaveOwner {
+    current: String,
+    parked: std::collections::BTreeMap<String, ParkedSave>,
+}
+
+impl Default for SaveOwner {
+    /// The startup load reads [`SANDBOX_SAVE_FILE`], so the live save starts
+    /// as its owner's.
+    fn default() -> Self {
+        Self {
+            current: SANDBOX_SAVE_OWNER.to_owned(),
+            parked: Default::default(),
+        }
+    }
+}
+
+impl SaveOwner {
+    /// The experience the live save belongs to.
+    pub fn current(&self) -> &str {
+        &self.current
+    }
+}
+
+/// A save put aside while another experience plays, with its file state.
+#[derive(Debug)]
+struct ParkedSave {
+    data: AmbitionGameSaveData,
+    last: LastPersistedSave,
+    writable: bool,
+}
+
+impl ParkedSave {
+    /// The save of an experience that this process has not played: its own
+    /// file, or a new save when it has no file. With no `root` (an App that
+    /// persists nothing), no file is read.
+    fn read(owner: &str, root: Option<&Path>) -> Self {
+        let mut save = AmbitionGameSave::default();
+        let mut last = LastPersistedSave::default();
+        let mut writable = SaveFileWritable::default();
+        if let Some(path) = root.and_then(|root| save_path_for(root, owner)) {
+            adopt_loaded_save(load_save(&path), &path, &mut save, &mut last, &mut writable);
+        }
+        Self {
+            data: save.0,
+            last,
+            writable: writable.0,
+        }
+    }
+}
+
+/// The save that experience `owner` gets when the live save is next given to
+/// it. Changes no ownership.
+///
+/// A session is built before its activation, and the activation is what gives
+/// the live save to its experience ([`hand_the_save_to`]). So while a session
+/// of another experience is built, the live save is not its save. Measured
+/// 2026-10-04: an Ambition session that was built while Sanic played had, for
+/// its first 3 frames, an item that Ambition's save says is gone for good.
+///
+/// The file of `owner` is read one time at most. It is put aside for `owner`,
+/// so [`hand_the_save_to`] gives it the same value that its session was built
+/// from. If the session is refused, the live save and its owner are as they
+/// were.
+///
+/// ⛔ THE RESIDUAL: when `owner` has the live save, the answer is the live
+/// save as it is now. The session that plays can change it before the new
+/// session is adopted.
+pub fn prepare_the_save_of<'a>(
+    owner: &str,
+    ownership: &'a mut SaveOwner,
+    live: &'a AmbitionGameSave,
+    root: Option<&Path>,
+) -> &'a AmbitionGameSaveData {
+    if ownership.current == owner {
+        return &live.0;
+    }
+    &ownership
+        .parked
+        .entry(owner.to_owned())
+        .or_insert_with(|| ParkedSave::read(owner, root))
+        .data
+}
+
+/// Give the live save to experience `owner`. Returns whether it changed hands.
+///
+/// The current owner's save is put aside with its file state. `owner` gets
+/// back the save it had earlier in this process; if it had none, it gets its
+/// own file, or a new save when it has no file. The same experience again
+/// keeps the live save as it is, so a single-experience App and a fixture
+/// save are not touched. With no `root` (an App that persists nothing), no
+/// file is read.
+pub fn hand_the_save_to(
+    owner: &str,
+    ownership: &mut SaveOwner,
+    save: &mut AmbitionGameSave,
+    last: &mut LastPersistedSave,
+    writable: &mut SaveFileWritable,
+    root: Option<&Path>,
+) -> bool {
+    if ownership.current == owner {
+        return false;
+    }
+    let leaving = std::mem::replace(&mut ownership.current, owner.to_owned());
+    ownership.parked.insert(
+        leaving,
+        ParkedSave {
+            data: std::mem::take(&mut save.0),
+            last: std::mem::take(last),
+            writable: writable.0,
+        },
+    );
+    let arriving = ownership
+        .parked
+        .remove(owner)
+        .unwrap_or_else(|| ParkedSave::read(owner, root));
+    save.0 = arriving.data;
+    *last = arriving.last;
+    writable.0 = arriving.writable;
+    true
 }
 
 /// A save read from disk, together with whether this build may write over it.
@@ -422,6 +576,7 @@ pub fn autosave_sandbox_save(
     mut last: ResMut<LastPersistedSave>,
     writable: Res<SaveFileWritable>,
     root: Res<crate::PersistenceRoot>,
+    owner: Res<SaveOwner>,
 ) {
     // Startup found a file this build must not replace (newer build, or
     // unparseable bytes). Without this check, the first write destroys it.
@@ -436,7 +591,10 @@ pub fn autosave_sandbox_save(
     if last.refused.as_ref() == Some(&save.0) {
         return;
     }
-    let path = save_path_under(&root.0);
+    // The live save's own file, not Ambition's: see `SaveOwner`.
+    let Some(path) = save_path_for(&root.0, owner.current()) else {
+        return;
+    };
     match write_save(&path, &save.0) {
         Ok(()) => {
             last.persisted = Some(save.0.clone());
@@ -927,6 +1085,140 @@ mod tests {
         fs::write(&path, b"garbage not ron").unwrap();
         let s = load_save(&path);
         assert_eq!(s.data, AmbitionGameSaveData::default());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// Q129: one experience's progress does not reach another's save. Ambition
+    /// gives the save to Sanic, which writes a visit; Ambition gets its own save
+    /// back without that visit, and Sanic gets its visit back on its return.
+    /// The control is the same experience asked twice: the live save is kept.
+    #[test]
+    fn each_experience_gets_its_own_save_back() {
+        let _g = crate::lock_data_dir();
+        let root = temp_root("save_owner_round_trip");
+        let mut ownership = SaveOwner::default();
+        let mut save = AmbitionGameSave::default();
+        let mut last = LastPersistedSave::default();
+        let mut writable = SaveFileWritable::default();
+        save.0.set_flag("room_visited_central_hub_complex", true);
+
+        assert!(
+            !hand_the_save_to(SANDBOX_SAVE_OWNER, &mut ownership, &mut save, &mut last, &mut writable, Some(&root)),
+            "control: the owner asked again changed hands"
+        );
+        assert!(save.0.flag("room_visited_central_hub_complex"), "control: the owner's save was not kept");
+
+        assert!(hand_the_save_to("sanic", &mut ownership, &mut save, &mut last, &mut writable, Some(&root)));
+        assert_eq!(ownership.current(), "sanic");
+        assert!(
+            !save.0.flag("room_visited_central_hub_complex"),
+            "Sanic was given Ambition's save"
+        );
+        save.0.set_flag("room_visited_sanic_speedway", true);
+
+        hand_the_save_to(SANDBOX_SAVE_OWNER, &mut ownership, &mut save, &mut last, &mut writable, Some(&root));
+        assert!(save.0.flag("room_visited_central_hub_complex"), "Ambition lost its own save");
+        assert!(
+            !save.0.flag("room_visited_sanic_speedway"),
+            "Sanic's visit reached Ambition's save"
+        );
+
+        hand_the_save_to("sanic", &mut ownership, &mut save, &mut last, &mut writable, Some(&root));
+        assert!(save.0.flag("room_visited_sanic_speedway"), "Sanic lost its own save");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// The autosave writes the live save to its owner's file. While Sanic owns
+    /// it, Ambition's file is not written. A new owner with a file of its own
+    /// starts from that file.
+    #[test]
+    fn the_autosave_writes_the_owners_file() {
+        let _g = crate::lock_data_dir();
+        let root = temp_root("save_owner_autosave");
+        let sanic_path = save_path_for(&root, "sanic").expect("a plain id has a path");
+        assert_eq!(
+            save_path_for(&root, SANDBOX_SAVE_OWNER),
+            Some(save_path_under(&root)),
+            "Ambition's file moved"
+        );
+        assert_eq!(save_path_for(&root, "../ambition"), None, "an id that is not one path segment has a path");
+
+        let mut ownership = SaveOwner::default();
+        let mut save = AmbitionGameSave::default();
+        let mut last = LastPersistedSave::default();
+        let mut writable = SaveFileWritable::default();
+        hand_the_save_to("sanic", &mut ownership, &mut save, &mut last, &mut writable, Some(&root));
+        save.0.set_flag("room_visited_sanic_speedway", true);
+        let mut app = App::new();
+        app.insert_resource(crate::PersistenceRoot(root.clone()))
+            .insert_resource(save)
+            .insert_resource(last)
+            .insert_resource(writable)
+            .insert_resource(ownership)
+            .add_systems(Update, autosave_sandbox_save);
+        app.update();
+        assert!(load_save(&sanic_path).data.flag("room_visited_sanic_speedway"), "Sanic's file was not written");
+        assert!(!load_save(&save_path_under(&root)).present, "Sanic's save was written to Ambition's file");
+
+        // A later process: Sanic's file is read when Sanic takes the save.
+        let mut ownership = SaveOwner::default();
+        let mut save = AmbitionGameSave::default();
+        let mut last = LastPersistedSave::default();
+        let mut writable = SaveFileWritable::default();
+        hand_the_save_to("sanic", &mut ownership, &mut save, &mut last, &mut writable, Some(&root));
+        assert!(save.0.flag("room_visited_sanic_speedway"), "Sanic's own file was not read");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// A session is built before its experience has the live save. The save
+    /// prepared for it is that experience's own, the preparation changes no
+    /// ownership, and the hand-over gives the value that was prepared.
+    #[test]
+    fn a_prepared_save_is_the_save_its_owner_is_then_given() {
+        let _g = crate::lock_data_dir();
+        let root = temp_root("save_owner_prepared");
+        let sanic_path = save_path_for(&root, "sanic").expect("a plain id has a path");
+        let mut on_file = AmbitionGameSaveData::default();
+        on_file.set_flag("room_visited_sanic_speedway", true);
+        write_save(&sanic_path, &on_file).expect("the file was written");
+
+        let mut ownership = SaveOwner::default();
+        let mut save = AmbitionGameSave::default();
+        let mut last = LastPersistedSave::default();
+        let mut writable = SaveFileWritable::default();
+        save.0.set_flag("room_visited_central_hub_complex", true);
+        let ambition = save.0.clone();
+
+        assert_eq!(
+            prepare_the_save_of(SANDBOX_SAVE_OWNER, &mut ownership, &save, Some(&root)),
+            &ambition,
+            "control: the owner of the live save is not built from the live save"
+        );
+        let prepared = prepare_the_save_of("sanic", &mut ownership, &save, Some(&root)).clone();
+        assert_eq!(prepared, on_file, "Sanic was not prepared from its own file");
+        assert_eq!(ownership.current(), SANDBOX_SAVE_OWNER, "a preparation changed the owner");
+        assert_eq!(save.0, ambition, "a preparation changed the live save");
+
+        // The file changes after the preparation. The read is not done again,
+        // so the hand-over gives what the session was built from.
+        let mut later = on_file.clone();
+        later.set_flag("room_visited_sanic_later", true);
+        write_save(&sanic_path, &later).expect("the file was written");
+        assert_eq!(
+            prepare_the_save_of("sanic", &mut ownership, &save, Some(&root)),
+            &prepared,
+            "the file was read a second time"
+        );
+        assert!(hand_the_save_to("sanic", &mut ownership, &mut save, &mut last, &mut writable, Some(&root)));
+        assert_eq!(save.0, prepared, "Sanic was given a save other than the one prepared for it");
+
+        // A save put aside is prepared from where it was put.
+        assert_eq!(
+            prepare_the_save_of(SANDBOX_SAVE_OWNER, &mut ownership, &save, Some(&root)),
+            &ambition,
+            "Ambition was not prepared from its save that was put aside"
+        );
+        assert_eq!(ownership.current(), "sanic");
         let _ = fs::remove_dir_all(&root);
     }
 }

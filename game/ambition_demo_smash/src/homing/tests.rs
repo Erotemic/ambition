@@ -11,8 +11,8 @@ fn app() -> App {
     let mut time = app
         .world_mut()
         .resource_mut::<ambition_platformer2d::time::WorldTime>();
-    time.scaled_dt = 1.0 / 60.0;
-    time.raw_dt = 1.0 / 60.0;
+    time.set_sim_dt(1.0 / 60.0);
+    time.set_wall_dt(1.0 / 60.0);
     app.add_systems(
         Update,
         (begin_authored_homing_dashes, carry_homing_dashes).chain(),
@@ -32,7 +32,7 @@ fn body(app: &mut App, seat: usize, at: ae::Vec2) -> Entity {
                 ..Default::default()
             },
             MatchSeat(seat),
-            ambition_platformer2d::combat::components::ActorFaction::Player,
+            ambition_platformer2d::actor::ActorFaction::Player,
             ambition_platformer2d::combat::targeting::MatchTeam::new(format!("seat{seat}")),
         ))
         .id()
@@ -208,7 +208,7 @@ fn bystander(app: &mut App, at: ae::Vec2) -> Entity {
                 facing: 1.0,
                 ..Default::default()
             },
-            ambition_platformer2d::combat::components::ActorFaction::Npc,
+            ambition_platformer2d::actor::ActorFaction::Npc,
         ))
         .id()
 }
@@ -273,8 +273,8 @@ fn the_bystander_is_damageable_and_still_not_a_target() {
 
     assert!(
         targeting::damage_lands_between(
-            ambition_platformer2d::combat::components::ActorFaction::Player,
-            ambition_platformer2d::combat::components::ActorFaction::Npc,
+            ambition_platformer2d::actor::ActorFaction::Player,
+            ambition_platformer2d::actor::ActorFaction::Npc,
             Some(&hunter_team),
             None,
             targeting::FriendlyFire { enabled: false },
@@ -286,12 +286,12 @@ fn the_bystander_is_damageable_and_still_not_a_target() {
     assert!(
         !targeting::combat_relation(
             None,
-            ambition_platformer2d::combat::components::ActorFaction::Player,
+            ambition_platformer2d::actor::ActorFaction::Player,
             None,
             Some(&hunter_team),
             None,
             other,
-            ambition_platformer2d::combat::components::ActorFaction::Npc,
+            ambition_platformer2d::actor::ActorFaction::Npc,
             None,
             None,
         )

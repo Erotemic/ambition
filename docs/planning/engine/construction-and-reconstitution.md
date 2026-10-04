@@ -253,7 +253,9 @@ silently cross that boundary. Eager and rollback hosts use the same construction
 semantics but different authorization. A local synchronous test is not proof of
 an external peer barrier.
 
-A8 extends scoped population semantics to two simultaneous instances. Membership
+A8 extends scoped population semantics to two simultaneous instances. Q109
+(2026-10-03) keeps the room occurrence out of `SimId`: `SimId` is the authored
+identity, and `(LiveRoomInstance, SimId)` names one live occurrence. Membership
 changes must retain unaffected instances while establishing a coherent session
 baseline. Do not implement this by clearing every room or creating a separate
 simulation for each local camera. The one-instance profile uses the same path.

@@ -41,7 +41,7 @@ pub fn apply_actor_stimuli(
     >,
     // Whose side a striker is on: only the PLAYER's provocation is durable,
     // because that is the only grudge construction can rebuild.
-    factions: Query<&ambition_combat::components::ActorFaction>,
+    factions: Query<&ambition_characters::actor::ActorFaction>,
     mut provocations: MessageWriter<crate::features::NpcProvocationChanged>,
 ) {
     for stimulus in stimuli.read().copied() {
@@ -128,7 +128,7 @@ pub fn apply_actor_stimuli(
         // player's when its striker is on the player's side.
         let players_provocation = challenged
             || source.and_then(|source| factions.get(source).ok())
-                == Some(&ambition_combat::components::ActorFaction::Player);
+                == Some(&ambition_characters::actor::ActorFaction::Player);
         if was_peaceful && interaction.is_some() && players_provocation {
             provocations.write(crate::features::NpcProvocationChanged {
                 id: em.identity.id.clone(),
@@ -228,7 +228,7 @@ pub fn tick_pending_challenges(
     mut pending: Query<(Entity, &mut PendingChallenge)>,
     mut stimuli: MessageWriter<ActorStimulus>,
 ) {
-    let dt = world_time.scaled_dt;
+    let dt = world_time.sim_dt();
     for (entity, mut pc) in &mut pending {
         pc.grace -= dt;
         if pc.grace <= 0.0 {

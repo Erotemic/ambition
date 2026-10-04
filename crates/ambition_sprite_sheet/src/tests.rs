@@ -637,6 +637,11 @@ fn a_multi_record_file_root_is_refused_while_its_records_keep_their_targets() {
 /// `robot`, `goblin`, and `sandbag` each keep their own page. Under target
 /// keying, each lost its page to another sheet that shares its rig target.
 ///
+/// A record's page is its own when its image is the sheet's own file. The
+/// test first pinned each sheet's generated frame size instead, and went red
+/// when a regen fitted `ranged_skirmisher`'s frame 2 px narrower to its
+/// redrawn art (2026-10-04). A size names no identity.
+///
 /// These sheets are generated and gitignored, so a checkout without regen has
 /// an empty table. If no pair is present, the test asserts that the table has
 /// no art, so the skip cannot hide a failure.
@@ -644,32 +649,27 @@ fn a_multi_record_file_root_is_refused_while_its_records_keep_their_targets() {
 fn a_shared_rig_target_no_longer_costs_a_sheet_its_own_page() {
     let reg = SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS);
 
-    // (file root, its own frame size, the sheet that used to take the key)
+    // (file root, the sheet that used to take the key)
     let pairs = [
-        (
-            "robot",
-            (256u32, 256u32),
-            "tech_bro_disruptor",
-            (215u32, 256u32),
-        ),
-        ("goblin", (239, 253), "ranged_skirmisher", (235, 229)),
-        ("sandbag", (128, 128), "sandbag_full_review", (256, 256)),
+        ("robot", "tech_bro_disruptor"),
+        ("goblin", "ranged_skirmisher"),
+        ("sandbag", "sandbag_full_review"),
     ];
 
     let mut checked = 0usize;
-    for (root, own, usurper, usurper_frame) in pairs {
+    for (root, usurper) in pairs {
         let (Some(mine), Some(theirs)) = (reg.get(root), reg.get(usurper)) else {
             continue;
         };
         assert_eq!(
-            (mine.frame_width, mine.frame_height),
-            own,
+            mine.image,
+            format!("{root}_spritesheet.png"),
             "`{root}` answered with someone else's page — the rig target is \
              acting as a durable identity again",
         );
         assert_eq!(
-            (theirs.frame_width, theirs.frame_height),
-            usurper_frame,
+            theirs.image,
+            format!("{usurper}_spritesheet.png"),
             "`{usurper}` must keep its own page too; both are real characters \
              and neither is a stale manifest",
         );

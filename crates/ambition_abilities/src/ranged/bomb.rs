@@ -185,7 +185,7 @@ mod tests {
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         let mut wt = ambition_time::WorldTime::default();
-        wt.scaled_dt = 0.05;
+        wt.set_sim_dt(0.05);
         app.insert_resource(wt);
         app.add_systems(Update, (arm_thrown_bombs, tick_bomb_fuses).chain());
 
@@ -263,7 +263,7 @@ mod tests {
         app.add_message::<ambition_vfx::vfx::VfxInRoom>();
         app.init_resource::<CapturedHits>();
         let mut wt = ambition_time::WorldTime::default();
-        wt.scaled_dt = 0.05; // sim_dt() > the 0.001 fuse
+        wt.set_sim_dt(0.05); // sim_dt() > the 0.001 fuse
         app.insert_resource(wt);
         app.add_systems(Update, (tick_bomb_fuses, capture_hits).chain());
         let bomb = app

@@ -313,7 +313,8 @@ impl SnapshotCursor for crate::components::ActorAggression {
         put_i32(out, self.strikes);
         // A FACTION grudge names no entity, so unlike a body grudge it is
         // stable state and is encoded.
-        use crate::components::{ActorFaction, Grudge};
+        use crate::components::Grudge;
+        use ambition_characters::actor::ActorFaction;
         match self.grudge {
             None | Some(Grudge::Body(_)) => put_u8(out, 0),
             Some(Grudge::Faction(faction)) => put_u8(

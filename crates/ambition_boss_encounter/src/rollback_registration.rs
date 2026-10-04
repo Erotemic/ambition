@@ -23,7 +23,7 @@ where
     registrar.rollback_resource_clone_checksum::<crate::BossDefeatsSinceCheckpoint>(
         OWNER,
         "boss.defeats_since_checkpoint",
-        "the boss placements cleared since the last checkpoint, which a replay of their room retracts",
+        "the boss placements cleared since the last checkpoint and who won each, which a replay of their room retracts",
         crate::BossDefeatsSinceCheckpoint::checksum,
     );
     registrar.clear_message_on_rollback::<crate::BossDefeatRetracted>(
@@ -32,7 +32,7 @@ where
     );
     registrar.rollback_component_clone::<crate::BossOverrides>(OWNER, "boss.overrides");
     registrar.rollback_component_clone::<crate::EncounterDef>(OWNER, "encounter.definition");
-    registrar.rollback_component_cursor::<crate::sprites::BossAnimFrame>(
+    registrar.rollback_component_cursor::<ambition_sprite_sheet::boss::BossAnimFrame>(
         OWNER,
         "component.boss_anim_frame",
     );

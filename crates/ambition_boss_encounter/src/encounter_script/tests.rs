@@ -22,10 +22,7 @@ fn member_health(
 
 fn test_app() -> App {
     let mut app = App::new();
-    app.insert_resource(WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_message::<EncounterGate>();
     app.init_resource::<GameplayBanner>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -126,7 +123,7 @@ fn commanded_move_steers_the_boss_toward_target() {
     let boss = app
         .world_mut()
         .spawn((
-            ambition_platformer2d_shared_tangle::body::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
                 size: ae::Vec2::splat(40.0),
@@ -175,7 +172,7 @@ fn commanded_move_clears_the_attack_intent_not_the_projection() {
     let boss = app
         .world_mut()
         .spawn((
-            ambition_platformer2d_shared_tangle::body::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
                 size: ae::Vec2::splat(40.0),
@@ -218,10 +215,7 @@ fn commanded_move_clears_the_attack_intent_not_the_projection() {
 #[test]
 fn falling_hazard_drops_when_aligned_and_fires_impact_gate() {
     let mut app = App::new();
-    app.insert_resource(WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(ae::World::new(
@@ -309,13 +303,13 @@ fn a_scripts_music_claim_does_not_outlive_the_script() {
     // What a `SetMusic(Some(..))` beat leaves behind.
     session_world_component_mut::<EncounterMusicRequest>(app.world_mut())
         .expect("the fixture inserts one")
-        .claim_priority(super::SCRIPT_MUSIC_OWNER, "smirking_behemoth_intro");
+        .claim_priority(None, super::SCRIPT_MUSIC_OWNER, "smirking_behemoth_intro");
 
     app.update();
     assert_eq!(
         session_world_component_mut::<EncounterMusicRequest>(app.world_mut())
             .expect("present")
-            .desired_track(),
+            .desired_track(None),
         Some("smirking_behemoth_intro"),
         "premise: a LIVE script keeps its music claim"
     );
@@ -326,7 +320,7 @@ fn a_scripts_music_claim_does_not_outlive_the_script() {
     assert_eq!(
         session_world_component_mut::<EncounterMusicRequest>(app.world_mut())
             .expect("present")
-            .desired_track(),
+            .desired_track(None),
         None,
         "the script is gone but its claim still wins, so its track beats room \
          music in every room the player visits"

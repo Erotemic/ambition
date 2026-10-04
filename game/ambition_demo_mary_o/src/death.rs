@@ -50,8 +50,12 @@ pub const DEATH_DWELL: f32 = 3.2;
 /// it reads the BODY's window, not a level-owned flag. In co-op the
 /// interlude belongs to the participant who died, and a level-owned beat could
 /// not say which of two players is dying.
+///
+/// The claim is in the live room of each dying body, and released in every
+/// other room.
 pub fn play_death_music(
-    dying: Query<&ambition_platformer2d::combat::death_rules::DeathInterlude>,
+    dying: Query<(Entity, &ambition_platformer2d::combat::death_rules::DeathInterlude)>,
+    live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
             ambition_platformer2d::encounter::EncounterMusicRequest,
@@ -61,10 +65,14 @@ pub fn play_death_music(
     let Some(mut music) = music else {
         return;
     };
-    if dying.iter().any(|window| window.open()) {
-        music.claim_priority(DEATH_MUSIC_OWNER, crate::provider::MARY_O_DEATH_MUSIC_TRACK);
-    } else {
-        music.release_priority(DEATH_MUSIC_OWNER);
+    let rooms: Vec<_> = dying
+        .iter()
+        .filter(|(_, window)| window.open())
+        .map(|(body, _)| live.of(body))
+        .collect();
+    music.release_priority_where(DEATH_MUSIC_OWNER, |room| !rooms.contains(&room));
+    for room in rooms {
+        music.claim_priority(room, DEATH_MUSIC_OWNER, crate::provider::MARY_O_DEATH_MUSIC_TRACK);
     }
 }
 

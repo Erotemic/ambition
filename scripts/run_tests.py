@@ -1421,6 +1421,16 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_multi_writer_resources_are_adjudicated.py",
             ],
         ),
+        # A rollback-registered resource that is host configuration is not in
+        # the session reset, so a value written inside a session stays for the
+        # next one. This fails when the first such writer arrives.
+        Job(
+            "no production code writes a host-configuration resource",
+            [
+                sys.executable,
+                "scripts/check_host_configuration_has_no_session_writer.py",
+            ],
+        ),
         # A request drained inside the rewinding schedule and written from
         # outside it is lost on every rewind. `CutsceneTriggerQueue` is safe by
         # COINCIDENCE — every producer happens to be in the sim schedule — and
@@ -1607,23 +1617,16 @@ def build_maintenance_jobs() -> list[Job]:
             [sys.executable, "scripts/check_rollback_mutators_run_in_sim.py"],
         ),
         # ⛔⛤ **AND THE CENSUS THAT FOUND THOSE TWO USED `check_*.py` AS ITS
-        # POPULATION, SO IT COULD NOT SEE THESE THREE.** Two of them are named
-        # for the sentence they assert rather than for the verb `check`, and the
-        # third is a `check_` that simply was not listed. A scan root is a
-        # citation: a member outside it reads as absent rather than as unlooked-
-        # at — which is the exact defect
-        # `a_rollback_arm_must_refuse_a_frozen_world.py` records in its own
-        # docstring about `crates/` and `game/`, committed here by the instrument
-        # hunting it. Re-derived 2026-09-18 over every `scripts/*.py` ending in
-        # `raise SystemExit(main())`, not over a name prefix.
+        # POPULATION, SO IT COULD NOT SEE THE NEXT TWO.** One is named for the
+        # sentence it asserts rather than for the verb `check`, and the other is
+        # a `check_` that simply was not listed. A scan root is a citation: a
+        # member outside it reads as absent rather than as unlooked-at.
+        # Re-derived 2026-09-18 over every `scripts/*.py` ending in
+        # `raise SystemExit(main())`, not over a name prefix. (A third, the
+        # sync-test frozen-world census, was deleted on 2026-10-02: the harness
+        # refuses to step an unhealthy session, so no arm can read a frozen
+        # world.)
         #
-        # This one holds the sync-test frozen-world accounting: the 31-fixture
-        # population, the 12 `ADJUDICATED` readings and the 2 exemptions, plus
-        # the stale-row checks either side. 12 seconds.
-        Job(
-            "a rollback arm must refuse a frozen world",
-            [sys.executable, "scripts/a_rollback_arm_must_refuse_a_frozen_world.py"],
-        ),
         # The 10 interior-mutable test statics and their adjudications. 3 seconds.
         Job(
             "a test static is a channel between arms",
@@ -2294,11 +2297,11 @@ def coverage_notice(
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
             "      - tests behind an OPT-IN #[cfg(feature = \"...\")] — MEASURED\n"
-            "        2026-10-02 by `scripts/feature_gated_tests.py`, 492 tests\n"
+            "        2026-10-04 by `scripts/feature_gated_tests.py`, 489 tests\n"
             "        across 30 crates, the largest single omission this\n"
             "        footer names — though the scanner counts `#[cfg(feature)]`\n"
             "        STATICALLY, and a feature another workspace member turns on\n"
-            "        IS unified into `--workspace`, so some of the 492 do run\n"
+            "        IS unified into `--workspace`, so some of the 489 do run\n"
             "        here (MEASURED 2026-09-12: `ambition_characters`'\n"
             "        content_pack arms execute, via `game/ambition_content`).\n"
             "        footer names. `python3 scripts/feature_gated_tests.py` prints\n"

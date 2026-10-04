@@ -396,6 +396,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             Update,
             ActorOverlaySet
                 .after(actors::animate_characters)
+                // A rigged body's overlays read its impostor frame, which the
+                // rigged driver sets on the root.
+                .after(actors::rigged::drive_rigged_presentations)
                 .before(hit_flash::sync_hit_flash_overlays)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
@@ -494,6 +497,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // both animators have chosen this frame's row and frame. Both do
         // nothing unless the trial is admitted.
         app.init_resource::<actors::rigged::RiggedPresentations>();
+        app.init_resource::<actors::rigged::RiggedImpostorAtlas>();
+        actors::rigged::add_rigged_impostor_material_plugin(app);
         app.add_systems(
             Update,
             (
@@ -504,6 +509,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 actors::rigged::drive_rigged_presentations
                     .after(actors::animate_player)
                     .after(actors::animate_characters)
+                    // The hit flash reads the root's image and frame: the
+                    // impostor, once this has set it. (Content overlays read it
+                    // too: `ActorOverlaySet` is configured after this system.)
                     .before(hit_flash::sync_hit_flash_overlays)
                     .in_set(BodyOwnedDrawableSync),
             )

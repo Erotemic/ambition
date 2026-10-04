@@ -111,10 +111,7 @@ mod breakable_tests {
     fn app() -> App {
         let mut app = App::new();
         app.insert_resource(GameplayBanner::default());
-        app.insert_resource(WorldTime {
-            raw_dt: 0.1,
-            scaled_dt: 0.1,
-        });
+        app.insert_resource(WorldTime::new(0.1, 0.1));
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
         app.add_message::<DebrisBurstMessage>();
@@ -182,8 +179,8 @@ mod breakable_tests {
     /// A player collapses only a breakable of its own live room. Two live
     /// rooms each hold a stand-to-break block at one position, and one player
     /// stands there, in the second room. Only the block of the second room
-    /// collapses, and its effects name that room. Two live rooms share one
-    /// coordinate space, so the position alone does not say which block the
+    /// collapses, and its effects and its debris name that room. Two live
+    /// rooms share one coordinate space, so the position alone does not say which block the
     /// player stands on.
     #[test]
     fn a_player_collapses_only_the_breakable_of_its_own_live_room() {
@@ -207,10 +204,17 @@ mod breakable_tests {
             .iter_current_update_messages()
             .map(|row| row.room)
             .collect();
+        let debris_rooms: Vec<_> = app
+            .world()
+            .resource::<bevy::ecs::message::Messages<DebrisBurstMessage>>()
+            .iter_current_update_messages()
+            .map(|row| row.room)
+            .collect();
         assert_eq!(
-            (broken, effect_rooms),
-            ([false, true], [Some(rooms[1])].into_iter().collect()),
-            "(which of the two blocks collapsed, the rooms the effects name): the player stands in the second room"
+            (broken, effect_rooms, debris_rooms),
+            ([false, true], [Some(rooms[1])].into_iter().collect(), vec![Some(rooms[1])]),
+            "(which of the two blocks collapsed, the rooms the effects name, the rooms the debris names): \
+             the player stands in the second room"
         );
     }
 }
@@ -248,6 +252,7 @@ pub fn emit_breakable_destroyed(
         kind: ParticleKind::Spark,
     });
     debris.write(DebrisBurstMessage {
+        room: vfx.room(),
         pos,
         cue: PhysicsDebrisCue::Breakable,
     });

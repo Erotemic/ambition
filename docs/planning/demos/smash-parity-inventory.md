@@ -112,7 +112,7 @@ Preserve these and build new features on their seams.
 | Locomotion | Walk/run continuum, initial dash, dash dance, foxtrot, turnaround, teeter | `LocomotionTuning`, `BodyMotionFacts` |
 | Body contact | Jostle and pushback | movement sweep |
 | Footstool | Grounded/airborne reactions, phantom footstool | `combat/src/footstool.rs` |
-| Ledge | Grab, two-frame vulnerability, diminishing intangibility, getups, trump/hog rule, trump pop, drop | `ledge_grab`, `ledge_trump` |
+| Ledge | Grab, two-frame vulnerability, diminishing intangibility, getups, trump pop, drop. ⚠ Occupancy is not one-holder yet: see §5 "Ledge occupancy" | `ledge_grab`, `ledge_trump` |
 | Capture | Grab relation, shield bypass, pummel, four throws, mash escape, hit interrupts hold | `ambition_combat::capture`, `entity_catalog/src/smash_capture.rs` |
 | Dash grab | Derived from each fighter's standing grab | `SmashCaptureRepertoire`, `grab_dash` |
 | Match | Stocks, blast zones, elimination, timer, tiebreak, sudden death, finish zoom on the verdict | `ambition_combat::stocks`, `ambition_combat::finish_zoom` |
@@ -120,7 +120,7 @@ Preserve these and build new features on their seams.
 | Respawn | Placement, standable platform, untouchable grace a swing spends | `RespawnGrace`, `Invulnerability::RESPAWN` |
 | Items | Identity, custody, pickup, use, throw, drop, physics for every driven body | `DrivenBodies`, `ItemCustody`, `GroundItem`, `HeldItem` |
 | Presentation | Pose routing, shield bubble, hit sparks, KO burst, camera shake, launch trail, invulnerability blink | render/VFX/movement FX |
-| Match ceremony | 3–2–1–GO and winner presentation. The countdown runs at 10x (`COUNTDOWN_SPEEDUP = 10`, a temporary dev mode; Q91 in [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)). | Smash match presentation |
+| Match ceremony | 3–2–1–GO and winner presentation. The countdown runs at 10x (`COUNTDOWN_SPEEDUP = 10`). It is a developer/debug affordance that stays (Q91 ruling, 2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md)); it is not product gameplay, and it is not deleted for being outside normal game flow. | Smash match presentation |
 | Character select | Per-pad cursor, role cycle, auto-claim, random fighter, stage cycle, stock cycle (1/3/5), any seat may press | `game/ambition_demo_smash/src/select*` |
 | Frontend exit | Pause menu Quit to Title from character select | `ambition_game_shell::pause_menu` |
 | Input | Remaps, controller profiles, `AttackStrengthHint`, right-stick tilt/smash mode, keyboard `Walk` | `ambition_input` |
@@ -226,10 +226,45 @@ Preserve these and build new features on their seams.
 | Ledge-trump pop | ◐ | S/M | E1 | Pop ships (`ledge_trump_pop`); the commitment window does not. |
 | Two-frame ledge vulnerability | ✔ | S/M | E1 | |
 | Ledge regrab limit | ✔ | — | E1 | Answered by diminishing intangibility; do not add a count. |
-| Edgehog vs trump knob | ✔ | M | E1 | `CombatRules::ledge_occupancy`. |
+| Edgehog vs trump knob | ✔ | M | E1 | `CombatRules::ledge_occupancy`. The knob ships; what it governs does not hold yet (next row). |
+| Ledge occupancy (one holder per ledge) | ◐ | M | E1 | ⚠ Two fighters can hang on one ledge at once (maintainer report, 2026-10-04). See "Ledge occupancy" below and queue row LEDGE-OCCUPANCY. |
 | Tether recovery | ▢ | M | E1 | Reuse grapple/spatial-link machinery. |
 | Teleport recovery | ✔ | S/M | — | `smash.teleport`, `RecoveryRoute::Teleport`. |
 | Stall-then-fall move | ▢ | S/M | — | Existing windows suffice unless a fighter proves otherwise. |
+
+### Ledge occupancy
+
+**Current failure.** A ledge has no occupant. Custody is per body
+(`MotionModel::ledge_grab`, `BodyLedgeState`), and `resolve_ledge_trumps`
+(`ambition_combat/src/ledge_trump.rs`) finds "one edge" by comparing the
+hanging bodies' anchors within `SAME_EDGE_EPSILON = 1.0` px. The anchor is the
+hanging body's centre, which depends on its collision size
+(`ledge_grab/runtime.rs`, `hang_center`), so two fighters of different sizes on
+one corner have anchors more than 1 px apart and both keep the ledge. Bodies
+differ in size (catalog `collision_scale` runs from 0.8 to 2.1). Every trump
+test builds
+one shared anchor by hand, so none sees this. Also: a newcomer may grab while
+the holder is mid-getup (climbing bodies are not candidates), and a grab is
+never refused (the trump knocks off after both latched, by design).
+
+**Target.** Super Smash Bros. Ultimate-like ledge occupancy and trump. Do not
+guess Ultimate's timings from memory: research them (getup/roll/jump options,
+trump, the trumped body's state, invincibility on regrab, what a hit, a death
+or a respawn does to the hold) and write the result here before you build.
+
+**Model to define.** A deterministic occupancy relation keyed by the ledge
+itself (its authored corner in its live room, not a body-size-dependent
+anchor): at most one holder per ledge. It covers contention between two actors
+on one tick (an authored rule, named: Ultimate's trump, the `Hog` knob),
+release, getup, death, knockoff and transfer of the hold. It is derived from or
+stored in rollback state so a rewind resimulates it exactly; the existing
+custody state is rollback-registered (`actor.motion_model`, `actor.ledge`).
+
+**Acceptance.** Focused multiplayer regressions with two fighters of different
+sizes on one corner: one holder; the trump rule applied; release, death and
+knockoff free the ledge; a rewind across a trump gives the same holder. The
+current tests in `ledge_trump/tests.rs` keep passing or are rewritten around
+ledge identity.
 
 ## 6. Grabs and capture
 
@@ -265,8 +300,8 @@ Implement each through a real fighter, not as an unused framework.
 | Pogo-on-hit attack | ✔ | — | — | |
 | Self-damage/recoil move | ▢ | S | E1 | A second on-hit key; wants a customer. |
 | Heal/lifesteal on hit | ▢ | S/M | E1 | `S0.9`. |
-| Fighter resource meter | ▢ | M/C | E1 | Build for one fighter; no global meter manager. |
-| Transformation/stance | ▢ | C | WAIT | Wait for a concrete fighter. |
+| Fighter resource meter | ▢ | M/C | E1 | Build for one fighter; no global meter manager. The Smash Limit meter (`ambition_demo_smash/src/limit.rs`, fill policy `LimitMeterFill::JONS_BASELINE`) awards `on_block: 1.0` for a successful block. Q71 (2026-10-04): 1.0 is the starting balance value; playtesting may tune it without reopening the policy. `guarding_is_the_safe_option` keeps it below `on_damage_taken`. |
+| Transformation/stance | ▢ | C | WAIT | George's TRUE/FALSE state is the concrete fighter (see "George Booul TRUE/FALSE vocabulary (Q81)"). Design it from his concept before you build. |
 
 ## 8. Items
 
@@ -321,7 +356,7 @@ stage beside the others rather than editing one, and keep the shared envelope
 | Moving-platform / hazard stage | ▢ | S/M | — | Existing mechanics; author a stage. |
 | Hazards on/off knob | ▢ | M | E1 | Hazards read match rules. |
 | Standardized stage forms | ▢ | M | — | Authored variants first. |
-| Per-stage blast/respawn/camera tuning | ◐ | M | E1 | Stage-owned facts. |
+| Per-stage blast/respawn/camera tuning | ◐ | M | E1 | Stage-owned facts. Q87 (2026-10-04): on `smash_platform_stage` the respawn platforms (y 164–176) sit 4 px above the top tier (y 180–196), so a fighter whose respawn platform expires lands on the tier. Fix the authored layout (move the tier or the respawn point, whichever looks better) until the spawn is clearly valid; do not add runtime spawn avoidance. Re-take the flat-versus-platforms measurement in `fighter-brain.md` in the same change. |
 | Training-grid stage | ▢ | S/M | — | |
 
 ## 11. Match rules, modes, and ceremony
@@ -339,7 +374,7 @@ stage beside the others rather than editing one, and keep the shared envelope
 | Friendly-fire toggle UI | ◐ | S | — | `CombatRules::friendly_fire` exists. |
 | Rules presets | ▢ | M | — | |
 | Handicap / starting damage | ▢ | S/M | E1 | In match preparation. |
-| CPU difficulty selector | ▢ | S/M | — | Ladder ownership is Q88. |
+| CPU difficulty selector | ▢ | S/M | — | The brain owns the knobs, Smash owns the ladder (Q88); queue row CPU-LADDER. |
 | Full results screen and stats | ◐ | M | E1 | Basic winner card; stats from causal combat/stock events. |
 | Victory poses, fanfare, stock cues | ▢ | S/M | — | |
 | Meter + authored super | ▢ | C | E1 | No cinematic Final Smash manager first. |
@@ -404,17 +439,71 @@ reaches it in play". Known cases:
   `SelfView` only, and `BodyPhase` has no capture variant. At three or more seats
   (`MAX_SMASH_SEATS = 4`) a fighter cannot see a grab between two others.
 
+### George Booul TRUE/FALSE vocabulary (Q81)
+
+Ruling Q81 (2026-10-04): unreferenced art is not deleted for that reason, and
+George's sign-flip art is evidence of his intended vocabulary.
+
+**What exists (2026-10-04).** George's body sheet
+(`tools/ambition_sprite2d_renderer/.../targets/characters/george_booul.py`)
+has one state parameter: white = TRUE, charcoal = FALSE. Rows: `idle_false`
+(the only FALSE loop), `toggle_state` (TRUE→FALSE flip), `not_fade` (NOT:
+state to FALSE while opacity dips), `and_zap` (two-hand AND charge), plus
+TRUE-only `idle`, `drift`, `hit`, `death`, `taunt` (FALSE variants are one
+parameter away). His FX sheet `george_booul_vfx` has 21 rows: a negation
+family (`false_sigil`, `binary_toggle`, `not_inversion`, `xor_split`), other
+Boolean/ghost rows (`true_sigil`, `and_converge`, `boo_pop`,
+`ghost_afterimage`, `proof_collapse`) and rows made for today's specials
+(`bivalence_weak/strong`, `modus_ponens_dash/impact`,
+`excluded_middle_{windup,launch,ascent,gate,tail}`,
+`reductio_{drop,impact,bounce}`). `scripts/measure_fx_row_reachability.py
+--owners` reports 1 of 21 rows named, and that name is in a render test, so
+gameplay reach is 0. None is superseded: each special-move row targets a move
+id that still exists, and the state rows wait for a mechanic.
+
+**What is not wired.** His Smash specials draw generic effects (`sonic_boom`,
+`classic_burst`, `smoke_burst`), and his attacks, specials, grab and throws
+draw `idle` because his sheet has no `attack`/`special`/`grab`/`throw_*` rows
+and `smash_moveset.ron` names none of his own rows. A move may name a row
+directly (`anim_index.rs` resolves by row name), so binding the special-move FX
+rows and his state rows is content work. The sound cue derived for a row
+(`vfx.<family>.<row>`) is missing for the five `excluded_middle_*` rows and
+`ghost_afterimage` (the bank packs them under other names); fix the cue names
+when the rows are wired.
+
+**Planned gameplay (not built).** George's concept is a hovering trap-zoner
+whose TRUE state favours setup and whose FALSE state favours feints and fades.
+He is the concrete customer the "Transformation/stance" row (§7) waits for: a
+TRUE/FALSE state that a move toggles (`toggle_state`, `binary_toggle`), NOT as
+a fade/feint (`not_fade`, `not_inversion`), AND as a two-input charge
+(`and_zap`, `and_converge`). Design the mechanic from his concept first; do
+not invent a mechanic per asset. Also: `demos/moveset-reviews.md` does not
+list George.
+
+**Pirate Admiral FX (same ruling).** `pirate_admiral_vfx` has 14 rows and
+nothing names any of them. Superseded by later moves: `boarding_wake` (the old
+side-B `boarding_run`, replaced by `run_out_the_guns`) and the three
+`grapple_*` rows (up-B `grapple_line`, replaced by `call_the_shark`); keep them
+as art until a tether/grab customer or a decision to delete. Match current
+moves and are not wired: `black_powder_flash`, `grapeshot_cloud`,
+`powder_smoke` (`grapeshot`), `heave_to_anchor`, `heave_to_brake`
+(`heave_to`), `cutlass_wake`, `cutlass_clash`, `deck_splinter_burst`.
+
 ### Stand-in kit
 
 The standalone demo seats George plus two stand-ins that share one contract
 (`smash_duelist_a.ron`). That contract hand-builds its attack verbs instead of
 using `SmashRepertoire`, whose nineteen non-`Option` fields make a partial kit
-impossible. The stand-in answers no special press except `special_forward`
-(`lunge_grab`); guard
-`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`. What each
-stand-in special should be is Q89 in
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md). The
-composed app's selectable fighters all have complete kits
+impossible. The stand-in binds four specials (`read_and_seize`, `riposte`,
+`lunge_grab`, `slip_upward`) and leaves two special presses unanswered that
+George answers; guard
+`the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`. Q89
+(2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md)): a
+thin test stand-in may keep an incomplete kit on purpose. Do not invent
+specials to fill each input slot. The ruling covers stand-ins and proof
+characters only; when the real Robot becomes game content, its move vocabulary
+is authored deliberately. The composed app's selectable fighters all have
+complete kits
 (`report_the_smash_kit_every_selectable_fighter_has`).
 
 ## 15. Engine primitives

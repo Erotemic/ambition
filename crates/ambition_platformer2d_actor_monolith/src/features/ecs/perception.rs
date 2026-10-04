@@ -508,7 +508,7 @@ pub(crate) struct CrewCall {
     /// A call is heard only in the caller's live room (OW1 cut 4).
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     view: ambition_characters::perception::Viewport,
-    faction: Option<ambition_combat::components::ActorFaction>,
+    faction: Option<ambition_characters::actor::ActorFaction>,
     foe: String,
     seen: ambition_characters::perception::RememberedActor,
 }
@@ -518,7 +518,7 @@ pub(crate) fn crew_calls(
     caller: bevy::prelude::Entity,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pos: ae::Vec2,
-    faction: Option<ambition_combat::components::ActorFaction>,
+    faction: Option<ambition_characters::actor::ActorFaction>,
     perception: Perception,
     memory: &ambition_characters::perception::WorldMemory,
     calls: &mut Vec<CrewCall>,
@@ -535,7 +535,7 @@ pub(crate) fn hear_crew(
     listener: bevy::prelude::Entity,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pos: ae::Vec2,
-    faction: Option<ambition_combat::components::ActorFaction>,
+    faction: Option<ambition_characters::actor::ActorFaction>,
     memory: &mut ambition_characters::perception::WorldMemory,
 ) {
     for call in calls {
@@ -752,6 +752,10 @@ pub fn build_world_view(
     projectiles: &[PerceptionProjectile],
     portals: &[PerceptionPortal],
     world: &ae::World,
+    // The gate solids of `world` that are open for this body
+    // (`RoomCollision::gates_open_for`). The body moves through them and does
+    // not see or shoot through them.
+    open_gates: &[&str],
     relations: &FactionRelations,
     perception: Perception,
     sim_time: f32,
@@ -876,7 +880,11 @@ pub fn build_world_view(
         .iter()
         .filter_map(|b| perceived_solid_kind(b.kind).map(|kind| (b, kind)))
         .filter(|(b, _)| b.aabb.strict_intersects(viewport_aabb))
-        .map(|(b, kind)| PerceivedSolid { aabb: b.aabb, kind })
+        .map(|(b, kind)| PerceivedSolid {
+            aabb: b.aabb,
+            kind,
+            open_for_self: open_gates.contains(&b.name.as_str()),
+        })
         .collect();
 
     let portals = portals
@@ -965,7 +973,9 @@ fn attend<'p>(
 /// don't block sight or a straight path).
 fn perceived_solid_kind(kind: ae::BlockKind) -> Option<SolidKind> {
     match kind {
-        ae::BlockKind::Solid => Some(SolidKind::Solid),
+        // A barrier is a solid to a brain: it blocks sight and a path, and no
+        // upgrade passes it.
+        ae::BlockKind::Solid | ae::BlockKind::Barrier => Some(SolidKind::Solid),
         ae::BlockKind::BlinkWall { .. } => Some(SolidKind::BlinkWall),
         ae::BlockKind::OneWay => Some(SolidKind::OneWay),
         ae::BlockKind::Hazard => Some(SolidKind::Hazard),

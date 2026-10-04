@@ -1137,6 +1137,10 @@ impl AmbitionRollbackApp for App {
     where
         T: Message,
     {
+        // A channel that must not cross a rewind must not cross a session.
+        ambition_platformer2d_shared_tangle::lifecycle::clear_message_at_session_activation::<T>(
+            self,
+        );
         if should_install_backend(
             self,
             descriptor::<T>(
@@ -1162,6 +1166,10 @@ impl AmbitionRollbackApp for App {
     where
         T: Message,
     {
+        // A channel that must not cross a rewind must not cross a session.
+        ambition_platformer2d_shared_tangle::lifecycle::clear_message_at_session_activation::<T>(
+            self,
+        );
         // ⚠ THE BACKEND BEHAVIOUR IS DELIBERATELY IDENTICAL. Only the recorded
         // KIND differs, and the only thing that reads the difference is
         // `schema_dump()`. An instrument channel that failed to clear on rewind

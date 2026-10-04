@@ -109,18 +109,18 @@ where
         OWNER,
         "projectile.allegiance",
     );
-    // ⛔ THE RECEIPT IS SNAPSHOTTED WHOLE AND CHECKSUMMED IN PART. THREE of its
+    // ⛔ THE RECEIPT IS SNAPSHOTTED WHOLE AND CHECKSUMMED IN PART. TWO of its
     // four fields count something local: `session` counts this App's
-    // activations, `seat_topology` its device-topology generations, and
-    // `activated_on` its sim steps (menus included — see
-    // `MatchInstance::activation_tick`). All three must survive a rewind and none
-    // is a fact two peers can agree on, so only the agreed seat count is
-    // compared. `ActiveMatch::peer_stable_checksum` decides which half is which.
+    // activations, and `activated_on` its sim steps (menus included — see
+    // `MatchInstance::activation_tick`). Both must survive a rewind and neither
+    // is a fact two peers can agree on, so only the agreed seat count and the
+    // peer match ordinal are compared. `ActiveMatch::peer_stable_checksum`
+    // decides which half is which.
     registrar.rollback_resource_optional_canonical_checksum::<ambition_match::ActiveMatch>(
         OWNER,
         "resource.active_match",
         "bevy_ggrs canonical codec snapshot + checksum over the agreed seat count and the peer match \
-         ordinal, excluding the host-local session, seat-topology and activation-tick stamps",
+         ordinal, excluding the host-local session and activation-tick stamps",
         ambition_match::ActiveMatch::peer_stable_checksum,
     );
     // Which match each stamped object belongs to, so the sweep never sees a
@@ -194,11 +194,17 @@ where
         OWNER,
         "resource.gameplay_elapsed",
     );
-    registrar.rollback_resource_clone_checksum::<crate::features::ecs::breakable_respawns::BreakableRespawnSchedule>(
+    registrar.rollback_resource_clone_checksum::<crate::features::ecs::world_time_schedule::WorldTimeSchedule>(
         OWNER,
-        "feature.breakable_respawn_schedule",
-        "the respawn due times of broken breakables on the session clock, kept when their room retires (OW5)",
-        crate::features::ecs::breakable_respawns::BreakableRespawnSchedule::checksum,
+        "feature.world_time_schedule",
+        "when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)",
+        crate::features::ecs::world_time_schedule::WorldTimeSchedule::checksum,
+    );
+    registrar.rollback_resource_clone_checksum::<crate::features::ecs::pickups::ConsumedSinceCheckpoint>(
+        OWNER,
+        "feature.consumed_since_checkpoint",
+        "the one-time pickups consumed since the last checkpoint, with their room and whose horizons own each (Q151)",
+        crate::features::ecs::pickups::ConsumedSinceCheckpoint::checksum,
     );
     registrar
         .rollback_resource_canonical::<crate::session::lifecycle_commit::PendingLifecycleCommit>(

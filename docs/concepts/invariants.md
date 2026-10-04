@@ -69,9 +69,9 @@ not have transparent edges.
   comments). AGENTS.md §Verification.
 - **App tests build into ONE `app_it` target** — `cargo test -p ambition_app
   --test app_it -- <module>`. AGENTS.md §Verification, ADR 0025.
-- **Time domains are explicit** — timers use `WorldTime::scaled_dt` inside the
+- **Time domains are explicit** — timers use `WorldTime::sim_dt` inside the
   sim; presentation uses `ambition_time::PresentationTime` (under the GGRS host
-  `WorldTime.scaled_dt` is the fixed tick — consuming it per rendered frame
+  `WorldTime::sim_dt` is the fixed tick — consuming it per rendered frame
   ties animation to refresh rate); never mutate `time_scale` directly, fire
   `ClockScaleRequest`. `docs/concepts/input-and-game-modes.md`, ADR 0011.
 - **No GEOMETRY-REPAIR pushout** (one exception: portal-close straddle eviction)

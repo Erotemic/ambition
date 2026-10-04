@@ -391,7 +391,7 @@ pub fn emit_hit_feedback(
         vfx.write(burst.message(pos));
     }
     if let Some(cue) = hurt.debris {
-        debris.write(DebrisBurstMessage { pos, cue });
+        debris.write(DebrisBurstMessage { room: vfx.room(), pos, cue });
     }
 }
 
@@ -619,6 +619,46 @@ mod hit_feedback_tests {
             "but the player STILL throws its own red hurt burst"
         );
         assert_eq!(by_sword.debris, 1);
+    }
+
+    /// The hurt debris of a hit is thrown in the room its effects are written
+    /// for. The player's hurt reaction throws debris, and the writer is bound
+    /// to the second of two live room ids. The debris row names that room.
+    #[test]
+    fn the_hurt_debris_of_a_hit_names_the_room_of_its_effects() {
+        use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+        const ROOM: LiveRoomInstance = LiveRoomInstance::ACTIVATION.next();
+        fn emit_in_the_room(
+            mut sfx: ambition_sfx::SfxWriter,
+            mut vfx: ambition_vfx::vfx::VfxWriter,
+            mut debris: MessageWriter<DebrisBurstMessage>,
+        ) {
+            emit_hit_feedback(
+                &mut sfx,
+                &mut vfx.for_room(Some(ROOM)),
+                &mut debris,
+                HurtFeedback::PLAYER,
+                None,
+                1,
+                None,
+                ae::Vec2::ZERO,
+                None,
+                None,
+            );
+        }
+        let mut world = World::new();
+        world.init_resource::<Messages<OwnedSfxMessage>>();
+        world.init_resource::<Messages<VfxInRoom>>();
+        world.init_resource::<Messages<DebrisBurstMessage>>();
+        let mut schedule = Schedule::default();
+        schedule.add_systems(emit_in_the_room);
+        schedule.run(&mut world);
+        let rooms: Vec<_> = world
+            .resource::<Messages<DebrisBurstMessage>>()
+            .iter_current_update_messages()
+            .map(|row| row.room)
+            .collect();
+        assert_eq!(rooms, vec![Some(ROOM)], "the rooms the hurt debris rows name");
     }
 }
 

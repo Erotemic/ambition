@@ -3,6 +3,9 @@ use super::*;
 use crate::test_support::*;
 use crate::world::Block;
 
+/// The gravity direction of every probe in this file: down.
+const DOWN: Vec2 = Vec2::new(0.0, 1.0);
+
 fn world_with(blocks: Vec<Block>) -> World {
     World::new("ledge", Vec2::new(800.0, 600.0), Vec2::ZERO, blocks)
 }
@@ -19,7 +22,7 @@ fn finds_ledge_when_clinging_to_a_wall_with_open_space_above() {
     // the player's right pushes them left).
     let player_pos = Vec2::new(86.0, 110.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
     assert!(contact.is_some(), "expected ledge contact");
     let contact = contact.unwrap();
     assert!(contact.wall_normal_x < 0.0);
@@ -44,7 +47,7 @@ fn rejects_when_above_is_blocked() {
     ]);
     let player_pos = Vec2::new(86.0, 110.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
     assert!(
         contact.is_none(),
         "should not return a ledge whose top has another block above"
@@ -63,7 +66,7 @@ fn rejects_when_hang_space_has_wall_in_front_of_ledge() {
     ]);
     let player_pos = Vec2::new(86.0, 110.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
     assert!(
         contact.is_none(),
         "ledge should be rejected when the hang space in front is blocked"
@@ -75,7 +78,7 @@ fn rejects_when_no_wall_present() {
     let world = world_with(vec![]);
     let player_pos = Vec2::new(50.0, 50.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
     assert!(contact.is_none());
 }
 
@@ -86,7 +89,7 @@ fn rejects_zero_wall_normal() {
         Vec2::new(100.0, 100.0),
         Vec2::new(200.0, 200.0),
     )]);
-    let contact = probe_ledge_grab(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), 0.0, &world);
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), 0.0, &world, DOWN);
     assert!(contact.is_none());
 }
 
@@ -107,7 +110,7 @@ fn rejects_ledge_when_player_would_land_above_world_top() {
     // their head right under the block's top.
     let player_pos = Vec2::new(86.0, 24.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
     assert!(
         contact.is_none(),
         "ceiling-adjacent ledge must be rejected (climb_target would be OOB)"
@@ -126,7 +129,7 @@ fn finds_ledge_on_left_facing_wall() {
     )]);
     let player_size = Vec2::new(28.0, 46.0);
     let player_pos = Vec2::new(114.0, 110.0); // hugging right edge of block
-    let contact = probe_ledge_grab(player_pos, player_size, 1.0, &world);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, 1.0, &world, DOWN);
     assert!(contact.is_some(), "should find ledge on the right face");
     let contact = contact.unwrap();
     assert!(contact.wall_normal_x > 0.0);
@@ -147,7 +150,7 @@ fn finds_ledge_when_player_is_slightly_low() {
     // head. The previous 12px upward reach rejected this common
     // near-miss; the forgiving reach should still catch it.
     let player_pos = Vec2::new(86.0, 150.0);
-    let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
     assert!(
         contact.is_some(),
         "ledge slightly above the old chin band should be reachable"
@@ -163,7 +166,7 @@ fn finds_ledge_when_player_is_slightly_off_wall() {
     )]);
     let player_size = Vec2::new(28.0, 46.0);
     let player_pos = Vec2::new(78.0, 110.0);
-    let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
     assert!(
         contact.is_some(),
         "a small horizontal near-miss should still grab the ledge"
@@ -179,10 +182,10 @@ fn forgiving_vertical_grab_is_not_precise_for_boost() {
     )]);
     let player_size = Vec2::new(28.0, 46.0);
     let player_pos = Vec2::new(86.0, 150.0);
-    let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world)
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN)
         .expect("forgiving ledge probe should still catch the player");
     assert!(
-        !is_precise_ledge_grab(player_pos, player_size, contact),
+        !classify_ledge_grab_in_frame(player_pos, player_size, contact, DOWN).is_precise(),
         "outer vertical forgiveness should latch but not earn boost precision"
     );
 }
@@ -196,10 +199,10 @@ fn forgiving_horizontal_grab_is_not_precise_for_boost() {
     )]);
     let player_size = Vec2::new(28.0, 46.0);
     let player_pos = Vec2::new(78.0, 110.0);
-    let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world)
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN)
         .expect("forgiving ledge probe should still catch the player");
     assert!(
-        !is_precise_ledge_grab(player_pos, player_size, contact),
+        !classify_ledge_grab_in_frame(player_pos, player_size, contact, DOWN).is_precise(),
         "outer horizontal forgiveness should latch but not earn boost precision"
     );
 }
@@ -328,17 +331,17 @@ fn precise_grab_quality_is_reported_as_an_explicit_state() {
     let player_size = Vec2::new(28.0, 46.0);
     let precise_pos = Vec2::new(86.0, 110.0);
     let forgiving_pos = Vec2::new(86.0, 150.0);
-    let precise_contact = probe_ledge_grab(precise_pos, player_size, -1.0, &world)
+    let precise_contact = probe_ledge_grab_in_frame(precise_pos, player_size, -1.0, &world, DOWN)
         .expect("precise ledge probe should catch");
-    let forgiving_contact = probe_ledge_grab(forgiving_pos, player_size, -1.0, &world)
+    let forgiving_contact = probe_ledge_grab_in_frame(forgiving_pos, player_size, -1.0, &world, DOWN)
         .expect("forgiving ledge probe should catch");
 
     assert_eq!(
-        classify_ledge_grab(precise_pos, player_size, precise_contact),
+        classify_ledge_grab_in_frame(precise_pos, player_size, precise_contact, DOWN),
         LedgeGrabQuality::Precise,
     );
     assert_eq!(
-        classify_ledge_grab(forgiving_pos, player_size, forgiving_contact),
+        classify_ledge_grab_in_frame(forgiving_pos, player_size, forgiving_contact, DOWN),
         LedgeGrabQuality::Forgiving,
     );
 }
@@ -351,7 +354,7 @@ fn finds_ledge_on_blink_wall() {
         Vec2::new(200.0, 200.0),
         crate::world::BlinkWallTier::Soft,
     )]);
-    let contact = probe_ledge_grab(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN);
     assert!(
         contact.is_some(),
         "blink walls are standable ledge surfaces"
@@ -365,7 +368,7 @@ fn finds_ledge_on_one_way_platform_edge() {
         Vec2::new(100.0, 100.0),
         Vec2::new(200.0, 16.0),
     )]);
-    let contact = probe_ledge_grab(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN);
     assert!(contact.is_some(), "one-way platforms can be pulled up onto");
 }
 
@@ -375,7 +378,7 @@ fn rejects_when_lock_door_blocks_pull_up_space() {
         Block::one_way("ledge", Vec2::new(100.0, 100.0), Vec2::new(200.0, 16.0)),
         Block::solid("lock_door", Vec2::new(104.0, 40.0), Vec2::new(48.0, 80.0)),
     ]);
-    let contact = probe_ledge_grab(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN);
     assert!(
         contact.is_none(),
         "a solid lock door in the climb target must block the grab"
@@ -405,7 +408,7 @@ fn finds_ledge_at_top_of_stacked_solid_wall() {
     // pushes player left), with head near the upper block's top.
     let player_pos = Vec2::new(86.0, 110.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
     let contact = contact.expect("stacked-wall ledge must surface a contact");
     assert!(contact.wall_normal_x < 0.0);
     // Anchor should hug the wall edge (block.left = 100) just
@@ -438,7 +441,7 @@ fn finds_ledge_at_l_corner_when_clinging_to_upper_block() {
     ]);
     let player_pos = Vec2::new(86.0, 110.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab(player_pos, player_size, -1.0, &world);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
     let contact = contact.expect("L-corner ledge must surface a contact");
     assert!(
         contact.climb_target.y < 100.0,

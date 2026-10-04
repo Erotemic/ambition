@@ -553,6 +553,7 @@ fn view_on_platform(me_x: f32, half_width: f32) -> WorldView {
     view.terrain = vec![ambition_characters::perception::PerceivedSolid {
         aabb: ae::Aabb::new(ae::Vec2::new(400.0, 332.0), ae::Vec2::new(half_width, 16.0)),
         kind: ambition_characters::perception::SolidKind::Solid,
+        open_for_self: false,
     }];
     view
 }
@@ -1179,6 +1180,7 @@ fn a_walk_off_the_lip_is_not_reprieved_by_the_platform_it_is_leaving() {
         .push(ambition_characters::perception::PerceivedSolid {
             aabb: ae::Aabb::new(ae::Vec2::new(572.5, 436.0), ae::Vec2::new(117.5, 16.0)),
             kind: ambition_characters::perception::SolidKind::Solid,
+            open_for_self: false,
         });
     assert!(
         refine(&caught).is_empty(),

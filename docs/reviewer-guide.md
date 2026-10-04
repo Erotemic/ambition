@@ -228,7 +228,9 @@ validate
 run
 ```
 
-Do not create generic frameworks without a real customer.
+Do not create generic frameworks without a real customer. This is a rule about
+adding speculative structure, not about deleting a coherent capability that runs
+ahead of content (see "Keep, redesign or delete" below).
 
 ## Product-driven architecture
 
@@ -294,6 +296,41 @@ A large function is evidence to inspect, not an automatic refactor request.
 Extract around semantic boundaries.
 
 Do not create a function merely to move 400 lines behind another call with the same giant parameter set.
+
+## Keep, redesign or delete: usage is not worth
+
+Maintainer rule (2026-10-03, Q74). It governs cleanup campaigns and every
+"delete this" finding.
+
+Do not use "currently unused", "has no shipped customer" or "has only one
+customer" as an independent reason to delete an engine concept. Ambition is
+engine-first: engine machinery may legitimately run ahead of the content that
+exploits it. Usage is easy to measure, which makes it an attractive surrogate for
+architectural value. Do not substitute the measurement for semantic judgment.
+
+```text
+unused ≠ bad
+used ≠ good
+
+semantic quality
++ architectural elegance
++ expressive/future utility
++ maintenance cost
+→ keep / redesign / delete
+```
+
+Delete or simplify a concept because it is semantically incoherent, creates a
+duplicate authority, encodes the wrong abstraction, adds needless indirection,
+makes the system harder to understand or compose, is expressed more cleanly by
+another abstraction, costs more than its plausible expressive value, or no
+longer helps to express Ambition or a plausible future game.
+
+"No customer" is still useful evidence about test coverage and maturity. Finding
+a customer is a good way to exercise and validate an abstraction. Report the
+missing customer as that, not as a reason to delete.
+
+The same applies to an inert parameter: delete it because it claims an effect it
+does not have (Q90), not because a grep finds no reader.
 
 ## Simulation / presentation boundary
 

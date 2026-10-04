@@ -29,6 +29,8 @@ pub(crate) struct DevToggleRead<'a> {
     // The Gravity row's ambient direction (down/left/up/right). Option so
     // fixtures without the resource still render the row (as "n/a").
     pub(crate) base_gravity: Option<&'a ambition_platformer2d::world::BaseGravity>,
+    // The live room whose ambient the row shows and the cycle turns.
+    pub(crate) gravity_room: Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>,
 }
 
 pub(crate) struct DevToggleWrite<'a> {
@@ -127,7 +129,7 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     // active ambient direction (Down / Left / Up / Right).
     values.push(DevSnapshot::cycle(
         D::Gravity,
-        ctx.base_gravity.map_or("n/a", |g| g.direction_label()),
+        ctx.base_gravity.map_or("n/a", |g| g.direction_label(ctx.gravity_room)),
     ));
     DevSnapshot { values }
 }

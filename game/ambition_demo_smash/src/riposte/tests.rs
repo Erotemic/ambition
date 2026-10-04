@@ -45,7 +45,7 @@ fn fighter(app: &mut App, seat: usize, at: ae::Vec2, facing: f32) -> Entity {
             },
             ae::CenteredAabb::new(at, ae::Vec2::new(14.0, 20.0)),
             ambition_platformer2d::world::ResolvedMotionFrame::default(),
-            ambition_platformer2d::combat::components::ActorFaction::Player,
+            ambition_platformer2d::actor::ActorFaction::Player,
             ambition_platformer2d::combat::targeting::MatchTeam::new(format!("seat{seat}")),
             ae::BodyMotionFacts::default(),
             ae::BodyShieldState::default(),

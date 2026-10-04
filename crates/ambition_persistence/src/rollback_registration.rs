@@ -37,7 +37,7 @@ where
         .rollback_resource_clone_checksum::<crate::quest::registry::QuestRegistry>(
             OWNER,
             "resource.quest_registry",
-            "quest identity, progression and pending-advance checksum projection",
+            "quest identity, progression, pending-advance and caused-advance checksum projection",
             crate::quest::registry::QuestRegistry::checksum,
         )
         // The room-entry producer's memory. It was a system `Local` — one of the

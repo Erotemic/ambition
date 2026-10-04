@@ -512,12 +512,6 @@ impl MovingPlatformState {
             || support_contact_matches(body, self.previous_aabb(), gravity_dir)
     }
 
-    /// TODO(compat-remove): migrate trace callers to [`Self::is_supporting_body`] and delete
-    /// this down-gravity wrapper.
-    pub fn is_riding(&self, player_box: ae::Aabb, on_ground: bool) -> bool {
-        self.is_supporting_body(player_box, on_ground, ae::Vec2::new(0.0, 1.0))
-    }
-
 }
 
 fn projected_half(half: ae::Vec2, axis: ae::Vec2) -> f32 {

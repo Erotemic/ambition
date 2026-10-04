@@ -15,7 +15,18 @@ pub use ambition_platformer2d_core::snapshot::{
     put_opt_str, put_str, put_u32, put_u64, put_u8, put_vec2, resolved_checksum, state_checksum,
     Reader, SnapshotCursor, SnapshotResolve, SnapshotState, StateHasher,
 };
+/// The peer barrier of a lifecycle operation, simulation half: the first
+/// frame that does not simulate while the operation waits under a peer session.
+pub use ambition_platformer2d_rollback_ggrs::lifecycle_commit::{
+    freeze_frame, PEER_COMMIT_FREEZE_DELAY,
+};
 pub use ambition_platformer2d_rollback_ggrs::local_session;
+/// A P2P session whose peers agree to start at the live world, and an
+/// in-memory transport for two Apps in one process (netcode N2).
+pub use ambition_platformer2d_rollback_ggrs::peer::{
+    build_peer_session, loopback_transports, start_peer_session, LoopbackSocket,
+    LoopbackTransport, PeerLineage, PeerSessionSettings, PeerTransport,
+};
 pub use ambition_platformer2d_rollback_ggrs::session::{
     drive_control_frame, drive_slot_frame, mechanical_mutation_boundary,
     session_health, session_is_active, MechanicalMutationBoundary,
@@ -376,6 +387,34 @@ pub fn health(app: &App) -> RollbackHealth {
             generation,
         }
     }
+}
+
+/// The rollback session comes up in the `Update` that builds its session
+/// world.
+///
+/// `LocalSessionSet::Maintain` installs the session when a session world
+/// exists. `GameplaySessionSet::Providers` builds that world. With no edge
+/// between them the sort chose the order, and the choice moved when unrelated
+/// systems were added (measured 2026-10-04: a merge of two commits put the
+/// maintainer first, and the session then came up one frame after its world).
+/// A frame on which the world exists and the session does not is a frame
+/// outside the timeline, so its position is a decision: there is none.
+///
+/// The edge also puts the maintainer after the session bridge, so on the frame
+/// that retires a session the maintainer sees the world gone.
+///
+/// ⛔ A COMPOSER THAT INSTALLS THE TWO SETS CALLS THIS. The backend and the
+/// shell do not see each other, so neither of them can state the edge; this
+/// facade is the lowest crate that sees the two. [`crate::PlatformerApp`]
+/// calls it for a rollback composition, and so does each composer of the
+/// Ambition shell host.
+pub fn start_the_timeline_with_the_session_world(app: &mut App) {
+    use bevy::prelude::IntoScheduleConfigs as _;
+    app.configure_sets(
+        bevy::prelude::Update,
+        local_session::LocalSessionSet::Maintain
+            .after(crate::game_shell::GameplaySessionSet::Providers),
+    );
 }
 
 /// Stop the rollback session this host is running.

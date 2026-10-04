@@ -51,7 +51,7 @@ pub fn tick_ability_cooldown(
     time: Res<ambition_time::WorldTime>,
     mut bodies: Query<&mut AbilityCooldown>,
 ) {
-    let dt = time.scaled_dt;
+    let dt = time.sim_dt();
     for mut cd in &mut bodies {
         if cd.remaining > 0.0 {
             cd.remaining = (cd.remaining - dt).max(0.0);

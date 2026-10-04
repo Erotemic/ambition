@@ -593,7 +593,7 @@ pub mod item {
     pub use ambition_held_items::{
         GroundItem, ItemCustody, ItemStruckBody, ItemWorldPos, SettledItem,
     };
-    pub use ambition_items::{Inventory, Item, ItemGrantRequested, OwnedItems};
+    pub use ambition_items::{shop, Inventory, Item, ItemGrantRequested, OwnedItems};
 }
 
 /// User-facing gameplay settings, when persistence/settings support is installed.
@@ -617,9 +617,8 @@ pub mod actor {
     /// earlier scope is a leftover, and reading one is how a retired match's
     /// verdict gets applied to the match that replaced it.
     pub use ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope;
-    /// The lifecycle marker every feature-spawned sim entity carries, and the
-    /// extension that scopes a spawn to the session that owns it.
-    pub use ambition_platformer2d_shared_tangle::lifecycle::{FeatureSimEntity, SpawnScopedExt};
+    /// The lifecycle marker every feature-spawned sim entity carries.
+    pub use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
     /// Who the body is.
     pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
     /// What a body holds: its declared resources, read by name.
@@ -715,7 +714,7 @@ pub mod actor {
     /// SDK gaps."* These three rows are those gaps, closed rather than waived.
     pub use ambition_platformer2d_core::BodyGroundState;
     pub use ambition_platformer2d_core::{BodyFlightState, BodyMode, BodyMotionFacts};
-    pub use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+    pub use ambition_platformer2d_core::BodyKinematics;
     /// The body-local safe-position state used by reset/hazard observers.
     ///
     /// The implementation type still carries its historical player-centric name;
@@ -757,7 +756,7 @@ pub mod actor {
     pub use ambition_combat::actor_tuning::ActorPolicy;
     /// Who a spawned body is: its stable id and display name.
     pub use ambition_combat::components::ActorIdentity;
-    pub use ambition_combat::components::ActorFaction;
+    pub use ambition_characters::actor::ActorFaction;
     pub use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
     /// ⛔ NAMED FROM `_core`, NOT THROUGH THE ACTOR CRATE. `MotionModel` is the
     /// movement kernel's own type; the monolith re-exported it twice
@@ -851,8 +850,9 @@ pub mod sim {
     /// The dev-only physics overrides a sandbox host may install.
     pub use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
     pub use ambition_platformer2d_shared_tangle::schedule::{
-        BossSteerSlot, GameMode, Platformer2dSimulationPhaseMonolith, PresentationSetupSet,
-        SimSchedule, SimScheduleExt, SimulationSetupSet, WorldItemSet,
+        BossSteerSlot, FeatureWorldOverlayContributions, GameMode,
+        Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimSchedule, SimScheduleExt,
+        SimulationSetupSet, WorldItemSet,
     };
 
     /// How device/screen/body axes are interpreted by scripted or participant input.
@@ -1042,7 +1042,9 @@ pub mod world {
     /// Named here for the same reason `ResolvedMotionFrame` is: it is a world
     /// fact, and reaching it through the actor crate is how a census mistakes it
     /// for that crate's coupling.
-    pub use ambition_platformer2d_shared_tangle::feature_overlay::{FeatureEcsWorldOverlay, RoomOverlays};
+    pub use ambition_platformer2d_shared_tangle::feature_overlay::{
+        FeatureEcsWorldOverlay, GatePass, RoomOverlays,
+    };
     /// The per-tick motion environment a body is stepped in. Named here rather
     /// than through the actor crate: it is a world-physics fact, and routing it
     /// through a domain crate's re-export is how a census mistakes it for that

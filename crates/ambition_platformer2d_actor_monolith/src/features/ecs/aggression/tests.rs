@@ -151,7 +151,7 @@ fn npc_flips_hostile_with_a_grudge_against_its_attacker() {
     );
     assert!(
         app.world()
-            .get::<ambition_combat::components::ActorFaction>(npc)
+            .get::<ambition_characters::actor::ActorFaction>(npc)
             .is_none(),
         "provoke must NOT insert an Enemy faction — identity is preserved, the grudge does the work"
     );
@@ -163,10 +163,7 @@ fn a_pending_challenge_defers_the_flip_until_its_grace_elapses() {
     // until the grace (counted only in `Playing`, i.e. after the dialog box
     // closes) elapses — so the player isn't attacked point-blank mid-dialog.
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 1.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0));
     app.add_message::<ActorStimulus>();
     app.add_message::<crate::features::NpcProvocationChanged>();
     app.add_systems(Update, tick_pending_challenges);
@@ -775,7 +772,7 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
     let (mut app, npc) = app_with_npc();
     let player = app
         .world_mut()
-        .spawn(ambition_combat::components::ActorFaction::Player)
+        .spawn(ambition_characters::actor::ActorFaction::Player)
         .id();
     app.world_mut().write_message(ActorStimulus::Challenged {
         actor: npc,
@@ -813,7 +810,7 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
     let (mut app, npc) = app_with_npc();
     let possessed = app
         .world_mut()
-        .spawn(ambition_combat::components::ActorFaction::Enemy)
+        .spawn(ambition_characters::actor::ActorFaction::Enemy)
         .id();
     app.world_mut().write_message(ActorStimulus::Challenged {
         actor: npc,
@@ -839,7 +836,7 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
         .strikes = NPC_HOSTILE_STRIKE_THRESHOLD;
     let bandit = app
         .world_mut()
-        .spawn(ambition_combat::components::ActorFaction::Enemy)
+        .spawn(ambition_characters::actor::ActorFaction::Enemy)
         .id();
     app.world_mut().write_message(ActorStimulus::DamagedBy {
         actor: npc,

@@ -299,7 +299,14 @@ written": a `&mut` census cannot see replacement by re-insertion.
 eleven rows does not feed the peer checksum, then compares their probe census
 between a host that reached the shipped Ambition route first and one that reached
 it third, at every tick of the window, in five rooms. All eleven carry state and
-agree. The set is pinned by equality, so a row that loses its carriers fails. The
+agree. ⛔ Until 2026-10-03 that census was a carrier count: all eleven are
+registered with a presence probe, whose census returns `xor: 0`, so the arm
+compared how many carriers each row had and never a value. The arm now gives
+each a value probe first (`strengthen_the_sharp_rows` in
+`game/ambition_app/tests/common/mod.rs`: the hash of the value's `Debug` text,
+which prints each float as the shortest text that reads back to the same bits),
+and the values agree too. A poison showed the difference: a `Transform` changed on
+one side was invisible to the presence census and is named by the value census. The set is pinned by equality, so a row that loses its carriers fails. The
 arm prints the per-room split:
 
 | room | sharp rows it carries |
@@ -325,9 +332,28 @@ depends on where the host has been, and nothing more.
 (`game/ambition_app/tests/does_a_presence_probed_row_move_when_its_value_does.rs`,
 using `strengthen_with` and
 `RollbackRestoreAudit::distinct_censuses_across_compared_frames_of::<T>()`). That
-clears a local restore defect, not the S7 question. `Session::SyncTest` is the only
-session this workspace constructs; no P2P session is built. For the timeline half,
-`Q128` and the missing P2P session are one blocker.
+clears a local restore defect, not the S7 question.
+
+**Two-peer arm (the timeline half).** `game/ambition_app/tests/two_peers.rs` runs
+two Apps in one process, each with a GGRS P2P session (`start_peer_session`) over
+an in-memory link that delivers three updates late, so each peer predicts the
+other's input and rolls back. Alice drives slot 0 on one peer and Bob slot 1 on
+the other, in `switch_lab`, until both confirm frame 240. Each peer records every
+probed row's peer census at each saved frame, with the float rows given value
+probes (`strengthen_the_float_rows`: 22 of the census's 23; `lifecycle.room_visual`
+is a unit marker). Measured 2026-10-03: at every confirmed frame both peers agree
+on every row, and GGRS reports no desync. Eight float rows carry state there
+(`actor.animation_facts`, `combat.tuning`, `actor.render_size`,
+`actor.sprite_offset`, `actor.spawn_baseline`, `player.blink_camera_state`,
+`actor.sprite_posed_body`, `entity.transform`), pinned by equality.
+`two_peers_agree_in_the_rooms_that_carry_the_float_rows` walks seven more rooms
+(`blink_run`, `portal_lab`, `basement_hazards`, `portal_bridge` with the gun
+fired, `basement_boss`, `pirate_sky_lookout` with its shark, `goblin_encounter`),
+and the peers agree in each. Together the walks carry 21 of the 22 rows. The
+22nd, `mount.authored_size` (`MountedSize`), has no production writer, so no
+room carries it; the arm pins that. Poisons: a position change on one
+peer is a GGRS desync that reaches `session_health`; a value outside the peer
+checksum changed on one peer is no desync, and only the census names it.
 
 **Motion floor.** A window where the value never moves proves nothing: a census
 that takes one value across the window agrees with itself for free. An attack
@@ -367,26 +393,22 @@ rewinding schedule, and its value actually differs at a frame compared twice.
 A latch that is put back before it is taken meets the first two and does not
 desync.
 
-**Closed: `CustodyBaseline` and `OccurrenceBaseline`.** Both
-desync when a load lowers the restore latch on a LIVE timeline, which
-`probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule`
-(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`,
-`#[ignore]`) still shows. Production has no such road: a save file is read only
-at `Startup` (`load_save_at_startup`), `SaveRestored` is lowered only by session
-activation/retirement (`session/teardown.rs`), a retiring scope retires its
-rollback authority with it, and
-the [Q135 ruling](../maintainer-decisions.md) stops `maintain_local_session` from creating a session while
-hydration is pending. The production road is witnessed by
-`a_startup_load_hydrates_both_baselines_before_the_timeline_starts` in the same
-file: both halves seeded, 240 sync-test frames healthy, and no frame with a live
-GGRS session over an unrestored save. That arm witnesses the ORDER, not the
-gate (with the gate poisoned it stays green, because in that composition the
-chain completes first); the gate's guard is
-`a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once`. A
-future mid-session load (a load menu inside a live session) must end the
-timeline first, or it reopens this row. Earlier "clean" readings ran with empty
-baselines; seed both halves. `Q129` owns whether the save belongs in the peer
-contract at all.
+**Closed: `CustodyBaseline` and `OccurrenceBaseline`.** Both desynced when
+the restore chain wrote them from `Update` over a live timeline. Since
+2026-10-03 the chain runs in the simulation schedule
+(BODY-BORN-ON-THE-TIMELINE in [`queue.md`](../queue.md)), so its writes are
+part of the tick that makes them. Witnessed by
+`a_startup_load_is_applied_on_the_timeline_and_resimulates_identically`
+(`game/ambition_app/tests/a_bag_changed_mid_window_reaches_the_save.rs`): both
+halves seeded, the session live before the save is applied, 240 sync-test
+frames healthy. In the same file,
+`a_mid_session_load_does_not_reach_back_across_the_rewind` shows a mid-session
+load's ledger write landing, with every replay of a tick agreeing. The ignored
+probe `probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule` has
+not been re-read since the move. Earlier "clean" readings ran with empty
+baselines; seed both halves. Q129 (decided 2026-10-03): shared durable world
+state belongs in the peer contract, compared by its canonical semantic form
+rather than the save file's bytes.
 
 The probe and the GGRS aggregate for a `rollback_resource_clone_checksum` entry
 are installed from the same `checksum` argument in

@@ -6,7 +6,6 @@
 
 pub mod placements;
 
-use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::limb::{Limb, LimbRig, LimbSlot};
 use ambition_platformer2d_shared_tangle::construction::{
     ConstructionDomain, ConstructionPlan, ConstructionRegistrationError,
@@ -147,7 +146,7 @@ pub enum ActorConstructionParams {
         authored: ambition_platformer2d_world::rooms::Authored<
             ambition_platformer2d_world::rooms::EnemySpawnSpec,
         >,
-        faction: ambition_combat::components::ActorFaction,
+        faction: ambition_characters::actor::ActorFaction,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
         /// A rider the room seats on it conducts it (`CharacterMount::rider_conducts`).
         conducted: bool,
@@ -160,7 +159,7 @@ pub enum ActorConstructionParams {
         >,
         /// The side of the rider that conducts the host, which makes this hand
         /// the rider's. `None`: the hand is its host's own.
-        conductor: Option<ambition_combat::components::ActorFaction>,
+        conductor: Option<ambition_characters::actor::ActorFaction>,
     },
     /// An ordinary authored enemy. Every authored enemy is a plan row, built by
     /// the same populate function the former family loop used.
@@ -207,7 +206,7 @@ pub struct SummonedMinionParams {
     pub half_size: ambition_platformer2d_core::Vec2,
     pub character_id: String,
     pub encounter_id: String,
-    pub faction: ambition_combat::components::ActorFaction,
+    pub faction: ambition_characters::actor::ActorFaction,
     /// Health for this occurrence, overriding the character's authored vitals.
     /// See `ambition_vfx::SummonSpec::health`.
     pub health: Option<u32>,
@@ -230,6 +229,28 @@ pub struct ActorConstructionServices {
     pub boss_catalog: BossCatalog,
 }
 
+/// Where a room commit gets [`PersistedFates`].
+///
+/// ⛔ THE FIRST ROOM OF A SESSION IS NOT A ROOM OF THE SESSION THAT PLAYS. A
+/// session is built hidden while another one can be live, and the live save
+/// and the live world-time schedule belong to that other session. Until
+/// 2026-10-04 each commit read the world it landed in. Measured in `app_it`
+/// (`a_session_prepared_while_another_experience_plays_is_built_from_its_own_save`):
+/// a person whom Ambition's save records as provoked was built peaceful, for
+/// the first 3 frames of an Ambition session that replaced a Sanic session.
+#[derive(Clone, Debug)]
+pub enum CommitFactsSource {
+    /// The world that the commit lands in, read when the commit is applied.
+    /// For a room of the session that plays: the live save is its save, and a
+    /// replay commits a plan again after the save has moved. Also for an App
+    /// that enters one experience directly.
+    TheWorldAtTheCommit,
+    /// A value that the caller states. For the first room of a session that is
+    /// built from the save of its own experience
+    /// (`session::durable_horizon::CandidateSave`).
+    Stated(PersistedFates),
+}
+
 /// What the durable save says about the authored bodies a commit builds.
 ///
 /// ⛔ A COMMIT FACT, NOT A PLAN FACT (see `ConstructionDomain::CommitFacts`). A
@@ -238,29 +259,27 @@ pub struct ActorConstructionServices {
 /// is built in it — a placement the save says died starts dead, a cleared boss
 /// starts defeated. These used to be built alive and corrected by a save mirror
 /// running every sim tick.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct PersistedFates {
     save: Option<ambition_persistence::save_data::AmbitionGameSaveData>,
-    /// The breakables still broken when this commit was requested (OW5): the
-    /// time each stays broken, by (room definition id, authored id).
-    broken_breakables: std::collections::BTreeMap<(String, String), f32>,
+    /// The occurrences still gone when this commit was requested (OW5): the
+    /// time each stays gone (a breakable broken, a pickup collected), by
+    /// (room definition id, authored id).
+    scheduled_returns: std::collections::BTreeMap<(String, String), f32>,
 }
 
 impl PersistedFates {
     pub fn from_save(save: &ambition_persistence::save_data::AmbitionGameSaveData) -> Self {
         Self {
             save: Some(save.clone()),
-            broken_breakables: Default::default(),
+            scheduled_returns: Default::default(),
         }
     }
 
     /// A commit no durable record reaches: a summon, whose occurrence the save
     /// never names, or a fixture with no save installed.
     pub fn unrecorded() -> Self {
-        Self {
-            save: None,
-            broken_breakables: Default::default(),
-        }
+        Self::default()
     }
 
     /// Read off the world the commit is about to be applied to.
@@ -270,23 +289,22 @@ impl PersistedFates {
             .map_or_else(Self::unrecorded, |save| Self::from_save(save.data()))
     }
 
-    /// These facts, with the breakables still broken as the commit is
-    /// requested (OW5). The caller supplies them: the respawn schedule and its
-    /// clock are the feature layer's, and construction does not name that
-    /// layer.
-    pub fn with_broken_breakables(
+    /// These facts, with the occurrences still gone as the commit is requested
+    /// (OW5). The caller supplies them: the world-time schedule and its clock
+    /// are the feature layer's, and construction does not name that layer.
+    pub fn with_scheduled_returns(
         mut self,
         remaining: std::collections::BTreeMap<(String, String), f32>,
     ) -> Self {
-        self.broken_breakables = remaining;
+        self.scheduled_returns = remaining;
         self
     }
 
-    /// How long the breakable `id` of room `room` stays broken, when its
-    /// respawn was not yet due as this commit was requested (OW5); `None`
-    /// builds it whole.
-    pub fn breakable_remaining(&self, room: &str, id: &str) -> Option<f32> {
-        self.broken_breakables
+    /// How long the occurrence `id` of room `room` stays gone, when its return
+    /// was not yet due as this commit was requested (OW5); `None` builds it
+    /// whole.
+    pub fn scheduled_remaining(&self, room: &str, id: &str) -> Option<f32> {
+        self.scheduled_returns
             .get(&(room.to_string(), id.to_string()))
             .copied()
     }
@@ -846,7 +864,7 @@ fn construct_giant_hand(
         &services.context.brain_profiles,
         authored,
         &[],
-        conductor.unwrap_or(ambition_combat::components::ActorFaction::Enemy),
+        conductor.unwrap_or(ambition_characters::actor::ActorFaction::Enemy),
         fate,
     );
     // A conducted hand is the rider's: its blows are the rider's side's and
@@ -887,7 +905,7 @@ fn construct_authored_enemy(
         &services.context.brain_profiles,
         authored,
         paths,
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
         fate,
     );
 }
@@ -1427,12 +1445,9 @@ fn planned_boss_profile(
         },
         _ => return None,
     };
-    Some(
-        ambition_boss_encounter::pattern::profile::BossBehaviorProfile::for_authored_boss(
-            bosses,
-            &ambition_boss_encounter::behavior::canonical_boss_id_from(name, brain),
-        ),
-    )
+    Some(ambition_boss_encounter::behavior::authored_boss_behavior(
+        bosses, name, brain,
+    ))
 }
 
 /// Refuse a room whose boss has an encounter script that cannot run there.
@@ -2004,7 +2019,7 @@ pub fn authored_actor_requests(
             requests.append(&mut giant_cluster_rows(
                 giant_sim,
                 enemy.clone(),
-                ambition_combat::components::ActorFaction::Enemy,
+                ambition_characters::actor::ActorFaction::Enemy,
                 // The host receives the SAME frozen room paths an ordinary
                 // authored enemy does; the pre-`e164f22` migration dropped
                 // them with `paths: Vec::new()`.
@@ -2072,10 +2087,10 @@ fn giant_cluster_rows(
     host_authored: ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::EnemySpawnSpec,
     >,
-    faction: ambition_combat::components::ActorFaction,
+    faction: ambition_characters::actor::ActorFaction,
     paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     hands: Vec<ambition_platformer2d_actor_spawn::GiantHandPlan>,
-    conductor: Option<ambition_combat::components::ActorFaction>,
+    conductor: Option<ambition_characters::actor::ActorFaction>,
     host_origin: SpawnOrigin,
     mut hand_origin: impl FnMut(&ambition_platformer2d_actor_spawn::GiantHandPlan) -> SpawnOrigin,
 ) -> Vec<ActorConstructionRequest> {
@@ -2151,16 +2166,16 @@ fn conducting_rider(
     room: &ambition_platformer2d_world::rooms::RoomSpec,
     host_id: &str,
     host: Option<&ambition_characters::prepared::PreparedCharacterDefinition>,
-) -> Option<ambition_combat::components::ActorFaction> {
+) -> Option<ambition_characters::actor::ActorFaction> {
     host?.mount.as_ref().filter(|mount| mount.rider_conducts)?;
     let (rider, _) = room.mount_links.iter().find(|(_, mount)| mount == host_id)?;
     if room.boss_spawns.iter().any(|boss| &boss.id == rider) {
-        Some(ambition_combat::components::ActorFaction::Boss)
+        Some(ambition_characters::actor::ActorFaction::Boss)
     } else {
         room.enemy_spawns
             .iter()
             .any(|enemy| &enemy.id == rider)
-            .then_some(ambition_combat::components::ActorFaction::Enemy)
+            .then_some(ambition_characters::actor::ActorFaction::Enemy)
     }
 }
 

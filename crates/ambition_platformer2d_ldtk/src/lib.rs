@@ -47,11 +47,11 @@ pub use surfaces::{
 };
 
 // Field accessors used by entity converters.
-pub use fields::{boss_placement_id, field_bool, field_f32, field_i32, field_string};
+pub use fields::{boss_placement_id, field_bool, field_f32, field_i32, field_string, field_text};
 
 use fields::{
-    edge_exit_step_up_px, entity_rect, entity_touches_level_edge, known_entity, pivot_is_top_left,
-    rects_strict_intersect,
+    edge_exit_step_up_px, entity_rect, entity_touches_level_edge, known_entity, loading_zone_id,
+    pivot_is_top_left, rects_strict_intersect,
 };
 use intgrid::{AMBITION_LAYER, GRID};
 use surfaces::{is_surface_like_identifier, parse_surface_spec};
@@ -96,6 +96,9 @@ impl LdtkProject {
         // Zones that name no target: the landing-pad end of a one-way trip.
         // `(area, zone id, iid)`. See the `LoadingZone` arm.
         let mut landing_pads: Vec<(String, String, String)> = Vec::new();
+        // The zone ids of each area. A zone is found by its id in its room, so
+        // two zones of one area with one id make the second one unreachable.
+        let mut zone_ids_by_area: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
         for level in &self.levels {
             if !level_ids.insert(level.identifier.clone()) {
@@ -191,6 +194,24 @@ impl LdtkProject {
                                 entity.iid
                             ));
                         }
+                        // The id is the name that a link arrives by. A blank id
+                        // names nothing, and a second zone with the same id in
+                        // the area is never found.
+                        let zone_id = loading_zone_id(entity);
+                        if zone_id.trim().is_empty() {
+                            report.errors.push(format!(
+                                "level '{}' has LoadingZone '{}' with a blank id",
+                                level.identifier, entity.iid
+                            ));
+                        } else if !zone_ids_by_area
+                            .entry(active_area.clone())
+                            .or_default()
+                            .insert(zone_id.clone())
+                        {
+                            report.errors.push(format!(
+                                "active area '{active_area}' has duplicate LoadingZone id '{zone_id}'"
+                            ));
+                        }
                         // A zone with no target is legal: it adds no `RoomLink`, and
                         // `transition_from_zone` fires only on a zone with an outgoing edge. It is the
                         // arrival end of a one-way trip.
@@ -198,14 +219,15 @@ impl LdtkProject {
                         // A landing pad must not name a target. The body arrives inside the zone
                         // (`door_arrival` = zone centre, 26px off its floor), so when the transition
                         // cooldown ends the zone fires and sends it back.
-                        let has_target_room = field_string(entity, "target_room")
-                            .is_some_and(|value| !value.trim().is_empty());
-                        let has_target_zone = field_string(entity, "target_zone")
-                            .is_some_and(|value| !value.trim().is_empty());
+                        // `field_text` is also the rule that `collect_room_links`
+                        // builds a link by, so a target that is judged here is the
+                        // target that the room graph gets.
+                        let has_target_room = field_text(entity, "target_room").is_some();
+                        let has_target_zone = field_text(entity, "target_zone").is_some();
                         if !has_target_room && !has_target_zone {
                             landing_pads.push((
                                 active_area.clone(),
-                                field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
+                                zone_id,
                                 entity.iid.clone(),
                             ));
                         } else if !(has_target_room && has_target_zone) {

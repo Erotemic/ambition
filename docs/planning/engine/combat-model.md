@@ -112,6 +112,41 @@ Move-authored `Invuln` / `Armor` windows should affect combat eligibility or hit
 reaction in the combat runtime. Rendering may visualize the resolved result but
 must not implement the mechanic.
 
+### Hazards beat a ledge hang (Q43)
+
+Ruling Q43 (2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md)):
+holding a ledge gives no implicit immunity from a hazard. A hanging body in a
+lethal hazard gets the normal hazard result; an exception is an explicit,
+named gameplay rule.
+
+Two roads give the immunity today:
+
+1. **Kernel hazard gate.** `apply_world_hazard_gate` runs only when the
+   simulation phase reaches `SimPhaseReach::Completed`
+   (`ambition_platformer2d_core/src/movement/mod.rs`). A frame that an active
+   ledge grab consumes short-circuits, so a hanging body is never judged. The
+   doc comment on `SimPhaseReach` and the test
+   `movement/tests/hazard_sweep.rs::a_hanging_body_is_not_judged_by_the_hazard_gate`
+   pin this immunity; both flip. Keep the other two short-circuits (a zero-dt
+   tick, a drowning) as they are: the ruling is about the hang, and a frozen
+   frame still judges no body.
+2. **Combat hazard volumes.** `ambition_combat/src/hazards.rs` skips a body
+   that is not `body_vulnerable`, and `BodyFacts::evading()` includes
+   `ledge_intangible` (the grab window, `LEDGE_GRAB_INVULN_TIME`). Decision
+   for this work: the ledge-grab window protects from attacks only; a hazard
+   volume ignores `ledge_intangible`. Dodge, getup and other intangibility
+   keep their present hazard behaviour (Q43 does not rule on them).
+
+Work is queue row HAZARD-BEATS-LEDGE. Acceptance: a body hanging on a lip with
+a lethal hazard under it dies on both roads (witness), the same body on a lip
+without a hazard keeps hanging (control), and the attack-only reading of the
+grab window has its own test (an attack during the window misses; a hazard
+during the window kills).
+
+Ledge occupancy (two bodies on one ledge) is a separate defect, owned by
+[`../demos/smash-parity-inventory.md`](../demos/smash-parity-inventory.md#ledge-occupancy)
+§5 (queue row LEDGE-OCCUPANCY).
+
 ## Damage and launch variants
 
 New reaction forms should be explicit authored policy. If a fighter needs fixed

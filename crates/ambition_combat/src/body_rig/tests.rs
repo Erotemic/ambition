@@ -107,10 +107,7 @@ fn the_gait_rule_reads_speed_running_and_skidding() {
 fn a_camera_state_does_not_change_a_bodys_gait_or_rig_pose() {
     use ambition_platformer2d_core::{BodyGroundState, BodyKinematics, BodyMotionFacts};
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(
         Update,
         (crate::hurtbox_resolution::advance_body_pose_clocks, resolve_body_rig_poses).chain(),

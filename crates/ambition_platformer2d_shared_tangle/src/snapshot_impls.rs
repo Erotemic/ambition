@@ -10,7 +10,7 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    put_f32, put_i32, put_str, put_u64, put_u8, put_vec2, Reader, SnapshotState,
+    put_bool, put_f32, put_i32, put_str, put_u64, put_u8, put_vec2, Reader, SnapshotState,
 };
 use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
 
@@ -210,13 +210,34 @@ impl SnapshotState for crate::time::SimDt {
     }
 }
 
+/// The turned rooms, in room order: a count, then for each a room (a flag,
+/// and the ordinal when the room is named) and its gravity. A peer whose
+/// switch turned another room has a different world, so the room is part of
+/// the value.
 impl SnapshotState for crate::gravity::BaseGravity {
     fn encode(&self, out: &mut Vec<u8>) {
-        put_vec2(out, self.dir);
+        put_u64(out, self.turned().count() as u64);
+        for (room, dir) in self.turned() {
+            put_bool(out, room.is_some());
+            if let Some(room) = room {
+                room.encode(out);
+            }
+            put_vec2(out, dir);
+        }
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self { dir: r.vec2()? })
+        let turned = r.u64()?;
+        let mut base = Self::default();
+        for _ in 0..turned {
+            let room = if r.bool()? {
+                Some(crate::lifecycle::LiveRoomInstance::decode(r)?)
+            } else {
+                None
+            };
+            base.turn(room, r.vec2()?);
+        }
+        Some(base)
     }
 }
 

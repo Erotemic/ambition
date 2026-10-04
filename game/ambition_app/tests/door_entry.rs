@@ -30,7 +30,7 @@ fn stand_in_a_door(sim: &mut Platformer2dSimHarness) -> Option<String> {
             .cloned()?
     };
     let world = sim.world_mut();
-    let mut player = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+    let mut player = world.query_filtered::<&mut ambition_platformer2d::actor::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     let mut kin = player.single_mut(world).ok()?;
     kin.pos = door.aabb.center();
     kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
@@ -125,7 +125,7 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
         app.update();
     }
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     for _ in 0..40 {
         app.update();
@@ -179,7 +179,7 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
                  at a room that has one."
             )
         });
-        let mut player = world.query_filtered::<&mut ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+        let mut player = world.query_filtered::<&mut ambition_platformer2d::actor::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
         if let Ok(mut kin) = player.single_mut(world) {
             kin.pos = zone.aabb.center();
             kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;

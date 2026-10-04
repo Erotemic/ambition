@@ -935,7 +935,7 @@ fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
 
 /// The D-C pattern, end to end. `SanicRulesPlugin::hosted()` ticks the act
 /// timer only inside the Sanic rooms; `::global()` ticks it everywhere. The
-/// mode-owner entity is `spawn_mode_scoped`, so the engine tears it down when
+/// mode-owner entity is a `spawn_mode_owner`, so the engine tears it down when
 /// the active room leaves the mode — this demo writes no teardown code.
 #[test]
 fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
@@ -954,10 +954,7 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
             app.world_mut(),
             rooms_in_mode(mode),
         );
-        app.insert_resource(ambition_platformer2d::time::WorldTime {
-            scaled_dt: 0.5,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 0.5));
         app.add_plugins(rules);
         app
     }
@@ -1765,10 +1762,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     let mut scope = ActiveSessionScope::default();
     scope.begin();
     app.insert_resource(scope);
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 0.1,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 0.1));
     app.add_systems(bevy::prelude::Update, crate::scatter_rings_on_hit);
 
     let body = ae::Vec2::new(100.0, 100.0);
@@ -1900,10 +1894,7 @@ fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
     );
 
     let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     let mut scope = ambition_platformer2d::platformer::lifecycle::ActiveSessionScope::default();
     let session = scope.begin();
     app.insert_resource(scope);
@@ -1975,10 +1966,7 @@ fn each_scattered_ring_bounces_off_the_floor_of_its_own_live_room() {
     let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
 
     let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     app.world_mut().spawn((RoomInstanceRoot, rooms[0], room(Vec::new())));
     app.world_mut().spawn((RoomInstanceRoot, rooms[1], room(vec![floor])));
     let rings = rooms.map(|room| {
@@ -2033,10 +2021,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     let mut scope = ActiveSessionScope::default();
     let session = scope.begin();
     app.insert_resource(scope);
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 0.1,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 0.1));
     app.world_mut().spawn((
         ambition_platformer2d::platformer::lifecycle::activation_room_root(session),
         ae::RoomGeometry(ae::World::new(
@@ -2291,10 +2276,7 @@ fn the_act_score_pays_for_speed_and_for_rings_kept() {
 #[test]
 fn the_ring_splash_is_wide_enough_to_be_a_scramble() {
     let mut app = App::new();
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     app.add_systems(bevy::prelude::Update, crate::arc_scattered_rings);
 
     // The six directions one shell launches in, at the shell's own speed.
@@ -2360,10 +2342,7 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
     let mut scope = ActiveSessionScope::default();
     scope.begin();
     app.insert_resource(scope);
-    app.insert_resource(ambition_platformer2d::time::WorldTime {
-        scaled_dt: 0.1,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 0.1));
     app.add_systems(bevy::prelude::Update, crate::scatter_rings_on_hit);
 
     let mut kin = ae::BodyKinematics::default();

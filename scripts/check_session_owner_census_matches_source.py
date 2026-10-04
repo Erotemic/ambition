@@ -19,8 +19,8 @@ CHECKABLE.
 
 ⚠ **IT COUNTS RESOURCES, NOT FIELDS, and the distinction is what the first
 parser got wrong.** `SessionScopedResources` and `SessionOwnedCheckpointState`
-are `SystemParam` bundles whose every field is one `ResMut<'w, T>` — one resource
-each. `SessionMechanics` is ONE resource that happens to have six fields, and
+are `SystemParam` bundles whose every field is one `ResMut<'w, T>` or
+`Option<ResMut<'w, T>>` — one resource each. `SessionMechanics` is ONE resource that happens to have six fields, and
 counting its fields reads the total as 41 instead of 36.
 
 ⛔⛤ **RULE 3 — AND A COUNT IS NOT A CHECK ON A LIST.** The first two rules agree
@@ -65,7 +65,15 @@ SINGLETON = (
     "crates/ambition_platformer2d_actor_monolith/src/session/mechanics.rs",
 )
 
-RESMUT_FIELD = re.compile(r"^\s{4}(?:pub\s+)?\w+:\s*ResMut<'w,\s*(.+?)>,\s*$", re.M)
+#: ⛔ A member is `ResMut<'w, T>` or `Option<ResMut<'w, T>>`, and the optional
+#: form is often split over two lines. Until 2026-10-03 this matched only the
+#: one-line plain form, so the census did not see the five optional members of
+#: `SessionScopedResources` (the boss defeats, the breakable respawns, the
+#: reward grants, and the sim tick and impact freeze that `Q128` added) and said
+#: "matches source" with 27 of 32.
+RESMUT_FIELD = re.compile(
+    r"^\s{4}(?:pub\s+)?\w+:\s*(?:Option<\s*)?ResMut<'w,\s*([\w:]+)>>?,\s*$", re.M
+)
 
 CHECKPOINT = REPO / BUNDLES["SessionOwnedCheckpointState"]
 #: ⛔⛔ THE WHOLE WORKSPACE, NOT THE CRATE THAT OWNS THE STRUCT. A member could

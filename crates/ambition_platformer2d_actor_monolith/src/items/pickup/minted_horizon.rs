@@ -147,20 +147,39 @@ pub fn capture_minted_item_baseline(
 /// Nothing republishes it, and a commit happens mid-frame at a shrine, so a
 /// rewind across the commit must restore it or the world keeps an entitlement
 /// from a future that was un-happened.
+///
+/// The purse is in it too: the bag and the primary body's wallet are one
+/// decision, as a purchase moves both, so a death that put back only one of them
+/// lost the goods or the coins. It is the PRIMARY body's balance, the one a
+/// death restores and the one the save holds; another participant's wallet is
+/// not rewound by this player's death (Q151).
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
-pub struct OwnedItemsBaseline(ambition_items::OwnedItems);
+pub struct OwnedItemsBaseline {
+    bag: ambition_items::OwnedItems,
+    purse: i32,
+}
 
 impl OwnedItemsBaseline {
     /// `None` is not expressible: a checkpoint always saw SOME bag, and an empty one is a real
     /// answer.
     pub fn remembered(&self) -> &ambition_items::OwnedItems {
-        &self.0
+        &self.bag
+    }
+
+    /// The primary body's wallet balance at the last committed checkpoint.
+    pub fn purse(&self) -> i32 {
+        self.purse
     }
 
     /// Adopt a bag as the baseline — the road a durable LOAD takes, mirroring
     /// `OccurrenceBaseline::adopt`.
     pub fn adopt(&mut self, owned: ambition_items::OwnedItems) {
-        self.0 = owned;
+        self.bag = owned;
+    }
+
+    /// Adopt a wallet balance as the baseline purse, on the same load road.
+    pub fn adopt_purse(&mut self, balance: i32) {
+        self.purse = balance;
     }
 
     /// Entity-free VALUE projection, like its three siblings: two peers that
@@ -181,8 +200,9 @@ impl OwnedItemsBaseline {
         // The BUILT-IN catalog's ids: a checksum has no world to ask, and the
         // built-in table is the same in every process, so two peers hash the
         // same bag to the same bytes whatever content each installed.
-        let rows = self.0.to_persisted(ambition_items::builtin_item_catalog());
+        let rows = self.bag.to_persisted(ambition_items::builtin_item_catalog());
         let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.purse as u32 as u64);
         put_u64(&mut bytes, rows.len() as u64);
         for row in &rows {
             put_str(&mut bytes, &row.id);
@@ -195,6 +215,10 @@ impl OwnedItemsBaseline {
 pub fn capture_owned_items_baseline(
     mut commits: MessageReader<CheckpointCommitted>,
     owned: Option<Res<ambition_items::OwnedItems>>,
+    wallets: Query<
+        &ambition_characters::actor::BodyWallet,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
     baseline: Option<ResMut<OwnedItemsBaseline>>,
 ) {
     // Drained unconditionally, like every other reader of this channel.
@@ -205,8 +229,15 @@ pub fn capture_owned_items_baseline(
     if !committed {
         return;
     }
-    if baseline.0 != *owned {
-        baseline.0 = owned.clone();
+    if baseline.bag != *owned {
+        baseline.bag = owned.clone();
+    }
+    // No primary body means no purse to remember: keep the last one rather
+    // than write a zero nobody had.
+    if let Ok(wallet) = wallets.single() {
+        if baseline.purse != wallet.balance {
+            baseline.purse = wallet.balance;
+        }
     }
 }
 
@@ -236,11 +267,36 @@ pub struct ItemCheckpointRestoreInputs {
 pub fn restore_owned_items_to_checkpoint(
     inputs: Option<Res<ItemCheckpointRestoreInputs>>,
     owned: Option<ResMut<ambition_items::OwnedItems>>,
+    grants: Option<Res<RewardGrantsSinceCheckpoint>>,
+    mut wallets: Query<
+        (&SimId, &mut ambition_characters::actor::BodyWallet),
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+    >,
 ) {
     let (Some(inputs), Some(mut owned)) = (inputs, owned) else {
         return;
     };
     reduce_owned_items_to_baseline(inputs.owned.remembered(), &mut owned);
+    // The purse goes back with the bag, except for the coins of the grants
+    // still on record. A boss defeat that this restore retracts has already
+    // taken its grants out (`retract_mints_of_retracted_boss_defeats`, at the
+    // replay's admission); a grant that is left belongs to a defeat the death
+    // keeps, such as one in another participant's room (Q151), so its coins
+    // stay. `forget_reward_grants_on_restore` forgets the grants after this.
+    if let Ok((id, mut wallet)) = wallets.single_mut() {
+        let kept: i32 = grants.as_deref().map_or(0, |grants| {
+            grants
+                .grants
+                .iter()
+                .filter(|grant| grant.collector == *id)
+                .map(|grant| grant.granted.coins)
+                .sum()
+        });
+        let balance = inputs.owned.purse() + kept;
+        if wallet.balance != balance {
+            wallet.balance = balance;
+        }
+    }
 }
 
 /// The entitlement domain's reducer.
@@ -298,6 +354,141 @@ pub fn start_the_item_domain_fresh(
     }
 }
 
+/// What one granted pickup added: coins to its collector's wallet, and items
+/// to the bag. Returned by `grant_pickup`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PickupGranted {
+    pub coins: i32,
+    pub item: Option<(ambition_items::Item, u32)>,
+}
+
+impl PickupGranted {
+    pub fn is_empty(&self) -> bool {
+        self.coins == 0 && self.item.is_none()
+    }
+}
+
+/// Where a granted reward came from, as a retracted boss defeat names it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GrantSource {
+    /// A collected mint, by the occurrence it fell out of
+    /// (`SpawnOrigin::Dynamic { parent }`).
+    Mint { parent: SimId },
+    /// An opened boss reward chest, by its boss placement.
+    BossChest { placement: String },
+}
+
+/// One grant of a collected mint or an opened boss reward chest.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RewardGrant {
+    pub source: GrantSource,
+    /// The body that collected it.
+    pub collector: SimId,
+    pub granted: PickupGranted,
+}
+
+/// The grants of the mints collected and the boss reward chests opened since
+/// the last committed checkpoint (BOSS-REPLAY-RETRACTION). A collected mint is
+/// gone and an opened chest grants nothing again, so this is the only record of
+/// what they gave, and a retracted boss defeat takes back the grants of its
+/// mints and its chest.
+///
+/// Rollback state with a real value: a collection writes it on a tick.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct RewardGrantsSinceCheckpoint {
+    grants: Vec<RewardGrant>,
+}
+
+impl RewardGrantsSinceCheckpoint {
+    /// Record a grant. A grant that added nothing is not recorded.
+    pub fn record(&mut self, grant: RewardGrant) {
+        if !grant.granted.is_empty() {
+            self.grants.push(grant);
+        }
+    }
+
+    /// Take out the grants of the mints of `bosses` and of the reward chests
+    /// of `placements`, in the order they were made.
+    pub fn take_for(
+        &mut self,
+        bosses: &std::collections::BTreeSet<SimId>,
+        placements: &std::collections::BTreeSet<String>,
+    ) -> Vec<RewardGrant> {
+        let retracted = |grant: &RewardGrant| match &grant.source {
+            GrantSource::Mint { parent } => bosses.contains(parent),
+            GrantSource::BossChest { placement } => placements.contains(placement),
+        };
+        if !self.grants.iter().any(retracted) {
+            return Vec::new();
+        }
+        let (taken, kept) = std::mem::take(&mut self.grants).into_iter().partition(retracted);
+        self.grants = kept;
+        taken
+    }
+
+    /// Forget every grant: a checkpoint commit makes them part of the
+    /// baseline, and a checkpoint restore or a fresh run puts the bag back.
+    pub fn forget_all(&mut self) {
+        if !self.grants.is_empty() {
+            self.grants.clear();
+        }
+    }
+
+    /// Entity-free value projection: two peers that disagree about what a
+    /// retraction would take back have diverged.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.grants.len() as u64);
+        for grant in &self.grants {
+            match &grant.source {
+                GrantSource::Mint { parent } => {
+                    put_u64(&mut bytes, 0);
+                    put_str(&mut bytes, parent.as_str());
+                }
+                GrantSource::BossChest { placement } => {
+                    put_u64(&mut bytes, 1);
+                    put_str(&mut bytes, placement);
+                }
+            }
+            put_str(&mut bytes, grant.collector.as_str());
+            put_u64(&mut bytes, u64::from(grant.granted.coins as u32));
+            match grant.granted.item {
+                Some((item, n)) => {
+                    put_u64(&mut bytes, item.index() as u64 + 1);
+                    put_u64(&mut bytes, u64::from(n));
+                }
+                None => put_u64(&mut bytes, 0),
+            }
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
+/// A committed checkpoint makes every grant since the last one part of the
+/// baseline.
+pub fn forget_reward_grants_at_checkpoint(
+    mut commits: MessageReader<CheckpointCommitted>,
+    mut grants: ResMut<RewardGrantsSinceCheckpoint>,
+) {
+    // Drained unconditionally, like every other reader of this channel.
+    if commits.read().count() > 0 {
+        grants.forget_all();
+    }
+}
+
+/// A checkpoint restore and a fresh run put the bag and the primary wallet
+/// back, so no grant since the checkpoint is left to take back from them.
+/// (checkpoint reducer, in `CheckpointDomainApply`)
+pub fn forget_reward_grants_on_restore(
+    inputs: Option<Res<ItemCheckpointRestoreInputs>>,
+    grants: Option<ResMut<RewardGrantsSinceCheckpoint>>,
+) {
+    if let (Some(_), Some(mut grants)) = (inputs, grants) {
+        grants.forget_all();
+    }
+}
+
 /// BOSS-REPLAY-RETRACTION (Q51): the mints of a boss defeat that a replay
 /// retracted go with it. "If you roll back to before the defeat, you do not
 /// have the item."
@@ -308,8 +499,11 @@ pub fn start_the_item_domain_fresh(
 /// dormant mints the save describes in a room that is not live, are retracted,
 /// so no room build puts one back and the save mirrors drop their rows.
 ///
-/// ⚠ What a mint already became is not taken back here: coins already in a
-/// wallet, a granted ability. Those are known issues in the queue row.
+/// What a collected mint or the opened reward chest gave is taken back too:
+/// its coins leave the wallet of the body that collected them (down to zero,
+/// if they were spent), and its item leaves the bag
+/// ([`RewardGrantsSinceCheckpoint`]).
+#[allow(clippy::too_many_arguments)]
 pub fn retract_mints_of_retracted_boss_defeats(
     mut commands: Commands,
     mut retracted: bevy::prelude::MessageReader<ambition_boss_encounter::BossDefeatRetracted>,
@@ -317,11 +511,28 @@ pub fn retract_mints_of_retracted_boss_defeats(
     mut hands: Query<ambition_combat::hand::RepertoireQuery>,
     save: Option<Res<AmbitionGameSave>>,
     occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    grants: Option<ResMut<RewardGrantsSinceCheckpoint>>,
+    mut wallets: Query<(&SimId, &mut ambition_characters::actor::BodyWallet)>,
+    owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
-    let bosses: std::collections::BTreeSet<SimId> =
-        retracted.read().filter_map(|retracted| retracted.boss.clone()).collect();
-    if bosses.is_empty() {
+    let (mut bosses, mut placements) = (std::collections::BTreeSet::new(), std::collections::BTreeSet::new());
+    for retracted in retracted.read() {
+        bosses.extend(retracted.boss.clone());
+        placements.insert(retracted.placement.clone());
+    }
+    if placements.is_empty() {
         return;
+    }
+    let mut owned = owned;
+    for grant in grants.map(|mut grants| grants.take_for(&bosses, &placements)).unwrap_or_default() {
+        if grant.granted.coins != 0 {
+            if let Some((_, mut wallet)) = wallets.iter_mut().find(|(id, _)| **id == grant.collector) {
+                wallet.add(-grant.granted.coins);
+            }
+        }
+        if let (Some((item, n)), Some(owned)) = (grant.granted.item, owned.as_deref_mut()) {
+            owned.take(item, n);
+        }
     }
     let fell_out_of_a_retracted_boss =
         |origin: &SpawnOrigin| matches!(origin, SpawnOrigin::Dynamic { parent, .. } if bosses.contains(parent));
@@ -391,6 +602,8 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 .in_set(crate::session::reset::ContentRoomReplayResetSet)
                 .after(ambition_boss_encounter::BossDefeatRetraction),
         )
+        .init_resource::<RewardGrantsSinceCheckpoint>()
+        .add_systems(sim, forget_reward_grants_at_checkpoint)
         // ⭐ INTO THE COMMIT EXECUTOR'S SCHEDULE, not the simulation. Custody
         // materializes and despawns; doing that on a speculative frame for an
         // unconfirmed request is what the confirmed-frame lifecycle exists to
@@ -402,6 +615,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 restore_owned_items_to_checkpoint,
                 super::restore_custody_to_checkpoint,
                 start_the_item_domain_fresh,
+                forget_reward_grants_on_restore,
             )
                 .chain(),
         );
@@ -428,13 +642,15 @@ impl Plugin for ItemCheckpointHorizonPlugin {
 /// arrives after A has been retired, which is post-publication recovery.
 pub fn minted_baseline_from_save(data: &AmbitionGameSaveData) -> MintedItemBaseline {
     let mut baseline = MintedItemBaseline::default();
-    adopt_checkpoint_baselines_from_save(data, &ambition_items::OwnedItems::default(), Some(&mut baseline), None);
+    adopt_checkpoint_baselines_from_save(data, &ambition_items::OwnedItems::default(), 0, Some(&mut baseline), None);
     baseline
 }
 
 pub fn adopt_checkpoint_baselines_from_save(
     data: &AmbitionGameSaveData,
     owned: &ambition_items::OwnedItems,
+    // The primary body's balance after the load applied the save's.
+    purse: i32,
     minted_baseline: Option<&mut MintedItemBaseline>,
     owned_baseline: Option<&mut OwnedItemsBaseline>,
 ) {
@@ -459,6 +675,7 @@ pub fn adopt_checkpoint_baselines_from_save(
     }
     if let Some(baseline) = owned_baseline {
         baseline.adopt(owned.clone());
+        baseline.adopt_purse(purse);
     }
 }
 
@@ -572,8 +789,16 @@ where
     registrar.rollback_resource_clone_checksum::<OwnedItemsBaseline>(
         OWNER,
         "resource.owned_items_baseline",
-        "entity-free stored-quantity checksum projection",
+        "entity-free stored-quantity and checkpoint purse checksum projection",
         OwnedItemsBaseline::checksum,
+    );
+    // A collection writes it on a tick, so a rewind across that tick takes
+    // the grant back out of the record with the coins out of the wallet.
+    registrar.rollback_resource_clone_checksum::<RewardGrantsSinceCheckpoint>(
+        OWNER,
+        "resource.reward_grants_since_checkpoint",
+        "the grants of the mints collected and the boss reward chests opened since the last checkpoint, which a retracted boss defeat takes back",
+        RewardGrantsSinceCheckpoint::checksum,
     );
 }
 

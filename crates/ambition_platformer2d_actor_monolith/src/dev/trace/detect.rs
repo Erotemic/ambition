@@ -204,6 +204,9 @@ pub fn build_frame(
     seq: u64,
     tick: u64,
     moving_platforms: &[ambition_platformer2d_world::platforms::MovingPlatformState],
+    // The toward-feet direction of the body's resolved movement frame. A
+    // platform supports the body on the face its feet point at.
+    feet_dir: ae::Vec2,
     locomotion: &str,
     body_mode: &str,
 ) -> GameplayTraceFrame {
@@ -251,7 +254,7 @@ pub fn build_frame(
         },
         controls: controls.into(),
         nearby_collision: nearby_collision(world, clusters.kinematics.pos),
-        moving_platforms: build_moving_platform_states(clusters, moving_platforms),
+        moving_platforms: build_moving_platform_states(clusters, moving_platforms, feet_dir),
     }
 }
 
@@ -259,6 +262,7 @@ pub fn build_frame(
 fn build_moving_platform_states(
     clusters: &ae::BodyClustersMut<'_>,
     moving_platforms: &[ambition_platformer2d_world::platforms::MovingPlatformState],
+    feet_dir: ae::Vec2,
 ) -> Vec<MovingPlatformTraceState> {
     let player_pos = clusters.kinematics.pos;
     let player_aabb = clusters.kinematics.aabb();
@@ -273,7 +277,7 @@ fn build_moving_platform_states(
                 size: p.size.into(),
                 aabb: aabb.into(),
                 direction: p.direction(),
-                player_riding: p.is_riding(player_aabb, on_ground),
+                player_riding: p.is_supporting_body(player_aabb, on_ground, feet_dir),
                 player_distance,
             }
         })

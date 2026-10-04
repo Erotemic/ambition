@@ -633,13 +633,16 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
 }
 
 
-/// Unknown ids are deterministic, not stale. Re-wearing an id the catalog
-/// does not know installs a DEFINED fallback (the code kit rebuilt from the
-/// body's abilities) and names the body after the id — it never silently keeps
-/// the prior character's kit or name.
+/// ⛔ A RE-WEAR TO AN ID THE CAST DOES NOT HOLD IS REFUSED (Q103). The body
+/// wears the pirate admiral again, with its name, its pistol and its baseline:
+/// its id and its kit stay one answer. The request is consumed, so the refusal
+/// is one event and not a state.
+///
+/// This arm used to assert the opposite: a peaceful kit and the id as the name.
+/// That was a character nobody prepared, made at wear time.
 #[test]
-fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
-    use ambition_characters::brain::ActionSet;
+fn a_rewear_to_an_unprepared_id_keeps_the_previous_character() {
+    use ambition_characters::brain::{action_set::RangedStyle, ActionSet, RangedActionSpec};
     use ambition_combat::moveset::ActorMoveset;
     use bevy::prelude::*;
 
@@ -672,27 +675,54 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
         ))
         .id();
     app.update();
+    let has_pistol = |app: &App| {
+        matches!(
+            app.world().get::<ActionSet>(e).unwrap().ranged,
+            Some(RangedActionSpec {
+                style: RangedStyle::Pistol,
+                ..
+            })
+        )
+    };
+    assert_eq!(app.world().get::<Name>(e).unwrap().as_str(), "Pirate Admiral");
+    assert!(has_pistol(&app), "the premise is a body that wears the pirate's pistol");
+    let identity = app
+        .world()
+        .get::<ambition_characters::brain::action_set::IdentityKit>(e)
+        .unwrap()
+        .clone();
+    let baseline = app.world().get::<PersonaBaseline>(e).unwrap().clone();
 
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() =
         WornCharacter::new("ghost_not_in_catalog");
-    // AND ASK FOR IT. Writing the identity stopped rebuilding the
-    // body: a re-wear is an explicit request, the
-    // way Mary-O's powerup already made it. A fixture that mutated the id and
-    // expected a rebuild was encoding the contract that split.
     app.world_mut()
         .entity_mut(e)
         .insert(ambition_characters::actor::RecharacterizeBody);
-    app.update();
-    // Name is the id itself (a legible diagnostic), NOT the stale "Pirate Admiral".
+    for _ in 0..3 {
+        app.update();
+    }
+
+    let world = app.world();
     assert_eq!(
-        app.world().get::<Name>(e).unwrap().as_str(),
-        "ghost_not_in_catalog"
+        world.get::<WornCharacter>(e).unwrap().id(),
+        "npc_pirate_admiral",
+        "the body names a character it does not wear"
     );
-    let set = app.world().get::<ActionSet>(e).unwrap();
+    assert_eq!(world.get::<Name>(e).unwrap().as_str(), "Pirate Admiral");
+    assert!(has_pistol(&app), "the refused wear took the pirate's pistol");
+    let kept = world.get::<ambition_characters::brain::action_set::IdentityKit>(e).unwrap();
     assert!(
-        set.melee.is_none() && set.ranged.is_none() && set.special.is_none(),
-        "an unknown id wears nothing it did not author — neither the stale pistol \
-         nor an invented host kit: {set:?}"
+        kept.action_set == identity.action_set && kept.moveset == identity.moveset,
+        "the refused wear changed the identity baseline"
+    );
+    assert_eq!(
+        world.get::<PersonaBaseline>(e).unwrap(),
+        &baseline,
+        "the refused wear was recorded as applied"
+    );
+    assert!(
+        !world.entity(e).contains::<ambition_characters::actor::RecharacterizeBody>(),
+        "the refused request stays on the body"
     );
 }
 
@@ -719,6 +749,8 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
     let entity = app
         .world_mut()
@@ -792,6 +824,8 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
 
     // Two characters, identical but for how they fire.
@@ -886,6 +920,8 @@ fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
 
     // A Sanic-shaped body: movement abilities, empty ActionSet, and a spin_dash
@@ -1008,6 +1044,8 @@ fn a_worn_technique_gates_the_slot_of_the_body_that_wears_it() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
     let body = app
         .world_mut()
@@ -1086,11 +1124,7 @@ fn pressing_special_starts_the_real_players_folded_bubble_shield_move() {
 
     let mut app = App::new();
     // The buffer decays on the body's own clock, so the chain needs one.
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        raw_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(
         Update,
         (
@@ -2472,6 +2506,8 @@ fn the_shield_verb_follows_the_ability_not_the_special() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
 
     let mut spawn = |abilities, actions| {
@@ -2531,6 +2567,8 @@ fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
     let body = app
         .world_mut()
@@ -2708,41 +2746,54 @@ fn only_a_press_that_resolves_to_the_bubble_raises_the_guard() {
     );
 }
 
-/// A6: the display-name fallback survived leaving `WornKit`.
-///
-/// ⛔ IT MOVED, SO ITS TEST MOVED. The per-field census found `display_name`
-/// inside `ambition_combat`'s otherwise clean execution slice with exactly one
-/// reader — `apply_worn_character_overlay`. The field is gone from `WornKit` and
-/// the three-level fallback is resolved here instead. The old assertion lived
-/// beside the struct; deleting it without replacing it would have retired the
-/// behaviour along with the field.
-///
-/// ⭐ THE UNKNOWN-ID ARM IS THE ONE THAT MATTERS. Naming an unknown body after
-/// its id is what makes a bad id visible in the world instead of silent, and it
-/// is the arm a rewrite is most likely to drop.
+/// ⛔ AN ID THE CAST DOES NOT HOLD WRITES NOTHING (Q103). The overlay used to
+/// name the body after the id and give it a peaceful kit: a character nobody
+/// prepared, made at wear time. Now it answers `None`, and the name, the action
+/// set, the moveset and the identity stay as they were.
 #[test]
-fn an_unknown_character_is_named_after_its_id_so_the_problem_is_visible() {
+fn an_unprepared_id_writes_nothing_on_the_body() {
+    use ambition_characters::brain::{MeleeActionSpec, SwipeSpec};
+    let held = ActionSet {
+        melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+            windup_s: 0.0,
+            active_s: 0.1,
+            recover_s: 0.1,
+            damage: 3,
+            reach_px: 20.0,
+        })),
+        ..ActionSet::peaceful()
+    };
     let mut name = Name::new("placeholder");
-    let mut action_set = ActionSet::default();
+    let mut action_set = held.clone();
     let mut moveset = ActorMoveset(ambition_entity_catalog::MovesetContract::default());
-    let mut identity = ambition_characters::brain::action_set::IdentityKit::default();
+    let mut identity = ambition_characters::brain::action_set::IdentityKit::of(
+        held.clone(),
+        ambition_entity_catalog::MovesetContract::default(),
+    );
+    let before = identity.clone();
 
-    crate::avatar::apply_worn_character_overlay(
+    for registry in [
         None,
-        &mut name,
-        &mut action_set,
-        &mut moveset,
-        &mut identity,
-        "no_such_character",
-        ambition_combat::worn_kit::SeatTerms::default(),
-    );
-
-    assert_eq!(
-        name.as_str(),
-        "no_such_character",
-        "an id the catalog does not know must name the body after the id. A \
-         placeholder or an empty name here hides a bad id instead of showing it"
-    );
+        Some(&ambition_characters::prepared::PreparedCharacterRegistry::default()),
+    ] {
+        let worn = crate::avatar::apply_worn_character_overlay(
+            registry,
+            &mut name,
+            &mut action_set,
+            &mut moveset,
+            &mut identity,
+            "no_such_character",
+            // A stage's borrowed kit does not make an unprepared id a character.
+            ambition_combat::worn_kit::SeatTerms::borrowing(&held),
+        );
+        assert!(worn.is_none(), "an id outside the cast was worn");
+        assert_eq!(name.as_str(), "placeholder", "the refused id renamed the body");
+        assert_eq!(action_set, held, "the refused id changed the action set");
+        assert!(
+            identity.action_set == before.action_set && identity.moveset == before.moveset,
+            "the refused id changed the identity baseline"
+        );
+    }
 }
 
 /// ⭐ SPAWN AND RE-WEAR ANSWER ONE QUESTION ONE WAY: what a worn character's
@@ -2786,9 +2837,8 @@ fn the_spawn_grant_and_the_persona_derive_resolve_one_authored_kit() {
         .expect("an authored kit");
     registry.insert_prepared(finalized.prepared);
 
-    let derived = ambition_combat::worn_kit::WornKit::resolve(
-        Some(&registry),
-        "brute",
+    let derived = ambition_combat::worn_kit::WornKit::of(
+        registry.get("brute").expect("the cast holds `brute`"),
         ambition_combat::worn_kit::SeatTerms::default(),
     );
     assert_eq!(
@@ -2833,9 +2883,8 @@ fn a_charger_swings_with_the_builders_cue_on_a_seat_and_at_spawn() {
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     registry.insert_prepared(finalized.prepared);
     let seated =
-        ambition_combat::worn_kit::WornKit::resolve(
-            Some(&registry),
-            "sparker",
+        ambition_combat::worn_kit::WornKit::of(
+            registry.get("sparker").expect("the cast holds `sparker`"),
             ambition_combat::worn_kit::SeatTerms::borrowing(&kit),
         );
     assert!(
@@ -2918,7 +2967,10 @@ fn a_moves_only_character_is_granted_and_reworn_as_one_kit() {
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     registry.insert_prepared(prepared);
     let reworn =
-        ambition_combat::worn_kit::WornKit::resolve(Some(&registry), "lobber", ambition_combat::worn_kit::SeatTerms::default());
+        ambition_combat::worn_kit::WornKit::of(
+            registry.get("lobber").expect("the cast holds `lobber`"),
+            ambition_combat::worn_kit::SeatTerms::default(),
+        );
 
     let world = app.world();
     let identity = world
@@ -2965,6 +3017,8 @@ fn a_driven_actor_outside_the_player_population_is_gated_by_its_own_scheme() {
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
     let mut abilities = ambition_platformer2d_core::AbilitySet::sandbox_all();
     abilities.shield = false;

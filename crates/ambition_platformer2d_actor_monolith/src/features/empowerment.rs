@@ -9,7 +9,8 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::{BodyCombat, BodyHealth, Invulnerability, WornCharacter};
 use ambition_characters::prepared::PreparedCharacterRegistry;
-use ambition_combat::components::{ActorFaction, CenteredAabb};
+use ambition_combat::components::CenteredAabb;
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::events::{
     HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
@@ -118,7 +119,7 @@ pub fn run_empowerments(
         Or<(With<Empowered>, With<WornCharacter>)>,
     >,
 ) {
-    let dt = time.scaled_dt;
+    let dt = time.sim_dt();
     for (body, grant, worn, mut health) in &mut bodies {
         let mut live_grant = None;
         if let Some(mut empowered) = grant {

@@ -30,16 +30,73 @@ use ambition_audio::music::{AdaptiveMusicCatalogRegistry, EncounterMusicBinding,
 /// (large-brute) state. Content tuning — owned here, not by the director.
 pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 
-/// Clear room-scoped narrative music when the active room changes.
+/// The live room the music plays for (Q150, Q72). There is one audio output.
+/// Of the rooms the participants stand in, it is the one whose music has the
+/// highest authored priority ([`EncounterMusicRequest::priority_of`]: a boss
+/// over an encounter over the room's own music). The primary seat's room wins
+/// a tie, and any other tie goes to the lowest live room, so the choice does
+/// not depend on query order.
+pub(super) fn the_room_the_music_plays_for(
+    primary: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    held: impl IntoIterator<Item = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    priority_of: impl Fn(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> u8,
+) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+    let mut rooms: Vec<_> = held.into_iter().map(Some).collect();
+    // No primary room is the world of a composition with no live room (a
+    // fixture), and it is heard only when nobody stands in a live room.
+    if primary.is_some() || rooms.is_empty() {
+        rooms.push(primary);
+    }
+    rooms.sort();
+    rooms.dedup();
+    rooms
+        .into_iter()
+        .max_by_key(|room| (priority_of(*room), *room == primary, std::cmp::Reverse(*room)))
+        .flatten()
+}
+
+/// The rooms the participants' bodies stand in, for
+/// [`the_room_the_music_plays_for`].
+fn participant_rooms(
+    rooms: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    participants: &Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
+) -> Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+    participants.iter().filter_map(|body| rooms.live().of(body)).collect()
+}
+
+/// Clear room-scoped narrative music when the room the music plays for changes
+/// to another authored room.
+///
+/// The room is `the_room_the_music_plays_for`, as for
+/// [`compute_music_intent`]. This read was the sole live room, so while two
+/// rooms were live it did not run, and a conversation's track stayed after the
+/// primary seat left its room. Another player's crossing into a room with no
+/// higher-priority music does not change that room, so it does not clear the
+/// track.
 pub fn release_narrative_music_on_room_change(
-    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    primary: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+    participants: Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
+    encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        EncounterMusicRequest,
+    >,
+    mut last: Local<Option<ambition_platformer2d_world::rooms::LiveRoomDefinition>>,
     // Conversation support is optional in hosts that still install the audio plugin.
     narrative_music: Option<ResMut<ambition_conversation::NarrativeMusicRequest>>,
 ) {
+    let heard = the_room_the_music_plays_for(
+        primary.get(),
+        participant_rooms(&rooms, &participants),
+        |room| encounter_music.priority_of(room),
+    );
+    let Some(definition) = rooms.definition_named(heard) else {
+        return;
+    };
+    let changed = last.replace(definition) != Some(definition);
     let Some(mut narrative_music) = narrative_music else {
         return;
     };
-    if rooms.is_changed() && narrative_music.track().is_some() {
+    if changed && narrative_music.track().is_some() {
         narrative_music.clear();
     }
 }
@@ -52,11 +109,17 @@ pub fn release_narrative_music_on_room_change(
 pub fn compute_music_intent(
     catalogs: Res<AdaptiveMusicCatalogRegistry>,
     director: Option<Res<MusicDirectorState>>,
-    encounters: Query<(&Encounter, &EncounterLifecycle, &EncounterWaves)>,
+    encounters: Query<(Entity, &Encounter, &EncounterLifecycle, &EncounterWaves)>,
     encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         EncounterMusicRequest,
     >,
-    rooms: ambition_platformer2d_world::rooms::SoleLiveRoomSpec,
+    // ⭐ ONE AUDIO OUTPUT, ONE ROOM HEARD: the participants' room whose music
+    // has the highest authored priority, the primary seat's on a tie (Q150,
+    // Q72; `the_room_the_music_plays_for`). This read was the sole live room,
+    // so while two rooms were live this system did not run and the music froze.
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    primary: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+    participants: Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
     narrative_music: Option<Res<ambition_conversation::NarrativeMusicRequest>>,
     radio: Option<Res<RadioStationState>>,
     audio_selection: Res<ActiveAudioSelection>,
@@ -67,10 +130,21 @@ pub fn compute_music_intent(
     // just an index, so the state is read from the entities directly). The
     // lifecycle supplies the generic phase; the wave policy supplies the
     // wave index/clock the adaptive states key on.
-    let states: HashMap<&str, (EncounterPhase, &EncounterWaves)> = encounters
-        .iter()
-        .map(|(enc, lifecycle, waves)| (enc.id.as_str(), (lifecycle.phase(), waves)))
-        .collect();
+    //
+    // Only the occurrences of the room the music plays for: an encounter is
+    // an occurrence in one live room, and the authored id names it only
+    // inside that room. Another room's fight does not drive the cue.
+    let heard = the_room_the_music_plays_for(
+        primary.get(),
+        participant_rooms(&rooms, &participants),
+        |room| encounter_music.priority_of(room),
+    );
+    let states = heard_encounter_states(
+        heard,
+        encounters.iter().map(|(occurrence, enc, lifecycle, waves)| {
+            (rooms.live().of(occurrence), enc.id.as_str(), lifecycle.phase(), waves)
+        }),
+    );
     let active_catalog = audio_selection
         .provider_id()
         .and_then(|provider| catalogs.catalog_for(provider));
@@ -79,14 +153,19 @@ pub fn compute_music_intent(
         _ => None,
     };
 
-    let room = &rooms.spec().metadata;
+    // No live room to hear: the music stays as it is, as it did when this
+    // read could not run.
+    let Some(definition) = rooms.definition_named(heard) else {
+        return;
+    };
+    let room = &rooms.rooms().spec(definition).metadata;
     let candidates = simple_track_candidates(
         room.music_track.as_deref(),
         room.fight_music_track.as_deref(),
         narrative_music.as_deref(),
         radio.as_deref(),
         &audio_selection,
-        &encounter_music,
+        encounter_music.desired_track(heard),
     );
 
     intent.provider_id = audio_selection.provider_id().map(str::to_owned);
@@ -104,6 +183,29 @@ pub fn compute_music_intent(
     intent.authority = authority;
 }
 
+/// The adaptive resolver's `id -> (phase, waves)` lookup: the encounter
+/// occurrences of live room `heard` only. Within one live room an authored
+/// encounter id names one occurrence, so the id is a safe key here; across
+/// rooms it is not (two live instances of one room each run an occurrence of
+/// the same encounter).
+pub(super) fn heard_encounter_states<'a>(
+    heard: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    occurrences: impl IntoIterator<
+        Item = (
+            Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+            &'a str,
+            EncounterPhase,
+            &'a EncounterWaves,
+        ),
+    >,
+) -> HashMap<&'a str, (EncounterPhase, &'a EncounterWaves)> {
+    occurrences
+        .into_iter()
+        .filter(|(room, ..)| *room == heard)
+        .map(|(_, id, phase, waves)| (id, (phase, waves)))
+        .collect()
+}
+
 /// Build the simple-track priority list. Priority, while a fight is on: the
 /// room's `fight_music_track`, then the fight's own track (boss beats wave,
 /// resolved inside `EncounterMusicRequest::desired_track`). Then a track a
@@ -118,10 +220,11 @@ pub(super) fn simple_track_candidates(
     narrative_music: Option<&ambition_conversation::NarrativeMusicRequest>,
     radio: Option<&RadioStationState>,
     audio_selection: &ActiveAudioSelection,
-    encounter_music: &EncounterMusicRequest,
+    // The fight track of the room the music plays for, if a fight is on.
+    encounter_track: Option<&str>,
 ) -> Vec<String> {
     let mut candidates = Vec::new();
-    if let Some(track) = encounter_music.desired_track() {
+    if let Some(track) = encounter_track {
         // A fight is on. The room says what its fights sound like, before the
         // boss or wave does.
         if let Some(room_fight) = room_fight_track {

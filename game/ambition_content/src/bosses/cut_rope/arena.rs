@@ -219,6 +219,7 @@ pub fn tick_cut_rope_flavor(
                 kind: ParticleKind::Spark,
             });
             debris.write(DebrisBurstMessage {
+                room: Some(room),
                 pos: burst_pos,
                 cue: PhysicsDebrisCue::BossRagdoll,
             });

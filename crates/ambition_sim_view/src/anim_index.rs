@@ -435,7 +435,7 @@ pub struct BossFrameIndex {
 
 #[derive(Clone, Debug)]
 pub struct BossFrameView {
-    pub anim: ambition_boss_encounter::sprites::BossAnimState,
+    pub anim: ambition_sprite_sheet::boss::BossAnimState,
     /// A NAMED row content pinned this boss to (`PinnedRow`): drawn ahead of
     /// the slot cursor when the sheet has it. Presentation only — the cursor
     /// and the geometry it drives carry on underneath.
@@ -447,7 +447,7 @@ pub struct BossFrameView {
     /// the frame — like every other sim→render fact — has to cross the boundary
     /// through this read-model. `drive_boss_animators` advances the cursor earlier
     /// in the sim tick; this captures its current value.
-    pub cursor_anim: ambition_boss_encounter::sprites::BossAnim,
+    pub cursor_anim: ambition_sprite_sheet::boss::BossAnim,
     pub cursor_frame: usize,
     /// Seconds of damage flash left on a live boss (`0.0` when dead). The
     /// renderer draws the `Hit` row over the cursor while it runs; the sim
@@ -502,6 +502,10 @@ impl BossFrameIndex {
 
 pub fn rebuild_boss_frame_index(
     mut index: ResMut<BossFrameIndex>,
+    // The row each attack plays is authored data in the boss catalog.
+    // REQUIRED, not optional: `engine.character-authority-is-app-local`
+    // forbids an optional boss authority and a substituted empty catalog.
+    catalog: bevy::prelude::Res<ambition_boss_encounter::BossCatalog>,
     bosses: Query<(
         &FeatureId,
         ambition_boss_encounter::BossClusterRef,
@@ -511,17 +515,17 @@ pub fn rebuild_boss_frame_index(
         &ambition_characters::brain::Brain,
         // The SIM-owned draw cursor. `Option` so a boss fixture spawned without the anim cursor
         // still lands in the index (it just draws Rest frame 0).
-        Option<&ambition_boss_encounter::sprites::BossAnimFrame>,
+        Option<&ambition_sprite_sheet::boss::BossAnimFrame>,
         Option<&ambition_sprite_sheet::character::PinnedRow>,
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
 ) {
-    use ambition_boss_encounter::sprites::BossAnim;
+    use ambition_sprite_sheet::boss::BossAnim;
     use ambition_characters::brain::BossAttackProfile;
     index.begin_rebuild();
     for (id, feature, health, combat, attack_state, brain, anim_frame, pinned, frame) in &bosses {
         let boss = feature.as_boss_ref();
-        let anim = boss_anim_state_for(boss, health.alive(), attack_state, brain);
+        let anim = boss_anim_state_for(&catalog, boss, health.alive(), attack_state, brain);
         let (cursor_anim, cursor_frame) = anim_frame
             .map(|f| (f.current, f.frame))
             .unwrap_or((BossAnim::Rest, 0));

@@ -15,7 +15,8 @@
 //! bound). This test checks the live world.
 
 use ambition_demo_smash_app::build_demo_app;
-use ambition_platformer2d::combat::components::{ActorFaction, CenteredAabb};
+use ambition_platformer2d::combat::components::CenteredAabb;
+use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::*;
 

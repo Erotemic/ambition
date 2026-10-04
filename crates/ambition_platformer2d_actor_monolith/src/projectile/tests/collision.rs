@@ -21,7 +21,7 @@ fn a_shot_across_live_rooms(target_room: ambition_platformer2d_shared_tangle::li
     };
     let mut app = min_app();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
         |mut commands: Commands,
@@ -149,7 +149,7 @@ fn a_shot_threads_only_the_portals_of_its_own_live_room() {
 fn fireball_damages_enemy_on_intersect() {
     let mut app = min_app();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
         |mut commands: Commands,
@@ -415,7 +415,7 @@ fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() 
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
-        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        app.init_resource::<crate::session::mechanics::SessionMechanics>();
         // ⛔ BOTH MUST ACTUALLY OVERLAP THE SHOT, or the test proves nothing:
         // a fireball at 395 moving 50px/s covers 0.8px in a tick, so bodies
         // 40px apart are not a choice — only the near one is ever reachable and
@@ -521,7 +521,7 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
     );
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
         |mut commands: Commands,
@@ -707,7 +707,7 @@ fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
-        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        app.init_resource::<crate::session::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
             |mut commands: Commands,
@@ -833,7 +833,7 @@ fn a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit() {
     );
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
         |mut commands: Commands,
@@ -919,7 +919,7 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
-        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        app.init_resource::<crate::session::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
             |mut commands: Commands,
@@ -1088,10 +1088,10 @@ fn spawn_boss(app: &mut App, id: &str, center: ae::Vec2, half: ae::Vec2) -> Enti
                         ambition_boss_encounter::test_boss_catalog(),
                         id,
                     ),
-                seed: None,
+                seed: ambition_boss_encounter::BossSeed::resolved(ambition_boss_encounter::test_boss_catalog(), id, id, 18),
             },
             BodyHealth::new(ambition_characters::actor::Health::new(9)),
-            ambition_combat::components::ActorFaction::Enemy,
+            ambition_characters::actor::ActorFaction::Enemy,
         ))
         .id()
 }
@@ -1485,7 +1485,7 @@ fn a_one_way_stops_a_bouncing_shot_descending_onto_it_and_not_one_rising_through
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
-        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        app.init_resource::<crate::session::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
             move |mut commands: Commands,
@@ -1581,7 +1581,7 @@ fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
-        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        app.init_resource::<crate::session::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
             |mut commands: Commands,
@@ -1824,7 +1824,7 @@ fn the_body_a_stacked_shot_strikes(
     );
     let mut app = projectile_test_app(world, ae::Vec2::new(200.0, 200.0), 1.0);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
         move |mut commands: Commands,
@@ -1986,7 +1986,7 @@ fn an_open_parry_window_reflects_a_shot_and_takes_it_over() {
     let parrier = app
         .world_mut()
         .spawn((
-            ambition_combat::components::ActorFaction::Enemy,
+            ambition_characters::actor::ActorFaction::Enemy,
             ae::BodyKinematics {
                 pos: ae::Vec2::new(500.0, 300.0),
                 size: ae::Vec2::new(28.0, 46.0),
@@ -2074,7 +2074,7 @@ fn a_closed_parry_window_lets_the_shot_through() {
     app.update();
 
     app.world_mut().spawn((
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
         ae::BodyKinematics {
             pos: ae::Vec2::new(500.0, 300.0),
             size: ae::Vec2::new(28.0, 46.0),
@@ -2143,7 +2143,7 @@ fn an_absorbing_parry_consumes_the_shot_rather_than_returning_it() {
     app.update();
 
     app.world_mut().spawn((
-        ambition_combat::components::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Enemy,
         ae::BodyKinematics {
             pos: ae::Vec2::new(500.0, 300.0),
             size: ae::Vec2::new(28.0, 46.0),
@@ -2221,7 +2221,7 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
         let spawn_absorber = |app: &mut App| {
             app.world_mut()
                 .spawn((
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ae::BodyKinematics {
                         pos: ae::Vec2::new(500.0, 300.0),
                         size: ae::Vec2::new(28.0, 46.0),
@@ -2249,7 +2249,7 @@ fn a_shot_swallowed_by_an_absorber_never_reaches_the_body_behind_it() {
         let spawn_bystander = |app: &mut App| {
             app.world_mut()
                 .spawn((
-                    ambition_combat::components::ActorFaction::Enemy,
+                    ambition_characters::actor::ActorFaction::Enemy,
                     ae::BodyKinematics {
                         pos: ae::Vec2::new(508.0, 300.0),
                         size: ae::Vec2::new(28.0, 46.0),
@@ -2739,7 +2739,8 @@ fn the_same_two_victims_with_identities_do_not() {
 }
 
 fn stacked_unidentified_victims(identified: bool) {
-    use ambition_combat::components::{ActorFaction, CenteredAabb};
+    use ambition_combat::components::CenteredAabb;
+    use ambition_characters::actor::ActorFaction;
     use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
     let world = ae::World::new(

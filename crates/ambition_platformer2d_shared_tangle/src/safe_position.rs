@@ -188,10 +188,7 @@ pub fn remember_safe_player_position_from_kinematics(
         return;
     }
     let verdict = ae::classify_safety_from_kinematics(pos, vel, aabb, world, 0.0, |block| {
-        matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-        )
+        ae::collision_semantics::is_full_collision_surface(block.kind)
     });
     if verdict.is_safe() {
         safety.last_safe_pos = pos;

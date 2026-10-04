@@ -176,6 +176,8 @@ pub fn count_the_live_match_ticks(
     tick: Option<Res<ambition_time::SimTick>>,
     active: Option<Res<ActiveMatch>>,
     prepared: Option<Res<PreparedMatch>>,
+    // `Option`: a composition with no stocks rules (a character fixture) has
+    // no settle authority, so its match never settles and every tick counts.
     settled: Option<Res<StocksMatchSettled>>,
 ) {
     let Some(active) = active else {
@@ -349,7 +351,7 @@ mod tests {
     use bevy::prelude::*;
 
     fn match_activated_on(tick: u64) -> ActiveMatch {
-        ActiveMatch::activated(2, None, Some(SessionScopeId(0)), Some(tick), None)
+        ActiveMatch::activated(2, Some(SessionScopeId(0)), Some(tick), None)
     }
 
     /// A moving world with a live match and NO prepared plan.
@@ -365,10 +367,7 @@ mod tests {
     fn clock_world() -> App {
         let mut app = App::new();
         app.init_resource::<LiveMatchTicks>();
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.insert_resource(ambition_time::SimTick(0));
         app.insert_resource(match_activated_on(0));
         app.init_resource::<StocksMatchSettled>();
@@ -412,10 +411,7 @@ mod tests {
              is between two zeroes"
         );
 
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 120.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 120.0));
         for _ in 0..120 {
             step(&mut app);
         }
@@ -462,10 +458,7 @@ mod tests {
             let mut app = clock_world();
             let mut seen = Vec::new();
             for i in 0..steps {
-                app.insert_resource(ambition_time::WorldTime {
-                    raw_dt: 1.0 / 60.0,
-                    scaled_dt: scales[i % scales.len()] / 60.0,
-                });
+                app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, scales[i % scales.len()] / 60.0));
                 step(&mut app);
                 let active = app.world().resource::<ActiveMatch>().clone();
                 if let Some(ordinal) = app
@@ -536,10 +529,7 @@ mod tests {
 
         // The world stops — a pause, a freeze, a full hitstop. `sim_dt` is the
         // condition itself rather than a menu state standing in for it.
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 0.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 0.0));
         for _ in 0..600 {
             step(&mut app);
         }
@@ -549,10 +539,7 @@ mod tests {
             "ten seconds of paused world came off the match clock"
         );
 
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         for _ in 0..5 {
             step(&mut app);
         }

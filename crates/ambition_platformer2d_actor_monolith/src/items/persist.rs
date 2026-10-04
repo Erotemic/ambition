@@ -46,7 +46,7 @@ pub fn install_item_durable_horizon(app: &mut App) {
             .in_set(DurableHorizonSet::DomainMirror),
     );
     app.add_systems(
-        Update,
+        sim,
         restore_inventory_from_save.in_set(DurableRestoreSet::Domains),
     );
 }
@@ -60,8 +60,11 @@ pub fn restore_inventory_from_save(
     restored: Res<SaveRestored>,
     save: Res<AmbitionGameSave>,
     mut owned: ResMut<OwnedItems>,
-    mut minted_baseline: Option<ResMut<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
-    mut owned_baseline: Option<ResMut<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+    // Required. `ItemCheckpointHorizonPlugin` owns both. A composition that
+    // installs this restore and not that plugin fails parameter validation: a
+    // save must not be adopted where no checkpoint can give it back.
+    mut minted_baseline: ResMut<crate::items::pickup::minted_horizon::MintedItemBaseline>,
+    mut owned_baseline: ResMut<crate::items::pickup::minted_horizon::OwnedItemsBaseline>,
     // SLOT-0 BY DESIGN: the SAVE FILE belongs to the local player. `BodyWallet` is
     // body vocabulary (a currency-dropping NPC carries one), but only slot 0's
     // balance round-trips through the save.
@@ -86,8 +89,9 @@ pub fn restore_inventory_from_save(
     crate::items::pickup::minted_horizon::adopt_checkpoint_baselines_from_save(
         data,
         &owned,
-        minted_baseline.as_deref_mut(),
-        owned_baseline.as_deref_mut(),
+        wallet.balance,
+        Some(&mut minted_baseline),
+        Some(&mut owned_baseline),
     );
     // Do not raise `SaveRestored` here. The durable-horizon completion system
     // runs after every domain adopter and owns the one global completion fact.

@@ -10,7 +10,7 @@
 //! Snapshot reconstruction also executes this canonical construction plan; it
 //! is not a second construction authority.
 
-use ambition_combat::components::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 use std::collections::BTreeSet;
 use std::hash::{Hash, Hasher};
 
@@ -132,6 +132,7 @@ pub(crate) fn construct_room_candidate(
     session_scope: SessionSpawnScope,
     stamp: Option<RoomCommitStamp>,
     predicted: Option<BTreeSet<String>>,
+    facts: crate::construction::CommitFactsSource,
 ) {
     let plan = plan.clone();
     commands.queue(move |world: &mut bevy::prelude::World| {
@@ -140,11 +141,18 @@ pub(crate) fn construct_room_candidate(
             return;
         }
         let mut queue = bevy::ecs::world::CommandQueue::default();
-        // Read HERE, on the world this commit lands in — not with the plan, which
-        // a replay commits again after the save has moved.
-        let facts = crate::construction::PersistedFates::of_world(world).with_broken_breakables(
-            features::ecs::breakable_respawns::remaining_breakable_respawns(world),
-        );
+        let facts = match facts {
+            // Read HERE, on the world this commit lands in — not with the
+            // plan, which a replay commits again after the save has moved.
+            crate::construction::CommitFactsSource::TheWorldAtTheCommit => {
+                crate::construction::PersistedFates::of_world(world).with_scheduled_returns(
+                    features::ecs::world_time_schedule::remaining_scheduled_returns(world),
+                )
+            }
+            // ⛔ NOT THE WORLD. The session of this room is not live yet, so
+            // the save and the schedule in the world are another session's.
+            crate::construction::CommitFactsSource::Stated(facts) => facts,
+        };
         let receipt = {
             let mut inner = Commands::new(&mut queue, &*world);
             let receipt = features::spawn_room_feature_entities_from_plan(
@@ -392,6 +400,7 @@ impl RoomConstructionPlan {
         &self,
         commands: &mut Commands,
         retention: transaction::PublicationRetention,
+        facts: crate::construction::CommitFactsSource,
     ) -> transaction::PublicationHandle {
         let publication = transaction::begin_publication(
             commands,
@@ -399,7 +408,7 @@ impl RoomConstructionPlan {
             self.features.construction_transactions(self.session_scope),
             retention,
         );
-        self.spawn_contents_for(publication, commands, self.session_scope);
+        self.spawn_contents_for(publication, commands, self.session_scope, facts);
         publication
     }
 
@@ -415,6 +424,7 @@ impl RoomConstructionPlan {
         publication: transaction::PublicationHandle,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
+        facts: crate::construction::CommitFactsSource,
     ) {
         // ⛔ THE ROOM DECLARES WHAT IT IS REBUILDING. See `transaction::open`
         // for the measurement that this had no production caller at all.
@@ -529,6 +539,7 @@ impl RoomConstructionPlan {
                 moving_platform_count: self.platform_states.len(),
             }),
             Some(self.predicted_authoritative_ids().clone()),
+            facts,
         );
         transaction::close(commands, publication, &self.features, session_scope);
     }
@@ -583,6 +594,9 @@ impl RoomConstructionPlan {
         next_rooms: Option<RoomSet>,
         arrival: Option<transaction::StagedArrival>,
         succession: Option<transaction::LiveRoomSuccession>,
+        // The other live rooms this publication retires whole: a whole-session
+        // restart's. Empty for every other publication.
+        retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
     ) -> transaction::PublicationHandle {
         // Collected HERE rather than inside the staged closure: the roster comes
         // from the caller's own query, which cannot outlive this call.
@@ -603,7 +617,7 @@ impl RoomConstructionPlan {
         if let Some(arrival) = arrival {
             pending = pending.arriving(arrival);
         }
-        pending = pending.replacing(succession);
+        pending = pending.replacing(succession).retiring_beside(retires_beside);
         let publishes_as = pending.publishes_as();
         // ⛔ **ON THE PUBLICATION ITSELF, and inserted BEFORE the transaction
         // opens**, because `transaction::open` READS it: the identities standing
@@ -629,10 +643,24 @@ impl RoomConstructionPlan {
             // nothing: the same transactions, an empty roster.
             let nothing = self.features.emptied();
             transaction::open(commands, publication, &nothing, scope);
-            construct_room_candidate(commands, publication, &nothing, scope, None, Some(BTreeSet::new()));
+            construct_room_candidate(
+                commands,
+                publication,
+                &nothing,
+                scope,
+                None,
+                Some(BTreeSet::new()),
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+            );
             transaction::close(commands, publication, &nothing, scope);
         } else {
-            self.spawn_contents_for(publication, commands, scope);
+            // A room of the session that plays: its save is the live save.
+            self.spawn_contents_for(
+                publication,
+                commands,
+                scope,
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+            );
         }
         publication
     }
@@ -786,6 +814,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();
@@ -1028,6 +1057,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();
@@ -1115,7 +1145,7 @@ mod tests {
                     name: "occupant".into(),
                     pos: ae::Vec2::ZERO,
                     half_size: ae::Vec2::splat(10.0),
-                    faction: ambition_combat::components::ActorFaction::Npc,
+                    faction: ambition_characters::actor::ActorFaction::Npc,
                     grudge_against: None,
                     kind: ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy {
                         brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -1177,6 +1207,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.update();
@@ -1289,7 +1320,7 @@ mod tests {
                     name: "occupant".into(),
                     pos: ae::Vec2::ZERO,
                     half_size: ae::Vec2::splat(10.0),
-                    faction: ambition_combat::components::ActorFaction::Npc,
+                    faction: ambition_characters::actor::ActorFaction::Npc,
                     grudge_against: None,
                     kind: ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy {
                         brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -1399,6 +1430,7 @@ mod tests {
                     None,
                     None,
                     succession(live.map(|live| **live), mints),
+                    Vec::new(),
                 );
             },
         );
@@ -1427,6 +1459,7 @@ mod tests {
                     None,
                     None,
                     succession(live.map(|live| **live), mints),
+                    Vec::new(),
                 )
             },
         )
@@ -1977,6 +2010,7 @@ mod tests {
                     None,
                     None,
                     succession(replaces, mints),
+                    Vec::new(),
                 );
             },
         )
@@ -2109,6 +2143,7 @@ mod tests {
                 None,
                 None,
                 Some(succession),
+                Vec::new(),
             );
         })
         .expect("the staging system runs");
@@ -2394,11 +2429,12 @@ mod tests {
     /// joins #1 from #0 as the candidate. When it retires #0 (nobody stays),
     /// #1 is the one live room, with `held` in it, and the candidate's
     /// occupant is not built. When it keeps #0 (a player stays), #0 and its
-    /// bodies stand beside #1. Nothing is minted either way. The control
-    /// opens a room from #0 as the candidate: that builds a second live room
-    /// of `candidate`, #2, which is what every crossing into a held room did
-    /// before this cut. A crossing staged to join a room that is not there is
-    /// refused.
+    /// bodies stand beside #1. Nothing is minted either way. A publication
+    /// that opens or replaces into `candidate` instead would build a second
+    /// live room of it, #2, which is what every crossing into a held room did
+    /// before this cut: it is refused (`DefinitionAlreadyLive`), and both live
+    /// rooms stand as they were. A crossing staged to join a room that is not
+    /// there is refused.
     #[test]
     fn a_crossing_into_a_room_another_player_holds_joins_it() {
         use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -2408,14 +2444,6 @@ mod tests {
         use super::transaction::LiveRoomSuccession;
         let first = LiveRoomInstance::ACTIVATION;
         let (second, third) = (first.next(), first.next().next());
-        let occupant = candidate_plan()
-            .features
-            .planned_sim_ids()
-            .into_iter()
-            .find(|id| id.as_str().contains("occupant"))
-            .expect("the candidate authors its occupant")
-            .as_str()
-            .to_string();
         let claims_after = std::cell::Cell::new(Vec::new());
         let after_publication = |succession: LiveRoomSuccession| {
             let platform = MovingPlatformState::from_authored(
@@ -2486,17 +2514,35 @@ mod tests {
             ]
         };
 
-        let (verification, rooms, bodies, next) = after_publication(LiveRoomSuccession::opening(first, third));
-        assert!(verification.published, "control: {:?}", verification.staged_violations);
-        assert_eq!(
-            (rooms, bodies, next),
-            (
-                vec![(first, "n".to_string()), (second, "candidate".to_string()), (third, "candidate".to_string())],
-                [vec![held(second)], n_bodies(first), vec![(occupant.clone(), Some(third))]].concat(),
-                third.next(),
-            ),
-            "control: opening a room did not build a second live room of `candidate`"
-        );
+        // One live room per room. With a player staying, the publication
+        // opens; with nobody staying, it replaces #0.
+        for (succession, outgoing_bodies) in [
+            (LiveRoomSuccession::opening(first, third), n_bodies(first)),
+            (LiveRoomSuccession::replacing(first, third), n_bodies(first)),
+        ] {
+            let (verification, rooms, bodies, next) = after_publication(succession);
+            assert_eq!(
+                (
+                    verification.published,
+                    verification
+                        .staged_violations
+                        .contains(&super::transaction::StagedWorldViolation::DefinitionAlreadyLive { live: second }),
+                    rooms,
+                    bodies,
+                    next,
+                ),
+                (
+                    false,
+                    true,
+                    vec![(first, "n".to_string()), (second, "candidate".to_string())],
+                    [vec![held(second)], outgoing_bodies].concat(),
+                    third,
+                ),
+                "{succession:?} built a second live room of `candidate` beside #1, or did not keep both \
+                 rooms whole: (published, refused, rooms, bodies, next): {:?}",
+                verification.staged_violations
+            );
+        }
 
         let (verification, rooms, bodies, next) = after_publication(LiveRoomSuccession::joining(first, second, true));
         assert!(verification.published, "{:?}", verification.staged_violations);
@@ -2550,6 +2596,119 @@ mod tests {
             claims_after.take(),
             vec![(first, vec![1]), (second, vec![0])],
             "a refused crossing released a claim: (room, slots that hold it)"
+        );
+    }
+
+    /// A publication that brings its own room set (a hot reload) carries each
+    /// live room it keeps into that set by the room's id. Alice reloads her
+    /// room `n` (#0) while Bob holds `candidate` (#1), and the reloaded set
+    /// orders the rooms another way: `[other, n, candidate]`. The reload
+    /// publishes #2, and Bob's room is still `candidate`, where the index he
+    /// had (1) is `n` in the new set. A set without `candidate` is refused,
+    /// and both rooms stand. A reload whose room is the room Bob holds is
+    /// refused as a second live room of it.
+    #[test]
+    fn a_reload_that_brings_a_room_set_keeps_the_other_live_rooms_rooms() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            activation_room_root, session_world_component, session_world_component_mut, InRoomInstance,
+            SessionRoot,
+        };
+        use super::transaction::{LiveRoomSuccession, StagedWorldViolation};
+        let first = LiveRoomInstance::ACTIVATION;
+        let (second, third) = (first.next(), first.next().next());
+        let plan_of = |index: usize, spec: RoomSpec| {
+            let recipes = crate::construction::engine_construction_registry();
+            let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+            let sheets = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+            RoomConstructionPlan::prepare_spec(
+                index,
+                spec,
+                &PlacementLoweringRegistry::default(),
+                &features::RoomContentStagingRegistry::default(),
+                &ambition_boss_encounter::BossCatalog::default(),
+                SessionSpawnScope::UNSCOPED,
+                features::ActorConstructionContext::new(&recipes, &catalog, &sheets, ContentBinding::content_unstated(Default::default()))
+                    .with_prepared(fixture_cast()),
+            )
+            .expect("the reloaded room plans")
+        };
+        let reload = |next: Vec<RoomSpec>, room: &str| {
+            let platform = MovingPlatformState::from_authored(
+                ae::Vec2::new(10.0, 20.0),
+                ae::Vec2::new(32.0, 8.0),
+                64.0,
+                10.0,
+            );
+            let (mut app, outgoing) = last_good_world(platform);
+            for body in &outgoing {
+                app.world_mut().entity_mut(*body).insert(InRoomInstance(first));
+            }
+            let scope = session_world_component::<SessionRoot>(app.world())
+                .expect("the fixture has a session root")
+                .0;
+            assert!(
+                session_world_component_mut::<RoomSet>(app.world_mut())
+                    .expect("the fixture has a room set")
+                    .mint_live_room(second),
+                "a fresh session mints #1 first"
+            );
+            let candidate = session_world_component::<RoomSet>(app.world())
+                .and_then(|rooms| rooms.definition_by_id("candidate"))
+                .expect("the fixture's set has room `candidate`");
+            app.world_mut()
+                .spawn((
+                    activation_room_root(scope),
+                    ambition_platformer2d_core::RoomGeometry(candidate_spec().world.clone()),
+                ))
+                .insert((second, candidate));
+            let next = RoomSet::from_parts_or_panic(room, next, Vec::new());
+            let index = next.definition_by_id(room).expect("the reloaded set has the room").index();
+            let plan = plan_of(index, next.spec(next.definition_by_id(room).expect("it is there")).clone());
+            bevy::ecs::system::RunSystemOnce::run_system_once(app.world_mut(), move |mut commands: Commands| {
+                plan.replace_live_world(
+                    &mut commands,
+                    outgoing.iter().map(|entity| (*entity, false)),
+                    None,
+                    Some(next.clone()),
+                    None,
+                    Some(LiveRoomSuccession::replacing(first, third)),
+                    Vec::new(),
+                );
+            })
+            .expect("the staging system runs");
+            let verification = app
+                .world()
+                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .clone();
+            (verification.published, verification.staged_violations, live_room_definitions(&mut app))
+        };
+
+        let (published, violations, rooms) =
+            reload(vec![empty_spec("other"), empty_spec("n"), candidate_spec()], "n");
+        assert!(published, "the reload of Alice's room was refused: {violations:?}");
+        assert_eq!(
+            rooms,
+            vec![(second, "candidate".to_string()), (third, "n".to_string())],
+            "Bob's room did not keep its room across the new set, or Alice's reload did not publish"
+        );
+
+        let (published, violations, rooms) = reload(vec![empty_spec("other"), empty_spec("n")], "n");
+        assert_eq!(
+            (published, violations, rooms),
+            (
+                false,
+                vec![StagedWorldViolation::LiveRoomNotInNextSet { live: second, room: "candidate".to_string() }],
+                vec![(first, "n".to_string()), (second, "candidate".to_string())],
+            ),
+            "a set that deletes Bob's room: (published, violations, rooms)"
+        );
+
+        let (published, violations, rooms) =
+            reload(vec![candidate_spec(), empty_spec("n")], "candidate");
+        assert_eq!(
+            (published, violations.contains(&StagedWorldViolation::DefinitionAlreadyLive { live: second }), rooms),
+            (false, true, vec![(first, "n".to_string()), (second, "candidate".to_string())]),
+            "a reload into the room Bob holds: (published, refused as a second live room, rooms)"
         );
     }
 
@@ -2727,6 +2886,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();

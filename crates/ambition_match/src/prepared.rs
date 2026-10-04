@@ -132,7 +132,7 @@ pub struct PreparedSeat {
     pub seed: ambition_body_seed::ActorClusterSeed,
     /// The body box this fighter was resolved to occupy.
     pub body_px: Vec2,
-    pub faction: ambition_combat::components::ActorFaction,
+    pub faction: ambition_characters::actor::ActorFaction,
     pub team: Option<ambition_combat::targeting::MatchTeam>,
     /// What will drive it. Attached after the body exists; it never changes
     /// how the body is built.
@@ -350,10 +350,6 @@ pub struct PreparedMatch {
     /// Activation never re-resolves against a newer generation; that would put
     /// a live authority back inside activation.
     cast_generation: ambition_characters::prepared::CharacterCatalogGeneration,
-    /// The frozen seat topology the roster was agreed under, carried so the
-    /// activation can cite it. Reading the world at activation would give the
-    /// current topology, not the one this plan was built from.
-    seat_topology: Option<u64>,
     /// The first `SimTick` this plan may build on.
     ///
     /// When a decision takes effect is part of the decision. The plan is not
@@ -426,12 +422,6 @@ impl PreparedMatch {
         self.cast_generation != live
     }
 
-    /// The frozen seat topology this plan was agreed under, if anything had an
-    /// opinion when the roster was built.
-    pub fn seat_topology(&self) -> Option<u64> {
-        self.seat_topology
-    }
-
     /// Whether this plan was built from `experience_id`'s roster.
     ///
     /// An unowned plan answers `false` to everyone. That leaks instead of
@@ -449,7 +439,6 @@ impl PreparedMatch {
             seats: Vec::new(),
             rules: MatchRules::default(),
             cast_generation: ambition_characters::prepared::CharacterCatalogGeneration::default(),
-            seat_topology: None,
             // Tick zero is reached by every clock, and no session matches a
             // bare test world.
             effective_from: 0,
@@ -729,9 +718,8 @@ pub fn prepare_match(
         let seat_abilities = effective_abilities(definition.abilities, rules.abilities);
         // The kit this seat wears, from the same compiler as spawn and
         // re-wear, so a seated fighter and a room fighter agree.
-        let worn = ambition_combat::worn_kit::WornKit::resolve(
-            Some(registry),
-            participant.character.as_str(),
+        let worn = ambition_combat::worn_kit::WornKit::of(
+            definition,
             rules.seat_terms(participant.action_set.as_ref()),
         );
         // See `MatchRules::body_over`.
@@ -749,7 +737,7 @@ pub fn prepare_match(
             body_px,
             // Every seat has a team, so match relationships never fall back to
             // faction, and faction keeps its world meaning.
-            faction: ambition_combat::components::ActorFaction::Player,
+            faction: ambition_characters::actor::ActorFaction::Player,
             team: Some(team_for(index, participant.team.as_ref())),
             authority,
             match_kit: participant.action_set.clone(),
@@ -780,7 +768,6 @@ pub fn prepare_match(
         seats,
         rules,
         cast_generation: registry.generation(),
-        seat_topology: roster.seat_topology(),
         effective_from,
         session,
         published_by: roster.published_by.clone(),

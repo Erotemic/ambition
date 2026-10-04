@@ -39,7 +39,8 @@ fn talkable_actors(
 /// room is built before any player body exists to name.
 #[test]
 fn a_room_rebuilt_after_a_persisted_provocation_builds_that_person_hostile() {
-    use ambition_platformer2d::combat::components::{ActorDisposition, ActorFaction, Grudge};
+    use ambition_platformer2d::combat::components::{ActorDisposition, Grudge};
+    use ambition_platformer2d::actor::ActorFaction;
 
     let mut sim = fixed_60hz_sim();
     sim.step_n(base(), 120);
@@ -257,8 +258,8 @@ fn a_challenge_made_through_a_possessed_body_names_that_body_and_is_remembered()
     }
     assert_eq!(possessed(&sim), Some(mount), "setup: the player did not possess the body beside {id}");
     assert_ne!(
-        sim.world().get::<ambition_platformer2d::combat::components::ActorFaction>(mount),
-        Some(&ambition_platformer2d::combat::components::ActorFaction::Player),
+        sim.world().get::<ambition_platformer2d::actor::ActorFaction>(mount),
+        Some(&ambition_platformer2d::actor::ActorFaction::Player),
         "premise: the possessed body is on the player's side, so its faction cannot tell the two rules apart"
     );
     sim.step_n(base(), 10);

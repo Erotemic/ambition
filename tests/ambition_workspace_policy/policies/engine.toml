@@ -228,7 +228,15 @@ rationale = "ambition_persistence source must stay free of menu/UI/game machiner
 source_doc = "docs/architecture/package-and-capability-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_persistence/src"]
-forbid = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content", "ambition_app"]
+# `ambition_content::` and `ambition_content;`, not the bare crate name. The
+# bare name is also a substring of `ambition_content_pack`, the engine's
+# content schema and compile crate. The quest book schema
+# (`quest/content_schema.rs`) is defined through that crate, as the schemas of
+# combat, characters and items are. The rationale forbids the `ambition_content`
+# GAME crate, and the qualified forms name it.
+# `engine.encounter-crate-source-purity` and
+# `engine.ambition_items-source-purity` use the same form.
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_menu", "ambition_render", "ambition_content::", "ambition_content;", "ambition_app"]
 
 # was: architecture_boundaries_encounter_crate_is_state_only
 [[policy]]
@@ -1524,7 +1532,7 @@ watch_paths = ["crates/ambition_platformer2d_shared_tangle"]
 rationale = "ambition_platformer2d_shared_tangle extracted-crate files exist"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_platformer2d_shared_tangle/Cargo.toml", "crates/ambition_platformer2d_shared_tangle/src/lib.rs", "crates/ambition_platformer2d_shared_tangle/src/prelude.rs", "crates/ambition_platformer2d_shared_tangle/src/schedule.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/mod.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/markers.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/spawn_ext.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/cleanup.rs", "crates/ambition_platformer2d_shared_tangle/src/math.rs", "crates/ambition_platformer2d_shared_tangle/src/transit.rs", "crates/ambition_platformer2d_shared_tangle/src/body.rs", "crates/ambition_platformer2d_shared_tangle/src/gravity.rs", "crates/ambition_platformer2d_shared_tangle/src/orientation.rs"]
+paths = ["crates/ambition_platformer2d_shared_tangle/Cargo.toml", "crates/ambition_platformer2d_shared_tangle/src/lib.rs", "crates/ambition_platformer2d_shared_tangle/src/prelude.rs", "crates/ambition_platformer2d_shared_tangle/src/schedule.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/mod.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/markers.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs", "crates/ambition_platformer2d_shared_tangle/src/lifecycle/cleanup.rs", "crates/ambition_platformer2d_shared_tangle/src/math.rs", "crates/ambition_platformer2d_shared_tangle/src/transit.rs", "crates/ambition_platformer2d_shared_tangle/src/body.rs", "crates/ambition_platformer2d_shared_tangle/src/gravity.rs", "crates/ambition_platformer2d_shared_tangle/src/orientation.rs"]
 
 [[policy]]
 id = "engine.platformer-primitives-no-actors"

@@ -779,7 +779,7 @@ fn the_fists_are_built_as_the_scholars() {
             let world = sim.world_mut();
             let fists: Vec<_> = world
                 .query_filtered::<(
-                    &ambition_platformer2d::combat::components::ActorFaction,
+                    &ambition_platformer2d::actor::ActorFaction,
                     Has<ae::PoseOwnedExternally>,
                     Has<ambition_platformer2d::combat::components::ActiveCombatant>,
                     Has<ambition_platformer2d::combat::components::RulesetOwnsDeath>,
@@ -796,7 +796,90 @@ fn the_fists_are_built_as_the_scholars() {
             found
         })
         .expect("the arena builds the gnu and both fists");
-    let theirs = (ambition_platformer2d::combat::components::ActorFaction::Boss, true, true, true, true);
+    let theirs = (ambition_platformer2d::actor::ActorFaction::Boss, true, true, true, true);
     assert_eq!(fists, vec![theirs, theirs], "each fist, on the first tick it exists");
     assert!(gnu_row, "the gnu's row is his to choose");
+}
+
+
+/// Defeated, he lets go: each fist leaves his hold, falls straight down where
+/// it is, and comes to rest on what is under it.
+///
+/// ⛔ A conducted hand is held from construction (`PoseOwnedExternally`), and a
+/// held body gets no gravity pull. The release wrote `gravity_scale = 1.0` and
+/// left the hold on, so the scale did nothing: after his defeat the fists hung
+/// in the air and drifted up at 1 to 4 units per second, and never landed.
+#[test]
+fn defeated_he_lets_go_and_his_fists_fall() {
+    let mut sim = arena();
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+    }
+    // Left fist first: position, still held, on the ground.
+    let fists = |sim: &mut Platformer2dSimHarness| -> Vec<(ae::Vec2, bool, bool)> {
+        let world = sim.world_mut();
+        let mut fists: Vec<_> = world
+            .query_filtered::<(&ae::BodyKinematics, Has<ae::PoseOwnedExternally>, &ae::BodyGroundState), With<Limb>>()
+            .iter(world)
+            .map(|(kin, held, ground)| (kin.pos, held, ground.on_ground))
+            .collect();
+        fists.sort_by(|a, b| a.0.x.total_cmp(&b.0.x));
+        fists
+    };
+    let before = fists(&mut sim);
+    assert_eq!(before.len(), 2, "the premise: two fists");
+    assert!(before.iter().all(|(_, held, _)| *held), "the premise: he holds both fists: {before:?}");
+    {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &mut BodyHealth)>();
+        for (config, mut health) in q.iter_mut(world) {
+            if config.behavior.id == "gnu_ton_rider" {
+                health.health.current = 0;
+            }
+        }
+    }
+    for _ in 0..120 {
+        sim.step(AgentAction::default());
+    }
+    let settled = fists(&mut sim);
+    sim.step(AgentAction::default());
+    let next = fists(&mut sim);
+    for (index, (((from, ..), (to, still_held, grounded)), (then, ..))) in
+        before.iter().zip(&settled).zip(&next).enumerate()
+    {
+        assert!(!still_held, "fist {index}: defeated, he lets it go");
+        assert!((to.x - from.x).abs() < 1.0, "fist {index} falls straight down: {from:?} -> {to:?}");
+        assert!(*grounded, "fist {index} has landed on what is under it: {from:?} -> {to:?}");
+        assert!((then.y - to.y).abs() < 0.01, "fist {index} stays where it landed: {to:?} -> {then:?}");
+    }
+}
+
+/// A defeat that is undone gives him his fists back. A replay can return him to
+/// life after he let go; a fist he does not hold falls under gravity between
+/// his poses, and a held body does not.
+#[test]
+fn alive_again_he_takes_his_fists_back() {
+    let mut sim = arena();
+    let set_health = |sim: &mut Platformer2dSimHarness, full: bool| {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &mut BodyHealth)>();
+        for (config, mut health) in q.iter_mut(world) {
+            if config.behavior.id == "gnu_ton_rider" {
+                health.health.current = if full { health.health.max } else { 0 };
+            }
+        }
+    };
+    let held = |sim: &mut Platformer2dSimHarness| -> Vec<bool> {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<Has<ae::PoseOwnedExternally>, With<Limb>>()
+            .iter(world)
+            .collect()
+    };
+    set_health(&mut sim, false);
+    sim.step(AgentAction::default());
+    assert_eq!(held(&mut sim), vec![false, false], "the premise: defeated, he let both fists go");
+    set_health(&mut sim, true);
+    sim.step(AgentAction::default());
+    assert_eq!(held(&mut sim), vec![true, true], "alive again, he holds both fists");
 }

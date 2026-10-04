@@ -60,11 +60,29 @@
 
 use bevy::prelude::Component;
 
+use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+
 /// Music request from the encounter layer to the audio backend. Each source
 /// writes its OWN priority tier; the music-intent adapter reads
 /// [`Self::desired_track`] (priority beats base) and writes nothing back.
+///
+/// ⭐ THE TIERS ARE KEPT PER LIVE ROOM (customer 2). A fight claims the tier of
+/// the room it is fought in, and the music intent reads the tier of the room
+/// it plays for: of the participants' rooms, the one with the highest
+/// [`Self::priority_of`], the primary seat's on a tie (Q150, Q72). So Bob's
+/// boss in `switch_lab` outranks Alice's ambient music in the hub, and an
+/// encounter in her room does not lose to his ambient music. The `None` room
+/// is the world of a
+/// composition with no live room (a fixture): its writers and its reader name
+/// no room, so they meet there. Only rooms with a claim are stored.
 #[derive(Component, Default, Debug, Clone)]
 pub struct EncounterMusicRequest {
+    rooms: std::collections::BTreeMap<Option<LiveRoomInstance>, RoomMusicTiers>,
+}
+
+/// The two tiers of one live room.
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+struct RoomMusicTiers {
     /// Higher-priority encounter track (a focused fight — e.g. a boss).
     /// Overrides `base_track` while set.
     priority_track: Option<String>,
@@ -77,53 +95,135 @@ pub struct EncounterMusicRequest {
     priority_owner: Option<&'static str>,
 }
 
+impl RoomMusicTiers {
+    fn is_empty(&self) -> bool {
+        self.priority_track.is_none() && self.base_track.is_none()
+    }
+}
+
 impl EncounterMusicRequest {
-    /// The winning desired track: the higher-priority tier beats the base tier,
-    /// and either beats the room default (resolved downstream in the intent
-    /// adapter).
-    pub fn desired_track(&self) -> Option<&str> {
-        self.priority_track
-            .as_deref()
-            .or(self.base_track.as_deref())
+    /// The winning desired track of `room`: the higher-priority tier beats the
+    /// base tier, and either beats the room default (resolved downstream in
+    /// the intent adapter).
+    pub fn desired_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
+        let tiers = self.rooms.get(&room)?;
+        tiers.priority_track.as_deref().or(tiers.base_track.as_deref())
     }
 
-    /// Claim the priority tier for `owner`. A later claim wins outright — two
-    /// focused fights at once is not a state worth arbitrating, and the most
-    /// recent one is the one the player is looking at.
-    pub fn claim_priority(&mut self, owner: &'static str, track: impl Into<String>) {
+    /// Claim the priority tier of `room` for `owner`. A later claim wins
+    /// outright — two focused fights at once in one room is not a state worth
+    /// arbitrating, and the most recent one is the one the player is looking
+    /// at.
+    pub fn claim_priority(
+        &mut self,
+        room: Option<LiveRoomInstance>,
+        owner: &'static str,
+        track: impl Into<String>,
+    ) {
         let track = track.into();
-        if self.priority_track.as_deref() != Some(track.as_str())
-            || self.priority_owner != Some(owner)
+        let tiers = self.rooms.entry(room).or_default();
+        if tiers.priority_track.as_deref() != Some(track.as_str())
+            || tiers.priority_owner != Some(owner)
         {
-            self.priority_track = Some(track);
-            self.priority_owner = Some(owner);
+            tiers.priority_track = Some(track);
+            tiers.priority_owner = Some(owner);
         }
     }
 
-    /// Release the priority tier, but only if `owner` still holds it. A source
-    /// with nothing to say says nothing, rather than silencing whoever does.
-    pub fn release_priority(&mut self, owner: &'static str) {
-        if self.priority_owner == Some(owner) {
-            self.priority_track = None;
-            self.priority_owner = None;
+    /// Release the priority tier of `room`, but only if `owner` still holds
+    /// it. A source with nothing to say says nothing, rather than silencing
+    /// whoever does.
+    pub fn release_priority(&mut self, room: Option<LiveRoomInstance>, owner: &'static str) {
+        self.release_priority_where(owner, |claimed| claimed == room);
+    }
+
+    /// Release `owner`'s claim in every room for which `release` is true. A
+    /// source that states its claims for every room each frame releases
+    /// the rooms it has nothing to say for here.
+    pub fn release_priority_where(
+        &mut self,
+        owner: &'static str,
+        mut release: impl FnMut(Option<LiveRoomInstance>) -> bool,
+    ) {
+        for (room, tiers) in &mut self.rooms {
+            if tiers.priority_owner == Some(owner) && release(*room) {
+                tiers.priority_track = None;
+                tiers.priority_owner = None;
+            }
+        }
+        self.rooms.retain(|_, tiers| !tiers.is_empty());
+    }
+
+    /// The claimed priority track of `room`, if any, and WHO is not on offer:
+    /// a caller that wants to change the tier goes through
+    /// [`Self::claim_priority`] or [`Self::release_priority`] so the owner
+    /// check cannot be skipped.
+    pub fn priority_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
+        self.rooms.get(&room)?.priority_track.as_deref()
+    }
+
+    /// Publish the BASE tier of every room: each room in `tracks` gets its
+    /// track and every other room gets none. Unowned on purpose: it is
+    /// rewritten every frame, and [`Self::desired_track`] ranks the priority
+    /// tier above it, so a per-frame `None` here can never silence a focused
+    /// fight.
+    pub fn set_base_tracks(
+        &mut self,
+        tracks: impl IntoIterator<Item = (Option<LiveRoomInstance>, String)>,
+    ) {
+        for tiers in self.rooms.values_mut() {
+            tiers.base_track = None;
+        }
+        for (room, track) in tracks {
+            let tiers = self.rooms.entry(room).or_default();
+            if tiers.base_track.is_none() {
+                tiers.base_track = Some(track);
+            }
+        }
+        self.rooms.retain(|_, tiers| !tiers.is_empty());
+    }
+
+    pub fn base_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
+        self.rooms.get(&room)?.base_track.as_deref()
+    }
+
+    /// The authored priority of what `room` asks to play (Q72): 2 for a
+    /// focused fight's claim (a boss), 1 for an encounter's base track, 0 for
+    /// no claim, where the room's own ambient music plays.
+    pub fn priority_of(&self, room: Option<LiveRoomInstance>) -> u8 {
+        match self.rooms.get(&room) {
+            Some(tiers) if tiers.priority_track.is_some() => 2,
+            Some(tiers) if tiers.base_track.is_some() => 1,
+            _ => 0,
         }
     }
+}
 
-    /// The claimed priority track, if any, and WHO is not on offer: a caller
-    /// that wants to change the tier goes through [`Self::claim_priority`] or
-    /// [`Self::release_priority`] so the owner check cannot be skipped.
-    pub fn priority_track(&self) -> Option<&str> {
-        self.priority_track.as_deref()
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    /// Publish the BASE tier. Unowned on purpose: it is rewritten every frame,
-    /// including `None`, and [`Self::desired_track`] ranks the priority tier
-    /// above it, so a per-frame `None` here can never silence a focused fight.
-    pub fn set_base_track(&mut self, track: Option<String>) {
-        self.base_track = track;
-    }
-
-    pub fn base_track(&self) -> Option<&str> {
-        self.base_track.as_deref()
+    /// A claim is kept in its own room. Two rooms; the boss owner claims the
+    /// second. The first room has no fight track, and a release by another
+    /// owner, or in the other room, leaves the claim. Poison: key every claim
+    /// to one room and the first room plays the boss.
+    #[test]
+    fn a_claim_is_heard_only_in_the_room_it_was_made_in() {
+        let first = Some(LiveRoomInstance::ACTIVATION.next());
+        let second = first.map(LiveRoomInstance::next);
+        let mut music = EncounterMusicRequest::default();
+        music.claim_priority(second, "boss", "boss_theme");
+        music.set_base_tracks([(first, "wave_theme".to_string())]);
+        assert_eq!(
+            (music.desired_track(first), music.desired_track(second)),
+            (Some("wave_theme"), Some("boss_theme"))
+        );
+        music.release_priority(first, "boss");
+        music.release_priority(second, "someone_else");
+        assert_eq!(music.desired_track(second), Some("boss_theme"), "the claim stays");
+        music.release_priority(second, "boss");
+        music.set_base_tracks([]);
+        assert_eq!((music.desired_track(first), music.desired_track(second)), (None, None));
+        assert!(music.rooms.is_empty(), "a room with no claim is not stored");
     }
 }

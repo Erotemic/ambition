@@ -1107,6 +1107,9 @@ fn mary_o_setup(
             // A direct-entry demo drops the first room's receipt.
             publication_retention:
                 ambition_platformer2d::runtime::demo_fixture::PublicationRetention::UntilTheVerdictIsRecorded,
+            // One experience: the save of the world is the save of this room.
+            first_room_facts:
+                ambition_platformer2d::runtime::demo_fixture::CommitFactsSource::TheWorldAtTheCommit,
             world: &world,
             room_set: &room_set,
             // The CALLER converts: who edits the set is a developer
@@ -1505,7 +1508,7 @@ fn tick_level_clock(
 ) {
     let anybody_dying = dying.iter().any(|window| window.open());
     for (mut state, flag) in &mut level {
-        state.intro_card = (state.intro_card - time.scaled_dt).max(0.0);
+        state.intro_card = (state.intro_card - time.sim_dt()).max(0.0);
         // A level whose flag has been grabbed is over. The clock stopping is what
         // turns the remaining time from a threat into a score.
         //
@@ -1516,7 +1519,7 @@ fn tick_level_clock(
         if flag.active() || anybody_dying {
             continue;
         }
-        state.time_remaining = (state.time_remaining - time.scaled_dt).max(0.0);
+        state.time_remaining = (state.time_remaining - time.sim_dt()).max(0.0);
     }
 }
 
@@ -1826,7 +1829,7 @@ fn cycle_level_on_flag_tally(
         return;
     }
     let reading_the_tally = level.tally_dwell < LEVEL_CYCLE_DWELL;
-    level.tally_dwell += time.scaled_dt;
+    level.tally_dwell += time.sim_dt();
     if level.tally_dwell < LEVEL_CYCLE_DWELL {
         return;
     }
@@ -2461,10 +2464,7 @@ mod tests {
                 app.world_mut(),
                 rooms_in_mode(mode),
             );
-            app.insert_resource(ambition_platformer2d::time::WorldTime {
-                scaled_dt: dt,
-                ..Default::default()
-            });
+            app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, dt));
             app.add_plugins(rules);
             app
         }
@@ -3076,10 +3076,7 @@ mod tests {
                 app.world_mut(),
                 rooms_in_mode(None),
             );
-            app.insert_resource(ambition_platformer2d::time::WorldTime {
-                scaled_dt: dt,
-                ..Default::default()
-            });
+            app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, dt));
             app.add_message::<ambition_platformer2d::combat::death_rules::ActorDiedMessage>();
             app.add_plugins(MaryORulesPlugin::global());
             app.world_mut().spawn((
@@ -3186,10 +3183,7 @@ mod tests {
             app.world_mut(),
             rooms_in_mode(None),
         );
-        app.insert_resource(ambition_platformer2d::time::WorldTime {
-            scaled_dt: 0.0,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 0.0));
         app.add_message::<ambition_platformer2d::combat::death_rules::ActorDiedMessage>();
         app.add_plugins(MaryORulesPlugin::global());
         let body = app
@@ -3322,10 +3316,7 @@ mod tests {
                 Vec::new(),
             ),
         );
-        app.insert_resource(ambition_platformer2d::time::WorldTime {
-            scaled_dt: LEVEL_CYCLE_DWELL * 0.5,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, LEVEL_CYCLE_DWELL * 0.5));
         app.add_plugins(MaryORulesPlugin::global());
 
         app.update();
@@ -3371,10 +3362,7 @@ mod tests {
             rooms_in_mode(None),
         );
         // Half the dwell per frame: frame 1 arms nothing, frame 2 crosses it.
-        app.insert_resource(ambition_platformer2d::time::WorldTime {
-            scaled_dt: LEVEL_CYCLE_DWELL * 0.5,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, LEVEL_CYCLE_DWELL * 0.5));
         app.add_plugins(MaryORulesPlugin::global());
         app.update();
 
@@ -3466,10 +3454,7 @@ mod tests {
             app.world_mut(),
             rooms_in_mode(None),
         );
-        app.insert_resource(ambition_platformer2d::time::WorldTime {
-            scaled_dt: LEVEL_CYCLE_DWELL,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, LEVEL_CYCLE_DWELL));
         app.add_plugins(MaryORulesPlugin::global());
         app.update();
         {

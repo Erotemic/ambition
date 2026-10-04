@@ -343,6 +343,7 @@ pub fn materialize_declared_character_sprite(
     // a tier's frame rects always describe the pixels of that tier.
     let tuning = prepared_sheet_tuning(prepared);
     let variant = prepared.sheet.as_deref().map(|target| (target, &tuning));
+    let parts_admitted = sprites.parts_admitted();
     let Some(asset) = build_optional_via_catalog(
         asset_catalog,
         asset_server,
@@ -352,6 +353,7 @@ pub fn materialize_declared_character_sprite(
         variant,
         Some(&cid),
         quality,
+        parts_admitted,
     ) else {
         return SpriteMaterialization::NoImage;
     };
@@ -376,7 +378,7 @@ pub fn load_character_sprites_in(
     let mut total = 0usize;
     let mut declared = 0usize;
     let mut skipped_no_spec: Vec<&str> = Vec::new();
-    for (cid, entry) in character_catalog.iter() {
+    for (cid, _) in character_catalog.iter() {
         total += 1;
         if sheet_for_character_id_in(authored, character_catalog, cid).is_none() {
             // Neither a hardcoded const nor a manifest in `assets/sprites/`
@@ -386,7 +388,7 @@ pub fn load_character_sprites_in(
             continue;
         }
         declared += 1;
-        out.declare(cid, &entry.display_name);
+        out.declare(cid);
     }
     bevy::log::info!(
         target: "ambition_platformer2d::character_sprites",
@@ -483,6 +485,9 @@ fn build_optional_via_catalog(
     variant: Option<(&str, &sheets::SheetTuning)>,
     log_label: Option<&str>,
     quality: Option<&VisualQualityBudget>,
+    // Realize a sheet whose every row is a part clip from its part pages
+    // alone ([`CharacterSpriteAssets::parts_admitted`]).
+    parts_admitted: bool,
 ) -> Option<CharacterSpriteAsset> {
     // Pick base-or-variant atomically so the spec rects match the loaded PNG.
     let (spec, id, resolved) = resolve_variant_pair(catalog, base_id, base_spec, variant, quality);
@@ -497,6 +502,14 @@ fn build_optional_via_catalog(
         }
         return None;
     };
+    if parts_admitted {
+        let directory = path.rsplit_once('/').map_or("", |(directory, _)| directory);
+        if let Some(rigged) = super::rigged::rigged_pages_in(spec, resolved, directory, asset_server) {
+            if rigged.flipbook.baked_clip_names().next().is_none() {
+                return Some(parts_only_realization(layouts, spec, requested, resolved, rigged));
+            }
+        }
+    }
     Some(load_sprite_pages(
         asset_server,
         layouts,
@@ -506,6 +519,44 @@ fn build_optional_via_catalog(
         requested,
         resolved,
     ))
+}
+
+/// A realization drawn from its part pages alone: the baked pages are never
+/// requested, so they are never decoded or resident
+/// (`docs/planning/engine/mary-o-part-realization.md`, P5b). The page slots
+/// keep their atlas layouts (the frame algebra a body is built with) and hold
+/// [`NO_BAKED_IMAGE`], an id nothing loads or draws; the renderer draws the
+/// body from its impostor once its part pages are ready
+/// (`CharacterSpriteAsset::presentation_images`).
+fn parts_only_realization(
+    layouts: &mut Assets<TextureAtlasLayout>,
+    spec: &CharacterSheetSpec,
+    requested: TextureResolutionScale,
+    resolved: TextureResolutionScale,
+    rigged: ambition_sprite_sheet::character::rigged::RiggedSpritePages,
+) -> CharacterSpriteAsset {
+    use ambition_sprite_sheet::character::NO_BAKED_IMAGE;
+    let used_pages = spec.used_pages();
+    let pages: Vec<CharacterSpritePage> = (0..spec.page_count().max(1))
+        .map(|page| CharacterSpritePage {
+            texture: NO_BAKED_IMAGE,
+            layout: if used_pages.contains(&page) {
+                layouts.add(spec.build_atlas_for_page(page))
+            } else {
+                Handle::default()
+            },
+        })
+        .collect();
+    let representative = used_pages.iter().copied().next().unwrap_or(0) as usize;
+    CharacterSpriteAsset {
+        texture: NO_BAKED_IMAGE,
+        layout: pages[representative].layout.clone(),
+        spec: spec.clone(),
+        pages,
+        requested_tier: requested,
+        resolved_tier: resolved,
+        rigged: Some(rigged),
+    }
 }
 
 /// Build one `(texture, layout)` per page image and assemble the sprite
@@ -620,7 +671,7 @@ pub fn build_npc_sprite_asset(
     id: &AssetId,
     spec: &CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
-    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None)
+    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None, false)
 }
 
 /// Build a single Prop sprite asset. Same shape as
@@ -684,7 +735,7 @@ pub fn build_prop_sprite_asset(
     id: &AssetId,
     spec: &CharacterSheetSpec,
 ) -> Option<CharacterSpriteAsset> {
-    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None)
+    build_optional_via_catalog(catalog, asset_server, layouts, id, spec, None, None, None, false)
 }
 
 /// Decode the effect sheets the ENGINE itself draws at boot — the

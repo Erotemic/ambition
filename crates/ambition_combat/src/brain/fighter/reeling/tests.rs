@@ -149,6 +149,7 @@ fn floor(top: f32) -> PerceivedSolid {
     PerceivedSolid {
         aabb: ae::Aabb::new(ae::Vec2::new(400.0, top + 50.0), ae::Vec2::new(400.0, 50.0)),
         kind: SolidKind::Solid,
+        open_for_self: false,
     }
 }
 

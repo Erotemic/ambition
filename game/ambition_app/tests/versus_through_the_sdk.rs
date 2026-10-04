@@ -274,3 +274,86 @@ fn the_versus_cpu_roster_is_satisfiable_by_the_sdk_composition() {
          so that fighter is a stand-still body: {problems:?}"
     );
 }
+
+/// A composition outside the Ambition shell host states the frame on which
+/// the timeline starts.
+///
+/// `PlatformerApp` installs the rollback backend and the shell, so it calls
+/// `rollback::start_the_timeline_with_the_session_world`: the local-session
+/// maintainer runs after the providers that build the session world. Without
+/// that edge the sort chooses, and the choice moves when an unrelated system
+/// is added (measured 2026-10-04 on the shell host).
+///
+/// The public builder turns the maintainer's autostart off, because
+/// `rollback::start` owns the first session. This walk turns it on again, so
+/// the maintainer is what installs the session and the frame of the install
+/// can be read.
+#[test]
+fn an_sdk_rollback_host_starts_the_timeline_with_the_session_world() {
+    use crate::reload_publication_is_installed::{systems_in, Ordering};
+    use ambition_platformer2d::bevy::prelude::*;
+    use ambition_platformer2d::game_shell::GameplaySessionSet;
+    use ambition_platformer2d::platformer::lifecycle::session_world_entity;
+    use ambition_platformer2d::rollback::local_session::{LocalSessionPolicy, LocalSessionSet};
+    use ambition_platformer2d::rollback::AmbitionGgrsSession;
+
+    let mut app = PlatformerApp::headless()
+        .rollback(2)
+        .mount(VersusModule)
+        .try_build()
+        .expect("the versus stage must compose for rollback through the public API");
+
+    {
+        let schedules = app.world().resource::<Schedules>();
+        let graph = schedules
+            .get(Update)
+            .expect("the Update schedule exists")
+            .graph();
+        let ordering = Ordering::of(graph);
+        let providers = systems_in(graph, GameplaySessionSet::Providers);
+        let maintain = systems_in(graph, LocalSessionSet::Maintain);
+        // The premise, so an empty set cannot read as an order.
+        assert!(
+            !providers.is_empty() && !maintain.is_empty(),
+            "one of the two sets holds no system in this composition \
+             ({} provider system(s), {} maintainer system(s)), so the order \
+             below is about nothing",
+            providers.len(),
+            maintain.len()
+        );
+        assert!(
+            ordering.reaches(&providers, &maintain),
+            "nothing orders the providers before the local-session maintainer \
+             in the SDK composition, so the sort chooses the frame on which the \
+             timeline starts"
+        );
+        assert!(
+            !ordering.reaches(&maintain, &providers),
+            "the graph claims both orders, which is a cycle"
+        );
+    }
+
+    app.world_mut()
+        .resource_mut::<LocalSessionPolicy>()
+        .autostart = true;
+    let mut frames = 0;
+    while session_world_entity(app.world()).is_none() {
+        app.update();
+        frames += 1;
+        assert!(frames < 900, "the session world was never built");
+        assert!(
+            !host_status(&app).is_refused(),
+            "refused: {:?}",
+            host_status(&app).refusal()
+        );
+    }
+    eprintln!(
+        "PROBE sdk: world built on frame {frames}; session installed at that frame end: {}",
+        app.world().contains_resource::<AmbitionGgrsSession>()
+    );
+    assert!(
+        app.world().contains_resource::<AmbitionGgrsSession>(),
+        "the frame that built the session world (frame {frames}) ended with no \
+         rollback session, so a frame with a world and no timeline follows it"
+    );
+}

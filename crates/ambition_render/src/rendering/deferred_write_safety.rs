@@ -319,7 +319,7 @@ mod boss_pass {
 
     #[test]
     fn the_boss_sprite_upgrade_survives_its_target_being_retired() {
-        use ambition_sprite_sheet::boss::{BossSpriteAsset, BossSpritePage, BOSS_SHEET};
+        use ambition_sprite_sheet::boss::{BossSheetSpec, BossSpriteAsset, BossSpritePage};
 
         let mut app = App::new();
         app.add_plugins(bevy::asset::AssetPlugin::default());
@@ -338,7 +338,7 @@ mod boss_pass {
             .add(bevy::image::TextureAtlasLayout::new_empty(
                 bevy::math::UVec2::splat(128),
             ));
-        let spec = BOSS_SHEET.clone();
+        let spec = BossSheetSpec::unauthored();
         let record = spec.synth_record("probe_boss_spritesheet.png");
         let mut assets = ambition_sprite_sheet::game_assets::GameAssets::default();
         // The generic sheet: the fallback every boss without its own sheet uses,
@@ -473,7 +473,7 @@ mod character_sprite_passes {
         app.insert_resource(assets);
 
         let identity = || ambition_sim_view::ActorRenderView {
-            sprite_character_id: None,
+            sprite_character_id: Some(ACTOR_NAME.to_string()),
             name: ACTOR_NAME.to_string(),
             is_sandbag: false,
             render_size: None,

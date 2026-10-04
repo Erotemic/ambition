@@ -124,7 +124,8 @@ impl BreakableFeature {
     }
 }
 
-/// Respawn timer for breakables that come back after being destroyed.
+/// The time until a gone occurrence comes back: a broken breakable respawns,
+/// a collected pickup regrows.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct RespawnTimer(pub f32);
 

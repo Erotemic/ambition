@@ -11,8 +11,8 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::actor::SpawnScopedExt;
 use ambition_platformer2d_core::RoomGeometry;
+use ambition_platformer2d::platformer::lifecycle::{SessionCommands, SpawnSessionScopedExt};
 use ambition_portal2d::{
     portal_half_extent, step_portal_shot, PlacedPortal, PortalChannel, PortalShot, PortalShotStep,
     PortalShotWorld,
@@ -66,7 +66,7 @@ use ambition_portal2d::{
 pub fn portal_projectile_step(
     time: Res<ambition_time::WorldTime>,
     world: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<RoomGeometry>,
-    mut commands: Commands,
+    mut commands: SessionCommands,
     mut projectiles: Query<(Entity, &mut PortalShot)>,
     portals: Query<(Entity, &PlacedPortal)>,
     mut sfx: ambition_sfx::SfxWriter,
@@ -75,6 +75,11 @@ pub fn portal_projectile_step(
     if dt <= 0.0 {
         return;
     }
+    // The session that owns each portal a shot opens. A shot is an entity of
+    // a session, so with no session there is no shot to step.
+    let Some(scope) = commands.spawn_scope() else {
+        return;
+    };
     // Every placement this tick, decided before any of them is applied.
     let mut placements: Vec<Placement> = Vec::new();
     for (proj_entity, mut proj) in &mut projectiles {
@@ -143,25 +148,28 @@ pub fn portal_projectile_step(
                 });
             }
         }
-        let mut portal = commands.spawn_room_scoped((
-            PlacedPortal::fixed(
-                winner.channel,
-                winner.pos,
-                winner.normal,
-                portal_half_extent(winner.normal),
+        let mut portal = commands.spawn_room_in_session(
+            scope,
+            (
+                PlacedPortal::fixed(
+                    winner.channel,
+                    winner.pos,
+                    winner.normal,
+                    portal_half_extent(winner.normal),
+                ),
+                Name::new(format!("Portal: {}", winner.channel.name())),
+                // One portal per channel per room: a derived identity, so the same
+                // wall re-placed is the same logical object and a rewind can name
+                // it (S4).
+                ambition_platformer2d::platformer::sim_id::SimId::singleton(
+                    "portal",
+                    &winner.channel.name(),
+                ),
+                // Portals are per-room: a room transition despawns them, so
+                // they don't linger and reappear when you leave and come back
+                // (#41).
             ),
-            Name::new(format!("Portal: {}", winner.channel.name())),
-            // One portal per channel per room: a derived identity, so the same
-            // wall re-placed is the same logical object and a rewind can name
-            // it (S4).
-            ambition_platformer2d::platformer::sim_id::SimId::singleton(
-                "portal",
-                &winner.channel.name(),
-            ),
-            // Portals are per-room: a room transition despawns them, so
-            // they don't linger and reappear when you leave and come back
-            // (#41).
-        ));
+        );
         if let Some(room) = winner.room {
             portal.insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
         }

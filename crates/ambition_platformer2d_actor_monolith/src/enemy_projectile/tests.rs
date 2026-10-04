@@ -4,7 +4,7 @@ use ambition_vfx::vfx::VfxInRoom;
 use bevy::prelude::*;
 
 use crate::enemy_projectile::test_support::{live_projectile_bodies, spawn_test_projectile};
-use ambition_combat::components::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 use ambition_projectiles::{
     build_in_flight_projectile, ProjectileSeqCounter, ProjectileSpawn, ProjectileSpawnRequest,
     ProjectileStart,
@@ -20,7 +20,6 @@ fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHit
 }
 
 fn insert_projectile_authority(app: &mut App) {
-    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     // The stepper resolves each shot's visual id through the (empty here) content
     // catalog for its detonation-FX pick; init it so the `Res` param validates.
     app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
@@ -48,10 +47,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
             )],
         )),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_message::<HitEvent>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
@@ -78,7 +74,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
             // a volume and never asked whose side anyone was on. `damage_lands` is
             // the routing rule for every shot now, so an unfactioned body is not a
             // hard target — it is a body the victim query cannot even see.
-            ambition_combat::components::ActorFaction::Enemy,
+            ambition_characters::actor::ActorFaction::Enemy,
             ambition_characters::actor::BodyCombat {
                 hit_flash: 0.0,
                 training_dummy: false,
@@ -170,10 +166,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
             vec![],
         )),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_message::<HitEvent>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
@@ -194,7 +187,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("enemy_bystander"),
             ambition_combat::components::CenteredAabb::new(actor_pos, ae::Vec2::new(16.0, 24.0)),
-            ambition_combat::components::ActorFaction::Enemy,
+            ambition_characters::actor::ActorFaction::Enemy,
         ))
         .id();
     // An OWNERLESS shot already overlapping the Enemy actor.
@@ -243,10 +236,7 @@ fn arena_projectile_app(relations: ambition_combat::targeting::FactionRelations)
             vec![],
         )),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_message::<HitEvent>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
@@ -269,7 +259,7 @@ fn spawn_boss_actor(app: &mut App, pos: ae::Vec2) -> Entity {
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("arena_robot"),
             ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
-            ambition_combat::components::ActorFaction::Boss,
+            ambition_characters::actor::ActorFaction::Boss,
         ))
         .id()
 }
@@ -303,8 +293,8 @@ fn spawn_overlapping_enemy_glider(app: &mut App, pos: ae::Vec2) {
 fn enemy_glider_damages_a_relationally_hostile_actor() {
     let mut relations = ambition_combat::targeting::FactionRelations::default();
     relations.set_mutual_hostile(
-        ambition_combat::components::ActorFaction::Enemy,
-        ambition_combat::components::ActorFaction::Boss,
+        ambition_characters::actor::ActorFaction::Enemy,
+        ambition_characters::actor::ActorFaction::Boss,
         true,
     );
     let mut app = arena_projectile_app(relations);
@@ -650,7 +640,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
     let firer = app
         .world_mut()
         .spawn((
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -660,7 +650,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("seat_two_fighter"),
             ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             MatchTeam::new("seat 2"),
             // ⚠ IDENTIFIED, BECAUSE THE TWO BODIES BELOW SIT ON ONE POINT. The
             // resolver's `debug_assert` caught this fixture: two coincident
@@ -681,7 +671,7 @@ fn a_seated_fighters_shot_hits_a_same_faction_body_on_another_team() {
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("same_team_fighter"),
             ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             MatchTeam::new("seat 1"),
             ambition_platformer2d_shared_tangle::sim_id::SimId::placement("same_team_fighter"),
         ))
@@ -736,7 +726,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
     let firer = app
         .world_mut()
         .spawn((
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -748,7 +738,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("same_team_fighter"),
             ambition_combat::components::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -758,7 +748,7 @@ fn a_shot_outlives_its_firer_without_changing_sides() {
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("seat_two_fighter"),
             ambition_combat::components::CenteredAabb::new(opponent_pos, ae::Vec2::new(16.0, 24.0)),
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             MatchTeam::new("seat 2"),
         ))
         .id();
@@ -833,7 +823,7 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
     let firer = app
         .world_mut()
         .spawn((
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -844,7 +834,7 @@ fn a_shot_orphaned_before_its_first_step_does_not_turn_on_its_team() {
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("same_team_fighter"),
             ambition_combat::components::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -904,7 +894,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
     let firer = app
         .world_mut()
         .spawn((
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -916,7 +906,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("same_team_fighter"),
             ambition_combat::components::CenteredAabb::new(teammate_pos, ae::Vec2::new(16.0, 24.0)),
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             MatchTeam::new("seat 1"),
         ))
         .id();
@@ -926,7 +916,7 @@ fn a_shot_stamped_at_birth_survives_its_firers_elimination() {
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("seat_two_fighter"),
             ambition_combat::components::CenteredAabb::new(opponent_pos, ae::Vec2::new(16.0, 24.0)),
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             MatchTeam::new("seat 2"),
         ))
         .id();
@@ -1033,10 +1023,7 @@ fn parry_ready_player_app() -> (App, Entity) {
             vec![],
         )),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_message::<HitEvent>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
@@ -1051,7 +1038,7 @@ fn parry_ready_player_app() -> (App, Entity) {
         .world_mut()
         .spawn((
             PlayerEntity,
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             BodyKinematics {
                 pos: player_pos,
                 vel: ae::Vec2::ZERO,
@@ -1235,10 +1222,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
             vec![],
         )),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_message::<HitEvent>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
@@ -1340,7 +1324,7 @@ fn a_bolt_misses_the_gap_in_an_authored_silhouette() {
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             ambition_combat::components::FeatureId::new("arena_fighter"),
             ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             volumes,
             BodyHealth::new(Health {
                 current: 3,
@@ -1398,7 +1382,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
                 ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
                 ambition_combat::components::FeatureId::new("arena_fighter"),
                 ambition_combat::components::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
-                ambition_combat::components::ActorFaction::Player,
+                ambition_characters::actor::ActorFaction::Player,
                 // Carrying this is what makes a body a damage target at all.
                 ambition_combat::components::DamageableVolumes::default(),
                 BodyHealth::new(Health {

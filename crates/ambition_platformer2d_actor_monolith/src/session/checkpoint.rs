@@ -393,12 +393,21 @@ pub fn resume_at_checkpoint_on_reset(
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     subjects: Query<
         (
+            bevy::prelude::Entity,
             &ambition_platformer2d_shared_tangle::sim_id::SimId,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+            Option<&ambition_characters::control::DrivingParticipant>,
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
+    // Every driven body, to find the rooms other participants hold (Q151).
+    participants: Query<(
+        bevy::prelude::Entity,
+        &ambition_characters::control::DrivingParticipant,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    )>,
     mut accepted: ResMut<AcceptedCheckpointRestore>,
     mut operations: ResMut<SessionCheckpointOperations>,
     // WHOSE operation. Absent only in an explicit standalone profile, which has
@@ -413,6 +422,8 @@ pub fn resume_at_checkpoint_on_reset(
         Option<Res<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
         // What a new game's starter bag is made of (which items stack).
         ambition_items::ItemCatalogRead<'_>,
+        // The one-time pickups consumed since the checkpoint, with their owners.
+        Option<Res<crate::features::ecs::pickups::ConsumedSinceCheckpoint>>,
     ),
     mut admitted: bevy::prelude::MessageWriter<ambition_combat::events::RoomReplayAdmitted>,
 ) {
@@ -438,10 +449,15 @@ pub fn resume_at_checkpoint_on_reset(
     };
     // the subject is resolved BEFORE anything is recorded: a transition names the body it
     // moves, and a session whose avatar has not been built cannot describe one.
-    let Ok((sim_id, stamp, root)) = subjects.single() else {
+    let Ok((subject_body, sim_id, stamp, root, driver)) = subjects.single() else {
         return;
     };
     let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root));
+    let subject_body = Some(subject_body);
+    // The dying participant: the one who drives the primary body, or, while
+    // that participant possesses another body, the seat the primary body is
+    // the home of.
+    let dying = Some(driver.map_or(ambition_characters::control::PlayerSlot::PRIMARY, |driver| driver.0));
     // The room the subject is in; an unstamped subject is in the sole live room.
     let Some(definition) = room_set.definition_named(subject.room) else {
         return;
@@ -528,8 +544,40 @@ pub fn resume_at_checkpoint_on_reset(
         );
         return;
     };
-    let (occurrences, custody, minted, owned, items) = baselines;
+    let (occurrences, custody, minted, owned, items, consumed) = baselines;
     let fresh = restore_to == RestoreTo::NewGame;
+    // ⭐ A DEATH IS LOCAL TO ITS PARTICIPANT AND ROOM (Q151). The rooms other
+    // participants hold keep what was won in them since the checkpoint. A New
+    // Game restarts the whole session, so it spares nothing. The subject's own
+    // room is never spared, also when another participant shares it: the
+    // restore rebuilds it.
+    let spared: Vec<_> = if fresh {
+        Vec::new()
+    } else {
+        participants
+            .iter()
+            .filter_map(|(_, _, stamp, root)| {
+                ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root)
+            })
+            .filter(|room| Some(*room) != subject.room)
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    };
+    // And what the other participants won, also in a room that is no longer
+    // live. The dying participant is the one who drives the subject.
+    let spared_participants: Vec<_> = if fresh {
+        Vec::new()
+    } else {
+        participants
+            .iter()
+            .filter(|(body, ..)| Some(*body) != subject_body)
+            .map(|(_, driver, ..)| driver.0)
+            .filter(|seat| Some(*seat) != dying)
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    };
     let (lifecycle, item) = if fresh {
         // The fresh baseline, pinned in the same shape as a checkpoint's. A
         // domain that is not installed still pins `None`: absent is not empty.
@@ -552,7 +600,19 @@ pub fn resume_at_checkpoint_on_reset(
         )
     } else {
         (
-            pin_lifecycle_inputs(occurrences, custody),
+            // The ledger this restore promises: the checkpoint's, and the
+            // one-time pickups a spared participant consumed since it (Q151).
+            // Pinned here, so the room the restore rebuilds and the
+            // verification both read it.
+            pin_lifecycle_inputs(occurrences, custody).map(|mut inputs| {
+                if let Some(consumed) = consumed.as_ref() {
+                    let mut ledger = inputs.occurrences.remembered().clone();
+                    if ledger.consume(consumed.owned_by(&spared_participants)) > 0 {
+                        inputs.occurrences.adopt(ledger);
+                    }
+                }
+                inputs
+            }),
             minted.zip(owned).map(|(minted, owned)| {
                 crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                     minted: minted.clone(),
@@ -580,7 +640,10 @@ pub fn resume_at_checkpoint_on_reset(
             // survive, where a deliberate retry clears them.
             ambition_combat::RoomResetReason::PlayerDeath
         })
-        .for_subject(subject.clone()),
+        .for_subject(subject.clone())
+        .to_the_checkpoint()
+        .sparing(spared)
+        .sparing_participants(spared_participants),
     );
 }
 
@@ -1395,21 +1458,25 @@ fn verify_restored_domains(
     // BEFORE the destructive application and ask whether the commit may proceed;
     // this runs after and asks what it actually did. A restore that rebuilt some
     // other room put every domain value back against the wrong world.
-    {
-        // The one-live-room read: a restore rebuilds the session's live room.
-        if let Some(room) = ambition_platformer2d_world::rooms::sole_live_room_spec(world) {
-            let standing = &room.id;
-            if standing != accepted.intent.target_room() {
-                return Err(RestoreVerificationFailure {
-                    failure: RestoreFailure::Room,
-                    detail: format!(
-                        "the operation reconstructs '{}' and the session is standing \
-                         in '{standing}'",
-                        accepted.intent.target_room()
-                    ),
-                });
-            }
-        }
+    //
+    // Keyed by the target room, not by "the" live room: another participant's
+    // live room can stand beside the rebuilt one (Q151), and a room has at most
+    // one live room (`DefinitionAlreadyLive`). With no live room at all there
+    // is nothing to stand in, and nothing to check.
+    let produced = ambition_platformer2d_world::rooms::live_room_standing_in(
+        world,
+        accepted.intent.target_room(),
+    );
+    let live = ambition_platformer2d_world::rooms::live_room_ids(world);
+    if produced.is_none() && !live.is_empty() {
+        return Err(RestoreVerificationFailure {
+            failure: RestoreFailure::Room,
+            detail: format!(
+                "the operation reconstructs '{}' and no live room stands in it \
+                 (live: {live:?})",
+                accepted.intent.target_room()
+            ),
+        });
     }
 
     // ── THE BODY THE OPERATION IS ABOUT ──────────────────────────────────────
@@ -1423,14 +1490,12 @@ fn verify_restored_domains(
     // ⛔ IN THE ROOM THE OPERATION PRODUCED, NOT THE ROOM IT RECORDED. The
     // subject's recorded live room is the room it left: the commit carried it
     // into the live room it published. So a subject that was in a live room is
-    // looked for in the produced one (the one-live-room read, like the room
-    // check above). A subject in no live room stays in none.
+    // looked for in the produced one, the room the check above found standing
+    // in the target. A subject in no live room stays in none.
     if let Some(subject) = accepted.intent.subject() {
         use ambition_platformer2d_shared_tangle::lifecycle::{
-            sole_live_room_entity, InRoomInstance, LiveBodyId, LiveRoomInstance,
+            InRoomInstance, LiveBodyId, LiveRoomInstance,
         };
-        let produced = sole_live_room_entity(world)
-            .and_then(|root| world.get::<LiveRoomInstance>(root).copied());
         let mut bodies = world.query::<(
             &ambition_platformer2d_shared_tangle::sim_id::SimId,
             Option<&InRoomInstance>,

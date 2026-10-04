@@ -63,10 +63,12 @@ These are product questions, not reasons to block the engine architecture:
 - which story interactions pause only one participant versus the whole party;
 - how dialogue choices work when participants are in different rooms;
 - whether critical quest transitions require party regrouping;
-- respawn/rejoin behavior when another participant remains alive elsewhere
-  (Q151, decided for now: the dying player's room resets to the checkpoint and
-  the other player's room goes on). Ambition has no production road for a
-  second player to join; only Smash seats slot 1;
+- rejoin behavior when another participant remains alive elsewhere. Death is
+  decided (Q151, 2026-10-03): an ordinary death is local to the dying
+  participant and the affected room, and another participant's live room and
+  accomplishments stay; only an explicit whole-session reload rewinds
+  everything. Ambition has no production road for a second player to join
+  (Q153); only Smash seats slot 1;
 - inventory transfer/trading rules between controlled bodies;
 - save ownership and join/leave policy for remote participants;
 - how far shared quest/world causality extends when players explore separately.
@@ -117,18 +119,48 @@ with hysteresis when they regroup.
   the players are in two rooms and closes when they meet
   (`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`).
 - Not done: debug overlays read the sole live room; the through-portal window is
-  drawn for the primary seat's view only; banner, music and HUD are
-  session-wide and follow the primary seat (Q150 in
-  [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md),
-  decided for now).
+  drawn for the primary seat's view only; the banner is session-wide and
+  follows the primary seat. The Q150 ruling (2026-10-03, in
+  [`../maintainer-decisions.md`](../maintainer-decisions.md)) makes the HUD
+  per participant and the local music an authored-priority choice with the
+  primary participant as the tie-break. The music is built. Of the HUD,
+  the built-in vitals HUD is per view: each local view shows the meters of
+  the body it follows (`ViewHudFacts`), in its own column
+  (`each_view_of_the_split_shows_its_own_participants_purse`), and each other
+  seat on a shared view has its own HUD on it
+  (`bob_beside_alice_has_his_own_hud_on_the_shared_view`). While two or
+  more HUDs are on the screen, each says whose it is, as "P1", "P2" (the
+  seat that drives the body it shows, `ViewHudSeat`; one HUD says nothing,
+  because it can only be the player's own; `stacked_huds_say_whose_each_is`).
+  Open: the declared readouts (`HudReadouts`: Mary-O's coins, Sanic's rings)
+  are one per session; and an online peer shows every
+  seat on its shared view, since only A4's client-local layout knows which
+  seats are its own.
 - Two players in one room still share a conversation's pause (the first
   game-state question above).
 
 ### A4 — online participant
 
 ▢ Feed a remote participant through the same intent/control seam. Keep the local
-view layout client-local. Measure what a room crossing's rebase costs a remote
-player's rollback window.
+view layout client-local.
+
+✔ Measured 2026-10-04: what a room crossing costs a remote player. The rebase
+does not use the rollback window: under a peer session the crossing freezes the
+simulation, each peer commits alone on the frozen world, and each peer starts a
+new session at frame zero (the "Remote peers" row of
+[`open-world-runtime-and-residency.md`](../engine/open-world-runtime-and-residency.md)).
+The cost is the freeze, for each peer and each live room:
+
+    freeze = (confirmed frame reaches the freeze frame, and readiness)
+           + (the handshake of the next session)
+           = (2 to 7 updates) + (21 to 36 updates)
+           = 23 to 43 updates = 0.38 s to 0.72 s at 60 Hz
+
+at a link latency of 3 updates each way (`two_peers.rs`, four runs, two
+crossings). The handshake is five GGRS round trips and is most of the cost.
+Whether that hold is acceptable is Q155. Named remainders: a link that loses
+parcels needs a linger before the old session ends, and the freeze is of the
+whole world, also of the room that nobody leaves.
 
 ### A5 — mixed local + remote party
 

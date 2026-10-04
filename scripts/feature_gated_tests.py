@@ -135,7 +135,7 @@ def scan_file(path: Path, on_by_default: set[str] = frozenset()) -> tuple[int, i
     depth = 0
     pending_gate: str | None = None
 
-    for match in re.finditer(r'#!?\[[^\]]*\]|\bmod\s+[a-zA-Z0-9_]+\s*[;{]|[{}]', text):
+    for match in re.finditer(r'#!?\[[^\]]*\]|\bmod\s+[a-zA-Z0-9_]+\s*[;{]|[{};]', text):
         token = match.group(0)
         if token.startswith('#'):
             feature = CFG_FEATURE.search(token)
@@ -167,7 +167,13 @@ def scan_file(path: Path, on_by_default: set[str] = frozenset()) -> tuple[int, i
                 pass
             pending_gate = None
             continue
-        if token == '{':
+        if token == ';':
+            # A gate on a statement (`#[cfg(feature)] app.add_systems(..);`)
+            # ends with it. Left pending, it gated the next `{`, and every test
+            # in the module after it read as hidden (`ambition_sim_view`: 112
+            # of 117 run bare, where cargo says 116).
+            pending_gate = None
+        elif token == '{':
             depth += 1
             if pending_gate:
                 gate_depth.append(depth - 1)

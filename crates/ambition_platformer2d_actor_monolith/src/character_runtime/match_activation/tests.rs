@@ -151,15 +151,15 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
     let world = app.world_mut();
     let mut q = world.query::<(
         &ambition_characters::actor::WornCharacter,
-        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
-        &ambition_combat::components::ActorFaction,
+        &ambition_platformer2d_core::BodyKinematics,
+        &ambition_characters::actor::ActorFaction,
         Option<&ambition_combat::targeting::MatchTeam>,
     )>();
     let mut seated: Vec<(
         String,
         f32,
         f32,
-        ambition_combat::components::ActorFaction,
+        ambition_characters::actor::ActorFaction,
         Option<ambition_combat::targeting::MatchTeam>,
     )> = q
         .iter(world)
@@ -373,7 +373,7 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
     );
     let kin = app
         .world()
-        .get::<ambition_platformer2d_shared_tangle::body::BodyKinematics>(bystander)
+        .get::<ambition_platformer2d_core::BodyKinematics>(bystander)
         .expect("the bystander survives");
     assert_eq!(
         kin.pos.x, 7.0,
@@ -656,13 +656,13 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
         Entity,
         &MatchSeat,
         &MatchTeam,
-        &ambition_combat::components::ActorFaction,
+        &ambition_characters::actor::ActorFaction,
     )>();
     let mut fighters: Vec<(
         Entity,
         usize,
         String,
-        ambition_combat::components::ActorFaction,
+        ambition_characters::actor::ActorFaction,
     )> = q
         .iter(world)
         .map(|(entity, seat, team, faction)| (entity, seat.0, team.0.clone(), *faction))
@@ -2388,7 +2388,7 @@ fn a_seated_fighter_gets_the_body_box_its_definition_authors() {
     let world = app.world_mut();
     let mut bodies = world.query::<(
         &ambition_characters::actor::WornCharacter,
-        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+        &ambition_platformer2d_core::BodyKinematics,
     )>();
     let (_, kin) = bodies
         .iter(world)
@@ -2525,11 +2525,10 @@ fn a_proposed_roster_waits_and_the_same_roster_activated_seats() {
         2,
         "an ACTIVATED roster did not seat, so the refusal above proved nothing"
     );
-    let active = app
-        .world()
-        .get_resource::<ActiveMatch>()
-        .expect("an activated roster that seats fully must activate the match");
-    assert_eq!(active.seat_topology(), Some(7));
+    assert!(
+        app.world().get_resource::<ActiveMatch>().is_some(),
+        "an activated roster that seats fully must activate the match"
+    );
 }
 
 /// A roster that seats over several ticks — the ordinary case, since seating
@@ -2557,12 +2556,6 @@ fn activation_publishes_every_seated_body_in_seat_order() {
         active.seats(),
         2,
         "activation must count every seat, not merely report that seating ended"
-    );
-    assert_eq!(
-        active.seat_topology(),
-        Some(7),
-        "the activation records WHICH frozen topology decided its seating, or a \
-         later disagreement has nothing to compare against"
     );
 
     // Seat order, checked through the bodies themselves — which is now the ONLY
@@ -2807,7 +2800,7 @@ mod activation_transaction {
             .expect("the player body has health");
         let kin = app
             .world()
-            .get::<ambition_platformer2d_shared_tangle::body::BodyKinematics>(body)
+            .get::<ambition_platformer2d_core::BodyKinematics>(body)
             .expect("the player body has kinematics");
         (
             health.current(),
@@ -2995,7 +2988,7 @@ fn one_character_definition_seats_two_independent_fighters() {
         Entity,
         &ambition_characters::actor::WornCharacter,
         &MatchSeat,
-        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+        &ambition_platformer2d_core::BodyKinematics,
     )>();
     let mut seated: Vec<(Entity, String, usize, f32)> = q
         .iter(world)

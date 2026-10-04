@@ -100,6 +100,61 @@ fn moving_platform_as_collision_block_is_blink_wall_soft() {
     ));
 }
 
+/// Where a body lands when it blinks from the left of a tall moving platform
+/// to a point on its right, in the world that collision composes.
+fn blink_across_a_moving_platform(soft: bool, hard: bool) -> (f32, ae::Aabb) {
+    let platform = MovingPlatformState::from_authored(
+        ae::Vec2::new(240.0, 150.0),
+        ae::Vec2::new(22.0, 300.0),
+        0.0,
+        0.0,
+    );
+    let aabb = platform.aabb();
+    let empty = ae::World::new(
+        "blink_across",
+        ae::Vec2::new(600.0, 300.0),
+        ae::Vec2::ZERO,
+        Vec::new(),
+    );
+    let world = world_with_moving_platforms(&empty, &[platform]);
+    let mut abilities = ae::AbilitySet::basic();
+    abilities.blink = true;
+    abilities.blink_through_soft_walls = soft;
+    abilities.blink_through_hard_walls = hard;
+    let body = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::new(140.0, 140.0), abilities);
+    let landed = ae::blink_destination_to_point_clusters(
+        &world,
+        &body.kinematics,
+        &body.abilities,
+        ae::Vec2::new(340.0, 140.0),
+    );
+    (landed.x, aabb)
+}
+
+/// A moving platform is a soft blink wall on purpose (see
+/// `as_collision_block`): the soft blink upgrade passes it, and a body
+/// without that upgrade does not. Q102 asked this question of the solid
+/// breakable, which was a hard blink wall only to get its collision. The
+/// platform is different: the blink rule is the behaviour it states.
+#[test]
+fn the_soft_blink_upgrade_passes_a_moving_platform() {
+    let (plain, aabb) = blink_across_a_moving_platform(false, false);
+    assert!(
+        plain < aabb.min.x,
+        "a body with no through-upgrade stops at the platform: landed at {plain}, platform {aabb:?}"
+    );
+    let (soft, _) = blink_across_a_moving_platform(true, false);
+    assert!(
+        soft > aabb.max.x,
+        "the soft upgrade passes the platform: landed at {soft}, platform {aabb:?}"
+    );
+    let (hard_only, _) = blink_across_a_moving_platform(false, true);
+    assert!(
+        hard_only < aabb.min.x,
+        "the tier is Soft, and the hard upgrade is not the soft one: landed at {hard_only}"
+    );
+}
+
 #[test]
 fn world_with_moving_platforms_appends_all_blocks() {
     let world = test_world();

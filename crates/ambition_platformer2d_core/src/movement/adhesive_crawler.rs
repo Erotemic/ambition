@@ -13,7 +13,7 @@ use crate::collision_semantics::{
     Axis, AxisConstraintConflict, Contact, ContactKind, ContactSource,
 };
 use crate::geometry::AabbExt;
-use crate::world::{Block, BlockKind, World};
+use crate::world::{Block, World};
 use crate::{Aabb, MotionFrame, Vec2};
 
 /// Authored parameters of the adhesive-crawler policy. Like every policy
@@ -135,10 +135,7 @@ impl Default for AdhesiveCrawlerMotion {
 /// one-way platforms count, mirroring what the axis sweep treats as "ground"
 /// for grounded bodies.
 fn cling_pred(b: &Block) -> bool {
-    matches!(
-        b.kind,
-        BlockKind::Solid | BlockKind::OneWay | BlockKind::BlinkWall { .. }
-    )
+    crate::collision_semantics::is_support_surface(b.kind)
 }
 
 /// Predicate matching tiles a crawler treats as "walls in the way" — strictly
@@ -146,7 +143,7 @@ fn cling_pred(b: &Block) -> bool {
 /// wall must not register as a concave corner since the crawler would never
 /// collide with its side anyway.
 fn wall_pred(b: &Block) -> bool {
-    matches!(b.kind, BlockKind::Solid | BlockKind::BlinkWall { .. })
+    crate::collision_semantics::is_full_collision_surface(b.kind)
 }
 
 /// One crawler tick. Kernel-private: reached only through

@@ -66,6 +66,9 @@ pub struct InventoryUiState {
     /// True when the inventory was opened from the pause menu (vs. directly
     /// from gameplay). Determines what mode to return to when it closes.
     pub opened_from_pause: bool,
+    /// True when the overlay was opened over a conversation. It closes back to
+    /// the conversation, not to gameplay.
+    pub opened_from_dialogue: bool,
     /// Set by the pointer system when a tap should activate the currently
     /// selected row. Consumed by `inventory_input` on the same frame and
     /// treated like a confirm press.

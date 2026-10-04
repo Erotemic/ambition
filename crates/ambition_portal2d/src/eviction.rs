@@ -16,8 +16,8 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
 
-use ambition_platformer2d_shared_tangle::body::BodyKinematics;
-use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, SessionScopeActivated};
 
 use crate::color::PortalChannel;
 use crate::pieces::{self as pp, PortalAperture};
@@ -30,6 +30,44 @@ use crate::PortalRoom;
 /// initialises it.
 #[derive(Resource, Default, Clone)]
 pub struct PortalFrameHistory(HashMap<(PortalRoom, PortalChannel), PortalAperture>);
+
+impl PortalFrameHistory {
+    /// How many placed portals the last frame had. A diagnostic: the map
+    /// iterates in no fixed order, so a count is what two hosts can compare.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+/// Forget last frame's portals when a gameplay session activates.
+///
+/// The history describes the rooms of one session. The first room of each
+/// session has the same live key
+/// ([`LiveRoomInstance::ACTIVATION`](ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION)),
+/// so a frame that the last session left reads as a portal of the new room
+/// that closed. On the first tick of the new session
+/// [`evict_straddlers_on_portal_change`] then pushes a body away from a plane
+/// that is not in its world.
+///
+/// MEASURED 2026-10-04 on the shell host: after a session that placed one
+/// portal, the next session started with one frame here and a fresh host
+/// started with none. The two agreed from tick 1, when the eviction rewrote
+/// the history.
+///
+/// The activation is before the session world is live, so the timeline that a
+/// rewind can cross does not exist yet.
+pub fn forget_portal_frames_on_activation(
+    mut activated: MessageReader<SessionScopeActivated>,
+    mut history: ResMut<PortalFrameHistory>,
+) {
+    if activated.read().count() > 0 {
+        history.0.clear();
+    }
+}
 
 /// Small clearance past the closing plane so the evicted body is unambiguously
 /// on one side (not resting exactly on it).

@@ -4355,7 +4355,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
         for (_, body, ..) in bodies {
             let at = app
                 .world()
-                .get::<ambition_platformer2d::platformer::body::BodyKinematics>(*body)
+                .get::<ambition_platformer2d::actor::BodyKinematics>(*body)
                 .expect("a seated fighter has a body")
                 .pos;
             let volume: ambition_platformer2d::engine_core::CombatVolume =
@@ -4571,7 +4571,7 @@ fn report_the_factions_and_teams_a_seated_fighter_carries() {
     let world = app.world_mut();
     let mut query = world.query::<(
         &MatchSeat,
-        Option<&ambition_platformer2d::combat::components::ActorFaction>,
+        Option<&ambition_platformer2d::actor::ActorFaction>,
         Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
     )>();
     let mut rows: Vec<(usize, String, String)> = query
@@ -5862,7 +5862,7 @@ mod launched {
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyGroundState;
     use ambition_platformer2d::engine_core::Vec2 as EVec2;
-    use ambition_platformer2d::platformer::body::BodyKinematics;
+    use ambition_platformer2d::actor::BodyKinematics;
 
     const UP_TILT_DAMAGE: i32 = 11;
     const UP_TILT_KNOCKBACK: f32 = 130.0;
@@ -6338,7 +6338,7 @@ mod ring_out {
     use ambition_platformer2d::engine_core::BodyGroundState;
     use ambition_platformer2d::engine_core::Vec2 as EVec2;
     use ambition_platformer2d::entity_catalog::WindowTag;
-    use ambition_platformer2d::platformer::body::BodyKinematics;
+    use ambition_platformer2d::actor::BodyKinematics;
 
     /// The move under test, by the id its own table authors it under.
     const JAB: &str = "jab";
@@ -8436,7 +8436,7 @@ fn pause_row_index(app: &mut App, label: &str) -> usize {
 ///
 /// ⛔ AND A RE-WEAR IN THE MATCH KEEPS THE STAGE'S DAMAGE. A seated body that
 /// re-wears its character (`RecharacterizeBody`, a content reload) resolves its
-/// kit again through `WornKit::resolve`. The damage source is one of that
+/// kit again through `WornKit::of`. The damage source is one of that
 /// resolver's inputs for this reason: applied only at seating, a re-wear would
 /// silently put the robot back on its home damage.
 #[test]

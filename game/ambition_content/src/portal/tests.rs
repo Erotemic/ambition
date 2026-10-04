@@ -615,7 +615,7 @@ fn roll_eases_back_to_gravity_upright_in_air() {
     let player = app
         .world_mut()
         .spawn((
-            ambition_platformer2d_shared_tangle::body::BodyKinematics {
+            ambition_platformer2d_core::BodyKinematics {
                 pos: Vec2::ZERO,
                 vel: Vec2::ZERO,
                 size: Vec2::new(24.0, 40.0),
@@ -1069,10 +1069,7 @@ fn app_with_the_shot_adapter() -> App {
         app.world_mut(),
         world_with_two_walls(),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(
         Update,
         (portal_fire_system, crate::portal::portal_projectile_step).chain(),
@@ -1101,10 +1098,7 @@ fn a_shot_replaces_the_portal_of_its_channel_in_its_own_room_only() {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_portal2d::PortalShotFired>();
     app.add_message::<ambition_portal2d::PortalFireIntent>();
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(
         Update,
         (portal_fire_system, crate::portal::portal_projectile_step).chain(),
@@ -1246,10 +1240,7 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
         app.world_mut(),
         world_with_two_walls(),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.insert_resource(ControlFrame::default());
     app.add_message::<FirePortalGun>();
     // The `FirePortalGun` gesture is resolved into the generic `PortalFireIntent`
@@ -1635,10 +1626,7 @@ fn a_portal_on_a_moving_platform_rides_its_host_face() {
     );
     platform.update(1.0 / 60.0); // publish last_delta (2px)
     ambition_platformer2d::session::insert_live_room_component(app.world_mut(), MovingPlatformSet(vec![platform]));
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 1.0 / 60.0,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
     app.add_systems(
         Update,
         (attach_portal_hosts, refresh_hosted_portal_frames).chain(),

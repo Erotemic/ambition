@@ -37,8 +37,13 @@ fn active_room(app: &mut App) -> String {
         .clone()
 }
 
+/// The monitors broken in the live room the act is in.
 fn spent(app: &mut App) -> Vec<String> {
-    app.world().resource::<SpentMonitors>().0.clone()
+    let room = *ambition_platformer2d::session::sole_live_room_component::<
+        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+    >(app.world())
+    .expect("the act is one live room");
+    app.world().resource::<SpentMonitors>().spent_in(room).to_vec()
 }
 
 fn press(app: &mut App, frame: ControlFrame) {

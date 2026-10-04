@@ -568,13 +568,12 @@ fn a_plain_ranged_bolt_does_not_burst() {
     assert_eq!(splash, Some(0.0), "the gun-sword bolt does not burst");
 }
 
-/// A held weapon fired from the HAND kicks nobody: the deleted held-shot path
-/// never applied recoil to the player, and the gun-sword's authored discharge
-/// (recoil 380, the pirate's) must not start to. Whether it SHOULD is a feel
-/// ruling recorded in awaiting-maintainer-decision.md; this pins that the fold
-/// changed nothing until it is made.
+/// A held weapon fired from the HAND carries the weapon's own recoil: recoil
+/// belongs to the weapon, not to the character who first carried it (Q40).
+/// The gun-sword authors 380, so a player who fires it gets 380, as the
+/// Pirate does.
 #[test]
-fn a_hand_fired_held_shot_carries_no_recoil() {
+fn a_hand_fired_held_shot_carries_the_weapons_recoil() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_characters::brain::ActorActionMessage>();
@@ -592,7 +591,13 @@ fn a_hand_fired_held_shot_carries_no_recoil() {
         .discharge
         .clone()
         .expect("the fold always names a discharge");
-    assert_eq!(discharge.recoil, 0.0);
+    let authored = gunsword_spec()
+        .ranged
+        .and_then(|ranged| ranged.discharge)
+        .expect("the gun-sword authors its discharge")
+        .recoil;
+    assert!(authored > 0.0, "premise: the gun-sword authors a recoil");
+    assert_eq!(discharge.recoil, authored);
     assert_eq!(
         discharge.fire_sfx.as_deref(),
         Some("weapon.lasersword.fire"),
@@ -617,10 +622,7 @@ fn thrown_item_arcs_and_settles_on_the_floor() {
             blocks,
         )),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(Update, ground_item_physics);
     let item = app
         .world_mut()
@@ -697,7 +699,7 @@ fn javelin_is_thrown_on_plain_attack_use() {
 ///
 /// and it asserts the item was genuinely OUT of the world in between.
 ///
-/// Falsified by restoring the old pair (despawn at pickup, `spawn_room_scoped`
+/// Falsified by restoring the old pair (despawn at pickup, a new spawn
 /// at throw): the entity lookup fails outright.
 #[test]
 fn a_thrown_item_is_the_same_object_that_was_picked_up() {
@@ -1208,10 +1210,7 @@ fn a_settled_item_wakes_when_its_support_goes_away() {
             Vec2::new(400.0, 20.0),
         )]),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(
         Update,
         (carry_or_wake_settled_items, ground_item_physics).chain(),
@@ -1295,10 +1294,7 @@ fn a_settled_item_rides_the_platform_it_landed_on() {
                 vec![ledge],
             )),
         );
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.add_systems(
             Update,
             (carry_or_wake_settled_items, ground_item_physics).chain(),
@@ -1373,10 +1369,7 @@ fn a_blocked_step_publishes_the_speed_it_was_stopped_at() {
             )],
         )),
     );
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(Update, ground_item_physics);
 
     // Just clear of the wall, thrown at it hard enough that one step lands
@@ -1522,10 +1515,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
                 )],
             )),
         );
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.add_systems(Update, ground_item_physics);
     };
     let body_at = |app: &mut App, at: Vec2| {
@@ -1691,10 +1681,7 @@ fn an_item_stopped_by_a_wall_does_not_strike_the_body_behind_it() {
                 blocks,
             )),
         );
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0 / 60.0,
-            scaled_dt: 1.0 / 60.0,
-        });
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
         app.add_systems(Update, ground_item_physics);
         app.world_mut().spawn((
             ambition_platformer2d_core::CenteredAabb::new(
@@ -1990,10 +1977,7 @@ fn two_live_rooms<M>(
             )),
         ));
     }
-    app.insert_resource(ambition_time::WorldTime {
-        raw_dt: 1.0 / 60.0,
-        scaled_dt: 1.0 / 60.0,
-    });
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_systems(Update, systems);
     (app, live)
 }

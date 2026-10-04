@@ -151,7 +151,7 @@ pub struct ClashContender<'a> {
     pub family: ClashFamily,
     pub damage: i32,
     /// This attack's side, frozen at the moment it came out.
-    pub faction: crate::components::ActorFaction,
+    pub faction: ambition_characters::actor::ActorFaction,
     /// Its match team, when it had one. `None` outside a match — the faction
     /// rule then decides, exactly as it does for any unseated body.
     pub team: Option<&'a crate::targeting::MatchTeam>,

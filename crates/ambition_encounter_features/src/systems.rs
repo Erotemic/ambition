@@ -414,12 +414,23 @@ pub fn drive_wave_encounters(
             "test_switch_toggled".into(),
         ));
         match &activation.action {
+            // A gravity switch turns the ambient of the live room it is in,
+            // and of no other (customer 2): Bob's switch does not turn Alice's
+            // world. An activation that names no room is the sole live room's.
             ambition_encounter::switches::SwitchAction::FlipGravity => {
-                commands.queue(|world: &mut bevy::prelude::World| {
+                let room = activation.room;
+                commands.queue(move |world: &mut bevy::prelude::World| {
+                    let room = room.or_else(|| {
+                        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
+                            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+                        >(world)
+                        .copied()
+                    });
                     let mut base = world
                         .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>(
                         );
-                    base.dir = -base.dir;
+                    let dir = -base.dir_in(room);
+                    base.turn(room, dir);
                 });
             }
             // Cardinal gravity switch (Noether Chamber kernel faces): the face
@@ -427,10 +438,17 @@ pub fn drive_wave_encounters(
             ambition_encounter::switches::SwitchAction::SetGravity(face) => {
                 let [x, y] = face.direction();
                 let dir = bevy::prelude::Vec2::new(x, y);
+                let room = activation.room;
                 commands.queue(move |world: &mut bevy::prelude::World| {
+                    let room = room.or_else(|| {
+                        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
+                            ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+                        >(world)
+                        .copied()
+                    });
                     world
                         .resource_mut::<ambition_platformer2d_shared_tangle::gravity::BaseGravity>()
-                        .dir = dir;
+                        .turn(room, dir);
                 });
             }
             ambition_encounter::switches::SwitchAction::ResetEncounter => {
@@ -537,10 +555,13 @@ pub fn apply_wave_encounter_effects(
     // The staging-policy view (E12): lifecycle + authored presentation
     // effects, with no wave requirement — any encounter kind stages alike.
     staged: Query<(
+        Entity,
         &EncounterLifecycle,
         Option<&ambition_encounter::EncounterCameraZoom>,
         Option<&ambition_encounter::EncounterTrack>,
     )>,
+    // The live room of each staged encounter, whose music it asks for.
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     // ⭐ THIS ADAPTER NO LONGER SPAWNS ANYTHING. The reward-chest sync it used to
     // call was its only spawner; reward chests are the feature layer's now, and
@@ -586,21 +607,21 @@ pub fn apply_wave_encounter_effects(
     // Jon 2026-09-06: "the music changes in a way I was not expecting and
     // seems to get into some sort of stuck state."
 
-    // Music: pick the first encounter currently in flight with an authored
-    // track and request it (the base-priority source of the shared
-    // `EncounterMusicRequest`); otherwise clear it. Generic over the
+    // Music: in each live room, pick the first encounter currently in flight
+    // with an authored track and request it (the base-priority source of the
+    // shared `EncounterMusicRequest`); a room with none gets none. Generic over the
     // lifecycle + staging policy (E12). Writing the base source every frame —
     // including `None` — is safe: `desired_track()` ranks `priority_track`
     // above `base_track`, so this can't clobber a concurrent focused fight's
     // music.
-    let active_track = staged.iter().find_map(|(lifecycle, _, track)| {
+    let active_tracks = staged.iter().filter_map(|(occurrence, lifecycle, _, track)| {
         if lifecycle.phase().in_flight() {
-            track.map(|t| t.0.clone())
+            track.map(|t| (live.of(occurrence), t.0.clone()))
         } else {
             None
         }
     });
-    music_request.set_base_track(active_track);
+    music_request.set_base_tracks(active_tracks);
 
     if player_body_q.is_empty() {
         return;
@@ -636,12 +657,11 @@ pub fn apply_wave_encounter_effects(
     // Publish the presentation read-model (§6): the camera zoom the active
     // encounters want, from the authored staging policy (E12). Cross-crate
     // presentation reads `EncounterView`, not the entities. `max`-based, so
-    // it is query-order-independent.
-    encounter_view.camera_zoom = ambition_encounter::active_encounter_camera_zoom(
-        staged
-            .iter()
-            .filter_map(|(lifecycle, zoom, _)| zoom.map(|z| (lifecycle.phase(), z.0))),
-    );
+    // it is query-order-independent. Each live room's encounters zoom the
+    // views of that room.
+    encounter_view.set_camera_zooms(staged.iter().filter_map(|(occurrence, lifecycle, zoom, _)| {
+        zoom.map(|z| (live.of(occurrence), lifecycle.phase(), z.0))
+    }));
 
     // Project the lifecycle to the save (Completed/Failed survive, in-flight
     // collapses to Untouched). Wave encounters only — a boss wrap persists

@@ -300,44 +300,11 @@ pub fn maintain_local_session(world: &mut World) {
         return;
     }
 
-    // ⛔⛤ **THE TIMELINE DOES NOT START OVER A WORLD WHOSE DURABLE STATE IS
-    // STILL BEING LOADED.** Measured 2026-09-16: with nothing ordering the
-    // durable-restore chain against this maintainer, whether a simulation tick
-    // runs before `SaveRestored` rises was decided by unrelated `Update`
-    // membership. Two worlds differing only by one extra `Update` system gave
-    // "no tick ever runs unrestored" and "tick 0 runs unrestored" — and a
-    // conversation opening on that tick has its visit dropped by
-    // `count_the_dialogue_visit_when_a_conversation_opens`, whose `!restored.0`
-    // guard is correct and has nowhere to put the write.
-    //
-    // ⭐ ONE ROAD, NOT A MIRROR. The latch is read where it LIVES, through the
-    // `actor_monolith` dependency this crate already has. A readiness flag
-    // mirrored into a lower layer would be a second copy of one fact, which is
-    // the duplicate authority this repair exists to remove — and the ordering
-    // cannot be expressed as a schedule edge, because the condition is "the
-    // file has been applied", not "a system has run once".
-    //
-    // ⚠ **THE QUESTION IS "PENDING", NEVER "`!restored`" — MEASURED AT THE COST
-    // OF 66 TESTS.** `SaveRestored` is not a latch that always rises: it is a
-    // completion fact about one domain in one experience, and a smash match
-    // never satisfies the singleton body `complete_durable_restore` needs, so
-    // its latch reads false for the whole process. Gating on the bare latch hung
-    // every smash composition at session start. `durable_hydration_is_pending`
-    // is three-valued for exactly that reason and owns the distinction; see its
-    // doc comment.
-    //
-    // ⚠ AND IT GATES THE START ONLY. A live session is never torn down or left
-    // stopped by this: the condition is `!session_live`, so the one transition
-    // it can refuse is "no session -> session". `SaveRestored` has no
-    // mid-session `true -> false` transition left to create a stall: a New
-    // Game restores through the checkpoint commit and does not touch it.
-    if !session_live
-        && ambition_platformer2d_actor_monolith::session::durable_horizon::durable_hydration_is_pending(
-            world,
-        )
-    {
-        return;
-    }
+    // ⭐ THE TIMELINE MAY START BEFORE THE SAVE IS APPLIED. The simulation
+    // applies it (`DurableRestoreSet`, in the sim schedule), from rollback
+    // state, so a rewind past the application replays it. A `Q135` gate here
+    // waited for an `Update` restore; it was removed with that window
+    // (BODY-BORN-ON-THE-TIMELINE, 2026-10-03).
 
     // a session this module did not start is AUTHORITATIVE. A Matchbox/P2P
     // session installed through `install_session` outranks the local one; the
@@ -642,6 +609,14 @@ mod mechanical_edit_admission_tests {
                         .expect("the fixture could not build a GGRS session");
                 crate::session::install_session(&mut world, session);
             }
+            RollbackSessionOwnership::Peer => {
+                let session =
+                    crate::session::build_sync_test_session(SyncTestSettings::for_players(1))
+                        .expect("the fixture could not build a GGRS session");
+                let eligibility = crate::session::FrameZeroEligibility::check(&mut world)
+                    .expect("a world with no carrier can declare frame zero");
+                crate::session::install_rebased_session(&mut world, session, eligibility);
+            }
             RollbackSessionOwnership::LocalSyncTest { settings, owner } => {
                 crate::session::start_sync_test_session_owned(&mut world, settings, owner)
                     .expect("the fixture could not start a GGRS session");
@@ -808,6 +783,7 @@ mod mechanical_edit_admission_tests {
     fn a_session_this_host_does_not_own_refuses_the_edit_and_keeps_it() {
         for (what, ownership) in [
             ("an EXTERNAL/P2P session", RollbackSessionOwnership::External),
+            ("a PEER session", RollbackSessionOwnership::Peer),
             (
                 "a CALLER-owned sync test",
                 RollbackSessionOwnership::LocalSyncTest {

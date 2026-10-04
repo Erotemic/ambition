@@ -3,7 +3,7 @@
 //! that a body, a carve, an eviction and a link group see only their own room.
 
 use super::*;
-use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, RoomInstanceRoot};
 
 use crate::color::{PortalChannel, PortalChannelColor, PortalGunColor};

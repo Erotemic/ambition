@@ -1118,7 +1118,7 @@ fn ease_cast_edge(previous: f32, current: f32, alpha: f32, outward: f32, max_ste
 /// is a frame with a live fighter outside it. The camera has to move.
 fn frame_the_cast(
     cast: &[bevy::prelude::Entity],
-    bodies: &bevy::prelude::Query<&ambition_platformer2d_shared_tangle::body::BodyKinematics>,
+    bodies: &bevy::prelude::Query<&ambition_platformer2d_core::BodyKinematics>,
     last_seen: &mut Vec<(bevy::prelude::Entity, ae::Vec2)>,
 ) -> Option<CastFraming> {
     let mut anchor = None;
@@ -1226,7 +1226,7 @@ pub fn resolve_camera_observation(
     player: bevy::prelude::Query<
         (
             bevy::prelude::Entity,
-            &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             &ae::BodyBaseSize,
             &ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
         ),
@@ -1243,7 +1243,7 @@ pub fn resolve_camera_observation(
     // the sprite must sample the same frame-clock position, or they disagree by
     // up to a tick of travel and the subject shudders — see `presented_pose`.
     followed_body: (
-        bevy::prelude::Query<&ambition_platformer2d_shared_tangle::body::BodyKinematics>,
+        bevy::prelude::Query<&ambition_platformer2d_core::BodyKinematics>,
         bevy::prelude::Query<&crate::presented_pose::PresentedPose>,
         // The frame the followed body resolved this tick (ADR 0024), for a
         // view that presents in its subject's frame rather than the world's. Read
@@ -1266,7 +1266,6 @@ pub fn resolve_camera_observation(
     };
     let mut base_view = ae::Vec2::new(base_view_w, base_view_h);
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
-    let encounter_scale = encounter_view.camera_zoom.max(1.0);
 
     // That is the failure mode this repo has been bitten by repeatedly: presentation not
     // running looks exactly like presentation running badly.
@@ -1627,7 +1626,8 @@ pub fn resolve_camera_observation(
                 aspect_policy: user_settings.video.camera_aspect,
                 framing: user_settings.video.camera_framing,
                 overview_scale,
-                encounter_scale,
+                // The zoom of the encounters of the room this view frames.
+                encounter_scale: encounter_view.camera_zoom_in(Some(room)).max(1.0),
                 overview_camera: developer_tools.overview_camera,
                 snap_camera,
                 blink,
@@ -1794,9 +1794,9 @@ fn apply_camera_reference_frame_setting(
 /// a camera frozen at the origin. With one definition the two paths cannot
 /// differ; adding a fact here reaches both by construction.
 ///
-///  the count is the contract `local_view:tests` pins component-by-component: the identity
-/// ([`crate:local_view:LocalViewId`]) is passed separately, so what is here is exactly the six
-/// facts moved off process-globals.
+///  `local_view:tests` pins the two spawn paths to one component set. The identity
+/// ([`crate:local_view:LocalViewId`]) is passed separately, so what is here is exactly the
+/// facts each view owns.
 pub fn local_view_facts() -> impl bevy::prelude::Bundle {
     (
         CameraViewport::default(),
@@ -1809,6 +1809,11 @@ pub fn local_view_facts() -> impl bevy::prelude::Bundle {
         // anything frames it. Here rather than at the two spawn sites for the
         // reason this whole function exists.
         crate::local_view::ResolvedViewSubject::default(),
+        // The meters this view's HUD shows (Q150). Here so a view the split
+        // opens has a HUD from its first frame.
+        crate::facts::ViewHudFacts::default(),
+        crate::facts::SharedViewHudFacts::default(),
+        crate::facts::ViewHudSeat::default(),
         // Carried here for the same reason as the others — a reader must never see a frame
         // where the view exists and its state does not.
         CameraViewState::default(),
@@ -1859,6 +1864,8 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
                 // Chained, so the resolve below reads a fact rather than
                 // searching control authority for it.
                 crate::local_view::resolve_view_subjects,
+                // Each view's HUD meters follow the subject just resolved.
+                crate::facts::rebuild_view_hud_facts,
                 resolve_camera_observation,
             )
                 .chain()
@@ -3170,7 +3177,7 @@ mod resolved_snapshot_lifetime_tests {
 
     /// A body the cast can frame, at `at`.
     fn cast_member(app: &mut App, at: ae::Vec2) -> Entity {
-        let mut kin = ambition_platformer2d_shared_tangle::body::BodyKinematics::default();
+        let mut kin = ambition_platformer2d_core::BodyKinematics::default();
         kin.pos = at;
         kin.size = ae::Vec2::new(24.0, 40.0);
         app.world_mut().spawn(kin).id()
@@ -3233,7 +3240,7 @@ mod resolved_snapshot_lifetime_tests {
         // the ease is reset with the snapshot: a view that has published no
         // frame has nothing to interpolate FROM.
         let home = {
-            let mut kin = ambition_platformer2d_shared_tangle::body::BodyKinematics::default();
+            let mut kin = ambition_platformer2d_core::BodyKinematics::default();
             kin.pos = ae::Vec2::new(900.0, 0.0);
             kin.size = ae::Vec2::new(24.0, 40.0);
             app.world_mut()

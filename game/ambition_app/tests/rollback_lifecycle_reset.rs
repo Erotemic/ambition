@@ -51,7 +51,7 @@ fn place_player_on_floor(world: &mut World, hp: i32) {
     };
     {
         let mut kin = world
-            .get_mut::<ambition_platformer2d::platformer::body::BodyKinematics>(player)
+            .get_mut::<ambition_platformer2d::actor::BodyKinematics>(player)
             .expect("player kinematics");
         kin.pos = ambition_platformer2d::engine_core::Vec2::new(720.0, kin.pos.y);
         kin.vel = ambition_platformer2d::engine_core::Vec2::ZERO;
@@ -84,7 +84,7 @@ fn wound_one_enemy(world: &mut World) -> (SimId, i32) {
             Entity,
             &SimId,
             &BodyHealth,
-            &ambition_platformer2d::platformer::body::BodyKinematics,
+            &ambition_platformer2d::actor::BodyKinematics,
         ), (
             With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>,
             Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
@@ -155,7 +155,7 @@ fn player_hp(sim: &mut Platformer2dSimHarness) -> i32 {
 fn living_enemies(sim: &mut Platformer2dSimHarness) -> Vec<(f32, f32)> {
     let world = sim.world_mut();
     let mut q = world.query_filtered::<(
-        &ambition_platformer2d::platformer::body::BodyKinematics,
+        &ambition_platformer2d::actor::BodyKinematics,
         &BodyHealth,
     ), Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
     q.iter(world)
@@ -304,7 +304,7 @@ fn a_player_death_reset_survives_the_rollback_window() {
         // longer re-breaks every time the robot's frame data is retuned.
         let px = {
             let world = sim.world_mut();
-            let mut q = world.query_filtered::<&ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+            let mut q = world.query_filtered::<&ambition_platformer2d::actor::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
             q.single(world).map(|k| k.pos.x).unwrap_or(0.0)
         };
         let action = match living_enemies(&mut sim)
@@ -562,7 +562,7 @@ fn a_confirmed_death_restores_the_entitlement_bag_the_checkpoint_banked() {
     for frame in 0..2400 {
         let px = {
             let world = sim.world_mut();
-            let mut q = world.query_filtered::<&ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+            let mut q = world.query_filtered::<&ambition_platformer2d::actor::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
             q.single(world).map(|k| k.pos.x).unwrap_or(0.0)
         };
         let action = match living_enemies(&mut sim)

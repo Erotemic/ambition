@@ -25,11 +25,8 @@ pub const AMBITION_LAUNCHER_ROUTE: &str = "ambition_launcher";
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct AmbitionShellHosted;
 
-/// Ambition gameplay provider identities temporarily re-exported by the host.
-/// TODO(compat-remove): migrate callers to `ambition_content::provider`, then
-/// remove this host-level re-export.
-pub use ambition_content::provider::{
-    AmbitionExperienceConfig, AmbitionExperiencePlugin, AmbitionPreparedWorld, AMBITION_EXPERIENCE,
+use ambition_content::provider::{
+    AmbitionExperienceConfig, AmbitionExperiencePlugin, AMBITION_EXPERIENCE,
     AMBITION_GAMEPLAY_ROUTE,
 };
 
@@ -45,9 +42,22 @@ pub fn compose_ambition_gameplay_host(app: &mut App) {
 
 pub fn compose_ambition_shell_host_booting_to(app: &mut App, initial_route: &str) {
     compose_ambition_shell_host_inner(app, initial_route);
+    ambition_platformer2d::rollback::start_the_timeline_with_the_session_world(app);
 }
 
 pub fn compose_ambition_shell_host(app: &mut App) {
+    compose_ambition_shell_host_inner(app, AMBITION_LAUNCHER_ROUTE);
+    ambition_platformer2d::rollback::start_the_timeline_with_the_session_world(app);
+}
+
+/// The launcher host with no edge between the local-session maintainer and the
+/// providers.
+///
+/// Only a walk that orders the maintainer itself uses this (the
+/// misordered-retirement arm of `shell_host_lifecycle` puts the maintainer
+/// before the session bridge). An edge to that walk's own edge would make a
+/// cycle, and a schedule cycle hangs.
+pub fn compose_ambition_shell_host_with_the_timeline_start_unordered(app: &mut App) {
     compose_ambition_shell_host_inner(app, AMBITION_LAUNCHER_ROUTE);
 }
 

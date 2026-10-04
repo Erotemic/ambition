@@ -15,7 +15,8 @@
 use bevy::prelude::*;
 
 use ambition_characters::actor::limb::Limb;
-use ambition_combat::components::{ActorFaction, EncounterMob};
+use ambition_combat::components::EncounterMob;
+use ambition_characters::actor::ActorFaction;
 use ambition_mount::Mountable;
 use ambition_platformer2d_core as ae;
 

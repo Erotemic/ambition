@@ -9,12 +9,13 @@
 | [`codec`](src/codec.rs) | The GGRS bridge over the floor's snapshot vocabulary. |
 | [`lifecycle_commit`](src/lifecycle_commit.rs) | Confirmed-frame lifecycle commit (Track B, Piece 2). |
 | [`local_session`](src/local_session.rs) | Engine ownership of the local GGRS session. |
+| [`peer`](src/peer.rs) | A P2P session over any GGRS socket, and an in-memory socket pair. |
 | [`probes`](src/probes.rs) | Per-component checksum localization across rollback save/load. |
 | [`registrar`](src/registrar.rs) | The GGRS side of the domain-owned registration seam. |
 | [`registration`](src/registration.rs) | GGRS-backed implementation of Ambition's typed rollback registration vocabulary. |
 | [`session`](src/session.rs) | GGRS session/input bridge shared by the harness and future network hosts. |
 
-_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

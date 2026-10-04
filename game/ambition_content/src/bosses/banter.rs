@@ -45,7 +45,7 @@ pub fn tick_boss_idle_barks(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut state: Local<BossIdleBarkState>,
 ) {
-    let dt = world_time.scaled_dt;
+    let dt = world_time.sim_dt();
     if dt <= 0.0 {
         return;
     }

@@ -598,8 +598,10 @@ pub(crate) struct SystemMenuParams<'w, 's> {
     // no-op; the sim applies the request (`BaseGravity` is rollback state).
     gravity_requests:
         Option<ResMut<'w, Messages<ambition_platformer2d::world::AmbientGravityRequest>>>,
-    // Read-only, for the row's direction label.
+    // Read-only, for the row's direction label: the ambient of the room the
+    // cycle turns.
     base_gravity: Option<Res<'w, ambition_platformer2d::world::BaseGravity>>,
+    gravity_room: ambition_platformer2d::session::PrimaryLiveRoom<'w, 's>,
     // New Game is a host intent: the simulation arms its reset on the tick
     // the ledger stamps, so a rewind cannot erase the press.
     reset: ambition_platformer2d::actors::session::host_intents::HostIntentWriter<
@@ -811,6 +813,7 @@ impl SystemMenuParams<'_, '_> {
             #[cfg(feature = "portal_render")]
             portal_camera: self.portal_camera.as_deref(),
             base_gravity: self.base_gravity.as_deref(),
+            gravity_room: self.gravity_room.get(),
         })
     }
 
@@ -836,7 +839,7 @@ pub(crate) struct GameModeIo<'w> {
 /// state into the SYSTEM IR. Separate `Res` bundle so it never conflicts with the
 /// mutable `SystemMenuParams` (different systems).
 #[derive(bevy::ecs::system::SystemParam)]
-pub(crate) struct SystemMenuSnapshotParams<'w> {
+pub(crate) struct SystemMenuSnapshotParams<'w, 's> {
     dev_tools: Res<'w, ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>,
     dev_state: Res<'w, ambition_platformer2d::dev_tools::DeveloperRuntimeState>,
     ldtk_reload: Res<'w, ambition_platformer2d::dev_tools::WorldSourceHotReload>,
@@ -849,6 +852,7 @@ pub(crate) struct SystemMenuSnapshotParams<'w> {
         Res<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     >,
     base_gravity: Option<Res<'w, ambition_platformer2d::world::BaseGravity>>,
+    gravity_room: ambition_platformer2d::session::PrimaryLiveRoom<'w, 's>,
     #[cfg(feature = "audio")]
     library: Option<Res<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
     #[cfg(feature = "audio")]
@@ -858,7 +862,7 @@ pub(crate) struct SystemMenuSnapshotParams<'w> {
 }
 
 #[cfg(feature = "kaleidoscope_menu")]
-impl SystemMenuSnapshotParams<'_> {
+impl SystemMenuSnapshotParams<'_, '_> {
     /// Build the live radio-station snapshot for the SYSTEM IR (empty under no
     /// `audio` / when the radio resources are absent).
     fn radio_snapshot(&self) -> RadioSnapshot {
@@ -883,6 +887,7 @@ impl SystemMenuSnapshotParams<'_> {
             #[cfg(feature = "portal_render")]
             portal_camera: self.portal_camera.as_deref(),
             base_gravity: self.base_gravity.as_deref(),
+            gravity_room: self.gravity_room.get(),
         })
     }
 }
@@ -1885,7 +1890,6 @@ fn kaleidoscope_menu_open_routing(
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
     mut last_start: Local<bool>,
 ) {
-    use ambition_platformer2d::platformer::schedule::GameMode;
 
     // pause / Esc: toggle the cube on the System page.
     //
@@ -1920,7 +1924,7 @@ fn kaleidoscope_menu_open_routing(
                 quality_confirm.cancel();
                 close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
             }
-        } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+        } else if crate::menu::model::primary_overlay_may_open(*mode.get()) {
             play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_OPEN);
             // SHARED entry→tab mapping: Esc/Start lands on the System face.
             // Keep this mapping local to the backend-agnostic menu vocabulary so
@@ -1939,16 +1943,25 @@ fn kaleidoscope_menu_open_routing(
         return;
     }
 
-    // Inventory key: shared cube open/close toggle, mirroring the Esc branch.
+    // Inventory key: on the Items face it closes the cube; on another face it
+    // turns the cube to Items (`open_overlay_key`, the rule the map key obeys).
     if menu.inventory {
         if overlay.visible {
-            // Closing: leave the active page alone so the fold-close animation plays
-            // out from whatever face was shown (re-seeding to Items here snapped the
-            // cube to the Items face mid-close — the "I" close-animation glitch).
-            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
-            quality_confirm.cancel();
-            close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
-        } else if matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+            match crate::menu::model::open_overlay_key(MenuPage::Items, pages.active) {
+                crate::menu::model::OpenOverlayKey::Close => {
+                    // Closing: leave the active page alone so the fold-close
+                    // animation plays out from the face that was shown.
+                    play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
+                    quality_confirm.cancel();
+                    close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
+                }
+                crate::menu::model::OpenOverlayKey::TurnTo(page) => {
+                    pages.active = Some(page);
+                    system_nav.open_entry = None;
+                    cursor.mark_keyboard(MenuFocus::Item(0));
+                }
+            }
+        } else if crate::menu::model::primary_overlay_may_open(*mode.get()) {
             // Opening on the Items page (shared entry→tab mapping) + seed the cursor.
             play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_OPEN);
             open_kaleidoscope_menu(
@@ -1965,13 +1978,24 @@ fn kaleidoscope_menu_open_routing(
         return;
     }
 
-    // map key: open on the Map page (suppressing the standalone map panel).
-    if menu.map && matches!(mode.get(), GameMode::Playing | GameMode::Paused) {
+    // map key: open on the Map page (suppressing the standalone map panel). On
+    // the Map face it closes the cube; on another face it turns the cube to Map.
+    if menu.map {
         let map_page = MenuPage::Map;
         if overlay.visible {
-            pages.active = Some(map_page);
-            cursor.mark_keyboard(MenuFocus::EdgeLeft);
-        } else {
+            match crate::menu::model::open_overlay_key(map_page, pages.active) {
+                crate::menu::model::OpenOverlayKey::Close => {
+                    play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
+                    quality_confirm.cancel();
+                    close_kaleidoscope_menu(&mut overlay, mode.get(), &mut next_mode);
+                }
+                crate::menu::model::OpenOverlayKey::TurnTo(page) => {
+                    pages.active = Some(page);
+                    system_nav.open_entry = None;
+                    cursor.mark_keyboard(MenuFocus::EdgeLeft);
+                }
+            }
+        } else if crate::menu::model::primary_overlay_may_open(*mode.get()) {
             play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_OPEN);
             open_kaleidoscope_menu(
                 map_page,
@@ -2004,9 +2028,8 @@ fn open_kaleidoscope_menu(
     system_nav: &mut KaleidoscopeSystemNav,
     map: &mut ambition_platformer2d::menu::map::MapMenuState,
 ) {
-    use ambition_platformer2d::platformer::schedule::GameMode;
     overlay.visible = true;
-    overlay.opened_from_pause = matches!(mode, GameMode::Paused);
+    let request = crate::menu::model::mode_on_overlay_open(overlay, *mode);
     pages.active = Some(page);
     // Seed a sensible cursor for the opening page.
     system_nav.open_entry = None;
@@ -2018,12 +2041,9 @@ fn open_kaleidoscope_menu(
     });
     // Never leave the standalone map panel open underneath the cube.
     map.open = false;
-    if matches!(mode, GameMode::Playing) {
-        ambition_platformer2d::platformer::world_log::note_game_mode_request(
-            GameMode::Paused,
-            "menu_cube_open",
-        );
-        next_mode.set(GameMode::Paused);
+    if let Some(request) = request {
+        ambition_platformer2d::platformer::world_log::note_game_mode_request(request, "menu_cube_open");
+        next_mode.set(request);
     }
 }
 
@@ -2037,15 +2057,10 @@ fn close_kaleidoscope_menu(
     mode: &ambition_platformer2d::platformer::schedule::GameMode,
     next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
 ) {
-    use ambition_platformer2d::platformer::schedule::GameMode;
-    let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
-    if !opened_from_pause && matches!(mode, GameMode::Paused) {
-        ambition_platformer2d::platformer::world_log::note_game_mode_request(
-            GameMode::Playing,
-            "menu_cube_close",
-        );
-        next_mode.set(GameMode::Playing);
+    if let Some(request) = crate::menu::model::mode_on_overlay_close(overlay, *mode) {
+        ambition_platformer2d::platformer::world_log::note_game_mode_request(request, "menu_cube_close");
+        next_mode.set(request);
     }
 }
 

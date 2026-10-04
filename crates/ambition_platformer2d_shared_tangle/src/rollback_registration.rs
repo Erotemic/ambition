@@ -32,7 +32,7 @@ where
         OWNER,
         "player.safety_state",
     );
-    registrar.require_rollback::<crate::body::BodyKinematics>(OWNER, "entity:body_kinematics");
+    registrar.require_rollback::<ambition_platformer2d_core::BodyKinematics>(OWNER, "entity:body_kinematics");
     // The room a mode owner is in, and whether it has just arrived there: an
     // arrival decides what a game's level starts over.
     registrar.rollback_component_clone_probed::<crate::lifecycle::ModeVisit>(
@@ -118,7 +118,7 @@ where
         },
     );
     registrar.rollback_component_canonical::<crate::sim_id::SimId>(OWNER, "entity.sim_id");
-    registrar.rollback_component_canonical::<crate::body::BodyKinematics>(OWNER, "body.kinematics");
+    registrar.rollback_component_canonical::<ambition_platformer2d_core::BodyKinematics>(OWNER, "body.kinematics");
     registrar
         .rollback_component_canonical::<crate::sim_id::SimIdCounter>(OWNER, "body.sim_id_counter");
     // ⛔⛤ THE FIRST COMPONENT TO STATE A PEER PROJECTION. Its whole string was

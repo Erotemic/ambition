@@ -114,7 +114,7 @@ pub struct SpawnActorRequest {
     /// which is always `Boss`. A spectator duel stages both fighters as plain `Npc`
     /// and lets a mutual `grudge_against` (below) — not a hostile faction — drive the
     /// fight.
-    pub faction: ambition_combat::components::ActorFaction,
+    pub faction: ambition_characters::actor::ActorFaction,
     /// Feature id of another actor in the SAME spawn batch this body should hold a
     /// personal grudge against. Resolved post-spawn (once both entities exist) into
     /// an [`ActorAggression::grudge`](ambition_combat::components::ActorAggression),
@@ -462,7 +462,7 @@ pub(super) struct EnemyActorSpawnPlan {
     feature_id: String,
     feature_name: String,
     enemy: ambition_body_seed::ActorClusterSeed,
-    faction: ambition_combat::components::ActorFaction,
+    faction: ambition_characters::actor::ActorFaction,
     aggression: ambition_combat::components::ActorAggression,
     brain: ambition_characters::brain::Brain,
     action_set: ambition_characters::brain::ActionSet,
@@ -509,7 +509,7 @@ impl EnemyActorSpawnPlan {
             feature_id: feature_id.into(),
             feature_name: feature_name.into(),
             enemy,
-            faction: ambition_combat::components::ActorFaction::Enemy,
+            faction: ambition_characters::actor::ActorFaction::Enemy,
             aggression: ambition_combat::components::ActorAggression::hostile(),
             brain,
             action_set,
@@ -519,7 +519,7 @@ impl EnemyActorSpawnPlan {
 
     pub(super) fn with_faction(
         mut self,
-        faction: ambition_combat::components::ActorFaction,
+        faction: ambition_characters::actor::ActorFaction,
     ) -> Self {
         self.faction = faction;
         self
@@ -771,7 +771,7 @@ impl NpcActorSpawnPlan {
         self.disposition = ambition_combat::components::ActorDisposition::Hostile;
         self.aggression.mode = ambition_combat::components::AggressionMode::Hostile;
         self.aggression.grudge = Some(ambition_combat::components::Grudge::Faction(
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
         ));
     }
 
@@ -812,7 +812,7 @@ impl NpcActorSpawnPlan {
                 EnemyActorBundle::new(
                     FeatureRenderedBundle::new(&self.feature_id, &self.feature_name, footprint),
                     disposition,
-                    ambition_combat::components::ActorFaction::Npc,
+                    ambition_characters::actor::ActorFaction::Npc,
                     ambition_characters::brain::action_set::IdentityKit::of(
                         self.action_set.clone(),
                         npc_moveset.clone().unwrap_or_default(),
@@ -1072,7 +1072,7 @@ pub fn spawn_boss_with_overrides_into(
     // overrides) to the right boss.
     let encounter_id = boss.config.behavior.id.clone();
     // The sheet it wears, by the rule its body was sized from.
-    let boss_anim_frame = ambition_boss_encounter::sprites::BossAnimFrame::new(
+    let boss_anim_frame = ambition_sprite_sheet::boss::BossAnimFrame::new(
         boss_catalog.sheet_for_behavior(&boss.config.behavior),
     );
     let combat_tuning =
@@ -1152,7 +1152,7 @@ pub fn spawn_boss_with_overrides_into(
             boss_anim_frame,
             BossDeathAnimation::default(),
             initial_phase,
-            ambition_combat::components::ActorFaction::Boss,
+            ambition_characters::actor::ActorFaction::Boss,
             ambition_combat::components::ActorTarget::default(),
             (
                 DamageableVolumes::default(),
@@ -1313,7 +1313,7 @@ pub fn spawn_runtime_minion(
     // `hostile_to_player`; the puppy-slug-gun passes `Player` + `passive` so the
     // summon damages the player's enemies (via the `can_damage` matrix) but never
     // the player, and just wanders rather than targeting.
-    faction: ambition_combat::components::ActorFaction,
+    faction: ambition_characters::actor::ActorFaction,
     aggression: ambition_combat::components::ActorAggression,
 ) -> bevy::ecs::entity::Entity {
     let root = commands.spawn_empty().id();
@@ -1348,7 +1348,7 @@ pub fn spawn_runtime_minion_into(
     half_size: ae::Vec2,
     character_id: &str,
     encounter_id: impl Into<String>,
-    faction: ambition_combat::components::ActorFaction,
+    faction: ambition_characters::actor::ActorFaction,
     aggression: ambition_combat::components::ActorAggression,
     // Health for THIS occurrence, overriding the character's authored vitals.
     // See `ambition_vfx::SummonSpec::health`.
@@ -1567,7 +1567,7 @@ pub fn spawn_enemy_with_faction_into(
         ambition_platformer2d_world::rooms::EnemySpawnSpec,
     >,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
-    faction: ambition_combat::components::ActorFaction,
+    faction: ambition_characters::actor::ActorFaction,
     fate: RecordedFate,
 ) {
     // The authored placement, lowered to the one plan every surface will
@@ -1927,7 +1927,7 @@ pub(super) fn spawn_solo_enemy_into(
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::EnemySpawnSpec,
     >,
-    faction: ambition_combat::components::ActorFaction,
+    faction: ambition_characters::actor::ActorFaction,
 ) {
     // The geometry this body was BUILT from, read before the seed moves into
     // the plan: the quad from the same resolution that sized its collider.
@@ -2288,7 +2288,7 @@ mod runtime_giant_refusal_tests {
             name: "Runtime Giant".to_string(),
             pos: ae::Vec2::ZERO,
             half_size: ae::Vec2::new(16.0, 16.0),
-            faction: ambition_combat::components::ActorFaction::Enemy,
+            faction: ambition_characters::actor::ActorFaction::Enemy,
             grudge_against: None,
             kind: SpawnActorKind::Enemy {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(

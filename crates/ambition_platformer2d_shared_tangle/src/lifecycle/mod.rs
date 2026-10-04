@@ -16,7 +16,7 @@ mod mode_visit;
 mod room_instance;
 mod round;
 mod session;
-mod spawn_ext;
+mod session_messages;
 
 pub use cleanup::despawn_scoped_entity;
 pub use departure::{Departure, DepartureState, Destination, DEPARTURE_GIVE_UP_S};
@@ -43,11 +43,15 @@ pub use room_instance::{
     LiveBodyId,
     sole_live_room_component,
     sole_live_room_component_mut, sole_live_room_entity, InRoomInstance, LiveRoomInstance,
-    LiveRoomOf, LiveRooms, RoomInstanceRoot, SoleLiveRoom, TransactionRooms,
+    LiveRoomOf, LiveRooms, PrimaryLiveRoom, RoomInstanceRoot, SoleLiveRoom, TransactionRooms,
 };
 pub use round::{
     despawn_departed_round_entities, ActiveRoundScope, RoundScopeId, RoundScopePlugin,
     RoundScopedEntity, RoundSpawnScope,
+};
+pub use session_messages::{
+    clear_message_at_session_activation, keep_message_across_session_activation,
+    SessionMessageChannels,
 };
 pub use session::{
     despawn_retired_session_entities, insert_session_world_component, live_session_scope,
@@ -64,4 +68,3 @@ pub use session::{
     SessionWorldRef,
     SpawnSessionScopedExt, SESSION_SETTLE_FRAMES,
 };
-pub use spawn_ext::SpawnScopedExt;

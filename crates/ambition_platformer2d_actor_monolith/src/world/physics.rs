@@ -61,13 +61,19 @@ use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 /// Presentation-side subscriber. Reads `DebrisBurstMessage`s and spawns
 /// Avian2D debris bodies via the existing `spawn_debris_burst` helper.
 /// Skipped in headless builds.
+///
+/// Each burst is placed by the geometry of the live room its message names,
+/// and each piece carries that room's stamp, so the room retires its own
+/// debris. A message that names no room is thrown in the sole live room, and
+/// is dropped while two rooms are live.
 #[cfg(feature = "physics_debris")]
 pub fn physics_spawn_debris_messages(
     mut commands: Commands,
     mut messages: MessageReader<DebrisBurstMessage>,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
+    geometry: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     settings: Res<PhysicsSandboxSettings>,
     active_session: Option<Res<ActiveSessionScope>>,
 ) {
@@ -78,14 +84,43 @@ pub fn physics_spawn_debris_messages(
         return;
     };
     for message in messages.read() {
+        let Some(room) = message.room.or_else(|| rooms.sole()) else {
+            continue;
+        };
+        let Some(world) = geometry.in_room(room) else {
+            continue;
+        };
         spawn_debris_burst(
             &mut commands,
-            session_scope,
+            session_scope.in_room(Some(room)),
             &world.0,
             message.pos,
             message.cue,
             *settings,
         );
+    }
+}
+
+/// Two colliders meet only when they are in one live room.
+///
+/// Avian has one space, and the live rooms are placed in it by their own
+/// geometry, so two live rooms overlap there. Without this, debris of Bob's
+/// room bounced on debris of Alice's room at the same position. A collider
+/// with no room stamp is in every room's world, as unscoped work is in every
+/// session's (`TransactionRooms`).
+#[cfg(feature = "physics_debris")]
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct OneRoomContacts<'w, 's> {
+    stamps: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+}
+
+#[cfg(feature = "physics_debris")]
+impl avian2d::collision::hooks::CollisionHooks for OneRoomContacts<'_, '_> {
+    fn filter_pairs(&self, collider1: Entity, collider2: Entity, _commands: &mut Commands) -> bool {
+        match (self.stamps.get(collider1), self.stamps.get(collider2)) {
+            (Ok(first), Ok(second)) => first.0 == second.0,
+            _ => true,
+        }
     }
 }
 
@@ -122,7 +157,7 @@ impl Plugin for AmbitionPhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(PhysicsSandboxSettings::default())
             .insert_resource(Gravity(BVec2::new(0.0, -SANDBOX_GRAVITY)))
-            .add_plugins(PhysicsPlugins::default())
+            .add_plugins(PhysicsPlugins::default().with_collision_hooks::<OneRoomContacts>())
             // ⛔⛔ AVIAN REGISTERS THESE IN `Plugin::finish`, AND `App::update()`
             // NEVER CALLS `finish()` — only `App::run()` does. So every
             // composition driven by an update loop (the whole test suite, the
@@ -267,6 +302,8 @@ pub fn spawn_static_collider_for_block(
             Name::new(format!("Physics collider: {}", block.name)),
             RoomVisual,
             PhysicsRoomEntity,
+            // See `OneRoomContacts`.
+            ActiveCollisionHooks::FILTER_PAIRS,
         ),
     );
 }
@@ -352,16 +389,15 @@ fn spawn_debris_piece(
             Name::new("Physics debris"),
             RoomVisual,
             PhysicsRoomEntity,
+            // See `OneRoomContacts`.
+            ActiveCollisionHooks::FILTER_PAIRS,
         ),
     );
 }
 
 #[cfg(feature = "physics_debris")]
 fn block_accepts_dynamic_debris(kind: ae::BlockKind) -> bool {
-    matches!(
-        kind,
-        ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
-    )
+    ae::collision_semantics::is_support_surface(kind)
 }
 
 #[cfg(feature = "physics_debris")]
@@ -466,6 +502,117 @@ mod tests {
         assert_ne!(
             PhysicsDebrisCue::EnemyRagdoll,
             PhysicsDebrisCue::BossRagdoll
+        );
+    }
+
+    /// Each debris burst is thrown in the live room its message names. Two
+    /// live rooms have geometry of two heights, and one burst is asked for in
+    /// each at one position. Each piece carries the stamp of its own room and
+    /// is placed by the geometry of that room. A third burst names no room,
+    /// and it is dropped while two rooms are live. When the reader took the
+    /// sole live room's geometry, it did not run while two rooms were live.
+    ///
+    /// Two debris pieces overlap at one position, with no gravity. In one
+    /// live room they collide and are pushed apart (the control); in two live
+    /// rooms they do not meet and stay where they are. Avian has one space,
+    /// and two live rooms overlap in it.
+    ///
+    /// ⚠ Built only with the `physics_debris` feature, as the hook is.
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn debris_of_two_live_rooms_does_not_meet() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let apart_after = |second_room: LiveRoomInstance| -> f32 {
+            let mut app = App::new();
+            app.add_plugins((
+                bevy::MinimalPlugins,
+                bevy::transform::TransformPlugin,
+                bevy::asset::AssetPlugin::default(),
+                bevy::mesh::MeshPlugin,
+                AmbitionPhysicsPlugin,
+            ));
+            app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_millis(16),
+            ));
+            app.insert_resource(Gravity(BVec2::ZERO));
+            app.finish();
+            app.cleanup();
+            let piece = |room: LiveRoomInstance, x: f32| {
+                (
+                    Transform::from_xyz(x, 0.0, 0.0),
+                    RigidBody::Dynamic,
+                    Collider::rectangle(8.0, 8.0),
+                    ActiveCollisionHooks::FILTER_PAIRS,
+                    InRoomInstance(room),
+                )
+            };
+            let first = app.world_mut().spawn(piece(LiveRoomInstance::ACTIVATION, 0.0)).id();
+            let second = app.world_mut().spawn(piece(second_room, 1.0)).id();
+            for _ in 0..30 {
+                app.update();
+            }
+            let at = |entity| app.world().get::<Transform>(entity).expect("a debris piece").translation.x;
+            (at(second) - at(first)).abs()
+        };
+        let one_room = apart_after(LiveRoomInstance::ACTIVATION);
+        let two_rooms = apart_after(LiveRoomInstance::ACTIVATION.next());
+        assert!(
+            one_room > 2.0 && (two_rooms - 1.0).abs() < 1e-3,
+            "(the pieces' distance after 30 steps in one live room, in two live rooms) = \
+             ({one_room}, {two_rooms}); in one room they push apart, in two they stay 1.0 apart"
+        );
+    }
+
+    /// ⚠ This witness is built only with the `physics_debris` feature, as
+    /// the reader is.
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn each_debris_burst_is_thrown_in_the_live_room_its_message_names() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
+        let mut app = App::new();
+        app.insert_resource(PhysicsSandboxSettings::default());
+        app.add_message::<DebrisBurstMessage>();
+        app.add_systems(Update, physics_spawn_debris_messages);
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        for (room, height) in rooms.into_iter().zip([600.0, 1000.0]) {
+            app.world_mut().spawn((
+                RoomInstanceRoot,
+                room,
+                ambition_platformer2d_core::RoomGeometry(ae::World::new(
+                    "room",
+                    ae::Vec2::new(1000.0, height),
+                    ae::Vec2::ZERO,
+                    Vec::new(),
+                )),
+            ));
+        }
+        let pos = ae::Vec2::new(100.0, 100.0);
+        let cue = PhysicsDebrisCue::Impact;
+        for room in [Some(rooms[0]), Some(rooms[1]), None] {
+            app.world_mut().write_message(DebrisBurstMessage { room, pos, cue });
+        }
+        app.update();
+        let mut pieces = app
+            .world_mut()
+            .query_filtered::<(Option<&InRoomInstance>, &Transform, Option<&ActiveCollisionHooks>), With<PhysicsDebris>>();
+        let thrown: std::collections::BTreeSet<_> = pieces
+            .iter(app.world())
+            .map(|(stamp, at, hooks)| {
+                (
+                    stamp.map(|stamp| stamp.0),
+                    at.translation.y as i32,
+                    hooks.is_some_and(|hooks| hooks.contains(ActiveCollisionHooks::FILTER_PAIRS)),
+                )
+            })
+            .collect();
+        assert_eq!(
+            thrown,
+            [(Some(rooms[0]), 200, true), (Some(rooms[1]), 400, true)].into_iter().collect(),
+            "(the room each debris piece is stamped for, its height on screen, whether \
+             `OneRoomContacts` filters its contacts): one burst in each of two live rooms at one \
+             position, and one burst that names no room"
         );
     }
 }

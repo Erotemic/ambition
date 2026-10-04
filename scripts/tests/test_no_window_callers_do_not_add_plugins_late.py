@@ -46,6 +46,35 @@ def rust_sources() -> list[Path]:
     return [REPO / rel for rel in tracked]
 
 
+def late_plugin_additions_in(text: str, label: str) -> list[str]:
+    """Every place in `text` a NoWindow app is handed `add_plugins` after construction."""
+    offences: list[str] = []
+    for match in BINDING.finditer(text):
+        binding = match.group(1)
+        # The call's own text decides whether this is the finished mode.
+        call_end = text.find(";", match.end())
+        call = text[match.start() : call_end if call_end != -1 else len(text)]
+        if NO_WINDOW not in call:
+            continue
+        # Follow the binding only to the end of its function: the next line
+        # that starts a new item indented less than the `let`. A function in
+        # `mod tests` is indented, so "column zero" would follow a test's app
+        # into every later test in the file.
+        line_start = text.rfind("\n", 0, match.start()) + 1
+        lead = text[line_start : match.start()]
+        indent = len(lead) - len(lead.lstrip())
+        rest = text[call_end:]
+        stop = re.search(
+            rf"\n[ \t]{{0,{max(indent - 1, 0)}}}(?:pub(?:\([^)]*\))? )?(?:fn|struct|impl|mod)\s",
+            rest,
+        )
+        body = rest[: stop.start()] if stop else rest
+        for hit in re.finditer(rf"\b{re.escape(binding)}\s*\.\s*add_plugins\s*\(", body):
+            line = text[: call_end + hit.start()].count("\n") + 1
+            offences.append(f"{label}:{line}  {binding}.add_plugins(...)")
+    return offences
+
+
 def late_plugin_additions() -> list[str]:
     """Every place a NoWindow app is handed `add_plugins` after construction."""
     offences: list[str] = []
@@ -56,21 +85,7 @@ def late_plugin_additions() -> list[str]:
             continue
         if "build_visible_app" not in text:
             continue
-        for match in BINDING.finditer(text):
-            binding = match.group(1)
-            # The call's own text decides whether this is the finished mode.
-            call_end = text.find(";", match.end())
-            call = text[match.start() : call_end if call_end != -1 else len(text)]
-            if NO_WINDOW not in call:
-                continue
-            # Follow the binding only to the end of its function: the next
-            # line that starts a new item at column zero.
-            rest = text[call_end:]
-            stop = re.search(r"\n(?:pub )?(?:fn|struct|impl|mod)\s", rest)
-            body = rest[: stop.start()] if stop else rest
-            for hit in re.finditer(rf"\b{re.escape(binding)}\s*\.\s*add_plugins\s*\(", body):
-                line = text[: call_end + hit.start()].count("\n") + 1
-                offences.append(f"{path.relative_to(REPO)}:{line}  {binding}.add_plugins(...)")
+        offences.extend(late_plugin_additions_in(text, str(path.relative_to(REPO))))
     return offences
 
 
@@ -123,3 +138,30 @@ fn main() {
         "a Windowed build is not finished early and must not be flagged — "
         "cli.rs:268 is exactly this shape and is correct"
     )
+
+
+def test_a_test_s_app_is_followed_only_to_the_end_of_that_test():
+    """A test in `mod tests` is indented, so its scope ends at the next indented
+    test, not at the next item at column zero. Two arms: another test's
+    `add_plugins` is not this app's, and this test's own still is."""
+    other_test_s_app = """
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn builds_a_no_window_app() {
+        let mut app = crate::app::build_visible_app(crate::app::VisibleRenderMode::NoWindow, true);
+        app.update();
+    }
+
+    #[test]
+    fn builds_a_plain_app() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+    }
+}
+"""
+    assert late_plugin_additions_in(other_test_s_app, "sample") == []
+    own_app = other_test_s_app.replace(
+        "        app.update();\n", "        app.add_plugins(MinimalPlugins);\n"
+    )
+    assert late_plugin_additions_in(own_app, "sample") == ["sample:7  app.add_plugins(...)"]

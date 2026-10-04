@@ -255,10 +255,7 @@ pub fn shift_frozen_body(
     // sideways along it — and a blink wall is solid to a body that is not
     // blinking.
     let blocked = world.first_body_sweep(body, shift, |block| {
-        matches!(
-            block.kind,
-            crate::BlockKind::Solid | crate::BlockKind::BlinkWall { .. }
-        )
+        crate::collision_semantics::is_full_collision_surface(block.kind)
     });
     let allowed = match blocked {
         // Stop just short of the face rather than exactly on it, so the next

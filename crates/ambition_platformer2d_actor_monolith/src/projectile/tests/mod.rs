@@ -91,7 +91,6 @@ fn register_test_motion_techniques(app: &mut App) {
 
 fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     let mut app = App::new();
-    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(Time::<()>::default());
     app.insert_resource(ambition_time::WorldTime::default());
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
@@ -108,7 +107,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
     // Projectile state lives on the player; this counter only gives in-flight
     // projectile entities stable spawn order.
     app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();
@@ -281,8 +280,8 @@ fn advance_time(app: &mut App, dt_seconds: f32) {
     // `refresh_world_time` step. Tests run at `time_scale = 1.0`,
     // so `sim_dt == wall_dt`.
     let mut world_time = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-    world_time.raw_dt = dt_seconds;
-    world_time.scaled_dt = dt_seconds;
+    world_time.set_wall_dt(dt_seconds);
+    world_time.set_sim_dt(dt_seconds);
 }
 
 /// It stopped being the input bus when every seat gained a raw row of its own; it is a mirror

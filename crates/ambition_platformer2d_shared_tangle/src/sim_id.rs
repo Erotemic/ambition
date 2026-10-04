@@ -135,9 +135,13 @@ impl SimId {
     /// at zero every session, so session A's match 0 and session B's match 0
     /// mint the same namespace — sound for the same reason the match projections
     /// are: the two never coexist. A match-spawned item is a `RoomScopedEntity`
-    /// (`items::match_spawn` spawns it with `spawn_room_scoped`), and a session
+    /// (`items::match_spawn` spawns it with `spawn_room_in_session`), and a session
     /// change rebuilds the world, so nothing session A minted is alive when
     /// session B's first match opens.
+    ///
+    /// ⚠ THAT WAS FALSE UNTIL 2026-10-04. The item was spawned on a road with
+    /// no session stamp, and the session teardown despawns by that stamp only.
+    /// A room-scoped spawn now takes its session as an argument.
     ///
     /// ⚠ **IT IS NOT `MatchScoped`, WHICH THIS DOC CLAIMED FOR A DAY.** That
     /// marker and its sweep belong to the smash ruleset and cover five spawn

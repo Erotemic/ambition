@@ -111,10 +111,7 @@ pub fn ledge_assisted_arrival(
             across * want + down * (block.aabb.head_coord(down) - half.dot(down.abs()).abs());
         let box_at = ae::Aabb::new(landing, half);
         let embeds = world.blocks.iter().any(|b| {
-            matches!(
-                b.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-            ) && box_at.strict_intersects(b.aabb)
+            ae::collision_semantics::is_full_collision_surface(b.kind) && box_at.strict_intersects(b.aabb)
         });
         if embeds {
             continue;
@@ -148,7 +145,7 @@ struct FoeCandidate {
     entity: Entity,
     pos: ae::Vec2,
     half: ae::Vec2,
-    faction: ambition_combat::components::ActorFaction,
+    faction: ambition_characters::actor::ActorFaction,
     team: Option<ambition_combat::targeting::MatchTeam>,
     driving: Option<ambition_characters::control::DrivingParticipant>,
     sim: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
@@ -292,7 +289,7 @@ pub fn apply_authored_teleports(
         Query<(
             Entity,
             &ae::BodyKinematics,
-            Option<&ambition_combat::components::ActorFaction>,
+            Option<&ambition_characters::actor::ActorFaction>,
             Option<&ambition_combat::targeting::MatchTeam>,
             Option<&ambition_characters::control::DrivingParticipant>,
             Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,

@@ -1,13 +1,9 @@
 //! Unified body kinematics for every controllable platformer body.
 //!
-//! Systems that hold multiple mutable [`BodyKinematics`] queries must prove
+//! Systems that hold multiple mutable [`ambition_platformer2d_core::BodyKinematics`] queries must prove
 //! them disjoint with marker filters (`With<PlayerEntity>`, `With<ActorConfig>`,
 //! `With<BossConfig>`, plus `Without<...>` guards where needed). Do that with
 //! filters, never by re-splitting the component.
-
-// TODO(compat-remove): migrate callers to `ambition_platformer2d_core::BodyKinematics`, then
-// remove this path-preservation re-export.
-pub use ambition_platformer2d_core::BodyKinematics;
 
 use bevy::prelude::*;
 
@@ -261,7 +257,7 @@ use ambition_platformer2d_core::body_clusters::*;
 /// `AncillaryMovementBundle` (110 of them)"* and concluded therefore had to stay
 /// — the conclusion followed from the bundle, and the bundle did not have to.
 /// Moved 2026-08-28 (D33).
-/// Ancillary movement components spawned on every body. [`BodyKinematics`] is
+/// Ancillary movement components spawned on every body. [`ambition_platformer2d_core::BodyKinematics`] is
 /// separate so rendering, gravity, and targeting can read kinematics without
 /// borrowing the full movement aggregate. Player and non-player construction use
 /// this same bundle and the same `BodyClusterQueryData` path.
@@ -306,7 +302,7 @@ pub struct AncillaryMovementBundle {
 impl AncillaryMovementBundle {
     /// Split the ancillary clusters out of a [`BodyClusterScratch`],
     /// dropping its vestigial `kinematics` field (the body's authoritative
-    /// [`BodyKinematics`] is spawned separately).
+    /// [`ambition_platformer2d_core::BodyKinematics`] is spawned separately).
     pub fn from_scratch(scratch: ambition_platformer2d_core::BodyClusterScratch) -> Self {
         let (bundle, resources) = Self::split_scratch(scratch);
         assert!(

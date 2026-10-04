@@ -88,7 +88,7 @@ pub use input_stream::{
 };
 pub use kinematic_path::{resolve_kinematic_path, KinematicPath, KinematicPathMode};
 pub use ledge_grab::{
-    probe_ledge_grab, LedgeContact, LedgeGetupKind, LedgeGrabState, LEDGE_CLIMB_TIME,
+    LedgeContact, LedgeGetupKind, LedgeGrabState, LEDGE_CLIMB_TIME,
     LEDGE_GRAB_INVULN_TIME, LEDGE_MIN_CLIMB_DELAY, LEDGE_ROLL_OVERSHOOT, LEDGE_ROLL_TIME,
     LEDGE_TOWARD_CLIMB_DELAY,
 };

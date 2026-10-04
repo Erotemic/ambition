@@ -129,7 +129,7 @@ fn end_cutscene(
 /// and two replays of the same input stream could enter different beats.
 ///
 /// ⭐ And `WorldTime::sim_dt` is SCALED (`ambition_time/src/lib.rs:209` returns
-/// `scaled_dt`), which a frame clock is not: a cutscene playing under slow
+/// `sim_dt`), which a frame clock is not: a cutscene playing under slow
 /// motion slows with the scene it accompanies instead of running at wall speed
 /// over a world in treacle.
 ///

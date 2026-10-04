@@ -7,7 +7,7 @@
 
 pub use crate::lifecycle::{
     despawn_scoped_entity, ModeScopedEntity, RoomScopedEntity, SessionScopeId, SessionSpawnScope,
-    SpawnScopedExt, SpawnSessionScopedExt,
+    SpawnSessionScopedExt,
 };
 pub use crate::projectile::{
     resolve_world_collision, InFlightProjectile, ProjectileBody, ProjectileSolidHit,

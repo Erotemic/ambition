@@ -403,7 +403,7 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
                 ambition_boss_encounter::test_boss_catalog(),
                 "boss_rider",
             ),
-            seed: None,
+            seed: ambition_boss_encounter::BossSeed::resolved(ambition_boss_encounter::test_boss_catalog(), "boss_rider", "Boss Rider", 18),
         },
         Brain::npc_patrol(AUTHORED_BOSS_LANE_X, 17.0),
     ));
@@ -1011,7 +1011,10 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
         spawn: rider_pos,
         brain: ambition_entity_catalog::placements::BossBrain::Dormant,
         behavior: profile.behavior.clone(),
-        seed: None,
+        seed: ambition_boss_encounter::BossSeed {
+            encounter: profile.encounter.clone(),
+            reward: profile.reward.clone(),
+        },
     };
     let rider = app
         .world_mut()
@@ -1173,7 +1176,10 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
                 spawn: ae::Vec2::ZERO,
                 brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior: profile.behavior.clone(),
-                seed: None,
+                seed: ambition_boss_encounter::BossSeed {
+                    encounter: profile.encounter.clone(),
+                    reward: profile.reward.clone(),
+                },
             },
             RidingOn { mount: giant },
         ))
@@ -1257,8 +1263,8 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     app.init_resource::<ambition_time::WorldTime>();
     {
         let mut wt = app.world_mut().resource_mut::<ambition_time::WorldTime>();
-        wt.scaled_dt = 0.05;
-        wt.raw_dt = 0.05;
+        wt.set_sim_dt(0.05);
+        wt.set_wall_dt(0.05);
     }
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
@@ -1380,7 +1386,10 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
                 spawn: rider_pos,
                 brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior: profile.behavior.clone(),
-                seed: None,
+                seed: ambition_boss_encounter::BossSeed {
+                    encounter: profile.encounter.clone(),
+                    reward: profile.reward.clone(),
+                },
             },
             // the SEAT is what makes this boss possessed; its own `Brain` stays
             // put and simply stops deciding while a person is driving.
@@ -1390,7 +1399,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
             BossAttackState::default(),
             capability,
             moveset,
-            ambition_combat::components::ActorFaction::Boss,
+            ambition_characters::actor::ActorFaction::Boss,
             ambition_combat::components::ActorTarget::default(),
             ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
             Mounted,

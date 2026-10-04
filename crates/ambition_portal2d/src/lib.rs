@@ -8,7 +8,7 @@
 //! TODO(compat-remove): move the Ambition portal-gun workflow out of this generic mechanic
 //! crate and delete the `gun_*` compatibility modules.
 //!
-//! Every entity with [`BodyKinematics`](ambition_platformer2d_shared_tangle::body::BodyKinematics)
+//! Every entity with [`BodyKinematics`](ambition_platformer2d_core::BodyKinematics)
 //! takes the generic [`portal_transit`] path, which derives how each body takes
 //! part from what it is. The crate depends only on `bevy`,
 //! `ambition_platformer2d_core`, and `ambition_platformer2d_shared_tangle`, so it stays
@@ -38,7 +38,9 @@ mod types;
 pub mod view;
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
-pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};
+pub use eviction::{
+    evict_straddlers_on_portal_change, forget_portal_frames_on_activation, PortalFrameHistory,
+};
 pub use gun::{portal_guns_active_toggle_system, portal_toggle_system, OwnedPortalGunPair, PortalGun};
 pub use gun_construction::{
     install_portal_gun_construction_recipes, portal_gun_construction_registry,

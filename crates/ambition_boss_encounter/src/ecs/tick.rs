@@ -361,7 +361,7 @@ fn project_boss_attack_state(
 /// reads. The simulation owns the cursor: it picks the anim from the
 /// projected `BossAttackState`, advances the frame, and writes the sample. The
 /// renderer mirrors that cursor into its draw-only
-/// [`BossAnimator`](crate::sprites::BossAnimator).
+/// [`BossAnimator`](ambition_sprite_sheet::boss::BossAnimator).
 pub fn drive_boss_animators(
     mut commands: Commands,
     boss_catalog: Res<crate::BossCatalog>,
@@ -377,7 +377,7 @@ pub fn drive_boss_animators(
     mut frames: Query<(
         Entity,
         &ambition_combat::components::FeatureId,
-        &mut crate::sprites::BossAnimFrame,
+        &mut ambition_sprite_sheet::boss::BossAnimFrame,
         Option<&ambition_time::ProperTimeScale>,
     )>,
 ) {
@@ -385,11 +385,11 @@ pub fn drive_boss_animators(
         let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // Both helpers belong to `crate::anim`; call them there.
         let Some((_, state)) =
-            crate::anim::ecs_boss_anim_state_and_entity(feature_id.as_str(), &ecs_bosses)
+            crate::anim::ecs_boss_anim_state_and_entity(&boss_catalog, feature_id.as_str(), &ecs_bosses)
         else {
             continue;
         };
-        let anim = crate::sprites::pick_boss_anim(state);
+        let anim = ambition_sprite_sheet::boss::pick_boss_anim(state);
         frame.request_for_phase(anim, state.drive_phase());
         frame.tick(dt);
         match crate::anim::ecs_boss_animation_frame_sample(
@@ -700,10 +700,7 @@ pub(crate) fn horizontal_front_wall_clearance(
 
     let mut best: Option<f32> = None;
     for block in &world.blocks {
-        if !matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-        ) {
+        if !ae::collision_semantics::is_full_collision_surface(block.kind) {
             continue;
         }
         let vertical_overlap =

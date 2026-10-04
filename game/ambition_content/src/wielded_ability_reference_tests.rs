@@ -474,7 +474,8 @@ pub mod sentry {
 
     use ambition_combat::held_items::HeldItem;
     use ambition_characters::control::ActorControl;
-    use ambition_combat::components::{ActorFaction, CenteredAabb};
+    use ambition_combat::components::CenteredAabb;
+    use ambition_characters::actor::ActorFaction;
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -661,7 +662,7 @@ pub mod sentry {
 
     /// Tick every sentry: age it out, and when its cadence is ready, fire one
     /// player-faction bolt at the nearest Enemy-faction actor within range. Runs on
-    /// `scaled_dt` (bullet-time slows the turret with everything else).
+    /// `sim_dt` (bullet-time slows the turret with everything else).
     ///
     /// The outer loop order is a gameplay decision. Two turrets firing on one
     /// tick write two `ProjectileSpawnRequest`s, and the materializer assigns the
@@ -698,7 +699,7 @@ pub mod sentry {
         mut projectiles: MessageWriter<ProjectileSpawnRequest>,
         mut sfx: ambition_sfx::BodySfxWriter,
     ) {
-        let dt = world_time.scaled_dt;
+        let dt = world_time.sim_dt();
         if dt <= 0.0 {
             return;
         }
@@ -808,7 +809,7 @@ pub mod vortex {
     use bevy::prelude::*;
 
     use ambition_combat::held_items::HeldItem;
-    use ambition_combat::components::ActorFaction;
+    use ambition_characters::actor::ActorFaction;
     use ambition_platformer2d_core as ae;
     use ambition_platformer2d_core::body_clusters::BodyKinematics;
     use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
@@ -965,7 +966,7 @@ pub mod vortex {
 
     /// Drag every Enemy-faction actor within [`VORTEX_RADIUS`] of each live well
     /// toward its center (a position lerp; the actor's `step_motion` next tick
-    /// resolves walls), then age the wells out. Runs on `scaled_dt`, so
+    /// resolves walls), then age the wells out. Runs on `sim_dt`, so
     /// bullet-time slows the gather.
     ///
     /// Overlapping wells do not commute. Each well lerps a fraction `f` toward
@@ -999,7 +1000,7 @@ pub mod vortex {
             With<FeatureSimEntity>,
         >,
     ) {
-        let dt = world_time.scaled_dt;
+        let dt = world_time.sim_dt();
         if dt <= 0.0 {
             return;
         }

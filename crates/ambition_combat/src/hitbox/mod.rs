@@ -10,7 +10,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 
 use super::components::ActorAggression;
-use super::components::ActorFaction;
+use ambition_characters::actor::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget};
 use super::targeting::effective_faction;
 use super::util::midpoint;
@@ -213,6 +213,13 @@ fn damage_floor(authored: i32) -> i32 {
     } else {
         0
     }
+}
+
+/// The damage a use deals after staling: the authored damage times the stale
+/// scale, rounded, and never below [`damage_floor`]. The hitbox road and the
+/// throw road use this one law.
+pub(crate) fn staled_damage(authored: i32, stale: f32) -> i32 {
+    ((authored as f32 * stale).round() as i32).max(damage_floor(authored))
 }
 
 fn resolved_hitbox_knockback_magnitude(
@@ -1156,8 +1163,7 @@ pub fn apply_hitbox_damage(
                     // push into a hit. The floor was unconditional, so a
                     // damageless volume was unauthorable: you could write
                     // `damage: 0` and the runtime dealt one.
-                    damage: ((hitbox.damage as f32 * stale).round() as i32)
-                        .max(damage_floor(hitbox.damage)),
+                    damage: staled_damage(hitbox.damage, stale),
                     source: source_kind.clone(),
                     attacker: Some(hitbox.owner),
                     room: None,

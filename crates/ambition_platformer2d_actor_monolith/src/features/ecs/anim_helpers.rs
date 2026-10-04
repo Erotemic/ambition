@@ -130,7 +130,7 @@ mod every_player_slot_gets_its_overlays_ticked {
     fn a_second_player_body_has_its_anim_overlays_advanced_like_every_other_body() {
         let mut app = App::new();
         let mut world_time = ambition_time::WorldTime::default();
-        world_time.scaled_dt = DT;
+        world_time.set_sim_dt(DT);
         app.insert_resource(world_time);
         // The player road's own clock, set to the SAME step so a double tick is
         // the only way a body can lose 2 × DT.

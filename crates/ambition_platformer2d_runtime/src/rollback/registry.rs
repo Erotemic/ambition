@@ -982,7 +982,50 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// retires (OW5). This step also records `derived.authored_room_commands`
 /// (each live room's prepared `while_live` line), which was registered at 295
 /// with no baseline row.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 296;
+/// ⛔⛤ 296 -> 297: `resource.base_gravity` is one ambient per live room: a
+/// count, then each turned room and its direction, where it was one `Vec2`
+/// for the whole world (customer 2).
+/// ⛔⛤ 297 -> 298: `resource.reward_grants_since_checkpoint` is new: what the
+/// mints collected since the last checkpoint gave, which a retracted boss
+/// defeat takes back (BOSS-REPLAY-RETRACTION).
+/// ⛔⛤ 298 -> 299: that row is `resource.reward_grants_since_checkpoint`,
+/// and it also records what an opened boss reward chest gave.
+/// ⛔⛤ 299 -> 300: `content.pending_cut_rope_room_replay` folds only the
+/// conversation latch. The re-fight travels with the replay request
+/// (`RoomReplayRequested::refight`), so a refused request leaves no latch.
+/// ⛔⛤ 300 -> 301: `resource.quest_registry` also folds the cause of each
+/// pending advance and the quest steps each cause's latest event moved, which
+/// a retracted boss defeat puts back (BOSS-REPLAY-RETRACTION).
+/// ⛔⛤ 301 -> 302: `resource.active_match` no longer carries the seat-topology
+/// stamp. The roster is the one record of which topology decided the seating,
+/// and nothing read the copy (ROLLBACK-MUTATOR-POPULATION).
+/// ⛔⛤ 302 -> 303: the fingerprint hashes `mechanical_dump()`, each row's
+/// mechanism token in place of its prose `detail` (`Q122`, ID-PEER road 1).
+/// The rows and `schema_dump()` are unchanged; the fingerprint value moves once.
+/// ⛔⛤ 303 -> 304: `resource.rooms_owed_the_restore` (a death's restore replayed
+/// every other live room). 304 -> 305: that row is deleted again, because a
+/// death is local to its participant and room (Q151): the restore spares the
+/// rooms other participants hold, so no room is owed a replay.
+/// ⛔⛤ 305 -> 306: `content.mary_o_broken_bricks`,
+/// `content.mary_o_spent_power_blocks` and `content.sanic_spent_monitors` hold
+/// one value per live room, keyed by `LiveRoomInstance`, where each held one
+/// value for the whole world. Each checksum folds the room.
+/// ⛔⛤ 306 -> 307: `feature.breakable_respawn_schedule` is now
+/// `feature.world_time_schedule` (`WorldTimeSchedule`). It also holds when a
+/// collected pickup regrows (Q152), with the same key and the same fold.
+/// ⛔⛤ 307 -> 308: `boss.defeats_since_checkpoint` also holds the participants
+/// in each defeat's room when it fell, and its checksum folds them: a death
+/// keeps a defeat another participant won (Q151, DEATH-IS-ROOM-LOCAL).
+/// ⛔⛤ 308 -> 309: `resource.owned_items_baseline` also holds the primary
+/// body's wallet balance at the checkpoint, and its checksum folds it: a death
+/// puts back the coins with the bag.
+/// ⛔⛤ 309 -> 310: `feature.world_time_schedule` also holds each record's
+/// owners (the participants in its room when it was made), and its checksum
+/// folds them: a death takes out only the dying participant (Q151).
+/// ⛔⛤ 310 -> 311: `feature.consumed_since_checkpoint` is new: the one-time
+/// pickups consumed since the checkpoint and whose horizons own each. A death
+/// keeps the ones another participant took (Q151).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 311;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which
@@ -1247,6 +1290,35 @@ impl RollbackRegistry {
         )
     }
 
+    /// The peer schema identity: [`Self::schema_dump`]'s rows with each
+    /// row's prose `detail` replaced by its mechanism token
+    /// ([`ambition_platformer2d_core::rollback_kind::mechanism_of`]). The
+    /// schema fingerprint hashes this (`Q122`: the mechanical identity hashes
+    /// mechanical facts, not explanatory prose). `schema_dump` keeps the prose
+    /// for readers and the recorded baseline.
+    pub fn mechanical_dump(&self) -> String {
+        let rows: Vec<String> = self
+            .entries
+            .values()
+            .filter(|entry| entry.kind.in_peer_schema_identity())
+            .map(|entry| {
+                ambition_registry_core::canonical_row(&[
+                    &entry.name,
+                    entry.kind.canonical_name(),
+                    &wire_type_identity(&entry.type_name),
+                    ambition_platformer2d_core::rollback_kind::mechanism_of(
+                        entry.kind,
+                        &entry.detail,
+                    ),
+                ])
+            })
+            .collect();
+        ambition_registry_core::canonical_section(
+            Some(&format!("ggrs-rollback-schema-v{GGRS_ROLLBACK_SCHEMA_VERSION}")),
+            rows.iter().map(String::as_str),
+        )
+    }
+
     /// Which of these requirements is NOT installed.
     ///
     /// A capability offers its rollback state and the composition installs it,
@@ -1315,7 +1387,7 @@ impl RollbackRegistry {
         let mut hasher = blake3::Hasher::new();
         hasher.update(b"ambition.ggrs-rollback-schema\0");
         hasher.update(&GGRS_ROLLBACK_SCHEMA_VERSION.to_le_bytes());
-        let dump = self.schema_dump();
+        let dump = self.mechanical_dump();
         hasher.update(&(dump.len() as u64).to_le_bytes());
         hasher.update(dump.as_bytes());
         SnapshotSchemaFingerprint::from_bytes(*hasher.finalize().as_bytes())
@@ -1590,6 +1662,63 @@ mod tests {
                  collision — the stable name is what identifies a registration, \
                  and refusing this would reject 39 of the live rows",
             );
+    }
+
+    fn spelled(kind: RollbackEntryKind, detail: &str) -> RollbackRegistry {
+        let mut registry = RollbackRegistry::default();
+        registry
+            .try_register(RollbackRegistrationDescriptor {
+                name: "row".to_owned(),
+                owner: "test-owner".to_owned(),
+                kind,
+                type_name: "test::Type".to_owned(),
+                detail: detail.to_owned(),
+            })
+            .unwrap();
+        registry
+    }
+
+    /// `Q122`: the fingerprint is the mechanical identity, so rewording a
+    /// row's prose leaves it alone. A custom checksum's description and a
+    /// derived row's reason are prose; the code they describe is what the
+    /// schema version answers for.
+    #[test]
+    fn rewording_a_row_leaves_the_fingerprint_alone() {
+        for (kind, before, after) in [
+            (
+                RollbackEntryKind::ResourceCloneCustomChecksum,
+                "bevy_ggrs clone snapshot + quest identity, progression and pending-advance checksum projection",
+                "bevy_ggrs clone snapshot + quest identity and progression checksum projection",
+            ),
+            (
+                RollbackEntryKind::Derived,
+                "republished every tick",
+                "rebuilt from its sources every tick",
+            ),
+        ] {
+            assert_eq!(
+                spelled(kind, before).schema_fingerprint(),
+                spelled(kind, after).schema_fingerprint(),
+                "a {kind:?} row whose prose changed moved the fingerprint"
+            );
+        }
+    }
+
+    /// The other half: a row on a different MECHANISM of the same kind moves
+    /// the fingerprint. An unhashed clone and a clone probed for localization
+    /// are both `component-clone`, and only the road tells them apart.
+    #[test]
+    fn a_row_on_another_mechanism_moves_the_fingerprint() {
+        use ambition_platformer2d_core::rollback_kind::spelling;
+        let unhashed = spelling::COMPONENT_CLONE_UNHASHED;
+        let probed = spelling::COMPONENT_CLONE_PROBED_FOR_LOCALIZATION;
+        let set = spelling::COMPONENT_CLONE_ENTITY_SET_REMAPPED;
+        assert_eq!((unhashed.kind, probed.kind, set.kind), (probed.kind, set.kind, unhashed.kind));
+        let fingerprints = [unhashed, probed, set].map(|road| spelled(road.kind, road.detail).schema_fingerprint());
+        assert!(
+            fingerprints[0] != fingerprints[1] && fingerprints[1] != fingerprints[2] && fingerprints[0] != fingerprints[2],
+            "three component-clone roads share a fingerprint"
+        );
     }
 
     #[test]

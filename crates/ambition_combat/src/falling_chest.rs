@@ -126,11 +126,7 @@ mod falling_chest_tests {
         lower.blocks[0] = ae::Block::solid("floor", ae::Vec2::new(0.0, 500.0), ae::Vec2::new(400.0, 100.0));
         let bottoms = |rooms: Vec<(LiveRoomInstance, ae::World)>| {
             let mut app = bevy::prelude::App::new();
-            app.insert_resource(WorldTime {
-                raw_dt: 1.0 / 60.0,
-                scaled_dt: 1.0 / 60.0,
-                ..Default::default()
-            });
+            app.insert_resource(WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
             app.add_systems(bevy::prelude::Update, update_ecs_falling_chests);
             let chests: Vec<_> = rooms
                 .into_iter()

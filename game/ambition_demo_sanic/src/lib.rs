@@ -523,6 +523,9 @@ fn sanic_setup(
             // A direct-entry demo drops the first room's receipt.
             publication_retention:
                 ambition_platformer2d::runtime::demo_fixture::PublicationRetention::UntilTheVerdictIsRecorded,
+            // One experience: the save of the world is the save of this room.
+            first_room_facts:
+                ambition_platformer2d::runtime::demo_fixture::CommitFactsSource::TheWorldAtTheCommit,
             world: &world,
             room_set: &room_set,
             // The caller converts: who edits the set is a developer
@@ -1001,7 +1004,7 @@ fn sync_super_form_traits(
         *sparkle_orbit = 0.0;
         return;
     }
-    *sparkle_accum += time.scaled_dt;
+    *sparkle_accum += time.sim_dt();
     if *sparkle_accum >= SUPER_SPARKLE_PERIOD {
         *sparkle_accum -= SUPER_SPARKLE_PERIOD;
         // Orbit the emit point around the body so the motes read as an aura
@@ -1040,7 +1043,7 @@ fn super_form_edge(worn_is_super: Option<bool>, was_super: bool) -> (Option<bool
     }
 }
 
-/// The act timer runs on the sim clock (`scaled_dt`), so bullet-time and pause
+/// The act timer runs on the sim clock (`sim_dt`), so bullet-time and pause
 /// slow it exactly as they slow everything else — `WorldTime`, never `Res<Time>`.
 fn tick_sanic_act(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
@@ -1048,7 +1051,7 @@ fn tick_sanic_act(
 ) {
     for mut state in &mut act {
         if matches!(state.phase, SanicActPhase::Running) {
-            state.elapsed += time.scaled_dt;
+            state.elapsed += time.sim_dt();
         }
     }
 }
@@ -1322,7 +1325,7 @@ pub fn arc_scattered_rings(
         &mut ae::CenteredAabb,
     )>,
 ) {
-    let dt = time.scaled_dt;
+    let dt = time.sim_dt();
     for (entity, mut ring, mut aabb) in &mut rings {
         let solids = world.of(entity).map(|geometry| &geometry.0);
         ring.life -= dt;
@@ -1571,7 +1574,7 @@ pub fn cycle_act_after_clear(
             continue;
         };
         let reading_the_card = *dwell > 0.0;
-        *dwell -= time.scaled_dt;
+        *dwell -= time.sim_dt();
         if *dwell > 0.0 {
             continue;
         }

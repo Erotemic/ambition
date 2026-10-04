@@ -167,7 +167,7 @@ fn custom_pogo_policy_uses_its_own_volume_against_the_landed_strike() {
 
 #[test]
 fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
-    use crate::components::ActorFaction;
+    use ambition_characters::actor::ActorFaction;
     use crate::events::HitEvent;
     use crate::hitbox::{
         apply_hitbox_damage, HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback,

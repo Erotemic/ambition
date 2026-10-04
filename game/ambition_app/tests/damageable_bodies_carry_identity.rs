@@ -43,7 +43,8 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
-use ambition_platformer2d::combat::components::{ActorFaction, CenteredAabb, FeatureId};
+use ambition_platformer2d::combat::components::{CenteredAabb, FeatureId};
+use ambition_platformer2d::actor::ActorFaction;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::{Entity, Name, World};

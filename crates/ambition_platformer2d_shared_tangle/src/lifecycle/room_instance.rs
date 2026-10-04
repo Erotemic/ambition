@@ -194,6 +194,27 @@ impl LiveRooms<'_, '_> {
     }
 }
 
+/// The live room of the primary seat: the room of the primary body, and with
+/// no primary body, the sole live room. One developer control serves a
+/// session that has two live rooms, and it serves this room: the developer's
+/// gravity cycle turns it. The music chooses among the participants' rooms
+/// by authored priority and uses this room to break a tie (Q150).
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct PrimaryLiveRoom<'w, 's> {
+    live: LiveRooms<'w, 's>,
+    primary: bevy::prelude::Query<'w, 's, Entity, With<crate::body::PrimaryBody>>,
+}
+
+impl PrimaryLiveRoom<'_, '_> {
+    pub fn get(&self) -> Option<LiveRoomInstance> {
+        self.primary
+            .single()
+            .ok()
+            .and_then(|body| self.live.of(body))
+            .or_else(|| self.live.sole())
+    }
+}
+
 /// The live rooms one room transaction's world is made of: the room it
 /// replaces, and the room it mints.
 ///

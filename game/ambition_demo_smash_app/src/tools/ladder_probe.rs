@@ -394,7 +394,7 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
             &MatchSeat,
             &FighterStocks,
             &ambition_platformer2d::characters::actor::BodyHealth,
-            &ambition_platformer2d::platformer::body::BodyKinematics,
+            &ambition_platformer2d::actor::BodyKinematics,
         )>();
         let mut present = false;
         let mut seat_x = None;

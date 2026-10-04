@@ -15,7 +15,7 @@ use ambition_cutscene::CutsceneTriggerQueue;
 use ambition_persistence::quest::QuestRegistry;
 
 use super::{
-    default_boss_profiles, events::publish_events, BossCatalog, BossEncounterRegistry, BossProfile,
+    default_boss_profiles, events::publish_events, BossCatalog, BossEncounterRegistry,
 };
 
 /// This system's claim on the encounter layer's priority music tier.
@@ -54,15 +54,13 @@ pub fn populate_boss_encounter_registry(
     registry.specs_loaded = true;
 }
 
-/// Drive every boss's entity-local phase mechanism: seed from the profile
-/// catalog, wake, tick the `ActorPhaseState`, resolve death (save + quest), keep
+/// Drive every boss's entity-local phase mechanism: seed from the encounter
+/// the boss was built with (`BossConfig::seed`), wake, tick the `ActorPhaseState`, resolve death (save + quest), keep
 /// the adaptive-music request live, and sync reward chests.
 /// The body's `BodyHealth` and `BossEncounter.encounter` are the source of truth.
 pub fn update_boss_encounters(
     mut commands: Commands,
-    catalog: Res<BossCatalog>,
     world_time: Res<ambition_time::WorldTime>,
-    registry: Res<BossEncounterRegistry>,
     mut banner: ResMut<ambition_combat::GameplayBanner>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
@@ -91,9 +89,11 @@ pub fn update_boss_encounters(
     mut phase_changes: MessageWriter<super::events::BossPhaseChanged>,
     // The defeats since the last checkpoint, which a replay of their room
     // retracts (BOSS-REPLAY-RETRACTION), and the live room each fell in.
-    (mut since_checkpoint, rooms): (
+    // And the driven bodies, to say who won a defeat.
+    (mut since_checkpoint, rooms, drivers): (
         ResMut<crate::retraction::BossDefeatsSinceCheckpoint>,
         ambition_platformer2d_world::rooms::LiveRoomSpecs,
+        Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     ),
     mut bosses: Query<
         (
@@ -129,7 +129,12 @@ pub fn update_boss_encounters(
     // (placement_id, archetype_id, spawn): "cleared" and rewards are keyed by
     // placement. The music is still one track for the session: a view per
     // player is P5.
-    let mut active_music_track: Option<String> = None;
+    // The active fight's track of each live room: a boss claims the music of
+    // the room it fights in (customer 2).
+    let mut active_music_tracks: std::collections::BTreeMap<
+        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        String,
+    > = std::collections::BTreeMap::new();
     let mut boss_anchors: std::collections::BTreeMap<
         ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
         Vec<crate::BossRewardAnchor>,
@@ -138,31 +143,13 @@ pub fn update_boss_encounters(
     for (boss_entity, _feature_id, mut feature, mut health, mut combat, overrides, boss_sim_id) in &mut bosses {
         let archetype_id = feature.config.behavior.id.clone();
         let runtime_id = feature.config.id.clone();
-        let boss_name = feature.config.name.clone();
 
         // The encounter this boss was built with (`BossConfig::seed`, from the
-        // generation's catalog). Only a hand-built config has none; it is
-        // resolved here from the App's catalog (or a generic stub), by the
-        // canonical archetype id resolved at spawn.
-        let (spec, reward) = match &feature.config.seed {
-            Some(seed) => (seed.encounter.clone(), seed.reward.clone()),
-            None => {
-                let profile = registry
-                    .profiles
-                    .get(&archetype_id)
-                    .cloned()
-                    .or_else(|| BossProfile::for_encounter_id_or_name(&catalog, &archetype_id))
-                    .unwrap_or_else(|| {
-                        BossProfile::generic(
-                            &catalog,
-                            archetype_id.clone(),
-                            boss_name.clone(),
-                            health.max(),
-                        )
-                    });
-                (profile.encounter, profile.reward)
-            }
-        };
+        // generation's catalog).
+        let (spec, reward) = (
+            feature.config.seed.encounter.clone(),
+            feature.config.seed.reward.clone(),
+        );
 
         // Seed entity-local state once from the profile (phase triggers, HP),
         // so two of the same boss have independent state. The per-spawn
@@ -280,19 +267,31 @@ pub fn update_boss_encounters(
                 // A defeat after the last checkpoint: a replay of this room
                 // retracts it (Q56).
                 if let Some(definition) = rooms.definition_of(boss_entity) {
+                    let room = rooms.live().of(boss_entity);
+                    let mut present: Vec<_> = drivers
+                        .iter()
+                        .filter(|(body, _)| room.is_some() && rooms.live().of(*body) == room)
+                        .map(|(_, driver)| driver.0)
+                        .collect();
+                    present.sort_unstable();
+                    present.dedup();
                     since_checkpoint.record(
                         runtime_id.clone(),
                         crate::retraction::BossDefeatSinceCheckpoint {
-                            room: rooms.live().of(boss_entity),
+                            room,
                             definition: rooms.rooms().spec(definition).id.clone(),
                             boss: boss_sim_id.cloned(),
+                            present,
                         },
                     );
                 }
-                quests.push_event(
+                // Caused by the placement, so a replay that retracts this
+                // defeat retracts the quest step it advanced.
+                quests.push_event_caused_by(
                     ambition_persistence::quest::QuestAdvanceEvent::BossDefeated(
                         archetype_id.clone(),
                     ),
+                    runtime_id.clone(),
                 );
             }
         }
@@ -301,11 +300,11 @@ pub fn update_boss_encounters(
         // (placement_id, archetype_id, spawn): the reward sync keys the chest
         // and looted flag by placement and resolves the DropChest reward via
         // the archetype profile.
-        if active_music_track.is_none() {
-            if let Some(track) = phase_music_track(&spec, phase) {
-                if !track.is_empty() {
-                    active_music_track = Some(track.to_string());
-                }
+        if let Some(track) = phase_music_track(&spec, phase) {
+            if !track.is_empty() {
+                active_music_tracks
+                    .entry(rooms.live().of(boss_entity))
+                    .or_insert_with(|| track.to_string());
             }
         }
         // A boss in no live room drops nothing: no room is simulated there.
@@ -318,8 +317,8 @@ pub fn update_boss_encounters(
         }
     }
 
-    // Music-request lifetime: keep the active boss's track up; clear it when
-    // no boss is in an active-fight phase (defeated, or the player left the
+    // Music-request lifetime: keep each room's active boss track up; clear it
+    // in each room where no boss is in an active-fight phase (defeated, or the player left the
     // room), so room music resumes. Guarded by
     // `boss_music_plays_during_the_fight` and
     // `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`.
@@ -327,9 +326,11 @@ pub fn update_boss_encounters(
     // Release only this system's own claim. It has no run condition, so the
     // "no boss is fighting" arm runs every frame of every game; clearing the
     // whole tier would silence every other music claimant.
-    match active_music_track {
-        Some(track) => music_request.claim_priority(BOSS_MUSIC_OWNER, track),
-        None => music_request.release_priority(BOSS_MUSIC_OWNER),
+    music_request.release_priority_where(BOSS_MUSIC_OWNER, |room| {
+        !active_music_tracks.contains_key(&room)
+    });
+    for (room, track) in active_music_tracks {
+        music_request.claim_priority(room, BOSS_MUSIC_OWNER, track);
     }
 
     // Each live room's chests, in that room and on its floor.
@@ -403,7 +404,7 @@ pub fn boss_phase_transition_feedback(
     // Boss geometry — the actor that emits the phase-transition shockwave.
     bosses: Query<
         (
-            &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+            &ambition_platformer2d_core::BodyKinematics,
             &ambition_combat::CenteredAabb,
         ),
         With<crate::BossConfig>,
@@ -477,7 +478,7 @@ mod phase_feedback_tests {
     use crate::test_support::{test_boss_config, test_boss_status};
     use crate::BossEncounterPhase;
     use ambition_combat::{CenteredAabb, FeatureId};
-    use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+    use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest;
 
     fn spawn_boss(app: &mut App, phase: BossEncounterPhase) -> Entity {

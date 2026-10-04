@@ -321,7 +321,7 @@ pub fn grant_prepared_character_body(
         // two writers cannot disagree about what a character wears — see
         // `a_moves_only_character_is_granted_and_reworn_as_one_kit`.
         if kit == KitOwnership::Grant {
-            // The prepared baseline — the same one `WornKit::resolve` returns —
+            // The prepared baseline — the same one `WornKit::of` returns —
             // for every character, authored action set or not. A character that
             // authored only moves used to get them as a live `ActorMoveset` over
             // the seed's EMPTY `IdentityKit`, so the next repertoire fold erased

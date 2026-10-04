@@ -121,6 +121,11 @@ pub struct CaptureThrowRequested {
     /// The same contract an authored `HitVolume` states, so a throw feeds the
     /// ordinary scaled-knockback road instead of a second launch engine.
     pub launch_dir: ae::Vec2,
+    /// The use of the captor's move that asked for this throw, from
+    /// `ActorActionMessage::move_instance`. The throw stales that move, and
+    /// only when the captor's playback is still that use. `None` (a throw that
+    /// no move authored) stales nothing and records nothing.
+    pub move_instance: Option<u32>,
 }
 
 #[cfg(test)]

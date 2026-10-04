@@ -13,7 +13,7 @@ Executable slices go to [`queue.md`](../queue.md).
 | Rank | ID | Opportunity | State | Size | Gate |
 | --- | --- | --- | --- | --- | --- |
 | 1 | C01 | One live room/session replacement transaction (A10) | ✅ DONE 2026-09-15 | large | — |
-| 2 | C02 | Separate local lifetime/correlation identity from peer-stable provenance | ACTIVE as [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity); the queue row owns its road count | large | — |
+| 2 | C02 | Separate local lifetime/correlation identity from peer-stable provenance | ✅ DONE 2026-10-03 as [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity): every road closed | large | — |
 | 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | OPEN — startable, not started | large | none |
 | 4 | C04 | Activated generation mechanics are the only live construction source | ✅ DONE 2026-09-20 | medium | — |
 | 5 | C05 | Collapse live content/session publication onto one admitted candidate | ⛔ DECIDED 2026-09-19: do not start; kept for its regression rule | none | — |
@@ -108,11 +108,11 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ### Scope and current authority
 
-Source explicitly groups **34** App resources as gameplay-session or
+Source explicitly groups **45** App resources as gameplay-session or
 activated-generation state:
 
-<!-- session-owner-census: SessionScopedResources=27 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
-- `SessionScopedResources` (**27**) in `actor_monolith/src/session/teardown.rs`;
+<!-- session-owner-census: SessionScopedResources=38 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
+- `SessionScopedResources` (**38**) in `actor_monolith/src/session/teardown.rs`;
 - `SessionOwnedCheckpointState` (6) in `actor_monolith/src/session/checkpoint.rs`;
 - `SessionMechanics` (1 resource with six fields; do not count its fields).
 
@@ -120,7 +120,7 @@ The HTML comment above is the machine-readable copy.
 `scripts/check_session_owner_census_matches_source.py` compares it with source.
 The census page lists the member names. The bundle also holds two optional
 members that the guard does not count: `BossDefeatsSinceCheckpoint` (checkpoint /
-restore state) and `BreakableRespawnSchedule` (a session-clock schedule).
+restore state) and `WorldTimeSchedule` (a session-clock schedule).
 Include them in the migration.
 
 ### Measured facts that shape the campaign
@@ -176,15 +176,15 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=22/12 SessionWorldMut=10/9 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=20/16 SoleLiveRoomSpec=13/12 -->
+<!-- alias-split: SessionWorldRef=23/12 SessionWorldMut=10/9 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=19/15 SoleLiveRoomSpec=11/11 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 22 / 12 |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 23 / 12 |
 | `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 10 / 9 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
 | `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |
-| `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 20 / 16 |
-| `SoleLiveRoomSpec` | the authored spec of the one live room; same debt | 13 / 12 |
+| `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 19 / 15 |
+| `SoleLiveRoomSpec` | the authored spec of the one live room; same debt | 11 / 11 |
 
 `SoleLiveRoomMut<T>` is deleted: its last user, Smash's respawn platforms, writes each protected body's own live room.
 
@@ -203,7 +203,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 34 values. Work owner by owner:
+Do not begin by moving all 45 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
@@ -229,8 +229,9 @@ Do not begin by moving all 34 values. Work owner by owner:
   the rollback-mutator answer per value.
 - ⛔ Do not register `AbandonedCheckpointOperation`. It is a local preparation
   fact that two peers need not agree on.
-- Re-arm condition: if `Q128` (rebase the tick at activation) is ruled and started
-  while this migration runs, coordinate the two.
+- `Q128` landed 2026-10-03: `SimTick` and `ImpactHitstop` are members of
+  `SessionScopedResources`, reset at activation. A migration that moves the
+  tick moves the timeline's start; keep it reset on the activation edge.
 
 **Acceptance:** a reviewer can name one owner for each migrated fact, and session
 activation no longer overwrites a process-global copy to make the next session
@@ -270,9 +271,65 @@ disabled menu state until a shell-less composition exists.
   `ActiveConversation`, `StocksMatchSettled`, `PendingLifecycleCommit`,
   `AcceptedCheckpointRestore`. This is the sharpest entry population, because
   each `None` arm reads past a declared session owner.
-- A known fallback that no `Option` scan can see:
-  `insert_session_world_component` mints `active_scope.unwrap_or(SessionScopeId(0))`,
-  an anonymous default identity.
+  Triage so far (2026-10-03). Each `None` arm was probed over `app_it`, the five
+  `*_it` suites, every target of the demo crates, and the touched crates' lib
+  tests.
+  - `PendingLifecycleCommit` (`drive_departures`) and `AcceptedCheckpointRestore`
+    (the room loader) were never absent, so both reads are now required.
+  - `StocksMatchSettled` was absent only in a character fixture, so its reason is
+    stated at the read.
+  - The three `ActiveConversation` reads already state theirs.
+  - `BaseGravity` waits on Q136.
+  - `ControlledSubject`: five reads were never absent in a composed suite and
+    are now required (`possession_trigger_system`, `gate_body_control`,
+    `rebuild_player_hud_facts`, `rebuild_hostile_wielded_items_view`,
+    `portal_input_adapter_system`). Only two unit fixtures in the monolith lib
+    ran a reader without the resource; they now insert it, as `PossessionPlugin`
+    does. `admit_room_replay` was not probed (it is in the restore chain).
+  - `AuthoredOccurrences`: its two writers scheduled with
+    `HeldItemSimulationPlugin` were never absent, in the Smash compositions
+    also, and are now required (`project_custody_onto_authored_occurrences`,
+    `record_placed_bodies`). The other reads (`minted_horizon`,
+    `durable_horizon`, the room loader, the checkpoint) are still optional and
+    not probed.
+  - `SessionMechanics` (2026-10-04): five live systems read it as "the value
+    of the generation, or that of the App when there is no generation"
+    (`fire_puppy_slug_gun_system`, `apply_summon_effects`,
+    `refresh_boss_damageable_volumes`, `serve_encounter_spawn_commands`,
+    `apply_feature_hit_events`). The `None` arm fired in four `app_it` modules
+    (`latched_input_reaches_the_tick`, `participant_input`,
+    `shell_host_lifecycle`, `smash_in_the_host`) and in lib fixtures. Measured
+    at the read: no session ran, and no body existed. One state is a direct
+    host that publishes a root and no generation. The other is the remainder of
+    the schedule run that retired the session: the session gate answered `true`
+    275 to 340 system ticks before the read, in the same run, and at the read
+    there was no root and no scope. So the `None` arm now returns, and the
+    App-registry parameters are deleted from the five systems: a live system
+    cannot reach the sheets or the boss catalog of the App. A required `Res` is
+    wrong here: the resource is removed at retirement, and the read would fail
+    parameter validation in that remainder. Witnesses:
+    `a_spawn_request_with_no_generation_builds_no_body`,
+    `a_hit_with_no_generation_is_not_resolved` (poison: an empty generation in
+    place of the refusal). A request that a refusal leaves on the bus is not
+    drained by the reader: the session edge owns that, see
+    [SESSION-EDGE-STATE](../queue.md#session-edge-state--a-session-starts-from-nothing-the-last-one-left).
+    The readers that build a room (the room loader, the prefetch, the world
+    reload) refuse through `GenerationMechanics::for_live_session`, and
+    `SenseExtent` refuses through the composition gate; none was changed.
+  - `OccurrenceBaseline`, `CustodyBaseline`, `MintedItemBaseline` (2026-10-04):
+    the four reads outside the restore chain were never absent, in the lib
+    fixtures also, and are now required (`capture_occurrence_baseline`,
+    `capture_custody_baseline`, `adopt_pinned_lifecycle_baselines`,
+    `restore_inventory_from_save`). The reads in `minted_horizon`,
+    `durable_horizon` and the checkpoint are still optional and not probed.
+- ✅ The fallback no `Option` scan could see is closed (2026-10-03):
+  `insert_session_world_component` refuses in a session-gated composition
+  with no root and no active scope. A direct host (no gate) builds its one root
+  at the named `DIRECT_HOST_SESSION_SCOPE`. Measured first: the branch was
+  reached only by ungated lib-test fixtures, never by `app_it` or the demo
+  suites. Witness:
+  `a_gated_composition_with_no_active_scope_refuses_to_mint_a_session_root`
+  (poison: drop the assert).
 
 ### Work
 

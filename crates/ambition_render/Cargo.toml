@@ -75,3 +75,8 @@ bevy = { version = "0.19.1", default-features = false, features = [
     "scene",
     "png",
 ] }
+
+# Writes PNGs, so it needs the capture feature's encoder.
+[[example]]
+name = "rigged_sprite_parity"
+required-features = ["capture"]

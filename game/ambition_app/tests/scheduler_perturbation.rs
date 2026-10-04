@@ -146,7 +146,7 @@ fn perturb(sim: &mut Platformer2dSimHarness) {
         time: Res<ambition_platformer2d::time::WorldTime>,
         mut runs: ResMut<ProbeRuns>,
     ) {
-        let seen = time.scaled_dt.to_bits() as u64;
+        let seen = time.sim_dt().to_bits() as u64;
         // ⛔ `black_box`, NOT `& 0`. The intent above is that the read cannot be
         // optimised away, and `seen & 0` is precisely what LETS it be: the
         // compiler folds it to zero, `seen` becomes dead, and the loop that

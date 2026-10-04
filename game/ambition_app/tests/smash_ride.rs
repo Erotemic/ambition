@@ -1799,7 +1799,7 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
     // ⚠ Inside the blast lines on purpose: this is a fighter that needs to come
     // home, not one being killed.
     {
-        use ambition_platformer2d::platformer::body::BodyKinematics;
+        use ambition_platformer2d::actor::BodyKinematics;
         let mut kin = app
             .world_mut()
             .get_mut::<BodyKinematics>(cpu)
@@ -2436,23 +2436,6 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
     for _ in 0..30 {
         app.update();
     }
-    // ⛔⛔ THE FLAG THE OLD POLICY WOULD HAVE WRITTEN, keyed the way the death
-    // path keys it: `enemy_<config.id>_dead`, and the summon's `config.id` is the
-    // `SummonSpec` id — one fixed string for every shark this move ever makes.
-    {
-        let mut save = app
-            .world_mut()
-            .get_resource_mut::<AmbitionGameSave>()
-            .expect("the shipped composition carries a save");
-        save.data_mut().set_flag(
-            &format!(
-                "enemy_{}_dead",
-                ambition_demo_smash::shark_ride::SUMMON_SHARK_ID
-            ),
-            true,
-        );
-    }
-
     app.world_mut()
         .write_message(ShellCommand::GoTo(ShellRouteId::new(
             ambition_demo_smash::SMASH_SELECT_ROUTE,
@@ -2514,9 +2497,34 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
         }
         assert!(live, "the opening ceremony never released the cast");
     }
-    // ⛔ THE PREMISE: the flag survived the route change. A save the shell reset
-    // on its way into the match would make every arm below pass for the wrong
-    // reason — there would be nothing to be poisoned BY.
+    // ⛔⛔ THE FLAG THE OLD POLICY WOULD HAVE WRITTEN, keyed the way the death
+    // path keys it: `enemy_<config.id>_dead`, and the summon's `config.id` is the
+    // `SummonSpec` id — one fixed string for every shark this move ever makes.
+    // It is written after the match starts, because the save belongs to the
+    // experience that plays (Q129): a flag written on the title screen is in
+    // Ambition's save, and the match does not read that save.
+    assert_ne!(
+        app.world()
+            .resource::<ambition_platformer2d::persistence::save::SaveOwner>()
+            .current(),
+        ambition_platformer2d::persistence::save::SANDBOX_SAVE_OWNER,
+        "the match did not take its own save, so the flag below goes to Ambition's"
+    );
+    {
+        let mut save = app
+            .world_mut()
+            .get_resource_mut::<AmbitionGameSave>()
+            .expect("the shipped composition carries a save");
+        save.data_mut().set_flag(
+            &format!(
+                "enemy_{}_dead",
+                ambition_demo_smash::shark_ride::SUMMON_SHARK_ID
+            ),
+            true,
+        );
+    }
+    // ⛔ THE PREMISE: the flag is in the save the match reads. Without it every
+    // arm below passes for the wrong reason — there is nothing to be poisoned BY.
     assert!(
         app.world()
             .get_resource::<AmbitionGameSave>()
@@ -2526,7 +2534,7 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
                 "enemy_{}_dead",
                 ambition_demo_smash::shark_ride::SUMMON_SHARK_ID
             )),
-        "the match cleared the dead flag on its way in, so this test is riding a \
+        "the match save does not keep the dead flag, so this test is riding a \
          shark nothing was ever going to kill"
     );
 

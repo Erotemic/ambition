@@ -21,7 +21,7 @@ use ambition_platformer2d_shared_tangle::markers::TouchCollectorFilter;
 use ambition_characters::equipment::{EquipmentRow, WornEquipment};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_platformer2d_shared_tangle::prelude::SpawnScopedExt;
+use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 use ambition_platformer2d_shared_tangle::sim_selection::{in_deterministic_order, winner_by};
 
 /// A collectible resting in the world. Touch it (AABB overlap) and its
@@ -105,13 +105,19 @@ pub enum WorldItemPayload {
 /// caller knows which room caused the spawn (the room of the body that struck
 /// the block); this function does not. `None` stamps nothing, and is correct
 /// only for an item that is outside every live room.
+///
+/// ⛔ `scope` IS A PARAMETER TOO. The session retirement despawns by the session
+/// stamp only, so an item with a room scope and no session owner is in the
+/// world of the next session. The caller has the scope
+/// (`SessionCommands::spawn_scope`); a plain `Commands` does not.
 pub fn spawn_world_item(
     commands: &mut Commands,
+    scope: SessionSpawnScope,
     id: ambition_platformer2d_shared_tangle::sim_id::SimId,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     item: WorldItem,
 ) -> Entity {
-    let mut entity = commands.spawn_room_scoped((item, id, Name::new("World item")));
+    let mut entity = commands.spawn_room_in_session(scope, (item, id, Name::new("World item")));
     stamp_room(&mut entity, room);
     entity.id()
 }
@@ -134,17 +140,21 @@ fn stamp_room(
 /// naming which one you meant is worth a second function.
 pub fn spawn_moving_world_item(
     commands: &mut Commands,
+    scope: SessionSpawnScope,
     id: ambition_platformer2d_shared_tangle::sim_id::SimId,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     item: WorldItem,
     plan: crate::item_motion::ItemMotionPlan,
 ) -> Entity {
-    let mut entity = commands.spawn_room_scoped((
-        item,
-        id,
-        crate::item_motion::ItemMotion::new(plan),
-        Name::new("World item"),
-    ));
+    let mut entity = commands.spawn_room_in_session(
+        scope,
+        (
+            item,
+            id,
+            crate::item_motion::ItemMotion::new(plan),
+            Name::new("World item"),
+        ),
+    );
     stamp_room(&mut entity, room);
     entity.id()
 }
@@ -327,13 +337,14 @@ mod tests {
                     if moving {
                         spawn_moving_world_item(
                             &mut commands,
+                    SessionSpawnScope::UNSCOPED,
                             id,
                             Some(item_room),
                             item,
                             crate::item_motion::ItemMotionPlan::still(),
                         )
                     } else {
-                        spawn_world_item(&mut commands, id, Some(item_room), item)
+                        spawn_world_item(&mut commands, SessionSpawnScope::UNSCOPED, id, Some(item_room), item)
                     }
                 })
                 .expect("the spawn seam runs");
@@ -399,6 +410,7 @@ mod tests {
                     for id in [a.as_str(), b.as_str()] {
                         spawn_world_item(
                             &mut commands,
+                    SessionSpawnScope::UNSCOPED,
                             ambition_platformer2d_shared_tangle::sim_id::SimId::geometry(
                                 &ae::GeoId::tile_layer("Blocks", id.parse().unwrap()),
                             ),
@@ -448,6 +460,7 @@ mod tests {
             .run_system_once(|mut commands: Commands| {
                 spawn_world_item(
                     &mut commands,
+                    SessionSpawnScope::UNSCOPED,
                     ambition_platformer2d_shared_tangle::sim_id::SimId::geometry(
                         &ae::GeoId::tile_layer("Blocks", 3),
                     ),
@@ -456,6 +469,7 @@ mod tests {
                 );
                 spawn_moving_world_item(
                     &mut commands,
+                    SessionSpawnScope::UNSCOPED,
                     ambition_platformer2d_shared_tangle::sim_id::SimId::geometry(
                         &ae::GeoId::placement(ae::PlacementId::new("block-iid"), 0),
                     ),

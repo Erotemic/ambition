@@ -183,6 +183,8 @@ links to.
 - [`engine/sprite-renderer.md`](engine/sprite-renderer.md)
 - [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md)
   — rigged sprites (on in the shipped game).
+- [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md) —
+  Mary-O drawn entirely from parts: gaps, validation, interpolation, phases.
 - [`engine/svg-component-character-migration.md`](engine/svg-component-character-migration.md)
 - [`engine/ui-localization-and-accessibility.md`](engine/ui-localization-and-accessibility.md)
 - [`engine/shell-vanity-sequence.md`](engine/shell-vanity-sequence.md) —

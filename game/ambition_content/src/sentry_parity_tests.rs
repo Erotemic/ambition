@@ -22,7 +22,8 @@
 //! lower number.
 
 use ambition_characters::control::{ActorControl, DrivingParticipant, PlayerSlot};
-use ambition_combat::components::{ActorFaction, CenteredAabb};
+use ambition_combat::components::CenteredAabb;
+use ambition_characters::actor::ActorFaction;
 use ambition_combat::held_items::HeldItem;
 use ambition_extension_host::{ExtensionAppExt, ExtensionHostPlugin};
 use ambition_platformer2d::abilities::module_entity::ModuleEntity;
@@ -97,7 +98,7 @@ fn world(road: Road, reversed: bool) -> (App, Vec<Entity>) {
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .add_message::<ambition_characters::brain::ActorActionMessage>()
         .init_resource::<ambition_time::SimTick>()
-        .insert_resource(ambition_time::WorldTime { raw_dt: DT, scaled_dt: DT });
+        .insert_resource(ambition_time::WorldTime::new(DT, DT));
     match road {
         Road::NativeSystem => {
             app.add_systems(Sim, (native::fire_sentry_system, native::update_sentries).chain());

@@ -165,10 +165,7 @@ fn solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
         .blocks
         .iter()
         .filter(|b| {
-            matches!(
-                b.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-            )
+            ae::collision_semantics::is_full_collision_surface(b.kind)
         })
         .map(|b| SolidBlock {
             geo: b.id.clone(),
@@ -212,10 +209,7 @@ fn authored_solid_blocks(sim: &Platformer2dSimHarness) -> Vec<SolidBlock> {
         .blocks
         .iter()
         .filter(|b| {
-            matches!(
-                b.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-            )
+            ae::collision_semantics::is_full_collision_surface(b.kind)
         })
         .map(|b| SolidBlock {
             geo: b.id.clone(),

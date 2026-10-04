@@ -183,10 +183,7 @@ fn collect_is_a_noop_with_no_player() {
 #[test]
 fn a_pickup_that_declares_no_magnet_stays_where_it_landed() {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 0.1,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 0.1));
     app.add_systems(Update, magnetize_pickups);
     player_at(&mut app, ae::Vec2::new(100.0, 100.0));
     // Well inside the CLASSIC range (dist 100 < 130), and carrying no magnet.
@@ -208,10 +205,7 @@ fn a_pickup_that_declares_no_magnet_stays_where_it_landed() {
 #[test]
 fn a_magnetized_pickup_goes_to_the_nearest_collector_of_several() {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 0.1,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 0.1));
     app.add_systems(Update, magnetize_pickups);
     player_at(&mut app, ae::Vec2::new(0.0, 100.0));
     player_at(&mut app, ae::Vec2::new(260.0, 100.0));
@@ -246,10 +240,7 @@ fn a_magnetized_pickup_goes_to_the_nearest_collector_of_several() {
 fn a_pickup_between_two_equidistant_collectors_goes_the_same_way_whichever_spawned_first() {
     fn drift(left_first: bool) -> f32 {
         let mut app = App::new();
-        app.insert_resource(ambition_time::WorldTime {
-            scaled_dt: 0.1,
-            ..Default::default()
-        });
+        app.insert_resource(ambition_time::WorldTime::new(0.0, 0.1));
         app.add_systems(Update, magnetize_pickups);
         // EXACTLY equidistant, and both inside the classic 130px range.
         let left = ae::Vec2::new(100.0, 100.0);
@@ -298,10 +289,7 @@ fn a_pickup_between_two_equidistant_collectors_goes_the_same_way_whichever_spawn
 #[test]
 fn nearby_pickups_drift_toward_the_player() {
     let mut app = App::new();
-    app.insert_resource(ambition_time::WorldTime {
-        scaled_dt: 0.1,
-        ..Default::default()
-    });
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 0.1));
     app.add_systems(Update, magnetize_pickups);
     player_at(&mut app, ae::Vec2::new(100.0, 100.0));
     // In range (dist 100 < 130) -> drifts toward the collector (leftward).
@@ -445,4 +433,102 @@ mod who_gets_it {
              body, so the identity tie-break is outranking the gameplay metric"
         );
     }
+}
+
+/// Q154: only a collected AUTHORED pickup whose policy is `Never` is written
+/// `Consumed`. The controls, all collected too: an `OnRoomReload` pickup (the
+/// unauthored policy), an `AfterSeconds` one (it regrows), a `Never` one that
+/// is still lying there, and a dropped `Never` one (no record to build again).
+#[test]
+fn only_a_taken_authored_never_pickup_is_remembered_as_consumed() {
+    use ambition_entity_catalog::placements::HazardRespawn;
+    use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
+    use ambition_platformer2d_shared_tangle::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    let mut app = App::new();
+    app.init_resource::<AuthoredOccurrences>();
+    app.add_systems(Update, record_consumed_pickups);
+    let pickup = |app: &mut App, id: &str, respawn: HazardRespawn, authored: bool, taken: bool| {
+        let mut feature = ambition_interaction::Pickup::new(id, ambition_interaction::PickupKind::Health { amount: 1 });
+        feature.respawn = respawn;
+        let origin = if authored {
+            SpawnOrigin::Authored { source: "room".into(), instance: id.into() }
+        } else {
+            SpawnOrigin::Dynamic { parent: SimId::placement("boss"), sequence: 0 }
+        };
+        let mut entity = app.world_mut().spawn((SimId::placement(id), PickupFeature::new(feature), origin));
+        if taken {
+            entity.insert(Collected);
+        }
+    };
+    pickup(&mut app, "never", HazardRespawn::Never, true, true);
+    pickup(&mut app, "reload", HazardRespawn::OnRoomReload, true, true);
+    pickup(&mut app, "regrows", HazardRespawn::AfterSeconds(4.0), true, true);
+    pickup(&mut app, "untaken", HazardRespawn::Never, true, false);
+    pickup(&mut app, "dropped", HazardRespawn::Never, false, true);
+    app.update();
+    let ledger = app.world().resource::<AuthoredOccurrences>();
+    let rows: Vec<(String, OccurrenceWhereabouts)> = ledger
+        .rows()
+        .map(|(sim_id, row)| (sim_id.to_string(), row.clone()))
+        .collect();
+    assert_eq!(
+        rows,
+        vec![(SimId::placement("never").to_string(), OccurrenceWhereabouts::Consumed)],
+        "the ledger's rows after one tick"
+    );
+}
+
+/// Q151 for successive rewinds: a restore takes the dying participant out of
+/// each record's owners, so a record owned only by them is forgotten and a
+/// later restore of another participant does not keep it. The restore's
+/// acceptance pins only the rows a spared participant owns, so today, where
+/// only the primary participant's death restores, this is not observable in
+/// play; it is the arithmetic a second participant's restore needs.
+#[test]
+fn a_restore_takes_the_dying_participant_out_of_each_consumed_record() {
+    use ambition_characters::control::PlayerSlot;
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    let mut app = App::new();
+    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+    app.init_resource::<ConsumedSinceCheckpoint>();
+    app.add_systems(Update, disown_consumed_pickups_on_restore);
+    {
+        let mut since = app.world_mut().resource_mut::<ConsumedSinceCheckpoint>();
+        since.record(SimId::placement("alices"), "x".into(), vec![PlayerSlot(0)]);
+        since.record(SimId::placement("shared"), "x".into(), vec![PlayerSlot(0), PlayerSlot(1)]);
+        since.record(SimId::placement("bobs"), "y".into(), vec![PlayerSlot(1)]);
+    }
+    // Control: a replay that is not a checkpoint restore keeps every owner.
+    app.world_mut().write_message(
+        ambition_combat::events::RoomReplayAdmitted::because(ambition_combat::RoomResetReason::PlayerDeath)
+            .sparing_participants(vec![PlayerSlot(1)]),
+    );
+    app.update();
+    assert_eq!(
+        app.world().resource::<ConsumedSinceCheckpoint>().owners(&SimId::placement("alices")),
+        Some(&[PlayerSlot(0)][..]),
+        "control: a replay that does not rewind to the checkpoint disowned a record"
+    );
+    app.world_mut().write_message(
+        ambition_combat::events::RoomReplayAdmitted::because(ambition_combat::RoomResetReason::PlayerDeath)
+            .to_the_checkpoint()
+            .sparing_participants(vec![PlayerSlot(1)]),
+    );
+    app.update();
+    let since = app.world().resource::<ConsumedSinceCheckpoint>();
+    assert_eq!(
+        (
+            since.owners(&SimId::placement("alices")),
+            since.owners(&SimId::placement("shared")),
+            since.owners(&SimId::placement("bobs")),
+        ),
+        (None, Some(&[PlayerSlot(1)][..]), Some(&[PlayerSlot(1)][..])),
+        "(Alice's, shared, Bob's) owners after Alice's restore"
+    );
+    assert_eq!(
+        since.owned_by(&[PlayerSlot(0)]).count(),
+        0,
+        "a later restore that spares only Alice keeps a row she no longer owns"
+    );
 }

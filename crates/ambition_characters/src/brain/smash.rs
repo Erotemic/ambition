@@ -162,7 +162,34 @@ pub struct SmashCfg {
     pub difficulty: DifficultyProfile,
 }
 
+/// The hit band (px) of a Smash driver whose body has no attack move.
+///
+/// Such a body never swings, so this band only sets where it stops when it
+/// closes on a foe. A body with an attack move reads its reach from the
+/// moveset ([`crate::brain::BrainSnapshot::melee_reach`]).
+pub const NO_ATTACK_MOVE_HIT_BAND: f32 = 36.0;
+
 impl SmashCfg {
+    /// This tuning, with its three distance bands set from one hit band (px).
+    ///
+    /// The hit band is the distance at which the driver presses its attack.
+    /// The engage band is a small distance outside it, so that the actor does
+    /// not move in and out of engage while it closes. The retreat band is
+    /// well inside it, so that a foe that dashes into the actor pushes it
+    /// back.
+    ///
+    /// `tick_smash` calls this each tick with the reach of the body's attack
+    /// move ([`crate::brain::BrainSnapshot::melee_reach`]). The bands stored
+    /// in a `SmashCfg` are thus only the bands of a body with no attack move.
+    pub fn with_hit_band(self, hit_band: f32) -> Self {
+        Self {
+            attack_range: hit_band,
+            engage_distance: hit_band * 1.6,
+            too_close_distance: (hit_band * 0.5).max(18.0),
+            ..self
+        }
+    }
+
     /// "Standard melee striker" tuning — humanoid grunt that
     /// approaches, swings, and steps back. Used by MediumStriker,
     /// SmallSkitter, SmallLurker, PirateRaider.

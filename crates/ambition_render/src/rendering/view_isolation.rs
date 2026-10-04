@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::camera_layers::{
     local_view_render_layer, MainCamera, LIVE_ROOM_RENDER_LAYER_BASE,
-    LIVE_ROOM_RENDER_LAYER_LAST, LOCAL_VIEW_RENDER_LAYER_BASE,
+    LIVE_ROOM_RENDER_LAYER_LAST, LOCAL_VIEW_RENDER_LAYER_BASE, RETIRED_ROOM_RENDER_LAYER,
 };
 
 /// Render layers to restore when a per-view projection is no longer isolated.
@@ -190,6 +190,12 @@ pub fn stamp_presentations_with_their_subject_s_room(
 /// (`ResolvedCameraFrame::room`). With one live room nothing is banded, and a
 /// banded entity returns to the world layer.
 ///
+/// While rooms are banded, an entity stamped into a room that is not live
+/// draws on [`RETIRED_ROOM_RENDER_LAYER`], which no camera draws. A replay
+/// writes its trail for the room it replaces, and that room retires a tick
+/// later while the trail's particles live on. On the world layer every
+/// camera drew them, so Bob saw Alice's trail in his own room.
+///
 /// Only the world layer moves. An unstamped entity stays on it, and every
 /// camera draws it. An entity that does not draw on the world layer (a
 /// parallax panel) keeps its layers. A view's own projections belong to
@@ -245,8 +251,9 @@ pub fn isolate_live_rooms(
         }
     }
 
+    let banding = rooms.iter().nth(1).is_some();
     for (root, stamp) in &stamped {
-        let wanted = band(stamp.0);
+        let wanted = band(stamp.0).or(banding.then_some(RETIRED_ROOM_RENDER_LAYER));
         let mut pending: Vec<Entity> = vec![root];
         while let Some(entity) = pending.pop() {
             if entity != root && per_view.contains(entity) {
@@ -273,12 +280,19 @@ pub fn isolate_live_rooms(
     }
 }
 
+/// A layer that this pass puts in place of the world layer: a live room's
+/// band, or the layer of a room that is not live.
+fn is_room_layer(layer: usize) -> bool {
+    layer == RETIRED_ROOM_RENDER_LAYER
+        || (LIVE_ROOM_RENDER_LAYER_BASE..=LIVE_ROOM_RENDER_LAYER_LAST).contains(&layer)
+}
+
 /// A mask with the live-room band cleared: what a camera draws when its view
 /// frames no banded room.
 fn without_room_layers(layers: &RenderLayers) -> RenderLayers {
     let mut base = layers.clone();
     for layer in layers.iter() {
-        if (LIVE_ROOM_RENDER_LAYER_BASE..=LIVE_ROOM_RENDER_LAYER_LAST).contains(&layer) {
+        if is_room_layer(layer) {
             base = base.without(layer);
         }
     }
@@ -288,7 +302,7 @@ fn without_room_layers(layers: &RenderLayers) -> RenderLayers {
 /// An entity's mask with its world layer on room band `wanted`, or back on
 /// the world layer when `wanted` is `None`.
 fn in_room_band(layers: &RenderLayers, wanted: Option<usize>) -> RenderLayers {
-    let banded = layers.iter().any(|layer| (LIVE_ROOM_RENDER_LAYER_BASE..=LIVE_ROOM_RENDER_LAYER_LAST).contains(&layer));
+    let banded = layers.iter().any(is_room_layer);
     let world = if banded { without_room_layers(layers).with(0) } else { layers.clone() };
     match wanted {
         Some(layer) if world.intersects(&RenderLayers::layer(0)) => world.without(0).with(layer),
@@ -674,6 +688,61 @@ mod tests {
             [mask(&world, cameras[0]), mask(&world, in_second), mask(&world, child)],
             [authored_camera_layers(), RenderLayers::default(), RenderLayers::default()],
             "a mask did not return to the world layer"
+        );
+    }
+
+    /// An entity of a room that is no longer live is drawn by no camera while
+    /// two rooms are live. Alice replays the hub beside Bob's room: the
+    /// replay's trail is written for the hub instance it replaces (#0), and
+    /// the trail's particles outlive it. Bob's room (#1) and the new hub (#2)
+    /// are live. The control is a particle of a live room, which its own
+    /// view's camera draws. When one live room is left nothing is banded, and
+    /// the retired particle is back on the world layer.
+    #[test]
+    fn an_entity_of_a_room_that_is_no_longer_live_is_drawn_by_no_camera() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        let replaced = LiveRoomInstance::ACTIVATION;
+        let bobs = replaced.next();
+        let rebuilt = bobs.next();
+        let mut world = World::new();
+        let roots = [bobs, rebuilt].map(|room| world.spawn((RoomInstanceRoot, room)).id());
+        let views = [rebuilt, bobs].map(|room| {
+            world
+                .spawn((
+                    LocalView,
+                    LocalViewId(if room == rebuilt { 0 } else { 1 }),
+                    ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot(Some(
+                        ambition_sim_view::camera_snapshot::ResolvedCameraFrame {
+                            snapshot: Default::default(),
+                            follow_world: Default::default(),
+                            room,
+                        },
+                    )),
+                ))
+                .id()
+        });
+        let cameras = views.map(|view| world.spawn((MainCamera, authored_camera_layers(), PresentsView(view))).id());
+        let trail = world.spawn(InRoomInstance(replaced)).id();
+        let spark = world.spawn(ChildOf(trail)).id();
+        let arrival = world.spawn(InRoomInstance(rebuilt)).id();
+
+        world.run_system_once(isolate_live_rooms).expect("the pass runs");
+        let draws = |world: &World| {
+            cameras.map(|camera| [trail, spark, arrival].map(|entity| camera_draws(world, camera, entity)))
+        };
+        assert_eq!(
+            draws(&world),
+            [[false, false, true], [false, false, false]],
+            "(Alice's camera, Bob's camera) x (the replaced room's trail, its child, the new room's arrival)"
+        );
+
+        world.entity_mut(roots[0]).despawn();
+        world.run_system_once(isolate_live_rooms).expect("the pass runs");
+        assert_eq!(draws(&world), [[true; 3]; 2], "one live room bands nothing");
+        assert_eq!(
+            [mask(&world, trail), mask(&world, spark)],
+            [RenderLayers::default(), RenderLayers::default()],
+            "the retired room's mask did not return to the world layer"
         );
     }
 }

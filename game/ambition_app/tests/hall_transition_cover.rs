@@ -7,7 +7,7 @@
 
 use bevy::prelude::*;
 
-use ambition_app::app::{VisibleRenderMode, build_visible_app, shell_host};
+use ambition_app::app::{VisibleRenderMode, build_visible_app};
 use ambition_platformer2d::game_shell::ShellCommand;
 
 /// The authored door from the hub. Named rather than "any zone" so this test
@@ -115,7 +115,7 @@ fn boot_and_record_the_hall_transition() -> (App, usize) {
     settle_launcher(&mut app);
 
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     wait_for_a_session_room_set(&mut app, "the hub was activating");
     let before = staged_cast_len(&app);
@@ -523,7 +523,7 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
     ));
     settle_launcher(&mut app);
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     wait_for_a_session_room_set(&mut app, "the hall was activating as the start room");
     {
@@ -731,34 +731,17 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
     // not for nobody. Found the first time this fixture decoded real images:
     // `basement_enemies` spawns an "Ai Slop".
     let neighbour_ids: std::collections::BTreeSet<String> = {
-        let neighbour_tokens: Vec<String> = {
-            let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
-                .expect("the session has a live room");
-            let mut query = app
-                .world_mut()
-                .query::<&ambition_platformer2d::world::rooms::RoomSet>();
-            let room_set = query.iter(app.world()).next().expect("a session room set");
-            assert_eq!(room_set.spec(live_definition).id, HUB, "premise: the hub is active");
-            room_set
-                .neighboring_room_indices_of(live_definition.index())
-                .into_iter()
-                .flat_map(|index| room_placed_character_tokens(&room_set.rooms[index]))
-                .collect()
-        };
-        let registry = app
-            .world()
-            .resource::<ambition_platformer2d::character::PreparedCharacterRegistry>();
-        let catalog = app
-            .world()
-            .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>();
-        neighbour_tokens
-            .iter()
-            .map(|token| {
-                ambition_platformer2d::actors::character_runtime::canonical_character_id(
-                    registry, catalog, token,
-                )
-                .to_string()
-            })
+        let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
+            .expect("the session has a live room");
+        let mut query = app
+            .world_mut()
+            .query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        let room_set = query.iter(app.world()).next().expect("a session room set");
+        assert_eq!(room_set.spec(live_definition).id, HUB, "premise: the hub is active");
+        room_set
+            .neighboring_room_indices_of(live_definition.index())
+            .into_iter()
+            .flat_map(|index| room_placed_character_ids(&room_set.rooms[index]))
             .collect()
     };
     let promoted_for_nobody: Vec<String> = promoted_for_nobody
@@ -800,9 +783,9 @@ fn leaving_the_gallery_keeps_the_shared_cast_and_retires_the_rest() {
     );
 }
 
-/// The characters a room places by name: NPC interactables and authored enemy
-/// spawns, the two roads `room_character_tokens` demands from.
-fn room_placed_character_tokens(
+/// The characters a room places, by character id: NPC interactables and
+/// authored enemy spawns, the two roads `room_character_tokens` demands from.
+fn room_placed_character_ids(
     room: &ambition_platformer2d::world::rooms::RoomSpec,
 ) -> Vec<String> {
     use ambition_platformer2d::entity_catalog::placements::{InteractionKindSpec, PlacementSchema};
@@ -820,7 +803,11 @@ fn room_placed_character_tokens(
             _ => None,
         })
         .collect();
-    tokens.extend(room.enemy_spawns.iter().map(|enemy| enemy.name.clone()));
+    tokens.extend(
+        room.enemy_spawns
+            .iter()
+            .map(|enemy| enemy.payload.character_id.to_string()),
+    );
     tokens
 }
 
@@ -988,6 +975,16 @@ fn settle_resident_pages(app: &mut App, what: &str) {
             let mut pages = 0;
             let mut loaded = 0;
             for (_, sheet) in assets.characters.resident_sheets() {
+                // Drawn from parts alone: its part pages are what it draws from.
+                if sheet.parts_only() {
+                    for page in sheet.presentation_images() {
+                        pages += 1;
+                        if server.is_loaded_with_dependencies(page.id()) {
+                            loaded += 1;
+                        }
+                    }
+                    continue;
+                }
                 // Only the pages a frame can draw from: `pages` is indexed by
                 // source page number and holds placeholder slots for a sparse
                 // pack's unused pages, whose textures nothing ever loads.
@@ -1075,7 +1072,7 @@ fn two_round_trips_through_the_gallery_return_the_same_working_set() {
     ));
     settle_launcher(&mut app);
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     wait_for_a_session_room_set(&mut app, "the hub was activating");
     settle_resident_pages(&mut app, "the hub was settling after activation");

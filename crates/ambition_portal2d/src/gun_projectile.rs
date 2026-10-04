@@ -12,7 +12,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_core::cast::{raycast_solids, SolidWorldQuery};
-use ambition_platformer2d_shared_tangle::prelude::SpawnScopedExt;
+use ambition_platformer2d_shared_tangle::lifecycle::{SessionCommands, SpawnSessionScopedExt};
 
 use super::color::PortalChannel;
 use super::messages::{PortalFireIntent, PortalShotFired};
@@ -38,10 +38,16 @@ pub struct PortalShot {
 /// winner rule, if needed, belongs here.
 pub fn portal_fire_system(
     mut fires: MessageReader<PortalFireIntent>,
-    mut commands: Commands,
+    mut commands: SessionCommands,
     mut fired: MessageWriter<PortalShotFired>,
 ) {
+    // The session that owns each shot. With no session the intents are read
+    // and dropped, so an old intent cannot fire in the next session.
+    let scope = commands.spawn_scope();
     for fire in fires.read().cloned() {
+        let Some(scope) = scope else {
+            continue;
+        };
         let dir = fire.dir.normalize_or_zero();
         if dir == Vec2::ZERO {
             continue;
@@ -50,15 +56,18 @@ pub fn portal_fire_system(
         fired.write(PortalShotFired {
             origin: fire.origin,
         });
-        let mut shot = commands.spawn_room_scoped((
-            PortalShot {
-                channel: fire.channel,
-                pos: fire.origin,
-                vel: dir * PORTAL_SHOT_SPEED,
-                traveled: 0.0,
-            },
-            Name::new("Portal shot"),
-        ));
+        let mut shot = commands.spawn_room_in_session(
+            scope,
+            (
+                PortalShot {
+                    channel: fire.channel,
+                    pos: fire.origin,
+                    vel: dir * PORTAL_SHOT_SPEED,
+                    traveled: 0.0,
+                },
+                Name::new("Portal shot"),
+            ),
+        );
         // Only the emitter can derive an identity; see `PortalFireIntent::id`.
         if let Some(id) = fire.id.clone() {
             shot.insert(id);

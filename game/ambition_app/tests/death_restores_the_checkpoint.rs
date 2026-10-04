@@ -18,7 +18,7 @@ use crate::common::{base, fixed_60hz_room_sim};
 /// that is beat 7's whole requirement and no other authored room can meet it —
 /// a one-item room can show an object reverting and an object persisting, but
 /// never both at once, which is the shape an item-kind rule cannot produce.
-const ROOM: &str = "central_hub_complex";
+pub(crate) const ROOM: &str = "central_hub_complex";
 
 /// The object the player BANKS: acquired, then a checkpoint committed over it.
 const REWARD: &str = "ground_gun_sword";
@@ -152,15 +152,28 @@ fn pick_up(sim: &mut Platformer2dSimHarness, at: (f32, f32), authored: &SimId) {
 /// the shrine is despawned again afterwards. It is a fixture prop, and one
 /// left standing would re-commit a checkpoint every time a later beat presses
 /// Interact for some other reason.
+///
+/// The shrine is put in the body's live room. A body rests only at a shrine
+/// in its own room, and a shrine with no room is in the sole live room only
+/// while one room is live: with two, the press found no shrine and this
+/// committed nothing.
 pub(crate) fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
     let (x, y) = body_pos(sim);
-    let shrine = sim
+    let entity = body(sim);
+    let room = sim
+        .world()
+        .get::<ambition_platformer2d::platformer::lifecycle::InRoomInstance>(entity)
+        .copied();
+    let mut shrine = sim
         .world_mut()
         .spawn(ambition_platformer2d::actors::shrine::HealShrine {
             pos: ambition_platformer2d::engine_core::Vec2::new(x, y),
             half_extent: ambition_platformer2d::engine_core::Vec2::new(48.0, 48.0),
-        })
-        .id();
+        });
+    if let Some(room) = room {
+        shrine.insert(room);
+    }
+    let shrine = shrine.id();
     for _ in 0..8 {
         sim.step(AgentAction {
             interact: true,
@@ -169,11 +182,19 @@ pub(crate) fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
         sim.step(base());
     }
     sim.world_mut().entity_mut(shrine).despawn();
+    assert!(
+        sim.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .checkpoint()
+            .is_some(),
+        "precondition: resting at the shrine wrote no checkpoint"
+    );
 }
 
 /// Kill the primary body through the ordinary death report and run out the
 /// interlude, so the consequence the roster decides actually fires.
-fn die(sim: &mut Platformer2dSimHarness) {
+pub(crate) fn die(sim: &mut Platformer2dSimHarness) {
     let victim = body(sim);
     let (x, y) = body_pos(sim);
     sim.world_mut().write_message(
@@ -286,7 +307,7 @@ fn a_death_returns_what_was_not_banked_and_keeps_what_was() {
 }
 
 /// The room next door, used only to take an object somewhere and leave it there.
-const NEIGHBOUR: &str = "duel_arena";
+pub(crate) const NEIGHBOUR: &str = "duel_arena";
 
 /// Stand in the `Door` zone of the active room that leads to `target` and hold
 /// Interact until the room actually changes.
@@ -294,7 +315,7 @@ const NEIGHBOUR: &str = "duel_arena";
 /// The door is chosen by asking the room graph where each zone GOES —
 /// `transition_for_player` is the same resolver the crossing itself uses —
 /// because this room authors eighteen of them and "the first one" is a coin flip.
-fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
+pub(crate) fn walk_to(sim: &mut Platformer2dSimHarness, target: &str) {
     let before = sim.observation().active_room.clone();
     let zone = {
         let world = sim.world_mut();
@@ -1024,6 +1045,61 @@ fn a_death_puts_back_the_entitlement_its_mint_spent() {
     );
 }
 
+/// A death undoes a purchase made since the checkpoint whole: the goods leave
+/// the bag and the coins come back to the wallet. The control is a purchase
+/// before the checkpoint: the checkpoint holds it, and a death keeps both
+/// halves.
+#[test]
+fn a_death_undoes_a_purchase_since_the_checkpoint_whole() {
+    use ambition_platformer2d::characters::actor::BodyWallet;
+    use ambition_platformer2d::item::shop::{ShopSide, ShopTransactionRequested};
+    use ambition_platformer2d::item::{Item, OwnedItems};
+
+    /// (bombs in the bag, coins in the wallet) after the purchase, then after
+    /// a death. `banked` commits the checkpoint after the purchase, not before.
+    fn after_a_death(banked: bool) -> ((u32, i32), (u32, i32)) {
+        let purse = |sim: &mut Platformer2dSimHarness| {
+            let entity = body(sim);
+            sim.world().get::<BodyWallet>(entity).map_or(0, |wallet| wallet.balance)
+        };
+        let bombs =
+            |sim: &mut Platformer2dSimHarness| sim.world().resource::<OwnedItems>().count(Item::Bomb);
+        let mut sim = fixed_60hz_room_sim(ROOM);
+        sim.step_n(base(), 8);
+        let entity = body(&mut sim);
+        sim.world_mut().entity_mut(entity).insert(BodyWallet { balance: 20 });
+        sim.step_n(base(), 2);
+        if !banked {
+            commit_a_checkpoint(&mut sim);
+        }
+        sim.world_mut().write_message(ShopTransactionRequested {
+            item: Item::Bomb,
+            price: 6,
+            side: ShopSide::Buy,
+        });
+        sim.step_n(base(), 2);
+        if banked {
+            commit_a_checkpoint(&mut sim);
+        }
+        let bought = (bombs(&mut sim), purse(&mut sim));
+        die(&mut sim);
+        sim.step_n(base(), 90);
+        (bought, (bombs(&mut sim), purse(&mut sim)))
+    }
+
+    let (bought, after) = after_a_death(false);
+    assert_eq!(bought.1, 14, "premise: the purchase spent 6 of 20 coins: {bought:?}");
+    assert_eq!(
+        after,
+        (bought.0 - 1, 20),
+        "(bombs, coins) after a death that undoes the purchase: the goods leave \
+         and the coins come back"
+    );
+    let (bought, after) = after_a_death(true);
+    assert_eq!(bought.1, 14, "premise: the purchase spent 6 of 20 coins: {bought:?}");
+    assert_eq!(after, bought, "control: a purchase the checkpoint holds survives the death whole");
+}
+
 /// The boss whose profile authors a `signature_gauntlet`, and the id that
 /// gauntlet reaches the world under.
 const GAUNTLET_BOSS: &str = "banked_gauntlet_boss";
@@ -1517,5 +1593,66 @@ fn a_custody_deferred_supersession_is_never_visible_as_two_holders() {
         &reward,
         "the reset must leave the banked reward in the hand it was in at the \
          checkpoint",
+    );
+}
+
+/// Q151 and "Alice's actions inside Bob's room": Alice banks a checkpoint
+/// with the gun-sword in hand, puts it down in Bob's live room, goes back to
+/// the hub and dies. Her restore puts it back in her hand. Bob's room stays
+/// live, so the copy on its floor must go: the identity is held once, and the
+/// ledger says it is in custody. The control is the drop itself, before the
+/// death: one copy, lying in Bob's room.
+#[test]
+fn a_death_takes_back_what_was_put_down_in_another_players_room() {
+    use ambition_platformer2d::platformer::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
+
+    // Bob holds `switch_lab`; Alice is in the hub.
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
+    assert_eq!(sim.observation().active_room, ROOM, "precondition: Alice is in the hub");
+    let reward = SimId::placement(REWARD);
+    let pedestal = resting_place(&mut sim, &reward);
+    pick_up(&mut sim, pedestal, &reward);
+    commit_a_checkpoint(&mut sim);
+
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "switch_lab"), "switch_lab");
+    sim.step_n(base(), 10);
+    // Shield+Attack is the only input that puts a held item back in the world.
+    sim.step_frame(ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..ControlFrame::default()
+    });
+    sim.step_n(base(), 30);
+    let row = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<AuthoredOccurrences>()
+            .whereabouts(&reward)
+            .cloned()
+    };
+    let live = occurrences(&mut sim, &reward);
+    assert!(
+        live.len() == 1 && live[0].1.in_world(),
+        "control: after the drop, one copy lies in the world: {live:?}"
+    );
+    assert!(
+        matches!(row(&sim), Some(OccurrenceWhereabouts::Placed { ref room, .. }) if room == "switch_lab"),
+        "control: the ledger puts it in Bob's room: {:?}",
+        row(&sim)
+    );
+
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, ROOM), ROOM);
+    sim.step_n(base(), 10);
+    die(&mut sim);
+    sim.step_n(base(), 90);
+
+    assert_still_held(
+        &mut sim,
+        &reward,
+        "Alice banked it in hand, so her death puts it back there, and Bob's live room keeps no copy",
+    );
+    assert_eq!(
+        row(&sim),
+        Some(OccurrenceWhereabouts::InCustody),
+        "the ledger after the death"
     );
 }

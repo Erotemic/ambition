@@ -42,7 +42,7 @@ These single-owner shapes hold now. Code against them.
 
 Open pressure:
 
-- **34** process/App resources are explicitly documented by source as session- or
+- **45** process/App resources are explicitly documented by source as session- or
   generation-owned and are still App resources (section 3; campaign C03).
 - Some optional reads of required authorities still mean both "capability not
   installed" and "authority went missing" (section 8; campaign C07).
@@ -148,7 +148,7 @@ the separations separate.
 | DUP-BOSS-DISPOSITION | Whether a boss is hostile right now | RESOLVED — construction sets the start, the runtime owns the rest (2026-09-22) | `boss_component_snapshot` is construction only (identity and the initial `Hostile`). Targeting and release own the disposition after that. The per-tick rewrite is deleted. | None. | SOURCE_CONFIRMED |
 | DUP-SWITCH-STATE | Whether a switch is on | RESOLVED — the save is the one answer (2026-09-23); nothing projects it (2026-09-24) | The switch drain is the one press-time writer. Readers take the save by the activation id; the falling-sand room reads `FallingSandSpoutState::from_save`. | None. | SOURCE_CONFIRMED |
 | DUP-PERSISTED-FATE | Whether an authored body the save says is dead / provoked / cleared starts that way | RESOLVED — deaths, cleared bosses and provocations are BUILT; the save mirror is deleted (2026-09-23) | The fate is a commit fact, not a plan fact. `ConstructionDomain::CommitFacts` carries `construction::PersistedFates`, read when the commit is requested, and the spawn roads take a `RecordedFate`. `NpcProvocationChanged` is announced by the two transitions that own provocation, and `record_npc_provocations` is the one writer of the durable flag. | None. | SOURCE_CONFIRMED |
-| DUP-RELEASE-MIND | What a released NPC's body is | RESOLVED — release restores the mind and writes no body fact (2026-09-23) | A release restores the brain profile and brain only. `brain_builders::provoked_mind` is the one answer for what provocation produces, on the live flip and on construction from a save. A rollback load restores the brain and its binding together, so no post-load reconciler exists. | Open: when a mount-controlled ride ends, nothing resumes the recorded brain source (`Q76`). | SOURCE_CONFIRMED |
+| DUP-RELEASE-MIND | What a released NPC's body is | RESOLVED — release restores the mind and writes no body fact (2026-09-23) | A release restores the brain profile and brain only. `brain_builders::provoked_mind` is the one answer for what provocation produces, on the live flip and on construction from a save. A rollback load restores the brain and its binding together, so no post-load reconciler exists. | Open: when a mount-controlled ride ends, nothing resumes the recorded brain source. Q76 (2026-10-03) keeps mount/rider support and asks for the repair with an early customer: queue row MOUNT-RIDER-CUSTOMER. | SOURCE_CONFIRMED |
 | DUP-EDITOR-STAGES | Mechanical editor desired/admitted/projection stages | LEGITIMATE_SEPARATION | Editable mirrors, pending proposals, admission, admitted authority, and runtime projection are intentionally different stages. The body-profile and ability repairs show that collapsing admission with projection loses state when a target entity is absent. | Consolidate protocol shape and registration, not the distinct values. New editable mechanical domains must use the same stages or explicitly document why a stage is not applicable. | SOURCE_CONFIRMED |
 | DUP-CONTENT-CANDIDATE | Active content selection versus pending generation inputs | LEGITIMATE_SEPARATION | SelectedContentIdentity is active App selection. PendingGeneration and PendingGenerationInputs own candidate transaction values until activation. They must not overwrite the active selection during preparation. | Keep the active/candidate split. `PendingGenerationInputs::characters_for` returns a nested `Option` so a stranger's claim cannot fall through to the App registry; do not flatten it. | SOURCE_CONFIRMED |
 | DUP-ROLLBACK-CONFIRMATION | Rollback authority versus confirmation answer | LEGITIMATE_SEPARATION | RollbackConfirmationState is deliberately not a Resource. It is derived from ActiveRollbackAuthority for a requested session scope. | Preserve this pattern. Do not promote derived answers into independently mutable resources. | SOURCE_CONFIRMED |
@@ -186,32 +186,38 @@ because their semantic lifetime is one session or one activated generation.
 
 | ID | Family | Semantic owner | Storage/representation | Current state | Classification | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| LIFE-SESSION-RESOURCE-AGGREGATE | SessionScopedResources process-storage aggregate | gameplay session | **27** process/App Resources accessed through one SystemParam | SessionScopedResources names 27 App resources that source states belong to one gameplay session. Activation resets them for correctness and retirement resets them for hygiene. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
+| LIFE-SESSION-RESOURCE-AGGREGATE | SessionScopedResources process-storage aggregate | gameplay session | **38** process/App Resources accessed through one SystemParam | SessionScopedResources names 38 App resources that source states belong to one gameplay session. Activation resets them for correctness and retirement resets them for hygiene. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-CHECKPOINT-RESOURCE-AGGREGATE | SessionOwnedCheckpointState process-storage aggregate | gameplay session | 6 process/App Resources accessed through one SystemParam | SessionOwnedCheckpointState names six App resources for one gameplay-session checkpoint coordinator and resets all six at session activation. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-SESSION-MECHANICS | Generation-owned mechanics stored as App resource | content generation within gameplay session | Resource | SessionMechanics is an App Resource whose semantic owner is the activated generation. Retirement removes it; activation overwrites it. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-ROOT-OWNED-WORLD | Session-root-owned world components | gameplay session / room | Components on SessionRoot and on each live room root | `RoomSet`, initial-body policy and session requests are on the canonical `SessionRoot`; `RoomGeometry` and `MovingPlatformSet` are on each live room's own root. None is a process-global resource. | owner-scoped state | SOURCE_CONFIRMED |
 
 ### Explicit narrower-lifetime App resources
 
-`SessionScopedResources` names **27** process resources whose source says one
+`SessionScopedResources` names **38** process resources whose source says one
 gameplay session owns them:
 
-`PossessionState, ControlledSubject, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, LastQuestRoom, LastCutsceneRoom, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, GameplayElapsed`.
+`PossessionState, ControlledSubject, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, LastQuestRoom, LastCutsceneRoom, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, GameplayElapsed, BossDefeatsSinceCheckpoint, WorldTimeSchedule, ConsumedSinceCheckpoint, RewardGrantsSinceCheckpoint, SimTick, ImpactHitstop, RequestedClockScale, ClockState, WorldTime, GatePortalPhases, OwnedItemsBaseline`.
 
 `SessionOwnedCheckpointState` adds **6** checkpoint-coordinator resources:
 
 `SessionCheckpointOperations, SessionCheckpointOutcomes, AcceptedCheckpointRestore, AbandonedCheckpointOperation, SessionStartupResume, OutstandingCheckpointRequest`.
 
 `SessionMechanics` is one more App resource whose semantic owner is the activated
-content generation. The unique total is **34** — the three lists are disjoint, so
+content generation. The unique total is **45** — the three lists are disjoint, so
 it is their sum. `scripts/check_session_owner_census_matches_source.py` checks
 both name lists and every restated count against source.
 
-⚠ That guard counts only required `ResMut` fields. `SessionScopedResources` also
-holds two optional members, `BossDefeatsSinceCheckpoint` and
-`BreakableRespawnSchedule` (`Option<ResMut<..>>`, present only when their
-capability is installed). `scripts/architecture_census.py` counts them and
-reports 36.
+The last ten members are optional (`Option<ResMut<..>>`, present only when
+their capability is installed), and they are counted. `RequestedClockScale` and
+`ClockState` joined on 2026-10-04: the pace of a session that ended in a hitstop
+was measured in the first ticks of the next session. `WorldTime`,
+`GatePortalPhases` and `OwnedItemsBaseline` joined the same day: a census of
+what two peers compare, at each tick from 0, between a session that followed
+another one and the first session of a fresh host with the same save
+(`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does`). Until 2026-10-03 the guard
+counted only required fields, and this note named two optional members where
+source had three; `SimTick` and `ImpactHitstop` joined when `Q128` made the
+tick session-relative.
 
 The compensation mechanisms are activation reset, retirement cleanup,
 current-scope checks and generation presence checks. They are evidence that the
@@ -311,7 +317,7 @@ stage map. Do not add a second admission protocol.
 The local types are correct local identities and stay load-bearing in that role.
 The remaining mixed-responsibility type is `PreparedContentIdentity`: it packages
 canonical fingerprints with the local epoch. Do not use its local half where
-peer-stable identity is required. The live owner of this road is
+peer-stable identity is required. The road's record is
 [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
 
 ## 8. Optional canonical authorities and capability composition
@@ -407,7 +413,7 @@ fan-out improves. Small crates are not merge candidates because they are small.
 | BEVY-MECHANICAL-EDIT | Mechanical edit admission protocol | JUSTIFIED_AMBITION_SEMANTICS | Change detection can see an editor write but cannot decide whether it may change mechanics under rollback. For player stats it cannot even detect the edit: the editor resource has two writers, so the proposer compares against `PlayerStatsSyncSnapshot`. Admission (`decide_mechanical_edit_admission`) is shared and domain-blind. | Keep direct Bevy mechanisms visible. Retain custom code only for the stated Ambition invariant or a small ergonomic adapter. | SOURCE_CONFIRMED |
 | BEVY-FACADE-REEXPORTS | Facade and convenience mirrors | REVIEWED_2026_09_18 | The facade's renames are crate-alias prefix strips that map back to the owner by rule. The two item renames are written at the owner as well as at the facade. Two drivers that arrive from two crates are a feature selection, not a second owner. | Keep direct Bevy mechanisms visible. Retain custom code only for the stated Ambition invariant or a small ergonomic adapter. | SOURCE_CONFIRMED |
 
-<!-- alias-census: parameter_form=32 files=20 -->
+<!-- alias-census: parameter_form=33 files=20 -->
 The line above is `BEVY-SESSION-ROOT`'s machine-readable count.
 `scripts/check_alias_census_agrees_with_source.py` compares it with a live
 measurement. The per-spelling split is in the plan, under C03.

@@ -413,7 +413,10 @@ pub fn conduct_gnu_ton(
             &mut ae::BodyKinematics,
             &mut ae::CenteredAabb,
             &mut BodyHealth,
-            &mut ae::ActorSurfaceState,
+            // He holds a live fist: the pose written here is its pose, and a
+            // held body gets no gravity pull. Construction gives a conducted
+            // hand the hold; defeat takes it away.
+            Has<ae::PoseOwnedExternally>,
             &mut ae::BodyGroundState,
             Option<&mut ae::SweepSample>,
             Option<&mut PinnedRow>,
@@ -473,13 +476,16 @@ pub fn conduct_gnu_ton(
                 if let Some(hitbox) = conductor.hitboxes[index].take() {
                     commands.entity(hitbox).try_despawn();
                 }
-                let Some(Ok((mut kin, mut aabb, _, mut surface, _, mut sweep, mut row, _))) = entity.map(|e| fists.get_mut(e)) else {
+                let Some(Ok((mut kin, mut aabb, _, held, _, mut sweep, mut row, _))) = entity.map(|e| fists.get_mut(e)) else {
                     continue;
                 };
                 if let Some(row) = row.as_deref_mut() {
                     row.pin(&["hit", "rest"], 0.0, false);
                 }
-                surface.gravity_scale = 1.0;
+                // He lets go: the fist falls under its own gravity.
+                if let (true, Some(fist)) = (held, *entity) {
+                    commands.entity(fist).remove::<ae::PoseOwnedExternally>();
+                }
                 aabb.center = kin.pos;
                 // His last pose for it: where it is, dropping straight down.
                 let (pos, fall) = (kin.pos, kin.vel.y);
@@ -728,7 +734,7 @@ pub fn conduct_gnu_ton(
             let Some(entity) = fist_entities[i] else {
                 continue;
             };
-            let Ok((mut kin, mut aabb, mut health, mut surface, mut ground, mut sweep, mut row, _)) = fists.get_mut(entity) else {
+            let Ok((mut kin, mut aabb, mut health, held, mut ground, mut sweep, mut row, _)) = fists.get_mut(entity) else {
                 continue;
             };
             let vel = last.map_or(Vec2::ZERO, |last| (pose.pos - last.pos) / dt);
@@ -743,7 +749,12 @@ pub fn conduct_gnu_ton(
                 let (rows, elapsed, looping) = ch::rows::fist(&pose, clock);
                 row.pin(rows, elapsed, looping);
             }
-            surface.gravity_scale = 0.0;
+            // He holds it. Only a fist he let go of is missing the hold here:
+            // he was defeated, and then he lives again (a replay can undo a
+            // defeat).
+            if !held {
+                commands.entity(entity).insert(ae::PoseOwnedExternally);
+            }
             ground.invalidate();
             aabb.center = kin.pos;
             aabb.half_size = kin.size * 0.5;

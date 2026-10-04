@@ -6,7 +6,7 @@
 //! a body RIDING a surface plants its feet on that surface instead, via the
 //! per-tick [`SurfaceUpright`] fact its integration publishes. The component and
 //! systems are gravity-driven and actor-generic — they operate on the unified
-//! [`crate::body::BodyKinematics`] body and the in-crate
+//! [`ambition_platformer2d_core::BodyKinematics`] body and the in-crate
 //! [`crate::gravity::GravityCtx`], with no sandbox / content dependency.
 //!
 //! A body is built with both components: [`crate::frame_env::ResolvedMotionFrame`]
@@ -14,7 +14,7 @@
 
 use bevy::prelude::*;
 
-use crate::body::BodyKinematics;
+use ambition_platformer2d_core::BodyKinematics;
 use crate::gravity::{gravity_upright_angle, upright_angle_for_world_up, GravityCtx};
 use crate::time::SimDt;
 

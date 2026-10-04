@@ -128,6 +128,9 @@ pub fn block_color(kind: ae::BlockKind) -> Color {
             tier: ae::BlinkWallTier::Hard,
         } => Color::srgba(0.52, 0.14, 0.80, 0.96),
         ae::BlockKind::OneWay => Color::srgba(0.36, 0.43, 0.62, 0.92),
+        // Fully transparent: a barrier is an object that draws itself (a crate
+        // has its own sprite), so its block has no fill.
+        ae::BlockKind::Barrier => Color::srgba(0.0, 0.0, 0.0, 0.0),
         // Fully transparent: this is the in-game fill, and a tinted hidden
         // block would reveal its secret. A game that wants it seen once found
         // changes its art (Mary-O swaps to the spent tile).

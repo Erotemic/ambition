@@ -218,7 +218,7 @@ mod tests {
     }
 
     fn advance(app: &mut App, seconds: f32) {
-        app.world_mut().resource_mut::<WorldTime>().raw_dt = seconds;
+        app.world_mut().resource_mut::<WorldTime>().set_wall_dt(seconds);
         app.update();
     }
 

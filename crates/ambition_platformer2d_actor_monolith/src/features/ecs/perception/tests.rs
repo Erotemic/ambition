@@ -102,6 +102,7 @@ fn builds_relational_view_for_any_faction() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -134,6 +135,7 @@ fn builds_relational_view_for_any_faction() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -168,6 +170,7 @@ fn a_grudge_makes_a_same_faction_peer_hostile() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -189,6 +192,7 @@ fn a_grudge_makes_a_same_faction_peer_hostile() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -209,6 +213,7 @@ fn a_grudge_makes_a_same_faction_peer_hostile() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -235,6 +240,7 @@ fn line_of_fire_uses_real_clipped_terrain() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -274,6 +280,7 @@ fn an_omniscient_body_perceives_a_peer_far_outside_its_tactical_extent() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         Perception::Omniscient,
         0.0,
@@ -312,6 +319,7 @@ fn peers_outside_viewport_are_not_perceived() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -374,6 +382,7 @@ fn projectile_threat_resolved_relationally() {
         &[team_shot],
         &[],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -391,6 +400,7 @@ fn projectile_threat_resolved_relationally() {
         &shots,
         &[],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -445,6 +455,7 @@ fn portals_in_view_link_to_their_pair() {
         &[],
         &[near, near_pair, far],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -738,6 +749,7 @@ fn the_views_half_extent_is_a_half_extent() {
         &[],
         &[],
         &world,
+        &[],
         &FactionRelations::default(),
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -795,6 +807,7 @@ fn the_view_carries_the_whole_stage_not_the_viewport() {
         &[],
         &[],
         &world,
+        &[],
         &FactionRelations::default(),
         Perception::Sighted {
             viewport_half: ae::Vec2::splat(40.0), // a tiny viewport
@@ -882,6 +895,7 @@ fn a_different_team_is_hostile_even_on_the_same_faction() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -902,6 +916,7 @@ fn a_different_team_is_hostile_even_on_the_same_faction() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         Perception::Sighted {
             viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -962,6 +977,7 @@ mod a_viewer_is_not_its_own_peer {
             &[],
             &[],
             &world,
+            &[],
             &relations,
             Perception::Omniscient,
             0.0,
@@ -999,6 +1015,7 @@ mod a_viewer_is_not_its_own_peer {
             &[],
             &[],
             &world,
+            &[],
             &relations,
             Perception::Omniscient,
             0.0,
@@ -1149,6 +1166,7 @@ fn offered_saturates_when_bodies_are_spread_grows_when_dense_and_the_budget_caps
             &[],
             &[],
             &world,
+            &[],
             &relations,
             Perception::Sighted {
                 viewport_half: DEFAULT_VIEWPORT_HALF,
@@ -1314,6 +1332,7 @@ fn a_cheap_belief_agrees_with_the_view_it_replaces() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         perception,
         0.0,
@@ -1372,6 +1391,7 @@ fn a_cheap_belief_agrees_with_the_view_it_replaces() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         perception,
         0.0,
@@ -1419,6 +1439,7 @@ fn a_cheap_belief_sees_a_same_faction_grudge_the_way_the_view_does() {
         &[],
         &[],
         &world,
+        &[],
         &relations,
         perception,
         0.0,
@@ -1475,6 +1496,7 @@ fn a_target_belief_body_still_pursues_a_foe_it_has_lost_sight_of() {
             &[],
             &[],
             &world,
+            &[],
             &relations,
             perception,
             0.0,
@@ -1571,7 +1593,7 @@ fn a_crowd_is_attended_to_hostiles_first_and_the_rest_is_counted() {
             )
         }))
         .collect();
-    let view = build_world_view(&viewer, &peers, &[], &[], &world, &relations, perception, 0.0);
+    let view = build_world_view(&viewer, &peers, &[], &[], &world, &[], &relations, perception, 0.0);
     assert_eq!(view.actors.len(), TACTICAL_ATTENTION);
     assert!(
         view.actors.iter().all(|a| a.hostile_to_self),
@@ -1595,7 +1617,7 @@ fn a_crowd_is_attended_to_hostiles_first_and_the_rest_is_counted() {
     let kept: Vec<String> = view.actors.iter().map(|a| a.id.clone()).collect();
     peers.reverse();
     peers.swap(3, 29);
-    let shuffled = build_world_view(&viewer, &peers, &[], &[], &world, &relations, perception, 0.0);
+    let shuffled = build_world_view(&viewer, &peers, &[], &[], &world, &[], &relations, perception, 0.0);
     assert_eq!(
         shuffled.actors.iter().map(|a| a.id.clone()).collect::<Vec<_>>(),
         kept,
@@ -1624,7 +1646,7 @@ fn below_the_attention_cap_the_view_is_what_it_always_was() {
     .into_iter()
     .map(|(id, x, faction)| peer(id, ae::Vec2::new(x, 0.0), faction))
     .collect();
-    let view = build_world_view(&viewer, &peers, &[], &[], &world, &relations, perception, 0.0);
+    let view = build_world_view(&viewer, &peers, &[], &[], &world, &[], &relations, perception, 0.0);
     assert_eq!(
         view.actors.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(),
         vec!["far_foe", "near_pal", "near_foe"],
@@ -1799,4 +1821,27 @@ fn a_memory_from_another_live_room_is_not_a_pursuit_target() {
         "the `x` in live room #1 was confused with the `x` remembered in #0"
     );
     assert_eq!(moved.0.room(), Some(1));
+}
+
+/// THE VIEW MARKS EXACTLY THE GATES OPEN FOR THIS BODY (GATE-PER-ACTOR, Q54).
+///
+/// The builder gets the body's open gates from `RoomCollision::gates_open_for`,
+/// the rule the integrator reads too. A solid it names is open for the body;
+/// every other solid is not. The control is an empty open set.
+#[test]
+fn the_view_marks_only_the_gates_open_for_this_body() {
+    let relations = FactionRelations::default();
+    let world = arena_world();
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let perception = Perception::Sighted {
+        viewport_half: DEFAULT_VIEWPORT_HALF,
+    };
+    let open_of = |open: &[&str]| {
+        let view = build_world_view(&viewer, &[], &[], &[], &world, open, &relations, perception, 0.0);
+        let mut open: Vec<bool> = view.terrain.iter().map(|solid| solid.open_for_self).collect();
+        open.sort();
+        open
+    };
+    assert_eq!(open_of(&[]), vec![false, false], "control: no gate is open");
+    assert_eq!(open_of(&["wall"]), vec![false, true], "the named gate, and only it, is open");
 }

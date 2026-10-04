@@ -68,48 +68,88 @@ impl GravityField {
     }
 }
 
-/// The room's ambient gravity — the default an actor falls under when it's
-/// not inside any [`GravityZone`].
+/// The ambient gravity of each live room: the down a body falls along when no
+/// [`GravityZone`] of its own room holds it.
 ///
 /// ⭐ THIS IS THE SHARED LOWER-LEVEL MACHINERY EVERY GRAVITY CONTROL CONVERGES
 /// ON, and Q137 says to keep it that way: the LDtk-authored `FlipGravity`
 /// switches (the symmetry room's four, the hub flip, any encounter-authored
 /// control) and the developer gravity commands all write HERE, and a later
 /// pressure plate would be one more input rather than one more mechanism.
-/// [`resolve_active_gravity`] copies this (or an overlapping zone's direction)
-/// into the live [`GravityField`] each frame, so an authored switch sets the
+/// The frame resolver reads a body's room's ambient (or an overlapping zone's
+/// direction) into the body's frame each tick, so an authored switch sets the
 /// ambient while zones override locally.
-#[derive(Resource, Clone, Copy, Debug)]
+///
+/// ⭐ ONE AMBIENT PER LIVE ROOM (customer 2). A switch turns the gravity of the
+/// room it is in, and a body falls under the ambient of its own room. With
+/// Alice and Bob in two live rooms, Bob's switch does not turn Alice's world.
+/// A room with no entry stands under the default. A new live room has a new
+/// identity, so it starts under the default with no reset. The `None` key is
+/// the world of a composition with no live room (a fixture): its readers and
+/// writers name no room, so they meet there.
+///
+/// Only turned rooms are stored, so two worlds with the same gravity encode
+/// the same bytes.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct BaseGravity {
-    pub dir: Vec2,
-}
-
-impl Default for BaseGravity {
-    fn default() -> Self {
-        Self {
-            dir: ambition_platformer2d_core::DEFAULT_GRAVITY_DIR,
-        }
-    }
+    turned: std::collections::BTreeMap<Option<crate::lifecycle::LiveRoomInstance>, Vec2>,
 }
 
 impl BaseGravity {
-    /// Step the ambient gravity to the next cardinal direction, cycling
-    /// down → left → up → right → down. Shared by the `\` dev hotkey and the
-    /// developer menu's Gravity row so both stay in lock-step. Engine y grows
-    /// downward, so `+y` is screen-DOWN.
-    pub fn cycle(&mut self) {
-        self.dir = match (self.dir.x.round() as i32, self.dir.y.round() as i32) {
+    /// A world in which only `room` is turned, to `dir`.
+    pub fn in_room(room: Option<crate::lifecycle::LiveRoomInstance>, dir: Vec2) -> Self {
+        let mut base = Self::default();
+        base.turn(room, dir);
+        base
+    }
+
+    /// The ambient gravity of `room`.
+    pub fn dir_in(&self, room: Option<crate::lifecycle::LiveRoomInstance>) -> Vec2 {
+        self.turned
+            .get(&room)
+            .copied()
+            .unwrap_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR)
+    }
+
+    /// Set the ambient gravity of `room` to `dir`.
+    pub fn turn(&mut self, room: Option<crate::lifecycle::LiveRoomInstance>, dir: Vec2) {
+        if dir == ambition_platformer2d_core::DEFAULT_GRAVITY_DIR {
+            self.turned.remove(&room);
+        } else {
+            self.turned.insert(room, dir);
+        }
+    }
+
+    /// Put `room` back under the default (its replay, or its retirement).
+    pub fn forget(&mut self, room: Option<crate::lifecycle::LiveRoomInstance>) {
+        self.turned.remove(&room);
+    }
+
+    /// The rooms that are turned, with their gravity, in room order.
+    pub fn turned(&self) -> impl Iterator<Item = (Option<crate::lifecycle::LiveRoomInstance>, Vec2)> + '_ {
+        self.turned.iter().map(|(room, dir)| (*room, *dir))
+    }
+
+    /// Step the ambient gravity of `room` to the next cardinal direction,
+    /// cycling down → left → up → right → down. Shared by the `\` dev hotkey
+    /// and the developer menu's Gravity row so both stay in lock-step. Engine
+    /// y grows downward, so `+y` is screen-DOWN.
+    pub fn cycle(&mut self, room: Option<crate::lifecycle::LiveRoomInstance>) {
+        let dir = self.dir_in(room);
+        let next = match (dir.x.round() as i32, dir.y.round() as i32) {
             (0, 1) => Vec2::new(-1.0, 0.0),  // down  -> left
             (-1, 0) => Vec2::new(0.0, -1.0), // left  -> up
             (0, -1) => Vec2::new(1.0, 0.0),  // up    -> right
             _ => Vec2::new(0.0, 1.0),        // right (or any) -> down
         };
+        self.turn(room, next);
     }
 
-    /// Human-readable cardinal label for the current ambient direction, for the
-    /// developer menu's Gravity row value.
-    pub fn direction_label(&self) -> &'static str {
-        match (self.dir.x.round() as i32, self.dir.y.round() as i32) {
+    /// Human-readable cardinal label for the ambient direction of `room`, for
+    /// the developer menu's Gravity row value.
+    pub fn direction_label(&self, room: Option<crate::lifecycle::LiveRoomInstance>) -> &'static str {
+        let dir = self.dir_in(room);
+        match (dir.x.round() as i32, dir.y.round() as i32) {
             (0, 1) => "Down",
             (-1, 0) => "Left",
             (0, -1) => "Up",
@@ -140,13 +180,18 @@ pub enum AmbientGravityRequest {
 /// [`BaseGravity`]. Runs in the simulation schedule, before the resolver that
 /// copies the ambient into each body's frame, so a request made this frame is
 /// felt this tick. Two requests in one tick cycle twice, in write order.
+///
+/// The developer turns the primary seat's room, which is the room the
+/// developer looks at ([`crate::lifecycle::PrimaryLiveRoom`]).
 pub fn apply_ambient_gravity_requests(
     mut requests: MessageReader<AmbientGravityRequest>,
     mut base: ResMut<BaseGravity>,
+    developer: crate::lifecycle::PrimaryLiveRoom,
 ) {
+    let room = developer.get();
     for request in requests.read() {
         match request {
-            AmbientGravityRequest::Cycle => base.cycle(),
+            AmbientGravityRequest::Cycle => base.cycle(room),
         }
     }
 }
@@ -430,26 +475,31 @@ pub fn gravity_dir_or_default(field: Option<&GravityField>) -> Vec2 {
 /// ⛔ NOT `GravityField`: that is the PRIMARY body's frame, and a body with no
 /// zone snapshot to consult stands under the ambient, not under somebody else.
 #[derive(SystemParam)]
-pub struct GravityCtx<'w> {
+pub struct GravityCtx<'w, 's> {
     /// Snapshot of all gravity zones, for per-position resolution.
     pub zones: Option<Res<'w, GravityZones>>,
-    /// Room ambient gravity (flipped by the global switch).
+    /// The ambient gravity of each live room (turned by that room's switches).
     pub base: Option<Res<'w, BaseGravity>>,
+    /// The live rooms, so that a body that names no room falls under the
+    /// ambient of the sole live room, as its other facts do.
+    pub live: crate::lifecycle::LiveRooms<'w, 's>,
 }
 
-impl GravityCtx<'_> {
-    fn base_dir(&self) -> Vec2 {
+impl GravityCtx<'_, '_> {
+    /// The ambient gravity of `room`; with no room named, of the sole live room.
+    fn base_dir(&self, room: Option<crate::lifecycle::LiveRoomInstance>) -> Vec2 {
+        let room = room.or_else(|| self.live.sole());
         self.base
             .as_deref()
-            .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |b| b.dir)
+            .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |base| base.dir_in(room))
     }
 
     /// Localized gravity direction at `pos` for a body of live room `room`
     /// (zone-or-ambient).
     pub fn dir_at(&self, room: Option<crate::lifecycle::LiveRoomInstance>, pos: Vec2) -> Vec2 {
         match self.zones.as_deref() {
-            Some(zones) => gravity_dir_at(pos, room, zones, self.base_dir()),
-            None => self.base_dir().normalize_or_zero(),
+            Some(zones) => gravity_dir_at(pos, room, zones, self.base_dir(room)),
+            None => self.base_dir(room).normalize_or_zero(),
         }
     }
 
@@ -461,8 +511,8 @@ impl GravityCtx<'_> {
         body: ambition_platformer2d_core::Aabb,
     ) -> Vec2 {
         match self.zones.as_deref() {
-            Some(zones) => gravity_dir_for(body, room, zones, self.base_dir()),
-            None => self.base_dir().normalize_or_zero(),
+            Some(zones) => gravity_dir_for(body, room, zones, self.base_dir(room)),
+            None => self.base_dir(room).normalize_or_zero(),
         }
     }
 
@@ -483,13 +533,17 @@ impl GravityCtx<'_> {
 /// resolution phase publishing [`crate::frame_env::ResolvedMotionFrame`]; this
 /// derives the global presentation value (camera roll, gravity visuals, HUD)
 /// from that same artifact so no second zone-overlap computation exists. Falls
-/// back to the ambient when no primary body exists yet (menus, tests).
+/// back to the ambient of the sole live room when no primary body exists yet
+/// (menus, tests).
 pub fn resolve_active_gravity(
     base: Option<Res<BaseGravity>>,
+    live: crate::lifecycle::LiveRooms,
     bodies: Query<&crate::frame_env::ResolvedMotionFrame, With<crate::body::PrimaryBody>>,
     mut gravity: ResMut<GravityField>,
 ) {
-    let base_dir = base.map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |b| b.dir);
+    let base_dir = base.map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |base| {
+        base.dir_in(live.sole())
+    });
     gravity.dir = bodies
         .single()
         .map_or(base_dir, |frame| frame.down())
@@ -546,7 +600,7 @@ mod tests {
         use bevy::ecs::system::RunSystemOnce;
         let mut app = App::new();
         app.insert_resource(GravityField { dir: Vec2::new(0.0, -1.0) });
-        app.insert_resource(BaseGravity { dir: Vec2::new(0.0, 1.0) });
+        app.insert_resource(BaseGravity::default());
         let (dir, sign) = app
             .world_mut()
             .run_system_once(|ctx: GravityCtx| {
@@ -832,7 +886,7 @@ mod ambient_request_tests {
         app.world_mut().write_message(AmbientGravityRequest::Cycle);
         app.update();
         assert_eq!(
-            app.world().resource::<BaseGravity>().direction_label(),
+            app.world().resource::<BaseGravity>().direction_label(None),
             "Left",
             "down -> left after one request"
         );
@@ -840,15 +894,86 @@ mod ambient_request_tests {
         app.world_mut().write_message(AmbientGravityRequest::Cycle);
         app.update();
         assert_eq!(
-            app.world().resource::<BaseGravity>().direction_label(),
+            app.world().resource::<BaseGravity>().direction_label(None),
             "Right",
             "two requests in one tick cycle twice, in write order"
         );
         app.update();
         assert_eq!(
-            app.world().resource::<BaseGravity>().direction_label(),
+            app.world().resource::<BaseGravity>().direction_label(None),
             "Right",
             "a tick with no request changes nothing"
         );
+    }
+
+    /// The developer turns the room the primary body is in, and no other.
+    /// Two live rooms; the primary body stands in the second. Poison: cycle
+    /// the sole live room (`None` here) and the second room stays down.
+    #[test]
+    fn a_cycle_request_turns_the_room_of_the_primary_body() {
+        use crate::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        let mut app = App::new();
+        app.add_message::<AmbientGravityRequest>();
+        app.init_resource::<BaseGravity>();
+        app.add_systems(bevy::app::Update, apply_ambient_gravity_requests);
+        let first = LiveRoomInstance::ACTIVATION.next();
+        let second = first.next();
+        for room in [first, second] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        app.world_mut().spawn((crate::body::PrimaryBody, InRoomInstance(second)));
+        app.world_mut().write_message(AmbientGravityRequest::Cycle);
+        app.update();
+        let base = app.world().resource::<BaseGravity>();
+        assert_eq!(
+            (base.direction_label(Some(first)), base.direction_label(Some(second))),
+            ("Down", "Left"),
+            "(the first room, the primary body's room) after one request"
+        );
+    }
+}
+
+#[cfg(test)]
+mod ambient_room_tests {
+    use super::*;
+    use crate::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    use bevy::app::App;
+    use bevy::ecs::system::RunSystemOnce;
+
+    fn ambient_of(app: &mut App, room: Option<LiveRoomInstance>) -> Vec2 {
+        app.world_mut()
+            .run_system_once(move |ctx: GravityCtx| {
+                ctx.dir_for(room, ambition_platformer2d_core::Aabb::new(Vec2::ZERO, Vec2::ONE))
+            })
+            .expect("the gravity context runs")
+    }
+
+    /// A body falls under the ambient of its own live room. The first room is
+    /// turned up; a body of the second room still falls down. The control: a
+    /// body of the first room falls up. Poison: read one ambient for every
+    /// room and the second room's body falls up.
+    #[test]
+    fn a_body_falls_under_the_ambient_of_its_own_live_room() {
+        let first = LiveRoomInstance::ACTIVATION.next();
+        let second = first.next();
+        let mut app = App::new();
+        for room in [first, second] {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        app.insert_resource(BaseGravity::in_room(Some(first), Vec2::new(0.0, -1.0)));
+        assert_eq!(ambient_of(&mut app, Some(first)), Vec2::new(0.0, -1.0), "the turned room");
+        assert_eq!(ambient_of(&mut app, Some(second)), Vec2::new(0.0, 1.0), "the other room");
+    }
+
+    /// A body that names no room falls under the ambient of the sole live
+    /// room, as its other facts do. Poison: read the `None` entry and the
+    /// body falls down in a room that is turned up.
+    #[test]
+    fn a_body_that_names_no_room_falls_under_the_sole_live_rooms_ambient() {
+        let room = LiveRoomInstance::ACTIVATION.next();
+        let mut app = App::new();
+        app.world_mut().spawn((RoomInstanceRoot, room));
+        app.insert_resource(BaseGravity::in_room(Some(room), Vec2::new(0.0, -1.0)));
+        assert_eq!(ambient_of(&mut app, None), Vec2::new(0.0, -1.0));
     }
 }

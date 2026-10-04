@@ -120,6 +120,9 @@ fn fixture_setup(
             // A smoke fixture drops the first room's receipt.
             publication_retention:
                 ambition_platformer2d_runtime::demo_fixture::PublicationRetention::UntilTheVerdictIsRecorded,
+            // One experience: the save of the world is the save of this room.
+            first_room_facts:
+                ambition_platformer2d_runtime::demo_fixture::CommitFactsSource::TheWorldAtTheCommit,
             world: &world,
             room_set: &room_set,
             tuning: &tuning,
@@ -298,7 +301,8 @@ fn fixed_tick_demo_shell_boots_and_ticks() {
         "Startup alone must not advance the timeline"
     );
 
-    for expected in 0..=5 {
+    // The first step is tick 1: tick 0 names the moment before it (Q128).
+    for expected in 1..=6 {
         app.update();
         assert_eq!(
             app.world().resource::<SimTick>().get(),
@@ -371,10 +375,10 @@ fn frame_stepped_shell_keeps_the_sim_in_update() {
         ),
         0
     );
-    // The timeline advances in both modes.
-    assert_eq!(app.world().resource::<SimTick>().get(), 0);
-    app.update();
+    // The timeline advances in both modes. The first step is tick 1 (Q128).
     assert_eq!(app.world().resource::<SimTick>().get(), 1);
+    app.update();
+    assert_eq!(app.world().resource::<SimTick>().get(), 2);
 }
 
 /// Choosing the mode after a sim plugin has already committed systems is the

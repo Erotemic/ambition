@@ -126,7 +126,7 @@ fn world(road: Road, arm: Arm) -> (App, Entity, Entity) {
         .add_message::<ambition_vfx::vfx::VfxInRoom>()
         .add_message::<ambition_sfx::OwnedSfxMessage>()
         .init_resource::<ambition_time::SimTick>()
-        .insert_resource(ambition_time::WorldTime { raw_dt: DT, scaled_dt: DT });
+        .insert_resource(ambition_time::WorldTime::new(DT, DT));
     match road {
         Road::NativeSystem => {
             app.add_systems(Sim, (native::face_conducted_gods, native::conduct_fsm).chain());
@@ -193,7 +193,7 @@ fn world(road: Road, arm: Arm) -> (App, Entity, Entity) {
             pos: ae::Vec2::new(500.0, 870.0),
         },
         ambition_characters::control::ActorControl::default(),
-        ambition_combat::components::ActorFaction::Boss,
+        ambition_characters::actor::ActorFaction::Boss,
         ambition_platformer2d::sprite_sheet::character::PinnedRow::default(),
     ));
     match road {

@@ -12,11 +12,13 @@ pub mod anim;
 pub mod animator;
 mod assets;
 pub mod catalog_join;
+pub mod color_shift;
 pub mod rigged;
 pub mod sheets;
 
 pub use anim::{non_looping, ActorAnimOverride, CharacterAnim, PinnedRow};
 pub use animator::{CharacterAnimator, RenderBasis};
+pub use color_shift::CharacterColorShift;
 pub use assets::{CharacterSheetState, CharacterSpriteAssets};
 pub use catalog_join::{
     sheet_for_character_id_from_data, sprite_body_collision_for_character_id_from_data,
@@ -75,6 +77,29 @@ pub struct CharacterSpriteAsset {
     /// rigged-sprite trial is admitted and the sheet publishes one
     /// ([`rigged::RiggedSpriteAdmission`]). `None` when the switch is off.
     pub rigged: Option<rigged::RiggedSpritePages>,
+}
+
+/// The image a PART-DRAWN realization holds where a baked sheet's pages would
+/// be: an id no asset has, so nothing loads it, nothing keeps it resident and
+/// nothing draws it (`docs/planning/engine/mary-o-part-realization.md`, P5b).
+pub const NO_BAKED_IMAGE: Handle<Image> = bevy::asset::uuid_handle!("8a7b51f2-3c64-4e0d-9a1f-5d2c7e9b4a10");
+
+impl CharacterSpriteAsset {
+    /// Drawn from its part flipbook alone: the realization loaded no baked
+    /// page (every row of its sheet is a part clip).
+    pub fn parts_only(&self) -> bool {
+        self.texture == NO_BAKED_IMAGE
+    }
+
+    /// The images a body needs resident before it is drawn from this
+    /// realization: its part pages when it is drawn from parts alone, else its
+    /// baked page.
+    pub fn presentation_images(&self) -> Vec<&Handle<Image>> {
+        match (&self.rigged, self.parts_only()) {
+            (Some(rigged), true) => rigged.pages.iter().collect(),
+            _ => vec![&self.texture],
+        }
+    }
 }
 
 /// Build a character presentation that is valid on the same frame it becomes drawable.

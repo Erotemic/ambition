@@ -153,6 +153,14 @@ impl CharacterAnimator {
         self.mirror_of(self.authored_slot())
     }
 
+    /// Whether this frame draws the current row's MIRROR row (set by
+    /// [`Self::face`]). Its feet are at the mirrored anchor
+    /// ([`Self::current_render`]); a renderer placing the frame itself must
+    /// mirror the anchor too.
+    pub fn draws_mirror_row(&self) -> bool {
+        self.mirrored
+    }
+
     /// Face the drawing. `flip` is whether the renderer would mirror the art;
     /// the answer is whether it STILL must.
     ///
@@ -269,6 +277,34 @@ impl CharacterAnimator {
     /// back to a semantic pose, which keeps its own clock.
     pub fn slave_clip_to(&mut self, phase: Option<f32>) {
         self.clip_phase = self.clip_slot.and(phase);
+    }
+
+    /// The flat atlas index of the frame drawn now, without advancing: what
+    /// [`Self::tick`] last returned.
+    pub fn atlas_index(&self) -> usize {
+        self.spec.flat_index_at(self.drawn_slot(), self.frame)
+    }
+
+    /// How far the current frame has run toward the next, in `0..1`: the `t`
+    /// an in-between is drawn at (`rigged::RiggedSpriteAsset::tween_into`).
+    /// `0` while a clip holds its last frame, and for a row with no clock. A
+    /// clip slaved to a move takes the fraction of the move's progress inside
+    /// the frame it selects.
+    pub fn frame_phase(&self) -> f32 {
+        if self.clip_held {
+            return 0.0;
+        }
+        let row = match self.clip_slot {
+            Some(slot) => self.spec.row_at(slot),
+            None => self.spec.row(self.current),
+        };
+        if let (Some(_), Some(phase)) = (self.clip_slot, self.clip_phase) {
+            return (phase.clamp(0.0, 1.0) * row.frame_count as f32).fract();
+        }
+        if row.duration_secs <= 0.0 {
+            return 0.0;
+        }
+        (self.elapsed / row.duration_secs).clamp(0.0, 1.0)
     }
 
     /// Advance the animation. Returns the flat atlas index for the current frame.

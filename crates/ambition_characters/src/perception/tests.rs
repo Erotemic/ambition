@@ -38,6 +38,7 @@ fn wall(center: ae::Vec2, half: ae::Vec2) -> PerceivedSolid {
     PerceivedSolid {
         aabb: ae::Aabb::new(center, half),
         kind: SolidKind::Solid,
+        open_for_self: false,
     }
 }
 
@@ -898,4 +899,46 @@ fn a_heard_sighting_fills_a_gap_and_never_overrules_sight() {
     sighted.hear("player", heard);
     assert_eq!(sighted.last_known_hostile().map(|m| m.pos), Some(seen.pos), "what it sees wins");
     assert_eq!(sighted.hostiles_in_view().count(), 1, "and what it sees it can call out");
+}
+
+/// A GATE OPEN FOR THIS BODY IS NOT GROUND AND STILL STOPS ITS SHOTS (Q54).
+///
+/// GATE-PER-ACTOR: a gate solid open for the body is passable for it, so its
+/// floor queries do not stand on it, as its integration does not. Its
+/// projectile meets the gate as solid, so its line of fire is still blocked.
+/// The control is the same solid, not open for the body.
+#[test]
+fn a_gate_open_for_self_is_no_floor_and_still_blocks_the_line_of_fire() {
+    let view_with = |open_for_self: bool| {
+        let mut gate = wall(ae::Vec2::new(0.0, 40.0), ae::Vec2::new(60.0, 8.0));
+        gate.open_for_self = open_for_self;
+        let mut post = wall(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(8.0, 60.0));
+        post.open_for_self = open_for_self;
+        WorldView {
+            self_view: self_view_at(ae::Vec2::ZERO, ActorFaction::Enemy),
+            viewport: Viewport::around(ae::Vec2::ZERO, ae::Vec2::splat(500.0)),
+            terrain: vec![gate, post],
+            ..Default::default()
+        }
+    };
+    // Movement: the gate under the feet is the only floor.
+    let closed = view_with(false);
+    assert!(
+        closed.floor_below().is_some()
+            && closed.supporting_floor().is_some()
+            && closed.ground_below().is_some(),
+        "control: a closed gate under the body is its floor"
+    );
+    let open = view_with(true);
+    assert_eq!(
+        (open.floor_below(), open.supporting_floor(), open.ground_below()),
+        (None, None, None),
+        "the body stands on a gate that is open for it"
+    );
+    // Sight: the post stands between the body and the target in both views.
+    assert!(!closed.line_of_fire(ae::Vec2::new(200.0, 0.0)), "control: a closed post blocks");
+    assert!(
+        !open.line_of_fire(ae::Vec2::new(200.0, 0.0)),
+        "the body fires through a gate its projectile meets as solid"
+    );
 }

@@ -88,10 +88,12 @@ pub fn record_placed_bodies(
             Without<ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf>,
         ),
     >,
-    occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    // Required: the runtime that schedules this system also adds
+    // `HeldItemSimulationPlugin`, which owns the ledger.
+    mut occurrences: ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
 ) {
     use ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts;
-    let (Some(room_set), Some(mut occurrences)) = (room_set, occurrences) else {
+    let Some(room_set) = room_set else {
         return;
     };
     // Nothing is in custody and nothing was ever placed: the common tick.

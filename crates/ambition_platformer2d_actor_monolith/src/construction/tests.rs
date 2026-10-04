@@ -142,7 +142,7 @@ fn staged_enemy(id: &str, grudge_against: Option<&str>) -> SpawnActorRequest {
         name: "test_walker".to_string(),
         pos: ae::Vec2::ZERO,
         half_size: ae::Vec2::splat(10.0),
-        faction: ambition_combat::components::ActorFaction::Npc,
+        faction: ambition_characters::actor::ActorFaction::Npc,
         grudge_against: grudge_against.map(str::to_string),
         kind: SpawnActorKind::Enemy {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -257,6 +257,7 @@ fn commit_bracketed(plan: RoomFeatureConstructionPlan, seed: impl FnOnce(&mut Wo
             SessionSpawnScope::UNSCOPED,
             None,
             None,
+            crate::construction::CommitFactsSource::TheWorldAtTheCommit,
         );
         crate::world::rooms::transaction::close(
             &mut commands,
@@ -636,7 +637,7 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
             half_size: ae::Vec2::splat(8.0),
             character_id: "puppy_slug".into(),
             encounter_id: "enc_1".into(),
-            faction: ambition_combat::components::ActorFaction::Enemy,
+            faction: ambition_characters::actor::ActorFaction::Enemy,
         },
     );
 
@@ -681,7 +682,7 @@ fn two_summons_from_one_summoner_do_not_collide() {
         half_size: ae::Vec2::splat(8.0),
         character_id: "puppy_slug".into(),
         encounter_id: "enc_1".into(),
-        faction: ambition_combat::components::ActorFaction::Enemy,
+        faction: ambition_characters::actor::ActorFaction::Enemy,
     };
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
@@ -719,7 +720,7 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
                 half_size: ae::Vec2::splat(8.0),
                 character_id: "puppy_slug".into(),
                 encounter_id: "enc_1".into(),
-                faction: ambition_combat::components::ActorFaction::Enemy,
+                faction: ambition_characters::actor::ActorFaction::Enemy,
             },
         )],
         &Default::default(),
@@ -802,7 +803,7 @@ fn run_summon(world: &mut World, summoner: Entity, spec: ambition_vfx::SummonSpe
 fn insert_summon_resources(world: &mut World) {
     world.init_resource::<bevy::ecs::message::Messages<ambition_vfx::EffectRequest>>();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    world.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    world.init_resource::<crate::session::mechanics::SessionMechanics>();
     world.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     world.insert_resource(engine_construction_registry());
     world.insert_resource(fixture_cast().clone());
@@ -1107,7 +1108,7 @@ fn every_parameter_variant_constructs_its_root() {
                 half_size: ae::Vec2::splat(8.0),
                 character_id: "puppy_slug".into(),
                 encounter_id: "enc".into(),
-                faction: ambition_combat::components::ActorFaction::Enemy,
+                faction: ambition_characters::actor::ActorFaction::Enemy,
             },
         ),
     ];
@@ -1128,7 +1129,7 @@ fn every_parameter_variant_constructs_its_root() {
 
     let mut world = World::new();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    world.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    world.init_resource::<crate::session::mechanics::SessionMechanics>();
     let services = ActorConstructionServices {
         context: crate::construction::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -1182,7 +1183,7 @@ fn a_summoned_minion_takes_its_characters_name() {
             half_size: ae::Vec2::splat(8.0),
             character_id: "puppy_slug".into(),
             encounter_id: "enc".into(),
-            faction: ambition_combat::components::ActorFaction::Enemy,
+            faction: ambition_characters::actor::ActorFaction::Enemy,
         },
     );
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
@@ -1423,7 +1424,7 @@ fn every_parameter_variant_matches_its_descriptor() {
             half_size: ae::Vec2::splat(8.0),
             character_id: "puppy_slug".into(),
             encounter_id: "enc".into(),
-            faction: ambition_combat::components::ActorFaction::Enemy,
+            faction: ambition_characters::actor::ActorFaction::Enemy,
         },
     );
 
@@ -2083,7 +2084,7 @@ fn minion_request(id: &str, archetype: &str) -> ActorConstructionRequest {
             half_size: ae::Vec2::splat(10.0),
             character_id: archetype.to_string(),
             encounter_id: "e".into(),
-            faction: ambition_combat::components::ActorFaction::Enemy,
+            faction: ambition_characters::actor::ActorFaction::Enemy,
         },
     )
 }
@@ -2296,7 +2297,7 @@ fn a_seated_conductor_is_planned_as_the_owner_of_the_hands() {
             .collect();
         (*conducted, hands)
     };
-    let boss = Some(ambition_combat::components::ActorFaction::Boss);
+    let boss = Some(ambition_characters::actor::ActorFaction::Boss);
     assert_eq!(planned("fixture_conducted_giant", true), (true, vec![boss, boss]));
     assert_eq!(planned("fixture_conducted_giant", false), (false, vec![None, None]), "no rider is seated");
     assert_eq!(planned("fixture_giant", true), (false, vec![None, None]), "this giant's hands are its own");
@@ -2501,7 +2502,7 @@ fn staged_giant(id: &str) -> SpawnActorRequest {
         name: "Giant GNU".to_string(),
         pos: ae::Vec2::new(100.0, 100.0),
         half_size: ae::Vec2::splat(60.0),
-        faction: ambition_combat::components::ActorFaction::Enemy,
+        faction: ambition_characters::actor::ActorFaction::Enemy,
         grudge_against: None,
         kind: SpawnActorKind::Enemy {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
@@ -2670,7 +2671,7 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
             ae::Vec2::splat(60.0),
             "fixture_giant",
             "enc",
-            ambition_combat::components::ActorFaction::Enemy,
+            ambition_characters::actor::ActorFaction::Enemy,
             ambition_combat::components::ActorAggression::hostile(),
         )
     };
@@ -3218,7 +3219,7 @@ fn a_staged_boss_script_is_checked_unless_the_boss_has_no_encounter() {
                     name: "smirking_behemoth_boss".to_string(),
                     pos: ae::Vec2::new(100.0, 20.0),
                     half_size: ae::Vec2::splat(60.0),
-                    faction: ambition_combat::components::ActorFaction::Boss,
+                    faction: ambition_characters::actor::ActorFaction::Boss,
                     grudge_against: None,
                     kind: SpawnActorKind::Boss {
                         brain: ambition_entity_catalog::placements::BossBrain::PhaseScript {

@@ -357,14 +357,17 @@ fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
         })
         .map(|block| (block.id.clone(), block.name.clone()))
         .expect("the demo's first room authors at least one ?-block to spend");
+    let live = live_room(app.world());
     app.world_mut()
         .resource_mut::<SpentPowerBlocks>()
+        .in_room_mut(live)
         .spend(question.0.clone());
+    let room_before = live;
     app.update();
     assert!(
         app.world()
             .resource::<SpentPowerBlocks>()
-            .is_spent(&question.0),
+            .is_spent(live, &question.0),
         "the fixture failed to spend {} — nothing below can say a replay \
          re-armed a block that was never spent",
         question.1
@@ -433,10 +436,16 @@ fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
     }
 
     let resets = app.world().resource::<RoomResetsSeen>().0;
+    // The replay seats a new live room, so the block is armed there by its key.
+    // The retraction is the other half: no room that is not live keeps a record.
     let still_spent = app
         .world()
         .resource::<SpentPowerBlocks>()
-        .is_spent(&question.0);
+        .is_spent(live_room(app.world()), &question.0)
+        || {
+            use ambition_platformer2d::actors::session::reset::AttemptScoped;
+            app.world().resource::<SpentPowerBlocks>().attempts().iter().any(|(room, _)| room == room_before)
+        };
     let home = player_pos(&mut app).expect("she is still in the world");
 
     // the strong term first: only a replay puts this block back.
@@ -460,4 +469,10 @@ fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
          is {spawn:?}, she was held at {held:?} through the beat, and the room \
          was put back {resets} time(s)."
     );
+}
+
+/// The live room the course is in: this fixture is one room, and a block is
+/// spent in its own live room.
+fn live_room(world: &World) -> ambition_platformer2d::platformer::lifecycle::LiveRoomInstance {
+    *ambition_platformer2d::session::sole_live_room_component(world).expect("the course is one live room")
 }

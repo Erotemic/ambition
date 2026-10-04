@@ -1096,3 +1096,124 @@ fn a_hostile_bird_with_no_prey_circles_its_roost() {
     assert!(far > 30.0, "a hunting bird with no prey should patrol, it got {far} px from its roost");
     assert!(far <= cfg.roam_radius * 1.6, "and stay by its roost: {far} px");
 }
+
+// ── Q35: a brain presses its attack in the reach of its attack move ─────────
+
+mod melee_reach_tests {
+    use super::*;
+
+    /// Did the brain press its attack at a foe `target_x` px away, when the
+    /// snapshot states `melee_reach`?
+    fn pressed(mut sm: StateMachineCfg, target_x: f32, melee_reach: Option<f32>) -> bool {
+        let mut s = snap_at(0.0, target_x);
+        s.melee_reach = melee_reach;
+        let mut out = crate::actor::control::ActorControlFrame::neutral();
+        tick_simple_state_machine(&mut sm, &s, &mut out);
+        out.melee_pressed
+    }
+
+    /// The four readings that separate the reach of the move from the
+    /// distance in the cfg (24 px in each fixture below).
+    fn assert_presses_in_the_reach_of_its_move(sm: StateMachineCfg, name: &str) {
+        assert!(
+            !pressed(sm.clone(), 40.0, None),
+            "{name}: a body with no attack move keeps the cfg distance, and 40 px is outside it"
+        );
+        assert!(
+            pressed(sm.clone(), 40.0, Some(50.0)),
+            "{name}: a move that reaches 50 px is pressed at 40 px"
+        );
+        assert!(
+            pressed(sm.clone(), 20.0, None),
+            "{name}: the control, 20 px is inside the cfg distance"
+        );
+        assert!(
+            !pressed(sm, 20.0, Some(10.0)),
+            "{name}: a move that reaches 10 px is not pressed at 20 px"
+        );
+    }
+
+    fn brute() -> StateMachineCfg {
+        StateMachineCfg::MeleeBrute {
+            cfg: MeleeBruteCfg {
+                attack_range: 24.0,
+                ..MeleeBruteCfg::STRIKER_DEFAULT
+            },
+            state: MeleeBruteState::default(),
+        }
+    }
+
+    fn patrol(aggressiveness: f32) -> StateMachineCfg {
+        StateMachineCfg::Patrol {
+            cfg: PatrolCfg {
+                lane: AuthoredWorldPatrolLane::new(0.0, 200.0),
+                aggressiveness,
+                aggro_radius: 120.0,
+                attack_range: 24.0,
+                ..PatrolCfg::NPC_DEFAULT
+            },
+            state: PatrolState::default(),
+        }
+    }
+
+    /// A hostile bird that is already in its dive.
+    fn diving_bird() -> StateMachineCfg {
+        StateMachineCfg::Aerial {
+            cfg: AerialCfg {
+                attack_range: 24.0,
+                ..aerial_cfg(1.0)
+            },
+            state: AerialState {
+                initialized: true,
+                phase: AerialPhase::Dive,
+                ..Default::default()
+            },
+        }
+    }
+
+    #[test]
+    fn a_melee_brute_presses_in_the_reach_of_its_move() {
+        assert_presses_in_the_reach_of_its_move(brute(), "melee brute");
+    }
+
+    #[test]
+    fn an_aggressive_patroller_presses_in_the_reach_of_its_move() {
+        assert_presses_in_the_reach_of_its_move(patrol(1.0), "aggressive patroller");
+    }
+
+    #[test]
+    fn a_diving_bird_pecks_in_the_reach_of_its_move() {
+        assert_presses_in_the_reach_of_its_move(diving_bird(), "diving bird");
+    }
+
+    /// Every body is told the reach of its move, and a peaceful patroller
+    /// does not read it: its `attack_range` is the distance at which it stops
+    /// to talk. With a move that reaches 50 px, a foe at 40 px is in the reach
+    /// and outside the 24 px talk distance. The control is the aggressive
+    /// patroller, which reads it and presses.
+    #[test]
+    fn a_peaceful_patroller_keeps_its_own_distance_when_told_a_reach() {
+        let mode = |aggressiveness: f32, melee_reach: Option<f32>| {
+            let mut sm = patrol(aggressiveness);
+            let mut s = snap_at(0.0, 40.0);
+            s.melee_reach = melee_reach;
+            let mut out = crate::actor::control::ActorControlFrame::neutral();
+            tick_simple_state_machine(&mut sm, &s, &mut out);
+            let StateMachineCfg::Patrol { state, .. } = sm else {
+                unreachable!("the fixture is a patroller")
+            };
+            (format!("{:?}", state.mode), format!("{out:?}"), out.melee_pressed)
+        };
+        // The whole frame: within the reach the evaluator says Attack, which
+        // a peaceful patroller answers by not turning to the foe.
+        assert_eq!(
+            mode(0.0, Some(50.0)),
+            mode(0.0, None),
+            "a peaceful patroller changed its decision for the reach of a move"
+        );
+        assert!(
+            mode(1.0, Some(50.0)).2 && !mode(1.0, None).2,
+            "control: an aggressive patroller presses in the reach of its move only"
+        );
+    }
+}

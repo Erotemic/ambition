@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v296
+ggrs-rollback-schema-v311
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -102,7 +102,7 @@ boss.capability	component-clone	BossCapability	bevy_ggrs clone snapshot; not in 
 boss.conducted_facing	component-clone-custom-checksum	ConductedFacing	bevy_ggrs clone snapshot + the side a conducted boss faces while its module holds its pose
 boss.config	component-clone	BossConfig	bevy_ggrs clone snapshot; not in the session checksum
 boss.death_animation	component-clone	BossDeathAnimation	bevy_ggrs clone snapshot; not in the session checksum
-boss.defeats_since_checkpoint	resource-clone-custom-checksum	BossDefeatsSinceCheckpoint	bevy_ggrs clone snapshot + the boss placements cleared since the last checkpoint, which a replay of their room retracts
+boss.defeats_since_checkpoint	resource-clone-custom-checksum	BossDefeatsSinceCheckpoint	bevy_ggrs clone snapshot + the boss placements cleared since the last checkpoint and who won each, which a replay of their room retracts
 boss.encounter	component-clone-cursor	BossEncounter	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; not in the session checksum
 boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -130,7 +130,7 @@ content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone s
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_snake_shell	component-clone	SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_spent_power_blocks	resource-clone-custom-checksum	SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
-content.pending_cut_rope_room_replay	resource-clone-custom-checksum	PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends, and the re-fight, latched until its replay is admitted
+content.pending_cut_rope_room_replay	resource-clone-custom-checksum	PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends
 content.sanic_act_state	component-clone	SanicActState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_ball_dash	component-clone	BallDash	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_ball_dash_input	component-clone	BallDashInput	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -231,9 +231,9 @@ entity:world_item	required-rollback	WorldItem	component presence automatically i
 extension.body_records	component-clone-custom-checksum	BodyRecords	bevy_ggrs clone snapshot + every module record of the body: schema shape digest and canonical values
 extension.session_records	component-clone-custom-checksum	SessionRecords	bevy_ggrs clone snapshot + every session-attached module record: schema shape digest and canonical values
 feature.breakable	component-clone	BreakableFeature	bevy_ggrs clone snapshot; not in the session checksum
-feature.breakable_respawn_schedule	resource-clone-custom-checksum	BreakableRespawnSchedule	bevy_ggrs clone snapshot + the respawn due times of broken breakables on the session clock, kept when their room retires (OW5)
 feature.chest	component-clone	ChestFeature	bevy_ggrs clone snapshot; not in the session checksum
 feature.collected	component-clone	Collected	bevy_ggrs clone snapshot; not in the session checksum
+feature.consumed_since_checkpoint	resource-clone-custom-checksum	ConsumedSinceCheckpoint	bevy_ggrs clone snapshot + the one-time pickups consumed since the last checkpoint, with their room and whose horizons own each (Q151)
 feature.damageable_volumes	component-clone	DamageableVolumes	bevy_ggrs clone snapshot; not in the session checksum
 feature.empowered	component-clone	Empowered	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.falling_chest	component-clone	FallingChest	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -250,6 +250,7 @@ feature.pogo_target_volumes	component-clone	PogoTargetVolumes	bevy_ggrs clone sn
 feature.respawn_timer	component-clone	RespawnTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.stand_timer	component-clone	StandTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.switch	component-clone	SwitchFeature	bevy_ggrs clone snapshot; not in the session checksum
+feature.world_time_schedule	resource-clone-custom-checksum	WorldTimeSchedule	bevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)
 gravity.oscillating_zone	component-clone	OscillatingZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -416,7 +417,7 @@ projectile.visual_id	component-canonical	ProjectileVisualId	bevy_ggrs canonical 
 projectile.weapon_shot	component-canonical	WeaponShot	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.accepted_checkpoint_restore	resource-clone-custom-checksum	AcceptedCheckpointRestore	bevy_ggrs clone snapshot + which operation was accepted and the occurrence population it reconstructs
 resource.active_conversation	resource-clone	ActiveConversation	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
-resource.active_match	resource-canonical-custom-checksum	ActiveMatch	bevy_ggrs canonical codec snapshot + checksum over the agreed seat count and the peer match ordinal, excluding the host-local session, seat-topology and activation-tick stamps
+resource.active_match	resource-canonical-custom-checksum	ActiveMatch	bevy_ggrs canonical codec snapshot + checksum over the agreed seat count and the peer match ordinal, excluding the host-local session and activation-tick stamps
 resource.active_round_scope	resource-canonical	ActiveRoundScope	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 resource.base_gravity	resource-canonical	BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -433,7 +434,7 @@ resource.minted_item_baseline	resource-clone-custom-checksum	MintedItemBaseline	
 resource.occurrence_baseline	resource-clone-custom-checksum	OccurrenceBaseline	bevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection
 resource.outstanding_checkpoint_request	resource-clone-custom-checksum	OutstandingCheckpointRequest	bevy_ggrs clone snapshot + whether the session is still owed a checkpoint restore
 resource.owned_items	resource-clone	OwnedItems	bevy_ggrs clone snapshot; not in the session checksum
-resource.owned_items_baseline	resource-clone-custom-checksum	OwnedItemsBaseline	bevy_ggrs clone snapshot + entity-free stored-quantity checksum projection
+resource.owned_items_baseline	resource-clone-custom-checksum	OwnedItemsBaseline	bevy_ggrs clone snapshot + entity-free stored-quantity and checkpoint purse checksum projection
 resource.pending_lifecycle_commit	resource-canonical	PendingLifecycleCommit	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerHitEvents	bevy_ggrs clone snapshot + entity-free staged-hit and room checksum projection
 resource.placement_continuity	resource-clone-custom-checksum	AuthoredOccurrences	bevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)
@@ -441,8 +442,9 @@ resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone 
 resource.possession_state	resource-clone	PossessionState	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.quest_last_room	resource-clone-custom-checksum	LastQuestRoom	bevy_ggrs clone snapshot + the room ids that were live when the RoomEntered producer last looked
-resource.quest_registry	resource-clone-custom-checksum	QuestRegistry	bevy_ggrs clone snapshot + quest identity, progression and pending-advance checksum projection
+resource.quest_registry	resource-clone-custom-checksum	QuestRegistry	bevy_ggrs clone snapshot + quest identity, progression, pending-advance and caused-advance checksum projection
 resource.requested_clock_scale	resource-canonical	RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.reward_grants_since_checkpoint	resource-clone-custom-checksum	RewardGrantsSinceCheckpoint	bevy_ggrs clone snapshot + the grants of the mints collected and the boss reward chests opened since the last checkpoint, which a retracted boss defeat takes back
 resource.sandbox_save	resource-clone-custom-checksum	AmbitionGameSave	bevy_ggrs clone snapshot + serialized whole-save checksum projection, its dormant-record rows hashed once per Arc
 resource.sandbox_sim_state	resource-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.save_restored	resource-clone	SaveRestored	bevy_ggrs clone snapshot; not in the session checksum

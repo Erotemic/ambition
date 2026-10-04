@@ -47,6 +47,13 @@ changing views may rebuild those entities from current semantic state.
 Do not put ordinary render/VFX entities into rollback state merely to make them
 survive a rewind.
 
+A character- or weapon-specific look is legitimate authored vocabulary (Q42,
+2026-10-04): the gauntlet fireball keeps its bespoke sprite
+(`GAUNTLET_FIREBALL_VISUAL`, registered in `game/ambition_content/src/projectiles.rs`)
+and is not collapsed to the catalog energy ball. It still travels the ordinary
+projectile road (`RangedActionSpec::with_visual`); bespoke art never earns
+bespoke simulation.
+
 ### One-shot and persistent presentation have different lifetimes
 
 A one-shot request carries enough information to draw one effect.
@@ -103,7 +110,13 @@ whole-body scalar hiding for a drawable that can describe its own geometry.
 ### Quality is presentation policy
 
 Visual quality may alter particle counts, expensive shaders, texture tiers,
-trail density and similar visual cost. It must preserve gameplay readability.
+trail density and similar visual cost, and may in time select a cheaper
+implementation of a presentation-only system. Gameplay and simulation never
+depend on the highest-fidelity presentation (Q84, see
+[`asset-preparation-and-residency.md`](asset-preparation-and-residency.md#quality-is-a-presentation-policy-q84)).
+How readable a reduced tier must be is set per product: a potato sprite may be
+humorously small (Q69), and a UI product such as a portrait must still do its
+job (Q84).
 
 FX sheet tier selection now follows the shared quality authority. The narrow prop
 loader that explicitly requests full-resolution art is an authored exception,

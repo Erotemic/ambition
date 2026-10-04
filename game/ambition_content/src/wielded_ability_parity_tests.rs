@@ -153,7 +153,7 @@ fn world(road: Road, ability: &Ability) -> (App, Vec<Entity>) {
             ActorControl::default(),
             HeldItem::new(held),
             frame,
-            ambition_combat::components::ActorFaction::Player,
+            ambition_characters::actor::ActorFaction::Player,
             SimId::placement(&format!("wielder_{i}")),
         ));
         if spec.driven {

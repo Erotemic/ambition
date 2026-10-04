@@ -355,6 +355,11 @@ impl SolidKind {
 pub struct PerceivedSolid {
     pub aabb: ae::Aabb,
     pub kind: SolidKind,
+    /// A gate solid that is open for THIS body (Q54, `GatePass`): the body
+    /// passes through it, so its movement queries do not stand on it or stop
+    /// at it. It still blocks the body's line of fire, because the body's
+    /// projectile meets it as solid.
+    pub open_for_self: bool,
 }
 
 /// A portal aperture perceived in the viewport — the data a brain needs to
@@ -717,6 +722,12 @@ impl WorldView {
         )
     }
 
+    /// Whether this body can stand on `solid`: a standable kind, and not a gate
+    /// that is open for the body. Every floor query asks this one question.
+    fn stands_on(solid: &PerceivedSolid) -> bool {
+        Self::is_standable(solid.kind) && !solid.open_for_self
+    }
+
     /// How far `x` is from a solid's horizontal span — ZERO when the body's
     /// centre is over it, and the size of the overhang when it is not.
     ///
@@ -761,7 +772,7 @@ impl WorldView {
         let feet = me.pos.y + me.half_extent.y;
         self.terrain
             .iter()
-            .filter(|solid| Self::is_standable(solid.kind))
+            .filter(|solid| Self::stands_on(solid))
             .filter(|solid| {
                 solid.aabb.min.x <= me.pos.x + me.half_extent.x
                     && solid.aabb.max.x >= me.pos.x - me.half_extent.x
@@ -785,7 +796,7 @@ impl WorldView {
         let support = self
             .terrain
             .iter()
-            .filter(|solid| Self::is_standable(solid.kind))
+            .filter(|solid| Self::stands_on(solid))
             .filter(|solid| {
                 // the body's FOOTPRINT, not its centre. This compared
                 // `me.pos.x` against the solid's span, so a body standing on the
@@ -843,7 +854,7 @@ impl WorldView {
         let feet = me.pos.y + me.half_extent.y;
         self.terrain
             .iter()
-            .filter(|solid| Self::is_standable(solid.kind))
+            .filter(|solid| Self::stands_on(solid))
             .filter(|solid| {
                 solid.aabb.min.x <= me.pos.x + me.half_extent.x
                     && solid.aabb.max.x >= me.pos.x - me.half_extent.x

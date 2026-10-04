@@ -317,12 +317,12 @@ fn rendered_ownership_across_the_title_and_two_games() {
 
     // ── Ambition ───────────────────────────────────────────────────────
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     settle(&mut app);
     assert_eq!(
         active_route(&app),
-        Some(shell_host::AMBITION_GAMEPLAY_ROUTE.to_owned()),
+        Some(ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.to_owned()),
         "ambition session active"
     );
     assert!(
@@ -393,7 +393,7 @@ fn rendered_ownership_across_the_title_and_two_games() {
     settle(&mut app);
     assert_eq!(
         active_route(&app),
-        Some(shell_host::AMBITION_GAMEPLAY_ROUTE.to_owned()),
+        Some(ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.to_owned()),
         "relaunch through the launcher lands in Ambition"
     );
     assert!(count::<RoomVisual>(&mut app) > 0, "relaunch draws again");
@@ -436,7 +436,7 @@ fn provider_relative_music_drives_the_base_channel() {
 
     // Ambition: a gameplay track takes over from the title theme.
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     settle(&mut app);
     let ambition_track = active_music_track(&app);
@@ -577,6 +577,7 @@ fn play_owned_sfx_from(
         .world()
         .resource::<ambition_platformer2d::audio::selection::ActiveAudioSelection>()
         .owner();
+    let wanted = source.clone();
     app.world_mut()
         .write_message(ambition_platformer2d::sfx::OwnedSfxMessage {
             owner,
@@ -608,15 +609,23 @@ fn play_owned_sfx_from(
         .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
         .last_played
         .clone();
+    // ⛔ AND THE RECORD FROM THE SOURCE THIS CALL ASKED, FROM EVERY RECORD OF
+    // THE PASS — NOT THE LATCH. Gameplay plays its own cues in the same pass,
+    // and `last_played` keeps only the last. Measured 2026-10-03: once the
+    // session started a frame earlier, an Ambition gameplay cue was accepted
+    // after the crossover request in the same pass, and the latch read
+    // `presentation_source == "ambition"` for a request made from `sanic.cast`.
     for _ in 0..PLAYBACK_SETTLE_FRAMES {
         app.update();
-        let now = app
+        let state = app
             .world()
-            .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
-            .last_played
-            .clone();
-        if now != before {
-            return now;
+            .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>();
+        if let Some(record) = state
+            .played_this_pass
+            .iter()
+            .find(|record| record.presentation_source == wanted)
+        {
+            return Some(record.clone());
         }
     }
     // ⭐ THE BOUND EXISTS FOR THE OTHER ARM. This test also asserts that STALE
@@ -657,7 +666,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     assert_eq!(menu.id, ids::UI_MENU_MOVE);
 
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     // ⛔ SIX FRAMES WAS A GUESS THAT HELD UNTIL THE SCHEDULE MOVED. See
     // `play_owned_sfx_from`: the fragility was never here, it was in assuming a
@@ -1726,7 +1735,7 @@ fn an_sfx_cue_saved_while_the_game_runs_is_played() {
     let mut app = rendered_app();
     settle(&mut app);
     app.world_mut().write_message(ShellCommand::GoTo(
-        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     settle(&mut app);
     assert_eq!(authored_frequency(&app), None, "the premise: the shipped registry has no {CUE}");

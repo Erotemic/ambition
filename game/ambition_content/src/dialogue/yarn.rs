@@ -102,17 +102,16 @@ fn yarn_title_ids(source: &'static str) -> impl Iterator<Item = &'static str> {
 /// Hall-of-Characters dialogue ids declared in the catalog
 /// (`hall_dialogue_id`), so authored `hall_<id>` nodes are accepted without a
 /// second hand-maintained list — the catalog is their single source of truth.
+///
+/// Exact titles only. The runtime starts a dialogue id exactly as named
+/// (`DialogueNodeIndex::entry_node`), so the root of a `root__1` title is not
+/// an id that can start unless a node is titled `root` too.
 pub fn known_dialogue_ids(
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
 ) -> Vec<String> {
     let mut ids: Vec<String> = Vec::new();
     for (_, source) in yarn_sources() {
-        for title in yarn_title_ids(source) {
-            ids.push(title.to_string());
-            if let Some((root, _)) = title.split_once("__") {
-                ids.push(root.to_string());
-            }
-        }
+        ids.extend(yarn_title_ids(source).map(str::to_string));
     }
     ids.extend(
         catalog

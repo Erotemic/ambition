@@ -1,12 +1,19 @@
 //! Tests pinning each boss sheet's row count + frame dimensions to its published layout.
 
-use super::*;
+use ambition_sprite_sheet::boss::*;
+use bevy::prelude::*;
 
 use ambition_sprite_sheet::character::sheets::record_for_sheet_key;
 
 /// The shipped layouts, read from `boss_sheets.ron` through the catalog.
 fn content_sheet(key: &str) -> BossSheetSpec {
     crate::test_boss_catalog().sheet_for_key(key)
+}
+
+/// The gradient sentinel's layout, the provider's fallback sheet. Its one
+/// reader is `boss_sheets.ron`.
+fn sentinel_sheet() -> BossSheetSpec {
+    content_sheet("gradient_sentinel")
 }
 
 
@@ -38,7 +45,7 @@ fn boss_sheet_render_basis_diverges_from_the_baked_sheet_dims() {
     // real bosses, so a const-derived `ActorRenderSize` would resize the
     // sprite.
     let known_divergent = [
-        ("boss", BOSS_SHEET.clone()),
+        ("boss", sentinel_sheet()),
         ("mockingbird_boss", content_sheet("mockingbird")),
     ];
     let mut any_divergent = false;
@@ -64,7 +71,7 @@ fn boss_sheet_has_seven_animation_rows() {
     // The enum has 7 variants and the spec has 7 rows; if these
     // ever drift, indexing by `anim as usize` would panic at
     // runtime.
-    assert_eq!(BOSS_SHEET.rows.len(), 7);
+    assert_eq!(sentinel_sheet().rows.len(), 7);
 }
 
 #[test]
@@ -192,6 +199,12 @@ fn boss_ron_target_strips_the_sheet_suffix() {
         boss_ron_target("sprites/gnu_ton_boss/gnu_ton_rider_spritesheet.png"),
         Some("gnu_ton_rider")
     );
+    // A part sheet is its own record. No Rust rule folds a `_body` or `_hands`
+    // file into another sheet's record.
+    assert_eq!(
+        boss_ron_target("sprites/gnu_ton_boss/gnu_ton_boss_body_spritesheet.png"),
+        Some("gnu_ton_boss_body")
+    );
 }
 
 #[test]
@@ -268,14 +281,14 @@ fn boss_atlas_falls_back_when_record_rows_dont_line_up() {
 fn mockingbird_flips_to_face_the_player_unlike_right_facing_sheets() {
     // Player to the right  facing > 0.
     assert!(content_sheet("mockingbird").authored_faces_left);
-    assert!(!BOSS_SHEET.authored_faces_left);
+    assert!(!sentinel_sheet().authored_faces_left);
     assert!(!content_sheet("giant_gnu").authored_faces_left);
     assert!(!content_sheet("smirking_behemoth_boss").authored_faces_left);
 
     // Right-facing sheet: face right (no flip) when the player is right,
     // flip when the player is left — the unchanged default.
-    assert!(!BOSS_SHEET.flip_x(1.0));
-    assert!(BOSS_SHEET.flip_x(-1.0));
+    assert!(!sentinel_sheet().flip_x(1.0));
+    assert!(sentinel_sheet().flip_x(-1.0));
 
     // Left-authored mockingbird: inverted, so it still faces the player.
     assert!(
@@ -308,11 +321,11 @@ fn boss_sheet_anchor_adds_feet_delta_when_not_body_centered() {
     // adds half_collision_y / render_height to feet_anchor_y. If
     // body_centered became true here, the sprite would slide half its render
     // height down.
-    assert!(!BOSS_SHEET.body_centered);
+    assert!(!sentinel_sheet().body_centered);
     let aabb = Vec2::new(60.0, 80.0);
-    let anchor = BOSS_SHEET.collision_anchor(aabb);
-    let render_h = aabb.x.max(aabb.y).max(8.0) * BOSS_SHEET.collision_scale;
-    let expected = BOSS_SHEET.feet_anchor_y + (aabb.y * 0.5) / render_h;
+    let anchor = sentinel_sheet().collision_anchor(aabb);
+    let render_h = aabb.x.max(aabb.y).max(8.0) * sentinel_sheet().collision_scale;
+    let expected = sentinel_sheet().feet_anchor_y + (aabb.y * 0.5) / render_h;
     assert!(
         (anchor.0.y - expected).abs() < 1e-4,
         "expected {} got {}",
@@ -320,7 +333,7 @@ fn boss_sheet_anchor_adds_feet_delta_when_not_body_centered() {
         anchor.0.y
     );
     // And the additive term must be non-trivial (not a no-op).
-    assert!((anchor.0.y - BOSS_SHEET.feet_anchor_y).abs() > 0.05);
+    assert!((anchor.0.y - sentinel_sheet().feet_anchor_y).abs() > 0.05);
 }
 
 #[test]
@@ -349,19 +362,19 @@ fn mockingbird_sheet_maps_six_rows_with_passthrough_for_missing() {
 
 #[test]
 fn frame_count_matches_spec_rows() {
-    assert_eq!(BOSS_SHEET.frame_count(BossAnim::Rest), 8);
-    assert_eq!(BOSS_SHEET.frame_count(BossAnim::FloorSlam), 7);
-    assert_eq!(BOSS_SHEET.frame_count(BossAnim::Death), 8);
+    assert_eq!(sentinel_sheet().frame_count(BossAnim::Rest), 8);
+    assert_eq!(sentinel_sheet().frame_count(BossAnim::FloorSlam), 7);
+    assert_eq!(sentinel_sheet().frame_count(BossAnim::Death), 8);
 }
 
 #[test]
 fn flat_index_lays_rows_end_to_end() {
     // First frame of each row sits at the cumulative sum of prior
     // frame counts. The first row starts at 0.
-    assert_eq!(const_flat(&BOSS_SHEET, BossAnim::Rest, 0), 0);
-    assert_eq!(const_flat(&BOSS_SHEET, BossAnim::FloorSlam, 0), 8);
-    assert_eq!(const_flat(&BOSS_SHEET, BossAnim::SideSweep, 0), 8 + 7);
-    assert_eq!(const_flat(&BOSS_SHEET, BossAnim::SpikeHalo, 0), 8 + 7 + 7);
+    assert_eq!(const_flat(&sentinel_sheet(), BossAnim::Rest, 0), 0);
+    assert_eq!(const_flat(&sentinel_sheet(), BossAnim::FloorSlam, 0), 8);
+    assert_eq!(const_flat(&sentinel_sheet(), BossAnim::SideSweep, 0), 8 + 7);
+    assert_eq!(const_flat(&sentinel_sheet(), BossAnim::SpikeHalo, 0), 8 + 7 + 7);
 }
 
 #[test]
@@ -369,14 +382,14 @@ fn flat_index_clamps_to_last_frame_of_row() {
     // Asking for frame index past the end of a row clamps to the
     // last valid frame; this avoids out-of-bounds atlas reads when
     // an animation cursor overshoots due to a long delta-t.
-    let last_rest = const_flat(&BOSS_SHEET, BossAnim::Rest, 999);
-    assert_eq!(last_rest, BOSS_SHEET.frame_count(BossAnim::Rest) - 1);
+    let last_rest = const_flat(&sentinel_sheet(), BossAnim::Rest, 999);
+    assert_eq!(last_rest, sentinel_sheet().frame_count(BossAnim::Rest) - 1);
 }
 
 #[test]
 fn render_size_preserves_frame_aspect_ratio() {
-    // BOSS_SHEET is 128x128 (square) → width / height = 1.
-    let size = BOSS_SHEET.render_size(Vec2::new(50.0, 50.0));
+    // The gradient sentinel's sheet is 128x128 (square) → width / height = 1.
+    let size = sentinel_sheet().render_size(Vec2::new(50.0, 50.0));
     assert!((size.x - size.y).abs() < 1e-3);
 }
 
@@ -384,8 +397,8 @@ fn render_size_preserves_frame_aspect_ratio() {
 fn render_size_floors_at_minimum_extent() {
     // collision_scale * max(min_extent, 8.0): collision smaller
     // than 8 should still produce a visible quad.
-    let size = BOSS_SHEET.render_size(Vec2::new(2.0, 2.0));
-    assert!(size.y >= 8.0 * BOSS_SHEET.collision_scale - 1e-3);
+    let size = sentinel_sheet().render_size(Vec2::new(2.0, 2.0));
+    assert!(size.y >= 8.0 * sentinel_sheet().collision_scale - 1e-3);
 }
 
 #[test]

@@ -47,6 +47,19 @@ holding a schedule label other than the `sim_schedule()` idiom. The shape it
 catches is a literal `Update`/`PostUpdate`/`PreUpdate`/`FixedUpdate`, which is
 the shape the one real instance had.
 
+⚠ and it cannot see a GENERIC system. It finds a mutator by the rollback type
+that its parameter list names, and `ResMut<T>` names none. Measured 2026-10-04:
+`forget_attempts_on_activation::<T>` (`session/reset/mod.rs`) is registered in
+a literal `Update` and writes `BrokenBricks`, `SpentPowerBlocks` and
+`SpentMonitors`, each registered with `rollback_resource_clone_checksum`. It
+is not in the scan and has no `WAIVERS` entry. Two systems that do the same work with a named type
+(`forget_portal_frames_on_activation`, `restart_heavy_object_cycle_on_activation`)
+were reported on the day they were written. The three are correct for one
+reason (the activation edge is before the timeline that a rewind can cross),
+but the scan gives that answer for the named two only. Not repaired.
+(`forget_narrative_inputs_on_activation::<M>` has the same shape and is not an
+instance: its ledger is an external input and is not registered for rollback.)
+
 Usage:
     python3 scripts/check_rollback_mutators_run_in_sim.py
     python3 scripts/check_rollback_mutators_run_in_sim.py --list
@@ -345,8 +358,9 @@ _SYSTEM_PARAM_STRUCT = re.compile(
 # HAVING TWO TABLES. A `WAIVERS` entry asserts *this system's drift across a
 # rewind does not matter*, and each one carries the argument for why. An entry
 # here asserts the OPPOSITE — the drift is real, it is owed, and it is owed to a
-# named row — so waiving these would be writing down something false while
-# Q129 and MENU-RESET-MIDSESSION are open.
+# named row — so waiving these would write down something false while that row
+# is open. (MENU-RESET-MIDSESSION closed 2026-09-19; Q129 was decided
+# 2026-10-03.)
 #
 # ⚠ WHY THE LIST EXISTS AT ALL: while the guard cannot go green, a THIRTEENTH
 # offender cannot change its verdict. A check that reports FAILED before and
@@ -359,8 +373,10 @@ _SYSTEM_PARAM_STRUCT = re.compile(
 # longer reports has been FIXED, and leaving it banked would silently absorb the
 # next system to take its place.
 ACKNOWLEDGED: dict[str, str] = {
-    "adopt_occurrence_checkpoint_from_save": "ROLLBACK-MUTATOR-POPULATION",
-    "complete_durable_restore": "ROLLBACK-MUTATOR-POPULATION",
+    # ✅ `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore`
+    # and `restore_inventory_from_save` left on 2026-10-03, first for WAIVERS and
+    # then out of the scan: they run in the simulation schedule now
+    # (BODY-BORN-ON-THE-TIMELINE), so their writes rewind with the save they read.
     # ✅ `compute_music_intent` left because it was FIXED: it still runs, and
     # now binds `EncounterMusicRequest` as a `SessionWorldRef`. Its one write was
     # the `last_applied` mirror that AP12/W021 deleted (dbffb1a76).
@@ -383,7 +399,11 @@ ACKNOWLEDGED: dict[str, str] = {
     # ✅ `sync_ldtk_level_set` left on 2026-09-29: the index it wrote an active
     # area into is prepared content with no rollback row now, and the sync
     # compares the bundles' `LevelSet` with the active room's levels.
-    "reconcile_roster_with_frozen_topology": "ROLLBACK-MUTATOR-POPULATION",
+    # ✅ `reconcile_roster_with_frozen_topology` left on 2026-10-03 because it
+    # was FIXED: it still runs (`game/ambition_app/src/app/versus.rs`), and now
+    # binds `ActiveMatch` as a `Res`. Its one rollback write was
+    # `ActiveMatch::adopt_seat_topology`, a copy of the roster's record that
+    # nothing read; the field and the method are deleted (schema 302).
 }
 
 
@@ -405,9 +425,9 @@ ACKNOWLEDGED: dict[str, str] = {
 #     an honest repair that took the system out of this guard's
 #     SIGNATURE-KEYED population, but the write it causes is still there, in the
 #     staged closure inside `reload_ldtk_world_from_disk` -- a HELPER, which
-#     `collect` cannot attribute a schedule to. `BLIND_SPOTS` below says so, and
-#     is exactly the argument that must be re-read rather than deleted when the
-#     scan goes quiet.
+#     `collect` could not attribute a schedule to until `inherited_mutations`
+#     (one hop, 2026-10-03). It sat in `BLIND_SPOTS` until then: the argument
+#     that must be re-read rather than deleted when the scan goes quiet.
 #
 # ⇒ Two of the four were good news that no instrument was reporting, one was a
 #   deletion, and one was the trap.
@@ -428,33 +448,9 @@ ACKNOWLEDGED: dict[str, str] = {
 # owners, and the one with the exit code had neither half.
 #: name → (file that defines it, why the waiver survives the scan losing it)
 BLIND_SPOTS: dict[str, tuple[str, str]] = {
-    "handle_ldtk_hot_reload": (
-        "game/ambition_app/src/app/dev_runtime.rs",
-        "⛔⛤ THE SCANNER LOST IT, THE TREE DID NOT — and the thing that hid it "
-        "was an honest repair. Until 2026-09-18 this system carried "
-        "`SessionWorldMut<RoomSet>` and `SessionWorldMut<LdtkRuntimeIndex>` on "
-        "two parameters it only READS, kept mutable so a session-world writer "
-        "census would not undercount. Demoting them to `SessionWorldRef` was "
-        "right, and it took the system out of THIS guard's signature-keyed "
-        "population in the same stroke: the write it still causes happens in a "
-        "staged closure inside `reload_ldtk_world_from_disk`, which the "
-        "exclusive-world spelling added the same day DOES see "
-        "(`RoomTransitionCooldown`; `LdtkRuntimeIndex` too until it left the "
-        "schema on 2026-09-29) — but that function is a "
-        "HELPER, and `collect` attributes a schedule by finding a name inside an "
-        "`add_systems` body.\n"
-        "    ⚠ SO THE WAIVER STAYS AND THE ENTRY SAYS WHY. Deleting it because "
-        "the scan went quiet is the exact move this table exists to refuse: the "
-        "next system to take this name would inherit an argument nobody re-read.\n"
-        "    ⇒ THE INSTRUMENT THAT WOULD CLOSE IT IS NAMED AND MEASURED: one hop "
-        "of caller attribution — a registered system inherits what the helpers it "
-        "calls mutate. MEASURED 2026-09-18 by bare-name matching: 19 pairs, of "
-        "which 8 are already banked or waived (this one among them) and 11 are "
-        "FALSE, because the helpers are called `tick`, `apply` and `install` and a "
-        "`\\bname\\s*\\(` search cannot tell `adopt_the_ledger(world)` from "
-        "`self.timer.tick(dt)`. ⛔ So the hop needs real call resolution, not a "
-        "name match — which is why it is not in this commit."
-    ),
+    # ✅ `handle_ldtk_hot_reload` left on 2026-10-03: `inherited_mutations`
+    # attributes the write in its helper `reload_ldtk_world_from_disk` to it,
+    # so the scan sees it again and its waiver has a subject.
 }
 
 
@@ -496,6 +492,18 @@ WAIVERS: dict[str, str] = {
         "a composition cannot have a rollback timeline without having the decider. "
         "\u26d4 If that registration ever moves out of `install_session_bridge`, "
         "this entry is void."
+    ),
+    "hand_the_save_to_the_activating_experience": (
+        "\u2b50 THE SAME CHAIN ARGUMENT AS `reset_checkpoint_coordinator_on_"
+        "activation`: it is a member of `SessionScopeSet::Activate` "
+        "(`ambition_game_shell/src/session.rs`), between the bridge that announces "
+        "the activation and the providers that build the session, so no rollback "
+        "session exists for this scope while it writes `AmbitionGameSave`.\n"
+        "    \u26d4 IT IS NOT A HYGIENE WAIVER. The save is durable data admitted "
+        "into a session (Q132), and this is the admission: the activating "
+        "experience gets its own save. Without it, another experience's room "
+        "visits reached Ambition's save and the peer checksum (Q129, ID-PEER "
+        "road 4)."
     ),
     "reset_checkpoint_coordinator_on_activation": (
         "\u2b50 THE SAME CHAIN ARGUMENT AS `reset_session_scoped_resources_on_"
@@ -577,6 +585,34 @@ WAIVERS: dict[str, str] = {
         "depend on this having run.' A write to a discarded timeline corrupts "
         "no comparison anyone will make."
     ),
+    # ── added 2026-10-04, SESSION-EDGE-STATE ─────────────────────────────────
+    # Two resets that the owner crate registers, not `SessionScopedResources`.
+    # They are in the same set as the activation reset above, so they have its
+    # answer and its residual.
+    "forget_portal_frames_on_activation": (
+        "THE WRITE PRECEDES THE TIMELINE, by the chain that "
+        "`reset_session_scoped_resources_on_activation` states. "
+        "`PortalPlugin` registers it in `SessionScopeSet::Activate`, and it "
+        "writes only on a `SessionScopeActivated`. The session world becomes "
+        "live in `Providers`, after `Activate`, and GGRS starts only for a live "
+        "session world. So no saved frame of this scope holds the value that "
+        "the write replaces. Held by "
+        "`shell_host_lifecycle::what_a_session_spawned_and_cycled_does_not_reach_the_next_session` "
+        "(with the reset not registered, `PortalFrameHistory` differs at tick 0). "
+        "\u26d4 THE RESIDUAL: the claim is the SET, not the schedule. The same "
+        "system in a plain `Update` slot could run after `Providers`, on a "
+        "frame that GGRS has saved, and this entry would then be false."
+    ),
+    "restart_heavy_object_cycle_on_activation": (
+        "THE WRITE PRECEDES THE TIMELINE, by the chain that "
+        "`reset_session_scoped_resources_on_activation` states. "
+        "`AmbitionBossContentPlugin` registers it in `SessionScopeSet::Activate`, "
+        "and it writes only on a `SessionScopeActivated`. Held by "
+        "`shell_host_lifecycle::what_a_session_spawned_and_cycled_does_not_reach_the_next_session` "
+        "(with the reset not registered, `CutRopeHeavyObjectCycle` differs on 31 "
+        "frames). \u26d4 THE RESIDUAL: the claim is the SET, not the schedule; "
+        "see `forget_portal_frames_on_activation`."
+    ),
     # ── added 2026-09-02 with the widening, triaged by ambition-df ───────────
     # These six appeared the moment `rollback_types` stopped reading one file.
     # Each is waived with the reason its drift across a rewind does not matter,
@@ -616,26 +652,23 @@ WAIVERS: dict[str, str] = {
         "the arm fails. ⚠ TWO FACTS NOW HANG FROM AN EDGE WRITTEN FOR THE "
         "FIRST OF THEM — the seat count and a `rollback_resource_clone_checksum` "
         "row — so widening or dropping it reopens a peer-compared write inside "
-        "the rewind window."
-    ),
-    "restore_inventory_from_save": (
-        "⚠ WAIVED BECAUSE NO TIMELINE CAN BE RUNNING WHEN IT WRITES, WHICH IS "
-        "NOW PROVABLE FROM THE CODE. It writes `BodyWallet` and `OwnedItems` "
-        "from `Update` while applying a save, and returns early once "
-        "`SaveRestored` is true. Three facts close the window: "
-        "`maintain_local_session` refuses to CREATE a rollback session while "
-        "`durable_hydration_is_pending`; the latch has no `true -> false` "
-        "transition left anywhere (held by `debug_assert!(restored.0)` in "
-        "`reset_inventory_on_new_game`); and all four sites agree on the "
-        "population, since `adopt_occurrence_checkpoint_from_save` stopped "
-        "asking for a merely NON-EMPTY one on 2026-09-19.\n"
-        "⛔⛤ THIS ENTRY SAID 'THE OTHER CASE IS OPEN' UNTIL 2026-09-19 AND "
-        "QUOTED A COMMENT THAT NO LONGER EXISTS — 'THE `Update` ADOPTER STAYS. "
-        "A file can also arrive after activation (a mid-session load) ...' is "
-        "ZERO hits in the Rust tree on each of three fragments. The road it "
-        "described was removed when Q135 landed (2026-09-16), and the waiver "
-        "kept justifying itself with the deleted text. ⇒ A WAIVER THAT QUOTES "
-        "SOURCE IS A CLAIM ABOUT SOURCE, and nothing re-reads a quotation."
+        "the rewind window. ⛔⛤ AND ONE EDGE WAS NOT ENOUGH, FOUND 2026-10-03: "
+        "on the activation frame the arm ran BEFORE `advance_pending_route` made "
+        "the route active, read the old route, and did nothing, so the maintainer "
+        "started the session that frame and the write landed two frames later on "
+        "a live timeline. The durable-hydration gate hid this by holding the "
+        "session back; it went with BODY-BORN-ON-THE-TIMELINE. The chain is now "
+        "also `.after(AmbitionGameShellSet::Pending)`. Poison (that edge "
+        "removed): the test fails with the write on a frame that began live. "
+        "⛔ 2026-10-04: the schedule did not order `LocalSessionSet::Maintain` "
+        "against `GameplaySessionSet::Providers`, and a merge of two unrelated "
+        "commits moved the maintainer before the providers. The session then "
+        "came up one frame after the world, and the test compared nothing "
+        "(its floor was red). The host now puts the maintainer after the "
+        "providers (`rollback::start_the_timeline_with_the_session_world`), "
+        "and the floor asks that EVERY firing frame installs the session. "
+        "Poison (that edge removed): the floor is red. Poison (`.before` -> "
+        "`.after` on the roster edge): install at tick 3900, write at 3901, red."
     ),
     "refresh_world_time": (
         "⛔ NOT installed by any composition. `ambition_time::TimePlugin` — the "
@@ -1022,7 +1055,63 @@ def mutating_systems(repo: Path = REPO) -> dict[str, list[str]]:
             hits = sorted(types.intersection(mutated))
             if hits:
                 found.setdefault(match.group(1), hits)
+    for name, hits in inherited_mutations(repo, found).items():
+        found.setdefault(name, hits)
     return found
+
+
+#: A free-function call: a name not preceded by `.` or a word character, with
+#: an optional `path::` prefix and turbofish. A method call (`self.timer.tick(..)`)
+#: is not one, which is what made the bare-name match of 2026-09-18 report 11
+#: false pairs.
+_FREE_CALL = re.compile(
+    r"(?<![.\w])(?:[A-Za-z_][A-Za-z0-9_]*::)*([a-z_][a-z0-9_]*)\s*(?:::<[^>]*>)?\s*\("
+)
+_FN_DEF = re.compile(r"\bfn\s+([a-z_][a-z0-9_]*)\s*(?:<[^>{]*>)?\s*\(")
+
+
+def inherited_mutations(
+    repo: Path, direct: dict[str, list[str]]
+) -> dict[str, list[str]]:
+    """registered system name → the rollback types it mutates through ONE
+    helper call.
+
+    A system that calls a helper which writes rollback state writes it too
+    (`handle_ldtk_hot_reload` → `reload_ldtk_world_from_disk`). One hop, and
+    only a call this can resolve: a free-function call (not a method) to a name
+    defined once in production sources, or once in the caller's own file. A
+    name defined in several places (`tick`, `install`) is not attributed: which
+    one the call reaches needs real name resolution.
+    """
+    sources = _production_sources(repo)
+    # Only a REGISTERED system can be a finding, so only those bodies are read;
+    # reading every function's body tripled this guard's run time.
+    registered: set[str] = set()
+    for _src, text in sources:
+        for body in add_systems_bodies(text):
+            registered.update(re.findall(r"\b([a-z_][a-z0-9_]*)\b", body))
+    places: dict[str, list[Path]] = {}
+    callers: list[tuple[str, Path, str, int]] = []
+    for src, text in sources:
+        for match in _FN_DEF.finditer(text):
+            name = match.group(1)
+            places.setdefault(name, []).append(src)
+            if name in registered and name not in direct:
+                callers.append((name, src, text, match.end()))
+    inherited: dict[str, set[str]] = {}
+    for name, src, text, end in callers:
+        brace = text.find("{", end)
+        semi = text.find(";", end)
+        if brace < 0 or 0 <= semi < brace:
+            continue
+        for call in _FREE_CALL.finditer(_braced(text, brace)):
+            callee = call.group(1)
+            if callee == name or callee not in direct:
+                continue
+            where = places.get(callee, [])
+            if len(where) == 1 or where.count(src) == 1:
+                inherited.setdefault(name, set()).update(direct[callee])
+    return {name: sorted(hits) for name, hits in inherited.items()}
 
 
 def collect(

@@ -14,9 +14,9 @@ use std::sync::OnceLock;
 use ambition_platformer2d_core as ae;
 
 use super::fields::{
-    field_bool, field_entity_ref, field_f32, field_i32, field_string, parse_boss_brain,
-    parse_debug_label_kind, parse_enemy_brain, parse_optional_path, parse_path_mode,
-    parse_pickup_kind, parse_points,
+    field_bool, field_entity_ref, field_f32, field_i32, field_string, field_text,
+    loading_zone_id, parse_boss_brain, parse_debug_label_kind, parse_enemy_brain,
+    parse_optional_path, parse_path_mode, parse_pickup_kind, parse_points,
 };
 use super::intgrid::{
     emit_climbable_regions_from_intgrid, emit_collision_blocks_from_intgrid,
@@ -57,12 +57,41 @@ impl LdtkProject {
         self.build_room_set(entry_room, &[], vocabulary)
     }
 
+    /// The rooms and the links that [`Self::to_room_set`] builds its set from,
+    /// before the set drops a link that does not resolve.
+    ///
+    /// A caller that holds the complete game reads these to judge each link
+    /// with `ambition_platformer2d_world::rooms::unresolved_links`. It reads
+    /// what the runtime builds, not the LDtk fields a second time.
+    pub fn to_room_parts(
+        &self,
+        manifest: &ambition_platformer2d_world::world_manifest::WorldManifest,
+        vocabulary: &LdtkVocabulary,
+    ) -> Result<(Vec<RoomSpec>, Vec<RoomLink>), Vec<String>> {
+        self.build_room_parts(&manifest.entry_room, &manifest.ron_rooms, vocabulary)
+            .map(|(_, rooms, links)| (rooms, links))
+    }
+
     fn build_room_set(
         &self,
         entry_room: &str,
         ron_rooms: &[ambition_platformer2d_world::ron_room::RonRoomSource],
         vocabulary: &LdtkVocabulary,
     ) -> Result<RoomSet, Vec<String>> {
+        let (start_room, rooms, links) = self.build_room_parts(entry_room, ron_rooms, vocabulary)?;
+        // `start_room` already resolves against the composed areas. This refusal
+        // is for the empty project, where the fallback has no room to use.
+        RoomSet::try_from_parts(start_room, rooms, links).map_err(|why| vec![why.to_string()])
+    }
+
+    /// The start room, the rooms and the links of this project, with the baked
+    /// `ron-room` docs of `ron_rooms`.
+    fn build_room_parts(
+        &self,
+        entry_room: &str,
+        ron_rooms: &[ambition_platformer2d_world::ron_room::RonRoomSource],
+        vocabulary: &LdtkVocabulary,
+    ) -> Result<(String, Vec<RoomSpec>, Vec<RoomLink>), Vec<String>> {
         let report = self.validate(vocabulary);
         if !report.is_ok() {
             return Err(report.errors);
@@ -98,11 +127,10 @@ impl LdtkProject {
             links.extend(doc.links);
             rooms.push(doc.spec);
         }
-        // `start_room` already resolves against `area_levels`. This refusal is for
-        // the empty project, where the fallback has no room to use.
-        RoomSet::try_from_parts(start_room, rooms, links).map_err(|why| vec![why.to_string()])
+        Ok((start_room, rooms, links))
     }
 
+    /// The room links that the `LoadingZone` entities of this project author.
     pub(crate) fn collect_room_links(&self) -> Vec<RoomLink> {
         let mut links = Vec::new();
         for level in &self.levels {
@@ -111,15 +139,17 @@ impl LdtkProject {
                 if entity.identifier != "LoadingZone" {
                     continue;
                 }
-                let Some(target_room) = field_string(entity, "target_room") else {
+                // `field_text`, the rule that `validate` judges a target by: a
+                // blank target is no target, and a target is its trimmed value.
+                let Some(target_room) = field_text(entity, "target_room") else {
                     continue;
                 };
-                let Some(target_zone) = field_string(entity, "target_zone") else {
+                let Some(target_zone) = field_text(entity, "target_zone") else {
                     continue;
                 };
                 links.push(RoomLink {
                     from_room: from_room.clone(),
-                    from_zone: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
+                    from_zone: loading_zone_id(entity),
                     to_room: target_room,
                     to_zone: target_zone,
                     bidirectional: field_bool(entity, "bidirectional").unwrap_or(false),
@@ -1903,6 +1933,150 @@ mod tests {
         assert!(
             both.iter().any(|error| error.contains("Guard:96")),
             "the refusal must name the contradicting brain: {both:?}"
+        );
+    }
+
+    fn zone(x: i32, fields: &[(&str, Value)]) -> crate::project::LdtkEntityInstance {
+        entity_at("LoadingZone", [x, 400], [32, 64], fields)
+    }
+
+    fn text(value: &str) -> Value {
+        Value::String(value.to_string())
+    }
+
+    /// A zone is found by its id in its room. The LDtk owner refuses a blank
+    /// id, which names nothing, and a second zone of the area with the same
+    /// id, which is never found.
+    #[test]
+    fn a_blank_zone_id_and_a_second_zone_with_one_id_are_refused() {
+        let errors_of = |zones: Vec<crate::project::LdtkEntityInstance>| {
+            synthetic_level(zones)
+                .validate(&LdtkVocabulary::engine())
+                .errors
+        };
+
+        let blank = errors_of(vec![zone(96, &[("id", text("  "))])]);
+        assert!(
+            blank.iter().any(|error| error.contains("with a blank id")),
+            "a zone with a blank id was accepted: {blank:?}"
+        );
+
+        let twice = errors_of(vec![
+            zone(96, &[("id", text("east"))]),
+            zone(200, &[("id", text("east"))]),
+        ]);
+        assert!(
+            twice
+                .iter()
+                .any(|error| error.contains("duplicate LoadingZone id 'east'")),
+            "two zones of one area with one id were accepted: {twice:?}"
+        );
+
+        // Control: two zones with two ids give neither error.
+        let two = errors_of(vec![
+            zone(96, &[("id", text("east"))]),
+            zone(200, &[("id", text("west"))]),
+        ]);
+        assert!(
+            !two.iter().any(|error| error.contains("blank id") || error.contains("duplicate")),
+            "two zones with two ids were refused: {two:?}"
+        );
+    }
+
+    /// The ids that an `NpcSpawn` carries are read by the one text rule
+    /// (`field_text`). The content validator judges the trimmed ids. A
+    /// converter that kept a space would give the runtime a character, a brain
+    /// preset or a dialogue that the validator never looked up: an unknown
+    /// character is a body with no identity, and an unknown preset is a panic
+    /// when the room loads.
+    #[test]
+    fn an_npc_spawn_carries_its_trimmed_ids() {
+        use ambition_platformer2d_world::rooms::InteractionKindSpec;
+        use ambition_entity_catalog::placements::PlacementSchema;
+        let npc = |fields: &[(&str, Value)]| {
+            let entity = entity_at("NpcSpawn", [96, 400], [16, 32], fields);
+            let no_paths = BTreeMap::new();
+            let ctx = LdtkEntityCtx {
+                entity: &entity,
+                name: "NpcSpawn".to_string(),
+                min: ae::Vec2::new(96.0, 400.0),
+                size: ae::Vec2::new(16.0, 32.0),
+                offset: ae::Vec2::ZERO,
+                kinematic_path_ids: &no_paths,
+            };
+            let record = super::entity_converters::convert_npc_spawn(&ctx)
+                .expect("an NpcSpawn converts")
+                .placements
+                .remove(0);
+            let PlacementSchema::Interactable(interactable) = record.schema else {
+                panic!("an NpcSpawn is an interactable placement");
+            };
+            let InteractionKindSpec::Npc {
+                character_id,
+                dialogue_id,
+                brain_override,
+                ..
+            } = interactable.kind
+            else {
+                panic!("an NpcSpawn is an NPC interaction");
+            };
+            (character_id, dialogue_id, brain_override)
+        };
+
+        assert_eq!(
+            npc(&[
+                ("character_id", text("npc_ai_slop ")),
+                ("dialogue_id", text(" slop_intro")),
+                ("brain_override", text(" guard ")),
+            ]),
+            (
+                Some("npc_ai_slop".to_string()),
+                Some("slop_intro".to_string()),
+                Some("guard".to_string()),
+            ),
+            "each id is its trimmed value"
+        );
+        assert_eq!(
+            npc(&[
+                ("character_id", text("  ")),
+                ("dialogue_id", text("")),
+                ("brain_override", text("   ")),
+            ]),
+            (None, None, None),
+            "a blank id is no id"
+        );
+    }
+
+    /// A link is built by the rule that `validate` judges a target by: a blank
+    /// target is no target, and a target is its trimmed value. A converter
+    /// that kept the space would build a link to a room that does not exist,
+    /// for a target that the validator accepted.
+    #[test]
+    fn a_link_names_the_trimmed_target_and_a_blank_target_gives_no_link() {
+        let project = synthetic_level(vec![
+            zone(
+                96,
+                &[
+                    ("id", text("east")),
+                    ("target_room", text("scroll_lab ")),
+                    ("target_zone", text(" west_exit")),
+                ],
+            ),
+            zone(
+                200,
+                &[
+                    ("id", text("pad")),
+                    ("target_room", text("  ")),
+                    ("target_zone", text("")),
+                ],
+            ),
+        ]);
+        let links = project.collect_room_links();
+        assert_eq!(links.len(), 1, "a blank target is no target: {links:?}");
+        assert_eq!(
+            (links[0].from_zone.as_str(), links[0].to_room.as_str(), links[0].to_zone.as_str()),
+            ("east", "scroll_lab", "west_exit"),
+            "the link names the trimmed target"
         );
     }
 }

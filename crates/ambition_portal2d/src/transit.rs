@@ -7,7 +7,7 @@ use bevy::prelude::*;
 
 use crate::pieces as pp;
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_platformer2d_shared_tangle::body::BodyKinematics;
+use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
 use ambition_platformer2d_shared_tangle::orientation::ActorRoll;
 use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;

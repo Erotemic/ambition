@@ -11,9 +11,7 @@
 
 use ambition_characters::brain::action_set::IdentityKit;
 use ambition_characters::brain::{ActionSet, RangedExecution};
-use ambition_characters::prepared::{
-    overlay_authored_moves, PreparedCharacterRegistry,
-};
+use ambition_characters::prepared::{overlay_authored_moves, PreparedCharacterDefinition};
 use ambition_characters::move_damage::{move_damage_over, DamageScale};
 use ambition_entity_catalog::MovesetContract;
 
@@ -26,7 +24,7 @@ use crate::moveset::build_actor_moveset;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SeatTerms<'a> {
     /// The stage's borrowed repertoire. It replaces the action set; see
-    /// [`WornKit::resolve`].
+    /// [`WornKit::of`].
     pub action_set: Option<&'a ActionSet>,
     /// The damage scale the fighter's moves deal on this stage; `None` is
     /// each moveset's own damage.
@@ -57,25 +55,24 @@ pub struct WornKit {
 }
 
 impl WornKit {
-    /// Resolve the kit `character_id` puts on a body. The body's abilities are
-    /// not an input: what the character IS does not depend on what this body may
-    /// currently do (that is the per-frame action scheme's question).
+    /// The kit the prepared character `prepared` puts on a body. The body's
+    /// abilities are not an input: what the character IS does not depend on
+    /// what this body may currently do (that is the per-frame action scheme's
+    /// question).
     ///
-    /// - a prepared row: its `PreparedKit::baseline` and its own
-    ///   `ranged_execution` — the answer the spawn grant writes. Authored
-    ///   repertoire is what a character IS; what a ruleset currently permits it
-    ///   to use is the per-frame action scheme over `BodyAbilities`, not a
-    ///   narrowing of the kit (census DUP-CHARACTER-KIT, decided 2026-09-23);
-    /// - an id the cast does not hold: a peaceful kit, reported. The barrier
-    ///   prepares every catalog row (AP30), so this is an id no catalog row or
-    ///   definition names, or a composition that published no cast.
+    /// The kit is the row's `PreparedKit::baseline` and its own
+    /// `ranged_execution` — the answer the spawn grant writes. Authored
+    /// repertoire is what a character IS; what a ruleset currently permits it
+    /// to use is the per-frame action scheme over `BodyAbilities`, not a
+    /// narrowing of the kit (census DUP-CHARACTER-KIT, decided 2026-09-23).
     ///
-    /// ⛔ NO ROAD INVENTS THE HOST PROTAGONIST'S KIT. An id nobody wrote down, or a
-    /// character that authored no action set, used to be handed the swipe, bolt,
-    /// bubble shield and charged shot built from the body's abilities — a
-    /// plausible answer where the required authority (an authored repertoire) was
-    /// absent. No shipped character reaches either arm; a character that should
-    /// fight authors its kit.
+    /// ⛔ ONLY A PREPARED CHARACTER HAS A KIT (Q103, 2026-10-03). The input is
+    /// the prepared definition, not an id, so no road can ask for the kit of an
+    /// id the cast does not hold. A character admitted into simulation was
+    /// prepared for that generation: there is no engine-default kit and no read
+    /// of another catalog. A caller that holds only an id looks it up in the
+    /// cast, and for an id that is not there it leaves the body as it is and
+    /// reports the refusal (`wear_character`).
     ///
     /// A MATCH OUTRANKS THE PERSONA, and only a match: `match_kit` is a rule of
     /// the stage the fighter stands on, not another opinion about who the
@@ -88,42 +85,21 @@ impl WornKit {
     /// platform-fighter stage reads the character's `smash_fighter` damage over
     /// the same moves. Resolved here and not at seating, so a fighter that
     /// re-wears its character during the match keeps the stage's damage.
-    pub fn resolve(
-        registry: Option<&PreparedCharacterRegistry>,
-        character_id: &str,
-        terms: SeatTerms<'_>,
-    ) -> Self {
-        let prepared = registry.and_then(|registry| registry.get(character_id));
+    pub fn of(prepared: &PreparedCharacterDefinition, terms: SeatTerms<'_>) -> Self {
+        let execution = prepared.ranged_execution;
 
-        let (set, derived, execution) = if let Some(kit) = terms.action_set {
-            let execution = prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
-                prepared.ranged_execution
-            });
-            let authored = prepared.and_then(|prepared| prepared.authored_moveset.clone());
-            let derived = derive_persona_moveset(kit, execution, authored);
-            (kit.clone(), derived, execution)
-        } else {
-            match prepared {
-                // The prepared baseline, exactly as the spawn grant writes it.
-                Some(prepared) => {
-                    let (set, moveset) = prepared.kit.baseline();
-                    (set, moveset, prepared.ranged_execution)
-                }
-                None => {
-                    bevy::log::error!(
-                        "worn character id '{character_id}' is not a prepared character; \
-                         wearing a peaceful kit and showing the id as the display name"
-                    );
-                    let (set, execution) = resolve_playable_action_set(None);
-                    let derived = derive_persona_moveset(&set, execution, None);
-                    (set, derived, execution)
-                }
+        let (set, derived) = match terms.action_set {
+            Some(kit) => {
+                let derived =
+                    derive_persona_moveset(kit, execution, prepared.authored_moveset.clone());
+                (kit.clone(), derived)
             }
+            // The prepared baseline, exactly as the spawn grant writes it.
+            None => prepared.kit.baseline(),
         };
         let scaled = terms
             .move_damage
-            .zip(prepared)
-            .and_then(|(scale, prepared)| prepared.scaled_move_damage.get(&scale))
+            .and_then(|scale| prepared.scaled_move_damage.get(&scale))
             .filter(|damage| !damage.is_empty());
         let derived = match scaled {
             Some(damage) => {
@@ -134,8 +110,8 @@ impl WornKit {
                     // for every move rather than a mix of two.
                     Err(problems) => {
                         bevy::log::error!(
-                            "character '{character_id}' keeps its moveset damage on this \
-                             stage: {problems:?}"
+                            "character '{}' keeps its moveset damage on this stage: {problems:?}",
+                            prepared.id.as_str(),
                         );
                         derived
                     }
@@ -180,16 +156,6 @@ pub fn derive_persona_moveset(
     overlay_authored_moves(derived, authored)
 }
 
-/// Resolve a playable action set for an id the prepared registry does not hold:
-/// the catalog row's preset, or a peaceful kit when there is none — a malformed
-/// row (the startup validator reports it) or an id nobody wrote down.
-pub fn resolve_playable_action_set(authored: Option<ActionSet>) -> (ActionSet, RangedExecution) {
-    (
-        authored.unwrap_or_else(ActionSet::peaceful),
-        RangedExecution::MovesetVerb,
-    )
-}
-
 /// The host-code action set, derived from a body's `AbilitySet`:
 ///
 /// - `melee = Some(Swipe)` iff `abilities.attack` — with NO windup: the hand the
@@ -225,35 +191,5 @@ pub fn default_player_action_set(abilities: ambition_platformer2d_core::AbilityS
         special: abilities
             .shield
             .then_some(SpecialActionSpec::Special("bubble_shield".to_string())),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A typo in a known catalog row is content corruption, not permission to
-    /// gain the host protagonist's code kit: the fallback is deliberately inert.
-    #[test]
-    fn malformed_authored_resolution_is_safe_peaceful_not_host_code() {
-        let (set, execution) = resolve_playable_action_set(None);
-        assert!(set.melee.is_none());
-        assert!(set.ranged.is_none());
-        assert!(set.special.is_none());
-        assert_eq!(execution, RangedExecution::MovesetVerb);
-    }
-
-    /// ⛔ AN ID NOBODY WROTE DOWN IS NOT HANDED THE PROTAGONIST'S KIT. It used to
-    /// wear a swipe, a bolt, a bubble shield and the charge path built from the
-    /// body's abilities — a plausible answer where no authored repertoire
-    /// existed. It is peaceful now, and reported.
-    #[test]
-    fn an_unknown_id_wears_nothing_it_did_not_author() {
-        let kit = WornKit::resolve(None, "nobody", SeatTerms::default());
-        assert_eq!(kit.execution, RangedExecution::MovesetVerb);
-        assert!(kit.action_set.melee.is_none(), "an unknown id was handed a swipe");
-        assert!(kit.action_set.ranged.is_none(), "an unknown id was handed a bolt");
-        assert!(kit.action_set.special.is_none(), "an unknown id was handed a special");
-        assert_eq!(kit.identity.action_set, kit.action_set);
     }
 }

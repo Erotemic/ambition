@@ -137,12 +137,12 @@ pub struct FrameResolveSet;
 /// plus non-orienting force contributions. This is the resolver's ONLY input
 /// bundle; nothing else composes a body frame.
 #[derive(SystemParam)]
-pub struct FrameEnv<'w> {
-    pub gravity: GravityCtx<'w>,
+pub struct FrameEnv<'w, 's> {
+    pub gravity: GravityCtx<'w, 's>,
     pub forces: Option<Res<'w, ForceZones>>,
 }
 
-impl FrameEnv<'_> {
+impl FrameEnv<'_, '_> {
     /// Resolve one body's frame: THE composition rule.
     ///
     /// - The reference basis comes from the localized gravity direction the

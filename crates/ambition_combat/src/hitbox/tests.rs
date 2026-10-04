@@ -262,12 +262,12 @@ fn make_app_with_sim_dt(sim_dt: f32) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.init_resource::<WorldTime>();
-    // WorldTime::default() leaves scaled_dt = 0, which would
+    // WorldTime::default() leaves sim_dt = 0, which would
     // freeze every gameplay timer; bump it so the despawn
     // assertions actually advance the lifetime.
     let mut world_time = app.world_mut().resource_mut::<WorldTime>();
-    world_time.scaled_dt = sim_dt;
-    world_time.raw_dt = sim_dt;
+    world_time.set_sim_dt(sim_dt);
+    world_time.set_wall_dt(sim_dt);
     app
 }
 
@@ -2343,7 +2343,7 @@ fn a_parry_names_the_attacker_it_caught() {
     // The striker, so the assertion can name both sides rather than just count.
     let attacker = app
         .world_mut()
-        .query_filtered::<Entity, With<crate::components::ActorFaction>>()
+        .query_filtered::<Entity, With<ambition_characters::actor::ActorFaction>>()
         .iter(app.world())
         .find(|e| *e != victim)
         .expect("the fixture stands up an attacker beside the victim");

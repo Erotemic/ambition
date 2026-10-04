@@ -420,17 +420,11 @@ pub fn away_from_platform_axis(contact: LedgeContact) -> f32 {
 }
 
 fn ledge_surface_kind(kind: BlockKind) -> bool {
-    matches!(
-        kind,
-        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
-    )
+    crate::collision_semantics::is_support_surface(kind)
 }
 
 fn ledge_clearance_blocker_kind(kind: BlockKind) -> bool {
-    matches!(
-        kind,
-        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
-    )
+    crate::collision_semantics::is_support_surface(kind)
 }
 
 /// Probe for a grabbable ledge while the player is wall-clinging.

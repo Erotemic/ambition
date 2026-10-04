@@ -706,10 +706,10 @@ fn domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simula
         .graph();
     assert_eq!(
         apply_graph.systems.iter().count(),
-        5,
-        "the occurrence, entitlement and custody reducers and the two fresh-run \
-         baseline adoptions are this composition's installed domains, and all \
-         five belong to the commit's schedule"
+        6,
+        "the occurrence, entitlement and custody reducers, the two fresh-run \
+         baseline adoptions and the mint-grant forgetter are this composition's \
+         installed domains, and all six belong to the commit's schedule"
     );
 }
 
@@ -1167,6 +1167,95 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
              holding different operations agree about their snapshot"
         );
     }
+}
+
+/// The room check of a restore's verification, with two live rooms (Q151:
+/// Alice's restore rebuilds her room while Bob's room stays live). A restore
+/// of a room that stands is committed, whichever live room it is; a restore
+/// of a room no live room stands in fails as `Room`. With one live room the
+/// answer is the one it always was. Before, the check read the sole live room,
+/// so with two live rooms it checked nothing and every arm was committed.
+#[test]
+fn with_two_live_rooms_a_restore_is_verified_against_the_room_it_names() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        session_world_component, LifecycleCheckpointHorizonPlugin, LiveRoomInstance,
+        RoomInstanceRoot,
+    };
+
+    use crate::session::lifecycle_commit::{LifecycleIntent, RoomReconstitutionIntent};
+
+    // `None`: committed. With `bobs_room_live`, `bobs` is live beside the
+    // activation room `elsewhere`.
+    let restore = |target: &str, bobs_room_live: bool| -> Option<super::RestoreFailure> {
+        let mut app = App::new();
+        app.add_plugins(LifecycleCheckpointHorizonPlugin);
+        app.init_resource::<super::AcceptedCheckpointRestore>();
+        app.init_resource::<super::SessionCheckpointOutcomes>();
+        app.insert_resource(bevy::prelude::NextState::<
+            ambition_platformer2d_shared_tangle::schedule::GameMode,
+        >::default());
+        let room = |id: &str| {
+            ambition_platformer2d_world::rooms::RoomSpec::new(
+                id,
+                ambition_platformer2d_core::World::new(
+                    id,
+                    bevy::prelude::Vec2::new(800.0, 600.0),
+                    bevy::prelude::Vec2::new(16.0, 16.0),
+                    Vec::new(),
+                ),
+            )
+        };
+        ambition_platformer2d_world::rooms::insert_room_set(
+            app.world_mut(),
+            ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+                "elsewhere",
+                vec![room("elsewhere"), room("bobs"), room("here")],
+                Vec::new(),
+            ),
+        );
+        if bobs_room_live {
+            let bobs = session_world_component::<ambition_platformer2d_world::rooms::RoomSet>(app.world())
+                .and_then(|rooms| rooms.definition_by_id("bobs"))
+                .expect("the set has `bobs`");
+            app.world_mut()
+                .spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION.next(), bobs));
+        }
+        let key = super::SessionCheckpointOperations::default()
+            .admit(None)
+            .expect("a fresh counter mints a key");
+        app.world_mut()
+            .resource_mut::<super::AcceptedCheckpointRestore>()
+            .accept(super::AcceptedRestore {
+                key,
+                frame: 0,
+                intent: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
+                    target_room: target.into(),
+                }),
+                lifecycle: None,
+                item: None,
+                fresh: false,
+            });
+        assert!(
+            super::apply_committed_checkpoint_restore(app.world_mut(), key),
+            "the commit did not run the operation at all"
+        );
+        let outcome = app
+            .world()
+            .resource::<super::SessionCheckpointOutcomes>()
+            .outcome_for(key)
+            .expect("an answered operation has a terminal outcome");
+        outcome.failure()
+    };
+    assert_eq!(
+        [restore("elsewhere", false), restore("here", false)],
+        [None, Some(super::RestoreFailure::Room)],
+        "control, one live room: (its own room, a room that does not stand)"
+    );
+    assert_eq!(
+        [restore("elsewhere", true), restore("bobs", true), restore("here", true)],
+        [None, None, Some(super::RestoreFailure::Room)],
+        "two live rooms: (the activation room, Bob's room, a room that does not stand)"
+    );
 }
 
 /// ⛔⛔ **A RESTORE THAT DID NOT COME BACK RIGHT DOES NOT BECOME A WORLD THE

@@ -40,7 +40,8 @@ consumer states.
 - **story gate:** explicit authored sequencing when story state is the real fact.
 
 A family does not need a route predicate before it has an authoritative fact to
-read. Do not create placeholder facts merely to complete this list.
+read. Do not create placeholder facts merely to complete this list, and do not
+make demo content only so that each family has a customer (Q55, 2026-10-04).
 
 ## Body capability authority
 
@@ -94,10 +95,11 @@ Currently reads the body's current `BodyKinematics.size`, so crouching or anothe
 posture change can change the answer on the next simulation tick. That is a
 posture/state question, not a capability question.
 
-Whether the route-facing body family should contain both meanings is a product
-choice in [Q58](../awaiting-maintainer-decision.md#q58--does-the-body-gate-family-ask-what-a-body-can-do-or-what-it-is-doing).
-Do not silently change `body.fits` to standing size or to "can reach a fitting
-stance" before that decision.
+The Q58 ruling (2026-10-03) decides that the body family reads capabilities and
+properties, not the current action. So `body.fits` as built answers the wrong
+question: a crouch is an action. Before an authored world uses it, change it to
+ask whether a stance the body can take fits, and give a gate that really means
+"is crouching now" the distinct action-predicate mechanism.
 
 ## Gate subject: per actor (Q54)
 
@@ -113,8 +115,9 @@ a `GatePass` for each body that satisfies it. Body steps read
 `ComposedRooms::solids_for(collision, room, body)`. A projectile, a dropped item
 and any reader that names no body meet the wall as solid. A wall gated on a
 population fact (`world.flag_set`, `inventory.holds`) has one answer for every
-body. Open work (brain path decisions read the shared walls) is the queue row
-`GATE-PER-ACTOR`.
+body. A brain asks its movement and floor queries of the same per-body walls as
+its body (queue `GATE-PER-ACTOR`, done 2026-10-03). Its line of fire and its
+awareness stay on the shared walls.
 
 ## World-mechanism facts
 
@@ -175,11 +178,14 @@ published fact can serve them all.
 
 ## Open work
 
-1. **Resolve Q58** before authoring `body.fits` or body-state gates broadly.
-2. Brain path decisions read the per-body walls (queue `GATE-PER-ACTOR`).
-3. Add world-mechanism, social/knowledge or soft-pressure conditions only after
+1. Body gates read capabilities and properties only (Q58, 2026-10-03). Change
+   `body.fits` from the current size to "a stance this body can take fits"
+   before an authored world uses it. A predicate over the current action
+   (crouching, dashing, attacking) is a different mechanism; design it when a
+   gate needs one. Do not add a generic query over arbitrary actor state.
+2. Add world-mechanism, social/knowledge or soft-pressure conditions only after
    the authoritative fact they read exists.
-4. Add compound route expressions only when a concrete authored gate cannot be
+3. Add compound route expressions only when a concrete authored gate cannot be
    represented by one published fact.
 
 ## Acceptance

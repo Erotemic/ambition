@@ -200,7 +200,7 @@ pub fn step_item_motion(
     >,
     mut items: Query<(Entity, &mut WorldItem, &mut ItemMotion)>,
 ) {
-    let dt = time.scaled_dt;
+    let dt = time.sim_dt();
     if dt <= 0.0 {
         return;
     }

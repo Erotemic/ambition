@@ -226,6 +226,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter/src/switches.rs",
         "crates/ambition_encounter_features/src/systems.rs",
+        "crates/ambition_game_shell/src/session.rs",
         "crates/ambition_menu/src/map/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
         "crates/ambition_persistence/src/save.rs",
@@ -319,6 +320,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
         "game/ambition_app/src/app/world_flow/room_transition_presentation.rs",
     ),
+    "SimTick": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_time/src/lib.rs",
+    ),
     "UserSettings": (
         "crates/ambition_game_shell/src/pause_menu.rs",
         "crates/ambition_game_shell/src/plugin.rs",
@@ -329,6 +334,14 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/menu/grid_backend.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
         "game/ambition_app_tools/src/bin/capture_scene.rs",
+    ),
+    "LastPersistedSave": (
+        "crates/ambition_game_shell/src/session.rs",
+        "crates/ambition_persistence/src/save.rs",
+    ),
+    "SaveFileWritable": (
+        "crates/ambition_game_shell/src/session.rs",
+        "crates/ambition_persistence/src/save.rs",
     ),
     "PendingLifecycleCommit": (
         "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
@@ -341,6 +354,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
     ),
     "QuestRegistry": (
+        "crates/ambition_boss_encounter/src/retraction.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter_features/src/systems.rs",
         "crates/ambition_persistence/src/quest/registry.rs",
@@ -411,13 +425,24 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
-    "BreakableRespawnSchedule": (
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/breakable_respawns.rs",
+    "WorldTimeSchedule": (
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/world_time_schedule.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "ConsumedSinceCheckpoint": (
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "RewardGrantsSinceCheckpoint": (
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "AuthoredOccurrences": (
         "crates/ambition_held_items/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/body_whereabouts.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
@@ -649,8 +674,25 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/player_tick.rs",
     ),
     "ClockState": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_actor_monolith/src/time/time_control/mod.rs",
         "crates/ambition_time/src/time_control/mod.rs",
+    ),
+    "RequestedClockScale": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_time/src/time_control/mod.rs",
+    ),
+    "WorldTime": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_time/src/lib.rs",
+    ),
+    "GatePortalPhases": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
+    ),
+    "CutRopeHeavyObjectCycle": (
+        "game/ambition_content/src/bosses/cut_rope/arena.rs",
+        "game/ambition_content/src/bosses/cut_rope/mod.rs",
     ),
     "ContentEpochSequence": (
         "crates/ambition_platformer2d_provider/src/lifecycle.rs",
@@ -695,6 +737,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "GameplayElapsed": (
         "crates/ambition_platformer2d_actor_monolith/src/features/mod.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
+    "ImpactHitstop": (
+        "crates/ambition_combat/src/impact_hitstop/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "InventoryUiState": (
@@ -748,6 +794,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "OwnedItemsBaseline": (
         "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "PortalCameraContinuitySelection": (
         "game/ambition_app/src/dev/portal_inspector.rs",
@@ -788,6 +835,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "RoomContentStagingRegistry": (
         "crates/ambition_sim_harness/src/runtime.rs",
         "game/ambition_content/src/plugin.rs",
+    ),
+    "SaveOwner": (
+        "crates/ambition_game_shell/src/session.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
     ),
     "SaveRestored": (
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
@@ -970,6 +1021,15 @@ ADJUDICATED: dict[str, str] = {
         "unconditionally — deliberately not edge-triggered, per its own doc — "
         "which a `.min()` fold downstream makes order-free. Measured by "
         "CalculexAmbition, 2026-09-18."
+    ),
+    "SimTick": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, the shape of "
+        "`GameplayElapsed`. `advance_sim_tick` (`ambition_time/src/lib.rs`) is the only system "
+        "that advances it; the other file is `SESSION_SCOPE_RESET`, where "
+        "`SessionScopedResources::reset` sets it to 0 at the session edge. That reset "
+        "is the Q128 decision (2026-10-03): the tick is session-relative, so two "
+        "hosts with different histories agree on it. ⇒ Nothing here is two owners "
+        "of one fact (read 2026-10-03)"
     ),
     "WorldSourceHotReload": (
         "A SINGLE-WRITER PATH FIELD AND A FREE-TEXT STATUS LINE NOTHING "
@@ -1759,7 +1819,22 @@ ADJUDICATED: dict[str, str] = {
         "read-mostly map rather than an append-only channel, so encapsulating it "
         "buys much less and costs accessors on every reader. ⇒ Recorded rather "
         "than done; the queue was the half where a second writer could reorder or "
-        "drop somebody else's event."
+        "drop somebody else's event.\n"
+        "    ⛤ A SECOND WRITER OF PROGRESSION, AND IT CAN ONLY UNDO THE DRAIN — "
+        "2026-10-03. `retract_boss_defeats_on_replay` (`ambition_boss_encounter/"
+        "src/retraction.rs`) calls `retract_caused_by(placement)`, the one road "
+        "back. It drops that placement's undrained events and puts each quest step "
+        "the drain RECORDED for that placement's latest event back to the "
+        "recorded `before`, and only while the quest stands at or past the "
+        "recorded `after` (its steps are ordered, so a later step was reachable "
+        "only through that one). So it writes no value the drain did not write "
+        "first. Fields stay private: "
+        "`caused_advances` is written by the drain and taken by this method only. "
+        "Poison-verified: pushing the boss event without a cause, or dropping the "
+        "guard on `after`, each reddens its own witness "
+        "(`boss_replay_retraction.rs`, `registry.rs` tests). The content payout "
+        "(`grant_quest_completion_rewards`) follows the quest back, through "
+        "`OwnedItems::take`."
     ),
     "OwnedItems": (
         "ROUTED — TEN WRITER FILES COLLAPSE TO A HANDFUL OF IMPLEMENTATIONS, AND "
@@ -1789,8 +1864,8 @@ ADJUDICATED: dict[str, str] = {
         "bag (`Res<OwnedItems>`) and ask for a consumable through an "
         "`ItemUseRequested` host intent; `apply_item_uses` spends it inside the "
         "timeline.\n"
-        "    ⚠ AND THE LIVE BAG IS NOT PEER-COMPARED, which is a separate open "
-        "thing filed under Q129: `OwnedItems` is `rollback_resource_clone` — "
+        "    ⚠ AND THE LIVE BAG IS NOT PEER-COMPARED, which the Q129 ruling "
+        "(2026-10-03) now owns: `OwnedItems` is `rollback_resource_clone` — "
         "restored on a rewind, `feeds_peer_checksum() == false` — while "
         "`OwnedItemsBaseline(OwnedItems)` is `rollback_resource_clone_checksum` "
         "projecting `to_persisted()` rows. So a resimulation that diverges in the "
@@ -1818,21 +1893,59 @@ ADJUDICATED: dict[str, str] = {
         "and the type is rollback state with a value checksum "
         "(`boss.defeats_since_checkpoint`)."
     ),
-    "BreakableRespawnSchedule": (
-        "CORRECT — ONE RECORDER, THREE FORGETTERS, ONE TYPE (OW5, 2026-10-02). The "
-        "map is private (`features/ecs/breakable_respawns.rs`). "
-        "`mirror_breakable_respawns` is the only system that inserts a due time or "
-        "removes one record, from the live `RespawnTimer`. "
-        "`forget_breakable_respawns_on_replay` calls `forget_room` on an ADMITTED "
-        "replay, `forget_breakable_respawns_on_restore` calls `forget_all` in the "
-        "checkpoint apply, and `SessionScopedResources::reset` (`teardown.rs`) "
-        "calls `forget_all` at the session edge. Every writer but the teardown "
-        "runs in the simulation schedule or the checkpoint apply, and the type is "
-        "rollback state with a value checksum "
-        "(`feature.breakable_respawn_schedule`)."
+    "RewardGrantsSinceCheckpoint": (
+        "CORRECT — TWO RECORDERS OF DISJOINT SOURCES, ONE TAKER, THREE FORGETTERS, "
+        "ONE TYPE (BOSS-REPLAY-RETRACTION, 2026-10-02). The list is private "
+        "(`items/pickup/minted_horizon.rs`) and append-only between forgets. "
+        "`record` is called by `collect_ecs_pickups` (`features/ecs/pickups.rs`) "
+        "for a collected mint and by `open_ecs_chests` (`features/ecs/chests.rs`) "
+        "for an opened boss reward chest; each grant names its own source. "
+        "`take_for` is called only by `retract_mints_of_retracted_boss_defeats`, "
+        "on an announced retraction. `forget_all` is called by the checkpoint "
+        "commit and the checkpoint/fresh-run reducer (both in `minted_horizon.rs`) "
+        "and by `SessionScopedResources::reset` (`teardown.rs`) at the session "
+        "edge. Every writer but the teardown runs in the simulation schedule or "
+        "the checkpoint apply, and the type is rollback state with a value "
+        "checksum (`resource.reward_grants_since_checkpoint`)."
+    ),
+    "WorldTimeSchedule": (
+        "CORRECT — ONE MIRROR PER CUSTOMER, THREE FORGETTERS, ONE TYPE, ONE FILE "
+        "(OW5 2026-10-02; Q152 2026-10-04). The map is private "
+        "(`features/ecs/world_time_schedule.rs`) and every write goes through "
+        "`record`, `forget`, `forget_room` or `forget_all`; `record` keeps an "
+        "existing due time. Each customer's live `RespawnTimer` is the authority "
+        "while its room is live: `mirror_breakable_respawns` (breakables) and "
+        "`regrow_pickups` (pickups) record a running timer's due time and forget "
+        "it when the occurrence is whole. The two customers' keys are disjoint "
+        "(authored ids are unique in a room). "
+        "`forget_scheduled_returns_on_replay` calls `forget_room` on an ADMITTED "
+        "replay. A checkpoint restore takes the dying participant out of each "
+        "record's owners at its admission (`disown_scheduled_returns_on_restore`, "
+        "`keep_only_owners`), and the checkpoint apply "
+        "(`forget_scheduled_returns_on_restore`) forgets the records of live rooms "
+        "and those with no owner left, or every record on a New Game (Q151). "
+        "`SessionScopedResources::reset` (`teardown.rs`) calls `forget_all` at the "
+        "session edge. Every writer but the teardown runs in the simulation "
+        "schedule or the checkpoint apply, and the type is rollback state with a "
+        "value checksum (`feature.world_time_schedule`)."
+    ),
+    "ConsumedSinceCheckpoint": (
+        "CORRECT — ONE RECORDER, ONE DISOWNER, TWO FORGETTERS, ONE TYPE, ONE FILE "
+        "(Q151, 2026-10-04). The map is private (`features/ecs/pickups.rs`). "
+        "`record` is called only by `record_consumed_pickups`, on the tick a "
+        "one-time pickup's `Consumed` row is new, with the participants in its "
+        "live room. `keep_only_owners` is called only by "
+        "`disown_consumed_pickups_on_restore`, on an ADMITTED checkpoint restore. "
+        "`forget_all` is called by `forget_consumed_pickups_at_checkpoint` on a "
+        "checkpoint commit and by `SessionScopedResources::reset` (`teardown.rs`) "
+        "at the session edge. The restore's acceptance "
+        "(`resume_at_checkpoint_on_reset`) only READS it (`owned_by`), to pin the "
+        "rows a spared participant owns. Every writer but the teardown runs in "
+        "the simulation schedule, and the type is rollback state with a value "
+        "checksum (`feature.consumed_since_checkpoint`)."
     ),
     "AuthoredOccurrences": (
-        "CORRECT — SIX WRITER FILES ONTO FIVE `&mut self` METHODS, AND THE ENTRY "
+        "CORRECT — SEVEN WRITER FILES ONTO SIX `&mut self` METHODS, AND THE ENTRY "
         "RULE IS ENFORCED INSIDE THE TYPE. `rows: BTreeMap<SimId, "
         "OccurrenceWhereabouts>` is PRIVATE "
         "(`shared_tangle/src/lifecycle/continuity.rs`) and there are exactly four "
@@ -1856,7 +1969,15 @@ ADJUDICATED: dict[str, str] = {
         "custody just ended, the item producer's road under the same entry rule, "
         "and adds no method. (The away population set of the same module, "
         "`AwayFromAuthoredRoom`, is not a writer: it is an input of the custody "
-        "projection, which stays the one caller of `republish_custody`.)\n"
+        "projection, which stays the one caller of `republish_custody`.) The "
+        "sixth METHOD and seventh FILE, added 2026-10-04 (Q154), is "
+        "`consume(ids)`, taken by `record_consumed_pickups` "
+        "(`actor_monolith/src/features/ecs/pickups.rs`) for an AUTHORED pickup "
+        "with `HazardRespawn::Never` that a body took. It is a deliberate second "
+        "entry, and only for an ENDED occurrence: it writes `Consumed` only where "
+        "the id has no row, so it can neither revive nor move a live occurrence, "
+        "and no method turns `Consumed` back into a live row. A consumed pickup "
+        "carries no `SpawnedThisAttempt`, because it is authored.\n"
         "    ⭐ THE UPDATER CANNOT BECOME AN ENTRY, AND THE TYPE IS WHAT STOPS IT. "
         "`republish_placements` inserts only where the existing row is "
         "`InCustody` or `Placed`, collects every other id into a `BTreeSet` and "
@@ -1865,9 +1986,11 @@ ADJUDICATED: dict[str, str] = {
         "to say what it means by them.\"* The producer agrees from its side: it "
         "skips anything the ledger does not already remember, because *\"an object "
         "cannot change rooms without being carried.\"* ⇒ Q141's claim that this "
-        "ledger has *\"exactly ONE entry road\"* HOLDS — CHECKED 2026-09-18 rather "
-        "than quoted, which is worth saying on a day two other completeness "
-        "claims in this tree turned out one true and one false.\n"
+        "ledger has *\"exactly ONE entry road\"* HOLDS FOR A LIVE OCCURRENCE — "
+        "CHECKED 2026-09-18 rather than quoted, which is worth saying on a day two "
+        "other completeness claims in this tree turned out one true and one "
+        "false. An ENDED occurrence enters through `consume` (above), which writes "
+        "only the terminal state.\n"
         "    ⛔⛤ AND THE REGISTRATION HISTORY IS THE OPPOSITE OF A FIX TO REACH "
         "FOR. This was `declare_rollback_derived_resource` — in no snapshot — "
         "while `adopt_rows` was already a non-rederived producer, which its own "
@@ -1978,20 +2101,25 @@ ADJUDICATED: dict[str, str] = {
     ),
     "OwnedItemsBaseline": (
         "CORRECT ON AUTHORITY, AND IT SURFACED A CHECKSUM ASYMMETRY THAT IS NOT "
-        "THIS GUARD'S TO RULE ON. Authority first: three writer functions, three "
-        "events — `capture_owned_items_baseline` on `CheckpointCommitted`, "
-        "`restore_inventory_from_save` (`items/persist.rs`) on the load road, and "
-        "`start_the_item_domain_fresh` on the New Game commit.\n"
-        "    ⚠ IT IS THE ONE CHECKPOINT BASELINE OF FOUR THAT IS **NOT** IN "
-        "`SessionScopedResources`, and that is consistent rather than an omission: "
-        "`OwnedItems` itself is not session-scoped either (measured — the bag does "
-        "not appear in `session/teardown.rs` at all), so the baseline travels with "
-        "the value it baselines. The three that ARE reset describe WORLD PLACEMENT, "
-        "and the teardown's own comment gives that reason: *\"a checkpoint baseline "
-        "from the previous session is a baseline for a world that no longer "
-        "exists\"*. ⛔ But that reason is written for *\"the same three facts\"* and "
-        "says nothing about the fourth, so the exclusion is currently a DEFAULT "
-        "rather than a decision.\n"
+        "THIS GUARD'S TO RULE ON. Authority first: three in-session writer "
+        "functions, three events — `capture_owned_items_baseline` on "
+        "`CheckpointCommitted`, `restore_inventory_from_save` (`items/persist.rs`) "
+        "on the load road, and `start_the_item_domain_fresh` on the New Game "
+        "commit — and the session boundary.\n"
+        "    ⭐ THE THIRD FILE IS `SESSION_SCOPE_RESET` (2026-10-04). Until then "
+        "this was the one checkpoint baseline of four that was NOT in "
+        "`SessionScopedResources`, with the reason that the bag is not "
+        "session-scoped either, so the baseline travels with the value it "
+        "baselines. MEASURED on the shell host, two hosts with EQUAL saves: at "
+        "tick 0 a session that followed another one held the old session's "
+        "baseline and a fresh host held zeros, in the peer census; they agreed "
+        "from tick 1, when the restore writes it. A fresh process has captured "
+        "no baseline, so the row differed with equal saves, and a zero baseline "
+        "beside a full bag is the state every first session has at tick 0. "
+        "`SessionScopedResources::reset` now sets it to the default at the "
+        "session edge. POISON-VERIFIED: with that line removed, "
+        "`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does` "
+        "fails on this row at tick 0.\n"
         "    ⛔⛤ **AND THE ASYMMETRY WORTH A RULING IS THE CHECKSUM ONE.** "
         "`OwnedItems` is `rollback_resource_clone` — restored, NOT in the peer "
         "checksum, and unhashed by KIND rather than by any stated decision (its "
@@ -2003,8 +2131,10 @@ ADJUDICATED: dict[str, str] = {
         "value across that line. Nothing can observe it today because only "
         "`SyncTestSession` is ever constructed — one peer replaying itself, whose "
         "two save files are the same file. Routed to "
-        "`docs/planning/awaiting-maintainer-decision.md`'s Q129, which asks "
-        "exactly whether a save file belongs in what two peers agree on."
+        "Q129, decided 2026-10-03 (`docs/planning/maintainer-decisions.md`): "
+        "shared durable state is peer state, compared by its canonical semantic "
+        "form, so making the live bag and its baseline agree is "
+        "`DURABLE-HORIZON-CHECKSUM`'s engineering."
     ),
     "ClassBRemapLog": (
         "CORRECT — AND IT IS THE CASE WHERE MANY WRITERS ARE THE DESIGN, ENFORCED BY "
@@ -2070,6 +2200,16 @@ ADJUDICATED: dict[str, str] = {
         "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
         "one function, with comments and test modules stripped. ⇒ Nothing here is "
         "two owners of one fact."
+    ),
+    "ImpactHitstop": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, the shape of "
+        "`GameplayElapsed`. The impact freeze is armed only by "
+        "`request_impact_hitstop_on_resolved_hits` (`impact_hitstop/mod.rs`, its one "
+        "`ResMut` site); the other file is `SESSION_SCOPE_RESET`, where "
+        "`SessionScopedResources::reset` clears it at the session edge. It holds an "
+        "absolute expiry on `SimTick`, which the same reset sets to 0 (Q128), so a "
+        "freeze kept across the edge would hold the new session until the old "
+        "tick came round. ⇒ Nothing here is two owners of one fact (read 2026-10-03)"
     ),
     "LastCutsceneRoom": (
         "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
@@ -2192,7 +2332,12 @@ ADJUDICATED: dict[str, str] = {
         "is the shape of the question, not the answer. ⛔ Do NOT read this as "
         "settled because the checksum is quiet: 19 `ResMut<AmbitionGameSave>` "
         "parameters in 17 production files is the widest shared write in the "
-        "tree."
+        "tree.\n"
+        "    2026-10-03: `ambition_game_shell/src/session.rs` ARRIVED. "
+        "`hand_the_save_to_the_activating_experience` swaps the whole value at "
+        "`SessionScopeSet::Activate`, before any session of the new experience "
+        "exists, so it shares no frame with the sim writers (Q129 road 4 of "
+        "ID-PEER)."
     ),
     "ActiveConversation": (
         "CORRECT — ONE OPENER AND FOUR END CONDITIONS, each on a different event "
@@ -2271,7 +2416,103 @@ ADJUDICATED: dict[str, str] = {
         "dropping the target write fails "
         "`suspended_frame_zeros_world_time_scaled_dt` "
         "(`actor_monolith/src/time/time_control/tests.rs`), which is the arm that "
-        "makes this a verdict rather than an opinion."
+        "makes this a verdict rather than an opinion. The third file is "
+        "`SESSION_SCOPE_RESET` (2026-10-04): `SessionScopedResources::reset` sets "
+        "the pace to neutral at the session edge, the shape of `SimTick`. "
+        "POISON-VERIFIED: with the reset off, "
+        "`a_new_session_starts_at_the_neutral_pace_with_an_empty_clock_bus` "
+        "reads `(0.0, 0.42)` at the activation of a session that replaced one in "
+        "a hitstop."
+    ),
+    "GatePortalPhases": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, the shape of "
+        "`SimTick`. `tick_portal_phases_system` (`world/rooms/systems.rs`) "
+        "integrates each portal's phase from its switch in the save, through "
+        "`GatePortalPhases::phase_mut`, the one write seam. The other file is "
+        "`SESSION_SCOPE_RESET` (2026-10-04): `SessionScopedResources::reset` "
+        "empties the map at the session edge. ⛔ THIS ONE WAS A MECHANIC, NOT "
+        "ONLY A CHECKSUM: the phase decides if a body can go through the gate. "
+        "MEASURED on the shell host, two hosts with EQUAL saves and the switch "
+        "on: the portal of a session that followed another one was `On` from "
+        "tick 0, and the portal of a fresh host was `Opening` until tick 40. "
+        "POISON-VERIFIED: with the reset removed, "
+        "`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does` "
+        "fails on this row on 40 frames, ticks 0 to 39."
+    ),
+    "CutRopeHeavyObjectCycle": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, the shape of "
+        "`SimTick`. `reset_cut_rope_boss_arena_on_room_reset` (`cut_rope/arena.rs`) "
+        "advances the cycle when a room replay is admitted. The other file "
+        "(`cut_rope/mod.rs`) is the session edge (2026-10-04): "
+        "`restart_heavy_object_cycle_on_activation` sets it to the default in "
+        "`SessionScopeSet::Activate`. The content crate owns the reset, as "
+        "`install_attempt_scoped` owns the reset of a per-attempt ledger, so it "
+        "is not a member of `SessionScopedResources`. The value is in the peer "
+        "checksum and in no save. MEASURED on the shell host, two hosts with "
+        "EQUAL saves: after one replay, the session that followed held index 1 "
+        "on each of its first 31 ticks and a fresh host held index 0. "
+        "POISON-VERIFIED: with the reset not registered, "
+        "`shell_host_lifecycle::what_a_session_spawned_and_cycled_does_not_reach_the_next_session` "
+        "fails on this row on 31 frames, ticks 0 to 30."
+    ),
+    "WorldTime": (
+        "CORRECT — ONE IN-SESSION OWNER FILE PLUS THE SESSION BOUNDARY, the shape "
+        "of `SimTick`. `refresh_world_time` (`ambition_time/src/lib.rs`) writes "
+        "the step of each tick. The other file is `SESSION_SCOPE_RESET` "
+        "(2026-10-04): `SessionScopedResources::reset` sets it to zero at the "
+        "session edge. The value is peer-compared and the first tick writes it, "
+        "so before that tick a session that followed another one held the old "
+        "session's last step (measured: 0.0167, or 0.0097 after a hitstop) and a "
+        "fresh host held 0.0. POISON-VERIFIED: with the reset removed, "
+        "`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does` "
+        "fails on this row at tick 0."
+    ),
+    "RequestedClockScale": (
+        "CORRECT — ONE IN-SESSION OWNER FILE PLUS THE SESSION BOUNDARY, the shape "
+        "of `SimTick`. The three in-session writers are in "
+        "`ambition_time/src/time_control/mod.rs` and are the policies the "
+        "`ClockState` verdict names (the request reduction, the reset request, "
+        "the suspended frame). The other file is `SESSION_SCOPE_RESET`: "
+        "`SessionScopedResources::reset` sets it to the neutral pace at the "
+        "session edge, so two hosts with different histories agree on it. "
+        "POISON-VERIFIED 2026-10-04 by the arm the `ClockState` verdict names."
+    ),
+    "LastPersistedSave": (
+        "CORRECT — TWO WRITERS AT TWO MOMENTS OF ONE FILE STATE. The autosave and "
+        "the startup load (`save.rs`) record what the owner's file holds. "
+        "`hand_the_save_to_the_activating_experience` (`ambition_game_shell/src/"
+        "session.rs`) parks it with its save and installs the next owner's at "
+        "session activation, so the shadow always describes the live save's own "
+        "file. POISON-VERIFIED 2026-10-03: the handover skipped reddens both "
+        "two-host arms in `shell_host_lifecycle.rs` on `AmbitionGameSave`."
+    ),
+    "SaveFileWritable": (
+        "CORRECT — THE SAME PAIR AS `LastPersistedSave`, for the same reason: "
+        "the startup load sets it from the file it read, and the activation "
+        "handover sets it from the next owner's file (or keeps the value parked "
+        "with that owner's save). Each value describes the live save's own file."
+    ),
+    "SaveOwner": (
+        "CORRECT — ONE WRITER OF WHO OWNS THE LIVE SAVE, PLUS A PREPARATION THAT "
+        "CANNOT CHANGE IT. `hand_the_save_to_the_activating_experience` "
+        "(`ambition_game_shell/src/session.rs`) is the only system that changes "
+        "the owner or the live save. The other file (2026-10-04) is "
+        "`CandidateSave::horizon_of` (`session/durable_horizon.rs`): a session is "
+        "built hidden before its activation, while the live save belongs to the "
+        "session that plays, so the builder asks `prepare_the_save_of` for the "
+        "save of its own experience. That function takes `&AmbitionGameSave`, and "
+        "its one write puts aside the file of an experience that has no save put "
+        "aside, so the hand-over then gives the value that the session was built "
+        "from. MEASURED on the shell host: an Ambition session that replaced a "
+        "Sanic session was built from Sanic's save, and for its first 3 frames "
+        "it had an item that its own save says is gone and a peaceful person "
+        "that its own save says was provoked. POISON-VERIFIED: with the prepared "
+        "save taken out and not put aside, "
+        "`shell_host_lifecycle::a_session_prepared_while_another_experience_plays_is_built_from_its_own_save` "
+        "fails on 31 frames: the session is given a new save and the row is "
+        "lost. ⛔ THE RESIDUAL: for the experience that has the live save, the "
+        "prepared value is the live save at the preparation, which the session "
+        "that plays can change before the adoption."
     ),
     "PendingLifecycleCommit": (
         "CORRECT — ONE EARLIEST-STICKY SLOT WITH A STATED PRIORITY LADDER. Five "
@@ -3540,7 +3781,8 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "fights at once is not a state worth arbitrating\"*) and "
         "`release_priority` (which no-ops unless the caller still owns it — *\"a "
         "source with nothing to say says nothing, rather than silencing whoever "
-        "does\"*). `set_base_track` carries the base tier. "
+        "does\"*). `set_base_tracks` carries the base tier. Since 2026-10-02 "
+        "both tiers are kept per live room, and each writer names its room. "
         "Poison-verified: assigning `priority_track` from the base-tier writer "
         "fails with `error[E0616]`. The module doc had already recorded shipping "
         "the un-owned clear once; the discipline was universal and nothing kept "

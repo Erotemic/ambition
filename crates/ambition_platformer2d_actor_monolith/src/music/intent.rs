@@ -30,22 +30,66 @@ use ambition_audio::music::{AdaptiveMusicCatalogRegistry, EncounterMusicBinding,
 /// (large-brute) state. Content tuning — owned here, not by the director.
 pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 
+/// The live room the music plays for (Q150, Q72). There is one audio output.
+/// Of the rooms the participants stand in, it is the one whose music has the
+/// highest authored priority ([`EncounterMusicRequest::priority_of`]: a boss
+/// over an encounter over the room's own music). The primary seat's room wins
+/// a tie, and any other tie goes to the lowest live room, so the choice does
+/// not depend on query order.
+pub(super) fn the_room_the_music_plays_for(
+    primary: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    held: impl IntoIterator<Item = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    priority_of: impl Fn(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> u8,
+) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+    let mut rooms: Vec<_> = held.into_iter().map(Some).collect();
+    // No primary room is the world of a composition with no live room (a
+    // fixture), and it is heard only when nobody stands in a live room.
+    if primary.is_some() || rooms.is_empty() {
+        rooms.push(primary);
+    }
+    rooms.sort();
+    rooms.dedup();
+    rooms
+        .into_iter()
+        .max_by_key(|room| (priority_of(*room), *room == primary, std::cmp::Reverse(*room)))
+        .flatten()
+}
+
+/// The rooms the participants' bodies stand in, for
+/// [`the_room_the_music_plays_for`].
+fn participant_rooms(
+    rooms: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    participants: &Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
+) -> Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+    participants.iter().filter_map(|body| rooms.live().of(body)).collect()
+}
+
 /// Clear room-scoped narrative music when the room the music plays for changes
 /// to another authored room.
 ///
-/// The room is the primary seat's (`PrimaryLiveRoom`, as for
-/// [`compute_music_intent`]). This read was the sole live room, so while two
+/// The room is [`the_room_the_music_plays_for`], as for
+/// [`compute_music_intent`]. This read was the sole live room, so while two
 /// rooms were live it did not run, and a conversation's track stayed after the
-/// primary seat left its room. Another player's crossing does not change the
-/// primary seat's room, so it does not clear the track.
+/// primary seat left its room. Another player's crossing into a room with no
+/// higher-priority music does not change that room, so it does not clear the
+/// track.
 pub fn release_narrative_music_on_room_change(
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    heard: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+    primary: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+    participants: Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
+    encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        EncounterMusicRequest,
+    >,
     mut last: Local<Option<ambition_platformer2d_world::rooms::LiveRoomDefinition>>,
     // Conversation support is optional in hosts that still install the audio plugin.
     narrative_music: Option<ResMut<ambition_conversation::NarrativeMusicRequest>>,
 ) {
-    let Some(definition) = rooms.definition_named(heard.get()) else {
+    let heard = the_room_the_music_plays_for(
+        primary.get(),
+        participant_rooms(&rooms, &participants),
+        |room| encounter_music.priority_of(room),
+    );
+    let Some(definition) = rooms.definition_named(heard) else {
         return;
     };
     let changed = last.replace(definition) != Some(definition);
@@ -69,14 +113,13 @@ pub fn compute_music_intent(
     encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         EncounterMusicRequest,
     >,
-    // ⭐ THE MUSIC PLAYS FOR THE PRIMARY SEAT'S ROOM (Q150; the ruling's
-    // authored-priority choice across participants is not built yet). There is one
-    // audio output, so with two live rooms the session hears the room of the
-    // primary seat's body: its room music and its fights. This read was the
-    // sole live room, so while two rooms were live this system did not run
-    // and the music froze.
+    // ⭐ ONE AUDIO OUTPUT, ONE ROOM HEARD: the participants' room whose music
+    // has the highest authored priority, the primary seat's on a tie (Q150,
+    // Q72; `the_room_the_music_plays_for`). This read was the sole live room,
+    // so while two rooms were live this system did not run and the music froze.
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    heard: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+    primary: ambition_platformer2d_shared_tangle::lifecycle::PrimaryLiveRoom,
+    participants: Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
     narrative_music: Option<Res<ambition_conversation::NarrativeMusicRequest>>,
     radio: Option<Res<RadioStationState>>,
     audio_selection: Res<ActiveAudioSelection>,
@@ -91,7 +134,11 @@ pub fn compute_music_intent(
     // Only the occurrences of the room the music plays for: an encounter is
     // an occurrence in one live room, and the authored id names it only
     // inside that room. Another room's fight does not drive the cue.
-    let heard = heard.get();
+    let heard = the_room_the_music_plays_for(
+        primary.get(),
+        participant_rooms(&rooms, &participants),
+        |room| encounter_music.priority_of(room),
+    );
     let states = heard_encounter_states(
         heard,
         encounters.iter().map(|(occurrence, enc, lifecycle, waves)| {

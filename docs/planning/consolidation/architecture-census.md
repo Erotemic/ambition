@@ -407,7 +407,7 @@ fan-out improves. Small crates are not merge candidates because they are small.
 | BEVY-MECHANICAL-EDIT | Mechanical edit admission protocol | JUSTIFIED_AMBITION_SEMANTICS | Change detection can see an editor write but cannot decide whether it may change mechanics under rollback. For player stats it cannot even detect the edit: the editor resource has two writers, so the proposer compares against `PlayerStatsSyncSnapshot`. Admission (`decide_mechanical_edit_admission`) is shared and domain-blind. | Keep direct Bevy mechanisms visible. Retain custom code only for the stated Ambition invariant or a small ergonomic adapter. | SOURCE_CONFIRMED |
 | BEVY-FACADE-REEXPORTS | Facade and convenience mirrors | REVIEWED_2026_09_18 | The facade's renames are crate-alias prefix strips that map back to the owner by rule. The two item renames are written at the owner as well as at the facade. Two drivers that arrive from two crates are a feature selection, not a second owner. | Keep direct Bevy mechanisms visible. Retain custom code only for the stated Ambition invariant or a small ergonomic adapter. | SOURCE_CONFIRMED |
 
-<!-- alias-census: parameter_form=32 files=20 -->
+<!-- alias-census: parameter_form=33 files=20 -->
 The line above is `BEVY-SESSION-ROOT`'s machine-readable count.
 `scripts/check_alias_census_agrees_with_source.py` compares it with a live
 measurement. The per-spelling split is in the plan, under C03.

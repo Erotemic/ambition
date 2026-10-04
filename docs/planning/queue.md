@@ -568,8 +568,9 @@ The death road is the checkpoint restore, which puts the bag back everywhere,
 and its admitted replay was keyed by the death room only. So a death in another
 room took the boss's ability out of the bag but left the boss dead and its quest
 complete. `RoomReplayAdmitted::to_checkpoint` marks the checkpoint road, and the
-retraction then takes every defeat since the checkpoint
-(`BossDefeatsSinceCheckpoint::take_all`). The retraction runs at the
+retraction then takes every defeat since the checkpoint, except in the live
+rooms another participant holds (`BossDefeatsSinceCheckpoint::take_for_restore`,
+Q151; row DEATH-IS-ROOM-LOCAL). The retraction runs at the
 restore's admission, before the restore forgets the reward grants, so it takes
 the bounty out of the wallet too, and no defeat from before a restore is left
 for a later replay to retract.
@@ -977,9 +978,20 @@ authored priority wins; the primary participant breaks ties; the choice is
 deterministic. `EncounterEffect::SetMusic` may be removed; an encounter's
 ability to influence music stays.
 
-**Current state:** an encounter claims one of two tiers (`priority_track`,
-`base_track`) of its live room, and the intent reads only the primary seat's
-room. No shipped encounter authors `SetMusic`.
+**Current state:** the arbitration across participants is built. An
+encounter claims one of two tiers (`priority_track`, `base_track`) of its
+live room, `EncounterMusicRequest::priority_of` ranks a room 2/1/0
+(boss/encounter/ambient), and `the_room_the_music_plays_for` picks the
+participants' room with the highest rank, the primary seat's on a tie, then
+the lowest room. Witnesses:
+`a_participants_boss_outranks_the_primary_seats_room_music` and
+`the_heard_room_is_the_highest_priority_then_the_primary_then_the_lowest`.
+No shipped encounter authors `SetMusic`.
+
+**What is left:** the priority is fixed by the tier, not authored per
+candidate; make it an authored property of the candidate (scope, track,
+priority) when content needs a value between the tiers. Remove or give a
+customer to `EncounterEffect::SetMusic`.
 
 **Acceptance:** Bob's boss candidate in his room outranks Alice's ambient room
 music; two candidates of equal priority resolve to the primary participant's;

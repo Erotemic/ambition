@@ -195,12 +195,10 @@ impl LiveRooms<'_, '_> {
 }
 
 /// The live room of the primary seat: the room of the primary body, and with
-/// no primary body, the sole live room. One audio output and one developer
-/// control serve a session that has two live rooms, and they serve this room
-/// (Q150): the music plays for it, and the developer's gravity cycle turns
-/// it. The Q150 ruling (2026-10-03) makes the music an authored-priority
-/// choice across local participants, with this room as the tie-break; not
-/// built yet.
+/// no primary body, the sole live room. One developer control serves a
+/// session that has two live rooms, and it serves this room: the developer's
+/// gravity cycle turns it. The music chooses among the participants' rooms
+/// by authored priority and uses this room to break a tie (Q150).
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct PrimaryLiveRoom<'w, 's> {
     live: LiveRooms<'w, 's>,

@@ -176,10 +176,10 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=22/12 SessionWorldMut=10/9 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=19/15 SoleLiveRoomSpec=11/11 -->
+<!-- alias-split: SessionWorldRef=23/12 SessionWorldMut=10/9 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=19/15 SoleLiveRoomSpec=11/11 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 22 / 12 |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 23 / 12 |
 | `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 10 / 9 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
 | `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |

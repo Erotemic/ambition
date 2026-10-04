@@ -9,8 +9,11 @@
 //! regeneration system refills the body's banked Mana, so charge attacks and
 //! the fireball draw it down and it recovers. Money comes from
 //! `PickupKind::Currency` pickups credited to the body wallet. This module
-//! only reads the sim-built [`ambition_sim_view::PlayerHudFacts`] snapshot;
+//! only reads the sim-built [`ambition_sim_view::ViewHudFacts`] of each view;
 //! it never queries live body clusters.
+//!
+//! Each local view has its own HUD (Q150), placed in that view's part of the
+//! gameplay rectangle and showing the body that view follows.
 
 /// The declared-HUD renderer: whatever the active route's game declared.
 pub mod declared;
@@ -24,7 +27,7 @@ use ambition_platformer2d_shared_tangle::{
     lifecycle::{ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt},
     markers::{PlayerEntity, PrimaryPlayer},
 };
-use ambition_sim_view::PlayerHudFacts;
+use ambition_sim_view::{LocalView, LocalViewId, ViewHudFacts, ViewPlacement};
 
 /// Bar width / height in logical px.
 const BAR_W: f32 = 168.0;
@@ -50,6 +53,14 @@ const HUD_MIN: Vec2 = Vec2::new(BAR_W + HUD_MARGIN * 2.0, 96.0);
 #[derive(Component)]
 pub struct PlayerHudRoot;
 
+/// The local view a HUD node shows (Q150). The root and each node that
+/// [`update_player_hud`] writes carry it.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HudOfView(pub Entity);
+
+/// The vertical distance between two HUDs whose views start at one point.
+const HUD_STACK: f32 = HUD_MIN.y;
+
 /// The colored fill inside the health bar (width = HP fraction).
 #[derive(Component)]
 pub struct HealthFill;
@@ -66,16 +77,32 @@ pub struct ManaLabel;
 #[derive(Component)]
 pub struct MoneyLabel;
 
-/// Spawn the HUD overlay once, the first frame a primary player exists.
+/// Spawn one HUD for each local view that has none, from the first frame a
+/// primary player exists, and remove the HUD of a view that closed.
 pub fn spawn_player_hud(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
     players: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    existing: Query<(), With<PlayerHudRoot>>,
+    views: Query<(Entity, &LocalViewId), With<LocalView>>,
+    existing: Query<(Entity, &HudOfView), With<PlayerHudRoot>>,
 ) {
-    if !existing.is_empty() || players.is_empty() {
+    for (root, of) in &existing {
+        if !views.contains(of.0) {
+            commands.entity(root).try_despawn();
+        }
+    }
+    if players.is_empty() {
         return;
     }
+    let mut unserved: Vec<(LocalViewId, Entity)> = views
+        .iter()
+        .filter(|(view, _)| !existing.iter().any(|(_, of)| of.0 == *view))
+        .map(|(view, id)| (*id, view))
+        .collect();
+    if unserved.is_empty() {
+        return;
+    }
+    unserved.sort_unstable();
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -83,6 +110,13 @@ pub fn spawn_player_hud(
         // not create gameplay UI without a live session owner.
         return;
     };
+    for (_, view) in unserved {
+        spawn_hud_of_view(&mut commands, session_scope, view);
+    }
+}
+
+fn spawn_hud_of_view(commands: &mut Commands, session_scope: SessionSpawnScope, view: Entity) {
+    let of = HudOfView(view);
     let track = Color::srgba(0.05, 0.06, 0.09, 0.85);
     let bar_node = || Node {
         width: Val::Px(BAR_W),
@@ -106,6 +140,7 @@ pub fn spawn_player_hud(
             session_scope,
             (
                 PlayerHudRoot,
+                of,
                 Node {
                     position_type: PositionType::Absolute,
                     // Start at the overlay anchor; `place_player_hud` moves it into
@@ -129,11 +164,13 @@ pub fn spawn_player_hud(
                 .with_children(|bar| {
                     bar.spawn((
                         HealthFill,
+                        of,
                         fill_node.clone(),
                         BackgroundColor(Color::srgb(0.90, 0.26, 0.32)),
                     ));
                     bar.spawn((
                         HealthLabel,
+                        of,
                         overlay_label(),
                         Text::new("HP"),
                         TextFont {
@@ -148,11 +185,13 @@ pub fn spawn_player_hud(
                 .with_children(|bar| {
                     bar.spawn((
                         ManaFill,
+                        of,
                         fill_node.clone(),
                         BackgroundColor(Color::srgb(0.30, 0.58, 1.0)),
                     ));
                     bar.spawn((
                         ManaLabel,
+                        of,
                         overlay_label(),
                         Text::new("MP"),
                         TextFont {
@@ -165,6 +204,7 @@ pub fn spawn_player_hud(
             // Money readout.
             root.spawn((
                 MoneyLabel,
+                of,
                 Text::new("$0"),
                 TextFont {
                     font_size: FontSize::Px(15.0),
@@ -182,9 +222,16 @@ pub fn spawn_player_hud(
 ///
 /// [`ResolvedControlRegions::hud`]:
 ///     ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedControlRegions::hud
+///
+/// Each HUD is placed in the part of the gameplay rectangle its view takes.
+/// The HUD of a view that starts where the gameplay rectangle starts uses the
+/// surround or the overlay anchor, as above. Another view's HUD overlays at
+/// the overlay anchor inside its view. HUDs of views that start at one point
+/// are stacked in view order, so no HUD covers another.
 pub fn place_player_hud(
     presentation: Res<ResolvedGameplayPresentation>,
-    mut roots: Query<&mut Node, With<PlayerHudRoot>>,
+    views: Query<(Entity, &LocalViewId, Option<&ViewPlacement>), With<LocalView>>,
+    mut roots: Query<(&mut Node, Option<&HudOfView>), With<PlayerHudRoot>>,
 ) {
     // Left surround: status bars read left to right from the edge they use
     // when overlaying.
@@ -194,11 +241,36 @@ pub fn place_player_hud(
         .flatten()
         .filter(|rect| rect.width() >= HUD_MIN.x && rect.height() >= HUD_MIN.y);
 
-    let anchor = match region {
+    let base = match region {
         Some(rect) => rect.min + Vec2::splat(HUD_MARGIN),
         None => OVERLAY_ANCHOR,
     };
-    for mut node in &mut roots {
+    let gameplay = presentation.gameplay_rect;
+    let offset_of = |placement: Option<&ViewPlacement>| {
+        placement.copied().unwrap_or_default().carve(gameplay.min, gameplay.size()).0 - gameplay.min
+    };
+    for (mut node, of) in &mut roots {
+        let view = of.and_then(|of| views.get(of.0).ok());
+        let anchor = match view {
+            None => base,
+            Some((view, id, placement)) => {
+                let offset = offset_of(placement);
+                let below = views
+                    .iter()
+                    .filter(|(other, other_id, other_placement)| {
+                        *other != view
+                            && (**other_id, *other) < (*id, view)
+                            && offset_of(*other_placement) == offset
+                    })
+                    .count();
+                let start = if offset == Vec2::ZERO {
+                    base
+                } else {
+                    gameplay.min + offset + OVERLAY_ANCHOR
+                };
+                start + Vec2::new(0.0, below as f32 * HUD_STACK)
+            }
+        };
         if node.left != Val::Px(anchor.x) {
             node.left = Val::Px(anchor.x);
         }
@@ -232,54 +304,71 @@ pub fn toggle_builtin_hud_for_declared_games(
     }
 }
 
-/// Mirror the controlled body's health, mana, and money into the HUD widgets
-/// each frame: bar widths follow the fractions, labels show the numbers.
+/// Mirror each view's meters into the HUD widgets of that view each frame:
+/// bar widths follow the fractions, labels show the numbers.
 ///
-/// Every stat is a body stat and follows the [`ControlledSubject`], so while
-/// possessing another body the HUD shows that body's HP, MP, and purse. The
-/// wallet is `Option` because not every body has one; no wallet reads `$0`.
+/// Every stat is a body stat of the body the view follows
+/// ([`ViewHudFacts`]), so while possessing another body the HUD shows that
+/// body's HP, MP, and purse. The wallet is `Option` because not every body
+/// has one; no wallet reads `$0`. A view whose body did not resolve
+/// (`present == false`) holds its last drawn state.
+#[allow(clippy::type_complexity)]
 pub fn update_player_hud(
-    facts: Res<PlayerHudFacts>,
+    views: Query<&ViewHudFacts>,
     mut fills: ParamSet<(
-        Query<&mut Node, With<HealthFill>>,
-        Query<&mut Node, With<ManaFill>>,
+        Query<(&mut Node, &HudOfView), With<HealthFill>>,
+        Query<(&mut Node, &HudOfView), With<ManaFill>>,
     )>,
     mut labels: ParamSet<(
-        Query<&mut Text, With<HealthLabel>>,
-        Query<&mut Text, With<ManaLabel>>,
-        Query<&mut Text, With<MoneyLabel>>,
+        Query<(&mut Text, &HudOfView), With<HealthLabel>>,
+        Query<(&mut Text, &HudOfView), With<ManaLabel>>,
+        Query<(&mut Text, &HudOfView), With<MoneyLabel>>,
     )>,
 ) {
-    if !facts.present {
-        return;
-    }
-    let hp_frac = if facts.hp_max > 0 {
-        (facts.hp_current as f32 / facts.hp_max as f32).clamp(0.0, 1.0)
-    } else {
-        0.0
+    let facts_of = |of: &HudOfView| {
+        views
+            .get(of.0)
+            .ok()
+            .map(|facts| facts.0)
+            .filter(|facts| facts.present)
     };
-    if let Ok(mut node) = fills.p0().single_mut() {
-        node.width = Val::Percent(hp_frac * 100.0);
+    for (mut node, of) in &mut fills.p0() {
+        if let Some(facts) = facts_of(of) {
+            let hp_frac = if facts.hp_max > 0 {
+                (facts.hp_current as f32 / facts.hp_max as f32).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            node.width = Val::Percent(hp_frac * 100.0);
+        }
     }
-    if let Ok(mut node) = fills.p1().single_mut() {
-        node.width = Val::Percent(facts.mana.map_or(0.0, |mana| mana.fraction()) * 100.0);
+    for (mut node, of) in &mut fills.p1() {
+        if let Some(facts) = facts_of(of) {
+            node.width = Val::Percent(facts.mana.map_or(0.0, |mana| mana.fraction()) * 100.0);
+        }
     }
-    if let Ok(mut text) = labels.p0().single_mut() {
-        set_text_if_changed(
-            &mut text,
-            format!("HP {}/{}", facts.hp_current, facts.hp_max),
-        );
+    for (mut text, of) in &mut labels.p0() {
+        if let Some(facts) = facts_of(of) {
+            set_text_if_changed(
+                &mut text,
+                format!("HP {}/{}", facts.hp_current, facts.hp_max),
+            );
+        }
     }
-    if let Ok(mut text) = labels.p1().single_mut() {
-        let label = match facts.mana {
-            Some(mana) => format!("MP {}", mana.current as i32),
-            // A body with no Mana reads as such, not as an empty pool.
-            None => "MP -".to_owned(),
-        };
-        set_text_if_changed(&mut text, label);
+    for (mut text, of) in &mut labels.p1() {
+        if let Some(facts) = facts_of(of) {
+            let label = match facts.mana {
+                Some(mana) => format!("MP {}", mana.current as i32),
+                // A body with no Mana reads as such, not as an empty pool.
+                None => "MP -".to_owned(),
+            };
+            set_text_if_changed(&mut text, label);
+        }
     }
-    if let Ok(mut text) = labels.p2().single_mut() {
-        set_text_if_changed(&mut text, format!("${}", facts.balance));
+    for (mut text, of) in &mut labels.p2() {
+        if let Some(facts) = facts_of(of) {
+            set_text_if_changed(&mut text, format!("${}", facts.balance));
+        }
     }
 }
 
@@ -411,25 +500,29 @@ mod tests {
     fn hud_mirrors_the_sim_built_facts() {
         let mut app = App::new();
 
-        // The sim already resolved the controlled body's meters into the read
-        // model; the HUD only consumes it.
-        app.insert_resource(PlayerHudFacts {
-            present: true,
-            hp_current: 3,
-            hp_max: 10,
-            mana: Some(ambition_platformer2d_core::resources::ResourceLevel {
-                current: 12.0,
-                max: 60.0,
-            }),
-            balance: 7,
-        });
+        // The sim already resolved the followed body's meters into the view's
+        // read model; the HUD only consumes it.
+        let view = app
+            .world_mut()
+            .spawn(ViewHudFacts(ambition_sim_view::PlayerHudFacts {
+                present: true,
+                hp_current: 3,
+                hp_max: 10,
+                mana: Some(ambition_platformer2d_core::resources::ResourceLevel {
+                    current: 12.0,
+                    max: 60.0,
+                }),
+                balance: 7,
+            }))
+            .id();
+        let of = HudOfView(view);
 
         // Minimal HUD widgets (just the labels this assertion reads).
-        app.world_mut().spawn((HealthLabel, Text::new("")));
-        app.world_mut().spawn((ManaLabel, Text::new("")));
-        app.world_mut().spawn((MoneyLabel, Text::new("")));
-        app.world_mut().spawn((HealthFill, Node::default()));
-        app.world_mut().spawn((ManaFill, Node::default()));
+        app.world_mut().spawn((HealthLabel, of, Text::new("")));
+        app.world_mut().spawn((ManaLabel, of, Text::new("")));
+        app.world_mut().spawn((MoneyLabel, of, Text::new("")));
+        app.world_mut().spawn((HealthFill, of, Node::default()));
+        app.world_mut().spawn((ManaFill, of, Node::default()));
 
         app.add_systems(Update, update_player_hud);
         app.update();
@@ -485,6 +578,7 @@ mod tests {
         let scope = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
         app.world_mut()
             .spawn((PlayerEntity, PrimaryPlayer, SessionScopedEntity(scope)));
+        app.world_mut().spawn((LocalView, LocalViewId::FIRST));
         app.add_systems(Update, spawn_player_hud);
 
         app.update();
@@ -505,12 +599,130 @@ mod tests {
     #[test]
     fn hud_holds_last_state_when_no_body_resolved() {
         let mut app = App::new();
-        app.insert_resource(PlayerHudFacts::default()); // present: false
-        app.world_mut().spawn((HealthLabel, Text::new("HP 5/5")));
+        let view = app.world_mut().spawn(ViewHudFacts::default()).id(); // present: false
+        app.world_mut()
+            .spawn((HealthLabel, HudOfView(view), Text::new("HP 5/5")));
         app.add_systems(Update, update_player_hud);
         app.update();
         let mut labels = app.world_mut().query::<&Text>();
         let text = labels.iter(app.world()).next().unwrap();
         assert_eq!(text.as_str(), "HP 5/5", "startup frames hold the HUD");
+    }
+
+    /// Q150: two views (a split for two live rooms) get two HUDs, each in its
+    /// own column and each showing its own view's meters. The control is the
+    /// first view's HUD: it keeps the overlay anchor it had alone. When the
+    /// second view closes, its HUD goes with it.
+    #[test]
+    fn each_view_has_its_own_hud_in_its_own_column() {
+        let mut app = App::new();
+        app.add_plugins(SessionScopePlugin);
+        let scope = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+        app.world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, SessionScopedEntity(scope)));
+        let presentation = layout(
+            Vec2::new(1920.0, 1080.0),
+            profiles::adaptive_platformer(),
+            PresentationEnvironment::Desktop,
+        );
+        let gameplay = presentation.gameplay_rect;
+        app.insert_resource(presentation);
+        let meters = |hp: i32, balance: i32| {
+            ViewHudFacts(ambition_sim_view::PlayerHudFacts {
+                present: true,
+                hp_current: hp,
+                hp_max: 5,
+                mana: None,
+                balance,
+            })
+        };
+        let alice = app
+            .world_mut()
+            .spawn((LocalView, LocalViewId::FIRST, ViewPlacement::column(0, 2), meters(3, 7)))
+            .id();
+        let bob = app
+            .world_mut()
+            .spawn((LocalView, LocalViewId(1), ViewPlacement::column(1, 2), meters(5, 0)))
+            .id();
+        app.add_systems(Update, (spawn_player_hud, place_player_hud, update_player_hud).chain());
+        app.update();
+        app.update();
+
+        let shown = |app: &mut App| {
+            let mut roots = app
+                .world_mut()
+                .query_filtered::<(&HudOfView, &Node), With<PlayerHudRoot>>();
+            let px = |value| match value {
+                Val::Px(px) => px,
+                other => panic!("expected Px, got {other:?}"),
+            };
+            let placed: std::collections::BTreeMap<Entity, Vec2> = roots
+                .iter(app.world())
+                .map(|(of, node)| (of.0, Vec2::new(px(node.left), px(node.top))))
+                .collect();
+            let mut labels = app
+                .world_mut()
+                .query_filtered::<(&HudOfView, &Text), With<HealthLabel>>();
+            let words: std::collections::BTreeMap<Entity, String> = labels
+                .iter(app.world())
+                .map(|(of, text)| (of.0, text.as_str().to_owned()))
+                .collect();
+            (placed, words)
+        };
+        let column = gameplay.min + Vec2::new(gameplay.width() / 2.0, 0.0);
+        assert_eq!(
+            shown(&mut app),
+            (
+                [(alice, OVERLAY_ANCHOR), (bob, column + OVERLAY_ANCHOR)].into(),
+                [(alice, "HP 3/5".to_owned()), (bob, "HP 5/5".to_owned())].into(),
+            ),
+            "(each HUD's view and anchor, each HUD's health words) with two views in two columns"
+        );
+
+        app.world_mut().entity_mut(bob).despawn();
+        app.update();
+        let (placed, _) = shown(&mut app);
+        assert_eq!(
+            placed,
+            [(alice, OVERLAY_ANCHOR)].into(),
+            "the HUD of a closed view goes with it"
+        );
+    }
+
+    /// Two views over one area (no placement: a second camera, or a view
+    /// laid over the first) stack their HUDs in view order, so neither
+    /// covers the other. The control is the first view's HUD at the anchor
+    /// it has alone.
+    #[test]
+    fn huds_of_two_views_over_one_area_stack() {
+        let mut app = App::new();
+        app.insert_resource(layout(
+            Vec2::new(1920.0, 1080.0),
+            profiles::adaptive_platformer(),
+            PresentationEnvironment::Desktop,
+        ));
+        let second = app.world_mut().spawn((LocalView, LocalViewId(1))).id();
+        let first = app.world_mut().spawn((LocalView, LocalViewId::FIRST)).id();
+        for view in [first, second] {
+            app.world_mut().spawn((PlayerHudRoot, HudOfView(view), Node::default()));
+        }
+        app.add_systems(Update, place_player_hud);
+        app.update();
+        let mut roots = app
+            .world_mut()
+            .query_filtered::<(&HudOfView, &Node), With<PlayerHudRoot>>();
+        let placed: std::collections::BTreeMap<Entity, (Val, Val)> = roots
+            .iter(app.world())
+            .map(|(of, node)| (of.0, (node.left, node.top)))
+            .collect();
+        assert_eq!(
+            placed,
+            [
+                (first, (Val::Px(OVERLAY_ANCHOR.x), Val::Px(OVERLAY_ANCHOR.y))),
+                (second, (Val::Px(OVERLAY_ANCHOR.x), Val::Px(OVERLAY_ANCHOR.y + HUD_STACK))),
+            ]
+            .into(),
+            "(each view's HUD anchor) with two views over the whole gameplay area"
+        );
     }
 }

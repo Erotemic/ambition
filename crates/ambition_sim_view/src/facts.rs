@@ -25,7 +25,11 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 /// possessing, the HUD shows THAT body's meters, never the vacated home
 /// avatar's. `present == false` means no controlled body resolved this tick
 /// (startup frames) and the HUD holds its last drawn state.
-#[derive(Resource, Default, Clone, Copy, Debug)]
+///
+/// The declared readouts read this (Mary-O's coins, Sanic's rings), so they
+/// are one per session. The built-in vitals HUD reads each view's
+/// [`ViewHudFacts`] instead.
+#[derive(Resource, Default, Clone, Copy, Debug, PartialEq)]
 pub struct PlayerHudFacts {
     pub present: bool,
     pub hp_current: i32,
@@ -35,24 +39,88 @@ pub struct PlayerHudFacts {
     pub balance: i32,
 }
 
-pub fn rebuild_player_hud_facts(
-    mut facts: ResMut<PlayerHudFacts>,
-    controlled: Res<ControlledSubject>,
-    bodies: Query<(&BodyHealth, Option<&ActorResources>, Option<&BodyWallet>)>,
-    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    let subject = controlled.0.or_else(|| primary.single().ok());
-    let Some((health, resources, wallet)) = subject.and_then(|e| bodies.get(e).ok()) else {
-        facts.present = false;
-        return;
-    };
-    *facts = PlayerHudFacts {
+type HudBodies<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static BodyHealth,
+        Option<&'static ActorResources>,
+        Option<&'static BodyWallet>,
+    ),
+>;
+
+/// The meters of `body`, or `None` when it has no health.
+fn meters_of(body: Entity, bodies: &HudBodies) -> Option<PlayerHudFacts> {
+    let (health, resources, wallet) = bodies.get(body).ok()?;
+    Some(PlayerHudFacts {
         present: true,
         hp_current: health.current(),
         hp_max: health.max(),
         mana: ambition_abilities::mana::level(resources),
         balance: wallet.map(|wallet| wallet.balance).unwrap_or(0),
-    };
+    })
+}
+
+pub fn rebuild_player_hud_facts(
+    mut facts: ResMut<PlayerHudFacts>,
+    controlled: Res<ControlledSubject>,
+    bodies: HudBodies,
+    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+) {
+    let subject = controlled.0.or_else(|| primary.single().ok());
+    match subject.and_then(|body| meters_of(body, &bodies)) {
+        Some(meters) => *facts = meters,
+        None => facts.present = false,
+    }
+}
+
+/// THE METERS ONE VIEW'S HUD SHOWS (Q150: a HUD per participant).
+///
+/// A view that follows a body or a seat shows the meters of the body it
+/// follows. A view that names nothing shows the controlled body's, as its
+/// camera frames that body. Before this, every HUD showed the controlled body,
+/// so Bob's view in his own live room showed Alice's health.
+///
+/// A view that names a body or a seat that does not resolve holds its last
+/// state (`present == false`). It must not show the meters of another
+/// participant.
+#[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
+pub struct ViewHudFacts(pub PlayerHudFacts);
+
+/// Fill each view's [`ViewHudFacts`] from the subject that view resolved.
+/// Runs after `resolve_view_subjects`, in the camera observation chain.
+#[allow(clippy::type_complexity)]
+pub fn rebuild_view_hud_facts(
+    mut views: Query<
+        (
+            &mut ViewHudFacts,
+            &crate::local_view::ResolvedViewSubject,
+            Has<crate::local_view::ViewSubject>,
+            Has<crate::local_view::ViewParticipant>,
+        ),
+        With<crate::local_view::LocalView>,
+    >,
+    controlled: Option<Res<ControlledSubject>>,
+    bodies: HudBodies,
+    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+) {
+    let controlled = controlled
+        .and_then(|controlled| controlled.0)
+        .or_else(|| primary.single().ok());
+    for (mut facts, resolved, names_body, names_seat) in &mut views {
+        let subject = if names_body || names_seat {
+            resolved.0
+        } else {
+            controlled
+        };
+        let next = subject
+            .and_then(|body| meters_of(body, &bodies))
+            .unwrap_or(PlayerHudFacts {
+                present: false,
+                ..facts.0
+            });
+        facts.set_if_neq(ViewHudFacts(next));
+    }
 }
 
 /// EVERY body's held item, resolved sim-side: the geometry facts the hand-sprite
@@ -1011,6 +1079,59 @@ mod tests {
             !shark.fighting,
             "a peaceful mob was published as a fighter, which is the opposite \
              error from the one this test exists for"
+        );
+    }
+
+    /// Q150: two views, each following its own seat, show the meters of
+    /// their own seat's body. The control is a third view that names
+    /// nothing: it shows the controlled body. And a view whose seat has no
+    /// body holds, and does not show another participant's meters.
+    #[test]
+    fn each_view_shows_the_meters_of_the_seat_it_follows() {
+        use crate::local_view::{
+            resolve_view_subjects, LocalView, ResolvedViewSubject, ViewParticipant,
+        };
+        use ambition_characters::actor::Health;
+        use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+        let mut app = App::new();
+        app.add_systems(Update, (resolve_view_subjects, rebuild_view_hud_facts).chain());
+        let body = |world: &mut World, slot: u8, damage: i32, balance: i32| {
+            let mut health = BodyHealth::new(Health::new(5));
+            health.damage(damage);
+            world
+                .spawn((health, BodyWallet { balance }, DrivingParticipant(PlayerSlot(slot))))
+                .id()
+        };
+        let alice = body(app.world_mut(), 0, 2, 7);
+        body(app.world_mut(), 1, 0, 0);
+        app.world_mut().insert_resource(ControlledSubject(Some(alice)));
+        let view = |world: &mut World, seat: Option<u8>| {
+            let mut view =
+                world.spawn((LocalView, ResolvedViewSubject::default(), ViewHudFacts::default()));
+            if let Some(seat) = seat {
+                view.insert(ViewParticipant(PlayerSlot(seat)));
+            }
+            view.id()
+        };
+        let views = [
+            view(app.world_mut(), Some(0)),
+            view(app.world_mut(), Some(1)),
+            view(app.world_mut(), None),
+            view(app.world_mut(), Some(2)),
+        ];
+        app.update();
+        let shown: Vec<_> = views
+            .iter()
+            .map(|view| {
+                let facts = app.world().get::<ViewHudFacts>(*view).expect("a view's HUD facts").0;
+                (facts.present, facts.hp_current, facts.balance)
+            })
+            .collect();
+        assert_eq!(
+            shown,
+            vec![(true, 3, 7), (true, 5, 0), (true, 3, 7), (false, 0, 0)],
+            "(present, health, money) of the views that follow seat 0, seat 1, \
+             nothing, and seat 2 (no body); the controlled body is seat 0's"
         );
     }
 

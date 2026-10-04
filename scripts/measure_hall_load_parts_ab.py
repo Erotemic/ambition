@@ -86,6 +86,8 @@ def reduce_log(text: str) -> dict:
         for line in text.splitlines()
         if (m := re.match(r"^\[frame-census\].*? p50=([\d.]+)ms p95=([\d.]+)ms", line))
     ]
+    # The adapter, when the log names it (the first-run quality seed does).
+    adapter = re.search(r"for an? (\w+) adapter \((.*)\); this is", text)
     wall = re.search(r"Elapsed \(wall clock\) time.*: (?:(\d+):)?(\d+):([\d.]+)", text)
     rss = re.search(r"Maximum resident set size \(kbytes\): (\d+)", text)
     return {
@@ -99,6 +101,8 @@ def reduce_log(text: str) -> dict:
         "character_resident_megapixels": round(sum(v["megapixels"] for k, v in resident.items() if k.startswith("character")), 1),
         "resident_mb": float(total[3]) if census and total else None,
         # Steady state: the median of the frame-census windows' p50 after the first.
+        "frame_windows": len(frames),
+        "adapter": f"{adapter[1]}: {adapter[2]}" if adapter else None,
         "frame_p50_ms": statistics.median([p50 for p50, _ in frames[1:]]) if len(frames) > 1 else None,
         "frame_p95_ms": statistics.median([p95 for _, p95 in frames[1:]]) if len(frames) > 1 else None,
         "frame_spikes": len(spikes),
@@ -112,7 +116,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--room", default="hall_of_characters")
     parser.add_argument("--reps", type=int, default=3)
-    parser.add_argument("--warmup", type=int, default=400, help="frames before the shot")
+    # ⛔ The steady state is the `[frame-census]` windows AFTER the first (5 s
+    # each; the first holds the load). 400 frames lasted 16 s on llvmpipe and
+    # 7 s on a GPU, which printed one window and no frame times at all
+    # (toothbrush, 2026-10-04). 1800 frames is 30 s at 60 fps.
+    parser.add_argument("--warmup", type=int, default=1800, help="frames before the shot")
     parser.add_argument("--profile", default="profiling")
     parser.add_argument("--no-build", action="store_true")
     parser.add_argument("--no-record", action="store_true")
@@ -142,7 +150,10 @@ def main() -> int:
             reduced = reduce_log(result.stdout + result.stderr)
             reduced.update({"rep": rep, "exit": result.returncode, "log": str(log.relative_to(REPO))})
             runs[arm].append(reduced)
-            print(f"rep {rep} {arm:5}: exit {result.returncode}, character resident {reduced['character_resident_megapixels']} MP "
+            if reduced["frame_windows"] < 2:
+                print(f"⚠ rep {rep} {arm}: {reduced['frame_windows']} [frame-census] window(s), so no steady-state "
+                      f"frame time: raise --warmup (the first 5 s window is the load)", flush=True)
+            print(f"rep {rep} {arm:5}: exit {result.returncode}, adapter {reduced['adapter']}, character resident {reduced['character_resident_megapixels']} MP "
                   f"({reduced['resident_mb']} MB all), frame p50 {reduced['frame_p50_ms']} ms p95 {reduced['frame_p95_ms']} ms, "
                   f"big decodes {reduced['character_images']}, decode {reduced['character_decode_ms']} ms, last insert "
                   f"{reduced['last_character_insert_s']}s, live {reduced['decoded_during_gameplay']}, spikes "

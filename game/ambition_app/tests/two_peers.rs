@@ -99,12 +99,27 @@ fn peer(
     socket: ambition_platformer2d::rollback::LoopbackSocket,
     poison: Poison,
 ) -> (Platformer2dSimHarness, Vec<&'static str>) {
+    peer_prepared_by(room, local, remote, socket, poison, |_| {})
+}
+
+/// [`peer`], with `prepare` run on the world before the P2P session starts.
+/// Each peer runs the same `prepare`, so the two worlds are still equal at
+/// frame zero.
+fn peer_prepared_by(
+    room: &str,
+    local: usize,
+    remote: (usize, std::net::SocketAddr),
+    socket: ambition_platformer2d::rollback::LoopbackSocket,
+    poison: Poison,
+    prepare: fn(&mut Platformer2dSimHarness),
+) -> (Platformer2dSimHarness, Vec<&'static str>) {
     let options = fixed_60hz_room_options(room)
         .with_save(a_save_that_has_seen_the_hub_intro())
         .with_sync_test_rollback_settings(4, 10)
         .with_rollback_players(2);
     let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the room boots");
     bob_beside_alice(&mut sim, room, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    prepare(&mut sim);
     // The float rows get value probes, or their census is a carrier count.
     let sharp = strengthen_the_float_rows(sim.world_mut());
     let app = sim.app_mut();
@@ -356,4 +371,179 @@ fn two_peers_agree_in_the_rooms_that_carry_the_float_rows() {
         .map(|row| row.rsplit("::").next().unwrap())
         .collect();
     assert_eq!(missing, vec!["MountedSize"], "the float rows no walk carries");
+}
+
+/// The room Alice leaves for, from `switch_lab`.
+const HUB: &str = "central_hub_complex";
+
+/// Put Alice on the door to the hub.
+fn alice_on_the_hub_door(sim: &mut Platformer2dSimHarness) {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let center = crate::common::door_to(sim, HUB).aabb.center();
+    sim.teleport_player((center.x, center.y));
+}
+
+/// Alice presses interact from frame 30, as a press and a release.
+fn opens_the_door(frame: i32) -> ControlFrame {
+    ControlFrame {
+        interact_pressed: frame >= 30 && frame % 6 == 0,
+        interact_held: frame >= 30 && frame % 6 < 3,
+        ..Default::default()
+    }
+}
+
+/// What one peer holds about Alice's crossing.
+#[derive(Clone, Debug, PartialEq)]
+struct Crossing {
+    /// The frame the crossing was recorded on, while it waits.
+    recorded_on: Option<i32>,
+    room: String,
+    live_rooms: usize,
+}
+
+fn crossing(sim: &mut Platformer2dSimHarness) -> Crossing {
+    let recorded_on = sim
+        .world()
+        .resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .pending
+        .as_ref()
+        .map(|intent| intent.frame);
+    let live_rooms = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>>()
+            .iter(world)
+            .count()
+    };
+    Crossing {
+        recorded_on,
+        room: sim.observation().active_room.clone(),
+        live_rooms,
+    }
+}
+
+/// ⛔ TODAY A DOOR UNDER A PEER SESSION IS ACCEPTED AND IS NEVER COMMITTED.
+/// This is the measurement the open-world "Remote peers" row asks for, and the
+/// repair of that row changes the last assertion below.
+///
+/// Alice stands on the door to the hub on each peer and presses interact from
+/// frame 30. Measured 2026-10-04:
+///
+/// - Each peer records the crossing on frame 30 (`PendingLifecycleCommit`).
+/// - No peer commits it. `commit_confirmed_lifecycle` runs only for a
+///   `LocalSyncTest` session, because a peer session cannot rebase alone.
+///   After 300 confirmed frames each peer is in `switch_lab` with one live
+///   room, and the crossing still waits.
+/// - The peers do not diverge: no desync, and no probed row differs at a
+///   confirmed frame.
+/// - The slot is one and the earliest intent keeps it, so each later lifecycle
+///   intent of the two players is refused while this one waits.
+///
+/// ⚠ WHY THE SYNC-TEST RULE CANNOT BE USED AS IT IS. That rule runs the
+/// crossing on the current world when its recording frame is confirmed. On
+/// that update the two peers are at different frames (measured: 36 and 31),
+/// each with frames the other peer has not confirmed. The assertion on
+/// `at_confirmation` holds that fact, so a barrier that needs equal worlds
+/// has a number to start from.
+#[test]
+fn a_door_under_a_peer_session_is_accepted_and_is_not_committed_yet() {
+    /// Frames each peer must confirm after the crossing was recorded.
+    const AFTER: i32 = 270;
+
+    let (a, b) = ("127.0.0.1:7011".parse().unwrap(), "127.0.0.1:7012".parse().unwrap());
+    let (to_bob, to_alice) = loopback_pair(a, b, LATENCY);
+    let (mut alice, _) = peer_prepared_by(ROOM, 0, (1, b), to_bob, Poison::None, alice_on_the_hub_door);
+    let (mut bob, _) = peer_prepared_by(ROOM, 1, (0, a), to_alice, Poison::None, alice_on_the_hub_door);
+
+    // The frame each peer was at when it first saw the recording frame
+    // confirmed.
+    let mut at_confirmation: [Option<i32>; 2] = [None, None];
+    let mut updates = 0;
+    while confirmed(&alice).min(confirmed(&bob)) < 30 + AFTER {
+        updates += 1;
+        assert!(
+            updates < 20 * (30 + AFTER),
+            "the peers confirmed only to {} and {}",
+            confirmed(&alice),
+            confirmed(&bob)
+        );
+        for (index, sim) in [&mut alice, &mut bob].into_iter().enumerate() {
+            let next = sim.world().resource::<RollbackFrameCount>().0 + 1;
+            let input = if index == 0 { opens_the_door(next) } else { script(index, next) };
+            sim.drive_seat(index as u8, input);
+            sim.app_mut().update();
+            let recorded_on = crossing(sim).recorded_on;
+            if at_confirmation[index].is_none()
+                && recorded_on.is_some_and(|frame| confirmed(sim) >= frame)
+            {
+                at_confirmation[index] = Some(sim.world().resource::<RollbackFrameCount>().0);
+            }
+        }
+        assert_eq!(
+            (alice.rollback_health(), bob.rollback_health()),
+            (Ok(()), Ok(())),
+            "a peer reported a desync after {updates} updates"
+        );
+    }
+
+    // The peers agree at each confirmed frame, with the crossing waiting.
+    let last = confirmed(&alice).min(confirmed(&bob));
+    let (left, right) = (
+        &alice.world().resource::<CensusByFrame>().0,
+        &bob.world().resource::<CensusByFrame>().0,
+    );
+    let mut compared = 0;
+    let mut differing: BTreeMap<&'static str, i32> = BTreeMap::new();
+    for frame in 0..=last {
+        let (Some(left), Some(right)) = (left.get(&frame), right.get(&frame)) else {
+            continue;
+        };
+        compared += 1;
+        for (row, reading) in left {
+            if right.get(row) != Some(reading) {
+                differing.entry(*row).or_insert(frame);
+            }
+        }
+    }
+    assert!(compared > AFTER, "only {compared} confirmed frames were compared");
+    assert_eq!(differing, BTreeMap::new(), "the rows that differ, and the first frame of each");
+    let rollbacks: u64 = [&alice, &bob]
+        .iter()
+        .filter_map(|sim| sim.rollback_execution_stats())
+        .map(|stats| stats.lifetime_load_runs)
+        .sum();
+    assert!(rollbacks > 0, "control: no peer rolled back, so no prediction was tested");
+
+    // Accepted on each peer, on the same frame.
+    let (on_alice, on_bob) = (crossing(&mut alice), crossing(&mut bob));
+    assert_eq!(
+        (on_alice.recorded_on, on_bob.recorded_on),
+        (Some(30), Some(30)),
+        "the frame each peer recorded Alice's crossing on"
+    );
+    // The two peers were at different frames when that frame was confirmed.
+    let (Some(alice_at), Some(bob_at)) = (at_confirmation[0], at_confirmation[1]) else {
+        panic!("a peer never saw the recording frame confirmed: {at_confirmation:?}");
+    };
+    assert!(
+        alice_at != bob_at && alice_at > 30 && bob_at > 30,
+        "the peers were at frames {alice_at} and {bob_at} when frame 30 was confirmed. \
+         If they are equal now, the link or the loop changed; the doc above gives \
+         the measured 36 and 31"
+    );
+
+    // ⛔ THE STATE THE REPAIR CHANGES. Not committed: each peer is in the room
+    // it started in, with one live room.
+    let stuck = Crossing {
+        recorded_on: Some(30),
+        room: ROOM.to_string(),
+        live_rooms: 1,
+    };
+    assert_eq!(
+        (on_alice, on_bob),
+        (stuck.clone(), stuck),
+        "a peer session committed the crossing, or dropped it. If the peer \
+         barrier landed, this arm becomes its witness: Alice in `{HUB}` on each \
+         peer, two live rooms, and the census above across the commit"
+    );
 }

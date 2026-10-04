@@ -53,9 +53,9 @@ pub fn fire_puppy_slug_gun_system(
     // second seat holding the same item simply never fired.
     driven: ambition_held_items::DrivenBodies,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    // The activated generation's sheets outrank the App's, as for every
-    // construction road (`GenerationMechanics::sheets`).
+    // The sheets of the running session, as every construction road reads
+    // them (`GenerationMechanics::sheets`). `None`: no session runs, see
+    // `SessionMechanics`.
     generation: Option<Res<crate::session::mechanics::SessionMechanics>>,
     // the summoned ally IS a character (`npc_puppy_slug`), so this road needs
     // the cast to build it as one. `Option`: a composition that registers nobody
@@ -84,6 +84,9 @@ pub fn fire_puppy_slug_gun_system(
     // body reads the cap on the same tick. Without this running tally, N seats
     // pressing Attack together each saw the same pre-tick count and every one of
     // them summoned — the cap exceeded by exactly the number of extra seats.
+    let Some(generation) = generation else {
+        return;
+    };
     let mut summoned_this_tick = 0usize;
     for subject in driven.entities() {
         let Ok((control, kin, held, owner)) = players.get(subject) else {
@@ -127,7 +130,7 @@ pub fn fire_puppy_slug_gun_system(
         let entity = crate::features::spawn_runtime_minion(
             &mut commands,
             &character_catalog,
-            generation.as_deref().map_or(&*authored_sheets, |generation| &generation.sheets),
+            &generation.sheets,
             cast,
             session_scope,
             minted
@@ -172,10 +175,10 @@ mod tests {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
-        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-        // Summoned bodies size themselves from their sheets (U1 stage B); a
-        // fixture authors none, and empty resolves as it always did.
-        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+        // Summoned bodies size themselves from the sheets of their generation
+        // (U1 stage B); a fixture authors none, and empty resolves as it
+        // always did.
+        app.init_resource::<crate::session::mechanics::SessionMechanics>();
         app.insert_resource(crate::character_runtime::fixture_cast(&[SLUG_ARCHETYPE]));
         app.add_systems(Update, fire_puppy_slug_gun_system);
         app

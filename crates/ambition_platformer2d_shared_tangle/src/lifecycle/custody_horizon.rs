@@ -138,18 +138,16 @@ pub fn live_custody_rows(
 }
 
 /// Record custody at checkpoint commit, including an empty custody set.
+///
+/// The baseline is required: `LifecycleCheckpointHorizonPlugin` installs it in
+/// the same `build` that schedules this system.
 pub fn capture_custody_baseline(
     mut commits: MessageReader<CheckpointCommitted>,
     carried: Query<(&SimId, &InCustodyOf), With<RoomScopedEntity>>,
     custodians: Query<&SimId>,
-    baseline: Option<ResMut<CustodyBaseline>>,
+    mut baseline: ResMut<CustodyBaseline>,
 ) {
-    // Drain commits even when the baseline resource is absent; events are frame-scoped.
-    let committed = commits.read().count() > 0;
-    let Some(mut baseline) = baseline else {
-        return;
-    };
-    if !committed {
+    if commits.read().count() == 0 {
         return;
     }
     let held = live_custody_rows(&carried, &custodians);

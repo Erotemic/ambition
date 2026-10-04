@@ -678,16 +678,18 @@ impl OccurrenceBaseline {
 /// Record what the world remembers, at the instant a checkpoint commits.
 ///
 /// The absence of a ledger resource entirely is the only case that writes nothing, because
-/// there is then nothing in this domain to remember.
+/// there is then nothing in this domain to remember. The baseline is required:
+/// `LifecycleCheckpointHorizonPlugin` installs it in the same `build` that
+/// schedules this system.
 pub fn capture_occurrence_baseline(
     mut commits: bevy::prelude::MessageReader<super::CheckpointCommitted>,
     occurrences: Option<bevy::prelude::Res<AuthoredOccurrences>>,
-    baseline: Option<ResMut<OccurrenceBaseline>>,
+    mut baseline: ResMut<OccurrenceBaseline>,
 ) {
     // Drained unconditionally: a commit seen during a load must not be re-read
     // on a later frame and charged to a world that has moved on.
     let committed = commits.read().count() > 0;
-    let (Some(occurrences), Some(mut baseline)) = (occurrences, baseline) else {
+    let Some(occurrences) = occurrences else {
         return;
     };
     if !committed {

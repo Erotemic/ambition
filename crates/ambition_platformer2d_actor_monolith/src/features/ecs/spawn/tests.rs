@@ -1886,17 +1886,46 @@ fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
 /// driver); this pins the BEHAVIOUR.
 #[test]
 fn a_spawn_request_on_the_bus_becomes_a_body() {
-    use ambition_characters::brain::Brain;
-    let mut app = App::new();
-    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    app.insert_resource(smash_fixture_cast());
-    app.add_message::<ambition_encounter::EncounterEventMsg>();
-    app.add_systems(Update, super::serve_encounter_spawn_commands);
+    let mut app = spawn_request_app();
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
+    app.update();
+    assert_eq!(
+        bodies_built(&mut app),
+        1,
+        "one SpawnCommand on the bus must build exactly one body — the encounter \
+         domain asks and this crate constructs"
+    );
+}
 
-    app.world_mut()
-        .resource_mut::<bevy::prelude::Messages<ambition_encounter::EncounterEventMsg>>()
-        .write(ambition_encounter::EncounterEventMsg::new(
+/// With no generation, no session runs (`SessionMechanics`). The request is not
+/// served then, and the next session does not serve it.
+#[test]
+fn a_spawn_request_with_no_generation_is_served_neither_then_nor_by_the_next_session() {
+    let mut app = spawn_request_app();
+    app.update();
+    assert_eq!(bodies_built(&mut app), 0, "a body was built with no generation");
+
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
+    app.update();
+    assert_eq!(
+        bodies_built(&mut app),
+        0,
+        "the next session served a request of the session that ended"
+    );
+}
+
+/// The spawn service alone, with no generation, and one `SpawnCommand` that
+/// the first update puts on the bus.
+///
+/// The request is written INSIDE the frame, as the wave driver writes it. A
+/// message written between two updates is readable in one update only, and
+/// then a second update would see an empty bus and prove nothing.
+fn spawn_request_app() -> App {
+    use bevy::prelude::IntoScheduleConfigs;
+    fn ask(
+        mut requests: bevy::prelude::MessageWriter<ambition_encounter::EncounterEventMsg>,
+    ) {
+        requests.write(ambition_encounter::EncounterEventMsg::new(
             "test_encounter",
             ambition_encounter::EncounterEvent::SpawnCommand {
                 id: "wave_mob_1".to_string(),
@@ -1906,14 +1935,25 @@ fn a_spawn_request_on_the_bus_becomes_a_body() {
                 size: [20.0, 30.0],
             },
         ));
-
-    app.update();
-
-    let mut q = app.world_mut().query::<&Brain>();
-    assert_eq!(
-        q.iter(app.world()).count(),
-        1,
-        "one SpawnCommand on the bus must build exactly one body — the encounter \
-         domain asks and this crate constructs"
+    }
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.insert_resource(smash_fixture_cast());
+    app.add_message::<ambition_encounter::EncounterEventMsg>();
+    app.add_systems(
+        Update,
+        (
+            ask.run_if(bevy::ecs::schedule::common_conditions::run_once),
+            super::serve_encounter_spawn_commands,
+        )
+            .chain(),
     );
+    app
+}
+
+fn bodies_built(app: &mut App) -> usize {
+    let mut q = app
+        .world_mut()
+        .query::<&ambition_characters::brain::Brain>();
+    q.iter(app.world()).count()
 }

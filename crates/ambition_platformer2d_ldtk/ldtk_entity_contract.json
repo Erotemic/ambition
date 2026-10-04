@@ -419,6 +419,34 @@
           "default": "PickupKind::Custom(<the typo>)",
           "sample": "currency:1",
           "note": "an unrecognised kind becomes PickupKind::Custom, and `collect_pickups` has NO arm for Custom \u2014 the pickup disappears on touch and grants nothing. `currancy:1` is a working pickup that does nothing."
+        },
+        {
+          "name": "respawn",
+          "presence": "optional",
+          "values": [
+            "Never",
+            "Persistent",
+            "OnRoomReload",
+            "AfterSeconds"
+          ],
+          "patterns": [
+            "^AfterSeconds:\\s*[-+0-9.eE]+$"
+          ],
+          "on_invalid": "refused",
+          "default": "Never",
+          "sample": "OnRoomReload",
+          "note": "`AfterSeconds` pairs with a positive `respawn_seconds`: the pickup regrows that many seconds of world time after it is collected, also while its room is not live (Q152). `Never` and `OnRoomReload` do not keep it collected across a rebuild of its room"
+        },
+        {
+          "name": "respawn_seconds",
+          "presence": "optional",
+          "requires_value_of": {
+            "field": "respawn",
+            "equals": "AfterSeconds"
+          },
+          "positive": true,
+          "on_invalid": "refused",
+          "sample": "2.5"
         }
       ]
     },

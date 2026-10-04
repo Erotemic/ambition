@@ -706,7 +706,7 @@ pub enum StagedWorldViolation {
     },
     /// The publication builds a live room of a room that another live room,
     /// which it does not replace, already instantiates. The durable rows
-    /// (`AuthoredOccurrences`, `BreakableRespawnSchedule`) name a place by its
+    /// (`AuthoredOccurrences`, `WorldTimeSchedule`) name a place by its
     /// room id, so two live rooms of one room would write one row each and
     /// build each other's occurrences. No shipped road gets here: a crossing
     /// into a held room joins it, and a replay or a reset replaces.

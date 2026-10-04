@@ -1010,7 +1010,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `content.mary_o_spent_power_blocks` and `content.sanic_spent_monitors` hold
 /// one value per live room, keyed by `LiveRoomInstance`, where each held one
 /// value for the whole world. Each checksum folds the room.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 306;
+/// ⛔⛤ 306 -> 307: `feature.breakable_respawn_schedule` is now
+/// `feature.world_time_schedule` (`WorldTimeSchedule`). It also holds when a
+/// collected pickup regrows (Q152), with the same key and the same fold.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 307;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

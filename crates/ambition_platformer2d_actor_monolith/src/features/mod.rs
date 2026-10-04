@@ -1484,24 +1484,27 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 open_ecs_chests,
                 update_ecs_breakables,
                 // OW5: the respawn's due time, after the timer has ticked.
-                ecs::breakable_respawns::mirror_breakable_respawns,
+                ecs::world_time_schedule::mirror_breakable_respawns,
+                // Q152: a collected pickup comes back when its regrowth is due.
+                ecs::world_time_schedule::regrow_pickups,
                 update_ecs_falling_chests,
             )
                 .chain()
                 .in_set(FeatureInteractionSet::WorldObjects),
         );
         // A replay rebuilds its room whole, and a checkpoint restore rebuilds
-        // from a save that holds no broken breakable (OW5). The replay set is
-        // in `PlayerInput`, before the mirror's phase; see the system's doc.
-        app.init_resource::<ecs::breakable_respawns::BreakableRespawnSchedule>()
+        // from a save that holds no broken breakable and no collected pickup
+        // (OW5). The replay set is in `PlayerInput`, before the mirror's
+        // phase; see the system's doc.
+        app.init_resource::<ecs::world_time_schedule::WorldTimeSchedule>()
             .add_systems(
                 sim,
-                ecs::breakable_respawns::forget_breakable_respawns_on_replay
+                ecs::world_time_schedule::forget_scheduled_returns_on_replay
                     .in_set(crate::session::reset::ContentRoomReplayResetSet),
             )
             .add_systems(
                 ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
-                ecs::breakable_respawns::forget_breakable_respawns_on_restore,
+                ecs::world_time_schedule::forget_scheduled_returns_on_restore,
             );
         // ⭐ The encounter switch index registers itself from
         // `ambition_encounter_features` now (2026-09-03). `FeatureInteractionSet`

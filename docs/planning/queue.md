@@ -294,6 +294,9 @@ every respawn record, and `mirror_breakable_respawns` records Bob's again
 on the next tick from his platform's running timer, with the same due time
 (probe, 2026-10-03). Witness:
 `a_death_keeps_the_respawn_of_a_platform_in_another_players_room`.
+A pickup's regrowth (Q152) is served the same way, from its running
+`RespawnTimer` through `regrow_pickups`
+(`a_death_keeps_the_regrowth_of_a_heart_in_another_players_room`).
 
 **Alice's custody across Bob's room is served:** an item Alice banked in
 hand and then put down in Bob's live room is back in her hand after her

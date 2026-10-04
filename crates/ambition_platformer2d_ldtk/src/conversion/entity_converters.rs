@@ -485,6 +485,19 @@ pub(super) fn convert_pickup_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
     if let Some(sprite) = field_string(entity, "sprite").filter(|s| !s.trim().is_empty()) {
         pickup.sprite = Some(sprite.trim().to_string());
     }
+    // Q152: a pickup can regrow on the world clock, in the grammar a breakable
+    // respawns in. A misspelled policy is refused, not read as `Never`.
+    pickup.respawn = match crate::surfaces::parse_timed_respawn(entity)
+        .map_err(|error| format!("PickupSpawn `{name}`: {error}"))?
+    {
+        crate::surfaces::SurfaceRespawn::Never => ambition_entity_catalog::placements::HazardRespawn::Never,
+        crate::surfaces::SurfaceRespawn::OnRoomReload => {
+            ambition_entity_catalog::placements::HazardRespawn::OnRoomReload
+        }
+        crate::surfaces::SurfaceRespawn::AfterSeconds(seconds) => {
+            ambition_entity_catalog::placements::HazardRespawn::AfterSeconds(seconds)
+        }
+    };
     let (id, name, aabb) = authored_triple(entity, name, min, size);
     let mut record = ambition_platformer2d_world::placements::PlacementRecord::new(
         id,

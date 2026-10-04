@@ -429,6 +429,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/world_time_schedule.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
+    "ConsumedSinceCheckpoint": (
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
     "RewardGrantsSinceCheckpoint": (
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
@@ -1911,11 +1915,30 @@ ADJUDICATED: dict[str, str] = {
         "it when the occurrence is whole. The two customers' keys are disjoint "
         "(authored ids are unique in a room). "
         "`forget_scheduled_returns_on_replay` calls `forget_room` on an ADMITTED "
-        "replay, `forget_scheduled_returns_on_restore` calls `forget_all` in the "
-        "checkpoint apply, and `SessionScopedResources::reset` (`teardown.rs`) "
-        "calls `forget_all` at the session edge. Every writer but the teardown "
-        "runs in the simulation schedule or the checkpoint apply, and the type is "
-        "rollback state with a value checksum (`feature.world_time_schedule`)."
+        "replay. A checkpoint restore takes the dying participant out of each "
+        "record's owners at its admission (`disown_scheduled_returns_on_restore`, "
+        "`keep_only_owners`), and the checkpoint apply "
+        "(`forget_scheduled_returns_on_restore`) forgets the records of live rooms "
+        "and those with no owner left, or every record on a New Game (Q151). "
+        "`SessionScopedResources::reset` (`teardown.rs`) calls `forget_all` at the "
+        "session edge. Every writer but the teardown runs in the simulation "
+        "schedule or the checkpoint apply, and the type is rollback state with a "
+        "value checksum (`feature.world_time_schedule`)."
+    ),
+    "ConsumedSinceCheckpoint": (
+        "CORRECT — ONE RECORDER, ONE DISOWNER, TWO FORGETTERS, ONE TYPE, ONE FILE "
+        "(Q151, 2026-10-04). The map is private (`features/ecs/pickups.rs`). "
+        "`record` is called only by `record_consumed_pickups`, on the tick a "
+        "one-time pickup's `Consumed` row is new, with the participants in its "
+        "live room. `keep_only_owners` is called only by "
+        "`disown_consumed_pickups_on_restore`, on an ADMITTED checkpoint restore. "
+        "`forget_all` is called by `forget_consumed_pickups_at_checkpoint` on a "
+        "checkpoint commit and by `SessionScopedResources::reset` (`teardown.rs`) "
+        "at the session edge. The restore's acceptance "
+        "(`resume_at_checkpoint_on_reset`) only READS it (`owned_by`), to pin the "
+        "rows a spared participant owns. Every writer but the teardown runs in "
+        "the simulation schedule, and the type is rollback state with a value "
+        "checksum (`feature.consumed_since_checkpoint`)."
     ),
     "AuthoredOccurrences": (
         "CORRECT — SEVEN WRITER FILES ONTO SIX `&mut self` METHODS, AND THE ENTRY "

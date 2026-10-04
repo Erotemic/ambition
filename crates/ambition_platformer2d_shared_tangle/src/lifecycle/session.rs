@@ -1048,6 +1048,7 @@ impl Plugin for SessionScopePlugin {
                 Update,
                 despawn_retired_session_entities.in_set(SessionScopeSet::Cleanup),
             );
+        super::session_messages::install(app);
     }
 }
 

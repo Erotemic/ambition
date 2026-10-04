@@ -554,58 +554,39 @@ fn an_unclaimed_outcome_credits_no_move() {
     );
 }
 
-/// With no generation, no session runs (`SessionMechanics`). The hit is not
-/// resolved then, and it is not resolved later by the next session.
+/// With no generation, no session runs (`SessionMechanics`), and the damage
+/// path resolves no hit.
 #[test]
-fn a_hit_with_no_generation_is_resolved_neither_then_nor_by_the_next_session() {
+fn a_hit_with_no_generation_is_not_resolved() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     register_hit_pipeline_messages(&mut app);
     app.add_systems(Update, apply_feature_hit_events);
 
-    // Written INSIDE the frame, as a strike is. A message written between two
-    // updates is readable in one update only, and then the second assert
-    // below would see an empty bus and prove nothing.
-    fn strike(mut hits: MessageWriter<HitEvent>) {
-        hits.write(HitEvent {
-            strike_sfx: None,
-            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
-            damage: 2,
-            source: HitSource::Melee,
-            attacker: None,
-            room: None,
-            target: HitTarget::Volume,
-            mode: HitMode::Knockback,
-            knockback: None,
-            ignored_targets: Vec::new(),
-            attacker_move_instance: None,
-        });
-    }
-    app.add_systems(
-        Update,
-        strike
-            .run_if(bevy::ecs::schedule::common_conditions::run_once)
-            .before(apply_feature_hit_events),
-    );
-
     let actor_entity = spawn_hostile_actor(&mut app); // HP 5
-    let health = |app: &App| {
+    app.world_mut().write_message(HitEvent {
+        strike_sfx: None,
+        volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+        damage: 2,
+        source: HitSource::Melee,
+        attacker: None,
+        room: None,
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+        attacker_move_instance: None,
+    });
+    app.update();
+    assert_eq!(
         app.world()
             .get::<BodyHealth>(actor_entity)
             .unwrap()
             .health
-            .current
-    };
-    app.update();
-    assert_eq!(health(&app), 5, "a hit was resolved with no generation");
-
-    app.init_resource::<crate::session::mechanics::SessionMechanics>();
-    app.update();
-    assert_eq!(
-        health(&app),
+            .current,
         5,
-        "the next session resolved a hit of the session that ended"
+        "a hit was resolved with no generation"
     );
 }
 

@@ -1897,35 +1897,27 @@ fn a_spawn_request_on_the_bus_becomes_a_body() {
     );
 }
 
-/// With no generation, no session runs (`SessionMechanics`). The request is not
-/// served then, and the next session does not serve it.
+/// With no generation, no session runs (`SessionMechanics`), and the service
+/// builds no body.
 #[test]
-fn a_spawn_request_with_no_generation_is_served_neither_then_nor_by_the_next_session() {
+fn a_spawn_request_with_no_generation_builds_no_body() {
     let mut app = spawn_request_app();
     app.update();
     assert_eq!(bodies_built(&mut app), 0, "a body was built with no generation");
-
-    app.init_resource::<crate::session::mechanics::SessionMechanics>();
-    app.update();
-    assert_eq!(
-        bodies_built(&mut app),
-        0,
-        "the next session served a request of the session that ended"
-    );
 }
 
-/// The spawn service alone, with no generation, and one `SpawnCommand` that
-/// the first update puts on the bus.
-///
-/// The request is written INSIDE the frame, as the wave driver writes it. A
-/// message written between two updates is readable in one update only, and
-/// then a second update would see an empty bus and prove nothing.
+/// The spawn service alone, with one `SpawnCommand` on the bus and no
+/// generation.
 fn spawn_request_app() -> App {
-    use bevy::prelude::IntoScheduleConfigs;
-    fn ask(
-        mut requests: bevy::prelude::MessageWriter<ambition_encounter::EncounterEventMsg>,
-    ) {
-        requests.write(ambition_encounter::EncounterEventMsg::new(
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.insert_resource(smash_fixture_cast());
+    app.add_message::<ambition_encounter::EncounterEventMsg>();
+    app.add_systems(Update, super::serve_encounter_spawn_commands);
+
+    app.world_mut()
+        .resource_mut::<bevy::prelude::Messages<ambition_encounter::EncounterEventMsg>>()
+        .write(ambition_encounter::EncounterEventMsg::new(
             "test_encounter",
             ambition_encounter::EncounterEvent::SpawnCommand {
                 id: "wave_mob_1".to_string(),
@@ -1935,19 +1927,6 @@ fn spawn_request_app() -> App {
                 size: [20.0, 30.0],
             },
         ));
-    }
-    let mut app = App::new();
-    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.insert_resource(smash_fixture_cast());
-    app.add_message::<ambition_encounter::EncounterEventMsg>();
-    app.add_systems(
-        Update,
-        (
-            ask.run_if(bevy::ecs::schedule::common_conditions::run_once),
-            super::serve_encounter_spawn_commands,
-        )
-            .chain(),
-    );
     app
 }
 

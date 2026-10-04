@@ -1391,10 +1391,7 @@ pub fn serve_encounter_spawn_commands(
     // `SessionMechanics`.
     generation: Option<bevy::prelude::Res<crate::session::mechanics::SessionMechanics>>,
 ) {
-    // Each refusal drains the bus: the next session must not serve a request
-    // of a session that ended.
     let (Some(generation), Some(session_scope)) = (generation, commands.spawn_scope()) else {
-        events.clear();
         return;
     };
     let authored_sheets = &generation.sheets;
@@ -1405,7 +1402,6 @@ pub fn serve_encounter_spawn_commands(
                  nothing was spawned (the session lost its generation)"
             );
         }
-        events.clear();
         return;
     };
     for msg in events.read() {

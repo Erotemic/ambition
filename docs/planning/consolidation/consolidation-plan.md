@@ -108,11 +108,11 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ### Scope and current authority
 
-Source explicitly groups **39** App resources as gameplay-session or
+Source explicitly groups **41** App resources as gameplay-session or
 activated-generation state:
 
-<!-- session-owner-census: SessionScopedResources=32 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
-- `SessionScopedResources` (**32**) in `actor_monolith/src/session/teardown.rs`;
+<!-- session-owner-census: SessionScopedResources=34 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
+- `SessionScopedResources` (**34**) in `actor_monolith/src/session/teardown.rs`;
 - `SessionOwnedCheckpointState` (6) in `actor_monolith/src/session/checkpoint.rs`;
 - `SessionMechanics` (1 resource with six fields; do not count its fields).
 
@@ -203,7 +203,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 39 values. Work owner by owner:
+Do not begin by moving all 41 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
@@ -307,12 +307,12 @@ disabled menu state until a shell-less composition exists.
     App-registry parameters are deleted from the five systems: a live system
     cannot reach the sheets or the boss catalog of the App. A required `Res` is
     wrong here: the resource is removed at retirement, and the read would fail
-    parameter validation in that remainder. The two readers that hold a message
-    bus drain it when they refuse: without the drain, the next session served a
-    request of the session that ended. Witnesses:
-    `a_spawn_request_with_no_generation_is_served_neither_then_nor_by_the_next_session`,
-    `a_hit_with_no_generation_is_resolved_neither_then_nor_by_the_next_session`
-    (poison: an empty generation in place of the refusal; poison: no drain).
+    parameter validation in that remainder. Witnesses:
+    `a_spawn_request_with_no_generation_builds_no_body`,
+    `a_hit_with_no_generation_is_not_resolved` (poison: an empty generation in
+    place of the refusal). A request that a refusal leaves on the bus is not
+    drained by the reader: the session edge owns that, see
+    [SESSION-EDGE-STATE](../queue.md#session-edge-state--a-session-starts-from-nothing-the-last-one-left).
     The readers that build a room (the room loader, the prefetch, the world
     reload) refuse through `GenerationMechanics::for_live_session`, and
     `SenseExtent` refuses through the composition gate; none was changed.

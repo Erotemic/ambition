@@ -1722,6 +1722,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the registration contract itself",
     ),
     (
+        "::lifecycle::session_messages::SessionMessageChannels",
+        "the list of channels a session activation empties: filled at App build, read at the session edge",
+    ),
+    (
         "ambition_platformer2d_runtime::SimulationHost",
         "host composition mode, fixed for the session",
     ),

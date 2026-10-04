@@ -669,7 +669,12 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/player_tick.rs",
     ),
     "ClockState": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_actor_monolith/src/time/time_control/mod.rs",
+        "crates/ambition_time/src/time_control/mod.rs",
+    ),
+    "RequestedClockScale": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_time/src/time_control/mod.rs",
     ),
     "ContentEpochSequence": (
@@ -2355,7 +2360,23 @@ ADJUDICATED: dict[str, str] = {
         "dropping the target write fails "
         "`suspended_frame_zeros_world_time_scaled_dt` "
         "(`actor_monolith/src/time/time_control/tests.rs`), which is the arm that "
-        "makes this a verdict rather than an opinion."
+        "makes this a verdict rather than an opinion. The third file is "
+        "`SESSION_SCOPE_RESET` (2026-10-04): `SessionScopedResources::reset` sets "
+        "the pace to neutral at the session edge, the shape of `SimTick`. "
+        "POISON-VERIFIED: with the reset off, "
+        "`a_new_session_starts_at_the_neutral_pace_with_an_empty_clock_bus` "
+        "reads `(0.0, 0.42)` at the activation of a session that replaced one in "
+        "a hitstop."
+    ),
+    "RequestedClockScale": (
+        "CORRECT — ONE IN-SESSION OWNER FILE PLUS THE SESSION BOUNDARY, the shape "
+        "of `SimTick`. The three in-session writers are in "
+        "`ambition_time/src/time_control/mod.rs` and are the policies the "
+        "`ClockState` verdict names (the request reduction, the reset request, "
+        "the suspended frame). The other file is `SESSION_SCOPE_RESET`: "
+        "`SessionScopedResources::reset` sets it to the neutral pace at the "
+        "session edge, so two hosts with different histories agree on it. "
+        "POISON-VERIFIED 2026-10-04 by the arm the `ClockState` verdict names."
     ),
     "LastPersistedSave": (
         "CORRECT — TWO WRITERS AT TWO MOMENTS OF ONE FILE STATE. The autosave and "

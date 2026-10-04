@@ -571,3 +571,106 @@ pub fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) 
     }
     panic!("held interact inside the '{}' door of '{before}' for 120 frames and the room never changed", door.name);
 }
+
+/// S7's sharp rows: outside the peer checksum, float-bearing, read by an
+/// unfiltered per-tick query and mutably borrowed in production. Row names, as
+/// the registry spells them.
+pub const SHARP_ROWS: [&str; 11] = [
+    "item.ground_item",
+    "actor.animation_facts",
+    "portal.placed",
+    "boss.death_animation",
+    "actor.render_size",
+    "feature.hazard",
+    "player.blink_camera_state",
+    "portal.emission",
+    "portal.gun_pickup",
+    "portal.shot",
+    "entity.transform",
+];
+
+/// The value of a component as its `Debug` text, hashed. `Debug` prints each
+/// float as the shortest text that reads back to the same bits, so two values
+/// hash alike only if they are equal bit for bit.
+fn debug_value<T: std::fmt::Debug>(value: &T) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    format!("{value:?}").hash(&mut hasher);
+    hasher.finish()
+}
+
+/// Give each sharp row a value probe.
+///
+/// ⛔ Registration gives each of them a presence probe, whose census is a
+/// carrier count with `xor: 0`. A census comparison of two hosts or two peers
+/// then compares only how many carriers each row has, never a value (measured
+/// 2026-10-03: all eleven were presence-only). A value probe is a diagnostic
+/// and reaches no checksum two peers compare.
+///
+/// Returns the type names strengthened; each one must be in the registry.
+pub fn strengthen_the_sharp_rows(world: &mut bevy::prelude::World) -> Vec<&'static str> {
+    use ambition_platformer2d as p;
+    let mut probes = world.resource_mut::<p::rollback::RollbackChecksumProbes>();
+    let mut strengthened = Vec::new();
+    macro_rules! strengthen {
+        ($($ty:ty),* $(,)?) => {$(
+            assert!(
+                probes.strengthen_with::<$ty>(debug_value::<$ty>),
+                "`{}` has no rollback probe to strengthen",
+                std::any::type_name::<$ty>()
+            );
+            strengthened.push(std::any::type_name::<$ty>());
+        )*};
+    }
+    strengthen!(
+        p::held_items::GroundItem,
+        p::characters::actor::body::BodyAnimFacts,
+        p::portal::PlacedPortal,
+        p::combat::components::BossDeathAnimation,
+        p::combat::components::ActorRenderSize,
+        p::combat::hazard_runtime::HazardFeature,
+        p::platformer::camera_ease::PlayerBlinkCameraState,
+        p::portal::PortalEmission,
+        p::portal::PortalGunPickup,
+        p::portal::PortalShot,
+        bevy::prelude::Transform,
+    );
+    strengthened
+}
+
+/// Give each row of S7's float census a value probe: outside the peer
+/// checksum, no value projection, read by an unfiltered per-tick query and
+/// float-bearing (`scripts/measure_unchecksummed_rollback_rows.py`, 23 rows on
+/// 2026-10-03). The sharp rows are the eleven of them that production also
+/// writes. See [`strengthen_the_sharp_rows`]. 22 here: `lifecycle.room_visual`
+/// (`RoomVisual`) is a unit marker, so its presence is its whole value and its
+/// presence probe is already exact.
+pub fn strengthen_the_float_rows(world: &mut bevy::prelude::World) -> Vec<&'static str> {
+    use ambition_platformer2d as p;
+    let mut strengthened = strengthen_the_sharp_rows(world);
+    let mut probes = world.resource_mut::<p::rollback::RollbackChecksumProbes>();
+    macro_rules! strengthen {
+        ($($ty:ty),* $(,)?) => {$(
+            assert!(
+                probes.strengthen_with::<$ty>(debug_value::<$ty>),
+                "`{}` has no rollback probe to strengthen",
+                std::any::type_name::<$ty>()
+            );
+            strengthened.push(std::any::type_name::<$ty>());
+        )*};
+    }
+    strengthen!(
+        p::platformer::body::SpawnBaseline,
+        p::combat::components::ActorSpriteOffset,
+        p::sprite_sheet::character::sheets::SpritePosedBody,
+        p::characters::brain::boss_pattern::BossCapability,
+        p::boss_encounter::BossConfig,
+        p::boss_encounter::BossOverrides,
+        p::combat::components::CombatTuning,
+        p::encounter::EncounterCameraZoom,
+        p::mount::MountedSize,
+        p::platformer::body::Mass,
+        p::mount::Mountable,
+    );
+    strengthened
+}

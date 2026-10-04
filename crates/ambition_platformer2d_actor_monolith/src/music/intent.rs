@@ -67,7 +67,7 @@ fn participant_rooms(
 /// Clear room-scoped narrative music when the room the music plays for changes
 /// to another authored room.
 ///
-/// The room is [`the_room_the_music_plays_for`], as for
+/// The room is `the_room_the_music_plays_for`, as for
 /// [`compute_music_intent`]. This read was the sole live room, so while two
 /// rooms were live it did not run, and a conversation's track stayed after the
 /// primary seat left its room. Another player's crossing into a room with no

@@ -129,16 +129,40 @@ impl BossDefeatsSinceCheckpoint {
     ) -> Vec<(String, BossDefeatSinceCheckpoint)> {
         let (mut kept, taken): (BTreeMap<_, _>, BTreeMap<_, _>) = std::mem::take(&mut self.defeats)
             .into_iter()
-            .partition(|(_, defeat)| {
-                defeat.room.is_some_and(|room| spared.contains(&room))
-                    || (defeat.room != dying_room
-                        && defeat.present.iter().any(|seat| spared_participants.contains(seat)))
-            });
+            .partition(|(_, defeat)| Self::a_restore_keeps(defeat, spared, spared_participants, dying_room));
         for defeat in kept.values_mut() {
             defeat.present.retain(|seat| spared_participants.contains(seat));
         }
         self.defeats = kept;
         taken.into_iter().collect()
+    }
+
+    /// The defeats that [`Self::take_for_restore`] with the same arguments
+    /// would take, without taking them: what the restore's acceptance reads
+    /// to pin the bag it promises.
+    pub fn retracted_by_restore<'a>(
+        &'a self,
+        spared: &'a [LiveRoomInstance],
+        spared_participants: &'a [ambition_characters::control::PlayerSlot],
+        dying_room: Option<LiveRoomInstance>,
+    ) -> impl Iterator<Item = (&'a String, &'a BossDefeatSinceCheckpoint)> + 'a {
+        self.defeats
+            .iter()
+            .filter(move |(_, defeat)| !Self::a_restore_keeps(defeat, spared, spared_participants, dying_room))
+    }
+
+    /// The one rule of what a checkpoint restore keeps (Q151): a defeat in a
+    /// spared live room, or one a spared participant won outside the dying
+    /// participant's own room.
+    fn a_restore_keeps(
+        defeat: &BossDefeatSinceCheckpoint,
+        spared: &[LiveRoomInstance],
+        spared_participants: &[ambition_characters::control::PlayerSlot],
+        dying_room: Option<LiveRoomInstance>,
+    ) -> bool {
+        defeat.room.is_some_and(|room| spared.contains(&room))
+            || (defeat.room != dying_room
+                && defeat.present.iter().any(|seat| spared_participants.contains(seat)))
     }
 
     /// Entity-free value projection: two peers that disagree about which

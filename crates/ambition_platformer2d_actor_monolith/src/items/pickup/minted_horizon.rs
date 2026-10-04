@@ -267,32 +267,21 @@ pub struct ItemCheckpointRestoreInputs {
 pub fn restore_owned_items_to_checkpoint(
     inputs: Option<Res<ItemCheckpointRestoreInputs>>,
     owned: Option<ResMut<ambition_items::OwnedItems>>,
-    grants: Option<Res<RewardGrantsSinceCheckpoint>>,
     mut wallets: Query<
-        (&SimId, &mut ambition_characters::actor::BodyWallet),
+        &mut ambition_characters::actor::BodyWallet,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
     let (Some(inputs), Some(mut owned)) = (inputs, owned) else {
         return;
     };
+    // The bag and the purse the restore was accepted with: the checkpoint's,
+    // and what the grants it keeps gave (Q151; pinned by
+    // `resume_at_checkpoint_on_reset` with `kept_by_restore`), so the
+    // verification of the bag reads the same value.
     reduce_owned_items_to_baseline(inputs.owned.remembered(), &mut owned);
-    // The purse goes back with the bag, except for the coins of the grants
-    // still on record. A boss defeat that this restore retracts has already
-    // taken its grants out (`retract_mints_of_retracted_boss_defeats`, at the
-    // replay's admission); a grant that is left belongs to a defeat the death
-    // keeps, such as one in another participant's room (Q151), so its coins
-    // stay. `forget_reward_grants_on_restore` forgets the grants after this.
-    if let Ok((id, mut wallet)) = wallets.single_mut() {
-        let kept: i32 = grants.as_deref().map_or(0, |grants| {
-            grants
-                .grants
-                .iter()
-                .filter(|grant| grant.collector == *id)
-                .map(|grant| grant.granted.coins)
-                .sum()
-        });
-        let balance = inputs.owned.purse() + kept;
+    if let Ok(mut wallet) = wallets.single_mut() {
+        let balance = inputs.owned.purse();
         if wallet.balance != balance {
             wallet.balance = balance;
         }
@@ -424,6 +413,28 @@ impl RewardGrantsSinceCheckpoint {
         let (taken, kept) = std::mem::take(&mut self.grants).into_iter().partition(retracted);
         self.grants = kept;
         taken
+    }
+
+    /// The grants a checkpoint restore keeps (Q151): those of a defeat the
+    /// restore does not retract (`bosses` and `placements` name the ones it
+    /// does).
+    ///
+    /// ⚠ This keeps a grant also when the restore could put its source back,
+    /// so it relies on two measured facts (2026-10-04). A collected bag
+    /// pickup mint has no ledger row (the warden's `markrecall` has no
+    /// `SimId` and no minted save row), so no restore builds it again. An
+    /// opened chest stays opened, because its looted flag is not rewound. If
+    /// either becomes false, that grant must go back with its source, or the
+    /// reward exists twice.
+    pub fn kept_by_restore<'a>(
+        &'a self,
+        bosses: &'a std::collections::BTreeSet<SimId>,
+        placements: &'a std::collections::BTreeSet<String>,
+    ) -> impl Iterator<Item = &'a RewardGrant> + 'a {
+        self.grants.iter().filter(move |grant| match &grant.source {
+            GrantSource::Mint { parent } => !bosses.contains(parent),
+            GrantSource::BossChest { placement } => !placements.contains(placement),
+        })
     }
 
     /// Forget every grant: a checkpoint commit makes them part of the

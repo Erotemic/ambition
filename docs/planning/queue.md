@@ -318,12 +318,28 @@ The baseline now also holds the primary body's balance at the checkpoint
 inputs), and the restore writes it back, plus the coins of each reward
 grant still on record (a defeat the death keeps, such as Bob's boss, keeps
 what it paid: `a_death_keeps_the_reward_taken_from_the_other_players_boss`).
-Another participant's wallet is not rewound. Open: an item such a grant put
-in the bag is still lost by the bag restore. Witness:
+Another participant's wallet is not rewound. Witness:
 `a_death_undoes_a_purchase_since_the_checkpoint_whole` (control: a purchase
 before the checkpoint survives); poisons on capture, load adoption and
 restore each fail it. Schema 308 -> 309. Open: `OwnedItems` itself is still
 one session-wide bag, so Alice's death restores what Bob put in it.
+
+**The items go with the coins (2026-10-04).** An item a kept reward gave was
+lost: the restore put the checkpoint's bag back whole while the reward stayed
+taken (Bob's chest stayed looted; a banked defeat's mint was not built
+again). The restore's acceptance now pins the bag and purse it promises: the
+checkpoint's, plus what each grant it keeps gave. A grant is kept unless its
+boss defeat is one the restore retracts. The boss crate states that rule once
+(`retracted_by_restore`, shared with `take_for_restore`), and
+`kept_by_restore` applies it to the grants. The verification reads the same
+bag. Witnesses: `a_death_keeps_the_item_taken_from_the_other_players_boss`
+(bag 1 then 0 before) and
+`a_death_keeps_an_ability_taken_after_the_checkpoint_from_a_banked_defeat`.
+Poisons: no grant pinned (both fail, and so does the coin witness); every
+grant kept (the defeat retracted by a death keeps its ability and bounty).
+This keeps a grant even if its source could come back, on two measured facts
+stated at `kept_by_restore`: a bag-pickup mint has no ledger row, and an
+opened chest's looted flag is not rewound.
 
 **The whole-session restart is served (2026-10-04).** Measured 2026-10-03:
 a New Game beside Bob's live room took back his boss defeat in the save and

@@ -1907,9 +1907,11 @@ ADJUDICATED: dict[str, str] = {
         "on an announced retraction. `forget_all` is called by the checkpoint "
         "commit and the checkpoint/fresh-run reducer (both in `minted_horizon.rs`) "
         "and by `SessionScopedResources::reset` (`teardown.rs`) at the session "
-        "edge. Every writer but the teardown runs in the simulation schedule or "
-        "the checkpoint apply, and the type is rollback state with a value "
-        "checksum (`resource.reward_grants_since_checkpoint`)."
+        "edge. The checkpoint restore's acceptance (`resume_at_checkpoint_on_reset`) "
+        "only READS it (`kept_by_restore`), to pin the bag and purse of the grants "
+        "the restore keeps (Q151). Every writer but the teardown runs in the "
+        "simulation schedule or the checkpoint apply, and the type is rollback "
+        "state with a value checksum (`resource.reward_grants_since_checkpoint`)."
     ),
     "WorldTimeSchedule": (
         "CORRECT — ONE MIRROR PER CUSTOMER, THREE FORGETTERS, ONE TYPE, ONE FILE "

@@ -24,6 +24,7 @@ mod a_dropped_item_falls;
 mod a_lever_left_on_is_on_when_you_come_back;
 mod a_room_occupant_belongs_to_the_live_room;
 mod two_players_two_live_rooms;
+mod two_peers;
 mod one_body_two_tickers;
 mod installed_techniques_are_declared;
 mod authored_effects_are_admitted;

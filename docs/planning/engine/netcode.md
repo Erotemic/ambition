@@ -88,21 +88,49 @@ existing session seam. `bevy_matchbox` is a likely candidate. Transport choice
 must not change simulation or input ontology. Do not build signaling or
 deployment infrastructure only to satisfy this plan.
 
-N2 is the only instrument for two open questions:
+The P2P road exists without a network
+(`ambition_platformer2d_rollback_ggrs::peer`): `start_peer_session` builds a
+GGRS P2P session over any `NonBlockingSocket<SocketAddr>` and installs it with
+`install_rebased_session`, and `loopback_pair` is an in-memory link with a
+latency in updates, for two Apps in one process. A transport supplies the
+socket. Nothing here is signaling or deployment.
+
+N2 was the only instrument for two open questions:
 
 - the unchecksummed float rows (S7 in
-  [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md)),
-  which a local resimulation shows reproducible but nothing compares between
-  peers;
+  [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md)).
+  Measured 2026-10-03 by `game/ambition_app/tests/two_peers.rs` over the
+  in-memory link: two peers agree on every probed row at every confirmed frame,
+  the float rows by value. The rows a room does not carry stay unmeasured there;
+  S7 lists them.
 - whether the session rebase at a room crossing fits a remote peer's rollback
-  window.
+  window. Still open: the confirmed lifecycle commit runs only under a
+  `LocalSyncTest` ownership (`lifecycle_commit.rs`), so under a peer session a
+  room crossing does not commit at all. A peer session that crosses rooms needs
+  that commit first.
 
-N2 also inherits one obligation. A P2P session that negotiates a start tick
-declares frame zero, so it must rebase the rollback carrier order as
-`install_rebased_sync_test_session` does (see "What GGRS actually folds into
-the peer checksum"). `install_session`, the seam a transport hands a session
-to, does not rebase, because a session continuing an agreed timeline must not
-have the ground moved under it. Choosing between the two is part of N2.
+**The start is a new timeline, and that choice is made.** Each peer calls
+`start_peer_session` at the same point of the same world, so the world is frame
+zero and the carrier order is rebased (`install_rebased_session`, the frame-zero
+half of `install_rebased_sync_test_session`). `install_session`, which does not
+rebase, stays the seam for a session that continues a timeline the peers
+already share.
+
+**The first frame of a peer timeline carries no input.** With no frame
+confirmed, GGRS lets a session run `max_prediction` frames past frame 0 and
+saves `max_prediction + 1` frames, while bevy_ggrs keeps `max_prediction`
+snapshots. The peer that synchronized first (ten updates earlier, measured)
+runs that far ahead and evicts frame 0, and the first wrong prediction of a
+remote's frame-0 input rolls back to a frame with no snapshot: bevy_ggrs
+panics. GGRS predicts that input as the default, so `publish_local_inputs`
+publishes the default for every local seat at frame 0 of a session it does not
+own. The defect is upstream (the pinned bevy_ggrs rev, which is its current
+main); the rule can go when the snapshot depth covers the start.
+
+**A desync reaches the session's health.** GGRS reports a peer checksum
+mismatch only as a queued event. `record_peer_events` drains them each update
+and records a desync on `ActiveRollbackAuthority` as a sync-test mismatch is
+recorded, so `session_health` fails with the frame.
 
 ### N3 — content/schema negotiation
 

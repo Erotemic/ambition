@@ -60,7 +60,8 @@ ratchet. The peer-identity checkpoint that C03 and C05 waited on is discharged.
 `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
 show no row that differs between a fresh host and a veteran one: `SimTick`
 agreed from 2026-10-03 (road 2), and `AmbitionGameSave` from the same day
-(road 4). The one open road (3) needs a real two-peer session (`N2`).
+(road 4). Road 3 is measured by two peers in one process (see below); what is
+left of it is the rooms the two-peer arm does not walk.
 
 **Open roads:**
 
@@ -96,12 +97,24 @@ agreed from 2026-10-03 (road 2), and `AmbitionGameSave` from the same day
    stored ticks outlive a crossing. Why not a projection: it would drop the
    timeline. A P2P session (`N2`) must activate its session scope at the agreed
    start, which is the same edge.
-3. **The 25 unchecksummed float rows** (S7 in
-   [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)).
-   The state half is covered:
-   `two_local_histories_agree_about_the_sharp_unchecksummed_rows` compares the
-   11 reachable sharp rows across two hosts at every tick of five walks. The
-   timeline half needs a real two-peer session (`N2`).
+3. **The unchecksummed float rows** (S7 in
+   [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md);
+   23 rows by the census script on 2026-10-03).
+   ⛔ The state half was a carrier count until 2026-10-03: all eleven sharp
+   rows are presence-probed, and a presence census returns `xor: 0`, so
+   `two_local_histories_agree_about_the_sharp_unchecksummed_rows` compared how
+   many carriers each had. It now strengthens them with a value probe
+   (`strengthen_the_sharp_rows`), and the values agree across the two hosts in
+   five walks. The timeline half: `game/ambition_app/tests/two_peers.rs` runs
+   two GGRS P2P peers in one process over an in-memory link three updates late
+   (`start_peer_session`, `loopback_pair`), with value probes on 22 float rows
+   (`lifecycle.room_visual` is a unit marker). Both peers agree on every probed
+   row at every confirmed frame to 240, with rollbacks, and GGRS reports no
+   desync. Poisons: a position changed on one peer is a desync in
+   `session_health`; a value outside the checksum is no desync, and only the
+   census names it. Open: the arm walks `switch_lab`, where eight float rows
+   carry state; the portal, hazard, boss, mount, ground-item and camera-zoom
+   rows are compared by value only on two hosts, not on two peers.
 4. ✅ **CLOSED 2026-10-03: the save belongs to the experience that plays it**
    (`Q129`, decided the same day: shared durable state is peer state). Measured: the save
    differed in one field, `flags`. The veteran's Sanic and Mary-O sessions had

@@ -13,7 +13,7 @@ use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInsta
 
 use crate::common::{a_save_that_has_seen_the_hub_intro, base, fixed_60hz_room_options, walk_through_the_door_to};
 
-const ROOM: &str = "switch_lab";
+pub(crate) const ROOM: &str = "switch_lab";
 const HUB: &str = "central_hub_complex";
 const BOB: &str = "ow1_bob";
 
@@ -213,7 +213,7 @@ fn alice_leaves_bob_with(
 
 /// Put Bob, driven by `slot` or by nobody, beside Alice in `start`, the room
 /// `sim` booted in. Returns their live room.
-fn bob_beside_alice(
+pub(crate) fn bob_beside_alice(
     sim: &mut Platformer2dSimHarness,
     start: &str,
     slot: Option<ambition_platformer2d::characters::control::PlayerSlot>,

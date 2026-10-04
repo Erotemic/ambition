@@ -1559,6 +1559,10 @@ fn two_local_histories_agree_about_the_sharp_unchecksummed_rows() {
         }
         launch_labeled(&mut app, "Ambition");
         settle(&mut app);
+        // ⛔ Each sharp row is registered with a presence probe, whose census
+        // is a carrier count. Without this the arm compared how many carriers
+        // each row had on the two hosts, never a value (measured 2026-10-03).
+        crate::common::strengthen_the_sharp_rows(app.world_mut());
         app
     }
 

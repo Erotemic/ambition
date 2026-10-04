@@ -73,22 +73,28 @@ pub fn moving_toward_feet(delta: Vec2, gravity_dir: Vec2) -> bool {
     delta.dot(gravity_dir) > MOTION_EPS
 }
 
-/// Surfaces a body can rest on: full solids, blink walls, and one-ways.
+/// Surfaces a body can rest on: full solids, blink walls, barriers, and
+/// one-ways.
 ///
 ///  `BonkOnly` is deliberately absent, and that absence IS the feature. It
 /// is solid only against a head coming up into it, so nothing ever rests on one
 /// — a hidden block that supported a body would be an invisible floor, which is
 /// the bug it was added to remove.
 pub fn is_support_surface(kind: BlockKind) -> bool {
-    matches!(
-        kind,
-        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::OneWay
-    )
+    is_full_collision_surface(kind) || matches!(kind, BlockKind::OneWay)
 }
 
-/// Surfaces that block both axes unconditionally (solids and blink walls).
+/// Surfaces that block both axes unconditionally: solids, blink walls and
+/// barriers.
+///
+/// ⭐ THE ONE SOLIDITY MECHANISM. A reader that asks "is this a wall to a
+/// body" calls this, and does not list the kinds. A hand-written
+/// `Solid | BlinkWall { .. }` does not see the next kind that is solid.
 pub fn is_full_collision_surface(kind: BlockKind) -> bool {
-    matches!(kind, BlockKind::Solid | BlockKind::BlinkWall { .. })
+    matches!(
+        kind,
+        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::Barrier
+    )
 }
 
 /// Whether `kind` is a collision surface for `axis` under this gravity.
@@ -99,7 +105,7 @@ pub fn is_full_collision_surface(kind: BlockKind) -> bool {
 /// orbs, and rebound blocks are handled by gameplay logic, not collision.
 pub fn is_solid_for_axis(kind: BlockKind, axis: Axis, gravity_dir: Vec2) -> bool {
     match kind {
-        BlockKind::Solid | BlockKind::BlinkWall { .. } => true,
+        BlockKind::Solid | BlockKind::BlinkWall { .. } | BlockKind::Barrier => true,
         // Both directional kinds are collision surfaces on the GRAVITY axis
         // only; which way each one blocks is decided by its own landing rule.
         BlockKind::OneWay | BlockKind::BonkOnly => {

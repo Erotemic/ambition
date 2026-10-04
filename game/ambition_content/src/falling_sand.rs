@@ -382,10 +382,7 @@ fn seed_falling_sand_room_boundaries(
     // the actual floor.
     let mut block_wall_emits = 0usize;
     for block in &world.blocks {
-        if !matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-        ) {
+        if !ae::collision_semantics::is_full_collision_surface(block.kind) {
             continue;
         }
         let min = block.aabb.min;

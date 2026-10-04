@@ -1069,22 +1069,33 @@ the Active volumes.
 **Acceptance:** a test changes a move's hitbox and sees the AI's reach change,
 with no sprite change.
 
-### BREAKABLE-SOLIDITY — a solid breakable is a barrier, not a blink wall
-
-**Owner:** `features/ecs/world_overlay.rs` (the breakable overlay) and the
-`ambition_platformer2d_core::BlockKind` vocabulary.
+### BREAKABLE-SOLIDITY — a solid breakable is a barrier, not a blink wall — ✅ DONE 2026-10-03
 
 **Ruling:** Q102 (2026-10-03): a solid breakable is not semantically a
 `BlinkWall { Hard }`. If both need the same collision property, extract or reuse
 a generic solidity/barrier semantic that both compose.
 
-**Current state:** `BreakableCollision::Solid` publishes
-`BlockKind::BlinkWall { tier: Hard }`. A hard blink wall is solid only until the
-body has the stronger blink upgrade, so that upgrade may also pass a breakable.
+**Measured first:** a body with `blink_through_hard_walls` blinked through an
+unbroken solid crate (it landed at x = 340 past a crate at 220..242).
 
-**Acceptance:** a body with the hard blink upgrade cannot blink through an
-unbroken solid breakable, and still passes a hard blink wall; the breakable and
-the blink wall share one solidity mechanism.
+**Done:** `ambition_platformer2d_core::BlockKind::Barrier`: full collision on
+both axes, and no blink upgrade passes it. `BreakableCollision::Solid` publishes
+it. The one solidity mechanism is
+`collision_semantics::is_full_collision_surface` (with `is_support_surface` for
+the kinds a body rests on): `Solid`, `BlinkWall` and `Barrier` are its members,
+and the 21 readers that listed `Solid` and `BlinkWall` by hand now call it.
+A barrier is an object, not terrain, so a reader that asks for `Solid` alone
+still does not see a crate, as before. A brain perceives it as a solid. The
+block has no tile and no fill: the crate draws itself.
+
+**Witness:** `the_hard_blink_upgrade_does_not_pass_an_unbroken_solid_breakable`
+(monolith `features::ecs::world_overlay`): the real overlay publisher, then the
+core blink. The control is a hard blink wall of the same rectangle, which the
+same body passes. The arm failed before the change.
+
+**Not changed:** a moving platform is still composed as `BlinkWall { Soft }`
+(`ambition_platformer2d_world::platforms`), so the soft blink upgrade passes
+one. Whether that is intended was not asked.
 
 ### CPU-LADDER — the brain owns the knobs, Smash owns the ladder
 

@@ -211,6 +211,9 @@ pub fn point_block_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
         | ae::BlockKind::OneWay
         | ae::BlockKind::Hazard
         | ae::BlockKind::BlinkWall { .. } => None,
+        // A barrier is an object that draws itself (a crate has its own
+        // sprite), so its block has no sprite.
+        ae::BlockKind::Barrier => None,
     }
 }
 
@@ -229,8 +232,12 @@ pub fn block_tile_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
         ae::BlockKind::BlinkWall {
             tier: ae::BlinkWallTier::Hard,
         } => Some(EntitySprite::HardBlinkTile),
-        // Listed, not wildcarded, so a new kind must answer.
-        ae::BlockKind::PogoOrb | ae::BlockKind::Rebound { .. } | ae::BlockKind::BonkOnly => None,
+        // Listed, not wildcarded, so a new kind must answer. A barrier is an
+        // object that draws itself, so its block repeats no tile.
+        ae::BlockKind::PogoOrb
+        | ae::BlockKind::Rebound { .. }
+        | ae::BlockKind::BonkOnly
+        | ae::BlockKind::Barrier => None,
     }
 }
 

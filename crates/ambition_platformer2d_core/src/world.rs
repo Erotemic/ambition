@@ -24,6 +24,16 @@ pub enum BlockKind {
     /// the player has the matching blink-through upgrade. The destination still
     /// must be open space.
     BlinkWall { tier: BlinkWallTier },
+    /// Full collision on both axes, and a hard blocker for blink pathing: no
+    /// blink upgrade passes it. It is an OBJECT that stands in the world (an
+    /// unbroken crate), not terrain, so a reader that asks for `Solid` alone
+    /// does not see it.
+    ///
+    /// It shares its solidity with `Solid` and `BlinkWall` through
+    /// `collision_semantics::is_full_collision_surface`. A solid breakable was
+    /// published as `BlinkWall { tier: Hard }` to get that solidity, and so the
+    /// hard blink upgrade passed an unbroken crate (Q102, 2026-10-03).
+    Barrier,
     /// Landing platform: only solid when the player crosses from above.
     OneWay,
     /// The mirror of [`BlockKind::OneWay`]: only solid when struck from

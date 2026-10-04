@@ -111,10 +111,7 @@ pub fn ledge_assisted_arrival(
             across * want + down * (block.aabb.head_coord(down) - half.dot(down.abs()).abs());
         let box_at = ae::Aabb::new(landing, half);
         let embeds = world.blocks.iter().any(|b| {
-            matches!(
-                b.kind,
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-            ) && box_at.strict_intersects(b.aabb)
+            ae::collision_semantics::is_full_collision_surface(b.kind) && box_at.strict_intersects(b.aabb)
         });
         if embeds {
             continue;

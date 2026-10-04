@@ -472,10 +472,8 @@ pub fn carry_or_wake_settled_items(
             item.half_extent + Vec2::new(0.0, 1.0),
         );
         let support = world.blocks.iter().find(|block| {
-            matches!(
-                block.kind,
-                ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
-            ) && probe.strict_intersects(block.aabb.translated(-block.velocity))
+            ae::collision_semantics::is_support_surface(block.kind)
+                && probe.strict_intersects(block.aabb.translated(-block.velocity))
         });
         match support {
             None => {
@@ -564,10 +562,8 @@ pub fn ground_item_physics(
         let next = item.pos + item.vel * dt;
         let next_aabb = ae::Aabb::new(next, item.half_extent);
         let blocked = world.blocks.iter().any(|block| {
-            matches!(
-                block.kind,
-                ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
-            ) && next_aabb.strict_intersects(block.aabb)
+            ae::collision_semantics::is_support_surface(block.kind)
+                && next_aabb.strict_intersects(block.aabb)
         });
         // Out of the world rectangle on ANY side (not just world-down) — so an
         // item that flies off the side under a gravity flip parks too.

@@ -370,10 +370,7 @@ fn spawn_debris_piece(
 
 #[cfg(feature = "physics_debris")]
 fn block_accepts_dynamic_debris(kind: ae::BlockKind) -> bool {
-    matches!(
-        kind,
-        ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
-    )
+    ae::collision_semantics::is_support_surface(kind)
 }
 
 #[cfg(feature = "physics_debris")]

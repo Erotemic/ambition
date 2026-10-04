@@ -1893,8 +1893,7 @@ pub(super) fn attack_kit_of(
     grounded: bool,
     // ⛔⛔ AND ITS REAL STANCE, which is the other half of the same fact and was
     // MISSING. Like `grounded`, never a choice: a brain that could claim it was
-    // running would be picking a move its body cannot perform. ⚠ THREADED BUT
-    // NOT YET CONSULTED — see the block below for why the behaviour is held.
+    // running would be picking a move its body cannot perform.
     running: bool,
     // only a FIGHTER brain reads the kit, and building it is a `Vec` of
     // owned move ids and frame data — per actor, per tick. Every other brain in
@@ -1984,27 +1983,12 @@ pub(super) fn attack_kit_of(
             AttackDir::Up,
             AttackDir::Down,
         ] {
-            // ⛔⛔ **THE FIX IS BEHIND A MEASUREMENT FEATURE, NOT LANDED.**
-            // Resolving with `move_for_attack(.., running)` — which is what the
-            // press road does — makes the kit truthful and gives every CPU the
-            // dash attack its own press already produces. It also RE-PRICES how
-            // the CPUs fight, and `engine/fighter-brain.md` rules that such a
-            // change "needs the ladder rig, not a coordinator's judgement".
-            //
-            // ⭐ ONE CODE PATH, NOT A `#[cfg]` SPLIT, and that is the point: with
-            // the feature off `running_now` is a compile-time `false`, and
-            // `move_for_attack(verb, dir, grounded, false)` falls through to
-            // `move_for_directional_verb` — the shipped behaviour, byte for byte,
-            // by construction rather than by a second arm somebody has to keep in
-            // step. A feature nobody enables compiles to what was here before.
-            //
-            // ⇒ It exists so the measurement can be run on more than one machine.
-            // MEASURED so far (duel rig, pirate admiral): rung 3 the truthful kit
-            // is BETTER on both seats, rung 6 costs ~3%/18%, rung 9 fails the
-            // gate. Four mechanisms proposed for the rung-9 drop, three measured
-            // false. ⚠ And a second fighter, emmy_noether at rung 9, is
-            // byte-IDENTICAL under both kits — the flag is a no-op wherever the
-            // stance never triggers, which is the control this shape gives free.
+            // The kit resolves a press with `move_for_attack(.., running)`,
+            // as the press road does, so a running body is offered the dash
+            // attack that its press starts. This was behind the measurement
+            // feature `truthful_attack_kit` until 2026-09-12 (Q117): a
+            // planner that scores one move while the executor does a
+            // different move is incorrect, whatever it does to the matchups.
             //
             // ⚠ NOT A GAMEPLAY KNOB. See `SPECIAL` below: the press road resolves
             // a special in an EARLIER branch that never reaches `move_for_attack`,
@@ -2062,6 +2046,42 @@ pub(super) fn attack_kit_of(
         kit.push(grab);
     }
     kit
+}
+
+/// How far the attack press of this body reaches, from the move geometry.
+///
+/// The moveset owns reach (Q35). A brain that closes to its hit band reads
+/// this number, and no profile authors one. The move is the one that
+/// `trigger_moveset_moves` starts for a forward attack press in the real
+/// posture of the body: `move_for_attack` is the resolver of that road, so a
+/// body that runs reads the reach of its dash attack. The reach is that of
+/// the Active volumes, so it is the same number before the move starts and
+/// during its startup.
+///
+/// Only a Smash brain reads the answer, so only a Smash brain pays for it.
+/// `None` when no move answers the press, or when the move hits nothing by
+/// itself (a move that only fires a shot has no melee reach).
+pub(super) fn melee_reach_of(
+    moveset: Option<&ambition_combat::moveset::ActorMoveset>,
+    grounded: bool,
+    running: bool,
+    brain: Option<&ambition_characters::brain::Brain>,
+) -> Option<f32> {
+    use ambition_characters::brain::{Brain, StateMachineCfg};
+    if !matches!(
+        brain,
+        Some(Brain::StateMachine(StateMachineCfg::Smash { .. }))
+    ) {
+        return None;
+    }
+    let spec = moveset?.0.move_for_attack(
+        ambition_combat::moveset::ATTACK_VERB,
+        ambition_characters::actor::attack_gesture::AttackDir::Forward,
+        grounded,
+        running,
+    )?;
+    let reach = spec.frame_data().reach;
+    (reach > 0.0).then_some(reach)
 }
 
 /// **ANSWER THE CATALOG'S REQUEST FOR THE BODY'S OWN RANGED ACTION.**
@@ -2391,6 +2411,14 @@ fn build_enemy_brain_snapshot(
             playback,
             ranged,
             worn,
+        ),
+        // The reach of the attack press, from the same moveset and the same
+        // posture as the kit above. See `melee_reach_of`.
+        melee_reach: melee_reach_of(
+            moveset,
+            body.ground.on_ground,
+            motion_facts.running,
+            brain,
         ),
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity

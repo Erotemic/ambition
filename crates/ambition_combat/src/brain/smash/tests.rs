@@ -192,6 +192,42 @@ fn melee_smash_swings_when_target_is_point_blank() {
     assert!(frame.melee_pressed, "point-blank melee actor should swing");
 }
 
+/// The hit band is the reach of the body's attack move, not a number in the
+/// cfg (Q35). The cfg band is 56 px here and the foe stands at 80 px. A body
+/// whose move reaches 90 px swings. A body whose move reaches 40 px does not
+/// swing at 50 px, where the cfg band alone would.
+#[test]
+fn the_hit_band_is_the_reach_the_snapshot_states() {
+    let cfg = crisp_striker_cfg();
+    let actions = melee_actions();
+    let pressed = |target_x: f32, melee_reach: Option<f32>| {
+        let mut state = SmashState::default();
+        let mut snap = snap_with_target_at_x(target_x);
+        snap.melee_reach = melee_reach;
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        tick_smash(&cfg, &mut state, &actions, &snap, None, &mut frame);
+        frame.melee_pressed
+    };
+    assert!(cfg.attack_range < 80.0 && cfg.attack_range > 50.0);
+
+    assert!(
+        !pressed(80.0, None),
+        "a body with no attack move keeps the cfg band, and 80 px is outside it"
+    );
+    assert!(
+        pressed(80.0, Some(90.0)),
+        "a move that reaches 90 px is pressed at 80 px, outside the cfg band"
+    );
+    assert!(
+        pressed(50.0, None),
+        "the control: 50 px is inside the cfg band"
+    );
+    assert!(
+        !pressed(50.0, Some(40.0)),
+        "a move that reaches 40 px is not pressed at 50 px, inside the cfg band"
+    );
+}
+
 /// Difficulty profile that always commits and never jitters, so the
 /// ranged-cadence tests are deterministic regardless of rng seed.
 fn crisp_striker_cfg() -> SmashCfg {

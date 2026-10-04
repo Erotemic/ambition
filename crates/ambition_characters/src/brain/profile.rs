@@ -59,13 +59,6 @@ impl AuthoredBrainOverride {
     }
 }
 
-/// Default melee smash hit-band (px) for a profile that authors none.
-pub const DEFAULT_SMASH_HIT_BAND: f32 = 36.0;
-
-fn default_smash_hit_band() -> f32 {
-    DEFAULT_SMASH_HIT_BAND
-}
-
 fn default_turns_at_walls() -> bool {
     true
 }
@@ -154,10 +147,6 @@ pub struct BrainProfile {
     /// every other template.
     #[serde(default = "default_fighter_level")]
     pub fighter_level: u8,
-    /// Smash-template hit band (px) — the radius the driver closes to before
-    /// emitting a melee attack.
-    #[serde(default = "default_smash_hit_band")]
-    pub smash_hit_band: f32,
     /// Smash-template heavy base: longer reach + slower chase
     /// (`SmashCfg::BRUTE_DEFAULT`) vs the lighter striker default.
     #[serde(default)]
@@ -212,7 +201,6 @@ impl Default for BrainProfile {
             patrol_effort: default_patrol_effort(),
             chase_effort: default_chase_effort(),
             fighter_level: default_fighter_level(),
-            smash_hit_band: DEFAULT_SMASH_HIT_BAND,
             smash_heavy: false,
             smash_sprint_to_close: false,
             smash_duelist: false,
@@ -224,11 +212,6 @@ impl Default for BrainProfile {
 }
 
 impl BrainProfile {
-    /// Default melee smash hit-band (px) when a profile authors none — the same
-    /// constant as [`DEFAULT_SMASH_HIT_BAND`], reachable through the type for
-    /// call sites that already hold it.
-    pub const DEFAULT_SMASH_HIT_BAND: f32 = DEFAULT_SMASH_HIT_BAND;
-
     /// The speed this driver patrols a body at: its effort against the body's
     /// own top speed. Computed where a driver is lowered, never stored, so a
     /// policy swapped in later (a provocation) paces the body by its own effort.
@@ -266,7 +249,6 @@ mod tests {
             "a walker that authors nothing still turns at walls"
         );
         assert_eq!(profile.fighter_level, 5, "the middle rung, not rung zero");
-        assert_eq!(profile.smash_hit_band, DEFAULT_SMASH_HIT_BAND);
         assert_eq!(profile.patrol_effort, 0.5, "the runtime's old hard-code");
         assert_eq!(profile.chase_effort, 1.0);
     }

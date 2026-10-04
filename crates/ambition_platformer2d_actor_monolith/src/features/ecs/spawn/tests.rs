@@ -508,6 +508,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
         turns_at_walls: false,
         ground_ends_ahead: false,
         attack_kit: Vec::new(),
+        melee_reach: None,
         actor_aerial: false,
         alive: true,
         target_pos: ae::Vec2::new(72.0, 0.0),

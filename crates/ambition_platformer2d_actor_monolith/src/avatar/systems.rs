@@ -173,6 +173,7 @@ pub fn tick_controlled_brains(
             // This translation path does not carry an ActorMoveset; fighter attack
             // generation is therefore inactive here.
             attack_kit: Vec::new(),
+            melee_reach: None,
             // The player brain reads input, not the Smash aerial path; grounded
             // locomotion semantics regardless of fly mode.
             actor_aerial: false,

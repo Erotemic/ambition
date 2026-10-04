@@ -1069,6 +1069,46 @@ the Active volumes.
 **Acceptance:** a test changes a move's hitbox and sees the AI's reach change,
 with no sprite change.
 
+**Measured first (2026-10-03, the shipped prepared cast, 29 rows with an
+autonomous profile):** 15 Smash rows have an attack move, and for 14 of them the
+authored `smash_hit_band` was more than 1 px from the reach of the move. Examples:
+goblin 32 against 38, the automata 36 against 44, Carl Stargan 36 against 22,
+the goblin brute and the pirate heavies 36 against 48.4. Also measured: the
+moveset derived from an action set reaches `1.1 × reach_px` (28 gives 30.8), so
+`reach_px` is not the hit extent. The moveset geometry is the one answer.
+
+**Slice 1, DONE 2026-10-03: the Smash brain.**
+
+- `BrainSnapshot::melee_reach` is the reach of the move that the body's forward
+  attack press starts, in the real posture of the body. The snapshot builder
+  fills it with `melee_reach_of`, which asks `move_for_attack`, the resolver of
+  the press road. A running body thus reads its dash attack.
+- `tick_smash` sets its three distance bands from that reach each tick
+  (`SmashCfg::with_hit_band`). The bands in a `SmashCfg` are only those of a
+  body with no attack move (`NO_ATTACK_MOVE_HIT_BAND`, 36 px).
+- `BrainProfile::smash_hit_band` is deleted, with its four authored rows.
+- Witnesses: `the_hit_band_is_the_reach_the_snapshot_states` (combat),
+  `a_smash_brain_swings_where_the_hitbox_of_its_move_reaches` (the acceptance
+  test: two bodies that differ only in one hitbox) and
+  `the_reach_is_that_of_the_move_the_press_starts` (monolith), and
+  `a_smash_enemy_swings_from_the_reach_of_its_own_move` (app_it: the goblin
+  brute decides its first press at 48.3 px; with the snapshot line removed it
+  closes to 35.4 px).
+
+This changes how the Smash enemies space themselves: each now stops and swings
+where its own move reaches.
+
+**Remaining readers (not changed):**
+
+- `MeleeBruteCfg::attack_range` and `actor/ai.rs` (`dist <= attack_range`): the
+  profile's `attack_range`, with a 56 px floor for a provoked brute and a
+  dismounted rider. No shipped row uses the MeleeBrute template by default.
+- `AerialCfg::attack_range` (the parrot 60 against 52.8, fsm_noodling 50
+  against 52.8).
+- `ChargeCrashCfg::bite_range` (the shark 200 against 46.2). Find out first if
+  this is a reach or the distance at which the charge starts.
+- The fighter's `assumed_foe_reach`: a number for the reach of the FOE.
+
 ### BREAKABLE-SOLIDITY — a solid breakable is a barrier, not a blink wall — ✅ DONE 2026-10-03
 
 **Ruling:** Q102 (2026-10-03): a solid breakable is not semantically a

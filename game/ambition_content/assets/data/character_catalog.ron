@@ -76,7 +76,6 @@
             attack_range: 150.0,
             patrol_effort: 0.6176,
             chase_effort: 1.0,
-            smash_hit_band: 32.0,
             smash_sprint_to_close: true,
         ),
         //  A WANDERING SENTRY that notices late and never hurries. Not a
@@ -182,7 +181,6 @@
             attack_range: 120.0,
             patrol_effort: 0.08,
             chase_effort: 1.0,
-            smash_hit_band: 36.0,
         ),
     },
     // Named gaits that rows share through `locomotion_preset`.
@@ -2280,7 +2278,6 @@
                 template: Smash,
                 aggro_radius: 460.0,
                 attack_range: 60.0,
-                smash_hit_band: 30.0,
             )),
             max_health: Some(2),
             tags: ["enemy", "robot"],
@@ -2317,7 +2314,6 @@
                 template: Smash,
                 aggro_radius: 380.0,
                 attack_range: 55.0,
-                smash_hit_band: 34.0,
             )),
             max_health: Some(4),
             tags: ["enemy", "robot"],

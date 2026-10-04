@@ -63,6 +63,17 @@ pub fn tick_smash(
         state.mode = BroadMode::Idle;
         return;
     }
+    // The moveset owns reach (Q35). The bands come from the geometry of the
+    // move that this body's attack press starts, not from a number that a
+    // profile authors. A body with no attack move keeps the bands of `cfg`.
+    let reached;
+    let cfg = match snapshot.melee_reach {
+        Some(reach) => {
+            reached = cfg.with_hit_band(reach);
+            &reached
+        }
+        None => cfg,
+    };
     // ── Capture context ─────────────────────────────────────────────────────
     //
     // BEFORE everything, and it RETURNS. A fighter in a capture — at

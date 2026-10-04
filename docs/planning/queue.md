@@ -1312,7 +1312,8 @@ catalog file. No plural bark collection exists, because no content asks for one.
 
 ### SESSION-EDGE-STATE — a session starts from nothing the last one left
 
-**State:** two repairs landed 2026-10-04. One population is not counted.
+**State:** five resources and the declared message channels are reset at the
+session edge (2026-10-04). Two host constants are recorded, not reset.
 
 **Found by measurement (2026-10-04).** A session is retired inside a schedule
 run, and a route replacement (`ShellCommand::ReplaceWith`: a world reload, a
@@ -1344,16 +1345,53 @@ restart) retires one session and activates the next in one frame.
   is that list): the first version took the sound of the menu row that started
   the session.
 
+- **Three more peer-compared resources crossed the edge** (a census at each tick
+  from 0, same day). Two hosts with EQUAL saves on the shell host under
+  rollback: a session that followed another one (replaced in place, or through
+  the title), and the first session of a fresh host that was given that save.
+  `GatePortalPhases` was a mechanic: with the gate switch on, the portal of the
+  session that followed was `On` from tick 0 and the fresh host's was `Opening`
+  until tick 40, so for 39 ticks one peer could take the gate and the other
+  could not. `WorldTime` held the old session's last step at tick 0.
+  `OwnedItemsBaseline` held the old session's bag at tick 0 against zeros, with
+  equal bags; it had been left out of the reset on purpose (2026-09-18), on the
+  premise that only different save files could make it differ. The three are
+  now in `SessionScopedResources`. The older two-host arm did not see them: its
+  first reading is after `settle`, past tick 0.
+
 **Witnesses:**
 `id_peer_audit::a_new_session_starts_at_the_neutral_pace_with_an_empty_clock_bus`
 (the shipped host; poison: no clock reset, the pace is `(0.0, 0.42)`; poison: no
 clear, 2 requests on the bus), and three arms in `lifecycle::session_messages`
 (a declared channel; a kept channel; a message the new session writes after its
-activation is not taken).
+activation is not taken). Also
+`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does`
+(the peer census on each frame of ticks 0..=48, two successions; premises: the
+old session's portal is `On` and its last step is a hitstop step, the saves are
+equal, the fresh host's portal opens inside the window). Poisons, one reset
+removed at a time: `WorldTime` 1 frame at tick 0; `GatePortalPhases` 40 frames,
+ticks 0 to 39; `OwnedItemsBaseline` 1 frame at tick 0.
 
-**Not counted:** message channels that no domain declares to the rollback
-census, and other peer-compared resources outside `SessionScopedResources`. A
-long visit to the title carries no message: the bus was empty after 80 frames.
+**Host constants that cross the edge, recorded:** `FriendlyFire` and
+`RegimePolicy` are rollback-registered, and a value written by hand before the
+replace was still there at every tick of the next session (`RegimePolicy` in
+the peer census). No production code writes either one (grep of `crates/` and
+`game/`, non-test). They are NOT in the reset, because they are the host's and
+the world's configuration: `resolved_combat_tuning` sets `FriendlyFire` as "the
+world's authored friendly-fire rule" on a composed host, and `RegimePolicy` is
+the regime of the process. A reset to the default at each activation would
+replace a configured value. ⚠ The first system that writes one of them inside
+a session makes it session state, and it must then join the reset.
+
+**Not measured:** the other whole-state rows were scope ordinals
+(`TransactionId`, `SessionScopedEntity`), a declared-derived cache
+(`GatedLockWallCache`, tick 0) and a count of launcher entities (`Name`, tick 0,
+replace flow only). The walk did not change `OwnedItems`, and could not read
+`FactionRelations`, `CutRopeHeavyObjectCycle` (private fields) or
+`PortalFrameHistory` (a presence probe). A Mary-O or Sanic session
+(`BrokenBricks`, `SpentMonitors`, `SpentPowerBlocks`) was not walked. Message
+channels that no domain declares to the rollback census are not counted. A long
+visit to the title carries no message: the bus was empty after 80 frames.
 
 **The frame on which the timeline starts is a decision (2026-10-04).**
 `LocalSessionSet::Maintain` had no edge to `GameplaySessionSet::Providers`, the

@@ -518,6 +518,30 @@ pub fn apply_finish_zoom_requests(
     }
 }
 
+/// Put the camera at rest when a gameplay session activates.
+///
+/// The shake and the finishing zoom are what one session asked of the screen.
+/// They are applied in `Update` and they decay over time, so a session that
+/// is replaced while its camera moves leaves that motion to the next one.
+/// MEASURED 2026-10-04 on the shell host: a session that shook its camera by
+/// 6 px and held a full finishing zoom was replaced, and the next session
+/// started with a shake of 6 px and a full zoom.
+///
+/// The appliers can run before the activation in the update that replaces a
+/// session, so emptying the two request channels is not sufficient.
+pub fn rest_the_camera_on_activation(
+    mut activated: bevy::ecs::message::MessageReader<crate::lifecycle::SessionScopeActivated>,
+    mut shake: bevy::prelude::ResMut<CameraShakeState>,
+    mut zoom: bevy::prelude::ResMut<FinishZoomState>,
+) {
+    if activated.read().count() == 0 {
+        return;
+    }
+    // The seed is a counter of frames, not a motion: it keeps its value.
+    shake.amplitude_px = 0.0;
+    *zoom = FinishZoomState::default();
+}
+
 /// Hold, then release. Runs every frame beside [`tick_camera_shake`].
 pub fn tick_finish_zoom(
     time: bevy::prelude::Res<bevy::prelude::Time>,

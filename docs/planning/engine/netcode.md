@@ -127,6 +127,29 @@ N2 was the only instrument for two open questions:
   "Remote peers" row of
   [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md).
 
+**A preparation that fails on one peer has no rule yet (measured 2026-10-04,
+Q156).** Each peer prepares the room of an operation on its own machine, in
+`Update`, and commits alone. When one machine's preparation fails, the other
+commits and waits in the handshake of a session that never starts, and the
+machine that failed stays held. No error is reported. When each machine fails,
+both stay held. The measurement is in Q156 of
+[`awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+
+The engineering half is decided and not built: **the verdict of each peer
+travels in the peer input** ("prepared" or "failed", for the operation that
+waits). The reasons: it keeps one protocol (a second message beside GGRS is a
+second ordering to reason about), and an input is confirmed with its frame, so
+the cancel or the commit becomes a fact that each peer's simulation holds the
+same. The price is one more round trip inside the freeze, and a change of the
+wire input. The policy (what a "failed" does to a door and to a respawn) is
+the maintainer's, in Q156.
+
+A plan must also be lowered from a durable horizon that the peers agree on.
+Today `begin_room_transition_load_system` lowers the mints of a door from this
+machine's save (`minted_baseline_from_save`), so two peers with different
+saves build different plans, and no check sees it. That is a divergence, not a
+policy question (read 2026-10-04, not measured).
+
 **The start is a new timeline, and that choice is made.** Each peer calls
 `start_peer_session` at the same point of the same world, so the world is frame
 zero and the carrier order is rebased (`install_rebased_session`, the frame-zero

@@ -351,6 +351,36 @@ uncleared). Decision recorded here: a defeat is credited to everyone in its
 room when it falls, since the edge has no attacker; a shared win stays when
 one of its winners dies elsewhere.
 
+**Ownership, not exceptions (review 2026-10-04).** A review found that the
+restore is still a global rewind with exceptions (`spared`,
+`spared_participants`), and that the exceptions fail where nothing live
+republishes a consequence. Target: each consequence since the checkpoint
+names the participants whose horizons own it; a participant's rewind takes
+them out of each, and a consequence with no owner left goes back. Do not add
+new uses of `spared` / `spared_participants` as the model.
+
+- ✅ 2026-10-04, dormant world time: a `WorldTimeSchedule` record holds its
+  owners (the seats in its live room when it was made). The restore's
+  admission takes the dying participant out of each record
+  (`disown_scheduled_returns_on_restore`), and the commit keeps a record of a
+  room that is not live while it has an owner. It used to forget every
+  record. Witness:
+  `a_death_keeps_the_respawn_of_a_platform_another_player_broke_in_a_room_he_left`
+  (control: Alice's own break goes back). Poisons: the commit forgets all, a
+  record with no owners, and an admission that keeps every owner each fail
+  it. Schema 310.
+- Open: a one-time pickup Bob consumed in a room that then retired.
+  `record_consumed_pickups` records it `Consumed` in the occurrence ledger,
+  and `restore_occurrence_baseline` replaces the whole ledger with the
+  checkpoint's, so the room authors the pickup again on a later visit. The
+  ledger row needs owners the same way.
+- Open: `BossDefeatSinceCheckpoint::present` is who won it, kept unchanged
+  after a rewind, so it is history rather than ownership. A later rewind of a
+  second participant would find the first one still listed. Not reachable
+  today: only the primary body's death restores. Fix it when a second
+  participant's death can rewind: take the dying participant out of
+  `present` on each restore, as the schedule does.
+
 **Acceptance:** Alice dies while Bob's room holds a boss he defeated after the
 checkpoint: Bob's room, the boss row and its reward stay; Alice's room agrees
 with the durable records it reads; a durable record written in Alice's room
@@ -1328,8 +1358,9 @@ catalog file. No plural bark collection exists, because no content asks for one.
 ### SESSION-EDGE-STATE — a session starts from nothing the last one left
 
 **State:** a room-scoped spawn takes its session as an argument, so the
-session retirement ends it; seven resources, the declared message channels and
-the per-attempt ledgers are reset at the session edge (2026-10-04). Three host
+session retirement ends it; seven resources, the declared message channels,
+the presentation channels (not the sound), the camera and the per-attempt
+ledgers are reset at the session edge (2026-10-04). Three host
 constants are recorded, not reset. Open: a CHANGED bag across the edge.
 
 **An entity that a session spawned as it ran outlived the session
@@ -1358,6 +1389,43 @@ place, through the title) gave the same result.
 - ⚠ A bundle can still name `RoomScopedEntity` by hand in a plain `spawn`. The
   witness below asks a running world for each room-scoped entity with no
   session owner; no source guard forbids the shape.
+
+**A presentation effect crossed the edge (2026-10-04, review finding).** The
+first repair of the message channels kept each channel that presentation
+reads, on the ground that no simulation reads one. That used the rollback
+class of a channel (`for_each_presentation_effect`) as its lifetime across a
+session. Measured on the shell host: a session that asks for a camera shake, a
+finishing zoom and an effect in room 0 on each update was replaced, and at the
+activation frame of the next session two of its effects were on the bus
+(`VfxInRoom` names a `LiveRoomInstance`, and the first room of each session
+has the same one) and the camera of the next session was at 6 px of shake and
+a full zoom.
+
+- Each presentation channel now ends at the activation
+  (`end_presentation_effects_with_their_session`). The default for a new
+  family is that it ends. One channel crosses, with its reason stated there:
+  `OwnedSfxMessage`, whose reader plays a sound only for the live audio owner.
+- The camera rests at the activation (`rest_the_camera_on_activation`). The
+  appliers run before the activation in the update that replaces a session
+  (measured by a poison), and a motion decays over time, so emptying the two
+  request channels is not sufficient.
+- Witness:
+  `shell_host_lifecycle::an_effect_that_a_session_asked_for_is_not_presented_by_the_next`
+  (two successions; premises: the old session's camera moves, and its effect
+  and a sound are on the bus), and
+  `external_effects::tests::only_the_sound_channel_crosses_a_session_activation`.
+  Poisons: each family kept (2 effects on the bus at frame 0, and the unit arm
+  names seven families); the camera rest not registered (the camera is at
+  (6.0, 1.0) at frame 0); the sound not kept (the bus control is red).
+- ⚠ My first fixture did not reach the edge, and its bus prediction missed: a
+  message that a test writes between two updates is read in the old session's
+  own frame, because a replacement takes effect on the second update. The
+  fixture writes in `PreUpdate`, where a rollback host releases the confirmed
+  effects of the last tick.
+- ⚠ The reason I gave for keeping the sound did not reproduce. With the sound
+  channel emptied too, the whole of `app_it` fails only the bus control of the
+  new arm. The channel stays kept because its reader refuses a sound of a
+  session that ended; no test shows that a sound must cross.
 
 **Two resources of a room crossed the edge (same day).** With the entities
 gone, `PortalFrameHistory` held one frame of the old session at tick 0 (a fresh
@@ -1421,9 +1489,8 @@ restart) retires one session and activates the next in one frame.
   and no suite fails. So this repair is a structural guarantee and not the fix
   of an observed misread. The activation now empties every declared channel
   (`lifecycle::session_messages`), from the same declaration, so there is one
-  list. A channel that presentation reads is kept (`for_each_presentation_effect`
-  is that list): the first version took the sound of the menu row that started
-  the session.
+  list. ⚠ A presentation channel was kept until the same day's review; see
+  "A presentation effect crossed the edge" below.
 
 - **Three more peer-compared resources crossed the edge** (a census at each tick
   from 0, same day). Two hosts with EQUAL saves on the shell host under

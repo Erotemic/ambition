@@ -2929,6 +2929,15 @@ fn versus_roster_is_ours(app: &App) -> bool {
 /// ⇒ Widening or dropping that `.before(...)` reopens an `Update` write to
 /// peer-compared rollback state over a live timeline, and nothing else would
 /// say so: `OwnedItems`' sibling defect is silent for exactly this reason.
+///
+/// ⭐ THE HOST PUTS THE MAINTAINER AFTER THE PROVIDERS
+/// (`shell_host::start_the_timeline_with_the_session_world`), so each firing
+/// frame installs the session, and this test compares the two ticks on each.
+/// Until 2026-10-04 the schedule did not order those two sets. A merge of two
+/// unrelated commits moved the maintainer first; the session then came up one
+/// frame after its world, no firing frame installed it, and the floor below
+/// was red (write 3697, no install; write 159463, no install). Poison (that
+/// edge removed): the same red.
 #[test]
 fn the_roster_arm_writes_the_scoreboard_before_the_timeline_starts() {
     let mut app = versus_app();
@@ -3028,16 +3037,22 @@ fn the_roster_arm_writes_the_scoreboard_before_the_timeline_starts() {
             installed_on_a_firing_frame += 1;
         }
     }
-    // ⭐ THE ANTI-VACUITY FLOOR. If the session came up on some LATER frame
-    // every time, the ordering above would be trivially satisfied and this test
+    // ⭐ THE ANTI-VACUITY FLOOR. If the session came up on some LATER frame,
+    // the ordering above would be trivially satisfied there and this test
     // would pass with the edge deleted. It does not: the maintainer installs the
     // session in the SAME `Update` as the write, after it, which is precisely
-    // what the edge decides.
-    assert!(
-        installed_on_a_firing_frame > 0,
-        "no firing frame installed the session, so the tick comparison above \
-         never ran and this test cannot see the ordering it exists to pin. \
-         Frame-end samples: {:?}",
+    // what the edge decides. EVERY firing frame, because the host orders the
+    // maintainer after the providers: a frame that builds the session world
+    // installs the session.
+    assert_eq!(
+        installed_on_a_firing_frame,
+        fired.len(),
+        "a firing frame did not install the session, so the tick comparison \
+         above did not run for it and this test cannot see the ordering it \
+         exists to pin. The host starts the timeline in the `Update` that \
+         builds the session world \
+         (`shell_host::start_the_timeline_with_the_session_world`); read that \
+         edge first. Frame-end samples: {:?}",
         ends.iter()
             .filter(|end| fired.iter().any(|sample| sample.frame == end.frame))
             .collect::<Vec<_>>()

@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ambition_platformer2d::content::MusicRegistry;
 use ambition_encounter::encounter_reward_looted_flag;
-use ambition_platformer2d_ldtk::{field_string, field_text, LdtkProject};
+use ambition_platformer2d_ldtk::{field_text, LdtkProject};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ContentValidationReport {
@@ -124,7 +124,7 @@ pub fn validate_content_graph(
     validate_room_music_tracks(project, music, &mut report);
     validate_npc_dialogue_ids(project, character_catalog, &mut report);
     validate_npc_brain_overrides(project, character_catalog, &mut report);
-    validate_quest_conditions(project, &rooms, music, &mut report);
+    validate_quest_conditions(&rooms, music, &mut report);
     validate_cutscene_bindings(project, &mut report);
     let boss_catalog = crate::bosses::authored_boss_catalog();
     validate_boss_music_tracks(music, &boss_catalog, &mut report);
@@ -252,7 +252,6 @@ fn validate_npc_brain_overrides(
 }
 
 fn validate_quest_conditions(
-    project: &LdtkProject,
     rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
     music: &MusicRegistry,
     report: &mut ContentValidationReport,
@@ -289,18 +288,7 @@ fn validate_quest_conditions(
     }
 
     let boss_catalog = crate::bosses::authored_boss_catalog();
-    let ids = QuestTargets {
-        rooms: active_area_ids(project),
-        // The encounters that the loader builds, by the id it gives each one.
-        encounters: loaded_encounters
-            .iter()
-            .map(|(id, _, _)| id.clone())
-            .collect(),
-        bosses: boss_defeat_ids(rooms, &boss_catalog),
-        items: authored_pickup_ids(project),
-        npcs: authored_npc_ids(project),
-        flags: authored_flag_ids(project, rooms, &loaded_encounters),
-    };
+    let ids = QuestTargets::of(rooms, &loaded_encounters, &boss_catalog);
     check_quest_steps(&crate::quest::default_quest_specs(), &ids, report);
 }
 
@@ -312,6 +300,36 @@ struct QuestTargets {
     items: BTreeSet<String>,
     npcs: BTreeSet<String>,
     flags: BTreeSet<String>,
+}
+
+impl QuestTargets {
+    /// The targets of a composed world. No set is read from the LDtk fields:
+    /// each comes from the rooms that the runtime builds, the encounters that
+    /// the loader builds, and the boss owner.
+    fn of(
+        rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
+        loaded_encounters: &[(
+            String,
+            ambition_encounter::EncounterSpec,
+            ambition_persistence::save_data::PersistedEncounterState,
+        )],
+        boss_catalog: &ambition_boss_encounter::BossCatalog,
+    ) -> Self {
+        let (flags, npcs, items) = composed_quest_ids(rooms, loaded_encounters);
+        Self {
+            // A room is entered by its composed id (`RoomSpec::id`).
+            rooms: rooms.iter().map(|room| room.id.clone()).collect(),
+            // The encounters that the loader builds, by the id it gives each one.
+            encounters: loaded_encounters
+                .iter()
+                .map(|(id, _, _)| id.clone())
+                .collect(),
+            bosses: boss_defeat_ids(rooms, boss_catalog),
+            items,
+            npcs,
+            flags,
+        }
+    }
 }
 
 /// The id that each authored boss reports when it is defeated
@@ -505,70 +523,52 @@ fn active_area_ids(project: &LdtkProject) -> BTreeSet<String> {
         .collect()
 }
 
-fn authored_npc_ids(project: &LdtkProject) -> BTreeSet<String> {
-    authored_entity_iids(project, "NpcSpawn")
-}
-
-fn authored_pickup_ids(project: &LdtkProject) -> BTreeSet<String> {
-    authored_entity_iids(project, "PickupSpawn")
-}
-
-fn authored_entity_iids(project: &LdtkProject, identifier: &str) -> BTreeSet<String> {
-    let mut ids = BTreeSet::new();
-    for level in &project.levels {
-        for entity in level.all_entity_instances() {
-            if entity.identifier == identifier {
-                ids.insert(entity.iid.clone());
-            }
-        }
-    }
-    ids
-}
-
-fn authored_flag_ids(
-    project: &LdtkProject,
+/// The flags that the shipped world can set, and the ids of its NPCs and its
+/// pickups, each read from the composed rooms: the placements that the runtime
+/// lowers. Each id is made by the function that the runtime makes it with.
+fn composed_quest_ids(
     rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
     loaded_encounters: &[(
         String,
         ambition_encounter::EncounterSpec,
         ambition_persistence::save_data::PersistedEncounterState,
     )],
-) -> BTreeSet<String> {
+) -> (BTreeSet<String>, BTreeSet<String>, BTreeSet<String>) {
+    use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
+    use ambition_platformer2d::world::rooms::{InteractionKindSpec, PickupKind};
     let mut flags = BTreeSet::from([
         "met_any_hub_npc".to_string(),
         "test_switch_toggled".to_string(),
         crate::quest::PIRATE_TREASURE_REWARD_FLAG.to_string(),
     ]);
-    for level in &project.levels {
-        for entity in level.all_entity_instances() {
-            if entity.identifier == "NpcSpawn" {
-                if let Some(dialogue_id) = field_text(entity, "dialogue_id") {
+    let (mut npcs, mut pickups) = (BTreeSet::new(), BTreeSet::new());
+    for record in rooms.iter().flat_map(|room| &room.placements) {
+        match &record.schema {
+            PlacementSchema::Interactable(interactable) => match &interactable.kind {
+                InteractionKindSpec::Npc { dialogue_id, .. } => {
+                    npcs.insert(record.id.as_str().to_string());
                     flags.insert(ambition_platformer2d::actors::features::npc_talked_flag(
-                        &dialogue_id,
+                        &ambition_platformer2d::actors::features::npc_talk_dialogue_id(
+                            dialogue_id.as_deref(),
+                        ),
                     ));
                 }
-            }
-            if entity.identifier == "Switch" {
-                if let Some(id) = field_string(entity, "id") {
-                    let id = id.trim();
-                    if !id.is_empty() {
-                        flags.insert(ambition_encounter::switches::switch_used_flag(id));
+                InteractionKindSpec::Custom(payload) => {
+                    if let Some(switch) =
+                        ambition_encounter::SwitchActivation::parse_custom(payload)
+                    {
+                        flags.insert(ambition_encounter::switches::switch_used_flag(&switch.id));
                     }
                 }
-            }
-            // PickupSpawn entities with `kind: "flag:<id>"` set the named flag in
-            // save state when collected. This mirrors the runtime parse rule in
-            // `world/ldtk_world/fields.rs::parse_pickup_kind`, so quest steps that
-            // depend on a story-flag pickup validate without the flag listed elsewhere.
-            if entity.identifier == "PickupSpawn" {
-                if let Some(kind) = field_string(entity, "kind") {
-                    if let Some(flag) = kind.trim().strip_prefix("flag:") {
-                        if !flag.is_empty() {
-                            flags.insert(flag.to_string());
-                        }
-                    }
+                _ => {}
+            },
+            PlacementSchema::Pickup(pickup) => {
+                pickups.insert(record.id.as_str().to_string());
+                if let PickupKind::StoryFlag { flag } = &pickup.kind {
+                    flags.insert(flag.clone());
                 }
             }
+            _ => {}
         }
     }
     // The reward chest of an encounter is keyed by the id that the loader gives
@@ -581,12 +581,13 @@ fn authored_flag_ids(
     for boss in rooms.iter().flat_map(|room| &room.boss_spawns) {
         flags.insert(encounter_reward_looted_flag(&boss.id));
     }
-    flags
+    (flags, npcs, pickups)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d_ldtk::field_string;
 
     /// The embedded project, with one zone that another zone arrives through
     /// re-authored by `edit`. Returns the content report's errors about that
@@ -995,14 +996,7 @@ mod tests {
             &ambition_persistence::save_data::AmbitionGameSaveData::default(),
             None,
         );
-        let ids = QuestTargets {
-            rooms: active_area_ids(&project),
-            encounters: loaded.iter().map(|(id, _, _)| id.clone()).collect(),
-            bosses: boss_defeat_ids(&rooms, &boss_catalog),
-            items: authored_pickup_ids(&project),
-            npcs: authored_npc_ids(&project),
-            flags: authored_flag_ids(&project, &rooms, &loaded),
-        };
+        let ids = QuestTargets::of(&rooms, &loaded, &boss_catalog);
         (rooms, boss_catalog, ids)
     }
 
@@ -1101,6 +1095,41 @@ mod tests {
             .len(),
             1,
             "the looted flag of a display-name slug keys no chest"
+        );
+    }
+
+    /// A talk to an NPC that authors no dialogue starts the generic one, and
+    /// sets its talk flag. The flags are made by the function the runtime
+    /// makes them with (`npc_talk_dialogue_id`), so a quest may name that
+    /// flag. The validator's own scan knew only the authored dialogue ids.
+    #[test]
+    fn the_talk_flag_of_an_npc_with_no_dialogue_is_a_known_flag() {
+        use ambition_persistence::quest::QuestStepCondition as Condition;
+        let (rooms, _, ids) = shipped_quest_targets();
+        let silent = rooms
+            .iter()
+            .flat_map(|room| &room.placements)
+            .any(|record| {
+                matches!(
+                    &record.schema,
+                    ambition_platformer2d::entity_catalog::placements::PlacementSchema::Interactable(
+                        interactable
+                    ) if matches!(
+                        &interactable.kind,
+                        ambition_platformer2d::world::rooms::InteractionKindSpec::Npc {
+                            dialogue_id: None,
+                            ..
+                        }
+                    )
+                )
+            });
+        assert!(silent, "the fixture needs a shipped NPC that authors no dialogue");
+        let flag = ambition_platformer2d::actors::features::npc_talked_flag(
+            &ambition_platformer2d::actors::features::npc_talk_dialogue_id(None),
+        );
+        assert!(
+            errors_for_a_quest_that_wants(&ids, Condition::FlagSet(flag.clone())).is_empty(),
+            "a talk sets '{flag}', and the validator does not know it"
         );
     }
 }

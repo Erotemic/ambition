@@ -820,11 +820,22 @@ second authoring source.
   - Witnesses: `a_quest_names_a_boss_by_the_id_its_defeat_reports`,
     `a_boss_looted_flag_is_keyed_by_its_placement`. `check_quest_steps` takes
     the quests as an argument, so a test can plant a step.
-  Open, not compared: the flags of NPC talk, switches and `flag:` pickups in
-  `authored_flag_ids`, and the pickup and NPC ids, each scan the LDtk entities
-  beside a converter. `QuestStepCondition::ItemCollected` has no producer of
-  its event in the tree (a search for `ItemCollected` over `.rs`, `.ron` and
-  `.yarn`), and no shipped quest uses it.
+  ✅ 2026-10-04, the rest of the quest targets. The flags of NPC talk,
+  switches and `flag:` pickups, and the ids of NPCs, pickups and rooms, are
+  read from the composed rooms (`QuestTargets::of`), each made by the function
+  the runtime makes it with (`npc_talk_dialogue_id`, `SwitchActivation::
+  parse_custom`, `PickupKind::StoryFlag`). Measured on the shipped world before
+  the change: the sets were equal (198 flags, 172 NPCs, 38 pickups, 72 rooms)
+  but for one flag that the scan did not know, `npc_generic_npc_talked`, which
+  a talk to an NPC with no dialogue sets. The validator has no scan of the
+  LDtk entities for a quest target now; `authored_flag_ids`,
+  `authored_npc_ids`, `authored_pickup_ids` and `authored_entity_iids` are
+  deleted. <!-- cite-ok: records deleted functions -->
+  Open: `QuestStepCondition::ItemCollected` has no producer of its event in
+  the tree (a search for `ItemCollected` over `.rs`, `.ron` and `.yarn`), and
+  no shipped quest uses it. The cutscene bindings still read `active_area_ids`
+  from the project; that is the level-by-level read the two-per-room rule
+  needs.
   `scripts/check_world_graph_is_navigable.py` is a third reader of the zone
   targets (it does not trim, so it is stricter than the engine).
 

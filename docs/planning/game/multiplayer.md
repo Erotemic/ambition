@@ -126,9 +126,13 @@ with hysteresis when they regroup.
   primary participant as the tie-break. The music is built. Of the HUD,
   the built-in vitals HUD is per view: each local view shows the meters of
   the body it follows (`ViewHudFacts`), in its own column
-  (`each_view_of_the_split_shows_its_own_participants_purse`). Open: a merged
-  screen shows one participant's HUD, and the declared readouts
-  (`HudReadouts`: Mary-O's coins, Sanic's rings) are one per session.
+  (`each_view_of_the_split_shows_its_own_participants_purse`), and each other
+  seat on a shared view has its own HUD on it
+  (`bob_beside_alice_has_his_own_hud_on_the_shared_view`). Open: the declared
+  readouts (`HudReadouts`: Mary-O's coins, Sanic's rings) are one per session;
+  two stacked HUDs do not say whose each is; and an online peer shows every
+  seat on its shared view, since only A4's client-local layout knows which
+  seats are its own.
 - Two players in one room still share a conversation's pause (the first
   game-state question above).
 

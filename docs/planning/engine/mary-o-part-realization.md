@@ -161,6 +161,49 @@ such frame: the two roads a player sees are then the same picture. director's
 `punch`[1] is the case: parts and baked draws identical (0 wrong pixels), both
 softer than the oracle (a blob of 8).
 
+### Small part pages (Jon, 2026-10-04)
+
+Jon's rule: a distinct raster on a part page is art no other raster gives by a
+ZERO-COST transform. A mirror or a quarter turn is one source with a transform
+on its draw. A colour variant is one sheet with an engine colour shift. An
+affine or projective warp resamples pixels, so it is a judgement per case, not
+a rule.
+
+* **Census of the waste:** `scripts/measure_part_waste.py` (ledger kind
+  `part_flipbook_waste`). Baseline, 47.9 MTexel of parts:
+  * effect layers recorded whole each frame: 33.7%
+  * shapes painted already posed: 29.0%
+  * exact duplicates: 0.1%
+
+  Jon's "identical art" is near-identical art: faces that differ only by
+  expression, and limbs that differ by a pixel of length.
+* **Lossless sharing:** `part_flipbook._share_transformed_parts`. A part equal
+  to a mirror, quarter turn or transpose of another is drawn as that part with
+  `M = R S L` split into a turn and a signed scale. It is replay-guarded. A
+  tweened track that changed part is never made one part, because a flip
+  would interpolate through zero.
+* **Faces:** `_toon_rig.face` / `overlay_piece` give a base head plus eye and
+  mouth overlays. 16 toon configs and Trent have 64-76% smaller part pages
+  (Sybil 91,580 -> 25,536 texels).
+* **Effects:** `FxCanvas(pieces=True)` paints each primitive once at full
+  alpha and places it with its alpha as the draw's opacity, within a per-frame
+  draw budget. `FxCanvas.place` places authored glyphs. This is opt-in
+  because it was measured per character:
+  * Carl Stargan: -28%.
+  * Perfect Cellular Automaton: -6%.
+  * Noether: +17%.
+
+  Their effects change shape every frame (growing radii, moving points), and
+  an effect raster that is another at a different alpha is 0-7% of them. They
+  need their effects redesigned as glyphs, not a pipeline pass.
+* **Colour shift:** `CharacterColorShift` (hue, saturation, value) on a
+  part-drawn body is applied per impostor cell by
+  `impostor_unpremultiply.wgsl`, after compositing, in sRGB space. The HSV
+  math was checked against Python's colorsys. It is for enemy variants and
+  buffs; the baked road cannot turn a hue. Next: a catalog field naming a
+  variant as a sheet plus a shift, so variants share one sheet (the three
+  heavy pirates, the goblins).
+
 ### Player robot v3 from parts (2026-10-03)
 
 The second character, and the first that is supersampled, mirrored and faded.

@@ -105,6 +105,24 @@ Before you drive a component in a test, ask who else writes it every frame.
   the fault is downstream of the press edge (testable here); if it does not
   highlight, the fault is in picking.
 
+### Hover is a third state (Q70)
+
+Ruling Q70 (2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md)):
+pointer-driven menus and settings give normal hover feedback, and hover,
+selection and keyboard/controller focus stay three distinguishable states.
+This is ordinary UI, not a product question.
+
+Today (2026-10-04) the bevy_ui tab strip has no hover restyle
+(`ambition_menu/src/render/bevy_ui/mod.rs`: tab colours come from selection
+only), `MenuVisualState::hovered` is carried but no style reads it, and the
+launcher moves focus on hover, so hover and focus are one state there. The
+human check above assumes a hover highlight that the tabs do not yet draw.
+Work: a hover style on tabs and rows that differs from the selected and the
+focused style, and a launcher hover that does not move focus. Acceptance: a
+headless test sets `Interaction::Hovered` on an unselected, unfocused tab and
+asserts the hover style, with the selected and focused styles unchanged (the
+fixture can set `Interaction` directly; only picking needs a window).
+
 ## Profile and participant scope in the architecture review
 
 A9 in the [frontier](actor-monolith-work-frontier.md) requires a render/UI-absent

@@ -568,13 +568,12 @@ fn a_plain_ranged_bolt_does_not_burst() {
     assert_eq!(splash, Some(0.0), "the gun-sword bolt does not burst");
 }
 
-/// A held weapon fired from the HAND kicks nobody: the deleted held-shot path
-/// never applied recoil to the player, and the gun-sword's authored discharge
-/// (recoil 380, the pirate's) must not start to. Whether it SHOULD is a feel
-/// ruling recorded in awaiting-maintainer-decision.md; this pins that the fold
-/// changed nothing until it is made.
+/// A held weapon fired from the HAND carries the weapon's own recoil: recoil
+/// belongs to the weapon, not to the character who first carried it (Q40).
+/// The gun-sword authors 380, so a player who fires it gets 380, as the
+/// Pirate does.
 #[test]
-fn a_hand_fired_held_shot_carries_no_recoil() {
+fn a_hand_fired_held_shot_carries_the_weapons_recoil() {
     let mut app = App::new();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_characters::brain::ActorActionMessage>();
@@ -592,7 +591,13 @@ fn a_hand_fired_held_shot_carries_no_recoil() {
         .discharge
         .clone()
         .expect("the fold always names a discharge");
-    assert_eq!(discharge.recoil, 0.0);
+    let authored = gunsword_spec()
+        .ranged
+        .and_then(|ranged| ranged.discharge)
+        .expect("the gun-sword authors its discharge")
+        .recoil;
+    assert!(authored > 0.0, "premise: the gun-sword authors a recoil");
+    assert_eq!(discharge.recoil, authored);
     assert_eq!(
         discharge.fire_sfx.as_deref(),
         Some("weapon.lasersword.fire"),

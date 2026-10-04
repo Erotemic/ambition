@@ -47,7 +47,12 @@ make every fighter fact use one file format.
 
 - stable character identity and authoring context;
 - character-specific body/presentation source;
-- character-specific authored moves and geometry;
+- character-specific authored moves and geometry, including semantic
+  landmarks (hands, muzzle, feet, head, held-item sockets, weapon grips,
+  rider/mount anchors, contact points). Landmarks are optional package slots
+  that simulation and presentation both read; see
+  [`runtime-rigged-sprite-animation.md`](runtime-rigged-sprite-animation.md#semantic-landmarks-q41)
+  (Q41);
 - character-specific VFX/SFX references or recipes where they are genuinely
   part of the character's identity;
 - ruleset-specific facet values such as platform-fighter capture/body policy;
@@ -103,9 +108,9 @@ size, render quad, quad offset); closing one of them looks like closing the seam
   verb list in `game/ambition_demo_smash/src/moveset.rs`; the target owner is
   `SmashRepertoire` -> `into_contract()`, with `borrows:` as the established
   derive. `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`
-  measures the surplus that a correct migration takes to zero. It waits on the
-  product question of how thin a stand-in is (Q89 in
-  [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)).
+  measures the surplus. Q89 (2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md))
+  allows a stand-in an incomplete kit, so the migration must allow a partial
+  kit (for example, `Option` slots) rather than make the surplus zero.
 
 **Closed slices and their guards:**
 

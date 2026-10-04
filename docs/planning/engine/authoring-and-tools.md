@@ -143,6 +143,92 @@ Artifacts identify source revision, provider, tool version, selected content,
 settings and relevant runtime/frame context. Missing generated data is reported
 as unavailable, not substituted under the requested artifact's name.
 
+### Content diffs need domain-aware comparison (Q62, Q78)
+
+Rulings 2026-10-04 ([`../maintainer-decisions.md`](../maintainer-decisions.md)):
+for a structured editor format such as LDtk, a large textual diff is not a
+large semantic change. Do not ask the maintainer to keep or discard a content
+or renderer delta by line count, recency or diff size. First compare it with a
+domain-aware tool, separate authored changes from generated or serializer
+churn, then decide. Moving the maps into the `game/ambition_map_assets`
+submodule keeps churn out of the main history; it does not make a content diff
+understandable.
+
+**The comparison tool (queue row LDTK-SEMANTIC-DIFF).** It exists in part:
+`ambition_ldtk_tools.edit.semantic_diff semantic BEFORE AFTER` compares levels,
+entities (matched by iid), fields, IntGrid counts and definitions, and ignores
+derived cache data. Checked 2026-10-04: two copies of one file give "No
+semantic LDtk changes"; a 32 px move of one entity is reported as
+`entity_moved`. Missing:
+
+- git input (`REV:PATH` on each side, and a submodule commit range), so a
+  reviewer can run it on a commit;
+- a second section that classifies the noise by kind: auto-layer tiles rebuilt
+  from unchanged rules, renumbered uids/iids matched by identity, ordering,
+  formatting, derived `__` fields, `nextUid`;
+- auto-layer output that changed for a real reason (a rule or IntGrid change,
+  or a new layer instance) reported as a visible change, not as cache: the
+  runtime can draw auto-layer tiles;
+- a per-level summary in the shape: "semantic geometry: unchanged; entities:
+  unchanged; authored fields: unchanged; serialization-only churn: N lines".
+
+**What is known about the recurring rewrite (2026-10-04).** Two fixes did not
+stop it: `54d99e7fb` (reuse tileset and rule uids; write only when changed)
+and `2e69e81b9` (`scripts/check_ldtk_uid_leak.py`, a leaked-uid warning in
+`ldtk/io.py`, no fallback that reformats a whole file). Later map-assets
+commits still rewrite much more than they change: `576a8fd` rewrote all of
+`sanic_darkness.ldtk` (96,147 tile lines, 346 changed iids) for a small move;
+`c6df2b7` rewrote 3,722 tile lines and about 68 uids in `sanic_speedway`;
+`056079f` placed one dog in `sandbox.ldtk` (32 lines) and also rewrote 1,268
+lines of `hall_of_characters.ldtk`.
+Not the cause: an LDtk version change (all worlds are `jsonVersion` 1.5.3,
+`appBuildId` 473703). Suspects to measure, not yet confirmed:
+
+- `allocate_iid` (`area_authoring.py`) derives iids from `nextUid`, so one
+  extra allocation shifts every later iid and uid;
+- `ldtk/io.py` `write_project` always runs `normalize_project_for_editor`
+  (re-syncs definition uids, `__worldX/Y`, `realEditorValues`);
+- `scripts/regen/sprites.sh` rewrites worlds in place on each sprite
+  regeneration (`visual_manifest apply-manifest --in-place
+  --prune-unused-tilesets`, `asset editor-art --in-place`), so sprite-sheet size
+  changes reach the maps;
+- the whole-world generators (`author_*_ldtk.py`,
+  `generate_hall_of_characters.py`, `gen_symmetry_room.py`).
+
+Find the writer of each rewrite before you fix one: run each writer twice on
+an unchanged input and diff the second run.
+
+**Q62 evidence (2026-10-04).** The 4,741-line `mary_o.ldtk` delta is the diff
+`48f8e26 → cb7062a` in `game/ambition_map_assets` ("Start git epoch 1",
+2026-09-06), and it is already in history. `semantic_diff` reports one change:
+the `HazardBlock` editor visual (`tileRect` 108×70 → 32×16). The rest is
+auto-layer output: 1,944 tiles re-added identical except the rule uid `d`, 738
+new derived tiles (64 in `mary_o_1_2`, 674 in `mary_o_1_3`, which gained its
+`CollisionArt` layer instance), and 58 lines of renumbered rule uids. No
+entity, IntGrid, geometry or authored field changed. This matches
+`asset editor-art --in-place` before `54d99e7fb`. So there is nothing to
+discard; whether the 738 tiles draw at runtime is the one visible question, and
+the improved tool must answer it. `48f8e26` is on no branch (local reflog and
+the `Erotemic/ambition-history` store only).
+
+**Divergent submodule history (Q78 workflow).** Do not take the newest
+commit, and do not run `git submodule update` and accept the result. In order:
+list the commits unique to each line (`git rev-list A --not B`, and
+`--all --not --remotes`); say what source change each represents; separate
+source from regenerated artifacts (by path and by the domain tool); find the
+line that is the semantic superset; keep unique work (merge, never rebase);
+push it; repin the parent to the pushed commit. Q62 and Q78 share this tool
+and this workflow: a renderer change moves sprite sizes, and
+`scripts/regen/sprites.sh` then rewrites the maps.
+
+State on 2026-10-04: `tools/ambition_sprite2d_renderer` has no divergence.
+The parent pins `7bd8024` (= `origin/main`); the checkout is `dff162f`, an
+ancestor of the pin, 8 commits behind (all `.py` source); 0 commits exist on
+no remote; 0 dirty files. The parent shows `M` only because the checkout lags.
+The old divergence (the unpushed `2b4d59f` against the pin `0828fae`) was
+merged in `58be2df` on 2026-09-07. Four pre-epoch commits remain only in the
+reflog; three are identical in the epoch root and one changed a ledger.
+
 ## A7 - one complete agent-authored acceptance slice
 
 Use the existing moving-platform/LDtk slice to exercise world placement, path

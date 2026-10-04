@@ -41,139 +41,15 @@ One question looks like a blocker and is not:
 
 ## Gameplay and content
 
-## Q33 — how should a recharging ranged weapon communicate that it is unavailable?
-
-Choose the player-facing unavailable/readiness signal. The mechanism should not
-invent one presentation independently for every ranged weapon.
-
 ## Q36 — what are the authored standing heights of the puppy slug, stochastic parrot and burning flying shark?
 
 The engine has a canonical-height contract; these remaining authored characters
 need product values rather than inferred sprite dimensions.
 
-## Q40 — should a held gun-sword kick the player the way it kicks the pirate?
-
-Choose whether recoil is an authored weapon property applied to every holder or a
-pirate-specific behavior.
-
-## Q41 — where should a hand-fired fireball leave the body?
-
-Choose the authored launch landmark/offset contract for hand-fired projectiles.
-Do not derive it independently from sprite bounds at runtime.
-
-## Q42 — should the gauntlet fireball keep bespoke art or use the catalog energy ball?
-
-Product/art choice. The runtime should consume one authored presentation identity
-once chosen.
-
-## Q43 — does a body hanging on a ledge inside a hazard volume die?
-
-Choose the game rule for ledge custody versus hazard damage. The engine can then
-encode one authority rather than special-case the observed overlap.
-
-## Q44 — should `SmashChargeSpec` keep a Smash-specific name?
-
-The mechanism is now broader than one game mode. Rename only if the intended API
-is reusable; do not churn names solely for aesthetics.
-
-## Q46 — does Mary-O 1-1 want a fourth question block over floor?
-
-Content-layout choice needed to make the floor-refusal behavior of the fire form
-meaningfully playable.
-
-## Q47 — where does TwinTrack's simultaneity limit live while the exhibit is parked?
-
-Choose whether the parked exhibit still consumes a global/participant/world
-simultaneity slot.
-
-## Q49 — is near-identical CPU play on a symmetric stage acceptable?
-
-If yes, no diversity mechanism is owed. If no, specify whether the desired
-variation is tactical policy, difficulty behavior or presentation/personality.
-
-## Q55 — should authored worlds grow to use all five route-gate families?
-
-The vocabulary exists, and the families stay as capability surface whether or
-not a demo uses them (usage is not a deletion criterion, Q74 ruling 2026-10-03).
-Decide only whether broader authored coverage is wanted now.
-
-## Q70 — should the title Settings tab visibly highlight on pointer hover?
-
-Small UI/product choice; implementation already has the semantic tab state.
-
-## Q71 — how much Limit should a successful block award?
-
-Generic meter policy now permits a block source. Choose the Smash balance value;
-keep it out of generic validation.
-
 ## Q79 — how far may the camera zoom out before the fight stops being legible?
 
 Choose the product legibility floor. Camera policy can then clamp against a named
 limit rather than an arbitrary tuning value.
-
-## Q87 — should the top platform and respawn point continue to overlap?
-
-Stage-layout/product decision. If not, move one authored placement rather than
-adding runtime avoidance.
-
-## Q89 — what special should each Robot stand-in have?
-
-The stand-ins currently lack the button vocabulary expected by their match role.
-Choose authored moves or explicitly accept the omission.
-
-## Q91 — keep the 10× countdown mode?
-
-This was explicitly requested earlier and remains available. Decide whether it is
-still a product/debug affordance worth carrying.
-
-## Q93 — should the demo author a dense melee room?
-
-Product/content call. Do not add engine behavior merely to manufacture a stress
-scene unless the room itself is wanted.
-
-## Q81 — what should happen to the mostly-unreferenced bespoke FX rows for Pirate Admiral and George Booul?
-
-The FX-row census finds these sheets as the extreme unreferenced-art case.
-Either wire effects that correspond to intended authored moves, deliberately keep
-rows as future art, or remove superseded rows. The count is owned by
-`scripts/measure_fx_row_reachability.py`; do not copy a stale number into code.
-
-## Q82 — should LDtk editor-preview tilesets remain runtime-packaged when the runtime never draws them?
-
-Confirm whether another tool/runtime consumer needs them before excluding them
-from runtime residency/packaging. A concrete proposed retarget is preserved as
-`dev/patches/ldtk-player-tileset-retarget-20260902.patch`; it changes the map-assets
-submodule and therefore needs an explicit content/pointer decision.
-
-## Q83 — should the 442 MB shared sprite pack remain when one prop is the only current reader?
-
-Choose whether this is intentional shared infrastructure or a packaging mistake
-that should be split/deferred.
-
-## Q84 — should portraits have independently authored readable low-resolution tiers?
-
-Current generated tiers preserve existence but not necessarily readability.
-Choose the product quality requirement before adding portrait-specific generation.
-`dev/patches/portrait-tiers-are-never-baked-20260902.patch` is the existing proposed
-implementation for the "full-resolution only" answer. Related: the Q69 ruling
-(2026-10-01) says readability is not an acceptance criterion for the potato
-tier.
-
-## Q85 — should Hall characters without authored interaction dialogue remain non-interactive?
-
-Content decision: author dialogue or explicitly accept that those cast members are
-visual/background only.
-
-## Q148 — which track should Mode Collapse fight to?
-
-Current default, so this blocks nothing: `crooked_ascent_boss`, an authored boss
-track that nothing else uses. The spec's note wants a bespoke "mode collapse"
-track (a loop that degenerates); that is an art handoff.
-
-* **(a) Keep `crooked_ascent_boss`.** No change.
-* **(b) Commission the bespoke track.** Edit the four `music_*` fields of
-  `mode_collapse_boss.ron` when it exists. To change one room only, set that
-  room's `fight_music_track` ([room music recipe](../recipes/room-music.md)).
 
 ## Q153 — how does a second player join Ambition?
 
@@ -228,17 +104,6 @@ Owner: the regrowth/restock row in
   `Never`, the arcade demos `OnRoomReload`).
 
 ## Architecture and engine policy
-
-## Q62 — keep or discard the epoch-captured 4,741-line `mary_o.ldtk` delta?
-
-This is the explicit history/content decision. Do not modify the retained LDtk
-files until the ruling is made.
-
-## Q78 — how should the divergent/unpushed sprite-renderer submodule state be reconciled?
-
-Before any blind `git submodule update`, decide which line/commit must be kept and
-pushed. Tooling warnings should cite this question until the submodule state is
-settled.
 
 ## Q94 — what residency-memory limit should the runtime target?
 

@@ -46,6 +46,34 @@ It is GENERATED, by
 catalog, so it grows on its own whenever the cast does. **Never hand-edit the
 level.** That is the only handling it needs.
 
+## What the Hall is for (Q85, 2026-10-04)
+
+The Hall is a visual showcase, a population and stress test, an asset and
+residency test, an animation and rig test, and an AI/body/profile composition
+test. Its actors may be non-interactive and may lack dialogue for now; adding
+dialogue where it fits is future content work, not a blocker for the Hall.
+
+Its population policy is one rule for every showcase actor: the generator
+writes `brain_override: "stand_still"` on each `NpcSpawn`, and every actor
+stays where it was placed. A body that moves in spite of that is an engine
+defect in how that body's motion model obeys its driver, not a reason to
+special-case the Hall or that character.
+
+**Known violation (2026-10-04, queue row HALL-STILL).** One Puppy Slug crawls.
+`npc_puppy_slug` is the catalog's one `surface_walker: true` row, so it gets
+the `AdhesiveCrawler` motion model (`ambition_characters/src/prepared.rs`).
+The crawler's pace is set from the driver's policy, not from what the driver
+commands (`features/enemies/integration.rs`: `crawl_speed` from
+`ActorTuning::crawl_speed(policy)`), and the kernel passes the crawler only a
+facing sign (`movement/kernel.rs`, `facing_intent`), so `step_crawler`
+(`movement/adhesive_crawler.rs`) always advances. A `stand_still` brain
+commands no motion, and the crawler does not read that. The fix belongs in the
+crawler (advance by the driver's commanded axis, as every other motion model
+does), so a stand-still crawler stays still in every room and a patrolling one
+keeps patrolling. The regression steps the generated Hall and asserts that
+every spawned actor's position is unchanged after a few seconds (not only the
+slug); the control is a crawler with a patrolling brain, which must move.
+
 ## Where this has already bitten
 
 A launch stutter came from neighbour prefetch: the hub has many exits, so

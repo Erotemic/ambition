@@ -80,15 +80,22 @@ reusable missing seam.
 This list is the single source. [`status.md`](../status.md) and
 [`tracks.md`](../tracks.md) refer here.
 
-- **Beacon discoverability (Q46 in
-  [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)).**
+- **Beacon discoverability (Q46, ruled 2026-10-04 in
+  [`../maintainer-decisions.md`](../maintainer-decisions.md)).**
   A grown Mary-O can bonk a ?-block and get the beacon
   (`a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower`), but the
   level does not show the player how. The first ?-block always pays the wand to
   a small Mary-O. The beacon does not walk to the player
   (`ItemMotionPlan::still()`). 1-1's third ladder block, at x=1920, stands over a
-  pit, so no body can bonk it from the ground. This is a content-layout choice
-  for Jon.
+  pit, so no body can bonk it from the ground. Ruling: add a fourth reachable
+  `Toward(Lantern)` ?-block over solid ground in 1-1 (keep the pit block). This
+  is a level-content fix; the engine does not compensate (no item that walks
+  to the player only for this, no bonk-from-above exception). 1-1 is
+  hand-edited in `game/ambition_map_assets/ambition_demo_mary_o/worlds/mary_o.ldtk`;
+  check the edit with the semantic LDtk comparison (queue LDTK-SEMANTIC-DIFF)
+  so that the diff shows one added entity and no other change. Acceptance: the
+  fire arm of `weaker_form_refusal.rs` (absent today for this reason) runs in
+  1-1 from the ground.
 - **Further authored levels** beyond 1-3.
 
 ## How to run

@@ -270,6 +270,8 @@ Add durable lessons to `dev/benchmark-candidates/`; never transient project stat
 ## Patch discipline
 
 * Do not hand-edit generated LDtk content.
+* A large LDtk (or other editor-format) diff is not a large semantic change. Before you keep, discard or review one, compare it with `python -m ambition_ldtk_tools.edit.semantic_diff semantic BEFORE AFTER` (run in `tools/ambition_ldtk_tools`) and separate authored changes from generated or serializer churn (Q62; `docs/planning/engine/authoring-and-tools.md`).
+* Do not resolve a divergent submodule by recency or by `git submodule update`; list each line's unique commits and keep the semantic superset (Q78, same doc).
 * Formatting is advisory, never an acceptance gate.
 * `./run_tests.sh` is the broad repository test backbone. Prefer narrower checks when they cover the touched invariant.
 * `cargo test -p <crate>` does not cover the `-D warnings` invariant. Use `scripts/check_no_warnings.py` when that invariant matters.
@@ -311,6 +313,8 @@ git -C <submodule> rev-list --count origin/main..HEAD
 ```
 
 Do not push another agent's uncommitted submodule work.
+
+Asset layout says what an asset is: source/editor products, runtime products and every quality tier (the top one too) live under roots that name them. Do not add a packager exclusion where a directory could say it (Q82). Quality is a presentation policy; gameplay must not depend on the highest-fidelity presentation (Q84).
 
 Append-only ledgers are shared state. Commit your own appended rows and let repository merge configuration combine independent appends.
 

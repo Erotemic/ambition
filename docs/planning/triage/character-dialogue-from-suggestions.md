@@ -62,6 +62,10 @@ rg -n "generic_npc" crates/ambition_platformer2d_actor_monolith/src/features/npc
 
 None.
 
+Q85 (2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md)):
+Hall actors may lack dialogue for now; Hall dialogue is expected future content
+work and does not block the Hall. This note stays the place for that work.
+
 ## Trigger to promote
 
 The cast grows faster than hand-authored Hall dialogue, or a playtest finds

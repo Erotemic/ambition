@@ -964,9 +964,9 @@ turn this queue row back into a chronological parity diary.
 implement it on the production path, update that inventory row and add the
 production acceptance witness.
 
-**Blocked where applicable by:** [Q62](awaiting-maintainer-decision.md#q62--keep-or-discard-the-epoch-captured-4741-line-mary_oldtk-delta),
-[Q89](awaiting-maintainer-decision.md#q89--what-special-should-each-robot-stand-in-have),
-and other product rows named by the inventory.
+**Blocked where applicable by:** product rows named by the inventory. (Q62
+and Q89 were ruled on 2026-10-04: Q62 is the LDTK-SEMANTIC-DIFF task, and a
+stand-in may keep an incomplete kit.)
 
 ### D166 — make character authoring boundaries load-bearing
 
@@ -1516,6 +1516,196 @@ for a rollback composition.
 
 **Not covered:** the pocket demo composes the shell with no rollback backend,
 so it has no maintainer to order.
+
+### LEDGE-OCCUPANCY — two fighters can hold one ledge
+
+**Owner:** `ambition_combat::ledge_trump`, `ambition_platformer2d_core`
+ledge grab. Plan:
+[`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md#ledge-occupancy).
+
+**Ruling:** Q43 follow-up (2026-10-04): the target is Super Smash Bros.
+Ultimate-like occupancy and trump, deterministic and rollback-compatible.
+
+**Current failure:** "one edge" is two hang anchors within 1 px, and an anchor
+depends on the body's size, so two fighters of different sizes both hang on one
+corner. No ledge occupant exists.
+
+**Next action:** write down Ultimate's ledge rules (researched, not recalled)
+in the plan, then key occupancy by the ledge, not by a body's anchor.
+
+**Acceptance:** with two fighters of different sizes on one corner, one holds
+it; trump, release, death and knockoff each free or transfer the hold as the
+plan says; a rewind across a trump gives the same holder.
+
+### HAZARD-BEATS-LEDGE — a hanging body is immune to hazards
+
+**Owner:** `ambition_platformer2d_core::movement` (hazard gate) and
+`ambition_combat::hazards`. Plan:
+[`engine/combat-model.md`](engine/combat-model.md#hazards-beat-a-ledge-hang-q43).
+
+**Ruling:** Q43 (2026-10-04): a hazard wins over a ledge hang.
+
+**Current failure:** the kernel hazard gate skips a frame the ledge grab
+consumed, and hazard volumes respect the ledge-grab intangibility window.
+
+**Acceptance:** a body hanging over a lethal hazard dies on both roads; the
+same hang without a hazard holds; an attack in the grab window still misses.
+
+### HALL-STILL — every Hall actor stays where it is placed
+
+**Owner:** `ambition_platformer2d_core::movement::adhesive_crawler`. Plan:
+[`../concepts/hall-of-characters-is-not-special.md`](../concepts/hall-of-characters-is-not-special.md#what-the-hall-is-for-q85-2026-10-04).
+
+**Ruling:** Q85 (2026-10-04): the Hall's stationary policy holds for every
+showcase actor through one population policy.
+
+**Current failure:** a Puppy Slug (`npc_puppy_slug`, the one
+`surface_walker`) crawls under a `stand_still` brain, because the crawler's
+pace comes from its policy and it never reads the commanded axis.
+
+**Acceptance:** a test steps the generated Hall and finds every spawned actor
+where it started; a crawler with a patrolling brain still moves (control).
+
+### MIRROR-SYMMETRY — mirrored CPUs stay mirrored per tick
+
+**Owner:** `ambition_combat::brain` and the systems it reads. Plan:
+[`engine/fighter-brain.md`](engine/fighter-brain.md#mirror-symmetry-is-a-correctness-property-q49).
+
+**Ruling:** Q49 (2026-10-04): symmetry is a correctness property; variation
+comes only from modelled asymmetric facts.
+
+**Current failure:** the Emmy test compares positions only, accepts a break at
+the first grab, and asks only 1.5x the ordinary rate; known asymmetry sources
+(`signum(0)`, `SimId` tie-breaks, a left-first recovery search, a 69% seat-0
+term) are untriaged.
+
+**Acceptance:** a per-tick reflection test of position, velocity, facing,
+move, decision and stream position; a reflected-observation unit test of the
+decision layer; each poison listed in the plan turns one of them red.
+
+### WEAPON-READINESS — a refused trigger is visible as "not ready"
+
+**Owner:** `ambition_sim_view::control_prompt` and the fire roads. Plan:
+[`engine/participant-action-system.md`](engine/participant-action-system.md#p5--weapon-readiness-is-a-semantic-state-q33).
+
+**Ruling:** Q33 (2026-10-04).
+
+**Current failure:** a blocked shot is dropped with no fact; readiness is one
+boolean for one prompt slot.
+
+**Acceptance:** fire during a cooldown makes no shot and no success
+presentation, and publishes `recharging` with progress; fire after it shoots.
+
+### RIG-LANDMARKS — interactions read authored landmarks
+
+**Owner:** character package and `ambition_characters` body rig. Plan:
+[`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md#semantic-landmarks-q41).
+
+**Ruling:** Q41 (2026-10-04).
+
+**Current failure:** the pet gesture, the player fireball and the rider's hand
+are placed from boxes and constants.
+
+**Acceptance:** one landmark query, answered by the rig or the package; the pet
+hand meets the petted body's authored contact point.
+
+### CHARGE-SPEC-NAME — `SmashChargeSpec` is a generic mechanism
+
+**Owner:** `ambition_entity_catalog` (`SmashChargeSpec`, field `smash_charge`).
+
+**Ruling:** Q44 (2026-10-04): no leaf-game name on a generic API.
+
+**Current state:** 21 Rust references; 7 RON sites, including the Performer
+and Projectile Polygon, not only Smash fighters. The sibling names
+(`MoveCharge`, `ChargeSustain`, `ChargeGesture`) suggest `MoveChargeSpec` /
+`move_charge`. `ChargeGesture::Smash` names the gesture and stays.
+
+**Acceptance:** no `SmashChargeSpec` in source; the content fingerprint change
+is the only content change.
+
+### MENU-HOVER — hover is a third menu state
+
+**Owner:** `ambition_menu::render::bevy_ui`. Plan:
+[`engine/ui-localization-and-accessibility.md`](engine/ui-localization-and-accessibility.md#hover-is-a-third-state-q70).
+
+**Ruling:** Q70 (2026-10-04).
+
+**Acceptance:** a hovered, unselected, unfocused tab draws a hover style, and
+the selected and focused styles are unchanged.
+
+### DENSE-MELEE-ROOM — author the dense-melee development room
+
+**Owner:** content; first measured customer
+[`engine/bounded-perception-and-attention.md`](engine/bounded-perception-and-attention.md#acceptance-for-the-open-increment).
+
+**Ruling:** Q93 (2026-10-04): keep or create a deliberate dense-melee
+development/stress room. It is a real scenario, not polished content.
+
+**Current state:** no such room; the density script fakes density by widening
+the viewport over the Hall's `stand_still` cast.
+
+**Next action:** after the P1 correctness rows above, author one room (LDtk or
+a generated spec) with many tactical-brain fighters in close melee, reachable
+by an ordinary route and by `measure_perception_density.sh`.
+
+**Acceptance:** in the room `kept` tracks population until the budget caps it,
+and the census, frame time and camera framing are readable from one run.
+
+### LDTK-SEMANTIC-DIFF — review content diffs by meaning, and find the rewrite
+
+**Owner:** `tools/ambition_ldtk_tools` (`edit/semantic_diff.py`). Plan:
+[`engine/authoring-and-tools.md`](engine/authoring-and-tools.md#content-diffs-need-domain-aware-comparison-q62-q78).
+
+**Ruling:** Q62 and Q78 (2026-10-04) are engineering and evidence tasks, not
+maintainer choices.
+
+**Current state:** `semantic_diff` compares two files and finds an entity
+move; it has no git input, no churn report and no answer for changed
+auto-layer output. LDtk files still rewrite far beyond their edits after
+`54d99e7fb` and `2e69e81b9`; the writer is not identified.
+
+**Next action:** add `REV:PATH` input and the churn section; then run each
+LDtk writer twice on an unchanged input to find which one rewrites.
+
+**Acceptance:** the tool prints the per-level summary for
+`48f8e26 → cb7062a` (one editor-visual change, auto-layer churn) and for one
+post-fix rewrite commit; a second run of each writer on its own output changes
+no byte.
+
+### ASSET-PRODUCT-LAYOUT — runtime roots by tier; editor products apart
+
+**Owner:** `ambition_asset_manager` path builders, `ambition_sprite_sheet`,
+the publish scripts. Plan:
+[`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md#products-are-laid-out-by-what-they-are-q82-q83).
+
+**Ruling:** Q82, Q83 (2026-10-04).
+
+**Current state:** full quality is the bare `sprites/` root and the reduced
+tiers are suffixed siblings; the packager ships every file, including the
+98.8% of the 449 MB ultrapack that no runtime road reaches.
+
+**Next action:** audit the listed path builders, then move to
+`<root>/{full,half,quarter,potato}/` in one change; then cut the ultrapack's
+runtime product by runtime unit.
+
+**Acceptance:** every tier is a named directory; the packager selects roots
+and has no new exclusion; the packaged ultrapack holds only reachable pages;
+the game draws the same at each tier.
+
+### PORTRAIT-TIERS — portraits scale with quality and stay usable
+
+**Owner:** `ambition_sprite_sheet` (`bake_portrait_manifests`) and the dialog
+portrait consumer. Plan:
+[`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md#quality-is-a-presentation-policy-q84).
+
+**Ruling:** Q84 (2026-10-04).
+
+**Current state:** reduced portrait tiers are generated and shipped, and
+nothing loads them.
+
+**Acceptance:** each quality tier loads its own portrait product, sized from
+the dialog draw size; potato portraits are smaller than full and still fill
+their box.
 
 ### TEST-LANES — keep required test lanes executable
 

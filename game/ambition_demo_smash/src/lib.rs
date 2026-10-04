@@ -135,8 +135,8 @@ pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32)
     // Opening countdown: 3, 2, 1, go. Ticks, not seconds, because the release
     // compares against the sim clock (`MatchRules::opening_countdown_ticks`).
     //
-    // Temporary dev speed-up: set `COUNTDOWN_SPEEDUP` back to 1 to restore the
-    // full three seconds. It is a named divisor so the revert is one token.
+    // A developer speed-up that stays (Q91): `COUNTDOWN_SPEEDUP = 1` gives
+    // the full three seconds.
     roster.rules.opening_countdown_ticks = 3 * 60 / COUNTDOWN_SPEEDUP;
     // Match clock (eight minutes, as in Ultimate's default stock match), so a
     // match between two passive fighters still ends. Derived from
@@ -554,8 +554,9 @@ const SOFT_PLATFORM_SPREAD: f32 = 148.0;
 /// Known issue: the top tier (y 180–196, x 236–404) is 10px under the respawn
 /// platforms (`respawn_placement` puts a body at y 140 with its platform near
 /// y 170). A fighter whose respawn platform expires lands on the tier, not the
-/// stage. It is not adjusted yet because the flat-versus-platforms comparison
-/// in `fighter-brain.md` used this geometry. Change the geometry and the
+/// stage. Q87 rules that the authored layout changes (the tier or the respawn
+/// point), not the runtime spawn logic. The flat-versus-platforms comparison
+/// in `fighter-brain.md` used this geometry, so change the geometry and the
 /// measurement together.
 pub fn smash_platform_stage() -> RoomSpec {
     let centre_x = STAGE_SIZE.x / 2.0;
@@ -1133,8 +1134,9 @@ pub const FIGHTER_HUD_SLOTS: [&str; 4] = [
     "smash_fighter_2",
     "smash_fighter_3",
 ];
-/// Temporary: how much faster than authored the opening countdown runs. Set to
-/// `1` to restore the authored three seconds.
+/// How much faster than authored the opening countdown runs. This is a
+/// developer/debug affordance that stays (Q91 in `maintainer-decisions.md`);
+/// `1` gives the authored three seconds.
 ///
 /// It divides the ticks, not the beats: `MatchRules::beats()` still counts
 /// three. Tests read the roster's value, not a literal.

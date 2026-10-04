@@ -67,8 +67,11 @@ Standing rules:
 - ⛔ **Known limit, not a bug.** Both panes render one instant of the
   simulation's coordinate time. They can disagree about optics (light delay,
   aberration, Doppler), not about simultaneity, which is what the twin paradox
-  is. Where that limit should live is Q47 in
-  [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
+  is. Q47 (2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md)):
+  while the exhibit is parked, the limit stays local to the exhibit and takes
+  no global, participant or world simultaneity slot. A limit describes running
+  instances, not dormant storage; parking takes a slot only if parking itself
+  holds the scarce resource the limit stands for. No such slot exists today.
 - ⛔ Compose the second view in the session, never at plugin build time.
   `ambition_app` links this crate, so a build-time second view splits every
   route in the game. Guard:

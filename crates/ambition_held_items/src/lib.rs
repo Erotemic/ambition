@@ -1621,12 +1621,10 @@ pub fn ability_aim_world(
 /// muzzle, cue, recoil, look, flight. `Shield + Attack` is the throw/drop
 /// gesture, so don't fire on it.
 ///
-/// ⚠ ONE DELIBERATE DIFFERENCE FROM THE BRAIN ROAD: a held weapon fired from
-/// the hand applies NO recoil to the body holding it. The deleted held-shot
-/// path never kicked the player; the gun-sword's authored discharge kicks the
-/// PIRATE 380 px/s by design. Whether the player should feel that kick is a
-/// feel ruling and is recorded in `awaiting-maintainer-decision.md`, not
-/// decided here.
+/// Recoil is a property of the weapon, not of the holder (Q40 in
+/// `maintainer-decisions.md`): the body that fires gets the discharge's
+/// authored recoil, a player-driven body too. So this road sends the item's
+/// discharge unchanged.
 pub fn fire_held_ranged_system(
     driven: DrivenBodies,
     bodies: Query<(
@@ -1655,8 +1653,7 @@ pub fn fire_held_ranged_system(
         if dir == Vec2::ZERO {
             continue;
         }
-        let mut discharge = ranged.discharge.clone().unwrap_or_default();
-        discharge.recoil = 0.0;
+        let discharge = ranged.discharge.clone().unwrap_or_default();
         let spec = ranged.with_discharge(discharge);
         actions.write(ambition_characters::brain::ActorActionMessage {
             actor: subject,

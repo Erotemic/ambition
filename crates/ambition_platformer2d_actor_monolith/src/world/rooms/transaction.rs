@@ -411,6 +411,10 @@ pub(crate) struct PendingWorldReplacement {
     /// minted instance; an opened room's root is spawned. The staged
     /// occupants carry the minted instance ([`Self::publishes_as`]).
     succession: Option<LiveRoomSuccession>,
+    /// The other live rooms this publication retires whole, root and all,
+    /// beside the one it replaces: a whole-session restart (Q151). Their
+    /// residents are in `outgoing`. Empty for every other publication.
+    retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
 }
 
 /// A publication's live rooms: the one it mints, and what becomes of the
@@ -571,7 +575,17 @@ impl PendingWorldReplacement {
             moving_platforms,
             arrival: None,
             succession: None,
+            retires_beside: Vec::new(),
         }
+    }
+
+    /// State the other live rooms this publication retires whole.
+    pub(crate) fn retiring_beside(
+        mut self,
+        rooms: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
+    ) -> Self {
+        self.retires_beside = rooms;
+        self
     }
 
     /// State the live room this publication replaces and the one it mints.
@@ -844,7 +858,11 @@ pub(crate) fn verify_staged_world(
             };
             let target = world.get::<RoomSet>(root).and_then(|rooms| rooms.definition(pending.target_index));
             if let (Some(replaces), Some(target), Some(scope)) = (built, target, scope_of_root(world, root)) {
-                if let Some(live) = live_room_of_definition(world, scope, target, replaces) {
+                // A room this publication retires beside the replaced one does
+                // not stay live, so it does not hold the definition.
+                if let Some(live) = live_room_of_definition(world, scope, target, replaces)
+                    .filter(|live| !pending.retires_beside.contains(live))
+                {
                     violations.push(StagedWorldViolation::DefinitionAlreadyLive { live });
                 }
             }
@@ -1195,6 +1213,13 @@ pub(crate) fn apply_world_replacement(
             if ours && room.0 == replaced && moves {
                 room.0 = minted;
             }
+        }
+    }
+    // A whole-session restart retires the other live rooms, root and all.
+    // Their residents were retired with the outgoing roster.
+    for retired in &pending.retires_beside {
+        if let Some(retired_root) = scope.and_then(|scope| live_room_root_for(world, scope, *retired)) {
+            world.despawn(retired_root);
         }
     }
     // A room the crossing joins is the other player's live world: its

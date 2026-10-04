@@ -616,6 +616,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         live_room.map(|replaces| {
             rooms::LiveRoomSuccession::replacing(replaces, room_set.next_live_room())
         }),
+        Vec::new(),
     );
     // ⛔⛤ **THE GENERATION THE SESSION RUNS UNDER MOVES ONLY IF THE ROOM
     // PUBLISHED.** These four writes — the live content binding, the installed

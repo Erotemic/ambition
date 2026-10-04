@@ -187,6 +187,12 @@ pub struct RoomReplayAdmitted {
 /// Every consumer of that fact was reading the two messages itself and
 /// re-solving the same cursor rule below, in its own words.
 ///
+/// ⚠ It answers "in ANY room" or "in a named definition", never "in which live
+/// room". Per-attempt state that must be kept per live room
+/// (`AttemptScoped`: the broken bricks, spent power blocks and spent monitors)
+/// is keyed by `LiveRoomInstance` and reads no message; a queued player hit is
+/// the remaining customer.
+///
 /// ⛔⛔ THE CURSOR RULE, which is the whole reason this is a type and not a
 /// convention: BOTH readers must be drained EVERY frame, unconditionally. The
 /// natural spelling short-circuits —

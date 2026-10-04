@@ -134,10 +134,11 @@ def main() -> int:
         and re.search(rf":\s*[\w:]*{UNION}\s*[,<]", line.split(":", 2)[2])
     ]
     # ⭐ THE SECOND ROAD. A system that implements `AttemptScoped` never names
-    # `FreshAttempt` at all -- the engine's `rearm_attempt_scoped::<T>` asks it
-    # on the system's behalf, which is the point of the trait. Counting only
-    # parameters read that consolidation as ABANDONMENT and failed this guard on
-    # the day the abstraction spread.
+    # `FreshAttempt` at all. Its state is keyed by live room, and the engine's
+    # `rearm_attempt_scoped::<T>` drops the state of a room that a load or a
+    # replay replaced, so it answers both without reading either message.
+    # Counting only parameters read that consolidation as ABANDONMENT and
+    # failed this guard on the day the abstraction spread.
     impls = [
         line for line in production(git_grep(f"impl .*{TRAIT} for", "crates/", "game/"))
         if not line.split(":", 2)[2].lstrip().startswith("//")

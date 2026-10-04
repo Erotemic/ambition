@@ -256,6 +256,12 @@ fn one_replay_request_is_processed_exactly_once() {
 #[test]
 fn a_pit_death_rearms_a_broken_monitor() {
     use ambition_demo_sanic::monitors::{SpentMonitors, SPEED_MONITOR};
+    use ambition_platformer2d::actors::session::reset::AttemptScoped;
+    use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
+    let live_room = |app: &App| {
+        *ambition_platformer2d::session::sole_live_room_component::<LiveRoomInstance>(app.world())
+            .expect("the act is one live room")
+    };
 
     let mut app = boot();
     settle_until_playable(&mut app);
@@ -269,17 +275,15 @@ fn a_pit_death_rearms_a_broken_monitor() {
     let world = room(&mut app);
     let spawn = world.spawn;
 
+    let before = live_room(&app);
     app.world_mut()
         .resource_mut::<SpentMonitors>()
-        .0
-        .push(SPEED_MONITOR.to_string());
+        .spend(before, SPEED_MONITOR);
     app.update();
     assert!(
         app.world()
             .resource::<SpentMonitors>()
-            .0
-            .iter()
-            .any(|name| name == SPEED_MONITOR),
+            .is_broken(before, SPEED_MONITOR),
         "the fixture failed to leave {SPEED_MONITOR} broken — nothing below can \
          say a replay re-armed a monitor that was never broken"
     );
@@ -313,10 +317,22 @@ fn a_pit_death_rearms_a_broken_monitor() {
         app.update();
     }
 
-    let still_broken = app.world().resource::<SpentMonitors>().0.clone();
+    // The replay seats a new live room, so the monitor is whole there by its
+    // key. The second half is the retraction: no room that is not live keeps a
+    // record, so the state does not grow with each death.
+    let after = live_room(&app);
+    let still_broken: Vec<(LiveRoomInstance, Vec<String>)> = app
+        .world()
+        .resource::<SpentMonitors>()
+        .attempts()
+        .iter()
+        .filter(|(_, names)| !names.is_empty())
+        .map(|(room, names)| (room, names.clone()))
+        .collect();
     let home = player_pos(&mut app).expect("he is still in the world");
+    assert_ne!(after, before, "a pit death replays the act in a new live room");
     assert!(
-        !still_broken.iter().any(|name| name == SPEED_MONITOR),
+        still_broken.is_empty(),
         "HE DIED IN A PIT ON FRAME {replayed_after} AND {SPEED_MONITOR} IS STILL \
          BROKEN: the act was put back {} time(s), he is at {home:?} and spawn is \
          {spawn:?}. Still broken: {still_broken:?}. This is the shipped bug that \

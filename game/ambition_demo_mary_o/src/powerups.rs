@@ -20,6 +20,7 @@ use ambition_platformer2d::world_items::{spawn_moving_world_item, ItemMotionPlan
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
+use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
@@ -213,8 +214,45 @@ pub const CINDER_BEACON_SPRITE: &str = "super_mary_o_cinder_beacon";
 /// two shapes. and the dangerous direction of "making them consistent" is the
 /// other one — turning `SpentMonitors` into a HashSet would reintroduce exactly
 /// the order-dependence it was written to avoid.
+///
+/// Keyed by live room: two instances of one room author the same `GeoId`s, and
+/// a block spent in one is armed in the other. [`RoomPowerBlocks`] is one
+/// room's half.
 #[derive(Resource, Default, Clone)]
-pub struct SpentPowerBlocks {
+pub struct SpentPowerBlocks(ambition_platformer2d::actors::session::reset::PerLiveRoom<RoomPowerBlocks>);
+
+impl SpentPowerBlocks {
+    /// A checksum over WHICH blocks are spent in which room,
+    /// order-independent. Each room's half is hashed with its room.
+    pub fn checksum(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        self.0.iter().fold(0u64, |acc, (room, blocks)| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            room.ordinal().hash(&mut hasher);
+            blocks.checksum().hash(&mut hasher);
+            acc ^ hasher.finish()
+        })
+    }
+
+    /// The blocks of live room `room`, or `None` when none was struck there.
+    pub fn in_room(&self, room: LiveRoomInstance) -> Option<&RoomPowerBlocks> {
+        self.0.in_room(room)
+    }
+
+    /// The blocks of live room `room`, for a strike.
+    pub fn in_room_mut(&mut self, room: LiveRoomInstance) -> &mut RoomPowerBlocks {
+        self.0.in_room_mut(room)
+    }
+
+    /// This block of `room` has already given up its pickup.
+    pub fn is_spent(&self, room: LiveRoomInstance, id: &ae::GeoId) -> bool {
+        self.in_room(room).is_some_and(|blocks| blocks.is_spent(id))
+    }
+}
+
+/// The ?-blocks one live room has already popped. See [`SpentPowerBlocks`].
+#[derive(Default, Clone, Debug)]
+pub struct RoomPowerBlocks {
     spent: std::collections::BTreeSet<ae::GeoId>,
     /// Hits taken by a multi-coin block that is not exhausted yet.
     ///
@@ -228,7 +266,7 @@ pub struct SpentPowerBlocks {
     partial: std::collections::BTreeMap<ae::GeoId, u8>,
 }
 
-impl SpentPowerBlocks {
+impl RoomPowerBlocks {
     /// A checksum over WHICH blocks are spent, order-independent.
     ///
     /// XOR of per-id hashes is commutative, so the answer does not depend on
@@ -286,7 +324,7 @@ impl SpentPowerBlocks {
         self.spent.insert(id);
     }
 
-    /// Re-arm every block — a room (re)load, so a cyclic replay plays the same.
+    /// Re-arm every block of this room.
     pub fn rearm_all(&mut self) {
         self.spent.clear();
         self.partial.clear();
@@ -428,12 +466,16 @@ pub fn contribute_discovered_hidden_blocks_to_overlay(
 ) {
     // Each live room's discovered blocks go into that room's own overlay.
     for (room, geometry) in &rooms {
+        // A room where nothing was struck has nothing discovered.
+        let Some(spent) = spent.in_room(*room) else {
+            continue;
+        };
         let stamp = ambition_platformer2d::platformer::lifecycle::InRoomInstance(*room);
         let Some(mut overlay) = overlays.for_room(Some(&stamp)) else {
             continue;
         };
         for block in &geometry.0.blocks {
-            if let Some(solid) = discovered_solid(&spent, block) {
+            if let Some(solid) = discovered_solid(spent, block) {
                 overlay.removed_block_names.push(block.name.clone());
                 overlay.blocks.push(solid);
             }
@@ -443,7 +485,7 @@ pub fn contribute_discovered_hidden_blocks_to_overlay(
 
 /// Return the solid replacement for a discovered hidden block, or `None` when
 /// the authored block should remain unchanged.
-pub fn discovered_solid(spent: &SpentPowerBlocks, block: &ae::Block) -> Option<ae::Block> {
+pub fn discovered_solid(spent: &RoomPowerBlocks, block: &ae::Block) -> Option<ae::Block> {
     // HIDDEN only. A spent Question or Brick was always authored solid, and
     // re-adding it would put two blocks in one place.
     if block.kind != ae::BlockKind::BonkOnly || !spent.is_spent(&block.id) {
@@ -487,7 +529,7 @@ pub fn bonk_power_blocks(
     let Ok((striker, frame, worn, mut wallet)) = players.single_mut() else {
         return;
     };
-    let Some(room_geometry) = geometry.of(striker) else {
+    let (Some(room), Some(room_geometry)) = (geometry.room_of(striker), geometry.of(striker)) else {
         return;
     };
     for contact in &frame.events.contacts {
@@ -515,7 +557,7 @@ pub fn bonk_power_blocks(
             continue;
         }
         let block_aabb = block.aabb;
-        if spent.is_spent(id) {
+        if spent.is_spent(room, id) {
             continue;
         }
         // A VALID BONK IS ALWAYS ACKNOWLEDGED. This used to read `let Some(reward) = … else
@@ -530,9 +572,9 @@ pub fn bonk_power_blocks(
         // room reload that already re-arms every other block.
         match authored.contents {
             MaryOBlockContents::Coins(count) => {
-                spent.take_one_coin(&id, count);
+                spent.in_room_mut(room).take_one_coin(&id, count);
             }
-            _ => spent.spend(id.clone()),
+            _ => spent.in_room_mut(room).spend(id.clone()),
         }
         // Used blocks flinch in presentation only; moving collision geometry would lift bodies
         // standing on the block. This records which block was struck.
@@ -1108,6 +1150,8 @@ fn power_transition_sfx(from: &str, to: &str) -> Option<&'static str> {
 pub fn dress_power_blocks(
     mut commands: Commands,
     spent: Res<SpentPowerBlocks>,
+    // A block is spent in its own live room.
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     blocks: Query<(
         Entity,
         &ambition_platformer2d::render::rendering::BlockVisual,
@@ -1128,7 +1172,9 @@ pub fn dress_power_blocks(
         // plain masonry however clearly it was marked a ?-block.
         use crate::ldtk_vocabulary::MaryOBlockLook;
         let look = crate::ldtk_vocabulary::block_look_of(&visual.block_name);
-        let is_spent = spent.is_spent(&visual.geo_id);
+        let is_spent = rooms
+            .of(entity)
+            .is_some_and(|room| spent.is_spent(room, &visual.geo_id));
         // a HIDDEN block wears nothing until it has paid. It is drawn
         // transparent at room build (`dress_authored_blocks`), and the only art
         // it ever gets is the spent tile — so striking one reveals it, which is
@@ -1161,11 +1207,17 @@ pub fn dress_power_blocks(
     }
 }
 
-/// Spent power blocks are per-attempt. See [`crate::bricks::BrokenBricks`] for
-/// why the scope is every room rather than a named one.
+/// Spent power blocks are per-attempt: a replay is a new live room, and its
+/// blocks are armed.
 impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentPowerBlocks {
-    fn rearm(&mut self) {
-        self.rearm_all();
+    type Attempt = RoomPowerBlocks;
+
+    fn attempts(&self) -> &ambition_platformer2d::actors::session::reset::PerLiveRoom<RoomPowerBlocks> {
+        &self.0
+    }
+
+    fn attempts_mut(&mut self) -> &mut ambition_platformer2d::actors::session::reset::PerLiveRoom<RoomPowerBlocks> {
+        &mut self.0
     }
 }
 
@@ -1927,6 +1979,76 @@ mod tests {
         assert_eq!(wand(&mut app), 1, "a spent ?-block yields no more wand");
     }
 
+    /// Two live instances of 1-1 author one `GeoId` for their first ?-block. A
+    /// bonk spends it in the striker's room; the other room's block is armed.
+    #[test]
+    fn a_bonk_spends_the_block_of_the_strikers_room_only() {
+        use ambition_platformer2d::platformer::lifecycle::{
+            spawn_live_room, ActiveSessionScope, InRoomInstance,
+        };
+
+        let room = crate::level_1_1();
+        let struck_id = room
+            .world
+            .blocks
+            .iter()
+            .find(|b| {
+                crate::ldtk_vocabulary::block_look_of(&b.name)
+                    == Some(crate::ldtk_vocabulary::MaryOBlockLook::Question)
+            })
+            .expect("the level authors a ?-block")
+            .id
+            .clone();
+
+        let mut app = App::new();
+        app.init_resource::<SpentPowerBlocks>();
+        let mut scope = ActiveSessionScope::default();
+        let session = scope.begin();
+        app.insert_resource(scope);
+        app.world_mut().spawn((
+            ambition_platformer2d::platformer::lifecycle::activation_room_root(session),
+            ae::RoomGeometry(room.world.clone()),
+        ));
+        app.world_mut().spawn((
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+        ));
+        let bob = LiveRoomInstance::ACTIVATION.next();
+        spawn_live_room(app.world_mut(), bob, ae::RoomGeometry(room.world.clone()));
+        app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        let mut frame = PlayerBodyFrameOutput::default();
+        frame
+            .events
+            .contacts
+            .push(ae::collision_semantics::Contact {
+                impact_speed: 0.0,
+                involuntary: false,
+                kind: ContactKind::Head,
+                point: ae::Vec2::ZERO,
+                normal: ae::Vec2::new(0.0, 1.0),
+                toi: 0.0,
+                surface_velocity: ae::Vec2::ZERO,
+                source: ContactSource::Block {
+                    kind: ae::BlockKind::Solid,
+                    id: struck_id.clone(),
+                },
+            });
+        app.world_mut().spawn((PrimaryPlayer, frame, InRoomInstance(bob)));
+        app.add_systems(Update, bonk_power_blocks);
+        app.update();
+
+        let spent = app.world().resource::<SpentPowerBlocks>();
+        assert_eq!(
+            (
+                spent.is_spent(LiveRoomInstance::ACTIVATION, &struck_id),
+                spent.is_spent(bob, &struck_id),
+            ),
+            (false, true),
+            "(the other room, the striker's room): the block is spent in the striker's room only"
+        );
+    }
+
     /// A block that LOOKS like a brick but HOLDS a powerup pops it.
     ///
     /// like a brick but really has a powerup. We should also allow for bricks to
@@ -2389,7 +2511,7 @@ mod discovery_tests {
             .zip(["hidden_coin_first", "hidden_coin_second"])
             .map(|(room, name)| {
                 let id = ae::GeoId::anon();
-                spent.spend(id.clone());
+                spent.in_room_mut(room).spend(id.clone());
                 let world = ae::World::new(
                     "hidden",
                     ae::Vec2::new(400.0, 300.0),
@@ -2436,12 +2558,12 @@ mod discovery_tests {
         let hidden = block(ae::BlockKind::BonkOnly, id.clone(), "hidden_coin_1");
 
         assert!(
-            discovered_solid(&SpentPowerBlocks::default(), &hidden).is_none(),
+            discovered_solid(&RoomPowerBlocks::default(), &hidden).is_none(),
             "an unstruck hidden block was solidified, which deletes the mechanic: \
              you would stand on blocks you have never found"
         );
 
-        let mut spent = SpentPowerBlocks::default();
+        let mut spent = RoomPowerBlocks::default();
         spent.spend(id);
         let solid =
             discovered_solid(&spent, &hidden).expect("a struck hidden block becomes something");
@@ -2468,7 +2590,7 @@ mod discovery_tests {
     fn only_hidden_blocks_are_upgraded() {
         let id = ae::GeoId::anon();
         let question = block(ae::BlockKind::Solid, id.clone(), "question_1");
-        let mut spent = SpentPowerBlocks::default();
+        let mut spent = RoomPowerBlocks::default();
         spent.spend(id);
         assert!(
             discovered_solid(&spent, &question).is_none(),
@@ -2492,7 +2614,7 @@ mod multi_coin_counter_tests {
     /// and `is_spent` stays the single authority for "this block is done".
     #[test]
     fn a_three_coin_block_pays_three_times_then_retires() {
-        let mut spent = SpentPowerBlocks::default();
+        let mut spent = RoomPowerBlocks::default();
         let block = id("coin_block");
 
         for hit in 1..=2 {
@@ -2519,7 +2641,7 @@ mod multi_coin_counter_tests {
     /// existing cast of ?-blocks would have changed behaviour.
     #[test]
     fn a_one_coin_block_retires_on_the_first_hit() {
-        let mut spent = SpentPowerBlocks::default();
+        let mut spent = RoomPowerBlocks::default();
         let block = id("ordinary");
         assert!(spent.take_one_coin(&block, 1));
         assert!(spent.is_spent(&block));
@@ -2528,7 +2650,7 @@ mod multi_coin_counter_tests {
     /// A reset re-arms BOTH halves.
     #[test]
     fn a_reset_rearms_a_partly_paid_block() {
-        let mut spent = SpentPowerBlocks::default();
+        let mut spent = RoomPowerBlocks::default();
         let block = id("coin_block");
         spent.take_one_coin(&block, 5);
         spent.take_one_coin(&block, 5);
@@ -2546,12 +2668,13 @@ mod multi_coin_counter_tests {
     fn the_checksum_distinguishes_two_from_three_coins_paid() {
         let block = id("coin_block");
         let mut two = SpentPowerBlocks::default();
-        two.take_one_coin(&block, 9);
-        two.take_one_coin(&block, 9);
         let mut three = SpentPowerBlocks::default();
-        three.take_one_coin(&block, 9);
-        three.take_one_coin(&block, 9);
-        three.take_one_coin(&block, 9);
+        let room = LiveRoomInstance::ACTIVATION;
+        two.in_room_mut(room).take_one_coin(&block, 9);
+        two.in_room_mut(room).take_one_coin(&block, 9);
+        three.in_room_mut(room).take_one_coin(&block, 9);
+        three.in_room_mut(room).take_one_coin(&block, 9);
+        three.in_room_mut(room).take_one_coin(&block, 9);
         assert_ne!(
             two.checksum(),
             three.checksum(),
@@ -2599,6 +2722,11 @@ mod block_dressing_tests {
     fn every_look_wears_the_spent_plate_once_it_has_paid_and_a_brick_hides_until_then() {
         let mut app = App::new();
         app.init_resource::<SpentPowerBlocks>();
+        // The blocks are in the live room: a block is spent in its own room.
+        ambition_platformer2d::session::insert_live_room_component(
+            app.world_mut(),
+            ambition_platformer2d::world::FeatureEcsWorldOverlay::default(),
+        );
         app.add_systems(Update, dress_power_blocks);
 
         let quasar = MaryOBlockContents::Always(MaryOPickup::Quasar);
@@ -2637,7 +2765,7 @@ mod block_dressing_tests {
         {
             let mut spent = app.world_mut().resource_mut::<SpentPowerBlocks>();
             for iid in ["q_used", "h_used", "b_used"] {
-                spent.spend(ae::GeoId::placement(
+                spent.in_room_mut(LiveRoomInstance::ACTIVATION).spend(ae::GeoId::placement(
                     ae::PlacementId::new(iid.to_string()),
                     0,
                 ));

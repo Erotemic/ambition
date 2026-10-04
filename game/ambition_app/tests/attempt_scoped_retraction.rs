@@ -15,9 +15,9 @@
 //! called and registers nothing.
 //!
 //! ⚠ It is a COMPOSITION test, not a behaviour test. It says the re-arm is on the slot;
-//! `ambition_demo_mary_o_app/tests/room_replay.rs` is where a pit death proves the slot
-//! runs. `SpentMonitors` — the resource whose shipped bug motivated the trait — still has
-//! no behavioural counterpart.
+//! `room_replay.rs` in `ambition_demo_mary_o_app` and `ambition_demo_sanic_app` is where
+//! a pit death proves the slot runs: each asserts that no room that is not live keeps a
+//! record after the replay.
 
 use bevy::ecs::schedule::{ScheduleLabel, Schedules};
 use bevy::prelude::*;

@@ -249,7 +249,7 @@ fn course_power_block() -> ae::world::Block {
 fn block_is_spent(app: &App) -> bool {
     app.world()
         .get_resource::<SpentPowerBlocks>()
-        .is_some_and(|spent| spent.is_spent(&course_power_block().id))
+        .is_some_and(|spent| spent.is_spent(live_room(app.world()), &course_power_block().id))
 }
 
 /// Every loose pickup in the room, as `(sprite, position)`.
@@ -615,4 +615,10 @@ fn she_plays_the_course_from_spawn_to_the_goal() {
         "and arrives still wearing what she took off the ?-block"
     );
     eprintln!("TALLIED {score} at {:?}", body(&mut app));
+}
+
+/// The live room the course is in: this fixture is one room, and a block is
+/// spent in its own live room.
+fn live_room(world: &World) -> ambition_platformer2d::platformer::lifecycle::LiveRoomInstance {
+    *ambition_platformer2d::session::sole_live_room_component(world).expect("the course is one live room")
 }

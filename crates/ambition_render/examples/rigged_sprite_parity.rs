@@ -30,8 +30,8 @@ use bevy::sprite::Anchor;
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_render::rendering::actors::draw_held_frame;
 use ambition_render::rendering::actors::rigged::{
-    add_rigged_impostor_material_plugin, bind_rigged_presentations, drive_rigged_presentations,
-    RiggedImpostorAtlas, RiggedPresentations,
+    add_rigged_impostor_material_plugin, bind_rigged_presentations, drive_rigged_presentations, impostor_cell_class,
+    RiggedImpostorAtlas, RiggedPresentations, IMPOSTOR_CELL_CLASSES, IMPOSTOR_MARGIN,
 };
 use ambition_render::rendering::actors::BoundSpriteQuality;
 use ambition_sprite_sheet::character::rigged::{RiggedSpriteAdmission, RiggedSpriteAsset, RiggedSpritePages};
@@ -90,27 +90,31 @@ fn main() {
     if targets.is_empty() {
         targets = vec!["mary_o_v2".into(), "mary_o_v2_tall".into(), "mary_o_v2_fire".into()];
     }
-    let mut index = String::from("target\trow\tframe\tflip\tfeet_x\tfeet_y\troot_x\tbaked\tparts\n");
+    let mut index = String::from("target\trow\tframe\tflip\tfeet_x\tfeet_y\troot_x\tcell_x0\tcell_y0\tcell_x1\tcell_y1\tbaked\tparts\n");
     for target in &targets {
         let dir = out.join(target);
         std::fs::create_dir_all(&dir).expect("create the output directory");
         let baked = capture_all(target, false, scale, &flips, phase, centre_anchored);
         let parts = capture_all(target, true, scale, &flips, phase, centre_anchored);
         assert_eq!(baked.len(), parts.len(), "`{target}`: the two runs pinned different frames");
-        for ((pin, size, (feet, root_x), baked), (_pin, _size, _feet, parts)) in baked.into_iter().zip(parts) {
+        for ((pin, size, (feet, root_x, cell), baked), (_pin, _size, _feet, parts)) in baked.into_iter().zip(parts) {
             let stem = format!("{}_{}{}", pin.row, pin.frame, if pin.flip { "_flip" } else { "" });
             let baked_path = dir.join(format!("{stem}_baked.png"));
             let parts_path = dir.join(format!("{stem}_parts.png"));
             save(&baked_path, size, &baked);
             save(&parts_path, size, &parts);
             index.push_str(&format!(
-                "{target}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+                "{target}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
                 pin.row,
                 pin.frame,
                 pin.flip,
                 feet.x,
                 feet.y,
                 root_x,
+                cell.min.x,
+                cell.min.y,
+                cell.max.x,
+                cell.max.y,
                 baked_path.display(),
                 parts_path.display()
             ));
@@ -128,10 +132,12 @@ fn save(path: &std::path::Path, size: UVec2, pixels: &[u8]) {
 }
 
 /// Every row and frame of `target`, drawn by one path: `(pin, size, (feet
-/// pixel, root x), RGBA)`. The feet pixel is where the body's feet land in the
-/// image, +y down, so a reader can place the published frame there; the root x
-/// is the column a facing flip mirrors about (the root's origin: the feet for
-/// an NPC, the quad's centre for a centre-anchored player).
+/// pixel, root x, cell), RGBA)`. The feet pixel is where the body's feet land
+/// in the image, +y down, so a reader can place the published frame there; the
+/// root x is the column a facing flip mirrors about (the root's origin: the
+/// feet for an NPC, the quad's centre for a centre-anchored player); the cell
+/// is the image rectangle (+y down) the part road can draw in at all — the
+/// body's impostor cell, mirrored with it.
 fn capture_all(
     target: &str,
     rigged: bool,
@@ -139,7 +145,7 @@ fn capture_all(
     flips: &[bool],
     phase: f32,
     centre_anchored: bool,
-) -> Vec<(Pin, UVec2, (Vec2, f32), Vec<u8>)> {
+) -> Vec<(Pin, UVec2, (Vec2, f32, Rect), Vec<u8>)> {
     let spec = try_load_spec_for_character_id(target).expect("a baked sheet: run scripts/regen/sprites.sh");
     let frame = Vec2::new(spec.frame_width as f32, spec.frame_height as f32);
     let render = frame * scale;
@@ -185,6 +191,18 @@ fn capture_all(
         Vec2::new(tl.x + feet_in_frame.x - half.x, half.y - tl.y - feet_in_frame.y)
     };
     let feet_pixel = tl + feet_in_frame;
+    // ⛔ The part road draws a body into its impostor CELL (the frame with
+    // `IMPOSTOR_MARGIN` on its top and left, the class's size), and the root's
+    // quad shows that cell mirrored about the root when the body faces left. A
+    // part reaching past the cell is cut there. The image is the frame with a
+    // margin on every side, so facing right the cell covers it from the top
+    // left, but mirrored about feet that are off the frame's centre it does not:
+    // the oni leader's banner, past the cell, read as 1153 wrong pixels of a
+    // correct draw (2026-10-03). The reader clips its oracle to this.
+    // A frame no cell fits is not drawn from parts at all: nothing to clip.
+    let cell_px = impostor_cell_class(frame).map_or(1.0e6, |class| IMPOSTOR_CELL_CLASSES[class].0);
+    let cell_min = tl - Vec2::splat(IMPOSTOR_MARGIN * scale);
+    let cell = Rect::from_corners(cell_min, cell_min + Vec2::splat(cell_px * scale));
     app.world_mut().spawn((
         sprite,
         anchor,
@@ -217,7 +235,12 @@ fn capture_all(
                 app.update();
                 app.update();
                 let root_x = size.x as f32 * 0.5 + at.x;
-                out.push((pinned, size, (feet_pixel, root_x), readback(&mut app, &image, &captured, size)));
+                let cell = if flip {
+                    Rect::new(2.0 * root_x - cell.max.x, cell.min.y, 2.0 * root_x - cell.min.x, cell.max.y)
+                } else {
+                    cell
+                };
+                out.push((pinned, size, (feet_pixel, root_x, cell), readback(&mut app, &image, &captured, size)));
             }
         }
     }

@@ -438,6 +438,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "AuthoredOccurrences": (
         "crates/ambition_held_items/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/body_whereabouts.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
@@ -1904,7 +1905,7 @@ ADJUDICATED: dict[str, str] = {
         "rollback state with a value checksum (`feature.world_time_schedule`)."
     ),
     "AuthoredOccurrences": (
-        "CORRECT — SIX WRITER FILES ONTO FIVE `&mut self` METHODS, AND THE ENTRY "
+        "CORRECT — SEVEN WRITER FILES ONTO SIX `&mut self` METHODS, AND THE ENTRY "
         "RULE IS ENFORCED INSIDE THE TYPE. `rows: BTreeMap<SimId, "
         "OccurrenceWhereabouts>` is PRIVATE "
         "(`shared_tangle/src/lifecycle/continuity.rs`) and there are exactly four "
@@ -1928,7 +1929,15 @@ ADJUDICATED: dict[str, str] = {
         "custody just ended, the item producer's road under the same entry rule, "
         "and adds no method. (The away population set of the same module, "
         "`AwayFromAuthoredRoom`, is not a writer: it is an input of the custody "
-        "projection, which stays the one caller of `republish_custody`.)\n"
+        "projection, which stays the one caller of `republish_custody`.) The "
+        "sixth METHOD and seventh FILE, added 2026-10-04 (Q154), is "
+        "`consume(ids)`, taken by `record_consumed_pickups` "
+        "(`actor_monolith/src/features/ecs/pickups.rs`) for an AUTHORED pickup "
+        "with `HazardRespawn::Never` that a body took. It is a deliberate second "
+        "entry, and only for an ENDED occurrence: it writes `Consumed` only where "
+        "the id has no row, so it can neither revive nor move a live occurrence, "
+        "and no method turns `Consumed` back into a live row. A consumed pickup "
+        "carries no `SpawnedThisAttempt`, because it is authored.\n"
         "    ⭐ THE UPDATER CANNOT BECOME AN ENTRY, AND THE TYPE IS WHAT STOPS IT. "
         "`republish_placements` inserts only where the existing row is "
         "`InCustody` or `Placed`, collects every other id into a `BTreeSet` and "
@@ -1937,9 +1946,11 @@ ADJUDICATED: dict[str, str] = {
         "to say what it means by them.\"* The producer agrees from its side: it "
         "skips anything the ledger does not already remember, because *\"an object "
         "cannot change rooms without being carried.\"* ⇒ Q141's claim that this "
-        "ledger has *\"exactly ONE entry road\"* HOLDS — CHECKED 2026-09-18 rather "
-        "than quoted, which is worth saying on a day two other completeness "
-        "claims in this tree turned out one true and one false.\n"
+        "ledger has *\"exactly ONE entry road\"* HOLDS FOR A LIVE OCCURRENCE — "
+        "CHECKED 2026-09-18 rather than quoted, which is worth saying on a day two "
+        "other completeness claims in this tree turned out one true and one "
+        "false. An ENDED occurrence enters through `consume` (above), which writes "
+        "only the terminal state.\n"
         "    ⛔⛤ AND THE REGISTRATION HISTORY IS THE OPPOSITE OF A FIX TO REACH "
         "FOR. This was `declare_rollback_derived_resource` — in no snapshot — "
         "while `adopt_rows` was already a non-rederived producer, which its own "

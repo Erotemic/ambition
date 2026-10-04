@@ -1489,6 +1489,8 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 ecs::world_time_schedule::mirror_breakable_respawns,
                 // Q152: a collected pickup comes back when its regrowth is due.
                 ecs::world_time_schedule::regrow_pickups,
+                // Q154: a collected pickup authored `Never` is gone for good.
+                ecs::pickups::record_consumed_pickups,
                 update_ecs_falling_chests,
             )
                 .chain()

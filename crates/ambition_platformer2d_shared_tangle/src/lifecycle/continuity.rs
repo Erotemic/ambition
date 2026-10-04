@@ -41,11 +41,11 @@ pub enum OccurrenceWhereabouts {
     /// which is also "not alive" — because an ordinary room unload destroys
     /// occurrences by the dozen and every one of them SHOULD come back.
     ///
-    /// no producer today, and that is load-bearing for
-    /// [`AuthoredOccurrences::rewind_argument`]. Every other row is either
-    /// republished from live state or frozen only at a room boundary; this one
-    /// would be written mid-frame from an event, so the day it gains a producer
-    /// the ledger owes a real rollback registration with a VALUE projection.
+    /// Written by `record_consumed_pickups` for a collected pickup authored
+    /// `Never` (Q154), republished from live state while its room is live, as
+    /// the other rows are. The ledger is registered rollback value state (see
+    /// [`AuthoredOccurrences::rewind_argument`]), so a rewind takes it back, and
+    /// a checkpoint restore replaces it with the pinned ledger.
     Consumed,
 }
 
@@ -406,13 +406,13 @@ impl AuthoredOccurrences {
     /// arm. A `Placed` row describes a room that may not be loaded, so
     /// "absent from the world" is not evidence of anything — the room is simply
     /// not built. What ends a `Placed` row is the occurrence being picked up
-    /// again (custody overwrites it), a checkpoint restore (which replaces the
-    /// whole ledger with its pinned one; a New Game pins an empty one), or the
-    /// [`OccurrenceWhereabouts::Consumed`] producer that does not exist yet.
+    /// again (custody overwrites it), or a checkpoint restore (which replaces
+    /// the whole ledger with its pinned one; a New Game pins an empty one).
     ///
-    /// ⛔ **AN OCCURRENCE ENTERS THIS LEDGER THROUGH CUSTODY, OR AS A RUNTIME
-    /// MINT THROUGH [`Self::admit_mints`], AND NOWHERE ELSE, and that rule is
-    /// enforced HERE because it is the ledger's rule.**
+    /// ⛔ **A LIVE OCCURRENCE ENTERS THIS LEDGER THROUGH CUSTODY, OR AS A
+    /// RUNTIME MINT THROUGH [`Self::admit_mints`], AND NOWHERE ELSE, and that
+    /// rule is enforced HERE because it is the ledger's rule.** An ended one
+    /// enters through [`Self::consume`], and only where it has no row.
     /// A placement may be written only for an id whose current row is
     /// `InCustody` (it was in a hand and is being put down) or `Placed` (it is
     /// being republished where it already lies). `None` is refused because an
@@ -461,6 +461,20 @@ impl AuthoredOccurrences {
             );
         }
         refused
+    }
+
+    /// Remember that these authored occurrences are gone for good. Only an id
+    /// with no row is written: a pickup is never carried, so it has no other
+    /// row, and a `Consumed` row is terminal. Returns how many rows it wrote.
+    pub fn consume(&mut self, sim_ids: impl IntoIterator<Item = SimId>) -> usize {
+        let mut written = 0;
+        for sim_id in sim_ids {
+            if !self.rows.contains_key(&sim_id) {
+                Arc::make_mut(&mut self.rows).insert(sim_id, OccurrenceWhereabouts::Consumed);
+                written += 1;
+            }
+        }
+        written
     }
 
     /// Take back the rows of occurrences that never happened: the mints of a

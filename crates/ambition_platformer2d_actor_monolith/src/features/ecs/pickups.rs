@@ -371,3 +371,48 @@ pub fn grant_pickup(
 
 #[cfg(test)]
 mod tests;
+
+/// Remember the collected pickups authored `Never` as gone for good (Q154):
+/// a `Consumed` row in the occurrence ledger, so a room built again does not
+/// build them, and the save keeps them gone.
+///
+/// Republished from live state every tick, as the ledger's other rows are.
+/// A checkpoint restore replaces the ledger with the pinned one, and the
+/// pickups still collected in a live room another participant holds are
+/// written again on the next tick (Q151). The room the restore rebuilds
+/// builds them uncollected, so nothing writes them again.
+///
+/// Only an authored occurrence has a row: a dropped pickup has no record a
+/// room could build again.
+#[allow(clippy::type_complexity)]
+pub fn record_consumed_pickups(
+    pickups: Query<
+        (
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            &PickupFeature,
+            &ambition_platformer2d_shared_tangle::construction::SpawnOrigin,
+        ),
+        With<Collected>,
+    >,
+    occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+) {
+    let Some(mut occurrences) = occurrences else {
+        return;
+    };
+    let consumed: Vec<_> = pickups
+        .iter()
+        .filter(|(sim_id, pickup, origin)| {
+            pickup.pickup.respawn == ambition_entity_catalog::placements::HazardRespawn::Never
+                && matches!(
+                    origin,
+                    ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored { .. }
+                )
+                && occurrences.whereabouts(sim_id).is_none()
+        })
+        .map(|(sim_id, ..)| sim_id.clone())
+        .collect();
+    // Written only on a new row, so an unchanged ledger is not marked changed.
+    if !consumed.is_empty() {
+        occurrences.consume(consumed);
+    }
+}

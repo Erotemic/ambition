@@ -93,17 +93,18 @@ fn poison_alices_baseline(
 /// One peer: the same world on both, Bob seated on slot 1 beside Alice, and
 /// a P2P session in place of the sync test the harness started.
 fn peer(
+    room: &str,
     local: usize,
     remote: (usize, std::net::SocketAddr),
     socket: ambition_platformer2d::rollback::LoopbackSocket,
     poison: Poison,
 ) -> (Platformer2dSimHarness, Vec<&'static str>) {
-    let options = fixed_60hz_room_options(ROOM)
+    let options = fixed_60hz_room_options(room)
         .with_save(a_save_that_has_seen_the_hub_intro())
         .with_sync_test_rollback_settings(4, 10)
         .with_rollback_players(2);
-    let mut sim = Platformer2dSimHarness::new_with_options(options).expect("switch_lab boots");
-    bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the room boots");
+    bob_beside_alice(&mut sim, room, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
     // The float rows get value probes, or their census is a carrier count.
     let sharp = strengthen_the_float_rows(sim.world_mut());
     let app = sim.app_mut();
@@ -165,10 +166,16 @@ struct Outcome {
 }
 
 fn two_peers(poison: Poison) -> Outcome {
+    two_peers_in(ROOM, |frame| script(0, frame), poison)
+}
+
+/// [`two_peers`] in `room`, with Alice's input a function of the frame. Bob
+/// always runs his script, so a peer always has a remote input to predict.
+fn two_peers_in(room: &str, alices: fn(i32) -> ControlFrame, poison: Poison) -> Outcome {
     let (a, b) = ("127.0.0.1:7001".parse().unwrap(), "127.0.0.1:7002".parse().unwrap());
     let (to_bob, to_alice) = loopback_pair(a, b, LATENCY);
-    let (mut alice, sharp) = peer(0, (1, b), to_bob, Poison::None);
-    let (mut bob, _) = peer(1, (0, a), to_alice, poison);
+    let (mut alice, sharp) = peer(room, 0, (1, b), to_bob, Poison::None);
+    let (mut bob, _) = peer(room, 1, (0, a), to_alice, poison);
     let mut updates = 0;
     while confirmed(&alice).min(confirmed(&bob)) < CONFIRMED {
         updates += 1;
@@ -178,7 +185,8 @@ fn two_peers(poison: Poison) -> Outcome {
                 continue;
             }
             let next = sim.world().resource::<RollbackFrameCount>().0 + 1;
-            sim.drive_seat(slot as u8, script(slot, next));
+            let input = if slot == 0 { alices(next) } else { script(slot, next) };
+            sim.drive_seat(slot as u8, input);
             sim.app_mut().update();
         }
         if alice.rollback_health().is_err() || bob.rollback_health().is_err() {
@@ -285,4 +293,67 @@ fn an_unchecksummed_difference_is_seen_only_by_the_census() {
         ((Ok(()), Ok(())), vec![&row]),
         "(the peers' health, the rows the census saw differ)"
     );
+}
+
+/// Alice stands still.
+fn stands(_frame: i32) -> ControlFrame {
+    ControlFrame::default()
+}
+
+/// Alice holds right.
+fn holds_right(_frame: i32) -> ControlFrame {
+    ControlFrame {
+        axis_x: 1.0,
+        ..Default::default()
+    }
+}
+
+/// Alice holds right and, from frame 20, presses attack every ten frames:
+/// the first press takes the portal gun beside her, and each later one fires.
+fn holds_right_and_fires(frame: i32) -> ControlFrame {
+    ControlFrame {
+        axis_x: 1.0,
+        attack_pressed: frame >= 20 && frame % 10 == 0,
+        ..Default::default()
+    }
+}
+
+/// The rooms that carry the float rows `switch_lab` does not: the ground
+/// item, the portal rows, the hazard, the boss rows, the shark's mount rows
+/// and the encounter zoom. Each pair of peers agrees at every confirmed frame,
+/// and together the rooms carry every float row that has a production writer.
+#[test]
+fn two_peers_agree_in_the_rooms_that_carry_the_float_rows() {
+    let walks: [(&str, fn(i32) -> ControlFrame); 7] = [
+        ("blink_run", stands),
+        ("portal_lab", holds_right),
+        ("basement_hazards", stands),
+        ("portal_bridge", holds_right_and_fires),
+        ("basement_boss", stands),
+        ("pirate_sky_lookout", stands),
+        ("goblin_encounter", holds_right),
+    ];
+    let mut carried = std::collections::BTreeSet::new();
+    let mut sharp = Vec::new();
+    for (room, alices) in walks {
+        let outcome = two_peers_in(room, alices, Poison::None);
+        assert_eq!(
+            (outcome.healths, outcome.differing),
+            ((Ok(()), Ok(())), BTreeMap::new()),
+            "in {room}: (the peers' health, the rows that differ and the first frame they differ at)"
+        );
+        carried.extend(outcome.carried);
+        sharp = outcome.sharp;
+    }
+    // `MountedSize` has no production writer (measured 2026-10-03: no
+    // `MountedSize(` outside its definition), so no room carries it. A
+    // writer arriving makes this red, and the walk that carries it belongs
+    // above.
+    let missing: Vec<&str> = sharp
+        .iter()
+        .copied()
+        .filter(|row| !carried.contains(row))
+        .map(|row| row.rsplit("::").next().unwrap())
+        .collect();
+    assert_eq!(missing, vec!["MountedSize"], "the float rows no walk carries");
 }

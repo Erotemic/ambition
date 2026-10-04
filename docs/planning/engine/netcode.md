@@ -101,8 +101,8 @@ N2 was the only instrument for two open questions:
   [`simulation-authority-and-determinism.md`](simulation-authority-and-determinism.md)).
   Measured 2026-10-03 by `game/ambition_app/tests/two_peers.rs` over the
   in-memory link: two peers agree on every probed row at every confirmed frame,
-  the float rows by value. The rows a room does not carry stay unmeasured there;
-  S7 lists them.
+  the float rows by value, in eight rooms that together carry every float row
+  with a production writer.
 - whether the session rebase at a room crossing fits a remote peer's rollback
   window. Still open: the confirmed lifecycle commit runs only under a
   `LocalSyncTest` ownership (`lifecycle_commit.rs`), so under a peer session a

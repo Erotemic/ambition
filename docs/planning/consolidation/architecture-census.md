@@ -311,7 +311,7 @@ stage map. Do not add a second admission protocol.
 The local types are correct local identities and stay load-bearing in that role.
 The remaining mixed-responsibility type is `PreparedContentIdentity`: it packages
 canonical fingerprints with the local epoch. Do not use its local half where
-peer-stable identity is required. The live owner of this road is
+peer-stable identity is required. The road's record is
 [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
 
 ## 8. Optional canonical authorities and capability composition

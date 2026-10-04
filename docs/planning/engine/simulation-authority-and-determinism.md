@@ -345,9 +345,13 @@ is a unit marker). Measured 2026-10-03: at every confirmed frame both peers agre
 on every row, and GGRS reports no desync. Eight float rows carry state there
 (`actor.animation_facts`, `combat.tuning`, `actor.render_size`,
 `actor.sprite_offset`, `actor.spawn_baseline`, `player.blink_camera_state`,
-`actor.sprite_posed_body`, `entity.transform`), pinned by equality. The portal,
-hazard, boss, mount, ground-item and camera-zoom rows have no carrier in that
-room; for them only the two-host arm speaks. Poisons: a position change on one
+`actor.sprite_posed_body`, `entity.transform`), pinned by equality.
+`two_peers_agree_in_the_rooms_that_carry_the_float_rows` walks seven more rooms
+(`blink_run`, `portal_lab`, `basement_hazards`, `portal_bridge` with the gun
+fired, `basement_boss`, `pirate_sky_lookout` with its shark, `goblin_encounter`),
+and the peers agree in each. Together the walks carry 21 of the 22 rows. The
+22nd, `mount.authored_size` (`MountedSize`), has no production writer, so no
+room carries it; the arm pins that. Poisons: a position change on one
 peer is a GGRS desync that reaches `session_health`; a value outside the peer
 checksum changed on one peer is no desync, and only the census names it.
 

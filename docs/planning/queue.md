@@ -38,6 +38,9 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
 
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity
 
+**Status:** ✅ DONE 2026-10-03. Every road is closed; the standing prohibitions
+below still hold.
+
 **Owner:** deterministic identity / rollback architecture. The identity map is
 in [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 The input-payload contract is in
@@ -60,8 +63,8 @@ ratchet. The peer-identity checkpoint that C03 and C05 waited on is discharged.
 `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
 show no row that differs between a fresh host and a veteran one: `SimTick`
 agreed from 2026-10-03 (road 2), and `AmbitionGameSave` from the same day
-(road 4). Road 3 is measured by two peers in one process (see below); what is
-left of it is the rooms the two-peer arm does not walk.
+(road 4). Road 3 closed the same day with two peers in one process. Every
+road is closed.
 
 **Open roads:**
 
@@ -97,7 +100,7 @@ left of it is the rooms the two-peer arm does not walk.
    stored ticks outlive a crossing. Why not a projection: it would drop the
    timeline. A P2P session (`N2`) must activate its session scope at the agreed
    start, which is the same edge.
-3. **The unchecksummed float rows** (S7 in
+3. ✅ **CLOSED 2026-10-03: the unchecksummed float rows** (S7 in
    [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md);
    23 rows by the census script on 2026-10-03).
    ⛔ The state half was a carrier count until 2026-10-03: all eleven sharp
@@ -112,9 +115,11 @@ left of it is the rooms the two-peer arm does not walk.
    row at every confirmed frame to 240, with rollbacks, and GGRS reports no
    desync. Poisons: a position changed on one peer is a desync in
    `session_health`; a value outside the checksum is no desync, and only the
-   census names it. Open: the arm walks `switch_lab`, where eight float rows
-   carry state; the portal, hazard, boss, mount, ground-item and camera-zoom
-   rows are compared by value only on two hosts, not on two peers.
+   census names it. `two_peers_agree_in_the_rooms_that_carry_the_float_rows`
+   walks seven more rooms, and together the walks carry 21 of the 22 rows; the
+   22nd (`MountedSize`) has no production writer. A peer-session room crossing
+   is netcode's open question, not this road's (the lifecycle commit runs only
+   under a local sync test).
 4. ✅ **CLOSED 2026-10-03: the save belongs to the experience that plays it**
    (`Q129`, decided the same day: shared durable state is peer state). Measured: the save
    differed in one field, `flags`. The veteran's Sanic and Mary-O sessions had

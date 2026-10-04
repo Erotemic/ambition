@@ -17,7 +17,6 @@ mod room_instance;
 mod round;
 mod session;
 mod session_messages;
-mod spawn_ext;
 
 pub use cleanup::despawn_scoped_entity;
 pub use departure::{Departure, DepartureState, Destination, DEPARTURE_GIVE_UP_S};
@@ -69,4 +68,3 @@ pub use session::{
     SessionWorldRef,
     SpawnSessionScopedExt, SESSION_SETTLE_FRAMES,
 };
-pub use spawn_ext::SpawnScopedExt;

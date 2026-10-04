@@ -572,6 +572,34 @@ WAIVERS: dict[str, str] = {
         "depend on this having run.' A write to a discarded timeline corrupts "
         "no comparison anyone will make."
     ),
+    # ── added 2026-10-04, SESSION-EDGE-STATE ─────────────────────────────────
+    # Two resets that the owner crate registers, not `SessionScopedResources`.
+    # They are in the same set as the activation reset above, so they have its
+    # answer and its residual.
+    "forget_portal_frames_on_activation": (
+        "THE WRITE PRECEDES THE TIMELINE, by the chain that "
+        "`reset_session_scoped_resources_on_activation` states. "
+        "`PortalPlugin` registers it in `SessionScopeSet::Activate`, and it "
+        "writes only on a `SessionScopeActivated`. The session world becomes "
+        "live in `Providers`, after `Activate`, and GGRS starts only for a live "
+        "session world. So no saved frame of this scope holds the value that "
+        "the write replaces. Held by "
+        "`shell_host_lifecycle::what_a_session_spawned_and_cycled_does_not_reach_the_next_session` "
+        "(with the reset not registered, `PortalFrameHistory` differs at tick 0). "
+        "\u26d4 THE RESIDUAL: the claim is the SET, not the schedule. The same "
+        "system in a plain `Update` slot could run after `Providers`, on a "
+        "frame that GGRS has saved, and this entry would then be false."
+    ),
+    "restart_heavy_object_cycle_on_activation": (
+        "THE WRITE PRECEDES THE TIMELINE, by the chain that "
+        "`reset_session_scoped_resources_on_activation` states. "
+        "`AmbitionBossContentPlugin` registers it in `SessionScopeSet::Activate`, "
+        "and it writes only on a `SessionScopeActivated`. Held by "
+        "`shell_host_lifecycle::what_a_session_spawned_and_cycled_does_not_reach_the_next_session` "
+        "(with the reset not registered, `CutRopeHeavyObjectCycle` differs on 31 "
+        "frames). \u26d4 THE RESIDUAL: the claim is the SET, not the schedule; "
+        "see `forget_portal_frames_on_activation`."
+    ),
     # ── added 2026-09-02 with the widening, triaged by ambition-df ───────────
     # These six appeared the moment `rollback_types` stopped reading one file.
     # Each is waived with the reason its drift across a rewind does not matter,

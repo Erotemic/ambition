@@ -145,6 +145,28 @@ impl CutRopeHeavyObjectCycle {
     }
 }
 
+/// Start the cycle again when a gameplay session activates.
+///
+/// The cycle is the state of one session: a room replay advances it, and it is
+/// in the peer checksum. It is in no save, so a new session has no reason to
+/// start on the prop that the last one stopped on.
+///
+/// MEASURED 2026-10-04 on the shell host: after a session that replayed the
+/// room once, the next session held index 1 on each of its first 31 ticks and
+/// a fresh host held index 0. One host hung the piano and the other hung the
+/// anvil.
+///
+/// The activation is before the session world is live, so the timeline that a
+/// rewind can cross does not exist yet.
+pub fn restart_heavy_object_cycle_on_activation(
+    mut activated: MessageReader<ambition_platformer2d::platformer::lifecycle::SessionScopeActivated>,
+    mut cycle: ResMut<CutRopeHeavyObjectCycle>,
+) {
+    if activated.read().count() > 0 {
+        *cycle = CutRopeHeavyObjectCycle::default();
+    }
+}
+
 /// Convert a dialogue-authored replay choice into the engine's generic
 /// [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested)
 /// once the conversation is over. `AmbitionBossContentPlugin` registers it in
@@ -459,6 +481,33 @@ mod tests {
         assert!(is_cut_rope_boss(CUT_ROPE_BOSS_ID));
         assert!(!is_cut_rope_boss("gnu_ton_rider"));
         assert!(!is_cut_rope_boss(""));
+    }
+
+    /// A session activation starts the cycle again. The control is a frame
+    /// with no activation: the cycle keeps the prop of the last replay.
+    #[test]
+    fn a_session_activation_starts_the_heavy_object_cycle_again() {
+        use ambition_platformer2d::platformer::lifecycle::{SessionScopeActivated, SessionScopeId};
+        use bevy::prelude::*;
+        let mut app = App::new();
+        app.add_message::<SessionScopeActivated>();
+        app.init_resource::<CutRopeHeavyObjectCycle>();
+        app.add_systems(Update, restart_heavy_object_cycle_on_activation);
+        app.world_mut().resource_mut::<CutRopeHeavyObjectCycle>().advance();
+        app.update();
+        assert_eq!(
+            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(),
+            "piano",
+            "control: with no activation, the cycle keeps the prop of the last replay"
+        );
+        app.world_mut()
+            .write_message(SessionScopeActivated(SessionScopeId(2)));
+        app.update();
+        assert_eq!(
+            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(),
+            "anvil",
+            "the next session starts on the first prop"
+        );
     }
 
     #[test]

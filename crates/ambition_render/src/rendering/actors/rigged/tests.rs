@@ -905,6 +905,35 @@ fn a_frame_that_fades_as_one_picture_fades_its_cell() {
     assert_eq!(atlas(&app).cells.opacity[cell / 4][cell % 4], 1.0);
 }
 
+/// A body's colour shift (`CharacterColorShift`: an enemy variant, a buff)
+/// reaches its cell of the page's material, and only its cell: one sheet
+/// draws every coloured variant. A body without one is drawn as painted.
+#[test]
+fn a_color_shift_reaches_its_bodys_cell() {
+    use ambition_sprite_sheet::character::CharacterColorShift;
+    let (_flipbook, mut app, root) = robot();
+    let owner = owner(&app, root);
+    let cell = app.world().get::<RiggedPresentation>(owner).unwrap().impostor.cell as usize;
+    assert_eq!(atlas(&app).cells.shift[cell], CharacterColorShift::NONE.as_uniform(), "premise: unshifted");
+    let shift = CharacterColorShift {
+        hue_degrees: 120.0,
+        saturation: 0.8,
+        value: 1.1,
+    };
+    app.world_mut().entity_mut(root).insert(shift);
+    app.update();
+    let cells = &atlas(&app).cells;
+    assert_eq!(cells.shift[cell], shift.as_uniform());
+    for (other, uniform) in cells.shift.iter().enumerate() {
+        if other != cell {
+            assert_eq!(*uniform, CharacterColorShift::NONE.as_uniform(), "cell {other} took another body's shift");
+        }
+    }
+    app.world_mut().entity_mut(root).remove::<CharacterColorShift>();
+    app.update();
+    assert_eq!(atlas(&app).cells.shift[cell], CharacterColorShift::NONE.as_uniform(), "removing the shift restores the colours");
+}
+
 /// A body drawn from its other side draws its mirror row (`~mirrored`), whose
 /// draws are the same parts mirrored about their pivots (`scale.x == -1`):
 /// each slot carries the draw's scale in its transform.

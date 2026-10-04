@@ -35,7 +35,7 @@
 //! BOUNDARIES cannot repeat however time is scaled.
 
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_shared_tangle::lifecycle::SpawnScopedExt;
+use ambition_platformer2d_shared_tangle::lifecycle::{SessionCommands, SpawnSessionScopedExt};
 use bevy::prelude::*;
 
 /// Which of the two draws a tick makes. Distinct salts, because
@@ -46,7 +46,7 @@ const SALT_WHICH_POINT: u64 = 1;
 
 /// Drop one item on the ticks the match's rules say to.
 pub fn spawn_match_items(
-    mut commands: Commands,
+    mut commands: SessionCommands,
     prepared: Option<Res<ambition_match::PreparedMatch>>,
     active: Option<Res<ambition_match::ActiveMatch>>,
     // HOW LONG THIS MATCH HAS BEEN FOUGHT — the same reading the timeout uses,
@@ -54,6 +54,10 @@ pub fn spawn_match_items(
     live: Res<crate::character_runtime::live_match_clock::LiveMatchTicks>,
 ) {
     let (Some(prepared), Some(active)) = (prepared, active) else {
+        return;
+    };
+    // The session that owns the item. With no session, no match is fought.
+    let Some(scope) = commands.spawn_scope() else {
         return;
     };
     let Some(rules) = prepared.rules().item_spawns.as_ref() else {
@@ -128,18 +132,21 @@ pub fn spawn_match_items(
     let sim_id = active.ordinal().map(|match_ordinal| {
         ambition_platformer2d_shared_tangle::sim_id::SimId::match_spawn(match_ordinal, ordinal)
     });
-    let mut spawned = commands.spawn_room_scoped((
-        // AT REST, and the constructor is now what says so. A dropped item falls
-        // under `ground_item_physics` from wherever the stage put its point;
-        // giving it a velocity here would be this system having an opinion about
-        // how items arrive, which is presentation the stage owns.
-        ambition_held_items::GroundItem::at_rest(
-            spec,
-            point,
-            ambition_held_items::MINTED_ITEM_HALF_EXTENT,
+    let mut spawned = commands.spawn_room_in_session(
+        scope,
+        (
+            // AT REST, and the constructor is now what says so. A dropped item falls
+            // under `ground_item_physics` from wherever the stage put its point;
+            // giving it a velocity here would be this system having an opinion about
+            // how items arrive, which is presentation the stage owns.
+            ambition_held_items::GroundItem::at_rest(
+                spec,
+                point,
+                ambition_held_items::MINTED_ITEM_HALF_EXTENT,
+            ),
+            Name::new(format!("Match item: {id}")),
         ),
-        Name::new(format!("Match item: {id}")),
-    ));
+    );
     if let Some(sim_id) = sim_id {
         spawned.insert(sim_id);
     }

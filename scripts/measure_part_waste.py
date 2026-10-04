@@ -138,16 +138,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--target", action="append", help="repeatable; default every published flipbook")
     parser.add_argument("--tracks", action="store_true", help="also print each track's rasters / frames")
+    parser.add_argument("--sprites", type=Path, default=SPRITES, help="a directory of published flipbooks (default: the game's)")
     parser.add_argument("--record", action="store_true")
     parser.add_argument("--label", default="")
     args = parser.parse_args()
-    targets = args.target or sorted(path.name[: -len("_parts.ron")] for path in SPRITES.glob("*_parts.ron"))
+    targets = args.target or sorted(path.name[: -len("_parts.ron")] for path in args.sprites.glob("*_parts.ron"))
     if not targets:
-        print(f"no part flipbooks under {SPRITES}", file=sys.stderr)
+        print(f"no part flipbooks under {args.sprites}", file=sys.stderr)
         return 2
     results = {}
     for target in targets:
-        results[target] = waste(PartFlipbook.from_published(SPRITES / f"{target}_parts.ron"))
+        results[target] = waste(PartFlipbook.from_published(args.sprites / f"{target}_parts.ron"))
     # ⛔ A census that read nothing is not a clean bill.
     assert len(results) == len(targets), "a flipbook was skipped"
 

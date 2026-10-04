@@ -935,7 +935,7 @@ fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
 
 /// The D-C pattern, end to end. `SanicRulesPlugin::hosted()` ticks the act
 /// timer only inside the Sanic rooms; `::global()` ticks it everywhere. The
-/// mode-owner entity is `spawn_mode_scoped`, so the engine tears it down when
+/// mode-owner entity is a `spawn_mode_owner`, so the engine tears it down when
 /// the active room leaves the mode — this demo writes no teardown code.
 #[test]
 fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {

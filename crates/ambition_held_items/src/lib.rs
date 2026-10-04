@@ -37,7 +37,7 @@ use ambition_combat::hand::{RepertoireQuery, RepertoireQueryItem};
 use ambition_combat::held_items::HeldItem;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_platformer2d_shared_tangle::prelude::SpawnScopedExt;
+use ambition_platformer2d_shared_tangle::lifecycle::{SessionCommands, SpawnSessionScopedExt};
 use ambition_platformer2d_shared_tangle::schedule::{HeldItemStep, ItemPickupSet, SimScheduleExt};
 use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, LiveRooms};
 #[cfg(feature = "portal")]
@@ -1384,7 +1384,7 @@ pub struct ReleasedAs(pub Release);
 /// across the phase boundary; the alternative is an ordering constraint between
 /// two phases that exist to be independent.
 pub fn throw_held_item_system(
-    mut commands: Commands,
+    mut commands: SessionCommands,
     driven: DrivenBodies,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     // With the live room the thrower is in: a minted throw lands there.
@@ -1410,6 +1410,11 @@ pub fn throw_held_item_system(
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
     items: ambition_items::ItemCatalogRead,
 ) {
+    // The session that owns an item this system mints. With no session there
+    // is no driven body, so there is nothing to release.
+    let Some(scope) = commands.spawn_scope() else {
+        return;
+    };
     for player in driven.entities() {
         let Ok((mut control, kin, mut repertoire, room)) = bodies.get_mut(player) else {
             continue;
@@ -1543,11 +1548,14 @@ pub fn throw_held_item_system(
         ) {
             owned.take(item, 1);
         }
-        let mut thrown = commands.spawn_room_scoped((
-            GroundItem::released(spec, throw_pos, throw_vel, MINTED_ITEM_HALF_EXTENT),
-            ReleasedAs(release),
-            Name::new("Ground item: thrown"),
-        ));
+        let mut thrown = commands.spawn_room_in_session(
+            scope,
+            (
+                GroundItem::released(spec, throw_pos, throw_vel, MINTED_ITEM_HALF_EXTENT),
+                ReleasedAs(release),
+                Name::new("Ground item: thrown"),
+            ),
+        );
         if let Some((sim_id, origin)) = minted {
             thrown.insert((sim_id, origin));
         }

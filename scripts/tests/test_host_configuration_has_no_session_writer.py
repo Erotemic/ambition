@@ -54,6 +54,11 @@ WRITERS = {
         "fn enter_a_cutscene(world: &mut World) {\n"
         "    world.get_resource_or_init::<RegimePolicy>().regime = Regime::Cinematic;\n}\n",
     ),
+    "a_faction_table_writer": (
+        "FactionRelations",
+        "fn make_them_foes(mut relations: ResMut<ambition_combat::targeting::FactionRelations>) {\n"
+        "    relations.set_mutual_hostile(ActorFaction::Npc, ActorFaction::Enemy, true);\n}\n",
+    ),
     "a_resource_scope": (
         "FriendlyFire",
         "fn turn_it_on(world: &mut World) {\n"

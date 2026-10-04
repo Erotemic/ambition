@@ -17,7 +17,7 @@ one object while every existing test stays green.
 be asked of a running world without knowing which entities were supposed to be:
 that is the very question the marker exists to answer. So this asks the call
 sites instead — the same place the lifecycle vocabulary already lives, per
-`SpawnScopedExt`'s "lifecycle policy part of the CALL SITE".
+`SpawnSessionScopedExt`, which makes the owner an argument of the spawn.
 
 ⇒ EXEMPTIONS ARE NAMED, not inferred. A spawn that genuinely outlives a match —
 the select screen's UI, say — says so here once.

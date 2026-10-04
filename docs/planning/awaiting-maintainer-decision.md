@@ -179,6 +179,80 @@ None of the three ends the whole-world hold. A hold of only the rooms of the
 crossing is a separate change (the simulation gate is one condition for each
 live room today).
 
+## Q156 — when one online player's machine cannot prepare a room, what happens to the door, and to the respawn?
+
+Under a peer session each peer prepares the room of a lifecycle operation on
+its own machine, and commits alone behind the peer barrier (the "Remote peers"
+row of
+[`open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md)).
+A preparation can fail on one machine and not on the other. No rule says what
+happens then, and today the game stops with no error.
+
+Measured 2026-10-04 in the `two_peers` fixture (link latency 3 updates, 600
+updates, a probe that is not in the tree). A machine "fails" when its asset
+work item goes `Failed` on each transaction; only a host with presentation has
+that item, a headless peer skips it. Eight predictions were written first and
+each held.
+
+1. **One machine fails, a door.** The good machine commits and waits at frame
+   0 of its next session for the rest of the run: its handshake has no
+   partner. The failing machine stays in the old session, held, and its frame
+   counter stops 8 frames past its confirmed frame. The two worlds differ
+   (one has the player in the next room). `rollback_health()` is `Ok` on both:
+   no desync is reported, because no checksum crosses two sessions. The
+   failing machine opens a new transaction each two updates. The same result
+   when it is the other machine that fails.
+2. **One machine fails, a respawn** (a death gives a checkpoint operation).
+   The same result. The failing machine also keeps a note that its
+   preparation failed (`AbandonedCheckpointOperation`), which nothing spends
+   under a peer session.
+3. **Both machines fail** (a failure that each machine has: a room that cannot
+   be built). Both stay in the old session, held, with no end. The worlds are
+   equal and nothing is reported. On one machine (a sync test) the same
+   failure does less harm: a failed door does not open and play goes on, and
+   a failed respawn is cancelled.
+
+Not measured: a host with a window (its failed transaction stays on the
+loading screen for a retry or a cancel), and the disconnect timeout of GGRS
+(no production code starts a peer session, so there is no value and no
+handler for a lost peer).
+
+**Decided by engineering, not built:** each peer puts its verdict ("prepared"
+or "failed", for the operation that waits) in its input, so the verdict is
+confirmed with a frame and each peer holds the same one
+([`netcode.md`](engine/netcode.md)). The commit rule becomes "each peer said
+prepared". That makes a rule possible. Which rule is the question.
+
+Owner: netcode ([`netcode.md`](engine/netcode.md)) and online play (A4 in
+[`multiplayer.md`](game/multiplayer.md)). No queue row waits for this; no
+production code starts a peer session yet.
+
+**The door.** When a peer says "failed":
+
+* **(D1) The door stays shut for each player.** The crossing is cancelled in
+  the simulation, play goes on in the old room, and the players are told why.
+* **(D2) The session ends for the player that failed.** The other player
+  goes through alone.
+* **(D3) Wait and try again, with a visible state and a time limit,** then D1
+  or D2.
+
+**The respawn.** When a peer says "failed":
+
+* **(R1) The respawn is cancelled for each player.** ⚠ That is a death with
+  no respawn: the body that died stays dead. One machine does this today
+  (case 3 above).
+* **(R2) The session ends for the player that failed.**
+* **(R3) Wait and try again, with a visible state and a time limit,** then
+  R2.
+
+**For both:**
+
+* **(X) Art does not hold a peer commit.** The failure that was measured is
+  the art of the room (a presentation fact), and the simulation does not need
+  it. Under a peer session the commit would not wait for the art, and a
+  machine whose art failed would show the room with what it has. Then only a
+  failure that each machine has (case 3) is left, and D1 or R1..R3 decides it.
+
 ## Q142 — must every presence-filtered component be rollback-registered?
 
 Resolved by engineering. Kept only because

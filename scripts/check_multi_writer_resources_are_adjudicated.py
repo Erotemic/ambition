@@ -686,6 +686,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
     ),
+    "CutRopeHeavyObjectCycle": (
+        "game/ambition_content/src/bosses/cut_rope/arena.rs",
+        "game/ambition_content/src/bosses/cut_rope/mod.rs",
+    ),
     "ContentEpochSequence": (
         "crates/ambition_platformer2d_provider/src/lifecycle.rs",
         "crates/ambition_platformer2d_runtime/src/extension_composition.rs",
@@ -2407,6 +2411,22 @@ ADJUDICATED: dict[str, str] = {
         "POISON-VERIFIED: with the reset removed, "
         "`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does` "
         "fails on this row on 40 frames, ticks 0 to 39."
+    ),
+    "CutRopeHeavyObjectCycle": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, the shape of "
+        "`SimTick`. `reset_cut_rope_boss_arena_on_room_reset` (`cut_rope/arena.rs`) "
+        "advances the cycle when a room replay is admitted. The other file "
+        "(`cut_rope/mod.rs`) is the session edge (2026-10-04): "
+        "`restart_heavy_object_cycle_on_activation` sets it to the default in "
+        "`SessionScopeSet::Activate`. The content crate owns the reset, as "
+        "`install_attempt_scoped` owns the reset of a per-attempt ledger, so it "
+        "is not a member of `SessionScopedResources`. The value is in the peer "
+        "checksum and in no save. MEASURED on the shell host, two hosts with "
+        "EQUAL saves: after one replay, the session that followed held index 1 "
+        "on each of its first 31 ticks and a fresh host held index 0. "
+        "POISON-VERIFIED: with the reset not registered, "
+        "`shell_host_lifecycle::what_a_session_spawned_and_cycled_does_not_reach_the_next_session` "
+        "fails on this row on 31 frames, ticks 0 to 30."
     ),
     "WorldTime": (
         "CORRECT — ONE IN-SESSION OWNER FILE PLUS THE SESSION BOUNDARY, the shape "

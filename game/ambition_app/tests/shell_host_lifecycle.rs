@@ -2142,8 +2142,7 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
     );
 }
 
-/// How the second session of [`a_session_that_follows_another_starts_as_a_fresh_hosts_does`]
-/// comes up.
+/// How the second session of a session-edge arm comes up.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum SessionSuccession {
     /// `ShellCommand::ReplaceWith`: one frame retires the old session and
@@ -2151,6 +2150,138 @@ enum SessionSuccession {
     ReplacedInPlace,
     /// `ShellCommand::QuitToHome`, the title, then a launch.
     ThroughTheTitle,
+}
+
+impl SessionSuccession {
+    const BOTH: [Self; 2] = [Self::ReplacedInPlace, Self::ThroughTheTitle];
+
+    /// End the session `first` of `veteran` and step to the frame that
+    /// activates the next one.
+    fn follow(
+        self,
+        veteran: &mut App,
+        route: &ambition_platformer2d::game_shell::ShellRouteId,
+        first: SessionScopeId,
+    ) -> SessionScopeId {
+        match self {
+            Self::ReplacedInPlace => {
+                veteran.world_mut().write_message(ShellCommand::ReplaceWith {
+                    route: route.clone(),
+                    request: None,
+                });
+            }
+            Self::ThroughTheTitle => {
+                veteran.world_mut().write_message(ShellCommand::QuitToHome);
+                settle(veteran);
+                assert_eq!(live_scope(veteran), None, "the title has no session");
+                veteran
+                    .world_mut()
+                    .write_message(ShellCommand::GoTo(route.clone()));
+            }
+        }
+        let second = enter_the_next_session(veteran, Some(first));
+        assert_ne!(first, second);
+        second
+    }
+}
+
+/// One reading of what two hosts compare at a session edge: each row, with its
+/// `(count, xor)`.
+type EdgeCensus = std::collections::BTreeMap<String, (usize, u64)>;
+
+/// The rows that two peers compare.
+fn peer_census(app: &mut App) -> EdgeCensus {
+    use ambition_platformer2d::rollback::{RollbackChecksumProbes, RollbackRegistry};
+    let probes = app
+        .world()
+        .get_resource::<RollbackChecksumProbes>()
+        .cloned()
+        .expect("the rollback host registers probes");
+    let peer_types: std::collections::BTreeSet<String> = app
+        .world()
+        .resource::<RollbackRegistry>()
+        .descriptors()
+        .filter(|descriptor| descriptor.kind.feeds_peer_checksum())
+        .map(|descriptor| descriptor.type_name.clone())
+        .collect();
+    probes
+        .census_all_as_peers_compare(app.world_mut())
+        .into_iter()
+        .filter(|(name, _)| peer_types.contains(*name))
+        .map(|(name, reading)| (name.to_owned(), (reading.count, reading.xor)))
+        .collect()
+}
+
+/// The named rows of the whole census, each with the prefix `whole `. Peers do
+/// not compare these rows, so [`peer_census`] does not have them.
+///
+/// ⛔ A name that matches no row compares nothing, so each name must be there.
+fn whole_census_of(app: &mut App, rows: &[&str]) -> EdgeCensus {
+    use ambition_platformer2d::rollback::RollbackChecksumProbes;
+    let probes = app
+        .world()
+        .get_resource::<RollbackChecksumProbes>()
+        .cloned()
+        .expect("the rollback host registers probes");
+    let whole: std::collections::BTreeMap<&str, _> =
+        probes.census_all(app.world_mut()).into_iter().collect();
+    rows.iter()
+        .map(|row| {
+            let reading = whole
+                .get(row)
+                .unwrap_or_else(|| panic!("the whole census has no row `{row}`"));
+            (format!("whole {row}"), (reading.count, reading.xor))
+        })
+        .collect()
+}
+
+/// The route of the launcher's Ambition row.
+fn ambition_route(app: &App) -> ambition_platformer2d::game_shell::ShellRouteId {
+    app.world()
+        .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+        .launch_entries()
+        .iter()
+        .find(|entry| entry.label == "Ambition")
+        .expect("the launcher offers the Ambition row")
+        .route_id
+        .clone()
+}
+
+/// Step to the frame that activates the next session.
+fn enter_the_next_session(app: &mut App, before: Option<SessionScopeId>) -> SessionScopeId {
+    let mut frames = 0;
+    loop {
+        match live_scope(app) {
+            Some(scope) if Some(scope) != before => return scope,
+            _ => {}
+        }
+        app.update();
+        frames += 1;
+        assert!(frames < 200, "no new session came up");
+    }
+}
+
+/// A reading on each frame of the session, from the frame of its activation
+/// to the first frame of tick `ticks`, keyed by `(tick, frame of that tick)`.
+fn record_from_the_activation(
+    app: &mut App,
+    ticks: u64,
+    read: impl Fn(&mut App) -> EdgeCensus,
+) -> std::collections::BTreeMap<(u64, usize), EdgeCensus> {
+    let mut out = std::collections::BTreeMap::new();
+    let mut frame_of_tick = 0;
+    let mut frames = 0;
+    loop {
+        let tick = sim_tick(app);
+        out.insert((tick, frame_of_tick), read(app));
+        if tick >= ticks {
+            return out;
+        }
+        app.update();
+        frame_of_tick = if sim_tick(app) == tick { frame_of_tick + 1 } else { 0 };
+        frames += 1;
+        assert!(frames < 600, "the session never reached tick {ticks}");
+    }
 }
 
 /// ⭐ A SESSION STARTS FROM WHAT A FRESH HOST STARTS FROM, ON EVERY TICK FROM 0.
@@ -2183,7 +2314,6 @@ enum SessionSuccession {
 fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
     use ambition_platformer2d::persistence::save_data::AmbitionGameSaveData;
-    use ambition_platformer2d::rollback::{RollbackChecksumProbes, RollbackRegistry};
     use ambition_platformer2d::world::rooms::{GatePortalPhase, GatePortalPhases, GatePortalRegistry};
     use std::collections::{BTreeMap, BTreeSet};
 
@@ -2195,29 +2325,6 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
     /// 39 ticks, so the window is past it.
     const TICKS: u64 = 48;
 
-    type Census = BTreeMap<String, (usize, u64)>;
-
-    fn peer_census(app: &mut App) -> Census {
-        let probes = app
-            .world()
-            .get_resource::<RollbackChecksumProbes>()
-            .cloned()
-            .expect("the rollback host registers probes");
-        let peer_types: BTreeSet<String> = app
-            .world()
-            .resource::<RollbackRegistry>()
-            .descriptors()
-            .filter(|descriptor| descriptor.kind.feeds_peer_checksum())
-            .map(|descriptor| descriptor.type_name.clone())
-            .collect();
-        probes
-            .census_all_as_peers_compare(app.world_mut())
-            .into_iter()
-            .filter(|(name, _)| peer_types.contains(*name))
-            .map(|(name, reading)| (name.to_owned(), (reading.count, reading.xor)))
-            .collect()
-    }
-
     fn host() -> App {
         let mut app =
             shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
@@ -2225,65 +2332,18 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
         app
     }
 
-    fn ambition_route(app: &App) -> ambition_platformer2d::game_shell::ShellRouteId {
-        app.world()
-            .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
-            .launch_entries()
-            .iter()
-            .find(|entry| entry.label == "Ambition")
-            .expect("the launcher offers the Ambition row")
-            .route_id
-            .clone()
-    }
-
-    /// Step to the frame that activates the next session.
-    fn enter(app: &mut App, before: Option<SessionScopeId>) -> SessionScopeId {
-        let mut frames = 0;
-        loop {
-            match live_scope(app) {
-                Some(scope) if Some(scope) != before => return scope,
-                _ => {}
-            }
-            app.update();
-            frames += 1;
-            assert!(frames < 200, "no new session came up");
-        }
-    }
-
     fn gate_phase(app: &App, zone: &str) -> GatePortalPhase {
         app.world().resource::<GatePortalPhases>().phase(zone)
     }
 
-    /// The census of each frame of the session, from the frame of its
-    /// activation, keyed by `(tick, frame of that tick)`.
-    fn record(app: &mut App) -> BTreeMap<(u64, usize), Census> {
-        let mut out = BTreeMap::new();
-        let mut frame_of_tick = 0;
-        let mut frames = 0;
-        loop {
-            let tick = sim_tick(app);
-            out.insert((tick, frame_of_tick), peer_census(app));
-            if tick >= TICKS {
-                return out;
-            }
-            app.update();
-            frame_of_tick = if sim_tick(app) == tick { frame_of_tick + 1 } else { 0 };
-            frames += 1;
-            assert!(frames < 600, "the session never reached tick {TICKS}");
-        }
-    }
-
-    for succession in [
-        SessionSuccession::ReplacedInPlace,
-        SessionSuccession::ThroughTheTitle,
-    ] {
+    for succession in SessionSuccession::BOTH {
         // ── The veteran: a first session that leaves something. ──
         let mut veteran = host();
         let route = ambition_route(&veteran);
         veteran
             .world_mut()
             .write_message(ShellCommand::GoTo(route.clone()));
-        let first = enter(&mut veteran, None);
+        let first = enter_the_next_session(&mut veteran, None);
         settle(&mut veteran);
         let (zone, switch) = veteran
             .world()
@@ -2324,30 +2384,13 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
         );
         let save: AmbitionGameSaveData = veteran.world().resource::<AmbitionGameSave>().0.clone();
 
-        match succession {
-            SessionSuccession::ReplacedInPlace => {
-                veteran.world_mut().write_message(ShellCommand::ReplaceWith {
-                    route: route.clone(),
-                    request: None,
-                });
-            }
-            SessionSuccession::ThroughTheTitle => {
-                veteran.world_mut().write_message(ShellCommand::QuitToHome);
-                settle(&mut veteran);
-                assert_eq!(live_scope(&veteran), None, "the title has no session");
-                veteran
-                    .world_mut()
-                    .write_message(ShellCommand::GoTo(route.clone()));
-            }
-        }
-        let second = enter(&mut veteran, Some(first));
-        assert_ne!(first, second);
+        succession.follow(&mut veteran, &route, first);
 
         // ── The fresh host, with the veteran's save. ──
         let mut fresh = host();
         fresh.world_mut().resource_mut::<AmbitionGameSave>().0 = save;
         fresh.world_mut().write_message(ShellCommand::GoTo(route));
-        enter(&mut fresh, None);
+        enter_the_next_session(&mut fresh, None);
 
         // ⛔ THE PREMISE OF THE COMPARISON. With different saves, a difference
         // below is the durable state and not the session edge.
@@ -2363,8 +2406,8 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
              activation was missed"
         );
 
-        let fresh_readings = record(&mut fresh);
-        let veteran_readings = record(&mut veteran);
+        let fresh_readings = record_from_the_activation(&mut fresh, TICKS, peer_census);
+        let veteran_readings = record_from_the_activation(&mut veteran, TICKS, peer_census);
 
         // ⭐ THE MOTION FLOOR. The fresh host's portal opens inside the window:
         // a window that ends before it compares a portal that never moved.
@@ -2434,6 +2477,271 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
                 still_differs.contains(name),
                 "{succession:?}: `{name}` no longer differs at tick 0. If that is \
                  a repair, delete its row here; the reason it was listed is: {why}"
+            );
+        }
+    }
+}
+
+/// ⭐ WHAT A SESSION SPAWNED AS IT RAN, AND WHAT ITS ROOM CYCLED, DOES NOT REACH
+/// THE NEXT SESSION.
+///
+/// The method of [`a_session_that_follows_another_starts_as_a_fresh_hosts_does`],
+/// in two rooms whose play leaves something that the hub does not:
+///
+/// - `portal_bridge`: the old session fires the portal gun until a portal is
+///   placed. Measured 2026-10-04, before the repair: the placed portal was in
+///   the next session's world on each of its first 31 ticks, with three shots
+///   in flight at tick 0. The peer rows `RoomScopedEntity`, `InRoomInstance`,
+///   `SimId` and `SimIdCounter` differed from a fresh host's on each tick. The
+///   cause: these entities were spawned with a room scope and NO session owner
+///   (a plain `Commands` helper that is deleted now), and the session
+///   retirement despawns by the session stamp only. With the entities gone,
+///   `PortalFrameHistory` still held one frame of the old session at tick 0.
+/// - `you_have_to_cut_the_rope`: the old session replays the room once, which
+///   advances `CutRopeHeavyObjectCycle`. Before the repair the next session
+///   held index 1 on each tick and a fresh host held index 0, in the peer
+///   checksum: one host hung the piano and the other hung the anvil.
+///
+/// ⛔ THE OLD SESSION MUST LEAVE IT. Each arm asserts what the session left
+/// before it ends.
+///
+/// ⛔ A ROOM-SCOPED ENTITY WITH NO SESSION OWNER IS THE DEFECT, so the arm asks
+/// for it by name at the end of the old session. The census after it reads the
+/// consequence, and it also reads the resources.
+///
+/// ⚠ `PortalFrameHistory` is registered with a presence probe: its map
+/// iterates in no fixed order. The arm gives it a value probe (the count of
+/// frames), or the whole census reads `(1, 0)` on each host at each tick.
+#[test]
+fn what_a_session_spawned_and_cycled_does_not_reach_the_next_session() {
+    use ambition_content::bosses::cut_rope::CutRopeHeavyObjectCycle;
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::platformer::lifecycle::{RoomScopedEntity, SessionScopedEntity};
+    use ambition_platformer2d::portal::{PlacedPortal, PortalFrameHistory, PortalShot};
+    use ambition_platformer2d::rollback::RollbackChecksumProbes;
+    use std::any::type_name;
+    use std::collections::BTreeMap;
+
+    /// The ticks compared. A shot of the old session was gone by tick 20.
+    const TICKS: u64 = 30;
+
+    struct Arm {
+        room: &'static str,
+        /// Play the old session until it holds what the next one must not, and
+        /// assert that it does.
+        leave: fn(&mut App),
+        /// Rows that peers do not compare and that this arm must read.
+        whole_rows: fn() -> Vec<&'static str>,
+    }
+
+    fn count<C: Component>(app: &mut App) -> usize {
+        app.world_mut().query::<&C>().iter(app.world()).count()
+    }
+
+    /// Fire the portal gun to the right until a portal is placed, then for
+    /// five more steps, so the session ends with shots in flight.
+    fn place_a_portal(app: &mut App) {
+        let mut placed_at = None;
+        for step in 0..200usize {
+            ambition_platformer2d::sim::drive_control_frame(
+                app.world_mut(),
+                ambition_platformer2d::engine_core::ControlFrame {
+                    axis_x: 1.0,
+                    attack_pressed: step >= 20 && step % 10 == 0,
+                    ..Default::default()
+                },
+            );
+            app.update();
+            if placed_at.is_none() && count::<PlacedPortal>(app) > 0 {
+                placed_at = Some(step);
+            }
+            if placed_at.is_some_and(|at| step >= at + 5) {
+                break;
+            }
+        }
+        assert_eq!(
+            active_room(app).as_deref(),
+            Some("portal_bridge"),
+            "premise: the walk stayed in the room"
+        );
+        assert!(
+            count::<PlacedPortal>(app) >= 1 && count::<PortalShot>(app) >= 1,
+            "premise: the old session ends with a placed portal and a shot in \
+             flight; it has {} and {}",
+            count::<PlacedPortal>(app),
+            count::<PortalShot>(app)
+        );
+        assert!(
+            app.world().resource::<PortalFrameHistory>().len() >= 1,
+            "premise: the old session ends with a portal frame in the history"
+        );
+    }
+
+    fn replay_the_room(app: &mut App) {
+        assert_eq!(
+            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(),
+            "anvil",
+            "premise: the old session starts on the first prop"
+        );
+        app.world_mut().write_message(
+            ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+        );
+        for _ in 0..60 {
+            app.update();
+        }
+        assert_eq!(
+            app.world().resource::<CutRopeHeavyObjectCycle>().current_dialogue_id(),
+            "piano",
+            "premise: the replay moved the cycle off its default"
+        );
+    }
+
+    fn host(room: &str) -> App {
+        let mut app = shell_host_app_started_in(
+            ambition_platformer2d::runtime::SimulationHost::Rollback,
+            Some(room),
+        );
+        settle(&mut app);
+        assert!(
+            app.world_mut()
+                .resource_mut::<RollbackChecksumProbes>()
+                .strengthen_resource_with::<PortalFrameHistory>(|history| history.len() as u64),
+            "`PortalFrameHistory` has no probe to strengthen, so its row is not read"
+        );
+        app
+    }
+
+    /// Each room-scoped entity that no session owns, by name.
+    fn room_scoped_with_no_session(app: &mut App) -> Vec<String> {
+        let mut names: Vec<String> = app
+            .world_mut()
+            .query_filtered::<(Entity, Option<&Name>), (With<RoomScopedEntity>, Without<SessionScopedEntity>)>()
+            .iter(app.world())
+            .map(|(entity, name)| match name {
+                Some(name) => name.to_string(),
+                None => format!("{entity:?} (no name)"),
+            })
+            .collect();
+        names.sort();
+        names
+    }
+
+    let arms = [
+        Arm {
+            room: "portal_bridge",
+            leave: place_a_portal,
+            whole_rows: || {
+                vec![
+                    type_name::<PlacedPortal>(),
+                    type_name::<PortalShot>(),
+                    type_name::<PortalFrameHistory>(),
+                ]
+            },
+        },
+        Arm {
+            room: "you_have_to_cut_the_rope",
+            leave: replay_the_room,
+            whole_rows: Vec::new,
+        },
+    ];
+
+    for arm in &arms {
+        for succession in SessionSuccession::BOTH {
+            let room = arm.room;
+            let whole_rows = (arm.whole_rows)();
+            let read = |app: &mut App| {
+                let mut census = peer_census(app);
+                census.extend(whole_census_of(app, &whole_rows));
+                census
+            };
+
+            // ── The veteran: a first session that leaves something. ──
+            let mut veteran = host(room);
+            let route = ambition_route(&veteran);
+            veteran
+                .world_mut()
+                .write_message(ShellCommand::GoTo(route.clone()));
+            let first = enter_the_next_session(&mut veteran, None);
+            settle(&mut veteran);
+            (arm.leave)(&mut veteran);
+            let unowned = room_scoped_with_no_session(&mut veteran);
+            assert!(
+                unowned.is_empty(),
+                "{room} {succession:?}: room-scoped entities with no session owner. \
+                 The session retirement despawns by `SessionScopedEntity`, so \
+                 these stay in the world of the next session. Spawn them with \
+                 `spawn_room_in_session`.\n  {}",
+                unowned.join("\n  ")
+            );
+            let save = veteran.world().resource::<AmbitionGameSave>().0.clone();
+            succession.follow(&mut veteran, &route, first);
+
+            // ── The fresh host, with the veteran's save. ──
+            let mut fresh = host(room);
+            fresh.world_mut().resource_mut::<AmbitionGameSave>().0 = save;
+            fresh.world_mut().write_message(ShellCommand::GoTo(route));
+            enter_the_next_session(&mut fresh, None);
+
+            assert!(
+                fresh.world().resource::<AmbitionGameSave>().0
+                    == veteran.world().resource::<AmbitionGameSave>().0,
+                "{room} {succession:?}: the two hosts start the session with different saves"
+            );
+            assert_eq!(
+                (sim_tick(&fresh), sim_tick(&veteran)),
+                (0, 0),
+                "{room} {succession:?}: a host already ran a tick, so the frame \
+                 of the activation was missed"
+            );
+            assert_eq!(
+                (active_room(&fresh).as_deref(), active_room(&veteran).as_deref()),
+                (Some(room), Some(room)),
+                "{room} {succession:?}: a host did not start in the room"
+            );
+
+            let fresh_readings = record_from_the_activation(&mut fresh, TICKS, read);
+            let veteran_readings = record_from_the_activation(&mut veteran, TICKS, read);
+
+            let mut differs: BTreeMap<String, Vec<String>> = BTreeMap::new();
+            let mut compared = 0usize;
+            for (at, ours) in &fresh_readings {
+                // A frame that only one host has is not compared; see the arm
+                // above.
+                let Some(theirs) = veteran_readings.get(at) else {
+                    continue;
+                };
+                compared += 1;
+                for (name, reading) in ours {
+                    if theirs.get(name) != Some(reading) {
+                        differs.entry(name.clone()).or_default().push(format!(
+                            "tick {} frame {}: fresh={reading:?} veteran={:?}",
+                            at.0,
+                            at.1,
+                            theirs.get(name)
+                        ));
+                    }
+                }
+            }
+            assert!(
+                compared as u64 > TICKS,
+                "{room} {succession:?}: only {compared} frames were compared over {TICKS} ticks"
+            );
+            assert!(
+                differs.is_empty(),
+                "{room} {succession:?}: a session that followed another one \
+                 differs from the first session of a fresh host with the same \
+                 save. The old session left it, and nothing ended it at the \
+                 session edge.\n  {}",
+                differs
+                    .iter()
+                    .map(|(name, hits)| format!(
+                        "{name}: {} frame(s), first at {}, last at {}",
+                        hits.len(),
+                        hits[0],
+                        hits[hits.len() - 1]
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("\n  ")
             );
         }
     }

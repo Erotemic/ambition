@@ -297,6 +297,14 @@ impl Plugin for AmbitionBossContentPlugin {
         // never by the host's sim plugin (anti-god rule 5).
         app.init_resource::<CutRopeBossArenaState>();
         app.init_resource::<CutRopeHeavyObjectCycle>();
+        // A composition with no session lifecycle has no activation. The
+        // reader then reads an empty channel.
+        app.add_message::<ambition_platformer2d::platformer::lifecycle::SessionScopeActivated>();
+        app.add_systems(
+            Update,
+            cut_rope::restart_heavy_object_cycle_on_activation
+                .in_set(ambition_platformer2d::platformer::lifecycle::SessionScopeSet::Activate),
+        );
         app.init_resource::<PendingCutRopeRoomReplay>();
         // Content's own narrative vocabulary, registered the same way the
         // engine registers its own — which is the whole reason the ledger is

@@ -1016,7 +1016,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 307 -> 308: `boss.defeats_since_checkpoint` also holds the participants
 /// in each defeat's room when it fell, and its checksum folds them: a death
 /// keeps a defeat another participant won (Q151, DEATH-IS-ROOM-LOCAL).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 308;
+/// ⛔⛤ 308 -> 309: `resource.owned_items_baseline` also holds the primary
+/// body's wallet balance at the checkpoint, and its checksum folds it: a death
+/// puts back the coins with the bag.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 309;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

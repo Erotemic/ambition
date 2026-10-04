@@ -38,7 +38,9 @@ mod types;
 pub mod view;
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
-pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};
+pub use eviction::{
+    evict_straddlers_on_portal_change, forget_portal_frames_on_activation, PortalFrameHistory,
+};
 pub use gun::{portal_guns_active_toggle_system, portal_toggle_system, OwnedPortalGunPair, PortalGun};
 pub use gun_construction::{
     install_portal_gun_construction_recipes, portal_gun_construction_registry,

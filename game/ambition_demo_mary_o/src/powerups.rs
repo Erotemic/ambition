@@ -498,7 +498,7 @@ pub fn discovered_solid(spent: &RoomPowerBlocks, block: &ae::Block) -> Option<ae
 }
 
 pub fn bonk_power_blocks(
-    mut commands: Commands,
+    mut commands: ambition_platformer2d::platformer::lifecycle::SessionCommands,
     mut spent: ResMut<SpentPowerBlocks>,
     mut struck: bevy::prelude::MessageWriter<
         ambition_platformer2d::platformer::block_nudge::BlockStruck,
@@ -530,6 +530,11 @@ pub fn bonk_power_blocks(
     // struck the block.
     geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
 ) {
+    // The session that owns an item a block pops. With no session there is no
+    // body to strike a block.
+    let Some(scope) = commands.spawn_scope() else {
+        return;
+    };
     // Two bodies can bonk one block in one tick. The first spends it and is
     // paid, so the order is a gameplay decision and a rewind must give the
     // same order: stable `SimId`, not query order.
@@ -632,6 +637,7 @@ pub fn bonk_power_blocks(
             };
             let popped = spawn_moving_world_item(
                 &mut commands,
+                scope,
                 // ⛔⛔ THE BLOCK'S OWN NAME, because the item had none and the engine's
                 // collection order is decided BY the name. `collect_world_items` sorts
                 // contested items by `SimId` against a constant metric, so an item with

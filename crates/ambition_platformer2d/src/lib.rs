@@ -593,7 +593,7 @@ pub mod item {
     pub use ambition_held_items::{
         GroundItem, ItemCustody, ItemStruckBody, ItemWorldPos, SettledItem,
     };
-    pub use ambition_items::{Inventory, Item, ItemGrantRequested, OwnedItems};
+    pub use ambition_items::{shop, Inventory, Item, ItemGrantRequested, OwnedItems};
 }
 
 /// User-facing gameplay settings, when persistence/settings support is installed.
@@ -617,9 +617,8 @@ pub mod actor {
     /// earlier scope is a leftover, and reading one is how a retired match's
     /// verdict gets applied to the match that replaced it.
     pub use ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope;
-    /// The lifecycle marker every feature-spawned sim entity carries, and the
-    /// extension that scopes a spawn to the session that owns it.
-    pub use ambition_platformer2d_shared_tangle::lifecycle::{FeatureSimEntity, SpawnScopedExt};
+    /// The lifecycle marker every feature-spawned sim entity carries.
+    pub use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
     /// Who the body is.
     pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
     /// What a body holds: its declared resources, read by name.

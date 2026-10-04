@@ -1045,6 +1045,61 @@ fn a_death_puts_back_the_entitlement_its_mint_spent() {
     );
 }
 
+/// A death undoes a purchase made since the checkpoint whole: the goods leave
+/// the bag and the coins come back to the wallet. The control is a purchase
+/// before the checkpoint: the checkpoint holds it, and a death keeps both
+/// halves.
+#[test]
+fn a_death_undoes_a_purchase_since_the_checkpoint_whole() {
+    use ambition_platformer2d::characters::actor::BodyWallet;
+    use ambition_platformer2d::item::shop::{ShopSide, ShopTransactionRequested};
+    use ambition_platformer2d::item::{Item, OwnedItems};
+
+    /// (bombs in the bag, coins in the wallet) after the purchase, then after
+    /// a death. `banked` commits the checkpoint after the purchase, not before.
+    fn after_a_death(banked: bool) -> ((u32, i32), (u32, i32)) {
+        let purse = |sim: &mut Platformer2dSimHarness| {
+            let entity = body(sim);
+            sim.world().get::<BodyWallet>(entity).map_or(0, |wallet| wallet.balance)
+        };
+        let bombs =
+            |sim: &mut Platformer2dSimHarness| sim.world().resource::<OwnedItems>().count(Item::Bomb);
+        let mut sim = fixed_60hz_room_sim(ROOM);
+        sim.step_n(base(), 8);
+        let entity = body(&mut sim);
+        sim.world_mut().entity_mut(entity).insert(BodyWallet { balance: 20 });
+        sim.step_n(base(), 2);
+        if !banked {
+            commit_a_checkpoint(&mut sim);
+        }
+        sim.world_mut().write_message(ShopTransactionRequested {
+            item: Item::Bomb,
+            price: 6,
+            side: ShopSide::Buy,
+        });
+        sim.step_n(base(), 2);
+        if banked {
+            commit_a_checkpoint(&mut sim);
+        }
+        let bought = (bombs(&mut sim), purse(&mut sim));
+        die(&mut sim);
+        sim.step_n(base(), 90);
+        (bought, (bombs(&mut sim), purse(&mut sim)))
+    }
+
+    let (bought, after) = after_a_death(false);
+    assert_eq!(bought.1, 14, "premise: the purchase spent 6 of 20 coins: {bought:?}");
+    assert_eq!(
+        after,
+        (bought.0 - 1, 20),
+        "(bombs, coins) after a death that undoes the purchase: the goods leave \
+         and the coins come back"
+    );
+    let (bought, after) = after_a_death(true);
+    assert_eq!(bought.1, 14, "premise: the purchase spent 6 of 20 coins: {bought:?}");
+    assert_eq!(after, bought, "control: a purchase the checkpoint holds survives the death whole");
+}
+
 /// The boss whose profile authors a `signature_gauntlet`, and the id that
 /// gauntlet reaches the world under.
 const GAUNTLET_BOSS: &str = "banked_gauntlet_boss";

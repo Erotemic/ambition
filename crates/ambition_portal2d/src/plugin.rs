@@ -165,6 +165,14 @@ impl Plugin for PortalSimulationPlugin {
         // Teleports run after actor and ground-item integration so this frame's
         // integrated body positions are what cross the portal.
         app.init_resource::<crate::PortalFrameHistory>();
+        // A composition with no session lifecycle has no activation. The
+        // reader then reads an empty channel.
+        app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>();
+        app.add_systems(
+            Update,
+            crate::forget_portal_frames_on_activation
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate),
+        );
         app.configure_sets(sim, PortalSet::Frame.before(PortalSet::Transit));
         app.configure_sets(
             sim,

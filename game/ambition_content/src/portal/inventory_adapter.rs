@@ -18,7 +18,9 @@
 use bevy::prelude::*;
 
 use ambition_items::{Item, OwnedItems};
-use ambition_platformer2d::actor::SpawnScopedExt;
+use ambition_platformer2d::platformer::lifecycle::{
+    SessionCommands, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_platformer2d_actor_monolith::features::HeldItem;
 use ambition_combat::hand::RepertoireQuery;
 #[cfg(test)]
@@ -45,7 +47,7 @@ pub use ambition_held_items::{equip_portal_gun, unequip_portal_gun};
 /// inventory rule, so it stays here.
 pub fn drop_portal_gun_system(
     mut drops: MessageReader<DropPortalGun>,
-    mut commands: Commands,
+    mut commands: SessionCommands,
     mut holders: Query<
         (
             &BodyKinematics,
@@ -61,8 +63,16 @@ pub fn drop_portal_gun_system(
     // its body, so a second seat's drop cannot drop the first seat's gun. Taking
     // only the head of the queue would serialize seats across updates, so the
     // second would land in a world the first had already changed.
+    //
+    // The session that owns the dropped pickup. With no session the intents
+    // are read and dropped, so an old intent cannot drop a gun in the next
+    // session.
+    let scope = commands.spawn_scope();
     for drop in drops.read().copied().collect::<Vec<_>>() {
-        drop_one_portal_gun(drop.body, &mut commands, &mut holders, &mut sfx);
+        let Some(scope) = scope else {
+            continue;
+        };
+        drop_one_portal_gun(drop.body, scope, &mut commands, &mut holders, &mut sfx);
     }
 }
 
@@ -70,6 +80,7 @@ pub fn drop_portal_gun_system(
 /// order".
 fn drop_one_portal_gun(
     player: bevy::prelude::Entity,
+    scope: SessionSpawnScope,
     commands: &mut Commands,
     holders: &mut Query<
         (
@@ -91,16 +102,19 @@ fn drop_one_portal_gun(
     // The inventory menu performs the same release; the hand is the record.
     unequip_portal_gun(commands, player, &mut repertoire);
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
-    commands.spawn_room_scoped((
-        PortalGunPickup {
-            pos: kin.pos + Vec2::new(facing * 44.0, 0.0),
-            half_extent: Vec2::splat(20.0),
-            arm_timer: 0.35,
-            // The gun that was just in this hand, not a fresh default one.
-            pair: gun.pair(),
-        },
-        Name::new("Portal gun pickup"),
-    ));
+    commands.spawn_room_in_session(
+        scope,
+        (
+            PortalGunPickup {
+                pos: kin.pos + Vec2::new(facing * 44.0, 0.0),
+                half_extent: Vec2::splat(20.0),
+                arm_timer: 0.35,
+                // The gun that was just in this hand, not a fresh default one.
+                pair: gun.pair(),
+            },
+            Name::new("Portal gun pickup"),
+        ),
+    );
     sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PORTAL_FIZZLE,
         pos: kin.pos,

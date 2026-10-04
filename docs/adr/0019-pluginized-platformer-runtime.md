@@ -35,7 +35,7 @@ Positive:
 
 - Runtime code can be reviewed as if it were already a future crate.
 - Spawn call sites declare lifecycle policy with verbs such as
-`spawn_room_scoped` instead of remembering marker components manually.
+`spawn_room_in_session` instead of remembering marker components manually.
 - `app/plugins.rs` can shrink over time as subsystems gain module-owned plugins.
 - Future crate extraction becomes mostly a dependency-boundary exercise instead
 of a behavioral rewrite.

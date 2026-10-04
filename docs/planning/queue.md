@@ -310,6 +310,21 @@ boss in his room after the checkpoint and dies in the hub. She keeps the
 coins, and the chest stays looted with the boss cleared
 (`a_death_keeps_the_reward_taken_from_the_other_players_boss`).
 
+**The wallet goes back with the bag (2026-10-04).** A death restored the
+bag (`OwnedItemsBaseline`) and not the wallet, so a purchase after the
+checkpoint lost its goods and kept its price, and the save mirrored the loss.
+The baseline now also holds the primary body's balance at the checkpoint
+(captured at commit, adopted from the save on load, pinned in the restore
+inputs), and the restore writes it back, plus the coins of each reward
+grant still on record (a defeat the death keeps, such as Bob's boss, keeps
+what it paid: `a_death_keeps_the_reward_taken_from_the_other_players_boss`).
+Another participant's wallet is not rewound. Open: an item such a grant put
+in the bag is still lost by the bag restore. Witness:
+`a_death_undoes_a_purchase_since_the_checkpoint_whole` (control: a purchase
+before the checkpoint survives); poisons on capture, load adoption and
+restore each fail it. Schema 308 -> 309. Open: `OwnedItems` itself is still
+one session-wide bag, so Alice's death restores what Bob put in it.
+
 **The whole-session restart is served (2026-10-04).** Measured 2026-10-03:
 a New Game beside Bob's live room took back his boss defeat in the save and
 its chest, while his room stayed the same instance with the dead boss in
@@ -1312,9 +1327,73 @@ catalog file. No plural bark collection exists, because no content asks for one.
 
 ### SESSION-EDGE-STATE — a session starts from nothing the last one left
 
-**State:** five resources, the declared message channels and the per-attempt
-ledgers are reset at the session edge (2026-10-04). Two host constants are
-recorded, not reset.
+**State:** a room-scoped spawn takes its session as an argument, so the
+session retirement ends it; seven resources, the declared message channels and
+the per-attempt ledgers are reset at the session edge (2026-10-04). Three host
+constants are recorded, not reset. Open: a CHANGED bag across the edge.
+
+**An entity that a session spawned as it ran outlived the session
+(2026-10-04).** This is the largest finding of the row, and the first census
+did not see it, because the hub walk spawned nothing at run time. In
+`portal_bridge`, a session that placed one portal was replaced. The placed
+portal was in the world of the next session on each of its first 31 ticks
+(a fresh host with the same save: none), with three shots in flight at tick 0.
+The peer rows `RoomScopedEntity`, `InRoomInstance`, `SimId` and `SimIdCounter`
+differed from the fresh host's on each tick. Both successions (replaced in
+place, through the title) gave the same result.
+
+- **The cause was a second spawn road.** `SpawnScopedExt::spawn_room_scoped`,
+  on plain `Commands`, stamped the room scope and NO session owner. The session
+  retirement (`despawn_retired_session_entities`) despawns by the
+  `SessionScopedEntity` stamp only. Seven production sites used that road: the
+  portal shot, the placed portal, the dropped portal gun, the thrown item, the
+  match item, and the two world-item spawns (a Mary-O block's reward).
+- **The repair deletes the road.** The seven sites call
+  `spawn_room_in_session` with the scope of `SessionCommands::spawn_scope()`;
+  the two world-item functions take the scope as an argument. The trait
+  `SpawnScopedExt` is deleted (its other method, `spawn_mode_scoped`, had no
+  production caller: a mode owner is spawned with `spawn_mode_owner`). A system
+  that reads intents reads them with no session too and drops them, so an old
+  intent does not fire in the next session.
+- ⚠ A bundle can still name `RoomScopedEntity` by hand in a plain `spawn`. The
+  witness below asks a running world for each room-scoped entity with no
+  session owner; no source guard forbids the shape.
+
+**Two resources of a room crossed the edge (same day).** With the entities
+gone, `PortalFrameHistory` held one frame of the old session at tick 0 (a fresh
+host: none). The first room of each session has the same live key, so the
+eviction read that frame as a portal of the new room that closed, and it would
+push a body that stands across the old plane. The portal crate now forgets the
+history at the activation (`forget_portal_frames_on_activation`).
+`CutRopeHeavyObjectCycle` is in the peer checksum and a room replay advances
+it: after one replay the next session held index 1 on each of 31 ticks and a
+fresh host held index 0, so one host hung the piano and the other the anvil.
+The content crate now starts the cycle again at the activation
+(`restart_heavy_object_cycle_on_activation`). Each owner resets its own
+resource in `SessionScopeSet::Activate`, as the per-attempt ledgers do; they
+are not members of `SessionScopedResources`.
+
+- ⚠ The probe was the reason the first census could not read these. The row of
+  `PortalFrameHistory` is a presence probe (its map iterates in no fixed
+  order), so it read `(1, 0)` on each host. `RollbackChecksumProbes` now has
+  `strengthen_resource_with`, which gives one resource a value projection for
+  a test, and `PortalFrameHistory::len` is the value. `CutRopeHeavyObjectCycle`
+  has a checksum, and the first walk did not replay the room.
+
+**Witness of both:**
+`shell_host_lifecycle::what_a_session_spawned_and_cycled_does_not_reach_the_next_session`
+(two rooms, two successions; the peer census and three whole rows on each frame
+of ticks 0..=30; premises: the old session ends with a placed portal, a shot in
+flight and a frame in the history, or with the cycle off its default; the saves
+are equal; each host starts in the room). It first asks the old session for
+each room-scoped entity with no session owner. Poisons, one at a time: the
+shot and the portal spawned with no scope (red at the owner check, which names
+three `Portal shot` and `Portal: blue`); the history reset not registered (1
+frame at tick 0); the cycle reset not registered (31 frames, ticks 0 to 30).
+Unit witnesses, each with a no-activation control:
+`eviction::tests::a_session_activation_forgets_the_last_sessions_portal_frames`
+(the body is not pushed) and
+`cut_rope::tests::a_session_activation_starts_the_heavy_object_cycle_again`.
 
 **Found by measurement (2026-10-04).** A session is retired inside a schedule
 run, and a route replacement (`ShellCommand::ReplaceWith`: a world reload, a
@@ -1377,7 +1456,9 @@ ticks 0 to 39; `OwnedItemsBaseline` 1 frame at tick 0.
 `RegimePolicy` are rollback-registered, and a value written by hand before the
 replace was still there at every tick of the next session (`RegimePolicy` in
 the peer census). No production code writes either one (grep of `crates/` and
-`game/`, non-test). They are NOT in the reset, because they are the host's and
+`game/`, non-test). `FactionRelations` is the third (2026-10-04): its only
+value in production is the default, and with a value probe it was equal on
+each frame of both rooms above. It has a row in the same guard. They are NOT in the reset, because they are the host's and
 the world's configuration: `resolved_combat_tuning` sets `FriendlyFire` as "the
 world's authored friendly-fire rule" on a composed host, and `RegimePolicy` is
 the regime of the process. A reset to the default at each activation would
@@ -1390,9 +1471,8 @@ site is named).
 **Not measured:** the other whole-state rows were scope ordinals
 (`TransactionId`, `SessionScopedEntity`), a declared-derived cache
 (`GatedLockWallCache`, tick 0) and a count of launcher entities (`Name`, tick 0,
-replace flow only). The walk did not change `OwnedItems`, and could not read
-`FactionRelations`, `CutRopeHeavyObjectCycle` (private fields) or
-`PortalFrameHistory` (a presence probe). Message
+replace flow only). The walk did not change `OwnedItems`: a CHANGED bag across
+the edge is the open arm of this row. Message
 channels that no domain declares to the rollback census are not counted. A long
 visit to the title carries no message: the bus was empty after 80 frames.
 

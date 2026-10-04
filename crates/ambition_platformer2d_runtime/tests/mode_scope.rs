@@ -12,7 +12,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::lifecycle::{ModeScopedEntity, SpawnScopedExt as _};
+use ambition_platformer2d_shared_tangle::lifecycle::ModeScopedEntity;
 use ambition_platformer2d_runtime::{despawn_departed_mode_entities, in_base_mode, in_mode};
 use ambition_platformer2d_world::rooms::{RoomMetadata, RoomSet, RoomSpec};
 
@@ -171,8 +171,8 @@ fn leaving_a_mode_despawns_only_that_modes_entities() {
     set_mode(&mut app, Some("a"));
 
     // Each hosted ruleset spawns its mode-owner entity.
-    app.world_mut().commands().spawn_mode_scoped("a", ());
-    app.world_mut().commands().spawn_mode_scoped("b", ());
+    app.world_mut().spawn(ModeScopedEntity("a".to_string()));
+    app.world_mut().spawn(ModeScopedEntity("b".to_string()));
     let survivor = app.world_mut().commands().spawn(()).id();
     app.world_mut().flush();
     assert_eq!(mode_scoped_entities(&mut app), vec!["a", "b"]);
@@ -203,7 +203,7 @@ fn leaving_a_mode_despawns_only_that_modes_entities() {
 fn a_room_change_inside_the_same_mode_spares_the_modes_entities() {
     let mut app = two_hosted_demos();
     set_mode(&mut app, Some("a"));
-    app.world_mut().commands().spawn_mode_scoped("a", ());
+    app.world_mut().spawn(ModeScopedEntity("a".to_string()));
     app.world_mut().flush();
 
     enter_room(&mut app, "a_second_room");
@@ -222,8 +222,8 @@ fn an_ungoverned_mode_entity_is_swept_without_a_room_change() {
     set_mode(&mut app, Some("a"));
     app.update();
     app.update();
-    app.world_mut().commands().spawn_mode_scoped("a", ());
-    app.world_mut().commands().spawn_mode_scoped("b", ());
+    app.world_mut().spawn(ModeScopedEntity("a".to_string()));
+    app.world_mut().spawn(ModeScopedEntity("b".to_string()));
     app.world_mut().flush();
     app.update();
     assert_eq!(
@@ -530,11 +530,11 @@ fn a_mode_ends_when_no_live_room_is_in_it() {
     let mut app = two_hosted_demos();
     set_mode(&mut app, Some("a"));
     app.update();
-    app.world_mut().commands().spawn_mode_scoped("a", ());
+    app.world_mut().spawn(ModeScopedEntity("a".to_string()));
     app.world_mut().flush();
     open_another_live_room(&mut app, LiveRoomInstance::ACTIVATION.next(), "b");
-    app.world_mut().commands().spawn_mode_scoped("b", ());
-    app.world_mut().commands().spawn_mode_scoped("mary_o", ());
+    app.world_mut().spawn(ModeScopedEntity("b".to_string()));
+    app.world_mut().spawn(ModeScopedEntity("mary_o".to_string()));
     app.world_mut().flush();
     app.update();
     assert_eq!(

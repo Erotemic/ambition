@@ -93,11 +93,11 @@ fn a_fresh_process_adopts_the_post_load_bag_as_its_checkpoint_baseline() {
             ambition_items::builtin_item_catalog().dialog_id(Item::HealthCell),
             4,
         )],
-        0,
+        37,
     );
 
-    // Deliberately start from a DIFFERENT live bag.
-    let (mut app, _player) = app_with(save, OwnedItems::starter(ambition_items::builtin_item_catalog()), 0);
+    // Deliberately start from a DIFFERENT live bag and purse.
+    let (mut app, _player) = app_with(save, OwnedItems::starter(ambition_items::builtin_item_catalog()), 5);
     app.update();
 
     let baseline = app
@@ -108,6 +108,11 @@ fn a_fresh_process_adopts_the_post_load_bag_as_its_checkpoint_baseline() {
         baseline.remembered().count(Item::Fireball),
         0,
         "the checkpoint baseline must be the bag AFTER load, not the starter bag that existed before it",
+    );
+    assert_eq!(
+        baseline.purse(),
+        37,
+        "the baseline purse must be the loaded balance, or a death before the first checkpoint spends the save's coins",
     );
 }
 

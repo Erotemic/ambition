@@ -124,11 +124,15 @@ and its room (Q151 ruling).
 
 ### M5 — view-scoped HUD/prompt/presentation ownership
 
-`ControlPrompt`, the gameplay HUD, the banner and music are one per session and
-follow the primary seat. The Q150 ruling (2026-10-03) makes HUD state per
-participant, also when views merge onto one screen, so no "primary-player HUD"
-arbitration exists. Local music is chosen by authored priority across the
-participants, the primary participant breaking a tie.
+`ControlPrompt` and the banner are one per session and follow the primary seat.
+The Q150 ruling (2026-10-03) makes HUD state per participant, also when views
+merge onto one screen, so no "primary-player HUD" arbitration exists. Local
+music is chosen by authored priority across the participants, the primary
+participant breaking a tie (built). The built-in vitals HUD is per view: each
+`LocalView` carries `ViewHudFacts`, the meters of the body it follows, and has
+its own HUD in its own column. Open: one view that several participants share
+(a merged screen) shows one HUD, and the declared readouts (`HudReadouts`) are
+one per session.
 
 Resolve this with
 [`participant-action-system.md`](participant-action-system.md) from product/UI

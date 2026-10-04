@@ -3125,6 +3125,51 @@ fn a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_m
     assert_eq!(the_views(&mut sim), vec![(0, None, false)], "the players met, and the split did not close");
 }
 
+/// Q150: each view's HUD shows the purse of the participant it follows.
+/// Alice crosses and Bob stays; the split opens Bob's view, and its HUD
+/// facts show Bob's purse while view 0 shows Alice's. Before, one HUD showed
+/// the controlled body (Alice) for every view.
+#[test]
+fn each_view_of_the_split_shows_its_own_participants_purse() {
+    use ambition_platformer2d::characters::actor::BodyWallet;
+    let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    {
+        let world = sim.world_mut();
+        let mut bodies = world.query::<(
+            bevy::prelude::Entity,
+            Option<&ambition_platformer2d::combat::components::FeatureId>,
+            bevy::prelude::Has<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        )>();
+        let (alice, bob) = {
+            let rows: Vec<_> = bodies.iter(world).collect();
+            let alice = rows.iter().find(|(_, _, primary)| *primary).map(|(body, ..)| *body);
+            let bob = rows
+                .iter()
+                .find(|(_, feature, _)| feature.is_some_and(|feature| feature.0 == BOB))
+                .map(|(body, ..)| *body);
+            (alice.expect("Alice's body"), bob.expect("Bob's body"))
+        };
+        world.entity_mut(alice).insert(BodyWallet { balance: 3 });
+        world.entity_mut(bob).insert(BodyWallet { balance: 11 });
+    }
+    sim.step_n(base(), 2);
+    let world = sim.world_mut();
+    let mut shown: Vec<(u8, bool, i32)> = world
+        .query_filtered::<(
+            &ambition_platformer2d::sim_view::LocalViewId,
+            &ambition_platformer2d::sim_view::ViewHudFacts,
+        ), bevy::prelude::With<ambition_platformer2d::sim_view::LocalView>>()
+        .iter(world)
+        .map(|(id, facts)| (id.0, facts.0.present, facts.0.balance))
+        .collect();
+    shown.sort();
+    assert_eq!(
+        shown,
+        vec![(0, true, 3), (1, true, 11)],
+        "(view, its HUD shows a body, the purse it shows): view 0 follows Alice, view 1 Bob's seat"
+    );
+}
+
 /// Where Alice's and Bob's bodies are. Bob's is `None` when his body is gone.
 fn their_positions(
     sim: &mut Platformer2dSimHarness,

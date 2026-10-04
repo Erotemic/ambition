@@ -1794,9 +1794,9 @@ fn apply_camera_reference_frame_setting(
 /// a camera frozen at the origin. With one definition the two paths cannot
 /// differ; adding a fact here reaches both by construction.
 ///
-///  the count is the contract `local_view:tests` pins component-by-component: the identity
-/// ([`crate:local_view:LocalViewId`]) is passed separately, so what is here is exactly the six
-/// facts moved off process-globals.
+///  `local_view:tests` pins the two spawn paths to one component set. The identity
+/// ([`crate:local_view:LocalViewId`]) is passed separately, so what is here is exactly the
+/// facts each view owns.
 pub fn local_view_facts() -> impl bevy::prelude::Bundle {
     (
         CameraViewport::default(),
@@ -1809,6 +1809,9 @@ pub fn local_view_facts() -> impl bevy::prelude::Bundle {
         // anything frames it. Here rather than at the two spawn sites for the
         // reason this whole function exists.
         crate::local_view::ResolvedViewSubject::default(),
+        // The meters this view's HUD shows (Q150). Here so a view the split
+        // opens has a HUD from its first frame.
+        crate::facts::ViewHudFacts::default(),
         // Carried here for the same reason as the others — a reader must never see a frame
         // where the view exists and its state does not.
         CameraViewState::default(),
@@ -1859,6 +1862,8 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
                 // Chained, so the resolve below reads a fact rather than
                 // searching control authority for it.
                 crate::local_view::resolve_view_subjects,
+                // Each view's HUD meters follow the subject just resolved.
+                crate::facts::rebuild_view_hud_facts,
                 resolve_camera_observation,
             )
                 .chain()

@@ -40,6 +40,10 @@ pub struct BossDefeatSinceCheckpoint {
     pub definition: String,
     /// The boss's simulation identity: the parent its mints name.
     pub boss: Option<SimId>,
+    /// The participants whose bodies were in the boss's live room when it
+    /// fell, in seat order: who won it. A death keeps a defeat that another
+    /// participant won (Q151), also after its room retired.
+    pub present: Vec<ambition_characters::control::PlayerSlot>,
 }
 
 /// The boss placements the save recorded `Cleared` since the last committed
@@ -104,15 +108,26 @@ impl BossDefeatsSinceCheckpoint {
     }
 
     /// Take out the defeats a checkpoint restore retracts: every defeat since
-    /// the checkpoint, except those that fell in a `spared` live room. A room
-    /// another participant holds keeps its defeats (Q151).
+    /// the checkpoint, except those that fell in a `spared` live room, and
+    /// those a `spared_participants` participant won outside `dying_room`.
+    /// A death is local to its participant and room (Q151): a room another
+    /// participant holds keeps its defeats, and so does a room another
+    /// participant won and left. The dying participant's own room spares
+    /// nothing, also when another participant shares it: the restore
+    /// rebuilds it.
     pub fn take_for_restore(
         &mut self,
         spared: &[LiveRoomInstance],
+        spared_participants: &[ambition_characters::control::PlayerSlot],
+        dying_room: Option<LiveRoomInstance>,
     ) -> Vec<(String, BossDefeatSinceCheckpoint)> {
         let (kept, taken): (BTreeMap<_, _>, BTreeMap<_, _>) = std::mem::take(&mut self.defeats)
             .into_iter()
-            .partition(|(_, defeat)| defeat.room.is_some_and(|room| spared.contains(&room)));
+            .partition(|(_, defeat)| {
+                defeat.room.is_some_and(|room| spared.contains(&room))
+                    || (defeat.room != dying_room
+                        && defeat.present.iter().any(|seat| spared_participants.contains(seat)))
+            });
         self.defeats = kept;
         taken.into_iter().collect()
     }
@@ -131,6 +146,10 @@ impl BossDefeatsSinceCheckpoint {
             );
             put_str(&mut bytes, &defeat.definition);
             put_str(&mut bytes, defeat.boss.as_ref().map_or("", SimId::as_str));
+            put_u64(&mut bytes, defeat.present.len() as u64);
+            for seat in &defeat.present {
+                put_u64(&mut bytes, u64::from(seat.0));
+            }
         }
         checksum_bytes(&bytes)
     }
@@ -178,13 +197,11 @@ pub fn forget_boss_defeats_on_a_fresh_run(
 /// recorded since the last checkpoint, for every boss family. A checkpoint
 /// restore retracts every defeat since the checkpoint (Q124, Q51), except in
 /// the live rooms it spares: those another participant holds, because a death
-/// is local to its participant and room (Q151). A New Game spares nothing.
-///
-/// ⚠ The bag, custody and occurrence ledger still go back whole. In the
-/// shipped product only the primary participant picks up, carries and opens,
-/// so Bob's spared defeat keeps its chest and row; a reward Alice took from
-/// Bob's room goes back with her bag. Attribution per participant is the
-/// follow-up (queue row DEATH-IS-ROOM-LOCAL).
+/// is local to its participant and room (Q151). It also keeps a defeat that
+/// another participant won in a room that is no longer live
+/// ([`BossDefeatSinceCheckpoint::present`]), except in the dying
+/// participant's own room, which the restore rebuilds. A New Game spares
+/// nothing.
 ///
 /// The replay's room is its subject's live room, or the sole live room when
 /// it names no subject. Each retracted placement's save row goes back to
@@ -205,7 +222,11 @@ pub fn retract_boss_defeats_on_replay(
 ) {
     for replay in replays.read() {
         let taken = if replay.to_checkpoint {
-            since.take_for_restore(&replay.spared)
+            since.take_for_restore(
+                &replay.spared,
+                &replay.spared_participants,
+                replay.subject.as_ref().and_then(|subject| subject.room),
+            )
         } else {
             let replayed = replay.subject.as_ref().and_then(|subject| subject.room);
             let Some(definition) = rooms.definition_named(replayed) else {
@@ -259,6 +280,7 @@ mod tests {
             room: Some(LiveRoomInstance::from_ordinal(room)),
             definition: definition.into(),
             boss: Some(SimId::placement(&format!("boss_in_{room}"))),
+            present: Vec::new(),
         }
     }
 
@@ -298,7 +320,7 @@ mod tests {
         });
         let mut whole = since.clone();
         let taken: Vec<String> = since
-            .take_for_restore(&[LiveRoomInstance::from_ordinal(5)])
+            .take_for_restore(&[LiveRoomInstance::from_ordinal(5)], &[], None)
             .into_iter()
             .map(|(placement, _)| placement)
             .collect();
@@ -306,7 +328,39 @@ mod tests {
         let kept: Vec<&String> = since.defeats().map(|(placement, _)| placement).collect();
         assert_eq!(kept, vec!["bobs"]);
         // Control: nothing spared takes Bob's defeat as well.
-        assert_eq!(whole.take_for_restore(&[]).len(), 3);
+        assert_eq!(whole.take_for_restore(&[], &[], None).len(), 3);
         assert_eq!(whole.defeats().count(), 0);
+    }
+
+    /// Q151 for a room that is no longer live: a defeat Bob won in a room he
+    /// has left stays when Alice dies. The controls: a defeat Alice won alone
+    /// goes back, and a defeat Bob shared in Alice's own room goes back too,
+    /// because her restore rebuilds that room.
+    #[test]
+    fn a_restore_keeps_a_defeat_another_participant_won_in_a_room_left() {
+        use ambition_characters::control::PlayerSlot;
+        let (alice, bob) = (PlayerSlot(0), PlayerSlot(1));
+        let won_by = |room: u32, seats: &[PlayerSlot]| BossDefeatSinceCheckpoint {
+            present: seats.to_vec(),
+            ..defeat(room, "arena")
+        };
+        let mut since = BossDefeatsSinceCheckpoint::default();
+        since.record("bobs_left", won_by(2, &[bob]));
+        since.record("alices_left", won_by(3, &[alice]));
+        since.record("shared_in_alices", won_by(4, &[alice, bob]));
+        let taken: Vec<String> = since
+            .take_for_restore(&[], &[bob], Some(LiveRoomInstance::from_ordinal(4)))
+            .into_iter()
+            .map(|(placement, _)| placement)
+            .collect();
+        let kept: Vec<&String> = since.defeats().map(|(placement, _)| placement).collect();
+        assert_eq!(
+            (taken, kept),
+            (
+                vec!["alices_left".to_string(), "shared_in_alices".to_string()],
+                vec![&"bobs_left".to_string()],
+            ),
+            "(taken, kept) by Alice's death in live room #4, sparing Bob"
+        );
     }
 }

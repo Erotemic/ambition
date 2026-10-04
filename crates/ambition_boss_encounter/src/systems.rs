@@ -89,9 +89,11 @@ pub fn update_boss_encounters(
     mut phase_changes: MessageWriter<super::events::BossPhaseChanged>,
     // The defeats since the last checkpoint, which a replay of their room
     // retracts (BOSS-REPLAY-RETRACTION), and the live room each fell in.
-    (mut since_checkpoint, rooms): (
+    // And the driven bodies, to say who won a defeat.
+    (mut since_checkpoint, rooms, drivers): (
         ResMut<crate::retraction::BossDefeatsSinceCheckpoint>,
         ambition_platformer2d_world::rooms::LiveRoomSpecs,
+        Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     ),
     mut bosses: Query<
         (
@@ -265,12 +267,21 @@ pub fn update_boss_encounters(
                 // A defeat after the last checkpoint: a replay of this room
                 // retracts it (Q56).
                 if let Some(definition) = rooms.definition_of(boss_entity) {
+                    let room = rooms.live().of(boss_entity);
+                    let mut present: Vec<_> = drivers
+                        .iter()
+                        .filter(|(body, _)| room.is_some() && rooms.live().of(*body) == room)
+                        .map(|(_, driver)| driver.0)
+                        .collect();
+                    present.sort_unstable();
+                    present.dedup();
                     since_checkpoint.record(
                         runtime_id.clone(),
                         crate::retraction::BossDefeatSinceCheckpoint {
-                            room: rooms.live().of(boss_entity),
+                            room,
                             definition: rooms.rooms().spec(definition).id.clone(),
                             boss: boss_sim_id.cloned(),
+                            present,
                         },
                     );
                 }

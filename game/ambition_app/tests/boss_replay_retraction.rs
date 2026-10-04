@@ -917,6 +917,65 @@ fn a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room() {
     );
 }
 
+/// (Bob's boss cleared, his room live) after Bob defeats his boss in
+/// `switch_lab` after the checkpoint and walks to the hub, so `switch_lab`
+/// retires; then, if `die`, Alice dies in the hub.
+fn bobs_boss_won_and_left(die: bool) -> (bool, usize) {
+    use crate::death_restores_the_checkpoint::commit_a_checkpoint;
+    use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    const BOSS: &str = "bobs_boss";
+    let (mut sim, first) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
+    commit_a_checkpoint(&mut sim);
+    spawn_mockingbird_beside_bob(&mut sim, BOSS, first);
+    for _ in 0..15 {
+        sim.step(crate::common::base());
+    }
+    force_kill_boss(&mut sim, BOSS);
+    until_cleared(&mut sim, BOSS);
+    for _ in 0..200 {
+        sim.step(crate::common::base());
+    }
+    let live = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<&LiveRoomInstance, bevy::prelude::With<RoomInstanceRoot>>()
+            .iter(world)
+            .copied()
+            .collect::<Vec<_>>()
+    };
+    let hub = live(&mut sim)
+        .into_iter()
+        .find(|room| *room != first)
+        .expect("precondition: Alice holds the hub beside Bob's room");
+    crate::two_players_two_live_rooms::bob_goes_to_the_hub(&mut sim, hub);
+    assert_eq!(
+        (live(&mut sim), boss_cleared(&sim, BOSS)),
+        (vec![hub], true),
+        "precondition: Bob won, and his room retired behind him"
+    );
+    if die {
+        crate::death_restores_the_checkpoint::die(&mut sim);
+    }
+    (boss_cleared(&sim, BOSS), live(&mut sim).len())
+}
+
+/// Q151 for a room that is no longer live: a defeat Bob won after the
+/// checkpoint, in a room he has since left, stays when Alice dies. A defeat
+/// is credited to the participants in its room when it falls
+/// (`BossDefeatSinceCheckpoint::present`). Before, only live rooms were
+/// spared, so Alice's death took back Bob's win. The control is the run
+/// without the death; `a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room`
+/// is the control that Alice's own defeat still goes back.
+#[test]
+fn a_death_keeps_the_defeat_another_player_won_in_a_room_he_left() {
+    assert_eq!(bobs_boss_won_and_left(false), (true, 1), "control: no death");
+    assert_eq!(
+        bobs_boss_won_and_left(true),
+        (true, 1),
+        "(Bob's boss cleared, live rooms) after Alice's death in the hub"
+    );
+}
+
 /// The same defeats when Alice and Bob share the room and the checkpoint: the
 /// room is Alice's own, so her restore rebuilds it and takes back both
 /// defeats, and the save and the room agree.

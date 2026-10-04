@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v307
+ggrs-rollback-schema-v308
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -102,7 +102,7 @@ boss.capability	component-clone	BossCapability	bevy_ggrs clone snapshot; not in 
 boss.conducted_facing	component-clone-custom-checksum	ConductedFacing	bevy_ggrs clone snapshot + the side a conducted boss faces while its module holds its pose
 boss.config	component-clone	BossConfig	bevy_ggrs clone snapshot; not in the session checksum
 boss.death_animation	component-clone	BossDeathAnimation	bevy_ggrs clone snapshot; not in the session checksum
-boss.defeats_since_checkpoint	resource-clone-custom-checksum	BossDefeatsSinceCheckpoint	bevy_ggrs clone snapshot + the boss placements cleared since the last checkpoint, which a replay of their room retracts
+boss.defeats_since_checkpoint	resource-clone-custom-checksum	BossDefeatsSinceCheckpoint	bevy_ggrs clone snapshot + the boss placements cleared since the last checkpoint and who won each, which a replay of their room retracts
 boss.encounter	component-clone-cursor	BossEncounter	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; not in the session checksum
 boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

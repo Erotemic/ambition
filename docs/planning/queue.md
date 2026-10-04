@@ -324,9 +324,17 @@ ignored; it also counts live rooms and entities stamped with a room that is
 not live). Where a seated participant's body goes on a restart is part of
 the join road (Q153): here Bob is a placement of his room and goes with it.
 
-**Known gap, until records carry their participant:** a defeat Bob won in a
-room he has already left is taken back with Alice's death, because only live
-rooms are spared.
+**A defeat Bob won in a room he has since left stays (2026-10-04).** A
+defeat record carries the participants whose bodies were in its room when the
+boss fell (`BossDefeatSinceCheckpoint::present`), and the death's admission
+names every participant but the dying one (`RoomReplayAdmitted::spared_participants`).
+The restore keeps a defeat one of them won, outside the dying participant's
+own room. A defeat with nobody else present still goes back. Witness:
+`a_death_keeps_the_defeat_another_player_won_in_a_room_he_left` (poisons: the
+restore ignores `present`, or the record leaves it empty; both read the boss
+uncleared). Decision recorded here: a defeat is credited to everyone in its
+room when it falls, since the edge has no attacker; a shared win stays when
+one of its winners dies elsewhere.
 
 **Acceptance:** Alice dies while Bob's room holds a boss he defeated after the
 checkpoint: Bob's room, the boss row and its reward stay; Alice's room agrees

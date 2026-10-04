@@ -2991,7 +2991,7 @@ fn module_entities(sim: &mut Platformer2dSimHarness) -> Vec<(Option<LiveRoomInst
 
 /// Bob, on slot 1, goes through `switch_lab`'s door to the hub, as
 /// `the_second_player_goes_through_a_door_of_his_own_room` sends him.
-fn bob_goes_to_the_hub(sim: &mut Platformer2dSimHarness, hub: LiveRoomInstance) {
+pub(crate) fn bob_goes_to_the_hub(sim: &mut Platformer2dSimHarness, hub: LiveRoomInstance) {
     use ambition_platformer2d::engine_core::AabbExt as _;
     let door = door_of(sim, ROOM, HUB).aabb.center();
     {

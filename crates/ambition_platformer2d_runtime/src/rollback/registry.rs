@@ -1013,7 +1013,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 306 -> 307: `feature.breakable_respawn_schedule` is now
 /// `feature.world_time_schedule` (`WorldTimeSchedule`). It also holds when a
 /// collected pickup regrows (Q152), with the same key and the same fold.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 307;
+/// ⛔⛤ 307 -> 308: `boss.defeats_since_checkpoint` also holds the participants
+/// in each defeat's room when it fell, and its checksum folds them: a death
+/// keeps a defeat another participant won (Q151, DEATH-IS-ROOM-LOCAL).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 308;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

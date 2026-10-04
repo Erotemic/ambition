@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v307",
+    "version": "ggrs-rollback-schema-v308",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -60,7 +60,7 @@
       "boss.attack_intent\tcomponent-canonical\tBossAttackIntent",
       "boss.attack_state\tcomponent-canonical\tBossAttackState",
       "boss.conducted_facing\tcomponent-clone-custom-checksum\tConductedFacing\tbevy_ggrs clone snapshot + the side a conducted boss faces while its module holds its pose",
-      "boss.defeats_since_checkpoint\tresource-clone-custom-checksum\tBossDefeatsSinceCheckpoint\tbevy_ggrs clone snapshot + the boss placements cleared since the last checkpoint, which a replay of their room retracts",
+      "boss.defeats_since_checkpoint\tresource-clone-custom-checksum\tBossDefeatsSinceCheckpoint\tbevy_ggrs clone snapshot + the boss placements cleared since the last checkpoint and who won each, which a replay of their room retracts",
       "boss.encounter\tcomponent-clone-cursor\tBossEncounter",
       "boss.phase\tcomponent-canonical\tBossPhase",
       "combat.held_damage_boxes\tcomponent-clone-cursor\tHeldDamageBoxes",

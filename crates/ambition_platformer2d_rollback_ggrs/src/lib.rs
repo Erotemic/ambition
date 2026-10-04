@@ -34,6 +34,7 @@ mod codec_tests;
 mod host_invariant_tests;
 pub mod lifecycle_commit;
 pub mod local_session;
+pub mod peer;
 mod probes;
 mod registrar;
 mod registration;

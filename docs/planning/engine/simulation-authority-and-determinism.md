@@ -299,7 +299,14 @@ written": a `&mut` census cannot see replacement by re-insertion.
 eleven rows does not feed the peer checksum, then compares their probe census
 between a host that reached the shipped Ambition route first and one that reached
 it third, at every tick of the window, in five rooms. All eleven carry state and
-agree. The set is pinned by equality, so a row that loses its carriers fails. The
+agree. ⛔ Until 2026-10-03 that census was a carrier count: all eleven are
+registered with a presence probe, whose census returns `xor: 0`, so the arm
+compared how many carriers each row had and never a value. The arm now gives
+each a value probe first (`strengthen_the_sharp_rows` in
+`game/ambition_app/tests/common/mod.rs`: the hash of the value's `Debug` text,
+which prints each float as the shortest text that reads back to the same bits),
+and the values agree too. A poison showed the difference: a `Transform` changed on
+one side was invisible to the presence census and is named by the value census. The set is pinned by equality, so a row that loses its carriers fails. The
 arm prints the per-room split:
 
 | room | sharp rows it carries |
@@ -325,10 +332,28 @@ depends on where the host has been, and nothing more.
 (`game/ambition_app/tests/does_a_presence_probed_row_move_when_its_value_does.rs`,
 using `strengthen_with` and
 `RollbackRestoreAudit::distinct_censuses_across_compared_frames_of::<T>()`). That
-clears a local restore defect, not the S7 question. `Session::SyncTest` is the only
-session this workspace constructs; no P2P session is built. For the timeline half,
-the missing P2P session is the blocker (the tick itself is session-relative
-since `Q128` was decided, 2026-10-03).
+clears a local restore defect, not the S7 question.
+
+**Two-peer arm (the timeline half).** `game/ambition_app/tests/two_peers.rs` runs
+two Apps in one process, each with a GGRS P2P session (`start_peer_session`) over
+an in-memory link that delivers three updates late, so each peer predicts the
+other's input and rolls back. Alice drives slot 0 on one peer and Bob slot 1 on
+the other, in `switch_lab`, until both confirm frame 240. Each peer records every
+probed row's peer census at each saved frame, with the float rows given value
+probes (`strengthen_the_float_rows`: 22 of the census's 23; `lifecycle.room_visual`
+is a unit marker). Measured 2026-10-03: at every confirmed frame both peers agree
+on every row, and GGRS reports no desync. Eight float rows carry state there
+(`actor.animation_facts`, `combat.tuning`, `actor.render_size`,
+`actor.sprite_offset`, `actor.spawn_baseline`, `player.blink_camera_state`,
+`actor.sprite_posed_body`, `entity.transform`), pinned by equality.
+`two_peers_agree_in_the_rooms_that_carry_the_float_rows` walks seven more rooms
+(`blink_run`, `portal_lab`, `basement_hazards`, `portal_bridge` with the gun
+fired, `basement_boss`, `pirate_sky_lookout` with its shark, `goblin_encounter`),
+and the peers agree in each. Together the walks carry 21 of the 22 rows. The
+22nd, `mount.authored_size` (`MountedSize`), has no production writer, so no
+room carries it; the arm pins that. Poisons: a position change on one
+peer is a GGRS desync that reaches `session_health`; a value outside the peer
+checksum changed on one peer is no desync, and only the census names it.
 
 **Motion floor.** A window where the value never moves proves nothing: a census
 that takes one value across the window agrees with itself for free. An attack

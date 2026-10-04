@@ -51,7 +51,6 @@ These are settled. Code against them; do not reopen them without a new ruling.
 
 | Campaign | Where it is tracked |
 | --- | --- |
-| Peer-stable identity | [ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity) (consolidation C02) |
 | One owner per mechanical fact | [AUTHORITY-POLISH](queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) (C11) |
 | Session-owned App state | C03 in [`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md) — startable |
 | Composition contracts | C07 in the consolidation plan — startable |

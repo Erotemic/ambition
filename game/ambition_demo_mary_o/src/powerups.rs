@@ -21,7 +21,7 @@ use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
-use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 use crate::provider::MARY_O_CHARACTER_ID;
@@ -509,14 +509,18 @@ pub fn bonk_power_blocks(
     // the WALLET rides the same query, because a coin block credits the body that struck it
     // rather than a global counter — the same component the vault's loose coins credit and the
     // same one the HUD's COINS readout is rebuilt from.
+    //
+    // Every body of the player population bonks, each in its own live room,
+    // so a second seat spends blocks and is paid too.
     mut players: Query<
         (
             Entity,
             &PlayerBodyFrameOutput,
             Option<&WornEquipment>,
             Option<&mut ambition_platformer2d::characters::actor::BodyWallet>,
+            Option<&ambition_platformer2d::platformer::sim_id::SimId>,
         ),
-        With<PrimaryPlayer>,
+        With<PlayerEntity>,
     >,
     // A popped item is in the live room of the body that struck its block.
     rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
@@ -526,134 +530,141 @@ pub fn bonk_power_blocks(
     // struck the block.
     geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
 ) {
-    let Ok((striker, frame, worn, mut wallet)) = players.single_mut() else {
-        return;
-    };
-    let (Some(room), Some(room_geometry)) = (geometry.room_of(striker), geometry.of(striker)) else {
-        return;
-    };
-    for contact in &frame.events.contacts {
-        if contact.kind != ContactKind::Head {
-            continue;
-        }
-        let ContactSource::Block { id, .. } = &contact.source else {
-            continue;
-        };
-        // The room answers now, and the answer is the KIND the author picked.
-        let Some(block) = crate::authored_block_by_id(&room_geometry.0, id) else {
+    // Two bodies can bonk one block in one tick. The first spends it and is
+    // paid, so the order is a gameplay decision and a rewind must give the
+    // same order: stable `SimId`, not query order.
+    let strikers = ambition_platformer2d::platformer::sim_selection::in_deterministic_order(
+        players.iter_mut(),
+        |_| 0.0,
+        |(_, _, _, _, id)| *id,
+    );
+    for (striker, frame, worn, mut wallet, _) in strikers {
+        let (Some(room), Some(room_geometry)) = (geometry.room_of(striker), geometry.of(striker)) else {
             continue;
         };
-        // WHAT IT HOLDS, not what it looks like. This matched the block's
-        // KIND — `Power` meant the ladder, `Quasar` meant a quasar — which made
-        // unsayable, because appearance was the only thing carrying the answer.
-        //
-        // A brick that holds something now arrives here like any other reactive
-        // block; a brick that holds nothing falls through to
-        // `bricks::break_bricks`, which is what breaks it.
-        let Some(authored) = crate::ldtk_vocabulary::block_of(&block.name) else {
-            continue;
-        };
-        if authored.contents.is_empty() {
-            continue;
-        }
-        let block_aabb = block.aabb;
-        if spent.is_spent(room, id) {
-            continue;
-        }
-        // A VALID BONK IS ALWAYS ACKNOWLEDGED. This used to read `let Some(reward) = … else
-        // { continue }`, and `next_power_reward` answered `None` at the top of the ladder — so
-        // a FIRE-form Mary-O hit a ?-block and got nothing at all: no flinch, no spent state,
-        // no art change, no sound.
-        let reward = reward_for(authored.contents, worn);
-        // a multi-coin block is spent by its COUNTER, not by being hit.
-        // Every other block owes one payout and retires on the strike; this one
-        // owes N, so `take_one_coin` promotes it to spent on the last of them.
-        // reset."* `rearm_all` clears both halves, so "until reset" is the
-        // room reload that already re-arms every other block.
-        match authored.contents {
-            MaryOBlockContents::Coins(count) => {
-                spent.in_room_mut(room).take_one_coin(&id, count);
-            }
-            _ => spent.in_room_mut(room).spend(id.clone()),
-        }
-        // Used blocks flinch in presentation only; moving collision geometry would lift bodies
-        // standing on the block. This records which block was struck.
-        struck.write(ambition_platformer2d::platformer::block_nudge::BlockStruck::new(id.clone()));
-        // from the block's OWN centre, so a block the author dragged pops its reward where
-        // it now sits.
-        let pos = (block_aabb.min + block_aabb.max) * 0.5;
-        let reward = match reward {
-            None => continue,
-            Some(BlockPayout::Coins(amount)) => {
-                if let Some(purse) = wallet.as_mut() {
-                    purse.add(amount);
-                }
-                // into it."* One coin per payout, launched from the block's top
-                // face so it reads as coming OUT rather than through.
-                vfx.for_room(rooms.of(striker)).write(ambition_platformer2d::vfx::VfxMessage::CoinPop {
-                    pos: ae::Vec2::new(pos.x, block_aabb.min.y),
-                });
-                // this was the `Hit` cue — the MASONRY THUNK — and the
-                // comment justifying it went stale. It read *"there is no
-                // `Pickup` cue in the shared vocabulary yet"*, which was true
-                // when written and is not now: the engine emits
-                // `ids::WORLD_COIN_PICKUP` for every currency pickup, and
-                // Mary-O's provider declares it (`COIN_PICKUP_SFX`).
-                //
-                // so a coin sounds like a coin whichever way she gets it.
-                // Her loose coins are `currency:1` pickups voiced by the engine's
-                // `collect_ecs_pickups`; a coin BLOCK never builds a pickup at
-                // all (it credits the purse directly, three lines up), so it has
-                // to name the cue itself. Same id, same declaration, one sound —
-                // without this, popping a block for a coin played a brick
-                // smashing.
-                sfx.write_from(
-                    crate::provider::MARY_O_EXPERIENCE,
-                    ambition_platformer2d::sfx::SfxMessage::Play {
-                        id: ambition_platformer2d::sfx::SfxId::from_static(
-                            crate::provider::COIN_PICKUP_SFX,
-                        ),
-                        pos,
-                    },
-                );
+        for contact in &frame.events.contacts {
+            if contact.kind != ContactKind::Head {
                 continue;
             }
-            Some(BlockPayout::Item(reward)) => *reward,
-        };
-        let popped = spawn_moving_world_item(
-            &mut commands,
-            // ⛔⛔ THE BLOCK'S OWN NAME, because the item had none and the engine's
-            // collection order is decided BY the name. `collect_world_items` sorts
-            // contested items by `SimId` against a constant metric, so an item with
-            // no id sorted by nothing and the winner was Bevy query order — the
-            // exact defect that sort was added to remove. A `GeoId` is already the
-            // durable identity of the block that owes this payout, a block pops at
-            // most one item per attempt, and the room reload that re-arms the block
-            // is the same one that despawns the old item.
-            ambition_platformer2d::platformer::sim_id::SimId::geometry(id),
-            rooms.of(striker),
-            // it starts INSIDE the block and climbs out. Spawned at the block's own centre
-            // rather than above it, so the first frame shows nothing and the pickup rises into view
-            // through the block's top edge.
+            let ContactSource::Block { id, .. } = &contact.source else {
+                continue;
+            };
+            // The room answers now, and the answer is the KIND the author picked.
+            let Some(block) = crate::authored_block_by_id(&room_geometry.0, id) else {
+                continue;
+            };
+            // WHAT IT HOLDS, not what it looks like. This matched the block's
+            // KIND — `Power` meant the ladder, `Quasar` meant a quasar — which made
+            // unsayable, because appearance was the only thing carrying the answer.
             //
-            // being drawn BEHIND the world is not set here. It is derived from the motion's own
-            // emergence window, so it ends exactly when the rise does.
-            WorldItem::equipping(reward.row, pos, reward.half).with_sprite(reward.sprite),
-            reward.motion,
-        );
-        // `spawn_moving_world_item` scopes to the ROOM, which answers *does this
-        // survive leaving* and not *does this survive REPLAYING* —
-        // `SpawnedThisAttempt`'s own doc says one scope cannot answer both. A wand
-        // this attempt knocked out of a block is residue of an attempt that is
-        // about to be un-played: the block un-spends on reset and will pop
-        // another, so the old one has to go or the room accumulates them.
-        //
-        // marked HERE rather than inside the engine helper, because only the
-        // caller knows an item was POPPED rather than authored into the level. If
-        // a second caller ever needs the same thing, that is the signal to move it.
-        commands
-            .entity(popped)
-            .insert(ambition_platformer2d::actors::features::ecs::SpawnedThisAttempt);
+            // A brick that holds something now arrives here like any other reactive
+            // block; a brick that holds nothing falls through to
+            // `bricks::break_bricks`, which is what breaks it.
+            let Some(authored) = crate::ldtk_vocabulary::block_of(&block.name) else {
+                continue;
+            };
+            if authored.contents.is_empty() {
+                continue;
+            }
+            let block_aabb = block.aabb;
+            if spent.is_spent(room, id) {
+                continue;
+            }
+            // A VALID BONK IS ALWAYS ACKNOWLEDGED. This used to read `let Some(reward) = … else
+            // { continue }`, and `next_power_reward` answered `None` at the top of the ladder — so
+            // a FIRE-form Mary-O hit a ?-block and got nothing at all: no flinch, no spent state,
+            // no art change, no sound.
+            let reward = reward_for(authored.contents, worn);
+            // a multi-coin block is spent by its COUNTER, not by being hit.
+            // Every other block owes one payout and retires on the strike; this one
+            // owes N, so `take_one_coin` promotes it to spent on the last of them.
+            // reset."* `rearm_all` clears both halves, so "until reset" is the
+            // room reload that already re-arms every other block.
+            match authored.contents {
+                MaryOBlockContents::Coins(count) => {
+                    spent.in_room_mut(room).take_one_coin(&id, count);
+                }
+                _ => spent.in_room_mut(room).spend(id.clone()),
+            }
+            // Used blocks flinch in presentation only; moving collision geometry would lift bodies
+            // standing on the block. This records which block was struck.
+            struck.write(ambition_platformer2d::platformer::block_nudge::BlockStruck::new(id.clone()));
+            // from the block's OWN centre, so a block the author dragged pops its reward where
+            // it now sits.
+            let pos = (block_aabb.min + block_aabb.max) * 0.5;
+            let reward = match reward {
+                None => continue,
+                Some(BlockPayout::Coins(amount)) => {
+                    if let Some(purse) = wallet.as_mut() {
+                        purse.add(amount);
+                    }
+                    // into it."* One coin per payout, launched from the block's top
+                    // face so it reads as coming OUT rather than through.
+                    vfx.for_room(rooms.of(striker)).write(ambition_platformer2d::vfx::VfxMessage::CoinPop {
+                        pos: ae::Vec2::new(pos.x, block_aabb.min.y),
+                    });
+                    // this was the `Hit` cue — the MASONRY THUNK — and the
+                    // comment justifying it went stale. It read *"there is no
+                    // `Pickup` cue in the shared vocabulary yet"*, which was true
+                    // when written and is not now: the engine emits
+                    // `ids::WORLD_COIN_PICKUP` for every currency pickup, and
+                    // Mary-O's provider declares it (`COIN_PICKUP_SFX`).
+                    //
+                    // so a coin sounds like a coin whichever way she gets it.
+                    // Her loose coins are `currency:1` pickups voiced by the engine's
+                    // `collect_ecs_pickups`; a coin BLOCK never builds a pickup at
+                    // all (it credits the purse directly, three lines up), so it has
+                    // to name the cue itself. Same id, same declaration, one sound —
+                    // without this, popping a block for a coin played a brick
+                    // smashing.
+                    sfx.write_from(
+                        crate::provider::MARY_O_EXPERIENCE,
+                        ambition_platformer2d::sfx::SfxMessage::Play {
+                            id: ambition_platformer2d::sfx::SfxId::from_static(
+                                crate::provider::COIN_PICKUP_SFX,
+                            ),
+                            pos,
+                        },
+                    );
+                    continue;
+                }
+                Some(BlockPayout::Item(reward)) => *reward,
+            };
+            let popped = spawn_moving_world_item(
+                &mut commands,
+                // ⛔⛔ THE BLOCK'S OWN NAME, because the item had none and the engine's
+                // collection order is decided BY the name. `collect_world_items` sorts
+                // contested items by `SimId` against a constant metric, so an item with
+                // no id sorted by nothing and the winner was Bevy query order — the
+                // exact defect that sort was added to remove. A `GeoId` is already the
+                // durable identity of the block that owes this payout, a block pops at
+                // most one item per attempt, and the room reload that re-arms the block
+                // is the same one that despawns the old item.
+                ambition_platformer2d::platformer::sim_id::SimId::geometry(id),
+                rooms.of(striker),
+                // it starts INSIDE the block and climbs out. Spawned at the block's own centre
+                // rather than above it, so the first frame shows nothing and the pickup rises into view
+                // through the block's top edge.
+                //
+                // being drawn BEHIND the world is not set here. It is derived from the motion's own
+                // emergence window, so it ends exactly when the rise does.
+                WorldItem::equipping(reward.row, pos, reward.half).with_sprite(reward.sprite),
+                reward.motion,
+            );
+            // `spawn_moving_world_item` scopes to the ROOM, which answers *does this
+            // survive leaving* and not *does this survive REPLAYING* —
+            // `SpawnedThisAttempt`'s own doc says one scope cannot answer both. A wand
+            // this attempt knocked out of a block is residue of an attempt that is
+            // about to be un-played: the block un-spends on reset and will pop
+            // another, so the old one has to go or the room accumulates them.
+            //
+            // marked HERE rather than inside the engine helper, because only the
+            // caller knows an item was POPPED rather than authored into the level. If
+            // a second caller ever needs the same thing, that is the signal to move it.
+            commands
+                .entity(popped)
+                .insert(ambition_platformer2d::actors::features::ecs::SpawnedThisAttempt);
+        }
     }
 }
 
@@ -1963,7 +1974,7 @@ mod tests {
                     id: struck_id,
                 },
             });
-        app.world_mut().spawn((PrimaryPlayer, frame));
+        app.world_mut().spawn((PlayerEntity, PrimaryPlayer, frame));
         app.add_systems(Update, bonk_power_blocks);
 
         app.update();
@@ -2034,7 +2045,7 @@ mod tests {
                     id: struck_id.clone(),
                 },
             });
-        app.world_mut().spawn((PrimaryPlayer, frame, InRoomInstance(bob)));
+        app.world_mut().spawn((PlayerEntity, PrimaryPlayer, frame, InRoomInstance(bob)));
         app.add_systems(Update, bonk_power_blocks);
         app.update();
 
@@ -2132,7 +2143,7 @@ mod tests {
         // SMALL Mary-O, wearing nothing. `Always` means always: the whole
         // difference from `Toward` is that the ladder does not get a vote, and a
         // test run at full power could not tell the two apart.
-        app.world_mut().spawn((PrimaryPlayer, frame));
+        app.world_mut().spawn((PlayerEntity, PrimaryPlayer, frame));
         app.add_systems(Update, bonk_power_blocks);
         app.update();
 
@@ -2224,6 +2235,7 @@ mod tests {
                 },
             });
         app.world_mut().spawn((
+            PlayerEntity,
             PrimaryPlayer,
             frame,
             ambition_platformer2d::characters::actor::BodyWallet { balance: 7 },
@@ -2292,8 +2304,133 @@ mod tests {
         );
     }
 
-    /// A head-bonk on ANY OTHER block (not a ?-block) pops nothing — the GeoId
-    /// match is specific, not "any block from below".
+    /// One hidden coin block in the activation room, and a second live room
+    /// with the same geometry. Returns the app, the block and the second room.
+    fn two_room_coin_block_app() -> (App, ae::GeoId, LiveRoomInstance) {
+        use crate::ldtk_vocabulary::{reactive_block, MaryOBlock, MaryOBlockLook};
+        use ambition_platformer2d::platformer::lifecycle::{spawn_live_room, ActiveSessionScope};
+
+        let block = reactive_block(
+            MaryOBlock::plain(MaryOBlockLook::Hidden),
+            "hidden_coin",
+            ae::Vec2::new(64.0, 64.0),
+            ae::Vec2::splat(32.0),
+        );
+        let struck_id = block.id.clone();
+        let world = ae::World::new(
+            "coin block fixture",
+            ae::Vec2::new(640.0, 480.0),
+            ae::Vec2::new(32.0, 400.0),
+            vec![block],
+        );
+        let mut app = App::new();
+        app.init_resource::<SpentPowerBlocks>();
+        let mut scope = ActiveSessionScope::default();
+        let session = scope.begin();
+        app.insert_resource(scope);
+        app.world_mut().spawn((
+            ambition_platformer2d::platformer::lifecycle::activation_room_root(session),
+            ae::RoomGeometry(world.clone()),
+        ));
+        app.world_mut().spawn((
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+        ));
+        let second = LiveRoomInstance::ACTIVATION.next();
+        spawn_live_room(app.world_mut(), second, ae::RoomGeometry(world));
+        app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        app.add_systems(Update, bonk_power_blocks);
+        (app, struck_id, second)
+    }
+
+    /// A seat's body in `room`, bonking `id` this tick, with an empty wallet.
+    /// The room is named: with two live rooms an unstamped body is in none.
+    fn bonking_seat(
+        id: &ae::GeoId,
+        slot: u8,
+        room: LiveRoomInstance,
+    ) -> (
+        ambition_platformer2d::platformer::lifecycle::InRoomInstance,
+        PlayerEntity,
+        PlayerBodyFrameOutput,
+        ambition_platformer2d::characters::actor::BodyWallet,
+        ambition_platformer2d::platformer::sim_id::SimId,
+    ) {
+        let mut frame = PlayerBodyFrameOutput::default();
+        frame.events.contacts.push(ae::collision_semantics::Contact {
+            // A hand-built fixture contact: nothing arrived at this surface.
+            impact_speed: 0.0,
+            involuntary: false,
+            kind: ContactKind::Head,
+            point: ae::Vec2::ZERO,
+            normal: ae::Vec2::new(0.0, 1.0),
+            toi: 0.0,
+            surface_velocity: ae::Vec2::ZERO,
+            source: ContactSource::Block {
+                kind: ae::BlockKind::Solid,
+                id: id.clone(),
+            },
+        });
+        (
+            ambition_platformer2d::platformer::lifecycle::InRoomInstance(room),
+            PlayerEntity,
+            frame,
+            ambition_platformer2d::characters::actor::BodyWallet { balance: 0 },
+            ambition_platformer2d::platformer::sim_id::SimId::player_slot(slot),
+        )
+    }
+
+    fn balance(app: &App, body: Entity) -> i32 {
+        app.world()
+            .get::<ambition_platformer2d::characters::actor::BodyWallet>(body)
+            .expect("the seat has a wallet")
+            .balance
+    }
+
+    /// Alice, the primary seat, and Bob, a second seat, bonk the same coin
+    /// block in one tick, each in their own live room. Each room's block is
+    /// spent and each seat is paid one coin. Alice's coin is the control: the
+    /// system ran for the primary seat in the same tick.
+    #[test]
+    fn a_second_seats_bonk_spends_and_pays_in_its_own_room() {
+        let (mut app, id, bobs_room) = two_room_coin_block_app();
+        let alice = app
+            .world_mut()
+            .spawn((bonking_seat(&id, 0, LiveRoomInstance::ACTIVATION), PrimaryPlayer))
+            .id();
+        let bob = app.world_mut().spawn(bonking_seat(&id, 1, bobs_room)).id();
+        app.update();
+        let spent = app.world().resource::<SpentPowerBlocks>();
+        assert_eq!(
+            (
+                spent.is_spent(LiveRoomInstance::ACTIVATION, &id),
+                spent.is_spent(bobs_room, &id),
+                balance(&app, alice),
+                balance(&app, bob),
+            ),
+            (true, true, 1, 1),
+            "(Alice's block spent, Bob's block spent, Alice's coins, Bob's coins)"
+        );
+    }
+
+    /// Two seats bonk one coin block in one room in one tick. The block pays
+    /// once, to the seat whose `SimId` sorts first, whatever order the bodies
+    /// were spawned in. Bob is spawned first, so query order would pay him.
+    #[test]
+    fn two_seats_bonking_one_block_pay_the_first_seat_by_sim_id() {
+        let (mut app, id, _) = two_room_coin_block_app();
+        let room = LiveRoomInstance::ACTIVATION;
+        let bob = app.world_mut().spawn(bonking_seat(&id, 1, room)).id();
+        let alice = app.world_mut().spawn(bonking_seat(&id, 0, room)).id();
+        app.update();
+        assert_eq!(
+            (balance(&app, alice), balance(&app, bob)),
+            (1, 0),
+            "(slot 0's coins, slot 1's coins): one payout, to the first seat by SimId"
+        );
+    }
+
     /// A head-bonk on ANY OTHER block (not a ?-block) pops nothing — the GeoId
     /// match is specific, not "any block from below".
     #[test]
@@ -2324,7 +2461,7 @@ mod tests {
                     id: ae::GeoId::anon(),
                 },
             });
-        app.world_mut().spawn((PrimaryPlayer, frame));
+        app.world_mut().spawn((PlayerEntity, PrimaryPlayer, frame));
         app.add_systems(Update, bonk_power_blocks);
         app.update();
         let count = app

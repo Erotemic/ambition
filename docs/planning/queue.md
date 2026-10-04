@@ -38,6 +38,9 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
 
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity
 
+**Status:** ✅ DONE 2026-10-03. Every road is closed; the standing prohibitions
+below still hold.
+
 **Owner:** deterministic identity / rollback architecture. The identity map is
 in [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
 The input-payload contract is in
@@ -60,7 +63,8 @@ ratchet. The peer-identity checkpoint that C03 and C05 waited on is discharged.
 `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
 show no row that differs between a fresh host and a veteran one: `SimTick`
 agreed from 2026-10-03 (road 2), and `AmbitionGameSave` from the same day
-(road 4). The one open road (3) needs a real two-peer session (`N2`).
+(road 4). Road 3 closed the same day with two peers in one process. Every
+road is closed.
 
 **Open roads:**
 
@@ -96,12 +100,26 @@ agreed from 2026-10-03 (road 2), and `AmbitionGameSave` from the same day
    stored ticks outlive a crossing. Why not a projection: it would drop the
    timeline. A P2P session (`N2`) must activate its session scope at the agreed
    start, which is the same edge.
-3. **The 25 unchecksummed float rows** (S7 in
-   [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)).
-   The state half is covered:
-   `two_local_histories_agree_about_the_sharp_unchecksummed_rows` compares the
-   11 reachable sharp rows across two hosts at every tick of five walks. The
-   timeline half needs a real two-peer session (`N2`).
+3. ✅ **CLOSED 2026-10-03: the unchecksummed float rows** (S7 in
+   [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md);
+   23 rows by the census script on 2026-10-03).
+   ⛔ The state half was a carrier count until 2026-10-03: all eleven sharp
+   rows are presence-probed, and a presence census returns `xor: 0`, so
+   `two_local_histories_agree_about_the_sharp_unchecksummed_rows` compared how
+   many carriers each had. It now strengthens them with a value probe
+   (`strengthen_the_sharp_rows`), and the values agree across the two hosts in
+   five walks. The timeline half: `game/ambition_app/tests/two_peers.rs` runs
+   two GGRS P2P peers in one process over an in-memory link three updates late
+   (`start_peer_session`, `loopback_pair`), with value probes on 22 float rows
+   (`lifecycle.room_visual` is a unit marker). Both peers agree on every probed
+   row at every confirmed frame to 240, with rollbacks, and GGRS reports no
+   desync. Poisons: a position changed on one peer is a desync in
+   `session_health`; a value outside the checksum is no desync, and only the
+   census names it. `two_peers_agree_in_the_rooms_that_carry_the_float_rows`
+   walks seven more rooms, and together the walks carry 21 of the 22 rows; the
+   22nd (`MountedSize`) has no production writer. A peer-session room crossing
+   is netcode's open question, not this road's (the lifecycle commit runs only
+   under a local sync test).
 4. ✅ **CLOSED 2026-10-03: the save belongs to the experience that plays it**
    (`Q129`, decided the same day: shared durable state is peer state). Measured: the save
    differed in one field, `flags`. The veteran's Sanic and Mary-O sessions had
@@ -757,8 +775,69 @@ second authoring source.
   refused a landing pad that `LdtkProject::validate` allows and reported half a
   target twice. It now checks only that a complete target names a room and a
   zone that exist (`a_landing_pad_is_allowed_and_half_a_target_is_refused_once`).
-  The other cross-reference checks in the file were not compared against an
-  owner in that pass.
+  ✅ 2026-10-03, the rest of the LoadingZone rules, compared with their owners:
+  - Measured first: the validator had its own scan of the `LoadingZone`
+    fields, and it trimmed a target that the converter did not trim. With
+    `target_room = "scroll_lab "` the validator reported nothing and the room
+    set dropped the link: a dead door that validation accepted.
+  - The LDtk owner has the one text rule now (`field_text`: trimmed, blank is
+    absent). `LdtkProject::validate` and `collect_room_links` both use it.
+  - A blank zone id and a second zone with one id in an area are the LDtk
+    owner's errors now. `validate` gates each room set, so each LDtk game gets
+    them, not only this validator's game.
+  - `rooms::unresolved_links` is the one judge of "this link names a room and
+    a zone that exist". `RoomSet::try_from_parts` warns of an unknown room and
+    `layout_warnings` of an unknown zone, both from it. A room set cannot
+    refuse such a link: measured, a partial set keeps the exits of its rooms
+    (one room alone, and the engine's 59-room world, whose 4 links name rooms
+    that only the full game adds).
+  - The validator holds the complete game, so there each unresolved link is
+    an error. It reads the rooms and links that the runtime builds
+    (`to_room_parts`), and its own scan is deleted.
+  ✅ 2026-10-03, the NpcSpawn ids, same class. The validator judged
+  `character_id`, `brain_override` and `dialogue_id` trimmed, and
+  `convert_npc_spawn` gave the runtime the raw values (measured:
+  `"npc_ai_slop "`, `" guard "`). An unknown character is a body with no
+  identity, and an unknown preset is a panic when the room loads. The
+  converter reads the three with `field_text` now
+  (`an_npc_spawn_carries_its_trimmed_ids`).
+  ✅ 2026-10-04, the quest checks' boss and encounter ids. Measured on the
+  shipped world: the validator slugged the display name of each `BossSpawn`,
+  and for 9 of the 11 bosses that is not the id that the boss reports when it
+  is defeated (`system_boss` against `clockwork_warden`, `t_rex` against
+  `trex_boss`). A quest that named the reported id was refused, and a quest
+  that named the slug was accepted and could not complete. The two shipped
+  boss quests name the only two bosses for which the ids agree.
+  - `ambition_boss_encounter::behavior::authored_boss_behavior` is the one
+    resolution from a placement to its behaviour. The boss constructor, the
+    room boss-art keys and the validator use it.
+  - The boss looted flag is keyed by the placement id, as
+    `ambition_boss_encounter::rewards` keys the chest. The validator derived
+    it from the slug.
+  - The encounter ids and their looted flags are those of the loader
+    (`load_encounter_specs_from_rooms`), which builds only the first trigger
+    of a room. The validator's scan named each trigger.
+  - Witnesses: `a_quest_names_a_boss_by_the_id_its_defeat_reports`,
+    `a_boss_looted_flag_is_keyed_by_its_placement`. `check_quest_steps` takes
+    the quests as an argument, so a test can plant a step.
+  ✅ 2026-10-04, the rest of the quest targets. The flags of NPC talk,
+  switches and `flag:` pickups, and the ids of NPCs, pickups and rooms, are
+  read from the composed rooms (`QuestTargets::of`), each made by the function
+  the runtime makes it with (`npc_talk_dialogue_id`, `SwitchActivation::
+  parse_custom`, `PickupKind::StoryFlag`). Measured on the shipped world before
+  the change: the sets were equal (198 flags, 172 NPCs, 38 pickups, 72 rooms)
+  but for one flag that the scan did not know, `npc_generic_npc_talked`, which
+  a talk to an NPC with no dialogue sets. The validator has no scan of the
+  LDtk entities for a quest target now; `authored_flag_ids`,
+  `authored_npc_ids`, `authored_pickup_ids` and `authored_entity_iids` are
+  deleted. <!-- cite-ok: records deleted functions -->
+  Open: `QuestStepCondition::ItemCollected` has no producer of its event in
+  the tree (a search for `ItemCollected` over `.rs`, `.ron` and `.yarn`), and
+  no shipped quest uses it. The cutscene bindings still read `active_area_ids`
+  from the project; that is the level-by-level read the two-per-room rule
+  needs.
+  `scripts/check_world_graph_is_navigable.py` is a third reader of the zone
+  targets (it does not trim, so it is stricter than the engine).
 
 **Open work:**
 
@@ -1086,7 +1165,7 @@ moveset derived from an action set reaches `1.1 × reach_px` (28 gives 30.8), so
 - `tick_smash` sets its three distance bands from that reach each tick
   (`SmashCfg::with_hit_band`). The bands in a `SmashCfg` are only those of a
   body with no attack move (`NO_ATTACK_MOVE_HIT_BAND`, 36 px).
-- `BrainProfile::smash_hit_band` is deleted, with its four authored rows.
+- `BrainProfile::smash_hit_band` is deleted, with its four authored rows. <!-- cite-ok: records a deleted field -->
 - Witnesses: `the_hit_band_is_the_reach_the_snapshot_states` (combat),
   `a_smash_brain_swings_where_the_hitbox_of_its_move_reaches` (the acceptance
   test: two bodies that differ only in one hitbox) and

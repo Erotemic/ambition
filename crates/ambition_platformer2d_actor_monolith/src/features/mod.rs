@@ -56,7 +56,9 @@ pub(crate) mod enemies;
 pub(crate) mod npcs;
 /// The NPC talk flag and the provocation recorder; the provocation FLAG itself is
 /// `crate::fate_flags::npc_flag_id`, below both features and construction.
-pub use npcs::{npc_talked_flag, record_npc_provocations, NpcProvocationChanged};
+pub use npcs::{
+    npc_talk_dialogue_id, npc_talked_flag, record_npc_provocations, NpcProvocationChanged,
+};
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
 // None of them is player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx

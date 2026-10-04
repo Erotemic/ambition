@@ -103,18 +103,23 @@ impl RoomSet {
             by_id.insert(room.id.clone(), (index, node));
         }
 
-        // Unknown rooms are reported here. Unknown zones are owned by
-        // `layout_warnings`, which checks graph/zone consistency.
+        // A link to a room that is not in this set is dropped with a warning,
+        // because a partial set keeps the exits of its rooms. `unresolved_links`
+        // is the one judge of which end is unknown. A missing ZONE is told by
+        // `layout_warnings`, which the session prints.
+        for unresolved in unresolved_links(&rooms, &links) {
+            if matches!(
+                unresolved.end,
+                UnresolvedEnd::SourceRoom | UnresolvedEnd::TargetRoom
+            ) {
+                eprintln!("room graph warning: {unresolved}");
+            }
+        }
         for link in &links {
             let Some((_, from_node)) = by_id.get(&link.from_room).copied() else {
-                eprintln!(
-                    "room graph warning: unknown source room '{}'",
-                    link.from_room
-                );
                 continue;
             };
             let Some((_, to_node)) = by_id.get(&link.to_room).copied() else {
-                eprintln!("room graph warning: unknown target room '{}'", link.to_room);
                 continue;
             };
             graph.add_edge(
@@ -511,22 +516,21 @@ impl RoomSet {
             }
         }
 
+        // A graph edge whose zone is missing. `unresolved_links` is the one
+        // judge. Each edge of the graph is between two rooms of this set, so
+        // only a zone end can be unresolved here.
+        for unresolved in unresolved_links(&self.rooms, &self.canonical_links()) {
+            warnings.push(format!("room graph: {unresolved}"));
+        }
+
         for edge in self.graph.edge_references() {
             let source_room = edge.source().index();
             let target_room = edge.target().index();
             let weight = edge.weight();
             if self.zone_by_id(source_room, &weight.from_zone).is_none() {
-                warnings.push(format!(
-                    "room graph edge from room {source_room} references missing source zone '{}'",
-                    weight.from_zone,
-                ));
                 continue;
             }
             let Some(target_zone) = self.zone_by_id(target_room, &weight.to_zone) else {
-                warnings.push(format!(
-                    "room graph edge into room {target_room} references missing target zone '{}'",
-                    weight.to_zone,
-                ));
                 continue;
             };
             let target_world = &self.rooms[target_room].world;
@@ -712,6 +716,67 @@ mod room_identity_tests {
         assert_eq!(built.activation(), 1);
         assert_eq!(built.start(), 1);
         assert_eq!(built.activation_spec().id, "cellar");
+    }
+
+    /// `unresolved_links` names each end of a link that names nothing, and it
+    /// passes a link whose two ends exist.
+    #[test]
+    fn an_unresolved_link_names_the_end_that_does_not_resolve() {
+        let world = || {
+            ae::World::new(
+                "w".to_string(),
+                ae::Vec2::new(320.0, 240.0),
+                ae::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            )
+        };
+        let room = |id: &str, zone: &str| {
+            let mut room = RoomSpec::new(id, world());
+            room.loading_zones.push(LoadingZone {
+                id: zone.to_string(),
+                name: zone.to_string(),
+                activation: LoadingZoneActivation::Door,
+                aabb: ae::Aabb::new(ae::Vec2::new(40.0, 40.0), ae::Vec2::new(16.0, 32.0)),
+            });
+            room
+        };
+        let rooms = vec![room("hub", "east"), room("cellar", "stairs")];
+        let link = |from_room: &str, from_zone: &str, to_room: &str, to_zone: &str| RoomLink {
+            from_room: from_room.to_string(),
+            from_zone: from_zone.to_string(),
+            to_room: to_room.to_string(),
+            to_zone: to_zone.to_string(),
+            bidirectional: true,
+        };
+        let links = vec![
+            link("hub", "east", "cellar", "stairs"),
+            link("attic", "hatch", "hub", "east"),
+            link("hub", "west", "cellar", "stairs"),
+            link("hub", "east", "garden", "gate"),
+            link("hub", "east", "cellar", "ladder"),
+        ];
+        let ends: Vec<(usize, UnresolvedEnd)> = unresolved_links(&rooms, &links)
+            .into_iter()
+            .map(|unresolved| {
+                let index = links.iter().position(|link| *link == unresolved.link).unwrap();
+                (index, unresolved.end)
+            })
+            .collect();
+        assert_eq!(
+            ends,
+            vec![
+                (1, UnresolvedEnd::SourceRoom),
+                (2, UnresolvedEnd::SourceZone),
+                (3, UnresolvedEnd::TargetRoom),
+                (4, UnresolvedEnd::TargetZone),
+            ],
+            "the resolved link is not reported, and each other link names its one bad end"
+        );
+        assert_eq!(
+            unresolved_links(&rooms, &links)[2].to_string(),
+            "LoadingZone 'hub:east' targets unknown room 'garden'",
+            "the message names the authored zone and the room it could not find"
+        );
     }
 
     /// Two rooms under one id give two answers to "which room is this".

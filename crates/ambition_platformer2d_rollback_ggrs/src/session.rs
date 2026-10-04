@@ -564,6 +564,34 @@ pub fn install_rebased_sync_test_session(
     // proves that `FrameZeroEligibility::check` ran before the caller got here.
     eligibility: FrameZeroEligibility,
 ) {
+    declare_frame_zero(world, eligibility);
+    install_session_with_ownership(
+        world,
+        session,
+        RollbackSessionOwnership::LocalSyncTest { settings, owner },
+    );
+}
+
+/// Install a session that starts a NEW timeline at the live world, as frame
+/// zero: a P2P session whose peers agreed to start here (netcode N2). It is
+/// [`install_rebased_sync_test_session`] for a session this host does not
+/// own, so its ownership is `External`.
+///
+/// Each peer must call this at the same point of the same world. A session
+/// that continues a timeline the peers already share takes
+/// [`install_session`], which does not rebase.
+pub fn install_rebased_session(
+    world: &mut World,
+    session: AmbitionGgrsSession,
+    eligibility: FrameZeroEligibility,
+) {
+    declare_frame_zero(world, eligibility);
+    install_session_with_ownership(world, session, RollbackSessionOwnership::External);
+}
+
+/// Make the live world frame zero of a new timeline: the frame counters, the
+/// input authority, the carrier order and the GGRS clock.
+fn declare_frame_zero(world: &mut World, eligibility: FrameZeroEligibility) {
     // The token is a preflight, not a capability. The caller can change the
     // world after the check (the lifecycle road rebuilds a room between check
     // and install), so take the census again here, before the first
@@ -620,12 +648,6 @@ pub fn install_rebased_sync_test_session(
     // GgrsTimePlugin derives deterministic elapsed time from RollbackFrameCount by calling
     // Time::advance_to.
     world.insert_resource(Time::<GgrsTime>::new_with(GgrsTime));
-
-    install_session_with_ownership(
-        world,
-        session,
-        RollbackSessionOwnership::LocalSyncTest { settings, owner },
-    );
 }
 
 /// Install any already-constructed GGRS session behind Ambition's exact
@@ -636,9 +658,7 @@ pub fn install_rebased_sync_test_session(
 /// installed here keeps the frame counters and carrier order as they are,
 /// because rebasing under a session that continues another timeline would
 /// change frames already agreed. If the P2P road starts a new synchronised
-/// timeline (a negotiated start tick), it needs the shape of
-/// [`install_rebased_sync_test_session`], including
-/// [`rebase_rollback_carrier_order`].
+/// timeline (a negotiated start tick), it takes [`install_rebased_session`].
 pub fn install_session(world: &mut World, session: AmbitionGgrsSession) {
     install_session_with_ownership(world, session, RollbackSessionOwnership::External);
 }
@@ -914,6 +934,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             (
                 enforce_session_contract.before(RunGgrsSystems),
                 clear_historical_replay.after(RunGgrsSystems),
+                record_peer_events.after(RunGgrsSystems),
                 // Track B: execute a confirmed deferred lifecycle op in the exclusive world and
                 // rebase, after the advance batch is done.
                 crate::lifecycle_commit::commit_confirmed_lifecycle
@@ -985,16 +1006,35 @@ fn capture_latched_local_input(
 /// Every handle is one row of [`PendingSeatInputs`], latched by the device layer
 /// and drained when GGRS asks. A handle nobody feeds reads neutral, exactly as a
 /// pad nobody plugged in should.
+///
+/// ⛔ The first frame of a peer timeline carries no input, on every peer. With
+/// no frame confirmed, GGRS lets a session run `max_prediction` frames past
+/// frame 0, so it saves `max_prediction + 1` frames, and bevy_ggrs keeps
+/// `max_prediction` snapshots. A peer that synchronized first runs that far
+/// ahead, evicts frame 0, and a wrong prediction of a remote's frame-0 input
+/// then rolls back to a frame with no snapshot: bevy_ggrs panics (measured
+/// 2026-10-03, `two_peers`). GGRS predicts a remote's frame-0 input as the
+/// default, so a frame 0 whose every input is the default is never rolled
+/// back to. A sync test has no remote and is not affected.
 fn publish_local_inputs(
     pending: Res<PendingSeatInputs>,
     local_players: Res<LocalPlayers>,
+    // `Option`: with no GGRS frame counter, nothing is stepping a timeline,
+    // so this is not the first frame of one.
+    frame: Option<Res<RollbackFrameCount>>,
+    ownership: Option<Res<RollbackSessionOwnership>>,
     mut commands: Commands,
 ) {
+    let first_peer_frame = frame.is_some_and(|frame| frame.0 == 0)
+        && matches!(ownership.as_deref(), Some(RollbackSessionOwnership::External));
     // One table answers for every handle.
     let inputs = local_players
         .0
         .iter()
-        .map(|&handle| (handle, pending.get(handle)))
+        .map(|&handle| {
+            let input = if first_peer_frame { ControlFrame::default() } else { pending.get(handle) };
+            (handle, input)
+        })
         .collect();
     commands.insert_resource(LocalInputs::<AmbitionGgrsConfig>(inputs));
 }
@@ -1224,6 +1264,49 @@ fn record_sync_test_mismatch(
         generation: authority.generation(),
         reason: format!("GGRS sync-test checksum mismatch at frames {frames:?}"),
     });
+}
+
+/// Read what a P2P session reports since the last frame.
+///
+/// GGRS queues these events until they are read, and a desync is reported
+/// only there: two peers whose checksums differ at a frame. It is recorded on
+/// the authority the same way a sync-test mismatch is, so `session_health`
+/// reports it. A disconnect is recorded in the history; GGRS goes on without
+/// that peer.
+fn record_peer_events(
+    session: Option<ResMut<AmbitionGgrsSession>>,
+    authority: Option<ResMut<ActiveRollbackAuthority>>,
+    history: Option<ResMut<RollbackDiagnosticHistory>>,
+) {
+    let Some(mut session) = session else {
+        return;
+    };
+    // Not a change to the session: reading its events must not mark it changed.
+    let Session::P2P(p2p) = session.bypass_change_detection() else {
+        return;
+    };
+    let events: Vec<_> = p2p.events().collect();
+    let (Some(mut authority), Some(mut history)) = (authority, history) else {
+        return;
+    };
+    for event in events {
+        let reason = match event {
+            ggrs::GgrsEvent::DesyncDetected { frame, local_checksum, remote_checksum, addr } => {
+                authority.record_mismatch([frame]);
+                format!(
+                    "GGRS peer checksum mismatch at frame {frame}: local {local_checksum:#x}, \
+                     {addr} {remote_checksum:#x}"
+                )
+            }
+            ggrs::GgrsEvent::Disconnected { addr } => format!("GGRS peer {addr} disconnected"),
+            _ => continue,
+        };
+        history.record(RollbackDiagnostic {
+            scope: authority.owner(),
+            generation: authority.generation(),
+            reason,
+        });
+    }
 }
 
 /// Enforce the live timeline's contract against the world it actually governs.

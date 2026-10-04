@@ -27,7 +27,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::actors::session::reset::PerLiveRoom;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
-use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::platformer::markers::PlayerEntity;
 
 use crate::SUPER_SANIC_CHARACTER_ID;
 
@@ -125,114 +125,123 @@ pub fn break_monitor_boxes(
             &mut ae::MotionModel,
             Option<&crate::ball_dash::Rolling>,
             Option<&mut ambition_platformer2d::characters::actor::BodyWallet>,
+            Option<&ambition_platformer2d::platformer::sim_id::SimId>,
         ),
-        With<PrimaryPlayer>,
+        // Every body of the player population breaks monitors, each in its
+        // own live room, so a second seat breaks them too.
+        With<PlayerEntity>,
     >,
 ) {
-    let Ok((player, kin, worn, mut model, rolling, mut wallet)) = players.single_mut()
-    else {
-        return;
-    };
-    let (Some(room), Some(room_geometry)) = (geometry.room_of(player), geometry.of(player)) else {
-        return;
-    };
-    let mut vfx = vfx.for_room(Some(room));
-    let rolling = rolling.is_some();
-    let falling = kin.vel.y > 0.0;
-    if !rolling && !falling {
-        return;
-    }
-    let p = kin.aabb();
-    // Where a rolling body will be by next tick, plus a little: see `BREAK_REACH`.
-    let reach = kin.vel.abs() * time.sim_dt() * 2.0 + ae::Vec2::splat(BREAK_REACH);
-    for block in &room_geometry.0.blocks {
-        if block.name.starts_with(BREAKABLE_WALL) && !spent.is_broken(room, &block.name) {
-            let b = block.aabb;
-            let near = p.min.x - reach.x < b.max.x
-                && p.max.x + reach.x > b.min.x
-                && p.min.y - reach.y < b.max.y
-                && p.max.y + reach.y > b.min.y;
-            if rolling && near {
-                spent.spend(room, &block.name);
-                let center = (b.min + b.max) * 0.5;
-                vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
-                    pos: center,
-                    count: 24,
-                    speed: 220.0,
-                    color: [0.45, 0.62, 0.70, 1.0],
-                    kind: ambition_platformer2d::vfx::ParticleKind::Shard,
-                });
-                sfx.write_from(
-                    crate::provider::SANIC_EXPERIENCE,
-                    ambition_platformer2d::sfx::SfxMessage::Play {
-                        id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_MONITOR),
+    // Two bodies can reach one monitor in one tick. The first breaks it and
+    // takes its grant, so the order is a gameplay decision and a rewind must
+    // give the same order: stable `SimId`, not query order.
+    let breakers = ambition_platformer2d::platformer::sim_selection::in_deterministic_order(
+        players.iter_mut(),
+        |_| 0.0,
+        |(_, _, _, _, _, _, id)| *id,
+    );
+    for (player, kin, worn, mut model, rolling, mut wallet, _) in breakers {
+        let (Some(room), Some(room_geometry)) = (geometry.room_of(player), geometry.of(player)) else {
+            continue;
+        };
+        let mut vfx = vfx.for_room(Some(room));
+        let rolling = rolling.is_some();
+        let falling = kin.vel.y > 0.0;
+        if !rolling && !falling {
+            continue;
+        }
+        let p = kin.aabb();
+        // Where a rolling body will be by next tick, plus a little: see `BREAK_REACH`.
+        let reach = kin.vel.abs() * time.sim_dt() * 2.0 + ae::Vec2::splat(BREAK_REACH);
+        for block in &room_geometry.0.blocks {
+            if block.name.starts_with(BREAKABLE_WALL) && !spent.is_broken(room, &block.name) {
+                let b = block.aabb;
+                let near = p.min.x - reach.x < b.max.x
+                    && p.max.x + reach.x > b.min.x
+                    && p.min.y - reach.y < b.max.y
+                    && p.max.y + reach.y > b.min.y;
+                if rolling && near {
+                    spent.spend(room, &block.name);
+                    let center = (b.min + b.max) * 0.5;
+                    vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
                         pos: center,
-                    },
-                );
-            }
-            continue;
-        }
-        if !block.name.starts_with(MONITOR_PREFIX) || spent.is_broken(room, &block.name) {
-            continue;
-        }
-        let b = block.aabb;
-        let overlap_x = p.min.x < b.max.x && p.max.x > b.min.x;
-        let overlap_y = p.min.y < b.max.y && p.max.y > b.min.y;
-        let feet = p.max.y;
-        let stomp =
-            falling && overlap_x && feet >= b.min.y - STOMP_BAND && feet <= b.min.y + STOMP_BAND;
-        let roll = rolling && overlap_x && overlap_y;
-        if !(stomp || roll) {
-            continue;
-        }
-        spent.spend(room, &block.name);
-        let center = (b.min + b.max) * 0.5;
-        vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
-            pos: center,
-            count: 16,
-            speed: 170.0,
-            color: [0.55, 0.75, 0.95, 1.0],
-            kind: ambition_platformer2d::vfx::ParticleKind::Shard,
-        });
-        // The monitor's own pop. H2/I3: a monitor is a prop in this course,
-        // so the sound is the course's, not the host's. The breaker's own cue
-        // (roll, stomp bounce) is emitted by the breaker.
-        sfx.write_from(
-            crate::provider::SANIC_EXPERIENCE,
-            ambition_platformer2d::sfx::SfxMessage::Play {
-                id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_MONITOR),
-                pos: center,
-            },
-        );
-        match block.name.as_str() {
-            name if name.starts_with(RING_MONITOR) => {
-                if let Some(wallet) = wallet.as_deref_mut() {
-                    wallet.add(RING_MONITOR_RINGS);
+                        count: 24,
+                        speed: 220.0,
+                        color: [0.45, 0.62, 0.70, 1.0],
+                        kind: ambition_platformer2d::vfx::ParticleKind::Shard,
+                    });
+                    sfx.write_from(
+                        crate::provider::SANIC_EXPERIENCE,
+                        ambition_platformer2d::sfx::SfxMessage::Play {
+                            id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_MONITOR),
+                            pos: center,
+                        },
+                    );
                 }
+                continue;
             }
-            name if name.starts_with(SPEED_MONITOR) => {
-                // The shoes are a boost on the momentum the body rides: the
-                // kernel folds it into the authored params and spends it, so
-                // a second pair only restarts the clock. The super form
-                // authors its own speed, so it takes no shoes.
-                if worn.id() != SUPER_SANIC_CHARACTER_ID {
-                    if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *model {
-                        momentum.boost = Some(ae::MomentumBoost {
-                            top_speed_scale: SPEED_SHOES_TOP_SPEED_FACTOR,
-                            ground_accel_scale: SPEED_SHOES_ACCEL_FACTOR,
-                            remaining_s: SPEED_SHOES_SECONDS,
-                        });
+            if !block.name.starts_with(MONITOR_PREFIX) || spent.is_broken(room, &block.name) {
+                continue;
+            }
+            let b = block.aabb;
+            let overlap_x = p.min.x < b.max.x && p.max.x > b.min.x;
+            let overlap_y = p.min.y < b.max.y && p.max.y > b.min.y;
+            let feet = p.max.y;
+            let stomp =
+                falling && overlap_x && feet >= b.min.y - STOMP_BAND && feet <= b.min.y + STOMP_BAND;
+            let roll = rolling && overlap_x && overlap_y;
+            if !(stomp || roll) {
+                continue;
+            }
+            spent.spend(room, &block.name);
+            let center = (b.min + b.max) * 0.5;
+            vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
+                pos: center,
+                count: 16,
+                speed: 170.0,
+                color: [0.55, 0.75, 0.95, 1.0],
+                kind: ambition_platformer2d::vfx::ParticleKind::Shard,
+            });
+            // The monitor's own pop. H2/I3: a monitor is a prop in this course,
+            // so the sound is the course's, not the host's. The breaker's own cue
+            // (roll, stomp bounce) is emitted by the breaker.
+            sfx.write_from(
+                crate::provider::SANIC_EXPERIENCE,
+                ambition_platformer2d::sfx::SfxMessage::Play {
+                    id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_MONITOR),
+                    pos: center,
+                },
+            );
+            match block.name.as_str() {
+                name if name.starts_with(RING_MONITOR) => {
+                    if let Some(wallet) = wallet.as_deref_mut() {
+                        wallet.add(RING_MONITOR_RINGS);
                     }
                 }
-            }
-            other => {
-                // An authored monitor with no grant is a level-authoring bug.
-                debug_assert!(false, "monitor block '{other}' has no authored grant");
-                bevy::log::error!(
-                    target: "ambition_platformer2d::sanic",
-                    "monitor block '{other}' has no authored grant; breaking it \
-                     does nothing"
-                );
+                name if name.starts_with(SPEED_MONITOR) => {
+                    // The shoes are a boost on the momentum the body rides: the
+                    // kernel folds it into the authored params and spends it, so
+                    // a second pair only restarts the clock. The super form
+                    // authors its own speed, so it takes no shoes.
+                    if worn.id() != SUPER_SANIC_CHARACTER_ID {
+                        if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *model {
+                            momentum.boost = Some(ae::MomentumBoost {
+                                top_speed_scale: SPEED_SHOES_TOP_SPEED_FACTOR,
+                                ground_accel_scale: SPEED_SHOES_ACCEL_FACTOR,
+                                remaining_s: SPEED_SHOES_SECONDS,
+                            });
+                        }
+                    }
+                }
+                other => {
+                    // An authored monitor with no grant is a level-authoring bug.
+                    debug_assert!(false, "monitor block '{other}' has no authored grant");
+                    bevy::log::error!(
+                        target: "ambition_platformer2d::sanic",
+                        "monitor block '{other}' has no authored grant; breaking it \
+                         does nothing"
+                    );
+                }
             }
         }
     }
@@ -330,6 +339,103 @@ mod tests {
             (removed(alices), removed(bobs)),
             (Vec::<String>::new(), vec![SPEED_MONITOR.to_string()]),
             "(Alice's room, Bob's room): each room subtracts its own broken monitors"
+        );
+    }
+
+    /// Two live rooms, each with one ring monitor at the same place. Returns
+    /// the app and the second room.
+    fn two_room_monitor_app() -> (App, LiveRoomInstance) {
+        let world = ae::World::new(
+            "monitor fixture",
+            ae::Vec2::new(640.0, 480.0),
+            ae::Vec2::new(32.0, 400.0),
+            vec![ae::Block::solid(RING_MONITOR, ae::Vec2::new(100.0, 200.0), ae::Vec2::splat(32.0))],
+        );
+        let mut app = App::new();
+        app.init_resource::<SpentMonitors>();
+        app.init_resource::<ambition_platformer2d::time::WorldTime>();
+        app.add_message::<ambition_platformer2d::vfx::VfxInRoom>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        ambition_platformer2d::session::insert_live_room_component(app.world_mut(), ae::RoomGeometry(world.clone()));
+        let second = LiveRoomInstance::ACTIVATION.next();
+        spawn_live_room(app.world_mut(), second, ae::RoomGeometry(world));
+        app.add_systems(Update, break_monitor_boxes);
+        (app, second)
+    }
+
+    /// A seat's body in `room`, falling onto the monitor's lid this tick,
+    /// with an empty wallet.
+    fn landing_seat(
+        slot: u8,
+        room: LiveRoomInstance,
+    ) -> impl Bundle {
+        (
+            ambition_platformer2d::platformer::lifecycle::InRoomInstance(room),
+            PlayerEntity,
+            // Feet at y 204, inside the stomp band of the lid at y 200.
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(116.0, 184.0),
+                vel: ae::Vec2::new(0.0, 120.0),
+                size: ae::Vec2::new(20.0, 40.0),
+                facing: 1.0,
+            },
+            ambition_platformer2d::characters::actor::WornCharacter::new("sanic"),
+            ae::MotionModel::default(),
+            ambition_platformer2d::characters::actor::BodyWallet { balance: 0 },
+            ambition_platformer2d::platformer::sim_id::SimId::player_slot(slot),
+        )
+    }
+
+    fn rings(app: &App, body: Entity) -> i32 {
+        app.world()
+            .get::<ambition_platformer2d::characters::actor::BodyWallet>(body)
+            .expect("the seat has a wallet")
+            .balance
+    }
+
+    /// Alice, the primary seat, and Bob, a second seat, land on the ring
+    /// monitor of their own live rooms in one tick. Each room's monitor breaks
+    /// and each seat takes the rings. Alice's half is the control: the system
+    /// ran for the primary seat in the same tick.
+    #[test]
+    fn a_second_seat_breaks_the_monitor_of_its_own_room() {
+        let (mut app, bobs_room) = two_room_monitor_app();
+        let alice = app
+            .world_mut()
+            .spawn((
+                landing_seat(0, LiveRoomInstance::ACTIVATION),
+                ambition_platformer2d::platformer::markers::PrimaryPlayer,
+            ))
+            .id();
+        let bob = app.world_mut().spawn(landing_seat(1, bobs_room)).id();
+        app.update();
+        let spent = app.world().resource::<SpentMonitors>();
+        assert_eq!(
+            (
+                spent.is_broken(LiveRoomInstance::ACTIVATION, RING_MONITOR),
+                spent.is_broken(bobs_room, RING_MONITOR),
+                rings(&app, alice),
+                rings(&app, bob),
+            ),
+            (true, true, RING_MONITOR_RINGS, RING_MONITOR_RINGS),
+            "(Alice's monitor broken, Bob's monitor broken, Alice's rings, Bob's rings)"
+        );
+    }
+
+    /// Two seats land on one monitor in one room in one tick. It pays once, to
+    /// the seat whose `SimId` sorts first, whatever order the bodies were
+    /// spawned in. Bob is spawned first, so query order would pay him.
+    #[test]
+    fn two_seats_on_one_monitor_pay_the_first_seat_by_sim_id() {
+        let (mut app, _) = two_room_monitor_app();
+        let room = LiveRoomInstance::ACTIVATION;
+        let bob = app.world_mut().spawn(landing_seat(1, room)).id();
+        let alice = app.world_mut().spawn(landing_seat(0, room)).id();
+        app.update();
+        assert_eq!(
+            (rings(&app, alice), rings(&app, bob)),
+            (RING_MONITOR_RINGS, 0),
+            "(slot 0's rings, slot 1's rings): one payout, to the first seat by SimId"
         );
     }
 

@@ -1328,8 +1328,9 @@ catalog file. No plural bark collection exists, because no content asks for one.
 ### SESSION-EDGE-STATE — a session starts from nothing the last one left
 
 **State:** a room-scoped spawn takes its session as an argument, so the
-session retirement ends it; seven resources, the declared message channels and
-the per-attempt ledgers are reset at the session edge (2026-10-04). Three host
+session retirement ends it; seven resources, the declared message channels,
+the presentation channels (not the sound), the camera and the per-attempt
+ledgers are reset at the session edge (2026-10-04). Three host
 constants are recorded, not reset. Open: a CHANGED bag across the edge.
 
 **An entity that a session spawned as it ran outlived the session
@@ -1358,6 +1359,43 @@ place, through the title) gave the same result.
 - ⚠ A bundle can still name `RoomScopedEntity` by hand in a plain `spawn`. The
   witness below asks a running world for each room-scoped entity with no
   session owner; no source guard forbids the shape.
+
+**A presentation effect crossed the edge (2026-10-04, review finding).** The
+first repair of the message channels kept each channel that presentation
+reads, on the ground that no simulation reads one. That used the rollback
+class of a channel (`for_each_presentation_effect`) as its lifetime across a
+session. Measured on the shell host: a session that asks for a camera shake, a
+finishing zoom and an effect in room 0 on each update was replaced, and at the
+activation frame of the next session two of its effects were on the bus
+(`VfxInRoom` names a `LiveRoomInstance`, and the first room of each session
+has the same one) and the camera of the next session was at 6 px of shake and
+a full zoom.
+
+- Each presentation channel now ends at the activation
+  (`end_presentation_effects_with_their_session`). The default for a new
+  family is that it ends. One channel crosses, with its reason stated there:
+  `OwnedSfxMessage`, whose reader plays a sound only for the live audio owner.
+- The camera rests at the activation (`rest_the_camera_on_activation`). The
+  appliers run before the activation in the update that replaces a session
+  (measured by a poison), and a motion decays over time, so emptying the two
+  request channels is not sufficient.
+- Witness:
+  `shell_host_lifecycle::an_effect_that_a_session_asked_for_is_not_presented_by_the_next`
+  (two successions; premises: the old session's camera moves, and its effect
+  and a sound are on the bus), and
+  `external_effects::tests::only_the_sound_channel_crosses_a_session_activation`.
+  Poisons: each family kept (2 effects on the bus at frame 0, and the unit arm
+  names seven families); the camera rest not registered (the camera is at
+  (6.0, 1.0) at frame 0); the sound not kept (the bus control is red).
+- ⚠ My first fixture did not reach the edge, and its bus prediction missed: a
+  message that a test writes between two updates is read in the old session's
+  own frame, because a replacement takes effect on the second update. The
+  fixture writes in `PreUpdate`, where a rollback host releases the confirmed
+  effects of the last tick.
+- ⚠ The reason I gave for keeping the sound did not reproduce. With the sound
+  channel emptied too, the whole of `app_it` fails only the bus control of the
+  new arm. The channel stays kept because its reader refuses a sound of a
+  session that ended; no test shows that a sound must cross.
 
 **Two resources of a room crossed the edge (same day).** With the entities
 gone, `PortalFrameHistory` held one frame of the old session at tick 0 (a fresh
@@ -1421,9 +1459,8 @@ restart) retires one session and activates the next in one frame.
   and no suite fails. So this repair is a structural guarantee and not the fix
   of an observed misread. The activation now empties every declared channel
   (`lifecycle::session_messages`), from the same declaration, so there is one
-  list. A channel that presentation reads is kept (`for_each_presentation_effect`
-  is that list): the first version took the sound of the menu row that started
-  the session.
+  list. ⚠ A presentation channel was kept until the same day's review; see
+  "A presentation effect crossed the edge" below.
 
 - **Three more peer-compared resources crossed the edge** (a census at each tick
   from 0, same day). Two hosts with EQUAL saves on the shell host under

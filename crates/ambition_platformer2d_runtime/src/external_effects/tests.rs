@@ -609,3 +609,44 @@ mod finish_zoom {
         assert_eq!(m.presented_closeness(), 0.0, "a draw is not a finish");
     }
 }
+
+/// Each presentation family ends at a session activation, and only the sound
+/// channel crosses. The families are those of
+/// [`for_each_presentation_effect`], so a new family ends by default and this
+/// arm names it if someone keeps it.
+#[test]
+fn only_the_sound_channel_crosses_a_session_activation() {
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionMessageChannels;
+
+    struct Lifetimes(Vec<(&'static str, bool)>);
+    impl PresentationEffectVisitor for Lifetimes {
+        fn visit<M: Message>(&mut self, app: &mut App) {
+            let ends = app.world().resource::<SessionMessageChannels>().clears::<M>();
+            self.0.push((std::any::type_name::<M>(), ends));
+        }
+    }
+
+    let mut app = App::new();
+    end_presentation_effects_with_their_session(&mut app);
+    let mut lifetimes = Lifetimes(Vec::new());
+    for_each_presentation_effect(&mut app, &mut lifetimes);
+
+    assert!(
+        lifetimes.0.len() >= 8,
+        "the list of presentation families has {} rows; it had 8",
+        lifetimes.0.len()
+    );
+    let crossing: Vec<&str> = lifetimes
+        .0
+        .iter()
+        .filter(|(_, ends)| !ends)
+        .map(|(family, _)| *family)
+        .collect();
+    assert_eq!(
+        crossing,
+        vec![std::any::type_name::<ambition_sfx::OwnedSfxMessage>()],
+        "a presentation channel crosses a session activation. Its reader \
+         must refuse a message of a session that ended; say how in \
+         `end_presentation_effects_with_their_session`"
+    );
+}

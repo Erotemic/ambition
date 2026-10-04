@@ -299,17 +299,39 @@ pub fn quarantine_presentation_effects(app: &mut App, load_schedule: impl Schedu
     for_each_presentation_effect(app, &mut Quarantine(load_schedule));
 }
 
-/// A session activation does not empty a presentation-facing effect channel
-/// (`lifecycle::session_messages`): the host writes to these channels also,
-/// and no simulation reads them.
-pub fn keep_presentation_effects_across_sessions(app: &mut App) {
-    struct Keep;
-    impl PresentationEffectVisitor for Keep {
+/// A presentation-facing effect ends with the session that asked for it: a
+/// session activation empties each of these channels
+/// (`lifecycle::session_messages`).
+///
+/// ⛔ THE LIFETIME OF A MESSAGE ACROSS A SESSION IS NOT ITS ROLLBACK CLASS.
+/// [`for_each_presentation_effect`] says that the simulation reads none of
+/// these, so a rewind defers them and does not clear them. That says nothing
+/// about the next session. The effects of a session's last tick are released
+/// in `PreUpdate` of the update that replaces it, and a reader that runs
+/// after the activation presents them for the next session: `VfxInRoom` names
+/// a `LiveRoomInstance`, and the first room of each session has the same one.
+/// MEASURED 2026-10-04 on the shell host: two effects of the session that
+/// ended were on the bus at the activation frame of the next one.
+///
+/// So each family ends at the activation, and a family that crosses is named
+/// here with its reason. The default for a new family is that it ends.
+///
+/// - `OwnedSfxMessage` crosses. The host writes to it also (a menu row, a
+///   start). Its reader plays a sound only for the live audio owner
+///   (`ActiveAudioSelection::accepts_request_owner`), so a sound of the
+///   session that ended is refused there.
+pub fn end_presentation_effects_with_their_session(app: &mut App) {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        clear_message_at_session_activation, keep_message_across_session_activation,
+    };
+    struct End;
+    impl PresentationEffectVisitor for End {
         fn visit<M: Message>(&mut self, app: &mut App) {
-            ambition_platformer2d_shared_tangle::lifecycle::keep_message_across_session_activation::<M>(app);
+            clear_message_at_session_activation::<M>(app);
         }
     }
-    for_each_presentation_effect(app, &mut Keep);
+    for_each_presentation_effect(app, &mut End);
+    keep_message_across_session_activation::<ambition_sfx::OwnedSfxMessage>(app);
 }
 
 #[cfg(test)]

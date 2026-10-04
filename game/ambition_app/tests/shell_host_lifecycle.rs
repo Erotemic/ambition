@@ -2747,6 +2747,143 @@ fn what_a_session_spawned_and_cycled_does_not_reach_the_next_session() {
     }
 }
 
+/// ⭐ AN EFFECT THAT A SESSION ASKED FOR IS NOT PRESENTED BY THE NEXT ONE.
+///
+/// The effects of a session's last tick are on the presentation channels in
+/// `PreUpdate` of the update that replaces it, and that update's `Update`
+/// activates the next session. A reader that runs after the activation then
+/// presents them for the next session: an effect in its room 0 (the first
+/// room of each session has the same live key). And a camera that the old
+/// session moved (a shake, a finishing zoom) is the camera of the next one.
+///
+/// The old session asks, on each update while it is the live one, for a
+/// camera shake, a finishing zoom and an effect in room 0. From the frame of
+/// the next activation, the camera is at rest and the effect is on no bus.
+///
+/// ⛔ THE CONTROL: a sound crosses. Its reader plays a sound only for the live
+/// owner (`ActiveAudioSelection::accepts_request_owner`), and the host writes
+/// to that channel also.
+///
+/// ⚠ THIS ARM IS THE ONLY WITNESS OF THAT. Measured 2026-10-04: with the
+/// sound channel emptied at the activation too, the whole of `app_it` fails
+/// only the control below.
+///
+/// ⚠ THE FIXTURE WRITES IN `PreUpdate`, where a rollback host releases the
+/// confirmed effects. A message that the test writes between two updates does
+/// not reach the edge: a replacement takes effect on the second update, and a
+/// bus keeps a message for two (measured 2026-10-04).
+#[test]
+fn an_effect_that_a_session_asked_for_is_not_presented_by_the_next() {
+    use ambition_platformer2d::platformer::camera_ease::{
+        CameraShakeRequest, CameraShakeState, FinishZoomRequest, FinishZoomState,
+    };
+    use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, LiveRoomInstance};
+    use ambition_platformer2d::sfx::{AudioContextOwner, OwnedSfxMessage, PresentationSourceId, SfxMessage};
+    use ambition_platformer2d::vfx::vfx::VfxMessage;
+    use ambition_platformer2d::vfx::VfxInRoom;
+    use bevy::ecs::message::Messages;
+
+    /// A position that no effect of the game has.
+    const MARK: Vec2 = Vec2::new(12345.0, -6789.0);
+
+    /// The session that asks.
+    #[derive(Resource)]
+    struct Asks(SessionScopeId);
+
+    fn the_old_session_asks(
+        asks: Option<Res<Asks>>,
+        active: Res<ActiveSessionScope>,
+        mut shakes: MessageWriter<CameraShakeRequest>,
+        mut zooms: MessageWriter<FinishZoomRequest>,
+        mut effects: MessageWriter<VfxInRoom>,
+        mut sounds: MessageWriter<OwnedSfxMessage>,
+    ) {
+        if !asks.is_some_and(|asks| active.current() == Some(asks.0)) {
+            return;
+        }
+        shakes.write(CameraShakeRequest { amplitude_px: 6.0 });
+        zooms.write(FinishZoomRequest { closeness: 1.0 });
+        effects.write(VfxInRoom {
+            room: Some(LiveRoomInstance::ACTIVATION),
+            vfx: VfxMessage::CoinPop { pos: MARK },
+        });
+        sounds.write(OwnedSfxMessage {
+            owner: Some(AudioContextOwner::Frontend(u64::MAX)),
+            source: PresentationSourceId::new("test.a_sound_the_host_wrote"),
+            request: SfxMessage::Hit { pos: MARK },
+        });
+    }
+
+    // A new cursor reads each message that the bus still holds.
+    fn marked_effects(app: &App) -> usize {
+        let messages = app.world().resource::<Messages<VfxInRoom>>();
+        messages
+            .get_cursor()
+            .read(messages)
+            .filter(|effect| matches!(effect.vfx, VfxMessage::CoinPop { pos } if pos == MARK))
+            .count()
+    }
+    fn marked_sounds(app: &App) -> usize {
+        let messages = app.world().resource::<Messages<OwnedSfxMessage>>();
+        messages
+            .get_cursor()
+            .read(messages)
+            .filter(|sound| matches!(sound.request, SfxMessage::Hit { pos } if pos == MARK))
+            .count()
+    }
+    fn camera(app: &App) -> (f32, f32) {
+        (
+            app.world().resource::<CameraShakeState>().amplitude_px,
+            app.world().resource::<FinishZoomState>().closeness,
+        )
+    }
+
+    for succession in SessionSuccession::BOTH {
+        let mut app =
+            shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+        app.add_systems(PreUpdate, the_old_session_asks);
+        settle(&mut app);
+        let route = ambition_route(&app);
+        app.world_mut().write_message(ShellCommand::GoTo(route.clone()));
+        let first = enter_the_next_session(&mut app, None);
+        settle(&mut app);
+        app.insert_resource(Asks(first));
+        settle(&mut app);
+        assert_eq!(
+            (camera(&app), marked_effects(&app) > 0, marked_sounds(&app) > 0),
+            ((6.0, 1.0), true, true),
+            "{succession:?} premise: the old session moves its camera, and its \
+             effect and the sound are on the bus"
+        );
+
+        succession.follow(&mut app, &route, first);
+
+        if succession == SessionSuccession::ReplacedInPlace {
+            assert!(
+                marked_sounds(&app) > 0,
+                "{succession:?} control: the activation took a sound from the bus"
+            );
+        }
+        for frame in 0..=10 {
+            assert_eq!(
+                camera(&app),
+                (0.0, 0.0),
+                "{succession:?}, frame {frame} of the next session: its camera \
+                 (shake px, zoom closeness) moves for a request of the session \
+                 that ended"
+            );
+            assert_eq!(
+                marked_effects(&app),
+                0,
+                "{succession:?}, frame {frame} of the next session: an effect \
+                 of the session that ended is on the bus, in a room the next \
+                 session has too"
+            );
+            app.update();
+        }
+    }
+}
+
 /// ⭐⭐ **THE CHECKSUM GGRS ACTUALLY COMPUTES IS THE SAME ON TWO HOSTS WITH
 /// DIFFERENT SHELL HISTORIES — AND IT WAS NOT UNTIL 2026-09-17.**
 ///

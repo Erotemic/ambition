@@ -245,6 +245,15 @@ ADJUDICATED: dict[str, str] = {
         "component or resource again, this entry is void: an `ActorBarkGesture` "
         "timer on the body did exactly that until 2026-09-25 (read 2026-09-25)"
     ),
+    "apply_worn_character_gameplay": (
+        "NOT ROLLBACK STATE. `reported` holds the (body, cast generation) pairs "
+        "whose refused wear was already written to the log, and its only reader "
+        "is the condition on that `error!`. The refusal itself (the request "
+        "consumed, `WornCharacter` put back to `PersonaBaseline::id`) does not "
+        "read it. After a rewind a replayed tick can leave one refusal out of "
+        "the log, a missing line, not a divergence. ⛔ If anything but the log "
+        "ever reads it, this entry is void (read 2026-10-03)"
+    ),
     # ── A CACHED QUERY: storage, not state ──────────────────────────────────
     "sync_authored_gated_lock_walls": (
         "A CACHED QUERY. `Local<Option<RoomSetQuery>>` holds a lazily built "

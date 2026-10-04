@@ -2992,8 +2992,14 @@ fn module_entities(sim: &mut Platformer2dSimHarness) -> Vec<(Option<LiveRoomInst
 /// Bob, on slot 1, goes through `switch_lab`'s door to the hub, as
 /// `the_second_player_goes_through_a_door_of_his_own_room` sends him.
 pub(crate) fn bob_goes_to_the_hub(sim: &mut Platformer2dSimHarness, hub: LiveRoomInstance) {
+    bob_goes_from(sim, ROOM, HUB, hub);
+}
+
+/// Bob, driven by slot 1, goes through the door of `room` to `target` and
+/// arrives in the live room `arrival`.
+pub(crate) fn bob_goes_from(sim: &mut Platformer2dSimHarness, room: &str, target: &str, arrival: LiveRoomInstance) {
     use ambition_platformer2d::engine_core::AabbExt as _;
-    let door = door_of(sim, ROOM, HUB).aabb.center();
+    let door = door_of(sim, room, target).aabb.center();
     {
         let world = sim.world_mut();
         let mut bob = world.query::<(
@@ -3023,7 +3029,7 @@ pub(crate) fn bob_goes_to_the_hub(sim: &mut Platformer2dSimHarness, hub: LiveRoo
             },
         );
         sim.step(base());
-        if where_they_are(sim).1 == Some(Some(hub)) {
+        if where_they_are(sim).1 == Some(Some(arrival)) {
             break;
         }
     }

@@ -351,6 +351,36 @@ uncleared). Decision recorded here: a defeat is credited to everyone in its
 room when it falls, since the edge has no attacker; a shared win stays when
 one of its winners dies elsewhere.
 
+**Ownership, not exceptions (review 2026-10-04).** A review found that the
+restore is still a global rewind with exceptions (`spared`,
+`spared_participants`), and that the exceptions fail where nothing live
+republishes a consequence. Target: each consequence since the checkpoint
+names the participants whose horizons own it; a participant's rewind takes
+them out of each, and a consequence with no owner left goes back. Do not add
+new uses of `spared` / `spared_participants` as the model.
+
+- ✅ 2026-10-04, dormant world time: a `WorldTimeSchedule` record holds its
+  owners (the seats in its live room when it was made). The restore's
+  admission takes the dying participant out of each record
+  (`disown_scheduled_returns_on_restore`), and the commit keeps a record of a
+  room that is not live while it has an owner. It used to forget every
+  record. Witness:
+  `a_death_keeps_the_respawn_of_a_platform_another_player_broke_in_a_room_he_left`
+  (control: Alice's own break goes back). Poisons: the commit forgets all, a
+  record with no owners, and an admission that keeps every owner each fail
+  it. Schema 310.
+- Open: a one-time pickup Bob consumed in a room that then retired.
+  `record_consumed_pickups` records it `Consumed` in the occurrence ledger,
+  and `restore_occurrence_baseline` replaces the whole ledger with the
+  checkpoint's, so the room authors the pickup again on a later visit. The
+  ledger row needs owners the same way.
+- Open: `BossDefeatSinceCheckpoint::present` is who won it, kept unchanged
+  after a rewind, so it is history rather than ownership. A later rewind of a
+  second participant would find the first one still listed. Not reachable
+  today: only the primary body's death restores. Fix it when a second
+  participant's death can rewind: take the dying participant out of
+  `present` on each restore, as the schedule does.
+
 **Acceptance:** Alice dies while Bob's room holds a boss he defeated after the
 checkpoint: Bob's room, the boss row and its reward stay; Alice's room agrees
 with the durable records it reads; a durable record written in Alice's room

@@ -124,3 +124,51 @@ fn host_carried_motion_does_not_evict_a_straddler() {
     let after = app.world().get::<BodyKinematics>(body).unwrap().pos;
     assert_eq!(before, after, "host-carried motion is not a close");
 }
+
+/// A session activation forgets the frames of the last session. The body
+/// stands where the last session's portal was, and the new session has no
+/// portal there. The control is the same frame with no activation: the body
+/// is pushed, as for a portal that closed.
+#[test]
+fn a_session_activation_forgets_the_last_sessions_portal_frames() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeActivated, SessionScopeId};
+    let stands_at = Vec2::new(100.0, 290.0);
+    let run = |activates: bool| {
+        let mut app = app();
+        app.add_message::<SessionScopeActivated>();
+        app.add_systems(
+            Update,
+            forget_portal_frames_on_activation.before(evict_straddlers_on_portal_change),
+        );
+        let portal = app
+            .world_mut()
+            .spawn(floor_portal(BLUE, Vec2::new(100.0, 300.0)))
+            .id();
+        app.update();
+        assert_eq!(
+            app.world().resource::<PortalFrameHistory>().len(),
+            1,
+            "premise: the last session left one frame"
+        );
+        // The session ends: its portal leaves with it, and the next session's
+        // body stands across the old plane.
+        app.world_mut().entity_mut(portal).despawn();
+        let body = straddling_body(&mut app, stands_at);
+        if activates {
+            app.world_mut()
+                .write_message(SessionScopeActivated(SessionScopeId(2)));
+        }
+        app.update();
+        app.world().get::<BodyKinematics>(body).unwrap().pos
+    };
+    assert_ne!(
+        run(false),
+        stands_at,
+        "control: with no activation, the frame reads as a portal that closed and the body is pushed"
+    );
+    assert_eq!(
+        run(true),
+        stands_at,
+        "the new session's body is not pushed by a portal of the last session"
+    );
+}

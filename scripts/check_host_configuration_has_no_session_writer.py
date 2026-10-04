@@ -6,7 +6,8 @@ configuration of the host or of the world: a composer installs a value when it
 builds the App, and each session reads it. `FriendlyFire` is the baseline rule
 that a declared combat ruleset plays over (`project_combat_rules` reads it as
 `baseline_ff`). `RegimePolicy` is the regime of the process, and it grants or
-denies developer clock requests.
+denies developer clock requests. `FactionRelations` is the table of which
+faction is a foe of which; no production road changes it from the default.
 
 ⛔ SUCH A RESOURCE IS NOT IN THE SESSION RESET, AND THAT IS SAFE ONLY WHILE
 NOTHING WRITES IT. `SessionScopedResources` (`session/teardown.rs`) sets its
@@ -63,6 +64,16 @@ from test_paths import strip_test_modules  # noqa: E402
 
 #: `{type: (why it is configuration, the files that install it)}`.
 CONFIGURATION: dict[str, tuple[str, tuple[str, ...]]] = {
+    "FactionRelations": (
+        "the table of which faction selects which as a foe; each perception "
+        "and target-selection road reads it, and its only value in production "
+        "is the default (measured 2026-10-04: equal on each tick of a session "
+        "that followed another one and of a fresh host)",
+        (
+            # `init_targeting_resources`: the combat domain's default.
+            "crates/ambition_combat/src/targeting.rs",
+        ),
+    ),
     "FriendlyFire": (
         "the baseline friendly-fire rule of the world; `project_combat_rules` "
         "folds a declared ruleset over it, and `resolved_combat_tuning` sets it "

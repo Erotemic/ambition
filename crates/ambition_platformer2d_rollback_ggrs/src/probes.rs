@@ -231,6 +231,33 @@ impl RollbackChecksumProbes {
         true
     }
 
+    /// [`Self::strengthen_with`] for a RESOURCE row: one carrier when the
+    /// resource is in the world, with `projection` of its value.
+    ///
+    /// A resource registered with `rollback_resource_clone` has a presence
+    /// probe, so a census of two hosts compares only whether each one has it.
+    /// Measured 2026-10-04: `PortalFrameHistory` held the portals of an ended
+    /// session at tick 0 of the next one, and no census could say so.
+    pub fn strengthen_resource_with<T>(&mut self, projection: fn(&T) -> u64) -> bool
+    where
+        T: Resource,
+    {
+        let wanted = std::any::type_name::<T>();
+        let Some(probe) = self.probes.iter_mut().find(|p| p.type_name == wanted) else {
+            return false;
+        };
+        probe.census = std::sync::Arc::new(move |world: &mut World| {
+            world
+                .get_resource::<T>()
+                .map_or_else(ComponentCensus::default, |value| ComponentCensus {
+                    count: 1,
+                    xor: projection(value),
+                })
+        });
+        probe.strength = ProbeStrength::Value;
+        true
+    }
+
     /// Count by strength: `(complete, value, presence_only)`.
     pub fn strength_tally(&self) -> (usize, usize, usize) {
         let mut tally = (0, 0, 0);

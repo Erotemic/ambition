@@ -694,7 +694,7 @@ fn javelin_is_thrown_on_plain_attack_use() {
 ///
 /// and it asserts the item was genuinely OUT of the world in between.
 ///
-/// Falsified by restoring the old pair (despawn at pickup, `spawn_room_scoped`
+/// Falsified by restoring the old pair (despawn at pickup, a new spawn
 /// at throw): the entity lookup fails outright.
 #[test]
 fn a_thrown_item_is_the_same_object_that_was_picked_up() {

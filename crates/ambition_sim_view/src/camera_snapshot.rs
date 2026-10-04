@@ -1813,6 +1813,7 @@ pub fn local_view_facts() -> impl bevy::prelude::Bundle {
         // opens has a HUD from its first frame.
         crate::facts::ViewHudFacts::default(),
         crate::facts::SharedViewHudFacts::default(),
+        crate::facts::ViewHudSeat::default(),
         // Carried here for the same reason as the others — a reader must never see a frame
         // where the view exists and its state does not.
         CameraViewState::default(),

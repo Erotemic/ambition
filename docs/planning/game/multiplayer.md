@@ -128,9 +128,12 @@ with hysteresis when they regroup.
   the body it follows (`ViewHudFacts`), in its own column
   (`each_view_of_the_split_shows_its_own_participants_purse`), and each other
   seat on a shared view has its own HUD on it
-  (`bob_beside_alice_has_his_own_hud_on_the_shared_view`). Open: the declared
-  readouts (`HudReadouts`: Mary-O's coins, Sanic's rings) are one per session;
-  two stacked HUDs do not say whose each is; and an online peer shows every
+  (`bob_beside_alice_has_his_own_hud_on_the_shared_view`). While two or
+  more HUDs are on the screen, each says whose it is, as "P1", "P2" (the
+  seat that drives the body it shows, `ViewHudSeat`; one HUD says nothing,
+  because it can only be the player's own; `stacked_huds_say_whose_each_is`).
+  Open: the declared readouts (`HudReadouts`: Mary-O's coins, Sanic's rings)
+  are one per session; and an online peer shows every
   seat on its shared view, since only A4's client-local layout knows which
   seats are its own.
 - Two players in one room still share a conversation's pause (the first

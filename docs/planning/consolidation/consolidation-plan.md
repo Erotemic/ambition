@@ -280,6 +280,18 @@ disabled menu state until a shell-less composition exists.
     stated at the read.
   - The three `ActiveConversation` reads already state theirs.
   - `BaseGravity` waits on Q136.
+  - `ControlledSubject`: five reads were never absent in a composed suite and
+    are now required (`possession_trigger_system`, `gate_body_control`,
+    `rebuild_player_hud_facts`, `rebuild_hostile_wielded_items_view`,
+    `portal_input_adapter_system`). Only two unit fixtures in the monolith lib
+    ran a reader without the resource; they now insert it, as `PossessionPlugin`
+    does. `admit_room_replay` was not probed (it is in the restore chain).
+  - `AuthoredOccurrences`: its two writers scheduled with
+    `HeldItemSimulationPlugin` were never absent, in the Smash compositions
+    also, and are now required (`project_custody_onto_authored_occurrences`,
+    `record_placed_bodies`). The other reads (`minted_horizon`,
+    `durable_horizon`, the room loader, the checkpoint) are still optional and
+    not probed.
 - ✅ The fallback no `Option` scan could see is closed (2026-10-03):
   `insert_session_world_component` refuses in a session-gated composition
   with no root and no active scope. A direct host (no gate) builds its one root

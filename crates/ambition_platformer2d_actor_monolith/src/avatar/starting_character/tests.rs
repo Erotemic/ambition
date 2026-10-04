@@ -749,6 +749,8 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
     let entity = app
         .world_mut()
@@ -822,6 +824,8 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
 
     // Two characters, identical but for how they fire.
@@ -916,6 +920,8 @@ fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
 
     // A Sanic-shaped body: movement abilities, empty ActionSet, and a spin_dash
@@ -1038,6 +1044,8 @@ fn a_worn_technique_gates_the_slot_of_the_body_that_wears_it() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
     let body = app
         .world_mut()
@@ -2498,6 +2506,8 @@ fn the_shield_verb_follows_the_ability_not_the_special() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
 
     let mut spawn = |abilities, actions| {
@@ -2557,6 +2567,8 @@ fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
     let body = app
         .world_mut()
@@ -3005,6 +3017,8 @@ fn a_driven_actor_outside_the_player_population_is_gated_by_its_own_scheme() {
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    // The runtime adds the gate beside `PossessionPlugin`, which owns this.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     app.add_systems(Update, gate_body_control);
     let mut abilities = ambition_platformer2d_core::AbilitySet::sandbox_all();
     abilities.shield = false;

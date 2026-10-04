@@ -635,7 +635,9 @@ pub fn gate_body_control(
     driven: crate::session::governing_rules::RulesOf<
         ambition_characters::action_scheme::DrivenTechniques,
     >,
-    subject: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
+    // Required: the runtime that schedules this gate also adds
+    // `PossessionPlugin`, which owns the resource.
+    subject: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
     mut bodies: Query<
         (
             Entity,
@@ -668,7 +670,7 @@ pub fn gate_body_control(
         derive_action_scheme, resolve_control_slots, techniques_of,
     };
 
-    let subject = subject.and_then(|subject| subject.0);
+    let subject = subject.0;
     let driven = subject.and_then(|subject| driven.of(subject));
     for (
         entity,

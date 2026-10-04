@@ -132,6 +132,7 @@ pub(crate) fn construct_room_candidate(
     session_scope: SessionSpawnScope,
     stamp: Option<RoomCommitStamp>,
     predicted: Option<BTreeSet<String>>,
+    facts: crate::construction::CommitFactsSource,
 ) {
     let plan = plan.clone();
     commands.queue(move |world: &mut bevy::prelude::World| {
@@ -140,11 +141,18 @@ pub(crate) fn construct_room_candidate(
             return;
         }
         let mut queue = bevy::ecs::world::CommandQueue::default();
-        // Read HERE, on the world this commit lands in — not with the plan, which
-        // a replay commits again after the save has moved.
-        let facts = crate::construction::PersistedFates::of_world(world).with_scheduled_returns(
-            features::ecs::world_time_schedule::remaining_scheduled_returns(world),
-        );
+        let facts = match facts {
+            // Read HERE, on the world this commit lands in — not with the
+            // plan, which a replay commits again after the save has moved.
+            crate::construction::CommitFactsSource::TheWorldAtTheCommit => {
+                crate::construction::PersistedFates::of_world(world).with_scheduled_returns(
+                    features::ecs::world_time_schedule::remaining_scheduled_returns(world),
+                )
+            }
+            // ⛔ NOT THE WORLD. The session of this room is not live yet, so
+            // the save and the schedule in the world are another session's.
+            crate::construction::CommitFactsSource::Stated(facts) => facts,
+        };
         let receipt = {
             let mut inner = Commands::new(&mut queue, &*world);
             let receipt = features::spawn_room_feature_entities_from_plan(
@@ -392,6 +400,7 @@ impl RoomConstructionPlan {
         &self,
         commands: &mut Commands,
         retention: transaction::PublicationRetention,
+        facts: crate::construction::CommitFactsSource,
     ) -> transaction::PublicationHandle {
         let publication = transaction::begin_publication(
             commands,
@@ -399,7 +408,7 @@ impl RoomConstructionPlan {
             self.features.construction_transactions(self.session_scope),
             retention,
         );
-        self.spawn_contents_for(publication, commands, self.session_scope);
+        self.spawn_contents_for(publication, commands, self.session_scope, facts);
         publication
     }
 
@@ -415,6 +424,7 @@ impl RoomConstructionPlan {
         publication: transaction::PublicationHandle,
         commands: &mut Commands,
         session_scope: SessionSpawnScope,
+        facts: crate::construction::CommitFactsSource,
     ) {
         // ⛔ THE ROOM DECLARES WHAT IT IS REBUILDING. See `transaction::open`
         // for the measurement that this had no production caller at all.
@@ -529,6 +539,7 @@ impl RoomConstructionPlan {
                 moving_platform_count: self.platform_states.len(),
             }),
             Some(self.predicted_authoritative_ids().clone()),
+            facts,
         );
         transaction::close(commands, publication, &self.features, session_scope);
     }
@@ -632,10 +643,24 @@ impl RoomConstructionPlan {
             // nothing: the same transactions, an empty roster.
             let nothing = self.features.emptied();
             transaction::open(commands, publication, &nothing, scope);
-            construct_room_candidate(commands, publication, &nothing, scope, None, Some(BTreeSet::new()));
+            construct_room_candidate(
+                commands,
+                publication,
+                &nothing,
+                scope,
+                None,
+                Some(BTreeSet::new()),
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+            );
             transaction::close(commands, publication, &nothing, scope);
         } else {
-            self.spawn_contents_for(publication, commands, scope);
+            // A room of the session that plays: its save is the live save.
+            self.spawn_contents_for(
+                publication,
+                commands,
+                scope,
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+            );
         }
         publication
     }
@@ -789,6 +814,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();
@@ -1031,6 +1057,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();
@@ -1180,6 +1207,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.update();
@@ -2858,6 +2886,7 @@ mod tests {
             plan.spawn_contents(
                 &mut commands,
                 transaction::PublicationRetention::UntilTheVerdictIsRecorded,
+                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
             );
         }
         app.world_mut().flush();

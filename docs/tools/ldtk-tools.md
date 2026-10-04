@@ -302,9 +302,12 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room compile-
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools policy check sandbox.ldtk
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools camera audit sandbox.ldtk --level symmetry_room
 
-# 4. Review semantic changes instead of noisy JSON.
+# 4. Review semantic changes instead of noisy JSON (each side: a file or REV:PATH).
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic before.ldtk after.ldtk
 ```
+
+`diff semantic`, `diff range` and `diff normalize` are described in
+[the tool README](../../tools/ambition_ldtk_tools/README.md#semantic-diff).
 
 Use `asset catalog` and `asset link-entity-tile` when generated sprites or
 visual tiles are ready to be exposed to LDtk for nicer human editing.

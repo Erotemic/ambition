@@ -154,23 +154,25 @@ churn, then decide. Moving the maps into the `game/ambition_map_assets`
 submodule keeps churn out of the main history; it does not make a content diff
 understandable.
 
-**The comparison tool (queue row LDTK-SEMANTIC-DIFF).** It exists in part:
-`ambition_ldtk_tools.edit.semantic_diff semantic BEFORE AFTER` compares levels,
-entities (matched by iid), fields, IntGrid counts and definitions, and ignores
-derived cache data. Checked 2026-10-04: two copies of one file give "No
-semantic LDtk changes"; a 32 px move of one entity is reported as
-`entity_moved`. Missing:
+**The comparison tool (queue row LDTK-SEMANTIC-DIFF).** `diff semantic`,
+`diff range` and `diff normalize` in `tools/ambition_ldtk_tools`
+(`edit/semantic_diff.py`, `edit/ldtk_canonical.py`; usage in the tool README,
+section "Semantic diff"). Each side is a file or `REV:PATH`; `diff range` takes
+a commit range of one repository, such as the map-assets submodule. The report
+gives a verdict (`identical`, `noise_only`, `changed`, `ambiguous`), a
+per-level summary (geometry, entities, fields, tiles, noise count), the
+authored changes, the ambiguities and a noise section by category. Objects
+match by identifier and content, never by uid; an iid is a match key only when
+the content-matched iids did not change; entities that no stable key pairs are
+an ambiguity, not a guess. Changed `autoLayerTiles` are a content change
+(`auto_tiles`), because `bevy_ecs_ldtk` can draw them; a tile whose only change
+is its `t`/`d` cache is noise.
 
-- git input (`REV:PATH` on each side, and a submodule commit range), so a
-  reviewer can run it on a commit;
-- a second section that classifies the noise by kind: auto-layer tiles rebuilt
-  from unchanged rules, renumbered uids/iids matched by identity, ordering,
-  formatting, derived `__` fields, `nextUid`;
-- auto-layer output that changed for a real reason (a rule or IntGrid change,
-  or a new layer instance) reported as a visible change, not as cache: the
-  runtime can draw auto-layer tiles;
-- a per-level summary in the shape: "semantic geometry: unchanged; entities:
-  unchanged; authored fields: unchanged; serialization-only churn: N lines".
+Measured with the tool: `576a8fd` (96,567 raw lines) is two moved
+`OneWayPlatform` entities and 14 one-way cells; `c6df2b7` (about 7,900 raw
+lines) is five new `DebugLabel` entities, one entity field def and one level
+field def; `056079f` placed one dog in `sandbox.ldtk` and also regenerated the
+Hall (exhibits moved, the exit door `name` overwritten).
 
 **What is known about the recurring rewrite (2026-10-04).** Two fixes did not
 stop it: `54d99e7fb` (reuse tileset and rule uids; write only when changed)

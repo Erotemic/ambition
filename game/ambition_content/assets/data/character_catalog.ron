@@ -859,7 +859,7 @@
             provoked: ["BRUTE SMASH!"],
             hall: ["Brute carry hammer. Hammer carry brute. Is friendship.", "Small goblins talk. Brute does."],
         ),
-        hall_dialogue_id: None,
+        hall_dialogue_id: Some("hall_npc_goblin_brute"),
         ),
         "npc_goblin_cantina_chieftain": (
             sprite_tuning: Some((collision_scale: 1.16, frame_sample_inset: 1)),
@@ -2164,6 +2164,7 @@
             idle: ["Blub.", "Noodle."],
             hall: ["I am a lesser appendage. The greater one is on the next pedestal.", "One meatball. It is enough. It is all I was given."],
         ),
+        hall_dialogue_id: Some("hall_npc_fsm_noodling"),
         ),
         "npc_galwah": (
             display_name: "Galwah",
@@ -3469,7 +3470,7 @@
                 on_hit: ["FACET LOST.", "REBUILDING POSE."],
                 provoked: ["REFERENCE COMBAT."],
             ),
-            hall_dialogue_id: None,
+            hall_dialogue_id: Some("hall_pointed_polygon"),
         ),
         "pugnacious_polygon": (
             display_name: "Pugnacious Polygon",
@@ -3498,7 +3499,7 @@
                 on_hit: ["RECOMPUTING STANCE.", "FACET SHIFT."],
                 provoked: ["REFERENCE BRAWL."],
             ),
-            hall_dialogue_id: None,
+            hall_dialogue_id: Some("hall_pugnacious_polygon"),
         ),
         "projectile_polygon": (
             display_name: "Projectile Polygon",
@@ -3526,7 +3527,7 @@
                 on_hit: ["TRAJECTORY LOST.", "RECALCULATING."],
                 provoked: ["PROJECTILE TEST."],
             ),
-            hall_dialogue_id: None,
+            hall_dialogue_id: Some("hall_projectile_polygon"),
         ),
         // THE TWO EASTER EGGS, and they are deliberately not advertised anywhere
         // else: no hall dialogue, no quest, no encounter table. They are on the
@@ -3562,7 +3563,7 @@
                 on_hit: ["Noted.", "That is going in."],
                 provoked: ["Fine. Revisions."],
             ),
-            hall_dialogue_id: None,
+            hall_dialogue_id: Some("hall_director"),
         ),
         "officer": (
             display_name: "The Officer",
@@ -3596,7 +3597,7 @@
                 on_hit: ["Cute.", "Last warning."],
                 provoked: ["You're going to want to sit down."],
             ),
-            hall_dialogue_id: None,
+            hall_dialogue_id: Some("hall_officer"),
         ),
         "medic": (
             display_name: "The Medic",
@@ -3633,7 +3634,7 @@
                 on_hit: ["I've got you.", "You're going to be fine. Probably."],
                 provoked: ["Don't make me carry you."],
             ),
-            hall_dialogue_id: None,
+            hall_dialogue_id: Some("hall_medic"),
         ),
         "performer": (
             display_name: "The Performer",
@@ -3671,7 +3672,7 @@
                 on_hit: ["Louder. The back row paid too.", "I can do this all night. I have."],
                 provoked: ["You are stepping on my line."],
             ),
-            hall_dialogue_id: None,
+            hall_dialogue_id: Some("hall_performer"),
         ),
         "special_patent_clerk": (
             display_name: "Patent Clerk",

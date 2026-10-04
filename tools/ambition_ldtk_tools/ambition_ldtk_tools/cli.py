@@ -21,7 +21,10 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     generate hall-of-characters    Rebuild the Hall of Characters area spec from
                                    character_catalog.ron (pedestals, tiers, dialogue ids).
 
-    diff semantic <before> <after> Review semantic LDtk changes without JSON noise.
+    diff semantic <before> <after> Review semantic LDtk changes without JSON noise
+                                   (each side: a file or REV:PATH).
+    diff range <rev1..rev2>        Semantic diff of each .ldtk changed in a commit range.
+    diff normalize <ldtk>          Print the id-free canonical form (read-only).
     policy check|fix <ldtk>        Check/fix agent authoring policies.
     camera audit|auto-cover <ldtk> CameraZone placement and coverage helpers.
     asset catalog <ldtk>          List registered tilesets, entity sprites, and PNGs.
@@ -173,7 +176,7 @@ def cmd_dialogue(args, rest):
 
 
 def cmd_diff(args, rest):
-    if args.diff_action == "semantic":
+    if args.diff_action in {"semantic", "range", "normalize"}:
         return _delegate("ambition_ldtk_tools.edit.semantic_diff", [args.diff_action, *rest])
     return _todo(f"diff {args.diff_action}")
 
@@ -514,7 +517,9 @@ def build_parser() -> argparse.ArgumentParser:
     # diff {semantic}
     sp_diff = sub.add_parser("diff", help="Semantic LDtk diffs")
     diff_sub = sp_diff.add_subparsers(dest="diff_action", required=True)
-    diff_sub.add_parser("semantic", help="Review semantic LDtk changes without raw JSON noise")
+    diff_sub.add_parser("semantic", help="Compare two LDtk files (path or REV:PATH): authored changes apart from noise")
+    diff_sub.add_parser("range", help="Semantic diff of every .ldtk that changed in REV1..REV2 (--repo DIR)")
+    diff_sub.add_parser("normalize", help="Print the id-free canonical form of an LDtk file (never edits it)")
     sp_diff.set_defaults(func=cmd_diff)
 
     # policy {check,fix}

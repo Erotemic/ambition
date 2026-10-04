@@ -224,7 +224,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
     assert!(
         staged - before >= MINIMUM_HALL_CAST,
         "the Hall transition staged only {} new character(s) on its first frame \
-         (from {before} to {staged}). The room authors 137 NpcSpawn placements, \
+         (from {before} to {staged}). The room authors 138 NpcSpawn placements, \
          so the rest are \
          being demanded later — after their actors spawn, in frame, uncovered, \
          which is the defect this file exists to keep closed",
@@ -831,8 +831,8 @@ fn every_character_the_hall_places_is_reached_by_its_demand() {
 
     let (mut app, _before) = boot_and_record_the_hall_transition();
     let placed = hall_character_ids(&mut app);
-    // The world authors 137 NpcSpawn placements with 137 DISTINCT character_ids
-    // and no duplicates (counted from hall_of_characters.ldtk, 2026-09-25), so a
+    // The world authors 138 NpcSpawn placements with 138 DISTINCT character_ids
+    // and no duplicates (counted from hall_of_characters.ldtk, 2026-10-04), so a
     // shortfall here is a missing character rather than a deduplicated one.
     assert!(
         placed.len() > 50,
@@ -841,7 +841,7 @@ fn every_character_the_hall_places_is_reached_by_its_demand() {
     );
 
     // Settle: the loader is rationed to one character per frame, so reaching a
-    // 137-character cast needs at least that many frames even when nothing is
+    // 138-character cast needs at least that many frames even when nothing is
     // wrong. Waiting generously is correct HERE precisely because the assertion
     // is about scope rather than speed.
     for _ in 0..600 {

@@ -1313,3 +1313,109 @@ Patent Clerk: From this desk, you moved and the hall stayed put. That's the box 
 -> What is it you do here?
     Patent Clerk: I examine applications. New machines mostly. Claims involving clocks receive extra attention.
 ===
+
+title: hall_npc_goblin_brute
+---
+Goblin Brute: Hm. Little one. You stand where Brute swings.
+-> Sorry. I'll move.
+    Goblin Brute: No swinging in here. Plaque says. Stay.
+-> Is the hammer heavy?
+    Goblin Brute: Yes.
+    Goblin Brute: Brute put it down one time. Two goblins to pick it up again. They complained all week.
+-> Do the other goblins listen to you?
+    Goblin Brute: When door is stuck, yes. Rest of time they talk about soup.
+===
+
+title: hall_pointed_polygon
+---
+Pointed Polygon: STANCE HELD.
+-> Who are you?
+    Pointed Polygon: Pointed. The sword one.
+-> Can I see the sword?
+    Pointed Polygon: Hilt first. Mind the left facet.
+-> Do you ever move?
+    Pointed Polygon: When attacked. Otherwise, this pose.
+    Pointed Polygon: POSE ACCEPTED.
+===
+
+title: hall_pugnacious_polygon
+---
+Pugnacious Polygon: STANCE SET. You stopped outside my reach.
+-> Is that a problem?
+    Pugnacious Polygon: For me. Take one more step. Just to check.
+-> Where's your weapon?
+    Pugnacious Polygon: Left hand. Right hand.
+    Pugnacious Polygon: The sword one asks if I lost mine. Every time.
+-> Are you related to the one with the sword?
+    Pugnacious Polygon: Same frame. He stands back and points that thing at people. I do not understand it.
+===
+
+title: hall_projectile_polygon
+---
+Projectile Polygon: AIM FACET LOCKED. ...Visitor. Unlocking.
+-> What's on your head?
+    Projectile Polygon: Cannon.
+    Projectile Polygon: Arms too short for anything else.
+-> Are you a dinosaur?
+    Projectile Polygon: Close. Do not put me next to the T-rex downstairs. It stares at the cannon.
+-> Can you show me a shot?
+    Projectile Polygon: Not indoors. Last test cracked a plaque.
+    Projectile Polygon: PROJECTILE TEST CANCELLED.
+===
+
+title: hall_director
+---
+Director: Oh. You found me. I hoped that would take longer.
+-> Who are you?
+    Director: Somebody has to decide what goes on the pedestals. This week that's me.
+-> Is that a pen?
+    Director: Fountain pen. It leaks if I swing it too hard. I swing it too hard.
+-> Can you change something for me?
+    Director: Depends what. If it's the jump height, no. Everyone asks about the jump height.
+===
+
+title: hall_officer
+---
+Officer: Afternoon. You can come closer. Not that close.
+-> Are you on duty?
+    Officer: Off shift since Tuesday. The hat stays on.
+-> Is that gun real?
+    Officer: Yes. It's staying where it is.
+-> Seen anything strange in here?
+    Officer: The parrot repeats things it shouldn't know. I'm keeping an eye on it.
+===
+
+title: hall_medic
+---
+Medic: You're limping. Left side. Sit down a second.
+-> I'm fine.
+    Medic: Walk to the wall and back.
+    Medic: Okay. Sit down.
+-> Do you fight?
+    Medic: Somebody swung at me in the lobby. I put him on the floor. He's fine, I checked.
+-> Can you patch me up?
+    Medic: Not with what I've got on me. Drink some water and stop landing on your head.
+===
+
+title: hall_performer
+---
+Performer: Don't mind me. I'm waiting to hear back about a part.
+-> What part?
+    Performer: A duchess. Dies in act two. Eleven lines, and three of them are good.
+-> Was that a sword a second ago?
+    Performer: Lighting. Mostly lighting. Don't touch it while it's on.
+-> Who are you when you're not playing anyone?
+    Performer: Hungry, usually. Ask me after lunch.
+===
+
+title: hall_npc_fsm_noodling
+---
+Noodling: Blub. You are very tall. Or I am floating low again.
+-> Where's the big one?
+    Noodling: Upstairs. Please do not tell it I left the bowl.
+-> Can I have your meatball?
+    Noodling: No. *wraps three strands around the meatball*
+-> What do you do?
+    Noodling: I float at people and bite them. Then I say ramen.
+    Noodling: Ramen!
+===

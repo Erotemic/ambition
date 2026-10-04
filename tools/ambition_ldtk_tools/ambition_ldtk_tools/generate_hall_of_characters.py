@@ -466,7 +466,8 @@ def build_spec(
             (48, 96),
             {
                 "id": "hall_of_characters_entry",
-                "name": "hall_of_characters_entry",
+                # The name a player reads on the door, not the zone id.
+                "name": "to central hub",
                 "activation": "Door",
                 "target_room": "central_hub_complex",
                 "target_zone": "hall_of_characters_door",

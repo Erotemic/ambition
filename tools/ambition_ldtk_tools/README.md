@@ -202,14 +202,133 @@ mostly read-only, emit compact reports, and avoid noisy raw LDtk JSON diffs.
 
 ### Semantic diff
 
+`diff semantic` compares two LDtk projects by meaning. It reports authored
+changes apart from editor and serializer noise. Use it whenever an `.ldtk` file
+changes, and before you keep, discard or review a large LDtk diff.
+
 ```bash
+# Each side is a file or REV:PATH. PATH is relative to the current directory.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic \
-  before.ldtk after.ldtk
+  HEAD:game/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk
+
+# Every .ldtk file that changed in a commit range of one repository.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff range \
+  e41e554~1..e41e554 --repo game/ambition_map_assets
+
+# The id-free canonical form, for a plain text diff of two versions.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff normalize \
+  game/ambition_content/assets/worlds/sandbox.ldtk --level symmetry_room --out /tmp/a.json
 ```
 
-Reports level moves/resizes, entity layer moves, entity field changes, IntGrid
-value-count changes, entity/layer definition additions/removals, and tileset
-changes.
+`REV:PATH` follows symlinks. The world files under
+`game/ambition_content/assets/worlds/` are symlinks into the
+`game/ambition_map_assets` submodule, so REV is a commit of that submodule.
+
+Add `--format json` for the machine-readable report (schema
+`ambition-ldtk-semantic-diff/1`). The report is deterministic: the same inputs
+give the same bytes. Add `--kind KIND` (repeatable) to keep only some change
+kinds.
+
+**Exit status.** `0`: no authored change (the files are identical, or they
+differ only in noise). `1`: an authored change or an ambiguity. `2`: a usage
+error. `normalize` exits `0`, and it refuses an `--out` path that ends in
+`.ldtk`. No `diff` command writes an LDtk file.
+
+**Verdicts.**
+
+| Verdict | Meaning |
+| --- | --- |
+| `identical` | No difference, and no noise. |
+| `noise_only` | Only noise changed. No level, entity, field, tile or definition changed. |
+| `changed` | At least one authored change. Read the change list. |
+| `ambiguous` | No proven change, but the diff cannot prove the files equal. Check the listed objects by hand. |
+
+**Authored changes** (content tier): `level_added`, `level_removed`,
+`level_renamed` (same content, new name), `level_moved`, `level_resized`,
+`level_prop`, `level_field`, `layer_added`, `layer_removed`, `layer_prop`,
+`intgrid` (changed cells, with a bounding box and value transitions), `tiles`
+(`gridTiles`), `auto_tiles` (`autoLayerTiles`; `bevy_ecs_ldtk` can draw both),
+`entity_added`, `entity_removed`, `entity_moved`, `entity_resized`,
+`entity_layer`, `entity_pivot`, `entity_field`, `entity_unpaired`,
+`world_added`, `world_removed`, `world_setting`, `unknown_key`.
+
+**Definition changes** (definition tier): `layer_def_*`, `layer_order` (draw
+order), `entity_def_*`, `entity_def_visual` (editor icon), `tileset`,
+`enum_def_*`, `level_field_def_*`, `project_setting`.
+
+**Noise** (counted, never a change): `uid_renumbered`, `iid_renumbered`,
+`reordered`, `derived_cache` (`__` values), `editor_metadata` (`appBuildId`,
+`toc`, `seed`, `realEditorValues`, editor settings), `editor_display` (colors,
+docs, opacity, `editor*` field options), `null_field_omitted` (a null field
+instance written or left out), `tile_rule_cache` (tile `t`/`d`).
+
+How the diff decides what is the same object:
+
+- Levels, layers and definitions match by identifier. A uid reference becomes
+  `kind:identifier` before comparison.
+- Entities match by content first (type, layer, position, size, pivot, fields;
+  the iid is ignored). The rest pair by a key that is unique on both sides, in
+  this order: the authored `id`, `character_id` or `name` field; the iid, only
+  when the iids of the content-matched entities did not change; the position;
+  the configuration; the only remaining entity of its type. Each change line
+  says which key paired it.
+- Entities that no key pairs safely are an `entity_unpaired` change plus an
+  ambiguity that lists both sides. The diff does not guess.
+- An `EntityRef` value is compared through the pairing. A ref to an entity
+  that only moved is unchanged.
+- A missing field instance equals a null one. A missing instance and an
+  instance that holds the definition default are different: the runtime does
+  not read definition defaults.
+- A raw key that the diff does not know is reported as `unknown_key`. A new
+  LDtk key can cause a false alarm, but it cannot hide a change.
+
+The report also gives a warning when entities without an `id` field changed
+iid. The runtime uses the iid as the id of such an entity (placements, props,
+debug labels), so state saved against the old id does not carry over. This is
+noise for the map and a possible problem for saves.
+
+#### When an LDtk file changed and you do not know why
+
+1. Compare it with the last commit. Read the verdict first.
+
+   ```bash
+   WORLD=game/ambition_content/assets/worlds/hall_of_characters.ldtk
+   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic HEAD:"$WORLD" "$WORLD"
+   ```
+
+2. `noise_only`: no authored content changed. Find the writer that rewrote
+   the file (a generator, `repair`, a sprite regeneration) instead of keeping
+   the churn. To discard it, restore the file in its own repository:
+   `git -C game/ambition_map_assets restore <path>`.
+3. `changed`: read the level summary and the change list. Each change must
+   come from the edit you intended. An unexpected change (a moved exhibit, a
+   renamed door, cells you did not paint) means a tool rewrote more than you
+   asked. Fix the tool or its input; do not edit the generated JSON by hand.
+4. `ambiguous` or `entity_unpaired`: compare the listed addresses in LDtk or
+   with `diff normalize` on both sides.
+5. For a commit that is already in history, use `diff range`:
+
+   ```bash
+   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff range \
+     576a8fd~1..576a8fd --repo game/ambition_map_assets
+   ```
+
+   That commit changes 96,567 raw lines. The diff reports two moved
+   `OneWayPlatform` entities and 14 new one-way cells; the rest is
+   `tile_rule_cache`, iid and uid noise.
+
+To compare the canonical forms with a text diff:
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff normalize HEAD:"$WORLD" --out /tmp/before.json
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff normalize "$WORLD" --out /tmp/after.json
+diff -u /tmp/before.json /tmp/after.json | less
+```
+
+The canonical form has no uids, no iids and no `__` caches. Entities are
+sorted. An `EntityRef` is written as the target's address
+(`level/layer/Type@x,y`). IntGrid rows are strings, one row per line.
 
 ### Policy checks and safe fixes
 

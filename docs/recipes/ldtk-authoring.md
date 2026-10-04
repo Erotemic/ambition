@@ -129,6 +129,10 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate "$WO
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic HEAD:"$WORLD" "$WORLD"
 ```
 
+The last command prints a verdict: `noise_only`, `changed` or `ambiguous`.
+If the file changed and you do not know why, follow
+[the semantic diff recipe](../../tools/ambition_ldtk_tools/README.md#when-an-ldtk-file-changed-and-you-do-not-know-why).
+
 Use the exact subcommand help before mutation. Most mutators require an explicit
 `--in-place` or `--output`; area creation is the notable current command that
 edits its target in place by default unless `--dry-run` or `--output` is used.

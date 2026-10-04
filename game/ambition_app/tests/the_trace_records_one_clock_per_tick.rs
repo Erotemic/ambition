@@ -14,12 +14,28 @@
 use ambition_app::{Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::gameplay_trace::{ActorTraceBuffer, GameplayTraceBuffer};
 use ambition_platformer2d::sim::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
-use ambition_platformer2d::time::ClockState;
+use ambition_platformer2d::time::time_control::{ClockRequester, ClockScaleRequest};
+use ambition_platformer2d::time::{ClockDomain, ClockState};
 use bevy::prelude::*;
 
 /// A ramp step taken after the tick head and before the recorders.
-fn move_the_clock_before_the_trace(mut clock: ResMut<ClockState>) {
+///
+/// It asks for the pace it sets. With no request, the smoother ramps the clock
+/// back to the neutral pace in the same tick (its step up is larger than this
+/// step down), and the live clock ends each frame where the tick head read it.
+/// Until 2026-10-04 the premise below held only on tick 1: a session started
+/// at a pace of 0.96, which the session reset of the clock removed.
+fn move_the_clock_before_the_trace(
+    mut clock: ResMut<ClockState>,
+    mut requests: MessageWriter<ClockScaleRequest>,
+) {
     clock.time_scale = (clock.time_scale * 0.9).max(0.1);
+    requests.write(ClockScaleRequest {
+        domain: ClockDomain::SimClock,
+        scale: clock.time_scale,
+        requester: ClockRequester::Engine,
+        reason: "the trace test moves the clock",
+    });
 }
 
 #[test]

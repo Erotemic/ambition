@@ -23,7 +23,7 @@ where
     registrar.rollback_resource_clone_checksum::<crate::BossDefeatsSinceCheckpoint>(
         OWNER,
         "boss.defeats_since_checkpoint",
-        "the boss placements cleared since the last checkpoint, which a replay of their room retracts",
+        "the boss placements cleared since the last checkpoint and who won each, which a replay of their room retracts",
         crate::BossDefeatsSinceCheckpoint::checksum,
     );
     registrar.clear_message_on_rollback::<crate::BossDefeatRetracted>(

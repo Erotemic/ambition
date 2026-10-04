@@ -487,9 +487,15 @@ pub(super) fn convert_pickup_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
     }
     // Q152: a pickup can regrow on the world clock, in the grammar a breakable
     // respawns in. A misspelled policy is refused, not read as `Never`.
+    // Q154: a pickup that authors no policy is back when its room is built
+    // again; `Never` must be written to mean gone for the run.
+    let authored_policy = field_string(entity, "respawn").is_some_and(|raw| !raw.trim().is_empty());
     pickup.respawn = match crate::surfaces::parse_timed_respawn(entity)
         .map_err(|error| format!("PickupSpawn `{name}`: {error}"))?
     {
+        crate::surfaces::SurfaceRespawn::Never if !authored_policy => {
+            ambition_entity_catalog::placements::HazardRespawn::OnRoomReload
+        }
         crate::surfaces::SurfaceRespawn::Never => ambition_entity_catalog::placements::HazardRespawn::Never,
         crate::surfaces::SurfaceRespawn::OnRoomReload => {
             ambition_entity_catalog::placements::HazardRespawn::OnRoomReload

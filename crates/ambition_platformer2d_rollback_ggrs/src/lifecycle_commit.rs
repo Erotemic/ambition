@@ -15,6 +15,11 @@
 //! Ownership gate: only a [`RollbackSessionOwnership::LocalSyncTest`] session may
 //! be rebased unilaterally. External / P2P requires a coordinated peer barrier
 //! (the documented Matchbox seam), so this is inert there.
+//!
+//! The peer barrier, simulation half: under a [`RollbackSessionOwnership::Peer`]
+//! session the simulation does not run while an operation waits
+//! ([`a_peer_commit_holds_the_simulation`]). The commit half is not here yet,
+//! so a peer session holds its first crossing with no end.
 
 use bevy::prelude::*;
 
@@ -26,6 +31,57 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::ConfirmedFrameBoundary;
 
 use crate::{build_sync_test_session, install_rebased_sync_test_session, RollbackSessionOwnership};
+
+/// `W`: the frames the simulation still runs after the frame that recorded a
+/// lifecycle operation, under a peer session. [`freeze_frame`] is `C = R + W`.
+///
+/// One is the smallest value, because the recording frame has run when the
+/// operation exists. A larger value gives no more agreement: the freeze makes
+/// the state equal on each peer, and the rollback window does not.
+pub const PEER_COMMIT_FREEZE_DELAY: i32 = 1;
+
+/// `C`: the first frame that does not simulate while `intent` waits under a
+/// peer session. The state saved at frame `C - 1` is the state of each later
+/// frame, on each peer.
+pub fn freeze_frame(intent: &PendingIntent) -> i32 {
+    intent.frame.saturating_add(PEER_COMMIT_FREEZE_DELAY)
+}
+
+/// THE FREEZE: under a peer session, the gameplay simulation does not run from
+/// [`freeze_frame`] on while a lifecycle operation waits.
+///
+/// Measured 2026-10-04 (`two_peers`): when the recording frame of a crossing
+/// was confirmed, the two peers were at different frames (36 and 31). The
+/// sync-test rule runs the operation on the current world, and here that is
+/// two different worlds. With the freeze, each frame from `C` on has one
+/// state, so a peer at frame 36 and a peer at frame 31 hold the same world.
+///
+/// It reads the pending operation, which is rollback state, and the frame of
+/// this advance. So a rewind to a frame before `C` gives the same freeze when
+/// the frames run again. The ownership is constant while the session lives.
+///
+/// ⛔ A SYNC TEST DOES NOT FREEZE. It commits alone when the recording frame
+/// is confirmed, and its simulation runs on each frame of that wait
+/// (`two_peers::a_host_that_commits_alone_simulates_while_its_crossing_waits`).
+pub fn a_peer_commit_holds_the_simulation(
+    ownership: Option<Res<RollbackSessionOwnership>>,
+    pending: Option<Res<PendingLifecycleCommit>>,
+    frame: Option<Res<crate::RollbackFrameCount>>,
+) -> bool {
+    let (Some(ownership), Some(pending), Some(frame)) = (ownership, pending, frame) else {
+        return false;
+    };
+    holds_the_simulation(*ownership, pending.peek(), frame.0)
+}
+
+fn holds_the_simulation(
+    ownership: RollbackSessionOwnership,
+    pending: Option<&PendingIntent>,
+    frame: i32,
+) -> bool {
+    matches!(ownership, RollbackSessionOwnership::Peer)
+        && pending.is_some_and(|intent| freeze_frame(intent) <= frame)
+}
 
 /// Execute a confirmed deferred lifecycle op in the exclusive world and rebase.
 ///
@@ -495,6 +551,11 @@ fn commit_transition(
     // `commit_ready_room_transition_system`, which has taken the same parameters as a plain system
     // all along. A host that could panic here could not have produced the authorization that got
     // here.
+    // A fresh checkpoint operation (a New Game) is a whole-session restart.
+    let restart = checkpoint_operation
+        .zip(world.get_resource::<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>())
+        .and_then(|(key, accepted)| accepted.inputs_for_key(key))
+        .is_some_and(|accepted| accepted.fresh);
     let mut state: bevy::ecs::system::SystemState<
         ambition_platformer2d_runtime::room_transition::RoomTransitionApplication,
     > = bevy::ecs::system::SystemState::new(world);
@@ -511,7 +572,7 @@ fn commit_transition(
         // them would silently rebuild the destination room for a dead body's
         // crossing instead of cancelling it.
         match subject {
-            None => application.stage(plan, None, None, target_index, arrival, edge_exit, zone_sfx),
+            None => application.stage(plan, None, None, target_index, arrival, edge_exit, zone_sfx, restart),
             Some(recorded) => match application.subject_entity(recorded) {
                 None => Err(ambition_platformer2d_runtime::room_transition::RoomTransitionApplyError::SubjectGone),
                 Some(entity) => application.stage(
@@ -522,6 +583,7 @@ fn commit_transition(
                     arrival,
                     edge_exit,
                     zone_sfx,
+                    restart,
                 ),
             },
         }
@@ -615,6 +677,39 @@ mod tests {
         })
     }
 
+    /// The freeze, as a table: who holds the simulation, and from which frame.
+    #[test]
+    fn only_a_peer_session_holds_the_simulation_and_only_from_the_freeze_frame() {
+        use crate::session::{SyncTestOwner, SyncTestSettings};
+        let recorded_on_30 = PendingIntent {
+            frame: 30,
+            kind: intent_to("hub", SimId::placement("hero")),
+        };
+        assert_eq!(freeze_frame(&recorded_on_30), 30 + PEER_COMMIT_FREEZE_DELAY);
+        let sync_test = RollbackSessionOwnership::LocalSyncTest {
+            settings: SyncTestSettings::for_players(2),
+            owner: SyncTestOwner::Caller,
+        };
+        let peer = RollbackSessionOwnership::Peer;
+        let external = RollbackSessionOwnership::External;
+        let c = freeze_frame(&recorded_on_30);
+        for (ownership, pending, frame, held, why) in [
+            (peer, None, 500, false, "nothing waits"),
+            (peer, Some(&recorded_on_30), 30, false, "the recording frame runs again after a rewind"),
+            (peer, Some(&recorded_on_30), c - 1, false, "the last frame before the freeze"),
+            (peer, Some(&recorded_on_30), c, true, "the freeze frame"),
+            (peer, Some(&recorded_on_30), c + 400, true, "the freeze has no end but the commit"),
+            (sync_test, Some(&recorded_on_30), c + 2, false, "a sync test commits alone"),
+            (external, Some(&recorded_on_30), c + 2, false, "no commit can end a freeze here"),
+        ] {
+            assert_eq!(
+                holds_the_simulation(ownership, pending, frame),
+                held,
+                "{ownership:?} at frame {frame}: {why}"
+            );
+        }
+    }
+
     /// The bodyless shape: a room rebuilt with nobody in it (v146).
     fn rebuild_of(target_room: &str) -> LifecycleIntent {
         LifecycleIntent::ReconstituteRoom(
@@ -636,7 +731,7 @@ mod tests {
             intent,
             construction_plan: None,
             barrier: ambition_load::LoadBarrierRef::new("load", "ready"),
-            commit_not_before_tick: 0,
+            opened_this_pass: false,
             cover_required: false,
             cover_presented: true,
             phase: RoomTransitionLoadPhase::CommitAuthorized,

@@ -310,18 +310,31 @@ boss in his room after the checkpoint and dies in the hub. She keeps the
 coins, and the chest stays looted with the boss cleared
 (`a_death_keeps_the_reward_taken_from_the_other_players_boss`).
 
-**What is left: the whole-session restart.** Measured 2026-10-03: a New
-Game beside Bob's live room takes back his boss defeat in the save and its
-chest, while his room stays the same instance with the dead boss in it.
-The restart commit rebuilds only the start room. Next: the New Game commit
-retires or rebuilds every live room in the same operation (not a replay
-after it, which Q151 forbids). Where a seated participant's body goes on a
-restart is part of the join road (Q153). Acceptance (ignored until then):
-`a_new_game_leaves_no_live_room_holding_what_it_took_back`.
+**The whole-session restart is served (2026-10-04).** Measured 2026-10-03:
+a New Game beside Bob's live room took back his boss defeat in the save and
+its chest, while his room stayed the same instance with the dead boss in
+it. Now the commit of a fresh checkpoint operation is a restart: it retires
+every other live room in the same publication (`retires_beside`: residents
+in the outgoing roster, roots despawned at application), and no other
+player's body keeps a room live or is joined. The transaction's world stays
+the replaced room alone, because two live room roots wear one identity
+(open-world "Root identity"). Witness:
+`a_new_game_leaves_no_live_room_holding_what_it_took_back` (no longer
+ignored; it also counts live rooms and entities stamped with a room that is
+not live). Where a seated participant's body goes on a restart is part of
+the join road (Q153): here Bob is a placement of his room and goes with it.
 
-**Known gap, until records carry their participant:** a defeat Bob won in a
-room he has already left is taken back with Alice's death, because only live
-rooms are spared.
+**A defeat Bob won in a room he has since left stays (2026-10-04).** A
+defeat record carries the participants whose bodies were in its room when the
+boss fell (`BossDefeatSinceCheckpoint::present`), and the death's admission
+names every participant but the dying one (`RoomReplayAdmitted::spared_participants`).
+The restore keeps a defeat one of them won, outside the dying participant's
+own room. A defeat with nobody else present still goes back. Witness:
+`a_death_keeps_the_defeat_another_player_won_in_a_room_he_left` (poisons: the
+restore ignores `present`, or the record leaves it empty; both read the boss
+uncleared). Decision recorded here: a defeat is credited to everyone in its
+room when it falls, since the edge has no attacker; a shared win stays when
+one of its winners dies elsewhere.
 
 **Acceptance:** Alice dies while Bob's room holds a boss he defeated after the
 checkpoint: Bob's room, the boss row and its reward stay; Alice's room agrees
@@ -1296,6 +1309,148 @@ the second provider is accepted and the arm fails.
 
 **Not checked:** one provider that writes the same character id twice in one
 catalog file. No plural bark collection exists, because no content asks for one.
+
+### SESSION-EDGE-STATE — a session starts from nothing the last one left
+
+**State:** five resources, the declared message channels and the per-attempt
+ledgers are reset at the session edge (2026-10-04). Two host constants are
+recorded, not reset.
+
+**Found by measurement (2026-10-04).** A session is retired inside a schedule
+run, and a route replacement (`ShellCommand::ReplaceWith`: a world reload, a
+restart) retires one session and activates the next in one frame.
+
+- **The clock pace crossed the edge.** `RequestedClockScale` and `ClockState`
+  are peer-compared and were not in the session reset. On the shipped host, a
+  session replaced during a hitstop left an asked pace of 0.0 and a live pace of
+  0.42, and the next session ran its first two ticks at 0.65 and 0.88. A peer
+  whose last session ended at the neutral pace does not. Both are now in
+  `SessionScopedResources`, reset at the activation. The reset also changed a
+  first session: in the sim harness, tick 1 ran at a pace of 0.96 (the frames
+  before the session left the clock in a ramp), and it now runs at 1.0. One
+  test had its premise satisfied by that tick only
+  (`the_trace_records_one_clock_per_tick`); it now asks for the pace it sets,
+  and its poison (the actor trace reads `ClockState`) fails it on tick 1.
+- **Simulation messages were alive across the edge.** The population is the
+  channels a domain declares to the rollback census (`clear_message_on_rollback`).
+  A probe in both registrars, over `app_it` by module: 59 first ticks of a later
+  session; at 10 of them (4 modules) one `ClockScaleRequest` and one
+  `ActorActionMessage` of the old session were still on the bus. Both are
+  written every tick. No other declared channel was alive there. ⚠ No reader was
+  shown to consume one: with the clear off, the reader of `ClockScaleRequest`
+  did not read the old requests again (it had read them in the old session),
+  and no suite fails. So this repair is a structural guarantee and not the fix
+  of an observed misread. The activation now empties every declared channel
+  (`lifecycle::session_messages`), from the same declaration, so there is one
+  list. A channel that presentation reads is kept (`for_each_presentation_effect`
+  is that list): the first version took the sound of the menu row that started
+  the session.
+
+- **Three more peer-compared resources crossed the edge** (a census at each tick
+  from 0, same day). Two hosts with EQUAL saves on the shell host under
+  rollback: a session that followed another one (replaced in place, or through
+  the title), and the first session of a fresh host that was given that save.
+  `GatePortalPhases` was a mechanic: with the gate switch on, the portal of the
+  session that followed was `On` from tick 0 and the fresh host's was `Opening`
+  until tick 40, so for 39 ticks one peer could take the gate and the other
+  could not. `WorldTime` held the old session's last step at tick 0.
+  `OwnedItemsBaseline` held the old session's bag at tick 0 against zeros, with
+  equal bags; it had been left out of the reset on purpose (2026-09-18), on the
+  premise that only different save files could make it differ. The three are
+  now in `SessionScopedResources`. The older two-host arm did not see them: its
+  first reading is after `settle`, past tick 0.
+
+**Witnesses:**
+`id_peer_audit::a_new_session_starts_at_the_neutral_pace_with_an_empty_clock_bus`
+(the shipped host; poison: no clock reset, the pace is `(0.0, 0.42)`; poison: no
+clear, 2 requests on the bus), and three arms in `lifecycle::session_messages`
+(a declared channel; a kept channel; a message the new session writes after its
+activation is not taken). Also
+`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does`
+(the peer census on each frame of ticks 0..=48, two successions; premises: the
+old session's portal is `On` and its last step is a hitstop step, the saves are
+equal, the fresh host's portal opens inside the window). Poisons, one reset
+removed at a time: `WorldTime` 1 frame at tick 0; `GatePortalPhases` 40 frames,
+ticks 0 to 39; `OwnedItemsBaseline` 1 frame at tick 0.
+
+**Host constants that cross the edge, recorded:** `FriendlyFire` and
+`RegimePolicy` are rollback-registered, and a value written by hand before the
+replace was still there at every tick of the next session (`RegimePolicy` in
+the peer census). No production code writes either one (grep of `crates/` and
+`game/`, non-test). They are NOT in the reset, because they are the host's and
+the world's configuration: `resolved_combat_tuning` sets `FriendlyFire` as "the
+world's authored friendly-fire rule" on a composed host, and `RegimePolicy` is
+the regime of the process. A reset to the default at each activation would
+replace a configured value. The first system that writes one of them inside
+a session makes it session state, and it must then join the reset;
+`scripts/check_host_configuration_has_no_session_writer.py` fails when such a
+writer arrives (no `&mut` to either type in production code, and each install
+site is named).
+
+**Not measured:** the other whole-state rows were scope ordinals
+(`TransactionId`, `SessionScopedEntity`), a declared-derived cache
+(`GatedLockWallCache`, tick 0) and a count of launcher entities (`Name`, tick 0,
+replace flow only). The walk did not change `OwnedItems`, and could not read
+`FactionRelations`, `CutRopeHeavyObjectCycle` (private fields) or
+`PortalFrameHistory` (a presence probe). Message
+channels that no domain declares to the rollback census are not counted. A long
+visit to the title carries no message: the bus was empty after 80 frames.
+
+**The per-attempt ledgers crossed the edge (2026-10-04).** Mary-O's
+`BrokenBricks` and `SpentPowerBlocks` and Sanic's `SpentMonitors` are keyed by
+the live room (`PerLiveRoom`). The live-room counter is the session's
+(`RoomSet::next_live_room`), so the first room of each session is
+`LiveRoomInstance(0)` again. The re-arm keeps the state of a live key, so a
+brick broken in one Mary-O session was broken in the next, through the
+launcher and back, and a Sanic monitor too. `install_attempt_scoped` now also
+registers `forget_attempts_on_activation` in `SessionScopeSet::Activate`, with
+no condition, so the one statement that makes a ledger per-attempt also makes
+it per-session. Witnesses:
+`shell_host_lifecycle::a_block_broken_in_one_session_is_whole_in_the_next`
+(the shipped rollback host; it reads the live room's collision overlay; the
+premise asserts that the second session's first room has the first one's key),
+`bricks::tests::a_session_activation_forgets_the_broken_bricks` (control: a
+frame with no activation keeps the brick), and the two composition tests of
+`attempt_scoped_retraction` (each ledger, both plugin roads). Poison (the reset
+writes nothing): the Mary-O arm, then the Sanic arm with the Mary-O assert made
+non-fatal, and the unit test are red. Poison (the system out of the set): both
+composition tests are red, at their `SetNotFound` expect.
+
+**The frame on which the timeline starts is a decision (2026-10-04).**
+`LocalSessionSet::Maintain` had no edge to `GameplaySessionSet::Providers`, the
+set that builds the session world, so the sort chose the order. Before the
+merge of this row's system (in `SessionScopeSet::Activate`) with the HUD of
+each view (Q150), the shipped host ran the providers first, and the rollback
+session came up in the `Update` that built the world. After it, the maintainer
+ran first and the session came up one frame later; the floor of
+`versus_stage::the_roster_arm_writes_the_scoreboard_before_the_timeline_starts`
+went red because no firing frame installed a session. A frame on which the
+world exists and the session does not is a frame outside the timeline, so a
+composer that installs the two sets now states the order:
+`rollback::start_the_timeline_with_the_session_world` (in the facade, the
+lowest crate that sees the two sets) puts the maintainer after the providers.
+Each composer of the Ambition shell host calls it, and `PlatformerApp` calls it
+for a rollback composition.
+
+- The versus test asks that every firing frame installs the session. Poison
+  (the edge removed): its floor is red.
+- `reload_publication_is_installed` recorded that nothing ordered the session
+  start against the generation commit (Q118). The edge orders them on one
+  frame (the commit is before the providers), and the arm now asserts that
+  order. A timeline that starts on an earlier frame of the wait is still the
+  case of `break_the_publication_lease_when_the_boundary_closes`.
+- `shell_host_lifecycle`'s misordered-retirement arm puts the maintainer before
+  the session bridge. With the host's edge that is a cycle, so that arm alone
+  uses `compose_ambition_shell_host_with_the_timeline_start_unordered`.
+
+- The SDK composition has the edge:
+  `versus_through_the_sdk::an_sdk_rollback_host_starts_the_timeline_with_the_session_world`
+  reads the path in the schedule graph and, with the maintainer allowed to
+  start, the session at the end of the frame that built the world. Poison (the
+  call removed from `PlatformerApp`): the graph half is red.
+
+**Not covered:** the pocket demo composes the shell with no rollback backend,
+so it has no maintainer to order.
 
 ### TEST-LANES — keep required test lanes executable
 

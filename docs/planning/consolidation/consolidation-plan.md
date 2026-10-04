@@ -108,11 +108,11 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ### Scope and current authority
 
-Source explicitly groups **39** App resources as gameplay-session or
+Source explicitly groups **44** App resources as gameplay-session or
 activated-generation state:
 
-<!-- session-owner-census: SessionScopedResources=32 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
-- `SessionScopedResources` (**32**) in `actor_monolith/src/session/teardown.rs`;
+<!-- session-owner-census: SessionScopedResources=37 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
+- `SessionScopedResources` (**37**) in `actor_monolith/src/session/teardown.rs`;
 - `SessionOwnedCheckpointState` (6) in `actor_monolith/src/session/checkpoint.rs`;
 - `SessionMechanics` (1 resource with six fields; do not count its fields).
 
@@ -203,7 +203,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 39 values. Work owner by owner:
+Do not begin by moving all 44 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
@@ -292,6 +292,36 @@ disabled menu state until a shell-less composition exists.
     `record_placed_bodies`). The other reads (`minted_horizon`,
     `durable_horizon`, the room loader, the checkpoint) are still optional and
     not probed.
+  - `SessionMechanics` (2026-10-04): five live systems read it as "the value
+    of the generation, or that of the App when there is no generation"
+    (`fire_puppy_slug_gun_system`, `apply_summon_effects`,
+    `refresh_boss_damageable_volumes`, `serve_encounter_spawn_commands`,
+    `apply_feature_hit_events`). The `None` arm fired in four `app_it` modules
+    (`latched_input_reaches_the_tick`, `participant_input`,
+    `shell_host_lifecycle`, `smash_in_the_host`) and in lib fixtures. Measured
+    at the read: no session ran, and no body existed. One state is a direct
+    host that publishes a root and no generation. The other is the remainder of
+    the schedule run that retired the session: the session gate answered `true`
+    275 to 340 system ticks before the read, in the same run, and at the read
+    there was no root and no scope. So the `None` arm now returns, and the
+    App-registry parameters are deleted from the five systems: a live system
+    cannot reach the sheets or the boss catalog of the App. A required `Res` is
+    wrong here: the resource is removed at retirement, and the read would fail
+    parameter validation in that remainder. Witnesses:
+    `a_spawn_request_with_no_generation_builds_no_body`,
+    `a_hit_with_no_generation_is_not_resolved` (poison: an empty generation in
+    place of the refusal). A request that a refusal leaves on the bus is not
+    drained by the reader: the session edge owns that, see
+    [SESSION-EDGE-STATE](../queue.md#session-edge-state--a-session-starts-from-nothing-the-last-one-left).
+    The readers that build a room (the room loader, the prefetch, the world
+    reload) refuse through `GenerationMechanics::for_live_session`, and
+    `SenseExtent` refuses through the composition gate; none was changed.
+  - `OccurrenceBaseline`, `CustodyBaseline`, `MintedItemBaseline` (2026-10-04):
+    the four reads outside the restore chain were never absent, in the lib
+    fixtures also, and are now required (`capture_occurrence_baseline`,
+    `capture_custody_baseline`, `adopt_pinned_lifecycle_baselines`,
+    `restore_inventory_from_save`). The reads in `minted_horizon`,
+    `durable_horizon` and the checkpoint are still optional and not probed.
 - ✅ The fallback no `Option` scan could see is closed (2026-10-03):
   `insert_session_world_component` refuses in a session-gated composition
   with no root and no active scope. A direct host (no gate) builds its one root

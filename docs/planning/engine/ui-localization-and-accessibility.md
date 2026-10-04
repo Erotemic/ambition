@@ -110,9 +110,12 @@ Before you drive a component in a test, ask who else writes it every frame.
 A9 in the [frontier](actor-monolith-work-frontier.md) requires a render/UI-absent
 simulation profile. UI can consume participant/view facts without owning control
 or requiring HUD state in simulation construction. Two participants, two views
-and two live rooms are distinct configurations. Split views by live room exist;
-the HUD, banner and music follow the primary seat until the Q150 ruling is
-built: a HUD per participant, and authored-priority music.
+and two live rooms are distinct configurations. Split views by live room exist,
+and the music is chosen by authored priority (Q150). The banner follows the
+primary seat. The built-in vitals HUD is per participant, also on a shared
+view (`ViewHudFacts`, `SharedViewHudFacts`); the declared HUD readouts are
+still one per session, and two stacked HUDs do not yet say whose each is (see
+[open-world-runtime-and-residency.md](open-world-runtime-and-residency.md)).
 
 Structure semantic labels, diagnostics and action descriptions so machine-facing
 authoring and human-facing localized presentation can consume the same supported

@@ -434,3 +434,47 @@ mod who_gets_it {
         );
     }
 }
+
+/// Q154: only a collected AUTHORED pickup whose policy is `Never` is written
+/// `Consumed`. The controls, all collected too: an `OnRoomReload` pickup (the
+/// unauthored policy), an `AfterSeconds` one (it regrows), a `Never` one that
+/// is still lying there, and a dropped `Never` one (no record to build again).
+#[test]
+fn only_a_taken_authored_never_pickup_is_remembered_as_consumed() {
+    use ambition_entity_catalog::placements::HazardRespawn;
+    use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
+    use ambition_platformer2d_shared_tangle::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    let mut app = App::new();
+    app.init_resource::<AuthoredOccurrences>();
+    app.add_systems(Update, record_consumed_pickups);
+    let pickup = |app: &mut App, id: &str, respawn: HazardRespawn, authored: bool, taken: bool| {
+        let mut feature = ambition_interaction::Pickup::new(id, ambition_interaction::PickupKind::Health { amount: 1 });
+        feature.respawn = respawn;
+        let origin = if authored {
+            SpawnOrigin::Authored { source: "room".into(), instance: id.into() }
+        } else {
+            SpawnOrigin::Dynamic { parent: SimId::placement("boss"), sequence: 0 }
+        };
+        let mut entity = app.world_mut().spawn((SimId::placement(id), PickupFeature::new(feature), origin));
+        if taken {
+            entity.insert(Collected);
+        }
+    };
+    pickup(&mut app, "never", HazardRespawn::Never, true, true);
+    pickup(&mut app, "reload", HazardRespawn::OnRoomReload, true, true);
+    pickup(&mut app, "regrows", HazardRespawn::AfterSeconds(4.0), true, true);
+    pickup(&mut app, "untaken", HazardRespawn::Never, true, false);
+    pickup(&mut app, "dropped", HazardRespawn::Never, false, true);
+    app.update();
+    let ledger = app.world().resource::<AuthoredOccurrences>();
+    let rows: Vec<(String, OccurrenceWhereabouts)> = ledger
+        .rows()
+        .map(|(sim_id, row)| (sim_id.to_string(), row.clone()))
+        .collect();
+    assert_eq!(
+        rows,
+        vec![(SimId::placement("never").to_string(), OccurrenceWhereabouts::Consumed)],
+        "the ledger's rows after one tick"
+    );
+}

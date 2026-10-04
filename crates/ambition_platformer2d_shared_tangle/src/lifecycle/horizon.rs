@@ -136,21 +136,19 @@ pub struct FreshRunRestore;
 pub fn adopt_pinned_lifecycle_baselines(
     fresh: Option<bevy::prelude::Res<FreshRunRestore>>,
     inputs: Option<bevy::prelude::Res<CheckpointRestoreInputs>>,
-    occurrences: Option<bevy::prelude::ResMut<OccurrenceBaseline>>,
-    custody: Option<bevy::prelude::ResMut<CustodyBaseline>>,
+    // Required: `LifecycleCheckpointHorizonPlugin` installs both baselines in
+    // the same `build` that schedules this reducer.
+    mut occurrences: bevy::prelude::ResMut<OccurrenceBaseline>,
+    mut custody: bevy::prelude::ResMut<CustodyBaseline>,
 ) {
     let (Some(_), Some(inputs)) = (fresh, inputs) else {
         return;
     };
-    if let Some(mut occurrences) = occurrences {
-        if *occurrences != inputs.occurrences {
-            *occurrences = inputs.occurrences.clone();
-        }
+    if *occurrences != inputs.occurrences {
+        *occurrences = inputs.occurrences.clone();
     }
-    if let Some(mut custody) = custody {
-        if *custody != inputs.custody {
-            *custody = inputs.custody.clone();
-        }
+    if *custody != inputs.custody {
+        *custody = inputs.custody.clone();
     }
 }
 

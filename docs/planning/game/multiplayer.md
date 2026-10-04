@@ -119,11 +119,20 @@ with hysteresis when they regroup.
   the players are in two rooms and closes when they meet
   (`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`).
 - Not done: debug overlays read the sole live room; the through-portal window is
-  drawn for the primary seat's view only; banner, music and HUD are
-  session-wide and follow the primary seat. The Q150 ruling (2026-10-03, in
+  drawn for the primary seat's view only; the banner is session-wide and
+  follows the primary seat. The Q150 ruling (2026-10-03, in
   [`../maintainer-decisions.md`](../maintainer-decisions.md)) makes the HUD
   per participant and the local music an authored-priority choice with the
-  primary participant as the tie-break; not built yet.
+  primary participant as the tie-break. The music is built. Of the HUD,
+  the built-in vitals HUD is per view: each local view shows the meters of
+  the body it follows (`ViewHudFacts`), in its own column
+  (`each_view_of_the_split_shows_its_own_participants_purse`), and each other
+  seat on a shared view has its own HUD on it
+  (`bob_beside_alice_has_his_own_hud_on_the_shared_view`). Open: the declared
+  readouts (`HudReadouts`: Mary-O's coins, Sanic's rings) are one per session;
+  two stacked HUDs do not say whose each is; and an online peer shows every
+  seat on its shared view, since only A4's client-local layout knows which
+  seats are its own.
 - Two players in one room still share a conversation's pause (the first
   game-state question above).
 

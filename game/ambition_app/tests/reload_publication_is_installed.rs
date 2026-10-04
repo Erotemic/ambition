@@ -50,13 +50,13 @@ fn is_registered<M>(graph: &ScheduleGraph, f: impl IntoSystem<(), (), M>) -> usi
 /// edge somebody wrote down literally; it is the only thing that distinguishes
 /// "the schedule does not say that" from "my query cannot see it", and it caught
 /// this instrument twice.
-struct Ordering {
+pub(crate) struct Ordering {
     /// `edges[a]` are the systems that must run after `a`.
     edges: std::collections::HashMap<SystemKey, Vec<SystemKey>>,
 }
 
 impl Ordering {
-    fn of(graph: &ScheduleGraph) -> Self {
+    pub(crate) fn of(graph: &ScheduleGraph) -> Self {
         use std::collections::{HashMap, HashSet};
 
         let hierarchy = graph.hierarchy().graph();
@@ -103,7 +103,7 @@ impl Ordering {
     }
 
     /// Is any system of `from` ordered before any system of `to`?
-    fn reaches(&self, from: &[SystemKey], to: &[SystemKey]) -> bool {
+    pub(crate) fn reaches(&self, from: &[SystemKey], to: &[SystemKey]) -> bool {
         use std::collections::HashSet;
         let target: HashSet<SystemKey> = to.iter().copied().collect();
         let mut seen: HashSet<SystemKey> = HashSet::new();
@@ -125,7 +125,10 @@ impl Ordering {
 
 /// Every system in a set, transitively — the population an ordering question
 /// about that set is really about.
-fn systems_in<S: bevy::ecs::schedule::SystemSet>(graph: &ScheduleGraph, set: S) -> Vec<SystemKey> {
+pub(crate) fn systems_in<S: bevy::ecs::schedule::SystemSet>(
+    graph: &ScheduleGraph,
+    set: S,
+) -> Vec<SystemKey> {
     use std::collections::HashSet;
     let key = graph
         .system_sets
@@ -341,8 +344,8 @@ fn the_commit_sits_between_the_activation_and_session_adoption() {
     );
 }
 
-/// ⛔⛤ **Q118: NOTHING ORDERS THE ROLLBACK SESSION START AGAINST THE GENERATION
-/// COMMIT, SO THE PUBLICATION-LEGALITY INTERVAL CAN BE CROSSED.**
+/// ⛔⛤ **Q118: THE ROLLBACK SESSION START IS ORDERED AFTER THE GENERATION
+/// COMMIT, AND THAT SEALS ONE FRAME OF THE PUBLICATION-LEGALITY INTERVAL.**
 ///
 /// `admit_candidate` asks `publication_boundary` at REQUEST time and refuses a
 /// live rollback timeline. The generation then waits in `PendingGeneration`
@@ -359,13 +362,23 @@ fn the_commit_sits_between_the_activation_and_session_adoption() {
 /// re-prepares the route the shell is already on, so the session world is torn
 /// down and rebuilt INSIDE the pending interval.
 ///
+/// ⭐ UNTIL 2026-10-04 NOTHING ORDERED THE TWO, and this arm recorded that
+/// (`nothing_orders_the_rollback_session_start_against_the_generation_commit`).
+/// The host now starts the timeline in the `Update` that builds the session
+/// world (`rollback::start_the_timeline_with_the_session_world`: the
+/// maintainer runs after `GameplaySessionSet::Providers`), and the commit is
+/// before the providers. So on the frame that rebuilds the world the commit
+/// runs first, and the session starts after it.
+///
+/// ⚠ ONE FRAME ONLY. A timeline that goes live on an EARLIER frame of the
+/// pending interval is not stopped by an edge.
+/// `break_the_publication_lease_when_the_boundary_closes` owns that case.
+///
 /// ⭐⭐ **WHAT THIS ASKS IS REACHABILITY IN THE DEPENDENCY GRAPH, NOT A DIRECT
 /// EDGE**, because "ordered" is transitive and a direct-edge check would call an
-/// ordered pair unordered. If there is no path either way, the two are
-/// AMBIGUOUS — Bevy is free to run them in either order, and the interval
-/// crossing is not merely possible but a race.
+/// ordered pair unordered.
 #[test]
-fn nothing_orders_the_rollback_session_start_against_the_generation_commit() {
+fn the_rollback_session_start_is_ordered_after_the_generation_commit() {
     let app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     let schedules = app.world().resource::<Schedules>();
@@ -417,14 +430,14 @@ fn nothing_orders_the_rollback_session_start_against_the_generation_commit() {
     );
 
     assert!(
-        !commit_first && !session_first,
-        "MEASURED GAP CLOSED? This arm records that NOTHING orders the GGRS \
-         session start against the content-generation commit — so a timeline can \
-         become live between a reload's admission and its publication, which is \
-         the state `publication_boundary` refuses at request time. If an edge now \
-         exists (commit-first: {commit_first}, session-first: {session_first}), \
-         say which way and this arm becomes the assertion that the interval is \
-         sealed. See `Q118`."
+        commit_first,
+        "nothing orders the content-generation commit before the GGRS session \
+         start (session-first: {session_first}). The host's edge \
+         `Maintain.after(GameplaySessionSet::Providers)` \
+         (`rollback::start_the_timeline_with_the_session_world`) and the \
+         commit's `.before(GameplaySessionSet::Providers)` give that order; one \
+         of the two is gone, and on the frame that rebuilds the session world \
+         the timeline can start before the generation is published. See `Q118`."
     );
 }
 

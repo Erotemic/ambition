@@ -618,7 +618,16 @@ WAIVERS: dict[str, str] = {
         "a live timeline. The durable-hydration gate hid this by holding the "
         "session back; it went with BODY-BORN-ON-THE-TIMELINE. The chain is now "
         "also `.after(AmbitionGameShellSet::Pending)`. Poison (that edge "
-        "removed): the test fails with the write on a frame that began live."
+        "removed): the test fails with the write on a frame that began live. "
+        "⛔ 2026-10-04: the schedule did not order `LocalSessionSet::Maintain` "
+        "against `GameplaySessionSet::Providers`, and a merge of two unrelated "
+        "commits moved the maintainer before the providers. The session then "
+        "came up one frame after the world, and the test compared nothing "
+        "(its floor was red). The host now puts the maintainer after the "
+        "providers (`rollback::start_the_timeline_with_the_session_world`), "
+        "and the floor asks that EVERY firing frame installs the session. "
+        "Poison (that edge removed): the floor is red. Poison (`.before` -> "
+        "`.after` on the roster edge): install at tick 3900, write at 3901, red."
     ),
     "refresh_world_time": (
         "⛔ NOT installed by any composition. `ambition_time::TimePlugin` — the "

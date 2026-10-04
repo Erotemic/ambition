@@ -2991,7 +2991,7 @@ fn module_entities(sim: &mut Platformer2dSimHarness) -> Vec<(Option<LiveRoomInst
 
 /// Bob, on slot 1, goes through `switch_lab`'s door to the hub, as
 /// `the_second_player_goes_through_a_door_of_his_own_room` sends him.
-fn bob_goes_to_the_hub(sim: &mut Platformer2dSimHarness, hub: LiveRoomInstance) {
+pub(crate) fn bob_goes_to_the_hub(sim: &mut Platformer2dSimHarness, hub: LiveRoomInstance) {
     use ambition_platformer2d::engine_core::AabbExt as _;
     let door = door_of(sim, ROOM, HUB).aabb.center();
     {
@@ -3123,6 +3123,109 @@ fn a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_m
     bob_goes_to_the_hub(&mut sim, held.next());
     assert_eq!(live_rooms(&mut sim).len(), 1, "precondition: Bob did not join Alice");
     assert_eq!(the_views(&mut sim), vec![(0, None, false)], "the players met, and the split did not close");
+}
+
+/// Q150: each view's HUD shows the purse of the participant it follows.
+/// Alice crosses and Bob stays; the split opens Bob's view, and its HUD
+/// facts show Bob's purse while view 0 shows Alice's. Before, one HUD showed
+/// the controlled body (Alice) for every view.
+#[test]
+fn each_view_of_the_split_shows_its_own_participants_purse() {
+    use ambition_platformer2d::characters::actor::BodyWallet;
+    let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    {
+        let world = sim.world_mut();
+        let mut bodies = world.query::<(
+            bevy::prelude::Entity,
+            Option<&ambition_platformer2d::combat::components::FeatureId>,
+            bevy::prelude::Has<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        )>();
+        let (alice, bob) = {
+            let rows: Vec<_> = bodies.iter(world).collect();
+            let alice = rows.iter().find(|(_, _, primary)| *primary).map(|(body, ..)| *body);
+            let bob = rows
+                .iter()
+                .find(|(_, feature, _)| feature.is_some_and(|feature| feature.0 == BOB))
+                .map(|(body, ..)| *body);
+            (alice.expect("Alice's body"), bob.expect("Bob's body"))
+        };
+        world.entity_mut(alice).insert(BodyWallet { balance: 3 });
+        world.entity_mut(bob).insert(BodyWallet { balance: 11 });
+    }
+    sim.step_n(base(), 2);
+    let world = sim.world_mut();
+    let mut shown: Vec<(u8, bool, i32)> = world
+        .query_filtered::<(
+            &ambition_platformer2d::sim_view::LocalViewId,
+            &ambition_platformer2d::sim_view::ViewHudFacts,
+        ), bevy::prelude::With<ambition_platformer2d::sim_view::LocalView>>()
+        .iter(world)
+        .map(|(id, facts)| (id.0, facts.0.present, facts.0.balance))
+        .collect();
+    shown.sort();
+    assert_eq!(
+        shown,
+        vec![(0, true, 3), (1, true, 11)],
+        "(view, its HUD shows a body, the purse it shows): view 0 follows Alice, view 1 Bob's seat"
+    );
+}
+
+/// Q150 on a merged screen: Alice and Bob in one live room share view 0,
+/// and Bob's purse is on it beside Alice's (`SharedViewHudFacts`). The
+/// control is the split: when Alice leaves, Bob's view shows his purse and
+/// view 0 shows no other participant.
+#[test]
+fn bob_beside_alice_has_his_own_hud_on_the_shared_view() {
+    use ambition_platformer2d::characters::actor::BodyWallet;
+    fn give_purses(sim: &mut Platformer2dSimHarness) {
+        let world = sim.world_mut();
+        let mut bodies = world.query::<(
+            bevy::prelude::Entity,
+            Option<&ambition_platformer2d::combat::components::FeatureId>,
+            bevy::prelude::Has<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        )>();
+        let rows: Vec<_> = bodies.iter(world).collect();
+        let alice = rows.iter().find(|(_, _, primary)| *primary).map(|(body, ..)| *body);
+        let bob = rows
+            .iter()
+            .find(|(_, feature, _)| feature.is_some_and(|feature| feature.0 == BOB))
+            .map(|(body, ..)| *body);
+        world.entity_mut(alice.expect("Alice's body")).insert(BodyWallet { balance: 3 });
+        world.entity_mut(bob.expect("Bob's body")).insert(BodyWallet { balance: 11 });
+    }
+    fn shown(sim: &mut Platformer2dSimHarness) -> Vec<(u8, i32, Vec<(u8, i32)>)> {
+        let world = sim.world_mut();
+        let mut shown: Vec<_> = world
+            .query_filtered::<(
+                &ambition_platformer2d::sim_view::LocalViewId,
+                &ambition_platformer2d::sim_view::ViewHudFacts,
+                &ambition_platformer2d::sim_view::SharedViewHudFacts,
+            ), bevy::prelude::With<ambition_platformer2d::sim_view::LocalView>>()
+            .iter(world)
+            .map(|(id, own, shared)| {
+                let others = shared.0.iter().map(|(slot, facts)| (slot.0, facts.balance)).collect();
+                (id.0, own.0.balance, others)
+            })
+            .collect();
+        shown.sort();
+        shown
+    }
+    let (mut sim, _) = alice_beside_bob();
+    give_purses(&mut sim);
+    sim.step_n(base(), 2);
+    assert_eq!(
+        shown(&mut sim),
+        vec![(0, 3, vec![(1, 11)])],
+        "(view, its own purse, the other seats on it) with Alice and Bob in one room"
+    );
+    let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    give_purses(&mut sim);
+    sim.step_n(base(), 2);
+    assert_eq!(
+        shown(&mut sim),
+        vec![(0, 3, vec![]), (1, 11, vec![])],
+        "control: in two rooms each has a view of his own"
+    );
 }
 
 /// Where Alice's and Bob's bodies are. Bob's is `None` when his body is gone.

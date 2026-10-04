@@ -251,6 +251,7 @@ pub fn admit_room_replay(
         refight,
         to_checkpoint: false,
         spared: Vec::new(),
+        spared_participants: Vec::new(),
     });
 }
 

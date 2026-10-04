@@ -94,6 +94,15 @@ impl WorldSourceHotReload {
         self.last_status = format!("world reload applied to '{room}' (#{})", self.applied_count);
     }
 
+    /// The reload cannot apply now and can later. `pending` stays as it is,
+    /// so a change that auto-apply is holding is not lost.
+    pub fn mark_deferred(&mut self, reason: impl Into<String>) {
+        let status = format!("world reload waits: {}", reason.into());
+        if self.last_status != status {
+            self.last_status = status;
+        }
+    }
+
     pub fn mark_failed(&mut self, errors: Vec<String>) {
         self.pending = false;
         self.last_errors = errors;

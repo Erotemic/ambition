@@ -813,6 +813,57 @@ fn a_committed_world_reload_applies_its_effects() {
     );
 }
 
+/// A reload asked for while two rooms are live waits, and says so. It rebuilds
+/// one live room, and another live room would keep the old generation's
+/// content under the new set. Before, the system did not run at all while two
+/// rooms were live, and the press was lost with no status. A second live room
+/// root is spawned beside the session's room for the press; when it is gone,
+/// the same press applies, which is the control.
+#[test]
+fn a_world_reload_asked_for_while_two_rooms_are_live_waits() {
+    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+    let mut app = a_running_shipped_session();
+    let applied = |app: &bevy::prelude::App| app.world().resource::<WorldSourceHotReload>().applied_count;
+    let before = applied(&app);
+    // A live room as every reader of one sees it: a root with its own
+    // definition and geometry (a copy of the session's room).
+    let (definition, geometry) = {
+        let world = app.world_mut();
+        let mut roots = world.query_filtered::<(
+            &ambition_platformer2d::world::rooms::LiveRoomDefinition,
+            &ambition_platformer2d::engine_core::RoomGeometry,
+        ), bevy::prelude::With<ambition_platformer2d::session::RoomInstanceRoot>>();
+        let (definition, geometry) = roots.single(world).expect("the session has one live room");
+        (*definition, geometry.clone())
+    };
+    let second = ambition_platformer2d::platformer::lifecycle::spawn_live_room(
+        app.world_mut(),
+        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance::from_ordinal(1_000),
+        definition,
+    );
+    app.world_mut().entity_mut(second).insert(geometry);
+
+    press_apply_reload(&mut app);
+    let reload = app.world().resource::<WorldSourceHotReload>().clone();
+    assert_eq!(
+        (reload.applied_count, reload.last_status.starts_with("world reload waits: 2 rooms are live")),
+        (before, true),
+        "a reload with two live rooms: (applied count, the status says it waits); status {:?}, errors {:?}",
+        reload.last_status,
+        reload.last_errors
+    );
+
+    app.world_mut().entity_mut(second).despawn();
+    press_apply_reload(&mut app);
+    let reload = app.world().resource::<WorldSourceHotReload>().clone();
+    assert!(
+        reload.applied_count > before,
+        "control: with one live room again, the reload did not apply: {:?} / {:?}",
+        reload.last_status,
+        reload.last_errors
+    );
+}
+
 /// ⛔⛤ **AND A REFUSED RELOAD COSTS THE RUNNING GAME NOTHING.**
 ///
 /// The refusal is a production one: two process-resident holders of one identity

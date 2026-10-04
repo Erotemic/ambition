@@ -1421,6 +1421,16 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_multi_writer_resources_are_adjudicated.py",
             ],
         ),
+        # A rollback-registered resource that is host configuration is not in
+        # the session reset, so a value written inside a session stays for the
+        # next one. This fails when the first such writer arrives.
+        Job(
+            "no production code writes a host-configuration resource",
+            [
+                sys.executable,
+                "scripts/check_host_configuration_has_no_session_writer.py",
+            ],
+        ),
         # A request drained inside the rewinding schedule and written from
         # outside it is lost on every rewind. `CutsceneTriggerQueue` is safe by
         # COINCIDENCE — every producer happens to be in the sim schedule — and
@@ -2287,11 +2297,11 @@ def coverage_notice(
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
             "      - tests behind an OPT-IN #[cfg(feature = \"...\")] — MEASURED\n"
-            "        2026-10-03 by `scripts/feature_gated_tests.py`, 494 tests\n"
+            "        2026-10-04 by `scripts/feature_gated_tests.py`, 489 tests\n"
             "        across 30 crates, the largest single omission this\n"
             "        footer names — though the scanner counts `#[cfg(feature)]`\n"
             "        STATICALLY, and a feature another workspace member turns on\n"
-            "        IS unified into `--workspace`, so some of the 494 do run\n"
+            "        IS unified into `--workspace`, so some of the 489 do run\n"
             "        here (MEASURED 2026-09-12: `ambition_characters`'\n"
             "        content_pack arms execute, via `game/ambition_content`).\n"
             "        footer names. `python3 scripts/feature_gated_tests.py` prints\n"

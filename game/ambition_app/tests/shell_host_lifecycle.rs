@@ -71,6 +71,16 @@ fn shell_host_app_started_in(
     host: ambition_platformer2d::runtime::SimulationHost,
     room: Option<&str>,
 ) -> App {
+    shell_host_app_composed_by(host, room, shell_host::compose_ambition_shell_host)
+}
+
+/// The same host, with the composer stated. Every walk but one uses the
+/// shipped composer; see [`RetirementOrder::LocalSessionOwnerFirst`].
+fn shell_host_app_composed_by(
+    host: ambition_platformer2d::runtime::SimulationHost,
+    room: Option<&str>,
+    compose: fn(&mut App),
+) -> App {
     use ambition_platformer2d::runtime::SimulationHostAppExt as _;
 
     let mut app = App::new();
@@ -99,7 +109,7 @@ fn shell_host_app_started_in(
     // same deadline `visible_composition.rs` documents.
     app.set_simulation_host(host);
     ambition_app::app::add_simulation_plugins(&mut app);
-    shell_host::compose_ambition_shell_host(&mut app);
+    compose(&mut app);
     app
 }
 
@@ -1018,22 +1028,34 @@ fn settle_until_the_room_changes(app: &mut App, before: &str, frames: u32) -> Op
 /// Which admissible order the local-session owner and the shell's session
 /// bridge run in.
 ///
-/// ⛔⛔ NOTHING IN THE SHIPPED SCHEDULE ORDERS THEM. `LocalSessionSet::Maintain`
-/// is constrained only against `InputSet::Collect`; `GameplaySessionSet::Bridge`
-/// only against `AmbitionGameShellSet::Pending`. Both live in `Update`, so both
-/// orders below are things this app may legitimately do — and they are not
-/// equally survivable: with the owner running FIRST, retirement removes the
-/// canonical root while the GGRS session is still installed, and the contract
-/// check on the next `PreUpdate` reads deliberate teardown as corruption.
+/// ⛔⛔ NOTHING IN THE SHIPPED SCHEDULE ORDERED THEM UNTIL 2026-10-04.
+/// `LocalSessionSet::Maintain` was constrained only against
+/// `InputSet::Collect`; `GameplaySessionSet::Bridge` only against
+/// `AmbitionGameShellSet::Pending`. Both live in `Update`, so both orders below
+/// were things this app could legitimately do — and they are not equally
+/// survivable: with the owner running FIRST, retirement removes the canonical
+/// root while the GGRS session is still installed, and the contract check on
+/// the next `PreUpdate` reads deliberate teardown as corruption.
 ///
 /// ⭐ The fix orders them (`SessionScopeSet::RetireAuthority`), but ordering is
 /// hygiene. These arms exist to prove the OWNERSHIP holds when the ordering does
 /// not, which is the only version of the guarantee worth having.
+///
+/// The shipped host now puts the maintainer after the providers, and thus
+/// after the bridge (`rollback::start_the_timeline_with_the_session_world`):
+/// the frame on which the timeline starts is a decision. The second arm stays,
+/// because an edge can be removed.
 #[derive(Clone, Copy, Debug)]
 enum RetirementOrder {
-    /// What the shipped schedule happens to produce today.
+    /// The shipped schedule: the bridge retires the session, then the
+    /// maintainer runs.
     AsScheduled,
-    /// The other admissible order — a scheduling regression, simulated.
+    /// The owner retires first — a scheduling regression, simulated. This arm
+    /// is composed WITHOUT the shipped edge
+    /// (`compose_ambition_shell_host_with_the_timeline_start_unordered`) and
+    /// puts the maintainer before the bridge. The two edges together are a
+    /// cycle. ⚠ So in this arm the maintainer also runs before the providers,
+    /// and each session comes up one frame after its world, on purpose.
     LocalSessionOwnerFirst,
 }
 
@@ -1059,8 +1081,16 @@ fn a_smash_session_does_not_take_ambitions_doors_even_when_retirement_is_misorde
 }
 
 fn smash_then_ambition(order: RetirementOrder) {
-    let mut app =
-        shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+    let mut app = shell_host_app_composed_by(
+        ambition_platformer2d::runtime::SimulationHost::Rollback,
+        None,
+        match order {
+            RetirementOrder::AsScheduled => shell_host::compose_ambition_shell_host,
+            RetirementOrder::LocalSessionOwnerFirst => {
+                shell_host::compose_ambition_shell_host_with_the_timeline_start_unordered
+            }
+        },
+    );
     if let RetirementOrder::LocalSessionOwnerFirst = order {
         app.configure_sets(
             Update,
@@ -2112,6 +2142,303 @@ fn the_peer_visible_surface_does_not_record_which_route_the_host_visited_first()
     );
 }
 
+/// How the second session of [`a_session_that_follows_another_starts_as_a_fresh_hosts_does`]
+/// comes up.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum SessionSuccession {
+    /// `ShellCommand::ReplaceWith`: one frame retires the old session and
+    /// activates the new one (a world reload, a restart).
+    ReplacedInPlace,
+    /// `ShellCommand::QuitToHome`, the title, then a launch.
+    ThroughTheTitle,
+}
+
+/// ⭐ A SESSION STARTS FROM WHAT A FRESH HOST STARTS FROM, ON EVERY TICK FROM 0.
+///
+/// Two hosts with EQUAL saves: a veteran whose Ambition session follows another
+/// one, and a fresh host that was given the veteran's save before its first
+/// launch. What two peers compare must agree at each `SimTick`, from the tick
+/// before the first advance.
+///
+/// ⛔ THE OLD SESSION MUST LEAVE SOMETHING, so it is not a quiet one. It turns a
+/// gate-portal switch on and runs until that portal is `On`, then it ends in
+/// an impact hitstop. Measured 2026-10-04, before the repair:
+///
+/// - `GatePortalPhases`: the veteran's portal was `On` from tick 0 and the fresh
+///   host's was `Opening` until tick 40. For 39 ticks one peer could take the
+///   gate and the other could not.
+/// - `WorldTime`: the old session's last step at tick 0, against zero.
+/// - `OwnedItemsBaseline`: the old session's bag at tick 0, against zeros,
+///   with equal bags. The restore writes it on tick 1.
+/// - `RequestedClockScale`, `ClockState`: repaired the same day; see
+///   `id_peer_audit::a_new_session_starts_at_the_neutral_pace_with_an_empty_clock_bus`.
+///
+/// ⚠ WHY THE OLDER TWO-HOST ARM DID NOT SEE THEM.
+/// `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
+/// takes its first reading after `settle`, which is past tick 0, and its veteran
+/// played other games quietly. This arm reads the frame of the activation.
+///
+/// ⚠ NOT TWO PEERS. Two Apps with different local histories; see that arm.
+#[test]
+fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::persistence::save_data::AmbitionGameSaveData;
+    use ambition_platformer2d::rollback::{RollbackChecksumProbes, RollbackRegistry};
+    use ambition_platformer2d::world::rooms::{GatePortalPhase, GatePortalPhases, GatePortalRegistry};
+    use std::collections::{BTreeMap, BTreeSet};
+
+    /// Rows that differ for a reason another owner has. ⛔ A row here is a
+    /// reading, not a waiver, and it must still differ: see the end of the arm.
+    const EXPECTED_TO_DIFFER_AT_TICK_ZERO: &[(&str, &str)] = &[];
+
+    /// The ticks compared. The portal of a fresh host opens in 0.64 s, which is
+    /// 39 ticks, so the window is past it.
+    const TICKS: u64 = 48;
+
+    type Census = BTreeMap<String, (usize, u64)>;
+
+    fn peer_census(app: &mut App) -> Census {
+        let probes = app
+            .world()
+            .get_resource::<RollbackChecksumProbes>()
+            .cloned()
+            .expect("the rollback host registers probes");
+        let peer_types: BTreeSet<String> = app
+            .world()
+            .resource::<RollbackRegistry>()
+            .descriptors()
+            .filter(|descriptor| descriptor.kind.feeds_peer_checksum())
+            .map(|descriptor| descriptor.type_name.clone())
+            .collect();
+        probes
+            .census_all_as_peers_compare(app.world_mut())
+            .into_iter()
+            .filter(|(name, _)| peer_types.contains(*name))
+            .map(|(name, reading)| (name.to_owned(), (reading.count, reading.xor)))
+            .collect()
+    }
+
+    fn host() -> App {
+        let mut app =
+            shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+        settle(&mut app);
+        app
+    }
+
+    fn ambition_route(app: &App) -> ambition_platformer2d::game_shell::ShellRouteId {
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+            .launch_entries()
+            .iter()
+            .find(|entry| entry.label == "Ambition")
+            .expect("the launcher offers the Ambition row")
+            .route_id
+            .clone()
+    }
+
+    /// Step to the frame that activates the next session.
+    fn enter(app: &mut App, before: Option<SessionScopeId>) -> SessionScopeId {
+        let mut frames = 0;
+        loop {
+            match live_scope(app) {
+                Some(scope) if Some(scope) != before => return scope,
+                _ => {}
+            }
+            app.update();
+            frames += 1;
+            assert!(frames < 200, "no new session came up");
+        }
+    }
+
+    fn gate_phase(app: &App, zone: &str) -> GatePortalPhase {
+        app.world().resource::<GatePortalPhases>().phase(zone)
+    }
+
+    /// The census of each frame of the session, from the frame of its
+    /// activation, keyed by `(tick, frame of that tick)`.
+    fn record(app: &mut App) -> BTreeMap<(u64, usize), Census> {
+        let mut out = BTreeMap::new();
+        let mut frame_of_tick = 0;
+        let mut frames = 0;
+        loop {
+            let tick = sim_tick(app);
+            out.insert((tick, frame_of_tick), peer_census(app));
+            if tick >= TICKS {
+                return out;
+            }
+            app.update();
+            frame_of_tick = if sim_tick(app) == tick { frame_of_tick + 1 } else { 0 };
+            frames += 1;
+            assert!(frames < 600, "the session never reached tick {TICKS}");
+        }
+    }
+
+    for succession in [
+        SessionSuccession::ReplacedInPlace,
+        SessionSuccession::ThroughTheTitle,
+    ] {
+        // ── The veteran: a first session that leaves something. ──
+        let mut veteran = host();
+        let route = ambition_route(&veteran);
+        veteran
+            .world_mut()
+            .write_message(ShellCommand::GoTo(route.clone()));
+        let first = enter(&mut veteran, None);
+        settle(&mut veteran);
+        let (zone, switch) = veteran
+            .world()
+            .resource::<GatePortalRegistry>()
+            .iter()
+            .map(|(zone, config)| (zone.clone(), config.switch_id.clone()))
+            .next()
+            .expect("the Ambition world registers a gate portal");
+        veteran
+            .world_mut()
+            .resource_mut::<AmbitionGameSave>()
+            .data_mut()
+            .set_switch(switch, true);
+        for _ in 0..60 {
+            veteran.update();
+        }
+        veteran
+            .world_mut()
+            .resource_mut::<ambition_platformer2d::combat::impact_hitstop::ImpactHitstop>()
+            .until_tick = Some(u64::MAX);
+        settle(&mut veteran);
+        // ⛔ THE PREMISE. A first session that leaves the defaults makes an
+        // edge that carries state look the same as one that resets it.
+        assert_eq!(
+            gate_phase(&veteran, &zone),
+            GatePortalPhase::On,
+            "{succession:?}: the first session did not open the portal `{zone}`, \
+             so it leaves no phase for the next session to inherit"
+        );
+        let last_step = veteran
+            .world()
+            .resource::<ambition_platformer2d::time::WorldTime>()
+            .sim_dt();
+        assert!(
+            last_step > 0.0 && last_step < 1.0 / 60.0,
+            "{succession:?}: the first session ended with a step of {last_step}, \
+             which is not the slowed step of a hitstop"
+        );
+        let save: AmbitionGameSaveData = veteran.world().resource::<AmbitionGameSave>().0.clone();
+
+        match succession {
+            SessionSuccession::ReplacedInPlace => {
+                veteran.world_mut().write_message(ShellCommand::ReplaceWith {
+                    route: route.clone(),
+                    request: None,
+                });
+            }
+            SessionSuccession::ThroughTheTitle => {
+                veteran.world_mut().write_message(ShellCommand::QuitToHome);
+                settle(&mut veteran);
+                assert_eq!(live_scope(&veteran), None, "the title has no session");
+                veteran
+                    .world_mut()
+                    .write_message(ShellCommand::GoTo(route.clone()));
+            }
+        }
+        let second = enter(&mut veteran, Some(first));
+        assert_ne!(first, second);
+
+        // ── The fresh host, with the veteran's save. ──
+        let mut fresh = host();
+        fresh.world_mut().resource_mut::<AmbitionGameSave>().0 = save;
+        fresh.world_mut().write_message(ShellCommand::GoTo(route));
+        enter(&mut fresh, None);
+
+        // ⛔ THE PREMISE OF THE COMPARISON. With different saves, a difference
+        // below is the durable state and not the session edge.
+        assert!(
+            fresh.world().resource::<AmbitionGameSave>().0
+                == veteran.world().resource::<AmbitionGameSave>().0,
+            "{succession:?}: the two hosts start the session with different saves"
+        );
+        assert_eq!(
+            (sim_tick(&fresh), sim_tick(&veteran)),
+            (0, 0),
+            "{succession:?}: a host already ran a tick, so the frame of the \
+             activation was missed"
+        );
+
+        let fresh_readings = record(&mut fresh);
+        let veteran_readings = record(&mut veteran);
+
+        // ⭐ THE MOTION FLOOR. The fresh host's portal opens inside the window:
+        // a window that ends before it compares a portal that never moved.
+        assert_eq!(
+            gate_phase(&fresh, &zone),
+            GatePortalPhase::On,
+            "{succession:?}: the fresh host's portal is not open after {TICKS} \
+             ticks, so the window does not span its opening"
+        );
+
+        let expected: BTreeMap<&str, &str> =
+            EXPECTED_TO_DIFFER_AT_TICK_ZERO.iter().copied().collect();
+        let mut still_differs: BTreeSet<&str> = BTreeSet::new();
+        let mut unexpected: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut compared = 0usize;
+        for (at, ours) in &fresh_readings {
+            // The two hosts can spend a different number of frames on tick 0
+            // (a launch against a replace). A frame only one of them has is
+            // not compared.
+            let Some(theirs) = veteran_readings.get(at) else {
+                continue;
+            };
+            compared += 1;
+            for (name, reading) in ours {
+                if theirs.get(name) == Some(reading) {
+                    continue;
+                }
+                if at.0 == 0 {
+                    if let Some((known, _)) = expected.get_key_value(name.as_str()) {
+                        still_differs.insert(*known);
+                        continue;
+                    }
+                }
+                unexpected.entry(name.clone()).or_default().push(format!(
+                    "tick {} frame {}: fresh={reading:?} veteran={:?}",
+                    at.0,
+                    at.1,
+                    theirs.get(name)
+                ));
+            }
+        }
+        assert!(
+            compared as u64 > TICKS,
+            "{succession:?}: only {compared} frames were compared over {TICKS} ticks"
+        );
+        assert!(
+            unexpected.is_empty(),
+            "{succession:?}: peer-compared state differs between a session that \
+             followed another one and the first session of a fresh host with the \
+             same save. The old session left it, and nothing reset it at the \
+             session edge (`SessionScopedResources`, `session/teardown.rs`).\n  {}",
+            unexpected
+                .iter()
+                .map(|(name, hits)| format!(
+                    "{name}: {} frame(s), first at {}, last at {}",
+                    hits.len(),
+                    hits[0],
+                    hits[hits.len() - 1]
+                ))
+                .collect::<Vec<_>>()
+                .join("\n  ")
+        );
+        // ⛔ AND THE ROW THAT IS EXPECTED TO DIFFER MUST STILL DIFFER. One going
+        // quiet means it was repaired and nobody deleted its row.
+        for (name, why) in EXPECTED_TO_DIFFER_AT_TICK_ZERO {
+            assert!(
+                still_differs.contains(name),
+                "{succession:?}: `{name}` no longer differs at tick 0. If that is \
+                 a repair, delete its row here; the reason it was listed is: {why}"
+            );
+        }
+    }
+}
+
 /// ⭐⭐ **THE CHECKSUM GGRS ACTUALLY COMPUTES IS THE SAME ON TWO HOSTS WITH
 /// DIFFERENT SHELL HISTORIES — AND IT WAS NOT UNTIL 2026-09-17.**
 ///
@@ -2366,3 +2693,126 @@ fn two_local_histories_compute_the_same_ggrs_component_checksums() {
     );
 }
 
+
+/// A brick broken in one Mary-O session is whole in the next, and a monitor
+/// spent in one Sanic session is whole in the next.
+///
+/// The state of an attempt is keyed by the live room (`PerLiveRoom`), and the
+/// live-room counter is the session's, so the first room of each session is
+/// `LiveRoomInstance::ACTIVATION` again. The re-arm keeps state whose key is
+/// live, so before the activation reset the old session's first room gave its
+/// state to the new session's first room.
+///
+/// It reads the collision overlay of the live room, which is what a body
+/// collides with and what is drawn. The break is written into the ledger at a
+/// real breakable block of the live room, because walking a body into a brick
+/// is not what this asks.
+#[test]
+fn a_block_broken_in_one_session_is_whole_in_the_next() {
+    use ambition_platformer2d::actors::session::reset::AttemptScoped;
+    use ambition_platformer2d::engine_core::RoomGeometry;
+    use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d::session::sole_live_room_component;
+    use ambition_platformer2d::world::FeatureEcsWorldOverlay;
+
+    fn the_live_room(app: &mut App) -> LiveRoomInstance {
+        let mut rooms = app
+            .world_mut()
+            .query_filtered::<&LiveRoomInstance, With<RoomInstanceRoot>>();
+        let rooms: Vec<_> = rooms.iter(app.world()).copied().collect();
+        assert_eq!(rooms.len(), 1, "one live room: {rooms:?}");
+        rooms[0]
+    }
+
+    fn removed(app: &App) -> Vec<String> {
+        sole_live_room_component::<FeatureEcsWorldOverlay>(app.world())
+            .expect("the live room has a collision overlay")
+            .removed_block_names
+            .clone()
+    }
+
+    fn one_block(app: &App, breaks: impl Fn(&str) -> bool) -> String {
+        sole_live_room_component::<RoomGeometry>(app.world())
+            .expect("the live room has geometry")
+            .0
+            .blocks
+            .iter()
+            .map(|block| block.name.clone())
+            .find(|name| breaks(name))
+            .expect("the live room authors a breakable block")
+    }
+
+    fn launch(app: &mut App, label: &str) {
+        launch_labeled(app, label);
+        for _ in 0..12 {
+            app.update();
+        }
+    }
+
+    fn quit(app: &mut App) {
+        app.world_mut().write_message(ShellCommand::QuitToHome);
+        settle(app);
+        assert_home(app, "between the two sessions");
+    }
+
+    let mut app =
+        shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+    settle(&mut app);
+
+    // ── Mary-O: a brick ──────────────────────────────────────────────────
+    launch(&mut app, "Mary-O");
+    let brick = one_block(&app, |name| {
+        ambition_demo_mary_o::ldtk_vocabulary::block_of(name).is_some_and(|block| {
+            block.look == ambition_demo_mary_o::ldtk_vocabulary::MaryOBlockLook::Brick
+                && block.contents.breaks_when_empty()
+        })
+    });
+    let room = the_live_room(&mut app);
+    app.world_mut()
+        .resource_mut::<ambition_demo_mary_o::bricks::BrokenBricks>()
+        .attempts_mut()
+        .in_room_mut(room)
+        .insert(brick.clone());
+    settle(&mut app);
+    assert!(
+        removed(&app).contains(&brick),
+        "premise: the broken brick `{brick}` is out of the first session's world"
+    );
+    quit(&mut app);
+    launch(&mut app, "Mary-O");
+    assert_eq!(
+        the_live_room(&mut app),
+        room,
+        "premise: the second session's first room has the first session's key"
+    );
+    assert!(
+        !removed(&app).contains(&brick),
+        "the brick `{brick}` that the first Mary-O session broke is broken in the \
+         second: removed {:?}",
+        removed(&app)
+    );
+    quit(&mut app);
+
+    // ── Sanic: a monitor ─────────────────────────────────────────────────
+    launch(&mut app, "Sanic");
+    let monitor = one_block(&app, |name| {
+        name.starts_with(ambition_demo_sanic::monitors::MONITOR_PREFIX)
+    });
+    let room = the_live_room(&mut app);
+    app.world_mut()
+        .resource_mut::<ambition_demo_sanic::monitors::SpentMonitors>()
+        .spend(room, &monitor);
+    settle(&mut app);
+    assert!(
+        removed(&app).contains(&monitor),
+        "premise: the spent monitor `{monitor}` is out of the first session's world"
+    );
+    quit(&mut app);
+    launch(&mut app, "Sanic");
+    assert!(
+        !removed(&app).contains(&monitor),
+        "the monitor `{monitor}` that the first Sanic session spent is spent in the \
+         second: removed {:?}",
+        removed(&app)
+    );
+}

@@ -1111,6 +1111,12 @@ impl PlatformerApp {
             app,
             DeclaredCapabilities(std::sync::Mutex::new(capabilities)),
         );
+        // This composition installs the rollback backend and the shell, so
+        // it states the frame on which the timeline starts.
+        #[cfg(feature = "rollback")]
+        if rollback_participants.is_some() {
+            crate::rollback::start_the_timeline_with_the_session_world(app);
+        }
 
         // ── The start policy ──
         //

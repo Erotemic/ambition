@@ -175,6 +175,11 @@ pub struct RoomReplayAdmitted {
     /// Empty for a New Game, which restarts the whole session, and for an
     /// ordinary replay, which is of one room.
     pub spared: Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    /// The participants a checkpoint restore does not take back: every one
+    /// but the participant whose death it is. A defeat one of them won stays
+    /// also after its room retired, except in the dying participant's own
+    /// room (Q151). Empty for a New Game and for an ordinary replay.
+    pub spared_participants: Vec<ambition_characters::control::PlayerSlot>,
 }
 
 /// "A fresh attempt at this room begins here" — the union of a room LOAD and an
@@ -268,6 +273,7 @@ impl RoomReplayAdmitted {
             refight: false,
             to_checkpoint: false,
             spared: Vec::new(),
+            spared_participants: Vec::new(),
         }
     }
 
@@ -285,6 +291,16 @@ impl RoomReplayAdmitted {
         rooms: Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     ) -> Self {
         self.spared = rooms;
+        self
+    }
+
+    /// A checkpoint restore that leaves what these participants won.
+    #[must_use]
+    pub fn sparing_participants(
+        mut self,
+        participants: Vec<ambition_characters::control::PlayerSlot>,
+    ) -> Self {
+        self.spared_participants = participants;
         self
     }
 

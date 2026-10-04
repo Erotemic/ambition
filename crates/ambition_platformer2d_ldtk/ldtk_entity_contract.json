@@ -165,9 +165,9 @@
             "^AfterSeconds:\\s*[-+0-9.eE]+$"
           ],
           "on_invalid": "refused",
-          "default": "Never",
+          "default": "OnRoomReload",
           "sample": "OnRoomReload",
-          "note": "`AfterSeconds` pairs with a positive `respawn_seconds`; `AfterSeconds:<n>` is the legacy inline spelling"
+          "note": "Empty or absent reads `OnRoomReload`: the pickup is back when its room is built again (Q154). `Never` (and `Persistent`) keeps it gone for the run once collected: the occurrence ledger remembers it `Consumed`, and a checkpoint restore brings back only one taken after the checkpoint. `AfterSeconds` pairs with a positive `respawn_seconds`: the pickup regrows that many seconds of world time after it is collected, also while its room is not live (Q152)"
         },
         {
           "name": "respawn_seconds",

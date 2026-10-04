@@ -339,18 +339,15 @@ fn drop_parent(
 #[derive(SystemParam)]
 pub struct FeatureHitCatalogs<'w> {
     pub characters: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
-    /// Provider-authored sheets (U1 stage B): a split offspring sizes its body
-    /// from its sheet like anything else, so the damage path carries it beside
-    /// the catalog it already carries.
-    pub sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    pub bosses: Res<'w, ambition_boss_encounter::BossCatalog>,
     /// AD8: the prepared cast, so a struck or provoked character speaks in its
     /// OWN voice rather than the engine's. `Option` because a bare engine App
     /// legitimately has no prepared cast — the same shape the ambient ticker
     /// already uses.
     pub prepared: crate::session::mechanics::SessionCast<'w>,
-    /// The activated generation: its sheets and boss catalog outrank the App's,
-    /// as for every construction road (`GenerationMechanics`).
+    /// The running session's generation. A split offspring sizes its body from
+    /// its sheet like anything else (U1 stage B), and that sheet is the
+    /// generation's, as for every construction road (`GenerationMechanics`).
+    /// `None`: no session runs, see `SessionMechanics`.
     pub generation: Option<Res<'w, crate::session::mechanics::SessionMechanics>>,
     /// The item catalog, for the ability a defeated boss drops.
     pub items: ambition_items::ItemCatalogRead<'w>,
@@ -598,6 +595,9 @@ pub fn apply_feature_hit_events(
     // encounter resources — death save/quest/music resolution lives in
     // `update_boss_encounters`.
 ) {
+    let Some(generation) = catalogs.generation.as_deref() else {
+        return;
+    };
     let base_feel = bark_draw.feel();
     let catalog = &*catalogs.characters;
     // AD8: the prepared cast, borrowed once beside the catalog it stands behind.
@@ -800,7 +800,7 @@ pub fn apply_feature_hit_events(
                 &event,
                 catalog,
                 prepared,
-                catalogs.generation.as_deref().map_or(&*catalogs.sheets, |generation| &generation.sheets),
+                &generation.sheets,
                 actor_entity,
                 *disposition,
                 ruleset_owns_death,

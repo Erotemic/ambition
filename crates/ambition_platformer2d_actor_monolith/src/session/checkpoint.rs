@@ -393,20 +393,21 @@ pub fn resume_at_checkpoint_on_reset(
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     subjects: Query<
         (
+            bevy::prelude::Entity,
             &ambition_platformer2d_shared_tangle::sim_id::SimId,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+            Option<&ambition_characters::control::DrivingParticipant>,
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     // Every driven body, to find the rooms other participants hold (Q151).
-    participants: Query<
-        (
-            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-            Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-        ),
-        bevy::prelude::With<ambition_characters::control::DrivingParticipant>,
-    >,
+    participants: Query<(
+        bevy::prelude::Entity,
+        &ambition_characters::control::DrivingParticipant,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    )>,
     mut accepted: ResMut<AcceptedCheckpointRestore>,
     mut operations: ResMut<SessionCheckpointOperations>,
     // WHOSE operation. Absent only in an explicit standalone profile, which has
@@ -446,10 +447,15 @@ pub fn resume_at_checkpoint_on_reset(
     };
     // the subject is resolved BEFORE anything is recorded: a transition names the body it
     // moves, and a session whose avatar has not been built cannot describe one.
-    let Ok((sim_id, stamp, root)) = subjects.single() else {
+    let Ok((subject_body, sim_id, stamp, root, driver)) = subjects.single() else {
         return;
     };
     let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root));
+    let subject_body = Some(subject_body);
+    // The dying participant: the one who drives the primary body, or, while
+    // that participant possesses another body, the seat the primary body is
+    // the home of.
+    let dying = Some(driver.map_or(ambition_characters::control::PlayerSlot::PRIMARY, |driver| driver.0));
     // The room the subject is in; an unstamped subject is in the sole live room.
     let Some(definition) = room_set.definition_named(subject.room) else {
         return;
@@ -587,10 +593,24 @@ pub fn resume_at_checkpoint_on_reset(
     } else {
         participants
             .iter()
-            .filter_map(|(stamp, root)| {
+            .filter_map(|(_, _, stamp, root)| {
                 ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root)
             })
             .filter(|room| Some(*room) != subject.room)
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    };
+    // And what the other participants won, also in a room that is no longer
+    // live. The dying participant is the one who drives the subject.
+    let spared_participants: Vec<_> = if fresh {
+        Vec::new()
+    } else {
+        participants
+            .iter()
+            .filter(|(body, ..)| Some(*body) != subject_body)
+            .map(|(_, driver, ..)| driver.0)
+            .filter(|seat| Some(*seat) != dying)
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
             .collect()
@@ -608,7 +628,8 @@ pub fn resume_at_checkpoint_on_reset(
         })
         .for_subject(subject.clone())
         .to_the_checkpoint()
-        .sparing(spared),
+        .sparing(spared)
+        .sparing_participants(spared_participants),
     );
 }
 

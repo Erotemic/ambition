@@ -756,4 +756,37 @@ mod tests {
             "(the replaced room, its replay, Bob's room): the replay starts whole and Bob's room keeps its break"
         );
     }
+
+    /// A session activation forgets every room's broken bricks. The next
+    /// session's first room has the key of this one's, so the re-arm alone
+    /// keeps them. The control is a frame with no activation.
+    #[test]
+    fn a_session_activation_forgets_the_broken_bricks() {
+        use ambition_platformer2d::platformer::lifecycle::{SessionScopeActivated, SessionScopeId};
+        let mut app = App::new();
+        ambition_platformer2d::session::insert_live_room_component(
+            app.world_mut(),
+            FeatureEcsWorldOverlay::default(),
+        );
+        ambition_platformer2d::actors::session::reset::install_attempt_scoped::<BrokenBricks, _>(
+            &mut app,
+            Update,
+            || true,
+        );
+        app.world_mut()
+            .resource_mut::<BrokenBricks>()
+            .mark(LiveRoomInstance::ACTIVATION, "brick_alpha");
+        app.update();
+        assert!(
+            app.world().resource::<BrokenBricks>().is_broken(LiveRoomInstance::ACTIVATION, "brick_alpha"),
+            "control: with no activation, the live room keeps its broken brick"
+        );
+        app.world_mut()
+            .write_message(SessionScopeActivated(SessionScopeId(2)));
+        app.update();
+        assert!(
+            !app.world().resource::<BrokenBricks>().is_broken(LiveRoomInstance::ACTIVATION, "brick_alpha"),
+            "the next session's first room starts with a whole wall"
+        );
+    }
 }

@@ -84,7 +84,6 @@ fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHit
 #[test]
 fn a_module_entitys_bolt_damages_the_enemy_it_was_fired_at() {
     let mut app = App::new();
-    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),

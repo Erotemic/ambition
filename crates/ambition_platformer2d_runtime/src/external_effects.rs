@@ -242,7 +242,12 @@ pub fn quarantine_discard_on_load<M: Message>(app: &mut App, load_schedule: impl
     );
 }
 
-/// Quarantine every effect family whose consumer lives outside the simulation.
+/// One use of the list of presentation-facing effect families.
+pub trait PresentationEffectVisitor {
+    fn visit<M: Message>(&mut self, app: &mut App);
+}
+
+/// Every effect family whose consumer lives outside the simulation.
 ///
 /// This list is the classification. A message belongs here when its reader
 /// is presentation, persistence, or anything else the player observes directly;
@@ -261,41 +266,50 @@ pub fn quarantine_discard_on_load<M: Message>(app: &mut App, load_schedule: impl
 ///
 /// Deliberately absent: `EffectRequest` and `ProjectileSpawnRequest`, whose readers are
 /// all sim-side despite the effect-shaped names.
+pub fn for_each_presentation_effect(app: &mut App, visitor: &mut impl PresentationEffectVisitor) {
+    use ambition_platformer2d_shared_tangle::camera_ease::{CameraShakeRequest, FinishZoomRequest};
+    use ambition_vfx::vfx::{DebrisBurstMessage, KnockoutBeatRequested};
+    use ambition_vfx::{FireworksRequest, FxRequest, VfxInRoom};
+
+    visitor.visit::<ambition_sfx::OwnedSfxMessage>(app);
+    visitor.visit::<VfxInRoom>(app);
+    visitor.visit::<FxRequest>(app);
+    visitor.visit::<FireworksRequest>(app);
+    visitor.visit::<DebrisBurstMessage>(app);
+    visitor.visit::<CameraShakeRequest>(app);
+    visitor.visit::<FinishZoomRequest>(app);
+    visitor.visit::<KnockoutBeatRequested>(app);
+}
+
+/// Quarantine every presentation-facing effect family
+/// ([`for_each_presentation_effect`]).
 ///
 /// The two presentation-side writers in the fan-out chain (`FxRequest`
 /// and `VfxInRoom` are also written by `ambition_render`'s `Update` systems)
 /// need no special handling: they run after the release, so what they produce is
 /// already downstream of the confirmed boundary and flows straight through.
 pub fn quarantine_presentation_effects(app: &mut App, load_schedule: impl ScheduleLabel + Clone) {
-    use ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest;
-    use ambition_vfx::vfx::DebrisBurstMessage;
-    use ambition_vfx::vfx::KnockoutBeatRequested;
-    use ambition_vfx::{FireworksRequest, FxRequest, VfxInRoom};
+    struct Quarantine<L>(L);
+    impl<L: ScheduleLabel + Clone> PresentationEffectVisitor for Quarantine<L> {
+        fn visit<M: Message>(&mut self, app: &mut App) {
+            app.add_plugins(ExternalEffectQuarantinePlugin::<M>::default());
+            quarantine_discard_on_load::<M>(app, self.0.clone());
+        }
+    }
+    for_each_presentation_effect(app, &mut Quarantine(load_schedule));
+}
 
-    app.add_plugins((
-        ExternalEffectQuarantinePlugin::<ambition_sfx::OwnedSfxMessage>::default(),
-        ExternalEffectQuarantinePlugin::<VfxInRoom>::default(),
-        ExternalEffectQuarantinePlugin::<FxRequest>::default(),
-        ExternalEffectQuarantinePlugin::<FireworksRequest>::default(),
-        ExternalEffectQuarantinePlugin::<DebrisBurstMessage>::default(),
-        ExternalEffectQuarantinePlugin::<CameraShakeRequest>::default(),
-        ExternalEffectQuarantinePlugin::<
-            ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest,
-        >::default(),
-        ExternalEffectQuarantinePlugin::<KnockoutBeatRequested>::default(),
-    ));
-
-    quarantine_discard_on_load::<ambition_sfx::OwnedSfxMessage>(app, load_schedule.clone());
-    quarantine_discard_on_load::<VfxInRoom>(app, load_schedule.clone());
-    quarantine_discard_on_load::<FxRequest>(app, load_schedule.clone());
-    quarantine_discard_on_load::<FireworksRequest>(app, load_schedule.clone());
-    quarantine_discard_on_load::<DebrisBurstMessage>(app, load_schedule.clone());
-    quarantine_discard_on_load::<CameraShakeRequest>(app, load_schedule.clone());
-    quarantine_discard_on_load::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomRequest>(
-        app,
-        load_schedule.clone(),
-    );
-    quarantine_discard_on_load::<KnockoutBeatRequested>(app, load_schedule);
+/// A session activation does not empty a presentation-facing effect channel
+/// (`lifecycle::session_messages`): the host writes to these channels also,
+/// and no simulation reads them.
+pub fn keep_presentation_effects_across_sessions(app: &mut App) {
+    struct Keep;
+    impl PresentationEffectVisitor for Keep {
+        fn visit<M: Message>(&mut self, app: &mut App) {
+            ambition_platformer2d_shared_tangle::lifecycle::keep_message_across_session_activation::<M>(app);
+        }
+    }
+    for_each_presentation_effect(app, &mut Keep);
 }
 
 #[cfg(test)]

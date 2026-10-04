@@ -60,8 +60,11 @@ Do not make `ambition_input` learn actor/body concepts to close the final hop.
 
 `ControlPrompt` is one global read model describing the primary local gameplay
 surface. That is reasonable for one screen, especially for one shared touch
-overlay. Split views by live room exist, and the HUD, banner, music and prompt
-follow the primary seat until the Q150 ruling (a HUD per participant) is built.
+overlay. Split views by live room exist. The banner and the prompt follow the
+primary seat. The built-in vitals HUD is per participant (Q150): each view
+has a HUD of the body it follows (`ViewHudFacts`), and each other seat on a
+shared view has its own HUD there (`SharedViewHudFacts`). The declared HUD
+readouts are still one per session.
 
 With several independent local views/seats, one participant may need a different
 prompt from another. Do not make `ControlPrompt` plural solely for naming

@@ -756,6 +756,11 @@ struct BobsBoss {
     bob_in_his_first_room: bool,
     /// Bob is in a live room.
     bob_in_a_live_room: bool,
+    /// Entities stamped with a live room that is no longer live: what a room
+    /// retired without its residents would leave.
+    orphans: usize,
+    /// Live rooms after the ending.
+    live_rooms: usize,
 }
 
 /// Post-checkpoint boss defeats in Alice's live room and in Bob's, and then,
@@ -852,6 +857,11 @@ fn bobs_boss_after(ending: Ending, together: bool) -> BobsBoss {
         .iter(world)
         .find(|(feature, _)| feature.0 == "ow1_bob")
         .and_then(|(_, room)| room.map(|room| room.0));
+    let orphans = world
+        .query::<&InRoomInstance>()
+        .iter(world)
+        .filter(|stamp| !live.contains(&stamp.0))
+        .count();
     let dead_body = world
         .query::<(&BossConfig, &ambition_platformer2d::characters::actor::BodyHealth)>()
         .iter(world)
@@ -863,6 +873,8 @@ fn bobs_boss_after(ending: Ending, together: bool) -> BobsBoss {
         chests,
         bob_in_his_first_room: bobs_room == Some(first),
         bob_in_a_live_room: bobs_room.is_some_and(|room| live.contains(&room)),
+        orphans,
+        live_rooms: live.len(),
     }
 }
 
@@ -884,6 +896,8 @@ fn a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room() {
             chests: 2,
             bob_in_his_first_room: true,
             bob_in_a_live_room: true,
+            orphans: 0,
+            live_rooms: 2,
         },
         "control: before any death both defeats stand, with a chest each"
     );
@@ -896,8 +910,69 @@ fn a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room() {
             chests: 1,
             bob_in_his_first_room: true,
             bob_in_a_live_room: true,
+            orphans: 0,
+            live_rooms: 2,
         },
         "after Alice's death her defeat goes back, and Bob's defeat, its chest and his room stay"
+    );
+}
+
+/// (Bob's boss cleared, his room live) after Bob defeats his boss in
+/// `switch_lab` after the checkpoint and walks to the hub, so `switch_lab`
+/// retires; then, if `die`, Alice dies in the hub.
+fn bobs_boss_won_and_left(die: bool) -> (bool, usize) {
+    use crate::death_restores_the_checkpoint::commit_a_checkpoint;
+    use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    const BOSS: &str = "bobs_boss";
+    let (mut sim, first) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
+    commit_a_checkpoint(&mut sim);
+    spawn_mockingbird_beside_bob(&mut sim, BOSS, first);
+    for _ in 0..15 {
+        sim.step(crate::common::base());
+    }
+    force_kill_boss(&mut sim, BOSS);
+    until_cleared(&mut sim, BOSS);
+    for _ in 0..200 {
+        sim.step(crate::common::base());
+    }
+    let live = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<&LiveRoomInstance, bevy::prelude::With<RoomInstanceRoot>>()
+            .iter(world)
+            .copied()
+            .collect::<Vec<_>>()
+    };
+    let hub = live(&mut sim)
+        .into_iter()
+        .find(|room| *room != first)
+        .expect("precondition: Alice holds the hub beside Bob's room");
+    crate::two_players_two_live_rooms::bob_goes_to_the_hub(&mut sim, hub);
+    assert_eq!(
+        (live(&mut sim), boss_cleared(&sim, BOSS)),
+        (vec![hub], true),
+        "precondition: Bob won, and his room retired behind him"
+    );
+    if die {
+        crate::death_restores_the_checkpoint::die(&mut sim);
+    }
+    (boss_cleared(&sim, BOSS), live(&mut sim).len())
+}
+
+/// Q151 for a room that is no longer live: a defeat Bob won after the
+/// checkpoint, in a room he has since left, stays when Alice dies. A defeat
+/// is credited to the participants in its room when it falls
+/// (`BossDefeatSinceCheckpoint::present`). Before, only live rooms were
+/// spared, so Alice's death took back Bob's win. The control is the run
+/// without the death; `a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room`
+/// is the control that Alice's own defeat still goes back.
+#[test]
+fn a_death_keeps_the_defeat_another_player_won_in_a_room_he_left() {
+    assert_eq!(bobs_boss_won_and_left(false), (true, 1), "control: no death");
+    assert_eq!(
+        bobs_boss_won_and_left(true),
+        (true, 1),
+        "(Bob's boss cleared, live rooms) after Alice's death in the hub"
     );
 }
 
@@ -915,6 +990,8 @@ fn a_death_in_a_shared_room_takes_back_the_defeat_in_the_room_both_stand_in() {
             chests: 2,
             bob_in_his_first_room: true,
             bob_in_a_live_room: true,
+            orphans: 0,
+            live_rooms: 1,
         },
         "control: before any death both defeats stand in the save and in the shared room"
     );
@@ -927,6 +1004,8 @@ fn a_death_in_a_shared_room_takes_back_the_defeat_in_the_room_both_stand_in() {
             chests: 0,
             bob_in_his_first_room: false,
             bob_in_a_live_room: true,
+            orphans: 0,
+            live_rooms: 1,
         },
         "after Alice's death the save and the shared room must agree"
     );
@@ -1017,20 +1096,18 @@ fn a_death_keeps_the_reward_taken_from_the_other_players_boss() {
 /// its boundary must be coherent: a room that stays live must not keep what
 /// the restart took back.
 ///
-/// ⛔ RED TODAY, so ignored. Measured 2026-10-03: after a New Game beside
-/// Bob's live room, the save says Bob's boss is not defeated and its chest is
-/// gone, while his room stays the same instance with the dead boss in it
-/// (`cleared: false, dead_body: true, chests: 0, bob_in_his_first_room:
-/// true`). The restart commit rebuilds only the start room. The fix belongs in
-/// that commit (it retires or rebuilds every live room), not in a replay
-/// after it. Queue row DEATH-IS-ROOM-LOCAL.
+/// The New Game's commit retires every other live room in the same
+/// publication (`retires_beside`): Bob's room goes, root and residents, with
+/// the dead boss in it, and no entity keeps the stamp of a retired room.
+/// Where a seat's body goes on a restart is the join road's (Q153); here Bob
+/// is a placement of his room, so he goes with it.
 #[test]
-#[ignore = "a New Game does not yet retire the other live rooms (DEATH-IS-ROOM-LOCAL)"]
 fn a_new_game_leaves_no_live_room_holding_what_it_took_back() {
     let after = bobs_boss_after(Ending::NewGame, false);
     assert_eq!(
-        (after.cleared, after.dead_body, after.chests, after.bob_in_his_first_room),
-        (false, false, 0, false),
-        "(Bob's boss cleared, its dead body, chests, Bob still in the room the restart did not touch): {after:?}"
+        (after.cleared, after.dead_body, after.chests, after.bob_in_his_first_room, after.orphans, after.live_rooms),
+        (false, false, 0, false, 0, 1),
+        "(Bob's boss cleared, its dead body, chests, Bob still in the room the restart did not touch, \
+         entities stamped with a room that is not live, live rooms): {after:?}"
     );
 }

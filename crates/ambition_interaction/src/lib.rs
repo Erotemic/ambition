@@ -115,11 +115,13 @@ pub struct Pickup {
 }
 
 impl Pickup {
+    /// A pickup with no authored policy: back when its room is built again,
+    /// as [`ambition_entity_catalog::placements::PickupSpec::new`] (Q154).
     pub fn new(id: impl Into<String>, kind: PickupKind) -> Self {
         Self {
             id: id.into(),
             kind,
-            respawn: HazardRespawn::Never,
+            respawn: HazardRespawn::OnRoomReload,
         }
     }
 }

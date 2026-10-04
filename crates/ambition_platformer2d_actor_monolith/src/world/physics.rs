@@ -101,6 +101,29 @@ pub fn physics_spawn_debris_messages(
     }
 }
 
+/// Two colliders meet only when they are in one live room.
+///
+/// Avian has one space, and the live rooms are placed in it by their own
+/// geometry, so two live rooms overlap there. Without this, debris of Bob's
+/// room bounced on debris of Alice's room at the same position. A collider
+/// with no room stamp is in every room's world, as unscoped work is in every
+/// session's (`TransactionRooms`).
+#[cfg(feature = "physics_debris")]
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct OneRoomContacts<'w, 's> {
+    stamps: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+}
+
+#[cfg(feature = "physics_debris")]
+impl avian2d::collision::hooks::CollisionHooks for OneRoomContacts<'_, '_> {
+    fn filter_pairs(&self, collider1: Entity, collider2: Entity, _commands: &mut Commands) -> bool {
+        match (self.stamps.get(collider1), self.stamps.get(collider2)) {
+            (Ok(first), Ok(second)) => first.0 == second.0,
+            _ => true,
+        }
+    }
+}
+
 /// Pause avian while nothing it owns exists, and unpause the moment something does.
 ///
 /// The predicate is `RigidBody` presence: debris IS avian's population here, so
@@ -134,7 +157,7 @@ impl Plugin for AmbitionPhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(PhysicsSandboxSettings::default())
             .insert_resource(Gravity(BVec2::new(0.0, -SANDBOX_GRAVITY)))
-            .add_plugins(PhysicsPlugins::default())
+            .add_plugins(PhysicsPlugins::default().with_collision_hooks::<OneRoomContacts>())
             // ⛔⛔ AVIAN REGISTERS THESE IN `Plugin::finish`, AND `App::update()`
             // NEVER CALLS `finish()` — only `App::run()` does. So every
             // composition driven by an update loop (the whole test suite, the
@@ -279,6 +302,8 @@ pub fn spawn_static_collider_for_block(
             Name::new(format!("Physics collider: {}", block.name)),
             RoomVisual,
             PhysicsRoomEntity,
+            // See `OneRoomContacts`.
+            ActiveCollisionHooks::FILTER_PAIRS,
         ),
     );
 }
@@ -364,6 +389,8 @@ fn spawn_debris_piece(
             Name::new("Physics debris"),
             RoomVisual,
             PhysicsRoomEntity,
+            // See `OneRoomContacts`.
+            ActiveCollisionHooks::FILTER_PAIRS,
         ),
     );
 }
@@ -485,6 +512,57 @@ mod tests {
     /// and it is dropped while two rooms are live. When the reader took the
     /// sole live room's geometry, it did not run while two rooms were live.
     ///
+    /// Two debris pieces overlap at one position, with no gravity. In one
+    /// live room they collide and are pushed apart (the control); in two live
+    /// rooms they do not meet and stay where they are. Avian has one space,
+    /// and two live rooms overlap in it.
+    ///
+    /// ⚠ Built only with the `physics_debris` feature, as the hook is.
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn debris_of_two_live_rooms_does_not_meet() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let apart_after = |second_room: LiveRoomInstance| -> f32 {
+            let mut app = App::new();
+            app.add_plugins((
+                bevy::MinimalPlugins,
+                bevy::transform::TransformPlugin,
+                bevy::asset::AssetPlugin::default(),
+                bevy::mesh::MeshPlugin,
+                AmbitionPhysicsPlugin,
+            ));
+            app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_millis(16),
+            ));
+            app.insert_resource(Gravity(BVec2::ZERO));
+            app.finish();
+            app.cleanup();
+            let piece = |room: LiveRoomInstance, x: f32| {
+                (
+                    Transform::from_xyz(x, 0.0, 0.0),
+                    RigidBody::Dynamic,
+                    Collider::rectangle(8.0, 8.0),
+                    ActiveCollisionHooks::FILTER_PAIRS,
+                    InRoomInstance(room),
+                )
+            };
+            let first = app.world_mut().spawn(piece(LiveRoomInstance::ACTIVATION, 0.0)).id();
+            let second = app.world_mut().spawn(piece(second_room, 1.0)).id();
+            for _ in 0..30 {
+                app.update();
+            }
+            let at = |entity| app.world().get::<Transform>(entity).expect("a debris piece").translation.x;
+            (at(second) - at(first)).abs()
+        };
+        let one_room = apart_after(LiveRoomInstance::ACTIVATION);
+        let two_rooms = apart_after(LiveRoomInstance::ACTIVATION.next());
+        assert!(
+            one_room > 2.0 && (two_rooms - 1.0).abs() < 1e-3,
+            "(the pieces' distance after 30 steps in one live room, in two live rooms) = \
+             ({one_room}, {two_rooms}); in one room they push apart, in two they stay 1.0 apart"
+        );
+    }
+
     /// ⚠ This witness is built only with the `physics_debris` feature, as
     /// the reader is.
     #[cfg(feature = "physics_debris")]
@@ -518,16 +596,23 @@ mod tests {
         app.update();
         let mut pieces = app
             .world_mut()
-            .query_filtered::<(Option<&InRoomInstance>, &Transform), With<PhysicsDebris>>();
+            .query_filtered::<(Option<&InRoomInstance>, &Transform, Option<&ActiveCollisionHooks>), With<PhysicsDebris>>();
         let thrown: std::collections::BTreeSet<_> = pieces
             .iter(app.world())
-            .map(|(stamp, at)| (stamp.map(|stamp| stamp.0), at.translation.y as i32))
+            .map(|(stamp, at, hooks)| {
+                (
+                    stamp.map(|stamp| stamp.0),
+                    at.translation.y as i32,
+                    hooks.is_some_and(|hooks| hooks.contains(ActiveCollisionHooks::FILTER_PAIRS)),
+                )
+            })
             .collect();
         assert_eq!(
             thrown,
-            [(Some(rooms[0]), 200), (Some(rooms[1]), 400)].into_iter().collect(),
-            "(the room each debris piece is stamped for, its height on screen): one burst in each \
-             of two live rooms at one position, and one burst that names no room"
+            [(Some(rooms[0]), 200, true), (Some(rooms[1]), 400, true)].into_iter().collect(),
+            "(the room each debris piece is stamped for, its height on screen, whether \
+             `OneRoomContacts` filters its contacts): one burst in each of two live rooms at one \
+             position, and one burst that names no room"
         );
     }
 }

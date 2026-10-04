@@ -16,6 +16,7 @@ mod mode_visit;
 mod room_instance;
 mod round;
 mod session;
+mod session_messages;
 mod spawn_ext;
 
 pub use cleanup::despawn_scoped_entity;
@@ -48,6 +49,10 @@ pub use room_instance::{
 pub use round::{
     despawn_departed_round_entities, ActiveRoundScope, RoundScopeId, RoundScopePlugin,
     RoundScopedEntity, RoundSpawnScope,
+};
+pub use session_messages::{
+    clear_message_at_session_activation, keep_message_across_session_activation,
+    SessionMessageChannels,
 };
 pub use session::{
     despawn_retired_session_entities, insert_session_world_component, live_session_scope,

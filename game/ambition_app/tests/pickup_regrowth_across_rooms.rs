@@ -21,8 +21,8 @@ use crate::common::{base, fixed_60hz_room_sim};
 const ROOM: &str = "basement_breakables";
 const HUB: &str = "central_hub_complex";
 const HEART: &str = "regrowing heart";
-/// The heart beside it, authored with no regrowth.
-const PLAIN: &str = "Pickup";
+/// The heart beside it, authored `Never`: gone for the run once taken (Q154).
+const PLAIN: &str = "one-time heart";
 const REGROW_S: f32 = 4.0;
 
 fn now(sim: &Platformer2dSimHarness) -> f32 {
@@ -234,5 +234,72 @@ fn a_death_keeps_the_regrowth_of_a_heart_in_another_players_room() {
         heart_after_alices_death(true),
         (true, 1),
         "Alice's death in the hub took back the regrowth of the heart collected in Bob's live room"
+    );
+}
+
+/// The one-time heart's row in the occurrence ledger.
+fn ledger_row(sim: &mut Platformer2dSimHarness, name: &str) -> Option<String> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(&FeatureName, &ambition_platformer2d::platformer::sim_id::SimId)>();
+    let sim_id = q
+        .iter(world)
+        .find(|(feature, _)| feature.0.as_str() == name)
+        .map(|(_, sim_id)| sim_id.clone())?;
+    let ledger = world.resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>();
+    Some(format!("{:?}", ledger.whereabouts(&sim_id)))
+}
+
+/// Q154: a heart authored `Never` is gone for the run once taken. Leave its
+/// room, so the room retires, and come back: the room is built again without
+/// it. Before, a collected pickup kept no record, so every rebuild of its
+/// room built it again. The control is the same heart before the crossing:
+/// collected where it lies, with its `Consumed` row.
+#[test]
+fn a_one_time_heart_stays_gone_when_its_room_is_built_again() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    settle(&mut sim, 30);
+    let start = player_at(&mut sim);
+    collect(&mut sim, PLAIN);
+    place_the_player(&mut sim, start);
+    settle(&mut sim, 2);
+    assert_eq!(
+        (pickup(&mut sim, PLAIN), ledger_row(&mut sim, PLAIN).as_deref()),
+        (Some((true, None)), Some("Some(Consumed)")),
+        "control: taken, where it lies, and remembered"
+    );
+    assert_eq!(cross_to(&mut sim, HUB), HUB);
+    assert_eq!(cross_to(&mut sim, ROOM), ROOM);
+    settle(&mut sim, 2);
+    assert_eq!(pickup(&mut sim, PLAIN), None, "the rebuilt room built the one-time heart again");
+}
+
+/// Whether the one-time heart is there to take after Alice dies, when she
+/// took it after the checkpoint (`after`) or before it.
+fn one_time_heart_after_a_death(taken_after_the_checkpoint: bool) -> Option<(bool, Option<f32>)> {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    settle(&mut sim, 30);
+    let start = player_at(&mut sim);
+    if taken_after_the_checkpoint {
+        crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    }
+    collect(&mut sim, PLAIN);
+    place_the_player(&mut sim, start);
+    settle(&mut sim, 2);
+    if !taken_after_the_checkpoint {
+        crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    }
+    crate::death_restores_the_checkpoint::die(&mut sim);
+    pickup(&mut sim, PLAIN)
+}
+
+/// Q154 on the death horizon: the checkpoint is the world a death goes back
+/// to. A one-time heart taken after it is back, whole; one taken before it
+/// stays gone (the control), because the restored ledger remembers it.
+#[test]
+fn a_death_brings_back_a_one_time_heart_only_if_taken_after_the_checkpoint() {
+    assert_eq!(
+        (one_time_heart_after_a_death(true), one_time_heart_after_a_death(false)),
+        (Some((false, None)), None),
+        "(taken after the checkpoint, taken before it): the heart after Alice's death"
     );
 }

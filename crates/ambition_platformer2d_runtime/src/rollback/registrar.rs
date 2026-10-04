@@ -374,6 +374,10 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Message,
     {
+        // A channel that must not cross a rewind must not cross a session.
+        ambition_platformer2d_shared_tangle::lifecycle::clear_message_at_session_activation::<T>(
+            self.app,
+        );
         self.record::<T>(owner, name, spelling::MESSAGE_CLEAR.kind,
             spelling::MESSAGE_CLEAR.detail);
         self
@@ -387,6 +391,10 @@ impl RollbackRegistrar for SchemaRollbackRegistrar<'_> {
     where
         T: Message,
     {
+        // A channel that must not cross a rewind must not cross a session.
+        ambition_platformer2d_shared_tangle::lifecycle::clear_message_at_session_activation::<T>(
+            self.app,
+        );
         self.record::<T>(owner, name, spelling::MESSAGE_CLEAR_INSTRUMENT.kind,
             spelling::MESSAGE_CLEAR_INSTRUMENT.detail);
         self

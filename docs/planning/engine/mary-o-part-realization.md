@@ -203,6 +203,22 @@ a rule.
   buffs; the baked road cannot turn a hue. Next: a catalog field naming a
   variant as a sheet plus a shift, so variants share one sheet (the three
   heavy pirates, the goblins).
+* **Near twins and symmetric halves:** `_share_near_parts` draws a part that
+  is another a texel over or a shade darker as that part (with a draw `tint`).
+  `_split_symmetric_parts` stores a part that is its own mirror as one half
+  drawn twice. Both only nominate; the replay keeps or withdraws each
+  candidate on its own and prints what it withdrew. Where art must stay
+  different, list its tracks with `part_flipbook.keep_distinct(target, ...)`.
+* **A squash is a draw scale:** `bone.<b>.scale_y` reaches `blit_rotated(scale_y=)`,
+  which squashes about the whole-pixel pivot row (`rigdoc.squashed_sprite`,
+  quantized to the table's 4 places). A continuous flipbook stores the
+  unsquashed raster with the squash on the draw. A snapped one bakes it.
+  Robot v3 had stored 13 heads and 30 torsos, one per squash value.
+* **A raster and its mirror reduce as mirrors** (`_reduce_part`). The 4x
+  raster is reduced in whichever orientation has the lower digest, so a part
+  the rig draws turned round is the same part mirrored. Before, robot v3's
+  `air_back` head, face and antennas were stored twice, a texel apart.
+  Robot v3 went from 165 parts / 161,509 part texels to 73 / 53,515.
 
 ### Player robot v3 from parts (2026-10-03)
 

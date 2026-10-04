@@ -26,6 +26,7 @@ import json
 import shutil
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -41,6 +42,13 @@ from pathlib import Path
 from ambition_sprite2d_renderer.cli.commands import _get_target
 _get_target(sys.argv[1]).render_sheet(Path(sys.argv[2]))
 """
+
+
+def renderer_commit() -> str:
+    """The renderer's HEAD, with `+dirty` when its tracked files have local changes."""
+    head = subprocess.run(["git", "-C", str(RENDERER), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+    dirty = subprocess.run(["git", "-C", str(RENDERER), "status", "--porcelain", "--untracked-files=no"], capture_output=True, text=True).stdout.strip()
+    return f"{head}+dirty" if dirty else head
 
 
 def render(target: str, out: Path) -> tuple[str, int, str]:
@@ -73,6 +81,7 @@ def main() -> int:
     parser.add_argument("--jobs", type=int, default=2, help="targets rendered at once (the machine is shared)")
     args = parser.parse_args()
     out = args.out.resolve()
+    commit = renderer_commit()
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
         results = list(pool.map(lambda t: render(t, out / t), args.targets))
     rows = []
@@ -84,7 +93,8 @@ def main() -> int:
             continue
         for new_ron in new_rons:
             stem = new_ron.name[: -len("_parts.ron")]
-            row = {"target": target, "stem": stem, "new": stats(new_ron), "new_png": str(new_ron.with_suffix(".png").relative_to(out))}
+            row = {"target": target, "stem": stem, "new": stats(new_ron), "new_png": str(new_ron.with_suffix(".png").relative_to(out)),
+                   "renderer": commit, "rendered_at": time.strftime("%Y-%m-%d %H:%M")}
             old_ron = SPRITES / f"{stem}_parts.ron"
             if old_ron.exists():
                 shutil.copy2(old_ron.with_suffix(".png"), out / target / f"{stem}_parts.shipped.png")
@@ -95,6 +105,14 @@ def main() -> int:
             print(f"{stem:32} parts {old['parts'] if old else '-':>5} -> {row['new']['parts']:<5} part texels "
                   f"{old['part_texels'] if old else '-':>9} -> {row['new']['part_texels']:<9} draws "
                   f"{old['draws_per_frame_max'] if old else '-'} -> {row['new']['draws_per_frame_max']}  {row['new']['realize']}")
+    # Rows of targets not rendered this time are kept, stamped with the
+    # renderer commit they were rendered at: the index is every character
+    # reviewed so far, and says which rows predate the current code.
+    previous = out / "review.json"
+    if previous.exists():
+        rendered = set(args.targets)
+        rows += [row for row in json.loads(previous.read_text()) if row["target"] not in rendered]
+    rows.sort(key=lambda row: row["target"])
     (out / "review.json").write_text(json.dumps(rows, indent=1, default=str))
     cells = []
     for row in rows:
@@ -109,8 +127,11 @@ def main() -> int:
                     f"{s['draws_per_frame_max']} draws max · {s['realize']}")
 
         ratio = f" — {new['part_texels'] / max(1, old['part_texels']):.0%} of shipped" if old else ""
+        stamp = row.get("renderer", "unknown")
+        stale = "" if stamp == commit else " <span class=bad>(older renderer code: re-run this target)</span>"
         cells.append(
-            f"<section><h2>{html.escape(row['stem'])}{ratio}</h2><div class=pair>"
+            f"<section><h2>{html.escape(row['stem'])}{ratio}</h2>"
+            f"<p class=stamp>rendered {html.escape(row.get('rendered_at', '?'))} at renderer {html.escape(stamp)}{stale}</p><div class=pair>"
             + (f"<figure><figcaption>shipped: {line(old)}</figcaption><img src='{row['old_png']}'></figure>" if old else "")
             + f"<figure><figcaption>current code: {line(new)}</figcaption><img src='{row['new_png']}'></figure>"
             + "</div></section>"
@@ -119,9 +140,9 @@ def main() -> int:
         "<!doctype html><meta charset=utf-8><title>Part page review</title><style>"
         "body{font:14px system-ui;background:#222;color:#ddd;margin:16px}section{margin:24px 0}"
         ".pair{display:flex;gap:16px;flex-wrap:wrap}figure{margin:0;flex:1;min-width:320px}"
-        "img{max-width:100%;background:#444;image-rendering:pixelated}.bad{color:#f66}</style>"
+        "img{max-width:100%;background:#444;image-rendering:pixelated}.bad{color:#f66}.stamp{color:#999;margin:2px 0 8px}</style>"
         "<h1>Part pages: shipped vs current renderer code</h1>"
-        "<p>Rendered by scripts/review_part_pages.py; nothing here is installed in the game until a sprite regen.</p>"
+        f"<p>Rendered by scripts/review_part_pages.py at renderer {html.escape(commit)}; nothing here is installed in the game until a sprite regen.</p>"
         + "".join(cells)
     )
     print(f"wrote {out / 'index.html'}")

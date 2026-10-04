@@ -231,6 +231,9 @@ impl Plugin for SimCoreResourcesPlugin {
                 ambition_platformer2d_shared_tangle::camera_ease::apply_camera_shake_requests
                     .before(ambition_platformer2d_shared_tangle::camera_ease::tick_camera_shake),
             );
+        // The bag of a session that ended is not the bag of the next one:
+        // each session begins with the bag this composition was built with.
+        ambition_platformer2d_actor_monolith::items::starting_bag::install_starting_bag(app);
         // The camera of a session that ended is not the camera of the next
         // one. A composition with no session lifecycle has no activation; the
         // reader then reads an empty channel.

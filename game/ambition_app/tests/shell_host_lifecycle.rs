@@ -2261,6 +2261,25 @@ fn enter_the_next_session(app: &mut App, before: Option<SessionScopeId>) -> Sess
     }
 }
 
+/// Each room-scoped entity that no session owns, by name.
+///
+/// The session retirement despawns by the session stamp only, so an entity
+/// here outlives its session.
+fn room_scoped_with_no_session(app: &mut App) -> Vec<String> {
+    use ambition_platformer2d::platformer::lifecycle::RoomScopedEntity;
+    let mut names: Vec<String> = app
+        .world_mut()
+        .query_filtered::<(Entity, Option<&Name>), (With<RoomScopedEntity>, Without<SessionScopedEntity>)>()
+        .iter(app.world())
+        .map(|(entity, name)| match name {
+            Some(name) => name.to_string(),
+            None => format!("{entity:?} (no name)"),
+        })
+        .collect();
+    names.sort();
+    names
+}
+
 /// A reading on each frame of the session, from the frame of its activation
 /// to the first frame of tick `ticks`, keyed by `(tick, frame of that tick)`.
 fn record_from_the_activation(
@@ -2516,7 +2535,6 @@ fn a_session_that_follows_another_starts_as_a_fresh_hosts_does() {
 fn what_a_session_spawned_and_cycled_does_not_reach_the_next_session() {
     use ambition_content::bosses::cut_rope::CutRopeHeavyObjectCycle;
     use ambition_platformer2d::persistence::save::AmbitionGameSave;
-    use ambition_platformer2d::platformer::lifecycle::{RoomScopedEntity, SessionScopedEntity};
     use ambition_platformer2d::portal::{PlacedPortal, PortalFrameHistory, PortalShot};
     use ambition_platformer2d::rollback::RollbackChecksumProbes;
     use std::any::type_name;
@@ -2609,21 +2627,6 @@ fn what_a_session_spawned_and_cycled_does_not_reach_the_next_session() {
             "`PortalFrameHistory` has no probe to strengthen, so its row is not read"
         );
         app
-    }
-
-    /// Each room-scoped entity that no session owns, by name.
-    fn room_scoped_with_no_session(app: &mut App) -> Vec<String> {
-        let mut names: Vec<String> = app
-            .world_mut()
-            .query_filtered::<(Entity, Option<&Name>), (With<RoomScopedEntity>, Without<SessionScopedEntity>)>()
-            .iter(app.world())
-            .map(|(entity, name)| match name {
-                Some(name) => name.to_string(),
-                None => format!("{entity:?} (no name)"),
-            })
-            .collect();
-        names.sort();
-        names
     }
 
     let arms = [
@@ -2882,6 +2885,122 @@ fn an_effect_that_a_session_asked_for_is_not_presented_by_the_next() {
             app.update();
         }
     }
+}
+
+/// ⭐ THE PERSON WHO COMES OUT OF A DEFEATED BOSS ENDS WITH THE SESSION.
+///
+/// The cut-rope room spawns a person when its boss is cleared, at run time and
+/// not through room construction. Each other spawn of a room occupant takes a
+/// session scope. This one was a plain `spawn` with the room stamps put on by
+/// hand, so no session owned it and the session retirement did not end it.
+///
+/// ⚠ A CENSUS OF TWO HOSTS DOES NOT SEE THIS. The fresh host spawns the same
+/// person with the same missing owner, so the peer rows agree. The readings
+/// are the owner of the entity, the world at the title, and whether the next
+/// session has the entity of the session that ended.
+#[test]
+fn the_victory_npc_of_a_cleared_boss_ends_with_its_session() {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    use ambition_platformer2d::persistence::save_data::PersistedEncounterState;
+
+    const ROOM: &str = "you_have_to_cut_the_rope";
+    const NPC: &str = "Post-boss NPC: Smirking Behemoth victory";
+
+    fn npcs(app: &mut App) -> Vec<Entity> {
+        let world = app.world_mut();
+        world
+            .query::<(Entity, &Name)>()
+            .iter(world)
+            .filter(|(_, name)| name.as_str() == NPC)
+            .map(|(entity, _)| entity)
+            .collect()
+    }
+
+    /// Step until the room has its person, 120 frames at most.
+    fn the_person(app: &mut App) -> Vec<Entity> {
+        for _ in 0..120 {
+            let found = npcs(app);
+            if !found.is_empty() {
+                return found;
+            }
+            app.update();
+        }
+        Vec::new()
+    }
+
+    // Each wrong reading, so one run names all of them.
+    let mut wrong: Vec<String> = Vec::new();
+    for succession in SessionSuccession::BOTH {
+        let mut app = shell_host_app_started_in(
+            ambition_platformer2d::runtime::SimulationHost::Rollback,
+            Some(ROOM),
+        );
+        settle(&mut app);
+        let route = ambition_route(&app);
+        app.world_mut().write_message(ShellCommand::GoTo(route.clone()));
+        let first = enter_the_next_session(&mut app, None);
+        assert_eq!(active_room(&app).as_deref(), Some(ROOM));
+        // The save records a defeat by the id of the placement, and the room
+        // is the authority for that id.
+        let placements: Vec<String> = {
+            let world = app.world_mut();
+            world
+                .query::<&ambition_platformer2d::boss_encounter::BossConfig>()
+                .iter(world)
+                .map(|config| config.id.clone())
+                .collect()
+        };
+        assert_eq!(placements.len(), 1, "the room has one boss placement");
+        app.world_mut()
+            .resource_mut::<AmbitionGameSave>()
+            .0
+            .set_boss(placements[0].clone(), PersistedEncounterState::Cleared);
+
+        let old = the_person(&mut app);
+        assert_eq!(
+            old.len(),
+            1,
+            "the premise: a session whose save says the boss is cleared has \
+             one victory person"
+        );
+        let unowned = room_scoped_with_no_session(&mut app);
+        if !unowned.is_empty() {
+            wrong.push(format!(
+                "{succession:?}: room-scoped entities that no session owns: {unowned:?}"
+            ));
+        }
+
+        if succession == SessionSuccession::ThroughTheTitle {
+            app.world_mut().write_message(ShellCommand::QuitToHome);
+            settle(&mut app);
+            assert_eq!(live_scope(&app), None, "the title has no session");
+            let left = npcs(&mut app).len();
+            if left != 0 {
+                wrong.push(format!(
+                    "{left} victory person(s) in the world at the title, after \
+                     the session ended"
+                ));
+            }
+            app.world_mut().write_message(ShellCommand::GoTo(route.clone()));
+            enter_the_next_session(&mut app, None);
+        } else {
+            succession.follow(&mut app, &route, first);
+        }
+        // The next session is built with the boss cleared in its save.
+        let new = the_person(&mut app);
+        if new.len() != 1 {
+            wrong.push(format!(
+                "{succession:?}: the next session has {} victory persons, not 1",
+                new.len()
+            ));
+        } else if new == old {
+            wrong.push(format!(
+                "{succession:?}: the next session has the victory person of the \
+                 session that ended"
+            ));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
 }
 
 /// ⭐ A SESSION IS BUILT FROM THE SAVE OF ITS OWN EXPERIENCE, ALSO WHEN IT IS

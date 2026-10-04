@@ -24,7 +24,8 @@ pub use ambition_platformer2d_rollback_ggrs::local_session;
 /// A P2P session whose peers agree to start at the live world, and an
 /// in-memory transport for two Apps in one process (netcode N2).
 pub use ambition_platformer2d_rollback_ggrs::peer::{
-    build_peer_session, loopback_pair, start_peer_session, LoopbackSocket, PeerSessionSettings,
+    build_peer_session, loopback_pair, loopback_transports, start_peer_session, LoopbackSocket,
+    LoopbackTransport, PeerSessionSettings,
 };
 pub use ambition_platformer2d_rollback_ggrs::session::{
     drive_control_frame, drive_slot_frame, mechanical_mutation_boundary,

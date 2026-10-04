@@ -223,7 +223,7 @@ pub fn room_census_row<'a>(
                 .target_room()
                 .to_string();
             row.push_str(&format!(
-                " crossing={}[{}]->{}[{}] seq={} epoch={} scope={} cover={} commit_not_before={} plan={}",
+                " crossing={}[{}]->{}[{}] seq={} epoch={} scope={} cover={} opened_this_pass={} plan={}",
                 active.source_room_id,
                 active.source_room,
                 target,
@@ -234,7 +234,7 @@ pub fn room_census_row<'a>(
                     .session_scope
                     .map_or_else(|| "?".to_string(), |id| id.0.to_string()),
                 active.cover_required,
-                active.commit_not_before_tick,
+                active.opened_this_pass,
                 // ⚠ `staged` is not `committed`: a plan that exists has been
                 // built and not yet published, and the interesting stall is a
                 // crossing that sits here for many samples.

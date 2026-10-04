@@ -629,7 +629,7 @@ fn a_door_under_a_peer_session(after: i32, poison: Option<i32>) -> DoorOutcome {
 ///   confirmed frame.
 /// - No peer commits the crossing: `commit_confirmed_lifecycle` runs only
 ///   for a `LocalSyncTest` session. Each peer's readiness transaction opens
-///   and does not reach its authorization.
+///   and is authorized, so the commit is the one part that is not there.
 ///
 /// ⚠ WHY THE FREEZE. The sync-test rule runs the crossing on the current
 /// world when its recording frame is confirmed. On that update the two peers
@@ -688,17 +688,16 @@ fn a_door_under_a_peer_session_freezes_the_simulation_and_is_not_committed_yet()
     // ⛔ THE STATE THE COMMIT CHANGES. Not committed: each peer is in the
     // room it started in, with one live room.
     //
-    // ⚠ THE READINESS TRANSACTION WAITS TOO, and the commit must settle this
-    // first. `authorize_ready_room_transition_system` authorizes on a tick
-    // after the one that opened the transaction (`commit_not_before_tick`).
-    // Each peer opens its transaction after the freeze began, so that tick
-    // does not come. (A sync test given the same freeze by hand does not
-    // commit for the same reason.)
+    // THE PLAN OF EACH PEER IS AUTHORIZED, with the simulation held. Each
+    // peer opens its readiness transaction after the freeze began, and the
+    // gate of the authorization counts passes of the readiness set, not
+    // ticks. (Until 2026-10-04 it waited for a tick, which does not come under
+    // the freeze: this field read `AwaitingReadiness`, with no end.)
     let stuck = Crossing {
         recorded_on: Some(RECORDED_ON),
         room: ROOM.to_string(),
         live_rooms: 1,
-        readiness: Some(RoomTransitionLoadPhase::AwaitingReadiness),
+        readiness: Some(RoomTransitionLoadPhase::CommitAuthorized),
     };
     assert_eq!(
         outcome.crossings,

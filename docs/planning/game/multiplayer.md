@@ -142,8 +142,25 @@ with hysteresis when they regroup.
 ### A4 — online participant
 
 ▢ Feed a remote participant through the same intent/control seam. Keep the local
-view layout client-local. Measure what a room crossing's rebase costs a remote
-player's rollback window.
+view layout client-local.
+
+✔ Measured 2026-10-04: what a room crossing costs a remote player. The rebase
+does not use the rollback window: under a peer session the crossing freezes the
+simulation, each peer commits alone on the frozen world, and each peer starts a
+new session at frame zero (the "Remote peers" row of
+[`open-world-runtime-and-residency.md`](../engine/open-world-runtime-and-residency.md)).
+The cost is the freeze, for each peer and each live room:
+
+    freeze = (confirmed frame reaches the freeze frame, and readiness)
+           + (the handshake of the next session)
+           = (2 to 7 updates) + (21 to 36 updates)
+           = 23 to 43 updates = 0.38 s to 0.72 s at 60 Hz
+
+at a link latency of 3 updates each way (`two_peers.rs`, four runs, two
+crossings). The handshake is five GGRS round trips and is most of the cost.
+Whether that hold is acceptable is Q155. Named remainders: a link that loses
+parcels needs a linger before the old session ends, and the freeze is of the
+whole world, also of the room that nobody leaves.
 
 ### A5 — mixed local + remote party
 

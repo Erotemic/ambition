@@ -12,14 +12,28 @@
 //! advance batch for this rendered frame is done. The committer is an exclusive
 //! `fn(&mut World)`, the same shape as `enforce_session_contract`.
 //!
-//! Ownership gate: only a [`RollbackSessionOwnership::LocalSyncTest`] session may
-//! be rebased unilaterally. External / P2P requires a coordinated peer barrier
-//! (the documented Matchbox seam), so this is inert there.
+//! Ownership gate: a [`RollbackSessionOwnership::LocalSyncTest`] session is
+//! rebased unilaterally. A [`RollbackSessionOwnership::Peer`] session commits
+//! behind the peer barrier below. An `External` session has no barrier, so this
+//! is inert there.
 //!
-//! The peer barrier, simulation half: under a [`RollbackSessionOwnership::Peer`]
-//! session the simulation does not run while an operation waits
-//! ([`a_peer_commit_holds_the_simulation`]). The commit half is not here yet,
-//! so a peer session holds its first crossing with no end.
+//! THE PEER BARRIER, in three parts:
+//!
+//! 1. The freeze ([`a_peer_commit_holds_the_simulation`]). From frame `C` the
+//!    simulation does not run while an operation waits, so each frame from
+//!    `C` on has one state, on each peer.
+//! 2. The commit, here. Each peer commits alone, when ITS confirmed frame
+//!    reaches `C` and ITS plan is authorized. The peers are at different
+//!    frames then, and they hold the same world: the frozen one.
+//! 3. The rebase. Each peer starts the next generation of its peer session at
+//!    frame zero ([`crate::peer::PeerLineage`]). A session does not advance
+//!    until its own handshake is complete, and then it runs no more than its
+//!    prediction window with no confirmed input. So a peer that committed
+//!    first waits there for the other.
+//!
+//! The cost, measured 2026-10-04 (`two_peers`, a link latency of 3 updates):
+//! the simulation of a peer is held for 23 to 43 updates for one crossing,
+//! and 21 to 36 of them are the handshake.
 
 use bevy::prelude::*;
 
@@ -30,6 +44,7 @@ use ambition_platformer2d_actor_monolith::world::rooms::RoomConstructionPlan;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::ConfirmedFrameBoundary;
 
+use crate::session::{SyncTestOwner, SyncTestSettings};
 use crate::{build_sync_test_session, install_rebased_sync_test_session, RollbackSessionOwnership};
 
 /// `W`: the frames the simulation still runs after the frame that recorded a
@@ -83,19 +98,61 @@ fn holds_the_simulation(
         && pending.is_some_and(|intent| freeze_frame(intent) <= frame)
 }
 
+/// Who commits, which decides when the operation is confirmed and which
+/// session the rebase installs. The operation itself is one body.
+#[derive(Clone, Copy)]
+enum Committer {
+    /// A sync test: this host alone, when the recording frame is confirmed.
+    Alone {
+        settings: SyncTestSettings,
+        owner: SyncTestOwner,
+    },
+    /// A peer session: each peer, on the frozen world, when its confirmed
+    /// frame reaches the freeze frame.
+    BehindThePeerBarrier,
+}
+
+/// The operation that may commit now, by the rule of `committer`.
+fn operation_to_commit(
+    world: &World,
+    committer: Committer,
+    boundary: ConfirmedFrameBoundary,
+) -> Option<PendingIntent> {
+    let pending = world.get_resource::<PendingLifecycleCommit>()?;
+    match committer {
+        Committer::Alone { .. } => pending.confirmed(boundary.confirmed).cloned(),
+        Committer::BehindThePeerBarrier => {
+            let intent = pending.peek()?;
+            let frozen_from = freeze_frame(intent);
+            // The confirmed frame says that no input can change the frozen
+            // state: each input of a frame that simulated is in, and the
+            // advance that published this boundary ran after the rollback
+            // that applied them. The frame counter says that the live world
+            // IS a frozen frame. A peer can know of inputs past its own frame.
+            let world_is_frozen = world
+                .get_resource::<crate::RollbackFrameCount>()
+                .is_some_and(|frame| frozen_from <= frame.0);
+            (frozen_from <= boundary.confirmed && world_is_frozen).then(|| intent.clone())
+        }
+    }
+}
+
 /// Execute a confirmed deferred lifecycle op in the exclusive world and rebase.
 ///
 /// No-op unless (a) a rollback host is installed (`ConfirmedFrameBoundary`
-/// present), (b) it is a `LocalSyncTest` session we may rebase, and (c) a pending
-/// intent exists whose recording frame is confirmed.
+/// present), (b) the session is a `LocalSyncTest` we may rebase or a `Peer`
+/// session behind its barrier, and (c) a pending intent exists that is
+/// confirmed by the rule of that session (see [`Committer`]).
 pub fn commit_confirmed_lifecycle(world: &mut World) {
     let Some(boundary) = world.get_resource::<ConfirmedFrameBoundary>().copied() else {
         return;
     };
-    let Some(RollbackSessionOwnership::LocalSyncTest { settings, owner }) =
-        world.get_resource::<RollbackSessionOwnership>().copied()
-    else {
-        return;
+    let committer = match world.get_resource::<RollbackSessionOwnership>().copied() {
+        Some(RollbackSessionOwnership::LocalSyncTest { settings, owner }) => {
+            Committer::Alone { settings, owner }
+        }
+        Some(RollbackSessionOwnership::Peer) => Committer::BehindThePeerBarrier,
+        Some(RollbackSessionOwnership::External) | None => return,
     };
 
     // ⛔⛔ **AFTER THE OWNERSHIP GATE AND BEFORE THE PENDING-INTENT GATE, and
@@ -115,15 +172,20 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     //
     // `boundary.confirmed` is the whole authorization: an operation admitted on a
     // frame a rewind can still revisit is not this call's to end.
-    let _ = ambition_platformer2d_actor_monolith::session::checkpoint::terminalize_abandoned_checkpoint_restore(
-        world,
-        Some(boundary.confirmed),
-    );
+    //
+    // ⛔ NOT UNDER A PEER SESSION, for the reason above: the failure is a fact
+    // of this peer, and the slot is state each peer must hold the same. So a
+    // checkpoint restore whose preparation fails on a peer holds the freeze
+    // with no end. That is a named remainder of the peer barrier, not a
+    // decision that it is right.
+    if matches!(committer, Committer::Alone { .. }) {
+        let _ = ambition_platformer2d_actor_monolith::session::checkpoint::terminalize_abandoned_checkpoint_restore(
+            world,
+            Some(boundary.confirmed),
+        );
+    }
 
-    let Some(PendingIntent { kind, .. }) = world
-        .get_resource::<PendingLifecycleCommit>()
-        .and_then(|pending| pending.confirmed(boundary.confirmed).cloned())
-    else {
+    let Some(PendingIntent { kind, .. }) = operation_to_commit(world, committer, boundary) else {
         return;
     };
 
@@ -157,7 +219,23 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // It touches no world and depends only on `settings`, so if it fails the room is never
     // reconstructed, the intent stays pending, and the timeline is untouched (it retries on a
     // later confirmed frame).
-    let session = match build_sync_test_session(settings) {
+    let built = match committer {
+        Committer::Alone { settings, .. } => build_sync_test_session(settings),
+        // The next generation of this peer's session. Building it changes
+        // nothing: not the world, not the link, not the generation count.
+        Committer::BehindThePeerBarrier => match world.get_resource::<crate::peer::PeerLineage>() {
+            Some(lineage) => lineage.build_next(),
+            None => {
+                bevy::log::error_once!(
+                    "a peer session has no `PeerLineage`, so it cannot start its \
+                     next timeline and its lifecycle operation is held. A peer \
+                     session starts through `start_peer_session`."
+                );
+                return;
+            }
+        },
+    };
+    let session = match built {
         Ok(session) => session,
         Err(error) => {
             error!(
@@ -221,6 +299,16 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
             // above is cleared from the exclusive world on a CONFIRMED frame,
             // which is the one place that is legal.
             retire_cancelled_room_transition(world, &kind);
+            // ⛔ A PEER REBASES ALSO WHEN THE OPERATION IS VOID. The slot is
+            // rollback state, and this peer cleared it from outside the
+            // timeline, at a frame the other peer is not at. The peers hold
+            // one world only because it is frozen, so the frame the
+            // simulation starts again must be one frame for each of them:
+            // frame zero of the next generation. A sync test has one host and
+            // keeps its timeline.
+            if matches!(committer, Committer::BehindThePeerBarrier) {
+                crate::peer::install_next_peer_session(world, session, eligibility);
+            }
             return;
         }
         CommitOutcome::Committed => {}
@@ -253,7 +341,17 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // refusal arriving after the commit — the room authoritative with the
     // previous timeline's order history installed — and nothing useful could be
     // done in it. It is deleted because it can no longer be written.
-    install_rebased_sync_test_session(world, session, settings, owner, eligibility);
+    match committer {
+        Committer::Alone { settings, owner } => {
+            install_rebased_sync_test_session(world, session, settings, owner, eligibility);
+        }
+        // The handshake of the next generation is the last part of the peer
+        // barrier: this peer does not confirm a frame until the other one is
+        // there.
+        Committer::BehindThePeerBarrier => {
+            crate::peer::install_next_peer_session(world, session, eligibility);
+        }
+    }
 }
 
 /// The authorized plan, or a reason to wait.
@@ -706,6 +804,48 @@ mod tests {
                 holds_the_simulation(ownership, pending, frame),
                 held,
                 "{ownership:?} at frame {frame}: {why}"
+            );
+        }
+    }
+
+    /// WHEN each committer may commit. A sync test: when the recording frame
+    /// is confirmed. A peer: when its confirmed frame is at the freeze frame
+    /// AND its world is at a frozen frame.
+    #[test]
+    fn a_peer_commits_at_the_freeze_frame_and_a_sync_test_at_the_recording_frame() {
+        use crate::session::{SyncTestOwner, SyncTestSettings};
+        let alone = Committer::Alone {
+            settings: SyncTestSettings::for_players(2),
+            owner: SyncTestOwner::Caller,
+        };
+        let peer = Committer::BehindThePeerBarrier;
+        let recorded_on = 30;
+        let c = recorded_on + PEER_COMMIT_FREEZE_DELAY;
+        for (committer, confirmed, frame, commits, why) in [
+            (alone, recorded_on - 1, 34, false, "the recording frame is not confirmed"),
+            (alone, recorded_on, 34, true, "the recording frame is confirmed"),
+            (peer, recorded_on, c + 5, false, "the recording frame is confirmed and the freeze frame is not"),
+            (peer, c - 1, c + 5, false, "the frame before the freeze frame"),
+            (peer, c, c + 5, true, "the freeze frame is confirmed and the world is frozen"),
+            (peer, c + 9, c - 1, false, "this peer knows inputs past its own frame; its world is not at a frozen frame"),
+            (peer, c + 9, c, true, "the world reached the freeze frame"),
+        ] {
+            let mut world = World::new();
+            let mut pending = PendingLifecycleCommit::default();
+            assert!(pending
+                .record(recorded_on, intent_to("hub", SimId::placement("hero")))
+                .admitted());
+            world.insert_resource(pending);
+            world.insert_resource(crate::RollbackFrameCount(frame));
+            let boundary = ConfirmedFrameBoundary {
+                current: frame,
+                confirmed,
+                session: 1,
+            };
+            assert_eq!(
+                operation_to_commit(&world, committer, boundary).is_some(),
+                commits,
+                "confirmed {confirmed}, at frame {frame}: {why}"
             );
         }
     }

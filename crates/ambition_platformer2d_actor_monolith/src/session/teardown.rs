@@ -71,11 +71,11 @@ pub struct SessionScopedResources<'w> {
     /// `Option` because a composition without the boss capability has none.
     boss_defeats_since_checkpoint:
         Option<ResMut<'w, ambition_boss_encounter::BossDefeatsSinceCheckpoint>>,
-    /// The respawn due times of broken breakables, on this session's clock
-    /// (OW5). The next session's clock starts again at zero, and its rooms
-    /// are built whole.
-    breakable_respawns:
-        Option<ResMut<'w, crate::features::ecs::breakable_respawns::BreakableRespawnSchedule>>,
+    /// When broken breakables respawn and collected pickups regrow, on this
+    /// session's clock (OW5). The next session's clock starts again at zero,
+    /// and its rooms are built whole.
+    world_time_schedule:
+        Option<ResMut<'w, crate::features::ecs::world_time_schedule::WorldTimeSchedule>>,
     /// The grants of the mints collected since the last checkpoint. The next
     /// session's file is its baseline, so a retraction there must take back
     /// none of this session's.
@@ -461,7 +461,7 @@ fn reset(resources: SessionScopedResources) {
         mut encounter_view,
         mut boss_registry,
         boss_defeats_since_checkpoint,
-        breakable_respawns,
+        world_time_schedule,
         reward_grants,
         mut quest_registry,
         mut sim_state,
@@ -496,7 +496,7 @@ fn reset(resources: SessionScopedResources) {
     if let Some(mut since) = boss_defeats_since_checkpoint {
         since.forget_all();
     }
-    if let Some(mut schedule) = breakable_respawns {
+    if let Some(mut schedule) = world_time_schedule {
         schedule.forget_all();
     }
     if let Some(mut grants) = reward_grants {

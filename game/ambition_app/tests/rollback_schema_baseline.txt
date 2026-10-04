@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v306
+ggrs-rollback-schema-v307
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -231,7 +231,6 @@ entity:world_item	required-rollback	WorldItem	component presence automatically i
 extension.body_records	component-clone-custom-checksum	BodyRecords	bevy_ggrs clone snapshot + every module record of the body: schema shape digest and canonical values
 extension.session_records	component-clone-custom-checksum	SessionRecords	bevy_ggrs clone snapshot + every session-attached module record: schema shape digest and canonical values
 feature.breakable	component-clone	BreakableFeature	bevy_ggrs clone snapshot; not in the session checksum
-feature.breakable_respawn_schedule	resource-clone-custom-checksum	BreakableRespawnSchedule	bevy_ggrs clone snapshot + the respawn due times of broken breakables on the session clock, kept when their room retires (OW5)
 feature.chest	component-clone	ChestFeature	bevy_ggrs clone snapshot; not in the session checksum
 feature.collected	component-clone	Collected	bevy_ggrs clone snapshot; not in the session checksum
 feature.damageable_volumes	component-clone	DamageableVolumes	bevy_ggrs clone snapshot; not in the session checksum
@@ -250,6 +249,7 @@ feature.pogo_target_volumes	component-clone	PogoTargetVolumes	bevy_ggrs clone sn
 feature.respawn_timer	component-clone	RespawnTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.stand_timer	component-clone	StandTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.switch	component-clone	SwitchFeature	bevy_ggrs clone snapshot; not in the session checksum
+feature.world_time_schedule	resource-clone-custom-checksum	WorldTimeSchedule	bevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, kept when their room retires (OW5, Q152)
 gravity.oscillating_zone	component-clone	OscillatingZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

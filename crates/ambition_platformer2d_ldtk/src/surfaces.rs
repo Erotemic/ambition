@@ -234,7 +234,7 @@ pub(super) fn parse_surface_spec(
                 "Either" => SurfaceBreakability::BreakOnHitOrStand,
                 other => return Err(format!("invalid BreakablePlatform trigger '{other}'")),
             };
-            spec.respawn = parse_breakable_respawn(entity)?;
+            spec.respawn = parse_timed_respawn(entity)?;
             spec.max_hp = field_i32(entity, "max_hp").unwrap_or(3);
         }
         "BreakablePogoOrb" => {
@@ -244,7 +244,7 @@ pub(super) fn parse_surface_spec(
             spec.collision = SurfaceCollision::None;
             spec.breakability = SurfaceBreakability::BreakOnHit;
             spec.contact = SurfaceContact::PogoRefresh;
-            spec.respawn = parse_breakable_respawn(entity)?;
+            spec.respawn = parse_timed_respawn(entity)?;
             spec.max_hp = field_i32(entity, "max_hp").unwrap_or(3);
         }
         other => {
@@ -257,14 +257,16 @@ pub(super) fn parse_surface_spec(
     Ok(spec)
 }
 
-/// Parse the `Breakable.respawn` field and its companion `respawn_seconds`.
+/// Parse the `respawn` field and its companion `respawn_seconds` of a
+/// breakable or a pickup (`PickupSpawn`): one grammar for every authored
+/// occurrence that comes back on the world clock.
 ///
 /// Accepted forms:
 /// - `"Never"` (default), `"OnRoomReload"`
 /// - `"AfterSeconds"` with a positive `respawn_seconds` float field
 /// - legacy inline `"AfterSeconds:<n>"` (instances saved before `respawn_seconds`)
 /// - legacy `"Persistent"`, mapped to `Never`
-fn parse_breakable_respawn(entity: &LdtkEntityInstance) -> Result<SurfaceRespawn, String> {
+pub(crate) fn parse_timed_respawn(entity: &LdtkEntityInstance) -> Result<SurfaceRespawn, String> {
     let raw = field_string(entity, "respawn").unwrap_or_else(|| "Never".to_string());
     let trimmed = raw.trim();
     if let Some(seconds) = trimmed
@@ -291,7 +293,7 @@ fn parse_breakable_respawn(entity: &LdtkEntityInstance) -> Result<SurfaceRespawn
             }
             Ok(SurfaceRespawn::AfterSeconds(seconds))
         }
-        other => Err(format!("invalid Breakable respawn '{other}'")),
+        other => Err(format!("invalid respawn '{other}'")),
     }
 }
 

@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v306",
+    "version": "ggrs-rollback-schema-v307",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -89,7 +89,7 @@
       "entity:respawn_grace\tcomponent-canonical\tRespawnGrace",
       "extension.body_records\tcomponent-clone-custom-checksum\tBodyRecords\tbevy_ggrs clone snapshot + every module record of the body: schema shape digest and canonical values",
       "extension.session_records\tcomponent-clone-custom-checksum\tSessionRecords\tbevy_ggrs clone snapshot + every session-attached module record: schema shape digest and canonical values",
-      "feature.breakable_respawn_schedule\tresource-clone-custom-checksum\tBreakableRespawnSchedule\tbevy_ggrs clone snapshot + the respawn due times of broken breakables on the session clock, kept when their room retires (OW5)",
+      "feature.world_time_schedule\tresource-clone-custom-checksum\tWorldTimeSchedule\tbevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, kept when their room retires (OW5, Q152)",
       "player.projectile_state\tcomponent-canonical\tPlayerProjectileState",
       "player.safety_state\tcomponent-canonical\tPlayerSafetyState",
       "projectile.allegiance\tcomponent-canonical\tProjectileAllegiance",

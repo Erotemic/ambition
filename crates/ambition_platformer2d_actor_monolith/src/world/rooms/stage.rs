@@ -142,8 +142,8 @@ pub(crate) fn construct_room_candidate(
         let mut queue = bevy::ecs::world::CommandQueue::default();
         // Read HERE, on the world this commit lands in — not with the plan, which
         // a replay commits again after the save has moved.
-        let facts = crate::construction::PersistedFates::of_world(world).with_broken_breakables(
-            features::ecs::breakable_respawns::remaining_breakable_respawns(world),
+        let facts = crate::construction::PersistedFates::of_world(world).with_scheduled_returns(
+            features::ecs::world_time_schedule::remaining_scheduled_returns(world),
         );
         let receipt = {
             let mut inner = Commands::new(&mut queue, &*world);

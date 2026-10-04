@@ -102,7 +102,7 @@ budget is stored, because a budget with no consumer is not a policy.
   reads a custody index, and the save mirrors walk dormant rows only when an
   input changed (FI9).
 - A room has at most one live room, so the durable rows can name a place by
-  its room id (`outlook_for(room)`, `BreakableRespawnSchedule`). The
+  its room id (`outlook_for(room)`, `WorldTimeSchedule`). The
   publication verifier refuses an open or a replace into a room another live
   room already is (`DefinitionAlreadyLive`). Measured 2026-10-02 before the
   refusal: no shipped road reached it. A crossing into a held room joins it,
@@ -113,7 +113,7 @@ budget is stored, because a budget with no consumer is not a policy.
   `(LiveRoomInstance, SimId)`; lifting `DefinitionAlreadyLive` also needs the
   durable rows above to stop naming a place by room id alone.
 - A rollback frame does not copy or hash unchanged dormant rows. The save's
-  rows, the ledger and `BreakableRespawnSchedule` are `Arc`-shared with
+  rows, the ledger and `WorldTimeSchedule` are `Arc`-shared with
   checksums kept per allocation (M2; the schedule 2026-10-02, measured 2.0 ms
   per snapshot at 10,000 records before). Census of the readers that walk
   dormant rows: the custody projection reads an index, the save mirror walks
@@ -121,15 +121,21 @@ budget is stored, because a budget with no consumer is not a policy.
 
 ### Logical time while a room is not live (OW5)
 
-A broken breakable's respawn is due on `GameplayElapsed`, the session's sum of
-scaled simulation dt. `BreakableRespawnSchedule` keeps the due time by
-(room definition id, authored id). While the room is live, the live timer is
-the authority and `mirror_breakable_respawns` keeps the record. When the room
-retires, the record stays and nothing ticks it. Construction builds a
-breakable that is not yet due as broken, with the time that remains. A replay,
-a checkpoint restore and session teardown forget the records. No other
-mechanism keeps time while its room is not live yet. Q152 (2026-10-03) sets
-the order: regrowth/restocking next, then scheduled persistent characters.
+Two mechanisms keep time while their room is not live, through one schedule:
+a broken breakable's respawn and a collected pickup's regrowth (Q152). Each is
+due on `GameplayElapsed`, the session's sum of scaled simulation dt.
+`WorldTimeSchedule` keeps the due time by (room definition id, authored id).
+While the room is live, the occurrence's live `RespawnTimer` is the authority,
+and `mirror_breakable_respawns` and `regrow_pickups` keep the record. When the
+room retires, the record stays and nothing ticks it. Construction builds an
+occurrence that is not yet due as gone (a breakable broken, a pickup
+collected), with the time that remains. A replay, a checkpoint restore and
+session teardown forget the records. A pickup authors its regrowth as a
+breakable authors its respawn (`respawn: AfterSeconds` with
+`respawn_seconds`, one parser). Q152 (2026-10-03) sets the order: breakable
+respawn, regrowth/restocking (regrowth done 2026-10-04; shop restocking has
+no stock to refill, because a shop sells without a count), then scheduled
+persistent characters.
 
 ### The view half
 
@@ -258,7 +264,7 @@ per-room rollback clocks are not part of this plan.
 | Join road | Ambition has no production road that seats a second player (Q153). A join road must stamp its body into the room it joins. A rebuild of a room replaces a seat's body that is a placement of that room, as the fixtures' Bob is, so the join road must also give the body a home that a rebuild does not replace (possession uses custody) | A second seat's body keeps its room live in ordinary play |
 | Death horizon (Q151) | A participant's ordinary death rewinds that participant and the affected room, and only the durable records that horizon covers; another participant's live room and its consequences (a boss defeat, its reward) stay. An explicit whole-session reload may rewind the whole session; no reconciliation of surviving rooms. Done for a death: the boss defeat, its reward, a breakable's respawn and Alice's custody across Bob's room each have a witness. Open: a New Game does not yet retire the other live rooms (queue row DEATH-IS-ROOM-LOCAL) | Alice's death beside Bob's boss defeat leaves Bob's room, the boss row and its reward as they were, and Alice's room agrees with the durable records it reads |
 | Per-participant HUD and music priority (Q150, Q72) | One HUD per participant/view, also on a merged screen. Music is built: of the participants' rooms the one with the highest priority (ambient < encounter < boss) is heard, the primary participant's on a tie (queue row MUSIC-CANDIDATES has what is left). The HUD is open | Bob's boss music outranks Alice's town music; two equal tracks play Alice's |
-| Regrowth/restock (Q152) | The second world-time customer: a harvested resource or a shop stock refills after world time passes while its room is not live | Harvest, leave, wait, return: it has regrown |
+| Regrowth/restock (Q152) | Done 2026-10-04 for regrowth: `basement_breakables` authors "regrowing heart" (`AfterSeconds`, 4 s), and the breakable respawn's schedule, renamed `WorldTimeSchedule`, serves both customers (`pickup_regrowth_across_rooms.rs`: a quick return finds it still gone for the time that remains, a late return finds it regrown, it regrows in its live room while a plain heart beside it does not, a replay rebuilds it whole). Open: restocking. A shop (`ambition_items::shop`) sells from no stock, so nothing runs out to refill. Also open: a pickup authored `Never` or with no policy comes back on every rebuild of its room, because a collected pickup keeps no record unless it regrows; `AuthoredOccurrences::Consumed` has no producer | Harvest, leave, wait, return: it has regrown (met) |
 | Root identity | Two live room roots wear one `session:room_instance` `SimId`. Under Q109 that is right: the live occurrence is (`LiveRoomInstance`, `SimId`), and a construction baseline is scoped to its transaction's rooms. Measured 2026-10-03: two live rooms hold under a sync test, and a nudge of the non-primary room from outside the timeline is a mismatch (`two_live_rooms_hold_under_a_sync_test`). Open: a reader that keys a root by `SimId` alone | Every root reader keys by the pair; the cross-peer fold order is the remote-peer row |
 | OW4 budgets | Views and pending transitions as claim holders; admission/eviction with a consumer | Cancellation and re-entry release only their own claims |
 | Multi-room hot reload | Hot reload is gated to one live room. `LiveRoomDefinition` is an index into the current `RoomSet`, not a generation-stable identity | Removing the gate re-prepares every resident root with the set, or makes the root name its generation. An old index never takes a new generation's meaning |

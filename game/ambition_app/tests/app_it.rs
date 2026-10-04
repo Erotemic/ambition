@@ -64,6 +64,7 @@ mod a_loaded_module_keeps_session_state;
 mod boss_lifecycle;
 mod boss_replay_retraction;
 mod breakable_respawn_across_rooms;
+mod pickup_regrowth_across_rooms;
 mod boss_motion_parity;
 mod boss_possession_specials;
 mod boss_sheet_wiring;

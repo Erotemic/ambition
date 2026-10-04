@@ -1,52 +1,57 @@
-//! OW5: a broken breakable's respawn is a scheduled logical event.
+//! OW5: an authored occurrence that went away comes back at a time on the
+//! world clock, also while its room is not live.
 //!
-//! A breakable authored `AfterSeconds(n)` counts its respawn down on its own
-//! `RespawnTimer`, which lives on the entity and so dies with its room. Before
-//! this, a platform broken one second before the player left was whole again
-//! on return, even when the player came back inside its `n` seconds: the
-//! countdown was thrown away, not frozen and not reconstructed.
+//! Two customers share the mechanism, one schedule and one clock (Q152: world
+//! time is an engine mechanism, not a breakable one):
 //!
-//! The rule now (docs/planning/engine/open-world-runtime-and-residency.md,
-//! "Activity policy and deterministic inputs"): the respawn is due at a time
-//! on an admitted logical clock, [`GameplayElapsed`], the session's sum of the
-//! scaled simulation dt, which is the same dt the live timer counts down by.
-//! [`BreakableRespawnSchedule`] keeps that due time per breakable occurrence,
-//! keyed by its room definition and its authored id, at the session lifetime:
+//! * a broken breakable authored `AfterSeconds(n)` respawns;
+//! * a collected pickup authored `AfterSeconds(n)` regrows.
 //!
-//! * while the room is live, the live timer is the authority and
-//!   [`mirror_breakable_respawns`] records its due time when it starts and
-//!   forgets it when the breakable is whole again;
+//! The rule (docs/planning/engine/open-world-runtime-and-residency.md,
+//! "Activity policy and deterministic inputs"): the return is due at a time on
+//! an admitted logical clock, [`GameplayElapsed`], the session's sum of the
+//! scaled simulation dt. [`WorldTimeSchedule`] keeps that due time per
+//! occurrence, keyed by its room definition and its authored id, at the session
+//! lifetime:
+//!
+//! * while the room is live, the occurrence's live `RespawnTimer` is the
+//!   authority, and [`mirror_breakable_respawns`] and [`regrow_pickups`] record
+//!   its due time when it starts and forget it when the occurrence is whole
+//!   again;
 //! * when the room retires, the record stays: it is the dormant next-event
 //!   state, and nothing ticks it;
 //! * when the room is built again, construction reads the record (the commit
-//!   facts, `PersistedFates`): a breakable whose respawn is not yet due is
-//!   built broken with the time that remains, and one that is due is built
-//!   whole.
+//!   facts, `PersistedFates`): an occurrence whose return is not yet due is
+//!   built gone (a breakable broken with the time that remains, a pickup
+//!   collected), and one that is due is built whole.
 //!
 //! No physics runs for a room that is not live. A replay of a room is a fresh
-//! attempt, so it forgets that room's records ([`forget_breakable_respawns_on_replay`]);
+//! attempt, so it forgets that room's records ([`forget_scheduled_returns_on_replay`]);
 //! a checkpoint restore and the session edge forget them all, because the save
-//! holds no broken breakable.
+//! holds no broken breakable and no collected pickup.
 //!
 //! ⚠ Keyed by room DEFINITION, because a record must outlive the instance it
 //! was made in. A room has at most one live room (`DefinitionAlreadyLive`), so
-//! two live rooms never share a key.
+//! two live rooms never share a key. Authored ids are unique within a room, so
+//! a breakable and a pickup never share a key either.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use bevy::prelude::*;
 
-use ambition_combat::components::{BreakableFeature, FeatureId, RespawnTimer};
+use ambition_combat::components::{BreakableFeature, Collected, FeatureId, PickupFeature, RespawnTimer};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 use crate::features::GameplayElapsed;
 
-/// The respawn due times of broken breakables, on [`GameplayElapsed`], by
-/// (room definition id, authored breakable id).
+/// When each gone occurrence comes back, on [`GameplayElapsed`], by (room
+/// definition id, authored id): a broken breakable's respawn and a collected
+/// pickup's regrowth.
 ///
-/// Rollback state: a break and a respawn write it on a tick, and a rewind
-/// across that tick must take the record back with the breakable.
+/// Rollback state: a break, a collection, a respawn and a regrowth write it on
+/// a tick, and a rewind across that tick must take the record back with the
+/// occurrence.
 ///
 /// The records are SHARED, NOT COPIED (OW3, as M2 for the occurrence ledger).
 /// The rollback host clones, hashes and compares this every frame, and the
@@ -54,7 +59,7 @@ use crate::features::GameplayElapsed;
 /// a write copies the records only when a snapshot shares them, and the
 /// checksum is kept with the allocation it was computed from.
 #[derive(Resource, Clone, Debug, Default)]
-pub struct BreakableRespawnSchedule {
+pub struct WorldTimeSchedule {
     due: Arc<Records>,
 }
 
@@ -62,22 +67,22 @@ type Records = BTreeMap<(String, String), f32>;
 
 /// Equal records, with the same allocation first: a snapshot and the live
 /// schedule share their records while nothing changed.
-impl PartialEq for BreakableRespawnSchedule {
+impl PartialEq for WorldTimeSchedule {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.due, &other.due) || self.due == other.due
     }
 }
 
-impl BreakableRespawnSchedule {
-    /// When the breakable `feature` of room `room` respawns, if it is broken.
+impl WorldTimeSchedule {
+    /// When the occurrence `feature` of room `room` comes back, if it is gone.
     pub fn due(&self, room: &str, feature: &str) -> Option<f32> {
         self.due
             .get(&(room.to_string(), feature.to_string()))
             .copied()
     }
 
-    /// How long the breakable `feature` of room `room` stays broken at time
-    /// `now`: `Some` while its respawn is not yet due, `None` when it is whole
+    /// How long the occurrence `feature` of room `room` stays gone at time
+    /// `now`: `Some` while its return is not yet due, `None` when it is whole
     /// or due.
     pub fn remaining(&self, room: &str, feature: &str, now: f32) -> Option<f32> {
         self.due(room, feature)
@@ -88,6 +93,23 @@ impl BreakableRespawnSchedule {
     /// The records, in key order.
     pub fn records(&self) -> impl Iterator<Item = (&(String, String), &f32)> {
         self.due.iter()
+    }
+
+    /// The occurrence `feature` of room `room` comes back at `due`. Keeps an
+    /// existing record: the first departure decides the time.
+    pub fn record(&mut self, room: &str, feature: &str, due: f32) {
+        let key = (room.to_string(), feature.to_string());
+        if !self.due.contains_key(&key) {
+            Arc::make_mut(&mut self.due).insert(key, due);
+        }
+    }
+
+    /// Forget the record of the occurrence `feature` of room `room`.
+    pub fn forget(&mut self, room: &str, feature: &str) {
+        let key = (room.to_string(), feature.to_string());
+        if self.due.contains_key(&key) {
+            Arc::make_mut(&mut self.due).remove(&key);
+        }
     }
 
     /// Forget every record of room `room`.
@@ -104,8 +126,8 @@ impl BreakableRespawnSchedule {
         }
     }
 
-    /// Entity-free value projection: two peers that disagree about when a
-    /// breakable respawns have diverged.
+    /// Entity-free value projection: two peers that disagree about when an
+    /// occurrence comes back have diverged.
     ///
     /// The fold of the records, kept with the `Arc` it was computed from. The
     /// slot holds a clone of that `Arc`, so the allocation cannot be written in
@@ -140,12 +162,12 @@ impl BreakableRespawnSchedule {
     }
 }
 
-/// The time each broken breakable stays broken as of now, by (room definition
-/// id, authored id): the records whose respawn is not yet due. A room commit
-/// reads it (`PersistedFates::with_broken_breakables`).
-pub fn remaining_breakable_respawns(world: &World) -> BTreeMap<(String, String), f32> {
+/// The time each gone occurrence stays gone as of now, by (room definition
+/// id, authored id): the records whose return is not yet due. A room commit
+/// reads it (`PersistedFates::with_scheduled_returns`).
+pub fn remaining_scheduled_returns(world: &World) -> BTreeMap<(String, String), f32> {
     let (Some(schedule), Some(now)) = (
-        world.get_resource::<BreakableRespawnSchedule>(),
+        world.get_resource::<WorldTimeSchedule>(),
         world.get_resource::<GameplayElapsed>(),
     ) else {
         return BTreeMap::new();
@@ -173,39 +195,76 @@ pub fn mirror_breakable_respawns(
         (Entity, &FeatureId, &BreakableFeature, Option<&RespawnTimer>),
         With<FeatureSimEntity>,
     >,
-    mut schedule: ResMut<BreakableRespawnSchedule>,
+    mut schedule: ResMut<WorldTimeSchedule>,
 ) {
     for (entity, feature, breakable, timer) in &breakables {
         let Some(definition) = rooms.definition_of(entity) else {
             continue;
         };
         let room = &rooms.rooms().spec(definition).id;
-        let key = (room.clone(), feature.as_str().to_string());
         match (breakable.broken(), timer) {
-            (true, Some(timer)) => {
-                if !schedule.due.contains_key(&key) {
-                    Arc::make_mut(&mut schedule.due).insert(key, elapsed.0 + timer.0);
-                }
-            }
-            (false, _) => {
-                if schedule.due.contains_key(&key) {
-                    Arc::make_mut(&mut schedule.due).remove(&key);
-                }
-            }
+            (true, Some(timer)) => schedule.record(room, feature.as_str(), elapsed.0 + timer.0),
+            (false, _) => schedule.forget(room, feature.as_str()),
             // Broken for good (`Never`, `OnRoomReload`): no respawn to schedule.
             (true, None) => {}
         }
     }
 }
 
-/// An admitted replay is a fresh attempt at its room: its breakables are
-/// built whole, so the room's records go before the rebuild reads them.
+/// A collected pickup authored `AfterSeconds(n)` counts its regrowth down on
+/// its `RespawnTimer` (inserted at its collection, or at the rebuild of its
+/// room while the regrowth is not yet due) and is collectable again when the
+/// timer ends. The schedule mirrors the timer as [`mirror_breakable_respawns`]
+/// mirrors a breakable's: a record when the timer runs and there is none, and
+/// no record once the pickup is collectable.
 ///
-/// ⚠ AND THE OLD ATTEMPT'S TIMERS STOP. The old broken breakables live on
-/// until the rebuild, one frame or more later. With a running timer and no
-/// record, [`mirror_breakable_respawns`] recorded them again, and the
-/// replayed room was built with the platform broken. They stay broken until
-/// the rebuild retires them. The replay chain is in the `PlayerInput` phase,
+/// ⛔ NO CHANGE-TICK GATE, for the reason the breakable mirror gives.
+pub fn regrow_pickups(
+    world_time: Res<ambition_time::WorldTime>,
+    elapsed: Res<GameplayElapsed>,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    mut pickups: Query<
+        (Entity, &FeatureId, Has<Collected>, Option<&mut RespawnTimer>),
+        (With<PickupFeature>, With<FeatureSimEntity>),
+    >,
+    mut schedule: ResMut<WorldTimeSchedule>,
+    mut commands: Commands,
+) {
+    // The sim clock, as a breakable's respawn: the regrowth freezes in
+    // bullet time with everything else (ADR 0010).
+    let dt = world_time.sim_dt();
+    for (entity, feature, collected, timer) in &mut pickups {
+        let Some(definition) = rooms.definition_of(entity) else {
+            continue;
+        };
+        let room = &rooms.rooms().spec(definition).id;
+        match (collected, timer) {
+            (true, Some(mut timer)) => {
+                timer.0 = (timer.0 - dt).max(0.0);
+                if timer.0 <= 0.0 {
+                    commands.entity(entity).remove::<(Collected, RespawnTimer)>();
+                    schedule.forget(room, feature.as_str());
+                } else {
+                    schedule.record(room, feature.as_str(), elapsed.0 + timer.0);
+                }
+            }
+            (false, _) => schedule.forget(room, feature.as_str()),
+            // Collected for good (`Never`, `OnRoomReload`): nothing to schedule.
+            (true, None) => {}
+        }
+    }
+}
+
+/// An admitted replay is a fresh attempt at its room: its breakables and
+/// pickups are built whole, so the room's records go before the rebuild reads
+/// them, and every countdown of the room stops (a breakable's respawn, a
+/// pickup's regrowth).
+///
+/// ⚠ AND THE OLD ATTEMPT'S TIMERS STOP. The old broken breakables and
+/// collected pickups live on until the rebuild, one frame or more later. With
+/// a running timer and no record, [`mirror_breakable_respawns`] recorded them
+/// again, and the replayed room was built with the platform broken. They stay
+/// gone until the rebuild retires them. The replay chain is in the `PlayerInput` phase,
 /// which runs before the mirror's phase (`FeatureInteraction`) in the same
 /// tick, and the phase boundary applies the removal before the mirror runs.
 ///
@@ -213,18 +272,11 @@ pub fn mirror_breakable_respawns(
 /// `RoomReplayConsequences` follows this system's set and is in `PlayerInput`,
 /// so that edge is a cycle, and the schedule build does not finish (every
 /// test of a composed app stops before its first frame).
-pub fn forget_breakable_respawns_on_replay(
+pub fn forget_scheduled_returns_on_replay(
     mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    running: Query<
-        Entity,
-        (
-            With<RespawnTimer>,
-            With<BreakableFeature>,
-            With<FeatureSimEntity>,
-        ),
-    >,
-    mut schedule: ResMut<BreakableRespawnSchedule>,
+    running: Query<Entity, (With<RespawnTimer>, With<FeatureSimEntity>)>,
+    mut schedule: ResMut<WorldTimeSchedule>,
     mut commands: Commands,
 ) {
     for replay in replays.read() {
@@ -243,10 +295,11 @@ pub fn forget_breakable_respawns_on_replay(
 }
 
 /// A checkpoint restore rebuilds from the save, which holds no broken
-/// breakable. (checkpoint reducer, in `CheckpointDomainApply`)
-pub fn forget_breakable_respawns_on_restore(
+/// breakable and no collected pickup. (checkpoint reducer, in
+/// `CheckpointDomainApply`)
+pub fn forget_scheduled_returns_on_restore(
     inputs: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs>>,
-    schedule: Option<ResMut<BreakableRespawnSchedule>>,
+    schedule: Option<ResMut<WorldTimeSchedule>>,
 ) {
     if let (Some(_), Some(mut schedule)) = (inputs, schedule) {
         schedule.forget_all();
@@ -261,7 +314,7 @@ mod tests {
     /// it is due.
     #[test]
     fn a_record_says_how_long_a_breakable_stays_broken() {
-        let mut schedule = BreakableRespawnSchedule::default();
+        let mut schedule = WorldTimeSchedule::default();
         Arc::make_mut(&mut schedule.due).insert(("basement".into(), "platform".into()), 10.0);
         assert_eq!(
             [7.5, 10.0, 12.0].map(|now| schedule.remaining("basement", "platform", now)),
@@ -273,9 +326,9 @@ mod tests {
     }
 
     /// A schedule of `n` dormant records, in rooms that are not live.
-    fn dormant_schedule(n: usize) -> BreakableRespawnSchedule {
+    fn dormant_schedule(n: usize) -> WorldTimeSchedule {
         let records = (0..n).map(|i| ((format!("room_{:03}", i / 100), format!("platform_{i:05}")), i as f32));
-        BreakableRespawnSchedule { due: Arc::new(records.collect()) }
+        WorldTimeSchedule { due: Arc::new(records.collect()) }
     }
 
     /// The kept checksum is the fold it stands for: for the first records,
@@ -297,7 +350,7 @@ mod tests {
     /// than with none, as for the occurrence ledger (M2).
     #[test]
     fn dormant_records_add_little_to_a_snapshot_of_the_schedule() {
-        fn median_snapshot(schedule: &BreakableRespawnSchedule) -> std::time::Duration {
+        fn median_snapshot(schedule: &WorldTimeSchedule) -> std::time::Duration {
             let mut times: Vec<_> = (0..101)
                 .map(|_| {
                     // AMBITION_REVIEW(determinism): wall clock, in a test. It

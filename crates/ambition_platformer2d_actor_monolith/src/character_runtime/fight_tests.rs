@@ -463,12 +463,13 @@ fn spawn_fighter(
 fn fight_app() -> App {
     let mut app = App::new();
     app.add_plugins(CharacterRuntimePlugin);
+    // The generation the damage path reads: a fixture states an empty one.
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
     app.insert_resource(
         ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(EMPTY_CATALOG),
         ),
     );
-    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     // Both fighters author explicit rectangles, so no blade is resolved from
     // sprite data here; the resolver is still REQUIRED by `advance_move_playback`,
     // and `disabled()` is the content-free answer for a fixture.

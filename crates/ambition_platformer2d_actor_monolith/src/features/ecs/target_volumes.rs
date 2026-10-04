@@ -77,10 +77,10 @@ fn authored_world_volumes(
 /// Publish boss damageable volumes from authored hurtboxes or active boss parts,
 /// never the composite body's coarse envelope.
 pub fn refresh_boss_damageable_volumes(
-    boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
-    // The activated generation's frozen catalog outranks the App's: a reload
-    // publishes the App's before its session is activated, and a resimulated
-    // frame must not read it.
+    // The boss catalog of the running session, and not that of the App: a
+    // reload publishes the App's catalog before its session is activated, and
+    // a resimulated frame must not read it. `None`: no session runs, see
+    // `SessionMechanics`.
     generation: Option<Res<crate::session::mechanics::SessionMechanics>>,
     mut bosses: Query<(
         ambition_boss_encounter::BossClusterRef,
@@ -97,9 +97,10 @@ pub fn refresh_boss_damageable_volumes(
         ),
     )>,
 ) {
-    let boss_catalog = generation
-        .as_deref()
-        .map_or(&*boss_catalog, |generation| &generation.bosses);
+    let Some(generation) = generation else {
+        return;
+    };
+    let boss_catalog = &generation.bosses;
     for (
         feature,
         health,

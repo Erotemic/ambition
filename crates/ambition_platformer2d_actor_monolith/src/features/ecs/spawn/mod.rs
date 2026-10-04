@@ -1386,17 +1386,18 @@ pub fn serve_encounter_spawn_commands(
     // The session's cast, not the App's (`SessionCast`). A shell session that
     // lost its generation is answered with no spawn, as a live room rebuild is.
     cast: crate::session::mechanics::SessionCast,
-    authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    // The activated generation's sheets outrank the App's, as for every
-    // construction road (`GenerationMechanics::sheets`).
+    // The sheets of the running session, as every construction road reads
+    // them (`GenerationMechanics::sheets`). `None`: no session runs, see
+    // `SessionMechanics`.
     generation: Option<bevy::prelude::Res<crate::session::mechanics::SessionMechanics>>,
 ) {
-    let authored_sheets = generation
-        .as_deref()
-        .map_or(&*authored_sheets, |generation| &generation.sheets);
-    let Some(session_scope) = commands.spawn_scope() else {
+    // Each refusal drains the bus: the next session must not serve a request
+    // of a session that ended.
+    let (Some(generation), Some(session_scope)) = (generation, commands.spawn_scope()) else {
+        events.clear();
         return;
     };
+    let authored_sheets = &generation.sheets;
     let Some(prepared) = cast.get() else {
         if !events.is_empty() {
             bevy::log::warn_once!(
@@ -1404,6 +1405,7 @@ pub fn serve_encounter_spawn_commands(
                  nothing was spawned (the session lost its generation)"
             );
         }
+        events.clear();
         return;
     };
     for msg in events.read() {

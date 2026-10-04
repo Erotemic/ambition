@@ -91,7 +91,6 @@ fn register_test_motion_techniques(app: &mut App) {
 
 fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     let mut app = App::new();
-    app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
     app.insert_resource(Time::<()>::default());
     app.insert_resource(ambition_time::WorldTime::default());
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
@@ -108,7 +107,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.init_resource::<crate::session::mechanics::SessionMechanics>();
     // Projectile state lives on the player; this counter only gives in-flight
     // projectile entities stable spawn order.
     app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();

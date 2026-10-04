@@ -661,12 +661,11 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
         )),
     );
     app.insert_resource(CharacterCatalog::empty());
-    // The damage path sizes split offspring from their sheets (U1 stage B), so
-    // the authored registry is required authority here too. This fixture
-    // authors none.
-    app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
+    // The damage path sizes split offspring from the sheets of its generation
+    // (U1 stage B), and resolves no hit when there is none. This fixture
+    // states an empty generation.
+    app.init_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>();
     app.insert_resource(GameplayBanner::default());
-    app.init_resource::<ambition_platformer2d::boss_encounter::BossCatalog>();
     app.init_resource::<ProjectileSeqCounter>();
     app.init_resource::<ProjectileVisualCatalog>();
     ambition_platformer2d::session::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default());

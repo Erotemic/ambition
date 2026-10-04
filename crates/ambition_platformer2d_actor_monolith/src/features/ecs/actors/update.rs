@@ -2058,7 +2058,9 @@ pub(super) fn attack_kit_of(
 /// the Active volumes, so it is the same number before the move starts and
 /// during its startup.
 ///
-/// Only a Smash brain reads the answer, so only a Smash brain pays for it.
+/// Only a brain that closes to its reach reads the answer
+/// (`StateMachineCfg::closes_to_its_melee_reach`), so only such a brain pays
+/// for it.
 /// `None` when no move answers the press, or when the move hits nothing by
 /// itself (a move that only fires a shot has no melee reach).
 pub(super) fn melee_reach_of(
@@ -2067,11 +2069,8 @@ pub(super) fn melee_reach_of(
     running: bool,
     brain: Option<&ambition_characters::brain::Brain>,
 ) -> Option<f32> {
-    use ambition_characters::brain::{Brain, StateMachineCfg};
-    if !matches!(
-        brain,
-        Some(Brain::StateMachine(StateMachineCfg::Smash { .. }))
-    ) {
+    use ambition_characters::brain::Brain;
+    if !matches!(brain, Some(Brain::StateMachine(cfg)) if cfg.closes_to_its_melee_reach()) {
         return None;
     }
     let spec = moveset?.0.move_for_attack(

@@ -1230,4 +1230,37 @@ fn the_reach_is_that_of_the_move_the_press_starts() {
         None,
         "a body with no moveset has no attack move"
     );
+
+    use ambition_characters::brain::state_machine::{
+        ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg, MeleeBruteState,
+    };
+    let brute = Brain::StateMachine(StateMachineCfg::MeleeBrute {
+        cfg: MeleeBruteCfg::BRUTE_DEFAULT,
+        state: MeleeBruteState::default(),
+    });
+    assert_eq!(
+        melee_reach_of(Some(&moveset), true, false, Some(&brute)),
+        Some(16.0),
+        "a melee brute closes to its reach, so it is told it"
+    );
+    let shark = Brain::StateMachine(StateMachineCfg::ChargeCrash {
+        cfg: ChargeCrashCfg {
+            aggressiveness: 1.0,
+            aggro_radius: 400.0,
+            cruise_speed: 100.0,
+            charge_speed: 360.0,
+            bite_range: 200.0,
+            charge_duration_s: 0.4,
+            charge_cooldown_s: 1.0,
+            standoff_px: 140.0,
+            vertical_wobble_px: 20.0,
+            orbit_drift_rad_s: 0.5,
+        },
+        state: ChargeCrashState::default(),
+    });
+    assert_eq!(
+        melee_reach_of(Some(&moveset), true, false, Some(&shark)),
+        None,
+        "the shark's charge carries its bite, so it reads no reach"
+    );
 }

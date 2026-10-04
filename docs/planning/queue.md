@@ -1111,16 +1111,32 @@ moveset derived from an action set reaches `1.1 × reach_px` (28 gives 30.8), so
 This changes how the Smash enemies space themselves: each now stops and swings
 where its own move reaches.
 
+**Slice 2, DONE 2026-10-03: MeleeBrute, the hostile Aerial bird, the aggressive
+Patrol.** Each read `cfg.attack_range`, an authored distance. Each now reads
+`BrainSnapshot::melee_reach`, and its cfg distance is only for a body with no
+attack move. `StateMachineCfg::closes_to_its_melee_reach` is the exhaustive
+list of the brains that are told the reach. The shipped MeleeBrute users are
+the provoked pirate heavies (reach 48.4, authored 53 to 59 with the 56 px
+floor). The parrot read 60 and fsm_noodling 50; both pecks reach 52.8.
+Witnesses: `melee_reach_tests` in `brain/state_machine/tests.rs`. Each read
+was poisoned alone, and only its own test failed.
+
 **Remaining readers (not changed):**
 
-- `MeleeBruteCfg::attack_range` and `actor/ai.rs` (`dist <= attack_range`): the
-  profile's `attack_range`, with a 56 px floor for a provoked brute and a
-  dismounted rider. No shipped row uses the MeleeBrute template by default.
-- `AerialCfg::attack_range` (the parrot 60 against 52.8, fsm_noodling 50
-  against 52.8).
-- `ChargeCrashCfg::bite_range` (the shark 200 against 46.2). Find out first if
-  this is a reach or the distance at which the charge starts.
+- `ChargeCrashCfg::bite_range` (the shark 200 against 46.2). It is not a
+  reach. The shark presses its bite and then charges, and the charge carries
+  the hitbox to the foe. A view from geometry must add the travel of the
+  charge to the reach of the bite. This needs a measurement of how far the
+  charge moves the hitbox while the Active window is open.
 - The fighter's `assumed_foe_reach`: a number for the reach of the FOE.
+- A body with no attack move keeps the authored distance of its brain. One
+  case looks incorrect and is not measured in play: a dismounted rider with no
+  ranged item gets a MeleeBrute brain whose distance is the profile's
+  `attack_range` (1100 px for the pirate raider), so it can stop and press
+  nothing from far away.
+- `MoveFrameData::reach` is the reach of the volumes in the body frame. It
+  does not include the motion of the move (a dash attack moves the body), so a
+  running Smash enemy reads 40 px for a dash attack that travels farther.
 
 ### BREAKABLE-SOLIDITY — a solid breakable is a barrier, not a blink wall — ✅ DONE 2026-10-03
 
@@ -1146,9 +1162,28 @@ block has no tile and no fill: the crate draws itself.
 core blink. The control is a hard blink wall of the same rectangle, which the
 same body passes. The arm failed before the change.
 
-**Not changed:** a moving platform is still composed as `BlinkWall { Soft }`
-(`ambition_platformer2d_world::platforms`), so the soft blink upgrade passes
-one. Whether that is intended was not asked.
+**Follow-up, the moving platform (2026-10-03, decided on Q102's rule; no
+maintainer question).** A moving platform is composed as `BlinkWall { Soft }`
+(`ambition_platformer2d_world::platforms`). Q102's question is: is it a solid
+that only shares the blink-wall shape, or a blink wall?
+
+- Measured, in the world that collision composes: a body with no
+  through-upgrade stops at the platform (it lands at x = 214 before a platform
+  at 229..251). A body with the soft upgrade passes it (x = 340). A body with
+  only the hard upgrade stops (x = 214).
+- `as_collision_block` states this as its purpose: a moving platform is
+  "deliberately not" a hard blink blocker, and the soft upgrade passes it "just
+  like a soft blink membrane". The solid breakable was different: it was a
+  hard blink wall only to get full collision, and the pass was a defect.
+- No other reader gives a moving platform a different result from a solid.
+  Perception, the fighter's recovery and the projectile response each put
+  `BlinkWall` in the same arm as `Solid`. The tile sprite, the fill colour and
+  the debug colour do draw a blink wall differently, but they read the room's
+  authored blocks and not the composed collision world.
+
+So the platform is a blink wall in the one sense that matters, and it stays
+one. `the_soft_blink_upgrade_passes_a_moving_platform` pins the behaviour, and
+it fails if the platform becomes a `Barrier`.
 
 ### CPU-LADDER — the brain owns the knobs, Smash owns the ladder
 

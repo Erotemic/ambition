@@ -273,6 +273,16 @@ fn a_one_time_heart_stays_gone_when_its_room_is_built_again() {
     assert_eq!(pickup(&mut sim, PLAIN), None, "the rebuilt room built the one-time heart again");
 }
 
+/// The stable id of the pickup `name`, which its room must have built.
+fn sim_id_of(sim: &mut Platformer2dSimHarness, name: &str) -> ambition_platformer2d::platformer::sim_id::SimId {
+    let world = sim.world_mut();
+    let mut q = world.query::<(&FeatureName, &ambition_platformer2d::platformer::sim_id::SimId)>();
+    q.iter(world)
+        .find(|(feature, _)| feature.0.as_str() == name)
+        .map(|(_, sim_id)| sim_id.clone())
+        .unwrap_or_else(|| panic!("the room authors the pickup '{name}'"))
+}
+
 /// Whether the one-time heart is there to take after Alice dies, when she
 /// took it after the checkpoint (`after`) or before it.
 fn one_time_heart_after_a_death(taken_after_the_checkpoint: bool) -> Option<(bool, Option<f32>)> {
@@ -301,5 +311,106 @@ fn a_death_brings_back_a_one_time_heart_only_if_taken_after_the_checkpoint() {
         (one_time_heart_after_a_death(true), one_time_heart_after_a_death(false)),
         (Some((false, None)), None),
         "(taken after the checkpoint, taken before it): the heart after Alice's death"
+    );
+}
+
+/// The pickup `name`, collected as a collection leaves it. Bob's body is not
+/// in the player population (no road seats a second player yet, Q153), so he
+/// cannot stand on it; the pickup is in his live room, and that is what owns it.
+fn collected_in_bobs_room(sim: &mut Platformer2dSimHarness, name: &str) {
+    let world = sim.world_mut();
+    let mut q = world.query::<(bevy::prelude::Entity, &FeatureName)>();
+    let entity = q
+        .iter(world)
+        .find(|(_, feature)| feature.0.as_str() == name)
+        .map(|(entity, _)| entity)
+        .unwrap_or_else(|| panic!("the room authors the pickup '{name}'"));
+    world.entity_mut(entity).insert(Collected);
+}
+
+/// The one-time heart when Alice comes back to its room after her death. It
+/// was taken after the checkpoint, in Bob's room, which he then left (`by_bob`),
+/// or by Alice alone, who then left. Either way its room is not live when
+/// Alice dies.
+fn one_time_heart_after_a_death_elsewhere(by_bob: bool) -> (Option<(bool, Option<f32>)>, String) {
+    let heart;
+    let mut sim = if by_bob {
+        let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
+            ROOM,
+            HUB,
+            Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+            cross_to,
+        );
+        crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+        heart = sim_id_of(&mut sim, PLAIN);
+        collected_in_bobs_room(&mut sim, PLAIN);
+        settle(&mut sim, 2);
+        assert_eq!(
+            ledger_row(&mut sim, PLAIN).as_deref(),
+            Some("Some(Consumed)"),
+            "precondition: the heart Bob's room holds is consumed"
+        );
+        let hub = crate::two_players_two_live_rooms::live_rooms(&mut sim)
+            .into_iter()
+            .find(|(_, id)| id == HUB)
+            .map(|(room, _)| room)
+            .expect("precondition: Alice holds the hub");
+        crate::two_players_two_live_rooms::bob_goes_from(&mut sim, ROOM, HUB, hub);
+        sim
+    } else {
+        let mut sim = fixed_60hz_room_sim(ROOM);
+        settle(&mut sim, 30);
+        crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+        heart = sim_id_of(&mut sim, PLAIN);
+        collect(&mut sim, PLAIN);
+        assert_eq!(cross_to(&mut sim, HUB), HUB);
+        settle(&mut sim, 30);
+        sim
+    };
+    assert!(
+        !crate::two_players_two_live_rooms::live_rooms(&mut sim).iter().any(|(_, id)| id == ROOM),
+        "precondition: the heart's room retired"
+    );
+    crate::death_restores_the_checkpoint::die(&mut sim);
+    // A restore that fails its verification leaves the ledger as it was and
+    // stops play, which would also leave the heart gone.
+    let outcome = format!(
+        "{:?}",
+        sim.world()
+            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+            .latest()
+    );
+    assert!(outcome.starts_with("Some(Committed"), "precondition: the death's restore committed: {outcome}");
+    if sim.observation().active_room != ROOM {
+        assert_eq!(cross_to(&mut sim, ROOM), ROOM);
+    }
+    settle(&mut sim, 2);
+    let row = format!(
+        "{:?}",
+        sim.world()
+            .resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+            .whereabouts(&heart)
+    );
+    (pickup(&mut sim, PLAIN), row)
+}
+
+/// Q151 for a one-time pickup: a heart Bob took after the checkpoint, in a
+/// room he then left, is his consequence. Alice's death elsewhere does not
+/// bring it back. The restore puts the pinned ledger back, which has no row
+/// for it, and no live room is there to write the row again; so each row
+/// consumed since the checkpoint names whose horizons own it, and the restore
+/// writes again a row that a spared participant owns. The control is the same
+/// heart taken by Alice alone: her death brings it back, whole.
+#[test]
+fn a_death_keeps_gone_a_one_time_heart_another_player_took_in_a_room_he_left() {
+    assert_eq!(
+        one_time_heart_after_a_death_elsewhere(false),
+        (Some((false, None)), "None".to_string()),
+        "control: Alice's death brings back the one-time heart she took"
+    );
+    assert_eq!(
+        one_time_heart_after_a_death_elsewhere(true),
+        (None, "Some(Consumed)".to_string()),
+        "Alice's death in the hub brought back the one-time heart Bob took in a room he left"
     );
 }

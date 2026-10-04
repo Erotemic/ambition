@@ -478,3 +478,57 @@ fn only_a_taken_authored_never_pickup_is_remembered_as_consumed() {
         "the ledger's rows after one tick"
     );
 }
+
+/// Q151 for successive rewinds: a restore takes the dying participant out of
+/// each record's owners, so a record owned only by them is forgotten and a
+/// later restore of another participant does not keep it. The restore's
+/// acceptance pins only the rows a spared participant owns, so today, where
+/// only the primary participant's death restores, this is not observable in
+/// play; it is the arithmetic a second participant's restore needs.
+#[test]
+fn a_restore_takes_the_dying_participant_out_of_each_consumed_record() {
+    use ambition_characters::control::PlayerSlot;
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    let mut app = App::new();
+    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+    app.init_resource::<ConsumedSinceCheckpoint>();
+    app.add_systems(Update, disown_consumed_pickups_on_restore);
+    {
+        let mut since = app.world_mut().resource_mut::<ConsumedSinceCheckpoint>();
+        since.record(SimId::placement("alices"), "x".into(), vec![PlayerSlot(0)]);
+        since.record(SimId::placement("shared"), "x".into(), vec![PlayerSlot(0), PlayerSlot(1)]);
+        since.record(SimId::placement("bobs"), "y".into(), vec![PlayerSlot(1)]);
+    }
+    // Control: a replay that is not a checkpoint restore keeps every owner.
+    app.world_mut().write_message(
+        ambition_combat::events::RoomReplayAdmitted::because(ambition_combat::RoomResetReason::PlayerDeath)
+            .sparing_participants(vec![PlayerSlot(1)]),
+    );
+    app.update();
+    assert_eq!(
+        app.world().resource::<ConsumedSinceCheckpoint>().owners(&SimId::placement("alices")),
+        Some(&[PlayerSlot(0)][..]),
+        "control: a replay that does not rewind to the checkpoint disowned a record"
+    );
+    app.world_mut().write_message(
+        ambition_combat::events::RoomReplayAdmitted::because(ambition_combat::RoomResetReason::PlayerDeath)
+            .to_the_checkpoint()
+            .sparing_participants(vec![PlayerSlot(1)]),
+    );
+    app.update();
+    let since = app.world().resource::<ConsumedSinceCheckpoint>();
+    assert_eq!(
+        (
+            since.owners(&SimId::placement("alices")),
+            since.owners(&SimId::placement("shared")),
+            since.owners(&SimId::placement("bobs")),
+        ),
+        (None, Some(&[PlayerSlot(1)][..]), Some(&[PlayerSlot(1)][..])),
+        "(Alice's, shared, Bob's) owners after Alice's restore"
+    );
+    assert_eq!(
+        since.owned_by(&[PlayerSlot(0)]).count(),
+        0,
+        "a later restore that spares only Alice keeps a row she no longer owns"
+    );
+}

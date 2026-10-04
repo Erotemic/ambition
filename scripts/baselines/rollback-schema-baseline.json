@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v310",
+    "version": "ggrs-rollback-schema-v311",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -89,6 +89,7 @@
       "entity:respawn_grace\tcomponent-canonical\tRespawnGrace",
       "extension.body_records\tcomponent-clone-custom-checksum\tBodyRecords\tbevy_ggrs clone snapshot + every module record of the body: schema shape digest and canonical values",
       "extension.session_records\tcomponent-clone-custom-checksum\tSessionRecords\tbevy_ggrs clone snapshot + every session-attached module record: schema shape digest and canonical values",
+      "feature.consumed_since_checkpoint\tresource-clone-custom-checksum\tConsumedSinceCheckpoint\tbevy_ggrs clone snapshot + the one-time pickups consumed since the last checkpoint, with their room and whose horizons own each (Q151)",
       "feature.world_time_schedule\tresource-clone-custom-checksum\tWorldTimeSchedule\tbevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)",
       "player.projectile_state\tcomponent-canonical\tPlayerProjectileState",
       "player.safety_state\tcomponent-canonical\tPlayerSafetyState",

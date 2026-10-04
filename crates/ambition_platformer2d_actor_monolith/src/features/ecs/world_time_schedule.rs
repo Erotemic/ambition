@@ -338,7 +338,7 @@ pub fn regrow_pickups(
 
 /// The participants whose bodies are in the live room of `entity`, in seat
 /// order: the owners of a record made for it now.
-fn owners_beside(
+pub(crate) fn owners_beside(
     entity: Entity,
     rooms: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
     participants: &Query<(Entity, &DrivingParticipant)>,

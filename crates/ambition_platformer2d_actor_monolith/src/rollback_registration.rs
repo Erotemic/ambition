@@ -200,6 +200,12 @@ where
         "when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)",
         crate::features::ecs::world_time_schedule::WorldTimeSchedule::checksum,
     );
+    registrar.rollback_resource_clone_checksum::<crate::features::ecs::pickups::ConsumedSinceCheckpoint>(
+        OWNER,
+        "feature.consumed_since_checkpoint",
+        "the one-time pickups consumed since the last checkpoint, with their room and whose horizons own each (Q151)",
+        crate::features::ecs::pickups::ConsumedSinceCheckpoint::checksum,
+    );
     registrar
         .rollback_resource_canonical::<crate::session::lifecycle_commit::PendingLifecycleCommit>(
             OWNER,

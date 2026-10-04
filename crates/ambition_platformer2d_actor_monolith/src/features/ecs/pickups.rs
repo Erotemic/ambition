@@ -380,7 +380,9 @@ mod tests;
 /// A checkpoint restore replaces the ledger with the pinned one, and the
 /// pickups still collected in a live room another participant holds are
 /// written again on the next tick (Q151). The room the restore rebuilds
-/// builds them uncollected, so nothing writes them again.
+/// builds them uncollected, so nothing writes them again. A row of a room
+/// that is not live has no pickup to write it again, so each new row is also
+/// kept in [`ConsumedSinceCheckpoint`] with its owners.
 ///
 /// Only an authored occurrence has a row: a dropped pickup has no record a
 /// room could build again.
@@ -388,20 +390,26 @@ mod tests;
 pub fn record_consumed_pickups(
     pickups: Query<
         (
+            Entity,
             &ambition_platformer2d_shared_tangle::sim_id::SimId,
             &PickupFeature,
             &ambition_platformer2d_shared_tangle::construction::SpawnOrigin,
         ),
         With<Collected>,
     >,
+    // `Option`: a composition with no rooms still writes the ledger; it only
+    // cannot name whose horizons own a row.
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    since: Option<ResMut<ConsumedSinceCheckpoint>>,
 ) {
     let Some(mut occurrences) = occurrences else {
         return;
     };
     let consumed: Vec<_> = pickups
         .iter()
-        .filter(|(sim_id, pickup, origin)| {
+        .filter(|(_, sim_id, pickup, origin)| {
             pickup.pickup.respawn == ambition_entity_catalog::placements::HazardRespawn::Never
                 && matches!(
                     origin,
@@ -409,10 +417,141 @@ pub fn record_consumed_pickups(
                 )
                 && occurrences.whereabouts(sim_id).is_none()
         })
-        .map(|(sim_id, ..)| sim_id.clone())
+        .map(|(entity, sim_id, ..)| (entity, sim_id.clone()))
         .collect();
     // Written only on a new row, so an unchanged ledger is not marked changed.
-    if !consumed.is_empty() {
-        occurrences.consume(consumed);
+    if consumed.is_empty() {
+        return;
+    }
+    if let (Some(rooms), Some(mut since)) = (rooms, since) {
+        for (entity, sim_id) in &consumed {
+            let Some(definition) = rooms.definition_of(*entity) else {
+                continue;
+            };
+            since.record(
+                sim_id.clone(),
+                rooms.rooms().spec(definition).id.clone(),
+                super::world_time_schedule::owners_beside(*entity, &rooms, &participants),
+            );
+        }
+    }
+    occurrences.consume(consumed.into_iter().map(|(_, sim_id)| sim_id));
+}
+
+/// The one-time pickups consumed since the last committed checkpoint: the room
+/// each was in, and the participants whose bodies were there (Q151).
+///
+/// The ledger's `Consumed` row is the fact; this says whose horizons own it.
+/// A checkpoint restore puts the pinned ledger back, which has no row for a
+/// pickup consumed after the checkpoint, and a room that is not live has no
+/// pickup to write the row again. So the restore's acceptance pins the rows
+/// that a spared participant owns into the ledger it restores
+/// (`resume_at_checkpoint_on_reset`), and its admission takes the dying
+/// participant out of each record's owners
+/// ([`disown_consumed_pickups_on_restore`]). A record with no owner left goes
+/// back, so its room builds the pickup again.
+///
+/// Rollback state with a real value: a collection writes it on a tick.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ConsumedSinceCheckpoint {
+    records: std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, ConsumedRecord>,
+}
+
+/// One pickup consumed since the checkpoint.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ConsumedRecord {
+    /// The id of the room definition it was in.
+    room: String,
+    /// The participants whose bodies were in its live room, in seat order.
+    owners: Vec<ambition_characters::control::PlayerSlot>,
+}
+
+impl ConsumedSinceCheckpoint {
+    /// Remember that `occurrence` was consumed in room `room`, owned by `owners`.
+    pub fn record(
+        &mut self,
+        occurrence: ambition_platformer2d_shared_tangle::sim_id::SimId,
+        room: String,
+        owners: Vec<ambition_characters::control::PlayerSlot>,
+    ) {
+        self.records.insert(occurrence, ConsumedRecord { room, owners });
+    }
+
+    /// Whose horizons own the consumption of `occurrence`, if it is recorded.
+    pub fn owners(
+        &self,
+        occurrence: &ambition_platformer2d_shared_tangle::sim_id::SimId,
+    ) -> Option<&[ambition_characters::control::PlayerSlot]> {
+        self.records.get(occurrence).map(|record| record.owners.as_slice())
+    }
+
+    /// The pickups consumed since the checkpoint that one of `participants`
+    /// owns, in id order.
+    pub fn owned_by<'a>(
+        &'a self,
+        participants: &'a [ambition_characters::control::PlayerSlot],
+    ) -> impl Iterator<Item = ambition_platformer2d_shared_tangle::sim_id::SimId> + 'a {
+        self.records
+            .iter()
+            .filter(|(_, record)| record.owners.iter().any(|owner| participants.contains(owner)))
+            .map(|(occurrence, _)| occurrence.clone())
+    }
+
+    /// Keep only the `kept` participants' horizons; forget a record with no
+    /// owner left.
+    pub fn keep_only_owners(&mut self, kept: &[ambition_characters::control::PlayerSlot]) {
+        for record in self.records.values_mut() {
+            record.owners.retain(|owner| kept.contains(owner));
+        }
+        self.records.retain(|_, record| !record.owners.is_empty());
+    }
+
+    /// Forget every record.
+    pub fn forget_all(&mut self) {
+        if !self.records.is_empty() {
+            self.records.clear();
+        }
+    }
+
+    /// Entity-free value projection.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.records.len() as u64);
+        for (occurrence, record) in &self.records {
+            put_str(&mut bytes, occurrence.as_str());
+            put_str(&mut bytes, &record.room);
+            put_u64(&mut bytes, record.owners.len() as u64);
+            for owner in &record.owners {
+                put_u64(&mut bytes, u64::from(owner.0));
+            }
+        }
+        checksum_bytes(&bytes)
     }
 }
+
+/// A committed checkpoint makes every consumption since the last one part of
+/// the baseline.
+pub fn forget_consumed_pickups_at_checkpoint(
+    mut commits: MessageReader<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>,
+    mut since: ResMut<ConsumedSinceCheckpoint>,
+) {
+    // Drained unconditionally, like every other reader of this channel.
+    if commits.read().count() > 0 {
+        since.forget_all();
+    }
+}
+
+/// An admitted checkpoint restore keeps only the horizons of the participants
+/// it spares (Q151). At the admission, because it names who is spared.
+pub fn disown_consumed_pickups_on_restore(
+    mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
+    mut since: ResMut<ConsumedSinceCheckpoint>,
+) {
+    for replay in replays.read() {
+        if replay.to_checkpoint {
+            since.keep_only_owners(&replay.spared_participants);
+        }
+    }
+}
+

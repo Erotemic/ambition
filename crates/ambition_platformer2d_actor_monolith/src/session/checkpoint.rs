@@ -422,6 +422,8 @@ pub fn resume_at_checkpoint_on_reset(
         Option<Res<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
         // What a new game's starter bag is made of (which items stack).
         ambition_items::ItemCatalogRead<'_>,
+        // The one-time pickups consumed since the checkpoint, with their owners.
+        Option<Res<crate::features::ecs::pickups::ConsumedSinceCheckpoint>>,
     ),
     mut admitted: bevy::prelude::MessageWriter<ambition_combat::events::RoomReplayAdmitted>,
 ) {
@@ -542,47 +544,8 @@ pub fn resume_at_checkpoint_on_reset(
         );
         return;
     };
-    let (occurrences, custody, minted, owned, items) = baselines;
+    let (occurrences, custody, minted, owned, items, consumed) = baselines;
     let fresh = restore_to == RestoreTo::NewGame;
-    let (lifecycle, item) = if fresh {
-        // The fresh baseline, pinned in the same shape as a checkpoint's. A
-        // domain that is not installed still pins `None`: absent is not empty.
-        (
-            pin_lifecycle_inputs(occurrences, custody).map(|_| {
-                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
-                    occurrences: Default::default(),
-                    custody: Default::default(),
-                }
-            }),
-            minted.zip(owned).map(|_| {
-                let mut owned = crate::items::pickup::minted_horizon::OwnedItemsBaseline::default();
-                // A new game begins with the bag a new process begins with.
-                owned.adopt(ambition_items::OwnedItems::starter(items.get()));
-                crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
-                    minted: Default::default(),
-                    owned,
-                }
-            }),
-        )
-    } else {
-        (
-            pin_lifecycle_inputs(occurrences, custody),
-            minted.zip(owned).map(|(minted, owned)| {
-                crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
-                    minted: minted.clone(),
-                    owned: owned.clone(),
-                }
-            }),
-        )
-    };
-    accepted.accept(AcceptedRestore {
-        key,
-        frame,
-        intent,
-        lifecycle,
-        item,
-        fresh,
-    });
     // ⭐ A DEATH IS LOCAL TO ITS PARTICIPANT AND ROOM (Q151). The rooms other
     // participants hold keep what was won in them since the checkpoint. A New
     // Game restarts the whole session, so it spares nothing. The subject's own
@@ -615,6 +578,57 @@ pub fn resume_at_checkpoint_on_reset(
             .into_iter()
             .collect()
     };
+    let (lifecycle, item) = if fresh {
+        // The fresh baseline, pinned in the same shape as a checkpoint's. A
+        // domain that is not installed still pins `None`: absent is not empty.
+        (
+            pin_lifecycle_inputs(occurrences, custody).map(|_| {
+                ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                    occurrences: Default::default(),
+                    custody: Default::default(),
+                }
+            }),
+            minted.zip(owned).map(|_| {
+                let mut owned = crate::items::pickup::minted_horizon::OwnedItemsBaseline::default();
+                // A new game begins with the bag a new process begins with.
+                owned.adopt(ambition_items::OwnedItems::starter(items.get()));
+                crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+                    minted: Default::default(),
+                    owned,
+                }
+            }),
+        )
+    } else {
+        (
+            // The ledger this restore promises: the checkpoint's, and the
+            // one-time pickups a spared participant consumed since it (Q151).
+            // Pinned here, so the room the restore rebuilds and the
+            // verification both read it.
+            pin_lifecycle_inputs(occurrences, custody).map(|mut inputs| {
+                if let Some(consumed) = consumed.as_ref() {
+                    let mut ledger = inputs.occurrences.remembered().clone();
+                    if ledger.consume(consumed.owned_by(&spared_participants)) > 0 {
+                        inputs.occurrences.adopt(ledger);
+                    }
+                }
+                inputs
+            }),
+            minted.zip(owned).map(|(minted, owned)| {
+                crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+                    minted: minted.clone(),
+                    owned: owned.clone(),
+                }
+            }),
+        )
+    };
+    accepted.accept(AcceptedRestore {
+        key,
+        frame,
+        intent,
+        lifecycle,
+        item,
+        fresh,
+    });
     admitted.write(
         ambition_combat::events::RoomReplayAdmitted::because(if fresh {
             // A new game is a deliberate restart, so the player's placed gun

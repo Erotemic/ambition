@@ -1022,7 +1022,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 309 -> 310: `feature.world_time_schedule` also holds each record's
 /// owners (the participants in its room when it was made), and its checksum
 /// folds them: a death takes out only the dying participant (Q151).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 310;
+/// ⛔⛤ 310 -> 311: `feature.consumed_since_checkpoint` is new: the one-time
+/// pickups consumed since the checkpoint and whose horizons own each. A death
+/// keeps the ones another participant took (Q151).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 311;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -1513,6 +1513,16 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
                 ecs::world_time_schedule::forget_scheduled_returns_on_restore,
             );
+        // Q151: who owns each one-time pickup consumed since the checkpoint.
+        // The restore's acceptance pins the owned rows into the ledger it
+        // restores, and its admission takes the dying participant out.
+        app.init_resource::<ecs::pickups::ConsumedSinceCheckpoint>()
+            .add_systems(sim, ecs::pickups::forget_consumed_pickups_at_checkpoint)
+            .add_systems(
+                sim,
+                ecs::pickups::disown_consumed_pickups_on_restore
+                    .in_set(crate::session::reset::ContentRoomReplayResetSet),
+            );
         // ⭐ The encounter switch index registers itself from
         // `ambition_encounter_features` now (2026-09-03). `FeatureInteractionSet`
         // is `shared_tangle` vocabulary, so the owning crate can name its own

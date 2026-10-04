@@ -369,11 +369,27 @@ new uses of `spared` / `spared_participants` as the model.
   (control: Alice's own break goes back). Poisons: the commit forgets all, a
   record with no owners, and an admission that keeps every owner each fail
   it. Schema 310.
-- Open: a one-time pickup Bob consumed in a room that then retired.
-  `record_consumed_pickups` records it `Consumed` in the occurrence ledger,
-  and `restore_occurrence_baseline` replaces the whole ledger with the
-  checkpoint's, so the room authors the pickup again on a later visit. The
-  ledger row needs owners the same way.
+- ✅ 2026-10-04, consumed one-time pickups: `ConsumedSinceCheckpoint`
+  holds each row consumed since the checkpoint with its room and owners. The
+  restore's acceptance (`resume_at_checkpoint_on_reset`) pins the rows a
+  spared participant owns into the ledger it restores, so the room the
+  restore rebuilds, a later rebuild and the restore's verification all read
+  one ledger. The admission takes the dying participant out of each record
+  (`disown_consumed_pickups_on_restore`). It used to put the checkpoint's
+  ledger back whole, so the room authored the pickup again on a later visit.
+  Witness:
+  `a_death_keeps_gone_a_one_time_heart_another_player_took_in_a_room_he_left`
+  (control: Alice's own heart comes back; the witness also asserts that the
+  restore committed). Poisons: the acceptance pins nothing, the record has no
+  owners (both fail the subject), and the acceptance ignores owners (fails
+  the control and the Q154 death test). Disabling the disown changes nothing
+  in play, because only the primary participant's death restores; its
+  arithmetic is held by
+  `a_restore_takes_the_dying_participant_out_of_each_consumed_record`.
+  Schema 311. A row cannot be written back by a `CheckpointDomainApply`
+  reducer: `verify_restored_domains` compares the ledger with the pinned
+  one and fails closed into `Paused`. The first version of this slice did
+  that, and the witness found it.
 - Open: `BossDefeatSinceCheckpoint::present` is who won it, kept unchanged
   after a rewind, so it is history rather than ownership. A later rewind of a
   second participant would find the first one still listed. Not reachable

@@ -76,6 +76,10 @@ pub struct SessionScopedResources<'w> {
     /// and its rooms are built whole.
     world_time_schedule:
         Option<ResMut<'w, crate::features::ecs::world_time_schedule::WorldTimeSchedule>>,
+    /// The one-time pickups consumed since the last checkpoint, with their
+    /// owners. The next session's file is its baseline.
+    consumed_since_checkpoint:
+        Option<ResMut<'w, crate::features::ecs::pickups::ConsumedSinceCheckpoint>>,
     /// The grants of the mints collected since the last checkpoint. The next
     /// session's file is its baseline, so a retraction there must take back
     /// none of this session's.
@@ -492,6 +496,7 @@ fn reset(resources: SessionScopedResources) {
         mut boss_registry,
         boss_defeats_since_checkpoint,
         world_time_schedule,
+        consumed_since_checkpoint,
         reward_grants,
         mut quest_registry,
         mut sim_state,
@@ -533,6 +538,9 @@ fn reset(resources: SessionScopedResources) {
     }
     if let Some(mut schedule) = world_time_schedule {
         schedule.forget_all();
+    }
+    if let Some(mut since) = consumed_since_checkpoint {
+        since.forget_all();
     }
     if let Some(mut grants) = reward_grants {
         grants.forget_all();

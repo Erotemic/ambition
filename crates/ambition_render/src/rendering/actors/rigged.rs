@@ -99,7 +99,7 @@ use bevy::sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d};
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_platformer2d_shared_tangle::camera_layers::RIGGED_IMPOSTOR_LAYER;
 use ambition_sprite_sheet::character::rigged::{PartDraw, RiggedSpriteAdmission, RiggedSpritePages};
-use ambition_sprite_sheet::character::CharacterAnimator;
+use ambition_sprite_sheet::character::{CharacterAnimator, CharacterColorShift};
 use ambition_sprite_sheet::game_assets::GameAssets;
 
 use super::BoundSpriteQuality;
@@ -285,15 +285,23 @@ pub struct ImpostorUnpremultiply {
 /// The most cells any atlas has.
 const IMPOSTOR_MAX_CELLS: usize = (IMPOSTOR_MAX_CELLS_PER_SIDE * IMPOSTOR_MAX_CELLS_PER_SIDE) as usize;
 
-/// Each cell's frame opacity, four to a vector (a uniform array's stride).
+/// Each cell's frame opacity, four to a vector (a uniform array's stride),
+/// and its body's colour shift.
 ///
 /// ⭐ A FRAME THAT FADES AS ONE PICTURE FADES HERE, after its parts are
 /// composited (`RiggedSpriteAsset::frame_opacity`). Faded part by part, the
 /// parts would show through each other where they overlap — the robot's death
 /// fade drawn with the torso through its arm.
+///
+/// ⭐ A VARIANT'S COLOURS ARE TURNED HERE TOO (`CharacterColorShift`): per
+/// body, after its parts are composited, at the cost of a few shader ops on a
+/// pixel already being read. One sheet serves every coloured variant.
 #[derive(bevy::render::render_resource::ShaderType, Debug, Clone, PartialEq)]
 pub struct ImpostorCellOpacity {
     pub opacity: [Vec4; IMPOSTOR_MAX_CELLS / 4],
+    /// Per cell: (hue in turns, saturation, value, 0)
+    /// (`CharacterColorShift::as_uniform`).
+    pub shift: [Vec4; IMPOSTOR_MAX_CELLS],
     /// Cells per side.
     pub side: u32,
 }
@@ -302,7 +310,14 @@ impl ImpostorCellOpacity {
     fn opaque(side: u32) -> Self {
         Self {
             opacity: [Vec4::ONE; IMPOSTOR_MAX_CELLS / 4],
+            shift: [CharacterColorShift::NONE.as_uniform(); IMPOSTOR_MAX_CELLS],
             side,
+        }
+    }
+
+    fn set_shift(&mut self, cell: u32, shift: &CharacterColorShift) {
+        if let Some(slot) = self.shift.get_mut(cell as usize) {
+            *slot = shift.as_uniform();
         }
     }
 
@@ -385,7 +400,12 @@ pub struct RiggedImpostorCamera;
 type Roots<'w, 's> = Query<
     'w,
     's,
-    (&'static CharacterAnimator, &'static mut Sprite, Option<&'static mut Anchor>),
+    (
+        &'static CharacterAnimator,
+        &'static mut Sprite,
+        Option<&'static mut Anchor>,
+        Option<&'static CharacterColorShift>,
+    ),
     (Without<RiggedPresentation>, Without<RiggedPartSlot>),
 >;
 
@@ -761,7 +781,7 @@ pub fn drive_rigged_presentations(
     // cells hold this frame's draws under its new generation.
     let mut drawn_into: Vec<(Entity, usize, usize)> = Vec::new();
     for (owner, mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
-        let Ok((animator, mut root_sprite, root_anchor)) = roots.get_mut(presentation.root) else {
+        let Ok((animator, mut root_sprite, root_anchor, color_shift)) = roots.get_mut(presentation.root) else {
             continue;
         };
         let flipbook = presentation.pages.flipbook.clone();
@@ -787,6 +807,9 @@ pub fn drive_rigged_presentations(
         drawing[class][page] = true;
         if let Some(row) = row {
             cells[class][page].set(presentation.impostor.cell, flipbook.frame_opacity(row, animator.frame));
+        }
+        if let Some(shift) = color_shift {
+            cells[class][page].set_shift(presentation.impostor.cell, shift);
         }
         // Its cell's place, which a regrowth of the atlas moves.
         let place = atlas.cell_feet(presentation.impostor.cell, presentation.impostor.feet).extend(0.0);

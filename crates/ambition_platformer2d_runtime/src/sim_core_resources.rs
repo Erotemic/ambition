@@ -49,6 +49,7 @@ pub struct SimCoreResourcesPlugin;
 
 impl Plugin for SimCoreResourcesPlugin {
     fn build(&self, app: &mut App) {
+        crate::external_effects::keep_presentation_effects_across_sessions(app);
         app.add_message::<ambition_sfx::OwnedSfxMessage>()
             .add_message::<VfxInRoom>()
             .add_message::<ambition_projectiles::ProjectileSpawnRequest>()

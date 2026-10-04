@@ -928,3 +928,116 @@ fn two_hosts_at_different_content_epochs_share_one_construction_provenance() {
          defect `TransactionId::peer_stable_checksum` exists to prevent"
     );
 }
+
+/// A session starts at the neutral pace with an empty clock bus, whatever the
+/// session before it left.
+///
+/// A session that is replaced while it is in a hitstop leaves three things
+/// (measured 2026-10-04 on this host, before the repairs): a requested pace of
+/// 0.0, a live pace below 1.0, and its last clock requests on the bus. The
+/// session that replaced it ran its first two ticks at 0.65 and 0.88 of real
+/// time. Its peer, whose last session ended at the neutral pace, did not: the
+/// two disagree from the first tick, in state that is peer-compared.
+///
+/// ⇒ The pace is session state and is reset at the activation
+/// (`SessionScopedResources`), and the activation empties the declared
+/// simulation channels (`lifecycle::session_messages`).
+#[test]
+fn a_new_session_starts_at_the_neutral_pace_with_an_empty_clock_bus() {
+    use ambition_platformer2d::game_shell::ShellCommand;
+    use ambition_platformer2d::platformer::lifecycle::live_session_scope;
+    use ambition_platformer2d::time::time_control::{ClockScaleRequest, RequestedClockScale};
+    use ambition_platformer2d::time::{ClockState, SimTick};
+    use bevy::ecs::message::Messages;
+
+    let mut app = ambition_app::app::build_visible_app(
+        ambition_app::app::VisibleRenderMode::NoWindow,
+        true,
+    );
+    let settle = |app: &mut bevy::prelude::App| {
+        for _ in 0..80 {
+            app.update();
+        }
+    };
+    settle(&mut app);
+    let route = app
+        .world()
+        .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+        .launch_entries()
+        .iter()
+        .find(|entry| entry.label == "Ambition")
+        .expect("the Ambition row exists in the shipped launcher")
+        .route_id
+        .clone();
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(route.clone()));
+    settle(&mut app);
+    let first = live_session_scope(app.world()).expect("the first session is live");
+
+    let pace = |app: &bevy::prelude::App| {
+        (
+            app.world().resource::<RequestedClockScale>().sim_clock,
+            app.world().resource::<ClockState>().time_scale,
+        )
+    };
+
+    // The first session freezes: an impact hitstop that outlasts it.
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::combat::impact_hitstop::ImpactHitstop>()
+        .until_tick = Some(u64::MAX);
+    for _ in 0..4 {
+        app.update();
+    }
+    // ⛔ THE PREMISE. Without it the session leaves a neutral pace and an edge
+    // that carries the pace across looks the same as one that resets it.
+    let (asked, live) = pace(&app);
+    assert!(
+        asked == 0.0 && live < 1.0,
+        "the frozen session asks for a pace of {asked} and runs at {live}, so it \
+         leaves nothing for the next session to inherit"
+    );
+    assert!(
+        !app.world()
+            .resource::<Messages<ClockScaleRequest>>()
+            .is_empty(),
+        "the frozen session has no clock request on the bus"
+    );
+
+    // Replaced in place: the old session is retired and the new one is
+    // activated in one frame.
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route,
+        request: None,
+    });
+    let mut frames = 0;
+    while live_session_scope(app.world()) == Some(first) {
+        app.update();
+        frames += 1;
+        assert!(frames < 80, "the session was never replaced");
+    }
+    assert_eq!(
+        app.world().resource::<SimTick>().0,
+        0,
+        "the new session already ran a tick, so the frame of its activation was missed"
+    );
+    assert_eq!(
+        pace(&app),
+        (1.0, 1.0),
+        "the new session starts at the (asked, live) pace the old one left"
+    );
+    assert_eq!(
+        app.world().resource::<Messages<ClockScaleRequest>>().len(),
+        0,
+        "the clock requests of the old session are on the bus of the new one"
+    );
+    // And its first ticks run at that pace.
+    for _ in 0..3 {
+        app.update();
+        assert_eq!(
+            pace(&app),
+            (1.0, 1.0),
+            "tick {} of the new session did not run at the neutral pace",
+            app.world().resource::<SimTick>().0
+        );
+    }
+}

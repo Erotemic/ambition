@@ -1297,6 +1297,46 @@ the second provider is accepted and the arm fails.
 **Not checked:** one provider that writes the same character id twice in one
 catalog file. No plural bark collection exists, because no content asks for one.
 
+### SESSION-EDGE-STATE — a session starts from nothing the last one left
+
+**State:** two repairs landed 2026-10-04. One population is not counted.
+
+**Found by measurement (2026-10-04).** A session is retired inside a schedule
+run, and a route replacement (`ShellCommand::ReplaceWith`: a world reload, a
+restart) retires one session and activates the next in one frame.
+
+- **The clock pace crossed the edge.** `RequestedClockScale` and `ClockState`
+  are peer-compared and were not in the session reset. On the shipped host, a
+  session replaced during a hitstop left an asked pace of 0.0 and a live pace of
+  0.42, and the next session ran its first two ticks at 0.65 and 0.88. A peer
+  whose last session ended at the neutral pace does not. Both are now in
+  `SessionScopedResources`, reset at the activation.
+- **Simulation messages were alive across the edge.** The population is the
+  channels a domain declares to the rollback census (`clear_message_on_rollback`).
+  A probe in both registrars, over `app_it` by module: 59 first ticks of a later
+  session; at 10 of them (4 modules) one `ClockScaleRequest` and one
+  `ActorActionMessage` of the old session were still on the bus. Both are
+  written every tick. No other declared channel was alive there. ⚠ No reader was
+  shown to consume one: with the clear off, the reader of `ClockScaleRequest`
+  did not read the old requests again (it had read them in the old session),
+  and no suite fails. So this repair is a structural guarantee and not the fix
+  of an observed misread. The activation now empties every declared channel
+  (`lifecycle::session_messages`), from the same declaration, so there is one
+  list. A channel that presentation reads is kept (`for_each_presentation_effect`
+  is that list): the first version took the sound of the menu row that started
+  the session.
+
+**Witnesses:**
+`id_peer_audit::a_new_session_starts_at_the_neutral_pace_with_an_empty_clock_bus`
+(the shipped host; poison: no clock reset, the pace is `(0.0, 0.42)`; poison: no
+clear, 2 requests on the bus), and three arms in `lifecycle::session_messages`
+(a declared channel; a kept channel; a message the new session writes after its
+activation is not taken).
+
+**Not counted:** message channels that no domain declares to the rollback
+census, and other peer-compared resources outside `SessionScopedResources`. A
+long visit to the title carries no message: the bus was empty after 80 frames.
+
 ### TEST-LANES — keep required test lanes executable
 
 **Owner:** test runner / app integration lane. Operational rules and what a

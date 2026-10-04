@@ -288,6 +288,15 @@ pub struct SessionScopedResources<'w> {
     /// Kept across the reset of the tick, a freeze from the previous session
     /// would hold the new one until that session's tick came round again.
     impact_hitstop: Option<ResMut<'w, ambition_combat::impact_hitstop::ImpactHitstop>>,
+    /// The pace the simulation clock is asked for, and the pace it runs at
+    /// ([`clock_state`](Self::clock_state)). The two are peer-compared, and a
+    /// session that ends in a hitstop leaves them below neutral. Measured
+    /// 2026-10-04 on the shipped host: the session that replaced it began with
+    /// a pace of 0.42 and ran its first two ticks at 0.65 and 0.88, on that
+    /// host only. A session starts at the neutral pace on every peer.
+    /// `Option` as for `sim_tick`.
+    requested_clock_scale: Option<ResMut<'w, ambition_time::time_control::RequestedClockScale>>,
+    clock_state: Option<ResMut<'w, ambition_time::ClockState>>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -300,7 +309,9 @@ pub struct SessionScopedResources<'w> {
 /// (MEASURED 2026-09-16 across every `.rs` in `crates/` and `game/`, over all ten
 /// `rollback_resource_*` methods the registrar declares. This line read SIXTEEN,
 /// then TWENTY-TWO; ⚠ the count is load-bearing for the argument below, so it is
-/// stated with the method that produced it. The 22 -> 23 step is re-derived
+/// stated with the method that produced it. Two more were added 2026-10-04,
+/// `RequestedClockScale` and `ClockState`, both `rollback_resource_canonical`;
+/// the total was not measured again. The 22 -> 23 step is re-derived
 /// rather than decremented by hand: `AuthoredOccurrences` moved from
 /// `declare_rollback_derived_resource` to `rollback_resource_clone_checksum` in
 /// schema v195, which `rollback_schema_baseline.txt` records as exactly one row
@@ -488,6 +499,8 @@ fn reset(resources: SessionScopedResources) {
         mut gameplay_elapsed,
         sim_tick,
         impact_hitstop,
+        requested_clock_scale,
+        clock_state,
     } = resources;
     *possession = PossessionState::default();
     *controlled_subject = ControlledSubject::default();
@@ -532,6 +545,12 @@ fn reset(resources: SessionScopedResources) {
     }
     if let Some(mut hitstop) = impact_hitstop {
         *hitstop = ambition_combat::impact_hitstop::ImpactHitstop::default();
+    }
+    if let Some(mut requested) = requested_clock_scale {
+        *requested = ambition_time::time_control::RequestedClockScale::default();
+    }
+    if let Some(mut clock) = clock_state {
+        *clock = ambition_time::ClockState::default();
     }
 }
 

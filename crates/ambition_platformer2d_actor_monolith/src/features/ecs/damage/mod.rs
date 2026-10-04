@@ -596,8 +596,6 @@ pub fn apply_feature_hit_events(
     // `update_boss_encounters`.
 ) {
     let Some(generation) = catalogs.generation.as_deref() else {
-        // The next session must not resolve a hit of a session that ended.
-        hit_events.clear();
         return;
     };
     let base_feel = bark_draw.feel();

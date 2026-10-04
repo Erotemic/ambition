@@ -27,7 +27,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use bevy::math::{URect, UVec2, Vec2};
+use bevy::math::{URect, UVec2, Vec2, Vec3};
 use serde::Deserialize;
 
 /// The `<target>_parts.ron` schema this build writes and reads. Schema 2 adds
@@ -84,8 +84,31 @@ pub struct PartDraw {
     /// The draw's identity across frames (an index into the flipbook's
     /// tracks): what a tween pairs. `None` in an untracked flipbook.
     pub track: Option<u16>,
+    /// The draw's colour, 8 bits a channel: a multiply on the part's stored
+    /// (sRGB) values in r, g, b (one raster drawn darker or in another hue
+    /// costs nothing: a back limb is its front limb shaded) and its own opacity
+    /// in a. Packed so a draw stays 32 bytes (`a_draw_record_fits_the_planned_budget`);
+    /// read it through [`Self::tint`] and [`Self::opacity`].
+    pub color: [u8; 4],
+}
+
+impl PartDraw {
     /// The part's own opacity, in `0..=1`.
-    pub opacity: f32,
+    pub fn opacity(&self) -> f32 {
+        f32::from(self.color[3]) / 255.0
+    }
+
+    /// The colour multiply on the part's stored values; `Vec3::ONE` draws the
+    /// part as painted.
+    pub fn tint(&self) -> Vec3 {
+        Vec3::new(f32::from(self.color[0]), f32::from(self.color[1]), f32::from(self.color[2])) / 255.0
+    }
+
+    /// The packed colour of a `tint` (each `0..=1`) and an `opacity`.
+    pub fn pack_color(tint: Vec3, opacity: f32) -> [u8; 4] {
+        let q = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+        [q(tint.x), q(tint.y), q(tint.z), q(opacity)]
+    }
 }
 
 /// How a clip draws between two of its frames. Published per clip; the
@@ -278,6 +301,9 @@ struct PublishedDraw {
     /// Schema 3: absent for an opaque draw.
     #[serde(default = "opaque")]
     opacity: f32,
+    /// Absent for a draw as painted.
+    #[serde(default)]
+    tint: Option<(f32, f32, f32)>,
 }
 
 fn opaque() -> f32 {
@@ -361,7 +387,10 @@ impl RiggedSpriteAsset {
                         rotation: draw.rotation,
                         part: draw.part,
                         track: draw.track,
-                        opacity: draw.opacity.clamp(0.0, 1.0),
+                        color: PartDraw::pack_color(
+                            draw.tint.map_or(Vec3::ONE, |(r, g, b)| Vec3::new(r, g, b)),
+                            draw.opacity,
+                        ),
                     });
                 }
                 max_draws = max_draws.max(frame.len());
@@ -547,7 +576,8 @@ impl RiggedSpriteAsset {
             draw.at = draw.at.lerp(target.at, t);
             draw.scale = draw.scale.lerp(target.scale, t);
             draw.rotation += turn * t;
-            draw.opacity += (target.opacity - draw.opacity) * t;
+            let opacity = draw.opacity() + (target.opacity() - draw.opacity()) * t;
+            draw.color = PartDraw::pack_color(draw.tint().lerp(target.tint(), t), opacity);
         }
         Some(())
     }

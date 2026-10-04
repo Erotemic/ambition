@@ -523,6 +523,9 @@ fn sanic_setup(
             // A direct-entry demo drops the first room's receipt.
             publication_retention:
                 ambition_platformer2d::runtime::demo_fixture::PublicationRetention::UntilTheVerdictIsRecorded,
+            // One experience: the save of the world is the save of this room.
+            first_room_facts:
+                ambition_platformer2d::runtime::demo_fixture::CommitFactsSource::TheWorldAtTheCommit,
             world: &world,
             room_set: &room_set,
             // The caller converts: who edits the set is a developer

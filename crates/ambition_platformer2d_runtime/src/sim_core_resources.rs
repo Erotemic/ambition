@@ -49,7 +49,7 @@ pub struct SimCoreResourcesPlugin;
 
 impl Plugin for SimCoreResourcesPlugin {
     fn build(&self, app: &mut App) {
-        crate::external_effects::keep_presentation_effects_across_sessions(app);
+        crate::external_effects::end_presentation_effects_with_their_session(app);
         app.add_message::<ambition_sfx::OwnedSfxMessage>()
             .add_message::<VfxInRoom>()
             .add_message::<ambition_projectiles::ProjectileSpawnRequest>()
@@ -230,6 +230,15 @@ impl Plugin for SimCoreResourcesPlugin {
                 Update,
                 ambition_platformer2d_shared_tangle::camera_ease::apply_camera_shake_requests
                     .before(ambition_platformer2d_shared_tangle::camera_ease::tick_camera_shake),
+            );
+        // The camera of a session that ended is not the camera of the next
+        // one. A composition with no session lifecycle has no activation; the
+        // reader then reads an empty channel.
+        app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>()
+            .add_systems(
+                Update,
+                ambition_platformer2d_shared_tangle::camera_ease::rest_the_camera_on_activation
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate),
             );
         // The finishing zoom's applier, wired for the same reason and in the
         // same order: apply the released intents BEFORE the hold/release tick,

@@ -22,11 +22,26 @@
 //! is built are not taken. A reader does not drain its own bus when it refuses
 //! for want of a session: that would be one rule in each reader.
 //!
-//! ⛔ A CHANNEL THAT PRESENTATION READS IS KEPT
-//! ([`keep_message_across_session_activation`]). The host writes to such a
-//! channel also: the sound of the menu row that started the session is on the
-//! sound bus at the activation (measured, `participant_input`). A message of
-//! the session that ended does no harm there, because no simulation reads it.
+//! ⛔ ONE CHANNEL IS KEPT, AND ITS READER IS THE REASON
+//! ([`keep_message_across_session_activation`]). The host writes to the sound
+//! channel also (a menu row, a start). That channel can cross because its
+//! reader plays a sound only for the live audio owner, so a sound of the
+//! session that ended is refused where it is read.
+//!
+//! ⚠ The first version of this file said that the clear "took the sound of
+//! the menu row that started the session". On 2026-10-04 that did not
+//! reproduce: with the sound channel emptied too, `app_it` fails only the
+//! bus control of `an_effect_that_a_session_asked_for_is_not_presented_by_the_next`.
+//! The channel is kept because its reader makes that safe, not because a
+//! test needs it.
+//!
+//! ⚠ "PRESENTATION READS IT" IS NOT A REASON TO KEEP A CHANNEL. Until
+//! 2026-10-04 each presentation channel was kept, on the ground that no
+//! simulation reads one. A presentation reader of the next session reads it:
+//! a camera shake moved the next session's screen, and an effect that names
+//! room 0 was drawn in the next session's room 0. Each presentation channel
+//! now ends at the activation (`end_presentation_effects_with_their_session`),
+//! and a kept channel states how its reader refuses an old message.
 
 use std::any::TypeId;
 use std::collections::BTreeSet;
@@ -69,7 +84,11 @@ pub fn clear_message_at_session_activation<T: Message>(app: &mut App) {
     }
 }
 
-/// Declare that presentation reads `T`, so an activation does not empty it.
+/// Declare that an activation does not empty `T`.
+///
+/// ⛔ ONLY FOR A CHANNEL WHOSE READER REFUSES A MESSAGE OF A SESSION THAT
+/// ENDED (by the owner that the message carries), or whose messages are of no
+/// session. See the module doc.
 ///
 /// The order of this declaration and [`clear_message_at_session_activation`]
 /// does not matter.
@@ -191,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn a_channel_that_presentation_reads_is_kept() {
+    fn a_kept_channel_carries_its_message_into_the_next_session() {
         // Declared in the two orders: the order does not matter.
         for declare in [
             (|app: &mut App| {
@@ -211,7 +230,7 @@ mod tests {
             assert_eq!(
                 app.world().resource::<Served>().0,
                 1,
-                "the activation took a message from a channel that presentation reads"
+                "the activation took a message from a kept channel"
             );
         }
     }

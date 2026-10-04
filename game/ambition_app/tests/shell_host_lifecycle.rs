@@ -2747,6 +2747,380 @@ fn what_a_session_spawned_and_cycled_does_not_reach_the_next_session() {
     }
 }
 
+/// ⭐ AN EFFECT THAT A SESSION ASKED FOR IS NOT PRESENTED BY THE NEXT ONE.
+///
+/// The effects of a session's last tick are on the presentation channels in
+/// `PreUpdate` of the update that replaces it, and that update's `Update`
+/// activates the next session. A reader that runs after the activation then
+/// presents them for the next session: an effect in its room 0 (the first
+/// room of each session has the same live key). And a camera that the old
+/// session moved (a shake, a finishing zoom) is the camera of the next one.
+///
+/// The old session asks, on each update while it is the live one, for a
+/// camera shake, a finishing zoom and an effect in room 0. From the frame of
+/// the next activation, the camera is at rest and the effect is on no bus.
+///
+/// ⛔ THE CONTROL: a sound crosses. Its reader plays a sound only for the live
+/// owner (`ActiveAudioSelection::accepts_request_owner`), and the host writes
+/// to that channel also.
+///
+/// ⚠ THIS ARM IS THE ONLY WITNESS OF THAT. Measured 2026-10-04: with the
+/// sound channel emptied at the activation too, the whole of `app_it` fails
+/// only the control below.
+///
+/// ⚠ THE FIXTURE WRITES IN `PreUpdate`, where a rollback host releases the
+/// confirmed effects. A message that the test writes between two updates does
+/// not reach the edge: a replacement takes effect on the second update, and a
+/// bus keeps a message for two (measured 2026-10-04).
+#[test]
+fn an_effect_that_a_session_asked_for_is_not_presented_by_the_next() {
+    use ambition_platformer2d::platformer::camera_ease::{
+        CameraShakeRequest, CameraShakeState, FinishZoomRequest, FinishZoomState,
+    };
+    use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, LiveRoomInstance};
+    use ambition_platformer2d::sfx::{AudioContextOwner, OwnedSfxMessage, PresentationSourceId, SfxMessage};
+    use ambition_platformer2d::vfx::vfx::VfxMessage;
+    use ambition_platformer2d::vfx::VfxInRoom;
+    use bevy::ecs::message::Messages;
+
+    /// A position that no effect of the game has.
+    const MARK: Vec2 = Vec2::new(12345.0, -6789.0);
+
+    /// The session that asks.
+    #[derive(Resource)]
+    struct Asks(SessionScopeId);
+
+    fn the_old_session_asks(
+        asks: Option<Res<Asks>>,
+        active: Res<ActiveSessionScope>,
+        mut shakes: MessageWriter<CameraShakeRequest>,
+        mut zooms: MessageWriter<FinishZoomRequest>,
+        mut effects: MessageWriter<VfxInRoom>,
+        mut sounds: MessageWriter<OwnedSfxMessage>,
+    ) {
+        if !asks.is_some_and(|asks| active.current() == Some(asks.0)) {
+            return;
+        }
+        shakes.write(CameraShakeRequest { amplitude_px: 6.0 });
+        zooms.write(FinishZoomRequest { closeness: 1.0 });
+        effects.write(VfxInRoom {
+            room: Some(LiveRoomInstance::ACTIVATION),
+            vfx: VfxMessage::CoinPop { pos: MARK },
+        });
+        sounds.write(OwnedSfxMessage {
+            owner: Some(AudioContextOwner::Frontend(u64::MAX)),
+            source: PresentationSourceId::new("test.a_sound_the_host_wrote"),
+            request: SfxMessage::Hit { pos: MARK },
+        });
+    }
+
+    // A new cursor reads each message that the bus still holds.
+    fn marked_effects(app: &App) -> usize {
+        let messages = app.world().resource::<Messages<VfxInRoom>>();
+        messages
+            .get_cursor()
+            .read(messages)
+            .filter(|effect| matches!(effect.vfx, VfxMessage::CoinPop { pos } if pos == MARK))
+            .count()
+    }
+    fn marked_sounds(app: &App) -> usize {
+        let messages = app.world().resource::<Messages<OwnedSfxMessage>>();
+        messages
+            .get_cursor()
+            .read(messages)
+            .filter(|sound| matches!(sound.request, SfxMessage::Hit { pos } if pos == MARK))
+            .count()
+    }
+    fn camera(app: &App) -> (f32, f32) {
+        (
+            app.world().resource::<CameraShakeState>().amplitude_px,
+            app.world().resource::<FinishZoomState>().closeness,
+        )
+    }
+
+    for succession in SessionSuccession::BOTH {
+        let mut app =
+            shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+        app.add_systems(PreUpdate, the_old_session_asks);
+        settle(&mut app);
+        let route = ambition_route(&app);
+        app.world_mut().write_message(ShellCommand::GoTo(route.clone()));
+        let first = enter_the_next_session(&mut app, None);
+        settle(&mut app);
+        app.insert_resource(Asks(first));
+        settle(&mut app);
+        assert_eq!(
+            (camera(&app), marked_effects(&app) > 0, marked_sounds(&app) > 0),
+            ((6.0, 1.0), true, true),
+            "{succession:?} premise: the old session moves its camera, and its \
+             effect and the sound are on the bus"
+        );
+
+        succession.follow(&mut app, &route, first);
+
+        if succession == SessionSuccession::ReplacedInPlace {
+            assert!(
+                marked_sounds(&app) > 0,
+                "{succession:?} control: the activation took a sound from the bus"
+            );
+        }
+        for frame in 0..=10 {
+            assert_eq!(
+                camera(&app),
+                (0.0, 0.0),
+                "{succession:?}, frame {frame} of the next session: its camera \
+                 (shake px, zoom closeness) moves for a request of the session \
+                 that ended"
+            );
+            assert_eq!(
+                marked_effects(&app),
+                0,
+                "{succession:?}, frame {frame} of the next session: an effect \
+                 of the session that ended is on the bus, in a room the next \
+                 session has too"
+            );
+            app.update();
+        }
+    }
+}
+
+/// ⭐ A SESSION IS BUILT FROM THE SAVE OF ITS OWN EXPERIENCE, ALSO WHEN IT IS
+/// PREPARED WHILE ANOTHER EXPERIENCE PLAYS.
+///
+/// A candidate session is built hidden, before its route is activated. The
+/// activation is what gives the live save to the experience of the session
+/// (`SaveOwner`). So while the candidate is built, the live save still belongs
+/// to the session that plays.
+///
+/// The fixture: the save of Ambition says that the hub's gun sword is gone for
+/// good (`Consumed`). The veteran plays Sanic, which has its own save, and then
+/// replaces that session with Ambition. The fresh host has the same save and
+/// launches Ambition first. Both must have no gun sword, and the save of both
+/// must still say `Consumed`.
+///
+/// ⛔ TWO READERS, TWO READINGS. The durable horizon (which items are gone) and
+/// the commit facts of the first room (which bodies are dead or provoked) are
+/// read by different code, so the save also says that one person of the hub
+/// was provoked, and each frame reads whether that person is hostile.
+///
+/// ⛔ A REFUSED CANDIDATE CHANGES NO OWNERSHIP. The last arm puts two holders
+/// of one identity in front of the candidate, so its first room is refused.
+/// Sanic stays live with its own save, and a later replacement that is
+/// admitted still has Ambition's save.
+#[test]
+fn a_session_prepared_while_another_experience_plays_is_built_from_its_own_save() {
+    use ambition_platformer2d::persistence::save::{AmbitionGameSave, SaveOwner};
+    use ambition_platformer2d::persistence::save_data::{
+        AmbitionGameSaveData, PersistedOccurrence, PersistedWhereabouts,
+    };
+    use ambition_platformer2d::combat::components::{
+        ActorAggression, ActorIdentity, ActorInteraction, AggressionMode,
+    };
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    type Custody = ambition_platformer2d::held_items::ItemCustody;
+
+    /// The room that authors the two items.
+    const HUB: &str = "central_hub_complex";
+    const TAKEN: &str = "ground_gun_sword";
+    const UNTOUCHED: &str = "ground_grapple";
+    /// The frames read after the frame of the activation.
+    const FRAMES: usize = 30;
+
+    /// `(gun swords in the world, grapples in the world, the save says the
+    /// gun sword is gone, the provoked person is hostile)`. The last one is
+    /// `None` when that person is not in the world.
+    type Reading = (usize, usize, bool, Option<bool>);
+
+    fn host(save: &AmbitionGameSaveData) -> App {
+        let mut app = shell_host_app_started_in(
+            ambition_platformer2d::runtime::SimulationHost::Rollback,
+            Some(HUB),
+        );
+        // The startup load runs first, so it does not replace the fixture save.
+        settle(&mut app);
+        app.world_mut().resource_mut::<AmbitionGameSave>().0 = save.clone();
+        app
+    }
+
+    fn lying(app: &mut App, name: &str) -> usize {
+        let id = SimId::placement(name);
+        let world = app.world_mut();
+        world
+            .query::<(&SimId, &Custody)>()
+            .iter(world)
+            .filter(|(sim_id, custody)| **sim_id == id && custody.in_world())
+            .count()
+    }
+
+    fn says_gone(save: &AmbitionGameSaveData) -> bool {
+        let id = SimId::placement(TAKEN);
+        save.occurrences().iter().any(|row| {
+            row.id == id.as_str() && row.whereabouts == PersistedWhereabouts::Consumed
+        })
+    }
+
+    /// The talkable people of the live room, each with whether it is hostile.
+    fn people(app: &mut App) -> std::collections::BTreeMap<String, bool> {
+        let world = app.world_mut();
+        world
+            .query_filtered::<(&ActorIdentity, &ActorAggression), With<ActorInteraction>>()
+            .iter(world)
+            .map(|(identity, aggression)| {
+                (identity.id.clone(), aggression.mode == AggressionMode::Hostile)
+            })
+            .collect()
+    }
+
+    fn owner(app: &App) -> String {
+        app.world().resource::<SaveOwner>().current().to_owned()
+    }
+
+    /// A reading on the frame of the activation and on each of `FRAMES` after.
+    fn readings(app: &mut App, provoked: &str) -> Vec<Reading> {
+        assert_eq!(active_room(app).as_deref(), Some(HUB), "the session is in the hub");
+        let mut out = Vec::new();
+        for frame in 0..=FRAMES {
+            if frame > 0 {
+                app.update();
+            }
+            let gone = says_gone(&app.world().resource::<AmbitionGameSave>().0);
+            let hostile = people(app).get(provoked).copied();
+            out.push((lying(app, TAKEN), lying(app, UNTOUCHED), gone, hostile));
+        }
+        out
+    }
+
+    fn launch_ambition_first(save: &AmbitionGameSaveData) -> App {
+        let mut app = host(save);
+        let route = ambition_route(&app);
+        app.world_mut().write_message(ShellCommand::GoTo(route));
+        enter_the_next_session(&mut app, None);
+        app
+    }
+
+    /// A host with `save` as Ambition's save, in a live Sanic session.
+    fn in_sanic(save: &AmbitionGameSaveData) -> (App, SessionScopeId, String) {
+        let mut app = host(save);
+        let ambition = owner(&app);
+        launch_labeled(&mut app, "Sanic");
+        let sanic = live_scope(&app).expect("Sanic is live");
+        assert_ne!(owner(&app), ambition, "the premise: Sanic has the live save");
+        assert!(
+            !says_gone(&app.world().resource::<AmbitionGameSave>().0),
+            "the premise: the save of Sanic has no row for the gun sword"
+        );
+        (app, sanic, ambition)
+    }
+
+    // ── The premises: the room authors both items and a peaceful person. ──
+    let mut authored = launch_ambition_first(&AmbitionGameSaveData::new());
+    let provoked = people(&mut authored)
+        .into_iter()
+        .find_map(|(id, hostile)| (!hostile).then_some(id))
+        .expect("the hub authors a talkable person that is not hostile");
+    assert_eq!(
+        readings(&mut authored, &provoked),
+        vec![(1, 1, false, Some(false)); FRAMES + 1],
+        "with a new save the hub has one gun sword, one grapple, and `{provoked}` \
+         is peaceful"
+    );
+
+    let mut taken = AmbitionGameSaveData::new();
+    taken.set_durable_horizon(
+        vec![PersistedOccurrence::new(
+            SimId::placement(TAKEN).as_str(),
+            PersistedWhereabouts::Consumed,
+        )],
+        Vec::new(),
+    );
+    taken.set_flag(
+        ambition_platformer2d::actors::fate_flags::npc_flag_id(&provoked),
+        true,
+    );
+
+    // ── The premise: the save removes the one and provokes the other. ──
+    let fresh = readings(&mut launch_ambition_first(&taken), &provoked);
+    assert_eq!(
+        fresh,
+        vec![(0, 1, true, Some(true)); FRAMES + 1],
+        "a host that launches Ambition first has no gun sword, keeps the row, \
+         and builds `{provoked}` hostile"
+    );
+
+    // ── Adoption: the candidate is prepared while Sanic is live. ──
+    let (mut veteran, sanic, ambition) = in_sanic(&taken);
+    let route = ambition_route(&veteran);
+    SessionSuccession::ReplacedInPlace.follow(&mut veteran, &route, sanic);
+    assert_eq!(owner(&veteran), ambition, "the activation gave the save to Ambition");
+    let followed = readings(&mut veteran, &provoked);
+    eprintln!(
+        "[candidate-save] adoption: first {:?} last {:?} (fresh {:?})",
+        followed.first(),
+        followed.last(),
+        fresh.first()
+    );
+    assert_eq!(
+        followed, fresh,
+        "a session that was prepared while Sanic had the live save is not the \
+         session a fresh host builds from the same save: (gun swords, grapples, \
+         the save says the gun sword is gone, `{provoked}` is hostile) on each \
+         frame from the activation"
+    );
+
+    // ── Refusal: the candidate's first room cannot be verified. ──
+    let (mut veteran, sanic, ambition) = in_sanic(&taken);
+    let route = ambition_route(&veteran);
+    let sanic_owner = owner(&veteran);
+    // Two process-resident holders of one identity are in each session's
+    // world. See `a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable`.
+    let twins: Vec<Entity> = (0..2)
+        .map(|_| veteran.world_mut().spawn(SimId::placement("corrupt_twin")).id())
+        .collect();
+    let sanic_save = veteran.world().resource::<AmbitionGameSave>().0.clone();
+    veteran.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: route.clone(),
+        request: None,
+    });
+    for _ in 0..240 {
+        veteran.update();
+    }
+    let verdict = veteran
+        .world()
+        .resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
+        .clone();
+    assert!(
+        !verdict.published,
+        "the premise: no room transaction was refused, so this arm is about \
+         nothing: {verdict:?}"
+    );
+    assert_eq!(live_scope(&veteran), Some(sanic), "Sanic is still the live session");
+    assert_eq!(
+        owner(&veteran),
+        sanic_owner,
+        "a refused candidate took the live save from the session that plays"
+    );
+    assert_eq!(
+        veteran.world().resource::<AmbitionGameSave>().0,
+        sanic_save,
+        "a refused candidate changed the save of the session that plays"
+    );
+    for twin in twins {
+        veteran.world_mut().despawn(twin);
+    }
+    SessionSuccession::ReplacedInPlace.follow(&mut veteran, &route, sanic);
+    assert_eq!(owner(&veteran), ambition);
+    let after_refusal = readings(&mut veteran, &provoked);
+    eprintln!(
+        "[candidate-save] after a refusal: first {:?} last {:?}",
+        after_refusal.first(),
+        after_refusal.last()
+    );
+    assert_eq!(
+        after_refusal, fresh,
+        "the session admitted after a refusal is not built from Ambition's save"
+    );
+}
+
 /// ⭐⭐ **THE CHECKSUM GGRS ACTUALLY COMPUTES IS THE SAME ON TWO HOSTS WITH
 /// DIFFERENT SHELL HISTORIES — AND IT WAS NOT UNTIL 2026-09-17.**
 ///

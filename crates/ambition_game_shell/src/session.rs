@@ -366,8 +366,15 @@ impl Plugin for GameplaySessionBridgePlugin {
                     .chain()
                     .in_set(GameplaySessionSet::Bridge),
             )
-            // Before the providers build the world: construction reads the
-            // save (the occurrence ledger, the checkpoint).
+            // Before the providers publish the world: the first tick of the
+            // session reads the live save (the durable restore, the
+            // checkpoint).
+            //
+            // ⛔ NOT WHERE CONSTRUCTION GETS ITS SAVE. A session is built
+            // hidden, before this edge, while the live save still belongs to
+            // the session that plays. Its durable horizon comes from
+            // `ambition_persistence::save::prepare_the_save_of`, which puts
+            // aside the value that this system then hands over.
             .add_systems(
                 Update,
                 hand_the_save_to_the_activating_experience

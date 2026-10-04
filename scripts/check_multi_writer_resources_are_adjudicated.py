@@ -836,6 +836,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_sim_harness/src/runtime.rs",
         "game/ambition_content/src/plugin.rs",
     ),
+    "SaveOwner": (
+        "crates/ambition_game_shell/src/session.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+    ),
     "SaveRestored": (
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
@@ -2487,6 +2491,28 @@ ADJUDICATED: dict[str, str] = {
         "the startup load sets it from the file it read, and the activation "
         "handover sets it from the next owner's file (or keeps the value parked "
         "with that owner's save). Each value describes the live save's own file."
+    ),
+    "SaveOwner": (
+        "CORRECT — ONE WRITER OF WHO OWNS THE LIVE SAVE, PLUS A PREPARATION THAT "
+        "CANNOT CHANGE IT. `hand_the_save_to_the_activating_experience` "
+        "(`ambition_game_shell/src/session.rs`) is the only system that changes "
+        "the owner or the live save. The other file (2026-10-04) is "
+        "`CandidateSave::horizon_of` (`session/durable_horizon.rs`): a session is "
+        "built hidden before its activation, while the live save belongs to the "
+        "session that plays, so the builder asks `prepare_the_save_of` for the "
+        "save of its own experience. That function takes `&AmbitionGameSave`, and "
+        "its one write puts aside the file of an experience that has no save put "
+        "aside, so the hand-over then gives the value that the session was built "
+        "from. MEASURED on the shell host: an Ambition session that replaced a "
+        "Sanic session was built from Sanic's save, and for its first 3 frames "
+        "it had an item that its own save says is gone and a peaceful person "
+        "that its own save says was provoked. POISON-VERIFIED: with the prepared "
+        "save taken out and not put aside, "
+        "`shell_host_lifecycle::a_session_prepared_while_another_experience_plays_is_built_from_its_own_save` "
+        "fails on 31 frames: the session is given a new save and the row is "
+        "lost. ⛔ THE RESIDUAL: for the experience that has the live save, the "
+        "prepared value is the live save at the preparation, which the session "
+        "that plays can change before the adoption."
     ),
     "PendingLifecycleCommit": (
         "CORRECT — ONE EARLIEST-STICKY SLOT WITH A STATED PRIORITY LADDER. Five "

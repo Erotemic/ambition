@@ -966,7 +966,7 @@ fn a_faded_draw_tints_its_slot() {
     let (frame, index, opacity) = (0..frames)
         .flat_map(|frame| {
             let draws = flipbook.frame("smash_forward", frame).unwrap();
-            draws.iter().enumerate().map(move |(index, draw)| (frame, index, draw.opacity))
+            draws.iter().enumerate().map(move |(index, draw)| (frame, index, draw.opacity()))
         })
         .min_by(|a, b| a.2.total_cmp(&b.2))
         .unwrap();
@@ -976,6 +976,8 @@ fn a_faded_draw_tints_its_slot() {
     let slot = app.world().get::<RiggedPresentation>(owner).unwrap().slots[index];
     let alpha = app.world().get::<Sprite>(slot).unwrap().color.alpha();
     assert!((alpha - opacity).abs() < 1.0e-6, "{alpha} for {opacity}");
+    let rgb = app.world().get::<Sprite>(slot).unwrap().color.to_linear();
+    assert_eq!((rgb.red, rgb.green, rgb.blue), (1.0, 1.0, 1.0), "an untinted draw multiplies by white");
 }
 
 /// Every published flipbook's frame fits an impostor cell class with its

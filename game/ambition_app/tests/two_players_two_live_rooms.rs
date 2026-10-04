@@ -3608,3 +3608,88 @@ fn a_reset_beside_a_player_in_the_same_room_rebuilds_the_one_live_room() {
     let one = (vec![(second, ROOM.to_string())], (Some(second), Some(Some(second))));
     assert_eq!((replay, checkpoint), (one.clone(), one), "(replay, checkpoint reset): (live rooms, (Alice's room, Bob's room))");
 }
+
+/// Nudge every body in the activation room (Bob's, once Alice has left it)
+/// by a count that does not rewind, so a resimulated frame differs from the
+/// first simulation of it.
+/// Armed once Alice has left Bob's room, so the nudge reaches only his.
+#[derive(bevy::prelude::Resource, Default)]
+struct NudgeBobsRoom(bool);
+
+fn nudge_bobs_room_from_outside_the_timeline(
+    armed: bevy::prelude::Res<NudgeBobsRoom>,
+    mut count: bevy::prelude::Local<u32>,
+    mut bodies: bevy::prelude::Query<(&mut ambition_platformer2d::engine_core::BodyKinematics, &InRoomInstance)>,
+) {
+    if !armed.0 {
+        return;
+    }
+    *count += 1;
+    for (mut kin, room) in &mut bodies {
+        if room.0 == LiveRoomInstance::ACTIVATION {
+            kin.pos.x += (*count % 7) as f32 * 0.01;
+        }
+    }
+}
+
+/// (the rollback session ran, its health) after 300 frames with Alice in the
+/// hub and Bob in `switch_lab`, under a sync test that rewinds and replays
+/// every frame. With `poison`, a system nudges Bob's room from outside the
+/// timeline.
+fn two_rooms_under_a_sync_test(poison: bool) -> (bool, Result<(), String>) {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    let options = fixed_60hz_room_options(ROOM)
+        .with_save(a_save_that_has_seen_the_hub_intro())
+        .with_sync_test_rollback_settings(4, 10);
+    let sim = Platformer2dSimHarness::build(options, |app, options| {
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        app.init_resource::<NudgeBobsRoom>();
+        if poison {
+            let label = app.sim_schedule();
+            app.add_systems(label, nudge_bobs_room_from_outside_the_timeline);
+        }
+        Ok(())
+    })
+    .expect("switch_lab boots under a sync test");
+    let (mut sim, first) = alice_leaves_bob_with(
+        sim,
+        ROOM,
+        HUB,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+        walk_through_the_door_to,
+    );
+    assert_eq!(first, LiveRoomInstance::ACTIVATION, "precondition: Bob's room is the activation room");
+    assert_eq!(live_rooms(&mut sim).len(), 2, "precondition: both rooms are live");
+    sim.world_mut().resource_mut::<NudgeBobsRoom>().0 = true;
+    // `try_step`: an unhealthy session refuses the step, and that refusal is
+    // the reading, so the loop ends at it.
+    for _ in 0..300 {
+        if sim.try_step(base()).is_err() {
+            break;
+        }
+    }
+    (
+        ambition_platformer2d::rollback::session_is_active(sim.world()),
+        ambition_platformer2d::rollback::session_health(sim.world()),
+    )
+}
+
+/// Two live rooms hold under a sync test. Both live room roots carry
+/// `session:room_instance`, which is right under Q109: the live occurrence is
+/// (`LiveRoomInstance`, `SimId`), and the construction baseline is scoped to
+/// a transaction's rooms. This shows that both rooms' rollback state
+/// resimulates to the same checksums. The control is the poison: a nudge of
+/// Bob's room from outside the timeline is a mismatch, so the checksum covers
+/// the room that is not the primary's. A single peer cannot show the order
+/// two peers fold the roots in; that is the remote-peer row.
+#[test]
+fn two_live_rooms_hold_under_a_sync_test() {
+    let (active, health) = two_rooms_under_a_sync_test(true);
+    assert!(
+        active && health.is_err(),
+        "control: a nudge of Bob's room from outside the timeline must be a mismatch, \
+         or this sync test does not see his room (active {active}, health {health:?})"
+    );
+    assert_eq!(two_rooms_under_a_sync_test(false), (true, Ok(())));
+}
+

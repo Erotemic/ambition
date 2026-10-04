@@ -1364,9 +1364,12 @@ session came up in the `Update` that built the world. After it, the maintainer
 ran first and the session came up one frame later; the floor of
 `versus_stage::the_roster_arm_writes_the_scoreboard_before_the_timeline_starts`
 went red because no firing frame installed a session. A frame on which the
-world exists and the session does not is a frame outside the timeline, so the
-host now states the order: `shell_host::start_the_timeline_with_the_session_world`
-puts the maintainer after the providers in each composer of the shell host.
+world exists and the session does not is a frame outside the timeline, so a
+composer that installs the two sets now states the order:
+`rollback::start_the_timeline_with_the_session_world` (in the facade, the
+lowest crate that sees the two sets) puts the maintainer after the providers.
+Each composer of the Ambition shell host calls it, and `PlatformerApp` calls it
+for a rollback composition.
 
 - The versus test asks that every firing frame installs the session. Poison
   (the edge removed): its floor is red.
@@ -1379,8 +1382,14 @@ puts the maintainer after the providers in each composer of the shell host.
   the session bridge. With the host's edge that is a cycle, so that arm alone
   uses `compose_ambition_shell_host_with_the_timeline_start_unordered`.
 
-**Not done:** a composition that does not use the shell-host composers (the
-SDK provider composition, the pocket demo) has no such edge.
+- The SDK composition has the edge:
+  `versus_through_the_sdk::an_sdk_rollback_host_starts_the_timeline_with_the_session_world`
+  reads the path in the schedule graph and, with the maintainer allowed to
+  start, the session at the end of the frame that built the world. Poison (the
+  call removed from `PlatformerApp`): the graph half is red.
+
+**Not covered:** the pocket demo composes the shell with no rollback backend,
+so it has no maintainer to order.
 
 ### TEST-LANES — keep required test lanes executable
 

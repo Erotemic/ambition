@@ -2931,7 +2931,7 @@ fn versus_roster_is_ours(app: &App) -> bool {
 /// say so: `OwnedItems`' sibling defect is silent for exactly this reason.
 ///
 /// ⭐ THE HOST PUTS THE MAINTAINER AFTER THE PROVIDERS
-/// (`shell_host::start_the_timeline_with_the_session_world`), so each firing
+/// (`rollback::start_the_timeline_with_the_session_world`), so each firing
 /// frame installs the session, and this test compares the two ticks on each.
 /// Until 2026-10-04 the schedule did not order those two sets. A merge of two
 /// unrelated commits moved the maintainer first; the session then came up one
@@ -3051,7 +3051,7 @@ fn the_roster_arm_writes_the_scoreboard_before_the_timeline_starts() {
          above did not run for it and this test cannot see the ordering it \
          exists to pin. The host starts the timeline in the `Update` that \
          builds the session world \
-         (`shell_host::start_the_timeline_with_the_session_world`); read that \
+         (`rollback::start_the_timeline_with_the_session_world`); read that \
          edge first. Frame-end samples: {:?}",
         ends.iter()
             .filter(|end| fired.iter().any(|sample| sample.frame == end.frame))

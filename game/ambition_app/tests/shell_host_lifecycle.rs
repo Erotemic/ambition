@@ -1042,7 +1042,7 @@ fn settle_until_the_room_changes(app: &mut App, before: &str, frames: u32) -> Op
 /// not, which is the only version of the guarantee worth having.
 ///
 /// The shipped host now puts the maintainer after the providers, and thus
-/// after the bridge (`shell_host::start_the_timeline_with_the_session_world`):
+/// after the bridge (`rollback::start_the_timeline_with_the_session_world`):
 /// the frame on which the timeline starts is a decision. The second arm stays,
 /// because an edge can be removed.
 #[derive(Clone, Copy, Debug)]

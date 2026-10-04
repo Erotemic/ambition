@@ -568,8 +568,9 @@ The death road is the checkpoint restore, which puts the bag back everywhere,
 and its admitted replay was keyed by the death room only. So a death in another
 room took the boss's ability out of the bag but left the boss dead and its quest
 complete. `RoomReplayAdmitted::to_checkpoint` marks the checkpoint road, and the
-retraction then takes every defeat since the checkpoint
-(`BossDefeatsSinceCheckpoint::take_all`). The retraction runs at the
+retraction then takes every defeat since the checkpoint, except in the live
+rooms another participant holds (`BossDefeatsSinceCheckpoint::take_for_restore`,
+Q151; row DEATH-IS-ROOM-LOCAL). The retraction runs at the
 restore's admission, before the restore forgets the reward grants, so it takes
 the bounty out of the wallet too, and no defeat from before a restore is left
 for a later replay to retract.
@@ -977,9 +978,20 @@ authored priority wins; the primary participant breaks ties; the choice is
 deterministic. `EncounterEffect::SetMusic` may be removed; an encounter's
 ability to influence music stays.
 
-**Current state:** an encounter claims one of two tiers (`priority_track`,
-`base_track`) of its live room, and the intent reads only the primary seat's
-room. No shipped encounter authors `SetMusic`.
+**Current state:** the arbitration across participants is built. An
+encounter claims one of two tiers (`priority_track`, `base_track`) of its
+live room, `EncounterMusicRequest::priority_of` ranks a room 2/1/0
+(boss/encounter/ambient), and `the_room_the_music_plays_for` picks the
+participants' room with the highest rank, the primary seat's on a tie, then
+the lowest room. Witnesses:
+`a_participants_boss_outranks_the_primary_seats_room_music` and
+`the_heard_room_is_the_highest_priority_then_the_primary_then_the_lowest`.
+No shipped encounter authors `SetMusic`.
+
+**What is left:** the priority is fixed by the tier, not authored per
+candidate; make it an authored property of the candidate (scope, track,
+priority) when content needs a value between the tiers. Remove or give a
+customer to `EncounterEffect::SetMusic`.
 
 **Acceptance:** Bob's boss candidate in his room outranks Alice's ambient room
 music; two candidates of equal priority resolve to the primary participant's;
@@ -1094,20 +1106,28 @@ that gives it meaning.
 rules/content; another game can build the brain with no ladder; no authored
 ladder field is inert.
 
-### BARK-CARDINALITY — a singular bark role has one owner
-
-**Owner:** the conversation/bark content schema (`ambition_conversation::rules`)
-and the content validator.
+### BARK-CARDINALITY — a singular bark role has one owner — ✅ DONE 2026-10-03
 
 **Ruling:** Q52 (2026-10-03): cardinality is explicit. Two providers that
 contribute the same singular bark role conflict; a plural, composable bark
 collection is modelled explicitly when content wants one.
 
-**Next action:** measure what happens today when two providers author a bark set
-for one role (replace, concatenate or conflict).
+**Measured (2026-10-03):** the question was asked of `CombatBanterRegistry`, a
+name-keyed registry that three installers filled and where a second set
+replaced the first. That registry was deleted on 2026-10-02 (`957961618`). A
+character's barks are now only the `barks` field of its catalog row
+(`CharacterBarks`, one pool for each `BarkSituation`), and a boss names a row as
+its `voice`. One provider authors a row: catalog assembly refuses a second
+provider's row for the same character id with `DuplicateCharacter`, whose
+report names both providers, and the earlier assembly stays as it was. So today
+a second contribution conflicts; it does not replace and does not concatenate.
 
-**Acceptance:** a second contribution to a singular role is a reported
-conflict that names both providers.
+**Witness:** `a_second_provider_cannot_author_the_barks_of_one_character`
+(`ambition_characters`, catalog registry). Poison: with the duplicate check off,
+the second provider is accepted and the arm fails.
+
+**Not checked:** one provider that writes the same character id twice in one
+catalog file. No plural bark collection exists, because no content asks for one.
 
 ### TEST-LANES — keep required test lanes executable
 

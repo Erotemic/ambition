@@ -813,11 +813,10 @@ pub struct AwayFromAuthoredRoom(pub BTreeSet<SimId>);
 pub fn project_custody_onto_authored_occurrences(
     carried: Query<&SimId, (With<InCustodyOf>, With<RoomScopedEntity>)>,
     away: Option<Res<AwayFromAuthoredRoom>>,
-    occurrences: Option<ResMut<AuthoredOccurrences>>,
+    // Required: `HeldItemSimulationPlugin` adds this system and the ledger
+    // together.
+    mut occurrences: ResMut<AuthoredOccurrences>,
 ) {
-    let Some(mut occurrences) = occurrences else {
-        return;
-    };
     let alive: BTreeSet<SimId> = carried
         .iter()
         .chain(away.iter().flat_map(|away| away.0.iter()))

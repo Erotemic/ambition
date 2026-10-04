@@ -135,7 +135,8 @@ pub fn holding_ascend(
 #[allow(clippy::too_many_arguments)]
 pub fn possession_trigger_system(
     slots: Res<ambition_characters::control::SlotControls>,
-    controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
+    // Required: `PossessionPlugin` adds this system and the resource together.
+    controlled: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
     frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     // The PRIMARY seat's resolved frame policy, not `Res<UserSettings>` — see
     world_time: Res<ambition_time::WorldTime>,
@@ -190,10 +191,7 @@ pub fn possession_trigger_system(
 ) {
     // The CONTROLLED body's resolved frame decides what "down" means for the
     // gesture — while possessing, that is the possessed body's frame.
-    let gravity_dir = crate::control::controlled_frame_down(
-        controlled.as_deref(),
-        &frames,
-    );
+    let gravity_dir = crate::control::controlled_frame_down(Some(&controlled), &frames);
     // Possession is currently primary-seat gameplay policy, so both the control
     // frame and the policy that interprets it are asked for the PRIMARY seat.
     let control = slots.get(ambition_characters::control::PlayerSlot::PRIMARY);

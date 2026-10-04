@@ -17,6 +17,8 @@ fn trigger_app() -> App {
     app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
     app.insert_resource(ambition_time::WorldTime::new(1.0, 1.0));
     app.init_resource::<PossessionState>();
+    // As `PossessionPlugin` does, beside the system that reads it.
+    app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
     //  the PROJECTION is part of the mechanic, not decoration. The custody
     // marker a driven body wears is derived from `PossessionState` every tick —
     // see `project_possession_onto_custody` for the rollback reason it is a

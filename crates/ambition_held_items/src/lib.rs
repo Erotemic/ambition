@@ -60,10 +60,13 @@ impl Plugin for HeldItemSimulationPlugin {
             app.publish_condition(conditions::is_held_descriptor(), conditions::is_held);
         }
         // Durable room state, and the only leg of it that has a producer.
-        // Inserted here because this is where the producer is registered; every
-        // consumer takes it as an `Option`, so a composition without this plugin
-        // remembers nothing and authors every room from its records — which is
-        // exactly what it did before the ledger existed.
+        // Inserted here because this is where the producer is registered. A
+        // consumer that a composition can schedule without this plugin takes it
+        // as an `Option`: such a composition remembers nothing and authors every
+        // room from its records, which is what it did before the ledger
+        // existed. The two writers scheduled with this plugin take it as
+        // required (`project_custody_onto_authored_occurrences` here, and
+        // `record_placed_bodies` in the runtime that adds this plugin).
         app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>();
         // ⛔ THE SET THIS DOMAIN OWNS, configured END TO END here: its phase
         // and its custody edge. The kernel adds the edge to its two sibling

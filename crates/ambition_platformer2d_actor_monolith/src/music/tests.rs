@@ -402,6 +402,15 @@ fn a_cleared_encounter_stops_asking_once_its_outro_has_run_out() {
 fn candidates_with_two_rooms(
     fight_in: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
 ) -> Vec<String> {
+    candidates_with_bob(Some(fight_in), None)
+}
+
+/// [`candidates_with_two_rooms`], with the fight optional and a second
+/// participant's body (slot 1) standing in `bob_in`.
+fn candidates_with_bob(
+    fight_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    bob_in: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+) -> Vec<String> {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         insert_session_world_component, session_world_component, InRoomInstance,
         LiveRoomInstance, RoomInstanceRoot,
@@ -434,18 +443,27 @@ fn candidates_with_two_rooms(
     app.world_mut().spawn((RoomInstanceRoot, second, chapel));
     app.world_mut()
         .spawn((ambition_platformer2d_shared_tangle::body::PrimaryBody, InRoomInstance(second)));
+    if let Some(room) = bob_in {
+        app.world_mut().spawn((
+            ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot(1)),
+            InRoomInstance(room),
+        ));
+    }
     let mut music = EncounterMusicRequest::default();
-    music.claim_priority(Some(fight_in), "test_boss", "fight_theme");
+    if let Some(room) = fight_in {
+        music.claim_priority(Some(room), "test_boss", "fight_theme");
+    }
     insert_session_world_component(app.world_mut(), music);
     app.add_systems(Update, super::intent::compute_music_intent);
     app.update();
     app.world().resource::<ambition_audio::music::MusicIntent>().simple_track_candidates.clone()
 }
 
-/// The current Q150 rule: the music plays for the primary seat's room. Two live rooms;
-/// the primary body is in `chapel`. The intent offers chapel's music and not
-/// the hall's, and a fight is heard only when it is in chapel (the fight in
-/// chapel is the control). Before, the intent read the sole live room, so
+/// With nobody else in a live room, the music plays for the primary seat's
+/// room. Two live rooms; the primary body is in `chapel` and no participant is
+/// in the hall. The intent offers chapel's music and not the hall's, and a
+/// fight is heard only when it is in chapel (the fight in chapel is the
+/// control). Before, the intent read the sole live room, so
 /// with two rooms it did not run and the music froze. Poisons: read the sole
 /// room (no candidates at all), hear every room's fight (the hall's fight is
 /// heard).
@@ -470,6 +488,50 @@ fn the_music_plays_for_the_primary_seats_room() {
         Some("chapel_theme"),
         "a fight in the other room is not heard: {in_hall:?}"
     );
+}
+
+/// Q150 and Q72: the music plays for the participants' room whose music has
+/// the highest authored priority. Bob (slot 1) stands in the hall, Alice (the
+/// primary seat) in chapel. Bob's boss fight in the hall outranks chapel's
+/// own music, so the hall's fight is heard. With no fight, both rooms play
+/// ambient music, the priorities tie, and Alice's chapel wins. With the fight
+/// in chapel, chapel wins on priority. The control is
+/// [`the_music_plays_for_the_primary_seats_room`]: with nobody in the hall,
+/// its fight is not heard. Poison: rank every room 0 (the primary always
+/// wins), and Bob's boss is not heard.
+#[test]
+fn a_participants_boss_outranks_the_primary_seats_room_music() {
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    let hall = LiveRoomInstance::ACTIVATION;
+    let chapel = hall.next();
+    let first = |candidates: Vec<String>| candidates.first().cloned();
+    assert_eq!(
+        (
+            first(candidates_with_bob(Some(hall), Some(hall))),
+            first(candidates_with_bob(None, Some(hall))),
+            first(candidates_with_bob(Some(chapel), Some(hall))),
+        ),
+        (
+            Some("fight_theme".to_string()),
+            Some("chapel_theme".to_string()),
+            Some("fight_theme".to_string()),
+        ),
+        "(Bob's boss in the hall, no fight, Alice's boss in chapel)"
+    );
+}
+
+/// The choice by itself: the highest priority wins, the primary seat wins a
+/// tie, and a tie between two other rooms goes to the lowest one.
+#[test]
+fn the_heard_room_is_the_highest_priority_then_the_primary_then_the_lowest() {
+    use super::intent::the_room_the_music_plays_for as heard;
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    let [a, b, c] = [0, 1, 2].map(LiveRoomInstance::from_ordinal);
+    let ranks = |boss: Option<LiveRoomInstance>| move |room: Option<LiveRoomInstance>| u8::from(room == boss && boss.is_some()) * 2;
+    assert_eq!(heard(Some(b), [a, c], ranks(Some(c))), Some(c), "a boss in another room");
+    assert_eq!(heard(Some(b), [a, c], ranks(None)), Some(b), "a tie keeps the primary's room");
+    assert_eq!(heard(None, [c, a], ranks(None)), Some(a), "with no primary, the lowest room");
+    assert_eq!(heard(None, [], ranks(None)), None, "no room at all");
 }
 
 /// A conversation's track is released when the primary seat goes to another

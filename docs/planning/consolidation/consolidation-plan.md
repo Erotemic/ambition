@@ -176,10 +176,10 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=22/12 SessionWorldMut=10/9 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=19/15 SoleLiveRoomSpec=11/11 -->
+<!-- alias-split: SessionWorldRef=23/12 SessionWorldMut=10/9 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=19/15 SoleLiveRoomSpec=11/11 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 22 / 12 |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 23 / 12 |
 | `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 10 / 9 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
 | `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |
@@ -280,6 +280,18 @@ disabled menu state until a shell-less composition exists.
     stated at the read.
   - The three `ActiveConversation` reads already state theirs.
   - `BaseGravity` waits on Q136.
+  - `ControlledSubject`: five reads were never absent in a composed suite and
+    are now required (`possession_trigger_system`, `gate_body_control`,
+    `rebuild_player_hud_facts`, `rebuild_hostile_wielded_items_view`,
+    `portal_input_adapter_system`). Only two unit fixtures in the monolith lib
+    ran a reader without the resource; they now insert it, as `PossessionPlugin`
+    does. `admit_room_replay` was not probed (it is in the restore chain).
+  - `AuthoredOccurrences`: its two writers scheduled with
+    `HeldItemSimulationPlugin` were never absent, in the Smash compositions
+    also, and are now required (`project_custody_onto_authored_occurrences`,
+    `record_placed_bodies`). The other reads (`minted_horizon`,
+    `durable_horizon`, the room loader, the checkpoint) are still optional and
+    not probed.
 - ✅ The fallback no `Option` scan could see is closed (2026-10-03):
   `insert_session_world_component` refuses in a session-gated composition
   with no root and no active scope. A direct host (no gate) builds its one root

@@ -833,6 +833,55 @@ mod tests {
         );
     }
 
+    /// A character's barks have one owner (Q52): its catalog row, which one
+    /// provider authors. A second provider that authors barks for the same
+    /// character is a conflict that names both providers. The lines are not
+    /// replaced and not joined.
+    #[test]
+    fn a_second_provider_cannot_author_the_barks_of_one_character() {
+        use crate::actor::character_catalog::BarkSituation;
+        let row = |line: &str| {
+            format!(
+                r#"(
+                    brain_presets: {{ "idle": StandStill }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{
+                        "alpha": (
+                            display_name: "Alpha", spritesheet: "a.png", manifest: "a.ron",
+                            tier: MainHall, body_kind: Standard, composition: None,
+                            default_brain: "idle", default_action_set: "peaceful", tags: [],
+                            barks: ( on_hit: ["{line}"] ),
+                        ),
+                    }},
+                )"#
+            )
+        };
+        let mut app = App::new();
+        app.register_character_catalog_fragment(fragment("a", "alpha", &row("first")));
+        let error = app
+            .try_register_character_catalog_fragment(fragment("b", "alpha", &row("second")))
+            .err()
+            .expect("a second owner of one character's barks is refused");
+        assert_eq!(
+            error,
+            CharacterCatalogAssemblyError::DuplicateCharacter {
+                character_id: "alpha".to_string(),
+                first_provider: "a".to_string(),
+                second_provider: "b".to_string(),
+            }
+        );
+        let report = error.to_string();
+        assert!(report.contains("'a'") && report.contains("'b'"), "{report}");
+        let catalog = app.world().resource::<CharacterCatalog>();
+        for rotation in 0..3 {
+            assert_eq!(
+                catalog.bark_line("alpha", BarkSituation::OnHit, rotation),
+                Some("first"),
+                "the refused provider's line was joined to the pool or replaced it"
+            );
+        }
+    }
+
     #[test]
     fn separate_apps_hold_independent_catalogs() {
         let mut app_a = App::new();

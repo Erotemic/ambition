@@ -37,14 +37,11 @@ pub struct PlayerHudFacts {
 
 pub fn rebuild_player_hud_facts(
     mut facts: ResMut<PlayerHudFacts>,
-    controlled: Option<Res<ControlledSubject>>,
+    controlled: Res<ControlledSubject>,
     bodies: Query<(&BodyHealth, Option<&ActorResources>, Option<&BodyWallet>)>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
-    let subject = controlled
-        .as_deref()
-        .and_then(|subject| subject.0)
-        .or_else(|| primary.single().ok());
+    let subject = controlled.0.or_else(|| primary.single().ok());
     let Some((health, resources, wallet)) = subject.and_then(|e| bodies.get(e).ok()) else {
         facts.present = false;
         return;
@@ -465,7 +462,7 @@ pub fn rebuild_hostile_wielded_items_view(
         Option<&ambition_combat::components::ActorTarget>,
     )>,
     bodies: Query<&BodyKinematics>,
-    controlled: Option<Res<ControlledSubject>>,
+    controlled: Res<ControlledSubject>,
     player_q: Query<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     view.0.clear();
@@ -473,8 +470,7 @@ pub fn rebuild_hostile_wielded_items_view(
     // in a match with no local participant, which is legitimate rather than a
     // reason to publish nothing.
     let subject_pos = controlled
-        .as_deref()
-        .and_then(|subject| subject.0)
+        .0
         .and_then(|entity| bodies.get(entity).ok())
         .or_else(|| player_q.single().ok())
         .map(|kin| kin.pos);

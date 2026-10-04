@@ -741,6 +741,8 @@ pub fn stop_session(world: &mut World) {
     reset_input_authority(world);
     world.remove_resource::<AmbitionGgrsSession>();
     world.remove_resource::<RollbackSessionOwnership>();
+    // A stopped peer session has no next generation.
+    world.remove_resource::<crate::peer::PeerLineage>();
     // Nothing speculates any more, so external effects and persistence return
     // to their non-rollback behavior immediately. Leaving this installed would
     // strand pending effects and keep confirmed-state save gates closed forever.

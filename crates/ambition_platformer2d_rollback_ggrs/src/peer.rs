@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use bevy::prelude::World;
+use bevy::prelude::{Resource, World};
 use bevy_ggrs::ggrs::{self, DesyncDetection, Message, NonBlockingSocket, PlayerType, SessionBuilder};
 use bevy_ggrs::Session;
 
@@ -60,9 +60,69 @@ pub fn build_peer_session(
     Ok(Session::P2P(builder.start_p2p_session(socket)?))
 }
 
+/// The transport of one peer: a socket for each session generation, on one
+/// link to the other peers.
+///
+/// ⛔ THE RULE EACH TRANSPORT OWES: a socket receives only the parcels of its
+/// own generation. A parcel of an older generation is dropped, and a parcel
+/// of a later one waits for its socket. A new GGRS endpoint accepts each
+/// message until its handshake is complete, so without this rule an input of
+/// the old session is read as an input of the new timeline. See
+/// [`LoopbackTransport`], which is the in-memory transport.
+pub trait PeerTransport: Send + Sync + 'static {
+    /// The socket of this peer's session `generation`. It makes no change to
+    /// the link until the session polls it, so a session that is built and
+    /// not installed costs nothing.
+    fn socket_for(&self, generation: u32) -> Box<dyn NonBlockingSocket<SocketAddr>>;
+}
+
+struct BoxedSocket(Box<dyn NonBlockingSocket<SocketAddr>>);
+
+impl NonBlockingSocket<SocketAddr> for BoxedSocket {
+    fn send_to(&mut self, message: &Message, addr: &SocketAddr) {
+        self.0.send_to(message, addr);
+    }
+
+    fn receive_all_messages(&mut self) -> Vec<(SocketAddr, Message)> {
+        self.0.receive_all_messages()
+    }
+}
+
+/// What a peer needs to start its next timeline: the settings of its session
+/// and the transport, with the generation of the live session.
+///
+/// A peer session ends at each lifecycle commit, and the next one starts at
+/// frame zero on the committed world (`lifecycle_commit`). The peers count
+/// generations the same way: the first session of each peer, at one agreed
+/// world, is generation 0, and each commit, which each peer runs, adds one.
+/// The count moves only when a session is installed.
+#[derive(Resource)]
+pub struct PeerLineage {
+    settings: PeerSessionSettings,
+    transport: Box<dyn PeerTransport>,
+    generation: u32,
+}
+
+impl PeerLineage {
+    /// The generation of the live session.
+    pub fn generation(&self) -> u32 {
+        self.generation
+    }
+
+    /// Construct the session of the next generation WITHOUT touching the
+    /// world, the link or this lineage.
+    pub(crate) fn build_next(&self) -> Result<AmbitionGgrsSession, ggrs::GgrsError> {
+        build_peer_session(
+            &self.settings,
+            BoxedSocket(self.transport.socket_for(self.generation + 1)),
+        )
+    }
+}
+
 /// Start a P2P session whose peers agreed to begin at the live world: the
 /// world becomes frame zero (`install_rebased_session`). Each peer calls this
-/// at the same point of the same world.
+/// at the same point of the same world. It is generation 0 of the peer's
+/// [`PeerLineage`].
 ///
 /// The same two checks as a sync test, in the same order: GGRS refuses the
 /// settings, or the world cannot declare frame zero. Either refusal leaves the
@@ -70,12 +130,29 @@ pub fn build_peer_session(
 pub fn start_peer_session(
     world: &mut World,
     settings: &PeerSessionSettings,
-    socket: impl NonBlockingSocket<SocketAddr> + 'static,
+    transport: impl PeerTransport,
 ) -> Result<(), StartSyncTestError> {
-    let session = build_peer_session(settings, socket)?;
+    let session = build_peer_session(settings, BoxedSocket(transport.socket_for(0)))?;
     let eligibility = FrameZeroEligibility::check(world)?;
     install_rebased_session(world, session, eligibility);
+    world.insert_resource(PeerLineage {
+        settings: settings.clone(),
+        transport: Box::new(transport),
+        generation: 0,
+    });
     Ok(())
+}
+
+/// Install the session [`PeerLineage::build_next`] built, as frame zero of
+/// the next generation. The lifecycle commit calls this after it changed the
+/// world, on each peer.
+pub(crate) fn install_next_peer_session(
+    world: &mut World,
+    session: AmbitionGgrsSession,
+    eligibility: FrameZeroEligibility,
+) {
+    install_rebased_session(world, session, eligibility);
+    world.resource_mut::<PeerLineage>().generation += 1;
 }
 
 /// One peer's end of an in-memory link, for each session it starts.
@@ -97,6 +174,9 @@ pub fn start_peer_session(
 /// first session of each peer, at one agreed world, is generation 0, and each
 /// commit that each peer runs starts the next one. The transport does not
 /// count, so a session that was built and not installed uses no number.
+///
+/// A clone is the same end of the same link.
+#[derive(Clone)]
 pub struct LoopbackTransport {
     address: SocketAddr,
     link: Arc<Mutex<Link>>,
@@ -165,10 +245,10 @@ pub fn loopback_transports(
     (end(a), end(b))
 }
 
-/// Two ends of one link, at `a` and `b`, for one session at each end.
-pub fn loopback_pair(a: SocketAddr, b: SocketAddr, delay: u32) -> (LoopbackSocket, LoopbackSocket) {
-    let (a, b) = loopback_transports(a, b, delay);
-    (a.socket(0), b.socket(0))
+impl PeerTransport for LoopbackTransport {
+    fn socket_for(&self, generation: u32) -> Box<dyn NonBlockingSocket<SocketAddr>> {
+        Box::new(self.socket(generation))
+    }
 }
 
 impl NonBlockingSocket<SocketAddr> for LoopbackSocket {
@@ -282,9 +362,11 @@ mod tests {
     #[test]
     fn two_peer_sessions_synchronize_over_a_loopback_link() {
         let (a, b) = addresses();
-        let (to_bob, to_alice) = loopback_pair(a, b, 3);
-        let mut alice = build_peer_session(&settings(0, (1, b)), to_bob).expect("alice's session");
-        let mut bob = build_peer_session(&settings(1, (0, a)), to_alice).expect("bob's session");
+        let (alices, bobs) = loopback_transports(a, b, 3);
+        let mut alice =
+            build_peer_session(&settings(0, (1, b)), alices.socket(0)).expect("alice's session");
+        let mut bob =
+            build_peer_session(&settings(1, (0, a)), bobs.socket(0)).expect("bob's session");
         let polls = synchronize(&mut alice, &mut bob);
         assert!(polls > 3, "the link delivered before its delay: synchronized after {polls} polls");
     }

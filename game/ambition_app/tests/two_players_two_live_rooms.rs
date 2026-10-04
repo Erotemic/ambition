@@ -18,7 +18,7 @@ const HUB: &str = "central_hub_complex";
 const BOB: &str = "ow1_bob";
 
 /// The live rooms, by instance, and the id of the room each instantiates.
-fn live_rooms(sim: &mut Platformer2dSimHarness) -> Vec<(LiveRoomInstance, String)> {
+pub(crate) fn live_rooms(sim: &mut Platformer2dSimHarness) -> Vec<(LiveRoomInstance, String)> {
     let world = sim.world_mut();
     let definitions: Vec<_> = world
         .query_filtered::<
@@ -42,7 +42,7 @@ fn live_rooms(sim: &mut Platformer2dSimHarness) -> Vec<(LiveRoomInstance, String
 
 /// The live room each of Alice and Bob is in; `None` for Bob when his body
 /// is gone.
-fn where_they_are(
+pub(crate) fn where_they_are(
     sim: &mut Platformer2dSimHarness,
 ) -> (Option<LiveRoomInstance>, Option<Option<LiveRoomInstance>>) {
     let world = sim.world_mut();
@@ -479,7 +479,7 @@ fn a_gravity_switch_turns_only_the_live_room_it_is_in() {
 }
 
 /// The Door from authored room `room` to `target`.
-fn door_of(sim: &mut Platformer2dSimHarness, room: &str, target: &str) -> ambition_platformer2d::world::rooms::LoadingZone {
+pub(crate) fn door_of(sim: &mut Platformer2dSimHarness, room: &str, target: &str) -> ambition_platformer2d::world::rooms::LoadingZone {
     let world = sim.world_mut();
     let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
         ambition_platformer2d::world::rooms::RoomSet,
@@ -502,7 +502,7 @@ fn door_of(sim: &mut Platformer2dSimHarness, room: &str, target: &str) -> ambiti
 }
 
 /// Move Bob's body to `at`, at rest.
-fn put_bob_at(sim: &mut Platformer2dSimHarness, at: ambition_platformer2d::engine_core::Vec2) {
+pub(crate) fn put_bob_at(sim: &mut Platformer2dSimHarness, at: ambition_platformer2d::engine_core::Vec2) {
     let world = sim.world_mut();
     let mut bob = world.query::<(
         &ambition_platformer2d::combat::components::FeatureId,

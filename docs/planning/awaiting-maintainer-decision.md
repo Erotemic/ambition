@@ -278,6 +278,42 @@ the test the ruling names, passes without the gate.
 * **(b) Restore the gate and the `Update` chain**, and give compositions whose
   body is born on the timeline another road. That is two roads for one fact.
 
+## Q155 — is a hold of about 0.6 s at a peer room crossing acceptable, or must the crossing keep its session?
+
+Under a peer session a room crossing now commits (2026-10-04, the "Remote
+peers" row of
+[`open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md)).
+The simulation of each peer is held from the frame after the crossing was
+recorded until the first frame of the next peer session. Measured in
+`two_peers.rs` at a link latency of 3 updates each way (four runs, two
+crossings): 23 to 43 updates, which is 0.38 s to 0.72 s at 60 Hz. 2 to 7 updates
+are the wait for the confirmed frame and the readiness of the room. 21 to 36
+are the handshake of the next GGRS session, which is five round trips
+(`NUM_SYNC_PACKETS`, a constant of the pinned GGRS), so this part grows with
+the latency. The hold is of the whole world: the room that nobody leaves stops
+too. A local (sync-test) crossing holds nothing.
+
+Owner: netcode ([`netcode.md`](engine/netcode.md)) and online play (A4 in
+[`multiplayer.md`](game/multiplayer.md)). No queue row waits for this: the
+crossing works, and the question is its cost.
+
+* **(a) Keep it** (current). A door between rooms is a pause of about half a
+  second for each online player. No new machinery.
+* **(b) Shorten the handshake and keep the new session.** A session that
+  follows another between the same peers needs one round trip, not five. That
+  is a change in GGRS (a fork or an upstream option). Estimate: the handshake
+  goes from 21..36 updates to about 8, the hold to about 10..15 updates.
+* **(c) Keep the session (shape B).** Readiness bits ride in the input, the
+  inputs of the held frames are a canonical null, the host stalls a few frames
+  and runs the operation with no rebase. Estimate: a hold of about 6 frames
+  plus the latency. It changes the wire input, it commits with no rebase (the
+  old ring slots hold the room before the operation and stay safe only because
+  no rollback can reach them), and the freeze of the whole world stays.
+
+None of the three ends the whole-world hold. A hold of only the rooms of the
+crossing is a separate change (the simulation gate is one condition for each
+live room today).
+
 ## Q142 — must every presence-filtered component be rollback-registered?
 
 Resolved by engineering. Kept only because

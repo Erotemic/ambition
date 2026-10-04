@@ -519,6 +519,55 @@ pub fn live_room_definition_in(
         .map(|(_, definition)| *definition)
 }
 
+/// The live room that instantiates the room `id`, at an exclusive-world
+/// boundary. A room has at most one live room (`DefinitionAlreadyLive`), so
+/// the answer is unique. `None` when no live room stands in `id`.
+///
+/// The keyed read for a question about a named room: with one live room it is
+/// [`sole_live_room_definition`]'s answer when that room is `id`, and with two
+/// it still answers.
+pub fn live_room_standing_in(
+    world: &bevy_ecs::world::World,
+    id: &str,
+) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+    let definition = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(world)?
+        .definition_by_id(id)?;
+    let mut roots = world.try_query_filtered::<
+        (
+            &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+            &LiveRoomDefinition,
+        ),
+        bevy_ecs::query::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >()?;
+    roots
+        .iter(world)
+        .find(|(_, live)| **live == definition)
+        .map(|(instance, _)| *instance)
+}
+
+/// The ids of the rooms every live room instantiates, in instance order, at an
+/// exclusive-world boundary.
+pub fn live_room_ids(world: &bevy_ecs::world::World) -> Vec<String> {
+    let Some(rooms) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomSet>(world)
+    else {
+        return Vec::new();
+    };
+    let Some(mut roots) = world.try_query_filtered::<
+        (
+            &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+            &LiveRoomDefinition,
+        ),
+        bevy_ecs::query::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >() else {
+        return Vec::new();
+    };
+    let mut live: Vec<_> = roots.iter(world).map(|(instance, definition)| (*instance, *definition)).collect();
+    live.sort_by_key(|(instance, _)| *instance);
+    live.into_iter()
+        .map(|(_, definition)| rooms.spec(definition).id.clone())
+        .collect()
+}
+
 /// The sole live room's definition, at an exclusive-world boundary. `None`
 /// with no live session, no live room, or two live rooms. The same debt as
 /// [`SoleLiveRoomSpec`].

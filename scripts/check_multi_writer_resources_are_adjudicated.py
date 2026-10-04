@@ -425,8 +425,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
-    "BreakableRespawnSchedule": (
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/breakable_respawns.rs",
+    "WorldTimeSchedule": (
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/world_time_schedule.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "RewardGrantsSinceCheckpoint": (
@@ -1881,18 +1881,22 @@ ADJUDICATED: dict[str, str] = {
         "the checkpoint apply, and the type is rollback state with a value "
         "checksum (`resource.reward_grants_since_checkpoint`)."
     ),
-    "BreakableRespawnSchedule": (
-        "CORRECT — ONE RECORDER, THREE FORGETTERS, ONE TYPE (OW5, 2026-10-02). The "
-        "map is private (`features/ecs/breakable_respawns.rs`). "
-        "`mirror_breakable_respawns` is the only system that inserts a due time or "
-        "removes one record, from the live `RespawnTimer`. "
-        "`forget_breakable_respawns_on_replay` calls `forget_room` on an ADMITTED "
-        "replay, `forget_breakable_respawns_on_restore` calls `forget_all` in the "
+    "WorldTimeSchedule": (
+        "CORRECT — ONE MIRROR PER CUSTOMER, THREE FORGETTERS, ONE TYPE, ONE FILE "
+        "(OW5 2026-10-02; Q152 2026-10-04). The map is private "
+        "(`features/ecs/world_time_schedule.rs`) and every write goes through "
+        "`record`, `forget`, `forget_room` or `forget_all`; `record` keeps an "
+        "existing due time. Each customer's live `RespawnTimer` is the authority "
+        "while its room is live: `mirror_breakable_respawns` (breakables) and "
+        "`regrow_pickups` (pickups) record a running timer's due time and forget "
+        "it when the occurrence is whole. The two customers' keys are disjoint "
+        "(authored ids are unique in a room). "
+        "`forget_scheduled_returns_on_replay` calls `forget_room` on an ADMITTED "
+        "replay, `forget_scheduled_returns_on_restore` calls `forget_all` in the "
         "checkpoint apply, and `SessionScopedResources::reset` (`teardown.rs`) "
         "calls `forget_all` at the session edge. Every writer but the teardown "
         "runs in the simulation schedule or the checkpoint apply, and the type is "
-        "rollback state with a value checksum "
-        "(`feature.breakable_respawn_schedule`)."
+        "rollback state with a value checksum (`feature.world_time_schedule`)."
     ),
     "AuthoredOccurrences": (
         "CORRECT — SIX WRITER FILES ONTO FIVE `&mut self` METHODS, AND THE ENTRY "

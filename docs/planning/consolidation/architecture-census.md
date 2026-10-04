@@ -196,7 +196,7 @@ because their semantic lifetime is one session or one activated generation.
 `SessionScopedResources` names **32** process resources whose source says one
 gameplay session owns them:
 
-`PossessionState, ControlledSubject, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, LastQuestRoom, LastCutsceneRoom, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, GameplayElapsed, BossDefeatsSinceCheckpoint, BreakableRespawnSchedule, RewardGrantsSinceCheckpoint, SimTick, ImpactHitstop`.
+`PossessionState, ControlledSubject, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, LastQuestRoom, LastCutsceneRoom, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, GameplayElapsed, BossDefeatsSinceCheckpoint, WorldTimeSchedule, RewardGrantsSinceCheckpoint, SimTick, ImpactHitstop`.
 
 `SessionOwnedCheckpointState` adds **6** checkpoint-coordinator resources:
 

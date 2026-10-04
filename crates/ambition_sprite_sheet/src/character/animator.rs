@@ -153,6 +153,14 @@ impl CharacterAnimator {
         self.mirror_of(self.authored_slot())
     }
 
+    /// Whether this frame draws the current row's MIRROR row (set by
+    /// [`Self::face`]). Its feet are at the mirrored anchor
+    /// ([`Self::current_render`]); a renderer placing the frame itself must
+    /// mirror the anchor too.
+    pub fn draws_mirror_row(&self) -> bool {
+        self.mirrored
+    }
+
     /// Face the drawing. `flip` is whether the renderer would mirror the art;
     /// the answer is whether it STILL must.
     ///

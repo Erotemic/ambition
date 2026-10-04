@@ -60,7 +60,7 @@ fn break_the_platform_for(sim: &mut Platformer2dSimHarness, respawn_s: f32) -> f
 
 /// Stand in the zone to `target` (holding interact, for a door) until the
 /// room changes. Returns the room arrived in.
-fn cross_to(sim: &mut Platformer2dSimHarness, target: &str) -> String {
+pub(crate) fn cross_to(sim: &mut Platformer2dSimHarness, target: &str) -> String {
     use ambition_platformer2d::engine_core::AabbExt as _;
     let before = sim.observation().active_room.clone();
     let at = zone_to(sim, target).aabb.center();
@@ -145,7 +145,7 @@ fn a_platform_whose_respawn_fell_due_while_away_is_whole_on_return() {
     settle(&mut sim, 2);
     let schedule = sim
         .world()
-        .resource::<ambition_platformer2d::actors::features::ecs::breakable_respawns::BreakableRespawnSchedule>();
+        .resource::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>();
     let records = schedule.records().count();
     assert_eq!(
         (platform(&mut sim), records),
@@ -193,7 +193,7 @@ fn platform_after_alices_death(bob_holds_it: bool) -> (bool, usize) {
     settle(&mut sim, 2);
     let records = |sim: &Platformer2dSimHarness| {
         sim.world()
-            .resource::<ambition_platformer2d::actors::features::ecs::breakable_respawns::BreakableRespawnSchedule>()
+            .resource::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>()
             .records()
             .count()
     };
@@ -215,7 +215,7 @@ fn platform_after_alices_death(bob_holds_it: bool) -> (bool, usize) {
 /// the record is gone.
 ///
 /// ⚠ THE LIVE TIMER SERVES THIS, NOT THE RESTORE. Measured 2026-10-03 with a
-/// probe: `forget_breakable_respawns_on_restore` does forget Bob's record, and
+/// probe: `forget_scheduled_returns_on_restore` does forget Bob's record, and
 /// on the next tick `mirror_breakable_respawns` records it again from his
 /// platform's running timer, with the same due time. While a room is live its
 /// timers are the authority and the schedule mirrors them. So the restore's

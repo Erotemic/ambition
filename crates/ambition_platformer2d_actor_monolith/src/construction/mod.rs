@@ -240,16 +240,17 @@ pub struct ActorConstructionServices {
 #[derive(Clone, Debug)]
 pub struct PersistedFates {
     save: Option<ambition_persistence::save_data::AmbitionGameSaveData>,
-    /// The breakables still broken when this commit was requested (OW5): the
-    /// time each stays broken, by (room definition id, authored id).
-    broken_breakables: std::collections::BTreeMap<(String, String), f32>,
+    /// The occurrences still gone when this commit was requested (OW5): the
+    /// time each stays gone (a breakable broken, a pickup collected), by
+    /// (room definition id, authored id).
+    scheduled_returns: std::collections::BTreeMap<(String, String), f32>,
 }
 
 impl PersistedFates {
     pub fn from_save(save: &ambition_persistence::save_data::AmbitionGameSaveData) -> Self {
         Self {
             save: Some(save.clone()),
-            broken_breakables: Default::default(),
+            scheduled_returns: Default::default(),
         }
     }
 
@@ -258,7 +259,7 @@ impl PersistedFates {
     pub fn unrecorded() -> Self {
         Self {
             save: None,
-            broken_breakables: Default::default(),
+            scheduled_returns: Default::default(),
         }
     }
 
@@ -269,23 +270,22 @@ impl PersistedFates {
             .map_or_else(Self::unrecorded, |save| Self::from_save(save.data()))
     }
 
-    /// These facts, with the breakables still broken as the commit is
-    /// requested (OW5). The caller supplies them: the respawn schedule and its
-    /// clock are the feature layer's, and construction does not name that
-    /// layer.
-    pub fn with_broken_breakables(
+    /// These facts, with the occurrences still gone as the commit is requested
+    /// (OW5). The caller supplies them: the world-time schedule and its clock
+    /// are the feature layer's, and construction does not name that layer.
+    pub fn with_scheduled_returns(
         mut self,
         remaining: std::collections::BTreeMap<(String, String), f32>,
     ) -> Self {
-        self.broken_breakables = remaining;
+        self.scheduled_returns = remaining;
         self
     }
 
-    /// How long the breakable `id` of room `room` stays broken, when its
-    /// respawn was not yet due as this commit was requested (OW5); `None`
-    /// builds it whole.
-    pub fn breakable_remaining(&self, room: &str, id: &str) -> Option<f32> {
-        self.broken_breakables
+    /// How long the occurrence `id` of room `room` stays gone, when its return
+    /// was not yet due as this commit was requested (OW5); `None` builds it
+    /// whole.
+    pub fn scheduled_remaining(&self, room: &str, id: &str) -> Option<f32> {
+        self.scheduled_returns
             .get(&(room.to_string(), id.to_string()))
             .copied()
     }

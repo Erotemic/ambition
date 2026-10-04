@@ -41,7 +41,6 @@ pub(crate) mod actors;
 mod aggression;
 pub mod anim_helpers;
 pub mod body_identity;
-pub mod breakable_respawns;
 mod boss_bodies;
 #[cfg(test)]
 mod boss_scripted_pattern_tests;
@@ -97,6 +96,7 @@ pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
 pub mod world_overlay;
+pub mod world_time_schedule;
 pub use world_overlay::rebuild_feature_ecs_world_overlay;
 // ⭐ THE BOSS ECS MODULE LIVES IN `ambition_boss_encounter` NOW, beside the boss
 // profiles, catalog and anim helpers it was already calling. These stay as the

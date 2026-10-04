@@ -823,6 +823,16 @@ pub fn drive_rigged_presentations(
         // drew it, before it is replaced.
         let squash = stance_squash(animator, &root_sprite, Some(&root_anchor));
         let impostor = presentation.impostor;
+        // ⛔ A MIRROR ROW stands on the MIRRORED feet anchor. A body facing
+        // left on a sheet drawn from both sides draws its mirror row unflipped
+        // (`CharacterAnimator::face`), and the baked road places that frame at
+        // the mirrored anchor (`current_render`). Without this the player
+        // robot drew 3 to 5 px off its baked frame in every left-facing frame
+        // (2026-10-04).
+        let mut basis = basis;
+        if animator.draws_mirror_row() {
+            basis.feet_anchor.x = -basis.feet_anchor.x;
+        }
         let (mut size, mut anchor) = cell_quad(basis, flipbook.frame_size.as_vec2(), atlas.cell_size());
         if let Some((ratio, held_y)) = squash {
             (size.y, anchor.y) = squashed_about(size.y, anchor.y, ratio, held_y);

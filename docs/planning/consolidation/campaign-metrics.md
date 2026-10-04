@@ -27,7 +27,7 @@ full record, `--crate-table` for the package graph).
 ⚠ Two instruments count the session-owned set. `architecture_census.py` reads
 36 because it includes the two `Option<ResMut<..>>` members of
 `SessionScopedResources` (`BossDefeatsSinceCheckpoint`,
-`BreakableRespawnSchedule`). `scripts/check_session_owner_census_matches_source.py`
+`WorldTimeSchedule`). `scripts/check_session_owner_census_matches_source.py`
 counts only the required `ResMut` fields, and the plan's marker follows it.
 
 ## Manual ledger metric tags

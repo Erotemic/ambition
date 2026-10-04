@@ -230,6 +230,15 @@ pub fn collect_ecs_pickups(
             continue;
         };
         commands.entity(entity).insert(Collected);
+        // Q152: a pickup authored to regrow counts its regrowth down, as a
+        // broken breakable counts its respawn (`world_time_schedule`).
+        if let ambition_entity_catalog::placements::HazardRespawn::AfterSeconds(seconds) =
+            pickup.pickup.respawn
+        {
+            commands
+                .entity(entity)
+                .insert(ambition_combat::components::RespawnTimer(seconds));
+        }
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
         let granted = grant_pickup(
             &pickup.pickup.kind,

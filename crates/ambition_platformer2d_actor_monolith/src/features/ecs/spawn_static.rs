@@ -382,7 +382,10 @@ pub(crate) fn lower_pickup_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    spawn_pickup_into(&mut ctx.scope.reborrow(), &authored);
+    // Q152: a pickup collected before its room retired is built collected
+    // for the time its regrowth still needs.
+    let remaining = ctx.facts.scheduled_remaining(ctx.room_id, &authored.id);
+    spawn_pickup_into(&mut ctx.scope.reborrow(), &authored, remaining);
 }
 
 /// Spawn ONE live pickup.
@@ -410,16 +413,18 @@ pub fn spawn_pickup(
     // so insert through the session-only helper — `insert_room_in_session` would
     // prepend a second `RoomScopedEntity` and trip Bevy's duplicate-component panic.
     let root = commands.spawn_empty().id();
-    spawn_pickup_into(&mut RootScope::new(commands, session_scope, root), authored);
+    spawn_pickup_into(&mut RootScope::new(commands, session_scope, root), authored, None);
     root
 }
 
 /// Populate one pickup onto a root the construction executor allocated.
+/// `collected_for`: built collected, regrowing after that many seconds (Q152).
 pub(crate) fn spawn_pickup_into(
     scope: &mut RootScope,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::PickupSpec,
     >,
+    collected_for: Option<f32>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     scope.insert_session_scoped((
@@ -435,6 +440,12 @@ pub(crate) fn spawn_pickup_into(
     // (with no room spec behind it) can still be drawn — see `PickupArt`.
     if let Some(sprite) = authored.payload.sprite.clone() {
         scope.insert(crate::features::ecs::pickups::PickupArt(sprite));
+    }
+    if let Some(seconds) = collected_for {
+        scope.insert((
+            ambition_combat::components::Collected,
+            ambition_combat::components::RespawnTimer(seconds),
+        ));
     }
 }
 
@@ -542,7 +553,7 @@ pub(crate) fn lower_breakable_placement(
     };
     // OW5: a breakable left broken when its room retired is built broken for
     // the time its respawn still needs.
-    let remaining = ctx.facts.breakable_remaining(ctx.room_id, &authored.id);
+    let remaining = ctx.facts.scheduled_remaining(ctx.room_id, &authored.id);
     spawn_breakable_into(&mut ctx.scope.reborrow(), &authored, remaining);
 }
 

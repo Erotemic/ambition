@@ -120,7 +120,7 @@ The HTML comment above is the machine-readable copy.
 `scripts/check_session_owner_census_matches_source.py` compares it with source.
 The census page lists the member names. The bundle also holds two optional
 members that the guard does not count: `BossDefeatsSinceCheckpoint` (checkpoint /
-restore state) and `BreakableRespawnSchedule` (a session-clock schedule).
+restore state) and `WorldTimeSchedule` (a session-clock schedule).
 Include them in the migration.
 
 ### Measured facts that shape the campaign

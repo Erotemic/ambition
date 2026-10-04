@@ -815,6 +815,50 @@ fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
     }
 }
 
+/// A body facing left on a sheet drawn from both sides (`SheetRow::mirror_of`)
+/// draws its MIRROR row, unflipped, with its feet at the mirrored anchor. The
+/// impostor puts that frame where the baked road does.
+///
+/// ⛔ The quad mirrored the feet anchor only for `flip_x`. The player robot's
+/// mirror rows drew 3 to 5 px off its baked frame facing left, in all 944 of
+/// its left-facing frames (in-engine parity, 2026-10-04); facing right, and
+/// pinned to a mirror row, it matched.
+#[test]
+fn a_mirror_row_drawn_facing_left_lands_where_the_baked_frame_would() {
+    let flipbook = RiggedSpriteAsset::baked("player_robot_v3").expect("the robot publishes a flipbook");
+    let frame = flipbook.frame_size.as_vec2();
+    let (mut app, root) = app_with(true, sheet_with("player_robot_v3", Some(flipbook.clone())));
+    app.update();
+    {
+        // As the game faces a body (`apply_character_frame`).
+        let mut animator = app.world_mut().get_mut::<CharacterAnimator>(root).unwrap();
+        animator.request(ambition_sprite_sheet::character::CharacterAnim::Idle);
+        assert!(!animator.face(true), "premise: the robot answers a left facing with its mirror row");
+    }
+    app.update();
+    let owner = owner(&app, root);
+    assert!(draws_impostor(&app, root, owner));
+    let animator = app.world().get::<CharacterAnimator>(root).unwrap();
+    assert!(animator.draws_mirror_row(), "premise: the frame drawn is the mirror row");
+    let sprite = app.world().get::<Sprite>(root).unwrap();
+    assert!(!sprite.flip_x, "premise: a mirror row is drawn unflipped");
+    let size = sprite.custom_size.unwrap();
+    let anchor = app.world().get::<Anchor>(root).unwrap().0;
+    // The baked road's full frame for a mirror row: the render size, at the
+    // feet anchor mirrored (`CharacterAnimator::current_render`).
+    let basis = animator.render_basis.unwrap();
+    let baked_anchor = Vec2::new(-basis.feet_anchor.x, basis.feet_anchor.y);
+    let local = |size: Vec2, anchor: Vec2, uv: Vec2| (Vec2::new(uv.x - 0.5, 0.5 - uv.y) - anchor) * size;
+    for pixel in [flipbook.feet_pixel, Vec2::ZERO, frame, Vec2::new(frame.x, 0.0)] {
+        let baked = local(basis.render_size, baked_anchor, pixel / frame);
+        let cell = local(size, anchor, (pixel + Vec2::splat(IMPOSTOR_MARGIN)) / IMPOSTOR_CELL);
+        assert!(
+            close(cell, baked),
+            "facing left: frame pixel {pixel} draws at {cell} from the impostor, {baked} baked"
+        );
+    }
+}
+
 /// The player robot's flipbook, published (`player_robot_v3.py`): every row
 /// from parts, placed between pixels.
 fn robot() -> (RiggedSpriteAsset, App, Entity) {

@@ -2693,3 +2693,126 @@ fn two_local_histories_compute_the_same_ggrs_component_checksums() {
     );
 }
 
+
+/// A brick broken in one Mary-O session is whole in the next, and a monitor
+/// spent in one Sanic session is whole in the next.
+///
+/// The state of an attempt is keyed by the live room (`PerLiveRoom`), and the
+/// live-room counter is the session's, so the first room of each session is
+/// `LiveRoomInstance::ACTIVATION` again. The re-arm keeps state whose key is
+/// live, so before the activation reset the old session's first room gave its
+/// state to the new session's first room.
+///
+/// It reads the collision overlay of the live room, which is what a body
+/// collides with and what is drawn. The break is written into the ledger at a
+/// real breakable block of the live room, because walking a body into a brick
+/// is not what this asks.
+#[test]
+fn a_block_broken_in_one_session_is_whole_in_the_next() {
+    use ambition_platformer2d::actors::session::reset::AttemptScoped;
+    use ambition_platformer2d::engine_core::RoomGeometry;
+    use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d::session::sole_live_room_component;
+    use ambition_platformer2d::world::FeatureEcsWorldOverlay;
+
+    fn the_live_room(app: &mut App) -> LiveRoomInstance {
+        let mut rooms = app
+            .world_mut()
+            .query_filtered::<&LiveRoomInstance, With<RoomInstanceRoot>>();
+        let rooms: Vec<_> = rooms.iter(app.world()).copied().collect();
+        assert_eq!(rooms.len(), 1, "one live room: {rooms:?}");
+        rooms[0]
+    }
+
+    fn removed(app: &App) -> Vec<String> {
+        sole_live_room_component::<FeatureEcsWorldOverlay>(app.world())
+            .expect("the live room has a collision overlay")
+            .removed_block_names
+            .clone()
+    }
+
+    fn one_block(app: &App, breaks: impl Fn(&str) -> bool) -> String {
+        sole_live_room_component::<RoomGeometry>(app.world())
+            .expect("the live room has geometry")
+            .0
+            .blocks
+            .iter()
+            .map(|block| block.name.clone())
+            .find(|name| breaks(name))
+            .expect("the live room authors a breakable block")
+    }
+
+    fn launch(app: &mut App, label: &str) {
+        launch_labeled(app, label);
+        for _ in 0..12 {
+            app.update();
+        }
+    }
+
+    fn quit(app: &mut App) {
+        app.world_mut().write_message(ShellCommand::QuitToHome);
+        settle(app);
+        assert_home(app, "between the two sessions");
+    }
+
+    let mut app =
+        shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+    settle(&mut app);
+
+    // ── Mary-O: a brick ──────────────────────────────────────────────────
+    launch(&mut app, "Mary-O");
+    let brick = one_block(&app, |name| {
+        ambition_demo_mary_o::ldtk_vocabulary::block_of(name).is_some_and(|block| {
+            block.look == ambition_demo_mary_o::ldtk_vocabulary::MaryOBlockLook::Brick
+                && block.contents.breaks_when_empty()
+        })
+    });
+    let room = the_live_room(&mut app);
+    app.world_mut()
+        .resource_mut::<ambition_demo_mary_o::bricks::BrokenBricks>()
+        .attempts_mut()
+        .in_room_mut(room)
+        .insert(brick.clone());
+    settle(&mut app);
+    assert!(
+        removed(&app).contains(&brick),
+        "premise: the broken brick `{brick}` is out of the first session's world"
+    );
+    quit(&mut app);
+    launch(&mut app, "Mary-O");
+    assert_eq!(
+        the_live_room(&mut app),
+        room,
+        "premise: the second session's first room has the first session's key"
+    );
+    assert!(
+        !removed(&app).contains(&brick),
+        "the brick `{brick}` that the first Mary-O session broke is broken in the \
+         second: removed {:?}",
+        removed(&app)
+    );
+    quit(&mut app);
+
+    // ── Sanic: a monitor ─────────────────────────────────────────────────
+    launch(&mut app, "Sanic");
+    let monitor = one_block(&app, |name| {
+        name.starts_with(ambition_demo_sanic::monitors::MONITOR_PREFIX)
+    });
+    let room = the_live_room(&mut app);
+    app.world_mut()
+        .resource_mut::<ambition_demo_sanic::monitors::SpentMonitors>()
+        .spend(room, &monitor);
+    settle(&mut app);
+    assert!(
+        removed(&app).contains(&monitor),
+        "premise: the spent monitor `{monitor}` is out of the first session's world"
+    );
+    quit(&mut app);
+    launch(&mut app, "Sanic");
+    assert!(
+        !removed(&app).contains(&monitor),
+        "the monitor `{monitor}` that the first Sanic session spent is spent in the \
+         second: removed {:?}",
+        removed(&app)
+    );
+}

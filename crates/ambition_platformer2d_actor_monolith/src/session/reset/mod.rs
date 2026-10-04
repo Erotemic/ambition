@@ -155,6 +155,28 @@ pub fn rearm_attempt_scoped<T: AttemptScoped>(
     state.attempts_mut().retain_live(&live);
 }
 
+/// Forget the [`AttemptScoped`] state of every room when a session activates.
+///
+/// [`rearm_attempt_scoped`] cannot do this. The live-room counter is the
+/// session's (`RoomSet::next_live_room`), so the first room of each session is
+/// [`LiveRoomInstance::ACTIVATION`](ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION)
+/// again. The state that the last session kept for its first room has a live
+/// key, so the re-arm keeps it, and it becomes the state of the next session's
+/// first room: a brick broken in one Mary-O session was broken in the next.
+///
+/// The activation is before the session world is live, so the timeline that a
+/// rewind can cross does not exist yet (see
+/// `reset_session_scoped_resources_on_activation`).
+pub fn forget_attempts_on_activation<T: AttemptScoped>(
+    mut activated: MessageReader<SessionScopeActivated>,
+    mut state: ResMut<T>,
+) {
+    if activated.read().count() == 0 {
+        return;
+    }
+    *state.attempts_mut() = PerLiveRoom::default();
+}
+
 /// Put an [`AttemptScoped`] resource in the world AND on the retraction slot, in
 /// one statement.
 ///
@@ -170,6 +192,11 @@ pub fn rearm_attempt_scoped<T: AttemptScoped>(
 /// gates its systems on its mode, a rules-only harness runs unconditionally.
 /// Pass `|| true` for the ungated case. What must NOT differ, and is therefore
 /// not a parameter, is the SET.
+///
+/// It also forgets the state at each session activation
+/// ([`forget_attempts_on_activation`]). That has no condition: a session
+/// activates before its mode is set, and the state of the last session must go
+/// whichever experience comes next.
 pub fn install_attempt_scoped<T: AttemptScoped + FromWorld, M>(
     app: &mut App,
     schedule: impl bevy::ecs::schedule::ScheduleLabel,
@@ -181,6 +208,13 @@ pub fn install_attempt_scoped<T: AttemptScoped + FromWorld, M>(
         rearm_attempt_scoped::<T>
             .in_set(ContentRoomReplayResetSet)
             .run_if(when),
+    );
+    // A rules-only app has no session lifecycle. Its reader then reads an
+    // empty channel.
+    app.add_message::<SessionScopeActivated>();
+    app.add_systems(
+        Update,
+        forget_attempts_on_activation::<T>.in_set(SessionScopeSet::Activate),
     );
 }
 
@@ -241,7 +275,9 @@ use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_encounter::EncounterMusicRequest;
 use ambition_persistence::quest::QuestRegistry;
 use ambition_persistence::save::AmbitionGameSave;
-use ambition_platformer2d_shared_tangle::lifecycle::{FreshRunRestore, RoomScopedEntity};
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    FreshRunRestore, RoomScopedEntity, SessionScopeActivated, SessionScopeSet,
+};
 
 /// A host asks for a New Game. (host intent)
 ///

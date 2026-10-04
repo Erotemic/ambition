@@ -1312,8 +1312,9 @@ catalog file. No plural bark collection exists, because no content asks for one.
 
 ### SESSION-EDGE-STATE — a session starts from nothing the last one left
 
-**State:** five resources and the declared message channels are reset at the
-session edge (2026-10-04). Two host constants are recorded, not reset.
+**State:** five resources, the declared message channels and the per-attempt
+ledgers are reset at the session edge (2026-10-04). Two host constants are
+recorded, not reset.
 
 **Found by measurement (2026-10-04).** A session is retired inside a schedule
 run, and a route replacement (`ShellCommand::ReplaceWith`: a world reload, a
@@ -1388,10 +1389,29 @@ a session makes it session state, and it must then join the reset.
 (`GatedLockWallCache`, tick 0) and a count of launcher entities (`Name`, tick 0,
 replace flow only). The walk did not change `OwnedItems`, and could not read
 `FactionRelations`, `CutRopeHeavyObjectCycle` (private fields) or
-`PortalFrameHistory` (a presence probe). A Mary-O or Sanic session
-(`BrokenBricks`, `SpentMonitors`, `SpentPowerBlocks`) was not walked. Message
+`PortalFrameHistory` (a presence probe). Message
 channels that no domain declares to the rollback census are not counted. A long
 visit to the title carries no message: the bus was empty after 80 frames.
+
+**The per-attempt ledgers crossed the edge (2026-10-04).** Mary-O's
+`BrokenBricks` and `SpentPowerBlocks` and Sanic's `SpentMonitors` are keyed by
+the live room (`PerLiveRoom`). The live-room counter is the session's
+(`RoomSet::next_live_room`), so the first room of each session is
+`LiveRoomInstance(0)` again. The re-arm keeps the state of a live key, so a
+brick broken in one Mary-O session was broken in the next, through the
+launcher and back, and a Sanic monitor too. `install_attempt_scoped` now also
+registers `forget_attempts_on_activation` in `SessionScopeSet::Activate`, with
+no condition, so the one statement that makes a ledger per-attempt also makes
+it per-session. Witnesses:
+`shell_host_lifecycle::a_block_broken_in_one_session_is_whole_in_the_next`
+(the shipped rollback host; it reads the live room's collision overlay; the
+premise asserts that the second session's first room has the first one's key),
+`bricks::tests::a_session_activation_forgets_the_broken_bricks` (control: a
+frame with no activation keeps the brick), and the two composition tests of
+`attempt_scoped_retraction` (each ledger, both plugin roads). Poison (the reset
+writes nothing): the Mary-O arm, then the Sanic arm with the Mary-O assert made
+non-fatal, and the unit test are red. Poison (the system out of the set): both
+composition tests are red, at their `SetNotFound` expect.
 
 **The frame on which the timeline starts is a decision (2026-10-04).**
 `LocalSessionSet::Maintain` had no edge to `GameplaySessionSet::Providers`, the

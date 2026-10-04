@@ -71,6 +71,45 @@ fn retraction_slot_members(app: &mut App, label: impl ScheduleLabel) -> Vec<Stri
         })
 }
 
+/// The names of the systems `SessionScopeSet::Activate` holds in `Update`.
+fn activation_members(app: &mut App) -> Vec<String> {
+    let slot = ambition_platformer2d::platformer::lifecycle::SessionScopeSet::Activate.intern();
+    app.world_mut()
+        .resource_scope(|world, mut schedules: Mut<Schedules>| {
+            let schedule = schedules.get_mut(Update).expect("the schedule exists");
+            let _ = schedule.initialize(world);
+            let by_key: std::collections::HashMap<_, _> = schedule
+                .systems()
+                .expect("initialized just above")
+                .map(|(key, system)| (key, format!("{}", system.name())))
+                .collect();
+            schedule
+                .graph()
+                .systems_in_set(slot)
+                .expect("the installer puts a system in SessionScopeSet::Activate")
+                .iter()
+                .map(|key| by_key[key].clone())
+                .collect()
+        })
+}
+
+/// Assert one type's state is forgotten when a session activates.
+///
+/// The re-arm keeps the state of each live room, and the first room of each
+/// session has the same key, so without this the last session's first room
+/// gives its state to the next one's
+/// (`shell_host_lifecycle::a_block_broken_in_one_session_is_whole_in_the_next`).
+fn assert_forgets_on_activation(members: &[String], type_name: &str, demo: &str) {
+    let hit = members
+        .iter()
+        .any(|m| m.contains("forget_attempts_on_activation") && m.contains(type_name));
+    assert!(
+        hit,
+        "{demo} holds `{type_name}` as per-attempt state but nothing forgets it when \
+         a session activates. `SessionScopeSet::Activate` holds: {members:#?}"
+    );
+}
+
 /// Assert one type's re-arm is on the slot, by NAME, and say what is there when it
 /// is not — a diagnostic that names the neighbours is the difference between "this
 /// demo lost its retraction" and "this demo has none at all".
@@ -113,6 +152,9 @@ fn mary_o_puts_both_of_its_block_ledgers_on_the_retraction_slot() {
         let members = retraction_slot_members(&mut app, Update);
         assert_rearms(&members, "BrokenBricks", "Mary-O");
         assert_rearms(&members, "SpentPowerBlocks", "Mary-O");
+        let members = activation_members(&mut app);
+        assert_forgets_on_activation(&members, "BrokenBricks", "Mary-O");
+        assert_forgets_on_activation(&members, "SpentPowerBlocks", "Mary-O");
 
         // ⚠ ANTI-VACUITY: the installer owns the resource too, so a re-arm on the slot
         // with no resource behind it would be a re-arm that can never run.
@@ -142,6 +184,7 @@ fn sanic_puts_its_monitor_ledger_on_the_retraction_slot() {
 
         let members = retraction_slot_members(&mut app, Update);
         assert_rearms(&members, "SpentMonitors", "Sanic");
+        assert_forgets_on_activation(&activation_members(&mut app), "SpentMonitors", "Sanic");
         assert!(
             app.world()
                 .get_resource::<ambition_demo_sanic::monitors::SpentMonitors>()

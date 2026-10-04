@@ -112,8 +112,9 @@ simulation profile. UI can consume participant/view facts without owning control
 or requiring HUD state in simulation construction. Two participants, two views
 and two live rooms are distinct configurations. Split views by live room exist,
 and the music is chosen by authored priority (Q150). The banner follows the
-primary seat. The built-in vitals HUD is per view (`ViewHudFacts`); a merged
-screen and the declared HUD readouts are still one HUD per session (see
+primary seat. The built-in vitals HUD is per participant, also on a shared
+view (`ViewHudFacts`, `SharedViewHudFacts`); the declared HUD readouts are
+still one per session, and two stacked HUDs do not yet say whose each is (see
 [open-world-runtime-and-residency.md](open-world-runtime-and-residency.md)).
 
 Structure semantic labels, diagnostics and action descriptions so machine-facing

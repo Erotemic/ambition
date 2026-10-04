@@ -87,28 +87,86 @@ pub fn rebuild_player_hud_facts(
 #[derive(Component, Default, Clone, Copy, Debug, PartialEq)]
 pub struct ViewHudFacts(pub PlayerHudFacts);
 
-/// Fill each view's [`ViewHudFacts`] from the subject that view resolved.
-/// Runs after `resolve_view_subjects`, in the camera observation chain.
-#[allow(clippy::type_complexity)]
+/// THE OTHER PARTICIPANTS ON ONE VIEW'S SCREEN, by seat (Q150: a HUD per
+/// participant, also on a merged screen).
+///
+/// The first view that names nothing frames the controlled body. Each other
+/// seat whose driven body is in that body's live room, and that no other view
+/// follows, is on the same screen, and has its own HUD in that view. This
+/// holds their meters, in seat order. It is empty on every other view: a view
+/// that follows a body or a seat shows that body only.
+///
+/// Every seat is a local seat here. An online peer that must show only its
+/// own seats needs the client-local view layout (multiplayer A4).
+#[derive(Component, Default, Clone, Debug, PartialEq)]
+pub struct SharedViewHudFacts(pub Vec<(ambition_characters::control::PlayerSlot, PlayerHudFacts)>);
+
+/// Fill each view's [`ViewHudFacts`] from the subject that view resolved,
+/// and the [`SharedViewHudFacts`] of the merged screen. Runs after
+/// `resolve_view_subjects`, in the camera observation chain.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn rebuild_view_hud_facts(
     mut views: Query<
         (
+            Entity,
+            &crate::local_view::LocalViewId,
             &mut ViewHudFacts,
+            Option<&mut SharedViewHudFacts>,
             &crate::local_view::ResolvedViewSubject,
-            Has<crate::local_view::ViewSubject>,
-            Has<crate::local_view::ViewParticipant>,
+            Option<&crate::local_view::ViewSubject>,
+            Option<&crate::local_view::ViewParticipant>,
         ),
         With<crate::local_view::LocalView>,
     >,
     controlled: Option<Res<ControlledSubject>>,
     bodies: HudBodies,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let controlled = controlled
         .and_then(|controlled| controlled.0)
         .or_else(|| primary.single().ok());
-    for (mut facts, resolved, names_body, names_seat) in &mut views {
-        let subject = if names_body || names_seat {
+    // The seats and the bodies a view follows by name have their own view.
+    let mut followed_seats = Vec::new();
+    let mut followed_bodies = Vec::new();
+    let mut merged = None;
+    for (view, id, _, _, _, subject, participant) in views.iter() {
+        match (subject, participant) {
+            (Some(subject), _) => followed_bodies.push(subject.0),
+            (None, Some(participant)) => followed_seats.push(participant.0),
+            (None, None) => {
+                if merged.is_none_or(|(first, _)| (*id, view) < first) {
+                    merged = Some(((*id, view), view));
+                }
+            }
+        }
+    }
+    let merged = merged.map(|(_, view)| view);
+    let shared: Vec<(ambition_characters::control::PlayerSlot, PlayerHudFacts)> = match controlled {
+        Some(subject) if merged.is_some() => {
+            let room = live.of(subject);
+            let mut slots: Vec<_> = drivers.iter().map(|(_, driver)| driver.0).collect();
+            slots.sort_unstable();
+            slots.dedup();
+            slots
+                .into_iter()
+                .filter(|slot| !followed_seats.contains(slot))
+                .filter_map(|slot| {
+                    let body = ambition_platformer2d_actor_monolith::control::body_driving_seat(
+                        &drivers, slot,
+                    )?;
+                    let shares = body != subject
+                        && !followed_bodies.contains(&body)
+                        && live.of(body) == room;
+                    shares.then(|| meters_of(body, &bodies).map(|meters| (slot, meters)))?
+                })
+                .collect()
+        }
+        _ => Vec::new(),
+    };
+    for (view, _, mut facts, shared_facts, resolved, subject, participant) in &mut views {
+        let subject = if subject.is_some() || participant.is_some() {
             resolved.0
         } else {
             controlled
@@ -120,6 +178,10 @@ pub fn rebuild_view_hud_facts(
                 ..facts.0
             });
         facts.set_if_neq(ViewHudFacts(next));
+        if let Some(mut shared_facts) = shared_facts {
+            let next = if Some(view) == merged { shared.clone() } else { Vec::new() };
+            shared_facts.set_if_neq(SharedViewHudFacts(next));
+        }
     }
 }
 
@@ -1089,7 +1151,7 @@ mod tests {
     #[test]
     fn each_view_shows_the_meters_of_the_seat_it_follows() {
         use crate::local_view::{
-            resolve_view_subjects, LocalView, ResolvedViewSubject, ViewParticipant,
+            resolve_view_subjects, LocalView, LocalViewId, ResolvedViewSubject, ViewParticipant,
         };
         use ambition_characters::actor::Health;
         use ambition_characters::control::{DrivingParticipant, PlayerSlot};
@@ -1106,8 +1168,13 @@ mod tests {
         body(app.world_mut(), 1, 0, 0);
         app.world_mut().insert_resource(ControlledSubject(Some(alice)));
         let view = |world: &mut World, seat: Option<u8>| {
-            let mut view =
-                world.spawn((LocalView, ResolvedViewSubject::default(), ViewHudFacts::default()));
+            let id = LocalViewId(seat.map_or(9, |seat| seat));
+            let mut view = world.spawn((
+                LocalView,
+                id,
+                ResolvedViewSubject::default(),
+                ViewHudFacts::default(),
+            ));
             if let Some(seat) = seat {
                 view.insert(ViewParticipant(PlayerSlot(seat)));
             }
@@ -1132,6 +1199,77 @@ mod tests {
             vec![(true, 3, 7), (true, 5, 0), (true, 3, 7), (false, 0, 0)],
             "(present, health, money) of the views that follow seat 0, seat 1, \
              nothing, and seat 2 (no body); the controlled body is seat 0's"
+        );
+    }
+
+    /// Q150 on a merged screen: Alice and Bob in one live room share the one
+    /// view, and Bob's meters are on it beside Alice's. The controls: Cid,
+    /// whose seat has a view of its own, is on his view only; and Dan, in
+    /// another live room with no view yet, is not on Alice's screen.
+    #[test]
+    fn a_shared_view_shows_each_seat_on_it() {
+        use crate::local_view::{
+            resolve_view_subjects, LocalView, LocalViewId, ResolvedViewSubject, ViewParticipant,
+        };
+        use ambition_characters::actor::Health;
+        use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+        let mut app = App::new();
+        app.add_systems(Update, (resolve_view_subjects, rebuild_view_hud_facts).chain());
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let here = LiveRoomInstance::ACTIVATION;
+        let body = |world: &mut World, slot: u8, balance: i32, room: LiveRoomInstance| {
+            world
+                .spawn((
+                    BodyHealth::new(Health::new(5)),
+                    BodyWallet { balance },
+                    DrivingParticipant(PlayerSlot(slot)),
+                    InRoomInstance(room),
+                ))
+                .id()
+        };
+        let alice = body(app.world_mut(), 0, 7, here);
+        body(app.world_mut(), 1, 11, here);
+        body(app.world_mut(), 2, 13, here);
+        body(app.world_mut(), 3, 17, here.next());
+        app.world_mut().insert_resource(ControlledSubject(Some(alice)));
+        let shared = app
+            .world_mut()
+            .spawn((
+                LocalView,
+                LocalViewId::FIRST,
+                ResolvedViewSubject::default(),
+                ViewHudFacts::default(),
+                SharedViewHudFacts::default(),
+            ))
+            .id();
+        let cids = app
+            .world_mut()
+            .spawn((
+                LocalView,
+                LocalViewId(1),
+                ViewParticipant(PlayerSlot(2)),
+                ResolvedViewSubject::default(),
+                ViewHudFacts::default(),
+                SharedViewHudFacts::default(),
+            ))
+            .id();
+        app.update();
+        let shown = |view: Entity| {
+            let world = app.world();
+            let own = world.get::<ViewHudFacts>(view).expect("HUD facts").0.balance;
+            let others: Vec<(u8, i32)> = world
+                .get::<SharedViewHudFacts>(view)
+                .expect("shared HUD facts")
+                .0
+                .iter()
+                .map(|(slot, facts)| (slot.0, facts.balance))
+                .collect();
+            (own, others)
+        };
+        assert_eq!(
+            (shown(shared), shown(cids)),
+            ((7, vec![(1, 11)]), (13, vec![])),
+            "((the shared view's own purse, the other seats on it), (Cid's view's)) by (seat, purse)"
         );
     }
 

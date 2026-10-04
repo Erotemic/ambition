@@ -130,9 +130,12 @@ merge onto one screen, so no "primary-player HUD" arbitration exists. Local
 music is chosen by authored priority across the participants, the primary
 participant breaking a tie (built). The built-in vitals HUD is per view: each
 `LocalView` carries `ViewHudFacts`, the meters of the body it follows, and has
-its own HUD in its own column. Open: one view that several participants share
-(a merged screen) shows one HUD, and the declared readouts (`HudReadouts`) are
-one per session.
+its own HUD in its own column. On a merged screen, the first view that names
+nothing carries `SharedViewHudFacts`: each other seat whose body is in the
+controlled body's live room and that no view follows, with its own HUD
+stacked in that view. Open: the declared readouts (`HudReadouts`) are one per
+session; stacked HUDs carry no participant name; and every seat counts as
+local, so an online peer would show a remote seat's HUD (A4).
 
 Resolve this with
 [`participant-action-system.md`](participant-action-system.md) from product/UI

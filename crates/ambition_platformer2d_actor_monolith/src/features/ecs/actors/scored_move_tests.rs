@@ -1162,10 +1162,9 @@ fn a_smash_brain_swings_where_the_hitbox_of_its_move_reaches() {
     };
     let short = body_with(34.0);
     let long = body_with(74.0);
-    let brain = smash_brain();
 
-    let short_reach = melee_reach_of(Some(&short), true, false, Some(&brain));
-    let long_reach = melee_reach_of(Some(&long), true, false, Some(&brain));
+    let short_reach = melee_reach_of(Some(&short), true, false);
+    let long_reach = melee_reach_of(Some(&long), true, false);
     assert_eq!(short_reach, Some(40.0), "the leading edge of the hitbox");
     assert_eq!(long_reach, Some(80.0), "the hitbox moved, so the reach moved");
 
@@ -1205,62 +1204,24 @@ fn a_smash_brain_swings_where_the_hitbox_of_its_move_reaches() {
 
 /// The reach is that of the move the press starts in the body's real posture:
 /// a running body reads its dash attack, as `trigger_moveset_moves` starts it.
-/// A brain that does not close to a hit band is not told one.
+/// It is a fact of the body, so no brain is asked (Q35): a brain that does not
+/// close to a hit band ignores it.
 #[test]
 fn the_reach_is_that_of_the_move_the_press_starts() {
     let moveset = ActorMoveset(jab_uptilt_and_dash());
-    let brain = smash_brain();
     assert_eq!(
-        melee_reach_of(Some(&moveset), true, false, Some(&brain)),
+        melee_reach_of(Some(&moveset), true, false),
         Some(16.0),
         "a standing body presses the jab"
     );
     assert_eq!(
-        melee_reach_of(Some(&moveset), true, true, Some(&brain)),
+        melee_reach_of(Some(&moveset), true, true),
         Some(46.0),
         "a running body presses the dash attack"
     );
     assert_eq!(
-        melee_reach_of(Some(&moveset), true, false, Some(&fighter_brain())),
-        None,
-        "a fighter brain reads the kit, not a hit band"
-    );
-    assert_eq!(
-        melee_reach_of(None, true, false, Some(&brain)),
+        melee_reach_of(None, true, false),
         None,
         "a body with no moveset has no attack move"
-    );
-
-    use ambition_characters::brain::state_machine::{
-        ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg, MeleeBruteState,
-    };
-    let brute = Brain::StateMachine(StateMachineCfg::MeleeBrute {
-        cfg: MeleeBruteCfg::BRUTE_DEFAULT,
-        state: MeleeBruteState::default(),
-    });
-    assert_eq!(
-        melee_reach_of(Some(&moveset), true, false, Some(&brute)),
-        Some(16.0),
-        "a melee brute closes to its reach, so it is told it"
-    );
-    let shark = Brain::StateMachine(StateMachineCfg::ChargeCrash {
-        cfg: ChargeCrashCfg {
-            aggressiveness: 1.0,
-            aggro_radius: 400.0,
-            cruise_speed: 100.0,
-            charge_speed: 360.0,
-            bite_range: 200.0,
-            charge_duration_s: 0.4,
-            charge_cooldown_s: 1.0,
-            standoff_px: 140.0,
-            vertical_wobble_px: 20.0,
-            orbit_drift_rad_s: 0.5,
-        },
-        state: ChargeCrashState::default(),
-    });
-    assert_eq!(
-        melee_reach_of(Some(&moveset), true, false, Some(&shark)),
-        None,
-        "the shark's charge carries its bite, so it reads no reach"
     );
 }

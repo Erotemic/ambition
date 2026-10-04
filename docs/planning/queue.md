@@ -1144,14 +1144,27 @@ the lowest room. Witnesses:
 `the_heard_room_is_the_highest_priority_then_the_primary_then_the_lowest`.
 No shipped encounter authors `SetMusic`.
 
-**What is left:** the priority is fixed by the tier, not authored per
-candidate; make it an authored property of the candidate (scope, track,
-priority) when content needs a value between the tiers. Remove or give a
-customer to `EncounterEffect::SetMusic`.
+**What is left:**
+
+- Each room has one priority slot, and the last writer wins it
+  (`EncounterMusicRequest::claim_priority`, `ambition_encounter/src/music.rs`).
+  Its owner is a `&'static str` that names a kind of source, not an instance.
+  When two sources claim one room and the later one releases, the earlier
+  claim is gone, unless its source claims again on each tick (review
+  2026-10-04). Target: each source owns its candidate (source instance,
+  scope, track, priority). A release removes only that source's candidate,
+  and the choice is made again from the candidates that remain. The
+  cross-room arbitration above is done; this is the arbitration in one room.
+- The priority is fixed by the tier, not authored per candidate. Make it an
+  authored property of the candidate when content needs a value between the
+  tiers.
+- Remove `EncounterEffect::SetMusic`, or give it a customer.
 
 **Acceptance:** Bob's boss candidate in his room outranks Alice's ambient room
 music; two candidates of equal priority resolve to the primary participant's;
-the result is the same on every peer and after a rewind.
+in one room, two sources claim and the later one releases, and the earlier
+one's track plays with no new claim; the result is the same on every peer and
+after a rewind.
 
 ### MOUNT-RIDER-CUSTOMER — a shipped rider controls a shipped mount
 
@@ -1257,8 +1270,13 @@ where its own move reaches.
 **Slice 2, DONE 2026-10-03: MeleeBrute, the hostile Aerial bird, the aggressive
 Patrol.** Each read `cfg.attack_range`, an authored distance. Each now reads
 `BrainSnapshot::melee_reach`, and its cfg distance is only for a body with no
-attack move. `StateMachineCfg::closes_to_its_melee_reach` is the exhaustive
-list of the brains that are told the reach. The shipped MeleeBrute users are
+attack move. The snapshot builder derives the reach for every body with an
+attack move (review 2026-10-04: the reach is a fact of the moveset, so no
+brain gate decides if it is derived). Each brain decides if it reads it: a
+peaceful patroller does not, because its `attack_range` is where it stops to
+talk (`a_peaceful_patroller_keeps_its_own_distance_when_told_a_reach`; poison:
+it reads the reach, and it stops turning to the foe at 40 px). The old gate,
+`StateMachineCfg::closes_to_its_melee_reach`, is deleted. <!-- cite-ok: a deleted name --> The shipped MeleeBrute users are
 the provoked pirate heavies (reach 48.4, authored 53 to 59 with the 56 px
 floor). The parrot read 60 and fsm_noodling 50; both pecks reach 52.8.
 Witnesses: `melee_reach_tests` in `brain/state_machine/tests.rs`. Each read
@@ -1669,6 +1687,28 @@ are placed from boxes and constants.
 
 **Acceptance:** one landmark query, answered by the rig or the package; the pet
 hand meets the petted body's authored contact point.
+
+### RIG-IMPOSTOR-CONTAINMENT — a part-drawn body is drawn whole or refused
+
+**Owner:** `ambition_render::rendering::actors::rigged` (`impostor_cell_class`)
+and `scripts/measure_rigged_parity.py`. Plan:
+[`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md).
+
+**Current failure (review 2026-10-04):** the cell class is chosen from the
+flipbook's `frame_size` plus a margin. Parts can draw outside the frame: a
+banner past the cell of the oni leader that faces left. Such parts are cut
+at the cell edge. The parity script clips its oracle to the same cell, so
+the gate cannot see the cut. `every_published_flipbook_fits_an_impostor_cell`
+checks the frame size, not where the parts draw.
+
+**Next action:** compute a conservative draw envelope per flipbook (every
+draw of every frame and mirror row, with tween in-betweens) at publication.
+Choose the cell from the envelope, or refuse admission to the part road when
+no class holds it. Then remove the oracle clip, so that a cut part reads as
+a parity failure.
+
+**Acceptance:** the oni leader's banner is drawn whole while it faces left; with
+the envelope poisoned back to `frame_size`, the unclipped parity run fails.
 
 ### CHARGE-SPEC-NAME — `SmashChargeSpec` is a generic mechanism
 

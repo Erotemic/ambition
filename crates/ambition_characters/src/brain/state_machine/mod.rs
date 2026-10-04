@@ -112,37 +112,6 @@ impl StateMachineCfg {
 }
 
 impl StateMachineCfg {
-    /// Does this brain press its attack when the foe is in the reach of its
-    /// attack move?
-    ///
-    /// Such a brain reads [`BrainSnapshot::melee_reach`], and the snapshot
-    /// builder fills that field only for it. The moveset owns reach (Q35), so
-    /// no brain of this kind uses an authored distance when its body has an
-    /// attack move.
-    ///
-    /// Exhaustive: a new variant must say here if it reads the reach.
-    pub fn closes_to_its_melee_reach(&self) -> bool {
-        match self {
-            Self::Smash { .. } | Self::MeleeBrute { .. } => true,
-            // A peaceful patroller and a peaceful bird press no attack. Their
-            // `attack_range` is the distance at which they stop to talk.
-            Self::Patrol { cfg, .. } => cfg.aggressiveness > 0.0,
-            Self::Aerial { cfg, .. } => cfg.aggressiveness > 0.0,
-            // The shark presses its bite and then charges, and the charge
-            // carries the hitbox to the foe. Its `bite_range` is thus the
-            // distance at which that sequence starts, not the reach of the bite.
-            Self::ChargeCrash { .. } => false,
-            // Reads the attack kit, which has the reach of each move.
-            Self::Fighter { .. } => false,
-            // Fires, or does not attack.
-            Self::StandStill
-            | Self::Wanderer { .. }
-            | Self::Skirmisher { .. }
-            | Self::Sniper { .. }
-            | Self::BossPattern { .. } => false,
-        }
-    }
-
     /// What perception this brain needs supplied (ADR 0034, increment 1).
     ///
     /// ⛔⛔ EXHAUSTIVE, AND THE ARMS ARE EVIDENCE, NOT TASTE. Each classification
@@ -351,11 +320,17 @@ fn tick_patrol(
     out: &mut crate::actor::control::ActorControlFrame,
 ) {
     // An aggressive patroller presses its attack in the reach of its attack
-    // move. The cfg distance is for a body with no attack move, and for a
-    // peaceful patroller, which is told no reach.
+    // move (Q35). The cfg distance is for a body with no attack move, and for
+    // a peaceful patroller: it presses no attack, and its `attack_range` is the
+    // distance at which it stops to talk.
+    let reach = if cfg.aggressiveness > 0.0 {
+        snapshot.melee_reach.unwrap_or(cfg.attack_range)
+    } else {
+        cfg.attack_range
+    };
     let ai = crate::actor::ai::evaluate_character_ai_output(snapshot.to_character_ai_snapshot(
         cfg.aggro_radius,
-        snapshot.melee_reach.unwrap_or(cfg.attack_range),
+        reach,
         true,
     ));
     state.mode = ai.mode;

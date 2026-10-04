@@ -236,7 +236,10 @@ What it added, all of it general:
   went from 475k to 32k texels, and the body is unchanged.
 - `IMPOSTOR_CELL` is 288 (the robot's 256 px frame plus margins);
   `every_published_flipbook_fits_an_impostor_cell` holds every published
-  flipbook to it.
+  flipbook to it. It holds the frame size, not where the parts draw, and the
+  parity oracle is clipped to the cell. So a part that draws past the cell is
+  cut, and no gate sees it (queue row
+  [RIG-IMPOSTOR-CONTAINMENT](../queue.md#rig-impostor-containment--a-part-drawn-body-is-drawn-whole-or-refused)).
 
 The replay guard of a continuous flipbook forgives 64 levels and NO place
 (`CONTINUOUS_REPLAY_TOLERANCE`): the usual pixel of slack forgave the robot's

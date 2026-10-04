@@ -1186,24 +1186,34 @@ mod melee_reach_tests {
         assert_presses_in_the_reach_of_its_move(diving_bird(), "diving bird");
     }
 
-    /// The snapshot builder tells the reach only to a brain that reads it.
+    /// Every body is told the reach of its move, and a peaceful patroller
+    /// does not read it: its `attack_range` is the distance at which it stops
+    /// to talk. With a move that reaches 50 px, a foe at 40 px is in the reach
+    /// and outside the 24 px talk distance. The control is the aggressive
+    /// patroller, which reads it and presses.
     #[test]
-    fn only_a_brain_that_closes_to_its_reach_is_told_it() {
-        assert!(brute().closes_to_its_melee_reach());
-        assert!(patrol(1.0).closes_to_its_melee_reach());
-        assert!(diving_bird().closes_to_its_melee_reach());
-        assert!(
-            !patrol(0.0).closes_to_its_melee_reach(),
-            "the `attack_range` of a peaceful patroller is where it stops to talk"
+    fn a_peaceful_patroller_keeps_its_own_distance_when_told_a_reach() {
+        let mode = |aggressiveness: f32, melee_reach: Option<f32>| {
+            let mut sm = patrol(aggressiveness);
+            let mut s = snap_at(0.0, 40.0);
+            s.melee_reach = melee_reach;
+            let mut out = crate::actor::control::ActorControlFrame::neutral();
+            tick_simple_state_machine(&mut sm, &s, &mut out);
+            let StateMachineCfg::Patrol { state, .. } = sm else {
+                unreachable!("the fixture is a patroller")
+            };
+            (format!("{:?}", state.mode), format!("{out:?}"), out.melee_pressed)
+        };
+        // The whole frame: within the reach the evaluator says Attack, which
+        // a peaceful patroller answers by not turning to the foe.
+        assert_eq!(
+            mode(0.0, Some(50.0)),
+            mode(0.0, None),
+            "a peaceful patroller changed its decision for the reach of a move"
         );
         assert!(
-            !StateMachineCfg::Aerial {
-                cfg: aerial_cfg(0.0),
-                state: AerialState::default(),
-            }
-            .closes_to_its_melee_reach(),
-            "a peaceful bird presses no attack"
+            mode(1.0, Some(50.0)).2 && !mode(1.0, None).2,
+            "control: an aggressive patroller presses in the reach of its move only"
         );
-        assert!(!StateMachineCfg::StandStill.closes_to_its_melee_reach());
     }
 }

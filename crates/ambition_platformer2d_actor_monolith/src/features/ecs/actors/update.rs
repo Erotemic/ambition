@@ -2058,21 +2058,16 @@ pub(super) fn attack_kit_of(
 /// the Active volumes, so it is the same number before the move starts and
 /// during its startup.
 ///
-/// Only a brain that closes to its reach reads the answer
-/// (`StateMachineCfg::closes_to_its_melee_reach`), so only such a brain pays
-/// for it.
+/// It is a fact of the body, so it is derived for every body whatever its
+/// brain. Each brain decides if it reads it: a peaceful patroller does not,
+/// because its own distance is where it stops to talk.
 /// `None` when no move answers the press, or when the move hits nothing by
 /// itself (a move that only fires a shot has no melee reach).
 pub(super) fn melee_reach_of(
     moveset: Option<&ambition_combat::moveset::ActorMoveset>,
     grounded: bool,
     running: bool,
-    brain: Option<&ambition_characters::brain::Brain>,
 ) -> Option<f32> {
-    use ambition_characters::brain::Brain;
-    if !matches!(brain, Some(Brain::StateMachine(cfg)) if cfg.closes_to_its_melee_reach()) {
-        return None;
-    }
     let spec = moveset?.0.move_for_attack(
         ambition_combat::moveset::ATTACK_VERB,
         ambition_characters::actor::attack_gesture::AttackDir::Forward,
@@ -2413,12 +2408,7 @@ fn build_enemy_brain_snapshot(
         ),
         // The reach of the attack press, from the same moveset and the same
         // posture as the kit above. See `melee_reach_of`.
-        melee_reach: melee_reach_of(
-            moveset,
-            body.ground.on_ground,
-            motion_facts.running,
-            brain,
-        ),
+        melee_reach: melee_reach_of(moveset, body.ground.on_ground, motion_facts.running),
         // WHICH BODY THIS IS, so a published decision fact can name its
         // subject. The brain cannot know — a snapshot is body state and identity
         // is the host's to assign — so it arrives through the world-in port like

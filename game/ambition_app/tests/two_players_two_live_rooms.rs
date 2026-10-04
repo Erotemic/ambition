@@ -3154,19 +3154,22 @@ fn each_view_of_the_split_shows_its_own_participants_purse() {
     }
     sim.step_n(base(), 2);
     let world = sim.world_mut();
-    let mut shown: Vec<(u8, bool, i32)> = world
+    // And whose each HUD is (`ViewHudSeat`), so that two HUDs on one screen
+    // can say so.
+    let mut shown: Vec<(u8, bool, i32, Option<u8>)> = world
         .query_filtered::<(
             &ambition_platformer2d::sim_view::LocalViewId,
             &ambition_platformer2d::sim_view::ViewHudFacts,
+            &ambition_platformer2d::sim_view::ViewHudSeat,
         ), bevy::prelude::With<ambition_platformer2d::sim_view::LocalView>>()
         .iter(world)
-        .map(|(id, facts)| (id.0, facts.0.present, facts.0.balance))
+        .map(|(id, facts, seat)| (id.0, facts.0.present, facts.0.balance, seat.0.map(|seat| seat.0)))
         .collect();
     shown.sort();
     assert_eq!(
         shown,
-        vec![(0, true, 3), (1, true, 11)],
-        "(view, its HUD shows a body, the purse it shows): view 0 follows Alice, view 1 Bob's seat"
+        vec![(0, true, 3, Some(0)), (1, true, 11, Some(1))],
+        "(view, its HUD shows a body, the purse it shows, its seat): view 0 follows Alice, view 1 Bob's seat"
     );
 }
 

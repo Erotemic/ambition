@@ -101,6 +101,14 @@ pub struct ViewHudFacts(pub PlayerHudFacts);
 #[derive(Component, Default, Clone, Debug, PartialEq)]
 pub struct SharedViewHudFacts(pub Vec<(ambition_characters::control::PlayerSlot, PlayerHudFacts)>);
 
+/// THE SEAT WHOSE BODY A VIEW'S OWN HUD SHOWS, so that two HUDs on one
+/// screen can say whose each is: the seat that drives the body it shows
+/// (the controlled body holds `DrivingParticipant(PRIMARY)`). `None` when
+/// the view shows no body, or a body that no seat drives (a view that
+/// follows an NPC).
+#[derive(Component, Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ViewHudSeat(pub Option<ambition_characters::control::PlayerSlot>);
+
 /// Fill each view's [`ViewHudFacts`] from the subject that view resolved,
 /// and the [`SharedViewHudFacts`] of the merged screen. Runs after
 /// `resolve_view_subjects`, in the camera observation chain.
@@ -112,6 +120,7 @@ pub fn rebuild_view_hud_facts(
             &crate::local_view::LocalViewId,
             &mut ViewHudFacts,
             Option<&mut SharedViewHudFacts>,
+            Option<&mut ViewHudSeat>,
             &crate::local_view::ResolvedViewSubject,
             Option<&crate::local_view::ViewSubject>,
             Option<&crate::local_view::ViewParticipant>,
@@ -131,7 +140,7 @@ pub fn rebuild_view_hud_facts(
     let mut followed_seats = Vec::new();
     let mut followed_bodies = Vec::new();
     let mut merged = None;
-    for (view, id, _, _, _, subject, participant) in views.iter() {
+    for (view, id, _, _, _, _, subject, participant) in views.iter() {
         match (subject, participant) {
             (Some(subject), _) => followed_bodies.push(subject.0),
             (None, Some(participant)) => followed_seats.push(participant.0),
@@ -165,12 +174,16 @@ pub fn rebuild_view_hud_facts(
         }
         _ => Vec::new(),
     };
-    for (view, _, mut facts, shared_facts, resolved, subject, participant) in &mut views {
+    for (view, _, mut facts, shared_facts, seat, resolved, subject, participant) in &mut views {
         let subject = if subject.is_some() || participant.is_some() {
             resolved.0
         } else {
             controlled
         };
+        if let Some(mut seat) = seat {
+            let next = subject.and_then(|body| drivers.get(body).ok().map(|(_, driver)| driver.0));
+            seat.set_if_neq(ViewHudSeat(next));
+        }
         let next = subject
             .and_then(|body| meters_of(body, &bodies))
             .unwrap_or(PlayerHudFacts {

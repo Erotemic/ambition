@@ -28,7 +28,7 @@ use ambition_platformer2d_shared_tangle::{
     markers::{PlayerEntity, PrimaryPlayer},
 };
 use ambition_characters::control::PlayerSlot;
-use ambition_sim_view::{LocalView, LocalViewId, SharedViewHudFacts, ViewHudFacts, ViewPlacement};
+use ambition_sim_view::{LocalView, LocalViewId, SharedViewHudFacts, ViewHudFacts, ViewHudSeat, ViewPlacement};
 
 /// Bar width / height in logical px.
 const BAR_W: f32 = 168.0;
@@ -82,6 +82,10 @@ pub struct ManaLabel;
 /// "$balance" money readout.
 #[derive(Component)]
 pub struct MoneyLabel;
+/// "P1", "P2": whose HUD this is. Shown only while two or more HUDs are on
+/// the screen, because one HUD can only be the player's own.
+#[derive(Component)]
+pub struct HudSeatLabel;
 
 /// Spawn one HUD for each local view that has none, and one for each other
 /// participant on a shared view ([`SharedViewHudFacts`]), from the first frame
@@ -196,6 +200,18 @@ fn spawn_hud_of_view(
         );
     tag(&mut root);
     root.with_children(|root| {
+            // Whose HUD this is, while HUDs stack (`update_player_hud`).
+            tag(&mut root.spawn((
+                HudSeatLabel,
+                of,
+                Text::new(""),
+                TextFont {
+                    font_size: FontSize::Px(12.0),
+                    ..default()
+                },
+                TextColor(Color::srgb(0.92, 0.94, 1.0)),
+                Visibility::Hidden,
+            )));
             // Health bar (red fill + HP label).
             root.spawn((bar_node(), BackgroundColor(track)))
                 .with_children(|bar| {
@@ -358,7 +374,8 @@ pub fn toggle_builtin_hud_for_declared_games(
 /// (`present == false`) holds its last drawn state.
 #[allow(clippy::type_complexity)]
 pub fn update_player_hud(
-    views: Query<(&ViewHudFacts, Option<&SharedViewHudFacts>)>,
+    views: Query<(&ViewHudFacts, Option<&SharedViewHudFacts>, Option<&ViewHudSeat>)>,
+    roots: Query<(), With<PlayerHudRoot>>,
     mut fills: ParamSet<(
         Query<(&mut Node, &HudOfView, Option<&HudOfSeat>), With<HealthFill>>,
         Query<(&mut Node, &HudOfView, Option<&HudOfSeat>), With<ManaFill>>,
@@ -367,10 +384,11 @@ pub fn update_player_hud(
         Query<(&mut Text, &HudOfView, Option<&HudOfSeat>), With<HealthLabel>>,
         Query<(&mut Text, &HudOfView, Option<&HudOfSeat>), With<ManaLabel>>,
         Query<(&mut Text, &HudOfView, Option<&HudOfSeat>), With<MoneyLabel>>,
+        Query<(&mut Text, &mut Visibility, &HudOfView, Option<&HudOfSeat>), With<HudSeatLabel>>,
     )>,
 ) {
     let facts_of = |of: &HudOfView, seat: Option<&HudOfSeat>| {
-        let (own, shared) = views.get(of.0).ok()?;
+        let (own, shared, _) = views.get(of.0).ok()?;
         let facts = match seat {
             None => own.0,
             Some(seat) => shared?
@@ -418,6 +436,24 @@ pub fn update_player_hud(
         if let Some(facts) = facts_of(of, seat) {
             set_text_if_changed(&mut text, format!("${}", facts.balance));
         }
+    }
+    // Whose each HUD is, while more than one is on the screen. The HUD of
+    // another participant on a shared view names its seat; a view's own HUD
+    // names the seat of the body it shows.
+    let stacked = roots.iter().nth(1).is_some();
+    for (mut text, mut visibility, of, seat) in &mut labels.p3() {
+        let slot = match seat {
+            Some(seat) => Some(seat.0),
+            None => views.get(of.0).ok().and_then(|(_, _, own)| own.and_then(|own| own.0)),
+        };
+        let shown = match slot.filter(|_| stacked) {
+            Some(slot) => {
+                set_text_if_changed(&mut text, format!("P{}", u16::from(slot.0) + 1));
+                Visibility::Inherited
+            }
+            None => Visibility::Hidden,
+        };
+        visibility.set_if_neq(shown);
     }
 }
 
@@ -735,6 +771,84 @@ mod tests {
             placed,
             [(alice, OVERLAY_ANCHOR)].into(),
             "the HUD of a closed view goes with it"
+        );
+    }
+
+    /// Two HUDs on one screen say whose each is. Alice's view (seat 0) and
+    /// Bob's (seat 1) are split, and Cid (seat 2) shares Alice's view: the
+    /// three HUDs read P1, P2 and P3. When only Alice's HUD is left, it says
+    /// nothing, because one HUD can only be the player's own (the control).
+    #[test]
+    fn stacked_huds_say_whose_each_is() {
+        let mut app = App::new();
+        app.add_plugins(SessionScopePlugin);
+        let scope = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+        app.world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, SessionScopedEntity(scope)));
+        app.insert_resource(layout(
+            Vec2::new(1920.0, 1080.0),
+            profiles::adaptive_platformer(),
+            PresentationEnvironment::Desktop,
+        ));
+        let meters = ambition_sim_view::PlayerHudFacts {
+            present: true,
+            hp_current: 5,
+            hp_max: 5,
+            mana: None,
+            balance: 0,
+        };
+        let alice = app
+            .world_mut()
+            .spawn((
+                LocalView,
+                LocalViewId::FIRST,
+                ViewPlacement::column(0, 2),
+                ViewHudFacts(meters),
+                ViewHudSeat(Some(PlayerSlot(0))),
+                SharedViewHudFacts(vec![(PlayerSlot(2), meters)]),
+            ))
+            .id();
+        let bob = app
+            .world_mut()
+            .spawn((
+                LocalView,
+                LocalViewId(1),
+                ViewPlacement::column(1, 2),
+                ViewHudFacts(meters),
+                ViewHudSeat(Some(PlayerSlot(1))),
+            ))
+            .id();
+        app.add_systems(Update, (spawn_player_hud, place_player_hud, update_player_hud).chain());
+        app.update();
+        app.update();
+        let named = |app: &mut App| {
+            let mut labels = app
+                .world_mut()
+                .query_filtered::<(&HudOfView, Option<&HudOfSeat>, &Text, &Visibility), With<HudSeatLabel>>();
+            let mut named: Vec<(Entity, Option<u8>, String, bool)> = labels
+                .iter(app.world())
+                .map(|(of, seat, text, visibility)| {
+                    (of.0, seat.map(|seat| seat.0 .0), text.as_str().to_owned(), *visibility != Visibility::Hidden)
+                })
+                .collect();
+            named.sort();
+            named
+        };
+        let mut expected = vec![
+            (alice, None, "P1".to_owned(), true),
+            (alice, Some(2), "P3".to_owned(), true),
+            (bob, None, "P2".to_owned(), true),
+        ];
+        expected.sort();
+        assert_eq!(named(&mut app), expected, "(view, shared seat, label, shown) with three HUDs");
+
+        app.world_mut().entity_mut(bob).despawn();
+        app.world_mut().entity_mut(alice).insert(SharedViewHudFacts(Vec::new()));
+        app.update();
+        assert_eq!(
+            named(&mut app).into_iter().map(|(of, seat, _, shown)| (of, seat, shown)).collect::<Vec<_>>(),
+            vec![(alice, None, false)],
+            "one HUD left, and it still says whose it is"
         );
     }
 

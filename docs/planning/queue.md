@@ -1875,18 +1875,21 @@ and the census, frame time and camera framing are readable from one run.
 **Ruling:** Q62 and Q78 (2026-10-04) are engineering and evidence tasks, not
 maintainer choices.
 
-**Current state:** `semantic_diff` compares two files and finds an entity
-move; it has no git input, no churn report and no answer for changed
-auto-layer output. LDtk files still rewrite far beyond their edits after
-`54d99e7fb` and `2e69e81b9`; the writer is not identified.
+**Current state:** the comparison is done: `diff semantic` (file or
+`REV:PATH`), `diff range` and `diff normalize`, with verdict, per-level
+summary, ambiguities and a noise section (tests:
+`tests/test_semantic_diff.py`). It prints the per-level summary for the
+post-fix rewrite commits `576a8fd`, `c6df2b7` and `056079f`. `48f8e26` is not
+in this clone, so `48f8e26 → cb7062a` is not re-measured. LDtk files still
+rewrite far beyond their edits after `54d99e7fb` and `2e69e81b9`; the writer
+is not identified.
 
-**Next action:** add `REV:PATH` input and the churn section; then run each
-LDtk writer twice on an unchanged input to find which one rewrites.
+**Next action:** run each LDtk writer twice on an unchanged input and compare
+the two outputs with `diff semantic`; the writer whose second run is not
+`identical` is a rewriter.
 
-**Acceptance:** the tool prints the per-level summary for
-`48f8e26 → cb7062a` (one editor-visual change, auto-layer churn) and for one
-post-fix rewrite commit; a second run of each writer on its own output changes
-no byte.
+**Acceptance:** a second run of each writer on its own output changes no
+byte.
 
 ### ASSET-PRODUCT-LAYOUT — runtime roots by tier; editor products apart
 

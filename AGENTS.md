@@ -270,7 +270,7 @@ Add durable lessons to `dev/benchmark-candidates/`; never transient project stat
 ## Patch discipline
 
 * Do not hand-edit generated LDtk content.
-* A large LDtk (or other editor-format) diff is not a large semantic change. Before you keep, discard or review one, compare it with `python -m ambition_ldtk_tools.edit.semantic_diff semantic BEFORE AFTER` (run in `tools/ambition_ldtk_tools`) and separate authored changes from generated or serializer churn (Q62; `docs/planning/engine/authoring-and-tools.md`).
+* A large LDtk (or other editor-format) diff is not a large semantic change. Before you keep, discard or review one, compare it with `PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools diff semantic HEAD:PATH PATH` (or `diff range REV1..REV2 --repo game/ambition_map_assets`) and separate authored changes from generated or serializer churn; the verdict says `noise_only`, `changed` or `ambiguous`. Usage: `tools/ambition_ldtk_tools/README.md#semantic-diff` (Q62; `docs/planning/engine/authoring-and-tools.md`).
 * Do not resolve a divergent submodule by recency or by `git submodule update`; list each line's unique commits and keep the semantic superset (Q78, same doc).
 * Formatting is advisory, never an acceptance gate.
 * `./run_tests.sh` is the broad repository test backbone. Prefer narrower checks when they cover the touched invariant.

@@ -10,7 +10,7 @@
 //! ⭐ THE OWNERSHIP RULE LIVES HERE, NOT IN THE SET. `retain_themes` takes a
 //! predicate precisely so `ambition_sprite_sheet` never learns what a room, a
 //! neighbour or a transition is. This module supplies the only policy: **keep
-//! the active room's theme and the themes of its one-hop neighbours.** That is
+//! each live room's theme and the themes of its one-hop neighbours.** That is
 //! the same shape the character-page residency rule follows, and the same
 //! adjacency the preparation prefetch uses — `RoomSet::neighboring_room_indices`,
 //! the presentation-neutral seam that already exists for exactly this question.
@@ -64,33 +64,26 @@ use ambition_platformer2d::sprite_sheet::game_assets::{GameAssets, ParallaxTheme
 // consumer like any other and the compiler enforces it: the world crate is not
 // an `ambition_app` dependency, which is the capability boundary working.
 
-/// Keep the active room's theme plus its one-hop neighbours'; drop the rest.
+/// Keep each live room's theme plus its one-hop neighbours'; drop the rest.
 ///
-/// Runs when the room set changes — the same trigger the preparation prefetch
-/// keys off, because "which room is active" is the only input this policy has.
+/// Runs when that keep-set changes: "which rooms are live" is the only input
+/// this policy has. It read the sole live room, so while two rooms were live
+/// it did not run and no theme was retired (OW1).
 pub(crate) fn retire_departed_parallax_themes(
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     mut assets: ResMut<GameAssets>,
+    // The keep-set of the last run.
+    mut kept: Local<Vec<ParallaxTheme>>,
 ) {
+    let live: Vec<usize> = rooms.live_rooms().map(|(_, definition)| definition.index()).collect();
+    let keep = parallax_keep_set(rooms.rooms(), &live);
     // ⛔ Only on a change. Running every frame would call `retain` on a map that
     // has not moved, and would fight `ensure_parallax_layers_for_room` on the
     // frame a new theme is being loaded.
-    if !room_set.is_changed() {
+    if keep.is_empty() || *kept == keep {
         return;
     }
-    let Some(active) = room_set.rooms().rooms.get(room_set.definition().index()) else {
-        return;
-    };
-
-    let mut keep = vec![ParallaxTheme::from_room_metadata(&active.metadata)];
-    for index in room_set.rooms().neighboring_room_indices_of(room_set.definition().index()) {
-        if let Some(neighbour) = room_set.rooms().rooms.get(index) {
-            let theme = ParallaxTheme::from_room_metadata(&neighbour.metadata);
-            if !keep.contains(&theme) {
-                keep.push(theme);
-            }
-        }
-    }
+    *kept = keep.clone();
 
     let before = assets.parallax_layers.resident_themes();
     let retired = assets
@@ -105,12 +98,114 @@ pub(crate) fn retire_departed_parallax_themes(
         .filter(|theme| !keep.contains(theme))
         .map(ParallaxTheme::key)
         .collect::<Vec<_>>();
+    let live_ids = live
+        .iter()
+        .filter_map(|&index| rooms.rooms().rooms.get(index))
+        .map(|room| room.id.as_str())
+        .collect::<Vec<_>>();
     bevy::log::info!(
         target: "ambition_platformer2d::assets",
-        "[parallax] retired {retired} layers of themes [{}] — keeping [{}] for room '{}' and {} neighbour(s)",
+        "[parallax] retired {retired} layers of themes [{}] — keeping [{}] for live room(s) [{}] and their neighbours",
         departed.join(", "),
         keep.iter().copied().map(ParallaxTheme::key).collect::<Vec<_>>().join(", "),
-        active.id,
-        keep.len().saturating_sub(1),
+        live_ids.join(", "),
     );
+}
+
+/// The themes to keep: each live room's (`live` are indices into `rooms`),
+/// then each one's one-hop neighbours', each once, in that order.
+pub(crate) fn parallax_keep_set(
+    rooms: &ambition_platformer2d::world::rooms::RoomSet,
+    live: &[usize],
+) -> Vec<ParallaxTheme> {
+    let mut keep = Vec::new();
+    let mut add = |index: usize| {
+        if let Some(room) = rooms.rooms.get(index) {
+            let theme = ParallaxTheme::from_room_metadata(&room.metadata);
+            if !keep.contains(&theme) {
+                keep.push(theme);
+            }
+        }
+    };
+    for &index in live {
+        add(index);
+    }
+    for &index in live {
+        for neighbour in rooms.neighboring_room_indices_of(index) {
+            add(neighbour);
+        }
+    }
+    keep
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation, RoomLink, RoomSet, RoomSpec};
+
+    /// Room `id` in theme `theme`, with a door `to_<other>` for each of `doors`.
+    fn room(id: &str, theme: ParallaxTheme, doors: &[&str]) -> RoomSpec {
+        let mut spec = RoomSpec::new(
+            id,
+            ambition_platformer2d::engine_core::World::new(
+                id,
+                ambition_platformer2d::engine_core::Vec2::new(400.0, 300.0),
+                ambition_platformer2d::engine_core::Vec2::ZERO,
+                Vec::new(),
+            ),
+        );
+        spec.metadata.visual_profile.parallax_theme = Some(theme.key().to_string());
+        spec.loading_zones = doors
+            .iter()
+            .map(|other| LoadingZone {
+                id: format!("to_{other}"),
+                name: format!("to_{other}"),
+                activation: LoadingZoneActivation::Door,
+                aabb: ambition_platformer2d::engine_core::Aabb::new(
+                    ambition_platformer2d::engine_core::Vec2::new(10.0, 10.0),
+                    ambition_platformer2d::engine_core::Vec2::splat(8.0),
+                ),
+            })
+            .collect();
+        spec
+    }
+
+    fn link(from: &str, to: &str) -> RoomLink {
+        RoomLink {
+            from_room: from.into(),
+            from_zone: format!("to_{to}"),
+            to_room: to.into(),
+            to_zone: format!("to_{from}"),
+            bidirectional: true,
+        }
+    }
+
+    /// OW1: with two live rooms, each one's theme and its neighbours' are
+    /// kept. `a` (Hub) leads to `b` (Cave); `c` (Lab) leads to `d`
+    /// (Basement); `e` (Boss) is no neighbour of a live room. The control is
+    /// `a` alone, which keeps Hub and Cave only.
+    #[test]
+    fn every_live_room_keeps_its_theme_and_its_neighbours() {
+        let rooms = RoomSet::from_parts_or_panic(
+            "a",
+            vec![
+                room("a", ParallaxTheme::Hub, &["b"]),
+                room("b", ParallaxTheme::Cave, &["a"]),
+                room("c", ParallaxTheme::Lab, &["d"]),
+                room("d", ParallaxTheme::Basement, &["c"]),
+                room("e", ParallaxTheme::Boss, &[]),
+            ],
+            vec![link("a", "b"), link("c", "d")],
+        );
+        assert_eq!(
+            parallax_keep_set(&rooms, &[0]),
+            vec![ParallaxTheme::Hub, ParallaxTheme::Cave],
+            "control: one live room keeps its theme and its neighbour's"
+        );
+        assert_eq!(
+            parallax_keep_set(&rooms, &[0, 2]),
+            vec![ParallaxTheme::Hub, ParallaxTheme::Lab, ParallaxTheme::Cave, ParallaxTheme::Basement],
+            "two live rooms keep both themes and both neighbourhoods, and not Boss"
+        );
+    }
 }

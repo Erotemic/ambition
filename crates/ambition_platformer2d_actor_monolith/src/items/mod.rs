@@ -43,6 +43,7 @@ pub mod match_spawn;
 pub mod narrative;
 pub mod persist;
 pub mod pickup;
+pub mod starting_bag;
 /// `wallet.can_afford` — the purse's own published question.
 pub mod wallet_conditions;
 

@@ -2887,6 +2887,230 @@ fn an_effect_that_a_session_asked_for_is_not_presented_by_the_next() {
     }
 }
 
+/// ⭐ A BAG THAT A SESSION CHANGED REACHES A LATER SESSION THROUGH ITS SAVE ONLY.
+///
+/// The bag (`OwnedItems`) is one process resource. This arm is the method of
+/// [`a_session_that_follows_another_starts_as_a_fresh_hosts_does`] with a
+/// first session that CHANGES the bag: it is granted bombs through the item
+/// request. That walk did not change the bag, so it compared two starter bags.
+///
+/// - The same experience (a replacement in place, and through the title): the
+///   veteran against a fresh host that was given the veteran's save.
+/// - Another experience: the veteran then enters Sanic, against a fresh host
+///   that enters Sanic first.
+///
+/// The readings on each frame from the activation: the bombs in the bag, the
+/// items that the live save lists, and what two peers compare.
+#[test]
+fn a_bag_that_a_session_changed_reaches_a_later_session_through_its_save_only() {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    type OwnedItems = ambition_platformer2d::item::OwnedItems;
+    type Item = ambition_platformer2d::item::Item;
+    type ItemGrantRequested = ambition_platformer2d::item::ItemGrantRequested;
+
+    /// One: a bomb is a unique item, so a grant of more gives one.
+    const BOMBS: u32 = 1;
+    const TICKS: u64 = 30;
+
+    fn host() -> App {
+        let mut app =
+            shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+        settle(&mut app);
+        app
+    }
+
+    fn route_labeled(app: &App, label: &str) -> ambition_platformer2d::game_shell::ShellRouteId {
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+            .launch_entries()
+            .iter()
+            .find(|entry| entry.label == label)
+            .unwrap_or_else(|| panic!("the launcher offers no `{label}` row"))
+            .route_id
+            .clone()
+    }
+
+    fn bombs_in_the_bag(app: &App) -> u32 {
+        app.world().resource::<OwnedItems>().count(Item::Bomb)
+    }
+
+    /// The count of all the items that the live save lists.
+    fn items_in_the_save(app: &App) -> u32 {
+        app.world()
+            .resource::<AmbitionGameSave>()
+            .0
+            .items()
+            .iter()
+            .map(|item| item.count)
+            .sum()
+    }
+
+    /// The peer census, with the two bomb readings as rows of their own.
+    fn reading(app: &mut App) -> EdgeCensus {
+        let mut census = peer_census(app);
+        census.insert("bombs in the bag".to_owned(), (1, u64::from(bombs_in_the_bag(app))));
+        census.insert("items in the save".to_owned(), (1, u64::from(items_in_the_save(app))));
+        census
+    }
+
+    /// A host whose Ambition session was granted the bombs, with the scope of
+    /// that session and the save it leaves.
+    fn veteran_with_a_changed_bag() -> (App, SessionScopeId, u32) {
+        let mut veteran = host();
+        let route = ambition_route(&veteran);
+        veteran.world_mut().write_message(ShellCommand::GoTo(route));
+        let first = enter_the_next_session(&mut veteran, None);
+        for _ in 0..30 {
+            veteran.update();
+        }
+        let before = bombs_in_the_bag(&veteran);
+        let saved_before = items_in_the_save(&veteran);
+        veteran.world_mut().write_message(ItemGrantRequested {
+            item: Item::Bomb,
+            count: BOMBS,
+        });
+        for _ in 0..30 {
+            veteran.update();
+        }
+        // ⛔ THE PREMISE. A first session that leaves the starter bag makes an
+        // edge that carries the bag look the same as one that does not.
+        assert_eq!(
+            bombs_in_the_bag(&veteran),
+            before + BOMBS,
+            "the first session was not granted the bombs"
+        );
+        assert_eq!(
+            items_in_the_save(&veteran),
+            saved_before + BOMBS,
+            "the save of the first session does not list the bombs"
+        );
+        (veteran, first, before)
+    }
+
+    /// Each row that differs between the two hosts, with its frames.
+    fn differences(
+        fresh: &std::collections::BTreeMap<(u64, usize), EdgeCensus>,
+        veteran: &std::collections::BTreeMap<(u64, usize), EdgeCensus>,
+    ) -> (usize, std::collections::BTreeMap<String, Vec<String>>) {
+        let mut out: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+        let mut compared = 0;
+        for (at, ours) in fresh {
+            let Some(theirs) = veteran.get(at) else {
+                continue;
+            };
+            compared += 1;
+            for (name, value) in ours {
+                if theirs.get(name) != Some(value) {
+                    out.entry(name.clone()).or_default().push(format!(
+                        "tick {} frame {}: fresh={value:?} veteran={:?}",
+                        at.0,
+                        at.1,
+                        theirs.get(name)
+                    ));
+                }
+            }
+        }
+        (compared, out)
+    }
+
+    fn report(differing: &std::collections::BTreeMap<String, Vec<String>>) -> String {
+        differing
+            .iter()
+            .map(|(name, hits)| {
+                format!(
+                    "{name}: {} frame(s), first at {}, last at {}",
+                    hits.len(),
+                    hits[0],
+                    hits[hits.len() - 1]
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n  ")
+    }
+
+    let mut wrong: Vec<String> = Vec::new();
+
+    // ── The same experience. ──
+    for succession in SessionSuccession::BOTH {
+        let (mut veteran, first, before) = veteran_with_a_changed_bag();
+        let route = ambition_route(&veteran);
+        let save = veteran.world().resource::<AmbitionGameSave>().0.clone();
+        succession.follow(&mut veteran, &route, first);
+
+        let mut fresh = host();
+        fresh.world_mut().resource_mut::<AmbitionGameSave>().0 = save;
+        fresh.world_mut().write_message(ShellCommand::GoTo(route));
+        enter_the_next_session(&mut fresh, None);
+        assert!(
+            fresh.world().resource::<AmbitionGameSave>().0
+                == veteran.world().resource::<AmbitionGameSave>().0,
+            "{succession:?}: the two hosts start the session with different saves"
+        );
+
+        let fresh_readings = record_from_the_activation(&mut fresh, TICKS, reading);
+        let veteran_readings = record_from_the_activation(&mut veteran, TICKS, reading);
+        // The save reached the bag of each host inside the window.
+        assert_eq!(
+            (bombs_in_the_bag(&fresh), bombs_in_the_bag(&veteran)),
+            (before + BOMBS, before + BOMBS),
+            "{succession:?}: a host does not have the saved bombs after {TICKS} ticks"
+        );
+        let (compared, differing) = differences(&fresh_readings, &veteran_readings);
+        assert!(compared as u64 > TICKS);
+        eprintln!("[changed-bag] same experience, {succession:?}: {}", report(&differing));
+        if !differing.is_empty() {
+            wrong.push(format!(
+                "{succession:?}, the same experience:\n  {}",
+                report(&differing)
+            ));
+        }
+    }
+
+    // ── Another experience. ──
+    {
+        let (mut veteran, first, _) = veteran_with_a_changed_bag();
+        let sanic = route_labeled(&veteran, "Sanic");
+        veteran.world_mut().write_message(ShellCommand::ReplaceWith {
+            route: sanic.clone(),
+            request: None,
+        });
+        let second = enter_the_next_session(&mut veteran, Some(first));
+        assert_ne!(first, second);
+        // ⛔ THE PREMISE. With no inventory in the save, the restore keeps the
+        // live bag, so the bag of this session is what the process holds.
+        assert!(
+            !veteran.world().resource::<AmbitionGameSave>().0.inventory_saved(),
+            "the save of the Sanic session has an inventory at its activation"
+        );
+
+        let mut fresh = host();
+        fresh.world_mut().write_message(ShellCommand::GoTo(sanic));
+        enter_the_next_session(&mut fresh, None);
+
+        let fresh_readings = record_from_the_activation(&mut fresh, TICKS, reading);
+        let veteran_readings = record_from_the_activation(&mut veteran, TICKS, reading);
+        let (compared, differing) = differences(&fresh_readings, &veteran_readings);
+        assert!(compared as u64 > TICKS);
+        eprintln!(
+            "[changed-bag] another experience: bag fresh {} veteran {}; save fresh {} veteran {}\n  {}",
+            bombs_in_the_bag(&fresh),
+            bombs_in_the_bag(&veteran),
+            items_in_the_save(&fresh),
+            items_in_the_save(&veteran),
+            report(&differing)
+        );
+        if !differing.is_empty() {
+            wrong.push(format!("another experience (Sanic):\n  {}", report(&differing)));
+        }
+    }
+
+    assert!(
+        wrong.is_empty(),
+        "a session reads a bag that its own save did not give it:\n{}",
+        wrong.join("\n")
+    );
+}
+
 /// ⭐ THE PERSON WHO COMES OUT OF A DEFEATED BOSS ENDS WITH THE SESSION.
 ///
 /// The cut-rope room spawns a person when its boss is cleared, at run time and

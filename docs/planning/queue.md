@@ -1395,9 +1395,11 @@ catalog file. No plural bark collection exists, because no content asks for one.
 session retirement ends it; seven resources, the declared message channels,
 the presentation channels (not the sound), the camera and the per-attempt
 ledgers are reset at the session edge (2026-10-04). A session is built
-from the save of its own experience, not from the live save. Three host
-constants are recorded, not reset. Open: a CHANGED bag across the edge, and a
-replacement by the SAME experience whose save changes before the adoption.
+from the save of its own experience, not from the live save, and it begins
+with the bag that the process began with. Three host constants are recorded,
+not reset. Open: a replacement by the SAME experience whose save changes
+before the adoption, and the New Game restore's own spelling of the starting
+bag.
 
 **An entity that a session spawned as it ran outlived the session
 (2026-10-04).** This is the largest finding of the row, and the first census
@@ -1650,10 +1652,51 @@ site is named).
 **Not measured:** the other whole-state rows were scope ordinals
 (`TransactionId`, `SessionScopedEntity`), a declared-derived cache
 (`GatedLockWallCache`, tick 0) and a count of launcher entities (`Name`, tick 0,
-replace flow only). The walk did not change `OwnedItems`: a CHANGED bag across
-the edge is the open arm of this row. Message
+replace flow only). The walk did not change `OwnedItems`; the changed bag is
+measured below. Message
 channels that no domain declares to the rollback census are not counted. A long
 visit to the title carries no message: the bus was empty after 80 frames.
+
+**A changed bag crossed the edge, and reached another experience's save
+(2026-10-04).** The bag (`OwnedItems`) is one process resource and was not
+reset. `restore_inventory_from_save` replaces it only when the save holds an
+inventory; with none it keeps the live bag, which was the starting bag in the
+first session of a process only. Measured on the shell host, a first session
+that is granted one bomb through `ItemGrantRequested`:
+
+- The same experience (replaced in place, through the title), against a fresh
+  host with the veteran's save: the veteran's bag had the bomb at tick 0 and
+  the fresh host's had not. From tick 1 they agreed, and the peer census
+  agreed on each frame.
+- Another experience (the veteran then enters Sanic), against a fresh host
+  that enters Sanic first: the veteran's Sanic session had Ambition's bomb on
+  each of 31 ticks, its mirror wrote the bomb into Sanic's save (11 items
+  against 10), and the peer rows `AmbitionGameSave` and `OwnedItemsBaseline`
+  differed on ticks 1 to 30.
+
+The repair: each session begins with the bag that the process began with.
+`StartingBag` (`items/starting_bag.rs`) records `OwnedItems` at `Startup`, so
+the composition's own bag is the one authority (the Ambition content plugin
+inserts the starter set; a composition that inserts none has an empty bag),
+and `start_the_bag_again_on_activation` gives it back in
+`SessionScopeSet::Activate`. The save of the session is then the only thing
+that changes the bag. Witness:
+`shell_host_lifecycle::a_bag_that_a_session_changed_reaches_a_later_session_through_its_save_only`
+(premises: the first session has the bomb in its bag and in its save; the
+Sanic save has no inventory at its activation), and
+`items::starting_bag::tests::a_session_activation_gives_the_bag_that_the_process_began_with`.
+Poisons: the reset not registered (the three arms above); the record runs in
+`Update` (the unit arm: the starting bag follows the live bag).
+
+- ⚠ A fixture prediction missed: a bomb is a unique item, so a grant of three
+  gives one.
+- ⚠ Open, not repaired: the New Game restore (`session/checkpoint.rs`) states
+  the starting bag a second time, as `OwnedItems::starter(catalog)`. In a
+  composition that begins with an empty bag, that is not the bag the process
+  began with. It can read `StartingBag`.
+- ⚠ Recorded, not a defect of the edge: on a fresh host the first Sanic
+  session has the Ambition starter set (10 items in its save), because the
+  shell host is one composition with one bag.
 
 **The per-attempt ledgers crossed the edge (2026-10-04).** Mary-O's
 `BrokenBricks` and `SpentPowerBlocks` and Sanic's `SpentMonitors` are keyed by

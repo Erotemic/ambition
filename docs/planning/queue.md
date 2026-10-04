@@ -1098,16 +1098,32 @@ moveset derived from an action set reaches `1.1 × reach_px` (28 gives 30.8), so
 This changes how the Smash enemies space themselves: each now stops and swings
 where its own move reaches.
 
+**Slice 2, DONE 2026-10-03: MeleeBrute, the hostile Aerial bird, the aggressive
+Patrol.** Each read `cfg.attack_range`, an authored distance. Each now reads
+`BrainSnapshot::melee_reach`, and its cfg distance is only for a body with no
+attack move. `StateMachineCfg::closes_to_its_melee_reach` is the exhaustive
+list of the brains that are told the reach. The shipped MeleeBrute users are
+the provoked pirate heavies (reach 48.4, authored 53 to 59 with the 56 px
+floor). The parrot read 60 and fsm_noodling 50; both pecks reach 52.8.
+Witnesses: `melee_reach_tests` in `brain/state_machine/tests.rs`. Each read
+was poisoned alone, and only its own test failed.
+
 **Remaining readers (not changed):**
 
-- `MeleeBruteCfg::attack_range` and `actor/ai.rs` (`dist <= attack_range`): the
-  profile's `attack_range`, with a 56 px floor for a provoked brute and a
-  dismounted rider. No shipped row uses the MeleeBrute template by default.
-- `AerialCfg::attack_range` (the parrot 60 against 52.8, fsm_noodling 50
-  against 52.8).
-- `ChargeCrashCfg::bite_range` (the shark 200 against 46.2). Find out first if
-  this is a reach or the distance at which the charge starts.
+- `ChargeCrashCfg::bite_range` (the shark 200 against 46.2). It is not a
+  reach. The shark presses its bite and then charges, and the charge carries
+  the hitbox to the foe. A view from geometry must add the travel of the
+  charge to the reach of the bite. This needs a measurement of how far the
+  charge moves the hitbox while the Active window is open.
 - The fighter's `assumed_foe_reach`: a number for the reach of the FOE.
+- A body with no attack move keeps the authored distance of its brain. One
+  case looks incorrect and is not measured in play: a dismounted rider with no
+  ranged item gets a MeleeBrute brain whose distance is the profile's
+  `attack_range` (1100 px for the pirate raider), so it can stop and press
+  nothing from far away.
+- `MoveFrameData::reach` is the reach of the volumes in the body frame. It
+  does not include the motion of the move (a dash attack moves the body), so a
+  running Smash enemy reads 40 px for a dash attack that travels farther.
 
 ### BREAKABLE-SOLIDITY — a solid breakable is a barrier, not a blink wall — ✅ DONE 2026-10-03
 

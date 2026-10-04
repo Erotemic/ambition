@@ -1096,3 +1096,114 @@ fn a_hostile_bird_with_no_prey_circles_its_roost() {
     assert!(far > 30.0, "a hunting bird with no prey should patrol, it got {far} px from its roost");
     assert!(far <= cfg.roam_radius * 1.6, "and stay by its roost: {far} px");
 }
+
+// ── Q35: a brain presses its attack in the reach of its attack move ─────────
+
+mod melee_reach_tests {
+    use super::*;
+
+    /// Did the brain press its attack at a foe `target_x` px away, when the
+    /// snapshot states `melee_reach`?
+    fn pressed(mut sm: StateMachineCfg, target_x: f32, melee_reach: Option<f32>) -> bool {
+        let mut s = snap_at(0.0, target_x);
+        s.melee_reach = melee_reach;
+        let mut out = crate::actor::control::ActorControlFrame::neutral();
+        tick_simple_state_machine(&mut sm, &s, &mut out);
+        out.melee_pressed
+    }
+
+    /// The four readings that separate the reach of the move from the
+    /// distance in the cfg (24 px in each fixture below).
+    fn assert_presses_in_the_reach_of_its_move(sm: StateMachineCfg, name: &str) {
+        assert!(
+            !pressed(sm.clone(), 40.0, None),
+            "{name}: a body with no attack move keeps the cfg distance, and 40 px is outside it"
+        );
+        assert!(
+            pressed(sm.clone(), 40.0, Some(50.0)),
+            "{name}: a move that reaches 50 px is pressed at 40 px"
+        );
+        assert!(
+            pressed(sm.clone(), 20.0, None),
+            "{name}: the control, 20 px is inside the cfg distance"
+        );
+        assert!(
+            !pressed(sm, 20.0, Some(10.0)),
+            "{name}: a move that reaches 10 px is not pressed at 20 px"
+        );
+    }
+
+    fn brute() -> StateMachineCfg {
+        StateMachineCfg::MeleeBrute {
+            cfg: MeleeBruteCfg {
+                attack_range: 24.0,
+                ..MeleeBruteCfg::STRIKER_DEFAULT
+            },
+            state: MeleeBruteState::default(),
+        }
+    }
+
+    fn patrol(aggressiveness: f32) -> StateMachineCfg {
+        StateMachineCfg::Patrol {
+            cfg: PatrolCfg {
+                lane: AuthoredWorldPatrolLane::new(0.0, 200.0),
+                aggressiveness,
+                aggro_radius: 120.0,
+                attack_range: 24.0,
+                ..PatrolCfg::NPC_DEFAULT
+            },
+            state: PatrolState::default(),
+        }
+    }
+
+    /// A hostile bird that is already in its dive.
+    fn diving_bird() -> StateMachineCfg {
+        StateMachineCfg::Aerial {
+            cfg: AerialCfg {
+                attack_range: 24.0,
+                ..aerial_cfg(1.0)
+            },
+            state: AerialState {
+                initialized: true,
+                phase: AerialPhase::Dive,
+                ..Default::default()
+            },
+        }
+    }
+
+    #[test]
+    fn a_melee_brute_presses_in_the_reach_of_its_move() {
+        assert_presses_in_the_reach_of_its_move(brute(), "melee brute");
+    }
+
+    #[test]
+    fn an_aggressive_patroller_presses_in_the_reach_of_its_move() {
+        assert_presses_in_the_reach_of_its_move(patrol(1.0), "aggressive patroller");
+    }
+
+    #[test]
+    fn a_diving_bird_pecks_in_the_reach_of_its_move() {
+        assert_presses_in_the_reach_of_its_move(diving_bird(), "diving bird");
+    }
+
+    /// The snapshot builder tells the reach only to a brain that reads it.
+    #[test]
+    fn only_a_brain_that_closes_to_its_reach_is_told_it() {
+        assert!(brute().closes_to_its_melee_reach());
+        assert!(patrol(1.0).closes_to_its_melee_reach());
+        assert!(diving_bird().closes_to_its_melee_reach());
+        assert!(
+            !patrol(0.0).closes_to_its_melee_reach(),
+            "the `attack_range` of a peaceful patroller is where it stops to talk"
+        );
+        assert!(
+            !StateMachineCfg::Aerial {
+                cfg: aerial_cfg(0.0),
+                state: AerialState::default(),
+            }
+            .closes_to_its_melee_reach(),
+            "a peaceful bird presses no attack"
+        );
+        assert!(!StateMachineCfg::StandStill.closes_to_its_melee_reach());
+    }
+}

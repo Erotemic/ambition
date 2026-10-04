@@ -6,7 +6,6 @@
 
 pub mod placements;
 
-use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::limb::{Limb, LimbRig, LimbSlot};
 use ambition_platformer2d_shared_tangle::construction::{
     ConstructionDomain, ConstructionPlan, ConstructionRegistrationError,
@@ -1427,12 +1426,9 @@ fn planned_boss_profile(
         },
         _ => return None,
     };
-    Some(
-        ambition_boss_encounter::pattern::profile::BossBehaviorProfile::for_authored_boss(
-            bosses,
-            &ambition_boss_encounter::behavior::canonical_boss_id_from(name, brain),
-        ),
-    )
+    Some(ambition_boss_encounter::behavior::authored_boss_behavior(
+        bosses, name, brain,
+    ))
 }
 
 /// Refuse a room whose boss has an encounter script that cannot run there.

@@ -90,27 +90,29 @@ fn main() {
     if targets.is_empty() {
         targets = vec!["mary_o_v2".into(), "mary_o_v2_tall".into(), "mary_o_v2_fire".into()];
     }
-    let mut index = String::from("target\trow\tframe\tflip\tfeet_x\tfeet_y\troot_x\tcell_x0\tcell_y0\tcell_x1\tcell_y1\tbaked\tparts\n");
+    let mut index = String::from("target\trow\tframe\tflip\tfeet_x\tfeet_y\troot_x\tframe_x0\tframe_y0\tcell_x0\tcell_y0\tcell_x1\tcell_y1\tbaked\tparts\n");
     for target in &targets {
         let dir = out.join(target);
         std::fs::create_dir_all(&dir).expect("create the output directory");
         let baked = capture_all(target, false, scale, &flips, phase, centre_anchored);
         let parts = capture_all(target, true, scale, &flips, phase, centre_anchored);
         assert_eq!(baked.len(), parts.len(), "`{target}`: the two runs pinned different frames");
-        for ((pin, size, (feet, root_x, cell), baked), (_pin, _size, _feet, parts)) in baked.into_iter().zip(parts) {
+        for ((pin, size, (feet, root_x, frame_tl, cell), baked), (_pin, _size, _feet, parts)) in baked.into_iter().zip(parts) {
             let stem = format!("{}_{}{}", pin.row, pin.frame, if pin.flip { "_flip" } else { "" });
             let baked_path = dir.join(format!("{stem}_baked.png"));
             let parts_path = dir.join(format!("{stem}_parts.png"));
             save(&baked_path, size, &baked);
             save(&parts_path, size, &parts);
             index.push_str(&format!(
-                "{target}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+                "{target}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
                 pin.row,
                 pin.frame,
                 pin.flip,
                 feet.x,
                 feet.y,
                 root_x,
+                frame_tl.x,
+                frame_tl.y,
                 cell.min.x,
                 cell.min.y,
                 cell.max.x,
@@ -132,10 +134,11 @@ fn save(path: &std::path::Path, size: UVec2, pixels: &[u8]) {
 }
 
 /// Every row and frame of `target`, drawn by one path: `(pin, size, (feet
-/// pixel, root x, cell), RGBA)`. The feet pixel is where the body's feet land
+/// pixel, root x, frame top left, cell), RGBA)`. The feet pixel is where the body's feet land
 /// in the image, +y down, so a reader can place the published frame there; the
 /// root x is the column a facing flip mirrors about (the root's origin: the
-/// feet for an NPC, the quad's centre for a centre-anchored player); the cell
+/// feet for an NPC, the quad's centre for a centre-anchored player); the
+/// frame's top left is where the frame landed in the image; the cell
 /// is the image rectangle (+y down) the part road can draw in at all — the
 /// body's impostor cell, mirrored with it.
 fn capture_all(
@@ -145,7 +148,7 @@ fn capture_all(
     flips: &[bool],
     phase: f32,
     centre_anchored: bool,
-) -> Vec<(Pin, UVec2, (Vec2, f32, Rect), Vec<u8>)> {
+) -> Vec<(Pin, UVec2, (Vec2, f32, Vec2, Rect), Vec<u8>)> {
     let spec = try_load_spec_for_character_id(target).expect("a baked sheet: run scripts/regen/sprites.sh");
     let frame = Vec2::new(spec.frame_width as f32, spec.frame_height as f32);
     let render = frame * scale;
@@ -240,7 +243,7 @@ fn capture_all(
                 } else {
                     cell
                 };
-                out.push((pinned, size, (feet_pixel, root_x, cell), readback(&mut app, &image, &captured, size)));
+                out.push((pinned, size, (feet_pixel, root_x, tl, cell), readback(&mut app, &image, &captured, size)));
             }
         }
     }

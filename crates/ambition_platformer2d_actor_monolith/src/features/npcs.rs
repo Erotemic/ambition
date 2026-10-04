@@ -183,19 +183,28 @@ pub(crate) fn npc_message(interactable: &Interactable, name: &str, hostile: bool
     }
 }
 
+/// The dialogue that a talk to an NPC starts, from the id its placement
+/// authors.
+///
+/// An authored id must be non-EMPTY, not merely present. Blank is the same
+/// statement as absent: this character has no bespoke scene, so it gets the
+/// generic one. The content validator asks here too, so that the talk flags it
+/// knows ([`npc_talked_flag`]) are those that a talk sets.
+pub fn npc_talk_dialogue_id(authored: Option<&str>) -> String {
+    match authored {
+        Some(dialogue_id) if !dialogue_id.trim().is_empty() => dialogue_id.to_string(),
+        _ => "generic_npc".to_string(),
+    }
+}
+
 pub(crate) fn npc_dialogue_request(
     interactable: &Interactable,
     name: &str,
     id: &str,
 ) -> NpcDialogueRequest {
-    // An authored id must be non-EMPTY, not merely present. Blank is the same statement as absent:
-    // this character has no bespoke scene, so it gets the generic one.
     let dialogue_id = match &interactable.kind {
-        InteractionKind::Npc {
-            dialogue_id: Some(dialogue_id),
-            ..
-        } if !dialogue_id.trim().is_empty() => dialogue_id.clone(),
-        _ => "generic_npc".to_string(),
+        InteractionKind::Npc { dialogue_id, .. } => npc_talk_dialogue_id(dialogue_id.as_deref()),
+        _ => npc_talk_dialogue_id(None),
     };
     NpcDialogueRequest {
         npc_id: id.to_string(),

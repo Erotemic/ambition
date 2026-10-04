@@ -103,6 +103,16 @@ texels than their own baked sheet or took over 64 draws a frame (the goblins
   ~25 parts at 0.02-0.4x their sheets. Every rebuilt character replays its new
   frames inside D6 and passes the cost rule (fsm_noodling excepted).
 
+**After the rebuild (census, 2026-10-03, renderer `7bd8024`):** 142 of the 143
+published flipbooks draw from parts and only fsm_noodling is drawn baked. Their
+part pages hold 58.0 MTexel against the sheets' 532.1 (0.109x; 26.2 against
+262.7 MiB), and the tiers come to about 0.11x. The median character's worst
+frame takes 21 draws, and the worst character (georg_canter) 50. Every
+flipbook redraws its sheet inside D6 (`scripts/measure_published_flipbooks.py`),
+and in-engine parity over ten rebuilt characters in both facings (3554 frames)
+stays under 0.15%. ⚠ The draw tables are now the larger download: 42.4 MiB of
+RON against 26.2 MiB of part pages.
+
 Also: always-rigid neighbouring draws are composited into one part when that
 adds no texels (`_merge_rigid_neighbours`; noether -9% draws), and an impostor
 atlas renders only on a frame where one of its cells changed.

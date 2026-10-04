@@ -23,7 +23,7 @@ use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
-use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::platformer::markers::PlayerEntity;
 
 use crate::ldtk_vocabulary::{block_of, MaryOBlockLook};
 
@@ -113,33 +113,56 @@ pub fn break_bricks(
     mut broken: ResMut<BrokenBricks>,
     mut vfx: ambition_platformer2d::vfx::VfxWriter,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
-    // her FORM rides the same query, `Option` because a body with no
-    // equipment component at all is small — that is what small IS, not a bug.
-    players: Query<(Entity, &PlayerBodyFrameOutput, Option<&WornEquipment>), With<PrimaryPlayer>>,
+    // Every body of the player population strikes, each in its own live room,
+    // so a second seat breaks masonry too. Her FORM rides the same query,
+    // `Option` because a body with no equipment component at all is small —
+    // that is what small IS, not a bug.
+    players: Query<
+        (
+            Entity,
+            &PlayerBodyFrameOutput,
+            Option<&WornEquipment>,
+            Option<&ambition_platformer2d::platformer::sim_id::SimId>,
+        ),
+        With<PlayerEntity>,
+    >,
     // A `GeoId` names a block; only the room can say which one. The room is
     // the live room of the body that struck it, and the shards are drawn
     // there.
     geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
 ) {
-    let Ok((striker, frame, worn)) = players.single() else {
-        return;
-    };
-    let (Some(room), Some(room_geometry)) = (geometry.room_of(striker), geometry.of(striker)) else {
-        return;
-    };
-    // a system-wide `return`, and here that is honest. Guarding a whole
-    // system on a singleton is usually a smell — the guarded value normally
-    // feeds one call among several — but breaking masonry is the ENTIRE body of
-    // this function. There is no other effect for a small Mary-O to still get,
-    // so hoisting the read out of the contact loop costs nothing and says the
-    // rule once. Her form cannot change mid-frame either.
-    //
-    // this asks [`crate::powerups::is_small`] rather than testing two
-    // equipment ids, so the ladder stays the single authority on what a form is
-    // — see its doc for why `wears(STAR_WAND_ID)` would have muted fire.
-    if crate::powerups::is_small(worn) {
-        return;
+    // Two bodies can strike one brick in one tick. The first breaks it, so the
+    // order decides which strike draws the shards, and a rewind must give the
+    // same order: stable `SimId`, not query order.
+    let strikers = ambition_platformer2d::platformer::sim_selection::in_deterministic_order(
+        players.iter(),
+        |_| 0.0,
+        |(_, _, _, id)| *id,
+    );
+    for (striker, frame, worn, _) in strikers {
+        // this asks [`crate::powerups::is_small`] rather than testing two
+        // equipment ids, so the ladder stays the single authority on what a
+        // form is — see its doc for why `wears(STAR_WAND_ID)` would have muted
+        // fire.
+        if crate::powerups::is_small(worn) {
+            continue;
+        }
+        let (Some(room), Some(room_geometry)) = (geometry.room_of(striker), geometry.of(striker)) else {
+            continue;
+        };
+        break_bricks_struck_by(frame, room, room_geometry, &mut broken, &mut vfx, &mut sfx);
     }
+}
+
+/// The bricks one body's head contacts break in its live room `room`.
+fn break_bricks_struck_by(
+    frame: &PlayerBodyFrameOutput,
+    room: LiveRoomInstance,
+    room_geometry: &ae::RoomGeometry,
+    broken: &mut BrokenBricks,
+    vfx: &mut ambition_platformer2d::vfx::VfxWriter,
+    sfx: &mut ambition_platformer2d::sfx::BodySfxWriter,
+) {
     for contact in &frame.events.contacts {
         if contact.kind != ContactKind::Head {
             continue;
@@ -336,7 +359,7 @@ mod tests {
         let mut app = break_app();
         let id = authored_brick_id(&struck);
         app.world_mut()
-            .spawn((PrimaryPlayer, head_bonk_frame(id), tall()));
+            .spawn((PlayerEntity, head_bonk_frame(id), tall()));
 
         app.update();
         assert!(
@@ -405,13 +428,11 @@ mod tests {
         );
         app.add_systems(Update, break_bricks);
 
-        // ONE player, whose contact is rewritten between frames.  Spawning a
-        // second `PrimaryPlayer` makes `break_bricks`' `players.single()` fail
-        // and the system silently do nothing — which is how the control case
-        // below first "passed" as a failure.
+        // ONE player, whose contact is rewritten between frames, so the
+        // control below reads the same body as the subject.
         let player = app
             .world_mut()
-            .spawn((PrimaryPlayer, head_bonk_frame(loaded_id), tall()))
+            .spawn((PlayerEntity, head_bonk_frame(loaded_id), tall()))
             .id();
         app.update();
         assert!(
@@ -462,14 +483,13 @@ mod tests {
         // and the ONLY thing that differs between the three calls is her form.
         let (brick, _) = two_authored_bricks();
 
-        // ONE `PrimaryPlayer` per app — `break_bricks` uses `single()`, so a
-        // second body makes the system silently do nothing and every assertion
-        // about "did not break" passes for the wrong reason.
+        // ONE body per app, so the form under test is the only form that
+        // strikes.
         let strike = |worn: Option<WornEquipment>| -> bool {
             let mut app = break_app();
             let mut body = app
                 .world_mut()
-                .spawn((PrimaryPlayer, head_bonk_frame(authored_brick_id(&brick))));
+                .spawn((PlayerEntity, head_bonk_frame(authored_brick_id(&brick))));
             if let Some(worn) = worn {
                 body.insert(worn);
             }
@@ -503,7 +523,7 @@ mod tests {
     fn a_head_bonk_on_a_non_brick_breaks_nothing() {
         let mut app = break_app();
         app.world_mut()
-            .spawn((PrimaryPlayer, head_bonk_frame(ae::GeoId::anon()), tall()));
+            .spawn((PlayerEntity, head_bonk_frame(ae::GeoId::anon()), tall()));
         app.update();
         assert_eq!(
             app.world()
@@ -640,7 +660,7 @@ mod tests {
             ae::RoomGeometry(crate::level_1_1().world.clone()),
         );
         app.world_mut().spawn((
-            PrimaryPlayer,
+            PlayerEntity,
             head_bonk_frame(authored_brick_id(&struck)),
             tall(),
             InRoomInstance(bob),
@@ -654,6 +674,45 @@ mod tests {
             ),
             (false, true),
             "(the other room, the striker's room): the brick broke in the striker's room only"
+        );
+    }
+
+    /// Two seats strike in one tick, each in its own live room: Alice, the
+    /// primary seat, in the first room and Bob, a second seat, in the other.
+    /// Each brick breaks in its striker's room only. Alice's break is the
+    /// control: it shows the system ran for the primary seat in the same tick.
+    #[test]
+    fn a_second_seats_strike_breaks_in_its_own_room() {
+        use ambition_platformer2d::platformer::lifecycle::{spawn_live_room, InRoomInstance};
+        use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+        let (alices_brick, bobs_brick) = two_authored_bricks();
+        let mut app = break_app();
+        let bob = LiveRoomInstance::ACTIVATION.next();
+        spawn_live_room(
+            app.world_mut(),
+            bob,
+            ae::RoomGeometry(crate::level_1_1().world.clone()),
+        );
+        app.world_mut().spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            head_bonk_frame(authored_brick_id(&alices_brick)),
+            tall(),
+            InRoomInstance(LiveRoomInstance::ACTIVATION),
+        ));
+        app.world_mut().spawn((
+            PlayerEntity,
+            head_bonk_frame(authored_brick_id(&bobs_brick)),
+            tall(),
+            InRoomInstance(bob),
+        ));
+        app.update();
+        let broken = app.world().resource::<BrokenBricks>();
+        let names = |room| broken.broken_names(room).cloned().collect::<Vec<_>>();
+        assert_eq!(
+            (names(LiveRoomInstance::ACTIVATION), names(bob)),
+            (vec![alices_brick], vec![bobs_brick]),
+            "(Alice's room, Bob's room): each seat's strike breaks a brick in its own room"
         );
     }
 

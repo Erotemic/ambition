@@ -3,10 +3,10 @@
 
 The room graph is built from `LoadingZone` entities: each one with a
 `target_room` + `target_zone` becomes ONE DIRECTED edge, plus the reverse when
-it authors `bidirectional`. `RoomSet::from_parts` drops an edge whose target
-names no room and prints `room graph warning: unknown target room '<id>'` to
-stderr -- a warning nobody reads during a build, on a door that then goes
-nowhere.
+it authors `bidirectional`. `RoomSet::try_from_parts` drops an edge whose target
+names no room and prints `room graph warning: LoadingZone '<room>:<zone>'
+targets unknown room '<id>'` to stderr -- a warning nobody reads during a
+build, on a door that then goes nowhere.
 
 MEASURED 2026-09-05 across the four shipped worlds: 72 areas, 150 directed
 edges, 122 zones authoring `bidirectional`, zero dangling targets and zero

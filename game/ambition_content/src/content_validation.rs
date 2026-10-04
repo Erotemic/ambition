@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ambition_platformer2d::content::MusicRegistry;
 use ambition_encounter::encounter_reward_looted_flag;
-use ambition_platformer2d_ldtk::{field_string, LdtkProject};
+use ambition_platformer2d_ldtk::{field_string, field_text, LdtkProject};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ContentValidationReport {
@@ -55,18 +55,6 @@ impl ContentValidationReport {
 }
 
 /// Validate the checked-in sandbox content graph.
-#[cfg_attr(not(test), allow(dead_code))]
-/// Normalize one authored optional string: trim it, and treat blank as absent.
-///
-/// A field left as `"  "` in the editor means the author left it empty. A site
-/// that kept `Some("")` would report *"targets unknown room ''"* instead of
-/// treating the field as unset. Loading-zone `target_room` / `target_zone` and
-/// placement `character_id` / `brain_override` all use this one rule.
-fn authored_optional(value: String) -> Option<String> {
-    let trimmed = value.trim();
-    (!trimmed.is_empty()).then(|| trimmed.to_string())
-}
-
 pub fn validate_embedded_content_graph() -> ContentValidationReport {
     let music = crate::audio_registries::load_music_registry();
     let project = match LdtkProject::load_default_for_dev(&crate::worlds::world_manifest()) {
@@ -96,6 +84,7 @@ pub fn validate_content_graph(
 
     let ldtk_report = project
         .validate(&ambition_platformer2d_ldtk::LdtkVocabulary::engine());
+    let ldtk_accepts = ldtk_report.is_ok();
     report.extend_errors(
         ldtk_report
             .errors
@@ -109,11 +98,33 @@ pub fn validate_content_graph(
             .map(|warning| format!("LDtk validation: {warning}")),
     );
 
-    validate_ldtk_room_links(project, &mut report);
+    // The rooms and the links that the runtime builds its room set from. Each
+    // check below that asks about a room, a zone or a link reads these. It does
+    // not read the LDtk fields a second time with a rule of its own.
+    let (rooms, links) = match project.to_room_parts(
+        &crate::worlds::world_manifest(),
+        &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
+    ) {
+        Ok(parts) => parts,
+        Err(errors) => {
+            // The LDtk owner's refusals are in the report already. Other
+            // refusals (a converter, a baked room) are told here.
+            if ldtk_accepts {
+                report.extend_errors(
+                    errors
+                        .into_iter()
+                        .map(|error| format!("the world does not compose: {error}")),
+                );
+            }
+            Default::default()
+        }
+    };
+
+    validate_room_links(&rooms, &links, &mut report);
     validate_room_music_tracks(project, music, &mut report);
     validate_npc_dialogue_ids(project, character_catalog, &mut report);
     validate_npc_brain_overrides(project, character_catalog, &mut report);
-    validate_quest_conditions(project, music, &mut report);
+    validate_quest_conditions(project, &rooms, music, &mut report);
     validate_cutscene_bindings(project, &mut report);
     let boss_catalog = crate::bosses::authored_boss_catalog();
     validate_boss_music_tracks(music, &boss_catalog, &mut report);
@@ -121,74 +132,29 @@ pub fn validate_content_graph(
     report
 }
 
-fn validate_ldtk_room_links(project: &LdtkProject, report: &mut ContentValidationReport) {
-    let mut area_level_count: BTreeMap<String, usize> = BTreeMap::new();
-    let mut zones_by_area: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    let mut links = Vec::new();
-
-    for level in &project.levels {
-        let area = level.active_area();
-        *area_level_count.entry(area.clone()).or_default() += 1;
-        for entity in level.all_entity_instances() {
-            if entity.identifier != "LoadingZone" {
-                continue;
-            }
-            let zone_id = field_string(entity, "id").unwrap_or_else(|| entity.iid.clone());
-            if zone_id.trim().is_empty() {
-                report.push_error(format!(
-                    "level '{}' has LoadingZone '{}' with a blank id",
-                    level.identifier, entity.iid
-                ));
-                continue;
-            }
-            if !zones_by_area
-                .entry(area.clone())
-                .or_default()
-                .insert(zone_id.clone())
-            {
-                report.push_error(format!(
-                    "active area '{}' has duplicate LoadingZone id '{}'",
-                    area, zone_id
-                ));
-            }
-            links.push((
-                area.clone(),
-                zone_id,
-                field_string(entity, "target_room"),
-                field_string(entity, "target_zone"),
-            ));
-        }
-    }
-
-    // ONE JUDGE PER RULE. A zone with no target (a landing pad) and a zone with
-    // half a target are judged by `LdtkProject::validate`, whose report
-    // `validate_content_graph` already folds in. This check asks only what the
-    // owner does not: does a complete target name a room and a zone that exist?
-    for (area, zone_id, target_room, target_zone) in links {
-        let (Some(room), Some(zone)) = (
-            target_room.and_then(authored_optional),
-            target_zone.and_then(authored_optional),
-        ) else {
-            continue;
-        };
-        if !area_level_count.contains_key(&room) {
-            report.push_error(format!(
-                "LoadingZone '{}:{}' targets unknown room '{}'",
-                area, zone_id, room
-            ));
-            continue;
-        }
-        if !zones_by_area
-            .get(&room)
-            .map(|zones| zones.contains(&zone))
-            .unwrap_or(false)
-        {
-            report.push_error(format!(
-                "LoadingZone '{}:{}' targets missing zone '{}:{}'",
-                area, zone_id, room, zone
-            ));
-        }
-    }
+/// Each link of the complete game names a room and a zone that exist.
+///
+/// ONE JUDGE PER RULE. The LDtk owner (`LdtkProject::validate`) judges a zone
+/// by itself: its id, a landing pad, half a target. The world owner
+/// (`unresolved_links`) says which end of a link does not resolve. A room set
+/// drops such a link with a warning, because a partial set keeps the exits of
+/// its rooms. This validator holds the complete game, so here each one is an
+/// error.
+///
+/// The links are those that the runtime builds. This validator had its own
+/// scan of the `LoadingZone` fields, which trimmed a target that the converter
+/// did not trim. A target with a space after it then passed here and was a
+/// dead door in play.
+fn validate_room_links(
+    rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
+    links: &[ambition_platformer2d::world::rooms::RoomLink],
+    report: &mut ContentValidationReport,
+) {
+    report.extend_errors(
+        ambition_platformer2d::world::rooms::unresolved_links(rooms, links)
+            .into_iter()
+            .map(|unresolved| unresolved.to_string()),
+    );
 }
 
 fn validate_room_music_tracks(
@@ -254,10 +220,8 @@ fn validate_npc_brain_overrides(
             if entity.identifier != "NpcSpawn" {
                 continue;
             }
-            let character_id = field_string(entity, "character_id")
-                .and_then(authored_optional);
-            let brain_override = field_string(entity, "brain_override")
-                .and_then(authored_optional);
+            let character_id = field_text(entity, "character_id");
+            let brain_override = field_text(entity, "brain_override");
 
             match (character_id, brain_override) {
                 // Anonymous placement, no brain authority — nothing to check.
@@ -291,6 +255,7 @@ fn validate_npc_brain_overrides(
 
 fn validate_quest_conditions(
     project: &LdtkProject,
+    rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
     music: &MusicRegistry,
     report: &mut ContentValidationReport,
 ) {
@@ -311,19 +276,11 @@ fn validate_quest_conditions(
         ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
             .cloned()
             .map(ambition_encounter::EncounterWaveBook);
-    // Holding an `LdtkProject` is correct here: validating the map is this
-    // function's job. The encounter loader must not read one, which would put
-    // the map format back in the actor monolith.
-    let rooms = project
-        .to_room_set(
-            &crate::worlds::world_manifest(),
-            &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
-        )
-        .map(|set| set.rooms)
-        .unwrap_or_default();
+    // The encounter loader reads composed rooms. It must not read an
+    // `LdtkProject`, which would put the map format back in the actor monolith.
     let loaded_encounters =
         ambition_encounter_features::load_encounter_specs_from_rooms(
-            &rooms,
+            rooms,
             &ambition_persistence::save_data::AmbitionGameSaveData::default(),
             waves.as_ref(),
         );
@@ -642,22 +599,6 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
 
 #[cfg(test)]
 mod tests {
-    /// Blank means absent.
-    ///
-    /// A field left as `"  "` in the editor means the author left it empty.
-    /// Carrying `Some("")` into a lookup reports *"targets unknown room ''"*, which
-    /// sends the author looking for a room they never named.
-    #[test]
-    fn a_blank_authored_field_is_absent_not_empty() {
-        assert_eq!(super::authored_optional("  ".to_string()), None);
-        assert_eq!(super::authored_optional(String::new()), None);
-        assert_eq!(
-            super::authored_optional("  cove  ".to_string()),
-            Some("cove".to_string()),
-            "a value with surrounding whitespace is the value, trimmed"
-        );
-    }
-
     use super::*;
 
     /// The embedded project, with one zone that another zone arrives through
@@ -679,8 +620,8 @@ mod tests {
             .filter(|entity| entity.identifier == "LoadingZone")
             .filter_map(|entity| {
                 Some((
-                    field_string(entity, "target_room").and_then(authored_optional)?,
-                    field_string(entity, "target_zone").and_then(authored_optional)?,
+                    field_text(entity, "target_room")?,
+                    field_text(entity, "target_zone")?,
                 ))
             })
             .collect();
@@ -753,6 +694,90 @@ mod tests {
         assert!(
             unknown.iter().any(|error| error.contains("targets unknown room 'no_such_room'")),
             "a target naming no room was not refused: {unknown:?}"
+        );
+    }
+
+    /// THE VALIDATOR JUDGES THE LINKS THAT THE RUNTIME BUILDS.
+    ///
+    /// This validator had its own scan of the `LoadingZone` fields. It trimmed
+    /// a target, and the converter did not. A target with a space after it
+    /// passed here, and the room set dropped the link: a dead door that the
+    /// validator accepted. The LDtk owner trims now (`field_text`), and this
+    /// validator reads the links that the owner builds, so the two agree: the
+    /// target is accepted and the door is in the graph.
+    #[test]
+    fn a_target_with_a_stray_space_is_one_door_for_the_validator_and_the_runtime() {
+        let music = crate::audio_registries::load_music_registry();
+        let character_catalog = crate::character_catalog::load_catalog();
+        let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+            .expect("embedded LDtk loads");
+        let exit = project
+            .levels
+            .iter_mut()
+            .find_map(|level| {
+                let area = level.active_area();
+                level
+                    .layer_instances
+                    .iter_mut()
+                    .flat_map(|layer| layer.entity_instances.iter_mut())
+                    .find(|entity| {
+                        entity.identifier == "LoadingZone"
+                            && field_text(entity, "target_room").is_some()
+                            && field_text(entity, "target_zone").is_some()
+                            && field_text(entity, "id").is_some()
+                    })
+                    .map(|entity| (area, entity))
+            })
+            .expect("the embedded world has an exit");
+        let (area, entity) = exit;
+        let id = field_text(entity, "id").unwrap();
+        let room = field_text(entity, "target_room").unwrap();
+        let iid = entity.iid.clone();
+        set_field(
+            &mut entity.field_instances,
+            "target_room",
+            serde_json::Value::String(format!("{room} ")),
+        );
+
+        let name = format!("{area}:{id}");
+        let errors: Vec<String> = validate_content_graph(&music, &project, &character_catalog)
+            .errors
+            .into_iter()
+            .filter(|error| error.contains(&iid) || error.contains(&name))
+            .collect();
+        let set = project
+            .to_room_set(
+                &crate::worlds::world_manifest(),
+                &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
+            )
+            .expect("the edited world composes");
+        let has_door = set
+            .canonical_links()
+            .iter()
+            .any(|link| link.from_room == area && link.from_zone == id && link.to_room == room);
+        assert!(
+            errors.is_empty() == has_door,
+            "the validator and the runtime disagree about '{name}' -> '{room} ': \
+             validator errors {errors:?}, door in the graph: {has_door}"
+        );
+        assert!(has_door, "a target with a space after it is its trimmed value: '{name}'");
+    }
+
+    /// A link to a zone that its target room does not have is refused once.
+    /// The world owner only warns of it, because a partial room set keeps the
+    /// exits of its rooms. This validator holds the complete game.
+    #[test]
+    fn a_target_zone_that_does_not_exist_is_refused_once() {
+        let missing = errors_about_an_arrival_zone_after(|fields| {
+            set_field(fields, "target_zone", serde_json::Value::String("no_such_zone".into()));
+        });
+        assert_eq!(
+            missing
+                .iter()
+                .filter(|error| error.contains("targets missing zone"))
+                .count(),
+            1,
+            "a target zone that does not exist: {missing:?}"
         );
     }
 

@@ -157,6 +157,88 @@ pub struct RoomLink {
     pub bidirectional: bool,
 }
 
+/// The end of a [`RoomLink`] that names nothing in a set of rooms.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UnresolvedEnd {
+    SourceRoom,
+    SourceZone,
+    TargetRoom,
+    TargetZone,
+}
+
+/// A [`RoomLink`] with an end that does not resolve, and which end.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnresolvedLink {
+    pub link: RoomLink,
+    pub end: UnresolvedEnd,
+}
+
+impl std::fmt::Display for UnresolvedLink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let RoomLink {
+            from_room,
+            from_zone,
+            to_room,
+            to_zone,
+            ..
+        } = &self.link;
+        match self.end {
+            UnresolvedEnd::SourceRoom => write!(
+                f,
+                "a link to '{to_room}:{to_zone}' starts in unknown room '{from_room}'"
+            ),
+            UnresolvedEnd::SourceZone => write!(
+                f,
+                "a link to '{to_room}:{to_zone}' starts in missing zone '{from_room}:{from_zone}'"
+            ),
+            UnresolvedEnd::TargetRoom => write!(
+                f,
+                "LoadingZone '{from_room}:{from_zone}' targets unknown room '{to_room}'"
+            ),
+            UnresolvedEnd::TargetZone => write!(
+                f,
+                "LoadingZone '{from_room}:{from_zone}' targets missing zone '{to_room}:{to_zone}'"
+            ),
+        }
+    }
+}
+
+/// The links whose ends do not resolve in `rooms`, in the order of `links`.
+///
+/// This is the one judge of "does this link name a room and a zone that
+/// exist". A source end is checked before a target end, and a room before its
+/// zone, so each link gives one answer for each end.
+///
+/// An unresolved link is not always an error. A partial set (one room alone,
+/// or a world without the rooms that a different provider adds) keeps the
+/// exits of its rooms, and [`RoomSet::try_from_parts`] drops them with a
+/// warning. A caller that holds the complete game makes each one an error.
+pub fn unresolved_links(rooms: &[RoomSpec], links: &[RoomLink]) -> Vec<UnresolvedLink> {
+    let room = |id: &str| rooms.iter().find(|room| room.id == id);
+    let has_zone =
+        |room: &RoomSpec, zone: &str| room.loading_zones.iter().any(|candidate| candidate.id == zone);
+    let mut unresolved = Vec::new();
+    for link in links {
+        let mut report = |end| {
+            unresolved.push(UnresolvedLink {
+                link: link.clone(),
+                end,
+            })
+        };
+        match room(&link.from_room) {
+            None => report(UnresolvedEnd::SourceRoom),
+            Some(from) if !has_zone(from, &link.from_zone) => report(UnresolvedEnd::SourceZone),
+            Some(_) => {}
+        }
+        match room(&link.to_room) {
+            None => report(UnresolvedEnd::TargetRoom),
+            Some(to) if !has_zone(to, &link.to_zone) => report(UnresolvedEnd::TargetZone),
+            Some(_) => {}
+        }
+    }
+    unresolved
+}
+
 /// Resolved transition from the active room to a graph-linked destination room.
 #[derive(Clone, Debug)]
 pub struct RoomTransition {

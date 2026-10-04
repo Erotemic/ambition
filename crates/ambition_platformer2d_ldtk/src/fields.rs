@@ -71,6 +71,26 @@ pub fn field_string(entity: &LdtkEntityInstance, name: &str) -> Option<String> {
     field_value(&entity.field_instances, name).and_then(value_to_string)
 }
 
+/// An authored text field: its value trimmed, and absent when it is blank.
+///
+/// A field left as `"  "` in the editor means that the author left it empty,
+/// and a value with a space before or after it is the value. Each reader of a
+/// reference field (a room id, a zone id) must use this one rule. If a
+/// validator trims and the converter does not, the validator accepts a
+/// reference that the runtime cannot resolve.
+pub fn field_text(entity: &LdtkEntityInstance, name: &str) -> Option<String> {
+    let authored = field_string(entity, name)?;
+    let trimmed = authored.trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
+}
+
+/// The id of an authored `LoadingZone`: its `id` field, or its iid when the
+/// field is absent. The converter, the room links and the validator each name
+/// a zone by this one answer.
+pub fn loading_zone_id(entity: &LdtkEntityInstance) -> String {
+    field_string(entity, "id").unwrap_or_else(|| entity.iid.clone())
+}
+
 pub fn field_f32(entity: &LdtkEntityInstance, name: &str) -> Option<f32> {
     field_value(&entity.field_instances, name).and_then(|value| match value {
         Value::Number(number) => number.as_f64().map(|value| value as f32),

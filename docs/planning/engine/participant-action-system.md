@@ -88,6 +88,39 @@ Loading/retry and specialized UI contexts should migrate when their schedule and
 ownership seams are clear. Avoid introducing a dependency cycle merely to make
 all surfaces use the same enum immediately.
 
+## P5 — weapon readiness is a semantic state (Q33)
+
+Ruling Q33 (2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md)):
+readiness is a generic semantic state that the engine publishes and
+presentation shows: about `ready` versus `recharging/unavailable`, optionally
+with progress. A trigger during a cooldown must not look like a successful
+shot. Each weapon's or game's presentation chooses the treatment (dimmed or
+disabled, a recharge bar, a cue); the engine does not hard-code one.
+
+**Today (2026-10-04).**
+
+- The actor/action refire floor is `RangedRefire`
+  (`ambition_combat/src/components/actors.rs`), authored per action as
+  `RangedActionSpec::refire_s`. A blocked attempt is dropped without a
+  message (`features/ecs/brain_effects.rs`, `try_fire(..).accepted()` then
+  `continue`), so nothing downstream can tell "refused" from "not pressed".
+- The only published readiness is one boolean, `ControlPromptEntry::ready`, for
+  `ControlSlot::Projectile` (`ambition_sim_view/src/control_prompt.rs`,
+  `project_prompt_readiness`). It has no progress, no reason, and no other
+  slot or weapon.
+- Other fire roads (the player's `ProjectileSpawner` cooldown, held-item
+  discharge) publish no readiness.
+
+**Work (queue row WEAPON-READINESS).** One read model per (body, weapon/action)
+with the state, optional progress and the reason (`recharging`, `no room for
+another shot`, `no ammunition`), derived each tick from the existing
+authorities, so nothing new is rolled back. A refused trigger publishes a
+"refused" fact that presentation can show (or ignore); it never starts the
+success pose, sound or effect. The prompt readiness bit becomes a reader of the
+read model. Acceptance: a test presses fire during a cooldown and asserts no
+shot, no success presentation fact, and a `recharging` state with progress; the
+control is a press after the cooldown.
+
 ## Menu activation policy
 
 Pointer activation already shares `MenuTapMode` policy across current menu

@@ -47,7 +47,12 @@ make every fighter fact use one file format.
 
 - stable character identity and authoring context;
 - character-specific body/presentation source;
-- character-specific authored moves and geometry;
+- character-specific authored moves and geometry, including semantic
+  landmarks (hands, muzzle, feet, head, held-item sockets, weapon grips,
+  rider/mount anchors, contact points). Landmarks are optional package slots
+  that simulation and presentation both read; see
+  [`runtime-rigged-sprite-animation.md`](runtime-rigged-sprite-animation.md#semantic-landmarks-q41)
+  (Q41);
 - character-specific VFX/SFX references or recipes where they are genuinely
   part of the character's identity;
 - ruleset-specific facet values such as platform-fighter capture/body policy;

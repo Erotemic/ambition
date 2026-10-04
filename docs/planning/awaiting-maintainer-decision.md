@@ -41,65 +41,20 @@ One question looks like a blocker and is not:
 
 ## Gameplay and content
 
-## Q33 — how should a recharging ranged weapon communicate that it is unavailable?
-
-Choose the player-facing unavailable/readiness signal. The mechanism should not
-invent one presentation independently for every ranged weapon.
-
 ## Q36 — what are the authored standing heights of the puppy slug, stochastic parrot and burning flying shark?
 
 The engine has a canonical-height contract; these remaining authored characters
 need product values rather than inferred sprite dimensions.
-
-## Q40 — should a held gun-sword kick the player the way it kicks the pirate?
-
-Choose whether recoil is an authored weapon property applied to every holder or a
-pirate-specific behavior.
-
-## Q41 — where should a hand-fired fireball leave the body?
-
-Choose the authored launch landmark/offset contract for hand-fired projectiles.
-Do not derive it independently from sprite bounds at runtime.
 
 ## Q42 — should the gauntlet fireball keep bespoke art or use the catalog energy ball?
 
 Product/art choice. The runtime should consume one authored presentation identity
 once chosen.
 
-## Q43 — does a body hanging on a ledge inside a hazard volume die?
-
-Choose the game rule for ledge custody versus hazard damage. The engine can then
-encode one authority rather than special-case the observed overlap.
-
-## Q44 — should `SmashChargeSpec` keep a Smash-specific name?
-
-The mechanism is now broader than one game mode. Rename only if the intended API
-is reusable; do not churn names solely for aesthetics.
-
 ## Q46 — does Mary-O 1-1 want a fourth question block over floor?
 
 Content-layout choice needed to make the floor-refusal behavior of the fire form
 meaningfully playable.
-
-## Q47 — where does TwinTrack's simultaneity limit live while the exhibit is parked?
-
-Choose whether the parked exhibit still consumes a global/participant/world
-simultaneity slot.
-
-## Q49 — is near-identical CPU play on a symmetric stage acceptable?
-
-If yes, no diversity mechanism is owed. If no, specify whether the desired
-variation is tactical policy, difficulty behavior or presentation/personality.
-
-## Q55 — should authored worlds grow to use all five route-gate families?
-
-The vocabulary exists, and the families stay as capability surface whether or
-not a demo uses them (usage is not a deletion criterion, Q74 ruling 2026-10-03).
-Decide only whether broader authored coverage is wanted now.
-
-## Q70 — should the title Settings tab visibly highlight on pointer hover?
-
-Small UI/product choice; implementation already has the semantic tab state.
 
 ## Q71 — how much Limit should a successful block award?
 
@@ -121,22 +76,10 @@ adding runtime avoidance.
 The stand-ins currently lack the button vocabulary expected by their match role.
 Choose authored moves or explicitly accept the omission.
 
-## Q91 — keep the 10× countdown mode?
-
-This was explicitly requested earlier and remains available. Decide whether it is
-still a product/debug affordance worth carrying.
-
 ## Q93 — should the demo author a dense melee room?
 
 Product/content call. Do not add engine behavior merely to manufacture a stress
 scene unless the room itself is wanted.
-
-## Q81 — what should happen to the mostly-unreferenced bespoke FX rows for Pirate Admiral and George Booul?
-
-The FX-row census finds these sheets as the extreme unreferenced-art case.
-Either wire effects that correspond to intended authored moves, deliberately keep
-rows as future art, or remove superseded rows. The count is owned by
-`scripts/measure_fx_row_reachability.py`; do not copy a stale number into code.
 
 ## Q82 — should LDtk editor-preview tilesets remain runtime-packaged when the runtime never draws them?
 
@@ -158,11 +101,6 @@ Choose the product quality requirement before adding portrait-specific generatio
 implementation for the "full-resolution only" answer. Related: the Q69 ruling
 (2026-10-01) says readability is not an acceptance criterion for the potato
 tier.
-
-## Q85 — should Hall characters without authored interaction dialogue remain non-interactive?
-
-Content decision: author dialogue or explicitly accept that those cast members are
-visual/background only.
 
 ## Q148 — which track should Mode Collapse fight to?
 

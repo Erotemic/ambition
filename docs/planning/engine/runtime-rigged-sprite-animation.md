@@ -155,6 +155,49 @@ Bench: `crates/ambition_render/examples/rigged_sprite_bench.rs` (`--render`,
   both write the same joint transforms in one tick. Do not add a
   `BodyPoseAuthority` enum until a second pose provider exists.
 
+## Semantic landmarks (Q41)
+
+Ruling Q41 (2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md)):
+projectile launch points and every similar spatial interaction use authored
+semantic landmarks on the character/rig, never sprite bounds or arbitrary body
+offsets. A move may add a move-specific offset from a named landmark.
+Presentation geometry is not authoritative for simulation. This is an
+important rig capability, not only a texture or animation saving: hands touch
+things, weapons attach consistently, shots leave believable places, riders
+mount at authored anchors, and petting and contact align.
+
+**Vocabulary (target).** Hands (near/far), muzzle/projectile origin, feet,
+head, held-item sockets, weapon grips, rider/mount anchors, petting/contact
+points. The rig attachments (`HandNear`, `HandFar`, `Head`, `FootNear`,
+`FootFar`) are the first members. A landmark is a package slot (2026-08-17
+ruling: optional, authored when useful), resolved per pose. A body with a rig
+answers from `BodyRigPose`; a body without a rig answers from its package's
+authored per-pose points. Each consumer asks one query, "where is landmark L of
+body B this tick", and does not know which of the two answered. A missing
+landmark is a named fallback the consumer states, not a silent offset.
+
+**Where spatial interactions come from today (2026-10-04).**
+
+| Interaction | Source today | Landmark it wants |
+| --- | --- | --- |
+| Action shot (`Discharge::muzzle`) | `Muzzle::{BodyOrigin, Hand { ahead }, Offset { x, y }}` (`action_set/mod.rs`); `Hand` uses the rig hand only when the body has a rig | muzzle, or hand + move offset |
+| Rider's hand without a rig | `HAND_OFFSET_NORM` × rider height (`ambition_mount/src/lib.rs`, `rider_hand_world_pos_in_frame`) | hand |
+| Player fireball | Body half-size plus clearance (`projectile/systems.rs`, `PLAYER_PROJECTILE_MUZZLE_CLEARANCE`) | muzzle |
+| Pet ("pet the dog") | Petter stands at the petted AABB's front plus `PET_STANDOFF` (`features/ecs/pet.rs`); the hand is not aligned to the head | petter hand, petted contact point |
+| Rig attachments | `BodyRigPose` attachments, live only under `BodyRigAdmission` (off) | all of the above |
+| Renderer frame metadata | The sprite renderer can author per-frame `sockets` (`hand_r`, `muzzle`; `core/frameset.py`); no Rust reads them | the package's per-pose points for bodies without a rig |
+
+The "pet the dog" misalignment is the example case: the gesture positions
+bodies from boxes, so the hand meets the head only by chance.
+
+**Order of work (queue row RIG-LANDMARKS).** One landmark query with the two
+answers above; move the pet gesture and the fireball onto it as the first two
+consumers (the pet case is the visible witness); then the rider hand. Do not
+admit rigs (`BodyRigAdmission`) for this: the capability must not depend on rig
+rollout. Landmarks are simulation facts: resolve them in simulation, include
+them in derived rollback state as `BodyRigPose` is, and never read them back
+from render transforms.
+
 ## Rollback and determinism
 
 - Canonical: body transform and motion, facing, `BodyPoseClock`,
@@ -175,6 +218,7 @@ Bench: `crates/ambition_render/examples/rigged_sprite_bench.rs` (`--render`,
 | Sheet residency | The saving needs the baked sheet page to retire while parts draw, and the portal to draw parts first | Rigged character resident bytes below baked |
 | Body rig rollout | `BodyRigAdmission` is off. Turning it on changes shipped hurt geometry and the content fingerprint | Maintainer go-ahead; app suite green with it on |
 | More rigid parts | Pirate dynamic limb/neck geometry is one overlay per frame. Convert more of it to reusable parts only if useful | Saving above the 38% floor |
+| Semantic landmarks (Q41) | One landmark query answered by the rig or the package; pet, fireball and rider hand as consumers. See "Semantic landmarks (Q41)" | A pet hand meets the authored contact point; no consumer reads sprite bounds |
 | Physicalized pose | Only with a real mechanic: cosmetic ragdoll after a KO fact, or deterministic constrained ragdoll as canonical rollback state | Separate focused packet |
 
 Not measured: load and materialization time, and per-pane pixels of each view

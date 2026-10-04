@@ -82,13 +82,13 @@ first.
 | navigate enough that tooling can reason about routes | ▢ the navigation frontier |
 | separate from another participant into another room | ◐ simulation and most of the view are built; see A3 in [`multiplayer.md`](multiplayer.md) |
 
-Open content question for the maintainer, in
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md): Q55
-(should authored worlds use all five route-gate families?). Q58 is decided
+Q55 is decided (2026-10-04): do not make demo content only so that each
+route-gate family has a customer. A family waits for content that wants it;
+the capability stays (Q74). Q58 is decided
 (2026-10-03): a body gate reads what a body can do or is (capabilities and
 properties), never its current action. The milestone wording
 "traversal/interaction" can mean "the player can acquire" or "the world gates on";
-Q55 decides which the world must exercise.
+under Q55 the world exercises the families its content needs, not all of them.
 
 ## Open design questions — deliberately unresolved
 

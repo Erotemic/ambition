@@ -174,6 +174,78 @@ Defects this probe found are fixed and guarded:
 with `an_arrival_does_not_turn_the_body_around` (respawn facing is a call-site
 answer, `ResetFacing::{Keep, Toward}`).
 
+### Mirror symmetry is a correctness property (Q49)
+
+Ruling Q49 (2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md)):
+two CPUs with mirrored starting states and one brain/profile on a symmetric
+stage behave identically up to reflection until a modelled asymmetric fact
+(geometry, observation, state/history, profile, player input) breaks the
+symmetry. For the Emmy Noether case this is required. Random variation added
+only so that CPUs look different is not allowed.
+
+**Coverage today (2026-10-04).**
+
+- `game/ambition_app/tests/smash_cpu_cognition.rs`,
+  `two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters`: an outcome
+  test. It compares reflected positions only (not velocity, facing, action or
+  decision), within 1 px, for 1200 ticks, until the first break. It accepts a
+  break at the first grab. It asks Emmy only to hold 1.5x longer than an
+  ordinary pair, and it requires the ordinary pair to break.
+- The probe above (`--noise 0` trace) finds defects by hand; it is not a test.
+- `two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list`,
+  `the_reset_leaves_the_facing_to_its_caller` and
+  `an_arrival_does_not_turn_the_body_around` guard defects that the probe found.
+- No unit test reflects one decision input and asserts the reflected decision.
+
+**Known asymmetry sources (not yet triaged; each is a defect in a Noether
+scene or an authored rule that must be named):**
+
+- `f32::signum(0.0) = +1` where a zero lateral distance or velocity picks a side
+  (`brain/fighter/decision.rs`, `brain/fighter/rollout.rs`).
+- `brain/smash/mod.rs`, perch side: falls back to `toward` only near zero, else
+  an absolute `cross.signum()` from a seed phase.
+- Grab contention: `capture/systems.rs` breaks a same-tick tie by `SimId`.
+- Target selection breaks an exact-distance tie by `SimId`
+  (`ambition_combat/src/targeting.rs`).
+- `movement/recovery.rs`, `DRIFT_SIDES = [0.0, -1.0, 1.0]`: the search tries
+  one side first.
+- The measured seat term: seat 0 takes about 69% of decided pairs on a mirror
+  (`ladder_rig.rs`, `--paired` docs); decision order is the suspect, not
+  placement.
+
+**Per-seat streams.** Ordinary fighters seed cognition per seat
+(`fighter_cognition_seed` in `actor_spawn/brain_builders.rs`), and Emmy opts
+out with `preserves_mirror_symmetry`. Several tests pin that ordinary seats do
+NOT share a stream (`two_participants_of_one_character_do_not_share_a_stream`,
+`the_character_is_not_the_ordinary_symmetry_breaker`,
+`two_seats_of_an_ordinary_selectable_fighter_do_not_share_a_stream`). Under Q49
+a per-seat stream is a modelled fact only if it is an input the design wants
+(for example, a personality draw); it must not be the reason two fighters look
+different. Decide this when MIRROR-SYMMETRY reaches it: either name the
+per-seat draw as a profile fact, or seed by character for every fighter.
+Until then the Emmy exception is the Noether scene.
+
+**Regression to add (queue row MIRROR-SYMMETRY).** Strengthen the Emmy test
+rather than add a second outcome test:
+
+1. A per-tick reflection comparison of the full state that can diverge:
+   position, velocity, facing, action/move id and phase, the decision
+   published to `ActorControl`, and each body's random-stream position. Report
+   the first tick and the first field that part.
+2. A symmetric stage, mirrored spawns, one brain and profile, and no
+   symmetry-breaking input, so any divergence is a defect.
+3. A unit-level reflection test of the decision layer: build one observation,
+   reflect it, and assert the reflected decision (catches `signum(0)`,
+   left/right constants and one-sided queries without a match).
+4. A same-tick tie fixture (two bodies grab one ledge or one target) that shows
+   which authored rule breaks the tie, so a tie-break by entity order fails.
+5. Poisons: a `signum(0) = +1` site, an unmirrored random draw, a list-order
+   tie-break and a left-first query must each turn the test red.
+
+The current requirement that two ordinary fighters MUST break the mirror stays
+only while per-seat streams are policy; it is a fact about that policy, not a
+goal.
+
 ### Use enough clock for the outcome being measured
 
 A short clock that leaves many unresolved bouts measures pace/partial damage,

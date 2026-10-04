@@ -40,7 +40,8 @@ consumer states.
 - **story gate:** explicit authored sequencing when story state is the real fact.
 
 A family does not need a route predicate before it has an authoritative fact to
-read. Do not create placeholder facts merely to complete this list.
+read. Do not create placeholder facts merely to complete this list, and do not
+make demo content only so that each family has a customer (Q55, 2026-10-04).
 
 ## Body capability authority
 

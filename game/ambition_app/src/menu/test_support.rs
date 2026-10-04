@@ -23,8 +23,8 @@
 //! they have not looked. Ask for the one observation this fixture cannot make:
 //! **does the control respond to HOVER on a real window?** Hover proves picking
 //! reaches it, which splits "downstream of `Interaction`" (testable here) from
-//! "upstream in picking" (not testable here at all). See Q70 in
-//! `docs/planning/awaiting-maintainer-decision.md`.
+//! "upstream in picking" (not testable here at all). Hover feedback is
+//! required UI (Q70 in `docs/planning/maintainer-decisions.md`).
 
 use bevy::camera::NormalizedRenderTarget;
 use bevy::picking::backend::HitData;

@@ -182,6 +182,18 @@ Open questions belong in
 | 2026-10-03 | A solid breakable is not semantically a `BlinkWall { Hard }`. When both need the same collision property, extract or reuse a generic solidity/barrier semantic that both compose. Share mechanism; do not conflate gameplay concepts. (Q102) | High |
 | 2026-10-03 | Authored worlds may begin with an already-open chest, and more generally in meaningful non-pristine states (door open, bridge destroyed, pickup absent, NPC relocated). Authored initial state lowers into the same canonical state that gameplay produces for the same outcome, not into a parallel runtime representation. (Q105) | High |
 | 2026-10-03 | Shell/menu history is outside the simulation timeline and needs no rollback. Peers that start a deterministic gameplay session share an agreed simulation epoch; time spent in the shell must not become peer simulation identity. The handshake waits for multiplayer. This confirms the session-relative `SimTick` engineering chose. (Q128) | High |
+| 2026-10-04 | Weapon readiness is a generic semantic state that presentation exposes: approximately `ready` versus `recharging/unavailable` (optionally with progress). A trigger during cooldown must not look like a successful shot. Each weapon's or game's presentation chooses how to show the state (dimmed/disabled, a recharge bar, an audiovisual cue); the engine does not hard-code one treatment into every weapon. Queue row WEAPON-READINESS. (Q33) | High |
+| 2026-10-04 | Recoil is a property of the weapon/action, not of a character. The gun-sword/laser sword recoils whoever fires it, a player-controlled body included. The maintainer likes the recoil and keeps it. No character-specific (Pirate) recoil case and no holder-specific suppression: `fire → the firing actor receives the weapon's authored recoil`. A character may modify recoil only through a future explicit gameplay rule. (Q40) | High |
+| 2026-10-04 | Projectile launch points and every similar spatial interaction use authored semantic landmarks on the character/rig, never sprite bounds or arbitrary body offsets. Landmarks include hands, muzzle/projectile origin, feet, head, held-item sockets, weapon grips, rider/mount anchors and petting/contact points. A move may apply a move-specific offset from a named landmark. Presentation geometry is not authoritative for simulation: the landmark is semantic authored data that both simulation and presentation read. This extends the 2026-08-17 row ("landmarks are optional slots on a character package"): landmarks remain package slots, and they are an important rig capability, not a bespoke offset per interaction. See "rig landmarks" below. (Q41) | High |
+| 2026-10-04 | Hazard wins over a ledge hang. Ledge custody/hanging gives no implicit immunity from a hazard volume: a hanging body inside a lethal hazard receives the normal hazard consequence. An exception needs an explicit gameplay rule. Queue row HAZARD-BEATS-LEDGE. (Q43) | High |
+| 2026-10-04 | Do not keep a leaf-game name on a generic engine/public API because that game was its first customer. Rename `SmashChargeSpec` (and its authored field) to the reusable concept it represents, because current source shows it is generic (the Performer's trapdoor and Projectile Polygon's stored shot use it). Apply the same rule to any other generic mechanism with a historical game name. (Q44) | High |
+| 2026-10-04 | A parked/inactive TwinTrack exhibit does not consume an active simultaneity slot unless parking really consumes the scarce resource the limit represents. A limit describes running/active instances, not dormant storage. (No such slot exists in source today; this is the rule when one is added.) (Q47) | High |
+| 2026-10-04 | Mirror symmetry is a correctness property. If nothing in the simulation breaks left/right symmetry, two CPUs with mirrored starting states and the same brain/profile behave identically up to reflection; for the Emmy Noether case this is required. Do not inject random variation, per-seat noise or arbitrary tie-breaks only to make CPUs look less alike. Variation comes only from a modelled asymmetric fact: geometry, observations, state/history, profile/personality, player action, or another explicit asymmetric input. See "mirror symmetry" below. Queue row MIRROR-SYMMETRY. (Q49) | High |
+| 2026-10-04 | Do not manufacture demo content only so that every route-gate (or other capability) family has a current customer. Keep an elegant, semantically useful engine capability even when content has not caught up (Q74). (Q55) | High |
+| 2026-10-04 | Pointer-driven settings/menu UI gives normal hover feedback. Hover, selection and keyboard/controller focus stay three distinguishable states. Ordinary UI affordance; no further escalation. (Q70) | High |
+| 2026-10-04 | Do not prune art because it is unreferenced (Q74). Delete an art row or asset only when it is obsolete, duplicated, wrong or otherwise undesirable. George Booul's TRUE/FALSE (negative, sign-flipped) art is evidence of intended character vocabulary: use it for meaningful Smash gameplay where an elegant mechanic fits George's concept, without inventing mechanics only to consume every asset. The same principle applies to Pirate Admiral's bespoke FX. Owner: [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md#george-booul-truefalse-vocabulary-q81). (Q81) | High |
+| 2026-10-04 | Hall-of-Characters actors may be non-interactive and lack dialogue for now. The Hall is also a visual showcase, a population/stress test, an asset/residency test, an animation/rig test and an AI/body/profile composition test. Adding dialogue where appropriate is expected future content work, not a blocker for the Hall architecture. The Hall's stationary policy must hold for every showcase actor through one population policy (queue row HALL-STILL). (Q85) | High |
+| 2026-10-04 | Keep Smash's 10× opening countdown as a developer/debug affordance; it need not be ordinary product gameplay. Do not delete it because it is not in normal game flow or not used often. Re-evaluate it only if it becomes an architectural burden. (Q91) | High |
 
 ## Consequences that need more than one row
 
@@ -243,6 +255,29 @@ Open questions belong in
   abstraction, costs more than its plausible expressive value, or no longer helps
   to express Ambition or a plausible future game. Finding a customer is a good
   way to exercise an abstraction; not having one is not evidence against it.
+
+- **2026-10-04, mirror symmetry (Q49):** for a Noether-style scene
+  (a left/right symmetric stage, mirrored starting states, one brain/profile,
+  no asymmetric external input), mirrored initial conditions stay mirrored
+  until an explicitly modelled fact breaks the symmetry. Each source of
+  asymmetry in the simulation must be one of those facts. Iteration order,
+  sign mistakes, left/right constants, `signum(0) = +1`, tie-breaks by list
+  order or by `SimId`, unmirrored random state and geometry queries that
+  prefer one side are defects in such a scene, not variety. Where a tie must
+  be broken (two bodies grab one ledge on one tick), the rule that breaks it is
+  an authored game rule, named as such. The regression is a per-tick
+  reflection test, not an outcome test; owner
+  [`engine/fighter-brain.md`](engine/fighter-brain.md#mirror-symmetry-is-a-correctness-property-q49).
+- **2026-10-04, rig landmarks (Q41):** part-based characters are not only
+  cheaper textures and reusable animation. They give semantic spatial
+  composition: hands touch things, weapons attach consistently, projectiles
+  leave from believable places, riders mount at authored anchors, petting and
+  contact align. Build this as reusable rig/character architecture (named
+  landmarks resolved per pose), not as per-scene offsets. A body without a rig
+  still answers a landmark from its package, so the capability does not depend
+  on rig admission. Owners:
+  [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md#semantic-landmarks-q41)
+  and [`engine/character-authoring-package.md`](engine/character-authoring-package.md).
 
 ### The census numbers the 2026-09-19 ingress rulings were sized against
 

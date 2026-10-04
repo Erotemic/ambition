@@ -68,10 +68,11 @@ use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 ///
 /// ⭐ THE TIERS ARE KEPT PER LIVE ROOM (customer 2). A fight claims the tier of
 /// the room it is fought in, and the music intent reads the tier of the room
-/// it plays for (the primary seat's). So Bob's boss in `switch_lab` does not
-/// take the music from Alice in the hub. The Q150 ruling (2026-10-03) will let
-/// a higher authored priority win from another participant's room; not built
-/// yet. The `None` room is the world of a
+/// it plays for: of the participants' rooms, the one with the highest
+/// [`Self::priority_of`], the primary seat's on a tie (Q150, Q72). So Bob's
+/// boss in `switch_lab` outranks Alice's ambient music in the hub, and an
+/// encounter in her room does not lose to his ambient music. The `None` room
+/// is the world of a
 /// composition with no live room (a fixture): its writers and its reader name
 /// no room, so they meet there. Only rooms with a claim are stored.
 #[derive(Component, Default, Debug, Clone)]
@@ -184,6 +185,17 @@ impl EncounterMusicRequest {
 
     pub fn base_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
         self.rooms.get(&room)?.base_track.as_deref()
+    }
+
+    /// The authored priority of what `room` asks to play (Q72): 2 for a
+    /// focused fight's claim (a boss), 1 for an encounter's base track, 0 for
+    /// no claim, where the room's own ambient music plays.
+    pub fn priority_of(&self, room: Option<LiveRoomInstance>) -> u8 {
+        match self.rooms.get(&room) {
+            Some(tiers) if tiers.priority_track.is_some() => 2,
+            Some(tiers) if tiers.base_track.is_some() => 1,
+            _ => 0,
+        }
     }
 }
 

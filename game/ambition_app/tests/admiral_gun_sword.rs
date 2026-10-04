@@ -77,6 +77,10 @@ struct SideB {
     /// The rig's weapon hand in the world, on the tick before the shot, when
     /// the admiral has a rig.
     rig_hand_before: Option<bevy::math::Vec2>,
+    /// The admiral's feet line (world y, +y down), on the tick before the shot.
+    feet_before: f32,
+    /// Half the shot's height.
+    shot_half_height: f32,
     /// Whether the admiral wore a rig.
     rigged: bool,
 }
@@ -180,6 +184,13 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
         let before = vel(&app);
         let hand_before = hand(&app);
         let rig_hand_before = rig_hand(&app);
+        let feet_before = {
+            let kin = app
+                .world()
+                .get::<ambition_platformer2d::engine_core::BodyKinematics>(admiral)
+                .expect("the admiral has kinematics");
+            kin.pos.y + kin.size.y * 0.5
+        };
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
             ambition_platformer2d::engine_core::ControlFrame {
@@ -199,7 +210,7 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
             q.iter(world)
                 .find(|(owner, _, _, _)| owner.0 == admiral)
                 .map(|(_, visual, gameplay, kin)| {
-                    (visual.0.clone(), gameplay.damage, kin.pos, kin.vel.normalize_or_zero())
+                    (visual.0.clone(), gameplay.damage, kin.pos, kin.vel.normalize_or_zero(), kin.size.y * 0.5)
                 })
         };
         if let Some(found) = found {
@@ -222,11 +233,11 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
             // "this test measures a retired contract". One `update()` is the
             // whole fix.
             app.update();
-            shot = Some((found, before, vel(&app), hand_before, rig_hand_before));
+            shot = Some((found, before, vel(&app), hand_before, rig_hand_before, feet_before));
             break;
         }
     }
-    let ((visual, damage, origin, direction), before, after, hand_before, rig_hand_before) =
+    let ((visual, damage, origin, direction, shot_half_height), before, after, hand_before, rig_hand_before, feet_before) =
         shot.expect("the admiral's side-B never produced a projectile he owns");
     SideB {
         visual,
@@ -237,6 +248,8 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
         after,
         hand_before,
         rig_hand_before,
+        feet_before,
+        shot_half_height,
         rigged,
     }
 }
@@ -253,6 +266,8 @@ fn with_rigs_admitted_the_gun_sword_fires_from_the_rig_hand() {
         direction,
         hand_before,
         rig_hand_before,
+        feet_before,
+        shot_half_height,
         rigged,
         ..
     } = fire_the_side_b(true);
@@ -263,14 +278,25 @@ fn with_rigs_admitted_the_gun_sword_fires_from_the_rig_hand() {
     );
     let rig_hand = rig_hand_before.expect("a rigged admiral resolved no weapon hand");
     // The shot flies along its fire line from the muzzle, so it is on the line
-    // through the hand it was fired from: nothing to the side, and between
-    // `ahead` (18) and `ahead` plus one tick of flight along it.
+    // through the hand it was fired from, between `ahead` (18) and `ahead`
+    // plus one tick of flight along it. A hand nearer the feet than the shot is
+    // tall (the admiral holds the gun-sword at the hip) lifts the shot clear of
+    // the feet line: up from the hand's line by at most its half height and
+    // the 1 px clearance, never down.
     let along = direction.dot(origin - rig_hand);
-    let aside = direction.perp_dot(origin - rig_hand).abs();
+    let lifted = rig_hand.y - origin.y;
     assert!(
-        aside < 0.5 && (18.0..48.0).contains(&along),
-        "the shot at {origin:?} flying {direction:?} is {aside} to the side of \
-         and {along} along from the rig hand {rig_hand:?}: it was not fired from it"
+        (-0.5..=shot_half_height + 1.0).contains(&lifted) && (18.0..48.0).contains(&along),
+        "the shot at {origin:?} flying {direction:?} is {lifted} above and \
+         {along} along from the rig hand {rig_hand:?}: it was not fired from it"
+    );
+    // ⛔ A SHOT BORN TOUCHING THE GROUND DIES ON ITS FIRST TICK, and this test
+    // saw no shot at all when the redrawn admiral's hand sat 2 px lower
+    // (2026-10-04).
+    assert!(
+        origin.y + shot_half_height < feet_before,
+        "the shot at {origin:?} reaches the admiral's feet line {feet_before}: \
+         it was born touching the ground"
     );
     // The fixed rider hand is off that line, so this test tells the two apart.
     assert!(

@@ -445,21 +445,25 @@ def main() -> int:
         for m in (holds.QUEUE_ROW.match(l) for l in QUEUE.read_text(encoding="utf-8").split("\n"))
         if m
     }
-    questions = {
-        m.group(1)
-        for m in (QUESTION_ID.match(l) for l in QUESTIONS.read_text(encoding="utf-8").split("\n"))
-        if m
-    }
+    question_lines = QUESTIONS.read_text(encoding="utf-8").split("\n")
+    questions = {m.group(1) for m in (QUESTION_ID.match(l) for l in question_lines) if m}
     # ⛔ ANTI-VACUITY, BECAUSE EVERY RULE BELOW REPORTS BY SAYING NOTHING.
     if not done or done == rows:
         raise SystemExit(
             f"⛔⛔ `queue.md` parsed as {len(rows)} rows of which {len(done)} are done; "
             "with no finished rows, or with every row finished, the hold rule cannot fire."
         )
-    if len(questions) < 10:
+    # The number of open questions falls as rulings land, so a fixed floor
+    # fails a correct page. Compare the parse with a count made another way:
+    # each `## Q<digit>` heading must give one id.
+    headings = sum(
+        1 for l in question_lines if l.startswith("## Q") and l[4:5].isdigit()
+    )
+    if not questions or len(questions) != headings:
         raise SystemExit(
-            f"⛔⛔ only {len(questions)} `Q` ids parsed out of "
-            "`awaiting-maintainer-decision.md`; that is a claim about the parser."
+            f"⛔⛔ {len(questions)} `Q` ids parsed out of "
+            f"`awaiting-maintainer-decision.md`, which has {headings} `## Q` "
+            "headings; that is a claim about the parser."
         )
     # ⛔ THE SAME, FOR THE STATUS RULE, WHICH SKIPS ANY ROW WHOSE LAST COLUMN
     # IS NOT A STATUS -- so a renamed column, a reordered table or a stray

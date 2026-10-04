@@ -273,6 +273,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/items/narrative.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/starting_bag.rs",
         "game/ambition_content/src/portal/inventory_adapter.rs",
         "game/ambition_content/src/quest.rs",
     ),
@@ -1860,6 +1861,14 @@ ADJUDICATED: dict[str, str] = {
         "`apply_persisted`, and `restore_owned_items_to_checkpoint` through "
         "`reduce_owned_items_to_baseline`, which is `*owned = baseline.clone()` "
         "(a New Game takes this one too, with the starter bag pinned).\n"
+        "    ✅ AND THE SESSION EDGE (2026-10-04): "
+        "`start_the_bag_again_on_activation` (`items/starting_bag.rs`) is a third "
+        "wholesale road, `*owned = starting.clone()`, in "
+        "`SessionScopeSet::Activate` and on no other frame. Before it the bag was "
+        "the one item fact that no session edge reset: an Ambition bag reached a "
+        "Sanic session and Sanic\'s save, and two peer rows differed for 30 "
+        "ticks. Held by "
+        "`shell_host_lifecycle::a_bag_that_a_session_changed_reaches_a_later_session_through_its_save_only`.\n"
         "    ✅ THE MENU PAIR LEFT ON 2026-09-28. Both inventory backends read the "
         "bag (`Res<OwnedItems>`) and ask for a consumable through an "
         "`ItemUseRequested` host intent; `apply_item_uses` spends it inside the "

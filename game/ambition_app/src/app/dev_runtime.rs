@@ -42,7 +42,10 @@ fn local_ggrs_restart_policy(
     ownership: Option<ambition_platformer2d::rollback::RollbackSessionOwnership>,
 ) -> Result<Option<ambition_platformer2d::rollback::SyncTestSettings>, &'static str> {
     match ownership {
-        Some(ambition_platformer2d::rollback::RollbackSessionOwnership::External) => Err(
+        Some(
+            ambition_platformer2d::rollback::RollbackSessionOwnership::External
+            | ambition_platformer2d::rollback::RollbackSessionOwnership::Peer,
+        ) => Err(
             "LDtk hot reload cannot replace an external/P2P GGRS session; peers need a coordinated content barrier",
         ),
         Some(ambition_platformer2d::rollback::RollbackSessionOwnership::LocalSyncTest { settings, .. }) => {

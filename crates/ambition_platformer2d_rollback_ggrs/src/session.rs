@@ -138,7 +138,27 @@ pub enum RollbackSessionOwnership {
         /// Starter that owns this local sync-test session.
         owner: SyncTestOwner,
     },
+    /// A P2P session whose peers started this timeline together, at one world
+    /// ([`install_rebased_session`]). The peers can start the next timeline
+    /// the same way, so a lifecycle operation has a peer barrier here: the
+    /// simulation freezes while the operation waits
+    /// (`lifecycle_commit::a_peer_commit_holds_the_simulation`).
+    Peer,
+    /// A session that continues a timeline this host did not start
+    /// ([`install_session`]). It has no peer barrier, so nothing here may
+    /// replace it and no lifecycle operation commits under it.
     External,
+}
+
+impl RollbackSessionOwnership {
+    /// Whether a remote peer steps this timeline too. Such a timeline predicts
+    /// a remote input, and no host replaces it alone.
+    pub fn has_remote_peers(self) -> bool {
+        match self {
+            Self::Peer | Self::External => true,
+            Self::LocalSyncTest { .. } => false,
+        }
+    }
 }
 
 /// Which starter owns a live sync-test session.
@@ -575,7 +595,7 @@ pub fn install_rebased_sync_test_session(
 /// Install a session that starts a NEW timeline at the live world, as frame
 /// zero: a P2P session whose peers agreed to start here (netcode N2). It is
 /// [`install_rebased_sync_test_session`] for a session this host does not
-/// own, so its ownership is `External`.
+/// own alone, so its ownership is `Peer`.
 ///
 /// Each peer must call this at the same point of the same world. A session
 /// that continues a timeline the peers already share takes
@@ -586,7 +606,7 @@ pub fn install_rebased_session(
     eligibility: FrameZeroEligibility,
 ) {
     declare_frame_zero(world, eligibility);
-    install_session_with_ownership(world, session, RollbackSessionOwnership::External);
+    install_session_with_ownership(world, session, RollbackSessionOwnership::Peer);
 }
 
 /// Make the live world frame zero of a new timeline: the frame counters, the
@@ -919,6 +939,14 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 .in_set(ambition_platformer2d_core::ConfirmedFrameBoundaryPublished)
                 .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
         )
+        // THE FREEZE, declared here and nowhere else. A lifecycle operation
+        // that waits under a peer session holds the whole gameplay simulation,
+        // the tick included. See `a_peer_commit_holds_the_simulation`.
+        .configure_sets(
+            GgrsSchedule,
+            ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot
+                .run_if(not(crate::lifecycle_commit::a_peer_commit_holds_the_simulation)),
+        )
         .add_systems(
             LoadWorld,
             (
@@ -1026,7 +1054,7 @@ fn publish_local_inputs(
     mut commands: Commands,
 ) {
     let first_peer_frame = frame.is_some_and(|frame| frame.0 == 0)
-        && matches!(ownership.as_deref(), Some(RollbackSessionOwnership::External));
+        && ownership.is_some_and(|ownership| ownership.has_remote_peers());
     // One table answers for every handle.
     let inputs = local_players
         .0

@@ -642,43 +642,55 @@ const TRAIL_SELF_LOOP_COLLAPSING_COLOR: Color = Color::srgb(0.80, 0.56, 0.36);
 /// continuity breaks are drawn independently, so a portal transit never appears
 /// as a long straight line across the room.
 pub fn render_player_trail(
-    world: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-            ambition_platformer2d_core::RoomGeometry,
-        >,
+    world: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
+        ambition_platformer2d_core::RoomGeometry,
     >,
-    ropes: Query<&PlayerTrail, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
+    ropes: Query<(Entity, &PlayerTrail), With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
     mut gizmos: Gizmos,
 ) {
-    let Some(world) = world.as_deref() else {
-        return;
-    };
+    for (points, color) in trail_strips(&world, &ropes) {
+        gizmos.linestrip_2d(points, color);
+    }
+}
+
+/// Each trail's strips in Bevy world space, with their colours. Each trail is
+/// placed by the live room of the body that carries it (OW1): the sole live
+/// room was read, so while two rooms were live no trail was drawn. A trail
+/// whose room cannot be told draws nothing.
+pub(crate) fn trail_strips(
+    world: &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
+        ambition_platformer2d_core::RoomGeometry,
+    >,
+    ropes: &Query<(Entity, &PlayerTrail), With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
+) -> Vec<(Vec<Vec2>, Color)> {
     let z = ambition_platformer2d_core::config::WORLD_Z_PLAYER - 0.1;
-    for rope in &ropes {
+    let mut strips = Vec::new();
+    for (entity, rope) in ropes {
+        let Some(world) = world.of(entity) else {
+            continue;
+        };
+        let to_bevy = |pts: Vec<ae::Vec2>| -> Vec<Vec2> {
+            pts.into_iter()
+                .map(|p| ambition_platformer2d_core::config::world_to_bevy(&world.0, p, z).truncate())
+                .collect()
+        };
         let color = match rope.status {
             TrailStatus::Emitting => TRAIL_EMITTING_COLOR,
             TrailStatus::Closed => TRAIL_CLOSED_COLOR,
             TrailStatus::Collapsing { .. } => TRAIL_COLLAPSING_COLOR,
         };
         for pts in rope.render_polylines() {
-            if pts.len() < 2 {
-                continue;
+            if pts.len() >= 2 {
+                strips.push((to_bevy(pts), color));
             }
-            let bevy_pts = pts.into_iter().map(|p| {
-                ambition_platformer2d_core::config::world_to_bevy(&world.0, p, z).truncate()
-            });
-            gizmos.linestrip_2d(bevy_pts, color);
         }
         for pts in rope.collapsing_loop_polylines() {
-            if pts.len() < 2 {
-                continue;
+            if pts.len() >= 2 {
+                strips.push((to_bevy(pts), TRAIL_SELF_LOOP_COLLAPSING_COLOR));
             }
-            let bevy_pts = pts.into_iter().map(|p| {
-                ambition_platformer2d_core::config::world_to_bevy(&world.0, p, z).truncate()
-            });
-            gizmos.linestrip_2d(bevy_pts, TRAIL_SELF_LOOP_COLLAPSING_COLOR);
         }
     }
+    strips
 }
 
 /// Trail plugin: registers the emission state, continuity-break message,
@@ -896,6 +908,63 @@ mod tests {
 
     fn v(x: f32, y: f32) -> ae::Vec2 {
         ae::Vec2::new(x, y)
+    }
+
+    /// The strips of every trail in `world`, as the draw makes them.
+    fn strips(world: &mut World) -> Vec<(Vec<Vec2>, Color)> {
+        use bevy::ecs::system::RunSystemOnce as _;
+        world
+            .run_system_once(
+                |rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
+                    ambition_platformer2d_core::RoomGeometry,
+                >,
+                 ropes: Query<
+                    (Entity, &PlayerTrail),
+                    With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+                >| trail_strips(&rooms, &ropes),
+            )
+            .expect("the draw's parameters are in the world")
+    }
+
+    /// A live room of size `size` with a player whose trail runs from
+    /// (10, 10) to (60, 10).
+    fn a_room_with_a_trail(world: &mut World, ordinal: u32, size: ae::Vec2) {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        let room = LiveRoomInstance::from_ordinal(ordinal);
+        world.spawn((
+            RoomInstanceRoot,
+            room,
+            ambition_platformer2d_core::RoomGeometry(ae::World::new("room", size, ae::Vec2::ZERO, Vec::new())),
+        ));
+        let mut trail = PlayerTrail::emitting_from(v(10.0, 10.0));
+        trail.emit_to(v(60.0, 10.0));
+        world.spawn((ambition_platformer2d_shared_tangle::markers::PlayerEntity, InRoomInstance(room), trail));
+    }
+
+    /// OW1: with two live rooms each trail is drawn, placed by its own room.
+    /// The rooms differ in size, so one point lands at two places. Before,
+    /// the draw read the sole live room and drew nothing while two were
+    /// live. The control is one room, which draws its one trail.
+    #[test]
+    fn each_trail_is_drawn_in_its_own_live_room() {
+        let mut one = World::new();
+        a_room_with_a_trail(&mut one, 0, v(400.0, 300.0));
+        assert_eq!(strips(&mut one).len(), 1, "control: one live room draws its trail");
+
+        let mut two = World::new();
+        a_room_with_a_trail(&mut two, 0, v(400.0, 300.0));
+        a_room_with_a_trail(&mut two, 1, v(800.0, 900.0));
+        let starts: Vec<Vec2> = strips(&mut two).iter().map(|(points, _)| points[0]).collect();
+        let z = ambition_platformer2d_core::config::WORLD_Z_PLAYER - 0.1;
+        let placed = |size: ae::Vec2| {
+            ambition_platformer2d_core::config::world_size_to_bevy(size, v(10.0, 10.0), z).truncate()
+        };
+        let mut expected = vec![placed(v(400.0, 300.0)), placed(v(800.0, 900.0))];
+        let mut starts = starts;
+        let key = |p: &Vec2| (p.x.to_bits(), p.y.to_bits());
+        starts.sort_by_key(key);
+        expected.sort_by_key(key);
+        assert_eq!(starts, expected, "each trail's first point, placed by its own room");
     }
 
     #[test]

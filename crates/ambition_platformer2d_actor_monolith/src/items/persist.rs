@@ -89,6 +89,7 @@ pub fn restore_inventory_from_save(
     crate::items::pickup::minted_horizon::adopt_checkpoint_baselines_from_save(
         data,
         &owned,
+        wallet.balance,
         Some(&mut minted_baseline),
         Some(&mut owned_baseline),
     );

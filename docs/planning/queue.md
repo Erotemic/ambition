@@ -310,6 +310,18 @@ boss in his room after the checkpoint and dies in the hub. She keeps the
 coins, and the chest stays looted with the boss cleared
 (`a_death_keeps_the_reward_taken_from_the_other_players_boss`).
 
+**The wallet goes back with the bag (2026-10-04).** A death restored the
+bag (`OwnedItemsBaseline`) and not the wallet, so a purchase after the
+checkpoint lost its goods and kept its price, and the save mirrored the loss.
+The baseline now also holds the primary body's balance at the checkpoint
+(captured at commit, adopted from the save on load, pinned in the restore
+inputs), and the restore writes it back. Another participant's wallet is not
+rewound. Witness:
+`a_death_undoes_a_purchase_since_the_checkpoint_whole` (control: a purchase
+before the checkpoint survives); poisons on capture, load adoption and
+restore each fail it. Schema 308 -> 309. Open: `OwnedItems` itself is still
+one session-wide bag, so Alice's death restores what Bob put in it.
+
 **The whole-session restart is served (2026-10-04).** Measured 2026-10-03:
 a New Game beside Bob's live room took back his boss defeat in the save and
 its chest, while his room stayed the same instance with the dead boss in

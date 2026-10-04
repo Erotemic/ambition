@@ -593,7 +593,7 @@ pub mod item {
     pub use ambition_held_items::{
         GroundItem, ItemCustody, ItemStruckBody, ItemWorldPos, SettledItem,
     };
-    pub use ambition_items::{Inventory, Item, ItemGrantRequested, OwnedItems};
+    pub use ambition_items::{shop, Inventory, Item, ItemGrantRequested, OwnedItems};
 }
 
 /// User-facing gameplay settings, when persistence/settings support is installed.

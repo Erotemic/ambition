@@ -897,7 +897,11 @@ pub fn drive_rigged_presentations(
                 part.rect.max.y as f32,
             ));
             sprite.custom_size = Some(part.size);
-            let tint = Color::WHITE.with_alpha(draw.opacity);
+            // The pages are read raw (sRGB values, `load_part_page`) into a
+            // gamma-space target, so a LINEAR sprite colour multiplies the
+            // stored values: the draw's tint as the publisher computed it.
+            let (tint, opacity) = (draw.tint(), draw.opacity());
+            let tint = Color::LinearRgba(LinearRgba::new(tint.x, tint.y, tint.z, opacity));
             if sprite.color != tint {
                 sprite.color = tint;
             }

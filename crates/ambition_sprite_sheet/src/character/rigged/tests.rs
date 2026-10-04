@@ -353,11 +353,11 @@ fn a_schema_three_flipbook_carries_its_placement_and_opacities() {
     let asset = RiggedSpriteAsset::from_published_ron(text).expect("a schema-3 flipbook");
     assert_eq!(asset.placement, RigPlacement::Continuous);
     let swing = asset.frame("swing", 0).unwrap()[0];
-    assert_eq!((swing.opacity, swing.scale), (0.2, Vec2::new(-1.0, 1.0)));
-    assert_eq!(asset.frame("swing", 1).unwrap()[0].opacity, 1.0, "an absent opacity is opaque");
+    assert_eq!((swing.opacity(), swing.scale), (0.2, Vec2::new(-1.0, 1.0)));
+    assert_eq!(asset.frame("swing", 1).unwrap()[0].opacity(), 1.0, "an absent opacity is opaque");
     let mut out = Vec::new();
     asset.tween_into("swing", 0, 0.5, &mut out).unwrap();
-    assert!((out[0].opacity - 0.6).abs() < 1.0e-6, "{}", out[0].opacity);
+    assert!((out[0].opacity() - 0.6).abs() < 1.0 / 255.0, "{}", out[0].opacity());
     assert_eq!(out[0].at, Vec2::new(1.0, 0.25));
     assert_eq!(asset.frame_opacity("death", 1), 0.5);
     assert_eq!(asset.frame_opacity("death", 9), 0.5, "past the end holds the last frame");
@@ -369,5 +369,22 @@ fn a_schema_three_flipbook_carries_its_placement_and_opacities() {
     ));
     let older = RiggedSpriteAsset::from_published_ron(FIXTURE).expect("a schema-1 flipbook");
     assert_eq!(older.placement, RigPlacement::Snapped);
-    assert_eq!(older.frame("idle", 0).unwrap()[0].opacity, 1.0);
+    assert_eq!(older.frame("idle", 0).unwrap()[0].opacity(), 1.0);
+}
+
+
+/// A draw's tint (a back limb drawn as its front limb, darker) is read from
+/// the table, absent is as painted, and it moves linearly in a tween.
+#[test]
+fn a_draw_tint_is_read_and_tweened() {
+    let ron = FIXTURE
+        .replace("schema_version: 1", "schema_version: 3")
+        .replace(
+            "[(part: 0, at: (-1.0, -20.0), rotation: 0.5, scale: (1.0, 0.9))]",
+            "[(part: 0, at: (-1.0, -20.0), rotation: 0.5, scale: (1.0, 0.9), tint: (0.8, 0.6, 0.4))]",
+        );
+    let asset = RiggedSpriteAsset::from_published_ron(&ron).expect("a tinted draw parses");
+    let tinted = asset.frame("idle", 0).unwrap()[0];
+    assert!((tinted.tint() - Vec3::new(0.8, 0.6, 0.4)).abs().max_element() < 1.0 / 255.0, "{:?}", tinted.tint());
+    assert_eq!(asset.frame("idle", 1).unwrap()[1].tint(), Vec3::ONE, "an absent tint draws as painted");
 }

@@ -609,6 +609,14 @@ mod mechanical_edit_admission_tests {
                         .expect("the fixture could not build a GGRS session");
                 crate::session::install_session(&mut world, session);
             }
+            RollbackSessionOwnership::Peer => {
+                let session =
+                    crate::session::build_sync_test_session(SyncTestSettings::for_players(1))
+                        .expect("the fixture could not build a GGRS session");
+                let eligibility = crate::session::FrameZeroEligibility::check(&mut world)
+                    .expect("a world with no carrier can declare frame zero");
+                crate::session::install_rebased_session(&mut world, session, eligibility);
+            }
             RollbackSessionOwnership::LocalSyncTest { settings, owner } => {
                 crate::session::start_sync_test_session_owned(&mut world, settings, owner)
                     .expect("the fixture could not start a GGRS session");
@@ -775,6 +783,7 @@ mod mechanical_edit_admission_tests {
     fn a_session_this_host_does_not_own_refuses_the_edit_and_keeps_it() {
         for (what, ownership) in [
             ("an EXTERNAL/P2P session", RollbackSessionOwnership::External),
+            ("a PEER session", RollbackSessionOwnership::Peer),
             (
                 "a CALLER-owned sync test",
                 RollbackSessionOwnership::LocalSyncTest {

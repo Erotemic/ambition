@@ -15,6 +15,11 @@ pub use ambition_platformer2d_core::snapshot::{
     put_opt_str, put_str, put_u32, put_u64, put_u8, put_vec2, resolved_checksum, state_checksum,
     Reader, SnapshotCursor, SnapshotResolve, SnapshotState, StateHasher,
 };
+/// The peer barrier of a lifecycle operation, simulation half: the first
+/// frame that does not simulate while the operation waits under a peer session.
+pub use ambition_platformer2d_rollback_ggrs::lifecycle_commit::{
+    freeze_frame, PEER_COMMIT_FREEZE_DELAY,
+};
 pub use ambition_platformer2d_rollback_ggrs::local_session;
 /// A P2P session whose peers agree to start at the live world, and an
 /// in-memory transport for two Apps in one process (netcode N2).

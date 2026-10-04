@@ -1381,8 +1381,11 @@ the peer census). No production code writes either one (grep of `crates/` and
 the world's configuration: `resolved_combat_tuning` sets `FriendlyFire` as "the
 world's authored friendly-fire rule" on a composed host, and `RegimePolicy` is
 the regime of the process. A reset to the default at each activation would
-replace a configured value. ⚠ The first system that writes one of them inside
-a session makes it session state, and it must then join the reset.
+replace a configured value. The first system that writes one of them inside
+a session makes it session state, and it must then join the reset;
+`scripts/check_host_configuration_has_no_session_writer.py` fails when such a
+writer arrives (no `&mut` to either type in production code, and each install
+site is named).
 
 **Not measured:** the other whole-state rows were scope ordinals
 (`TransactionId`, `SessionScopedEntity`), a declared-derived cache

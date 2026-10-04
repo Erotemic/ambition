@@ -18,6 +18,7 @@ use ambition_platformer2d::rollback::{
     loopback_pair, start_peer_session, stop_session, GgrsSchedule, PeerSessionSettings,
     RollbackChecksumProbes, RollbackFrameCount, SaveWorld,
 };
+use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadPhase;
 use bevy::prelude::*;
 
 use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options, strengthen_the_float_rows};
@@ -34,8 +35,18 @@ const LATENCY: u32 = 3;
 #[derive(Resource, Default)]
 struct CensusByFrame(BTreeMap<i32, BTreeMap<&'static str, (usize, u64)>>);
 
+/// Each save of a frame this peer had saved before: (the frame, the highest
+/// frame saved until then). A rollback loads a frame and saves each frame
+/// after it again, so an entry `(f, h)` is a rewind from `h` to before `f`.
+#[derive(Resource, Default)]
+struct SavedAgain(Vec<(i32, i32)>);
+
 fn record_the_census(world: &mut World) {
     let frame = world.resource::<RollbackFrameCount>().0;
+    let highest = world.resource::<CensusByFrame>().0.keys().next_back().copied();
+    if let Some(highest) = highest.filter(|highest| frame <= *highest) {
+        world.resource_mut::<SavedAgain>().0.push((frame, highest));
+    }
     let probes = world.resource::<RollbackChecksumProbes>().clone();
     let census = probes
         .census_all_as_peers_compare(world)
@@ -99,16 +110,32 @@ fn peer(
     socket: ambition_platformer2d::rollback::LoopbackSocket,
     poison: Poison,
 ) -> (Platformer2dSimHarness, Vec<&'static str>) {
+    peer_prepared_by(room, local, remote, socket, poison, |_| {})
+}
+
+/// [`peer`], with `prepare` run on the world before the P2P session starts.
+/// Each peer runs the same `prepare`, so the two worlds are still equal at
+/// frame zero.
+fn peer_prepared_by(
+    room: &str,
+    local: usize,
+    remote: (usize, std::net::SocketAddr),
+    socket: ambition_platformer2d::rollback::LoopbackSocket,
+    poison: Poison,
+    prepare: fn(&mut Platformer2dSimHarness),
+) -> (Platformer2dSimHarness, Vec<&'static str>) {
     let options = fixed_60hz_room_options(room)
         .with_save(a_save_that_has_seen_the_hub_intro())
         .with_sync_test_rollback_settings(4, 10)
         .with_rollback_players(2);
     let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the room boots");
     bob_beside_alice(&mut sim, room, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    prepare(&mut sim);
     // The float rows get value probes, or their census is a carrier count.
     let sharp = strengthen_the_float_rows(sim.world_mut());
     let app = sim.app_mut();
     app.init_resource::<CensusByFrame>();
+    app.init_resource::<SavedAgain>();
     app.insert_resource(ThisPeersPoison(poison));
     app.add_systems(SaveWorld, record_the_census);
     app.add_systems(GgrsSchedule, (poison_alices_position, poison_alices_baseline));
@@ -356,4 +383,400 @@ fn two_peers_agree_in_the_rooms_that_carry_the_float_rows() {
         .map(|row| row.rsplit("::").next().unwrap())
         .collect();
     assert_eq!(missing, vec!["MountedSize"], "the float rows no walk carries");
+}
+
+/// The room Alice leaves for, from `switch_lab`.
+const HUB: &str = "central_hub_complex";
+
+/// Put Alice on the door to the hub.
+fn alice_on_the_hub_door(sim: &mut Platformer2dSimHarness) {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let center = crate::common::door_to(sim, HUB).aabb.center();
+    sim.teleport_player((center.x, center.y));
+}
+
+/// Alice presses interact from frame 30, as a press and a release.
+fn opens_the_door(frame: i32) -> ControlFrame {
+    ControlFrame {
+        interact_pressed: frame >= 30 && frame % 6 == 0,
+        interact_held: frame >= 30 && frame % 6 < 3,
+        ..Default::default()
+    }
+}
+
+/// What one peer holds about Alice's crossing.
+#[derive(Clone, Debug, PartialEq)]
+struct Crossing {
+    /// The frame the crossing was recorded on, while it waits.
+    recorded_on: Option<i32>,
+    room: String,
+    live_rooms: usize,
+    /// The phase of the readiness transaction of the crossing, when one is
+    /// open. It is host state: each peer has its own.
+    readiness: Option<RoomTransitionLoadPhase>,
+}
+
+fn crossing(sim: &mut Platformer2dSimHarness) -> Crossing {
+    let recorded_on = sim
+        .world()
+        .resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+        .pending
+        .as_ref()
+        .map(|intent| intent.frame);
+    let live_rooms = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot>>()
+            .iter(world)
+            .count()
+    };
+    let readiness = sim
+        .world()
+        .resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState>()
+        .active
+        .as_ref()
+        .map(|transaction| transaction.phase);
+    Crossing {
+        recorded_on,
+        room: sim.observation().active_room.clone(),
+        live_rooms,
+        readiness,
+    }
+}
+
+/// THE POISON OF THE FREEZE: on this frame the peer session does not hold the
+/// simulation, so one frame that must be frozen simulates. `None`: no poison.
+#[derive(Resource, Clone, Copy)]
+struct SimulatesOnOneFrozenFrame(Option<i32>);
+
+type Ownership = ambition_platformer2d::rollback::RollbackSessionOwnership;
+
+fn lift_the_freeze_on_one_frame(
+    poison: Res<SimulatesOnOneFrozenFrame>,
+    frame: Res<RollbackFrameCount>,
+    mut ownership: ResMut<Ownership>,
+) {
+    if poison.0 == Some(frame.0) {
+        *ownership = Ownership::External;
+    }
+}
+
+fn put_the_freeze_back(
+    poison: Res<SimulatesOnOneFrozenFrame>,
+    frame: Res<RollbackFrameCount>,
+    mut ownership: ResMut<Ownership>,
+) {
+    if poison.0 == Some(frame.0) {
+        *ownership = Ownership::Peer;
+    }
+}
+
+/// The frame Alice's crossing is recorded on (`R`): her first press.
+const RECORDED_ON: i32 = 30;
+/// The last frame that simulates while the crossing waits. The state saved
+/// at this frame is the state of each later frame.
+const LAST_LIVE: i32 =
+    RECORDED_ON + ambition_platformer2d::rollback::PEER_COMMIT_FREEZE_DELAY - 1;
+
+struct DoorOutcome {
+    /// What each peer holds about the crossing at the end.
+    crossings: [Crossing; 2],
+    /// The frame each peer was at when it first saw the recording frame
+    /// confirmed.
+    at_confirmation: [Option<i32>; 2],
+    /// Confirmed frames that both peers saved.
+    compared: usize,
+    /// Rows whose census differs between the peers, each with the first
+    /// confirmed frame it differs at.
+    differing: BTreeMap<&'static str, i32>,
+    rollbacks: u64,
+    /// On each peer: the first frame after [`LAST_LIVE`] whose census is not
+    /// the census of [`LAST_LIVE`], with the rows that moved.
+    moved_after_the_freeze: [Option<(i32, Vec<&'static str>)>; 2],
+    /// On each peer: whether the census of [`LAST_LIVE`] differs from the
+    /// census of the frame before it. The control: the world moved until the
+    /// freeze.
+    moved_before_the_freeze: [bool; 2],
+    /// On each peer: the rewinds from a frozen frame to a frame at or before
+    /// the recording frame, as (the frame saved again, the highest frame).
+    rewinds_across_the_freeze: [Vec<(i32, i32)>; 2],
+    /// On each peer: the ticks the simulation ran, and the frames GGRS ran.
+    ticks_and_frames: [(u64, i32); 2],
+}
+
+/// Alice stands on the door to the hub on each peer and presses interact from
+/// frame 30. Bob runs his script. Each peer confirms `after` frames past the
+/// recording frame.
+fn a_door_under_a_peer_session(after: i32, poison: Option<i32>) -> DoorOutcome {
+    let (a, b) = ("127.0.0.1:7011".parse().unwrap(), "127.0.0.1:7012".parse().unwrap());
+    let (to_bob, to_alice) = loopback_pair(a, b, LATENCY);
+    let (mut alice, _) = peer_prepared_by(ROOM, 0, (1, b), to_bob, Poison::None, alice_on_the_hub_door);
+    let (mut bob, _) = peer_prepared_by(ROOM, 1, (0, a), to_alice, Poison::None, alice_on_the_hub_door);
+    let root = ambition_platformer2d::platformer::schedule::GameplaySimulationRoot;
+    for sim in [&mut alice, &mut bob] {
+        let app = sim.app_mut();
+        app.insert_resource(SimulatesOnOneFrozenFrame(poison));
+        app.add_systems(
+            GgrsSchedule,
+            (lift_the_freeze_on_one_frame.before(root), put_the_freeze_back.after(root)),
+        );
+    }
+    let ticks_at_frame_zero = [sim_tick(&alice), sim_tick(&bob)];
+
+    let mut at_confirmation: [Option<i32>; 2] = [None, None];
+    let mut updates = 0;
+    while confirmed(&alice).min(confirmed(&bob)) < RECORDED_ON + after {
+        updates += 1;
+        assert!(
+            updates < 20 * (RECORDED_ON + after),
+            "the peers confirmed only to {} and {}",
+            confirmed(&alice),
+            confirmed(&bob)
+        );
+        for (index, sim) in [&mut alice, &mut bob].into_iter().enumerate() {
+            let next = sim.world().resource::<RollbackFrameCount>().0 + 1;
+            let input = if index == 0 { opens_the_door(next) } else { script(index, next) };
+            sim.drive_seat(index as u8, input);
+            sim.app_mut().update();
+            let recorded_on = crossing(sim).recorded_on;
+            if at_confirmation[index].is_none()
+                && recorded_on.is_some_and(|frame| confirmed(sim) >= frame)
+            {
+                at_confirmation[index] = Some(sim.world().resource::<RollbackFrameCount>().0);
+            }
+        }
+        assert_eq!(
+            (alice.rollback_health(), bob.rollback_health()),
+            (Ok(()), Ok(())),
+            "a peer reported a desync after {updates} updates"
+        );
+    }
+
+    let last = confirmed(&alice).min(confirmed(&bob));
+    let crossings = [crossing(&mut alice), crossing(&mut bob)];
+    let censuses = [
+        &alice.world().resource::<CensusByFrame>().0,
+        &bob.world().resource::<CensusByFrame>().0,
+    ];
+    let mut compared = 0;
+    let mut differing: BTreeMap<&'static str, i32> = BTreeMap::new();
+    for frame in 0..=last {
+        let (Some(left), Some(right)) = (censuses[0].get(&frame), censuses[1].get(&frame)) else {
+            continue;
+        };
+        compared += 1;
+        for (row, reading) in left {
+            if right.get(row) != Some(reading) {
+                differing.entry(*row).or_insert(frame);
+            }
+        }
+    }
+    let moved_after_the_freeze = censuses.map(|census| {
+        let frozen = &census[&LAST_LIVE];
+        census.range(LAST_LIVE + 1..=last).find(|(_, now)| *now != frozen).map(|(frame, now)| {
+            let rows = now
+                .iter()
+                .filter(|(row, reading)| frozen.get(*row) != Some(reading))
+                .map(|(row, _)| *row)
+                .collect();
+            (*frame, rows)
+        })
+    });
+    let moved_before_the_freeze = censuses.map(|census| census[&(LAST_LIVE - 1)] != census[&LAST_LIVE]);
+    let rewinds_across_the_freeze = [&alice, &bob].map(|sim| {
+        sim.world()
+            .resource::<SavedAgain>()
+            .0
+            .iter()
+            .copied()
+            .filter(|(frame, highest)| *frame <= RECORDED_ON && *highest > LAST_LIVE)
+            .collect()
+    });
+    let rollbacks = [&alice, &bob]
+        .iter()
+        .filter_map(|sim| sim.rollback_execution_stats())
+        .map(|stats| stats.lifetime_load_runs)
+        .sum();
+    let ticks_and_frames = [(&alice, ticks_at_frame_zero[0]), (&bob, ticks_at_frame_zero[1])]
+        .map(|(sim, zero)| (sim_tick(sim) - zero, sim.world().resource::<RollbackFrameCount>().0));
+    DoorOutcome {
+        crossings,
+        at_confirmation,
+        compared,
+        differing,
+        rollbacks,
+        moved_after_the_freeze,
+        moved_before_the_freeze,
+        rewinds_across_the_freeze,
+        ticks_and_frames,
+    }
+}
+
+/// ⛔ TODAY A DOOR UNDER A PEER SESSION IS ACCEPTED, FREEZES THE SIMULATION,
+/// AND IS NEVER COMMITTED. The freeze is the first half of the peer barrier
+/// (the open-world "Remote peers" row); the commit is the second, and it
+/// changes the last assertion below.
+///
+/// Alice stands on the door to the hub on each peer and presses interact from
+/// frame 30.
+///
+/// - Each peer records the crossing on frame 30 (`PendingLifecycleCommit`).
+/// - From the next frame the gameplay simulation does not run on either
+///   peer (`a_peer_commit_holds_the_simulation`). GGRS frames go on, and each
+///   saved frame from 30 on has the census of frame 30. A rollback that
+///   loads a frame before 30 runs into the same freeze.
+/// - The peers do not diverge: no desync, and no probed row differs at a
+///   confirmed frame.
+/// - No peer commits the crossing: `commit_confirmed_lifecycle` runs only
+///   for a `LocalSyncTest` session. Each peer's readiness transaction opens
+///   and does not reach its authorization.
+///
+/// ⚠ WHY THE FREEZE. The sync-test rule runs the crossing on the current
+/// world when its recording frame is confirmed. On that update the two peers
+/// are at different frames (measured before the freeze: 36 and 31), each with
+/// frames the other peer has not confirmed. With the freeze, those frames
+/// hold one state.
+#[test]
+fn a_door_under_a_peer_session_freezes_the_simulation_and_is_not_committed_yet() {
+    /// Frames each peer must confirm after the crossing was recorded.
+    const AFTER: i32 = 270;
+    let outcome = a_door_under_a_peer_session(AFTER, None);
+    assert!(outcome.compared > AFTER as usize, "only {} confirmed frames were compared", outcome.compared);
+    assert_eq!(outcome.differing, BTreeMap::new(), "the rows that differ, and the first frame of each");
+    assert!(outcome.rollbacks > 0, "control: no peer rolled back, so no prediction was tested");
+
+    // Accepted on each peer, on the same frame.
+    assert_eq!(
+        outcome.crossings.each_ref().map(|crossing| crossing.recorded_on),
+        [Some(RECORDED_ON); 2],
+        "the frame each peer recorded Alice's crossing on"
+    );
+
+    // THE FREEZE. No probed row moves after the last live frame, on either
+    // peer. The control: the rows moved until then.
+    assert_eq!(
+        outcome.moved_before_the_freeze,
+        [true; 2],
+        "control: the census did not move in the frame before the freeze, so a \
+         census that does not move after it shows nothing"
+    );
+    assert_eq!(
+        outcome.moved_after_the_freeze,
+        [None, None],
+        "on each peer: the first frame after frame {LAST_LIVE} whose census moved, and its rows"
+    );
+    // A rewind across the freeze happened, so the frozen frames above were
+    // also simulated again from a frame before the crossing existed.
+    assert!(
+        outcome.rewinds_across_the_freeze.iter().any(|rewinds| !rewinds.is_empty()),
+        "control: no peer rewound from a frozen frame to before the recording \
+         frame, so the freeze was not tested under a rewind"
+    );
+
+    // The two peers were at different frames when the recording frame was
+    // confirmed, each past it.
+    let [Some(alice_at), Some(bob_at)] = outcome.at_confirmation else {
+        panic!("a peer never saw the recording frame confirmed: {:?}", outcome.at_confirmation);
+    };
+    assert!(
+        alice_at != bob_at && alice_at > RECORDED_ON && bob_at > RECORDED_ON,
+        "the peers were at frames {alice_at} and {bob_at} when frame {RECORDED_ON} was \
+         confirmed. If they are equal now, the link or the loop changed; the \
+         measured values before the freeze were 36 and 31"
+    );
+
+    // ⛔ THE STATE THE COMMIT CHANGES. Not committed: each peer is in the
+    // room it started in, with one live room.
+    //
+    // ⚠ THE READINESS TRANSACTION WAITS TOO, and the commit must settle this
+    // first. `authorize_ready_room_transition_system` authorizes on a tick
+    // after the one that opened the transaction (`commit_not_before_tick`).
+    // Each peer opens its transaction after the freeze began, so that tick
+    // does not come. (A sync test given the same freeze by hand does not
+    // commit for the same reason.)
+    let stuck = Crossing {
+        recorded_on: Some(RECORDED_ON),
+        room: ROOM.to_string(),
+        live_rooms: 1,
+        readiness: Some(RoomTransitionLoadPhase::AwaitingReadiness),
+    };
+    assert_eq!(
+        outcome.crossings,
+        [stuck.clone(), stuck],
+        "a peer session committed the crossing, or dropped it. If the peer \
+         commit landed, this arm becomes its witness: Alice in `{HUB}` on each \
+         peer, two live rooms, and the census above across the commit"
+    );
+}
+
+/// The freeze arm can fail: with the simulation run on one frozen frame, the
+/// census moves on that frame, and the arm above names it.
+#[test]
+fn one_frozen_frame_that_simulates_moves_the_census() {
+    /// A frame after the freeze began, and before the frames this run confirms end.
+    const POISONED: i32 = 45;
+    let outcome = a_door_under_a_peer_session(40, Some(POISONED));
+    let moved_on: Vec<Option<i32>> = outcome
+        .moved_after_the_freeze
+        .iter()
+        .map(|moved| moved.as_ref().map(|(frame, _)| *frame))
+        .collect();
+    assert_eq!(
+        moved_on,
+        vec![Some(POISONED); 2],
+        "on each peer: the first frame after the freeze whose census moved"
+    );
+    assert_eq!(
+        outcome.ticks_and_frames.map(|(ticks, _)| ticks),
+        [LAST_LIVE as u64 + 1; 2],
+        "the ticks each peer simulated: the live frames and the poisoned one"
+    );
+}
+
+fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {
+    sim.world().resource::<ambition_platformer2d::time::SimTick>().0
+}
+
+/// THE CONTROL FOR THE FREEZE: a host that commits alone does not freeze.
+///
+/// The same world and the same door as the peer arm, under the sync test the
+/// harness starts (check distance 4). The crossing waits for its recording
+/// frame to be confirmed, and the simulation runs on each frame of that wait.
+#[test]
+fn a_host_that_commits_alone_simulates_while_its_crossing_waits() {
+    let options = fixed_60hz_room_options(ROOM)
+        .with_save(a_save_that_has_seen_the_hub_intro())
+        .with_sync_test_rollback_settings(4, 10)
+        .with_rollback_players(2);
+    let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the room boots");
+    bob_beside_alice(&mut sim, ROOM, Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    alice_on_the_hub_door(&mut sim);
+
+    // (updates, the tick) when the crossing was first seen waiting, and when
+    // Alice was first seen in the hub.
+    let mut recorded: Option<(i32, u64)> = None;
+    let mut committed: Option<(i32, u64)> = None;
+    for update in 1..=200 {
+        sim.drive_seat(0, opens_the_door(30 + update));
+        sim.drive_seat(1, script(1, update));
+        sim.app_mut().update();
+        let now = crossing(&mut sim);
+        if recorded.is_none() && now.recorded_on.is_some() {
+            recorded = Some((update, sim_tick(&sim)));
+        }
+        if now.room == HUB {
+            committed = Some((update, sim_tick(&sim)));
+            break;
+        }
+    }
+    let (Some(recorded), Some(committed)) = (recorded, committed) else {
+        panic!("the crossing was recorded at {recorded:?} and committed at {committed:?}");
+    };
+    assert_eq!(
+        (committed.0 - recorded.0, committed.1 - recorded.1),
+        (6, 6),
+        "(the updates, the ticks) from the recording to the commit: four frames \
+         to confirm the recording frame and two for the readiness transaction. \
+         (0 ticks: this host froze, and the freeze is for a peer session only)"
+    );
 }

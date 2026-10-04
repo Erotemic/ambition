@@ -226,6 +226,10 @@ pub struct ImpostorAtlas {
     /// The cameras, the quad: what a regrowth replaces.
     entities: Vec<Entity>,
     taken: Vec<bool>,
+    /// How many times this page has been rendered. A render clears the WHOLE
+    /// page, so a cell holds its body's pixels only if that body was drawn
+    /// into the latest render (`RiggedPresentation::shown`).
+    pub generation: u64,
 }
 
 impl ImpostorAtlas {
@@ -360,9 +364,13 @@ pub struct RiggedPresentation {
     /// This frame's draws, tweened toward the next frame when the clip is
     /// (reused so a frame allocates nothing).
     pub drawn: Vec<PartDraw>,
-    /// What this body's cell of the atlas holds now: the draws its camera
-    /// last rendered there, and where. `None` until first rendered.
-    pub shown: Option<(Vec<PartDraw>, Vec3)>,
+    /// What this body's cell of the atlas holds now: the draws its page last
+    /// rendered there, where, and that render's [`ImpostorAtlas::generation`].
+    /// The cell holds them only while the page's generation is still that
+    /// one: another body's change re-renders (and clears) the whole page, and
+    /// a body not drawn into that render (on a baked clip of a hybrid) lost
+    /// its pixels. `None` until first rendered.
+    pub shown: Option<(Vec<PartDraw>, Vec3, u64)>,
 }
 
 /// One reusable part sprite of a rigged presentation.
@@ -620,6 +628,7 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
         cells: ImpostorCellOpacity::opaque(cells),
         entities,
         taken: vec![false; (cells * cells) as usize],
+        generation: 0,
     }
 }
 
@@ -645,6 +654,9 @@ fn take_cell(commands: &mut Commands, assets: &mut ImpostorAssets, class: usize)
             commands.entity(*entity).try_despawn();
         }
         atlas.taken[..old.taken.len()].copy_from_slice(&old.taken);
+        // A regrown page is blank: past every generation a cell of the old one
+        // could have been stamped with, so no body reads as current in it.
+        atlas.generation = old.generation + 1;
     }
     let cell = atlas.take().expect("a grown page has a free cell");
     if page < pages.len() {
@@ -720,7 +732,7 @@ fn spawn_presentation(
 pub fn drive_rigged_presentations(
     atlas: Option<ResMut<RiggedImpostorAtlas>>,
     materials: Option<ResMut<Assets<ImpostorUnpremultiply>>>,
-    mut owners: Query<(&mut RiggedPresentation, &mut Visibility, &mut Transform), Without<RiggedPartSlot>>,
+    mut owners: Query<(Entity, &mut RiggedPresentation, &mut Visibility, &mut Transform), Without<RiggedPartSlot>>,
     mut cameras: Query<&mut Camera, With<RiggedImpostorCamera>>,
     mut roots: Roots,
     mut slots: Slots,
@@ -745,7 +757,10 @@ pub fn drive_rigged_presentations(
     let mut cells: [Vec<ImpostorCellOpacity>; IMPOSTOR_CELL_CLASSES.len()] = std::array::from_fn(|class| {
         atlases.0[class].iter().map(|atlas| ImpostorCellOpacity::opaque(atlas.side)).collect()
     });
-    for (mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
+    // The bodies drawn into their page this frame: if the page renders, their
+    // cells hold this frame's draws under its new generation.
+    let mut drawn_into: Vec<(Entity, usize, usize)> = Vec::new();
+    for (owner, mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
         let Ok((animator, mut root_sprite, root_anchor)) = roots.get_mut(presentation.root) else {
             continue;
         };
@@ -778,21 +793,24 @@ pub fn drive_rigged_presentations(
         if owner_transform.translation != place {
             owner_transform.translation = place;
         }
-        let same = presentation
+        let current = presentation
             .shown
             .as_ref()
-            .is_some_and(|(shown, at)| *at == place && shown.as_slice() == draws);
-        if !same {
+            .is_some_and(|(shown, at, generation)| *generation == atlas.generation && *at == place && shown.as_slice() == draws);
+        if !current {
             changed[class][page] = true;
-            match presentation.shown.as_mut() {
-                Some((shown, at)) => {
-                    shown.clear();
-                    shown.extend_from_slice(draws);
-                    *at = place;
-                }
-                None => presentation.shown = Some((draws.to_vec(), place)),
-            }
         }
+        match presentation.shown.as_mut() {
+            Some((shown, at, _)) if !current => {
+                shown.clear();
+                shown.extend_from_slice(draws);
+                *at = place;
+            }
+            Some(_) => {}
+            None => presentation.shown = Some((draws.to_vec(), place, u64::MAX)),
+        }
+        // Stamped with the page's generation after the render decision.
+        drawn_into.push((owner, class, page));
         // ⛔ NOT GATED ON THE ROOT'S VISIBILITY. A root hidden by the portal
         // resolver is still drawn — as pieces cut from its image, the impostor
         // — so the impostor must keep up with its frame while the root is
@@ -881,11 +899,27 @@ pub fn drive_rigged_presentations(
         // parts changed its cell, and rest otherwise: the target keeps what
         // they last rendered.
         let run = *drawing && changed;
+        if run {
+            atlas.generation += 1;
+        }
         for entity in &atlas.cameras {
             if let Ok(mut camera) = cameras.get_mut(*entity) {
                 if camera.is_active != run {
                     camera.is_active = run;
                 }
+            }
+        }
+    }
+    for (owner, class, page) in drawn_into {
+        let Some(generation) = atlases.0[class].get(page).map(|atlas| atlas.generation) else {
+            continue;
+        };
+        if let Ok((_, mut presentation, _, _)) = owners.get_mut(owner) {
+            if let Some((_, _, stamped)) = presentation.shown.as_mut() {
+                // A page that did not render keeps its generation, and so does
+                // every cell that was current; a page that rendered redrew
+                // every body drawn into it this frame.
+                *stamped = generation;
             }
         }
     }

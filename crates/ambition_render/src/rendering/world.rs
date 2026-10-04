@@ -916,8 +916,9 @@ fn spawn_static_collider_for_block(
     _block: &ae::Block,
     _settings: ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings,
 ) {
-    // Static physics colliders are installed by the sim/physics adapter when
-    // that feature is enabled. Render only spawns visual block entities.
+    // Render spawns only visual block entities. No system installs the static
+    // physics colliders: the adapter's `spawn_static_collider_for_block` has
+    // no caller, so debris has no floor (open-world doc, "Debris physics").
 }
 
 /// Width-to-height aspect of the authored `door_zone.png` (published with

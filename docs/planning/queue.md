@@ -310,14 +310,19 @@ boss in his room after the checkpoint and dies in the hub. She keeps the
 coins, and the chest stays looted with the boss cleared
 (`a_death_keeps_the_reward_taken_from_the_other_players_boss`).
 
-**What is left: the whole-session restart.** Measured 2026-10-03: a New
-Game beside Bob's live room takes back his boss defeat in the save and its
-chest, while his room stays the same instance with the dead boss in it.
-The restart commit rebuilds only the start room. Next: the New Game commit
-retires or rebuilds every live room in the same operation (not a replay
-after it, which Q151 forbids). Where a seated participant's body goes on a
-restart is part of the join road (Q153). Acceptance (ignored until then):
-`a_new_game_leaves_no_live_room_holding_what_it_took_back`.
+**The whole-session restart is served (2026-10-04).** Measured 2026-10-03:
+a New Game beside Bob's live room took back his boss defeat in the save and
+its chest, while his room stayed the same instance with the dead boss in
+it. Now the commit of a fresh checkpoint operation is a restart: it retires
+every other live room in the same publication (`retires_beside`: residents
+in the outgoing roster, roots despawned at application), and no other
+player's body keeps a room live or is joined. The transaction's world stays
+the replaced room alone, because two live room roots wear one identity
+(open-world "Root identity"). Witness:
+`a_new_game_leaves_no_live_room_holding_what_it_took_back` (no longer
+ignored; it also counts live rooms and entities stamped with a room that is
+not live). Where a seated participant's body goes on a restart is part of
+the join road (Q153): here Bob is a placement of his room and goes with it.
 
 **Known gap, until records carry their participant:** a defeat Bob won in a
 room he has already left is taken back with Alice's death, because only live

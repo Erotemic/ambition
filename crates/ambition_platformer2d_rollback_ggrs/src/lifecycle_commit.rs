@@ -495,6 +495,11 @@ fn commit_transition(
     // `commit_ready_room_transition_system`, which has taken the same parameters as a plain system
     // all along. A host that could panic here could not have produced the authorization that got
     // here.
+    // A fresh checkpoint operation (a New Game) is a whole-session restart.
+    let restart = checkpoint_operation
+        .zip(world.get_resource::<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>())
+        .and_then(|(key, accepted)| accepted.inputs_for_key(key))
+        .is_some_and(|accepted| accepted.fresh);
     let mut state: bevy::ecs::system::SystemState<
         ambition_platformer2d_runtime::room_transition::RoomTransitionApplication,
     > = bevy::ecs::system::SystemState::new(world);
@@ -511,7 +516,7 @@ fn commit_transition(
         // them would silently rebuild the destination room for a dead body's
         // crossing instead of cancelling it.
         match subject {
-            None => application.stage(plan, None, None, target_index, arrival, edge_exit, zone_sfx),
+            None => application.stage(plan, None, None, target_index, arrival, edge_exit, zone_sfx, restart),
             Some(recorded) => match application.subject_entity(recorded) {
                 None => Err(ambition_platformer2d_runtime::room_transition::RoomTransitionApplyError::SubjectGone),
                 Some(entity) => application.stage(
@@ -522,6 +527,7 @@ fn commit_transition(
                     arrival,
                     edge_exit,
                     zone_sfx,
+                    restart,
                 ),
             },
         }

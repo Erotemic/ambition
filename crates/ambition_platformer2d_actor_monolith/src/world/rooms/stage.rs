@@ -583,6 +583,9 @@ impl RoomConstructionPlan {
         next_rooms: Option<RoomSet>,
         arrival: Option<transaction::StagedArrival>,
         succession: Option<transaction::LiveRoomSuccession>,
+        // The other live rooms this publication retires whole: a whole-session
+        // restart's. Empty for every other publication.
+        retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
     ) -> transaction::PublicationHandle {
         // Collected HERE rather than inside the staged closure: the roster comes
         // from the caller's own query, which cannot outlive this call.
@@ -603,7 +606,7 @@ impl RoomConstructionPlan {
         if let Some(arrival) = arrival {
             pending = pending.arriving(arrival);
         }
-        pending = pending.replacing(succession);
+        pending = pending.replacing(succession).retiring_beside(retires_beside);
         let publishes_as = pending.publishes_as();
         // ⛔ **ON THE PUBLICATION ITSELF, and inserted BEFORE the transaction
         // opens**, because `transaction::open` READS it: the identities standing
@@ -1399,6 +1402,7 @@ mod tests {
                     None,
                     None,
                     succession(live.map(|live| **live), mints),
+                    Vec::new(),
                 );
             },
         );
@@ -1427,6 +1431,7 @@ mod tests {
                     None,
                     None,
                     succession(live.map(|live| **live), mints),
+                    Vec::new(),
                 )
             },
         )
@@ -1977,6 +1982,7 @@ mod tests {
                     None,
                     None,
                     succession(replaces, mints),
+                    Vec::new(),
                 );
             },
         )
@@ -2109,6 +2115,7 @@ mod tests {
                 None,
                 None,
                 Some(succession),
+                Vec::new(),
             );
         })
         .expect("the staging system runs");

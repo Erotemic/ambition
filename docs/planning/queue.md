@@ -1104,7 +1104,7 @@ moveset derived from an action set reaches `1.1 × reach_px` (28 gives 30.8), so
 - `tick_smash` sets its three distance bands from that reach each tick
   (`SmashCfg::with_hit_band`). The bands in a `SmashCfg` are only those of a
   body with no attack move (`NO_ATTACK_MOVE_HIT_BAND`, 36 px).
-- `BrainProfile::smash_hit_band` is deleted, with its four authored rows.
+- `BrainProfile::smash_hit_band` is deleted, with its four authored rows. <!-- cite-ok: records a deleted field -->
 - Witnesses: `the_hit_band_is_the_reach_the_snapshot_states` (combat),
   `a_smash_brain_swings_where_the_hitbox_of_its_move_reaches` (the acceptance
   test: two bodies that differ only in one hitbox) and

@@ -42,12 +42,12 @@ pub fn compose_ambition_gameplay_host(app: &mut App) {
 
 pub fn compose_ambition_shell_host_booting_to(app: &mut App, initial_route: &str) {
     compose_ambition_shell_host_inner(app, initial_route);
-    start_the_timeline_with_the_session_world(app);
+    ambition_platformer2d::rollback::start_the_timeline_with_the_session_world(app);
 }
 
 pub fn compose_ambition_shell_host(app: &mut App) {
     compose_ambition_shell_host_inner(app, AMBITION_LAUNCHER_ROUTE);
-    start_the_timeline_with_the_session_world(app);
+    ambition_platformer2d::rollback::start_the_timeline_with_the_session_world(app);
 }
 
 /// The launcher host with no edge between the local-session maintainer and the
@@ -59,30 +59,6 @@ pub fn compose_ambition_shell_host(app: &mut App) {
 /// cycle, and a schedule cycle hangs.
 pub fn compose_ambition_shell_host_with_the_timeline_start_unordered(app: &mut App) {
     compose_ambition_shell_host_inner(app, AMBITION_LAUNCHER_ROUTE);
-}
-
-/// The rollback session comes up in the `Update` that builds its session
-/// world.
-///
-/// `LocalSessionSet::Maintain` installs the session when a session world
-/// exists. `GameplaySessionSet::Providers` builds that world. With no edge
-/// between them the sort chose the order, and the choice moved when unrelated
-/// systems were added (measured 2026-10-04: a merge of two commits put the
-/// maintainer first, and the session then came up one frame after its world).
-/// A frame on which the world exists and the session does not is a frame
-/// outside the timeline, so its position is a decision: there is none.
-///
-/// The edge also puts the maintainer after the session bridge, so on the frame
-/// that retires a session the maintainer sees the world gone.
-///
-/// A host with no rollback backend has no system in `Maintain`, and the edge
-/// then orders nothing.
-pub fn start_the_timeline_with_the_session_world(app: &mut App) {
-    app.configure_sets(
-        Update,
-        ambition_platformer2d::rollback::local_session::LocalSessionSet::Maintain
-            .after(ambition_platformer2d::game_shell::GameplaySessionSet::Providers),
-    );
 }
 
 fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {

@@ -111,29 +111,26 @@ pub struct SessionScopedResources<'w> {
     /// checkpoint baseline from the previous session is a baseline for a world
     /// that no longer exists.
     ///
-    /// ⛔⛤ **THERE IS A FOURTH CHECKPOINT BASELINE AND IT IS DELIBERATELY NOT
-    /// HERE — stated 2026-09-18, because until then its absence was a default
-    /// and the sentence above says "the same three facts" without saying which
-    /// fact is not one of them.** `OwnedItemsBaseline`
-    /// (`items/pickup/minted_horizon.rs`) is captured on the same
-    /// `CheckpointCommitted` as these three, and it is NOT session-scoped
-    /// because the value it baselines is not either: `OwnedItems` appears
-    /// nowhere in this file. ⇒ The three above describe WORLD PLACEMENT, which a
-    /// new session invalidates; stored quantities are the player's and travel
-    /// with the bag. Resetting the baseline without resetting the bag would
-    /// make a death in session B restore to an empty entitlement while the bag
-    /// still held items.
+    /// ⭐ THE FOURTH CHECKPOINT BASELINE, `OwnedItemsBaseline`, IS A MEMBER SINCE
+    /// 2026-10-04 ([`owned_items_baseline`](Self::owned_items_baseline)). It
+    /// was left out on purpose on 2026-09-18, and the argument was real but its
+    /// premise was wrong, so the argument stays here with the measurement.
     ///
-    /// ⚠ **AND THE ARGUMENT THAT PUT `projectile_seq` HERE DOES NOT TRANSFER,
-    /// which is worth saying because it looks like it should.** That one is
-    /// session-scoped because it is CHECKSUMMED and process-monotonic, so two
-    /// hosts with different local histories disagree at frame 0.
-    /// `OwnedItemsBaseline` is checksummed too — but the divergence it would
-    /// carry is the two peers' SAVE FILES differing, which resetting at the
-    /// session edge does not cure: the first `CheckpointCommitted` copies the
-    /// live bag straight back in. The Q129 ruling (`maintainer-decisions.md`,
-    /// 2026-10-03: shared durable state is peer state) owns that, through
-    /// `DURABLE-HORIZON-CHECKSUM`, not this reset.
+    /// The argument: these three describe WORLD PLACEMENT, which a new session
+    /// invalidates. Stored quantities are the player's and travel with the bag
+    /// (`OwnedItems` is not in this file), so "resetting the baseline without
+    /// resetting the bag would make a death in session B restore to an empty
+    /// entitlement while the bag still held items". And the peer divergence it
+    /// could carry "is the two peers' SAVE FILES differing, which resetting at
+    /// the session edge does not cure".
+    ///
+    /// The measurement (shell host, rollback, two hosts with EQUAL saves): at
+    /// tick 0 of a session that followed another one the baseline held the old
+    /// session's bag, and on a fresh host it held zeros. The two agreed from
+    /// tick 1, when the restore writes it. So the row differed with equal
+    /// saves, because a fresh process has captured no baseline. And the hazard
+    /// (a zero baseline, a full bag) is the state each first session has at
+    /// tick 0. The reset adds no state that a first session does not have.
     occurrence_baseline:
         ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
     custody_baseline: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,
@@ -297,6 +294,26 @@ pub struct SessionScopedResources<'w> {
     /// `Option` as for `sim_tick`.
     requested_clock_scale: Option<ResMut<'w, ambition_time::time_control::RequestedClockScale>>,
     clock_state: Option<ResMut<'w, ambition_time::ClockState>>,
+    /// The step of the last tick. It is peer-compared, and the first tick of a
+    /// session writes it, so before that tick it was the last step of the
+    /// session that ended (measured 2026-10-04: 0.0167, or 0.0097 after a
+    /// hitstop, against 0.0 on a fresh host). `Option` as for `sim_tick`.
+    world_time: Option<ResMut<'w, ambition_time::WorldTime>>,
+    /// ⛔ THE PHASE OF EACH GATE PORTAL, WHICH DECIDES IF A BODY CAN GO THROUGH.
+    /// The tick integrates it from the switch in the save, and nothing put it
+    /// back when a session ended. Measured 2026-10-04 on the shell host, two
+    /// hosts with equal saves and the switch on: the portal of a session that
+    /// followed another one was `On` from tick 0, and the portal of a fresh
+    /// host was `Opening` until tick 40. For 39 ticks one peer could take the
+    /// gate and the other could not. Each session now starts with no phase, so
+    /// its portals open from `Off` on every peer. `Option` because a
+    /// composition without the room domain has none.
+    gate_portal_phases: Option<ResMut<'w, ambition_platformer2d_world::rooms::GatePortalPhases>>,
+    /// The bag at the last checkpoint. See the note above `occurrence_baseline`
+    /// for why it was not a member until 2026-10-04. `Option` because a
+    /// composition without the pickup domain has none.
+    owned_items_baseline:
+        Option<ResMut<'w, crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -309,8 +326,10 @@ pub struct SessionScopedResources<'w> {
 /// (MEASURED 2026-09-16 across every `.rs` in `crates/` and `game/`, over all ten
 /// `rollback_resource_*` methods the registrar declares. This line read SIXTEEN,
 /// then TWENTY-TWO; ⚠ the count is load-bearing for the argument below, so it is
-/// stated with the method that produced it. Two more were added 2026-10-04,
-/// `RequestedClockScale` and `ClockState`, both `rollback_resource_canonical`;
+/// stated with the method that produced it. Five more were added 2026-10-04:
+/// `RequestedClockScale`, `ClockState` and `WorldTime`
+/// (`rollback_resource_canonical`), and `GatePortalPhases` and
+/// `OwnedItemsBaseline` (`rollback_resource_clone_checksum`);
 /// the total was not measured again. The 22 -> 23 step is re-derived
 /// rather than decremented by hand: `AuthoredOccurrences` moved from
 /// `declare_rollback_derived_resource` to `rollback_resource_clone_checksum` in
@@ -501,6 +520,9 @@ fn reset(resources: SessionScopedResources) {
         impact_hitstop,
         requested_clock_scale,
         clock_state,
+        world_time,
+        gate_portal_phases,
+        owned_items_baseline,
     } = resources;
     *possession = PossessionState::default();
     *controlled_subject = ControlledSubject::default();
@@ -551,6 +573,15 @@ fn reset(resources: SessionScopedResources) {
     }
     if let Some(mut clock) = clock_state {
         *clock = ambition_time::ClockState::default();
+    }
+    if let Some(mut time) = world_time {
+        *time = ambition_time::WorldTime::default();
+    }
+    if let Some(mut phases) = gate_portal_phases {
+        *phases = ambition_platformer2d_world::rooms::GatePortalPhases::default();
+    }
+    if let Some(mut baseline) = owned_items_baseline {
+        *baseline = crate::items::pickup::minted_horizon::OwnedItemsBaseline::default();
     }
 }
 

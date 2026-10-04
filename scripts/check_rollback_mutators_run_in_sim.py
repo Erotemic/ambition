@@ -624,7 +624,7 @@ WAIVERS: dict[str, str] = {
         "commits moved the maintainer before the providers. The session then "
         "came up one frame after the world, and the test compared nothing "
         "(its floor was red). The host now puts the maintainer after the "
-        "providers (`shell_host::start_the_timeline_with_the_session_world`), "
+        "providers (`rollback::start_the_timeline_with_the_session_world`), "
         "and the floor asks that EVERY firing frame installs the session. "
         "Poison (that edge removed): the floor is red. Poison (`.before` -> "
         "`.after` on the roster edge): install at tick 3900, write at 3901, red."

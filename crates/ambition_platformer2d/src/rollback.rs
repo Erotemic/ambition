@@ -383,6 +383,34 @@ pub fn health(app: &App) -> RollbackHealth {
     }
 }
 
+/// The rollback session comes up in the `Update` that builds its session
+/// world.
+///
+/// `LocalSessionSet::Maintain` installs the session when a session world
+/// exists. `GameplaySessionSet::Providers` builds that world. With no edge
+/// between them the sort chose the order, and the choice moved when unrelated
+/// systems were added (measured 2026-10-04: a merge of two commits put the
+/// maintainer first, and the session then came up one frame after its world).
+/// A frame on which the world exists and the session does not is a frame
+/// outside the timeline, so its position is a decision: there is none.
+///
+/// The edge also puts the maintainer after the session bridge, so on the frame
+/// that retires a session the maintainer sees the world gone.
+///
+/// ⛔ A COMPOSER THAT INSTALLS THE TWO SETS CALLS THIS. The backend and the
+/// shell do not see each other, so neither of them can state the edge; this
+/// facade is the lowest crate that sees the two. [`crate::PlatformerApp`]
+/// calls it for a rollback composition, and so does each composer of the
+/// Ambition shell host.
+pub fn start_the_timeline_with_the_session_world(app: &mut App) {
+    use bevy::prelude::IntoScheduleConfigs as _;
+    app.configure_sets(
+        bevy::prelude::Update,
+        local_session::LocalSessionSet::Maintain
+            .after(crate::game_shell::GameplaySessionSet::Providers),
+    );
+}
+
 /// Stop the rollback session this host is running.
 ///
 /// The other half of [`start`], and it exists because a consumer that can start

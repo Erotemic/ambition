@@ -50,13 +50,13 @@ fn is_registered<M>(graph: &ScheduleGraph, f: impl IntoSystem<(), (), M>) -> usi
 /// edge somebody wrote down literally; it is the only thing that distinguishes
 /// "the schedule does not say that" from "my query cannot see it", and it caught
 /// this instrument twice.
-struct Ordering {
+pub(crate) struct Ordering {
     /// `edges[a]` are the systems that must run after `a`.
     edges: std::collections::HashMap<SystemKey, Vec<SystemKey>>,
 }
 
 impl Ordering {
-    fn of(graph: &ScheduleGraph) -> Self {
+    pub(crate) fn of(graph: &ScheduleGraph) -> Self {
         use std::collections::{HashMap, HashSet};
 
         let hierarchy = graph.hierarchy().graph();
@@ -103,7 +103,7 @@ impl Ordering {
     }
 
     /// Is any system of `from` ordered before any system of `to`?
-    fn reaches(&self, from: &[SystemKey], to: &[SystemKey]) -> bool {
+    pub(crate) fn reaches(&self, from: &[SystemKey], to: &[SystemKey]) -> bool {
         use std::collections::HashSet;
         let target: HashSet<SystemKey> = to.iter().copied().collect();
         let mut seen: HashSet<SystemKey> = HashSet::new();
@@ -125,7 +125,10 @@ impl Ordering {
 
 /// Every system in a set, transitively — the population an ordering question
 /// about that set is really about.
-fn systems_in<S: bevy::ecs::schedule::SystemSet>(graph: &ScheduleGraph, set: S) -> Vec<SystemKey> {
+pub(crate) fn systems_in<S: bevy::ecs::schedule::SystemSet>(
+    graph: &ScheduleGraph,
+    set: S,
+) -> Vec<SystemKey> {
     use std::collections::HashSet;
     let key = graph
         .system_sets
@@ -362,7 +365,7 @@ fn the_commit_sits_between_the_activation_and_session_adoption() {
 /// ⭐ UNTIL 2026-10-04 NOTHING ORDERED THE TWO, and this arm recorded that
 /// (`nothing_orders_the_rollback_session_start_against_the_generation_commit`).
 /// The host now starts the timeline in the `Update` that builds the session
-/// world (`shell_host::start_the_timeline_with_the_session_world`: the
+/// world (`rollback::start_the_timeline_with_the_session_world`: the
 /// maintainer runs after `GameplaySessionSet::Providers`), and the commit is
 /// before the providers. So on the frame that rebuilds the world the commit
 /// runs first, and the session starts after it.
@@ -431,7 +434,7 @@ fn the_rollback_session_start_is_ordered_after_the_generation_commit() {
         "nothing orders the content-generation commit before the GGRS session \
          start (session-first: {session_first}). The host's edge \
          `Maintain.after(GameplaySessionSet::Providers)` \
-         (`shell_host::start_the_timeline_with_the_session_world`) and the \
+         (`rollback::start_the_timeline_with_the_session_world`) and the \
          commit's `.before(GameplaySessionSet::Providers)` give that order; one \
          of the two is gone, and on the frame that rebuilds the session world \
          the timeline can start before the generation is published. See `Q118`."

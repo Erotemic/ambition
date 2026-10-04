@@ -678,6 +678,14 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "crates/ambition_time/src/time_control/mod.rs",
     ),
+    "WorldTime": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_time/src/lib.rs",
+    ),
+    "GatePortalPhases": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
+    ),
     "ContentEpochSequence": (
         "crates/ambition_platformer2d_provider/src/lifecycle.rs",
         "crates/ambition_platformer2d_runtime/src/extension_composition.rs",
@@ -778,6 +786,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "OwnedItemsBaseline": (
         "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "PortalCameraContinuitySelection": (
         "game/ambition_app/src/dev/portal_inspector.rs",
@@ -2061,20 +2070,25 @@ ADJUDICATED: dict[str, str] = {
     ),
     "OwnedItemsBaseline": (
         "CORRECT ON AUTHORITY, AND IT SURFACED A CHECKSUM ASYMMETRY THAT IS NOT "
-        "THIS GUARD'S TO RULE ON. Authority first: three writer functions, three "
-        "events — `capture_owned_items_baseline` on `CheckpointCommitted`, "
-        "`restore_inventory_from_save` (`items/persist.rs`) on the load road, and "
-        "`start_the_item_domain_fresh` on the New Game commit.\n"
-        "    ⚠ IT IS THE ONE CHECKPOINT BASELINE OF FOUR THAT IS **NOT** IN "
-        "`SessionScopedResources`, and that is consistent rather than an omission: "
-        "`OwnedItems` itself is not session-scoped either (measured — the bag does "
-        "not appear in `session/teardown.rs` at all), so the baseline travels with "
-        "the value it baselines. The three that ARE reset describe WORLD PLACEMENT, "
-        "and the teardown's own comment gives that reason: *\"a checkpoint baseline "
-        "from the previous session is a baseline for a world that no longer "
-        "exists\"*. ⛔ But that reason is written for *\"the same three facts\"* and "
-        "says nothing about the fourth, so the exclusion is currently a DEFAULT "
-        "rather than a decision.\n"
+        "THIS GUARD'S TO RULE ON. Authority first: three in-session writer "
+        "functions, three events — `capture_owned_items_baseline` on "
+        "`CheckpointCommitted`, `restore_inventory_from_save` (`items/persist.rs`) "
+        "on the load road, and `start_the_item_domain_fresh` on the New Game "
+        "commit — and the session boundary.\n"
+        "    ⭐ THE THIRD FILE IS `SESSION_SCOPE_RESET` (2026-10-04). Until then "
+        "this was the one checkpoint baseline of four that was NOT in "
+        "`SessionScopedResources`, with the reason that the bag is not "
+        "session-scoped either, so the baseline travels with the value it "
+        "baselines. MEASURED on the shell host, two hosts with EQUAL saves: at "
+        "tick 0 a session that followed another one held the old session's "
+        "baseline and a fresh host held zeros, in the peer census; they agreed "
+        "from tick 1, when the restore writes it. A fresh process has captured "
+        "no baseline, so the row differed with equal saves, and a zero baseline "
+        "beside a full bag is the state every first session has at tick 0. "
+        "`SessionScopedResources::reset` now sets it to the default at the "
+        "session edge. POISON-VERIFIED: with that line removed, "
+        "`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does` "
+        "fails on this row at tick 0.\n"
         "    ⛔⛤ **AND THE ASYMMETRY WORTH A RULING IS THE CHECKSUM ONE.** "
         "`OwnedItems` is `rollback_resource_clone` — restored, NOT in the peer "
         "checksum, and unhashed by KIND rather than by any stated decision (its "
@@ -2378,6 +2392,33 @@ ADJUDICATED: dict[str, str] = {
         "`a_new_session_starts_at_the_neutral_pace_with_an_empty_clock_bus` "
         "reads `(0.0, 0.42)` at the activation of a session that replaced one in "
         "a hitstop."
+    ),
+    "GatePortalPhases": (
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, the shape of "
+        "`SimTick`. `tick_portal_phases_system` (`world/rooms/systems.rs`) "
+        "integrates each portal's phase from its switch in the save, through "
+        "`GatePortalPhases::phase_mut`, the one write seam. The other file is "
+        "`SESSION_SCOPE_RESET` (2026-10-04): `SessionScopedResources::reset` "
+        "empties the map at the session edge. ⛔ THIS ONE WAS A MECHANIC, NOT "
+        "ONLY A CHECKSUM: the phase decides if a body can go through the gate. "
+        "MEASURED on the shell host, two hosts with EQUAL saves and the switch "
+        "on: the portal of a session that followed another one was `On` from "
+        "tick 0, and the portal of a fresh host was `Opening` until tick 40. "
+        "POISON-VERIFIED: with the reset removed, "
+        "`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does` "
+        "fails on this row on 40 frames, ticks 0 to 39."
+    ),
+    "WorldTime": (
+        "CORRECT — ONE IN-SESSION OWNER FILE PLUS THE SESSION BOUNDARY, the shape "
+        "of `SimTick`. `refresh_world_time` (`ambition_time/src/lib.rs`) writes "
+        "the step of each tick. The other file is `SESSION_SCOPE_RESET` "
+        "(2026-10-04): `SessionScopedResources::reset` sets it to zero at the "
+        "session edge. The value is peer-compared and the first tick writes it, "
+        "so before that tick a session that followed another one held the old "
+        "session's last step (measured: 0.0167, or 0.0097 after a hitstop) and a "
+        "fresh host held 0.0. POISON-VERIFIED: with the reset removed, "
+        "`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does` "
+        "fails on this row at tick 0."
     ),
     "RequestedClockScale": (
         "CORRECT — ONE IN-SESSION OWNER FILE PLUS THE SESSION BOUNDARY, the shape "

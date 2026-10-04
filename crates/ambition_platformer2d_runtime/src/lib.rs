@@ -155,6 +155,9 @@ pub mod demo_fixture {
         HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter,
     };
     pub use ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry;
+    // A direct-entry demo has one experience, so its first room reads the
+    // save of the world it lands in, and says so.
+    pub use ambition_platformer2d_actor_monolith::construction::CommitFactsSource;
     pub use ambition_platformer2d_actor_monolith::features::ActorConstructionContext;
     pub use ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry;
     // Demo fixtures are RON-authored consumers and intentionally do not expose LDtk runtime state.

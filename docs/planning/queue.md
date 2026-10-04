@@ -1360,8 +1360,10 @@ catalog file. No plural bark collection exists, because no content asks for one.
 **State:** a room-scoped spawn takes its session as an argument, so the
 session retirement ends it; seven resources, the declared message channels,
 the presentation channels (not the sound), the camera and the per-attempt
-ledgers are reset at the session edge (2026-10-04). Three host
-constants are recorded, not reset. Open: a CHANGED bag across the edge.
+ledgers are reset at the session edge (2026-10-04). A session is built
+from the save of its own experience, not from the live save. Three host
+constants are recorded, not reset. Open: a CHANGED bag across the edge, and a
+replacement by the SAME experience whose save changes before the adoption.
 
 **An entity that a session spawned as it ran outlived the session
 (2026-10-04).** This is the largest finding of the row, and the first census
@@ -1426,6 +1428,64 @@ a full zoom.
   channel emptied too, the whole of `app_it` fails only the bus control of the
   new arm. The channel stays kept because its reader refuses a sound of a
   session that ended; no test shows that a sound must cross.
+
+**A session was built from the save of the session that played (2026-10-04,
+review finding B).** A session is built hidden, before its route is activated.
+The activation is what gives the live save to the experience of the session
+(`hand_the_save_to`). So the builder read a save that was not its own when the
+session that played was of another experience. Two readers did this:
+
+- the durable horizon of the candidate (`CandidateDurableHorizon::from_save`:
+  which occurrences are gone, the custody rows, the minted items), and
+- the commit of its first room (`PersistedFates::of_world`: which bodies are
+  dead, provoked or cleared), which also read the world-time schedule of the
+  session that played. The second reader was found while I read the first.
+
+Measured on the shell host. The save of Ambition says that the hub's gun sword
+is `Consumed` and that one person of the hub was provoked. A veteran plays
+Sanic and replaces that session with Ambition. For the first 3 frames of the
+Ambition session the gun sword was in the world and the person was peaceful; a
+fresh host with the same save has neither on any frame. From frame 3 the two
+hosts agreed (I did not measure which road corrects it).
+
+- Persistence prepares the save: `prepare_the_save_of(owner, ..)` gives the
+  live save to its owner, the save that was put aside to an experience that
+  played before, and the file to an experience that did not (read one time and
+  put aside). It takes `&AmbitionGameSave` and changes no owner, so a refused
+  candidate leaves the session that plays as it was. The hand-over then gives
+  the value that the session was built from.
+- The builder reads it through `CandidateSave` (`session/durable_horizon.rs`).
+  The horizon also carries the fates of the first room, and the commit of
+  that room takes them as a stated value (`CommitFactsSource::Stated`). A room
+  of the session that plays, and a direct-entry demo, read the world at the
+  commit as before.
+- Witness:
+  `shell_host_lifecycle::a_session_prepared_while_another_experience_plays_is_built_from_its_own_save`
+  (premises: with a new save the hub has the item and the person is peaceful;
+  a fresh host with the save has no item and a hostile person; Sanic has the
+  live save and no row), with an adoption arm and a refusal arm (two holders
+  of one identity: Sanic stays live with its owner and its save, and the
+  session that is admitted later equals the fresh host's). Unit:
+  `save::tests::a_prepared_save_is_the_save_its_owner_is_then_given`.
+  Poisons, one at a time: the horizon from the live save (item 1 and peaceful,
+  frames 0 to 2); the first room's facts from the world (peaceful, frames 0 to
+  2); the prepared save taken out and not put aside (the session is given a
+  new save and the row is lost on 31 frames); the file read each time (the
+  unit arm).
+- ⚠ A prediction missed. I expected the wrong ledger to be written over the
+  row in Ambition's save (a durable loss). It was not: the save kept the row on
+  each frame. The measured cost of the defect is 3 frames that a fresh host
+  does not have. The durable loss is what the third poison gives.
+- ⛔ THE RESIDUAL, not repaired: when the candidate is of the experience that
+  has the live save (a restart, a world reload), the prepared value is the live
+  save at the preparation. The session that plays can change it before the
+  adoption, and the candidate is then built from the older value. A witness
+  would be `a_session_that_replaces_its_own_experience_is_built_from_the_save_at_its_adoption`:
+  change the save in the frames between the preparation and the adoption, and
+  compare with a fresh host that has the later save.
+- ⚠ For two peers the same question is open at a door: a plan lowers from this
+  host's save (`minted_baseline_from_save`), so it must lower from a horizon
+  that the peers agree on. See [netcode](engine/netcode.md).
 
 **Two resources of a room crossed the edge (same day).** With the entities
 gone, `PortalFrameHistory` held one frame of the old session at tick 0 (a fresh

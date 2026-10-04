@@ -229,6 +229,28 @@ pub struct ActorConstructionServices {
     pub boss_catalog: BossCatalog,
 }
 
+/// Where a room commit gets [`PersistedFates`].
+///
+/// ⛔ THE FIRST ROOM OF A SESSION IS NOT A ROOM OF THE SESSION THAT PLAYS. A
+/// session is built hidden while another one can be live, and the live save
+/// and the live world-time schedule belong to that other session. Until
+/// 2026-10-04 each commit read the world it landed in. Measured in `app_it`
+/// (`a_session_prepared_while_another_experience_plays_is_built_from_its_own_save`):
+/// a person whom Ambition's save records as provoked was built peaceful, for
+/// the first 3 frames of an Ambition session that replaced a Sanic session.
+#[derive(Clone, Debug)]
+pub enum CommitFactsSource {
+    /// The world that the commit lands in, read when the commit is applied.
+    /// For a room of the session that plays: the live save is its save, and a
+    /// replay commits a plan again after the save has moved. Also for an App
+    /// that enters one experience directly.
+    TheWorldAtTheCommit,
+    /// A value that the caller states. For the first room of a session that is
+    /// built from the save of its own experience
+    /// (`session::durable_horizon::CandidateSave`).
+    Stated(PersistedFates),
+}
+
 /// What the durable save says about the authored bodies a commit builds.
 ///
 /// ⛔ A COMMIT FACT, NOT A PLAN FACT (see `ConstructionDomain::CommitFacts`). A
@@ -237,7 +259,7 @@ pub struct ActorConstructionServices {
 /// is built in it — a placement the save says died starts dead, a cleared boss
 /// starts defeated. These used to be built alive and corrected by a save mirror
 /// running every sim tick.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct PersistedFates {
     save: Option<ambition_persistence::save_data::AmbitionGameSaveData>,
     /// The occurrences still gone when this commit was requested (OW5): the
@@ -257,10 +279,7 @@ impl PersistedFates {
     /// A commit no durable record reaches: a summon, whose occurrence the save
     /// never names, or a fixture with no save installed.
     pub fn unrecorded() -> Self {
-        Self {
-            save: None,
-            scheduled_returns: Default::default(),
-        }
+        Self::default()
     }
 
     /// Read off the world the commit is about to be applied to.

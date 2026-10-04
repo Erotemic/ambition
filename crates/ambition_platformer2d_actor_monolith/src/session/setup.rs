@@ -44,6 +44,12 @@ pub struct SimulationSetup<'a> {
     /// — says `UntilOwnerRetires` and owes a `retire_publication`. A direct-entry
     /// demo drops the handle and says `UntilTheVerdictIsRecorded`.
     pub publication_retention: crate::world::rooms::transaction::PublicationRetention,
+    /// Where the first room's commit gets what the save says about its bodies.
+    ///
+    /// ⛔ The shell provider states the save of the session's own experience:
+    /// its session is built while another one can be live. A direct-entry demo
+    /// has one experience and says `TheWorldAtTheCommit`.
+    pub first_room_facts: crate::construction::CommitFactsSource,
     pub world: &'a RoomGeometry,
     pub room_set: &'a RoomSet,
     pub tuning: &'a ae::ActiveMovementTuning,
@@ -123,6 +129,7 @@ pub fn simulation_world(
     let SimulationSetup {
         session_root,
         publication_retention,
+        first_room_facts,
         world,
         room_set,
         tuning,
@@ -184,7 +191,7 @@ pub fn simulation_world(
     // session becomes authoritative only if the room it was built around
     // published, so the caller that owns that decision retains this handle. See
     // `SimulationSetup::publication_retention`.
-    let publication = room_plan.spawn_contents(commands, publication_retention);
+    let publication = room_plan.spawn_contents(commands, publication_retention, first_room_facts);
     // The first room's moving platforms go onto THIS session's live room root,
     // hidden with it when the session is a candidate. A candidate cannot write
     // the playing session's platforms, because they are on another root.

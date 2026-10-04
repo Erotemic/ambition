@@ -100,6 +100,52 @@ pub fn adopt_occurrence_checkpoint_from_save(
 /// [`adopt_occurrence_checkpoint_from_save`] above, which is a different trigger
 /// (the `SaveRestored` latch) rather than a second answer to this question.
 ///
+/// The save that a candidate session is built from: the save of ITS
+/// experience.
+///
+/// ⛔ NOT THE LIVE SAVE. A candidate is built hidden, before its route is
+/// activated, and the activation is what gives the live save to its
+/// experience (`ambition_persistence::save::hand_the_save_to`). Until
+/// 2026-10-04 the builder read `AmbitionGameSave`, so a candidate that was
+/// prepared while another experience played took the durable horizon of that
+/// experience. Measured in `app_it`
+/// (`a_session_prepared_while_another_experience_plays_is_built_from_its_own_save`):
+/// an Ambition session that replaced a Sanic session had, for its first 3
+/// frames, an item that Ambition's save says is gone for good. A fresh host
+/// with the same save never has it.
+///
+/// ⭐ THE VALUE IS THE ONE THE ACTIVATION HANDS OVER. Persistence puts the
+/// prepared save aside for its experience and changes no ownership, so a
+/// refused candidate leaves the live save with the session that plays.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct CandidateSave<'w> {
+    /// Absent in a composition with no durable horizon. An empty horizon is
+    /// the answer there.
+    live: Option<Res<'w, AmbitionGameSave>>,
+    /// Absent in an App that hosts one experience: the live save is its save.
+    ownership: Option<ResMut<'w, ambition_persistence::save::SaveOwner>>,
+    /// Absent in an App that persists nothing: no file is read.
+    root: Option<Res<'w, ambition_persistence::PersistenceRoot>>,
+}
+
+impl CandidateSave<'_> {
+    /// The durable horizon of a candidate session of `experience`.
+    pub fn horizon_of(&mut self, experience: &str) -> CandidateDurableHorizon {
+        let Some(live) = self.live.as_deref() else {
+            return CandidateDurableHorizon::default();
+        };
+        let Some(ownership) = self.ownership.as_deref_mut() else {
+            return CandidateDurableHorizon::from_save(live.data());
+        };
+        CandidateDurableHorizon::from_save(ambition_persistence::save::prepare_the_save_of(
+            experience,
+            ownership,
+            live,
+            self.root.as_deref().map(|root| root.0.as_path()),
+        ))
+    }
+}
+
 /// A candidate session's durable horizon, held as a VALUE.
 ///
 /// ⛔⛤ **REVIEW FINDING 1, 2026-09-15: PREPARING A CANDIDATE MUST NOT WRITE THE
@@ -129,19 +175,35 @@ pub struct CandidateDurableHorizon {
     /// horizon. `OwnedItemsBaseline`, the wallet and the rest do not participate
     /// in candidate room construction and are not pulled in here.
     minted: crate::items::pickup::minted_horizon::MintedItemBaseline,
+    /// What the save says about the bodies of the first room (dead, provoked,
+    /// cleared). The third value that construction reads from a save. It is
+    /// not installed: the first room commit reads it and no resource holds it.
+    fates: crate::construction::PersistedFates,
 }
 
 impl CandidateDurableHorizon {
     /// Read the save into a value. Touches no resource.
-    pub fn from_save(save: &AmbitionGameSave) -> Self {
-        let (rows, custody) = ledger_from_save(save.data());
+    ///
+    /// ⛔ THE SAVE OF THE CANDIDATE'S EXPERIENCE, which is not the live save
+    /// while another experience plays. [`CandidateSave::horizon_of`] is the
+    /// production caller.
+    pub fn from_save(save: &ambition_persistence::save_data::AmbitionGameSaveData) -> Self {
+        let (rows, custody) = ledger_from_save(save);
         let mut occurrences = AuthoredOccurrences::default();
         occurrences.adopt_rows(rows);
         Self {
             occurrences,
             custody,
-            minted: crate::items::pickup::minted_horizon::minted_baseline_from_save(save.data()),
+            minted: crate::items::pickup::minted_horizon::minted_baseline_from_save(save),
+            fates: crate::construction::PersistedFates::from_save(save),
         }
+    }
+
+    /// What the commit of the candidate's first room reads for the fates of
+    /// its bodies: the candidate's own save. No occurrence is scheduled to
+    /// return, because the world-time schedule of a new session is empty.
+    pub fn first_room_facts(&self) -> crate::construction::CommitFactsSource {
+        crate::construction::CommitFactsSource::Stated(self.fates.clone())
     }
 
     /// What the candidate's construction reads to rebuild a runtime mint.
@@ -161,6 +223,7 @@ impl CandidateDurableHorizon {
             occurrences,
             custody,
             minted,
+            fates: _,
         } = self;
         if let Some(mut live) = world.get_resource_mut::<AuthoredOccurrences>() {
             *live = occurrences.clone();

@@ -1315,7 +1315,12 @@ restart) retires one session and activates the next in one frame.
   session replaced during a hitstop left an asked pace of 0.0 and a live pace of
   0.42, and the next session ran its first two ticks at 0.65 and 0.88. A peer
   whose last session ended at the neutral pace does not. Both are now in
-  `SessionScopedResources`, reset at the activation.
+  `SessionScopedResources`, reset at the activation. The reset also changed a
+  first session: in the sim harness, tick 1 ran at a pace of 0.96 (the frames
+  before the session left the clock in a ramp), and it now runs at 1.0. One
+  test had its premise satisfied by that tick only
+  (`the_trace_records_one_clock_per_tick`); it now asks for the pace it sets,
+  and its poison (the actor trace reads `ClockState`) fails it on tick 1.
 - **Simulation messages were alive across the edge.** The population is the
   channels a domain declares to the rollback census (`clear_message_on_rollback`).
   A probe in both registrars, over `app_it` by module: 59 first ticks of a later

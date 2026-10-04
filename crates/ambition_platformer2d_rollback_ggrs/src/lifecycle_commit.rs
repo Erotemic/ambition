@@ -731,7 +731,7 @@ mod tests {
             intent,
             construction_plan: None,
             barrier: ambition_load::LoadBarrierRef::new("load", "ready"),
-            commit_not_before_tick: 0,
+            opened_this_pass: false,
             cover_required: false,
             cover_presented: true,
             phase: RoomTransitionLoadPhase::CommitAuthorized,

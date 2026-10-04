@@ -1,8 +1,8 @@
 //! Readiness-gated ordinary room transitions.
 //!
 //! It first becomes an exact [`ambition_load`] transaction, preflights the target without
-//! mutating room authority, and may commit only on a later simulation tick after the required
-//! barrier is ready and one-shot authorization succeeds.
+//! mutating room authority, and may commit only after a later pass of the readiness set, when the
+//! required barrier is ready and one-shot authorization succeeds.
 //!
 //! The transition now carries both construction preflight and concrete room presentation
 //! readiness.
@@ -20,7 +20,6 @@ use ambition_platformer2d_actor_monolith::rooms;
 use ambition_platformer2d_world::rooms as world_rooms;
 
 use ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent;
-use ambition_time::SimTick;
 
 const ROOM_READY_BARRIER: &str = "room-transition.ready";
 const TARGET_LOOKUP_WORK: &str = "room-transition.target-lookup";
@@ -162,7 +161,22 @@ pub struct ActiveRoomTransitionLoad {
     pub intent: LifecycleIntent,
     pub construction_plan: Option<Arc<rooms::RoomConstructionPlan>>,
     pub barrier: LoadBarrierRef,
-    pub commit_not_before_tick: u64,
+    /// The pass of the readiness set that opened this transaction is not
+    /// over.
+    ///
+    /// `authorize_ready_room_transition_system` runs after the opener in each
+    /// pass. In the opening pass it clears this and does no more. So the
+    /// authorization comes on a later pass, also when each contributor was
+    /// ready at once, and a request and its apply are never in one pass.
+    ///
+    /// ⛔ IT WAS A TICK UNTIL 2026-10-04 (`commit_not_before_tick`, the tick
+    /// of the opening plus one), and a tick does not come while the simulation
+    /// is held. A peer session holds the simulation while a crossing waits
+    /// (`a_peer_commit_holds_the_simulation`), and its transaction opens after
+    /// the hold began. Measured: the transaction stayed `AwaitingReadiness`
+    /// with no end, and the crossing could not commit. The tick was a stand-in
+    /// for "a later pass"; this is that pass.
+    pub opened_this_pass: bool,
     pub cover_required: bool,
     pub cover_presented: bool,
     pub phase: RoomTransitionLoadPhase,
@@ -655,7 +669,6 @@ pub fn begin_room_transition_load_system(
     real_time: Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
     active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
     presentation_available: Option<Res<RoomTransitionPresentationAvailable>>,
-    tick: Res<SimTick>,
     mut loads: ResMut<LoadCoordinator>,
     mut load_events: MessageWriter<LoadEvent>,
     // PAIRED, and only because a Bevy system stops at sixteen params: the mode
@@ -983,10 +996,11 @@ pub fn begin_room_transition_load_system(
             intent: intent.clone(),
             construction_plan: None,
             barrier: barrier.clone(),
-            // Even when every contributor resolves immediately, commit happens
-            // on a later simulation step. This makes readiness and commit two
-            // real phases and gives Phase 3 a place to insert cover rendering.
-            commit_not_before_tick: tick.get().saturating_add(1),
+            // Even when every contributor resolves immediately, the
+            // authorization comes on a later pass. This makes readiness and
+            // commit two real phases and gives Phase 3 a place to insert cover
+            // rendering.
+            opened_this_pass: true,
             cover_required,
             cover_presented: !cover_required,
             phase: RoomTransitionLoadPhase::AwaitingReadiness,
@@ -1397,10 +1411,10 @@ pub fn begin_room_transition_load_system(
 
 /// Observe the required barrier and obtain one-shot commit authorization.
 ///
-/// The deliberate next-tick gate prevents the old request/apply same-pass path
-/// from reappearing even while all current contributors are immediate.
+/// The deliberate next-pass gate prevents the old request/apply same-pass path
+/// from reappearing even while all current contributors are immediate. See
+/// [`ActiveRoomTransitionLoad::opened_this_pass`].
 pub fn authorize_ready_room_transition_system(
-    tick: Res<SimTick>,
     real_time: Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
     mut state: ResMut<RoomTransitionLoadState>,
     mut loads: ResMut<LoadCoordinator>,
@@ -1409,9 +1423,12 @@ pub fn authorize_ready_room_transition_system(
     let Some(active) = state.active.as_mut() else {
         return;
     };
-    if active.phase != RoomTransitionLoadPhase::AwaitingReadiness
-        || tick.get() < active.commit_not_before_tick
-    {
+    if active.phase != RoomTransitionLoadPhase::AwaitingReadiness {
+        return;
+    }
+    // THE NEXT-PASS GATE. This run is in the pass that opened the transaction:
+    // end that pass, and authorize nothing in it.
+    if std::mem::take(&mut active.opened_this_pass) {
         return;
     }
     let Some(snapshot) = loads.snapshot(&active.barrier.load_id, &active.barrier.barrier_id) else {
@@ -1610,7 +1627,7 @@ mod tests {
             intent: request("b"),
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
-            commit_not_before_tick: 1,
+            opened_this_pass: false,
             cover_required: false,
             cover_presented: true,
             phase: RoomTransitionLoadPhase::AwaitingReadiness,
@@ -1732,6 +1749,106 @@ mod tests {
         );
     }
 
+    /// THE INVARIANT THE TICK STOOD FOR. A transaction opened in a pass is
+    /// not authorized in that pass, also when its barrier is ready at once.
+    /// It is authorized in the next pass, with no tick between the two.
+    #[test]
+    fn a_transaction_is_not_authorized_in_the_pass_that_opened_it() {
+        use ambition_load::LoadCommand;
+        use bevy::prelude::{App, Update};
+
+        let barrier = LoadBarrierRef::new("load", "ready");
+        let mut loads = LoadCoordinator::default();
+        loads.apply(LoadCommand::Begin(LoadPlanSpec::new("load", "a crossing")));
+        loads.apply(LoadCommand::DeclareBarrier {
+            load_id: barrier.load_id.clone(),
+            spec: LoadBarrierSpec {
+                discovery_open: false,
+                ..LoadBarrierSpec::new("ready", "ready")
+            },
+        });
+        assert_eq!(
+            loads
+                .snapshot(&barrier.load_id, &barrier.barrier_id)
+                .map(|snapshot| snapshot.readiness),
+            Some(BarrierReadiness::Ready),
+            "premise: the barrier is ready before the first pass, so only the \
+             gate can hold the authorization"
+        );
+
+        let mut app = App::new();
+        app.add_message::<LoadEvent>();
+        app.insert_resource(loads);
+        app.insert_resource(RoomTransitionLoadState {
+            active: Some(ActiveRoomTransitionLoad {
+                // As `begin_room_transition_load_system` leaves it.
+                opened_this_pass: true,
+                barrier,
+                ..awaiting_readiness()
+            }),
+            ..Default::default()
+        });
+        // No `SimTick` is in this world: the gate reads no tick.
+        app.add_systems(Update, authorize_ready_room_transition_system);
+        let phase = |app: &App| {
+            app.world()
+                .resource::<RoomTransitionLoadState>()
+                .active
+                .as_ref()
+                .map(|active| active.phase)
+        };
+
+        app.update();
+        assert_eq!(
+            phase(&app),
+            Some(RoomTransitionLoadPhase::AwaitingReadiness),
+            "the opening pass authorized a commit: a request and its apply can \
+             be in one pass"
+        );
+        app.update();
+        assert_eq!(
+            phase(&app),
+            Some(RoomTransitionLoadPhase::CommitAuthorized),
+            "the pass after the opening pass did not authorize a ready barrier"
+        );
+    }
+
+    /// A transaction with no cover that waits for its readiness.
+    fn awaiting_readiness() -> ActiveRoomTransitionLoad {
+        ActiveRoomTransitionLoad {
+            sequence: 1,
+            content_epoch: 1,
+            session_scope: None,
+            source_room: 0,
+            source_room_id: "a".to_string(),
+            target_room: 1,
+            intent: request("b"),
+            construction_plan: None,
+            barrier: LoadBarrierRef::new("load", "ready"),
+            opened_this_pass: false,
+            cover_required: false,
+            cover_presented: true,
+            phase: RoomTransitionLoadPhase::AwaitingReadiness,
+            failure: None,
+            asset_work_id: LoadWorkId::new("room-transition.assets:b"),
+            staged_actor_names: Vec::new(),
+            asset_readiness_complete: false,
+            last_asset_progress: None,
+            asset_progress_since: None,
+            asset_stall_report: None,
+            prefetch_hit: false,
+            checkpoint_operation: None,
+            construction_preflight_duration: None,
+            asset_manifest_duration: None,
+            requested_at: None,
+            asset_ready_at: None,
+            ready_at: None,
+            cover_presented_at: None,
+            commit_duration: None,
+            committed_at: None,
+        }
+    }
+
     #[test]
     fn visible_transition_requires_cover_acknowledgment() {
         let mut active = ActiveRoomTransitionLoad {
@@ -1744,7 +1861,7 @@ mod tests {
             intent: request("b"),
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
-            commit_not_before_tick: 1,
+            opened_this_pass: false,
             cover_required: true,
             cover_presented: false,
             phase: RoomTransitionLoadPhase::AwaitingReadiness,
@@ -1853,7 +1970,7 @@ mod checkpoint_failure_tests {
             intent: crossing(),
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
-            commit_not_before_tick: 0,
+            opened_this_pass: false,
             cover_required: false,
             cover_presented: true,
             phase: RoomTransitionLoadPhase::Failed,
@@ -1969,7 +2086,7 @@ mod checkpoint_failure_tests {
             intent: crossing(),
             construction_plan: None,
             barrier: LoadBarrierRef::new("load", "ready"),
-            commit_not_before_tick: 0,
+            opened_this_pass: false,
             cover_required: false,
             cover_presented: true,
             phase: RoomTransitionLoadPhase::Failed,

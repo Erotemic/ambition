@@ -457,7 +457,7 @@
             ],
             fields: (
                 id: "hall_of_characters_entry",
-                name: "hall_of_characters_entry",
+                name: "to central hub",
                 activation: "Door",
                 target_room: "central_hub_complex",
                 target_zone: "hall_of_characters_door",
@@ -675,7 +675,7 @@
             fields: (
                 character_id: "npc_goblin_brute",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_goblin_brute",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2331,7 +2331,7 @@
             fields: (
                 character_id: "pointed_polygon",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_pointed_polygon",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2349,7 +2349,7 @@
             fields: (
                 character_id: "pugnacious_polygon",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_pugnacious_polygon",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2367,7 +2367,7 @@
             fields: (
                 character_id: "projectile_polygon",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_projectile_polygon",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2385,7 +2385,7 @@
             fields: (
                 character_id: "director",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_director",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2403,7 +2403,7 @@
             fields: (
                 character_id: "officer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_officer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2421,7 +2421,7 @@
             fields: (
                 character_id: "medic",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_medic",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2439,7 +2439,7 @@
             fields: (
                 character_id: "performer",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_performer",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2743,6 +2743,24 @@
                 80,
             ],
             fields: (
+                character_id: "npc_fsm_noodling",
+                prompt: "Inspect",
+                dialogue_id: "hall_npc_fsm_noodling",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                744,
+                2256,
+            ],
+            size: [
+                48,
+                80,
+            ],
+            fields: (
                 character_id: "npc_gnu_ton_boss",
                 prompt: "Inspect",
                 dialogue_id: "hall_npc_gnu_ton_boss",
@@ -2753,7 +2771,7 @@
         (
             type: "NpcSpawn",
             px: [
-                744,
+                1256,
                 2256,
             ],
             size: [
@@ -2771,7 +2789,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1256,
+                1768,
                 2256,
             ],
             size: [
@@ -2789,8 +2807,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1768,
-                2256,
+                232,
+                2640,
             ],
             size: [
                 48,
@@ -2807,7 +2825,7 @@
         (
             type: "NpcSpawn",
             px: [
-                232,
+                744,
                 2640,
             ],
             size: [
@@ -2825,7 +2843,7 @@
         (
             type: "NpcSpawn",
             px: [
-                744,
+                1256,
                 2640,
             ],
             size: [
@@ -2843,7 +2861,7 @@
         (
             type: "NpcSpawn",
             px: [
-                1256,
+                1768,
                 2640,
             ],
             size: [
@@ -2861,8 +2879,8 @@
         (
             type: "NpcSpawn",
             px: [
-                1768,
-                2640,
+                232,
+                3024,
             ],
             size: [
                 48,
@@ -2879,7 +2897,7 @@
         (
             type: "NpcSpawn",
             px: [
-                232,
+                744,
                 3024,
             ],
             size: [

@@ -390,12 +390,13 @@ new uses of `spared` / `spared_participants` as the model.
   reducer: `verify_restored_domains` compares the ledger with the pinned
   one and fails closed into `Paused`. The first version of this slice did
   that, and the witness found it.
-- Open: `BossDefeatSinceCheckpoint::present` is who won it, kept unchanged
-  after a rewind, so it is history rather than ownership. A later rewind of a
-  second participant would find the first one still listed. Not reachable
-  today: only the primary body's death restores. Fix it when a second
-  participant's death can rewind: take the dying participant out of
-  `present` on each restore, as the schedule does.
+- ✅ 2026-10-04, boss defeats: a restore keeps only the spared participants
+  in each kept defeat's `present` (`take_for_restore`), so a later restore
+  of another participant does not keep a defeat for a winner whose own
+  restore already took it back. Not reachable in play today (only the
+  primary body's death restores), so a unit test holds the arithmetic:
+  `a_restore_takes_the_dying_participant_out_of_a_kept_defeats_winners`
+  (poison: no shrink; Alice's later restore keeps the shared defeat).
 
 **Acceptance:** Alice dies while Bob's room holds a boss he defeated after the
 checkpoint: Bob's room, the boss row and its reward stay; Alice's room agrees

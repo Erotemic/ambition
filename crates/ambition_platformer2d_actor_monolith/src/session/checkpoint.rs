@@ -424,6 +424,10 @@ pub fn resume_at_checkpoint_on_reset(
         ambition_items::ItemCatalogRead<'_>,
         // The one-time pickups consumed since the checkpoint, with their owners.
         Option<Res<crate::features::ecs::pickups::ConsumedSinceCheckpoint>>,
+        // What the rewards since the checkpoint gave, and the defeats they
+        // came from: the restore keeps those of a defeat it keeps (Q151).
+        Option<Res<crate::items::pickup::RewardGrantsSinceCheckpoint>>,
+        Option<Res<ambition_boss_encounter::BossDefeatsSinceCheckpoint>>,
     ),
     mut admitted: bevy::prelude::MessageWriter<ambition_combat::events::RoomReplayAdmitted>,
 ) {
@@ -544,7 +548,7 @@ pub fn resume_at_checkpoint_on_reset(
         );
         return;
     };
-    let (occurrences, custody, minted, owned, items, consumed) = baselines;
+    let (occurrences, custody, minted, owned, items, consumed, grants, defeats) = baselines;
     let fresh = restore_to == RestoreTo::NewGame;
     // ⭐ A DEATH IS LOCAL TO ITS PARTICIPANT AND ROOM (Q151). The rooms other
     // participants hold keep what was won in them since the checkpoint. A New
@@ -599,27 +603,53 @@ pub fn resume_at_checkpoint_on_reset(
             }),
         )
     } else {
-        (
-            // The ledger this restore promises: the checkpoint's, and the
-            // one-time pickups a spared participant consumed since it (Q151).
-            // Pinned here, so the room the restore rebuilds and the
-            // verification both read it.
-            pin_lifecycle_inputs(occurrences, custody).map(|mut inputs| {
-                if let Some(consumed) = consumed.as_ref() {
-                    let mut ledger = inputs.occurrences.remembered().clone();
-                    if ledger.consume(consumed.owned_by(&spared_participants)) > 0 {
-                        inputs.occurrences.adopt(ledger);
+        // The ledger this restore promises: the checkpoint's, and the
+        // one-time pickups a spared participant consumed since it (Q151).
+        // Pinned here, so the room the restore rebuilds and the
+        // verification both read it.
+        let lifecycle = pin_lifecycle_inputs(occurrences, custody).map(|mut inputs| {
+            if let Some(consumed) = consumed.as_ref() {
+                let mut ledger = inputs.occurrences.remembered().clone();
+                if ledger.consume(consumed.owned_by(&spared_participants)) > 0 {
+                    inputs.occurrences.adopt(ledger);
+                }
+            }
+            inputs
+        });
+        // The bag and the purse this restore promises: the checkpoint's, and
+        // what each reward it keeps gave (Q151): a reward of a defeat that
+        // another participant keeps stays. The purse is the primary body's,
+        // so it keeps the coins that body collected.
+        let item = minted.zip(owned).map(|(minted, owned)| {
+            let mut owned = owned.clone();
+            if let (Some(grants), Some(defeats)) = (grants.as_ref(), defeats.as_ref()) {
+                let (mut bosses, mut placements) =
+                    (std::collections::BTreeSet::new(), std::collections::BTreeSet::new());
+                for (placement, defeat) in
+                    defeats.retracted_by_restore(&spared, &spared_participants, subject.room)
+                {
+                    placements.insert(placement.clone());
+                    bosses.extend(defeat.boss.clone());
+                }
+                let mut bag = owned.remembered().clone();
+                let mut purse = owned.purse();
+                for grant in grants.kept_by_restore(&bosses, &placements) {
+                    if let Some((item, n)) = grant.granted.item {
+                        bag.grant(items.get(), item, n);
+                    }
+                    if grant.collector == *sim_id {
+                        purse += grant.granted.coins;
                     }
                 }
-                inputs
-            }),
-            minted.zip(owned).map(|(minted, owned)| {
-                crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
-                    minted: minted.clone(),
-                    owned: owned.clone(),
-                }
-            }),
-        )
+                owned.adopt(bag);
+                owned.adopt_purse(purse);
+            }
+            crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
+                minted: minted.clone(),
+                owned,
+            }
+        });
+        (lifecycle, item)
     };
     accepted.accept(AcceptedRestore {
         key,

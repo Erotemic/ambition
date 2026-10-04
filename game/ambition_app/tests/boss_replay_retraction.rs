@@ -636,6 +636,93 @@ fn a_defeat_before_the_checkpoint_survives_a_death_in_another_room() {
     );
 }
 
+/// A reward taken after the checkpoint from a defeat the checkpoint holds.
+/// The warden falls and the checkpoint is committed while its `markrecall`
+/// still lies where it dropped; the player takes it after the checkpoint and
+/// dies. The mint has no ledger row, so the restore does not build it again.
+/// Returns (markrecall held before the death, markrecall held after it, live
+/// markrecall mints after it).
+fn a_banked_wardens_ability_taken_after_the_checkpoint() -> (u32, u32, usize) {
+    use crate::death_restores_the_checkpoint::{commit_a_checkpoint, die, ROOM};
+    use ambition_platformer2d::items::Item;
+    let mut sim = crate::common::fixed_60hz_room_sim(ROOM);
+    let home = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .single(world)
+            .expect("the player has a body")
+            .pos
+    };
+    // The warden stands away from the player, so its drop is not taken at once.
+    sim.spawn_boss_at(
+        "warden",
+        "clockwork_warden",
+        (home.x + 200.0, home.y),
+        (40.0, 40.0),
+        ambition_platformer2d::entity_catalog::placements::BossBrain::PhaseScript {
+            script_id: "clockwork_warden".to_string(),
+        },
+    );
+    kill_boss_with_a_real_hit(&mut sim, "warden", 600);
+    until_cleared(&mut sim, "warden");
+    let markrecalls = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(&ambition_platformer2d::combat::components::PickupFeature, &ambition_platformer2d::combat::components::CenteredAabb, Option<&ambition_platformer2d::combat::components::Collected>)>()
+            .iter(world)
+            .filter(|(pickup, _, collected)| {
+                collected.is_none()
+                    && matches!(&pickup.pickup.kind, ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id } if ability_id == "markrecall")
+            })
+            .map(|(_, aabb, _)| aabb.center)
+            .collect::<Vec<_>>()
+    };
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+    }
+    sim.teleport_player((home.x, home.y));
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(
+        (owns(sim.world_mut(), Item::MarkRecall), markrecalls(&mut sim).len()),
+        (0, 1),
+        "precondition: markrecall lies where it dropped, not taken"
+    );
+    commit_a_checkpoint(&mut sim);
+    for _ in 0..240 {
+        let Some(at) = markrecalls(&mut sim).first().copied() else {
+            break;
+        };
+        sim.teleport_player((at.x, at.y));
+        sim.step(AgentAction::default());
+    }
+    let held = owns(sim.world_mut(), Item::MarkRecall);
+    sim.teleport_player((home.x, home.y));
+    die(&mut sim);
+    let outcome = format!(
+        "{:?}",
+        sim.world()
+            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+            .latest()
+    );
+    assert!(outcome.starts_with("Some(Committed"), "precondition: the death's restore committed: {outcome}");
+    (held, owns(sim.world_mut(), Item::MarkRecall), markrecalls(&mut sim).len())
+}
+
+/// The ability exists once after the death: in the bag, not lying again.
+/// Before, the restore put the checkpoint's bag back whole and the mint did
+/// not come back either, so the ability was gone.
+#[test]
+fn a_death_keeps_an_ability_taken_after_the_checkpoint_from_a_banked_defeat() {
+    assert_eq!(
+        a_banked_wardens_ability_taken_after_the_checkpoint(),
+        (1, 1, 0),
+        "(markrecall held, held after the death, lying after the death): the ability exists twice or not at all"
+    );
+}
+
 /// The mockingbird's defeat, then the hand-in to the admiral, which completes
 /// `pirate_treasure` and pays out. Returns (pirate_treasure in the registry,
 /// health cells gained, reward flag) after the hand-in and after a replay;
@@ -1015,6 +1102,17 @@ fn a_death_in_a_shared_room_takes_back_the_defeat_in_the_room_both_stand_in() {
 /// when Alice has opened the chest of Bob's boss in his room after the
 /// checkpoint, and then again after Alice dies in the hub.
 fn alice_loots_bobs_chest_then_dies() -> [(i32, Option<bool>, bool, bool); 2] {
+    let (readings, _) = alice_loots_bobs_chest_of_then_dies(
+        ambition_platformer2d::entity_catalog::PickupKind::Currency { amount: 30 },
+    );
+    readings
+}
+
+/// [`alice_loots_bobs_chest_then_dies`] with the chest's reward `reward`, and
+/// how many `markrecall` the bag holds at each reading.
+fn alice_loots_bobs_chest_of_then_dies(
+    reward: ambition_platformer2d::entity_catalog::PickupKind,
+) -> ([(i32, Option<bool>, bool, bool); 2], [u32; 2]) {
     use crate::death_restores_the_checkpoint::commit_a_checkpoint;
     const BOSS: &str = "bobs_boss";
     let (mut sim, first) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
@@ -1035,7 +1133,7 @@ fn alice_loots_bobs_chest_then_dies() -> [(i32, Option<bool>, bool, bool); 2] {
             .iter_mut(world)
             .find(|(chest, _)| chest.encounter_id == BOSS)
             .expect("precondition: the defeat dropped its reward chest");
-        chest.chest.reward = Some(ambition_platformer2d::entity_catalog::PickupKind::Currency { amount: 30 });
+        chest.chest.reward = Some(reward);
     }
     let before = balance(sim.world_mut());
     assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "switch_lab"), "switch_lab");
@@ -1068,12 +1166,21 @@ fn alice_loots_bobs_chest_then_dies() -> [(i32, Option<bool>, bool, bool); 2] {
         )
     };
     let opened = seen(&mut sim);
+    let markrecall = |sim: &mut Platformer2dSimHarness| owns(sim.world_mut(), ambition_platformer2d::items::Item::MarkRecall);
+    let held = markrecall(&mut sim);
     // Opening the chest holds Interact, which also crosses a door Alice stands in.
     if sim.observation().active_room != "central_hub_complex" {
         assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "central_hub_complex"), "central_hub_complex");
     }
     crate::death_restores_the_checkpoint::die(&mut sim);
-    [opened, seen(&mut sim)]
+    let outcome = format!(
+        "{:?}",
+        sim.world()
+            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+            .latest()
+    );
+    assert!(outcome.starts_with("Some(Committed"), "precondition: Alice's restore committed: {outcome}");
+    ([opened, seen(&mut sim)], [held, markrecall(&mut sim)])
 }
 
 /// Q151: Bob's boss defeat and its reward stay when Alice dies, also when
@@ -1090,6 +1197,19 @@ fn a_death_keeps_the_reward_taken_from_the_other_players_boss() {
         [looted, looted],
         "(coins gained, chest opened, looted flag, boss cleared) when Alice opened the chest, then after her death"
     );
+}
+
+/// Q151 for an item: Bob's chest gives `markrecall`, Alice takes it after the
+/// checkpoint and dies in the hub. The defeat stays, so the item stays in the
+/// bag. Before, the restore put the checkpoint's bag back whole, so the item
+/// was gone and the chest stayed looted: the reward was lost. The control is
+/// the reading when the chest is opened.
+#[test]
+fn a_death_keeps_the_item_taken_from_the_other_players_boss() {
+    let (_, markrecall) = alice_loots_bobs_chest_of_then_dies(
+        ambition_platformer2d::entity_catalog::PickupKind::Ability { ability_id: "markrecall".to_string() },
+    );
+    assert_eq!(markrecall, [1, 1], "markrecall in the bag when Alice opened the chest, then after her death");
 }
 
 /// Q151: an explicit whole-session restart may rewind the whole session, and

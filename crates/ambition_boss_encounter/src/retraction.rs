@@ -40,9 +40,10 @@ pub struct BossDefeatSinceCheckpoint {
     pub definition: String,
     /// The boss's simulation identity: the parent its mints name.
     pub boss: Option<SimId>,
-    /// The participants whose bodies were in the boss's live room when it
-    /// fell, in seat order: who won it. A death keeps a defeat that another
-    /// participant won (Q151), also after its room retired.
+    /// The participants whose horizons own the defeat, in seat order: those
+    /// whose bodies were in the boss's live room when it fell, less each one
+    /// whose restore has since gone back past it. A death keeps a defeat that
+    /// another participant owns (Q151), also after its room retired.
     pub present: Vec<ambition_characters::control::PlayerSlot>,
 }
 
@@ -115,21 +116,53 @@ impl BossDefeatsSinceCheckpoint {
     /// participant won and left. The dying participant's own room spares
     /// nothing, also when another participant shares it: the restore
     /// rebuilds it.
+    ///
+    /// A kept defeat keeps only the spared participants as its winners: the
+    /// dying participant's horizon has gone back past it. So a later restore
+    /// of another participant does not keep it for a winner whose own
+    /// restore already took it back.
     pub fn take_for_restore(
         &mut self,
         spared: &[LiveRoomInstance],
         spared_participants: &[ambition_characters::control::PlayerSlot],
         dying_room: Option<LiveRoomInstance>,
     ) -> Vec<(String, BossDefeatSinceCheckpoint)> {
-        let (kept, taken): (BTreeMap<_, _>, BTreeMap<_, _>) = std::mem::take(&mut self.defeats)
+        let (mut kept, taken): (BTreeMap<_, _>, BTreeMap<_, _>) = std::mem::take(&mut self.defeats)
             .into_iter()
-            .partition(|(_, defeat)| {
-                defeat.room.is_some_and(|room| spared.contains(&room))
-                    || (defeat.room != dying_room
-                        && defeat.present.iter().any(|seat| spared_participants.contains(seat)))
-            });
+            .partition(|(_, defeat)| Self::a_restore_keeps(defeat, spared, spared_participants, dying_room));
+        for defeat in kept.values_mut() {
+            defeat.present.retain(|seat| spared_participants.contains(seat));
+        }
         self.defeats = kept;
         taken.into_iter().collect()
+    }
+
+    /// The defeats that [`Self::take_for_restore`] with the same arguments
+    /// would take, without taking them: what the restore's acceptance reads
+    /// to pin the bag it promises.
+    pub fn retracted_by_restore<'a>(
+        &'a self,
+        spared: &'a [LiveRoomInstance],
+        spared_participants: &'a [ambition_characters::control::PlayerSlot],
+        dying_room: Option<LiveRoomInstance>,
+    ) -> impl Iterator<Item = (&'a String, &'a BossDefeatSinceCheckpoint)> + 'a {
+        self.defeats
+            .iter()
+            .filter(move |(_, defeat)| !Self::a_restore_keeps(defeat, spared, spared_participants, dying_room))
+    }
+
+    /// The one rule of what a checkpoint restore keeps (Q151): a defeat in a
+    /// spared live room, or one a spared participant won outside the dying
+    /// participant's own room.
+    fn a_restore_keeps(
+        defeat: &BossDefeatSinceCheckpoint,
+        spared: &[LiveRoomInstance],
+        spared_participants: &[ambition_characters::control::PlayerSlot],
+        dying_room: Option<LiveRoomInstance>,
+    ) -> bool {
+        defeat.room.is_some_and(|room| spared.contains(&room))
+            || (defeat.room != dying_room
+                && defeat.present.iter().any(|seat| spared_participants.contains(seat)))
     }
 
     /// Entity-free value projection: two peers that disagree about which
@@ -361,6 +394,51 @@ mod tests {
                 vec![&"bobs_left".to_string()],
             ),
             "(taken, kept) by Alice's death in live room #4, sparing Bob"
+        );
+    }
+
+    /// Q151 across successive rewinds: a restore takes the dying participant
+    /// out of each kept defeat's winners. A defeat Alice and Bob won together
+    /// in a room both left stays when Bob's restore spares Alice, and then
+    /// goes back when Alice's restore spares Bob: Bob's horizon has already
+    /// gone back past it. Today only the primary participant's death
+    /// restores, so this is the arithmetic a second participant's restore
+    /// needs. The control is a defeat Bob won alone, which Alice's restore
+    /// keeps.
+    #[test]
+    fn a_restore_takes_the_dying_participant_out_of_a_kept_defeats_winners() {
+        use ambition_characters::control::PlayerSlot;
+        let (alice, bob) = (PlayerSlot(0), PlayerSlot(1));
+        let won_by = |room: u32, seats: &[PlayerSlot]| BossDefeatSinceCheckpoint {
+            present: seats.to_vec(),
+            ..defeat(room, "arena")
+        };
+        let mut since = BossDefeatsSinceCheckpoint::default();
+        since.record("shared_left", won_by(2, &[alice, bob]));
+        since.record("bobs_left", won_by(3, &[bob]));
+        // Bob dies in live room #6, and Alice is spared.
+        let first: Vec<String> = since
+            .take_for_restore(&[], &[alice], Some(LiveRoomInstance::from_ordinal(6)))
+            .into_iter()
+            .map(|(placement, _)| placement)
+            .collect();
+        assert_eq!(first, vec!["bobs_left".to_string()], "Bob's restore took back his own defeat");
+        // Alice dies in live room #7, and Bob is spared.
+        let second: Vec<String> = since
+            .take_for_restore(&[], &[bob], Some(LiveRoomInstance::from_ordinal(7)))
+            .into_iter()
+            .map(|(placement, _)| placement)
+            .collect();
+        assert_eq!(
+            second,
+            vec!["shared_left".to_string()],
+            "Alice's restore kept a shared defeat for Bob, whose own restore took it back"
+        );
+        // Control: a defeat Bob won alone after both restores stays for him.
+        since.record("bobs_later", won_by(3, &[bob]));
+        assert!(
+            since.take_for_restore(&[], &[bob], Some(LiveRoomInstance::from_ordinal(7))).is_empty(),
+            "control: Alice's restore took back a defeat Bob won alone"
         );
     }
 }

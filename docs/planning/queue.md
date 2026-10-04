@@ -1425,6 +1425,20 @@ place, through the title) gave the same result.
 - ⚠ A bundle can still name `RoomScopedEntity` by hand in a plain `spawn`. The
   witness below asks a running world for each room-scoped entity with no
   session owner; no source guard forbids the shape.
+- **The audit of that shape found one more site (2026-10-04).** I read each
+  production site under `crates/` and `game/` that names `RoomScopedEntity`,
+  `RoomVisual` (which requires it), or a bundle that holds it
+  (`FeatureLifecycleBundle` and the bundles built on it). Each takes a session
+  scope, with one exception: the person who comes out of the cut-rope boss
+  (`cut_rope/victory.rs`) was a plain `spawn` with the room stamp put on by
+  hand. Measured: that person was in the world at the title after its session
+  ended, and the next session had the same entity (both successions). Two
+  hosts agree on it, so a census does not see it. The system now takes
+  `SessionCommands` and spawns with the scope. Witness:
+  `shell_host_lifecycle::the_victory_npc_of_a_cleared_boss_ends_with_its_session`
+  (premise: one person; red before the repair on five readings). The sites in
+  `items/pickup/minted_horizon.rs`, `world/rooms/stage.rs` and
+  `lifecycle/custody_horizon.rs` are in test modules.
 
 **A presentation effect crossed the edge (2026-10-04, review finding).** The
 first repair of the message channels kept each channel that presentation
@@ -1510,6 +1524,10 @@ hosts agreed (I did not measure which road corrects it).
   row in Ambition's save (a durable loss). It was not: the save kept the row on
   each frame. The measured cost of the defect is 3 frames that a fresh host
   does not have. The durable loss is what the third poison gives.
+- ⛔ Nothing guarded the row in those 3 frames. I did not measure why it
+  survived. One candidate (not measured): nothing writes the ledger into the
+  save before the correction on frame 3. That would be an order of systems,
+  not a rule, so the witness reads the row on each frame.
 - ⛔ THE RESIDUAL, not repaired: when the candidate is of the experience that
   has the live save (a restart, a world reload), the prepared value is the live
   save at the preparation. The session that plays can change it before the

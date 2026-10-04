@@ -47,6 +47,19 @@ holding a schedule label other than the `sim_schedule()` idiom. The shape it
 catches is a literal `Update`/`PostUpdate`/`PreUpdate`/`FixedUpdate`, which is
 the shape the one real instance had.
 
+⚠ and it cannot see a GENERIC system. It finds a mutator by the rollback type
+that its parameter list names, and `ResMut<T>` names none. Measured 2026-10-04:
+`forget_attempts_on_activation::<T>` (`session/reset/mod.rs`) is registered in
+a literal `Update` and writes `BrokenBricks`, `SpentPowerBlocks` and
+`SpentMonitors`, each registered with `rollback_resource_clone_checksum`. It
+is not in the scan and has no `WAIVERS` entry. Two systems that do the same work with a named type
+(`forget_portal_frames_on_activation`, `restart_heavy_object_cycle_on_activation`)
+were reported on the day they were written. The three are correct for one
+reason (the activation edge is before the timeline that a rewind can cross),
+but the scan gives that answer for the named two only. Not repaired.
+(`forget_narrative_inputs_on_activation::<M>` has the same shape and is not an
+instance: its ledger is an external input and is not registered for rollback.)
+
 Usage:
     python3 scripts/check_rollback_mutators_run_in_sim.py
     python3 scripts/check_rollback_mutators_run_in_sim.py --list

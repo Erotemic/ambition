@@ -71,6 +71,16 @@ fn shell_host_app_started_in(
     host: ambition_platformer2d::runtime::SimulationHost,
     room: Option<&str>,
 ) -> App {
+    shell_host_app_composed_by(host, room, shell_host::compose_ambition_shell_host)
+}
+
+/// The same host, with the composer stated. Every walk but one uses the
+/// shipped composer; see [`RetirementOrder::LocalSessionOwnerFirst`].
+fn shell_host_app_composed_by(
+    host: ambition_platformer2d::runtime::SimulationHost,
+    room: Option<&str>,
+    compose: fn(&mut App),
+) -> App {
     use ambition_platformer2d::runtime::SimulationHostAppExt as _;
 
     let mut app = App::new();
@@ -99,7 +109,7 @@ fn shell_host_app_started_in(
     // same deadline `visible_composition.rs` documents.
     app.set_simulation_host(host);
     ambition_app::app::add_simulation_plugins(&mut app);
-    shell_host::compose_ambition_shell_host(&mut app);
+    compose(&mut app);
     app
 }
 
@@ -1018,22 +1028,34 @@ fn settle_until_the_room_changes(app: &mut App, before: &str, frames: u32) -> Op
 /// Which admissible order the local-session owner and the shell's session
 /// bridge run in.
 ///
-/// ⛔⛔ NOTHING IN THE SHIPPED SCHEDULE ORDERS THEM. `LocalSessionSet::Maintain`
-/// is constrained only against `InputSet::Collect`; `GameplaySessionSet::Bridge`
-/// only against `AmbitionGameShellSet::Pending`. Both live in `Update`, so both
-/// orders below are things this app may legitimately do — and they are not
-/// equally survivable: with the owner running FIRST, retirement removes the
-/// canonical root while the GGRS session is still installed, and the contract
-/// check on the next `PreUpdate` reads deliberate teardown as corruption.
+/// ⛔⛔ NOTHING IN THE SHIPPED SCHEDULE ORDERED THEM UNTIL 2026-10-04.
+/// `LocalSessionSet::Maintain` was constrained only against
+/// `InputSet::Collect`; `GameplaySessionSet::Bridge` only against
+/// `AmbitionGameShellSet::Pending`. Both live in `Update`, so both orders below
+/// were things this app could legitimately do — and they are not equally
+/// survivable: with the owner running FIRST, retirement removes the canonical
+/// root while the GGRS session is still installed, and the contract check on
+/// the next `PreUpdate` reads deliberate teardown as corruption.
 ///
 /// ⭐ The fix orders them (`SessionScopeSet::RetireAuthority`), but ordering is
 /// hygiene. These arms exist to prove the OWNERSHIP holds when the ordering does
 /// not, which is the only version of the guarantee worth having.
+///
+/// The shipped host now puts the maintainer after the providers, and thus
+/// after the bridge (`shell_host::start_the_timeline_with_the_session_world`):
+/// the frame on which the timeline starts is a decision. The second arm stays,
+/// because an edge can be removed.
 #[derive(Clone, Copy, Debug)]
 enum RetirementOrder {
-    /// What the shipped schedule happens to produce today.
+    /// The shipped schedule: the bridge retires the session, then the
+    /// maintainer runs.
     AsScheduled,
-    /// The other admissible order — a scheduling regression, simulated.
+    /// The owner retires first — a scheduling regression, simulated. This arm
+    /// is composed WITHOUT the shipped edge
+    /// (`compose_ambition_shell_host_with_the_timeline_start_unordered`) and
+    /// puts the maintainer before the bridge. The two edges together are a
+    /// cycle. ⚠ So in this arm the maintainer also runs before the providers,
+    /// and each session comes up one frame after its world, on purpose.
     LocalSessionOwnerFirst,
 }
 
@@ -1059,8 +1081,16 @@ fn a_smash_session_does_not_take_ambitions_doors_even_when_retirement_is_misorde
 }
 
 fn smash_then_ambition(order: RetirementOrder) {
-    let mut app =
-        shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+    let mut app = shell_host_app_composed_by(
+        ambition_platformer2d::runtime::SimulationHost::Rollback,
+        None,
+        match order {
+            RetirementOrder::AsScheduled => shell_host::compose_ambition_shell_host,
+            RetirementOrder::LocalSessionOwnerFirst => {
+                shell_host::compose_ambition_shell_host_with_the_timeline_start_unordered
+            }
+        },
+    );
     if let RetirementOrder::LocalSessionOwnerFirst = order {
         app.configure_sets(
             Update,

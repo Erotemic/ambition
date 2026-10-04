@@ -1347,21 +1347,32 @@ activation is not taken).
 census, and other peer-compared resources outside `SessionScopedResources`. A
 long visit to the title carries no message: the bus was empty after 80 frames.
 
-**Open: the frame on which the timeline starts is an accident of the sort
-(found 2026-10-04).** `LocalSessionSet::Maintain` has no edge to
-`GameplaySessionSet::Providers`, the set that builds the session world. Before
-the merge of this row's system (in `SessionScopeSet::Activate`) with the HUD of
+**The frame on which the timeline starts is a decision (2026-10-04).**
+`LocalSessionSet::Maintain` had no edge to `GameplaySessionSet::Providers`, the
+set that builds the session world, so the sort chose the order. Before the
+merge of this row's system (in `SessionScopeSet::Activate`) with the HUD of
 each view (Q150), the shipped host ran the providers first, and the rollback
 session came up in the `Update` that built the world. After it, the maintainer
-runs first and the session comes up one frame later. No simulation runs in that
-frame, and one test changed: the floor of
+ran first and the session came up one frame later; the floor of
 `versus_stage::the_roster_arm_writes_the_scoreboard_before_the_timeline_starts`
-was red because no firing frame installed a session. That test now walks the two
-orders. ⚠ A shipped edge (`Maintain` after `Providers`) would make the frame a
-decision, but `shell_host_lifecycle`'s misordered-retirement arm sets
-`Maintain.before(Bridge)` to simulate a regression, and the two edges make a
-cycle. So the edge is a decision for the owner of that arm, not a repair made
-here.
+went red because no firing frame installed a session. A frame on which the
+world exists and the session does not is a frame outside the timeline, so the
+host now states the order: `shell_host::start_the_timeline_with_the_session_world`
+puts the maintainer after the providers in each composer of the shell host.
+
+- The versus test asks that every firing frame installs the session. Poison
+  (the edge removed): its floor is red.
+- `reload_publication_is_installed` recorded that nothing ordered the session
+  start against the generation commit (Q118). The edge orders them on one
+  frame (the commit is before the providers), and the arm now asserts that
+  order. A timeline that starts on an earlier frame of the wait is still the
+  case of `break_the_publication_lease_when_the_boundary_closes`.
+- `shell_host_lifecycle`'s misordered-retirement arm puts the maintainer before
+  the session bridge. With the host's edge that is a cycle, so that arm alone
+  uses `compose_ambition_shell_host_with_the_timeline_start_unordered`.
+
+**Not done:** a composition that does not use the shell-host composers (the
+SDK provider composition, the pocket demo) has no such edge.
 
 ### TEST-LANES — keep required test lanes executable
 

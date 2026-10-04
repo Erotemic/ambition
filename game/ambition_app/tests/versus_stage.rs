@@ -2930,59 +2930,22 @@ fn versus_roster_is_ours(app: &App) -> bool {
 /// peer-compared rollback state over a live timeline, and nothing else would
 /// say so: `OwnedItems`' sibling defect is silent for exactly this reason.
 ///
-/// ⛔ THE SCHEDULE DOES NOT ORDER THE MAINTAINER AND THE PROVIDERS, SO THE TWO
-/// ORDERS ARE WALKED. `LocalSessionSet::Maintain` has no edge to
-/// `GameplaySessionSet::Providers`, the set that builds the session world. The
-/// order that the sort gives changed on 2026-10-04, when two unrelated commits
-/// were merged (a system in `SessionScopeSet::Activate`, and the HUD of each
-/// view): the maintainer moved from after the providers to before them. Then
-/// the session came up one frame after the world, no firing frame installed
-/// it, and this test compared nothing. See [`ActivationOrder`].
+/// ⭐ THE HOST PUTS THE MAINTAINER AFTER THE PROVIDERS
+/// (`shell_host::start_the_timeline_with_the_session_world`), so each firing
+/// frame installs the session, and this test compares the two ticks on each.
+/// Until 2026-10-04 the schedule did not order those two sets. A merge of two
+/// unrelated commits moved the maintainer first; the session then came up one
+/// frame after its world, no firing frame installed it, and the floor below
+/// was red (write 3697, no install; write 159463, no install). Poison (that
+/// edge removed): the same red.
 #[test]
 fn the_roster_arm_writes_the_scoreboard_before_the_timeline_starts() {
-    for order in [
-        ActivationOrder::ProvidersFirst,
-        ActivationOrder::MaintainerFirst,
-    ] {
-        the_roster_arm_precedes_the_timeline(order);
-    }
-}
-
-/// The order of the session maintainer and the providers on the frame that
-/// activates a session. The shipped schedule permits the two.
-#[derive(Clone, Copy, Debug)]
-enum ActivationOrder {
-    /// The world is built, then the maintainer installs the session in the
-    /// same `Update`. The roster arm's `.before(Maintain)` edge is the only
-    /// thing that puts the write before the timeline here.
-    ProvidersFirst,
-    /// The maintainer sees no world on the activation frame, and it installs
-    /// the session one frame later. The write is before the timeline with no
-    /// help from the edge.
-    MaintainerFirst,
-}
-
-fn the_roster_arm_precedes_the_timeline(order: ActivationOrder) {
-    use ambition_platformer2d::game_shell::GameplaySessionSet;
-    use ambition_platformer2d::rollback::local_session::LocalSessionSet;
-
     let mut app = versus_app();
     app.init_resource::<ProbeHostFrame>();
     app.init_resource::<RosterArmSamples>();
     app.init_resource::<FrameEndSamples>();
     app.add_systems(First, sample_what_the_roster_arm_will_read);
     app.add_systems(Last, sample_the_order_the_frame_resolved_to);
-    match order {
-        ActivationOrder::ProvidersFirst => app.configure_sets(
-            Update,
-            LocalSessionSet::Maintain.after(GameplaySessionSet::Providers),
-        ),
-        ActivationOrder::MaintainerFirst => app.configure_sets(
-            Update,
-            LocalSessionSet::Maintain.before(GameplaySessionSet::Providers),
-        ),
-    };
-    eprintln!("PROBE order: {order:?}");
 
     settle_to_launcher(&mut app);
     let routes: Vec<String> = app
@@ -3074,33 +3037,26 @@ fn the_roster_arm_precedes_the_timeline(order: ActivationOrder) {
             installed_on_a_firing_frame += 1;
         }
     }
-    let firing_frame_ends: Vec<&FrameEndSample> = ends
-        .iter()
-        .filter(|end| fired.iter().any(|sample| sample.frame == end.frame))
-        .collect();
-    match order {
-        // ⭐ THE ANTI-VACUITY FLOOR. If the session came up on some LATER frame
-        // every time, the ordering above would be trivially satisfied and this
-        // arm would pass with the edge deleted. It does not: the maintainer
-        // installs the session in the SAME `Update` as the write, after it,
-        // which is precisely what the edge decides.
-        ActivationOrder::ProvidersFirst => assert_eq!(
-            installed_on_a_firing_frame,
-            fired.len(),
-            "a firing frame did not install the session, so the tick \
-             comparison above did not run for it and this arm cannot see the \
-             ordering it exists to pin. Frame-end samples: {firing_frame_ends:?}"
-        ),
-        // The premise of this arm: the maintainer ran before the world
-        // existed, so no session came up on a firing frame.
-        ActivationOrder::MaintainerFirst => assert_eq!(
-            installed_on_a_firing_frame,
-            0,
-            "the maintainer was ordered before the providers, and a firing \
-             frame installed the session: this arm does not walk the order it \
-             names. Frame-end samples: {firing_frame_ends:?}"
-        ),
-    }
+    // ⭐ THE ANTI-VACUITY FLOOR. If the session came up on some LATER frame,
+    // the ordering above would be trivially satisfied there and this test
+    // would pass with the edge deleted. It does not: the maintainer installs the
+    // session in the SAME `Update` as the write, after it, which is precisely
+    // what the edge decides. EVERY firing frame, because the host orders the
+    // maintainer after the providers: a frame that builds the session world
+    // installs the session.
+    assert_eq!(
+        installed_on_a_firing_frame,
+        fired.len(),
+        "a firing frame did not install the session, so the tick comparison \
+         above did not run for it and this test cannot see the ordering it \
+         exists to pin. The host starts the timeline in the `Update` that \
+         builds the session world \
+         (`shell_host::start_the_timeline_with_the_session_world`); read that \
+         edge first. Frame-end samples: {:?}",
+        ends.iter()
+            .filter(|end| fired.iter().any(|sample| sample.frame == end.frame))
+            .collect::<Vec<_>>()
+    );
 }
 
 /// Review of the pose clock (2026-09-30): the long duelist authors a bigger

@@ -95,6 +95,20 @@ GGRS P2P session over any `NonBlockingSocket<SocketAddr>` and installs it with
 latency in updates, for two Apps in one process. A transport supplies the
 socket. Nothing here is signaling or deployment.
 
+**A session generation has its own socket on the link (2026-10-04).** A peer
+session ends at a lifecycle commit and the next one starts at frame zero. A new
+GGRS endpoint accepts each message until its handshake is complete (its
+`remote_magic` is zero until then), so an Input parcel of the old session that
+is still on the link would be read as an input of the new timeline.
+`LoopbackTransport::socket(generation)` gives the socket of one generation, and
+a socket receives only its own generation: a parcel of an older one is dropped,
+and a parcel of a later one stays on the link for its socket
+(`peer::tests::a_parcel_of_an_older_session_is_not_delivered_to_a_new_endpoint`,
+its control `the_same_parcel_is_delivered_to_the_session_it_was_sent_to`, and
+`a_parcel_of_the_next_session_waits_for_its_socket`). A real transport owes
+the same rule: a generation number in its envelope, or a channel for each
+generation.
+
 N2 was the only instrument for two open questions:
 
 - the unchecksummed float rows (S7 in
@@ -107,7 +121,9 @@ N2 was the only instrument for two open questions:
   window. Still open: the confirmed lifecycle commit runs only under a
   `LocalSyncTest` ownership (`lifecycle_commit.rs`), so under a peer session a
   room crossing does not commit at all. A peer session that crosses rooms needs
-  that commit first.
+  that commit first. The shape is decided and two of its three parts are in
+  (the freeze, and the generation transport above); see the "Remote peers" row
+  of [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md).
 
 **The start is a new timeline, and that choice is made.** Each peer calls
 `start_peer_session` at the same point of the same world, so the world is frame

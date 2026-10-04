@@ -26,9 +26,20 @@
 //!   collected), and one that is due is built whole.
 //!
 //! No physics runs for a room that is not live. A replay of a room is a fresh
-//! attempt, so it forgets that room's records ([`forget_scheduled_returns_on_replay`]);
-//! a checkpoint restore and the session edge forget them all, because the save
-//! holds no broken breakable and no collected pickup.
+//! attempt, so it forgets that room's records ([`forget_scheduled_returns_on_replay`]).
+//!
+//! A record has owners: the participants whose bodies were in its live room
+//! when it was made. A death is local to its participant (Q151), so a
+//! checkpoint restore takes the dying participant out of every record's owners
+//! at its admission, and a record that has no owner left goes back
+//! ([`disown_scheduled_returns_on_restore`]). At the commit, a record of a
+//! room that is not live stays while it has an owner; the records of live
+//! rooms are forgotten and come back from their running timers
+//! ([`forget_scheduled_returns_on_restore`]). So Bob's broken platform keeps
+//! its time after his room retires and Alice dies elsewhere, and a later
+//! rewind of Bob's horizon takes it back. A New Game spares nobody, and the
+//! session edge forgets every record, because the save holds no broken
+//! breakable and no collected pickup.
 //!
 //! ⚠ Keyed by room DEFINITION, because a record must outlive the instance it
 //! was made in. A room has at most one live room (`DefinitionAlreadyLive`), so
@@ -43,6 +54,7 @@ use bevy::prelude::*;
 use ambition_combat::components::{BreakableFeature, Collected, FeatureId, PickupFeature, RespawnTimer};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
+use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use crate::features::GameplayElapsed;
 
 /// When each gone occurrence comes back, on [`GameplayElapsed`], by (room
@@ -63,7 +75,17 @@ pub struct WorldTimeSchedule {
     due: Arc<Records>,
 }
 
-type Records = BTreeMap<(String, String), f32>;
+type Records = BTreeMap<(String, String), Due>;
+
+/// When one gone occurrence comes back, and whose horizons own that.
+#[derive(Clone, Debug, PartialEq)]
+struct Due {
+    at: f32,
+    /// The participants whose bodies were in the occurrence's live room when
+    /// the record was made, in seat order. A rewind of one of them takes it
+    /// out; the record goes back when none is left.
+    owners: Vec<PlayerSlot>,
+}
 
 /// Equal records, with the same allocation first: a snapshot and the live
 /// schedule share their records while nothing changed.
@@ -78,7 +100,14 @@ impl WorldTimeSchedule {
     pub fn due(&self, room: &str, feature: &str) -> Option<f32> {
         self.due
             .get(&(room.to_string(), feature.to_string()))
-            .copied()
+            .map(|due| due.at)
+    }
+
+    /// Whose horizons own the record of `feature` in room `room`.
+    pub fn owners(&self, room: &str, feature: &str) -> Option<&[PlayerSlot]> {
+        self.due
+            .get(&(room.to_string(), feature.to_string()))
+            .map(|due| due.owners.as_slice())
     }
 
     /// How long the occurrence `feature` of room `room` stays gone at time
@@ -90,17 +119,53 @@ impl WorldTimeSchedule {
             .filter(|remaining| *remaining > 0.0)
     }
 
-    /// The records, in key order.
-    pub fn records(&self) -> impl Iterator<Item = (&(String, String), &f32)> {
-        self.due.iter()
+    /// The records and their due times, in key order.
+    pub fn records(&self) -> impl Iterator<Item = (&(String, String), f32)> {
+        self.due.iter().map(|(key, due)| (key, due.at))
     }
 
-    /// The occurrence `feature` of room `room` comes back at `due`. Keeps an
-    /// existing record: the first departure decides the time.
-    pub fn record(&mut self, room: &str, feature: &str, due: f32) {
+    /// The occurrence `feature` of room `room` comes back at `due`, owned by
+    /// `owners`. Keeps an existing record: the first departure decides the
+    /// time and the owners.
+    pub fn record(&mut self, room: &str, feature: &str, due: f32, owners: &[PlayerSlot]) {
         let key = (room.to_string(), feature.to_string());
         if !self.due.contains_key(&key) {
-            Arc::make_mut(&mut self.due).insert(key, due);
+            Arc::make_mut(&mut self.due).insert(
+                key,
+                Due {
+                    at: due,
+                    owners: owners.to_vec(),
+                },
+            );
+        }
+    }
+
+    /// A checkpoint restore keeps only the `kept` participants' horizons: take
+    /// every other participant out of each record's owners, and forget a
+    /// record with no owner left.
+    pub fn keep_only_owners(&mut self, kept: &[PlayerSlot]) {
+        let changes = self.due.values().any(|due| {
+            due.owners.is_empty() || due.owners.iter().any(|owner| !kept.contains(owner))
+        });
+        if !changes {
+            return;
+        }
+        let records = Arc::make_mut(&mut self.due);
+        for due in records.values_mut() {
+            due.owners.retain(|owner| kept.contains(owner));
+        }
+        records.retain(|_, due| !due.owners.is_empty());
+    }
+
+    /// Forget every record of a room in `live`, and every record with no owner.
+    pub fn forget_live_and_unowned(&mut self, live: &[String]) {
+        if self
+            .due
+            .iter()
+            .any(|((room, _), due)| live.contains(room) || due.owners.is_empty())
+        {
+            Arc::make_mut(&mut self.due)
+                .retain(|(room, _), due| !live.contains(room) && !due.owners.is_empty());
         }
     }
 
@@ -156,7 +221,11 @@ impl WorldTimeSchedule {
         for ((room, feature), due) in self.due.iter() {
             put_str(&mut bytes, room);
             put_str(&mut bytes, feature);
-            put_u64(&mut bytes, u64::from(due.to_bits()));
+            put_u64(&mut bytes, u64::from(due.at.to_bits()));
+            put_u64(&mut bytes, due.owners.len() as u64);
+            for owner in &due.owners {
+                put_u64(&mut bytes, u64::from(owner.0));
+            }
         }
         checksum_bytes(&bytes)
     }
@@ -175,7 +244,7 @@ pub fn remaining_scheduled_returns(world: &World) -> BTreeMap<(String, String), 
     schedule
         .due
         .iter()
-        .map(|(key, due)| (key.clone(), due - now.0))
+        .map(|(key, due)| (key.clone(), due.at - now.0))
         .filter(|(_, remaining)| *remaining > 0.0)
         .collect()
 }
@@ -195,6 +264,7 @@ pub fn mirror_breakable_respawns(
         (Entity, &FeatureId, &BreakableFeature, Option<&RespawnTimer>),
         With<FeatureSimEntity>,
     >,
+    participants: Query<(Entity, &DrivingParticipant)>,
     mut schedule: ResMut<WorldTimeSchedule>,
 ) {
     for (entity, feature, breakable, timer) in &breakables {
@@ -203,7 +273,12 @@ pub fn mirror_breakable_respawns(
         };
         let room = &rooms.rooms().spec(definition).id;
         match (breakable.broken(), timer) {
-            (true, Some(timer)) => schedule.record(room, feature.as_str(), elapsed.0 + timer.0),
+            (true, Some(timer)) => schedule.record(
+                room,
+                feature.as_str(),
+                elapsed.0 + timer.0,
+                &owners_beside(entity, &rooms, &participants),
+            ),
             (false, _) => schedule.forget(room, feature.as_str()),
             // Broken for good (`Never`, `OnRoomReload`): no respawn to schedule.
             (true, None) => {}
@@ -227,6 +302,7 @@ pub fn regrow_pickups(
         (Entity, &FeatureId, Has<Collected>, Option<&mut RespawnTimer>),
         (With<PickupFeature>, With<FeatureSimEntity>),
     >,
+    participants: Query<(Entity, &DrivingParticipant)>,
     mut schedule: ResMut<WorldTimeSchedule>,
     mut commands: Commands,
 ) {
@@ -245,7 +321,12 @@ pub fn regrow_pickups(
                     commands.entity(entity).remove::<(Collected, RespawnTimer)>();
                     schedule.forget(room, feature.as_str());
                 } else {
-                    schedule.record(room, feature.as_str(), elapsed.0 + timer.0);
+                    schedule.record(
+                        room,
+                        feature.as_str(),
+                        elapsed.0 + timer.0,
+                        &owners_beside(entity, &rooms, &participants),
+                    );
                 }
             }
             (false, _) => schedule.forget(room, feature.as_str()),
@@ -253,6 +334,26 @@ pub fn regrow_pickups(
             (true, None) => {}
         }
     }
+}
+
+/// The participants whose bodies are in the live room of `entity`, in seat
+/// order: the owners of a record made for it now.
+fn owners_beside(
+    entity: Entity,
+    rooms: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    participants: &Query<(Entity, &DrivingParticipant)>,
+) -> Vec<PlayerSlot> {
+    let Some(room) = rooms.live().of(entity) else {
+        return Vec::new();
+    };
+    let mut owners: Vec<PlayerSlot> = participants
+        .iter()
+        .filter(|(body, _)| rooms.live().of(*body) == Some(room))
+        .map(|(_, driver)| driver.0)
+        .collect();
+    owners.sort();
+    owners.dedup();
+    owners
 }
 
 /// An admitted replay is a fresh attempt at its room: its breakables and
@@ -294,16 +395,47 @@ pub fn forget_scheduled_returns_on_replay(
     }
 }
 
-/// A checkpoint restore rebuilds from the save, which holds no broken
-/// breakable and no collected pickup. (checkpoint reducer, in
-/// `CheckpointDomainApply`)
+/// An admitted checkpoint restore keeps only the horizons of the
+/// participants it spares (Q151): the dying participant leaves every record's
+/// owners, and a record nobody else owns goes back. A New Game spares nobody.
+///
+/// At the admission, not at the commit, because the admission names who is
+/// spared and the commit does not.
+pub fn disown_scheduled_returns_on_restore(
+    mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
+    mut schedule: ResMut<WorldTimeSchedule>,
+) {
+    for replay in replays.read() {
+        if replay.to_checkpoint {
+            schedule.keep_only_owners(&replay.spared_participants);
+        }
+    }
+}
+
+/// The commit of a checkpoint restore: a record of a room that is not live
+/// stays while it has an owner (see [`disown_scheduled_returns_on_restore`]),
+/// because nothing else remembers it. The records of the live rooms are
+/// forgotten: a room the restore rebuilds is built whole, and a room that
+/// stays live records its running timers again on the next tick. A New Game
+/// forgets every record. (checkpoint reducer, in `CheckpointDomainApply`)
 pub fn forget_scheduled_returns_on_restore(
     inputs: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs>>,
+    fresh: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>>,
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     schedule: Option<ResMut<WorldTimeSchedule>>,
 ) {
-    if let (Some(_), Some(mut schedule)) = (inputs, schedule) {
+    let (Some(_), Some(mut schedule)) = (inputs, schedule) else {
+        return;
+    };
+    if fresh.is_some() {
         schedule.forget_all();
+        return;
     }
+    let live: Vec<String> = rooms
+        .live_definitions()
+        .map(|definition| rooms.rooms().spec(definition).id.clone())
+        .collect();
+    schedule.forget_live_and_unowned(&live);
 }
 
 #[cfg(test)]
@@ -315,7 +447,8 @@ mod tests {
     #[test]
     fn a_record_says_how_long_a_breakable_stays_broken() {
         let mut schedule = WorldTimeSchedule::default();
-        Arc::make_mut(&mut schedule.due).insert(("basement".into(), "platform".into()), 10.0);
+        Arc::make_mut(&mut schedule.due)
+            .insert(("basement".into(), "platform".into()), Due { at: 10.0, owners: vec![PlayerSlot(1)] });
         assert_eq!(
             [7.5, 10.0, 12.0].map(|now| schedule.remaining("basement", "platform", now)),
             [Some(2.5), None, None]
@@ -327,7 +460,12 @@ mod tests {
 
     /// A schedule of `n` dormant records, in rooms that are not live.
     fn dormant_schedule(n: usize) -> WorldTimeSchedule {
-        let records = (0..n).map(|i| ((format!("room_{:03}", i / 100), format!("platform_{i:05}")), i as f32));
+        let records = (0..n).map(|i| {
+            (
+                (format!("room_{:03}", i / 100), format!("platform_{i:05}")),
+                Due { at: i as f32, owners: vec![PlayerSlot(0)] },
+            )
+        });
         WorldTimeSchedule { due: Arc::new(records.collect()) }
     }
 
@@ -338,7 +476,8 @@ mod tests {
         let first = dormant_schedule(3);
         let mut second = first.clone();
         second.forget_room("room_000");
-        Arc::make_mut(&mut second.due).insert(("room_000".into(), "platform_00001".into()), 9.0);
+        Arc::make_mut(&mut second.due)
+            .insert(("room_000".into(), "platform_00001".into()), Due { at: 9.0, owners: vec![PlayerSlot(0)] });
         for (step, schedule) in [("first", &first), ("second", &second), ("first again", &first)] {
             assert_eq!(schedule.checksum(), schedule.fold(), "the kept checksum is not the fold ({step})");
         }

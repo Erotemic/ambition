@@ -197,7 +197,7 @@ where
     registrar.rollback_resource_clone_checksum::<crate::features::ecs::world_time_schedule::WorldTimeSchedule>(
         OWNER,
         "feature.world_time_schedule",
-        "when each broken breakable respawns and each collected pickup regrows, on the session clock, kept when their room retires (OW5, Q152)",
+        "when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)",
         crate::features::ecs::world_time_schedule::WorldTimeSchedule::checksum,
     );
     registrar

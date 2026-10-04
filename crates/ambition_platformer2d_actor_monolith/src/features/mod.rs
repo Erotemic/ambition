@@ -1503,7 +1503,10 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         app.init_resource::<ecs::world_time_schedule::WorldTimeSchedule>()
             .add_systems(
                 sim,
-                ecs::world_time_schedule::forget_scheduled_returns_on_replay
+                (
+                    ecs::world_time_schedule::forget_scheduled_returns_on_replay,
+                    ecs::world_time_schedule::disown_scheduled_returns_on_restore,
+                )
                     .in_set(crate::session::reset::ContentRoomReplayResetSet),
             )
             .add_systems(

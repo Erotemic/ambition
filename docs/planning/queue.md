@@ -1347,6 +1347,22 @@ activation is not taken).
 census, and other peer-compared resources outside `SessionScopedResources`. A
 long visit to the title carries no message: the bus was empty after 80 frames.
 
+**Open: the frame on which the timeline starts is an accident of the sort
+(found 2026-10-04).** `LocalSessionSet::Maintain` has no edge to
+`GameplaySessionSet::Providers`, the set that builds the session world. Before
+the merge of this row's system (in `SessionScopeSet::Activate`) with the HUD of
+each view (Q150), the shipped host ran the providers first, and the rollback
+session came up in the `Update` that built the world. After it, the maintainer
+runs first and the session comes up one frame later. No simulation runs in that
+frame, and one test changed: the floor of
+`versus_stage::the_roster_arm_writes_the_scoreboard_before_the_timeline_starts`
+was red because no firing frame installed a session. That test now walks the two
+orders. ⚠ A shipped edge (`Maintain` after `Providers`) would make the frame a
+decision, but `shell_host_lifecycle`'s misordered-retirement arm sets
+`Maintain.before(Bridge)` to simulate a regression, and the two edges make a
+cycle. So the edge is a decision for the owner of that arm, not a repair made
+here.
+
 ### TEST-LANES — keep required test lanes executable
 
 **Owner:** test runner / app integration lane. Operational rules and what a

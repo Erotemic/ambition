@@ -315,8 +315,11 @@ bag (`OwnedItemsBaseline`) and not the wallet, so a purchase after the
 checkpoint lost its goods and kept its price, and the save mirrored the loss.
 The baseline now also holds the primary body's balance at the checkpoint
 (captured at commit, adopted from the save on load, pinned in the restore
-inputs), and the restore writes it back. Another participant's wallet is not
-rewound. Witness:
+inputs), and the restore writes it back, plus the coins of each reward
+grant still on record (a defeat the death keeps, such as Bob's boss, keeps
+what it paid: `a_death_keeps_the_reward_taken_from_the_other_players_boss`).
+Another participant's wallet is not rewound. Open: an item such a grant put
+in the bag is still lost by the bag restore. Witness:
 `a_death_undoes_a_purchase_since_the_checkpoint_whole` (control: a purchase
 before the checkpoint survives); poisons on capture, load adoption and
 restore each fail it. Schema 308 -> 309. Open: `OwnedItems` itself is still

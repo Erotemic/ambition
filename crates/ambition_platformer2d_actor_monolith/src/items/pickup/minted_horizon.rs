@@ -267,8 +267,9 @@ pub struct ItemCheckpointRestoreInputs {
 pub fn restore_owned_items_to_checkpoint(
     inputs: Option<Res<ItemCheckpointRestoreInputs>>,
     owned: Option<ResMut<ambition_items::OwnedItems>>,
+    grants: Option<Res<RewardGrantsSinceCheckpoint>>,
     mut wallets: Query<
-        &mut ambition_characters::actor::BodyWallet,
+        (&SimId, &mut ambition_characters::actor::BodyWallet),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
@@ -276,12 +277,24 @@ pub fn restore_owned_items_to_checkpoint(
         return;
     };
     reduce_owned_items_to_baseline(inputs.owned.remembered(), &mut owned);
-    // The purse goes back with the bag. This overwrites, so the coins a
-    // retracted boss defeat would take back are already gone; that is why
-    // `forget_reward_grants_on_restore` forgets the grants after it.
-    if let Ok(mut wallet) = wallets.single_mut() {
-        if wallet.balance != inputs.owned.purse() {
-            wallet.balance = inputs.owned.purse();
+    // The purse goes back with the bag, except for the coins of the grants
+    // still on record. A boss defeat that this restore retracts has already
+    // taken its grants out (`retract_mints_of_retracted_boss_defeats`, at the
+    // replay's admission); a grant that is left belongs to a defeat the death
+    // keeps, such as one in another participant's room (Q151), so its coins
+    // stay. `forget_reward_grants_on_restore` forgets the grants after this.
+    if let Ok((id, mut wallet)) = wallets.single_mut() {
+        let kept: i32 = grants.as_deref().map_or(0, |grants| {
+            grants
+                .grants
+                .iter()
+                .filter(|grant| grant.collector == *id)
+                .map(|grant| grant.granted.coins)
+                .sum()
+        });
+        let balance = inputs.owned.purse() + kept;
+        if wallet.balance != balance {
+            wallet.balance = balance;
         }
     }
 }

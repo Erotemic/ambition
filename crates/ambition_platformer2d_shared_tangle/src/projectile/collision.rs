@@ -180,7 +180,7 @@ fn resolve_against_witness(
         WorldHitPolicy::ExpireOnContact => WorldHitOutcome::Expired { pos: kin.pos },
         WorldHitPolicy::Bouncing => {
             let hit = match block.kind {
-                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } => {
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::Barrier => {
                     game.resolve_solid_hit_in_frame(kin, block.aabb, gravity_dir)
                 }
                 ae::BlockKind::OneWay => {

@@ -462,10 +462,7 @@ fn remove_named_blocks(blocks: &mut Vec<ae::Block>, removed_block_names: &[Strin
 fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
     let original = std::mem::take(blocks);
     for block in original {
-        let carvable = matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay
-        );
+        let carvable = ae::collision_semantics::is_support_surface(block.kind);
         if !carvable {
             blocks.push(block);
             continue;

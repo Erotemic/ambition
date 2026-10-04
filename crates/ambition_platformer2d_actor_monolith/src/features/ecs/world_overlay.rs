@@ -69,9 +69,9 @@ pub fn rebuild_feature_ecs_world_overlay(
         }
         let kind = match feature.breakable.collision {
             ambition_interaction::BreakableCollision::None => continue,
-            ambition_interaction::BreakableCollision::Solid => ae::BlockKind::BlinkWall {
-                tier: ae::BlinkWallTier::Hard,
-            },
+            // A barrier, not a hard blink wall: no blink upgrade passes an
+            // unbroken crate (Q102).
+            ambition_interaction::BreakableCollision::Solid => ae::BlockKind::Barrier,
             ambition_interaction::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
         };
         let Some(mut overlay) = overlays.for_room(room) else {
@@ -305,6 +305,94 @@ mod breakable_geometry_agreement {
             "a breakable's contributed collision surface and its damageable \
              volume describe different rectangles: a shot would stop where it \
              cannot damage, or damage where it does not stop"
+        );
+    }
+}
+
+#[cfg(test)]
+mod a_solid_breakable_is_a_barrier {
+    use ambition_combat::components::{BreakableFeature, CenteredAabb, FeatureId, FeatureName};
+    use ambition_combat::FeatureSimEntity;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+    use bevy::prelude::*;
+
+    /// The block the overlay publishes for one unbroken solid crate that
+    /// stands across the blink path.
+    fn published_crate() -> ae::Block {
+        let mut app = App::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            FeatureEcsWorldOverlay::default(),
+        );
+        let mut breakable = ambition_interaction::Breakable::new("crate", 3);
+        breakable.collision = ambition_interaction::BreakableCollision::Solid;
+        app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new("crate_17"),
+            FeatureName("A Crate".to_string()),
+            CenteredAabb {
+                center: ae::Vec2::new(231.0, 150.0),
+                half_size: ae::Vec2::new(11.0, 150.0),
+            },
+            BreakableFeature::new(breakable),
+        ));
+        app.add_systems(Update, super::rebuild_feature_ecs_world_overlay);
+        app.update();
+        let overlay = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<
+            FeatureEcsWorldOverlay,
+        >(app.world())
+        .expect("the live room has an overlay");
+        assert_eq!(overlay.blocks.len(), 1, "the solid crate contributed no surface");
+        overlay.blocks[0].clone()
+    }
+
+    /// Where a body with the hard blink upgrade lands when it blinks from the
+    /// left of `block` to a point on its right.
+    fn blink_across(block: ae::Block) -> f32 {
+        let world = ae::World::new(
+            "blink_across",
+            ae::Vec2::new(600.0, 300.0),
+            ae::Vec2::ZERO,
+            vec![block],
+        );
+        let mut abilities = ae::AbilitySet::basic();
+        abilities.blink = true;
+        abilities.blink_through_soft_walls = true;
+        abilities.blink_through_hard_walls = true;
+        let body = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::new(140.0, 140.0), abilities);
+        ae::blink_destination_to_point_clusters(
+            &world,
+            &body.kinematics,
+            &body.abilities,
+            ae::Vec2::new(340.0, 140.0),
+        )
+        .x
+    }
+
+    /// Q102: a solid breakable is a barrier, not a hard blink wall. A body
+    /// with the strongest blink upgrade does not blink through an unbroken
+    /// crate. The control is a hard blink wall of the same rectangle, which
+    /// the same body passes.
+    #[test]
+    fn the_hard_blink_upgrade_does_not_pass_an_unbroken_solid_breakable() {
+        let crate_block = published_crate();
+        let wall = ae::Block::blink_wall(
+            "hard blink wall",
+            crate_block.aabb.min,
+            crate_block.aabb.max - crate_block.aabb.min,
+            ae::BlinkWallTier::Hard,
+        );
+        let (left, right) = (crate_block.aabb.min.x, crate_block.aabb.max.x);
+        assert!(
+            blink_across(wall) > right,
+            "the control failed: the hard blink upgrade does not pass a hard blink wall"
+        );
+        let landed = blink_across(crate_block);
+        assert!(
+            landed < left,
+            "the body blinked through an unbroken solid crate (landed at x = {landed}, \
+             the crate spans {left}..{right})"
         );
     }
 }

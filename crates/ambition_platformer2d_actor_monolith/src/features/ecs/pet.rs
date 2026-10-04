@@ -198,13 +198,12 @@ pub fn apply_pet_requests(
             );
             solids.as_deref().is_none_or(|world| {
                 !world.body_overlaps_any(body, |block| {
-                    matches!(
-                        block.kind,
-                        ambition_platformer2d_core::BlockKind::Solid
-                            | ambition_platformer2d_core::BlockKind::BlinkWall { .. }
-                            | ambition_platformer2d_core::BlockKind::Hazard
-                            | ambition_platformer2d_core::BlockKind::Rebound { .. }
-                    )
+                    ambition_platformer2d_core::collision_semantics::is_full_collision_surface(block.kind)
+                        || matches!(
+                            block.kind,
+                            ambition_platformer2d_core::BlockKind::Hazard
+                                | ambition_platformer2d_core::BlockKind::Rebound { .. }
+                        )
                 })
             })
         };

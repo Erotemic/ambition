@@ -573,6 +573,7 @@ pub fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World, developer_tools
     for block in &world.blocks {
         let color = match block.kind {
             ae::BlockKind::Solid => gray(),
+            ae::BlockKind::Barrier => yellow(),
             ae::BlockKind::BlinkWall {
                 tier: ae::BlinkWallTier::Soft,
             } => magenta(),

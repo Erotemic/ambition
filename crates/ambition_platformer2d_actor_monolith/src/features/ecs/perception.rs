@@ -973,7 +973,9 @@ fn attend<'p>(
 /// don't block sight or a straight path).
 fn perceived_solid_kind(kind: ae::BlockKind) -> Option<SolidKind> {
     match kind {
-        ae::BlockKind::Solid => Some(SolidKind::Solid),
+        // A barrier is a solid to a brain: it blocks sight and a path, and no
+        // upgrade passes it.
+        ae::BlockKind::Solid | ae::BlockKind::Barrier => Some(SolidKind::Solid),
         ae::BlockKind::BlinkWall { .. } => Some(SolidKind::BlinkWall),
         ae::BlockKind::OneWay => Some(SolidKind::OneWay),
         ae::BlockKind::Hazard => Some(SolidKind::Hazard),

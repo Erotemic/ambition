@@ -700,10 +700,7 @@ pub(crate) fn horizontal_front_wall_clearance(
 
     let mut best: Option<f32> = None;
     for block in &world.blocks {
-        if !matches!(
-            block.kind,
-            ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-        ) {
+        if !ae::collision_semantics::is_full_collision_surface(block.kind) {
             continue;
         }
         let vertical_overlap =

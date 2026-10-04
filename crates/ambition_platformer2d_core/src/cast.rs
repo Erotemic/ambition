@@ -85,7 +85,7 @@ pub trait SolidWorldQuery {
 impl SolidWorldQuery for World {
     fn for_each_solid_aabb(&self, include_one_way: bool, visit: &mut dyn FnMut(Aabb)) {
         for block in &self.blocks {
-            let hittable = matches!(block.kind, BlockKind::Solid | BlockKind::BlinkWall { .. })
+            let hittable = crate::collision_semantics::is_full_collision_surface(block.kind)
                 || (include_one_way && matches!(block.kind, BlockKind::OneWay));
             if hittable {
                 visit(block.aabb);

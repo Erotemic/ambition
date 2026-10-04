@@ -87,6 +87,7 @@ fn color_for(kind: &ae::BlockKind) -> Rgba<u8> {
     match kind {
         ae::BlockKind::Solid => Rgba([120, 124, 132, 255]), // gray
         ae::BlockKind::BlinkWall { .. } => Rgba([150, 90, 200, 255]), // purple
+        ae::BlockKind::Barrier => Rgba([170, 130, 90, 255]), // brown
         ae::BlockKind::OneWay => Rgba([70, 120, 210, 255]), // blue
         // A geometry DIAGRAM shows what is there; hiding a hidden block here
         // would hide it from the one view whose job is to say where things are.

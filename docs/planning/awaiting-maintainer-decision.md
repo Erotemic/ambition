@@ -403,6 +403,41 @@ production code starts a peer session yet.
   machine whose art failed would show the room with what it has. Then only a
   failure that each machine has (case 3) is left, and D1 or R1..R3 decides it.
 
+## Q157 — when two machines hold different published sprite metrics, may they play together?
+
+A body's collision box, its box in each pose and its attack polygons come from
+the published sprite sheets (the baked sheet index). Published sprites are not
+in version control: each machine renders its own. The content identity that a
+rollback session compares does not read the baked index (queue row
+[`BAKED-SHEET-IDENTITY`](queue.md#baked-sheet-identity--a-bodys-collision-box-is-outside-the-content-identity)).
+So two machines at one source revision can hold bodies of different sizes
+under one content fingerprint. They start a peer session, and then the
+simulations can differ with no refusal.
+
+Measured exposure (2026-10-05, this machine's tree): 189 of 193
+full-resolution sheets publish a body box, 49 of them an authored one, and 42
+publish attack polygons. 30 catalog rows state a scale that sizes the body
+from its sheet (25 by standing height, 5 as a posed body). Not measured:
+whether two renders of one renderer revision differ at all.
+
+The engineering fix covers the mechanical part of each sheet (body metrics,
+frame size, row durations, attack geometry) and not its atlas packing. The
+question is what a difference then does:
+
+* **(a) Cover it, and refuse.** Two machines whose sheets differ in a
+  mechanical value are two content identities, and the session is refused, as
+  it is for any other content difference. Two development machines that play
+  together today stop until one of them publishes the other's sprites.
+* **(b) Cover it, and warn.** The difference is reported and the session
+  starts. This needs a second, weaker class of identity section, which does
+  not exist.
+* **(c) Leave it out.** As today.
+
+**Default in force until you rule:** (c), today's behaviour. The landmark
+tables (hands, head, feet; RIG-LANDMARKS) are a new simulation input of the
+same class and ARE in the identity since 2026-10-05, so a difference in them
+already refuses. A ruling of (b) or (c) should say whether they follow.
+
 ## Q142 — must every presence-filtered component be rollback-registered?
 
 Resolved by engineering. Kept only because

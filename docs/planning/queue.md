@@ -1366,9 +1366,12 @@ so two machines at one revision can hold different body metrics under one
 content fingerprint. A rollback timeline contract that compares the
 fingerprint then accepts a peer whose bodies are a different size.
 
+**Blocked by:** [Q157](awaiting-maintainer-decision.md#q157--when-two-machines-hold-different-published-sprite-metrics-may-they-play-together)
+for what a difference does (refuse, warn, or nothing). The projection itself
+is not blocked.
+
 **Not the fix:** a digest of each sheet's text. It also changes when only the
-atlas packing changes, and would refuse two development machines that play
-together today. That cost is a product decision.
+atlas packing changes.
 
 **The fix:** a digest of the mechanical projection of each baked record (body
 metrics, frame size, row durations, authored attack geometry), as `Q122` asks

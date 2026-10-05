@@ -1,40 +1,46 @@
 //! The rigged-sprite realization: a character drawn from its sheet's transform
-//! flipbook with a fixed set of reusable part sprites, composited into one
-//! texture (its IMPOSTOR) that the body's own quad draws.
+//! flipbook with a fixed set of reusable part sprites
+//! (`docs/planning/engine/semantic-part-rendering-and-ragdolls.md`).
 //!
 //! The baked sheet path stays in charge of WHAT is drawn. The root's
 //! [`CharacterAnimator`] still picks the row, the frame and the facing from the
 //! same simulation facts, and this realization only draws that frame from
 //! parts. So the rigged path cannot pick another clip or another timing.
 //!
-//! ⭐ ONE QUAD PER BODY, DRAWN FROM PARTS (decision D4 of
-//! `docs/planning/engine/mary-o-part-realization.md`). Every reader of a body
-//! — the portal compositor, the hit flash, a content overlay such as Mary-O's
-//! star power — reads the root's `Sprite`: its image and frame. So the parts
-//! are not drawn into the world. A private camera draws them into the body's
-//! impostor, and the ROOT draws that, at its own size and feet, with its own
-//! tint and flip. Every reader then sees the frame the parts drew — a tweened
-//! in-between included — and none of them needs the baked sheet. The parts are
-//! never portal candidates; the root is the one.
+//! ⭐ THE PARTS DRAW IN THE WORLD. Each part slot is a sprite in the root's own
+//! render layers, under an owner standing at the body's feet and scaled from
+//! sheet pixels to world units through the same quad the animator gave the
+//! root (`body_quad`: size, anchor, facing, squash, mirror row). The root draws
+//! nothing. No offscreen pass, no camera: 100 bodies cost 2.5 ms over their
+//! baked sheets on llvmpipe, where compositing every body cost 49 ms
+//! (`examples/rigged_sprite_bench.rs`, 2026-10-05).
 //!
-//! ⭐ ONE ATLAS FOR EVERY BODY OF A SIZE ([`RiggedImpostorAtlas`]). Each body
-//! is a cell of a shared target, and one camera draws every cell in one pass.
-//! There is one atlas per cell size ([`IMPOSTOR_CELL_CLASSES`]): a body takes
-//! the smallest cell its frame fits, so Noether's 496 x 528 frame does not
-//! make every pirate's cell a 576 px square. A camera
-//! per body cost about 1.4 ms per actor on llvmpipe (measured 2026-10-02), and
-//! the shipped game rigs every pirate. The root names its cell as an atlas
-//! frame (the atlas layout's index), so every reader that understands an atlas
-//! frame understands the impostor.
+//! ⭐ A BODY READ AS ONE IMAGE IS COMPOSITED, WHILE IT IS READ. Some readers
+//! take a body as one picture: the hit flash's silhouette, a portal's clipped
+//! pieces, a content overlay such as Mary-O's star power or the puppy slug's
+//! dream, and a frame that fades as one picture (`opacity(composite(parts))`).
+//! A reader declares the root in [`ComposedBodyDemand`] each frame it reads
+//! it; the body then takes a cell of a shared offscreen atlas, a private camera
+//! draws its parts there, and the ROOT draws that cell at its own size and
+//! feet, with its own tint and flip. It goes back to the world
+//! [`COMPOSED_HOLD_FRAMES`] after the last read and gives its cell back.
 //!
-//! ⛔ AN ATLAS IS NEVER FULL. When every cell of a class is taken at its most
-//! size, the class opens one more PAGE (another atlas of that size, with its
-//! own targets and cameras). A body drawn from parts alone has no baked page
-//! to fall back to (`CharacterSpriteAsset::parts_only`): with one page per
-//! class, the 37th small body of a room drew nothing.
+//! ⛔ BOTH BLEND IN GAMMA SPACE, as the art was composited (PIL over stored
+//! sRGB values). The world cameras blend in `WORLD_COMPOSITING`; so do the
+//! atlas cameras, from the same sRGB part pages. Blended in linear light, every
+//! anti-aliased outline over another part came out lighter (the robot's dark
+//! outline drew 102 where the frame has 1).
 //!
-//! The private camera draws [`RIGGED_IMPOSTOR_LAYER`], and the cells stand far
-//! below any world ([`impostor_cell_feet`]), so no view sees loose parts.
+//! ⭐ ONE ATLAS FOR EVERY BODY OF A SIZE ([`RiggedImpostorAtlas`]). Each
+//! composited body is a cell of a shared target, and one camera draws every
+//! cell of a page in one pass. There is one atlas per cell size
+//! ([`IMPOSTOR_CELL_CLASSES`]): a body takes the smallest cell its frame fits.
+//! When every cell of a class is taken, the class opens one more PAGE, one
+//! growth step larger than the last; a page never regrows, so a body already
+//! composited keeps its target, and the last page of a class is retired once
+//! its last body leaves. The private camera draws
+//! [`RIGGED_IMPOSTOR_LAYER`], and the cells stand far below any world
+//! ([`impostor_cell_feet`]).
 //!
 //! ⛔ TWO CAMERAS, BECAUSE A SPRITE OVER A TRANSPARENT CLEAR STORES
 //! PREMULTIPLIED COLOUR. A sprite blends `src * a + dst * (1 - a)`, so the
@@ -43,13 +49,6 @@
 //! the straight-alpha texture it is taken for, those pixels would darken a
 //! second time. The second camera draws one quad that divides the colour back
 //! out ([`ImpostorUnpremultiply`]), and the root draws ITS target.
-//!
-//! ⛔ AND THE FIRST TARGET BLENDS IN GAMMA SPACE. The baked frame was
-//! composited from stored sRGB values (PIL), so a part's anti-aliased edge over
-//! another part is a gamma-space mix. The part pages are read raw
-//! (`game_assets::load_part_page`) into a plain `Rgba8Unorm` target, and the
-//! second pass decodes the result once. Blended in linear light, the robot's
-//! dark outlines over its white shell drew far lighter than the baked frame.
 //!
 //! Each rigged root gets one presentation OWNER whose children are the part
 //! slots. The owner is not a child of the root, because a player's root is its
@@ -78,15 +77,15 @@
 //!
 //! A cell is the frame plus [`IMPOSTOR_MARGIN`] sheet pixels each side, so art
 //! that runs past the baked frame (Mary-O's feet, up to 8 px) is drawn, not
-//! cut. A body whose frame does not fit a cell keeps its baked sheet (and says
-//! so).
+//! cut. A body whose frame fits no cell draws directly even when read as one
+//! image (and says so): its readers see no image.
 //!
 //! ⛔ Nothing here runs unless [`RiggedSpriteAdmission`] admits the flipbooks
 //! (on by default since 2026-10-01). The crouch squash of a sheet without a
 //! crouch row squashes the root's quad about the line it holds still, as it
 //! squashes a baked quad (`stance_squash`).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use bevy::camera::visibility::RenderLayers;
@@ -98,7 +97,11 @@ use bevy::sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d};
 
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_platformer2d_shared_tangle::camera_layers::RIGGED_IMPOSTOR_LAYER;
-use ambition_sprite_sheet::character::rigged::{PartDraw, RiggedSpriteAdmission, RiggedSpritePages};
+
+use crate::rendering::WORLD_COMPOSITING;
+use ambition_sprite_sheet::character::rigged::{
+    ComposedBodyDemand, PartDraw, PartPresentation, RiggedSpriteAdmission, RiggedSpritePages,
+};
 use ambition_sprite_sheet::character::{CharacterAnimator, CharacterColorShift};
 use ambition_sprite_sheet::game_assets::GameAssets;
 
@@ -106,6 +109,12 @@ use super::BoundSpriteQuality;
 
 /// Depth between two part slots of one body: the draw order of the flipbook.
 const SLOT_DEPTH_STEP: f32 = 1.0e-4;
+
+/// Frames a body stays composited after the last frame something read it as
+/// one image: half a second at 60 Hz, so a demand that flickers (a blink, a
+/// flash cue, a body edging along a portal) does not move it between the
+/// atlas and the world every frame.
+pub const COMPOSED_HOLD_FRAMES: u16 = 30;
 
 /// Transparent sheet pixels on each side of the frame in a body's cell.
 pub const IMPOSTOR_MARGIN: f32 = 16.0;
@@ -118,10 +127,9 @@ pub const IMPOSTOR_MARGIN: f32 = 16.0;
 ///
 /// A page of the first grows to 6 x 6 = 36 bodies (two 1728-texel targets,
 /// about 24 MB); a page of a larger one to 4 x 4 (2304 and 3584 texels a
-/// side), for the few large bodies a room has. Each page starts at one cell,
-/// made for the first body that needs it, and grows a step when a body finds
-/// it full (1, 2, 4, then its most). When the last page is full at its most,
-/// the class opens a new page.
+/// side), for the few large bodies a room has. The first page is one cell,
+/// made for the first body that needs it; each page after is one step larger
+/// than the last (1, 2, 4, then its most), opened when every cell is taken.
 ///
 /// ⛔ GROWN, NOT SIZED FOR THE MOST. Every frame the cameras clear and the
 /// un-premultiplying quad shades the whole target: at 6 x 6 that cost a single
@@ -223,7 +231,7 @@ pub struct ImpostorAtlas {
     material: Option<Handle<ImpostorUnpremultiply>>,
     /// The cell opacities the material was last given.
     cells: ImpostorCellOpacity,
-    /// The cameras, the quad: what a regrowth replaces.
+    /// Its cameras and its quad: what retiring the page despawns.
     entities: Vec<Entity>,
     taken: Vec<bool>,
     /// How many times this page has been rendered. A render clears the WHOLE
@@ -375,7 +383,16 @@ pub struct RiggedPresentation {
     pub pages: RiggedSpritePages,
     /// Reusable part sprites, children of the owner, in draw order.
     pub slots: Vec<Entity>,
-    pub impostor: Impostor,
+    /// Its cell of the impostor atlas while the body is composited (something
+    /// reads it as one image: [`ComposedBodyDemand`], a fading frame), else
+    /// `None`: its parts are drawn directly in world space.
+    pub impostor: Option<Impostor>,
+    /// Frames the body stays composited with no new demand
+    /// ([`COMPOSED_HOLD_FRAMES`] after the last).
+    pub composed_hold: u16,
+    /// The render layers its slots carry now: the root's own while drawn
+    /// directly, the impostor layer while composited.
+    pub layers: RenderLayers,
     /// This frame's draws, tweened toward the next frame when the clip is
     /// (reused so a frame allocates nothing).
     pub drawn: Vec<PartDraw>,
@@ -405,9 +422,32 @@ type Roots<'w, 's> = Query<
         &'static mut Sprite,
         Option<&'static mut Anchor>,
         Option<&'static CharacterColorShift>,
+        &'static Transform,
+        RootShows,
+        Option<&'static RenderLayers>,
     ),
     (Without<RiggedPresentation>, Without<RiggedPartSlot>),
 >;
+
+/// What says whether a root is shown this frame: its own visibility, and, for
+/// a root under a parent, what propagation last made of it.
+type RootShows = (
+    Option<&'static Visibility>,
+    Option<&'static InheritedVisibility>,
+    Has<ChildOf>,
+);
+
+/// Whether a root is shown. ⛔ A top-level root's own `Visibility` is this
+/// frame's answer; its `InheritedVisibility` is last frame's (propagation runs
+/// in `PostUpdate`), so parts that followed it appeared a frame after the body
+/// and outlived its hiding by one. A parented root has only the propagated
+/// answer.
+fn root_shows((visibility, inherited, parented): (Option<&Visibility>, Option<&InheritedVisibility>, bool)) -> bool {
+    if visibility == Some(&Visibility::Hidden) {
+        return false;
+    }
+    !parented || inherited.is_none_or(|inherited| inherited.get())
+}
 
 /// The part slots: what a frame writes on each.
 type Slots<'w, 's> = Query<
@@ -418,6 +458,7 @@ type Slots<'w, 's> = Query<
         &'static mut Anchor,
         &'static mut Transform,
         &'static mut Visibility,
+        &'static mut RenderLayers,
     ),
     (With<RiggedPartSlot>, Without<RiggedPresentation>),
 >;
@@ -471,8 +512,8 @@ pub fn bind_rigged_presentations(
         if roots.contains(*root) {
             return true;
         }
-        if let Ok(presentation) = presentations.get(*owner) {
-            impostors.atlas.give(&presentation.impostor);
+        if let Some(impostor) = presentations.get(*owner).ok().and_then(|presentation| presentation.impostor.as_ref()) {
+            impostors.atlas.give(impostor);
         }
         commands.entity(*owner).try_despawn();
         false
@@ -511,13 +552,11 @@ pub fn bind_rigged_presentations(
             continue;
         }
         drop_presentation(&mut commands, &mut owners, &mut impostors.atlas, &presentations, root);
-        let owner = wanted.and_then(|pages| spawn_presentation(&mut commands, &mut impostors, root, target, pages.clone()));
-        match owner {
-            Some(owner) => {
-                owners.0.insert(root, owner);
+        match wanted {
+            Some(pages) => {
+                owners.0.insert(root, spawn_presentation(&mut commands, root, target, pages.clone()));
             }
-            // Back to the baked sheet (or no room for parts): the root draws
-            // itself again.
+            // Back to the baked sheet: the root draws itself again.
             None => draw_baked_frame(&mut sprite, animator),
         }
     }
@@ -531,8 +570,8 @@ fn drop_presentation(
     root: Entity,
 ) {
     if let Some(owner) = owners.0.remove(&root) {
-        if let Ok(presentation) = presentations.get(owner) {
-            atlas.give(&presentation.impostor);
+        if let Some(impostor) = presentations.get(owner).ok().and_then(|presentation| presentation.impostor.as_ref()) {
+            atlas.give(impostor);
         }
         commands.entity(owner).try_despawn();
     }
@@ -565,9 +604,10 @@ fn pages_ready(asset_server: Option<&AssetServer>, images: &Assets<Image>, pages
     })
 }
 
-fn impostor_camera(target: &Handle<Image>, order: isize, at: Vec2) -> impl Bundle {
+fn impostor_camera(target: &Handle<Image>, order: isize, at: Vec2, space: bevy::camera::CompositingSpace) -> impl Bundle {
     (
         RiggedImpostorCamera,
+        space,
         Camera2d,
         Camera {
             order,
@@ -590,17 +630,19 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
     let texels = UVec2::splat(side as u32);
     let images = assets.images.as_deref_mut().expect("checked by the binder");
     let mut target = |format| images.add(Image::new_target_texture(texels.x, texels.y, format, None));
-    // The parts blend in GAMMA space into a plain target, as the baked frame
-    // was composited (`game_assets::load_part_page`); the un-premultiplying
-    // pass decodes once into the sRGB target the roots sample.
-    let premultiplied = target(TextureFormat::Rgba8Unorm);
+    // The parts blend in GAMMA space, as the baked frame was composited and as
+    // the world camera blends them when they are drawn directly
+    // (`WORLD_COMPOSITING`). That camera's main texture holds the sRGB values
+    // and Bevy's output blit decodes them, so an sRGB target stores them again
+    // exactly; the un-premultiplying pass divides in that same space.
+    let premultiplied = target(TextureFormat::Rgba8UnormSrgb);
     let straight = target(TextureFormat::Rgba8UnormSrgb);
     let layout = assets.layouts.as_deref_mut().map(|layouts| {
         layouts.add(TextureAtlasLayout::from_grid(UVec2::splat(cell as u32), cells, cells, None, None))
     });
     let centre = impostor_grid_origin(class, page) + Vec2::new(side * 0.5, -side * 0.5);
     let mut cameras = vec![commands
-        .spawn((Name::new("rigged impostor camera"), impostor_camera(&premultiplied, IMPOSTOR_CAMERA_ORDER, centre)))
+        .spawn((Name::new("rigged impostor camera"), impostor_camera(&premultiplied, IMPOSTOR_CAMERA_ORDER, centre, WORLD_COMPOSITING)))
         .id()];
     let mut entities = cameras.clone();
     let mut material = None;
@@ -614,20 +656,25 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
                 cells: ImpostorCellOpacity::opaque(cells),
             });
             material = Some(handle.clone());
-            let quad_entity = commands.spawn((
-                Name::new("rigged impostor unpremultiply"),
-                Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(side)))),
-                MeshMaterial2d(handle),
-                Transform::from_translation(quad.extend(0.0)),
-                Visibility::Inherited,
-                RenderLayers::layer(RIGGED_IMPOSTOR_LAYER),
-            )).id();
-            entities.push(quad_entity);
+            entities.push(
+                commands
+                    .spawn((
+                        Name::new("rigged impostor unpremultiply"),
+                        Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(side)))),
+                        MeshMaterial2d(handle),
+                        Transform::from_translation(quad.extend(0.0)),
+                        Visibility::Inherited,
+                        RenderLayers::layer(RIGGED_IMPOSTOR_LAYER),
+                    ))
+                    .id(),
+            );
             cameras.push(
                 commands
                     .spawn((
                         Name::new("rigged impostor unpremultiply camera"),
-                        impostor_camera(&straight, IMPOSTOR_CAMERA_ORDER + 1, quad),
+                        // One opaque quad, nothing to blend: linear light, so the
+                        // material writes plain linear colour.
+                        impostor_camera(&straight, IMPOSTOR_CAMERA_ORDER + 1, quad, bevy::camera::CompositingSpace::Linear),
                     ))
                     .id(),
             );
@@ -652,72 +699,36 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
     }
 }
 
-/// A cell of class `class` for a new body, as `(page, cell)`: a free cell of
-/// any page, else a cell of the last page grown a step, else a cell of a new
-/// page. A body already drawn keeps its page and cell number; the next frame
-/// stands its parts where that number now is (`drive_rigged_presentations`
-/// places them every frame).
-fn take_cell(commands: &mut Commands, assets: &mut ImpostorAssets, class: usize) -> (usize, u32) {
+/// A cell of class `class` for a body, as `(page, cell, fresh)`: a free cell
+/// of any page, else the first cell of a new page one growth step larger than
+/// the last (`fresh`: its cameras are spawned with this frame's commands, so
+/// it cannot render until the next frame).
+///
+/// ⛔ A PAGE NEVER REGROWS. Composition is on demand, so a cell is taken in
+/// the middle of play; regrowing a page in place made a new blank target for
+/// every body already drawn in it, and each showed nothing for a frame.
+fn take_cell(commands: &mut Commands, assets: &mut ImpostorAssets, class: usize) -> (usize, u32, bool) {
     let pages = &mut assets.atlas.0[class];
     if let Some(taken) = pages.iter_mut().enumerate().find_map(|(page, atlas)| atlas.take().map(|cell| (page, cell))) {
-        return taken;
+        return (taken.0, taken.1, false);
     }
     let most = IMPOSTOR_CELL_CLASSES[class].1;
-    let (page, side) = match pages.last() {
-        Some(last) if last.side < most => (pages.len() - 1, last.side),
-        _ => (pages.len(), 0),
-    };
-    let mut atlas = build_atlas(commands, assets, class, page, grown(side, most));
-    let pages = &mut assets.atlas.0[class];
-    if let Some(old) = pages.get(page) {
-        for entity in &old.entities {
-            commands.entity(*entity).try_despawn();
-        }
-        atlas.taken[..old.taken.len()].copy_from_slice(&old.taken);
-        // A regrown page is blank: past every generation a cell of the old one
-        // could have been stamped with, so no body reads as current in it.
-        atlas.generation = old.generation + 1;
-    }
-    let cell = atlas.take().expect("a grown page has a free cell");
-    if page < pages.len() {
-        pages[page] = atlas;
-    } else {
-        pages.push(atlas);
-    }
-    (page, cell)
+    let page = pages.len();
+    let side = grown(pages.last().map_or(0, |last| last.side), most);
+    let mut atlas = build_atlas(commands, assets, class, page, side);
+    let cell = atlas.take().expect("a new page has a free cell");
+    assets.atlas.0[class].push(atlas);
+    (page, cell, true)
 }
 
-/// A presentation for `root`, or `None` when its frame does not fit a cell:
-/// the root then keeps its baked sheet.
-fn spawn_presentation(
-    commands: &mut Commands,
-    assets: &mut ImpostorAssets,
-    root: Entity,
-    target: &str,
-    pages: RiggedSpritePages,
-) -> Option<Entity> {
-    let flipbook = pages.flipbook.clone();
-    let class = impostor_cell_class(flipbook.frame_size.as_vec2());
-    let Some(class) = class else {
-        warn!(
-            "rigged sprites: `{target}` keeps its baked sheet — its {} px frame fits no impostor cell \
-             (the largest is {} px with {IMPOSTOR_MARGIN} px margins)",
-            flipbook.frame_size,
-            IMPOSTOR_CELL_CLASSES[IMPOSTOR_CELL_CLASSES.len() - 1].0,
-        );
-        return None;
-    };
-    let (page, cell) = take_cell(commands, assets, class);
-    let side = assets.atlas.0[class][page].side;
-    let feet = flipbook.feet_pixel + Vec2::splat(IMPOSTOR_MARGIN);
+/// A presentation for `root`: an owner with one reusable sprite slot per draw
+/// of its flipbook's busiest frame. It starts drawn directly; the driver
+/// composites it into an impostor cell while something reads it as one image.
+fn spawn_presentation(commands: &mut Commands, root: Entity, target: &str, pages: RiggedSpritePages) -> Entity {
     let owner = commands
-        .spawn((
-            Name::new("rigged presentation"),
-            Transform::from_translation(impostor_cell_feet(class, page, side, cell, feet).extend(0.0)),
-            Visibility::Hidden,
-        ))
+        .spawn((Name::new("rigged presentation"), Transform::default(), Visibility::Hidden))
         .id();
-    let slots = (0..flipbook.max_draws())
+    let slots = (0..pages.flipbook.max_draws())
         .map(|_| {
             commands
                 .spawn((
@@ -726,7 +737,7 @@ fn spawn_presentation(
                     Anchor::default(),
                     Transform::default(),
                     Visibility::Hidden,
-                    RenderLayers::layer(RIGGED_IMPOSTOR_LAYER),
+                    RenderLayers::default(),
                     ChildOf(owner),
                 ))
                 .id()
@@ -737,11 +748,13 @@ fn spawn_presentation(
         target: target.to_owned(),
         pages,
         slots,
-        impostor: Impostor { class, page, cell, feet },
+        impostor: None,
+        composed_hold: 0,
+        layers: RenderLayers::default(),
         drawn: Vec::new(),
         shown: None,
     });
-    Some(owner)
+    owner
 }
 
 /// Draw each rigged root's current frame from parts: the slots take the
@@ -749,20 +762,108 @@ fn spawn_presentation(
 /// root draws its cell at its own size and feet.
 ///
 /// Runs after the animators, so it draws the frame they chose this frame.
+#[allow(clippy::too_many_arguments)]
 pub fn drive_rigged_presentations(
-    atlas: Option<ResMut<RiggedImpostorAtlas>>,
-    materials: Option<ResMut<Assets<ImpostorUnpremultiply>>>,
+    mut commands: Commands,
+    mut impostors: ImpostorAssets,
+    demand: Option<ResMut<ComposedBodyDemand>>,
     mut owners: Query<(Entity, &mut RiggedPresentation, &mut Visibility, &mut Transform), Without<RiggedPartSlot>>,
     mut cameras: Query<&mut Camera, With<RiggedImpostorCamera>>,
     mut roots: Roots,
     mut slots: Slots,
+    mut too_large: Local<HashSet<String>>,
 ) {
-    let Some(mut atlases) = atlas else {
-        return;
-    };
-    if atlases.0.iter().all(Vec::is_empty) {
-        return;
+    // Which bodies are composited this frame, and where their slots draw.
+    let always = PartPresentation::current() == PartPresentation::Impostor;
+    let can_composite = impostors.images.is_some();
+    // Pages built this frame: their cameras arrive with this frame's commands,
+    // so a body given a cell in one draws directly once more.
+    let mut fresh_pages: Vec<(usize, usize)> = Vec::new();
+    for (_, mut presentation, _, _) in &mut owners {
+        let Ok((animator, _, _, _, _, _, root_layers)) = roots.get(presentation.root) else {
+            continue;
+        };
+        let flipbook = presentation.pages.flipbook.clone();
+        // ⛔ A FADING FRAME IS ONE PICTURE FADING: `opacity(composite(parts))`.
+        // Spread over loose parts, each would show the one under it through
+        // it (alice's blink drew her arm through her coat).
+        let fades = animator
+            .drawn_row()
+            .and_then(|row| animator.spec.row_name(row))
+            .is_some_and(|row| flipbook.frame_opacity(row, animator.frame) < 1.0);
+        let wanted = always || fades || demand.as_ref().is_some_and(|demand| demand.is_declared(presentation.root));
+        presentation.composed_hold = if wanted {
+            COMPOSED_HOLD_FRAMES
+        } else {
+            presentation.composed_hold.saturating_sub(1)
+        };
+        let class = impostor_cell_class(flipbook.frame_size.as_vec2());
+        if wanted && class.is_none() && too_large.insert(presentation.target.clone()) {
+            warn!(
+                "rigged sprites: `{}` is read as one image but cannot be composited — its {} px frame fits \
+                 no impostor cell (the largest is {} px with {IMPOSTOR_MARGIN} px margins); its parts draw \
+                 directly and its readers see no image",
+                presentation.target,
+                flipbook.frame_size,
+                IMPOSTOR_CELL_CLASSES[IMPOSTOR_CELL_CLASSES.len() - 1].0,
+            );
+        }
+        let composited = match class {
+            Some(class) if can_composite && presentation.composed_hold > 0 => Some(class),
+            _ => None,
+        };
+        match (composited, presentation.impostor) {
+            (Some(class), None) => {
+                let (page, cell, fresh) = take_cell(&mut commands, &mut impostors, class);
+                if fresh {
+                    fresh_pages.push((class, page));
+                }
+                let feet = flipbook.feet_pixel + Vec2::splat(IMPOSTOR_MARGIN);
+                presentation.impostor = Some(Impostor { class, page, cell, feet });
+                presentation.shown = None;
+            }
+            (None, Some(impostor)) => {
+                impostors.atlas.give(&impostor);
+                presentation.impostor = None;
+                presentation.shown = None;
+            }
+            _ => {}
+        }
+        // ⛔ A DIRECT BODY'S PARTS DRAW IN THE ROOT'S OWN LAYERS: a room that
+        // is not live, a local view's layer. The impostor's root quad carried
+        // them by being the root; loose parts must be told.
+        let layers = match presentation.impostor {
+            Some(impostor) if !fresh_pages.contains(&(impostor.class, impostor.page)) => {
+                RenderLayers::layer(RIGGED_IMPOSTOR_LAYER)
+            }
+            _ => root_layers.cloned().unwrap_or_default(),
+        };
+        if presentation.layers != layers {
+            for slot in &presentation.slots {
+                if let Ok((_, _, _, _, mut slot_layers)) = slots.get_mut(*slot) {
+                    *slot_layers = layers.clone();
+                }
+            }
+            presentation.layers = layers;
+        }
     }
+    if let Some(mut demand) = demand {
+        demand.clear();
+    }
+    // ⛔ AN EMPTY PAGE AT THE END OF ITS CLASS IS RETIRED: its cameras and quad
+    // despawned, its targets dropped with their handles. Composition is
+    // transient; a portal room or a brawl would otherwise hold its pages (two
+    // targets up to 1728 or 3584 texels a side each) for the rest of the
+    // session. Only the last page goes, so every body keeps its page number.
+    for pages in &mut impostors.atlas.0 {
+        while pages.last().is_some_and(|page| !page.taken.contains(&true)) {
+            let page = pages.pop().expect("checked");
+            for entity in &page.entities {
+                commands.entity(*entity).try_despawn();
+            }
+        }
+    }
+    let ImpostorAssets { atlas: mut atlases, materials, .. } = impostors;
     // Per page of each class: whether a body draws from it, whether a cell of
     // it changed, and its cells' opacities.
     //
@@ -781,7 +882,9 @@ pub fn drive_rigged_presentations(
     // cells hold this frame's draws under its new generation.
     let mut drawn_into: Vec<(Entity, usize, usize)> = Vec::new();
     for (owner, mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
-        let Ok((animator, mut root_sprite, root_anchor, color_shift)) = roots.get_mut(presentation.root) else {
+        let Ok((animator, mut root_sprite, root_anchor, color_shift, root_transform, root_visibility, _)) =
+            roots.get_mut(presentation.root)
+        else {
             continue;
         };
         let flipbook = presentation.pages.flipbook.clone();
@@ -799,23 +902,59 @@ pub fn drive_rigged_presentations(
             owner_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
-        let (class, page) = (presentation.impostor.class, presentation.impostor.page);
-        let Some(atlas) = atlases.page(&presentation.impostor) else {
+        let impostor = presentation
+            .impostor
+            .filter(|impostor| !fresh_pages.contains(&(impostor.class, impostor.page)));
+        let Some(impostor) = impostor else {
+            let root_visible = root_shows(root_visibility);
+            let frame_size = flipbook.frame_size.as_vec2();
+            let cell = frame_size.max_element() + 2.0 * IMPOSTOR_MARGIN;
+            let (size, anchor) = body_quad(animator, basis, &root_sprite, &root_anchor, frame_size, cell);
+            // The frame's feet pixel in that cell, in the quad's normalized
+            // space (+y up, mirrored with the image), carried to the world.
+            let feet_in_cell = (Vec2::splat(IMPOSTOR_MARGIN) + flipbook.feet_pixel) / cell;
+            let mut feet = Vec2::new(feet_in_cell.x - 0.5, 0.5 - feet_in_cell.y);
+            if root_sprite.flip_x {
+                feet.x = -feet.x;
+            }
+            let feet = root_transform.translation.truncate() + (feet - anchor) * size;
+            let world_per_pixel = size / cell;
+            let flip = if root_sprite.flip_x { -1.0 } else { 1.0 };
+            let place = Transform::from_translation(feet.extend(root_transform.translation.z))
+                .with_scale(Vec3::new(flip * world_per_pixel.x, world_per_pixel.y, 1.0));
+            let frame_opacity = row.map_or(1.0, |row| flipbook.frame_opacity(row, animator.frame));
+            drive_direct_presentation(
+                &mut presentation,
+                draws,
+                frame_opacity,
+                &mut root_sprite,
+                place,
+                root_visible,
+                &mut owner_visibility,
+                &mut owner_transform,
+                &mut slots,
+            );
+            presentation.drawn = drawn;
+            continue;
+        };
+        let (class, page) = (impostor.class, impostor.page);
+        let Some(atlas) = atlases.page(&impostor) else {
             presentation.drawn = drawn;
             continue;
         };
         drawing[class][page] = true;
         if let Some(row) = row {
-            cells[class][page].set(presentation.impostor.cell, flipbook.frame_opacity(row, animator.frame));
+            cells[class][page].set(impostor.cell, flipbook.frame_opacity(row, animator.frame));
         }
         if let Some(shift) = color_shift {
-            cells[class][page].set_shift(presentation.impostor.cell, shift);
+            cells[class][page].set_shift(impostor.cell, shift);
         }
-        // Its cell's place, which a regrowth of the atlas moves.
-        let place = atlas.cell_feet(presentation.impostor.cell, presentation.impostor.feet).extend(0.0);
-        if owner_transform.translation != place {
-            owner_transform.translation = place;
-        }
+        // Its cell's place, at one unit a sheet pixel. ⛔ THE WHOLE TRANSFORM:
+        // a body drawn directly the frame before left its owner scaled to world
+        // units, and the parts shrank inside the cell (every hall body at a
+        // third of its size, 2026-10-05).
+        let place = atlas.cell_feet(impostor.cell, impostor.feet).extend(0.0);
+        owner_transform.set_if_neq(Transform::from_translation(place));
         let current = presentation
             .shown
             .as_ref()
@@ -841,28 +980,8 @@ pub fn drive_rigged_presentations(
         owner_visibility.set_if_neq(Visibility::Inherited);
 
         // The root's quad: its whole cell, placed so the frame inside it lands
-        // exactly where the root's baked frame would (`cell_quad`). The squash
-        // of a sheet with no compact row is read off the root as the animator
-        // drew it, before it is replaced.
-        let squash = stance_squash(animator, &root_sprite, Some(&root_anchor));
-        let impostor = presentation.impostor;
-        // ⛔ A MIRROR ROW stands on the MIRRORED feet anchor. A body facing
-        // left on a sheet drawn from both sides draws its mirror row unflipped
-        // (`CharacterAnimator::face`), and the baked road places that frame at
-        // the mirrored anchor (`current_render`). Without this the player
-        // robot drew 3 to 5 px off its baked frame in every left-facing frame
-        // (2026-10-04).
-        let mut basis = basis;
-        if animator.draws_mirror_row() {
-            basis.feet_anchor.x = -basis.feet_anchor.x;
-        }
-        let (mut size, mut anchor) = cell_quad(basis, flipbook.frame_size.as_vec2(), atlas.cell_size());
-        if let Some((ratio, held_y)) = squash {
-            (size.y, anchor.y) = squashed_about(size.y, anchor.y, ratio, held_y);
-        }
-        if root_sprite.flip_x {
-            anchor.x = -anchor.x;
-        }
+        // exactly where the root's baked frame would (`body_quad`).
+        let (size, anchor) = body_quad(animator, basis, &root_sprite, &root_anchor, flipbook.frame_size.as_vec2(), atlas.cell_size());
         if root_sprite.image != atlas.image {
             root_sprite.image = atlas.image.clone();
         }
@@ -879,44 +998,8 @@ pub fn drive_rigged_presentations(
         // a write marks every slot's `Transform` changed, so the hall
         // propagated and re-extracted thousands of part slots a frame whose
         // bodies had not changed frame.
-        for (index, slot) in presentation.slots.iter().enumerate().filter(|_| !current) {
-            let Ok((mut sprite, mut slot_anchor, mut transform, mut visibility)) = slots.get_mut(*slot) else {
-                continue;
-            };
-            let Some(draw) = draws.get(index) else {
-                visibility.set_if_neq(Visibility::Hidden);
-                continue;
-            };
-            let part = flipbook.parts[usize::from(draw.part)];
-            // In the cell, one world unit is one sheet pixel, from the feet,
-            // +y up. Clockwise in the sheet's +y-down frame is a negative angle.
-            let local = Vec2::new(draw.at.x, -draw.at.y);
-            let page = &presentation.pages.pages[usize::from(part.page)];
-            if sprite.image != *page {
-                sprite.image = page.clone();
-            }
-            sprite.rect = Some(Rect::new(
-                part.rect.min.x as f32,
-                part.rect.min.y as f32,
-                part.rect.max.x as f32,
-                part.rect.max.y as f32,
-            ));
-            sprite.custom_size = Some(part.size);
-            // The pages are read raw (sRGB values, `load_part_page`) into a
-            // gamma-space target, so a LINEAR sprite colour multiplies the
-            // stored values: the draw's tint as the publisher computed it.
-            let (tint, opacity) = (draw.tint(), draw.opacity());
-            let tint = Color::LinearRgba(LinearRgba::new(tint.x, tint.y, tint.z, opacity));
-            if sprite.color != tint {
-                sprite.color = tint;
-            }
-            slot_anchor.0 = part.anchor();
-            // The scale in the transform, not the quad: a mirrored draw
-            // (`scale.x < 0`) mirrors about its pivot, then turns.
-            *transform = Transform::from_translation(local.extend(index as f32 * SLOT_DEPTH_STEP))
-                .with_rotation(Quat::from_rotation_z(-draw.rotation))
-                .with_scale(draw.scale.extend(1.0));
-            visibility.set_if_neq(Visibility::Inherited);
+        if !current {
+            write_slots(&presentation, draws, &mut slots, |draw| part_color(draw, LinearRgba::WHITE));
         }
         presentation.drawn = drawn;
     }
@@ -965,6 +1048,144 @@ pub fn drive_rigged_presentations(
             }
         }
     }
+}
+
+/// Write `draws` onto a presentation's slots, in draw order, each slot's
+/// colour from `color_of`. Slots past the last draw are hidden.
+fn write_slots(presentation: &RiggedPresentation, draws: &[PartDraw], slots: &mut Slots, color_of: impl Fn(&PartDraw) -> Color) {
+    let flipbook = &presentation.pages.flipbook;
+    for (index, slot) in presentation.slots.iter().enumerate() {
+        let Ok((mut sprite, mut slot_anchor, mut transform, mut visibility, _)) = slots.get_mut(*slot) else {
+            continue;
+        };
+        let Some(draw) = draws.get(index) else {
+            visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        };
+        let part = flipbook.parts[usize::from(draw.part)];
+        // Under its owner, one unit is one sheet pixel, from the feet, +y up.
+        // Clockwise in the sheet's +y-down frame is a negative angle.
+        let local = Vec2::new(draw.at.x, -draw.at.y);
+        let page = &presentation.pages.pages[usize::from(part.page)];
+        if sprite.image != *page {
+            sprite.image = page.clone();
+        }
+        sprite.rect = Some(Rect::new(
+            part.rect.min.x as f32,
+            part.rect.min.y as f32,
+            part.rect.max.x as f32,
+            part.rect.max.y as f32,
+        ));
+        sprite.custom_size = Some(part.size);
+        let color = color_of(draw);
+        if sprite.color != color {
+            sprite.color = color;
+        }
+        slot_anchor.0 = part.anchor();
+        // The scale in the transform, not the quad: a mirrored draw
+        // (`scale.x < 0`) mirrors about its pivot, then turns.
+        *transform = Transform::from_translation(local.extend(index as f32 * SLOT_DEPTH_STEP))
+            .with_rotation(Quat::from_rotation_z(-draw.rotation))
+            .with_scale(draw.scale.extend(1.0));
+        visibility.set_if_neq(Visibility::Inherited);
+    }
+}
+
+/// Draw one body's frame directly in world space (`PartPresentation::Direct`).
+///
+/// A part lands where its pixel of the baked frame would: through the quad
+/// the animator gave the root this frame (its size, anchor and facing flip,
+/// squash and mirror rows included), so no anchor convention is re-derived
+/// here. The owner stands at the feet, scaled from sheet pixels to world units
+/// and mirrored when the root is flipped; the root itself draws nothing, and
+/// keeps that quad for every reader of the body's extent. The owner is not
+/// the root's child (a player's root is its simulation body), so it follows
+/// the root's visibility explicitly.
+///
+/// ⚠ A FADE FRAME IS APPROXIMATED. `frame_opacity` is the opacity of the
+/// composited frame (`opacity(composite(parts))`); spread over the parts, a
+/// part overlapping another shows the one under it through it. Exact group
+/// opacity needs the frame composited first (the semantic part plan's optional
+/// group composition); five characters fade a death or blink row this way.
+#[allow(clippy::too_many_arguments)]
+fn drive_direct_presentation(
+    presentation: &mut RiggedPresentation,
+    draws: &[PartDraw],
+    frame_opacity: f32,
+    root_sprite: &mut Sprite,
+    place: Transform,
+    root_visible: bool,
+    owner_visibility: &mut Mut<Visibility>,
+    owner_transform: &mut Mut<Transform>,
+    slots: &mut Slots,
+) {
+    owner_transform.set_if_neq(place);
+    owner_visibility.set_if_neq(if root_visible { Visibility::Inherited } else { Visibility::Hidden });
+    if root_sprite.image != ambition_sprite_sheet::character::NO_BAKED_IMAGE {
+        root_sprite.image = ambition_sprite_sheet::character::NO_BAKED_IMAGE;
+    }
+    // The root's colour (a tint, a flash) multiplies every part, as it
+    // multiplied the composited body. Part pages are sampled as sRGB here, so
+    // a draw's tint (a multiply on stored sRGB values) is an sRGB colour.
+    let mut root_color = root_sprite.color.to_linear();
+    root_color.alpha *= frame_opacity;
+    let current = presentation
+        .shown
+        .as_ref()
+        .is_some_and(|(shown, color, _)| shown.as_slice() == draws && *color == root_color.to_vec3());
+    if current {
+        return;
+    }
+    presentation.shown = Some((draws.to_vec(), root_color.to_vec3(), 0));
+    write_slots(presentation, draws, slots, |draw| part_color(draw, root_color));
+}
+
+/// The sprite colour of one draw, multiplied by `root` (a tint or flash on
+/// the whole body). The publisher's tint multiplies the part's stored sRGB
+/// values, so it is an sRGB colour; the page is sampled decoded and the camera
+/// encodes again (`WORLD_COMPOSITING`).
+fn part_color(draw: &PartDraw, root: LinearRgba) -> Color {
+    let (tint, opacity) = (draw.tint(), draw.opacity());
+    let part = Color::srgba(tint.x, tint.y, tint.z, opacity).to_linear();
+    Color::LinearRgba(LinearRgba::new(
+        part.red * root.red,
+        part.green * root.green,
+        part.blue * root.blue,
+        part.alpha * root.alpha,
+    ))
+}
+
+/// The quad a body's frame is drawn on this frame, in a cell `cell` sheet
+/// pixels square (`cell_quad`), with the root's crouch squash and mirror row
+/// applied and mirrored with the root.
+fn body_quad(
+    animator: &CharacterAnimator,
+    mut basis: ambition_sprite_sheet::character::RenderBasis,
+    root_sprite: &Sprite,
+    root_anchor: &Anchor,
+    frame_size: Vec2,
+    cell: f32,
+) -> (Vec2, Vec2) {
+    // The squash of a sheet with no compact row is read off the root as the
+    // animator drew it, before it is replaced.
+    let squash = stance_squash(animator, root_sprite, Some(root_anchor));
+    // ⛔ A MIRROR ROW stands on the MIRRORED feet anchor. A body facing
+    // left on a sheet drawn from both sides draws its mirror row unflipped
+    // (`CharacterAnimator::face`), and the baked road places that frame at
+    // the mirrored anchor (`current_render`). Without this the player
+    // robot drew 3 to 5 px off its baked frame in every left-facing frame
+    // (2026-10-04).
+    if animator.draws_mirror_row() {
+        basis.feet_anchor.x = -basis.feet_anchor.x;
+    }
+    let (mut size, mut anchor) = cell_quad(basis, frame_size, cell);
+    if let Some((ratio, held_y)) = squash {
+        (size.y, anchor.y) = squashed_about(size.y, anchor.y, ratio, held_y);
+    }
+    if root_sprite.flip_x {
+        anchor.x = -anchor.x;
+    }
+    (size, anchor)
 }
 
 /// The size and anchor of a body's cell quad (a cell `cell` sheet pixels

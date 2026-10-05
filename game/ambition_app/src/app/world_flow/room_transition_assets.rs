@@ -1297,7 +1297,10 @@ pub(crate) struct NeighbourPrefetchSet {
 
 /// Divide `budget` rooms between the live rooms (`live` are indices into
 /// `rooms`), in turn: the first neighbour of each live room, then the second
-/// of each, until the budget is used.
+/// of each, until the budget is used. A live room's neighbours are taken
+/// nearest door first from where its players stand (`standing`, by live room:
+/// `RoomSet::neighbors_nearest_first`), so the room a player walks toward is
+/// prepared before they reach its door.
 ///
 /// One live room gets the first `budget` of its neighbours. A room that is a
 /// neighbour of two live rooms is one room of the budget, and it names the two.
@@ -1311,11 +1314,13 @@ pub(crate) fn neighbour_prefetch_set(
     rooms: &RoomSet,
     live: &[usize],
     budget: usize,
+    standing: &BTreeMap<usize, Vec<ambition_platformer2d::engine_core::Vec2>>,
 ) -> NeighbourPrefetchSet {
     let neighbours = live
         .iter()
         .map(|&room| {
-            let mut neighbours = rooms.neighboring_room_indices_of(room);
+            let at = standing.get(&room).map_or(&[][..], Vec::as_slice);
+            let mut neighbours = rooms.neighbors_nearest_first(room, at);
             neighbours.retain(|neighbour| !live.contains(neighbour));
             neighbours
         })
@@ -1428,7 +1433,15 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // promoted plan built from the wrong cast at worst.
         Option<Res<ambition_platformer2d::actors::session::mechanics::SessionMechanics>>,
     ),
-    quality: Res<ResolvedVisualQuality>,
+    // Grouped to stay under Bevy's SystemParam arity limit: where the players
+    // stand ranks the neighbours (`neighbour_prefetch_set`).
+    (quality, drivers): (
+        Res<ResolvedVisualQuality>,
+        bevy::prelude::Query<
+            (bevy::prelude::Entity, &ambition_platformer2d::actor::BodyKinematics),
+            bevy::prelude::With<ambition_platformer2d::characters::control::DrivingParticipant>,
+        >,
+    ),
     time: Res<Time<Real>>,
     active_session: Option<Res<ActiveSessionScope>>,
     mut cache: ResMut<RoomPreparationPrefetchState>,
@@ -1500,7 +1513,13 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     // THE NEIGHBOURHOOD IS BOUNDED, and the reason is the shape of this
     // world rather than a general principle about prefetching. See
     // [`NEIGHBOR_PREFETCH_ROOM_BUDGET`].
-    let prefetch = neighbour_prefetch_set(rooms, &live_rooms, NEIGHBOR_PREFETCH_ROOM_BUDGET);
+    let mut standing: BTreeMap<usize, Vec<ambition_platformer2d::engine_core::Vec2>> = BTreeMap::new();
+    for (body, kinematics) in &drivers {
+        if let Some(definition) = room_set.definition_of(body) {
+            standing.entry(definition.index()).or_default().push(kinematics.pos);
+        }
+    }
+    let prefetch = neighbour_prefetch_set(rooms, &live_rooms, NEIGHBOR_PREFETCH_ROOM_BUDGET, &standing);
     if prefetch.skipped > 0 {
         // NOT silent. A cap that quietly drops work reads as "everything is
         // prefetched" to the next person measuring a transition.
@@ -2268,14 +2287,16 @@ mod tests {
                     Vec::new(),
                 ),
             );
+            // Each door 100 units right of the last.
             spec.loading_zones = doors
                 .iter()
-                .map(|other| LoadingZone {
+                .enumerate()
+                .map(|(at, other)| LoadingZone {
                     id: format!("to_{other}"),
                     name: format!("to_{other}"),
                     activation: LoadingZoneActivation::Door,
                     aabb: ambition_platformer2d::engine_core::Aabb::new(
-                        ambition_platformer2d::engine_core::Vec2::new(10.0, 10.0),
+                        ambition_platformer2d::engine_core::Vec2::new(10.0 + 100.0 * at as f32, 10.0),
                         ambition_platformer2d::engine_core::Vec2::splat(8.0),
                     ),
                 })
@@ -2325,7 +2346,7 @@ mod tests {
                 .collect()
         };
 
-        let alone = neighbour_prefetch_set(&rooms, &[index("hub")], 4);
+        let alone = neighbour_prefetch_set(&rooms, &[index("hub")], 4, &BTreeMap::new());
         assert_eq!(
             named(&alone),
             of(&[("a", &["hub"]), ("b", &["hub"]), ("c", &["hub"]), ("d", &["hub"])]),
@@ -2333,7 +2354,7 @@ mod tests {
         );
         assert_eq!(alone.skipped, 2, "control: `e` and `f` are the two rooms left out");
 
-        let both = neighbour_prefetch_set(&rooms, &[index("hub"), index("side")], 4);
+        let both = neighbour_prefetch_set(&rooms, &[index("hub"), index("side")], 4, &BTreeMap::new());
         assert_eq!(
             named(&both),
             of(&[("a", &["hub", "side"]), ("b", &["hub"]), ("g", &["side"]), ("c", &["hub"])]),
@@ -2344,7 +2365,7 @@ mod tests {
 
         // `a` is the first door of the hub, and it is live: the budget goes to
         // the four doors after it.
-        let beside = neighbour_prefetch_set(&rooms, &[index("hub"), index("a")], 4);
+        let beside = neighbour_prefetch_set(&rooms, &[index("hub"), index("a")], 4, &BTreeMap::new());
         assert_eq!(
             named(&beside),
             of(&[("b", &["hub"]), ("c", &["hub"]), ("d", &["hub"]), ("e", &["hub"])]),
@@ -2353,8 +2374,21 @@ mod tests {
         assert_eq!(beside.skipped, 1, "`f` is the one room left out");
 
         // A budget of zero prepares nothing and says so.
-        let none = neighbour_prefetch_set(&rooms, &[index("side")], 0);
+        let none = neighbour_prefetch_set(&rooms, &[index("side")], 0, &BTreeMap::new());
         assert_eq!((none.rooms.len(), none.skipped), (0, 3));
+
+        // ⭐ NEAREST DOOR FIRST. A player beside the hub's last door (`f`,
+        // the sixth: outside a budget of four by index) gets `f` prepared
+        // first, then the doors nearest it. Without the ranking `f` is never
+        // prepared from the hub, as the hall of characters was not (the 15th
+        // of the central hub's 21 doors).
+        let beside_f = BTreeMap::from([(index("hub"), vec![ambition_platformer2d::engine_core::Vec2::new(510.0, 10.0)])]);
+        let walking = neighbour_prefetch_set(&rooms, &[index("hub")], 4, &beside_f);
+        assert_eq!(
+            named(&walking),
+            of(&[("f", &["hub"]), ("e", &["hub"]), ("d", &["hub"]), ("c", &["hub"])]),
+            "the door a player stands at is not prepared first"
+        );
     }
 
     /// The stall report names the room and the outstanding assets, and caps the

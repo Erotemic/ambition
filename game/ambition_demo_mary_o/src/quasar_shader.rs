@@ -104,6 +104,10 @@ pub fn install(app: &mut App) {
     app.register_type::<MaryOQuasarShaderSettings>();
     app.add_systems(
         Update,
+        declare_quasar_demand.in_set(ambition_platformer2d::sprite_sheet::character::rigged::ComposedBodyDemandSet),
+    );
+    app.add_systems(
+        Update,
         (
             attach_quasar_overlays,
             sync_quasar_overlays,
@@ -274,6 +278,42 @@ fn attach_quasar_overlays(
     }
 }
 
+/// Whether the quasar draws over this body: her form, empowered, visible, and
+/// the effect turned up.
+fn quasar_shows(
+    worn: &WornCharacter,
+    health: &BodyHealth,
+    visibility: Option<&Visibility>,
+    settings: &MaryOQuasarShaderSettings,
+) -> bool {
+    crate::powerups::is_her_form(worn.id())
+        && health
+            .health
+            .invulnerable
+            .holds(ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED)
+        && !matches!(visibility, Some(Visibility::Hidden))
+        && !settings.disabled
+        && settings.strength > 0.0
+}
+
+/// Declare every body the quasar draws over as read as one image
+/// (`ComposedBodyDemand`): the shader samples its root sprite, which a
+/// part-drawn body has only while it is composited.
+fn declare_quasar_demand(
+    settings: Res<MaryOQuasarShaderSettings>,
+    sources: Query<(Entity, &WornCharacter, &BodyHealth, Option<&Visibility>), With<MaryOQuasarSource>>,
+    demand: Option<ResMut<ambition_platformer2d::sprite_sheet::character::rigged::ComposedBodyDemand>>,
+) {
+    let Some(mut demand) = demand else {
+        return;
+    };
+    for (source, worn, health, visibility) in &sources {
+        if quasar_shows(worn, health, visibility, &settings) {
+            demand.declare(source);
+        }
+    }
+}
+
 fn sync_quasar_overlays(
     presentation_time: ambition_platformer2d::time::PresentationTime,
     mut elapsed: Local<f32>,
@@ -325,14 +365,7 @@ fn sync_quasar_overlays(
         }
 
         let source_visible = !matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
-        let enabled = crate::powerups::is_her_form(worn.id())
-            && health
-                .health
-                .invulnerable
-                .holds(ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED)
-            && source_visible
-            && !settings.disabled
-            && settings.strength > 0.0;
+        let enabled = quasar_shows(worn, health, source_visibility, &settings);
         // Say it ONCE per transition, naming every condition. "I got the quasar
         // and saw nothing" has five possible causes and no way to tell them
         // apart from the outside; this line distinguishes them.

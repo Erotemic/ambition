@@ -319,8 +319,17 @@ fn renderer(size: UVec2) -> (App, Handle<Image>) {
         target.texture_descriptor.usage |= bevy::render::render_resource::TextureUsages::COPY_SRC;
         app.world_mut().resource_mut::<Assets<Image>>().add(target)
     };
+    // The camera blends as the game's world cameras do (`WORLD_COMPOSITING`):
+    // the harness measures what the player sees. `AMBITION_PARITY_COMPOSITING=linear`
+    // measures Bevy's default instead.
+    let space = match std::env::var("AMBITION_PARITY_COMPOSITING").as_deref() {
+        Err(_) => ambition_render::rendering::WORLD_COMPOSITING,
+        Ok("linear") => bevy::camera::CompositingSpace::Linear,
+        Ok(other) => panic!("AMBITION_PARITY_COMPOSITING={other:?} is not `linear`"),
+    };
     app.world_mut().spawn((
         Camera2d,
+        space,
         Camera {
             clear_color: ClearColorConfig::Custom(Color::NONE),
             ..default()
@@ -356,7 +365,7 @@ fn sheet(
         })
         .collect();
     let part_pages = flipbook.as_ref().map_or(Vec::new(), |flipbook| {
-        flipbook.pages.iter().map(|page| ambition_sprite_sheet::game_assets::load_part_page(server, "character-parts", format!("sprites/{page}"))).collect()
+        flipbook.pages.iter().map(|page| ambition_sprite_sheet::game_assets::load_sheet_image(server, "character-parts", format!("sprites/{page}"))).collect()
     });
     CharacterSpriteAsset {
         texture: pages[0].texture.clone(),

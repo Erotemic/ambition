@@ -92,6 +92,20 @@ fn animate(squash: Res<Squash>, mut roots: Query<(&mut Sprite, &mut CharacterAni
     }
 }
 
+/// Whether the test app reads every body as one image
+/// ([`ComposedBodyDemand`]), as a hit flash or a portal does: on for the tests
+/// of the compositor, off for the tests of direct drawing.
+#[derive(Resource)]
+struct Composite(bool);
+
+fn declare(composite: Res<Composite>, roots: Query<Entity, With<CharacterAnimator>>, mut demand: ResMut<ComposedBodyDemand>) {
+    if composite.0 {
+        for root in &roots {
+            demand.declare(root);
+        }
+    }
+}
+
 fn app_with(admit: bool, sheet: CharacterSpriteAsset) -> (App, Entity) {
     let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
     app_anchored(admit, sheet, Anchor(feet))
@@ -108,8 +122,10 @@ fn app_anchored(admit: bool, sheet: CharacterSpriteAsset, anchor: Anchor) -> (Ap
     app.init_resource::<RiggedPresentations>()
         .init_resource::<RiggedImpostorAtlas>()
         .init_resource::<Squash>()
+        .init_resource::<ComposedBodyDemand>()
+        .insert_resource(Composite(true))
         .insert_resource(RiggedSpriteAdmission { admit })
-        .add_systems(Update, (animate, bind_rigged_presentations, drive_rigged_presentations).chain());
+        .add_systems(Update, (animate, declare, bind_rigged_presentations, drive_rigged_presentations).chain());
     let mut assets = GameAssets::default();
     assets.characters.declare("raider");
     assets.characters.publish("raider", sheet.clone());
@@ -130,6 +146,14 @@ fn app_anchored(admit: bool, sheet: CharacterSpriteAsset, anchor: Anchor) -> (Ap
         ))
         .id();
     (app, root)
+}
+
+/// Run the app until a body declared as read as one image draws its cell: its
+/// first cell is on a page built that frame, whose cameras arrive with the
+/// frame's commands, so it draws its parts directly once more.
+fn settle(app: &mut App) {
+    app.update();
+    app.update();
 }
 
 fn owner(app: &App, root: Entity) -> Entity {
@@ -187,7 +211,7 @@ fn draws_impostor(app: &App, root: Entity, owner: Entity) -> bool {
         && sprite
             .texture_atlas
             .as_ref()
-            .is_some_and(|frame| frame.index == presentation.impostor.cell as usize && Some(&frame.layout) == atlas(app).layout.as_ref())
+            .is_some_and(|frame| frame.index == presentation.impostor.expect("an impostor cell").cell as usize && Some(&frame.layout) == atlas(app).layout.as_ref())
 }
 
 /// The root draws its baked frame: an atlas frame on its own page.
@@ -206,7 +230,7 @@ fn draws_baked(app: &App, root: Entity) -> bool {
 #[test]
 fn a_rigged_root_draws_its_impostor_from_parts_in_reusable_slots() {
     let (mut app, root) = app(true);
-    app.update();
+    settle(&mut app);
     let owner = owner(&app, root);
     let max_draws = RiggedSpriteAsset::baked("pirate_raider").unwrap().max_draws();
     let drawn = slots(&app, owner);
@@ -223,7 +247,7 @@ fn a_rigged_root_draws_its_impostor_from_parts_in_reusable_slots() {
     let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
     let flipbook = RiggedSpriteAsset::baked("pirate_raider").unwrap();
     let per_pixel = RENDER / flipbook.frame_size.as_vec2();
-    let feet = presentation.impostor.feet;
+    let feet = presentation.impostor.expect("an impostor cell").feet;
     assert_eq!(feet, flipbook.feet_pixel + Vec2::splat(IMPOSTOR_MARGIN));
     let sprite = app.world().get::<Sprite>(root).unwrap();
     assert!(close(sprite.custom_size.unwrap(), Vec2::splat(IMPOSTOR_CELL) * per_pixel));
@@ -279,11 +303,12 @@ fn a_root_whose_sheet_loses_its_flipbook_draws_itself_again() {
     assert!(app.world().get_entity(owner).is_err(), "the owner outlived the flipbook");
     let mut parts = app.world_mut().query::<&RiggedPartSlot>();
     assert_eq!(parts.iter(app.world()).count(), 0, "a slot outlived its owner");
-    let cameras = atlas(&app).cameras.clone();
-    assert!(
-        cameras.iter().all(|camera| !app.world().get::<Camera>(*camera).unwrap().is_active),
-        "the impostor cameras run with no body to draw"
-    );
+    // Its page held only this body, so the page is retired: no camera runs,
+    // or stays, with no body to draw.
+    assert!(app.world().resource::<RiggedImpostorAtlas>().0.iter().all(Vec::is_empty), "an empty page outlived its last body");
+    let mut cameras = app.world_mut().query::<&RiggedImpostorCamera>();
+    app.update();
+    assert_eq!(cameras.iter(app.world()).count(), 0, "a retired page's cameras stayed");
     assert!(draws_baked(&app, root), "the root did not take its baked frame back");
 }
 
@@ -293,7 +318,7 @@ fn a_root_whose_sheet_loses_its_flipbook_draws_itself_again() {
 #[test]
 fn the_parts_draw_only_into_their_impostor() {
     let (mut app, root) = app(true);
-    app.update();
+    settle(&mut app);
     let owner = owner(&app, root);
     let private = RenderLayers::layer(RIGGED_IMPOSTOR_LAYER);
     let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
@@ -305,7 +330,7 @@ fn the_parts_draw_only_into_their_impostor() {
         assert!(app.world().get::<Camera>(*camera).unwrap().is_active, "a body draws but the atlas rests");
     }
     let origin = app.world().get::<Transform>(owner).unwrap().translation.truncate();
-    assert_eq!(origin, atlas(&app).cell_feet(presentation.impostor.cell, presentation.impostor.feet));
+    assert_eq!(origin, atlas(&app).cell_feet(presentation.impostor.expect("an impostor cell").cell, presentation.impostor.expect("an impostor cell").feet));
 
     let pane = RenderLayers::layer(0).with(5);
     app.world_mut().entity_mut(root).insert(pane.clone());
@@ -316,8 +341,8 @@ fn the_parts_draw_only_into_their_impostor() {
     assert!(draws_impostor(&app, root, owner));
 }
 
-/// Two bodies stand in two cells (the atlas grows from one cell to make room),
-/// and a freed cell is reused.
+/// Two bodies stand in two cells (a second page, one growth step larger, makes
+/// room), and a freed cell is reused.
 #[test]
 fn each_body_has_its_own_cell() {
     let (mut app, first) = app(true);
@@ -329,17 +354,22 @@ fn each_body_has_its_own_cell() {
             .spawn((sprite, anchor, animator, Transform::default(), Visibility::Inherited))
             .id()
     };
-    app.update();
-    let cell = |app: &App, root| app.world().get::<RiggedPresentation>(owner(app, root)).unwrap().impostor.cell;
+    settle(&mut app);
+    let cell = |app: &App, root| {
+        let impostor = app.world().get::<RiggedPresentation>(owner(app, root)).unwrap().impostor.expect("an impostor cell");
+        (impostor.page, impostor.cell)
+    };
     let (a, b) = (cell(&app, first), cell(&app, second));
     assert_ne!(a, b);
-    assert_eq!(atlas(&app).side, 2, "two bodies in a one-cell atlas");
-    // Each body's parts stand in its own cell of the grown atlas.
+    let pages = &app.world().resource::<RiggedImpostorAtlas>().0[0];
+    assert_eq!(pages.iter().map(|page| page.side).collect::<Vec<_>>(), [1, 2], "the second body's page");
+    // Each body's parts stand in its own cell.
     for root in [first, second] {
         let owner = owner(&app, root);
-        let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
+        let impostor = app.world().get::<RiggedPresentation>(owner).unwrap().impostor.expect("an impostor cell");
+        let page = &app.world().resource::<RiggedImpostorAtlas>().0[0][impostor.page];
         let at = app.world().get::<Transform>(owner).unwrap().translation.truncate();
-        assert_eq!(at, atlas(&app).cell_feet(presentation.impostor.cell, presentation.impostor.feet));
+        assert_eq!(at, page.cell_feet(impostor.cell, impostor.feet));
     }
     app.world_mut().entity_mut(first).despawn();
     app.update();
@@ -351,14 +381,15 @@ fn each_body_has_its_own_cell() {
             .spawn((sprite, anchor, animator, Transform::default(), Visibility::Inherited))
             .id()
     };
-    app.update();
+    settle(&mut app);
     assert_eq!(cell(&app, third), a, "the freed cell was not reused");
 }
 
-/// More bodies drawn from parts alone than one page of their class holds:
-/// each draws its own cell, the class opens a second page for the 37th, and no
-/// body draws [`NO_BAKED_IMAGE`], which is what a body with no cell falls back
-/// to.
+/// More bodies drawn from parts alone than a page of their class holds: each
+/// draws its own cell, the class opens pages one growth step larger each time
+/// (1, then 2, then 4 cells a side), and no page is rebuilt for a later body —
+/// a body already drawn keeps its target — and no body draws
+/// [`NO_BAKED_IMAGE`], which is what a body with no cell falls back to.
 #[test]
 fn a_class_with_every_cell_taken_opens_a_page() {
     use ambition_sprite_sheet::character::NO_BAKED_IMAGE;
@@ -369,27 +400,33 @@ fn a_class_with_every_cell_taken_opens_a_page() {
     }
     assert!(sheet.parts_only(), "the sheet is not drawn from parts alone, so this tests nothing");
     let (mut app, first) = app_with(true, sheet.clone());
-    let most = (IMPOSTOR_CELL_CLASSES[0].1 * IMPOSTOR_CELL_CLASSES[0].1) as usize;
-    let mut roots = vec![first];
     let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
-    for _ in 0..most {
+    let spawn = |app: &mut App| {
         let (sprite, anchor, animator) = build_character_presentation_with_render_size(&sheet, RENDER, Anchor(feet));
-        roots.push(
-            app.world_mut()
-                .spawn((sprite, anchor, animator, Transform::default(), Visibility::Inherited))
-                .id(),
-        );
+        app.world_mut()
+            .spawn((sprite, anchor, animator, Transform::default(), Visibility::Inherited))
+            .id()
+    };
+    let mut roots = vec![first];
+    for _ in 0..4 {
+        roots.push(spawn(&mut app));
     }
-    app.update();
+    settle(&mut app);
+    let targets = |app: &App| app.world().resource::<RiggedImpostorAtlas>().0[0].iter().map(|page| page.image.clone()).collect::<Vec<_>>();
+    let before = targets(&app);
+    assert_eq!(before.len(), 2, "five bodies fill a page of one cell and a page of four");
+    // A sixth opens a third page; the first two are untouched.
+    roots.push(spawn(&mut app));
+    settle(&mut app);
     let pages = &app.world().resource::<RiggedImpostorAtlas>().0[0];
-    assert_eq!(pages.len(), 2, "{} bodies in one page of {most} cells", roots.len());
-    assert_ne!(pages[0].image, pages[1].image, "two pages share one target");
-    let mut per_page = [0; 2];
+    assert_eq!(pages.iter().map(|page| page.side).collect::<Vec<_>>(), [1, 2, 4]);
+    assert_eq!(targets(&app)[..2], before[..], "a page was rebuilt for a later body");
+    let mut per_page = [0; 3];
     for root in &roots {
         let sprite = app.world().get::<Sprite>(*root).unwrap();
         assert!(sprite.image != NO_BAKED_IMAGE, "a body drawn from parts alone draws no image");
         let owner = owner(&app, *root);
-        let impostor = app.world().get::<RiggedPresentation>(owner).unwrap().impostor;
+        let impostor = app.world().get::<RiggedPresentation>(owner).unwrap().impostor.expect("an impostor cell");
         let page = &app.world().resource::<RiggedImpostorAtlas>().0[0][impostor.page];
         assert!(
             sprite.image == page.image
@@ -401,32 +438,25 @@ fn a_class_with_every_cell_taken_opens_a_page() {
         assert_eq!(place, impostor_cell_feet(0, impostor.page, page.side, impostor.cell, impostor.feet));
         per_page[impostor.page] += 1;
     }
-    assert_eq!(per_page, [most, 1]);
-    // The second page stands to the right of the first and its quad, and its
-    // cameras run for the body it holds.
+    assert_eq!(per_page, [1, 4, 1]);
+    // The third page stands to the right of the second.
     let pages = &app.world().resource::<RiggedImpostorAtlas>().0[0];
-    assert!(pages[1].cell_feet(0, Vec2::ZERO).x >= IMPOSTOR_PAGE_STEP);
-    for camera in &pages[1].cameras {
-        assert!(app.world().get::<Camera>(*camera).unwrap().is_active, "the second page rests");
-    }
+    assert!(pages[2].cell_feet(0, Vec2::ZERO).x >= 2.0 * IMPOSTOR_PAGE_STEP);
 
     // Each page renders for its own cells only: a frame with no change rests
-    // both, and a new frame of the body on the second page runs the second
-    // page's cameras and not the first's.
+    // every page, and a new frame of the body on the third page runs that
+    // page's cameras and no other's.
     let active = |app: &App, page: usize| {
         let cameras = &app.world().resource::<RiggedImpostorAtlas>().0[0][page].cameras;
         cameras.iter().map(|camera| app.world().get::<Camera>(*camera).unwrap().is_active).collect::<Vec<_>>()
     };
     app.update();
-    assert!(!active(&app, 0).contains(&true) && !active(&app, 1).contains(&true), "a page renders with no change");
-    let on_second = *roots
-        .iter()
-        .find(|root| app.world().get::<RiggedPresentation>(owner(&app, **root)).unwrap().impostor.page == 1)
-        .unwrap();
-    app.world_mut().get_mut::<CharacterAnimator>(on_second).unwrap().frame = 3;
+    assert!((0..3).all(|page| !active(&app, page).contains(&true)), "a page renders with no change");
+    let on_third = *roots.last().unwrap();
+    app.world_mut().get_mut::<CharacterAnimator>(on_third).unwrap().frame = 3;
     app.update();
-    assert!(!active(&app, 1).contains(&false), "the second page rests while its body changes");
-    assert!(!active(&app, 0).contains(&true), "the first page renders for a body of the second");
+    assert!(!active(&app, 2).contains(&false), "the third page rests while its body changes");
+    assert!(!active(&app, 0).contains(&true) && !active(&app, 1).contains(&true), "another page renders for a body of the third");
 }
 
 /// The raider's published flipbook with `row` left to the baked sheet: its
@@ -475,7 +505,7 @@ fn a_hybrid_body_crosses_between_part_and_baked_clips_in_place() {
     assert_eq!(hybrid.realization("slash"), Some(ClipRealization::Baked));
     assert_eq!(hybrid.realization("idle"), Some(ClipRealization::Parts));
     let (mut app, root) = app_with(true, raider_with(Some(hybrid)));
-    app.update();
+    settle(&mut app);
     let owner = owner(&app, root);
     let slot_ids = app.world().get::<RiggedPresentation>(owner).unwrap().slots.clone();
     let placed = *app.world().get::<Transform>(root).unwrap();
@@ -513,7 +543,18 @@ fn a_hybrid_body_crosses_between_part_and_baked_clips_in_place() {
 fn a_cell_cleared_while_its_body_drew_baked_is_redrawn_when_it_returns() {
     use ambition_sprite_sheet::character::CharacterAnim;
 
-    let (mut app, a) = app_with(true, raider_with(Some(hybrid_raider("slash"))));
+    // The app's own root fills the first page (one cell), so A and B share
+    // the second.
+    let (mut app, _filler) = app_with(true, raider_with(Some(hybrid_raider("slash"))));
+    settle(&mut app);
+    let a = {
+        let asset = raider_with(Some(hybrid_raider("slash")));
+        let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
+        let (sprite, anchor, animator) = build_character_presentation_with_render_size(&asset, RENDER, Anchor(feet));
+        app.world_mut()
+            .spawn((sprite, anchor, animator, Transform::default(), Visibility::Inherited))
+            .id()
+    };
     let b = {
         let asset = raider_with(Some(hybrid_raider("slash")));
         let feet = Vec2::new(asset.spec.feet_anchor_x, asset.spec.feet_anchor_y);
@@ -526,7 +567,7 @@ fn a_cell_cleared_while_its_body_drew_baked_is_redrawn_when_it_returns() {
     pin_clip(&mut app, b, "idle", 0);
     app.update();
     app.update();
-    let presentation = |app: &App, root| app.world().get::<RiggedPresentation>(owner(app, root)).unwrap().impostor;
+    let presentation = |app: &App, root| app.world().get::<RiggedPresentation>(owner(app, root)).unwrap().impostor.expect("an impostor cell");
     let (pa, pb) = (presentation(&app, a), presentation(&app, b));
     assert_eq!((pa.class, pa.page), (pb.class, pb.page), "the premise: both bodies share a page");
     let generation = |app: &App| app.world().resource::<RiggedImpostorAtlas>().0[pa.class][pa.page].generation;
@@ -550,7 +591,8 @@ fn a_cell_cleared_while_its_body_drew_baked_is_redrawn_when_it_returns() {
 }
 
 /// The root draws its baked frame until every part page is ready, and the
-/// impostor takes over in one frame when they are.
+/// parts take over in one frame when they are (drawn directly that frame, its
+/// cell's new page rendering from the next).
 #[test]
 fn a_body_stays_baked_until_every_part_page_is_ready() {
     let (mut app, root) = app_with(true, raider(false));
@@ -574,8 +616,9 @@ fn a_body_stays_baked_until_every_part_page_is_ready() {
     }
     app.update();
     let owner = owner(&app, root);
-    assert!(draws_impostor(&app, root, owner));
     assert!(slots(&app, owner).iter().any(|(_, visible)| *visible), "no part drawn in the frame of the change");
+    app.update();
+    assert!(draws_impostor(&app, root, owner));
 }
 
 /// A quality-tier change keeps drawing the parts of the old tier until every
@@ -663,8 +706,11 @@ fn a_rewear_drops_the_old_characters_parts_while_the_new_pages_load() {
     app.update();
     let lookout_owner = owner(&app, root);
     assert_eq!(app.world().get::<RiggedPresentation>(lookout_owner).unwrap().target, "pirate_lookout");
-    assert!(draws_impostor(&app, root, lookout_owner));
     assert!(slots(&app, lookout_owner).iter().any(|(_, visible)| *visible), "no part drawn in the frame of the change");
+    // The raider's page was retired with its last body; the lookout's is new,
+    // so it is composited from the next frame.
+    app.update();
+    assert!(draws_impostor(&app, root, lookout_owner));
 }
 
 /// A sheet with no row for the compact pose is squashed: the animator draws
@@ -675,7 +721,7 @@ fn a_rewear_drops_the_old_characters_parts_while_the_new_pages_load() {
 #[test]
 fn a_squashed_root_squashes_its_impostor_about_the_same_line() {
     let (mut app, root) = app(true);
-    app.update();
+    settle(&mut app);
     let (h0, a0) = {
         let animator = app.world().get::<CharacterAnimator>(root).unwrap();
         let (size, anchor) = animator.current_render().unwrap();
@@ -791,7 +837,7 @@ fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
         for flip in [false, true] {
             let (mut app, root) = app_anchored(true, sheet_with("mary_o_v2_tall", Some(flipbook.clone())), built_at);
             app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
-            app.update();
+            settle(&mut app);
             let owner = owner(&app, root);
             assert!(draws_impostor(&app, root, owner));
             let size = app.world().get::<Sprite>(root).unwrap().custom_size.unwrap();
@@ -891,7 +937,7 @@ fn a_frame_that_fades_as_one_picture_fades_its_cell() {
     assert!(fade < 0.6, "the death clip does not fade ({fade}), so this tests nothing");
     pin_clip(&mut app, root, "death", last);
     app.update();
-    let cell = app.world().get::<RiggedPresentation>(owner).unwrap().impostor.cell as usize;
+    let cell = app.world().get::<RiggedPresentation>(owner).unwrap().impostor.expect("an impostor cell").cell as usize;
     let cells = atlas(&app).cells.clone();
     assert_eq!(cells.opacity[cell / 4][cell % 4], fade);
     let others = (0..IMPOSTOR_MAX_CELLS).filter(|other| *other != cell);
@@ -913,7 +959,7 @@ fn a_color_shift_reaches_its_bodys_cell() {
     use ambition_sprite_sheet::character::CharacterColorShift;
     let (_flipbook, mut app, root) = robot();
     let owner = owner(&app, root);
-    let cell = app.world().get::<RiggedPresentation>(owner).unwrap().impostor.cell as usize;
+    let cell = app.world().get::<RiggedPresentation>(owner).unwrap().impostor.expect("an impostor cell").cell as usize;
     assert_eq!(atlas(&app).cells.shift[cell], CharacterColorShift::NONE.as_uniform(), "premise: unshifted");
     let shift = CharacterColorShift {
         hue_degrees: 120.0,
@@ -1014,7 +1060,7 @@ fn a_large_frame_takes_a_cell_of_its_size() {
     app.update();
     app.update();
     let owner = owner(&app, root);
-    let impostor = app.world().get::<RiggedPresentation>(owner).unwrap().impostor;
+    let impostor = app.world().get::<RiggedPresentation>(owner).unwrap().impostor.expect("an impostor cell");
     assert_eq!(impostor.class, 1);
     let atlases = &app.world().resource::<RiggedImpostorAtlas>().0;
     assert!(atlases[0].is_empty(), "the first atlas was built for a body that does not fit it");
@@ -1026,4 +1072,187 @@ fn a_large_frame_takes_a_cell_of_its_size() {
     let place = app.world().get::<Transform>(owner).unwrap().translation.truncate();
     assert_eq!(place, impostor_cell_feet(1, 0, atlas.side, impostor.cell, impostor.feet));
     assert!(place.y > IMPOSTOR_ORIGIN.y, "{place}");
+}
+
+/// The test app with nothing reading its body as one image: the parts draw
+/// directly.
+fn app_direct(sheet: CharacterSpriteAsset, anchor: Anchor) -> (App, Entity) {
+    let (mut app, root) = app_anchored(true, sheet, anchor);
+    app.insert_resource(Composite(false));
+    (app, root)
+}
+
+/// A body nothing reads as one image draws its parts in the world: no cell,
+/// no atlas page, no camera; its root draws no image; its slots draw in the
+/// root's own layers, under an owner that follows the root's visibility.
+#[test]
+fn a_body_nothing_reads_draws_its_parts_in_the_world() {
+    use ambition_sprite_sheet::character::NO_BAKED_IMAGE;
+    let sheet = raider(true);
+    let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+    let (mut app, root) = app_direct(sheet, Anchor(feet));
+    app.update();
+    let owner = owner(&app, root);
+    let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
+    assert!(presentation.impostor.is_none(), "a body nothing reads took a cell");
+    assert!(app.world().resource::<RiggedImpostorAtlas>().0.iter().all(Vec::is_empty), "an atlas page was built");
+    let mut cameras = app.world_mut().query::<&RiggedImpostorCamera>();
+    assert_eq!(cameras.iter(app.world()).count(), 0);
+    assert_eq!(app.world().get::<Sprite>(root).unwrap().image, NO_BAKED_IMAGE, "the root draws an image over its parts");
+    let drawn = slots(&app, owner);
+    let expected = frame_draws(&app, root, "pirate_raider");
+    assert_eq!(drawn.iter().filter(|(_, visible)| *visible).count(), expected.len());
+    for ((at, _), want) in drawn.iter().zip(&expected) {
+        assert!(close(*at, *want), "a part at {at:?}, its draw at {want:?}");
+    }
+    let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
+    for slot in &presentation.slots {
+        assert_eq!(app.world().get::<RenderLayers>(*slot), Some(&RenderLayers::default()));
+    }
+    assert_eq!(*app.world().get::<Visibility>(owner).unwrap(), Visibility::Inherited);
+
+    // A root in another layer (a room that is not live, a pane) takes its
+    // parts with it; a hidden root hides them, on the frame it is hidden.
+    let pane = RenderLayers::layer(5);
+    app.world_mut().entity_mut(root).insert((pane.clone(), Visibility::Hidden));
+    app.update();
+    let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
+    for slot in &presentation.slots {
+        assert_eq!(app.world().get::<RenderLayers>(*slot), Some(&pane), "a part left its root's layer");
+    }
+    assert_eq!(*app.world().get::<Visibility>(owner).unwrap(), Visibility::Hidden, "a hidden root's parts draw");
+}
+
+/// A part drawn directly lands where its pixel of the baked frame would, for
+/// both anchors the game builds bodies with and both facings: the owner
+/// stands at the feet, scaled from sheet pixels to world units, and a slot
+/// stands at its draw's place from the feet.
+#[test]
+fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
+    let flipbook = RiggedSpriteAsset::baked("mary_o_v2_tall").expect("a published flipbook");
+    let frame = flipbook.frame_size.as_vec2();
+    let spec = try_load_spec_for_character_id("mary_o_v2_tall").unwrap();
+    let collision = Vec2::new(21.0, 32.0);
+    let npc = crate::rendering::actors::character_render_basis(&spec, collision, None, None).1;
+    let player =
+        crate::rendering::actors::character_render_basis(&spec, collision, Some(Vec2::new(61.0, 73.0)), Some(Vec2::ZERO)).1;
+    assert_ne!(npc.0, player.0, "premise: the two conventions differ");
+    for built_at in [npc, player] {
+        for flip in [false, true] {
+            let (mut app, root) = app_direct(sheet_with("mary_o_v2_tall", Some(flipbook.clone())), built_at);
+            app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
+            app.world_mut().get_mut::<Transform>(root).unwrap().translation = Vec3::new(40.0, -12.0, 3.0);
+            app.update();
+            let owner = owner(&app, root);
+            let place = *app.world().get::<Transform>(owner).unwrap();
+            let basis = app.world().get::<CharacterAnimator>(root).unwrap().render_basis.unwrap();
+            for pixel in [flipbook.feet_pixel, Vec2::ZERO, frame, Vec2::new(frame.x, 0.0)] {
+                // The baked frame: a quad of the basis size at its anchor,
+                // mirrored about the root when flipped.
+                let mut baked = (Vec2::new(pixel.x / frame.x - 0.5, 0.5 - pixel.y / frame.y) - basis.feet_anchor) * basis.render_size;
+                if flip {
+                    baked.x = -baked.x;
+                }
+                let baked = baked + Vec2::new(40.0, -12.0);
+                // The same pixel from the parts: sheet pixels from the feet,
+                // +y up, through the owner.
+                let from_feet = Vec2::new(pixel.x - flipbook.feet_pixel.x, flipbook.feet_pixel.y - pixel.y);
+                let direct = place.transform_point(from_feet.extend(0.0)).truncate();
+                assert!(
+                    close(direct, baked),
+                    "{built_at:?} flip {flip}: frame pixel {pixel} draws at {direct} directly, {baked} baked"
+                );
+            }
+        }
+    }
+}
+
+/// A body is composited while something reads it as one image, stays so for
+/// [`COMPOSED_HOLD_FRAMES`] after the last read, then draws directly again
+/// and gives its cell back.
+#[test]
+fn a_body_read_as_one_image_is_composited_while_it_is_read() {
+    let sheet = raider(true);
+    let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+    let (mut app, root) = app_direct(sheet, Anchor(feet));
+    app.update();
+    let owner = owner(&app, root);
+    assert!(app.world().get::<RiggedPresentation>(owner).unwrap().impostor.is_none());
+
+    let direct_scale = app.world().get::<Transform>(owner).unwrap().scale;
+    assert_ne!(direct_scale, Vec3::ONE, "premise: a direct owner is scaled to world units");
+    app.insert_resource(Composite(true));
+    settle(&mut app);
+    assert!(draws_impostor(&app, root, owner), "a body read as one image is not composited");
+    assert_eq!(
+        app.world().get::<Transform>(owner).unwrap().scale,
+        Vec3::ONE,
+        "a composited body's parts keep the world scale it was drawn at directly"
+    );
+    let private = RenderLayers::layer(RIGGED_IMPOSTOR_LAYER);
+    for slot in &app.world().get::<RiggedPresentation>(owner).unwrap().slots {
+        assert_eq!(app.world().get::<RenderLayers>(*slot), Some(&private), "a composited part draws in the world");
+    }
+
+    app.insert_resource(Composite(false));
+    for frame in 1..COMPOSED_HOLD_FRAMES {
+        app.update();
+        assert!(draws_impostor(&app, root, owner), "let go {frame} frames after its last read");
+    }
+    app.update();
+    let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
+    assert!(presentation.impostor.is_none(), "still composited long after its last read");
+    assert_eq!(app.world().get::<Sprite>(root).unwrap().image, ambition_sprite_sheet::character::NO_BAKED_IMAGE);
+    for slot in &presentation.slots {
+        assert_eq!(app.world().get::<RenderLayers>(*slot), Some(&RenderLayers::default()));
+    }
+    assert!(
+        app.world().resource::<RiggedImpostorAtlas>().0.iter().all(Vec::is_empty),
+        "its cell was not given back, or its empty page kept"
+    );
+}
+
+/// A frame that fades as one picture is composited with nothing reading the
+/// body (the fade needs the composite), and the body draws directly again
+/// once its frames stop fading.
+#[test]
+fn a_fading_frame_is_composited_with_nothing_reading_it() {
+    let flipbook = RiggedSpriteAsset::baked("player_robot_v3").expect("the robot publishes a flipbook");
+    let sheet = sheet_with("player_robot_v3", Some(flipbook.clone()));
+    let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+    let (mut app, root) = app_direct(sheet, Anchor(feet));
+    app.update();
+    let owner = owner(&app, root);
+    assert!(app.world().get::<RiggedPresentation>(owner).unwrap().impostor.is_none(), "premise: idle is drawn directly");
+    let last = flipbook.clip("death").expect("a death clip").frame_count() - 1;
+    assert!(flipbook.frame_opacity("death", last) < 1.0, "the death clip does not fade, so this tests nothing");
+    pin_clip(&mut app, root, "death", last);
+    settle(&mut app);
+    assert!(draws_impostor(&app, root, owner), "a fading frame is not composited");
+    pin_clip(&mut app, root, "idle", 0);
+    for _ in 0..=COMPOSED_HOLD_FRAMES {
+        app.update();
+    }
+    assert!(app.world().get::<RiggedPresentation>(owner).unwrap().impostor.is_none());
+}
+
+/// The root's colour (a tint, a flash written on the body) multiplies every
+/// part drawn directly, as it multiplied the composited body.
+#[test]
+fn a_direct_body_tints_its_parts_with_its_root_colour() {
+    let sheet = raider(true);
+    let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+    let (mut app, root) = app_direct(sheet, Anchor(feet));
+    app.update();
+    let owner = owner(&app, root);
+    let slot = app.world().get::<RiggedPresentation>(owner).unwrap().slots[0];
+    let plain = app.world().get::<Sprite>(slot).unwrap().color.to_linear();
+    // The stand-in animator does not write the colour, so this stays.
+    app.world_mut().get_mut::<Sprite>(root).unwrap().color = Color::LinearRgba(LinearRgba::new(1.0, 0.5, 0.25, 0.5));
+    app.update();
+    let tinted = app.world().get::<Sprite>(slot).unwrap().color.to_linear();
+    assert!((tinted.red - plain.red).abs() < 1.0e-6);
+    assert!((tinted.green - plain.green * 0.5).abs() < 1.0e-6);
+    assert!((tinted.blue - plain.blue * 0.25).abs() < 1.0e-6);
+    assert!((tinted.alpha - plain.alpha * 0.5).abs() < 1.0e-6);
 }

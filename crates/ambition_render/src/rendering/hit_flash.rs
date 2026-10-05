@@ -452,6 +452,60 @@ pub fn sync_hit_flash_overlays(
     }
 }
 
+/// Declare every body whose flash shows this frame as read as one image
+/// (`ComposedBodyDemand`): the silhouette samples its root sprite, which a
+/// part-drawn body has only while it is composited. The same facts and look
+/// as [`sync_hit_flash_overlays`], asked before the rigged driver runs.
+#[cfg(target_os = "android")]
+pub fn declare_hit_flash_demand() {}
+
+/// Declare every body whose flash shows this frame as read as one image
+/// (`ComposedBodyDemand`): the silhouette samples its root sprite, which a
+/// part-drawn body has only while it is composited. The same facts and look
+/// as [`sync_hit_flash_overlays`], asked before the rigged driver runs.
+#[cfg(not(target_os = "android"))]
+#[allow(clippy::too_many_arguments)]
+pub fn declare_hit_flash_demand(
+    tick: Res<ambition_time::SimTick>,
+    defense_policy: Res<
+        ambition_platformer2d_shared_tangle::gameplay_presentation::ActiveDefensePresentationPolicy,
+    >,
+    feature_views: Res<ambition_sim_view::FeatureViewIndex>,
+    anim_frames: Res<ambition_sim_view::ActorAnimIndex>,
+    poses: Query<&ambition_sim_view::BodyPoseView>,
+    sources: Query<
+        (
+            Entity,
+            Option<&FeatureVisual>,
+            Option<&PlayerVisual>,
+            Option<&Visibility>,
+            PortalHidIt,
+        ),
+        (With<HitFlashSource>, Without<HitFlashOverlay>),
+    >,
+    mut demand: ResMut<ambition_sprite_sheet::character::rigged::ComposedBodyDemand>,
+) {
+    for (source_entity, feature, player, source_visibility, portal_hid_source) in &sources {
+        let facts = overlay_facts_for_source(
+            source_entity,
+            feature,
+            player,
+            &feature_views,
+            &anim_frames,
+            &poses,
+            defense_policy.0,
+        );
+        let source_visibility = if portal_hid_it(portal_hid_source) {
+            None
+        } else {
+            source_visibility.copied()
+        };
+        if overlay_look(facts, tick.0, source_visibility).0 > 0.0 {
+            demand.declare(source_entity);
+        }
+    }
+}
+
 /// "Is the portal hiding this entity?" The render crate can ask only when
 /// the portal presentation crate is composed in.
 #[cfg(feature = "portal_render")]

@@ -5,9 +5,11 @@
 // half-covered pixel keeps half its colour. The texture every reader of the
 // body samples (the body's own quad, the hit flash, portal pieces, overlays)
 // is a straight-alpha sprite texture, so the colour is divided back out here,
-// pixel for pixel, with no filtering. The parts were blended in GAMMA space
-// (raw sRGB values in a plain target, as the baked frame was composited), so the
-// colour is decoded to linear here, once, for the sRGB target. Each cell's alpha is then scaled by its
+// pixel for pixel, with no filtering. The parts were blended in GAMMA space (as
+// the baked frame was composited, and as the world camera blends them drawn
+// directly); the premultiplied target is sRGB, so a load decodes it, and the
+// colour is encoded back to the values that were blended, divided there, and
+// decoded once for the sRGB straight target. Each cell's alpha is then scaled by its
 // body's frame opacity: a frame that fades as one picture fades here, after its
 // parts are composited.
 
@@ -28,7 +30,8 @@ struct ImpostorCellOpacity {
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let size = vec2<f32>(textureDimensions(premultiplied));
     let texel = vec2<i32>(clamp(floor(mesh.uv * size), vec2<f32>(0.0), size - vec2<f32>(1.0)));
-    let c = textureLoad(premultiplied, texel, 0);
+    let loaded = textureLoad(premultiplied, texel, 0);
+    let c = vec4<f32>(linear_to_srgb(loaded.rgb), loaded.a);
     if c.a <= 0.0 {
         return vec4<f32>(0.0);
     }
@@ -42,8 +45,8 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     if shift.x != 0.0 || shift.y != 1.0 || shift.z != 1.0 {
         straight = shifted(straight, shift.xyz);
     }
-    // The parts were blended from raw sRGB values (gamma space, as the baked
-    // frame was); the straight target is sRGB, so decode once here.
+    // Divided in the space the parts were blended in; the straight target is
+    // sRGB, so decode once here.
     return vec4<f32>(srgb_to_linear(straight), c.a * opacity);
 }
 
@@ -79,4 +82,10 @@ fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
     let low = c / 12.92;
     let high = pow((c + vec3<f32>(0.055)) / 1.055, vec3<f32>(2.4));
     return select(high, low, c <= vec3<f32>(0.04045));
+}
+
+fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
+    let low = c * 12.92;
+    let high = 1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - vec3<f32>(0.055);
+    return select(high, low, c <= vec3<f32>(0.0031308));
 }

@@ -33,7 +33,13 @@ fn gameplay_after_startup() -> bevy::prelude::App {
 
 #[test]
 fn every_neighbour_of_the_starting_room_gets_a_prepared_plan() {
-    let app = gameplay_after_startup();
+    let mut app = gameplay_after_startup();
+    // The prefetch ranks a room's neighbours nearest door first from where
+    // the players stand (`RoomSet::neighbors_nearest_first`).
+    let standing = {
+        let body = alice(&mut app);
+        app.world().get::<ambition_platformer2d::actor::BodyKinematics>(body).expect("Alice has a body").pos
+    };
 
     let (source, neighbours) = {
         let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
@@ -49,7 +55,7 @@ fn every_neighbour_of_the_starting_room_gets_a_prepared_plan() {
             .id
             .clone();
         let neighbours = room_set
-            .neighboring_room_indices_of(live_definition.index())
+            .neighbors_nearest_first(live_definition.index(), &[standing])
             .iter()
             .filter_map(|&index| room_set.rooms.get(index))
             .map(|room| room.id.clone())

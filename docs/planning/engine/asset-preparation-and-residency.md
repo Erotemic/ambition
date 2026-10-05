@@ -49,12 +49,14 @@ every content-art demand. The vocabulary, every string literal reaching
 `note_demand` / `load_sheet_image` / `load_sprite_pages`:
 
 ```text
-asset-manifest   boss-sheet   character-sheet   entity-sprite   fx-sheet
-held-item        parallax     portrait          projectile-art  shrine-sheet
-vanity-card
+asset-manifest   boss-sheet   character-parts   character-sheet   entity-sprite
+fx-sheet         held-item    parallax          portrait          projectile-art
+shrine-sheet     vanity-card
 ```
 
-**ELEVEN live roads.** Derived from the call sites by
+**TWELVE live roads.** `character-parts` (a part flipbook's pages,
+`RIGGED_SPRITE_ROAD`) was stamped all along through a constant the scan does not
+read; it surfaced when the pages moved onto `load_sheet_image` (2026-10-05). Derived from the call sites by
 `scripts/tests/test_demand_road_vocabulary_is_derived.py`; a road added in code
 without a row here is red there. Menu icons, shell images and prop pngs are
 deliberately not stamped.

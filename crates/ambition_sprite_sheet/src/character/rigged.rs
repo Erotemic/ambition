@@ -27,7 +27,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use bevy::ecs::entity::Entity;
+use bevy::ecs::resource::Resource;
 use bevy::math::{URect, UVec2, Vec2, Vec3};
+
 mod published;
 
 use published::Published;
@@ -553,6 +556,79 @@ pub struct RiggedSpritePages {
 pub struct RiggedSpriteAdmission {
     pub admit: bool,
 }
+
+/// How a part-drawn body reaches the screen
+/// (`docs/planning/engine/semantic-part-rendering-and-ragdolls.md`).
+///
+/// * `Direct` (the default): its parts are drawn in world space, each a sprite
+///   of the body's own render layers, and the root draws nothing — unless
+///   something reads the body as ONE image this frame ([`ComposedBodyDemand`],
+///   or a frame that fades as one picture), and then it is composited into a
+///   cell of a shared offscreen atlas and the root draws that cell.
+/// * `Impostor`: every body is composited, always (a measuring knob: the A/B
+///   against direct drawing).
+///
+/// Both blend in gamma space, as the art was composited
+/// (`ambition_render::rendering::WORLD_COMPOSITING`), from the same sRGB part pages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PartPresentation {
+    Direct,
+    Impostor,
+}
+
+/// The environment switch for [`PartPresentation`].
+pub const PART_PRESENTATION_ENV: &str = "AMBITION_PART_PRESENTATION";
+
+impl PartPresentation {
+    /// This process's mode: `impostor` in [`PART_PRESENTATION_ENV`] composites
+    /// every body, anything else (or unset) draws them directly.
+    pub fn current() -> Self {
+        static MODE: std::sync::OnceLock<PartPresentation> = std::sync::OnceLock::new();
+        *MODE.get_or_init(|| Self::from_setting(std::env::var(PART_PRESENTATION_ENV).ok().as_deref()))
+    }
+
+    pub fn from_setting(value: Option<&str>) -> Self {
+        match value.map(|value| value.trim().to_ascii_lowercase()) {
+            Some(value) if value == "impostor" => Self::Impostor,
+            _ => Self::Direct,
+        }
+    }
+}
+
+/// The part-drawn bodies something reads as ONE composited image: a system
+/// that samples a body's root sprite (the hit flash's silhouette, a portal's
+/// clipped pieces, an overlay shader) declares the root here while it does.
+/// The rigged-sprite driver composites a declared body into an impostor cell,
+/// so its root sprite is that image; an undeclared body draws its parts
+/// directly and its root has no image at all.
+///
+/// Declarations last one driver run: declare every frame the image is read,
+/// in [`ComposedBodyDemandSet`], which runs before the driver. A body stays
+/// composited a short while after its last declaration, so a flickering demand
+/// does not move it between atlas and world every frame.
+#[derive(Resource, Default, Debug)]
+pub struct ComposedBodyDemand(bevy::platform::collections::HashSet<Entity>);
+
+impl ComposedBodyDemand {
+    /// `root` is read as one image this frame.
+    pub fn declare(&mut self, root: Entity) {
+        self.0.insert(root);
+    }
+
+    pub fn is_declared(&self, root: Entity) -> bool {
+        self.0.contains(&root)
+    }
+
+    /// Forget every declaration: the driver read them.
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+}
+
+/// Where [`ComposedBodyDemand`] is declared: before the rigged-sprite driver
+/// reads it.
+#[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ComposedBodyDemandSet;
 
 /// The environment switch for [`RiggedSpriteAdmission`]: `0`, `false`, `off`
 /// or `no` turns the flipbooks off; unset (or any other value) leaves them on.

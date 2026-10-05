@@ -696,7 +696,8 @@ fn host_with_bob_beside_alice(start_room: &str) -> (bevy::prelude::App, String) 
 /// The rooms of the two-room walk, chosen from the room graph.
 ///
 /// Two live rooms share the budget in turn, so the first two neighbours of
-/// each are always prepared. Alice goes from `start` to `alice_first` and then
+/// each are always prepared (a neighbour that is live is not counted, and the
+/// walk does not cross into one). Alice goes from `start` to `alice_first` and then
 /// to `alice_second`. Bob goes from `start` to `bob_target`.
 struct TwoRoomWalk {
     alice_first: String,
@@ -854,3 +855,105 @@ fn each_live_room_keeps_the_plans_of_its_own_neighbours() {
         wrong.join("\n  ")
     );
 }
+
+/// ⭐ A NEIGHBOUR THAT IS LIVE GETS NO PLAN, AND USES NO BUDGET.
+///
+/// Alice and Bob are in two live rooms that are neighbours of each other. A
+/// crossing into a live room joins it and builds no room, so a plan for it is
+/// work that nothing uses. The budget goes to the rooms that are not live.
+///
+/// Before, the first neighbour of each live room was the other live room, so
+/// two of the four rooms of the budget were live rooms.
+#[test]
+fn a_live_neighbour_gets_no_prefetched_plan() {
+    const START: &str = "drain_alley";
+    const BUDGET: usize = 4;
+
+    let (mut app, start) = host_with_bob_beside_alice(START);
+    let walk = TwoRoomWalk::from(&app, &start);
+    let alice_body = alice(&mut app);
+    assert!(
+        cross(&mut app, alice_body, PlayerSlot(0), &walk.alice_first),
+        "with one live room, the crossing to `{}` was not a prefetch hit",
+        walk.alice_first
+    );
+    let live = vec![start.clone(), walk.alice_first.clone()];
+    assert_eq!(live_room_ids(&mut app), live, "Alice's crossing did not leave two live rooms");
+    // ⛔ THE PREMISE: each live room is a neighbour of the other. If not, no
+    // live room is a candidate and the readings below are true of any build.
+    assert!(
+        neighbours_of(&app, &start).contains(&walk.alice_first)
+            && neighbours_of(&app, &walk.alice_first).contains(&start),
+        "the two live rooms are not neighbours of each other"
+    );
+    for _ in 0..60 {
+        app.update();
+    }
+
+    let all_rooms: Vec<String> = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(app.world())
+    .expect("the session keeps its room set")
+    .rooms
+    .iter()
+    .map(|room| room.id.clone())
+    .collect();
+    let held: Vec<(String, String)> = {
+        let cache = app
+            .world()
+            .resource::<ambition_platformer2d::runtime::room_transition::RoomConstructionPlanPrefetch>();
+        live.iter()
+            .flat_map(|source| {
+                all_rooms
+                    .iter()
+                    .filter(|target| cache.holds(source, target))
+                    .map(move |target| (source.clone(), target.clone()))
+            })
+            .collect()
+    };
+    let mut wrong: Vec<String> = Vec::new();
+    let to_live: Vec<&(String, String)> =
+        held.iter().filter(|(_, target)| live.contains(target)).collect();
+    if !to_live.is_empty() {
+        wrong.push(format!("the cache holds plans for rooms that are live: {to_live:?}"));
+    }
+    // The rooms that are not live and are a neighbour of a live room.
+    let candidates: std::collections::BTreeSet<String> = live
+        .iter()
+        .flat_map(|room| neighbours_of(&app, room))
+        .filter(|room| !live.contains(room))
+        .collect();
+    assert!(
+        candidates.len() >= BUDGET,
+        "the live rooms have {} neighbours that are not live, so the budget of {BUDGET} is not tested",
+        candidates.len()
+    );
+    let prepared: std::collections::BTreeSet<&String> = held
+        .iter()
+        .map(|(_, target)| target)
+        .filter(|target| !live.contains(target))
+        .collect();
+    if prepared.len() != BUDGET {
+        wrong.push(format!(
+            "{} rooms that are not live have a plan, and the budget is {BUDGET}: {prepared:?}",
+            prepared.len()
+        ));
+    }
+
+    // Bob joins Alice's room. No plan was prepared for it, and the crossing
+    // does not need one.
+    let bob_body = bob(&mut app).expect("Bob is in the world");
+    if cross(&mut app, bob_body, PlayerSlot(1), &walk.alice_first) {
+        wrong.push(format!(
+            "Bob's crossing into the live room `{}` promoted a prefetched plan",
+            walk.alice_first
+        ));
+    }
+    assert_eq!(
+        (live_room_ids(&mut app), room_of(&app, bob_body)),
+        (vec![walk.alice_first.clone()], Some(walk.alice_first.clone())),
+        "Bob's crossing did not join Alice's room and leave it the one live room"
+    );
+    assert!(wrong.is_empty(), "the prefetch spent work on a live room:\n  {}", wrong.join("\n  "));
+}
+

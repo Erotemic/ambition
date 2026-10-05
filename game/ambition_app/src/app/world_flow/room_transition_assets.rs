@@ -1334,6 +1334,12 @@ pub(crate) struct NeighbourPrefetchSet {
 ///
 /// One live room gets the first `budget` of its neighbours. A room that is a
 /// neighbour of two live rooms is one room of the budget, and it names the two.
+///
+/// ⛔ A NEIGHBOUR THAT IS LIVE IS NOT IN THE SET. A crossing into a live room
+/// joins it and builds no room, so its plan is work that nothing uses. Two
+/// live rooms that are neighbours of each other each had the other as a
+/// first neighbour, and two of the four rooms of the budget were live rooms
+/// (`a_live_neighbour_gets_no_prefetched_plan`).
 pub(crate) fn neighbour_prefetch_set(
     rooms: &RoomSet,
     live: &[usize],
@@ -1341,7 +1347,11 @@ pub(crate) fn neighbour_prefetch_set(
 ) -> NeighbourPrefetchSet {
     let neighbours = live
         .iter()
-        .map(|&room| rooms.neighboring_room_indices_of(room))
+        .map(|&room| {
+            let mut neighbours = rooms.neighboring_room_indices_of(room);
+            neighbours.retain(|neighbour| !live.contains(neighbour));
+            neighbours
+        })
         .collect::<Vec<_>>();
     let deepest = neighbours.iter().map(Vec::len).max().unwrap_or(0);
     let mut set = NeighbourPrefetchSet {
@@ -2275,6 +2285,8 @@ mod tests {
     /// - Two live rooms: the first neighbour of each, then the second of each.
     /// - A room that is a neighbour of the two live rooms (`a`) is one room of
     ///   the budget and names the two.
+    /// - A neighbour that is live (`a`, when `hub` and `a` are live) is not in
+    ///   the set and uses no budget.
     #[test]
     fn the_prefetch_budget_is_dealt_to_the_live_rooms_in_turn() {
         use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation, RoomLink};
@@ -2362,6 +2374,16 @@ mod tests {
         );
         // `d`, `e`, `f` of the hub and `h` of the side room.
         assert_eq!(both.skipped, 4);
+
+        // `a` is the first door of the hub, and it is live: the budget goes to
+        // the four doors after it.
+        let beside = neighbour_prefetch_set(&rooms, &[index("hub"), index("a")], 4);
+        assert_eq!(
+            named(&beside),
+            of(&[("b", &["hub"]), ("c", &["hub"]), ("d", &["hub"]), ("e", &["hub"])]),
+            "a neighbour that is live is in the set, or it used a room of the budget"
+        );
+        assert_eq!(beside.skipped, 1, "`f` is the one room left out");
 
         // A budget of zero prepares nothing and says so.
         let none = neighbour_prefetch_set(&rooms, &[index("side")], 0);

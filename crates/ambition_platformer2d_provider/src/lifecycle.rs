@@ -2178,6 +2178,39 @@ fn candidate_session_gate(
     // refusal exit used to copy out by hand is carried on the candidate and
     // consumed by `release_candidate_in_world`.
     let experience = candidate.experience.clone();
+    // ⛔ THE SAVE FIRST, THEN THE VERDICT. A candidate of the experience that
+    // plays is built from the live save, and the session that plays can change
+    // that save before this question. The verdict of a stale candidate says
+    // nothing about the world that the save now describes, so a stale
+    // candidate is discarded whatever its verdict is.
+    //
+    // The answer is `Hold`, not `Refuse`: the route is good and only this
+    // build of it is old. The slot is empty, so the next frame
+    // `prepare_candidate_platformer_session` builds a candidate from the save
+    // as it is. The earlier save is not put back.
+    //
+    // ⚠ THE RESIDUAL: a save that changes on each frame holds the route for as
+    // long as it changes. No save field does that today.
+    if !candidate.prepared_from.is_current(world, &experience) {
+        let Some(candidate) = world
+            .get_resource_mut::<CandidateSessionSlot>()
+            .and_then(|mut slot| {
+                slot.1 += 1;
+                slot.0.take()
+            })
+        else {
+            return ShellGateVerdict::Hold;
+        };
+        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+            "session-candidate-stale experience={experience} (the save changed after the              candidate was prepared, so it is discarded and prepared again)"
+        ));
+        bevy::log::warn!(
+            target: "ambition_platformer2d::construction",
+            "the candidate session for `{experience}` is STALE: the save of its              experience changed after it was prepared. It is discarded and a new              candidate is prepared from the save as it is; the route stays pending"
+        );
+        release_candidate_in_world(world, candidate, "stale");
+        return ShellGateVerdict::Hold;
+    }
     match world
         .get::<ambition_platformer2d_actor_monolith::rooms::PublicationVerdict>(publication.0)
     {
@@ -2408,7 +2441,7 @@ impl PlatformerSessionBuilder<'_, '_> {
         // IS CONSTRUCTED, FROM THE SAVE OF THE CANDIDATE'S EXPERIENCE. No
         // session resource is written here; `adopt` installs it if and only if
         // this candidate becomes the live session.
-        let horizon = self.save.horizon_of(experience_id.as_str());
+        let (horizon, prepared_from) = self.save.horizon_of(experience_id.as_str());
         let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();
         // The authoring format's own session state, installed beside the
         // canonical bundle rather than inside it. `None` for every
@@ -2658,6 +2691,7 @@ impl PlatformerSessionBuilder<'_, '_> {
             experience: experience_id.as_str().to_owned(),
             route,
             horizon,
+            prepared_from,
             publication: built.publication,
             mechanics: mechanical.clone(),
             cast: cast.clone(),
@@ -2695,6 +2729,10 @@ pub struct PreparedCandidateSession {
     /// checkpoint baselines — installed at adoption and at no other moment.
     /// See `CandidateDurableHorizon`.
     horizon: ambition_platformer2d_actor_monolith::session::durable_horizon::CandidateDurableHorizon,
+    /// The save value `horizon` was read from. The gate compares it with the
+    /// save at the activation: a candidate whose save changed is stale. See
+    /// `PreparedFromSave`.
+    prepared_from: ambition_platformer2d_actor_monolith::session::durable_horizon::PreparedFromSave,
     /// The generation's frozen registries, installed at adoption.
     mechanics: ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics,
     /// The cast frozen with them, installed beside them.
@@ -2706,8 +2744,21 @@ pub struct PreparedCandidateSession {
 /// ⚠ **ONE SLOT, AND IT IS THE CONTROL PLANE — never rollback state.** A shell
 /// route has one pending transaction at a time; a second pending route
 /// supersedes the first, and the candidate it prepared is discarded with it.
+///
+/// The second field counts the candidates that this provider discarded as
+/// stale (`candidate_session_gate`). It is a record for a host or a test to
+/// read; nothing decides on it.
 #[derive(bevy::prelude::Resource, Default)]
-pub struct CandidateSessionSlot(Option<PreparedCandidateSession>);
+pub struct CandidateSessionSlot(Option<PreparedCandidateSession>, u32);
+
+impl CandidateSessionSlot {
+    /// How many candidates were discarded because the save of their
+    /// experience changed after they were prepared. Each one was prepared
+    /// again from the save as it then was.
+    pub fn stale_discards(&self) -> u32 {
+        self.1
+    }
+}
 
 impl PreparedCandidateSession {
     /// Make an ADMITTED candidate session authoritative.
@@ -2959,15 +3010,16 @@ mod tests {
                 publication,
                 route: route.clone(),
                 horizon: Default::default(),
+                prepared_from: Default::default(),
                 mechanics: Default::default(),
                 cast: Default::default(),
-            })));
+            }), 0));
             (world, route)
         }
 
         // ── 1. NO CANDIDATE. The arm that used to say `Admit`.
         let mut empty = bevy::prelude::World::new();
-        empty.insert_resource(CandidateSessionSlot(None));
+        empty.insert_resource(CandidateSessionSlot(None, 0));
         assert_eq!(
             candidate_session_gate(&mut empty),
             ShellGateVerdict::Refuse,
@@ -3026,6 +3078,59 @@ mod tests {
                 .is_none(),
             "the reserved session scope outlived the candidate that reserved it; \
              nothing calls `take` for a route that never activates, so it leaks",
+        );
+
+        // ── 5. STALE: the save changed after the candidate was built. The
+        //       candidate is discarded and the route is asked again.
+        use ambition_platformer2d_actor_monolith::session::durable_horizon::{
+            AmbitionGameSave, PreparedFromSave,
+        };
+        let live = AmbitionGameSave::default();
+        // The control: built from the save as it is. A gate that calls each
+        // candidate stale passes the stale assertions and adopts nothing.
+        let (mut same, _) = world_with_a_candidate(Some(true));
+        same.resource_mut::<CandidateSessionSlot>().0.as_mut().unwrap().prepared_from =
+            PreparedFromSave::of(Some(live.data().clone()));
+        same.insert_resource(live.clone());
+        assert_eq!(
+            candidate_session_gate(&mut same),
+            ShellGateVerdict::Admit,
+            "control: a candidate built from the save as it is was not admitted",
+        );
+        // Built with no save (the default of the fixture), and now there is
+        // one: the two values are not equal.
+        let (mut stale, route) = world_with_a_candidate(Some(true));
+        stale.insert_resource(live);
+        assert_eq!(
+            candidate_session_gate(&mut stale),
+            ShellGateVerdict::Hold,
+            "a candidate built from a save that has changed was not held back: `Admit` \
+             adopts a world built from the earlier save beside the later save, and \
+             `Refuse` cancels a route that is good",
+        );
+        assert!(
+            stale.resource::<CandidateSessionSlot>().0.is_none(),
+            "the stale candidate is still in the slot, so no new one is prepared",
+        );
+        assert_eq!(
+            (
+                stale.resource::<CandidateSessionSlot>().stale_discards(),
+                same.resource::<CandidateSessionSlot>().stale_discards()
+            ),
+            (1, 0),
+            "the discard of the stale candidate was not recorded one time, or the \
+             control recorded one",
+        );
+        assert!(
+            !stale.resource::<ShellRouteHolds>().is_held(&route),
+            "the stale candidate still holds the route",
+        );
+        assert!(
+            stale
+                .resource_mut::<ReservedGameplayScopes>()
+                .take(ACTIVATION)
+                .is_none(),
+            "the scope that the stale candidate reserved was not released",
         );
     }
 

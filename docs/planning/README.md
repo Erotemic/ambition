@@ -185,6 +185,8 @@ links to.
   — rigged sprites (on in the shipped game).
 - [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md) —
   Mary-O drawn entirely from parts: gaps, validation, interpolation, phases.
+- [`engine/semantic-part-rendering-and-ragdolls.md`](engine/semantic-part-rendering-and-ragdolls.md)
+  — body parts drawn without a mandatory whole-body composite; 2D ragdolls.
 - [`engine/svg-component-character-migration.md`](engine/svg-component-character-migration.md)
 - [`engine/ui-localization-and-accessibility.md`](engine/ui-localization-and-accessibility.md)
 - [`engine/shell-vanity-sequence.md`](engine/shell-vanity-sequence.md) —

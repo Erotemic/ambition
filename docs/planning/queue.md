@@ -1868,6 +1868,44 @@ Poisons: the reset not registered (the three arms above); the record runs in
   made while the outgoing session was playable. Witness: change a durable
   fact that construction reads between preparation and adoption, and compare
   with a fresh candidate prepared from the later save.
+  **Done 2026-10-05 (NamekAmbition).** The candidate keeps the save value it
+  was built from (`PreparedFromSave`, read back through
+  `ambition_persistence::save::the_save_of`). `candidate_session_gate` compares
+  it first, before the verdict of the first room: a stale candidate is
+  discarded (`session-candidate-stale` in the world log, counted by
+  `CandidateSessionSlot::stale_discards`), the answer is `Hold`, and the next
+  frame prepares a new candidate from the save as it is.
+  - **The `Q118` race in a second shape, found by the witness.** In a host
+    with no other hold, the candidate is prepared and adopted in one frame,
+    so nothing can change between them. A hold with no gate on the same route
+    (the loading screen's) opens the interval, and there the gate said `Admit`
+    once, its hold was released at once, and the route activated some frames
+    later with no second question. `advance_pending_route` now asks each gate
+    on each frame that the route waits, and releases the holds of the gates
+    only on the frame where each gate says `Admit` and no other hold is on the
+    route. `answer_the_publication_gate` (content reload) gets the same rule
+    through the router; its measurement is not done.
+  - Witnesses: `an_admit_is_consumed_only_by_the_activation` (shell lib; four
+    of its arms were red before the router change, and its control is a gate
+    that stays `Admit`), arm 5 of
+    `the_candidate_gate_refuses_rather_than_retiring_a_playing_session`, and
+    `app_it`
+    `a_session_that_replaces_its_own_experience_is_built_from_the_save_at_its_adoption`
+    (control; the save changes on the frame that releases the route; the save
+    changes 3 frames before). The adopted session is equal to a fresh host of
+    the later save on each of 31 frames, with 1 stale discard and the scope
+    after the discarded one. Each poison alone (no equality check; the earlier
+    router) gives the world of the earlier save, 0 discards, on both arms.
+  - Two predictions missed and are recorded here. (1) "A frame is between the
+    preparation and the adoption in the headless host": there is none. (2) The
+    first fixture wrote a `Consumed` occurrence row into the live save. The
+    session that plays writes those rows from its own ledger, so the row was
+    gone one frame later, and the adopted session was correct for the save at
+    its adoption while the test compared it with another save. The fixture
+    now changes a flag.
+  - Residual, named and not fixed: a save that changes on each frame holds
+    the route for as long as it changes. No save field does that today; one
+    that did would be its own defect.
 
 **The per-attempt ledgers crossed the edge (2026-10-04).** Mary-O's
 `BrokenBricks` and `SpentPowerBlocks` and Sanic's `SpentMonitors` are keyed by

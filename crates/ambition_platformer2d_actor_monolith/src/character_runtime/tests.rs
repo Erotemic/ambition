@@ -1107,18 +1107,15 @@ mod live_quality_apply {
                 .resource_mut::<CharacterLoadDemand>()
                 .request(cid);
         }
-        // ⚠ TWO characters, so this needs TWO frames: the materializer starts at
-        // most `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` per frame, deliberately, so
-        // that a fighter's ~470MB of sheets do not all land on one frame. This
-        // test is about which TIER the pixels come from, not about pacing, so it
-        // steps until the demand is drained.
+        // TWO characters, and both start on the frame they are demanded: there
+        // is no start ration (upload pacing is Bevy's per-frame budget, at the
+        // stage that hitches). A materializer that left one for a later frame
+        // is the 137-frame hall wait of 2026-10-04.
         finalize_and_update(&mut app);
-        for _ in 0..8 {
-            if app.world().resource::<CharacterLoadDemand>().is_empty() {
-                break;
-            }
-            finalize_and_update(&mut app);
-        }
+        assert!(
+            app.world().resource::<CharacterLoadDemand>().is_empty(),
+            "every demanded character starts on the frame it is demanded"
+        );
 
         // The fixture must actually be mixed, or it proves nothing.
         let scaled_path = resident_image_path(&app, &scaled)
@@ -1422,138 +1419,6 @@ fn without_a_roster_nothing_is_demanded() {
         0,
         "demand appeared from nowhere, so the roster test proves nothing"
     );
-}
-
-/// ⭐⭐ A FRAME MAY START ONE CHARACTER, AND THE REST MUST SURVIVE TO THE NEXT.
-///
-/// A character is ~7 sheets at 4096x4096 (~470MB of RGBA), and draining the whole
-/// demand set in one frame is what put `extract_render_asset<GpuImage>` at 454.9ms
-/// inside a 516ms frame on hardware. `take_bounded` spreads the STARTS so the
-/// finishes land on different frames.
-///
-/// ⛔ THE SECOND ASSERTION IS THE ONE THAT MATTERS: a limit that DROPPED the
-/// remainder would also "fix" the hitch, by never loading the other fighter.
-#[test]
-fn bounding_the_take_defers_the_rest_instead_of_dropping_it() {
-    use ambition_characters::load_demand::CharacterLoadDemand;
-
-    let mut demand = CharacterLoadDemand::default();
-    for token in ["director", "noether", "perfect_cellular_automaton"] {
-        demand.request(token);
-    }
-
-    let first = demand.take_bounded(1);
-    assert_eq!(first.len(), 1, "one frame may start exactly one character");
-    assert_eq!(
-        demand.pending().count(),
-        2,
-        "the characters not started must remain PENDING — dropping them would \
-         hide the hitch by never loading the other fighter"
-    );
-
-    let second = demand.take_bounded(1);
-    let third = demand.take_bounded(1);
-    assert_eq!(
-        demand.pending().count(),
-        0,
-        "everything is eventually taken"
-    );
-
-    let mut all: Vec<String> = first.into_iter().chain(second).chain(third).collect();
-    all.sort();
-    assert_eq!(
-        all,
-        vec![
-            "director".to_string(),
-            "noether".to_string(),
-            "perfect_cellular_automaton".to_string()
-        ],
-        "every demanded character is taken exactly once across the frames"
-    );
-}
-
-/// ⭐ THE RATION IS PIXELS, NOT HEADS. The bound was measured on Full sheets
-/// (~470 MB of RGBA per character); at a lower SETTING a sheet is smaller, so
-/// a Quarter setting starts sixteen per frame under the SAME byte budget. Full
-/// tokens go one per frame, and the first token is always taken so nothing is
-/// ever stranded. The tier is the setting's — one for every token; a demand
-/// cannot name a lower one (Jon, 2026-09-02).
-#[test]
-fn the_ration_spends_pixels_so_a_quarter_setting_starts_sixteen_a_frame() {
-    use super::{materialization_units, MATERIALIZATION_UNITS_PER_FRAME};
-    use ambition_characters::load_demand::CharacterLoadDemand;
-    use ambition_persistence::settings::TextureResolutionScale as Tier;
-    assert_eq!(
-        MATERIALIZATION_UNITS_PER_FRAME, 16,
-        "one Full character per frame"
-    );
-
-    // 40 tokens at a Quarter setting: 16, 16, 8.
-    let mut demand = CharacterLoadDemand::default();
-    demand.request_all((0..40).map(|i| format!("pedestal_{i:02}")));
-    let frames: Vec<usize> = std::iter::from_fn(|| {
-        let taken = demand.take_within_budget(
-            MATERIALIZATION_UNITS_PER_FRAME,
-            materialization_units(Tier::Quarter),
-        );
-        (!taken.is_empty()).then_some(taken.len())
-    })
-    .collect();
-    assert_eq!(
-        frames,
-        vec![16, 16, 8],
-        "a Quarter setting fills the ration sixteen at a time"
-    );
-    assert_eq!(demand.pending().count(), 0);
-
-    // At Full, one per frame.
-    let mut demand = CharacterLoadDemand::default();
-    demand.request_all(["director", "noether", "turing"]);
-    let first = demand.take_within_budget(
-        MATERIALIZATION_UNITS_PER_FRAME,
-        materialization_units(Tier::Full),
-    );
-    assert_eq!(first.len(), 1, "a Full character is a whole frame's ration");
-    assert_eq!(
-        demand.pending().count(),
-        2,
-        "the rest wait, they are not dropped"
-    );
-
-    // Half (4): four per frame, and the first token of a frame is always
-    // taken whatever it costs.
-    let mut demand = CharacterLoadDemand::default();
-    demand.request_all(["a", "b", "c", "d", "e"]);
-    let first = demand.take_within_budget(
-        MATERIALIZATION_UNITS_PER_FRAME,
-        materialization_units(Tier::Half),
-    );
-    assert_eq!(first.len(), 4);
-    let second = demand.take_within_budget(
-        MATERIALIZATION_UNITS_PER_FRAME,
-        materialization_units(Tier::Half),
-    );
-    assert_eq!(second, vec!["e".to_string()]);
-}
-
-/// A limit of zero, or a set smaller than the limit, takes everything — so the
-/// bound can never strand a token.
-#[test]
-fn an_unbounded_or_undersized_take_drains_completely() {
-    use ambition_characters::load_demand::CharacterLoadDemand;
-
-    let mut demand = CharacterLoadDemand::default();
-    demand.request("director");
-    assert_eq!(demand.take_bounded(4).len(), 1);
-    assert_eq!(demand.pending().count(), 0);
-
-    demand.request("noether");
-    assert_eq!(
-        demand.take_bounded(0).len(),
-        1,
-        "a zero limit means unbounded"
-    );
-    assert_eq!(demand.pending().count(), 0);
 }
 
 // ── THE LATE-ART INSTRUMENT, BOTH DIRECTIONS ───────────────────────────────

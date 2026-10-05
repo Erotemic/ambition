@@ -14,6 +14,21 @@ use crate::{
 #[derive(Component)]
 pub struct BasicLoadRoot;
 
+/// The loading screen's sign of life: a glyph that turns while the game
+/// works, so a slow machine is never mistaken for a frozen one (Jon,
+/// 2026-10-04: a loading screen on fast hardware never appears; on a slower
+/// machine it lets the player know the game is still working).
+#[derive(Component)]
+pub struct BasicLoadSpinner;
+
+/// The spinner's frames: ASCII, so every font draws them.
+const SPINNER_FRAMES: [&str; 4] = ["|", "/", "-", "\\"];
+
+/// The spinner frame `seconds` into the load, turning eight times a second.
+pub fn spinner_frame(seconds: f32) -> &'static str {
+    SPINNER_FRAMES[(seconds.max(0.0) * 8.0) as usize % SPINNER_FRAMES.len()]
+}
+
 #[derive(Default)]
 pub struct BasicLoadPresentationPlugin;
 
@@ -34,7 +49,9 @@ impl Plugin for BasicLoadPresentationPlugin {
             )
             .add_systems(
                 Update,
-                render_basic_load.in_set(LoadPresentationSet::Render),
+                (render_basic_load, turn_basic_load_spinner)
+                    .chain()
+                    .in_set(LoadPresentationSet::Render),
             );
     }
 }
@@ -135,6 +152,8 @@ fn render_basic_load(
                 position_type: PositionType::Absolute,
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(16.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -145,6 +164,15 @@ fn render_basic_load(
         ))
         .with_children(|root| {
             root.spawn((
+                BasicLoadSpinner,
+                Text::new(spinner_frame(0.0)),
+                TextFont {
+                    font_size: FontSize::Px(32.0),
+                    ..default()
+                },
+                TextColor(Color::srgb(0.93, 0.95, 1.0)),
+            ));
+            root.spawn((
                 Text::new(text),
                 TextFont {
                     font_size: FontSize::Px(24.0),
@@ -154,6 +182,20 @@ fn render_basic_load(
                 TextLayout::justify(Justify::Center),
             ));
         });
+}
+
+/// Turn the spinner on real time, which advances while the game waits on
+/// work (the simulation clock may be paused behind the screen).
+fn turn_basic_load_spinner(time: Option<Res<Time<Real>>>, mut spinners: Query<&mut Text, With<BasicLoadSpinner>>) {
+    let Some(time) = time else {
+        return;
+    };
+    let frame = spinner_frame(time.elapsed_secs());
+    for mut text in &mut spinners {
+        if text.0 != frame {
+            text.0 = frame.to_owned();
+        }
+    }
 }
 
 fn format_model(model: &LoadPresentationModel, quit_label: &str) -> String {

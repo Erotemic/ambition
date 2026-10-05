@@ -2156,6 +2156,39 @@ production invariant.
 
 Closed rows that an open row, a script or an inbound link still names.
 
+### NPC-UNREGISTERED-CHARACTER — a person who names an unregistered character stopped the game — ✅ DONE 2026-10-05
+
+**Owner:** `construction::preflight_planned_bodies`
+(`ambition_platformer2d_actor_monolith`).
+
+**Found** 2026-10-04 on the world reload road: an `NpcSpawn` whose
+`character_id` is in no cast and no catalog passed LDtk validation and plan
+preparation, and the recipe panicked when the room was built
+(`report_unprepared_character`, `actor_spawn/character_spawn_plan.rs`). A
+person is a placement row, and the preflight read no placement row. An
+`EnemySpawn` with the same fault was already refused when its room was planned.
+
+**Done:** the preflight takes the character catalog and refuses a person in
+the one case the NPC road cannot build: the cast does not have the character,
+a cast is published, and no catalog row can give it a body. It is the enemy's
+refusal (`BodyCharacterNotRegistered`), and the room error names the room and
+the character. The three cases the NPC road can build stay plans: a character
+that only the catalog has (a borrowed kit), a person who names nobody, and a
+composition that published no cast (a warning).
+
+**Witnesses:**
+`construction::tests::a_person_who_names_an_unregistered_character_is_refused_when_the_room_is_planned`
+(the refusal and the four controls), and on the shipped session
+`a_world_reload_that_cannot_rebuild_one_live_room_rebuilds_none`
+(`an_edit_reaches_the_shipped_game.rs`): an enemy in the other live room (the
+control, refused before and after), a person in the other live room, and a
+person in the one live room. Each reload is refused with the room and the
+character named, and no live room and no generation changes. Poison: the
+refusal removed fails the unit arm, and the two person arms panic as before.
+
+**Not done:** the assertion in `report_unprepared_character` stays. A road
+that builds a person with no plan (none is known) would still reach it.
+
 ### NEW-GAME-RESYNC — a New Game after durable hydration fails the sync test — ✅ DONE 2026-09-29
 
 A New Game is a checkpoint resume to the fresh baseline at the start room, on

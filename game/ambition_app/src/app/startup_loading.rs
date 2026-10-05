@@ -129,8 +129,6 @@ struct StartupAssetInputs<'w, 's> {
     content_staging: Res<'w, RoomContentStagingRegistry>,
     character_load_states:
         ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
-    character_load_demand:
-        ResMut<'w, ambition_platformer2d::characters::load_demand::CharacterLoadDemand>,
     /// Sheets this app's providers authored — the other real source
     /// of sheet metadata, and the only one a game outside this workspace can
     /// write to.
@@ -451,7 +449,7 @@ fn build_startup_manifest(
     staged_names.extend(worn.iter().cloned());
     staged_names.sort();
     staged_names.dedup();
-    let remainder = super::world_flow::demand_room_character_sheets(
+    super::world_flow::demand_room_character_sheets(
         room,
         &staged_names,
         &mut inputs.game_assets,
@@ -470,7 +468,6 @@ fn build_startup_manifest(
         // room commit (`RoomResidencyOwners`) is where ownership is applied.
         None,
     );
-    remainder.forward_into(&mut inputs.character_load_demand);
     // A first room that authors a boss demands the dedicated boss sheets now,
     // behind the cover; no room without one pays for them (asset open work 2).
     if !room.boss_spawns.is_empty() {

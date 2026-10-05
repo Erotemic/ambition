@@ -27,7 +27,7 @@ use ambition_platformer2d::sim::Platformer2dSimulationPhaseMonolith;
 
 use super::room_transition_assets::{
     contribute_room_transition_assets_system, poll_room_transition_asset_readiness_system,
-    prefetch_neighbor_room_preparation_system, RoomPreparationPrefetchState,
+    prefetch_neighbor_room_preparation_system, ContributedRoomAssets, RoomPreparationPrefetchState,
 };
 use ambition_platformer2d::runtime::room_transition::{
     RoomTransitionLoadPhase, RoomTransitionLoadState, RoomTransitionPresentationAvailable,
@@ -50,7 +50,6 @@ pub struct RoomTransitionCoverSet;
 #[derive(Resource, Clone, Debug)]
 pub(crate) struct RoomTransitionPresentationConfig {
     pub(crate) loading_reveal_after: Duration,
-    pub(crate) minimum_visible: Duration,
     /// A commit below this budget should ordinarily be hidden by the normal
     /// transition treatment rather than requiring explicit load foreground.
     pub(crate) no_cover_commit_budget: Duration,
@@ -73,7 +72,6 @@ impl Default for RoomTransitionPresentationConfig {
     fn default() -> Self {
         Self {
             loading_reveal_after: Duration::from_millis(250),
-            minimum_visible: Duration::from_millis(300),
             no_cover_commit_budget: Duration::from_millis(4),
             covered_commit_budget: Duration::from_millis(50),
             presentation_settle_deadline: Duration::from_secs(8),
@@ -193,6 +191,33 @@ struct RoomTransitionPresentationState {
     visible_before_commit: bool,
     foreground_finished: bool,
     visible_elapsed: Duration,
+    /// Whether this transition's loading screen has said why it appeared.
+    reveal_reported: bool,
+}
+
+/// Why a transition's loading screen appeared: what the readiness gate was
+/// still waiting on when it did. Pure, so the naming contract is testable.
+pub(crate) fn loading_screen_reason(
+    sequence: u64,
+    target_room_id: &str,
+    phase: RoomTransitionLoadPhase,
+    pending: &[String],
+) -> String {
+    const NAMED: usize = 12;
+    if pending.is_empty() {
+        return format!(
+            "room transition {sequence} -> {target_room_id}: loading screen shown in phase {phase:?} \
+             with no asset work pending (waiting on construction, commit or presentation)"
+        );
+    }
+    let named = pending.iter().take(NAMED).cloned().collect::<Vec<_>>().join(", ");
+    let more = pending.len().saturating_sub(NAMED);
+    format!(
+        "room transition {sequence} -> {target_room_id}: loading screen shown, waiting on {} \
+         activation-critical asset(s): {named}{}",
+        pending.len(),
+        if more > 0 { format!(" (+{more} more)") } else { String::new() },
+    )
 }
 
 fn owner_for(sequence: u64) -> LoadPresentationOwnerId {
@@ -204,6 +229,11 @@ fn experience(config: &RoomTransitionPresentationConfig) -> LoadExperienceSpec {
     spec.reveal_after = config.loading_reveal_after;
     spec.ready_policy = ReadyTransitionPolicy::AutoAdvance;
     spec.activity = None;
+    // ⭐ NO PERCENTAGE. The gate counts settled ITEMS, and a room tile settles
+    // as one item while a character's pages settle as one more: the bar opened
+    // near 80% and crawled (2026-10-04). There is no honest scalar
+    // denominator, so the player sees the named work instead.
+    spec.show_estimated_percentage = false;
     spec
 }
 
@@ -307,6 +337,7 @@ fn drive_room_transition_presentation(
     // See `UnclaimedFeatureViews`, and `RoomTransitionCoverSet` for the ordering
     // this read depends on.
     unclaimed: Res<UnclaimedFeatureViews>,
+    contributed: Res<ContributedRoomAssets>,
     mut presentation: MessageWriter<LoadPresentationCommand>,
     mut loads: ResMut<LoadCoordinator>,
     mut next_mode: ResMut<NextState<GameMode>>,
@@ -327,6 +358,7 @@ fn drive_room_transition_presentation(
         runtime.visible_before_commit = false;
         runtime.foreground_finished = false;
         runtime.visible_elapsed = Duration::ZERO;
+        runtime.reveal_reported = false;
         return;
     };
 
@@ -369,6 +401,7 @@ fn drive_room_transition_presentation(
         runtime.visible_before_commit = false;
         runtime.foreground_finished = false;
         runtime.visible_elapsed = Duration::ZERO;
+        runtime.reveal_reported = false;
         return;
     }
 
@@ -380,6 +413,22 @@ fn drive_room_transition_presentation(
         runtime.visible_elapsed = runtime
             .visible_elapsed
             .saturating_add(Duration::from_secs_f32(time.delta_secs()));
+        // A LOADING SCREEN SAYS WHAT IT IS WAITING FOR, once, when it appears:
+        // the same facts the readiness gate holds. One with nothing named is a
+        // defect report (readiness plan, "Diagnostics").
+        if !runtime.reveal_reported {
+            runtime.reveal_reported = true;
+            bevy::log::info!(
+                target: "ambition_platformer2d::room_transition::performance",
+                "{}",
+                loading_screen_reason(
+                    active_snapshot.sequence,
+                    active_snapshot.target_room_id(),
+                    active_snapshot.phase,
+                    contributed.pending(),
+                )
+            );
+        }
     }
 
     let exact_cover_exists = covers
@@ -421,10 +470,11 @@ fn drive_room_transition_presentation(
             update_serial
         }
     };
+    // ⭐ NO MINIMUM DISPLAY TIME. The cover lifts when the target is committed,
+    // rendered and presentable, and nothing else: a 300 ms floor kept a loading
+    // screen up after its work was done (readiness plan, rule 4).
     let target_rendered_under_cover = update_serial > commit_observed_at;
-    let foreground_minimum_satisfied =
-        !runtime.visible_before_commit || runtime.visible_elapsed >= config.minimum_visible;
-    if !target_rendered_under_cover || !foreground_minimum_satisfied {
+    if !target_rendered_under_cover {
         return;
     }
 
@@ -654,6 +704,25 @@ mod tests {
         assert_eq!(spec.reveal_after, Duration::from_millis(250));
         assert_eq!(spec.ready_policy, ReadyTransitionPolicy::AutoAdvance);
         assert!(spec.activity.is_none());
+    }
+
+    /// The player sees named work, not a percentage counted in items (a room
+    /// tile and a character's pages each settle as one item).
+    #[test]
+    fn room_transition_experience_shows_no_percentage() {
+        assert!(!experience(&RoomTransitionPresentationConfig::default()).show_estimated_percentage);
+    }
+
+    /// A loading screen names what it waits on, the same facts the gate holds,
+    /// and says so when no asset work is pending.
+    #[test]
+    fn a_loading_screen_names_the_work_it_waits_on() {
+        let pending: Vec<String> = (0..14).map(|i| format!("sprites/npc_{i:02}_parts.png")).collect();
+        let reason = loading_screen_reason(3, "hall_of_characters", RoomTransitionLoadPhase::AwaitingReadiness, &pending);
+        assert!(reason.contains("waiting on 14 activation-critical asset(s)"), "{reason}");
+        assert!(reason.contains("sprites/npc_00_parts.png") && reason.contains("(+2 more)"), "{reason}");
+        let none = loading_screen_reason(3, "hall_of_characters", RoomTransitionLoadPhase::Committed, &[]);
+        assert!(none.contains("no asset work pending") && none.contains("Committed"), "{none}");
     }
 
     #[test]

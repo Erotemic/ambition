@@ -500,9 +500,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "CharacterLoadDemand": (
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
-        "game/ambition_app/src/app/startup_loading.rs",
         "game/ambition_app/src/app/versus.rs",
-        "game/ambition_app/src/app/world_flow/room_transition_assets.rs",
     ),
     "MapMenuState": (
         "crates/ambition_menu/src/map/input.rs",
@@ -3286,7 +3284,12 @@ ADJUDICATED: dict[str, str] = {
         "`crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs:493` "
         "and `:896`, both inside `materialize_character_demand`. Every "
         "producer is commutative; the sole consumer is a single function. "
-        "Measured by CalculexAmbition, 2026-09-18."
+        "Measured by CalculexAmbition, 2026-09-18. "
+        "2026-10-05: 82dcfbc25 (readiness-driven room transitions) removed "
+        "the two `forward_into` producers, so `startup_loading.rs` and "
+        "`room_transition_assets.rs` hold no `ResMut` of it now. Two files "
+        "write: the versus producers and the one consumer. The verdict is "
+        "the same with fewer producers."
     ),
     "ConstructionSchemaCatalog": (
         "A KEYED LEDGER WHERE EVERY WRITER OWNS A DISTINCT DOMAIN STRING. "

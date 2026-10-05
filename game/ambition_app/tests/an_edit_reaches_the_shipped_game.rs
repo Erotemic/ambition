@@ -1188,55 +1188,105 @@ fn a_world_reload_rebuilds_every_live_room() {
 ///
 /// Each plan is prepared before the first room is staged. The first room's
 /// publication moves the session to the new room set, so a room that fails
-/// after it leaves a mixed world. Here Bob is in `basement_enemies`, which is
-/// NOT the room of the primary seat, and the changed copy gives that room an
-/// enemy that names a character nobody registered. Its plan does not prepare.
+/// after it leaves a mixed world. In each arm the changed copy gives one
+/// live room a body that names a character nobody registered, so the plan of
+/// that room does not prepare. The refusal names the room and the character,
+/// and no live room and no generation changes.
+///
+/// - An ENEMY in Bob's room, which is not the room of the primary seat. The
+///   control of the two below: an enemy was always refused when its room was
+///   planned.
+/// - A PERSON (`NpcSpawn`) in Bob's room.
+/// - A PERSON in the one live room, the plain reload.
+///
+/// ⛔ The two person arms were a PANIC. A person is a placement, and the
+/// preflight did not look at a placement, so the plan prepared and the
+/// recipe stopped the game when the room was built
+/// (`report_unprepared_character`).
 #[test]
 fn a_world_reload_that_cannot_rebuild_one_live_room_rebuilds_none() {
     use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+    const STRANGER: &str = "a_character_nobody_registered";
 
-    const BOBS_ROOM: &str = "basement_enemies";
-    let (mut app, start) = a_running_shipped_session_with_two_live_rooms(Leaver::Bob, BOBS_ROOM);
-    // ⛔ THE PREMISE: the room that cannot be rebuilt is not the first room of
-    // the reload. A first room that fails is the arm
-    // `a_refused_world_reload_leaves_the_running_game_untouched`.
-    {
-        use crate::neighbor_prefetch_prepares_rooms::{alice, room_of};
-        let body = alice(&mut app);
-        assert_eq!(room_of(&app, body), Some(start.clone()), "Alice is not in the start room");
+    // (the arm, Bob's room if there are two live rooms, the body that names
+    // the stranger)
+    for (arm, bobs_room, entity) in [
+        ("an enemy in the room that is not the primary seat's", Some("basement_enemies"), "EnemySpawn"),
+        ("a person in the room that is not the primary seat's", Some("basement_npcs"), "NpcSpawn"),
+        ("a person in the one live room", None, "NpcSpawn"),
+    ] {
+        let (mut app, start) = match bobs_room {
+            Some(room) => a_running_shipped_session_with_two_live_rooms(Leaver::Bob, room),
+            None => {
+                let app = a_running_shipped_session();
+                let start = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+                    .expect("the session has a live room")
+                    .id
+                    .clone();
+                (app, start)
+            }
+        };
+        // ⛔ THE PREMISE: Alice is in the start room, so with two live rooms
+        // the room that cannot be rebuilt is not the first room of the reload.
+        {
+            use crate::neighbor_prefetch_prepares_rooms::{alice, room_of};
+            let body = alice(&mut app);
+            assert_eq!(room_of(&app, body), Some(start.clone()), "{arm}: Alice is not in the start room");
+        }
+        let faulty_room = bobs_room.unwrap_or(start.as_str()).to_owned();
+        let before = live_room_readings(&mut app);
+        let epoch_before = the_only_prepared_epoch(&mut app);
+        let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
+
+        let _copy = watch_an_edited_copy(&mut app, "refused", |project| {
+            name_an_unknown_character(project, &faulty_room, entity, STRANGER)
+        });
+        press_apply_reload(&mut app);
+
+        let reload = app.world().resource::<WorldSourceHotReload>().clone();
+        assert_eq!(
+            (reload.applied_count, reload.last_status.contains("rejected")),
+            (applied, true),
+            "{arm}: the reload was not refused: {:?} / {:?}",
+            reload.last_status,
+            reload.last_errors
+        );
+        assert!(
+            reload
+                .last_errors
+                .iter()
+                .any(|error| error.contains(&format!("`{faulty_room}`")) && error.contains(STRANGER)),
+            "{arm}: the refusal does not name the room `{faulty_room}` and the character: {:?}",
+            reload.last_errors
+        );
+        if bobs_room.is_some() {
+            assert!(
+                reload.last_errors.iter().any(|error| error.contains(&format!("live room '{faulty_room}'"))),
+                "{arm}: the refusal does not say which LIVE room cannot be rebuilt: {:?}",
+                reload.last_errors
+            );
+        }
+        assert_eq!(
+            (live_room_readings(&mut app), the_only_prepared_epoch(&mut app)),
+            (before.clone(), epoch_before),
+            "{arm}: ⛔ A REFUSED RELOAD REBUILT A LIVE ROOM, or moved the generation of the session"
+        );
+        // The game runs on.
+        for _ in 0..30 {
+            app.update();
+        }
+        assert_eq!(live_room_readings(&mut app), before, "{arm}: the live rooms changed after the refusal");
     }
-    let before = live_room_readings(&mut app);
-    let epoch_before = the_only_prepared_epoch(&mut app);
-    let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
-
-    let _copy = watch_an_edited_copy(&mut app, "refused", |project| {
-        name_an_unknown_character(project, BOBS_ROOM, "EnemySpawn")
-    });
-    press_apply_reload(&mut app);
-
-    let reload = app.world().resource::<WorldSourceHotReload>().clone();
-    assert_eq!(
-        (reload.applied_count, reload.last_status.contains("rejected")),
-        (applied, true),
-        "the reload was not refused: {:?} / {:?}",
-        reload.last_status,
-        reload.last_errors
-    );
-    assert!(
-        reload.last_errors.iter().any(|error| error.contains(&format!("live room '{BOBS_ROOM}'"))),
-        "the refusal does not name the live room that cannot be rebuilt (`{BOBS_ROOM}`): {:?}",
-        reload.last_errors
-    );
-    assert_eq!(
-        (live_room_readings(&mut app), the_only_prepared_epoch(&mut app)),
-        (before, epoch_before),
-        "⛔ A REFUSED RELOAD REBUILT A LIVE ROOM, or moved the generation of the session"
-    );
 }
 
-/// Give the first `entity` of the level whose `activeArea` is `room` a
-/// character id that no catalog has.
-fn name_an_unknown_character(project: &mut serde_json::Value, room: &str, entity: &str) {
+/// Give the first `entity` of a level whose `activeArea` is `room`, and that
+/// has a `character_id`, the id `stranger`, which no catalog has.
+fn name_an_unknown_character(
+    project: &mut serde_json::Value,
+    room: &str,
+    entity: &str,
+    stranger: &str,
+) {
     let levels = project["levels"].as_array_mut().expect("the project has levels");
     for level in levels {
         let in_room = level["fieldInstances"]
@@ -1254,7 +1304,7 @@ fn name_an_unknown_character(project: &mut serde_json::Value, room: &str, entity
                 }
                 for field in instance["fieldInstances"].as_array_mut().into_iter().flatten() {
                     if field["__identifier"] == "character_id" {
-                        field["__value"] = serde_json::json!("a_character_nobody_registered");
+                        field["__value"] = serde_json::json!(stranger);
                         return;
                     }
                 }

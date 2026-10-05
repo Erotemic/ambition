@@ -1550,6 +1550,29 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> 
     }
 }
 
+/// The character a planned PERSON names: a placement that is an NPC with a
+/// `character_id`. `None` for every other row, and for an NPC that names
+/// nobody (nothing authored its repertoire, so it has none).
+///
+/// A person is not in [`planned_body_character`] because its road has a
+/// fallback that an enemy's does not: its body comes from its catalog row,
+/// so a character that the catalog has and the cast does not still builds
+/// (with a borrowed kit). See [`preflight_planned_bodies`] for the one case
+/// that has no fallback.
+fn planned_person_character(parameters: &ActorConstructionParams) -> Option<&str> {
+    use ambition_entity_catalog::placements::{InteractionKindSpec, PlacementSchema};
+    let ActorConstructionParams::Placement { record, .. } = parameters else {
+        return None;
+    };
+    let PlacementSchema::Interactable(spec) = &record.schema else {
+        return None;
+    };
+    match &spec.kind {
+        InteractionKindSpec::Npc { character_id, .. } => character_id.as_deref(),
+        _ => None,
+    }
+}
+
 /// One planned row's claim on a character, as the preflight needs to read it.
 /// Prove every planned body can actually be built, before anything is
 /// mutated.
@@ -1574,11 +1597,36 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> 
 /// an absent registry is an EMPTY cast, not an exemption. `prepared: None` becomes a default
 /// (empty) `PreparedCharacterRegistry` in the frozen services, so a composition that publishes no
 /// cast cannot build a character body either.
+///
+/// ⛔ A PERSON IS REFUSED HERE TOO, IN ITS ONE CASE WITH NO FALLBACK. The NPC
+/// road builds the body from the catalog row and borrows a kit when the cast
+/// does not have the character, and it only warns when the composition
+/// published no cast at all. A character in NEITHER the cast nor `catalog`,
+/// with a cast published, was a panic in the recipe
+/// (`report_unprepared_character`): the plan prepared, and the room stopped
+/// the game when it was built. A world reload of an `NpcSpawn` with a wrong
+/// `character_id` did that (measured 2026-10-04). It is the same refusal as
+/// the enemy's now, made while the world is whole.
 pub fn preflight_planned_bodies(
     requests: &[ActorConstructionRequest],
     prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
 ) -> Result<(), ActorConstructionError> {
     for request in requests {
+        if let Some(character) = planned_person_character(&request.parameters) {
+            // The three terms are the recipe's own: the cast does not have the
+            // character, a cast is published, and no catalog row can give it
+            // a body.
+            let in_the_cast = prepared.is_some_and(|cast| cast.get(character).is_some());
+            let a_cast_is_published = prepared.is_some_and(|cast| !cast.is_empty());
+            if !in_the_cast && a_cast_is_published && catalog.display_name(character).is_none() {
+                return Err(ActorConstructionError::BodyCharacterNotRegistered {
+                    sim_id: request.sim_id.clone(),
+                    character: character.to_string(),
+                });
+            }
+            continue;
+        }
         let Some(character) = planned_body_character(&request.parameters) else {
             continue;
         };

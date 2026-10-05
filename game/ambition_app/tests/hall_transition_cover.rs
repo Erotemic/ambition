@@ -326,8 +326,9 @@ fn hall_character_ids(app: &mut App) -> Vec<String> {
 /// the cover retired 66 ms after the door (`asset_wait_ms=3`), 111 actors drew
 /// the placeholder rectangle with the engine's own warning — *"declared as
 /// 'npc_busy_beaver' but not materialized"* — and 434 MP of art arrived in the
-/// open over three seconds as nine frames of 89-355 ms. Loads are rationed to
-/// one character per frame; the manifest held only the realized sheets' pages;
+/// open over three seconds as nine frames of 89-355 ms. Loads were rationed to
+/// one character per frame (no longer: 2026-10-04, every demanded character
+/// starts on its frame); the manifest held only the realized sheets' pages;
 /// the test above counted STAGED characters and stayed green.
 ///
 /// The rule, frame by frame: as long as any placed character's sheet is still
@@ -351,7 +352,7 @@ fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
 
     let mut realized_first = None;
     let mut realized_last = 0;
-    let mut frames_with_declared = 0;
+    let mut frames_waiting = 0;
     for _frame in 0..400 {
         step(&mut app);
         let (declared, realized) = {
@@ -393,8 +394,10 @@ fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
             );
             break;
         };
+        if !active.asset_readiness_complete {
+            frames_waiting += 1;
+        }
         if declared > 0 {
-            frames_with_declared += 1;
             assert!(
                 !active.asset_readiness_complete,
                 "asset readiness reported COMPLETE while {declared} of the hall's {} placed                  characters were still only declared (realized so far: {realized}). The                  barrier is waiting on the realized sheets' pages and not on the characters                  it demanded.",
@@ -402,18 +405,20 @@ fn the_reveal_waits_for_every_placed_character_not_just_the_realized_ones() {
             );
         }
     }
+    // ⛔ Premise: the gate was seen WAITING (pages decoding behind the cover),
+    // so the release check above ran against a barrier that had work to do.
     assert!(
-        frames_with_declared > 0,
-        "no frame ever had a declared-but-unrealized character; the ration this test          exists to cover was not exercised"
+        frames_waiting > 0,
+        "the asset gate never waited on a frame this loop saw, so the release rule was not exercised"
     );
-    // One per frame, behind the cover, until the whole cast is realized. Before
-    // the remainder was forwarded to the global demand this stalled at the
-    // ration's worth (6 of 129) and the other 123 loaded after their actors
-    // spawned — after the reveal.
+    // The whole cast is realized behind the cover. Before the remainder was
+    // forwarded to the global demand this stalled at a ration's worth (6 of
+    // 129) and the other 123 loaded after their actors spawned — after the
+    // reveal.
     assert!(
         realized_last >= ids.len(),
         "only {realized_last} of the hall's {} characters realized in 400 frames (first \
-         sample {:?}); the ration's remainder is not reaching the global demand, so the \
+         sample {:?}); the transition's demand is not reaching the global demand, so the \
          rest will load after the reveal",
         ids.len(),
         realized_first
@@ -454,7 +459,7 @@ fn the_halls_cast_is_realized_at_the_users_tier_never_lower() {
         setting > TextureResolutionScale::Quarter,
         "this test needs a setting ABOVE Quarter, or a gallery cap would be invisible; got {setting:?}"
     );
-    // Let the ration realize a good part of the cast behind the cover.
+    // Let the cast realize behind the cover.
     for _ in 0..200 {
         step(&mut app);
     }
@@ -478,7 +483,7 @@ fn the_halls_cast_is_realized_at_the_users_tier_never_lower() {
     let realized: usize = tiers.values().sum();
     assert!(
         realized >= 100,
-        "only {realized} of {} realized in 200 frames (one Full sheet per frame is the ration)",
+        "only {realized} of {} realized in 200 frames",
         ids.len()
     );
     assert_eq!(
@@ -840,10 +845,7 @@ fn every_character_the_hall_places_is_reached_by_its_demand() {
         placed.len()
     );
 
-    // Settle: the loader is rationed to one character per frame, so reaching a
-    // 138-character cast needs at least that many frames even when nothing is
-    // wrong. Waiting generously is correct HERE precisely because the assertion
-    // is about scope rather than speed.
+    // Settle generously: the assertion is about scope rather than speed.
     for _ in 0..600 {
         step(&mut app);
     }

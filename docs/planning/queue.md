@@ -1628,10 +1628,14 @@ session retirement ends it; seven resources, the declared message channels,
 the presentation channels (not the sound), the camera and the per-attempt
 ledgers are reset at the session edge (2026-10-04). A session is built
 from the save of its own experience, not from the live save, and it begins
-with the bag that the process began with. Three host constants are recorded,
-not reset. Open: a replacement by the SAME experience whose save changes
-before the adoption, and the New Game restore's own spelling of the starting
-bag.
+with the bag that its experience declares (2026-10-05). A candidate whose
+save changed after it was prepared is discarded and prepared again
+(2026-10-05), and a New Game gives the starting bag of the live session.
+Three host constants are recorded, not reset. Open, each named below where
+it was found: a shell App that lowers a composition-level bag into its one
+experience (no composition builds one), and a content reload that changes
+item uniqueness between the preparation of a candidate and its adoption
+(not measured).
 
 **An entity that a session spawned as it ran outlived the session
 (2026-10-04).** This is the largest finding of the row, and the first census

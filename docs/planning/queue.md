@@ -754,9 +754,37 @@ restored boss is alive (28) and `Defeated` on frame 2 of the death.
 each frame of the death and goes red there; the timer tests stay green under
 that poison.
 
-**Not built:** a composed witness for a refused publication or a subject
-that is gone. Those roads reach the unit-witnessed retirement and run no
-consequence, but no composed test forces one.
+**The refused publication, composed (2026-10-05).** `verify_and_publish`
+refuses in two places, and they are different code. Each has an arm in
+`a_cancelled_restore_changes_nothing.rs`; each asserts one outcome,
+`Cancelled { NotCommitted }`, and the four facts as before the request.
+
+| Refusal | Injector | Premise the arm asserts |
+|---|---|---|
+| Before the room is built (the `refuse` closure) | two holders of one identity | the three violation lists are empty |
+| At the verdict | the session's content generation moves on each frame, so the plan is prepared against one and verified against the next | `RosterViolation::ContentBindingMismatch` |
+
+Arms: `a_checkpoint_restore_whose_publication_is_refused_...` and
+`a_checkpoint_restore_whose_room_fails_its_verdict_...`. Both injectors are
+ones the suite already uses for a refused room; the road from the request to
+the retirement is production. Measured: one more holder of an identity that
+is live in the room gives the early refusal for each of five identities, so
+a twin cannot reach the verdict.
+
+Poisons. The retirement publishes no outcome: the two arms are red with no
+outcome, and the failed-preparation arm and the control are green. The
+consequences run before the verdict is read: the verdict arm is red with
+each of the four facts moved, and the early arm is GREEN, because an early
+refusal does not come to that line. That was a missed prediction (70% red
+for the early arm) and it is the reason the verdict arm exists.
+
+**Not built, and why:** a composed witness for a subject that is gone or
+cannot transit. From reading, not from a measurement: the subject of a
+restore is the one primary body, and no production code removes it or its
+`MotionModel`, cluster or `BodyCombat` while its session lives. The one
+despawn is the retirement of the session scope, which takes the operation
+back. An arm would remove the body by hand, so the road stays with its unit
+witness.
 
 ## P1 — ownership, composition and iteration
 

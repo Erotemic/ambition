@@ -1407,6 +1407,24 @@ pub struct PublicationGateEvaluator(
 /// the cast at N. Cancelling early ends both halves.
 ///
 /// It re-asks the same `publication_boundary` function; only the time is new.
+///
+/// ⭐ WHAT THIS OWNS BESIDE THE ACTIVATION GATE, measured 2026-10-05
+/// (`an_edit_reaches_the_shipped_game::a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole`,
+/// with this system removed and then the gate removed). The shell asks
+/// [`answer_the_publication_gate`] on each frame that the route is ready but
+/// for its holds. A refusal there cancels the route, and `TransactionEnded`
+/// discards the staged generation, so the gate ends a transaction whose
+/// boundary is closed on such a frame with the same result as this system.
+/// With this system removed those arms do not change.
+///
+/// This system is the one owner of the frames before the route is ready: a
+/// boundary that closes after the adoption, while the route still prepares.
+/// If it is open again before the route is ready, the gate does not see it
+/// and the reload publishes. If it stays closed, the gate cancels at the ready
+/// frame and not on the frame after the close. That is the lease of the
+/// `Q118` ruling: the admission holds for the life of the transaction, and
+/// the gate asks again at the activation. Do not remove this system because a
+/// test of a closed boundary stays green without it; run that arm.
 pub fn break_the_publication_lease_when_the_boundary_closes(
     world: &mut bevy::ecs::world::World,
 ) {

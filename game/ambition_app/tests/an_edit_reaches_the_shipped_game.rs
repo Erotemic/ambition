@@ -688,6 +688,259 @@ fn probe_process_resident_canonical_identities_in_the_visible_app() {
     census(&mut app, "after a handoff");
 }
 
+/// ⭐ A RELOAD WHOSE BOUNDARY CLOSES WHILE IT WAITS IS CANCELLED WHOLE, AND
+/// WHICH OF TWO OWNERS CANCELS IT IS MEASURED.
+///
+/// A content reload is legal against a timeline that is healthy and that this
+/// host may rebase (`Q118`). Two things ask again after the request:
+///
+/// - the lease breaker (`break_the_publication_lease_when_the_boundary_closes`)
+///   asks on each frame from the adoption of the transaction, and cancels the
+///   transaction on the frame after the boundary closes;
+/// - the activation gate (`answer_the_publication_gate`) is asked on each
+///   frame that the route is ready but for its holds, and at the activation.
+///
+/// Measured 2026-10-05 in this fixture with each owner removed in turn (the
+/// breaker an early return; the gate an `Admit` each time):
+///
+/// | the boundary closes                                | breaker and gate | gate only        | neither   |
+/// |----------------------------------------------------|------------------|------------------|-----------|
+/// | never                                              | published        | published        | published |
+/// | when the route is ready, and stays (two kinds)     | cancelled, +1    | cancelled, +1    | published |
+/// | at the request, for one update (before adoption)   | published        | published        | published |
+/// | while the route prepares, and stays                | cancelled, +1    | cancelled, ready | published |
+/// | while the route prepares, open again before ready  | cancelled, +1    | PUBLISHED        | published |
+///
+/// "+1" is the frame after the boundary closed; "ready" is the frame the
+/// route became ready, 6 frames later in this fixture. "Cancelled" is the same
+/// state in each cell: the route is not activated, the content is of the old
+/// generation, nothing is staged, and the two holds of the transaction are
+/// released.
+///
+/// So the gate alone gives the same result wherever the boundary is closed on
+/// a frame that the route is ready. The breaker is the one owner of the last
+/// row, and of the early frame in the row above it: the admission is a lease
+/// for the life of the transaction, not only a question at the activation.
+/// With the breaker removed, the last two closed arms here fail.
+///
+/// The fixture: a reload of the fighter ladder (500 ms to 499 ms) on the
+/// shipped app, with a hold that has no gate on the route, as the loading
+/// screen has, released 12 frames after the route is ready. A slow preparation
+/// keeps the barrier of the route not ready for 8 frames after the adoption.
+#[test]
+fn a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole() {
+    use ambition_platformer2d::game_shell::{ShellHoldId, ShellRouteHolds};
+    use ambition_platformer2d::rollback::{
+        mechanical_mutation_boundary, ActiveRollbackAuthority, MechanicalMutationBoundary,
+        RollbackSessionOwnership,
+    };
+
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum Kind {
+        /// A timeline that this host may not rebase.
+        Foreign,
+        /// The authority records a divergence.
+        Unhealthy,
+    }
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum Arm {
+        /// Control: the boundary stays open.
+        Never,
+        /// Control of the slow preparation.
+        SlowNever,
+        /// Closed 3 frames after the route is ready, to the end.
+        WhenReady(Kind),
+        /// Closed at the request, open again after one update: before the
+        /// transaction is adopted, so nothing is owed yet.
+        BeforeAdoption,
+        /// A slow preparation, closed 2 frames after the adoption.
+        WhilePreparing { opens_again: bool },
+    }
+    #[derive(Debug, PartialEq)]
+    enum End {
+        Published,
+        /// With the frames from the close to the end of the transaction.
+        Cancelled(u32),
+    }
+
+    fn pending(app: &bevy::prelude::App) -> bool {
+        app.world().resource::<ShellRouter>().pending.is_some()
+    }
+    fn ready(app: &bevy::prelude::App) -> bool {
+        let world = app.world();
+        world.resource::<ShellRouter>().ready_but_for_holds(
+            world.resource::<ambition_platformer2d::load::LoadCoordinator>(),
+            world.resource::<ambition_platformer2d::game_shell::PreparedSessionRegistry>(),
+        )
+    }
+    fn close(app: &mut bevy::prelude::App, kind: Kind) {
+        match kind {
+            Kind::Foreign => {
+                app.world_mut().insert_resource(RollbackSessionOwnership::External);
+            }
+            Kind::Unhealthy => app
+                .world_mut()
+                .resource_mut::<ActiveRollbackAuthority>()
+                .invalidate("a test divergence".to_owned()),
+        }
+    }
+
+    let route = ShellRouteId::new("ambition_gameplay");
+    let screen = ShellHoldId::new("test:loading-screen");
+    let mut wrong: Vec<String> = Vec::new();
+    for (arm, expected) in [
+        (Arm::Never, End::Published),
+        (Arm::SlowNever, End::Published),
+        (Arm::WhenReady(Kind::Foreign), End::Cancelled(1)),
+        (Arm::WhenReady(Kind::Unhealthy), End::Cancelled(1)),
+        (Arm::BeforeAdoption, End::Published),
+        (Arm::WhilePreparing { opens_again: false }, End::Cancelled(1)),
+        (Arm::WhilePreparing { opens_again: true }, End::Cancelled(1)),
+    ] {
+        let mut app = a_running_shipped_session();
+        // ⛔ THE PREMISE: the shipped ladder, and a boundary that is open
+        // because this host may rebase its own timeline.
+        assert_eq!(live_first_rung(&app), 500.0, "{arm:?}: the shipped ladder is not live");
+        assert_eq!(
+            mechanical_mutation_boundary(app.world()),
+            MechanicalMutationBoundary::LocallyRebasable,
+            "{arm:?}: the boundary is not open before the reload"
+        );
+        let activation = activation_id(&app);
+        let owned = *app.world().resource::<RollbackSessionOwnership>();
+
+        app.world_mut()
+            .resource_mut::<ShellRouteHolds>()
+            .hold(route.clone(), screen.clone());
+        let candidate = std::sync::Arc::new(
+            ambition_content::pack::compile_pack_with(|declared, text| match declared {
+                "data/fighter_brain_ladder.ron" => {
+                    text.replacen("reaction_ms: 500.0", "reaction_ms: 499.0", 1)
+                }
+                _ => text,
+            })
+            .expect("the edited pack compiles"),
+        );
+        let base = ambition_content::pack::selected(app.world())
+            .expect("the composition selected a pack")
+            .fingerprint;
+        let outcome = ambition_content::reload::request_reload(
+            app.world_mut(),
+            ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+        );
+        assert!(
+            matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
+            "{arm:?}: the reload was refused when it was asked for: {outcome:?}"
+        );
+        if arm == Arm::BeforeAdoption {
+            close(&mut app, Kind::Foreign);
+        }
+
+        let slow = matches!(arm, Arm::SlowNever | Arm::WhilePreparing { .. });
+        let (mut adopted_at, mut ready_at, mut closed_at, mut ended_at) = (None, None, None, None);
+        for frame in 0..120u32 {
+            app.update();
+            let adopted = app
+                .world()
+                .resource::<ShellRouteHolds>()
+                .held(&route)
+                .iter()
+                .any(|hold| hold.as_str().starts_with("content-publication:"));
+            if adopted && adopted_at.is_none() {
+                adopted_at = Some(frame);
+            }
+            if ready(&app) && ready_at.is_none() {
+                ready_at = Some(frame);
+            }
+            if arm == Arm::BeforeAdoption && frame == 0 {
+                app.world_mut().insert_resource(owned);
+            }
+            // The slow preparation: the barrier stays not ready for 8 frames.
+            if slow && adopted_at.is_some_and(|at| frame <= at + 8) {
+                let barrier = app
+                    .world()
+                    .resource::<ShellRouter>()
+                    .pending
+                    .as_ref()
+                    .map(|pending| pending.barrier.clone());
+                if let Some(barrier) = barrier {
+                    app.world_mut()
+                        .resource_mut::<ambition_platformer2d::load::LoadCoordinator>()
+                        .apply(ambition_platformer2d::load::LoadCommand::SetDiscovery {
+                            load_id: barrier.load_id,
+                            barrier_id: barrier.barrier_id,
+                            open: adopted_at.is_some_and(|at| frame < at + 8),
+                            forecast: None,
+                        });
+                }
+            }
+            match arm {
+                Arm::WhenReady(kind) if ready_at.is_some_and(|at| frame == at + 3) => {
+                    close(&mut app, kind);
+                    closed_at = Some(frame);
+                }
+                Arm::WhilePreparing { opens_again } => {
+                    if adopted_at.is_some_and(|at| frame == at + 2) {
+                        close(&mut app, Kind::Foreign);
+                        closed_at = Some(frame);
+                    }
+                    if opens_again && closed_at.is_some_and(|at| frame == at + 2) {
+                        app.world_mut().insert_resource(owned);
+                    }
+                }
+                _ => {}
+            }
+            if ready_at.is_some_and(|at| frame == at + 12) {
+                app.world_mut()
+                    .resource_mut::<ShellRouteHolds>()
+                    .release(&route, &screen);
+            }
+            if adopted_at.is_some() && !pending(&app) && ended_at.is_none() {
+                ended_at = Some(frame);
+            }
+            if ended_at.is_some_and(|at| frame >= at + 5) {
+                break;
+            }
+        }
+        // ⛔ THE PREMISES OF THE FIXTURE.
+        assert!(adopted_at.is_some() && ended_at.is_some(), "{arm:?}: the transaction did not end");
+        if arm == Arm::SlowNever {
+            assert!(
+                ready_at.zip(adopted_at).is_some_and(|(ready, adopted)| ready >= adopted + 8),
+                "the slow preparation was ready at {ready_at:?}, adopted at {adopted_at:?}: \
+                 no frame is between the adoption and the ready route"
+            );
+        }
+
+        let activated = activation_id(&app) != activation;
+        let staged =
+            app.world().contains_resource::<ambition_content::reload::PendingGeneration>();
+        let holds = app.world().resource::<ShellRouteHolds>().held(&route);
+        let state = (activated, live_first_rung(&app), staged);
+        let end = match (state, closed_at.zip(ended_at)) {
+            ((true, rung, false), _) if rung == 499.0 && holds.is_empty() => Some(End::Published),
+            ((false, rung, false), Some((closed, ended)))
+                if rung == 500.0 && holds == vec![screen.clone()] =>
+            {
+                Some(End::Cancelled(ended - closed))
+            }
+            _ => None,
+        };
+        eprintln!(
+            "[lease] {arm:?}: adopted {adopted_at:?} ready {ready_at:?} closed {closed_at:?} \
+             ended {ended_at:?}: {end:?}"
+        );
+        if end.as_ref() != Some(&expected) {
+            wrong.push(format!(
+                "{arm:?}: {expected:?} is correct. The reload ended as {end:?}: (activated, \
+                 rung, staged) = {state:?}, holds {holds:?}, closed at {closed_at:?}, ended \
+                 at {ended_at:?}, ready at {ready_at:?}"
+            ));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+}
+
 /// The shipped app, gameplay activated, ready to be told to reload its world.
 pub(crate) fn a_running_shipped_session() -> bevy::prelude::App {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);

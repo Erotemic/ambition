@@ -1943,7 +1943,33 @@ Poisons: the reset not registered (the three arms above); the record runs in
     on each frame that the route waits, and releases the holds of the gates
     only on the frame where each gate says `Admit` and no other hold is on the
     route. `answer_the_publication_gate` (content reload) gets the same rule
-    through the router; its measurement is not done.
+    through the router.
+  - **The lease breaker beside that gate, measured 2026-10-05**
+    (`an_edit_reaches_the_shipped_game::a_reload_whose_boundary_closes_while_it_waits_is_cancelled_whole`,
+    the shipped app, each owner removed in turn). Its witnesses in
+    `reload_tests.rs` write `RouteActivated` by hand, with no router and no
+    gate, so they say nothing about the composed host. There: a boundary that
+    is closed on a frame that the route is ready (a foreign timeline or a
+    recorded divergence, for one frame or to the end) is cancelled whole on
+    the next frame by the breaker, and by the gate alone with the breaker
+    removed: the same state (not activated, the old generation, nothing
+    staged, the two holds of the transaction released). With the two removed
+    each arm publishes, a recorded divergence too. The breaker is the one
+    owner of the frames before the route is ready (a slow preparation): closed
+    after the adoption and open again before the ready frame, the gate does
+    not see it and the reload publishes; closed to the end, the gate cancels
+    at the ready frame, 6 frames later in the fixture. So
+    `break_the_publication_lease_when_the_boundary_closes` stays: it is the
+    transaction-lifetime lease of the `Q118` ruling, and the gate is the
+    question at the activation. A boundary that closes and opens before the
+    adoption is seen by neither, and nothing is owed then. One prediction
+    missed: that a boundary closed for one frame at the adoption publishes with
+    the breaker removed. The route is ready on the next frame and the gate
+    sees it. Not measured: whether a recorded divergence can become healthy
+    again inside a preparation (a lifecycle commit starts a new timeline), and
+    the frame interval after the breaker that
+    `a_boundary_that_closes_after_the_breaker_still_publishes` records in a
+    fixture with no router.
   - Witnesses: `an_admit_is_consumed_only_by_the_activation` (shell lib; four
     of its arms were red before the router change, and its control is a gate
     that stays `Admit`), arm 5 of

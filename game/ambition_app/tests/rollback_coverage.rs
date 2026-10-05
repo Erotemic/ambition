@@ -1982,6 +1982,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the character-select screen's per-seat choices. All three readers are the          screen itself — present it, drive it, and hand off — and what the MATCH          reads is the `MatchParticipantRoster` it publishes, which is a different          resource with its own owner. Frontend state, decided before a session          exists. ⚠ read to its readers rather than waived by category: this repo          has been bitten repeatedly around rosters and seats, so \"it is only the          menu\" is a claim that has to be checked",
     ),
     (
+        "ambition_platformer2d_actor_monolith::items::starting_bag::StartingBag",
+        "the bag that this process began with: a copy of the composition's          `OwnedItems`, inserted once at `Startup` by `record_the_starting_bag` and          never written again (no `ResMut` of it exists; a test stands in another          with `StartingBag::of`). Its two readers are the session activation          (`start_the_bag_again_on_activation`, before the session world is live)          and a New Game's acceptance (`resume_at_checkpoint_on_reset`), which reads          it to pin the bag. A rewind cannot cross `Startup`, so every frame of the          window holds the same value",
+    ),
+    (
         "ambition_demo_smash::select::SmashRoster",
         "WHICH fighters the character-select grid can offer in this composition.          Assembled once in `Startup` from the catalog — the demo's own four plus          every row tagged `smash` — and never written again; the only mutable          reference in the workspace is that one assembler. Composition identity,          decided before any session exists, and the MATCH reads the          `MatchParticipantRoster` this eventually produces rather than this",
     ),

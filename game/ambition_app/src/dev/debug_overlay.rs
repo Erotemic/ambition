@@ -306,23 +306,24 @@ mod two_live_rooms_tests {
     use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance};
     use ambition_platformer2d::world::rooms::{LiveRoomDefinition, RoomSet};
 
-    /// The labels that the overlay drew on the last frame, and how many of
-    /// them the renderer left. The renderer drains them in the same frame, so
-    /// one probe reads them between the two and one after the renderer.
+    /// Whether the overlay drew the player's label on the last frame, and how
+    /// many labels the renderer left. The renderer drains them in the same
+    /// frame, so one probe reads them between the two and one after the
+    /// renderer. It holds no collection, so it is not a per-attempt resource.
     #[derive(Resource, Default)]
-    struct DrawnLabels(Vec<String>, usize);
+    struct DrawnLabels(bool, usize);
 
     fn record_drawn_labels(labels: Res<super::DebugOverlayLabels>, mut drawn: ResMut<DrawnLabels>) {
-        drawn.0 = labels.0.iter().map(|label| label.text.clone()).collect();
+        drawn.0 = labels.0.iter().any(|label| label.text == "player");
     }
 
     fn record_undrawn_labels(labels: Res<super::DebugOverlayLabels>, mut drawn: ResMut<DrawnLabels>) {
         drawn.1 = labels.0.len();
     }
 
-    /// The labels the overlay drew, how many the renderer did not draw, and
-    /// the developer HUD's text.
-    fn shown(app: &mut App) -> (Vec<String>, usize, String) {
+    /// Whether the overlay drew the player's label, how many labels the
+    /// renderer did not draw, and the developer HUD's text.
+    fn shown(app: &mut App) -> (bool, usize, String) {
         app.update();
         let hud = app
             .world_mut()
@@ -332,7 +333,7 @@ mod two_live_rooms_tests {
             .0
             .clone();
         let drawn = app.world().resource::<DrawnLabels>();
-        (drawn.0.clone(), drawn.1, hud)
+        (drawn.0, drawn.1, hud)
     }
 
     /// OW1: with two live rooms, the developer overlay and the developer HUD
@@ -373,8 +374,8 @@ mod two_live_rooms_tests {
             .gameplay
             .debug_hud_visible = true;
 
-        let (labels, undrawn, hud) = shown(&mut app);
-        assert!(labels.iter().any(|label| label == "player"), "control: one live room: {labels:?}");
+        let (player_label, undrawn, hud) = shown(&mut app);
+        assert!(player_label, "control: one live room: the overlay drew no player label");
         assert_eq!(undrawn, 0, "control: one live room: the renderer drew every label");
         let (definition, geometry) = {
             let world = app.world_mut();
@@ -417,8 +418,8 @@ mod two_live_rooms_tests {
             .expect("one primary player, whose bundle holds the primary body");
         app.world_mut().entity_mut(primary).insert(InRoomInstance(second_room));
 
-        let (labels, undrawn, hud) = shown(&mut app);
-        assert!(labels.iter().any(|label| label == "player"), "two live rooms: {labels:?}");
+        let (player_label, undrawn, hud) = shown(&mut app);
+        assert!(player_label, "two live rooms: the overlay drew no player label");
         assert_eq!(undrawn, 0, "two live rooms: the renderer did not draw the labels");
         assert!(
             hud.starts_with("the second live room  ")

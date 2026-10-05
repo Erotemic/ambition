@@ -132,6 +132,7 @@ stays the answer to (a)/(b)/(c). Measured in the shipped composition
 
 Filed 2026-10-04. Blocks nothing: the engine reads the default as
 `OnRoomReload` today and serves an authored `Never` (open-world "Regrowth/restock").
+**Default in force until you rule:** (a), the current behaviour.
 
 `HazardRespawn`'s documented default is `Never` ("never respawn inside the
 current run/session"), but until 2026-10-04 no pickup kept any record once
@@ -161,7 +162,8 @@ Owner: the regrowth/restock row in
 ## Q94 — what residency-memory limit should the runtime target?
 
 Needs a maintainer/hardware/product value. The residency mechanism can enforce a
-budget once the budget exists. Report source, decoded CPU, prepared simulation
+budget once the budget exists. **Default in force until you rule:** no budget
+is enforced (no value is guessed). Report source, decoded CPU, prepared simulation
 content and device residency separately. A8 instance isolation and A9 dependency
 closure do not supply a hardware budget.
 
@@ -213,7 +215,8 @@ too. A local (sync-test) crossing holds nothing.
 
 Owner: netcode ([`netcode.md`](engine/netcode.md)) and online play (A4 in
 [`multiplayer.md`](game/multiplayer.md)). No queue row waits for this: the
-crossing works, and the question is its cost.
+crossing works, and the question is its cost. **Default in force until you
+rule:** (a), the current behaviour.
 
 * **(a) Keep it** (current). A door between rooms is a pause of about half a
   second for each online player. No new machinery.
@@ -281,6 +284,18 @@ on one frozen world, each peer knows that handle 0 said `Prepared` and handle
 handle. Before the rule (the poison), Alice's peer committed alone into a
 session that never started, as in (1) above. So outcomes (1) and (2) are now
 outcome (3) with a report. What a `Failed` does next is still the question.
+
+**Default in force until you rule (2026-10-05):** a `Failed` ends the
+operation on each peer, at the frame of the input that says it, and each
+peer simulates again in agreement. A door a peer could not prepare does not
+open (a press tries again), and a checkpoint restore is `Cancelled`. This is
+what one machine does with a failed respawn. It is reversible: one system
+(`end_an_operation_a_peer_could_not_prepare`). Measured before: both peers
+frozen with no end. The choices below remain yours:
+
+* **(a) End the operation on each peer** (the default above).
+* **(b) Retry** behind a new freeze until each peer prepares, with a limit.
+* **(c) End the session** and report the peer that failed.
 
 Owner: netcode ([`netcode.md`](engine/netcode.md)) and online play (A4 in
 [`multiplayer.md`](game/multiplayer.md)). No queue row waits for this; no

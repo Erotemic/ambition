@@ -871,6 +871,11 @@ pub fn begin_room_transition_load_system(
             return;
         };
         let superseded = state.active.take().map(|active| active.barrier.load_id);
+        // A new attempt: the last one's failure is no longer the fact. A peer
+        // that kept it would say `Failed` of the new attempt at once.
+        if state.last_failure.as_ref() == Some(intent) {
+            state.last_failure = None;
+        }
         let sequence = state.mint_sequence();
         let source_room = source.index();
         let source_room_id = room_set

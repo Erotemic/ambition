@@ -980,36 +980,45 @@ fn bobs_machine_cannot_prepare(mut state: ResMut<LoadState>) {
     }
 }
 
-/// What each peer said of the crossing, on each peer, after the walk.
+/// What each peer did with the crossing, on each peer, after the walk.
 #[derive(Debug, PartialEq)]
-struct HeldCrossing {
+struct CrossingOutcome {
     /// The generation of each peer's session.
     generations: [u32; 2],
-    /// On each peer: (what handle 0 said, what handle 1 said) of the
-    /// crossing recorded on [`RECORDED_ON`], from confirmed inputs.
-    said: [(ambition_platformer2d::rollback::PreparationVerdict, ambition_platformer2d::rollback::PreparationVerdict); 2],
-    /// Each peer's world is at a frozen frame, and its confirmed frame too.
-    frozen: [bool; 2],
+    /// Each peer still has the crossing waiting.
+    waiting: [bool; 2],
+    /// Each peer simulated in the last 30 updates.
+    simulating: [bool; 2],
+    /// The room Alice is in, on each peer.
+    alice_in: [String; 2],
 }
 
-/// A PEER COMMITS ONLY WHEN EACH PEER SAID IT PREPARED THE OPERATION (Q156).
+/// A PEER COMMITS ONLY WHEN EACH PEER SAID IT PREPARED THE OPERATION, AND A
+/// PEER THAT COULD NOT ENDS IT ON EACH PEER (Q156).
 ///
 /// Alice opens the door on frame 30, and each peer records the crossing.
 /// Alice's machine prepares the hub. Bob's machine cannot: each transaction
 /// it opens fails. Each peer says what it has in its input.
 ///
-/// - Neither peer commits. Before the rule, Alice's peer committed alone and
-///   started its next session, and Bob's peer stayed in the old one: neither
-///   session ran again, and nothing said why.
-/// - Each peer knows, from confirmed inputs, that Alice's machine prepared it
-///   and Bob's machine failed. What the session does then is Q156.
+/// - Neither peer commits. Before the barrier, Alice's peer committed alone
+///   and started its next session, and Bob's peer stayed in the old one:
+///   neither session ran again, and nothing said why.
+/// - The crossing ends on each peer, at the frame whose input says `Failed`,
+///   and each peer simulates again, with Alice still in her room. The peers
+///   agree at each confirmed frame (`rollback_health`), so each ended it on
+///   the same frame: ended at two frames, the simulation would start again
+///   on two frames and the checksums would differ. Alice presses the door
+///   each 6 frames, so the crossing is recorded again, and ends again, many
+///   times in the run. That is the default in force until Q156 is ruled: a
+///   failed preparation ends the operation, as a failed respawn ends on one
+///   machine. Measured before: both peers stayed frozen with no end.
 /// - The control is in the same run: Alice's peer said `Prepared`, so its own
 ///   plan was authorized, and only the other peer's verdict held it.
 ///   `a_door_under_a_peer_session_commits_on_each_peer_and_so_does_the_next`
 ///   is the run where each machine prepares and each peer commits.
 #[test]
 fn a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare() {
-    use ambition_platformer2d::rollback::{PeerVerdicts, PreparationVerdict::*};
+
     let (a, b) = ("127.0.0.1:7021".parse().unwrap(), "127.0.0.1:7022".parse().unwrap());
     let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
     let (mut alice, _) = peer_prepared_by(ROOM, 0, (1, b), to_bob, Poison::None, each_player_on_the_hub_door);
@@ -1030,31 +1039,44 @@ fn a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare() {
             sim.app_mut().update();
         }
     }
-    let c = RECORDED_ON + ambition_platformer2d::rollback::PEER_COMMIT_FREEZE_DELAY;
-    let seen = |sim: &Platformer2dSimHarness| {
-        let verdicts = sim.world().resource::<PeerVerdicts>();
-        let frame = sim.world().resource::<RollbackFrameCount>().0;
+    let ticks_before = [sim_tick(&alice), sim_tick(&bob)];
+    for _ in 0..30 {
+        for (index, sim) in [&mut alice, &mut bob].into_iter().enumerate() {
+            let next = sim.world().resource::<RollbackFrameCount>().0 + 1;
+            let input = if index == 0 { opens_the_door(next) } else { changes_and_stands(next) };
+            sim.drive_seat(index as u8, input);
+            sim.app_mut().update();
+        }
+    }
+    let seen = |sim: &mut Platformer2dSimHarness, ticks_before: u64| {
         (
             generation(sim.world()),
-            (verdicts.said(0, RECORDED_ON), verdicts.said(1, RECORDED_ON)),
-            frame >= c && confirmed(sim) >= c && pending_recorded_on(sim) == Some(RECORDED_ON),
+            pending_recorded_on(sim) == Some(RECORDED_ON),
+            sim_tick(sim) > ticks_before,
+            sim.observation().active_room,
         )
     };
-    let (alices, bobs) = (seen(&alice), seen(&bob));
+    let (alices, bobs) = (seen(&mut alice, ticks_before[0]), seen(&mut bob, ticks_before[1]));
     assert_eq!(
         (&alice.rollback_health(), &bob.rollback_health()),
         (&Ok(()), &Ok(())),
         "the peers' health"
     );
     assert_eq!(
-        HeldCrossing {
+        CrossingOutcome {
             generations: [alices.0, bobs.0],
-            said: [alices.1, bobs.1],
-            frozen: [alices.2, bobs.2],
+            waiting: [alices.1, bobs.1],
+            simulating: [alices.2, bobs.2],
+            alice_in: [alices.3, bobs.3],
         },
-        HeldCrossing { generations: [0, 0], said: [(Prepared, Failed); 2], frozen: [true; 2] },
-        "neither peer commits; each knows that Alice's machine prepared the \
-         crossing and Bob's machine could not"
+        CrossingOutcome {
+            generations: [0, 0],
+            waiting: [false; 2],
+            simulating: [true; 2],
+            alice_in: [ROOM.to_string(), ROOM.to_string()],
+        },
+        "neither peer commits, and the crossing ends on each peer, which then \
+         simulates again"
     );
 }
 

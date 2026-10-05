@@ -127,8 +127,8 @@ N2 was the only instrument for two open questions:
   "Remote peers" row of
   [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md).
 
-**A preparation that fails on one peer has no rule yet (measured 2026-10-04,
-Q156).** Each peer prepares the room of an operation on its own machine, in
+**A preparation that fails on one peer had no rule (measured 2026-10-04,
+Q156; the default below now ends it).** Each peer prepares the room of an operation on its own machine, in
 `Update`, and commits alone. When one machine's preparation fails, the other
 commits and waits in the handshake of a session that never starts, and the
 machine that failed stays held. No error is reported. When each machine fails,
@@ -153,8 +153,20 @@ price is one more link delay inside the freeze, and 8 more bytes for each
 handle and frame. Witness:
 `two_peers::a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare`
 (poison: the commit with no verdict check commits alone, generation 1 on one
-peer and 0 on the other). The policy (what a "failed" does to a door and to a
-respawn) is the maintainer's, in Q156.
+peer and 0 on the other).
+
+**A `Failed` ends the operation on each peer (2026-10-05, the default in force
+until Q156 is ruled).** `end_an_operation_a_peer_could_not_prepare` (in
+`GgrsSchedule`, before the gameplay root) retracts the waiting operation when
+a handle's input of the frame says `Failed` for it. It reads the frame's
+inputs, not the confirmed record: each peer reads the same input for a frame
+(a wrong prediction is corrected by a rollback), so each peer ends the
+operation on the same frame and simulates again from it. Ended from the
+confirmed record, which arrives at a different frame on each peer, the
+peers desynced from frame 69 (the poison of the witness). The rest follows
+from the slot: the transaction is cancelled, and a checkpoint restore
+publishes `Cancelled`. A door a peer could not prepare does not open; a new
+attempt clears the last failure, so a press of the door tries again.
 
 ⚠ The verdict made two equal machines commit at ONE frame (measured: 36 and
 36), because each waits one link delay for the other's verdict. The freeze is

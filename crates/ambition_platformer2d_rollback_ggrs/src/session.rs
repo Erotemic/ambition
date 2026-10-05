@@ -960,6 +960,14 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 .in_set(ambition_platformer2d_core::ConfirmedFrameBoundaryPublished)
                 .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
         )
+        // A peer that could not prepare the operation ends it on each peer,
+        // before the freeze reads the slot on this frame.
+        .add_systems(
+            GgrsSchedule,
+            crate::lifecycle_commit::end_an_operation_a_peer_could_not_prepare
+                .after(record_confirmed_verdicts)
+                .before(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot),
+        )
         // THE FREEZE, declared here and nowhere else. A lifecycle operation
         // that waits under a peer session holds the whole gameplay simulation,
         // the tick included. See `a_peer_commit_holds_the_simulation`.

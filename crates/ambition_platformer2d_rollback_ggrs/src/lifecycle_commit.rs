@@ -148,9 +148,8 @@ fn operation_to_commit(
 /// started its next session alone, and the other peer stayed in the old one,
 /// so neither session ran again.
 ///
-/// ⛔ A FAILED PREPARATION HOLDS THE BARRIER, and it is reported. What the
-/// session does then (abandon the operation on each peer, retry, end the
-/// session) is Q156 in `docs/planning/awaiting-maintainer-decision.md`.
+/// A failed preparation does not commit, and it is reported. The operation
+/// then ends on each peer ([`end_an_operation_a_peer_could_not_prepare`]).
 fn each_peer_prepared(world: &World, intent: &PendingIntent) -> bool {
     let Some(verdicts) = world.get_resource::<crate::PeerVerdicts>() else {
         return false;
@@ -159,12 +158,59 @@ fn each_peer_prepared(world: &World, intent: &PendingIntent) -> bool {
     if !failed.is_empty() {
         bevy::log::error_once!(
             "the peer(s) of handle(s) {failed:?} could not prepare the lifecycle \
-             operation recorded on frame {}, so no peer commits it and the \
-             simulation stays held (Q156)",
+             operation recorded on frame {}, so no peer commits it (Q156)",
             intent.frame
         );
     }
     verdicts.each_prepared(intent.frame)
+}
+
+/// A PEER THAT COULD NOT PREPARE THE OPERATION ENDS IT ON EACH PEER.
+///
+/// Q156 is not ruled; this is the default in force until it is
+/// (`awaiting-maintainer-decision.md`). A failed preparation ends the
+/// operation, as a failed respawn ends on one machine, and a door that a
+/// peer did not prepare does not open. Measured before: each peer stayed
+/// frozen with no end.
+///
+/// When a handle's input of THIS frame says `Failed` for the operation that
+/// waits, the operation leaves the slot on this frame. It reads the frame's
+/// inputs, not the confirmed record: each peer reads the same input for the
+/// frame (a prediction is corrected by a rollback), so each peer ends the
+/// operation on the same frame, and the simulation runs again from it. A
+/// confirmed record would arrive at a different frame on each peer, and the
+/// simulation would start again on two different frames. What follows from
+/// the slot is the same as for any intent that leaves it: the transaction is
+/// cancelled, and a checkpoint restore publishes `Cancelled`.
+pub fn end_an_operation_a_peer_could_not_prepare(
+    ownership: Option<Res<RollbackSessionOwnership>>,
+    inputs: Option<Res<bevy_ggrs::PlayerInputs<crate::AmbitionGgrsConfig>>>,
+    pending: Option<ResMut<PendingLifecycleCommit>>,
+) {
+    use crate::peer_input::PreparationVerdict;
+    if !matches!(ownership.as_deref(), Some(RollbackSessionOwnership::Peer)) {
+        return;
+    }
+    let (Some(inputs), Some(mut pending)) = (inputs, pending) else {
+        return;
+    };
+    let Some(recorded_on) = pending.peek().map(|intent| intent.frame) else {
+        return;
+    };
+    let failed: Vec<usize> = inputs
+        .iter()
+        .enumerate()
+        .filter(|(_, (input, _))| {
+            input.verdict.operation == recorded_on && input.verdict.said == PreparationVerdict::Failed
+        })
+        .map(|(handle, _)| handle)
+        .collect();
+    if !failed.is_empty() && pending.retract_recorded_on(recorded_on) {
+        bevy::log::warn!(
+            "the peer(s) of handle(s) {failed:?} could not prepare the lifecycle \
+             operation recorded on frame {recorded_on}, so it ends on each peer (Q156)"
+        );
+    }
 }
 
 /// Decide what this peer says, in its next input, of the operation it waits

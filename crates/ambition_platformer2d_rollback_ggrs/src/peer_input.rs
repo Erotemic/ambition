@@ -31,8 +31,10 @@ pub enum PreparationVerdict {
     NotYet,
     /// This peer's plan for the operation is authorized, and it can commit.
     Prepared,
-    /// This peer's preparation of the operation failed. What the session does
-    /// then is a maintainer decision (Q156); the barrier holds.
+    /// This peer's preparation of the operation failed. No peer commits it,
+    /// and it ends on each peer at the frame of this input
+    /// (`lifecycle_commit::end_an_operation_a_peer_could_not_prepare`; the
+    /// default in force until Q156 is ruled).
     Failed,
 }
 

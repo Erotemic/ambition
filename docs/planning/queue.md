@@ -352,6 +352,34 @@ Ambition yet (Q153).
   outside Alice's rewind, so reverting the bag alone loses his purchase with
   no refund. Solve the shared-bag customers first; this is not a general
   inventory-event framework.
+  - **Built 2026-10-05 for the one customer production has.** Read first:
+    every road that takes from the shared bag acts for the primary body
+    (a shop buy or sale, an item use from the menu, and the throw of an item
+    the menu equipped from the bag), and the restore's subject is always the
+    primary body. So rewinding those spends is correct, with one exception.
+    Alice throws a menu-equipped quantity into Bob's live room. The throw
+    spends the quantity and mints an object in his room. On her death, the
+    checkpoint's bag gives the quantity back while the object stays.
+    Measured: 2 javelins after the death, where there was 1.
+  - The spend is recorded where it happens:
+    `ambition_held_items::BagSpendsSinceCheckpoint` (item, and the object the
+    quantity became). Its owner is the OBJECT, not the participants in the
+    room of the throw. The acceptance keeps the spend of each object the
+    restore keeps (lying in a spared room, or held by a body there), and the
+    record is forgotten at a commit, a restore and a teardown. Schema 313 ->
+    314.
+  - Witness:
+    `a_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_room`
+    (red at 2 before). Control 1: the same throw in Alice's own room is
+    undone (1, 1). Control 2: thrown into Bob's room, then carried out in
+    Alice's hand, is also undone (1, 1); a room-owned spend gives 0 there.
+  - Poisons: no record (red at 2); keep every spend (control 1 red, 0);
+    keep every held object (control 2 red, 0).
+  - Not built: the purchase case has no production subject (the shop pays
+    from the primary purse only, and the primary is the one who dies). The
+    grants record (`RewardGrantsSinceCheckpoint`) and the spends record stay
+    two records. Join them if a third kind of mutation of the shared bag
+    gets a road that can survive the dying participant's rewind.
 
 **The items go with the coins (2026-10-04).** An item a kept reward gave was
 lost: the restore put the checkpoint's bag back whole while the reward stayed

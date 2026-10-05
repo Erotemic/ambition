@@ -500,27 +500,38 @@ impl RewardGrantsSinceCheckpoint {
     }
 }
 
-/// A committed checkpoint makes every grant since the last one part of the
-/// baseline.
-pub fn forget_reward_grants_at_checkpoint(
+/// A committed checkpoint makes every grant and every bag spend since the
+/// last one part of the baseline.
+pub fn forget_bag_records_at_checkpoint(
     mut commits: MessageReader<CheckpointCommitted>,
     mut grants: ResMut<RewardGrantsSinceCheckpoint>,
+    spends: Option<ResMut<ambition_held_items::BagSpendsSinceCheckpoint>>,
 ) {
     // Drained unconditionally, like every other reader of this channel.
     if commits.read().count() > 0 {
         grants.forget_all();
+        if let Some(mut spends) = spends {
+            spends.forget_all();
+        }
     }
 }
 
 /// A checkpoint restore and a fresh run put the bag and the primary wallet
-/// back, so no grant since the checkpoint is left to take back from them.
-/// (checkpoint reducer, in `CheckpointDomainApply`)
-pub fn forget_reward_grants_on_restore(
+/// back, so no grant or spend since the checkpoint is left to take back from
+/// them. (checkpoint reducer, in `CheckpointDomainApply`)
+pub fn forget_bag_records_on_restore(
     inputs: Option<Res<ItemCheckpointRestoreInputs>>,
     grants: Option<ResMut<RewardGrantsSinceCheckpoint>>,
+    spends: Option<ResMut<ambition_held_items::BagSpendsSinceCheckpoint>>,
 ) {
-    if let (Some(_), Some(mut grants)) = (inputs, grants) {
+    if inputs.is_none() {
+        return;
+    }
+    if let Some(mut grants) = grants {
         grants.forget_all();
+    }
+    if let Some(mut spends) = spends {
+        spends.forget_all();
     }
 }
 
@@ -644,7 +655,8 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 .after(ambition_boss_encounter::BossDefeatRetraction),
         )
         .init_resource::<RewardGrantsSinceCheckpoint>()
-        .add_systems(sim, forget_reward_grants_at_checkpoint)
+        .init_resource::<ambition_held_items::BagSpendsSinceCheckpoint>()
+        .add_systems(sim, forget_bag_records_at_checkpoint)
         // ⭐ INTO THE COMMIT EXECUTOR'S SCHEDULE, not the simulation. Custody
         // materializes and despawns; doing that on a speculative frame for an
         // unconfirmed request is what the confirmed-frame lifecycle exists to
@@ -656,7 +668,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 restore_owned_items_to_checkpoint,
                 super::restore_custody_to_checkpoint,
                 start_the_item_domain_fresh,
-                forget_reward_grants_on_restore,
+                forget_bag_records_on_restore,
             )
                 .chain(),
         );
@@ -840,6 +852,14 @@ where
         "resource.reward_grants_since_checkpoint",
         "the grants of the pickups collected and the chests opened since the last checkpoint: a retracted boss defeat takes back a mint's and its reward chest's, and a death keeps a placed source's while one of its owners is spared",
         RewardGrantsSinceCheckpoint::checksum,
+    );
+    // A throw writes it on a tick, so a rewind across that tick takes the
+    // spend back out of the record with the quantity back into the bag.
+    registrar.rollback_resource_clone_checksum::<ambition_held_items::BagSpendsSinceCheckpoint>(
+        OWNER,
+        "resource.bag_spends_since_checkpoint",
+        "the quantities of the shared bag that throws made into objects since the last checkpoint: a death keeps the spend of each object it keeps",
+        ambition_held_items::BagSpendsSinceCheckpoint::checksum,
     );
 }
 

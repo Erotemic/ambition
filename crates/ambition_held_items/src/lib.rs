@@ -1356,6 +1356,62 @@ pub enum Release {
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReleasedAs(pub Release);
 
+/// One quantity of the shared bag that a throw made into an object.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BagSpend {
+    pub item: ambition_items::Item,
+    /// The object the quantity became. The spend stands while this object
+    /// stands: a restore that keeps the object keeps the spend, and a
+    /// restore that takes the object back puts the quantity back.
+    pub object: ambition_platformer2d_shared_tangle::sim_id::SimId,
+}
+
+/// The quantities of the shared bag that throws made into objects since the
+/// last committed checkpoint (review 2026-10-05, P3).
+///
+/// A checkpoint restore puts back the checkpoint's bag. The object of a throw
+/// can stay after that restore, in a live room that another participant
+/// holds, and then the quantity exists twice. So the spend is recorded where
+/// it happens, with the object that owns it, and the restore keeps the spend
+/// of each object it keeps.
+///
+/// Rollback state with a real value: a throw writes it on a tick.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct BagSpendsSinceCheckpoint {
+    spends: Vec<BagSpend>,
+}
+
+impl BagSpendsSinceCheckpoint {
+    pub fn record(&mut self, spend: BagSpend) {
+        self.spends.push(spend);
+    }
+
+    pub fn spends(&self) -> &[BagSpend] {
+        &self.spends
+    }
+
+    /// Forget every spend: a checkpoint commit makes them part of the
+    /// baseline, and a checkpoint restore or a fresh run puts the bag back.
+    pub fn forget_all(&mut self) {
+        if !self.spends.is_empty() {
+            self.spends.clear();
+        }
+    }
+
+    /// Entity-free value projection: two peers that disagree about what a
+    /// restore keeps spent have diverged.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.spends.len() as u64);
+        for spend in &self.spends {
+            put_u64(&mut bytes, spend.item.index() as u64);
+            put_str(&mut bytes, spend.object.as_str());
+        }
+        checksum_bytes(&bytes)
+    }
+}
+
 /// Let go of the held item: restore the stashed action set, detach `HeldItem`,
 /// and put the item back into the world. Fires on `Grab` (a [`Release::Drop`],
 /// where the body stands), on `Shield + Attack` for any item, or on a plain
@@ -1409,6 +1465,8 @@ pub fn throw_held_item_system(
     )>,
     mut owned: Option<ResMut<ambition_items::OwnedItems>>,
     items: ambition_items::ItemCatalogRead,
+    // Each quantity a mint spends, with the object it became.
+    mut spends: Option<ResMut<BagSpendsSinceCheckpoint>>,
 ) {
     // The session that owns an item this system mints. With no session there
     // is no driven body, so there is nothing to release.
@@ -1546,7 +1604,15 @@ pub fn throw_held_item_system(
             owned.as_deref_mut(),
             items.get().item_by_held_item_id(spec.id.as_str()),
         ) {
-            owned.take(item, 1);
+            let spent = owned.take(item, 1);
+            if let (true, Some(spends), Some((object, _))) =
+                (spent > 0, spends.as_deref_mut(), minted.as_ref())
+            {
+                spends.record(BagSpend {
+                    item,
+                    object: object.clone(),
+                });
+            }
         }
         let mut thrown = commands.spawn_room_in_session(
             scope,

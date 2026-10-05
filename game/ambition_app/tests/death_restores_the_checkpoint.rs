@@ -1657,6 +1657,100 @@ fn a_death_takes_back_what_was_put_down_in_another_players_room() {
     );
 }
 
+/// The javelins after Alice's death, counted in the bag and in the world, and
+/// the same count just before her death. Alice is in the hub and Bob holds
+/// `switch_lab`. A javelin is in the bag at the checkpoint. Alice equips it
+/// from the bag and throws it in `throw_in`, which mints the object and spends
+/// the quantity, then she goes back to the hub and dies there. When
+/// `carried_back`, she picks the object up again before she goes back, so it
+/// is in her hand when she dies.
+fn javelins_after_a_death_with_the_throw_in(throw_in: &str, carried_back: bool) -> (u32, u32) {
+    use ambition_platformer2d::item::ItemGrantRequested;
+    use ambition_platformer2d::item::OwnedItems;
+    use bevy::ecs::system::RunSystemOnce;
+
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
+    assert_eq!(sim.observation().active_room, ROOM, "precondition: Alice is in the hub");
+    sim.world_mut().write_message(ItemGrantRequested {
+        item: MINTED_ITEM,
+        count: 1,
+    });
+    sim.step_n(base(), 4);
+    commit_a_checkpoint(&mut sim);
+    let javelins = |sim: &mut Platformer2dSimHarness| {
+        sim.world().resource::<OwnedItems>().count(MINTED_ITEM) + dynamic_occurrences(sim).len() as u32
+    };
+    assert_eq!(javelins(&mut sim), 1, "precondition: the checkpoint has one javelin, in the bag");
+
+    if throw_in != ROOM {
+        assert_eq!(crate::common::walk_through_the_door_to(&mut sim, throw_in), throw_in);
+        sim.step_n(base(), 10);
+    }
+    sim.world_mut()
+        .run_system_once(equip_the_minted_item)
+        .expect("the equip verb runs");
+    sim.step(AgentAction {
+        attack: true,
+        ..base()
+    });
+    sim.step_n(base(), 120);
+    assert_eq!(
+        sim.world().resource::<OwnedItems>().count(MINTED_ITEM),
+        0,
+        "precondition: the throw spent the quantity"
+    );
+    let objects = dynamic_occurrences(&mut sim);
+    assert_eq!(objects.len(), 1, "precondition: the throw minted one object");
+    if carried_back {
+        let at = resting_place(&mut sim, &objects[0]);
+        pick_up(&mut sim, at, &objects[0]);
+    }
+    if throw_in != ROOM {
+        assert_eq!(crate::common::walk_through_the_door_to(&mut sim, ROOM), ROOM);
+        sim.step_n(base(), 10);
+    }
+    let before = javelins(&mut sim);
+    die(&mut sim);
+    sim.step_n(base(), 90);
+    (javelins(&mut sim), before)
+}
+
+/// What Alice threw into Bob's live room after the checkpoint stays there,
+/// and her death does not also put it back in the bag. The throw turned a
+/// quantity of the shared bag into an object in his room, and his room is
+/// not built again, so a restore of the checkpoint's bag makes the javelin
+/// twice (review 2026-10-05, P3: a mutation of the shared bag needs its
+/// owners and its sign). The control is the same throw in Alice's own room,
+/// which her death builds again: the object goes and the quantity comes back.
+///
+/// The spend belongs to the object, not to the room it was made in. If Alice
+/// takes the object back out of Bob's room and dies with it in her hand, her
+/// death takes the object back (it was minted after the checkpoint), so the
+/// quantity comes back too. A spend owned by the participants in the room of
+/// the throw would stay spent there, and the javelin would be gone.
+#[test]
+fn a_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_room() {
+    let (alone, alone_before) = javelins_after_a_death_with_the_throw_in(ROOM, false);
+    assert_eq!(
+        (alone, alone_before),
+        (1, 1),
+        "control: a throw in Alice's own room, undone by her death"
+    );
+    let (carried, carried_before) = javelins_after_a_death_with_the_throw_in("switch_lab", true);
+    assert_eq!(
+        (carried, carried_before),
+        (1, 1),
+        "a javelin thrown into Bob's room and carried out again in Alice's hand, after her death"
+    );
+    let (shared, before) = javelins_after_a_death_with_the_throw_in("switch_lab", false);
+    assert_eq!(before, 1, "precondition: one javelin, in Bob's room, before the death");
+    assert_eq!(
+        shared, 1,
+        "Alice's death put the javelin she threw into Bob's live room back in the \
+         bag, and the object stayed in his room"
+    );
+}
+
 /// The bag after a New Game in the room fixture, when the composition's
 /// starting bag is `starting` (the App's own when `None`), and the App's own
 /// starting bag.

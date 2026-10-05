@@ -84,6 +84,8 @@ pub struct SessionScopedResources<'w> {
     /// session's file is its baseline, so a retraction there must take back
     /// none of this session's.
     reward_grants: Option<ResMut<'w, crate::items::pickup::RewardGrantsSinceCheckpoint>>,
+    /// The bag spends since the last checkpoint, for the same reason.
+    bag_spends: Option<ResMut<'w, ambition_held_items::BagSpendsSinceCheckpoint>>,
     /// Quest progress; the next activation reloads it from the session save.
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Transient per-room bookkeeping (room-transition cooldown, etc.).
@@ -498,6 +500,7 @@ fn reset(resources: SessionScopedResources) {
         world_time_schedule,
         consumed_since_checkpoint,
         reward_grants,
+        bag_spends,
         mut quest_registry,
         mut sim_state,
         mut slot_interactions,
@@ -544,6 +547,9 @@ fn reset(resources: SessionScopedResources) {
     }
     if let Some(mut grants) = reward_grants {
         grants.forget_all();
+    }
+    if let Some(mut spends) = bag_spends {
+        spends.forget_all();
     }
     *quest_registry = QuestRegistry::default();
     *sim_state = RoomTransitionCooldown::default();

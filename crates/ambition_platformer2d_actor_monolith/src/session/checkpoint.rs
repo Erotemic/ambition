@@ -432,6 +432,22 @@ pub fn resume_at_checkpoint_on_reset(
         // The bag this composition begins with: what a New Game gives.
         Option<Res<crate::items::starting_bag::StartingBag>>,
     ),
+    // The quantities that throws made into objects since the checkpoint, the
+    // objects, and the rooms of the bodies that hold them: the restore keeps
+    // the spend of each object it keeps (review 2026-10-05, P3).
+    thrown: (
+        Option<Res<ambition_held_items::BagSpendsSinceCheckpoint>>,
+        Query<(
+            &ambition_platformer2d_shared_tangle::sim_id::SimId,
+            &ambition_held_items::ItemCustody,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        )>,
+        Query<(
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        )>,
+    ),
 ) {
     // ⭐ THE CHANNEL IS DRAINED EVERY FRAME AND THE REQUEST IS REMEMBERED, which
     // are two different things and used to be one. Draining alone meant a reset
@@ -649,6 +665,37 @@ pub fn resume_at_checkpoint_on_reset(
                 }
                 owned.adopt(bag);
                 owned.adopt_purse(purse);
+            }
+            // And without what each throw since the checkpoint spent, when
+            // the restore keeps its object: an object in a room the restore
+            // spares, lying there or held by a body there. The subject's room
+            // is never spared, so an object in the subject's hand is not kept.
+            // An object the restore takes back gives its quantity back.
+            let (spends, objects, holders) = &thrown;
+            if let Some(spends) = spends.as_ref() {
+                let spared_room = |stamp, root| {
+                    ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root)
+                        .is_some_and(|room| spared.contains(&room))
+                };
+                let kept = |object: &ambition_platformer2d_shared_tangle::sim_id::SimId| {
+                    objects.iter().any(|(id, custody, stamp, root)| {
+                        id == object
+                            && match *custody {
+                                ambition_held_items::ItemCustody::InWorld => spared_room(stamp, root),
+                                ambition_held_items::ItemCustody::Held { holder } => {
+                                    holders.get(holder).is_ok_and(|(stamp, root)| spared_room(stamp, root))
+                                }
+                            }
+                    })
+                };
+                let mut bag = owned.remembered().clone();
+                let mut taken = 0;
+                for spend in spends.spends().iter().filter(|spend| kept(&spend.object)) {
+                    taken += bag.take(spend.item, 1);
+                }
+                if taken > 0 {
+                    owned.adopt(bag);
+                }
             }
             crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                 minted: minted.clone(),

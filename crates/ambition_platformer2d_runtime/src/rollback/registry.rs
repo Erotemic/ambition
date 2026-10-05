@@ -1034,7 +1034,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// folds it. The admission pins the replay instead of announcing it, and its
 /// consequences run when the room's publication is accepted, so a cancelled
 /// restore changes nothing (review 2026-10-05, P1).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 313;
+/// ⛔⛤ 313 -> 314: `resource.bag_spends_since_checkpoint` is new: each
+/// quantity of the shared bag that a throw made into an object since the
+/// checkpoint, with that object. A death keeps the spend of an object it
+/// keeps, so a throw into another participant's live room is not undone
+/// twice (review 2026-10-05, P3).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 314;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

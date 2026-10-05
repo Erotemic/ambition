@@ -65,6 +65,12 @@ so a rebuild of that room builds the body again without its seat; a join road
 must give the seat's body a home that a rebuild does not replace, as
 possession does through custody.
 
+Measured 2026-10-05 on the world hot reload
+(`a_world_reload_moves_the_body_that_stays_out_of_the_new_solids`): a
+seat-driven body that was spawned while the game ran, and is not a placement,
+is removed with its room and is not built again, and the room stays live with
+no body in it.
+
 Owner: the join road row in
 [open-world runtime and residency](engine/open-world-runtime-and-residency.md).
 

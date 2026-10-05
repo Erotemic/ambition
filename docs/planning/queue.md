@@ -2331,12 +2331,22 @@ robot on the dog's head (a composite of the two sheet frames at the two
 bodies' scales, viewed; not a game capture). So the dog's row authors where it
 is petted, as an offset from the head.
 
-**Current failure:** the player fireball and the rider's hand are placed from
-boxes and constants. The named limits are in the plan.
+**Built 2026-10-05 (packet B):** the player's shot is born with its rear edge
+at the hand of the `shoot` row. The robot's art holds the orb in its near hand
+at knee height and draws the bolt leaving from there; the old muzzle was in
+front of its face. Born at (+3.0, +13.3) from the body centre; it was
+(+19.0, -9.6) (`a_fireball_leaves_the_hand.rs`, poisoned). The cost is
+measured in the same arm: the uncharged fireball first meets the floor 30
+ahead and not 126, spends its two bounces sooner, and reaches 292 from the
+body centre and not 419. That is
+[Q158](awaiting-maintainer-decision.md#q158--the-fireball-now-leaves-the-hand-at-knee-height-and-reaches-30-less-accept-retune-or-except).
+
+**Current failure:** the rider's hand is placed from a constant
+(`ambition_mount`, `HAND_OFFSET_NORM`). The named limits are in the plan.
 
 **Acceptance:** ✅ one landmark query, answered by the rig or the package; ✅
-the pet hand meets the petted body's authored contact point. Open: the
-fireball and the rider's hand read the query.
+the pet hand meets the petted body's authored contact point; ✅ the player's
+shot leaves the hand. Open: the rider's hand reads the query.
 
 ### RIG-IMPOSTOR-CONTAINMENT — a part-drawn body is drawn whole or refused
 

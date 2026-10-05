@@ -109,7 +109,7 @@ pub use ambition_boss_encounter::ecs::{
 };
 // ⛔ EXCEPT THIS ONE, which did not go: see `boss_bodies`.
 pub use boss_bodies::integrate_boss_bodies;
-pub use brain_effects::spawn_projectiles_from_brain_actions;
+pub use brain_effects::{clear_of_the_feet, spawn_projectiles_from_brain_actions};
 pub use breakables::update_ecs_breakables;
 pub use chests::open_ecs_chests;
 pub use damage::apply_feature_hit_events;

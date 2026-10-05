@@ -160,6 +160,15 @@ impl BodyLandmarks<'_, '_> {
         package_landmark(landmark, pose, &table, world_per_pixel, clocks)
     }
 
+    /// The hand `body` makes a gesture with, in its rig space: the hand
+    /// nearer the viewer, which is the hand a gesture row draws in view, else
+    /// the other hand. No package states which hand a gesture uses.
+    pub fn gesture_hand(&self, body: Entity, pose: LandmarkPose<'_>) -> Option<Vec2> {
+        [Landmark::HandNear, Landmark::HandFar]
+            .into_iter()
+            .find_map(|hand| self.in_rig_space(body, hand, pose))
+    }
+
     /// `landmark` of `body` in the world, for a body at `kin` whose unit DOWN
     /// is `down`. `kin` is the body's own kinematics, which the caller holds.
     pub fn in_world(

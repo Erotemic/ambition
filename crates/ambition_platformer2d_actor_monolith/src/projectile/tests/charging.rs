@@ -93,6 +93,48 @@ fn held_release_after_medium_threshold_fires_charged_fireball() {
     assert!(body.game.damage >= 2);
 }
 
+/// A shot is born with its rear edge at the hand that fires it: the hand, in
+/// the body's rig space, plus the shot's half extent along the aim.
+#[test]
+fn a_shot_is_born_with_its_rear_edge_at_the_firing_hand() {
+    use super::super::systems::player_projectile_hand_local_offset as born;
+    use ambition_platformer2d_core as ae;
+    let size = ae::Vec2::new(30.0, 48.0);
+    let half = ae::Vec2::new(12.0, 9.0);
+    // The hand: 9 behind the feet and 10 above them. The feet are 24 below
+    // the centre.
+    let hand = ae::Vec2::new(-9.0, -10.0);
+    let right = ae::Vec2::new(1.0, 0.0);
+    assert_eq!(born(hand, right, 1.0, size, half), ae::Vec2::new(-9.0 + 12.0, 24.0 - 10.0));
+    // A body that faces left mirrors its hand about its feet, and the aim is
+    // the aim: the shot is born on the other side.
+    let left = ae::Vec2::new(-1.0, 0.0);
+    assert_eq!(born(hand, left, -1.0, size, half), ae::Vec2::new(9.0 - 12.0, 24.0 - 10.0));
+    // Aimed up, the shot's lower edge is at the hand.
+    let up = ae::Vec2::new(0.0, -1.0);
+    assert_eq!(born(hand, up, 1.0, size, half), ae::Vec2::new(-9.0, 24.0 - 10.0 - 9.0));
+    // A larger shot is born farther along the aim, and its rear edge is still
+    // at the hand.
+    let big = half * 1.8;
+    assert_eq!(born(hand, right, 1.0, size, big).x - big.x, -9.0);
+}
+
+/// The shot is born at the hand of the rows the firing body is DRAWN from.
+/// This holds the row chain to the sprite picker's fallback rule.
+#[test]
+fn the_firing_rows_are_the_shoot_row_and_what_it_falls_back_to() {
+    use super::super::systems::SHOOT_CLIPS;
+    use ambition_sprite_sheet::character::anim::CharacterAnim;
+    let mut anim = CharacterAnim::Shoot;
+    for (index, row) in SHOOT_CLIPS.iter().enumerate() {
+        assert_eq!(CharacterAnim::from_name(row), Some(anim), "row {index} `{row}`");
+        match anim.base_pose() {
+            Some(next) => anim = next,
+            None => assert_eq!(index + 1, SHOOT_CLIPS.len(), "`{row}` is the last fallback"),
+        }
+    }
+}
+
 /// Fork D — the charge-projectile INPUT is BODY/ability-subject, not player-marker.
 /// A charge-capable body that is NOT the home avatar (no `PlayerEntity`, no
 /// `BodyAnimFacts` — the shape a possessed body driving the player's kit takes)

@@ -117,7 +117,7 @@ fn pet_the_dog(sim: &mut Platformer2dSimHarness) -> Pet {
 /// The failure of a checkout that did not publish `target`'s part flipbook.
 /// Published sprites are gitignored, and without the flipbook the build embeds
 /// no landmark table, so the pet falls back to the box mark.
-fn unpublished(target: &str) -> String {
+pub(crate) fn unpublished(target: &str) -> String {
     format!(
         "`{target}` publishes no part flipbook on this checkout, so this arm cannot run. \
          Publish it: `scripts/regen/sprites.sh --target {target}`, then build again."
@@ -127,7 +127,7 @@ fn unpublished(target: &str) -> String {
 /// Where the renderer draws `track` in the middle frame of the first row of
 /// `rows` that `target` has: sheet pixels from the feet, +x the way the art
 /// faces. The middle frame is the one the pet's mark is planned for.
-fn drawn_at_the_middle(target: &str, rows: &[&str], track: &str) -> Vec2 {
+pub(crate) fn drawn_at_the_middle(target: &str, rows: &[&str], track: &str) -> Vec2 {
     let flipbook = RiggedSpriteAsset::baked(target)
         .unwrap_or_else(|| panic!("{}", unpublished(target)));
     let (row, clip) = rows
@@ -146,7 +146,7 @@ fn drawn_at_the_middle(target: &str, rows: &[&str], track: &str) -> Vec2 {
 
 /// A feet-relative art point of a body, in the world: the art is mirrored
 /// about the feet for a body that faces left.
-fn art_point_in_world(body: &BodyKinematics, pixels: Vec2, world_per_pixel: f32) -> Vec2 {
+pub(crate) fn art_point_in_world(body: &BodyKinematics, pixels: Vec2, world_per_pixel: f32) -> Vec2 {
     let feet = body.pos + Vec2::new(0.0, body.size.y * 0.5);
     feet + Vec2::new(body.facing.signum() * pixels.x, pixels.y) * world_per_pixel
 }

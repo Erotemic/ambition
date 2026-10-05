@@ -223,6 +223,49 @@ session, and it follows the primary:
 Nothing is built for them. They need your answer only if a second player
 must have a prompt of their own.
 
+## Q158 — the fireball now leaves the hand at knee height and reaches 30% less: accept, retune, or except?
+
+Ruling Q41 says a projectile leaves an authored landmark and never a sprite
+bound. The player's shot was born off the front of the body's box, in front of
+the robot's face. The robot's `shoot` row holds the orb in its near hand at
+knee height and draws the bolt leaving from there. Since 2026-10-05 the shot
+is born with its rear edge at that hand (queue row `RIG-LANDMARKS`, packet B).
+
+The place moved from (+19.0, -9.6) to (+3.0, +13.3) from the body centre: 16
+back and 23 lower. Measured on the robot, grounded, one tap
+(`a_fireball_leaves_the_hand.rs`, the same arm on the old and the new place):
+
+| | first floor contact | life | travelled | reach from the body centre |
+| --- | --- | --- | --- | --- |
+| before | 126 ahead | 67 ticks | 400 | 419 |
+| after | 30 ahead | 50 ticks | 289 | 292 |
+
+The uncharged fireball arcs and has two bounces. Born lower, it spends them
+sooner: the reach is 30% less. A Hadouken flies level: its line of fire moved
+from 33.6 to 13 above the feet. Not measured: charged tiers, the eight aims,
+and what each encounter needs of the reach.
+
+Who it changes: a body that fires through the charge path, wears a character
+whose art publishes a near or far hand in its `shoot` or `idle` row, and
+states its art scale. Of the three characters that author
+`ranged_execution: ChargedProjectile`, that is `player_robot_v3` only. `robot`
+and `player_robot_v2` name their hands `front_hand`/`back_hand`, which are not
+mapped, and keep the box muzzle; so does any body with no published hand
+(Mary-O and Sanic publish a head only).
+
+* **(a) Accept.** The shot leaves the hand as drawn and reaches 292.
+* **(b) Retune.** The shot leaves the hand, and the fireball changes so that
+  it reaches about 419 again. This is a tuning edit in one file,
+  `crates/ambition_projectiles/src/kind.rs`: `bounces` (2), `gravity` (360),
+  `max_lifetime` (1.2 s) and `speed` (360) of `ProjectileKind::Fireball`. They
+  are Rust constants, not content data, and every fireball shares them. The
+  numbers are yours.
+* **(c) Except.** The player's shot goes back to the box muzzle, as a stated
+  exception to Q41, or the `shoot` row is redrawn to fire from where the shot
+  was born.
+
+**Default in force until you rule:** (a), because it is what Q41 rules.
+
 ## Q154 — should a pickup that authors no policy be gone for the run once taken?
 
 Filed 2026-10-04. Blocks nothing: the engine reads the default as

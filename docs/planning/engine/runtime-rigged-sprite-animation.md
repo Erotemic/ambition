@@ -183,7 +183,7 @@ landmark is a named fallback the consumer states, not a silent offset.
 | --- | --- | --- |
 | Action shot (`Discharge::muzzle`) | `Muzzle::{BodyOrigin, Hand { ahead }, Offset { x, y }}` (`action_set/mod.rs`); `Hand` uses the rig hand only when the body has a rig | muzzle, or hand + move offset |
 | Rider's hand without a rig | `HAND_OFFSET_NORM` × rider height (`ambition_mount/src/lib.rs`, `rider_hand_world_pos_in_frame`) | hand |
-| Player fireball | Body half-size plus clearance (`projectile/systems.rs`, `PLAYER_PROJECTILE_MUZZLE_CLEARANCE`) | muzzle |
+| Player fireball | ✅ 2026-10-05: the landmark query. The shot is born with its rear edge at the hand of the `shoot` row (`projectile/systems.rs`, `player_projectile_hand_local_offset`), lifted clear of the feet line. The box edge plus `PLAYER_PROJECTILE_MUZZLE_CLEARANCE` is the named fallback for a body that publishes no hand | done; the reach it costs is [Q158](../awaiting-maintainer-decision.md#q158--the-fireball-now-leaves-the-hand-at-knee-height-and-reaches-30-less-accept-retune-or-except) |
 | Pet ("pet the dog") | ✅ 2026-10-05: the landmark query. The petter stands where its near hand, in the `pet` row, is on the petted body's head, in the `petted` row, plus the offset its catalog row authors (`petting.contact_offset`). The box mark is the named fallback for a pair that publishes no such landmark | done |
 | Rig attachments | `BodyRigPose` attachments, live only under `BodyRigAdmission` (off) | all of the above |
 | Part flipbook tracks | ✅ 2026-10-05: the package's per-pose points. `build.rs` projects each `<target>_parts.ron` to its `near_hand`, `far_hand`, `head`, `near_foot` and `far_foot` tracks (`ambition_sprite_sheet::baked_landmarks`, 114 tables, 1 MB) | the answer for a body without a rig |
@@ -219,8 +219,14 @@ frame height and the frame durations. It does not cover atlas packing.
   about (the dog's is at its ear). A contact point that is not a pivot is an
   authored offset from one (`petting.contact_offset`). The renderer publishes
   no contact track.
-- The pet uses the near hand, as the hand a gesture row draws in view. No
-  package states which hand a gesture uses.
+- The pet and the fireball use the near hand, as the hand a gesture row draws
+  in view (`BodyLandmarks::gesture_hand`). No package states which hand a
+  gesture uses.
+- The fireball's hand is of the middle of the `shoot` row for every aim. The
+  robot has one shoot row, so a shot aimed up leaves the same hand.
+- The shot is born on the tick of the press or the release. The `shoot` row
+  starts on that tick, so the hand is where the row will put it, not where
+  the body's row has it on that tick.
 - A mirror row (`<row>~mirrored`) is not read: a body that faces the other
   way mirrors the row's points about its feet.
 - A package clip wraps on the body's own clock: the table does not say which
@@ -234,10 +240,10 @@ frame height and the frame durations. It does not cover atlas packing.
 - A row that a hybrid character realizes from the baked sheet has no draws,
   so it has no points.
 
-**Order of work (queue row RIG-LANDMARKS).** ✅ The query and the pet. Next
-the player fireball: it aims in eight directions and its muzzle is the box
-edge in the aim direction, so it needs a move offset from the hand along the
-aim, not a swap. Then the rider hand. Do not admit rigs (`BodyRigAdmission`)
+**Order of work (queue row RIG-LANDMARKS).** ✅ The query and the pet. ✅ The
+player fireball: the move's offset from the hand is the shot's own half extent
+along the aim, so the shot's rear edge is at the hand for each of the eight
+aims and each charge size. Next the rider hand. Do not admit rigs (`BodyRigAdmission`)
 for this: the capability must not depend on rig rollout. Landmarks are
 simulation facts: resolve them in simulation and never read them back from
 render transforms.
@@ -262,7 +268,7 @@ render transforms.
 | Sheet residency | The saving needs the baked sheet page to retire while parts draw, and the portal to draw parts first | Rigged character resident bytes below baked |
 | Body rig rollout | `BodyRigAdmission` is off. Turning it on changes shipped hurt geometry and the content fingerprint | Maintainer go-ahead; app suite green with it on |
 | More rigid parts | Pirate dynamic limb/neck geometry is one overlay per frame. Convert more of it to reusable parts only if useful | Saving above the 38% floor |
-| Semantic landmarks (Q41) | ✅ The query and the pet (2026-10-05). Left: the fireball and the rider hand as consumers; the unmapped track families. See "Semantic landmarks (Q41)" | ✅ A pet hand meets the authored contact point (`a_pet_hand_meets_the_contact_point.rs`: 1.4 world units; 15.2 on the box mark). Open: no consumer reads sprite bounds |
+| Semantic landmarks (Q41) | ✅ The query, the pet and the player fireball (2026-10-05). Left: the rider hand as a consumer; the unmapped track families. See "Semantic landmarks (Q41)" | ✅ A pet hand meets the authored contact point (`a_pet_hand_meets_the_contact_point.rs`: 1.4 world units; 15.2 on the box mark). Open: no consumer reads sprite bounds |
 | Physicalized pose | Only with a real mechanic: cosmetic ragdoll after a KO fact, or deterministic constrained ragdoll as canonical rollback state | Separate focused packet |
 
 Not measured: load and materialization time, and per-pane pixels of each view
@@ -294,8 +300,9 @@ headless (`capture_scene` can show them).
 | Landmark query | `crates/ambition_combat/src/body_landmarks.rs` |
 | Embedded landmark tables and digest | `crates/ambition_sprite_sheet/build.rs`, `src/baked_landmarks.rs`, `src/character/landmarks_published.rs` |
 | Pet mark | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/pet.rs` |
+| Player shot origin | `crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs` |
 | Flipbook asset and switch | `crates/ambition_sprite_sheet/src/character/rigged.rs` |
 | Rigged draw | `crates/ambition_render/src/rendering/actors/rigged*` |
 | Portal tint | `ambition_portal2d_presentation::PortalPieceTint` |
 | Precedent part player | `game/ambition_content/src/presentation/vanity_card_made_this_meme.rs` |
-| Witnesses | `game/ambition_app/tests/admiral_gun_sword.rs`, `game/ambition_demo_mary_o_app/tests/body_rig_trial.rs`, `game/ambition_app/tests/a_pet_hand_meets_the_contact_point.rs` |
+| Witnesses | `game/ambition_app/tests/admiral_gun_sword.rs`, `game/ambition_demo_mary_o_app/tests/body_rig_trial.rs`, `game/ambition_app/tests/a_pet_hand_meets_the_contact_point.rs`, `game/ambition_app/tests/a_fireball_leaves_the_hand.rs` |

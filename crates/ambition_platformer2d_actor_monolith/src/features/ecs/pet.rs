@@ -79,8 +79,8 @@ fn petted_head(landmarks: &BodyLandmarks, petted: Entity) -> Option<ambition_pla
 /// `petting.contact_offset`). `None` when either body publishes no such
 /// landmark.
 ///
-/// The petting hand is the hand nearer the viewer, which is the hand a
-/// gesture row draws in view; a body with no such hand pets with the other.
+/// The petting hand is the petter's gesture hand
+/// ([`BodyLandmarks::gesture_hand`]).
 fn pet_reach(
     landmarks: &BodyLandmarks,
     petter: Entity,
@@ -91,9 +91,7 @@ fn pet_reach(
         chain: PETTING_CLIPS,
         phase: PET_CONTACT_PHASE,
     };
-    let hand = [Landmark::HandNear, Landmark::HandFar]
-        .into_iter()
-        .find_map(|hand| landmarks.in_rig_space(petter, hand, petting_row))?;
+    let hand = landmarks.gesture_hand(petter, petting_row)?;
     Some(petted_head(landmarks, petted)?.x + contact_offset.0 + hand.x)
 }
 

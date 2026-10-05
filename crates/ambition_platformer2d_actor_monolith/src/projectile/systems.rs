@@ -85,7 +85,17 @@ fn reflect_parried_shot(
     );
     vfx.write_in(room, VfxMessage::Impact { pos: kin.pos });
 }
+/// The gap between a body's box and a shot born off its edge, for a body
+/// that publishes no hand ([`player_projectile_muzzle_local_offset`]).
 const PLAYER_PROJECTILE_MUZZLE_CLEARANCE: f32 = 4.0;
+
+/// The sheet rows a firing body is drawn from, in preference order: the
+/// `Shoot` row, then what `CharacterAnim::base_pose` falls back to. The shot
+/// is born at the hand of the same rows, so it leaves the hand on screen.
+pub(super) const SHOOT_CLIPS: &[&str] = &["shoot", "idle"];
+
+/// The part of the shoot row the shot leaves the hand in: its middle.
+const SHOOT_RELEASE_PHASE: f32 = 0.5;
 
 fn player_projectile_local_fire_dir(aim_local: ae::Vec2, facing: f32) -> ae::Vec2 {
     if aim_local.length() > 0.1 {
@@ -95,7 +105,28 @@ fn player_projectile_local_fire_dir(aim_local: ae::Vec2, facing: f32) -> ae::Vec
     }
 }
 
-fn player_projectile_muzzle_local_offset(
+/// Where a shot aimed along `local_dir` is born for a body that publishes a
+/// hand, as an offset from the body's centre in its own frame (+y toward its
+/// feet). `hand` is the hand in the body's rig space (feet origin, +x the way
+/// it faces). The shot's rear edge is at the hand: its centre is the hand
+/// plus the shot's half extent along the aim. Ruling Q41: a launch point is a
+/// landmark plus a move's own offset, never a sprite bound.
+pub(super) fn player_projectile_hand_local_offset(
+    hand: ae::Vec2,
+    local_dir: ae::Vec2,
+    facing: f32,
+    size: ae::Vec2,
+    half_extent: ae::Vec2,
+) -> ae::Vec2 {
+    let feet = ae::Vec2::new(0.0, size.y * 0.5);
+    let reach = local_dir.x.abs() * half_extent.x + local_dir.y.abs() * half_extent.y;
+    feet + ae::Vec2::new(facing.signum() * hand.x, hand.y) + local_dir * reach
+}
+
+/// Where a shot is born for a body that publishes no hand: off the edge of
+/// its box in the aim direction. The named fallback of
+/// [`player_projectile_hand_local_offset`].
+pub(super) fn player_projectile_muzzle_local_offset(
     local_dir: ae::Vec2,
     facing: f32,
     size: ae::Vec2,
@@ -145,6 +176,8 @@ pub fn charge_projectile_input(
     // policy below asks the catalog whether each fired.
     technique_catalog: Res<ambition_projectiles::MotionTechniqueCatalog>,
     mut trace: ResMut<GameplayTraceBuffer>,
+    // Where the firing hand is: see `player_projectile_hand_local_offset`.
+    landmarks: ambition_combat::body_landmarks::BodyLandmarks,
     // Firing emits a next-tick `ProjectileSpawnRequest`; its materializer runs after this
     // system so newly-fired projectiles first tick next frame.
     mut spawn_projectiles: MessageWriter<ProjectileSpawnRequest>,
@@ -207,9 +240,33 @@ pub fn charge_projectile_input(
         // The firing body's per-tick resolved frame (ADR 0024 frame law).
         let frame = resolved_frame.basis();
         let local_dir = player_projectile_local_fire_dir(tick_info.aim, facing);
-        let local_muzzle = player_projectile_muzzle_local_offset(local_dir, facing, kin.size);
-        let origin = kin.pos + frame.to_world(local_muzzle);
         let direction = frame.to_world(local_dir).normalize_or_zero();
+        // The shot is born at the hand that fires, in the row the body fires
+        // in. Asked only on a tick that fires. The shot's size is of its kind
+        // and charge, so the place is too.
+        let origin_of = |kind: ambition_projectiles::ProjectileKind, charge_tier: u8| {
+            let shoot_row = ambition_combat::body_landmarks::LandmarkPose::Clip {
+                chain: SHOOT_CLIPS,
+                phase: SHOOT_RELEASE_PHASE,
+            };
+            let Some(hand) = landmarks.gesture_hand(body_entity, shoot_row) else {
+                let local_muzzle = player_projectile_muzzle_local_offset(local_dir, facing, kin.size);
+                return kin.pos + frame.to_world(local_muzzle);
+            };
+            let half_extent = kind
+                .charged_spec(kind.spec(ae::Vec2::ZERO, direction, 1.0), charge_tier)
+                .half_extent;
+            let local = player_projectile_hand_local_offset(hand, local_dir, facing, kin.size, half_extent);
+            // A hand can be at knee height, and a shot born touching the
+            // floor dies on its first tick.
+            crate::features::ecs::clear_of_the_feet(
+                kin.pos + frame.to_world(local),
+                kin.pos,
+                kin.size.y,
+                resolved_frame.down(),
+                half_extent,
+            )
+        };
 
         // Count fires locally because spawn messages are consumed after this
         // system, but shoot animation still pulses on the firing frame.
@@ -254,7 +311,7 @@ pub fn charge_projectile_input(
                     &mut state,
                     body_entity,
                     kind,
-                    origin,
+                    origin_of(kind, 0),
                     direction,
                     damage_mult,
                     0,
@@ -279,7 +336,7 @@ pub fn charge_projectile_input(
                     &mut state,
                     body_entity,
                     ambition_projectiles::ProjectileKind::Fireball,
-                    origin,
+                    origin_of(ambition_projectiles::ProjectileKind::Fireball, tier),
                     direction,
                     damage_mult,
                     tier,
@@ -294,7 +351,7 @@ pub fn charge_projectile_input(
                 &mut state,
                 body_entity,
                 ambition_projectiles::ProjectileKind::Fireball,
-                origin,
+                origin_of(ambition_projectiles::ProjectileKind::Fireball, 0),
                 direction,
                 damage_mult,
                 0,

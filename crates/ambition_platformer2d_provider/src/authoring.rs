@@ -499,6 +499,11 @@ pub struct PlatformerExperienceAuthoring {
     /// What this experience puts into its own session while the engine builds
     /// it. See [`Self::with_session_contents`].
     pub session_contents: Option<crate::SessionContentsFn>,
+    /// The bag that a session of this experience begins with. `None`: an
+    /// empty bag. See [`Self::with_initial_inventory`].
+    pub initial_inventory: Option<
+        ambition_platformer2d_actor_monolith::items::starting_bag::InitialInventoryFn,
+    >,
 }
 
 impl PlatformerExperienceAuthoring {
@@ -524,6 +529,7 @@ impl PlatformerExperienceAuthoring {
             hud: None,
             listed: true,
             session_contents: None,
+            initial_inventory: None,
         }
     }
 
@@ -601,6 +607,21 @@ impl PlatformerExperienceAuthoring {
     /// See [`crate::session_contents`].
     pub fn with_session_contents(mut self, contents: crate::SessionContentsFn) -> Self {
         self.session_contents = Some(contents);
+        self
+    }
+
+    /// Declare the bag that each session of this experience begins with.
+    ///
+    /// The starting bag is an authored first condition of the experience. The
+    /// candidate session carries it and its adoption installs it; the save of
+    /// the session replaces it when the save holds an inventory. An
+    /// experience that declares none begins with an empty bag, whatever bag
+    /// the composition or the session before it has.
+    pub fn with_initial_inventory(
+        mut self,
+        bag: ambition_platformer2d_actor_monolith::items::starting_bag::InitialInventoryFn,
+    ) -> Self {
+        self.initial_inventory = Some(bag);
         self
     }
 
@@ -708,6 +729,16 @@ impl PlatformerExperienceAuthoring {
             app.world_mut()
                 .resource_mut::<crate::SessionContentsCatalog>()
                 .declare(&self.experience_id, contents);
+        }
+        if let Some(bag) = self.initial_inventory {
+            app.init_resource::<
+                ambition_platformer2d_actor_monolith::items::starting_bag::InitialInventories,
+            >();
+            app.world_mut()
+                .resource_mut::<
+                    ambition_platformer2d_actor_monolith::items::starting_bag::InitialInventories,
+                >()
+                .declare(&self.experience_id, bag);
         }
         if let Some(hud) = self.hud.clone() {
             app.init_resource::<HudDeclarationCatalog>();

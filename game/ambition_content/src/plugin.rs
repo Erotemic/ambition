@@ -45,12 +45,13 @@ impl Plugin for AmbitionContentPlugin {
             .expect("the items schema lowers its catalog for every pack that compiles")
             .clone();
 
-        // The one place the game starts owning the item roster. The windowed app
-        // and the headless harness both install this plugin, so both see it. The
-        // 24-item catalog ownership model is always-on core state (pickups and
-        // dialogue read and write it whatever menu renders it), and it is the
-        // roster of the catalog installed above.
-        app.insert_resource(ambition_items::OwnedItems::starter(&items));
+        // The bag exists in each composition that installs this plugin (the
+        // windowed app and the headless harness): pickups and dialogue read
+        // and write it whatever menu draws it. It is empty here. The starter
+        // set is the first bag of the Ambition EXPERIENCE, which declares it
+        // (`provider.rs`, `with_initial_inventory`), so a session of another
+        // experience in this App does not begin with it.
+        app.init_resource::<ambition_items::OwnedItems>();
         app.insert_resource(items);
 
         // Register Ambition's adaptive music catalog under its content provider.

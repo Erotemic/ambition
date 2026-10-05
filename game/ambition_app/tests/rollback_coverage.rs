@@ -1999,7 +1999,23 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     (
         "ambition_platformer2d_actor_monolith::items::starting_bag::StartingBag",
-        "the bag that this process began with: a copy of the composition's          `OwnedItems`, inserted once at `Startup` by `record_the_starting_bag` and          never written again (no `ResMut` of it exists; a test stands in another          with `StartingBag::of`). Its two readers are the session activation          (`start_the_bag_again_on_activation`, before the session world is live)          and a New Game's acceptance (`resume_at_checkpoint_on_reset`), which reads          it to pin the bag. A rewind cannot cross `Startup`, so every frame of the          window holds the same value",
+        "the bag that the live session began with. The adoption of a candidate \
+         session writes it (`StartingBag::begin_the_session`, with the bag that \
+         the experience of the session declares), before the session world is \
+         live; a composition with a direct session root records the bag it was \
+         built with at `Startup`. Nothing writes it while a session plays (no \
+         `ResMut` of it exists; a test stands in another with `StartingBag::of`). \
+         Its reader in a session is a New Game's acceptance \
+         (`resume_at_checkpoint_on_reset`), which reads it to pin the bag. A \
+         rewind cannot cross the adoption of its own session, so every frame of \
+         the window holds the same value",
+    ),
+    (
+        "ambition_platformer2d_actor_monolith::items::starting_bag::InitialInventories",
+        "the starting bag that each experience declares, by experience id: host \
+         configuration. `PlatformerExperienceAuthoring::install` writes it when \
+         the experience is registered, at App build, and nothing writes it after. \
+         The builder of a candidate session reads it; the simulation does not",
     ),
     (
         "ambition_demo_smash::select::SmashRoster",

@@ -610,17 +610,6 @@ WAIVERS: dict[str, str] = {
         "system in a plain `Update` slot could run after `Providers`, on a "
         "frame that GGRS has saved, and this entry would then be false."
     ),
-    "start_the_bag_again_on_activation": (
-        "THE WRITE PRECEDES THE TIMELINE, by the chain that "
-        "`reset_session_scoped_resources_on_activation` states. "
-        "`install_starting_bag` registers it in `SessionScopeSet::Activate`, and "
-        "it writes `OwnedItems` only on a `SessionScopeActivated`. Held by "
-        "`shell_host_lifecycle::a_bag_that_a_session_changed_reaches_a_later_session_through_its_save_only` "
-        "(with the reset not registered, a Sanic session has the bomb of the "
-        "Ambition session before it on 31 frames, and two peer rows differ on "
-        "30). \u26d4 THE RESIDUAL: the claim is the SET, not the schedule; see "
-        "`forget_portal_frames_on_activation`."
-    ),
     "restart_heavy_object_cycle_on_activation": (
         "THE WRITE PRECEDES THE TIMELINE, by the chain that "
         "`reset_session_scoped_resources_on_activation` states. "

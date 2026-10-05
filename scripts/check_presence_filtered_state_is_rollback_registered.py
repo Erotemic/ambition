@@ -112,6 +112,18 @@ WAIVERS = {
     "CharacterAnimator": "sprite-sheet animator state, rebuilt from the sim's pose view",
     "PlayerTrail": "the avatar's visual trail",
     "LightEmitter2d": "a relativity2d render signal",
+    # Avian debris, 2026-10-04. Avian is a cosmetic physics engine here:
+    # Ambition's own bodies collide in `GgrsSchedule` and are never avian bodies.
+    "PhysicsDebris": (
+        "one site, `pause_physics_when_no_debris_exists`, registered in `Update` "
+        "in `AmbitionPhysicsPlugin`; it pauses avian while no debris piece exists, "
+        "and debris is a presentation effect a rewind does not replay"
+    ),
+    "PhysicsRoomFloor": (
+        "one site, `physics_spawn_debris_messages`, registered in `Update` (after "
+        "`CoreSimulation`, by the app's physics install); it builds a room's static "
+        "debris floor once, on the first debris burst in that room"
+    ),
     # ⭐⛤ THE `game/*` ARRIVALS, 2026-09-18. These became visible when
     # `registering_crates` stopped assuming every registering crate lives under
     # `crates/` — `game/ambition_content` registers rollback state and its whole

@@ -83,21 +83,41 @@ pub struct EncounterMusicRequest {
 /// The two tiers of one live room.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 struct RoomMusicTiers {
-    /// Higher-priority encounter track (a focused fight — e.g. a boss).
-    /// Overrides `base_track` while set.
-    priority_track: Option<String>,
+    /// The priority candidates (a focused fight, e.g. a boss), one for each
+    /// source that claims this room. Any of them overrides `base_track`.
+    /// Each source owns its own candidate, so a release takes out only that
+    /// candidate and the others stay (review 2026-10-05, P6).
+    claims: std::collections::BTreeMap<&'static str, PriorityClaim>,
     /// Lower-priority encounter track (a wave / arena lockdown). Written every
     /// frame — `Some(track)` while in flight, `None` otherwise — so its
-    /// per-frame `None` can never override `priority_track`.
+    /// per-frame `None` can never override a priority claim.
     base_track: Option<String>,
-    /// Who claimed [`Self::priority_track`], so a source can release only its
-    /// own claim without cancelling another writer's higher-priority request.
-    priority_owner: Option<&'static str>,
+}
+
+/// One source's claim on the priority tier of a room.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PriorityClaim {
+    track: String,
+    /// The simulation tick on which this source began to claim the room. A
+    /// source that claims again keeps it, so a source that states its claim
+    /// on each tick does not move ahead of the others.
+    began: u64,
 }
 
 impl RoomMusicTiers {
     fn is_empty(&self) -> bool {
-        self.priority_track.is_none() && self.base_track.is_none()
+        self.claims.is_empty() && self.base_track.is_none()
+    }
+
+    /// The claim that plays: the one that began latest, because the newest
+    /// fight is the one the player looks at. Of claims that began on one
+    /// tick, the source whose name sorts first. Both are values, not the
+    /// order in which the systems ran.
+    fn winning_claim(&self) -> Option<&PriorityClaim> {
+        self.claims
+            .iter()
+            .max_by(|(owner_a, a), (owner_b, b)| a.began.cmp(&b.began).then(owner_b.cmp(owner_a)))
+            .map(|(_, claim)| claim)
     }
 }
 
@@ -107,26 +127,35 @@ impl EncounterMusicRequest {
     /// the intent adapter).
     pub fn desired_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
         let tiers = self.rooms.get(&room)?;
-        tiers.priority_track.as_deref().or(tiers.base_track.as_deref())
+        tiers
+            .winning_claim()
+            .map(|claim| claim.track.as_str())
+            .or(tiers.base_track.as_deref())
     }
 
-    /// Claim the priority tier of `room` for `owner`. A later claim wins
-    /// outright — two focused fights at once in one room is not a state worth
-    /// arbitrating, and the most recent one is the one the player is looking
-    /// at.
+    /// Claim the priority tier of `room` for `owner`, on simulation tick
+    /// `now`. This is `owner`'s candidate in that room: a claim by another
+    /// source does not replace it, and the claim that began latest plays
+    /// (see `RoomMusicTiers::winning_claim`). A source that claims again
+    /// keeps the tick it began on, also when it changes its track.
     pub fn claim_priority(
         &mut self,
         room: Option<LiveRoomInstance>,
         owner: &'static str,
         track: impl Into<String>,
+        now: u64,
     ) {
         let track = track.into();
         let tiers = self.rooms.entry(room).or_default();
-        if tiers.priority_track.as_deref() != Some(track.as_str())
-            || tiers.priority_owner != Some(owner)
-        {
-            tiers.priority_track = Some(track);
-            tiers.priority_owner = Some(owner);
+        match tiers.claims.get_mut(owner) {
+            Some(claim) => {
+                if claim.track != track {
+                    claim.track = track;
+                }
+            }
+            None => {
+                tiers.claims.insert(owner, PriorityClaim { track, began: now });
+            }
         }
     }
 
@@ -146,20 +175,25 @@ impl EncounterMusicRequest {
         mut release: impl FnMut(Option<LiveRoomInstance>) -> bool,
     ) {
         for (room, tiers) in &mut self.rooms {
-            if tiers.priority_owner == Some(owner) && release(*room) {
-                tiers.priority_track = None;
-                tiers.priority_owner = None;
+            if tiers.claims.contains_key(owner) && release(*room) {
+                tiers.claims.remove(owner);
             }
         }
         self.rooms.retain(|_, tiers| !tiers.is_empty());
     }
 
-    /// The claimed priority track of `room`, if any, and WHO is not on offer:
-    /// a caller that wants to change the tier goes through
+    /// The priority track that plays in `room`, if any, and WHO is not on
+    /// offer: a caller that wants to change the tier goes through
     /// [`Self::claim_priority`] or [`Self::release_priority`] so the owner
     /// check cannot be skipped.
     pub fn priority_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
-        self.rooms.get(&room)?.priority_track.as_deref()
+        self.rooms.get(&room)?.winning_claim().map(|claim| claim.track.as_str())
+    }
+
+    /// The track of `owner`'s own candidate in `room`, whether or not it is
+    /// the one that plays.
+    pub fn claim_of(&self, room: Option<LiveRoomInstance>, owner: &'static str) -> Option<&str> {
+        Some(self.rooms.get(&room)?.claims.get(owner)?.track.as_str())
     }
 
     /// Publish the BASE tier of every room: each room in `tracks` gets its
@@ -192,7 +226,7 @@ impl EncounterMusicRequest {
     /// no claim, where the room's own ambient music plays.
     pub fn priority_of(&self, room: Option<LiveRoomInstance>) -> u8 {
         match self.rooms.get(&room) {
-            Some(tiers) if tiers.priority_track.is_some() => 2,
+            Some(tiers) if !tiers.claims.is_empty() => 2,
             Some(tiers) if tiers.base_track.is_some() => 1,
             _ => 0,
         }
@@ -212,7 +246,7 @@ mod tests {
         let first = Some(LiveRoomInstance::ACTIVATION.next());
         let second = first.map(LiveRoomInstance::next);
         let mut music = EncounterMusicRequest::default();
-        music.claim_priority(second, "boss", "boss_theme");
+        music.claim_priority(second, "boss", "boss_theme", 0);
         music.set_base_tracks([(first, "wave_theme".to_string())]);
         assert_eq!(
             (music.desired_track(first), music.desired_track(second)),
@@ -225,5 +259,52 @@ mod tests {
         music.set_base_tracks([]);
         assert_eq!((music.desired_track(first), music.desired_track(second)), (None, None));
         assert!(music.rooms.is_empty(), "a room with no claim is not stored");
+    }
+
+    /// Two sources claim one room, and the later one releases. The earlier
+    /// one's track plays again with no new claim (review 2026-10-05, P6).
+    /// Measured before: the room played nothing, because the later claim
+    /// had replaced the earlier one.
+    #[test]
+    fn a_release_leaves_the_claim_of_another_source_in_the_room() {
+        let room = Some(LiveRoomInstance::ACTIVATION.next());
+        let mut music = EncounterMusicRequest::default();
+        music.claim_priority(room, "boss", "boss_theme", 10);
+        music.claim_priority(room, "intro", "intro_theme", 20);
+        assert_eq!(music.desired_track(room), Some("intro_theme"), "control: the later claim plays");
+        music.release_priority(room, "intro");
+        assert_eq!(music.desired_track(room), Some("boss_theme"));
+    }
+
+    /// Two sources that claim one room on each tick: the claim that began
+    /// later plays, in whichever order the two systems run. Measured before:
+    /// the source that wrote last played, so the order of the systems chose.
+    /// The source that began later sorts after the other by name, so a claim
+    /// that moved its tick on each claim would tie, and the name would choose
+    /// the other one.
+    #[test]
+    fn the_claim_that_plays_does_not_depend_on_the_order_of_the_claims() {
+        let room = Some(LiveRoomInstance::ACTIVATION.next());
+        let played = |earlier_first: bool| {
+            let mut music = EncounterMusicRequest::default();
+            music.claim_priority(room, "death", "death_theme", 5);
+            for now in 6..9 {
+                if earlier_first {
+                    music.claim_priority(room, "death", "death_theme", now);
+                    music.claim_priority(room, "star", "star_theme", now);
+                } else {
+                    music.claim_priority(room, "star", "star_theme", now);
+                    music.claim_priority(room, "death", "death_theme", now);
+                }
+            }
+            music.desired_track(room).map(str::to_string)
+        };
+        assert_eq!(played(true), Some("star_theme".to_string()));
+        assert_eq!(played(false), Some("star_theme".to_string()));
+        // Two claims that began on one tick: the source name decides.
+        let mut music = EncounterMusicRequest::default();
+        music.claim_priority(room, "zeta", "z_theme", 3);
+        music.claim_priority(room, "alpha", "a_theme", 3);
+        assert_eq!(music.desired_track(room), Some("a_theme"));
     }
 }

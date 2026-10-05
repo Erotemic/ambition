@@ -1116,9 +1116,9 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
 /// were live, so a claim left behind was kept for as long as two rooms were
 /// live.
 ///
-/// The arena arm does not run ticks. The generic boss owner
-/// (`BOSS_MUSIC_OWNER`) takes the priority tier while the boss fights, so
-/// after a tick the track in the tier is not this owner's claim.
+/// It asks for this owner's own candidate (`claim_of`), not for the track
+/// that plays: in the arena the generic boss owner (`BOSS_MUSIC_OWNER`) began
+/// its claim later, so its track plays. The arena arm does not run ticks.
 #[test]
 fn the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room() {
     use ambition_content::bosses::cut_rope::{release_cut_rope_music_outside_its_room, CUT_ROPE_MUSIC_OWNER};
@@ -1133,7 +1133,7 @@ fn the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room() {
         )
         .expect("the session has a music request");
         for (room, _) in rooms {
-            music.claim_priority(Some(room), CUT_ROPE_MUSIC_OWNER, TRACK);
+            music.claim_priority(Some(room), CUT_ROPE_MUSIC_OWNER, TRACK, 0);
         }
     }
     /// Each live room by its authored id, and whether it keeps the claim.
@@ -1143,7 +1143,7 @@ fn the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room() {
             .expect("the session has a music request");
         let mut claimed: Vec<_> = rooms
             .into_iter()
-            .map(|(room, id)| (id, music.priority_track(Some(room)) == Some(TRACK)))
+            .map(|(room, id)| (id, music.claim_of(Some(room), CUT_ROPE_MUSIC_OWNER) == Some(TRACK)))
             .collect();
         claimed.sort();
         claimed

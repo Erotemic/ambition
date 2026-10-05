@@ -90,10 +90,12 @@ pub fn update_boss_encounters(
     // The defeats since the last checkpoint, which a replay of their room
     // retracts (BOSS-REPLAY-RETRACTION), and the live room each fell in.
     // And the driven bodies, to say who won a defeat.
-    (mut since_checkpoint, rooms, drivers): (
+    // And the tick, which dates a music claim.
+    (mut since_checkpoint, rooms, drivers, sim_tick): (
         ResMut<crate::retraction::BossDefeatsSinceCheckpoint>,
         ambition_platformer2d_world::rooms::LiveRoomSpecs,
         Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+        Option<Res<ambition_time::SimTick>>,
     ),
     mut bosses: Query<
         (
@@ -329,8 +331,9 @@ pub fn update_boss_encounters(
     music_request.release_priority_where(BOSS_MUSIC_OWNER, |room| {
         !active_music_tracks.contains_key(&room)
     });
+    let now = sim_tick.as_ref().map_or(0, |tick| tick.0);
     for (room, track) in active_music_tracks {
-        music_request.claim_priority(room, BOSS_MUSIC_OWNER, track);
+        music_request.claim_priority(room, BOSS_MUSIC_OWNER, track, now);
     }
 
     // Each live room's chests, in that room and on its floor.

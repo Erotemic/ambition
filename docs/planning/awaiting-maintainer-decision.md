@@ -81,6 +81,31 @@ Owner: the join road row in
 * **(c) Join at the start room** of the current save, independent of where
   the primary player is.
 
+**Also needed for a join road, surveyed 2026-10-05 (each needs your answer
+with the one above):**
+
+1. **Where a seat-1 body comes back after it dies.** Its death already takes
+   the participant road (`session/death.rs`), but the checkpoint restore's
+   subject is always the primary body (`resume_at_checkpoint_on_reset`
+   reads `PrimaryPlayerOnly`), so today nothing brings a dead seat-1 body
+   back. Options: at its last shrine, beside the primary player, or at the
+   same place as the join.
+2. **How many seats a session holds, and when the second handle opens.** The
+   GGRS handle count is fixed when a session starts ("the session is never
+   resized", `ambition_input/src/seating.rs`). Either Ambition's route
+   declares its seats up front (as Smash and Twintrack do) and a seat with no
+   body sends idle input, or a join rebases the session.
+3. **The join gesture.** Ambition declares no seating and falls back to device
+   seating. `JoinToClaim` (`ambition_input/src/sources.rs`) is the existing
+   policy: a press on an unclaimed device claims the next seat.
+
+What is not a question (engineering, once the above are answered): the body
+is `PlayerIdentityBundle::new(PlayerSlot(1))` with the home kit and without
+`PrimaryPlayer`, spawned session-scoped (not a room placement, so a rebuild
+does not remove it), realized in the simulation from a plan stamped with a
+tick (the Smash `PreparedMatch` pattern), and given `DrivingParticipant`.
+Views and the HUD already follow a second body.
+
 ## Q154 — should a pickup that authors no policy be gone for the run once taken?
 
 Filed 2026-10-04. Blocks nothing: the engine reads the default as

@@ -1326,9 +1326,10 @@ BODY-BORN-ON-THE-TIMELINE), which replaced the `Q135` session-start gate.
 
 ### MUSIC-CANDIDATES — music is chosen from scoped, prioritized candidates
 
-**Review 2026-10-05 (carried forward):** same-room music is still last writer
-wins (one `priority_track`, one `priority_owner`, and `claim_priority` lets a
-later writer win). Keep "star power ends when victory starts". The service
+**Review 2026-10-05 (carried forward; the in-room half is built, see below):**
+same-room music was last writer wins (one `priority_track`, one
+`priority_owner`, and `claim_priority` let a later writer win). Keep "star
+power ends when victory starts". The service
 holds `(room or scope, stable source) -> (cue, priority)` candidates with a
 deterministic order and tie-break, and a source releases only its own claim.
 Do not add a tier, a slot or an ordering edge for the next simultaneous
@@ -1353,17 +1354,39 @@ the lowest room. Witnesses:
 `the_heard_room_is_the_highest_priority_then_the_primary_then_the_lowest`.
 No shipped encounter authors `SetMusic`.
 
+- **Built 2026-10-05: each source owns its candidate in a room.**
+  `EncounterMusicRequest` keeps, for each room, one priority candidate for
+  each source (the owner name) with its track and the simulation tick on
+  which the source began to claim. A claim by another source does not
+  replace it, and a release takes out only that source's candidate. The
+  candidate that plays is the one that began latest, and of candidates that
+  began on one tick, the source whose name sorts first: both are values, so
+  the order in which the systems run does not choose. A source that claims
+  on each tick keeps the tick it began on. `claim_of` reads one source's
+  own candidate. Each claimer passes `SimTick`
+  (the boss encounter, the encounter script, the cut-rope intro, and
+  Mary-O's death, victory and star). The component is a clone snapshot,
+  so the candidates rewind with it, and the schema is unchanged.
+  - Measured before: two sources claim one room and the later releases:
+    the room played nothing (the later claim had replaced the earlier).
+    Two sources that claim on each tick: the source that wrote last played
+    (`death` before `star` gave `star`, and the other order gave `death`).
+  - Witnesses (`ambition_encounter` `music::tests`):
+    `a_release_leaves_the_claim_of_another_source_in_the_room` and
+    `the_claim_that_plays_does_not_depend_on_the_order_of_the_claims`.
+    Poisons: a release clears the room (red); a claim moves its tick on
+    each claim (red, because the names then choose the other source).
+  - Still open: the priority is the tier (claims 2, base 1), not authored
+    per candidate; `SCRIPT_MUSIC_OWNER` is one source for every script, so
+    two scripts in one room share one candidate; `EncounterEffect::SetMusic`
+    has no shipped customer. No composed witness drives two production
+    sources into one room.
+
 **What is left:**
 
-- Each room has one priority slot, and the last writer wins it
-  (`EncounterMusicRequest::claim_priority`, `ambition_encounter/src/music.rs`).
-  Its owner is a `&'static str` that names a kind of source, not an instance.
-  When two sources claim one room and the later one releases, the earlier
-  claim is gone, unless its source claims again on each tick (review
-  2026-10-04). Target: each source owns its candidate (source instance,
-  scope, track, priority). A release removes only that source's candidate,
-  and the choice is made again from the candidates that remain. The
-  cross-room arbitration above is done; this is the arbitration in one room.
+- A source is a kind (a `&'static str`), not an instance: two instances of
+  one kind in one room share one candidate (the encounter script case
+  above).
 - The priority is fixed by the tier, not authored per candidate. Make it an
   authored property of the candidate when content needs a value between the
   tiers.
@@ -2187,6 +2210,14 @@ oracle's clip and add a two-body shared-page containment test.
 **Owner:** `ambition_render::rendering::actors::rigged` (`impostor_cell_class`)
 and `scripts/measure_rigged_parity.py`. Plan:
 [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md).
+
+**Scope since 37497a444 (2026-10-05):** a part-drawn body now draws its parts
+in the world, and uses an impostor cell only while something composes it
+(`ComposedBodyDemand`: hit flash, portal pieces, deep dream, quasar) or its
+frame fades as one picture. So the containment invariant applies to that
+composed road only. The semantic part rendering work
+([`engine/semantic-part-rendering-and-ragdolls.md`](engine/semantic-part-rendering-and-ragdolls.md))
+is reshaping that road; agree the change with it before editing.
 
 **Current failure (review 2026-10-04):** the cell class is chosen from the
 flipbook's `frame_size` plus a margin. Parts can draw outside the frame: a

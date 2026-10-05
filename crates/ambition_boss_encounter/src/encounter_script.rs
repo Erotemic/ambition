@@ -63,8 +63,11 @@ pub fn tick_encounter_scripts(
         ambition_encounter::EncounterMusicRequest,
     >,
     live: LiveRooms,
+    // The tick, which dates a music claim.
+    sim_tick: Option<bevy::prelude::Res<ambition_time::SimTick>>,
 ) {
     let dt = world_time.sim_dt();
+    let now = sim_tick.as_ref().map_or(0, |tick| tick.0);
     let fired: Vec<(String, Option<LiveRoomInstance>)> = gates
         .read()
         .map(|g| (g.gate.clone(), ambition_encounter::occurrence::message_room(&live, g.room)))
@@ -82,15 +85,15 @@ pub fn tick_encounter_scripts(
     // No shipped encounter authors `EncounterEffect::SetMusic` yet; this keeps
     // the capability correct.
     //
-    // Limitation: this is correct only while at most one script is live.
-    // `SCRIPT_MUSIC_OWNER` is one `&'static str` for every `EncounterScript`,
-    // and `priority_owner` is `Option<&'static str>`, so two live scripts
-    // overwrite each other's track (last writer wins), and a script that ends
-    // while another lives leaves its claim in place. No content has two
-    // concurrent scripts today. The fix is per-script ownership keyed by the
-    // durable `encounter_id` (widening `priority_owner` for all owners) or one
-    // deterministic aggregator. Do not key it by ECS `Entity`, which does not
-    // survive a rewind. Add a two-script test with the fix.
+    // Limitation: this is correct only while at most one script is live in a
+    // room. Each source has its own candidate in each room, but
+    // `SCRIPT_MUSIC_OWNER` is one source for every `EncounterScript`, so two
+    // live scripts in one room share one candidate: the later `SetMusic`
+    // changes its track, and a script that ends while the other lives leaves
+    // the candidate in place. No content has two concurrent scripts today.
+    // The fix is a source per script, keyed by the durable `encounter_id`.
+    // Do not key it by ECS `Entity`, which does not survive a rewind. Add a
+    // two-script test with the fix.
     // Each live room's own claim: release it in each room with no live script.
     let scripted: Vec<Option<LiveRoomInstance>> =
         scripts.iter().map(|(occurrence, ..)| live.of(occurrence)).collect();
@@ -119,7 +122,7 @@ pub fn tick_encounter_scripts(
                 }
                 EncounterEffect::Banner { text, secs } => banner.show(text.clone(), *secs),
                 EncounterEffect::SetMusic(track) => match track {
-                    Some(track) => music.claim_priority(room, SCRIPT_MUSIC_OWNER, track.clone()),
+                    Some(track) => music.claim_priority(room, SCRIPT_MUSIC_OWNER, track.clone(), now),
                     None => music.release_priority(room, SCRIPT_MUSIC_OWNER),
                 },
                 EncounterEffect::CommandMoveTo {

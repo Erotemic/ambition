@@ -61,10 +61,13 @@ pub fn play_death_music(
             ambition_platformer2d::encounter::EncounterMusicRequest,
         >,
     >,
+    // The tick, which dates a music claim.
+    sim_tick: Option<Res<ambition_platformer2d::sim::SimTick>>,
 ) {
     let Some(mut music) = music else {
         return;
     };
+    let now = sim_tick.as_ref().map_or(0, |tick| tick.0);
     let rooms: Vec<_> = dying
         .iter()
         .filter(|(_, window)| window.open())
@@ -72,7 +75,7 @@ pub fn play_death_music(
         .collect();
     music.release_priority_where(DEATH_MUSIC_OWNER, |room| !rooms.contains(&room));
     for room in rooms {
-        music.claim_priority(room, DEATH_MUSIC_OWNER, crate::provider::MARY_O_DEATH_MUSIC_TRACK);
+        music.claim_priority(room, DEATH_MUSIC_OWNER, crate::provider::MARY_O_DEATH_MUSIC_TRACK, now);
     }
 }
 

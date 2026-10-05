@@ -684,10 +684,13 @@ pub fn play_victory_music(
             ambition_platformer2d::encounter::EncounterMusicRequest,
         >,
     >,
+    // The tick, which dates a music claim.
+    sim_tick: Option<Res<ambition_platformer2d::sim::SimTick>>,
 ) {
     let (Ok((entity, sequence)), Some(mut music)) = (sequences.single(), music) else {
         return;
     };
+    let now = sim_tick.as_ref().map_or(0, |tick| tick.0);
     let room = live.of(entity);
     if matches!(sequence.phase, FlagPhase::Idle) {
         music.release_priority(room, VICTORY_MUSIC_OWNER);
@@ -696,6 +699,7 @@ pub fn play_victory_music(
             room,
             VICTORY_MUSIC_OWNER,
             crate::provider::MARY_O_VICTORY_MUSIC_TRACK,
+            now,
         );
     }
 }

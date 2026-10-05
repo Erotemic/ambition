@@ -21,6 +21,7 @@ mod the_session_owns_its_generation;
 
 mod a_bag_changed_mid_window_reaches_the_save;
 mod a_dropped_item_falls;
+mod a_ready_room_shows_no_loading_screen;
 mod a_lever_left_on_is_on_when_you_come_back;
 mod a_room_occupant_belongs_to_the_live_room;
 mod two_players_two_live_rooms;

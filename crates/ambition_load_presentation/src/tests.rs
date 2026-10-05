@@ -527,3 +527,14 @@ fn slow_required_work_reveals_exact_facts() {
     );
     assert_eq!(model.stage, "Fixture ready");
 }
+
+/// The loading screen shows it is alive: its spinner moves as real time
+/// passes, so a slow load never reads as a frozen game.
+#[cfg(feature = "basic_presentation")]
+#[test]
+fn the_loading_spinner_turns_with_time() {
+    use crate::spinner_frame;
+    let frames: std::collections::BTreeSet<&str> = (0..8).map(|i| spinner_frame(i as f32 / 8.0)).collect();
+    assert_eq!(frames.len(), 4, "every frame of the spinner is reached within half a second: {frames:?}");
+    assert_ne!(spinner_frame(0.0), spinner_frame(0.125), "it moves eight times a second");
+}

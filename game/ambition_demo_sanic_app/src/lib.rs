@@ -328,12 +328,13 @@ mod tests {
         // this pass; a declaration alone would pass with no art published at
         // all.
         //
-        // ⛔⛔ ONE `update()` COULD NEVER MATERIALIZE BOTH.
-        // `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` is 1 — the engine rations
-        // character decodes so a room reveal cannot spend the whole frame on
-        // pixels — and this demands TWO forms. The old single update therefore
-        // asserted `Ready` for `super_sanic` while the materializer had not
-        // reached it, and got `None`: not a FAILED load, no load attempted yet.
+        // ⛔⛔ ONE `update()` COULD NOT MATERIALIZE BOTH while the engine
+        // rationed character decodes to one per frame (until 2026-10-04), and
+        // this demands TWO forms. The old single update therefore asserted
+        // `Ready` for `super_sanic` while the materializer had not reached it,
+        // and got `None`: not a FAILED load, no load attempted yet. Pumping
+        // until they settle stays right: settling is the property, not a frame
+        // count.
         //
         // ⚠ It was invisible because this target only builds under
         // `--features capture,input,visible`, so the default plan never runs it

@@ -2,7 +2,14 @@
 
 ## Status
 
-Selected architectural direction and implementation plan.
+Selected architectural direction. **Phases 1-5 implemented 2026-10-05; phase 6
+implemented with an unmeasured starting budget; phase 7 open.** See
+"Discovery results and the implemented shape" below, which supersedes the
+discovery gates where they conflict.
+
+The player-facing property (Jon, 2026-10-04): *if the hardware is fast enough
+a loading screen never appears; on a slower machine it lets the player know
+the game has not frozen and is still working.*
 
 Loading screens must represent **actual unmet readiness at the moment a transition needs to commit**. They must not be developer-authored waiting periods, guessed per-character rations, minimum display timers, or another source of truth for whether a room is ready.
 
@@ -11,6 +18,74 @@ The engine should hide load time by preparing likely destinations while the curr
 The loading UI observes the same readiness authority that gates the transition. It does not own pacing and it does not estimate readiness independently.
 
 This document is deliberately separate from the semantic-part rendering roadmap. The two campaigns meet at asset preparation cost, but room readiness is a session/lifecycle authority and should not be owned by the renderer.
+
+## Discovery results and the implemented shape (2026-10-05)
+
+### Measured problem (Jon's GPU host, hub to hall)
+
+Bundle `dev/ambition_dev_measurements/profiles/desktop-timeline-run-20261005T025328Z`:
+`asset_wait` 2,840.8 ms of a 2.9 s crossing; preflight 3.7 ms, manifest
+3.1 ms, commit 26.3 ms, first frame 23.3 ms. The wait was the character start
+ration (`MAX_CHARACTERS_MATERIALIZED_PER_FRAME = 1`, cost read off the quality
+tier): 137 characters, 137 frames. The work behind it was about 68 MP of
+decode, about 0.5 s of summed decode time (38.5 MP of it three baked boss
+sheets). The hall was not prefetched (`NEIGHBOR_PREFETCH_ROOM_BUDGET = 4`, the
+hub has more neighbours). The bar counted settled items, so it opened near 80%.
+
+### The commit gate already existed
+
+There is one readiness authority and nothing parallel was added:
+`poll_room_transition_asset_readiness_system` folds
+`inspect_room_asset_manifest` (every handle the destination's first frame
+draws, through GPU preparation: `AppGpuPreparedImages`) and
+`inspect_demanded_characters` (every demanded character realized) into
+`readiness {settled, total, pending, failed}`. Commit also waits on the
+construction plan and the cover acknowledgement; the cover lifts at commit
+plus the target being presentable (`UnclaimedFeatureViews` empty).
+
+### What changed
+
+| plan item | implementation |
+| --- | --- |
+| no proxy start ration (phase 4) | `materialize_character_demand` drains its demand: every demanded character starts on the frame it is demanded. `take_bounded`, `take_within_budget` and the ration constants are deleted, and so is the room "remainder" forwarding they made necessary. |
+| pacing at the expensive stage (phase 6) | Bevy's `RenderAssetBytesPerFrame` is the one pacing authority (`game/ambition_app/src/host/render_asset_budget.rs`): `VISIBLE_UPLOAD_BYTES_PER_FRAME` (16 MiB) while gameplay is visible, lifted while a cover or a load foreground hides the frame. `AMBITION_RENDER_ASSET_MB_PER_FRAME` overrides it. |
+| prepare before the deadline (phase 7, first step) | The neighbour prefetch now loads a neighbour's whole cast in the open (it loaded the ration's one character before), protected by the upload budget. |
+| no minimum display time (phase 1) | `minimum_visible` (300 ms) is deleted. The cover lifts at commit + presentable. |
+| honest progress (phase 5) | The room-transition load experience shows no percentage (`show_estimated_percentage = false`); the player sees the named work, and a spinner (`BasicLoadSpinner`) turns on real time as the sign of life. |
+| readiness projection and diagnostics (phases 2, 5) | The gate's `pending` list is kept on `ContributedRoomAssets` (read-only). When a loading foreground appears it logs `loading_screen_reason`: the destination and the activation-critical work it waits on. The 5 s no-progress stall report is unchanged. |
+
+Evidence: `game/ambition_app/tests/a_ready_room_shows_no_loading_screen.rs`.
+A prefetched neighbour is entered with the foreground never visible. On a
+simulated slow machine (250 ms frames) the unprepared hall shows it and drops
+it within a frame of ready. On a 1/60 s clock the unprepared hall now crosses
+in 11 frames, inside the 250 ms reveal grace, with no loading screen at all.
+
+### Kept, and why
+
+- **The opaque cover at the door** stays as transition presentation: it hides
+  the frame where the old room's world is replaced and the new one's views are
+  still spawning. For a ready destination it lasts the frames to commit and
+  draw (a cut, not a loading screen). The loading FOREGROUND (text, spinner) is
+  what "loading screen" means here, and it shows only after the reveal grace.
+- **`loading_reveal_after = 250 ms`** is perceptual hysteresis on the
+  foreground, not a wait: it never delays commit, and it is what makes fast
+  hardware show nothing.
+
+### Still open
+
+1. **The visible upload budget is a starting value.** Measure the frame-time
+   per uploaded byte on the GPU host (an uncovered prefetch of a large
+   neighbour is the case) and set it from that.
+2. **Prefetch selection is a room count.** `NEIGHBOR_PREFETCH_ROOM_BUDGET = 4`
+   stands in for a memory/residency budget, and a high-degree hub skips some
+   neighbours whole. Prioritising by the door the player approaches, budgeted
+   by resident bytes, is phase 7.
+3. **Images keep a CPU copy after upload** where nothing reads it (the render
+   target census reported 153 MB of `cpu_bytes`). `RenderAssetUsages` per
+   image kind is a memory item for `asset-preparation-and-residency.md`.
+4. **The minimum-display-time removal has no failing test.** A floor shorter
+   than the time the foreground was already up is invisible to the slow-machine
+   arm (poisoned in, it stayed green); the code and this plan hold it.
 
 ## Problem statement
 

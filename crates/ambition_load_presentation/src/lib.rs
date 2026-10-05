@@ -24,7 +24,7 @@ pub use shell_adapter::{AmbitionLoadShellPresentationPlugin, ShellLoadPresentati
 pub const DETERMINISTIC_LOADING_ACTIVITY_ID: &str = "ambition.loading.edge-practice";
 
 #[cfg(feature = "basic_presentation")]
-pub use basic_presentation::{BasicLoadPresentationPlugin, BasicLoadRoot};
+pub use basic_presentation::{spinner_frame, BasicLoadPresentationPlugin, BasicLoadRoot, BasicLoadSpinner};
 #[cfg(feature = "basic_presentation")]
 pub use deterministic_activity::DeterministicLoadingActivityPlugin;
 

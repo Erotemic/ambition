@@ -57,41 +57,4 @@ impl CharacterLoadDemand {
     pub fn take(&mut self) -> Vec<String> {
         std::mem::take(&mut self.pending).into_iter().collect()
     }
-
-    /// Take pending tokens until one frame's PIXEL ration is spent, leaving the
-    /// rest for the next call. A token costs `cost` units -- the drainer's
-    /// knowledge, since it depends on the tier the drainer decodes at; the
-    /// first token is always taken, so a single Full character still starts
-    /// this frame and the ration can never strand a token.
-    pub fn take_within_budget(&mut self, budget_units: usize, cost: usize) -> Vec<String> {
-        let mut taken = Vec::new();
-        let mut spent = 0usize;
-        while let Some(token) = self.pending.iter().next().cloned() {
-            if !taken.is_empty() && spent + cost > budget_units {
-                break;
-            }
-            self.pending.remove(&token);
-            spent += cost;
-            taken.push(token);
-        }
-        taken
-    }
-
-    /// Take at most `limit` pending tokens (all of them for `limit == 0`),
-    /// leaving the rest pending for the next call.
-    /// Drain at most `limit` tokens (`0` means all).
-    pub fn take_bounded(&mut self, limit: usize) -> Vec<String> {
-        if limit == 0 || self.pending.len() <= limit {
-            return self.take();
-        }
-        let mut taken = Vec::with_capacity(limit);
-        for _ in 0..limit {
-            let Some(token) = self.pending.iter().next().cloned() else {
-                break;
-            };
-            self.pending.remove(&token);
-            taken.push(token);
-        }
-        taken
-    }
 }

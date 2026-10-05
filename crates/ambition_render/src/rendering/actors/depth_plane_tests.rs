@@ -43,6 +43,7 @@ pub(super) fn view_at(pos: ae::Vec2, depth_plane: ae::DepthPlane) -> ambition_si
         unhittable: false,
         defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
         sprite_offset: None,
+        room: None,
     }
 }
 

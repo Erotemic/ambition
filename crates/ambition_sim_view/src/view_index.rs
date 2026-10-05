@@ -157,6 +157,12 @@ pub struct FeatureView {
     /// `None` (every other feature, and every actor that doesn't opt in)  the
     /// legacy placement, unchanged.
     pub sprite_offset: Option<ae::Vec2>,
+    /// The live room of the feature this row is of (`LiveRooms::of`): its
+    /// `InRoomInstance` stamp, or, for an unstamped feature, the sole live
+    /// room. A reader that has no visual of the feature yet (a stand-in, a
+    /// debug box) places it by this room's geometry. `None` when the room
+    /// cannot be told.
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
 /// Per-frame snapshot of every ECS-owned feature's `FeatureView`, keyed
@@ -264,11 +270,13 @@ pub fn rebuild_feature_view_index(
     // The reference the hitlag law scales from, so the published strength is a
     // fraction rather than a raw freeze presentation would have to interpret.
     feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
-    pickups: Query<(&FeatureId, &CenteredAabb, Option<&Collected>), With<PickupFeature>>,
-    chests: Query<(&FeatureId, &CenteredAabb, Option<&Opened>), With<ChestFeature>>,
-    breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature)>,
+    // Which live room each feature is in, for the row's `room`.
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    pickups: Query<(Entity, &FeatureId, &CenteredAabb, Option<&Collected>), With<PickupFeature>>,
+    chests: Query<(Entity, &FeatureId, &CenteredAabb, Option<&Opened>), With<ChestFeature>>,
+    breakables: Query<(Entity, &FeatureId, &CenteredAabb, &BreakableFeature)>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
-    switches: Query<(&FeatureId, &CenteredAabb, &SwitchFeature)>,
+    switches: Query<(Entity, &FeatureId, &CenteredAabb, &SwitchFeature)>,
     actors: Query<
         (
             &FeatureId,
@@ -309,6 +317,8 @@ pub fn rebuild_feature_view_index(
                 // A limb's host, for the bond `limb_host` projects.
                 Option<&ambition_characters::actor::Limb>,
                 Option<&ae::DepthPlane>,
+                // The body, for the live room it is in.
+                Entity,
             ),
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., written at
@@ -319,8 +329,9 @@ pub fn rebuild_feature_view_index(
         // as the generic fallback sprite instead of its sheet.
         Without<ambition_boss_encounter::BossConfig>,
     >,
-    hazards: Query<(&FeatureId, &CenteredAabb, &HazardFeature)>,
+    hazards: Query<(Entity, &FeatureId, &CenteredAabb, &HazardFeature)>,
     bosses: Query<(
+        Entity,
         &FeatureId,
         ambition_boss_encounter::BossClusterRef,
         &ambition_characters::brain::BossAttackState,
@@ -342,7 +353,7 @@ pub fn rebuild_feature_view_index(
     // No feel tuning means no hitlag law to measure against: every body reports
     // no strength rather than a number derived from a reference nobody set.
     let hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
-    for (id, aabb, collected) in &pickups {
+    for (entity, id, aabb, collected) in &pickups {
         index.insert_if_absent(
             id.as_str(),
             FeatureView {
@@ -372,10 +383,11 @@ pub fn rebuild_feature_view_index(
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
                 sprite_offset: None,
+                room: live.of(entity),
             },
         );
     }
-    for (id, aabb, opened) in &chests {
+    for (entity, id, aabb, opened) in &chests {
         index.insert_if_absent(
             id.as_str(),
             FeatureView {
@@ -405,10 +417,11 @@ pub fn rebuild_feature_view_index(
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
                 sprite_offset: None,
+                room: live.of(entity),
             },
         );
     }
-    for (id, aabb, breakable) in &breakables {
+    for (entity, id, aabb, breakable) in &breakables {
         index.insert_if_absent(
             id.as_str(),
             FeatureView {
@@ -438,10 +451,11 @@ pub fn rebuild_feature_view_index(
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
                 sprite_offset: None,
+                room: live.of(entity),
             },
         );
     }
-    for (id, aabb, switch) in &switches {
+    for (entity, id, aabb, switch) in &switches {
         index.insert_if_absent(
             id.as_str(),
             FeatureView {
@@ -471,6 +485,7 @@ pub fn rebuild_feature_view_index(
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
                 sprite_offset: None,
+                room: live.of(entity),
             },
         );
     }
@@ -489,7 +504,7 @@ pub fn rebuild_feature_view_index(
         sprite_offset,
         respawn_grace,
         body_mode,
-        (playback, line_anchor, limb, depth_plane),
+        (playback, line_anchor, limb, depth_plane, entity),
     ) in &actors
     {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
@@ -607,10 +622,11 @@ pub fn rebuild_feature_view_index(
                     respawn_grace,
                 ),
                 sprite_offset: sprite_offset.map(|o| o.0),
+                room: live.of(entity),
             },
         );
     }
-    for (id, aabb, hazard) in &hazards {
+    for (entity, id, aabb, hazard) in &hazards {
         index.insert_if_absent(
             id.as_str(),
             FeatureView {
@@ -640,10 +656,11 @@ pub fn rebuild_feature_view_index(
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
                 sprite_offset: None,
+                room: live.of(entity),
             },
         );
     }
-    for (id, feature, attack_state, combat, health, death_anim, phase, roll) in &bosses {
+    for (entity, id, feature, attack_state, combat, health, death_anim, phase, roll) in &bosses {
         let boss = feature.as_boss_ref();
         // pos / size still come from `BossRuntime` until the boss body migrates
         // to `CenteredAabb` (ecs-cleanup-plan #9).
@@ -691,6 +708,7 @@ pub fn rebuild_feature_view_index(
                 unhittable: false,
                 defense_cues: crate::DefenseCueCauses::NONE,
                 sprite_offset: None,
+                room: live.of(entity),
             },
         );
     }
@@ -1143,6 +1161,7 @@ mod view_index_tests {
             unhittable: false,
             defense_cues: crate::DefenseCueCauses::NONE,
             sprite_offset: None,
+            room: None,
         }
     }
 
@@ -1207,6 +1226,55 @@ mod view_index_tests {
             ..Default::default()
         };
         assert_eq!(published(holding), 0.0);
+    }
+
+    /// OW1: each row names the live room of its feature: its stamp, or for an
+    /// unstamped feature the sole live room. With two live rooms an unstamped
+    /// feature's room cannot be told. The control is one live room, where the
+    /// unstamped feature is in it.
+    #[test]
+    fn each_row_names_the_live_room_of_its_feature() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        #[derive(bevy::prelude::Component)]
+        struct Probe;
+        let actor = |id: &str| {
+            (
+                FeatureId(id.to_string()),
+                CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::new(30.0, 48.0)),
+                ActorDisposition::Hostile,
+            )
+        };
+        let rooms_of = |two: bool| {
+            let mut app = bevy::prelude::App::new();
+            app.init_resource::<FeatureViewIndex>();
+            app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+            ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), Probe);
+            let second = LiveRoomInstance::ACTIVATION.next();
+            if two {
+                ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(app.world_mut(), second, Probe);
+                app.world_mut().spawn((actor("in_second"), InRoomInstance(second)));
+            }
+            app.world_mut().spawn(actor("unstamped"));
+            app.add_systems(bevy::prelude::Update, rebuild_feature_view_index);
+            app.update();
+            let index = app.world().resource::<FeatureViewIndex>();
+            let mut rows: Vec<(String, Option<LiveRoomInstance>)> =
+                index.iter().map(|(id, view)| (id.to_string(), view.room)).collect();
+            rows.sort();
+            (rows, second)
+        };
+        let (rows, _) = rooms_of(false);
+        assert_eq!(
+            rows,
+            vec![("unstamped".to_string(), Some(LiveRoomInstance::ACTIVATION))],
+            "control: one live room holds the unstamped feature"
+        );
+        let (rows, second) = rooms_of(true);
+        assert_eq!(
+            rows,
+            vec![("in_second".to_string(), Some(second)), ("unstamped".to_string(), None)],
+            "two live rooms: the stamp names the room, and an unstamped feature has none"
+        );
     }
 
     #[test]

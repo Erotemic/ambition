@@ -314,6 +314,7 @@ mod boss_pass {
             unhittable: false,
             defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
             sprite_offset: None,
+            room: None,
         }
     }
 

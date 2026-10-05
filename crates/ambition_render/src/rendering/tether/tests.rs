@@ -54,6 +54,7 @@ fn actor_view(grab_reach: Option<ambition_platformer2d_core::Vec2>) -> ambition_
         unhittable: false,
         defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
         sprite_offset: None,
+        room: None,
     }
 }
 

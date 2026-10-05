@@ -179,13 +179,12 @@ pub fn despawn_dead_dynamic_feature_visuals(
 /// drawing requires world geometry.
 pub fn draw_unclaimed_feature_views(
     mut commands: Commands,
-    // `Option` is required. `SessionWorldRef` is a `Single`, so without a
-    // session world the whole system would skip, and the census below would go
-    // stale. Publishing is unconditional; only drawing needs a world.
-    world: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SoleLiveRoom<
-            ambition_platformer2d_core::RoomGeometry,
-        >,
+    // Each stand-in is placed by the geometry of its feature's own live room
+    // and stamped with it, as `spawn_dynamic_feature_visuals` places a visual.
+    // This is not a `Single`, so the census below is published with no room
+    // live, and with two.
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
+        ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     views: Res<ambition_sim_view::FeatureViewIndex>,
@@ -237,9 +236,6 @@ pub fn draw_unclaimed_feature_views(
     // from growing forever.
     unclaimed_streak.retain(|id, _| unsettled.ids.binary_search(id).is_ok());
 
-    let Some(world) = world else {
-        return;
-    };
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -259,6 +255,11 @@ pub fn draw_unclaimed_feature_views(
         if *streak < UNCLAIMED_STAND_IN_GRACE_FRAMES {
             continue;
         }
+        // A feature whose live room cannot be told is not drawn: there is no
+        // geometry to place it by.
+        let Some((room, world)) = view.room.and_then(|room| Some((room, rooms.in_room(room)?))) else {
+            continue;
+        };
         bevy::log::warn!(
             target: "ambition_platformer2d::render",
             "no render family claimed `{id}` ({:?}) for {} consecutive frames; \
@@ -268,7 +269,7 @@ pub fn draw_unclaimed_feature_views(
             *streak,
         );
         commands.spawn_session_scoped(
-            session_scope,
+            session_scope.in_room(Some(room)),
             (
                 Sprite::from_color(UNCLAIMED_BODY_COLOR, BVec2::new(view.size.x, view.size.y)),
                 Transform::from_translation(world_to_bevy(
@@ -420,7 +421,83 @@ mod tests {
             unhittable: false,
             defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
             sprite_offset: None,
+            room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
         }
+    }
+
+    /// OW1: with two live rooms, each unclaimed view gets its stand-in, placed
+    /// by the geometry of its own live room and stamped with it. The rooms
+    /// differ in height, so one position lands at two places. Before, the
+    /// stand-in read the sole live room and none was drawn while two rooms
+    /// were live. The control is the one-room app, which draws its one
+    /// stand-in.
+    #[test]
+    fn each_unclaimed_view_stands_in_its_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        fn stand_ins(app: &mut App) -> Vec<(String, Option<LiveRoomInstance>, f32)> {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<
+                (&FeatureVisual, Option<&InRoomInstance>, &Transform),
+                With<UnclaimedBodyPlaceholder>,
+            >();
+            let mut rows: Vec<_> = query
+                .iter(world)
+                .map(|(visual, room, at)| (visual.id.clone(), room.map(|room| room.0), at.translation.y))
+                .collect();
+            rows.sort_by(|a, b| a.0.cmp(&b.0));
+            rows
+        }
+        let second = LiveRoomInstance::ACTIVATION.next();
+        let in_second = ambition_sim_view::FeatureView { room: Some(second), ..a_view() };
+
+        let mut one = app_with_a_room();
+        one.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+            "in_first".to_string(),
+            a_view(),
+        )]));
+        one.add_systems(Update, draw_unclaimed_feature_views);
+        for _ in 0..UNCLAIMED_STAND_IN_GRACE_FRAMES {
+            one.update();
+        }
+        assert_eq!(stand_ins(&mut one).len(), 1, "control: one live room");
+
+        let mut two = app_with_a_room();
+        ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(
+            two.world_mut(),
+            second,
+            ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
+                "probe, taller",
+                ambition_platformer2d_core::Vec2::new(320.0, 900.0),
+                ambition_platformer2d_core::Vec2::new(40.0, 40.0),
+                Vec::new(),
+            )),
+        );
+        two.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([
+            ("in_first".to_string(), a_view()),
+            ("in_second".to_string(), in_second),
+        ]));
+        two.add_systems(Update, draw_unclaimed_feature_views);
+        for _ in 0..UNCLAIMED_STAND_IN_GRACE_FRAMES {
+            two.update();
+        }
+        let rows = stand_ins(&mut two);
+        let placed = |height: f32| {
+            let room = ambition_platformer2d_core::World::new(
+                "placement",
+                ambition_platformer2d_core::Vec2::new(320.0, height),
+                ambition_platformer2d_core::Vec2::new(40.0, 40.0),
+                Vec::new(),
+            );
+            world_to_bevy(&room, a_view().pos, 0.0).y
+        };
+        assert_eq!(
+            rows,
+            vec![
+                ("in_first".to_string(), Some(LiveRoomInstance::ACTIVATION), placed(180.0)),
+                ("in_second".to_string(), Some(second), placed(900.0)),
+            ],
+            "two live rooms: (id, stamp, placed y) of each stand-in"
+        );
     }
 
     /// A diagnosis must not outlive the bug.

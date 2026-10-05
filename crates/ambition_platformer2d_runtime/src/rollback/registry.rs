@@ -1029,7 +1029,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// placed pickup or an ordinary chest gave, with the participants in its room
 /// when it was taken, and its checksum folds them: a death keeps a coin taken
 /// in another participant's live room (Q151).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 312;
+/// ⛔⛤ 312 -> 313: `resource.accepted_checkpoint_restore` also holds the
+/// restore's replay (its reason, subject and who it spares), and its checksum
+/// folds it. The admission pins the replay instead of announcing it, and its
+/// consequences run when the room's publication is accepted, so a cancelled
+/// restore changes nothing (review 2026-10-05, P1).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 313;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

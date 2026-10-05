@@ -1948,10 +1948,16 @@ mod checkpoint_failure_tests {
     /// failing one preparation with nothing saying so.
     ///
     /// ⚠ "NOTHING DESTRUCTIVE RAN" WAS NOT ENOUGH, and I recorded this row as
-    /// closed on exactly that argument. It is true — every domain reducer lives
-    /// in the commit's schedule — and it proves only the *retain live state* half.
-    /// TERMINALIZATION and *no permanent retry* are separate claims and needed
-    /// this.
+    /// closed on exactly that argument. It proves only the *retain live state*
+    /// half. TERMINALIZATION and *no permanent retry* are separate claims and
+    /// needed this.
+    ///
+    /// ⛔⛔ AND THIS FIXTURE CANNOT SHOW THE *RETAIN LIVE STATE* HALF AT ALL. It
+    /// composes no system that reads the restore's replay, so "nothing was
+    /// applied" here is a fact about the fixture. On the composed path the
+    /// admission had already returned the subject to spawn and undefeated the
+    /// boss (review 2026-10-05, P1). The witness of that half is
+    /// `app_it::a_cancelled_restore_changes_nothing`.
     #[test]
     fn a_failed_preparation_ends_the_operation_once_and_does_not_retry_it() {
         let mut app = App::new();
@@ -1975,6 +1981,7 @@ mod checkpoint_failure_tests {
                 }),
                 item: None,
                 fresh: false,
+                replay: None,
             });
         assert!(app
             .world_mut()

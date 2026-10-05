@@ -66,6 +66,14 @@ COMMIT_ONLY: dict[str, tuple[str, str]] = {
         "path, so even an accidental invocation is a no-op rather than a restore "
         "to an empty baseline",
     ),
+    "RestoreConsequences": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "`run_restore_consequences`, which `verify_and_publish` calls when its "
+        "verdict publishes the room of an accepted restore. The replay it answers "
+        "is the one pinned in that operation, and `CommittedRestoreReplay` exists "
+        "only for the call, so a second runner would run the consequences of a "
+        "restore that never committed, which is the defect this schedule removed",
+    ),
 }
 
 

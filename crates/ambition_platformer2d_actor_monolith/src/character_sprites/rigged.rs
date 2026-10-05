@@ -139,7 +139,7 @@ pub fn rigged_pages_in(
             } else {
                 format!("{directory}/{page}")
             };
-            ambition_sprite_sheet::game_assets::load_part_page(asset_server, RIGGED_SPRITE_ROAD, path)
+            ambition_sprite_sheet::game_assets::load_sheet_image(asset_server, RIGGED_SPRITE_ROAD, path)
         })
         .collect();
     Some(RiggedSpritePages {

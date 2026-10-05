@@ -133,7 +133,8 @@ fn frame_basis_none_when_texture_missing() {
 /// The embedded WGSL parses and validates under the same naga wgpu runs at
 /// runtime — a shader typo fails here instead of on first launch. Bevy's
 /// preprocessor directives are stubbed the way Bevy resolves them (the
-/// mesh2d vertex-output import, the bind-group substitution).
+/// mesh2d vertex-output import, the bind-group substitution), for a camera
+/// blending in either space (`SRGB_OUTPUT` defined or not).
 #[test]
 fn portal_clip_wgsl_parses_and_validates() {
     let vertex_output = r#"
@@ -144,17 +145,46 @@ struct VertexOutput {
 @location(2) uv: vec2<f32>,
 }
 "#;
-    let source = include_str!("../shaders/portal_clip.wgsl")
-        .replace(
-            "#import bevy_sprite::mesh2d_vertex_output::VertexOutput",
-            vertex_output,
+    let linear_to_srgb = "fn linear_to_srgb(color: vec3<f32>) -> vec3<f32> { return pow(color, vec3<f32>(1.0 / 2.2)); }";
+    for srgb_output in [false, true] {
+        let source = include_str!("../shaders/portal_clip.wgsl")
+            .replace(
+                "#import bevy_sprite::mesh2d_vertex_output::VertexOutput",
+                vertex_output,
+            )
+            .replace("#import bevy_render::color_operations::linear_to_srgb", linear_to_srgb)
+            .replace("#{MATERIAL_BIND_GROUP}", "2");
+        let source = resolve_ifdef(&source, "SRGB_OUTPUT", srgb_output);
+        let module = naga::front::wgsl::parse_str(&source)
+            .unwrap_or_else(|error| panic!("portal_clip.wgsl parses (SRGB_OUTPUT {srgb_output}): {error}"));
+        naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::all(),
         )
-        .replace("#{MATERIAL_BIND_GROUP}", "2");
-    let module = naga::front::wgsl::parse_str(&source).expect("portal_clip.wgsl parses");
-    naga::valid::Validator::new(
-        naga::valid::ValidationFlags::all(),
-        naga::valid::Capabilities::all(),
-    )
-    .validate(&module)
-    .expect("portal_clip.wgsl validates");
+        .validate(&module)
+        .unwrap_or_else(|error| panic!("portal_clip.wgsl validates (SRGB_OUTPUT {srgb_output}): {error}"));
+    }
+}
+
+/// `source` with its `#ifdef def` / `#else` / `#endif` blocks resolved as
+/// Bevy's preprocessor resolves them with `def` defined or not.
+fn resolve_ifdef(source: &str, def: &str, defined: bool) -> String {
+    let mut kept = Vec::new();
+    let mut keeping = vec![true];
+    for line in source.lines() {
+        match line.trim() {
+            directive if directive == format!("#ifdef {def}") => keeping.push(defined),
+            "#else" => {
+                let branch = keeping.pop().expect("an #else inside an #ifdef");
+                keeping.push(!branch);
+            }
+            "#endif" => {
+                keeping.pop().expect("an #endif closing an #ifdef");
+            }
+            _ if keeping.iter().all(|keep| *keep) => kept.push(line),
+            _ => {}
+        }
+    }
+    assert_eq!(keeping, [true], "every #ifdef closed");
+    kept.join("\n")
 }

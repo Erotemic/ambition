@@ -637,6 +637,12 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 .in_set(crate::session::reset::ContentRoomReplayResetSet)
                 .after(ambition_boss_encounter::BossDefeatRetraction),
         )
+        .add_systems(
+            ambition_combat::events::RestoreConsequences,
+            retract_mints_of_retracted_boss_defeats
+                .in_set(ambition_combat::events::RestoreConsequenceSet::ReplayContent)
+                .after(ambition_boss_encounter::BossDefeatRetraction),
+        )
         .init_resource::<RewardGrantsSinceCheckpoint>()
         .add_systems(sim, forget_reward_grants_at_checkpoint)
         // ⭐ INTO THE COMMIT EXECUTOR'S SCHEDULE, not the simulation. Custody

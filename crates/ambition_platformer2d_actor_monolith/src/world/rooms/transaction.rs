@@ -415,6 +415,10 @@ pub(crate) struct PendingWorldReplacement {
     /// beside the one it replaces: a whole-session restart (Q151). Their
     /// residents are in `outgoing`. Empty for every other publication.
     retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
+    /// The checkpoint restore this publication is, if it is one. When the
+    /// verdict accepts the room, its consequences run before anything of the
+    /// old room is retired (`session::checkpoint::run_restore_consequences`).
+    restore: Option<crate::session::checkpoint::CheckpointOperationKey>,
 }
 
 /// A publication's live rooms: the one it mints, and what becomes of the
@@ -576,6 +580,7 @@ impl PendingWorldReplacement {
             arrival: None,
             succession: None,
             retires_beside: Vec::new(),
+            restore: None,
         }
     }
 
@@ -585,6 +590,12 @@ impl PendingWorldReplacement {
         rooms: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
     ) -> Self {
         self.retires_beside = rooms;
+        self
+    }
+
+    /// This publication is checkpoint restore `restore`.
+    pub(crate) fn restoring(mut self, restore: Option<crate::session::checkpoint::CheckpointOperationKey>) -> Self {
+        self.restore = restore;
         self
     }
 
@@ -2283,6 +2294,18 @@ fn verify_and_publish(
     let mut left_to_custodian = 0;
     let supersessions = effects.supersessions().count();
     if published {
+        // ⛔⛔ THE RESTORE'S CONSEQUENCES, HERE AND NOWHERE EARLIER: the verdict
+        // accepted the room, the candidates are still hidden, and nothing of
+        // the old room is retired. Each consequence sees the world the replay
+        // was admitted against (the subject goes back to the old spawn, then
+        // arrives below), and none touches the room just built. A refused
+        // room never reaches this line, so a cancelled restore changed nothing.
+        let restore = world
+            .get::<PendingWorldReplacement>(publication.0)
+            .and_then(|pending| pending.restore);
+        if let Some(key) = restore {
+            crate::session::checkpoint::run_restore_consequences(world, key);
+        }
         let admitted: usize = transactions
             .iter()
             .map(|transaction| {

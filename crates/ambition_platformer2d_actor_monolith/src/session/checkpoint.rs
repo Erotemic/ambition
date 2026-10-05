@@ -322,6 +322,7 @@ pub fn restore_checkpoint_on_session_start(
                 }
             }),
             fresh: false,
+            replay: None,
         });
         progress.set(generation, StartupResume::Routed(key));
         return;
@@ -431,7 +432,6 @@ pub fn resume_at_checkpoint_on_reset(
         // The bag this composition begins with: what a New Game gives.
         Option<Res<crate::items::starting_bag::StartingBag>>,
     ),
-    mut admitted: bevy::prelude::MessageWriter<ambition_combat::events::RoomReplayAdmitted>,
 ) {
     // ⭐ THE CHANNEL IS DRAINED EVERY FRAME AND THE REQUEST IS REMEMBERED, which
     // are two different things and used to be one. Draining alone meant a reset
@@ -657,16 +657,7 @@ pub fn resume_at_checkpoint_on_reset(
         });
         (lifecycle, item)
     };
-    accepted.accept(AcceptedRestore {
-        key,
-        frame,
-        intent,
-        lifecycle,
-        item,
-        fresh,
-    });
-    admitted.write(
-        ambition_combat::events::RoomReplayAdmitted::because(if fresh {
+    let replay = ambition_combat::events::RoomReplayAdmitted::because(if fresh {
             // A new game is a deliberate restart, so the player's placed gun
             // portals go with the run.
             ambition_combat::RoomResetReason::Manual
@@ -679,8 +670,16 @@ pub fn resume_at_checkpoint_on_reset(
         .for_subject(subject.clone())
         .to_the_checkpoint()
         .sparing(spared)
-        .sparing_participants(spared_participants),
-    );
+        .sparing_participants(spared_participants);
+    accepted.accept(AcceptedRestore {
+        key,
+        frame,
+        intent,
+        lifecycle,
+        item,
+        fresh,
+        replay: Some(replay),
+    });
 }
 
 /// The accepted restore: one operation, and every input it was accepted with.
@@ -920,6 +919,17 @@ pub struct AcceptedRestore {
     /// This restore begins a new run: the commit also runs each domain's
     /// fresh-run reducer, and the pinned values become the checkpoint.
     pub fresh: bool,
+    /// The replay this restore is, as the admission resolved it: its reason,
+    /// its subject, and who it spares. Its consequences run when the room's
+    /// publication is accepted (`ambition_combat::events::RestoreConsequences`),
+    /// and the room is built from the facts they will leave
+    /// ([`prospective_commit_fates`]). `None` for a restore with no replay (the
+    /// session-start restore).
+    ///
+    /// ⛔⛔ PINNED, NOT WRITTEN. The admission wrote it as a message until
+    /// 2026-10-05, and a restore that was then cancelled had already returned
+    /// the subject to spawn and undefeated the boss in the save.
+    pub replay: Option<ambition_combat::events::RoomReplayAdmitted>,
 }
 
 impl AcceptedCheckpointRestore {
@@ -1007,6 +1017,7 @@ impl AcceptedRestore {
             lifecycle,
             item,
             fresh,
+            replay,
         } = self;
         let mut bytes = Vec::new();
         // ⚠ THE KEY OWNS WHAT OF ITSELF A PEER COMPARES — the sequence and
@@ -1036,8 +1047,138 @@ impl AcceptedRestore {
             }
         }
         put_u8(&mut bytes, u8::from(*fresh));
+        match replay {
+            None => put_u8(&mut bytes, 0),
+            Some(replay) => {
+                let ambition_combat::events::RoomReplayAdmitted {
+                    reason,
+                    subject,
+                    refight,
+                    to_checkpoint,
+                    spared,
+                    spared_participants,
+                } = replay;
+                put_u8(&mut bytes, 1);
+                put_u8(&mut bytes, match reason {
+                    ambition_combat::RoomResetReason::PlayerDeath => 0,
+                    ambition_combat::RoomResetReason::Manual => 1,
+                });
+                match subject {
+                    None => put_u8(&mut bytes, 0),
+                    Some(subject) => {
+                        put_u8(&mut bytes, 1);
+                        bytes.extend_from_slice(subject.sim_id.as_str().as_bytes());
+                        put_u8(&mut bytes, 0);
+                        put_i32(&mut bytes, subject.room.map_or(-1, |room| room.ordinal() as i32));
+                    }
+                }
+                put_u8(&mut bytes, u8::from(*refight));
+                put_u8(&mut bytes, u8::from(*to_checkpoint));
+                put_u64(&mut bytes, spared.len() as u64);
+                for room in spared {
+                    put_i32(&mut bytes, room.ordinal() as i32);
+                }
+                put_u64(&mut bytes, spared_participants.len() as u64);
+                for slot in spared_participants {
+                    put_u8(&mut bytes, slot.0);
+                }
+            }
+        }
         checksum_bytes(&bytes)
     }
+}
+
+/// The facts the room of checkpoint restore `key` is built from: the facts at
+/// the commit, as the restore's consequences will leave them.
+///
+/// ⛔⛔ THE CONSEQUENCES HAVE NOT RUN WHEN THE ROOM IS BUILT. They run when the
+/// publication is accepted, after the room was built and checked
+/// (`ambition_combat::events::RestoreConsequences`), so that a restore that
+/// ends without a commit changes nothing. Read off the live world, the room
+/// would be built with the boss the restore takes back still defeated, and
+/// with the timers of the replayed room still running. So the two consequences
+/// that construction reads are applied here to COPIES, by the same functions:
+/// - the boss defeats the retraction takes back
+///   (`ambition_boss_encounter::defeats_a_restore_retracts`, then
+///   `retract_defeat_records` on a copy of the save and of the quests);
+/// - the records `forget_scheduled_returns_on_replay` and
+///   `disown_scheduled_returns_on_restore` remove, on a copy of the schedule.
+///
+/// The live world is not changed. With no replay pinned, these are the facts
+/// at the commit.
+pub fn prospective_commit_fates(
+    world: &bevy::prelude::World,
+    key: CheckpointOperationKey,
+) -> crate::construction::PersistedFates {
+    use crate::features::ecs::world_time_schedule::{remaining_in, remaining_scheduled_returns, WorldTimeSchedule};
+    let facts = crate::construction::PersistedFates::of_world(world);
+    let Some(replay) = world
+        .get_resource::<AcceptedCheckpointRestore>()
+        .and_then(|accepted| accepted.inputs_for_key(key))
+        .and_then(|accepted| accepted.replay.clone())
+    else {
+        return facts.with_scheduled_returns(remaining_scheduled_returns(world));
+    };
+    // The schedule as the two timer consequences will leave it.
+    let replayed_room = ambition_platformer2d_world::rooms::live_room_definition_in(
+        world,
+        replay.subject.as_ref().and_then(|subject| subject.room),
+    )
+    .and_then(|definition| {
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+            ambition_platformer2d_world::rooms::RoomSet,
+        >(world)
+        .map(|rooms| rooms.spec(definition).id.clone())
+    });
+    let remaining = world
+        .get_resource::<WorldTimeSchedule>()
+        .map(|schedule| {
+            let mut schedule = schedule.clone();
+            if let Some(room) = &replayed_room {
+                schedule.forget_room(room);
+            }
+            if replay.to_checkpoint {
+                schedule.keep_only_owners(&replay.spared_participants);
+            }
+            remaining_in(&schedule, world)
+        })
+        .unwrap_or_default();
+    // The save as the boss retraction will leave it.
+    let retracted = world
+        .get_resource::<ambition_boss_encounter::BossDefeatsSinceCheckpoint>()
+        .map(|since| ambition_boss_encounter::defeats_a_restore_retracts(since, &replay))
+        .unwrap_or_default();
+    let mut quests = world
+        .get_resource::<ambition_persistence::quest::QuestRegistry>()
+        .cloned()
+        .unwrap_or_default();
+    facts
+        .with_save_edited(|save| {
+            for placement in &retracted {
+                ambition_boss_encounter::retract_defeat_records(save, &mut quests, placement);
+            }
+        })
+        .with_scheduled_returns(remaining)
+}
+
+/// Run the consequences of checkpoint restore `key`, now that the publication
+/// of its room was accepted and before the room it replaces is retired. Called
+/// by the publication (`verify_and_publish`), on both hosts.
+///
+/// The pinned replay is the one replay the consequence systems read
+/// ([`ambition_combat::events::AdmittedReplays`]); it is removed again on
+/// every path.
+pub fn run_restore_consequences(world: &mut bevy::prelude::World, key: CheckpointOperationKey) {
+    let Some(replay) = world
+        .get_resource::<AcceptedCheckpointRestore>()
+        .and_then(|accepted| accepted.inputs_for_key(key))
+        .and_then(|accepted| accepted.replay.clone())
+    else {
+        return;
+    };
+    world.insert_resource(ambition_combat::events::CommittedRestoreReplay(replay));
+    let _ = world.try_run_schedule(ambition_combat::events::RestoreConsequences);
+    world.remove_resource::<ambition_combat::events::CommittedRestoreReplay>();
 }
 
 /// Retire an accepted restore once its intent has left the lifecycle slot.
@@ -1049,6 +1190,7 @@ impl AcceptedRestore {
 pub fn retire_accepted_checkpoint_restore(
     mut accepted: ResMut<AcceptedCheckpointRestore>,
     pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
+    outcomes: Option<ResMut<SessionCheckpointOutcomes>>,
 ) {
     let still_pending = accepted.accepted().is_some_and(|accepted| {
         pending
@@ -1056,7 +1198,27 @@ pub fn retire_accepted_checkpoint_restore(
             .is_some_and(|pending| pending.kind == accepted.intent)
     });
     if accepted.accepted().is_some() && !still_pending {
-        let _ = accepted.retire();
+        // ⛔⛔ ONE OPERATION, ONE TERMINAL OUTCOME, ON EVERY ROAD. The commit
+        // and a failed preparation retire the operation with their outcome. Any
+        // other road that takes the intent (a refused publication, a subject
+        // that is gone or cannot transit, a retraction) arrives here with the
+        // operation unanswered, and until 2026-10-05 it was retired with no
+        // outcome (review 2026-10-05, P1). Each of those roads ran none of the
+        // restore's consequences, so the live world is as it was.
+        if let (Some(operation), Some(mut outcomes)) = (accepted.retire(), outcomes) {
+            if outcomes.outcome_for(operation.key).is_none() {
+                outcomes.publish(CheckpointRestoreOutcome::Cancelled {
+                    key: operation.key,
+                    reason: RestoreCancellation::NotCommitted,
+                });
+                bevy::log::warn!(
+                    target: "ambition_platformer2d::session",
+                    "checkpoint restore {:?} ended without a commit; the live world \
+                     is unchanged",
+                    operation.key,
+                );
+            }
+        }
     }
 }
 
@@ -1737,8 +1899,12 @@ pub enum RestoreCancellation {
     /// invalid room definition is invalid again next frame, and retrying it is
     /// how a session spends every frame failing the same preparation.
     PreparationFailed,
-    /// The operation's lifecycle intent was retracted before it committed.
-    Retracted,
+    /// The operation's lifecycle intent left the slot and nothing committed
+    /// it: the publication of its room was refused, its subject was gone or
+    /// could not transit, or the intent was taken back. Published by
+    /// [`retire_accepted_checkpoint_restore`], the one place each of those
+    /// roads reaches.
+    NotCommitted,
 }
 
 impl RestoreCancellation {
@@ -1746,14 +1912,14 @@ impl RestoreCancellation {
     pub fn reason(self) -> &'static str {
         match self {
             Self::PreparationFailed => "preparation failed",
-            Self::Retracted => "retracted",
+            Self::NotCommitted => "not committed",
         }
     }
 
     fn code(self) -> u8 {
         match self {
             Self::PreparationFailed => 1,
-            Self::Retracted => 2,
+            Self::NotCommitted => 2,
         }
     }
 }

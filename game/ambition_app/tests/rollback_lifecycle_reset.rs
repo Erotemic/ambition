@@ -669,6 +669,7 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
                 }),
                 item: None,
                 fresh: false,
+                replay: None,
             });
         assert!(world
             .resource_mut::<PendingLifecycleCommit>()

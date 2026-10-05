@@ -182,6 +182,70 @@ pub struct RoomReplayAdmitted {
     pub spared_participants: Vec<ambition_characters::control::PlayerSlot>,
 }
 
+/// The replay of a checkpoint restore whose room was published, while its
+/// consequences run ([`RestoreConsequences`]).
+///
+/// ⛔⛔ A CHECKPOINT RESTORE IS NOT ANNOUNCED AT ITS ADMISSION. The admission
+/// pins this value with the operation (`AcceptedRestore::replay`). Until
+/// 2026-10-05 the admission wrote it as a message, and fourteen systems acted
+/// on it before the room was prepared: the subject went back to spawn and the
+/// boss was undefeated in the save. A restore that was then cancelled had
+/// changed the live world (review 2026-10-05, P1). Now the consequences run
+/// when the room's publication is accepted, before the old room is replaced,
+/// and a restore that ends without a commit has changed nothing.
+///
+/// Present only while [`RestoreConsequences`] runs.
+#[derive(Resource, Clone, Debug, PartialEq, Eq)]
+pub struct CommittedRestoreReplay(pub RoomReplayAdmitted);
+
+/// The consequences of a checkpoint restore whose room publication was
+/// accepted: the same systems that answer an admitted [`RoomReplayAdmitted`],
+/// run one time with [`CommittedRestoreReplay`] as their replay. Run by the
+/// publication (`verify_and_publish`) after its verdict and before the old room
+/// is replaced, so each system sees the world the replay was admitted against,
+/// as it did at the admission.
+#[derive(bevy::ecs::schedule::ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct RestoreConsequences;
+
+/// The order in [`RestoreConsequences`], the order of the simulation phases
+/// the same systems run in for an ordinary replay.
+#[derive(bevy::ecs::schedule::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum RestoreConsequenceSet {
+    /// `ContentRoomReplayResetSet`: what the content and the horizon take back
+    /// (boss defeats and their rewards, timers, consumed occurrences).
+    ReplayContent,
+    /// `RoomReplayConsequences`: the subject back at spawn.
+    Subject,
+    /// `RoomTransition`: the residue of the attempt, and the content room
+    /// resets (arena, portals, gravity).
+    RoomReset,
+    /// Later phases: hits, departures.
+    Gameplay,
+}
+
+/// The replays a consequence answers: in the simulation, the admitted
+/// [`RoomReplayAdmitted`] messages; in [`RestoreConsequences`], the one
+/// [`CommittedRestoreReplay`] and no message.
+///
+/// ⛔ ONLY THE PINNED REPLAY IN THAT SCHEDULE. Its copy of each system has its
+/// own message cursor, and a message an ordinary replay wrote this frame is
+/// already answered by the simulation's copy.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct AdmittedReplays<'w, 's> {
+    messages: bevy::ecs::message::MessageReader<'w, 's, RoomReplayAdmitted>,
+    committed: Option<Res<'w, CommittedRestoreReplay>>,
+}
+
+impl AdmittedReplays<'_, '_> {
+    /// Each replay to answer now.
+    pub fn read(&mut self) -> Box<dyn Iterator<Item = &RoomReplayAdmitted> + '_> {
+        match &self.committed {
+            Some(committed) => Box::new(std::iter::once(&committed.0)),
+            None => Box::new(self.messages.read()),
+        }
+    }
+}
+
 /// "A fresh attempt at this room begins here" — the union of a room LOAD and an
 /// admitted room REPLAY, as one question.
 ///
@@ -214,8 +278,8 @@ pub struct RoomReplayAdmitted {
 /// ⇒ Here the two `.count()` calls are bound to locals BEFORE the `||`, so both
 /// cursors always advance and a caller cannot reintroduce the defect.
 ///
-/// ⚠ NOT every replay reader wants this. Of the eleven `RoomReplayAdmitted`
-/// readers, seven deliberately do NOT answer a load — retracting a boss defeat
+/// ⚠ NOT every replay reader wants this. Most `RoomReplayAdmitted` readers
+/// deliberately do NOT answer a load — retracting a boss defeat
 /// or a gravity override on an ordinary room entry would undo progress the
 /// player kept. The two messages are different facts and this is only their
 /// union; a system that wants one of them should still say so.
@@ -226,7 +290,7 @@ pub struct FreshAttempt<'w, 's> {
         's,
         ambition_platformer2d_world::rooms::RoomLoaded,
     >,
-    replays: bevy::ecs::message::MessageReader<'w, 's, RoomReplayAdmitted>,
+    replays: AdmittedReplays<'w, 's>,
 }
 
 impl FreshAttempt<'_, '_> {

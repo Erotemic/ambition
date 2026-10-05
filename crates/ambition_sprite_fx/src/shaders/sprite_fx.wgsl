@@ -18,6 +18,9 @@
 //              interior detail. The `hit_flash` overlay's operation.
 
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#ifdef SRGB_OUTPUT
+#import bevy_render::color_operations::linear_to_srgb
+#endif
 
 // uv_rect = (min.x, min.y, max.x, max.y) of this sprite's frame in the atlas.
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> uv_rect: vec4<f32>;
@@ -102,8 +105,7 @@ fn rotate_hue(rgb: vec3<f32>, degrees: f32) -> vec3<f32> {
     return clamp(hsv_to_rgb(hsv), vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
-@fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn shade(mesh: VertexOutput) -> vec4<f32> {
     var uv = mesh.uv;
     if control.y > 0.5 {
         uv.x = 1.0 - uv.x;
@@ -132,4 +134,17 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     }
     // Silhouette: the sprite contributes its SHAPE, the argument its colour.
     return vec4<f32>(colour.rgb, sample.a * colour.a);
+}
+
+// The camera blends in the space its main texture stores: under `SRGB_OUTPUT`
+// (`CompositingSpace::Srgb`, the world's) the shaded colour is written
+// sRGB-encoded, as Bevy's own sprite and mesh shaders write it.
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let colour = shade(mesh);
+#ifdef SRGB_OUTPUT
+    return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);
+#else
+    return colour;
+#endif
 }

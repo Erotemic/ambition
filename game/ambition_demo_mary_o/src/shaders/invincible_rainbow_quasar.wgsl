@@ -1,4 +1,7 @@
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#ifdef SRGB_OUTPUT
+#import bevy_render::color_operations::linear_to_srgb
+#endif
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> uv_rect: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var<uniform> control: vec4<f32>;
@@ -48,8 +51,7 @@ fn silhouette_edge(local_uv: vec2<f32>, alpha: f32) -> f32 {
     return clamp(alpha - neighbour_min, 0.0, 1.0);
 }
 
-@fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn shade(mesh: VertexOutput) -> vec4<f32> {
     let time = control.x;
     let strength = clamp(control.z, 0.0, 1.0);
     let seed = control.w * 19.73;
@@ -108,4 +110,17 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
 
     let overlay_alpha = base.a * detail.w * strength * (0.76 + 0.16 * pulse);
     return vec4<f32>(clamp(rgb, vec3<f32>(0.0), vec3<f32>(1.65)), overlay_alpha);
+}
+
+// The camera blends in the space its main texture stores: under `SRGB_OUTPUT`
+// (`CompositingSpace::Srgb`, the world's) the shaded colour is written
+// sRGB-encoded, as Bevy's own sprite and mesh shaders write it.
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let colour = shade(mesh);
+#ifdef SRGB_OUTPUT
+    return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);
+#else
+    return colour;
+#endif
 }

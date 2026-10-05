@@ -109,6 +109,15 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::RoomReset)
                 .before(clear_portals_on_reset),
         );
+        // A checkpoint restore's replay (a New Game is `Manual`), at its
+        // publication: the bridge and the clear it feeds, in that order.
+        app.add_systems(
+            ambition_combat::events::RestoreConsequences,
+            (bridge_room_reset_to_clear_portals, clear_portals_on_reset)
+                .chain()
+                .in_set(ambition_combat::events::RestoreConsequenceSet::RoomReset)
+                .after(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
+        );
 
         // Translate this frame's ControlFrame into portal intents BEFORE the
         // core weapon/projectile consumers (ordered via PortalSet::InputAdapter

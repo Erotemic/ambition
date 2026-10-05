@@ -136,6 +136,8 @@ impl ScreenEffectSettings {
                 shaders.film_grain_luma_bias.clamp(0.0, 1.0),
                 active(shaders.vignette_strength),
                 shaders.crt_chroma.clamp(0.0, 1.0),
+                // Whether the main texture stores sRGB-encoded values: set per
+                // camera from its `CompositingSpace` (`stores_srgb`).
                 0.0,
             ),
             robot: Vec4::new(
@@ -170,7 +172,10 @@ fn sync_screen_effect_settings_from_video_settings(
     settings: Res<UserSettings>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     time: Res<Time>,
-    mut cameras: Query<(Entity, Option<&mut ScreenEffectSettings>), With<ScreenEffectCamera>>,
+    mut cameras: Query<
+        (Entity, Option<&mut ScreenEffectSettings>, Option<&bevy::camera::CompositingSpace>),
+        With<ScreenEffectCamera>,
+    >,
 ) {
     let mut shaders = settings.video.shaders.clone();
     if let Some(quality) = quality {
@@ -182,7 +187,7 @@ fn sync_screen_effect_settings_from_video_settings(
     // `screen_shader_scale` to 0.0, and a camera whose effects are all
     // scaled away needs no pass.
     if !draws_anything(&shaders) {
-        for (camera, settings) in &cameras {
+        for (camera, settings, _) in &cameras {
             if settings.is_some() {
                 commands.entity(camera).remove::<ScreenEffectSettings>();
             }
@@ -191,13 +196,26 @@ fn sync_screen_effect_settings_from_video_settings(
     }
 
     let next = ScreenEffectSettings::for_shader_settings(&shaders, time.elapsed_secs());
-    for (camera, current) in &mut cameras {
+    for (camera, current, space) in &mut cameras {
+        let mut next = next;
+        next.grain_and_vignette.w = stores_srgb(space);
         match current {
             Some(mut current) => *current = next,
             None => {
                 commands.entity(camera).insert(next);
             }
         }
+    }
+}
+
+/// `1.0` when a camera blending in `space` stores sRGB-encoded values in its
+/// main texture (Bevy: an LDR camera in `CompositingSpace::Srgb` renders into
+/// `Rgba8Unorm`), so the filter decodes what it reads.
+fn stores_srgb(space: Option<&bevy::camera::CompositingSpace>) -> f32 {
+    if space == Some(&bevy::camera::CompositingSpace::Srgb) {
+        1.0
+    } else {
+        0.0
     }
 }
 

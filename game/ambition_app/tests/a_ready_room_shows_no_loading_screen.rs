@@ -116,6 +116,8 @@ fn a_prepared_neighbour_is_entered_with_no_loading_screen() {
     let mut app = gameplay_after_startup(FAST);
     let source = live_room(&app);
     let target = neighbours_of(&app, &source).into_iter().next().expect("the start room has a neighbour");
+    // At its door: the prefetch prepares the nearest doors first.
+    stand_at_the_door_to(&mut app, &target);
     // Let the neighbour prefetch prepare it, plan and art, in the open.
     for _ in 0..360 {
         step(&mut app);
@@ -159,4 +161,62 @@ fn an_unprepared_room_shows_the_loading_screen_only_while_work_remains() {
         "the loading screen stayed up {} frames after the hall was ready and committed: {crossing:?}",
         crossing.foreground_frames_after_ready
     );
+}
+
+/// Stand Alice, at rest, at the centre of the door of the live room that leads
+/// to `target`, through the motion authority (ADR 0024).
+fn stand_at_the_door_to(app: &mut bevy::prelude::App, target: &str) {
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::engine_core::AabbExt;
+    let door = {
+        let world = app.world_mut();
+        let live = ambition_platformer2d::world::rooms::sole_live_room_definition(world).expect("a live room");
+        let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::world::rooms::RoomSet>(world)
+            .expect("the session keeps its room set");
+        rooms
+            .spec(live)
+            .loading_zones
+            .iter()
+            .find(|zone| {
+                rooms
+                    .transition_for_player(live, zone.aabb, ae::Vec2::ZERO, true)
+                    .is_some_and(|transition| rooms.rooms[transition.target_room].id == target)
+            })
+            .unwrap_or_else(|| panic!("the live room has no door to `{target}`"))
+            .aabb
+            .center()
+    };
+    let body = alice(app);
+    let mut state = bevy::ecs::system::SystemState::<
+        bevy::prelude::Query<(ae::BodyClusterQueryData, &mut ambition_platformer2d::actor::MotionModel)>,
+    >::new(app.world_mut());
+    let mut bodies = state.get_mut(app.world_mut()).expect("the body query is valid");
+    let (mut clusters, mut model) = bodies.get_mut(body).expect("Alice has a body");
+    let mut clusters = clusters.as_clusters_mut();
+    ae::movement::transit_body(&mut model, &mut clusters, door, ae::movement::TransitVelocity::Zero);
+    state.apply(app.world_mut());
+}
+
+/// Jon, 2026-10-04: through the central hub's door, the hall of characters
+/// still showed a loading bar. The hub has 21 doors and the neighbour
+/// prefetch prepares 4; by room index the hall was never among them. Ranked by
+/// the door the player stands at (`RoomSet::neighbors_nearest_first`), a player
+/// at the hall's door has the hall prepared, and enters it with no screen.
+#[test]
+fn a_player_at_the_halls_door_enters_a_prepared_hall() {
+    let mut app = gameplay_after_startup(FAST);
+    let source = live_room(&app);
+    let neighbours = neighbours_of(&app, &source);
+    // ⛔ Premise: the hall is behind a door of this room, and the room has
+    // more neighbours than the prefetch prepares, so an unranked prefetch could
+    // leave it out.
+    assert!(neighbours.iter().any(|room| room == "hall_of_characters"), "`{source}` has no door to the hall");
+    assert!(neighbours.len() > 4, "`{source}` has {} neighbours: every one is prefetched, so this tests nothing", neighbours.len());
+    stand_at_the_door_to(&mut app, "hall_of_characters");
+    for _ in 0..360 {
+        step(&mut app);
+    }
+    let crossing = cross(&mut app, "hall_of_characters");
+    assert!(crossing.prefetch_hit, "the hall was not prepared while Alice stood at its door: {crossing:?}");
+    assert_eq!(crossing.foreground_frames, 0, "a loading screen for a hall prepared at its door: {crossing:?}");
 }

@@ -152,6 +152,9 @@ pub(crate) fn construct_room_candidate(
             // ⛔ NOT THE WORLD. The session of this room is not live yet, so
             // the save and the schedule in the world are another session's.
             crate::construction::CommitFactsSource::Stated(facts) => facts,
+            crate::construction::CommitFactsSource::AfterTheRestore(key) => {
+                crate::session::checkpoint::prospective_commit_fates(world, key)
+            }
         };
         let receipt = {
             let mut inner = Commands::new(&mut queue, &*world);
@@ -598,6 +601,37 @@ impl RoomConstructionPlan {
         // restart's. Empty for every other publication.
         retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
     ) -> transaction::PublicationHandle {
+        self.replace_live_world_restoring(
+            commands,
+            outgoing,
+            carry_body,
+            next_rooms,
+            arrival,
+            succession,
+            retires_beside,
+            None,
+        )
+    }
+
+    /// [`Self::replace_live_world`] for a crossing that may be checkpoint
+    /// restore `restore`. Its room is built from the facts the restore's
+    /// consequences will leave (`CommitFactsSource::AfterTheRestore`), and the
+    /// publication runs those consequences when its verdict accepts the room,
+    /// before the room it replaces is retired
+    /// (`session::checkpoint::run_restore_consequences`). A refused room ran
+    /// none of them.
+    #[allow(clippy::too_many_arguments)]
+    pub fn replace_live_world_restoring<'a>(
+        &self,
+        commands: &mut Commands,
+        outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
+        carry_body: Option<Entity>,
+        next_rooms: Option<RoomSet>,
+        arrival: Option<transaction::StagedArrival>,
+        succession: Option<transaction::LiveRoomSuccession>,
+        retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
+        restore: Option<crate::session::checkpoint::CheckpointOperationKey>,
+    ) -> transaction::PublicationHandle {
         // Collected HERE rather than inside the staged closure: the roster comes
         // from the caller's own query, which cannot outlive this call.
         let outgoing: Vec<(Entity, bool)> = outgoing
@@ -617,7 +651,10 @@ impl RoomConstructionPlan {
         if let Some(arrival) = arrival {
             pending = pending.arriving(arrival);
         }
-        pending = pending.replacing(succession).retiring_beside(retires_beside);
+        pending = pending
+            .replacing(succession)
+            .retiring_beside(retires_beside)
+            .restoring(restore);
         let publishes_as = pending.publishes_as();
         // ⛔ **ON THE PUBLICATION ITSELF, and inserted BEFORE the transaction
         // opens**, because `transaction::open` READS it: the identities standing
@@ -654,12 +691,16 @@ impl RoomConstructionPlan {
             );
             transaction::close(commands, publication, &nothing, scope);
         } else {
-            // A room of the session that plays: its save is the live save.
+            // A room of the session that plays: its save is the live save, as
+            // a restore's consequences will leave it.
             self.spawn_contents_for(
                 publication,
                 commands,
                 scope,
-                crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+                match restore {
+                    Some(key) => crate::construction::CommitFactsSource::AfterTheRestore(key),
+                    None => crate::construction::CommitFactsSource::TheWorldAtTheCommit,
+                },
             );
         }
         publication

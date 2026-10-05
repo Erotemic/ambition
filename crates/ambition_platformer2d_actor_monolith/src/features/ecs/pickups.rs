@@ -553,7 +553,7 @@ pub fn forget_consumed_pickups_at_checkpoint(
 /// An admitted checkpoint restore keeps only the horizons of the participants
 /// it spares (Q151). At the admission, because it names who is spared.
 pub fn disown_consumed_pickups_on_restore(
-    mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
+    mut replays: ambition_combat::events::AdmittedReplays,
     mut since: ResMut<ConsumedSinceCheckpoint>,
 ) {
     for replay in replays.read() {
@@ -562,4 +562,3 @@ pub fn disown_consumed_pickups_on_restore(
         }
     }
 }
-

@@ -10,6 +10,9 @@
 // is decided on the CPU, in one place, from resolved simulation facts.
 
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#ifdef SRGB_OUTPUT
+#import bevy_render::color_operations::linear_to_srgb
+#endif
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> uv_rect: vec4<f32>;
 // control.x = intensity (0..1 — 1.0 = a fully opaque tinted silhouette)
@@ -22,8 +25,7 @@
 // tint.rgb = silhouette colour; tint.a is unused.
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var<uniform> tint: vec4<f32>;
 
-@fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn shade(mesh: VertexOutput) -> vec4<f32> {
     let intensity = clamp(control.x, 0.0, 1.0);
     if intensity <= 0.001 {
         discard;
@@ -51,4 +53,17 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     // intensity. Pre-multiplied alpha would be `vec4(intensity*a, ...)`,
     // but Bevy's 2D blend pipeline expects straight alpha here.
     return vec4<f32>(tint.rgb, sample.a * intensity);
+}
+
+// The camera blends in the space its main texture stores: under `SRGB_OUTPUT`
+// (`CompositingSpace::Srgb`, the world's) the shaded colour is written
+// sRGB-encoded, as Bevy's own sprite and mesh shaders write it.
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let colour = shade(mesh);
+#ifdef SRGB_OUTPUT
+    return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);
+#else
+    return colour;
+#endif
 }

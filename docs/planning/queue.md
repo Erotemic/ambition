@@ -631,7 +631,7 @@ owners; rollback rows are authorities, not projections; construction publishes
 no plausible-but-incomplete object; required mechanical policy does not fail
 open. Close with a fresh census rather than a checked list.
 
-### CHECKPOINT-ADMISSION-IS-NOT-COMMIT — an accepted restore changes nothing until it commits
+### CHECKPOINT-ADMISSION-IS-NOT-COMMIT — an accepted restore changes nothing until it commits — ✅ BUILT 2026-10-05
 
 **Source:** GPT review 2026-10-05, P1 (its first priority). **Owner:**
 `session/checkpoint.rs` (`resume_at_checkpoint_on_reset`,
@@ -675,12 +675,55 @@ with no outcome. That breaks "one operation, one terminal outcome".
 - Do not repair a cancellation by reversing mutations afterwards: that is a
   second reconstruction authority.
 
-**Witness (to land with the fix):** a checkpoint, then a boss defeated and
-its bounty paid, then the body moved away. A restore is asked for and each
-preparation fails. The outcome is `Cancelled`, and the body's position, the
-boss row, the purse and the defeats since the checkpoint are as before the
-request. Control: the same run with a preparation that succeeds commits and
-changes each of those facts.
+**Measured before the fix (2026-10-05):** a checkpoint at 7 coins, then a
+boss defeated and its bounty paid, then the body moved away, then a restore
+whose preparation fails. The outcome was `Cancelled`, and every fact had
+changed: the body was back at spawn ((1303, 952) to (950, 904)), the boss
+uncleared, the purse 57 to 7, the defeats since the checkpoint 1 to 0.
+
+**Built:**
+- The admission pins its replay in the operation (`AcceptedRestore::replay`)
+  and writes no `RoomReplayAdmitted`.
+- The room of a restore is built from `CommitFactsSource::AfterTheRestore`:
+  the facts at the commit, with the consequences that construction reads
+  applied to COPIES by the same functions (`prospective_commit_fates`: the
+  boss retraction's record edits, `retract_defeat_records`; the two timer
+  consequences, `forget_room` and `keep_only_owners`).
+- The consequences run in a new schedule, `RestoreConsequences`, from
+  `verify_and_publish` after its verdict accepts the room, while the
+  candidates are hidden and before anything of the old room is retired. That
+  is the world the replay was admitted against: the subject goes back to the
+  old spawn, then arrives. All fourteen readers read through one parameter,
+  `AdmittedReplays` (the messages in the simulation, the pinned replay in that
+  schedule), in sets that keep the simulation's order.
+- One terminal rule: an operation whose intent leaves the slot with no outcome
+  gets `Cancelled { NotCommitted }` from `retire_accepted_checkpoint_restore`,
+  the one place a refused publication, a subject that is gone or cannot
+  transit, and a retraction all reach.
+- Schema 312 -> 313 (the operation's checksum folds the replay).
+
+**Witnesses:** `a_cancelled_restore_changes_nothing` (app_it). The property:
+the four facts are as before the request. Its control: a committed restore
+changes each of them. Poison: the admission writes the replay again; the
+property goes red with exactly the measured facts. Unit:
+`the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_the_slot`
+(no replay message at the admission, and `Cancelled { NotCommitted }` when
+the intent leaves uncommitted; poison: no publish, red). Control:
+`an_operation_answered_before_its_intent_leaves_keeps_its_one_answer`.
+
+**The prospect, measured by poison (construction reads the live world
+instead):** the timer half is load-bearing, and three tests go red
+(`breakable_respawn_across_rooms` ×2,
+`pickup_regrowth_across_rooms::a_death_keeps_the_regrowth_of_a_heart_in_another_players_room`).
+The boss half is not seen by any test. In
+`a_restored_room_builds_the_boss_the_restore_takes_back_alive`, construction
+was told the authored `cove.mockingbird` is `Dead`, and the boss was alive and
+uncleared on the restore's frame anyway: a later layer of the commit decides
+that boss's life. Which layer is not identified.
+
+**Not built:** a composed witness for a refused publication or a subject
+that is gone. Those roads reach the unit-witnessed retirement and run no
+consequence, but no composed test forces one.
 
 ## P1 — ownership, composition and iteration
 

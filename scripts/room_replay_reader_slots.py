@@ -42,6 +42,15 @@ MESSAGE = "RoomReplayAdmitted"
 #: became a `SystemParam` SHOULD vanish from it. The question decides the roads,
 #: not a house style.
 UNION_PARAM = "FreshAttempt"
+#: ⛔ THE THIRD ROAD, SINCE 2026-10-05. A checkpoint restore pins its replay and
+#: runs the readers again in `RestoreConsequences` at its publication, so most
+#: readers take `ambition_combat::events::AdmittedReplays` (the messages, or the
+#: pinned replay) instead of a `MessageReader`. Without this road the count fell
+#: from 13 to 2, as it did at the `FreshAttempt` change. With it the count is 14:
+#: the one more is Mary-O's `begin_a_lap_on_arrival`, whose old reader spelled
+#: `MessageReader<` and its message on different lines, which the direct pattern
+#: does not see.
+REPLAYS_PARAM = "AdmittedReplays"
 #: Slots a reader may legitimately sit in. Not a whitelist to enforce -- a list
 #: to REPORT against, so an unfamiliar slot is visible rather than silently fine.
 KNOWN_SLOTS = [
@@ -89,7 +98,11 @@ def main() -> int:
         line for line in production(git_grep(f": .*{UNION_PARAM}", "crates/", "game/"))
         if "ambition_combat/src/events.rs" not in line.split(":", 1)[0]
     ]
-    readers = direct + via_union
+    via_replays = [
+        line for line in production(git_grep(f": .*{REPLAYS_PARAM}", "crates/", "game/"))
+        if "ambition_combat/src/events.rs" not in line.split(":", 1)[0]
+    ]
+    readers = direct + via_union + via_replays
     # ⛔⛔ EACH ROAD NEEDS ITS OWN FLOOR, and asking only whether the TOTAL is
     # non-empty does not give it one. The union road matches a PARAMETER TYPE and
     # says nothing about `MESSAGE`, so a renamed message left the total non-empty
@@ -105,6 +118,11 @@ def main() -> int:
               "was renamed or retired, so the indirect road silently contributes "
               "nothing and the census under-reports.", file=sys.stderr)
         return 1
+    if not via_replays:
+        print(f"FAIL: no parameter of type `{REPLAYS_PARAM}` anywhere -- the "
+              "replay road was renamed or retired, so it silently contributes "
+              "nothing and the census under-reports.", file=sys.stderr)
+        return 1
 
     engine, content = [], []
     for line in readers:
@@ -114,7 +132,8 @@ def main() -> int:
     print(f"readers of {MESSAGE}: {len(readers)}  "
           f"({len(engine)} engine, {len(content)} content)")
     print(f"  by road: {len(direct)} direct `MessageReader<..>`, "
-          f"{len(via_union)} through `{UNION_PARAM}`")
+          f"{len(via_union)} through `{UNION_PARAM}`, "
+          f"{len(via_replays)} through `{REPLAYS_PARAM}`")
 
     members = [
         line for line in git_grep("ContentRoomReplayResetSet", "crates/", "game/")

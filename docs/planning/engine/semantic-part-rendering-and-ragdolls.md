@@ -2,13 +2,161 @@
 
 ## Status
 
-Selected architectural direction and implementation plan.
+Selected architectural direction; **phases 0, 2 and 6 implemented, 3 and 5 by
+demand-driven composition, 1 measured and held for Mary-O, 7's pose seam built**
+(2026-10-05). See "Discovery results and
+the implemented shape" below for what was measured, what shipped, and what is
+still open.
 
 This document plans the migration from the current mandatory whole-body part compositor toward a semantic-part presentation model that preserves the advantages of vector-authored parts, supports high-resolution presentation without blurry upscaling, and creates a direct path to future 2D ragdolls.
 
 The current part pipeline was a useful compatibility bridge: it let part-authored characters continue to look like one ordinary body sprite to portals, fades, color effects, and other one-image consumers. The problem is not that render-to-texture composition exists. The problem is that whole-body composition has become the mandatory presentation path, and its current implementation uses ordinary Bevy cameras and atlas-page redraws for work that is fundamentally local character composition.
 
 The long-term engine should not require every semantic body part to be flattened back into one body image every frame. Whole-body or local composition should be a derived presentation operation used only where its mathematics or an unmigrated consumer require it.
+
+## Discovery results and the implemented shape (2026-10-05)
+
+All numbers MEASURED on this host (llvmpipe) unless marked.
+
+### The colour space was the whole parity question
+
+Drawing the parts directly with the main camera first failed parity badly:
+anti-aliased outlines over other parts made blobs of 11 to 18 px, and a
+translucent blink made 559 px (`scripts/measure_rigged_parity.py`, robot, sybil,
+ninja_shadow_oni_leader, alice: 99 frames). The art is composited in **gamma
+space** (the renderer's PIL compositing over stored sRGB values), and a Bevy
+camera with no `CompositingSpace` blends in linear light. The impostor had been
+getting gamma blending by a trick: raw (undecoded) pages into a plain
+`Rgba8Unorm` target.
+
+Bevy 0.19 has the property directly: `CompositingSpace::Srgb` on a camera
+renders into `Rgba8Unorm`, has every sprite and mesh2d shader write sRGB-encoded
+values, and decodes once at output. With it, the direct parts measured a largest
+blob of 3 on robot, blink included.
+
+**Decision:** every camera that draws the world blends in gamma space,
+`ambition_render::rendering::WORLD_COMPOSITING`, registered as a required
+component of the `MainCamera` and `PortalViewRig` markers (no spawn site states
+it). It is a game-wide property, not a part-rendering
+one: every translucent overlap in the world (particles, lighting, fog) now blends
+as the art tools blend. The 6 custom 2D material shaders write their colour sRGB-encoded
+under `SRGB_OUTPUT`; the screen filter decodes what it reads and encodes what it
+writes (`ScreenEffectSettings.grain_and_vignette.w`). Part pages are ordinary
+sRGB sheet images (`load_part_page` and its raw decode are gone), and the
+impostor's atlas cameras blend in the same space as the world.
+
+### Group opacity is the one thing loose parts cannot do
+
+`fade(composite(parts)) != composite(fade(part_i))`, measured: alice's blink drawn
+by spreading the frame opacity over her parts differed from the composited fade
+by 12% with blobs of 654 px, an x-ray look (her arm through her coat). Five
+characters fade a frame as one picture (`frame_opacity`: alice and bob's blinks,
+and alice, bob, player_robot_v3, richard_duckling and anne_druid's deaths). These
+frames are composited.
+
+### Implemented: direct by default, composited while read as one image
+
+- **Direct presentation is the default** (`rigged::drive_rigged_presentations`):
+  each part slot is a world sprite in the root's own render layers, under an
+  owner placed through the same quad the animator gave the root (`body_quad`:
+  size, anchor, facing, squash, mirror row), so no anchor convention is
+  re-derived. The root draws nothing. The owner follows the root's visibility
+  (its own `Visibility` for a top-level root: `InheritedVisibility` is a frame
+  late) and the root's colour multiplies every part.
+- **Composition on demand** (`ComposedBodyDemand`, declared in
+  `ComposedBodyDemandSet` before the driver): a body takes an atlas cell, and its
+  root draws that cell, only while something reads it as one image, and for
+  [`COMPOSED_HOLD_FRAMES`] (30) after, so a flickering cue does not move it every
+  frame. The census of one-image readers found five, and each now declares:
+  the hit flash (`declare_hit_flash_demand`, the same `overlay_look` the flash
+  uses), the portal's transit and far-side pieces (`declare_portal_body_demand`,
+  by room: both readers decide late in the frame), the puppy slug's dream, and
+  Mary-O's star power; a fading frame composites itself. `CharacterColorShift`
+  has no production inserter; it still applies only to a composited body.
+- **Pages never regrow.** A class opens a new page one growth step larger than
+  the last; a page regrown in place blanked every body already drawn in it, which
+  mattered once cells are taken mid-play. A body whose cell lands on a page built
+  that frame draws directly once more (its cameras arrive with the frame's
+  commands). The last page of a class is retired (cameras, quad and targets)
+  once its last body leaves, so a burst of composition does not hold its
+  targets for the session.
+- `AMBITION_PART_PRESENTATION=impostor` composites every body (the A/B knob);
+  `measure_rigged_parity.py --composed` measures it.
+
+Parity, both roads (`measure_rigged_parity.py`, the four targets above, 99
+frames): every frame within the gate, at most 0.09% and a blob of 4, identical
+between direct and composed. Cost (`examples/rigged_sprite_bench.rs --render`,
+100 actors): composited 56.3 ms a frame, 49.0 ms over the baked sheets, in 6
+sprite batches; direct 9.65 ms, 2.45 ms over baked, in 1 batch.
+
+Tests: `rigged/tests.rs` keeps the compositor's tests (their app declares every
+body) and adds the direct road: `a_body_nothing_reads_draws_its_parts_in_the_world`,
+`a_direct_part_lands_where_the_baked_frame_would_for_either_anchor`,
+`a_body_read_as_one_image_is_composited_while_it_is_read`,
+`a_fading_frame_is_composited_with_nothing_reading_it`,
+`a_direct_body_tints_its_parts_with_its_root_colour`.
+
+### Phase 1 measured: one decomposition for Mary-O, two for the pirates
+
+`scripts/measure_track_joints.py` asks the shipped files whether each part track
+rides a body-rig joint: its pivot and angle, taken in the joint's frame, constant
+over every frame both files share. Mary-O's three forms: every track turns with
+its joint exactly (0 degrees), and 17 of 20 hold their place within 0.75 px; the
+other 3 (fire's `torso` and `back_wings`, tall's `near_leg`) drift 0.86 to 0.95 px,
+still to be explained before a provider relies on them. The five pirates: 9 of
+about 26 tracks ride a joint. The pivots of 23 sit on a joint to 0.2 px, but the
+lower legs, hands, head, hat, coat tails and sword are drawn at angles the body
+rig does not publish (19 to 103 degrees apart). The pirate body rig publishes each
+bone's evaluated angle, and the paint pass draws those parts at angles it
+computes itself. So for the pirates the flipbook is still a second rotation
+authority.
+
+The same measurement is in the engine (`rigged::PosedParts`): at bind time a
+body whose sheet publishes a rig has each track bound to the joint it rides
+(within a pixel and a degree), with its pivot and angle in that joint's frame.
+`mary_os_parts_are_placed_by_her_body_rigs_pose` holds the claim for Mary-O's
+three forms: with every draw's placement wiped, the rig's own frame of each
+shared clip puts every part back within a pixel and 0.02 rad. The flipbook's
+transform table is, for her, a cache of the rig's pose. (The joint's angle is
+read off its frame's y axis: one frame mirrors her head by a negative x scale.)
+
+### Implemented: the pose provider seam (phase 7's interface)
+
+`rigged::PartPose` on a root (joint frames by rig joint index) makes the driver
+place every part that rides a joint from that pose instead of the flipbook's
+frame; the frame still says which parts draw, in what order and colour. Same
+slots, same road, direct or composited. Tests:
+`a_pose_no_clip_authored_moves_the_parts_that_ride_the_turned_joint` (the arm's
+parts swing rigidly about the arm joint, every other part stays) and
+`a_part_pose_on_the_root_places_its_parts` (in the renderer). What is not built
+yet is a provider: a physics step that writes `PartPose` from rigid bodies.
+
+### Still open
+
+- **Converge the pirate rig** (phase 1): publish each joint's frame as the
+  frame its parts are drawn in (`_pirate_body_rig.py`), or paint each part at
+  its bone's angle. Gate: `measure_track_joints.py` reports every rig-part track
+  riding. Gameplay does not move: an attachment is a point
+  (`joint.transform_point2(offset)`, offsets zero), so re-deriving each joint's
+  local frame from unchanged world points keeps the muzzle where it is. ⚠ One
+  angle per joint is not enough: the face and the hat both sit on the head joint
+  and turn apart from it and from each other (31 and 19 degrees of spread), so
+  they are accessories that need joints of their own ("Attachment/accessory"
+  above), a decision to make before the emitter changes.
+- **Publish the track's joint** with the flipbook (`track_joints`), from the
+  painter, so the binding is stated rather than measured at load. Today
+  `PosedParts::bind` infers it, which is exact for Mary-O and leaves the pirates'
+  turning parts unbound.
+- **A physics pose provider** (phase 7): rigid bodies and joints that write a
+  `PartPose`, on Mary-O first, whose decomposition already agrees.
+- **Hit flash without composition** would need a part material (a sprite can only
+  multiply its colour, and a silhouette must mix toward white). Composition on
+  demand covers it at the cost of a cell while it flashes.
+- **Compositor efficiency** matters less now that few bodies are composited; a
+  page still redraws every body in it when one changes.
+- **Ultra from the vector source** (the 2x tier from the 4x render) is unchanged.
+- **A page built mid-play** costs its first body one frame without an image for
+  its readers.
 
 ## North-star requirements
 

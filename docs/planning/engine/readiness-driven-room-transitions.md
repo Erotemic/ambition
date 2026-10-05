@@ -3,7 +3,8 @@
 ## Status
 
 Selected architectural direction. **Phases 1-5 implemented 2026-10-05; phase 6
-implemented with an unmeasured starting budget; phase 7 open.** See
+implemented with an unmeasured starting budget; phase 7's door ranking
+implemented, its residency budget open.** See
 "Discovery results and the implemented shape" below, which supersedes the
 discovery gates where they conflict.
 
@@ -50,6 +51,7 @@ plus the target being presentable (`UnclaimedFeatureViews` empty).
 | no proxy start ration (phase 4) | `materialize_character_demand` drains its demand: every demanded character starts on the frame it is demanded. `take_bounded`, `take_within_budget` and the ration constants are deleted, and so is the room "remainder" forwarding they made necessary. |
 | pacing at the expensive stage (phase 6) | Bevy's `RenderAssetBytesPerFrame` is the one pacing authority (`game/ambition_app/src/host/render_asset_budget.rs`): `VISIBLE_UPLOAD_BYTES_PER_FRAME` (16 MiB) while gameplay is visible, lifted while a cover or a load foreground hides the frame. `AMBITION_RENDER_ASSET_MB_PER_FRAME` overrides it. |
 | prepare before the deadline (phase 7, first step) | The neighbour prefetch now loads a neighbour's whole cast in the open (it loaded the ration's one character before), protected by the upload budget. |
+| prepare the door the player approaches (phase 7) | A live room's neighbours are ranked nearest door first from where its players stand (`RoomSet::neighbors_nearest_first`, fed by `prefetch_neighbor_room_preparation_system` from the driven bodies' positions); the budget of 4 takes the nearest. The central hub has 21 doors: by room index the hall of characters, behind the 15th, was never prepared, which is the loading bar Jon saw coming through its door. Evidence: `a_player_at_the_halls_door_enters_a_prepared_hall` (poisoned back to index order it misses the prefetch). |
 | no minimum display time (phase 1) | `minimum_visible` (300 ms) is deleted. The cover lifts at commit + presentable. |
 | honest progress (phase 5) | The room-transition load experience shows no percentage (`show_estimated_percentage = false`); the player sees the named work, and a spinner (`BasicLoadSpinner`) turns on real time as the sign of life. |
 | readiness projection and diagnostics (phases 2, 5) | The gate's `pending` list is kept on `ContributedRoomAssets` (read-only). When a loading foreground appears it logs `loading_screen_reason`: the destination and the activation-critical work it waits on. The 5 s no-progress stall report is unchanged. |
@@ -77,9 +79,10 @@ in 11 frames, inside the 250 ms reveal grace, with no loading screen at all.
    per uploaded byte on the GPU host (an uncovered prefetch of a large
    neighbour is the case) and set it from that.
 2. **Prefetch selection is a room count.** `NEIGHBOR_PREFETCH_ROOM_BUDGET = 4`
-   stands in for a memory/residency budget, and a high-degree hub skips some
-   neighbours whole. Prioritising by the door the player approaches, budgeted
-   by resident bytes, is phase 7.
+   stands in for a memory/residency budget. The order is now nearest door
+   first; the budget in resident bytes, and how long a room that left the
+   nearest four keeps its preparation (today: dropped, re-prepared on return),
+   are the rest of phase 7.
 3. **Images keep a CPU copy after upload** where nothing reads it (the render
    target census reported 153 MB of `cpu_bytes`). `RenderAssetUsages` per
    image kind is a memory item for `asset-preparation-and-residency.md`.

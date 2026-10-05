@@ -698,7 +698,7 @@ where
     registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::AcceptedCheckpointRestore>(
         OWNER,
         "resource.accepted_checkpoint_restore",
-        "which operation was accepted and the occurrence population it reconstructs",
+        "which operation was accepted, the occurrence population it reconstructs, and the replay whose consequences run at its publication",
         crate::session::checkpoint::AcceptedCheckpointRestore::checksum,
     );
     registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::OutstandingCheckpointRequest>(

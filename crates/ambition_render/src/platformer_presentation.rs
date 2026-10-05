@@ -77,6 +77,15 @@ impl Plugin for SessionRoomVisualsPlugin {
                     ambition_portal2d_presentation::PlacedPortal,
                 >),
         );
+        #[cfg(feature = "portal_render")]
+        app.add_systems(
+            Update,
+            crate::rendering::portal_compositing::declare_portal_body_demand
+                .in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
+                .run_if(bevy::prelude::any_with_component::<
+                    ambition_portal2d_presentation::PlacedPortal,
+                >),
+        );
         // The layer-spawning composition owns active-room theme loading and the refresh that
         // materializes newly available/quality-changed parallax assets.
         app.add_systems(

@@ -294,7 +294,7 @@ pub fn reset_cut_rope_attempt_on_replay(
     // The admitted replay, not the request. This retracts a persisted defeat;
     // doing that on a request the lifecycle might refuse would retract a defeat
     // for a replay that never happens.
-    mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
+    mut replays: ambition_combat::events::AdmittedReplays,
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     registry: Res<BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_persistence::save::AmbitionGameSave>>,

@@ -249,6 +249,10 @@ pub enum CommitFactsSource {
     /// built from the save of its own experience
     /// (`session::durable_horizon::CandidateSave`).
     Stated(PersistedFates),
+    /// The world at the commit, as the consequences of this checkpoint
+    /// restore will leave it (`session::checkpoint::prospective_commit_fates`).
+    /// Those consequences run only when the room's publication is accepted.
+    AfterTheRestore(crate::session::checkpoint::CheckpointOperationKey),
 }
 
 /// What the durable save says about the authored bodies a commit builds.
@@ -287,6 +291,19 @@ impl PersistedFates {
         world
             .get_resource::<ambition_persistence::save::AmbitionGameSave>()
             .map_or_else(Self::unrecorded, |save| Self::from_save(save.data()))
+    }
+
+    /// These facts, with the save edited by `edit`: the save a commit will
+    /// find after a change that has not happened yet (the prospect of a
+    /// checkpoint restore). Facts with no save stay with none.
+    pub fn with_save_edited(
+        mut self,
+        edit: impl FnOnce(&mut ambition_persistence::save_data::AmbitionGameSaveData),
+    ) -> Self {
+        if let Some(save) = self.save.as_mut() {
+            edit(save);
+        }
+        self
     }
 
     /// These facts, with the occurrences still gone as the commit is requested

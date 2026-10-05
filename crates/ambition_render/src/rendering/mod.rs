@@ -27,6 +27,40 @@ pub struct SpriteVisualSync;
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct BodyOwnedDrawableSync;
 
+/// The colour space every camera that draws the world blends in: gamma
+/// (stored sRGB values), as the art was composited when it was authored.
+///
+/// The published frames are composited from stored sRGB values (the renderer's
+/// PIL compositing, and the SVG rasterizer before it), so an anti-aliased
+/// outline over another part, or a translucent part over a body, has the
+/// colour gamma blending gives it. A camera blending in linear light (Bevy's
+/// default for a camera with no `CompositingSpace`) lightens every such pixel:
+/// characters drawn as loose parts measured edge blobs of 11 to 18 px against
+/// their published frames, and 559 px on a translucent blink, where gamma
+/// blending measured 3 (`scripts/measure_rigged_parity.py --direct`,
+/// 2026-10-05). Custom 2D shaders honour it under `SRGB_OUTPUT`.
+///
+/// Required, where the renderer is composed, by every camera that draws the
+/// world: the gameplay cameras (`MainCamera`) and the portal captures
+/// (`PortalViewRig`), see [`require_world_compositing`].
+pub const WORLD_COMPOSITING: bevy::camera::CompositingSpace = bevy::camera::CompositingSpace::Srgb;
+
+
+/// Make every camera that draws the world blend in [`WORLD_COMPOSITING`]: a
+/// required component of the cameras' markers, so no spawn site states it
+/// and none can forget it.
+pub fn require_world_compositing(app: &mut bevy::app::App) {
+    app.register_required_components_with::<
+        ambition_platformer2d_shared_tangle::camera_layers::MainCamera,
+        bevy::camera::CompositingSpace,
+    >(|| WORLD_COMPOSITING);
+    #[cfg(feature = "portal_render")]
+    app.register_required_components_with::<
+        ambition_portal2d_presentation::PortalViewRig,
+        bevy::camera::CompositingSpace,
+    >(|| WORLD_COMPOSITING);
+}
+
 pub mod actors;
 pub mod body_clock;
 pub mod body_cues;
@@ -496,8 +530,26 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // binders have settled which sheet and tier a root wears, draw after
         // both animators have chosen this frame's row and frame. Both do
         // nothing unless the trial is admitted.
+        require_world_compositing(app);
         app.init_resource::<actors::rigged::RiggedPresentations>();
         app.init_resource::<actors::rigged::RiggedImpostorAtlas>();
+        // Who reads a part-drawn body as one image this frame, declared before
+        // the driver composites those bodies (`ComposedBodyDemand`).
+        app.init_resource::<ambition_sprite_sheet::character::rigged::ComposedBodyDemand>();
+        app.configure_sets(
+            Update,
+            ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet
+                .before(actors::rigged::drive_rigged_presentations)
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                ),
+        );
+        app.add_systems(
+            Update,
+            hit_flash::declare_hit_flash_demand
+                .in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
+                .run_if(session_presentation_is_ready),
+        );
         actors::rigged::add_rigged_impostor_material_plugin(app);
         app.add_systems(
             Update,

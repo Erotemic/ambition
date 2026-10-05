@@ -181,7 +181,7 @@ fn sheet(
                 })
                 .collect();
             let part_pages = flipbook.as_ref().map_or(Vec::new(), |flipbook| {
-                flipbook.pages.iter().map(|page| ambition_sprite_sheet::game_assets::load_part_page(server, "character-parts", format!("sprites/{page}"))).collect()
+                flipbook.pages.iter().map(|page| ambition_sprite_sheet::game_assets::load_sheet_image(server, "character-parts", format!("sprites/{page}"))).collect()
             });
             (pages[0].texture.clone(), pages[0].layout.clone(), pages, part_pages)
         }
@@ -256,6 +256,8 @@ fn add_renderer(app: &mut App, views: usize, tiny: bool) {
     for view in 0..views {
         app.world_mut().spawn((
             Camera2d,
+            // Blends as the game's world cameras do.
+            ambition_render::rendering::WORLD_COMPOSITING,
             Camera {
                 order: view as isize,
                 viewport: Some(bevy::camera::Viewport {

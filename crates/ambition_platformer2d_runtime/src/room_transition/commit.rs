@@ -342,6 +342,10 @@ impl RoomTransitionApplication<'_, '_> {
         // retires with the one this rebuilds, and no other player's body
         // keeps a room live.
         restart: bool,
+        // The checkpoint restore this crossing is, if it is one: its room is
+        // built from the facts its consequences will leave, and those run when
+        // the publication is accepted.
+        restore: Option<ambition_platformer2d_actor_monolith::session::checkpoint::CheckpointOperationKey>,
     ) -> Result<StagedRoomTransition, RoomTransitionApplyError> {
         // ── PREFLIGHT ────────────────────────────────────────────────────────
         if self.session.iter().next().is_none() {
@@ -552,7 +556,7 @@ impl RoomTransitionApplication<'_, '_> {
             .map(|(live, _)| *live)
             .filter(|live| restart && Some(*live) != departing)
             .collect();
-        let publication = plan.replace_live_world(
+        let publication = plan.replace_live_world_restoring(
             &mut self.commands,
             // A room that stays live retires nothing.
             self.room_visuals
@@ -570,6 +574,7 @@ impl RoomTransitionApplication<'_, '_> {
             staged_arrival,
             succession,
             retires_beside,
+            restore,
         );
 
         // Every live room but the one left stays standing; the one left stays
@@ -1254,6 +1259,7 @@ pub fn commit_ready_room_transition_system(
         intent.edge_exit(),
         intent.zone_sfx(),
         restart,
+        active.checkpoint_operation,
     ) {
         Ok(staged) => staged,
         Err(error) => {

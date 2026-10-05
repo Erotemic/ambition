@@ -85,7 +85,7 @@ type AttemptResidue = (
 /// `runtime::sandbox_reset::admit_room_replay`'s job now; this reacts to the
 /// FACT, and the room's own rebuild is the transition road's.
 pub fn retire_the_previous_attempt(
-    mut admitted: MessageReader<RoomReplayAdmitted>,
+    mut admitted: ambition_combat::events::AdmittedReplays,
     mut commands: Commands,
     residue: Query<Entity, AttemptResidue>,
 ) {

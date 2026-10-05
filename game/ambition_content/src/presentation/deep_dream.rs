@@ -85,6 +85,29 @@ pub fn install(app: &mut App) {
             .chain()
             .in_set(ActorOverlaySet),
     );
+    app.add_systems(
+        Update,
+        declare_deep_dream_demand.in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet),
+    );
+}
+
+/// Declare every dreaming body as read as one image
+/// (`ComposedBodyDemand`): the dream shader samples its root sprite, which a
+/// part-drawn body has only while it is composited.
+fn declare_deep_dream_demand(
+    settings: Res<PuppySlugDreamSettings>,
+    sources: Query<Entity, With<PuppySlugDeepDreamSource>>,
+    demand: Option<ResMut<ambition_sprite_sheet::character::rigged::ComposedBodyDemand>>,
+) {
+    let Some(mut demand) = demand else {
+        return;
+    };
+    if settings.disabled {
+        return;
+    }
+    for source in &sources {
+        demand.declare(source);
+    }
 }
 
 /// Custom material used by the one-off puppy-slug shader.

@@ -439,7 +439,7 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut state: ResMut<CutRopeBossArenaState>,
     mut heavy_object: ResMut<CutRopeHeavyObjectCycle>,
-    mut reset_events: MessageReader<RoomReplayAdmitted>,
+    mut reset_events: ambition_combat::events::AdmittedReplays,
     mut prop_visuals: Query<(
         Entity,
         &mut PropVisual,

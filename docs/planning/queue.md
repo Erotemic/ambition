@@ -321,8 +321,25 @@ what it paid: `a_death_keeps_the_reward_taken_from_the_other_players_boss`).
 Another participant's wallet is not rewound. Witness:
 `a_death_undoes_a_purchase_since_the_checkpoint_whole` (control: a purchase
 before the checkpoint survives); poisons on capture, load adoption and
-restore each fail it. Schema 308 -> 309. Open: `OwnedItems` itself is still
-one session-wide bag, so Alice's death restores what Bob put in it.
+restore each fail it. Schema 308 -> 309. `OwnedItems` is one session-wide
+bag (the demo inventory is a demonstration, 2026-10-01: no per-seat bags).
+
+**A grant names its owners (2026-10-04).** A coin Alice took in Bob's live
+room, while he was there, was lost when she died elsewhere: the coin stayed
+gone in his room and her wallet went back to the checkpoint (measured: 0 of
+25 kept). What a placed pickup or an ordinary chest gives is now recorded
+(`GrantSource::Authored`) with the participants in its live room when it was
+taken, and the restore's acceptance keeps it in the bag and the purse while
+one of them is spared. Alone, the room is built again with the source, so
+the grant goes back with it. Witnesses:
+`a_death_keeps_the_coin_taken_in_another_players_live_room` (control: the
+coin taken alone) and `an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room`
+(control: a boss reward chest keeps its placement). Poisons: never keep, and
+always keep, an authored grant; record a pickup's or a chest's grant with no
+owners. Schema 311 -> 312. Open: what a spared participant takes OUT of the
+shared bag since the checkpoint (an item used, a purchase) is not recorded,
+so Alice's death gives it back. No production road seats a second player in
+Ambition yet (Q153).
 
 **The items go with the coins (2026-10-04).** An item a kept reward gave was
 lost: the restore put the checkpoint's bag back whole while the reward stayed

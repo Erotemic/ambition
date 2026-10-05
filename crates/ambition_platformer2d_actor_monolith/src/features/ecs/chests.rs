@@ -67,10 +67,13 @@ pub fn open_ecs_chests(
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
     (mut owned, items): (Option<ResMut<ambition_items::OwnedItems>>, ambition_items::ItemCatalogRead),
-    // What a boss reward chest gave, which a retracted defeat takes back.
-    (sim_ids, mut reward_grants): (
+    // What a chest gave: a retracted defeat takes back a boss reward
+    // chest's, and a restore keeps an ordinary chest's while one of the
+    // participants in its room is spared (Q151).
+    (sim_ids, mut reward_grants, participants): (
         Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
         Option<ResMut<crate::items::pickup::RewardGrantsSinceCheckpoint>>,
+        Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     ),
 ) {
     // Iterate every player so each player's own buffered interact
@@ -128,13 +131,19 @@ pub fn open_ecs_chests(
                     owned.as_deref_mut(),
                     items.get(),
                 );
-                if let (Some(boss_reward), Ok(collector), Some(reward_grants)) =
-                    (boss_reward, sim_ids.get(subject), reward_grants.as_deref_mut())
+                if let (Ok(collector), Some(reward_grants)) =
+                    (sim_ids.get(subject), reward_grants.as_deref_mut())
                 {
-                    reward_grants.record(crate::items::pickup::RewardGrant {
-                        source: crate::items::pickup::GrantSource::BossChest {
+                    let source = match boss_reward {
+                        Some(boss_reward) => crate::items::pickup::GrantSource::BossChest {
                             placement: boss_reward.encounter_id.clone(),
                         },
+                        None => crate::items::pickup::GrantSource::Authored {
+                            owners: super::world_time_schedule::owners_beside(entity, &rooms, &participants),
+                        },
+                    };
+                    reward_grants.record(crate::items::pickup::RewardGrant {
+                        source,
                         collector: collector.clone(),
                         granted,
                     });

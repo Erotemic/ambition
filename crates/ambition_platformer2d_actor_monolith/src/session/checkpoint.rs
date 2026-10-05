@@ -622,9 +622,10 @@ pub fn resume_at_checkpoint_on_reset(
             inputs
         });
         // The bag and the purse this restore promises: the checkpoint's, and
-        // what each reward it keeps gave (Q151): a reward of a defeat that
-        // another participant keeps stays. The purse is the primary body's,
-        // so it keeps the coins that body collected.
+        // what each grant it keeps gave (Q151): a reward of a defeat that
+        // another participant keeps stays, and so does what a pickup or a
+        // chest in another participant's room gave. The purse is the primary
+        // body's, so it keeps the coins that body collected.
         let item = minted.zip(owned).map(|(minted, owned)| {
             let mut owned = owned.clone();
             if let (Some(grants), Some(defeats)) = (grants.as_ref(), defeats.as_ref()) {
@@ -638,7 +639,7 @@ pub fn resume_at_checkpoint_on_reset(
                 }
                 let mut bag = owned.remembered().clone();
                 let mut purse = owned.purse();
-                for grant in grants.kept_by_restore(&bosses, &placements) {
+                for grant in grants.kept_by_restore(&bosses, &placements, &spared_participants) {
                     if let Some((item, n)) = grant.granted.item {
                         bag.grant(items.get(), item, n);
                     }

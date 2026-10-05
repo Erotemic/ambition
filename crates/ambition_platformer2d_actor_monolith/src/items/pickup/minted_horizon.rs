@@ -365,9 +365,16 @@ pub enum GrantSource {
     Mint { parent: SimId },
     /// An opened boss reward chest, by its boss placement.
     BossChest { placement: String },
+    /// A placed pickup or an ordinary chest of a room, by the participants
+    /// in its live room when it was taken (Q151): their horizons own the
+    /// grant. A restore keeps it while one of them is spared, because the
+    /// source then stays taken in a room the restore does not build again.
+    Authored {
+        owners: Vec<ambition_characters::control::PlayerSlot>,
+    },
 }
 
-/// One grant of a collected mint or an opened boss reward chest.
+/// One grant of a collected pickup or an opened chest.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RewardGrant {
     pub source: GrantSource,
@@ -406,6 +413,8 @@ impl RewardGrantsSinceCheckpoint {
         let retracted = |grant: &RewardGrant| match &grant.source {
             GrantSource::Mint { parent } => bosses.contains(parent),
             GrantSource::BossChest { placement } => placements.contains(placement),
+            // A boss defeat does not own what a room authored.
+            GrantSource::Authored { .. } => false,
         };
         if !self.grants.iter().any(retracted) {
             return Vec::new();
@@ -417,7 +426,13 @@ impl RewardGrantsSinceCheckpoint {
 
     /// The grants a checkpoint restore keeps (Q151): those of a defeat the
     /// restore does not retract (`bosses` and `placements` name the ones it
-    /// does).
+    /// does), and those of an authored source that a spared participant owns
+    /// (`spared_participants`).
+    ///
+    /// An authored source with no spared owner was taken only by the dying
+    /// participant. Its room is built again from the checkpoint, either at
+    /// once or when somebody comes back, so the source is there again and its
+    /// grant goes back with it.
     ///
     /// ⚠ This keeps a grant also when the restore could put its source back,
     /// so it relies on two measured facts (2026-10-04). A collected bag
@@ -430,10 +445,12 @@ impl RewardGrantsSinceCheckpoint {
         &'a self,
         bosses: &'a std::collections::BTreeSet<SimId>,
         placements: &'a std::collections::BTreeSet<String>,
+        spared_participants: &'a [ambition_characters::control::PlayerSlot],
     ) -> impl Iterator<Item = &'a RewardGrant> + 'a {
         self.grants.iter().filter(move |grant| match &grant.source {
             GrantSource::Mint { parent } => !bosses.contains(parent),
             GrantSource::BossChest { placement } => !placements.contains(placement),
+            GrantSource::Authored { owners } => owners.iter().any(|owner| spared_participants.contains(owner)),
         })
     }
 
@@ -460,6 +477,13 @@ impl RewardGrantsSinceCheckpoint {
                 GrantSource::BossChest { placement } => {
                     put_u64(&mut bytes, 1);
                     put_str(&mut bytes, placement);
+                }
+                GrantSource::Authored { owners } => {
+                    put_u64(&mut bytes, 2);
+                    put_u64(&mut bytes, owners.len() as u64);
+                    for owner in owners {
+                        put_u64(&mut bytes, u64::from(owner.0));
+                    }
                 }
             }
             put_str(&mut bytes, grant.collector.as_str());
@@ -808,7 +832,7 @@ where
     registrar.rollback_resource_clone_checksum::<RewardGrantsSinceCheckpoint>(
         OWNER,
         "resource.reward_grants_since_checkpoint",
-        "the grants of the mints collected and the boss reward chests opened since the last checkpoint, which a retracted boss defeat takes back",
+        "the grants of the pickups collected and the chests opened since the last checkpoint: a retracted boss defeat takes back a mint's and its reward chest's, and a death keeps a placed source's while one of its owners is spared",
         RewardGrantsSinceCheckpoint::checksum,
     );
 }

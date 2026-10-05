@@ -1025,7 +1025,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 310 -> 311: `feature.consumed_since_checkpoint` is new: the one-time
 /// pickups consumed since the checkpoint and whose horizons own each. A death
 /// keeps the ones another participant took (Q151).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 311;
+/// ⛔⛤ 311 -> 312: `resource.reward_grants_since_checkpoint` also holds what a
+/// placed pickup or an ordinary chest gave, with the participants in its room
+/// when it was taken, and its checksum folds them: a death keeps a coin taken
+/// in another participant's live room (Q151).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 312;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

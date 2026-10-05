@@ -305,3 +305,91 @@ fn two_driven_bodies_each_open_their_own_chest() {
         );
     }
 }
+
+/// Q151: what an ordinary chest gave is owned by the participants in its live
+/// room when it opened, so a restore keeps it while one of them is spared.
+/// Seat 0 opens it beside seat 1; seat 2 is in another live room and owns
+/// nothing of it. The control is a boss reward chest, which keeps its own
+/// source (its placement), because a retracted defeat takes it back.
+#[test]
+fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+
+    #[derive(bevy::prelude::Component)]
+    struct Probe;
+
+    let source_of = |boss: bool| {
+        let mut app = app();
+        app.init_resource::<crate::items::pickup::RewardGrantsSinceCheckpoint>();
+        app.insert_resource(ControlledSubject(None));
+        app.world_mut()
+            .resource_mut::<SlotInteractionState>()
+            .primary_mut()
+            .interact_buffer_timer = 0.5;
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), Probe);
+        let other = LiveRoomInstance::ACTIVATION.next();
+        ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(app.world_mut(), other, Probe);
+        let here = InRoomInstance(LiveRoomInstance::ACTIVATION);
+        let at = ae::Vec2::new(100.0, 100.0);
+        let seat = |app: &mut App, slot: u8, room: InRoomInstance, pos: ae::Vec2| {
+            app.world_mut().spawn((
+                BodyKinematics {
+                    pos,
+                    size: ae::Vec2::new(28.0, 46.0),
+                    facing: 1.0,
+                    ..Default::default()
+                },
+                BodyBaseSize {
+                    base_size: ae::Vec2::new(28.0, 46.0),
+                },
+                BodyAnimFacts::default(),
+                ambition_characters::actor::BodyWallet::default(),
+                DrivingParticipant(PlayerSlot(slot)),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&format!("seat_{slot}")),
+                room,
+            ));
+        };
+        seat(&mut app, 0, here, at);
+        seat(&mut app, 1, here, ae::Vec2::new(600.0, 100.0));
+        seat(&mut app, 2, InRoomInstance(other), ae::Vec2::new(900.0, 100.0));
+        let chest = chest_holding(
+            &mut app,
+            "c1",
+            at,
+            Some(ambition_interaction::PickupKind::Currency { amount: 7 }),
+        );
+        app.world_mut().entity_mut(chest).insert(here);
+        if boss {
+            app.world_mut()
+                .entity_mut(chest)
+                .insert(ambition_combat::components::BossRewardChest { encounter_id: "warden".to_string() });
+        }
+        app.update();
+        let grants = app.world().resource::<crate::items::pickup::RewardGrantsSinceCheckpoint>();
+        let kept: Vec<_> = grants
+            .kept_by_restore(&Default::default(), &Default::default(), &[PlayerSlot(1)])
+            .map(|grant| grant.source.clone())
+            .collect();
+        let kept_by_seat_2 = grants
+            .kept_by_restore(&Default::default(), &Default::default(), &[PlayerSlot(2)])
+            .count();
+        (kept, kept_by_seat_2)
+    };
+    assert_eq!(
+        source_of(true),
+        (
+            vec![crate::items::pickup::GrantSource::BossChest { placement: "warden".to_string() }],
+            1
+        ),
+        "control: a boss reward chest keeps its placement as its source"
+    );
+    assert_eq!(
+        source_of(false),
+        (
+            vec![crate::items::pickup::GrantSource::Authored { owners: vec![PlayerSlot(0), PlayerSlot(1)] }],
+            0
+        ),
+        "an ordinary chest: (the source, owned by the seats in its room; grants kept when only seat 2, of another room, is spared)"
+    );
+}

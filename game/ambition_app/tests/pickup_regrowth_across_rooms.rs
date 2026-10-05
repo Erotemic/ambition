@@ -414,3 +414,82 @@ fn a_death_keeps_gone_a_one_time_heart_another_player_took_in_a_room_he_left() {
         "Alice's death in the hub brought back the one-time heart Bob took in a room he left"
     );
 }
+
+/// The room beside the hub that authors a coin pickup.
+const COIN_ROOM: &str = "basement_treasure";
+const COIN: &str = "currency pickup";
+
+fn alices_balance(sim: &mut Platformer2dSimHarness) -> i32 {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<
+        &ambition_platformer2d::characters::actor::BodyWallet,
+        bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+    >();
+    q.single(world).expect("Alice's body has a wallet").balance
+}
+
+/// (Alice's balance after her death against the checkpoint's, whether the coin
+/// is still gone in its room). After the checkpoint in the hub, Alice goes
+/// into the coin room and takes the coin, then goes back to the hub and dies.
+/// With `bob_stays`, Bob is in the coin room the whole time, so it stays
+/// live; without him it retires when she leaves.
+fn a_coin_taken_after_the_checkpoint(bob_stays: bool) -> (i32, Option<bool>) {
+    let mut sim = if bob_stays {
+        crate::two_players_two_live_rooms::alice_leaves_bob_in(
+            COIN_ROOM,
+            HUB,
+            Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+            cross_to,
+        )
+        .0
+    } else {
+        let mut sim = fixed_60hz_room_sim(COIN_ROOM);
+        settle(&mut sim, 30);
+        assert_eq!(cross_to(&mut sim, HUB), HUB);
+        settle(&mut sim, 30);
+        sim
+    };
+    crate::death_restores_the_checkpoint::commit_a_checkpoint(&mut sim);
+    let at_the_checkpoint = alices_balance(&mut sim);
+    assert_eq!(cross_to(&mut sim, COIN_ROOM), COIN_ROOM);
+    settle(&mut sim, 10);
+    collect(&mut sim, COIN);
+    assert_eq!(alices_balance(&mut sim), at_the_checkpoint + 25, "precondition: the coin paid Alice");
+    assert_eq!(cross_to(&mut sim, HUB), HUB);
+    settle(&mut sim, 30);
+    let coin_room_live =
+        crate::two_players_two_live_rooms::live_rooms(&mut sim).iter().any(|(_, id)| id == COIN_ROOM);
+    assert_eq!(coin_room_live, bob_stays, "precondition: the coin room is live while Bob is in it");
+    crate::death_restores_the_checkpoint::die(&mut sim);
+    let outcome = format!(
+        "{:?}",
+        sim.world()
+            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+            .latest()
+    );
+    assert!(outcome.starts_with("Some(Committed"), "precondition: the death's restore committed: {outcome}");
+    settle(&mut sim, 2);
+    (
+        alices_balance(&mut sim) - at_the_checkpoint,
+        pickup(&mut sim, COIN).map(|(collected, _)| collected),
+    )
+}
+
+/// Q151 for a grant: a coin Alice took after the checkpoint in Bob's room,
+/// while he was there, is a consequence Bob's horizon owns too. Alice's death
+/// elsewhere leaves the coin gone in his live room, so she keeps what it paid.
+/// The control is the coin taken with nobody else in its room: her death
+/// takes the money back, and the room built again on her return has the coin.
+#[test]
+fn a_death_keeps_the_coin_taken_in_another_players_live_room() {
+    assert_eq!(
+        a_coin_taken_after_the_checkpoint(false),
+        (0, None),
+        "control: alone, Alice's death takes back the coin's money, and its room is not live"
+    );
+    assert_eq!(
+        a_coin_taken_after_the_checkpoint(true),
+        (25, Some(true)),
+        "(money kept, the coin still gone in Bob's live room)"
+    );
+}

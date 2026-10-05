@@ -277,7 +277,7 @@ pub fn mirror_breakable_respawns(
                 room,
                 feature.as_str(),
                 elapsed.0 + timer.0,
-                &owners_beside(entity, &rooms, &participants),
+                &owners_beside(entity, rooms.live(), &participants),
             ),
             (false, _) => schedule.forget(room, feature.as_str()),
             // Broken for good (`Never`, `OnRoomReload`): no respawn to schedule.
@@ -325,7 +325,7 @@ pub fn regrow_pickups(
                         room,
                         feature.as_str(),
                         elapsed.0 + timer.0,
-                        &owners_beside(entity, &rooms, &participants),
+                        &owners_beside(entity, rooms.live(), &participants),
                     );
                 }
             }
@@ -340,15 +340,15 @@ pub fn regrow_pickups(
 /// order: the owners of a record made for it now.
 pub(crate) fn owners_beside(
     entity: Entity,
-    rooms: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    live: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     participants: &Query<(Entity, &DrivingParticipant)>,
 ) -> Vec<PlayerSlot> {
-    let Some(room) = rooms.live().of(entity) else {
+    let Some(room) = live.of(entity) else {
         return Vec::new();
     };
     let mut owners: Vec<PlayerSlot> = participants
         .iter()
-        .filter(|(body, _)| rooms.live().of(*body) == Some(room))
+        .filter(|(body, _)| live.of(*body) == Some(room))
         .map(|(_, driver)| driver.0)
         .collect();
     owners.sort();

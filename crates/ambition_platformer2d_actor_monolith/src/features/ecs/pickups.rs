@@ -194,8 +194,11 @@ pub fn collect_ecs_pickups(
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     // A body collects only a pickup in its own live room (OW1 cut 4).
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    // What a collected mint gave, which a retracted boss defeat takes back.
+    // What a collected pickup gave: a retracted boss defeat takes back a
+    // mint's, and a restore keeps a placed pickup's while one of the
+    // participants in its room is spared (Q151).
     mut reward_grants: Option<ResMut<crate::items::pickup::RewardGrantsSinceCheckpoint>>,
+    participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
 ) {
     // With a population expressed as a filter plus a value test it would no longer mean "nobody can
     // collect" — `TouchCollectorFilter` matches every autonomous actor — and a system-wide return
@@ -249,14 +252,19 @@ pub fn collect_ecs_pickups(
             owned.as_deref_mut(),
             items.get(),
         );
-        if let (
-            Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { parent, .. }),
-            Ok(collector),
-            Some(reward_grants),
-        ) = (origin, sim_ids.get(collector_entity), reward_grants.as_deref_mut())
+        if let (Ok(collector), Some(reward_grants)) =
+            (sim_ids.get(collector_entity), reward_grants.as_deref_mut())
         {
+            let source = match origin {
+                Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { parent, .. }) => {
+                    crate::items::pickup::GrantSource::Mint { parent: parent.clone() }
+                }
+                _ => crate::items::pickup::GrantSource::Authored {
+                    owners: super::world_time_schedule::owners_beside(entity, &rooms, &participants),
+                },
+            };
             reward_grants.record(crate::items::pickup::RewardGrant {
-                source: crate::items::pickup::GrantSource::Mint { parent: parent.clone() },
+                source,
                 collector: collector.clone(),
                 granted,
             });
@@ -431,7 +439,7 @@ pub fn record_consumed_pickups(
             since.record(
                 sim_id.clone(),
                 rooms.rooms().spec(definition).id.clone(),
-                super::world_time_schedule::owners_beside(*entity, &rooms, &participants),
+                super::world_time_schedule::owners_beside(*entity, rooms.live(), &participants),
             );
         }
     }

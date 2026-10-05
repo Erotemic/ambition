@@ -100,7 +100,7 @@ use ambition_platformer2d_shared_tangle::camera_layers::RIGGED_IMPOSTOR_LAYER;
 
 use crate::rendering::WORLD_COMPOSITING;
 use ambition_sprite_sheet::character::rigged::{
-    ComposedBodyDemand, PartDraw, PartPresentation, RiggedSpriteAdmission, RiggedSpritePages,
+    ComposedBodyDemand, PartDraw, PartPose, PartPresentation, PosedParts, RiggedSpriteAdmission, RiggedSpritePages,
 };
 use ambition_sprite_sheet::character::{CharacterAnimator, CharacterColorShift};
 use ambition_sprite_sheet::game_assets::GameAssets;
@@ -396,6 +396,11 @@ pub struct RiggedPresentation {
     /// This frame's draws, tweened toward the next frame when the clip is
     /// (reused so a frame allocates nothing).
     pub drawn: Vec<PartDraw>,
+    /// Its tracks bound to the joints of its body rig, when the sheet
+    /// publishes one: what places its parts from a [`PartPose`].
+    pub posed: Option<Arc<PosedParts>>,
+    /// This frame's draws placed by a [`PartPose`] (reused).
+    pub posed_draws: Vec<PartDraw>,
     /// What this body's cell of the atlas holds now: the draws its page last
     /// rendered there, where, and that render's [`ImpostorAtlas::generation`].
     /// The cell holds them only while the page's generation is still that
@@ -425,6 +430,7 @@ type Roots<'w, 's> = Query<
         &'static Transform,
         RootShows,
         Option<&'static RenderLayers>,
+        Option<&'static PartPose>,
     ),
     (Without<RiggedPresentation>, Without<RiggedPartSlot>),
 >;
@@ -486,6 +492,7 @@ pub fn bind_rigged_presentations(
     mut impostors: ImpostorAssets,
     mut owners: ResMut<RiggedPresentations>,
     mut by_sheet: Local<HashMap<(String, TextureResolutionScale), RiggedSpritePages>>,
+    mut posed_by_target: Local<HashMap<String, Option<Arc<PosedParts>>>>,
     mut roots: Query<(Entity, &CharacterAnimator, Option<&BoundSpriteQuality>, &mut Sprite)>,
     presentations: Query<&RiggedPresentation>,
 ) {
@@ -554,7 +561,11 @@ pub fn bind_rigged_presentations(
         drop_presentation(&mut commands, &mut owners, &mut impostors.atlas, &presentations, root);
         match wanted {
             Some(pages) => {
-                owners.0.insert(root, spawn_presentation(&mut commands, root, target, pages.clone()));
+                let posed = posed_by_target
+                    .entry(target.to_owned())
+                    .or_insert_with(|| bind_posed_parts(pages, target))
+                    .clone();
+                owners.0.insert(root, spawn_presentation(&mut commands, root, target, pages.clone(), posed));
             }
             // Back to the baked sheet: the root draws itself again.
             None => draw_baked_frame(&mut sprite, animator),
@@ -724,7 +735,13 @@ fn take_cell(commands: &mut Commands, assets: &mut ImpostorAssets, class: usize)
 /// A presentation for `root`: an owner with one reusable sprite slot per draw
 /// of its flipbook's busiest frame. It starts drawn directly; the driver
 /// composites it into an impostor cell while something reads it as one image.
-fn spawn_presentation(commands: &mut Commands, root: Entity, target: &str, pages: RiggedSpritePages) -> Entity {
+fn spawn_presentation(
+    commands: &mut Commands,
+    root: Entity,
+    target: &str,
+    pages: RiggedSpritePages,
+    posed: Option<Arc<PosedParts>>,
+) -> Entity {
     let owner = commands
         .spawn((Name::new("rigged presentation"), Transform::default(), Visibility::Hidden))
         .id();
@@ -752,9 +769,21 @@ fn spawn_presentation(commands: &mut Commands, root: Entity, target: &str, pages
         composed_hold: 0,
         layers: RenderLayers::default(),
         drawn: Vec::new(),
+        posed,
+        posed_draws: Vec::new(),
         shown: None,
     });
     owner
+}
+
+/// `target`'s tracks bound to the joints of the body rig its sheet publishes,
+/// or `None` when it publishes none. Within a pixel and a degree: a part that
+/// rides its joint less tightly than that draws where its frame puts it.
+fn bind_posed_parts(pages: &RiggedSpritePages, target: &str) -> Option<Arc<PosedParts>> {
+    let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(target)?;
+    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text).ok()?.prepare().ok()?;
+    let posed = PosedParts::bind(&pages.flipbook, &rig, 1.0, 1.0_f32.to_radians());
+    (posed.bound().0 > 0).then(|| Arc::new(posed))
 }
 
 /// Draw each rigged root's current frame from parts: the slots take the
@@ -780,7 +809,7 @@ pub fn drive_rigged_presentations(
     // so a body given a cell in one draws directly once more.
     let mut fresh_pages: Vec<(usize, usize)> = Vec::new();
     for (_, mut presentation, _, _) in &mut owners {
-        let Ok((animator, _, _, _, _, _, root_layers)) = roots.get(presentation.root) else {
+        let Ok((animator, _, _, _, _, _, root_layers, _)) = roots.get(presentation.root) else {
             continue;
         };
         let flipbook = presentation.pages.flipbook.clone();
@@ -882,7 +911,7 @@ pub fn drive_rigged_presentations(
     // cells hold this frame's draws under its new generation.
     let mut drawn_into: Vec<(Entity, usize, usize)> = Vec::new();
     for (owner, mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
-        let Ok((animator, mut root_sprite, root_anchor, color_shift, root_transform, root_visibility, _)) =
+        let Ok((animator, mut root_sprite, root_anchor, color_shift, root_transform, root_visibility, _, pose)) =
             roots.get_mut(presentation.root)
         else {
             continue;
@@ -894,9 +923,21 @@ pub fn drive_rigged_presentations(
         let mut drawn = std::mem::take(&mut presentation.drawn);
         let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
         let tweened = row.and_then(|row| flipbook.tween_into(row, animator.frame, animator.frame_phase(), &mut drawn));
-        let draws = tweened.map(|()| drawn.as_slice());
+        // ⭐ POSE IS AN INPUT. A root carrying a `PartPose` (a ragdoll, a
+        // reach) has each part that rides a joint placed from it; the frame
+        // still says which parts draw, in what order and colour.
+        let mut posed_draws = std::mem::take(&mut presentation.posed_draws);
+        let draws = match (tweened, pose, presentation.posed.as_deref()) {
+            (Some(()), Some(pose), Some(posed)) => {
+                posed.place(&drawn, &pose.joints, &mut posed_draws);
+                Some(posed_draws.as_slice())
+            }
+            (Some(()), _, _) => Some(drawn.as_slice()),
+            (None, _, _) => None,
+        };
         let (Some(draws), Some(basis), Some(mut root_anchor)) = (draws, animator.render_basis, root_anchor) else {
             presentation.drawn = drawn;
+            presentation.posed_draws = posed_draws;
             // The baked frame draws the body.
             draw_baked_frame(&mut root_sprite, animator);
             owner_visibility.set_if_neq(Visibility::Hidden);
@@ -935,11 +976,13 @@ pub fn drive_rigged_presentations(
                 &mut slots,
             );
             presentation.drawn = drawn;
+            presentation.posed_draws = posed_draws;
             continue;
         };
         let (class, page) = (impostor.class, impostor.page);
         let Some(atlas) = atlases.page(&impostor) else {
             presentation.drawn = drawn;
+            presentation.posed_draws = posed_draws;
             continue;
         };
         drawing[class][page] = true;
@@ -1002,6 +1045,7 @@ pub fn drive_rigged_presentations(
             write_slots(&presentation, draws, &mut slots, |draw| part_color(draw, LinearRgba::WHITE));
         }
         presentation.drawn = drawn;
+        presentation.posed_draws = posed_draws;
     }
     let mut materials = materials.map(|materials| materials.into_inner());
     let pages = atlases.0.iter_mut().zip(cells).zip(drawing.iter().zip(&changed)).flat_map(

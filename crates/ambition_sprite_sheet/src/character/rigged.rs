@@ -31,9 +31,11 @@ use bevy::ecs::entity::Entity;
 use bevy::ecs::resource::Resource;
 use bevy::math::{URect, UVec2, Vec2, Vec3};
 
+mod posed;
 mod published;
 
 use published::Published;
+pub use posed::{PosedParts, TrackBinding};
 pub use published::{ClipTween, Realize, RigPlacement};
 
 /// The `<target>_parts.ron` schema this build writes and reads. Schema 2 adds
@@ -139,6 +141,9 @@ pub struct RiggedSpriteAsset {
     /// The road the game draws this character by (see [`Realize`]).
     pub realize: Realize,
     pub parts: Vec<RigPart>,
+    /// The semantic name of each track a draw's `track` indexes (a rig part's
+    /// name: `torso`, `near_arm`; `overlay:<layer>` for an effect layer).
+    pub tracks: Vec<String>,
     clips: BTreeMap<String, RigSpriteClip>,
     /// The rows that this flipbook leaves to the baked sheet.
     baked_clips: BTreeSet<String>,
@@ -341,6 +346,7 @@ impl RiggedSpriteAsset {
             placement: published.placement,
             realize: published.realize,
             parts,
+            tracks: published.tracks,
             clips,
             baked_clips,
             draws,
@@ -623,6 +629,19 @@ impl ComposedBodyDemand {
     pub fn clear(&mut self) {
         self.0.clear();
     }
+}
+
+/// A pose for a part-drawn body that is not its flipbook's: the frames of its
+/// body rig's joints, by joint index, in rig space (sheet pixels from the feet,
+/// +y down), as [`PreparedBodyRig::solve`] writes them. While a root carries
+/// one, the renderer places each part that rides a joint from it
+/// ([`PosedParts`]) instead of from the flipbook's frame: a ragdoll, a reach, a
+/// procedural flinch, drawn by the same parts on the same road.
+///
+/// [`PreparedBodyRig::solve`]: ambition_characters::actor::PreparedBodyRig::solve
+#[derive(bevy::ecs::component::Component, Debug, Clone, Default, PartialEq)]
+pub struct PartPose {
+    pub joints: Vec<bevy::math::Affine2>,
 }
 
 /// Where [`ComposedBodyDemand`] is declared: before the rigged-sprite driver

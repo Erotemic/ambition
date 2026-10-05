@@ -3,7 +3,8 @@
 ## Status
 
 Selected architectural direction; **phases 0, 2 and 6 implemented, 3 and 5 by
-demand-driven composition, 1 measured** (2026-10-05). See "Discovery results and
+demand-driven composition, 1 measured and held for Mary-O, 7's pose seam built**
+(2026-10-05). See "Discovery results and
 the implemented shape" below for what was measured, what shipped, and what is
 still open.
 
@@ -110,6 +111,26 @@ bone's evaluated angle, and the paint pass draws those parts at angles it
 computes itself. So for the pirates the flipbook is still a second rotation
 authority.
 
+The same measurement is in the engine (`rigged::PosedParts`): at bind time a
+body whose sheet publishes a rig has each track bound to the joint it rides
+(within a pixel and a degree), with its pivot and angle in that joint's frame.
+`mary_os_parts_are_placed_by_her_body_rigs_pose` holds the claim for Mary-O's
+three forms: with every draw's placement wiped, the rig's own frame of each
+shared clip puts every part back within a pixel and 0.02 rad. The flipbook's
+transform table is, for her, a cache of the rig's pose. (The joint's angle is
+read off its frame's y axis: one frame mirrors her head by a negative x scale.)
+
+### Implemented: the pose provider seam (phase 7's interface)
+
+`rigged::PartPose` on a root (joint frames by rig joint index) makes the driver
+place every part that rides a joint from that pose instead of the flipbook's
+frame; the frame still says which parts draw, in what order and colour. Same
+slots, same road, direct or composited. Tests:
+`a_pose_no_clip_authored_moves_the_parts_that_ride_the_turned_joint` (the arm's
+parts swing rigidly about the arm joint, every other part stays) and
+`a_part_pose_on_the_root_places_its_parts` (in the renderer). What is not built
+yet is a provider: a physics step that writes `PartPose` from rigid bodies.
+
 ### Still open
 
 - **Converge the pirate rig** (phase 1): publish each joint's frame as the
@@ -117,11 +138,12 @@ authority.
   its bone's angle. Gate: `measure_track_joints.py` reports every rig-part track
   riding. It changes the gameplay rig (the `hand_near` muzzle attachment
   turns with the hand), so it is its own step.
-- **Publish the track's joint** with the flipbook (`track_joints`), taken from
-  the measurement or the painter, so the game reads the mapping instead of
-  inferring it. That mapping is the ragdoll pose provider's input:
-  part = joint(pose) ∘ local.
-- **Ragdoll proof** (phase 7) on Mary-O, whose decomposition already agrees.
+- **Publish the track's joint** with the flipbook (`track_joints`), from the
+  painter, so the binding is stated rather than measured at load. Today
+  `PosedParts::bind` infers it, which is exact for Mary-O and leaves the pirates'
+  turning parts unbound.
+- **A physics pose provider** (phase 7): rigid bodies and joints that write a
+  `PartPose`, on Mary-O first, whose decomposition already agrees.
 - **Hit flash without composition** would need a part material (a sprite can only
   multiply its colour, and a silhouette must mix toward white). Composition on
   demand covers it at the cost of a cell while it flashes.

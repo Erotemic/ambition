@@ -1256,3 +1256,56 @@ fn a_direct_body_tints_its_parts_with_its_root_colour() {
     assert!((tinted.blue - plain.blue * 0.25).abs() < 1.0e-6);
     assert!((tinted.alpha - plain.alpha * 0.5).abs() < 1.0e-6);
 }
+
+/// ⭐ THE RENDERER TAKES ITS POSE FROM WHOEVER GIVES ONE (the ragdoll seam). A
+/// root carrying a `PartPose` — Mary-O's idle with her near arm swung, a pose
+/// no clip authored — has its parts drawn where that pose puts them, by the
+/// same slots on the same road; without one, where the flipbook does.
+#[test]
+fn a_part_pose_on_the_root_places_its_parts() {
+    use ambition_sprite_sheet::character::rigged::{PartPose, PosedParts};
+    use bevy::math::Affine2;
+
+    let flipbook = RiggedSpriteAsset::baked("mary_o_v2").expect("a published flipbook");
+    let sheet = sheet_with("mary_o_v2", Some(flipbook.clone()));
+    let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+    let (mut app, root) = app_direct(sheet, Anchor(feet));
+    pin_clip(&mut app, root, "idle", 0);
+    app.update();
+    let owner = owner(&app, root);
+    assert!(app.world().get::<RiggedPresentation>(owner).unwrap().posed.is_some(), "Mary-O's tracks were not bound to her rig");
+    let as_drawn = slots(&app, owner);
+
+    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(
+        ambition_sprite_sheet::baked_body_rigs::baked_body_rig("mary_o_v2").unwrap(),
+    )
+    .unwrap()
+    .prepare()
+    .unwrap();
+    let mut joints = Vec::new();
+    assert!(rig.solve("idle", 0, &mut joints));
+    let arm = rig.joint_names().iter().position(|name| name == "near_arm").unwrap();
+    let pivot = joints[arm].translation;
+    joints[arm] = Affine2::from_translation(pivot) * Affine2::from_angle(1.0) * Affine2::from_translation(-pivot) * joints[arm];
+    app.world_mut().entity_mut(root).insert(PartPose { joints: joints.clone() });
+    app.update();
+
+    let posed = PosedParts::bind(&flipbook, &rig, 1.0, 1.0_f32.to_radians());
+    let mut expected = Vec::new();
+    posed.place(flipbook.frame("idle", 0).unwrap(), &joints, &mut expected);
+    let now = slots(&app, owner);
+    let mut moved = 0;
+    for (index, draw) in expected.iter().enumerate() {
+        let want = Vec2::new(draw.at.x, -draw.at.y);
+        assert!(close(now[index].0, want), "slot {index} at {:?}, the pose puts it at {want:?}", now[index].0);
+        if !close(now[index].0, as_drawn[index].0) {
+            moved += 1;
+        }
+    }
+    assert!(moved > 0, "no part moved: the pose did not reach the slots");
+
+    // Without the pose, the flipbook draws the body again.
+    app.world_mut().entity_mut(root).remove::<PartPose>();
+    app.update();
+    assert_eq!(slots(&app, owner), as_drawn, "the flipbook's frame did not come back");
+}

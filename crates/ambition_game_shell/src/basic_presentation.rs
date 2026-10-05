@@ -14,8 +14,8 @@ use ambition_menu::render::bevy_ui::{
     BevyUiMenuView,
 };
 use ambition_menu::{
-    AmbitionMenuControl, MenuActionActivated, MenuActionPreviewed, MenuColor, MenuControlKind,
-    MenuFocusKey, MenuPageModel, MenuRect, MenuTextAlign,
+    AmbitionMenuControl, MenuActionActivated, MenuColor, MenuControlKind, MenuFocusKey,
+    MenuPageModel, MenuRect, MenuTextAlign,
 };
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
 use bevy::prelude::*;
@@ -166,29 +166,19 @@ fn publish_shell_ui_cues(
 
 /// Pointer/touch activation for launcher rows. The shared menu renderer turns
 /// `Interaction::Pressed` into [`MenuActionActivated`]; this adapter routes the
-/// selected row through the same [`ShellLauncherCommand`] processor used by
+/// pointed row through the same [`ShellLauncherCommand`] processor used by
 /// keyboard/controller confirmation.
+///
+/// Hover is not read here. It is a presentation state (Q70): the shared
+/// renderer draws it from `Interaction`, and it does not move the
+/// keyboard/controller cursor (`ShellLauncherState::selected`).
 fn basic_shell_pointer(
     launcher: Res<ShellLauncherState>,
     mut activated: MessageReader<MenuActionActivated<BasicLauncherAction>>,
-    mut previewed: MessageReader<MenuActionPreviewed<BasicLauncherAction>>,
     mut tab_activated: MessageReader<ambition_menu::MenuTabActivated>,
     mut launcher_commands: MessageWriter<ShellLauncherCommand>,
     mut sfx: SfxWriter,
 ) {
-    // Hover moves the cursor (`Focus`, not `Activate`). It is the same cursor
-    // the keyboard moves, so hover then Enter launches the hovered row.
-    for preview in previewed.read() {
-        if !launcher.active {
-            continue;
-        }
-        launcher_commands.write(ShellLauncherCommand::Focus(preview.action.0));
-        // Same cue as a keyboard cursor move.
-        sfx.write(SfxMessage::Play {
-            id: ids::UI_MENU_MOVE,
-            pos: Vec2::ZERO,
-        });
-    }
     for activation in activated.read() {
         if !launcher.active {
             continue;
@@ -1268,6 +1258,7 @@ mod semantic_input_tests {
 mod pointer_hover_tests {
     use super::*;
     use crate::{ShellLauncherCommand, ShellLauncherState};
+    use ambition_menu::{MenuActionPreviewed, MenuVisualState};
     use bevy::prelude::{App, Messages, Update};
 
     fn app_with_pointer(active: bool) -> App {
@@ -1360,36 +1351,35 @@ mod pointer_hover_tests {
             .collect()
     }
 
-    /// Hover (`MenuActionPreviewed`) moves the cursor to the row.
+    /// Hover is not focus (Q70): a pointer preview publishes no command, so
+    /// the keyboard/controller cursor stays where it was.
     #[test]
-    fn hovering_a_launcher_row_moves_the_cursor_to_it() {
+    fn hovering_a_launcher_row_does_not_move_the_cursor() {
         let mut app = app_with_pointer(true);
+        app.world_mut()
+            .resource_mut::<ShellLauncherState>()
+            .selected = 0;
         app.world_mut().write_message(MenuActionPreviewed {
             action: BasicLauncherAction(2),
-        });
-        app.update();
-        assert_eq!(
-            drained(&mut app),
-            vec![ShellLauncherCommand::Focus(2)],
-            "hovering a row published nothing, so the highlight stays wherever the \
-             keyboard last left it and the pointer is decoration"
-        );
-    }
-
-    /// Hovering is not choosing: hover must not launch a game.
-    #[test]
-    fn hovering_a_launcher_row_does_not_launch_it() {
-        let mut app = app_with_pointer(true);
-        app.world_mut().write_message(MenuActionPreviewed {
-            action: BasicLauncherAction(1),
         });
         app.update();
         let commands = drained(&mut app);
         assert!(
             !commands
                 .iter()
+                .any(|c| matches!(c, ShellLauncherCommand::Focus(_))),
+            "a hover moved the keyboard cursor: {commands:?}"
+        );
+        assert!(
+            !commands
+                .iter()
                 .any(|c| matches!(c, ShellLauncherCommand::Activate(_))),
             "a hover launched a game: {commands:?}"
+        );
+        assert_eq!(
+            app.world().resource::<ShellLauncherState>().selected,
+            0,
+            "the hover changed the launcher cursor"
         );
     }
 
@@ -1402,6 +1392,114 @@ mod pointer_hover_tests {
         });
         app.update();
         assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Activate(1)]);
+    }
+
+    /// Three launcher rows drawn by the shared flat renderer, with its real
+    /// pointer bridge and the launcher's pointer adapter. The cursor
+    /// (`ShellLauncherState::selected`) is on row 0. Returns the row entities.
+    ///
+    /// The test sets `Interaction` directly. That works in this harness only:
+    /// a full Bevy host's UI focus system rewrites it from the real pointer.
+    fn launcher_with_rows() -> (App, Vec<Entity>) {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        install_bevy_ui_menu_actions::<BasicLauncherAction>(&mut app);
+        app.add_message::<ShellLauncherCommand>();
+        app.add_message::<OwnedSfxMessage>();
+        app.add_message::<ambition_menu::MenuTabActivated>();
+        app.init_resource::<ambition_sfx::SfxEmissionContext>();
+        app.world_mut()
+            .resource_mut::<ambition_sfx::SfxEmissionContext>()
+            .set(ambition_sfx::AudioContextOwner::Frontend(9), "shell.test");
+        app.init_resource::<ShellLauncherState>();
+        {
+            let mut launcher = app.world_mut().resource_mut::<ShellLauncherState>();
+            launcher.active = true;
+            launcher.selected = 0;
+        }
+        app.add_systems(Update, basic_shell_pointer.after(BevyUiMenuInteractionSet));
+
+        let mut page = MenuPageModel::new(0u8, "Games", MenuColor::BLUE_PANEL);
+        for index in 0..3 {
+            page.control(
+                MenuRect::new(10.0, 20.0 + 10.0 * index as f32, 60.0, 8.0),
+                MenuControlKind::Action,
+                format!("Game {index}"),
+                None,
+                index == 0,
+                false,
+                Some(BasicLauncherAction(index)),
+            );
+        }
+        let tabs = vec![BevyUiMenuTabSpec::new(0u8, "Games")];
+        app.world_mut().commands().queue(move |world: &mut World| {
+            let view = BevyUiMenuView {
+                tabs: &tabs,
+                active_tab: 0,
+                page: &page,
+                focused: None,
+                focused_tab: None,
+            };
+            let mut commands = world.commands();
+            ambition_menu::render::bevy_ui::spawn_bevy_ui_menu(&mut commands, &view);
+        });
+        app.update();
+        let mut rows: Vec<(usize, Entity)> = app
+            .world_mut()
+            .query::<(Entity, &AmbitionMenuControl<BasicLauncherAction>)>()
+            .iter(app.world())
+            .filter_map(|(entity, control)| control.action.map(|a| (a.0, entity)))
+            .collect();
+        rows.sort();
+        (app, rows.into_iter().map(|(_, entity)| entity).collect())
+    }
+
+    fn set_interaction(app: &mut App, entity: Entity, interaction: bevy::ui::Interaction) {
+        app.world_mut().entity_mut(entity).insert(interaction);
+        app.update();
+    }
+
+    fn visual(app: &App, entity: Entity) -> MenuVisualState {
+        *app.world().get::<MenuVisualState>(entity).expect("a row")
+    }
+
+    /// Keyboard cursor on row 0, pointer over row 2: row 2 draws hovered, the
+    /// cursor and the selection stay on row 0, and nothing launches.
+    #[test]
+    fn a_hovered_launcher_row_is_drawn_hovered_and_the_cursor_stays() {
+        let (mut app, rows) = launcher_with_rows();
+        let resting = app.world().get::<BackgroundColor>(rows[2]).unwrap().0;
+
+        set_interaction(&mut app, rows[2], bevy::ui::Interaction::Hovered);
+
+        assert!(visual(&app, rows[2]).hovered, "the pointed row is hovered");
+        assert!(!visual(&app, rows[2]).selected && !visual(&app, rows[2]).focused);
+        assert!(
+            visual(&app, rows[0]).selected,
+            "the cursor row keeps its selection"
+        );
+        assert!(!visual(&app, rows[0]).hovered);
+        assert_ne!(
+            app.world().get::<BackgroundColor>(rows[2]).unwrap().0,
+            resting,
+            "the hovered row is drawn differently from a resting row"
+        );
+        let commands = drained(&mut app);
+        assert!(commands.is_empty(), "a hover published {commands:?}");
+        assert_eq!(app.world().resource::<ShellLauncherState>().selected, 0);
+    }
+
+    /// A tap on the hovered row launches that row, not the cursor row.
+    #[test]
+    fn clicking_a_hovered_launcher_row_activates_the_pointed_row() {
+        let (mut app, rows) = launcher_with_rows();
+        set_interaction(&mut app, rows[2], bevy::ui::Interaction::Hovered);
+        drained(&mut app);
+
+        set_interaction(&mut app, rows[2], bevy::ui::Interaction::Pressed);
+        assert!(drained(&mut app).is_empty(), "down is not a launch");
+        set_interaction(&mut app, rows[2], bevy::ui::Interaction::Hovered);
+        assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Activate(2)]);
     }
 
     /// A hover while a startup card shows must not move the hidden cursor.

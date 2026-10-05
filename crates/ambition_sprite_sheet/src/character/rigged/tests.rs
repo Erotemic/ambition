@@ -160,10 +160,10 @@ fn a_flipbook_states_the_road_it_is_drawn_by() {
         .filter_map(|target| RiggedSpriteAsset::baked(target))
         .partition::<Vec<_>, _>(|asset| asset.realize == Realize::Parts);
     assert!(!parts.0.is_empty() && !parts.1.is_empty(), "both roads are published: {} parts, {} baked", parts.0.len(), parts.1.len());
-    let text = crate::baked_part_flipbooks::baked_part_flipbook("director").expect("published");
+    let text = crate::baked_part_flipbooks::published_ron_on_build_host("director").expect("published");
     let baked = text.replacen("    placement:", "    realize: baked,\n    placement:", 1);
     assert_eq!(RiggedSpriteAsset::from_published_ron(&baked).unwrap().realize, Realize::Baked);
-    assert_eq!(RiggedSpriteAsset::from_published_ron(text).unwrap().realize, Realize::Parts);
+    assert_eq!(RiggedSpriteAsset::from_published_ron(&text).unwrap().realize, Realize::Parts);
 }
 
 /// A tier draws the same parts at the same size from its own smaller rects.
@@ -387,4 +387,28 @@ fn a_draw_tint_is_read_and_tweened() {
     let tinted = asset.frame("idle", 0).unwrap()[0];
     assert!((tinted.tint() - Vec3::new(0.8, 0.6, 0.4)).abs().max_element() < 1.0 / 255.0, "{:?}", tinted.tint());
     assert_eq!(asset.frame("idle", 1).unwrap()[1].tint(), Vec3::ONE, "an absent tint draws as painted");
+}
+
+/// The game decodes each table from the bincode `build.rs` wrote; that must be
+/// the flipbook its RON is. Every embedded table, every tier: a field the
+/// bincode lost, or a table the build could not read (embedded as text, so
+/// parsed in the hall again), fails here.
+#[test]
+fn every_embedded_table_decodes_to_the_flipbook_its_ron_is() {
+    use crate::baked_part_flipbooks::{published_ron_on_build_host, BakedPartFlipbook, BAKED_PART_FLIPBOOKS};
+    let mut failures = Vec::new();
+    for (key, table, _) in BAKED_PART_FLIPBOOKS {
+        if matches!(table, BakedPartFlipbook::Unread(_)) {
+            failures.push(format!("`{key}`: embedded as text, the build could not read it"));
+            continue;
+        }
+        let text = published_ron_on_build_host(key).expect("the published file");
+        let decoded = table.decode().unwrap_or_else(|error| panic!("`{key}` {error}"));
+        if decoded != RiggedSpriteAsset::from_published_ron(&text).unwrap_or_else(|error| panic!("`{key}` {error}")) {
+            failures.push(format!("`{key}`: decodes to another flipbook than its RON"));
+        }
+    }
+    // ⛔ Premise: the census has a population.
+    assert!(BAKED_PART_FLIPBOOKS.len() >= 100, "only {} embedded tables", BAKED_PART_FLIPBOOKS.len());
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

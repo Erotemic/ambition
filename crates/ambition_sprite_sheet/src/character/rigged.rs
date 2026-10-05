@@ -28,7 +28,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use bevy::math::{URect, UVec2, Vec2, Vec3};
-use serde::Deserialize;
+mod published;
+
+use published::Published;
+pub use published::{ClipTween, Realize, RigPlacement};
 
 /// The `<target>_parts.ron` schema this build writes and reads. Schema 2 adds
 /// the track table (each draw's identity across frames) and the per-clip
@@ -37,18 +40,6 @@ use serde::Deserialize;
 /// file is snapped and opaque.
 pub const PART_FLIPBOOK_SCHEMA_VERSION: u32 = 3;
 
-/// How a flipbook's draws were published to land. The runtime draws both the
-/// same way (at `at`, resampled); the renderer's offline oracle is what
-/// differs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
-pub enum RigPlacement {
-    /// Whole-pixel pivots and places: a rig painted at frame resolution.
-    #[default]
-    Snapped,
-    /// Exact places between pixels: a supersampled rig, each part reduced on
-    /// its own.
-    Continuous,
-}
 
 /// One part raster on an atlas page.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -111,17 +102,6 @@ impl PartDraw {
     }
 }
 
-/// How a clip draws between two of its frames. Published per clip; the
-/// runtime never chooses it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
-pub enum ClipTween {
-    /// Each frame whole until the next.
-    #[default]
-    Step,
-    /// Each track moves from its place in one frame to its place in the next
-    /// ([`RiggedSpriteAsset::tween_into`]).
-    Linear,
-}
 
 /// One row's frames: the timing and each frame's slice of the draw list.
 #[derive(Debug, Clone, PartialEq)]
@@ -229,86 +209,12 @@ impl std::fmt::Display for RiggedSpriteError {
 
 impl std::error::Error for RiggedSpriteError {}
 
-#[derive(Deserialize)]
-struct Published {
-    schema_version: u32,
-    #[serde(default = "full_resolution")]
-    texel_scale: f32,
-    target: String,
-    pages: Vec<String>,
-    frame_size: (u32, u32),
-    feet_pixel: (f32, f32),
-    /// Schema 3; snapped before it.
-    #[serde(default)]
-    placement: RigPlacement,
-    parts: Vec<PublishedPart>,
-    /// Schema 2: the track names a draw's `track` indexes.
-    #[serde(default)]
-    tracks: Vec<String>,
-    clips: BTreeMap<String, PublishedClip>,
-    /// Absent in a flipbook that realizes every row from parts.
-    #[serde(default)]
-    baked_clips: Vec<String>,
-    /// Which road the game draws this character by, decided at publish from
-    /// the measured cost (`part_flipbook.realization_by_cost`). Absent: parts.
-    #[serde(default)]
-    realize: Realize,
-}
 
-/// The road a published character is drawn by. The flipbook is published
-/// either way (the capability, and the offline proof that it redraws the
-/// sheet); `Baked` is a measured verdict that parts cost more than the sheet.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Realize {
-    #[default]
-    Parts,
-    Baked,
-}
 
-fn full_resolution() -> f32 {
-    1.0
-}
 
-#[derive(Deserialize)]
-struct PublishedPart {
-    #[allow(dead_code, reason = "a diagnostic label in the published file; the runtime keys parts by index")]
-    name: String,
-    page: u16,
-    rect: (u32, u32, u32, u32),
-    pivot: (f32, f32),
-}
 
-#[derive(Deserialize)]
-struct PublishedClip {
-    frame_duration_s: f32,
-    #[serde(default)]
-    tween: ClipTween,
-    /// Schema 3: absent for a clip whose frames are opaque.
-    #[serde(default)]
-    frame_opacity: Vec<f32>,
-    frames: Vec<Vec<PublishedDraw>>,
-}
 
-#[derive(Deserialize)]
-struct PublishedDraw {
-    part: u16,
-    at: (f32, f32),
-    rotation: f32,
-    scale: (f32, f32),
-    #[serde(default)]
-    track: Option<u16>,
-    /// Schema 3: absent for an opaque draw.
-    #[serde(default = "opaque")]
-    opacity: f32,
-    /// Absent for a draw as painted.
-    #[serde(default)]
-    tint: Option<(f32, f32, f32)>,
-}
 
-fn opaque() -> f32 {
-    1.0
-}
 
 impl RiggedSpriteAsset {
     /// Parse and check a published `<target>_parts.ron`.
@@ -318,6 +224,23 @@ impl RiggedSpriteAsset {
             .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
             .from_str(text)
             .map_err(|error| RiggedSpriteError::Parse(error.to_string()))?;
+        Self::from_published(published)
+    }
+
+    /// Decode and check a published table as `build.rs` embeds it: the RON
+    /// read once at build time and written as bincode of the same schema
+    /// (`published.rs`).
+    ///
+    /// ⭐ The game decodes, it does not parse: the 143 RON tables took 870 ms
+    /// to parse (robot v3's 67 ms), all of it on the main thread the first
+    /// time each sheet realized, so entering the hall of characters stalled
+    /// for frames (2026-10-04, `examples/measure_part_table_parse.rs`).
+    pub fn from_published_bytes(bytes: &[u8]) -> Result<Self, RiggedSpriteError> {
+        let published: Published = bincode::deserialize(bytes).map_err(|error| RiggedSpriteError::Parse(error.to_string()))?;
+        Self::from_published(published)
+    }
+
+    fn from_published(published: Published) -> Result<Self, RiggedSpriteError> {
         if !(1..=PART_FLIPBOOK_SCHEMA_VERSION).contains(&published.schema_version) {
             return Err(RiggedSpriteError::Schema {
                 found: published.schema_version,
@@ -460,19 +383,20 @@ impl RiggedSpriteAsset {
     /// When the baked flipbook is refused: it is generated by the sprite
     /// publisher, so a file this build cannot read is a stale or broken publish.
     ///
-    /// Parsed once per process and cloned after: the robot's table is 38,418
-    /// draws and took 60 ms to parse (2026-10-03), which every realization of
-    /// its sheet paid again.
+    /// Decoded once per process and cloned after (the robot's table is 38,418
+    /// draws). The build embeds it decoded from RON already
+    /// ([`Self::from_published_bytes`]).
     pub fn baked(target: &str) -> Option<Self> {
         use std::collections::HashMap;
         use std::sync::{Mutex, OnceLock};
         static PARSED: OnceLock<Mutex<HashMap<String, RiggedSpriteAsset>>> = OnceLock::new();
-        let text = crate::baked_part_flipbooks::baked_part_flipbook(target)?;
+        let table = crate::baked_part_flipbooks::baked_part_flipbook(target)?;
         let parsed = PARSED.get_or_init(Default::default);
         if let Some(asset) = parsed.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(target) {
             return Some(asset.clone());
         }
-        let asset = Self::from_published_ron(text)
+        let asset = table
+            .decode()
             .unwrap_or_else(|error| panic!("the published part flipbook `{target}` {error}"));
         parsed
             .lock()
@@ -492,8 +416,8 @@ impl RiggedSpriteAsset {
         let Some(suffix) = tier.asset_id_suffix() else {
             return Some(Ok(self.clone()));
         };
-        let text = crate::baked_part_flipbooks::baked_part_flipbook(&format!("{}.{suffix}", self.target))?;
-        Some(Self::from_published_ron(text).and_then(|tiered| {
+        let table = crate::baked_part_flipbooks::baked_part_flipbook(&format!("{}.{suffix}", self.target))?;
+        Some(table.decode().and_then(|tiered| {
             if tiered.parts.len() != self.parts.len() {
                 return Err(RiggedSpriteError::TierMismatch {
                     tier: suffix,

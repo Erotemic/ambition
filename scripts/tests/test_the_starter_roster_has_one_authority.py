@@ -1,4 +1,12 @@
-"""The starter item roster is inserted by exactly one production site.
+"""The starter item roster is stated by exactly one production site.
+
+2026-10-05: the roster is the first bag of the Ambition EXPERIENCE now, so the
+one site is a declaration, `.with_initial_inventory(OwnedItems::starter)` in
+`game/ambition_content/src/provider.rs`, and not an `insert_resource` at App
+build. The adoption of a session installs the declared bag
+(`StartingBag::begin_the_session`), and one production site calls that. This
+guard reads the two spellings, so the roster did not leave its population when
+it moved. The history below is of the first spelling.
 
 ⛔⛔ THIS GUARD EXISTS BECAUSE THE DUPLICATE WAS INVISIBLE TO EVERY READER.
 `OwnedItems::starter()` was `insert_resource`d twice — by `ambition_app`'s
@@ -27,7 +35,13 @@ import re
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 ROOTS = ("crates", "game", "examples")
-STARTER = re.compile(r"insert_resource\s*\(\s*(?:[\w:]*::)?OwnedItems::starter\s*\(")
+STARTER = re.compile(
+    r"insert_resource\s*\(\s*(?:[\w:]*::)?OwnedItems::starter\s*\("
+    r"|with_initial_inventory\s*\(\s*(?:[\w:]*::)?OwnedItems::starter\b"
+)
+#: A call that installs a declared bag into the world. The definition
+#: (`pub fn begin_the_session(self, ..)`) has no dot before the name.
+INSTALL = re.compile(r"\.begin_the_session\s*\(")
 
 
 TEST_MOD = re.compile(
@@ -71,7 +85,7 @@ def _without_test_modules(text: str) -> str:
     return "".join(out)
 
 
-def _production_sites() -> list[str]:
+def _production_sites(pattern: re.Pattern[str] = STARTER) -> list[str]:
     sites: list[str] = []
     for root in ROOTS:
         base = REPO / root
@@ -85,7 +99,7 @@ def _production_sites() -> list[str]:
             if re.search(r"^\s*#!\[\s*cfg\s*\(\s*test\s*\)\s*\]", raw, re.MULTILINE):
                 continue
             for number, line in enumerate(_without_test_modules(raw).split("\n"), start=1):
-                if STARTER.search(line) and not line.strip().startswith("//"):
+                if pattern.search(line) and not line.strip().startswith("//"):
                     sites.append(f"{rel}:{number}")
     return sites
 
@@ -96,17 +110,37 @@ def test_the_starter_roster_has_one_production_authority():
     # and "0 sites" satisfies "not more than 1" without anyone noticing that the
     # roster is now installed by a spelling this guard cannot see.
     assert sites, (
-        "no production site inserts `OwnedItems::starter()` at all. Either the "
-        "starter roster is gone — in which case delete this guard and say why — "
-        "or it is spelled some way this scan cannot see, which is the failure "
-        "this file is about."
+        "no production site states `OwnedItems::starter` at all (an "
+        "`insert_resource`, or a `with_initial_inventory` declaration). Either "
+        "the starter roster is gone — in which case delete this guard and say "
+        "why — or it is spelled some way this scan cannot see, which is the "
+        "failure this file is about."
     )
     assert len(sites) == 1, (
-        f"{len(sites)} production sites insert the starter item roster: {sites}.\n"
-        "  ⇒ Two build-time inserts of the same value is one authority too many. "
+        f"{len(sites)} production sites state the starter item roster: {sites}.\n"
+        "  ⇒ Two statements of the same value is one authority too many. "
         "They agree today only because there is one `fn starter`; the day the "
         "spellings differ the composition picks by plugin order and nothing says "
         "which one lost.\n"
-        "  fix: keep the insert in `AmbitionContentPlugin`, which every "
-        "composition installs, and let the other site read the resource."
+        "  fix: keep the declaration on the Ambition experience "
+        "(`with_initial_inventory` in `game/ambition_content/src/provider.rs`). "
+        "An `insert_resource` at App build gives the roster to each experience "
+        "of the App."
+    )
+
+
+def test_a_declared_bag_is_installed_by_one_production_site():
+    """The other end of the same authority: one site puts a declared bag into
+    the world. A second one would be a second moment at which a session gets
+    its bag, and the two could give different bags."""
+    sites = _production_sites(INSTALL)
+    assert sites, (
+        "no production site calls `.begin_the_session(` at all. Either a "
+        "declared bag reaches no session, or the install is spelled some way "
+        "this scan cannot see."
+    )
+    assert len(sites) == 1, (
+        f"{len(sites)} production sites install a declared starting bag: {sites}.\n"
+        "  ⇒ The adoption of a candidate session is the one moment a session "
+        "gets the bag of its experience (`PreparedCandidateSession::adopt`)."
     )

@@ -3663,6 +3663,39 @@ mod tests {
         );
     }
 
+    /// The hand a character's art makes a gesture with is simulation input:
+    /// it moves where a shot is born and where a petter stands
+    /// (`BodyLandmarks::gesture_hand`). Two casts that differ only in one
+    /// row's `gesture_hand` are different content.
+    #[test]
+    fn a_gesture_hand_change_moves_the_fingerprint() {
+        use ambition_characters::actor::GestureHand;
+        let staging = staging_registry(false);
+        let near = character_registry(false, CHARACTER_B);
+        let far_ron = CHARACTER_B.replace(r#"display_name: "Beta","#, r#"display_name: "Beta", gesture_hand: Far,"#);
+        let far = character_registry(false, &far_ron);
+        // The premise: the two casts state two hands for the one row. A
+        // substitution that matched nothing compares a fixture with itself.
+        let hand_of = |registry: &ambition_characters::actor::character_catalog::CharacterCatalogRegistry| {
+            registry
+                .assemble()
+                .expect("the fixture cast assembles")
+                .catalog
+                .get("beta")
+                .expect("the row")
+                .gesture_hand
+        };
+        assert_eq!((hand_of(&near), hand_of(&far)), (GestureHand::Near, GestureHand::Far));
+
+        let baseline = fixture_content(fixture_source(128.0), &near, &staging);
+        let changed = fixture_content(fixture_source(128.0), &far, &staging);
+        assert_ne!(
+            baseline.fingerprint(),
+            changed.fingerprint(),
+            "two casts whose row states a different gesture hand share one PreparedContentIdentity",
+        );
+    }
+
     /// The construction recipe table decides how authoritative entities are
     /// built, so a change to it is a change to the content. This was DOCUMENTED
     /// as contributing to the fingerprint long before it did — `prepare_platformer_content`

@@ -30,6 +30,7 @@ states the adapter Bevy picked.
 from __future__ import annotations
 
 import argparse
+import math
 import csv
 import os
 import subprocess
@@ -65,6 +66,16 @@ PARITY_BOUND = 0.01
 #: either anchor; robot v3's 1,888 frames at most 1. Dropping any one VISIBLE
 #: draw from any Mary-O frame makes a blob of 12 or more.
 BLOB_BOUND = 6
+#: ⭐ THE ORACLE OBEYS THE RUNTIME'S LAW. The game draws parts in linear light:
+#: sRGB pages decoded before bilinear filtering, blended in linear light
+#: (`WORLD_COMPOSITING`, and the atlas with it). The published art was
+#: composited in gamma space, and PIL replays it that way, so against it every
+#: thin line and anti-aliased outline drifts a shade (robot: blobs to 21 px)
+#: and the gate measured the law, not the draw. So the published DRAWS are
+#: replayed by `_runtime_oracle`, a small model of the GPU's sprite road, and
+#: the gate is exact again. `AMBITION_PARITY_COMPOSITING=srgb` captures in the
+#: art's gamma law and keeps the PIL replay (the legacy drift).
+RUNTIME_LINEAR = os.environ.get("AMBITION_PARITY_COMPOSITING") != "srgb"
 DEFAULT_TARGETS = ("mary_o_v2", "mary_o_v2_tall", "mary_o_v2_fire")
 
 
@@ -245,7 +256,10 @@ def _score(row, phase):
     # `feet`); the flipbook draws from its own feet within the frame.
     feet_frame = _feet_in_frame(row, parts.size, flipbook.frame_size)
     at = (feet[0] - feet_frame[0] + flipbook.feet[0], feet[1] - feet_frame[1] + flipbook.feet[1])
-    flipbook.draw_frame(oracle, name, frame, at, flip, draws=draws, mirror_x=root_x)
+    if RUNTIME_LINEAR:
+        oracle = _runtime_oracle(flipbook, draws, parts.size, at, flip, root_x, flipbook.opacity_of(name, frame))
+    else:
+        flipbook.draw_frame(oracle, name, frame, at, flip, draws=draws, mirror_x=root_x)
     # ⛔ Clipped to the body's impostor cell (mirrored with it): the part road
     # cannot draw past it, and the published frame never reached there either.
     # Unclipped, a banner past the cell of a body facing left read as 1153
@@ -290,8 +304,73 @@ def _unpremultiplied(image):
     blind to exactly the pixels a premultiplication bug changes."""
     array = np.asarray(image, dtype=np.float64)
     alpha = array[..., 3:4]
-    rgb = np.where(alpha > 0, np.clip(array[..., :3] * 255.0 / np.maximum(alpha, 1.0), 0, 255), 0)
+    if not RUNTIME_LINEAR:
+        # Blended in gamma: the target stores the sRGB colour times alpha.
+        rgb = np.where(alpha > 0, np.clip(array[..., :3] * 255.0 / np.maximum(alpha, 1.0), 0, 255), 0)
+    else:
+        # ⛔ Blended in linear light: the sRGB target stores the LINEAR colour
+        # times alpha, encoded. Divided as gamma, every half-covered pixel of
+        # the outer silhouette read a shade off (robot outlines, blobs of 11).
+        linear = _decode(array[..., :3] / 255.0)
+        rgb = np.where(alpha > 0, np.clip(_encode(linear / np.maximum(alpha / 255.0, 1.0 / 255.0)), 0, 1) * 255.0, 0)
     return Image.fromarray(np.concatenate([rgb, alpha], axis=-1).round().astype(np.uint8), "RGBA")
+
+
+def _runtime_oracle(flipbook, draws, size, feet_at, flip, mirror_x, opacity):
+    """The draws as the game's sprite road draws them, straight alpha.
+
+    A model of the GPU, independent of the runtime's code: each part is a quad
+    over its rect, covering the pixels whose centres fall inside it; its sRGB
+    texels are decoded, then sampled bilinearly at those centres (straight
+    colour and alpha, clamped to the rect), tinted by the draw's colour (an sRGB
+    colour, decoded) and faded by its opacity; each is blended over the last in
+    linear light, premultiplied, over a transparent clear. A frame that fades
+    as one picture fades the composite. Mirrored about `mirror_x` as
+    `PartFlipbook.draw_frame` mirrors."""
+    from scipy.ndimage import map_coordinates
+
+    width, height = size
+    axis = feet_at[0] if mirror_x is None else mirror_x
+    fx = feet_at[0] if not flip else width - (2.0 * axis - feet_at[0])
+    fy = feet_at[1]
+    ys, xs = np.mgrid[0:height, 0:width].astype(np.float64) + 0.5
+    colour = np.zeros((height, width, 3))
+    alpha = np.zeros((height, width))
+    for draw in draws:
+        texels = np.asarray(flipbook.part_image(draw.part).convert("RGBA"), dtype=np.float64) / 255.0
+        texel_rgb = _decode(texels[..., :3]) * _decode(np.asarray(draw.tint, dtype=np.float64))
+        texel_a = texels[..., 3]
+        ph, pw = texel_a.shape
+        pivot = flipbook.parts[draw.part].pivot
+        ax, ay = draw.at[0] + fx, draw.at[1] + fy
+        c, s = math.cos(draw.rotation), math.sin(draw.rotation)
+        qx, qy = xs - ax, ys - ay
+        u = pivot[0] + (c * qx + s * qy) / draw.scale[0]
+        v = pivot[1] + (-s * qx + c * qy) / draw.scale[1]
+        inside = (u >= 0.0) & (u < pw) & (v >= 0.0) & (v < ph)
+        if not inside.any():
+            continue
+        coords = [np.clip(v - 0.5, 0, ph - 1), np.clip(u - 0.5, 0, pw - 1)]
+        a = map_coordinates(texel_a, coords, order=1, mode="nearest") * draw.opacity * inside
+        rgb = np.stack([map_coordinates(texel_rgb[..., k], coords, order=1, mode="nearest") for k in range(3)], axis=-1)
+        colour = rgb * a[..., None] + colour * (1.0 - a[..., None])
+        alpha = a + alpha * (1.0 - a)
+    colour *= opacity
+    alpha *= opacity
+    if flip:
+        colour, alpha = colour[:, ::-1], alpha[:, ::-1]
+    straight = np.where(alpha[..., None] > 0, _encode(colour / np.maximum(alpha[..., None], 1e-9)), 0.0)
+    rgba = np.concatenate([np.clip(straight, 0, 1), alpha[..., None]], axis=-1)
+    return Image.fromarray((rgba * 255.0).round().astype(np.uint8), "RGBA")
+
+
+def _decode(srgb):
+    return np.where(srgb <= 0.04045, srgb / 12.92, np.power((srgb + 0.055) / 1.055, 2.4))
+
+
+def _encode(linear):
+    linear = np.clip(linear, 0.0, None)
+    return np.where(linear <= 0.0031308, linear * 12.92, 1.055 * np.power(linear, 1 / 2.4) - 0.055)
 
 
 def _sheet(target):

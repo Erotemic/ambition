@@ -31,7 +31,7 @@ use ambition_persistence::settings::TextureResolutionScale;
 use ambition_render::rendering::actors::draw_held_frame;
 use ambition_render::rendering::actors::rigged::{
     add_rigged_impostor_material_plugin, bind_rigged_presentations, drive_rigged_presentations, impostor_cell_class,
-    RiggedImpostorAtlas, RiggedPresentations, IMPOSTOR_CELL_CLASSES, IMPOSTOR_MARGIN,
+    RiggedImpostorAtlas, RiggedPresentations, IMPOSTOR_CELL_CLASSES, IMPOSTOR_MARGIN, impostor_margin,
 };
 use ambition_render::rendering::actors::BoundSpriteQuality;
 use ambition_sprite_sheet::character::rigged::{RiggedSpriteAdmission, RiggedSpriteAsset, RiggedSpritePages};
@@ -195,7 +195,7 @@ fn capture_all(
     };
     let feet_pixel = tl + feet_in_frame;
     // ⛔ The part road draws a body into its impostor CELL (the frame with
-    // `IMPOSTOR_MARGIN` on its top and left, the class's size), and the root's
+    // `impostor_margin` on its top and left, the class's size), and the root's
     // quad shows that cell mirrored about the root when the body faces left. A
     // part reaching past the cell is cut there. The image is the frame with a
     // margin on every side, so facing right the cell covers it from the top
@@ -203,8 +203,11 @@ fn capture_all(
     // the oni leader's banner, past the cell, read as 1153 wrong pixels of a
     // correct draw (2026-10-03). The reader clips its oracle to this.
     // A frame no cell fits is not drawn from parts at all: nothing to clip.
-    let cell_px = impostor_cell_class(frame).map_or(1.0e6, |class| IMPOSTOR_CELL_CLASSES[class].0);
-    let cell_min = tl - Vec2::splat(IMPOSTOR_MARGIN * scale);
+    // The target's flipbook's margin, in both captures: the baked one's sheet
+    // carries no flipbook, and a margin of 0 clipped the oracle to the frame.
+    let margin = RiggedSpriteAsset::baked(target).map_or(IMPOSTOR_MARGIN, |flipbook| impostor_margin(&flipbook));
+    let cell_px = impostor_cell_class(frame, margin).map_or(1.0e6, |class| IMPOSTOR_CELL_CLASSES[class].0);
+    let cell_min = tl - Vec2::splat(margin * scale);
     let cell = Rect::from_corners(cell_min, cell_min + Vec2::splat(cell_px * scale));
     app.world_mut().spawn((
         sprite,
@@ -319,9 +322,15 @@ fn renderer(size: UVec2) -> (App, Handle<Image>) {
         target.texture_descriptor.usage |= bevy::render::render_resource::TextureUsages::COPY_SRC;
         app.world_mut().resource_mut::<Assets<Image>>().add(target)
     };
-    // The camera blends as the game's world cameras do (`world_compositing`,
-    // the same knob): the harness measures what the player sees.
-    let space = ambition_render::rendering::world_compositing();
+    // The camera blends as the game's world cameras do (`WORLD_COMPOSITING`):
+    // the harness measures what the player sees. `AMBITION_PARITY_COMPOSITING=srgb`
+    // blends this offscreen target in the art's gamma space instead (an
+    // experiment; a window cannot, see `WORLD_COMPOSITING`).
+    let space = match std::env::var("AMBITION_PARITY_COMPOSITING").as_deref() {
+        Err(_) => ambition_render::rendering::WORLD_COMPOSITING,
+        Ok("srgb") => ambition_render::rendering::ART_COMPOSITING,
+        Ok(other) => panic!("AMBITION_PARITY_COMPOSITING={other:?} is not `srgb`"),
+    };
     app.world_mut().spawn((
         Camera2d,
         space,

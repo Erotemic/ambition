@@ -34,27 +34,56 @@ renders into `Rgba8Unorm`, has every sprite and mesh2d shader write sRGB-encoded
 values, and decodes once at output. With it, the direct parts measured a largest
 blob of 3 on robot, blink included.
 
-**Decision, revised the same day:** the world cameras stay in Bevy's linear
-light (`rendering::world_compositing`; `AMBITION_WORLD_COMPOSITING=srgb`
-experiments). Gamma for the gameplay camera shipped first and blacked out every
-game on Jon's GPU host: an `Srgb` camera renders into an `Rgba8Unorm` main
-texture while the HUD and cube-menu cameras sharing the window keep
-`Rgba8UnormSrgb`, Bevy gives them separate main textures, and the later
-cameras' never-cleared texture was written over the world (a black stage under
-ghosting menus). `capture_scene` renders into an image and could not see it.
-Gamma for the world needs every camera on the window in one space, bevy_ui's
-shaders included; that is open.
+**Decision, revised the same day, twice.** Gamma for the gameplay camera
+shipped first and blacked out every game on Jon's GPU host: an `Srgb` camera
+renders into an `Rgba8Unorm` main texture while the HUD and cube-menu cameras
+sharing the window keep `Rgba8UnormSrgb`, Bevy keys main textures by (target,
+usages, format, MSAA), and the later cameras' never-cleared texture was written
+over the world. `capture_scene` renders into an image and could not see it.
+`window_camera_stack` now reports any camera that layers onto another of its
+window with a different main-texture key, naming both
+(`the_shipped_window_cameras_share_one_main_texture`, whose control arm puts the
+gameplay camera back in `Srgb`).
 
-So: the atlas cameras, which own their targets, blend in the art's gamma space
-(`ART_COMPOSITING`), and a composited body is exact. A body drawn directly
-blends in linear light; a frame with a translucent part, where linear light
-differs most, is composited. MEASURED (`measure_rigged_parity.py`, the four
-targets, 99 frames, as shipped): every frame within the area gate (median 0.04%,
-at most 0.51%), but anti-aliased outlines over other parts come out a shade
-lighter, blobs of median 2 and at most 21 px against the 6 px gate (65 rows).
-The 6 custom 2D material shaders and the screen filter already handle
-`SRGB_OUTPUT`, so they are ready for a gamma world. Part pages are ordinary
-sRGB sheet images (`load_part_page` and its raw decode are gone).
+Then ONE LAW: the world cameras blend in linear light (`WORLD_COMPOSITING`, a
+constant), and so does the atlas (`impostor_compositing`). With the atlas in the
+art's gamma and the world in linear, a body changed its outlines every time it
+switched road (a hit flash, a portal): MEASURED by
+`scripts/measure_composition_switch.py` (robot, alice, ninja_shadow_oni_leader,
+623 frames, one texel a pixel), the same frame on the two roads differed by more
+than 8 levels on a median 100 and up to 1,088 pixels (peak 68 levels) with a
+gamma atlas, and on none (peak 8) with a linear one. On opaque frames at half
+scale the linear atlas is also the closer (826 against 934 pixels on robot's
+idle).
+
+At game scale the largest switch was not the law: a cell's fixed 16 px margin
+cut off art reaching farther past the frame (the oni leader's banner and ears
+in its jumps, a blob of 522 px at half scale, on every hit flash). A cell's
+margin is now the farthest its flipbook's art reaches (`art_overhang`, measured
+from every draw at parse) plus a 2 px fringe, at least 16 (`impostor_margin`).
+After it, at half scale (linear law): worst switch 0.90% and a blob of 25,
+median 0.01%. What remains is the composited road's second resampling (parts
+rasterized at sheet resolution, then the cell minified), 551 pixels past 8
+levels on the median frame, peaking at 116 on thin lines — a road property, the
+same under either law; rendering a cell at the body's drawn scale would remove
+it.
+
+The published art is the DRIFT reference, not the runtime's law. The parity
+gate replays the published draws through a model of the GPU's sprite road
+(`measure_rigged_parity.py`'s `_runtime_oracle`: sRGB texels decoded, then
+bilinear, blended in linear light), independent of the runtime's code: every
+frame of the four targets within 0.00% and a blob of 0 on both roads, and
+dropping one draw from each frame fails 154 of them. Against the art's own gamma
+replay (`AMBITION_PARITY_COMPOSITING=srgb` captures in gamma; linear captures
+against the PIL replay drift) the runtime is at most 0.51% apart with outline
+blobs to 21 px: GPU filtering of sRGB pages in linear light thins and lightens
+1-px lines and outlines a shade. That is an art-direction trade for Jon to
+confirm (the alternative is a whole-world offscreen gamma surface presented
+under the HUD); it is measured, not hidden.
+
+The 6 custom 2D material shaders and the screen filter handle `SRGB_OUTPUT`, so
+they would follow a gamma world unchanged. Part pages are ordinary sRGB sheet
+images (`load_part_page` and its raw decode are gone).
 
 ### Group opacity is the one thing loose parts cannot do
 
@@ -94,9 +123,7 @@ frames are composited.
 - `AMBITION_PART_PRESENTATION=impostor` composites every body (the A/B knob);
   `measure_rigged_parity.py --composed` measures it.
 
-Parity with every camera in gamma space (`AMBITION_WORLD_COMPOSITING=srgb`):
-every frame within the gate on both roads, at most 0.09% and a blob of 4. As
-shipped (linear world), see above. Cost (`examples/rigged_sprite_bench.rs --render`,
+Parity: see above (exact against the runtime-law replay, on both roads). Cost (`examples/rigged_sprite_bench.rs --render`,
 100 actors): composited 56.3 ms a frame, 49.0 ms over the baked sheets, in 6
 sprite batches; direct 9.65 ms, 2.45 ms over baked, in 1 batch.
 

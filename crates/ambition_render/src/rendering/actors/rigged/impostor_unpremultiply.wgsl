@@ -23,6 +23,8 @@ struct ImpostorCellOpacity {
     // shift (`CharacterColorShift`), applied in the art's sRGB space.
     shift: array<vec4<f32>, 36>,
     side: u32,
+    // 1: the parts were blended in gamma space; 0: in linear light.
+    gamma: u32,
 }
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var<uniform> cells: ImpostorCellOpacity;
 
@@ -31,7 +33,12 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let size = vec2<f32>(textureDimensions(premultiplied));
     let texel = vec2<i32>(clamp(floor(mesh.uv * size), vec2<f32>(0.0), size - vec2<f32>(1.0)));
     let loaded = textureLoad(premultiplied, texel, 0);
-    let c = vec4<f32>(linear_to_srgb(loaded.rgb), loaded.a);
+    // A load decodes the sRGB target to linear: the values blended, when the
+    // parts were blended in linear light; encoded back, when in gamma.
+    var c = loaded;
+    if cells.gamma == 1u {
+        c = vec4<f32>(linear_to_srgb(loaded.rgb), loaded.a);
+    }
     if c.a <= 0.0 {
         return vec4<f32>(0.0);
     }
@@ -42,11 +49,14 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let opacity = cells.opacity[cell / 4u][cell % 4u];
     let shift = cells.shift[cell];
     var straight = c.rgb / c.a;
+    // Divided in the space the parts were blended in; the shift works in the
+    // art's sRGB values, and the straight target takes linear colour.
+    if cells.gamma != 1u {
+        straight = linear_to_srgb(straight);
+    }
     if shift.x != 0.0 || shift.y != 1.0 || shift.z != 1.0 {
         straight = shifted(straight, shift.xyz);
     }
-    // Divided in the space the parts were blended in; the straight target is
-    // sRGB, so decode once here.
     return vec4<f32>(srgb_to_linear(straight), c.a * opacity);
 }
 

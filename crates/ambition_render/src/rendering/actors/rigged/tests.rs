@@ -248,7 +248,7 @@ fn a_rigged_root_draws_its_impostor_from_parts_in_reusable_slots() {
     let flipbook = RiggedSpriteAsset::baked("pirate_raider").unwrap();
     let per_pixel = RENDER / flipbook.frame_size.as_vec2();
     let feet = presentation.impostor.expect("an impostor cell").feet;
-    assert_eq!(feet, flipbook.feet_pixel + Vec2::splat(IMPOSTOR_MARGIN));
+    assert_eq!(feet, flipbook.feet_pixel + Vec2::splat(impostor_margin(&flipbook)));
     let sprite = app.world().get::<Sprite>(root).unwrap();
     assert!(close(sprite.custom_size.unwrap(), Vec2::splat(IMPOSTOR_CELL) * per_pixel));
     let anchor = app.world().get::<Anchor>(root).unwrap().0;
@@ -851,7 +851,7 @@ fn the_impostor_lands_where_the_baked_frame_would_for_either_anchor() {
             let base_anchor = basis.feet_anchor;
             for pixel in [flipbook.feet_pixel, Vec2::ZERO, frame, Vec2::new(frame.x, 0.0)] {
                 let baked = local(basis.render_size, base_anchor, pixel / frame, flip);
-                let cell = local(size, anchor, (pixel + Vec2::splat(IMPOSTOR_MARGIN)) / IMPOSTOR_CELL, flip);
+                let cell = local(size, anchor, (pixel + Vec2::splat(impostor_margin(&flipbook))) / IMPOSTOR_CELL, flip);
                 assert!(
                     close(cell, baked),
                     "{built_at:?} flip {flip}: frame pixel {pixel} draws at {cell} from the impostor, {baked} baked"
@@ -897,7 +897,7 @@ fn a_mirror_row_drawn_facing_left_lands_where_the_baked_frame_would() {
     let local = |size: Vec2, anchor: Vec2, uv: Vec2| (Vec2::new(uv.x - 0.5, 0.5 - uv.y) - anchor) * size;
     for pixel in [flipbook.feet_pixel, Vec2::ZERO, frame, Vec2::new(frame.x, 0.0)] {
         let baked = local(basis.render_size, baked_anchor, pixel / frame);
-        let cell = local(size, anchor, (pixel + Vec2::splat(IMPOSTOR_MARGIN)) / IMPOSTOR_CELL);
+        let cell = local(size, anchor, (pixel + Vec2::splat(impostor_margin(&flipbook))) / IMPOSTOR_CELL);
         assert!(
             close(cell, baked),
             "facing left: frame pixel {pixel} draws at {cell} from the impostor, {baked} baked"
@@ -1037,9 +1037,10 @@ fn every_published_flipbook_fits_an_impostor_cell() {
     for key in ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook_targets() {
         let flipbook = RiggedSpriteAsset::baked(key).expect("a published flipbook parses");
         assert!(
-            impostor_cell_class(flipbook.frame_size.as_vec2()).is_some(),
-            "`{key}`'s {} px frame fits no impostor cell ({IMPOSTOR_CELL_CLASSES:?})",
-            flipbook.frame_size
+            impostor_cell_class(flipbook.frame_size.as_vec2(), impostor_margin(&flipbook)).is_some(),
+            "`{key}`'s {} px frame, with its art's {} px margin, fits no impostor cell ({IMPOSTOR_CELL_CLASSES:?})",
+            flipbook.frame_size,
+            impostor_margin(&flipbook)
         );
         checked.push(key);
     }
@@ -1053,9 +1054,9 @@ fn every_published_flipbook_fits_an_impostor_cell() {
 #[test]
 fn a_large_frame_takes_a_cell_of_its_size() {
     let flipbook = RiggedSpriteAsset::baked("noether").expect("noether publishes a flipbook");
-    assert_eq!(impostor_cell_class(flipbook.frame_size.as_vec2()), Some(1));
-    assert_eq!(impostor_cell_class(Vec2::new(256.0, 256.0)), Some(0));
-    assert_eq!(impostor_cell_class(Vec2::new(2000.0, 10.0)), None);
+    assert_eq!(impostor_cell_class(flipbook.frame_size.as_vec2(), impostor_margin(&flipbook)), Some(1));
+    assert_eq!(impostor_cell_class(Vec2::new(256.0, 256.0), IMPOSTOR_MARGIN), Some(0));
+    assert_eq!(impostor_cell_class(Vec2::new(2000.0, 10.0), IMPOSTOR_MARGIN), None);
     let (mut app, root) = app_with(true, sheet_with("noether", Some(flipbook.clone())));
     app.update();
     app.update();
@@ -1310,35 +1311,18 @@ fn a_part_pose_on_the_root_places_its_parts() {
     assert_eq!(slots(&app, owner), as_drawn, "the flipbook's frame did not come back");
 }
 
-/// A frame with a translucent part blends visibly differently in the world's
-/// linear light than in the art's gamma (a blink: blobs of 559 px), so it is
-/// composited with nothing reading the body; an opaque frame draws directly.
+/// ⛔ A composited cell holds all the art its body draws. The oni leader's
+/// banner and ears reach past its frame by more than the old fixed 16 px in its
+/// jumps: composited (every hit flash) they were cut off, a blob of 522 px
+/// against the same frame drawn directly. Every published flipbook's cell now
+/// covers the farthest any of its draws reaches, with the fringe to spare.
 #[test]
-fn a_frame_with_a_translucent_part_is_composited() {
-    let flipbook = RiggedSpriteAsset::baked("player_robot_v3").expect("the robot publishes a flipbook");
-    let sheet = sheet_with("player_robot_v3", Some(flipbook.clone()));
-    let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
-    let (mut app, root) = app_direct(sheet, Anchor(feet));
-    // ⛔ Premise: a frame of the robot draws a translucent part and fades no
-    // whole picture (that composites on its own), and one is opaque.
-    let rows: Vec<String> = flipbook.clip_names().map(str::to_owned).collect();
-    let find = |translucent: bool| {
-        rows.iter().find_map(|row| {
-            let clip = flipbook.clip(row)?;
-            (0..clip.frame_count()).find_map(|index| {
-                let draws = flipbook.frame(row, index)?;
-                let has = draws.iter().any(|draw| draw.opacity() < 1.0);
-                (has == translucent && flipbook.frame_opacity(row, index) == 1.0).then(|| (row.clone(), index))
-            })
-        })
-    };
-    let (translucent_row, translucent_frame) = find(true).expect("premise: the robot draws a translucent part");
-    let (opaque_row, opaque_frame) = find(false).expect("premise: the robot has an opaque frame");
-    pin_clip(&mut app, root, &opaque_row, opaque_frame);
-    app.update();
-    let owner = owner(&app, root);
-    assert!(app.world().get::<RiggedPresentation>(owner).unwrap().impostor.is_none(), "an opaque frame was composited");
-    pin_clip(&mut app, root, &translucent_row, translucent_frame);
-    settle(&mut app);
-    assert!(draws_impostor(&app, root, owner), "{translucent_row}[{translucent_frame}] draws a translucent part directly");
+fn a_cell_holds_every_draw_of_its_body() {
+    let oni = RiggedSpriteAsset::baked("ninja_shadow_oni_leader").expect("the oni leader publishes a flipbook");
+    // ⛔ Premise: the case that caused this reaches past the old margin.
+    assert!(oni.art_overhang > IMPOSTOR_MARGIN, "the oni leader's art stays within {IMPOSTOR_MARGIN} px: {}", oni.art_overhang);
+    for key in ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook_targets() {
+        let flipbook = RiggedSpriteAsset::baked(key).unwrap();
+        assert!(impostor_margin(&flipbook) >= flipbook.art_overhang + 2.0, "`{key}`'s cell clips its art");
+    }
 }

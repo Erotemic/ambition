@@ -144,11 +144,35 @@ pub struct RiggedSpriteAsset {
     /// The semantic name of each track a draw's `track` indexes (a rig part's
     /// name: `torso`, `near_arm`; `overlay:<layer>` for an effect layer).
     pub tracks: Vec<String>,
+    /// How far, in sheet pixels, the art any draw makes reaches past the
+    /// frame on its farthest side (0 when every draw stays inside): the room a
+    /// composited cell needs around the frame so it clips nothing.
+    pub art_overhang: f32,
     clips: BTreeMap<String, RigSpriteClip>,
     /// The rows that this flipbook leaves to the baked sheet.
     baked_clips: BTreeSet<String>,
     draws: Vec<PartDraw>,
     max_draws: usize,
+}
+
+/// How far past a `frame_size` frame (feet at `feet_pixel`) any of `draws`
+/// reaches: each part's quad, turned and scaled about its pivot and placed at
+/// its draw, against the frame's four sides.
+fn art_overhang(parts: &[RigPart], draws: &[PartDraw], frame_size: Vec2, feet_pixel: Vec2) -> f32 {
+    let mut overhang = 0.0_f32;
+    for draw in draws {
+        let Some(part) = parts.get(usize::from(draw.part)) else {
+            continue;
+        };
+        let (c, s) = (draw.rotation.cos(), draw.rotation.sin());
+        for corner in [Vec2::ZERO, Vec2::new(part.size.x, 0.0), Vec2::new(0.0, part.size.y), part.size] {
+            let local = (corner - part.pivot) * draw.scale;
+            // Clockwise with +y down, as the draw turns it.
+            let at = feet_pixel + draw.at + Vec2::new(c * local.x - s * local.y, s * local.x + c * local.y);
+            overhang = overhang.max(-at.x).max(-at.y).max(at.x - frame_size.x).max(at.y - frame_size.y);
+        }
+    }
+    overhang
 }
 
 /// Why a published flipbook was refused.
@@ -337,12 +361,16 @@ impl RiggedSpriteAsset {
                 },
             );
         }
+        let frame_size = UVec2::new(published.frame_size.0, published.frame_size.1);
+        let feet_pixel = Vec2::new(published.feet_pixel.0, published.feet_pixel.1);
+        let art_overhang = art_overhang(&parts, &draws, frame_size.as_vec2(), feet_pixel);
         Ok(Self {
             target: published.target,
             texel_scale: published.texel_scale,
             pages: published.pages,
-            frame_size: UVec2::new(published.frame_size.0, published.frame_size.1),
-            feet_pixel: Vec2::new(published.feet_pixel.0, published.feet_pixel.1),
+            frame_size,
+            feet_pixel,
+            art_overhang,
             placement: published.placement,
             realize: published.realize,
             parts,
@@ -574,10 +602,9 @@ pub struct RiggedSpriteAdmission {
 /// * `Impostor`: every body is composited, always (a measuring knob: the A/B
 ///   against direct drawing).
 ///
-/// Both read the same sRGB part pages. A composited body blends in gamma space,
-/// as the art was composited (`ambition_render::rendering::ART_COMPOSITING`);
-/// a direct one in the world camera's space (`world_compositing`, linear light
-/// by default), and a frame with a translucent part is composited.
+/// Both read the same sRGB part pages and blend in one law, the world's linear
+/// light (`ambition_render::rendering::WORLD_COMPOSITING`), so a body looks the
+/// same on either road.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PartPresentation {
     Direct,

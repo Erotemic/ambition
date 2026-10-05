@@ -336,10 +336,11 @@ the grant goes back with it. Witnesses:
 coin taken alone) and `an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room`
 (control: a boss reward chest keeps its placement). Poisons: never keep, and
 always keep, an authored grant; record a pickup's or a chest's grant with no
-owners. Schema 311 -> 312. Open: what a spared participant takes OUT of the
-shared bag since the checkpoint (an item used, a purchase) is not recorded,
-so Alice's death gives it back. A production road seats a second player
-since the Q153 default (2026-10-05, below).
+owners. Schema 311 -> 312. What a spared participant takes OUT of the
+shared bag since the checkpoint was not recorded, so Alice's death gave it
+back; the spend that production has is recorded now (the P3 note below), and
+the purchase case is open. A production road seats a second player since the
+Q153 default (2026-10-05, below).
 
 - Review 2026-10-05, P3: the shape for that residual. The restore rebuilds
   "the checkpoint bag plus the surviving bag mutations since it", so each

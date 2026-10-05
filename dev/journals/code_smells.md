@@ -1411,6 +1411,25 @@ while the crawler sat 4 px inside the island it clung to. A test can encode the
 bug it is named for; when a fix turns one red, read its expectation before its
 subject.
 
+**RESOLVED 2026-10-05: the first cure.** The box now lies along what it clings
+to, `size.x` on the tangent and `size.y` across, on every face. Jon saw the cost
+of the level box: a slug on a wall hung `half.x - half.y` (13 px for 48 x 22) in
+the air beside it, its rotated sprite and its hurtbox (the footprint publishes
+oriented) both off the wall. A convex wrap now turns about the centre once the
+centre is a thickness past the edge — both placements touch the corner, so the
+wrap is as smooth as a flat crawl (worst jerk 0.94 px, was 25). A concave turn
+now moves the centre `(half.x - half.y)·√2` (18.4 px) in the tick the sprite
+turns: no rigid placement lies along both faces, and the concave tests carry
+that derived budget. And the lap test's "WRONG seat" above was the right one:
+it now expects `size.y * 0.5` off all four faces again, for the opposite reason.
+The first cut of it put a body THICKER than it is long (the 28 x 44 default)
+out through the ceiling: the support probe, a thickness either side of the
+centre, reached past the body's ends, met the wall it was crawling toward
+before the corner check did, and seated it on that wall's far face.
+`every_movement_policy_stays_inside_a_plain_room` caught it (48 px out); the
+probe now spans no further than the body's length, and a surface is seated on
+only if its face lies beneath the body's centre.
+
 The instrument that found all of it is `motion_quality`: per-tick positions in,
 jerk / reversals / straightness out. It is character-agnostic on purpose — the
 same measurement applies to any body in any situation, and the flat-ground

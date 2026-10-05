@@ -1,4 +1,5 @@
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#import ambition_render::frame_in_sprite
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -8,6 +9,7 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> tint: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var puppy_texture: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var puppy_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(5) var<uniform> frame_rect: vec4<f32>;
 
 const PI: f32 = 3.141592653589793;
 
@@ -60,14 +62,24 @@ fn hsv2rgb(c: vec3<f32>) -> vec3<f32> {
     );
 }
 
-fn atlas_uv(local_uv_in: vec2<f32>) -> vec2<f32> {
-    var local_uv = local_uv_in;
-    if control.y > 0.5 {
+// The pattern is laid over the body's FRAME (`frame_rect`), not over the whole
+// quad: every coordinate below is the frame's own, 0..1 across it.
+fn flipped() -> bool {
+    return control.y > 0.5;
+}
+
+fn on_quad(frame_uv: vec2<f32>) -> vec2<f32> {
+    return frame_in_sprite::on_quad(frame_uv, frame_rect, flipped());
+}
+
+fn atlas_uv(frame_uv: vec2<f32>) -> vec2<f32> {
+    var local_uv = frame_in_sprite::quad_uv(frame_uv, frame_rect, flipped());
+    if flipped() {
         local_uv.x = 1.0 - local_uv.x;
     }
     let atlas_min = uv_rect.xy;
     let atlas_max = uv_rect.zw;
-    return mix(atlas_min, atlas_max, clamp(local_uv, vec2<f32>(0.0), vec2<f32>(1.0)));
+    return mix(atlas_min, atlas_max, local_uv);
 }
 
 fn sample_frame(local_uv: vec2<f32>) -> vec4<f32> {
@@ -107,20 +119,12 @@ fn dream_rgb(
         (melt_gate * melt_gate) * (0.08 + 0.04 * sin(time * 1.9 + local_uv.x * 10.0))
     ) * strength;
 
-    let warped_uv = clamp(
-        local_uv + drip + (fine_field - 0.5) * 0.030 * strength,
-        vec2<f32>(0.0),
-        vec2<f32>(1.0)
-    );
+    let warped_uv = on_quad(local_uv + drip + (fine_field - 0.5) * 0.030 * strength);
 
     let split = (0.010 + 0.018 * dream_field) * strength;
-    let red = sample_frame(
-        clamp(warped_uv + vec2<f32>(split, -split * 0.35), vec2<f32>(0.0), vec2<f32>(1.0))
-    ).r;
+    let red = sample_frame(on_quad(warped_uv + vec2<f32>(split, -split * 0.35))).r;
     let green = sample_frame(warped_uv).g;
-    let blue = sample_frame(
-        clamp(warped_uv - vec2<f32>(split * 0.7, split), vec2<f32>(0.0), vec2<f32>(1.0))
-    ).b;
+    let blue = sample_frame(on_quad(warped_uv - vec2<f32>(split * 0.7, split))).b;
 
     var rgb = mix(base_rgb, vec3<f32>(red, green, blue), 0.55 * strength);
 
@@ -144,7 +148,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     let strength = clamp(control.z, 0.0, 1.0);
     let seed = control.w * 17.0;
 
-    let uv = mesh.uv;
+    let uv = frame_in_sprite::frame_uv(mesh.uv, frame_rect, flipped());
     let base = sample_frame(uv);
 
     // For a sprite whose body sits in only part of the frame vertically (like the puppy slug,
@@ -188,8 +192,9 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 }
 
 // The camera blends in the space its main texture stores: under `SRGB_OUTPUT`
-// (`CompositingSpace::Srgb`, the world's) the shaded colour is written
-// sRGB-encoded, as Bevy's own sprite and mesh shaders write it.
+// (`CompositingSpace::Srgb`, a diagnostic camera's; the world's is linear) the
+// shaded colour is written sRGB-encoded, as Bevy's own sprite and mesh shaders
+// write it.
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let colour = shade(mesh);

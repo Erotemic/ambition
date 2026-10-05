@@ -37,6 +37,7 @@ use ambition_platformer2d::platformer::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d::render::rendering::{ActorOverlaySet, PlayerVisual, RoomVisual};
+use ambition_platformer2d::sprite_sheet::character::rigged::FrameInSprite;
 
 const EFFECT_STRENGTH: f32 = 1.0;
 const OVERLAY_ALPHA: f32 = 0.96;
@@ -139,6 +140,8 @@ pub fn install(app: &mut App) {
 /// - `uv_rect`: normalized atlas-frame bounds.
 /// - `control`: elapsed seconds, x-flip, strength, deterministic seed.
 /// - `detail`: local-frame texel size, reserved pulse channel, overlay alpha.
+/// - `frame_rect`: her frame inside that image (`FrameInSprite`), so the
+///   effect centres on her and not on a composited body's square cell.
 #[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
 pub struct MaryOQuasarMaterial {
     #[uniform(0)]
@@ -150,6 +153,8 @@ pub struct MaryOQuasarMaterial {
     #[texture(3)]
     #[sampler(4)]
     pub color_texture: Handle<Image>,
+    #[uniform(5)]
+    pub frame_rect: Vec4,
 }
 
 impl Material2d for MaryOQuasarMaterial {
@@ -198,6 +203,7 @@ fn attach_quasar_overlays(
             &Transform,
             &Sprite,
             Option<&Anchor>,
+            Option<&FrameInSprite>,
             Option<&SessionScopedEntity>,
         ),
         (With<PlayerVisual>, Without<MaryOQuasarSource>),
@@ -207,7 +213,7 @@ fn attach_quasar_overlays(
     mut waiting: Local<HashMap<Entity, (u32, bool)>>,
 ) {
     waiting.retain(|entity, _| candidates.get(*entity).is_ok());
-    for (source_entity, worn, transform, sprite, anchor, session_owner) in &candidates {
+    for (source_entity, worn, transform, sprite, anchor, frame, session_owner) in &candidates {
         if !crate::powerups::is_her_form(worn.id()) {
             continue;
         }
@@ -252,6 +258,7 @@ fn attach_quasar_overlays(
             control: Vec4::new(0.0, flip_flag(sprite), EFFECT_STRENGTH, seed),
             detail: Vec4::new(frame_texel.x, frame_texel.y, 0.0, OVERLAY_ALPHA),
             color_texture: sprite.image.clone(),
+            frame_rect: frame_rect(frame),
         });
         let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);
@@ -328,6 +335,7 @@ fn sync_quasar_overlays(
             &Transform,
             &Sprite,
             Option<&Anchor>,
+            Option<&FrameInSprite>,
             &MaryOQuasarSource,
             Option<&Visibility>,
         ),
@@ -351,6 +359,7 @@ fn sync_quasar_overlays(
         source_transform,
         source_sprite,
         anchor,
+        frame,
         source,
         source_visibility,
     ) in &sources
@@ -416,6 +425,7 @@ fn sync_quasar_overlays(
             );
             material.detail = Vec4::new(frame_texel.x, frame_texel.y, 0.0, OVERLAY_ALPHA);
             material.color_texture = source_sprite.image.clone();
+            material.frame_rect = frame_rect(frame);
         }
     }
 }
@@ -503,6 +513,12 @@ fn overlay_transform_from_source(
 fn anchor_to_mesh_offset(anchor: Option<&Anchor>, render_size: Vec2) -> Vec2 {
     let anchor = anchor.map(|a| a.0).unwrap_or(Vec2::ZERO);
     -anchor * render_size
+}
+
+/// Her frame inside her root sprite's image, for the material.
+fn frame_rect(frame: Option<&FrameInSprite>) -> Vec4 {
+    let frame = frame.copied().unwrap_or(FrameInSprite::WHOLE);
+    Vec4::new(frame.min.x, frame.min.y, frame.max.x, frame.max.y)
 }
 
 fn flip_flag(sprite: &Sprite) -> f32 {

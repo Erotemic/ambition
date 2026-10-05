@@ -189,50 +189,47 @@ fn a_slug_crawling_a_flat_ledge_moves_perfectly_evenly() {
     );
 }
 
-/// A CONVEX 90° transit is discontinuous by construction, and this budget
-/// admits it rather than hiding it.
+/// A CONCAVE 90° turn moves the body's centre by construction, and this budget
+/// admits exactly that move.
 ///
-/// The crawler's AABB does not rotate with its attachment, so a 48 x 22 body lying along a ledge's
-/// top cannot also lie along the ledge's END: the two placements share no position.
-///
-/// Removing the pop needs a decision this test cannot make: orient the crawler's
-/// collision box by its attachment (the sprite already rotates — `rotation_rad`),
-/// give crawlers a square-ish body, or spread the transit over several ticks as
-/// an animation. Logged in `dev/journals/code_smells.md`.
-const WRAPPING_A_CORNER: MotionBudget = MotionBudget {
-    max_jerk: 26.0,
+/// The body lies along what it clings to. Crawling the floor into a wall its
+/// centre is half a length off the wall and half a thickness above the floor;
+/// climbing the wall it is half a thickness off the wall and (its trailing end on
+/// the floor) half a length up. No placement is both, so the turn moves the
+/// centre `(long − thick)·√2` in one tick: a pivot near the corner, drawn on the
+/// same tick the sprite turns 90°. A CONVEX wrap has no such move — the body
+/// turns about its centre — and is held to [`MotionBudget::CRAWLING`].
+const TURNING_INTO_A_CORNER: MotionBudget = MotionBudget {
+    max_jerk: (SLUG_SIZE.x - SLUG_SIZE.y) * 0.5 * std::f32::consts::SQRT_2 + 0.5,
     max_jerk_ratio: 32.0,
-    // A body circumnavigating a ledge legitimately ends up near where it began,
-    // so neither straightness nor reversals mean anything here. Jerk does.
-    max_reversal_rate: 0.10,
-    min_straightness: 0.0,
+    ..MotionBudget::CRAWLING
 };
 
 /// Convex corner. The slug crawls off a ledge's free end and wraps under it.
 /// Twelve of these exist in the shaft; every ledge is free at both ends.
 ///
-/// What this pins is that the wrap COMPLETES and costs exactly one pivot: no
-/// stall, no oscillation between the two faces, and no second lurch once it is
-/// on the new surface.
+/// The body turns about its centre once the centre is a thickness past the
+/// edge: lying along the top and hanging down the end it touches the corner
+/// either way, so the wrap is as smooth as a flat crawl. It must also COMPLETE:
+/// no stall, no oscillation between the two faces.
 #[test]
-fn a_slug_wrapping_a_ledge_end_pivots_once_and_keeps_going() {
+fn a_slug_wrapping_a_ledge_end_turns_in_place_and_keeps_going() {
     let world = shaft(vec![ledge("ledge", 144.0, 944.0, 256.0)]);
     // Start close enough to the left end that the wrap happens inside the window.
     let start = Vec2::new(210.0, 944.0 - SLUG_SIZE.y * 0.5);
     let track = crawl_static(&world, start, -1.0, TICKS);
-    let quality = check("convex corner (ledge end)", &track, WRAPPING_A_CORNER);
+    let quality = check("convex corner (ledge end)", &track, MotionBudget::CRAWLING);
+    // The premise: it went round, down the end face and under the ledge.
+    let ended = track.last().copied().expect("a track");
+    assert!(
+        ended.y > 944.0 + LEDGE,
+        "the slug must be under the ledge by now (ended at {ended:?}): {}",
+        quality.summary()
+    );
     assert_eq!(
         quality.stalled_ticks,
         0,
         "the slug must never stop at the corner: {}",
-        quality.summary()
-    );
-    // ONE pivot in the window, not a repeated pop: the mean jerk is what tells
-    // these apart — a single 25 px event over 240 ticks averages ~0.1 px, while
-    // a corner the crawl keeps re-entering averages near the pop itself.
-    assert!(
-        quality.mean_jerk < 1.0,
-        "the corner must be transited once, not repeatedly re-entered: {}",
         quality.summary()
     );
 }
@@ -253,7 +250,7 @@ fn a_slug_turning_the_floor_into_the_side_wall_does_not_stick() {
     let quality = check(
         "concave corner (floor into side wall)",
         &track,
-        MotionBudget::CRAWLING,
+        TURNING_INTO_A_CORNER,
     );
     // It must actually TURN: the wall's inner face is at x = 48, so a slug that
     // stayed on the floor would still be at floor level after 240 ticks.
@@ -277,7 +274,7 @@ fn a_slug_turning_the_floor_into_the_central_pillar_does_not_stick() {
     check(
         "concave corner (floor into pillar)",
         &crawl_static(&world, start, 1.0, TICKS),
-        MotionBudget::CRAWLING,
+        TURNING_INTO_A_CORNER,
     );
 }
 

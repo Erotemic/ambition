@@ -1194,6 +1194,19 @@ fn a_body_read_as_one_image_is_composited_while_it_is_read() {
     for slot in &app.world().get::<RiggedPresentation>(owner).unwrap().slots {
         assert_eq!(app.world().get::<RenderLayers>(*slot), Some(&private), "a composited part draws in the world");
     }
+    // A reader of the root's image finds the body's frame where `FrameInSprite`
+    // says: carried through the root's quad, that box is the baked frame's
+    // (the deep dream laid its pattern over the whole square cell, and a wide
+    // slug, a thin band of it, wore it magnified into stripes).
+    let frame = *app.world().get::<FrameInSprite>(root).expect("a composited root states its frame");
+    let (quad, anchor) = (
+        app.world().get::<Sprite>(root).unwrap().custom_size.unwrap(),
+        app.world().get::<Anchor>(root).unwrap().0,
+    );
+    let at = |image: Vec2| Vec2::new((image.x - 0.5 - anchor.x) * quad.x, (0.5 - anchor.y - image.y) * quad.y);
+    let baked = |corner: Vec2| (corner - Vec2::splat(0.5) - feet) * RENDER;
+    assert!(close(at(frame.min), baked(Vec2::new(0.0, 1.0))), "{:?} vs {:?}", at(frame.min), baked(Vec2::new(0.0, 1.0)));
+    assert!(close(at(frame.max), baked(Vec2::new(1.0, 0.0))), "{:?} vs {:?}", at(frame.max), baked(Vec2::new(1.0, 0.0)));
 
     app.insert_resource(Composite(false));
     for frame in 1..COMPOSED_HOLD_FRAMES {
@@ -1204,6 +1217,7 @@ fn a_body_read_as_one_image_is_composited_while_it_is_read() {
     let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
     assert!(presentation.impostor.is_none(), "still composited long after its last read");
     assert_eq!(app.world().get::<Sprite>(root).unwrap().image, ambition_sprite_sheet::character::NO_BAKED_IMAGE);
+    assert!(app.world().get::<FrameInSprite>(root).is_none(), "a root with no image states a frame in it");
     for slot in &presentation.slots {
         assert_eq!(app.world().get::<RenderLayers>(*slot), Some(&RenderLayers::default()));
     }

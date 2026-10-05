@@ -630,6 +630,27 @@ impl PartPresentation {
     }
 }
 
+/// Where a body's frame lies in the image its root sprite shows, as the
+/// image's own normalized coordinates (+y down, before the sprite's flip). A
+/// baked frame IS its image, which is the meaning of no `FrameInSprite`; a
+/// composited body's image is a square impostor cell holding the frame inside
+/// a margin, and the driver states it here. A reader that treats the root's
+/// image as the body's frame — an overlay patterned over the body — maps its
+/// coordinates through this, or its pattern is laid over the whole cell.
+#[derive(bevy::ecs::component::Component, Clone, Copy, Debug, PartialEq)]
+pub struct FrameInSprite {
+    pub min: Vec2,
+    pub max: Vec2,
+}
+
+impl FrameInSprite {
+    /// A frame that is the whole image.
+    pub const WHOLE: Self = Self {
+        min: Vec2::ZERO,
+        max: Vec2::ONE,
+    };
+}
+
 /// The part-drawn bodies something reads as ONE composited image: a system
 /// that samples a body's root sprite (the hit flash's silhouette, a portal's
 /// clipped pieces, an overlay shader) declares the root here while it does.

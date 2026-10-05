@@ -35,6 +35,7 @@ mod host_invariant_tests;
 pub mod lifecycle_commit;
 pub mod local_session;
 pub mod peer;
+pub mod peer_input;
 mod probes;
 mod registrar;
 mod registration;
@@ -43,6 +44,7 @@ pub mod session;
 mod session_ownership_tests;
 
 pub use codec::*;
+pub use peer_input::{PeerInput, PeerVerdict, PeerVerdicts, PreparationVerdict, ThisPeersVerdict};
 pub use probes::*;
 pub use registrar::GgrsRollbackRegistrar;
 pub use registration::AmbitionRollbackApp;

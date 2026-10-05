@@ -10,9 +10,12 @@ use bevy_ggrs::{
 use ambition_platformer2d_core::{ConfirmedFrameBoundary, ControlFrame};
 
 use super::RollbackRegistry;
+use crate::peer_input::{PeerInput, PeerVerdicts, ThisPeersVerdict};
 use crate::PreparedContentIdentity;
 
-pub type AmbitionGgrsConfig = GgrsConfig<ControlFrame>;
+/// The input is [`PeerInput`]: the controls of a seat and the verdict of the
+/// peer that sent it.
+pub type AmbitionGgrsConfig = GgrsConfig<PeerInput>;
 pub type AmbitionGgrsSession = Session<AmbitionGgrsConfig>;
 
 #[derive(SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -605,7 +608,14 @@ pub fn install_rebased_session(
     session: AmbitionGgrsSession,
     eligibility: FrameZeroEligibility,
 ) {
+    let handles = match &session {
+        Session::P2P(session) => session.num_players(),
+        _ => 0,
+    };
     declare_frame_zero(world, eligibility);
+    // After `declare_frame_zero`, which forgets each verdict of the timeline
+    // before.
+    world.insert_resource(PeerVerdicts::for_handles(handles));
     install_session_with_ownership(world, session, RollbackSessionOwnership::Peer);
 }
 
@@ -643,6 +653,9 @@ fn declare_frame_zero(world: &mut World, eligibility: FrameZeroEligibility) {
     world.insert_resource(RollbackFrameCount(0));
     world.insert_resource(ConfirmedFrameCount(-1));
     reset_input_authority(world);
+    // A verdict names its operation by the frame that recorded it, and the
+    // frames start again here.
+    world.insert_resource(PeerVerdicts::default());
     // Frame zero also rebases the carrier order. See
     // `rebase_rollback_carrier_order`.
     let rebase = rebase_rollback_carrier_order(world);
@@ -912,6 +925,8 @@ pub(crate) fn install_session_bridge(app: &mut App) {
     app.add_systems(Update, report_input_written_to_the_wrong_seam);
     app.init_resource::<InputSeamMisuse>()
         .init_resource::<PendingSeatInputs>()
+        .init_resource::<ThisPeersVerdict>()
+        .init_resource::<PeerVerdicts>()
         .init_resource::<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>()
         .init_resource::<RollbackExecutionStats>()
         .init_resource::<RollbackDiagnosticHistory>()
@@ -925,7 +940,11 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         )
         .add_systems(
             ReadInputs,
-            capture_latched_local_input.in_set(AmbitionReadInputsSet::CaptureDeviceLatch),
+            (
+                capture_latched_local_input,
+                crate::lifecycle_commit::decide_this_peers_verdict,
+            )
+                .in_set(AmbitionReadInputsSet::CaptureDeviceLatch),
         )
         .add_systems(
             ReadInputs,
@@ -933,7 +952,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
         )
         .add_systems(
             GgrsSchedule,
-            (publish_ggrs_input, count_advance_run)
+            (publish_ggrs_input, record_confirmed_verdicts, count_advance_run)
                 .chain()
                 // Readers order against `ConfirmedFrameBoundaryPublished`.
                 // `.before(CoreSimulation)` alone gives no edge to a reader
@@ -1048,6 +1067,7 @@ fn capture_latched_local_input(
 /// back to. A sync test has no remote and is not affected.
 fn publish_local_inputs(
     pending: Res<PendingSeatInputs>,
+    verdict: Res<ThisPeersVerdict>,
     local_players: Res<LocalPlayers>,
     // `Option`: with no GGRS frame counter, nothing is stepping a timeline,
     // so this is not the first frame of one.
@@ -1062,7 +1082,11 @@ fn publish_local_inputs(
         .0
         .iter()
         .map(|&handle| {
-            let input = if first_peer_frame { ControlFrame::default() } else { pending.get(handle) };
+            let input = if first_peer_frame {
+                PeerInput::default()
+            } else {
+                PeerInput { control: pending.get(handle), verdict: verdict.0 }
+            };
             (handle, input)
         })
         .collect();
@@ -1083,7 +1107,7 @@ fn publish_ggrs_input(
         if let Some(slots) = slots.as_deref_mut() {
             slots.set(
                 ambition_characters::control::PlayerSlot(handle as u8),
-                *input,
+                input.control,
             );
         }
     }
@@ -1094,6 +1118,23 @@ fn publish_ggrs_input(
         .map(|slots| slots.get(ambition_characters::control::PlayerSlot::PRIMARY))
         .filter(|_| !inputs.is_empty())
         .unwrap_or_default();
+}
+
+/// Record the verdict of each handle whose input of this frame is confirmed.
+///
+/// In `GgrsSchedule`, outside `GameplaySimulationRoot`, so it runs on each
+/// frame of the freeze: the verdicts the barrier waits for arrive while the
+/// simulation is held.
+fn record_confirmed_verdicts(
+    inputs: Res<PlayerInputs<AmbitionGgrsConfig>>,
+    frame: Res<RollbackFrameCount>,
+    mut verdicts: ResMut<PeerVerdicts>,
+) {
+    for (handle, (input, status)) in inputs.iter().enumerate() {
+        if matches!(status, ggrs::InputStatus::Confirmed) {
+            verdicts.record(handle, frame.0, input.verdict);
+        }
+    }
 }
 
 /// Publish the fact "this frame number has been simulated before".
@@ -2790,18 +2831,19 @@ mod multi_seat_input_tests {
         pending.set(0, frame_with_axis(1.0));
         pending.set(1, frame_with_axis(-1.0));
         app.insert_resource(pending);
+        app.init_resource::<ThisPeersVerdict>();
         app.insert_resource(LocalPlayers(vec![0, 1]));
         app.add_systems(Update, publish_local_inputs);
         app.update();
 
         let inputs = app.world().resource::<LocalInputs<AmbitionGgrsConfig>>();
         assert_eq!(
-            inputs.0.get(&0).map(|frame| frame.axis_x),
+            inputs.0.get(&0).map(|input| input.control.axis_x),
             Some(1.0),
             "handle 0 must carry the PRIMARY seat's pending input"
         );
         assert_eq!(
-            inputs.0.get(&1).map(|frame| frame.axis_x),
+            inputs.0.get(&1).map(|input| input.control.axis_x),
             Some(-1.0),
             "handle 1 was handed seat zero's frame — two pads, one input stream, \
              and a checksum comparison of a game nobody is playing"
@@ -2818,12 +2860,13 @@ mod multi_seat_input_tests {
             pending.set(0, frame_with_axis(1.0));
             app.insert_resource(pending);
         }
+        app.init_resource::<ThisPeersVerdict>();
         app.insert_resource(LocalPlayers(vec![0, 1]));
         app.add_systems(Update, publish_local_inputs);
         app.update();
 
         let inputs = app.world().resource::<LocalInputs<AmbitionGgrsConfig>>();
-        assert_eq!(inputs.0.get(&1).map(|frame| frame.axis_x), Some(0.0));
+        assert_eq!(inputs.0.get(&1).map(|input| input.control.axis_x), Some(0.0));
     }
 
     /// The player count is what the session builds with, clamped to the

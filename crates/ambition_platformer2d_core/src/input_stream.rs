@@ -26,8 +26,15 @@ use crate::ControlFrame;
 pub const INPUT_STREAM_VERSION: u32 = 1;
 
 /// Bump when the SHAPE of what two peers exchange changes — any field added,
-/// removed, retyped or reordered on `ControlFrame`, or any change to the one
-/// non-primitive type its fields name.
+/// removed, retyped or reordered on `ControlFrame`, any change to a
+/// non-primitive type its fields name, or any change to the `PeerInput` that
+/// holds it (`ambition_platformer2d_rollback_ggrs::peer_input`).
+///
+/// 4 (2026-10-04): the input is `PeerInput`, a `ControlFrame` and then the
+/// peer's verdict on its pending lifecycle operation (an `i32` and a `u32`
+/// variant index), 78 bytes. A peer of identity 3 sends 70 bytes for each
+/// handle, so a peer of identity 4 that receives them divides a length that
+/// is not its own stride.
 ///
 /// ⛔⛤ **THE INPUT HALF OF THE WIRE HAD NO IDENTITY AT ALL UNTIL 2026-09-16,
 /// WHILE THE STATE HALF HAD TWO.** Measured: `INPUT_STREAM_VERSION` versions
@@ -54,7 +61,7 @@ pub const INPUT_STREAM_VERSION: u32 = 1;
 /// CALL with at least four spellings and nothing stopping a fifth, so source
 /// text cannot enumerate them. A struct's fields are a single authoritative
 /// declaration in one file; there is no second way to spell them.
-pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = 3;
+pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = 4;
 
 /// Everything wrong with a stream, said precisely enough to act on.
 #[derive(Debug, Clone, PartialEq, Eq)]

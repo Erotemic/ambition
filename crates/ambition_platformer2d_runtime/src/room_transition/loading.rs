@@ -311,9 +311,26 @@ impl ActiveRoomTransitionLoad {
 pub struct RoomTransitionLoadState {
     next_sequence: u64,
     pub active: Option<ActiveRoomTransitionLoad>,
+    /// The intent of the last transaction that failed, kept after a host with
+    /// no loading screen retires it. A peer reads it to say in its input that
+    /// it could not prepare the operation (`PreparationVerdict::Failed`): the
+    /// next frame opens a new transaction for the same intent, so the failed
+    /// one is visible for part of one `Update` only. Cleared when a
+    /// transaction for that intent is authorized.
+    pub last_failure: Option<LifecycleIntent>,
 }
 
 impl RoomTransitionLoadState {
+    /// The preparation of `intent` failed, and no later transaction for it
+    /// was authorized: the active transaction is a failure of it, or the last
+    /// retired failure was.
+    pub fn failed_to_prepare(&self, intent: &LifecycleIntent) -> bool {
+        self.active
+            .as_ref()
+            .is_some_and(|active| active.phase == RoomTransitionLoadPhase::Failed && &active.intent == intent)
+            || self.last_failure.as_ref() == Some(intent)
+    }
+
     fn mint_sequence(&mut self) -> u64 {
         self.next_sequence = self.next_sequence.saturating_add(1);
         self.next_sequence
@@ -1420,6 +1437,7 @@ pub fn authorize_ready_room_transition_system(
     mut loads: ResMut<LoadCoordinator>,
     mut load_events: MessageWriter<LoadEvent>,
 ) {
+    let state = &mut *state;
     let Some(active) = state.active.as_mut() else {
         return;
     };
@@ -1449,6 +1467,9 @@ pub fn authorize_ready_room_transition_system(
                         barrier_id: active.barrier.barrier_id.clone(),
                     });
                     active.phase = RoomTransitionLoadPhase::CommitAuthorized;
+                    if state.last_failure.as_ref() == Some(&active.intent) {
+                        state.last_failure = None;
+                    }
                 }
                 Err(LoadCommitRejection::AlreadyAuthorized) => {
                     // The authorization belongs to this exact transaction. Treat an
@@ -1563,6 +1584,7 @@ pub fn finalize_unpresented_room_transition_failure_system(
         .active
         .take()
         .expect("failed room transition was present above");
+    state.last_failure = Some(active.intent.clone());
     apply_load_command(
         &mut loads,
         &mut load_events,

@@ -217,11 +217,17 @@ loading screen for a retry or a cancel), and the disconnect timeout of GGRS
 (no production code starts a peer session, so there is no value and no
 handler for a lost peer).
 
-**Decided by engineering, not built:** each peer puts its verdict ("prepared"
-or "failed", for the operation that waits) in its input, so the verdict is
-confirmed with a frame and each peer holds the same one
-([`netcode.md`](engine/netcode.md)). The commit rule becomes "each peer said
-prepared". That makes a rule possible. Which rule is the question.
+**Built 2026-10-05 (the engineering half):** each peer puts its verdict
+(`NotYet`, `Prepared` or `Failed`, for the operation that waits) in its input
+(`PeerInput`, wire identity 4), and a peer commits only when each handle said
+`Prepared` in a confirmed input ([`netcode.md`](engine/netcode.md)). Measured
+by `two_peers::a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare`:
+when Bob's machine cannot prepare a door, neither peer commits, both stay held
+on one frozen world, each peer knows that handle 0 said `Prepared` and handle
+1 said `Failed` (`PeerVerdicts`), and the commit logs an error that names the
+handle. Before the rule (the poison), Alice's peer committed alone into a
+session that never started, as in (1) above. So outcomes (1) and (2) are now
+outcome (3) with a report. What a `Failed` does next is still the question.
 
 Owner: netcode ([`netcode.md`](engine/netcode.md)) and online play (A4 in
 [`multiplayer.md`](game/multiplayer.md)). No queue row waits for this; no

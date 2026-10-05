@@ -607,9 +607,12 @@ mod the_bytes_two_peers_exchange {
     //! ⛔⛤ **NOTHING VERSIONED THE SHAPE OF THE INPUT WIRE, AND EVERY CANDIDATE
     //! THAT LOOKED LIKE IT DID COVERS SOMETHING ELSE.**
     //!
-    //! `AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so [`ControlFrame`] IS
-    //! what crosses between peers. The state half of the wire has both an
-    //! identity and a ratchet (`GGRS_ROLLBACK_SCHEMA_VERSION` and
+    //! `AmbitionGgrsConfig = GgrsConfig<PeerInput>`, and a `PeerInput` holds a
+    //! [`ControlFrame`] first, so these bytes are the first 70 of what crosses
+    //! between peers for each handle. The whole input is pinned in
+    //! `ambition_platformer2d_rollback_ggrs::peer_input`.
+    //!
+    //! The state half of the wire has both an identity and a ratchet (`GGRS_ROLLBACK_SCHEMA_VERSION` and
     //! `scripts/tests/rollback_codec_shape.txt`). Before this module the input
     //! half had neither:
     //!

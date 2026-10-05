@@ -341,6 +341,18 @@ shared bag since the checkpoint (an item used, a purchase) is not recorded,
 so Alice's death gives it back. No production road seats a second player in
 Ambition yet (Q153).
 
+- Review 2026-10-05, P3: the shape for that residual. The restore rebuilds
+  "the checkpoint bag plus the surviving bag mutations since it", so each
+  mutation needs a sign and a provenance: (owners, item, signed delta,
+  cause), recorded where the mutation happens (a grant is one kind; a use, a
+  sale, a purchase and a transfer are others). A rewind takes the dying
+  participant out of the owners and folds what is left over the checkpoint
+  bag. Not another list of positive exceptions, and not ownership inferred
+  later from room residency. A purchase is the sharp case: Bob's purse is
+  outside Alice's rewind, so reverting the bag alone loses his purchase with
+  no refund. Solve the shared-bag customers first; this is not a general
+  inventory-event framework.
+
 **The items go with the coins (2026-10-04).** An item a kept reward gave was
 lost: the restore put the checkpoint's bag back whole while the reward stayed
 taken (Bob's chest stayed looted; a banked defeat's mint was not built
@@ -618,6 +630,57 @@ head of each step. That is the canonical clock, not a defect.
 owners; rollback rows are authorities, not projections; construction publishes
 no plausible-but-incomplete object; required mechanical policy does not fail
 open. Close with a fresh census rather than a checked list.
+
+### CHECKPOINT-ADMISSION-IS-NOT-COMMIT — an accepted restore changes nothing until it commits
+
+**Source:** GPT review 2026-10-05, P1 (its first priority). **Owner:**
+`session/checkpoint.rs` (`resume_at_checkpoint_on_reset`,
+`cancel_accepted_checkpoint_restore`, `apply_committed_checkpoint_restore`)
+and the room-transition terminal roads (`room_transition/{loading,commit}.rs`).
+
+**The defect.** The admission of a checkpoint restore writes
+`RoomReplayAdmitted` (`.to_the_checkpoint()`) on the frame it accepts the
+operation, before the room is prepared. Fourteen production systems read that
+message on that frame (census 2026-10-05). They return the subject to spawn,
+retract boss defeats in the save (rows, looted flags, quests, chest,
+`BossDefeatRetracted` and the rewards it takes back), forget timers, disown
+`WorldTimeSchedule` and `ConsumedSinceCheckpoint` records, and reset gravity,
+portals, cut-rope arenas and pending hits. None of them runs at the commit.
+So `CheckpointRestoreOutcome::Cancelled` ("the live world is unchanged") is
+false on the composed path. `a_failed_preparation_ends_the_operation_once_and_does_not_retry_it`
+does not see it, because it composes none of those readers.
+
+**A second hole.** Only a preparation failure publishes `Cancelled`. A
+refused publication (`finalize_committed_room_transition`, `published ==
+false`) and the terminal `SubjectGone` / `SubjectCannotTransit` roads take the
+intent, and `retire_accepted_checkpoint_restore` then retires the operation
+with no outcome. That breaks "one operation, one terminal outcome".
+
+**The ruled shape (review):**
+- Accept: pin the prospective restore inputs, and the prospective persisted
+  fates (the save with the retracted boss rows, and the scheduled returns).
+  Change no live gameplay state.
+- Prepare: build the candidate from those values
+  (`CommitFactsSource::Stated`), not from the live save. Moving the boss
+  retraction to the commit alone is not enough, because the candidate reads
+  boss fate from the live save.
+- Publication accepted: apply the checkpoint domain exactly once (in
+  `CheckpointDomainApply`, inside the exclusive commit, before a rebase: a
+  message written there would be read in frame 0 of the new timeline, which a
+  rewind can clear), and publish `Committed`.
+- Every terminal road that does not commit: discard the prospective state,
+  publish `Cancelled` exactly once, and leave live state bit for bit as it
+  was. One terminalization answers a preparation failure, a refused
+  publication and an invalid subject.
+- Do not repair a cancellation by reversing mutations afterwards: that is a
+  second reconstruction authority.
+
+**Witness (to land with the fix):** a checkpoint, then a boss defeated and
+its bounty paid, then the body moved away. A restore is asked for and each
+preparation fails. The outcome is `Cancelled`, and the body's position, the
+boss row, the purse and the defeats since the checkpoint are as before the
+request. Control: the same run with a preparation that succeeds commits and
+changes each of those facts.
 
 ## P1 — ownership, composition and iteration
 
@@ -1158,6 +1221,14 @@ the restore chain has its road: the simulation schedule (2026-10-03,
 BODY-BORN-ON-THE-TIMELINE), which replaced the `Q135` session-start gate.
 
 ### MUSIC-CANDIDATES — music is chosen from scoped, prioritized candidates
+
+**Review 2026-10-05 (carried forward):** same-room music is still last writer
+wins (one `priority_track`, one `priority_owner`, and `claim_priority` lets a
+later writer win). Keep "star power ends when victory starts". The service
+holds `(room or scope, stable source) -> (cue, priority)` candidates with a
+deterministic order and tie-break, and a source releases only its own claim.
+Do not add a tier, a slot or an ordering edge for the next simultaneous
+customer.
 
 **Owner:** `ambition_encounter::music` (`EncounterMusicRequest`) and the music
 intent in `ambition_platformer2d_actor_monolith/src/music/intent.rs`.
@@ -1733,6 +1804,27 @@ Poisons: the reset not registered (the three arms above); the record runs in
 - ⚠ Recorded, not a defect of the edge: on a fresh host the first Sanic
   session has the Ambition starter set (10 items in its save), because the
   shell host is one composition with one bag.
+- Review 2026-10-05, P4: `StartingBag` fixed the leak at the wrong lifetime.
+  The starting bag is an authored initial condition of an EXPERIENCE, so it
+  belongs in the prepared experience/session description beside the rest of
+  its starting state (e.g. `PlatformerExperienceAuthoring::initial_inventory`):
+  the candidate carries it, activation installs it, and a persisted inventory
+  overlays it when the save has one. A one-experience App lowers its
+  composition-level `OwnedItems` into its one experience. Do not grow more
+  semantics around the process-wide value, and do not add Sanic or demo
+  exceptions.
+- Review 2026-10-05, P2 (assigned to NamekAmbition): a same-experience
+  candidate is still prepared from the LIVE save (`prepare_the_save_of`
+  returns `&live.0` when the owner already holds it), so the session that
+  plays can change the save between preparation and adoption, and
+  `hand_the_save_to` is then a no-op. Ruling: optimistic validation. The
+  candidate remembers the save value it was prepared from
+  (`AmbitionGameSaveData: Eq`); at adoption an equal save publishes it, and a
+  different save makes it stale (discard and prepare it again from the new
+  save). Do not restore the old save at adoption: that throws away progress
+  made while the outgoing session was playable. Witness: change a durable
+  fact that construction reads between preparation and adoption, and compare
+  with a fresh candidate prepared from the later save.
 
 **The per-attempt ledgers crossed the edge (2026-10-04).** Mary-O's
 `BrokenBricks` and `SpentPowerBlocks` and Sanic's `SpentMonitors` are keyed by
@@ -1883,6 +1975,15 @@ are placed from boxes and constants.
 hand meets the petted body's authored contact point.
 
 ### RIG-IMPOSTOR-CONTAINMENT — a part-drawn body is drawn whole or refused
+
+**Review 2026-10-05 (carried forward, not fixed):** cells are still
+`frame_size + 2 * IMPOSTOR_MARGIN`, the parity oracle still clips to the cell,
+and a page is drawn through one camera with no per-cell scissor. The
+invariant: every pixel an admitted rig can rasterize lies in its cell.
+Compute a conservative asymmetric draw envelope at preparation (frames,
+mirroring, transforms, tween and rotation), choose the cell class from it,
+and fall back to the baked sprite when no class holds it. Then remove the
+oracle's clip and add a two-body shared-page containment test.
 
 **Owner:** `ambition_render::rendering::actors::rigged` (`impostor_cell_class`)
 and `scripts/measure_rigged_parity.py`. Plan:

@@ -135,14 +135,34 @@ machine that failed stays held. No error is reported. When each machine fails,
 both stay held. The measurement is in Q156 of
 [`awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
 
-The engineering half is decided and not built: **the verdict of each peer
-travels in the peer input** ("prepared" or "failed", for the operation that
-waits). The reasons: it keeps one protocol (a second message beside GGRS is a
-second ordering to reason about), and an input is confirmed with its frame, so
-the cancel or the commit becomes a fact that each peer's simulation holds the
-same. The price is one more round trip inside the freeze, and a change of the
-wire input. The policy (what a "failed" does to a door and to a respawn) is
-the maintainer's, in Q156.
+The engineering half is built (2026-10-05): **the verdict of each peer
+travels in the peer input.** `PeerInput` is a `ControlFrame` and a
+`PeerVerdict` (the frame that recorded the operation, and `NotYet`,
+`Prepared` or `Failed`). `decide_this_peers_verdict` writes it in
+`ReadInputs`: `Prepared` is the commit's own test (`authorized_plan`), and
+`Failed` comes from `RoomTransitionLoadState::failed_to_prepare`: a host
+with no loading screen retires a failed transaction at once, so the state
+keeps its intent (`last_failure`) until a transaction for it is authorized.
+`record_confirmed_verdicts` (in `GgrsSchedule`, outside the frozen root)
+keeps the newest CONFIRMED verdict of each handle in `PeerVerdicts`, which
+frame zero of each session resets. The peer arm of the commit then also needs
+each handle to have said `Prepared` for the operation. The reasons for the
+input: it keeps one protocol (a second message beside GGRS is a second
+ordering to reason about), and an input is confirmed with its frame. The
+price is one more link delay inside the freeze, and 8 more bytes for each
+handle and frame. Witness:
+`two_peers::a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare`
+(poison: the commit with no verdict check commits alone, generation 1 on one
+peer and 0 on the other). The policy (what a "failed" does to a door and to a
+respawn) is the maintainer's, in Q156.
+
+⚠ The verdict made two equal machines commit at ONE frame (measured: 36 and
+36), because each waits one link delay for the other's verdict. The freeze is
+still needed when one machine prepares later than the other: then the faster
+peer commits a link delay after the slower one's verdict arrives, and the
+slower peer commits at once. The door tests of `two_peers.rs` run with Bob's
+machine 6 updates slower (`bobs_machine_is_slower`) so that the no-freeze
+poison still starts two worlds.
 
 A plan must also be lowered from a durable horizon that the peers agree on.
 Today `begin_room_transition_load_system` lowers the mints of a door from this
@@ -249,8 +269,9 @@ product and network-service concerns.
 
 ## The input payload two peers exchange
 
-`AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, so `ControlFrame` is the wire.
-It is `derived` (rebuilt from the input stream, not snapshotted), so the
+`AmbitionGgrsConfig = GgrsConfig<PeerInput>`, and `PeerInput` is a
+`ControlFrame` followed by the peer's verdict (78 bytes for each handle at wire
+identity 4). `ControlFrame` is `derived` (rebuilt from the input stream, not snapshotted), so the
 rollback dump, the fingerprint and `rollback_codec_shape.txt` do not describe its
 fields. `INPUT_STREAM_VERSION` versions recorded replay files and exempts added
 fields by design; it does not cover the peer payload.
@@ -258,10 +279,16 @@ fields by design; it does not cover the peer payload.
 - **Identity and ratchet.** `CONTROL_FRAME_WIRE_IDENTITY` names the shape.
   `the-peer-input-payload-may-not-move-without-its-identity`
   (`scripts/check_absence_contracts.py`) ratchets the field list in declaration
-  order plus nested enum variants with payloads. Order is part of the shape,
-  because bincode is positional. An unrecognized field type raises.
+  order plus nested enum variants with payloads, `PeerInput` and its verdict
+  included. Order is part of the shape, because bincode is positional. An
+  unrecognized field type raises. The baseline records the shape of EACH
+  identity, and the live identity must be one of them. ⛔ From 2026-09-28 to
+  2026-10-04 the baseline held identity 2 while the source said 3, and a
+  different identity was the exemption, so every shape read green (measured by
+  poison); `test_a_bumped_identity_with_no_recorded_shape_is_caught`.
 - **Bytes.** `control_frame.rs`'s `the_bytes_two_peers_exchange` pins the exact
-  bincode bytes of a deliberately legible frame (a default frame is all zeros).
+  bincode bytes of a deliberately legible frame (a default frame is all zeros),
+  and `peer_input.rs`'s module of the same name pins the whole `PeerInput`.
   The bytes cannot see a `bool`/`u8` swap; the field census can. They
   complement each other.
 - **Fixed width is Ambition's contract, not GGRS's.** `ggrs` 0.13

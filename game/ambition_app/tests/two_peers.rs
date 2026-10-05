@@ -538,6 +538,34 @@ impl SimulatesWhileFrozen {
 
 type Ownership = ambition_platformer2d::rollback::RollbackSessionOwnership;
 
+type LoadState = ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
+type LoadPhase = ambition_platformer2d::runtime::room_transition::RoomTransitionLoadPhase;
+
+/// Updates Bob's machine takes longer than Alice's to prepare a room.
+const BOBS_MACHINE_IS_SLOWER_BY: u32 = 6;
+
+/// Bob's machine prepares each room [`BOBS_MACHINE_IS_SLOWER_BY`] updates
+/// after Alice's machine.
+///
+/// A peer commits when its own plan is authorized and the other peer said in
+/// its input that it prepared the operation. So Alice's peer commits a link
+/// delay after Bob's verdict arrives, Bob's peer commits at once, and the two
+/// commit at two frames: the case the freeze is for. With two equal machines
+/// each verdict arrives one link delay after the other was sent, and the
+/// peers committed at one frame (measured 2026-10-04: frames 36 and 36).
+fn bobs_machine_is_slower(mut state: ResMut<LoadState>, mut held: Local<(u64, u32)>) {
+    let Some(active) = state.active.as_mut().filter(|active| active.phase == LoadPhase::CommitAuthorized) else {
+        return;
+    };
+    if held.0 != active.sequence {
+        *held = (active.sequence, 0);
+    }
+    if held.1 < BOBS_MACHINE_IS_SLOWER_BY {
+        held.1 += 1;
+        active.phase = LoadPhase::AwaitingReadiness;
+    }
+}
+
 fn lift_the_freeze(
     poison: Res<SimulatesWhileFrozen>,
     frame: Res<RollbackFrameCount>,
@@ -641,6 +669,11 @@ fn doors_under_a_peer_session(generations: u32, after: i32, poison: SimulatesWhi
         app.insert_resource(poison);
         app.add_systems(GgrsSchedule, (lift_the_freeze.before(root), put_the_freeze_back.after(root)));
     }
+    bob.app_mut().add_systems(
+        Update,
+        bobs_machine_is_slower
+            .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system),
+    );
 
     let first = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<LiveRoomInstance>(
         alice.world_mut(),
@@ -935,6 +968,93 @@ fn a_peer_commit_with_no_freeze_runs_on_two_worlds() {
     assert!(
         outcome.healths.iter().any(Result::is_err),
         "the next sessions started from two worlds and no peer reported a desync"
+    );
+}
+
+/// Bob's machine cannot prepare a room: each transaction it opens fails, as a
+/// room whose assets do not load on that machine would.
+fn bobs_machine_cannot_prepare(mut state: ResMut<LoadState>) {
+    if let Some(active) = state.active.as_mut().filter(|active| active.phase != LoadPhase::Committed) {
+        active.phase = LoadPhase::Failed;
+        active.failure = Some("this machine cannot prepare the room (two_peers)".to_string());
+    }
+}
+
+/// What each peer said of the crossing, on each peer, after the walk.
+#[derive(Debug, PartialEq)]
+struct HeldCrossing {
+    /// The generation of each peer's session.
+    generations: [u32; 2],
+    /// On each peer: (what handle 0 said, what handle 1 said) of the
+    /// crossing recorded on [`RECORDED_ON`], from confirmed inputs.
+    said: [(ambition_platformer2d::rollback::PreparationVerdict, ambition_platformer2d::rollback::PreparationVerdict); 2],
+    /// Each peer's world is at a frozen frame, and its confirmed frame too.
+    frozen: [bool; 2],
+}
+
+/// A PEER COMMITS ONLY WHEN EACH PEER SAID IT PREPARED THE OPERATION (Q156).
+///
+/// Alice opens the door on frame 30, and each peer records the crossing.
+/// Alice's machine prepares the hub. Bob's machine cannot: each transaction
+/// it opens fails. Each peer says what it has in its input.
+///
+/// - Neither peer commits. Before the rule, Alice's peer committed alone and
+///   started its next session, and Bob's peer stayed in the old one: neither
+///   session ran again, and nothing said why.
+/// - Each peer knows, from confirmed inputs, that Alice's machine prepared it
+///   and Bob's machine failed. What the session does then is Q156.
+/// - The control is in the same run: Alice's peer said `Prepared`, so its own
+///   plan was authorized, and only the other peer's verdict held it.
+///   `a_door_under_a_peer_session_commits_on_each_peer_and_so_does_the_next`
+///   is the run where each machine prepares and each peer commits.
+#[test]
+fn a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare() {
+    use ambition_platformer2d::rollback::{PeerVerdicts, PreparationVerdict::*};
+    let (a, b) = ("127.0.0.1:7021".parse().unwrap(), "127.0.0.1:7022".parse().unwrap());
+    let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
+    let (mut alice, _) = peer_prepared_by(ROOM, 0, (1, b), to_bob, Poison::None, each_player_on_the_hub_door);
+    let (mut bob, _) = peer_prepared_by(ROOM, 1, (0, a), to_alice, Poison::None, each_player_on_the_hub_door);
+    bob.app_mut().add_systems(
+        Update,
+        bobs_machine_cannot_prepare
+            .after(ambition_platformer2d::runtime::room_transition::authorize_ready_room_transition_system)
+            .before(ambition_platformer2d::runtime::room_transition::finalize_unpresented_room_transition_failure_system),
+    );
+    // Far past the commit of the run where each machine prepares: that run
+    // commits 1 to 14 updates after the freeze.
+    for _ in 0..240 {
+        for (index, sim) in [&mut alice, &mut bob].into_iter().enumerate() {
+            let next = sim.world().resource::<RollbackFrameCount>().0 + 1;
+            let input = if index == 0 { opens_the_door(next) } else { changes_and_stands(next) };
+            sim.drive_seat(index as u8, input);
+            sim.app_mut().update();
+        }
+    }
+    let c = RECORDED_ON + ambition_platformer2d::rollback::PEER_COMMIT_FREEZE_DELAY;
+    let seen = |sim: &Platformer2dSimHarness| {
+        let verdicts = sim.world().resource::<PeerVerdicts>();
+        let frame = sim.world().resource::<RollbackFrameCount>().0;
+        (
+            generation(sim.world()),
+            (verdicts.said(0, RECORDED_ON), verdicts.said(1, RECORDED_ON)),
+            frame >= c && confirmed(sim) >= c && pending_recorded_on(sim) == Some(RECORDED_ON),
+        )
+    };
+    let (alices, bobs) = (seen(&alice), seen(&bob));
+    assert_eq!(
+        (&alice.rollback_health(), &bob.rollback_health()),
+        (&Ok(()), &Ok(())),
+        "the peers' health"
+    );
+    assert_eq!(
+        HeldCrossing {
+            generations: [alices.0, bobs.0],
+            said: [alices.1, bobs.1],
+            frozen: [alices.2, bobs.2],
+        },
+        HeldCrossing { generations: [0, 0], said: [(Prepared, Failed); 2], frozen: [true; 2] },
+        "neither peer commits; each knows that Alice's machine prepared the \
+         crossing and Bob's machine could not"
     );
 }
 

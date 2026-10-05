@@ -23,8 +23,10 @@
 //!    simulation does not run while an operation waits, so each frame from
 //!    `C` on has one state, on each peer.
 //! 2. The commit, here. Each peer commits alone, when ITS confirmed frame
-//!    reaches `C` and ITS plan is authorized. The peers are at different
-//!    frames then, and they hold the same world: the frozen one.
+//!    reaches `C`, ITS plan is authorized, and each handle of the session said
+//!    in its input that it prepared the operation ([`crate::peer_input`]).
+//!    The peers are at different frames then, and they hold the same world:
+//!    the frozen one.
 //! 3. The rebase. Each peer starts the next generation of its peer session at
 //!    frame zero ([`crate::peer::PeerLineage`]). A session does not advance
 //!    until its own handshake is complete, and then it runs no more than its
@@ -132,9 +134,71 @@ fn operation_to_commit(
             let world_is_frozen = world
                 .get_resource::<crate::RollbackFrameCount>()
                 .is_some_and(|frame| frozen_from <= frame.0);
-            (frozen_from <= boundary.confirmed && world_is_frozen).then(|| intent.clone())
+            (frozen_from <= boundary.confirmed && world_is_frozen && each_peer_prepared(world, intent))
+                .then(|| intent.clone())
         }
     }
+}
+
+/// Each handle of the peer session said, in a confirmed input, that its peer
+/// prepared `intent`.
+///
+/// Measured 2026-10-04 (`two_peers`): without this, a peer whose plan was
+/// authorized committed while the other peer could not prepare the room. It
+/// started its next session alone, and the other peer stayed in the old one,
+/// so neither session ran again.
+///
+/// ⛔ A FAILED PREPARATION HOLDS THE BARRIER, and it is reported. What the
+/// session does then (abandon the operation on each peer, retry, end the
+/// session) is Q156 in `docs/planning/awaiting-maintainer-decision.md`.
+fn each_peer_prepared(world: &World, intent: &PendingIntent) -> bool {
+    let Some(verdicts) = world.get_resource::<crate::PeerVerdicts>() else {
+        return false;
+    };
+    let failed = verdicts.failed(intent.frame);
+    if !failed.is_empty() {
+        bevy::log::error_once!(
+            "the peer(s) of handle(s) {failed:?} could not prepare the lifecycle \
+             operation recorded on frame {}, so no peer commits it and the \
+             simulation stays held (Q156)",
+            intent.frame
+        );
+    }
+    verdicts.each_prepared(intent.frame)
+}
+
+/// Decide what this peer says, in its next input, of the operation it waits
+/// on. In `ReadInputs`, before the local inputs are published.
+///
+/// `Prepared` is the same test the commit makes ([`authorized_plan`]), so a
+/// peer says it only when it can commit.
+pub fn decide_this_peers_verdict(world: &mut World) {
+    use crate::peer_input::{PeerVerdict, PreparationVerdict};
+    let peer = matches!(
+        world.get_resource::<RollbackSessionOwnership>(),
+        Some(RollbackSessionOwnership::Peer)
+    );
+    let pending = world
+        .get_resource::<PendingLifecycleCommit>()
+        .and_then(PendingLifecycleCommit::peek)
+        .cloned();
+    let verdict = match pending.filter(|_| peer) {
+        None => PeerVerdict::default(),
+        Some(intent) => {
+            let said = if matches!(authorized_plan(world, &intent.kind), AuthorizedPlan::Ready(..)) {
+                PreparationVerdict::Prepared
+            } else if world
+                .get_resource::<ambition_platformer2d_runtime::room_transition::RoomTransitionLoadState>()
+                .is_some_and(|state| state.failed_to_prepare(&intent.kind))
+            {
+                PreparationVerdict::Failed
+            } else {
+                PreparationVerdict::NotYet
+            };
+            PeerVerdict { operation: intent.frame, said }
+        }
+    };
+    world.insert_resource(crate::ThisPeersVerdict(verdict));
 }
 
 /// Execute a confirmed deferred lifecycle op in the exclusive world and rebase.
@@ -809,10 +873,12 @@ mod tests {
     }
 
     /// WHEN each committer may commit. A sync test: when the recording frame
-    /// is confirmed. A peer: when its confirmed frame is at the freeze frame
-    /// AND its world is at a frozen frame.
+    /// is confirmed. A peer: when its confirmed frame is at the freeze frame,
+    /// its world is at a frozen frame, AND each handle said it prepared the
+    /// operation.
     #[test]
     fn a_peer_commits_at_the_freeze_frame_and_a_sync_test_at_the_recording_frame() {
+        use crate::peer_input::{PeerVerdict, PreparationVerdict::*};
         use crate::session::{SyncTestOwner, SyncTestSettings};
         let alone = Committer::Alone {
             settings: SyncTestSettings::for_players(2),
@@ -821,14 +887,17 @@ mod tests {
         let peer = Committer::BehindThePeerBarrier;
         let recorded_on = 30;
         let c = recorded_on + PEER_COMMIT_FREEZE_DELAY;
-        for (committer, confirmed, frame, commits, why) in [
-            (alone, recorded_on - 1, 34, false, "the recording frame is not confirmed"),
-            (alone, recorded_on, 34, true, "the recording frame is confirmed"),
-            (peer, recorded_on, c + 5, false, "the recording frame is confirmed and the freeze frame is not"),
-            (peer, c - 1, c + 5, false, "the frame before the freeze frame"),
-            (peer, c, c + 5, true, "the freeze frame is confirmed and the world is frozen"),
-            (peer, c + 9, c - 1, false, "this peer knows inputs past its own frame; its world is not at a frozen frame"),
-            (peer, c + 9, c, true, "the world reached the freeze frame"),
+        let each = [Prepared, Prepared];
+        for (committer, confirmed, frame, said, commits, why) in [
+            (alone, recorded_on - 1, 34, [NotYet; 2], false, "the recording frame is not confirmed"),
+            (alone, recorded_on, 34, [NotYet; 2], true, "the recording frame is confirmed"),
+            (peer, recorded_on, c + 5, each, false, "the recording frame is confirmed and the freeze frame is not"),
+            (peer, c - 1, c + 5, each, false, "the frame before the freeze frame"),
+            (peer, c, c + 5, each, true, "the freeze frame is confirmed and the world is frozen"),
+            (peer, c + 9, c - 1, each, false, "this peer knows inputs past its own frame; its world is not at a frozen frame"),
+            (peer, c + 9, c, each, true, "the world reached the freeze frame"),
+            (peer, c + 9, c + 9, [Prepared, NotYet], false, "the peer of handle 1 has not prepared it"),
+            (peer, c + 9, c + 9, [Prepared, Failed], false, "the peer of handle 1 could not prepare it"),
         ] {
             let mut world = World::new();
             let mut pending = PendingLifecycleCommit::default();
@@ -837,6 +906,11 @@ mod tests {
                 .admitted());
             world.insert_resource(pending);
             world.insert_resource(crate::RollbackFrameCount(frame));
+            let mut verdicts = crate::PeerVerdicts::for_handles(2);
+            for (handle, said) in said.into_iter().enumerate() {
+                verdicts.record(handle, confirmed, PeerVerdict { operation: recorded_on, said });
+            }
+            world.insert_resource(verdicts);
             let boundary = ConfirmedFrameBoundary {
                 current: frame,
                 confirmed,

@@ -815,7 +815,8 @@ def test_a_narrowed_projection_moves_the_slice_and_a_reworded_kind_does_not():
 # The other half of the wire. `ggrs` documents `Config::Input` as "the only
 # game-related data transmitted over the network", and `AmbitionGgrsConfig =
 # GgrsConfig<ControlFrame>` — so `ControlFrame`'s declaration IS the peer input
-# format. Until 2026-09-16 nothing versioned its shape: `INPUT_STREAM_VERSION`
+# format (since 2026-10-04 `GgrsConfig<PeerInput>`, which holds a `ControlFrame`
+# first). Until 2026-09-16 nothing versioned its shape: `INPUT_STREAM_VERSION`
 # covers recorded replay files and exempts added fields BY DESIGN, the rollback
 # dump carries one row naming the TYPE, and the codec-shape baseline has zero
 # mentions because `ControlFrame` is `derived` rather than snapshotted.
@@ -844,7 +845,12 @@ def test_the_input_payload_census_is_not_silently_empty():
     # The field ORDER is part of the shape, because bincode encodes positionally
     # and carries no field names. A census returning a set would not notice a
     # reorder, which changes what every byte after it means.
-    assert shape[0] == "axis_x: f32", shape[:3]
+    assert shape[:3] == [
+        "PeerInput::control: ControlFrame",
+        "PeerInput::verdict: PeerVerdict",
+        "axis_x: f32",
+    ], shape[:3]
+    assert "PreparationVerdict::Failed" in shape, "the verdict half is not censused"
 
 
 def test_a_field_added_without_bumping_the_identity_is_caught(tmp_path, monkeypatch):
@@ -855,7 +861,7 @@ def test_a_field_added_without_bumping_the_identity_is_caught(tmp_path, monkeypa
     root = Path(__file__).resolve().parents[2]
     version, shape = contracts.input_payload_shape(root)
     baseline = tmp_path / "input.json"
-    baseline.write_text(json.dumps({"version": version, "shape": shape}))
+    baseline.write_text(json.dumps({"identities": {version: shape}}))
     monkeypatch.setattr(contracts, "INPUT_PAYLOAD_BASELINE", baseline.name)
     monkeypatch.setattr(
         contracts,
@@ -870,20 +876,46 @@ def test_a_field_added_without_bumping_the_identity_is_caught(tmp_path, monkeypa
 def test_the_same_field_with_the_identity_bumped_is_allowed(tmp_path, monkeypatch):
     """⭐ THE POSITIVE CONTROL FOR THE LEGITIMATE ROAD. Without it the ratchet
     could be satisfied by forbidding all change, which would block the very
-    repair that made this guard worth building."""
+    repair that made this guard worth building. The road is a bumped identity
+    WITH its shape recorded beside the old one."""
     import check_absence_contracts as contracts
 
     root = Path(__file__).resolve().parents[2]
     version, shape = contracts.input_payload_shape(root)
+    bumped = str(int(version) + 1)
     baseline = tmp_path / "input.json"
-    baseline.write_text(json.dumps({"version": version, "shape": shape}))
+    baseline.write_text(
+        json.dumps({"identities": {version: shape, bumped: shape + ["poison_new_field: bool"]}})
+    )
     monkeypatch.setattr(contracts, "INPUT_PAYLOAD_BASELINE", baseline.name)
     monkeypatch.setattr(
         contracts,
         "input_payload_shape",
-        lambda _root: (str(int(version) + 1), shape + ["poison_new_field: bool"]),
+        lambda _root: (bumped, shape + ["poison_new_field: bool"]),
     )
     assert contracts.input_payload_violations(tmp_path) == []
+
+
+def test_a_bumped_identity_with_no_recorded_shape_is_caught(tmp_path, monkeypatch):
+    """⛔⛤ THE HOLE THAT WAS OPEN FROM 2026-09-28 TO 2026-10-04. The baseline
+    held identity 2, the source said 3, and a different identity was the
+    exemption, so each shape at identity 3 read green, a poisoned field too.
+    An identity with no recorded shape is now itself the violation."""
+    import check_absence_contracts as contracts
+
+    root = Path(__file__).resolve().parents[2]
+    version, shape = contracts.input_payload_shape(root)
+    older = str(int(version) - 1)
+    baseline = tmp_path / "input.json"
+    baseline.write_text(json.dumps({"identities": {older: shape}}))
+    monkeypatch.setattr(contracts, "INPUT_PAYLOAD_BASELINE", baseline.name)
+    monkeypatch.setattr(
+        contracts,
+        "input_payload_shape",
+        lambda _root: (version, shape + ["poison_new_field: bool"]),
+    )
+    violations = contracts.input_payload_violations(tmp_path)
+    assert len(violations) == 1 and f"identity {version} has no recorded shape" in violations[0], violations
 
 
 def test_an_unfollowed_field_type_raises_instead_of_reading_green():
@@ -905,13 +937,19 @@ def test_an_unfollowed_field_type_raises_instead_of_reading_green():
     # LEAKING: SETTINGS-ROLLBACK moved the seat's frame policy onto
     # `ControlFrame`, the census refused until `ControlFrameModes` was followed,
     # and following it added `InputFrameMode` too. A type enters here only after
-    # someone has taught the census its shape.
+    # someone has taught the census its shape. It grew again on 2026-10-04,
+    # when the input became `PeerInput`: the wrapper's two fields and the
+    # verdict's two.
     assert types <= {
         "bool",
         "f32",
+        "i32",
         "AttackStrengthHint",
         "crate::ControlFrameModes",
         "InputFrameMode",
+        "ControlFrame",
+        "PeerVerdict",
+        "PreparationVerdict",
     }, sorted(types)
 
 

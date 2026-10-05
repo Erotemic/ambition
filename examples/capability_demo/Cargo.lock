@@ -786,6 +786,7 @@ dependencies = [
  "ambition_sim_view",
  "bevy",
  "bevy_ggrs",
+ "serde",
 ]
 
 [[package]]

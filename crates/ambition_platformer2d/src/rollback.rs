@@ -20,6 +20,11 @@ pub use ambition_platformer2d_core::snapshot::{
 pub use ambition_platformer2d_rollback_ggrs::lifecycle_commit::{
     freeze_frame, PEER_COMMIT_FREEZE_DELAY,
 };
+/// What crosses between peers: the controls of a seat and the peer's verdict
+/// on its pending lifecycle operation, and the verdicts each peer received.
+pub use ambition_platformer2d_rollback_ggrs::peer_input::{
+    PeerInput, PeerVerdict, PeerVerdicts, PreparationVerdict, ThisPeersVerdict,
+};
 pub use ambition_platformer2d_rollback_ggrs::local_session;
 /// A P2P session whose peers agree to start at the live world, and an
 /// in-memory transport for two Apps in one process (netcode N2).

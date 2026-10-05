@@ -1873,6 +1873,9 @@ INPUT_PAYLOAD_BASELINE = "scripts/baselines/input-payload-baseline.json"
 
 CONTROL_FRAME_SOURCE = "crates/ambition_platformer2d_core/src/control_frame.rs"
 
+#: `GgrsConfig::Input` is `PeerInput`: a `ControlFrame` and the peer's verdict.
+PEER_INPUT_SOURCE = "crates/ambition_platformer2d_rollback_ggrs/src/peer_input.rs"
+
 
 #: Types whose bincode encoding is the same width for every value. Bincode 1
 #: writes integers and floats fixnum, so each is its own size; `bool` is one
@@ -1882,6 +1885,8 @@ CONTROL_FRAME_SOURCE = "crates/ambition_platformer2d_core/src/control_frame.rs"
 #: The non-primitive types this census FOLLOWS into. A field of any other type
 #: is refused rather than recorded — see `refuse_variable_width`.
 _FOLLOWED_FIELD_TYPES = ("AttackStrengthHint", "crate::ControlFrameModes", "InputFrameMode")
+#: The same, for the `PeerInput` wrapper and its verdict.
+_FOLLOWED_PEER_INPUT_TYPES = ("ControlFrame", "PeerVerdict", "PreparationVerdict")
 
 FIXED_WIDTH_PRIMITIVES = frozenset(
     {"bool", "f32", "f64"}
@@ -2002,10 +2007,11 @@ def variants_carrying_data(rows: list[str]) -> list[str]:
 def input_payload_shape(root: Path) -> tuple[str, list[str]]:
     """`version, shape` — what two peers exchange, and the identity that names it.
 
-    `AmbitionGgrsConfig = GgrsConfig<ControlFrame>`, and `ggrs` documents
+    `AmbitionGgrsConfig = GgrsConfig<PeerInput>`, and `ggrs` documents
     `Config::Input` as "the only game-related data transmitted over the network".
-    So `ControlFrame`'s declaration IS the peer input format, and this returns it
-    field by field, in declaration order, because bincode encodes positionally.
+    So `PeerInput`'s declaration, with the `ControlFrame` it holds first and the
+    verdict after it, IS the peer input format, and this returns it field by
+    field, in declaration order, because bincode encodes positionally.
 
     ⭐ A SOURCE SCAN IS THE RIGHT OWNER HERE AND WAS THE WRONG ONE FOR THE
     ROLLBACK SCHEMA NAMES, which this same file rejected on the same day. The
@@ -2064,9 +2070,27 @@ def input_payload_shape(root: Path) -> tuple[str, list[str]]:
     mode_enum = frame_modes.split("pub enum InputFrameMode {", 1)[1].split("\n}", 1)[0]
     mode_variants = serialized_variants("InputFrameMode", mode_enum)
     shape += mode_variants
+    # THE WRAPPER. `AmbitionGgrsConfig = GgrsConfig<PeerInput>`, so the
+    # `ControlFrame` rows above are the first field of what crosses, and the
+    # verdict follows them on the wire.
+    peer_input = (root / PEER_INPUT_SOURCE).read_text()
+    followed = set(_FOLLOWED_PEER_INPUT_TYPES)
+    wrapper_rows = []
+    for owner in ("PeerInput", "PeerVerdict"):
+        owner_body = peer_input.split(f"pub struct {owner} {{", 1)[1].split("\n}", 1)[0]
+        owner_fields = re.findall(
+            r"^\s*pub (\w+): ([A-Za-z_0-9:<>]+),", owner_body, re.MULTILINE
+        )
+        refuse_variable_width(owner, owner_fields, followed)
+        wrapper_rows.append([f"{owner}::{name}: {ty}" for name, ty in owner_fields])
+    verdict_enum = peer_input.split("pub enum PreparationVerdict {", 1)[1].split(
+        "\n}", 1
+    )[0]
+    verdict_variants = serialized_variants("PreparationVerdict", verdict_enum)
+    shape = wrapper_rows[0] + shape + wrapper_rows[1] + verdict_variants
     # ⛔ THE ENUM ROWS ONLY. `shape` also holds `Struct::field: Type` rows, and a
     # refusal that read those would be answering a different question.
-    carrying = variants_carrying_data(hint_variants + mode_variants)
+    carrying = variants_carrying_data(hint_variants + mode_variants + verdict_variants)
     if carrying:
         raise AssertionError(
             f"the peer input payload now has data-carrying enum variant(s): "
@@ -2103,13 +2127,26 @@ def input_payload_violations(root: Path) -> list[str]:
     DESIGN, on the strength of `#[serde(default)]` — which cannot participate on
     the wire at all, because bincode is non-self-describing and never looks for a
     field by name.
+
+    ⛔⛤ FROM 2026-09-28 TO 2026-10-04 THIS RETURNED NOTHING FOR ANY SHAPE. The
+    baseline held one shape and one identity, and a different identity was the
+    exemption: the bump from 2 to 3 was not followed by a freeze, so each later
+    shape was compared with nothing. A field added at identity 3 read green
+    (measured by poison 2026-10-04). Now the baseline records the shape of
+    EACH identity, and the live identity must be one of them.
     """
-    baseline = json.loads((root / INPUT_PAYLOAD_BASELINE).read_text())
+    shapes = json.loads((root / INPUT_PAYLOAD_BASELINE).read_text())["identities"]
     version, shape = input_payload_shape(root)
-    if shape == baseline["shape"] or version != baseline["version"]:
+    if version not in shapes:
+        return [
+            f"identity {version} has no recorded shape: freeze it in "
+            f"{INPUT_PAYLOAD_BASELINE} (the recorded identities are {sorted(shapes)})"
+        ]
+    frozen = shapes[version]
+    if shape == frozen:
         return []
-    added = [row for row in shape if row not in baseline["shape"]]
-    removed = [row for row in baseline["shape"] if row not in shape]
+    added = [row for row in shape if row not in frozen]
+    removed = [row for row in frozen if row not in shape]
     moved = [] if (added or removed) else ["field ORDER changed"]
     return (
         [f"ENTERED the peer input payload at identity {version}: {row}" for row in added]
@@ -2710,7 +2747,7 @@ def main() -> int:
         broken += 1
         print("  RED  the-peer-input-payload-may-not-move-without-its-identity")
         print(
-            "       `ControlFrame` is the GGRS input type — ggrs calls it \"the "
+            "       `PeerInput` (a `ControlFrame` and a verdict) is the GGRS input type — ggrs calls it \"the "
             "only game-related data transmitted\n"
             "       over the network\" — and its shape changed while "
             "CONTROL_FRAME_WIRE_IDENTITY held.\n"
@@ -2722,7 +2759,7 @@ def main() -> int:
             "looks for a field by name.\n"
             "       ⇒ Bump CONTROL_FRAME_WIRE_IDENTITY in "
             "crates/ambition_platformer2d_core/src/input_stream.rs and\n"
-            "         re-freeze this baseline, in ONE commit."
+            "         record the shape of the new identity in this baseline, in ONE commit."
         )
         for item in input_moves:
             print(f"       {item}")

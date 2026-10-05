@@ -62,7 +62,11 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 TRAIT = "AttemptScoped"
 #: `PerLiveRoom` is the per-live-room map every `AttemptScoped` resource holds
 #: (a `BTreeMap` inside); a resource that holds only it is a collection too.
-COLLECTION = re.compile(r"\b(Vec|HashSet|BTreeSet|HashMap|BTreeMap|VecDeque|PerLiveRoom)\s*<")
+#: `PrefetchedByRoom` is the same case: the entries of a prefetch cache, by
+#: source room and then target room (two `BTreeMap`s inside).
+COLLECTION = re.compile(
+    r"\b(Vec|HashSet|BTreeSet|HashMap|BTreeMap|VecDeque|PerLiveRoom|PrefetchedByRoom)\s*<"
+)
 #: ⭐ The three that ARE per-attempt, each verified by a test that a death
 #: re-arms it. Named here so a rename or a dropped impl is loud.
 KNOWN_PER_ATTEMPT = {"BrokenBricks", "SpentPowerBlocks", "SpentMonitors"}
@@ -100,7 +104,10 @@ NOT_PER_ATTEMPT = {
     ),
     # Load/asset plumbing scoped to a transition, not to an attempt.
     "FirstRoomArtJobs": "in-flight art jobs for one load",
-    "RoomPreparationPrefetchState": "prefetch bookkeeping for one transition",
+    "RoomPreparationPrefetchState": (
+        "prefetch bookkeeping for the neighbours of the live rooms; it clears "
+        "itself when the session or the content epoch changes"
+    ),
     "ContributedRoomAssets": "asset contributions for one room build",
     "RoomTransitionTelemetry": "bounded ring of timing samples, accumulates on purpose",
     # Developer tools: not gameplay state at all.

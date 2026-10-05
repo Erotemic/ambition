@@ -179,20 +179,22 @@ fn the_arena_boss(sim: &mut Platformer2dSimHarness) -> (Option<String>, usize, u
 ///
 /// A checkpoint in `mockingbird_arena`, then its authored boss defeated, then
 /// a death. After the restore the arena holds its boss alive, and the save does
-/// not record it cleared. Control: before the death the boss is defeated and
-/// cleared.
+/// not record it cleared. On each frame of the death and the restore, a boss
+/// that is alive is not presented as defeated. Control: before the death the
+/// boss is defeated and cleared.
 ///
-/// ⚠ WHAT THIS DOES NOT WITNESS, MEASURED 2026-10-05. The room is built from
-/// the facts the restore's consequences will leave
+/// The room is built from the facts the restore's consequences will leave
 /// (`session::checkpoint::prospective_commit_fates`), because those
-/// consequences run only when the publication is accepted. Poisoned to build
-/// from the live save instead, construction was told this boss is `Dead`
-/// (probe: `cove.mockingbird` fate `Dead`), and the boss was STILL alive and
-/// uncleared on the frame of the restore, with no frame between. So a later
-/// layer of the commit decides this boss's life, and this test cannot see the
-/// boss half of the prospect. The timer half of the prospect is load-bearing:
-/// the same poison reddens `breakable_respawn_across_rooms` (two tests) and
-/// `pickup_regrowth_across_rooms::a_death_keeps_the_regrowth_of_a_heart_in_another_players_room`.
+/// consequences run only when the publication is accepted. Two layers decide
+/// a restored boss, measured 2026-10-05. Its LIFE is the encounter driver's:
+/// `update_boss_encounters` gives the boss its full health on its first tick
+/// unless the save records the placement cleared, and the retraction has
+/// already taken that record back. Its first PHASE is construction's: a boss
+/// built with the fate `Dead` starts `Defeated`. So with the prospect's boss
+/// half poisoned (the room built from the save before the retraction), the
+/// boss is alive with 28 health and `Defeated` on the first frame of the
+/// restored room, and `Active` one frame later. The frame check below sees
+/// that frame.
 #[test]
 fn a_restored_room_builds_the_boss_the_restore_takes_back_alive() {
     use crate::common::fixed_60hz_room_sim;
@@ -211,7 +213,22 @@ fn a_restored_room_builds_the_boss_the_restore_takes_back_alive() {
     }
     let (_, alive, _, cleared) = the_arena_boss(&mut sim);
     assert_eq!((alive, cleared), (0, true), "control: (bosses alive, cleared) after the defeat");
-    crate::death_restores_the_checkpoint::die(&mut sim);
+    crate::death_restores_the_checkpoint::die_and_watch(&mut sim, |sim, frame| {
+        let world = sim.world_mut();
+        let shown_dead_alive: Vec<_> = world
+            .query::<(
+                &ambition_platformer2d::characters::actor::BodyHealth,
+                &ambition_platformer2d::combat::components::BossPhase,
+            )>()
+            .iter(world)
+            .filter(|(health, phase)| health.alive() && !phase.is_active())
+            .map(|(health, _)| health.health.current)
+            .collect();
+        assert!(
+            shown_dead_alive.is_empty(),
+            "frame {frame} of the death: a boss that is alive (health {shown_dead_alive:?}) is presented as defeated"
+        );
+    });
     let (_, alive, dead, cleared) = the_arena_boss(&mut sim);
     assert_eq!(
         (alive, dead, cleared),

@@ -743,11 +743,16 @@ the intent leaves uncommitted; poison: no publish, red). Control:
 instead):** the timer half is load-bearing, and three tests go red
 (`breakable_respawn_across_rooms` ×2,
 `pickup_regrowth_across_rooms::a_death_keeps_the_regrowth_of_a_heart_in_another_players_room`).
-The boss half is not seen by any test. In
-`a_restored_room_builds_the_boss_the_restore_takes_back_alive`, construction
-was told the authored `cove.mockingbird` is `Dead`, and the boss was alive and
-uncleared on the restore's frame anyway: a later layer of the commit decides
-that boss's life. Which layer is not identified.
+The boss half is load-bearing for the boss's first PHASE, not its life
+(measured 2026-10-05). Its life is the encounter driver's:
+`update_boss_encounters` gives it full health on its first tick unless the
+save records the placement cleared. A boss built with the fate `Dead` starts
+`Defeated`, and `update_ecs_bosses` makes it `Active` one tick later. With
+the boss half alone poisoned (no retraction edit in the prospect), the
+restored boss is alive (28) and `Defeated` on frame 2 of the death.
+`a_restored_room_builds_the_boss_the_restore_takes_back_alive` now checks
+each frame of the death and goes red there; the timer tests stay green under
+that poison.
 
 **Not built:** a composed witness for a refused publication or a subject
 that is gone. Those roads reach the unit-witnessed retirement and run no

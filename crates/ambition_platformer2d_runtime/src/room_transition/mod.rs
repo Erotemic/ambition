@@ -25,7 +25,7 @@ pub use loading::{
     RoomTransitionContentEpoch, RoomTransitionLoadPhase, RoomTransitionLoadState,
     RoomTransitionPresentationAvailable,
 };
-pub use prefetch::{PrefetchIdentity, RoomConstructionPlanPrefetch};
+pub use prefetch::{PrefetchIdentity, PrefetchedByRoom, RoomConstructionPlanPrefetch};
 
 /// Part of [`crate::PlatformerEnginePlugins`], so every host — Ambition, a demo
 /// app, an external provider — gets the same transition without registering

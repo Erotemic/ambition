@@ -1038,6 +1038,205 @@ fn a_running_shipped_session_with_two_live_rooms(
     (app, start)
 }
 
+/// Make solid each `Collision` cell of the level of `room` that the box
+/// (`center`, `half`) touches, and one cell around it.
+fn put_a_solid_over(
+    project: &mut serde_json::Value,
+    room: &str,
+    center: ambition_platformer2d::engine_core::Vec2,
+    half: ambition_platformer2d::engine_core::Vec2,
+) {
+    let levels = project["levels"].as_array_mut().expect("the project has levels");
+    for level in levels {
+        let in_room = level["fieldInstances"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|field| field["__identifier"] == "activeArea" && field["__value"] == room);
+        if !in_room {
+            continue;
+        }
+        for layer in level["layerInstances"].as_array_mut().into_iter().flatten() {
+            if layer["__identifier"] != "Collision" {
+                continue;
+            }
+            let grid = layer["__gridSize"].as_f64().expect("a layer has a grid size") as f32;
+            let wide = layer["__cWid"].as_i64().expect("a layer has a width");
+            let high = layer["__cHei"].as_i64().expect("a layer has a height");
+            let cells = layer["intGridCsv"].as_array_mut().expect("Collision is an IntGrid");
+            let cell = |px: f32| (px / grid).floor() as i64;
+            let mut made = 0;
+            for y in (cell(center.y - half.y) - 1).max(0)..=(cell(center.y + half.y) + 1).min(high - 1) {
+                for x in (cell(center.x - half.x) - 1).max(0)..=(cell(center.x + half.x) + 1).min(wide - 1) {
+                    cells[(y * wide + x) as usize] = serde_json::json!(1);
+                    made += 1;
+                }
+            }
+            assert!(made > 0, "the box {center:?} is not in the level of `{room}`");
+            return;
+        }
+    }
+    panic!("the project has no `Collision` layer in a level of `{room}`");
+}
+
+/// Where `body` is, and whether a body of its size is clear of the solids of
+/// its live room there. `None`: the body is not in the world, or in no live
+/// room.
+fn place_of(
+    app: &bevy::prelude::App,
+    body: bevy::prelude::Entity,
+) -> Option<(ambition_platformer2d::engine_core::Vec2, bool)> {
+    let kinematics = app
+        .world()
+        .get_entity(body)
+        .ok()?
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>()?;
+    let spec = ambition_platformer2d::world::rooms::live_room_spec_of(app.world(), body)?;
+    let clear = ambition_platformer2d::world::rooms::validated_spawn(
+        &spec.world,
+        kinematics.pos,
+        kinematics.size,
+    );
+    Some((kinematics.pos, clear.distance(kinematics.pos) < 0.01))
+}
+
+/// ⭐ A WORLD RELOAD MOVES THE BODY THAT STAYS OUT OF THE NEW SOLIDS.
+///
+/// A reload replaces the geometry under each body that is not a resident of
+/// its room. The reload moves that body to a clear place in the new geometry
+/// of its room (`rehome_and_dress`). This had no witness.
+///
+/// The file that is reloaded is a copy whose `Collision` layer has solid
+/// cells over the place where Alice stands. The reading is her place on the
+/// frame the reload is applied, and whether it is clear in the geometry of
+/// her room.
+///
+/// - One live room.
+/// - Two live rooms, and Alice in the second one. The room of the primary
+///   seat is the room the reload publishes first, whichever it is.
+/// - Control: two live rooms and no solid over Alice. She is where she was.
+///
+/// ⛔ ONE BODY STAYS TODAY, AND THIS ARM SAYS SO. A body that is a resident
+/// of its room does not stay: the reload removes it with the room and builds
+/// the authored bodies again. Measured 2026-10-05: Bob of these fixtures, a
+/// spawned actor that seat 1 drives, is a resident. The reload of his room
+/// removes him, also in the control, and nothing builds him again. Ambition
+/// has no production road that seats a second player (Q153), so the body of
+/// the primary seat is the one body that stays. When a second body stays
+/// (a join road, or a driven body that a reload keeps), the last assertion
+/// of this arm fails, and that body needs the same move: the re-seat reads
+/// `PrimaryPlayerOnly`.
+#[test]
+fn a_world_reload_moves_the_body_that_stays_out_of_the_new_solids() {
+    use crate::neighbor_prefetch_prepares_rooms::{alice, bob, live_room_ids, room_of};
+    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum Arm {
+        OneRoom,
+        SecondRoom,
+        Control,
+    }
+    let mut wrong: Vec<String> = Vec::new();
+    for arm in [Arm::Control, Arm::OneRoom, Arm::SecondRoom] {
+        let (mut app, room) = match arm {
+            Arm::SecondRoom | Arm::Control => {
+                let (app, _) =
+                    a_running_shipped_session_with_two_live_rooms(Leaver::Alice, SECOND_LIVE_ROOM);
+                (app, SECOND_LIVE_ROOM.to_owned())
+            }
+            Arm::OneRoom => {
+                let app = a_running_shipped_session();
+                let start = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+                    .expect("the session has a live room")
+                    .id
+                    .clone();
+                (app, start)
+            }
+        };
+        // Alice comes to rest.
+        for _ in 0..60 {
+            app.update();
+        }
+        let alice = alice(&mut app);
+        let driven = bob(&mut app);
+        let half = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyKinematics>(alice)
+            .expect("Alice has a body")
+            .size
+            * 0.5;
+        // ⛔ THE PREMISE: before the reload Alice is clear, in the room this
+        // arm changes.
+        let before = place_of(&app, alice);
+        assert_eq!(
+            (before.map(|(_, clear)| clear), room_of(&app, alice)),
+            (Some(true), Some(room.clone())),
+            "{arm:?}: before the reload (Alice is clear, her room): she is at {before:?}"
+        );
+        let (was, _) = before.expect("checked");
+        let rooms_before = live_room_ids(&mut app);
+
+        let _copy = watch_an_edited_copy(&mut app, &format!("seat_{arm:?}"), |project| match arm {
+            Arm::Control => move_an_entity(project, &room, "NpcSpawn"),
+            _ => put_a_solid_over(project, &room, was, half),
+        });
+        let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
+        press_apply_reload(&mut app);
+        let reload = app.world().resource::<WorldSourceHotReload>().clone();
+        assert_eq!(
+            (reload.applied_count, reload.last_errors.is_empty()),
+            (applied + 1, true),
+            "{arm:?}: the reload did not apply: {:?} / {:?}",
+            reload.last_status,
+            reload.last_errors
+        );
+
+        let after = place_of(&app, alice);
+        let driven_stays = driven.map(|body| app.world().get_entity(body).is_ok());
+        eprintln!(
+            "[re-seat] {arm:?}: Alice {before:?} -> {after:?} in {:?}; the driven body stays: \
+             {driven_stays:?}; live rooms {rooms_before:?} -> {:?}",
+            room_of(&app, alice),
+            live_room_ids(&mut app)
+        );
+        let Some((is, clear)) = after else {
+            wrong.push(format!("{arm:?}: after the reload Alice is in no live room"));
+            continue;
+        };
+        if room_of(&app, alice).as_deref() != Some(room.as_str()) {
+            wrong.push(format!(
+                "{arm:?}: after the reload Alice is in {:?}, not in `{room}`",
+                room_of(&app, alice)
+            ));
+        }
+        if !clear {
+            wrong.push(format!(
+                "{arm:?}: after the reload Alice is at {is:?}, inside a solid of the new \
+                 geometry of `{room}`"
+            ));
+        }
+        let moved = is.distance(was);
+        match arm {
+            Arm::Control if moved > 2.0 => wrong.push(format!(
+                "control: no solid was put over Alice, and the reload moved her {moved} px"
+            )),
+            Arm::OneRoom | Arm::SecondRoom if moved < 2.0 => wrong.push(format!(
+                "{arm:?}: a solid was put over Alice and she is where she was ({is:?})"
+            )),
+            _ => {}
+        }
+        // The premise of "one body stays". See the note above.
+        if driven_stays == Some(true) {
+            wrong.push(format!(
+                "{arm:?}: the driven body stayed in a room that the reload built again. It is \
+                 a second body that stays: move it out of the new solids too"
+            ));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+}
+
 /// ⭐ A WORLD RELOAD REBUILDS EVERY LIVE ROOM.
 ///
 /// A reload replaces the room set. A live room that it did not rebuild would

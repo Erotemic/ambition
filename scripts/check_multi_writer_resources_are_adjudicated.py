@@ -441,6 +441,11 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
+    "BagSpendsSinceCheckpoint": (
+        "crates/ambition_held_items/src/lib.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
+    ),
     "RewardGrantsSinceCheckpoint": (
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
@@ -1935,6 +1940,21 @@ ADJUDICATED: dict[str, str] = {
         "Every writer runs in the simulation schedule or the checkpoint apply, "
         "and the type is rollback state with a value checksum "
         "(`boss.defeats_since_checkpoint`)."
+    ),
+    "BagSpendsSinceCheckpoint": (
+        "CORRECT — ONE RECORDER, THREE FORGETTERS, ONE TYPE (review 2026-10-05, "
+        "P3). The list is private (`crates/ambition_held_items/src/lib.rs`) and append-only between "
+        "forgets. `record` is called only by `throw_held_item_system` "
+        "(`ambition_held_items/src/lib.rs`), when a throw spends a quantity of the "
+        "bag into a minted object, and the spend names that object. `forget_all` "
+        "is called by the checkpoint commit and the checkpoint/fresh-run reducer "
+        "(both in `minted_horizon.rs`, the same two systems that forget "
+        "`RewardGrantsSinceCheckpoint`) and by `SessionScopedResources::reset` "
+        "(`teardown.rs`) at the session edge. The checkpoint restore's acceptance "
+        "(`resume_at_checkpoint_on_reset`) only READS it, to keep spent the "
+        "quantity of each object the restore keeps. Every writer but the teardown "
+        "runs in the simulation schedule or the checkpoint apply, and the type is "
+        "rollback state with a value checksum (`resource.bag_spends_since_checkpoint`)."
     ),
     "RewardGrantsSinceCheckpoint": (
         "CORRECT — TWO RECORDERS OF DISJOINT SOURCES, ONE TAKER, THREE FORGETTERS, "

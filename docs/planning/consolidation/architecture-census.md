@@ -42,7 +42,7 @@ These single-owner shapes hold now. Code against them.
 
 Open pressure:
 
-- **45** process/App resources are explicitly documented by source as session- or
+- **46** process/App resources are explicitly documented by source as session- or
   generation-owned and are still App resources (section 3; campaign C03).
 - Some optional reads of required authorities still mean both "capability not
   installed" and "authority went missing" (section 8; campaign C07).
@@ -186,24 +186,24 @@ because their semantic lifetime is one session or one activated generation.
 
 | ID | Family | Semantic owner | Storage/representation | Current state | Classification | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| LIFE-SESSION-RESOURCE-AGGREGATE | SessionScopedResources process-storage aggregate | gameplay session | **38** process/App Resources accessed through one SystemParam | SessionScopedResources names 38 App resources that source states belong to one gameplay session. Activation resets them for correctness and retirement resets them for hygiene. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
+| LIFE-SESSION-RESOURCE-AGGREGATE | SessionScopedResources process-storage aggregate | gameplay session | **39** process/App Resources accessed through one SystemParam | SessionScopedResources names 39 App resources that source states belong to one gameplay session. Activation resets them for correctness and retirement resets them for hygiene. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-CHECKPOINT-RESOURCE-AGGREGATE | SessionOwnedCheckpointState process-storage aggregate | gameplay session | 6 process/App Resources accessed through one SystemParam | SessionOwnedCheckpointState names six App resources for one gameplay-session checkpoint coordinator and resets all six at session activation. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-SESSION-MECHANICS | Generation-owned mechanics stored as App resource | content generation within gameplay session | Resource | SessionMechanics is an App Resource whose semantic owner is the activated generation. Retirement removes it; activation overwrites it. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-ROOT-OWNED-WORLD | Session-root-owned world components | gameplay session / room | Components on SessionRoot and on each live room root | `RoomSet`, initial-body policy and session requests are on the canonical `SessionRoot`; `RoomGeometry` and `MovingPlatformSet` are on each live room's own root. None is a process-global resource. | owner-scoped state | SOURCE_CONFIRMED |
 
 ### Explicit narrower-lifetime App resources
 
-`SessionScopedResources` names **38** process resources whose source says one
+`SessionScopedResources` names **39** process resources whose source says one
 gameplay session owns them:
 
-`PossessionState, ControlledSubject, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, LastQuestRoom, LastCutsceneRoom, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, GameplayElapsed, BossDefeatsSinceCheckpoint, WorldTimeSchedule, ConsumedSinceCheckpoint, RewardGrantsSinceCheckpoint, SimTick, ImpactHitstop, RequestedClockScale, ClockState, WorldTime, GatePortalPhases, OwnedItemsBaseline`.
+`PossessionState, ControlledSubject, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, LastQuestRoom, LastCutsceneRoom, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, GameplayElapsed, BossDefeatsSinceCheckpoint, WorldTimeSchedule, ConsumedSinceCheckpoint, RewardGrantsSinceCheckpoint, BagSpendsSinceCheckpoint, SimTick, ImpactHitstop, RequestedClockScale, ClockState, WorldTime, GatePortalPhases, OwnedItemsBaseline`.
 
 `SessionOwnedCheckpointState` adds **6** checkpoint-coordinator resources:
 
 `SessionCheckpointOperations, SessionCheckpointOutcomes, AcceptedCheckpointRestore, AbandonedCheckpointOperation, SessionStartupResume, OutstandingCheckpointRequest`.
 
 `SessionMechanics` is one more App resource whose semantic owner is the activated
-content generation. The unique total is **45** — the three lists are disjoint, so
+content generation. The unique total is **46** — the three lists are disjoint, so
 it is their sum. `scripts/check_session_owner_census_matches_source.py` checks
 both name lists and every restated count against source.
 

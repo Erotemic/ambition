@@ -25,7 +25,7 @@ use ambition_combat::BodyMelee;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle;
 use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
-use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 
 /// All simulation components required on the player entity.
@@ -73,15 +73,17 @@ impl PlayerIdentityBundle {
     }
 }
 
+/// The home body of one seat.
+///
+/// ⛔ IT HOLDS NO PRIMARY MARKER. `PrimaryPlayer` and `PrimaryBody` say which
+/// body the session follows, and that is a fact about one body of a session,
+/// not about a seat. The caller that builds the primary body adds the two
+/// markers in the same spawn (`session::setup::spawn_home_body`). So a body
+/// built for a second seat cannot be primary by accident: `ensure_sim_id`
+/// gives a primary body with no identity `slot:0`.
 #[derive(Bundle)]
 pub struct PlayerSimulationBundle {
     pub identity: PlayerIdentityBundle,
-    pub primary: PrimaryPlayer,
-    /// Runtime-side marker (`ambition_platformer2d_shared_tangle`) tagging this as the
-    /// body whose position drives live gravity resolution. The gravity runtime
-    /// queries `With<PrimaryBody>` instead of the sandbox's player markers, so
-    /// the gravity layer stays content-free.
-    pub primary_body: ambition_platformer2d_shared_tangle::body::PrimaryBody,
     pub health: BodyHealth,
     pub wallet: BodyWallet,
     pub combat: BodyCombat,
@@ -92,9 +94,9 @@ pub struct PlayerSimulationBundle {
     pub safety: PlayerSafetyState,
     pub faction: ActorFaction,
     pub name: Name,
-    /// Who drives this body. The home avatar is spawned already seated:
-    /// `DrivingParticipant(PRIMARY)` is what `tick_controlled_brains` keys on to
-    /// turn `SlotControls[PRIMARY]` into this body's `ActorControl`. No input
+    /// Who drives this body. A home body is spawned already seated:
+    /// `DrivingParticipant(seat)` is what `tick_controlled_brains` keys on to
+    /// turn `SlotControls[seat]` into this body's `ActorControl`. No input
     /// frame is copied onto the body.
     ///
     /// this replaced `brain: Brain::Player(slot)` — the seat is a fact about a
@@ -154,16 +156,9 @@ struct HomeBodyKit {
 }
 
 impl PlayerSimulationBundle {
-    /// Build the canonical local-primary player bundle from a
-    /// `BodyClusterScratch` and initial `Health`. The result spawns
-    /// with `PlayerSlot(0)`, `PrimaryPlayer`, and `LocalPlayer` — the
-    /// single-player default.
-    ///
-    /// Future code that needs to spawn a second / guest / remote
-    /// player should compose `PlayerIdentityBundle::new(PlayerSlot(n))`
-    /// with the simulation components manually rather than calling
-    /// this helper, since the second player should not inherit
-    /// `PrimaryPlayer` and may not be `LocalPlayer`.
+    /// Build the primary body of a session from a `BodyClusterScratch` and
+    /// initial `Health`: the home body of `PlayerSlot(0)` and the two primary
+    /// markers, as `session::setup` spawns it.
     ///
     /// ⚠ A TEST FIXTURE: it wears the host code kit derived from the scratch's
     /// abilities, which no shipped body is built with. Production builds through
@@ -172,7 +167,11 @@ impl PlayerSimulationBundle {
     pub fn from_scratch(
         scratch: ae::BodyClusterScratch,
         health: ambition_characters::actor::Health,
-    ) -> Self {
+    ) -> (
+        Self,
+        ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::body::PrimaryBody,
+    ) {
         let action_set =
             ambition_combat::worn_kit::default_player_action_set(scratch.abilities.abilities);
         let moveset = ambition_combat::moveset::ActorMoveset(
@@ -186,19 +185,25 @@ impl PlayerSimulationBundle {
             action_set.clone(),
             moveset.0.clone(),
         );
-        Self::from_kit(
-            scratch,
-            health,
-            HomeBodyKit {
-                name: Name::new("Player"),
-                action_set,
-                moveset,
-                identity_kit,
-            },
+        (
+            Self::from_kit(
+                PlayerSlot::PRIMARY,
+                scratch,
+                health,
+                HomeBodyKit {
+                    name: Name::new("Player"),
+                    action_set,
+                    moveset,
+                    identity_kit,
+                },
+            ),
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            ambition_platformer2d_shared_tangle::body::PrimaryBody,
         )
     }
 
     fn from_kit(
+        seat: PlayerSlot,
         scratch: ae::BodyClusterScratch,
         health: ambition_characters::actor::Health,
         kit: HomeBodyKit,
@@ -210,9 +215,7 @@ impl PlayerSimulationBundle {
         let hurtbox = CenteredAabb::from_center_size(kinematics.pos, kinematics.size);
         Self {
             identity_kit: kit.identity_kit,
-            identity: PlayerIdentityBundle::new(PlayerSlot::PRIMARY),
-            primary: PrimaryPlayer,
-            primary_body: ambition_platformer2d_shared_tangle::body::PrimaryBody,
+            identity: PlayerIdentityBundle::new(seat),
             health: BodyHealth::new(health),
             wallet: BodyWallet::default(),
             combat: BodyCombat::default(),
@@ -223,7 +226,7 @@ impl PlayerSimulationBundle {
             safety: PlayerSafetyState::new(initial_safe_pos),
             faction: ActorFaction::Player,
             name: kit.name,
-            driver: DrivingParticipant(PlayerSlot::PRIMARY),
+            driver: DrivingParticipant(seat),
             brain: Brain::stand_still(),
             action_set: kit.action_set,
             moveset: kit.moveset,
@@ -238,14 +241,14 @@ impl PlayerSimulationBundle {
         }
     }
 
-    /// Like the test fixture `from_scratch`, but the player spawns *as* the
-    /// catalog character `character_id`: its display name becomes the entity
+    /// The home body of `seat`, which spawns *as* the catalog character
+    /// `character_id`: its display name becomes the entity
     /// [`Name`], and its authored ActionSet IS the kit — wearing is a full
     /// re-parametrisation of the one control box (possession semantics: a
     /// goblin swipes, a pirate fires a pistol, a peaceful character does not
     /// secretly shoot the robot's fireballs). Slots the character leaves empty
     /// stay EMPTY. The player box is otherwise untouched — same
-    /// seat, same markers, same collision. The chosen character's
+    /// seat, same collision. The chosen character's
     /// SPRITE is bound presentation-side by the reusable `ambition_render`
     /// binder, which reads the `WornCharacter` identity the spawn records — not
     /// here, and not app-locally.
@@ -258,6 +261,7 @@ impl PlayerSimulationBundle {
     /// own kit gets that authored kit, because the authored arm is settled
     /// before membership is consulted at all.
     pub fn from_scratch_as_character(
+        seat: PlayerSlot,
         scratch: ae::BodyClusterScratch,
         health: ambition_characters::actor::Health,
         character_id: &str,
@@ -308,7 +312,7 @@ impl PlayerSimulationBundle {
             );
             ambition_characters::brain::RangedExecution::MovesetVerb
         });
-        let mut bundle = Self::from_kit(scratch, health, kit);
+        let mut bundle = Self::from_kit(seat, scratch, health, kit);
         bundle
             .motion_model
             .apply_spec(crate::avatar::motion_model_spec_for_character(
@@ -356,6 +360,7 @@ mod tests {
     fn a_player_body_carries_its_canonical_identity_from_the_bundle_that_built_it() {
         assert_eq!(
             PlayerSimulationBundle::from_scratch(player_scratch(), Health::new(20))
+                .0
                 .identity
                 .sim_id
                 .as_str(),
@@ -378,6 +383,7 @@ mod tests {
         // kit its row authors, and nothing the engine synthesises.
         let cast = cast();
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
+            PlayerSlot::PRIMARY,
             player_scratch(),
             Health::new(20),
             "player_robot_v3",
@@ -403,6 +409,7 @@ mod tests {
         // deterministic regardless of test order.
         let cast = cast();
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
+            PlayerSlot::PRIMARY,
             player_scratch(),
             Health::new(20),
             "npc_pirate_admiral",
@@ -436,6 +443,7 @@ mod tests {
         // swipe, bolt and shield, built from the body's abilities).
         let cast = cast();
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
+            PlayerSlot::PRIMARY,
             player_scratch(),
             Health::new(20),
             "not_a_real_character",

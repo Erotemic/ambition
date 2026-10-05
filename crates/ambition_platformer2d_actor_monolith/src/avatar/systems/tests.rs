@@ -120,7 +120,7 @@ fn player_action_set_melee_disabled_when_attack_ability_off() {
         ambition_characters::actor::Health::new(10),
     );
     // ActionSet on the bundle reflects the disabled ability.
-    let action_set: &ActionSet = &bundle.action_set;
+    let action_set: &ActionSet = &bundle.0.action_set;
     assert!(
         action_set.melee.is_none(),
         "ActionSet.melee should be None when AbilitySet.attack is off"
@@ -141,7 +141,7 @@ fn player_action_set_special_disabled_when_shield_ability_off() {
         player,
         ambition_characters::actor::Health::new(10),
     );
-    let action_set: &ActionSet = &bundle.action_set;
+    let action_set: &ActionSet = &bundle.0.action_set;
     assert!(
         action_set.special.is_none(),
         "ActionSet.special should be None when AbilitySet.shield is off"
@@ -165,7 +165,7 @@ fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
         player,
         ambition_characters::actor::Health::new(10),
     );
-    let action_set: &ActionSet = &bundle.action_set;
+    let action_set: &ActionSet = &bundle.0.action_set;
     assert!(matches!(action_set.melee, Some(MeleeActionSpec::Swipe(_))));
     assert!(matches!(
         action_set.ranged,

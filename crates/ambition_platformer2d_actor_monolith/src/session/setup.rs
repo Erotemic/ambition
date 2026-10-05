@@ -228,6 +228,100 @@ pub fn simulation_world(
         };
     };
 
+    let player = spawn_home_body(
+        commands,
+        session_scope,
+        HomeBody {
+            seat: ambition_characters::control::PlayerSlot::PRIMARY,
+            at: world.0.spawn,
+            world,
+            tuning,
+            character: starting_character,
+            default_character_id,
+            prepared_characters,
+            resources: home_body_resources,
+            abilities: home_body_abilities,
+        },
+        // The primary body of the session: the camera follows it and the
+        // gravity of the session resolves at it.
+        (
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
+            ambition_platformer2d_shared_tangle::body::PrimaryBody,
+        ),
+    );
+
+    // The player entity is returned to the caller (the provider session builder
+    // or the direct-entry startup system). Presentation discovers this home
+    // avatar by its `PrimaryPlayer` marker — no process-global handle bag records
+    // it — and spawns the HUD/quest text as session-scoped, marker-tagged
+    // entities during its own setup.
+    //
+    // `Option`: "there is always exactly one primary player"
+    // was an engine-wide assumption, and a match experience is the counterexample.
+    SimulationWorld {
+        player: Some(player),
+        publication,
+    }
+}
+
+/// What the home body of one seat is built from.
+///
+/// The experience states each input once, on the session root or in the App,
+/// and each seat of the session gets the same ones: the worn character, what
+/// the experience grants and permits it, and what it holds. A seat differs
+/// from the next one in two facts only, who drives it and where it stands.
+pub struct HomeBody<'a> {
+    /// The seat that drives the body. It gives the canonical identity
+    /// (`slot:N`) and the `DrivingParticipant`.
+    pub seat: ambition_characters::control::PlayerSlot,
+    /// Where the body stands, in room coordinates.
+    pub at: ae::Vec2,
+    /// The room the position is in.
+    pub world: &'a RoomGeometry,
+    pub tuning: &'a ae::ActiveMovementTuning,
+    /// The character the body wears. Empty is the default of the provider.
+    pub character: &'a crate::avatar::StartingCharacter,
+    /// Provider-selected default used only when `character` is empty.
+    pub default_character_id: &'a str,
+    /// The prepared cast, when this composition registered one.
+    pub prepared_characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
+    /// What the home body holds.
+    pub resources: &'a crate::avatar::HomeBodyResources,
+    /// What the experience grants and permits the home body.
+    pub abilities: &'a crate::avatar::HomeBodyAbilities,
+}
+
+/// Build the home body of one seat, owned by the session of `session_scope`.
+///
+/// ⛔ ONE RECIPE FOR EACH SEAT. The primary body of a session is seat 0 built
+/// here, and its caller gives the two primary markers as `markers`. A body for
+/// another seat gives `()`: it has the identity `slot:N` and is driven by
+/// seat N, and it is not primary. `ensure_sim_id` gives a primary body with no
+/// identity `slot:0`, so a primary marker on a second body is a second claim
+/// on the identity of the first.
+///
+/// The body is session-scoped and not room-scoped, so a room replay does not
+/// sweep it. The room instance it is in comes from `session_scope`.
+///
+/// ⚠ No production caller builds a seat above 0. When a second seat joins,
+/// where it enters and what it shares are open (`Q153`).
+pub fn spawn_home_body(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    body: HomeBody<'_>,
+    markers: impl Bundle,
+) -> Entity {
+    let HomeBody {
+        seat,
+        at,
+        world,
+        tuning,
+        character,
+        default_character_id,
+        prepared_characters,
+        resources,
+        abilities,
+    } = body;
     // Capability set travels WITH the worn character when the row authors one
     // (the per-character analogue of the motion model below): a restricted-kit
     // demo character — classic run + jump — declares it in the catalog instead of
@@ -266,7 +360,7 @@ pub fn simulation_world(
     // The experience then grants and permits over that kit
     // (`HomeBodyAbilities`): Morph Ball reaches Ambition's home body this way,
     // and never through the character or the fallback below.
-    let worn_id = starting_character.effective_id(default_character_id);
+    let worn_id = character.effective_id(default_character_id);
     let authored_abilities = prepared_characters
         .and_then(|registry| registry.get(worn_id))
         .and_then(|prepared| prepared.abilities)
@@ -276,8 +370,8 @@ pub fn simulation_world(
             morph: false,
             ..ae::AbilitySet::sandbox_all()
         });
-    let base_abilities = home_body_abilities.apply(authored_abilities);
-    let mut initial_scratch = crate::avatar::primary_player_scratch(world.0.spawn, base_abilities);
+    let base_abilities = abilities.apply(authored_abilities);
+    let mut initial_scratch = crate::avatar::primary_player_scratch(at, base_abilities);
     ae::refresh_movement_resources_clusters(
         &initial_scratch.abilities,
         &mut initial_scratch.dash,
@@ -336,6 +430,7 @@ pub fn simulation_world(
     // character's authored repertoire unapplied, with the derive told it was
     // current.
     let player_bundle = crate::avatar::PlayerSimulationBundle::from_scratch_as_character(
+        seat,
         initial_scratch,
         player_health,
         worn_id,
@@ -347,11 +442,14 @@ pub fn simulation_world(
     // Session ownership is captured by the caller when world construction
     // is requested. Deferred command application cannot reassign this body to a
     // later activation. Historical startup/RL callers pass `UNSCOPED`.
+    //
+    // ONE SPAWN, with the markers of the caller in it: an observer of this
+    // spawn sees the primary body with its markers.
     let player = commands
         .spawn_session_scoped(
             session_scope,
             (
-                Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
+                Transform::from_translation(world_to_bevy(&world.0, at, WORLD_Z_PLAYER)),
                 PlayerVisual,
                 // The canonical playable-persona identity: WHICH catalog character
                 // this control box wears. Simulation-owned, so gameplay config AND
@@ -360,9 +458,10 @@ pub fn simulation_world(
                 // a concrete id (the content default when unset) so the identity is
                 // never empty on the entity.
                 ambition_characters::actor::WornCharacter::new(
-                    starting_character.effective_id(default_character_id),
+                    character.effective_id(default_character_id),
                 ),
                 player_bundle,
+                markers,
             ),
         )
         .id();
@@ -374,13 +473,13 @@ pub fn simulation_world(
     crate::avatar::sync_charge_projectile_capability(commands, player, ranged, false);
     // What the body holds, from the same prepared bank a reset returns it to
     // the start of. Absent is the answer for an experience that declared none.
-    if let Some(bank) = home_body_resources.bank() {
+    if let Some(bank) = resources.bank() {
         commands.entity(player).insert(bank.clone());
     }
     commands
         .entity(player)
         .insert(ambition_body_seed::PersonaBaseline {
-            id: starting_character
+            id: character
                 .effective_id(default_character_id)
                 .to_string(),
             generation: prepared_characters
@@ -426,20 +525,8 @@ pub fn simulation_world(
             prepared_characters,
             commands,
             player,
-            starting_character.effective_id(default_character_id),
+            character.effective_id(default_character_id),
         ),
     }
-
-    // The player entity is returned to the caller (the provider session builder
-    // or the direct-entry startup system). Presentation discovers this home
-    // avatar by its `PrimaryPlayer` marker — no process-global handle bag records
-    // it — and spawns the HUD/quest text as session-scoped, marker-tagged
-    // entities during its own setup.
-    //
-    // `Option`: "there is always exactly one primary player"
-    // was an engine-wide assumption, and a match experience is the counterexample.
-    SimulationWorld {
-        player: Some(player),
-        publication,
-    }
+    player
 }

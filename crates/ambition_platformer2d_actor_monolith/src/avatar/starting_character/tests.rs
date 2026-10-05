@@ -2012,7 +2012,7 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
     );
 
     assert!(
-        !spawned.moveset.0.moves.is_empty(),
+        !spawned.0.moveset.0.moves.is_empty(),
         "the host kit produced NO moves, so comparing the two constructions \
          compares two empty contracts and proves nothing"
     );
@@ -2020,7 +2020,7 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
     // Compare the whole moveset contract, including cue metadata, not only move
     // IDs and verbs.
     assert_eq!(
-        spawned.moveset.0, rewarn,
+        spawned.0.moveset.0, rewarn,
         "a player that SPAWNED with the host kit and one that RE-WORE it have \
          different moves, so which one you are depends on how you got here"
     );

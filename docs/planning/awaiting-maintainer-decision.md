@@ -55,8 +55,9 @@ limit rather than an arbitrary tuning value.
 
 Split from Q151 when its death rule was decided (2026-10-03, see
 [`maintainer-decisions.md`](maintainer-decisions.md)). Ambition has no join
-road: only the primary seat gets a body in production (`avatar/bundles.rs`),
-and the only production code that seats slot 1 is Smash's match activation.
+road: only the primary seat gets a body in production (`simulation_world` is
+the one caller of `session/setup.rs::spawn_home_body`), and the only
+production code that seats slot 1 is Smash's match activation.
 The death rules count only `PlayerEntity` as a participant
 (`session/death.rs`), so a seat-driven body that dies takes the enemy road
 (`actor_hit.rs`): a "defeated" banner, a bounty coin and its authored respawn
@@ -105,6 +106,27 @@ is `PlayerIdentityBundle::new(PlayerSlot(1))` with the home kit and without
 does not remove it), realized in the simulation from a plan stamped with a
 tick (the Smash `PreparedMatch` pattern), and given `DrivingParticipant`.
 Views and the HUD already follow a second body.
+
+**The body recipe is built (2026-10-05); no production caller builds a seat
+above 0.** `session/setup.rs::spawn_home_body` builds the home body of seat N
+at a position from the inputs the experience states once (worn character,
+`HomeBodyAbilities`, `HomeBodyResources`, the prepared cast). The primary body
+is seat 0 built there, and its caller adds `PrimaryPlayer` and `PrimaryBody`
+in the same spawn; `PlayerSimulationBundle` holds no primary marker now. The
+room instance comes from the scope the caller passes, so where a seat enters
+stays the answer to (a)/(b)/(c). Measured in the shipped composition
+(`a_home_body_is_built_for_a_seat.rs`):
+
+- The body of seat 1 has the identity `slot:1`, `DrivingParticipant(1)`, the
+  live session as its owner, no room scope and no primary marker. The primary
+  body is unchanged and is the one primary body.
+- A checkpoint restore commits with that body in the session, and the body is
+  the same entity after it, with the same health.
+- The primary body walks to the same pixel in 60 frames with and without the
+  second body, and the second body does not move on the input of seat 0.
+- Poison (the second body gets the two primary markers): its identity stays
+  `slot:1`, and a checkpoint restore has no outcome in 300 frames. So a second primary body
+  does not collide on identity; it stops the restore.
 
 ## Q154 — should a pickup that authors no policy be gone for the run once taken?
 

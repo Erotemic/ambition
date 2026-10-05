@@ -30,10 +30,7 @@
 use bevy::prelude::*;
 use bevy_ggrs::{Checksum, RollbackFrameCount, SaveWorld, Session};
 
-use ambition_platformer2d_runtime::rollback::{
-    ActiveRollbackAuthority, RollbackDiagnostic, RollbackDiagnosticHistory,
-    RollbackTimelineGeneration,
-};
+use ambition_platformer2d_runtime::rollback::{ActiveRollbackAuthority, RollbackTimelineGeneration};
 
 use crate::session::AmbitionGgrsSession;
 use crate::{ComponentCensus, RollbackChecksumProbes, RollbackRestoreAudit};
@@ -195,16 +192,5 @@ pub(crate) fn compare_the_first_save_with_the_witness(world: &mut World) {
         taken.checksum,
     );
     bevy::log::warn!(target: "ambition_platformer2d::rollback", "{reason}");
-    let Some(mut authority) = world.get_resource_mut::<ActiveRollbackAuthority>() else {
-        return;
-    };
-    authority.record_mismatch([frame]);
-    let (scope, generation) = (authority.owner(), authority.generation());
-    world
-        .resource_mut::<RollbackDiagnosticHistory>()
-        .record(RollbackDiagnostic {
-            scope,
-            generation,
-            reason,
-        });
+    crate::session::record_timeline_mismatch_in(world, frame, reason);
 }

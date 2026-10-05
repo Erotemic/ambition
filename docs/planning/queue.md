@@ -2419,6 +2419,26 @@ reads cargo output to it.
    lane that did not run into PASS or FAIL, and give each lane its cadence in
    [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence).
 
+5. **A sync test did not see an effect that only the first run of a frame
+   has; the rollback host now does (2026-10-05).** GGRS never saves the state
+   that the first run of a frame leaves, so each of its compares is between
+   two resimulations. `first_run_witness` (in the GGRS host crate) takes the
+   checksum of the first-run state and compares it with the first save of
+   that frame; `the_sync_test_sees_a_first_run_only_effect` holds it, with
+   the measurement before the repair in its doc. The full app lane found no
+   first-run-only effect in the tree. Named limits, not built: the witness
+   covers the last advance of a host tick only, and only a sync test with a
+   check distance above zero; a peer session is not covered (GGRS saves its
+   first run when no rollback is owed).
+6. **The demo apps' own integration tests are in no standing lane**
+   (2026-10-05). `mary_o_it` and `sanic_it` run only under the whole-workspace
+   lane, so a change that both agents' standing lanes (`app_it`, pytest)
+   pass can leave them red. Found that way: four death and room-replay arms
+   were red on main after the join road landed. Next: add the two binaries
+   to the lane list of
+   [the heavy lane recipe](../recipes/running-the-heavy-app-it-lane.md), or
+   say there why they are not required at a push.
+
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
 

@@ -24,7 +24,7 @@ pub use ambition_platformer2d_runtime::{PreparedContentIdentity, SnapshotSchemaF
 pub use bevy_ggrs::{
     AdvanceWorld, AdvanceWorldSystems, Checksum, ChecksumPart, ConfirmedFrameCount, GgrsSchedule,
     LoadWorld, LoadWorldSystems, Rollback, RollbackFrameCount, RollbackId, RollbackOrdered,
-    RunGgrsSystems, SaveWorld,
+    RunGgrsSystems, SaveWorld, SaveWorldSystems,
 };
 
 pub mod codec;
@@ -167,7 +167,7 @@ impl Plugin for GgrsBackendPlugin {
         .init_resource::<FirstRunWitness>()
         .configure_sets(
             SaveWorld,
-            bevy_ggrs::SaveWorldSystems::Snapshot.run_if(first_run_witness::not_witnessing),
+            SaveWorldSystems::Snapshot.run_if(first_run_witness::not_witnessing),
         )
         .add_systems(
             SaveWorld,
@@ -176,7 +176,7 @@ impl Plugin for GgrsBackendPlugin {
                 // In the snapshot half, so it is after the fold of the
                 // checksum and it does not run in the witness pass.
                 first_run_witness::compare_the_first_save_with_the_witness
-                    .in_set(bevy_ggrs::SaveWorldSystems::Snapshot),
+                    .in_set(SaveWorldSystems::Snapshot),
             ),
         )
         // ⛔⛤ THE PAIR THAT MEASURES S8'S PREDICATE, and both ends matter.

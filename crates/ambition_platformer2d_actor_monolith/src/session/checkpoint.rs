@@ -249,8 +249,13 @@ pub fn restore_checkpoint_on_session_start(
         // yet cannot name its subject, and marking the route done would spend the
         // once-per-session request on a crossing nobody could describe. Try again
         // next tick instead.
-        let Ok((sim_id, stamp, root)) = subjects.single() else {
-            return;
+        let (sim_id, stamp, root) = match subjects.single() {
+            Ok(subject) => subject,
+            Err(bevy::ecs::query::QuerySingleError::NoEntities(_)) => return,
+            Err(bevy::ecs::query::QuerySingleError::MultipleEntities(_)) => {
+                end_a_resume_that_names_no_subject(&mut progress, generation, subjects.iter().count());
+                return;
+            }
         };
         let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root));
         // The intent can: a resume is a body, a destination and an arrival, which is all a
@@ -328,11 +333,16 @@ pub fn restore_checkpoint_on_session_start(
         return;
     }
 
-    let Ok((clusters, mut model)) = bodies.single_mut() else {
+    let (clusters, mut model) = match bodies.single_mut() {
+        Ok(body) => body,
         // No body yet — construction has not finished. Leave the startup state
         // unset so the next tick tries again, rather than marking a session
         // resolved that was never placed.
-        return;
+        Err(bevy::ecs::query::QuerySingleError::NoEntities(_)) => return,
+        Err(bevy::ecs::query::QuerySingleError::MultipleEntities(_)) => {
+            end_a_resume_that_names_no_subject(&mut progress, generation, subjects.iter().count());
+            return;
+        }
     };
     // ⭐ A SAME-ROOM STARTUP PLACEMENT IS NOT A RECONSTRUCTION and deliberately
     // does not become one: no room rebuild, no host rebase, no accepted
@@ -353,6 +363,28 @@ pub fn restore_checkpoint_on_session_start(
         "resumed at the checkpoint in `{}` ({}, {})",
         checkpoint.room_id, checkpoint.x, checkpoint.y
     );
+}
+
+/// A startup resume with more than one primary body ends here.
+///
+/// ⛔ TWO PRIMARY BODIES ARE NOT A WAIT. A session with no primary body is
+/// waiting for construction, and the resume asks again on the next tick. No
+/// tick makes two primary bodies one, so that resume asked on each tick for
+/// ever and said nothing. It owes no outcome (no operation was admitted), so
+/// its end is the same one a checkpoint in a room this world does not hold
+/// gets: an error, and the session keeps the room and the place it opened in.
+/// The reset road refuses the same world with `AmbiguousSubject`.
+fn end_a_resume_that_names_no_subject(
+    progress: &mut SessionStartupResume,
+    generation: Option<u64>,
+    primaries: usize,
+) {
+    bevy::log::error!(
+        target: "ambition_platformer2d::shrine",
+        "the session has {primaries} primary bodies, so its checkpoint resume \
+         names no subject; the session starts where it opened",
+    );
+    progress.set(generation, StartupResume::Satisfied);
 }
 
 /// Resume at the checkpoint because the player DIED — the placement domain's

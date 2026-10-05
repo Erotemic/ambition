@@ -559,6 +559,117 @@ fn a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists() {
     assert_eq!(transition.target_room, "rest_room");
 }
 
+/// A STARTUP RESUME WITH TWO PRIMARY BODIES ENDS. The subject of the resume is
+/// the one primary body. With none, construction is not finished and the
+/// resume asks again on the next tick (the arm above). With two, no tick
+/// changes that: the resume ends with the session where it opened, as it ends
+/// for a checkpoint in a room this world does not hold. It records no crossing
+/// and admits no operation.
+///
+/// Measured 2026-10-05 before the repair: the state was unset after five
+/// ticks in each branch, so the resume asked on each tick for ever.
+///
+/// Two branches: the checkpoint in another room (a routed crossing) and the
+/// checkpoint in the room the session opened in (the body is placed there).
+/// Control: one primary body takes each road.
+#[test]
+fn a_resume_with_two_primary_bodies_ends_and_does_not_ask_for_ever() {
+    use ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope;
+    use crate::session::lifecycle_commit::PendingLifecycleCommit;
+
+    // (the resume state, a crossing was recorded, where each primary body is)
+    fn resume(checkpoint_room: &str, primaries: u8) -> (Option<StartupResume>, bool, Vec<(f32, f32)>) {
+        let mut app = App::new();
+        let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
+        save.set_checkpoint(ambition_persistence::save_data::PersistedCheckpoint::new(
+            checkpoint_room,
+            512,
+            300,
+        ));
+        app.insert_resource(ambition_persistence::save::AmbitionGameSave(save));
+        app.init_resource::<ActiveSessionScope>();
+        app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+        let room = |name: &str| {
+            ambition_platformer2d_world::rooms::RoomSpec::new(
+                name,
+                ambition_platformer2d_core::World::new(
+                    name,
+                    Vec2::new(640.0, 480.0),
+                    Vec2::new(32.0, 400.0),
+                    vec![],
+                ),
+            )
+        };
+        ambition_platformer2d_world::rooms::insert_room_set(
+            app.world_mut(),
+            ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+                "entry",
+                vec![room("entry"), room("rest_room")],
+                Vec::new(),
+            ),
+        );
+        app.init_resource::<PendingLifecycleCommit>();
+        app.init_resource::<SessionStartupResume>();
+        app.init_resource::<AcceptedCheckpointRestore>();
+        app.init_resource::<SessionCheckpointOperations>();
+        app.init_resource::<SessionCheckpointOutcomes>();
+        app.add_systems(Update, restore_checkpoint_on_session_start);
+        for _ in 0..primaries {
+            // The full body, as the same-room branch moves it.
+            app.world_mut()
+                .spawn(crate::avatar::PlayerSimulationBundle::from_scratch(
+                    crate::avatar::home_body_scratch(Vec2::new(32.0, 400.0), ae::AbilitySet::sandbox_all()),
+                    ambition_characters::actor::Health::new(20),
+                ));
+        }
+        for _ in 0..5 {
+            app.update();
+        }
+        let generation = app
+            .world()
+            .resource::<ActiveSessionScope>()
+            .current()
+            .map(|scope| scope.0);
+        let state = app.world().resource::<SessionStartupResume>().state_for(generation);
+        let crossing = app.world().resource::<PendingLifecycleCommit>().pending.is_some();
+        let world = app.world_mut();
+        let places = world
+            .query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>()
+            .iter(world)
+            .map(|kin| (kin.pos.x, kin.pos.y))
+            .collect();
+        (state, crossing, places)
+    }
+
+    // Control: one primary body takes each road.
+    let (state, crossing, _) = resume("rest_room", 1);
+    assert!(
+        matches!(state, Some(StartupResume::Routed(_))) && crossing,
+        "control: one primary body and a checkpoint in another room: {state:?}, crossing {crossing}"
+    );
+    let (state, crossing, places) = resume("entry", 1);
+    assert_eq!(
+        (state, crossing, places),
+        (Some(StartupResume::Satisfied), false, vec![(512.0, 300.0)]),
+        "control: one primary body and a checkpoint in the room the session opened in"
+    );
+
+    // Two primary bodies: each branch ends, and nothing moves.
+    let opened = vec![(32.0, 400.0), (32.0, 400.0)];
+    assert_eq!(
+        resume("rest_room", 2),
+        (Some(StartupResume::Satisfied), false, opened.clone()),
+        "(the resume state, a crossing was recorded, the places) with two primary \
+         bodies and a checkpoint in another room"
+    );
+    assert_eq!(
+        resume("entry", 2),
+        (Some(StartupResume::Satisfied), false, opened),
+        "(the resume state, a crossing was recorded, the places) with two primary \
+         bodies and a checkpoint in the room the session opened in"
+    );
+}
+
 /// ⭐ **A CHECKPOINT-ONLY COMPOSITION RESUMES ITS SESSION**, with no held-item
 /// plugin, no shrine entity and no item domain of any kind installed.
 ///

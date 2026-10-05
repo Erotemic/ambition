@@ -814,9 +814,17 @@ poison: red with no outcome and the request owed. No schema bump: the
 outcome's fold already writes the reason code, and the schema baseline is
 unchanged. No production code builds two primary bodies; the join road
 builds a second home body with no primary marker (`spawn_home_body`).
-⚠ Not changed: `restore_checkpoint_on_session_start` reads its subject the
-same way and tries again on each tick with two primary bodies. It owes no
-outcome to a reader, so it is silent and not a hang of an operation.
+The startup road had the same shape in both of its branches (the routed
+crossing and the same-room placement): with two primary bodies
+`restore_checkpoint_on_session_start` asked again on each tick for ever
+(measured: the state unset after five ticks in each branch). It admits no
+operation there, so it owes no outcome; it now ends as a checkpoint in an
+unknown room ends, with an error and `StartupResume::Satisfied`, and the
+session keeps the place it opened in. With no primary body it still asks
+again, because construction is not finished. Witness:
+`a_resume_with_two_primary_bodies_ends_and_does_not_ask_for_ever` (one
+primary body takes each road as the control; each branch poisoned in turn
+is red on its own assertion).
 
 **Not built, and why:** a composed witness for a subject that is gone or
 cannot transit. From reading, not from a measurement: the subject of a
@@ -2434,8 +2442,9 @@ reads cargo output to it.
    (2026-10-05). `mary_o_it` and `sanic_it` run only under the whole-workspace
    lane, so a change that both agents' standing lanes (`app_it`, pytest)
    pass can leave them red. Found that way: four death and room-replay arms
-   were red on main after the join road landed. Next: add the two binaries
-   to the lane list of
+   were red on main from `f7ecfc019` (P1) until `69d29caa0`: instruments
+   counted the message a restore no longer writes. The behaviour held; only
+   the counters were blind. Next: add the two binaries to the lane list of
    [the heavy lane recipe](../recipes/running-the-heavy-app-it-lane.md), or
    say there why they are not required at a push.
 

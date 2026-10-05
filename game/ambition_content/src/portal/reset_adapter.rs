@@ -35,6 +35,7 @@ mod tests {
     //! The bridge routes by reset reason: a MANUAL reset emits `ClearPortals`
     //! (clearing the gun pair downstream), a PLAYER-DEATH reset emits nothing.
     use super::*;
+    use ambition_combat::events::RoomReplayAdmitted;
 
     fn clears_for(reason: RoomResetReason) -> bool {
         let mut app = App::new();

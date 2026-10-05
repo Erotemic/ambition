@@ -234,9 +234,10 @@ impl ParkedSave {
 /// from. If the session is refused, the live save and its owner are as they
 /// were.
 ///
-/// ⛔ THE RESIDUAL: when `owner` has the live save, the answer is the live
-/// save as it is now. The session that plays can change it before the new
-/// session is adopted.
+/// When `owner` has the live save, the answer is the live save as it is now.
+/// The session that plays can change it before the new session is adopted, so
+/// the builder keeps the value and asks [`the_save_of`] again at the
+/// activation.
 pub fn prepare_the_save_of<'a>(
     owner: &str,
     ownership: &'a mut SaveOwner,
@@ -251,6 +252,29 @@ pub fn prepare_the_save_of<'a>(
         .entry(owner.to_owned())
         .or_insert_with(|| ParkedSave::read(owner, root))
         .data
+}
+
+/// The save that experience `owner` gets at its activation, as it is now.
+/// Reads no file and changes nothing.
+///
+/// `None` when `owner` does not have the live save and no save was prepared
+/// for it ([`prepare_the_save_of`]).
+///
+/// A session of the experience that plays (a restart) is built from the live
+/// save some frames before its activation. Its activation gives the save to
+/// nobody, so the live save at the activation is the save of the new session.
+/// The builder compares that value with the one it built from. Measured
+/// 2026-10-05: a save that changed in those frames gave a world built from
+/// the earlier save beside the later save.
+pub fn the_save_of<'a>(
+    owner: &str,
+    ownership: &'a SaveOwner,
+    live: &'a AmbitionGameSave,
+) -> Option<&'a AmbitionGameSaveData> {
+    if ownership.current == owner {
+        return Some(&live.0);
+    }
+    ownership.parked.get(owner).map(|parked| &parked.data)
 }
 
 /// Give the live save to experience `owner`. Returns whether it changed hands.
@@ -1194,8 +1218,19 @@ mod tests {
             &ambition,
             "control: the owner of the live save is not built from the live save"
         );
+        assert_eq!(
+            the_save_of("sanic", &ownership, &save),
+            None,
+            "a save is known for an experience that no session was prepared for"
+        );
         let prepared = prepare_the_save_of("sanic", &mut ownership, &save, Some(&root)).clone();
         assert_eq!(prepared, on_file, "Sanic was not prepared from its own file");
+        assert_eq!(the_save_of("sanic", &ownership, &save), Some(&prepared));
+        assert_eq!(
+            the_save_of(SANDBOX_SAVE_OWNER, &ownership, &save),
+            Some(&ambition),
+            "the owner of the live save does not get the live save"
+        );
         assert_eq!(ownership.current(), SANDBOX_SAVE_OWNER, "a preparation changed the owner");
         assert_eq!(save.0, ambition, "a preparation changed the live save");
 

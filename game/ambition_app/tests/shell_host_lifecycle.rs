@@ -30,7 +30,8 @@ use bevy::MinimalPlugins;
 use ambition_app::app::shell_host;
 use ambition_platformer2d::audio::selection::ActiveAudioSelection;
 use ambition_platformer2d::game_shell::{
-    ActiveGameplaySession, ShellCommand, ShellLauncherCommand, ShellRouter,
+    ActiveGameplaySession, ShellCommand, ShellHoldId, ShellLauncherCommand, ShellRouteHolds,
+    ShellRouter,
 };
 use ambition_platformer2d::platformer::lifecycle::{
     session_world_component, session_world_entity, ActiveSessionScope, SessionRoot, SessionScopeId,
@@ -3227,6 +3228,127 @@ fn the_victory_npc_of_a_cleared_boss_ends_with_its_session() {
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
 }
 
+/// The fixture of the candidate-save witnesses: a host whose Ambition save
+/// is stated, and the readings that tell a world built from one save from a
+/// world built from another.
+mod candidate_save {
+    use super::*;
+    pub(super) use ambition_platformer2d::persistence::save::{AmbitionGameSave, SaveOwner};
+    pub(super) use ambition_platformer2d::persistence::save_data::{
+        AmbitionGameSaveData, PersistedOccurrence, PersistedWhereabouts,
+    };
+    use ambition_platformer2d::combat::components::{
+        ActorAggression, ActorIdentity, ActorInteraction, AggressionMode,
+    };
+    pub(super) use ambition_platformer2d::platformer::sim_id::SimId;
+    type Custody = ambition_platformer2d::held_items::ItemCustody;
+
+    /// The room that authors the two items.
+    pub(super) const HUB: &str = "central_hub_complex";
+    pub(super) const TAKEN: &str = "ground_gun_sword";
+    pub(super) const UNTOUCHED: &str = "ground_grapple";
+    /// The frames read after the frame of the activation.
+    pub(super) const FRAMES: usize = 30;
+
+    /// `(gun swords in the world, grapples in the world, the save says the
+    /// gun sword is gone, the provoked person is hostile)`. The last one is
+    /// `None` when that person is not in the world.
+    pub(super) type Reading = (usize, usize, bool, Option<bool>);
+
+    pub(super) fn host(save: &AmbitionGameSaveData) -> App {
+        let mut app = shell_host_app_started_in(
+            ambition_platformer2d::runtime::SimulationHost::Rollback,
+            Some(HUB),
+        );
+        // The startup load runs first, so it does not replace the fixture save.
+        settle(&mut app);
+        app.world_mut().resource_mut::<AmbitionGameSave>().0 = save.clone();
+        app
+    }
+
+    pub(super) fn lying(app: &mut App, name: &str) -> usize {
+        let id = SimId::placement(name);
+        let world = app.world_mut();
+        world
+            .query::<(&SimId, &Custody)>()
+            .iter(world)
+            .filter(|(sim_id, custody)| **sim_id == id && custody.in_world())
+            .count()
+    }
+
+    pub(super) fn says_gone(save: &AmbitionGameSaveData) -> bool {
+        let id = SimId::placement(TAKEN);
+        save.occurrences().iter().any(|row| {
+            row.id == id.as_str() && row.whereabouts == PersistedWhereabouts::Consumed
+        })
+    }
+
+    /// The talkable people of the live room, each with whether it is hostile.
+    pub(super) fn people(app: &mut App) -> std::collections::BTreeMap<String, bool> {
+        let world = app.world_mut();
+        world
+            .query_filtered::<(&ActorIdentity, &ActorAggression), With<ActorInteraction>>()
+            .iter(world)
+            .map(|(identity, aggression)| {
+                (identity.id.clone(), aggression.mode == AggressionMode::Hostile)
+            })
+            .collect()
+    }
+
+    pub(super) fn owner(app: &App) -> String {
+        app.world().resource::<SaveOwner>().current().to_owned()
+    }
+
+    /// A reading on the frame of the activation and on each of `FRAMES` after.
+    pub(super) fn readings(app: &mut App, provoked: &str) -> Vec<Reading> {
+        assert_eq!(active_room(app).as_deref(), Some(HUB), "the session is in the hub");
+        let mut out = Vec::new();
+        for frame in 0..=FRAMES {
+            if frame > 0 {
+                app.update();
+            }
+            let gone = says_gone(&app.world().resource::<AmbitionGameSave>().0);
+            let hostile = people(app).get(provoked).copied();
+            out.push((lying(app, TAKEN), lying(app, UNTOUCHED), gone, hostile));
+        }
+        out
+    }
+
+    pub(super) fn launch_ambition_first(save: &AmbitionGameSaveData) -> App {
+        let mut app = host(save);
+        let route = ambition_route(&app);
+        app.world_mut().write_message(ShellCommand::GoTo(route));
+        enter_the_next_session(&mut app, None);
+        app
+    }
+
+    /// The save that says the hub's gun sword is gone for good and that
+    /// `provoked` was provoked.
+    pub(super) fn the_save_that_takes_and_provokes(provoked: &str) -> AmbitionGameSaveData {
+        let mut taken = AmbitionGameSaveData::new();
+        taken.set_durable_horizon(
+            vec![PersistedOccurrence::new(
+                SimId::placement(TAKEN).as_str(),
+                PersistedWhereabouts::Consumed,
+            )],
+            Vec::new(),
+        );
+        taken.set_flag(
+            ambition_platformer2d::actors::fate_flags::npc_flag_id(provoked),
+            true,
+        );
+        taken
+    }
+
+    /// A talkable person of the hub that a new save builds peaceful.
+    pub(super) fn a_peaceful_person(app: &mut App) -> String {
+        people(app)
+            .into_iter()
+            .find_map(|(id, hostile)| (!hostile).then_some(id))
+            .expect("the hub authors a talkable person that is not hostile")
+    }
+}
+
 /// ⭐ A SESSION IS BUILT FROM THE SAVE OF ITS OWN EXPERIENCE, ALSO WHEN IT IS
 /// PREPARED WHILE ANOTHER EXPERIENCE PLAYS.
 ///
@@ -3252,94 +3374,7 @@ fn the_victory_npc_of_a_cleared_boss_ends_with_its_session() {
 /// admitted still has Ambition's save.
 #[test]
 fn a_session_prepared_while_another_experience_plays_is_built_from_its_own_save() {
-    use ambition_platformer2d::persistence::save::{AmbitionGameSave, SaveOwner};
-    use ambition_platformer2d::persistence::save_data::{
-        AmbitionGameSaveData, PersistedOccurrence, PersistedWhereabouts,
-    };
-    use ambition_platformer2d::combat::components::{
-        ActorAggression, ActorIdentity, ActorInteraction, AggressionMode,
-    };
-    use ambition_platformer2d::platformer::sim_id::SimId;
-    type Custody = ambition_platformer2d::held_items::ItemCustody;
-
-    /// The room that authors the two items.
-    const HUB: &str = "central_hub_complex";
-    const TAKEN: &str = "ground_gun_sword";
-    const UNTOUCHED: &str = "ground_grapple";
-    /// The frames read after the frame of the activation.
-    const FRAMES: usize = 30;
-
-    /// `(gun swords in the world, grapples in the world, the save says the
-    /// gun sword is gone, the provoked person is hostile)`. The last one is
-    /// `None` when that person is not in the world.
-    type Reading = (usize, usize, bool, Option<bool>);
-
-    fn host(save: &AmbitionGameSaveData) -> App {
-        let mut app = shell_host_app_started_in(
-            ambition_platformer2d::runtime::SimulationHost::Rollback,
-            Some(HUB),
-        );
-        // The startup load runs first, so it does not replace the fixture save.
-        settle(&mut app);
-        app.world_mut().resource_mut::<AmbitionGameSave>().0 = save.clone();
-        app
-    }
-
-    fn lying(app: &mut App, name: &str) -> usize {
-        let id = SimId::placement(name);
-        let world = app.world_mut();
-        world
-            .query::<(&SimId, &Custody)>()
-            .iter(world)
-            .filter(|(sim_id, custody)| **sim_id == id && custody.in_world())
-            .count()
-    }
-
-    fn says_gone(save: &AmbitionGameSaveData) -> bool {
-        let id = SimId::placement(TAKEN);
-        save.occurrences().iter().any(|row| {
-            row.id == id.as_str() && row.whereabouts == PersistedWhereabouts::Consumed
-        })
-    }
-
-    /// The talkable people of the live room, each with whether it is hostile.
-    fn people(app: &mut App) -> std::collections::BTreeMap<String, bool> {
-        let world = app.world_mut();
-        world
-            .query_filtered::<(&ActorIdentity, &ActorAggression), With<ActorInteraction>>()
-            .iter(world)
-            .map(|(identity, aggression)| {
-                (identity.id.clone(), aggression.mode == AggressionMode::Hostile)
-            })
-            .collect()
-    }
-
-    fn owner(app: &App) -> String {
-        app.world().resource::<SaveOwner>().current().to_owned()
-    }
-
-    /// A reading on the frame of the activation and on each of `FRAMES` after.
-    fn readings(app: &mut App, provoked: &str) -> Vec<Reading> {
-        assert_eq!(active_room(app).as_deref(), Some(HUB), "the session is in the hub");
-        let mut out = Vec::new();
-        for frame in 0..=FRAMES {
-            if frame > 0 {
-                app.update();
-            }
-            let gone = says_gone(&app.world().resource::<AmbitionGameSave>().0);
-            let hostile = people(app).get(provoked).copied();
-            out.push((lying(app, TAKEN), lying(app, UNTOUCHED), gone, hostile));
-        }
-        out
-    }
-
-    fn launch_ambition_first(save: &AmbitionGameSaveData) -> App {
-        let mut app = host(save);
-        let route = ambition_route(&app);
-        app.world_mut().write_message(ShellCommand::GoTo(route));
-        enter_the_next_session(&mut app, None);
-        app
-    }
+    use candidate_save::*;
 
     /// A host with `save` as Ambition's save, in a live Sanic session.
     fn in_sanic(save: &AmbitionGameSaveData) -> (App, SessionScopeId, String) {
@@ -3357,10 +3392,7 @@ fn a_session_prepared_while_another_experience_plays_is_built_from_its_own_save(
 
     // ── The premises: the room authors both items and a peaceful person. ──
     let mut authored = launch_ambition_first(&AmbitionGameSaveData::new());
-    let provoked = people(&mut authored)
-        .into_iter()
-        .find_map(|(id, hostile)| (!hostile).then_some(id))
-        .expect("the hub authors a talkable person that is not hostile");
+    let provoked = a_peaceful_person(&mut authored);
     assert_eq!(
         readings(&mut authored, &provoked),
         vec![(1, 1, false, Some(false)); FRAMES + 1],
@@ -3368,18 +3400,7 @@ fn a_session_prepared_while_another_experience_plays_is_built_from_its_own_save(
          is peaceful"
     );
 
-    let mut taken = AmbitionGameSaveData::new();
-    taken.set_durable_horizon(
-        vec![PersistedOccurrence::new(
-            SimId::placement(TAKEN).as_str(),
-            PersistedWhereabouts::Consumed,
-        )],
-        Vec::new(),
-    );
-    taken.set_flag(
-        ambition_platformer2d::actors::fate_flags::npc_flag_id(&provoked),
-        true,
-    );
+    let taken = the_save_that_takes_and_provokes(&provoked);
 
     // ── The premise: the save removes the one and provokes the other. ──
     let fresh = readings(&mut launch_ambition_first(&taken), &provoked);
@@ -3462,6 +3483,157 @@ fn a_session_prepared_while_another_experience_plays_is_built_from_its_own_save(
         after_refusal, fresh,
         "the session admitted after a refusal is not built from Ambition's save"
     );
+}
+
+/// ⭐ A SESSION THAT REPLACES ITS OWN EXPERIENCE IS BUILT FROM THE SAVE AT ITS
+/// ADOPTION.
+///
+/// A candidate session is built hidden, some frames before its route is
+/// activated. When its experience is the one that plays (a restart), the save
+/// it is built from is the live save, and the session that plays can change
+/// that save before the candidate is adopted. The adoption does not give the
+/// save to anybody, because the experience has it. So the world would be built
+/// from the save as it was, beside the save as it is.
+///
+/// The fixture: Ambition plays from a new save and is replaced by its own
+/// route. A hold with no gate keeps the route pending, as the loading screen
+/// does. After the candidate is prepared and its gate has said `Admit`, the
+/// live save gets the flag that says one person was provoked. The session
+/// that is then adopted must be the session a fresh host builds from that
+/// later save: equal to it on each frame, not only different from the first.
+///
+/// The candidate that was built from the earlier save is stale. It is
+/// discarded and counted, and a new one is prepared: the adopted session has
+/// the scope after the scope of the discarded candidate.
+///
+/// The control: no change of the save. The first candidate is adopted.
+///
+/// ⛔ THE FIXTURE CHANGES A FLAG AND NOT AN OCCURRENCE ROW. The session that
+/// plays writes the occurrence rows of the save from its own ledger. Measured
+/// 2026-10-05: a `Consumed` row for the gun sword, written into the live save
+/// while the first session played, was gone one frame later. The adopted
+/// session was then correct for the save at its adoption, and not equal to a
+/// host of the save this fixture wrote. A flag stays where it is written.
+#[test]
+fn a_session_that_replaces_its_own_experience_is_built_from_the_save_at_its_adoption() {
+    use candidate_save::*;
+
+    // ── The two reference worlds, each from a fresh host. ──
+    let mut authored = launch_ambition_first(&AmbitionGameSaveData::new());
+    let provoked = a_peaceful_person(&mut authored);
+    let from_the_new_save = readings(&mut authored, &provoked);
+    let mut later = AmbitionGameSaveData::new();
+    later.set_flag(ambition_platformer2d::actors::fate_flags::npc_flag_id(&provoked), true);
+    let from_the_later_save = readings(&mut launch_ambition_first(&later), &provoked);
+    // ⛔ THE PREMISE: the two saves build worlds that the reading tells apart.
+    assert_eq!(
+        (from_the_new_save.first(), from_the_later_save.first()),
+        (Some(&(1, 1, false, Some(false))), Some(&(1, 1, false, Some(true)))),
+        "the two saves do not build the two worlds this arm compares"
+    );
+
+    let stale_discards = |app: &App| {
+        app.world()
+            .resource::<ambition_platformer2d::provider::lifecycle::CandidateSessionSlot>()
+            .stale_discards()
+    };
+    let mut wrong: Vec<String> = Vec::new();
+    // `None`: the control. `Some(frames)`: the save changes, and the screen
+    // holds the route for that many more frames.
+    for the_save_changes in [None, Some(0), Some(3)] {
+        let arm = match the_save_changes {
+            None => "control, the save does not change",
+            Some(0) => "the save changes on the frame that releases the route",
+            Some(_) => "the save changes while the route is still held",
+        };
+        let mut veteran = launch_ambition_first(&AmbitionGameSaveData::new());
+        let first = live_scope(&veteran).expect("Ambition is live");
+        let route = ambition_route(&veteran);
+        // A hold with no gate, as the loading screen puts on a route while it
+        // shows. With no such hold, this host prepares and adopts the
+        // candidate in one frame, and no frame is between them (measured).
+        let screen = ShellHoldId::new("test:loading-screen");
+        veteran
+            .world_mut()
+            .resource_mut::<ShellRouteHolds>()
+            .hold(route.clone(), screen.clone());
+        veteran.world_mut().write_message(ShellCommand::ReplaceWith {
+            route: route.clone(),
+            request: None,
+        });
+        // ⛔ THE PREMISE: there is a frame with a hidden candidate while the
+        // first session is still live. The save changes after that frame.
+        let mut frames = 0;
+        while ambition_platformer2d::platformer::construction::outstanding_candidates(
+            veteran.world_mut(),
+        ) == 0
+        {
+            assert!(frames < 600, "{arm}: no candidate session was prepared in 600 frames");
+            veteran.update();
+            frames += 1;
+        }
+        // The first room of the candidate gets its verdict in these frames,
+        // and its gate says `Admit`.
+        for _ in 0..3 {
+            veteran.update();
+        }
+        if let Some(held_for) = the_save_changes {
+            veteran.world_mut().resource_mut::<AmbitionGameSave>().0 = later.clone();
+            for _ in 0..held_for {
+                veteran.update();
+            }
+        }
+        assert_eq!(
+            live_scope(&veteran),
+            Some(first),
+            "{arm}: the route was activated while the screen held it"
+        );
+        veteran
+            .world_mut()
+            .resource_mut::<ShellRouteHolds>()
+            .release(&route, &screen);
+        let second = enter_the_next_session(&mut veteran, Some(first));
+        let adopted = readings(&mut veteran, &provoked);
+        // (the reference world, the stale candidates that were discarded)
+        let (reference, stale) = match the_save_changes {
+            None => (&from_the_new_save, 0),
+            Some(_) => (&from_the_later_save, 1),
+        };
+        eprintln!(
+            "[save-race] {arm}: scopes {} -> {}, stale discards {}; first {:?} last {:?} \
+             (reference {:?})",
+            first.0,
+            second.0,
+            stale_discards(&veteran),
+            adopted.first(),
+            adopted.last(),
+            reference.first()
+        );
+        if &adopted != reference {
+            wrong.push(format!(
+                "{arm}: the adopted session is not the session a fresh host builds from the \
+                 save at the adoption: first frame {:?}, last frame {:?}, a fresh host {:?} \
+                 (gun swords, grapples, the save says the gun sword is gone, `{provoked}` is \
+                 hostile)",
+                adopted.first(),
+                adopted.last(),
+                reference.first()
+            ));
+        }
+        // The discard is counted where it is done, and each candidate
+        // reserves the next scope: the two numbers agree.
+        let scope = first.0 + 1 + u64::from(stale);
+        if (stale_discards(&veteran), second.0) != (stale, scope) {
+            wrong.push(format!(
+                "{arm}: {} stale candidate(s) were discarded and the adopted scope is {} \
+                 (the first was {}); {stale} discard(s) and scope {scope} are correct",
+                stale_discards(&veteran),
+                second.0,
+                first.0
+            ));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
 }
 
 /// ⭐⭐ **THE CHECKSUM GGRS ACTUALLY COMPUTES IS THE SAME ON TWO HOSTS WITH

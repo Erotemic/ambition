@@ -391,6 +391,149 @@ mod composed {
         );
     }
 
+    /// The second gate of the two-gate arm, with its own answer.
+    #[derive(bevy::prelude::Resource, Clone, Copy)]
+    struct SecondGateAnswer(crate::ShellGateVerdict);
+
+    fn answer_the_second_gate(
+        answer: bevy::prelude::Res<SecondGateAnswer>,
+    ) -> crate::ShellGateVerdict {
+        answer.0
+    }
+
+    /// `Q118` in a second shape, measured 2026-10-05. A gate's `Admit` was
+    /// consumed on the frame it was given. When a hold with no gate was also
+    /// on the route (the loading screen has one), the route activated some
+    /// frames later and the gate was not asked again. A candidate session
+    /// that was good when asked, and stale at the activation, was adopted.
+    ///
+    /// The rule: an `Admit` is true for the moment of the question, so it is
+    /// consumed only in the operation that activates. The gate is asked again
+    /// on each frame that the route waits.
+    ///
+    /// The fixture: one gate that says `Admit`, and one hold with no gate, for
+    /// two frames. Then the gate's answer changes and the other hold is
+    /// released.
+    #[test]
+    fn an_admit_is_consumed_only_by_the_activation() {
+        use crate::ShellGateVerdict::{Admit, Hold, Refuse};
+        let screen = crate::ShellHoldId::new("test-screen");
+        let gate = crate::ShellHoldId::new("test-gate");
+        let holds_of = |app: &App, route: &str| {
+            app.world()
+                .resource::<crate::ShellRouteHolds>()
+                .held(&ShellRouteId::new(route))
+        };
+        // The route is ready, the gate says `Admit`, and the screen holds it
+        // for two frames.
+        let admitted_behind_a_screen = |route: &str| {
+            let mut app = app_with_a_gated_route(route);
+            app.world_mut()
+                .resource_mut::<crate::ShellRouteHolds>()
+                .hold(ShellRouteId::new(route), screen.clone());
+            go_to(&mut app, route);
+            app.update();
+            make_ready(&mut app, route);
+            set_answer(&mut app, Admit);
+            app.update();
+            app.update();
+            assert!(
+                active_route(&app).is_none(),
+                "`{route}`: the route activated while a hold with no gate was on it"
+            );
+            app
+        };
+        let release_the_screen = |app: &mut App, route: &str| {
+            app.world_mut()
+                .resource_mut::<crate::ShellRouteHolds>()
+                .release(&ShellRouteId::new(route), &screen);
+        };
+        let mut wrong: Vec<String> = Vec::new();
+
+        // ── The control: the answer stays `Admit`. The route activates and
+        //    no hold is left. A router that never releases a gate's hold
+        //    passes each other arm.
+        let mut app = admitted_behind_a_screen("stays");
+        if !holds_of(&app, "stays").contains(&gate) {
+            wrong.push(
+                "the gate's hold was released 2 frames before the activation: holds [..] \
+                 do not have it"
+                    .replace("[..]", &format!("{:?}", holds_of(&app, "stays"))),
+            );
+        }
+        release_the_screen(&mut app, "stays");
+        app.update();
+        assert_eq!(
+            (active_route(&app).as_deref(), holds_of(&app, "stays").len()),
+            (Some("stays"), 0),
+            "control: a gate that says Admit at the activation did not let the route \
+             through, or its hold stayed"
+        );
+
+        // ── The answer becomes `Refuse` before the screen releases.
+        let mut app = admitted_behind_a_screen("refuses");
+        set_answer(&mut app, Refuse);
+        release_the_screen(&mut app, "refuses");
+        app.update();
+        app.update();
+        if active_route(&app).is_some() {
+            wrong.push("a route activated that its gate refused at the activation".into());
+        }
+        if app.world().resource::<ShellRouter>().pending.is_some() {
+            wrong.push("a refused transaction is still pending".into());
+        }
+
+        // ── The answer becomes `Hold`, and `Admit` again later.
+        let mut app = admitted_behind_a_screen("holds");
+        set_answer(&mut app, Hold);
+        release_the_screen(&mut app, "holds");
+        app.update();
+        app.update();
+        if active_route(&app).is_some() {
+            wrong.push("a route activated while its gate said Hold".into());
+        }
+        set_answer(&mut app, Admit);
+        app.update();
+        assert_eq!(
+            active_route(&app).as_deref(),
+            Some("holds"),
+            "control: the route did not activate when its gate said Admit again"
+        );
+
+        // ── Two gates and no screen. One says `Admit` while the other says
+        //    `Hold`; then the first says `Refuse` and the other `Admit`.
+        let mut app = app_with_a_gated_route("two");
+        let second = crate::ShellHoldId::new("test-gate-2");
+        app.insert_resource(SecondGateAnswer(Hold));
+        let evaluator = app.world_mut().register_system(answer_the_second_gate);
+        app.world_mut()
+            .resource_mut::<crate::ShellActivationGates>()
+            .register(second.clone(), evaluator);
+        app.world_mut()
+            .resource_mut::<crate::ShellRouteHolds>()
+            .hold(ShellRouteId::new("two"), second);
+        go_to(&mut app, "two");
+        app.update();
+        make_ready(&mut app, "two");
+        set_answer(&mut app, Admit);
+        app.update();
+        app.update();
+        assert!(active_route(&app).is_none(), "the route activated while one gate said Hold");
+        set_answer(&mut app, Refuse);
+        app.world_mut().resource_mut::<SecondGateAnswer>().0 = Admit;
+        app.update();
+        app.update();
+        if active_route(&app).is_some() {
+            wrong.push(
+                "two gates: a route activated that one gate refused at the activation, \
+                 because that gate said Admit while the other said Hold"
+                    .into(),
+            );
+        }
+
+        assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    }
+
     #[test]
     fn registration_derives_catalog_and_launches_without_host_match() {
         use crate::ShellExperienceAppExt;

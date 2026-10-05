@@ -266,6 +266,18 @@ fn process_shell_commands(
 /// A hold with no registered gate is an ordinary hold and still blocks (e.g.
 /// the loading-screen hold in `ambition_load_presentation`, which releases
 /// itself).
+///
+/// ⛔ AN `Admit` IS CONSUMED ONLY BY THE ACTIVATION. It is true for the moment
+/// of the question and no later. Until 2026-10-05 each `Admit` released its
+/// hold at once. With a hold that has no gate on the same route, or a second
+/// gate that said `Hold`, the route then activated some frames later and the
+/// first gate was not asked again: the `Q118` race in a second shape.
+/// Measured in `an_admit_is_consumed_only_by_the_activation`, and in `app_it`
+/// as a candidate session that was adopted after its save had changed. So
+/// each gate is asked again on each frame that the route waits, and the holds
+/// of the gates are released together, on the frame where each gate says
+/// `Admit` and no other hold is on the route. A `Refuse` cancels at once, as
+/// before.
 fn advance_pending_route(world: &mut bevy::prelude::World) {
     let pending_route = world
         .resource::<ShellRouter>()
@@ -273,25 +285,28 @@ fn advance_pending_route(world: &mut bevy::prelude::World) {
         .as_ref()
         .map(|pending| pending.route_id.clone());
     if let Some(route_id) = pending_route {
-        // Ask only when the route would otherwise activate: `Admit` consumes
-        // a hold. See `ShellRouter::ready_but_for_holds`.
+        // Ask only when the route would otherwise activate. See
+        // `ShellRouter::ready_but_for_holds`.
         let ready = {
             let router = world.resource::<ShellRouter>();
             let loads = world.resource::<LoadCoordinator>();
             let prepared = world.resource::<PreparedSessionRegistry>();
             router.ready_but_for_holds(loads, prepared)
         };
-        let gated: Vec<_> = if !ready {
-            Vec::new()
+        let (gated, every_hold_has_a_gate): (Vec<_>, bool) = if !ready {
+            (Vec::new(), false)
         } else {
             let holds = world.resource::<ShellRouteHolds>();
             let gates = world.resource::<ShellActivationGates>();
-            holds
-                .held(&route_id)
-                .into_iter()
-                .filter_map(|hold| gates.evaluator(&hold).map(|system| (hold, system)))
-                .collect()
+            let held = holds.held(&route_id);
+            let gated: Vec<_> = held
+                .iter()
+                .filter_map(|hold| gates.evaluator(hold).map(|system| (hold.clone(), system)))
+                .collect();
+            let every = gated.len() == held.len();
+            (gated, every)
         };
+        let mut admitted = Vec::new();
         for (hold, evaluator) in gated {
             // `run_system` runs inside this exclusive access, so the gate sees
             // the same world the activation uses.
@@ -300,11 +315,7 @@ fn advance_pending_route(world: &mut bevy::prelude::World) {
                 .unwrap_or(crate::router::ShellGateVerdict::Hold);
             match verdict {
                 crate::router::ShellGateVerdict::Hold => return,
-                crate::router::ShellGateVerdict::Admit => {
-                    world
-                        .resource_mut::<ShellRouteHolds>()
-                        .release(&route_id, &hold);
-                }
+                crate::router::ShellGateVerdict::Admit => admitted.push(hold),
                 crate::router::ShellGateVerdict::Refuse => {
                     // Cancel first, then release. Cancel directly on the
                     // router, not through `ShellCommand::CancelPending`: a
@@ -329,6 +340,14 @@ fn advance_pending_route(world: &mut bevy::prelude::World) {
                     }
                     return;
                 }
+            }
+        }
+        // Each gate said `Admit`. Their holds go only when no other hold is
+        // on the route, so the activation below is in this same access.
+        if every_hold_has_a_gate {
+            let mut holds = world.resource_mut::<ShellRouteHolds>();
+            for hold in &admitted {
+                holds.release(&route_id, hold);
             }
         }
     }

@@ -129,20 +129,61 @@ pub struct CandidateSave<'w> {
 }
 
 impl CandidateSave<'_> {
-    /// The durable horizon of a candidate session of `experience`.
-    pub fn horizon_of(&mut self, experience: &str) -> CandidateDurableHorizon {
+    /// The durable horizon of a candidate session of `experience`, and the
+    /// save value it was read from.
+    pub fn horizon_of(&mut self, experience: &str) -> (CandidateDurableHorizon, PreparedFromSave) {
         let Some(live) = self.live.as_deref() else {
-            return CandidateDurableHorizon::default();
+            return (CandidateDurableHorizon::default(), PreparedFromSave(None));
         };
-        let Some(ownership) = self.ownership.as_deref_mut() else {
-            return CandidateDurableHorizon::from_save(live.data());
+        let save = match self.ownership.as_deref_mut() {
+            None => live.data(),
+            Some(ownership) => ambition_persistence::save::prepare_the_save_of(
+                experience,
+                ownership,
+                live,
+                self.root.as_deref().map(|root| root.0.as_path()),
+            ),
         };
-        CandidateDurableHorizon::from_save(ambition_persistence::save::prepare_the_save_of(
-            experience,
-            ownership,
-            live,
-            self.root.as_deref().map(|root| root.0.as_path()),
-        ))
+        (CandidateDurableHorizon::from_save(save), PreparedFromSave(Some(save.clone())))
+    }
+}
+
+/// The save value that a candidate session was built from.
+///
+/// A candidate of the experience that plays (a restart) is built from the
+/// live save, and the session that plays can change that save before the
+/// candidate is adopted. The adoption gives the save to nobody, because the
+/// experience has it. Measured 2026-10-05 in `app_it`
+/// (`a_session_that_replaces_its_own_experience_is_built_from_the_save_at_its_adoption`):
+/// the adopted world had an item that the live save said was gone for good.
+///
+/// ⛔ THE CANDIDATE IS NOT REPAIRED AND THE EARLIER SAVE IS NOT PUT BACK. A
+/// candidate whose save changed is stale. Its builder discards it and builds
+/// a new one from the save as it is ([`Self::is_current`]).
+///
+/// The whole save is compared, not only the part that construction reads: the
+/// save has no field that changes each frame, and a rule that names fields
+/// goes out of date when construction reads one more.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PreparedFromSave(Option<ambition_persistence::save_data::AmbitionGameSaveData>);
+
+impl PreparedFromSave {
+    /// A candidate built from `save`. `None`: a composition with no save.
+    pub fn of(save: Option<ambition_persistence::save_data::AmbitionGameSaveData>) -> Self {
+        Self(save)
+    }
+
+    /// Does `experience` get this same value if it is activated now?
+    pub fn is_current(&self, world: &World, experience: &str) -> bool {
+        let now = world.get_resource::<AmbitionGameSave>().and_then(|live| {
+            match world.get_resource::<ambition_persistence::save::SaveOwner>() {
+                None => Some(live.data()),
+                Some(ownership) => {
+                    ambition_persistence::save::the_save_of(experience, ownership, live)
+                }
+            }
+        });
+        self.0.as_ref() == now
     }
 }
 

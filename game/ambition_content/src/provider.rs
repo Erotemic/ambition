@@ -135,6 +135,9 @@ impl Plugin for AmbitionExperiencePlugin {
         .with_defense_presentation(
             ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
         )
+        // The first bag of an Ambition session: the starter set. Its save
+        // replaces it when the save holds an inventory.
+        .with_initial_inventory(ambition_items::OwnedItems::starter)
         .install(app, ambition_session_world);
         // The refill rate for the Mana this experience declares. Inert for every
         // body that holds no Mana, so composing this beside other experiences

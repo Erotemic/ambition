@@ -3231,6 +3231,98 @@ fn the_victory_npc_of_a_cleared_boss_ends_with_its_session() {
 /// The fixture of the candidate-save witnesses: a host whose Ambition save
 /// is stated, and the readings that tell a world built from one save from a
 /// world built from another.
+/// ⭐ EACH EXPERIENCE BEGINS WITH ITS OWN BAG.
+///
+/// The starting bag is an authored first condition of an experience
+/// (`PlatformerExperienceAuthoring::with_initial_inventory`). It was a value
+/// of the process: the bag that the composition was built with, given to each
+/// session of each experience. On the shell host that bag is Ambition's
+/// starter set, so a Sanic session began with 10 Ambition items and its
+/// mirror wrote them into Sanic's save.
+///
+/// The fixture: a fresh host and a walk of experiences, each one replaced by
+/// the next. The reading is of the last session of the walk: the items in
+/// its bag on the frame of its activation and 30 frames later, and the items
+/// that its save lists then.
+///
+/// - Ambition, alone and after Sanic: the starter set, 10 items.
+/// - Sanic, alone and after Ambition: no item. Sanic declares no bag.
+#[test]
+fn each_experience_begins_with_its_own_bag() {
+    use ambition_platformer2d::persistence::save::AmbitionGameSave;
+    type OwnedItems = ambition_platformer2d::item::OwnedItems;
+    type Item = ambition_platformer2d::item::Item;
+
+    /// The items of Ambition's starter set.
+    const STARTER: u32 = 10;
+
+    fn items_in_the_bag(app: &App) -> u32 {
+        let owned = app.world().resource::<OwnedItems>();
+        (0..).map_while(Item::from_index).map(|item| owned.count(item)).sum()
+    }
+    fn items_in_the_save(app: &App) -> u32 {
+        app.world()
+            .resource::<AmbitionGameSave>()
+            .0
+            .items()
+            .iter()
+            .map(|item| item.count)
+            .sum()
+    }
+    fn route_labeled(app: &App, label: &str) -> ambition_platformer2d::game_shell::ShellRouteId {
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+            .launch_entries()
+            .iter()
+            .find(|entry| entry.label == label)
+            .unwrap_or_else(|| panic!("the launcher offers no `{label}` row"))
+            .route_id
+            .clone()
+    }
+
+    let mut wrong: Vec<String> = Vec::new();
+    for walk in [
+        &["Ambition"][..],
+        &["Sanic"][..],
+        &["Ambition", "Sanic"][..],
+        &["Sanic", "Ambition"][..],
+    ] {
+        let mut app =
+            shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+        settle(&mut app);
+        let mut scope = None;
+        for (step, label) in walk.iter().enumerate() {
+            let route = route_labeled(&app, label);
+            app.world_mut().write_message(if step == 0 {
+                ShellCommand::GoTo(route)
+            } else {
+                ShellCommand::ReplaceWith { route, request: None }
+            });
+            scope = Some(enter_the_next_session(&mut app, scope));
+            if step + 1 < walk.len() {
+                for _ in 0..30 {
+                    app.update();
+                }
+            }
+        }
+        let at_the_activation = items_in_the_bag(&app);
+        for _ in 0..30 {
+            app.update();
+        }
+        let reading = (at_the_activation, items_in_the_bag(&app), items_in_the_save(&app));
+        let last = *walk.last().expect("a walk has a session");
+        let bag = if last == "Ambition" { STARTER } else { 0 };
+        eprintln!("[own-bag] {walk:?}: {reading:?} (bag at the activation, bag later, save later)");
+        if reading != (bag, bag, bag) {
+            wrong.push(format!(
+                "{walk:?}: the {last} session has (bag at its activation, bag 30 frames \
+                 later, items in its save) = {reading:?}; its experience begins with {bag}"
+            ));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+}
+
 mod candidate_save {
     use super::*;
     pub(super) use ambition_platformer2d::persistence::save::{AmbitionGameSave, SaveOwner};

@@ -2391,6 +2391,8 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// What each experience puts into its own session. See
     /// [`crate::session_contents`].
     session_contents: Res<'w, crate::SessionContentsCatalog>,
+    /// The bag each experience declares for its sessions.
+    starting_bags: ambition_platformer2d_actor_monolith::items::starting_bag::StartingBagOf<'w>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -2442,6 +2444,20 @@ impl PlatformerSessionBuilder<'_, '_> {
         // session resource is written here; `adopt` installs it if and only if
         // this candidate becomes the live session.
         let (horizon, prepared_from) = self.save.horizon_of(experience_id.as_str());
+        // ⛔ THE BAG OF THE CANDIDATE'S EXPERIENCE, AS A VALUE. No resource is
+        // written here: the session that plays keeps its bag, and `adopt`
+        // installs this one.
+        let starting_bag = self.starting_bags.of(experience_id.as_str());
+        if self.starting_bags.an_undeclared_composition_bag() {
+            bevy::log::error!(
+                target: "ambition_platformer2d::construction",
+                "this composition was built with a bag of items and no experience declares \
+                 a starting bag, so the session of `{}` begins with an empty bag. Declare \
+                 the bag on the experience it is for: \
+                 `PlatformerExperienceAuthoring::with_initial_inventory`",
+                experience_id.as_str()
+            );
+        }
         let live_world: PlatformerSessionWorld = prepared_content.source().instantiate_live();
         // The authoring format's own session state, installed beside the
         // canonical bundle rather than inside it. `None` for every
@@ -2692,6 +2708,7 @@ impl PlatformerSessionBuilder<'_, '_> {
             route,
             horizon,
             prepared_from,
+            starting_bag,
             publication: built.publication,
             mechanics: mechanical.clone(),
             cast: cast.clone(),
@@ -2733,6 +2750,9 @@ pub struct PreparedCandidateSession {
     /// save at the activation: a candidate whose save changed is stale. See
     /// `PreparedFromSave`.
     prepared_from: ambition_platformer2d_actor_monolith::session::durable_horizon::PreparedFromSave,
+    /// The bag that the experience of this candidate declares for its
+    /// sessions, installed at adoption. See `StartingBag`.
+    starting_bag: ambition_platformer2d_actor_monolith::items::starting_bag::StartingBag,
     /// The generation's frozen registries, installed at adoption.
     mechanics: ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics,
     /// The cast frozen with them, installed beside them.
@@ -2783,10 +2803,14 @@ impl PreparedCandidateSession {
             mechanics,
             cast,
             horizon,
+            starting_bag,
             ..
         } = self;
         world.insert_resource(mechanics);
         world.insert_resource(cast);
+        // The bag of this session's experience. The save of the session
+        // replaces it later, when the save holds an inventory.
+        starting_bag.begin_the_session(world);
         // The first room's moving platforms are not installed here: they are on
         // the candidate's own live room root, promoted with the rest of it.
         // ⛔⛤ AND THE DURABLE HORIZON, HERE AND NOWHERE ELSE. Preparing this
@@ -3011,6 +3035,7 @@ mod tests {
                 route: route.clone(),
                 horizon: Default::default(),
                 prepared_from: Default::default(),
+                starting_bag: Default::default(),
                 mechanics: Default::default(),
                 cast: Default::default(),
             }), 0));

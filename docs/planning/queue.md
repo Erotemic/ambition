@@ -1813,6 +1813,37 @@ Poisons: the reset not registered (the three arms above); the record runs in
   composition-level `OwnedItems` into its one experience. Do not grow more
   semantics around the process-wide value, and do not add Sanic or demo
   exceptions.
+  **Done 2026-10-05 (NamekAmbition).** An experience declares its bag
+  (`PlatformerExperienceAuthoring::with_initial_inventory`, recorded in
+  `InitialInventories` at registration), the candidate session carries it, and
+  the adoption installs it as the bag and as `StartingBag`
+  (`StartingBag::begin_the_session`). The save overlay is as it was. An
+  experience that declares none begins with an empty bag. Ambition's
+  experience declares the starter set, and `AmbitionContentPlugin` no longer
+  puts it into the App. `start_the_bag_again_on_activation` is deleted: one
+  road. A New Game reads `StartingBag` as before, which is now the bag of the
+  experience of the live session.
+  - Measured before
+    (`shell_host_lifecycle::each_experience_begins_with_its_own_bag`): the last
+    session of each walk [Ambition], [Sanic], [Ambition, Sanic], [Sanic,
+    Ambition] read (bag at its activation, bag 30 frames later, items in its
+    save) = (10, 10, 10). After: (0, 0, 0) when the last session is Sanic's and
+    (10, 10, 10) when it is Ambition's. Poisons: the builder reads Ambition's
+    bag for each experience (each walk 10); the adoption installs no bag
+    (each walk 0).
+  - The direct road (`install_direct_session_root`, one session and no
+    activation) keeps the record at `Startup`: the bag that such a composition
+    was built with is the bag of its one session.
+  - Not built: a shell App that lowers a composition-level bag into its one
+    experience. No composition in the tree builds a bag now. A shell App that
+    builds one, with no declaration on an experience, gets an error at the
+    preparation of a session that names the declaration, and no bag.
+  - Named limit: the bag is built from the item catalog that the App holds
+    when the candidate is prepared, as the starter set was at App build. A
+    content reload that changes item uniqueness between that moment and the
+    adoption is not measured.
+  - This removes the fact recorded above ("on a fresh host the first Sanic
+    session has the Ambition starter set").
 - Review 2026-10-05, P2 (assigned to NamekAmbition): a same-experience
   candidate is still prepared from the LIVE save (`prepare_the_save_of`
   returns `&live.0` when the owner already holds it), so the session that

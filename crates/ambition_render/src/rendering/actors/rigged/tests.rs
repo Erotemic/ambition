@@ -1309,3 +1309,36 @@ fn a_part_pose_on_the_root_places_its_parts() {
     app.update();
     assert_eq!(slots(&app, owner), as_drawn, "the flipbook's frame did not come back");
 }
+
+/// A frame with a translucent part blends visibly differently in the world's
+/// linear light than in the art's gamma (a blink: blobs of 559 px), so it is
+/// composited with nothing reading the body; an opaque frame draws directly.
+#[test]
+fn a_frame_with_a_translucent_part_is_composited() {
+    let flipbook = RiggedSpriteAsset::baked("player_robot_v3").expect("the robot publishes a flipbook");
+    let sheet = sheet_with("player_robot_v3", Some(flipbook.clone()));
+    let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+    let (mut app, root) = app_direct(sheet, Anchor(feet));
+    // ⛔ Premise: a frame of the robot draws a translucent part and fades no
+    // whole picture (that composites on its own), and one is opaque.
+    let rows: Vec<String> = flipbook.clip_names().map(str::to_owned).collect();
+    let find = |translucent: bool| {
+        rows.iter().find_map(|row| {
+            let clip = flipbook.clip(row)?;
+            (0..clip.frame_count()).find_map(|index| {
+                let draws = flipbook.frame(row, index)?;
+                let has = draws.iter().any(|draw| draw.opacity() < 1.0);
+                (has == translucent && flipbook.frame_opacity(row, index) == 1.0).then(|| (row.clone(), index))
+            })
+        })
+    };
+    let (translucent_row, translucent_frame) = find(true).expect("premise: the robot draws a translucent part");
+    let (opaque_row, opaque_frame) = find(false).expect("premise: the robot has an opaque frame");
+    pin_clip(&mut app, root, &opaque_row, opaque_frame);
+    app.update();
+    let owner = owner(&app, root);
+    assert!(app.world().get::<RiggedPresentation>(owner).unwrap().impostor.is_none(), "an opaque frame was composited");
+    pin_clip(&mut app, root, &translucent_row, translucent_frame);
+    settle(&mut app);
+    assert!(draws_impostor(&app, root, owner), "{translucent_row}[{translucent_frame}] draws a translucent part directly");
+}

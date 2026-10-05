@@ -319,14 +319,9 @@ fn renderer(size: UVec2) -> (App, Handle<Image>) {
         target.texture_descriptor.usage |= bevy::render::render_resource::TextureUsages::COPY_SRC;
         app.world_mut().resource_mut::<Assets<Image>>().add(target)
     };
-    // The camera blends as the game's world cameras do (`WORLD_COMPOSITING`):
-    // the harness measures what the player sees. `AMBITION_PARITY_COMPOSITING=linear`
-    // measures Bevy's default instead.
-    let space = match std::env::var("AMBITION_PARITY_COMPOSITING").as_deref() {
-        Err(_) => ambition_render::rendering::WORLD_COMPOSITING,
-        Ok("linear") => bevy::camera::CompositingSpace::Linear,
-        Ok(other) => panic!("AMBITION_PARITY_COMPOSITING={other:?} is not `linear`"),
-    };
+    // The camera blends as the game's world cameras do (`world_compositing`,
+    // the same knob): the harness measures what the player sees.
+    let space = ambition_render::rendering::world_compositing();
     app.world_mut().spawn((
         Camera2d,
         space,

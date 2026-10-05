@@ -357,6 +357,88 @@ pub fn return_the_replay_subject_to_spawn(
     );
 }
 
+/// A second seat whose death beat has closed comes back beside the primary
+/// body, on the first tick the primary is in play (Q153 default, until the
+/// maintainer rules where a second seat returns).
+///
+/// The restore and the replay put back only the primary, so without this a
+/// fallen second seat stayed out of play for the rest of the session. A seat
+/// that fell in another live room moves into the primary's room: its room
+/// stamp is what says which room a body is in. When both fall in one room, the
+/// room goes back for the primary first and the seat follows on the next tick
+/// that finds the primary in play.
+#[allow(clippy::too_many_arguments)]
+pub fn bring_a_fallen_seat_back_beside_the_primary(
+    active_tuning: Res<ae::ActiveMovementTuning>,
+    feel_tuning: Res<Platformer2dFeelTuningMonolith>,
+    primary: Query<
+        (
+            &ae::BodyKinematics,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        ),
+        (
+            With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
+            Without<ambition_combat::death_rules::OutOfPlay>,
+        ),
+    >,
+    mut fallen: Query<
+        (
+            &ambition_combat::death_rules::DeathInterlude,
+            Option<&mut ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            ae::BodyClusterQueryData,
+            &mut ambition_platformer2d_core::movement::MotionModel,
+            &mut ambition_characters::actor::BodyAnimFacts,
+            &mut ambition_characters::actor::BodyCombat,
+            Option<&mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState>,
+            Option<&mut ambition_characters::actor::BodyHealth>,
+        ),
+        (
+            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+            With<ambition_combat::death_rules::OutOfPlay>,
+            Without<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
+        ),
+    >,
+) {
+    let Ok((primary_kin, primary_room)) = primary.single() else {
+        return;
+    };
+    let at = primary_kin.pos;
+    let primary_room = primary_room.copied();
+    for (window, room, mut cluster_item, mut motion_model, mut anim, mut combat, safety, health) in
+        &mut fallen
+    {
+        // Still in its beat, or its consequence (a level reset of its own
+        // room) has not run yet.
+        if window.open() || window.consequence_pending {
+            continue;
+        }
+        if let (Some(mut room), Some(primary_room)) = (room, primary_room) {
+            if *room != primary_room {
+                *room = primary_room;
+            }
+        }
+        let mut clusters = cluster_item.as_clusters_mut();
+        // Raises the restart latch, and the restart clears `OutOfPlay`.
+        ae::reset_body_clusters(
+            &mut motion_model,
+            &mut clusters,
+            at,
+            ae::ResetFacing::Keep,
+            active_tuning.0.air_jumps,
+        );
+        if let Some(mut safety) = safety {
+            safety.last_safe_pos = at;
+        }
+        anim.reset();
+        combat.reset();
+        combat.damage_invuln_timer = feel_tuning.hazard_respawn_invulnerability_time;
+        combat.hit_flash = feel_tuning.reset_flash_time;
+        if let Some(mut health) = health {
+            health.reset();
+        }
+    }
+}
+
 /// Registers the replay TRANSACTION — admission, then consequences — and
 /// anchors the two content slots around it. Part of
 /// [`crate::PlatformerEnginePlugins`], so every host (the Ambition app, the
@@ -372,6 +454,7 @@ impl Plugin for RoomReplaySchedulePlugin {
             (
                 admit_room_replay.in_set(RoomReplayAdmission),
                 return_the_replay_subject_to_spawn.in_set(RoomReplayConsequences),
+                bring_a_fallen_seat_back_beside_the_primary,
             )
                 .chain()
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)

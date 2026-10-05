@@ -54,10 +54,11 @@ limit rather than an arbitrary tuning value.
 ## Q153 — how does a second player join Ambition?
 
 Split from Q151 when its death rule was decided (2026-10-03, see
-[`maintainer-decisions.md`](maintainer-decisions.md)). Ambition has no join
-road: only the primary seat gets a body in production (`simulation_world` is
-the one caller of `session/setup.rs::spawn_home_body`), and the only
-production code that seats slot 1 is Smash's match activation.
+[`maintainer-decisions.md`](maintainer-decisions.md)). The join road that
+Ambition runs is the default below; it was built so the open-world items have
+a second player, and each part of it changes with your answer. Before it, only
+the primary seat got a body in production, and the only production code that
+seated slot 1 was Smash's match activation.
 The death rules count only `PlayerEntity` as a participant
 (`session/death.rs`), so a seat-driven body that dies takes the enemy road
 (`actor_hit.rs`): a "defeated" banner, a bounty coin and its authored respawn
@@ -88,17 +89,18 @@ with the one above):**
 1. **Where a seat-1 body comes back after it dies.** Its death already takes
    the participant road (`session/death.rs`), but the checkpoint restore's
    subject is always the primary body (`resume_at_checkpoint_on_reset`
-   reads `PrimaryPlayerOnly`), so today nothing brings a dead seat-1 body
-   back. Options: at its last shrine, beside the primary player, or at the
-   same place as the join.
+   reads `PrimaryPlayerOnly`), so the restore does not bring a dead seat-1
+   body back. Options: at its last shrine, beside the primary player (the
+   default below), or at the same place as the join.
 2. **How many seats a session holds, and when the second handle opens.** The
    GGRS handle count is fixed when a session starts ("the session is never
    resized", `ambition_input/src/seating.rs`). Either Ambition's route
    declares its seats up front (as Smash and Twintrack do) and a seat with no
    body sends idle input, or a join rebases the session.
-3. **The join gesture.** Ambition declares no seating and falls back to device
-   seating. `JoinToClaim` (`ambition_input/src/sources.rs`) is the existing
-   policy: a press on an unclaimed device claims the next seat.
+3. **The join gesture.** `JoinToClaim` (`ambition_input/src/sources.rs`) is
+   a policy name: no code claims a seat on a press, and the policy keeps the
+   keyboard with the primary seat. The default below is a Jump press in the
+   seat's own input, under `UnifiedPrimary`.
 
 What is not a question (engineering, once the above are answered): the body
 is `PlayerIdentityBundle::new(PlayerSlot(1))` with the home kit and without
@@ -107,8 +109,7 @@ does not remove it), realized in the simulation from a plan stamped with a
 tick (the Smash `PreparedMatch` pattern), and given `DrivingParticipant`.
 Views and the HUD already follow a second body.
 
-**The body recipe is built (2026-10-05); no production caller builds a seat
-above 0.** `session/setup.rs::spawn_home_body` builds the home body of seat N
+**The body recipe is built (2026-10-05).** `session/setup.rs::spawn_home_body` builds the home body of seat N
 at a position from the inputs the experience states once (worn character,
 `HomeBodyAbilities`, `HomeBodyResources`, the prepared cast). The primary body
 is seat 0 built there, and its caller adds `PrimaryPlayer` and `PrimaryBody`
@@ -127,6 +128,50 @@ stays the answer to (a)/(b)/(c). Measured in the shipped composition
 - Poison (the second body gets the two primary markers): its identity stays
   `slot:1`, and a checkpoint restore has no outcome in 300 frames. So a second primary body
   does not collide on identity; it stops the restore.
+
+**Default in force until you rule (2026-10-05): (a), with a press of Jump,
+one seat per pad up to two, and a fallen seat back beside the primary.** Each
+part is reversible: one system or one declaration, named below.
+
+- **Join (answers (a) and item 3):** a seat with no body whose input for the
+  frame has a Jump press gets its home body where the primary body stands, in
+  the primary's live room, wearing the primary's character
+  (`session/join.rs::seat_a_joining_participant`, in the simulation after
+  `PlayerInputSet::Device`). The press is in the seat's GGRS input, so a
+  rewind across the join frame builds the body again and a remote peer builds
+  it on the same frame. Only a session that builds a home body for its primary
+  seat seats a second one; a match owns its cast.
+- **Seats and handles (item 2):** Ambition's route offers one seat for each
+  connected pad, at most two, under the default `UnifiedPrimary`
+  (`ambition_content::provider::declare_ambition_seating`). With one pad, the
+  keyboard and the pad both drive the primary, as before; with two pads the
+  second pad drives seat 1 and the session opens a second handle. No channel
+  plan is declared, because a fixed plan of keyboard and first pad takes the
+  pad away from a player who plays alone on it. The session is never resized,
+  so a pad that connects after the gameplay session started gets a seat in the
+  next session only (not a rebase).
+- **Death (item 1):** a death sends back only the primary's room, and only
+  when nobody is in play in that room (`close_death_interlude`); a
+  participant in play in another live room no longer holds it back (Q151).
+  A second seat whose death beat has closed comes back beside the primary, on
+  the first tick the primary is in play, moving into the primary's room when
+  it fell in another (`sandbox_reset.rs::bring_a_fallen_seat_back_beside_the_primary`).
+  When both fall in one room, the room goes back for the primary and the seat
+  follows. The other side of the co-op rule: while a joined seat plays in the
+  primary's room, a fallen primary stays out of play until that seat falls
+  too (no restore, no return beside the seat). Measured in
+  `two_peers_agree_in_the_rooms_that_carry_the_float_rows`: with Bob joined
+  in play beside her, Alice's fall in `portal_bridge` sends nothing back, so
+  that walk now gives Bob no body.
+
+Witnesses: `a_second_seat_joins_the_session.rs` (the join under a two-seat
+sync test, with no checksum mismatch across the rewound join frame; a second
+press builds no second body; seat 1 moves its own body only; a fallen seat 1
+comes back beside the primary with full health and no restore),
+`session::death::tests::a_participant_in_play_in_another_room_does_not_hold_back_the_level`,
+and `provider::tests::ambition_offers_a_seat_for_each_pad_up_to_two`.
+`a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room`
+drives the case where seat 1 stays in a room the primary left.
 
 ## Q154 — should a pickup that authors no policy be gone for the run once taken?
 

@@ -77,7 +77,7 @@ pub fn local_view_render_layer(ordinal: usize) -> usize {
 /// Marks a gameplay camera for one local view; this marker is not a singleton.
 /// Pair it with `ambition_sim_view::PresentsView` when view identity is required.
 /// A gameplay camera blends in the world's compositing space
-/// (`ambition_render::rendering::WORLD_COMPOSITING`, required where the
+/// (`ambition_render::rendering::world_compositing`, required where the
 /// renderer is composed).
 #[derive(Component)]
 pub struct MainCamera;

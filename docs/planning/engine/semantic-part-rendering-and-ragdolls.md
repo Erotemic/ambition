@@ -34,16 +34,27 @@ renders into `Rgba8Unorm`, has every sprite and mesh2d shader write sRGB-encoded
 values, and decodes once at output. With it, the direct parts measured a largest
 blob of 3 on robot, blink included.
 
-**Decision:** every camera that draws the world blends in gamma space,
-`ambition_render::rendering::WORLD_COMPOSITING`, registered as a required
-component of the `MainCamera` and `PortalViewRig` markers (no spawn site states
-it). It is a game-wide property, not a part-rendering
-one: every translucent overlap in the world (particles, lighting, fog) now blends
-as the art tools blend. The 6 custom 2D material shaders write their colour sRGB-encoded
-under `SRGB_OUTPUT`; the screen filter decodes what it reads and encodes what it
-writes (`ScreenEffectSettings.grain_and_vignette.w`). Part pages are ordinary
-sRGB sheet images (`load_part_page` and its raw decode are gone), and the
-impostor's atlas cameras blend in the same space as the world.
+**Decision, revised the same day:** the world cameras stay in Bevy's linear
+light (`rendering::world_compositing`; `AMBITION_WORLD_COMPOSITING=srgb`
+experiments). Gamma for the gameplay camera shipped first and blacked out every
+game on Jon's GPU host: an `Srgb` camera renders into an `Rgba8Unorm` main
+texture while the HUD and cube-menu cameras sharing the window keep
+`Rgba8UnormSrgb`, Bevy gives them separate main textures, and the later
+cameras' never-cleared texture was written over the world (a black stage under
+ghosting menus). `capture_scene` renders into an image and could not see it.
+Gamma for the world needs every camera on the window in one space, bevy_ui's
+shaders included; that is open.
+
+So: the atlas cameras, which own their targets, blend in the art's gamma space
+(`ART_COMPOSITING`), and a composited body is exact. A body drawn directly
+blends in linear light; a frame with a translucent part, where linear light
+differs most, is composited. MEASURED (`measure_rigged_parity.py`, the four
+targets, 99 frames, as shipped): every frame within the area gate (median 0.04%,
+at most 0.51%), but anti-aliased outlines over other parts come out a shade
+lighter, blobs of median 2 and at most 21 px against the 6 px gate (65 rows).
+The 6 custom 2D material shaders and the screen filter already handle
+`SRGB_OUTPUT`, so they are ready for a gamma world. Part pages are ordinary
+sRGB sheet images (`load_part_page` and its raw decode are gone).
 
 ### Group opacity is the one thing loose parts cannot do
 
@@ -83,9 +94,9 @@ frames are composited.
 - `AMBITION_PART_PRESENTATION=impostor` composites every body (the A/B knob);
   `measure_rigged_parity.py --composed` measures it.
 
-Parity, both roads (`measure_rigged_parity.py`, the four targets above, 99
-frames): every frame within the gate, at most 0.09% and a blob of 4, identical
-between direct and composed. Cost (`examples/rigged_sprite_bench.rs --render`,
+Parity with every camera in gamma space (`AMBITION_WORLD_COMPOSITING=srgb`):
+every frame within the gate on both roads, at most 0.09% and a blob of 4. As
+shipped (linear world), see above. Cost (`examples/rigged_sprite_bench.rs --render`,
 100 actors): composited 56.3 ms a frame, 49.0 ms over the baked sheets, in 6
 sprite batches; direct 9.65 ms, 2.45 ms over baked, in 1 batch.
 

@@ -276,8 +276,8 @@ blob of 1. That needed one more fix, general to every character:
   `Rgba8Unorm` target, and the un-premultiplying pass decodes once. Mary-O
   improved too: at most 0.14% and a blob of 6 in both facings and both anchors
   (it was a blob of 9), so the harness bound is D6's 6 again. (Superseded
-  2026-10-05: every world camera now blends in gamma space,
-  `rendering::WORLD_COMPOSITING`, so part pages are ordinary sRGB images and
+  2026-10-05: the atlas cameras blend in gamma space directly,
+  `rendering::ART_COMPOSITING`, so part pages are ordinary sRGB images and
   `load_part_page` is gone; see `semantic-part-rendering-and-ragdolls.md`.)
 
 Size: one 549 KB part page (905,216 packed texels, 360 parts) against the 9.1

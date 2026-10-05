@@ -264,7 +264,29 @@ fn two_peers(poison: Poison) -> Outcome {
 
 /// [`two_peers`] in `room`, with Alice's input a function of the frame. Bob
 /// always runs his script, so a peer always has a remote input to predict.
+/// His script presses Jump, so he joins with a body of seat 1 (the Q153
+/// default join).
 fn two_peers_in(room: &str, alices: fn(i32) -> ControlFrame, poison: Poison) -> Outcome {
+    two_peers_with(room, alices, |frame| script(1, frame), poison)
+}
+
+/// Bob's script without its Jump presses: he moves the stick, so a peer still
+/// has a changing remote input to predict, and he never joins with a body.
+fn bob_without_a_body(frame: i32) -> ControlFrame {
+    ControlFrame {
+        jump_pressed: false,
+        jump_held: false,
+        ..script(1, frame)
+    }
+}
+
+/// [`two_peers_in`], with Bob's input a function of the frame too.
+fn two_peers_with(
+    room: &str,
+    alices: fn(i32) -> ControlFrame,
+    bobs: fn(i32) -> ControlFrame,
+    poison: Poison,
+) -> Outcome {
     let (a, b) = ("127.0.0.1:7001".parse().unwrap(), "127.0.0.1:7002".parse().unwrap());
     let (to_bob, to_alice) = loopback_transports(a, b, LATENCY);
     let (mut alice, sharp) = peer(room, 0, (1, b), to_bob, Poison::None);
@@ -288,7 +310,7 @@ fn two_peers_in(room: &str, alices: fn(i32) -> ControlFrame, poison: Poison) -> 
                 continue;
             }
             let next = sim.world().resource::<RollbackFrameCount>().0 + 1;
-            let input = if slot == 0 { alices(next) } else { script(slot, next) };
+            let input = if slot == 0 { alices(next) } else { bobs(next) };
             sim.drive_seat(slot as u8, input);
             sim.app_mut().update();
         }
@@ -427,7 +449,11 @@ fn two_peers_agree_in_the_rooms_that_carry_the_float_rows() {
     let mut sharp = Vec::new();
     let mut sessions = Vec::new();
     for (room, alices) in walks {
-        let outcome = two_peers_in(room, alices, Poison::None);
+        // Bob has no body, so Alice's fall in `portal_bridge` is the last
+        // participant out of play in her room and the room goes back. A
+        // joined Bob in play in her room would hold it (co-op), and the walk
+        // would not cross a replay.
+        let outcome = two_peers_with(room, alices, bob_without_a_body, Poison::None);
         sessions.push((room, outcome.sessions));
         assert_eq!(
             (outcome.healths, outcome.differing),

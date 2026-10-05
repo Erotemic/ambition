@@ -335,6 +335,16 @@ impl Plugin for PlayerSchedulePlugin {
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
                 .before(crate::sandbox_reset::RoomReplayAdmission),
         );
+        // A seat with no body joins on a Jump press in its input for the frame,
+        // once that input is in `SlotControls` and before any body reads its
+        // character for the tick (Q153 default).
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::session::join::seat_a_joining_participant
+                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
+                .after(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Device)
+                .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::CharacterProjection),
+        );
         // Every respawn in the workspace announces itself through the derived
         // `BodyRestarted`, so returning a body to play needs no line at any of
         // the call sites that bring one back.

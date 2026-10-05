@@ -411,6 +411,8 @@ pub fn resume_at_checkpoint_on_reset(
     )>,
     mut accepted: ResMut<AcceptedCheckpointRestore>,
     mut operations: ResMut<SessionCheckpointOperations>,
+    // The answer of a request that is refused before it is an operation.
+    mut outcomes: ResMut<SessionCheckpointOutcomes>,
     // WHOSE operation. Absent only in an explicit standalone profile, which has
     // one declared lifetime and cannot retain operations across destruction.
     scope: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
@@ -471,8 +473,39 @@ pub fn resume_at_checkpoint_on_reset(
     };
     // the subject is resolved BEFORE anything is recorded: a transition names the body it
     // moves, and a session whose avatar has not been built cannot describe one.
-    let Ok((subject_body, sim_id, stamp, root, driver)) = subjects.single() else {
-        return;
+    let (subject_body, sim_id, stamp, root, driver) = match subjects.single() {
+        Ok(subject) => subject,
+        // The avatar is not built: the request stays owed until it is.
+        Err(bevy::ecs::query::QuerySingleError::NoEntities(_)) => return,
+        // ⛔ TWO PRIMARY BODIES ARE NOT A WAIT. No frame of play makes them
+        // one, so a request that stayed owed here was owed for ever, with no
+        // operation and no outcome (measured 2026-10-05: 300 frames). The
+        // request is refused: it gets a key and its one outcome, and it is
+        // spent. No lifecycle slot is taken and nothing is pinned. The cause
+        // is simulation state, so each peer refuses on the same frame and the
+        // operation counters agree.
+        Err(bevy::ecs::query::QuerySingleError::MultipleEntities(_)) => {
+            let Some(key) = operations.admit(scope.as_ref().and_then(|scope| scope.current())) else {
+                bevy::log::error!(
+                    target: "ambition_platformer2d::session",
+                    "the checkpoint operation sequence is exhausted; a restore that \
+                     names no subject cannot be refused by name and stays owed",
+                );
+                return;
+            };
+            outstanding.0.take();
+            outcomes.publish(CheckpointRestoreOutcome::Cancelled {
+                key,
+                reason: RestoreCancellation::AmbiguousSubject,
+            });
+            bevy::log::error!(
+                target: "ambition_platformer2d::session",
+                "checkpoint restore {key:?} is refused: the session has {} primary \
+                 bodies, so the restore names no subject; the live world is unchanged",
+                subjects.iter().count(),
+            );
+            return;
+        }
     };
     let subject = ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id.clone(), ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root));
     let subject_body = Some(subject_body);
@@ -1952,6 +1985,13 @@ pub enum RestoreCancellation {
     /// [`retire_accepted_checkpoint_restore`], the one place each of those
     /// roads reaches.
     NotCommitted,
+    /// The session had more than one primary body when the restore was asked
+    /// for, so the request names no subject. ⚠ Terminal, not owed: a session
+    /// with no primary body is waiting for one to be built, and a session
+    /// with two is not waiting for anything. No operation was accepted and no
+    /// lifecycle slot was taken. Published by
+    /// [`resume_at_checkpoint_on_reset`].
+    AmbiguousSubject,
 }
 
 impl RestoreCancellation {
@@ -1960,6 +2000,7 @@ impl RestoreCancellation {
         match self {
             Self::PreparationFailed => "preparation failed",
             Self::NotCommitted => "not committed",
+            Self::AmbiguousSubject => "ambiguous subject",
         }
     }
 
@@ -1967,6 +2008,7 @@ impl RestoreCancellation {
         match self {
             Self::PreparationFailed => 1,
             Self::NotCommitted => 2,
+            Self::AmbiguousSubject => 3,
         }
     }
 }

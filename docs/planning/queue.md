@@ -778,6 +778,26 @@ each of the four facts moved, and the early arm is GREEN, because an early
 refusal does not come to that line. That was a missed prediction (70% red
 for the early arm) and it is the reason the verdict arm exists.
 
+**A restore that cannot name its subject is refused (2026-10-05).** The
+subject of a restore is the one primary body, read with `.single()`. With
+no primary body the request stays owed, which is right: the body is not
+built yet. With two it stayed owed too, and no frame of play changes two
+into one. Measured in the shipped composition with a second home body that
+has the primary markers: the request was owed for 300 frames, with no
+operation and no outcome. `resume_at_checkpoint_on_reset` now refuses that
+request: it gets a key and its one outcome, `Cancelled { AmbiguousSubject }`
+(code 3), and it is spent; no lifecycle slot is taken. Witness:
+`a_checkpoint_restore_with_two_primary_bodies_is_refused_and_the_next_one_commits`
+(the four facts as before the request; then the second body is not primary
+any more, and the next request commits). The run before the repair is the
+poison: red with no outcome and the request owed. No schema bump: the
+outcome's fold already writes the reason code, and the schema baseline is
+unchanged. No production code builds two primary bodies; the join road
+builds a second home body with no primary marker (`spawn_home_body`).
+⚠ Not changed: `restore_checkpoint_on_session_start` reads its subject the
+same way and tries again on each tick with two primary bodies. It owes no
+outcome to a reader, so it is silent and not a hang of an operation.
+
 **Not built, and why:** a composed witness for a subject that is gone or
 cannot transit. From reading, not from a measurement: the subject of a
 restore is the one primary body, and no production code removes it or its

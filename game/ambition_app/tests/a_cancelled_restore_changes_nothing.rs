@@ -2,9 +2,10 @@
 //!
 //! A restore is admitted, then its room is prepared, then the room is
 //! published, then the restore commits. A restore can end before the commit:
-//! its room preparation fails, or the publication is refused. Then the outcome
-//! is `CheckpointRestoreOutcome::Cancelled`, and the live world must be the
-//! world before the request.
+//! its room preparation fails, or the publication is refused. A request can
+//! also be refused before it is admitted, when the session cannot name the
+//! body it returns. Then the outcome is `CheckpointRestoreOutcome::Cancelled`,
+//! and the live world must be the world before the request.
 //!
 //! Review of 2026-10-05, P1: the admission wrote `RoomReplayAdmitted` at once,
 //! and fourteen systems read it on that frame. They returned the subject to
@@ -50,14 +51,18 @@ struct Facts {
 
 fn facts(sim: &mut Platformer2dSimHarness) -> Facts {
     let world = sim.world_mut();
+    // The body of seat 0, by its identity: one arm gives a second body the
+    // primary markers, and the facts are those of the first.
     let (at, balance) = world
         .query_filtered::<(
+            &ambition_platformer2d::platformer::sim_id::SimId,
             &ambition_platformer2d::engine_core::BodyKinematics,
             &ambition_platformer2d::characters::actor::BodyWallet,
         ), With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
-        .single(world)
-        .map(|(kin, wallet)| ((kin.pos.x.round() as i32, kin.pos.y.round() as i32), wallet.balance))
-        .expect("the session has one primary body");
+        .iter(world)
+        .find(|(id, ..)| id.as_str() == "slot:0")
+        .map(|(_, kin, wallet)| ((kin.pos.x.round() as i32, kin.pos.y.round() as i32), wallet.balance))
+        .expect("the session has the primary body of seat 0");
     let defeats_since = world
         .resource::<ambition_platformer2d::boss_encounter::BossDefeatsSinceCheckpoint>()
         .defeats()
@@ -80,6 +85,10 @@ enum Road {
     PreparationFails,
     /// Its room is prepared, and the publication is refused.
     PublicationRefused(Refusal),
+    /// The session has two primary bodies, so the restore cannot name the
+    /// body it returns. No production code builds this world; the second
+    /// body is built by the recipe of a home body with the two markers.
+    TwoPrimaryBodies,
 }
 
 /// Where `verify_and_publish` refuses the room of a restore. The two places
@@ -106,7 +115,9 @@ type Verification = ambition_platformer2d::actors::world::rooms::LastConstructio
 /// the body moved away from the checkpoint. Then a restore is asked for.
 /// Returns the facts before the request, the facts after its outcome, the
 /// outcome, and what the last room verification concluded.
-fn a_restore_after_a_boss(road: Road) -> (Facts, Facts, Option<CheckpointRestoreOutcome>, Verification) {
+fn a_restore_after_a_boss(
+    road: Road,
+) -> (Facts, Facts, Option<CheckpointRestoreOutcome>, Verification, Platformer2dSimHarness) {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     sim.step_n(AgentAction::default(), 15);
     {
@@ -147,6 +158,25 @@ fn a_restore_after_a_boss(road: Road) -> (Facts, Facts, Option<CheckpointRestore
                 .before(ambition_platformer2d::runtime::room_transition::finalize_unpresented_room_transition_failure_system),
         );
     }
+    if road == Road::TwoPrimaryBodies {
+        crate::a_home_body_is_built_for_a_seat::build_a_home_body(
+            &mut sim,
+            ambition_platformer2d::characters::control::PlayerSlot(1),
+            (
+                ambition_platformer2d::platformer::markers::PrimaryPlayer,
+                ambition_platformer2d::platformer::body::PrimaryBody,
+            ),
+        );
+    }
+    let outcome = ask_for_a_restore(&mut sim, road);
+    sim.step_n(AgentAction::default(), 30);
+    let verification = sim.world().resource::<Verification>().clone();
+    (before, facts(&mut sim), outcome, verification, sim)
+}
+
+/// Ask for a restore to the checkpoint, and step until the session answers
+/// it, for 300 frames at most.
+fn ask_for_a_restore(sim: &mut Platformer2dSimHarness, road: Road) -> Option<CheckpointRestoreOutcome> {
     let answered_before = sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned();
     sim.world_mut()
         .write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
@@ -173,9 +203,7 @@ fn a_restore_after_a_boss(road: Road) -> (Facts, Facts, Option<CheckpointRestore
             break;
         }
     }
-    sim.step_n(AgentAction::default(), 30);
-    let verification = sim.world().resource::<Verification>().clone();
-    (before, facts(&mut sim), outcome, verification)
+    outcome
 }
 
 /// THE PROPERTY. The restore's preparation fails, the outcome is
@@ -184,7 +212,7 @@ fn a_restore_after_a_boss(road: Road) -> (Facts, Facts, Option<CheckpointRestore
 /// still recorded since the checkpoint.
 #[test]
 fn a_cancelled_checkpoint_restore_leaves_the_live_world_as_it_was() {
-    let (before, after, outcome, _) = a_restore_after_a_boss(Road::PreparationFails);
+    let (before, after, outcome, ..) = a_restore_after_a_boss(Road::PreparationFails);
     assert!(
         outcome.as_ref().is_some_and(|outcome| outcome.cancellation().is_some()),
         "the restore's outcome: {outcome:?}"
@@ -209,7 +237,7 @@ fn a_cancelled_checkpoint_restore_leaves_the_live_world_as_it_was() {
 /// back. An arm for it would remove the body by hand.
 fn a_refused_publication_changes_nothing(refusal: Refusal) -> Verification {
     use ambition_platformer2d::actors::session::checkpoint::RestoreCancellation;
-    let (before, after, outcome, verification) = a_restore_after_a_boss(Road::PublicationRefused(refusal));
+    let (before, after, outcome, verification, _) = a_restore_after_a_boss(Road::PublicationRefused(refusal));
     // ⛔ THE PREMISE: this is the road of a refused publication. A room that
     // was not prepared ends as `PreparationFailed`, and that is the arm above.
     assert!(
@@ -261,11 +289,77 @@ fn a_checkpoint_restore_whose_room_fails_its_verdict_leaves_the_live_world_as_it
     );
 }
 
+/// THE SAME PROPERTY FOR A RESTORE THAT CANNOT NAME ITS SUBJECT. The subject
+/// of a restore is the one primary body. With two primary bodies the session
+/// has no subject to name, and no frame of play changes that. The restore is
+/// refused at once with one outcome, `Cancelled` with `AmbiguousSubject`, and
+/// the live world is the world before the request.
+///
+/// MEASURED 2026-10-05 before the repair: the request stayed owed
+/// (`OutstandingCheckpointRequest`) for 300 frames with no operation and no
+/// outcome, because a restore with no subject waited for one, and two
+/// subjects read as none.
+///
+/// The refusal spends the request. So when the second body is not primary
+/// any more, the next request is a new operation, and it commits.
+#[test]
+fn a_checkpoint_restore_with_two_primary_bodies_is_refused_and_the_next_one_commits() {
+    use ambition_platformer2d::actors::session::checkpoint::{OutstandingCheckpointRequest, RestoreCancellation};
+    use ambition_platformer2d::platformer::body::PrimaryBody;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+    let (before, after, outcome, _, mut sim) = a_restore_after_a_boss(Road::TwoPrimaryBodies);
+    let primaries: Vec<String> = {
+        let world = sim.world_mut();
+        let mut ids: Vec<String> = world
+            .query_filtered::<&ambition_platformer2d::platformer::sim_id::SimId, With<PrimaryPlayer>>()
+            .iter(world)
+            .map(|id| id.as_str().to_string())
+            .collect();
+        ids.sort();
+        ids
+    };
+    assert_eq!(primaries, ["slot:0", "slot:1"], "the premise: two primary bodies in the session");
+    assert_eq!(
+        (
+            outcome.as_ref().and_then(|outcome| outcome.cancellation()),
+            sim.world().resource::<OutstandingCheckpointRequest>().0,
+        ),
+        (Some(RestoreCancellation::AmbiguousSubject), None),
+        "(the outcome, the request still owed) of a restore with two primary bodies: {outcome:?}"
+    );
+    assert_eq!(after, before, "the live world after the refusal, against the world before the request");
+
+    // The second body is an ordinary home body again.
+    let second = {
+        let world = sim.world_mut();
+        world
+            .query_filtered::<(Entity, &ambition_platformer2d::platformer::sim_id::SimId), With<PrimaryPlayer>>()
+            .iter(world)
+            .find(|(_, id)| id.as_str() == "slot:1")
+            .map(|(entity, _)| entity)
+            .expect("the second primary body")
+    };
+    sim.world_mut().entity_mut(second).remove::<(PrimaryPlayer, PrimaryBody)>();
+    sim.rebase_rollback_history().expect("the rollback history rebases over the markers");
+    let next = ask_for_a_restore(&mut sim, Road::Commits);
+    sim.step_n(AgentAction::default(), 30);
+    assert!(
+        next.as_ref().is_some_and(CheckpointRestoreOutcome::committed) && next != outcome,
+        "the next restore, with one primary body: {next:?}; the refused one: {outcome:?}"
+    );
+    let restored = facts(&mut sim);
+    assert_eq!(
+        (restored.at != before.at, restored.cleared, restored.balance, restored.defeats_since),
+        (true, false, 7, 0),
+        "(the body moved, cleared, balance, defeats since) after the restore that commits"
+    );
+}
+
 /// THE CONTROL. The same run with a preparation that succeeds commits, and
 /// each fact moves: so the facts above are facts a restore changes.
 #[test]
 fn a_committed_checkpoint_restore_changes_each_of_those_facts() {
-    let (before, after, outcome, verification) = a_restore_after_a_boss(Road::Commits);
+    let (before, after, outcome, verification, _) = a_restore_after_a_boss(Road::Commits);
     assert!(verification.published, "control: the room of a committed restore was published");
     assert!(outcome.as_ref().is_some_and(CheckpointRestoreOutcome::committed), "the restore's outcome: {outcome:?}");
     assert!(

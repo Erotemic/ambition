@@ -50,7 +50,20 @@ fn place_of(sim: &Platformer2dSimHarness, body: Entity) -> (i32, i32) {
 /// Build the home body of `seat` through the recipe, beside the primary body
 /// and in its room, from the inputs of the live session.
 fn build_the_home_body_of(sim: &mut Platformer2dSimHarness, seat: PlayerSlot) -> Entity {
+    build_a_home_body(sim, seat, ())
+}
+
+/// The same, with the markers the caller gives. A second body with the two
+/// primary markers is a world no production code builds: it is the fixture of
+/// `a_cancelled_restore_changes_nothing`, for a restore that cannot name its
+/// subject.
+pub(crate) fn build_a_home_body(
+    sim: &mut Platformer2dSimHarness,
+    seat: PlayerSlot,
+    markers: impl Bundle,
+) -> Entity {
     let primary = the_primary(sim);
+    let mut markers = Some(markers);
     let body = sim
         .world_mut()
         .run_system_once(
@@ -86,7 +99,7 @@ fn build_the_home_body_of(sim: &mut Platformer2dSimHarness, seat: PlayerSlot) ->
                         resources,
                         abilities,
                     },
-                    (),
+                    markers.take().expect("the recipe runs one time"),
                 )
             },
         )

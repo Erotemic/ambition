@@ -312,6 +312,17 @@ impl PendingLifecycleCommit {
         owned_by_subject
     }
 
+    /// Retract the pending intent recorded on `frame`, whatever it is. For an
+    /// operation that a peer could not prepare: it ends on each peer, on one
+    /// frame of the shared timeline.
+    pub fn retract_recorded_on(&mut self, frame: i32) -> bool {
+        let recorded_then = self.pending.as_ref().is_some_and(|pending| pending.frame == frame);
+        if recorded_then {
+            self.pending = None;
+        }
+        recorded_then
+    }
+
     /// Clear the slot after the host commits the op.
     pub fn take(&mut self) -> Option<PendingIntent> {
         self.pending.take()

@@ -260,6 +260,18 @@ handle. Before the rule (the poison), Alice's peer committed alone into a
 session that never started, as in (1) above. So outcomes (1) and (2) are now
 outcome (3) with a report. What a `Failed` does next is still the question.
 
+**Default in force until you rule (2026-10-05):** a `Failed` ends the
+operation on each peer, at the frame of the input that says it, and each
+peer simulates again in agreement. A door a peer could not prepare does not
+open (a press tries again), and a checkpoint restore is `Cancelled`. This is
+what one machine does with a failed respawn. It is reversible: one system
+(`end_an_operation_a_peer_could_not_prepare`). Measured before: both peers
+frozen with no end. The choices below remain yours:
+
+* **(a) End the operation on each peer** (the default above).
+* **(b) Retry** behind a new freeze until each peer prepares, with a limit.
+* **(c) End the session** and report the peer that failed.
+
 Owner: netcode ([`netcode.md`](engine/netcode.md)) and online play (A4 in
 [`multiplayer.md`](game/multiplayer.md)). No queue row waits for this; no
 production code starts a peer session yet.

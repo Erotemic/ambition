@@ -175,7 +175,7 @@ pub(crate) fn prepare_first_room_art_system(
                     &worn,
                     claimed.iter().map(String::as_str),
                 );
-                let (manifest, remainder) = build_room_asset_manifest(
+                let manifest = build_room_asset_manifest(
                     room,
                     &staged_actor_names,
                     assets,
@@ -190,11 +190,6 @@ pub(crate) fn prepare_first_room_art_system(
                     &worn,
                     Some(&owners),
                 );
-                // Beyond the per-frame ration, to the engine's global demand —
-                // the same hand-over a room transition makes.
-                if let Some(demand) = context.character_load_demand.as_deref_mut() {
-                    remainder.forward_into(demand);
-                }
                 let demanded_characters = room_character_tokens(room, &staged_actor_names);
                 let realized_at_build = realized_character_count(&demanded_characters, assets);
                 jobs.by_load

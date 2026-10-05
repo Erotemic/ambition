@@ -419,16 +419,9 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         }
         bevy::log::warn!("AMBITION_MAIN_SCHEDULES_SINGLE_THREADED=1: main-world schedules run single-threaded (experiment)");
     }
-    // EXPERIMENT KNOB for the asset campaign: Bevy's own per-frame GPU upload
-    // budget. `GpuImage` reports its byte length, so with a budget the render
-    // world defers whole images past it to later frames instead of uploading
-    // 150 MP in one (the 542 ms hall-entry frame). Unset = Bevy's unlimited
-    // default. Recorded by the visual-quality census.
-    if let Some(mb) = crate::host::render_asset_budget::render_asset_mb_per_frame() {
-        app.insert_resource(bevy::render::render_asset::RenderAssetBytesPerFrame::new(
-            mb * 1024 * 1024,
-        ));
-    }
+    // The per-frame GPU upload budget, the one pacing authority for asset
+    // arrival: on while gameplay is visible, lifted under a loading cover.
+    crate::host::render_asset_budget::install_render_asset_budget(app);
 
     // the PLUGIN, not the bare system: `load_ui_fonts` is engine code, and registering it here
     // alone left every non-app composition with no `UiFonts` and a vacuous

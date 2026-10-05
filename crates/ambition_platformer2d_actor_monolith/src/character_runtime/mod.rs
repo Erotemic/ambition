@@ -80,7 +80,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use bevy::prelude::*;
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
-use ambition_persistence::settings::{TextureResolutionScale, VisualQualityBudget};
+use ambition_persistence::settings::VisualQualityBudget;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_sprite_sheet::character::{CharacterSheetState, CharacterSpriteAssets};
 
@@ -88,100 +88,23 @@ use crate::assets::platformer_assets::Platformer2dAssetCatalog;
 
 use ambition_characters::load_demand::CharacterLoadDemand;
 
-/// How many characters may BEGIN materialising on one frame.
-///
-/// ⭐ One, because one character is ~7 sheets at 4096x4096 (~470MB of RGBA) and the
-/// cost that lands on a frame is the render-world extract of everything that
-/// finished decoding. Spreading the STARTS spreads the finishes.
-/// ⚠ Not a memory budget — an arrival-rate limit. Eviction is a separate question.
-///
-/// ⭐ SWEPT, SO THE VALUE IS A CHOICE AND NOT A GUESS. One same-block run per arm
-/// of `capture_scene hall_of_characters` (the gallery, worst case on purpose):
-///
-/// ```text
-/// bound   worst simultaneous decodes   worst frame
-///   0                          31         1049.0ms
-///   1                          14          222.3ms
-///   2                          14          393.1ms
-/// ```
-///
-/// ⇒ bounding at all is what matters: 31 → 14 and ~1049ms → a few hundred.
-/// ⚠ **1 AND 2 ARE NOT SEPARATED BY THIS DATA** — same simultaneous count, and one
-/// run each cannot tell 222ms from 393ms under a software rasteriser. 1 is the
-/// conservative end and nothing here argues for 2; raising it would want reps.
-/// ⛔⛔ SET TO 0 (UNBOUNDED) 2026-08-29, BECAUSE PACING BROKE A DESIGN RULE A TEST
-/// EXISTS TO KEEP CLOSED. `hall_transition_cover::the_halls_transition_bills_its_
-/// whole_cast_and_covers_the_wait` asserts the Hall stages its ENTIRE cast on the
-/// transition's FIRST frame — *"the room authors 138 NpcSpawn placements, so the
-/// rest are being
-/// demanded later — after their actors spawn, in frame, uncovered, which is the
-/// defect this file exists to keep closed"*. Bounding the take dribbles the cast
-/// in at one per frame and is exactly that defect.
-///
-/// ⭐ AND THE TEST IS RIGHT, WHICH IS THE PART WORTH KEEPING: a room transition is
-/// COVERED — there is a loading screen over it — so a burst there is intended.
-/// Pacing exists to protect UNCOVERED frames, and applying it behind a cover
-/// trades a hidden burst for a visible dribble.
-///
-/// ⭐ THE SPLIT NOW EXISTS, so this bound governs LOADS ONLY. Staging and
-/// declaring happen for every pending token on the frame it is demanded (see
-/// `materialize_character_demand`), which is what keeps the cast whole and the
-/// room's bill honest while the decodes are rationed.
-///
-/// ⚠ The sweep that justified `1` (0 → 31 simultaneous decodes/1049ms, 1 → 14/
-/// 222ms) was measured on the GALLERY, which is covered by a loading foreground;
-/// it never showed a win on an uncovered frame.
-///
-/// ⭐ RE-SWEPT 2026-09-01, AFTER THE STAGING/LOADS SPLIT, through
-/// `capture_scene --fit-room` — an OFFSCREEN GPU capture, so the render-world
-/// extract this bound exists to spread actually runs. One binary, arms selected
-/// at runtime, three interleaved reps each after the machine settled:
-///
-/// ```text
-/// bound      total spike time per load burst      run-to-run spread
-///   0 (off)      807, 699, 680  -> 729 ms                17%
-///   1            593, 594, 592  -> 593 ms                 0.3%
-/// ```
-///
-/// ⇒ **19% less spike time, and 64x tighter.** The stability is the better half
-/// of that result: an unbounded burst lands differently every run, and a hitch
-/// you cannot reproduce is one you cannot tell you have fixed.
-///
-/// ⛔ WORST-FRAME IS BIMODAL AND CANNOT SEPARATE THE ARMS. The same bound
-/// produced 49 ms and 275 ms on consecutive runs. Total spike time over the
-/// burst is the statistic that holds still; a max over a handful of frames is
-/// not, and the earlier `222.3 / 393.1` pair should be read with that in mind.
-///
-/// ⚠ `2` and `4` remain unseparated from `1` (645/802 and 653/635) — the
-/// original comment's caveat survives its re-measurement.
-///
-/// ⚠ STILL NOT THE OWED MEASUREMENT. This is an offscreen software rasteriser on
-/// a COVERED transition. What is still missing is a windowed capture of an
-/// UNCOVERED frame, which is the case the bound is actually for.
-///
-/// ⭐ SINCE 2026-09-02 THE BOUND IS AREAL, NOT A HEAD COUNT. Every number above
-/// was measured on FULL sheets, and it is the decoded BYTES per frame the bound
-/// spreads — so a frame's ration is one Full character's worth of pixels, and a
-/// gallery whose cast realizes at Quarter (16x fewer pixels per sheet) starts
-/// sixteen of them per frame instead of holding its cover for 129 frames to
-/// move 129 small sheets. See `take_within_budget`.
-const MAX_CHARACTERS_MATERIALIZED_PER_FRAME: usize = 1;
-
-/// One frame's materialization ration, in units of ONE QUARTER-TIER SHEET:
-/// `MAX_CHARACTERS_MATERIALIZED_PER_FRAME` Full characters' worth of pixels.
-const MATERIALIZATION_UNITS_PER_FRAME: usize =
-    MAX_CHARACTERS_MATERIALIZED_PER_FRAME * materialization_units(TextureResolutionScale::Full);
-
-/// Areal cost of one character at a tier, relative to Quarter. Linear scale
-/// halves each step down, so area quarters: Full 16, Half 4, Quarter 1. Potato
-/// is far smaller than Quarter but a token is never free, so it floors at 1.
-const fn materialization_units(tier: TextureResolutionScale) -> usize {
-    match tier {
-        TextureResolutionScale::Full => 16,
-        TextureResolutionScale::Half => 4,
-        TextureResolutionScale::Quarter | TextureResolutionScale::Potato => 1,
-    }
-}
+// ⭐ NO START RATION (2026-10-04, `docs/planning/engine/readiness-driven-room-transitions.md`).
+//
+// Every demanded character begins loading on the frame it is demanded. The
+// ration that stood here (`MAX_CHARACTERS_MATERIALIZED_PER_FRAME = 1`, with a
+// cost read off the quality tier) guessed a character's cost and paced the
+// STARTS of its decodes, which run off the main thread anyway. It charged a
+// part-drawn character, a few hundred thousand pixels, as much as a baked Full
+// sheet (~470 MB), and it applied behind a loading cover too: the hall of
+// characters waited 137 frames, 2.8 s of `asset_wait`, for about 0.5 s of real
+// decode work (Jon's GPU host, 2026-10-04).
+//
+// The hitch the ration was measured against (2026-08-29, 2026-09-01) is the
+// render-world upload of many finished images in one frame. That stage is paced
+// where it happens, by Bevy's per-frame upload budget
+// (`RenderAssetBytesPerFrame`, set by the app host: on while gameplay is
+// visible, lifted while a loading cover hides the frame). One pacing authority,
+// at the expensive stage, spending real bytes.
 
 /// Why a demanded character has no art.
 ///
@@ -430,44 +353,16 @@ pub fn materialize_character_demand(
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
 ) {
-    // ── STAGE EVERY DEMAND NOW; LOAD AT MOST N OF THEM ──────────────────────
-    //
-    // ⭐ THE TWO HALVES COST DIFFERENT AMOUNTS AND ONLY ONE OF THEM HITCHES.
-    // Staging a character is resolving an id and putting a string in a set;
-    // loading one is ~470MB of decoded RGBA. Pacing is only ever wanted for the
-    // second, and until this split existed one bound governed both — so the only
-    // way to stop a burst of decodes was to also make the CAST arrive in a
-    // dribble, which is a different defect (`hall_transition_cover` names it:
-    // characters demanded after their actors spawn, in frame, uncovered).
-    //
-    // ⇒ every pending token is staged and declared on the frame it is demanded,
-    // so the cast is whole immediately and the room bills its full weight at
-    // once. Only `materialize_declared_character_sprite` below is rationed.
-    //
-    // ⛔⛔ THIS DID RELEASE THE REVEAL BARRIER EARLY, for a room's whole cast.
-    // The paragraph that stood here said `unsettled_staged_characters` would
-    // hold the curtain; nothing in the ROOM transition ever called it (only
-    // `capture_scene` did), the barrier waited on realized sheets' PAGES, and
-    // the caller's demand was a local that dropped the un-taken remainder. On
-    // the host, 2026-09-02: 111 of the hall's actors drew the placeholder at
-    // reveal and 434 MP arrived in the open. Fixed in the host's
-    // `room_transition_assets`: the remainder is forwarded to the global
-    // demand and `inspect_demanded_characters` holds the reveal.
-    for character_id in demand.pending().map(str::to_string).collect::<Vec<_>>() {
-        declare_registered_character_into(sprites, registry, &character_id);
-        states.cast_mut().stage(&character_id);
-    }
-
-    // ⭐ See `take_bounded`: each character is ~470MB of decoded RGBA, and landing
-    // several in one frame is what produced a 516ms frame on hardware. Anything
-    // not taken stays pending and is taken next frame.
-    let tier = crate::character_sprites::character_sprite_tier(quality);
-    for character_id in
-        demand.take_within_budget(MATERIALIZATION_UNITS_PER_FRAME, materialization_units(tier))
-    {
+    // Every pending token is staged, declared and loaded on the frame it is
+    // demanded, so the cast is whole immediately and the room bills its full
+    // weight at once (see the note above: no start ration). The reveal barrier
+    // is held by `inspect_demanded_characters` in the host's
+    // `room_transition_assets` until each one is realized.
+    for character_id in demand.take() {
         // Declared BEFORE any decode: the cast is a roster, not a report on the
         // art, and it must be right for a character whose sheet never resolves.
         declare_registered_character_into(sprites, registry, &character_id);
+        states.cast_mut().stage(&character_id);
         // They are different bugs.
         if matches!(sprites.sheet_state(&character_id), CharacterSheetState::Unknown) {
             states.record(

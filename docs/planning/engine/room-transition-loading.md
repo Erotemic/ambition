@@ -89,7 +89,7 @@ Do not quote a headless preflight time as a rendered transition budget.
 ### T2 — make prefetch/residency policy explicit where measurements justify it
 
 When the player waits, and what a loading screen may be made of, is
-[`loading-screens-only-for-real-work.md`](loading-screens-only-for-real-work.md)
+[`readiness-driven-room-transitions.md`](readiness-driven-room-transitions.md)
 (Jon, 2026-10-04: a loading screen only when the room is not ready at the door).
 
 A room transition requests what the next room needs through the asset

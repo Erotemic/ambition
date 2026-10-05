@@ -60,7 +60,7 @@ SPRITES = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / 
 PARITY_BOUND = 0.01
 #: D6's bound. It was 10 while the impostor blended in linear light (a turned
 #: part's outline came out a shade apart along a line: 9 pixels on Mary-O).
-#: Blended in gamma space as the baked frame was (`load_part_page`), measured
+#: Blended in gamma space as the baked frame was (`WORLD_COMPOSITING`), measured
 #: on llvmpipe 2026-10-03: Mary-O's three forms at most 6 in either facing and
 #: either anchor; robot v3's 1,888 frames at most 1. Dropping any one VISIBLE
 #: draw from any Mary-O frame makes a blob of 12 or more.
@@ -80,6 +80,12 @@ def main() -> int:
     parser.add_argument(
         "--phase", type=float, default=0.0,
         help="how far into each frame (0..1); above 0 a tweened clip is checked against its in-between",
+    )
+    parser.add_argument(
+        "--composed",
+        action="store_true",
+        help="composite every body through the impostor (AMBITION_PART_PRESENTATION=impostor); "
+        "by default the parts draw directly, as the game draws a body nothing reads as one image",
     )
     parser.add_argument("--out", type=Path, default=REPO / "target" / "rig_parity")
     parser.add_argument("--no-build", action="store_true", help="reuse the last captures in --out")
@@ -101,7 +107,8 @@ def main() -> int:
             command.append("--centre-anchored")
         if args.phase:
             command += ["--phase", str(args.phase)]
-        run = subprocess.run(command, cwd=REPO, capture_output=True, text=True)
+        env = {**os.environ, "AMBITION_PART_PRESENTATION": "impostor" if args.composed else "direct"}
+        run = subprocess.run(command, cwd=REPO, capture_output=True, text=True, env=env)
         if run.returncode != 0:
             print(run.stdout + run.stderr, file=sys.stderr)
             return 2

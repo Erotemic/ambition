@@ -1,4 +1,5 @@
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+#import bevy_render::color_operations::{linear_to_srgb, srgb_to_linear}
 
 @group(0) @binding(0) var screen_texture: texture_2d<f32>;
 @group(0) @binding(1) var texture_sampler: sampler;
@@ -45,8 +46,19 @@ fn safe_uv(uv: vec2<f32>) -> vec2<f32> {
     return clamp(uv, vec2<f32>(0.001, 0.001), vec2<f32>(0.999, 0.999));
 }
 
+// grain_and_vignette.w > 0.5: the main texture stores sRGB-encoded values (a
+// camera blending in `CompositingSpace::Srgb`, the world's). The filters work
+// on the colour, so it is decoded on read and encoded again on write.
+fn stores_srgb() -> bool {
+    return settings.grain_and_vignette.w > 0.5;
+}
+
 fn sample_screen(uv: vec2<f32>) -> vec4<f32> {
-    return textureSample(screen_texture, texture_sampler, safe_uv(uv));
+    let stored = textureSample(screen_texture, texture_sampler, safe_uv(uv));
+    if stores_srgb() {
+        return vec4<f32>(srgb_to_linear(stored.rgb), stored.a);
+    }
+    return stored;
 }
 
 fn screen_size() -> vec2<f32> {
@@ -311,8 +323,7 @@ fn apply_film_grain(
     return rgb + noise * amplitude;
 }
 
-@fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn shade(in: FullscreenVertexOutput) -> vec4<f32> {
     let global_strength = clamp(settings.control.x, 0.0, 1.0);
     let time = settings.control.y;
     let grain_fps = settings.control.z;
@@ -417,4 +428,13 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     }
 
     return vec4<f32>(clamp(rgb, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
+}
+
+@fragment
+fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+    let colour = shade(in);
+    if stores_srgb() {
+        return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);
+    }
+    return colour;
 }

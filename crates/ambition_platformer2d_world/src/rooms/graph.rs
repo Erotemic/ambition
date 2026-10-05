@@ -231,6 +231,44 @@ impl RoomSet {
         neighbors
     }
 
+    /// [`Self::neighboring_room_indices_of`], nearest first: each neighbour by
+    /// the distance from the nearest of `standing` (points in `room`'s
+    /// coordinates: the bodies the players drive there) to the nearest door of
+    /// `room` that leads to it. Ties, and every neighbour when nobody stands in
+    /// the room, keep the index order. A neighbour whose door is not in the
+    /// room comes after every one that has a door.
+    ///
+    /// What the neighbour prefetch prepares first: the room behind the door a
+    /// player is walking toward, not the rooms with the lowest indices (the
+    /// central hub has 21 doors and a budget of 4, and the hall of characters
+    /// was never prepared from it).
+    pub fn neighbors_nearest_first(&self, room: usize, standing: &[ae::Vec2]) -> Vec<usize> {
+        let mut neighbors = self.neighboring_room_indices_of(room);
+        if standing.is_empty() {
+            return neighbors;
+        }
+        let Some(&node) = self.room_nodes.get(room) else {
+            return neighbors;
+        };
+        let mut nearest: HashMap<usize, f32> = HashMap::new();
+        for edge in self.graph.edges_directed(node, Direction::Outgoing) {
+            let Some(zone) = self.zone_by_id(room, &edge.weight().from_zone) else {
+                continue;
+            };
+            let distance = standing
+                .iter()
+                .map(|at| zone.aabb.closest_point(*at).distance(*at))
+                .fold(f32::INFINITY, f32::min);
+            let entry = nearest.entry(edge.target().index()).or_insert(f32::INFINITY);
+            *entry = entry.min(distance);
+        }
+        neighbors.sort_by(|a, b| {
+            let (da, db) = (nearest.get(a).copied().unwrap_or(f32::INFINITY), nearest.get(b).copied().unwrap_or(f32::INFINITY));
+            da.total_cmp(&db).then(a.cmp(b))
+        });
+        neighbors
+    }
+
     /// The definition a live room instantiates.
     ///
     /// Panics if `definition` was minted by another set with more rooms, as

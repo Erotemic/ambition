@@ -205,6 +205,13 @@ import multi_writer_resource_census as census  # noqa: E402
 #: than a second recorded fact that can disagree with the first — which is the
 #: rule this whole census exists to enforce, applied to the census.
 BASELINE: dict[str, tuple[str, ...]] = {
+    "ComposedBodyDemand": (
+        "crates/ambition_render/src/rendering/actors/rigged.rs",
+        "crates/ambition_render/src/rendering/hit_flash.rs",
+        "crates/ambition_render/src/rendering/portal_compositing.rs",
+        "game/ambition_content/src/presentation/deep_dream.rs",
+        "game/ambition_demo_mary_o/src/quasar_shader.rs",
+    ),
     "ExtensionInvocations": (
         "crates/ambition_abilities/src/extension.rs",
         "crates/ambition_abilities/src/module_entity.rs",
@@ -943,6 +950,22 @@ BASELINE: dict[str, tuple[str, ...]] = {
 #: The ones somebody has actually read. ⚠ An entry here is a CITATION, not an
 #: opinion: it names the row or the source contract that owns the answer.
 ADJUDICATED: dict[str, str] = {
+    "ComposedBodyDemand": (
+        "EVERY PRODUCER IS AN IDEMPOTENT SET-INSERT AND THE ONE CONSUMER CLEARS "
+        "WHAT IT READ. `crates/ambition_sprite_sheet/src/character/rigged.rs` "
+        "stores `HashSet<Entity>`; `declare` only inserts. The four producers "
+        "(`declare_hit_flash_demand`, `declare_portal_body_demand`, "
+        "`declare_deep_dream_demand`, `declare_quasar_demand`) each insert the "
+        "roots they read as one image, in `ComposedBodyDemandSet`, which is "
+        "ordered before `drive_rigged_presentations`; the driver reads every "
+        "declaration and then clears the set. Insertion commutes, so producer "
+        "order cannot change what the driver sees; a producer scheduled after the "
+        "driver is seen one frame late, inside the 30-frame hold. MEASURED "
+        "2026-10-05: with the driver's clear removed, "
+        "`a_body_read_as_one_image_is_composited_while_it_is_read` fails (the "
+        "body is never let go). ⚠ No test fails when a PRODUCER is deleted: "
+        "each declarer is held only by its own reading of the effect it serves."
+    ),
     "ExtensionInvocations": (
         "A QUEUE, AND ITS TWO WRITERS ARE ITS TWO ENDS (fast-iteration I4). "
         "A trigger adapter only APPENDS (`ExtensionInvocations::trigger`, the "

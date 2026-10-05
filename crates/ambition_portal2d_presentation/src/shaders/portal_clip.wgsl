@@ -12,6 +12,9 @@
 // pose handles those, the plane test only sees final world positions.
 
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#ifdef SRGB_OUTPUT
+#import bevy_render::color_operations::linear_to_srgb
+#endif
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> uv_rect: vec4<f32>;
 // control.x = flip_x flag (0 = no flip, >0.5 = mirror UV horizontally)
@@ -40,8 +43,7 @@ fn behind_plane(plane: vec4<f32>, p: vec2<f32>) -> bool {
     return dot(p - plane.xy, plane.zw) < 0.0;
 }
 
-@fragment
-fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+fn shade(mesh: VertexOutput) -> vec4<f32> {
     // Sample BEFORE any position-dependent discard: implicit-derivative
     // texture sampling requires uniform control flow.
     var local_uv = mesh.uv;
@@ -74,4 +76,17 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         return vec4<f32>(tint.rgb, sample.a * tint.a);
     }
     return sample * tint;
+}
+
+// The camera blends in the space its main texture stores: under `SRGB_OUTPUT`
+// (`CompositingSpace::Srgb`, the world's) the shaded colour is written
+// sRGB-encoded, as Bevy's own sprite and mesh shaders write it.
+@fragment
+fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
+    let colour = shade(mesh);
+#ifdef SRGB_OUTPUT
+    return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);
+#else
+    return colour;
+#endif
 }

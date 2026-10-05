@@ -412,3 +412,116 @@ fn every_embedded_table_decodes_to_the_flipbook_its_ron_is() {
     assert!(BAKED_PART_FLIPBOOKS.len() >= 100, "only {} embedded tables", BAKED_PART_FLIPBOOKS.len());
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+/// `target`'s published flipbook, its body rig, and the rig's bindings.
+fn posed(target: &str) -> (RiggedSpriteAsset, ambition_characters::actor::PreparedBodyRig, PosedParts) {
+    let flipbook = RiggedSpriteAsset::baked(target).expect("a published flipbook");
+    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(
+        crate::baked_body_rigs::baked_body_rig(target).expect("a published body rig"),
+    )
+    .expect("the rig parses")
+    .prepare()
+    .expect("the rig prepares");
+    let posed = PosedParts::bind(&flipbook, &rig, 1.0, 0.02);
+    (flipbook, rig, posed)
+}
+
+/// ⭐ ONE SEMANTIC DECOMPOSITION. Mary-O's part flipbook is what her body
+/// rig's pose places: every rig part rides a joint (its pivot and angle fixed
+/// in the joint's frame, within a pixel and a degree), and the rig's own frame
+/// of each clip, through those bindings, puts every draw where the flipbook
+/// drew it. The flipbook's transform table is then a cache of the rig's pose,
+/// not a second authority (`scripts/measure_track_joints.py` measures every
+/// character that publishes both; the pirates do not agree yet).
+#[test]
+fn mary_os_parts_are_placed_by_her_body_rigs_pose() {
+    for target in ["mary_o_v2", "mary_o_v2_fire", "mary_o_v2_tall"] {
+        let (flipbook, rig, posed) = posed(target);
+        assert!(posed.frames_measured() > 0, "{target}: no clip shares its frames with the rig, so this measures nothing");
+        let (mut joints, mut placed) = (Vec::new(), Vec::new());
+        let mut compared = 0;
+        for row in flipbook.clip_names() {
+            let Some(rig_clip) = rig.clip(row) else { continue };
+            let clip = flipbook.clip(row).unwrap();
+            if rig_clip.frames.len() != clip.frame_count() {
+                continue;
+            }
+            for index in 0..clip.frame_count() {
+                assert!(rig.solve(row, index, &mut joints));
+                let frame = flipbook.frame(row, index).unwrap();
+                // ⛔ The frame's own placements are wiped first: the pose
+                // alone must put each part back, or a `place` that returned
+                // its input would compare every draw with itself.
+                let unplaced: Vec<PartDraw> = frame.iter().map(|draw| PartDraw { at: Vec2::ZERO, rotation: 0.0, ..*draw }).collect();
+                posed.place(&unplaced, &joints, &mut placed);
+                for (drawn, from_pose) in frame.iter().zip(&placed) {
+                    // Every rig part a shared frame draws rides a joint. (A row
+                    // the rig does not author, `death` or `shrink`, draws parts
+                    // nothing here measures.)
+                    let name = drawn.track.map(|track| flipbook.tracks[usize::from(track)].as_str()).unwrap_or("?");
+                    if name.starts_with("overlay:") {
+                        continue;
+                    }
+                    assert!(
+                        drawn.track.and_then(|track| posed.binding(track)).is_some(),
+                        "{target} {row}[{index}]: the part `{name}` rides no joint of the body rig"
+                    );
+                    compared += 1;
+                    assert!(
+                        drawn.at.distance(from_pose.at) <= 1.0 && (drawn.rotation - from_pose.rotation).abs() <= 0.02,
+                        "{target} {row}[{index}]: the rig's pose puts part {} at {:?} turned {}, the flipbook at {:?} turned {}",
+                        drawn.part,
+                        from_pose.at,
+                        from_pose.rotation,
+                        drawn.at,
+                        drawn.rotation
+                    );
+                }
+            }
+        }
+        assert!(compared > 0, "{target}: no draw compared");
+    }
+}
+
+/// ⭐ POSE IS AN INPUT (the ragdoll seam). A pose no clip authored — Mary-O's
+/// idle with one joint turned, as a physics step would turn it — moves the
+/// parts that ride that joint, rigidly about it, and leaves every other part
+/// where idle drew it. No flipbook frame for that pose exists; the same parts
+/// draw it.
+#[test]
+fn a_pose_no_clip_authored_moves_the_parts_that_ride_the_turned_joint() {
+    let (flipbook, rig, posed) = posed("mary_o_v2");
+    let mut joints = Vec::new();
+    assert!(rig.solve("idle", 0, &mut joints));
+    let idle = flipbook.frame("idle", 0).unwrap();
+    let mut at_rest = Vec::new();
+    posed.place(idle, &joints, &mut at_rest);
+
+    let arm = rig.joint_names().iter().position(|name| name == "near_arm").expect("Mary-O's rig has a near arm") as u16;
+    // ⛔ Premise: some part rides the arm, and some does not.
+    let rides = |draw: &PartDraw| draw.track.and_then(|track| posed.binding(track)).is_some_and(|binding| binding.joint == arm);
+    assert!(idle.iter().any(rides) && !idle.iter().all(rides), "premise: the arm carries some parts and not all");
+
+    let turn = 1.0_f32;
+    let pivot = joints[usize::from(arm)].translation;
+    use bevy::math::Affine2;
+    let swing = Affine2::from_translation(pivot) * Affine2::from_angle(turn) * Affine2::from_translation(-pivot);
+    let mut flailing = joints.clone();
+    for (index, frame) in flailing.iter_mut().enumerate() {
+        // The arm and every joint under it (none in this rig) turn with it.
+        if index == usize::from(arm) {
+            *frame = swing * *frame;
+        }
+    }
+    let mut moved = Vec::new();
+    posed.place(idle, &flailing, &mut moved);
+    for ((rest, now), draw) in at_rest.iter().zip(&moved).zip(idle) {
+        if rides(draw) {
+            let expected = swing.transform_point2(rest.at);
+            assert!(now.at.distance(expected) < 1.0e-3, "part {} did not swing with the arm", draw.part);
+            assert!((now.rotation - rest.rotation - turn).abs() < 1.0e-4, "part {} did not turn with the arm", draw.part);
+        } else {
+            assert_eq!((now.at, now.rotation), (rest.at, rest.rotation), "part {} moved, and it does not ride the arm", draw.part);
+        }
+    }
+}

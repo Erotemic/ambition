@@ -106,18 +106,28 @@ fn an_admitted_rig_character_is_drawn_from_its_parts() {
                 server.get_path(page.id())
             );
         }
-        // The root draws its cell of the impostor atlas its parts are
-        // composited into.
-        let atlas = world
-            .resource::<ambition_platformer2d::render::rendering::actors::rigged::RiggedImpostorAtlas>()
-            .page(&presentation.impostor)
-            .expect("the impostor atlas page");
+        // A body something reads as one image draws its cell of the impostor
+        // atlas its parts are composited into; any other draws its parts in
+        // the world and its root draws nothing over them.
         let sprite = world.get::<Sprite>(root).unwrap();
-        assert!(
-            sprite.image == atlas.image
-                && sprite.texture_atlas.as_ref().map(|frame| frame.index) == Some(presentation.impostor.cell as usize),
-            "the root does not draw its impostor cell"
-        );
+        match presentation.impostor {
+            Some(impostor) => {
+                let atlas = world
+                    .resource::<ambition_platformer2d::render::rendering::actors::rigged::RiggedImpostorAtlas>()
+                    .page(&impostor)
+                    .expect("the impostor atlas page");
+                assert!(
+                    sprite.image == atlas.image
+                        && sprite.texture_atlas.as_ref().map(|frame| frame.index) == Some(impostor.cell as usize),
+                    "the root does not draw its impostor cell"
+                );
+            }
+            None => assert_eq!(
+                sprite.image,
+                ambition_platformer2d::sprite_sheet::character::NO_BAKED_IMAGE,
+                "a body drawn directly draws its root's image over its parts"
+            ),
+        }
     }
     // Every slot belongs to a presentation: none leaked from a rebind.
     let mut owners = app.world_mut().query::<&RiggedPresentation>();

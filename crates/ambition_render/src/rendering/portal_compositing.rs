@@ -13,6 +13,36 @@
 
 use bevy::prelude::*;
 
+/// Declare every body in a live room that holds a portal as read as one image
+/// (`ComposedBodyDemand`). A portal's clipped pieces — the transit's two
+/// halves (`sync_portal_body_pieces`) and what a far pane leaves uncovered
+/// (`composite_far_side_bodies`) — are cut from the body's root sprite, which a
+/// part-drawn body has only while it is composited. By room, not by crossing:
+/// both readers decide late in the frame whether a body is cut, and a body cut
+/// on the frame it was first declared would have no image for that frame.
+pub fn declare_portal_body_demand(
+    frames: ambition_portal2d_presentation::PortalFrames,
+    portals: Query<Entity, With<ambition_portal2d_presentation::PlacedPortal>>,
+    bodies: Query<
+        Entity,
+        (
+            Or<(
+                With<crate::rendering::primitives::FeatureVisual>,
+                With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
+            )>,
+            Without<bevy::prelude::ChildOf>,
+        ),
+    >,
+    mut demand: ResMut<ambition_sprite_sheet::character::rigged::ComposedBodyDemand>,
+) {
+    let rooms: Vec<_> = portals.iter().filter_map(|portal| frames.room_of(portal)).collect();
+    for body in &bodies {
+        if frames.room_of(body).is_some_and(|room| rooms.contains(&room)) {
+            demand.declare(body);
+        }
+    }
+}
+
 /// Publish each drawn actor sprite as a compositing candidate, in engine
 /// coordinates.
 ///

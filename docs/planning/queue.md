@@ -2438,15 +2438,19 @@ reads cargo output to it.
    covers the last advance of a host tick only, and only a sync test with a
    check distance above zero; a peer session is not covered (GGRS saves its
    first run when no rollback is owed).
-6. **The demo apps' own integration tests are in no standing lane**
-   (2026-10-05). `mary_o_it` and `sanic_it` run only under the whole-workspace
-   lane, so a change that both agents' standing lanes (`app_it`, pytest)
-   pass can leave them red. Found that way: four death and room-replay arms
-   were red on main from `f7ecfc019` (P1) until `69d29caa0`: instruments
-   counted the message a restore no longer writes. The behaviour held; only
-   the counters were blind. Next: add the two binaries to the lane list of
-   [the heavy lane recipe](../recipes/running-the-heavy-app-it-lane.md), or
-   say there why they are not required at a push.
+6. **The demo host apps' own integration tests were in no standing lane;
+   the recipe now names their lane and when it is required (2026-10-05).**
+   `mary_o_it`, `sanic_it`, `smash_it` and `twintrack_it` run only under the
+   whole-workspace lane, so a change that both agents' standing lanes
+   (`app_it`, pytest) pass can leave them red. Found that way: four death and
+   room-replay arms were red on main from `f7ecfc019` (P1) until `69d29caa0`:
+   instruments counted the message a restore no longer writes. The behaviour
+   held; only the counters were blind. The command, the changes that require
+   it, and the measurement that it needs no waiver are in
+   [the heavy lane recipe](../recipes/running-the-heavy-app-it-lane.md#the-demo-host-apps-have-their-own-lane);
+   [the check matrix](../recipes/cheapest-sufficient-check.md#the-matrix) has
+   the row. Open: nothing runs the lane for you. It is a rule in prose, and a
+   push that skips it is not refused.
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.

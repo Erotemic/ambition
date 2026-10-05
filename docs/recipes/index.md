@@ -66,8 +66,10 @@ When a command changes, update or delete the recipe in the same patch.
   instruments that use one word.
 - [`running-the-heavy-app-it-lane.md`](running-the-heavy-app-it-lane.md) — the
   only lane that sees a schedule cycle, a composition that does not step, or a
-  rollback defect in a real host. It is heavy. No P2P session is built, so a
-  green lane says nothing about two peers agreeing.
+  rollback defect in a real host. It is heavy. Its only P2P session is two Apps
+  in one process, so a green lane says nothing about a network transport. It
+  does not run the demo host apps; the page gives their lane and when it is
+  required.
 - [`checks-that-did-not-run.md`](checks-that-did-not-run.md) — how to find a
   check that is correct but never executes, and a check that runs but cannot
   fail (instances in

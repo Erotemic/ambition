@@ -67,11 +67,74 @@ Name which question a green answers.
 
 ## What a green lane does and does not clear
 
-⛔ **No P2P session is built in this workspace.** The only session construction
-is `start_synctest_session()` in
-`crates/ambition_platformer2d_rollback_ggrs/src/session.rs`. A green rollback lane
-clears a LOCAL RESIMULATION defect. It says nothing about two peers agreeing.
-Always write "local" beside "the rollback suite is green".
+⛔ **A P2P session is built in one process only, over an in-memory link.**
+`start_peer_session` (`crates/ambition_platformer2d_rollback_ggrs/src/peer.rs`)
+starts one over any GGRS socket, and `LoopbackTransport` in the same file is the
+only transport in the tree. `game/ambition_app/tests/two_peers.rs` is the only
+caller: two Apps, one process. All other rollback arms use a sync test
+(`start_synctest_session()` in
+`crates/ambition_platformer2d_rollback_ggrs/src/session.rs`), which compares one
+App with itself. A green rollback lane clears a LOCAL RESIMULATION defect, and
+the peer questions that the arms of `two_peers.rs` name. It says nothing about a
+network transport. Always write "local" beside "the rollback suite is green".
+
+⛔ **`app_it` does not run the demo apps.** See the next section.
+
+## The demo host apps have their own lane
+
+`app_it` composes the shipped game. Each demo host app composes a different
+host, and has its own integration binary:
+
+| package | binary |
+|---|---|
+| `ambition_demo_mary_o_app` | `mary_o_it` |
+| `ambition_demo_sanic_app` | `sanic_it` |
+| `ambition_demo_smash_app` | `smash_it` |
+| `ambition_demo_twintrack_app` | `twintrack_it` |
+
+`app_it` and `python3 -m pytest scripts/tests` do not run them. The default
+`./run_tests.sh` does, in its `workspace (default features)` job. The narrow
+command is:
+
+```
+./run_tests.sh -p ambition_demo_mary_o_app -p ambition_demo_sanic_app \
+  -p ambition_demo_smash_app -p ambition_demo_twintrack_app \
+  --only-job ambition_demo
+```
+
+Without `--only-job`, a `-p` filter also plans the three external-consumer
+jobs. Run `--list` to see the plan.
+
+**When this lane is required.** Run it before you push a change to one of
+these, in the engine or in a demo:
+
+- session death, or a checkpoint restore
+- room replay, or a sandbox reset
+- the rollback host (`ambition_platformer2d_rollback_ggrs`), or a rollback
+  registration
+- an instrument that a demo test reads (a message, a counter, an outcome)
+
+The last row is how the gap was found. From `f7ecfc019` until `69d29caa0`
+(2026-10-05), three `mary_o_it` arms and one `sanic_it` arm were red on main
+while `app_it` and the pytest lane were green. A restore stopped writing a
+message, and the demo fixtures counted that message. The behaviour held; the
+demo counters were blind. No test in `app_it` reads those fixtures.
+
+**The lane tolerates no red.** There is no waiver list for it. Measured
+2026-10-05 on `18ae4b133`, host `aivm-2404`: `mary_o_it` 65 passed and 3
+ignored, `sanic_it` 41 passed, `smash_it` 69 passed and 4 ignored,
+`twintrack_it` 27 passed.
+
+- The `body_rig_trial` arms of `mary_o_it` read Mary-O's published rig. Publish
+  output is gitignored, so on a checkout that did not publish it they fail, and
+  the failure names the remedy: `scripts/regen/sprites.sh --target mary_o_v2`.
+  Run the remedy. Do not record the red as environmental.
+- An `#[ignore]`d arm in these binaries is a print-only probe, a diagnostic
+  census, or a route that a fixture course replaced. Each one says which in its
+  `ignore` reason.
+- A red arm needs a control before you name its cause: run the same arm with
+  your change switched off. The four arms above were first attributed to the
+  wrong commit from the messages alone.
 
 **`SimTick` advances 1:1 with `sim.step()` in the fixed-tick harness.** "The sim
 stopped" and "my writer stopped" look the same downstream; only the tick tells

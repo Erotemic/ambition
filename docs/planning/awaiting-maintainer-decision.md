@@ -110,6 +110,7 @@ Views and the HUD already follow a second body.
 
 Filed 2026-10-04. Blocks nothing: the engine reads the default as
 `OnRoomReload` today and serves an authored `Never` (open-world "Regrowth/restock").
+**Default in force until you rule:** (a), the current behaviour.
 
 `HazardRespawn`'s documented default is `Never` ("never respawn inside the
 current run/session"), but until 2026-10-04 no pickup kept any record once
@@ -139,7 +140,8 @@ Owner: the regrowth/restock row in
 ## Q94 — what residency-memory limit should the runtime target?
 
 Needs a maintainer/hardware/product value. The residency mechanism can enforce a
-budget once the budget exists. Report source, decoded CPU, prepared simulation
+budget once the budget exists. **Default in force until you rule:** no budget
+is enforced (no value is guessed). Report source, decoded CPU, prepared simulation
 content and device residency separately. A8 instance isolation and A9 dependency
 closure do not supply a hardware budget.
 
@@ -191,7 +193,8 @@ too. A local (sync-test) crossing holds nothing.
 
 Owner: netcode ([`netcode.md`](engine/netcode.md)) and online play (A4 in
 [`multiplayer.md`](game/multiplayer.md)). No queue row waits for this: the
-crossing works, and the question is its cost.
+crossing works, and the question is its cost. **Default in force until you
+rule:** (a), the current behaviour.
 
 * **(a) Keep it** (current). A door between rooms is a pause of about half a
   second for each online player. No new machinery.

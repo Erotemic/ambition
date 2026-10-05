@@ -67,33 +67,24 @@ fn local_ggrs_restart_policy(
 pub(super) fn handle_ldtk_hot_reload(
     mut commands: ambition_platformer2d::platformer::lifecycle::SessionCommands<'_, '_>,
     mut hotkey_actions: MessageReader<DeveloperAction>,
-    // ⛔ A GUARD, NOT A WRITE TARGET. A hot reload no longer writes the live
-    // geometry (A10 stages it behind the room transaction's verdict — see
-    // `replace_live_world`), but a reload in a world whose session root carries
-    // no room authority is still refused, and this `Single` is what refuses it.
+    // ⛔ READ ONLY. A hot reload does not write the live geometry or the room
+    // set here (A10 stages them behind the room transaction's verdict — see
+    // `replace_live_world`), so these are shared borrows, and the reload's
+    // writes land in the staged closures on each publication's own verdict.
     //
-    // ⛤ SO IT ASKS FOR `Ref` AND THE TYPE NOW SAYS SO — 2026-09-18. Both
-    // aliases are `Single<_, With<SessionRoot>>`, so the refusal is identical;
-    // what the mutable one added was an exclusive borrow on a session-world
-    // component and a second entry in the multi-writer census for a system that
-    // writes nothing. A comment saying "not a write target" beside a `&mut` is
-    // the weakest form that statement can take.
-    _room_geometry: Option<ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<RoomGeometry>>,
-    // ⛤ A SHARED BORROW SINCE 2026-09-18, and the TYPE no longer claims a
-    // mutable reach either. It is only READ here; the reload's writes land in
-    // the staged closure on the publication's own verdict. See the note at the
-    // `reload_ldtk_world_from_disk` call for what had to change first.
-    // The set and which room of it the live room is (OW1 cut 5e): the
-    // one-live-room read, because a reload replaces the live room. `Option`,
-    // so that a reload asked for while two rooms are live is told why it
-    // waits; before, this system did not run and the press was lost.
-    room_set: Option<world_rooms::SoleLiveRoomSpec>,
-    live_rooms: Query<(), With<ambition_platformer2d::session::RoomInstanceRoot>>,
-    // The live room the reload replaces. The rebuilt room is the next one.
-    live_room: Option<
-        ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
-            world_rooms::LiveRoomInstance,
-        >,
+    // The room of the primary seat is the room the reload keeps the player
+    // in, and its publication brings the new room set. Each other live room
+    // is rebuilt from that set after it (OW1: the gate to one live room is
+    // gone). Before, these were the one-live-room reads, and a reload asked
+    // for while two rooms were live waited.
+    primary_room: world_rooms::PrimaryLiveRoomSpec,
+    live_rooms: world_rooms::LiveRoomSpecs,
+    // ⛔ A GUARD. A live room whose root has no geometry has no room authority
+    // to replace, and the publication of that room would be refused when it
+    // is applied.
+    room_roots: Query<
+        (&world_rooms::LiveRoomInstance, Has<RoomGeometry>),
+        With<ambition_platformer2d::session::RoomInstanceRoot>,
     >,
     mut ldtk_reload: ResMut<ambition_platformer2d::dev_tools::WorldSourceHotReload>,
     tuning: Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
@@ -201,21 +192,31 @@ pub(super) fn handle_ldtk_hot_reload(
         return;
     };
 
-    // ⛔ ONE LIVE ROOM. A reload replaces the room set and rebuilds one live
-    // room. Another live room would keep the content of the old generation
-    // under the new set's definition of its room, and its root names the old
-    // generation. Until a reload re-prepares every live room, it waits.
-    // `pending` stays, so auto-apply applies it when one room is live.
-    let live = live_rooms.iter().count();
-    if live > 1 {
+    // The room the reload keeps the player in. With no live room there is
+    // nothing to reload into, and the press does nothing, as before.
+    let (Some(live_room), Some(current_room)) = (primary_room.room(), primary_room.spec()) else {
+        return;
+    };
+    // `pending` stays, so auto-apply applies it when each room has its geometry.
+    if let Some((without, _)) = room_roots.iter().find(|(_, has_geometry)| !has_geometry) {
         ldtk_reload.mark_deferred(format!(
-            "{live} rooms are live and a reload rebuilds one; it applies when one room is live"
+            "live room {without} has no geometry yet; the reload applies when it has"
         ));
         return;
     }
-    let (Some(_), Some(room_set)) = (_room_geometry, room_set) else {
-        return;
-    };
+    // ⭐ EVERY OTHER LIVE ROOM IS REBUILT TOO. A reload replaces the room set.
+    // A live room that it did not rebuild would keep the content of the old
+    // generation under the new set's definition of its room. In the order of
+    // the live instances, so that two runs stage them in the same order.
+    let mut other_rooms: Vec<OtherLiveRoom> = live_rooms
+        .live_rooms()
+        .filter(|(live, _)| *live != live_room)
+        .map(|(live, definition)| OtherLiveRoom {
+            live,
+            room_id: live_rooms.rooms().spec(definition).id.clone(),
+        })
+        .collect();
+    other_rooms.sort_by_key(|other| other.live);
 
     let restart_local_ggrs = match local_ggrs_restart_policy(content_identity.4.as_deref().copied())
     {
@@ -271,9 +272,10 @@ pub(super) fn handle_ldtk_hot_reload(
         // rather than this proxy for it.
         let result = reload_ldtk_world_from_disk(
             &mut commands,
-            room_set.rooms(),
-            room_set.spec(),
-            live_room.as_deref().map(|live| **live),
+            primary_room.rooms(),
+            current_room,
+            Some(live_room),
+            other_rooms,
             &mut clusters,
             tuning.0,
             &room_visuals,
@@ -322,6 +324,48 @@ pub(super) fn handle_ldtk_hot_reload(
     // When no player entity exists, hot-reload is silently skipped.
     // The game always has a player entity during normal play; this
     // branch only fires in unusual teardown states.
+}
+
+/// A live room a reload rebuilds after the room of the primary seat.
+pub(super) struct OtherLiveRoom {
+    live: world_rooms::LiveRoomInstance,
+    room_id: String,
+}
+
+/// Replace one more live room with the room `plan` prepared from the set the
+/// session holds now: a later publication of a reload whose first room is
+/// published. Answers whether it published.
+///
+/// The live instance it mints is read here, after the publication before it
+/// moved the counter. The receipt is retired on the two arms.
+fn republish_live_room(
+    world: &mut World,
+    replaces: world_rooms::LiveRoomInstance,
+    plan: &rooms::RoomConstructionPlan,
+    residents: Vec<(Entity, bool)>,
+) -> bool {
+    let Some(mints) = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        world_rooms::RoomSet,
+    >(world)
+    .map(|rooms| rooms.next_live_room()) else {
+        return false;
+    };
+    let mut queue = bevy::ecs::world::CommandQueue::default();
+    let publication = {
+        let mut commands = Commands::new(&mut queue, world);
+        plan.replace_live_world(
+            &mut commands,
+            residents,
+            None,
+            // The set is the one the first room brought.
+            None,
+            None,
+            Some(rooms::LiveRoomSuccession::replacing(replaces, mints)),
+            Vec::new(),
+        )
+    };
+    queue.apply(world);
+    rooms::settle_publication(world, publication, |_| {}, |_| {})
 }
 
 #[derive(Resource, Clone, Copy, Debug)]
@@ -422,6 +466,9 @@ pub(super) fn reload_ldtk_world_from_disk(
     // The room the live room is: the one a reload must keep the player in.
     current_room: &world_rooms::RoomSpec,
     live_room: Option<world_rooms::LiveRoomInstance>,
+    // The live rooms other than `live_room`. Each is rebuilt from the new set
+    // after the first room publishes.
+    other_rooms: Vec<OtherLiveRoom>,
     clusters: &mut ae::BodyClustersMut<'_>,
     tuning: ae::MovementTuning,
     room_visuals: &Query<
@@ -559,6 +606,37 @@ pub(super) fn reload_ldtk_world_from_disk(
             ]
         })?;
 
+    let construction = ambition_platformer2d::actors::features::ActorConstructionContext::for_content_replacement(
+        construction_recipes,
+        character_catalog,
+        &live_mechanics,
+        // ⛔ THE WORLD IT IS BEING COMMITTED INTO, which is still N. The
+        // boundary compares against this, so the preflight's own generation
+        // is not refused as stale by the generation it is introducing —
+        // `ActiveContentBinding` is published AFTER the commit, deliberately,
+        // and every LATER transaction must state the new one.
+        live_binding.0,
+        // ⛔ AND THE INCOMING GENERATION — the one this reload is publishing.
+        // Every root the plan mints is stamped with it, which is what makes a
+        // rebuilt root's `TransactionId` name the content it is actually made
+        // of. It equals the live epoch exactly when the reload is equivalent.
+        //
+        // ⭐ THE TWO ARE INDEPENDENT ONLY HERE, and asking for them by the
+        // name `for_content_replacement` is what makes that visible. Three
+        // ordinary roads used to reach the same two-binding signature and
+        // three of them filled the incoming half wrong.
+        ambition_platformer2d::platformer::construction::ContentBinding::content(
+            committed_content.epoch(),
+            ambition_platformer2d::session::PeerContentIdentity::from_bytes(
+                *committed_content.fingerprint().as_bytes(),
+            ),
+        ),
+        brain_profiles,
+        // A hot reload replaces the authored content wholesale, so the
+        // dispositions of occurrences minted from the OLD definitions say
+        // nothing about the new ones. Rebuilt from the records alone.
+        None,
+    );
     let construction_plan = rooms::RoomConstructionPlan::prepare_spec(
         transaction.next_room_set.activation(),
         transaction.next_spec.clone(),
@@ -572,51 +650,75 @@ pub(super) fn reload_ldtk_world_from_disk(
         // actors came from the generation.
         live_mechanics.bosses(),
         session_scope,
-        ambition_platformer2d::actors::features::ActorConstructionContext::for_content_replacement(
-            construction_recipes,
-            character_catalog,
-            &live_mechanics,
-            // ⛔ THE WORLD IT IS BEING COMMITTED INTO, which is still N. The
-            // boundary compares against this, so the preflight's own generation
-            // is not refused as stale by the generation it is introducing —
-            // `ActiveContentBinding` is published AFTER the commit, deliberately,
-            // and every LATER transaction must state the new one.
-            live_binding.0,
-            // ⛔ AND THE INCOMING GENERATION — the one this reload is publishing.
-            // Every root the plan mints is stamped with it, which is what makes a
-            // rebuilt root's `TransactionId` name the content it is actually made
-            // of. It equals the live epoch exactly when the reload is equivalent.
-            //
-            // ⭐ THE TWO ARE INDEPENDENT ONLY HERE, and asking for them by the
-            // name `for_content_replacement` is what makes that visible. Three
-            // ordinary roads used to reach the same two-binding signature and
-            // three of them filled the incoming half wrong.
-            ambition_platformer2d::platformer::construction::ContentBinding::content(
-                committed_content.epoch(),
-                ambition_platformer2d::session::PeerContentIdentity::from_bytes(
-                    *committed_content.fingerprint().as_bytes(),
-                ),
-            ),
-            brain_profiles,
-            // A hot reload replaces the authored content wholesale, so the
-            // dispositions of occurrences minted from the OLD definitions say
-            // nothing about the new ones. Rebuilt from the records alone.
-            None,
-        ),
+        construction,
     )
     .map_err(|error| vec![error.to_string()])?;
+
+    // ⛔⛤ **ALL THE PLANS, BEFORE THE FIRST ROOM IS STAGED.** A reload with N
+    // live rooms is N publications in sequence, and the first one moves the
+    // session to the new room set. A room that fails AFTER that leaves a
+    // mixed world: one live room of the new generation and one of the old.
+    // So each thing that can fail without the world is done here, for each
+    // live room, and a failure refuses the whole reload with the room named.
+    // Nothing is staged, and each live room keeps the generation it has.
+    let mut other_plans = Vec::with_capacity(other_rooms.len());
+    for other in &other_rooms {
+        let Some(index) = transaction.next_room_set.room_index_by_id(&other.room_id) else {
+            return Err(vec![format!(
+                "LDtk reload would delete the live room '{}' (live room {}). Move the \
+                 player in it elsewhere or restore that activeArea before applying.",
+                other.room_id, other.live
+            )]);
+        };
+        let plan = rooms::RoomConstructionPlan::prepare_spec(
+            index,
+            transaction.next_room_set.rooms[index].clone(),
+            placement_lowering,
+            content_staging,
+            live_mechanics.bosses(),
+            session_scope,
+            construction,
+        )
+        .map_err(|error| {
+            vec![format!(
+                "the live room '{}' (live room {}) cannot be rebuilt from the reloaded \
+                 world, so no room was reloaded: {error}",
+                other.room_id, other.live
+            )]
+        })?;
+        other_plans.push((other.live, plan));
+    }
 
     // Commit exactly the prepared construction artifact rather than
     // rediscovering spawn decisions here.
     // The residents of the live room being replaced, and no other live room's.
-    let outgoing = room_visuals
-        .iter()
-        .filter(|(_, _, room)| {
-            ambition_platformer2d::platformer::lifecycle::InRoomInstance::leaves_with(
-                *room, live_room,
-            )
-        })
-        .map(|(entity, physics_entity, _)| (entity, physics_entity.is_some()));
+    //
+    // ⚠ A resident with no stamp leaves with ANY room (`leaves_with`), so the
+    // first room takes it. `claimed` keeps a later room from naming it again.
+    let mut claimed = std::collections::BTreeSet::new();
+    let mut residents_of = |room: Option<world_rooms::LiveRoomInstance>| {
+        let residents: Vec<(Entity, bool)> = room_visuals
+            .iter()
+            .filter(|(entity, _, stamp)| {
+                !claimed.contains(entity)
+                    && ambition_platformer2d::platformer::lifecycle::InRoomInstance::leaves_with(
+                        *stamp, room,
+                    )
+            })
+            .map(|(entity, physics_entity, _)| (entity, physics_entity.is_some()))
+            .collect();
+        claimed.extend(residents.iter().map(|(entity, _)| *entity));
+        residents
+    };
+    let outgoing = residents_of(live_room);
+    let other_rooms: Vec<(world_rooms::LiveRoomInstance, rooms::RoomConstructionPlan, Vec<(Entity, bool)>)> =
+        other_plans
+            .into_iter()
+            .map(|(live, plan)| {
+                let residents = residents_of(Some(live));
+                (live, plan, residents)
+            })
+            .collect();
     let active_room = construction_plan.room_id().to_string();
     // ⚠ A hot reload replaces the room SET as well as the active room, which is
     // why `next_rooms` is `Some` here and `None` at the two walk-within-a-set
@@ -750,7 +852,9 @@ pub(super) fn reload_ldtk_world_from_disk(
     // other guarantee on this road unobservable. It reports THIS publication's
     // verdict, which `settle_publication` returns.
     let status_room = active_room.clone();
-    let report_status = move |world: &mut bevy::prelude::World, published: bool| {
+    let report_status = move |world: &mut bevy::prelude::World,
+                              published: bool,
+                              kept_the_old_generation: Vec<String>| {
         // The REASONS are cosmetic and come from the last verification record;
         // the DECISION above comes from this publication's own verdict. If that
         // record is about some other room, the message says only what is certain.
@@ -780,7 +884,17 @@ pub(super) fn reload_ldtk_world_from_disk(
         else {
             return;
         };
-        if published {
+        if published && !kept_the_old_generation.is_empty() {
+            // ⛔ THE ONE CASE THAT LEAVES A MIXED WORLD, SAID IN THOSE WORDS.
+            // Each plan prepared, the first room published, and the
+            // transaction of a later room was refused when it was verified.
+            ldtk_reload.mark_failed(vec![format!(
+                "THE WORLD IS MIXED: the reload published '{status_room}' and the session is on \
+                 the new generation, and the live room(s) [{}] were refused and keep the \
+                 content of the old generation. Apply the reload again, or leave those rooms",
+                kept_the_old_generation.join(", ")
+            )]);
+        } else if published {
             ldtk_reload.mark_applied(&status_room);
         } else {
             let reasons = if reasons.is_empty() {
@@ -804,17 +918,36 @@ pub(super) fn reload_ldtk_world_from_disk(
     // ⭐ Queued rather than written: the closure runs when this frame's commands
     // apply, which is after `transaction::close` has recorded its verdict — the
     // same flush, in queue order, so there is no window and nothing to poll.
+    //
+    // ⭐ THE OTHER LIVE ROOMS FOLLOW IN THE SAME FLUSH, behind the first
+    // room's verdict. No tick runs between two of these publications, so no
+    // system sees one live room on the new generation and another on the old.
     commands.queue(move |world: &mut bevy::prelude::World| {
+        let mut kept_the_old_generation = Vec::new();
         let published = ambition_platformer2d::actors::rooms::settle_publication(
             world,
             publication,
             |world| {
+                // ⛔ THE OTHER ROOMS FIRST, THE GENERATION LAST. Each plan
+                // states the generation it is committed INTO, which is N for
+                // all the rooms of this reload. The live binding moves to
+                // N+1 in `commit_generation`. Run before the loop, it made
+                // each later room a `ContentBindingMismatch` (planned N, live
+                // N+1): measured, the first room published and the second
+                // was refused. So the generation moves one time, after the
+                // last room, as it does after the one room of a reload with
+                // one live room.
+                for (replaces, plan, residents) in other_rooms {
+                    if !republish_live_room(world, replaces, &plan, residents) {
+                        kept_the_old_generation.push(plan.room_id().to_string());
+                    }
+                }
                 commit_generation(world);
                 rehome_and_dress(world);
             },
             |_| {},
         );
-        report_status(world, published);
+        report_status(world, published, kept_the_old_generation);
     });
 
     Ok(active_room)

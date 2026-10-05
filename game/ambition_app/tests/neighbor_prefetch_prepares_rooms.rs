@@ -537,7 +537,7 @@ type LiveBodyId = ambition_platformer2d::platformer::lifecycle::LiveBodyId;
 const BOB: &str = "bob";
 
 /// The room definitions that are live, by room id.
-fn live_room_ids(app: &mut bevy::prelude::App) -> Vec<String> {
+pub(crate) fn live_room_ids(app: &mut bevy::prelude::App) -> Vec<String> {
     use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
     let world = app.world_mut();
     let definitions: Vec<_> = world
@@ -561,7 +561,7 @@ fn live_room_ids(app: &mut bevy::prelude::App) -> Vec<String> {
 }
 
 /// The room ids next to `room`, in the order of the room graph.
-fn neighbours_of(app: &bevy::prelude::App, room: &str) -> Vec<String> {
+pub(crate) fn neighbours_of(app: &bevy::prelude::App, room: &str) -> Vec<String> {
     let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
         ambition_platformer2d::world::rooms::RoomSet,
     >(app.world())
@@ -579,7 +579,7 @@ fn neighbours_of(app: &bevy::prelude::App, room: &str) -> Vec<String> {
         .collect()
 }
 
-fn alice(app: &mut bevy::prelude::App) -> bevy::prelude::Entity {
+pub(crate) fn alice(app: &mut bevy::prelude::App) -> bevy::prelude::Entity {
     let world = app.world_mut();
     world
         .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
@@ -587,7 +587,7 @@ fn alice(app: &mut bevy::prelude::App) -> bevy::prelude::Entity {
         .expect("one primary player")
 }
 
-fn bob(app: &mut bevy::prelude::App) -> Option<bevy::prelude::Entity> {
+pub(crate) fn bob(app: &mut bevy::prelude::App) -> Option<bevy::prelude::Entity> {
     let world = app.world_mut();
     world
         .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId)>()
@@ -597,13 +597,13 @@ fn bob(app: &mut bevy::prelude::App) -> Option<bevy::prelude::Entity> {
 }
 
 /// The room id of the live room `body` is in.
-fn room_of(app: &bevy::prelude::App, body: bevy::prelude::Entity) -> Option<String> {
+pub(crate) fn room_of(app: &bevy::prelude::App, body: bevy::prelude::Entity) -> Option<String> {
     ambition_platformer2d::world::rooms::live_room_spec_of(app.world(), body).map(|spec| spec.id.clone())
 }
 
 /// Stage the crossing of `body` to `target` and run it to its end. Answers
 /// whether the transaction promoted a prefetched plan.
-fn cross(
+pub(crate) fn cross(
     app: &mut bevy::prelude::App,
     body: bevy::prelude::Entity,
     slot: PlayerSlot,
@@ -646,9 +646,6 @@ fn cross(
 /// A presentation host with Bob, driven by slot 1, beside Alice in the start
 /// room. Returns the start room id.
 fn host_with_bob_beside_alice(start_room: &str) -> (bevy::prelude::App, String) {
-    use ambition_platformer2d::actor::{ActorFaction, SpawnActorKind, SpawnActorRequest};
-    use ambition_platformer2d::character::{CharacterBrain, CharacterId};
-
     let mut app = ambition_app::app::build_visible_app_with(VisibleRenderMode::NoWindow, false, |app| {
         app.insert_resource(ambition_app::app::StartRoomOverride(start_room.to_owned()));
         app.insert_resource(ambition_app::app::StartRoomMustResolve);
@@ -656,8 +653,18 @@ fn host_with_bob_beside_alice(start_room: &str) -> (bevy::prelude::App, String) 
     for _ in 0..ambition_app::app::shared_host_startup_ticks() + 30 {
         app.update();
     }
-    let alice = alice(&mut app);
-    let start = room_of(&app, alice).expect("Alice is in a live room");
+    let start = put_bob_beside_alice(&mut app);
+    (app, start)
+}
+
+/// Put Bob, driven by slot 1, beside Alice in the one live room. Returns the
+/// id of that room.
+pub(crate) fn put_bob_beside_alice(app: &mut bevy::prelude::App) -> String {
+    use ambition_platformer2d::actor::{ActorFaction, SpawnActorKind, SpawnActorRequest};
+    use ambition_platformer2d::character::{CharacterBrain, CharacterId};
+
+    let alice = alice(app);
+    let start = room_of(app, alice).expect("Alice is in a live room");
     let at = app
         .world()
         .get::<ambition_platformer2d::engine_core::BodyKinematics>(alice)
@@ -678,7 +685,7 @@ fn host_with_bob_beside_alice(start_room: &str) -> (bevy::prelude::App, String) 
     for _ in 0..8 {
         app.update();
     }
-    let bob = bob(&mut app).expect("Bob's body reached the world");
+    let bob = bob(app).expect("Bob's body reached the world");
     let room = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
         ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
     >(app.world_mut())
@@ -690,7 +697,7 @@ fn host_with_bob_beside_alice(start_room: &str) -> (bevy::prelude::App, String) 
     for _ in 0..8 {
         app.update();
     }
-    (app, start)
+    start
 }
 
 /// The rooms of the two-room walk, chosen from the room graph.

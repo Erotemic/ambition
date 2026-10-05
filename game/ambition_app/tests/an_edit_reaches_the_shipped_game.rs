@@ -813,42 +813,48 @@ fn a_committed_world_reload_applies_its_effects() {
     );
 }
 
-/// A reload asked for while two rooms are live waits, and says so. It rebuilds
-/// one live room, and another live room would keep the old generation's
-/// content under the new set. Before, the system did not run at all while two
-/// rooms were live, and the press was lost with no status. A second live room
-/// root is spawned beside the session's room for the press; when it is gone,
-/// the same press applies, which is the control.
+/// A reload waits for a live room that has no geometry, and says so. The
+/// publication of that room would be refused when it is applied, after the
+/// rooms before it published. `pending` is not cleared. When the room is
+/// gone, the same press applies, which is the control.
+///
+/// This arm was `a_world_reload_asked_for_while_two_rooms_are_live_waits`:
+/// a reload rebuilt one live room, so with two it waited. It rebuilds each
+/// live room now (`a_world_reload_rebuilds_every_live_room`), and this is
+/// the one wait that is left.
 #[test]
-fn a_world_reload_asked_for_while_two_rooms_are_live_waits() {
+fn a_world_reload_waits_for_a_live_room_with_no_geometry() {
     use ambition_platformer2d::dev_tools::WorldSourceHotReload;
     let mut app = a_running_shipped_session();
     let applied = |app: &bevy::prelude::App| app.world().resource::<WorldSourceHotReload>().applied_count;
     let before = applied(&app);
-    // A live room as every reader of one sees it: a root with its own
-    // definition and geometry (a copy of the session's room).
-    let (definition, geometry) = {
-        let world = app.world_mut();
-        let mut roots = world.query_filtered::<(
-            &ambition_platformer2d::world::rooms::LiveRoomDefinition,
-            &ambition_platformer2d::engine_core::RoomGeometry,
-        ), bevy::prelude::With<ambition_platformer2d::session::RoomInstanceRoot>>();
-        let (definition, geometry) = roots.single(world).expect("the session has one live room");
-        (*definition, geometry.clone())
+    // A live room root of a room that is not live, with no geometry.
+    let definition = {
+        let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >(app.world())
+        .expect("the session keeps its room set");
+        rooms.definition_by_id("basement_npcs").expect("the shipped world has the room")
     };
     let second = ambition_platformer2d::platformer::lifecycle::spawn_live_room(
         app.world_mut(),
         ambition_platformer2d::platformer::lifecycle::LiveRoomInstance::from_ordinal(1_000),
         definition,
     );
-    app.world_mut().entity_mut(second).insert(geometry);
+    assert!(
+        app.world().get::<ambition_platformer2d::engine_core::RoomGeometry>(second).is_none(),
+        "the new live room root has geometry, so this arm does not test the wait"
+    );
 
     press_apply_reload(&mut app);
     let reload = app.world().resource::<WorldSourceHotReload>().clone();
     assert_eq!(
-        (reload.applied_count, reload.last_status.starts_with("world reload waits: 2 rooms are live")),
+        (
+            reload.applied_count,
+            reload.last_status.starts_with("world reload waits: live room #1000 has no geometry"),
+        ),
         (before, true),
-        "a reload with two live rooms: (applied count, the status says it waits); status {:?}, errors {:?}",
+        "a reload with a live room that has no geometry: (applied count, the status says it waits); status {:?}, errors {:?}",
         reload.last_status,
         reload.last_errors
     );
@@ -858,10 +864,404 @@ fn a_world_reload_asked_for_while_two_rooms_are_live_waits() {
     let reload = app.world().resource::<WorldSourceHotReload>().clone();
     assert!(
         reload.applied_count > before,
-        "control: with one live room again, the reload did not apply: {:?} / {:?}",
+        "control: with that room gone, the reload did not apply: {:?} / {:?}",
         reload.last_status,
         reload.last_errors
     );
+}
+
+/// What each live room is made of, by room id: its live instance, and the
+/// distinct content terms of the entities that are stamped with it.
+///
+/// A room that a reload rebuilt has a new instance and the terms of the new
+/// generation. A room that a reload did not rebuild keeps the two.
+fn live_room_readings(
+    app: &mut bevy::prelude::App,
+) -> std::collections::BTreeMap<
+    String,
+    (
+        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+        std::collections::BTreeSet<String>,
+    ),
+> {
+    use ambition_platformer2d::platformer::lifecycle::{
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+    };
+    let world = app.world_mut();
+    let roots: Vec<_> = world
+        .query_filtered::<
+            (&LiveRoomInstance, &ambition_platformer2d::world::rooms::LiveRoomDefinition),
+            bevy::prelude::With<RoomInstanceRoot>,
+        >()
+        .iter(world)
+        .map(|(live, definition)| (*live, *definition))
+        .collect();
+    let stamps: Vec<(LiveRoomInstance, String)> = world
+        .query::<(
+            &InRoomInstance,
+            &ambition_platformer2d::platformer::construction::TransactionId,
+        )>()
+        .iter(world)
+        .map(|(room, stamp)| (room.0, stamp.peer_content_term().to_string()))
+        .filter(|(_, term)| term != "runtime-dynamic")
+        .collect();
+    let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(world)
+    .expect("the session keeps its room set");
+    roots
+        .into_iter()
+        .map(|(live, definition)| {
+            let terms = stamps
+                .iter()
+                .filter(|(room, _)| *room == live)
+                .map(|(_, term)| term.clone())
+                .collect();
+            (rooms.spec(definition).id.clone(), (live, terms))
+        })
+        .collect()
+}
+
+/// The changed copy of the world file that a reload arm watches. The file is
+/// removed when this is dropped, also when the arm fails.
+struct EditedWorldCopy(std::path::PathBuf);
+
+impl Drop for EditedWorldCopy {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+/// A copy of the watched world file, changed by `edit`, in the temporary
+/// directory. The reload is pointed at it. ⚠ Nothing in the tree is written.
+#[must_use = "the copy is removed when the value is dropped: keep it until the reload was pressed"]
+fn watch_an_edited_copy(
+    app: &mut bevy::prelude::App,
+    tag: &str,
+    edit: impl FnOnce(&mut serde_json::Value),
+) -> EditedWorldCopy {
+    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+    let source = app
+        .world()
+        .resource::<WorldSourceHotReload>()
+        .watch_path
+        .clone()
+        .expect("the shipped session watches a world file");
+    let text = std::fs::read_to_string(&source).expect("the watched world file is readable");
+    let mut project: serde_json::Value =
+        serde_json::from_str(&text).expect("the watched world file is JSON");
+    edit(&mut project);
+    let copy = std::env::temp_dir().join(format!(
+        "ambition_world_reload_{}_{tag}.ldtk",
+        std::process::id()
+    ));
+    std::fs::write(&copy, serde_json::to_string(&project).expect("the project serializes"))
+        .expect("the temporary directory is writable");
+    app.world_mut().resource_mut::<WorldSourceHotReload>().watch_path = Some(copy.clone());
+    EditedWorldCopy(copy)
+}
+
+/// Move the first `entity` of the level whose `activeArea` is `room` by 16 px
+/// in x: a change of the authored world that keeps it valid.
+fn move_an_entity(project: &mut serde_json::Value, room: &str, entity: &str) {
+    let levels = project["levels"].as_array_mut().expect("the project has levels");
+    for level in levels {
+        let in_room = level["fieldInstances"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|field| field["__identifier"] == "activeArea" && field["__value"] == room);
+        if !in_room {
+            continue;
+        }
+        for layer in level["layerInstances"].as_array_mut().into_iter().flatten() {
+            for instance in layer["entityInstances"].as_array_mut().into_iter().flatten() {
+                if instance["__identifier"] == entity {
+                    let x = instance["px"][0].as_i64().expect("an entity has a px");
+                    instance["px"][0] = serde_json::json!(x + 16);
+                    if let Some(world_x) = instance["__worldX"].as_i64() {
+                        instance["__worldX"] = serde_json::json!(world_x + 16);
+                    }
+                    return;
+                }
+            }
+        }
+    }
+    panic!("the project has no `{entity}` in a level of `{room}`");
+}
+
+/// The second live room of the two-room reload arms. It has authored
+/// content that construction stamps, so a rebuilt room and a kept room read
+/// differently (`tiny_chamber` has none: its reading is an empty set).
+const SECOND_LIVE_ROOM: &str = "basement_npcs";
+
+/// Which of the two bodies leaves the start room. Alice is the primary seat,
+/// so the room she is in is the room a reload publishes first.
+#[derive(Clone, Copy, Debug)]
+enum Leaver {
+    Alice,
+    Bob,
+}
+
+/// The shipped session with Alice and Bob (driven by slot 1) in two live
+/// rooms: one stays in the start room and `leaver` is in `second`. Returns
+/// the id of the start room.
+fn a_running_shipped_session_with_two_live_rooms(
+    leaver: Leaver,
+    second: &str,
+) -> (bevy::prelude::App, String) {
+    use crate::neighbor_prefetch_prepares_rooms::{
+        alice, bob, cross, live_room_ids, put_bob_beside_alice,
+    };
+    use ambition_platformer2d::characters::control::PlayerSlot;
+
+    let mut app = a_running_shipped_session();
+    let start = put_bob_beside_alice(&mut app);
+    match leaver {
+        Leaver::Alice => {
+            let body = alice(&mut app);
+            cross(&mut app, body, PlayerSlot(0), second);
+        }
+        Leaver::Bob => {
+            let body = bob(&mut app).expect("Bob is in the world");
+            cross(&mut app, body, PlayerSlot(1), second);
+        }
+    }
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(
+        live_room_ids(&mut app),
+        vec![start.clone(), second.to_owned()],
+        "{leaver:?}'s crossing did not leave two live rooms"
+    );
+    (app, start)
+}
+
+/// ⭐ A WORLD RELOAD REBUILDS EVERY LIVE ROOM.
+///
+/// A reload replaces the room set. A live room that it did not rebuild would
+/// keep the content of the old generation under the new set's definition of
+/// its room. So the reload publishes the room of the primary seat, which
+/// brings the set, and then each other live room from that set, in one
+/// command flush. The generation of the session moves one time, after the
+/// last room.
+///
+/// The file that is reloaded is a changed copy (one entity moved), so the
+/// reload is a new generation and its content term is a new one. The reading
+/// for each live room is its live instance and the content terms that its
+/// stamped entities carry.
+///
+/// - Control, one live room: it is rebuilt, as before.
+/// - Two live rooms: each is rebuilt. Before, the reload waited (`world
+///   reload waits: 2 rooms are live`), and the two rooms kept their content.
+#[test]
+fn a_world_reload_rebuilds_every_live_room() {
+    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+
+    for two_rooms in [false, true] {
+        let arm = if two_rooms { "two live rooms" } else { "one live room" };
+        let (mut app, edited_room, moved) = if two_rooms {
+            let (app, _) =
+                a_running_shipped_session_with_two_live_rooms(Leaver::Alice, SECOND_LIVE_ROOM);
+            (app, SECOND_LIVE_ROOM.to_owned(), "NpcSpawn")
+        } else {
+            let app = a_running_shipped_session();
+            let start = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+                .expect("the session has a live room")
+                .id
+                .clone();
+            (app, start, "PogoOrb")
+        };
+        let before = live_room_readings(&mut app);
+        let epoch_before = the_only_prepared_epoch(&mut app);
+        // ⛔ THE PREMISE. Each live room has stamped content, and all of it is
+        // of one generation. A room with no stamped entity reads the same
+        // rebuilt or kept.
+        let old_terms: std::collections::BTreeSet<&String> =
+            before.values().flat_map(|(_, terms)| terms).collect();
+        assert!(
+            before.len() == if two_rooms { 2 } else { 1 }
+                && before.values().all(|(_, terms)| terms.len() == 1)
+                && old_terms.len() == 1,
+            "{arm}: before the reload, each live room does not carry one content term, the \
+             same one: {before:?}"
+        );
+        let old_term = (*old_terms.iter().next().expect("one term")).clone();
+
+        let _copy = watch_an_edited_copy(&mut app, if two_rooms { "two" } else { "one" }, |project| {
+            move_an_entity(project, &edited_room, moved)
+        });
+        let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
+        press_apply_reload(&mut app);
+
+        let reload = app.world().resource::<WorldSourceHotReload>().clone();
+        assert_eq!(
+            (reload.applied_count, reload.last_status.contains("applied"), reload.last_errors.is_empty()),
+            (applied + 1, true, true),
+            "{arm}: the reload did not apply: {:?} / {:?}",
+            reload.last_status,
+            reload.last_errors
+        );
+        let after = live_room_readings(&mut app);
+        let mut wrong: Vec<String> = Vec::new();
+        if after.keys().ne(before.keys()) {
+            wrong.push(format!(
+                "the live rooms changed: {:?} -> {:?}",
+                before.keys().collect::<Vec<_>>(),
+                after.keys().collect::<Vec<_>>()
+            ));
+        }
+        for (room, (instance, terms)) in &after {
+            let Some((old_instance, _)) = before.get(room) else {
+                continue;
+            };
+            if instance == old_instance {
+                wrong.push(format!("`{room}` kept its live instance {instance}: it was not rebuilt"));
+            }
+            if terms.contains(&old_term) {
+                wrong.push(format!(
+                    "`{room}` still carries the content term of the old generation: {terms:?}"
+                ));
+            }
+            if terms.len() != 1 {
+                wrong.push(format!("`{room}` does not carry one content term: {terms:?}"));
+            }
+        }
+        let new_terms: std::collections::BTreeSet<&String> =
+            after.values().flat_map(|(_, terms)| terms).collect();
+        if new_terms.len() != 1 {
+            wrong.push(format!("the live rooms are not of one generation: {new_terms:?}"));
+        }
+        assert!(
+            wrong.is_empty(),
+            "{arm}: a live room was not rebuilt from the reloaded world:\n  {}",
+            wrong.join("\n  ")
+        );
+        // The session is on the new generation, one time.
+        assert_eq!(
+            the_only_prepared_epoch(&mut app),
+            epoch_before + 1,
+            "{arm}: the generation of the session did not move by one"
+        );
+        // Each publication of the sequence is ended: no receipt and no hidden
+        // candidate is left, and each live room can be described.
+        assert_eq!(
+            (
+                ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+                ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
+            ),
+            (0, 0),
+            "{arm}: (publication receipts, hidden candidates) left after the reload settled"
+        );
+        // ⚠ ROOM BY ROOM. A live identity is the pair (live room, `SimId`), and
+        // two live room roots wear one `SimId`, so a capture of the whole
+        // world is a `DuplicateIdentity` with two live rooms, before a reload
+        // and after it (measured; the "Root identity" row of the open-world
+        // plan).
+        for (room, (instance, _)) in &after {
+            let described =
+                ambition_platformer2d::platformer::construction::TransactionBaseline::capture_for_session(
+                    app.world_mut(),
+                    ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+                    ambition_platformer2d::platformer::lifecycle::TransactionRooms::only(*instance),
+                );
+            assert!(
+                described.is_ok(),
+                "{arm}: the room `{room}` that the reload published cannot be described: {:?}",
+                described.err()
+            );
+        }
+        // The rooms stay as the reload left them.
+        for _ in 0..30 {
+            app.update();
+        }
+        assert_eq!(
+            live_room_readings(&mut app),
+            after,
+            "{arm}: the live rooms changed in the 30 frames after the reload"
+        );
+    }
+}
+
+/// ⛔ A RELOAD THAT CANNOT REBUILD ONE LIVE ROOM REBUILDS NONE.
+///
+/// Each plan is prepared before the first room is staged. The first room's
+/// publication moves the session to the new room set, so a room that fails
+/// after it leaves a mixed world. Here Bob is in `basement_enemies`, which is
+/// NOT the room of the primary seat, and the changed copy gives that room an
+/// enemy that names a character nobody registered. Its plan does not prepare.
+#[test]
+fn a_world_reload_that_cannot_rebuild_one_live_room_rebuilds_none() {
+    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+
+    const BOBS_ROOM: &str = "basement_enemies";
+    let (mut app, start) = a_running_shipped_session_with_two_live_rooms(Leaver::Bob, BOBS_ROOM);
+    // ⛔ THE PREMISE: the room that cannot be rebuilt is not the first room of
+    // the reload. A first room that fails is the arm
+    // `a_refused_world_reload_leaves_the_running_game_untouched`.
+    {
+        use crate::neighbor_prefetch_prepares_rooms::{alice, room_of};
+        let body = alice(&mut app);
+        assert_eq!(room_of(&app, body), Some(start.clone()), "Alice is not in the start room");
+    }
+    let before = live_room_readings(&mut app);
+    let epoch_before = the_only_prepared_epoch(&mut app);
+    let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
+
+    let _copy = watch_an_edited_copy(&mut app, "refused", |project| {
+        name_an_unknown_character(project, BOBS_ROOM, "EnemySpawn")
+    });
+    press_apply_reload(&mut app);
+
+    let reload = app.world().resource::<WorldSourceHotReload>().clone();
+    assert_eq!(
+        (reload.applied_count, reload.last_status.contains("rejected")),
+        (applied, true),
+        "the reload was not refused: {:?} / {:?}",
+        reload.last_status,
+        reload.last_errors
+    );
+    assert!(
+        reload.last_errors.iter().any(|error| error.contains(&format!("live room '{BOBS_ROOM}'"))),
+        "the refusal does not name the live room that cannot be rebuilt (`{BOBS_ROOM}`): {:?}",
+        reload.last_errors
+    );
+    assert_eq!(
+        (live_room_readings(&mut app), the_only_prepared_epoch(&mut app)),
+        (before, epoch_before),
+        "⛔ A REFUSED RELOAD REBUILT A LIVE ROOM, or moved the generation of the session"
+    );
+}
+
+/// Give the first `entity` of the level whose `activeArea` is `room` a
+/// character id that no catalog has.
+fn name_an_unknown_character(project: &mut serde_json::Value, room: &str, entity: &str) {
+    let levels = project["levels"].as_array_mut().expect("the project has levels");
+    for level in levels {
+        let in_room = level["fieldInstances"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|field| field["__identifier"] == "activeArea" && field["__value"] == room);
+        if !in_room {
+            continue;
+        }
+        for layer in level["layerInstances"].as_array_mut().into_iter().flatten() {
+            for instance in layer["entityInstances"].as_array_mut().into_iter().flatten() {
+                if instance["__identifier"] != entity {
+                    continue;
+                }
+                for field in instance["fieldInstances"].as_array_mut().into_iter().flatten() {
+                    if field["__identifier"] == "character_id" {
+                        field["__value"] = serde_json::json!("a_character_nobody_registered");
+                        return;
+                    }
+                }
+            }
+        }
+    }
+    panic!("the project has no `{entity}` with a `character_id` in a level of `{room}`");
 }
 
 /// ⛔⛤ **AND A REFUSED RELOAD COSTS THE RUNNING GAME NOTHING.**

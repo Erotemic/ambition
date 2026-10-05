@@ -114,12 +114,22 @@ fn pet_the_dog(sim: &mut Platformer2dSimHarness) -> Pet {
     Pet { player, dog, hearts }
 }
 
+/// The failure of a checkout that did not publish `target`'s part flipbook.
+/// Published sprites are gitignored, and without the flipbook the build embeds
+/// no landmark table, so the pet falls back to the box mark.
+fn unpublished(target: &str) -> String {
+    format!(
+        "`{target}` publishes no part flipbook on this checkout, so this arm cannot run. \
+         Publish it: `scripts/regen/sprites.sh --target {target}`, then build again."
+    )
+}
+
 /// Where the renderer draws `track` in the middle frame of the first row of
 /// `rows` that `target` has: sheet pixels from the feet, +x the way the art
 /// faces. The middle frame is the one the pet's mark is planned for.
 fn drawn_at_the_middle(target: &str, rows: &[&str], track: &str) -> Vec2 {
     let flipbook = RiggedSpriteAsset::baked(target)
-        .unwrap_or_else(|| panic!("`{target}` publishes no part flipbook; run scripts/regen/sprites.sh"));
+        .unwrap_or_else(|| panic!("{}", unpublished(target)));
     let (row, clip) = rows
         .iter()
         .find_map(|row| flipbook.clip(row).map(|clip| (*row, clip)))
@@ -176,7 +186,7 @@ fn contact(sim: &mut Platformer2dSimHarness, pet: &Pet) -> Contact {
         .expect("P1: the dog states the quad its frame is drawn in")
         .0;
     let dog_frame = RiggedSpriteAsset::baked("companion_dog")
-        .expect("the dog publishes a part flipbook; run scripts/regen/sprites.sh")
+        .unwrap_or_else(|| panic!("{}", unpublished("companion_dog")))
         .frame_size;
     let drawn_hand = art_point_in_world(
         &player,

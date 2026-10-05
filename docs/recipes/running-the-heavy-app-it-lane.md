@@ -80,6 +80,23 @@ network transport. Always write "local" beside "the rollback suite is green".
 
 ⛔ **`app_it` does not run the demo apps.** See the next section.
 
+## Arms that read published art
+
+Published sprites are gitignored. An arm that reads a published product fails
+on a checkout that did not publish it, and its failure names the remedy. Run
+the remedy and build again. Do not record the red as environmental.
+
+| Arm | Reads | Remedy |
+| --- | --- | --- |
+| `a_pet_hand_meets_the_contact_point::the_petting_hand_is_on_the_place_the_dog_is_petted` | the part flipbooks of the robot and the dog (the build embeds their landmark tables from them) | `scripts/regen/sprites.sh --target player_robot_v3` and `--target companion_dog` |
+| `admiral_gun_sword` (the rig arms) | the pirates' published body rigs | `scripts/regen/sprites.sh` |
+| `boss_sheet_wiring`, `declared_art_resolves` | each declared sheet | `scripts/regen/sprites.sh` |
+
+The table is the arms whose failure text names `scripts/regen` (grep of
+`game/ambition_app/tests`, 2026-10-05). `enemy_body_scale` and
+`hall_scale_spread` print `[skip]` and pass without baked sheets, so a green
+there on such a checkout proves nothing.
+
 ## The demo host apps have their own lane
 
 `app_it` composes the shipped game. Each demo host app composes a different

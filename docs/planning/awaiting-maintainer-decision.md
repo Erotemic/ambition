@@ -23,11 +23,12 @@ that can proceed without a ruling goes in [`queue.md`](queue.md).
 This is the blocking set, not the important set. A question can matter and
 block nothing.
 
-**The blocking set is empty (2026-10-01).** No open P0/P1 queue row states a
-`**Blocked by:**` question.
+**The blocking set holds one question (2026-10-05).** It was empty from
+2026-10-01.
 
 | question | what it blocks | and if it stays open |
 |---|---|---|
+| [`Q157`](#q157--when-two-machines-hold-different-published-sprite-metrics-may-they-play-together) | **P1** `BAKED-SHEET-IDENTITY`: whether the baked body metrics enter the content identity | two machines whose published sprites differ keep one content fingerprint, start a peer session, and can simulate bodies of different sizes with no refusal |
 
 `scripts/check_blocking_set_names_every_gate.py` reads the queue's
 `**Blocked by:**` fields and fails if this table has no row for a gate. Each

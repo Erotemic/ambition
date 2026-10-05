@@ -79,10 +79,11 @@ Read the rows in `queue.md` before you pick up work. In summary:
 - **P1:** per-actor gates, boss replay retraction, menu over dialogue,
   candidate generation order, content reload (I2/I3), duplicate content
   authorities, A9 profiles, A7 item occurrences, fighter attack selection, Smash
-  parity, character authoring, dead-session refusal, the durable-horizon
-  checksum, and test lanes.
+  parity, character authoring, dead-session refusal, baked sheet identity, the
+  durable-horizon checksum, and test lanes.
 
-No open P0/P1 row is blocked on a maintainer ruling today.
+One open P1 row is blocked on a maintainer ruling: `BAKED-SHEET-IDENTITY`, on
+`Q157`.
 `scripts/check_blocking_set_names_every_gate.py` keeps the queue's
 `**Blocked by:**` fields and the blocking-set table in
 `awaiting-maintainer-decision.md` in agreement.

@@ -246,7 +246,7 @@ fn a_conversations_track_beats_the_rooms_own() {
 #[test]
 fn a_fight_outranks_a_conversations_track() {
     let mut encounter = EncounterMusicRequest::default();
-    encounter.claim_priority(None, "test_boss", "you_are_too_slow");
+    encounter.claim_priority(None, "test_boss", "you_are_too_slow", 0);
     let candidates = simple_track_candidates(
         room("for_emmy_forever_ago"),
         None,
@@ -267,7 +267,7 @@ fn a_fight_outranks_a_conversations_track() {
 #[test]
 fn a_rooms_fight_track_beats_the_fights_own_only_during_a_fight() {
     let mut fight = EncounterMusicRequest::default();
-    fight.claim_priority(None, "test_boss", "flying_spaghetti_monster_roots_boss_choir_backing");
+    fight.claim_priority(None, "test_boss", "flying_spaghetti_monster_roots_boss_choir_backing", 0);
     let candidates = simple_track_candidates(
         room("for_emmy_forever_ago"),
         room("crooked_ascent_boss"),
@@ -451,7 +451,7 @@ fn candidates_with_bob(
     }
     let mut music = EncounterMusicRequest::default();
     if let Some(room) = fight_in {
-        music.claim_priority(Some(room), "test_boss", "fight_theme");
+        music.claim_priority(Some(room), "test_boss", "fight_theme", 0);
     }
     insert_session_world_component(app.world_mut(), music);
     app.add_systems(Update, super::intent::compute_music_intent);

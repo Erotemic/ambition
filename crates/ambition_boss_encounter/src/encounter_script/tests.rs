@@ -303,7 +303,7 @@ fn a_scripts_music_claim_does_not_outlive_the_script() {
     // What a `SetMusic(Some(..))` beat leaves behind.
     session_world_component_mut::<EncounterMusicRequest>(app.world_mut())
         .expect("the fixture inserts one")
-        .claim_priority(None, super::SCRIPT_MUSIC_OWNER, "smirking_behemoth_intro");
+        .claim_priority(None, super::SCRIPT_MUSIC_OWNER, "smirking_behemoth_intro", 0);
 
     app.update();
     assert_eq!(

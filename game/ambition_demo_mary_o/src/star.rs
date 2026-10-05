@@ -82,12 +82,11 @@ pub fn begin_star_power(
 /// reads, it kept the star theme playing over the victory fanfare.
 ///
 /// ⛔⛤ **THIS IS NOT A MUSIC FIX, AND WRITING ONE WOULD HAVE BEEN THE BUG.**
-/// `EncounterMusicRequest` has ONE priority slot and `claim_priority` is
-/// last-writer-wins — it compares nothing, so two live claimants resolve by
-/// whichever system happens to run second. Making victory win by ordering it
-/// after `play_star_music` would encode a semantic rank ("victory outranks a
-/// super state") in a Bevy system edge, where nothing names it and the next
-/// scheduling change silently reverses it.
+/// Two live claimants in one room resolve by when each claim began (the
+/// later one plays, `EncounterMusicRequest::claim_priority`). Making victory
+/// win by ordering it after `play_star_music`, or by when it began, would
+/// encode a semantic rank ("victory outranks a super state") somewhere that
+/// does not name it.
 ///
 /// Ending the QUASAR instead leaves exactly one claimant, so the music follows
 /// from the gameplay fact rather than from a race. It also answers the half a
@@ -120,14 +119,17 @@ pub fn play_star_music(
             ambition_platformer2d::encounter::EncounterMusicRequest,
         >,
     >,
+    // The tick, which dates a music claim.
+    sim_tick: Option<Res<ambition_platformer2d::sim::SimTick>>,
 ) {
     let Some(mut music) = music else {
         return;
     };
+    let now = sim_tick.as_ref().map_or(0, |tick| tick.0);
     let rooms: Vec<_> = stars.iter().map(|body| live.of(body)).collect();
     music.release_priority_where(STAR_MUSIC_OWNER, |room| !rooms.contains(&room));
     for room in rooms {
-        music.claim_priority(room, STAR_MUSIC_OWNER, crate::provider::MARY_O_STAR_MUSIC_TRACK);
+        music.claim_priority(room, STAR_MUSIC_OWNER, crate::provider::MARY_O_STAR_MUSIC_TRACK, now);
     }
 }
 
@@ -279,10 +281,10 @@ mod victory_tests {
     /// Reported 2026-09-21: reaching the flag left her quasar status running and
     /// the star theme playing over the victory fanfare.
     ///
-    /// ⛔ THE CONTROL IS THE POINT. `EncounterMusicRequest` has ONE priority slot
-    /// and `claim_priority` is last-writer-wins, so a test that only checked
-    /// "victory's track is playing" would pass on the broken build whenever the
-    /// victory system happened to run second. This asserts the GAMEPLAY fact —
+    /// ⛔ THE CONTROL IS THE POINT. With two claimants in one room the later
+    /// claim plays, and victory's claim begins after the star's, so a test
+    /// that only checked "victory's track is playing" would pass on the broken
+    /// build. This asserts the GAMEPLAY fact —
     /// the super-state is gone — which is what removes the second claimant
     /// entirely, and separately that an idle flag leaves a burning quasar alone.
     #[test]

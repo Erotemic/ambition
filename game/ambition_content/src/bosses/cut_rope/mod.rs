@@ -211,6 +211,8 @@ pub fn reset_cut_rope_boss_attempt(
     // The live room replayed: the intro is claimed in its music only.
     room: Option<ambition_platformer2d::platformer::lifecycle::LiveRoomInstance>,
     placement_ids: &[String],
+    // The tick, which dates the intro's music claim.
+    now: u64,
 ) {
     let intro_track = registry
         .profile(CUT_ROPE_BOSS_ID)
@@ -233,7 +235,7 @@ pub fn reset_cut_rope_boss_attempt(
     }
     if let Some(music) = music_request {
         match intro_track.filter(|track| !track.is_empty()) {
-            Some(track) => music.claim_priority(room, CUT_ROPE_MUSIC_OWNER, track),
+            Some(track) => music.claim_priority(room, CUT_ROPE_MUSIC_OWNER, track, now),
             None => music.release_priority(room, CUT_ROPE_MUSIC_OWNER),
         }
     }
@@ -304,7 +306,9 @@ pub fn reset_cut_rope_attempt_on_replay(
         >,
     >,
     bosses: Query<(Entity, &BossConfig)>,
+    sim_tick: Option<Res<ambition_time::SimTick>>,
 ) {
+    let now = sim_tick.as_ref().map_or(0, |tick| tick.0);
     for replay in replays.read() {
         let replayed = replay.subject.as_ref().and_then(|subject| subject.room);
         let Some(definition) = rooms.definition_named(replayed) else {
@@ -333,6 +337,7 @@ pub fn reset_cut_rope_attempt_on_replay(
             music.as_deref_mut().map(|m| &mut **m),
             replayed,
             &placements,
+            now,
         );
     }
 }
@@ -439,7 +444,7 @@ mod tests {
     #[test]
     fn the_boss_music_claim_does_not_follow_the_player_out_of_the_room() {
         let mut music = ambition_encounter::EncounterMusicRequest::default();
-        music.claim_priority(None, CUT_ROPE_MUSIC_OWNER, "smirking_behemoth_intro");
+        music.claim_priority(None, CUT_ROPE_MUSIC_OWNER, "smirking_behemoth_intro", 0);
         assert_eq!(
             music.desired_track(None),
             Some("smirking_behemoth_intro"),
@@ -467,7 +472,7 @@ mod tests {
     #[test]
     fn releasing_the_cut_rope_claim_does_not_silence_another_owner() {
         let mut music = ambition_encounter::EncounterMusicRequest::default();
-        music.claim_priority(None, "some_other_fight", "another_track");
+        music.claim_priority(None, "some_other_fight", "another_track", 0);
         music.release_priority(None, CUT_ROPE_MUSIC_OWNER);
         assert_eq!(
             music.desired_track(None),

@@ -1958,7 +1958,8 @@ that is granted one bomb through `ItemGrantRequested`:
   against 10), and the peer rows `AmbitionGameSave` and `OwnedItemsBaseline`
   differed on ticks 1 to 30.
 
-The repair: each session begins with the bag that the process began with.
+The repair (superseded by P4 below, which gives each experience its own
+bag): each session begins with the bag that the process began with.
 `StartingBag` (`items/starting_bag.rs`) records `OwnedItems` at `Startup`, so
 the composition's own bag is the one authority (the Ambition content plugin
 inserts the starter set; a composition that inserts none has an empty bag),
@@ -1967,8 +1968,8 @@ and `start_the_bag_again_on_activation` gives it back in
 that changes the bag. Witness:
 `shell_host_lifecycle::a_bag_that_a_session_changed_reaches_a_later_session_through_its_save_only`
 (premises: the first session has the bomb in its bag and in its save; the
-Sanic save has no inventory at its activation), and
-`items::starting_bag::tests::a_session_activation_gives_the_bag_that_the_process_began_with`.
+Sanic save has no inventory at its activation), and a unit arm in `items/starting_bag.rs`, which P4 replaced with
+`a_session_begins_with_the_bag_its_experience_declares`.
 Poisons: the reset not registered (the three arms above); the record runs in
 `Update` (the unit arm: the starting bag follows the live bag).
 

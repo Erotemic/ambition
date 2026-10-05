@@ -22,8 +22,8 @@ include!(concat!(env!("OUT_DIR"), "/baked_landmarks.rs"));
 // A slot of the embedded frame is a slot of the semantic frame.
 const _: () = assert!(LANDMARK_TRACKS.len() == Landmark::ALL.len());
 
-/// The flipbook track that publishes `landmark`.
-pub fn landmark_track(landmark: Landmark) -> &'static str {
+/// The flipbook tracks that publish `landmark`: one name for each rig family.
+pub fn landmark_tracks(landmark: Landmark) -> &'static [&'static str] {
     LANDMARK_TRACKS[landmark.slot()]
 }
 
@@ -91,12 +91,46 @@ mod tests {
     use crate::character::rigged::RiggedSpriteAsset;
 
     #[test]
-    fn each_landmark_is_published_by_the_track_of_its_name() {
-        assert_eq!(landmark_track(Landmark::HandNear), "near_hand");
-        assert_eq!(landmark_track(Landmark::HandFar), "far_hand");
-        assert_eq!(landmark_track(Landmark::Head), "head");
-        assert_eq!(landmark_track(Landmark::FootNear), "near_foot");
-        assert_eq!(landmark_track(Landmark::FootFar), "far_foot");
+    fn each_landmark_is_published_by_the_tracks_of_its_name() {
+        assert_eq!(landmark_tracks(Landmark::HandNear), ["near_hand", "front_hand", "right_hand"]);
+        assert_eq!(landmark_tracks(Landmark::HandFar), ["far_hand", "back_hand", "left_hand"]);
+        assert_eq!(landmark_tracks(Landmark::Head), ["head"]);
+        assert_eq!(landmark_tracks(Landmark::FootNear), ["near_foot", "front_foot"]);
+        assert_eq!(landmark_tracks(Landmark::FootFar), ["far_foot", "back_foot"]);
+    }
+
+    /// The three rig families name one thing: the near hand is the hand drawn
+    /// nearer the viewer, in every frame of every flipbook that draws both.
+    /// A family whose names meant the other thing fails here.
+    #[test]
+    fn the_near_hand_of_every_family_is_drawn_after_the_far_hand() {
+        let mut frames = 0;
+        for target in baked_landmark_targets() {
+            let flipbook = RiggedSpriteAsset::baked(target).expect("a landmark table has a flipbook");
+            let drawn = |draws: &[crate::character::rigged::PartDraw], landmark: Landmark| {
+                draws.iter().position(|draw| {
+                    draw.track.is_some_and(|track| {
+                        landmark_tracks(landmark).contains(&flipbook.tracks[usize::from(track)].as_str())
+                    })
+                })
+            };
+            let rows: Vec<&str> = flipbook.clip_names().collect();
+            for row in rows {
+                let count = flipbook.clip(row).expect("a named clip").frame_count();
+                for index in 0..count {
+                    let draws = flipbook.frame(row, index).expect("a frame of the clip");
+                    if let (Some(near), Some(far)) = (drawn(draws, Landmark::HandNear), drawn(draws, Landmark::HandFar)) {
+                        assert!(near > far, "{target}/{row}/{index}: the near hand is drawn under the far hand");
+                        frames += 1;
+                    }
+                }
+            }
+        }
+        if BAKED_LANDMARKS.is_empty() {
+            eprintln!("no published part flipbook on this checkout: no draw order to compare");
+        } else {
+            assert!(frames > 1000, "only {frames} frames draw both hands");
+        }
     }
 
     #[test]
@@ -110,6 +144,10 @@ mod tests {
         assert_eq!(frame[Landmark::HandNear.slot()], Some((1.0, -2.0)));
         assert_eq!(frame[Landmark::Head.slot()], Some((3.0, -40.0)));
         assert_eq!(frame[Landmark::HandFar.slot()], None);
+        // Another family's names fill the same slots.
+        let frame = landmark_frame([("back_hand", (7.0, -8.0)), ("front_hand", (9.0, -10.0)), ("left_hand", (0.0, 0.0))]);
+        assert_eq!(frame[Landmark::HandNear.slot()], Some((9.0, -10.0)));
+        assert_eq!(frame[Landmark::HandFar.slot()], Some((7.0, -8.0)));
     }
 
     /// The embedded table is `build.rs`'s projection of the flipbook. This
@@ -133,8 +171,9 @@ mod tests {
                         let expected = draws
                             .iter()
                             .find(|draw| {
-                                draw.track
-                                    .is_some_and(|track| flipbook.tracks[usize::from(track)] == landmark_track(landmark))
+                                draw.track.is_some_and(|track| {
+                                    landmark_tracks(landmark).contains(&flipbook.tracks[usize::from(track)].as_str())
+                                })
                             })
                             .map(|draw| draw.at);
                         assert_eq!(frame[landmark.slot()], expected, "{target}/{name}/{index}/{landmark:?}");

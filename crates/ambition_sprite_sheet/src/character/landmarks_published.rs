@@ -11,13 +11,26 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-/// The flipbook track that publishes each landmark slot, in slot order. The
+/// The flipbook tracks that publish each landmark slot, in slot order. The
 /// order is `ambition_characters::actor::Landmark::ALL`.
 ///
-/// Only the near/far track family is read. A rig that names its hands
-/// `front_hand`/`back_hand` or `left_hand`/`right_hand` publishes no hand
-/// landmark until its names are mapped.
-pub const LANDMARK_TRACKS: [&str; 5] = ["near_hand", "far_hand", "head", "near_foot", "far_foot"];
+/// A rig family names its limbs in one of three ways, and they mean one
+/// thing. Measured on the published flipbooks (2026-10-05, mirror rows not
+/// counted): in every frame that draws both hands, the `near_`, `front_` or
+/// `right_` hand is drawn after the `far_`, `back_` or `left_` one (11195,
+/// 1075 and 554 frames, no exception), so it is the hand nearer the viewer.
+/// The art faces right, so a character's own right hand is the near one. A
+/// test holds the draw order for the embedded tables (`baked_landmarks`).
+///
+/// ⚠ Nearer the viewer is not the hand that reaches: see
+/// `ambition_characters::actor::GestureHand`.
+pub const LANDMARK_TRACKS: [&[&str]; 5] = [
+    &["near_hand", "front_hand", "right_hand"],
+    &["far_hand", "back_hand", "left_hand"],
+    &["head"],
+    &["near_foot", "front_foot"],
+    &["far_foot", "back_foot"],
+];
 
 /// The landmark points of one frame, by slot, in sheet pixels from the feet.
 pub type BakedLandmarkFrame = [Option<(f32, f32)>; LANDMARK_TRACKS.len()];
@@ -42,7 +55,7 @@ pub struct BakedLandmarks {
 pub fn landmark_frame<'a>(tracked: impl IntoIterator<Item = (&'a str, (f32, f32))>) -> BakedLandmarkFrame {
     let mut frame = BakedLandmarkFrame::default();
     for (track, at) in tracked {
-        if let Some(slot) = LANDMARK_TRACKS.iter().position(|name| *name == track) {
+        if let Some(slot) = LANDMARK_TRACKS.iter().position(|names| names.contains(&track)) {
             frame[slot].get_or_insert(at);
         }
     }

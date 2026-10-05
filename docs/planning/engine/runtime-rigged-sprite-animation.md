@@ -186,7 +186,7 @@ landmark is a named fallback the consumer states, not a silent offset.
 | Player fireball | ✅ 2026-10-05: the landmark query. The shot is born with its rear edge at the hand of the `shoot` row (`projectile/systems.rs`, `player_projectile_hand_local_offset`), lifted clear of the feet line. The box edge plus `PLAYER_PROJECTILE_MUZZLE_CLEARANCE` is the named fallback for a body that publishes no hand | done; the reach it costs is [Q158](../awaiting-maintainer-decision.md#q158--the-fireball-now-leaves-the-hand-at-knee-height-and-reaches-30-less-accept-retune-or-except) |
 | Pet ("pet the dog") | ✅ 2026-10-05: the landmark query. The petter stands where its near hand, in the `pet` row, is on the petted body's head, in the `petted` row, plus the offset its catalog row authors (`petting.contact_offset`). The box mark is the named fallback for a pair that publishes no such landmark | done |
 | Rig attachments | `BodyRigPose` attachments, live only under `BodyRigAdmission` (off) | all of the above |
-| Part flipbook tracks | ✅ 2026-10-05: the package's per-pose points. `build.rs` projects each `<target>_parts.ron` to its `near_hand`, `far_hand`, `head`, `near_foot` and `far_foot` tracks (`ambition_sprite_sheet::baked_landmarks`, 114 tables, 1 MB) | the answer for a body without a rig |
+| Part flipbook tracks | ✅ 2026-10-05: the package's per-pose points. `build.rs` projects each `<target>_parts.ron` to its hand, head and foot tracks, in each of the three ways the rig families name them (`ambition_sprite_sheet::baked_landmarks`, `LANDMARK_TRACKS`, 124 tables, 1.1 MB) | the answer for a body without a rig |
 | `_actor.ron` sockets | Not read, and not to be: overlaid on the robot's art (2026-10-05), `hand_r` and `muzzle` land on its face. They are profile proportions, not the art | none |
 
 The "pet the dog" misalignment was the example case: the gesture positioned
@@ -210,18 +210,34 @@ frame height and the frame durations. It does not cover atlas packing.
 
 **Named limits (2026-10-05).**
 
-- Only the `near_`/`far_` track family is mapped: 50 sheets publish a hand
-  and 108 a head. The `front_`/`back_` (27 sheets) and `left_`/`right_` (9)
-  families publish no hand landmark until their names are mapped. The mapping
-  is one table (`LANDMARK_TRACKS`); the renderer does not publish semantic
-  names.
+- The three track families are mapped by one table (`LANDMARK_TRACKS`): the
+  `near_`, `front_` and `right_` hand is `HandNear`, and the `far_`, `back_`
+  and `left_` hand is `HandFar`. The evidence is the draw order: in every
+  frame that draws both hands, the first is drawn after the second (11195,
+  1075 and 554 frames, mirror rows not counted, no exception; a test holds
+  it). The renderer does not publish semantic names. For feet the draw order
+  holds for `front_`/`back_` (1029 frames) and not for `near_`/`far_` (835
+  of 10637 frames), so `FootNear` is a name and not a statement of depth.
+- The hand a gesture uses is authored: the catalog row's `gesture_hand`
+  (`Near` when it states none). No package states it, and no rule gives it.
+  Three rules were measured on the published flipbooks and each failed: the
+  near hand (the near hand of `player_robot_v2` trails 20 behind its body centre), the
+  track family (the pirates name their hands `front_`/`back_` and are not
+  drawn that way), and the idle stance (it names `player_robot_v3`, whose
+  near hand is the right one, viewed). `robot`, `player_robot_v2` and the
+  smash `smash_duelist_b` state `Far`. They were composed and viewed; no
+  other row was.
+- So the pet does not use a hand that is not forward of the petter's feet:
+  the box mark answers for it. Of the 85 sheets that publish a hand, 49 give
+  a pet reach from the hand and 36 keep the box mark. For 11 of the 36 (the
+  `near_`/`far_` family) this corrects packet A, which put those petters on
+  the petted body.
 - A track point is the part's pivot: the wrist, and the point the head turns
   about (the dog's is at its ear). A contact point that is not a pivot is an
   authored offset from one (`petting.contact_offset`). The renderer publishes
   no contact track.
-- The pet and the fireball use the near hand, as the hand a gesture row draws
-  in view (`BodyLandmarks::gesture_hand`). No package states which hand a
-  gesture uses.
+- The stated hand is of the whole art (`BodyLandmarks::gesture_hand`): a
+  character cannot state one hand for its pet and another for its shot.
 - The fireball's hand is of the middle of the `shoot` row for every aim. The
   robot has one shoot row, so a shot aimed up leaves the same hand.
 - The shot is born on the tick of the press or the release. The `shoot` row
@@ -243,7 +259,8 @@ frame height and the frame durations. It does not cover atlas packing.
 **Order of work (queue row RIG-LANDMARKS).** ✅ The query and the pet. ✅ The
 player fireball: the move's offset from the hand is the shot's own half extent
 along the aim, so the shot's rear edge is at the hand for each of the eight
-aims and each charge size. Next the rider hand. Do not admit rigs (`BodyRigAdmission`)
+aims and each charge size. ✅ The three track families and the authored
+gesture hand. Next the rider hand. Do not admit rigs (`BodyRigAdmission`)
 for this: the capability must not depend on rig rollout. Landmarks are
 simulation facts: resolve them in simulation and never read them back from
 render transforms.
@@ -268,7 +285,7 @@ render transforms.
 | Sheet residency | The saving needs the baked sheet page to retire while parts draw, and the portal to draw parts first | Rigged character resident bytes below baked |
 | Body rig rollout | `BodyRigAdmission` is off. Turning it on changes shipped hurt geometry and the content fingerprint | Maintainer go-ahead; app suite green with it on |
 | More rigid parts | Pirate dynamic limb/neck geometry is one overlay per frame. Convert more of it to reusable parts only if useful | Saving above the 38% floor |
-| Semantic landmarks (Q41) | ✅ The query, the pet and the player fireball (2026-10-05). Left: the rider hand as a consumer; the unmapped track families. See "Semantic landmarks (Q41)" | ✅ A pet hand meets the authored contact point (`a_pet_hand_meets_the_contact_point.rs`: 1.4 world units; 15.2 on the box mark). Open: no consumer reads sprite bounds |
+| Semantic landmarks (Q41) | ✅ The query, the pet, the player fireball, and the three track families with an authored gesture hand (2026-10-05). Left: the rider hand as a consumer. See "Semantic landmarks (Q41)" | ✅ A pet hand meets the authored contact point (`a_pet_hand_meets_the_contact_point.rs`: 1.4 world units; 15.2 on the box mark). Open: no consumer reads sprite bounds |
 | Physicalized pose | Only with a real mechanic: cosmetic ragdoll after a KO fact, or deterministic constrained ragdoll as canonical rollback state | Separate focused packet |
 
 Not measured: load and materialization time, and per-pane pixels of each view

@@ -160,11 +160,19 @@ impl BodyLandmarks<'_, '_> {
         package_landmark(landmark, pose, &table, world_per_pixel, clocks)
     }
 
-    /// The hand `body` makes a gesture with, in its rig space: the hand
-    /// nearer the viewer, which is the hand a gesture row draws in view, else
-    /// the other hand. No package states which hand a gesture uses.
+    /// The hand `body` makes a gesture with (a pet, a shot), in its rig
+    /// space: the hand its character states
+    /// ([`ambition_characters::actor::GestureHand`], the near hand when it
+    /// states none), else the other hand.
     pub fn gesture_hand(&self, body: Entity, pose: LandmarkPose<'_>) -> Option<Vec2> {
-        [Landmark::HandNear, Landmark::HandFar]
+        let stated = self
+            .bodies
+            .get(body)
+            .ok()
+            .and_then(|(worn, ..)| Some(self.characters.as_ref()?.get(worn?.id())?.gesture_hand))
+            .unwrap_or_default();
+        stated
+            .hands()
             .into_iter()
             .find_map(|hand| self.in_rig_space(body, hand, pose))
     }

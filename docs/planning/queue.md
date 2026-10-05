@@ -2341,12 +2341,32 @@ ahead and not 126, spends its two bounces sooner, and reaches 292 from the
 body centre and not 419. That is
 [Q158](awaiting-maintainer-decision.md#q158--the-fireball-now-leaves-the-hand-at-knee-height-and-reaches-30-less-accept-retune-or-except).
 
+**Built 2026-10-05 (packet A2):** the tables read the three ways the rig
+families name a hand (`near_`/`far_`, `front_`/`back_`, `left_`/`right_`):
+124 tables. A test holds the evidence, that the near hand of each family is
+drawn after the far hand in every frame that draws both. Which hand makes a
+gesture is authored (`gesture_hand` on the catalog row), because three rules
+failed against the art; the plan names them. `robot`, `player_robot_v2` and
+`smash_duelist_b` state `Far`: their near hand trails the body. The
+`player_robot_v2` shot is now born 28.7 ahead of the body centre and 4.4 above
+it, at the ring its `shoot` row draws; from the near hand it was born 7.8
+behind the body (`a_fireball_leaves_the_hand.rs`,
+`art_that_reaches_with_its_far_hand_fires_from_that_hand`, poisoned). The pet
+refuses a hand that is not forward of the petter's feet, and uses the box
+mark: 36 of the 85 sheets that publish a hand.
+
+**Predictions that missed (packet A2):** the mapped near hand was predicted to
+put the two older robots' shots 0 to 25 in front; it put them behind the body.
+The next rule (far hand for the `front_`/`back_` family) was written with a
+test, and the test refused it on the pirates.
+
 **Current failure:** the rider's hand is placed from a constant
 (`ambition_mount`, `HAND_OFFSET_NORM`). The named limits are in the plan.
 
 **Acceptance:** ✅ one landmark query, answered by the rig or the package; ✅
 the pet hand meets the petted body's authored contact point; ✅ the player's
-shot leaves the hand. Open: the rider's hand reads the query.
+shot leaves the hand; ✅ the three track families answer. Open: the rider's
+hand reads the query.
 
 ### RIG-IMPOSTOR-CONTAINMENT — a part-drawn body is drawn whole or refused
 

@@ -246,12 +246,23 @@ from 33.6 to 13 above the feet. Not measured: charged tiers, the eight aims,
 and what each encounter needs of the reach.
 
 Who it changes: a body that fires through the charge path, wears a character
-whose art publishes a near or far hand in its `shoot` or `idle` row, and
-states its art scale. Of the three characters that author
-`ranged_execution: ChargedProjectile`, that is `player_robot_v3` only. `robot`
-and `player_robot_v2` name their hands `front_hand`/`back_hand`, which are not
-mapped, and keep the box muzzle; so does any body with no published hand
-(Mary-O and Sanic publish a head only).
+whose art publishes a hand in its `shoot` or `idle` row, and states its art
+scale. Since packet A2 (2026-10-05) that is each of the three characters that
+author `ranged_execution: ChargedProjectile`. A body with no published hand
+keeps the box muzzle (Mary-O and Sanic publish a head only).
+
+| character | hand | born, from the body centre | the box muzzle was | line of fire above the feet |
+| --- | --- | --- | --- | --- |
+| `player_robot_v3` | near, `shoot` row | (+3.0, +13.3) | (+19.0, -9.6) | 13 (was 33.6) |
+| `player_robot_v2` | far, `shoot` row | (+28.7, -4.4) | (+14.5, -9.6) | 28.4 (was 33.6) |
+| `robot` | far, `idle` row (it has no `shoot` row) | (+28.3, +1.8) | (+14, -9.6) | 22.2 (was 33.6) |
+
+The `player_robot_v2` row is measured in the game, on a hostile robot that
+fires a Hadouken (half extent 12 by 9). Its shot is born 14 farther forward
+and 5 lower than before; the flight table above was not measured again for
+it, and a shot that flies level reaches 14 farther. The `robot` row is
+computed from its art and its drawn scale: no test drives a body that fires
+as `robot`. Its box width is taken as 20.
 
 * **(a) Accept.** The shot leaves the hand as drawn and reaches 292.
 * **(b) Retune.** The shot leaves the hand, and the fireball changes so that

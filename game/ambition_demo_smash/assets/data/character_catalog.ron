@@ -113,6 +113,8 @@
         ),
         "smash_duelist_b": (
             display_name: "Robot v2",
+            // The far hand is the hand the `shoot` row reaches with.
+            gesture_hand: Far,
             spritesheet: "sprites/player_robot_v2_spritesheet.png",
             manifest: "sprites/player_robot_v2_spritesheet.ron",
             tier: MainHall,

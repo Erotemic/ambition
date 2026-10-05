@@ -419,3 +419,14 @@ fn the_petted_body_is_let_go_when_the_petter_goes_away() {
     assert!(!anim(&app, dog).petted, "the dog kept being petted by nobody");
     assert!(!gesture_held(&app, dog), "the dog kept its hold");
 }
+
+/// A hand that trails the petter does not reach: there is no reach, so the
+/// box mark answers. A reach from it puts the petter on the petted body.
+#[test]
+fn a_hand_behind_the_petters_feet_is_not_a_reach() {
+    assert_eq!(reach_of(10.0, 28.0, 4.0), Some(42.0));
+    // The near hand of `player_robot_v2` in its `interact` row: 17 behind
+    // its feet.
+    assert_eq!(reach_of(10.0, 28.0, -17.0), None);
+    assert_eq!(reach_of(10.0, 28.0, 0.0), None);
+}

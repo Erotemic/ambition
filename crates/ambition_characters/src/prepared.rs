@@ -1151,6 +1151,9 @@ pub struct PreparedCharacterDefinition {
     /// `Some` only for a character with a catalog row, because the row holds
     /// the standing height and the sprite tuning.
     pub sheet_sizing: Option<SheetSizing>,
+    /// The hand the art of [`Self::sheet`] makes a gesture with: the catalog
+    /// row's, and the near hand for a character with no row.
+    pub gesture_hand: crate::actor::GestureHand,
     pub portrait: Option<String>,
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
@@ -2081,6 +2084,7 @@ fn finalize_character(
         lineage,
         sheet,
         sheet_sizing,
+        gesture_hand: catalog_row.map(|row| row.gesture_hand).unwrap_or_default(),
         portrait,
         body,
         hurtboxes,

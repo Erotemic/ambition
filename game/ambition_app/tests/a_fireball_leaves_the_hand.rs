@@ -143,3 +143,88 @@ fn a_shot_is_born_with_its_rear_edge_at_the_hand_that_fires_it() {
          witness which one the shot used",
     );
 }
+
+/// Art that reaches with its far hand fires from that hand.
+///
+/// The Robot V1 art (`robot`, `player_robot_v2`) is drawn three-quarter on:
+/// the hand nearer the viewer trails the body, and the far hand is on the
+/// side it faces. Its catalog row states `gesture_hand: Far`. A shot from the
+/// near hand is born behind the body's back.
+#[test]
+fn art_that_reaches_with_its_far_hand_fires_from_that_hand() {
+    use ambition_platformer2d::combat::components::FeatureId;
+    use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
+    const TARGET: &str = "player_robot_v2";
+
+    let mut sim = fixed_60hz_sim();
+    sim.step_n(base(), 60);
+    let player = {
+        let world = sim.world_mut();
+        let mut query = world
+            .query_filtered::<&BodyKinematics, With<ambition_platformer2d::platformer::body::PrimaryBody>>();
+        query.single(world).expect("one primary body").pos
+    };
+    // A hostile body with the player's own kit opens with its ranged move.
+    sim.spawn_enemy_character_at(
+        "far_hand_robot",
+        "Robot",
+        (player.x + 200.0, player.y),
+        (14.0, 23.0),
+        CharacterBrain::Custom("player_robot".to_string()),
+        TARGET,
+    );
+    let robot = {
+        let world = sim.world_mut();
+        let mut query = world.query::<(Entity, &FeatureId)>();
+        query
+            .iter(world)
+            .find(|(_, id)| id.as_str() == "far_hand_robot")
+            .map(|(entity, _)| entity)
+            .expect("the robot was built")
+    };
+    let sheet = sim
+        .world()
+        .get::<SpritePosedBody>(robot)
+        .expect("the robot is a posed body, which states its own art scale")
+        .clone();
+    assert_eq!(sheet.target, TARGET);
+    let shot = (0..600).find_map(|_| {
+        sim.step(base());
+        requests(&sim, robot).into_iter().next()
+    });
+    let (born, half) = shot.expect("the robot fired no shot in ten seconds");
+    let body = sim.world().get::<BodyKinematics>(robot).expect("a live body").clone();
+    let facing = body.facing.signum();
+    let at_hand = |track: &str| {
+        let hand = art_point_in_world(
+            &body,
+            drawn_at_the_middle(&sheet.target, &["shoot", "idle"], track),
+            sheet.world_per_pixel,
+        );
+        let feet_y = body.pos.y + body.size.y * 0.5;
+        Vec2::new(hand.x + facing * half.x, hand.y.min(feet_y - half.y - 1.0))
+    };
+    let (far, near) = (at_hand("back_hand"), at_hand("front_hand"));
+    eprintln!(
+        "far-hand shot: born {born:?} (from the centre {:?}, facing {facing}), half {half:?}; from the far \
+         hand {far:?}; from the near hand {near:?}",
+        born - body.pos,
+    );
+    assert!(
+        (born - far).length() < 0.5,
+        "the shot is born at {born:?}; with its rear edge at the far hand it is born at {far:?} (and at \
+         {near:?} from the near hand)",
+    );
+    assert!(
+        (born.x - body.pos.x) * facing > body.size.x * 0.5,
+        "the shot is born at {born:?}, which is not in front of the body at {:?}",
+        body.pos,
+    );
+    // Control: the two hands are far apart in this art, so this arm tells
+    // them apart.
+    assert!(
+        (far - near).length() > 15.0,
+        "control: the far hand ({far:?}) and the near hand ({near:?}) are too near to witness which \
+         one the shot used",
+    );
+}

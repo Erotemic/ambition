@@ -66,6 +66,34 @@ impl Landmark {
     }
 }
 
+/// The hand a character's art makes a gesture with: a pet, a shot.
+///
+/// The catalog row authors it, because no art package states it and no rule
+/// gives it. Measured on the published flipbooks (2026-10-05): the hand nearer
+/// the viewer is the forward hand in the gesture rows of some art, and trails
+/// the body in other art, and neither the track names nor the idle stance
+/// tells the two apart.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize)]
+pub enum GestureHand {
+    /// The hand nearer the viewer. This is the default.
+    #[default]
+    Near,
+    /// The hand behind the body: the art is drawn three-quarter on, and its
+    /// far hand is on the side it faces.
+    Far,
+}
+
+impl GestureHand {
+    /// The hand landmarks to ask, first choice first: an art frame that does
+    /// not draw the stated hand answers with the other hand.
+    pub fn hands(self) -> [Landmark; 2] {
+        match self {
+            Self::Near => [Landmark::HandNear, Landmark::HandFar],
+            Self::Far => [Landmark::HandFar, Landmark::HandNear],
+        }
+    }
+}
+
 /// The landmarks of one frame. A slot is `None` when the art has no such point
 /// in this frame (a hidden hand, a body with no hands).
 pub type LandmarkFrame = [Option<Vec2>; Landmark::ALL.len()];
@@ -185,6 +213,12 @@ mod tests {
         let table = table();
         assert_eq!(table.first_clip(["run", "pet", "idle"]).map(|(name, _)| name), Some("pet"));
         assert!(table.first_clip(["run", "idle"]).is_none());
+    }
+
+    #[test]
+    fn a_gesture_asks_the_stated_hand_first_and_the_near_hand_when_none_is_stated() {
+        assert_eq!(GestureHand::default().hands(), [Landmark::HandNear, Landmark::HandFar]);
+        assert_eq!(GestureHand::Far.hands(), [Landmark::HandFar, Landmark::HandNear]);
     }
 
     #[test]

@@ -89,6 +89,7 @@ the remedy and build again. Do not record the red as environmental.
 | Arm | Reads | Remedy |
 | --- | --- | --- |
 | `a_pet_hand_meets_the_contact_point::the_petting_hand_is_on_the_place_the_dog_is_petted` | the part flipbooks of the robot and the dog (the build embeds their landmark tables from them) | `scripts/regen/sprites.sh --target player_robot_v3` and `--target companion_dog` |
+| `a_fireball_leaves_the_hand` (both arms) | the part flipbooks of `player_robot_v3` and `player_robot_v2` | `scripts/regen/sprites.sh --target player_robot_v3` and `--target player_robot_v2` |
 | `admiral_gun_sword` (the rig arms) | the pirates' published body rigs | `scripts/regen/sprites.sh` |
 | `boss_sheet_wiring`, `declared_art_resolves` | each declared sheet | `scripts/regen/sprites.sh` |
 
@@ -96,6 +97,13 @@ The table is the arms whose failure text names `scripts/regen` (grep of
 `game/ambition_app/tests`, 2026-10-05). `enemy_body_scale` and
 `hall_scale_spread` print `[skip]` and pass without baked sheets, so a green
 there on such a checkout proves nothing.
+
+A regeneration that was stopped part way leaves a target's full-resolution
+parts and its quality-tier tables out of step. The unit test
+`ambition_sprite_sheet` `every_published_flipbook_realizes_its_sheet_at_every_tier`
+names each such target. Regenerate those targets
+(`scripts/regen/sprites.sh --target <name>`): the whole regeneration draws on
+one core and takes hours.
 
 ## The demo host apps have their own lane
 

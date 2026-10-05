@@ -640,6 +640,9 @@
             // stays `robot` — it is the lineage's root and every reference in
             // the tree spells it that way; only what a player READS changes.
             display_name: "Robot V1",
+            // This art is drawn three-quarter on: the hand nearer the viewer
+            // trails the body, and the far hand is on the side it faces.
+            gesture_hand: Far,
             spritesheet: "sprites/robot_spritesheet.png",
             manifest: "sprites/robot_spritesheet.ron",
             tier: MainHall,
@@ -3390,6 +3393,9 @@
             // just the drawing -- dropping it re-bodied the duellist.
             sprite_tuning: Some((collision_scale: 1.35, frame_sample_inset: 1)),
             display_name: "Player Robot v2",
+            // The far hand is the hand the `shoot` and `interact` rows reach
+            // with: the Robot V1 art, drawn three-quarter on.
+            gesture_hand: Far,
             spritesheet: "sprites/player_robot_v2_spritesheet.png",
             manifest: "sprites/player_robot_v2_spritesheet.ron",
             tier: MainHall,

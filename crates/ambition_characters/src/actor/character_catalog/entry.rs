@@ -783,6 +783,12 @@ pub struct CharacterCatalogEntry {
     /// definition can state it.
     #[serde(default)]
     pub unmirrored: bool,
+    /// The hand this character's art makes a gesture with (a pet, a shot).
+    /// The default is the hand nearer the viewer. State `Far` for art that is
+    /// drawn three-quarter on and reaches with its far hand. A fact of the
+    /// sheet, so only the row states it.
+    #[serde(default)]
+    pub gesture_hand: crate::actor::GestureHand,
     /// How heavy this body is against another body it rides or carries. `None`
     /// (the default): the engine's standard mass. Folded at preparation under a
     /// registered definition's own.

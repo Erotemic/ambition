@@ -80,7 +80,7 @@ fn petted_head(landmarks: &BodyLandmarks, petted: Entity) -> Option<ambition_pla
 /// landmark.
 ///
 /// The petting hand is the petter's gesture hand
-/// ([`BodyLandmarks::gesture_hand`]).
+/// ([`BodyLandmarks::gesture_hand`]), when it reaches ([`reach_of`]).
 fn pet_reach(
     landmarks: &BodyLandmarks,
     petter: Entity,
@@ -92,7 +92,18 @@ fn pet_reach(
         phase: PET_CONTACT_PHASE,
     };
     let hand = landmarks.gesture_hand(petter, petting_row)?;
-    Some(petted_head(landmarks, petted)?.x + contact_offset.0 + hand.x)
+    reach_of(petted_head(landmarks, petted)?.x, contact_offset.0, hand.x)
+}
+
+/// The reach of a pet: the petted head, the authored offset from it, and the
+/// petting hand, each along the petter's facing.
+///
+/// `None` for a hand that is not forward of the petter's own feet. Such a
+/// hand trails the body: the art reaches with its other hand and its catalog
+/// row does not say so (`gesture_hand`). A mark from it puts the petter on
+/// the petted body, so the box mark answers.
+fn reach_of(head_x: f32, contact_offset_x: f32, hand_x: f32) -> Option<f32> {
+    (hand_x > 0.0).then_some(head_x + contact_offset_x + hand_x)
 }
 
 /// How fast the petter walks to the petted body's front, in px/s: a walk and

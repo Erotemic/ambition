@@ -2461,7 +2461,12 @@ def dependency_violations(contract: dict, graph: dict[str, set[str]]) -> list[st
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--check", action="store_true", help="exit 1 when a contract is violated"
+        "--check",
+        action="store_true",
+        help=(
+            "accepted and not needed: a violated contract always exits 1. "
+            "Before 2026-10-04 a run without this flag printed RED and exited 0"
+        ),
     )
     parser.add_argument(
         "--allowlist-open-count",
@@ -2787,7 +2792,11 @@ def main() -> int:
             "on purpose — in which case DELETE or INVERT the contract in the same "
             "commit rather than waiving it."
         )
-        return 1 if args.check else 0
+        # A red contract is exit 1 with or without `--check`. The run without
+        # the flag exited 0, so a gate list that tested the exit code could
+        # not fail: a stale sentinel lockfile was RED in the log of one and
+        # was pushed (2026-10-04).
+        return 1
     print(f"\n{total} of {total} absence contracts hold.")
     return 0
 

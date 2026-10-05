@@ -320,7 +320,7 @@ impl ambition_platformer2d::rollback::SnapshotState for BeaconCharge {
 
 /// Charge the beacon while the primary body stands in its field.
 ///
-/// On the SIM clock (`WorldTime::scaled_dt`), never `Res<Time>`: a resimulated
+/// On the SIM clock (`WorldTime::sim_dt`), never `Res<Time>`: a resimulated
 /// tick must add exactly what the original tick added, and wall-clock dt does
 /// not repeat.
 pub fn beacon_charge_system(
@@ -337,7 +337,7 @@ pub fn beacon_charge_system(
         if kin.pos.x < BEACON_FIELD_X {
             continue;
         }
-        charge.seconds = (charge.seconds + time.scaled_dt).min(BEACON_FULL_SECONDS);
+        charge.seconds = (charge.seconds + time.sim_dt()).min(BEACON_FULL_SECONDS);
         charge.ticks += 1;
     }
 }

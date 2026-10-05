@@ -136,8 +136,13 @@ yet is a provider: a physics step that writes `PartPose` from rigid bodies.
 - **Converge the pirate rig** (phase 1): publish each joint's frame as the
   frame its parts are drawn in (`_pirate_body_rig.py`), or paint each part at
   its bone's angle. Gate: `measure_track_joints.py` reports every rig-part track
-  riding. It changes the gameplay rig (the `hand_near` muzzle attachment
-  turns with the hand), so it is its own step.
+  riding. Gameplay does not move: an attachment is a point
+  (`joint.transform_point2(offset)`, offsets zero), so re-deriving each joint's
+  local frame from unchanged world points keeps the muzzle where it is. ⚠ One
+  angle per joint is not enough: the face and the hat both sit on the head joint
+  and turn apart from it and from each other (31 and 19 degrees of spread), so
+  they are accessories that need joints of their own ("Attachment/accessory"
+  above), a decision to make before the emitter changes.
 - **Publish the track's joint** with the flipbook (`track_joints`), from the
   painter, so the binding is stated rather than measured at load. Today
   `PosedParts::bind` infers it, which is exact for Mary-O and leaves the pirates'

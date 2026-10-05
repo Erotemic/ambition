@@ -388,7 +388,8 @@ mod tests {
             unhittable: false,
             defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
             sprite_offset: None,
-            room: None,
+            // The fixture's one live room, as the index builder names it.
+            room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
         }
     }
 

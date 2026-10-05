@@ -1243,24 +1243,15 @@ pub(crate) fn apply_world_replacement(
     // The rest of the room it leaves stays there.
     let moving = minted.is_some_and(LiveRoomSuccession::keeps_left).then(|| {
         use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
-        let mut moving: BTreeSet<bevy::ecs::entity::Entity> =
-            pending.arrival.as_ref().map(|arrival| arrival.subject).into_iter().collect();
         let custody: Vec<(bevy::ecs::entity::Entity, bevy::ecs::entity::Entity)> = world
             .query::<(bevy::ecs::entity::Entity, &InCustodyOf)>()
             .iter(world)
             .map(|(entity, custody)| (entity, custody.custodian))
             .collect();
-        loop {
-            let before = moving.len();
-            for (entity, custodian) in &custody {
-                if moving.contains(custodian) {
-                    moving.insert(*entity);
-                }
-            }
-            if moving.len() == before {
-                break moving;
-            }
-        }
+        ambition_platformer2d_shared_tangle::lifecycle::custody_closure(
+            pending.arrival.as_ref().map(|arrival| arrival.subject),
+            &custody,
+        )
     });
     // ⭐ WHAT THE SWEEP LEFT STANDING IN THE REPLACED ROOM IS NOW IN THE NEW
     // ONE. The outgoing roster is gone; what still carries the replaced

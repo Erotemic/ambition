@@ -54,6 +54,29 @@ pub struct InCustodyOf {
     pub durability: CustodyDurability,
 }
 
+/// The entities that go with `roots` when they change rooms: the roots and
+/// everything in their custody, followed through custody to the end (what a
+/// body holds, rides or wears, and what that holds). `edges` are
+/// (entity, custodian) pairs. One rule for every road that moves a body to
+/// another room, so a crossing and a return cannot carry different sets.
+pub fn custody_closure(
+    roots: impl IntoIterator<Item = Entity>,
+    edges: &[(Entity, Entity)],
+) -> std::collections::BTreeSet<Entity> {
+    let mut moving: std::collections::BTreeSet<Entity> = roots.into_iter().collect();
+    loop {
+        let before = moving.len();
+        for (entity, custodian) in edges {
+            if moving.contains(custodian) {
+                moving.insert(*entity);
+            }
+        }
+        if moving.len() == before {
+            return moving;
+        }
+    }
+}
+
 /// Room-scoped entities currently resident in the room.
 ///
 /// Room-transition sweeps use this filter; full world/session resets intentionally do not.

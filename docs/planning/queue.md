@@ -493,6 +493,32 @@ body's absence. Measured why, and repaired: GGRS never saves the state that
 the first run of a frame leaves, so a body that only the first run builds is
 in no saved state (TEST-LANES item 5, `first_run_witness`).
 
+**Review of the join road (2026-10-05, Namek), three defects repaired.**
+Each arm is in `a_second_seat_joins_the_session.rs`, measured before the
+repair, and red under its poison:
+- R1, both out of play for ever: a primary that fell while a seat played in
+  its room was asked once; when the seat walked out, or fell in another
+  room, nothing asked again. A waiting primary now stays owed
+  (`consequence_pending`) and is asked on each tick, and it is spent on the
+  tick its room goes back
+  (`a_primary_that_waited_for_a_seat_comes_back_when_the_seat_leaves_its_room`;
+  poison, spend at close: the primary is out of play 600 frames after the seat
+  left).
+- R8, a New Game froze a seat in another live room: the room was retired and
+  the body kept its stamp (live rooms [#2], stamp #0; 0 px for 40 frames of
+  input). A seat body whose stamp names no live room moves beside the
+  primary (`a_new_game_takes_a_seat_in_another_room_into_the_new_room`).
+- R5, the return moved the body and not what it held (the item stayed
+  stamped #0, held). The return moves the custody closure, through
+  `custody_closure`, which the crossing now uses too
+  (`a_seat_that_comes_back_into_another_room_brings_what_it_holds`).
+- Not repaired, OW4: the room the seat leaves by its return stays live with
+  nobody in it; nothing retires an empty live room yet.
+- Answered with no defect: the join reads no state that differs between
+  peers or between a first run and a resimulation (first-run witness, two
+  seats); a restore asked for on the frame of the return commits; a reload
+  of a dead seat changes nothing. The second-pad finding is for Jon (Q153).
+
 **A joined player's view and HUD (2026-10-05).** Measured with a body from
 the join road (`a_joined_seat_has_a_view_and_a_hud.rs`): a HUD row on the
 shared view, a view of its own when the primary leaves the room, and a drawn

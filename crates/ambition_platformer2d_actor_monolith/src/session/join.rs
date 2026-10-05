@@ -39,6 +39,11 @@ pub fn seat_a_joining_participant(
     >,
     seated: Query<&DrivingParticipant, With<PlayerEntity>>,
 ) {
+    // Every row, not only the seats the session holds a handle for. A row the
+    // session holds no handle for is not republished from GGRS input (the
+    // registry's "at the head of every frame" is about held handles), and no
+    // writer leaves a press in it: measured neutral at the title and in the
+    // next session, for Ambition and for Sanic (review 2026-10-05).
     let joining: Vec<PlayerSlot> = (1..SlotControls::MAX_SLOTS)
         .map(|index| PlayerSlot(index as u8))
         .filter(|seat| controls.get(*seat).jump_pressed)

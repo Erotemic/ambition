@@ -357,18 +357,24 @@ pub fn return_the_replay_subject_to_spawn(
     );
 }
 
-/// A second seat whose death beat has closed comes back beside the primary
-/// body, on the first tick the primary is in play (Q153 default, until the
-/// maintainer rules where a second seat returns).
+/// A second seat comes back beside the primary body, on the first tick the
+/// primary is in play (Q153 default, until the maintainer rules where a second
+/// seat returns), in two cases:
 ///
-/// The restore and the replay put back only the primary, so without this a
-/// fallen second seat stayed out of play for the rest of the session. A seat
-/// that fell in another live room moves into the primary's room: its room
-/// stamp is what says which room a body is in. When both fall in one room, the
-/// room goes back for the primary first and the seat follows on the next tick
-/// that finds the primary in play.
+/// - Its death beat has closed. The restore and the replay put back only the
+///   primary, so without this a fallen second seat stayed out of play for the
+///   rest of the session. It comes back with its health full.
+/// - Its room stamp names no live room. A New Game retires every live room
+///   but the primary's, and a seat body is owned by the session, so it stayed
+///   stamped with a retired room and no tick moved it. A seat body is always
+///   in a live room.
+///
+/// The body moves into the primary's room with what it holds, rides or wears
+/// (`custody_closure`, the rule a crossing uses): the room stamp is what says
+/// which room an entity is in.
 #[allow(clippy::too_many_arguments)]
 pub fn bring_a_fallen_seat_back_beside_the_primary(
+    mut commands: Commands,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
     primary: Query<
@@ -381,10 +387,17 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
             Without<ambition_combat::death_rules::OutOfPlay>,
         ),
     >,
-    mut fallen: Query<
+    live_roots: Query<
+        &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
+    custody: Query<(Entity, &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf)>,
+    mut seats: Query<
         (
-            &ambition_combat::death_rules::DeathInterlude,
-            Option<&mut ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Entity,
+            Option<&ambition_combat::death_rules::DeathInterlude>,
+            Has<ambition_combat::death_rules::OutOfPlay>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
             ae::BodyClusterQueryData,
             &mut ambition_platformer2d_core::movement::MotionModel,
             &mut ambition_characters::actor::BodyAnimFacts,
@@ -394,7 +407,6 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
         ),
         (
             With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            With<ambition_combat::death_rules::OutOfPlay>,
             Without<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         ),
     >,
@@ -404,20 +416,38 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
     };
     let at = primary_kin.pos;
     let primary_room = primary_room.copied();
-    for (window, room, mut cluster_item, mut motion_model, mut anim, mut combat, safety, health) in
-        &mut fallen
+    let live: Vec<_> = live_roots.iter().copied().collect();
+    let edges: Vec<(Entity, Entity)> = custody.iter().map(|(entity, held)| (entity, held.custodian)).collect();
+    for (body, window, out_of_play, room, mut cluster_item, mut motion_model, mut anim, mut combat, safety, health) in
+        &mut seats
     {
-        // Still in its beat, or its consequence (a level reset of its own
-        // room) has not run yet.
-        if window.open() || window.consequence_pending {
+        // Out of play: back only when its beat has closed and its
+        // consequence (a level reset of its own room) has run.
+        let fallen = out_of_play && window.is_some_and(|window| !window.open() && !window.consequence_pending);
+        let stranded = !out_of_play && room.is_some_and(|room| !live.contains(&room.0));
+        if !fallen && !stranded {
             continue;
         }
-        if let (Some(mut room), Some(primary_room)) = (room, primary_room) {
-            if *room != primary_room {
-                *room = primary_room;
+        if let Some(primary_room) = primary_room {
+            if room != Some(&primary_room) {
+                for moving in ambition_platformer2d_shared_tangle::lifecycle::custody_closure([body], &edges) {
+                    commands.entity(moving).insert(primary_room);
+                }
             }
         }
         let mut clusters = cluster_item.as_clusters_mut();
+        if stranded {
+            ae::movement::transit_body(
+                &mut motion_model,
+                &mut clusters,
+                at,
+                ae::movement::TransitVelocity::Zero,
+            );
+            if let Some(mut safety) = safety {
+                safety.last_safe_pos = at;
+            }
+            continue;
+        }
         // Raises the restart latch, and the restart clears `OutOfPlay`.
         ae::reset_body_clusters(
             &mut motion_model,
@@ -454,7 +484,6 @@ impl Plugin for RoomReplaySchedulePlugin {
             (
                 admit_room_replay.in_set(RoomReplayAdmission),
                 return_the_replay_subject_to_spawn.in_set(RoomReplayConsequences),
-                bring_a_fallen_seat_back_beside_the_primary,
             )
                 .chain()
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
@@ -463,6 +492,16 @@ impl Plugin for RoomReplaySchedulePlugin {
                 // of the tuple that gets `.chain().in_set(PlayerInputSet::Device)`,
                 // so being before it is being before all of Device.
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Device),
+        );
+        // The seat return reads `InCustodyOf` (what the seat holds moves with
+        // it), which is derived and not rolled back, so it runs after both of
+        // its derivers: on a resimulated frame, before them, it reads the
+        // latest forward frame's custody.
+        app.add_systems(
+            sim,
+            bring_a_fallen_seat_back_beside_the_primary
+                .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
+                .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
         );
         // ⭐ THE ORDER THE TRANSACTION'S MEANING REQUIRES, AND IT INVERTED.
         //

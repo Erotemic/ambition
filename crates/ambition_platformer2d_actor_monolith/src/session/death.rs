@@ -135,33 +135,46 @@ pub fn close_death_interlude(
         MessageWriter<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>,
     >,
 ) {
-    // The live rooms where a body closed its window this tick, under rules
-    // that send the level back when nobody remains.
+    // Nobody left in play IN THAT ROOM: the level goes back. In co-op this is
+    // false while a teammate still plays the level, which is why the condition
+    // is a query and not a flag on the death. A participant in another live
+    // room does not hold it back, because a death is local to its room (Q151).
+    let rooms_with_a_participant: Vec<_> = still_playing.iter().map(|body| rules.room_of(body)).collect();
+    // The restore and the replay put the PRIMARY body back, so only the
+    // primary's room can go back. A second seat that falls comes back beside
+    // the primary instead (Q153 default, see
+    // `bring_a_fallen_seat_back_beside_the_primary`). With no primary, as in a
+    // match, any room with nobody left in play goes back.
+    let primary = primary.iter().next();
+    // The live rooms where a body's window closed under rules that send the
+    // level back when nobody remains.
     let mut resetting_rooms = Vec::new();
     for (body, mut window) in &mut closing {
         if window.open() || !window.consequence_pending {
+            continue;
+        }
+        let room = rules.room_of(body);
+        let resets = rules.of(body).unwrap_or_default().level_reset == LevelReset::WhenNoParticipantRemains;
+        // ⛔ A PRIMARY THAT WAITS STAYS OWED. While a participant plays in its
+        // room, the primary's room does not go back, and the question is asked
+        // again on each tick until nobody in that room is in play (the other
+        // participant falls or leaves). Spent at the first close, the primary
+        // stayed out of play for ever when the other one walked out of the
+        // room, because its room was never asked again and a fallen seat comes
+        // back only beside a primary that is in play.
+        if resets && primary == Some(body) && rooms_with_a_participant.contains(&room) {
             continue;
         }
         // Spent, not removed. The window lives on until the body restarts, so a
         // rewind across the frame this fired can answer "did it already?" from
         // state rather than from a component that is no longer there.
         window.consequence_pending = false;
-        if rules.of(body).unwrap_or_default().level_reset == LevelReset::WhenNoParticipantRemains {
-            resetting_rooms.push(rules.room_of(body));
+        if resets {
+            resetting_rooms.push(room);
         }
     }
-    // Nobody left in play IN THAT ROOM: the level goes back. In co-op this is
-    // false while a teammate still plays the level, which is why the condition
-    // is a query and not a flag on the death. A participant in another live
-    // room does not hold it back, because a death is local to its room (Q151).
-    let rooms_with_a_participant: Vec<_> = still_playing.iter().map(|body| rules.room_of(body)).collect();
     let goes_back = |room: &Option<_>| resetting_rooms.contains(room) && !rooms_with_a_participant.contains(room);
-    // The restore and the replay put the PRIMARY body back, so only the
-    // primary's room can go back. A second seat that falls in another room
-    // comes back beside the primary instead (Q153 default, see
-    // `bring_a_fallen_seat_back_beside_the_primary`). With no primary, as in a
-    // match, any room with nobody left in play goes back.
-    let back = match primary.iter().next() {
+    let back = match primary {
         Some(primary) => goes_back(&rules.room_of(primary)),
         None => resetting_rooms.iter().any(goes_back),
     };

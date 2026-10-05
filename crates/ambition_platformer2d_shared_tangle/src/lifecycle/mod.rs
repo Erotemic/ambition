@@ -34,7 +34,7 @@ pub use horizon::{
     LifecycleCheckpointHorizonPlugin, ResetToCheckpoint,
 };
 pub use markers::{
-    BodyCustodySettled, CustodyDurability, FeatureSimEntity, InCustodyOf, LoadingZoneVisual,
+    BodyCustodySettled, CustodyDurability, FeatureSimEntity, InCustodyOf, custody_closure, LoadingZoneVisual,
     ModeScopedEntity,
     PlayerVisual, PosedBody, PresentationOf, RoomResident, RoomScopedEntity, RoomVisual,
 };

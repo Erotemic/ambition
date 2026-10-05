@@ -160,11 +160,29 @@ part is reversible: one system or one declaration, named below.
   When both fall in one room, the room goes back for the primary and the seat
   follows. The other side of the co-op rule: while a joined seat plays in the
   primary's room, a fallen primary stays out of play until that seat falls
-  too (no restore, no return beside the seat). Measured in
+  too, or leaves that room (no return beside the seat). Measured in
   `two_peers_agree_in_the_rooms_that_carry_the_float_rows`: with Bob joined
   in play beside her, Alice's fall in `portal_bridge` sends nothing back, so
   that walk now gives Bob no body.
 
+- **Review 2026-10-05 (Namek), three defects found and repaired:** (R1) a
+  primary that fell while a seat played in its room was asked once, so when
+  the seat walked out (or fell in another room) both stayed out of play for
+  ever; a waiting primary now stays owed and is asked on each tick. (R8) a New
+  Game retired the room of a seat in another live room and left its body
+  stamped with it, frozen; a seat whose stamp names no live room now moves
+  beside the primary. (R5) the return moved the body and not what it held; it
+  now moves the custody closure, by the rule a crossing uses
+  (`custody_closure`). Arms in `a_second_seat_joins_the_session.rs`.
+- **For your ruling, measured by the same review: a second pad is seat 1's
+  even for a player alone.** With two pads connected at session start, pad 0
+  drives the primary and pad 1 drives seat 1 (before the default, any pad
+  drove the primary of a solo session). So a solo player whose controller is
+  second in connection order (a second pad on charge, a wheel, a virtual pad)
+  cannot move the primary with it, and its Jump builds a second body. A
+  keyboard player is not affected. Options: keep it (the default); count only
+  pads that pressed something; or let any pad drive the primary until seat 1
+  has joined.
 Witnesses: `a_second_seat_joins_the_session.rs` (the join under a two-seat
 sync test, with no checksum mismatch across the rewound join frame; a second
 press builds no second body; seat 1 moves its own body only; a fallen seat 1

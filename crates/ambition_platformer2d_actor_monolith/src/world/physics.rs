@@ -46,6 +46,12 @@ pub struct PendingPhysicsDespawn {
     pub timer: f32,
 }
 
+/// A static Avian collider that mirrors a block of one live room: the floor
+/// and the walls that debris of that room lands on.
+#[cfg(feature = "physics_debris")]
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PhysicsRoomFloor;
+
 /// Ephemeral Avian dynamic body spawned from breakables, defeated enemies, and
 /// impact effects.
 #[cfg(feature = "physics_debris")]
@@ -66,7 +72,15 @@ use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 /// and each piece carries that room's stamp, so the room retires its own
 /// debris. A message that names no room is thrown in the sole live room, and
 /// is dropped while two rooms are live.
+///
+/// The first burst in a live room also builds that room's floor: a static
+/// collider for each of its blocks, with the room's stamp, so the room
+/// retires its floor with it and `OneRoomContacts` keeps another room's debris
+/// off it. It is built on the first burst and not when the room goes live,
+/// because a static body keeps avian awake, and a room with no debris must
+/// not pay for the physics engine (`pause_physics_when_no_debris_exists`).
 #[cfg(feature = "physics_debris")]
+#[allow(clippy::too_many_arguments)]
 pub fn physics_spawn_debris_messages(
     mut commands: Commands,
     mut messages: MessageReader<DebrisBurstMessage>,
@@ -76,6 +90,7 @@ pub fn physics_spawn_debris_messages(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     settings: Res<PhysicsSandboxSettings>,
     active_session: Option<Res<ActiveSessionScope>>,
+    floors: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance, With<PhysicsRoomFloor>>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -83,6 +98,9 @@ pub fn physics_spawn_debris_messages(
         messages.clear();
         return;
     };
+    // The floors built this frame: their spawns are not applied yet, so the
+    // query does not see them.
+    let mut floored: Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> = Vec::new();
     for message in messages.read() {
         let Some(room) = message.room.or_else(|| rooms.sole()) else {
             continue;
@@ -90,6 +108,18 @@ pub fn physics_spawn_debris_messages(
         let Some(world) = geometry.in_room(room) else {
             continue;
         };
+        if !floored.contains(&room) && !floors.iter().any(|stamp| stamp.0 == room) {
+            floored.push(room);
+            for block in &world.0.blocks {
+                spawn_static_collider_for_block(
+                    &mut commands,
+                    session_scope.in_room(Some(room)),
+                    &world.0,
+                    block,
+                    *settings,
+                );
+            }
+        }
         spawn_debris_burst(
             &mut commands,
             session_scope.in_room(Some(room)),
@@ -126,13 +156,17 @@ impl avian2d::collision::hooks::CollisionHooks for OneRoomContacts<'_, '_> {
 
 /// Pause avian while nothing it owns exists, and unpause the moment something does.
 ///
-/// The predicate is `RigidBody` presence: debris IS avian's population here, so
-/// "no rigid bodies" means "nothing for the solver to solve". Ambition's own
+/// The predicate is debris presence: debris is the only dynamic population
+/// avian has here, so "no debris" means "nothing for the solver to solve". A
+/// room's floor (`PhysicsRoomFloor`) is a static body and does not count.
+/// Ambition's own
 /// bodies are not avian bodies — they live in `GgrsSchedule` and never appear in
 /// this query.
 #[cfg(feature = "physics_debris")]
 fn pause_physics_when_no_debris_exists(
-    debris: Query<(), With<RigidBody>>,
+    // Debris only: a room's floor is a static body that stays for the life
+    // of its room, and it has nothing to solve without debris on it.
+    debris: Query<(), With<PhysicsDebris>>,
     mut physics_time: ResMut<Time<avian2d::schedule::Physics>>,
 ) {
     use avian2d::schedule::PhysicsTime as _;
@@ -302,6 +336,7 @@ pub fn spawn_static_collider_for_block(
             Name::new(format!("Physics collider: {}", block.name)),
             RoomVisual,
             PhysicsRoomEntity,
+            PhysicsRoomFloor,
             // See `OneRoomContacts`.
             ActiveCollisionHooks::FILTER_PAIRS,
         ),
@@ -544,6 +579,9 @@ mod tests {
                     Collider::rectangle(8.0, 8.0),
                     ActiveCollisionHooks::FILTER_PAIRS,
                     InRoomInstance(room),
+                    // Debris, as production's pieces are: avian runs only
+                    // while debris exists.
+                    PhysicsDebris { lifetime: 10.0 },
                 )
             };
             let first = app.world_mut().spawn(piece(LiveRoomInstance::ACTIVATION, 0.0)).id();
@@ -615,4 +653,101 @@ mod tests {
              position, and one burst that names no room"
         );
     }
+
+    /// Debris lands on the floor of its own live room. The first burst in a
+    /// room builds that room's floor (a static collider per block, with the
+    /// room's stamp), so a piece thrown above the floor is still above it a
+    /// second later. Before, no system built the floor and every piece fell
+    /// out of the room. The control is a room that authors no floor: its
+    /// pieces fall past where the floor would be. A second burst in the same
+    /// room builds no second floor.
+    ///
+    /// ⚠ Built only with the `physics_debris` feature, as the reader is.
+    #[cfg(feature = "physics_debris")]
+    #[test]
+    fn debris_lands_on_the_floor_of_its_own_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        };
+        const FLOOR_TOP: f32 = 500.0;
+        let after = |floor: bool| -> (f32, usize, Vec<Option<LiveRoomInstance>>, bool) {
+            let mut app = App::new();
+            app.add_plugins((
+                bevy::MinimalPlugins,
+                bevy::transform::TransformPlugin,
+                bevy::asset::AssetPlugin::default(),
+                bevy::mesh::MeshPlugin,
+                AmbitionPhysicsPlugin,
+            ));
+            app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+                std::time::Duration::from_millis(16),
+            ));
+            app.add_message::<DebrisBurstMessage>();
+            app.add_systems(Update, physics_spawn_debris_messages);
+            app.finish();
+            app.cleanup();
+            let blocks = if floor {
+                vec![ae::Block::solid("floor", ae::Vec2::new(0.0, FLOOR_TOP), ae::Vec2::new(1000.0, 100.0))]
+            } else {
+                Vec::new()
+            };
+            let world = ae::World::new("room", ae::Vec2::new(1000.0, 600.0), ae::Vec2::ZERO, blocks);
+            let room = LiveRoomInstance::ACTIVATION;
+            app.world_mut().spawn((
+                RoomInstanceRoot,
+                room,
+                ambition_platformer2d_core::RoomGeometry(world.clone()),
+            ));
+            for _ in 0..2 {
+                app.world_mut().write_message(DebrisBurstMessage {
+                    room: Some(room),
+                    pos: ae::Vec2::new(500.0, 400.0),
+                    cue: PhysicsDebrisCue::Impact,
+                });
+            }
+            for _ in 0..60 {
+                app.update();
+            }
+            let floor_top = world_to_bevy(&world, ae::Vec2::new(500.0, FLOOR_TOP), 0.0).y;
+            let lowest = app
+                .world_mut()
+                .query_filtered::<&Transform, With<PhysicsDebris>>()
+                .iter(app.world())
+                .map(|at| at.translation.y - floor_top)
+                .fold(f32::INFINITY, f32::min);
+            let stamps = app
+                .world_mut()
+                .query_filtered::<Option<&InRoomInstance>, With<PhysicsRoomFloor>>()
+                .iter(app.world())
+                .map(|stamp| stamp.map(|stamp| stamp.0))
+                .collect::<Vec<_>>();
+            // The debris lives 1.8 s. When it is gone, avian pauses again,
+            // with the floor still there.
+            for _ in 0..180 {
+                app.update();
+            }
+            use avian2d::schedule::PhysicsTime as _;
+            let paused = app.world().resource::<Time<avian2d::schedule::Physics>>().is_paused();
+            (lowest, stamps.len(), stamps, paused)
+        };
+        let (lowest, floors, _, _) = after(false);
+        assert!(
+            lowest < -50.0 && floors == 0,
+            "control: with no floor authored the lowest piece is {lowest} from where the floor \
+             would be, and {floors} floors were built"
+        );
+        let (lowest, floors, stamps, paused) = after(true);
+        assert!(
+            lowest > -8.0,
+            "the lowest piece is {lowest} from the floor's top, a second after it was thrown \
+             above it: debris fell through the floor of its room"
+        );
+        assert_eq!(
+            (floors, stamps),
+            (1, vec![Some(LiveRoomInstance::ACTIVATION)]),
+            "one floor collider for the room's one block, stamped with the room, for two bursts"
+        );
+        assert!(paused, "the debris is gone and avian still runs: the room's floor keeps it awake");
+    }
+
 }

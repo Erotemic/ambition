@@ -47,7 +47,6 @@ pub fn present_live_room_visuals(
         &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance,
         With<PresentedRoomVisuals>,
     >,
-    physics_settings: Res<ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
 ) {
@@ -65,7 +64,6 @@ pub fn present_live_room_visuals(
             &mut commands,
             scope,
             rooms.rooms().spec(definition),
-            *physics_settings,
             assets.as_deref(),
         );
         commands.spawn_session_scoped(
@@ -79,7 +77,6 @@ pub fn spawn_room_visuals(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     spec: &ambition_platformer2d_world::rooms::RoomSpec,
-    physics_settings: ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings,
     assets: Option<&GameAssets>,
 ) {
     let world = &spec.world;
@@ -91,7 +88,6 @@ pub fn spawn_room_visuals(
             session_scope,
             world,
             block,
-            physics_settings,
             assets,
         );
     }
@@ -835,7 +831,6 @@ pub fn spawn_block(
     session_scope: SessionSpawnScope,
     world: &ae::World,
     block: &ae::Block,
-    physics_settings: ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings,
     assets: Option<&GameAssets>,
 ) {
     let size = block.aabb.half_size() * 2.0;
@@ -907,18 +902,6 @@ pub fn spawn_block(
     if let Some(key) = sprite_key {
         entity.insert(BoundEntitySprite::new(key));
     }
-    spawn_static_collider_for_block(commands, world, block, physics_settings);
-}
-
-fn spawn_static_collider_for_block(
-    _commands: &mut Commands,
-    _world: &ae::World,
-    _block: &ae::Block,
-    _settings: ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings,
-) {
-    // Render spawns only visual block entities. No system installs the static
-    // physics colliders: the adapter's `spawn_static_collider_for_block` has
-    // no caller, so debris has no floor (open-world doc, "Debris physics").
 }
 
 /// Width-to-height aspect of the authored `door_zone.png` (published with

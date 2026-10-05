@@ -1,7 +1,7 @@
 //! The construction half of neighboring-room prefetch.
 //!
 //! A prepared [`RoomConstructionPlan`] is an ENGINE artifact keyed by engine
-//! identity — content epoch, session scope, and the room you are standing in —
+//! identity — content epoch, session scope, and the live room it neighbours —
 //! so the cache that promotes one into a live transition belongs beside the
 //! transition, not beside the host's sprite manifests.
 //!
@@ -27,6 +27,17 @@
 //! unrepresentable rather than merely unlikely. There is no public reset: the
 //! identity is adopted by publishing and checked by promoting, and those are the
 //! only two ways it can change.
+//!
+//! ⭐ THE SOURCE ROOM IS A KEY, NOT A RESET. More than one room can be live, and
+//! each live room has its own neighbours. The identity has two parts. The WORLD
+//! (content epoch and session scope) is one value for the cache: a change clears
+//! all entries. The SOURCE ROOM is a key of each entry: a crossing from one room
+//! does not remove the entries of a different live room. While the source was a
+//! part of the one adopted identity, the first crossing with two live rooms
+//! cleared the plans of the two rooms (measured 2026-10-04,
+//! `each_live_room_keeps_the_plans_of_its_own_neighbours`). The rule is in
+//! [`PrefetchedByRoom`], and the host's asset cache holds one too, so the two
+//! caches cannot disagree about it.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -68,39 +79,135 @@ impl PrefetchIdentity {
     pub fn session_scope(&self) -> Option<SessionScopeId> {
         self.session_scope
     }
+
+    /// The live room that the prepared rooms are neighbours of.
+    pub fn source_room_id(&self) -> &str {
+        &self.source_room_id
+    }
+
+    /// Whether `other` is in the same world: the same content epoch and the
+    /// same session. The source room is not a part of this question.
+    fn same_world(&self, other: &Self) -> bool {
+        self.content_epoch == other.content_epoch && self.session_scope == other.session_scope
+    }
 }
 
-/// Prepared construction plans for the rooms adjacent to the one in play.
+/// The entries of a prefetch cache, each under the identity it was prepared
+/// for: source room, then target room.
+///
+/// The world of the entries is one value. An entry point that takes a
+/// [`PrefetchIdentity`] adopts its world first, so a read never crosses a
+/// content epoch or a session, and an insert never leaves an entry of an older
+/// world in the cache.
+#[derive(Debug)]
+pub struct PrefetchedByRoom<T> {
+    /// The identity that was adopted last. Only its world is compared.
+    world: Option<PrefetchIdentity>,
+    by_source: BTreeMap<String, BTreeMap<String, T>>,
+}
+
+impl<T> Default for PrefetchedByRoom<T> {
+    fn default() -> Self {
+        Self {
+            world: None,
+            by_source: BTreeMap::new(),
+        }
+    }
+}
+
+impl<T> PrefetchedByRoom<T> {
+    /// Adopt the world of `identity`. Answers whether it is a new world, in
+    /// which case all entries were removed.
+    ///
+    /// A new SOURCE room in the same world removes nothing.
+    pub fn adopt(&mut self, identity: &PrefetchIdentity) -> bool {
+        if self.world.as_ref().is_some_and(|world| world.same_world(identity)) {
+            return false;
+        }
+        self.world = Some(identity.clone());
+        self.by_source.clear();
+        true
+    }
+
+    /// Remove all entries and the world they were prepared for.
+    pub fn clear(&mut self) {
+        self.world = None;
+        self.by_source.clear();
+    }
+
+    /// Put the entry for `target_room_id`, prepared as a neighbour of the
+    /// source room of `identity`.
+    pub fn insert(&mut self, identity: &PrefetchIdentity, target_room_id: &str, entry: T) {
+        self.adopt(identity);
+        self.by_source
+            .entry(identity.source_room_id.clone())
+            .or_default()
+            .insert(target_room_id.to_string(), entry);
+    }
+
+    /// The entry for a crossing from the source room of `identity` to
+    /// `target_room_id`, after the world of `identity` is adopted.
+    pub fn get(&mut self, identity: &PrefetchIdentity, target_room_id: &str) -> Option<&T> {
+        self.adopt(identity);
+        self.peek(&identity.source_room_id, target_room_id)
+    }
+
+    /// The entry for `target_room_id` as a neighbour of `source_room_id`,
+    /// with no question about the world.
+    pub fn peek(&self, source_room_id: &str, target_room_id: &str) -> Option<&T> {
+        self.by_source.get(source_room_id)?.get(target_room_id)
+    }
+
+    pub fn remove(&mut self, source_room_id: &str, target_room_id: &str) -> Option<T> {
+        let targets = self.by_source.get_mut(source_room_id)?;
+        let removed = targets.remove(target_room_id);
+        if targets.is_empty() {
+            self.by_source.remove(source_room_id);
+        }
+        removed
+    }
+
+    /// Keep the entries for which `keep(source room, target room)` is true.
+    pub fn retain(&mut self, mut keep: impl FnMut(&str, &str) -> bool) {
+        for (source, targets) in self.by_source.iter_mut() {
+            targets.retain(|target, _| keep(source, target));
+        }
+        self.by_source.retain(|_, targets| !targets.is_empty());
+    }
+
+    /// Each entry, with the source room and the target room it is under.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &str, &T)> {
+        self.by_source.iter().flat_map(|(source, targets)| {
+            targets
+                .iter()
+                .map(move |(target, entry)| (source.as_str(), target.as_str(), entry))
+        })
+    }
+
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.by_source.values_mut().flat_map(BTreeMap::values_mut)
+    }
+}
+
+
+/// Prepared construction plans for the rooms adjacent to each live room.
 #[derive(Resource, Default, Debug)]
 pub struct RoomConstructionPlanPrefetch {
-    identity: Option<PrefetchIdentity>,
-    plans: BTreeMap<String, Arc<RoomConstructionPlan>>,
+    plans: PrefetchedByRoom<Arc<RoomConstructionPlan>>,
 }
 
 impl RoomConstructionPlanPrefetch {
-    /// Adopt `identity`, dropping everything prepared under a different one.
-    ///
-    /// Private, and both public entry points call it: a promotion can never read
-    /// across an epoch/scope/source boundary even if the producer has not run
-    /// since the change, and a publication can never leave the cache claiming an
-    /// identity its plans were not prepared under.
-    fn adopt(&mut self, identity: &PrefetchIdentity) {
-        if self.identity.as_ref() == Some(identity) {
-            return;
-        }
-        self.identity = Some(identity.clone());
-        self.plans.clear();
-    }
-
     /// Publish a plan prepared for a neighbor of `identity`'s source room.
+    ///
+    /// A room that is a neighbour of two live rooms is published one time for
+    /// each, with the one plan.
     pub fn publish(
         &mut self,
         identity: &PrefetchIdentity,
         room_id: &str,
         plan: Arc<RoomConstructionPlan>,
     ) {
-        self.adopt(identity);
-        self.plans.insert(room_id.to_string(), plan);
+        self.plans.insert(identity, room_id, plan);
     }
 
     /// The cached plan, without promoting it.
@@ -108,35 +215,44 @@ impl RoomConstructionPlanPrefetch {
     /// ⛔ FOR INSPECTION ONLY. Promotion is [`Self::promote`] and it exists to
     /// refuse a plan prepared against a different world; a caller that reached
     /// past it would be taking exactly the plan those checks are about.
-    pub fn peek(&self, room_id: &str) -> Option<&Arc<RoomConstructionPlan>> {
-        self.plans.get(room_id)
+    pub fn peek(&self, source_room_id: &str, room_id: &str) -> Option<&Arc<RoomConstructionPlan>> {
+        self.plans.peek(source_room_id, room_id)
     }
 
-    /// True when a plan for this room is already published — the producer's "do
-    /// I still need to build one" question.
+    /// True when a plan for `room_id` is published as a neighbour of
+    /// `source_room_id` — the producer's "do I still need to build one"
+    /// question.
     ///
-    /// ⚠ IT DOES NOT ASK ABOUT IDENTITY, and its doc used to claim it did. It
-    /// cannot: the identity is whatever the last publication adopted, so a plan
+    /// ⚠ IT DOES NOT ASK ABOUT THE WORLD, and its doc used to claim it did. It
+    /// cannot: the world is whatever the last publication adopted, so a plan
     /// present here is by construction one prepared under it.
-    pub fn holds(&self, room_id: &str) -> bool {
-        self.plans.contains_key(room_id)
+    pub fn holds(&self, source_room_id: &str, room_id: &str) -> bool {
+        self.plans.peek(source_room_id, room_id).is_some()
     }
 
-    pub fn forget(&mut self, room_id: &str) {
-        self.plans.remove(room_id);
+    pub fn forget(&mut self, source_room_id: &str, room_id: &str) {
+        self.plans.remove(source_room_id, room_id);
+    }
+
+    /// Keep the plans for which `keep(source room, target room)` is true: the
+    /// producer's retirement of the plans of a room that is no longer live.
+    pub fn retain(&mut self, keep: impl FnMut(&str, &str) -> bool) {
+        self.plans.retain(keep);
     }
 
     /// Promote only when session identity, target spec, and world outlook still
     /// match the prepared plan. A hot reload, session change, or custody/disposition
     /// change is a miss and must re-prepare against the current outlook.
+    ///
+    /// The plan is the one prepared for a neighbour of the source room of
+    /// `identity`. The plans of a different source room stay.
     pub fn promote(
         &mut self,
         identity: &PrefetchIdentity,
         target: &RoomSpec,
         outlook: &RoomOccurrenceOutlook,
     ) -> Option<Arc<RoomConstructionPlan>> {
-        self.adopt(identity);
-        let plan = self.plans.get(&target.id)?;
+        let plan = self.plans.get(identity, &target.id)?;
         if !plan.matches_room_spec(target)
             || plan.session_scope().id() != identity.session_scope()
             || plan.occurrence_outlook() != outlook
@@ -144,5 +260,54 @@ impl RoomConstructionPlanPrefetch {
             return None;
         }
         Some(Arc::clone(plan))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn from(epoch: u64, source: &str) -> PrefetchIdentity {
+        PrefetchIdentity::new(epoch, None, source)
+    }
+
+    /// The source room is a key and the world is a reset.
+    ///
+    /// Two live rooms each have entries. A read for one room keeps the entries
+    /// of the other room. A read from a new content epoch, or from a new
+    /// session, removes all of them.
+    #[test]
+    fn a_new_source_room_keeps_the_entries_and_a_new_world_clears_them() {
+        let mut cache = PrefetchedByRoom::<u32>::default();
+        cache.insert(&from(1, "alley"), "shaft", 10);
+        cache.insert(&from(1, "relay"), "pipes", 20);
+        // One target as a neighbour of two rooms is two entries.
+        cache.insert(&from(1, "relay"), "shaft", 30);
+
+        assert_eq!(cache.get(&from(1, "relay"), "pipes"), Some(&20));
+        assert_eq!(
+            cache.get(&from(1, "alley"), "shaft"),
+            Some(&10),
+            "a read for one source room removed the entry of a different source room"
+        );
+        assert_eq!(cache.get(&from(1, "relay"), "shaft"), Some(&30));
+        // An entry is under its own source room only.
+        assert_eq!(cache.get(&from(1, "alley"), "pipes"), None);
+        assert_eq!(cache.iter().count(), 3, "a miss removed an entry");
+
+        cache.retain(|source, _| source != "relay");
+        assert_eq!(
+            cache.iter().collect::<Vec<_>>(),
+            vec![("alley", "shaft", &10)],
+            "the retirement of one source room did not leave the entries of the other"
+        );
+
+        assert_eq!(cache.get(&from(2, "alley"), "shaft"), None, "an entry crossed a content epoch");
+        assert_eq!(cache.iter().count(), 0);
+
+        cache.insert(&from(2, "alley"), "shaft", 40);
+        let other_session = PrefetchIdentity::new(2, Some(SessionScopeId(7)), "alley");
+        assert_eq!(cache.get(&other_session, "shaft"), None, "an entry crossed a session");
+        assert_eq!(cache.iter().count(), 0);
     }
 }

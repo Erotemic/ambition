@@ -433,7 +433,7 @@ fn a_class_with_every_cell_taken_opens_a_page() {
 /// clip is taken out of `clips` and named in `baked_clips`, as a hybrid
 /// publish states it.
 fn hybrid_raider(row: &str) -> RiggedSpriteAsset {
-    let text = ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook("pirate_raider").unwrap();
+    let text = ambition_sprite_sheet::baked_part_flipbooks::published_ron_on_build_host("pirate_raider").unwrap();
     let key = format!("\"{row}\": (");
     let start = text.find(&key).expect("the raider has the clip");
     // The clip ends at the parenthesis that closes the one after its key.
@@ -987,18 +987,15 @@ fn a_faded_draw_tints_its_slot() {
 #[test]
 fn every_published_flipbook_fits_an_impostor_cell() {
     let mut checked = Vec::new();
-    for (key, _text) in ambition_sprite_sheet::baked_part_flipbooks::BAKED_PART_FLIPBOOKS {
-        // `<target>.<tier>` is a tier's table of the same frame.
-        if key.contains('.') {
-            continue;
-        }
+    // Full-resolution tables only: a tier's table has the same frame.
+    for key in ambition_sprite_sheet::baked_part_flipbooks::baked_part_flipbook_targets() {
         let flipbook = RiggedSpriteAsset::baked(key).expect("a published flipbook parses");
         assert!(
             impostor_cell_class(flipbook.frame_size.as_vec2()).is_some(),
             "`{key}`'s {} px frame fits no impostor cell ({IMPOSTOR_CELL_CLASSES:?})",
             flipbook.frame_size
         );
-        checked.push(*key);
+        checked.push(key);
     }
     // Mary-O's three forms, the five pirates and the robot, at least.
     assert!(checked.contains(&"player_robot_v3") && checked.len() >= 9, "{checked:?}");

@@ -39,8 +39,8 @@ use ambition_platformer2d::sprite_sheet::game_assets::{
 use ambition_platformer2d::world::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
 
 use ambition_platformer2d::runtime::room_transition::{
-    set_room_transition_work_state, PrefetchIdentity, RoomConstructionPlanPrefetch,
-    RoomTransitionLoadPhase, RoomTransitionLoadState,
+    set_room_transition_work_state, PrefetchIdentity, PrefetchedByRoom,
+    RoomConstructionPlanPrefetch, RoomTransitionLoadPhase, RoomTransitionLoadState,
 };
 
 /// One concrete image handle whose successful load contributes to room visual
@@ -112,8 +112,8 @@ struct PrefetchedRoomPreparation {
     settled_at: Option<Duration>,
 }
 
-/// Bounded speculative construction/asset cache for the active room's graph
-/// neighbors.
+/// Bounded speculative construction/asset cache for the graph neighbors of
+/// each live room.
 ///
 /// Entries are valid only for the exact content-epoch/session/source-room
 /// tuple. A transition promotes a cache entry only when a freshly-derived target
@@ -122,16 +122,16 @@ struct PrefetchedRoomPreparation {
 /// safe misses rather than stale promotion.
 #[derive(Resource, Default, Debug)]
 pub(crate) struct RoomPreparationPrefetchState {
-    /// ⛔⛔ **THE SAME VALUE THE PLAN CACHE KEYS ON, NOT A SECOND SPELLING OF
-    /// IT.** This used to hold `content_epoch`, `session_scope` and
-    /// `source_room_id` as three fields of its own while
+    /// ⛔⛔ **THE SAME KEYS THE PLAN CACHE HAS, UNDER THE SAME RULE, NOT A
+    /// SECOND SPELLING OF IT.** This used to hold `content_epoch`,
+    /// `session_scope` and `source_room_id` as three fields of its own while
     /// `RoomConstructionPlanPrefetch` held the same triple as three of ITS own —
     /// and only this copy was ever set, which is how the plan cache spent the
     /// project's life at its default and threw every warm plan away on the first
-    /// promotion. One type now, so a term added to the identity cannot reach one
-    /// cache and miss the other.
-    identity: Option<PrefetchIdentity>,
-    entries: BTreeMap<String, PrefetchedRoomPreparation>,
+    /// promotion. Then each held one `PrefetchIdentity` and its own `adopt`.
+    /// The rule is in ONE type now ([`PrefetchedByRoom`]), so a term added to
+    /// the identity cannot reach one cache and miss the other.
+    entries: PrefetchedByRoom<PrefetchedRoomPreparation>,
     pub(crate) hits: u64,
     pub(crate) misses: u64,
     pub(crate) stale_misses: u64,
@@ -839,23 +839,13 @@ pub(crate) fn inspect_room_asset_manifest(
 }
 
 impl RoomPreparationPrefetchState {
-    fn adopt(&mut self, identity: &PrefetchIdentity) -> bool {
-        let changed = self.identity.as_ref() != Some(identity);
-        if changed {
-            self.entries.clear();
-            self.identity = Some(identity.clone());
-        }
-        changed
-    }
-
     pub(crate) fn classify_promotion(
         &mut self,
         identity: &PrefetchIdentity,
         manifest: &RoomAssetManifest,
         now: Option<Duration>,
     ) -> bool {
-        self.adopt(identity);
-        match self.entries.get(&manifest.room_id) {
+        match self.entries.get(identity, &manifest.room_id) {
             Some(entry) if entry.manifest == *manifest => {
                 self.hits = self.hits.saturating_add(1);
                 match (now, entry.settled_at) {
@@ -1316,21 +1306,80 @@ pub(crate) fn asset_stall_report(
 /// healthy load never files one.
 const ASSET_READINESS_STALL_REPORT: Duration = Duration::from_secs(5);
 
-/// Speculatively prepare construction plans and poll exact asset manifests for graph-neighbor
-/// rooms. The cache is bounded to the current active room's outgoing neighbors.
-/// Promotion is an equality check against a freshly-derived manifest, so stale
-/// content or quality variants are never trusted.
-#[allow(clippy::too_many_arguments)]
-/// Maximum number of one-hop rooms prefetched from the active room.
+/// Maximum number of one-hop rooms prefetched, for all the live rooms together.
 ///
 /// Excess neighbors are skipped as complete rooms rather than partially
 /// prefetched because cached manifests are promoted only when complete. Four
 /// covers ordinary corridor/lab branching while bounding uncovered decode work
 /// at high-degree hubs.
+///
+/// It is the TOTAL, not a number for each live room: the bound is on the
+/// decode work that has no cover, and a second live room does not make more
+/// of that work acceptable. [`neighbour_prefetch_set`] divides it.
 const NEIGHBOR_PREFETCH_ROOM_BUDGET: usize = 4;
 
+/// The rooms the neighbour prefetch prepares, in the order it prepares them.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct NeighbourPrefetchSet {
+    /// A room to prepare, and the live rooms it is a neighbour of. All are
+    /// indices into the room set.
+    pub(crate) rooms: Vec<(usize, Vec<usize>)>,
+    /// The neighbours that the budget left out.
+    pub(crate) skipped: usize,
+}
+
+/// Divide `budget` rooms between the live rooms (`live` are indices into
+/// `rooms`), in turn: the first neighbour of each live room, then the second
+/// of each, until the budget is used.
+///
+/// One live room gets the first `budget` of its neighbours. A room that is a
+/// neighbour of two live rooms is one room of the budget, and it names the two.
+pub(crate) fn neighbour_prefetch_set(
+    rooms: &RoomSet,
+    live: &[usize],
+    budget: usize,
+) -> NeighbourPrefetchSet {
+    let neighbours = live
+        .iter()
+        .map(|&room| rooms.neighboring_room_indices_of(room))
+        .collect::<Vec<_>>();
+    let deepest = neighbours.iter().map(Vec::len).max().unwrap_or(0);
+    let mut set = NeighbourPrefetchSet {
+        rooms: Vec::new(),
+        skipped: 0,
+    };
+    let mut left_out = BTreeSet::new();
+    for rank in 0..deepest {
+        for (&source, neighbours) in live.iter().zip(&neighbours) {
+            let Some(&target) = neighbours.get(rank) else {
+                continue;
+            };
+            if let Some((_, sources)) = set.rooms.iter_mut().find(|(room, _)| *room == target) {
+                if !sources.contains(&source) {
+                    sources.push(source);
+                }
+            } else if set.rooms.len() < budget {
+                set.rooms.push((target, vec![source]));
+            } else {
+                left_out.insert(target);
+            }
+        }
+    }
+    set.skipped = left_out.len();
+    set
+}
+
+/// Speculatively prepare construction plans and poll exact asset manifests for graph-neighbor
+/// rooms. The cache is bounded to the outgoing neighbors of the live rooms.
+/// Promotion is an equality check against a freshly-derived manifest, so stale
+/// content or quality variants are never trusted.
+///
+/// ⭐ IT READS EACH LIVE ROOM. It read the sole live room, so with two live
+/// rooms it did not run, and each crossing took the covered path with no
+/// prepared plan (`each_live_room_keeps_the_plans_of_its_own_neighbours`).
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn prefetch_neighbor_room_preparation_system(
-    room_set: ambition_platformer2d::world::rooms::SoleLiveRoomSpec,
+    room_set: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     content_epoch: Res<ambition_platformer2d::runtime::room_transition::RoomTransitionContentEpoch>,
     placement_lowering: Res<
         ambition_platformer2d::actors::construction::placements::PlacementLoweringRegistry,
@@ -1424,12 +1473,21 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // No prefetch this frame. The door prepares its own plan, and refuses for
         // the same reason if the generation is still missing when it gets there.
         cache.entries.clear();
-        cache.identity = None;
         return;
     };
-    let Some(source_room) = room_set.rooms().rooms.get(room_set.definition().index()) else {
-        cache.entries.clear();
-        cache.identity = None;
+    let rooms = room_set.rooms();
+    // Sorted, and each definition one time: the order divides the budget, so
+    // it must not come from the order of a query.
+    let live_rooms = room_set
+        .live_definitions()
+        .map(|definition| definition.index())
+        .filter(|&index| index < rooms.rooms.len())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let Some(&first_live_room) = live_rooms.first() else {
+        // No live room: nothing to be a neighbour of. The entries stay, as
+        // they did while this system did not run without a live room.
         return;
     };
     let session_scope = active_session.as_deref().and_then(|scope| scope.current());
@@ -1439,7 +1497,6 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         )
     else {
         cache.entries.clear();
-        cache.identity = None;
         return;
     };
     // ⛔⛔ ONE IDENTITY, STATED ONCE, AND BOTH CACHES TAKE IT. The asset-side
@@ -1447,9 +1504,14 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     // each kept its own copy only this one was ever set: the plan cache sat at
     // its default for the life of a session and the first transition's `promote`
     // cleared every plan in it. See `prefetch.rs`'s module note.
-    let identity = PrefetchIdentity::new(content_epoch.get(), session_scope, &source_room.id);
-    let identity_changed = cache.adopt(&identity);
-    let refresh_manifests = identity_changed
+    //
+    // One identity for each live room: the world is the same in all of them,
+    // and the source room is the key of the entries of that room.
+    let identity_of = |source: usize| {
+        PrefetchIdentity::new(content_epoch.get(), session_scope, &rooms.rooms[source].id)
+    };
+    let world_changed = cache.entries.adopt(&identity_of(first_live_room));
+    let refresh_manifests = world_changed
         || room_set.is_changed()
         || placement_lowering.is_changed()
         || content_staging.is_changed()
@@ -1461,59 +1523,65 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     // THE NEIGHBOURHOOD IS BOUNDED, and the reason is the shape of this
     // world rather than a general principle about prefetching. See
     // [`NEIGHBOR_PREFETCH_ROOM_BUDGET`].
-    let all_neighbors = room_set.rooms().neighboring_room_indices_of(room_set.definition().index());
-    let skipped_neighbors = all_neighbors
-        .len()
-        .saturating_sub(NEIGHBOR_PREFETCH_ROOM_BUDGET);
-    let neighbor_indices = all_neighbors
-        .iter()
-        .copied()
-        .take(NEIGHBOR_PREFETCH_ROOM_BUDGET)
-        .collect::<Vec<_>>();
-    if skipped_neighbors > 0 {
+    let prefetch = neighbour_prefetch_set(rooms, &live_rooms, NEIGHBOR_PREFETCH_ROOM_BUDGET);
+    if prefetch.skipped > 0 {
         // NOT silent. A cap that quietly drops work reads as "everything is
         // prefetched" to the next person measuring a transition.
         bevy::log::warn_once!(
             target: "ambition_platformer2d::room_transition",
-            "room '{}' has {} neighbours; prefetching preparation for the first {} and \
-             skipping {}. Those rooms take the ordinary covered transition path instead \
-             (correct, just not preloaded). A hub with a large fan-out is the case this \
-             budget exists for — see NEIGHBOR_PREFETCH_ROOM_BUDGET.",
-            source_room.id,
-            all_neighbors.len(),
-            neighbor_indices.len(),
-            skipped_neighbors,
+            "the live room(s) [{}] have more neighbours than the prefetch budget; prefetching \
+             preparation for {} and skipping {}. Those rooms take the ordinary covered \
+             transition path instead (correct, just not preloaded). A hub with a large \
+             fan-out is the case this budget exists for — see NEIGHBOR_PREFETCH_ROOM_BUDGET.",
+            live_rooms
+                .iter()
+                .map(|&room| rooms.rooms[room].id.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+            prefetch.rooms.len(),
+            prefetch.skipped,
         );
     }
-    let neighbor_ids = neighbor_indices
+    // ⛔ THE RETIREMENT. An entry stays only while its source room is live and
+    // its target is in that room's share of the budget. A crossing does not
+    // clear the entries of a room, so this is where the plans of a room that
+    // is no longer live go.
+    let wanted = prefetch
+        .rooms
         .iter()
-        .filter_map(|&index| room_set.rooms().rooms.get(index))
-        .map(|room| room.id.clone())
+        .flat_map(|(target, sources)| {
+            sources.iter().map(|&source| {
+                (
+                    rooms.rooms[source].id.as_str(),
+                    rooms.rooms[*target].id.as_str(),
+                )
+            })
+        })
         .collect::<BTreeSet<_>>();
-    cache.entries.retain(|room_id, entry| {
-        let keep = neighbor_ids.contains(room_id);
-        if !keep && entry.plan_published {
-            plan_prefetch.forget(room_id);
-        }
-        keep
-    });
+    cache
+        .entries
+        .retain(|source, target| wanted.contains(&(source, target)));
+    plan_prefetch.retain(|source, target| wanted.contains(&(source, target)));
 
-    for index in neighbor_indices {
-        let Some(room) = room_set.rooms().rooms.get(index) else {
+    for (index, sources) in &prefetch.rooms {
+        let index = *index;
+        let Some(room) = rooms.rooms.get(index) else {
             continue;
         };
         if !refresh_manifests
-            && cache
-                .entries
-                .get(&room.id)
-                .is_some_and(|entry| entry.plan_published)
+            && sources.iter().all(|&source| {
+                cache
+                    .entries
+                    .peek(&rooms.rooms[source].id, &room.id)
+                    .is_some_and(|entry| entry.plan_published)
+            })
         {
             continue;
         }
         cache.preparations = cache.preparations.saturating_add(1);
         let construction_plan =
             match ambition_platformer2d::actors::rooms::RoomConstructionPlan::prepare_from_parts(
-                room_set.rooms(),
+                rooms,
                 index,
                 &placement_lowering,
                 &content_staging,
@@ -1578,8 +1646,11 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             ) {
                 Ok(plan) => plan,
                 Err(error) => {
-                    cache.entries.remove(&room.id);
-                    plan_prefetch.forget(&room.id);
+                    for &source in sources {
+                        let source = &rooms.rooms[source].id;
+                        cache.entries.remove(source, &room.id);
+                        plan_prefetch.forget(source, &room.id);
+                    }
                     bevy::log::warn!(
                         target: "ambition_platformer2d::room_transition",
                         "could not prefetch construction for neighbor room '{}': {error}",
@@ -1609,21 +1680,31 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
             &[],
             None,
         );
-        let replace = refresh_manifests
-            || cache.entries.get(&room.id).map_or(true, |entry| {
-                entry.manifest != manifest || !entry.plan_published
-            });
-        if replace {
-            plan_prefetch.publish(&identity, &room.id, Arc::new(construction_plan));
-            cache.entries.insert(
-                room.id.clone(),
-                PrefetchedRoomPreparation {
-                    manifest,
-                    plan_published: true,
-                    requested_at: time.elapsed(),
-                    settled_at: None,
-                },
-            );
+        // ONE plan and ONE manifest for the room, published for each live room
+        // it is a neighbour of.
+        let construction_plan = Arc::new(construction_plan);
+        for &source in sources {
+            let identity = identity_of(source);
+            let replace = refresh_manifests
+                || cache
+                    .entries
+                    .peek(identity.source_room_id(), &room.id)
+                    .map_or(true, |entry| {
+                        entry.manifest != manifest || !entry.plan_published
+                    });
+            if replace {
+                plan_prefetch.publish(&identity, &room.id, Arc::clone(&construction_plan));
+                cache.entries.insert(
+                    &identity,
+                    &room.id,
+                    PrefetchedRoomPreparation {
+                        manifest: manifest.clone(),
+                        plan_published: true,
+                        requested_at: time.elapsed(),
+                        settled_at: None,
+                    },
+                );
+            }
         }
     }
 
@@ -2156,9 +2237,9 @@ mod tests {
             ..Default::default()
         };
         let mut cache = RoomPreparationPrefetchState::default();
-        cache.adopt(&PrefetchIdentity::new(1, None, "hub"));
         cache.entries.insert(
-            "hall".to_string(),
+            &PrefetchIdentity::new(1, None, "hub"),
+            "hall",
             PrefetchedRoomPreparation {
                 manifest: empty.clone(),
                 plan_published: false,
@@ -2182,6 +2263,109 @@ mod tests {
             ..Default::default()
         };
         assert!(!cache.classify_promotion(&hub_v1, &different_room, Some(Duration::ZERO)));
+    }
+
+    /// ⭐ THE BUDGET IS DEALT TO THE LIVE ROOMS IN TURN.
+    ///
+    /// `hub` has six doors (`a` to `f`), `side` has three (`g`, `h`, `a`), and
+    /// the budget is four rooms.
+    ///
+    /// - Control, one live room: its first four neighbours, as before there
+    ///   could be two live rooms.
+    /// - Two live rooms: the first neighbour of each, then the second of each.
+    /// - A room that is a neighbour of the two live rooms (`a`) is one room of
+    ///   the budget and names the two.
+    #[test]
+    fn the_prefetch_budget_is_dealt_to_the_live_rooms_in_turn() {
+        use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation, RoomLink};
+
+        fn room(id: &str, doors: &[&str]) -> RoomSpec {
+            let mut spec = RoomSpec::new(
+                id,
+                ambition_platformer2d::engine_core::World::new(
+                    id,
+                    ambition_platformer2d::engine_core::Vec2::new(400.0, 300.0),
+                    ambition_platformer2d::engine_core::Vec2::ZERO,
+                    Vec::new(),
+                ),
+            );
+            spec.loading_zones = doors
+                .iter()
+                .map(|other| LoadingZone {
+                    id: format!("to_{other}"),
+                    name: format!("to_{other}"),
+                    activation: LoadingZoneActivation::Door,
+                    aabb: ambition_platformer2d::engine_core::Aabb::new(
+                        ambition_platformer2d::engine_core::Vec2::new(10.0, 10.0),
+                        ambition_platformer2d::engine_core::Vec2::splat(8.0),
+                    ),
+                })
+                .collect();
+            spec
+        }
+        fn link(from: &str, to: &str) -> RoomLink {
+            RoomLink {
+                from_room: from.into(),
+                from_zone: format!("to_{to}"),
+                to_room: to.into(),
+                to_zone: format!("to_{from}"),
+                bidirectional: false,
+            }
+        }
+
+        // The neighbours of a room come back in the order of the room list,
+        // so the names below are in that order.
+        let hub_doors = ["a", "b", "c", "d", "e", "f"];
+        let side_doors = ["a", "g", "h"];
+        let mut rooms = vec![room("hub", &hub_doors), room("side", &side_doors)];
+        rooms.extend(["a", "b", "c", "d", "e", "f", "g", "h"].map(|id| room(id, &[])));
+        let links = hub_doors
+            .iter()
+            .map(|to| link("hub", to))
+            .chain(side_doors.iter().map(|to| link("side", to)))
+            .collect();
+        let rooms = RoomSet::from_parts_or_panic("hub", rooms, links);
+        let index = |id: &str| rooms.room_index_by_id(id).expect("the fixture has the room");
+        let named = |set: &NeighbourPrefetchSet| -> Vec<(String, Vec<String>)> {
+            set.rooms
+                .iter()
+                .map(|(target, sources)| {
+                    (
+                        rooms.rooms[*target].id.clone(),
+                        sources.iter().map(|&source| rooms.rooms[source].id.clone()).collect(),
+                    )
+                })
+                .collect()
+        };
+        let of = |pairs: &[(&str, &[&str])]| -> Vec<(String, Vec<String>)> {
+            pairs
+                .iter()
+                .map(|(target, sources)| {
+                    (target.to_string(), sources.iter().map(|source| source.to_string()).collect())
+                })
+                .collect()
+        };
+
+        let alone = neighbour_prefetch_set(&rooms, &[index("hub")], 4);
+        assert_eq!(
+            named(&alone),
+            of(&[("a", &["hub"]), ("b", &["hub"]), ("c", &["hub"]), ("d", &["hub"])]),
+            "control: one live room does not get the first four of its neighbours"
+        );
+        assert_eq!(alone.skipped, 2, "control: `e` and `f` are the two rooms left out");
+
+        let both = neighbour_prefetch_set(&rooms, &[index("hub"), index("side")], 4);
+        assert_eq!(
+            named(&both),
+            of(&[("a", &["hub", "side"]), ("b", &["hub"]), ("g", &["side"]), ("c", &["hub"])]),
+            "two live rooms did not get neighbours in turn, with the shared room one time"
+        );
+        // `d`, `e`, `f` of the hub and `h` of the side room.
+        assert_eq!(both.skipped, 4);
+
+        // A budget of zero prepares nothing and says so.
+        let none = neighbour_prefetch_set(&rooms, &[index("side")], 0);
+        assert_eq!((none.rooms.len(), none.skipped), (0, 3));
     }
 
     /// The stall report names the room and the outstanding assets, and caps the

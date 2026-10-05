@@ -481,7 +481,11 @@
             ),
             hall_dialogue_id: Some("hall_npc_companion_dog"),
             // The dog's conversation offers a pet (`<<pet>>`); this row makes it pettable.
-            petting: Some((sound: Some("npc.dog.woof"))),
+            // It is petted on the nose: 28 ahead of the point its head turns
+            // about (at its ear) and 9 below it, where its muzzle rests when
+            // it lies down to be petted. The robot's pet row holds its hand
+            // at that height.
+            petting: Some((sound: Some("npc.dog.woof"), contact_offset: (28.0, 9.0))),
         ),
         "npc_busy_beaver": (
             display_name: "Busy Beaver",

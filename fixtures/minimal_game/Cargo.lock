@@ -958,6 +958,7 @@ dependencies = [
  "ambition_platformer2d_world",
  "bevy",
  "bincode",
+ "blake3",
  "ron 0.11.0",
  "serde",
  "serde_json",

@@ -702,6 +702,7 @@ impl PlatformerPreparation<'_> {
                     self.content_inputs.9.as_deref(),
                 ),
                 extension_modules: self.content_inputs.10.as_deref().map(|g| g.0.clone()),
+                baked_landmarks: baked_landmarks_identity(),
             })
         })
         .and_then(|mechanical| {
@@ -1067,6 +1068,7 @@ pub fn prepare_platformer_content_for_app(
             boss_catalog,
             developer_construction,
             extension_modules,
+            baked_landmarks: baked_landmarks_identity(),
         },
         snapshot_schema,
         &mut epochs,
@@ -1422,6 +1424,10 @@ fn canonical<T>(
         .transpose()
 }
 
+/// The content-identity section that holds
+/// [`MechanicalRegistries::baked_landmarks`].
+pub const BAKED_LANDMARKS_SECTION: &str = "characters.baked-landmarks";
+
 #[derive(Clone, Debug, Default)]
 pub struct MechanicalRegistries {
     /// Canonical descriptor-only dump of every installed construction domain.
@@ -1471,6 +1477,28 @@ pub struct MechanicalRegistries {
     /// different techniques; without this section they shared one identity.
     /// `None` means the composition has no extension host.
     pub extension_modules: Option<String>,
+    /// ⛔ **THE LANDMARK TABLES THE BUILD EMBEDS**: where each character's art
+    /// publishes its hands, head and feet, per pose —
+    /// `ambition_sprite_sheet::baked_landmarks::BAKED_LANDMARKS_DIGEST`. A
+    /// landmark places a pet mark today and a muzzle later, so it is a
+    /// simulation input, and it is compiled into the binary: no world resource
+    /// holds it, and published sprites are not in version control, so two
+    /// builds can differ in it under one source revision. `None` only in a
+    /// fixture that does not go through a provider road.
+    ///
+    /// ⚠ **THE BAKED SHEET RECORDS ARE NOT COVERED, AND THEY ARE THE SAME
+    /// CLASS.** A body's collision box comes from the baked sheet index
+    /// (`record_for_sheet_key`), which no section reads; `authored_sheets`
+    /// holds only the sheets a provider registers. See queue row
+    /// `BAKED-SHEET-IDENTITY`.
+    pub baked_landmarks: Option<String>,
+}
+
+/// The identity of the landmark tables this build embeds, for
+/// [`MechanicalRegistries::baked_landmarks`]. One function for both provider
+/// roads, so that they cannot disagree about the material.
+fn baked_landmarks_identity() -> Option<String> {
+    Some(ambition_sprite_sheet::baked_landmarks::BAKED_LANDMARKS_DIGEST.to_string())
 }
 
 pub fn prepare_platformer_content(
@@ -1700,6 +1728,7 @@ pub fn prepare_platformer_content(
         boss_catalog,
         developer_construction,
         extension_modules,
+        baked_landmarks,
     } = mechanical;
     // ⛔ DESTRUCTURED EXHAUSTIVELY, so a field added to `MechanicalRegistries`
     // and not bound below is a compile error rather than a silent omission —
@@ -1717,6 +1746,8 @@ pub fn prepare_platformer_content(
         ("construction.developer", developer_construction),
         // The procedural modules: see `MechanicalRegistries::extension_modules`.
         (ambition_platformer2d_runtime::extension_composition::EXTENSION_MODULES_SECTION, extension_modules),
+        // The compiled-in landmark tables: see `MechanicalRegistries::baked_landmarks`.
+        (BAKED_LANDMARKS_SECTION, baked_landmarks),
     ] {
         builder
             .add_section(section, material.map_or_else(Vec::new, String::into_bytes))
@@ -3853,6 +3884,43 @@ mod tests {
         );
     }
 
+    /// A landmark is a simulation input that is compiled in: two preparations
+    /// whose landmark material differs are different generations, and two that
+    /// agree are one. `the_provider_road_carries_this_builds_landmark_digest`
+    /// shows that the material is the tables this build embeds.
+    #[test]
+    fn two_preparations_under_different_landmark_tables_are_different_generations() {
+        let characters = character_registry(false, CHARACTER_B);
+        let staging = staging_registry(false);
+        let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
+        let snapshot_schema = ambition_platformer2d_runtime::rollback::RollbackRegistry::default()
+            .schema_fingerprint();
+        let mut epochs = ContentEpochSequence::default();
+        let mut prepare = |landmarks: &str| {
+            prepare_platformer_content(
+                fixture_source(128.0),
+                &authored,
+                Some(&characters),
+                None,
+                Some(&staging),
+                MechanicalRegistries {
+                    baked_landmarks: Some(landmarks.to_string()),
+                    ..Default::default()
+                },
+                snapshot_schema,
+                &mut epochs,
+            )
+            .unwrap()
+            .fingerprint()
+        };
+        assert_eq!(prepare("one"), prepare("one"), "control: the same tables, one generation");
+        assert_ne!(
+            prepare("one"),
+            prepare("other"),
+            "two builds whose characters keep their hands in different places shared an identity",
+        );
+    }
+
     #[test]
     fn sequential_preparations_share_definition_identity_but_not_epoch() {
         let characters = character_registry(false, CHARACTER_B);
@@ -4613,6 +4681,29 @@ mod mechanical_registries_reach_the_identity {
             harmless, hazardous,
             "whether touching this body hurts is mechanical and did not reach \
              the identity",
+        );
+    }
+
+    /// The provider road puts the digest of the landmark tables THIS build
+    /// embeds in its own section, so the identity is about the material a
+    /// session uses. See `MechanicalRegistries::baked_landmarks`.
+    #[test]
+    fn the_provider_road_carries_this_builds_landmark_digest() {
+        let mut app = bevy::app::App::new();
+        let prepared = prepare_platformer_content_for_app(
+            &mut app,
+            source(),
+            &AuthoredCatalogFragments::new("alpha", "fixture"),
+        )
+        .expect("the fixture composition prepares");
+        let section = prepared
+            .sections()
+            .iter()
+            .find(|section| section.name == BAKED_LANDMARKS_SECTION)
+            .expect("the provider road adds the landmark section");
+        assert_eq!(
+            section.canonical_bytes(),
+            ambition_sprite_sheet::baked_landmarks::BAKED_LANDMARKS_DIGEST.as_bytes(),
         );
     }
 

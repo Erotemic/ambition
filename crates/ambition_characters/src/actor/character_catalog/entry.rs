@@ -547,6 +547,13 @@ pub struct PettingSpec {
     /// The sound it makes when the pet starts (an `sfx_registry` id).
     #[serde(default)]
     pub sound: Option<String>,
+    /// Where it is petted: an offset from its head landmark
+    /// ([`crate::actor::Landmark::Head`], the point the head turns about)
+    /// while it is petted, in world units along its own axes: +x the way it
+    /// faces, +y down. The petter's hand goes there. `(0, 0)` is the head's
+    /// own point.
+    #[serde(default)]
+    pub contact_offset: (f32, f32),
 }
 
 /// One character entry in `character_catalog.ron`.

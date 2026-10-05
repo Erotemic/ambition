@@ -19,6 +19,8 @@ pub use body::{
 };
 pub mod body_rig;
 pub use body_rig::{BodyRigAdmission, BodyRigDefinition, BodyRigError, PreparedBodyRig};
+pub mod landmarks;
+pub use landmarks::{BodyLandmarkTable, Landmark};
 pub mod body_step;
 pub use body_step::step_body;
 pub mod attack_gesture;

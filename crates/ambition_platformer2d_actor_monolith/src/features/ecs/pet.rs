@@ -19,16 +19,28 @@
 //! body, either body going away, or a walk that cannot arrive ends the beat
 //! and lets both go ([`advance_pet_beats`]).
 //!
+//! ⭐ THE MARK IS WHERE THE HAND MEETS THE CONTACT POINT. The petter stands
+//! where its petting hand, in the gesture's row, is over the place the petted
+//! body is petted: its head in its own row, plus the offset its catalog row
+//! authors (`petting.contact_offset`). The hand and the head come from the one
+//! landmark query ([`ambition_combat::body_landmarks`], ruling Q41), so the
+//! gesture does not read a sprite bound. A body that publishes no such
+//! landmark uses the named fallback: the petted body's front, plus
+//! [`PET_STANDOFF`].
+//!
 //! Whether a character can be petted is authored on its catalog row
 //! (`petting`). The dialogue offers the pet as a choice, so Interact always
 //! talks and the pet does not take the conversation's place.
 
+use ambition_characters::actor::body::{PETTED_CLIPS, PETTING_CLIPS};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::BodyAnimFacts;
 use ambition_characters::actor::BodyCombat;
+use ambition_characters::actor::Landmark;
 use ambition_characters::control::{
     claim_control_hold, release_control_hold, CommandedMove, ControlHold, ControlHolds,
 };
+use ambition_combat::body_landmarks::{BodyLandmarks, LandmarkPose};
 use ambition_combat::components::{ActorInteraction, CenteredAabb};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -43,9 +55,47 @@ use bevy::prelude::*;
 /// How long a pet lasts. The petter's `pet` row is authored to this length.
 pub const PET_SECONDS: f32 = 2.0;
 
-/// The gap between the petter and the petted body's side, in world units.
-/// The petter stands just off the petted body's front, where its bowed head is.
+/// The gap between the petter and the petted body's side, in world units, for
+/// a pair that publishes no hand or head landmark: the petter then stands just
+/// off the petted body's front.
 const PET_STANDOFF: f32 = 6.0;
+
+/// The part of the gesture the mark is planned for: its middle, when the hand
+/// is on the head. Both rows are authored to the length of the gesture.
+const PET_CONTACT_PHASE: f32 = 0.5;
+
+/// The petted body's head while it is petted, in its rig space.
+fn petted_head(landmarks: &BodyLandmarks, petted: Entity) -> Option<ambition_platformer2d_core::Vec2> {
+    let petted_row = LandmarkPose::Clip {
+        chain: PETTED_CLIPS,
+        phase: PET_CONTACT_PHASE,
+    };
+    landmarks.in_rig_space(petted, Landmark::Head, petted_row)
+}
+
+/// How far the petter's feet stand from the petted body's feet, toward the
+/// petted body's front, so that the petting hand is over the place the petted
+/// body is petted: its head, plus `contact_offset` (the petted row's
+/// `petting.contact_offset`). `None` when either body publishes no such
+/// landmark.
+///
+/// The petting hand is the hand nearer the viewer, which is the hand a
+/// gesture row draws in view; a body with no such hand pets with the other.
+fn pet_reach(
+    landmarks: &BodyLandmarks,
+    petter: Entity,
+    petted: Entity,
+    contact_offset: (f32, f32),
+) -> Option<f32> {
+    let petting_row = LandmarkPose::Clip {
+        chain: PETTING_CLIPS,
+        phase: PET_CONTACT_PHASE,
+    };
+    let hand = [Landmark::HandNear, Landmark::HandFar]
+        .into_iter()
+        .find_map(|hand| landmarks.in_rig_space(petter, hand, petting_row))?;
+    Some(petted_head(landmarks, petted)?.x + contact_offset.0 + hand.x)
+}
 
 /// How fast the petter walks to the petted body's front, in px/s: a walk and
 /// not a run, because the walk is part of the gesture.
@@ -70,7 +120,9 @@ const PET_REACH_SLACK: f32 = 16.0;
 pub struct PetBeat {
     /// The body being petted, by live identity.
     pub petted: LiveBodyId,
-    /// Where the petter stands to pet: the petted body's front, in world x.
+    /// Where the petter stands to pet, in world x: where its hand is over the
+    /// place the petted body is petted, or the petted body's front for a pair
+    /// that publishes no such landmark.
     pub mark_x: f32,
     /// The side of the petted body the petter stands on: `1.0` right.
     pub side: f32,
@@ -115,8 +167,8 @@ fn stop_where_it_stands(kinematics: &mut ambition_platformer2d_core::BodyKinemat
     );
 }
 
-/// Start the pet a conversation asked for: the petter walks to the petted
-/// body's front. (sim)
+/// Start the pet a conversation asked for: the petter walks to its mark
+/// beside the petted body. (sim)
 ///
 /// The petted body's catalog row must author `petting`, because only such a
 /// character has a petted animation row and a sound for it. The petted body
@@ -138,6 +190,7 @@ pub fn apply_pet_requests(
     beats: Query<&PetBeat>,
     rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
+    landmarks: BodyLandmarks,
     mut bodies: Query<&mut BodyKinematics>,
 ) {
     for request in requests.read() {
@@ -160,11 +213,10 @@ pub fn apply_pet_requests(
             );
             continue;
         };
-        if ambition_conversation::character_id_of(&interaction.interactable)
+        let Some(petting) = ambition_conversation::character_id_of(&interaction.interactable)
             .and_then(|character| catalog.get(character))
             .and_then(|row| row.petting.as_ref())
-            .is_none()
-        {
+        else {
             warn!(
                 target: "crate::features::pet",
                 "{} has no `petting` on its catalog row; ignoring the pet",
@@ -188,8 +240,13 @@ pub fn apply_pet_requests(
         let solids = collision
             .room(rooms.get(petter).ok())
             .and_then(|room| room.solids());
-        let mark_for = |side: f32| {
-            aabb.center.x + side * (aabb.half_size.x + petter_kin.size.x * 0.5 + PET_STANDOFF)
+        // The petted body will face the petter, so its head is on the
+        // petter's side of its feet, and the hand reaches back across.
+        let reach = pet_reach(&landmarks, petter, petted, petting.contact_offset);
+        let petted_x = petted_kin.pos.x;
+        let mark_for = |side: f32| match reach {
+            Some(reach) => petted_x + side * reach,
+            None => aabb.center.x + side * (aabb.half_size.x + petter_kin.size.x * 0.5 + PET_STANDOFF),
         };
         let fits = |side: f32| {
             let body = ambition_platformer2d_core::Aabb::new(
@@ -265,6 +322,7 @@ pub fn advance_pet_beats(
     pettable: Query<(&CenteredAabb, &ActorInteraction)>,
     mut petters: Query<(Entity, &mut PetBeat)>,
     mut bodies: Query<(&mut BodyKinematics, Option<&BodyCombat>)>,
+    landmarks: BodyLandmarks,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
     // The hearts are drawn in the live room of the body that pets.
@@ -324,12 +382,23 @@ pub fn advance_pet_beats(
                         pos: center.center,
                     });
                 }
+                // The hearts rise from the head that is petted; from the top
+                // of the petted body's front when it publishes no head.
+                let head = petted
+                    .and_then(|petted| petted_head(&landmarks, petted))
+                    .map(|head| {
+                        let down = ambition_platformer2d_core::DEFAULT_GRAVITY_DIR;
+                        ambition_combat::body_landmarks::feet_of(&petted_kin, down)
+                            + ambition_combat::body_rig::BodyRigPose::to_body(head, petted_kin.facing, down)
+                    });
                 vfx.for_room(rooms.of(petter)).write(VfxMessage::Hearts {
-                    pos: center.center
-                        + ambition_platformer2d_core::Vec2::new(
-                            beat.side * center.half_size.x,
-                            -center.half_size.y,
-                        ),
+                    pos: head.unwrap_or(
+                        center.center
+                            + ambition_platformer2d_core::Vec2::new(
+                                beat.side * center.half_size.x,
+                                -center.half_size.y,
+                            ),
+                    ),
                     count: 5,
                 });
             }

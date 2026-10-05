@@ -13,6 +13,7 @@ pub mod animator;
 mod assets;
 pub mod catalog_join;
 pub mod color_shift;
+pub mod landmarks_published;
 pub mod rigged;
 pub mod sheets;
 

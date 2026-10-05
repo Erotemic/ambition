@@ -574,8 +574,10 @@ pub struct RiggedSpriteAdmission {
 /// * `Impostor`: every body is composited, always (a measuring knob: the A/B
 ///   against direct drawing).
 ///
-/// Both blend in gamma space, as the art was composited
-/// (`ambition_render::rendering::WORLD_COMPOSITING`), from the same sRGB part pages.
+/// Both read the same sRGB part pages. A composited body blends in gamma space,
+/// as the art was composited (`ambition_render::rendering::ART_COMPOSITING`);
+/// a direct one in the world camera's space (`world_compositing`, linear light
+/// by default), and a frame with a translucent part is composited.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PartPresentation {
     Direct,

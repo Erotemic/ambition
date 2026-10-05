@@ -257,7 +257,7 @@ fn add_renderer(app: &mut App, views: usize, tiny: bool) {
         app.world_mut().spawn((
             Camera2d,
             // Blends as the game's world cameras do.
-            ambition_render::rendering::WORLD_COMPOSITING,
+            ambition_render::rendering::world_compositing(),
             Camera {
                 order: view as isize,
                 viewport: Some(bevy::camera::Viewport {

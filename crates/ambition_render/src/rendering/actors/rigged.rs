@@ -25,11 +25,12 @@
 //! feet, with its own tint and flip. It goes back to the world
 //! [`COMPOSED_HOLD_FRAMES`] after the last read and gives its cell back.
 //!
-//! ⛔ BOTH BLEND IN GAMMA SPACE, as the art was composited (PIL over stored
-//! sRGB values). The world cameras blend in `WORLD_COMPOSITING`; so do the
-//! atlas cameras, from the same sRGB part pages. Blended in linear light, every
-//! anti-aliased outline over another part came out lighter (the robot's dark
-//! outline drew 102 where the frame has 1).
+//! ⛔ THE ART WAS COMPOSITED IN GAMMA SPACE (PIL over stored sRGB values).
+//! The atlas cameras blend in it (`ART_COMPOSITING`), so a composited body is
+//! exact. The world cameras blend in linear light (`world_compositing`: gamma
+//! there blacked out every window), so a body drawn directly has its
+//! anti-aliased outlines over other parts a shade lighter; a frame with a
+//! translucent part, where linear light differs most, is composited.
 //!
 //! ⭐ ONE ATLAS FOR EVERY BODY OF A SIZE ([`RiggedImpostorAtlas`]). Each
 //! composited body is a cell of a shared target, and one camera draws every
@@ -98,7 +99,7 @@ use bevy::sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d};
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_platformer2d_shared_tangle::camera_layers::RIGGED_IMPOSTOR_LAYER;
 
-use crate::rendering::WORLD_COMPOSITING;
+use crate::rendering::{world_compositing, ART_COMPOSITING};
 use ambition_sprite_sheet::character::rigged::{
     ComposedBodyDemand, PartDraw, PartPose, PartPresentation, PosedParts, RiggedSpriteAdmission, RiggedSpritePages,
 };
@@ -643,7 +644,7 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
     let mut target = |format| images.add(Image::new_target_texture(texels.x, texels.y, format, None));
     // The parts blend in GAMMA space, as the baked frame was composited and as
     // the world camera blends them when they are drawn directly
-    // (`WORLD_COMPOSITING`). That camera's main texture holds the sRGB values
+    // (`ART_COMPOSITING`). That camera's main texture holds the sRGB values
     // and Bevy's output blit decodes them, so an sRGB target stores them again
     // exactly; the un-premultiplying pass divides in that same space.
     let premultiplied = target(TextureFormat::Rgba8UnormSrgb);
@@ -653,7 +654,7 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
     });
     let centre = impostor_grid_origin(class, page) + Vec2::new(side * 0.5, -side * 0.5);
     let mut cameras = vec![commands
-        .spawn((Name::new("rigged impostor camera"), impostor_camera(&premultiplied, IMPOSTOR_CAMERA_ORDER, centre, WORLD_COMPOSITING)))
+        .spawn((Name::new("rigged impostor camera"), impostor_camera(&premultiplied, IMPOSTOR_CAMERA_ORDER, centre, ART_COMPOSITING)))
         .id()];
     let mut entities = cameras.clone();
     let mut material = None;
@@ -816,11 +817,16 @@ pub fn drive_rigged_presentations(
         // ⛔ A FADING FRAME IS ONE PICTURE FADING: `opacity(composite(parts))`.
         // Spread over loose parts, each would show the one under it through
         // it (alice's blink drew her arm through her coat).
-        let fades = animator
-            .drawn_row()
-            .and_then(|row| animator.spec.row_name(row))
-            .is_some_and(|row| flipbook.frame_opacity(row, animator.frame) < 1.0);
-        let wanted = always || fades || demand.as_ref().is_some_and(|demand| demand.is_declared(presentation.root));
+        let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
+        let fades = row.is_some_and(|row| flipbook.frame_opacity(row, animator.frame) < 1.0);
+        // A translucent part over another blends visibly differently in the
+        // world's linear light than in the art's gamma (a blink: blobs of 559
+        // px): such a frame is composited, where it is exact.
+        let translucent = row
+            .and_then(|row| flipbook.frame(row, animator.frame))
+            .is_some_and(|draws| draws.iter().any(|draw| draw.opacity() < 1.0))
+            && world_compositing() != ART_COMPOSITING;
+        let wanted = always || fades || translucent || demand.as_ref().is_some_and(|demand| demand.is_declared(presentation.root));
         presentation.composed_hold = if wanted {
             COMPOSED_HOLD_FRAMES
         } else {
@@ -1187,7 +1193,8 @@ fn drive_direct_presentation(
 /// The sprite colour of one draw, multiplied by `root` (a tint or flash on
 /// the whole body). The publisher's tint multiplies the part's stored sRGB
 /// values, so it is an sRGB colour; the page is sampled decoded and the camera
-/// encodes again (`WORLD_COMPOSITING`).
+/// encodes again (a camera in `ART_COMPOSITING`), or blends it in linear
+/// light (the world's).
 fn part_color(draw: &PartDraw, root: LinearRgba) -> Color {
     let (tint, opacity) = (draw.tint(), draw.opacity());
     let part = Color::srgba(tint.x, tint.y, tint.z, opacity).to_linear();

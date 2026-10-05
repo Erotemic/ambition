@@ -18,10 +18,14 @@ struct ResetFrames(Vec<usize>);
 #[derive(Resource, Default)]
 struct FrameCounter(usize);
 
+/// A replay arrives two ways: an asked replay is a `RoomReplayAdmitted`
+/// message, and a checkpoint restore's replay is pinned on the restore and read
+/// in `RestoreConsequences`. `AdmittedReplays` reads both, so this counter runs
+/// in `Last` and in `RestoreConsequences`.
 fn record_resets(
     frame: Res<FrameCounter>,
     mut seen: ResMut<ResetFrames>,
-    mut resets: MessageReader<ambition_platformer2d::combat::RoomReplayAdmitted>,
+    mut resets: ambition_platformer2d::combat::AdmittedReplays,
 ) {
     for _ in resets.read() {
         seen.0.push(frame.0);
@@ -40,6 +44,7 @@ fn boot() -> App {
     app.init_resource::<ResetFrames>();
     app.init_resource::<FrameCounter>();
     app.add_systems(Last, (record_resets, advance_frame).chain());
+    app.add_systems(ambition_platformer2d::combat::RestoreConsequences, record_resets);
     app
 }
 

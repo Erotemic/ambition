@@ -19,9 +19,13 @@ use bevy::prelude::*;
 #[derive(Resource, Default)]
 struct RoomResetsSeen(usize);
 
+/// A replay arrives two ways: an asked replay is a `RoomReplayAdmitted`
+/// message, and a checkpoint restore's replay is pinned on the restore and read
+/// in `RestoreConsequences`. `AdmittedReplays` reads both, so this counter runs
+/// in `Last` and in `RestoreConsequences`.
 fn count_room_resets(
     mut seen: ResMut<RoomResetsSeen>,
-    mut resets: MessageReader<ambition_platformer2d::combat::RoomReplayAdmitted>,
+    mut resets: ambition_platformer2d::combat::AdmittedReplays,
 ) {
     seen.0 += resets.read().count();
 }
@@ -33,6 +37,7 @@ fn boot() -> App {
     ));
     app.init_resource::<RoomResetsSeen>();
     app.add_systems(Last, count_room_resets);
+    app.add_systems(ambition_platformer2d::combat::RestoreConsequences, count_room_resets);
     app
 }
 

@@ -874,7 +874,12 @@ pub fn drive_rigged_presentations(
         root_sprite.custom_size = Some(size);
         root_anchor.0 = anchor;
 
-        for (index, slot) in presentation.slots.iter().enumerate() {
+        // ⛔ A CELL THAT IS CURRENT KEEPS ITS SLOTS UNTOUCHED. Its slots hold
+        // these draws already (`shown`: same draws, place and page render), and
+        // a write marks every slot's `Transform` changed, so the hall
+        // propagated and re-extracted thousands of part slots a frame whose
+        // bodies had not changed frame.
+        for (index, slot) in presentation.slots.iter().enumerate().filter(|_| !current) {
             let Ok((mut sprite, mut slot_anchor, mut transform, mut visibility)) = slots.get_mut(*slot) else {
                 continue;
             };

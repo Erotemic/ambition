@@ -992,6 +992,11 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 enforce_session_contract.before(RunGgrsSystems),
                 clear_historical_replay.after(RunGgrsSystems),
                 record_peer_events.after(RunGgrsSystems),
+                // The state the first run left, before a confirmed lifecycle
+                // operation rebuilds the timeline over it.
+                crate::first_run_witness::take_the_first_run_witness
+                    .after(RunGgrsSystems)
+                    .before(crate::lifecycle_commit::commit_confirmed_lifecycle),
                 // Track B: execute a confirmed deferred lifecycle op in the exclusive world and
                 // rebase, after the advance batch is done.
                 crate::lifecycle_commit::commit_confirmed_lifecycle

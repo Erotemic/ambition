@@ -18,6 +18,7 @@ mod app_it_sync;
 mod an_edit_reaches_the_shipped_game;
 mod pirate_sky_crew;
 mod the_session_owns_its_generation;
+mod the_sync_test_sees_a_first_run_only_effect;
 
 mod a_bag_changed_mid_window_reaches_the_save;
 mod a_cancelled_restore_changes_nothing;

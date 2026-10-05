@@ -1408,12 +1408,15 @@
             death_traits: Some((charge_crash_explodes: true)),
             // A pirate can ride it. It rides nothing, and a dead shark drops its
             // rider unharmed.
-            // Its seat is the saddle drawn on its back: the flat top of the brown
-            // seat at frame y 29, x 86.5 of a body box spanning x 0..160, y 2..68
-            // (centre 80, 35) at 1.137 wu/px — so a rider stands IN the saddle,
-            // not on the box top, which rises to the burning fin tips (37.5 wu up,
-            // and the riders stood ~30 wu above the saddle).
-            mount: Some((class: Some("shark"), saddle: Some((7.4, -6.8)))),
+            // Its seat is the saddle drawn on its back: the sheet's published
+            // `saddle` socket, frame (142.6, 54.7), on the top of the leather
+            // seat, against a body box spanning x 9..194, y 29..110 (centre
+            // 101.5, 69.5) at 0.6912 wu/px (MEASURED: the box is 127.87 x 55.99
+            // wu) — so a rider stands IN the saddle, not on the box top, which
+            // rises to the dorsal fin's tip. Re-derived for the SVG-rigged
+            // redraw (renderer acf4f69); the old art's (7.4, -6.8) sat on its
+            // back's crest.
+            mount: Some((class: Some("shark"), saddle: Some((28.4, -10.2)))),
             // It dives at the target, crashes and recovers.
             autonomous_profile: Some((template: ChargeCrash, aggro_radius: 1200.0, attack_range: 200.0)),
             max_health: Some(6),

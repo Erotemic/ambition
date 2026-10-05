@@ -3076,7 +3076,7 @@ fn a_module_entity_retires_with_its_room_and_not_with_a_player() {
 }
 
 /// Where view `id` looks: its follow point, and the centre of its frame.
-fn view_frame(
+pub(crate) fn view_frame(
     sim: &mut Platformer2dSimHarness,
     id: ambition_platformer2d::sim_view::LocalViewId,
 ) -> Option<(ambition_platformer2d::engine_core::Vec2, ambition_platformer2d::engine_core::Vec2)> {
@@ -3093,7 +3093,7 @@ fn view_frame(
 
 /// Each view: its id, the seat it follows, and whether the live-room split
 /// opened it.
-fn the_views(sim: &mut Platformer2dSimHarness) -> Vec<(u8, Option<u8>, bool)> {
+pub(crate) fn the_views(sim: &mut Platformer2dSimHarness) -> Vec<(u8, Option<u8>, bool)> {
     let world = sim.world_mut();
     let mut views: Vec<(u8, Option<u8>, bool)> = world
         .query_filtered::<(

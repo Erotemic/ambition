@@ -45,7 +45,7 @@ use ambition_platformer2d::render::rendering::HudText;
 ///
 /// Pinning the timestep makes `settle()` mean an exact number of sim frames on
 /// any machine, exactly as the sibling `shell_host_startup` module already does.
-fn rendered_app() -> App {
+pub(crate) fn rendered_app() -> App {
     let mut app = ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true);
     app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
         1.0 / 60.0,
@@ -57,7 +57,7 @@ fn rendered_app() -> App {
 /// preparation barrier is loading — and since the first room's art is part of
 /// that barrier (`prepare-first-room-art`), the wait is a real decode, not a
 /// fixed count of frames. Six more updates after it settle the presentation.
-fn settle(app: &mut App) {
+pub(crate) fn settle(app: &mut App) {
     // A written `GoTo` becomes a pending route on the next update; a
     // `ShellLauncherCommand` takes one more (the launcher turns it into a
     // `GoTo` first). Wait for the route to APPEAR, then for it to settle —

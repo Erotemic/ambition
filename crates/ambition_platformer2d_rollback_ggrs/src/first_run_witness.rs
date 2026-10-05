@@ -26,6 +26,19 @@
 //! ⚠ The witness is a checksum and nothing else. Its pass runs the checksum
 //! half of `SaveWorld` and no snapshot system, so it moves no snapshot ring,
 //! no frame counter and no save census.
+//!
+//! ⚠ ONE WITNESS FOR EACH HOST TICK. It is taken after the advances of a host
+//! tick, so it covers the last advance only. No harness advances twice in one
+//! tick. Measured 2026-10-05 over the full `app_it` lane and the four demo
+//! host binaries, one mark for each host tick of a sync test that rewinds:
+//! 23,372 ticks advanced one frame, 236 advanced none, and none advanced two
+//! or more. `bevy_ggrs` steps while its accumulator holds one frame, and a
+//! pinned host adds one frame for each update (`manual_step_period` in
+//! `ambition_platformer2d`). A sync test under the real clock is the one
+//! host that can advance twice in a tick: the proof pulse of the rollback
+//! observatory in the windowed app (a developer affordance), on a render
+//! frame longer than two simulation frames. There the first of the two
+//! advances has no witness.
 
 use bevy::prelude::*;
 use bevy_ggrs::{Checksum, RollbackFrameCount, SaveWorld, Session};

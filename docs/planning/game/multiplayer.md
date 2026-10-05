@@ -67,8 +67,9 @@ These are product questions, not reasons to block the engine architecture:
   decided (Q151, 2026-10-03): an ordinary death is local to the dying
   participant and the affected room, and another participant's live room and
   accomplishments stay; only an explicit whole-session reload rewinds
-  everything. Ambition has no production road for a second player to join
-  (Q153); only Smash seats slot 1;
+  everything. Ambition seats a second player on a Jump press of a second
+  pad that was connected when the session started (the Q153 default, in
+  force until it is ruled);
 - inventory transfer/trading rules between controlled bodies;
 - save ownership and join/leave policy for remote participants;
 - how far shared quest/world causality extends when players explore separately.

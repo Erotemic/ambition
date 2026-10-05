@@ -107,7 +107,8 @@ is `PlayerIdentityBundle::new(PlayerSlot(1))` with the home kit and without
 `PrimaryPlayer`, spawned session-scoped (not a room placement, so a rebuild
 does not remove it), realized in the simulation from a plan stamped with a
 tick (the Smash `PreparedMatch` pattern), and given `DrivingParticipant`.
-Views and the HUD already follow a second body.
+Views and the HUD follow the body of a joined seat; what was measured, and
+what does not follow it, is in "What a joined seat sees" below.
 
 **The body recipe is built (2026-10-05).** `session/setup.rs::spawn_home_body` builds the home body of seat N
 at a position from the inputs the experience states once (worn character,
@@ -172,6 +173,36 @@ comes back beside the primary with full health and no restore),
 and `provider::tests::ambition_offers_a_seat_for_each_pad_up_to_two`.
 `a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room`
 drives the case where seat 1 stays in a room the primary left.
+
+**What a joined seat sees (measured 2026-10-05,
+`a_joined_seat_has_a_view_and_a_hud.rs`).** Until then the sentence "views and
+the HUD already follow a second body" had witnesses only for a body that is a
+placement of its room.
+
+- In one room, the primary's view has a HUD row for the joined seat, and the
+  rendered host draws it: with two pads connected before the session starts,
+  a Jump press of seat 1 gives the screen a second HUD, the one of seat 1.
+- When the primary leaves the room, a view opens that follows seat 1. It
+  shows seat 1's meters and it frames seat 1's body. It closes when seat 1
+  is beside the primary again.
+- Poisons, each red: the joined body without `DrivingParticipant` (no HUD
+  row, no view, no answer by body). Controls: one pad builds no body and no
+  second HUD, and so does a second pad that connects after the session
+  started.
+
+A joined seat does not have these. Each one is a fact that is one for each
+session, and it follows the primary:
+
+- the declared readouts (`PlayerHudFacts`). Measured: the session's readout
+  shows the primary's purse.
+- the interact prompt (the first field of `NearestInteractable`). Measured:
+  seat 1 stands on a switch and the prompt says nothing. Seat 1's own answer
+  is in the map by body, and no HUD reads it.
+- the button prompts (`ControlPrompt`) and the blink reticle
+  (`BlinkPreviewFact`). Read in the code, not run.
+
+Nothing is built for them. They need your answer only if a second player
+must have a prompt of their own.
 
 ## Q154 — should a pickup that authors no policy be gone for the run once taken?
 

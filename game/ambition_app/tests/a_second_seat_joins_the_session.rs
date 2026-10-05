@@ -23,7 +23,7 @@ use bevy::prelude::*;
 
 const SEAT: u8 = 1;
 
-fn jump() -> ControlFrame {
+pub(crate) fn jump() -> ControlFrame {
     ControlFrame {
         jump_pressed: true,
         jump_held: true,
@@ -31,7 +31,7 @@ fn jump() -> ControlFrame {
     }
 }
 
-fn the_primary(sim: &mut Platformer2dSimHarness) -> Entity {
+pub(crate) fn the_primary(sim: &mut Platformer2dSimHarness) -> Entity {
     let world = sim.world_mut();
     world
         .query_filtered::<Entity, With<PrimaryPlayer>>()
@@ -40,7 +40,7 @@ fn the_primary(sim: &mut Platformer2dSimHarness) -> Entity {
 }
 
 /// Every player body that seat `SEAT` drives.
-fn bodies_of_the_seat(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
+pub(crate) fn bodies_of_the_seat(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
     let world = sim.world_mut();
     world
         .query_filtered::<(Entity, &DrivingParticipant), With<PlayerEntity>>()
@@ -50,19 +50,19 @@ fn bodies_of_the_seat(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
         .collect()
 }
 
-fn place_of(sim: &Platformer2dSimHarness, body: Entity) -> (i32, i32) {
+pub(crate) fn place_of(sim: &Platformer2dSimHarness, body: Entity) -> (i32, i32) {
     let kin = sim.world().get::<BodyKinematics>(body).expect("the body has kinematics");
     (kin.pos.x.round() as i32, kin.pos.y.round() as i32)
 }
 
-fn room_of(sim: &Platformer2dSimHarness, body: Entity) -> Option<InRoomInstance> {
+pub(crate) fn room_of(sim: &Platformer2dSimHarness, body: Entity) -> Option<InRoomInstance> {
     sim.world().get::<InRoomInstance>(body).copied()
 }
 
 /// Press Jump on seat `SEAT` for one frame, then step neutral until its body
 /// exists (at most `frames`). Returns the body and the primary's place on the
 /// frame the body first exists.
-fn join(sim: &mut Platformer2dSimHarness, frames: usize) -> Option<(Entity, (i32, i32))> {
+pub(crate) fn join(sim: &mut Platformer2dSimHarness, frames: usize) -> Option<(Entity, (i32, i32))> {
     let primary = the_primary(sim);
     sim.drive_seat(SEAT, jump());
     sim.step(AgentAction::default());
@@ -79,7 +79,7 @@ fn join(sim: &mut Platformer2dSimHarness, frames: usize) -> Option<(Entity, (i32
 /// Seat `SEAT`'s body `body` dies (a hazard), and the beat runs out. Panics
 /// unless the body is out of play on the frame after the death (the control)
 /// and back in play within 240 frames.
-fn die(sim: &mut Platformer2dSimHarness, body: Entity) {
+pub(crate) fn die(sim: &mut Platformer2dSimHarness, body: Entity) {
     let at = place_of(sim, body);
     sim.world_mut().write_message(ambition_platformer2d::combat::death_rules::ActorDiedMessage {
         victim: body,

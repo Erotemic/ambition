@@ -489,7 +489,17 @@ no return; no restamp into the primary's room; a join that a resimulation
 does not repeat, red because seat 1 has no body after the rewound frames).
 ⚠ Found by that last poison: `rollback_health` stayed green while a
 resimulation lost a player body, so the sync-test checksum did not see the
-body's absence. Not yet measured why.
+body's absence. Measured why, and repaired: GGRS never saves the state that
+the first run of a frame leaves, so a body that only the first run builds is
+in no saved state (TEST-LANES item 5, `first_run_witness`).
+
+**A joined player's view and HUD (2026-10-05).** Measured with a body from
+the join road (`a_joined_seat_has_a_view_and_a_hud.rs`): a HUD row on the
+shared view, a view of its own when the primary leaves the room, and a drawn
+second HUD in the rendered host. The interact prompt, the button prompts, the
+blink reticle and the declared readouts are one for each session and show
+the primary only; the list and what was run are in
+[Q153](awaiting-maintainer-decision.md#q153--how-does-a-second-player-join-ambition).
 
 **Acceptance:** Alice dies while Bob's room holds a boss he defeated after the
 checkpoint: Bob's room, the boss row and its reward stay; Alice's room agrees
@@ -2434,10 +2444,17 @@ reads cargo output to it.
    checksum of the first-run state and compares it with the first save of
    that frame; `the_sync_test_sees_a_first_run_only_effect` holds it, with
    the measurement before the repair in its doc. The full app lane found no
-   first-run-only effect in the tree. Named limits, not built: the witness
-   covers the last advance of a host tick only, and only a sync test with a
-   check distance above zero; a peer session is not covered (GGRS saves its
-   first run when no rollback is owed).
+   first-run-only effect in the tree. Named limits, not built: only a sync
+   test with a check distance above zero; a peer session is not covered (GGRS
+   saves its first run when no rollback is owed). The witness covers the last
+   advance of a host tick only, and that limit is closed for the harnesses by
+   measurement (2026-10-05, one mark for each host tick of a sync test that
+   rewinds, over the full `app_it` lane and the four demo host binaries):
+   23,372 ticks advanced one frame, 236 advanced none, none advanced two or
+   more. A pinned host adds one frame for each update. The proof pulse of
+   the rollback observatory (a developer affordance) runs a sync test under
+   the real clock, and it is the one host where a long render frame advances
+   twice; the first of those two advances has no witness.
 6. **The demo host apps' own integration tests were in no standing lane;
    the recipe now names their lane and when it is required (2026-10-05).**
    `mary_o_it`, `sanic_it`, `smash_it` and `twintrack_it` run only under the

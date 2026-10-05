@@ -32,10 +32,8 @@ HALL = REPO / "game/ambition_content/assets/worlds/hall_of_characters.ldtk"
 # Files whose prose states the CURRENT cast size, and the pattern that quotes it.
 QUOTING = [
     ("game/ambition_app/tests/hall_transition_cover.rs", r"authors (\d+) NpcSpawn placements"),
-    (
-        "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
-        r"authors (\d+) NpcSpawn placements",
-    ),
+    # `character_runtime/mod.rs` had a second sentence. 82dcfbc25 deleted it
+    # with the start ration it explained, so its row is gone too.
 ]
 
 

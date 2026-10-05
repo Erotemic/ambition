@@ -2183,6 +2183,14 @@ oracle's clip and add a two-body shared-page containment test.
 and `scripts/measure_rigged_parity.py`. Plan:
 [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md).
 
+**Scope since 37497a444 (2026-10-05):** a part-drawn body now draws its parts
+in the world, and uses an impostor cell only while something composes it
+(`ComposedBodyDemand`: hit flash, portal pieces, deep dream, quasar) or its
+frame fades as one picture. So the containment invariant applies to that
+composed road only. The semantic part rendering work
+([`engine/semantic-part-rendering-and-ragdolls.md`](engine/semantic-part-rendering-and-ragdolls.md))
+is reshaping that road; agree the change with it before editing.
+
 **Current failure (review 2026-10-04):** the cell class is chosen from the
 flipbook's `frame_size` plus a margin. Parts can draw outside the frame: a
 banner past the cell of the oni leader that faces left. Such parts are cut

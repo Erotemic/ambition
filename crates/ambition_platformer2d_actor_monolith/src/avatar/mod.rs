@@ -30,12 +30,13 @@ pub use systems::{
     regen_player_mana, tick_controlled_brains, ControlledBrainTick,
 };
 
-/// Build the primary home body's scratch state with its authored abilities.
-pub fn primary_player_scratch(
-    spawn: ambition_platformer2d_core::Vec2,
+/// Build the scratch state of a home body at `at`, with its abilities. Each
+/// seat's home body starts from this (`session::setup::spawn_home_body`).
+pub fn home_body_scratch(
+    at: ambition_platformer2d_core::Vec2,
     abilities: ambition_platformer2d_core::AbilitySet,
 ) -> ambition_platformer2d_core::BodyClusterScratch {
-    ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(spawn, abilities)
+    ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(at, abilities)
 }
 
 /// Install the avatar's player-input stage into `schedule`.

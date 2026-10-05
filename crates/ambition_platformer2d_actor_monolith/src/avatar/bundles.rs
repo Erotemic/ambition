@@ -333,7 +333,7 @@ mod tests {
     use ambition_characters::brain::RangedActionSpec;
 
     fn player_scratch() -> ae::BodyClusterScratch {
-        crate::avatar::primary_player_scratch(ae::Vec2::ZERO, ae::AbilitySet::sandbox_all())
+        crate::avatar::home_body_scratch(ae::Vec2::ZERO, ae::AbilitySet::sandbox_all())
     }
 
     fn catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {

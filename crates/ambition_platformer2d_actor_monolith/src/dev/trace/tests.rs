@@ -34,7 +34,7 @@ fn dummy_world() -> World {
 }
 
 fn dummy_player(at: ae::Vec2) -> ae::BodyClusterScratch {
-    crate::avatar::primary_player_scratch(at, ae::AbilitySet::sandbox_all())
+    crate::avatar::home_body_scratch(at, ae::AbilitySet::sandbox_all())
 }
 
 fn scratch_from(scratch: &ae::BodyClusterScratch) -> ae::BodyClusterScratch {

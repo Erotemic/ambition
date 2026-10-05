@@ -1,7 +1,7 @@
 use ambition_platformer2d_core as ae;
 // ⭐ THE MECHANIC LEFT AND THESE ARMS STAYED, for the same reason the mount
 // pair's fifteen did: `player_at` builds a real player through
-// `avatar::primary_player_scratch`, which is this crate's construction road and
+// `avatar::home_body_scratch`, which is this crate's construction road and
 // is not something `shared_tangle` has or should grow. So they test the moved
 // code FROM THE COMPOSITION that uses it.
 use ambition_platformer2d_core::Block;
@@ -30,7 +30,7 @@ fn player_at(
     ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
 ) {
     let mut scratch =
-        crate::avatar::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
+        crate::avatar::home_body_scratch(world.spawn, ae::AbilitySet::sandbox_all());
     ae::refresh_movement_resources_clusters(
         &scratch.abilities,
         &mut scratch.dash,

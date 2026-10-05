@@ -78,7 +78,7 @@ fn world_with_patrolling_npc(
             },
         )
     };
-    let player = crate::avatar::primary_player_scratch(
+    let player = crate::avatar::home_body_scratch(
         ae::Vec2::new(1500.0, 540.0),
         ae::AbilitySet::sandbox_all(),
     );

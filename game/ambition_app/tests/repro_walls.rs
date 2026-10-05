@@ -6,7 +6,7 @@ use ambition_platformer2d::actors as sb;
 use ambition_platformer2d::engine_core as ae;
 
 fn scratch_at(spawn: ae::Vec2) -> BodyClusterScratch {
-    sb::avatar::primary_player_scratch(spawn, AbilitySet::sandbox_all())
+    sb::avatar::home_body_scratch(spawn, AbilitySet::sandbox_all())
 }
 
 /// Depenetration allowance: a single simulation step may legitimately

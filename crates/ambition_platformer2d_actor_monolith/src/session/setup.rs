@@ -371,7 +371,7 @@ pub fn spawn_home_body(
             ..ae::AbilitySet::sandbox_all()
         });
     let base_abilities = abilities.apply(authored_abilities);
-    let mut initial_scratch = crate::avatar::primary_player_scratch(at, base_abilities);
+    let mut initial_scratch = crate::avatar::home_body_scratch(at, base_abilities);
     ae::refresh_movement_resources_clusters(
         &initial_scratch.abilities,
         &mut initial_scratch.dash,

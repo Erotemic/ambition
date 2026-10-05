@@ -28,7 +28,7 @@ struct Rig {
 
 fn rig(world: ae::World) -> Rig {
     Rig {
-        scratch: crate::avatar::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all()),
+        scratch: crate::avatar::home_body_scratch(world.spawn, ae::AbilitySet::sandbox_all()),
         model: MotionModel::SurfaceMomentum(MomentumMotion::new(ae::MomentumParams::default())),
         hurtbox: ae::CenteredAabb::new(world.spawn, ae::Vec2::splat(10.0)),
         frame_out: PlayerBodyFrameOutput::default(),

@@ -128,7 +128,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
     let resumed = next
         .world_mut()
         .spawn((crate::avatar::PlayerSimulationBundle::from_scratch(
-            crate::avatar::primary_player_scratch(
+            crate::avatar::home_body_scratch(
                 ambition_platformer2d_core::Vec2::new(32.0, 400.0),
                 ambition_platformer2d_core::AbilitySet::default(),
             ),
@@ -190,7 +190,7 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
     let body = app
         .world_mut()
         .spawn((crate::avatar::PlayerSimulationBundle::from_scratch(
-            crate::avatar::primary_player_scratch(
+            crate::avatar::home_body_scratch(
                 ambition_platformer2d_core::Vec2::new(32.0, 400.0),
                 ambition_platformer2d_core::AbilitySet::default(),
             ),
@@ -621,7 +621,7 @@ fn a_checkpoint_only_composition_resumes_without_the_item_domain() {
     let body = app
         .world_mut()
         .spawn((crate::avatar::PlayerSimulationBundle::from_scratch(
-            crate::avatar::primary_player_scratch(
+            crate::avatar::home_body_scratch(
                 Vec2::new(32.0, 400.0),
                 ambition_platformer2d_core::AbilitySet::default(),
             ),

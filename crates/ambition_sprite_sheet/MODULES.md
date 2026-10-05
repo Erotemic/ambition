@@ -8,7 +8,7 @@
 |---|---|
 | [`actor_sprite_metrics`](src/actor_sprite_metrics.rs) | What a generated sheet says about the BODY inside its frames: frame size, the per-animation pixel rectangles, and the render size those imply. |
 | [`baked_body_rigs`](src/baked_body_rigs.rs) | Compile-time table of every published semantic body rig, `(target, ron_text)` sorted by target. |
-| [`baked_part_flipbooks`](src/baked_part_flipbooks.rs) | Compile-time table of every published part-flipbook draw table, `(key, ron_text)` sorted by key: `<target>` for the full-resolution table, `<target>.<tier>` for a quality tier's. |
+| [`baked_part_flipbooks`](src/baked_part_flipbooks.rs) | Compile-time table of every published part-flipbook draw table, sorted by key: `<target>` for the full-resolution table, `<target>.<tier>` for a quality tier's. |
 | [`baked_portrait_rons`](src/baked_portrait_rons.rs) | Compile-time table of `(asset_relative_manifest_path, ron_text)` pairs for every independently published `*_portraits.ron` under `assets/sprites/`. |
 | [`baked_sheet_rons`](src/baked_sheet_rons.rs) | Compile-time table of `(filename_root, ron_text)` pairs for every `*_spritesheet.ron` under `assets/sprites/`. |
 | [`binding`](src/binding.rs) | Typed animation-row binding for one sprite sheet. |

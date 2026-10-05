@@ -957,6 +957,7 @@ dependencies = [
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
  "bevy",
+ "bincode",
  "ron 0.11.0",
  "serde",
  "serde_json",
@@ -2669,6 +2670,15 @@ dependencies = [
  "variadics_please",
  "yarnspinner",
  "yarnspinner_internal_shared",
+]
+
+[[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

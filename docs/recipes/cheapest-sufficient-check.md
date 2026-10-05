@@ -49,8 +49,8 @@ Notes:
   `test_every_contract_holds_against_the_live_tree` in
   `scripts/tests/test_absence_contracts.py`, which is the only check that catches
   a registration or a dependency edge in the wrong place.
-  `python3 scripts/check_absence_contracts.py` alone exits 0 with violations;
-  enforcement needs `--check`.
+  `python3 scripts/check_absence_contracts.py` exits 1 on a violation, with or
+  without `--check` (before 2026-10-04 the run without the flag exited 0).
 
 ## Why each caveat is there
 

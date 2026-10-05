@@ -165,16 +165,29 @@ fn a_player_pilots_a_mount_end_to_end() {
          body nobody is driving: {home_before:?} -> {home_after:?}",
     );
     // The rider RODE ALONG (its own locomotion is suppressed while mounted; it
-    // moves only because the mount carried it) and stays welded to the saddle —
-    // the saddle is authored above the mount, x-aligned.
+    // moves only because the mount carried it) and stays welded to the saddle:
+    // its soles on the mount's own seat, mirrored with the mount's facing.
+    // ⛔ Asked of the mount's seat, not of a literal: this said "x-aligned,
+    // within 12" while the shark's saddle sat 7.4 wu aft, and the redrawn
+    // shark's sits 28.4.
     assert!(
         rider_after.x - rider_before.x > 20.0,
         "the player rider rides along with the mount it pilots: {rider_before:?} -> {rider_after:?}",
     );
+    let world = sim.world_mut();
+    let seat = world.get::<ambition_platformer2d::mount::Mountable>(mount).expect("the shark is mountable").seat;
+    let facing = world.get::<BodyKinematics>(mount).expect("the mount has a body").facing;
+    let rider_height = world.get::<BodyKinematics>(rider).expect("the rider has a body").size.y;
+    let saddled = mount_after
+        + ambition_platformer2d::mount::saddle_world_offset(
+            seat - ae::Vec2::new(0.0, rider_height * 0.5),
+            facing,
+            ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
+        );
     assert!(
-        (rider_after.x - mount_after.x).abs() < 12.0 && rider_after.y < mount_after.y,
-        "the player rider stays welded above the mount at the saddle offset: \
-         rider {rider_after:?} vs mount {mount_after:?}",
+        rider_after.distance(saddled) < 2.0 && rider_after.y < mount_after.y,
+        "the player rider stays welded above the mount at its seat: rider {rider_after:?}, \
+         seat puts it at {saddled:?} (mount {mount_after:?}, seat {seat:?}, facing {facing})",
     );
 }
 

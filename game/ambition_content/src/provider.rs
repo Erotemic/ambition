@@ -145,7 +145,33 @@ impl Plugin for AmbitionExperiencePlugin {
         app.insert_resource(ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(
             ambition_platformer2d::abilities::mana::REGEN_PER_SEC,
         ));
+        declare_ambition_seating(app, &self.config.route_id);
     }
+}
+
+/// The most local seats an Ambition session offers.
+pub const AMBITION_SEATS: u8 = 2;
+
+/// Ambition offers one local seat for each connected pad, at most
+/// [`AMBITION_SEATS`] (Q153 default, until the maintainer rules how a second
+/// player joins).
+///
+/// The policy is the default `UnifiedPrimary`: with one pad, the keyboard and
+/// the pad both drive the primary seat, as before. With two pads, the second
+/// pad drives seat 1, and the session opens a handle for it. The rollback
+/// session is never resized, so a pad that connects after the gameplay session
+/// started gets a seat only in the next session. No channel plan is declared:
+/// a fixed plan of keyboard and first pad would take the pad away from a
+/// player who plays alone on it.
+pub fn declare_ambition_seating(app: &mut App, route: &str) {
+    use ambition_platformer2d::game_shell::{RouteSeating, RouteSeatingAppExt, SeatCount};
+    app.declare_route_seating(
+        route.to_owned(),
+        RouteSeating::new(
+            SeatCount::OnePerSource { max: AMBITION_SEATS },
+            ambition_platformer2d::input::InputAssignmentPolicy::UnifiedPrimary,
+        ),
+    );
 }
 
 /// The provider's session-world source: matching preparation requests clone
@@ -188,5 +214,45 @@ mod tests {
             .get(&ShellRouteId::new(AMBITION_GAMEPLAY_ROUTE))
             .expect("provider registered its route");
         assert!(route.preparation.is_some());
+    }
+
+    /// Q153 default: one seat for each pad, at most two, and the keyboard
+    /// stays with the primary. Zero and one pad offer one seat (the solo
+    /// session of before); two pads offer two; a third pad offers no third.
+    /// No channel plan is decided, so the session is sized from devices.
+    #[test]
+    fn ambition_offers_a_seat_for_each_pad_up_to_two() {
+        use ambition_platformer2d::game_shell::{
+            project_route_seating, ActiveShellExperience, ShellActivationId, ShellRouter,
+        };
+        use ambition_platformer2d::input::{
+            InputAssignmentPolicy, LocalDeviceOrder, LocalSeatOffer, SessionSeatingSource,
+        };
+        let offered = |pads: usize| {
+            let mut app = App::new();
+            app.init_resource::<ShellRouter>()
+                .add_systems(bevy::prelude::Update, project_route_seating);
+            declare_ambition_seating(&mut app, AMBITION_GAMEPLAY_ROUTE);
+            let devices = (0..pads).map(|_| app.world_mut().spawn_empty().id()).collect();
+            app.insert_resource(LocalDeviceOrder::from_devices(devices));
+            app.world_mut().resource_mut::<ShellRouter>().active = Some(ActiveShellExperience {
+                activation_id: ShellActivationId(1),
+                route_id: ShellRouteId::new(AMBITION_GAMEPLAY_ROUTE),
+                experience_id: ShellExperienceId::new(AMBITION_EXPERIENCE),
+                parameters: Default::default(),
+                load_authorization: None,
+                prepared_session: None,
+            });
+            app.update();
+            let offer = app.world().resource::<LocalSeatOffer>().clone();
+            assert_eq!(offer.policy(), InputAssignmentPolicy::UnifiedPrimary);
+            assert_eq!(
+                app.world().resource::<SessionSeatingSource>().channel_plan(),
+                None,
+                "a decided plan would size the session instead of the devices"
+            );
+            offer.seats()
+        };
+        assert_eq!([0, 1, 2, 3].map(offered), [1, 1, 2, 2], "[seats with 0, 1, 2, 3 pads]");
     }
 }

@@ -338,8 +338,8 @@ coin taken alone) and `an_ordinary_chests_grant_is_owned_by_the_seats_in_its_roo
 always keep, an authored grant; record a pickup's or a chest's grant with no
 owners. Schema 311 -> 312. Open: what a spared participant takes OUT of the
 shared bag since the checkpoint (an item used, a purchase) is not recorded,
-so Alice's death gives it back. No production road seats a second player in
-Ambition yet (Q153).
+so Alice's death gives it back. A production road seats a second player
+since the Q153 default (2026-10-05, below).
 
 - Review 2026-10-05, P3: the shape for that residual. The restore rebuilds
   "the checkpoint bag plus the surviving bag mutations since it", so each
@@ -470,6 +470,25 @@ new uses of `spared` / `spared_participants` as the model.
   primary body's death restores), so a unit test holds the arithmetic:
   `a_restore_takes_the_dying_participant_out_of_a_kept_defeats_winners`
   (poison: no shrink; Alice's later restore keeps the shared defeat).
+
+**A joined player and a death (2026-10-05, Q153 default).** A seat with no
+body joins on a Jump press beside the primary (`session/join.rs`), so Bob can
+be a `PlayerEntity` of the session and not a placement. Then the roster
+question "is anybody still in play" was session-wide, so Bob in play in
+another room kept Alice's room from going back (against Q151). It is now
+asked of the room that would go back, and only the primary's room goes back,
+because the restore's subject is the primary (`close_death_interlude`). A
+second seat whose beat closed comes back beside the primary, into the
+primary's room (`bring_a_fallen_seat_back_beside_the_primary`). Witnesses:
+`a_participant_in_play_in_another_room_does_not_hold_back_the_level` (red
+`[0, 0]` before, for [Bob in the stage, Bob in the hall]; poison "any room
+with nobody in play goes back" makes a second seat's death send the hall
+back) and `a_second_seat_joins_the_session.rs` (poisons, each red: no join;
+no return; no restamp into the primary's room; a join that a resimulation
+does not repeat, red because seat 1 has no body after the rewound frames).
+⚠ Found by that last poison: `rollback_health` stayed green while a
+resimulation lost a player body, so the sync-test checksum did not see the
+body's absence. Not yet measured why.
 
 **Acceptance:** Alice dies while Bob's room holds a boss he defeated after the
 checkpoint: Bob's room, the boss row and its reward stay; Alice's room agrees

@@ -184,3 +184,50 @@ fn a_closing_beat_replays_by_its_own_live_rooms_rules() {
         .count();
     assert_eq!(replays, 1, "the hall's last beat did not send the level back");
 }
+
+/// Q151: a death is local to its participant's room. The primary's last beat
+/// closes in the hall while another participant still plays in the stage; the
+/// hall goes back. Control: the other participant in the hall, which then
+/// waits for it (co-op in one room). And a second seat that falls alone in the
+/// hall while the primary plays in the stage sends nothing back, because the
+/// restore's subject is the primary. With "is anybody in play anywhere", a
+/// player in another room kept the hall from ever going back.
+#[test]
+fn a_participant_in_play_in_another_room_does_not_hold_back_the_level() {
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
+    let replays = |falls_is_primary: bool, other_room_is_the_hall: bool| {
+        let (mut app, (hall, stage)) = app_with_two_games_death_rules();
+        app.add_systems(Update, close_death_interlude);
+        let falls = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                OutOfPlay,
+                InRoomInstance(hall),
+                DeathInterlude {
+                    remaining: 0.0,
+                    consequence_pending: true,
+                },
+            ))
+            .id();
+        let other = app
+            .world_mut()
+            .spawn((PlayerEntity, InRoomInstance(if other_room_is_the_hall { hall } else { stage })))
+            .id();
+        app.world_mut()
+            .entity_mut(if falls_is_primary { falls } else { other })
+            .insert(PrimaryPlayer);
+        app.update();
+        app.world_mut()
+            .resource_mut::<bevy::prelude::Messages<RoomReplayRequested>>()
+            .drain()
+            .count()
+    };
+    assert_eq!(
+        [replays(true, false), replays(true, true), replays(false, false)],
+        [1, 0, 0],
+        "[the primary falls with the other in the stage, with the other in the \
+         hall, a second seat falls with the primary in the stage]"
+    );
+}

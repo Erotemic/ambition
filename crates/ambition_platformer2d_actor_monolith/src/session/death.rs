@@ -119,6 +119,8 @@ pub fn close_death_interlude(
     rules: crate::session::governing_rules::RulesOf<DeathRules>,
     mut closing: Query<(Entity, &mut DeathInterlude)>,
     still_playing: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
+    // The restore's subject. Its room is the only room a death sends back.
+    primary: Query<Entity, With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>>,
     mut replay: MessageWriter<RoomReplayRequested>,
     // the horizon half of the same consequence. `RoomReplayRequested`
     // says "rebuild the active room"; this says "and rebuild it from the last
@@ -133,9 +135,9 @@ pub fn close_death_interlude(
         MessageWriter<ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint>,
     >,
 ) {
-    // Whether a body that closed its window this tick is in a room whose
-    // rules send the level back when nobody remains.
-    let mut resets = false;
+    // The live rooms where a body closed its window this tick, under rules
+    // that send the level back when nobody remains.
+    let mut resetting_rooms = Vec::new();
     for (body, mut window) in &mut closing {
         if window.open() || !window.consequence_pending {
             continue;
@@ -144,15 +146,26 @@ pub fn close_death_interlude(
         // rewind across the frame this fired can answer "did it already?" from
         // state rather than from a component that is no longer there.
         window.consequence_pending = false;
-        resets |= rules.of(body).unwrap_or_default().level_reset == LevelReset::WhenNoParticipantRemains;
+        if rules.of(body).unwrap_or_default().level_reset == LevelReset::WhenNoParticipantRemains {
+            resetting_rooms.push(rules.room_of(body));
+        }
     }
-    if !resets {
-        return;
-    }
-    // Nobody left in play — the run is over, so the level goes back. In co-op
-    // this is false while a teammate is still running the level, which is the
-    // entire reason the condition is a query rather than a flag on the death.
-    if still_playing.iter().next().is_some() {
+    // Nobody left in play IN THAT ROOM: the level goes back. In co-op this is
+    // false while a teammate still plays the level, which is why the condition
+    // is a query and not a flag on the death. A participant in another live
+    // room does not hold it back, because a death is local to its room (Q151).
+    let rooms_with_a_participant: Vec<_> = still_playing.iter().map(|body| rules.room_of(body)).collect();
+    let goes_back = |room: &Option<_>| resetting_rooms.contains(room) && !rooms_with_a_participant.contains(room);
+    // The restore and the replay put the PRIMARY body back, so only the
+    // primary's room can go back. A second seat that falls in another room
+    // comes back beside the primary instead (Q153 default, see
+    // `bring_a_fallen_seat_back_beside_the_primary`). With no primary, as in a
+    // match, any room with nobody left in play goes back.
+    let back = match primary.iter().next() {
+        Some(primary) => goes_back(&rules.room_of(primary)),
+        None => resetting_rooms.iter().any(goes_back),
+    };
+    if !back {
         return;
     }
     // ⛔⛔ ONE LIFECYCLE OPERATION, NOT TWO. This used to write BOTH

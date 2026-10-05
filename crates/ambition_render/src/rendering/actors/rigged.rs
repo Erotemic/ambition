@@ -25,12 +25,12 @@
 //! feet, with its own tint and flip. It goes back to the world
 //! [`COMPOSED_HOLD_FRAMES`] after the last read and gives its cell back.
 //!
-//! ⛔ THE ART WAS COMPOSITED IN GAMMA SPACE (PIL over stored sRGB values).
-//! The atlas cameras blend in it (`ART_COMPOSITING`), so a composited body is
-//! exact. The world cameras blend in linear light (`world_compositing`: gamma
-//! there blacked out every window), so a body drawn directly has its
-//! anti-aliased outlines over other parts a shade lighter; a frame with a
-//! translucent part, where linear light differs most, is composited.
+//! ⛔ ONE COMPOSITING LAW FOR BOTH ROADS. The world cameras blend in linear
+//! light (`WORLD_COMPOSITING`; gamma there blacked out every window), and so
+//! does the atlas (`impostor_compositing`), so a body that switches road on a
+//! hit flash does not change its outlines. The art was composited in gamma
+//! space (`ART_COMPOSITING`): against it the runtime drifts a shade on
+//! anti-aliased outlines, measured and accepted, not chased.
 //!
 //! ⭐ ONE ATLAS FOR EVERY BODY OF A SIZE ([`RiggedImpostorAtlas`]). Each
 //! composited body is a cell of a shared target, and one camera draws every
@@ -76,7 +76,7 @@
 //! its animator are the same in both cases, so a body moves between a baked
 //! clip and a part clip with no jump in place or in timing.
 //!
-//! A cell is the frame plus [`IMPOSTOR_MARGIN`] sheet pixels each side, so art
+//! A cell is the frame plus [`impostor_margin`] sheet pixels each side, so art
 //! that runs past the baked frame (Mary-O's feet, up to 8 px) is drawn, not
 //! cut. A body whose frame fits no cell draws directly even when read as one
 //! image (and says so): its readers see no image.
@@ -99,7 +99,7 @@ use bevy::sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d};
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_platformer2d_shared_tangle::camera_layers::RIGGED_IMPOSTOR_LAYER;
 
-use crate::rendering::{world_compositing, ART_COMPOSITING};
+use crate::rendering::{impostor_compositing, ART_COMPOSITING};
 use ambition_sprite_sheet::character::rigged::{
     ComposedBodyDemand, PartDraw, PartPose, PartPresentation, PosedParts, RiggedSpriteAdmission, RiggedSpritePages,
 };
@@ -117,8 +117,22 @@ const SLOT_DEPTH_STEP: f32 = 1.0e-4;
 /// atlas and the world every frame.
 pub const COMPOSED_HOLD_FRAMES: u16 = 30;
 
-/// Transparent sheet pixels on each side of the frame in a body's cell.
+/// The least transparent sheet pixels on each side of the frame in a body's
+/// cell ([`impostor_margin`] widens it for art that reaches farther).
 pub const IMPOSTOR_MARGIN: f32 = 16.0;
+
+/// The margin around `flipbook`'s frame in its cell: [`IMPOSTOR_MARGIN`], or
+/// the farthest its art reaches past the frame plus the two-pixel fringe a
+/// resampled part's border adds, whichever is more.
+///
+/// ⛔ A FIXED MARGIN CLIPPED A COMPOSITED BODY. The oni leader's banner and ears
+/// reach past the frame by more than 16 px in its jumps: drawn directly they
+/// showed, composited (on every hit flash) they were cut off — the largest road
+/// switch measured, a blob of 522 px (`measure_composition_switch.py`,
+/// 2026-10-05).
+pub fn impostor_margin(flipbook: &ambition_sprite_sheet::character::rigged::RiggedSpriteAsset) -> f32 {
+    IMPOSTOR_MARGIN.max(flipbook.art_overhang.ceil() + 2.0)
+}
 
 /// The cell sizes of the impostor atlases, in sheet pixels (one texel each),
 /// smallest first, with the most cells per side each atlas grows to. A frame
@@ -144,10 +158,10 @@ pub const IMPOSTOR_CELL: f32 = IMPOSTOR_CELL_CLASSES[0].0;
 /// The most cells per side any atlas grows to.
 pub const IMPOSTOR_MAX_CELLS_PER_SIDE: u32 = 6;
 
-/// The class of the smallest cell a frame of `frame_size` fits with its
-/// margins, or `None` when it fits none.
-pub fn impostor_cell_class(frame_size: Vec2) -> Option<usize> {
-    let needed = (frame_size + Vec2::splat(2.0 * IMPOSTOR_MARGIN)).max_element();
+/// The class of the smallest cell a frame of `frame_size` fits with `margin`
+/// on each side, or `None` when it fits none.
+pub fn impostor_cell_class(frame_size: Vec2, margin: f32) -> Option<usize> {
+    let needed = (frame_size + Vec2::splat(2.0 * margin)).max_element();
     IMPOSTOR_CELL_CLASSES.iter().position(|(cell, _)| needed <= *cell)
 }
 
@@ -313,6 +327,9 @@ pub struct ImpostorCellOpacity {
     pub shift: [Vec4; IMPOSTOR_MAX_CELLS],
     /// Cells per side.
     pub side: u32,
+    /// 1 when the parts were blended in gamma space (`ART_COMPOSITING`): the
+    /// stored colour is encoded back to the values blended, divided there.
+    pub gamma: u32,
 }
 
 impl ImpostorCellOpacity {
@@ -321,6 +338,7 @@ impl ImpostorCellOpacity {
             opacity: [Vec4::ONE; IMPOSTOR_MAX_CELLS / 4],
             shift: [CharacterColorShift::NONE.as_uniform(); IMPOSTOR_MAX_CELLS],
             side,
+            gamma: u32::from(impostor_compositing() == ART_COMPOSITING),
         }
     }
 
@@ -642,11 +660,11 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
     let texels = UVec2::splat(side as u32);
     let images = assets.images.as_deref_mut().expect("checked by the binder");
     let mut target = |format| images.add(Image::new_target_texture(texels.x, texels.y, format, None));
-    // The parts blend in GAMMA space, as the baked frame was composited and as
-    // the world camera blends them when they are drawn directly
-    // (`ART_COMPOSITING`). That camera's main texture holds the sRGB values
-    // and Bevy's output blit decodes them, so an sRGB target stores them again
-    // exactly; the un-premultiplying pass divides in that same space.
+    // The parts blend as the world blends them drawn directly
+    // (`impostor_compositing`: linear light) into an sRGB target; the
+    // un-premultiplying pass divides in the space they were blended in (with
+    // `ART_COMPOSITING`, Bevy's output blit decodes the stored sRGB values and
+    // the sRGB target stores them again exactly).
     let premultiplied = target(TextureFormat::Rgba8UnormSrgb);
     let straight = target(TextureFormat::Rgba8UnormSrgb);
     let layout = assets.layouts.as_deref_mut().map(|layouts| {
@@ -654,7 +672,7 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
     });
     let centre = impostor_grid_origin(class, page) + Vec2::new(side * 0.5, -side * 0.5);
     let mut cameras = vec![commands
-        .spawn((Name::new("rigged impostor camera"), impostor_camera(&premultiplied, IMPOSTOR_CAMERA_ORDER, centre, ART_COMPOSITING)))
+        .spawn((Name::new("rigged impostor camera"), impostor_camera(&premultiplied, IMPOSTOR_CAMERA_ORDER, centre, impostor_compositing())))
         .id()];
     let mut entities = cameras.clone();
     let mut material = None;
@@ -819,24 +837,18 @@ pub fn drive_rigged_presentations(
         // it (alice's blink drew her arm through her coat).
         let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
         let fades = row.is_some_and(|row| flipbook.frame_opacity(row, animator.frame) < 1.0);
-        // A translucent part over another blends visibly differently in the
-        // world's linear light than in the art's gamma (a blink: blobs of 559
-        // px): such a frame is composited, where it is exact.
-        let translucent = row
-            .and_then(|row| flipbook.frame(row, animator.frame))
-            .is_some_and(|draws| draws.iter().any(|draw| draw.opacity() < 1.0))
-            && world_compositing() != ART_COMPOSITING;
-        let wanted = always || fades || translucent || demand.as_ref().is_some_and(|demand| demand.is_declared(presentation.root));
+        let wanted = always || fades || demand.as_ref().is_some_and(|demand| demand.is_declared(presentation.root));
         presentation.composed_hold = if wanted {
             COMPOSED_HOLD_FRAMES
         } else {
             presentation.composed_hold.saturating_sub(1)
         };
-        let class = impostor_cell_class(flipbook.frame_size.as_vec2());
+        let margin = impostor_margin(&flipbook);
+        let class = impostor_cell_class(flipbook.frame_size.as_vec2(), margin);
         if wanted && class.is_none() && too_large.insert(presentation.target.clone()) {
             warn!(
                 "rigged sprites: `{}` is read as one image but cannot be composited — its {} px frame fits \
-                 no impostor cell (the largest is {} px with {IMPOSTOR_MARGIN} px margins); its parts draw \
+                 no impostor cell (the largest is {} px with {margin} px margins); its parts draw \
                  directly and its readers see no image",
                 presentation.target,
                 flipbook.frame_size,
@@ -853,7 +865,7 @@ pub fn drive_rigged_presentations(
                 if fresh {
                     fresh_pages.push((class, page));
                 }
-                let feet = flipbook.feet_pixel + Vec2::splat(IMPOSTOR_MARGIN);
+                let feet = flipbook.feet_pixel + Vec2::splat(margin);
                 presentation.impostor = Some(Impostor { class, page, cell, feet });
                 presentation.shown = None;
             }
@@ -955,11 +967,12 @@ pub fn drive_rigged_presentations(
         let Some(impostor) = impostor else {
             let root_visible = root_shows(root_visibility);
             let frame_size = flipbook.frame_size.as_vec2();
-            let cell = frame_size.max_element() + 2.0 * IMPOSTOR_MARGIN;
-            let (size, anchor) = body_quad(animator, basis, &root_sprite, &root_anchor, frame_size, cell);
+            let margin = impostor_margin(&flipbook);
+            let cell = frame_size.max_element() + 2.0 * margin;
+            let (size, anchor) = body_quad(animator, basis, &root_sprite, &root_anchor, frame_size, margin, cell);
             // The frame's feet pixel in that cell, in the quad's normalized
             // space (+y up, mirrored with the image), carried to the world.
-            let feet_in_cell = (Vec2::splat(IMPOSTOR_MARGIN) + flipbook.feet_pixel) / cell;
+            let feet_in_cell = (Vec2::splat(margin) + flipbook.feet_pixel) / cell;
             let mut feet = Vec2::new(feet_in_cell.x - 0.5, 0.5 - feet_in_cell.y);
             if root_sprite.flip_x {
                 feet.x = -feet.x;
@@ -1030,7 +1043,15 @@ pub fn drive_rigged_presentations(
 
         // The root's quad: its whole cell, placed so the frame inside it lands
         // exactly where the root's baked frame would (`body_quad`).
-        let (size, anchor) = body_quad(animator, basis, &root_sprite, &root_anchor, flipbook.frame_size.as_vec2(), atlas.cell_size());
+        let (size, anchor) = body_quad(
+            animator,
+            basis,
+            &root_sprite,
+            &root_anchor,
+            flipbook.frame_size.as_vec2(),
+            impostor_margin(&flipbook),
+            atlas.cell_size(),
+        );
         if root_sprite.image != atlas.image {
             root_sprite.image = atlas.image.clone();
         }
@@ -1215,6 +1236,7 @@ fn body_quad(
     root_sprite: &Sprite,
     root_anchor: &Anchor,
     frame_size: Vec2,
+    margin: f32,
     cell: f32,
 ) -> (Vec2, Vec2) {
     // The squash of a sheet with no compact row is read off the root as the
@@ -1229,7 +1251,7 @@ fn body_quad(
     if animator.draws_mirror_row() {
         basis.feet_anchor.x = -basis.feet_anchor.x;
     }
-    let (mut size, mut anchor) = cell_quad(basis, frame_size, cell);
+    let (mut size, mut anchor) = cell_quad(basis, frame_size, margin, cell);
     if let Some((ratio, held_y)) = squash {
         (size.y, anchor.y) = squashed_about(size.y, anchor.y, ratio, held_y);
     }
@@ -1241,7 +1263,7 @@ fn body_quad(
 
 /// The size and anchor of a body's cell quad (a cell `cell` sheet pixels
 /// square): the cell drawn so that every pixel of the frame inside it (the
-/// frame's top left at `IMPOSTOR_MARGIN`) lands where the root's baked FULL
+/// frame's top left at `margin`, [`impostor_margin`]) lands where the root's baked FULL
 /// frame puts that pixel — the frame of `basis.render_size` at
 /// `basis.feet_anchor`.
 ///
@@ -1255,12 +1277,17 @@ fn body_quad(
 /// basis, as the baked frame is derived, leaves no convention to assume;
 /// `the_impostor_lands_where_the_baked_frame_would_for_either_anchor` holds
 /// both.
-pub fn cell_quad(basis: ambition_sprite_sheet::character::RenderBasis, frame_size: Vec2, cell: f32) -> (Vec2, Vec2) {
+pub fn cell_quad(
+    basis: ambition_sprite_sheet::character::RenderBasis,
+    frame_size: Vec2,
+    margin: f32,
+    cell: f32,
+) -> (Vec2, Vec2) {
     let world_per_pixel = basis.render_size / frame_size;
     let size = Vec2::splat(cell) * world_per_pixel;
     // The frame's centre in the cell, normalized (+y up), and the frame's
     // anchor carried from frame units into cell units.
-    let centre = (Vec2::splat(IMPOSTOR_MARGIN) + frame_size * 0.5) / cell;
+    let centre = (Vec2::splat(margin) + frame_size * 0.5) / cell;
     let anchor = Vec2::new(centre.x - 0.5, 0.5 - centre.y) + basis.feet_anchor * frame_size / cell;
     (size, anchor)
 }

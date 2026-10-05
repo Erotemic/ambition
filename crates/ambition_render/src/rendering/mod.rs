@@ -30,49 +30,64 @@ pub struct BodyOwnedDrawableSync;
 /// The colour space the art was composited in: gamma (stored sRGB values).
 ///
 /// The published frames are composited from stored sRGB values (the renderer's
-/// PIL compositing, and the SVG rasterizer before it), so an anti-aliased
-/// outline over another part, or a translucent part over a body, has the
-/// colour gamma blending gives it. A camera blending in linear light lightens
-/// every such pixel: loose parts measured edge blobs of 11 to 18 px against
-/// their published frames, and 559 px on a translucent blink, where gamma
-/// blending measured 3 (`scripts/measure_rigged_parity.py`, 2026-10-05). The
-/// impostor's page cameras, which own their targets, blend in it.
+/// PIL compositing), so an anti-aliased outline over another part, or a
+/// translucent part over a body, has the colour gamma blending gives it. The
+/// runtime does NOT draw in it ([`WORLD_COMPOSITING`], [`impostor_compositing`]);
+/// it is the space of the legacy-art drift measurement, and of experiments on
+/// targets a camera owns.
 pub const ART_COMPOSITING: bevy::camera::CompositingSpace = bevy::camera::CompositingSpace::Srgb;
 
-/// The colour space the world cameras blend in: Bevy's linear light, unless
-/// `AMBITION_WORLD_COMPOSITING=srgb` asks for [`ART_COMPOSITING`].
+/// The colour space the world cameras blend in: Bevy's linear light. A
+/// constant, not a setting.
 ///
-/// ⛔ NOT GAMMA BY DEFAULT (2026-10-05). On a window, a gameplay camera in
-/// `Srgb` gets an `Rgba8Unorm` main texture while the HUD and cube-menu cameras
-/// sharing the window keep `Rgba8UnormSrgb`; Bevy gives them separate main
-/// textures, and the later cameras' never-cleared texture was written over the
-/// world: a black stage under ghosting menus on Jon's GPU host, in every game.
-/// `capture_scene` renders into an image and did not show it. Gamma for the
-/// world needs every camera on the window in one space, bevy_ui included.
-pub fn world_compositing() -> bevy::camera::CompositingSpace {
+/// ⛔ NOT GAMMA (2026-10-05). On a window, a gameplay camera in `Srgb` gets an
+/// `Rgba8Unorm` main texture while the HUD and cube-menu cameras sharing the
+/// window keep `Rgba8UnormSrgb`; Bevy keys main textures by (target, usages,
+/// format, MSAA), so they stop sharing one, and the later cameras'
+/// never-cleared texture was written over the world: a black stage under
+/// ghosting menus on Jon's GPU host, in every game. `capture_scene` renders
+/// into an image and did not show it. Gamma for the world would need every
+/// camera on the window in one space, bevy_ui included; an offscreen
+/// experiment may use [`ART_COMPOSITING`] on a target it owns.
+pub const WORLD_COMPOSITING: bevy::camera::CompositingSpace = bevy::camera::CompositingSpace::Linear;
+
+/// The colour space the impostor atlas composites a body in: the world's,
+/// [`WORLD_COMPOSITING`], so a body looks the same drawn directly and
+/// composited. MEASURED (`scripts/measure_composition_switch.py`, robot, alice,
+/// ninja_shadow_oni_leader, 623 frames, one texel a pixel, 2026-10-05): the
+/// same frame on the two roads differed by more than 8 levels on a median 100
+/// and up to 1,088 pixels (peaking at 68 levels) with the atlas in the art's
+/// gamma space, an outline popping on every hit flash, and on none (peak 8)
+/// with the atlas in linear light. The old baked art is a drift reference, not
+/// the runtime's law. `AMBITION_IMPOSTOR_COMPOSITING=srgb` composites in
+/// [`ART_COMPOSITING`] to measure it again (safe: the atlas cameras own their
+/// targets).
+pub fn impostor_compositing() -> bevy::camera::CompositingSpace {
     static SPACE: std::sync::OnceLock<bevy::camera::CompositingSpace> = std::sync::OnceLock::new();
-    *SPACE.get_or_init(|| match std::env::var("AMBITION_WORLD_COMPOSITING").as_deref() {
+    *SPACE.get_or_init(|| match std::env::var("AMBITION_IMPOSTOR_COMPOSITING").as_deref() {
         Ok("srgb") => ART_COMPOSITING,
-        _ => bevy::camera::CompositingSpace::Linear,
+        Ok("linear") | Err(_) => WORLD_COMPOSITING,
+        Ok(other) => panic!("AMBITION_IMPOSTOR_COMPOSITING={other:?} is neither `srgb` nor `linear`"),
     })
 }
 
-/// Make every camera that draws the world blend in [`world_compositing`]: a
+/// Make every camera that draws the world blend in [`WORLD_COMPOSITING`]: a
 /// required component of the gameplay cameras (`MainCamera`) and the portal
 /// captures (`PortalViewRig`), so no spawn site states it.
 pub fn require_world_compositing(app: &mut bevy::app::App) {
     app.register_required_components_with::<
         ambition_platformer2d_shared_tangle::camera_layers::MainCamera,
         bevy::camera::CompositingSpace,
-    >(world_compositing);
+    >(|| WORLD_COMPOSITING);
     #[cfg(feature = "portal_render")]
     app.register_required_components_with::<
         ambition_portal2d_presentation::PortalViewRig,
         bevy::camera::CompositingSpace,
-    >(world_compositing);
+    >(|| WORLD_COMPOSITING);
 }
 
 pub mod actors;
+pub mod window_camera_stack;
 pub mod body_clock;
 pub mod body_cues;
 pub mod bubble_shield;
@@ -542,6 +557,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // both animators have chosen this frame's row and frame. Both do
         // nothing unless the trial is admitted.
         require_world_compositing(app);
+        // Every camera layered into a window shares its main texture, or the
+        // window goes black under its HUD (`window_camera_stack`).
+        app.add_systems(bevy::app::Last, window_camera_stack::report_incompatible_window_stacks);
         app.init_resource::<actors::rigged::RiggedPresentations>();
         app.init_resource::<actors::rigged::RiggedImpostorAtlas>();
         // Who reads a part-drawn body as one image this frame, declared before

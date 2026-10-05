@@ -17,6 +17,7 @@ mod common;
 mod app_it_sync;
 mod an_edit_reaches_the_shipped_game;
 mod pirate_sky_crew;
+mod window_cameras_share_one_main_texture;
 mod the_session_owns_its_generation;
 mod the_sync_test_sees_a_first_run_only_effect;
 

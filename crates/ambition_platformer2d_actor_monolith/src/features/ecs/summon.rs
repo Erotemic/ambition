@@ -216,7 +216,11 @@ pub fn apply_summon_effects(
     // belongs here rather than inside the recipe: a rejected batch has spent
     // nothing, where a recipe-time refusal is a panic with rows already built.
     if let Err(error) =
-        crate::construction::preflight_planned_bodies(&planned, prepared_characters.get())
+        crate::construction::preflight_planned_bodies(
+            &planned,
+            prepared_characters.get(),
+            &character_catalog,
+        )
     {
         bevy::log::error!(
             target: "ambition_platformer2d::construction",

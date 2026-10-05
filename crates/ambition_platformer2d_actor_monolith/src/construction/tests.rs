@@ -3545,6 +3545,108 @@ fn prepare_with_placements(
     )
 }
 
+/// A room with one person, `npc_1`, who names `character` (or nobody).
+fn person_room(character: Option<&str>) -> ambition_platformer2d_world::rooms::RoomSpec {
+    use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec, PlacementSchema};
+    let mut room = empty_room("parlour");
+    room.placements.push(
+        ambition_platformer2d_world::placements::PlacementRecord::new(
+            "npc_1",
+            PlacementSchema::Interactable(InteractableSpec::new(
+                "Talk",
+                InteractionKindSpec::Npc {
+                    character_id: character.map(str::to_owned),
+                    dialogue_id: None,
+                    patrol_radius: 0.0,
+                    patrol_path_id: None,
+                    brain_override: None,
+                },
+            )),
+            ae::Aabb::new(ae::Vec2::new(96.0, 32.0), ae::Vec2::splat(16.0)),
+        ),
+    );
+    room
+}
+
+/// ⛔ A PERSON WHO NAMES A CHARACTER THAT NOBODY REGISTERED IS REFUSED WHEN THE
+/// ROOM IS PLANNED.
+///
+/// The plan prepared, and the recipe panicked when the room was built
+/// (`report_unprepared_character`): a world reload of an `NpcSpawn` with a
+/// wrong `character_id` stopped the game. An enemy with the same fault was
+/// already refused here.
+///
+/// The controls are the three cases the NPC road CAN build, which stay
+/// plans: a character of the cast, a person who names nobody, a character
+/// that only the catalog has (its body is the catalog row's), and a
+/// composition that published no cast (a warning, not a refusal).
+#[test]
+fn a_person_who_names_an_unregistered_character_is_refused_when_the_room_is_planned() {
+    let catalog = crate::character_roster::catalog();
+    let nobody = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+    let prepare = |room: &ambition_platformer2d_world::rooms::RoomSpec,
+                   catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+                   cast: Option<&'static ambition_characters::prepared::PreparedCharacterRegistry>| {
+        let registry = engine_construction_registry();
+        let sheets = Default::default();
+        let context = ActorConstructionContext::new(
+            &registry,
+            catalog,
+            &sheets,
+            ContentBinding::content_unstated(ae::ContentEpoch(4)),
+        );
+        RoomFeatureConstructionPlan::prepare(
+            room,
+            &placement_registry(),
+            &crate::features::RoomContentStagingRegistry::default(),
+            &ambition_boss_encounter::test_boss_catalog(),
+            match cast {
+                Some(cast) => context.with_prepared(cast),
+                None => context,
+            },
+        )
+        .map(|_| ())
+    };
+
+    // ⛔ THE PREMISES of the controls: the character the catalog arm names is
+    // in the catalog and is NOT in the cast, and the cast is not empty.
+    const CATALOG_ONLY: &str = "npc_kernel_guide";
+    assert!(
+        catalog.display_name(CATALOG_ONLY).is_some()
+            && fixture_cast().get(CATALOG_ONLY).is_none()
+            && !fixture_cast().is_empty(),
+        "the fixture does not have a character that only the catalog has"
+    );
+
+    let refused = prepare(&person_room(Some("a_stranger")), &nobody, Some(fixture_cast()))
+        .expect_err("a person who names a character in no cast and no catalog was planned");
+    assert!(
+        matches!(
+            &refused,
+            RoomFeatureConstructionError::ActorConstruction(
+                ActorConstructionError::BodyCharacterNotRegistered { sim_id, character },
+            ) if *sim_id == SimId::placement("npc_1") && character == "a_stranger"
+        ),
+        "the refusal does not name the person and the character: {refused}"
+    );
+    // The catalog that HAS characters does not have this one either.
+    assert!(
+        prepare(&person_room(Some("a_stranger")), &catalog, Some(fixture_cast())).is_err(),
+        "a catalog that does not have the character let the person through"
+    );
+
+    for (what, room, catalog, cast) in [
+        ("a character of the cast", person_room(Some("fixture_walker")), &nobody, Some(fixture_cast())),
+        ("a person who names nobody", person_room(None), &nobody, Some(fixture_cast())),
+        ("a character that only the catalog has", person_room(Some(CATALOG_ONLY)), &catalog, Some(fixture_cast())),
+        ("a composition with no cast", person_room(Some("a_stranger")), &nobody, None),
+    ] {
+        if let Err(error) = prepare(&room, catalog, cast) {
+            panic!("control, {what}: the NPC road can build this person and the plan was refused: {error}");
+        }
+    }
+}
+
 /// A spawning placement is a plan row; an inert one (a Door) is not. The
 /// row carries the frozen interpreter; the Door record keeps its historical
 /// no-entity behavior instead of becoming a fatal missing row.

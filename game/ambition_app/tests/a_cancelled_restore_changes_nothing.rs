@@ -70,11 +70,43 @@ fn facts(sim: &mut Platformer2dSimHarness) -> Facts {
     }
 }
 
+/// How the restore of an arm ends.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Road {
+    /// The control: the room is prepared and published, and the restore
+    /// commits.
+    Commits,
+    /// The preparation of its room fails.
+    PreparationFails,
+    /// Its room is prepared, and the publication is refused.
+    PublicationRefused(Refusal),
+}
+
+/// Where `verify_and_publish` refuses the room of a restore. The two places
+/// are different code: only the second one is beside the line that runs the
+/// consequences of a restore.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Refusal {
+    /// Before the room is built. Two holders of one identity make a world the
+    /// opening baseline cannot describe, as in
+    /// `a_refused_world_reload_leaves_the_running_game_untouched`. MEASURED
+    /// 2026-10-05: one more holder of an identity that is live in the room
+    /// gives the same early refusal, for each of five identities.
+    BeforeTheRoomIsBuilt,
+    /// At the verdict, after the room is built. The content generation of the
+    /// session moves between the preparation and the publication, as a content
+    /// reload that lands in that interval moves it. The injector is the one of
+    /// `a_room_the_transaction_refuses_leaves_the_room_the_player_is_in_intact`.
+    AtTheVerdict,
+}
+
+type Verification = ambition_platformer2d::actors::world::rooms::LastConstructionVerification;
+
 /// A checkpoint at 7 coins; after it, a boss defeated, its bounty paid, and
 /// the body moved away from the checkpoint. Then a restore is asked for.
-/// Returns the facts before the request, the facts after its outcome, and the
-/// outcome.
-fn a_restore_after_a_boss(preparation_fails: bool) -> (Facts, Facts, Option<CheckpointRestoreOutcome>) {
+/// Returns the facts before the request, the facts after its outcome, the
+/// outcome, and what the last room verification concluded.
+fn a_restore_after_a_boss(road: Road) -> (Facts, Facts, Option<CheckpointRestoreOutcome>, Verification) {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     sim.step_n(AgentAction::default(), 15);
     {
@@ -101,7 +133,13 @@ fn a_restore_after_a_boss(preparation_fails: bool) -> (Facts, Facts, Option<Chec
     sim.step_n(AgentAction::default(), 30);
     let before = facts(&mut sim);
 
-    if preparation_fails {
+    if road == Road::PublicationRefused(Refusal::BeforeTheRoomIsBuilt) {
+        for _ in 0..2 {
+            sim.world_mut()
+                .spawn(ambition_platformer2d::platformer::sim_id::SimId::placement("corrupt_twin"));
+        }
+    }
+    if road == Road::PreparationFails {
         sim.app_mut().add_systems(
             Update,
             each_preparation_fails
@@ -113,7 +151,21 @@ fn a_restore_after_a_boss(preparation_fails: bool) -> (Facts, Facts, Option<Chec
     sim.world_mut()
         .write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
     let mut outcome = None;
+    let mut epoch = 9_000u64;
     for _ in 0..300 {
+        if road == Road::PublicationRefused(Refusal::AtTheVerdict) {
+            // A moving generation. A constant one is taken into the plan when
+            // the room is prepared, and then it is equal to itself at the
+            // verdict.
+            epoch += 1;
+            ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+                sim.world_mut(),
+                ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
+                    ambition_platformer2d::engine_core::ContentEpoch(epoch),
+                    Default::default(),
+                ),
+            );
+        }
         sim.step(AgentAction::default());
         let latest = sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned();
         if latest != answered_before {
@@ -122,7 +174,8 @@ fn a_restore_after_a_boss(preparation_fails: bool) -> (Facts, Facts, Option<Chec
         }
     }
     sim.step_n(AgentAction::default(), 30);
-    (before, facts(&mut sim), outcome)
+    let verification = sim.world().resource::<Verification>().clone();
+    (before, facts(&mut sim), outcome, verification)
 }
 
 /// THE PROPERTY. The restore's preparation fails, the outcome is
@@ -131,7 +184,7 @@ fn a_restore_after_a_boss(preparation_fails: bool) -> (Facts, Facts, Option<Chec
 /// still recorded since the checkpoint.
 #[test]
 fn a_cancelled_checkpoint_restore_leaves_the_live_world_as_it_was() {
-    let (before, after, outcome) = a_restore_after_a_boss(true);
+    let (before, after, outcome, _) = a_restore_after_a_boss(Road::PreparationFails);
     assert!(
         outcome.as_ref().is_some_and(|outcome| outcome.cancellation().is_some()),
         "the restore's outcome: {outcome:?}"
@@ -139,11 +192,81 @@ fn a_cancelled_checkpoint_restore_leaves_the_live_world_as_it_was() {
     assert_eq!(after, before, "the live world after a cancelled restore, against the world before the request");
 }
 
+/// THE SAME PROPERTY ON THE SECOND ROAD. The room of the restore is prepared
+/// and the publication is refused. The consequences of a restore run when the
+/// verdict accepts the room, so none ran. The operation has no commit and no
+/// failed preparation to answer it: the retirement of the operation gives the
+/// one outcome, `Cancelled` with `NotCommitted`.
+///
+/// Review of 2026-10-05, P1, the second hole: on this road the intent was
+/// taken and the operation was retired with no outcome.
+///
+/// ⛔ THE THIRD ROAD HAS NO ARM HERE, AND THAT IS A FINDING. A subject that is
+/// gone or cannot transit reaches the same retirement. The subject of a
+/// restore is the one primary body, and no production code removes that body
+/// or its motion model, cluster or combat state while its session lives: the
+/// one despawn is the retirement of the session, which takes the operation
+/// back. An arm for it would remove the body by hand.
+fn a_refused_publication_changes_nothing(refusal: Refusal) -> Verification {
+    use ambition_platformer2d::actors::session::checkpoint::RestoreCancellation;
+    let (before, after, outcome, verification) = a_restore_after_a_boss(Road::PublicationRefused(refusal));
+    // ⛔ THE PREMISE: this is the road of a refused publication. A room that
+    // was not prepared ends as `PreparationFailed`, and that is the arm above.
+    assert!(
+        !verification.published,
+        "{refusal:?}: the room of the restore was published, so this arm is about a commit"
+    );
+    assert_eq!(
+        outcome.as_ref().and_then(|outcome| outcome.cancellation()),
+        Some(RestoreCancellation::NotCommitted),
+        "{refusal:?}: the one outcome of a restore whose publication is refused: {outcome:?}"
+    );
+    assert_eq!(
+        after, before,
+        "{refusal:?}: the live world after a refused publication, against the world before the request"
+    );
+    verification
+}
+
+/// The refusal before the room is built.
+#[test]
+fn a_checkpoint_restore_whose_publication_is_refused_leaves_the_live_world_as_it_was() {
+    let verification = a_refused_publication_changes_nothing(Refusal::BeforeTheRoomIsBuilt);
+    // ⛔ THE PREMISE OF THE NAME: an early refusal records no violation, because
+    // it ends before the verification that finds them.
+    assert!(
+        verification.violations.is_empty()
+            && verification.projection_violations.is_empty()
+            && verification.staged_violations.is_empty(),
+        "this refusal came from the verdict, so it is the arm below: {verification:?}"
+    );
+}
+
+/// The refusal at the verdict. This is the arm that reads the line in
+/// `verify_and_publish` where the consequences of a restore run: MEASURED
+/// 2026-10-05, with the consequences run before the verdict is read, this arm
+/// is red and the arm above is green, because an early refusal does not come
+/// to that line.
+#[test]
+fn a_checkpoint_restore_whose_room_fails_its_verdict_leaves_the_live_world_as_it_was() {
+    let verification = a_refused_publication_changes_nothing(Refusal::AtTheVerdict);
+    // ⛔ THE PREMISE OF THE NAME: the room was built and the verdict found it
+    // prepared against a generation that is not the live one.
+    assert!(
+        verification.violations.iter().any(|violation| matches!(
+            violation,
+            ambition_platformer2d::platformer::construction::RosterViolation::ContentBindingMismatch { .. }
+        )),
+        "the room of the restore was not refused for its content generation: {verification:?}"
+    );
+}
+
 /// THE CONTROL. The same run with a preparation that succeeds commits, and
 /// each fact moves: so the facts above are facts a restore changes.
 #[test]
 fn a_committed_checkpoint_restore_changes_each_of_those_facts() {
-    let (before, after, outcome) = a_restore_after_a_boss(false);
+    let (before, after, outcome, verification) = a_restore_after_a_boss(Road::Commits);
+    assert!(verification.published, "control: the room of a committed restore was published");
     assert!(outcome.as_ref().is_some_and(CheckpointRestoreOutcome::committed), "the restore's outcome: {outcome:?}");
     assert!(
         before.cleared && before.balance > 7 && before.defeats_since == 1,

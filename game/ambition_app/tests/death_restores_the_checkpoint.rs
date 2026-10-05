@@ -195,6 +195,11 @@ pub(crate) fn commit_a_checkpoint(sim: &mut Platformer2dSimHarness) {
 /// Kill the primary body through the ordinary death report and run out the
 /// interlude, so the consequence the roster decides actually fires.
 pub(crate) fn die(sim: &mut Platformer2dSimHarness) {
+    die_and_watch(sim, |_, _| {});
+}
+
+/// [`die`], calling `watch` after each of its frames.
+pub(crate) fn die_and_watch(sim: &mut Platformer2dSimHarness, mut watch: impl FnMut(&mut Platformer2dSimHarness, usize)) {
     let victim = body(sim);
     let (x, y) = body_pos(sim);
     sim.world_mut().write_message(
@@ -209,7 +214,10 @@ pub(crate) fn die(sim: &mut Platformer2dSimHarness) {
     );
     // The interlude counts down on the sim clock and only then asks the roster
     // for the consequence; the rebuild it requests takes several more frames.
-    sim.step_n(base(), 240);
+    for frame in 0..240 {
+        sim.step(base());
+        watch(sim, frame);
+    }
 }
 
 /// THE FIXTURE. Seven beats, in the order the rule states them.

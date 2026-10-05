@@ -116,10 +116,10 @@ fn selected_and_highlighted_are_distinct_colors() {
     // Highlighted (cursor/hover), selected (equipped/active), and both
     // together must all have different backgrounds.
     let k = MenuControlKind::Item;
-    let highlighted = control_bg(k, true, false, false);
-    let selected = control_bg(k, false, true, false);
-    let both = control_bg(k, true, true, false);
-    let plain = control_bg(k, false, false, false);
+    let highlighted = control_bg(k, true, false, false, false);
+    let selected = control_bg(k, false, true, false, false);
+    let both = control_bg(k, true, true, false, false);
+    let plain = control_bg(k, false, false, false, false);
     assert_ne!(highlighted, selected, "highlighted ≠ selected");
     assert_ne!(highlighted, both, "highlighted ≠ selected+highlighted");
     assert_ne!(selected, both, "selected ≠ selected+highlighted");
@@ -924,5 +924,317 @@ fn a_press_that_survives_a_tab_bar_republish_still_activates() {
         drain(&mut app).into_iter().map(|m| m.index).collect::<Vec<_>>(),
         vec![2],
         "a press that survived a republish must still activate the tab it began on"
+    );
+}
+
+// --- Hover is a third state (Q70) -------------------------------------------
+//
+// These tests set `Interaction` directly. That is reliable only in this
+// crate-level harness: a full Bevy host runs the UI focus system, which
+// rewrites `Interaction` from the real pointer.
+
+/// The spawned tab with `index`.
+fn tab_entity(app: &mut App, index: usize) -> Entity {
+    let mut q = app.world_mut().query::<(Entity, &BevyUiMenuTab)>();
+    q.iter(app.world())
+        .find_map(|(entity, tab)| (tab.index == index).then_some(entity))
+        .expect("the sample view has this tab")
+}
+
+fn background(app: &App, entity: Entity) -> Color {
+    app.world()
+        .get::<BackgroundColor>(entity)
+        .expect("a styled node")
+        .0
+}
+
+fn border(app: &App, entity: Entity) -> (UiRect, Color) {
+    let node = app.world().get::<Node>(entity).expect("a node");
+    let color = app
+        .world()
+        .get::<BorderColor>(entity)
+        .expect("a border")
+        .top;
+    (node.border, color)
+}
+
+/// A tab strip with tab 1 active and keyboard focus on tab 2, with the
+/// restyle systems a host installs.
+fn tab_app() -> App {
+    let mut app = build_app();
+    install_bevy_ui_menu_tabs(&mut app);
+    let (page, _) = sample_page();
+    let tabs = tab_set();
+    app.world_mut().commands().queue(move |world: &mut World| {
+        let view = BevyUiMenuView {
+            tabs: &tabs,
+            active_tab: 1,
+            page: &page,
+            focused: None,
+            focused_tab: Some(2),
+        };
+        let mut commands = world.commands();
+        spawn_bevy_ui_menu(&mut commands, &view);
+    });
+    app.update();
+    app
+}
+
+#[test]
+fn a_hovered_tab_draws_the_hover_style() {
+    let mut app = tab_app();
+    // Tab 3 is neither active (1) nor focused (2).
+    let tab = tab_entity(&mut app, 3);
+    let resting = background(&app, tab);
+    assert_eq!(resting, tab_bg(false, false));
+
+    set_interaction(&mut app, tab, Interaction::Hovered);
+    let hovered = background(&app, tab);
+    assert_eq!(hovered, tab_bg(false, true), "the hover restyle ran");
+    assert_ne!(hovered, resting, "hover differs from resting");
+    assert_ne!(hovered, tab_bg(true, false), "hover differs from selected");
+    assert_ne!(
+        hovered, TAB_FOCUS_RING,
+        "hover does not reuse the focus color"
+    );
+    assert_eq!(
+        border(&app, tab).0,
+        UiRect::ZERO,
+        "hover draws no focus ring"
+    );
+
+    set_interaction(&mut app, tab, Interaction::None);
+    assert_eq!(
+        background(&app, tab),
+        resting,
+        "leaving restores the rest style"
+    );
+}
+
+#[test]
+fn hovering_a_tab_does_not_move_focus_or_selection() {
+    let mut app = tab_app();
+    let active = tab_entity(&mut app, 1);
+    let focused = tab_entity(&mut app, 2);
+    let other = tab_entity(&mut app, 0);
+    let focus_ring = border(&app, focused);
+    let active_fill = background(&app, active);
+
+    set_interaction(&mut app, other, Interaction::Hovered);
+
+    let flags = |app: &mut App| {
+        let mut q = app.world_mut().query::<&BevyUiMenuTab>();
+        let mut tabs: Vec<_> = q.iter(app.world()).copied().collect();
+        tabs.sort_by_key(|t| t.index);
+        tabs.iter()
+            .map(|t| (t.active, t.focused))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        flags(&mut app),
+        vec![(false, false), (true, false), (false, true), (false, false)],
+        "a hover moved the active tab or the keyboard focus"
+    );
+    assert_eq!(
+        border(&app, focused),
+        focus_ring,
+        "the focus ring stays on tab 2"
+    );
+    assert_eq!(
+        background(&app, active),
+        active_fill,
+        "the active fill stays on tab 1"
+    );
+    assert_eq!(
+        background(&app, other),
+        tab_bg(false, true),
+        "tab 0 is hovered"
+    );
+}
+
+#[test]
+fn a_hovered_selected_or_focused_tab_keeps_its_own_style() {
+    let mut app = tab_app();
+    let active = tab_entity(&mut app, 1);
+    let focused = tab_entity(&mut app, 2);
+    let focus_ring = border(&app, focused);
+    assert_eq!(focus_ring.0, UiRect::all(Val::Px(TAB_FOCUS_RING_PX)));
+    assert_eq!(focus_ring.1, TAB_FOCUS_RING);
+
+    set_interaction(&mut app, active, Interaction::Hovered);
+    let hovered_active = background(&app, active);
+    assert_eq!(hovered_active, tab_bg(true, true));
+    assert_ne!(
+        hovered_active,
+        tab_bg(false, true),
+        "a hovered active tab still reads as the active tab, not as a hovered plain one"
+    );
+
+    set_interaction(&mut app, active, Interaction::None);
+    set_interaction(&mut app, focused, Interaction::Hovered);
+    assert_eq!(
+        border(&app, focused),
+        focus_ring,
+        "a hovered focused tab keeps its focus ring"
+    );
+    assert_eq!(background(&app, focused), tab_bg(false, true));
+}
+
+/// The Setting row's entity in the spawned sample page.
+fn setting_row_entity(app: &mut App) -> Entity {
+    let mut q = app
+        .world_mut()
+        .query::<(Entity, &AmbitionMenuControl<Action>)>();
+    q.iter(app.world())
+        .find_map(|(entity, control)| (control.action == Some(Action::Setting)).then_some(entity))
+        .expect("sample page has a Setting row")
+}
+
+fn visual(app: &App, entity: Entity) -> MenuVisualState {
+    *app.world()
+        .get::<MenuVisualState>(entity)
+        .expect("a control")
+}
+
+#[test]
+fn a_hovered_row_is_hovered_not_focused() {
+    // Keyboard focus on Equip (A); the pointer over Setting (B).
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    let (_, focus0) = sample_page();
+    spawn_view(&mut app, 0, Some(focus0));
+    let a = equip_row(&mut app);
+    let b = setting_row_entity(&mut app);
+    let b_resting = background(&app, b);
+    let a_focused = background(&app, a);
+
+    set_interaction(&mut app, b, Interaction::Hovered);
+
+    let (va, vb) = (visual(&app, a), visual(&app, b));
+    assert!(va.focused && !va.hovered, "A keeps focus: {va:?}");
+    assert!(
+        vb.hovered && !vb.focused && !vb.selected,
+        "B is only hovered: {vb:?}"
+    );
+    assert!(app.world().get::<BevyUiMenuFocused>(a).is_some());
+    assert!(app.world().get::<BevyUiMenuFocused>(b).is_none());
+    assert_eq!(background(&app, a), a_focused, "A still draws focused");
+    let kind = MenuControlKind::Action;
+    assert_eq!(
+        background(&app, b),
+        control_bg(kind, false, false, true, false)
+    );
+    assert_ne!(background(&app, b), b_resting, "hover differs from resting");
+    assert_ne!(
+        background(&app, b),
+        a_focused,
+        "hover does not reuse the focus color"
+    );
+
+    set_interaction(&mut app, b, Interaction::None);
+    assert!(!visual(&app, b).hovered);
+    assert_eq!(background(&app, b), b_resting);
+}
+
+#[test]
+fn hover_keeps_the_four_control_styles_apart() {
+    let k = MenuControlKind::Item;
+    for important in [false, true] {
+        for (focused, selected) in [(false, false), (true, false), (false, true), (true, true)] {
+            let rest = control_bg(k, focused, selected, false, important);
+            let hovered = control_bg(k, focused, selected, true, important);
+            assert_ne!(
+                rest, hovered,
+                "hover is visible on {focused}/{selected}/{important}"
+            );
+        }
+    }
+    // A hovered plain control looks like none of the other states.
+    let hovered_plain = control_bg(k, false, false, true, false);
+    for other in [
+        control_bg(k, false, false, false, false),
+        control_bg(k, true, false, false, false),
+        control_bg(k, false, true, false, false),
+        control_bg(k, true, true, false, false),
+    ] {
+        assert_ne!(hovered_plain, other);
+    }
+    // Hover keeps a selected control teal and a focused control gold: it
+    // lightens the fill and keeps its hue order.
+    let teal = control_bg(k, false, true, true, false).to_srgba();
+    assert!(
+        teal.green > teal.red && teal.blue > teal.red,
+        "still teal: {teal:?}"
+    );
+    let gold = control_bg(k, true, false, true, false).to_srgba();
+    assert!(
+        gold.red > gold.blue && gold.green > gold.blue,
+        "still gold: {gold:?}"
+    );
+}
+
+#[test]
+fn hovering_a_selected_row_does_not_move_the_selection() {
+    // Equip is selected (an equipped item); Setting is hovered.
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    let mut page = MenuPageModel::new(Page::Inventory, "Inventory", MenuColor::BLUE_PANEL);
+    page.control(
+        MenuRect::new(10.0, 20.0, 30.0, 8.0),
+        MenuControlKind::Item,
+        "Health",
+        None,
+        true,
+        false,
+        Some(Action::Equip),
+    );
+    page.control(
+        MenuRect::new(10.0, 30.0, 30.0, 8.0),
+        MenuControlKind::Action,
+        "Audio",
+        None,
+        false,
+        false,
+        Some(Action::Setting),
+    );
+    let tabs = tab_set();
+    app.world_mut().commands().queue(move |world: &mut World| {
+        let view = BevyUiMenuView {
+            tabs: &tabs,
+            active_tab: 0,
+            page: &page,
+            focused: None,
+            focused_tab: None,
+        };
+        let mut commands = world.commands();
+        spawn_bevy_ui_menu(&mut commands, &view);
+    });
+    app.update();
+    let selected = equip_row(&mut app);
+    let other = setting_row_entity(&mut app);
+    let teal = control_bg(MenuControlKind::Item, false, true, false, false);
+    assert_eq!(
+        background(&app, selected),
+        teal,
+        "selected-only spawns teal"
+    );
+    assert!(!visual(&app, selected).focused, "selected is not focus");
+
+    set_interaction(&mut app, other, Interaction::Hovered);
+    assert!(visual(&app, selected).selected, "the selection stayed");
+    assert!(!visual(&app, other).selected, "the hover did not select");
+    assert_eq!(
+        background(&app, selected),
+        teal,
+        "the selected style stayed"
+    );
+
+    // Hovering the selected row itself keeps it recognizably selected.
+    set_interaction(&mut app, other, Interaction::None);
+    set_interaction(&mut app, selected, Interaction::Hovered);
+    assert_eq!(
+        background(&app, selected),
+        control_bg(MenuControlKind::Item, false, true, true, false),
+        "a restyle draws the selected control as selected, not as focused"
     );
 }

@@ -112,16 +112,28 @@ pointer-driven menus and settings give normal hover feedback, and hover,
 selection and keyboard/controller focus stay three distinguishable states.
 This is ordinary UI, not a product question.
 
-Today (2026-10-04) the bevy_ui tab strip has no hover restyle
-(`ambition_menu/src/render/bevy_ui/mod.rs`: tab colours come from selection
-only), `MenuVisualState::hovered` is carried but no style reads it, and the
-launcher moves focus on hover, so hover and focus are one state there. The
-human check above assumes a hover highlight that the tabs do not yet draw.
-Work: a hover style on tabs and rows that differs from the selected and the
-focused style, and a launcher hover that does not move focus. Acceptance: a
-headless test sets `Interaction::Hovered` on an unselected, unfocused tab and
-asserts the hover style, with the selected and focused styles unchanged (the
-fixture can set `Interaction` directly; only picking needs a window).
+Selected means the active value or tab. Focused means the
+keyboard/controller cursor. Hovered means the pointer is over the control.
+
+Current shape (flat `bevy_ui` renderer, `ambition_menu/src/render/bevy_ui/`):
+
+- One rule, `hover_lift`, lightens the fill that selection and focus chose.
+  A hovered selected control stays teal, a hovered focused control stays
+  gold, and a hovered tab keeps its active fill and its focus ring. Hover never
+  uses the focus color.
+- `sync_bevy_ui_menu_hover` copies `Interaction` into
+  `MenuVisualState::hovered`. It is the only writer of that field; hosts write
+  `focused` and `selected`. `restyle_bevy_ui_menu_controls` and
+  `restyle_bevy_ui_menu_tabs` recolor in place, with no rebuild.
+- The launcher does not read `MenuActionPreviewed`. A hover does not move
+  `ShellLauncherState::selected`; a click still activates the pointed row.
+
+Open: the in-game Grid menu still moves its cursor on hover (queue row
+MENU-HOVER).
+
+Tests set `Interaction` directly only in a crate-level harness. In a fully
+assembled Bevy host, the UI focus system rewrites `Interaction` from the real
+pointer.
 
 ## Profile and participant scope in the architecture review
 

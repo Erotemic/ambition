@@ -158,7 +158,9 @@ fn spawn_control<Action>(
     let bg = if disabled {
         to_color(MenuColor::DISABLED)
     } else {
-        control_bg(kind, focused, selected, important)
+        // A control spawns unhovered; `sync_bevy_ui_menu_hover` follows the
+        // pointer in place.
+        control_bg(kind, focused, selected, false, important)
     };
     // Black text only on the bright gold highlight. The teal selected-only
     // background is dark, so it keeps light text.
@@ -181,8 +183,10 @@ fn spawn_control<Action>(
         // The kind, not generic, so one restyle system serves every menu
         // whatever its action type.
         super::AmbitionMenuControlKind(kind),
+        // The three states stay apart (Q70): `focused` is the cursor only, so
+        // a restyle draws a selected-only control teal, as this spawn does.
         MenuVisualState {
-            focused: focused || selected,
+            focused,
             selected,
             disabled,
             important,

@@ -154,17 +154,51 @@ fn node_from_rect(rect: MenuRect) -> Node {
     }
 }
 
-/// Background tint for a control: focused/selected is gold, important is
-/// accented, disabled and the scrollbar track are dim, plain controls are
-/// neutral blue.
-fn control_bg(kind: MenuControlKind, focused: bool, selected: bool, important: bool) -> Color {
+/// How much a pointer hover lightens a fill (Q70).
+///
+/// Hover is the third menu state, after selected (the active value) and
+/// focused (the keyboard/controller cursor). It changes the fill that the
+/// other two states chose. It does not replace that fill, so a hovered gold
+/// cursor stays gold and a hovered teal selection stays teal. It never uses
+/// the focus color, so the pointer cannot look like the cursor.
+const HOVER_LIFT: f32 = 0.10;
+
+/// The shared hover rule for tabs and controls: lighten `base`.
+fn hover_lift(base: Color, hovered: bool) -> Color {
+    if !hovered {
+        return base;
+    }
+    let c = base.to_srgba();
+    Color::srgba(
+        (c.red + HOVER_LIFT).min(1.0),
+        (c.green + HOVER_LIFT).min(1.0),
+        (c.blue + HOVER_LIFT).min(1.0),
+        c.alpha,
+    )
+}
+
+/// Background tint for a control: focused is gold, selected is teal,
+/// important is accented, disabled and the scrollbar track are dim, plain
+/// controls are neutral blue. A hover lightens the fill (see [`hover_lift`]).
+fn control_bg(
+    kind: MenuControlKind,
+    focused: bool,
+    selected: bool,
+    hovered: bool,
+    important: bool,
+) -> Color {
     if matches!(kind, MenuControlKind::Scrollbar) {
         return Color::srgba(0.10, 0.11, 0.16, 0.92);
     }
-    // Highlighted (cursor/hover) and selected (equipped/active setting) must
-    // look different; both together are brightest. The cube shows the cursor
-    // with a separate focus ring; the flat backend folds it into the
-    // background.
+    hover_lift(control_rest_bg(focused, selected, important), hovered)
+}
+
+/// A control's fill before hover.
+fn control_rest_bg(focused: bool, selected: bool, important: bool) -> Color {
+    // Focused (keyboard/controller cursor) and selected (equipped/active
+    // setting) must look different; both together are brightest. The cube
+    // shows the cursor with a separate focus ring; the flat backend folds it
+    // into the background.
     match (focused, selected) {
         // Highlighted and selected: brightest gold.
         (true, true) => Color::srgba(0.99, 0.82, 0.34, 0.98),
@@ -181,6 +215,28 @@ fn control_bg(kind: MenuControlKind, focused: bool, selected: bool, important: b
             }
         }
     }
+}
+
+/// The focus ring of a tab under the keyboard/controller cursor.
+const TAB_FOCUS_RING: Color = Color::srgba(0.99, 0.82, 0.34, 1.0);
+const TAB_FOCUS_RING_PX: f32 = 3.0;
+
+/// A tab's fill: gold when it is the active tab, dark blue otherwise, and
+/// lightened by a pointer hover (see [`hover_lift`]). Keyboard focus is the
+/// border ring, not the fill, so focus and hover can show at the same time.
+fn tab_bg(active: bool, hovered: bool) -> Color {
+    let base = if active {
+        Color::srgba(0.85, 0.70, 0.20, 0.98)
+    } else {
+        Color::srgba(0.10, 0.13, 0.22, 0.94)
+    };
+    hover_lift(base, hovered)
+}
+
+/// The pointer is over a control or tab. `Pressed` also means "under the
+/// pointer".
+fn pointer_over(interaction: Interaction) -> bool {
+    interaction != Interaction::None
 }
 
 /// The font source for all menu surfaces.
@@ -295,11 +351,9 @@ where
                     for (i, tab) in view.tabs.iter().enumerate() {
                         let active = i == active_tab;
                         let tab_focused = view.focused_tab == Some(i);
-                        let bg = if active {
-                            Color::srgba(0.85, 0.70, 0.20, 0.98)
-                        } else {
-                            Color::srgba(0.10, 0.13, 0.22, 0.94)
-                        };
+                        // A tab spawns unhovered; `restyle_bevy_ui_menu_tabs`
+                        // follows the pointer in place.
+                        let bg = tab_bg(active, false);
                         let label_color = if active {
                             Color::BLACK
                         } else {
@@ -308,10 +362,7 @@ where
                         // A tab under the keyboard cursor gets a border focus
                         // ring, distinct from the active tab's fill.
                         let (border, border_color) = if tab_focused {
-                            (
-                                UiRect::all(Val::Px(3.0)),
-                                Color::srgba(0.99, 0.82, 0.34, 1.0),
-                            )
+                            (UiRect::all(Val::Px(TAB_FOCUS_RING_PX)), TAB_FOCUS_RING)
                         } else {
                             (UiRect::ZERO, Color::NONE)
                         };
@@ -729,6 +780,42 @@ where
         );
 }
 
+/// Copy pointer hover into [`MenuVisualState::hovered`].
+///
+/// This system is the only writer of `hovered` on flat controls. Hosts write
+/// `focused` and `selected`; a hover never changes them (Q70). Filtered on
+/// `Changed<Interaction>` and written only on a real change, so a resting
+/// pointer costs nothing and the restyle below runs once per edge.
+pub fn sync_bevy_ui_menu_hover(
+    mut controls: Query<
+        (&Interaction, &mut MenuVisualState),
+        (Changed<Interaction>, With<AmbitionMenuControlKind>),
+    >,
+) {
+    for (interaction, mut state) in &mut controls {
+        let hovered = pointer_over(*interaction);
+        if state.hovered != hovered {
+            state.hovered = hovered;
+        }
+    }
+}
+
+/// Recolor a tab in place when the pointer enters or leaves it. Same hover
+/// rule as the controls; the active fill and the focus ring are unchanged.
+pub fn restyle_bevy_ui_menu_tabs(
+    mut tabs: Query<
+        (&BevyUiMenuTab, &Interaction, &mut BackgroundColor),
+        Or<(Changed<Interaction>, Changed<BevyUiMenuTab>)>,
+    >,
+) {
+    for (tab, interaction, mut background) in &mut tabs {
+        let color = tab_bg(tab.active, pointer_over(*interaction));
+        if background.0 != color {
+            background.0 = color;
+        }
+    }
+}
+
 /// Recolor a control when its runtime state changes, without respawning it.
 ///
 /// [`MenuVisualState`] carries everything `control_bg` needs, including the
@@ -749,7 +836,13 @@ pub fn restyle_bevy_ui_menu_controls(
         let color = if state.disabled {
             to_color(MenuColor::DISABLED)
         } else {
-            control_bg(kind.0, state.focused, state.selected, state.important)
+            control_bg(
+                kind.0,
+                state.focused,
+                state.selected,
+                state.hovered,
+                state.important,
+            )
         };
         if background.0 != color {
             background.0 = color;
@@ -773,7 +866,8 @@ pub fn install_bevy_ui_menu_restyle(app: &mut bevy::prelude::App) {
     app.add_plugins(BevyUiMenuRestylePlugin);
 }
 
-/// Carries the once-only registration for [`restyle_bevy_ui_menu_controls`].
+/// Carries the once-only registration for [`restyle_bevy_ui_menu_controls`],
+/// the hover sync that feeds it, and [`restyle_bevy_ui_menu_tabs`].
 #[derive(Default)]
 pub struct BevyUiMenuRestylePlugin;
 
@@ -781,7 +875,14 @@ impl bevy::prelude::Plugin for BevyUiMenuRestylePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_systems(
             bevy::prelude::Update,
-            restyle_bevy_ui_menu_controls.in_set(BevyUiMenuInteractionSet),
+            (
+                // The sync writes `hovered`; the restyle reads it in the same
+                // frame. They write different fields than the host's focus
+                // writer, so this order is not a race over focus.
+                (sync_bevy_ui_menu_hover, restyle_bevy_ui_menu_controls).chain(),
+                restyle_bevy_ui_menu_tabs,
+            )
+                .in_set(BevyUiMenuInteractionSet),
         );
     }
 }
@@ -801,6 +902,8 @@ pub fn install_bevy_ui_menu_tabs(app: &mut App) {
         return;
     }
     app.init_resource::<BevyUiMenuTabsInstalled>();
+    // The tab hover restyle lives in the shared restyle plugin (idempotent).
+    install_bevy_ui_menu_restyle(app);
     app.add_message::<crate::MenuTabActivated>().add_systems(
         Update,
         publish_bevy_ui_menu_tabs.in_set(BevyUiMenuInteractionSet),

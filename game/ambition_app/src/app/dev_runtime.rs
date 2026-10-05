@@ -824,6 +824,37 @@ pub(super) fn reload_ldtk_world_from_disk(
             combat.hitstun_timer = 0.0;
             combat.recoil_lock_timer = 0.0;
         }
+        // The home body of a joined seat stays too: it is owned by the session
+        // and not by its room, so the reload does not build it again. Each one
+        // moves to a clear place in the new geometry of its own room, as the
+        // primary body does in the room the reload published first.
+        let others: Vec<(Entity, ae::Vec2, ae::Vec2)> = world
+            .query_filtered::<(Entity, &ae::BodyKinematics), (
+                With<ambition_platformer2d::platformer::markers::PlayerEntity>,
+                Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+            )>()
+            .iter(world)
+            .map(|(body, kinematics)| (body, kinematics.pos, kinematics.size))
+            .collect();
+        for (body, at, size) in others {
+            let Some(clear) = world_rooms::live_room_spec_of(world, body)
+                .map(|spec| world_rooms::validated_spawn(&spec.world, at, size))
+            else {
+                continue;
+            };
+            if clear.distance(at) < 0.01 {
+                continue;
+            }
+            let mut seated = world.query::<(ae::BodyClusterQueryData, &mut ae::MotionModel)>();
+            if let Ok((mut item, mut motion_model)) = seated.get_mut(world, body) {
+                ae::movement::transit_body(
+                    &mut motion_model,
+                    &mut item.as_clusters_mut(),
+                    clear,
+                    ae::movement::TransitVelocity::Keep,
+                );
+            }
+        }
         if let Some(mut dialogue) =
             world.get_resource_mut::<ambition_platformer2d::dialog::DialogState>()
         {

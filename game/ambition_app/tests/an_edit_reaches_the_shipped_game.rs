@@ -1369,16 +1369,14 @@ fn place_of(
 ///   seat is the room the reload publishes first, whichever it is.
 /// - Control: two live rooms and no solid over Alice. She is where she was.
 ///
-/// ⛔ ONE BODY STAYS TODAY, AND THIS ARM SAYS SO. A body that is a resident
-/// of its room does not stay: the reload removes it with the room and builds
-/// the authored bodies again. Measured 2026-10-05: Bob of these fixtures, a
+/// ⛔ A RESIDENT DOES NOT STAY, AND THIS ARM SAYS SO. A body that is a
+/// resident of its room is removed with the room, and the reload builds the
+/// authored bodies again. Measured 2026-10-05: Bob of these fixtures, a
 /// spawned actor that seat 1 drives, is a resident. The reload of his room
-/// removes him, also in the control, and nothing builds him again. Ambition
-/// has no production road that seats a second player (Q153), so the body of
-/// the primary seat is the one body that stays. When a second body stays
-/// (a join road, or a driven body that a reload keeps), the last assertion
-/// of this arm fails, and that body needs the same move: the re-seat reads
-/// `PrimaryPlayerOnly`.
+/// removes him, also in the control, and nothing builds him again. The last
+/// assertion fails when such a driven body stays. The home body of a joined
+/// seat is not a resident and does stay; its move has its own arm,
+/// `a_world_reload_moves_the_body_of_a_joined_seat_out_of_the_new_solids`.
 #[test]
 fn a_world_reload_moves_the_body_that_stays_out_of_the_new_solids() {
     use crate::neighbor_prefetch_prepares_rooms::{alice, bob, live_room_ids, room_of};
@@ -1485,6 +1483,95 @@ fn a_world_reload_moves_the_body_that_stays_out_of_the_new_solids() {
                 "{arm:?}: the driven body stayed in a room that the reload built again. It is \
                  a second body that stays: move it out of the new solids too"
             ));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+}
+
+/// A WORLD RELOAD MOVES THE BODY OF A JOINED SEAT OUT OF THE NEW SOLIDS.
+///
+/// The home body of a joined seat is owned by the session, so a reload keeps
+/// it (Q153 default join). The reload moves it to a clear place in the new
+/// geometry of its room, as it moves the primary body. Seat 1 joins through
+/// the join system, run once on the world with a Jump press in seat 1's slot
+/// (the shipped composition opens one handle, so no device presses for it).
+///
+/// - Control: the reload moves an NPC and puts no solid over the seat; the
+///   body of seat 1 is where it was.
+/// - The reload puts a solid over the body of seat 1; it is moved and clear.
+#[test]
+fn a_world_reload_moves_the_body_of_a_joined_seat_out_of_the_new_solids() {
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
+    use ambition_platformer2d::platformer::markers::PlayerEntity;
+    use bevy::ecs::system::RunSystemOnce as _;
+    let mut wrong: Vec<String> = Vec::new();
+    for solid in [false, true] {
+        let mut app = a_running_shipped_session();
+        for _ in 0..60 {
+            app.update();
+        }
+        let room = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+            .expect("the session has a live room")
+            .id
+            .clone();
+        app.world_mut().resource_mut::<SlotControls>().set(
+            PlayerSlot(1),
+            ambition_platformer2d::engine_core::ControlFrame {
+                jump_pressed: true,
+                ..Default::default()
+            },
+        );
+        app.world_mut()
+            .run_system_once(ambition_platformer2d::actors::session::join::seat_a_joining_participant)
+            .expect("the join system runs");
+        // No handle writes slot 1 in this composition, so the press would
+        // stay and the body would jump for ever.
+        app.world_mut().resource_mut::<SlotControls>().set(PlayerSlot(1), Default::default());
+        let world = app.world_mut();
+        let seat = world
+            .query_filtered::<(bevy::prelude::Entity, &DrivingParticipant), bevy::prelude::With<PlayerEntity>>()
+            .iter(world)
+            .find(|(_, driver)| driver.0 == PlayerSlot(1))
+            .map(|(body, _)| body)
+            .expect("seat 1 joined");
+        // The body of seat 1 comes to rest.
+        for _ in 0..60 {
+            app.update();
+        }
+        let half = app
+            .world()
+            .get::<ambition_platformer2d::engine_core::BodyKinematics>(seat)
+            .expect("the body of seat 1 has kinematics")
+            .size
+            * 0.5;
+        let before = place_of(&app, seat);
+        assert_eq!(
+            before.map(|(_, clear)| clear),
+            Some(true),
+            "solid={solid}: before the reload the body of seat 1 is clear: {before:?}"
+        );
+        let (was, _) = before.expect("checked");
+        let _copy = watch_an_edited_copy(&mut app, &format!("joined_seat_{solid}"), |project| {
+            if solid {
+                put_a_solid_over(project, &room, was, half)
+            } else {
+                move_an_entity(project, &room, "NpcSpawn")
+            }
+        });
+        press_apply_reload(&mut app);
+        let Some((is, clear)) = place_of(&app, seat) else {
+            wrong.push(format!("solid={solid}: after the reload the body of seat 1 is gone or in no live room"));
+            continue;
+        };
+        let moved = is.distance(was);
+        if !clear {
+            wrong.push(format!("solid={solid}: the body of seat 1 is at {is:?}, inside a solid of `{room}`"));
+        }
+        if solid && moved < 2.0 {
+            wrong.push(format!("a solid was put over seat 1 and it is where it was ({is:?})"));
+        }
+        if !solid && moved > 2.0 {
+            wrong.push(format!("control: no solid over seat 1, and the reload moved it {moved} px"));
         }
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));

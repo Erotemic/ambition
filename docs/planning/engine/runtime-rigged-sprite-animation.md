@@ -169,7 +169,8 @@ mount at authored anchors, and petting and contact align.
 **Vocabulary (target).** Hands (near/far), muzzle/projectile origin, feet,
 head, held-item sockets, weapon grips, rider/mount anchors, petting/contact
 points. The rig attachments (`HandNear`, `HandFar`, `Head`, `FootNear`,
-`FootFar`) are the first members. A landmark is a package slot (2026-08-17
+`FootFar`) are the first members (`Landmark`,
+`crates/ambition_characters/src/actor/landmarks.rs`). A landmark is a package slot (2026-08-17
 ruling: optional, authored when useful), resolved per pose. A body with a rig
 answers from `BodyRigPose`; a body without a rig answers from its package's
 authored per-pose points. Each consumer asks one query, "where is landmark L of
@@ -183,20 +184,63 @@ landmark is a named fallback the consumer states, not a silent offset.
 | Action shot (`Discharge::muzzle`) | `Muzzle::{BodyOrigin, Hand { ahead }, Offset { x, y }}` (`action_set/mod.rs`); `Hand` uses the rig hand only when the body has a rig | muzzle, or hand + move offset |
 | Rider's hand without a rig | `HAND_OFFSET_NORM` × rider height (`ambition_mount/src/lib.rs`, `rider_hand_world_pos_in_frame`) | hand |
 | Player fireball | Body half-size plus clearance (`projectile/systems.rs`, `PLAYER_PROJECTILE_MUZZLE_CLEARANCE`) | muzzle |
-| Pet ("pet the dog") | Petter stands at the petted AABB's front plus `PET_STANDOFF` (`features/ecs/pet.rs`); the hand is not aligned to the head | petter hand, petted contact point |
+| Pet ("pet the dog") | ✅ 2026-10-05: the landmark query. The petter stands where its near hand, in the `pet` row, is on the petted body's head, in the `petted` row, plus the offset its catalog row authors (`petting.contact_offset`). The box mark is the named fallback for a pair that publishes no such landmark | done |
 | Rig attachments | `BodyRigPose` attachments, live only under `BodyRigAdmission` (off) | all of the above |
-| Renderer frame metadata | The sprite renderer can author per-frame `sockets` (`hand_r`, `muzzle`; `core/frameset.py`); no Rust reads them | the package's per-pose points for bodies without a rig |
+| Part flipbook tracks | ✅ 2026-10-05: the package's per-pose points. `build.rs` projects each `<target>_parts.ron` to its `near_hand`, `far_hand`, `head`, `near_foot` and `far_foot` tracks (`ambition_sprite_sheet::baked_landmarks`, 114 tables, 1 MB) | the answer for a body without a rig |
+| `_actor.ron` sockets | Not read, and not to be: overlaid on the robot's art (2026-10-05), `hand_r` and `muzzle` land on its face. They are profile proportions, not the art | none |
 
-The "pet the dog" misalignment is the example case: the gesture positions
-bodies from boxes, so the hand meets the head only by chance.
+The "pet the dog" misalignment was the example case: the gesture positioned
+bodies from boxes, so the robot's hand was 15 world units in front of the
+dog's nose and 43 from the point its head turns about.
 
-**Order of work (queue row RIG-LANDMARKS).** One landmark query with the two
-answers above; move the pet gesture and the fireball onto it as the first two
-consumers (the pet case is the visible witness); then the rider hand. Do not
-admit rigs (`BodyRigAdmission`) for this: the capability must not depend on rig
-rollout. Landmarks are simulation facts: resolve them in simulation, include
-them in derived rollback state as `BodyRigPose` is, and never read them back
-from render transforms.
+**The query (built 2026-10-05).** `BodyLandmarks`
+(`crates/ambition_combat/src/body_landmarks.rs`) answers "where is landmark L
+of body B", in the body's rig space or in the world, for this tick's pose or
+for a named row at a phase (a gesture a script will play). The rig answers
+first. Else the package table answers: body → `WornCharacter` → prepared sheet
+→ table, at the scale the body states (`SpritePosedBody.world_per_pixel`, else
+`ActorRenderSize` over the frame height). It holds no state: every input is
+rollback state already, so there is no component and no schema change.
+
+The tables are compiled in, so no world resource holds them. Their identity
+reaches the content fingerprint as one BLAKE3 digest of the projected tables
+(section `characters.baked-landmarks`,
+`MechanicalRegistries::baked_landmarks`). The digest covers the points, the
+frame height and the frame durations. It does not cover atlas packing.
+
+**Named limits (2026-10-05).**
+
+- Only the `near_`/`far_` track family is mapped: 50 sheets publish a hand
+  and 108 a head. The `front_`/`back_` (27 sheets) and `left_`/`right_` (9)
+  families publish no hand landmark until their names are mapped. The mapping
+  is one table (`LANDMARK_TRACKS`); the renderer does not publish semantic
+  names.
+- A track point is the part's pivot: the wrist, and the point the head turns
+  about (the dog's is at its ear). A contact point that is not a pivot is an
+  authored offset from one (`petting.contact_offset`). The renderer publishes
+  no contact track.
+- The pet uses the near hand, as the hand a gesture row draws in view. No
+  package states which hand a gesture uses.
+- A mirror row (`<row>~mirrored`) is not read: a body that faces the other
+  way mirrors the row's points about its feet.
+- A package clip wraps on the body's own clock: the table does not say which
+  rows hold their last frame.
+- A body that states no drawn scale (the legacy `collision_scale` render
+  path) has no package answer.
+- A posed body whose pose rectangle is not centred on its feet pixel is drawn
+  up to about 1.5 world units from the answer (the robot's `pet` row). The
+  renderer also adds a posed body's art offset without mirroring it, so the
+  art of a body that faces left is off its box by twice that offset.
+- A row that a hybrid character realizes from the baked sheet has no draws,
+  so it has no points.
+
+**Order of work (queue row RIG-LANDMARKS).** ✅ The query and the pet. Next
+the player fireball: it aims in eight directions and its muzzle is the box
+edge in the aim direction, so it needs a move offset from the hand along the
+aim, not a swap. Then the rider hand. Do not admit rigs (`BodyRigAdmission`)
+for this: the capability must not depend on rig rollout. Landmarks are
+simulation facts: resolve them in simulation and never read them back from
+render transforms.
 
 ## Rollback and determinism
 
@@ -218,7 +262,7 @@ from render transforms.
 | Sheet residency | The saving needs the baked sheet page to retire while parts draw, and the portal to draw parts first | Rigged character resident bytes below baked |
 | Body rig rollout | `BodyRigAdmission` is off. Turning it on changes shipped hurt geometry and the content fingerprint | Maintainer go-ahead; app suite green with it on |
 | More rigid parts | Pirate dynamic limb/neck geometry is one overlay per frame. Convert more of it to reusable parts only if useful | Saving above the 38% floor |
-| Semantic landmarks (Q41) | One landmark query answered by the rig or the package; pet, fireball and rider hand as consumers. See "Semantic landmarks (Q41)" | A pet hand meets the authored contact point; no consumer reads sprite bounds |
+| Semantic landmarks (Q41) | ✅ The query and the pet (2026-10-05). Left: the fireball and the rider hand as consumers; the unmapped track families. See "Semantic landmarks (Q41)" | ✅ A pet hand meets the authored contact point (`a_pet_hand_meets_the_contact_point.rs`: 1.4 world units; 15.2 on the box mark). Open: no consumer reads sprite bounds |
 | Physicalized pose | Only with a real mechanic: cosmetic ragdoll after a KO fact, or deterministic constrained ragdoll as canonical rollback state | Separate focused packet |
 
 Not measured: load and materialization time, and per-pane pixels of each view
@@ -246,8 +290,12 @@ headless (`capture_scene` can show them).
 | Pose and schedule set | `crates/ambition_combat/src/body_rig.rs` |
 | Hurtbox resolution | `crates/ambition_combat/src/hurtbox_resolution.rs` |
 | Hand muzzle | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/brain_effects.rs` |
+| Landmark names and table | `crates/ambition_characters/src/actor/landmarks.rs` |
+| Landmark query | `crates/ambition_combat/src/body_landmarks.rs` |
+| Embedded landmark tables and digest | `crates/ambition_sprite_sheet/build.rs`, `src/baked_landmarks.rs`, `src/character/landmarks_published.rs` |
+| Pet mark | `crates/ambition_platformer2d_actor_monolith/src/features/ecs/pet.rs` |
 | Flipbook asset and switch | `crates/ambition_sprite_sheet/src/character/rigged.rs` |
 | Rigged draw | `crates/ambition_render/src/rendering/actors/rigged*` |
 | Portal tint | `ambition_portal2d_presentation::PortalPieceTint` |
 | Precedent part player | `game/ambition_content/src/presentation/vanity_card_made_this_meme.rs` |
-| Witnesses | `game/ambition_app/tests/admiral_gun_sword.rs`, `game/ambition_demo_mary_o_app/tests/body_rig_trial.rs` |
+| Witnesses | `game/ambition_app/tests/admiral_gun_sword.rs`, `game/ambition_demo_mary_o_app/tests/body_rig_trial.rs`, `game/ambition_app/tests/a_pet_hand_meets_the_contact_point.rs` |

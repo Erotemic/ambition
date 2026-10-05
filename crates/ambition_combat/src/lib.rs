@@ -25,6 +25,7 @@ pub mod attack_support;
 pub mod authored_volumes;
 pub mod banner;
 pub mod body_geometry;
+pub mod body_landmarks;
 pub mod body_rig;
 pub mod brain;
 pub mod breakables;

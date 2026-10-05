@@ -340,10 +340,10 @@ pub fn body_state_clip(
     // A pet holds both bodies still for its whole length, so nothing below can
     // be happening; a hit or a floor-game state above ends it on screen.
     if fighter.petting {
-        return Some(&["pet", "interact", "idle"]);
+        return Some(ambition_characters::actor::body::PETTING_CLIPS);
     }
     if fighter.petted {
-        return Some(&["petted", "happy", "idle"]);
+        return Some(ambition_characters::actor::body::PETTED_CLIPS);
     }
     if facts.air_dodging {
         return Some(&["air_dodge", "roll", "fall", "idle"]);

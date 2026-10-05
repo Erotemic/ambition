@@ -511,6 +511,15 @@ impl BodyCombat {
     }
 }
 
+/// The sheet rows a petting body is drawn from, in preference order
+/// ([`BodyAnimFacts::petting`]). The pet's script asks for the hand's place in
+/// the same rows, so the place it plans for is of the row on screen.
+pub const PETTING_CLIPS: &[&str] = &["pet", "interact", "idle"];
+
+/// The sheet rows a petted body is drawn from, in preference order
+/// ([`BodyAnimFacts::petted`]).
+pub const PETTED_CLIPS: &[&str] = &["petted", "happy", "idle"];
+
 /// Authoritative body-generic animation facts.
 /// These fields are presentation-only and independent of gameplay reaction timers.
 #[derive(Component, Clone, Debug, Default, PartialEq)]

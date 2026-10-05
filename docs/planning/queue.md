@@ -1349,6 +1349,36 @@ save mirror. A query that only filters on `InCustodyOf` (`RoomResident`,
 `Without<InCustodyOf>`) is not in its population; those readers are in
 `ResidencyStep::Record` or run at a commit or a restore.
 
+### BAKED-SHEET-IDENTITY — a body's collision box is outside the content identity
+
+**Owner:** `ambition_sprite_sheet` (the baked sheet index) and
+`ambition_platformer2d_provider` (`MechanicalRegistries`).
+
+**Current failure (read 2026-10-05, not poisoned):** a sprite-authored body
+takes its collision box, its per-pose boxes and its attack polygons from the
+baked sheet index (`record_for_sheet_key`: `sprite_body_collision_for_sheet`,
+`posed_body_geometry`). The index is `BAKED_SHEET_RONS`, compiled in and held
+behind a process `OnceLock`. No content-identity section reads it:
+`characters.authored-sheets` is `AuthoredSheets::deterministic_dump`, which
+holds only the sheets a provider registers (one production caller,
+`room_transition_assets.rs`). Published sprites are not in version control,
+so two machines at one revision can hold different body metrics under one
+content fingerprint. A rollback timeline contract that compares the
+fingerprint then accepts a peer whose bodies are a different size.
+
+**Not the fix:** a digest of each sheet's text. It also changes when only the
+atlas packing changes, and would refuse two development machines that play
+together today. That cost is a product decision.
+
+**The fix:** a digest of the mechanical projection of each baked record (body
+metrics, frame size, row durations, authored attack geometry), as `Q122` asks
+for the authored sheets. `build.rs` can write it, as it writes
+`BAKED_LANDMARKS_DIGEST` for the landmark tables (RIG-LANDMARKS), which are the
+same class and are covered.
+
+**Acceptance:** a baked sheet whose body box differs gives a different content
+fingerprint; a sheet whose packing alone differs gives the same one.
+
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
 
 **Owner:** `ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs`.
@@ -2253,11 +2283,31 @@ presentation, and publishes `recharging` with progress; fire after it shoots.
 
 **Ruling:** Q41 (2026-10-04).
 
-**Current failure:** the pet gesture, the player fireball and the rider's hand
-are placed from boxes and constants.
+**Built 2026-10-05 (packet A):** the landmark query (`BodyLandmarks`,
+`crates/ambition_combat/src/body_landmarks.rs`), answered by the rig or by the
+landmark table the build embeds from each part flipbook (114 tables); the
+tables' digest in the content fingerprint (section
+`characters.baked-landmarks`); and the pet as the first consumer. The robot's
+near hand is now 1.4 world units from the dog's authored contact point (its
+nose, `petting.contact_offset`); on the box mark it was 15.2
+(`a_pet_hand_meets_the_contact_point.rs`, poisoned).
 
-**Acceptance:** one landmark query, answered by the rig or the package; the pet
-hand meets the petted body's authored contact point.
+**A finding that changed the design:** the `_actor.ron` sockets are not the
+art. Overlaid on the robot, `hand_r` lands on its face. The part flipbook
+tracks land on the wrist and the neck, so the tables come from them.
+
+**A finding that changed the content:** the head landmark is the point the
+head turns about, at the dog's ear. A mark that put the hand there stood the
+robot on the dog's head (a composite of the two sheet frames at the two
+bodies' scales, viewed; not a game capture). So the dog's row authors where it
+is petted, as an offset from the head.
+
+**Current failure:** the player fireball and the rider's hand are placed from
+boxes and constants. The named limits are in the plan.
+
+**Acceptance:** ✅ one landmark query, answered by the rig or the package; ✅
+the pet hand meets the petted body's authored contact point. Open: the
+fireball and the rider's hand read the query.
 
 ### RIG-IMPOSTOR-CONTAINMENT — a part-drawn body is drawn whole or refused
 

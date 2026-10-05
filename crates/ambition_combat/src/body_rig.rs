@@ -131,24 +131,67 @@ pub fn gait_clip_chain(gait: Gait) -> &'static [&'static str] {
     }
 }
 
+/// The clips a pose is selected from: a rig's, or a package's landmark table.
+/// Both are keyed by the sheet's row names.
+pub trait PoseClips {
+    /// This source's own copy of clip name `name`, or `None` without the clip.
+    fn stored_name(&self, name: &str) -> Option<&str>;
+    /// A clip to show when the source has none of the asked ones.
+    fn any_name(&self) -> Option<&str>;
+    /// The frame of clip `name` at `elapsed_s` on the body's own clock.
+    fn frame_at_time(&self, name: &str, elapsed_s: f32) -> usize;
+    /// The frame of clip `name` at a move's normalized progress.
+    fn frame_at_phase(&self, name: &str, phase: f32) -> usize;
+}
+
+impl PoseClips for PreparedBodyRig {
+    fn stored_name(&self, name: &str) -> Option<&str> {
+        self.clip_names().find(|stored| *stored == name)
+    }
+    fn any_name(&self) -> Option<&str> {
+        self.clip_names().next()
+    }
+    fn frame_at_time(&self, name: &str, elapsed_s: f32) -> usize {
+        self.clip(name).map_or(0, |clip| clip.frame_at_time(elapsed_s))
+    }
+    fn frame_at_phase(&self, name: &str, phase: f32) -> usize {
+        self.clip(name).map_or(0, |clip| clip.frame_at_phase(phase))
+    }
+}
+
+impl PoseClips for ambition_characters::actor::BodyLandmarkTable {
+    fn stored_name(&self, name: &str) -> Option<&str> {
+        self.clips.get_key_value(name).map(|(stored, _)| stored.as_str())
+    }
+    fn any_name(&self) -> Option<&str> {
+        self.clips.keys().next().map(String::as_str)
+    }
+    fn frame_at_time(&self, name: &str, elapsed_s: f32) -> usize {
+        self.clip(name).map_or(0, |clip| clip.frame_at_time(elapsed_s))
+    }
+    fn frame_at_phase(&self, name: &str, phase: f32) -> usize {
+        self.clip(name).map_or(0, |clip| clip.frame_at_phase(phase))
+    }
+}
+
 /// Which clip and frame a body shows, from its authoritative clocks.
 ///
 /// A playing move outranks the body pose, and its clip is slaved to the move's
 /// progress: the same precedence and the same slaving the sheet row follows.
-/// In the `idle` pose the gait picks the clip, on the gait clock. A rig with
-/// none of the asked clips falls back to `idle`, then to its first clip, so a
-/// rig always resolves some pose.
-pub fn select_rig_frame<'a>(
-    rig: &'a PreparedBodyRig,
-    active_move: Option<(&'a ambition_entity_catalog::ClipBinding, f32)>,
+/// In the `idle` pose the gait picks the clip, on the gait clock. A source with
+/// none of the asked clips falls back to `idle`, then to any clip it has, so a
+/// source with a clip always resolves some pose.
+pub fn select_pose_frame<'a, C: PoseClips + ?Sized>(
+    clips: &'a C,
+    active_move: Option<(&ambition_entity_catalog::ClipBinding, f32)>,
     pose: Option<(&str, f32)>,
     gait: Option<(Gait, f32)>,
 ) -> Option<(&'a str, usize)> {
     if let Some((binding, phase)) = active_move {
-        let chain = std::iter::once(binding.clip.as_str())
+        let mut chain = std::iter::once(binding.clip.as_str())
             .chain(binding.fallbacks.iter().map(String::as_str));
-        if let Some((name, clip)) = rig.first_clip(chain) {
-            return Some((name, clip.frame_at_phase(phase)));
+        if let Some(name) = chain.find_map(|name| clips.stored_name(name)) {
+            return Some((name, clips.frame_at_phase(name, phase)));
         }
     }
     let (pose_id, elapsed_s) = pose.unwrap_or((POSE_IDLE, 0.0));
@@ -156,10 +199,21 @@ pub fn select_rig_frame<'a>(
         Some((gait, gait_elapsed_s)) if pose_id == POSE_IDLE => (gait_clip_chain(gait), gait_elapsed_s),
         _ => (pose_clip_chain(pose_id), elapsed_s),
     };
-    let (name, clip) = rig
-        .first_clip(chain.iter().copied())
-        .or_else(|| rig.first_clip(rig.clip_names()))?;
-    Some((name, clip.frame_at_time(elapsed_s)))
+    let name = chain
+        .iter()
+        .find_map(|name| clips.stored_name(name))
+        .or_else(|| clips.any_name())?;
+    Some((name, clips.frame_at_time(name, elapsed_s)))
+}
+
+/// [`select_pose_frame`] for a rig.
+pub fn select_rig_frame<'a>(
+    rig: &'a PreparedBodyRig,
+    active_move: Option<(&'a ambition_entity_catalog::ClipBinding, f32)>,
+    pose: Option<(&str, f32)>,
+    gait: Option<(Gait, f32)>,
+) -> Option<(&'a str, usize)> {
+    select_pose_frame(rig, active_move, pose, gait)
 }
 
 /// Solve every rigged body's pose for this tick.

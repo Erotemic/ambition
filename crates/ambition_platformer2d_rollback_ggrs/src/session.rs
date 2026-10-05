@@ -992,6 +992,11 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 enforce_session_contract.before(RunGgrsSystems),
                 clear_historical_replay.after(RunGgrsSystems),
                 record_peer_events.after(RunGgrsSystems),
+                // The state the first run left, before a confirmed lifecycle
+                // operation rebuilds the timeline over it.
+                crate::first_run_witness::take_the_first_run_witness
+                    .after(RunGgrsSystems)
+                    .before(crate::lifecycle_commit::commit_confirmed_lifecycle),
                 // Track B: execute a confirmed deferred lifecycle op in the exclusive world and
                 // rebase, after the advance batch is done.
                 crate::lifecycle_commit::commit_confirmed_lifecycle
@@ -1335,13 +1340,35 @@ fn record_sync_test_mismatch(
         return;
     };
     let frames: Vec<i32> = trigger.event().mismatched_frames.to_vec();
+    let reason = format!("GGRS sync-test checksum mismatch at frames {frames:?}");
+    record_timeline_mismatch(&mut authority, &mut history, &frames, reason);
+}
+
+/// A checksum mismatch of the live timeline, from either reporter: GGRS, or
+/// the first-run witness of this host.
+fn record_timeline_mismatch(
+    authority: &mut ActiveRollbackAuthority,
+    history: &mut RollbackDiagnosticHistory,
+    frames: &[i32],
+    reason: String,
+) {
     authority.record_mismatch(frames.iter().copied());
     // The active authority refuses work; the history only remembers. See
     // `RollbackDiagnosticHistory` for why those are two values now.
     history.record(RollbackDiagnostic {
         scope: authority.owner(),
         generation: authority.generation(),
-        reason: format!("GGRS sync-test checksum mismatch at frames {frames:?}"),
+        reason,
+    });
+}
+
+/// The same record for a reporter that holds the world. A world with no live
+/// authority has no timeline to mark.
+pub(crate) fn record_timeline_mismatch_in(world: &mut World, frame: i32, reason: String) {
+    world.resource_scope(|world, mut history: Mut<RollbackDiagnosticHistory>| {
+        if let Some(mut authority) = world.get_resource_mut::<ActiveRollbackAuthority>() {
+            record_timeline_mismatch(&mut authority, &mut history, &[frame], reason);
+        }
     });
 }
 

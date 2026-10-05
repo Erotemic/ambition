@@ -3767,7 +3767,9 @@ fn a_flag_requested_before_its_consumer_survives_the_rewind() {
 /// returned a third thing. The two predictions were "the flag is silently lost"
 /// (review's reading) and "resimulation re-raises it, so nothing is lost" (the
 /// plugin comment's reading). What happens is a **GGRS sync-test checksum
-/// mismatch**, measured at frames 41, 42, 43 for a request raised on tick 40.
+/// mismatch**, measured at frames 41, 42, 43 for a request raised on tick 40
+/// (measured again 2026-10-05, with the first-run witness off: frames 40, 41
+/// and 42, reported at frame 44).
 ///
 /// ⇒ **THAT IS THE WORSE OF THE TWO, NOT A MIDDLE.** A lost flag is one peer
 /// missing an effect; a checksum mismatch is the peers DISAGREEING, which is
@@ -3804,14 +3806,36 @@ fn a_flag_requested_after_its_consumer_desyncs_the_timeline() {
              chain still sits in this slot"
         );
     };
-    // ⚠ THE FRAMES ARE THE CLAIM, NOT MERELY THAT SOMETHING BROKE. The replayed
-    // tick is the one AFTER the raise, because that is the tick whose consumer
-    // finds an empty buffer. A desync anywhere else is a different defect
-    // wearing this arm's name.
-    let replayed = RAISE_AT + 1;
+    // ⚠ THE FRAME IS THE CLAIM, NOT MERELY THAT SOMETHING BROKE. The rewind
+    // that loses the request loads frame `RAISE_AT - 1` and runs the next
+    // four frames again (the check distance of this sim). Two reporters name
+    // that one replay, measured 2026-10-05:
+    //
+    // - The first-run witness of the rollback host, on that step. It names
+    //   the newest frame of the replay, `RAISE_AT + 3`: the first run of that
+    //   frame has the flag in the save, and its first resimulation does not.
+    // - GGRS, one step later. It names the frames that were saved again,
+    //   `RAISE_AT..=RAISE_AT + 2`.
+    //
+    // The witness is first, and the harness does not step a session that is
+    // not healthy, so the report is the witness's. A desync at another frame
+    // is a different defect wearing this arm's name.
+    let reported = RAISE_AT + 3;
     assert!(
-        report.contains(&format!("{replayed}")),
-        "the timeline desynced, but not on the tick this arm is about          (expected frame {replayed}, the first replay whose consumer finds the          cleared buffer): {report}"
+        report.contains(&format!("[{reported}]")),
+        "the timeline desynced, but not on the step this arm is about \
+         (expected frame {reported}, the newest frame of the first replay \
+         whose consumer finds the cleared buffer): {report}"
+    );
+    let reason = sim
+        .world()
+        .resource::<ambition_platformer2d::rollback::RollbackDiagnosticHistory>()
+        .last()
+        .map(|diagnostic| diagnostic.reason.clone());
+    assert!(
+        reason.as_deref().is_some_and(|reason| reason.contains("only the first run")),
+        "the reporter is not the first-run witness, so the frame above is \
+         another reporter's frame: {reason:?}"
     );
     assert!(
         !witness_flag_is_set(&sim),

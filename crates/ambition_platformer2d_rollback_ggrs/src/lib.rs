@@ -24,12 +24,13 @@ pub use ambition_platformer2d_runtime::{PreparedContentIdentity, SnapshotSchemaF
 pub use bevy_ggrs::{
     AdvanceWorld, AdvanceWorldSystems, Checksum, ChecksumPart, ConfirmedFrameCount, GgrsSchedule,
     LoadWorld, LoadWorldSystems, Rollback, RollbackFrameCount, RollbackId, RollbackOrdered,
-    RunGgrsSystems, SaveWorld,
+    RunGgrsSystems, SaveWorld, SaveWorldSystems,
 };
 
 pub mod codec;
 #[cfg(test)]
 mod codec_tests;
+mod first_run_witness;
 #[cfg(test)]
 mod host_invariant_tests;
 pub mod lifecycle_commit;
@@ -44,6 +45,7 @@ pub mod session;
 mod session_ownership_tests;
 
 pub use codec::*;
+pub use first_run_witness::FirstRunWitness;
 pub use peer_input::{PeerInput, PeerVerdict, PeerVerdicts, PreparationVerdict, ThisPeersVerdict};
 pub use probes::*;
 pub use registrar::GgrsRollbackRegistrar;
@@ -160,7 +162,23 @@ impl Plugin for GgrsBackendPlugin {
             LoadWorld,
             AmbitionLoadWorldSet::Reconcile.after(LoadWorldSystems::Mapping),
         )
-        .add_systems(SaveWorld, probes::record_saved_census)
+        // The witness pass of `first_run_witness` runs the checksum half of
+        // `SaveWorld` only. It is not a save: no snapshot, no save census.
+        .init_resource::<FirstRunWitness>()
+        .configure_sets(
+            SaveWorld,
+            SaveWorldSystems::Snapshot.run_if(first_run_witness::not_witnessing),
+        )
+        .add_systems(
+            SaveWorld,
+            (
+                probes::record_saved_census.run_if(first_run_witness::not_witnessing),
+                // In the snapshot half, so it is after the fold of the
+                // checksum and it does not run in the witness pass.
+                first_run_witness::compare_the_first_save_with_the_witness
+                    .in_set(SaveWorldSystems::Snapshot),
+            ),
+        )
         // ⛔⛤ THE PAIR THAT MEASURES S8'S PREDICATE, and both ends matter.
         // `after(RunGgrsSystems)` is the world at the END of the advance; `Last`
         // is the world after every non-rewinding writer has had its turn. The

@@ -1868,6 +1868,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "what went wrong on timelines this PROCESS has run, kept after the gameplay sessions that owned them ended. Deliberately outside every session lifetime and deliberately powerless: it gates nothing, so remembering a failure cannot become a way to inherit one. A rewind restoring it would delete a record of the divergence being diagnosed",
     ),
     (
+        "ambition_platformer2d_rollback_ggrs::first_run_witness::FirstRunWitness",
+        "the checksum of the state that the FIRST run of the newest frame left, kept by the host of a sync test to compare with the first save of that frame. It is a record ABOUT one run of a frame, so a rewind must not take it back: restored with the frame, it would be the resimulation's own value and the compare would be between a state and itself. Written outside the timeline, after the advances of a host tick and in `SaveWorld`",
+    ),
+    (
         "ambition_platformer2d_actor_monolith::audio::environment::AudioEnvironment",
         "⭐ the strongest argument on this list, and it is in the type's own doc:          `wetness` is smoothed \"using wall-clock dt, so the transition keeps          progressing while the world is paused or in bullet-time — audio buses          always run on the WALL CLOCK\". A rewind does not move wall time          backwards, so wall-clock state is not rollback state by construction          rather than by category",
     ),

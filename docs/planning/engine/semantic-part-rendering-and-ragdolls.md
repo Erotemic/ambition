@@ -113,6 +113,13 @@ frames are composited.
   by room: both readers decide late in the frame), the puppy slug's dream, and
   Mary-O's star power; a fading frame composites itself. `CharacterColorShift`
   has no production inserter; it still applies only to a composited body.
+- **A composited root states where its frame is** (`FrameInSprite`): the cell is
+  square with the frame inside its margin, where a baked frame was its whole
+  image. A reader that patterns over the body (the slug's dream, Mary-O's
+  quasar) maps through it (the `ambition_render::frame_in_sprite` WGSL import);
+  laid over the whole cell, the dream was magnified onto the slug's thin band
+  and read as diagonal stripes (Jon, 2026-10-05). A silhouette reader (the hit
+  flash) needs no frame.
 - **Pages never regrow.** A class opens a new page one growth step larger than
   the last; a page regrown in place blanked every body already drawn in it, which
   mattered once cells are taken mid-play. A body whose cell lands on a page built

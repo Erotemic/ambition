@@ -271,14 +271,16 @@ blob of 1. That needed one more fix, general to every character:
   stored sRGB values (PIL); the impostor's sRGB target blended the parts in
   linear light, so every anti-aliased outline over another part came out
   lighter (the robot's dark outline drew 102 where the frame has 1; 25 rows
-  failed, blobs to 68). Part pages are now read raw
-  (`game_assets::load_part_page`, the harness included) into a plain
-  `Rgba8Unorm` target, and the un-premultiplying pass decodes once. Mary-O
-  improved too: at most 0.14% and a blob of 6 in both facings and both anchors
-  (it was a blob of 9), so the harness bound is D6's 6 again. (Superseded
-  2026-10-05: the atlas cameras blend in gamma space directly,
-  `rendering::ART_COMPOSITING`, so part pages are ordinary sRGB images and
-  `load_part_page` is gone; see `semantic-part-rendering-and-ragdolls.md`.)
+  failed, blobs to 68). Part pages were then read raw (a part-page loader,
+  the harness included) into a plain `Rgba8Unorm` target, and the
+  un-premultiplying pass decoded once. Mary-O improved too: at most 0.14% and a
+  blob of 6 in both facings and both anchors (it was a blob of 9), so the
+  harness bound is D6's 6 again. (Superseded twice on 2026-10-05: first the
+  atlas cameras blended in gamma space directly, and the raw loader was
+  removed; then one law for both roads, the world's linear light
+  (`rendering::impostor_compositing`), with part pages ordinary sRGB images and
+  the parity gate scoring against a runtime-law oracle. See
+  `semantic-part-rendering-and-ragdolls.md`.)
 
 Size: one 549 KB part page (905,216 packed texels, 360 parts) against the 9.1
 MB sheet. The draw table is 3.8 MB of RON (38,418 draws), baked into the build.

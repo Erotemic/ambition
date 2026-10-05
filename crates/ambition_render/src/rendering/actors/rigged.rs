@@ -101,7 +101,7 @@ use ambition_platformer2d_shared_tangle::camera_layers::RIGGED_IMPOSTOR_LAYER;
 
 use crate::rendering::{impostor_compositing, ART_COMPOSITING};
 use ambition_sprite_sheet::character::rigged::{
-    ComposedBodyDemand, PartDraw, PartPose, PartPresentation, PosedParts, RiggedSpriteAdmission, RiggedSpritePages,
+    ComposedBodyDemand, FrameInSprite, PartDraw, PartPose, PartPresentation, PosedParts, RiggedSpriteAdmission, RiggedSpritePages,
 };
 use ambition_sprite_sheet::character::{CharacterAnimator, CharacterColorShift};
 use ambition_sprite_sheet::game_assets::GameAssets;
@@ -375,6 +375,12 @@ pub fn add_rigged_impostor_material_plugin(app: &mut App) {
         .is_some()
     {
         bevy::asset::embedded_asset!(app, "rigged/impostor_unpremultiply.wgsl");
+        // `ambition_render::frame_in_sprite`: where a body's frame lies on its
+        // root's quad, for an overlay shader that patterns over the body. A
+        // composition with no shader assets draws no overlay to import it.
+        if app.world().contains_resource::<Assets<bevy::shader::Shader>>() {
+            bevy::shader::load_shader_library!(app, "rigged/frame_in_sprite.wgsl");
+        }
     }
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(bevy::sprite_render::Material2dPlugin::<ImpostorUnpremultiply>::default());
@@ -450,6 +456,7 @@ type Roots<'w, 's> = Query<
         RootShows,
         Option<&'static RenderLayers>,
         Option<&'static PartPose>,
+        Option<&'static FrameInSprite>,
     ),
     (Without<RiggedPresentation>, Without<RiggedPartSlot>),
 >;
@@ -600,6 +607,7 @@ fn drop_presentation(
     root: Entity,
 ) {
     if let Some(owner) = owners.0.remove(&root) {
+        commands.entity(root).try_remove::<FrameInSprite>();
         if let Some(impostor) = presentations.get(owner).ok().and_then(|presentation| presentation.impostor.as_ref()) {
             atlas.give(impostor);
         }
@@ -828,7 +836,7 @@ pub fn drive_rigged_presentations(
     // so a body given a cell in one draws directly once more.
     let mut fresh_pages: Vec<(usize, usize)> = Vec::new();
     for (_, mut presentation, _, _) in &mut owners {
-        let Ok((animator, _, _, _, _, _, root_layers, _)) = roots.get(presentation.root) else {
+        let Ok((animator, _, _, _, _, _, root_layers, _, _)) = roots.get(presentation.root) else {
             continue;
         };
         let flipbook = presentation.pages.flipbook.clone();
@@ -929,7 +937,7 @@ pub fn drive_rigged_presentations(
     // cells hold this frame's draws under its new generation.
     let mut drawn_into: Vec<(Entity, usize, usize)> = Vec::new();
     for (owner, mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
-        let Ok((animator, mut root_sprite, root_anchor, color_shift, root_transform, root_visibility, _, pose)) =
+        let Ok((animator, mut root_sprite, root_anchor, color_shift, root_transform, root_visibility, _, pose, frame_in_sprite)) =
             roots.get_mut(presentation.root)
         else {
             continue;
@@ -956,8 +964,11 @@ pub fn drive_rigged_presentations(
         let (Some(draws), Some(basis), Some(mut root_anchor)) = (draws, animator.render_basis, root_anchor) else {
             presentation.drawn = drawn;
             presentation.posed_draws = posed_draws;
-            // The baked frame draws the body.
+            // The baked frame draws the body, and is its whole image.
             draw_baked_frame(&mut root_sprite, animator);
+            if frame_in_sprite.is_some() {
+                commands.entity(presentation.root).try_remove::<FrameInSprite>();
+            }
             owner_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
@@ -965,6 +976,10 @@ pub fn drive_rigged_presentations(
             .impostor
             .filter(|impostor| !fresh_pages.contains(&(impostor.class, impostor.page)));
         let Some(impostor) = impostor else {
+            // Drawn directly, the root shows no image at all.
+            if frame_in_sprite.is_some() {
+                commands.entity(presentation.root).try_remove::<FrameInSprite>();
+            }
             let root_visible = root_shows(root_visibility);
             let frame_size = flipbook.frame_size.as_vec2();
             let margin = impostor_margin(&flipbook);
@@ -1043,13 +1058,14 @@ pub fn drive_rigged_presentations(
 
         // The root's quad: its whole cell, placed so the frame inside it lands
         // exactly where the root's baked frame would (`body_quad`).
+        let margin = impostor_margin(&flipbook);
         let (size, anchor) = body_quad(
             animator,
             basis,
             &root_sprite,
             &root_anchor,
             flipbook.frame_size.as_vec2(),
-            impostor_margin(&flipbook),
+            margin,
             atlas.cell_size(),
         );
         if root_sprite.image != atlas.image {
@@ -1062,6 +1078,13 @@ pub fn drive_rigged_presentations(
         root_sprite.rect = None;
         root_sprite.custom_size = Some(size);
         root_anchor.0 = anchor;
+        let frame = FrameInSprite {
+            min: Vec2::splat(margin) / atlas.cell_size(),
+            max: (Vec2::splat(margin) + flipbook.frame_size.as_vec2()) / atlas.cell_size(),
+        };
+        if frame_in_sprite != Some(&frame) {
+            commands.entity(presentation.root).try_insert(frame);
+        }
 
         // ⛔ A CELL THAT IS CURRENT KEEPS ITS SLOTS UNTOUCHED. Its slots hold
         // these draws already (`shown`: same draws, place and page render), and

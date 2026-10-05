@@ -5,6 +5,12 @@
 //! clung surface and is independent of gravity. While detached, the body falls
 //! along the resolved [`MotionFrame`](crate::MotionFrame) acceleration and
 //! reattaches to the surface it lands on.
+//!
+//! The body lies ALONG what it clings to: its length (`size.x`) runs on the
+//! surface's tangent and its thickness (`size.y`) across the normal, on a wall as
+//! on a floor. That is the box the sprite draws rotated, the footprint publishes
+//! and the chain road seats; a box that stayed level on a wall held the slug's
+//! centre half a LENGTH off it, and the slug hung in the air beside the wall.
 
 use serde::{Deserialize, Serialize};
 
@@ -189,11 +195,13 @@ pub(super) fn step_crawler(
     // floors, walls, ceilings), so a MOVING surface carries it by the FULL
     // velocity — both axes, not just the gravity-perpendicular component a
     // gravity-resting body gets. Probe toward the surface it's clinging to.
+    let half = clusters.kinematics.size * 0.5;
+    let (body_long, body_thick) = (half.x, half.y);
     {
         let toward_surface = -normal;
         let probe = Aabb::new(
             clusters.kinematics.pos + toward_surface * 2.0,
-            clusters.kinematics.size * 0.5,
+            surface_probe_half(Vec2::new(-normal.y, normal.x), normal, body_long, body_thick),
         );
         if let Some(block) = world.first_overlapping_block(probe, cling_pred) {
             clusters.kinematics.pos += block.velocity;
@@ -205,13 +213,14 @@ pub(super) fn step_crawler(
     let speed = motion.params.crawl_speed;
     let step_len = speed * dt;
     let tangent = Vec2::new(-n.y * facing, n.x * facing);
-    let half = clusters.kinematics.size * 0.5;
-    // Extents in the CLUNG surface's frame. Every probe below takes the extents
-    // of the surface IT is about, never these — a corner transition asks about a
-    // face at 90° to this one, where `long` and `thick` trade places.
-    let (body_long, body_thick) = body_extents_for(half, n);
+    // How far any search for a surface marches: the far side of the body and a
+    // little more, so a crawl stays attached down a step.
+    let reach = body_thick + body_long + 4.0;
 
-    // Concave corner: a wall dead ahead becomes the new floor.
+    // Concave corner: a wall dead ahead becomes the new floor. The body turns up
+    // it with its trailing end on the old surface: seated against the wall, its
+    // centre half a LENGTH off the old surface instead of half a thickness. That
+    // is the shortest move a rigid 90° turn into a corner has, (long − thick)·√2.
     if wall_ahead(
         world,
         clusters.kinematics.pos,
@@ -220,15 +229,9 @@ pub(super) fn step_crawler(
         body_thick,
         step_len,
     ) {
-        let (turn_long, turn_thick) = body_extents_for(half, -tangent);
-        if let Some(pos) = snapped_to_surface(
-            world,
-            clusters.kinematics.pos,
-            -tangent,
-            turn_long,
-            turn_thick,
-        ) {
-            clusters.kinematics.pos = pos;
+        if let Some(wall) = surface_toward(world, clusters.kinematics.pos, -tangent, body_thick, reach) {
+            let trailing_on_old_surface = clusters.kinematics.pos + n * (body_long - body_thick);
+            clusters.kinematics.pos = seated_on(wall, trailing_on_old_surface, -tangent, body_thick);
             clusters.kinematics.vel = Vec2::ZERO;
             motion.state = CrawlerState::attached(-tangent);
             finish_attached(clusters);
@@ -237,29 +240,31 @@ pub(super) fn step_crawler(
         }
     }
 
-    // Ordinary crawl along the tangent.
+    // Ordinary crawl along the tangent. Supported while the surface lies under
+    // the middle of the body, within a thickness either side of its centre —
+    // and never past its ends, for a body thicker than it is long.
+    let support = body_thick.min(body_long);
     let original_pos = clusters.kinematics.pos;
     clusters.kinematics.pos += tangent * step_len;
     clusters.kinematics.vel = tangent * speed;
-    if let Some(pos) = snapped_to_surface(world, clusters.kinematics.pos, n, body_long, body_thick)
-    {
-        clusters.kinematics.pos = pos;
+    if let Some(surface) = surface_toward(world, clusters.kinematics.pos, n, support, reach) {
+        clusters.kinematics.pos = seated_on(surface, clusters.kinematics.pos, n, body_thick);
         finish_attached(clusters);
         publish_attachment_contact(motion, world, clusters, contacts);
         return;
     }
 
-    // Convex corner: wrap around the block edge; the old tangent becomes the
-    // new outward normal.
+    // Convex corner: the centre has crawled a thickness past the edge, so the
+    // body turns about its centre onto the face below the edge — the old tangent
+    // is the new outward normal. Lying along the old surface and hanging down the
+    // new face, the body touches the corner in both placements: the turn moves it
+    // no further than this tick's step.
     //
-    // The probe origin steps past the edge along the tangent and drops toward
-    // the new face. Both offsets are stated in the NEW surface's frame — the
-    // face being sought runs along `-n`, so `wrap_long` is the reach along it
-    // and `wrap_thick` the standoff from it.
-    let (wrap_long, wrap_thick) = body_extents_for(half, tangent);
-    let around_corner = original_pos + tangent * wrap_thick + (-n) * wrap_long;
-    if let Some(pos) = snapped_to_surface(world, around_corner, tangent, wrap_long, wrap_thick) {
-        clusters.kinematics.pos = pos;
+    // The face touches the probe at the corner, so the search reaches one pixel
+    // past the body.
+    let past_edge = clusters.kinematics.pos;
+    if let Some(face) = surface_toward(world, past_edge, tangent, support + 1.0, reach) {
+        clusters.kinematics.pos = seated_on(face, past_edge, tangent, body_thick);
         clusters.kinematics.vel = Vec2::ZERO;
         motion.state = CrawlerState::attached(tangent);
         finish_attached(clusters);
@@ -268,9 +273,8 @@ pub(super) fn step_crawler(
     }
 
     // Reverse-side reattach (the surface curled back under the body).
-    let (back_long, back_thick) = body_extents_for(half, -tangent);
-    if let Some(pos) = snapped_to_surface(world, original_pos, -tangent, back_long, back_thick) {
-        clusters.kinematics.pos = pos;
+    if let Some(back) = surface_toward(world, original_pos, -tangent, body_thick, reach) {
+        clusters.kinematics.pos = seated_on(back, original_pos, -tangent, body_thick);
         clusters.kinematics.vel = Vec2::ZERO;
         motion.state = CrawlerState::attached(-tangent);
         finish_attached(clusters);
@@ -401,10 +405,11 @@ fn publish_attachment_contact(
     let Some(normal) = motion.state.attached_normal(world) else {
         return;
     };
-    let (_, body_thick) = body_extents_for(clusters.kinematics.size * 0.5, normal);
+    let half = clusters.kinematics.size * 0.5;
+    let body_thick = half.y;
     let probe = Aabb::new(
         clusters.kinematics.pos - normal * 2.0,
-        clusters.kinematics.size * 0.5,
+        surface_probe_half(Vec2::new(-normal.y, normal.x), normal, half.x, half.y),
     );
     let clung = world.first_overlapping_block(probe, cling_pred);
     contacts.push(Contact {
@@ -516,26 +521,6 @@ fn surface_probe_half(tangent: Vec2, normal: Vec2, along: f32, across: f32) -> V
     )
 }
 
-/// The body's half-extents expressed in a SURFACE's frame: `(along the tangent,
-/// across the normal)`. The inverse of [`surface_probe_half`], and the reason a
-/// crawl on a wall is the same code as a crawl on a floor.
-///
-/// A crawler's AABB does not rotate when it changes surface, so "how long is the
-/// body" and "how thick is it" are questions about the SURFACE, not about the
-/// body: on a floor the answers are `size.x/2` and `size.y/2`, and on a wall they
-/// are exactly swapped. Reading them off the world axes once — which is what this
-/// module did — is right on floors and ceilings and wrong on every vertical face,
-/// where it seated the body a half-width INSIDE the wall it had just grabbed and
-/// made the centre leap to get there. That was the visible half of "slugs get
-/// stuck on corners": the shaft's ledges and its full-height pillar are all
-/// vertical faces.
-fn body_extents_for(half: Vec2, normal: Vec2) -> (f32, f32) {
-    let tangent = Vec2::new(-normal.y, normal.x);
-    let along = (half.x * tangent.x).abs() + (half.y * tangent.y).abs();
-    let across = (half.x * normal.x).abs() + (half.y * normal.y).abs();
-    (along, across)
-}
-
 /// Is there a wall within the NEXT CRAWL STEP of the body's leading edge?
 fn wall_ahead(
     world: &World,
@@ -553,34 +538,38 @@ fn wall_ahead(
     world.body_overlaps_any(probe, wall_pred)
 }
 
-/// March a probe from `pos` toward the surface opposite `normal`; when it finds
-/// cling geometry, return the position seated `body_thick` off that surface.
-/// `None` when no surface is within reach.
+/// The cling block a probe marched from `pos` toward the surface opposite
+/// `normal` meets first, within `reach`, whose `normal`-side face lies at or
+/// beneath `pos`. The probe spans `along` either side of `pos` along that
+/// surface; `None` when no surface is that close.
+///
+/// ⛔ BENEATH. A block the probe meets beside the body (the wall it is crawling
+/// toward) is no surface to seat on: seated on that wall's far face, the body
+/// left the room through the ceiling.
 ///
 /// The march only has to FIND the surface — the seat then comes from the block's own face
 /// ([`seated_on`]), so it is exact regardless of how coarsely the probe stepped. Deriving the
 /// seat from the march distance instead is what produced a permanent 30 Hz shimmer in every
 /// crawl: the seat was `body_thick - (d - 0.5)` off the probe, and settling required `d ==
 /// body_thick + 0.5` — a half-integer the integer march can never take.
-fn snapped_to_surface(
-    world: &World,
-    pos: Vec2,
-    normal: Vec2,
-    body_long: f32,
-    body_thick: f32,
-) -> Option<Vec2> {
+fn surface_toward(world: &World, pos: Vec2, normal: Vec2, along: f32, reach: f32) -> Option<Aabb> {
     let down = -normal;
-    let max_d = (body_thick + body_long + 4.0) as i32;
     let tangent = Vec2::new(-normal.y, normal.x);
-    let half = surface_probe_half(tangent, normal, body_long * 0.35, 0.75);
-    for i in 0..=max_d {
-        let d = i as f32;
-        let probe = Aabb::new(pos + down * d, half);
-        if let Some(block) = world.first_overlapping_block(probe, cling_pred) {
-            return Some(seated_on(block.aabb, pos, normal, body_thick));
-        }
-    }
-    None
+    let half = surface_probe_half(tangent, normal, along, 0.75);
+    let beneath = |block: &Block| face_of(block.aabb, normal).dot(normal) <= pos.dot(normal) + 0.01;
+    (0..=reach as i32).find_map(|i| {
+        world
+            .first_overlapping_block(Aabb::new(pos + down * i as f32, half), |block| cling_pred(block) && beneath(block))
+            .map(|block| block.aabb)
+    })
+}
+
+/// A point of `surface`'s face on its `normal` side (a cardinal normal).
+fn face_of(surface: Aabb, normal: Vec2) -> Vec2 {
+    Vec2::new(
+        if normal.x >= 0.0 { surface.max.x } else { surface.min.x },
+        if normal.y >= 0.0 { surface.max.y } else { surface.min.y },
+    )
 }
 
 /// The pose seated exactly `body_thick` off `surface`'s `normal`-side face,
@@ -592,18 +581,7 @@ fn snapped_to_surface(
 /// angles are the [`CrawlAttachment::Chain`] case and seat from the polyline's
 /// own frame instead.
 fn seated_on(surface: Aabb, pos: Vec2, normal: Vec2, body_thick: f32) -> Vec2 {
-    let face = Vec2::new(
-        if normal.x >= 0.0 {
-            surface.max.x
-        } else {
-            surface.min.x
-        },
-        if normal.y >= 0.0 {
-            surface.max.y
-        } else {
-            surface.min.y
-        },
-    );
+    let face = face_of(surface, normal);
     // `normal.abs()` is a basis selector for a cardinal normal: 1 on the axis
     // being seated, 0 on the axis being preserved.
     let seated_axis = normal.abs();

@@ -137,8 +137,9 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 }
 
 // The camera blends in the space its main texture stores: under `SRGB_OUTPUT`
-// (`CompositingSpace::Srgb`, the world's) the shaded colour is written
-// sRGB-encoded, as Bevy's own sprite and mesh shaders write it.
+// (`CompositingSpace::Srgb`, a diagnostic camera's; the world's is linear) the
+// shaded colour is written sRGB-encoded, as Bevy's own sprite and mesh shaders
+// write it.
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let colour = shade(mesh);

@@ -757,14 +757,14 @@ fn the_crawler_circumnavigates_an_island_gluing_to_all_four_faces() {
             continue;
         };
         seen.insert((normal.x.round() as i32, normal.y.round() as i32));
-        // Seated: the body sits half its OWN extent along that face's normal off
-        // the face — the seat rule is basis-relative, not a floor special case.
+        // Seated: the body lies along every face it clings to, half its
+        // THICKNESS off it — on a wall too, where the sprite draws it rotated.
         let pos = scratch.kinematics.pos;
         let (face_coord, want) = match (normal.x.round() as i32, normal.y.round() as i32) {
             (0, -1) => (600.0 - pos.y, half.y), // top face: distance above y=600
-            (1, 0) => (pos.x - 600.0, half.x),  // right face at x=600
+            (1, 0) => (pos.x - 600.0, half.y),  // right face at x=600
             (0, 1) => (pos.y - 800.0, half.y),  // underside at y=800
-            (-1, 0) => (400.0 - pos.x, half.x), // left face at x=400
+            (-1, 0) => (400.0 - pos.x, half.y), // left face at x=400
             other => panic!("unexpected attachment normal {other:?}"),
         };
         assert!(

@@ -1,4 +1,5 @@
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#import ambition_render::frame_in_sprite
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -8,6 +9,7 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> detail: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var color_texture: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var color_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(5) var<uniform> frame_rect: vec4<f32>;
 
 const PI: f32 = 3.141592653589793;
 const TAU: f32 = 6.283185307179586;
@@ -29,12 +31,19 @@ fn hsv2rgb(c: vec3<f32>) -> vec3<f32> {
     );
 }
 
-fn atlas_uv(local_uv_in: vec2<f32>) -> vec2<f32> {
-    var local_uv = local_uv_in;
-    if control.y > 0.5 {
+// The quasar is laid over Mary-O's FRAME (`frame_rect`), not over the whole
+// quad: every coordinate below is the frame's own, 0..1 across it, so its rings
+// centre on her and not on a composited cell.
+fn flipped() -> bool {
+    return control.y > 0.5;
+}
+
+fn atlas_uv(frame_uv: vec2<f32>) -> vec2<f32> {
+    var local_uv = frame_in_sprite::quad_uv(frame_uv, frame_rect, flipped());
+    if flipped() {
         local_uv.x = 1.0 - local_uv.x;
     }
-    return mix(uv_rect.xy, uv_rect.zw, clamp(local_uv, vec2<f32>(0.0), vec2<f32>(1.0)));
+    return mix(uv_rect.xy, uv_rect.zw, local_uv);
 }
 
 fn sample_frame(local_uv: vec2<f32>) -> vec4<f32> {
@@ -42,7 +51,8 @@ fn sample_frame(local_uv: vec2<f32>) -> vec4<f32> {
 }
 
 fn silhouette_edge(local_uv: vec2<f32>, alpha: f32) -> f32 {
-    let texel = max(detail.xy, vec2<f32>(0.0001));
+    // `detail.xy` is a texel of the quad; in frame coordinates it is larger.
+    let texel = max(detail.xy / frame_in_sprite::frame_size(frame_rect), vec2<f32>(0.0001));
     let left = sample_frame(local_uv - vec2<f32>(texel.x, 0.0)).a;
     let right = sample_frame(local_uv + vec2<f32>(texel.x, 0.0)).a;
     let up = sample_frame(local_uv - vec2<f32>(0.0, texel.y)).a;
@@ -55,7 +65,7 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
     let time = control.x;
     let strength = clamp(control.z, 0.0, 1.0);
     let seed = control.w * 19.73;
-    let local_uv = mesh.uv;
+    let local_uv = frame_in_sprite::frame_uv(mesh.uv, frame_rect, flipped());
     let base = sample_frame(local_uv);
 
     if base.a <= 0.010 {
@@ -113,8 +123,9 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
 }
 
 // The camera blends in the space its main texture stores: under `SRGB_OUTPUT`
-// (`CompositingSpace::Srgb`, the world's) the shaded colour is written
-// sRGB-encoded, as Bevy's own sprite and mesh shaders write it.
+// (`CompositingSpace::Srgb`, a diagnostic camera's; the world's is linear) the
+// shaded colour is written sRGB-encoded, as Bevy's own sprite and mesh shaders
+// write it.
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let colour = shade(mesh);

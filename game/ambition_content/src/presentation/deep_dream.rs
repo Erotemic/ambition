@@ -33,6 +33,7 @@ use bevy::{
 use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
+use ambition_sprite_sheet::character::rigged::FrameInSprite;
 use ambition_render::rendering::{
     ActorOverlaySet, FeatureVisual, PlayerVisual, PropVisual, RoomVisual,
 };
@@ -121,6 +122,10 @@ fn declare_deep_dream_demand(
 /// - `control.z`: effect strength.
 /// - `control.w`: deterministic per-entity seed.
 /// - `tint`: reserved for future hit-flash / attack tint mixing.
+/// - `frame_rect.xy` / `frame_rect.zw`: the body's frame inside that image
+///   (`FrameInSprite`), normalized, unflipped. The pattern is laid over the
+///   frame, not over a composited body's whole square cell, where a wide slug
+///   is a thin band and the pattern magnified onto it reads as stripes.
 #[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
 pub struct PuppySlugDeepDreamMaterial {
     #[uniform(0)]
@@ -132,6 +137,8 @@ pub struct PuppySlugDeepDreamMaterial {
     #[texture(3)]
     #[sampler(4)]
     pub color_texture: Handle<Image>,
+    #[uniform(5)]
+    pub frame_rect: Vec4,
 }
 
 impl Material2d for PuppySlugDeepDreamMaterial {
@@ -175,6 +182,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
             &Transform,
             &Sprite,
             Option<&Anchor>,
+            Option<&FrameInSprite>,
             Option<&SessionScopedEntity>,
         ),
         (
@@ -184,7 +192,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
         ),
     >,
 ) {
-    for (source_entity, visual, transform, sprite, anchor, session_owner) in &candidates {
+    for (source_entity, visual, transform, sprite, anchor, frame, session_owner) in &candidates {
         let Some(actor_seed) = puppy_slug_seed(&visual.id, &actor_render) else {
             continue;
         };
@@ -201,6 +209,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
             control: Vec4::new(0.0, flip_flag(sprite), EFFECT_STRENGTH, seed),
             tint: Vec4::ONE,
             color_texture: sprite.image.clone(),
+            frame_rect: frame_rect(frame),
         });
         let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);
@@ -251,6 +260,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
             &Transform,
             &mut Sprite,
             Option<&Anchor>,
+            Option<&FrameInSprite>,
             &PuppySlugDeepDreamSource,
             Option<&Visibility>,
         ),
@@ -269,7 +279,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
     *elapsed += dt;
     let disabled = settings.disabled;
 
-    for (source_entity, source_transform, mut source_sprite, anchor, source, source_visibility) in
+    for (source_entity, source_transform, mut source_sprite, anchor, frame, source, source_visibility) in
         &mut sources
     {
         let Some(render_size) = source_sprite.custom_size else {
@@ -336,6 +346,7 @@ pub fn sync_puppy_slug_deep_dream_overlays(
             material.uv_rect = uv_rect;
             material.control = Vec4::new(*elapsed, flip, EFFECT_STRENGTH, source.seed);
             material.color_texture = source_sprite.image.clone();
+            material.frame_rect = frame_rect(frame);
         }
         let _ = (overlay_entity, source_visible);
     }
@@ -445,6 +456,12 @@ pub(crate) fn sibling_quad_transform(source: &Transform, anchor: Option<Vec2>, r
     transform.translation.z += z_bias;
     transform.scale = render_size.extend(1.0);
     transform
+}
+
+/// The body's frame inside its root sprite's image, for the material.
+fn frame_rect(frame: Option<&FrameInSprite>) -> Vec4 {
+    let frame = frame.copied().unwrap_or(FrameInSprite::WHOLE);
+    Vec4::new(frame.min.x, frame.min.y, frame.max.x, frame.max.y)
 }
 
 fn flip_flag(sprite: &Sprite) -> f32 {

@@ -2716,7 +2716,13 @@ ADJUDICATED: dict[str, str] = {
         "`crates/ambition_platformer2d_runtime/src/room_transition/loading.rs:642`'s "
         "`Option<ResMut<...>>` only calls `cache.promote(...)` (`:1166`) — a "
         "cache-hit take/evict, never a fill. `census.shared_targets` is "
-        "empty. Measured by CalculexAmbition, 2026-09-18."
+        "empty. Measured by CalculexAmbition, 2026-09-18. "
+        "2026-10-04: the plans are keyed source room -> target room. The "
+        "consumer's `promote` removes plans only when the content epoch or "
+        "the session changed (`PrefetchedByRoom::adopt`); a crossing from "
+        "one live room keeps the plans of a different live room. The "
+        "producer is the one that retires the plans of a room that is no "
+        "longer live (`retain`). It is still one filler and one taker."
     ),
     "RoomContentStagingRegistry": (
         "A KEYED REGISTRY, DISJOINT KEYS ON EACH SIDE. "

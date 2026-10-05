@@ -75,7 +75,7 @@ fn every_neighbour_of_the_starting_room_gets_a_prepared_plan() {
     );
     let missing = attempted
         .iter()
-        .filter(|room| !prefetch.holds(room))
+        .filter(|room| !prefetch.holds(&source, room))
         .cloned()
         .collect::<Vec<_>>();
 
@@ -160,11 +160,15 @@ fn every_prefetched_plan_carries_an_empty_occurrence_outlook() {
         .expect("a direct-gameplay session installs one live room set");
         room_set.rooms.iter().map(|room| room.id.clone()).collect()
     };
+    let source = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world())
+        .expect("the session has a live room")
+        .id
+        .clone();
     let cache = app
         .world()
         .resource::<ambition_platformer2d::runtime::room_transition::RoomConstructionPlanPrefetch>(
         );
-    let held: Vec<&String> = room_ids.iter().filter(|id| cache.holds(id)).collect();
+    let held: Vec<&String> = room_ids.iter().filter(|id| cache.holds(&source, id)).collect();
 
     // ⛔ THE PREMISE: something was actually prefetched, or the loop below is a
     // check that cannot fail.
@@ -175,7 +179,7 @@ fn every_prefetched_plan_carries_an_empty_occurrence_outlook() {
     );
     for room in held {
         let plan = cache
-            .peek(room)
+            .peek(&source, room)
             .expect("the cache said it holds a plan for this room");
         assert!(
             plan.occurrence_outlook().is_empty(),
@@ -274,12 +278,13 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
         >(app.world())
         .expect("a direct-gameplay session installs one live room set");
         let held = app.world().resource::<RoomConstructionPlanPrefetch>();
+        let source = &room_set.spec(live_definition).id;
         room_set
             .neighboring_room_indices_of(live_definition.index())
             .iter()
             .filter_map(|&index| room_set.rooms.get(index))
             .map(|room| room.id.clone())
-            .find(|id| held.holds(id))
+            .find(|id| held.holds(source, id))
             .expect(
                 "the prefetch holds no neighbour of the starting room, so there is \
                  no cached plan for a crossing to promote or refuse",
@@ -520,4 +525,332 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
         }
     }
     panic!("the checkpoint crossing into '{target}' did not complete in 240 frames");
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Two live rooms.
+// ───────────────────────────────────────────────────────────────────────────
+
+use ambition_platformer2d::characters::control::PlayerSlot;
+type LiveBodyId = ambition_platformer2d::platformer::lifecycle::LiveBodyId;
+
+const BOB: &str = "bob";
+
+/// The room definitions that are live, by room id.
+fn live_room_ids(app: &mut bevy::prelude::App) -> Vec<String> {
+    use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    let world = app.world_mut();
+    let definitions: Vec<_> = world
+        .query_filtered::<
+            (&LiveRoomInstance, &ambition_platformer2d::world::rooms::LiveRoomDefinition),
+            bevy::prelude::With<RoomInstanceRoot>,
+        >()
+        .iter(world)
+        .map(|(live, definition)| (*live, *definition))
+        .collect();
+    let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(world)
+    .expect("the session keeps its room set");
+    let mut named: Vec<_> = definitions
+        .into_iter()
+        .map(|(live, definition)| (live, rooms.spec(definition).id.clone()))
+        .collect();
+    named.sort();
+    named.into_iter().map(|(_, id)| id).collect()
+}
+
+/// The room ids next to `room`, in the order of the room graph.
+fn neighbours_of(app: &bevy::prelude::App, room: &str) -> Vec<String> {
+    let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(app.world())
+    .expect("the session keeps its room set");
+    let index = rooms
+        .rooms
+        .iter()
+        .position(|spec| spec.id == room)
+        .unwrap_or_else(|| panic!("the room set has no room `{room}`"));
+    rooms
+        .neighboring_room_indices_of(index)
+        .iter()
+        .filter_map(|&index| rooms.rooms.get(index))
+        .map(|spec| spec.id.clone())
+        .collect()
+}
+
+fn alice(app: &mut bevy::prelude::App) -> bevy::prelude::Entity {
+    let world = app.world_mut();
+    world
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+        .single(world)
+        .expect("one primary player")
+}
+
+fn bob(app: &mut bevy::prelude::App) -> Option<bevy::prelude::Entity> {
+    let world = app.world_mut();
+    world
+        .query::<(bevy::prelude::Entity, &ambition_platformer2d::combat::components::FeatureId)>()
+        .iter(world)
+        .find(|(_, feature)| feature.0 == BOB)
+        .map(|(entity, _)| entity)
+}
+
+/// The room id of the live room `body` is in.
+fn room_of(app: &bevy::prelude::App, body: bevy::prelude::Entity) -> Option<String> {
+    ambition_platformer2d::world::rooms::live_room_spec_of(app.world(), body).map(|spec| spec.id.clone())
+}
+
+/// Stage the crossing of `body` to `target` and run it to its end. Answers
+/// whether the transaction promoted a prefetched plan.
+fn cross(
+    app: &mut bevy::prelude::App,
+    body: bevy::prelude::Entity,
+    slot: PlayerSlot,
+    target: &str,
+) -> bool {
+    use ambition_platformer2d::actors::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+    use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
+
+    let subject = LiveBodyId::of_entity(app.world(), body).expect("the body has a SimId");
+    let intent = LifecycleIntent::Transition(RoomTransitionIntent {
+        subject,
+        target_room: target.to_owned(),
+        arrival: ambition_platformer2d::engine_core::Vec2::new(200.0, 200.0),
+        edge_exit: false,
+        zone_sfx: None,
+        participant: Some(slot),
+    });
+    assert!(
+        app.world_mut()
+            .resource_mut::<PendingLifecycleCommit>()
+            .record(0, intent)
+            .admitted(),
+        "the lifecycle slot refused the crossing to `{target}`"
+    );
+    let mut hit = None;
+    for _ in 0..600 {
+        app.update();
+        let active = app.world().resource::<RoomTransitionLoadState>().active.as_ref();
+        match (active, hit) {
+            (Some(active), _) => hit = Some(active.prefetch_hit),
+            (None, Some(hit)) if room_of(app, body).as_deref() == Some(target) => return hit,
+            _ => {}
+        }
+    }
+    panic!("the crossing to `{target}` did not end in 600 frames (hit so far: {hit:?})");
+}
+
+/// A presentation host with Bob, driven by slot 1, beside Alice in the start
+/// room. Returns the start room id.
+fn host_with_bob_beside_alice(start_room: &str) -> (bevy::prelude::App, String) {
+    use ambition_platformer2d::actor::{ActorFaction, SpawnActorKind, SpawnActorRequest};
+    use ambition_platformer2d::character::{CharacterBrain, CharacterId};
+
+    let mut app = ambition_app::app::build_visible_app_with(VisibleRenderMode::NoWindow, false, |app| {
+        app.insert_resource(ambition_app::app::StartRoomOverride(start_room.to_owned()));
+        app.insert_resource(ambition_app::app::StartRoomMustResolve);
+    });
+    for _ in 0..ambition_app::app::shared_host_startup_ticks() + 30 {
+        app.update();
+    }
+    let alice = alice(&mut app);
+    let start = room_of(&app, alice).expect("Alice is in a live room");
+    let at = app
+        .world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(alice)
+        .expect("Alice has a body")
+        .pos;
+    app.world_mut().write_message(SpawnActorRequest {
+        id: BOB.to_owned(),
+        name: "Bob".to_owned(),
+        pos: ambition_platformer2d::engine_core::Vec2::new(at.x + 40.0, at.y),
+        half_size: ambition_platformer2d::engine_core::Vec2::new(12.0, 16.0),
+        faction: ActorFaction::Enemy,
+        grudge_against: None,
+        kind: SpawnActorKind::Enemy {
+            brain: CharacterBrain::Passive,
+            character: CharacterId::from("npc_puppy_slug"),
+        },
+    });
+    for _ in 0..8 {
+        app.update();
+    }
+    let bob = bob(&mut app).expect("Bob's body reached the world");
+    let room = *ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+        ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+    >(app.world_mut())
+    .expect("the session has one live room");
+    app.world_mut().entity_mut(bob).insert((
+        ambition_platformer2d::platformer::lifecycle::InRoomInstance(room),
+        ambition_platformer2d::characters::control::DrivingParticipant(PlayerSlot(1)),
+    ));
+    for _ in 0..8 {
+        app.update();
+    }
+    (app, start)
+}
+
+/// The rooms of the two-room walk, chosen from the room graph.
+///
+/// Two live rooms share the budget in turn, so the first two neighbours of
+/// each are always prepared. Alice goes from `start` to `alice_first` and then
+/// to `alice_second`. Bob goes from `start` to `bob_target`.
+struct TwoRoomWalk {
+    alice_first: String,
+    alice_second: String,
+    bob_target: String,
+}
+
+impl TwoRoomWalk {
+    fn from(app: &bevy::prelude::App, start: &str) -> Self {
+        let first_two = |room: &str| -> Vec<String> {
+            neighbours_of(app, room).into_iter().take(2).collect()
+        };
+        let from_start = first_two(start);
+        from_start
+            .iter()
+            .find_map(|alice_first| {
+                let bob_target = from_start.iter().find(|room| *room != alice_first)?;
+                let alice_second = first_two(alice_first)
+                    .into_iter()
+                    .find(|room| room != start && room != bob_target)?;
+                Some(Self {
+                    alice_first: alice_first.clone(),
+                    alice_second,
+                    bob_target: bob_target.clone(),
+                })
+            })
+            .unwrap_or_else(|| {
+                panic!(
+                    "the first two neighbours of `{start}` ({from_start:?}) do not give the walk \
+                     its rooms: one of them must have, in its own first two, a room that is \
+                     not `{start}` and not the other"
+                )
+            })
+    }
+}
+
+/// ⭐ EACH LIVE ROOM KEEPS THE PLANS OF ITS OWN NEIGHBOURS.
+///
+/// Alice and Bob start in one room and Alice leaves, so two rooms are live.
+/// A crossing from either room, in either order, promotes a prefetched plan,
+/// and the crossing of one body does not remove the plans of the other body's
+/// room.
+///
+/// Before, the caches held ONE source room and the producer read the sole
+/// live room. With two live rooms it did not run. Measured then: Alice's
+/// second crossing missed in both orders, and Bob's crossing hit only when it
+/// came first, from the plans that were left from the time of one room.
+#[test]
+fn each_live_room_keeps_the_plans_of_its_own_neighbours() {
+    const START: &str = "drain_alley";
+    const SETTLE: usize = 60;
+
+    #[derive(Clone, Copy, Debug)]
+    enum Order {
+        BobThenAlice,
+        AliceThenBob,
+    }
+
+    let mut wrong: Vec<String> = Vec::new();
+    for order in [Order::BobThenAlice, Order::AliceThenBob] {
+        let (mut app, start) = host_with_bob_beside_alice(START);
+        assert_eq!(start, START, "the host did not start in the room that was asked for");
+        let walk = TwoRoomWalk::from(&app, &start);
+
+        // ⛔ THE PREMISE: one live room, and the crossing out of it hits. If
+        // this is a miss, no later reading is about two rooms.
+        let alice_body = alice(&mut app);
+        assert!(
+            cross(&mut app, alice_body, PlayerSlot(0), &walk.alice_first),
+            "{order:?}: with one live room, the crossing to `{}` was not a prefetch hit",
+            walk.alice_first
+        );
+        assert_eq!(
+            live_room_ids(&mut app),
+            vec![start.clone(), walk.alice_first.clone()],
+            "{order:?}: Alice's crossing did not leave two live rooms"
+        );
+        for _ in 0..SETTLE {
+            app.update();
+        }
+
+        // Whether the plan cache held the plan of a crossing before it began.
+        let held = |app: &bevy::prelude::App, source: &str, target: &str| {
+            app.world()
+                .resource::<ambition_platformer2d::runtime::room_transition::RoomConstructionPlanPrefetch>()
+                .holds(source, target)
+        };
+        let alice_crosses = |app: &mut bevy::prelude::App, wrong: &mut Vec<String>| {
+            let body = alice(app);
+            let held = held(app, &walk.alice_first, &walk.alice_second);
+            if !cross(app, body, PlayerSlot(0), &walk.alice_second) {
+                wrong.push(format!(
+                    "{order:?}: Alice's crossing `{}` -> `{}` was not a prefetch hit \
+                     (the cache held its plan before it began: {held})",
+                    walk.alice_first, walk.alice_second
+                ));
+            }
+        };
+        let bob_crosses = |app: &mut bevy::prelude::App, wrong: &mut Vec<String>| {
+            let body = bob(app).expect("Bob is in the world");
+            assert_eq!(
+                room_of(app, body).as_deref(),
+                Some(start.as_str()),
+                "{order:?}: Bob is not in the start room before his crossing"
+            );
+            let held = held(app, &start, &walk.bob_target);
+            if !cross(app, body, PlayerSlot(1), &walk.bob_target) {
+                wrong.push(format!(
+                    "{order:?}: Bob's crossing `{start}` -> `{}` was not a prefetch hit \
+                     (the cache held its plan before it began: {held})",
+                    walk.bob_target
+                ));
+            }
+        };
+        match order {
+            Order::BobThenAlice => {
+                bob_crosses(&mut app, &mut wrong);
+                for _ in 0..SETTLE {
+                    app.update();
+                }
+                alice_crosses(&mut app, &mut wrong);
+            }
+            Order::AliceThenBob => {
+                alice_crosses(&mut app, &mut wrong);
+                for _ in 0..SETTLE {
+                    app.update();
+                }
+                bob_crosses(&mut app, &mut wrong);
+            }
+        }
+        // The start room is not live now, so its plans are retired. A crossing
+        // does not clear them: the producer does.
+        for _ in 0..SETTLE {
+            app.update();
+        }
+        let stale: Vec<String> = neighbours_of(&app, &start)
+            .into_iter()
+            .filter(|room| held(&app, &start, room))
+            .collect();
+        if !stale.is_empty() {
+            wrong.push(format!(
+                "{order:?}: `{start}` is not live, and the cache still holds its plans for {stale:?}"
+            ));
+        }
+        // Each body is in the room it crossed to, and both rooms are live.
+        let mut expected = vec![walk.alice_second.clone(), walk.bob_target.clone()];
+        expected.sort();
+        let mut live = live_room_ids(&mut app);
+        live.sort();
+        assert_eq!(live, expected, "{order:?}: the two crossings did not end in two live rooms");
+    }
+    assert!(
+        wrong.is_empty(),
+        "with two live rooms, the prefetch did not keep the plans of each live room and no others:\n  {}",
+        wrong.join("\n  ")
+    );
 }

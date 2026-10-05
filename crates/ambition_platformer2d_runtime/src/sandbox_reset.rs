@@ -263,7 +263,7 @@ pub fn admit_room_replay(
 /// remove.
 #[allow(clippy::too_many_arguments)]
 pub fn return_the_replay_subject_to_spawn(
-    mut admitted: MessageReader<RoomReplayAdmitted>,
+    mut admitted: ambition_combat::events::AdmittedReplays,
     // The subject's own live room (OW1 Cut A): the sole live room's was read,
     // so while two rooms were live nobody went back to spawn.
     world: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
@@ -416,6 +416,30 @@ impl Plugin for RoomReplaySchedulePlugin {
             ambition_boss_encounter::retract_boss_defeats_on_replay
                 .in_set(ambition_boss_encounter::BossDefeatRetraction)
                 .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet),
+        );
+        // THE SAME TWO, FOR A CHECKPOINT RESTORE, run by its publication
+        // (`ambition_combat::events::RestoreConsequences`). The schedule and its
+        // order are declared here, beside the replay transaction they mirror.
+        use ambition_combat::events::{RestoreConsequenceSet, RestoreConsequences};
+        app.init_schedule(RestoreConsequences);
+        app.configure_sets(
+            RestoreConsequences,
+            (
+                RestoreConsequenceSet::ReplayContent,
+                RestoreConsequenceSet::Subject,
+                RestoreConsequenceSet::RoomReset,
+                RestoreConsequenceSet::Gameplay,
+            )
+                .chain(),
+        );
+        app.add_systems(
+            RestoreConsequences,
+            (
+                return_the_replay_subject_to_spawn.in_set(RestoreConsequenceSet::Subject),
+                ambition_boss_encounter::retract_boss_defeats_on_replay
+                    .in_set(ambition_boss_encounter::BossDefeatRetraction)
+                    .in_set(RestoreConsequenceSet::ReplayContent),
+            ),
         );
     }
 }

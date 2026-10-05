@@ -137,6 +137,13 @@ REWINDING_OR_NOT_A_TIMELINE: dict[str, str] = {
     # makes "run by the commit executor" a checkable fact rather than a comment.
     # If that guard ever goes red this exemption is void.
     "CheckpointDomainApply": "run only by the commit executor; see check_commit_only_schedules_have_one_runner.py",
+    # The same argument, for the consequences of a restore's replay. Its
+    # readers are registered TWICE: in the simulation for an ordinary replay,
+    # and here for a checkpoint restore, whose replay is pinned at the
+    # admission and runs only when the verdict publishes the restored room
+    # (`verify_and_publish` -> `run_restore_consequences`). Their writes from
+    # this registration are part of the commit, as the domain apply's are.
+    "RestoreConsequences": "run only inside the commit of a published restore; see check_commit_only_schedules_have_one_runner.py",
 }
 
 
@@ -915,9 +922,15 @@ _MUTABLE_FIELD = re.compile(
 )
 
 #: A bundle field holding ANOTHER bundle, so a path can be built through it.
+#:
+#: ⚠ The generic arguments can hold commas: a bundle with a cursor takes two
+#: lifetimes (`AdmittedReplays<'w, 's>`). A comma-free form did not see that
+#: field, so the cursor inside it left every census that walks bundles.
+#: Arguments that nest (`Option<Res<..>>`) are still not matched; such a field
+#: is not a bundle.
 _NESTED_FIELD = re.compile(
     r"(?:pub(?:\([^)]*\))?\s+)?([a-z_][a-z_0-9]*)\s*:\s*"
-    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\s*(?:<[^,>]*>)?\s*,"
+    r"(?:[A-Za-z_][A-Za-z_0-9]*::)*([A-Z][A-Za-z_0-9]*)\s*(?:<[^<>]*>)?\s*,"
 )
 
 

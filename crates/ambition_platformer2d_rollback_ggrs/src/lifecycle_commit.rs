@@ -734,7 +734,17 @@ fn commit_transition(
         // them would silently rebuild the destination room for a dead body's
         // crossing instead of cancelling it.
         match subject {
-            None => application.stage(plan, None, None, target_index, arrival, edge_exit, zone_sfx, restart),
+            None => application.stage(
+                plan,
+                None,
+                None,
+                target_index,
+                arrival,
+                edge_exit,
+                zone_sfx,
+                restart,
+                checkpoint_operation,
+            ),
             Some(recorded) => match application.subject_entity(recorded) {
                 None => Err(ambition_platformer2d_runtime::room_transition::RoomTransitionApplyError::SubjectGone),
                 Some(entity) => application.stage(
@@ -746,6 +756,7 @@ fn commit_transition(
                     edge_exit,
                     zone_sfx,
                     restart,
+                    checkpoint_operation,
                 ),
             },
         }

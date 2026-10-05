@@ -34,6 +34,14 @@ impl Plugin for RoomTransitionSchedulePlugin {
                     .in_set(RoomTransitionSet::Reset),
             ),
         );
+        // A checkpoint restore's replay, at its publication: the residue goes
+        // before the content room resets, as in the simulation.
+        app.add_systems(
+            ambition_combat::events::RestoreConsequences,
+            ambition_platformer2d_actor_monolith::rooms::retire_the_previous_attempt
+                .in_set(ambition_combat::events::RestoreConsequenceSet::RoomReset)
+                .before(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
+        );
         // Content-specific room resets run after the engine feature reset;
         // generic plugins order against this set rather than naming content systems.
         app.configure_sets(

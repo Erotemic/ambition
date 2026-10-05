@@ -235,10 +235,15 @@ impl WorldTimeSchedule {
 /// id, authored id): the records whose return is not yet due. A room commit
 /// reads it (`PersistedFates::with_scheduled_returns`).
 pub fn remaining_scheduled_returns(world: &World) -> BTreeMap<(String, String), f32> {
-    let (Some(schedule), Some(now)) = (
-        world.get_resource::<WorldTimeSchedule>(),
-        world.get_resource::<GameplayElapsed>(),
-    ) else {
+    world
+        .get_resource::<WorldTimeSchedule>()
+        .map_or_else(BTreeMap::new, |schedule| remaining_in(schedule, world))
+}
+
+/// [`remaining_scheduled_returns`] of `schedule`, which may be a copy: the
+/// schedule a commit will find after a change that has not happened yet.
+pub fn remaining_in(schedule: &WorldTimeSchedule, world: &World) -> BTreeMap<(String, String), f32> {
+    let Some(now) = world.get_resource::<GameplayElapsed>() else {
         return BTreeMap::new();
     };
     schedule
@@ -374,7 +379,7 @@ pub(crate) fn owners_beside(
 /// so that edge is a cycle, and the schedule build does not finish (every
 /// test of a composed app stops before its first frame).
 pub fn forget_scheduled_returns_on_replay(
-    mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
+    mut replays: ambition_combat::events::AdmittedReplays,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     running: Query<Entity, (With<RespawnTimer>, With<FeatureSimEntity>)>,
     mut schedule: ResMut<WorldTimeSchedule>,
@@ -402,7 +407,7 @@ pub fn forget_scheduled_returns_on_replay(
 /// At the admission, not at the commit, because the admission names who is
 /// spared and the commit does not.
 pub fn disown_scheduled_returns_on_restore(
-    mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
+    mut replays: ambition_combat::events::AdmittedReplays,
     mut schedule: ResMut<WorldTimeSchedule>,
 ) {
     for replay in replays.read() {

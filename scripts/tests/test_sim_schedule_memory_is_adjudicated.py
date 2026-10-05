@@ -227,7 +227,7 @@ def test_a_cursor_inside_a_system_param_bundle_is_counted():
     bundles = guard.bundle_cursor_fields()
     assert bundles.get("FreshAttempt") == {
         "loads": "RoomLoaded",
-        "replays": "RoomReplayAdmitted",
+        "replays.messages": "RoomReplayAdmitted",
     }, (
         "`FreshAttempt`'s cursor fields no longer parse — the bundle is in "
         "`crates/ambition_combat/src/events.rs` and spells its lifetimes across "

@@ -843,9 +843,7 @@ pub fn pole_for_room(room_id: &str) -> flag::FlagPole {
 /// `spend_lives_on_death`). The first room is not an arrival from anywhere: the
 /// owner was built with a fresh lap.
 fn begin_a_lap_on_arrival(
-    mut replays: bevy::prelude::MessageReader<
-        ambition_platformer2d::combat::events::RoomReplayAdmitted,
-    >,
+    mut replays: ambition_platformer2d::combat::events::AdmittedReplays,
     mut owners: bevy::prelude::Query<(
         &mut flag::FlagSequence,
         &mut MaryOLevelState,
@@ -1339,6 +1337,15 @@ impl Plugin for MaryORulesPlugin {
             .after(ambition_platformer2d::runtime::ModeOwnersSpawned)
             // A level that asks to leave is carried out the same tick.
             .before(ambition_platformer2d::session::DepartureSet);
+        // A checkpoint restore's replay, at its publication, before the
+        // departures answer it.
+        app.add_systems(
+            ambition_platformer2d::combat::events::RestoreConsequences,
+            begin_a_lap_on_arrival
+                .in_set(ambition_platformer2d::combat::events::RestoreConsequenceSet::Gameplay)
+                .before(ambition_platformer2d::session::DepartureSet)
+                .run_if(ambition_platformer2d::runtime::in_rules_scope(self.scope)),
+        );
         // Pipe input is authoritative rollback state on the player body. Entry
         // and transit run after ordinary WorldPrep movement, so the scripted
         // position wins this frame instead of racing the shared integrator.

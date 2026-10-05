@@ -1660,4 +1660,10 @@ pub fn install_staged_hit_lifecycle_guard(
             .after(Platformer2dSimulationPhaseMonolith::ResetProcessing)
             .before(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
     );
+    // A checkpoint restore's replay, at its publication.
+    app.add_systems(
+        ambition_combat::events::RestoreConsequences,
+        void_pending_player_hits_at_lifecycle_boundaries
+            .in_set(ambition_combat::events::RestoreConsequenceSet::Gameplay),
+    );
 }

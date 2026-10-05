@@ -226,6 +226,58 @@ pub fn forget_boss_defeats_on_a_fresh_run(
     }
 }
 
+/// Take back, in `save` and `quests`, what the defeat of `placement` wrote:
+/// its cleared row goes back to `Untouched`, its looted flag is cleared, and
+/// the quest steps it advanced go back, in the registry and in the save rows
+/// that mirror them.
+///
+/// ⭐ ONE FUNCTION FOR TWO ROADS: the retraction below applies it to the live
+/// save, and the prospect of a checkpoint restore applies it to a copy, to
+/// build the restored room from the save the retraction will leave
+/// (`session::checkpoint::prospective_commit_fates`). Two copies of these
+/// edits could build one room and then leave another.
+pub fn retract_defeat_records(
+    save: &mut ambition_persistence::save_data::AmbitionGameSaveData,
+    quests: &mut ambition_persistence::quest::QuestRegistry,
+    placement: &str,
+) {
+    if crate::placement_is_cleared(save, placement) {
+        save.set_boss(placement, ambition_persistence::save_data::PersistedEncounterState::Untouched);
+    }
+    // The chest was not looted either: a defeat after the replay drops it
+    // closed. The item domain takes back what it gave.
+    let looted = ambition_encounter::encounter_reward_looted_flag(placement);
+    if save.flag(&looted) {
+        save.set_flag(looted, false);
+    }
+    for quest in quests.retract_caused_by(placement) {
+        if let Some(state) = quests.get(&quest) {
+            save.set_quest(&quest, state.progression, state.step);
+        }
+    }
+}
+
+/// The placements whose defeats a checkpoint restore `replay` will retract,
+/// read from a copy: `since` is not changed.
+pub fn defeats_a_restore_retracts(
+    since: &BossDefeatsSinceCheckpoint,
+    replay: &ambition_combat::events::RoomReplayAdmitted,
+) -> Vec<String> {
+    if !replay.to_checkpoint {
+        return Vec::new();
+    }
+    since
+        .clone()
+        .take_for_restore(
+            &replay.spared,
+            &replay.spared_participants,
+            replay.subject.as_ref().and_then(|subject| subject.room),
+        )
+        .into_iter()
+        .map(|(placement, _)| placement)
+        .collect()
+}
+
 /// On an admitted replay, retract every boss defeat of the replay's live room
 /// recorded since the last checkpoint, for every boss family. A checkpoint
 /// restore retracts every defeat since the checkpoint (Q124, Q51), except in
@@ -245,7 +297,7 @@ pub fn retract_boss_defeats_on_replay(
     mut commands: Commands,
     // The admitted replay, not the request: a request the lifecycle refuses
     // must retract nothing.
-    mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
+    mut replays: ambition_combat::events::AdmittedReplays,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut since: ResMut<BossDefeatsSinceCheckpoint>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
@@ -271,26 +323,7 @@ pub fn retract_boss_defeats_on_replay(
             since.take_for_replay(replayed, &definition_id, &live)
         };
         for (placement, defeat) in taken {
-            if crate::placement_is_cleared(save.data(), &placement) {
-                save.data_mut().set_boss(
-                    &placement,
-                    ambition_persistence::save_data::PersistedEncounterState::Untouched,
-                );
-            }
-            // The chest was not looted either: a defeat after the replay drops
-            // it closed. The item domain takes back what it gave.
-            let looted = ambition_encounter::encounter_reward_looted_flag(&placement);
-            if save.data().flag(&looted) {
-                save.data_mut().set_flag(looted, false);
-            }
-            // The quest step the defeat advanced goes back, in the registry
-            // and in the save row that mirrors it.
-            for quest in quests.retract_caused_by(&placement) {
-                if let Some(state) = quests.get(&quest) {
-                    save.data_mut()
-                        .set_quest(&quest, state.progression, state.step);
-                }
-            }
+            retract_defeat_records(save.data_mut(), &mut quests, &placement);
             for (chest, reward) in &chests {
                 if reward.encounter_id == placement {
                     commands.entity(chest).despawn();

@@ -26,7 +26,7 @@ use bevy::prelude::*;
 /// down, and another live room keeps its own. A replay with nobody in it
 /// names no room, and resets the sole live room.
 pub fn reset_gravity_on_room_reset(
-    mut resets: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
+    mut resets: ambition_combat::events::AdmittedReplays,
     mut base: ResMut<ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {

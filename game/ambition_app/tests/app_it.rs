@@ -20,6 +20,7 @@ mod pirate_sky_crew;
 mod the_session_owns_its_generation;
 
 mod a_bag_changed_mid_window_reaches_the_save;
+mod a_cancelled_restore_changes_nothing;
 mod a_dropped_item_falls;
 mod a_ready_room_shows_no_loading_screen;
 mod a_lever_left_on_is_on_when_you_come_back;

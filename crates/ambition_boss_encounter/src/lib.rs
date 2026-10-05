@@ -88,6 +88,7 @@ pub use ambition_encounter::{
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
 pub use retraction::{
+    defeats_a_restore_retracts, retract_defeat_records,
     forget_boss_defeats_at_checkpoint, forget_boss_defeats_on_a_fresh_run,
     retract_boss_defeats_on_replay, BossDefeatRetracted, BossDefeatRetraction, BossDefeatSinceCheckpoint,
     BossDefeatsSinceCheckpoint,

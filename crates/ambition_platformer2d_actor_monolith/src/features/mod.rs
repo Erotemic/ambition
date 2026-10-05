@@ -1512,6 +1512,17 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             .add_systems(
                 ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
                 ecs::world_time_schedule::forget_scheduled_returns_on_restore,
+            )
+            // The same two, and the consumed occurrences' owners below, for a
+            // checkpoint restore at its publication.
+            .add_systems(
+                ambition_combat::events::RestoreConsequences,
+                (
+                    ecs::world_time_schedule::forget_scheduled_returns_on_replay,
+                    ecs::world_time_schedule::disown_scheduled_returns_on_restore,
+                    ecs::pickups::disown_consumed_pickups_on_restore,
+                )
+                    .in_set(ambition_combat::events::RestoreConsequenceSet::ReplayContent),
             );
         // Q151: who owns each one-time pickup consumed since the checkpoint.
         // The restore's acceptance pins the owned rows into the ledger it

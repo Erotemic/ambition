@@ -782,6 +782,7 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
                 owned: Default::default(),
             }),
             fresh: false,
+            replay: None,
         });
     assert!(
         !super::apply_committed_checkpoint_restore(app.world_mut(), first),
@@ -846,6 +847,7 @@ fn a_key_from_a_retired_session_matches_nothing_in_the_next_one() {
         }),
         item: None,
         fresh: false,
+        replay: None,
     });
     assert!(
         held.inputs_for_key(old).is_none(),
@@ -936,6 +938,22 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
         .peek()
         .map(|pending| pending.kind.clone())
         .expect("the reset took the slot, or nothing below is about an operation");
+    // ⛔ THE ADMISSION ANNOUNCES NOTHING. Its replay is pinned with the
+    // operation and runs at the room's publication (review 2026-10-05, P1).
+    assert_eq!(
+        (
+            app.world()
+                .resource::<bevy::ecs::message::Messages<ambition_combat::events::RoomReplayAdmitted>>()
+                .len(),
+            app.world()
+                .resource::<super::AcceptedCheckpointRestore>()
+                .accepted()
+                .and_then(|accepted| accepted.replay.as_ref())
+                .map(|replay| replay.to_checkpoint),
+        ),
+        (0, Some(true)),
+        "(replay messages written by the admission, the pinned replay is a checkpoint restore's)"
+    );
 
     // ── IT SURVIVES FRAMES THE SHARED TOKEN DOES NOT ────────────────────────
     for _ in 0..3 {
@@ -969,7 +987,14 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
          would rebuild its destination from a checkpoint that is not about it"
     );
 
-    // ── THE SLOT GIVES UP THE INTENT: the commit took it ─────────────────────
+    // ── THE SLOT GIVES UP THE INTENT, AND NOTHING COMMITTED IT ───────────────
+    // A refused publication, a subject that is gone, or a retraction.
+    let key = app
+        .world()
+        .resource::<super::AcceptedCheckpointRestore>()
+        .accepted()
+        .map(|accepted| accepted.key)
+        .expect("asserted above");
     app.world_mut()
         .resource_mut::<PendingLifecycleCommit>()
         .take();
@@ -982,6 +1007,72 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
         "the accepted restore outlived the operation that owned it. Two crossings \
          to one room with one subject compare EQUAL, so a stale one can be \
          matched by a later transition it has nothing to do with"
+    );
+    // ⛔⛔ AND IT IS ANSWERED. Until 2026-10-05 it was retired with no outcome
+    // (review 2026-10-05, P1).
+    assert_eq!(
+        app.world().resource::<super::SessionCheckpointOutcomes>().latest(),
+        Some(&super::CheckpointRestoreOutcome::Cancelled {
+            key,
+            reason: super::RestoreCancellation::NotCommitted,
+        }),
+        "the one terminal outcome of an operation whose intent left the slot uncommitted"
+    );
+}
+
+/// THE CONTROL FOR THE ANSWER ABOVE: an operation that was answered before its
+/// intent left the slot (the commit publishes `Committed`) keeps that answer,
+/// and the retirement adds none.
+#[test]
+fn an_operation_answered_before_its_intent_leaves_keeps_its_one_answer() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, LifecycleCheckpointHorizonPlugin, ResetToCheckpoint};
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+
+    use crate::session::lifecycle_commit::PendingLifecycleCommit;
+
+    let mut app = App::new();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "here",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "here",
+                ambition_platformer2d_core::World::new("Here", Vec2::new(640.0, 480.0), Vec2::new(32.0, 400.0), vec![]),
+            )],
+            Vec::new(),
+        ),
+    );
+    app.init_resource::<PendingLifecycleCommit>();
+    app.add_message::<ResetToCheckpoint>();
+    app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
+    app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
+    let sim = app.sim_schedule();
+    app.add_plugins((LifecycleCheckpointHorizonPlugin, super::SessionCheckpointHorizonPlugin));
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+    ));
+    app.world_mut().write_message(ResetToCheckpoint);
+    app.world_mut().run_schedule(sim);
+    let key = app
+        .world()
+        .resource::<super::AcceptedCheckpointRestore>()
+        .accepted()
+        .map(|accepted| accepted.key)
+        .expect("the reset was admitted");
+    app.world_mut()
+        .resource_mut::<super::SessionCheckpointOutcomes>()
+        .publish(super::CheckpointRestoreOutcome::Committed { key });
+    app.world_mut().resource_mut::<PendingLifecycleCommit>().take();
+    app.world_mut().run_schedule(sim);
+    assert_eq!(
+        app.world().resource::<super::SessionCheckpointOutcomes>().latest(),
+        Some(&super::CheckpointRestoreOutcome::Committed { key }),
+        "the operation's one answer"
     );
 }
 
@@ -1040,6 +1131,7 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
                 owned: Default::default(),
             }),
             fresh: false,
+            replay: None,
         }
     }
 
@@ -1234,6 +1326,7 @@ fn with_two_live_rooms_a_restore_is_verified_against_the_room_it_names() {
                 lifecycle: None,
                 item: None,
                 fresh: false,
+                replay: None,
             });
         assert!(
             super::apply_committed_checkpoint_restore(app.world_mut(), key),
@@ -1320,6 +1413,7 @@ fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure()
             }),
             item: None,
             fresh: false,
+            replay: None,
         });
 
     assert!(
@@ -1716,6 +1810,7 @@ fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
                 }),
                 item: None,
                 fresh: false,
+                replay: None,
             });
         assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
         app.world()
@@ -1880,6 +1975,7 @@ fn verification_requires_the_rebuilt_room_to_contain_what_the_checkpoint_puts_in
                 }),
                 item: None,
                 fresh: false,
+                replay: None,
             });
         assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
         app.world()
@@ -2236,6 +2332,7 @@ fn an_operation_at(
         }),
         item: None,
         fresh: false,
+        replay: None,
     }
 }
 

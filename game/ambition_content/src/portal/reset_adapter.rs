@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use ambition_combat::events::{RoomReplayAdmitted, RoomResetReason};
+use ambition_combat::events::RoomResetReason;
 use ambition_portal2d::ClearPortals;
 
 /// Emit a [`ClearPortals`] for a MANUAL room reset (the delete-key reset or a
@@ -19,7 +19,7 @@ use ambition_portal2d::ClearPortals;
 /// `clear_portals_on_reset`, so the clear happens the same frame the room reset
 /// fires.
 pub fn bridge_room_reset_to_clear_portals(
-    mut resets: MessageReader<RoomReplayAdmitted>,
+    mut resets: ambition_combat::events::AdmittedReplays,
     mut clear: MessageWriter<ClearPortals>,
 ) {
     // Clear the gun portals only if at least one reset this frame was deliberate.

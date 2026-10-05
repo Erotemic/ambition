@@ -349,6 +349,7 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
                 }),
                 item: None,
                 fresh: false,
+                replay: None,
             });
     }
 
@@ -497,6 +498,7 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
                 lifecycle: None,
                 item: None,
                 fresh: false,
+                replay: None,
             });
     }
     assert!(
@@ -963,4 +965,3 @@ fn a_live_neighbour_gets_no_prefetched_plan() {
     );
     assert!(wrong.is_empty(), "the prefetch spent work on a live room:\n  {}", wrong.join("\n  "));
 }
-

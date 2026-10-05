@@ -360,6 +360,17 @@ impl Plugin for AmbitionBossContentPlugin {
                     .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomReplayResetSet),
             ),
         );
+        // The same two, for a checkpoint restore at its publication.
+        app.add_systems(
+            ambition_combat::events::RestoreConsequences,
+            (
+                reset_cut_rope_boss_arena_on_room_reset
+                    .in_set(ambition_combat::events::RestoreConsequenceSet::RoomReset)
+                    .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
+                reset_cut_rope_attempt_on_replay
+                    .in_set(ambition_combat::events::RestoreConsequenceSet::ReplayContent),
+            ),
+        );
 
         // No run condition, on purpose. `reset_cut_rope_attempt_on_replay` claims
         // this boss's music on a room replay (a death), and a one-shot cannot

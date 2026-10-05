@@ -73,7 +73,7 @@ pub fn drive_departures(
     mut pending: ResMut<PendingLifecycleCommit>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     mut replay: MessageWriter<RoomReplayRequested>,
-    mut admitted: MessageReader<ambition_combat::RoomReplayAdmitted>,
+    mut admitted: ambition_combat::events::AdmittedReplays,
     mut departures: Query<&mut Departure>,
 ) {
     let replay_admitted = admitted.read().count() > 0;
@@ -211,6 +211,13 @@ impl Plugin for RoomDeparturePlugin {
             DepartureSet.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
         );
         app.add_systems(sim, drive_departures.in_set(DepartureSet));
+        // A checkpoint restore's replay, at its publication.
+        app.add_systems(
+            ambition_combat::events::RestoreConsequences,
+            drive_departures
+                .in_set(DepartureSet)
+                .in_set(ambition_combat::events::RestoreConsequenceSet::Gameplay),
+        );
     }
 }
 

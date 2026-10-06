@@ -4,7 +4,7 @@
     "DEFECT, a procedure written in world axes": "NOT a legitimate read: wrong in turned gravity. The ambush of a teleport puts 'behind' on world x and the feet on world y, and the petting mark is on world x at the petter's y. To turn this one half would give a wrong answer of another shape: state the procedure in the frame of the body (LEVEL-BOX-READERS, docs/planning/queue.md)",
     "a published view of the box the body has": "`kin` on this line is a `PortalBodyView`, not a `BodyKinematics`: its size is published by the host as the collision box, turned (`publish_portal_body_views`)",
     "the length of the half only": "the reader takes the length of the half (a reach of the portal viewer), which the level box and a box turned by a quarter share",
-    "to convert: what a brain sees of a peer": "the half extent a brain is given for a peer is level",
+    "the half of a body in its own frame, for a reader with a frame": "the perception view gives a brain the half on the body's own axes (side, DOWN), with `gravity_down`. The recovery lens hands it to a kernel body, which turns it, and the rollout projects on side and down: to turn it at the source turns it twice. A brain reader that lays it on the world axes (`floor_below`) is a DEFECT of that reader",
     "a shot": "a shot is a free body with no support and no stance: its size is its box",
     "the gravity of a body": "this box is what resolves the frame of the body, so the frame cannot turn it",
     "the centre only": "the reader takes the centre, which the two boxes share",
@@ -72,12 +72,12 @@
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs",
       "code": "half_extent: kin.size * 0.5,",
-      "class": "to convert: what a brain sees of a peer"
+      "class": "the half of a body in its own frame, for a reader with a frame"
     },
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs",
       "code": "half_extent: body.kin.size * 0.5,",
-      "class": "to convert: what a brain sees of a peer"
+      "class": "the half of a body in its own frame, for a reader with a frame"
     },
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pet.rs",

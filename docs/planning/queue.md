@@ -2700,7 +2700,7 @@ neighbours, and no class but the first was measured.
 | a procedure written in world axes | 2 | 2 | the candidates of a teleport's ambush (`teleport.rs`, `ambush_arrival`), the fit of the petter at its mark (`pet.rs`) | yes, and NOT by this rule: a DEFECT of the procedure, see below |
 | portals: the carve and the eviction of a body | 3 | 0 | `ambition_portal2d` `transit.rs` (the carve), `eviction.rs` (2) | yes. BUILT, see below |
 | portals: read line by line, and not a level-box read of a body | 6 | 6 | the gravity lookup of the transit (`transit.rs`: the guard has it with the gravity lookups), a shot's portal transit (the guard has it with the shots), the reach of the portal viewer (the host adapter: the LENGTH of the half only), two draws in `ambition_portal2d_presentation` (they read `PortalBodyView`, a published view whose local name is `kin`), and the test literal | no, each with its reason in the baseline of the guard |
-| what a brain sees of a peer | 2 | 2 | `perception.rs` (`half_extent`) | yes |
+| what a brain sees of a body | 2 | 2 | `perception.rs` (`half_extent` of the viewer and of a peer) | NO, read 2026-10-06: the half is in the body's own frame, and its readers have a frame. See "Rejected" below |
 | a shot | 12 | 12 | `projectile/systems.rs` (4), `projectile/collision.rs`, `projectile/body.rs` (6, 2 of them the comment lines), `clash.rs` | no: a shot is a free body with no support and no stance, and its size is its box |
 | the gravity of a body | 3 | 3 | `gravity/resolve.rs` (2), the frame of a throw (`ambition_held_items/src/lib.rs`) | no: this box is what resolves the frame, so the frame cannot turn it |
 | the centre only | 3 | 3 | `avatar/trail.rs`, `target_volumes.rs`, the boss extension | no: the centre of the two boxes is the same |
@@ -2715,7 +2715,8 @@ there (16 and 3, not 17 and 2). The first sort also put the two world-axis
 procedures in the traversal class (6); they are a class of their own (4 and
 2). The search finds 50 lines on 2026-10-06 after the five classes that are
 built (the guard counts 47 of them: it leaves out the 2 comment lines and the
-test literal).
+test literal). Every line the guard counts now has a reason or the
+name DEFECT; no class is left "to convert".
 
 **The transit record, built 2026-10-06 (rollback schema 314 to 315):**
 `transit_body` and `reconcile_transit` have 23 call sites outside tests. Ten
@@ -2797,6 +2798,27 @@ which it has).
 
 The arms were written AFTER the conversion (a mechanical edit), so each red
 was seen by putting the reader's old line back, not before the change.
+
+**Rejected, do not retry: to turn the half the perception view gives a
+brain.** The first sort marked the two `half_extent` lines of `perception.rs`
+"yes". They are the half on the body's OWN axes (x along its side, y along
+its DOWN), and three readers use it so, each with a frame:
+`RecoveryLens` (`ambition_combat/src/brain/fighter/recovery.rs`) writes it to
+the size of a kernel body and runs the kernel, which turns it; the rollout
+(`rollout.rs`) and the option scorer (`options.rs`) project the offset to a
+foe on `side` and `down` and compare with `half_extent.x` and `.y`. A half
+turned at the source is turned twice by the first and laid on the wrong axis
+by the other two. The docs of `SelfView::half_extent` and
+`PerceivedActor::half_extent` now say which frame it is in. Two things are
+open and NOT built:
+
+- `WorldView::floor_below`, `supporting_floor` and `ground_below`
+  (`ambition_characters/src/perception.rs`) lay the same half on the WORLD
+  axes (`feet = me.pos.y + me.half_extent.y`). Predicted in turned gravity
+  (not measured): a brain looks for its floor under world +y and finds a
+  wall or nothing. They are a procedure in world axes, as the ambush is.
+- the view has no DOWN of a peer, so a reader uses the viewer's. Two bodies
+  in two gravity zones are measured in one frame.
 
 **Rejected, do not retry:** to make a READER of the record use the published
 footprint (`CenteredAabb`) when the record is zero-length. The footprint of a

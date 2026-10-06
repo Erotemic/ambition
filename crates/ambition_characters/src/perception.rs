@@ -237,7 +237,11 @@ pub struct PerceivedActor {
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub facing: f32,
-    /// Half-extent of the perceived body's collision box (world px).
+    /// The half of the perceived body's collision box in the body's OWN frame:
+    /// `x` along its side axis and `y` along its DOWN. It is not turned to the
+    /// world axes. A reader lays it out with a frame (the rollout projects on
+    /// `side` and `down`); the view has no DOWN of a peer, so a reader takes
+    /// the viewer's.
     pub half_extent: ae::Vec2,
     pub faction: ActorFaction,
     /// True iff the viewing body's faction is hostile to this actor's faction
@@ -387,6 +391,10 @@ pub struct SelfView {
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub facing: f32,
+    /// The half of the body's collision box in its OWN frame: `x` along its
+    /// side axis and `y` along [`Self::gravity_down`]. It is not turned to the
+    /// world axes: the recovery lens hands it to a kernel body, which turns
+    /// it, and the rollout projects on `side` and `down`.
     pub half_extent: ae::Vec2,
     /// Local gravity direction (unit). Frame-agnostic reasoning projects against
     /// this; defaults to screen-down `(0, 1)`.

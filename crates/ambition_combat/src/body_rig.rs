@@ -26,6 +26,17 @@ use crate::hurtbox_resolution::{BodyPoseClock, Gait, POSE_AIRBORNE, POSE_CROUCH,
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct BodyRig(pub Arc<PreparedBodyRig>);
 
+/// Where this body's FEET (its rig's origin) are from its centre, in rig axes
+/// (+x the way the art faces, +y down), when that is not straight below by
+/// half its height.
+///
+/// A body drawn from a sheet whose FRAME centre is its position (a boss, by
+/// the boss placement law) has its feet wherever the art put them in that
+/// frame: the T-rex's are 96 below his centre and 11 behind it. Absent, the
+/// feet are at `(0, size.y / 2)`, which is every body built from its body box.
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct RigFeetOffset(pub Vec2);
+
 /// Where this body's joints and attachments are this tick, in its rig space:
 /// feet origin, +x the way the art faces, +y down, world units. Place a point
 /// in the world with [`BodyRigPose::to_body`] and the body's own frame.
@@ -51,15 +62,16 @@ impl BodyRigPose {
     /// facing the way its art faces, or `None` when the rig has no hurt parts
     /// or this pose is not resolved yet.
     ///
-    /// `feet_below_center` is how far the body's feet are below its centre
-    /// (half its current height): the rig is feet-anchored, a hurt volume is
-    /// placed from the centre. Each part is published as the axis-aligned
-    /// bound of its shape at its joint, which is what the damageable-volume
-    /// seam speaks; a bound errs toward hittable, never toward invulnerable.
+    /// `feet` is where the body's feet are from its centre, in rig axes
+    /// (usually straight below by half its height; see [`RigFeetOffset`]):
+    /// the rig is feet-anchored, a hurt volume is placed from the centre. Each
+    /// part is published as the axis-aligned bound of its shape at its joint,
+    /// which is what the damageable-volume seam speaks; a bound errs toward
+    /// hittable, never toward invulnerable.
     pub fn hurt_volumes(
         &self,
         rig: &PreparedBodyRig,
-        feet_below_center: f32,
+        feet: Vec2,
     ) -> Option<Vec<ambition_entity_catalog::HurtboxVolume>> {
         if rig.hurt_parts().is_empty() || self.joints.len() != rig.joint_names().len() {
             return None;
@@ -73,7 +85,7 @@ impl BodyRigPose {
                     let half = (max - min) * 0.5;
                     ambition_entity_catalog::HurtboxVolume {
                         shape: ambition_entity_catalog::VolumeShape::Rect {
-                            offset: (center.x, center.y + feet_below_center),
+                            offset: (center.x + feet.x, center.y + feet.y),
                             half_extents: (half.x, half.y),
                         },
                     }
@@ -220,20 +232,37 @@ pub fn select_rig_frame<'a>(
 ///
 /// Writes only when the selected clip or frame changed, so a held pose does
 /// not trip `Changed<BodyRigPose>` every tick.
+///
+/// A body whose row is PINNED (`PinnedRow`: a conducted boss's module, a
+/// daze) is posed from that row first, the same row its sprite draws, at the
+/// same elapsed time.
 pub fn resolve_body_rig_poses(
     mut bodies: Query<(
         &BodyRig,
         Option<&crate::moveset::MovePlayback>,
         Option<&BodyPoseClock>,
+        Option<&ambition_sprite_sheet::character::PinnedRow>,
         &mut BodyRigPose,
     )>,
 ) {
-    for (rig, playback, pose_clock, mut pose) in &mut bodies {
+    for (rig, playback, pose_clock, pinned, mut pose) in &mut bodies {
         let rig = rig.0.as_ref();
+        // The pin's own `looping`, not the clip's: the sprite draws the pinned
+        // row by the pin (`pinned_cell`), and the parts must be where it draws.
+        let pinned_frame = pinned.filter(|pinned| pinned.is_pinned()).and_then(|pinned| {
+            let name = pinned.rows.iter().find_map(|row| rig.stored_name(row))?;
+            let clip = rig.clip(name)?;
+            let count = clip.frames.len().max(1);
+            let step = (pinned.elapsed.max(0.0) / clip.frame_duration_s).floor();
+            let step = if step.is_finite() { step as usize } else { 0 };
+            Some((name, if pinned.looping { step % count } else { step.min(count - 1) }))
+        });
         let active_move = playback.map(|playback| (&playback.spec.clip, playback.phase()));
         let pose_input = pose_clock.map(|clock| (clock.pose.as_str(), clock.elapsed_s));
         let gait_input = pose_clock.map(|clock| (clock.gait, clock.gait_elapsed_s));
-        let Some((clip, frame)) = select_rig_frame(rig, active_move, pose_input, gait_input) else {
+        let Some((clip, frame)) =
+            pinned_frame.or_else(|| select_rig_frame(rig, active_move, pose_input, gait_input))
+        else {
             continue;
         };
         if pose.clip.as_deref() == Some(clip) && pose.frame == frame && !pose.joints.is_empty() {

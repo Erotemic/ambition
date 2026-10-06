@@ -56,5 +56,10 @@ mod tests {
     /// The rig holds each of these rows on its last frame and the animator
     /// loops it (measured 2026-10-05, eight rigs). The repair is one loop
     /// statement for each row that both read (queue row LANDMARK-CLIP-TIME).
-    const EXPECTED: [&str; 5] = ["crouch", "crouch_jump", "jump", "skid", "taunt"];
+    ///
+    /// `stunned` is the other way round (2026-10-06, the T-rex): his rig loops
+    /// it, and the animator has no name rule for it, so it calls it a
+    /// one-shot. Neither times it: only the T-rex boss shows it, and his
+    /// sprite and his rig both follow his module's PIN (`PinnedRow::looping`).
+    const EXPECTED: [&str; 6] = ["crouch", "crouch_jump", "jump", "skid", "stunned", "taunt"];
 }

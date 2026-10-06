@@ -375,3 +375,83 @@ fn the_crash_shakes_the_camera() {
     });
     assert!(strongest >= 10.0, "he crashed into the wall and the camera shook at most {strongest} px");
 }
+
+/// You hit him through his PARTS: head, jaw, neck, torso, tail and legs, posed
+/// from the row he is drawn with. The air over his back and under his chin,
+/// inside the old single box, is not him.
+#[test]
+fn he_is_hit_through_his_parts_not_a_box() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let world = sim.world_mut();
+    let (pos, side, volumes) = world
+        .query::<(
+            &BossConfig,
+            &ae::BodyKinematics,
+            &ambition_platformer2d::boss_encounter::conduct::ConductedFacing,
+            &ambition_platformer2d::combat::components::DamageableVolumes,
+        )>()
+        .iter(world)
+        .find(|(config, ..)| config.behavior.id == TREX_ID)
+        .map(|(_, kin, side, volumes)| (kin.pos, side.0, volumes.volumes.clone()))
+        .expect("the T-rex");
+    assert!(volumes.len() >= 10, "he is hit through {} volumes, not his parts", volumes.len());
+    // A sheet pixel of his idle art, as a world point (his position is the
+    // frame's centre; the art faces right and he faces `side`).
+    let art = |x: f32, y: f32| {
+        let off = (ae::Vec2::new(x, y) - ae::Vec2::new(228.0, 150.0)) * module::PX;
+        pos + ae::Vec2::new(off.x * side, off.y)
+    };
+    let hit = |p: ae::Vec2| {
+        let probe = ae::Aabb::new(p, ae::Vec2::splat(3.0));
+        volumes.iter().any(|v| v.intersects_aabb(probe))
+    };
+    for (what, x, y) in [("his head", 360.0, 105.0), ("his torso", 230.0, 160.0), ("his tail", 110.0, 140.0)] {
+        assert!(hit(art(x, y)), "{what} at sheet ({x}, {y}) cannot be hit");
+    }
+    for (what, x, y) in [("the air over his back", 80.0, 75.0), ("the air under his chin", 350.0, 262.0)] {
+        assert!(!hit(art(x, y)), "{what} at sheet ({x}, {y}) still counts as his body");
+    }
+}
+
+/// His parts are posed from the row he is drawn with: stunned against the
+/// wall, his head hangs, and the part you hit it through hangs with it.
+#[test]
+fn his_parts_follow_the_row_he_is_drawn_with() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    // The bottom of his front-most part (his head), from his position.
+    let head_bottom = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        world
+            .query::<(&BossConfig, &ae::BodyKinematics, &ambition_platformer2d::combat::components::DamageableVolumes)>()
+            .iter(world)
+            .find(|(config, ..)| config.behavior.id == TREX_ID)
+            .and_then(|(_, kin, volumes)| {
+                volumes
+                    .volumes
+                    .iter()
+                    .map(|v| v.bounds())
+                    .max_by(|a, b| {
+                        let front = |bb: &ae::Aabb| ((bb.min.x + bb.max.x) * 0.5 - kin.pos.x) * kin.facing.signum();
+                        front(a).total_cmp(&front(b))
+                    })
+                    .map(|bb| bb.max.y - kin.pos.y)
+            })
+            .expect("the T-rex's parts")
+    };
+    for _ in 0..20 {
+        sim.step(AgentAction::default());
+    }
+    let standing = head_bottom(&mut sim);
+    step_until(&mut sim, 60 * 30, "him to charge", |sim| rex(sim).view.charging);
+    step_until(&mut sim, 60 * 4, "the charge to end in the wall", |sim| rex(sim).view.stunned);
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let stunned = head_bottom(&mut sim);
+    assert!(stunned > standing + 25.0, "stunned, his head's part bottoms out at {stunned}; standing, {standing}");
+}

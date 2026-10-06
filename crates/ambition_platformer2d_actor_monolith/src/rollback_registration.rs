@@ -373,6 +373,12 @@ where
         OWNER,
         "actor.body_rig",
     );
+    // Granted with the rig, by a body whose feet are not under its centre (a
+    // conducted boss's birth kit), and constant after: presence like the rig's.
+    registrar.rollback_component_clone::<ambition_combat::body_rig::RigFeetOffset>(
+        OWNER,
+        "actor.rig_feet_offset",
+    );
     registrar.rollback_component_clone::<crate::features::PickupCollectLock>(
         OWNER,
         "feature.pickup_collect_lock",

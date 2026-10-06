@@ -274,10 +274,11 @@ pub fn resolve_body_hurtboxes(
         Option<&crate::moveset::MovePlayback>,
         Option<&BodyPoseClock>,
         Option<&ambition_platformer2d_core::BodyKinematics>,
+        Option<&crate::body_rig::RigFeetOffset>,
         &mut ResolvedHurtboxes,
     )>,
 ) {
-    for (authored, rig, playback, pose, kin, mut resolved) in &mut bodies {
+    for (authored, rig, playback, pose, kin, feet, mut resolved) in &mut bodies {
         if authored.is_none() && rig.is_none() {
             // Nothing authors this body's hurtboxes. Only what a RIG put here
             // is taken back: a body that loses its rig must not keep its last
@@ -290,11 +291,14 @@ pub fn resolve_body_hurtboxes(
         let active_move = playback.map(|p| (p.spec.id.as_str(), p.t));
         let pose_clock = pose.map(|p| (p.pose.as_str(), p.elapsed_s));
         // The rig is feet-anchored and a hurt volume is centre-relative, so
-        // the rig asks where the body's feet are below its centre.
+        // the rig asks where the body's feet are from its centre.
         let rig_volumes = || {
             let (rig, rig_pose) = rig?;
-            let feet_below_center = kin.map_or(0.0, |kin| kin.size.y * 0.5);
-            rig_pose.hurt_volumes(&rig.0, feet_below_center)
+            let feet = feet.map_or_else(
+                || bevy::math::Vec2::new(0.0, kin.map_or(0.0, |kin| kin.size.y * 0.5)),
+                |feet| feet.0,
+            );
+            rig_pose.hurt_volumes(&rig.0, feet)
         };
         let next = resolve_hurtboxes_with_rig(
             authored.map(|authored| &authored.0),

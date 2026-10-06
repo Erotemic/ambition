@@ -1044,7 +1044,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// it. A transit collapses the record with the body's size turned to that
 /// DOWN, so the box at the arrival of a body in turned gravity is the box
 /// the body has, not its level box (LEVEL-BOX-READERS).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 315;
+/// ⛔⛤ 315 -> 316: `actor.rig_feet_offset` (clone) — where a body's rig
+/// origin, its feet, sits from its centre when not straight below it (the
+/// T-rex boss, whose position is his frame's centre). Granted with the rig
+/// and constant after, so it travels with the rig across a restore.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 316;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -20,11 +20,55 @@ pub use ambition_content_modules::trex as conductor_module;
 /// The state he is built with: the side he faces (the side the body was built
 /// facing; his module chooses it from then on) and his drawn row. See
 /// [`ambition_boss_encounter::BossBirthKit`].
+///
+/// And his BODY RIG (`trex_enemy_body_rig.ron`, published from the rig that
+/// draws him): the parts you can hit him through, head, jaw, neck, torso,
+/// tail and legs, posed every tick from the row his module pins, so they are
+/// where his art is. His sheet's frame centre is his position (the boss
+/// placement law), so the rig's origin, his feet pixel, is offset from it.
 pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::EntityScope, body: &ae::BodyKinematics) {
     scope.insert((
         ambition_boss_encounter::conduct::ConductedFacing::of_facing(body.facing),
         ambition_platformer2d::sprite_sheet::character::PinnedRow::default(),
     ));
+    let (rig, feet) = body_rig();
+    scope.insert((
+        ambition_combat::body_rig::BodyRig(std::sync::Arc::new(rig)),
+        ambition_combat::body_rig::BodyRigPose::default(),
+        ambition_combat::body_rig::RigFeetOffset(feet),
+        ambition_combat::hurtbox_resolution::ResolvedHurtboxes::default(),
+    ));
+}
+
+/// The sheet his body rig is published beside.
+pub const SHEET: &str = "trex_enemy";
+
+/// His prepared body rig in world units, and where its origin (his feet) is
+/// from his position.
+///
+/// # Panics
+///
+/// When the sheet or its rig is not published, or does not parse: a T-rex
+/// with no hurt parts would be hit through nothing, or fall back to a box the
+/// rework exists to replace, and say nothing.
+pub fn body_rig() -> (ambition_characters::actor::body_rig::PreparedBodyRig, Vec2) {
+    let px = conductor_module::PX;
+    let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(SHEET)
+        .unwrap_or_else(|| panic!("`{SHEET}_body_rig.ron` is not published: regenerate the T-rex sheet"));
+    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
+        .unwrap_or_else(|error| panic!("`{SHEET}_body_rig.ron`: {error}"))
+        .scaled(px)
+        .prepare()
+        .unwrap_or_else(|error| panic!("`{SHEET}_body_rig.ron` does not prepare: {error:?}"));
+    let record = ambition_sprite_sheet::character::sheets::record_for_sheet_key(SHEET)
+        .unwrap_or_else(|| panic!("`{SHEET}` has no sheet record"));
+    let feet = record
+        .body_metrics
+        .as_ref()
+        .and_then(|metrics| metrics.feet_pixel)
+        .unwrap_or_else(|| panic!("`{SHEET}` publishes no feet pixel"));
+    let centre = Vec2::new(record.frame_width as f32, record.frame_height as f32) * 0.5;
+    (rig, (Vec2::new(feet.x as f32, feet.y as f32) - centre) * px)
 }
 
 /// What his conductor is doing, read from its module's record.

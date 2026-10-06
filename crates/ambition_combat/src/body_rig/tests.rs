@@ -239,9 +239,9 @@ fn hurt_volumes_are_placed_from_the_feet_as_bounds_of_their_parts() {
     };
     let rig = definition.clone().prepare().unwrap();
     let mut rig_pose = BodyRigPose::default();
-    assert_eq!(rig_pose.hurt_volumes(&rig, 8.0), None, "an unresolved pose has no hurt shape");
+    assert_eq!(rig_pose.hurt_volumes(&rig, Vec2::new(0.0, 8.0)), None, "an unresolved pose has no hurt shape");
     rig.solve("idle", 0, &mut rig_pose.joints);
-    let volumes = rig_pose.hurt_volumes(&rig, 8.0).expect("one part");
+    let volumes = rig_pose.hurt_volumes(&rig, Vec2::new(0.0, 8.0)).expect("one part");
     // The fist is 10 above the feet, and the feet are 8 below the centre.
     assert_eq!(
         volumes[0].shape,
@@ -252,5 +252,5 @@ fn hurt_volumes_are_placed_from_the_feet_as_bounds_of_their_parts() {
     );
     definition.hurt_parts.clear();
     let bare = definition.prepare().unwrap();
-    assert_eq!(rig_pose.hurt_volumes(&bare, 8.0), None);
+    assert_eq!(rig_pose.hurt_volumes(&bare, Vec2::new(0.0, 8.0)), None);
 }

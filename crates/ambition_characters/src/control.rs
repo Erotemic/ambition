@@ -413,8 +413,13 @@ pub struct DrivingParticipant(pub PlayerSlot);
 pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 
 /// A script walks this body to a mark: while it is present, the body's
-/// control is written toward `target.x` at `speed` px/s, and stops within
+/// control is written toward `target` at `speed` px/s, and stops within
 /// `arrive_tolerance`.
+///
+/// The walk is on ONE axis. A body that walks (a `walker` in [`Self::steer`])
+/// walks on the side axis of its own frame: world x in normal gravity, and
+/// the same floor under flipped gravity, where that axis points the other
+/// way. A free mover has no frame here, and is walked on world x.
 ///
 /// One mechanism for every body a script moves. An encounter lures a boss
 /// under a hazard with it (`EncounterEffect::CommandMoveTo`), and a pet walks
@@ -429,9 +434,19 @@ pub struct CommandedMove {
 }
 
 impl CommandedMove {
-    /// Whether a body at `pos` stands on the mark.
+    /// Whether a body at `pos` stands on the mark, on world x: the answer for
+    /// a body that is walked with no frame.
     pub fn arrived(&self, pos: ambition_platformer2d_core::Vec2) -> bool {
-        (self.target.x - pos.x).abs() <= self.arrive_tolerance
+        self.arrived_on(pos, ambition_platformer2d_core::Vec2::X)
+    }
+
+    /// Whether a body at `pos` stands on the mark, on the walk's axis `side`.
+    pub fn arrived_on(
+        &self,
+        pos: ambition_platformer2d_core::Vec2,
+        side: ambition_platformer2d_core::Vec2,
+    ) -> bool {
+        (self.target - pos).dot(side).abs() <= self.arrive_tolerance
     }
 
     /// Write this walk into `control` for a body at `pos` facing `facing`.
@@ -448,21 +463,30 @@ impl CommandedMove {
         walker: Option<(f32, ambition_platformer2d_core::MotionFrame)>,
         control: &mut crate::actor::control::ActorControlFrame,
     ) {
-        let dx = self.target.x - pos.x;
+        // The axis of the walk: the side axis of a walker's own frame, and
+        // world x for a body with no frame.
+        let side = walker.map_or(ambition_platformer2d_core::Vec2::X, |(_, frame)| frame.basis().side);
+        let along = (self.target - pos).dot(side);
         // Turn toward the mark, and not again once there: an arrived body
-        // that overshoots by a pixel does not spin round.
-        control.facing = crate::brain::face_toward(facing, dx, self.arrive_tolerance);
-        let direction = if self.arrived(pos) { 0.0 } else { dx.signum() };
+        // that overshoots by a pixel does not spin round. `facing` is a sign
+        // on the side axis of the body, as `along` is: a sign on world x made
+        // a body under flipped gravity walk to its mark backward.
+        control.facing = crate::brain::face_toward(facing, along, self.arrive_tolerance);
+        let direction = if self.arrived_on(pos, side) { 0.0 } else { along.signum() };
+        // `+ 0.0`: a product with a zero component of the axis can be -0.0,
+        // and the control frame is compared bit for bit.
+        let world = side * (direction * self.speed);
         control.velocity_target =
-            ambition_platformer2d_core::WorldVec2::new(direction * self.speed, 0.0);
-        if let Some((top_speed, frame)) = walker {
+            ambition_platformer2d_core::WorldVec2::new(world.x + 0.0, world.y + 0.0);
+        if let Some((top_speed, _)) = walker {
             let throttle = if top_speed > 1e-3 {
                 (self.speed / top_speed).min(1.0)
             } else {
                 0.0
             };
-            let local = frame.to_local(ambition_platformer2d_core::Vec2::new(direction * throttle, 0.0));
-            control.locomotion = ambition_platformer2d_core::LocalAxes::new(local.x, 0.0);
+            // `direction` is on the side axis of the walker, which is the x of
+            // its own frame.
+            control.locomotion = ambition_platformer2d_core::LocalAxes::new(direction * throttle, 0.0);
         }
     }
 }

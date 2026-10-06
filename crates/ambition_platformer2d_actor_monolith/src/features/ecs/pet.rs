@@ -28,6 +28,13 @@
 //! landmark uses the named fallback: the petted body's front, plus
 //! [`PET_STANDOFF`].
 //!
+//! ⭐ THE PET IS IN THE FRAME OF THE PETTER. The mark, the side of the petted
+//! body and each facing are on the side axis of the petter's own frame, and a
+//! fall is toward its DOWN. In normal gravity that axis is world x. Under
+//! flipped gravity it points the other way: `central_hub_complex` has the
+//! hub's Flip Gravity switch and the basement's dog, and a pet written on
+//! world x turned both bodies away from each other there.
+//!
 //! Whether a character can be petted is authored on its catalog row
 //! (`petting`). The dialogue offers the pet as a choice, so Interact always
 //! talks and the pet does not take the conversation's place.
@@ -129,11 +136,13 @@ const PET_REACH_SLACK: f32 = 16.0;
 pub struct PetBeat {
     /// The body being petted, by live identity.
     pub petted: LiveBodyId,
-    /// Where the petter stands to pet, in world x: where its hand is over the
+    /// Where the petter stands to pet, as a coordinate on the side axis of
+    /// its own frame (world x in normal gravity): where its hand is over the
     /// place the petted body is petted, or the petted body's front for a pair
     /// that publishes no such landmark.
-    pub mark_x: f32,
-    /// The side of the petted body the petter stands on: `1.0` right.
+    pub mark: f32,
+    /// The side of the petted body the petter stands on, as a sign on that
+    /// axis. It is the facing the petted body takes to look at the petter.
     pub side: f32,
     pub stage: PetStage,
 }
@@ -162,18 +171,33 @@ pub struct PetRequested {
     pub petted: LiveBodyId,
 }
 
-/// Pin a body where it stands with no side speed, keeping its fall: the pet
-/// beat holds both bodies, and a held body is pinned by the motion authority,
-/// not by a bare velocity write.
-fn stop_where_it_stands(kinematics: &mut ambition_platformer2d_core::BodyKinematics) {
+/// Pin a body where it stands with no side speed, keeping its fall (its
+/// speed toward `down`): the pet beat holds both bodies, and a held body is
+/// pinned by the motion authority, not by a bare velocity write.
+fn stop_where_it_stands(
+    kinematics: &mut ambition_platformer2d_core::BodyKinematics,
+    down: ambition_platformer2d_core::Vec2,
+) {
     let at = kinematics.pos;
-    let fall = kinematics.vel.y;
-    ambition_platformer2d_core::movement::constrain_body_pose(
-        kinematics,
-        None,
-        at,
-        ambition_platformer2d_core::Vec2::new(0.0, fall),
-    );
+    let fall = down * kinematics.vel.dot(down);
+    ambition_platformer2d_core::movement::constrain_body_pose(kinematics, None, at, fall);
+}
+
+/// The frame a pet is in: the frame of the petter, or normal gravity for a
+/// body that has no frame.
+fn pet_frame(
+    frames: &Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    petter: Entity,
+) -> ambition_platformer2d_core::AccelerationFrame {
+    frames.get(petter).map_or_else(
+        |_| ambition_platformer2d_core::AccelerationFrame::new(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR),
+        |frame| frame.basis(),
+    )
+}
+
+/// The half of a world box on a unit axis.
+fn half_on(half_size: ambition_platformer2d_core::Vec2, axis: ambition_platformer2d_core::Vec2) -> f32 {
+    (half_size.x * axis.x).abs() + (half_size.y * axis.y).abs()
 }
 
 /// Start the pet a conversation asked for: the petter walks to its mark
@@ -200,6 +224,7 @@ pub fn apply_pet_requests(
     rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     landmarks: BodyLandmarks,
+    frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     mut bodies: Query<&mut BodyKinematics>,
 ) {
     for request in requests.read() {
@@ -252,15 +277,28 @@ pub fn apply_pet_requests(
         // The petted body will face the petter, so its head is on the
         // petter's side of its feet, and the hand reaches back across.
         let reach = pet_reach(&landmarks, petter, petted, petting.contact_offset);
-        let petted_x = petted_kin.pos.x;
+        // The frame of the pet. A coordinate "on the side axis" is
+        // `pos.dot(frame.side)`; in normal gravity it is world x.
+        let frame = pet_frame(&frames, petter);
+        let on_side = |pos: ambition_platformer2d_core::Vec2| pos.dot(frame.side);
+        let petted_at = on_side(petted_kin.pos);
         let mark_for = |side: f32| match reach {
-            Some(reach) => petted_x + side * reach,
-            None => aabb.center.x + side * (aabb.half_size.x + petter_kin.size.x * 0.5 + PET_STANDOFF),
+            Some(reach) => petted_at + side * reach,
+            // The petter's own width is on its side axis; the petted body's
+            // published box is on the world axes.
+            None => {
+                on_side(aabb.center)
+                    + side * (half_on(aabb.half_size, frame.side) + petter_kin.size.x * 0.5 + PET_STANDOFF)
+            }
         };
+        // The mark as a place: on the side axis, at the petter's own height.
+        let level = petter_kin.pos.dot(frame.down);
+        let place = |mark: f32| frame.side * mark + frame.down * level;
         let fits = |side: f32| {
+            // The box the petter has, where it will stand.
             let body = ambition_platformer2d_core::Aabb::new(
-                ambition_platformer2d_core::Vec2::new(mark_for(side), petter_kin.pos.y),
-                petter_kin.size * 0.5,
+                place(mark_for(side)),
+                petter_kin.half_oriented(frame.down),
             );
             solids.as_deref().is_none_or(|world| {
                 !world.body_overlaps_any(body, |block| {
@@ -273,7 +311,7 @@ pub fn apply_pet_requests(
                 })
             })
         };
-        let near = if petter_kin.pos.x >= aabb.center.x {
+        let near = if on_side(petter_kin.pos) >= on_side(aabb.center) {
             1.0
         } else {
             -1.0
@@ -287,23 +325,24 @@ pub fn apply_pet_requests(
             );
             continue;
         };
-        // The petted body turns to that side now, and waits there.
+        // The petted body turns to that side now, and waits there. `side` is
+        // a sign on the side axis, as a facing is.
         petted_kin.facing = side;
         // It stops where it stands: the hold blanks its control from the next
         // tick, and a walking dog would otherwise slide off the mark on its
         // momentum. A pin, through the motion authority (ADR 0024).
-        stop_where_it_stands(&mut petted_kin);
-        let mark_x = mark_for(side);
-        let walk = (mark_x - petter_kin.pos.x).abs() / PET_WALK_SPEED;
+        stop_where_it_stands(&mut petted_kin, frame.down);
+        let mark = mark_for(side);
+        let walk = (mark - on_side(petter_kin.pos)).abs() / PET_WALK_SPEED;
         commands.entity(petter).insert((
             CommandedMove {
-                target: ambition_platformer2d_core::Vec2::new(mark_x, petter_kin.pos.y),
+                target: place(mark),
                 speed: PET_WALK_SPEED,
                 arrive_tolerance: PET_ARRIVE_TOLERANCE,
             },
             PetBeat {
                 petted: request.petted.clone(),
-                mark_x,
+                mark,
                 side,
                 stage: PetStage::Walk {
                     remaining: walk + PET_WALK_SLACK_SECONDS,
@@ -331,6 +370,7 @@ pub fn advance_pet_beats(
     pettable: Query<(&CenteredAabb, &ActorInteraction)>,
     mut petters: Query<(Entity, &mut PetBeat)>,
     mut bodies: Query<(&mut BodyKinematics, Option<&BodyCombat>)>,
+    frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     landmarks: BodyLandmarks,
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
@@ -351,10 +391,14 @@ pub fn advance_pet_beats(
         };
         let knocked = petter_combat.is_some_and(BodyCombat::is_knocked)
             || petted_combat.is_some_and(BodyCombat::is_knocked);
+        // The frame of the pet: the mark and the side of the beat are on its
+        // side axis.
+        let frame = pet_frame(&frames, petter);
+        let off_the_mark = (petter_kin.pos.dot(frame.side) - beat.mark).abs();
         match beat.stage {
             PetStage::Walk { remaining } => {
                 let remaining = remaining - dt;
-                let arrived = (petter_kin.pos.x - beat.mark_x).abs() <= PET_ARRIVE_TOLERANCE;
+                let arrived = off_the_mark <= PET_ARRIVE_TOLERANCE;
                 if knocked || (!arrived && remaining <= 0.0) {
                     end_pet_beat(&mut commands, petter);
                     continue;
@@ -380,8 +424,8 @@ pub fn advance_pet_beats(
                 commands.entity(petter).remove::<CommandedMove>();
                 petter_kin.facing = -beat.side;
                 petted_kin.facing = beat.side;
-                stop_where_it_stands(&mut petter_kin);
-                stop_where_it_stands(&mut petted_kin);
+                stop_where_it_stands(&mut petter_kin, frame.down);
+                stop_where_it_stands(&mut petted_kin, frame.down);
                 beat.stage = PetStage::Gesture {
                     remaining: PET_SECONDS,
                 };
@@ -396,24 +440,22 @@ pub fn advance_pet_beats(
                 let head = petted
                     .and_then(|petted| petted_head(&landmarks, petted))
                     .map(|head| {
-                        let down = ambition_platformer2d_core::DEFAULT_GRAVITY_DIR;
-                        ambition_combat::body_landmarks::feet_of(&petted_kin, down)
-                            + ambition_combat::body_rig::BodyRigPose::to_body(head, petted_kin.facing, down)
+                        ambition_combat::body_landmarks::feet_of(&petted_kin, frame.down)
+                            + ambition_combat::body_rig::BodyRigPose::to_body(head, petted_kin.facing, frame.down)
                     });
                 vfx.for_room(rooms.of(petter)).write(VfxMessage::Hearts {
+                    // The top of the petted body's front: toward the petter on
+                    // the side axis, and against its DOWN.
                     pos: head.unwrap_or(
-                        center.center
-                            + ambition_platformer2d_core::Vec2::new(
-                                beat.side * center.half_size.x,
-                                -center.half_size.y,
-                            ),
+                        center.center + frame.side * (beat.side * half_on(center.half_size, frame.side))
+                            - frame.down * half_on(center.half_size, frame.down),
                     ),
                     count: 5,
                 });
             }
             PetStage::Gesture { remaining } => {
                 let remaining = remaining - dt;
-                let pushed_off = (petter_kin.pos.x - beat.mark_x).abs() > PET_REACH_SLACK;
+                let pushed_off = off_the_mark > PET_REACH_SLACK;
                 if knocked || pushed_off || remaining <= 0.0 {
                     end_pet_beat(&mut commands, petter);
                 } else {

@@ -638,3 +638,39 @@ fn two_driven_bodies_each_regenerate_their_own_mana() {
         );
     }
 }
+
+/// A walk to a mark is on the side axis of the walker, and so is the facing
+/// the walk gives it.
+///
+/// The control is normal gravity. The subject is flipped gravity, where the
+/// side axis points to world -x. A mark at world +x is then on the NEGATIVE
+/// side of the body: its throttle and its facing are both -1. A facing that
+/// was the sign of world x was +1 there, and the body walked to its mark
+/// backward. The speed a free mover reads stays toward the mark in the world.
+#[test]
+fn a_commanded_walk_faces_its_mark_on_the_side_axis_of_the_walker() {
+    use ambition_characters::control::CommandedMove;
+
+    let walk = CommandedMove {
+        target: ae::Vec2::new(200.0, 50.0),
+        speed: 60.0,
+        arrive_tolerance: 2.0,
+    };
+    for (down, throttle_and_facing) in [(ae::Vec2::new(0.0, 1.0), 1.0), (ae::Vec2::new(0.0, -1.0), -1.0)] {
+        let mut control = ambition_characters::actor::control::ActorControlFrame::default();
+        // The body looks away from the mark at the start.
+        let looks_away = -throttle_and_facing;
+        walk.steer(
+            ae::Vec2::new(100.0, 50.0),
+            looks_away,
+            Some((120.0, ae::MotionFrame::from_direction(down, 900.0))),
+            &mut control,
+        );
+        assert_eq!(
+            (control.locomotion.x, control.facing),
+            (0.5 * throttle_and_facing, throttle_and_facing),
+            "down {down:?}: the throttle and the facing of the walk"
+        );
+        assert_eq!(control.velocity_target, ae::WorldVec2::new(60.0, 0.0), "down {down:?}");
+    }
+}

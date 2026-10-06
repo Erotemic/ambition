@@ -2713,7 +2713,7 @@ neighbours, and no class but the first was measured.
 | a second WRITE of the published footprint | 4 | 0 | `ambition_mount` (3), the Gnu-ton conductor | yes. BUILT, see below |
 | world and reach tests of a body | 16 | 0 | loading zones and reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `breakables.rs`, the portal gun pickup, `safe_position.rs`, the rider against solids (`ambition_mount`), the pickup of a ground item (`ambition_held_items/src/lib.rs`) | yes. BUILT, see below |
 | arrival and fit checks of a traversal | 4 | 0 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (the arrival) | yes. BUILT, see below |
-| a procedure written in world axes | 2 | 2 | the candidates of a teleport's ambush (`teleport.rs`, `ambush_arrival`), the fit of the petter at its mark (`pet.rs`) | yes, and NOT by this rule. The ambush is BUILT (the procedure is in the frame of the teleporter, and its line stays: the half is on the body's own axes). The petting mark is a DEFECT, see below |
+| a procedure written in world axes | 2 | 1 | the candidates of a teleport's ambush (`teleport.rs`, `ambush_arrival`), the fit of the petter at its mark (`pet.rs`) | yes, and NOT by this rule. BUILT, see below: each procedure is in the frame of its body. The line of the ambush stays (the half is on the body's own axes); the line of the pet is gone |
 | portals: the carve and the eviction of a body | 3 | 0 | `ambition_portal2d` `transit.rs` (the carve), `eviction.rs` (2) | yes. BUILT, see below |
 | portals: read line by line, and not a level-box read of a body | 6 | 6 | the gravity lookup of the transit (`transit.rs`: the guard has it with the gravity lookups), a shot's portal transit (the guard has it with the shots), the reach of the portal viewer (the host adapter: the LENGTH of the half only), two draws in `ambition_portal2d_presentation` (they read `PortalBodyView`, a published view whose local name is `kin`), and the test literal | no, each with its reason in the baseline of the guard |
 | what a brain sees of a body | 2 | 2 | `perception.rs` (`half_extent` of the viewer and of a peer) | NO, read 2026-10-06: the half is in the body's own frame, and its readers have a frame. See "Rejected" below |
@@ -2730,9 +2730,10 @@ world-and-reach class; it is a gravity lookup, and the table above has it
 there (16 and 3, not 17 and 2). The first sort also put the two world-axis
 procedures in the traversal class (6); they are a class of their own (4 and
 2). The search finds 44 lines on 2026-10-06 after the classes that are
-built (the guard counts 41 of them: it leaves out the 2 comment lines and the
-test literal). Every line the guard counts now has a reason or the
-name DEFECT; no class is left "to convert".
+built (the guard counts 40 of them: it leaves out the 2 comment lines and the
+test literal, and the line of the pet is gone). Every line the guard counts
+now has a reason; no class is left "to convert" and no line has the name
+DEFECT.
 
 **The transit record, built 2026-10-06 (rollback schema 314 to 315):**
 `transit_body` and `reconcile_transit` have 23 call sites outside tests. Ten
@@ -2866,6 +2867,11 @@ closing speed on the DOWN axis.
   it is given on world x (`support.max.x - me.pos.x`), and `situation.rs`
   takes the retreat sign and the width of the floor from world x. In turned
   gravity they now get the right solid and measure it on the wrong axis.
+  Ruling (Yardrat, 2026-10-06): do not build it now, no shipped road puts a
+  fighter brain in turned gravity. The two roads nobody has read are what
+  would make it live: the developer gravity hotkey pressed in a Smash match,
+  and `AMBITION_ACTOR_BRAIN_PROFILE` (a fighter brain on a body in a room
+  that turns gravity). Read those two before this is called dead code.
 
 **Rejected, do not retry:** to make a READER of the record use the published
 footprint (`CenteredAabb`) when the record is zero-length. The footprint of a
@@ -3021,8 +3027,7 @@ solid was not measured).
 - Not measured: the alarm in the symmetry room of the shipped game, before
   and after.
 
-**A procedure written in world axes (2 lines; the ambush is built, the
-petting mark is NOT):** these two read a level half, and to turn the half
+**A procedure written in world axes (2 lines, both built):** these two read a level half, and to turn the half
 alone is wrong, because every other term of the procedure is a world axis.
 
 - `ambush_arrival` (`teleport.rs`): "behind" the foe was world x
@@ -3040,15 +3045,45 @@ alone is wrong, because every other term of the procedure is a world axis.
   `ninja_dojo`, which do not turn gravity, and on the Smash roster. So the
   fixture is synthetic. The foe is measured in the frame of the teleporter:
   the chooser has no DOWN of a foe.
-- the petting mark (`pet.rs`): the mark is at world x from the petted body
-  (`petted_x + side * reach`) at the y of the petter, and the fit test puts
-  the petter's level box there. Predicted in gravity toward +x (not
-  measured): the mark is off the floor plane, in the air over the petted
-  body or inside the floor, so the fit test refuses the side in the floor
-  and the petter walks to a mark it cannot stand on.
-- The petting mark is in the baseline of the guard under a class named
-  DEFECT, so that "classified" is not read as "right". The fix is to state
-  the procedure in the frame of the body (side axis and DOWN).
+- the petting mark (`pet.rs`): the mark was at world x from the petted body
+  (`petted_x + side * reach`) at the y of the petter, the side of the petted
+  body and both facings were signs of world x, and the fit test put the
+  petter's level box at the mark. BUILT 2026-10-06: the pet is in the frame
+  of the PETTER. The mark (`PetBeat::mark`, was `mark_x`) is a coordinate on
+  its side axis, the side and the facings are signs on that axis, the fit
+  test puts the box the petter has (`half_oriented(down)`) at the mark, a
+  held body keeps its speed toward DOWN, and the hearts are against DOWN.
+  `PetBeat` is a `component-clone` row: the codec shape did not change.
+- The shipped road is FLIPPED gravity, not sideways: only
+  `npc_companion_dog` authors `petting`; the dog is in `hall_of_characters`
+  and in `central_hub_basement`, and `central_hub_complex` is ONE room that
+  has the hub's Flip Gravity switch. A facing is a sign on the side axis of
+  the body, and under flipped gravity that axis points to world -x. Measured
+  in the shipped room before the change
+  (`the_petter_and_the_dog_look_at_each_other_under_flipped_gravity`,
+  `game/ambition_app/tests/companion_dog.rs`): "the petter looks along world
+  x 1 and the dog is at -48.98 from it". Both bodies looked away. The same
+  arm in normal gravity was green before and is the control.
+- The prediction above for gravity toward +x ("the mark is in the air or in
+  the floor") was not measured in a shipped room: no room with sideways
+  gravity has the dog. The synthetic arm
+  (`a_pet_is_in_the_frame_of_the_petter`, `pet/tests.rs`) has the three
+  frames; with the frame poisoned to normal gravity it is red on the flipped
+  frame first ("the dog does not turn to the side the petter is on"), so the
+  sideways frame was not seen red alone.
+- `CommandedMove` (`ambition_characters/src/control.rs`) had the same
+  defect, and the pet could not be right without it: the walk gave the body
+  the facing `sign(world dx)`. The walk of a body with a frame is now on the
+  side axis of that frame, and so is its facing
+  (`a_commanded_walk_faces_its_mark_on_the_side_axis_of_the_walker`, red
+  with the old facing: throttle -0.5, facing +1). The speed a free mover
+  reads is the same world vector as before. A body walked with NO frame (a
+  boss in an encounter script, `steer(.., None, ..)`) is still on world x:
+  `arrived` and its facing. No boss is in a room that turns gravity; this is
+  not converted and not guarded.
+- NOT built: the petted body is measured in the frame of the petter. A
+  petted body in another frame (a gravity zone that holds one of the two)
+  is not handled, as in the ambush.
 
 **The guard, built 2026-10-06:** `scripts/check_level_box_readers.py` runs
 the search above and compares each line with

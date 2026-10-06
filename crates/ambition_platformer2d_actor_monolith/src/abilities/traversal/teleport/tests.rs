@@ -587,10 +587,25 @@ fn teleport_from(
     gravity_dir: ae::Vec2,
     aimed: Option<ae::Vec2>,
 ) -> ae::Vec2 {
+    // No assist: these arms are about the DIRECTION, and a ledge catch would
+    // move the arrival for a second reason.
+    teleport_in(Vec::new(), from, facing, gravity_dir, aimed, 0.0)
+}
+
+/// [`teleport_from`] in a room with `blocks`, with the ledge assist
+/// `ledge_assist`.
+fn teleport_in(
+    blocks: Vec<ae::Block>,
+    from: ae::Vec2,
+    facing: f32,
+    gravity_dir: ae::Vec2,
+    aimed: Option<ae::Vec2>,
+    ledge_assist: f32,
+) -> ae::Vec2 {
     let mut app = bevy::prelude::App::new();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
         app.world_mut(),
-        ambition_platformer2d_core::RoomGeometry(world_with(Vec::new())),
+        ambition_platformer2d_core::RoomGeometry(world_with(blocks)),
     );
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
@@ -621,9 +636,7 @@ fn teleport_from(
                 behind_nearest_foe: false,
                 behind_gap: 0.0,
                 distance: REACH_PX,
-                // No assist and no i-frames: these arms are about the DIRECTION,
-                // and a ledge catch would move the arrival for a second reason.
-                ledge_assist: 0.0,
+                ledge_assist,
                 intangible_s: 0.0,
                 depart_vfx: "four_point_glint".to_string(),
                 arrive_vfx: "four_point_glint".to_string(),
@@ -766,5 +779,50 @@ fn a_teleport_stops_under_a_ceiling_of_its_own_live_room() {
     assert!(
         pos.y - 24.0 >= 75.0 - 1e-3,
         "the body teleported to {pos:?}, through #1's ceiling whose lower side is at y = 75"
+    );
+}
+
+/// Gravity toward world `+x`. The 24x48 body of these arms lies along its
+/// floor: its box is 48 on x and 24 on y.
+const SIDEWAYS: ae::Vec2 = ae::Vec2::new(1.0, 0.0);
+/// The half of the 24x48 body, turned to [`SIDEWAYS`].
+const TURNED_HALF: ae::Vec2 = ae::Vec2::new(24.0, 12.0);
+
+/// The unaimed rise is toward world `-x`. The body is 24 deep on that axis,
+/// not 12: the pull-back from a ceiling must use the half of the box the body
+/// has.
+#[test]
+fn in_sideways_gravity_a_teleport_stops_under_a_ceiling_with_its_own_box() {
+    // The ceiling: its face toward the body is at x = 100.
+    let ceiling = solid("ceiling", ae::Vec2::new(75.0, 300.0), ae::Vec2::new(25.0, 300.0));
+    let pos = teleport_in(vec![ceiling], ae::Vec2::new(300.0, 300.0), 1.0, SIDEWAYS, None, 0.0);
+    assert!(pos.x < 300.0, "the body did not rise: {pos:?}");
+    assert!(
+        pos.x - TURNED_HALF.x >= 100.0 - 1e-3,
+        "the teleport put the body in the ceiling: its box starts at x = {}, the ceiling ends at x = 100",
+        pos.x - TURNED_HALF.x
+    );
+}
+
+/// The ledge assist stands the box of the body on the face of the ledge. The
+/// body is 24 deep toward the ledge, not 12.
+#[test]
+fn in_sideways_gravity_the_ledge_assist_stands_the_bodys_own_box_on_the_ledge() {
+    // A ledge whose face against gravity is at x = 200, and whose lip is at
+    // y = 100.
+    let ledge = solid("ledge", ae::Vec2::new(250.0, 50.0), ae::Vec2::new(50.0, 50.0));
+    // Aimed along the side axis of the body (world -y), the teleport ends at
+    // (220, 130): past the face of the ledge, and beside its lip.
+    let from = ae::Vec2::new(220.0, 130.0 + REACH_PX);
+    let aim = Some(ae::Vec2::new(1.0, 0.0));
+    let unassisted = teleport_in(vec![ledge.clone()], from, 1.0, SIDEWAYS, aim, 0.0);
+    assert_eq!(unassisted, ae::Vec2::new(220.0, 130.0), "premise: the arrival with no assist");
+    let pos = teleport_in(vec![ledge], from, 1.0, SIDEWAYS, aim, 60.0);
+    assert!((pos.y - 100.0).abs() < 1e-3, "the assist puts the body over the lip: {pos:?}");
+    assert!(
+        (pos.x - (200.0 - TURNED_HALF.x)).abs() < 1e-3,
+        "the body lies along the ledge, so its centre is {} from the face; it is at x = {}",
+        TURNED_HALF.x,
+        pos.x
     );
 }

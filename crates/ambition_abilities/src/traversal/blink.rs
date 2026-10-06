@@ -147,7 +147,9 @@ pub fn blink_system(
         }
         let mut clusters = cluster_item.as_clusters_mut();
         let from = clusters.kinematics.pos;
-        let half = clusters.kinematics.size * 0.5;
+        // The box the body has: turned to the DOWN of its resolved frame, as
+        // the kernel turns it for the step.
+        let half = clusters.kinematics.half_oriented(gravity_dir);
         // One collision view (moving platforms and ECS solids included) for
         // the clamp raycast and the embed check in `blink_target`: the walls
         // of the body's own live room, not of "the" room.

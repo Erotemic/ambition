@@ -246,8 +246,10 @@ frame height and the frame durations. It does not cover atlas packing.
   the body's row has it on that tick.
 - A mirror row (`<row>~mirrored`) is not read: a body that faces the other
   way mirrors the row's points about its feet.
-- A package clip wraps on the body's own clock: the table does not say which
-  rows hold their last frame.
+- A package clip loops or holds as its row does (`LandmarkClip::looping`,
+  from the animator's rule for the row name, `row_loops`). No published file
+  states which rows loop: the animator has a code table and each rig states
+  its own bit, and they disagree on five rows (queue row LANDMARK-CLIP-TIME).
 - A body that states no drawn scale (the legacy `collision_scale` render
   path) has no package answer.
 - A posed body whose pose rectangle is not centred on its feet pixel is drawn

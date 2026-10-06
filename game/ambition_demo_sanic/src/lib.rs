@@ -251,6 +251,7 @@ pub fn sanic_speedway() -> RoomSpec {
             ),
         )
     }));
+    monitors::dress_monitors(&mut room);
     room
 }
 
@@ -286,6 +287,7 @@ pub fn sanic_highway() -> RoomSpec {
             ambition_platformer2d::world::debug_label::DebugLabelKind::Custom,
         ),
     )];
+    monitors::dress_monitors(&mut room);
     room
 }
 
@@ -315,6 +317,7 @@ pub fn sanic_darkness() -> RoomSpec {
             ambition_platformer2d::world::debug_label::DebugLabelKind::Custom,
         ),
     )];
+    monitors::dress_monitors(&mut room);
     room
 }
 
@@ -387,6 +390,20 @@ pub fn install_sanic_content(app: &mut App) {
                 tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 2),
             },
         );
+        // The monitors' boxes (`monitors::dress_monitors` lays them over the
+        // blocks), and the look that follows each monitor's state.
+        for kind in [monitors::SPEED_BOX_SPRITE, monitors::RING_BOX_SPRITE] {
+            app.register_prop_sheet(
+                kind,
+                PropSheetSource::SpriteFolder {
+                    target: kind.to_string(),
+                    tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
+                },
+            );
+        }
+        // Presentation reads sim state and writes render components, in
+        // `Update` (Mary-O's `dress_power_blocks` says why not in the sim).
+        app.add_systems(bevy::prelude::Update, monitors::dress_monitor_boxes);
     }
 
     // Sanic's mutable sim state joins the rollback contract here, before

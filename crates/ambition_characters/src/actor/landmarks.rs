@@ -101,18 +101,28 @@ pub type LandmarkFrame = [Option<Vec2>; Landmark::ALL.len()];
 /// One clip of a [`BodyLandmarkTable`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct LandmarkClip {
+    /// The art of this row loops. A row that does not loop holds its last
+    /// frame, as the sprite and a rig clip do
+    /// ([`super::body_rig::RigClip::looping`]). The source of the table states
+    /// it: the query that reads the table infers nothing.
+    pub looping: bool,
     pub frame_duration_s: f32,
     pub frames: Vec<LandmarkFrame>,
 }
 
 impl LandmarkClip {
     /// The frame a body shows `elapsed_s` seconds into this clip on its own
-    /// clock. The clip wraps: a package table does not say which rows hold
-    /// their last frame.
+    /// clock. A looping clip wraps; a one-shot holds its last frame: the rule
+    /// of [`super::body_rig::RigClip::frame_at_time`].
     pub fn frame_at_time(&self, elapsed_s: f32) -> usize {
         let count = self.frames.len().max(1);
         let index = (elapsed_s.max(0.0) / self.frame_duration_s).floor();
-        (if index.is_finite() { index as usize } else { 0 }) % count
+        let index = if index.is_finite() { index as usize } else { 0 };
+        if self.looping {
+            index % count
+        } else {
+            index.min(count - 1)
+        }
     }
 
     /// The frame shown at normalized progress `phase` in `[0, 1]`: the rule a
@@ -177,6 +187,7 @@ mod tests {
             clips: BTreeMap::from([(
                 "pet".to_string(),
                 LandmarkClip {
+                    looping: true,
                     frame_duration_s: 0.5,
                     frames: vec![frame(1.0), frame(2.0), frame(3.0), frame(4.0)],
                 },
@@ -203,9 +214,17 @@ mod tests {
         // The end of the clip holds the last frame.
         assert_eq!(x(1.0), Some(4.0));
         let clip = table.clip("pet").expect("the clip");
-        // A body's own clock wraps.
+        // A body's own clock wraps a looping clip.
         assert_eq!(clip.frame_at_time(2.25), 0);
         assert_eq!(clip.frame_at_time(0.75), 1);
+        // A one-shot holds its last frame, as a rig clip does.
+        let held = LandmarkClip {
+            looping: false,
+            ..clip.clone()
+        };
+        assert_eq!(held.frame_at_time(0.75), 1);
+        assert_eq!(held.frame_at_time(2.25), 3);
+        assert_eq!(held.frame_at_time(1.0e9), 3);
     }
 
     #[test]

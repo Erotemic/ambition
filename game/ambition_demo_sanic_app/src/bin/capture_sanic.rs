@@ -15,8 +15,12 @@
 //!
 //! ```text
 //! cargo run -p ambition_demo_sanic_app --features visible --bin capture_sanic \
-//!     -- OUT.png [WIDTHxHEIGHT] [--warmup N] [--walk N] [--act N] [--no-ui]
+//!     -- OUT.png [WIDTHxHEIGHT] [--warmup N] [--walk N] [--act N] [--at X,Y] [--no-ui]
 //! ```
+//!
+//! `--at X,Y` stands Sanic at a world point (sim units, +y down) once the
+//! cameras are drawing, so the follow camera frames that place: a monitor at
+//! x 4650 is a long walk.
 
 use std::path::PathBuf;
 
@@ -51,6 +55,7 @@ fn main() {
     let mut include_ui = true;
     let mut walk = 0u32;
     let mut center_subject = false;
+    let mut at = None;
 
     let mut positional_seen = false;
     while let Some(arg) = args.next() {
@@ -73,6 +78,16 @@ fn main() {
                     .and_then(|v| v.parse().ok())
                     .unwrap_or_else(|| fail("--act needs an act number"));
                 ambition_demo_sanic::provider::start_at_act(act).unwrap_or_else(|e| fail(&e));
+            }
+            "--at" => {
+                at = args
+                    .next()
+                    .and_then(|v| {
+                        let (x, y) = v.split_once(',')?;
+                        Some(Vec2::new(x.parse().ok()?, y.parse().ok()?))
+                    })
+                    .map(Some)
+                    .unwrap_or_else(|| fail("--at needs X,Y"));
             }
             "--no-ui" => include_ui = false,
             "--center-subject" => center_subject = true,
@@ -126,6 +141,9 @@ fn main() {
         settle: 1,
     });
     app.insert_resource(CenterSubject(center_subject));
+    app.insert_resource(StandAt(at));
+    let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(&mut app);
+    app.add_systems(sim, stand_the_subject_at);
     app.add_systems(Startup, setup_capture_target);
     // ⭐ AFTER the gameplay camera resolver, not before it. The capture chain
     // below runs `.before(InputSet::Collect)` in `Update`, which is upstream of
@@ -156,6 +174,46 @@ fn main() {
             .before(ambition_platformer2d::input::InputSet::Collect),
     );
     app.run();
+}
+
+/// Where `--at` stands Sanic; taken once he is.
+#[derive(Resource)]
+struct StandAt(Option<Vec2>);
+
+/// Stand the player at `--at` once something is drawing (the room is built by
+/// then), at rest. A transit, like any teleport: a rider lets go of its
+/// surface and falls from there onto whatever is below. In the simulation
+/// schedule, where pose writes belong.
+fn stand_the_subject_at(
+    target: Option<Res<CaptureTarget>>,
+    mut at: ResMut<StandAt>,
+    mut players: Query<
+        (
+            ambition_platformer2d::engine_core::BodyClusterQueryData,
+            &mut ambition_platformer2d::engine_core::MotionModel,
+        ),
+        With<ambition_platformer2d::platformer::markers::PlayerEntity>,
+    >,
+) {
+    if target.is_none_or(|target| target.adopted == 0) {
+        return;
+    }
+    let Some(point) = at.0 else {
+        return;
+    };
+    let mut placed = false;
+    for (mut clusters, mut model) in &mut players {
+        ambition_platformer2d::engine_core::movement::transit_body(
+            &mut model,
+            &mut clusters.as_clusters_mut(),
+            ambition_platformer2d::engine_core::Vec2::new(point.x, point.y),
+            ambition_platformer2d::engine_core::movement::TransitVelocity::Zero,
+        );
+        placed = true;
+    }
+    if placed {
+        at.0 = None;
+    }
 }
 
 /// Count the world in, then ask for the picture.

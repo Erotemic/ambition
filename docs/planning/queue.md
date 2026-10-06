@@ -2384,11 +2384,138 @@ measured for the same reason. No held-item unit test pinned the fixed hand
 that holds a bomb) holds its weapon at the fixed hand, because it states no
 art scale. The named limits are in the plan.
 
+**Review 2026-10-05:** two findings are rows of their own:
+LANDMARK-CLIP-TIME (a package clip always wraps; do it before another
+consumer reads the query) and MOUNT-SEAT-LANDMARK (the shark's saddle is a
+copied number). The seat art-scale step waits behind the first.
+
 **Acceptance:** ✅ one landmark query, answered by the rig or the package; ✅
 the pet hand meets the petted body's authored contact point; ✅ the player's
 shot leaves the hand; ✅ the three track families answer; ✅ a hand weapon,
 a held item and the prop over the hand read one hand. Open: a match seat
 states its art scale.
+
+### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
+
+**Owner:** `ambition_sprite_sheet` (`baked_landmarks`) and
+`ambition_characters::actor::landmarks`. Part of RIG-LANDMARKS. Review of
+2026-10-05, finding 3.
+
+**Current failure (read 2026-10-05):** three sources answer one landmark
+question and they keep time in three ways. A rig clip states `looping` and
+holds the last frame of a one-shot (`RigClip::frame_at_time`). The visual
+animator holds a row whose pose is in a code table
+(`ambition_sprite_sheet::character::non_looping`), and holds every row a move
+asks for by name. The package landmark clip (`LandmarkClip::frame_at_time`)
+always wraps, and its published schema has no loop statement. So after a
+one-shot row ends, the sprite and the rig hold the last frame and the package
+landmark goes back to frame 0: a hand or a head jumps while the art does not.
+The pet reads this query, and so do the shots and the held items.
+
+**Built 2026-10-05:** `LandmarkClip` carries `looping`, and
+`LandmarkClip::frame_at_time` holds a one-shot on its last frame, as
+`RigClip::frame_at_time` does. The table's source states the bit from the one
+rule the animator uses for a row name
+(`ambition_sprite_sheet::character::row_loops`); the query (`BodyLandmarks`)
+infers nothing. Witnesses: the real `CharacterAnimator` against the table of
+`player_robot_v3`, 2.3 clip lengths in, for `idle` (loops) and `shoot`
+(holds): before the change the table was on frame 2 while the sprite held
+frame 5 (`a_landmark_clip_loops_or_holds_as_the_animator_shows_its_row`); and
+a rig against a table of the same clips, for a looping and a one-shot clip
+(`a_rig_and_a_package_keep_one_time_for_a_looping_and_a_one_shot_clip`).
+
+**Open, measured 2026-10-05:** the rigs and the animator do not agree with
+each other. No published sheet states which rows loop. Each rig target states
+it by hand (Mary-O: `idle`, `walk`, `climb`, `swim`, `crouch_walk` loop; every
+other row holds), and the animator's code table loops five rows that the
+eight published rigs hold: `crouch`, `crouch_jump`, `jump`, `skid`, `taunt`
+(`the_rows_a_rig_and_the_animator_time_differently_are_these` holds the set).
+A rig is not admitted in a shipping game, so no player sees this today. The
+repair is ONE loop statement for each row, published in the sheet, which the
+animator, the rig and the landmark table all read; then the code table and
+the rig's own bit go. The renderer owns the publish (Toothbrush), and every
+sheet is published again.
+
+**Named limits:** the bit is of the row and not of the pose. The animator
+times a pose by the pose it was asked for, so a one-shot pose that falls back
+to a looping row (a `hurt` pose on a sheet with no `hurt` row shows `idle`)
+is held by the animator and wrapped by the table and by a rig. The bit is set
+when the table is decoded, from code, so the landmark digest does not hold
+it: two builds of one revision agree.
+
+**Acceptance:** ✅ for a looping row and for a one-shot row, more than one
+duration in, the package frame is the frame the animator shows; ✅ the rows on
+which the rig and the animator disagree are a named, counted set that a test
+holds. Open: one published loop statement.
+
+### MOUNT-SEAT-LANDMARK — a mount's seat is the saddle its art states
+
+**Owner:** `ambition_mount` and the landmark query; the renderer for the
+publish (Toothbrush). Part of RIG-LANDMARKS. Review of 2026-10-05, finding 6.
+
+**Current failure (read 2026-10-05):** the shark's catalog row holds
+`saddle: Some((28.4, -10.2))`, a number measured from the art's `saddle`
+socket and typed into the gameplay catalog (`d1589237c`). The art moved once
+and the number did not, which seated the rider off the saddle. A second
+redraw repeats it. The socket itself is placed by hand in the renderer target
+(`burning_flying_shark.py`, `_px(396.0, 152.0)`), is a rest-pose point in
+`<target>_actor.ron`, and is not a track of the part flipbook: it does not
+move with the fly or bob frames (Toothbrush, measured 2026-10-05).
+
+**The fix:** gameplay names the seat as a landmark and the art package
+supplies its place for each pose: a `saddle` track in the part flipbook,
+projected into the landmark table as `head` is. An authored seat stays for a
+mount whose art publishes none, as the named fallback. Do not write an
+importer for the shark alone.
+
+**Blocked on:** the renderer publishing the `saddle` track (Toothbrush).
+
+**Acceptance:** the shark's row holds no saddle number; a redraw that moves
+the saddle moves the rider with no gameplay edit; a mount with no published
+saddle still seats its rider at its authored seat.
+
+### CRAWLER-HAZARD-FOOTPRINT — a body tests hazards with the footprint it collides with
+
+**Owner:** the movement kernel
+(`crates/ambition_platformer2d_core`, `movement/kernel.rs`). Review of
+2026-10-05, finding 4. Not started; not yet claimed.
+
+**Current failure (reported 2026-10-05, not yet reproduced here):** an
+adhesive crawler collides with its gravity-oriented footprint
+(`BodyKinematics::aabb_oriented(gravity_dir)`: a 48 by 22 body on a wall is 22
+by 48). The hazard gate does not: `write_sweep_sample` writes
+`kinematics.size * 0.5` as the half extent, and the endpoint hazard arm asks
+`kinematics.aabb()`. So the kernel can hold a crawler flush against a wall
+and then ask whether a body of another shape met a hazard: a death that
+should not happen, or a missed one.
+
+**The fix:** the sweep sample's half extent is the footprint the movement step
+used, from the resolved `MotionFrame`, and the endpoint and the swept hazard
+tests answer from it. Not `if crawler { swap }`.
+
+**Acceptance:** with a crawler that is not square and a narrow hazard where
+48 by 22 and 22 by 48 give opposite answers, the endpoint overlap and the
+swept crossing each give the answer of the oriented footprint.
+
+### CALIBRATION-LAB-SHOT — a shot born at chest height in the calibration lab is gone on its first tick
+
+**Owner:** unknown. Found 2026-10-05 while measuring RIG-LANDMARKS packet C.
+
+**Current failure (measured once):** in `combat_calibration_lab`, a hostile
+raider built 160 to the right of the player's start fires its gun-sword. With
+the shot born 26.6 ahead of the raider's centre and 2.4 above it (26.4 above
+its feet), the spawn request is made and no projectile exists on any of the
+next six ticks. Born 18.4 ahead and 14.0 below the centre (10.0 above its
+feet), the same shot flies 14 ticks and hits the player. In `mockingbird_arena`
+and `proving_grounds` both shots fly. Cause not found: one check was made,
+and the fixture moved to `mockingbird_arena`.
+
+**To reproduce:** `a_hand_muzzle_fires_from_the_drawn_hand.rs`, the raider
+arm, with the room changed to `combat_calibration_lab` and the landmark
+answer in `holding_hand_world` replaced by none (the fixed hand).
+
+**Acceptance:** the cause is named. It is a defect of the room, of the spawn
+of a shot that overlaps something, or of the instrument.
 
 ### RIG-IMPOSTOR-CONTAINMENT — a part-drawn body is drawn whole or refused
 

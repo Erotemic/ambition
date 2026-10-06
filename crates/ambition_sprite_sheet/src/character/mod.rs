@@ -17,7 +17,7 @@ pub mod landmarks_published;
 pub mod rigged;
 pub mod sheets;
 
-pub use anim::{non_looping, ActorAnimOverride, CharacterAnim, PinnedRow};
+pub use anim::{non_looping, row_loops, ActorAnimOverride, CharacterAnim, PinnedRow};
 pub use animator::{CharacterAnimator, RenderBasis};
 pub use color_shift::CharacterColorShift;
 pub use assets::{CharacterSheetState, CharacterSpriteAssets};

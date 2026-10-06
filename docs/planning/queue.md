@@ -2632,24 +2632,91 @@ arms, and a cardinal control that was green before and after.
 **Open, read 2026-10-05, not built:**
 - A transit collapses the record to a zero-length sample with the level half
   (`movement/authority.rs`, `reconcile_transit`), and it has no frame to turn
-  the box with. The two boxes differ only in sideways gravity, and only for
-  the readers of that tick.
+  the box with. Measured by reading 2026-10-06 and moved to
+  LEVEL-BOX-READERS below, where it is one member of a family.
 - Water is not gravity-covariant in a second way. `World::water_at` states the
   surface as the world top of the region (`surface_y`) and measures the
   submersion on world y, so in sideways gravity the surface of a pool is not
   the face that is against gravity. The box that TOUCHES the water is now the
   box of the step; what the surface of a region is, in a room whose gravity is
-  not down, is a design decision.
+  not down, is a design decision:
+  [Q160](awaiting-maintainer-decision.md#q160--water-in-a-room-whose-gravity-is-not-down-where-is-the-surface-of-a-pool-and-does-a-body-that-is-not-axis-swept-get-wet).
 - The axis arm is the only writer of `BodyEnvironmentContact` outside tests
   (searched in `crates` and `game`, 2026-10-06). So a slug or a momentum body
   is in no water and on no ladder, and it does not drown. Not measured in a
-  composed room.
+  composed room. Whether it should is the second half of Q160.
 - The actor view derives a surface walker's draw size by the inverse of the
   rule (`ambition_sim_view/src/view_index.rs`: it swaps the published
   footprint back when `surface_normal.x.abs() > surface_normal.y.abs()`). The
   inverse is exact for a cardinal normal only: for any other normal the
   footprint is a bound of the turned box, and the raw size is not in it. The
   raw size is `BodyKinematics::size`. Read 2026-10-06, not measured.
+
+### LEVEL-BOX-READERS — a reader of a body's box outside the kernel asks the level box
+
+**Owner:** each reader's crate; the rule is the movement kernel's
+(`crates/ambition_platformer2d_core`). Filed 2026-10-06 from
+CRAWLER-HAZARD-FOOTPRINT.
+
+**The rule:** a body that is not square has one box, and it is turned to the
+DOWN of the body: the published footprint (`CenteredAabb`, written by
+`ambition_combat::body_geometry::publish_body_footprint`) or
+`BodyKinematics::aabb_oriented` with that DOWN. `BodyKinematics::aabb` and
+`size * 0.5` are the LEVEL box. The level box is right for a body with no
+frame of its own (a shot), for a reader that needs the centre only, and in a
+game that has no turned gravity. For any other reader it is a second statement
+that is equal to the rule in normal gravity and wrong in a room whose gravity
+is turned (the symmetry room of the main game has such arms).
+
+**Current failure (read, not measured, except where a row says so):** a
+pattern search of `crates` and `game` outside tests, 2026-10-06
+(`(kinematics|kin|body).aabb()`, `(kinematics|kin).size * 0.5`,
+`(kinematics|kin).size / 2`), finds 78 lines in 19 crates. This is a LOWER
+bound: a reader that names the box another way is not in it. It is not a
+count of defects: the classes below were sorted by the line and its
+neighbours, and no class but the first was measured.
+
+| class | lines | where | a footprint question? |
+| --- | --- | --- | --- |
+| the transit record | 1 | `movement/authority.rs` (`reconcile_transit`) | yes, see the cost below |
+| world and reach tests of a body | 17 | loading zones and interaction reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `ambition_held_items` (2), `breakables.rs`, the portal inventory adapter, `safe_position.rs`, the rider against solids (`ambition_mount`) | yes |
+| arrival and fit checks of a traversal | 6 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (2), the petting stand-off (`pet.rs`) | yes |
+| portals | 9 | `ambition_portal2d` `transit.rs` (3) and `eviction.rs` (2), the host adapter, a shot's portal transit, two draws in `ambition_portal2d_presentation` | yes for a body; not read line by line |
+| a second WRITE of the published footprint | 4 | `ambition_mount` (3: the rider's footprint while it rides and when it gets off), the Gnu-ton conductor | yes: it writes the level half into the value the rule publishes |
+| what a brain sees of a peer | 2 | `perception.rs` (`half_extent`) | yes |
+| a shot | 12 | `projectile/systems.rs` (4), `projectile/collision.rs`, `projectile/body.rs` (6, 2 of them comments), `clash.rs` | no: a shot is a free body with no support and no stance, and its size is its box |
+| the gravity of a body | 2 | `gravity/resolve.rs` | no: this box is what resolves the frame, so the frame cannot turn it |
+| the centre only | 3 | `avatar/trail.rs`, `target_volumes.rs`, the boss extension | no: the centre of the two boxes is the same |
+| developer trace and overlay | 8 | `dev/trace` (6), the app's debug overlay (2) | not for the game. An overlay that draws the level box of a turned body shows a box the body does not have |
+| a game with no turned gravity | 10 | Mary-O (4), Smash (4), Sanic (2) | no, until one of those games turns gravity |
+| the camera's framing bounds | 1 | `camera_snapshot.rs` | no: a bound of what to frame, not a contact |
+| inside the kernel | 3 | `player_state.rs` (turned by the frame on the same line), the crawler arm (2, it states its own DOWN) | no |
+
+**The cost of the transit record, measured by reading:** `transit_body` and
+`reconcile_transit` have 23 call sites outside tests. Ten are tools, captures,
+the harness and the developer runtime, and one is Mary-O's pipe. Twelve run in
+the main game (blink, dive, mark and recall, a portal transit, a teleport, a
+trapdoor, possession, a checkpoint restore, the sandbox reset, and the body
+reset), so a transit can happen in turned gravity. The record has two readers
+outside tests: the ECS hazard test (`ambition_combat/src/hazards.rs`,
+`body_touches`) and the loading zones (`world/rooms/systems.rs`). The window
+is one tick: the next kernel step writes the record again with the box it
+moved. In that tick the path is zero-length, so the only wrong answer is an
+overlap of the level box that the turned box does not have: a hazard or a
+door beside the body, nearer than the long half minus the short half of the
+body (9 for the 30 by 48 player). No frame is threaded through the 23 call
+sites for that: the two readers are converted in the first class instead.
+Each of the two readers also has a level-box answer of its own for a body
+with no record.
+
+**To reproduce (first slice):** in the symmetry room's turned gravity, a
+loading zone and an ECS hazard beside a body that is not square, nearer than
+the long half minus the short half and not touching its footprint. Each must
+be written and seen to fail before a reader is changed.
+
+**Acceptance:** each class marked "yes" has a failing arm in turned gravity,
+then asks the rule, one class per change; a class marked "no" keeps its one
+line of reason here; the pattern search is run again and the table matches it.
 
 ### CALIBRATION-LAB-SHOT — a shot born at chest height in the calibration lab is gone on its first tick
 

@@ -2081,3 +2081,19 @@ fn a_settled_item_rides_the_platform_of_its_own_live_room() {
     assert!(app.world().get::<SettledItem>(item).is_some(), "the item in #1 woke: it found no support");
     assert_eq!(x, 220.0, "the item in #1 did not ride its platform");
 }
+
+/// A holder whose rig or art answers holds its item in that hand. A holder
+/// with no answer holds it at the fixed hand offset: the named fallback, and
+/// not the body centre.
+#[test]
+fn a_held_thing_is_in_the_answered_hand_else_at_the_fixed_hand() {
+    let mut kin = BodyKinematics::default();
+    kin.pos = Vec2::new(100.0, 200.0);
+    kin.size = Vec2::new(20.0, 48.0);
+    kin.facing = -1.0;
+    let answered = Vec2::new(96.0, 216.0);
+    assert_eq!(hand_or_fixed(Some(answered), &kin, Vec2::Y), answered);
+    let fixed = hand_or_fixed(None, &kin, Vec2::Y);
+    assert_eq!(fixed, ambition_mount::rider_hand_world_pos(kin.pos, kin.facing, kin.size.y));
+    assert_ne!(fixed, kin.pos);
+}

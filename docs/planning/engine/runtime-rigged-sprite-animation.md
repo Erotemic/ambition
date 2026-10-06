@@ -181,8 +181,9 @@ landmark is a named fallback the consumer states, not a silent offset.
 
 | Interaction | Source today | Landmark it wants |
 | --- | --- | --- |
-| Action shot (`Discharge::muzzle`) | `Muzzle::{BodyOrigin, Hand { ahead }, Offset { x, y }}` (`action_set/mod.rs`); `Hand` uses the rig hand only when the body has a rig | muzzle, or hand + move offset |
-| Rider's hand without a rig | `HAND_OFFSET_NORM` × rider height (`ambition_mount/src/lib.rs`, `rider_hand_world_pos_in_frame`) | hand |
+| Action shot (`Discharge::muzzle`) | ✅ 2026-10-05: `Muzzle::Hand { ahead }` fires `ahead` past the hand the landmark query answers on that tick (`ambition_held_items::holding_hand_world`). `BodyOrigin` and `Offset { x, y }` are authored and read no hand (`action_set/mod.rs`) | done for `Hand` |
+| Held item place, and the prop drawn over the hand | ✅ 2026-10-05: the same `holding_hand_world` (`ItemWorldPos`; `rebuild_hostile_wielded_items_view`), so a bomb bursts, a prop is drawn and a shot leaves at one hand | done |
+| A holder with no answer | `HAND_OFFSET_NORM` × body height (`ambition_mount/src/lib.rs`, `rider_hand_world_pos_in_frame`): the named fallback of `holding_hand_world`, for a body that publishes no hand or states no art scale | hand |
 | Player fireball | ✅ 2026-10-05: the landmark query. The shot is born with its rear edge at the hand of the `shoot` row (`projectile/systems.rs`, `player_projectile_hand_local_offset`), lifted clear of the feet line. The box edge plus `PLAYER_PROJECTILE_MUZZLE_CLEARANCE` is the named fallback for a body that publishes no hand | done; the reach it costs is [Q158](../awaiting-maintainer-decision.md#q158--the-fireball-now-leaves-the-hand-at-knee-height-and-reaches-30-less-accept-retune-or-except) |
 | Pet ("pet the dog") | ✅ 2026-10-05: the landmark query. The petter stands where its near hand, in the `pet` row, is on the petted body's head, in the `petted` row, plus the offset its catalog row authors (`petting.contact_offset`). The box mark is the named fallback for a pair that publishes no such landmark | done |
 | Rig attachments | `BodyRigPose` attachments, live only under `BodyRigAdmission` (off) | all of the above |
@@ -254,13 +255,25 @@ frame height and the frame durations. It does not cover atlas packing.
   renderer also adds a posed body's art offset without mirroring it, so the
   art of a body that faces left is off its box by twice that offset.
 - A row that a hybrid character realizes from the baked sheet has no draws,
-  so it has no points.
+  so it has no points. For this tick's pose the answer then comes from the
+  next row of the chain that has points, and at last from any row: a raider
+  that fires answers from its `idle` row, because its package draws five
+  rows (`death`, `hurt`, `idle`, `slash`, `taunt`).
+- A match seat states no art scale (no `SpritePosedBody`, no
+  `ActorRenderSize`): the renderer fits its frame to its collision box
+  (`sheets::drawn_render_size`), and the query does not read that rule. So a
+  seat with no rig holds its weapon at the fixed hand
+  (`admiral_gun_sword`, the unrigged arm). This is the next open step.
+- The held-item place uses screen DOWN, as it did before: `ItemWorldPos`
+  holds no body frame.
 
 **Order of work (queue row RIG-LANDMARKS).** ✅ The query and the pet. ✅ The
 player fireball: the move's offset from the hand is the shot's own half extent
 along the aim, so the shot's rear edge is at the hand for each of the eight
 aims and each charge size. ✅ The three track families and the authored
-gesture hand. Next the rider hand. Do not admit rigs (`BodyRigAdmission`)
+gesture hand. ✅ The hand muzzle, the held-item place and the prop over the
+hand: one function, `holding_hand_world`. Next: a match seat states its art
+scale, so that a seat answers as an adventure body does. Do not admit rigs (`BodyRigAdmission`)
 for this: the capability must not depend on rig rollout. Landmarks are
 simulation facts: resolve them in simulation and never read them back from
 render transforms.
@@ -285,7 +298,7 @@ render transforms.
 | Sheet residency | The saving needs the baked sheet page to retire while parts draw, and the portal to draw parts first | Rigged character resident bytes below baked |
 | Body rig rollout | `BodyRigAdmission` is off. Turning it on changes shipped hurt geometry and the content fingerprint | Maintainer go-ahead; app suite green with it on |
 | More rigid parts | Pirate dynamic limb/neck geometry is one overlay per frame. Convert more of it to reusable parts only if useful | Saving above the 38% floor |
-| Semantic landmarks (Q41) | ✅ The query, the pet, the player fireball, and the three track families with an authored gesture hand (2026-10-05). Left: the rider hand as a consumer. See "Semantic landmarks (Q41)" | ✅ A pet hand meets the authored contact point (`a_pet_hand_meets_the_contact_point.rs`: 1.4 world units; 15.2 on the box mark). Open: no consumer reads sprite bounds |
+| Semantic landmarks (Q41) | ✅ The query, the pet, the player fireball, the three track families with an authored gesture hand, and the hand muzzle with the held-item place (2026-10-05). Left: a match seat states no art scale. See "Semantic landmarks (Q41)" | ✅ A pet hand meets the authored contact point (`a_pet_hand_meets_the_contact_point.rs`: 1.4 world units; 15.2 on the box mark). Open: no consumer reads sprite bounds |
 | Physicalized pose | Only with a real mechanic: cosmetic ragdoll after a KO fact, or deterministic constrained ragdoll as canonical rollback state | Separate focused packet |
 
 Not measured: load and materialization time, and per-pane pixels of each view

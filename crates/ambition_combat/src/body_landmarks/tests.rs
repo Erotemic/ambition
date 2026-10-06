@@ -159,3 +159,23 @@ fn the_feet_are_the_middle_of_the_face_toward_down() {
     assert_eq!(feet_of(&kin, Vec2::new(0.0, 1.0)), Vec2::new(100.0, 224.0));
     assert_eq!(feet_of(&kin, Vec2::new(0.0, -1.0)), Vec2::new(100.0, 176.0));
 }
+
+/// A rig-space point is placed from the body's feet, mirrored by its facing
+/// and turned with its DOWN.
+#[test]
+fn a_rig_point_is_placed_from_the_feet_mirrored_and_turned() {
+    let down = Vec2::new(0.0, 1.0);
+    let body = |facing: f32| {
+        let mut kin = ae::BodyKinematics::default();
+        kin.pos = Vec2::new(100.0, 200.0);
+        kin.size = Vec2::new(20.0, 48.0);
+        kin.facing = facing;
+        kin
+    };
+    // The body centre is 24 above its feet; the point is 10 ahead of and 30
+    // above the feet.
+    let point = Vec2::new(10.0, -30.0);
+    assert_eq!(rig_point_in_world(point, &body(1.0), down), Vec2::new(110.0, 194.0));
+    assert_eq!(rig_point_in_world(point, &body(-1.0), down), Vec2::new(90.0, 194.0));
+    assert_eq!(rig_point_in_world(point, &body(1.0), -down), Vec2::new(90.0, 206.0));
+}

@@ -607,6 +607,10 @@ pub fn rebuild_hostile_wielded_items_view(
     bodies: Query<&BodyKinematics>,
     controlled: Res<ControlledSubject>,
     player_q: Query<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // Where a wielder holds its item: the simulation's own answer, which the
+    // muzzle of a hand weapon also reads, so the prop is drawn where the shot
+    // leaves.
+    landmarks: ambition_combat::body_landmarks::BodyLandmarks,
 ) {
     view.0.clear();
     // The session's own subject, for a wielder that has acquired nothing. `None`
@@ -636,7 +640,7 @@ pub fn rebuild_hostile_wielded_items_view(
             .unwrap_or_else(|| kin.pos + ae::Vec2::new(kin.facing * wielder_height, 0.0));
         view.0.push(HostileWieldedItemFact {
             item_id: held_item.id().to_owned(),
-            hand_world: ambition_mount::rider_hand_world_pos(kin.pos, kin.facing, wielder_height),
+            hand_world: ambition_held_items::holding_hand_world(&landmarks, entity, kin, ae::Vec2::Y),
             aim_world,
             wielder_height,
             room: live.of(entity),

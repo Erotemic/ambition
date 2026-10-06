@@ -264,6 +264,24 @@ it, and a shot that flies level reaches 14 farther. The `robot` row is
 computed from its art and its drawn scale: no test drives a body that fires
 as `robot`. Its box width is taken as 20.
 
+**The same trade for a weapon that fires from the hand** (packet C,
+2026-10-05). The gun-sword and the Officer's sidearm fired from a fixed place:
+a fifth of the body's height ahead of its centre, at chest height. For a
+pirate that place is in the air beside its head. They now fire from the hand
+the body's art draws on that tick, which a pirate and the robot hold at the
+hip. Measured on flat ground, the shooter 160 from a standing target
+(`a_hand_muzzle_fires_from_the_drawn_hand.rs`):
+
+| shooter | born, from the body centre | was | above the feet | flight to the target |
+| --- | --- | --- | --- | --- |
+| hostile raider, gun-sword | (18.4 ahead, +14.0) | (26.6 ahead, -2.4) | 10.0 (was 26.4) | 14 ticks, hits for 2 (was 13 ticks, hits for 2) |
+| the player, held gun-sword | (8.9 ahead, +13.5) | (26.6 ahead, -2.4) | 10.5 (was 26.4) | not measured |
+| a match seat (the smash admiral, the Officer) | no change | | 26.4 | no change: a seat states no art scale |
+
+The bolt flies level, so it still hits a body that stands on the same floor.
+Its line is 16 lower: not measured against a target that flies, a target on a
+step, or a low wall in the way.
+
 * **(a) Accept.** The shot leaves the hand as drawn and reaches 292.
 * **(b) Retune.** The shot leaves the hand, and the fireball changes so that
   it reaches about 419 again. This is a tuning edit in one file,

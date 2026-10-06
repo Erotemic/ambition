@@ -2360,13 +2360,35 @@ put the two older robots' shots 0 to 25 in front; it put them behind the body.
 The next rule (far hand for the `front_`/`back_` family) was written with a
 test, and the test refused it on the pirates.
 
-**Current failure:** the rider's hand is placed from a constant
-(`ambition_mount`, `HAND_OFFSET_NORM`). The named limits are in the plan.
+**Built 2026-10-05 (packet C):** a weapon that fires from the hand
+(`Muzzle::Hand`: the gun-sword, the Officer's sidearm), the place of a held
+item (`ItemWorldPos`) and the prop the presentation draws over the hand read
+one function, `ambition_held_items::holding_hand_world`: the hand the
+landmark query answers on that tick, else the fixed hand offset. A hostile
+raider's shot is born 18 past the hand its art draws, at the hip: (18.4
+ahead, 14.0 below the body centre), 10.0 above its feet. From the fixed hand
+it was (26.6 ahead, 2.4 above), 26.4 above its feet, and the gun-sword prop
+was drawn in the air beside its head (composite viewed). The player's held
+gun-sword moved the same way: (8.9, +13.5), was (26.6, -2.4)
+(`a_hand_muzzle_fires_from_the_drawn_hand.rs`, two arms; poisoned). The
+flight is in
+[Q158](awaiting-maintainer-decision.md#q158--the-fireball-now-leaves-the-hand-at-knee-height-and-reaches-30-less-accept-retune-or-except).
+
+**Predictions that missed (packet C):** the smash admiral was predicted to
+move to the hip. It did not: a match seat states no art scale, so the query
+has no answer from its art and the fixed hand stands. The Officer was not
+measured for the same reason. No held-item unit test pinned the fixed hand
+(1 to 3 edits were predicted).
+
+**Current failure:** a match seat (the smash admiral, the Officer, a seat
+that holds a bomb) holds its weapon at the fixed hand, because it states no
+art scale. The named limits are in the plan.
 
 **Acceptance:** ✅ one landmark query, answered by the rig or the package; ✅
 the pet hand meets the petted body's authored contact point; ✅ the player's
-shot leaves the hand; ✅ the three track families answer. Open: the rider's
-hand reads the query.
+shot leaves the hand; ✅ the three track families answer; ✅ a hand weapon,
+a held item and the prop over the hand read one hand. Open: a match seat
+states its art scale.
 
 ### RIG-IMPOSTOR-CONTAINMENT — a part-drawn body is drawn whole or refused
 

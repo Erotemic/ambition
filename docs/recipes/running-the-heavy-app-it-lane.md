@@ -90,6 +90,7 @@ the remedy and build again. Do not record the red as environmental.
 | --- | --- | --- |
 | `a_pet_hand_meets_the_contact_point::the_petting_hand_is_on_the_place_the_dog_is_petted` | the part flipbooks of the robot and the dog (the build embeds their landmark tables from them) | `scripts/regen/sprites.sh --target player_robot_v3` and `--target companion_dog` |
 | `a_fireball_leaves_the_hand` (both arms) | the part flipbooks of `player_robot_v3` and `player_robot_v2` | `scripts/regen/sprites.sh --target player_robot_v3` and `--target player_robot_v2` |
+| `a_hand_muzzle_fires_from_the_drawn_hand` (both arms) | the part flipbooks of `pirate_raider` and `player_robot_v3` | `scripts/regen/sprites.sh --target pirate_raider` and `--target player_robot_v3` |
 | `admiral_gun_sword` (the rig arms) | the pirates' published body rigs | `scripts/regen/sprites.sh` |
 | `boss_sheet_wiring`, `declared_art_resolves` | each declared sheet | `scripts/regen/sprites.sh` |
 

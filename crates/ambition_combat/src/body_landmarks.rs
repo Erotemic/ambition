@@ -188,8 +188,26 @@ impl BodyLandmarks<'_, '_> {
         down: Vec2,
     ) -> Option<Vec2> {
         let point = self.in_rig_space(body, landmark, pose)?;
-        Some(feet_of(kin, down) + BodyRigPose::to_body(point, kin.facing, down))
+        Some(rig_point_in_world(point, kin, down))
     }
+
+    /// The gesture hand of `body` in the world: [`Self::gesture_hand`], placed
+    /// as [`Self::in_world`] places a landmark.
+    pub fn gesture_hand_in_world(
+        &self,
+        body: Entity,
+        pose: LandmarkPose<'_>,
+        kin: &ae::BodyKinematics,
+        down: Vec2,
+    ) -> Option<Vec2> {
+        Some(rig_point_in_world(self.gesture_hand(body, pose)?, kin, down))
+    }
+}
+
+/// A rig-space point of a body in the world: placed from the body's feet,
+/// mirrored by its facing and turned with its DOWN.
+pub fn rig_point_in_world(point: Vec2, kin: &ae::BodyKinematics, down: Vec2) -> Vec2 {
+    feet_of(kin, down) + BodyRigPose::to_body(point, kin.facing, down)
 }
 
 /// A body's feet: the middle of the face of its box that is toward `down`.

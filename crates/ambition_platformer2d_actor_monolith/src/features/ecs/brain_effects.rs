@@ -83,43 +83,25 @@ pub fn clear_of_the_feet(
 /// checked it, and `Muzzle::Offset` could have resolved to the body origin
 /// forever without a test noticing.
 ///
-/// `origin` is the body's spawn origin; `body_pos` and `facing` come from the
-/// same kinematics, and `height` scales the normalized offsets.
+/// `origin` is the body's spawn origin; `facing` comes from the same
+/// kinematics, and `height` scales the normalized offsets.
 ///
-/// `rig_hand` is the body's weapon hand this tick in its rig space (feet
-/// origin, see `BodyRigPose`), when the body has a resolved rig. A hand muzzle
-/// then fires from that hand. Without one it fires from the fixed hand offset
-/// every unrigged rider uses.
-#[allow(clippy::too_many_arguments)]
+/// `hand_world` is where the body holds its weapon on this tick, in the world
+/// (`ambition_held_items::holding_hand_world`: the hand its rig or its art
+/// puts there, else the fixed hand offset). A hand muzzle fires from it.
 pub fn muzzle_world_pos(
     muzzle: ambition_characters::brain::action_set::Muzzle,
     origin: ae::Vec2,
-    body_pos: ae::Vec2,
     facing: f32,
     height: f32,
     world_dir: ae::Vec2,
-    gravity_dir: ae::Vec2,
     frame: ae::AccelerationFrame,
-    rig_hand: Option<ae::Vec2>,
+    hand_world: ae::Vec2,
 ) -> ae::Vec2 {
     match muzzle {
         // A drawn weapon fires from the hand whether the pirate is still
         // mounted or has fallen off the shark.
-        ambition_characters::brain::action_set::Muzzle::Hand { ahead } => {
-            let hand = match rig_hand {
-                Some(hand) => {
-                    let feet = body_pos + gravity_dir * (height * 0.5);
-                    feet + ambition_combat::body_rig::BodyRigPose::to_body(hand, facing, gravity_dir)
-                }
-                None => ambition_mount::rider_hand_world_pos_in_frame(
-                    body_pos,
-                    facing,
-                    height,
-                    gravity_dir,
-                ),
-            };
-            hand + world_dir * ahead
-        }
+        ambition_characters::brain::action_set::Muzzle::Hand { ahead } => hand_world + world_dir * ahead,
         ambition_characters::brain::action_set::Muzzle::BodyOrigin => {
             origin + frame.to_world(ae::Vec2::new(0.0, -8.0))
         }
@@ -167,13 +149,11 @@ pub fn spawn_projectiles_from_brain_actions(
     // so this second view borrows the firing body's overlay-pose facts without
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
     mut anim_facts: Query<&mut ambition_characters::actor::BodyAnimFacts>,
-    // A rigged body's weapon hand this tick, for a hand muzzle. The installer
-    // orders this system after `BodyRigPoseResolved`, so the pose is this
-    // tick's.
-    rigs: Query<(
-        &ambition_combat::body_rig::BodyRig,
-        &ambition_combat::body_rig::BodyRigPose,
-    )>,
+    // A body's weapon hand this tick, for a hand muzzle. The installer orders
+    // this system after `BodyRigPoseResolved`, so a rig's pose is this tick's,
+    // and the clocks an art package answers under are the clocks that pose
+    // was resolved from.
+    landmarks: ambition_combat::body_landmarks::BodyLandmarks,
     // ── AIM ASSIST ── the three reads that turn "the way I was pointing" into
     // "at the one opponent over there". Read-only, and so is `actors`' view of
     // kinematics now that recoil stages at the launch gateway instead of writing
@@ -391,15 +371,11 @@ pub fn spawn_projectiles_from_brain_actions(
         let spawn_origin = muzzle_world_pos(
             discharge.muzzle,
             origin,
-            kin.pos,
             kin.facing,
             kin.size.y,
             world_dir,
-            gravity_dir,
             frame,
-            rigs.get(msg.actor).ok().and_then(|(rig, pose)| {
-                pose.attachment(&rig.0, ambition_characters::actor::body_rig::HAND_NEAR)
-            }),
+            ambition_held_items::holding_hand_world(&landmarks, msg.actor, &kin, gravity_dir),
         );
         // A hand at the hip of a short body is closer to its feet than the shot
         // is tall: the shot is born clear of the ground it stands on.
@@ -531,18 +507,18 @@ mod muzzle_tests {
 
     const HEIGHT: f32 = 48.0;
     const DOWN: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
+    /// Where the body holds its weapon, in the world.
+    const HAND: ae::Vec2 = ae::Vec2::new(7.0, 16.0);
 
     fn at(muzzle: Muzzle, facing: f32) -> ae::Vec2 {
         muzzle_world_pos(
             muzzle,
             ae::Vec2::ZERO,
-            ae::Vec2::ZERO,
             facing,
             HEIGHT,
             ae::Vec2::new(1.0, 0.0),
-            DOWN,
             ae::AccelerationFrame::new(DOWN),
-            None,
+            HAND,
         )
     }
 
@@ -581,13 +557,11 @@ mod muzzle_tests {
         let small = muzzle_world_pos(
             muzzle,
             ae::Vec2::ZERO,
-            ae::Vec2::ZERO,
             1.0,
             HEIGHT / 2.0,
             ae::Vec2::new(1.0, 0.0),
-            DOWN,
             ae::AccelerationFrame::new(DOWN),
-            None,
+            HAND,
         );
         let big = at(muzzle, 1.0);
         assert!(
@@ -597,39 +571,23 @@ mod muzzle_tests {
         );
     }
 
-    /// A rigged body fires a hand muzzle from its rig's hand, placed from its
-    /// feet, mirrored by facing and turned with gravity.
+    /// A hand muzzle is `ahead` past the hand the body holds its weapon in,
+    /// along the shot. No other muzzle reads the hand.
     #[test]
-    fn a_hand_muzzle_fires_from_the_rig_hand_when_the_body_has_one() {
-        let hand = |facing: f32, down: ae::Vec2, rig_hand| {
-            muzzle_world_pos(
-                Muzzle::Hand { ahead: 0.0 },
-                ae::Vec2::ZERO,
-                ae::Vec2::new(100.0, 200.0),
-                facing,
-                HEIGHT,
-                ae::Vec2::new(1.0, 0.0),
-                down,
-                ae::AccelerationFrame::new(down),
-                rig_hand,
-            )
-        };
-        // The body centre is 24 above its feet; the rig hand is 10 ahead of
-        // and 30 above the feet.
-        let rig_hand = Some(ae::Vec2::new(10.0, -30.0));
-        assert_eq!(hand(1.0, DOWN, rig_hand), ae::Vec2::new(110.0, 194.0));
-        assert_eq!(hand(-1.0, DOWN, rig_hand), ae::Vec2::new(90.0, 194.0));
-        assert_eq!(hand(1.0, -DOWN, rig_hand), ae::Vec2::new(90.0, 206.0));
-        // Without a rig the fixed rider hand is kept.
-        assert_eq!(
-            hand(1.0, DOWN, None),
-            ambition_mount::rider_hand_world_pos_in_frame(
-                ae::Vec2::new(100.0, 200.0),
-                1.0,
-                HEIGHT,
-                DOWN
-            )
+    fn a_hand_muzzle_is_ahead_of_the_holding_hand_along_the_shot() {
+        let up_left = ae::Vec2::new(-0.6, -0.8);
+        let fired = muzzle_world_pos(
+            Muzzle::Hand { ahead: 10.0 },
+            ae::Vec2::ZERO,
+            -1.0,
+            HEIGHT,
+            up_left,
+            ae::AccelerationFrame::new(DOWN),
+            HAND,
         );
+        assert_eq!(fired, HAND + up_left * 10.0);
+        assert_eq!(at(Muzzle::Hand { ahead: 0.0 }, 1.0), HAND);
+        assert_ne!(at(Muzzle::BodyOrigin, 1.0), HAND);
     }
 
     /// A shot born from a hand near the feet is lifted clear of the feet line,

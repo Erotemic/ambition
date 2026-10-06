@@ -242,12 +242,40 @@ impl ItemCustody {
 /// DERIVED fact about its holder, so it is derived.
 ///
 /// ⭐ AND THE HELD ANSWER IS THE HAND, not the body centre: the same
-/// [`ambition_mount::rider_hand_world_pos`] the wielded-item presentation draws
-/// with. A blast that goes off at the sprite's midriff while the bomb is drawn in
-/// the fist is a disagreement a player can see.
+/// [`holding_hand_world`] the wielded-item presentation draws with. A blast
+/// that goes off at the sprite's midriff while the bomb is drawn in the fist
+/// is a disagreement a player can see.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ItemWorldPos<'w, 's> {
     holders: Query<'w, 's, &'static ae::BodyKinematics>,
+    landmarks: ambition_combat::body_landmarks::BodyLandmarks<'w, 's>,
+}
+
+/// Where `body` holds a weapon or an item, in the world, on this tick.
+///
+/// It is the hand the body's rig or its art puts there
+/// ([`BodyLandmarks::gesture_hand`], ruling Q41). A body that publishes no
+/// hand, or states no art scale, answers with the fixed hand offset
+/// ([`ambition_mount::rider_hand_world_pos_in_frame`]): the named fallback.
+///
+/// ONE answer for three readers, so that they agree: the muzzle of a weapon
+/// that fires from the hand, the place of a held item, and the prop the
+/// presentation draws over the hand.
+///
+/// [`BodyLandmarks::gesture_hand`]: ambition_combat::body_landmarks::BodyLandmarks::gesture_hand
+pub fn holding_hand_world(
+    landmarks: &ambition_combat::body_landmarks::BodyLandmarks,
+    body: Entity,
+    kin: &ae::BodyKinematics,
+    down: Vec2,
+) -> Vec2 {
+    use ambition_combat::body_landmarks::LandmarkPose;
+    hand_or_fixed(landmarks.gesture_hand_in_world(body, LandmarkPose::ThisTick, kin, down), kin, down)
+}
+
+/// `hand`, else the fixed hand offset of a body at `kin`.
+fn hand_or_fixed(hand: Option<Vec2>, kin: &ae::BodyKinematics, down: Vec2) -> Vec2 {
+    hand.unwrap_or_else(|| ambition_mount::rider_hand_world_pos_in_frame(kin.pos, kin.facing, kin.size.y, down))
 }
 
 impl ItemWorldPos<'_, '_> {
@@ -262,7 +290,7 @@ impl ItemWorldPos<'_, '_> {
             ItemCustody::Held { holder } => self
                 .holders
                 .get(*holder)
-                .map(|kin| ambition_mount::rider_hand_world_pos(kin.pos, kin.facing, kin.size.y))
+                .map(|kin| holding_hand_world(&self.landmarks, *holder, kin, Vec2::Y))
                 .unwrap_or(item.pos),
         }
     }

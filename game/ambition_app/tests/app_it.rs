@@ -27,6 +27,7 @@ mod a_dropped_item_falls;
 mod a_home_body_is_built_for_a_seat;
 mod a_joined_seat_has_a_view_and_a_hud;
 mod a_fireball_leaves_the_hand;
+mod a_hand_muzzle_fires_from_the_drawn_hand;
 mod a_pet_hand_meets_the_contact_point;
 mod a_second_seat_joins_the_session;
 mod a_ready_room_shows_no_loading_screen;

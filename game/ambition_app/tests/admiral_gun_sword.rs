@@ -25,6 +25,7 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
         visual,
         damage,
         origin,
+        direction,
         before,
         after,
         hand_before,
@@ -46,6 +47,17 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
         origin.distance(hand_before) < 64.0,
         "the shot was born at {origin:?} and his hand was at {hand_before:?} — a \
          drawn weapon fires from the barrel a player can see"
+    );
+    // A match seat states no art scale (no `SpritePosedBody`, no
+    // `ActorRenderSize`), so the landmark query has no answer for it from the
+    // art, and with no rig the shot leaves the fixed hand: the named fallback
+    // (`ambition_held_items::holding_hand_world`). The shot is on the line
+    // through that hand. A seat that learns to state its scale moves this
+    // shot to the hip, where the rigged admiral below fires from.
+    assert!(
+        direction.perp_dot(origin - hand_before).abs() < 0.5,
+        "the shot at {origin:?} flying {direction:?} is off the line through the fixed hand \
+         {hand_before:?}: an unrigged seat that states no art scale fires from the fixed hand"
     );
     // ⛔ A DELTA, and a big one. The generic kick is 60px/s and the gun-sword's
     // is 380, so a threshold between them is what tells "the profile applied"
@@ -232,8 +244,62 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
             // red here read as "the profile did not apply" and the truth was
             // "this test measures a retired contract". One `update()` is the
             // whole fix.
+            let body = app
+                .world()
+                .get::<ambition_platformer2d::engine_core::BodyKinematics>(admiral)
+                .expect("the admiral has kinematics")
+                .clone();
             app.update();
-            shot = Some((found, before, vel(&app), hand_before, rig_hand_before, feet_before));
+            let after = vel(&app);
+            // A measurement, not an assertion: what the place a shot is born
+            // costs or gains in flight. See Q158.
+            let other_health = |app: &mut App| {
+                let world = app.world_mut();
+                let mut q = world.query::<(
+                    &MatchSeat,
+                    &ambition_platformer2d::characters::actor::BodyHealth,
+                    &ambition_platformer2d::engine_core::BodyKinematics,
+                )>();
+                q.iter(world)
+                    .find(|(seat, _, _)| seat.0 == 1)
+                    .map(|(_, health, kin)| (health.damage_percent(), kin.pos))
+            };
+            let health_before = other_health(&mut app);
+            let mut path = vec![found.2];
+            for _ in 0..180 {
+                ambition_platformer2d::sim::drive_control_frame(
+                    app.world_mut(),
+                    ambition_platformer2d::engine_core::ControlFrame::default(),
+                );
+                app.update();
+                let world = app.world_mut();
+                let mut q = world.query::<(
+                    &ambition_platformer2d::projectiles::ProjectileOwner,
+                    &ambition_platformer2d::engine_core::BodyKinematics,
+                )>();
+                match q.iter(world).find(|(owner, _)| owner.0 == admiral) {
+                    Some((_, kin)) => path.push(kin.pos),
+                    None => break,
+                }
+            }
+            eprintln!(
+                "side-B (rigs admitted: {admit_rigs}): shot first seen {:?} from the body centre (body size {:?}, \
+                 facing {}), {:.1} above the feet line, flying {:?}; the fixed hand {:?} and the rig hand {:?} from \
+                 the centre; alive {} ticks, travelled {:.0}; the other fighter (percent, place, from this body {:?}) {:?} -> {:?}",
+                found.2 - body.pos,
+                body.size,
+                body.facing,
+                feet_before - found.2.y,
+                found.3,
+                hand_before - body.pos,
+                rig_hand_before.map(|hand| hand - body.pos),
+                path.len(),
+                (*path.last().expect("one place") - found.2).length(),
+                health_before.map(|(_, place)| place - body.pos),
+                health_before,
+                other_health(&mut app),
+            );
+            shot = Some((found, before, after, hand_before, rig_hand_before, feet_before));
             break;
         }
     }

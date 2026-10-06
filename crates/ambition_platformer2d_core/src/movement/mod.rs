@@ -307,14 +307,10 @@ pub(crate) fn update_body_simulation_in_frame(
         contact,
         recovery_commitment_outstanding,
     );
-    if let Some(sweep) = clusters.sweep.as_deref_mut() {
-        *sweep = crate::body_clusters::SweepSample {
-            prev: entry_pos,
-            curr: clusters.kinematics.pos,
-            vel: entry_vel,
-            half: clusters.kinematics.size * 0.5,
-        };
-    }
+    // The box this arm sweeps is the body's box turned to the frame's DOWN
+    // (`aabb_oriented(frame.down())` in every collision of the step).
+    let step_half = clusters.kinematics.half_oriented(frame.down());
+    kernel::write_sweep_sample(clusters, (entry_pos, entry_vel), step_half);
 
     // Hazard / out-of-bounds gate — body flags the cause; the owner applies its policy.
     //
@@ -330,7 +326,7 @@ pub(crate) fn update_body_simulation_in_frame(
     // populations the tail never judged — a zero-dt tick, a drowning, and a frame
     // an active ledge grab consumed. This is an ordering fix, not a widening.
     if reach == SimPhaseReach::Completed {
-        kernel::apply_world_hazard_gate(world, clusters, frame, &mut events);
+        kernel::apply_world_hazard_gate(world, clusters, frame, step_half, &mut events);
     }
 
     events

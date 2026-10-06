@@ -129,6 +129,15 @@ impl AdhesiveCrawlerMotion {
     pub fn detach(&mut self) {
         self.state = CrawlerState::DETACHED;
     }
+
+    /// The DOWN of the body: the direction its thickness (`size.y`) is turned
+    /// to. An attached body lies along its surface, so its DOWN is into that
+    /// surface. A detached body falls in the frame's box.
+    pub fn body_down(&self, world: &World, frame: MotionFrame) -> Vec2 {
+        self.state
+            .attached_normal(world)
+            .map_or(frame.down(), |normal| -normal)
+    }
 }
 
 impl Default for AdhesiveCrawlerMotion {

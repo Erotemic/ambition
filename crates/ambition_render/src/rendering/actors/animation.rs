@@ -260,6 +260,9 @@ pub fn animate_characters(
             Without<PlayerVisual>,
             Without<super::super::primitives::PortalSprite>,
             Without<PropVisual>,
+            // A part-drawn boss carries an animator for the rigged driver;
+            // `animate_bosses` draws it, from the sim's cursor.
+            Without<ambition_sprite_sheet::boss::BossAnimator>,
         ),
     >,
     // Per-actor pose read-model, built by `rebuild_actor_anim_index` just before
@@ -327,6 +330,8 @@ pub fn animate_feature_sprites(
             Without<PropVisual>,
             Without<PlayerVisual>,
             Without<super::super::primitives::PortalSprite>,
+            // See `animate_characters`: `animate_bosses` draws a boss.
+            Without<ambition_sprite_sheet::boss::BossAnimator>,
         ),
     >,
 ) {

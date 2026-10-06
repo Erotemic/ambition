@@ -24,6 +24,7 @@ mod aerial_authoring;
 mod boss_fight_validator;
 mod boss_presentation;
 mod boss_seeds;
+mod boss_telegraph_cues_have_recipes;
 mod content_pack_registry;
 mod dialogue_lint;
 mod fighter_brain_ladder;

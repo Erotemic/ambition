@@ -191,10 +191,50 @@ const LAND_DAMAGE: i32 = 2;
 const LAND_KNOCKBACK: f32 = 1.6;
 
 // ⛔ A cue the bank does not hold plays NOTHING and says nothing: these name
-// cues `sfx.bank.txt` ships. The tail whoosh and the wall crash borrow the
-// nearest until their own are auditioned
+// cues `sfx.bank.txt` ships (`VOICE` is held to the recipes by
+// `every_cue_he_voices_has_a_recipe`). The tail whoosh and the wall crash
+// borrow the nearest until their own are auditioned
 // (`untracked/sfx-candidates/trex/`).
-const SFX_ROAR: &str = "enemy.trex.roar";
+//
+// His VOICE is one throat (the SFX renderer's `creature` mode, Jon's picks of
+// 2026-10-06). Each tell's growl and the roar's roar are his pattern's
+// telegraph cues (`boss_profiles.ron`). Here: the scream into phase 2, the
+// call's roar, a growl as he seizes you and a snarl as he flings you, a hurt
+// yelp when he crashes, huffs and low growls while he stalks (a growl's two
+// takes in turn), and the death wail once.
+const SFX_ROAR: &str = "boss.trex.roar";
+const SFX_DEATH: &str = "boss.trex.death";
+const SFX_SCREAM: &str = "boss.trex.scream";
+const GROWL_LOW: [&str; 2] = ["boss.trex.growl_low_a", "boss.trex.growl_low_b"];
+const GROWL_SNARL: [&str; 2] = ["boss.trex.growl_snarl_a", "boss.trex.growl_snarl_b"];
+const GROWL_HUFF: [&str; 2] = ["boss.trex.growl_huff_a", "boss.trex.growl_huff_b"];
+const GROWL_CHUFF: [&str; 2] = ["boss.trex.growl_chuff_a", "boss.trex.growl_chuff_b"];
+const GROWL_GRUNT: [&str; 2] = ["boss.trex.growl_grunt_a", "boss.trex.growl_grunt_b"];
+const GROWL_RISE: [&str; 2] = ["boss.trex.growl_rise_a", "boss.trex.growl_rise_b"];
+const GROWL_HURT: [&str; 2] = ["boss.trex.growl_hurt_a", "boss.trex.growl_hurt_b"];
+/// Stalking between moves, he huffs or growls when he has been quiet this long.
+const IDLE_VOICE_S: f32 = 3.2;
+
+/// Every cue his voice can play.
+pub const VOICE: [&str; 17] = [
+    SFX_ROAR,
+    SFX_SCREAM,
+    SFX_DEATH,
+    GROWL_LOW[0],
+    GROWL_LOW[1],
+    GROWL_SNARL[0],
+    GROWL_SNARL[1],
+    GROWL_HUFF[0],
+    GROWL_HUFF[1],
+    GROWL_CHUFF[0],
+    GROWL_CHUFF[1],
+    GROWL_GRUNT[0],
+    GROWL_GRUNT[1],
+    GROWL_RISE[0],
+    GROWL_RISE[1],
+    GROWL_HURT[0],
+    GROWL_HURT[1],
+];
 const SFX_BITE: &str = "boss.trex.chomp";
 const SFX_TAIL: &str = "boss.bear_mauler.swipe";
 const SFX_STEP: &str = "enemy.trex.footstep";
@@ -372,6 +412,15 @@ record! {
     33 pummelled_at: f32,
     /// The fling's follow-through: seconds since the throw.
     34 flinging: Option<f32>,
+    /// His voice: when he last made a sound, how many takes he has used (he
+    /// alternates a growl's two), and whether his death wail has sounded.
+    35 voiced_at: f32,
+    36 takes: u32,
+    37 mourned: bool,
+    /// Rearing through the beat between two phases: seconds into it. And
+    /// whether he has screamed (into phase 2, the first).
+    38 rearing: Option<f32>,
+    39 screamed: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -393,6 +442,11 @@ impl Conductor {
     /// Holding a body in his jaws, for tests and inspectors.
     pub fn thrashing(&self) -> bool {
         self.thrashing.is_some()
+    }
+
+    /// Rearing through the beat between two phases.
+    pub fn rearing(&self) -> bool {
+        self.rearing.is_some()
     }
 
     fn wave(&mut self, slot: usize) -> (&mut Option<f32>, &mut f32) {
@@ -507,6 +561,14 @@ fn ease(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+/// One of a growl's two takes, the other next time.
+fn voice(inv: &mut Invocation<'_>, c: &mut Conductor, takes: &[&str; 2], at: Vec2) -> Result<(), Fault> {
+    let cue = takes[(c.takes % 2) as usize];
+    c.takes = c.takes.wrapping_add(1);
+    c.voiced_at = c.clock;
+    play(inv, cue, at)
+}
+
 fn play(inv: &mut Invocation<'_>, cue: &str, at: Vec2) -> Result<(), Fault> {
     inv.submit::<BodySoundPort>(BodySound { cue: cue.into(), at: at.into() })
 }
@@ -579,6 +641,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
     // ── Dead: he settles on the floor and is drawn by the engine ──
     if !rex.alive {
+        if !c.mourned {
+            c.mourned = true;
+            play(inv, SFX_DEATH, at + Vec2::new(side * head_front(), -40.0))?;
+        }
         inv.submit::<DrawnRowPort>(DrawnRow { name: None, elapsed: 0.0, looping: false })?;
         let pos = Vec2::new(at.x, stand_y);
         inv.submit::<ConductedPosePort>(ConductedPose {
@@ -604,10 +670,13 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         (None, Some(_)) => true,
         _ => false,
     };
+    // A tell that begins this tick: he voices it below, once he has turned.
+    let mut told = None;
     let part = match live {
         Some((mv, striking, remaining)) => {
             if fresh {
                 if !striking {
+                    told = Some(mv);
                     // A tell gets him up off the wall and turned to you.
                     c.stunned = None;
                     if c.charging.is_none() {
@@ -641,6 +710,24 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     c.set_part(part);
     c.last_remaining = live.map_or(0.0, |(_, _, remaining)| remaining);
 
+    // ── Between phases: he stops, turns to you and rears; the first time
+    // (into phase 2), screaming ──
+    if rex.between_phases {
+        if c.rearing.is_none() {
+            side = if target.x < at.x { -1.0 } else { 1.0 };
+            c.charging = None;
+            c.stunned = None;
+            if !c.screamed {
+                c.screamed = true;
+                play(inv, SFX_SCREAM, at + Vec2::new(side * head_front(), -40.0))?;
+            }
+        }
+        c.rearing = Some(c.rearing.map_or(0.0, |t| t + dt));
+        c.voiced_at = c.clock;
+    } else {
+        c.rearing = None;
+    }
+
     // ── Where he goes ──
     let mut crashed = None;
     let mut skidded = None;
@@ -666,7 +753,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         } else {
             next
         }
-    } else if c.stunned.is_some() || c.thrashing.is_some() || c.flinging.is_some() {
+    } else if c.stunned.is_some() || c.thrashing.is_some() || c.flinging.is_some() || c.rearing.is_some() {
         at.x
     } else {
         match part {
@@ -747,6 +834,20 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     }
 
+    // ── His voice ──
+    // A tell's sound is its pattern cue (`boss_profiles.ron`): the cue is half
+    // of what tells one move from another, so it lives with the pose.
+    let mouth = pos + Vec2::new(side * head_front(), -40.0);
+    if told.is_some() {
+        c.voiced_at = c.clock;
+    } else if crashed.is_some() {
+        voice(inv, &mut c, &GROWL_HURT, mouth)?;
+    } else if part.is_none() && c.charging.is_none() && c.stunned.is_none() && c.clock - c.voiced_at >= IDLE_VOICE_S {
+        // Stalking: a snort, then a low growl, then a snort...
+        let idle = if (c.takes / 2) % 2 == 0 { &GROWL_HUFF } else { &GROWL_LOW };
+        voice(inv, &mut c, idle, mouth)?;
+    }
+
     // ── The strike's own onset ──
     if let Some(part) = part {
         if part.striking && !c.fired {
@@ -779,7 +880,6 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 }
                 Move::Roar => {
                     riding(inv, roar_box(), side, ROAR_DAMAGE, ROAR_KNOCKBACK, part.dur * 0.5, "trex_roar")?;
-                    play(inv, SFX_ROAR, pos + Vec2::new(side * head_front(), -40.0))?;
                     shake(inv, SHAKE_ROAR)?;
                     c.shake(target.x, ROCKS_ROAR);
                 }
@@ -788,7 +888,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 // The grab's clamp reaches below, through its window.
                 Move::JawGrab => {}
                 Move::Call => {
-                    play(inv, SFX_ROAR, pos + Vec2::new(side * head_front(), -40.0))?;
+                    // Its tell chuffs; the call itself is the roar.
+                    play(inv, SFX_ROAR, mouth)?;
+                    c.voiced_at = c.clock;
                     shake(inv, SHAKE_ROAR)?;
                     let high = hall.floor - PARROT_HEIGHT;
                     let mut kin: Vec<(&str, [f32; 2], Vec2)> = vec![
@@ -855,6 +957,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         // Caught (the seize lands a tick before the trigger reports it).
         c.thrashing = Some(0.0);
         c.pummelled_at = 0.0;
+        voice(inv, &mut c, &GROWL_LOW, pos + Vec2::new(side * head_front(), -40.0))?;
     }
     if let Some(thrash) = c.thrashing.as_mut() {
         if !rex.holding {
@@ -874,7 +977,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 })?;
                 c.thrashing = None;
                 c.flinging = Some(0.0);
-                play(inv, SFX_ROAR, pos + Vec2::new(side * head_front(), -40.0))?;
+                voice(inv, &mut c, &GROWL_SNARL, pos + Vec2::new(side * head_front(), -40.0))?;
                 shake(inv, SHAKE_THROW)?;
             } else {
                 inv.submit::<BodyHoldPort>(BodyHold::Carry { hold_offset: hold.into() })?;
@@ -1022,6 +1125,12 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
         let frame = if part.striking { tell as f32 + u * (total - tell) as f32 } else { u * tell as f32 };
         (name, frame * fd, false)
     };
+    if let Some(t) = c.rearing {
+        // He rears through the roar's first frames, then his open jaws
+        // shudder through the rest for as long as the scream lasts.
+        let frame = if t < 0.3 { 2.0 * t / 0.3 } else { 2.0 + ((t - 0.3) / 0.104) % 4.0 };
+        return ("roar", frame * 0.104, false);
+    }
     if let Some(run_t) = c.charging {
         return ("charge", run_t, true);
     }

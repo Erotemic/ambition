@@ -132,18 +132,28 @@ stochastic parrots, raptors").**
   (`BossConduct::minions`).
 - Roar candidates for Jon's ear: `untracked/sfx-candidates/trex_roar/`
   (a new source-filter `roar` mode in the SFX renderer).
+- He is DRAWN from his parts too: `BossSheetSpec::parts` names
+  `npc_trex_enemy`, whose sheet the renderer demands; the cell
+  `animate_bosses` draws poses that character's animator by row name, and the
+  rigged driver draws him (`the_trex_is_drawn_from_his_parts.rs`).
+  `animate_bosses` now runs before the character animators and the driver.
+
+- His VOICE (Jon's picks of five audition rounds, 2026-10-06; round 1 "sounds
+  like a lawnmower"): one throat, the SFX renderer's new `creature` mode (the
+  audition code itself, `backends/creature_voice.py`): `boss.trex.roar`, the
+  phase-2 `boss.trex.scream`, seven growls in two takes each
+  (`boss.trex.growl_*`) and the death wail `boss.trex.death`. Each tell's
+  growl is its telegraph cue (which also keeps the moves readable); the
+  conductor screams him into phase 2 (rearing through the encounter's
+  transition lock, `BossConduct::between_phases`), roars the call, growls as
+  he seizes you, snarls as he flings you, yelps on the crash, huffs while he
+  stalks, and wails once dying. `every_boss_telegraph_cue_has_a_recipe` holds
+  every boss's telegraph cues to a recipe (a missing cue plays silence).
 
 Still open: his own tail-whoosh and wall-crash sounds (candidates and reels in
 `untracked/sfx-candidates/trex/`, for Jon's ear; the conductor borrows the
-bear's swipe and his stomp until then); per-pose hurt hulls (the box you
-hit is still his whole body box; what hurts YOU is only his art's volumes,
-`body_damage: 0`). For the hulls: `build_sheet` publishes declared
-`hurtbox_parts` verbatim, unmoved by the auto-crop the T-rex sheet uses (every
-target that declares parts turns the crop off, or adds its padding by hand), and
-the union of a row's parts becomes that pose's COLLISION box for the
-`trex_enemy` catalog character sharing the sheet — so it needs a translated
-parts frame in the renderer and a check on that enemy first. Then
-`fight_discovery` tuning and Jon's playtest.
+bear's swipe and his stomp until then). Then `fight_discovery` tuning and
+Jon's playtest.
 
 Slices: (1) the body: one placement law for every boss drawn from a sheet,
 with the T-rex grounded, the hulls and the art's volumes; (2) the conductor,

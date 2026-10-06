@@ -639,3 +639,98 @@ fn his_parrots_come_for_you() {
     }
     assert!(closest < 90.0, "his parrots came no nearer than {closest} to a player in the open");
 }
+
+/// What he has said since `cursor` last listened: the ids of the open-ended
+/// cues played, as their names.
+fn heard(sim: &mut Platformer2dSimHarness, cursor: &mut bevy::ecs::message::MessageCursor<ambition_platformer2d::sfx::OwnedSfxMessage>) -> Vec<&'static str> {
+    use ambition_platformer2d::sfx::SfxMessage;
+    let mut every: Vec<&'static str> = module::VOICE.to_vec();
+    every.extend(EVERY_TELL_CUE);
+    every.push("boss.trex.scream");
+    let names: Vec<(ambition_platformer2d::sfx::SfxId, &'static str)> =
+        every.into_iter().map(|name| (ambition_platformer2d::sfx::SfxId::new(name), name)).collect();
+    let messages = sim.world().resource::<bevy::ecs::message::Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>();
+    cursor
+        .read(messages)
+        .filter_map(|m| match m.request {
+            SfxMessage::Play { id, .. } => names.iter().find(|(known, _)| *known == id).map(|(_, name)| *name),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Every cue his pattern's tells name (`boss_profiles.ron`).
+const EVERY_TELL_CUE: [&str; 12] = [
+    "boss.trex.growl_snarl_a",
+    "boss.trex.growl_snarl_b",
+    "boss.trex.growl_low_a",
+    "boss.trex.growl_low_b",
+    "boss.trex.growl_huff_a",
+    "boss.trex.growl_huff_b",
+    "boss.trex.growl_grunt_a",
+    "boss.trex.growl_grunt_b",
+    "boss.trex.growl_rise_a",
+    "boss.trex.growl_rise_b",
+    "boss.trex.growl_chuff_a",
+    "boss.trex.roar",
+];
+
+/// Into phase 2 he rears and SCREAMS, holding his ground through the beat
+/// between the phases (the encounter's transition lock).
+#[test]
+fn wounded_he_screams_into_phase_two() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    let mut cursor = Default::default();
+    heard(&mut sim, &mut cursor);
+    wound(&mut sim, 0.5);
+    let mut said = Vec::new();
+    step_until(&mut sim, 60 * 10, "him to scream", |sim| {
+        said.extend(heard(sim, &mut cursor));
+        said.contains(&"boss.trex.scream")
+    });
+    let r = rex(&mut sim);
+    assert!(r.view.rearing, "he screams but is not rearing: {r:?}");
+    let x = r.kin.pos.x;
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+    }
+    let r = rex(&mut sim);
+    assert!((r.kin.pos.x - x).abs() < 1.0, "he walked {} while screaming", r.kin.pos.x - x);
+}
+
+/// His tells are voiced: a fight's worth of phase 1 has him growl, snarl,
+/// huff and wind up, not one sound over and over.
+#[test]
+fn his_tells_and_his_stalking_are_voiced() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    let mut cursor = Default::default();
+    let mut said = std::collections::BTreeSet::new();
+    for _ in 0..60 * 30 {
+        sim.step(AgentAction::default());
+        said.extend(heard(&mut sim, &mut cursor).into_iter().filter(|cue| cue.starts_with("boss.trex.growl_")));
+    }
+    assert!(said.len() >= 3, "thirty seconds of him voiced only {said:?}");
+}
+
+/// He dies wailing, once.
+#[test]
+fn he_dies_with_one_wail() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    let mut cursor = Default::default();
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    heard(&mut sim, &mut cursor);
+    wound(&mut sim, 0.0);
+    let mut wails = 0;
+    for _ in 0..60 * 5 {
+        sim.step(AgentAction::default());
+        wails += heard(&mut sim, &mut cursor).iter().filter(|cue| **cue == "boss.trex.death").count();
+    }
+    assert_eq!(wails, 1, "he wailed {wails} times dying");
+}
+
+

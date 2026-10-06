@@ -504,6 +504,12 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     actors::refresh_prop_sprites_on_game_assets_change,
                 ),
                 actors::upgrade_boss_sprites,
+                // Before the character animators and the rigged driver: a boss
+                // drawn from parts (`BossSheetSpec::parts`) is posed from the
+                // cell this draws, and the driver then replaces this baked frame
+                // on the root. Drawn after the driver, the baked frame would
+                // cover the parts.
+                actors::animate_bosses.in_set(actors::BossAnimation),
                 // Attach the hit-flash overlay to every character sprite once its
                 // texture or atlas is loaded.
                 // Guarded on all three assets it uses (`Assets<Mesh>`,
@@ -532,7 +538,6 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 hit_flash::cleanup_hit_flash_overlays,
                 actors::animate_props,
                 actors::animate_feature_sprites,
-                actors::animate_bosses.in_set(actors::BossAnimation),
                 // HazardColumn column visual: yellow during telegraph, red during
                 // strike. After `animate_bosses`, so it reads the `BossAttackState`
                 // read model.
@@ -587,9 +592,19 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     .after(actors::upgrade_actor_sprites)
                     .after(actors::refresh_player_sprites_for_resident_quality)
                     .before(actors::animate_player),
+                // A boss drawn from parts: demanded, bound once its sheet is
+                // realized, and posed from the cell `animate_bosses` drew.
+                actors::demand_boss_part_sheets,
+                actors::bind_boss_part_animators
+                    .after(actors::upgrade_boss_sprites)
+                    .before(actors::rigged::bind_rigged_presentations),
+                actors::pose_boss_part_animators
+                    .after(actors::BossAnimation)
+                    .before(actors::rigged::drive_rigged_presentations),
                 actors::rigged::drive_rigged_presentations
                     .after(actors::animate_player)
                     .after(actors::animate_characters)
+                    .after(actors::BossAnimation)
                     // The hit flash reads the root's image and frame: the
                     // impostor, once this has set it. (Content overlays read it
                     // too: `ActorOverlaySet` is configured after this system.)

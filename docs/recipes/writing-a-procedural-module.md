@@ -133,7 +133,7 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.resources.spend_mana` v1 | request | `ambition_combat_port::SpendMana` (ask `Wielder::can_pay_mana` first) |
 | `ambition.feedback.body_sound` v1 | request | `ambition_combat_port::BodySound` (a cue id, as the body) |
 | `ambition.boss.summon` v2 | request | `ambition_boss_special_port::BossSummon` (a boss only; the minion joins its encounter; `on_boss_side` lets the boss's volumes pass it) |
-| `ambition.boss.conduct` v2 | trigger (phase `boss_conduct`) | `ambition_boss_special_port::BossConduct` (selector: the boss's behaviour id; one call each tick; v2: `holding` and `minions`) |
+| `ambition.boss.conduct` v3 | trigger (phase `boss_conduct`) | `ambition_boss_special_port::BossConduct` (selector: the boss's behaviour id; one call each tick; v2: `holding` and `minions`; v3: `between_phases`) |
 | `ambition.boss.conducted_pose` v1 | request (`boss_conduct`) | `ambition_boss_special_port::ConductedPose` (hold the boss's pose, or release it; the side it faces) |
 | `ambition.presentation.drawn_row` v1 | request (`boss_conduct`) | `ambition_boss_special_port::DrawnRow` (the sheet row it is drawn with) |
 | `ambition.combat.riding_hitbox` v1 | request (`boss_conduct`) | `ambition_combat_port::RidingHitbox` (a volume that rides its owner) |

@@ -269,6 +269,20 @@ impl CharacterAnimator {
         self.clip_held = false;
     }
 
+    /// Draw authored row `slot` at `frame`, held there: an animator whose
+    /// frame another clock owns (a boss drawn from its sim cursor). Nothing
+    /// ticks it; the next call moves it. A frame past the row's end is its
+    /// last.
+    pub fn show_cell(&mut self, slot: usize, frame: usize) {
+        let count = self.spec.row_at(slot).frame_count.max(1);
+        self.clip_slot = Some(slot);
+        self.clip_phase = None;
+        self.mirrored = false;
+        self.frame = frame.min(count - 1);
+        self.elapsed = 0.0;
+        self.clip_held = true;
+    }
+
     /// Whether an authored clip is showing and has reached its last frame,
     /// which it holds (an authored clip does not loop). What a presenter asks
     /// to chain one clip after another.

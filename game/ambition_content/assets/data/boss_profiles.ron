@@ -713,7 +713,7 @@
             intro: (steps: [
                 // A bite to learn him by: the longest tell he ever gives.
                 Telegraph(profile: Special("trex_bite"), duration: 1.1,
-                    telegraph: Some((pose: Some("bite"), cue: None))),
+                    telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.growl_snarl_a")))),
                 Strike(profile: Special("trex_bite"), duration: 0.4),
                 Rest(duration: 1.4),
             ]),
@@ -724,19 +724,19 @@
                 Select(table: [
                     (weight: 3.0, when: Some(PlayerAbove), steps: [
                         Telegraph(profile: Special("trex_snap_up"), duration: 0.8,
-                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                            telegraph: Some((pose: Some("snap_up"), cue: Some("boss.trex.growl_grunt_a")))),
                         Strike(profile: Special("trex_snap_up"), duration: 0.35),
                         Rest(duration: 1.2),
                     ]),
                     (weight: 3.0, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("trex_tail_whip"), duration: 0.8,
-                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                            telegraph: Some((pose: Some("tail_swipe"), cue: Some("boss.trex.growl_huff_a")))),
                         Strike(profile: Special("trex_tail_whip"), duration: 0.4),
                         Rest(duration: 1.2),
                     ]),
                     (weight: 2.0, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("trex_bite"), duration: 0.75,
-                            telegraph: Some((pose: Some("bite"), cue: None))),
+                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.growl_snarl_a")))),
                         Strike(profile: Special("trex_bite"), duration: 0.4),
                         Rest(duration: 1.2),
                     ]),
@@ -747,19 +747,19 @@
                 Select(table: [
                     (weight: 3.0, when: Some(PlayerAbove), steps: [
                         Telegraph(profile: Special("trex_snap_up"), duration: 0.8,
-                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                            telegraph: Some((pose: Some("snap_up"), cue: Some("boss.trex.growl_grunt_a")))),
                         Strike(profile: Special("trex_snap_up"), duration: 0.35),
                         Rest(duration: 1.1),
                     ]),
                     (weight: 3.0, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("trex_tail_whip"), duration: 0.8,
-                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                            telegraph: Some((pose: Some("tail_swipe"), cue: Some("boss.trex.growl_huff_a")))),
                         Strike(profile: Special("trex_tail_whip"), duration: 0.4),
                         Rest(duration: 1.1),
                     ]),
                     (weight: 2.0, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("trex_bite"), duration: 0.75,
-                            telegraph: Some((pose: Some("bite"), cue: None))),
+                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.growl_snarl_a")))),
                         Strike(profile: Special("trex_bite"), duration: 0.4),
                         Rest(duration: 1.1),
                     ]),
@@ -771,7 +771,7 @@
                 // wall. The rest after it is the run and the stun: the fight's
                 // long punish window.
                 Telegraph(profile: Special("trex_charge"), duration: 1.1,
-                    telegraph: Some((pose: Some("roar"), cue: Some("enemy.trex.roar")))),
+                    telegraph: Some((pose: Some("roar"), cue: Some("boss.trex.growl_rise_a")))),
                 Strike(profile: Special("trex_charge"), duration: 0.5),
                 Rest(duration: 3.4),
             ]),
@@ -783,31 +783,31 @@
                 Select(table: [
                     (weight: 3.0, when: Some(PlayerAbove), steps: [
                         Telegraph(profile: Special("trex_snap_up"), duration: 0.75,
-                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                            telegraph: Some((pose: Some("snap_up"), cue: Some("boss.trex.growl_grunt_a")))),
                         Strike(profile: Special("trex_snap_up"), duration: 0.35),
                         Rest(duration: 0.9),
                     ]),
                     (weight: 3.0, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("trex_tail_whip"), duration: 0.7,
-                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                            telegraph: Some((pose: Some("tail_swipe"), cue: Some("boss.trex.growl_huff_b")))),
                         Strike(profile: Special("trex_tail_whip"), duration: 0.4),
                         Rest(duration: 0.9),
                     ]),
                     (weight: 2.0, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("trex_double_bite"), duration: 0.75,
-                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.chomp")))),
+                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.growl_low_b")))),
                         Strike(profile: Special("trex_double_bite"), duration: 0.9),
                         Rest(duration: 0.9),
                     ]),
                     (weight: 1.5, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("trex_jaw_grab"), duration: 0.85,
-                            telegraph: Some((pose: Some("grab_reach"), cue: None))),
+                            telegraph: Some((pose: Some("grab_reach"), cue: Some("boss.trex.growl_low_a")))),
                         Strike(profile: Special("trex_jaw_grab"), duration: 0.4),
                         Rest(duration: 2.0),
                     ]),
                     (weight: 1.0, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("trex_stomp"), duration: 0.8,
-                            telegraph: Some((pose: Some("stomp"), cue: None))),
+                            telegraph: Some((pose: Some("stomp"), cue: Some("boss.trex.growl_grunt_b")))),
                         Strike(profile: Special("trex_stomp"), duration: 0.4),
                         Rest(duration: 0.9),
                     ]),
@@ -815,42 +815,42 @@
                 // He calls his kin: parrots from the high corners, only while
                 // fewer than four of his summons live (trex.rs counts them).
                 Telegraph(profile: Special("trex_call"), duration: 0.9,
-                    telegraph: Some((pose: Some("roar"), cue: Some("boss.bear_mauler.roar")))),
+                    telegraph: Some((pose: Some("roar"), cue: Some("boss.trex.growl_chuff_a")))),
                 Strike(profile: Special("trex_call"), duration: 0.45),
                 Rest(duration: 0.8),
                 // One stomp every cycle: the quake is this phase's voice.
                 Telegraph(profile: Special("trex_stomp"), duration: 0.85,
-                    telegraph: Some((pose: Some("stomp"), cue: None))),
+                    telegraph: Some((pose: Some("stomp"), cue: Some("boss.trex.growl_grunt_b")))),
                 Strike(profile: Special("trex_stomp"), duration: 0.4),
                 Rest(duration: 1.0),
                 Select(table: [
                     (weight: 3.0, when: Some(PlayerAbove), steps: [
                         Telegraph(profile: Special("trex_snap_up"), duration: 0.75,
-                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                            telegraph: Some((pose: Some("snap_up"), cue: Some("boss.trex.growl_grunt_a")))),
                         Strike(profile: Special("trex_snap_up"), duration: 0.35),
                         Rest(duration: 0.9),
                     ]),
                     (weight: 3.0, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("trex_tail_whip"), duration: 0.7,
-                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                            telegraph: Some((pose: Some("tail_swipe"), cue: Some("boss.trex.growl_huff_b")))),
                         Strike(profile: Special("trex_tail_whip"), duration: 0.4),
                         Rest(duration: 0.9),
                     ]),
                     (weight: 2.0, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("trex_double_bite"), duration: 0.75,
-                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.chomp")))),
+                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.growl_low_b")))),
                         Strike(profile: Special("trex_double_bite"), duration: 0.9),
                         Rest(duration: 0.9),
                     ]),
                     (weight: 1.5, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("trex_jaw_grab"), duration: 0.85,
-                            telegraph: Some((pose: Some("grab_reach"), cue: None))),
+                            telegraph: Some((pose: Some("grab_reach"), cue: Some("boss.trex.growl_low_a")))),
                         Strike(profile: Special("trex_jaw_grab"), duration: 0.4),
                         Rest(duration: 2.0),
                     ]),
                     (weight: 1.0, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("trex_stomp"), duration: 0.8,
-                            telegraph: Some((pose: Some("stomp"), cue: None))),
+                            telegraph: Some((pose: Some("stomp"), cue: Some("boss.trex.growl_grunt_b")))),
                         Strike(profile: Special("trex_stomp"), duration: 0.4),
                         Rest(duration: 0.9),
                     ]),
@@ -859,7 +859,7 @@
                 // wall. The rest after it is the run and the stun: the fight's
                 // long punish window.
                 Telegraph(profile: Special("trex_charge"), duration: 0.95,
-                    telegraph: Some((pose: Some("roar"), cue: Some("enemy.trex.roar")))),
+                    telegraph: Some((pose: Some("roar"), cue: Some("boss.trex.growl_rise_b")))),
                 Strike(profile: Special("trex_charge"), duration: 0.5),
                 Rest(duration: 3.0),
             ]),
@@ -869,78 +869,78 @@
             // (`trex.rs` turns it, `BossConduct::enraged`).
             enrage: (steps: [
                 Telegraph(profile: Special("trex_roar"), duration: 0.7,
-                    telegraph: Some((pose: Some("roar"), cue: None))),
+                    telegraph: Some((pose: Some("roar"), cue: Some("boss.trex.roar")))),
                 Strike(profile: Special("trex_roar"), duration: 0.5),
                 Rest(duration: 1.1),
                 // Enraged, his call brings raptors along the floor too.
                 Telegraph(profile: Special("trex_call"), duration: 0.85,
-                    telegraph: Some((pose: Some("roar"), cue: Some("boss.bear_mauler.roar")))),
+                    telegraph: Some((pose: Some("roar"), cue: Some("boss.trex.growl_chuff_a")))),
                 Strike(profile: Special("trex_call"), duration: 0.45),
                 Rest(duration: 0.7),
                 Select(table: [
                     (weight: 3.0, when: Some(PlayerAbove), steps: [
                         Telegraph(profile: Special("trex_snap_up"), duration: 0.75,
-                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                            telegraph: Some((pose: Some("snap_up"), cue: Some("boss.trex.growl_grunt_a")))),
                         Strike(profile: Special("trex_snap_up"), duration: 0.35),
                         Rest(duration: 0.6),
                     ]),
                     (weight: 3.0, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("trex_tail_whip"), duration: 0.6,
-                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                            telegraph: Some((pose: Some("tail_swipe"), cue: Some("boss.trex.growl_huff_b")))),
                         Strike(profile: Special("trex_tail_whip"), duration: 0.4),
                         Rest(duration: 0.6),
                     ]),
                     (weight: 2.0, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("trex_double_bite"), duration: 0.75,
-                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.chomp")))),
+                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.growl_low_b")))),
                         Strike(profile: Special("trex_double_bite"), duration: 0.9),
                         Rest(duration: 0.6),
                     ]),
                     (weight: 1.5, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("trex_jaw_grab"), duration: 0.85,
-                            telegraph: Some((pose: Some("grab_reach"), cue: None))),
+                            telegraph: Some((pose: Some("grab_reach"), cue: Some("boss.trex.growl_low_a")))),
                         Strike(profile: Special("trex_jaw_grab"), duration: 0.4),
                         Rest(duration: 2.0),
                     ]),
                     (weight: 1.0, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("trex_stomp"), duration: 0.7,
-                            telegraph: Some((pose: Some("stomp"), cue: None))),
+                            telegraph: Some((pose: Some("stomp"), cue: Some("boss.trex.growl_grunt_b")))),
                         Strike(profile: Special("trex_stomp"), duration: 0.4),
                         Rest(duration: 0.6),
                     ]),
                 ]),
                 Telegraph(profile: Special("trex_leap"), duration: 0.75,
-                    telegraph: Some((pose: Some("leap"), cue: None))),
+                    telegraph: Some((pose: Some("leap"), cue: Some("boss.trex.growl_grunt_a")))),
                 Strike(profile: Special("trex_leap"), duration: 1.1),
                 Rest(duration: 0.9),
                 Select(table: [
                     (weight: 3.0, when: Some(PlayerAbove), steps: [
                         Telegraph(profile: Special("trex_snap_up"), duration: 0.75,
-                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                            telegraph: Some((pose: Some("snap_up"), cue: Some("boss.trex.growl_grunt_a")))),
                         Strike(profile: Special("trex_snap_up"), duration: 0.35),
                         Rest(duration: 0.6),
                     ]),
                     (weight: 3.0, when: Some(PlayerBehind), steps: [
                         Telegraph(profile: Special("trex_tail_whip"), duration: 0.6,
-                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                            telegraph: Some((pose: Some("tail_swipe"), cue: Some("boss.trex.growl_huff_b")))),
                         Strike(profile: Special("trex_tail_whip"), duration: 0.4),
                         Rest(duration: 0.6),
                     ]),
                     (weight: 2.0, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("trex_double_bite"), duration: 0.75,
-                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.chomp")))),
+                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.growl_low_b")))),
                         Strike(profile: Special("trex_double_bite"), duration: 0.9),
                         Rest(duration: 0.6),
                     ]),
                     (weight: 1.5, when: Some(PlayerNear), steps: [
                         Telegraph(profile: Special("trex_jaw_grab"), duration: 0.85,
-                            telegraph: Some((pose: Some("grab_reach"), cue: None))),
+                            telegraph: Some((pose: Some("grab_reach"), cue: Some("boss.trex.growl_low_a")))),
                         Strike(profile: Special("trex_jaw_grab"), duration: 0.4),
                         Rest(duration: 2.0),
                     ]),
                     (weight: 1.0, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("trex_stomp"), duration: 0.7,
-                            telegraph: Some((pose: Some("stomp"), cue: None))),
+                            telegraph: Some((pose: Some("stomp"), cue: Some("boss.trex.growl_grunt_b")))),
                         Strike(profile: Special("trex_stomp"), duration: 0.4),
                         Rest(duration: 0.6),
                     ]),
@@ -948,7 +948,7 @@
                 // The turning charge: the run is twice the hall, so the rest is
                 // longer than phase 2's for the same stun.
                 Telegraph(profile: Special("trex_charge"), duration: 0.8,
-                    telegraph: Some((pose: Some("roar"), cue: Some("enemy.trex.roar")))),
+                    telegraph: Some((pose: Some("roar"), cue: Some("boss.trex.growl_rise_b")))),
                 Strike(profile: Special("trex_charge"), duration: 0.5),
                 Rest(duration: 3.4),
             ]),

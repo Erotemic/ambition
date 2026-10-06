@@ -126,6 +126,7 @@ pub fn queue_boss_conducts(
                             && live_rooms.of(*mob) == live_rooms.of(boss)
                     })
                     .count() as u32,
+                between_phases: encounter.between_phases(),
             },
         );
     }

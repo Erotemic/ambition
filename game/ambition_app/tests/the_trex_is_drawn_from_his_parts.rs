@@ -77,3 +77,89 @@ fn the_tyrant_is_drawn_from_his_parts_in_the_row_his_fight_draws() {
     }
     assert!(rows.len() >= 2, "premise: he moved through more than one row, saw {rows:?}");
 }
+
+/// The clip and frame his HURT parts are posed from, and whether a flash runs.
+fn hurt_pose(app: &mut App) -> (Option<String>, usize, f32) {
+    use ambition_platformer2d::boss_encounter::BossConfig;
+    use ambition_platformer2d::characters::actor::BodyCombat;
+    use ambition_platformer2d::combat::body_rig::BodyRigPose;
+    let world = app.world_mut();
+    world
+        .query::<(&BossConfig, &BodyRigPose, &BodyCombat)>()
+        .iter(world)
+        .find(|(config, ..)| config.behavior.id == ambition_content::bosses::trex::TREX_ID)
+        .map(|(_, pose, combat)| (pose.clip.clone(), pose.frame, combat.hit_flash))
+        .expect("the T-rex's body rig pose")
+}
+
+/// Start a hit flash on him, as a landed hit does.
+fn flash_him(app: &mut App, seconds: f32) {
+    use ambition_platformer2d::boss_encounter::BossConfig;
+    use ambition_platformer2d::characters::actor::BodyCombat;
+    let world = app.world_mut();
+    let mut bosses = world.query::<(&BossConfig, &mut BodyCombat)>();
+    for (config, mut combat) in bosses.iter_mut(world) {
+        if config.behavior.id == ambition_content::bosses::trex::TREX_ID {
+            combat.hit_flash = seconds;
+        }
+    }
+}
+
+/// HIT, HE IS DRAWN IN THE POSE HIS HURT PARTS HAVE.
+///
+/// His sheet has a `hurt` row, bound to `BossAnim::Hit`, and a baked boss
+/// draws that row while its hit flash runs: presentation only, the sim's row
+/// continues underneath. He is hit through parts posed from the sim's row
+/// (`BodyRigPose`). Drawn in `hurt` while his parts were posed in `bite`, his
+/// visible head was in one place and the part a strike lands on in another
+/// (review 2026-10-06, P1).
+///
+/// Each frame of a stretch of his fight, with the flash held on: his drawn
+/// parts and his hurt parts name the same clip and the same frame. The
+/// control stretch, with no flash, proves that the two agree at all.
+#[test]
+fn hit_he_is_drawn_in_the_pose_his_hurt_parts_have() {
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, |app| {
+        app.insert_resource(StartRoomOverride("trex_arena".to_string()));
+        app.insert_resource(StartRoomMustResolve);
+    });
+    let mut boss = None;
+    for _ in 0..BOOT_CAP {
+        app.update();
+        boss = part_drawn_boss(&mut app);
+        if boss.is_some() {
+            break;
+        }
+    }
+    let boss = boss.expect("no T-rex drawn from parts: see `the_tyrant_is_drawn_from_his_parts_in_the_row_his_fight_draws`");
+
+    let stretch = |app: &mut App, flashing: bool| {
+        let mut rows = BTreeSet::new();
+        let mut flashed = 0usize;
+        for _ in 0..400 {
+            if flashing {
+                flash_him(app, 0.3);
+            }
+            app.update();
+            let (clip, frame, flash) = hurt_pose(app);
+            flashed += usize::from(flash > 0.0);
+            let world = app.world();
+            let animator = world.get::<CharacterAnimator>(boss).expect("his parts' animator");
+            let shown = animator.drawn_row().and_then(|row| animator.spec.row_name(row)).map(str::to_string);
+            assert_eq!(
+                (shown.clone(), animator.frame),
+                (clip.clone(), frame),
+                "his drawn parts (left) are not in the pose his hurt parts have (right); flash held: {flashing}"
+            );
+            rows.extend(shown);
+        }
+        (rows, flashed)
+    };
+    let (rows, flashed) = stretch(&mut app, false);
+    assert!(rows.len() >= 2, "premise: he moved through more than one row with no flash, saw {rows:?}");
+    assert_eq!(flashed, 0, "premise: the control stretch has no flash");
+    let (rows, flashed) = stretch(&mut app, true);
+    assert!(flashed >= 390, "premise: the flash was live on {flashed} of 400 frames");
+    assert!(rows.len() >= 2, "premise: he moved through more than one row under the flash, saw {rows:?}");
+    assert!(!rows.contains("hurt"), "his parts drew the presentation-only `hurt` row: {rows:?}");
+}

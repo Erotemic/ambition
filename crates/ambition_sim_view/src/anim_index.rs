@@ -450,9 +450,15 @@ pub struct BossFrameView {
     pub cursor_anim: ambition_sprite_sheet::boss::BossAnim,
     pub cursor_frame: usize,
     /// Seconds of damage flash left on a live boss (`0.0` when dead). The
-    /// renderer draws the `Hit` row over the cursor while it runs; the sim
-    /// cursor itself never enters `Hit`.
+    /// renderer draws the `Hit` row over the cursor while it runs, for a boss
+    /// that is not [`Self::posed_by_rig`]; the sim cursor itself never enters
+    /// `Hit`.
     pub hit_flash_secs: f32,
+    /// This boss is hit through parts that are posed from the row it is drawn
+    /// with (it has a `BodyRig`). Its drawn row is then a fact of the sim:
+    /// the renderer draws no presentation-only row over it, because the
+    /// visible parts would be in one pose and the hurt parts in another.
+    pub posed_by_rig: bool,
     /// The boss's combat AABB (debug health bars anchor here).
     pub aabb: ae::Aabb,
     pub hazard_lane: Option<HazardLaneFact>,
@@ -518,12 +524,13 @@ pub fn rebuild_boss_frame_index(
         Option<&ambition_sprite_sheet::boss::BossAnimFrame>,
         Option<&ambition_sprite_sheet::character::PinnedRow>,
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        bevy::prelude::Has<ambition_combat::body_rig::BodyRig>,
     )>,
 ) {
     use ambition_sprite_sheet::boss::BossAnim;
     use ambition_characters::brain::BossAttackProfile;
     index.begin_rebuild();
-    for (id, feature, health, combat, attack_state, brain, anim_frame, pinned, frame) in &bosses {
+    for (id, feature, health, combat, attack_state, brain, anim_frame, pinned, frame, posed_by_rig) in &bosses {
         let boss = feature.as_boss_ref();
         let anim = boss_anim_state_for(&catalog, boss, health.alive(), attack_state, brain);
         let (cursor_anim, cursor_frame) = anim_frame
@@ -569,6 +576,7 @@ pub fn rebuild_boss_frame_index(
                 } else {
                     0.0
                 },
+                posed_by_rig,
                 aabb: boss.aabb(),
                 hazard_lane,
                 gravity_dir: frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down()),

@@ -198,7 +198,9 @@ impl BossSheetSpec {
     ///
     /// Presentation only: the sim cursor never selects `Hit`, so boss geometry
     /// does not depend on flash length. The row plays forward and stops on its
-    /// last frame.
+    /// last frame. The caller does not draw it for a boss whose hurt parts are
+    /// posed from its drawn row (a body rig): that boss stays in the sim's
+    /// pose, and its hit feedback is the flash overlay.
     pub fn hit_reaction_frame(&self, remaining_secs: f32) -> Option<(BossAnim, usize)> {
         let (_, row) = self.rows.iter().find(|(anim, _)| *anim == BossAnim::Hit)?;
         if row.frame_count == 0 || remaining_secs <= 0.0 {

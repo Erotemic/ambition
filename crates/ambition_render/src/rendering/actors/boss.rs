@@ -136,24 +136,7 @@ pub fn animate_bosses(
             continue;
         };
         let state: BossAnimState = view.anim;
-        // Draw the sim-owned cursor from the read model. The render only
-        // addresses the atlas cell for `(anim, frame)`, so the sprite and the
-        // strike geometry share one sim frame.
-        //
-        // A hit reaction is presentation: the `Hit` row is drawn while the
-        // flash runs, and the cursor (and its geometry) continues underneath, so
-        // the attack resumes at the strike's frame.
-        //
-        // Then a PINNED row (content's `PinnedRow`: a scholar's tumble), when
-        // this sheet has one of its names; else the cursor's slot row.
-        let (row, frame) = match animator.spec.hit_reaction_frame(view.hit_flash_secs) {
-            Some((anim, frame)) => (animator.spec.record_row(anim), frame),
-            None => view
-                .pinned
-                .as_ref()
-                .and_then(|pin| animator.pinned_cell(pin.rows.iter().map(String::as_str), pin.elapsed, pin.looping))
-                .unwrap_or((animator.spec.record_row(view.cursor_anim), view.cursor_frame)),
-        };
+        let (row, frame) = drawn_cell(animator, view);
         if let Some(mut drawn) = drawn {
             *drawn = sprites::BossDrawnCell { row, frame };
         }
@@ -206,6 +189,45 @@ pub fn animate_bosses(
             Color::WHITE
         };
     }
+}
+
+/// The record `(row, frame)` a boss draws this frame.
+///
+/// The render only addresses the atlas cell the sim's cursor names, so the
+/// sprite and the strike geometry share one sim frame. In order:
+///
+/// 1. A hit reaction, for a BAKED boss. It is presentation: the `Hit` row is
+///    drawn while the flash runs, and the cursor (and its geometry) continues
+///    underneath, so the attack resumes at the strike's frame. A boss that is
+///    hit through posed parts ([`ambition_sim_view::BossFrameView::posed_by_rig`])
+///    does not draw it: its hurt parts stay in the pose of the sim's row, and
+///    parts drawn in the `Hit` row would not be where a strike lands on them.
+///    Its hit feedback is the flash overlay, in the pose it has.
+/// 2. A PINNED row (content's `PinnedRow`: a scholar's tumble), when this
+///    sheet has one of its names.
+/// 3. The cursor's slot row.
+pub fn drawn_cell(animator: &BossAnimator, view: &ambition_sim_view::BossFrameView) -> (usize, usize) {
+    match hit_reaction(&animator.spec, view.posed_by_rig, view.hit_flash_secs) {
+        Some((anim, frame)) => (animator.spec.record_row(anim), frame),
+        None => view
+            .pinned
+            .as_ref()
+            .and_then(|pin| animator.pinned_cell(pin.rows.iter().map(String::as_str), pin.elapsed, pin.looping))
+            .unwrap_or((animator.spec.record_row(view.cursor_anim), view.cursor_frame)),
+    }
+}
+
+/// The presentation-only `Hit` cell a boss draws while its flash runs: none
+/// for a boss that is hit through posed parts. See [`drawn_cell`].
+fn hit_reaction(
+    spec: &sprites::BossSheetSpec,
+    posed_by_rig: bool,
+    hit_flash_secs: f32,
+) -> Option<(sprites::BossAnim, usize)> {
+    if posed_by_rig {
+        return None;
+    }
+    spec.hit_reaction_frame(hit_flash_secs)
 }
 
 /// A boss sheet drawn from a character's parts ([`sprites::BossSheetSpec::parts`])
@@ -290,5 +312,41 @@ pub fn pose_boss_part_animators(
         if let Some(slot) = animator.spec.clip_slot([name]) {
             animator.show_cell(slot, drawn.frame);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_sprite_sheet::boss::{AnimRow, BossAnim, BossSheetSpec};
+
+    /// A BAKED BOSS FLINCHES; A BOSS HIT THROUGH POSED PARTS DOES NOT.
+    ///
+    /// The `Hit` row is presentation: the sim's cursor does not enter it. A
+    /// baked boss is hit through geometry that does not follow its drawn row,
+    /// so the flinch costs nothing. A boss with a body rig is hit through
+    /// parts posed from the sim's row: drawn in the `Hit` row, its visible
+    /// head would be in one place and the part a strike lands on in another.
+    #[test]
+    fn a_boss_posed_by_its_rig_draws_no_presentation_only_hit_row() {
+        let spec = BossSheetSpec {
+            rows: vec![
+                (BossAnim::Rest, AnimRow { frame_count: 4, duration_secs: 0.12 }),
+                (BossAnim::Hit, AnimRow { frame_count: 5, duration_secs: 0.09 }),
+            ],
+            ..BossSheetSpec::unauthored()
+        };
+        let flash = 0.09 * 5.0;
+        assert_eq!(
+            hit_reaction(&spec, false, flash),
+            Some((BossAnim::Hit, 0)),
+            "control: a baked boss with a `Hit` row and a flash draws the flinch"
+        );
+        assert_eq!(
+            hit_reaction(&spec, true, flash),
+            None,
+            "a boss posed by its rig drew the `Hit` row over the pose its hurt parts have"
+        );
+        assert_eq!(hit_reaction(&spec, false, 0.0), None, "no flash, no flinch");
     }
 }

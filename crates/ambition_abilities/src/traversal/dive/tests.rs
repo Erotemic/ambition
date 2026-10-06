@@ -363,3 +363,59 @@ fn in_sideways_gravity_a_dive_arrives_beside_a_solid_its_box_does_not_touch() {
     let player = sideways_player(&mut app, vec![corner]);
     assert_eq!(dive_with_aim(&mut app, player, None), ae::Vec2::new(100.0, 100.0 - DIVE_LUNGE));
 }
+
+/// A crawler on a wall does not lie in the frame of its gravity: its DOWN is
+/// into the wall, and only the record of its last step says so. The dive
+/// moves it and does not turn it (`reconcile_transit` keeps the turn), so the
+/// arrival must fit the box the record has.
+///
+/// Gravity is toward +y. The body holds a wall on its left: its DOWN is -x,
+/// and it is 20 deep on x where the frame of its gravity makes it 12.
+#[test]
+fn a_crawler_on_a_wall_dives_with_the_box_its_last_step_had() {
+    let mut app = test_app();
+    // A wall across the dive (world +x): its face is at x = 200.
+    let ahead = ae::Block::solid("ahead", ae::Vec2::new(200.0, -300.0), ae::Vec2::new(400.0, 900.0));
+    let player = spawn_primary_player_holding(&mut app, DIVE_ID); // (100, 100), 24x40
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(ae::World::new(
+            "test",
+            ae::Vec2::new(600.0, 600.0),
+            ae::Vec2::new(100.0, 100.0),
+            vec![ahead],
+        )),
+    );
+    let into_the_wall = ae::Vec2::new(-1.0, 0.0);
+    {
+        let mut body = app.world_mut().entity_mut(player);
+        let kin = *body.get::<BodyKinematics>().unwrap();
+        let mut model = body.get_mut::<ae::movement::MotionModel>().unwrap();
+        ae::movement::switch_motion_model(
+            &mut model,
+            ae::MotionModelSpec::AdhesiveCrawler(ae::CrawlerParams::default()),
+        );
+        if let ae::movement::MotionModel::AdhesiveCrawler(crawler) = &mut *model {
+            crawler.state = ae::movement::CrawlerState::attached(-into_the_wall);
+        }
+        *body.get_mut::<ae::SweepSample>().unwrap() = ae::SweepSample::at_rest(kin, into_the_wall);
+    }
+    let frame_down = app
+        .world()
+        .get::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>(player)
+        .unwrap()
+        .down();
+    assert_eq!(frame_down, ae::Vec2::new(0.0, 1.0), "premise: the frame of the body is its gravity, not its wall");
+    let record = *app.world().get::<ae::SweepSample>(player).unwrap();
+    assert_eq!(record.half, ae::Vec2::new(20.0, 12.0), "premise: the body lies along its wall");
+
+    let pos = dive_with_aim(&mut app, player, None);
+    assert!(pos.x > 100.0, "the dive must carry the body: {pos:?}");
+    let record = *app.world().get::<ae::SweepSample>(player).unwrap();
+    assert_eq!(record.half, ae::Vec2::new(20.0, 12.0), "premise: the dive does not turn the body");
+    assert!(
+        pos.x + record.half.x <= 200.0 + 1e-3,
+        "the dive put the box of the body in the wall: it ends at x = {}, the wall is at x = 200",
+        pos.x + record.half.x
+    );
+}

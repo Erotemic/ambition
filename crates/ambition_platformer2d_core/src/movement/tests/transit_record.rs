@@ -175,3 +175,28 @@ fn the_snapshot_of_a_record_holds_its_down() {
     assert_ne!(bytes, level, "two records that differ in their DOWN only must not encode alike");
     assert_eq!(SweepSample::decode(&mut Reader::new(&bytes)), Some(turned));
 }
+
+/// A reader with a frame and a record asks the record first. A record that
+/// no step has written has no DOWN, and the frame answers.
+#[test]
+fn the_down_of_a_body_is_of_its_last_step_and_else_of_its_frame() {
+    let frame_down = Vec2::new(0.0, 1.0);
+    let body = crate::body_clusters::BodyKinematics {
+        pos: START,
+        vel: Vec2::ZERO,
+        size: BODY,
+        facing: 1.0,
+    };
+    assert_eq!(SweepSample::down_or(None, frame_down), frame_down, "no record");
+    assert_eq!(
+        SweepSample::down_or(Some(&SweepSample::default()), frame_down),
+        frame_down,
+        "a record that no step has written"
+    );
+    let on_a_wall = SweepSample::at_rest(body, Vec2::new(-1.0, 0.0));
+    assert_eq!(
+        SweepSample::down_or(Some(&on_a_wall), frame_down),
+        Vec2::new(-1.0, 0.0),
+        "the record of a step has the DOWN of the body"
+    );
+}

@@ -2915,6 +2915,35 @@ turned, and the gun and the indicator the presentation draws from the view
 (`size.x * 0.45` in front on world x, `size.y * 0.5` over on world -y: two
 more world-axis procedures, in a drawing).
 
+**A crawler that holds a traversal, measured 2026-10-06:** the four
+arrivals ask the DOWN of the resolved frame. A crawler on a wall is not
+turned to its frame (its DOWN is into the wall), and `reconcile_transit`
+keeps the turn it had, so for such a body the frame is the wrong box.
+Which crawler can hold which verb, in the shipped app (a probe, not kept):
+
+- `npc_puppy_slug` is the only character with a crawler body (the one
+  `surface_walker: true` of the catalogs; no row authors `motion_model`).
+- a POSSESSED slug: the seat's Attack press does not reach its
+  `ActorControl` (`melee_pressed` read false after the press, where the home
+  body read true after its own), and it did not pick up a dive that lay on
+  it. No wielded verb fires.
+- a body that WEARS the slug (`WornCharacter`, the home body): it is an
+  attached `AdhesiveCrawler`; an Attack press over a dive picked it up, and
+  an Attack press with the dive in hand moved it 141 and detached it. So the
+  dive has a road. Not established: whether the shipped game lets a player
+  wear the slug where a dive lies (the writers of `WornCharacter` are the
+  session setup and a match seat).
+- the teleport and the trapdoor are specials of a moveset, and a body has the
+  moveset of the character it wears. The characters that author them are
+  the director, the oni leader, the performer, `smash_duelist_a` and
+  `player_robot`: none is a crawler. No road, so they are NOT changed, and
+  they still ask the frame.
+- BUILT for the dive: it asks `SweepSample::down_or(record, frame.down())`,
+  the DOWN of the last step and else of the frame. Arm, red first: a crawler
+  on a wall under gravity toward +y dived with its box 6 inside the solid
+  ahead (the record is 20 deep on x, the frame 12). The blink is gated to the
+  axis arm, where the two are the same.
+
 **A procedure written in world axes (2 lines, NOT built, a defect):** these
 two read a level half, and to turn the half alone is wrong, because every
 other term of the procedure is a world axis.

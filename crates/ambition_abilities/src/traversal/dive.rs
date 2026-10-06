@@ -125,9 +125,12 @@ pub fn fire_dive_system(
         // the body's extent in the lunge direction (half-height for a vertical
         // dive), as the blink does, or a downward dive embeds in the floor
         // and trips the OOB detector.
-        // The half is of the box the body has: turned to the DOWN of its
-        // resolved frame, as the kernel turns it for the step.
-        let half = clusters.kinematics.half_oriented(resolved_frame.down());
+        // The half is of the box the body has: turned to the DOWN of its last
+        // step. For a body the axis arm moves that is the DOWN of its
+        // resolved frame. A crawler on a wall lies along the wall, and only
+        // the record of its step says so; the dive does not turn it.
+        let down = ae::SweepSample::down_or(clusters.sweep.as_deref(), resolved_frame.down());
+        let half = clusters.kinematics.half_oriented(down);
         let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
         // One collision view for the clamp raycast and the embed check, so
         // moving platforms and ECS solids also stop the lunge.

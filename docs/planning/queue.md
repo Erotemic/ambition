@@ -2695,7 +2695,7 @@ neighbours, and no class but the first was measured.
 | --- | --- | --- | --- | --- |
 | the transit record | 1 | 0 | `movement/authority.rs` (`reconcile_transit`) | yes. BUILT, see below |
 | a second WRITE of the published footprint | 4 | 0 | `ambition_mount` (3), the Gnu-ton conductor | yes. BUILT, see below |
-| world and reach tests of a body | 16 | 1 | loading zones and reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `breakables.rs`, the portal gun pickup, `safe_position.rs`, the rider against solids (`ambition_mount`); and `ambition_held_items/src/lib.rs` (the pickup of a ground item), which is the one NOT converted | yes. BUILT but for the last, see below |
+| world and reach tests of a body | 16 | 0 | loading zones and reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `breakables.rs`, the portal gun pickup, `safe_position.rs`, the rider against solids (`ambition_mount`), the pickup of a ground item (`ambition_held_items/src/lib.rs`) | yes. BUILT, see below |
 | arrival and fit checks of a traversal | 6 | 6 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (2), the petting stand-off (`pet.rs`) | yes |
 | portals | 9 | 9 | `ambition_portal2d` `transit.rs` (3, one of them the test literal) and `eviction.rs` (2), the host adapter, a shot's portal transit, two draws in `ambition_portal2d_presentation` | yes for a body; not read line by line |
 | what a brain sees of a peer | 2 | 2 | `perception.rs` (`half_extent`) | yes |
@@ -2709,8 +2709,9 @@ neighbours, and no class but the first was measured.
 
 The first sort put the throw's gravity lookup of `ambition_held_items` in the
 world-and-reach class; it is a gravity lookup, and the table above has it
-there (16 and 3, not 17 and 2). The search finds 58 lines on 2026-10-06 after
-the three classes that are built.
+there (16 and 3, not 17 and 2). The search finds 57 lines on 2026-10-06 after
+the three classes that are built (the guard counts 54 of them: it leaves out
+the 2 comment lines and the test literal).
 
 **The transit record, built 2026-10-06 (rollback schema 314 to 315):**
 `transit_body` and `reconcile_transit` have 23 call sites outside tests. Ten
@@ -2760,7 +2761,7 @@ So the rule for a reader is one function in the kernel's crate,
 `BodyKinematics::collision_box(last_step)`: the body's present position and
 size, turned to the DOWN of its last step, and level for a body with no
 record. It is the collision box, so the envelope of a boss is not in it; its
-doc says it is not the footprint and not a hurtbox. Fifteen lines ask it now
+doc says it is not the footprint and not a hurtbox. Sixteen lines ask it now
 (the rider against solids asks `aabb_oriented` with the DOWN of the pair,
 which it has).
 
@@ -2784,8 +2785,11 @@ which it has).
   reaches from each heart. She collects the heart past her end and not the
   heart beside her; with the collector's line put back she collects the heart
   beside her.
-- Not converted: the pickup of a ground item
-  (`ambition_held_items/src/lib.rs`), a file with another owner this week.
+- The pickup of a ground item (`ambition_held_items/src/lib.rs`) was
+  converted after the others, with its arms written and seen red FIRST: in
+  sideways gravity a body picks up the item under its end and not the item
+  beside it (2 red before, the premise and the level control green before
+  and after).
 
 The arms were written AFTER the conversion (a mechanical edit), so each red
 was seen by putting the reader's old line back, not before the change.
@@ -2826,6 +2830,25 @@ port's membership removed on the tree before the edge).
   body. It calls `transit_body` (`control/possession.rs`), so its record is
   collapsed by `reconcile_transit` and keeps the turn of the body. What the
   two readers then see of a possession was not measured.
+
+**The guard, built 2026-10-06:** `scripts/check_level_box_readers.py` runs
+the search above and compares each line with
+`scripts/baselines/level-box-readers.json`, where each read has a class and
+each class has its reason. It prints the search, so a reader can run it
+again. It is red when the search finds a line the baseline does not have (a
+new read: convert it or classify it), and when the baseline has a line the
+search no longer finds (the count of a file may only fall). The identity of a
+line is its file and its text, with a count: a line number would go stale at
+each edit above it. When it was built the guard found 55 lines where the
+search of this row found 58: it leaves out the 2 comment lines and the test
+literal that the first census counted. Poison: one
+`kinematics.aabb()` in a scratch file under `crates` made it red with the
+file and line, and it was green again with the file removed
+(`scripts/tests/test_level_box_readers.py` holds the same on a scratch tree).
+It is in the maintenance lane of `scripts/run_tests.py`. It stops the obvious
+regrowth. It does not show that no reader asks the level box: a box built
+another way (`Aabb::new(pos, half)` from a local, a destructured `size`) is
+not found.
 
 **To reproduce (the next class):** in turned gravity, a region beside a body
 that is not square, nearer than the long half minus the short half and not

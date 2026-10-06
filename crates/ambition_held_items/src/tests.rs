@@ -2097,3 +2097,72 @@ fn a_held_thing_is_in_the_answered_hand_else_at_the_fixed_hand() {
     assert_eq!(fixed, ambition_mount::rider_hand_world_pos(kin.pos, kin.facing, kin.size.y));
     assert_ne!(fixed, kin.pos);
 }
+
+/// Where the body of the reach arms is. Its box is 24x40.
+const REACH_AT: Vec2 = Vec2::new(100.0, 100.0);
+/// An item at this offset touches the box of a body that lies along sideways
+/// gravity (half 20x12), and does not touch its level box (half 12x20).
+const REACH_UNDER_END: Vec2 = Vec2::new(34.0, 0.0);
+/// An item at this offset touches the level box, and does not touch the box
+/// of a body that lies along sideways gravity.
+const REACH_BESIDE: Vec2 = Vec2::new(0.0, 34.0);
+
+/// Press Attack with one item at `offset` from a body whose last step had the
+/// DOWN `down`. Answer whether the body picked the item up.
+fn picks_up_at(offset: Vec2, down: Option<Vec2>) -> bool {
+    let mut app = App::new();
+    app.add_systems(Update, pickup_held_item_system);
+    let player = spawn_player(&mut app, REACH_AT);
+    if let Some(down) = down {
+        let body = *app.world().get::<BodyKinematics>(player).unwrap();
+        app.world_mut()
+            .entity_mut(player)
+            .insert(ambition_platformer2d_core::SweepSample::at_rest(body, down));
+    }
+    app.world_mut().spawn(GroundItem {
+        spec: axe_spec(),
+        pos: REACH_AT + offset,
+        vel: Vec2::ZERO,
+        half_extent: Vec2::splat(PICKUP_HALF),
+    });
+    set_control(&mut app, player, true, false);
+    app.update();
+    app.world().get::<HeldItem>(player).is_some()
+}
+
+/// The premise of the reach arms: the two boxes disagree about each offset.
+#[test]
+fn the_reach_offsets_separate_the_level_box_from_the_turned_box() {
+    let item = |offset: Vec2| ae::Aabb::new(REACH_AT + offset, Vec2::splat(PICKUP_HALF));
+    let level = ae::Aabb::new(REACH_AT, Vec2::new(12.0, 20.0));
+    let turned = ae::Aabb::new(REACH_AT, Vec2::new(20.0, 12.0));
+    assert!(turned.strict_intersects(item(REACH_UNDER_END)) && !level.strict_intersects(item(REACH_UNDER_END)));
+    assert!(level.strict_intersects(item(REACH_BESIDE)) && !turned.strict_intersects(item(REACH_BESIDE)));
+}
+
+#[test]
+fn a_body_in_sideways_gravity_picks_up_the_item_its_own_box_touches() {
+    assert!(
+        picks_up_at(REACH_UNDER_END, Some(Vec2::new(1.0, 0.0))),
+        "the item under the end of the body touches its box"
+    );
+}
+
+#[test]
+fn a_body_in_sideways_gravity_does_not_pick_up_an_item_beside_it() {
+    assert!(
+        !picks_up_at(REACH_BESIDE, Some(Vec2::new(1.0, 0.0))),
+        "the item beside the body does not touch its box"
+    );
+}
+
+/// The rule is the turn of the last step, not a swap of the two sides: a body
+/// in normal gravity, and a body with no record of a step, reach with the
+/// level box.
+#[test]
+fn a_level_body_picks_up_with_its_level_box() {
+    for down in [Some(Vec2::new(0.0, 1.0)), None] {
+        assert!(picks_up_at(REACH_BESIDE, down), "down {down:?}: the item touches the side of the level body");
+        assert!(!picks_up_at(REACH_UNDER_END, down), "down {down:?}: the item is past the side of the level body");
+    }
+}

@@ -1,0 +1,287 @@
+{
+  "about": "The level-box reads of a body that scripts/check_level_box_readers.py finds, each with its class. A new read is not in this file: convert it, or add it with the class that says why the level box is right there. A line the search no longer finds must be deleted: the counts may only fall. LEVEL-BOX-READERS in docs/planning/queue.md has the table.",
+  "classes": {
+    "to convert: arrival and fit of a traversal": "a blink, a dive, a trapdoor, a teleport and the petting stand-off test where a body fits with its level box",
+    "to convert: portals": "a portal transit, an eviction and their draws read a body's level box; a body turns through a portal, so this class has its own frame questions",
+    "to convert: what a brain sees of a peer": "the half extent a brain is given for a peer is level",
+    "a shot": "a shot is a free body with no support and no stance: its size is its box",
+    "the gravity of a body": "this box is what resolves the frame of the body, so the frame cannot turn it",
+    "the centre only": "the reader takes the centre, which the two boxes share",
+    "developer trace and overlay": "a developer tool, not the game; an overlay that draws the level box of a turned body shows a box the body does not have",
+    "a game with no turned gravity": "Mary-O, Smash and Sanic have no room whose gravity is turned; convert when one does",
+    "the camera's framing bounds": "a bound of what the camera frames, not a contact",
+    "inside the kernel": "the kernel turns the half itself on this line, or the crawler arm states its own DOWN"
+  },
+  "reads": [
+    {
+      "file": "crates/ambition_abilities/src/traversal/blink.rs",
+      "code": "let half = clusters.kinematics.size * 0.5;",
+      "class": "to convert: arrival and fit of a traversal"
+    },
+    {
+      "file": "crates/ambition_abilities/src/traversal/dive.rs",
+      "code": "let half = clusters.kinematics.size * 0.5;",
+      "class": "to convert: arrival and fit of a traversal"
+    },
+    {
+      "file": "crates/ambition_boss_encounter/src/extension.rs",
+      "code": ".map(|kin| kin.aabb().center())",
+      "class": "the centre only"
+    },
+    {
+      "file": "crates/ambition_held_items/src/lib.rs",
+      "code": "ae::Aabb::new(kin.pos, kin.size * 0.5),",
+      "class": "the gravity of a body"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/teleport.rs",
+      "code": "half: kin.size * 0.5,",
+      "class": "to convert: arrival and fit of a traversal"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/teleport.rs",
+      "code": "let half = clusters.kinematics.size * 0.5;",
+      "class": "to convert: arrival and fit of a traversal"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/trapdoor.rs",
+      "code": "let half = clusters.kinematics.size * 0.5;",
+      "class": "to convert: arrival and fit of a traversal"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/avatar/trail.rs",
+      "code": "kin.aabb().center()",
+      "class": "the centre only"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/clash.rs",
+      "code": "volume: ae::CombatVolume::aabb(ae::Aabb::new(kin.pos, kin.size * 0.5)),",
+      "class": "a shot"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/actor_oob.rs",
+      "code": "let aabb = kin.aabb();",
+      "class": "developer trace and overlay"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/detect.rs",
+      "code": "scratch.kinematics.aabb(),",
+      "class": "developer trace and overlay"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/detect.rs",
+      "code": "aabb: clusters.kinematics.aabb().into(),",
+      "class": "developer trace and overlay"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/detect.rs",
+      "code": "let player_aabb = clusters.kinematics.aabb();",
+      "class": "developer trace and overlay"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/detect.rs",
+      "code": "let nearby_after = nearby_collision_around(world, clusters.kinematics.aabb(), 64.0);",
+      "class": "developer trace and overlay"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/systems.rs",
+      "code": "clusters.kinematics.aabb(),",
+      "class": "developer trace and overlay"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs",
+      "code": "half_extent: kin.size * 0.5,",
+      "class": "to convert: what a brain sees of a peer"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs",
+      "code": "half_extent: body.kin.size * 0.5,",
+      "class": "to convert: what a brain sees of a peer"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pet.rs",
+      "code": "petter_kin.size * 0.5,",
+      "class": "to convert: arrival and fit of a traversal"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/target_volumes.rs",
+      "code": "let volumes = resolved.world_volumes(kin.aabb().center(), side)?;",
+      "class": "the centre only"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/gravity/resolve.rs",
+      "code": "resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), player_response));",
+      "class": "the gravity of a body"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/gravity/resolve.rs",
+      "code": "resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), response));",
+      "class": "the gravity of a body"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+      "code": "let gravity_dir = gravity.dir_for(shot_room, kin.aabb());",
+      "class": "a shot"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+      "code": "let shot_box_at_leg_start = ae::Aabb::new(leg_start, kin.size * 0.5);",
+      "class": "a shot"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+      "code": "ae::Aabb::new(leg_start, kin.size * 0.5),",
+      "class": "a shot"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+      "code": "let shot_half = kin.size * 0.5;",
+      "class": "a shot"
+    },
+    {
+      "file": "crates/ambition_platformer2d_core/src/movement/adhesive_crawler.rs",
+      "code": "let half = clusters.kinematics.size * 0.5;",
+      "class": "inside the kernel"
+    },
+    {
+      "file": "crates/ambition_platformer2d_core/src/movement/adhesive_crawler.rs",
+      "code": "let half = clusters.kinematics.size * 0.5;",
+      "class": "inside the kernel"
+    },
+    {
+      "file": "crates/ambition_platformer2d_core/src/player_state.rs",
+      "code": "let old_world_half = frame.to_world_half(kinematics.size * 0.5);",
+      "class": "inside the kernel"
+    },
+    {
+      "file": "crates/ambition_platformer2d_host/src/portal.rs",
+      "code": "Some((kin.pos, kin.size * 0.5, room, rooms.in_room(room)?))",
+      "class": "to convert: portals"
+    },
+    {
+      "file": "crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs",
+      "code": "let body_aabb = body.aabb();",
+      "class": "a shot"
+    },
+    {
+      "file": "crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs",
+      "code": "let body_aabb = body.aabb();",
+      "class": "a shot"
+    },
+    {
+      "file": "crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs",
+      "code": "self.kin.aabb()",
+      "class": "a shot"
+    },
+    {
+      "file": "crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs",
+      "code": "self.kin.size * 0.5",
+      "class": "a shot"
+    },
+    {
+      "file": "crates/ambition_platformer2d_shared_tangle/src/projectile/collision.rs",
+      "code": "let aabb = kin.aabb();",
+      "class": "a shot"
+    },
+    {
+      "file": "crates/ambition_portal2d/src/eviction.rs",
+      "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
+      "class": "to convert: portals"
+    },
+    {
+      "file": "crates/ambition_portal2d/src/eviction.rs",
+      "code": "let half_n = (kin.size * 0.5).dot(n.abs());",
+      "class": "to convert: portals"
+    },
+    {
+      "file": "crates/ambition_portal2d/src/transit.rs",
+      "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
+      "class": "to convert: portals"
+    },
+    {
+      "file": "crates/ambition_portal2d/src/transit.rs",
+      "code": "kin.size * 0.5,",
+      "class": "to convert: portals"
+    },
+    {
+      "file": "crates/ambition_portal2d_presentation/src/gun_visuals.rs",
+      "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
+      "class": "to convert: portals"
+    },
+    {
+      "file": "crates/ambition_portal2d_presentation/src/visuals.rs",
+      "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
+      "class": "to convert: portals"
+    },
+    {
+      "file": "crates/ambition_projectiles/src/portal_transit.rs",
+      "code": "let half = kin.size * 0.5;",
+      "class": "to convert: portals"
+    },
+    {
+      "file": "crates/ambition_sim_view/src/camera_snapshot.rs",
+      "code": "let half = kin.size / 2.0;",
+      "class": "the camera's framing bounds"
+    },
+    {
+      "file": "game/ambition_app/src/dev/debug_overlay/gizmos.rs",
+      "code": "draw_aabb_styled(gizmos, world, kin.aabb(), color, developer_tools);",
+      "class": "developer trace and overlay"
+    },
+    {
+      "file": "game/ambition_app/src/dev/debug_overlay.rs",
+      "code": "clusters.kinematics.aabb(),",
+      "class": "developer trace and overlay"
+    },
+    {
+      "file": "game/ambition_demo_mary_o/src/ai_slop.rs",
+      "code": "if player_touch(mob_kin.aabb(), p, pvel) != Some(PlayerTouch::Top) {",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_mary_o/src/lib.rs",
+      "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_mary_o/src/snake.rs",
+      "code": "let touch = player_box.and_then(|(p, _, pvel)| player_touch(kin.aabb(), p, pvel));",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_mary_o/src/snake.rs",
+      "code": "kin.aabb(),",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_sanic/src/badnik.rs",
+      "code": "let g = badnik_kin.aabb();",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_sanic/src/monitors.rs",
+      "code": "let p = kin.aabb();",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_smash/src/bolt.rs",
+      "code": "let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_smash/src/bolt.rs",
+      "code": "let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_smash/src/bolt.rs",
+      "code": "let reach = ae::Vec2::splat(bolt.radius) + kin.size * 0.5;",
+      "class": "a game with no turned gravity"
+    },
+    {
+      "file": "game/ambition_demo_smash/src/spring.rs",
+      "code": "let reach = spring.half_extents + kin.size * 0.5;",
+      "class": "a game with no turned gravity"
+    }
+  ]
+}

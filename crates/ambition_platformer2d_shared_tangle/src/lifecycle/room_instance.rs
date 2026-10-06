@@ -152,6 +152,13 @@ impl<T: Component> LiveRoomOf<'_, '_, T> {
             .find(|(live, _)| **live == room)
             .map(|(_, component)| component)
     }
+
+    /// The render band of live room `room`, by the rule a camera that shows
+    /// that room reads ([`crate::camera_layers::live_room_band`]). `None`
+    /// while fewer than two rooms are live.
+    pub fn band(&self, room: LiveRoomInstance) -> Option<usize> {
+        crate::camera_layers::live_room_band(self.roots.iter().map(|(live, _)| *live), room)
+    }
 }
 
 /// Which live room an entity is in, by one rule for every question that

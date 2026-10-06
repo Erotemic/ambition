@@ -178,8 +178,19 @@ seat, so this is not a regression; it is now written down.
     the windows of the first view (see A2). The portal camera continuity is
     still one screen anchor for the process. The developer dump and overlay
     of the windows describe the first eye only.
-- Not done: debug overlays read the sole live room; the banner is
-  session-wide and follows the primary seat. The Q150 ruling (2026-10-03, in
+- The player trail is drawn per room (2026-10-06): each trail goes to the
+  gizmo group of its body's room band, so only the camera that shows that
+  room draws it
+  (`each_trail_is_drawn_in_the_gizmo_group_of_its_rooms_band`). Before, every
+  gizmo was in the default group on layer 0, which every view's camera
+  draws, so Bob's trail showed over Alice's room.
+- Not done: the debug overlays (`draw_debug_viz`, the app's
+  `draw_debug_overlay`, `debug_portal_view_zones`) read the primary seat's
+  room (`PrimaryLiveRoom`) and are still in the default gizmo group, so they
+  are drawn in every view, over the other room. They are the developer's
+  own seat by design; the remaining step is to route them to the primary
+  room's band. The rollback observatory draws no ghost while two rooms are
+  live. The banner is session-wide and follows the primary seat. The Q150 ruling (2026-10-03, in
   [`../maintainer-decisions.md`](../maintainer-decisions.md)) makes the HUD
   per participant and the local music an authored-priority choice with the
   primary participant as the tie-break. The music is built. Of the HUD,

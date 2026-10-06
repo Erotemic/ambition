@@ -50,6 +50,8 @@
         "trex_stomp": ["stomp"],
         "trex_roar": ["roar"],
         "trex_leap": ["leap"],
+        "trex_jaw_grab": ["grab_reach"],
+        "trex_call": ["roar"],
         "lesser_appendages": ["summon"],
     },
     // The sheet rows each geometry strike claims. The first row is the

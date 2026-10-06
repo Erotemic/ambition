@@ -60,6 +60,7 @@
             "trex_snap_up",   // the T-rex: the head thrown up at the ledge you stand on
             "trex_double_bite", // the T-rex: one clack of teeth, then the bite twice; the second catches a dodge back
             "trex_leap",      // the T-rex, enraged: a spring at where you stood, landing with a quake
+            "trex_jaw_grab",  // the T-rex: a low lunge, jaws wide; caught, you are thrashed and flung
             "floor_slam",    // wide flat rect at the feet
             "demonstrate",      // GNU-ton: a fist tracks, locks, falls, and sticks
             "demonstrate_pair", // GNU-ton: the second fist falls where you dodged to
@@ -288,6 +289,7 @@
         instances: [
             "gradient_cascade", // 2 × npc_ai_slop per cast
             "lesser_appendages", // the FSM: 2 × npc_fsm_noodling, once it is wounded
+            "trex_call",         // the T-rex: his kin, parrots from the high corners (and raptors, enraged)
         ],
         recipes: [
             (

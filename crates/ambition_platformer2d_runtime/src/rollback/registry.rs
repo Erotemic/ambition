@@ -1048,7 +1048,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// origin, its feet, sits from its centre when not straight below it (the
 /// T-rex boss, whose position is his frame's centre). Granted with the rig
 /// and constant after, so it travels with the rig across a restore.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 316;
+/// ⛔⛤ 316 -> 317: `actor.summoned_to_the_fight` (clone) — a body summoned
+/// into a fight (a boss's minion) knows where the fight is: it perceives as a
+/// seated fighter does, not through the perception window.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 317;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

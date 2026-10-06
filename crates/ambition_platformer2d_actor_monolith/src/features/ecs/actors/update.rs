@@ -320,9 +320,12 @@ pub fn tick_actor_brains(
                 // fresh `WorldView` so its brain can pursue a foe that has left the
                 // viewport. `Brain` requires it, so `None` is a body with no brain.
                 Option<&mut ambition_characters::perception::PerceptionMemory>,
-                // A seated match fighter keeps omniscient senses; see
-                // `perception::perception_of`.
-                bevy::prelude::Has<ambition_match::MatchSeat>,
+                // A seated match fighter keeps omniscient senses, and so does a
+                // body summoned into a fight; see `perception::perception_of`.
+                (
+                    bevy::prelude::Has<ambition_match::MatchSeat>,
+                    bevy::prelude::Has<ambition_combat::components::SummonedToTheFight>,
+                ),
                 // FB4b §13.2: the body's own moveset, so the brain snapshot can
                 // carry the ATTACK KIT. The fighter brain scores real moves with
                 // real frame data and cannot reach a moveset itself —
@@ -418,11 +421,11 @@ pub fn tick_actor_brains(
     // A CREW SHARES WHAT IT SEES — see `perception::CrewCall`. The calls are
     // last tick's sightings, gathered before any body decides this tick.
     let mut crew_calls = Vec::new();
-    for (entity, .., (body, _, faction, _, memory, seated, ..)) in actors.iter() {
+    for (entity, .., (body, _, faction, _, memory, (seated, summoned), ..)) in actors.iter() {
         let (Some(body), Some(memory)) = (body, memory) else {
             continue;
         };
-        let Some(perception) = crate::features::ecs::perception::perception_of(seated, extent)
+        let Some(perception) = crate::features::ecs::perception::perception_of(seated || summoned, extent)
         else {
             continue;
         };
@@ -462,7 +465,7 @@ pub fn tick_actor_brains(
             faction,
             aggression,
             mut perception_memory,
-            seated,
+            (seated, summoned),
             moveset,
             playback,
             stale_moves,
@@ -475,7 +478,7 @@ pub fn tick_actor_brains(
         // A body whose senses this session cannot decide does not decide. It
         // still integrates and still takes hits; see `perception::perception_of`.
         let Some(perception_policy) =
-            crate::features::ecs::perception::perception_of(seated, extent)
+            crate::features::ecs::perception::perception_of(seated || summoned, extent)
         else {
             continue;
         };

@@ -67,6 +67,12 @@ pub fn queue_boss_conducts(
         Has<DrivingParticipant>,
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<ae::RoomGeometry>,
+    captives: Query<&ambition_combat::capture::CapturedBy>,
+    mobs: Query<
+        (Entity, &ambition_combat::components::EncounterMob, &BodyHealth),
+        Without<BossConfig>,
+    >,
+    live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     if time.sim_dt() <= 0.0 {
         return;
@@ -111,6 +117,15 @@ pub fn queue_boss_conducts(
                 hall,
                 driven,
                 enraged: encounter.encounter_phase() == BossEncounterPhase::Enrage,
+                holding: captives.iter().any(|held| held.captor == boss),
+                minions: mobs
+                    .iter()
+                    .filter(|(mob, of, health)| {
+                        of.encounter_id == config.behavior.id
+                            && health.alive()
+                            && live_rooms.of(*mob) == live_rooms.of(boss)
+                    })
+                    .count() as u32,
             },
         );
     }

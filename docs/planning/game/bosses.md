@@ -117,6 +117,22 @@ and a stomp that rears higher (`scripts/build_trex_enemy_rig.py`); rocks are a
 `CameraShakeRequest`). Thirteen headless fight tests
 (`game/ambition_app/tests/trex_fight.rs`), each poisoned once.
 
+**2026-10-06 (Jon: "its hurtbox is crazy big … grab the player with its
+mouth, shake its head around … and throw the player … spawning some enemy
+stochastic parrots, raptors").**
+- He is hit through his PARTS (renderer `trex_enemy_body_rig.ron`: eleven
+  hurt parts measured from his art), posed from his pinned row
+  (`resolve_body_rig_poses` reads `PinnedRow`), placed by `RigFeetOffset`.
+- The jaw grab (`trex_jaw_grab`, phase 2 on): `grab_reach` / `grab_shake` /
+  `grab_throw` rows; the engine's capture relation offered to modules as
+  `ambition.combat.body_hold` (seize, carry, pummel, throw, release); mash to
+  break free.
+- The call (`trex_call`, phase 2 on): stochastic parrots from the high
+  corners; enraged, raptors along the floor first; at most four alive
+  (`BossConduct::minions`).
+- Roar candidates for Jon's ear: `untracked/sfx-candidates/trex_roar/`
+  (a new source-filter `roar` mode in the SFX renderer).
+
 Still open: his own tail-whoosh and wall-crash sounds (candidates and reels in
 `untracked/sfx-candidates/trex/`, for Jon's ear; the conductor borrows the
 bear's swipe and his stomp until then); per-pose hurt hulls (the box you

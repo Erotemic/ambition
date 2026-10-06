@@ -455,3 +455,187 @@ fn his_parts_follow_the_row_he_is_drawn_with() {
     let stunned = head_bottom(&mut sim);
     assert!(stunned > standing + 25.0, "stunned, his head's part bottoms out at {stunned}; standing, {standing}");
 }
+
+/// Stand in front of him (on the floor, just beyond his snout) every tick,
+/// until `until` says so: the jaw grab is a near move.
+fn stand_in_front_until(
+    sim: &mut Platformer2dSimHarness,
+    frames: usize,
+    what: &str,
+    mut until: impl FnMut(&mut Platformer2dSimHarness) -> bool,
+) {
+    for _ in 0..frames {
+        let r = rex(sim);
+        let hall = r.view.hall.expect("hall");
+        let (kin, _) = player(sim);
+        let x = r.kin.pos.x + r.side * (module::ram_front() - 10.0);
+        place_player(sim, ae::Vec2::new(x, hall.floor - kin.size.y * 0.5 - 1.0));
+        sim.step(AgentAction::default());
+        if until(sim) {
+            return;
+        }
+    }
+    panic!("waited {frames} frames for {what}; last: {:?}", rex(sim));
+}
+
+fn held(sim: &mut Platformer2dSimHarness) -> bool {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<&ambition_platformer2d::combat::capture::CapturedBy, PrimaryPlayerOnly>();
+    q.iter(world).next().is_some()
+}
+
+/// Wounded, he grabs you in his jaws, thrashes you, and flings you across the
+/// hall.
+#[test]
+fn wounded_he_grabs_you_thrashes_you_and_flings_you() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    wound(&mut sim, 0.5);
+    stand_in_front_until(&mut sim, 60 * 40, "him to lunge for a grab", |sim| {
+        matches!(rex(sim).view.performing, Some((Move::JawGrab, false)))
+    });
+    untouchable_player(&mut sim, false);
+    let (_, before) = player(&mut sim);
+    stand_in_front_until(&mut sim, 60 * 2, "his jaws to close on the player", |sim| held(sim));
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+    let r = rex(&mut sim);
+    assert!(r.view.thrashing, "the player is held but he is not thrashing: {r:?}");
+    // Held between his jaws: in front of him, up off the floor.
+    let (kin, _) = player(&mut sim);
+    let ahead = (kin.pos.x - r.kin.pos.x) * r.side;
+    assert!(ahead > module::ram_front() * 0.6, "the held player is {ahead} ahead of him, not in his jaws");
+    // The thrash ends in the fling.
+    let mut flung = None;
+    for _ in 0..60 * 3 {
+        sim.step(AgentAction::default());
+        if !held(&mut sim) {
+            flung = Some(player(&mut sim).0);
+            break;
+        }
+    }
+    let flung = flung.expect("he never let go");
+    assert!(
+        flung.vel.x * r.side > 300.0 && flung.vel.y < -200.0,
+        "the player left his jaws at {:?}, not flung forward and up",
+        flung.vel
+    );
+    let (_, after) = player(&mut sim);
+    assert!(after <= before - 3, "the grab took {} health, not its bites and its throw", before - after);
+}
+
+/// Mash, and you break out of his jaws before the fling.
+#[test]
+fn mashing_breaks_his_jaw_grab() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    wound(&mut sim, 0.5);
+    stand_in_front_until(&mut sim, 60 * 40, "him to lunge for a grab", |sim| {
+        matches!(rex(sim).view.performing, Some((Move::JawGrab, false)))
+    });
+    untouchable_player(&mut sim, false);
+    stand_in_front_until(&mut sim, 60 * 2, "his jaws to close on the player", |sim| held(sim));
+    let mut freed_after = None;
+    for tick in 0..60 * 3 {
+        // Every button, every other tick: a mash.
+        let mash = tick % 2 == 0;
+        let action = AgentAction { jump: mash, attack: mash, dash: mash, ..AgentAction::default() };
+        sim.step(action);
+        if !held(&mut sim) {
+            freed_after = Some(tick);
+            break;
+        }
+    }
+    let freed_after = freed_after.expect("mashing never freed the player");
+    let thrash_ticks = (1.3 * 60.0) as usize;
+    assert!(freed_after < thrash_ticks, "mashing freed the player after {freed_after} ticks; the thrash is {thrash_ticks}");
+    for _ in 0..3 {
+        sim.step(AgentAction::default());
+    }
+    assert!(!rex(&mut sim).view.thrashing, "the player broke free and he thrashes on");
+}
+
+/// The bodies wearing catalog character `id`, alive: where each is.
+fn kin(sim: &mut Platformer2dSimHarness, id: &str) -> Vec<ae::Vec2> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(&ambition_platformer2d::characters::actor::WornCharacter, &BodyHealth, &ae::BodyKinematics)>();
+    q.iter(world)
+        .filter(|(worn, health, _)| worn.id() == id && health.alive())
+        .map(|(_, _, kin)| kin.pos)
+        .collect()
+}
+
+/// Wounded, he calls his kin: stochastic parrots come down from the high
+/// corners of the hall.
+#[test]
+fn wounded_he_calls_parrots_from_the_high_corners() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    wound(&mut sim, 0.5);
+    assert!(kin(&mut sim, "stochastic_parrot").is_empty(), "premise: no parrot before he calls");
+    step_until(&mut sim, 60 * 40, "him to call", |sim| matches!(rex(sim).view.performing, Some((Move::Call, true))));
+    for _ in 0..4 {
+        sim.step(AgentAction::default());
+    }
+    let hall = rex(&mut sim).view.hall.expect("hall");
+    let parrots = kin(&mut sim, "stochastic_parrot");
+    assert_eq!(parrots.len(), 2, "his call brought {parrots:?}");
+    for p in &parrots {
+        assert!(p.y < hall.floor - 300.0, "a parrot came in at {p:?}, not high");
+    }
+    assert!(kin(&mut sim, "npc_raptor_stalker").is_empty(), "raptors came before he was enraged");
+}
+
+/// Enraged, his call brings raptors along the floor too, and he calls no more
+/// than four of his kin alive at once.
+#[test]
+fn enraged_his_call_brings_raptors_and_no_more_than_four() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    wound(&mut sim, 0.15);
+    // Past phase 2 (which calls parrots only): the roar opens his enrage, and
+    // his call follows it.
+    step_until(&mut sim, 60 * 40, "his enrage roar", |sim| matches!(rex(sim).view.performing, Some((Move::Roar, _))));
+    step_until(&mut sim, 60 * 6, "him to call", |sim| matches!(rex(sim).view.performing, Some((Move::Call, true))));
+    for _ in 0..4 {
+        sim.step(AgentAction::default());
+    }
+    let raptors = kin(&mut sim, "npc_raptor_stalker");
+    assert_eq!(raptors.len(), 2, "enraged, his call brought raptors {raptors:?}");
+    // His next call, with all four alive, brings none.
+    step_until(&mut sim, 60 * 40, "his next call", |sim| matches!(rex(sim).view.performing, Some((Move::Call, false))));
+    step_until(&mut sim, 60 * 3, "the call's shriek", |sim| matches!(rex(sim).view.performing, Some((Move::Call, true))));
+    for _ in 0..4 {
+        sim.step(AgentAction::default());
+    }
+    let all = kin(&mut sim, "stochastic_parrot").len() + kin(&mut sim, "npc_raptor_stalker").len();
+    assert!(all <= 4, "{all} of his kin are alive at once");
+}
+
+/// His kin hunt you: a parrot called from a high corner comes down for a
+/// player in the open, far across the hall (a summon knows where the fight is,
+/// `SummonedToTheFight`; the perception window alone would never show it the
+/// floor 440 below).
+#[test]
+fn his_parrots_come_for_you() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    wound(&mut sim, 0.5);
+    step_until(&mut sim, 60 * 40, "him to call", |sim| matches!(rex(sim).view.performing, Some((Move::Call, true))));
+    let hall = rex(&mut sim).view.hall.expect("hall");
+    let mut closest = f32::MAX;
+    for _ in 0..60 * 8 {
+        let (pk, _) = player(&mut sim);
+        // Out in the open, mid-hall, away from him.
+        let r = rex(&mut sim);
+        let x = if r.kin.pos.x > (hall.left + hall.right) * 0.5 { hall.left + 400.0 } else { hall.right - 400.0 };
+        place_player(&mut sim, ae::Vec2::new(x, hall.floor - pk.size.y * 0.5 - 1.0));
+        sim.step(AgentAction::default());
+        let p = player(&mut sim).0.pos;
+        for parrot in kin(&mut sim, "stochastic_parrot") {
+            closest = closest.min(parrot.distance(p));
+        }
+    }
+    assert!(closest < 90.0, "his parrots came no nearer than {closest} to a player in the open");
+}

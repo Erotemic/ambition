@@ -813,6 +813,8 @@ fn construct_summoned_minion(
         minion.health,
         minion.keeps_contact_damage,
     );
+    // Called into the fight: it knows where its quarry is.
+    ctx.root_scope().insert(ambition_combat::components::SummonedToTheFight);
 }
 
 fn construct_giant_host(

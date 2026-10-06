@@ -633,6 +633,14 @@ impl Default for BossDeathAnimation {
     }
 }
 
+/// A body summoned INTO a fight (a boss's minion): it knows where the fight
+/// is. Its senses are a seated fighter's, not the perception window's, so a
+/// minion called from the far corners of a boss's hall comes for the player
+/// it was called against. A summon is told its quarry; it does not have to
+/// stumble on it (`perception::perception_of`).
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SummonedToTheFight;
+
 /// Marker for hostile actors spawned dynamically by an encounter wave.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct EncounterMob {

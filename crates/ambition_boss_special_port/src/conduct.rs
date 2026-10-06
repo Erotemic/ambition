@@ -23,6 +23,10 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   pattern's live `Special` moves and the seconds left in each. `hall` is
 ///   the floor under the boss and the walls either side of it, in the boss's
 ///   OWN live room, measured this tick.
+///   `holding` says the boss holds a body (`ambition.combat.body_hold`):
+///   false once it mashed free, was thrown or released. `minions` counts the
+///   living bodies of the boss's own encounter that are not bosses (its
+///   summons), in its live room.
 /// * **Absence** — `target` is `None` when the boss tracks nothing; `hall`
 ///   is `None` when the room cannot be told or has no floor under the boss.
 /// * **Replay** — derived each tick from rollback state.
@@ -63,6 +67,10 @@ pub struct BossConduct {
     pub driven: bool,
     /// The encounter is in its enrage phase.
     pub enraged: bool,
+    /// The boss holds a body.
+    pub holding: bool,
+    /// Living summons of its encounter, in its live room.
+    pub minions: u32,
 }
 
 fn put_move(out: &mut Vec<u8>, m: Option<&LiveMove>) {
@@ -84,7 +92,8 @@ fn move_of(r: &mut WireReader<'_>) -> Result<Option<LiveMove>, WireError> {
 }
 
 impl Port for BossConductPort {
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 1);
+    /// Version 2 (2026-10-06): `holding` and `minions`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 2);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -105,6 +114,8 @@ impl Port for BossConductPort {
         }
         wire::put_bool(out, v.driven);
         wire::put_bool(out, v.enraged);
+        wire::put_bool(out, v.holding);
+        wire::put_u32(out, v.minions);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossConduct, WireError> {
@@ -128,6 +139,8 @@ impl Port for BossConductPort {
             },
             driven: r.bool()?,
             enraged: r.bool()?,
+            holding: r.bool()?,
+            minions: r.u32()?,
         })
     }
 }
@@ -259,6 +272,8 @@ mod tests {
             hall: Some(RoomHall { floor: 900.0, left: 10.0, right: 1500.0 }),
             driven: false,
             enraged: true,
+            holding: true,
+            minions: 3,
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
         let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, ..conduct };

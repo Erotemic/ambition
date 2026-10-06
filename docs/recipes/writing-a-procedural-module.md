@@ -133,12 +133,13 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.resources.spend_mana` v1 | request | `ambition_combat_port::SpendMana` (ask `Wielder::can_pay_mana` first) |
 | `ambition.feedback.body_sound` v1 | request | `ambition_combat_port::BodySound` (a cue id, as the body) |
 | `ambition.boss.summon` v2 | request | `ambition_boss_special_port::BossSummon` (a boss only; the minion joins its encounter; `on_boss_side` lets the boss's volumes pass it) |
-| `ambition.boss.conduct` v1 | trigger (phase `boss_conduct`) | `ambition_boss_special_port::BossConduct` (selector: the boss's behaviour id; one call each tick) |
+| `ambition.boss.conduct` v2 | trigger (phase `boss_conduct`) | `ambition_boss_special_port::BossConduct` (selector: the boss's behaviour id; one call each tick; v2: `holding` and `minions`) |
 | `ambition.boss.conducted_pose` v1 | request (`boss_conduct`) | `ambition_boss_special_port::ConductedPose` (hold the boss's pose, or release it; the side it faces) |
 | `ambition.presentation.drawn_row` v1 | request (`boss_conduct`) | `ambition_boss_special_port::DrawnRow` (the sheet row it is drawn with) |
 | `ambition.combat.riding_hitbox` v1 | request (`boss_conduct`) | `ambition_combat_port::RidingHitbox` (a volume that rides its owner) |
 | `ambition.feedback.burst` v1 | request (`boss_conduct`) | `ambition_combat_port::Burst` (particles) |
 | `ambition.feedback.camera_shake` v1 | request (`boss_conduct`) | `ambition_combat_port::CameraShake` (an amplitude; the strongest of a frame wins) |
+| `ambition.combat.body_hold` v1 | request (`boss_conduct`) | `ambition_combat_port::BodyHold` (seize a body in a reach, carry it, pummel it, throw it, release it: the engine's capture relation) |
 
 A thing that outlives the press (a turret) is a module entity: one entry asks
 for it in `wielded_use`, a second entry bound to its kind runs each tick it

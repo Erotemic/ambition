@@ -2607,6 +2607,12 @@
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // THE BODY, stated, so the row is a buildable character: the
+            // T-rex's call SUMMONS raptors by this id, and a summon refuses a
+            // character the cast cannot build (`preflight_planned_bodies`).
+            // A raptor is a sprinter.
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            max_health: Some(4),
             tags: ["enemy", "large"],
         barks: (
             on_hit: ["SHREEE!", "BITE.", "Pack closing!"],

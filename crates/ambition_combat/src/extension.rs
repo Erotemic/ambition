@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use ambition_combat_port::{DamageBoxPort, HeldDamageBoxPort, RidingHitboxPort, RidingKnockback};
+use ambition_combat_port::{BodyHold, BodyHoldPort, DamageBoxPort, HeldDamageBoxPort, RidingHitboxPort, RidingKnockback};
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionOutbox};
 use ambition_extension_sdk::phases::{BOSS_CONDUCT, TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_extension_sdk::Phase;
@@ -34,7 +34,8 @@ pub fn install(app: &mut App) {
     );
 }
 
-/// Install the held damage box and the riding hitbox in `boss_conduct`.
+/// Install the held damage box, the riding hitbox and the body hold in
+/// `boss_conduct`.
 pub fn install_for_boss_conduct(app: &mut App) {
     app.install_extension_request::<HeldDamageBoxPort, _>(
         BOSS_CONDUCT,
@@ -42,6 +43,12 @@ pub fn install_for_boss_conduct(app: &mut App) {
         lower_held_damage_boxes::<InBossConduct>,
     );
     app.install_extension_request::<RidingHitboxPort, _>(BOSS_CONDUCT, "ambition_combat", lower_riding_hitboxes);
+    // The hold adapter writes the capture road's requests: a composition with
+    // the port has them, whether or not it ever grabs.
+    app.add_message::<crate::capture::CaptureCarryRequested>();
+    app.add_message::<crate::capture::CapturePummelRequested>();
+    app.add_message::<crate::capture::CaptureThrowRequested>();
+    app.install_extension_request::<BodyHoldPort, _>(BOSS_CONDUCT, "ambition_combat", lower_body_holds);
 }
 
 /// Install the damage box port in `wielded_use` (a held item's use), before
@@ -318,5 +325,156 @@ fn lower_riding_hitboxes(
             crate::strike::DepictedByOwner,
             Name::new(h.name),
         ));
+    }
+}
+
+/// A module's hold on another body: the engine's capture relation
+/// (`crate::capture`), the same grant, carry, pummel, throw and release a
+/// fighter's grab uses. See `ambition_combat_port::BodyHoldPort`.
+///
+/// A seize reaches like a grab (one victim, the nearest to the reach's
+/// centre, ties by `SimId`; never a body already held or holding, a corpse,
+/// an intangible body, a body in another live room, or one its damage does
+/// not land on) without a grab's two FIGHTER requirements: the captor need
+/// not stand on the floor (a boss's pose is its module's), and the victim
+/// need not carry a fighter's surface state (the Ambition player does not).
+/// A victim in hitstun is not seized: the capture road releases a captive
+/// that reacts to a hit (`release_interrupted_captures`), so it would be let
+/// go on the tick it was caught.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn lower_body_holds(
+    mut commands: Commands,
+    mut outbox: ResMut<ExtensionOutbox>,
+    captors: Query<(
+        &ae::BodyKinematics,
+        &ActorFaction,
+        Option<&ambition_characters::control::DrivingParticipant>,
+        Option<&crate::targeting::MatchTeam>,
+    )>,
+    victims: Query<crate::hitbox::StrikeVictim, Without<ambition_characters::control::ControlHolds>>,
+    captives: Query<(Entity, &crate::capture::CapturedBy)>,
+    combat: Query<&ambition_characters::actor::BodyCombat>,
+    identities: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    mut playbacks: Query<&mut crate::moveset::MovePlayback>,
+    mut budgets: Query<(
+        &ae::BodyAbilities,
+        &mut ae::BodyJumpState,
+        &mut ae::BodyDodgeState,
+        &ae::MotionModel,
+    )>,
+    mut grounds: Query<&mut ae::BodyGroundState>,
+    mut holds: Query<&mut ambition_characters::control::ControlHolds>,
+    mut carries: MessageWriter<crate::capture::CaptureCarryRequested>,
+    mut pummels: MessageWriter<crate::capture::CapturePummelRequested>,
+    mut throws: MessageWriter<crate::capture::CaptureThrowRequested>,
+    tuning: crate::rules::CombatTuningOf,
+) {
+    // One seize per captor per tick, and a captor holds one body.
+    let mut seized: Vec<Entity> = Vec::new();
+    for s in outbox.drain::<BodyHoldPort>() {
+        let captor = s.scope;
+        let held = crate::capture::captive_of(captor, &captives).or_else(|| {
+            seized.contains(&captor).then_some(Entity::PLACEHOLDER)
+        });
+        match s.value {
+            BodyHold::Seize { reach_offset, reach_half, hold_offset, hold_s } => {
+                if held.is_some() {
+                    continue;
+                }
+                let Ok((kin, faction, driver, team)) = captors.get(captor) else {
+                    warn!("extension entry {} asked {:?}, which is no body, to seize; refused", s.entry, captor);
+                    continue;
+                };
+                let room = tuning.room_of(captor);
+                let friendly_fire = tuning.in_room(room).unwrap_or_default().friendly_fire();
+                let attacker = crate::targeting::effective_faction(*faction, driver);
+                let facing = if kin.facing < 0.0 { -1.0 } else { 1.0 };
+                let centre = kin.pos + ae::Vec2::new(reach_offset[0] * facing, reach_offset[1]);
+                let reach = ae::CenteredAabb::new(centre, ae::Vec2::from(reach_half)).aabb();
+                let already: std::collections::HashSet<Entity> = captives
+                    .iter()
+                    .flat_map(|(victim, held)| [victim, held.captor])
+                    .chain(seized.iter().copied())
+                    .collect();
+                let mut candidates: Vec<(f32, &ambition_platformer2d_shared_tangle::sim_id::SimId, Entity)> =
+                    Vec::new();
+                for victim in &victims {
+                    if victim.entity == captor || already.contains(&victim.entity) || tuning.room_of(victim.entity) != room {
+                        continue;
+                    }
+                    if victim.is_corpse() || victim.is_intangible() {
+                        continue;
+                    }
+                    if combat.get(victim.entity).is_ok_and(|c| c.hitstun_timer > 0.0 || c.recoil_lock_timer > 0.0) {
+                        continue;
+                    }
+                    if !crate::targeting::damage_lands_between(
+                        attacker,
+                        victim.effective_faction(),
+                        team,
+                        victim.team,
+                        friendly_fire,
+                        None,
+                        victim.entity,
+                    ) {
+                        continue;
+                    }
+                    let body = victim.aabb.aabb();
+                    if !bevy::math::bounding::IntersectsVolume::intersects(&reach, &body) {
+                        continue;
+                    }
+                    let Ok(id) = identities.get(victim.entity) else {
+                        continue;
+                    };
+                    candidates.push((ae::AabbExt::center(body).distance_squared(centre), id, victim.entity));
+                }
+                candidates.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1)));
+                let Some(&(_, _, victim)) = candidates.first() else {
+                    continue;
+                };
+                seized.push(captor);
+                crate::capture::systems::begin_capture(
+                    &mut commands,
+                    captor,
+                    victim,
+                    ae::Vec2::from(hold_offset),
+                    hold_s,
+                    playbacks.get_mut(victim).ok(),
+                    budgets.get_mut(victim).ok(),
+                );
+            }
+            BodyHold::Carry { hold_offset } => {
+                if held.is_some() {
+                    carries.write(crate::capture::CaptureCarryRequested { captor, hold_offset: ae::Vec2::from(hold_offset) });
+                }
+            }
+            BodyHold::Pummel { damage } => {
+                if held.is_some() {
+                    pummels.write(crate::capture::CapturePummelRequested { captor, damage });
+                }
+            }
+            BodyHold::Throw { damage, knockback, growth, launch_dir } => {
+                if held.is_some() {
+                    throws.write(crate::capture::CaptureThrowRequested {
+                        captor,
+                        damage,
+                        knockback,
+                        knockback_growth: growth,
+                        launch_dir: ae::Vec2::from(launch_dir),
+                        move_instance: None,
+                    });
+                }
+            }
+            BodyHold::Release => {
+                if let Some(victim) = crate::capture::captive_of(captor, &captives) {
+                    crate::capture::systems::release_capture(
+                        &mut commands,
+                        victim,
+                        grounds.get_mut(victim).ok().as_deref_mut(),
+                        holds.get_mut(victim).ok().as_deref_mut(),
+                    );
+                }
+            }
+        }
     }
 }

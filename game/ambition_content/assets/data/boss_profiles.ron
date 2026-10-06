@@ -701,6 +701,8 @@
             Special("trex_stomp"),
             Special("trex_roar"),
             Special("trex_leap"),
+            Special("trex_jaw_grab"),
+            Special("trex_call"),
         ],
         attack_cooldown: 1.0,
         attack_windup: 0.5,
@@ -797,6 +799,12 @@
                         Strike(profile: Special("trex_double_bite"), duration: 0.9),
                         Rest(duration: 0.9),
                     ]),
+                    (weight: 1.5, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("trex_jaw_grab"), duration: 0.85,
+                            telegraph: Some((pose: Some("grab_reach"), cue: None))),
+                        Strike(profile: Special("trex_jaw_grab"), duration: 0.4),
+                        Rest(duration: 2.0),
+                    ]),
                     (weight: 1.0, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("trex_stomp"), duration: 0.8,
                             telegraph: Some((pose: Some("stomp"), cue: None))),
@@ -804,6 +812,12 @@
                         Rest(duration: 0.9),
                     ]),
                 ]),
+                // He calls his kin: parrots from the high corners, only while
+                // fewer than four of his summons live (trex.rs counts them).
+                Telegraph(profile: Special("trex_call"), duration: 0.9,
+                    telegraph: Some((pose: Some("roar"), cue: Some("boss.bear_mauler.roar")))),
+                Strike(profile: Special("trex_call"), duration: 0.45),
+                Rest(duration: 0.8),
                 // One stomp every cycle: the quake is this phase's voice.
                 Telegraph(profile: Special("trex_stomp"), duration: 0.85,
                     telegraph: Some((pose: Some("stomp"), cue: None))),
@@ -827,6 +841,12 @@
                             telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.chomp")))),
                         Strike(profile: Special("trex_double_bite"), duration: 0.9),
                         Rest(duration: 0.9),
+                    ]),
+                    (weight: 1.5, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("trex_jaw_grab"), duration: 0.85,
+                            telegraph: Some((pose: Some("grab_reach"), cue: None))),
+                        Strike(profile: Special("trex_jaw_grab"), duration: 0.4),
+                        Rest(duration: 2.0),
                     ]),
                     (weight: 1.0, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("trex_stomp"), duration: 0.8,
@@ -852,6 +872,11 @@
                     telegraph: Some((pose: Some("roar"), cue: None))),
                 Strike(profile: Special("trex_roar"), duration: 0.5),
                 Rest(duration: 1.1),
+                // Enraged, his call brings raptors along the floor too.
+                Telegraph(profile: Special("trex_call"), duration: 0.85,
+                    telegraph: Some((pose: Some("roar"), cue: Some("boss.bear_mauler.roar")))),
+                Strike(profile: Special("trex_call"), duration: 0.45),
+                Rest(duration: 0.7),
                 Select(table: [
                     (weight: 3.0, when: Some(PlayerAbove), steps: [
                         Telegraph(profile: Special("trex_snap_up"), duration: 0.75,
@@ -870,6 +895,12 @@
                             telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.chomp")))),
                         Strike(profile: Special("trex_double_bite"), duration: 0.9),
                         Rest(duration: 0.6),
+                    ]),
+                    (weight: 1.5, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("trex_jaw_grab"), duration: 0.85,
+                            telegraph: Some((pose: Some("grab_reach"), cue: None))),
+                        Strike(profile: Special("trex_jaw_grab"), duration: 0.4),
+                        Rest(duration: 2.0),
                     ]),
                     (weight: 1.0, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("trex_stomp"), duration: 0.7,
@@ -900,6 +931,12 @@
                             telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.chomp")))),
                         Strike(profile: Special("trex_double_bite"), duration: 0.9),
                         Rest(duration: 0.6),
+                    ]),
+                    (weight: 1.5, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("trex_jaw_grab"), duration: 0.85,
+                            telegraph: Some((pose: Some("grab_reach"), cue: None))),
+                        Strike(profile: Special("trex_jaw_grab"), duration: 0.4),
+                        Rest(duration: 2.0),
                     ]),
                     (weight: 1.0, when: Some(PlayerFar), steps: [
                         Telegraph(profile: Special("trex_stomp"), duration: 0.7,

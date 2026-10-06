@@ -301,58 +301,83 @@ pub fn acquire_captures(
         spent.insert(victim);
         spent.insert(attempt.captor);
 
-        //  THE CAPTIVE'S MOVE ENDS HERE, AND ITS VOLUMES WITH IT.
-        //
-        //  through the ONE teardown path (`cancel_move_playback`), which is why
-        // that was extracted from its four hand-copies first rather than becoming
-        // a fifth here.
-        if let Ok(mut playback) = playbacks.get_mut(victim) {
-            crate::moveset::cancel_move_playback(&mut commands, victim, &mut playback, crate::moveset::MoveEnd::Interrupted);
-        }
-        // The captive's control projection. `CapturedBy` stays the authority;
-        // this is only what it means for input, and it is CLAIMED rather than
-        // inserted: a KO card or a round break can legitimately hold this same
-        // body while the grab lasts, and a release that removed the marker
-        // outright would take their hold off with its own.
-        //
-        //  it is a PROJECTION, and that is the shape escape needs later: a
-        // mash-to-escape read samples the captive's raw participant input into a
-        // restricted capture channel, and would be impossible if capture meant
-        // "this body's input ceases to exist".
-        ambition_characters::control::claim_control_hold(
-            &mut commands,
-            victim,
-            ambition_characters::control::ControlHold::Relationship,
-        );
-        if let Ok((abilities, mut jump, mut dodge, model)) = budgets.get_mut(victim) {
-            jump.air_jumps_available = abilities.abilities.air_jump_count(model.air_jumps());
-            dodge.air_dodge_spent = false;
-        }
-        commands.entity(victim).insert(CapturedBy {
-            captor: attempt.captor,
-            hold_offset_local: attempt.hold_offset,
-        });
-        //  the RULESET's half of the hold, inserted beside the relation.
-        // Pummel count, hold age and escape progress are platform-fighter
-        // policy; `CapturedBy` is the relation and answers none of them. A hold
-        // without this component is one this ruleset has no opinion about.
-        //
-        //  and its deadline is decided HERE, once, from the captive's damage
-        // at the moment it was caught. That is the genre's rule — a hold does
-        // not grow because its captor pummelled — and it is why the seconds are
-        // stored rather than asked for again every tick.
+        //  the RULESET's half of the hold. Its deadline is decided HERE, once,
+        // from the captive's damage at the moment it was caught. That is the
+        // genre's rule — a hold does not grow because its captor pummelled.
         let rules = tuning.of(attempt.captor).unwrap_or_default();
-        commands.entity(victim).insert(
-            ambition_characters::smash_hold_state::SmashHoldState::lasting(
-                rules.grab_hold_seconds(
-                    participants
-                        .get(victim)
-                        .map(|body| body.health.damage_taken())
-                        .unwrap_or(0),
-                ),
-            ),
+        let hold_seconds = rules.grab_hold_seconds(
+            participants
+                .get(victim)
+                .map(|body| body.health.damage_taken())
+                .unwrap_or(0),
+        );
+        begin_capture(
+            &mut commands,
+            attempt.captor,
+            victim,
+            attempt.hold_offset,
+            hold_seconds,
+            playbacks.get_mut(victim).ok(),
+            budgets.get_mut(victim).ok(),
         );
     }
+}
+
+/// Grant a capture: `captor` holds `victim` at `hold_offset_local` for at most
+/// `hold_seconds` (or until the victim mashes free). The one grant, for a
+/// fighter's grab ([`acquire_captures`]) and a module's seize
+/// (`crate::extension`, `ambition.combat.body_hold`).
+pub fn begin_capture(
+    commands: &mut Commands,
+    captor: Entity,
+    victim: Entity,
+    hold_offset_local: ae::Vec2,
+    hold_seconds: f32,
+    playback: Option<Mut<crate::moveset::MovePlayback>>,
+    budget: Option<(
+        &ae::BodyAbilities,
+        Mut<ae::BodyJumpState>,
+        Mut<ae::BodyDodgeState>,
+        &ae::MotionModel,
+    )>,
+) {
+    //  THE CAPTIVE'S MOVE ENDS HERE, AND ITS VOLUMES WITH IT.
+    //
+    //  through the ONE teardown path (`cancel_move_playback`), which is why
+    // that was extracted from its four hand-copies first rather than becoming
+    // a fifth here.
+    if let Some(mut playback) = playback {
+        crate::moveset::cancel_move_playback(commands, victim, &mut playback, crate::moveset::MoveEnd::Interrupted);
+    }
+    // The captive's control projection. `CapturedBy` stays the authority;
+    // this is only what it means for input, and it is CLAIMED rather than
+    // inserted: a KO card or a round break can legitimately hold this same
+    // body while the grab lasts, and a release that removed the marker
+    // outright would take their hold off with its own.
+    //
+    //  it is a PROJECTION, and that is the shape escape needs later: a
+    // mash-to-escape read samples the captive's raw participant input into a
+    // restricted capture channel, and would be impossible if capture meant
+    // "this body's input ceases to exist".
+    ambition_characters::control::claim_control_hold(
+        commands,
+        victim,
+        ambition_characters::control::ControlHold::Relationship,
+    );
+    if let Some((abilities, mut jump, mut dodge, model)) = budget {
+        jump.air_jumps_available = abilities.abilities.air_jump_count(model.air_jumps());
+        dodge.air_dodge_spent = false;
+    }
+    commands.entity(victim).insert(CapturedBy {
+        captor,
+        hold_offset_local,
+    });
+    //  the RULESET's half of the hold, inserted beside the relation.
+    // Pummel count, hold age and escape progress are platform-fighter
+    // policy; `CapturedBy` is the relation and answers none of them.
+    commands
+        .entity(victim)
+        .insert(ambition_characters::smash_hold_state::SmashHoldState::lasting(hold_seconds));
 }
 
 /// What a brain is told about this body's place in a capture.

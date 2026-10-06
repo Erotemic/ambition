@@ -216,6 +216,11 @@ where
     registrar.rollback_component_clone::<crate::components::FeatureId>(OWNER, "feature.id");
     // The dormancy rule reads this marker: an encounter mob never sleeps. A
     // restored mob must keep it, or the rule would put it to sleep.
+    // Granted at a summon's construction and constant after: presence.
+    registrar.rollback_component_clone::<crate::components::SummonedToTheFight>(
+        OWNER,
+        "actor.summoned_to_the_fight",
+    );
     registrar.rollback_component_clone_probed::<crate::components::EncounterMob>(
         OWNER,
         "encounter.mob",

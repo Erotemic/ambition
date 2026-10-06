@@ -20,17 +20,26 @@
 //! ceiling down, a charge that turns once at the wall and comes back, and a
 //! leap that lands where you stood, with a quake.
 //!
+//! The jaw grab (phase 2 on): a low lunge with the jaws wide; caught, you are
+//! clamped in his jaws and thrashed, then flung across the hall. Mash to break
+//! free (the engine's capture relation, `ambition.combat.body_hold`).
+//!
+//! The call: the king of the dinosaurs shrieks for his kin. Stochastic parrots
+//! swoop in from the high corners; enraged, raptors run in along the floor
+//! too. He calls only while their number is below `MINION_CAP`.
+//!
 //! Every volume is measured from his art (`scripts/measure_part_track_boxes.py
 //! trex_enemy`), in sheet pixels from the frame's top left, and carried into
 //! the world by [`PX`] about the frame's centre, which is his position (the
 //! boss placement law, `BossSheetSpec::drawn_anchor`).
 
 use ambition_boss_special_port::{
-    BossConduct, BossConductPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, Pose,
+    BossConduct, BossConductPort, BossSummon, BossSummonPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort,
+    Pose,
 };
 use ambition_combat_port::{
-    BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort,
-    RidingHitbox, RidingHitboxPort, RidingKnockback,
+    BodyHold, BodyHoldPort, BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox,
+    HeldDamageBoxPort, RidingHitbox, RidingHitboxPort, RidingKnockback,
 };
 use ambition_extension_sdk::{
     phases::BOSS_CONDUCT, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
@@ -193,6 +202,48 @@ const SFX_STOMP: &str = "boss.trex.stomp";
 const SFX_CRASH: &str = "boss.trex.stomp";
 const SFX_RUBBLE: &str = "world.rock.break";
 
+/// The jaw grab. The strike lunges like the bite but further, and the jaws
+/// close (`grab_reach` frame 3) inside this window of it: a body in the reach
+/// then is caught. Caught, it is held between his jaws and thrashed for
+/// `SHAKE_S`, bitten every `PUMMEL_EVERY_S`, then flung forward and up.
+const GRAB_LUNGE: f32 = 92.0;
+const GRAB_LUNGE_S: f32 = 0.18;
+const GRAB_CLAMP_FROM_S: f32 = 0.06;
+const GRAB_CLAMP_TO_S: f32 = 0.22;
+fn grab_reach() -> (Vec2, Vec2) {
+    art_box(330.0, 150.0, 470.0, 279.0)
+}
+/// Between his jaws, at the clamp (`grab_shake`'s jaw line).
+fn jaw_point() -> Vec2 {
+    art(418.0, 200.0)
+}
+const SHAKE_S: f32 = 1.3;
+const SHAKE_HZ: f32 = 4.2;
+const SHAKE_LIFT: f32 = 26.0;
+const SHAKE_SWAY: f32 = 10.0;
+const PUMMEL_EVERY_S: f32 = 0.42;
+const PUMMEL_DAMAGE: i32 = 1;
+/// The fling: forward and up, at a launch speed that crosses the hall.
+const THROW_DAMAGE: i32 = 2;
+const THROW_SPEED: f32 = 820.0;
+const THROW_DIR: [f32; 2] = [0.74, -0.67];
+const THROW_ROW_S: f32 = 0.4;
+/// The hold's own deadline, past the throw: the shake ends in a throw, never
+/// in the hold running out.
+const HOLD_S: f32 = SHAKE_S + 0.6;
+
+/// The call. Birds are dinosaurs: the parrots come down from the high corners
+/// of the hall; enraged, raptors run in at the walls.
+const PARROT: &str = "stochastic_parrot";
+const PARROT_HALF: [f32; 2] = [18.0, 16.0];
+const RAPTOR: &str = "npc_raptor_stalker";
+const RAPTOR_HALF: [f32; 2] = [24.0, 40.0];
+/// His summons alive at once, at most.
+const MINION_CAP: u32 = 4;
+/// How far in from each wall, and how high the parrots enter.
+const CALL_INSET: f32 = 90.0;
+const PARROT_HEIGHT: f32 = 470.0;
+
 /// How hard each blow shakes the camera (world pixels, before the player's
 /// shake setting caps it).
 const SHAKE_SKID: f32 = 5.0;
@@ -200,6 +251,8 @@ const SHAKE_STOMP: f32 = 8.0;
 const SHAKE_ROAR: f32 = 9.0;
 const SHAKE_LANDING: f32 = 11.0;
 const SHAKE_CRASH: f32 = 12.0;
+const SHAKE_THRASH: f32 = 4.0;
+const SHAKE_THROW: f32 = 7.0;
 
 const DUST: [f32; 4] = [0.82, 0.74, 0.58, 1.0];
 
@@ -214,10 +267,12 @@ pub enum Move {
     Roar,
     Leap,
     DoubleBite,
+    JawGrab,
+    Call,
 }
 
 impl Move {
-    pub const ALL: [Move; 8] = [
+    pub const ALL: [Move; 10] = [
         Move::Bite,
         Move::TailWhip,
         Move::Charge,
@@ -226,6 +281,8 @@ impl Move {
         Move::Roar,
         Move::Leap,
         Move::DoubleBite,
+        Move::JawGrab,
+        Move::Call,
     ];
 
     pub fn key(self) -> &'static str {
@@ -238,6 +295,8 @@ impl Move {
             Move::Roar => "trex_roar",
             Move::Leap => "trex_leap",
             Move::DoubleBite => "trex_double_bite",
+            Move::JawGrab => "trex_jaw_grab",
+            Move::Call => "trex_call",
         }
     }
 
@@ -307,6 +366,12 @@ record! {
     30 landed: bool,
     /// The double bite's second snap has been spent.
     31 bit_again: bool,
+    /// Holding a body in his jaws: seconds of the thrash so far.
+    32 thrashing: Option<f32>,
+    /// The thrash's last pummel, in its seconds.
+    33 pummelled_at: f32,
+    /// The fling's follow-through: seconds since the throw.
+    34 flinging: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -325,6 +390,11 @@ struct Hall {
 }
 
 impl Conductor {
+    /// Holding a body in his jaws, for tests and inspectors.
+    pub fn thrashing(&self) -> bool {
+        self.thrashing.is_some()
+    }
+
     fn wave(&mut self, slot: usize) -> (&mut Option<f32>, &mut f32) {
         if slot == 0 {
             (&mut self.wave0_x, &mut self.wave0_dir)
@@ -417,6 +487,8 @@ pub fn module() -> ModuleDescriptor {
                 DrawnRowPort::KEY,
                 BurstPort::KEY,
                 CameraShakePort::KEY,
+                BodyHoldPort::KEY,
+                BossSummonPort::KEY,
                 RidingHitboxPort::KEY,
                 HeldDamageBoxPort::KEY,
                 ProjectileSpawnPort::KEY,
@@ -543,7 +615,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     }
                 } else {
                     c.fired = false;
-                    if matches!(mv, Move::Bite | Move::DoubleBite) {
+                    if matches!(mv, Move::Bite | Move::DoubleBite | Move::JawGrab) {
                         c.lunge_from = at.x;
                         c.bit_again = false;
                     }
@@ -594,7 +666,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         } else {
             next
         }
-    } else if c.stunned.is_some() {
+    } else if c.stunned.is_some() || c.thrashing.is_some() || c.flinging.is_some() {
         at.x
     } else {
         match part {
@@ -611,6 +683,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 let since = if c.bit_again { t - SECOND_BITE_AT_S } else { t };
                 let u = ease(since / BITE_LUNGE_S);
                 clamp_x(c.lunge_from + side * BITE_LUNGE * u, side)
+            }
+            Some(Part { mv: Move::JawGrab, striking: true, t, .. }) => {
+                let u = ease(t / GRAB_LUNGE_S);
+                clamp_x(c.lunge_from + side * GRAB_LUNGE * u, side)
             }
             Some(Part { mv: Move::Leap, striking: true, t, .. }) => {
                 let u = (t / LEAP_FLIGHT_S).clamp(0.0, 1.0);
@@ -709,6 +785,39 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 }
                 // The leap lands below, when it lands.
                 Move::Leap => {}
+                // The grab's clamp reaches below, through its window.
+                Move::JawGrab => {}
+                Move::Call => {
+                    play(inv, SFX_ROAR, pos + Vec2::new(side * head_front(), -40.0))?;
+                    shake(inv, SHAKE_ROAR)?;
+                    let high = hall.floor - PARROT_HEIGHT;
+                    let mut kin: Vec<(&str, [f32; 2], Vec2)> = vec![
+                        (PARROT, PARROT_HALF, Vec2::new(hall.left + CALL_INSET, high)),
+                        (PARROT, PARROT_HALF, Vec2::new(hall.right - CALL_INSET, high)),
+                    ];
+                    if rex.enraged {
+                        // The raptors FIRST: they are the enraged call's new
+                        // threat, and the cap spends its room in this order.
+                        let low = hall.floor - RAPTOR_HALF[1] - 2.0;
+                        kin.insert(0, (RAPTOR, RAPTOR_HALF, Vec2::new(hall.right - CALL_INSET, low)));
+                        kin.insert(0, (RAPTOR, RAPTOR_HALF, Vec2::new(hall.left + CALL_INSET, low)));
+                    }
+                    let room = MINION_CAP.saturating_sub(rex.minions) as usize;
+                    for (i, (character, half, at)) in kin.into_iter().take(room).enumerate() {
+                        inv.submit::<BossSummonPort>(BossSummon {
+                            label: "trex_kin".into(),
+                            serial: vec![c.ticks, i as u32],
+                            position: at.into(),
+                            half_size: half,
+                            character_id: character.into(),
+                            health: None,
+                            keeps_contact_damage: true,
+                            // His own kin: his volumes pass through them.
+                            on_boss_side: true,
+                        })?;
+                        burst(inv, at, 16, 220.0, DUST, "dust")?;
+                    }
+                }
                 // The charge's ram rides the run, below.
                 Move::Charge => {}
             }
@@ -724,6 +833,66 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let life = part.map_or(0.2, |p| (p.dur - SECOND_BITE_AT_S) * 0.6);
         riding(inv, bite_box(), side, BITE_DAMAGE, BITE_KNOCKBACK, life, "trex_bite_again")?;
         play(inv, SFX_BITE, pos + Vec2::new(side * head_front(), 0.0))?;
+    }
+
+    // ── The jaw grab: the clamp, the thrash, the fling ──
+    if let Some(Part { mv: Move::JawGrab, striking: true, t, .. }) = part {
+        if c.thrashing.is_none() && !rex.holding && (GRAB_CLAMP_FROM_S..=GRAB_CLAMP_TO_S).contains(&t) {
+            let (centre, half) = grab_reach();
+            let hold = jaw_point();
+            inv.submit::<BodyHoldPort>(BodyHold::Seize {
+                reach_offset: centre.into(),
+                reach_half: half.into(),
+                hold_offset: hold.into(),
+                hold_s: HOLD_S,
+            })?;
+            if t == GRAB_CLAMP_FROM_S || (t - dt) < GRAB_CLAMP_FROM_S {
+                play(inv, SFX_BITE, pos + Vec2::new(side * head_front(), 20.0))?;
+            }
+        }
+    }
+    if rex.holding && c.thrashing.is_none() && c.flinging.is_none() {
+        // Caught (the seize lands a tick before the trigger reports it).
+        c.thrashing = Some(0.0);
+        c.pummelled_at = 0.0;
+    }
+    if let Some(thrash) = c.thrashing.as_mut() {
+        if !rex.holding {
+            // Mashed free.
+            c.thrashing = None;
+        } else {
+            *thrash += dt;
+            let t = *thrash;
+            let w = std::f32::consts::TAU * SHAKE_HZ * t;
+            let hold = jaw_point() + Vec2::new(SHAKE_SWAY * (w * 0.5).sin(), -SHAKE_LIFT * w.sin().abs());
+            if t >= SHAKE_S {
+                inv.submit::<BodyHoldPort>(BodyHold::Throw {
+                    damage: THROW_DAMAGE,
+                    knockback: THROW_SPEED,
+                    growth: 0.0,
+                    launch_dir: THROW_DIR,
+                })?;
+                c.thrashing = None;
+                c.flinging = Some(0.0);
+                play(inv, SFX_ROAR, pos + Vec2::new(side * head_front(), -40.0))?;
+                shake(inv, SHAKE_THROW)?;
+            } else {
+                inv.submit::<BodyHoldPort>(BodyHold::Carry { hold_offset: hold.into() })?;
+                if t - c.pummelled_at >= PUMMEL_EVERY_S {
+                    c.pummelled_at = t;
+                    inv.submit::<BodyHoldPort>(BodyHold::Pummel { damage: PUMMEL_DAMAGE })?;
+                    play(inv, SFX_BITE, pos + Vec2::new(side * hold.x, hold.y))?;
+                    shake(inv, SHAKE_THRASH)?;
+                    burst(inv, pos + Vec2::new(side * hold.x, hold.y), 6, 160.0, DUST, "spark")?;
+                }
+            }
+        }
+    }
+    if let Some(fling) = c.flinging.as_mut() {
+        *fling += dt;
+        if *fling >= THROW_ROW_S {
+            c.flinging = None;
+        }
     }
 
     // ── The leap lands ──
@@ -817,14 +986,21 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
     // ── His trunk hurts to touch ──
     c.trunk_rearm -= dt;
-    if c.trunk_rearm <= 0.0 {
+    // Not while he holds a body: a blow to the held body is a hit reaction,
+    // and a reacting captive is released (`release_interrupted_captures`).
+    if c.trunk_rearm <= 0.0 && c.thrashing.is_none() {
         c.trunk_rearm = TRUNK_REARM;
         riding(inv, trunk(), side, TRUNK_DAMAGE, TRUNK_KNOCKBACK, TRUNK_REARM, "trex_trunk")?;
     }
 
     // ── Where he is, and what he is drawn as ──
     let airborne = matches!(part, Some(Part { mv: Move::Leap, striking: true, .. }));
-    let conducts = !rex.driven || c.charging.is_some() || c.stunned.is_some() || airborne;
+    let conducts = !rex.driven
+        || c.charging.is_some()
+        || c.stunned.is_some()
+        || c.thrashing.is_some()
+        || c.flinging.is_some()
+        || airborne;
     if !conducts {
         side = if rex.facing < 0.0 { -1.0 } else { 1.0 };
     }
@@ -852,6 +1028,12 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
     if let Some(stunned) = c.stunned {
         return ("stunned", stunned, true);
     }
+    if let Some(thrash) = c.thrashing {
+        return ("grab_shake", thrash, true);
+    }
+    if let Some(fling) = c.flinging {
+        return ("grab_throw", fling, false);
+    }
     match part {
         Some(p @ Part { mv: Move::Bite, .. }) => split("bite", 2, 7, 0.078, p),
         // The double bite's strike is the bite's twice over.
@@ -870,7 +1052,11 @@ fn drawn_row(c: &Conductor, part: Option<Part>, walking: bool) -> (&'static str,
         Some(Part { mv: Move::Charge, .. }) => ("charge", 0.0, true),
         Some(p @ Part { mv: Move::SnapUp, .. }) => split("snap_up", 2, 6, 0.09, p),
         Some(p @ Part { mv: Move::Stomp, .. }) => split("stomp", 2, 6, 0.092, p),
+        Some(p @ Part { mv: Move::JawGrab, .. }) => split("grab_reach", 2, 6, 0.1, p),
         Some(p @ Part { mv: Move::Roar, .. }) => split("roar", 2, 6, 0.104, p),
+        // The call: his head thrown back, the roar's rear held, then the
+        // shriek.
+        Some(p @ Part { mv: Move::Call, .. }) => split("roar", 2, 6, 0.104, p),
         // The leap: the crouch held through the tell, frames 1-4 in the air,
         // 5-7 the landing.
         Some(Part { mv: Move::Leap, striking: false, .. }) => ("leap", 0.0, false),

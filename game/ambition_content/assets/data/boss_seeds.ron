@@ -14,6 +14,8 @@
         telegraph: (min_s: 0.44, max_s: 1.00),
         active: (min_s: 0.28, max_s: 3.30),
         instances: [
+            "trex_tail_whip", // the T-rex: the tail coils, then sweeps low behind him
+            "trex_stomp",     // the T-rex: he rears and stamps, and a shock runs the floor both ways
             "side_sweep",           // two arms, boss-relative left+right
             "wing_sweep",           // mockingbird, cycle-timed
             "broadside",            // two tall side columns — a sweep you jump BETWEEN
@@ -51,13 +53,16 @@
         skill_tested: "Read the wind-up's aim, then walk or dash out of it — and be greedy enough to come back before it recovers.",
         fair_counters: [WalkOut, Dash],
         threat: Heavy,
-        telegraph: (min_s: 0.60, max_s: 1.40),
-        active: (min_s: 0.40, max_s: 2.00),
+        telegraph: (min_s: 0.75, max_s: 1.40),
+        active: (min_s: 0.35, max_s: 2.00),
         instances: [
+            "trex_bite",      // the T-rex: the head rears, then snaps down to your height as he lunges a stride
+            "trex_snap_up",   // the T-rex: the head thrown up at the ledge you stand on
+            "trex_double_bite", // the T-rex: one clack of teeth, then the bite twice; the second catches a dodge back
+            "trex_leap",      // the T-rex, enraged: a spring at where you stood, landing with a quake
             "floor_slam",    // wide flat rect at the feet
             "demonstrate",      // GNU-ton: a fist tracks, locks, falls, and sticks
             "demonstrate_pair", // GNU-ton: the second fist falls where you dodged to
-            "seismic_stomp", // trex; a special, so damage rides its own effect
             "noodly_dive",   // the FSM: tracks you from above, falls, and lies stranded on the floor
         ],
         recipes: [
@@ -96,6 +101,7 @@
             "gradient_nova",   // the exploding-gradient boss's runaway burst
             "buck",            // GNU-ton's gnu throws whoever stands on its back
             "noodly_pulse",    // the FSM: a ring of noodles flung out from the bell
+            "trex_roar",       // the T-rex, enraged: a roar that blows you off him and brings the ceiling down
         ],
         recipes: [
             (
@@ -254,9 +260,10 @@
         skill_tested: "Commit to a side before the boss does; do not chase.",
         fair_counters: [Jump, Dash, WalkOut],
         threat: Medium,
-        telegraph: (min_s: 0.44, max_s: 0.44),
-        active: (min_s: 0.28, max_s: 0.28),
+        telegraph: (min_s: 0.44, max_s: 1.10),
+        active: (min_s: 0.28, max_s: 0.50),
         instances: [
+            "trex_charge",    // the T-rex: a roar and a scrape, then the hall at a run into the wall, and the stun
             "dive_lane", // mockingbird; a narrow 0.22-wide lane along the dive path
         ],
         recipes: [

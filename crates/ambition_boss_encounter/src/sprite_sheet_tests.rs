@@ -102,11 +102,12 @@ fn fsm_and_trex_sheets_match_their_published_layouts() {
         6 + 8 + 7
     );
 
-    // T-Rex: 9 PNG rows (398×320); tail_swipe/stomp reuse SideSweep/FloorSlam
-    // labels but every physical row is still listed so the atlas stays aligned.
+    // T-Rex: 9 PNG rows (456×300, the published frame); tail_swipe/stomp
+    // reuse SideSweep/FloorSlam labels but every physical row is still listed
+    // so the atlas stays aligned.
     assert_eq!(content_sheet("trex_boss").rows.len(), 9);
-    assert_eq!(content_sheet("trex_boss").frame_width, 398);
-    assert_eq!(content_sheet("trex_boss").frame_height, 320);
+    assert_eq!(content_sheet("trex_boss").frame_width, 456);
+    assert_eq!(content_sheet("trex_boss").frame_height, 300);
     assert!(!content_sheet("trex_boss").body_centered, "T-Rex is grounded");
     assert_eq!(content_sheet("trex_boss").frame_count(BossAnim::Rest), 6);
     // SideSweep (bite) is row 3, not the later tail_swipe dup at row 5.
@@ -466,4 +467,63 @@ fn an_authored_sheet_overrides_the_built_in_layout() {
         "the override differs from the built-in default"
     );
     assert_eq!(over.rows.len(), 1, "override authors its own row set");
+}
+
+/// THE BOSS PLACEMENT LAW (`BossSheetSpec::drawn_anchor`), for every boss of
+/// the catalog whose sheet publishes its body: the renderer draws the
+/// published frame centred on the boss, and the simulation measures the body
+/// (its collision box at `combat_offset`, every hurtbox) in that frame, at the
+/// size the renderer draws it. So what the player sees is what the player hits.
+///
+/// ⛔ Both halves broke apart for the T-rex: drawn by a feet rule 56 wu above
+/// the body the simulation measured, and measured in a 398 x 320 frame his
+/// sheet no longer had (it draws 456 x 300), 18% too narrow.
+#[test]
+fn every_boss_is_drawn_where_the_simulation_measures_its_body() {
+    let catalog = crate::test_boss_catalog();
+    let mut checked = 0;
+    for spec in catalog.encounter_specs() {
+        let Some(behavior) = catalog.behavior(&spec.id) else {
+            continue;
+        };
+        let target = crate::ecs::sprite_target_for_boss(catalog, behavior);
+        let Some(record) = record_for_sheet_key(target) else {
+            continue;
+        };
+        if record.body_metrics.as_ref().and_then(|metrics| metrics.body_pixel_bbox).is_none() {
+            continue;
+        }
+        let boss = crate::BossClusterScratch::new(
+            catalog,
+            spec.id.clone(),
+            spec.id.clone(),
+            ambition_platformer2d_core::Aabb::new(
+                ambition_platformer2d_core::Vec2::new(600.0, 400.0),
+                ambition_platformer2d_core::Vec2::new(70.0, 56.0),
+            ),
+            ambition_entity_catalog::placements::BossBrain::PhaseScript { script_id: spec.id.clone() },
+        );
+        // What the renderer draws: the authored sheet with the record's frame
+        // (`load_boss_sprite`), at its anchor.
+        let mut drawn = catalog.sheet_for_behavior(behavior);
+        drawn.frame_width = record.frame_width;
+        drawn.frame_height = record.frame_height;
+        let basis = boss.status.render_size;
+        let collision = Vec2::new(basis.x, basis.y);
+        assert_eq!(
+            drawn.drawn_anchor(record, collision).0,
+            Vec2::ZERO,
+            "{}: a sheet with a published body is drawn centred on the boss",
+            spec.id
+        );
+        let render = drawn.render_size(collision);
+        let measured = boss.status.sprite_metrics.as_ref().expect("the record publishes metrics").sprite_render_size;
+        assert!(
+            (measured.x - render.x).abs() < 0.01 && (measured.y - render.y).abs() < 0.01,
+            "{}: the simulation measures the body in a {measured:?} frame; it is drawn {render:?}",
+            spec.id
+        );
+        checked += 1;
+    }
+    assert!(checked >= 5, "the premise: the catalog's sheet bosses were checked ({checked})");
 }

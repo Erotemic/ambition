@@ -42,9 +42,9 @@ const EXPECTED_SHEETS: [(&str, &str); 7] = [
     ("trex_boss", "trex_enemy_spritesheet.png"),
 ];
 
-/// The ten content specials that telegraph, and the sprite rows each one asks
-/// for. The first key is the canonical runtime key.
-const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 10] = [
+/// The seventeen content specials that telegraph, and the sprite rows each one
+/// asks for. The first key is the canonical runtime key.
+const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 17] = [
     ("echo_fan", &["spike_halo", "eye_beam"]),
     ("eye_beam", &["eye_beam", "spike_halo"]),
     ("gradient_cascade", &["spike_halo"]),
@@ -54,7 +54,14 @@ const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 10] = [
     ("overfit_volley", &["spike_halo", "eye_beam"]),
     ("overflow_flood", &["spike_halo"]),
     ("saddle_point", &["spike_halo"]),
-    ("seismic_stomp", &["floor_slam", "spike_halo"]),
+    ("trex_bite", &["bite"]),
+    ("trex_charge", &["roar"]),
+    ("trex_double_bite", &["bite"]),
+    ("trex_leap", &["leap"]),
+    ("trex_roar", &["roar"]),
+    ("trex_snap_up", &["snap_up"]),
+    ("trex_stomp", &["stomp"]),
+    ("trex_tail_whip", &["tail_swipe"]),
 ];
 
 /// The sheet rows each geometry strike asks for, for each of the engine's

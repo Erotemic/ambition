@@ -1,50 +1,47 @@
-// trex_arena — boss arena for the T-Rex (canon: Jon — a grounded bipedal boss to
-// flex the player/boss unification). Reached from the Hall of Bosses gallery.
+// trex_arena — the Tyrant King's arena (`docs/planning/game/bosses.md`, "The
+// Tyrant King"). Reached from the Hall of Bosses gallery.
 //
 // Behaviour + encounter are data-authored:
-//   assets/data/boss_profiles.ron  (grounded charge + stomp/bite/sweep)
+//   assets/data/boss_profiles.ron           (the pattern: which move, when)
 //   assets/data/boss_encounters/trex_boss.ron (HP/phases/music)
-// The trex sprite (trex_enemy_spritesheet) isn't boss-wired yet, so it renders
-// via the generic boss fallback until its sheet is added (BossSheetSpec + loader).
+// and his conductor (`ambition_content_modules::trex`) walks him and performs
+// the moves.
 //
-// A wide, low arena suits the grounded charger; the BossSpawn sits ON the floor.
+// A wide hall, because the fight's long punish window is his charge: he runs
+// the floor and cannot stop, and hits the wall. Two refuges from it, one by
+// each wall: a LEDGE above the reach of his lowered head (floor - 208; the ram
+// tops out at floor - 144), reached from a STEP (floor - 112), which the ram
+// does reach — a path, not a place to stand. A ledge is no refuge from HIM: he
+// snaps up at it.
+//
+//   |▓ceiling▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓|
+//   |                                                            |
+//   |░ledge░░░                                         ░░░ledge░|
+//   |          ░step░                          ░step░            |
+//   |[door] @                          T-REX                     |
+//   |▓floor▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓|
 (
     id: "trex_arena",
     level_id: "trex_arena",
     world_x: -14000,
     world_y: 0,
-    px_wid: 1024,
-    px_hei: 640,
+    px_wid: 1792,
+    px_hei: 704,
     fill_collision: "empty",
     bg_color: "#1A1614",
     biome: "boss",
     music_track: "dinosaur_liberators",
-    connect_to: [
-        (
-            target_room: "hall_of_bosses",
-            px: [
-                1190,
-                384,
-            ],
-            size: [
-                48,
-                96,
-            ],
-            id: "hall_to_trex_portal",
-            target_zone: "trex_arena_entry",
-            activation: "Door",
-            bidirectional: true,
-        ),
-    ],
+    // The hall's side of the door (`hall_to_trex_portal`) was placed when this
+    // area was first created; a regen re-places only this room's side.
     entities: [
         (
             type: "Solid",
             px: [
                 0,
-                608,
+                672,
             ],
             size: [
-                1024,
+                1792,
                 32,
             ],
             fields: (
@@ -59,7 +56,7 @@
             ],
             size: [
                 16,
-                608,
+                672,
             ],
             fields: (
                 name: "left_wall",
@@ -68,12 +65,12 @@
         (
             type: "Solid",
             px: [
-                1008,
+                1776,
                 0,
             ],
             size: [
                 16,
-                608,
+                672,
             ],
             fields: (
                 name: "right_wall",
@@ -86,7 +83,7 @@
                 0,
             ],
             size: [
-                992,
+                1760,
                 16,
             ],
             fields: (
@@ -94,10 +91,66 @@
             ),
         ),
         (
+            type: "OneWayPlatform",
+            px: [
+                16,
+                464,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "ledge_left",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                240,
+                560,
+            ],
+            size: [
+                128,
+                16,
+            ],
+            fields: (
+                name: "step_left",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1424,
+                560,
+            ],
+            size: [
+                128,
+                16,
+            ],
+            fields: (
+                name: "step_right",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1584,
+                464,
+            ],
+            size: [
+                192,
+                16,
+            ],
+            fields: (
+                name: "ledge_right",
+            ),
+        ),
+        (
             type: "PlayerStart",
             px: [
-                96,
-                544,
+                112,
+                624,
             ],
             size: [
                 24,
@@ -110,8 +163,8 @@
         (
             type: "LoadingZone",
             px: [
-                160,
-                512,
+                40,
+                576,
             ],
             size: [
                 48,
@@ -129,8 +182,8 @@
         (
             type: "BossSpawn",
             px: [
-                620,
-                496,
+                1120,
+                560,
             ],
             size: [
                 140,

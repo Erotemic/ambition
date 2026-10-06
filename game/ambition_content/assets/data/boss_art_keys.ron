@@ -20,7 +20,6 @@
         "mode_collapse_converge": ["spike_halo"],
         "gradient_nova": ["spike_halo"],
         "overflow_flood": ["spike_halo"],
-        "seismic_stomp": ["floor_slam", "spike_halo"],
         "echo_fan": ["spike_halo", "eye_beam"],
         // GNU-ton's lectures. Every `Special` draws the scholar's spike-halo row
         // (arms raised: he is conducting), so that is the row each names.
@@ -42,6 +41,15 @@
         "noodly_pulse": ["pulse"],
         "noodly_dive": ["dive"],
         "noodly_grasp": ["grasp"],
+        // The T-rex's conducted moves: his module draws them, row by row.
+        "trex_bite": ["bite"],
+        "trex_double_bite": ["bite"],
+        "trex_tail_whip": ["tail_swipe"],
+        "trex_charge": ["roar"],
+        "trex_snap_up": ["snap_up"],
+        "trex_stomp": ["stomp"],
+        "trex_roar": ["roar"],
+        "trex_leap": ["leap"],
         "lesser_appendages": ["summon"],
     },
     // The sheet rows each geometry strike claims. The first row is the

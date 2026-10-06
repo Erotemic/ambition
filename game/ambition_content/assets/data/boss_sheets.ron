@@ -261,10 +261,13 @@
     // Reuses the T-Rex enemy PNG. idle->Rest, walk->DashEcho, charge->FloorSlam,
     // bite->SideSweep, roar->SpikeHalo, tail_swipe and stomp (duplicate labels,
     // kept so atlas offsets are right), hurt->Hit, death->Death.
+    // The sheet also ships `stunned`, `snap_up` and `leap` AFTER these nine;
+    // his conductor (`ambition_content_modules::trex`) pins them by name, so
+    // they need no `BossAnim`.
     "trex_boss": (
         label_width: 100,
-        frame_width: 398,
-        frame_height: 320,
+        frame_width: 456,
+        frame_height: 300,
         rows: [
             (Rest, (
                 frame_count: 6,

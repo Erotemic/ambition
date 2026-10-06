@@ -13,6 +13,7 @@ use bevy::prelude::*;
 pub mod banter;
 pub mod cut_rope;
 pub mod fsm;
+pub mod trex;
 pub mod gnu_ton;
 pub mod hall;
 pub mod specials;
@@ -203,6 +204,7 @@ pub fn boss_catalog_fragment_from(
     // with the payload it frees.
     .with_birth_kit(gnu_ton::conductor::GNU_TON_ID, gnu_ton::conductor::birth)
     .with_birth_kit(fsm::conductor::FSM_ID, fsm::birth)
+    .with_birth_kit(trex::TREX_ID, trex::birth)
     .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, cut_rope::birth);
     Ok(fragment)
 }

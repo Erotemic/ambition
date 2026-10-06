@@ -56,6 +56,87 @@ wears the PCA's move table. Whether it is a boss is an open design call.
 Each is authored as content on the engine boss system. None needs a bespoke
 simulation path.
 
+## The Tyrant King (T-rex) — rework (2026-10-05, Jon)
+
+Jon: "his collision is all messed up and he stands on the ground … let's make a
+good trex boss fight", after GNU-ton. The old fight is a data-only charger:
+generic strike boxes scaled by a body box that disagrees with the art, an
+aerial body pinned at its spawn height, and no fight test.
+
+**The fight: a pattern boss, metroidvania style** (Jon, the same day: "I don't
+like the stand under his feet gimmick … make it a polished excellent 2d
+metroidvania pattern based boss fight"). No safe spot: his body hurts to
+touch, and every place you can stand is answered by some move. Each move is
+learnable: a distinct tell (pose, sound, dust or shine), one honest dodge, and a
+recovery that is the punish window. Damage comes from reading him, not from
+hiding.
+
+- **Phase 1 — The Hunt.** *Snap bite* (you are in front: the head rears, the
+  jaw glints, he lunges one stride; dodge back or jump the lunge, then hit the
+  lowered head). *Charge* (you are far: a roar and a foot scrape, then he runs
+  the hall and cannot stop; get on a ledge or jump the lowered head. He hits the
+  wall and is stunned with stars, the long punish window). *Tail whip* (you are
+  behind: the tail coils, then sweeps low; jump it, punish the turn).
+- **Phase 2 — The Quake.** *Stomp* (he rears onto one leg and stamps, and a
+  shockwave runs the floor both ways; jump it). *Rock fall* (a crash or a stomp
+  shakes rocks from the ceiling, with dust and shadow tells). *Ledge snap*:
+  standing on a ledge is no refuge, because he snaps up at it. The bite becomes
+  a double.
+- **Enrage — Extinction.** A roar that blows you back and shakes the ceiling,
+  charges that turn once and come back, and a leap that lands where you stood
+  with a quake.
+
+**Body.** One world box, sized from the art pose by pose: the GNU's "the art
+is the body". His feet are on the floor and he walks it under gravity. World
+collision stays a single box, the engine's contract. What the player HITS is
+per-frame convex hulls for head, body, tail and legs, published by the renderer
+the way the FSM's bell is. What HITS the player comes from the art too: the
+mouth, the tail tip and the stamping foot, frame by frame from his part tracks.
+
+**Architecture.** The FSM's road: the pattern in `boss_profiles.ron` picks the
+move and when (`Special` keys, telegraph `(pose, cue)` identities, `Select`
+arms on where you stand). A conducted module, `ambition_content_modules::trex`,
+does the rest: pose, volumes, drawn row, rocks. Receipts are a headless
+`trex_fight.rs` in the GNU-ton test's style, a `fight_discovery` run, and
+captures.
+
+**Where it stands (2026-10-05, evening).** Slices 1-4 are in, and the art
+part of 6. He stands on his floor (the placement law, guarded for every boss
+sheet), stalks you, and has the full kit:
+
+| phase | moves (pattern key) | the dodge | the punish |
+|---|---|---|---|
+| Hunt | bite (`trex_bite`), tail whip, snap up at a ledge, charge into the wall | back off / jump the tail / leave the ledge edge / ledge or jump | the head after a bite; the stun after the charge |
+| Quake | double bite (one clack of teeth, two snaps), stomp (shocks both ways + rocks), the rest of the Hunt | jump the shock; leave the dust | the stomp's recovery |
+| Extinction | roar (blast + rocks), leap at where you stood (quake + rocks), the charge turns once and comes back | out of the roar's mouth; move off your spot; read the turn | the stun |
+
+The sheet gained `stunned` (slumped, stars circling), `snap_up` and `leap`,
+and a stomp that rears higher (`scripts/build_trex_enemy_rig.py`); rocks are a
+`trex_rock` prop. A module can shake the camera now
+(`ambition.feedback.camera_shake`, lowered to the quarantined
+`CameraShakeRequest`). Thirteen headless fight tests
+(`game/ambition_app/tests/trex_fight.rs`), each poisoned once.
+
+Still open: his own tail-whoosh and wall-crash sounds (candidates and reels in
+`untracked/sfx-candidates/trex/`, for Jon's ear; the conductor borrows the
+bear's swipe and his stomp until then); per-pose hurt hulls (the box you
+hit is still his whole body box; what hurts YOU is only his art's volumes,
+`body_damage: 0`). For the hulls: `build_sheet` publishes declared
+`hurtbox_parts` verbatim, unmoved by the auto-crop the T-rex sheet uses (every
+target that declares parts turns the crop off, or adds its padding by hand), and
+the union of a row's parts becomes that pose's COLLISION box for the
+`trex_enemy` catalog character sharing the sheet — so it needs a translated
+parts frame in the renderer and a check on that enemy first. Then
+`fight_discovery` tuning and Jon's playtest.
+
+Slices: (1) the body: one placement law for every boss drawn from a sheet,
+with the T-rex grounded, the hulls and the art's volumes; (2) the conductor,
+with bite, tail and charge-into-stun; (3) the pattern and arena (width for the
+charge, ledges, ceiling); (4) phase 2 and enrage; (5) sound and effects (tells,
+impacts, stun stars, shockwave, rocks), auditioned before they are ported;
+(6) art: rows the moves need that the sheet lacks (stunned, rear, leap); (7)
+tuning from `fight_discovery` and Jon's playtest.
+
 ## Mode Collapse music (Q148)
 
 Mode Collapse (`boss_encounters/mode_collapse_boss.ron`, a summoner that floods

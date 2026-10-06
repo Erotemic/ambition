@@ -71,7 +71,7 @@ pub fn upgrade_boss_sprites(
         }
         let collision = BVec2::new(view.size.x, view.size.y);
         let render_size = boss_asset.spec.render_size(collision);
-        let anchor = boss_asset.spec.collision_anchor(collision);
+        let anchor = boss_asset.spec.drawn_anchor(&boss_asset.record, collision);
         let mut sprite = Sprite::from_atlas_image(
             boss_asset.texture(),
             bevy::image::TextureAtlas {

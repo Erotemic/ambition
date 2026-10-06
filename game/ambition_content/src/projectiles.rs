@@ -80,6 +80,26 @@ pub(super) fn register(app: &mut App) {
         },
     );
 
+    // The Tyrant King's falling rock: a chunk of his arena's ceiling, shaken
+    // loose by a stomp, a landing or a crash. A touch over the body box,
+    // upright: it falls, it does not fly.
+    app.register_projectile_visual(
+        "trex_rock",
+        ProjectileArt {
+            source: ProjectileArtSource::Image {
+                path: "sprites/trex_rock.png".to_string(),
+            },
+            size: ProjectileRenderSize::Body {
+                min: 10.0,
+                scale: 1.2,
+            },
+            rotation: ProjectileRotation::GravityUpright,
+            debug_tint: [0.50, 0.44, 0.40, 1.0],
+            label: "trex_rock".to_string(),
+            expiry_vfx: None,
+        },
+    );
+
     // The Projectile Polygon's charge shot, in five tiers.
     //
     // Five looks, not one scaled. A held shot must read as different from a tap
@@ -228,6 +248,7 @@ mod tests {
             "hadouken_super",
             "apple",
             "meatball",
+            "trex_rock",
             "lasersword",
             "glider",
         ] {

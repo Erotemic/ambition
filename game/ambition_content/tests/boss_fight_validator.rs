@@ -126,6 +126,10 @@ fn the_shipped_roster_against_section_threes_rules() {
 /// Spaghetti Monster's 2026-09-27 rework did the same (7/9 → 6/8): its six
 /// moves each author a pose, the summon its own `summon` row so it no longer
 /// shares the pulse's tell, and every Strike is followed by a Rest.
+/// The T-rex's 2026-10-05 rework made it three (6/8 → 5/7): a tell identity for
+/// every move, distinct from every other (the charge's tell carries the roar,
+/// so it cannot be mistaken for the upward snap's), and a Rest after every
+/// Strike.
 ///
 /// The eighth warning: the smirking behemoth never demands a `WalkOut`. Its kit is a beam,
 /// a sweep, a slam and a nova — every one answered by jumping or dashing. A player
@@ -133,5 +137,5 @@ fn the_shipped_roster_against_section_threes_rules() {
 ///
 /// Rule 1 (telegraph proportionality) fires nowhere, which corrects BD4 §7's
 /// (`sweep`, `dash_through`), whose floor is 20 ticks, not a heavy's 30.
-const EXPECTED_ERRORS: usize = 6;
-const EXPECTED_WARNINGS: usize = 8;
+const EXPECTED_ERRORS: usize = 5;
+const EXPECTED_WARNINGS: usize = 7;

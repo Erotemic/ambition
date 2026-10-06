@@ -220,6 +220,19 @@ pub fn lower_bursts(
     }
 }
 
+/// A conducted boss's camera shakes, as the boss phase change asks for its
+/// own: an intent the presentation applies on the confirmed frame.
+pub fn lower_camera_shakes(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut shake: MessageWriter<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>,
+) {
+    for submitted in outbox.drain::<ambition_combat_port::CameraShakePort>() {
+        shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
+            amplitude_px: submitted.value.amplitude_px,
+        });
+    }
+}
+
 /// Turn a conducted boss to the side its module chose, through the control
 /// the body integrator applies. Only while the module holds the pose: a
 /// driven boss faces where its participant steers it. Runs in

@@ -138,6 +138,7 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.presentation.drawn_row` v1 | request (`boss_conduct`) | `ambition_boss_special_port::DrawnRow` (the sheet row it is drawn with) |
 | `ambition.combat.riding_hitbox` v1 | request (`boss_conduct`) | `ambition_combat_port::RidingHitbox` (a volume that rides its owner) |
 | `ambition.feedback.burst` v1 | request (`boss_conduct`) | `ambition_combat_port::Burst` (particles) |
+| `ambition.feedback.camera_shake` v1 | request (`boss_conduct`) | `ambition_combat_port::CameraShake` (an amplitude; the strongest of a frame wins) |
 
 A thing that outlives the press (a turret) is a module entity: one entry asks
 for it in `wielded_use`, a second entry bound to its kind runs each tick it

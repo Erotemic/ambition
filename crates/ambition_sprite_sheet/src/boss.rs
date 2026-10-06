@@ -273,6 +273,26 @@ impl BossSheetSpec {
         Anchor(Vec2::new(0.0, self.feet_anchor_y))
     }
 
+    /// Where the boss's frame is drawn about its position: THE BOSS PLACEMENT
+    /// LAW. A sheet that publishes the body's box (`record`'s `body_metrics`)
+    /// is drawn with its frame's centre on the boss's position, which is what
+    /// the simulation assumes when it measures that box into the world (the
+    /// collision box at `combat_offset`, every hurtbox). The two agree by
+    /// construction instead of by a hand-tuned `feet_anchor_y`.
+    ///
+    /// ⛔ It was [`Self::collision_anchor`] for every sheet: feet on the bottom
+    /// of the coarse spawn box, from an authored guess at where the feet are.
+    /// The T-rex's quad drew 56 wu above the body the simulation hit, and his
+    /// stomp volume sat under the floor. A sheet with no published body keeps
+    /// that rule, which is all it has.
+    pub fn drawn_anchor(&self, record: &SheetRecord, collision: Vec2) -> Anchor {
+        if record.body_metrics.as_ref().is_some_and(|metrics| metrics.body_pixel_bbox.is_some()) {
+            Anchor::CENTER
+        } else {
+            self.collision_anchor(collision)
+        }
+    }
+
     /// Anchor that places the boss's feet on the bottom of the collision box.
     /// See `character_sprites::feet_anchor_for` for the derivation.
     ///

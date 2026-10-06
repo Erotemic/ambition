@@ -21,7 +21,7 @@ pub use module_entity::{
     EndModuleEntity, EndModuleEntityPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, PullBodies,
     PullBodiesPort, SpawnModuleEntityPort,
 };
-pub use riding::{Burst, BurstPort, RidingHitbox, RidingHitboxPort, RidingKnockback};
+pub use riding::{Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox, RidingHitboxPort, RidingKnockback};
 pub use wielded::{BodySound, BodySoundPort, SpendMana, SpendManaPort, WieldedUsePort, Wielder};
 
 use ambition_extension_sdk::wire::{self, WireError, WireReader};

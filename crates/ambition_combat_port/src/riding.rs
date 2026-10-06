@@ -142,9 +142,49 @@ impl Port for BurstPort {
     }
 }
 
+/// The request port marker for a shake of the camera.
+///
+/// Port card:
+///
+/// * **Operation** — shake the camera by `amplitude_px` (world pixels, before
+///   the player's shake tuning caps it). Several in one frame settle on the
+///   strongest. Presentation: no simulation state reads it.
+/// * **Owner** — `ambition_boss_encounter::extension`, as a
+///   `CameraShakeRequest`: an intent released on the confirmed frame, so a
+///   predicted frame a rollback erases shakes nothing.
+/// * **Time** — offered in `boss_conduct`.
+pub struct CameraShakePort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CameraShake {
+    pub amplitude_px: f32,
+}
+
+impl Port for CameraShakePort {
+    const KEY: PortKey = PortKey::new("ambition.feedback.camera_shake", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = CameraShake;
+
+    fn encode(v: &CameraShake, out: &mut Vec<u8>) {
+        wire::put_f32(out, v.amplitude_px);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<CameraShake, WireError> {
+        Ok(CameraShake { amplitude_px: r.f32()? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_camera_shake_survives_the_wire() {
+        let v = CameraShake { amplitude_px: 9.5 };
+        let mut out = Vec::new();
+        CameraShakePort::encode(&v, &mut out);
+        assert_eq!(CameraShakePort::decode(&mut WireReader::new(&out)).unwrap(), v);
+    }
 
     #[test]
     fn riding_values_survive_the_wire() {

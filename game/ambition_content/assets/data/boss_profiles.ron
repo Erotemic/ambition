@@ -658,12 +658,14 @@
             size: (54.0, 54.0),
         ),
     ),
-    // T-rex — a bipedal, GROUNDED, melee-centric boss (Jon canon: "a boss to
-    // flex the player/boss unification with a bipedal character like the trex").
-    // Deliberately the opposite of the aerial Flying Spaghetti Monster: it stays
-    // on the floor and charges the player (macro Approach), then stomps / bites /
-    // tail-sweeps (melee profiles FloorSlam / FullBodyPulse / SideSweep — all
-    // contact-AABB, no projectiles), stressing the grounded shared-kinematic path.
+    // The Tyrant King (T-rex) — a grounded PATTERN boss
+    // (`docs/planning/game/bosses.md`, "The Tyrant King"). Conducted: these
+    // `Special` keys say which move and when; `ambition_content_modules::trex`
+    // walks him, swings each move's volume from his art, and draws his rows.
+    // Each loop answers where you stand twice — a snap if you are above him, the
+    // tail if you are behind, the bite if you are near — and then charges: the
+    // run into the wall and the stun are the long punish window. His trunk hurts
+    // to touch (a volume of the module's), so `body_damage` is 0.
     "trex_boss": (
         id: "trex_boss",
         reward_ability: Some("grapple"),
@@ -676,100 +678,242 @@
             y_frequency: 0.0,
             chase_scale: 0.0,
             chase_limit: 0.0,
-            speed: 170.0,
+            speed: 0.0,
         ),
-        movement_phase2: Some(AnchorSway(
-            x_radius: 0.0,
-            y_bob: 0.0,
-            x_frequency: 0.0,
-            y_frequency: 0.0,
-            chase_scale: 0.0,
-            chase_limit: 0.0,
-            speed: 205.0,
-        )),
-        movement_enrage: Some(AnchorSway(
-            x_radius: 0.0,
-            y_bob: 0.0,
-            x_frequency: 0.0,
-            y_frequency: 0.0,
-            chase_scale: 0.0,
-            chase_limit: 0.0,
-            speed: 250.0,
-        )),
-        strike_speed_scale: 0.15,
+        strike_speed_scale: 1.0,
         macro_tuning: (
-            // Grounded charger: Approach runs at the player until it's in bite
-            // range or blocked by a wall; Engage holds and stomps/bites.
             too_close_distance: 0.0,
             too_far_distance: 0.0,
             engage_distance: 0.0,
-            approach_duration_s: 6.0,
+            approach_duration_s: 0.0,
             retreat_duration_s: 0.0,
             engage_max_duration_s: 0.0,
-            front_wall_standoff: 56.0,
-            idle_attack_chance_per_second: 0.6,
-            hold_position_while_engaged: true,
-            approach_speed_scale: 1.1,
+            approach_speed_scale: 1.0,
             retreat_speed_scale: 1.0,
             retreat_distance: 0.0,
-            suppress_attacks_while_moving: true,
         ),
         attacks: [
-            Strike("floor_slam"),
-            Strike("full_body_pulse"),
-            Strike("side_sweep"),
-            Special("seismic_stomp"),
+            Special("trex_bite"),
+            Special("trex_double_bite"),
+            Special("trex_tail_whip"),
+            Special("trex_charge"),
+            Special("trex_snap_up"),
+            Special("trex_stomp"),
+            Special("trex_roar"),
+            Special("trex_leap"),
         ],
         attack_cooldown: 1.0,
         attack_windup: 0.5,
         attack_active: 0.34,
         attack_damage: 2,
-        body_damage: 2,
+        body_damage: 0,
         attack_pattern: Scripted(
             intro: (steps: [
-                Telegraph(profile: Strike("floor_slam"), duration: 1.3),
-                Strike(profile: Strike("floor_slam"), duration: 0.4),
-                Rest(duration: 1.0),
+                // A bite to learn him by: the longest tell he ever gives.
+                Telegraph(profile: Special("trex_bite"), duration: 1.1,
+                    telegraph: Some((pose: Some("bite"), cue: None))),
+                Strike(profile: Special("trex_bite"), duration: 0.4),
+                Rest(duration: 1.4),
             ]),
+            // PHASE 1, THE HUNT: whatever you do near him is answered (a bite in
+            // front, the tail behind, a snap up at a ledge); far away, he stalks
+            // you. Then the charge.
             phase1: (steps: [
-                // Stomp.
-                Telegraph(profile: Strike("floor_slam"), duration: 1.1),
-                Strike(profile: Strike("floor_slam"), duration: 0.4),
-                Rest(duration: 1.3),
-                // Bite.
-                Telegraph(profile: Strike("full_body_pulse"), duration: 0.9),
-                Strike(profile: Strike("full_body_pulse"), duration: 0.4),
-                Rest(duration: 1.2),
-                // Tail sweep.
-                Telegraph(profile: Strike("side_sweep"), duration: 0.9),
-                Strike(profile: Strike("side_sweep"), duration: 0.45),
-                Rest(duration: 1.6),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("trex_snap_up"), duration: 0.8,
+                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                        Strike(profile: Special("trex_snap_up"), duration: 0.35),
+                        Rest(duration: 1.2),
+                    ]),
+                    (weight: 3.0, when: Some(PlayerBehind), steps: [
+                        Telegraph(profile: Special("trex_tail_whip"), duration: 0.8,
+                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                        Strike(profile: Special("trex_tail_whip"), duration: 0.4),
+                        Rest(duration: 1.2),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("trex_bite"), duration: 0.75,
+                            telegraph: Some((pose: Some("bite"), cue: None))),
+                        Strike(profile: Special("trex_bite"), duration: 0.4),
+                        Rest(duration: 1.2),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Rest(duration: 1.2),
+                    ]),
+                ]),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("trex_snap_up"), duration: 0.8,
+                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                        Strike(profile: Special("trex_snap_up"), duration: 0.35),
+                        Rest(duration: 1.1),
+                    ]),
+                    (weight: 3.0, when: Some(PlayerBehind), steps: [
+                        Telegraph(profile: Special("trex_tail_whip"), duration: 0.8,
+                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                        Strike(profile: Special("trex_tail_whip"), duration: 0.4),
+                        Rest(duration: 1.1),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("trex_bite"), duration: 0.75,
+                            telegraph: Some((pose: Some("bite"), cue: None))),
+                        Strike(profile: Special("trex_bite"), duration: 0.4),
+                        Rest(duration: 1.1),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Rest(duration: 1.1),
+                    ]),
+                ]),
+                // The charge: roar and scrape, then the hall at a run into the
+                // wall. The rest after it is the run and the stun: the fight's
+                // long punish window.
+                Telegraph(profile: Special("trex_charge"), duration: 1.1,
+                    telegraph: Some((pose: Some("roar"), cue: Some("enemy.trex.roar")))),
+                Strike(profile: Special("trex_charge"), duration: 0.5),
+                Rest(duration: 3.4),
             ]),
-            transition: (steps: [Rest(duration: 2.2)]),
+            transition: (steps: [Rest(duration: 2.0)]),
+            // PHASE 2, THE QUAKE: his bite comes twice (a clack of teeth is its
+            // tell), and keeping away is answered by the stomp: a shock runs the
+            // floor both ways (jump it) and rocks fall where dust trickles first.
             phase2: (steps: [
-                Telegraph(profile: Strike("floor_slam"), duration: 0.9),
-                Strike(profile: Strike("floor_slam"), duration: 0.4),
-                Rest(duration: 0.9),
-                // Seismic stomp — a floor shockwave rolls out both ways; jump it.
-                Telegraph(profile: Special("seismic_stomp"), duration: 1.0),
-                Strike(profile: Special("seismic_stomp"), duration: 0.4),
-                Rest(duration: 1.1),
-                Telegraph(profile: Strike("full_body_pulse"), duration: 0.8),
-                Strike(profile: Strike("full_body_pulse"), duration: 0.4),
-                Rest(duration: 0.8),
-                Telegraph(profile: Strike("side_sweep"), duration: 0.8),
-                Strike(profile: Strike("side_sweep"), duration: 0.45),
-                Rest(duration: 1.2),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("trex_snap_up"), duration: 0.75,
+                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                        Strike(profile: Special("trex_snap_up"), duration: 0.35),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 3.0, when: Some(PlayerBehind), steps: [
+                        Telegraph(profile: Special("trex_tail_whip"), duration: 0.7,
+                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                        Strike(profile: Special("trex_tail_whip"), duration: 0.4),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("trex_double_bite"), duration: 0.75,
+                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.chomp")))),
+                        Strike(profile: Special("trex_double_bite"), duration: 0.9),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("trex_stomp"), duration: 0.8,
+                            telegraph: Some((pose: Some("stomp"), cue: None))),
+                        Strike(profile: Special("trex_stomp"), duration: 0.4),
+                        Rest(duration: 0.9),
+                    ]),
+                ]),
+                // One stomp every cycle: the quake is this phase's voice.
+                Telegraph(profile: Special("trex_stomp"), duration: 0.85,
+                    telegraph: Some((pose: Some("stomp"), cue: None))),
+                Strike(profile: Special("trex_stomp"), duration: 0.4),
+                Rest(duration: 1.0),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("trex_snap_up"), duration: 0.75,
+                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                        Strike(profile: Special("trex_snap_up"), duration: 0.35),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 3.0, when: Some(PlayerBehind), steps: [
+                        Telegraph(profile: Special("trex_tail_whip"), duration: 0.7,
+                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                        Strike(profile: Special("trex_tail_whip"), duration: 0.4),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("trex_double_bite"), duration: 0.75,
+                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.chomp")))),
+                        Strike(profile: Special("trex_double_bite"), duration: 0.9),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("trex_stomp"), duration: 0.8,
+                            telegraph: Some((pose: Some("stomp"), cue: None))),
+                        Strike(profile: Special("trex_stomp"), duration: 0.4),
+                        Rest(duration: 0.9),
+                    ]),
+                ]),
+                // The charge: roar and scrape, then the hall at a run into the
+                // wall. The rest after it is the run and the stun: the fight's
+                // long punish window.
+                Telegraph(profile: Special("trex_charge"), duration: 0.95,
+                    telegraph: Some((pose: Some("roar"), cue: Some("enemy.trex.roar")))),
+                Strike(profile: Special("trex_charge"), duration: 0.5),
+                Rest(duration: 3.0),
             ]),
+            // ENRAGE, EXTINCTION: a roar that blows you back and brings the
+            // ceiling down, a leap at where you stood that lands with a quake,
+            // and a charge that turns once at the wall and comes back
+            // (`trex.rs` turns it, `BossConduct::enraged`).
             enrage: (steps: [
-                Telegraph(profile: Strike("full_body_pulse"), duration: 0.6),
-                Strike(profile: Strike("full_body_pulse"), duration: 0.4),
-                Telegraph(profile: Strike("floor_slam"), duration: 0.6),
-                Strike(profile: Strike("floor_slam"), duration: 0.4),
-                Rest(duration: 0.5),
-                Telegraph(profile: Strike("side_sweep"), duration: 0.6),
-                Strike(profile: Strike("side_sweep"), duration: 0.4),
-                Rest(duration: 0.7),
+                Telegraph(profile: Special("trex_roar"), duration: 0.7,
+                    telegraph: Some((pose: Some("roar"), cue: None))),
+                Strike(profile: Special("trex_roar"), duration: 0.5),
+                Rest(duration: 1.1),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("trex_snap_up"), duration: 0.75,
+                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                        Strike(profile: Special("trex_snap_up"), duration: 0.35),
+                        Rest(duration: 0.6),
+                    ]),
+                    (weight: 3.0, when: Some(PlayerBehind), steps: [
+                        Telegraph(profile: Special("trex_tail_whip"), duration: 0.6,
+                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                        Strike(profile: Special("trex_tail_whip"), duration: 0.4),
+                        Rest(duration: 0.6),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("trex_double_bite"), duration: 0.75,
+                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.chomp")))),
+                        Strike(profile: Special("trex_double_bite"), duration: 0.9),
+                        Rest(duration: 0.6),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("trex_stomp"), duration: 0.7,
+                            telegraph: Some((pose: Some("stomp"), cue: None))),
+                        Strike(profile: Special("trex_stomp"), duration: 0.4),
+                        Rest(duration: 0.6),
+                    ]),
+                ]),
+                Telegraph(profile: Special("trex_leap"), duration: 0.75,
+                    telegraph: Some((pose: Some("leap"), cue: None))),
+                Strike(profile: Special("trex_leap"), duration: 1.1),
+                Rest(duration: 0.9),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("trex_snap_up"), duration: 0.75,
+                            telegraph: Some((pose: Some("snap_up"), cue: None))),
+                        Strike(profile: Special("trex_snap_up"), duration: 0.35),
+                        Rest(duration: 0.6),
+                    ]),
+                    (weight: 3.0, when: Some(PlayerBehind), steps: [
+                        Telegraph(profile: Special("trex_tail_whip"), duration: 0.6,
+                            telegraph: Some((pose: Some("tail_swipe"), cue: None))),
+                        Strike(profile: Special("trex_tail_whip"), duration: 0.4),
+                        Rest(duration: 0.6),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("trex_double_bite"), duration: 0.75,
+                            telegraph: Some((pose: Some("bite"), cue: Some("boss.trex.chomp")))),
+                        Strike(profile: Special("trex_double_bite"), duration: 0.9),
+                        Rest(duration: 0.6),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("trex_stomp"), duration: 0.7,
+                            telegraph: Some((pose: Some("stomp"), cue: None))),
+                        Strike(profile: Special("trex_stomp"), duration: 0.4),
+                        Rest(duration: 0.6),
+                    ]),
+                ]),
+                // The turning charge: the run is twice the hall, so the rest is
+                // longer than phase 2's for the same stun.
+                Telegraph(profile: Special("trex_charge"), duration: 0.8,
+                    telegraph: Some((pose: Some("roar"), cue: Some("enemy.trex.roar")))),
+                Strike(profile: Special("trex_charge"), duration: 0.5),
+                Rest(duration: 3.4),
             ]),
         ),
         reward: DropChest(

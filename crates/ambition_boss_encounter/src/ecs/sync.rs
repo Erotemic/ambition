@@ -42,29 +42,6 @@ pub fn sprite_target_for_boss<'a>(
         .unwrap_or(&behavior.id)
 }
 
-/// World-space size of the rendered sprite quad for a boss, given the
-/// boss's spawn / collision size and its sprite target.
-///
-/// The visible sprite is rendered at `max(size) * collision_scale`, where
-/// `collision_scale` is per sheet (for example 1.6 for the gradient
-/// sentinel's sheet, which the clockwork warden wears, 1.25 for the
-/// mockingbird, 4.5 for GNU-ton). The hurtbox/hitbox math needs this value,
-/// not `boss.size`, as the world scale, so the boxes cover the visible body.
-///
-/// A boss with no authored sheet and no provider fallback gets the unauthored
-/// layout: a 1.0 scale, so the sprite renders at the larger dimension of
-/// `boss.size`.
-pub fn sprite_render_size_for(
-    catalog: &crate::BossCatalog,
-    behavior: &crate::pattern::profile::BossBehaviorProfile,
-    boss_size: ae::Vec2,
-) -> ae::Vec2 {
-    let spec = catalog.sheet_for_behavior(behavior);
-    let bevy_size = bevy::math::Vec2::new(boss_size.x, boss_size.y);
-    let render = spec.render_size(bevy_size);
-    ae::Vec2::new(render.x, render.y)
-}
-
 /// Compute the rest-pose damageable hurtbox volumes a boss would expose when
 /// spawned from an authored `BossSpawn` at `aabb`. Resolves the boss's sprite
 /// metrics from the baked sheet registry (no Bevy `App`) and returns
@@ -103,8 +80,17 @@ pub(crate) fn boss_sprite_metrics_from_registry(
     let (metrics, frame_w, frame_h) = registry.body_metrics(target)?;
     // AS4b: scale from the sprite render basis, not `kin.size` (now the collision
     // envelope) — so the derived world metrics are unchanged by the size flip.
-    let sprite_render_size =
-        sprite_render_size_for(boss_catalog, &boss.config.behavior, boss.status.render_size);
+    //
+    // ⛔ IN THE PUBLISHED FRAME, which is the one the renderer draws: it takes
+    // the record's frame over the authored sheet's (`load_boss_sprite`). The
+    // T-rex's sheet still authored the 398 x 320 frame its art once had; drawn
+    // 456 x 300, its every body box came out 18% too narrow.
+    let mut spec = boss_catalog.sheet_for_behavior(&boss.config.behavior);
+    spec.frame_width = frame_w;
+    spec.frame_height = frame_h;
+    let basis = boss.status.render_size;
+    let render = spec.render_size(bevy::math::Vec2::new(basis.x, basis.y));
+    let sprite_render_size = ae::Vec2::new(render.x, render.y);
     let mut snapshot = ActorSpriteMetrics {
         frame_width: frame_w,
         frame_height: frame_h,

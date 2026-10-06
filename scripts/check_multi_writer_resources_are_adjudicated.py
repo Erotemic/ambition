@@ -512,6 +512,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "CharacterLoadDemand": (
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/mod.rs",
+        "crates/ambition_render/src/rendering/actors/boss.rs",
         "game/ambition_app/src/app/versus.rs",
     ),
     "MapMenuState": (
@@ -3339,7 +3340,12 @@ ADJUDICATED: dict[str, str] = {
         "two call sites, so `startup_loading.rs` and "
         "`room_transition_assets.rs` hold no `ResMut` of it now. Two files "
         "write: the versus producers and the one consumer. The verdict is "
-        "the same with fewer producers."
+        "the same with fewer producers. "
+        "2026-10-06: `demand_boss_part_sheets` "
+        "(`crates/ambition_render/src/rendering/actors/boss.rs`) is a third "
+        "producer, the character whose parts draw a boss sheet "
+        "(`BossSheetSpec::parts`, the T-rex's character id); it only "
+        "calls `demand.request(id)`. The verdict is unchanged."
     ),
     "ConstructionSchemaCatalog": (
         "A KEYED LEDGER WHERE EVERY WRITER OWNS A DISTINCT DOMAIN STRING. "

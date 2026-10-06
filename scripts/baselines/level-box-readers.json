@@ -8,7 +8,7 @@
     "a shot": "a shot is a free body with no support and no stance: its size is its box",
     "the gravity of a body": "this box is what resolves the frame of the body, so the frame cannot turn it",
     "the centre only": "the reader takes the centre, which the two boxes share",
-    "developer trace and overlay": "a developer tool, not the game; an overlay that draws the level box of a turned body shows a box the body does not have",
+    "a scratch body with no record": "`detect_oob_scratch` takes a `BodyClusterScratch`, which has no record of a step, so the level box is all it can ask. It has no production caller (the tests of the trace call it); the live recorder asks `detect_oob_of`",
     "a game with no turned gravity": "Mary-O, Smash and Sanic have no room whose gravity is turned; convert when one does",
     "the camera's framing bounds": "a bound of what the camera frames, not a contact",
     "inside the kernel": "the kernel turns the half itself on this line, or the crawler arm states its own DOWN"
@@ -40,34 +40,9 @@
       "class": "a shot"
     },
     {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/actor_oob.rs",
-      "code": "let aabb = kin.aabb();",
-      "class": "developer trace and overlay"
-    },
-    {
       "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/detect.rs",
       "code": "scratch.kinematics.aabb(),",
-      "class": "developer trace and overlay"
-    },
-    {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/detect.rs",
-      "code": "aabb: clusters.kinematics.aabb().into(),",
-      "class": "developer trace and overlay"
-    },
-    {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/detect.rs",
-      "code": "let player_aabb = clusters.kinematics.aabb();",
-      "class": "developer trace and overlay"
-    },
-    {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/detect.rs",
-      "code": "let nearby_after = nearby_collision_around(world, clusters.kinematics.aabb(), 64.0);",
-      "class": "developer trace and overlay"
-    },
-    {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/dev/trace/systems.rs",
-      "code": "clusters.kinematics.aabb(),",
-      "class": "developer trace and overlay"
+      "class": "a scratch body with no record"
     },
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs",
@@ -192,12 +167,7 @@
     {
       "file": "game/ambition_app/src/dev/debug_overlay/gizmos.rs",
       "code": "draw_aabb_styled(gizmos, world, kin.aabb(), color, developer_tools);",
-      "class": "developer trace and overlay"
-    },
-    {
-      "file": "game/ambition_app/src/dev/debug_overlay.rs",
-      "code": "clusters.kinematics.aabb(),",
-      "class": "developer trace and overlay"
+      "class": "a shot"
     },
     {
       "file": "game/ambition_demo_mary_o/src/ai_slop.rs",

@@ -34,6 +34,29 @@ pub fn detect_oob_scratch(
     )
 }
 
+/// The box of a kernel body in the trace: its collision box, turned as its
+/// last step turned it. It is the box `remember_safe_player_position` asks,
+/// so the recorder and the safe position have one definition of "inside a
+/// solid". A body that lies along sideways gravity is not its level box.
+pub(super) fn body_box(clusters: &ae::BodyClustersMut<'_>) -> ae::Aabb {
+    clusters.kinematics.collision_box(clusters.sweep.as_deref())
+}
+
+/// The OOB reason of a kernel body, from its clusters.
+pub fn detect_oob_of(
+    clusters: &ae::BodyClustersMut<'_>,
+    world: &ae::World,
+    margin: f32,
+) -> Option<OobReason> {
+    detect_oob_from_kinematics(
+        clusters.kinematics.pos,
+        clusters.kinematics.vel,
+        body_box(clusters),
+        world,
+        margin,
+    )
+}
+
 /// Produce the first OOB reason the player kinematics + world
 /// geometry imply (if any). Takes pos / vel / AABB directly so the
 /// live trace recorder can call it from cluster components.
@@ -228,7 +251,7 @@ pub fn build_frame(
             pos: clusters.kinematics.pos.into(),
             vel: clusters.kinematics.vel.into(),
             size: clusters.kinematics.size.into(),
-            aabb: clusters.kinematics.aabb().into(),
+            aabb: body_box(clusters).into(),
             facing: clusters.kinematics.facing,
             on_ground: clusters.ground.on_ground,
             on_wall: clusters.wall.on_wall,
@@ -265,7 +288,7 @@ fn build_moving_platform_states(
     feet_dir: ae::Vec2,
 ) -> Vec<MovingPlatformTraceState> {
     let player_pos = clusters.kinematics.pos;
-    let player_aabb = clusters.kinematics.aabb();
+    let player_aabb = body_box(clusters);
     let on_ground = clusters.ground.on_ground;
     moving_platforms
         .iter()
@@ -360,7 +383,7 @@ pub(crate) fn synthesize_events_from_diff(
     let max_speed = prev.vel.length().max(cur_vel.length());
     let budget = max_speed * real_dt.max(0.0) + TELEPORT_DETECTION_SLACK_PX;
     if !suppressed_teleport && dlen > budget && dlen > TELEPORT_DETECTION_SLACK_PX {
-        let nearby_after = nearby_collision_around(world, clusters.kinematics.aabb(), 64.0);
+        let nearby_after = nearby_collision_around(world, body_box(clusters), 64.0);
         let state_flips = collect_state_flips(&prev, clusters, facts);
         let reason = format!("unexplained delta {dlen:.1}px (vel-budget {budget:.1}px)");
         buffer.push_event(GameplayTraceEvent::CollisionCorrection {

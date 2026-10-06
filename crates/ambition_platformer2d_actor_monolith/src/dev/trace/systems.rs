@@ -39,13 +39,7 @@ pub fn record_simulation_frame(
     timeline: (Option<ae::ConfirmedFrameBoundary>, bool),
 ) {
     let (boundary, replaying) = timeline;
-    let oob = detect_oob_from_kinematics(
-        clusters.kinematics.pos,
-        clusters.kinematics.vel,
-        clusters.kinematics.aabb(),
-        world,
-        OOB_MARGIN,
-    );
+    let oob = detect_oob_of(clusters, world, OOB_MARGIN);
     let mut frame = build_frame(
         clusters,
         life,

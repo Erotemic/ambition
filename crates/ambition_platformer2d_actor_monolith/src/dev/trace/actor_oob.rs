@@ -48,10 +48,12 @@ pub fn body_snapshot(
     name: String,
     kind: String,
     kin: ae::BodyKinematics,
+    last_step: Option<&ae::SweepSample>,
     world: &ae::World,
     margin: f32,
 ) -> BodyTraceSnapshot {
-    let aabb = kin.aabb();
+    // The box the body has: turned as its last step turned it.
+    let aabb = kin.collision_box(last_step);
     let oob =
         detect_oob_from_kinematics(kin.pos, kin.vel, aabb, world, margin).map(|r| r.short_label());
     BodyTraceSnapshot {
@@ -108,6 +110,8 @@ pub fn record_actor_oob_frame_system(
     bodies_q: Query<(
         Entity,
         &ae::BodyKinematics,
+        // The record of the body's last step: it has the DOWN of the body.
+        Option<&ae::SweepSample>,
         Option<&ActorIdentity>,
         Option<&ActorFaction>,
         Has<PlayerEntity>,
@@ -124,7 +128,7 @@ pub fn record_actor_oob_frame_system(
     // Each live room's composed world, built once: (room, area, world).
     let mut worlds: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, String, Option<std::borrow::Cow<'_, ae::World>>)> = Vec::new();
     let mut bodies = Vec::new();
-    for (entity, kin, identity, faction, is_player) in &bodies_q {
+    for (entity, kin, last_step, identity, faction, is_player) in &bodies_q {
         let room = rooms.live().of(entity);
         let index = match worlds.iter().position(|(seen, ..)| *seen == room) {
             Some(index) => index,
@@ -148,7 +152,8 @@ pub fn record_actor_oob_frame_system(
             None if is_player => ("player".to_string(), "Player".to_string()),
             None => (format!("entity-{}", entity.index()), "<body>".to_string()),
         };
-        let mut snapshot = body_snapshot(id, name, body_kind(is_player, faction), *kin, world, OOB_MARGIN);
+        let mut snapshot =
+            body_snapshot(id, name, body_kind(is_player, faction), *kin, last_step, world, OOB_MARGIN);
         snapshot.room = room.map(|room| room.ordinal());
         bodies.push(snapshot);
     }
@@ -252,6 +257,7 @@ mod tests {
             "Mockingbird".into(),
             "boss".into(),
             kin(ae::Vec2::new(430.0, 400.0)),
+            None,
             &world_960x768(),
             OOB_MARGIN,
         );
@@ -267,6 +273,7 @@ mod tests {
             "Mockingbird".into(),
             "boss".into(),
             kin(ae::Vec2::new(430.0, -400.0)),
+            None,
             &world_960x768(),
             OOB_MARGIN,
         );
@@ -275,5 +282,70 @@ mod tests {
             reason.contains("envelope"),
             "expected an out-of-envelope reason, got {reason:?}"
         );
+    }
+
+    /// A 24x40 body at the centre of the arena, with one thin solid at
+    /// `offset` from its centre. `down` is the DOWN of its last step.
+    fn beside_a_solid(offset: ae::Vec2, down: ae::Vec2) -> Option<String> {
+        let at = ae::Vec2::new(480.0, 384.0);
+        let body = ae::BodyKinematics {
+            pos: at,
+            vel: ae::Vec2::ZERO,
+            size: ae::Vec2::new(24.0, 40.0),
+            facing: 1.0,
+        };
+        let solid = ae::Aabb::new(at + offset, ae::Vec2::splat(2.0));
+        let world = ae::World::new(
+            "arena",
+            ae::Vec2::new(960.0, 768.0),
+            ae::Vec2::ZERO,
+            vec![ae::Block::solid("thin", solid.min, solid.max - solid.min)],
+        );
+        let record = ae::SweepSample::at_rest(body, down);
+        body_snapshot(
+            "body".into(),
+            "Body".into(),
+            "body".into(),
+            body,
+            Some(&record),
+            &world,
+            OOB_MARGIN,
+        )
+        .oob
+    }
+
+    /// 16 from the centre on world y: inside the half of a body that stands
+    /// (20), past the half of a body that lies along sideways gravity (12).
+    const BESIDE_ON_Y: ae::Vec2 = ae::Vec2::new(0.0, 16.0);
+    /// 16 from the centre on world x: past the half of a body that stands
+    /// (12), inside the half of a body that lies along sideways gravity (20).
+    const BESIDE_ON_X: ae::Vec2 = ae::Vec2::new(16.0, 0.0);
+    const DOWN_Y: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
+    const DOWN_X: ae::Vec2 = ae::Vec2::new(1.0, 0.0);
+
+    /// The control of the two arms below: a body that stands in normal
+    /// gravity is 20 deep on y and 12 on x.
+    #[test]
+    fn a_standing_body_is_inside_the_solid_its_box_touches() {
+        assert!(beside_a_solid(BESIDE_ON_Y, DOWN_Y).is_some_and(|reason| reason.contains("solid")));
+        assert_eq!(beside_a_solid(BESIDE_ON_X, DOWN_Y), None);
+    }
+
+    /// The false alarm: a body that lies along sideways gravity is 12 deep on
+    /// world y, and a solid 16 away on y does not touch it.
+    #[test]
+    fn a_body_that_lies_along_sideways_gravity_is_not_inside_a_solid_beside_it() {
+        assert_eq!(
+            beside_a_solid(BESIDE_ON_Y, DOWN_X),
+            None,
+            "the solid is clear of the box the body has"
+        );
+    }
+
+    /// And the alarm that was missed: it is 20 deep on world x.
+    #[test]
+    fn a_body_that_lies_along_sideways_gravity_is_inside_the_solid_its_own_box_touches() {
+        let reason = beside_a_solid(BESIDE_ON_X, DOWN_X).expect("the solid is inside the box the body has");
+        assert!(reason.contains("solid"), "{reason:?}");
     }
 }

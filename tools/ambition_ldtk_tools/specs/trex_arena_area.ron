@@ -172,7 +172,7 @@
             ],
             fields: (
                 id: "trex_arena_entry",
-                name: "trex_arena_entry",
+                name: "to the hall of bosses",
                 activation: "Door",
                 target_room: "hall_of_bosses",
                 target_zone: "hall_to_trex_portal",

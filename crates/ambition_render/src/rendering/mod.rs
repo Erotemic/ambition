@@ -198,7 +198,7 @@ pub use parallax::{
 };
 pub use primitives::{
     BlockArt, BlockVisual, FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline,
-    PlayerVisual, PropVisual, QuestPanelText, RoomScopedEntity, RoomVisual,
+    PlayerVisual, PropClip, PropVisual, QuestPanelText, RoomScopedEntity, RoomVisual,
 };
 // Game-supplied art map for walk-into world items: the renderer owns the
 // seam, and each game fills it with its own pickup images.

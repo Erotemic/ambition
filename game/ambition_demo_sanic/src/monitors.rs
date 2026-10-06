@@ -21,6 +21,10 @@
 //!
 //! There is no super monitor: the transformation lives only on the Utility
 //! action (`toggle_sanic_form`).
+//!
+//! Each kind with a grant wears its box (`dress_monitors`, `dress_monitor_boxes`):
+//! the renderer's item monitor with the power-up's icon on its screen, which
+//! idles, breaks, and leaves its smashed shell. The block itself draws nothing.
 
 use bevy::prelude::*;
 
@@ -47,6 +51,128 @@ const BREAK_REACH: f32 = 12.0;
 pub const RING_MONITOR: &str = "monitor_rings";
 /// Rings a ring monitor holds.
 pub const RING_MONITOR_RINGS: i32 = 10;
+
+/// The box art of each monitor kind that grants something: a prop sheet
+/// (`targets/props/sanic_powerup_*.py` in the renderer), registered under its
+/// own target name. The renderer draws an invincibility box too; this game
+/// has no invincibility monitor, so it wears none.
+pub const SPEED_BOX_SPRITE: &str = "sanic_powerup_speed";
+pub const RING_BOX_SPRITE: &str = "sanic_powerup_rings";
+
+/// The box sheet a monitor block wears, by the same name prefixes its grant
+/// is chosen by.
+pub fn box_sprite_of(block_name: &str) -> Option<&'static str> {
+    if block_name.starts_with(SPEED_MONITOR) {
+        Some(SPEED_BOX_SPRITE)
+    } else if block_name.starts_with(RING_MONITOR) {
+        Some(RING_BOX_SPRITE)
+    } else {
+        None
+    }
+}
+
+/// The box sheet's rows: it idles whole, plays its break once, then shows the
+/// smashed shell.
+const BREAK_ROW: &str = "break";
+const BROKEN_ROW: &str = "broken";
+
+/// Dress every monitor of `room` in its box: the block draws nothing (its
+/// collision is untouched) and a prop of its box sheet stands on it.
+///
+/// The sheet's own body box says where the box is in its frame: its lid
+/// (the box's top) and its ground line (its bottom) land on the block's lid and
+/// floor, so a stomp lands on the drawn lid and the box stands on the road. The
+/// block is a 26 px square; the box is narrower than it at that height, which
+/// only the collision knows. A sheet the build did not bake (sprites not
+/// generated) leaves the block as it was: a plain tile.
+pub fn dress_monitors(room: &mut ambition_platformer2d::world::rooms::RoomSpec) {
+    for block in &mut room.world.blocks {
+        let Some(kind) = box_sprite_of(&block.name) else {
+            continue;
+        };
+        let Some(record) = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(kind) else {
+            continue;
+        };
+        let Some(body) = record.body_metrics.as_ref().and_then(|metrics| metrics.body_pixel_bbox) else {
+            continue;
+        };
+        let frame = ae::Vec2::new(record.frame_width as f32, record.frame_height as f32);
+        let (lid, ground) = (body.y as f32, (body.y + body.h) as f32);
+        let centre_x = body.x as f32 + body.w as f32 * 0.5;
+        let aabb = block.aabb;
+        let scale = (aabb.max.y - aabb.min.y) / (ground - lid);
+        // The frame's centre, carried from the frame into the world through
+        // the box's ground line and centre column.
+        let pos = ae::Vec2::new(
+            (aabb.min.x + aabb.max.x) * 0.5 + (frame.x * 0.5 - centre_x) * scale,
+            aabb.max.y + (frame.y * 0.5 - ground) * scale,
+        );
+        block.art_color = Some([0.0, 0.0, 0.0, 0.0]);
+        room.props.push(ambition_platformer2d::world::rooms::PropSpec {
+            id: format!("{}_box", block.name),
+            // The monitor's own name, which is what `SpentMonitors` keys on.
+            name: block.name.clone(),
+            kind: kind.to_string(),
+            pos,
+            size: frame * scale,
+            flip_y: false,
+            // The frame is drawn exactly over its box: built world, behind the
+            // runner.
+            draw: ambition_platformer2d::world::rooms::PropDraw::Structure,
+        });
+    }
+}
+
+/// The row a monitor's box shows (`None`: its idle), from whether the monitor
+/// is broken, the row it shows now, and whether that row has played out.
+fn box_row(broken: bool, showing: Option<&str>, played_out: bool) -> Option<&'static str> {
+    match (broken, showing) {
+        (false, _) => None,
+        (true, Some(BROKEN_ROW)) => Some(BROKEN_ROW),
+        (true, Some(BREAK_ROW)) if played_out => Some(BROKEN_ROW),
+        (true, _) => Some(BREAK_ROW),
+    }
+}
+
+/// Show each monitor's box as its state says: whole while it stands, then its
+/// break, then the smashed shell.
+///
+/// Derived from [`SpentMonitors`] every frame, not from the break: that set is
+/// rollback state, so a box broken on a frame a rewind throws away stands
+/// again, which a look driven by the break event would not.
+pub fn dress_monitor_boxes(
+    mut commands: Commands,
+    spent: Res<SpentMonitors>,
+    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
+    boxes: Query<(
+        Entity,
+        &ambition_platformer2d::render::rendering::PropVisual,
+        &ambition_platformer2d::sprite_sheet::character::CharacterAnimator,
+        Option<&ambition_platformer2d::render::rendering::PropClip>,
+    )>,
+) {
+    use ambition_platformer2d::render::rendering::PropClip;
+    for (entity, prop, animator, clip) in &boxes {
+        if box_sprite_of(&prop.name) != Some(prop.kind.as_str()) {
+            continue;
+        }
+        let broken = rooms.of(entity).is_some_and(|room| spent.is_broken(room, &prop.name));
+        let showing = clip.map(|clip| clip.0.clip.as_str());
+        let want = box_row(broken, showing, animator.clip_finished());
+        if want == showing {
+            continue;
+        }
+        match want {
+            Some(row) => {
+                let request = ambition_platformer2d::sim_view::ClipRequest::from_chain(&[row]).expect("one row");
+                commands.entity(entity).insert(PropClip(request));
+            }
+            None => {
+                commands.entity(entity).remove::<PropClip>();
+            }
+        }
+    }
+}
 
 /// How long the speed shoes last (sim seconds) and what they multiply.
 const SPEED_SHOES_SECONDS: f32 = 8.0;
@@ -289,6 +415,54 @@ mod tests {
     use super::*;
     use ambition_platformer2d::world::FeatureEcsWorldOverlay;
     use ambition_platformer2d::platformer::lifecycle::spawn_live_room;
+
+    /// Every monitor of every act wears the box of its grant, standing on it:
+    /// the sheet's lid on the block's lid, the sheet's ground line on the
+    /// block's floor, and the block itself drawn as nothing.
+    #[test]
+    fn every_monitor_wears_the_box_of_its_grant() {
+        let mut dressed = 0;
+        for room in [crate::sanic_speedway(), crate::sanic_highway(), crate::sanic_darkness()] {
+            for block in room.world.blocks.iter().filter(|block| block.name.starts_with(MONITOR_PREFIX)) {
+                let kind = box_sprite_of(&block.name).unwrap_or_else(|| panic!("{} grants nothing", block.name));
+                let prop = room
+                    .props
+                    .iter()
+                    .find(|prop| prop.name == block.name)
+                    .unwrap_or_else(|| panic!("{} in {} wears no box", block.name, room.id));
+                let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(kind)
+                    .unwrap_or_else(|| panic!("the build baked no `{kind}` sheet: regen the sprites"));
+                let body = record.body_metrics.as_ref().and_then(|m| m.body_pixel_bbox).expect("the box sheet states its body");
+                let scale = prop.size.y / record.frame_height as f32;
+                let frame_top = prop.pos.y - prop.size.y * 0.5;
+                let (lid, ground) = (frame_top + body.y as f32 * scale, frame_top + (body.y + body.h) as f32 * scale);
+                assert_eq!(prop.kind, kind, "{}", block.name);
+                assert!(
+                    (lid - block.aabb.min.y).abs() < 0.01 && (ground - block.aabb.max.y).abs() < 0.01,
+                    "{}: the box's lid {lid} and ground {ground} are not the block's {:?}",
+                    block.name,
+                    block.aabb
+                );
+                assert_eq!(block.art_color, Some([0.0; 4]), "{} still draws its tile", block.name);
+                dressed += 1;
+            }
+        }
+        assert_eq!(dressed, 8, "the premise: the three acts author eight monitors");
+    }
+
+    /// A box idles while its monitor stands, plays its break once when it
+    /// breaks, then holds the shell; a rewind that un-breaks it stands it up
+    /// whole again, from either row.
+    #[test]
+    fn a_box_idles_breaks_then_holds_its_shell_and_a_rewind_stands_it_up() {
+        assert_eq!(box_row(false, None, false), None, "a standing monitor idles");
+        assert_eq!(box_row(true, None, false), Some(BREAK_ROW), "it breaks");
+        assert_eq!(box_row(true, Some(BREAK_ROW), false), Some(BREAK_ROW), "the break plays out");
+        assert_eq!(box_row(true, Some(BREAK_ROW), true), Some(BROKEN_ROW), "then the shell");
+        assert_eq!(box_row(true, Some(BROKEN_ROW), true), Some(BROKEN_ROW), "the shell stays");
+        assert_eq!(box_row(false, Some(BREAK_ROW), false), None, "a rewind mid-break");
+        assert_eq!(box_row(false, Some(BROKEN_ROW), true), None, "a rewind after it");
+    }
 
     fn spent(room: LiveRoomInstance, name: &str) -> SpentMonitors {
         let mut spent = SpentMonitors::default();

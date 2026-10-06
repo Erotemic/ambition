@@ -377,6 +377,40 @@ world authors water today; the sandbox has slugs and pools.
 
 **Default in force until you rule:** (a) and (c), the current behaviour.
 
+## Q161 — when Alice dies, does what Bob left lying in a room nobody holds go back with her?
+
+Filed 2026-10-06. Blocks nothing: (a) is what the game does today.
+
+Q151 keeps another participant's live room and accomplishments when one
+participant dies. A room that nobody holds is not live: its objects are rows
+of the occurrence ledger (a dormant room, OW3). What a death does to the rows
+of such a room since the checkpoint depends on the kind of row (measured
+2026-10-06, BAG-RECORD-HORIZON in [the queue](queue.md)):
+
+| since the checkpoint, in a room Bob held and then left | after Alice's death |
+| --- | --- |
+| a one-time pickup Bob took | stays taken (the row is owned by the participants in the room) |
+| a boss Bob defeated | stays defeated (owned by the participants present) |
+| an object thrown or put down there (a javelin lying on the floor) | goes back: the restore puts back the ledger of the checkpoint, which has no row for it. A quantity it spent from the bag comes back to the bag |
+
+While Bob still holds the room, the javelin stays and its quantity stays
+spent (the room is live and spared). So the answer for the same javelin
+changes when Bob walks out of the room before Alice dies.
+
+* **(a) A death takes back what lies in a room nobody holds (current).**
+  Consumptions and defeats are owned; placements are not. Simple, and the
+  bag and the world always agree (the spend follows the row).
+* **(b) A placement since the checkpoint is owned like a consumption.** Its
+  row names the participants in its room when it was written, and the
+  restore keeps it while one of them is spared, so a dormant room keeps
+  what Bob left in it. This needs a precedence: an object the dying
+  participant held AT the checkpoint goes back to her hand
+  (`a_death_takes_back_what_was_put_down_in_another_players_room`), so her
+  checkpoint custody beats a spared participant's placement row, or the
+  object exists twice.
+
+**Default in force until you rule:** (a), the current behaviour.
+
 ## Q154 — should a pickup that authors no policy be gone for the run once taken?
 
 Filed 2026-10-04. Blocks nothing: the engine reads the default as

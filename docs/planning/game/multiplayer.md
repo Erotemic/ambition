@@ -100,8 +100,17 @@ simulation site that uses it, ask whether the fact should be per participant.
 
 ### A2 — adaptive split in one room
 
-▢ Separate the views when the two subjects exceed framing policy, and merge them
-with hysteresis when they regroup.
+✅ Built (default feel, Q162 in
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)). A
+game that declares `AdaptiveSplit` (`ambition_sim_view`; Ambition declares it)
+opens a view for each seat when a seat's body in seat zero's room leaves 0.9 of
+half the shared view's visible size. The views close when every body has been
+within 0.5 of that size for 1 second. The merge measures by the size of the
+shared view when the split opened, because the column views are narrower. A
+match that frames a declared cast (`FramedCast`), or a composition that placed
+its own views, does not split by distance. Witness:
+`a_second_view_opens_when_the_players_drift_apart_in_one_room_and_closes_when_they_regroup`
+in `the_screen_splits_when_two_players_drift_apart.rs`.
 
 ### A3 — two rooms resident
 

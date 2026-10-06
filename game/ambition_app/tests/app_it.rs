@@ -32,6 +32,7 @@ mod a_hand_muzzle_fires_from_the_drawn_hand;
 mod a_pet_hand_meets_the_contact_point;
 mod a_reworn_body_states_the_quad_it_is_drawn_at;
 mod a_second_seat_joins_the_session;
+mod the_screen_splits_when_two_players_drift_apart;
 mod a_ready_room_shows_no_loading_screen;
 mod a_lever_left_on_is_on_when_you_come_back;
 mod a_room_occupant_belongs_to_the_live_room;

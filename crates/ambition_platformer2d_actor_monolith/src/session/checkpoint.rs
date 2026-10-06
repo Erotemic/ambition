@@ -469,8 +469,9 @@ pub fn resume_at_checkpoint_on_reset(
         Option<Res<crate::items::starting_bag::StartingBag>>,
     ),
     // The quantities that throws made into objects since the checkpoint, the
-    // objects, and the rooms of the bodies that hold them: the restore keeps
-    // the spend of each object it keeps (review 2026-10-05, P3).
+    // objects, the bodies that hold them and their rooms, and the live ledger:
+    // the restore keeps each object in a room it spares, and the spend that
+    // made it (review 2026-10-05, P3).
     thrown: (
         Option<Res<ambition_held_items::BagSpendsSinceCheckpoint>>,
         Query<(
@@ -480,9 +481,11 @@ pub fn resume_at_checkpoint_on_reset(
             Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
         )>,
         Query<(
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
         )>,
+        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
     ),
 ) {
     // ⭐ THE CHANNEL IS DRAINED EVERY FRAME AND THE REQUEST IS REMEMBERED, which
@@ -693,6 +696,29 @@ pub fn resume_at_checkpoint_on_reset(
             }),
         )
     } else {
+        let (spends, objects, holders, live_ledger) = &thrown;
+        let spared_room = |stamp, root| {
+            ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root)
+                .is_some_and(|room| spared.contains(&room))
+        };
+        // The objects in a room the restore spares, lying there or held by a
+        // body there, each with the identity of the body that holds it. A
+        // holder with no identity cannot be named in the custody the restore
+        // pins, so its object is not kept.
+        let living_on: Vec<(
+            ambition_platformer2d_shared_tangle::sim_id::SimId,
+            Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        )> = objects
+            .iter()
+            .filter_map(|(id, custody, stamp, root)| match *custody {
+                ambition_held_items::ItemCustody::InWorld => spared_room(stamp, root).then(|| (id.clone(), None)),
+                ambition_held_items::ItemCustody::Held { holder } => holders
+                    .get(holder)
+                    .ok()
+                    .filter(|(_, stamp, root)| spared_room(*stamp, *root))
+                    .and_then(|(holder, ..)| holder.map(|holder| (id.clone(), Some(holder.clone())))),
+            })
+            .collect();
         // The ledger this restore promises: the checkpoint's, and the
         // one-time pickups a spared participant consumed since it (Q151).
         // Pinned here, so the room the restore rebuilds and the
@@ -703,6 +729,49 @@ pub fn resume_at_checkpoint_on_reset(
                 if ledger.consume(consumed.owned_by(&spared_participants)) > 0 {
                     inputs.occurrences.adopt(ledger);
                 }
+            }
+            // And each object in a spared room where it is now: the restore
+            // does not rewind that room. Without this, the rebuilt room
+            // authors the object again from the checkpoint's row while it
+            // lives on in the spared room (two copies), and the custody
+            // restore takes it out of a spared participant's hand. An object
+            // the checkpoint had in a hand goes back to that hand: the
+            // banked custody is older than the spared room's claim, and the
+            // custody restore moves the object, so there is one copy
+            // (`a_death_takes_back_what_was_put_down_in_another_players_room`).
+            let kept: Vec<_> = living_on
+                .iter()
+                .filter(|(id, _)| !inputs.custody.was_carried(id))
+                .collect();
+            if !kept.is_empty() {
+                let mut rows: std::collections::BTreeMap<_, _> = inputs
+                    .occurrences
+                    .remembered()
+                    .rows()
+                    .map(|(id, row)| (id.clone(), row.clone()))
+                    .collect();
+                let mut held: std::collections::BTreeMap<_, _> = inputs
+                    .custody
+                    .rows()
+                    .map(|(id, holder)| (id.clone(), holder.clone()))
+                    .collect();
+                for (id, holder) in kept {
+                    let now = match holder {
+                        Some(holder) => {
+                            held.insert(id.clone(), holder.clone());
+                            Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::InCustody)
+                        }
+                        None => live_ledger.as_ref().and_then(|ledger| ledger.whereabouts(id)).cloned(),
+                    };
+                    match now {
+                        Some(row) => rows.insert(id.clone(), row),
+                        None => rows.remove(id),
+                    };
+                }
+                let mut ledger = inputs.occurrences.remembered().clone();
+                ledger.adopt_rows(rows);
+                inputs.occurrences.adopt(ledger);
+                inputs.custody.adopt(held);
             }
             inputs
         });
@@ -753,12 +822,7 @@ pub fn resume_at_checkpoint_on_reset(
             // entity ended or lies in a room that is not live, and either way
             // the answer is in the ledger, not in the world.
             let pinned = lifecycle.as_ref().map(|inputs| inputs.occurrences.remembered());
-            let (spends, objects, holders) = &thrown;
             if let Some(spends) = spends.as_ref() {
-                let spared_room = |stamp, root| {
-                    ambition_platformer2d_shared_tangle::lifecycle::live_room_of(stamp, root)
-                        .is_some_and(|room| spared.contains(&room))
-                };
                 let kept = |object: &ambition_platformer2d_shared_tangle::sim_id::SimId| {
                     pinned.is_some_and(|ledger| {
                         matches!(
@@ -770,7 +834,7 @@ pub fn resume_at_checkpoint_on_reset(
                             && match *custody {
                                 ambition_held_items::ItemCustody::InWorld => spared_room(stamp, root),
                                 ambition_held_items::ItemCustody::Held { holder } => {
-                                    holders.get(holder).is_ok_and(|(stamp, root)| spared_room(stamp, root))
+                                    holders.get(holder).is_ok_and(|(_, stamp, root)| spared_room(stamp, root))
                                 }
                             }
                     })

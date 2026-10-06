@@ -310,7 +310,7 @@ pub(crate) fn put_body_at(sim: &mut Platformer2dSimHarness, body: Entity, at: am
 }
 
 /// The death, and one frame. [`die`] also waits for the return; this does not.
-fn kill(sim: &mut Platformer2dSimHarness, body: Entity) {
+pub(crate) fn kill(sim: &mut Platformer2dSimHarness, body: Entity) {
     let at = place_of(sim, body);
     sim.world_mut().write_message(ambition_platformer2d::combat::death_rules::ActorDiedMessage {
         victim: body,
@@ -323,12 +323,12 @@ fn kill(sim: &mut Platformer2dSimHarness, body: Entity) {
     sim.step(AgentAction::default());
 }
 
-fn out_of_play(sim: &Platformer2dSimHarness, body: Entity) -> bool {
+pub(crate) fn out_of_play(sim: &Platformer2dSimHarness, body: Entity) -> bool {
     sim.world().entity(body).contains::<OutOfPlay>()
 }
 
 /// Seat 1 walks through the door of `room` to `target`. Whether it crossed.
-fn seat_one_goes_through_the_door(sim: &mut Platformer2dSimHarness, body: Entity, room: &str, target: &str) -> bool {
+pub(crate) fn seat_one_goes_through_the_door(sim: &mut Platformer2dSimHarness, body: Entity, room: &str, target: &str) -> bool {
     use ambition_platformer2d::engine_core::AabbExt as _;
     let before = room_of(sim, body);
     let door = crate::two_players_two_live_rooms::door_of(sim, room, target).aabb.center();

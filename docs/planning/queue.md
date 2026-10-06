@@ -606,9 +606,24 @@ after Bob's room kept the explosion); the spend reads the live object only
   for the run. A runtime mint with no row is built by nothing, so the row is
   needed only until the checkpoint after the end; compacting it needs the
   ledger to know which rows are runtime mints.
-- An object held by Bob while Bob stands in the dying participant's room is
-  not kept (the room is not spared), and Bob's hand is not rewound: not
-  measured.
+- Built 2026-10-06: an object in a room the restore spares stays where it
+  is. Bob takes the hub's gun-sword after Alice's checkpoint. Measured
+  before: when he carried it out after her death, the restore took it out of
+  his hand and authored it on its pedestal again; when he put it down in
+  `duel_arena` before her death, it lay twice (next door and on the pedestal).
+  The acceptance now pins, for each object lying in a spared room or held by
+  a body there, its live ledger row, and for a held one its holder in the
+  pinned custody. An object the checkpoint had in a hand still goes back to
+  that hand. When Bob dies in Alice's room with it in his hand, nobody is
+  spared: it goes back to the pedestal and his hand is empty. Witness:
+  `a_death_with_bob_holding_an_object_in_the_room_keeps_one_copy` (three
+  arms); the precedence: `a_death_takes_back_from_bobs_hand_what_alice_banked_in_hers`.
+  Poisons, each red: keep nothing (the two copies and the empty hand come
+  back); keep the row but not the hand (no copy at all); no precedence (Bob
+  keeps what Alice banked). The precedence poison is green on
+  `a_death_takes_back_what_was_put_down_in_another_players_room`: when the
+  object lies, the custody restore moves it into the banked hand whatever
+  the row says, so only a held object needs the precedence.
 
 ### WEAR-REFUSES-UNPREPARED — a character outside the prepared generation is never worn — ✅ DONE 2026-10-03 (two remainders)
 

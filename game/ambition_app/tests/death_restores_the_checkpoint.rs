@@ -2015,3 +2015,180 @@ fn a_death_takes_back_a_javelin_whose_room_is_not_live_with_its_row() {
         "the javelin before Alice's deaths, after each, then in its room"
     );
 }
+
+/// Where the gun-sword is, as (copies held by Bob, copies held by another
+/// body, copies lying in the world, the ledger row).
+fn the_reward_with_bob(sim: &mut Platformer2dSimHarness, bob: Entity) -> (usize, usize, usize, String) {
+    use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
+    let reward = SimId::placement(REWARD);
+    let live = occurrences(sim, &reward);
+    let holder = |entity: Entity| {
+        sim.world()
+            .get::<ambition_platformer2d::platformer::lifecycle::InCustodyOf>(entity)
+            .map(|custody| custody.custodian)
+    };
+    let by_bob = live.iter().filter(|(entity, _)| holder(*entity) == Some(bob)).count();
+    let lying = live.iter().filter(|(_, custody)| custody.in_world()).count();
+    let row = match sim.world().resource::<AuthoredOccurrences>().whereabouts(&reward) {
+        Some(row) => format!("{row:?}").split([' ', '{', '(']).next().unwrap_or_default().to_owned(),
+        None => "none".to_owned(),
+    };
+    (by_bob, live.len() - by_bob - lying, lying, row)
+}
+
+/// What Bob does with the gun-sword he took in Alice's room after her
+/// checkpoint.
+#[derive(Clone, Copy, Debug)]
+enum BobWith {
+    /// Alice dies first; then Bob carries it out to `duel_arena`.
+    CarriedOut,
+    /// Bob carries it to `duel_arena` and puts it down there; then Alice dies.
+    PutDownNextDoor,
+    /// Alice dies; then Bob dies in her room with it in his hand.
+    DiedHolding,
+}
+
+/// Q151, the open line of BAG-RECORD-HORIZON: Bob holds an object in
+/// Alice's room when she dies. Alice banks a checkpoint in the hub, with the
+/// gun-sword on its pedestal; Bob (seat 1) joins beside her and takes it.
+/// Alice's room waits while Bob is in play in it.
+///
+/// - [`BobWith::CarriedOut`]: the hub goes back when Bob leaves it. He is
+///   spared and holds it in a spared room, so he keeps it, as a pickup a
+///   spared participant took stays taken; the pedestal stays empty.
+/// - [`BobWith::PutDownNextDoor`]: it lies in a spared room, so it stays
+///   there, and the pedestal stays empty: one copy.
+/// - [`BobWith::DiedHolding`]: nobody is spared, so the hub goes back whole:
+///   the gun-sword is on its pedestal, with no ledger row, and Bob comes back
+///   with an empty hand.
+///
+/// Control, each arm: before Alice's death Bob holds the one copy.
+#[test]
+fn a_death_with_bob_holding_an_object_in_the_room_keeps_one_copy() {
+    use crate::a_second_seat_joins_the_session::{bodies_of_the_seat, join, kill, put_body_at, seat_one_goes_through_the_door};
+    let mut readings = Vec::new();
+    for arm in [BobWith::CarriedOut, BobWith::PutDownNextDoor, BobWith::DiedHolding] {
+        let mut sim = fixed_60hz_room_sim(ROOM);
+        sim.step_n(base(), 10);
+        commit_a_checkpoint(&mut sim);
+        let (bob, _) = join(&mut sim, 4).expect("seat 1 pressed Jump and no body was built");
+        sim.drive_seat(1, ControlFrame::default());
+        sim.step_n(base(), 5);
+        let (x, y) = resting_place(&mut sim, &SimId::placement(REWARD));
+        put_body_at(&mut sim, bob, ambition_platformer2d::engine_core::Vec2::new(x, y));
+        sim.drive_seat(1, ControlFrame { attack_pressed: true, ..ControlFrame::default() });
+        sim.step(base());
+        sim.drive_seat(1, ControlFrame::default());
+        sim.step_n(base(), 3);
+        assert_eq!(
+            the_reward_with_bob(&mut sim, bob),
+            (1, 0, 0, "InCustody".to_owned()),
+            "{arm:?}, control: Bob took the gun-sword before Alice's death"
+        );
+        let alice = body(&mut sim);
+        match arm {
+            BobWith::CarriedOut => {
+                // Her death, without waiting for her return: her room waits
+                // while Bob is in play in it.
+                kill(&mut sim, alice);
+                sim.step_n(base(), 60);
+                assert!(
+                    seat_one_goes_through_the_door(&mut sim, bob, ROOM, NEIGHBOUR),
+                    "precondition: Bob crossed to {NEIGHBOUR}"
+                );
+            }
+            BobWith::PutDownNextDoor => {
+                assert!(
+                    seat_one_goes_through_the_door(&mut sim, bob, ROOM, NEIGHBOUR),
+                    "precondition: Bob crossed to {NEIGHBOUR}"
+                );
+                // Shield+Attack is the only input that puts a held item back
+                // in the world.
+                sim.drive_seat(
+                    1,
+                    ControlFrame { attack_pressed: true, shield_held: true, ..ControlFrame::default() },
+                );
+                sim.step(base());
+                sim.drive_seat(1, ControlFrame::default());
+                sim.step_n(base(), 30);
+                assert_eq!(
+                    the_reward_with_bob(&mut sim, bob),
+                    (0, 0, 1, "Placed".to_owned()),
+                    "precondition: Bob put it down in {NEIGHBOUR}"
+                );
+                kill(&mut sim, alice);
+            }
+            BobWith::DiedHolding => {
+                kill(&mut sim, alice);
+                sim.step_n(base(), 60);
+                kill(&mut sim, bob);
+            }
+        }
+        sim.step_n(base(), 400);
+        let bob = bodies_of_the_seat(&mut sim).first().copied().unwrap_or(bob);
+        readings.push(the_reward_with_bob(&mut sim, bob));
+    }
+    assert_eq!(
+        readings,
+        vec![
+            (1, 0, 0, "InCustody".to_owned()),
+            (0, 0, 1, "Placed".to_owned()),
+            (0, 0, 1, "none".to_owned()),
+        ],
+        "(held by Bob, held by another, lying, ledger row) after Alice's death, \
+         for [Bob carried it out, Bob put it down next door, Bob died with it]"
+    );
+}
+
+/// The precedence in [`a_death_with_bob_holding_an_object_in_the_room_keeps_one_copy`]:
+/// Alice banks a checkpoint with the gun-sword in her hand, puts it down,
+/// and Bob takes it next door to `duel_arena`. Her death puts it back in her
+/// hand, as it does when it lies in Bob's room
+/// ([`a_death_takes_back_what_was_put_down_in_another_players_room`]): the
+/// banked custody is older than the spared room's claim. One copy, held by
+/// Alice. Control: before her death, Bob holds the one copy.
+#[test]
+fn a_death_takes_back_from_bobs_hand_what_alice_banked_in_hers() {
+    use crate::a_second_seat_joins_the_session::{bodies_of_the_seat, join, kill, put_body_at, seat_one_goes_through_the_door};
+    let reward = SimId::placement(REWARD);
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 10);
+    let pedestal = resting_place(&mut sim, &reward);
+    pick_up(&mut sim, pedestal, &reward);
+    commit_a_checkpoint(&mut sim);
+    let (bob, _) = join(&mut sim, 4).expect("seat 1 pressed Jump and no body was built");
+    sim.drive_seat(1, ControlFrame::default());
+    sim.step_n(base(), 5);
+    // Shield+Attack is the only input that puts a held item back in the world.
+    sim.step_frame(ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..ControlFrame::default()
+    });
+    sim.step_n(base(), 30);
+    let (x, y) = resting_place(&mut sim, &reward);
+    put_body_at(&mut sim, bob, ambition_platformer2d::engine_core::Vec2::new(x, y));
+    sim.drive_seat(1, ControlFrame { attack_pressed: true, ..ControlFrame::default() });
+    sim.step(base());
+    sim.drive_seat(1, ControlFrame::default());
+    sim.step_n(base(), 3);
+    assert!(
+        seat_one_goes_through_the_door(&mut sim, bob, ROOM, NEIGHBOUR),
+        "precondition: Bob crossed to {NEIGHBOUR}"
+    );
+    assert_eq!(
+        the_reward_with_bob(&mut sim, bob),
+        (1, 0, 0, "InCustody".to_owned()),
+        "control: Bob holds the gun-sword Alice put down, next door"
+    );
+    let alice = body(&mut sim);
+    kill(&mut sim, alice);
+    sim.step_n(base(), 400);
+    let bob = bodies_of_the_seat(&mut sim).first().copied().unwrap_or(bob);
+    assert_eq!(
+        the_reward_with_bob(&mut sim, bob),
+        (0, 1, 0, "InCustody".to_owned()),
+        "(held by Bob, held by another, lying, ledger row) after Alice's death"
+    );
+    assert_still_held(&mut sim, &reward, "Alice banked it in hand, so her death puts it back there");
+}

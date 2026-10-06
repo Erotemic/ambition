@@ -1125,9 +1125,14 @@ fn a_body_nothing_reads_draws_its_parts_in_the_world() {
 }
 
 /// A part drawn directly lands where its pixel of the baked frame would, for
-/// both anchors the game builds bodies with and both facings: the owner
-/// stands at the feet, scaled from sheet pixels to world units, and a slot
-/// stands at its draw's place from the feet.
+/// both anchors the game builds bodies with, both facings, and a root that is
+/// turned: the owner stands at the feet, scaled from sheet pixels to world
+/// units, and a slot stands at its draw's place from the feet.
+///
+/// The turn is the root's own (`sync_visuals` writes the body's roll: the
+/// gravity of its room, a somersault). The baked quad is drawn through the
+/// root's transform, so it turns about the root. A direct body that did not
+/// take the turn was drawn level in a room with sideways gravity (2026-10-05).
 #[test]
 fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
     let flipbook = RiggedSpriteAsset::baked("mary_o_v2_tall").expect("a published flipbook");
@@ -1140,29 +1145,34 @@ fn a_direct_part_lands_where_the_baked_frame_would_for_either_anchor() {
     assert_ne!(npc.0, player.0, "premise: the two conventions differ");
     for built_at in [npc, player] {
         for flip in [false, true] {
-            let (mut app, root) = app_direct(sheet_with("mary_o_v2_tall", Some(flipbook.clone())), built_at);
-            app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
-            app.world_mut().get_mut::<Transform>(root).unwrap().translation = Vec3::new(40.0, -12.0, 3.0);
-            app.update();
-            let owner = owner(&app, root);
-            let place = *app.world().get::<Transform>(owner).unwrap();
-            let basis = app.world().get::<CharacterAnimator>(root).unwrap().render_basis.unwrap();
-            for pixel in [flipbook.feet_pixel, Vec2::ZERO, frame, Vec2::new(frame.x, 0.0)] {
-                // The baked frame: a quad of the basis size at its anchor,
-                // mirrored about the root when flipped.
-                let mut baked = (Vec2::new(pixel.x / frame.x - 0.5, 0.5 - pixel.y / frame.y) - basis.feet_anchor) * basis.render_size;
-                if flip {
-                    baked.x = -baked.x;
+            for turn in [0.0, std::f32::consts::FRAC_PI_2, 0.6] {
+                let (mut app, root) = app_direct(sheet_with("mary_o_v2_tall", Some(flipbook.clone())), built_at);
+                app.world_mut().get_mut::<Sprite>(root).unwrap().flip_x = flip;
+                let root_place =
+                    Transform::from_translation(Vec3::new(40.0, -12.0, 3.0)).with_rotation(Quat::from_rotation_z(turn));
+                *app.world_mut().get_mut::<Transform>(root).unwrap() = root_place;
+                app.update();
+                let owner = owner(&app, root);
+                let place = *app.world().get::<Transform>(owner).unwrap();
+                let basis = app.world().get::<CharacterAnimator>(root).unwrap().render_basis.unwrap();
+                for pixel in [flipbook.feet_pixel, Vec2::ZERO, frame, Vec2::new(frame.x, 0.0)] {
+                    // The baked frame: a quad of the basis size at its anchor,
+                    // mirrored about the root when flipped, then drawn through
+                    // the root's transform.
+                    let mut baked = (Vec2::new(pixel.x / frame.x - 0.5, 0.5 - pixel.y / frame.y) - basis.feet_anchor) * basis.render_size;
+                    if flip {
+                        baked.x = -baked.x;
+                    }
+                    let baked = root_place.transform_point(baked.extend(0.0)).truncate();
+                    // The same pixel from the parts: sheet pixels from the feet,
+                    // +y up, through the owner.
+                    let from_feet = Vec2::new(pixel.x - flipbook.feet_pixel.x, flipbook.feet_pixel.y - pixel.y);
+                    let direct = place.transform_point(from_feet.extend(0.0)).truncate();
+                    assert!(
+                        close(direct, baked),
+                        "{built_at:?} flip {flip} turn {turn}: frame pixel {pixel} draws at {direct} directly, {baked} baked"
+                    );
                 }
-                let baked = baked + Vec2::new(40.0, -12.0);
-                // The same pixel from the parts: sheet pixels from the feet,
-                // +y up, through the owner.
-                let from_feet = Vec2::new(pixel.x - flipbook.feet_pixel.x, flipbook.feet_pixel.y - pixel.y);
-                let direct = place.transform_point(from_feet.extend(0.0)).truncate();
-                assert!(
-                    close(direct, baked),
-                    "{built_at:?} flip {flip}: frame pixel {pixel} draws at {direct} directly, {baked} baked"
-                );
             }
         }
     }

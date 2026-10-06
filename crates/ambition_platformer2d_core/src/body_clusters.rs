@@ -185,8 +185,12 @@ impl BodyKinematics {
     /// footprint matches the gravity-rotated sprite. Identity under down/up gravity,
     /// so vertical-gravity play is byte-identical to [`Self::aabb`].
     pub fn aabb_oriented(self, gravity_dir: crate::Vec2) -> crate::Aabb {
-        let half = crate::AccelerationFrame::new(gravity_dir).to_world_half(self.size * 0.5);
-        crate::Aabb::new(self.pos, half)
+        crate::Aabb::new(self.pos, self.half_oriented(gravity_dir))
+    }
+
+    /// The half-extents of [`Self::aabb_oriented`].
+    pub fn half_oriented(self, gravity_dir: crate::Vec2) -> crate::Vec2 {
+        crate::AccelerationFrame::new(gravity_dir).to_world_half(self.size * 0.5)
     }
 }
 
@@ -212,7 +216,10 @@ pub struct SweepSample {
     pub curr: Vec2,
     /// Velocity at `prev` (the motion that produced the path).
     pub vel: Vec2,
-    /// Body proxy at the time of the step: AABB half-extents.
+    /// The half-extents of the box the step moved: the body's box turned to
+    /// the DOWN of the body in that step ([`BodyKinematics::half_oriented`]).
+    /// A body on a wall, or in sideways gravity, lies along its support, so
+    /// this is not always `size / 2`.
     pub half: Vec2,
 }
 

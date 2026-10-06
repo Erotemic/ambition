@@ -2478,24 +2478,50 @@ saddle still seats its rider at its authored seat.
 
 **Owner:** the movement kernel
 (`crates/ambition_platformer2d_core`, `movement/kernel.rs`). Review of
-2026-10-05, finding 4. Not started; not yet claimed.
+2026-10-05, finding 4.
 
-**Current failure (reported 2026-10-05, not yet reproduced here):** an
-adhesive crawler collides with its gravity-oriented footprint
-(`BodyKinematics::aabb_oriented(gravity_dir)`: a 48 by 22 body on a wall is 22
-by 48). The hazard gate does not: `write_sweep_sample` writes
-`kinematics.size * 0.5` as the half extent, and the endpoint hazard arm asks
-`kinematics.aabb()`. So the kernel can hold a crawler flush against a wall
-and then ask whether a body of another shape met a hazard: a death that
-should not happen, or a missed one.
+**Current failure (reproduced 2026-10-05):** a body that is not square has two
+boxes when its support is not the floor. The step moves the body's box turned
+to the DOWN of the body (`BodyKinematics::aabb_oriented`: a 48 by 22 slug on a
+wall is 22 by 48). The hazard gate did not: `write_sweep_sample` wrote
+`kinematics.size * 0.5` as the half extent, the end test asked
+`kinematics.aabb()`, and the path test swept that half. Measured with a 48 by
+22 body and a thin hazard, through `step_motion`: a slug on a wall was hit by
+a hazard beside it (at its end, and beside a 100 px path) and was not hit by a
+hazard under its own end. It was not a crawler defect only: an axis body and a
+detached crawler in sideways gravity gave the same three wrong answers. The
+ECS hazard road (`ambition_combat::hazards::body_touches`) swept the same
+record, so it had the same path defect.
 
-**The fix:** the sweep sample's half extent is the footprint the movement step
-used, from the resolved `MotionFrame`, and the endpoint and the swept hazard
-tests answer from it. Not `if crawler { swap }`.
+**Built 2026-10-05:** each policy arm states the box its step moved
+(`BodyKinematics::half_oriented`): the axis arm and the momentum arm from the
+frame's DOWN, the crawler arm from `AdhesiveCrawlerMotion::body_down` (into
+the surface while attached, the frame's DOWN while detached). The arm gives
+that one value to `write_sweep_sample` and to `apply_world_hazard_gate`, so
+the record, the end test and the path test are of one box. There is no test
+of the policy kind in the gate. Witnesses
+(`movement/tests/hazard_footprint.rs`): six cases where the two boxes give
+opposite answers (end overlap and swept crossing, a slug on a wall and two
+policies in sideways gravity), each with its premise taken from a room with no
+hazard, and the record itself. Each end case also steps a body with no sample:
+with a sample the path test covers a hit at the end, so the first poison of
+the end test left two cases green (a missed prediction, recorded in the commit).
 
-**Acceptance:** with a crawler that is not square and a narrow hazard where
-48 by 22 and 22 by 48 give opposite answers, the endpoint overlap and the
-swept crossing each give the answer of the oriented footprint.
+**Open, read 2026-10-05, not built:**
+- A transit collapses the record to a zero-length sample with the level half
+  (`movement/authority.rs`, `reconcile_transit`), and it has no frame to turn
+  the box with. The two boxes differ only in sideways gravity, and only for
+  the readers of that tick.
+- Three other world tests in the kernel ask the level box:
+  `world.water_at` and `world.climbable_at` in the axis arm
+  (`movement/mod.rs`) and the rebound pad of the momentum arm
+  (`movement/kernel.rs`; the axis arm asks the turned box,
+  `movement/integration.rs`). They are equal to the turned box in normal
+  gravity. Water states a world `top_y`, so it is not gravity-covariant in
+  other ways too: decide the three together.
+- The enemy body's own box (`features/enemies/integration.rs`, `aabb`) swaps
+  its extents by `surface_normal.x.abs() > 0.5`, a second statement of
+  `aabb_oriented(-surface_normal)`. They are equal for a cardinal normal.
 
 ### CALIBRATION-LAB-SHOT — a shot born at chest height in the calibration lab is gone on its first tick
 

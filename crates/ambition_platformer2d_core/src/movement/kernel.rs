@@ -522,13 +522,16 @@ fn step_surface_momentum(
     motion.route_memory = body.route_memory;
     motion.occlusions = body.occlusions;
     motion.spend_boost(ctx.dt);
-    write_sweep_sample(clusters, sweep_entry);
+    // The ride circle is the body's extent along the frame's DOWN, so the box
+    // of this step is the frame's.
+    let step_half = clusters.kinematics.half_oriented(ctx.frame.down());
+    write_sweep_sample(clusters, sweep_entry, step_half);
 
     let mut events = FrameEvents {
         contacts,
         ..FrameEvents::default()
     };
-    apply_world_hazard_gate(ctx.world, clusters, ctx.frame, &mut events);
+    apply_world_hazard_gate(ctx.world, clusters, ctx.frame, step_half, &mut events);
 
     MotionStepResult::from_events(events, ctx.frame)
 }
@@ -562,34 +565,42 @@ fn step_adhesive_crawler(
         (true, false) => events.operations.push(super::MovementOp::CrawlDetach),
         _ => {}
     }
-    write_sweep_sample(clusters, sweep_entry);
-    apply_world_hazard_gate(ctx.world, clusters, ctx.frame, &mut events);
+    let step_half = clusters.kinematics.half_oriented(motion.body_down(ctx.world, ctx.frame));
+    write_sweep_sample(clusters, sweep_entry, step_half);
+    apply_world_hazard_gate(ctx.world, clusters, ctx.frame, step_half, &mut events);
 
     MotionStepResult::from_events(events, ctx.frame)
 }
 
-/// §3.1 motion record for the non-axis policy arms: both endpoints captured
-/// inside the kernel, so position changes outside this window are excluded
-/// from the record by construction. (The axis arm writes its own sample at
-/// simulation-phase boundaries.)
-fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec2, Vec2)) {
+/// §3.1 motion record of one step: both endpoints captured inside the kernel,
+/// so position changes outside this window are excluded from the record by
+/// construction. `entry` is the position and velocity at the start of the
+/// step.
+///
+/// `step_half` is the box the step moved. Each policy arm states it, and gives
+/// the same value to [`apply_world_hazard_gate`]: the record, the end test and
+/// the path test are of one box.
+pub(crate) fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec2, Vec2), step_half: Vec2) {
     let curr = clusters.kinematics.pos;
-    let half = clusters.kinematics.size * 0.5;
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
         *sweep = SweepSample {
             prev: entry.0,
             curr,
             vel: entry.1,
-            half,
+            half: step_half,
         };
     }
 }
 
 /// "ONE" is now true.
+///
+/// `step_half` is the box the step moved, the same value its policy arm gave
+/// to [`write_sweep_sample`].
 pub(crate) fn apply_world_hazard_gate(
     world: &World,
     clusters: &mut BodyClustersMut<'_>,
     frame: MotionFrame,
+    step_half: Vec2,
     events: &mut FrameEvents,
 ) {
     let pos = clusters.kinematics.pos;
@@ -623,7 +634,7 @@ pub(crate) fn apply_world_hazard_gate(
     // further out than any authored volume, so it is the later, larger fact.
     if left_the_world {
         events.reset = events.reset.or(Some(ResetCause::LeftTheWorld));
-    } else if touching_hazard(world, clusters) {
+    } else if touching_hazard(world, clusters, step_half) {
         events.reset = events.reset.or(Some(ResetCause::Hazard));
     }
 }
@@ -654,16 +665,21 @@ pub(crate) fn apply_world_hazard_gate(
 /// still a hit. `hazard_contact_on_path` then adds travelled path and nothing
 /// else — it queries the hazard's interior precisely so that it cannot add
 /// surface contact.
-fn touching_hazard(world: &World, clusters: &BodyClustersMut<'_>) -> bool {
+///
+/// ONE BOX. The end test and the path test are of `step_half`, the box the
+/// step moved. The level box (`BodyKinematics::aabb`) is a different box for a
+/// body that lies along a wall: a slug 48 long on a wall was hit by a hazard
+/// beside it, and was not hit by a hazard under its own end.
+fn touching_hazard(world: &World, clusters: &BodyClustersMut<'_>, step_half: Vec2) -> bool {
     // The endpoint the body is at NOW is always tested — a teleport that lands
     // inside a hazard is standing in one, whatever path preceded it.
-    if touching_hazard_aabb(world, clusters.kinematics.aabb()) {
+    if touching_hazard_aabb(world, crate::Aabb::new(clusters.kinematics.pos, step_half)) {
         return true;
     }
     clusters
         .sweep
         .as_ref()
-        .is_some_and(|sweep| hazard_contact_on_path(world, sweep.curr, sweep.half, sweep.delta()))
+        .is_some_and(|sweep| hazard_contact_on_path(world, sweep.curr, step_half, sweep.delta()))
 }
 
 /// Select the tick's semantic support fact from the contact kinds: the newest

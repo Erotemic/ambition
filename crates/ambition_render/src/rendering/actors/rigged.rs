@@ -992,11 +992,21 @@ pub fn drive_rigged_presentations(
             if root_sprite.flip_x {
                 feet.x = -feet.x;
             }
-            let feet = root_transform.translation.truncate() + (feet - anchor) * size;
+            let feet = (feet - anchor) * size;
             let world_per_pixel = size / cell;
             let flip = if root_sprite.flip_x { -1.0 } else { 1.0 };
-            let place = Transform::from_translation(feet.extend(root_transform.translation.z))
-                .with_scale(Vec3::new(flip * world_per_pixel.x, world_per_pixel.y, 1.0));
+            // ⛔ THROUGH THE ROOT'S WHOLE TRANSFORM. The baked quad is drawn
+            // through it, so the root's turn (the gravity of its room, a
+            // somersault, a crawler on a wall) turns the frame about the root.
+            // The root draws nothing here, so the owner carries the turn: the
+            // feet offset and the mirror are in the root's own frame, and the
+            // root's transform is applied after them. An owner that took only
+            // the root's translation drew the player level in a room with
+            // sideways gravity (2026-10-05).
+            let place = root_transform.mul_transform(
+                Transform::from_translation(feet.extend(0.0))
+                    .with_scale(Vec3::new(flip * world_per_pixel.x, world_per_pixel.y, 1.0)),
+            );
             let frame_opacity = row.map_or(1.0, |row| flipbook.frame_opacity(row, animator.frame));
             drive_direct_presentation(
                 &mut presentation,
@@ -1191,7 +1201,8 @@ fn write_slots(presentation: &RiggedPresentation, draws: &[PartDraw], slots: &mu
 /// the animator gave the root this frame (its size, anchor and facing flip,
 /// squash and mirror rows included), so no anchor convention is re-derived
 /// here. The owner stands at the feet, scaled from sheet pixels to world units
-/// and mirrored when the root is flipped; the root itself draws nothing, and
+/// and mirrored when the root is flipped, then turned and scaled as the root
+/// is (`place`); the root itself draws nothing, and
 /// keeps that quad for every reader of the body's extent. The owner is not
 /// the root's child (a player's root is its simulation body), so it follows
 /// the root's visibility explicitly.

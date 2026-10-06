@@ -103,6 +103,14 @@ frames are composited.
   re-derived. The root draws nothing. The owner follows the root's visibility
   (its own `Visibility` for a top-level root: `InheritedVisibility` is a frame
   late) and the root's colour multiplies every part.
+- **The owner takes the root's whole transform** (2026-10-05). The feet offset
+  and the mirror are in the root's own frame, and the root's transform is
+  applied after them. The first direct road took only the root's translation.
+  So a body whose root is turned (the gravity of its room, a somersault, a
+  crawler on a wall) was drawn level: in a room with sideways gravity the
+  player's collision box lay along the wall and the art did not (Jon,
+  2026-10-05). A composited body was not affected, because its root draws the
+  cell through its own transform.
 - **Composition on demand** (`ComposedBodyDemand`, declared in
   `ComposedBodyDemandSet` before the driver): a body takes an atlas cell, and its
   root draws that cell, only while something reads it as one image, and for
@@ -139,7 +147,10 @@ body) and adds the direct road: `a_body_nothing_reads_draws_its_parts_in_the_wor
 `a_direct_part_lands_where_the_baked_frame_would_for_either_anchor`,
 `a_body_read_as_one_image_is_composited_while_it_is_read`,
 `a_fading_frame_is_composited_with_nothing_reading_it`,
-`a_direct_body_tints_its_parts_with_its_root_colour`.
+`a_direct_body_tints_its_parts_with_its_root_colour`. The shipped game's
+player in sideways gravity:
+`a_body_drawn_from_parts_turns_with_gravity::the_players_parts_turn_with_sideways_gravity`
+(before the change: the player turned 1.07 rad, its parts 0).
 
 ### Phase 1 measured: one decomposition for Mary-O, two for the pirates
 

@@ -600,7 +600,8 @@ after Bob's room kept the explosion); the spend reads the live object only
   takes back a javelin Bob's room held after Bob left it, while a one-time
   pickup he consumed in that room stays consumed (Q151 keeps the second by
   owners). The spend reads the row, so it follows if the ledger comes to
-  keep a spared participant's dormant rows.
+  keep a spared participant's dormant rows. Filed as Q161 (2026-10-06),
+  default in force: (a), the current behaviour.
 - A `Consumed` row of an ended runtime mint stays in the ledger and the save
   for the run. A runtime mint with no row is built by nothing, so the row is
   needed only until the checkpoint after the end; compacting it needs the

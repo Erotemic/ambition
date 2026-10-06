@@ -2690,21 +2690,26 @@ a LOWER bound: a reader that names the box another way is not in it. It is
 not a count of defects: the classes below were sorted by the line and its
 neighbours, and no class but the first was measured.
 
-| class | lines | where | a footprint question? |
-| --- | --- | --- | --- |
-| the transit record | 1 | `movement/authority.rs` (`reconcile_transit`) | yes. BUILT 2026-10-06, see below |
-| world and reach tests of a body | 17 | loading zones and interaction reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `ambition_held_items` (2), `breakables.rs`, the portal inventory adapter, `safe_position.rs`, the rider against solids (`ambition_mount`) | yes |
-| arrival and fit checks of a traversal | 6 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (2), the petting stand-off (`pet.rs`) | yes |
-| portals | 9 | `ambition_portal2d` `transit.rs` (3, one of them the test literal) and `eviction.rs` (2), the host adapter, a shot's portal transit, two draws in `ambition_portal2d_presentation` | yes for a body; not read line by line |
-| a second WRITE of the published footprint | 4 | `ambition_mount` (3: the rider's footprint while it rides and when it gets off), the Gnu-ton conductor | yes: it writes the level half into the value the rule publishes |
-| what a brain sees of a peer | 2 | `perception.rs` (`half_extent`) | yes |
-| a shot | 12 | `projectile/systems.rs` (4), `projectile/collision.rs`, `projectile/body.rs` (6, 2 of them the comment lines), `clash.rs` | no: a shot is a free body with no support and no stance, and its size is its box |
-| the gravity of a body | 2 | `gravity/resolve.rs` | no: this box is what resolves the frame, so the frame cannot turn it |
-| the centre only | 3 | `avatar/trail.rs`, `target_volumes.rs`, the boss extension | no: the centre of the two boxes is the same |
-| developer trace and overlay | 8 | `dev/trace` (6), the app's debug overlay (2) | not for the game. An overlay that draws the level box of a turned body shows a box the body does not have |
-| a game with no turned gravity | 10 | Mary-O (4), Smash (4), Sanic (2) | no, until one of those games turns gravity |
-| the camera's framing bounds | 1 | `camera_snapshot.rs` | no: a bound of what to frame, not a contact |
-| inside the kernel | 3 | `player_state.rs` (turned by the frame on the same line), the crawler arm (2, it states its own DOWN) | no |
+| class | lines then | lines now | where | a footprint question? |
+| --- | --- | --- | --- | --- |
+| the transit record | 1 | 0 | `movement/authority.rs` (`reconcile_transit`) | yes. BUILT, see below |
+| a second WRITE of the published footprint | 4 | 0 | `ambition_mount` (3), the Gnu-ton conductor | yes. BUILT, see below |
+| world and reach tests of a body | 16 | 1 | loading zones and reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `breakables.rs`, the portal gun pickup, `safe_position.rs`, the rider against solids (`ambition_mount`); and `ambition_held_items/src/lib.rs` (the pickup of a ground item), which is the one NOT converted | yes. BUILT but for the last, see below |
+| arrival and fit checks of a traversal | 6 | 6 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (2), the petting stand-off (`pet.rs`) | yes |
+| portals | 9 | 9 | `ambition_portal2d` `transit.rs` (3, one of them the test literal) and `eviction.rs` (2), the host adapter, a shot's portal transit, two draws in `ambition_portal2d_presentation` | yes for a body; not read line by line |
+| what a brain sees of a peer | 2 | 2 | `perception.rs` (`half_extent`) | yes |
+| a shot | 12 | 12 | `projectile/systems.rs` (4), `projectile/collision.rs`, `projectile/body.rs` (6, 2 of them the comment lines), `clash.rs` | no: a shot is a free body with no support and no stance, and its size is its box |
+| the gravity of a body | 3 | 3 | `gravity/resolve.rs` (2), the frame of a throw (`ambition_held_items/src/lib.rs`) | no: this box is what resolves the frame, so the frame cannot turn it |
+| the centre only | 3 | 3 | `avatar/trail.rs`, `target_volumes.rs`, the boss extension | no: the centre of the two boxes is the same |
+| developer trace and overlay | 8 | 8 | `dev/trace` (6), the app's debug overlay (2) | not for the game. An overlay that draws the level box of a turned body shows a box the body does not have |
+| a game with no turned gravity | 10 | 10 | Mary-O (4), Smash (4), Sanic (2) | no, until one of those games turns gravity |
+| the camera's framing bounds | 1 | 1 | `camera_snapshot.rs` | no: a bound of what to frame, not a contact |
+| inside the kernel | 3 | 3 | `player_state.rs` (turned by the frame on the same line), the crawler arm (2, it states its own DOWN) | no |
+
+The first sort put the throw's gravity lookup of `ambition_held_items` in the
+world-and-reach class; it is a gravity lookup, and the table above has it
+there (16 and 3, not 17 and 2). The search finds 58 lines on 2026-10-06 after
+the three classes that are built.
 
 **The transit record, built 2026-10-06 (rollback schema 314 to 315):**
 `transit_body` and `reconcile_transit` have 23 call sites outside tests. Ten
@@ -2731,6 +2736,58 @@ step). No call site changed. Witnesses: `movement/tests/transit_record.rs`
 `a_body_that_transits_in_sideways_gravity_crosses_the_zone_its_own_box_touches`
 (`world/rooms/tests.rs`: the real record through the real zone detector; the
 body crossed the zone beside it and not the zone it was in).
+
+**The second writers of the footprint, built 2026-10-06:** the saddle pin
+(`sync_riders_to_mounts`), a dismount, a mount's death and the Gnu-ton
+conductor each wrote `size / 2` into a body's published footprint after they
+moved it. In NORMAL gravity that replaced the envelope of a rider that has
+one (a boss on a mount had its collision box as its footprint from the pin to
+the next publish). In turned gravity it was also level. They now write the
+CENTRE only. The size of a footprint is the publish rule's to state, at body
+integration each tick: the body's size or its envelope, turned to its DOWN.
+A change of size on one of these roads would show one tick later; none
+happens today (`MountedSize` has no production writer, and the conductor
+does not resize a fist). Witnesses (`ambition_mount`, `footprint_tests`): the
+pin in turned gravity and with an envelope, a dismount and a mount's death in
+turned gravity, each red before with the half (15, 24); each writer's poison
+turns only its own cases red. The conductor has no arm of its own: its
+system needs the whole Gnu-ton fixture, and the change is the same one line.
+
+**The world and reach readers, built 2026-10-06:** the record gives a reader
+outside the kernel the one fact it had no statement of, the DOWN of the body.
+So the rule for a reader is one function in the kernel's crate,
+`BodyKinematics::collision_box(last_step)`: the body's present position and
+size, turned to the DOWN of its last step, and level for a body with no
+record. It is the collision box, so the envelope of a boss is not in it; its
+doc says it is not the footprint and not a hurtbox. Fifteen lines ask it now
+(the rider against solids asks `aabb_oriented` with the DOWN of the pair,
+which it has).
+
+- With a failing arm of their own in sideways gravity (a body at rest with
+  the record of its step; each red when its line is put back, at its first
+  assertion, and no other arm red): the pickup collector, the chest reach,
+  the interact reach, the shrine, and the loading zones' answer for a body
+  whose record does not end where it is.
+- Converted on the strength of the shared function, with NO arm of their own:
+  the contact harm of an empowered body (`empowerment.rs`), the interact
+  prompt (`interactable_proximity.rs`, 2), the world items
+  (`world_item.rs`), the stand-on breakables (`breakables.rs`), the portal
+  gun pickup (`inventory_adapter.rs`), the safe position
+  (`safe_position.rs`), the rider against solids (`ambition_mount`), and two
+  more lines of the loading zones (the diagnostic of a touched zone, and the
+  reach of a talk that is nearer than a door).
+- More than half are in the second list, so the function is witnessed once
+  in the shipped game through a real reader:
+  `a_turned_body_collects_what_its_own_box_touches.rs` turns the gravity of
+  `basement_breakables` to +x and puts the player half way between her two
+  reaches from each heart. She collects the heart past her end and not the
+  heart beside her; with the collector's line put back she collects the heart
+  beside her.
+- Not converted: the pickup of a ground item
+  (`ambition_held_items/src/lib.rs`), a file with another owner this week.
+
+The arms were written AFTER the conversion (a mechanical edit), so each red
+was seen by putting the reader's old line back, not before the change.
 
 **Rejected, do not retry:** to make a READER of the record use the published
 footprint (`CenteredAabb`) when the record is zero-length. The footprint of a
@@ -2763,8 +2820,11 @@ port's membership removed on the tree before the edge).
   the contacts for that reason. The other direction reads the travelled path
   and hits a blink's arrival one tick later. Not changed: it moves every
   wielded ability after the portal constraints of the tick.
-- `possession_trigger_system` (system 196) transits a body after the kernel
-  step and before both readers. Read from the order, not measured.
+- `possession_trigger_system` (system 196 of 662: after the kernel step at
+  157, before the ECS hazards at 294 and the loading zones at 309) transits a
+  body. It calls `transit_body` (`control/possession.rs`), so its record is
+  collapsed by `reconcile_transit` and keeps the turn of the body. What the
+  two readers then see of a possession was not measured.
 
 **To reproduce (the next class):** in turned gravity, a region beside a body
 that is not square, nearer than the long half minus the short half and not
@@ -2774,6 +2834,9 @@ reader is changed.
 **Acceptance:** each class marked "yes" has a failing arm in turned gravity,
 then asks the rule, one class per change; a class marked "no" keeps its one
 line of reason here; the pattern search is run again and the table matches it.
+The search finds the spellings it names and no other: a new reader that
+builds the level box another way is not found, so this row can show that the
+known lines are gone and cannot show that the class is closed.
 
 ### CALIBRATION-LAB-SHOT — a shot born at chest height in the calibration lab is gone on its first tick
 

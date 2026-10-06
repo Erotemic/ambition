@@ -393,3 +393,30 @@ fn an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room() {
         "an ordinary chest: (the source, owned by the seats in its room; grants kept when only seat 2, of another room, is spared)"
     );
 }
+
+/// A 28 by 46 body in sideways gravity lies along the gravity: its collision
+/// box is 46 wide and 28 tall. The reach of a body is that box
+/// (`BodyKinematics::collision_box`), not its level box.
+#[test]
+fn a_body_in_sideways_gravity_opens_the_chest_its_own_box_touches() {
+    let opens = |offset: ae::Vec2| {
+        let mut app = app();
+        let center = ae::Vec2::new(64.0, 64.0);
+        let body = player(&mut app, center, true);
+        let kin = *app.world().get::<BodyKinematics>(body).expect("the player has a body");
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ae::SweepSample::at_rest(kin, ae::Vec2::new(1.0, 0.0)));
+        let c = chest(&mut app, "c1", center + offset);
+        app.update();
+        app.world().get::<Opened>(c).is_some()
+    };
+    assert!(
+        opens(ae::Vec2::new(30.0, 0.0)),
+        "the chest past the end of the body is in its reach, and the press must open it"
+    );
+    assert!(
+        !opens(ae::Vec2::new(0.0, 30.0)),
+        "the chest beside the body is not in its reach, and the press must not open it"
+    );
+}

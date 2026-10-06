@@ -140,7 +140,7 @@ pub fn detect_room_transition_system(
         // tested where it stands.
         let (path_end, delta) = sweep
             .and_then(|sample| sample.ending_at(kin.pos))
-            .map_or((kin.aabb(), ae::Vec2::ZERO), |path| (path.end_aabb(), path.delta()));
+            .map_or((kin.collision_box(sweep), ae::Vec2::ZERO), |path| (path.end_aabb(), path.delta()));
         let wants_interact = slot_gestures.get(seat).buffered();
         let Some(zone) = rooms
             .rooms()
@@ -163,7 +163,7 @@ pub fn detect_room_transition_system(
                 .spec(definition)
                 .loading_zones
                 .iter()
-                .find(|zone| kin.aabb().strict_intersects(zone.aabb))
+                .find(|zone| kin.collision_box(sweep).strict_intersects(zone.aabb))
             {
                 let ordinary_unpressed = !wants_interact
                     && matches!(
@@ -203,7 +203,7 @@ pub fn detect_room_transition_system(
         if matches!(zone.zone.activation, LoadingZoneActivation::Door) {
             let door = ae::AabbExt::center(zone.zone.aabb).distance(kin.pos);
             if talkable
-                .nearest_in_reach(subject_entity, kin.pos, kin.aabb())
+                .nearest_in_reach(subject_entity, kin.pos, kin.collision_box(sweep))
                 .is_some_and(|talk| talk < door)
             {
                 continue;

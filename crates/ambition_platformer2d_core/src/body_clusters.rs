@@ -192,6 +192,23 @@ impl BodyKinematics {
     pub fn half_oriented(self, gravity_dir: crate::Vec2) -> crate::Vec2 {
         crate::AccelerationFrame::new(gravity_dir).to_world_half(self.size * 0.5)
     }
+
+    /// The COLLISION box of the body where it is now, turned as its last step
+    /// turned it: the box a solid stops, at the body's present position and
+    /// with its present size. This is the box for a reader outside the kernel
+    /// that asks what the body touches (a door, a pickup, a chest, a reach).
+    ///
+    /// `last_step` is the body's record ([`SweepSample`]): it carries the DOWN
+    /// of the body, which a reader has no other statement of (a crawler on a
+    /// wall is not turned to its gravity). A body with no record has no turn,
+    /// and the answer is the level box ([`Self::aabb`]).
+    ///
+    /// It is NOT the published footprint (`CenteredAabb`), which is the
+    /// envelope of a body that has one (a boss is drawn larger than the box
+    /// that stops it). It is NOT a hurtbox: ask the body's damageable volumes.
+    pub fn collision_box(self, last_step: Option<&SweepSample>) -> crate::Aabb {
+        self.aabb_oriented(last_step.map_or(crate::Vec2::ZERO, |record| record.down))
+    }
 }
 
 /// Canonical per-tick integration segment, captured entirely inside the
@@ -229,6 +246,18 @@ pub struct SweepSample {
 }
 
 impl SweepSample {
+    /// The record of a step that moved nothing: `body` at rest where it is,
+    /// with its box turned to `down`.
+    pub fn at_rest(body: BodyKinematics, down: Vec2) -> Self {
+        Self {
+            prev: body.pos,
+            curr: body.pos,
+            vel: Vec2::ZERO,
+            half: body.half_oriented(down),
+            down,
+        }
+    }
+
     /// The segment's displacement (`curr − prev`).
     pub fn delta(&self) -> Vec2 {
         self.curr - self.prev

@@ -506,3 +506,57 @@ fn a_body_rests_only_at_a_shrine_in_its_own_live_room() {
         "the checkpoint does not name the resting body's own room"
     );
 }
+
+/// A 24 by 40 body in sideways gravity lies along the gravity: its collision
+/// box is 40 wide and 24 tall. A body rests at the shrine that box touches
+/// (`BodyKinematics::collision_box`), not the one its level box touches.
+#[test]
+fn a_body_in_sideways_gravity_rests_at_the_shrine_its_own_box_touches() {
+    let rests = |offset: Vec2| {
+        let mut app = App::new();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        app.init_resource::<ShrineActivationPulse>();
+        app.add_systems(Update, heal_save_shrine_system);
+        let pos = Vec2::new(100.0, 100.0);
+        let body = BodyKinematics {
+            pos,
+            vel: Vec2::ZERO,
+            size: Vec2::new(24.0, 40.0),
+            facing: 1.0,
+        };
+        let mut control = ActorControl::default();
+        control.0.interact_pressed = true;
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                control,
+                body,
+                ambition_platformer2d_core::SweepSample::at_rest(body, Vec2::new(1.0, 0.0)),
+                BodyBaseSize { base_size: body.size },
+                BodyHealth::new(ambition_characters::actor::Health {
+                    current: 1,
+                    max: 5,
+                    invulnerable: Default::default(),
+                }),
+            ))
+            .id();
+        app.world_mut().spawn(HealShrine {
+            pos: pos + offset,
+            half_extent: Vec2::new(4.0, 4.0),
+        });
+        app.update();
+        let health = *app.world().get::<BodyHealth>(player).expect("the player has health");
+        health.current() == health.max()
+    };
+    assert!(
+        rests(Vec2::new(18.0, 0.0)),
+        "the shrine past the end of the body touches its box, and the body must rest"
+    );
+    assert!(
+        !rests(Vec2::new(0.0, 18.0)),
+        "the shrine beside the body does not touch its box, and the body must not rest"
+    );
+}

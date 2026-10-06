@@ -532,3 +532,38 @@ fn a_restore_takes_the_dying_participant_out_of_each_consumed_record() {
         "a later restore that spares only Alice keeps a row she no longer owns"
     );
 }
+
+/// A 28 by 46 body in sideways gravity lies along the gravity: its collision
+/// box is 46 wide and 28 tall. A pickup past its end is in that box and not in
+/// its level box; a pickup beside it is in its level box only. The collector
+/// asks the box the body's last step turned (`BodyKinematics::collision_box`).
+#[test]
+fn a_body_in_sideways_gravity_collects_the_pickup_its_own_box_touches() {
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.add_message::<PlayerHealRequested>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<VfxInRoom>();
+    app.add_message::<SetFlagRequested>();
+    app.add_systems(Update, collect_ecs_pickups);
+
+    let center = ae::Vec2::new(64.0, 64.0);
+    let player = player_at(&mut app, center);
+    let body = *app.world().get::<BodyKinematics>(player).expect("the player has a body");
+    app.world_mut()
+        .entity_mut(player)
+        .insert(ae::SweepSample::at_rest(body, ae::Vec2::new(1.0, 0.0)));
+    let past_its_end = health_pickup_at(&mut app, "hp_past_its_end", center + ae::Vec2::new(26.0, 0.0));
+    let beside = health_pickup_at(&mut app, "hp_beside", center + ae::Vec2::new(0.0, 26.0));
+
+    app.update();
+
+    assert!(
+        app.world().get::<Collected>(past_its_end).is_some(),
+        "the pickup past the end of the body is in its box, and the body must collect it"
+    );
+    assert!(
+        app.world().get::<Collected>(beside).is_none(),
+        "the pickup beside the body is not in its box, and the body must not collect it"
+    );
+}

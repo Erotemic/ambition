@@ -506,6 +506,45 @@ fn a_body_that_transits_in_sideways_gravity_crosses_the_zone_its_own_box_touches
     );
 }
 
+/// A body that a raw teleport moved has a record that does not end where it
+/// is, so the zones test the body where it stands. The box it stands in is
+/// its collision box as its last step turned it
+/// (`BodyKinematics::collision_box`), not its level box.
+#[test]
+fn a_body_moved_past_its_record_in_sideways_gravity_crosses_the_zone_its_own_box_touches() {
+    let size = ae::Vec2::new(48.0, 22.0);
+    let stands_at = ae::Vec2::new(300.0, 200.0);
+    let body = ambition_platformer2d_core::BodyKinematics {
+        pos: stands_at,
+        vel: ae::Vec2::ZERO,
+        size,
+        facing: 1.0,
+    };
+    // The record of its last step, in sideways gravity, far from where it is.
+    let record = ae::SweepSample::at_rest(
+        ambition_platformer2d_core::BodyKinematics {
+            pos: ae::Vec2::new(100.0, 100.0),
+            ..body
+        },
+        ae::Vec2::new(1.0, 0.0),
+    );
+    assert!(record.ending_at(stands_at).is_none(), "premise: the record does not end where the body is");
+    let zone = |min: ae::Vec2, max: ae::Vec2| ae::Aabb {
+        min: stands_at + min,
+        max: stands_at + max,
+    };
+    assert_eq!(
+        room_crossed_to(zone(ae::Vec2::new(-4.0, 16.0), ae::Vec2::new(4.0, 20.0)), body, Some(record)).as_deref(),
+        Some("b"),
+        "the zone under the end of the body touches its box, and the body must cross it",
+    );
+    assert_eq!(
+        room_crossed_to(zone(ae::Vec2::new(15.0, -3.0), ae::Vec2::new(20.0, 3.0)), body, Some(record)),
+        None,
+        "the zone beside the body does not touch its box, and the body must not cross it",
+    );
+}
+
 fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
     RoomSpec {
         id: id.into(),

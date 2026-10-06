@@ -160,7 +160,7 @@ pub fn remember_safe_player_position(
         safety,
         clusters.kinematics.pos,
         clusters.kinematics.vel,
-        clusters.kinematics.aabb(),
+        clusters.kinematics.collision_box(clusters.sweep.as_deref()),
         clusters.ground.on_ground,
         world,
         ctx,

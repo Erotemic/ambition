@@ -162,7 +162,10 @@ pub fn collect_ecs_pickups(
     collectors: Query<
         (
             Entity,
-            &ambition_platformer2d_core::BodyKinematics,
+            (
+                &ambition_platformer2d_core::BodyKinematics,
+                Option<&ambition_platformer2d_core::SweepSample>,
+            ),
             bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
         ),
@@ -222,12 +225,12 @@ pub fn collect_ecs_pickups(
         // `PlayerHealRequested::target`, so single-player behaviour is unchanged:
         // one candidate wins by being the only one.
         let Some((collector_entity, ..)) = winner_by(
-            collectors.iter().filter(|(collector, kin, is_player, control)| {
+            collectors.iter().filter(|(collector, (kin, last_step), is_player, control)| {
                 body_collects_on_touch(*is_player, *control)
                     && rooms.of(*collector) == rooms.of(entity)
-                    && aabb.aabb().strict_intersects(kin.aabb())
+                    && aabb.aabb().strict_intersects(kin.collision_box(*last_step))
             }),
-            |(_, kin, _, _)| kin.pos.distance_squared(aabb.center),
+            |(_, (kin, _), _, _)| kin.pos.distance_squared(aabb.center),
             |(entity, _, _, _)| sim_ids.get(*entity).ok(),
         ) else {
             continue;

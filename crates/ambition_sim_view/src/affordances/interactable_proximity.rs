@@ -68,7 +68,7 @@ impl NearestInteractable {
 /// order.
 pub fn update_nearest_interactable(
     controlled: Option<Res<ControlledSubject>>,
-    bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
+    bodies: Query<(&ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
     primary: Query<
         Entity,
         (
@@ -91,7 +91,11 @@ pub fn update_nearest_interactable(
     chests: Query<(&CenteredAabb, Option<&Opened>), (With<FeatureSimEntity>, With<ChestFeature>)>,
     switches: Query<&CenteredAabb, (With<FeatureSimEntity>, With<SwitchFeature>)>,
     driven: Query<
-        (Entity, &ambition_platformer2d_core::BodyKinematics),
+        (
+            Entity,
+            &ambition_platformer2d_core::BodyKinematics,
+            Option<&ambition_platformer2d_core::SweepSample>,
+        ),
         With<ambition_characters::control::DrivingParticipant>,
     >,
     mut out: ResMut<NearestInteractable>,
@@ -101,10 +105,10 @@ pub fn update_nearest_interactable(
     // about a PARTICULAR body needs that body's answer — see the type's doc.
     let mut by_body: std::collections::HashMap<Entity, InteractVariant> =
         std::collections::HashMap::new();
-    for (body, kin) in &driven {
+    for (body, kin, last_step) in &driven {
         by_body.insert(
             body,
-            variant_in_reach(kin.aabb(), &actors, &chests, &switches),
+            variant_in_reach(kin.collision_box(last_step), &actors, &chests, &switches),
         );
     }
 
@@ -114,9 +118,9 @@ pub fn update_nearest_interactable(
     // The primary body may not be a driving participant in a bare fixture, so
     // its own answer is computed here rather than assumed to be in the map.
     let chosen =
-        match subject.and_then(|subject| bodies.get(subject).ok().map(|kin| (subject, kin))) {
-            Some((subject, kin)) => {
-                let variant = variant_in_reach(kin.aabb(), &actors, &chests, &switches);
+        match subject.and_then(|subject| bodies.get(subject).ok().map(|body| (subject, body))) {
+            Some((subject, (kin, last_step))) => {
+                let variant = variant_in_reach(kin.collision_box(last_step), &actors, &chests, &switches);
                 by_body.insert(subject, variant.clone());
                 variant
             }

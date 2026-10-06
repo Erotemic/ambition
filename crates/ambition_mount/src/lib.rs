@@ -396,7 +396,8 @@ pub fn steer_mount_from_rider(
         // there reports a hit, and clamping would trap the pair where it is.
         if let (Some(room), Some(rider_kin)) = (room, rider_kin) {
             let down = mount_motion.map_or(ae::Vec2::new(0.0, 1.0), |motion| motion.basis().down);
-            let rider = ae::Aabb::new(rider_kin.pos, rider_kin.size * 0.5);
+            // The rider's collision box, turned to the DOWN of the pair.
+            let rider = rider_kin.aabb_oriented(down);
             let solid = |block: &ae::Block| matches!(block.kind, ae::BlockKind::Solid);
             let inside = room.0.blocks.iter().any(|block| {
                 solid(block)
@@ -565,13 +566,16 @@ pub fn sync_riders_to_mounts(
         // saddle that puts a rider against geometry then re-lands it every tick.
         // Latent on `pirate_sky_lookout` only because its riders are in the sky.
         rider_ground.invalidate();
-        // Keep the CenteredAabb mirror in sync so damage / spatial
+        // Keep the centre of the footprint in sync so damage / spatial
         // queries on the same tick see the rider where it visually
-        // sits. update_ecs_actors writes this from rider.kin.pos at the
-        // top of the next tick too, but the same-frame consumers
-        // (damage application, projectile origin lookups) need it now.
+        // sits. Body integration publishes the footprint at the top of the
+        // next tick too, but the same-frame consumers (damage application,
+        // projectile origin lookups) need the place now.
+        //
+        // The centre only. The SIZE of a footprint is the publish rule's to
+        // state: the body's size or its envelope, turned to its DOWN. A
+        // `size / 2` here was level in turned gravity and dropped an envelope.
         rider_aabb.center = rider_kin.pos;
-        rider_aabb.half_size = rider_kin.size * 0.5;
     }
 }
 
@@ -983,8 +987,9 @@ pub fn apply_dismount_requests(
         // The authored size, from the record that survived the ride — the live
         // size is the one the saddle overwrote.
         kin.size = baseline.size;
+        // The centre only: the next publish states the footprint of the
+        // restored size (see `sync_riders_to_mounts`).
         aabb.center = kin.pos;
-        aabb.half_size = kin.size * 0.5;
         commands.entity(request.rider).remove::<(
             RidingOn,
             Mounted,
@@ -1347,12 +1352,11 @@ pub fn enforce_mount_rider_link(
                     }
                 }
                 rider_kin.size = rider_spawn.size;
-                // Publish immediately so same-frame presentation / combat sees
-                // the rider's grounded pose. This is usually the same size as
-                // MountedSize; keeping the write here makes intentional future
-                // size overrides explicit and safe.
+                // Same-frame presentation / combat sees where the rider is.
+                // The restored size is usually the same size as MountedSize;
+                // the next publish states its footprint (see
+                // `sync_riders_to_mounts`).
                 rider_aabb.center = rider_kin.pos;
-                rider_aabb.half_size = rider_kin.size * 0.5;
                 // Announce the dissolution as a body fact (ADR 0020; Q19a). The
                 // boss-encounter bridge turns this into a `mount_died` external
                 // phase trigger for a mounted boss; other consumers may listen
@@ -1967,5 +1971,142 @@ mod dismount_claim_tests {
             "the rider is off the mount and still carries its control claim, so \
              nothing will ever clear it: {claims:?}"
         );
+    }
+}
+
+/// The footprint of a rider is the one the rule publishes.
+///
+/// Each tick, body integration publishes every body's footprint
+/// (`CenteredAabb`): its collision size, or its envelope when it has one,
+/// turned to the DOWN of the body. The saddle pin, a dismount and a mount's
+/// death move or resize a rider after that. Each wrote `size / 2` into the
+/// footprint again, a second statement that was level in turned gravity and
+/// that dropped an envelope. They write the centre only: the size of the
+/// footprint is the rule's, and a change of size shows at the next publish.
+#[cfg(test)]
+mod footprint_tests {
+    use super::*;
+    use ambition_characters::actor::{BodyHealth, Health};
+    use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
+    use bevy::prelude::*;
+
+    const RIDER: Vec2 = Vec2::new(30.0, 48.0);
+    /// The half of the rider's footprint as the rule publishes it in sideways
+    /// gravity: the rider lies along the gravity.
+    const TURNED_HALF: Vec2 = Vec2::new(24.0, 15.0);
+    const START: Vec2 = Vec2::new(500.0, 300.0);
+
+    fn body(pos: Vec2, size: Vec2) -> ae::BodyKinematics {
+        ae::BodyKinematics {
+            pos,
+            vel: Vec2::ZERO,
+            size,
+            facing: 1.0,
+        }
+    }
+
+    fn sideways() -> ResolvedMotionFrame {
+        let mut frame = ResolvedMotionFrame::default();
+        frame.publish_resolved_frame(ae::MotionFrame::from_direction(Vec2::new(1.0, 0.0), 1800.0));
+        frame
+    }
+
+    /// A rider at `START` on a mount, with the footprint `half` the rule left
+    /// it. Returns the rider and the mount.
+    fn pair(app: &mut App, half: Vec2, mount_frame: ResolvedMotionFrame, mount_alive: bool) -> (Entity, Entity) {
+        let mut mount_health = BodyHealth::new(Health::new(5));
+        if !mount_alive {
+            mount_health.damage(5);
+        }
+        let mount = app
+            .world_mut()
+            .spawn((
+                MountSlot::default(),
+                Mountable::at(Vec2::new(0.0, -20.0)),
+                mount_frame,
+                body(Vec2::new(800.0, 600.0), Vec2::new(60.0, 40.0)),
+                mount_health,
+            ))
+            .id();
+        let rider = app
+            .world_mut()
+            .spawn((
+                RidingOn { mount },
+                Mounted,
+                CenteredAabb::new(START, half),
+                body(START, RIDER),
+                ae::BodyGroundState::default(),
+                BodyHealth::new(Health::new(3)),
+                SpawnBaseline {
+                    pos: START,
+                    size: RIDER,
+                },
+            ))
+            .id();
+        app.world_mut().entity_mut(mount).insert(MountSlot { rider: Some(rider) });
+        (rider, mount)
+    }
+
+    /// The footprint of the rider after one run of the systems of `app`: its
+    /// centre is where the rider is, and its half is what the rule published.
+    #[track_caller]
+    fn the_footprint_keeps_the_published_half(app: &mut App, rider: Entity, half: Vec2, what: &str) {
+        app.update();
+        let footprint = *app.world().get::<CenteredAabb>(rider).expect("the rider has a footprint");
+        let kin = *app.world().get::<ae::BodyKinematics>(rider).expect("the rider has a body");
+        assert_eq!(footprint.center, kin.pos, "{what}: the footprint is where the rider is");
+        assert_eq!(
+            footprint.half_size, half,
+            "{what}: the size of a footprint is the rule's to state, and this writer must leave it"
+        );
+    }
+
+    #[test]
+    fn the_saddle_pin_keeps_the_half_of_a_rider_in_turned_gravity() {
+        let mut app = App::new();
+        app.add_systems(Update, sync_riders_to_mounts);
+        let (rider, mount) = pair(&mut app, TURNED_HALF, sideways(), true);
+        the_footprint_keeps_the_published_half(&mut app, rider, TURNED_HALF, "the saddle pin");
+        let mount_pos = app.world().get::<ae::BodyKinematics>(mount).unwrap().pos;
+        let rider_pos = app.world().get::<ae::BodyKinematics>(rider).unwrap().pos;
+        assert!(
+            (rider_pos - mount_pos).length() < 100.0 && rider_pos != START,
+            "premise: the pin moved the rider to its mount: {rider_pos:?}"
+        );
+    }
+
+    /// A rider whose footprint is its envelope (a boss) keeps it on a mount.
+    #[test]
+    fn the_saddle_pin_keeps_the_envelope_of_a_rider() {
+        let envelope = Vec2::new(40.0, 40.0);
+        let mut app = App::new();
+        app.add_systems(Update, sync_riders_to_mounts);
+        let (rider, _) = pair(&mut app, envelope, ResolvedMotionFrame::default(), true);
+        the_footprint_keeps_the_published_half(&mut app, rider, envelope, "the saddle pin");
+    }
+
+    #[test]
+    fn a_dismount_keeps_the_half_of_a_rider_in_turned_gravity() {
+        let mut app = App::new();
+        app.add_message::<DismountRequested>();
+        app.add_message::<RiderDismounted>();
+        app.add_systems(Update, apply_dismount_requests);
+        let (rider, _) = pair(&mut app, TURNED_HALF, sideways(), true);
+        app.world_mut().write_message(DismountRequested {
+            rider,
+            reason: DismountReason::LeaseExpired,
+        });
+        the_footprint_keeps_the_published_half(&mut app, rider, TURNED_HALF, "a dismount");
+        assert!(app.world().get::<RidingOn>(rider).is_none(), "premise: the dismount happened");
+    }
+
+    #[test]
+    fn the_death_of_a_mount_keeps_the_half_of_its_rider_in_turned_gravity() {
+        let mut app = App::new();
+        app.add_message::<MountDied>();
+        app.add_systems(Update, enforce_mount_rider_link);
+        let (rider, _) = pair(&mut app, TURNED_HALF, sideways(), false);
+        the_footprint_keeps_the_published_half(&mut app, rider, TURNED_HALF, "the death of a mount");
+        assert!(app.world().get::<Mounted>(rider).is_none(), "premise: the rider is off the dead mount");
     }
 }

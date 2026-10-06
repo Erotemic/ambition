@@ -59,6 +59,7 @@ pub fn heal_save_shrine_system(
     mut bodies: Query<(
         &ActorControl,
         &BodyKinematics,
+        Option<&ambition_platformer2d_core::SweepSample>,
         &mut BodyHealth,
         Option<&mut ambition_platformer2d_core::resources::ActorResources>,
     )>,
@@ -105,13 +106,13 @@ pub fn heal_save_shrine_system(
     // checkpoint (`the_checkpoint_records_where_the_resting_body_stood`).
     let mut checkpoint_written = false;
     for subject in subjects {
-        let Ok((control, kin, mut health, mut bank)) = bodies.get_mut(subject) else {
+        let Ok((control, kin, last_step, mut health, mut bank)) = bodies.get_mut(subject) else {
             continue;
         };
         if !control.0.interact_pressed {
             continue;
         }
-        let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        let player_aabb = kin.collision_box(last_step);
         let room = live_rooms.of(subject);
         let touching = shrines
             .iter()

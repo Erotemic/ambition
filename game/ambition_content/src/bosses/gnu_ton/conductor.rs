@@ -756,8 +756,9 @@ pub fn conduct_gnu_ton(
                 commands.entity(entity).insert(ae::PoseOwnedExternally);
             }
             ground.invalidate();
+            // The centre only: body integration publishes the size of the
+            // footprint, turned to the DOWN of the fist.
             aabb.center = kin.pos;
-            aabb.half_size = kin.size * 0.5;
 
             // Each time it sticks, a fist is a fresh opening.
             let landed = pose.stuck && !last.is_some_and(|last| last.stuck);

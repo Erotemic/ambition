@@ -157,7 +157,7 @@ pub fn record_placed_bodies(
 ///
 /// Written every tick from rollback state, before its one reader. A body in
 /// custody is already carried, and a body with durable whereabouts
-/// ([`keeps_durable_whereabouts`]) has a row instead. A persistent body with
+/// (`keeps_durable_whereabouts`) has a row instead. A persistent body with
 /// no row (an enemy) is in the set.
 #[allow(clippy::type_complexity)]
 pub fn record_bodies_away_from_home(

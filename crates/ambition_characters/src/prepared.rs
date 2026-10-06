@@ -824,7 +824,7 @@ pub fn admit_staged_revision(
 /// at the old catalog's values under the new catalog. The cast is the authored
 /// source with the staged edits in it, plus a bare definition for each row of
 /// the candidate catalog nobody authored — what the barrier folds
-/// ([`cast_with_catalog_rows`]).
+/// (`cast_with_catalog_rows`).
 pub fn admit_staged_revision_with_catalog(
     world: &bevy::ecs::world::World,
     support: &ambition_entity_catalog::TechniqueSupport,

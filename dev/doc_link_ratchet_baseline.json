@@ -2,12 +2,6 @@
   "_comment": "Broken intra-doc links per crate (ledger D103), NAMED. A RATCHET: a link here may be repaired and must not be joined by a new one. The list is the fact and the count is only its length -- a baseline of totals could not tell a repair plus a new break from no change at all. Bank a repair in the same commit that earns it: scripts/check_doc_link_ratchet.py --update.",
   "crates": {
     "ambition_abilities": [
-      "crates/ambition_abilities/src/ranged/beam.rs: unresolved `Hitbox`",
-      "crates/ambition_abilities/src/ranged/beam.rs: unresolved `Hitbox`",
-      "crates/ambition_abilities/src/ranged/beam.rs: unresolved `Hitbox`",
-      "crates/ambition_abilities/src/ranged/meteor.rs: private `fire_meteor_system -> METEOR_COUNT`",
-      "crates/ambition_abilities/src/ranged/sentry.rs: unresolved `update_vortex_wells`",
-      "crates/ambition_abilities/src/ranged/vortex.rs: private `update_vortex_wells -> VORTEX_RADIUS`",
       "crates/ambition_abilities/src/traversal/blink.rs: private `blink_system -> BLINK_DISTANCE`",
       "crates/ambition_abilities/src/traversal/grapple.rs: private `grapple -> GRAPPLE_PULL_SPEED`",
       "crates/ambition_abilities/src/traversal/grapple.rs: private `grapple -> GRAPPLE_RANGE`",

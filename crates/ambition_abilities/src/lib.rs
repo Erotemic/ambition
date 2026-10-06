@@ -1,6 +1,6 @@
 //! The wielded ability kit, split from the actor kernel (D33).
 //!
-//! * [`ranged`]: bomb
+//! * [`ranged`]: the bomb
 //! * [`extension`] and [`module_entity`]: the extension adapters of the
 //!   wielded abilities that are procedural modules (shockwave, beam, volley,
 //!   meteor, sentry, vortex)

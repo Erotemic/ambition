@@ -52,7 +52,7 @@ const SHOT_GROUND_CLEARANCE: f32 = 1.0;
 
 /// `origin` moved against gravity just far enough that a shot of
 /// `half_extent` born there clears the feet line of the body at `body_pos`,
-/// `height` tall, by [`SHOT_GROUND_CLEARANCE`]; unchanged when it already does.
+/// `height` tall, by `SHOT_GROUND_CLEARANCE`; unchanged when it already does.
 ///
 /// ⛔ A SHOT BORN TOUCHING THE FLOOR DIES ON ITS FIRST TICK. A hand muzzle fires
 /// from the hand the rig puts the weapon in, and the pirates hold the

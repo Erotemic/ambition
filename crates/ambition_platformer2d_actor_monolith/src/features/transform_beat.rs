@@ -261,15 +261,12 @@ mod tests {
     #[test]
     fn the_dilation_is_a_request_not_a_write() {
         let mut app = app();
-        let body = app
-            .world_mut()
-            .spawn(TransformBeatRequested(TransformBeatPolicy {
-                duration: 0.2,
-                anim: CharacterAnim::Idle,
-                clock_scale: 0.35,
-                untouchable: true,
-            }))
-            .id();
+        app.world_mut().spawn(TransformBeatRequested(TransformBeatPolicy {
+            duration: 0.2,
+            anim: CharacterAnim::Idle,
+            clock_scale: 0.35,
+            untouchable: true,
+        }));
         advance(&mut app, 0.05);
 
         let requests = app.world().resource::<Messages<ClockScaleRequest>>();

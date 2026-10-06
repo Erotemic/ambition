@@ -2125,8 +2125,8 @@ bag): each session begins with the bag that the process began with.
 `StartingBag` (`items/starting_bag.rs`) records `OwnedItems` at `Startup`, so
 the composition's own bag is the one authority (the Ambition content plugin
 inserts the starter set; a composition that inserts none has an empty bag),
-and `start_the_bag_again_on_activation` gives it back in
-`SessionScopeSet::Activate`. The save of the session is then the only thing
+and a system in `SessionScopeSet::Activate` gives it back (deleted by P4
+below). The save of the session is then the only thing
 that changes the bag. Witness:
 `shell_host_lifecycle::a_bag_that_a_session_changed_reaches_a_later_session_through_its_save_only`
 (premises: the first session has the bomb in its bag and in its save; the
@@ -2162,8 +2162,8 @@ Poisons: the reset not registered (the three arms above); the record runs in
   (`StartingBag::begin_the_session`). The save overlay is as it was. An
   experience that declares none begins with an empty bag. Ambition's
   experience declares the starter set, and `AmbitionContentPlugin` no longer
-  puts it into the App. `start_the_bag_again_on_activation` is deleted: one
-  road. A New Game reads `StartingBag` as before, which is now the bag of the
+  puts it into the App. The activation system that gave the bag back is
+  deleted: one road. A New Game reads `StartingBag` as before, which is now the bag of the
   experience of the live session.
   - Measured before
     (`shell_host_lifecycle::each_experience_begins_with_its_own_bag`): the last

@@ -2697,7 +2697,7 @@ neighbours, and no class but the first was measured.
 | a second WRITE of the published footprint | 4 | 0 | `ambition_mount` (3), the Gnu-ton conductor | yes. BUILT, see below |
 | world and reach tests of a body | 16 | 0 | loading zones and reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `breakables.rs`, the portal gun pickup, `safe_position.rs`, the rider against solids (`ambition_mount`), the pickup of a ground item (`ambition_held_items/src/lib.rs`) | yes. BUILT, see below |
 | arrival and fit checks of a traversal | 4 | 0 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (the arrival) | yes. BUILT, see below |
-| a procedure written in world axes | 2 | 2 | the candidates of a teleport's ambush (`teleport.rs`, `ambush_arrival`), the fit of the petter at its mark (`pet.rs`) | yes, and NOT by this rule: a DEFECT of the procedure, see below |
+| a procedure written in world axes | 2 | 2 | the candidates of a teleport's ambush (`teleport.rs`, `ambush_arrival`), the fit of the petter at its mark (`pet.rs`) | yes, and NOT by this rule. The ambush is BUILT (the procedure is in the frame of the teleporter, and its line stays: the half is on the body's own axes). The petting mark is a DEFECT, see below |
 | portals: the carve and the eviction of a body | 3 | 0 | `ambition_portal2d` `transit.rs` (the carve), `eviction.rs` (2) | yes. BUILT, see below |
 | portals: read line by line, and not a level-box read of a body | 6 | 6 | the gravity lookup of the transit (`transit.rs`: the guard has it with the gravity lookups), a shot's portal transit (the guard has it with the shots), the reach of the portal viewer (the host adapter: the LENGTH of the half only), two draws in `ambition_portal2d_presentation` (they read `PortalBodyView`, a published view whose local name is `kin`), and the test literal | no, each with its reason in the baseline of the guard |
 | what a brain sees of a body | 2 | 2 | `perception.rs` (`half_extent` of the viewer and of a peer) | NO, read 2026-10-06: the half is in the body's own frame, and its readers have a frame. See "Rejected" below |
@@ -2975,26 +2975,34 @@ Which crawler can hold which verb, in the shipped app (a probe, not kept):
   ahead (the record is 20 deep on x, the frame 12). The blink is gated to the
   axis arm, where the two are the same.
 
-**A procedure written in world axes (2 lines, NOT built, a defect):** these
-two read a level half, and to turn the half alone is wrong, because every
-other term of the procedure is a world axis.
+**A procedure written in world axes (2 lines; the ambush is built, the
+petting mark is NOT):** these two read a level half, and to turn the half
+alone is wrong, because every other term of the procedure is a world axis.
 
-- `ambush_arrival` (`teleport.rs`): "behind" the foe is world x
-  (`foe.pos.x + side * (foe.half.x + me.half.x + gap)`) and the feet are
-  world y (`foe.feet_y() - me.half.y`). Predicted in gravity toward +x (not
-  measured): "behind" is along gravity, so she arrives over the head of the
-  foe or in the floor under his feet, and her "feet" are put level with his
-  side, not on his floor.
+- `ambush_arrival` (`teleport.rs`): "behind" the foe was world x
+  (`foe.pos.x + side * (foe.half.x + me.half.x + gap)`) and the feet were
+  world y (`foe.feet_y() - me.half.y`). BUILT 2026-10-06: the chooser takes
+  the DOWN of the teleporter; "behind" is on her side axis and the feet are
+  on her DOWN axis, and the halves are laid on that frame (so the guard has
+  the candidate half with the own-frame halves, not as a DEFECT). Arm
+  through the real system, red first, gravity toward +x, a foe 120 beside
+  her on the floor they share: she arrived at (342, 180), toward the floor
+  from him, where (300, 138) is past him along the floor; she now arrives
+  there and looks back. The control in normal gravity is green before and
+  after. Who authors it: the director (`director_second_draft`) and the oni
+  leader (`iaijutsu`); they are placed in `hall_of_characters` and
+  `ninja_dojo`, which do not turn gravity, and on the Smash roster. So the
+  fixture is synthetic. The foe is measured in the frame of the teleporter:
+  the chooser has no DOWN of a foe.
 - the petting mark (`pet.rs`): the mark is at world x from the petted body
   (`petted_x + side * reach`) at the y of the petter, and the fit test puts
   the petter's level box there. Predicted in gravity toward +x (not
   measured): the mark is off the floor plane, in the air over the petted
   body or inside the floor, so the fit test refuses the side in the floor
   and the petter walks to a mark it cannot stand on.
-- Both are in the baseline of the guard under a class named DEFECT, so that
-  "classified" is not read as "right". The fix is to state each procedure in
-  the frame of the body (side axis and DOWN), and then the half is the turned
-  half.
+- The petting mark is in the baseline of the guard under a class named
+  DEFECT, so that "classified" is not read as "right". The fix is to state
+  the procedure in the frame of the body (side axis and DOWN).
 
 **The guard, built 2026-10-06:** `scripts/check_level_box_readers.py` runs
 the search above and compares each line with

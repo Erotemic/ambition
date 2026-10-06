@@ -302,7 +302,7 @@ fn an_ambush_arrives_on_the_far_side_of_the_foe_facing_back_at_him() {
     let me = body(1, 0, "red", ae::Vec2::new(0.0, 0.0));
     let foe = body(2, 1, "blue", ae::Vec2::new(120.0, 0.0));
     let stage = vec![me, foe];
-    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0, GRAVITY).expect("a foe in reach");
     // Past him, by his half-width plus hers plus the authored gap.
     assert_eq!(ambush.arrival.x, 120.0 + HALF.x + HALF.x + GAP);
     // ⛔ AND SHE LOOKS BACK. She travelled +x, so she must end up facing -x.
@@ -317,7 +317,7 @@ fn a_foe_on_the_other_side_puts_the_arrival_on_the_other_side() {
     let me = body(1, 0, "red", ae::Vec2::new(0.0, 0.0));
     let foe = body(2, 1, "blue", ae::Vec2::new(-120.0, 0.0));
     let stage = vec![me, foe];
-    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0, GRAVITY).expect("a foe in reach");
     assert_eq!(ambush.arrival.x, -120.0 - HALF.x - HALF.x - GAP);
     assert_eq!(ambush.facing, 1.0);
 }
@@ -336,7 +336,7 @@ fn a_wider_foe_pushes_the_arrival_further_out_by_exactly_its_edge() {
         ae::Vec2::new(48.0, 32.0),
     );
     let stage = vec![me, wide];
-    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0, GRAVITY).expect("a foe in reach");
     assert_eq!(ambush.arrival.x, 120.0 + 48.0 + HALF.x + GAP);
 }
 
@@ -355,7 +355,7 @@ fn the_arrival_stands_where_the_foe_stands() {
         ae::Vec2::new(16.0, 64.0),
     );
     let stage = vec![me, tall];
-    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0, GRAVITY).expect("a foe in reach");
     assert_eq!(
         ambush.arrival.y, -32.0,
         "her feet belong on the floor he is standing on, not at his centre"
@@ -368,7 +368,7 @@ fn the_nearest_foe_is_the_one_ambushed() {
     let far = body(2, 1, "blue", ae::Vec2::new(300.0, 0.0));
     let near = body(3, 2, "blue", ae::Vec2::new(-90.0, 0.0));
     let stage = vec![me, far, near];
-    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0, GRAVITY).expect("a foe in reach");
     assert!(
         ambush.arrival.x < -90.0,
         "the foe 90px away is nearer than the one 300px away, and the arrival \
@@ -386,7 +386,7 @@ fn a_foe_beyond_the_reach_is_not_a_target_at_all() {
     let distant = body(2, 1, "blue", ae::Vec2::new(900.0, 0.0));
     let stage = vec![me, distant];
     assert!(
-        ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).is_none(),
+        ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0, GRAVITY).is_none(),
         "a foe 900px away is out of a 400px reach, so the move must refuse \
          rather than deposit her partway"
     );
@@ -398,14 +398,14 @@ fn a_foe_just_inside_the_reach_is_taken() {
     let me = body(1, 0, "red", ae::Vec2::new(0.0, 0.0));
     let edge = body(2, 1, "blue", ae::Vec2::new(REACH - 1.0, 0.0));
     let stage = vec![me, edge];
-    assert!(ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).is_some());
+    assert!(ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0, GRAVITY).is_some());
 }
 
 #[test]
 fn an_empty_stage_has_nobody_to_get_behind() {
     let me = body(1, 0, "red", ae::Vec2::ZERO);
     let stage = vec![me];
-    assert!(ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).is_none());
+    assert!(ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0, GRAVITY).is_none());
 }
 
 /// ⛔⛔ A TEAMMATE IS NOT A FOE, and this is the arm that separates "the nearest
@@ -417,7 +417,7 @@ fn a_teammate_standing_closer_is_never_the_target() {
     let ally = body(2, 1, "red", ae::Vec2::new(40.0, 0.0));
     let foe = body(3, 2, "blue", ae::Vec2::new(200.0, 0.0));
     let stage = vec![me, ally, foe];
-    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("a foe in reach");
+    let ambush = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0, GRAVITY).expect("a foe in reach");
     assert!(
         ambush.arrival.x > 200.0,
         "the ally 40px away must be skipped for the foe 200px away, and the \
@@ -432,7 +432,7 @@ fn a_teammate_standing_closer_is_never_the_target() {
 fn the_teleporter_is_not_its_own_target() {
     let me = body(1, 0, "red", ae::Vec2::ZERO);
     let stage = vec![me];
-    assert!(ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).is_none());
+    assert!(ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0, GRAVITY).is_none());
 }
 
 /// ⛔⛔ AN EXACT TIE RESOLVES BY `SimId`, NOT BY LIST ORDER. Two foes equidistant
@@ -446,8 +446,8 @@ fn an_exact_distance_tie_is_broken_by_sim_id_and_not_by_query_order() {
 
     let one = vec![me(), left(), right()];
     let other = vec![me(), right(), left()];
-    let a = ambush_arrival(&one[0], &one, REACH, GAP, 1.0).expect("a foe in reach");
-    let b = ambush_arrival(&other[0], &other, REACH, GAP, 1.0).expect("a foe in reach");
+    let a = ambush_arrival(&one[0], &one, REACH, GAP, 1.0, GRAVITY).expect("a foe in reach");
+    let b = ambush_arrival(&other[0], &other, REACH, GAP, 1.0, GRAVITY).expect("a foe in reach");
     assert_eq!(
         a.arrival, b.arrival,
         "the two foes are exactly equidistant, so reversing the candidate list \
@@ -469,8 +469,8 @@ fn a_foe_on_the_same_column_is_passed_the_way_she_faces() {
     let me = body(1, 0, "red", ae::Vec2::new(0.0, -200.0));
     let below = body(2, 1, "blue", ae::Vec2::new(0.0, 0.0));
     let stage = vec![me, below];
-    let facing_right = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0).expect("in reach");
-    let facing_left = ambush_arrival(&stage[0], &stage, REACH, GAP, -1.0).expect("in reach");
+    let facing_right = ambush_arrival(&stage[0], &stage, REACH, GAP, 1.0, GRAVITY).expect("in reach");
+    let facing_left = ambush_arrival(&stage[0], &stage, REACH, GAP, -1.0, GRAVITY).expect("in reach");
     assert!(facing_right.arrival.x > 0.0);
     assert!(facing_left.arrival.x < 0.0);
 }
@@ -825,4 +825,84 @@ fn in_sideways_gravity_the_ledge_assist_stands_the_bodys_own_box_on_the_ledge() 
         TURNED_HALF.x,
         pos.x
     );
+}
+
+/// Fire one ambush teleport through the real system, in an empty room: a
+/// 24x48 teleporter at `me` on team red, one 24x48 foe at `foe` on team blue.
+/// Answer where the teleporter is after it, and which way it faces.
+fn ambush_through_the_system(me: ae::Vec2, foe: ae::Vec2, gravity_dir: ae::Vec2) -> (ae::Vec2, f32) {
+    let mut app = bevy::prelude::App::new();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(world_with(Vec::new())),
+    );
+    app.add_message::<ambition_vfx::vfx::VfxInRoom>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ActorActionMessage>();
+    app.add_systems(bevy::prelude::Update, apply_authored_teleports);
+
+    let body = spawn_teleporting_body(&mut app, me);
+    {
+        let mut entity = app.world_mut().entity_mut(body);
+        entity.insert(ambition_combat::targeting::MatchTeam::new("red"));
+        entity.get_mut::<ae::BodyKinematics>().unwrap().facing = 1.0;
+        entity
+            .get_mut::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>()
+            .unwrap()
+            .publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(gravity_dir, 0.0));
+    }
+    app.world_mut().spawn((
+        ae::BodyKinematics {
+            pos: foe,
+            size: ae::Vec2::new(24.0, 48.0),
+            ..Default::default()
+        },
+        ambition_combat::targeting::MatchTeam::new("blue"),
+    ));
+    app.world_mut().write_message(ActorActionMessage {
+        actor: body,
+        request: ActionRequest::Special {
+            spec: SpecialActionSpec::Special(TELEPORT.to_string()),
+            params: ambition_entity_catalog::ParamValue::from_typed(&TeleportParams {
+                behind_nearest_foe: true,
+                behind_gap: GAP,
+                distance: REACH,
+                ledge_assist: 0.0,
+                intangible_s: 0.0,
+                depart_vfx: "four_point_glint".to_string(),
+                arrive_vfx: "four_point_glint".to_string(),
+            })
+            .expect("teleport params serialize"),
+        },
+        move_instance: None,
+    });
+    app.update();
+    let kin = app.world().get::<ae::BodyKinematics>(body).expect("the teleporter");
+    (kin.pos, kin.facing)
+}
+
+/// The control of the arm below, and the first arm of the ambush through the
+/// real system: in normal gravity she arrives past him on world x, at his
+/// height, and looks back.
+#[test]
+fn in_normal_gravity_an_ambush_through_the_system_arrives_behind_the_foe() {
+    let (pos, facing) = ambush_through_the_system(ae::Vec2::new(300.0, 300.0), ae::Vec2::new(420.0, 300.0), GRAVITY);
+    assert_eq!(pos, ae::Vec2::new(420.0 + 12.0 + 12.0 + GAP, 300.0));
+    assert_eq!(facing, -1.0);
+}
+
+/// "Behind" is on the side axis of the teleporter and the feet are on her
+/// DOWN. Gravity is toward +x, so her side axis is world -y: a foe 120 toward
+/// world -y is beside her on her floor. She arrives 42 past him on that axis,
+/// with her feet on his floor, and looks back.
+#[test]
+fn in_turned_gravity_an_ambush_arrives_behind_the_foe_on_the_floor_they_share() {
+    let down = ae::Vec2::new(1.0, 0.0);
+    let (pos, facing) = ambush_through_the_system(ae::Vec2::new(300.0, 300.0), ae::Vec2::new(300.0, 180.0), down);
+    assert_eq!(
+        pos,
+        ae::Vec2::new(300.0, 180.0 - 12.0 - 12.0 - GAP),
+        "she must arrive past him along the floor, not toward the floor from him"
+    );
+    assert_eq!(facing, -1.0, "she faced +1, travelled along her side axis, and must look back");
 }

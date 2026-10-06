@@ -738,3 +738,34 @@ fn a_body_talks_only_to_the_npc_of_its_own_live_room() {
         "(a conversation opened, its dialogue): the player is in the second room"
     );
 }
+
+/// A 24 by 40 body in sideways gravity lies along the gravity: its collision
+/// box is 40 wide and 24 tall. The reach of an interact is that box
+/// (`BodyKinematics::collision_box`), not the level box.
+#[test]
+fn a_body_in_sideways_gravity_reaches_the_switch_its_own_box_touches() {
+    let reaches = |offset: ae::Vec2| {
+        let mut app = interaction_app();
+        let center = ae::Vec2::new(100.0, 100.0);
+        let body = spawn_driven_body(&mut app, center, 0);
+        let kin = *app
+            .world()
+            .get::<ambition_platformer2d_core::BodyKinematics>(body)
+            .expect("the driven body has a body");
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ae::SweepSample::at_rest(kin, ae::Vec2::new(1.0, 0.0)));
+        spawn_switch(&mut app, "gate_switch", center + offset);
+        buffer_interact(&mut app, 0, 0.5);
+        app.update();
+        activated(&app) == ["gate_switch"]
+    };
+    assert!(
+        reaches(ae::Vec2::new(26.0, 0.0)),
+        "the switch past the end of the body is in its reach, and the press must activate it"
+    );
+    assert!(
+        !reaches(ae::Vec2::new(0.0, 26.0)),
+        "the switch beside the body is not in its reach, and the press must not activate it"
+    );
+}

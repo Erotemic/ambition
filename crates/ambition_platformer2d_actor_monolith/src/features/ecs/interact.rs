@@ -118,7 +118,7 @@ pub fn interact_ecs_actors_and_switches(
     mut anims: Query<&mut ambition_characters::actor::BodyAnimFacts>,
     // The driven body's kinematics — body-generic so the reach test uses the
     // controlled subject's position whether it's the player or a possessed actor.
-    bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
+    bodies: Query<(&ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
     // The driven body's identity + interaction payload, when it has them (a
     // possessed actor). The home avatar has neither and speaks as its worn
     // character instead.
@@ -179,10 +179,10 @@ pub fn interact_ecs_actors_and_switches(
         if !acting.buffered_interact(subject) {
             continue;
         }
-        let Ok(subject_kin) = bodies.get(subject) else {
+        let Ok((subject_kin, subject_step)) = bodies.get(subject) else {
             continue;
         };
-        let reach_aabb = subject_kin.aabb();
+        let reach_aabb = subject_kin.collision_box(subject_step);
         // WHO is doing the talking. A possessed body speaks as the character it IS;
         // the home avatar speaks as the character it WEARS; a body that is neither
         // speaks as its placement. Ids, never display names — a name is a

@@ -11,7 +11,11 @@ pub fn update_ecs_breakables(
     mut commands: Commands,
     world_time: Res<WorldTime>,
     player_body_q: Query<
-        (Entity, &ambition_platformer2d_core::BodyKinematics),
+        (
+            Entity,
+            &ambition_platformer2d_core::BodyKinematics,
+            Option<&ambition_platformer2d_core::SweepSample>,
+        ),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     mut banner: ResMut<GameplayBanner>,
@@ -73,7 +77,9 @@ pub fn update_ecs_breakables(
         let any_player_standing = breaks_on_stand
             && player_body_q
                 .iter()
-                .any(|(player, kin)| rooms.of(player) == room && player_is_standing_on(kin.aabb(), aabb.aabb()));
+                .any(|(player, kin, last_step)| {
+                    rooms.of(player) == room && player_is_standing_on(kin.collision_box(last_step), aabb.aabb())
+                });
         if any_player_standing {
             stand_timer.0 += dt;
             if stand_timer.0 >= BREAK_ON_STAND_SECONDS {

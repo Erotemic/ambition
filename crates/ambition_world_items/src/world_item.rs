@@ -169,7 +169,7 @@ pub fn collect_world_items(
     mut bodies: Query<
         (
             Entity,
-            &BodyKinematics,
+            (&BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>),
             bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
             Option<&mut WornEquipment>,
@@ -193,7 +193,7 @@ pub fn collect_world_items(
         .filter(|(_, _, is_player, control, _)| {
             ambition_platformer2d_shared_tangle::markers::body_collects_on_touch(*is_player, *control)
         })
-        .map(|(entity, kin, _, _, _)| (entity, ae::Aabb::new(kin.pos, kin.size * 0.5)))
+        .map(|(entity, (kin, last_step), _, _, _)| (entity, kin.collision_box(last_step)))
         .collect();
     if collectors.is_empty() {
         return;

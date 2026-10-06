@@ -39,7 +39,7 @@ pub fn open_ecs_chests(
     >,
     // Presentation anim for whichever body opened the chest.
     mut anims: Query<&mut ambition_characters::actor::BodyAnimFacts>,
-    bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
+    bodies: Query<(&ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
     // `&ChestFeature`, not `With<ChestFeature>` — that one word is the whole of "authored
     // chest rewards are never granted". The payload was filled by all three chest authors and
     // read by nobody: this system knew a chest was there and never asked what was IN it.
@@ -100,10 +100,10 @@ pub fn open_ecs_chests(
         if !acting.buffered_interact(subject) {
             continue;
         }
-        let Ok(subject_kin) = bodies.get(subject) else {
+        let Ok((subject_kin, subject_step)) = bodies.get(subject) else {
             continue;
         };
-        let reach_aabb = subject_kin.aabb();
+        let reach_aabb = subject_kin.collision_box(subject_step);
         let subject_room = rooms.of(subject);
         for (entity, id, name, aabb, chest, opened, falling, boss_reward) in &chests {
             if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(reach_aabb) {

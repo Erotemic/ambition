@@ -1673,54 +1673,123 @@ fn a_death_takes_back_what_was_put_down_in_another_players_room() {
 /// `carried_back`, she picks the object up again before she goes back, so it
 /// is in her hand when she dies.
 fn javelins_after_a_death_with_the_throw_in(throw_in: &str, carried_back: bool) -> (u32, u32) {
+    let counts = quantities_across_deaths(Thrown {
+        item: MINTED_ITEM,
+        into: throw_in,
+        carried_back,
+        bob_leaves: false,
+        deaths: 1,
+    });
+    (counts[1], counts[0])
+}
+
+/// One throw of a quantity of the shared bag, and what comes after it.
+#[derive(Clone, Copy, Debug)]
+struct Thrown<'a> {
+    /// The item, one of which is in the bag at the checkpoint.
+    item: Item,
+    /// The room Alice throws it in: the hub, or Bob's `switch_lab`.
+    into: &'a str,
+    /// Alice picks the object up again before she goes back to the hub.
+    carried_back: bool,
+    /// Bob goes to the hub after the throw, so `switch_lab` retires and the
+    /// object lies there dormant.
+    bob_leaves: bool,
+    /// How many times Alice dies in the hub.
+    deaths: usize,
+}
+
+/// The quantity of `thrown.item`, counted in the bag, in the world and in the
+/// rooms that are not live (a ledger row that places the object, with no
+/// live object): just before the first death, then after each death.
+fn quantities_across_deaths(thrown: Thrown) -> Vec<u32> {
     use ambition_platformer2d::item::ItemGrantRequested;
     use ambition_platformer2d::item::OwnedItems;
+    use ambition_platformer2d::platformer::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
     use bevy::ecs::system::RunSystemOnce;
 
     let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
     assert_eq!(sim.observation().active_room, ROOM, "precondition: Alice is in the hub");
     sim.world_mut().write_message(ItemGrantRequested {
-        item: MINTED_ITEM,
+        item: thrown.item,
         count: 1,
     });
     sim.step_n(base(), 4);
     commit_a_checkpoint(&mut sim);
-    let javelins = |sim: &mut Platformer2dSimHarness| {
-        sim.world().resource::<OwnedItems>().count(MINTED_ITEM) + dynamic_occurrences(sim).len() as u32
+    let item = thrown.item;
+    let count = |sim: &mut Platformer2dSimHarness, object: Option<&SimId>| {
+        let live = dynamic_occurrences(sim);
+        let dormant = object.is_some_and(|object| {
+            !live.contains(object)
+                && matches!(
+                    sim.world().resource::<AuthoredOccurrences>().whereabouts(object),
+                    Some(OccurrenceWhereabouts::Placed { .. })
+                )
+        });
+        sim.world().resource::<OwnedItems>().count(item) + live.len() as u32 + u32::from(dormant)
     };
-    assert_eq!(javelins(&mut sim), 1, "precondition: the checkpoint has one javelin, in the bag");
+    assert_eq!(count(&mut sim, None), 1, "precondition: the checkpoint has one, in the bag");
 
-    if throw_in != ROOM {
-        assert_eq!(crate::common::walk_through_the_door_to(&mut sim, throw_in), throw_in);
+    if thrown.into != ROOM {
+        assert_eq!(crate::common::walk_through_the_door_to(&mut sim, thrown.into), thrown.into);
         sim.step_n(base(), 10);
     }
     sim.world_mut()
-        .run_system_once(equip_the_minted_item)
+        .run_system_once(
+            move |mut commands: bevy::prelude::Commands,
+                  items: ambition_platformer2d::items::ItemCatalogRead,
+                  mut bodies: bevy::prelude::Query<
+                (Entity, ambition_platformer2d::combat::hand::RepertoireQuery),
+                ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+            >| {
+                let (player, mut repertoire) = bodies.single_mut().expect("one primary body");
+                let spec = ambition_platformer2d::held_items::held_spec_for_item(items.get(), item)
+                    .expect("the item is a wired weapon with a held spec");
+                ambition_platformer2d::held_items::equip_held_spec(&mut commands, player, &mut repertoire, spec);
+            },
+        )
         .expect("the equip verb runs");
     sim.step(AgentAction {
         attack: true,
         ..base()
     });
-    sim.step_n(base(), 120);
+    // The minted object, seen on any frame of the flight: a bomb is gone
+    // when its fuse ends.
+    let mut object = None;
+    for _ in 0..120 {
+        sim.step(base());
+        object = object.or_else(|| dynamic_occurrences(&mut sim).into_iter().next());
+    }
     assert_eq!(
-        sim.world().resource::<OwnedItems>().count(MINTED_ITEM),
+        sim.world().resource::<OwnedItems>().count(item),
         0,
         "precondition: the throw spent the quantity"
     );
-    let objects = dynamic_occurrences(&mut sim);
-    assert_eq!(objects.len(), 1, "precondition: the throw minted one object");
-    if carried_back {
-        let at = resting_place(&mut sim, &objects[0]);
-        pick_up(&mut sim, at, &objects[0]);
+    let object = object.expect("precondition: the throw minted one object");
+    if thrown.carried_back {
+        let at = resting_place(&mut sim, &object);
+        pick_up(&mut sim, at, &object);
     }
-    if throw_in != ROOM {
+    if thrown.into != ROOM {
         assert_eq!(crate::common::walk_through_the_door_to(&mut sim, ROOM), ROOM);
         sim.step_n(base(), 10);
     }
-    let before = javelins(&mut sim);
-    die(&mut sim);
-    sim.step_n(base(), 90);
-    (javelins(&mut sim), before)
+    if thrown.bob_leaves {
+        let (hub, _) = crate::two_players_two_live_rooms::where_they_are(&mut sim);
+        crate::two_players_two_live_rooms::bob_goes_to_the_hub(&mut sim, hub.expect("Alice is in a live room"));
+        assert_eq!(
+            crate::two_players_two_live_rooms::live_rooms(&mut sim).len(),
+            1,
+            "precondition: Bob's room retired when he left it"
+        );
+    }
+    let mut counts = vec![count(&mut sim, Some(&object))];
+    for _ in 0..thrown.deaths {
+        die(&mut sim);
+        sim.step_n(base(), 90);
+        counts.push(count(&mut sim, Some(&object)));
+    }
+    counts
 }
 
 /// What Alice threw into Bob's live room after the checkpoint stays there,
@@ -1800,5 +1869,26 @@ fn a_new_game_gives_the_bag_the_composition_began_with() {
         empty,
         ambition_platformer2d::items::OwnedItems::default(),
         "a New Game in a composition that begins with an empty bag gave it items"
+    );
+}
+
+/// The javelin of [`a_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_room`],
+/// and Alice dies twice (review 2026-10-05, finding 1). The first restore
+/// keeps the spend, because the object stays in Bob's live room. It must also
+/// keep the spend recorded, or the second restore of the same checkpoint puts
+/// the quantity back in the bag while the object stays. The control is the
+/// count before the first death.
+#[test]
+fn a_second_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_room() {
+    assert_eq!(
+        quantities_across_deaths(Thrown {
+            item: MINTED_ITEM,
+            into: "switch_lab",
+            carried_back: false,
+            bob_leaves: false,
+            deaths: 2,
+        }),
+        [1, 1, 1],
+        "javelins in the bag and the world: before Alice's deaths, then after each"
     );
 }

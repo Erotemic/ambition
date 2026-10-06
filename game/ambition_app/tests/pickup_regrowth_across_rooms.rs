@@ -434,6 +434,16 @@ fn alices_balance(sim: &mut Platformer2dSimHarness) -> i32 {
 /// With `bob_stays`, Bob is in the coin room the whole time, so it stays
 /// live; without him it retires when she leaves.
 fn a_coin_taken_after_the_checkpoint(bob_stays: bool) -> (i32, Option<bool>) {
+    a_coin_taken_after_the_checkpoint_then(bob_stays, 1)[0].0
+}
+
+/// [`a_coin_taken_after_the_checkpoint`], with Alice dying `deaths` times in
+/// the hub. One reading after each death, with the owners of the coin's
+/// grant that the record keeps.
+fn a_coin_taken_after_the_checkpoint_then(
+    bob_stays: bool,
+    deaths: usize,
+) -> Vec<((i32, Option<bool>), Vec<Vec<ambition_platformer2d::characters::control::PlayerSlot>>)> {
     let mut sim = if bob_stays {
         crate::two_players_two_live_rooms::alice_leaves_bob_in(
             COIN_ROOM,
@@ -460,19 +470,36 @@ fn a_coin_taken_after_the_checkpoint(bob_stays: bool) -> (i32, Option<bool>) {
     let coin_room_live =
         crate::two_players_two_live_rooms::live_rooms(&mut sim).iter().any(|(_, id)| id == COIN_ROOM);
     assert_eq!(coin_room_live, bob_stays, "precondition: the coin room is live while Bob is in it");
-    crate::death_restores_the_checkpoint::die(&mut sim);
-    let outcome = format!(
-        "{:?}",
-        sim.world()
-            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
-            .latest()
-    );
-    assert!(outcome.starts_with("Some(Committed"), "precondition: the death's restore committed: {outcome}");
-    settle(&mut sim, 2);
-    (
-        alices_balance(&mut sim) - at_the_checkpoint,
-        pickup(&mut sim, COIN).map(|(collected, _)| collected),
-    )
+    let mut readings = Vec::new();
+    for _ in 0..deaths {
+        crate::death_restores_the_checkpoint::die(&mut sim);
+        let outcome = format!(
+            "{:?}",
+            sim.world()
+                .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+                .latest()
+        );
+        assert!(outcome.starts_with("Some(Committed"), "precondition: the death's restore committed: {outcome}");
+        settle(&mut sim, 2);
+        let owners = sim
+            .world()
+            .resource::<ambition_platformer2d::actors::items::pickup::RewardGrantsSinceCheckpoint>()
+            .grants()
+            .iter()
+            .filter_map(|grant| match &grant.source {
+                ambition_platformer2d::actors::items::pickup::GrantSource::Authored { owners } => Some(owners.clone()),
+                _ => None,
+            })
+            .collect();
+        readings.push((
+            (
+                alices_balance(&mut sim) - at_the_checkpoint,
+                pickup(&mut sim, COIN).map(|(collected, _)| collected),
+            ),
+            owners,
+        ));
+    }
+    readings
 }
 
 /// Q151 for a grant: a coin Alice took after the checkpoint in Bob's room,
@@ -491,5 +518,24 @@ fn a_death_keeps_the_coin_taken_in_another_players_live_room() {
         a_coin_taken_after_the_checkpoint(true),
         (25, Some(true)),
         "(money kept, the coin still gone in Bob's live room)"
+    );
+}
+
+/// The coin of [`a_death_keeps_the_coin_taken_in_another_players_live_room`],
+/// and Alice dies twice (review 2026-10-05, finding 1). The first restore
+/// keeps the coin's money, because Bob's horizon owns the grant. It must also
+/// keep the grant recorded, now owned by Bob alone (Alice's horizon went
+/// back), or the second restore of the same checkpoint has nothing to keep
+/// and takes the money back while the coin stays gone in Bob's room. The
+/// control is the first death.
+#[test]
+fn a_second_death_keeps_the_coin_taken_in_another_players_live_room() {
+    use ambition_platformer2d::characters::control::PlayerSlot;
+    let kept = ((25, Some(true)), vec![vec![PlayerSlot(1)]]);
+    assert_eq!(
+        a_coin_taken_after_the_checkpoint_then(true, 2),
+        vec![kept.clone(), kept],
+        "((money kept, the coin still gone in Bob's live room), the owners of the grant the record keeps) \
+         after each of Alice's two deaths"
     );
 }

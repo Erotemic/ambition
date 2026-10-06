@@ -324,6 +324,8 @@ pub fn restore_checkpoint_on_session_start(
                 crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                     minted: minted.clone(),
                     owned: owned.clone(),
+                    grants: Default::default(),
+                    spends: Default::default(),
                 }
             }),
             fresh: false,
@@ -685,6 +687,8 @@ pub fn resume_at_checkpoint_on_reset(
                 crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                     minted: Default::default(),
                     owned,
+                    grants: Default::default(),
+                    spends: Default::default(),
                 }
             }),
         )
@@ -709,6 +713,8 @@ pub fn resume_at_checkpoint_on_reset(
         // body's, so it keeps the coins that body collected.
         let item = minted.zip(owned).map(|(minted, owned)| {
             let mut owned = owned.clone();
+            let mut kept_grants = crate::items::pickup::RewardGrantsSinceCheckpoint::default();
+            let mut kept_spends = ambition_held_items::BagSpendsSinceCheckpoint::default();
             if let (Some(grants), Some(defeats)) = (grants.as_ref(), defeats.as_ref()) {
                 let (mut bosses, mut placements) =
                     (std::collections::BTreeSet::new(), std::collections::BTreeSet::new());
@@ -730,6 +736,7 @@ pub fn resume_at_checkpoint_on_reset(
                 }
                 owned.adopt(bag);
                 owned.adopt_purse(purse);
+                kept_grants = grants.after_restore(&bosses, &placements, &spared_participants);
             }
             // And without what each throw since the checkpoint spent, when
             // the restore keeps its object: an object in a room the restore
@@ -753,9 +760,10 @@ pub fn resume_at_checkpoint_on_reset(
                             }
                     })
                 };
+                kept_spends = spends.keeping(|spend| kept(&spend.object));
                 let mut bag = owned.remembered().clone();
                 let mut taken = 0;
-                for spend in spends.spends().iter().filter(|spend| kept(&spend.object)) {
+                for spend in kept_spends.spends() {
                     taken += bag.take(spend.item, 1);
                 }
                 if taken > 0 {
@@ -765,6 +773,8 @@ pub fn resume_at_checkpoint_on_reset(
             crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                 minted: minted.clone(),
                 owned,
+                grants: kept_grants,
+                spends: kept_spends,
             }
         });
         (lifecycle, item)

@@ -258,6 +258,15 @@ pub struct ItemCheckpointRestoreInputs {
     /// The stored quantities. The hand is not in it — custody is
     /// `restore_custody_to_checkpoint`'s.
     pub owned: OwnedItemsBaseline,
+    /// The grants since the checkpoint that the restore keeps in `owned`, each
+    /// owned only by the participants the restore spares (Q151). They stay
+    /// recorded, so that the next restore of the same checkpoint keeps them
+    /// again. A record the restore forgets is a reward the next death loses.
+    pub grants: RewardGrantsSinceCheckpoint,
+    /// The bag spends since the checkpoint that the restore keeps taken from
+    /// `owned`, for the same reason. A spend the restore forgets is a
+    /// quantity the next death puts back while its object stays.
+    pub spends: ambition_held_items::BagSpendsSinceCheckpoint,
 }
 
 /// ⛔⛔ IT RUNS ONLY FROM THE COMMIT, AND READS ONLY WHAT THE COMMIT INSTALLED.
@@ -454,8 +463,38 @@ impl RewardGrantsSinceCheckpoint {
         })
     }
 
+    /// The grants a checkpoint restore keeps ([`Self::kept_by_restore`]), as
+    /// the record that stays after it. An authored source stays owned only by
+    /// its spared owners: the restore rewound the horizons of the others, so
+    /// they own the grant no longer. A boss defeat that a restore keeps
+    /// shrinks its participants in the same way.
+    pub fn after_restore(
+        &self,
+        bosses: &std::collections::BTreeSet<SimId>,
+        placements: &std::collections::BTreeSet<String>,
+        spared_participants: &[ambition_characters::control::PlayerSlot],
+    ) -> Self {
+        let grants = self
+            .kept_by_restore(bosses, placements, spared_participants)
+            .map(|grant| {
+                let mut grant = grant.clone();
+                if let GrantSource::Authored { owners } = &mut grant.source {
+                    owners.retain(|owner| spared_participants.contains(owner));
+                }
+                grant
+            })
+            .collect();
+        Self { grants }
+    }
+
+    /// Every grant, in the order they were made.
+    pub fn grants(&self) -> &[RewardGrant] {
+        &self.grants
+    }
+
     /// Forget every grant: a checkpoint commit makes them part of the
-    /// baseline, and a checkpoint restore or a fresh run puts the bag back.
+    /// baseline. A restore keeps the ones it keeps
+    /// ([`keep_the_bag_records_the_restore_keeps`]).
     pub fn forget_all(&mut self) {
         if !self.grants.is_empty() {
             self.grants.clear();
@@ -516,22 +555,27 @@ pub fn forget_bag_records_at_checkpoint(
     }
 }
 
-/// A checkpoint restore and a fresh run put the bag and the primary wallet
-/// back, so no grant or spend since the checkpoint is left to take back from
-/// them. (checkpoint reducer, in `CheckpointDomainApply`)
-pub fn forget_bag_records_on_restore(
+/// A checkpoint restore keeps recorded the grants and the bag spends that it
+/// keeps (pinned by `resume_at_checkpoint_on_reset`), and forgets the others:
+/// the restore put their quantities back. A fresh run keeps none.
+/// (checkpoint reducer, in `CheckpointDomainApply`)
+pub fn keep_the_bag_records_the_restore_keeps(
     inputs: Option<Res<ItemCheckpointRestoreInputs>>,
     grants: Option<ResMut<RewardGrantsSinceCheckpoint>>,
     spends: Option<ResMut<ambition_held_items::BagSpendsSinceCheckpoint>>,
 ) {
-    if inputs.is_none() {
+    let Some(inputs) = inputs else {
         return;
-    }
+    };
     if let Some(mut grants) = grants {
-        grants.forget_all();
+        if *grants != inputs.grants {
+            *grants = inputs.grants.clone();
+        }
     }
     if let Some(mut spends) = spends {
-        spends.forget_all();
+        if *spends != inputs.spends {
+            *spends = inputs.spends.clone();
+        }
     }
 }
 
@@ -668,7 +712,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
                 restore_owned_items_to_checkpoint,
                 super::restore_custody_to_checkpoint,
                 start_the_item_domain_fresh,
-                forget_bag_records_on_restore,
+                keep_the_bag_records_the_restore_keeps,
             )
                 .chain(),
         );

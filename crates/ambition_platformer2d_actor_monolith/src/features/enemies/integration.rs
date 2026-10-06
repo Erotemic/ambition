@@ -404,15 +404,11 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
     // matching the cluster component accessors.
 
     fn aabb(&self) -> ae::Aabb {
-        // Orientation follows the published support normal — a crawler clung to
-        // a wall and a body under sideways gravity both lie ALONG the surface,
-        // so the footprint swaps its extents (frame-derived, policy-free).
-        let size = if self.surface.surface_normal.x.abs() > 0.5 {
-            ae::Vec2::new(self.kin.size.y, self.kin.size.x)
-        } else {
-            self.kin.size
-        };
-        ae::Aabb::new(self.kin.pos, size * 0.5)
+        // The body's box turned to the frame whose DOWN is opposite the
+        // published support normal: the rule of the published footprint
+        // (`publish_body_footprint`). A crawler on a wall and a body in
+        // sideways gravity lie ALONG their support.
+        self.kin.aabb_oriented(-self.surface.surface_normal)
     }
 
     // `rotation_rad()` WAS HERE and nothing ever asked for it
@@ -570,6 +566,8 @@ pub(crate) trait SeedActorIntegrationTestExt:
 #[cfg(test)]
 impl SeedActorIntegrationTestExt for ambition_body_seed::ActorClusterSeed {}
 
+#[cfg(test)]
+mod body_box_tests;
 #[cfg(test)]
 mod dash_tests;
 #[cfg(test)]

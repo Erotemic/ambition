@@ -2616,6 +2616,19 @@ under its end). Witnesses (`movement/tests/step_box_world_reads.rs`): eight
 cases where the two boxes give opposite answers, and one control in normal
 gravity that fails if a reader swaps the sides of the box with no frame.
 
+**Built 2026-10-06, the actor's own box:** `ActorMut::aabb`
+(`features/enemies/integration.rs`: the volume of a body-contact attack, of a
+charge crash and of a blast-zone death) swapped its extents when
+`surface_normal.x.abs() > 0.5`. That was a second statement of the footprint
+rule (`publish_body_footprint`, `BodyKinematics::aabb_oriented`), and it is
+deleted: the accessor asks the rule. The two were EQUAL for a cardinal normal,
+so sideways gravity did not separate them. Measured with a 48 by 22 body
+stepped once through `ActorMut::update`: with DOWN (0.6, 0.8) the contact
+attack had the half (11, 24) and the footprint and the box of the step had
+(25.8, 23.2); with DOWN (0.3, 0.954) it had (24, 11) and they had
+(26.2, 17.7). Witnesses (`integration/body_box_tests.rs`): the two diagonal
+arms, and a cardinal control that was green before and after.
+
 **Open, read 2026-10-05, not built:**
 - A transit collapses the record to a zero-length sample with the level half
   (`movement/authority.rs`, `reconcile_transit`), and it has no frame to turn
@@ -2631,9 +2644,12 @@ gravity that fails if a reader swaps the sides of the box with no frame.
   (searched in `crates` and `game`, 2026-10-06). So a slug or a momentum body
   is in no water and on no ladder, and it does not drown. Not measured in a
   composed room.
-- The enemy body's own box (`features/enemies/integration.rs`, `aabb`) swaps
-  its extents by `surface_normal.x.abs() > 0.5`, a second statement of
-  `aabb_oriented(-surface_normal)`. They are equal for a cardinal normal.
+- The actor view derives a surface walker's draw size by the inverse of the
+  rule (`ambition_sim_view/src/view_index.rs`: it swaps the published
+  footprint back when `surface_normal.x.abs() > surface_normal.y.abs()`). The
+  inverse is exact for a cardinal normal only: for any other normal the
+  footprint is a bound of the turned box, and the raw size is not in it. The
+  raw size is `BodyKinematics::size`. Read 2026-10-06, not measured.
 
 ### CALIBRATION-LAB-SHOT — a shot born at chest height in the calibration lab is gone on its first tick
 

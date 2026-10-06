@@ -533,6 +533,71 @@ with the durable records it reads; a durable record written in Alice's room
 after the checkpoint goes back. The shared-room and whole-session-reload
 cases have their own arms.
 
+### BAG-RECORD-HORIZON — a bag record is owned by what is left of its consequence
+
+**Owner:** `items::pickup::minted_horizon` (the grant and spend records),
+`session::checkpoint` (the restore's bag fold), the occurrence ledger
+(`AuthoredOccurrences::end`, the `Placed` index) and
+`features::ecs::pickups` (`ConsumedSinceCheckpoint`). Part of
+DEATH-IS-ROOM-LOCAL (Q151). Review of 2026-10-05, findings 1 and 2.
+
+**Finding 1, built 2026-10-05:** a restore kept in the bag what a spared
+participant's grant gave and what a kept object's throw spent, and then
+forgot both records. A second death of the same checkpoint had nothing to
+keep: it took back the coin Alice took in Bob's live room while the coin
+stayed gone (money 25 → 0), and put back the javelin quantity while the
+javelin stayed in his room (javelins 1, 1, 2). The acceptance now pins the
+records it keeps beside the bag (`ItemCheckpointRestoreInputs.grants` and
+`.spends`), and the reducer writes them back. An authored grant stays owned
+only by its spared owners, as a kept boss defeat shrinks its participants.
+Witnesses: `a_second_death_keeps_the_coin_taken_in_another_players_live_room`,
+`a_second_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_room`.
+Poisons, each red on its own arm: forget the grants, forget the spends, no
+owner shrink (owners `[0, 1]` for `[1]`).
+
+**Finding 2, built 2026-10-05:** the spend of a throw stood only while its
+object was an entity. Measured before the change:
+
+- An object that ENDS (a bomb explodes) kept its `Placed` row, so its room
+  built it again when the room was live again, with the bag already spent:
+  a duplicate with no death at all. And Alice's death put a bomb that
+  exploded in Bob's live room back in the bag.
+- An object lying in a room that is NOT LIVE (Bob left) was conserved: the
+  restore's pinned ledger has no row for it, so the object goes and the
+  quantity comes back. The spend got that answer from the absence of an
+  entity, not from the row.
+
+Now an occurrence that a row places in a live room, and that no entity is
+any longer, has ended there: its row becomes `Consumed`
+(`AuthoredOccurrences::end`, read by `record_ended_occurrences` through a
+per-room `Placed` index), and the participants in the room own the ending
+(`ConsumedSinceCheckpoint`, as a consumed pickup). Nothing names the item
+or the system that ended it. A spend stands when its object is in a room the
+restore spares, or when the ledger the restore pins still holds the object's
+end. Witnesses:
+`a_death_does_not_put_back_in_the_bag_a_bomb_that_exploded_in_another_players_room`,
+`an_object_that_ended_is_not_built_again_when_its_room_is_live_again`,
+`a_death_takes_back_a_javelin_whose_room_is_not_live_with_its_row`.
+Poisons, each red: no `end` (the exploded bomb is lying in its room again,
+and the bag gets it back); no owners recorded for the ending (bombs 0, 1, 1
+after Bob's room kept the explosion); the spend reads the live object only
+(the same).
+
+**Open:**
+
+- A dormant row is not owned by participants. Another participant's death
+  takes back a javelin Bob's room held after Bob left it, while a one-time
+  pickup he consumed in that room stays consumed (Q151 keeps the second by
+  owners). The spend reads the row, so it follows if the ledger comes to
+  keep a spared participant's dormant rows.
+- A `Consumed` row of an ended runtime mint stays in the ledger and the save
+  for the run. A runtime mint with no row is built by nothing, so the row is
+  needed only until the checkpoint after the end; compacting it needs the
+  ledger to know which rows are runtime mints.
+- An object held by Bob while Bob stands in the dying participant's room is
+  not kept (the room is not spared), and Bob's hand is not rewound: not
+  measured.
+
 ### WEAR-REFUSES-UNPREPARED — a character outside the prepared generation is never worn — ✅ DONE 2026-10-03 (two remainders)
 
 **Owner:** `ambition_combat::worn_kit::WornKit::of` and

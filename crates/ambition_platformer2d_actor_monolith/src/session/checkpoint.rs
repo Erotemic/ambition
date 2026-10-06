@@ -739,10 +739,20 @@ pub fn resume_at_checkpoint_on_reset(
                 kept_grants = grants.after_restore(&bosses, &placements, &spared_participants);
             }
             // And without what each throw since the checkpoint spent, when
-            // the restore keeps its object: an object in a room the restore
-            // spares, lying there or held by a body there. The subject's room
-            // is never spared, so an object in the subject's hand is not kept.
-            // An object the restore takes back gives its quantity back.
+            // the restore keeps what its object became (review 2026-10-05,
+            // finding 2): an object in a room the restore spares, lying there
+            // or held by a body there; or the object's end, which the ledger
+            // this restore pins still holds (a bomb that exploded in a room a
+            // spared participant was in). The subject's room is never spared,
+            // so an object in the subject's hand is not kept. An object the
+            // restore takes back gives its quantity back, and so does an
+            // object lying in a room that is not live, whose row the pinned
+            // ledger does not hold: the restore takes the row back.
+            //
+            // ⛔ NOT THE LIVE OBJECT ALONE. An object that is no longer an
+            // entity ended or lies in a room that is not live, and either way
+            // the answer is in the ledger, not in the world.
+            let pinned = lifecycle.as_ref().map(|inputs| inputs.occurrences.remembered());
             let (spends, objects, holders) = &thrown;
             if let Some(spends) = spends.as_ref() {
                 let spared_room = |stamp, root| {
@@ -750,7 +760,12 @@ pub fn resume_at_checkpoint_on_reset(
                         .is_some_and(|room| spared.contains(&room))
                 };
                 let kept = |object: &ambition_platformer2d_shared_tangle::sim_id::SimId| {
-                    objects.iter().any(|(id, custody, stamp, root)| {
+                    pinned.is_some_and(|ledger| {
+                        matches!(
+                            ledger.whereabouts(object),
+                            Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Consumed)
+                        )
+                    }) || objects.iter().any(|(id, custody, stamp, root)| {
                         id == object
                             && match *custody {
                                 ambition_held_items::ItemCustody::InWorld => spared_room(stamp, root),

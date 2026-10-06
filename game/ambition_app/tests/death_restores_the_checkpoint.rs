@@ -1673,13 +1673,14 @@ fn a_death_takes_back_what_was_put_down_in_another_players_room() {
 /// `carried_back`, she picks the object up again before she goes back, so it
 /// is in her hand when she dies.
 fn javelins_after_a_death_with_the_throw_in(throw_in: &str, carried_back: bool) -> (u32, u32) {
-    let counts = quantities_across_deaths(Thrown {
+    let counts = totals(quantities_across_deaths(Thrown {
         item: MINTED_ITEM,
         into: throw_in,
         carried_back,
         bob_leaves: false,
         deaths: 1,
-    });
+        alice_goes_back: false,
+    }));
     (counts[1], counts[0])
 }
 
@@ -1697,12 +1698,30 @@ struct Thrown<'a> {
     bob_leaves: bool,
     /// How many times Alice dies in the hub.
     deaths: usize,
+    /// After the deaths, Alice goes into the room she threw it in, so that
+    /// room is live and built.
+    alice_goes_back: bool,
 }
 
-/// The quantity of `thrown.item`, counted in the bag, in the world and in the
-/// rooms that are not live (a ledger row that places the object, with no
-/// live object): just before the first death, then after each death.
-fn quantities_across_deaths(thrown: Thrown) -> Vec<u32> {
+/// Where one quantity is: in the bag, as a live object, and as a ledger row
+/// that places it in a room that is not live (a dormant object).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Quantity {
+    bag: u32,
+    live: u32,
+    dormant: u32,
+}
+
+/// How many there are, wherever they are.
+fn totals(readings: Vec<Quantity>) -> Vec<u32> {
+    readings.into_iter().map(|q| q.bag + q.live + q.dormant).collect()
+}
+
+/// The quantity of `thrown.item`, in the bag, in the world and in the rooms
+/// that are not live (a ledger row that places the object, with no live
+/// object): just before the first death, then after each death, then (with
+/// `alice_goes_back`) in the room it was thrown in.
+fn quantities_across_deaths(thrown: Thrown) -> Vec<Quantity> {
     use ambition_platformer2d::item::ItemGrantRequested;
     use ambition_platformer2d::item::OwnedItems;
     use ambition_platformer2d::platformer::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
@@ -1726,9 +1745,17 @@ fn quantities_across_deaths(thrown: Thrown) -> Vec<u32> {
                     Some(OccurrenceWhereabouts::Placed { .. })
                 )
         });
-        sim.world().resource::<OwnedItems>().count(item) + live.len() as u32 + u32::from(dormant)
+        Quantity {
+            bag: sim.world().resource::<OwnedItems>().count(item),
+            live: live.len() as u32,
+            dormant: u32::from(dormant),
+        }
     };
-    assert_eq!(count(&mut sim, None), 1, "precondition: the checkpoint has one, in the bag");
+    assert_eq!(
+        count(&mut sim, None),
+        Quantity { bag: 1, live: 0, dormant: 0 },
+        "precondition: the checkpoint has one, in the bag"
+    );
 
     if thrown.into != ROOM {
         assert_eq!(crate::common::walk_through_the_door_to(&mut sim, thrown.into), thrown.into);
@@ -1787,6 +1814,11 @@ fn quantities_across_deaths(thrown: Thrown) -> Vec<u32> {
     for _ in 0..thrown.deaths {
         die(&mut sim);
         sim.step_n(base(), 90);
+        counts.push(count(&mut sim, Some(&object)));
+    }
+    if thrown.alice_goes_back {
+        assert_eq!(crate::common::walk_through_the_door_to(&mut sim, thrown.into), thrown.into);
+        sim.step_n(base(), 10);
         counts.push(count(&mut sim, Some(&object)));
     }
     counts
@@ -1881,14 +1913,105 @@ fn a_new_game_gives_the_bag_the_composition_began_with() {
 #[test]
 fn a_second_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_room() {
     assert_eq!(
-        quantities_across_deaths(Thrown {
+        totals(quantities_across_deaths(Thrown {
             item: MINTED_ITEM,
             into: "switch_lab",
             carried_back: false,
             bob_leaves: false,
             deaths: 2,
-        }),
+            alice_goes_back: false,
+        })),
         [1, 1, 1],
         "javelins in the bag and the world: before Alice's deaths, then after each"
+    );
+}
+
+/// A thrown object can END: a bomb explodes. Review 2026-10-05, finding 2:
+/// the spend of a bomb that exploded in Bob's live room stands, because the
+/// explosion happened in a room Alice's death does not take back. The spend
+/// was kept only while its object was an entity, so her death put the bomb
+/// back in the bag after it had exploded. The control is the same bomb in
+/// Alice's own room, which her death builds again: the quantity comes back.
+///
+/// Counted in the bag, the world and the dormant rows, so an exploded bomb is
+/// none: also its ledger row, which placed it where it exploded.
+#[test]
+fn a_death_does_not_put_back_in_the_bag_a_bomb_that_exploded_in_another_players_room() {
+    let thrown = |into, deaths| Thrown {
+        item: Item::Bomb,
+        into,
+        carried_back: false,
+        bob_leaves: false,
+        deaths,
+        alice_goes_back: false,
+    };
+    assert_eq!(
+        totals(quantities_across_deaths(thrown(ROOM, 1))),
+        [0, 1],
+        "control: bombs before and after Alice's death, when it exploded in her own room"
+    );
+    assert_eq!(
+        totals(quantities_across_deaths(thrown("switch_lab", 2))),
+        [0, 0, 0],
+        "bombs before Alice's deaths and after each, when it exploded in Bob's live room"
+    );
+}
+
+/// An object that ended is not built again where it ended. A bomb exploded in
+/// Bob's room; Bob leaves, so the room retires, and Alice goes in. The row of
+/// the bomb placed it where it exploded, so the room built it again, and the
+/// bag had spent it. The control is a javelin, which does not end: it lies
+/// where it fell, and the room builds it again (OW3).
+#[test]
+fn an_object_that_ended_is_not_built_again_when_its_room_is_live_again() {
+    let thrown = |item| Thrown {
+        item,
+        into: "switch_lab",
+        carried_back: false,
+        bob_leaves: true,
+        deaths: 0,
+        alice_goes_back: true,
+    };
+    let lying = Quantity { bag: 0, live: 0, dormant: 1 };
+    assert_eq!(
+        quantities_across_deaths(thrown(MINTED_ITEM)),
+        [lying, Quantity { bag: 0, live: 1, dormant: 0 }],
+        "control: the javelin while its room is not live, then when Alice is in it"
+    );
+    let gone = Quantity { bag: 0, live: 0, dormant: 0 };
+    assert_eq!(
+        quantities_across_deaths(thrown(Item::Bomb)),
+        [gone, gone],
+        "the bomb that exploded, while its room is not live, then when Alice is in it"
+    );
+}
+
+/// A thrown object can lie in a room that is not live: Bob leaves the room
+/// the javelin lies in. The spend then follows the object's ledger row, not
+/// the object, which is no entity. Alice's restore puts back the ledger it
+/// pinned, which has no row for a javelin thrown after the checkpoint, so the
+/// javelin goes, and its quantity comes back to the bag: one javelin, in the
+/// bag, also after a second death and in the room when Alice goes in.
+///
+/// ⚠ This is the ledger's rule, and the spend reads it. A dormant object
+/// that a spared participant left is taken back by another participant's
+/// death, where a one-time pickup he consumed in that room stays consumed
+/// (Q151). If the ledger comes to keep his dormant rows, this arm changes
+/// with it and the bag keeps the spend.
+#[test]
+fn a_death_takes_back_a_javelin_whose_room_is_not_live_with_its_row() {
+    let dormant = Quantity { bag: 0, live: 0, dormant: 1 };
+    let in_the_bag = Quantity { bag: 1, live: 0, dormant: 0 };
+    assert_eq!(
+        quantities_across_deaths(Thrown {
+            item: MINTED_ITEM,
+            into: "switch_lab",
+            carried_back: false,
+            bob_leaves: true,
+            deaths: 2,
+            alice_goes_back: true,
+        }),
+        [dormant, in_the_bag, in_the_bag, in_the_bag],
+        "the javelin before Alice's deaths, after each, then in its room"
     );
 }

@@ -189,6 +189,11 @@ pub struct AuthoredOccurrences {
     /// without a walk over every row: dormant `Placed` rows add no work to a
     /// tick that carries nothing new.
     custody: Arc<BTreeSet<SimId>>,
+    /// The ids whose row is `Placed`, by the room the row names: a DERIVED
+    /// index of `rows`, kept like `custody`. It lets a reader of one live
+    /// room find the rows that place an occurrence there without a walk over
+    /// the dormant rows of every other room ([`Self::placed_in`]).
+    placed: Arc<BTreeMap<String, BTreeSet<SimId>>>,
 }
 
 /// Equal rows, with the same allocation first: a snapshot and the live ledger
@@ -311,7 +316,44 @@ impl AuthoredOccurrences {
                     .map(|(sim_id, _)| sim_id.clone())
                     .collect(),
             );
+            let mut placed: BTreeMap<String, BTreeSet<SimId>> = BTreeMap::new();
+            for (sim_id, whereabouts) in &rows {
+                if let OccurrenceWhereabouts::Placed { room, .. } = whereabouts {
+                    placed.entry(room.clone()).or_default().insert(sim_id.clone());
+                }
+            }
+            self.placed = Arc::new(placed);
             self.rows = Arc::new(rows);
+        }
+    }
+
+    /// The ids whose row places them in `room`, from the placement index, so
+    /// the cost is that room's rows and not every row.
+    pub fn placed_in(&self, room: &str) -> impl Iterator<Item = &SimId> {
+        self.placed.get(room).into_iter().flatten()
+    }
+
+    /// Keep the placement index for one row that changed from `old` to `new`.
+    fn reindex_placed(&mut self, sim_id: &SimId, old: Option<&OccurrenceWhereabouts>, new: Option<&OccurrenceWhereabouts>) {
+        let room_of = |row: Option<&OccurrenceWhereabouts>| match row {
+            Some(OccurrenceWhereabouts::Placed { room, .. }) => Some(room.clone()),
+            _ => None,
+        };
+        let (old, new) = (room_of(old), room_of(new));
+        if old == new {
+            return;
+        }
+        let placed = Arc::make_mut(&mut self.placed);
+        if let Some(old) = old {
+            if let Some(ids) = placed.get_mut(&old) {
+                ids.remove(sim_id);
+                if ids.is_empty() {
+                    placed.remove(&old);
+                }
+            }
+        }
+        if let Some(new) = new {
+            placed.entry(new).or_default().insert(sim_id.clone());
         }
     }
 
@@ -366,10 +408,17 @@ impl AuthoredOccurrences {
         for sim_id in self.custody.iter() {
             rows.remove(sim_id);
         }
+        let mut picked_up = Vec::new();
         for sim_id in &carried {
-            rows.insert(sim_id.clone(), OccurrenceWhereabouts::InCustody);
+            if let Some(old) = rows.insert(sim_id.clone(), OccurrenceWhereabouts::InCustody) {
+                picked_up.push((sim_id.clone(), old));
+            }
         }
         self.custody = Arc::new(carried);
+        // A carried id that was lying somewhere is no longer placed there.
+        for (sim_id, old) in picked_up {
+            self.reindex_placed(&sim_id, Some(&old), None);
+        }
     }
 
     /// Admit runtime mints lying in `room` that the ledger has no row for
@@ -388,13 +437,12 @@ impl AuthoredOccurrences {
         for (sim_id, at) in mints {
             // Only a new row writes, so shared rows are copied only for one.
             if !self.rows.contains_key(&sim_id) {
-                Arc::make_mut(&mut self.rows).insert(
-                    sim_id,
-                    OccurrenceWhereabouts::Placed {
-                        room: room.to_string(),
-                        at,
-                    },
-                );
+                let row = OccurrenceWhereabouts::Placed {
+                    room: room.to_string(),
+                    at,
+                };
+                self.reindex_placed(&sim_id, None, Some(&row));
+                Arc::make_mut(&mut self.rows).insert(sim_id, row);
             }
         }
     }
@@ -452,13 +500,12 @@ impl AuthoredOccurrences {
             if self.custody.contains(&sim_id) {
                 Arc::make_mut(&mut self.custody).remove(&sim_id);
             }
-            Arc::make_mut(&mut self.rows).insert(
-                sim_id,
-                OccurrenceWhereabouts::Placed {
-                    room: room.to_string(),
-                    at,
-                },
-            );
+            let row = OccurrenceWhereabouts::Placed {
+                room: room.to_string(),
+                at,
+            };
+            let old = Arc::make_mut(&mut self.rows).insert(sim_id.clone(), row.clone());
+            self.reindex_placed(&sim_id, old.as_ref(), Some(&row));
         }
         refused
     }
@@ -477,6 +524,27 @@ impl AuthoredOccurrences {
         written
     }
 
+    /// Remember that these occurrences, lying in a room, ended there: a bomb
+    /// that exploded, a grenade that opened its well. Each `Placed` row
+    /// becomes `Consumed`. A row of another kind is not touched: a carried
+    /// occurrence did not end where it lay, and a `Consumed` row is already
+    /// terminal. Returns the ids whose row it wrote.
+    ///
+    /// An ended occurrence whose row still placed it would be built again
+    /// where it ended, when its room is live again.
+    pub fn end(&mut self, sim_ids: impl IntoIterator<Item = SimId>) -> BTreeSet<SimId> {
+        let mut ended = BTreeSet::new();
+        for sim_id in sim_ids {
+            if !matches!(self.rows.get(&sim_id), Some(OccurrenceWhereabouts::Placed { .. })) {
+                continue;
+            }
+            let old = Arc::make_mut(&mut self.rows).insert(sim_id.clone(), OccurrenceWhereabouts::Consumed);
+            self.reindex_placed(&sim_id, old.as_ref(), None);
+            ended.insert(sim_id);
+        }
+        ended
+    }
+
     /// Take back the rows of occurrences that never happened: the mints of a
     /// boss defeat that a replay retracted (BOSS-REPLAY-RETRACTION, Q51). Not a
     /// `Consumed` row: a consumed occurrence happened and ended, and a
@@ -492,8 +560,14 @@ impl AuthoredOccurrences {
             return held;
         }
         let rows = Arc::make_mut(&mut self.rows);
+        let mut removed = Vec::new();
         for sim_id in &held {
-            rows.remove(sim_id);
+            if let Some(old) = rows.remove(sim_id) {
+                removed.push((sim_id.clone(), old));
+            }
+        }
+        for (sim_id, old) in removed {
+            self.reindex_placed(&sim_id, Some(&old), None);
         }
         if held.iter().any(|sim_id| self.custody.contains(sim_id)) {
             let custody = Arc::make_mut(&mut self.custody);
@@ -863,8 +937,18 @@ mod tests {
         let (a, b, c) = (SimId::placement("a"), SimId::placement("b"), SimId::placement("c"));
         let mut ledger = AuthoredOccurrences::default();
         let mut steps = 0;
+        let placed = |ledger: &AuthoredOccurrences| -> BTreeMap<String, BTreeSet<SimId>> {
+            let mut placed: BTreeMap<String, BTreeSet<SimId>> = BTreeMap::new();
+            for (sim_id, whereabouts) in ledger.rows() {
+                if let OccurrenceWhereabouts::Placed { room, .. } = whereabouts {
+                    placed.entry(room.clone()).or_default().insert(sim_id.clone());
+                }
+            }
+            placed
+        };
         let mut check = |ledger: &AuthoredOccurrences, step: &str| {
             assert_eq!(*ledger.in_custody(), filtered(ledger), "after {step}");
+            assert_eq!(*ledger.placed, placed(ledger), "the placement index after {step}");
             steps += 1;
         };
         ledger.republish_custody([a.clone(), b.clone()].into_iter().collect());
@@ -875,6 +959,12 @@ mod tests {
         check(&ledger, "one put down");
         ledger.admit_mints("room", [(c.clone(), Vec2::ZERO), (b.clone(), Vec2::ZERO)].into_iter().collect());
         check(&ledger, "a mint admitted beside a carried id");
+        assert!(ledger
+            .republish_placements("next door", [(a.clone(), Vec2::new(3.0, 4.0))].into_iter().collect())
+            .is_empty());
+        check(&ledger, "one moved to another room");
+        assert_eq!(ledger.end([a.clone(), b.clone()]), [a.clone()].into_iter().collect());
+        check(&ledger, "a placed id ended, a carried one kept");
         ledger.republish_custody([c.clone()].into_iter().collect());
         check(&ledger, "the carried set replaced");
         assert_eq!(ledger.retract(&[c.clone()].into_iter().collect()), [c.clone()].into_iter().collect());
@@ -886,7 +976,7 @@ mod tests {
         );
         check(&ledger, "rows adopted");
         assert_eq!(*ledger.in_custody(), [a].into_iter().collect::<BTreeSet<_>>());
-        assert_eq!(steps, 6);
+        assert_eq!(steps, 8);
     }
 
     /// A checkpoint's older ledger, with the occurrences that still live in a

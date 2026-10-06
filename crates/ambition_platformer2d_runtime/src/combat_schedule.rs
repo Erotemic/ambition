@@ -602,7 +602,11 @@ impl Plugin for CombatSchedulePlugin {
                 // carry applied to a hold the same tick's throw has just ended
                 // would set terms on a relationship that no longer exists.
                 ambition_combat::capture::systems::apply_capture_carries,
-                ambition_combat::capture::systems::finalize_new_capture_pose,
+                // After the rig poses resolve: a hold that rides an attachment
+                // of the captor's rig (a jaw) is placed from the pose of THIS
+                // tick, the pose the captor is drawn with.
+                ambition_combat::capture::systems::finalize_new_capture_pose
+                    .after(ambition_combat::body_rig::BodyRigPoseResolved),
                 // the captive's POSE, published beside the constraint that
                 // holds it. `CharacterAnim` has no held row, so this draws the
                 // hurt one — a body in somebody's hands reading as idle was the

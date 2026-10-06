@@ -38,8 +38,8 @@ use ambition_boss_special_port::{
     Pose,
 };
 use ambition_combat_port::{
-    BodyHold, BodyHoldPort, BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox,
-    HeldDamageBoxPort, RidingHitbox, RidingHitboxPort, RidingKnockback,
+    BodyAttachmentsPort, BodyHold, BodyHoldPort, BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort,
+    HeldDamageBox, HeldDamageBoxPort, RidingHitbox, RidingHitboxPort, RidingKnockback,
 };
 use ambition_extension_sdk::{
     phases::BOSS_CONDUCT, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
@@ -254,14 +254,15 @@ const GRAB_CLAMP_TO_S: f32 = 0.22;
 fn grab_reach() -> (Vec2, Vec2) {
     art_box(330.0, 150.0, 470.0, 279.0)
 }
-/// Between his jaws, at the clamp (`grab_shake`'s jaw line).
-fn jaw_point() -> Vec2 {
-    art(418.0, 200.0)
-}
+/// Where his jaws hold a body: the `jaw` attachment of his body rig. His art
+/// states it on his jaw joint (`trex_enemy_body_rig.ron`). A hold names it
+/// (`BodyHold::Seize::hold_at`) and the engine places it from his rig's pose
+/// each tick, so a held body rides his jaws through the reach, the thrash and
+/// the fling. ⛔ No number for it is kept here: a pixel typed into this file
+/// stayed where it was when the art's head moved, and the body hung in the
+/// air under a raised head.
+const JAW: &str = "jaw";
 const SHAKE_S: f32 = 1.3;
-const SHAKE_HZ: f32 = 4.2;
-const SHAKE_LIFT: f32 = 26.0;
-const SHAKE_SWAY: f32 = 10.0;
 const PUMMEL_EVERY_S: f32 = 0.42;
 const PUMMEL_DAMAGE: i32 = 1;
 /// The fling: forward and up, at a launch speed that crosses the hall.
@@ -538,7 +539,7 @@ pub fn module() -> ModuleDescriptor {
                 port: BossConductPort::KEY,
                 selector: TREX_ID.into(),
             },
-            reads: Vec::new(),
+            reads: vec![BodyAttachmentsPort::KEY],
             writes: vec![Conductor::KEY],
             requests: vec![
                 ConductedPosePort::KEY,
@@ -948,11 +949,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if let Some(Part { mv: Move::JawGrab, striking: true, t, .. }) = part {
         if c.thrashing.is_none() && !rex.holding && (GRAB_CLAMP_FROM_S..=GRAB_CLAMP_TO_S).contains(&t) {
             let (centre, half) = grab_reach();
-            let hold = jaw_point();
             inv.submit::<BodyHoldPort>(BodyHold::Seize {
                 reach_offset: centre.into(),
                 reach_half: half.into(),
-                hold_offset: hold.into(),
+                hold_at: Some(JAW.into()),
+                hold_offset: [0.0, 0.0],
                 hold_s: HOLD_S,
             })?;
             if t == GRAB_CLAMP_FROM_S || (t - dt) < GRAB_CLAMP_FROM_S {
@@ -973,8 +974,6 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         } else {
             *thrash += dt;
             let t = *thrash;
-            let w = std::f32::consts::TAU * SHAKE_HZ * t;
-            let hold = jaw_point() + Vec2::new(SHAKE_SWAY * (w * 0.5).sin(), -SHAKE_LIFT * w.sin().abs());
             if t >= SHAKE_S {
                 inv.submit::<BodyHoldPort>(BodyHold::Throw {
                     damage: THROW_DAMAGE,
@@ -987,13 +986,23 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 voice(inv, &mut c, &GROWL_SNARL, pos + Vec2::new(side * head_front(), -40.0))?;
                 shake(inv, SHAKE_THROW)?;
             } else {
-                inv.submit::<BodyHoldPort>(BodyHold::Carry { hold_offset: hold.into() })?;
+                // The body rides his jaws: the thrash it is shaken with is the
+                // thrash his art draws (`grab_shake`), not a second one made here.
+                inv.submit::<BodyHoldPort>(BodyHold::Carry {
+                    hold_at: Some(JAW.into()),
+                    hold_offset: [0.0, 0.0],
+                })?;
                 if t - c.pummelled_at >= PUMMEL_EVERY_S {
                     c.pummelled_at = t;
                     inv.submit::<BodyHoldPort>(BodyHold::Pummel { damage: PUMMEL_DAMAGE })?;
-                    play(inv, SFX_BITE, pos + Vec2::new(side * hold.x, hold.y))?;
+                    // The bite sounds and sparks at his jaws, where his rig's
+                    // pose has them (from his position, +x the way he faces);
+                    // at his snout when his rig gives no jaw.
+                    let jaw = inv.observe::<BodyAttachmentsPort>().ok().and_then(|points| points.get(JAW));
+                    let bite = pos + jaw.map_or(Vec2::new(side * head_front(), 0.0), |[x, y]| Vec2::new(side * x, y));
+                    play(inv, SFX_BITE, bite)?;
                     shake(inv, SHAKE_THRASH)?;
-                    burst(inv, pos + Vec2::new(side * hold.x, hold.y), 6, 160.0, DUST, "spark")?;
+                    burst(inv, bite, 6, 160.0, DUST, "spark")?;
                 }
             }
         }

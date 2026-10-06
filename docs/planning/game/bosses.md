@@ -126,7 +126,12 @@ stochastic parrots, raptors").**
 - The jaw grab (`trex_jaw_grab`, phase 2 on): `grab_reach` / `grab_shake` /
   `grab_throw` rows; the engine's capture relation offered to modules as
   `ambition.combat.body_hold` (seize, carry, pummel, throw, release); mash to
-  break free.
+  break free. The held body rides the `jaw` attachment of his body rig
+  (review 2026-10-06, P2): his art states the point on his jaw joint, his
+  hold names it (`hold_at`), and the capture relation places it from the pose
+  of the tick. His conductor keeps no number for it and makes no thrash of
+  its own: the body moves as `grab_shake` moves his jaw
+  (`trex_fight::the_body_in_his_jaws_is_where_his_rig_says_his_jaw_is`).
 - The call (`trex_call`, phase 2 on): stochastic parrots from the high
   corners; enraged, raptors along the floor first; at most four alive
   (`BossConduct::minions`).

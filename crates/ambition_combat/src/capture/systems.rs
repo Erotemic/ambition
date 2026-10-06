@@ -316,6 +316,8 @@ pub fn acquire_captures(
             attempt.captor,
             victim,
             attempt.hold_offset,
+            // A fighter's grab authors its hold from its position.
+            None,
             hold_seconds,
             playbacks.get_mut(victim).ok(),
             budgets.get_mut(victim).ok(),
@@ -323,15 +325,18 @@ pub fn acquire_captures(
     }
 }
 
-/// Grant a capture: `captor` holds `victim` at `hold_offset_local` for at most
-/// `hold_seconds` (or until the victim mashes free). The one grant, for a
+/// Grant a capture: `captor` holds `victim` at `hold_offset_local` (from its
+/// position, or from the attachment `hold_attachment` of its body rig) for at
+/// most `hold_seconds` (or until the victim mashes free). The one grant, for a
 /// fighter's grab ([`acquire_captures`]) and a module's seize
 /// (`crate::extension`, `ambition.combat.body_hold`).
+#[allow(clippy::too_many_arguments)]
 pub fn begin_capture(
     commands: &mut Commands,
     captor: Entity,
     victim: Entity,
     hold_offset_local: ae::Vec2,
+    hold_attachment: Option<u16>,
     hold_seconds: f32,
     playback: Option<Mut<crate::moveset::MovePlayback>>,
     budget: Option<(
@@ -371,6 +376,7 @@ pub fn begin_capture(
     commands.entity(victim).insert(CapturedBy {
         captor,
         hold_offset_local,
+        hold_attachment,
     });
     //  the RULESET's half of the hold, inserted beside the relation.
     // Pummel count, hold age and escape progress are platform-fighter
@@ -826,6 +832,7 @@ mod tests {
         app.world_mut().entity_mut(victim).insert(CapturedBy {
             captor,
             hold_offset_local: ae::Vec2::new(18.0, 0.0),
+            hold_attachment: None,
         });
 
         app.update();
@@ -1327,6 +1334,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
+                hold_attachment: None,
             },
             fresh_hold(),
         ));
@@ -1385,6 +1393,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
+                hold_attachment: None,
             },
             fresh_hold(),
         ));
@@ -1450,6 +1459,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(20.0, -4.0),
+                hold_attachment: None,
             },
             fresh_hold(),
         ));
@@ -1516,6 +1526,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                hold_attachment: None,
             },
             fresh_hold(),
         ));
@@ -1560,6 +1571,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(6.0, -18.0),
+                hold_attachment: None,
             },
             hold,
         ));
@@ -1603,6 +1615,7 @@ mod tests {
         app.world_mut().entity_mut(victim).insert(CapturedBy {
             captor,
             hold_offset_local: ae::Vec2::new(16.0, 0.0),
+            hold_attachment: None,
         });
         app.update();
         assert_eq!(
@@ -1630,6 +1643,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                hold_attachment: None,
             },
             fresh_hold(),
         ));
@@ -1637,6 +1651,7 @@ mod tests {
             .write_message(crate::capture::CaptureCarryRequested {
                 captor,
                 hold_offset: ae::Vec2::new(6.0, -18.0),
+                hold_attachment: None,
             });
         app.update();
         let held = app
@@ -1676,6 +1691,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                hold_attachment: None,
             },
             ambition_characters::control::ControlHolds::only(
                 ambition_characters::control::ControlHold::Relationship,
@@ -1742,6 +1758,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                hold_attachment: None,
             },
             fresh_hold(),
         ));
@@ -1773,6 +1790,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                hold_attachment: None,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -1819,6 +1837,7 @@ mod tests {
                 CapturedBy {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                    hold_attachment: None,
                 },
                 //  the ruleset's half of the hold: without it there is no
                 // clock and nothing to mash out of.  built the way acquisition
@@ -1899,6 +1918,7 @@ mod tests {
                 CapturedBy {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                    hold_attachment: None,
                 },
                 //  the ruleset's half of the hold: without it there is no
                 // clock and nothing to mash out of.
@@ -1995,6 +2015,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                hold_attachment: None,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -2060,6 +2081,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                hold_attachment: None,
             },
             //  the ruleset's half of the hold: without it there is no
             // clock and nothing to mash out of.
@@ -2302,6 +2324,7 @@ mod tests {
                 CapturedBy {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                    hold_attachment: None,
                 },
                 fresh_hold(),
                 ambition_characters::actor::BodyCombat::default(),
@@ -2461,6 +2484,7 @@ mod tests {
             CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(18.0, 0.0),
+                hold_attachment: None,
             },
             fresh_hold(),
         ));
@@ -2518,6 +2542,20 @@ mod tests {
 /// interrupted mid-carry then inherits the motion of the thing that was carrying
 /// it, which is what a person expects to see. Zeroing it would make every
 /// release look like the captive hit an invisible wall.
+/// A captor, as the hold rule reads it: where it is and faces, its frame, and
+/// its rig's pose and feet when a hold rides one of its attachments.
+type CaptorPoses<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static ae::BodyKinematics,
+        Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        Option<&'static crate::body_rig::BodyRigPose>,
+        Option<&'static crate::body_rig::RigFeetOffset>,
+    ),
+    Without<CapturedBy>,
+>;
+
 fn pose_captives(
     //  `Without<CapturedBy>` is a SEMANTIC claim, not a borrow trick — though
     // Bevy asking for it is what made the claim explicit. A captive can never be
@@ -2526,13 +2564,7 @@ fn pose_captives(
     // queries are disjoint because the relationship says they are, and if that
     // ever stops being true this line is where it should be re-argued rather than
     // relaxed into a `ParamSet`.
-    captors: Query<
-        (
-            &ae::BodyKinematics,
-            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-        ),
-        Without<CapturedBy>,
-    >,
+    captors: CaptorPoses,
     mut captives: Query<(
         &CapturedBy,
         &mut ae::BodyKinematics,
@@ -2542,7 +2574,7 @@ fn pose_captives(
     )>,
 ) {
     for (held, mut kin, mut ground, aabb, mut sweep) in &mut captives {
-        let Ok((captor_kin, captor_frame)) = captors.get(held.captor) else {
+        let Ok((captor_kin, captor_frame, captor_pose, captor_feet)) = captors.get(held.captor) else {
             // The captor is gone. Releasing is the RELEASE path's job, not this
             // one's — a constraint system that also dissolved relationships
             // would be a second authority on when a capture ends.
@@ -2555,9 +2587,18 @@ fn pose_captives(
         // facing, then rotate into its frame. So a captor that turns around
         // swings its captive across, and a captor under flipped gravity holds it
         // overhead — both for free, because the anchor was never a world offset.
+        //
+        // A hold that rides an attachment of the captor's rig starts from
+        // that point of the captor's pose THIS tick (its jaw, where its art
+        // draws it), placed from the captor's centre as its hurt parts are.
+        // With no pose to ask, the hold is measured from the captor's centre.
+        let origin = held
+            .hold_attachment
+            .and_then(|index| captor_pose?.attachments.get(usize::from(index)).copied())
+            .map_or(ae::Vec2::ZERO, |at| crate::body_rig::rig_feet_from_centre(captor_feet, Some(captor_kin)) + at);
         let local = ae::Vec2::new(
-            held.hold_offset_local.x * captor_kin.facing,
-            held.hold_offset_local.y,
+            (origin.x + held.hold_offset_local.x) * captor_kin.facing,
+            origin.y + held.hold_offset_local.y,
         );
         let pos = captor_kin.pos + frame.to_world(local);
         ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, captor_kin.vel);
@@ -2596,13 +2637,7 @@ fn pose_captives(
 /// against a `SystemTypeSet` carrying more than one instance, so every host
 /// that installed both panicked on schedule build.
 pub fn maintain_existing_capture_pose(
-    captors: Query<
-        (
-            &ae::BodyKinematics,
-            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-        ),
-        Without<CapturedBy>,
-    >,
+    captors: CaptorPoses,
     captives: Query<(
         &CapturedBy,
         &mut ae::BodyKinematics,
@@ -2625,13 +2660,7 @@ pub fn maintain_existing_capture_pose(
 /// hang where it stood until the next frame, one visible frame of a captive
 /// standing free inside somebody's grab animation.
 pub fn finalize_new_capture_pose(
-    captors: Query<
-        (
-            &ae::BodyKinematics,
-            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-        ),
-        Without<CapturedBy>,
-    >,
+    captors: CaptorPoses,
     captives: Query<(
         &CapturedBy,
         &mut ae::BodyKinematics,
@@ -2678,6 +2707,7 @@ pub fn apply_capture_carries(
                 continue;
             }
             held.hold_offset_local = request.hold_offset;
+            held.hold_attachment = request.hold_attachment;
             hold.carrying = true;
         }
     }
@@ -3218,6 +3248,8 @@ pub fn translate_authored_capture_effects(
                     carries.write(super::CaptureCarryRequested {
                         captor: message.actor,
                         hold_offset: ambition_platformer2d_core::Vec2::new(p.hold_offset.0, p.hold_offset.1),
+                        // A fighter's carry authors its hold from its position.
+                        hold_attachment: None,
                     });
                 }
                 Err(err) => warn!("smash carry params did not hydrate: {err}"),

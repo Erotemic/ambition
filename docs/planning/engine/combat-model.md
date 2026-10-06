@@ -168,6 +168,23 @@ carries the world direction. The victim's reaction applies magnitude and DI and
 does not read the direction again on the victim's axes. A captor and a captive,
 or an attacker and a victim, in two gravity frames agree about the launch.
 
+### The point a hold rides
+
+A hold point is `CapturedBy::hold_offset_local` on the captor's axes, measured
+from the captor's position or from a named attachment of the captor's body rig
+(`CapturedBy::hold_attachment`; a module names it with `BodyHold::*::hold_at`).
+The art package states an attachment on a joint (`RigAttachment` in
+`<target>_body_rig.ron`). `resolve_body_rig_poses` places it in each frame of
+each clip, and `pose_captives` reads it when it poses the held body, after the
+rig poses of the tick resolve. Gameplay does not keep a number for a point the
+art draws: a redraw that moves the point moves the held body. A name the rig
+does not state is refused. `ambition.body.attachments` gives the same points to
+a module for an effect (a sound, a spark); it is one tick older than the pose
+the body is drawn with, so a hold does not use it.
+
+A fighter's grab (`CaptureAttempt`, `CaptureCarryParams`) is measured from the
+fighter's position: no fighter's rig states a hold point yet.
+
 Two cases are not this default, and each is named:
 
 - A hit with NO authored direction launches on the default diagonal: to the side

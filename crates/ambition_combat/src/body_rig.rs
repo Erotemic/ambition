@@ -37,6 +37,14 @@ pub struct BodyRig(pub Arc<PreparedBodyRig>);
 #[derive(Component, Debug, Clone, Copy, PartialEq)]
 pub struct RigFeetOffset(pub Vec2);
 
+/// Where a body's FEET (its rig's origin) are from its centre, in rig axes:
+/// its [`RigFeetOffset`] when it states one, else straight below by half its
+/// height. The one rule for a reader that places a rig-space point from the
+/// body's position: its hurt parts, its attachment points.
+pub fn rig_feet_from_centre(feet: Option<&RigFeetOffset>, kin: Option<&ambition_platformer2d_core::BodyKinematics>) -> Vec2 {
+    feet.map_or_else(|| Vec2::new(0.0, kin.map_or(0.0, |kin| kin.size.y * 0.5)), |feet| feet.0)
+}
+
 /// Where this body's joints and attachments are this tick, in its rig space:
 /// feet origin, +x the way the art faces, +y down, world units. Place a point
 /// in the world with [`BodyRigPose::to_body`] and the body's own frame.
@@ -56,6 +64,23 @@ impl BodyRigPose {
     pub fn attachment(&self, rig: &PreparedBodyRig, name: &str) -> Option<Vec2> {
         rig.attachment_index(name)
             .and_then(|index| self.attachments.get(index).copied())
+    }
+
+    /// Every attachment of `rig` this tick, by name, as an offset from the
+    /// body's CENTRE in rig axes (+x the way the body faces, +y toward its
+    /// feet): the frame a hold offset and a riding volume are written in.
+    /// `feet` is [`rig_feet_from_centre`]. `None` before the first resolve.
+    pub fn attachments_from_centre<'a>(
+        &'a self,
+        rig: &'a PreparedBodyRig,
+        feet: Vec2,
+    ) -> Option<impl Iterator<Item = (&'a str, Vec2)> + 'a> {
+        (self.clip.is_some() && self.attachments.len() == rig.attachments().len()).then(|| {
+            rig.attachments()
+                .iter()
+                .zip(&self.attachments)
+                .map(move |(attachment, at)| (attachment.name.as_str(), feet + *at))
+        })
     }
 
     /// This pose's hurt parts as centre-relative hurt volumes for a body

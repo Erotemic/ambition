@@ -294,11 +294,7 @@ pub fn resolve_body_hurtboxes(
         // the rig asks where the body's feet are from its centre.
         let rig_volumes = || {
             let (rig, rig_pose) = rig?;
-            let feet = feet.map_or_else(
-                || bevy::math::Vec2::new(0.0, kin.map_or(0.0, |kin| kin.size.y * 0.5)),
-                |feet| feet.0,
-            );
-            rig_pose.hurt_volumes(&rig.0, feet)
+            rig_pose.hurt_volumes(&rig.0, crate::body_rig::rig_feet_from_centre(feet, kin))
         };
         let next = resolve_hurtboxes_with_rig(
             authored.map(|authored| &authored.0),

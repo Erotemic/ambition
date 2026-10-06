@@ -139,7 +139,8 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.combat.riding_hitbox` v1 | request (`boss_conduct`) | `ambition_combat_port::RidingHitbox` (a volume that rides its owner) |
 | `ambition.feedback.burst` v1 | request (`boss_conduct`) | `ambition_combat_port::Burst` (particles) |
 | `ambition.feedback.camera_shake` v1 | request (`boss_conduct`) | `ambition_combat_port::CameraShake` (an amplitude; the strongest of a frame wins) |
-| `ambition.combat.body_hold` v1 | request (`boss_conduct`) | `ambition_combat_port::BodyHold` (seize a body in a reach, carry it, pummel it, throw it, release it: the engine's capture relation) |
+| `ambition.combat.body_hold` v2 | request (`boss_conduct`) | `ambition_combat_port::BodyHold` (seize a body in a reach, carry it, pummel it, throw it, release it: the engine's capture relation; v2: `hold_at` names the attachment of the owner's body rig that the hold rides, and the engine places it from the rig's pose each tick) |
+| `ambition.body.attachments` v1 | observation (`boss_conduct`) | `ambition_combat_port::BodyAttachments` (each named point of the owner's posed body rig, from its position, in its local frame: where a module puts a sound or a spark. A hold does not use it: a hold names the point) |
 
 A thing that outlives the press (a turret) is a module entity: one entry asks
 for it in `wielded_use`, a second entry bound to its kind runs each tick it

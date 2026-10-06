@@ -14,6 +14,7 @@
 //! * **Read model** — world units, +Y down.
 //! * **Result** — submitted is not applied. No acknowledgement port yet.
 
+pub mod attachments;
 pub mod hold;
 pub mod module_entity;
 pub mod riding;
@@ -22,6 +23,7 @@ pub use module_entity::{
     EndModuleEntity, EndModuleEntityPort, ModuleEntitySpawn, ModuleEntityTick, ModuleEntityTickPort, PullBodies,
     PullBodiesPort, SpawnModuleEntityPort,
 };
+pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use hold::{BodyHold, BodyHoldPort};
 pub use riding::{Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox, RidingHitboxPort, RidingKnockback};
 pub use wielded::{BodySound, BodySoundPort, SpendMana, SpendManaPort, WieldedUsePort, Wielder};

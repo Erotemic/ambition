@@ -525,6 +525,127 @@ fn wounded_he_grabs_you_thrashes_you_and_flings_you() {
     assert!(after <= before - 3, "the grab took {} health, not its bites and its throw", before - after);
 }
 
+/// The body rig he has now.
+fn his_rig(sim: &mut Platformer2dSimHarness) -> std::sync::Arc<ambition_platformer2d::characters::actor::PreparedBodyRig> {
+    use ambition_platformer2d::combat::body_rig::BodyRig;
+    let world = sim.world_mut();
+    world
+        .query::<(&BossConfig, &BodyRig)>()
+        .iter(world)
+        .find(|(config, _)| config.behavior.id == TREX_ID)
+        .map(|(_, rig)| rig.0.clone())
+        .expect("the T-rex, with a body rig")
+}
+
+/// Where the `jaw` attachment of `rig` is FROM HIS POSITION (world axes), in
+/// the clip and frame his rig's pose has now. Solved here from the rig's own
+/// facts (its joints in that frame, the point on its jaw joint, his feet from
+/// his centre, his facing): not read from his conductor, and not read from
+/// the points the engine keeps for the pose.
+fn jaw_from_him(sim: &mut Platformer2dSimHarness, rig: &ambition_platformer2d::characters::actor::PreparedBodyRig) -> ae::Vec2 {
+    use ambition_platformer2d::combat::body_rig::{BodyRigPose, RigFeetOffset};
+    let world = sim.world_mut();
+    world
+        .query::<(&BossConfig, &ae::BodyKinematics, &BodyRigPose, &RigFeetOffset)>()
+        .iter(world)
+        .find(|(config, ..)| config.behavior.id == TREX_ID)
+        .map(|(_, kin, pose, feet)| {
+            let clip = pose.clip.as_deref().expect("his rig is posed");
+            let mut joints = Vec::new();
+            assert!(rig.solve(clip, pose.frame, &mut joints), "his rig has no frame {} of `{clip}`", pose.frame);
+            let point = &rig.attachments()[rig.attachment_index("jaw").expect("his rig states a `jaw` attachment")];
+            let jaw = joints[usize::from(point.joint)].transform_point2(point.offset) + feet.0;
+            ae::Vec2::new(jaw.x * kin.facing.signum(), jaw.y)
+        })
+        .expect("the T-rex, with his rig posed")
+}
+
+/// Give him a rig whose `jaw` attachment is `along` sheet pixels farther
+/// along his jaw: what a redraw that moves the point publishes.
+fn move_the_jaw_of_his_rig(sim: &mut Platformer2dSimHarness, along: f32) {
+    use ambition_platformer2d::combat::body_rig::BodyRig;
+    let text = ambition_platformer2d::sprite_sheet::baked_body_rigs::baked_body_rig("trex_enemy").expect("his published rig");
+    let mut rig = ambition_platformer2d::characters::actor::BodyRigDefinition::from_published_ron(text).expect("his rig parses");
+    let jaw = rig.attachments.iter_mut().find(|point| point.name == "jaw").expect("his rig states a `jaw` attachment");
+    jaw.offset.0 += along;
+    let rig = rig.scaled(module::PX).prepare().expect("the moved rig prepares");
+    let world = sim.world_mut();
+    let mut q = world.query::<(Entity, &BossConfig)>();
+    let boss = q.iter(world).find(|(_, config)| config.behavior.id == TREX_ID).map(|(entity, _)| entity).expect("the T-rex");
+    world.entity_mut(boss).insert(BodyRig(std::sync::Arc::new(rig)));
+}
+
+/// THE BODY IN HIS JAWS IS WHERE HIS RIG SAYS HIS JAW IS.
+///
+/// His conductor held a seized body at a pixel typed into it
+/// (`art(418, 200)`). His art thrashes his head up and down in `grab_shake`,
+/// and the body stayed at that pixel, under a raised head. Now his art states
+/// the point (`jaw`, on his jaw joint), his hold names it
+/// (`BodyHold::Seize::hold_at`), and the capture relation places it from the
+/// pose his rig has in the tick.
+///
+/// Each tick of the thrash, the held body is at the jaw of the pose he has in
+/// THAT tick. Then the point is moved in the RIG, and the body follows it: no
+/// line of his conductor names where his jaw is.
+#[test]
+fn the_body_in_his_jaws_is_where_his_rig_says_his_jaw_is() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    wound(&mut sim, 0.5);
+    stand_in_front_until(&mut sim, 60 * 40, "him to lunge for a grab", |sim| {
+        matches!(rex(sim).view.performing, Some((Move::JawGrab, false)))
+    });
+    untouchable_player(&mut sim, false);
+    stand_in_front_until(&mut sim, 60 * 2, "his jaws to close on the player", |sim| held(sim));
+
+    // Where the held body is from him, and where the jaw of `rig` is from him.
+    let body_and_jaw = |sim: &mut Platformer2dSimHarness, rig: &ambition_platformer2d::characters::actor::PreparedBodyRig| {
+        let body = player(sim).0.pos - rex(sim).kin.pos;
+        (body, jaw_from_him(sim, rig))
+    };
+    let follow = |sim: &mut Platformer2dSimHarness, ticks: usize| {
+        let rig = his_rig(sim);
+        let mut heights = std::collections::BTreeSet::new();
+        let mut followed = 0;
+        for _ in 0..ticks {
+            sim.step(AgentAction::default());
+            if !held(sim) {
+                break;
+            }
+            let (body, jaw) = body_and_jaw(sim, &rig);
+            assert!(
+                (body - jaw).length() < 0.01,
+                "the held body is {body:?} from him; the jaw of his pose in this tick is {jaw:?} from him"
+            );
+            heights.insert((jaw.y / 8.0) as i32);
+            followed += 1;
+        }
+        (followed, heights.len())
+    };
+    let (followed, heights) = follow(&mut sim, 30);
+    assert!(followed >= 25, "premise: the thrash held the body for {followed} ticks of 30");
+    assert!(heights >= 2, "premise: his jaw did not move in the thrash, so following it proves nothing");
+
+    // A redraw moves the point 40 sheet pixels along his jaw.
+    let drawn = his_rig(&mut sim);
+    move_the_jaw_of_his_rig(&mut sim, 40.0);
+    // The pose is solved again when its frame changes; a frame is 4 ticks.
+    for _ in 0..8 {
+        sim.step(AgentAction::default());
+    }
+    assert!(held(&mut sim), "premise: he still holds the body after the rig changed");
+    let (followed, _) = follow(&mut sim, 12);
+    assert!(followed >= 10, "premise: the thrash held the body for {followed} more ticks");
+    // The body is not where the point was before the redraw.
+    let (body, jaw_before_the_redraw) = body_and_jaw(&mut sim, &drawn);
+    let moved = (body - jaw_before_the_redraw).length();
+    let want = 40.0 * module::PX;
+    assert!(
+        (moved - want).abs() < 0.05 * want,
+        "the point moved {want} units along his jaw in the rig, and the held body is {moved} units from where the point was"
+    );
+}
+
 /// Mash, and you break out of his jaws before the fling.
 #[test]
 fn mashing_breaks_his_jaw_grab() {

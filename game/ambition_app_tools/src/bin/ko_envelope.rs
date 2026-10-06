@@ -1335,6 +1335,7 @@ impl KoProbe {
                     ambition_platformer2d::combat::capture::CapturedBy {
                         captor: attacker,
                         hold_offset_local: EVec2::new(16.0, 0.0),
+                        hold_attachment: None,
                     },
                     ambition_platformer2d::characters::control::ControlHolds::only(
                         ambition_platformer2d::characters::control::ControlHold::Relationship,
@@ -2034,6 +2035,7 @@ fn run_throw_diag() {
         ambition_platformer2d::combat::capture::CapturedBy {
             captor: a,
             hold_offset_local: EVec2::new(16.0, 0.0),
+            hold_attachment: None,
         },
         ambition_platformer2d::characters::control::ControlHolds::only(
             ambition_platformer2d::characters::control::ControlHold::Relationship,

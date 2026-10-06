@@ -309,6 +309,7 @@ mod tests {
                 ambition_combat::capture::CapturedBy {
                     captor,
                     hold_offset_local: ae::Vec2::new(16.0, 0.0),
+                    hold_attachment: None,
                 },
             ))
             .id();

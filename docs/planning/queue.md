@@ -2592,6 +2592,19 @@ importer for the shark alone.
 
 **Blocked on:** the renderer publishing the `saddle` track (Toothbrush).
 
+**2026-10-06 (review P2, the T-rex jaw):** the seam for a named point that a
+body rides exists for a body with a BODY RIG: an attachment the art states on
+a joint (`RigAttachment`), placed by `resolve_body_rig_poses`, read by the
+capture relation (`CapturedBy::hold_attachment`) and offered to a module
+(`ambition.body.attachments`). The T-rex's jaw uses it. The shark does not:
+it publishes no body rig and no per-pose saddle, so this row stays blocked on
+the publish. When the shark has a rig, its saddle is one `ATTACHMENTS` row in
+its renderer target and the mount reads the attachment as the capture relation
+does; do not add a second road. One known difference to close then:
+`body_landmarks::feet_of` places a rig from the bottom of the body's box and
+does not read `RigFeetOffset`, which `rig_feet_from_centre` (hurt parts, hold
+points) does.
+
 **Acceptance:** the shark's row holds no saddle number; a redraw that moves
 the saddle moves the rider with no gameplay edit; a mount with no published
 saddle still seats its rider at its authored seat.

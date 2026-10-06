@@ -14,12 +14,20 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///     whose box meets the reach volume (`reach_offset`, `reach_half`: a box
 ///     in the owner's local frame, +x the way it faces, +y toward its feet;
 ///     under turned gravity the box turns with the owner), and hold it
-///     at `hold_offset` (local the same way) for at most `hold_s` seconds or
-///     until it mashes free. The held body's move ends, its control is held,
-///     gravity leaves it. A body already held, in hitstun, out of play or in
-///     another live room is not caught. The owner holds one body at a time.
-///   * `Carry` — move the held body to `hold_offset` this tick (a shake is a
-///     carry every tick).
+///     at the hold point for at most `hold_s` seconds or until it mashes
+///     free. The held body's move ends, its control is held, gravity leaves
+///     it. A body already held, in hitstun, out of play or in another live
+///     room is not caught. The owner holds one body at a time.
+///   * `Carry` — the held body rides the hold point from this tick on.
+///
+///   THE HOLD POINT is `hold_offset` (owner-local, as the reach is) from the
+///   attachment of the owner's body rig that `hold_at` names (`jaw`, a hand),
+///   or from the owner's position when `hold_at` is `None`. The engine
+///   places a named point from the rig's pose EVERY tick, the pose the body
+///   is drawn with, so the held body rides the jaw as the art moves it. A
+///   module keeps no number for such a point: the art states it. A name the
+///   owner's rig does not state is refused (a seize catches nothing, a carry
+///   changes nothing), with a warning.
 ///   * `Pummel` — `damage` to the held body, no knockback: it stays held.
 ///   * `Throw` — `damage`, then release, then launch it along `launch_dir`
 ///     (owner-local: +x the way the owner faces, +y toward the owner's feet;
@@ -38,29 +46,32 @@ pub struct BodyHoldPort;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum BodyHold {
-    Seize { reach_offset: [f32; 2], reach_half: [f32; 2], hold_offset: [f32; 2], hold_s: f32 },
-    Carry { hold_offset: [f32; 2] },
+    Seize { reach_offset: [f32; 2], reach_half: [f32; 2], hold_at: Option<String>, hold_offset: [f32; 2], hold_s: f32 },
+    Carry { hold_at: Option<String>, hold_offset: [f32; 2] },
     Pummel { damage: i32 },
     Throw { damage: i32, knockback: f32, growth: f32, launch_dir: [f32; 2] },
     Release,
 }
 
 impl Port for BodyHoldPort {
-    const KEY: PortKey = PortKey::new("ambition.combat.body_hold", 1);
+    /// Version 2 (2026-10-06): `hold_at`, the rig attachment a hold rides.
+    const KEY: PortKey = PortKey::new("ambition.combat.body_hold", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = BodyHold;
 
     fn encode(v: &BodyHold, out: &mut Vec<u8>) {
         match v {
-            BodyHold::Seize { reach_offset, reach_half, hold_offset, hold_s } => {
+            BodyHold::Seize { reach_offset, reach_half, hold_at, hold_offset, hold_s } => {
                 wire::put_u8(out, 0);
                 wire::put_vec2(out, *reach_offset);
                 wire::put_vec2(out, *reach_half);
+                wire::put_opt(out, hold_at.as_deref(), wire::put_str);
                 wire::put_vec2(out, *hold_offset);
                 wire::put_f32(out, *hold_s);
             }
-            BodyHold::Carry { hold_offset } => {
+            BodyHold::Carry { hold_at, hold_offset } => {
                 wire::put_u8(out, 1);
+                wire::put_opt(out, hold_at.as_deref(), wire::put_str);
                 wire::put_vec2(out, *hold_offset);
             }
             BodyHold::Pummel { damage } => {
@@ -80,8 +91,17 @@ impl Port for BodyHoldPort {
 
     fn decode(r: &mut WireReader<'_>) -> Result<BodyHold, WireError> {
         Ok(match r.u8()? {
-            0 => BodyHold::Seize { reach_offset: r.vec2()?, reach_half: r.vec2()?, hold_offset: r.vec2()?, hold_s: r.f32()? },
-            1 => BodyHold::Carry { hold_offset: r.vec2()? },
+            0 => BodyHold::Seize {
+                reach_offset: r.vec2()?,
+                reach_half: r.vec2()?,
+                hold_at: r.opt(|r| r.str().map(str::to_owned))?,
+                hold_offset: r.vec2()?,
+                hold_s: r.f32()?,
+            },
+            1 => BodyHold::Carry {
+                hold_at: r.opt(|r| r.str().map(str::to_owned))?,
+                hold_offset: r.vec2()?,
+            },
             2 => BodyHold::Pummel { damage: r.i32()? },
             3 => BodyHold::Throw { damage: r.i32()?, knockback: r.f32()?, growth: r.f32()?, launch_dir: r.vec2()? },
             4 => BodyHold::Release,
@@ -97,8 +117,10 @@ mod tests {
     #[test]
     fn every_hold_survives_the_wire() {
         for v in [
-            BodyHold::Seize { reach_offset: [90.0, 20.0], reach_half: [60.0, 40.0], hold_offset: [120.0, -10.0], hold_s: 2.5 },
-            BodyHold::Carry { hold_offset: [100.0, -30.0] },
+            BodyHold::Seize { reach_offset: [90.0, 20.0], reach_half: [60.0, 40.0], hold_at: None, hold_offset: [120.0, -10.0], hold_s: 2.5 },
+            BodyHold::Seize { reach_offset: [90.0, 20.0], reach_half: [60.0, 40.0], hold_at: Some("jaw".into()), hold_offset: [0.0, 0.0], hold_s: 2.5 },
+            BodyHold::Carry { hold_at: None, hold_offset: [100.0, -30.0] },
+            BodyHold::Carry { hold_at: Some("jaw".into()), hold_offset: [4.0, -2.0] },
             BodyHold::Pummel { damage: 1 },
             BodyHold::Throw { damage: 2, knockback: 1.6, growth: 0.4, launch_dir: [-0.6, -0.8] },
             BodyHold::Release,

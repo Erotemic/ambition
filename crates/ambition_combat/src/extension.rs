@@ -10,7 +10,10 @@
 
 use std::sync::Arc;
 
-use ambition_combat_port::{BodyHold, BodyHoldPort, DamageBoxPort, HeldDamageBoxPort, RidingHitboxPort, RidingKnockback};
+use ambition_combat_port::{
+    BodyAttachment, BodyAttachments, BodyAttachmentsPort, BodyHold, BodyHoldPort, DamageBoxPort, HeldDamageBoxPort,
+    RidingHitboxPort, RidingKnockback,
+};
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionOutbox};
 use ambition_extension_sdk::phases::{BOSS_CONDUCT, TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_extension_sdk::Phase;
@@ -49,6 +52,31 @@ pub fn install_for_boss_conduct(app: &mut App) {
     app.add_message::<crate::capture::CapturePummelRequested>();
     app.add_message::<crate::capture::CaptureThrowRequested>();
     app.install_extension_request::<BodyHoldPort, _>(BOSS_CONDUCT, "ambition_combat", lower_body_holds);
+    app.install_extension_observation::<BodyAttachmentsPort>(BOSS_CONDUCT, "ambition_combat", body_attachments_of);
+}
+
+/// The named points of `scope`'s body rig, from the pose its hurt parts have:
+/// a jaw, a saddle, a grip. See `ambition_combat_port::BodyAttachmentsPort`.
+///
+/// The art package states each point on a joint and the rig's pose places it
+/// (`resolve_body_rig_poses`). This gives each one from the body's position,
+/// in the body's local frame, which is the frame a module writes a hold
+/// offset in. No value for a body with no rig, or one not posed yet.
+fn body_attachments_of(world: &World, scope: Entity) -> Option<BodyAttachments> {
+    let rig = world.get::<crate::body_rig::BodyRig>(scope)?;
+    let pose = world.get::<crate::body_rig::BodyRigPose>(scope)?;
+    let feet = crate::body_rig::rig_feet_from_centre(
+        world.get::<crate::body_rig::RigFeetOffset>(scope),
+        world.get::<ae::BodyKinematics>(scope),
+    );
+    let points = pose
+        .attachments_from_centre(&rig.0, feet)?
+        .map(|(name, at)| BodyAttachment {
+            name: name.to_owned(),
+            offset: at.into(),
+        })
+        .collect();
+    Some(BodyAttachments { points })
 }
 
 /// Install the damage box port in `wielded_use` (a held item's use), before
@@ -364,6 +392,27 @@ fn seize_reach(
 /// that reacts to a hit (`release_interrupted_captures`), so it would be let
 /// go on the tick it was caught.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+/// The attachment of `captor`'s body rig that a hold names, as the capture
+/// relation keeps it (`CapturedBy::hold_attachment`). `Ok(None)`: the hold
+/// names no point. `Err`: it names a point this body's rig does not state (or
+/// the body has no rig), and the hold is refused: a held body at the wrong
+/// point is worse than no hold.
+fn hold_attachment(
+    rigs: &Query<&crate::body_rig::BodyRig>,
+    captor: Entity,
+    hold_at: Option<&str>,
+) -> Result<Option<u16>, ()> {
+    let Some(name) = hold_at else {
+        return Ok(None);
+    };
+    rigs.get(captor)
+        .ok()
+        .and_then(|rig| rig.0.attachment_index(name))
+        .and_then(|index| u16::try_from(index).ok())
+        .map(Some)
+        .ok_or(())
+}
+
 fn lower_body_holds(
     mut commands: Commands,
     mut outbox: ResMut<ExtensionOutbox>,
@@ -374,6 +423,7 @@ fn lower_body_holds(
         Option<&crate::targeting::MatchTeam>,
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
+    rigs: Query<&crate::body_rig::BodyRig>,
     victims: Query<crate::hitbox::StrikeVictim, Without<ambition_characters::control::ControlHolds>>,
     captives: Query<(Entity, &crate::capture::CapturedBy)>,
     combat: Query<&ambition_characters::actor::BodyCombat>,
@@ -400,10 +450,18 @@ fn lower_body_holds(
             seized.contains(&captor).then_some(Entity::PLACEHOLDER)
         });
         match s.value {
-            BodyHold::Seize { reach_offset, reach_half, hold_offset, hold_s } => {
+            BodyHold::Seize { reach_offset, reach_half, hold_at, hold_offset, hold_s } => {
                 if held.is_some() {
                     continue;
                 }
+                let Ok(hold_attachment) = hold_attachment(&rigs, captor, hold_at.as_deref()) else {
+                    warn!(
+                        "extension entry {} asked to seize at `{}`, a point the body rig of {captor:?} does not state; refused",
+                        s.entry,
+                        hold_at.as_deref().unwrap_or_default()
+                    );
+                    continue;
+                };
                 let Ok((kin, faction, driver, team, captor_frame)) = captors.get(captor) else {
                     warn!("extension entry {} asked {:?}, which is no body, to seize; refused", s.entry, captor);
                     continue;
@@ -469,15 +527,29 @@ fn lower_body_holds(
                     captor,
                     victim,
                     ae::Vec2::from(hold_offset),
+                    hold_attachment,
                     hold_s,
                     playbacks.get_mut(victim).ok(),
                     budgets.get_mut(victim).ok(),
                 );
             }
-            BodyHold::Carry { hold_offset } => {
-                if held.is_some() {
-                    carries.write(crate::capture::CaptureCarryRequested { captor, hold_offset: ae::Vec2::from(hold_offset) });
+            BodyHold::Carry { hold_at, hold_offset } => {
+                if held.is_none() {
+                    continue;
                 }
+                let Ok(hold_attachment) = hold_attachment(&rigs, captor, hold_at.as_deref()) else {
+                    warn!(
+                        "extension entry {} asked to carry at `{}`, a point the body rig of {captor:?} does not state; refused",
+                        s.entry,
+                        hold_at.as_deref().unwrap_or_default()
+                    );
+                    continue;
+                };
+                carries.write(crate::capture::CaptureCarryRequested {
+                    captor,
+                    hold_offset: ae::Vec2::from(hold_offset),
+                    hold_attachment,
+                });
             }
             BodyHold::Pummel { damage } => {
                 if held.is_some() {

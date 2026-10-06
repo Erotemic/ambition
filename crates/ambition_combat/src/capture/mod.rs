@@ -46,7 +46,17 @@ pub struct CapturedBy {
     /// captor's committed facing, `+y` = gravity-down. Resolved against the
     /// captor's live facing and motion frame every tick, so a capture survives
     /// the captor turning around and survives arbitrary gravity.
+    ///
+    /// Measured from the captor's position, or from [`Self::hold_attachment`]
+    /// when the hold rides one.
     pub hold_offset_local: ae::Vec2,
+    /// The attachment of the CAPTOR's body rig the hold rides (a jaw, a
+    /// hand), by its index in the rig (`PreparedBodyRig::attachment_index`).
+    /// The art package states the point on a joint; the captor's pose places
+    /// it each tick (`BodyRigPose`), so the held body is where the captor's
+    /// jaw is DRAWN, in each frame of its clip. `None`: the hold is measured
+    /// from the captor's position.
+    pub hold_attachment: Option<u16>,
 }
 
 impl bevy::ecs::entity::MapEntities for CapturedBy {
@@ -97,6 +107,9 @@ pub struct CaptureCarryRequested {
     pub captor: Entity,
     /// Where the captive rides from now on, captor-body-local.
     pub hold_offset: ae::Vec2,
+    /// The attachment of the captor's rig that offset is measured from
+    /// ([`CapturedBy::hold_attachment`]); `None`: from the captor's position.
+    pub hold_attachment: Option<u16>,
 }
 
 /// A pummel impact targeting the captive already selected by the relationship.
@@ -150,6 +163,7 @@ mod tests {
             .spawn(CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, -2.0),
+                hold_attachment: None,
             })
             .id();
 
@@ -192,6 +206,7 @@ mod tests {
         let mut held = CapturedBy {
             captor: before,
             hold_offset_local: ae::Vec2::new(16.0, -2.0),
+            hold_attachment: None,
         };
         held.map_entities(&mut ToFixed(after));
         assert_eq!(

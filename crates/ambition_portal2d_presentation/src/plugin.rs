@@ -94,6 +94,7 @@ impl Plugin for PortalPresentationPlugin {
         app.init_resource::<PortalCameraContinuityConfig>();
         app.init_resource::<PortalCameraContinuityState>();
         app.init_resource::<PortalCameraContinuityHostView>();
+        app.init_resource::<crate::PortalObserverViews>();
 
         if self.portal_quads {
             app.add_systems(
@@ -151,9 +152,10 @@ impl Plugin for PortalPresentationPlugin {
             app.init_resource::<view_cones::PortalViewConeRule>();
             app.init_resource::<view_cones::PortalCaptureQualityBudget>();
             app.init_resource::<view_cones::PortalViewConeDebugDumpRequest>();
-            // The viewer seam (host-synced each frame); empty or absent means the
-            // static window fallback. Init here so the host can `ResMut` it.
-            app.init_resource::<view_cones::PortalViewer>();
+            // The viewer seam (host-synced each frame): one eye for each live
+            // room that a view frames. A room with no eye has no window. Init
+            // here so the host can `ResMut` it.
+            app.init_resource::<view_cones::PortalViewers>();
             app.init_resource::<PortalDebugOverlay>();
             app.add_systems(
                 Update,

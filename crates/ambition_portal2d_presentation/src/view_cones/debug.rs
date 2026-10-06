@@ -28,7 +28,7 @@ pub fn flush_portal_view_cone_debug_dump(
     selection: Res<crate::PortalEffectSelection>,
     cones: super::PortalViewCones,
     quality: Res<PortalCaptureQualityBudget>,
-    viewer: Option<Res<PortalViewer>>,
+    viewers: Option<Res<PortalViewers>>,
     frames: crate::PortalFrames,
     host_view: Option<Res<PortalCameraContinuityHostView>>,
     portals: Query<&PlacedPortal>,
@@ -73,10 +73,11 @@ pub fn flush_portal_view_cone_debug_dump(
     };
     request.pending = false;
     request.reason.clear();
-    // The viewer room's frame: the windows are made in that room. A zero frame
-    // when it cannot be told, which the dump reports as it is.
+    // The dump describes ONE eye: the first the host published. The frame is
+    // that eye's room's, where its windows are made. A zero frame when it
+    // cannot be told, which the dump reports as it is.
+    let viewer = viewers.as_deref().and_then(PortalViewers::first);
     let frame = viewer
-        .as_deref()
         .and_then(|viewer| frames.in_room(viewer.room))
         .map(|placement| placement.frame)
         .unwrap_or_default();
@@ -119,7 +120,7 @@ pub fn flush_portal_view_cone_debug_dump(
         &selection,
         &config,
         &quality,
-        viewer.as_deref(),
+        viewer,
         &frame,
         host_view.as_deref(),
         &portals,
@@ -504,7 +505,12 @@ fn portal_view_cone_debug_dump_text(
 
         let rig_state = rigs
             .iter()
-            .find(|(rig, _, _, _)| rig.channel == portal.channel);
+            // The rig of the described eye's room: another live room can
+            // hold a portal of the same channel.
+            .find(|(rig, _, _, _)| {
+                rig.channel == portal.channel
+                    && viewer.and_then(|viewer| viewer.room).is_none_or(|room| rig.room == room)
+            });
         match rig_state {
             Some((rig, cam, proj, cam_global)) => {
                 let _ = writeln!(out, "  rig.present: true");
@@ -1191,7 +1197,7 @@ pub fn debug_portal_view_zones(
     selection: Res<crate::PortalEffectSelection>,
     cones: super::PortalViewCones,
     debug: Res<PortalDebugOverlay>,
-    viewer: Option<Res<PortalViewer>>,
+    viewers: Option<Res<PortalViewers>>,
     frames: crate::PortalFrames,
     portals: Query<(Entity, &PlacedPortal)>,
     // The transform gives the drawn z for the overlay.
@@ -1207,8 +1213,10 @@ pub fn debug_portal_view_zones(
 ) {
     let config = cones.config();
     let config: &PortalViewConeConfig = &config;
-    // The viewer room's frame and portals, as the windows are made.
-    let Some(placement) = viewer.as_deref().and_then(|viewer| frames.in_room(viewer.room)) else {
+    // The overlay is of ONE eye, the first the host published: its room's
+    // frame and portals, as its windows are made.
+    let viewer = viewers.as_deref().and_then(PortalViewers::first);
+    let Some(placement) = viewer.and_then(|viewer| frames.in_room(viewer.room)) else {
         return;
     };
     let frame = placement.frame;
@@ -1224,7 +1232,6 @@ pub fn debug_portal_view_zones(
         .map(|tuning| tuning.convention.map_convention())
         .unwrap_or_default();
     let all: Vec<PlacedPortal> = frames.portals_by_room(portals.iter()).in_room(Some(placement.room)).to_vec();
-    let viewer = viewer.as_deref();
     let to_render = |p: Vec2| frame.to_render(p, 0.0).truncate();
     draw_compositing_relations(&mut gizmos, &all, viewer, &compositing, to_render);
     for portal in &all {

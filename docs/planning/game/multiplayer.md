@@ -112,6 +112,15 @@ its own views, does not split by distance. Witness:
 `a_second_view_opens_when_the_players_drift_apart_in_one_room_and_closes_when_they_regroup`
 in `the_screen_splits_when_two_players_drift_apart.rs`.
 
+Not done in a one-room split: the two views share the through-portal windows
+of the FIRST view. A live room has one eye (`PortalViewers`: the body of the
+first view, by view id, that frames the room). The window of a portal is the
+wedge that eye sees, and a body behind a pane is cut by where that eye is, so
+the second view sees the first view's wedge and cut. A window for each view
+needs a capture rig, a window mesh on a per-view layer and far-side pieces for
+each view. Before 2026-10-06 the two views shared the windows of the primary
+seat, so this is not a regression; it is now written down.
+
 ### A3 — two rooms resident
 
 ◐ Simulation built; view mostly built.
@@ -128,9 +137,49 @@ in `the_screen_splits_when_two_players_drift_apart.rs`.
   levels, parallax, body-riding visuals and portals. A second view opens while
   the players are in two rooms and closes when they meet
   (`a_second_view_opens_while_the_players_are_in_two_rooms_and_closes_when_they_meet`).
-- Not done: debug overlays read the sole live room; the through-portal window is
-  drawn for the primary seat's view only; the banner is session-wide and
-  follows the primary seat. The Q150 ruling (2026-10-03, in
+- The through-portal window, built 2026-10-06: each live room that a view
+  frames has the windows of its own portals, made for the body and the camera
+  of that view, and a camera draws the windows of its own room only. Before,
+  measured: the portal pair in the second player's room had no window ("4
+  portals in 2 rooms, rigs=2"), and the window of the first player's room was
+  on a layer that each camera draws (cone layers `[5, 520]`), so it was drawn
+  in the second player's view at the same coordinates.
+  - `PortalViewer` was one resource. It is now `PortalViewers`: one eye for
+    each live room, published by the host from each local view's body
+    (`sync_portal_viewer`; the first view by id that frames a room is its
+    eye). The capture rigs are by (live room, channel).
+  - A window mesh is stamped into its room. `isolate_live_rooms` moves the
+    window layer of a stamped window to a window layer of its room, and a
+    camera adds the window layer of the room its view frames. It is not the
+    room band: a capture adds that band to see its room, and would capture
+    its own window.
+  - The host camera sample was one resource too ("the last writer wins").
+    `camera_follow` now also records it for each view (`PortalObserverViews`),
+    and the windows of a room are clipped to, and captured for, the camera of
+    the view that is its eye.
+  - A body behind a pane is cut by the eye of its own room.
+  - Witnesses (system fixtures; the capture rigs do not run headless, so no
+    shipped-game arm):
+    `each_live_room_that_has_an_eye_has_the_windows_of_its_own_portals` and
+    `the_windows_of_a_room_are_made_for_the_camera_of_its_own_observer`
+    (`ambition_portal2d_presentation` `view_cones/rig_tests.rs`),
+    `each_camera_draws_only_the_windows_of_the_live_room_its_view_frames`
+    (`ambition_render` `view_isolation.rs`),
+    `each_live_room_a_view_frames_has_the_eye_of_that_views_body`
+    (`ambition_platformer2d_host` `portal.rs`),
+    `the_camera_sample_of_each_view_is_recorded_for_that_view`
+    (`ambition_render` `camera.rs`).
+  - Not done: while two rooms are live a window shows no other window (no
+    recursion): the layer of a portal's own window is by channel, and two
+    rooms can hold one channel. The sky copies of a capture are also by
+    channel, and are copied from the root view's sky: two rooms that hold one
+    channel put two skies in each capture of that channel, and the window of
+    the second room shows the first room's sky. Two views of ONE room share
+    the windows of the first view (see A2). The portal camera continuity is
+    still one screen anchor for the process. The developer dump and overlay
+    of the windows describe the first eye only.
+- Not done: debug overlays read the sole live room; the banner is
+  session-wide and follows the primary seat. The Q150 ruling (2026-10-03, in
   [`../maintainer-decisions.md`](../maintainer-decisions.md)) makes the HUD
   per participant and the local music an authored-priority choice with the
   primary participant as the tie-break. The music is built. Of the HUD,

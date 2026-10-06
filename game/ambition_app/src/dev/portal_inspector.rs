@@ -19,7 +19,7 @@ mod enabled {
         PortalCameraContinuitySelection, PortalCameraTransitMode, PortalCaptureCameraMode,
         PortalEffectSelection, PortalViewConeConfig, PortalViewConeDebugDumpRequest,
         PortalViewConeMode, PortalViewConeSourceClipPolicy, PortalViewConeVisibilityMode,
-        PortalViewer, PortalVisualEffect, PortalWorldFrame,
+        PortalViewers, PortalVisualEffect, PortalWorldFrame,
     };
     use bevy::prelude::*;
     use bevy_inspector_egui::bevy_egui::{
@@ -557,7 +557,9 @@ mod enabled {
                     config.clone()
                 };
 
-                let viewer = world.get_resource::<PortalViewer>().cloned();
+                // The inspector describes ONE eye: the first the host
+                // published (the first view's).
+                let viewer = world.get_resource::<PortalViewers>().and_then(|viewers| viewers.first().cloned());
                 // The viewer room's frame: the windows are made in that room.
                 let frame = viewer.as_ref().and_then(|viewer| viewer.room).and_then(|room| {
                     world

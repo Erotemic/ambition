@@ -2,7 +2,6 @@
   "about": "The level-box reads of a body that scripts/check_level_box_readers.py finds, each with its class. A new read is not in this file: convert it, or add it with the class that says why the level box is right there. A line the search no longer finds must be deleted: the counts may only fall. LEVEL-BOX-READERS in docs/planning/queue.md has the table.",
   "classes": {
     "a published view of the box the body has": "`kin` on this line is a `PortalBodyView`, not a `BodyKinematics`: its size is published by the host as the collision box, turned (`publish_portal_body_views`)",
-    "the length of the half only": "the reader takes the length of the half (a reach of the portal viewer), which the level box and a box turned by a quarter share",
     "the half of a body in its own frame, for a reader with a frame": "the half on the body's own axes (side, DOWN), given to a reader that lays it on a frame. The perception view: the recovery lens hands it to a kernel body, which turns it, and the rollout projects on side and down. The candidates of a teleport's ambush: `ambush_arrival` lays them on the frame of the teleporter. To turn it at the source turns it twice",
     "a shot": "a shot is a free body with no support and no stance: its size is its box",
     "the gravity of a body": "this box is what resolves the frame of the body, so the frame cannot turn it",
@@ -102,11 +101,6 @@
       "file": "crates/ambition_platformer2d_core/src/player_state.rs",
       "code": "let old_world_half = frame.to_world_half(kinematics.size * 0.5);",
       "class": "inside the kernel"
-    },
-    {
-      "file": "crates/ambition_platformer2d_host/src/portal.rs",
-      "code": "Some((kin.pos, kin.size * 0.5, room, rooms.in_room(room)?))",
-      "class": "the length of the half only"
     },
     {
       "file": "crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs",

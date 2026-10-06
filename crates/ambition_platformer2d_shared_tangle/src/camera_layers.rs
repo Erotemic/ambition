@@ -11,6 +11,12 @@ pub const FRONT_HUD_LAYER: usize = 1;
 /// camera never draws another view's camera-relative backdrop.
 pub const PARALLAX_BACKGROUND_LAYER: usize = 2;
 
+/// Render layer of the through-portal window meshes while one room is live.
+/// Each main camera draws it. While two or more rooms are live, a window that
+/// is stamped into a live room draws on that room's window layer in its place
+/// ([`live_room_window_layer`]).
+pub const PORTAL_WINDOW_RENDER_LAYER: usize = 5;
+
 /// Render layer of the private cameras that composite a part-drawn body into
 /// its impostor texture (`ambition_render::rendering::actors::rigged`). Only
 /// those cameras draw it, so no view sees a body's loose parts; each body's
@@ -41,6 +47,32 @@ pub const LIVE_ROOM_RENDER_LAYER_BASE: usize = 256;
 /// The highest live-room render layer. More live rooms than the band holds
 /// share its last layer.
 pub const LIVE_ROOM_RENDER_LAYER_LAST: usize = 511;
+
+/// Base of the render-layer band for the through-portal windows of live
+/// rooms. It is a band of its own, and not the room band: the capture of a
+/// window adds the band of its room to see that room's world, so a window on
+/// the room band would be in its own capture. The band is above the
+/// per-portal window layers (512 + slot, slot below 300) and below the local
+/// view band (1024).
+pub const LIVE_ROOM_WINDOW_LAYER_BASE: usize = 832;
+
+/// The highest live-room window layer. More live rooms than the band holds
+/// share its last layer.
+pub const LIVE_ROOM_WINDOW_LAYER_LAST: usize = 1023;
+
+/// Render layer of a through-portal window stamped into a room that is no
+/// longer live, while two or more rooms are live. No camera draws it. It is
+/// the window layer's [`RETIRED_ROOM_RENDER_LAYER`]: a layer of its own, so
+/// that the window returns to the window layer and not to the world layer.
+pub const RETIRED_ROOM_WINDOW_LAYER: usize = 831;
+
+/// The window layer of the live room whose room layer is `room_layer` (a
+/// result of [`live_room_render_layer`] or [`live_room_band`]). One rule for
+/// the pass that puts a window there and for a camera that must draw it.
+pub fn live_room_window_layer(room_layer: usize) -> usize {
+    (LIVE_ROOM_WINDOW_LAYER_BASE + room_layer.saturating_sub(LIVE_ROOM_RENDER_LAYER_BASE))
+        .min(LIVE_ROOM_WINDOW_LAYER_LAST)
+}
 
 /// Render layer for a live-room ordinal (the room's place among the live
 /// rooms in instance order), not a `LiveRoomInstance`.

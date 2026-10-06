@@ -33,7 +33,7 @@ pub use camera_continuity::{
     camera_roll_for_portal_transit, PortalCameraContinuityCamera, PortalCameraContinuityConfig,
     PortalCameraContinuityFocus, PortalCameraContinuityHostView, PortalCameraContinuitySelection,
     PortalCameraContinuityState, PortalCameraTransit, PortalCameraTransitMode,
-    PortalCameraTransitRule,
+    PortalCameraTransitRule, PortalObserverViews,
 };
 pub use clip_material::{
     clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial,
@@ -67,7 +67,7 @@ pub use view_cones::{
     PortalViewConeConfig, PortalViewConeDebugDumpRequest, PortalViewConeDebugRow,
     PortalViewConeMode, PortalViewConeRule, PortalViewCones, PortalViewConeSourceClipPolicy,
     PortalViewConeVisibilityMode,
-    PortalViewRig, PortalViewer, PORTAL_WINDOW_RENDER_LAYER,
+    PortalViewRig, PortalViewer, PortalViewers, PORTAL_WINDOW_RENDER_LAYER,
 };
 pub use visuals::{
     sync_portal_body_pieces, sync_portal_disorientation_indicator, sync_portal_visuals,

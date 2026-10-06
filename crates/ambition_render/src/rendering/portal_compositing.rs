@@ -566,7 +566,7 @@ mod bridge_meets_compositor_tests {
     use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
     use ambition_portal2d_presentation::{PlacedPortal, PortalChannel, PortalChannelColor};
     use ambition_portal2d_presentation::{
-        composite_far_side_bodies, PortalViewer, PortalWorldFrame,
+        composite_far_side_bodies, PortalViewer, PortalViewers, PortalWorldFrame,
     };
     use bevy::sprite::Anchor;
 
@@ -600,13 +600,13 @@ mod bridge_meets_compositor_tests {
         app.insert_resource(
             Assets::<ambition_portal2d_presentation::PortalClipMaterial>::default(),
         );
-        app.insert_resource(PortalViewer {
+        app.insert_resource(PortalViewers::one(PortalViewer {
             present: true,
             // Well in front of the pane, so a body at high x is far-side.
             eye: ambition_platformer2d_core::Vec2::new(400.0, 300.0),
             room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
             ..default()
-        });
+        }));
         app.world_mut().spawn(pane());
         // The order under test: publish, composite, then resolve, in one frame.
         // `resolve_portal_source_visibility` is the only writer of `Visibility`,

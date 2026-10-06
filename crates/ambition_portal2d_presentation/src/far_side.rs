@@ -10,8 +10,12 @@
 //! A higher window z inverts the bug onto near-side bodies. One actor z cannot
 //! serve two panes that disagree in the same frame.
 //!
-//! [`PortalViewer`] is a resource, so there is exactly one viewpoint.
-//! Split-screen would need per-view pieces on per-view render layers.
+//! Near and far are relative to an eye, and a live room has one eye
+//! ([`PortalViewers`]). A body is composited by the eye of its own live room,
+//! and its pieces are stamped into that room, so a camera that frames
+//! another live room does not draw them. Two views of ONE room share that
+//! room's eye: a split in one room would need per-view pieces on per-view
+//! render layers.
 //!
 //! The pieces carry no `RenderLayers` because actor sprites do not. The
 //! per-view isolation pass writes layers only onto `PresentedForView` things
@@ -33,7 +37,7 @@ use bevy::sprite::Anchor;
 use crate::clip_material::{
     clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial, CLIP_PLANE_OFF,
 };
-use crate::{PortalCompositingCandidate, PortalFrames, PortalViewer};
+use crate::{PortalCompositingCandidate, PortalFrames, PortalViewers};
 use ambition_sprite_fx::DeclaredFrame;
 
 /// One drawn fragment of a far-side body. Rebuilt every frame from the source
@@ -61,7 +65,7 @@ pub fn composite_far_side_bodies(
     stale: Query<Entity, With<PortalFarSidePiece>>,
     hidden: Query<Entity, With<PortalFarSideHidden>>,
     portals: Query<(Entity, &PlacedPortal)>,
-    viewer: Option<Res<PortalViewer>>,
+    viewers: Option<Res<PortalViewers>>,
     images: Option<Res<Assets<Image>>>,
     layouts: Option<Res<Assets<TextureAtlasLayout>>>,
     meshes: Option<ResMut<Assets<Mesh>>>,
@@ -89,7 +93,7 @@ pub fn composite_far_side_bodies(
 
     // Near and far are relative to a viewpoint. Without one, every body
     // draws as it did before.
-    let Some(viewer) = viewer.filter(|v| v.present) else {
+    let Some(viewers) = viewers.filter(|viewers| viewers.iter().any(|viewer| viewer.present)) else {
         restore_hidden(&mut commands, &hidden, &mut candidates);
         return;
     };
@@ -113,10 +117,14 @@ pub fn composite_far_side_bodies(
     for (entity, candidate, sprite, declared, anchor, transform, transit) in &mut candidates {
         let min = candidate.drawn_centre - candidate.drawn_half;
         let max = candidate.drawn_centre + candidate.drawn_half;
-        // The candidate's own live room: its frame and its panes. Only the
-        // viewer's room is composited (near and far are relative to its eye),
-        // and a body whose room cannot be told is not.
-        let Some(placement) = frames.of(entity).filter(|placement| viewer.room == Some(placement.room)) else {
+        // The candidate's own live room: its frame, its panes and its eye.
+        // Near and far are relative to an eye, so a room with no eye is not
+        // composited, and a body whose room cannot be told is not.
+        let placed = frames.of(entity).and_then(|placement| {
+            let viewer = viewers.in_room(Some(placement.room)).filter(|viewer| viewer.present)?;
+            Some((placement, viewer))
+        });
+        let Some((placement, viewer)) = placed else {
             give_back(&mut commands, entity, &hidden);
             continue;
         };
@@ -281,7 +289,7 @@ fn give_back(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::PortalWorldFrame;
+    use crate::{PortalViewer, PortalWorldFrame};
     use ambition_portal2d::{PortalChannel, PortalChannelColor};
 
     const WORLD: Vec2 = Vec2::new(1000.0, 600.0);
@@ -395,12 +403,12 @@ mod tests {
     /// `eye` is in front of the pane (low x), so a body at high x is far.
     /// Inserted as a resource, as the host publishes it.
     fn spawn_viewer(app: &mut App, eye: Vec2) {
-        app.insert_resource(PortalViewer {
+        app.insert_resource(PortalViewers::one(PortalViewer {
             present: true,
             room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
             eye,
             ..default()
-        });
+        }));
     }
 
     fn spawn_candidate(app: &mut App, centre: Vec2, half: Vec2) -> Entity {
@@ -519,20 +527,32 @@ mod tests {
         );
     }
 
-    /// A pane covers only the bodies of its own live room, and only the
-    /// viewer's room is composited (view half, V2m). Two live rooms share one
-    /// coordinate space, so before, a pane of one room hid and redrew a body of
-    /// the other standing at the same coordinates. The control is the pane and
-    /// the body both in the viewer's room, composited as before.
+    /// A pane covers only the bodies of its own live room, and a body is
+    /// composited by the eye of its own room (view half, V2m; A3). Two live
+    /// rooms share one coordinate space, so before, a pane of one room hid and
+    /// redrew a body of the other standing at the same coordinates. The
+    /// control is the pane and the body both in the first eye's room,
+    /// composited as before.
+    ///
+    /// `other_eye` is the x of an eye in the other room, when it has one. The
+    /// first room's eye is at 400, in front of the pane, so the body is far
+    /// from it. A room with no eye is not composited. With an eye at 400 the
+    /// body of the other room is far and is composited; with an eye at 600 it
+    /// is near and draws whole. So the answer is the answer of the room's own
+    /// eye, and not of the first.
     #[test]
     fn a_pane_covers_only_the_bodies_of_its_own_room_in_the_viewers_room() {
         use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
         let viewers = LiveRoomInstance::ACTIVATION;
         let other = LiveRoomInstance::from_ordinal(1);
-        for (pane_room, body_room, composited) in [
-            (viewers, viewers, true),
-            (viewers, other, false),
-            (other, viewers, false),
+        for (pane_room, body_room, other_eye, composited) in [
+            (viewers, viewers, None, true),
+            (viewers, other, None, false),
+            (other, viewers, None, false),
+            (other, other, None, false),
+            (other, other, Some(400.0), true),
+            (other, other, Some(600.0), false),
+            (viewers, viewers, Some(600.0), true),
         ] {
             let mut app = test_app();
             ambition_platformer2d_shared_tangle::lifecycle::spawn_live_room(
@@ -542,10 +562,19 @@ mod tests {
             );
             app.world_mut().spawn((pane(), InRoomInstance(pane_room)));
             spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
+            if let Some(x) = other_eye {
+                let published = app.world_mut().resource_mut::<PortalViewers>().publish(PortalViewer {
+                    present: true,
+                    room: Some(other),
+                    eye: Vec2::new(x, 300.0),
+                    ..default()
+                });
+                assert!(published, "the other room has no eye yet");
+            }
             let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));
             app.world_mut().entity_mut(body).insert(InRoomInstance(body_room));
             app.update();
-            let case = format!("pane in {pane_room:?}, body in {body_room:?}");
+            let case = format!("pane in {pane_room:?}, body in {body_room:?}, an eye in the other room at {other_eye:?}");
             if composited {
                 assert_eq!(visibility(&app, body), Visibility::Hidden, "{case}: control, the body is the pieces");
                 assert!(pieces(&mut app) > 0, "{case}: control, the uncovered part is redrawn");
@@ -647,12 +676,12 @@ mod tests {
     fn an_absent_eye_composites_nothing() {
         let mut app = test_app();
         app.world_mut().spawn(pane());
-        app.insert_resource(PortalViewer {
+        app.insert_resource(PortalViewers::one(PortalViewer {
             present: false,
             room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
             eye: Vec2::new(400.0, 300.0),
             ..default()
-        });
+        }));
         let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));
         app.update();
         assert_eq!(visibility(&app, body), Visibility::Inherited);

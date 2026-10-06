@@ -26,7 +26,7 @@ use ambition_portal2d::{find_portal, PlacedPortal, PortalChannel};
 
 use ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation;
 
-use crate::{PortalCameraContinuityHostView, PortalWorldFrame};
+use crate::{PortalCameraContinuityHostView, PortalObserverViews, PortalWorldFrame};
 
 /// Clear color of an offscreen capture: a dark tone shows through wherever the
 /// exit room has no geometry (rare — parallax usually fills it). Opaque windows
@@ -34,8 +34,10 @@ use crate::{PortalCameraContinuityHostView, PortalWorldFrame};
 const CAPTURE_CLEAR: Color = Color::srgb(0.03, 0.04, 0.05);
 
 const WORLD_RENDER_LAYER: usize = 0;
-/// Dedicated layer for portal view-window meshes.
-pub const PORTAL_WINDOW_RENDER_LAYER: usize = 5;
+/// Dedicated layer for portal view-window meshes. The constant is with the
+/// other render-layer reservations, because the pass that keeps each camera
+/// to its own live room moves a stamped window off this layer.
+pub use ambition_platformer2d_shared_tangle::camera_layers::PORTAL_WINDOW_RENDER_LAYER;
 const PORTAL_CAPTURE_PARALLAX_LAYER_BASE: usize = 32;
 /// Base of the per-portal window layers. Every window mesh carries the shared
 /// [`PORTAL_WINDOW_RENDER_LAYER`] (rendered by the main camera) and its own
@@ -56,6 +58,8 @@ fn portal_capture_parallax_layer(channel: PortalChannel) -> usize {
 pub(crate) fn portal_window_render_layers(channel: PortalChannel) -> RenderLayers {
     // The shared layer is what the main camera renders. The per-portal layer
     // lets other rigs' captures include this window, but never its own capture.
+    // While two rooms are live, the room pass of the renderer moves the shared
+    // layer of a stamped window to the window layer of its room.
     RenderLayers::layer(PORTAL_WINDOW_RENDER_LAYER).with(portal_window_self_layer(channel))
 }
 
@@ -120,10 +124,17 @@ fn capture_render_layers(
     layers
 }
 
-#[derive(Resource, Clone, Debug, Default)]
+/// One viewpoint: an eye in one live room. The host publishes one for each
+/// live room that a local view frames ([`PortalViewers`]).
+#[derive(Clone, Debug, Default)]
 pub struct PortalViewer {
     /// Whether a controlled-character eye is available this frame.
     pub present: bool,
+    /// The observer this eye is for: the entity the host records that
+    /// observer's camera sample by ([`PortalObserverViews`]). The windows of
+    /// the eye's room are clipped to that camera and captured for it. `None`
+    /// has no camera sample: a window is then clipped to its room.
+    pub observer: Option<Entity>,
     /// The controlled character's eye position (body center), world space.
     pub eye: Vec2,
     /// The live room the eye is in. Near and far are relative to an eye, so a
@@ -138,6 +149,59 @@ pub struct PortalViewer {
     /// occluded from `eye` renders no window. The host syncs these from its
     /// collision world (only the blocks that block sight).
     pub occluders: Vec<ae::Aabb>,
+}
+
+/// Host seam: the viewpoints of this frame, one for each live room that a
+/// local view frames.
+///
+/// A window is what one eye sees through a portal of its own live room, so
+/// each live room has one eye at most. Two observers of ONE room share the
+/// windows of the first of them: a window for each observer needs a rig and
+/// a capture for each, which this crate does not make.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct PortalViewers {
+    viewers: Vec<PortalViewer>,
+}
+
+impl PortalViewers {
+    /// One viewpoint: the whole seam of a session with one observer.
+    pub fn one(viewer: PortalViewer) -> Self {
+        let mut viewers = Self::default();
+        viewers.publish(viewer);
+        viewers
+    }
+
+    /// Remove each viewpoint. The host calls this first in a frame.
+    pub fn clear(&mut self) {
+        self.viewers.clear();
+    }
+
+    /// Add a viewpoint. A second eye in a room that has one is refused: the
+    /// first observer of a room, in the order the host publishes, is the eye
+    /// of that room.
+    pub fn publish(&mut self, viewer: PortalViewer) -> bool {
+        if viewer.room.is_some() && self.viewers.iter().any(|held| held.room == viewer.room) {
+            return false;
+        }
+        self.viewers.push(viewer);
+        true
+    }
+
+    /// The eye of live room `room`. A room that cannot be told has no eye.
+    pub fn in_room(&self, room: ambition_portal2d::PortalRoom) -> Option<&PortalViewer> {
+        let room = room?;
+        self.viewers.iter().find(|viewer| viewer.room == Some(room))
+    }
+
+    /// Each viewpoint, in the order the host published them.
+    pub fn iter(&self) -> impl Iterator<Item = &PortalViewer> {
+        self.viewers.iter()
+    }
+
+    /// The first viewpoint: the one a diagnostic of one eye describes.
+    pub fn first(&self) -> Option<&PortalViewer> {
+        self.viewers.first()
+    }
 }
 
 /// Host seam: whether the F1 debug overlay is currently active. Portal debug
@@ -624,6 +688,9 @@ fn retire_rig(commands: &mut Commands, entity: Entity, rig: &PortalViewRig) {
 /// (world size / texture dims) or the pair disappears.
 #[derive(Component)]
 pub struct PortalViewRig {
+    /// The live room of the portal. A channel is not an identity: two live
+    /// rooms can each hold a portal of one channel.
+    room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     channel: PortalChannel,
     parallax_layer: usize,
     parallax_anchor: Vec2,
@@ -649,6 +716,20 @@ impl PortalViewRig {
     /// Portal channel served by this capture rig.
     pub fn channel(&self) -> PortalChannel {
         self.channel
+    }
+
+    /// The live room of the portal this rig serves.
+    pub fn room(&self) -> ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance {
+        self.room
+    }
+
+    /// Whether this rig serves `portal` of live room `room`.
+    pub fn serves(
+        &self,
+        room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+        channel: PortalChannel,
+    ) -> bool {
+        self.room == room && self.channel == channel
     }
 
     /// Private `RenderLayers` index for parallax sprites that should render
@@ -818,9 +899,9 @@ pub fn sync_portal_view_cones(
     selection: Res<crate::PortalEffectSelection>,
     view_cones: PortalViewCones,
     quality: Res<PortalCaptureQualityBudget>,
-    viewer: Option<Res<PortalViewer>>,
+    viewers: Option<Res<PortalViewers>>,
     frames: crate::PortalFrames,
-    host_view: Option<Res<PortalCameraContinuityHostView>>,
+    observer_views: Option<Res<PortalObserverViews>>,
     mut assets: ConeRigAssets,
     time: Res<Time>,
     portals: Query<(Entity, &PlacedPortal)>,
@@ -864,44 +945,69 @@ pub fn sync_portal_view_cones(
         }
         return;
     }
-    // A window is what the eye sees through a portal of its own live room, so
-    // the rigs are the viewer room's, in that room's frame.
-    let Some(placement) = viewer.as_deref().and_then(|viewer| frames.in_room(viewer.room)) else {
+    // A window is what an eye sees through a portal of its own live room, so
+    // each live room that has an eye has its rigs, in that room's frame, and
+    // a live room with no eye has none.
+    let by_room = frames.portals_by_room(portals.iter());
+    let effective = effective_portal_capture_budget(&config, &quality);
+    let mut eyes: Vec<RoomEye> = Vec::new();
+    for viewer in viewers.iter().flat_map(|viewers| viewers.iter()) {
+        let Some(placement) = frames.in_room(viewer.room) else {
+            continue;
+        };
+        let host_view = observer_views.as_deref().and_then(|views| views.of(viewer.observer));
+        let (clip_min, clip_max) = portal_window_clip_rect(&placement.frame, host_view);
+        eyes.push(RoomEye {
+            placement,
+            room_band: frames.band(placement.room),
+            all: by_room.in_room(Some(placement.room)).to_vec(),
+            viewer,
+            host_view,
+            clip_min,
+            clip_max,
+            screen_scale: screen_density.texels_per_world(host_view),
+        });
+    }
+    if eyes.is_empty() {
         for (entity, rig, ..) in &rigs {
             retire_rig(&mut commands, entity, rig);
         }
         return;
-    };
-    let frame = placement.frame;
-    if frame.size == Vec2::ZERO {
-        return;
     }
-    let room_band = frames.band(placement.room);
-    let by_room = frames.portals_by_room(portals.iter());
-    let all: Vec<PlacedPortal> = by_room.in_room(Some(placement.room)).to_vec();
-    let viewer = viewer.as_deref();
-    let (clip_min, clip_max) = portal_window_clip_rect(&frame, host_view.as_deref());
-    let effective = effective_portal_capture_budget(&config, &quality);
-    let screen_scale = screen_density.texels_per_world(host_view.as_deref());
     let now_s = time.elapsed_secs();
     let mut active_captures = 0u32;
     let mut updates_this_frame = 0u32;
 
     // First pass: update each live rig in place, or despawn it if its pair is
     // gone / it needs a full rebuild.
-    let mut served: Vec<PortalChannel> = Vec::new();
+    let mut served: Vec<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, PortalChannel)> =
+        Vec::new();
     for (entity, mut rig, mut cam_tf, mut proj, mut cam, mut layers) in &mut rigs {
+        let Some(eye) = eyes.iter().find(|eye| eye.placement.room == rig.room) else {
+            retire_rig(&mut commands, entity, &rig);
+            continue;
+        };
+        let RoomEye { placement: _, room_band, all, viewer, host_view, clip_min, clip_max, screen_scale } = eye;
+        let (room_band, host_view, clip_min, clip_max, screen_scale) =
+            (*room_band, *host_view, *clip_min, *clip_max, *screen_scale);
+        let viewer = Some(*viewer);
+        let frame = eye.placement.frame;
+        // A room with no size yet: leave its rigs as they are.
+        if frame.size == Vec2::ZERO {
+            served.push((rig.room, rig.channel));
+            continue;
+        }
         let portal = all.iter().find(|p| p.channel == rig.channel).cloned();
         let partner = portal
             .as_ref()
-            .and_then(|p| find_portal(&all, p.channel.partner()));
+            .and_then(|p| find_portal(all, p.channel.partner()));
         let (Some(portal), Some(partner)) = (portal, partner) else {
             retire_rig(&mut commands, entity, &rig);
             continue;
         };
         let (enter, exit) = (portal.aperture(), partner.aperture());
         let capture_frame =
-            portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit, convention);
+            portal_capture_camera_frame(&config, host_view, &enter, &exit, convention);
         let rebuild = RebuildKey {
             world_size: frame.size,
             tex: capture_dims(
@@ -919,12 +1025,12 @@ pub fn sync_portal_view_cones(
             retire_rig(&mut commands, entity, &rig);
             continue;
         }
-        served.push(rig.channel);
+        served.push((rig.room, rig.channel));
         *layers = capture_render_layers(
             effective.recursion_depth,
             effective.include_parallax,
             rig.parallax_layer,
-            &other_window_layers(&all, rig.channel),
+            &windows_a_capture_may_see(all, rig.channel, room_band),
             room_band,
         );
         sync_cone_material_tint(&cone_materials, materials, rig.cone, config.tint);
@@ -977,7 +1083,7 @@ pub fn sync_portal_view_cones(
                 rig.parallax_anchor = frame
                     .to_render(
                         portal_parallax_anchor_world(
-                            host_view.as_deref(),
+                            host_view,
                             &enter,
                             &exit,
                             convention,
@@ -1022,17 +1128,26 @@ pub fn sync_portal_view_cones(
         }
     }
 
-    // Second pass: spawn rigs for desired pairs not yet served.
+    // Second pass: spawn rigs for desired pairs not yet served, room by room.
+    for eye in &eyes {
+    let RoomEye { placement, room_band, all, viewer, host_view, clip_min, clip_max, screen_scale } = eye;
+    let (room_band, host_view, clip_min, clip_max, screen_scale) =
+        (*room_band, *host_view, *clip_min, *clip_max, *screen_scale);
+    let viewer = Some(*viewer);
+    let frame = placement.frame;
+    if frame.size == Vec2::ZERO {
+        continue;
+    }
     for portal in all.iter() {
-        let Some(partner) = find_portal(&all, portal.channel.partner()) else {
+        let Some(partner) = find_portal(all, portal.channel.partner()) else {
             continue;
         };
-        if served.contains(&portal.channel) {
+        if served.contains(&(placement.room, portal.channel)) {
             continue;
         }
         let (enter, exit) = (portal.aperture(), partner.aperture());
         let capture_frame =
-            portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit, convention);
+            portal_capture_camera_frame(&config, host_view, &enter, &exit, convention);
         let rebuild = RebuildKey {
             world_size: frame.size,
             tex: capture_dims(
@@ -1111,6 +1226,9 @@ pub fn sync_portal_view_cones(
                 cone_vis,
                 PortalConeMesh,
                 portal_window_render_layers(portal.channel),
+                // The window is of this live room: only a camera that frames
+                // the room draws it while two rooms are live.
+                placement.stamp(),
                 // The vertices are rewritten each frame, but Bevy computes a mesh
                 // entity's culling Aabb only once. A stale Aabb (possibly the
                 // degenerate placeholder) would cull a correct window. Never cull it.
@@ -1165,7 +1283,7 @@ pub fn sync_portal_view_cones(
                 effective.recursion_depth,
                 effective.include_parallax,
                 portal_capture_parallax_layer(portal.channel),
-                &other_window_layers(&all, portal.channel),
+                &windows_a_capture_may_see(all, portal.channel, room_band),
                 room_band,
             ),
             Projection::Orthographic(OrthographicProjection {
@@ -1174,12 +1292,13 @@ pub fn sync_portal_view_cones(
             }),
             cam_tf,
             PortalViewRig {
+                room: placement.room,
                 channel: portal.channel,
                 parallax_layer: portal_capture_parallax_layer(portal.channel),
                 parallax_anchor: frame
                     .to_render(
                         portal_parallax_anchor_world(
-                            host_view.as_deref(),
+                            host_view,
                             &enter,
                             &exit,
                             convention,
@@ -1199,6 +1318,36 @@ pub fn sync_portal_view_cones(
             },
             Name::new(format!("Portal view capture ({})", portal.channel.name())),
         ));
+    }
+    }
+}
+
+/// One live room that has an eye, and what its windows are made from.
+struct RoomEye<'a> {
+    placement: crate::PortalPlacement,
+    /// The render band of the room while two or more rooms are live.
+    room_band: Option<usize>,
+    /// The placed portals of the room.
+    all: Vec<PlacedPortal>,
+    viewer: &'a PortalViewer,
+    /// The camera sample of the observer the eye is for.
+    host_view: Option<&'a PortalCameraContinuityHostView>,
+    clip_min: Vec2,
+    clip_max: Vec2,
+    screen_scale: f32,
+}
+
+/// The per-portal window layers a capture of `own` may see when recursion is
+/// on: each other window of its room, while one room is live.
+///
+/// While two or more rooms are live it sees none. A per-portal layer is the
+/// layer of a channel, and two live rooms can each hold a portal of one
+/// channel at the same coordinates, so a capture would draw a window of the
+/// other room.
+fn windows_a_capture_may_see(all: &[PlacedPortal], own: PortalChannel, room_band: Option<usize>) -> Vec<usize> {
+    match room_band {
+        Some(_) => Vec::new(),
+        None => other_window_layers(all, own),
     }
 }
 

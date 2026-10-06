@@ -328,7 +328,7 @@ pub fn sync_portal_visuals(
     mut commands: Commands,
     frames: PortalFrames,
     art: Option<Res<PortalGunArt>>,
-    viewer: Option<Res<crate::PortalViewer>>,
+    viewers: Option<Res<crate::PortalViewers>>,
     rigs: Query<&crate::PortalViewRig>,
     visuals: Query<Entity, With<PortalVisual>>,
     portals: Query<(Entity, &PlacedPortal)>,
@@ -347,7 +347,10 @@ pub fn sync_portal_visuals(
         let Some(placement) = frames.in_room(room) else {
             continue;
         };
-        spawn_room_portal_visuals(&mut commands, placement, room_portals, viewer.as_deref(), &rigs);
+        // The eye of this room: the frame of a portal is over or under the
+        // glass by where that eye is.
+        let viewer = viewers.as_deref().and_then(|viewers| viewers.in_room(room));
+        spawn_room_portal_visuals(&mut commands, placement, room_portals, viewer, &rigs);
     }
 }
 
@@ -371,7 +374,7 @@ fn spawn_room_portal_visuals(
         // portal). No viewer / no partner  dominant (nothing overlaps).
         let dominant = rigs
             .iter()
-            .find(|rig| rig.channel() == portal.channel)
+            .find(|rig| rig.serves(placement.room, portal.channel))
             .map(|rig| rig.pane_dominant())
             .or_else(|| {
                 let (partner, v) = (partner.as_ref()?, viewer?);

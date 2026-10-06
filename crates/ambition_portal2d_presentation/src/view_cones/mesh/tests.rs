@@ -21,6 +21,7 @@ fn thin_wall_pair() -> (PlacedPortal, PlacedPortal) {
 
 fn viewer_at(x: f32) -> PortalViewer {
     PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: Vec2::new(x, 300.0),
@@ -142,6 +143,7 @@ fn same_plane_pair_still_orders_by_proximity() {
     );
     let config = PortalViewConeConfig::default();
     let v = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye,

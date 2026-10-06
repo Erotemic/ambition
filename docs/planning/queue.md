@@ -2714,7 +2714,7 @@ neighbours, and no class but the first was measured.
 | arrival and fit checks of a traversal | 4 | 0 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (the arrival) | yes. BUILT, see below |
 | a procedure written in world axes | 2 | 1 | the candidates of a teleport's ambush (`teleport.rs`, `ambush_arrival`), the fit of the petter at its mark (`pet.rs`) | yes, and NOT by this rule. BUILT, see below: each procedure is in the frame of its body. The line of the ambush stays (the half is on the body's own axes); the line of the pet is gone |
 | portals: the carve and the eviction of a body | 3 | 0 | `ambition_portal2d` `transit.rs` (the carve), `eviction.rs` (2) | yes. BUILT, see below |
-| portals: read line by line, and not a level-box read of a body | 6 | 6 | the gravity lookup of the transit (`transit.rs`: the guard has it with the gravity lookups), a shot's portal transit (the guard has it with the shots), the reach of the portal viewer (the host adapter: the LENGTH of the half only), two draws in `ambition_portal2d_presentation` (they read `PortalBodyView`, a published view whose local name is `kin`), and the test literal | no, each with its reason in the baseline of the guard |
+| portals: read line by line, and not a level-box read of a body | 5 | 5 | the gravity lookup of the transit (`transit.rs`: the guard has it with the gravity lookups), a shot's portal transit (the guard has it with the shots), two draws in `ambition_portal2d_presentation` (they read `PortalBodyView`, a published view whose local name is `kin`), and the test literal | no, each with its reason in the baseline of the guard |
 | what a brain sees of a body | 2 | 2 | `perception.rs` (`half_extent` of the viewer and of a peer) | NO, read 2026-10-06: the half is in the body's own frame, and its readers have a frame. See "Rejected" below |
 | a shot | 12 | 12 | `projectile/systems.rs` (4), `projectile/collision.rs`, `projectile/body.rs` (6, 2 of them the comment lines), `clash.rs` | no: a shot is a free body with no support and no stance, and its size is its box |
 | the gravity of a body | 3 | 3 | `gravity/resolve.rs` (2), the frame of a throw (`ambition_held_items/src/lib.rs`) | no: this box is what resolves the frame, so the frame cannot turn it |
@@ -2729,10 +2729,20 @@ world-and-reach class; it is a gravity lookup, and the table above has it
 there (16 and 3, not 17 and 2). The first sort also put the two world-axis
 procedures in the traversal class (6); they are a class of their own (4 and
 2). The search finds 44 lines on 2026-10-06 after the classes that are
-built (the guard counts 40 of them: it leaves out the 2 comment lines and the
+built (the guard counted 40 of them: it leaves out the 2 comment lines and the
 test literal, and the line of the pet is gone). Every line the guard counts
 now has a reason; no class is left "to convert" and no line has the name
 DEFECT.
+
+**A read that I classified wrong, corrected 2026-10-06:** the half of the
+portal viewer (`sync_portal_viewer`, the host adapter) was in a class named
+"the length of the half only". That was true of one reader (`portal_at_seam`)
+and false of another: `inset_viewer_corners` tests the line of sight from the
+four CORNERS of the box, which the level box of a turned body does not have.
+The class came from the host line and the first reader I found. The viewer
+now has the half of `collision_box(last_step)` (arm: Bob lies along sideways
+gravity in `each_live_room_a_view_frames_has_the_eye_of_that_views_body`, red
+with `kin.size * 0.5`), and the class is gone. The guard counts 39.
 
 **The transit record, built 2026-10-06 (rollback schema 314 to 315):**
 `transit_body` and `reconcile_transit` have 23 call sites outside tests. Ten

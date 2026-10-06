@@ -10,8 +10,10 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::camera_layers::{
-    local_view_render_layer, MainCamera, LIVE_ROOM_RENDER_LAYER_BASE,
-    LIVE_ROOM_RENDER_LAYER_LAST, LOCAL_VIEW_RENDER_LAYER_BASE, RETIRED_ROOM_RENDER_LAYER,
+    live_room_window_layer, local_view_render_layer, MainCamera, LIVE_ROOM_RENDER_LAYER_BASE,
+    LIVE_ROOM_RENDER_LAYER_LAST, LIVE_ROOM_WINDOW_LAYER_BASE, LIVE_ROOM_WINDOW_LAYER_LAST,
+    LOCAL_VIEW_RENDER_LAYER_BASE, PORTAL_WINDOW_RENDER_LAYER, RETIRED_ROOM_RENDER_LAYER,
+    RETIRED_ROOM_WINDOW_LAYER,
 };
 
 /// Render layers to restore when a per-view projection is no longer isolated.
@@ -196,8 +198,16 @@ pub fn stamp_presentations_with_their_subject_s_room(
 /// later while the trail's particles live on. On the world layer every
 /// camera drew them, so Bob saw Alice's trail in his own room.
 ///
-/// Only the world layer moves. An unstamped entity stays on it, and every
-/// camera draws it. An entity that does not draw on the world layer (a
+/// The through-portal window layer moves the same way, to a band of its own:
+/// a window stamped into a live room draws on that room's window layer, and
+/// a main camera that draws the window layer adds the window layer of the
+/// room its view frames. Each camera drew the window layer before, so the
+/// window of one room was drawn in the view of the other. It is not the room
+/// band, because the capture of a window adds that band to see the room, and
+/// would then capture its own window.
+///
+/// Only the world layer and the window layer move. An unstamped entity stays
+/// on them, and every camera draws it. An entity that draws on neither (a
 /// parallax panel) keeps its layers. A view's own projections belong to
 /// [`isolate_per_view_projections`], so this pass does not enter a
 /// `PresentedForView` subtree, and the two passes write different bands of a
@@ -236,6 +246,10 @@ pub fn isolate_live_rooms(
             Ok(mut current) => {
                 let base = without_room_layers(&current);
                 let desired = match wanted {
+                    // A camera that draws windows draws those of its room.
+                    Some(layer) if base.intersects(&RenderLayers::layer(PORTAL_WINDOW_RENDER_LAYER)) => {
+                        base.with(layer).with(live_room_window_layer(layer))
+                    }
                     Some(layer) => base.with(layer),
                     None => base,
                 };
@@ -287,27 +301,57 @@ fn is_room_layer(layer: usize) -> bool {
         || (LIVE_ROOM_RENDER_LAYER_BASE..=LIVE_ROOM_RENDER_LAYER_LAST).contains(&layer)
 }
 
-/// A mask with the live-room band cleared: what a camera draws when its view
+/// A layer that this pass puts in place of the window layer: a live room's
+/// window layer, or the window layer of a room that is not live.
+fn is_room_window_layer(layer: usize) -> bool {
+    layer == RETIRED_ROOM_WINDOW_LAYER
+        || (LIVE_ROOM_WINDOW_LAYER_BASE..=LIVE_ROOM_WINDOW_LAYER_LAST).contains(&layer)
+}
+
+/// The window layer that goes with room layer `room_layer`.
+fn room_window_layer(room_layer: usize) -> usize {
+    if room_layer == RETIRED_ROOM_RENDER_LAYER {
+        RETIRED_ROOM_WINDOW_LAYER
+    } else {
+        live_room_window_layer(room_layer)
+    }
+}
+
+/// A mask with the live-room bands cleared: what a camera draws when its view
 /// frames no banded room.
 fn without_room_layers(layers: &RenderLayers) -> RenderLayers {
     let mut base = layers.clone();
     for layer in layers.iter() {
-        if is_room_layer(layer) {
+        if is_room_layer(layer) || is_room_window_layer(layer) {
             base = base.without(layer);
         }
     }
     base
 }
 
-/// An entity's mask with its world layer on room band `wanted`, or back on
-/// the world layer when `wanted` is `None`.
+/// An entity's mask with its world layer on room band `wanted` and its window
+/// layer on the window layer of that band, or back on the world layer and the
+/// window layer when `wanted` is `None`.
 fn in_room_band(layers: &RenderLayers, wanted: Option<usize>) -> RenderLayers {
-    let banded = layers.iter().any(is_room_layer);
-    let world = if banded { without_room_layers(layers).with(0) } else { layers.clone() };
-    match wanted {
-        Some(layer) if world.intersects(&RenderLayers::layer(0)) => world.without(0).with(layer),
-        _ => world,
+    // The mask the entity rests on, with one live room.
+    let mut resting = without_room_layers(layers);
+    if layers.iter().any(is_room_layer) {
+        resting = resting.with(0);
     }
+    if layers.iter().any(is_room_window_layer) {
+        resting = resting.with(PORTAL_WINDOW_RENDER_LAYER);
+    }
+    let Some(layer) = wanted else {
+        return resting;
+    };
+    let mut banded = resting.clone();
+    if resting.intersects(&RenderLayers::layer(0)) {
+        banded = banded.without(0).with(layer);
+    }
+    if resting.intersects(&RenderLayers::layer(PORTAL_WINDOW_RENDER_LAYER)) {
+        banded = banded.without(PORTAL_WINDOW_RENDER_LAYER).with(room_window_layer(layer));
+    }
+    banded
 }
 
 /// The layer a view's projections draw on, or `None` when nothing is being
@@ -688,6 +732,100 @@ mod tests {
             [mask(&world, cameras[0]), mask(&world, in_second), mask(&world, child)],
             [authored_camera_layers(), RenderLayers::default(), RenderLayers::default()],
             "a mask did not return to the world layer"
+        );
+    }
+
+    /// A3: a camera draws the through-portal windows of the live room its
+    /// view frames, and of no other live room.
+    ///
+    /// A window mesh is not on the world layer. It is on the window layer,
+    /// which each main camera draws, and on the layer of its own portal. Two
+    /// live rooms, a view and a camera for each, a window stamped into each
+    /// room, a window with no stamp, and a window of a room that is no longer
+    /// live. Before this pass moved the window layer, each camera drew the
+    /// window of the other room: live rooms share one coordinate space.
+    ///
+    /// A window must not go on the band of its room: the capture of a window
+    /// adds that band to see the room, and would then capture its own window.
+    ///
+    /// The control is one live room: each window is on the window layer as
+    /// it was authored, and each camera draws all of them.
+    #[test]
+    fn each_camera_draws_only_the_windows_of_the_live_room_its_view_frames() {
+        use ambition_platformer2d_shared_tangle::camera_layers::{live_room_render_layer, PORTAL_WINDOW_RENDER_LAYER};
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        // The layer of one portal's own window, as the portal renderer has it.
+        const OWN_PORTAL: usize = 520;
+        let window = || RenderLayers::layer(PORTAL_WINDOW_RENDER_LAYER).with(OWN_PORTAL);
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        let gone = second.next();
+        let mut world = World::new();
+        let roots = [first, second].map(|room| world.spawn((RoomInstanceRoot, room)).id());
+        let views = [first, second].map(|room| {
+            world
+                .spawn((
+                    LocalView,
+                    LocalViewId(if room == first { 0 } else { 1 }),
+                    ambition_sim_view::camera_snapshot::ResolvedCameraSnapshot(Some(
+                        ambition_sim_view::camera_snapshot::ResolvedCameraFrame {
+                            snapshot: Default::default(),
+                            follow_world: Default::default(),
+                            room,
+                        },
+                    )),
+                ))
+                .id()
+        });
+        // The cameras as the host composes them when portals are drawn.
+        let cameras = views.map(|view| {
+            world
+                .spawn((MainCamera, authored_camera_layers().with(PORTAL_WINDOW_RENDER_LAYER), PresentsView(view)))
+                .id()
+        });
+        let of_first = world.spawn((InRoomInstance(first), window())).id();
+        let of_second = world.spawn((InRoomInstance(second), window())).id();
+        let no_stamp = world.spawn(window()).id();
+        let of_gone = world.spawn((InRoomInstance(gone), window())).id();
+        let windows = [of_first, of_second, no_stamp, of_gone];
+
+        world.run_system_once(isolate_live_rooms).expect("the pass runs");
+        let draws = |world: &World| cameras.map(|camera| windows.map(|window| camera_draws(world, camera, window)));
+        assert_eq!(
+            draws(&world),
+            [[true, false, true, false], [false, true, true, false]],
+            "(the camera of the first room, of the second) x (the window of the first room, of the second, \
+             with no stamp, of a room that is not live)"
+        );
+        // What a capture of each room renders: the world layer and the band
+        // of its room. It must draw no window by that.
+        for (ordinal, _) in roots.iter().enumerate() {
+            let capture = RenderLayers::layer(0).with(live_room_render_layer(ordinal));
+            for window in [of_first, of_second, of_gone] {
+                assert!(
+                    !capture.intersects(&mask(&world, window)),
+                    "a capture of room {ordinal} draws a window by the band of its room: {:?}",
+                    mask(&world, window)
+                );
+            }
+        }
+        assert!(
+            windows.iter().all(|window| mask(&world, *window).intersects(&RenderLayers::none().with(OWN_PORTAL))),
+            "a window lost the layer of its own portal"
+        );
+
+        world.entity_mut(roots[1]).despawn();
+        world.run_system_once(isolate_live_rooms).expect("the pass runs");
+        assert_eq!(draws(&world), [[true; 4]; 2], "one live room: each camera draws each window");
+        assert_eq!(
+            windows.map(|entity| mask(&world, entity)),
+            [window(), window(), window(), window()],
+            "a window did not return to the window layer"
+        );
+        assert_eq!(
+            mask(&world, cameras[0]),
+            authored_camera_layers().with(PORTAL_WINDOW_RENDER_LAYER),
+            "the camera did not return to the layers its host composed"
         );
     }
 

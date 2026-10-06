@@ -308,6 +308,7 @@ fn full_half_plane_render_clips_to_the_full_active_frame_at_the_aperture() {
     );
     let config = dynamic_config();
     let viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: Vec2::new(303.45, 875.5),
@@ -404,6 +405,7 @@ fn doorway_view_cone_reaches_half_plane_without_immediate_snap() {
     let mut config = dynamic_config();
     config.aperture_los_quality = PortalApertureLosQuality::Medium;
     let viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: enter.pos + enter.normal * 0.5,
@@ -468,6 +470,7 @@ fn near_doorway_view_cone_opens_only_inside_the_proximity_band() {
 
     let span_at = |dist: f32| {
         let viewer = PortalViewer {
+            observer: None,
             room: None,
             present: true,
             eye: enter.pos + enter.normal * dist,
@@ -539,6 +542,7 @@ fn blocked_los_hides_near_portal_cone_inside_preview_range() {
     let config = dynamic_config();
     let blocker = ae::Aabb::new(Vec2::new(900.0, 780.0), Vec2::new(120.0, 3.0));
     let viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: enter.pos
@@ -585,6 +589,7 @@ fn exact_mode_uses_los_geometry_without_bounded_preview() {
     // enough that exact LOS is a finite wedge (AT the plane, exact LOS
     // legitimately becomes the half-plane fan and the two coincide).
     let viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: enter.pos + enter.normal * 60.0,
@@ -637,6 +642,7 @@ fn positive_half_plane_max_lateral_keeps_bounded_diagnostic_mode() {
     config.half_plane_preview_max_lateral = 360.0;
     config.aperture_los_quality = PortalApertureLosQuality::Medium;
     let viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: enter.pos + enter.normal * (config.half_plane_preview_full_distance * 0.5),
@@ -675,6 +681,7 @@ fn off_axis_near_plane_viewer_does_not_get_half_plane_preview() {
     let mut config = dynamic_config();
     config.aperture_los_quality = PortalApertureLosQuality::Medium;
     let centered_viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: enter.pos + enter.normal * (config.half_plane_preview_full_distance * 0.5),
@@ -682,6 +689,7 @@ fn off_axis_near_plane_viewer_does_not_get_half_plane_preview() {
         occluders: Vec::new(),
     };
     let off_axis_viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: enter.pos
@@ -739,6 +747,7 @@ fn partial_los_reduces_window_growth() {
     let left_blocker = ae::Aabb::new(Vec2::new(871.0, 790.0), Vec2::new(5.0, 8.0));
     let right_blocker = ae::Aabb::new(Vec2::new(929.0, 790.0), Vec2::new(5.0, 8.0));
     let partial_viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye,
@@ -746,6 +755,7 @@ fn partial_los_reduces_window_growth() {
         occluders: vec![left_blocker, right_blocker],
     };
     let clear_viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye,
@@ -803,6 +813,7 @@ fn thin_wall_far_side_portal_stays_closed_for_a_near_side_viewer() {
     );
     let config = dynamic_config();
     let viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: Vec2::new(400.0, 450.0),
@@ -861,6 +872,7 @@ fn window_depth_clips_to_the_host_wall_thickness() {
     let mut config = dynamic_config();
     config.half_plane_preview_full_distance = 0.0;
     let viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: Vec2::new(400.0, 450.0),
@@ -921,6 +933,7 @@ fn thin_wall_doorway_pane_stays_inside_the_slab_at_the_aperture() {
     // itself must suppress it, not a tuning knob.
     let config = dynamic_config();
     let viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: near.pos + near.normal * 0.5, // standing in the aperture
@@ -1041,6 +1054,7 @@ fn just_behind_doorway_still_contributes_to_half_plane() {
     let mut config = dynamic_config();
     config.aperture_los_quality = PortalApertureLosQuality::Medium;
     let viewer = PortalViewer {
+        observer: None,
         room: None,
         present: true,
         eye: enter.pos - enter.normal * 0.5,

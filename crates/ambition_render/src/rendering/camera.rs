@@ -39,6 +39,9 @@ pub struct PortalCameraContinuityParams<'w> {
     transit: ambition_portal2d_presentation::PortalCameraTransit<'w>,
     state: Option<ResMut<'w, ambition_portal2d_presentation::PortalCameraContinuityState>>,
     host_view: Option<ResMut<'w, ambition_portal2d_presentation::PortalCameraContinuityHostView>>,
+    /// The same sample for each view: a through-portal window is clipped to
+    /// the camera that draws it, and is captured for that camera.
+    observer_views: Option<ResMut<'w, ambition_portal2d_presentation::PortalObserverViews>>,
 }
 
 /// Pass the portal-continuity facts the resolver needs (the clamp pad and
@@ -148,6 +151,12 @@ pub fn camera_follow(
     // so this is a no-op for hosts that never decide a match.
     let finish_zoom_factor = finish_zoom.scale_factor(*finish_zoom_tuning);
 
+    // A view that is gone has no camera sample.
+    #[cfg(feature = "portal_render")]
+    if let Some(observer_views) = portal_continuity.observer_views.as_deref_mut() {
+        observer_views.retain(|observer| views.contains(observer));
+    }
+
     for (mut transform, mut projection, link) in &mut query {
         let Some(view_entity) = on_hand.presented_by(link.copied()) else {
             continue;
@@ -213,6 +222,19 @@ pub fn camera_follow(
             }
             if let Some(host_view) = portal_continuity.host_view.as_deref_mut() {
                 host_view.capture(
+                    snapshot.center_world,
+                    ordinary_center_world,
+                    snapshot.target_world,
+                    snapshot.visible_view,
+                    snapshot.active_camera_zones,
+                    snapshot.active_camera_zone.clone(),
+                );
+            }
+            // The same sample, for this camera's own view. The resource
+            // above is one, and with two cameras the last writer wins; the
+            // windows of a room are made for the view that frames it.
+            if let Some(observer_views) = portal_continuity.observer_views.as_deref_mut() {
+                observer_views.of_mut(view_entity).capture(
                     snapshot.center_world,
                     ordinary_center_world,
                     snapshot.target_world,
@@ -418,6 +440,52 @@ mod two_views_one_simulation_tests {
              the framing is following camera iteration order and the assertion above \
              was passing for the wrong reason"
         );
+    }
+
+    /// A3: the camera sample of each view is recorded for that view.
+    ///
+    /// A through-portal window is clipped to the camera that draws it and is
+    /// captured for that camera. `PortalCameraContinuityHostView` is one
+    /// resource, so with two cameras it holds the sample of one of them: the
+    /// control, which is why a window cannot be made from it for each view.
+    #[cfg(feature = "portal_render")]
+    #[test]
+    fn the_camera_sample_of_each_view_is_recorded_for_that_view() {
+        use ambition_portal2d_presentation::{PortalCameraContinuityHostView, PortalObserverViews};
+        let mut world = World::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(&mut world, room());
+        world.init_resource::<CameraShakeState>();
+        world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>();
+        world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>();
+        world.init_resource::<PortalCameraContinuityHostView>();
+        world.init_resource::<PortalObserverViews>();
+        let centers = [ae::Vec2::new(100.0, 200.0), ae::Vec2::new(700.0, 500.0)];
+        let views = [spawn_view(&mut world, 0, centers[0], 1.0), spawn_view(&mut world, 1, centers[1], 1.0)];
+        for view in views {
+            world.spawn((
+                MainCamera,
+                Transform::default(),
+                Projection::Orthographic(OrthographicProjection::default_2d()),
+                PresentsView(view),
+            ));
+        }
+        world.run_system_once(camera_follow).expect("camera_follow runs");
+        let recorded = |world: &World| {
+            views.map(|view| {
+                world
+                    .resource::<PortalObserverViews>()
+                    .of(Some(view))
+                    .map(|sample| sample.current_center_world)
+            })
+        };
+        assert_eq!(recorded(&world), centers.map(Some), "the sample of each view");
+        let one = world.resource::<PortalCameraContinuityHostView>().current_center_world;
+        assert!(centers.contains(&one), "control: the one resource holds the sample of one camera: {one:?}");
+
+        // A view that is gone has no sample on the next run.
+        world.entity_mut(views[1]).despawn();
+        world.run_system_once(camera_follow).expect("camera_follow runs");
+        assert_eq!(recorded(&world), [Some(centers[0]), None]);
     }
 
     /// Two views in two live rooms (view half, cut V2a): each camera places

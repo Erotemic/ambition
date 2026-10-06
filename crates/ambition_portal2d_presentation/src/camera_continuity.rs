@@ -226,6 +226,45 @@ impl PortalCameraContinuityHostView {
     }
 }
 
+/// The host camera sample of each observer, by the observer's entity.
+///
+/// [`PortalCameraContinuityHostView`] is one resource, so with two cameras
+/// the last writer wins. That is right for the one screen anchor of the
+/// continuity. It is wrong for a through-portal window: a window is clipped
+/// to the camera that draws it, and is captured for that camera. So the host
+/// records the same sample here for each observer, at the same time, and a
+/// viewpoint names its observer (`PortalViewer::observer`).
+#[derive(Resource, Clone, Debug, Default)]
+pub struct PortalObserverViews {
+    views: Vec<(Entity, PortalCameraContinuityHostView)>,
+}
+
+impl PortalObserverViews {
+    /// The sample of `observer`, to record into
+    /// ([`PortalCameraContinuityHostView::capture`]).
+    pub fn of_mut(&mut self, observer: Entity) -> &mut PortalCameraContinuityHostView {
+        let index = match self.views.iter().position(|(held, _)| *held == observer) {
+            Some(index) => index,
+            None => {
+                self.views.push((observer, PortalCameraContinuityHostView::default()));
+                self.views.len() - 1
+            }
+        };
+        &mut self.views[index].1
+    }
+
+    /// The sample of `observer`, when the host has recorded one.
+    pub fn of(&self, observer: Option<Entity>) -> Option<&PortalCameraContinuityHostView> {
+        let observer = observer?;
+        self.views.iter().find(|(held, _)| *held == observer).map(|(_, view)| view)
+    }
+
+    /// Drop the sample of each observer for which `live` is false.
+    pub fn retain(&mut self, mut live: impl FnMut(Entity) -> bool) {
+        self.views.retain(|(observer, _)| live(*observer));
+    }
+}
+
 /// Runtime state for one portal screen-anchor.
 #[derive(Resource, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Resource)]

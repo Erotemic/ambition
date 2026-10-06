@@ -15,7 +15,7 @@ mod host_adapter {
         PortalCameraContinuityConfig, PortalCameraContinuityFocus, PortalCameraContinuityHostView,
         PortalCameraContinuityState, PortalCameraTransitMode,
         PortalDebugOverlay, PortalFrames, PortalGunArt, PortalObservationSet, PortalSceneBody,
-        PortalViewer,
+        PortalViewer, PortalViewers,
     };
 
     use ambition_platformer2d_core::RoomGeometry;
@@ -26,45 +26,73 @@ mod host_adapter {
         ControlledSubject, PlayerEntity, PrimaryPlayer,
     };
 
-    /// Bridge the controlled character + the collision world → the crate-owned
-    /// [`PortalViewer`] seam, so each portal window is the wedge that character
-    /// can actually see through the aperture. The eye is the CONTROLLED SUBJECT —
-    /// the body holding `DrivingParticipant(PRIMARY)`, i.e. the possessed actor while
-    /// possessing (the view follows the body you're driving), else the home
-    /// avatar. The eye is in the controlled body's own live room, and
-    /// `occluders` is a snapshot of that room's solid blocks for the
-    /// line-of-sight test. Absent controlled body, or a body whose room cannot
-    /// be told  `present = false`, and the renderer falls back to the static
-    /// window.
+    /// Bridge each local view's body and its room's collision world to the
+    /// crate-owned [`PortalViewers`] seam, so each portal window is the wedge
+    /// that body can see through the aperture.
+    ///
+    /// One eye for each live room that a local view frames. The eye of a view
+    /// is the body the view looks at (`ResolvedViewSubject`), and for a view
+    /// that names none, the CONTROLLED SUBJECT: the body holding
+    /// `DrivingParticipant(PRIMARY)`, which is the possessed actor while
+    /// possessing, else the home avatar. A session with no local view has the
+    /// controlled subject as its one eye. The eye is in that body's own live
+    /// room, and `occluders` is a snapshot of that room's solid blocks for
+    /// the line-of-sight test.
+    ///
+    /// The views are taken in the order of their ids, and a room has the eye
+    /// of the first view that frames it. So two players in two live rooms
+    /// each have the windows of their own room, and two views of ONE room
+    /// share the windows of the first.
+    ///
+    /// A body that is gone, or whose room cannot be told, has no eye. A live
+    /// room with no eye has no window.
     pub fn sync_portal_viewer(
         rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
         controlled: Res<ControlledSubject>,
-        bodies: Query<&BodyKinematics>,
-        viewer: Option<ResMut<PortalViewer>>,
+        views: Query<
+            (Entity, &ambition_sim_view::LocalViewId, &ambition_sim_view::ResolvedViewSubject),
+            With<ambition_sim_view::LocalView>,
+        >,
+        bodies: Query<(&BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+        viewers: Option<ResMut<PortalViewers>>,
     ) {
-        let Some(mut viewer) = viewer else {
+        use ambition_platformer2d_core::AabbExt;
+        let Some(mut viewers) = viewers else {
             return;
         };
-        let body = controlled.0.and_then(|e| {
-            let kin = bodies.get(e).ok()?;
-            let room = rooms.room_of(e)?;
-            Some((kin.pos, kin.size * 0.5, room, rooms.in_room(room)?))
-        });
-        match body {
-            Some((eye, half_size, room, world)) => {
-                viewer.present = true;
-                viewer.eye = eye;
-                viewer.half_size = half_size;
-                viewer.room = Some(room);
-                viewer.occluders.clear();
-                world
-                    .0
-                    .for_each_solid_aabb(false, &mut |aabb| viewer.occluders.push(aabb));
-            }
-            None => {
-                viewer.present = false;
-                viewer.room = None;
-            }
+        viewers.clear();
+        let mut ordered: Vec<_> = views.iter().map(|(view, id, subject)| (*id, view, subject.0)).collect();
+        ordered.sort();
+        let mut eyes: Vec<(Option<Entity>, Option<Entity>)> = ordered
+            .into_iter()
+            .map(|(_, view, subject)| (Some(view), subject.or(controlled.0)))
+            .collect();
+        if eyes.is_empty() {
+            eyes.push((None, controlled.0));
+        }
+        for (observer, body) in eyes {
+            let Some(body) = body else {
+                continue;
+            };
+            let (Ok((kin, last_step)), Some(room)) = (bodies.get(body), rooms.room_of(body)) else {
+                continue;
+            };
+            let Some(world) = rooms.in_room(room) else {
+                continue;
+            };
+            let mut occluders = Vec::new();
+            world.0.for_each_solid_aabb(false, &mut |aabb| occluders.push(aabb));
+            // A second view of a room that has an eye is refused there.
+            viewers.publish(PortalViewer {
+                present: true,
+                observer,
+                eye: kin.pos,
+                // The box the body has: the line of sight is tested from its
+                // four corners.
+                half_size: kin.collision_box(last_step).half_size(),
+                room: Some(room),
+                occluders,
+            });
         }
     }
 
@@ -86,7 +114,8 @@ mod host_adapter {
     /// indicator floats above.
     ///
     /// The authority is [`ControlledSubject`], not `PrimaryPlayer` — the same
-    /// authority [`sync_portal_viewer`] already uses for the eye, and the one
+    /// authority [`sync_portal_viewer`] uses for the eye of a view that names
+    /// no body of its own, and the one
     /// `markers.rs` names outright ("Input, abilities, camera, portal viewer
     /// ... derive from the `ControlledSubject` resource"). While possessing,
     /// the controlled body is the possessed actor, so the gun and the warp
@@ -823,10 +852,10 @@ mod host_adapter {
 
 #[cfg(test)]
 mod tests {
-    use super::host_adapter::{publish_portal_body_views, tag_portal_affordance_body};
-    use ambition_platformer2d_core::BodyKinematics;
+    use super::host_adapter::{publish_portal_body_views, sync_portal_viewer, tag_portal_affordance_body};
+    use ambition_platformer2d_core::{BodyKinematics, RoomGeometry};
     use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
-    use ambition_portal2d_presentation::{PortalAffordanceBody, PortalBodyView};
+    use ambition_portal2d_presentation::{PortalAffordanceBody, PortalBodyView, PortalViewers};
     use bevy::prelude::*;
 
     fn body(pos: Vec2) -> BodyKinematics {
@@ -916,6 +945,107 @@ mod tests {
         assert_eq!(size(no_record), Vec2::new(24.0, 40.0), "control: a body with no record is level");
         assert_eq!(size(level), Vec2::new(24.0, 40.0), "control: a body in normal gravity is level");
         assert_eq!(size(lying), Vec2::new(40.0, 24.0), "a body that lies along sideways gravity");
+    }
+
+    /// A3: one eye for each live room that a local view frames.
+    ///
+    /// Alice and Carl are in the first live room, and Bob lies along sideways
+    /// gravity in the second. `views` is (the id of a view, the body it looks
+    /// at); the views are spawned in the opposite order, so that the order of
+    /// the eyes is the order of the ids and not of the spawns. Returns each
+    /// eye: its room, its place, its half, and the id of its observer's view.
+    fn eyes_of(views: &[(u8, Option<&str>)]) -> Vec<(usize, Vec2, Vec2, Option<u8>)> {
+        use ambition_platformer2d_core::SweepSample;
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            insert_live_room_component, spawn_live_room, InRoomInstance, LiveRoomInstance,
+        };
+        use ambition_sim_view::{LocalView, LocalViewId, ResolvedViewSubject};
+        let room_size = Vec2::new(1000.0, 600.0);
+        let geometry =
+            |name: &str| RoomGeometry(ambition_platformer2d_core::World::new(name, room_size, room_size * 0.5, Vec::new()));
+        let mut app = App::new();
+        insert_live_room_component(app.world_mut(), geometry("the first room"));
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::from_ordinal(1)];
+        spawn_live_room(app.world_mut(), rooms[1], geometry("the second room"));
+        app.init_resource::<ControlledSubject>();
+        app.init_resource::<PortalViewers>();
+        app.add_systems(Update, sync_portal_viewer);
+
+        let tall = |x: f32| body(Vec2::new(x, 50.0));
+        let alice = app.world_mut().spawn((tall(100.0), InRoomInstance(rooms[0]))).id();
+        let carl = app.world_mut().spawn((tall(300.0), InRoomInstance(rooms[0]))).id();
+        let bob = app
+            .world_mut()
+            .spawn((
+                tall(700.0),
+                InRoomInstance(rooms[1]),
+                SweepSample::at_rest(tall(700.0), Vec2::new(1.0, 0.0)),
+            ))
+            .id();
+        let named = |name: &str| match name {
+            "alice" => alice,
+            "carl" => carl,
+            "bob" => bob,
+            other => panic!("no body named {other}"),
+        };
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(alice);
+        let mut view_ids = Vec::new();
+        for (id, subject) in views.iter().rev() {
+            let view = app
+                .world_mut()
+                .spawn((LocalView, LocalViewId(*id), ResolvedViewSubject(subject.map(named))))
+                .id();
+            view_ids.push((view, *id));
+        }
+        app.update();
+        app.world()
+            .resource::<PortalViewers>()
+            .iter()
+            .map(|viewer| {
+                (
+                    rooms.iter().position(|room| Some(*room) == viewer.room).expect("an eye is in a live room"),
+                    viewer.eye,
+                    viewer.half_size,
+                    viewer.observer.map(|observer| {
+                        view_ids.iter().find(|(view, _)| *view == observer).expect("the observer is a view").1
+                    }),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn each_live_room_a_view_frames_has_the_eye_of_that_views_body() {
+        let level = Vec2::new(12.0, 20.0);
+        let lying = Vec2::new(20.0, 12.0);
+        let alice = (0, Vec2::new(100.0, 50.0), level);
+        let bob = (1, Vec2::new(700.0, 50.0), lying);
+
+        // The control, the whole seam before: no local view, and the one eye
+        // is the controlled subject. The second room has no eye.
+        assert_eq!(eyes_of(&[]), vec![(alice.0, alice.1, alice.2, None)]);
+        // One view that names no body frames the controlled subject.
+        assert_eq!(eyes_of(&[(0, None)]), vec![(alice.0, alice.1, alice.2, Some(0))]);
+
+        // Two views in two live rooms: an eye in each room. Bob's eye has the
+        // half of the box he has, which lies along his gravity.
+        assert_eq!(
+            eyes_of(&[(0, Some("alice")), (1, Some("bob"))]),
+            vec![(alice.0, alice.1, alice.2, Some(0)), (bob.0, bob.1, bob.2, Some(1))],
+            "(the room, the eye, the half, the view of the observer)"
+        );
+
+        // Two views of ONE room: the room has the eye of the first view.
+        assert_eq!(
+            eyes_of(&[(0, Some("alice")), (1, Some("carl"))]),
+            vec![(alice.0, alice.1, alice.2, Some(0))],
+            "a room has one eye"
+        );
+        assert_eq!(
+            eyes_of(&[(0, Some("carl")), (1, Some("alice"))]),
+            vec![(0, Vec2::new(300.0, 50.0), level, Some(0))],
+            "the first view by id, not by spawn"
+        );
     }
 
     /// A despawned subject must not resurrect as a command-spawned shell.

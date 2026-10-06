@@ -248,13 +248,14 @@ fn far_portal_frame_hides_under_the_glass() {
     let (left, right) = thin_wall_pair();
     app.world_mut().spawn(left);
     app.world_mut().spawn(right);
-    app.insert_resource(crate::PortalViewer {
+    app.insert_resource(crate::PortalViewers::one(crate::PortalViewer {
+        observer: None,
         present: true,
         room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
         eye: Vec2::new(460.0, 300.0), // left of the left face
         half_size: Vec2::new(12.0, 20.0),
         occluders: Vec::new(),
-    });
+    }));
     app.update();
 
     let window_band_top =

@@ -512,8 +512,19 @@ repair, and red under its poison:
   stamped #0, held). The return moves the custody closure, through
   `custody_closure`, which the crossing now uses too
   (`a_seat_that_comes_back_into_another_room_brings_what_it_holds`).
-- Not repaired, OW4: the room the seat leaves by its return stays live with
-  nobody in it; nothing retires an empty live room yet.
+- Repaired 2026-10-06, OW4: a fallen seat in another live room comes back
+  by a crossing into the primary's room (a `Transition` intent with its
+  participant), so the crossing joins that room and retires the room the
+  seat leaves when no other player holds it. A direct move had left that
+  room live with nobody in it, which a restore neither spared nor built
+  again (`a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room`;
+  before: live rooms `[switch_lab, central_hub_complex]`). A stranded seat
+  still moves at once: its stamp names no live room to leave. Not witnessed
+  under a sync test: the harness cannot kill a second seat inside the
+  timeline (a death message written from outside is lost on the
+  resimulation, and the kernel's death road is the primary's); the crossing
+  road it uses is (`two_players_in_two_live_rooms_resimulate_to_the_same_world`).
+  Nothing else retires an empty live room yet.
 - Answered with no defect: the join reads no state that differs between
   peers or between a first run and a resimulation (first-run witness, two
   seats); a restore asked for on the frame of the return commits; a reload

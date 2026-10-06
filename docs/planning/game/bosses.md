@@ -222,8 +222,8 @@ The Mockingbird itself is boss content: it is anchored to one side, with
 volleys (missiles from the wingtip, fireballs), and a dive-in bite that ends
 in a recovery window.
 
-Open (Jon): how the player gets up into the chase from the ground room. My
-proposal: a shark swoops down and the player rides it up through the
+**Ruled (Jon, 2026-10-06):** the player gets up into the chase from the
+ground room on a shark that swoops down and carries them up through the
 ceiling.
 
 ## The hall of bosses: its own instances, and life switches (proposed 2026-10-06, Jon)
@@ -260,7 +260,16 @@ The switch shows the boss's state; it stores no state of its own. Today's
 the "may this be flipped" rule. There is no interactability condition today
 (`features/ecs/interact.rs`).
 
-**Archetype-keyed things a hall kill would trigger** (decide per item):
+**Ruled (Jon, 2026-10-06):**
+
+- **Hall kills are practice.** Killing a hall boss leaves the main game's
+  boss untouched: "They are completely separate." A hall kill may drop a
+  reward chest of something small (health, money), but no story reward.
+- **The kill switch is allowed and kills properly.** Flipping a green switch
+  kills the boss on the spot if it is loaded (anyone fighting it sees it
+  die), or marks it dead if it is not. No lock.
+
+So a hall placement does not fire these archetype-keyed consequences:
 
 - `QuestAdvanceEvent::BossDefeated(archetype)`;
 - the signature gauntlet drop;

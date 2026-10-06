@@ -69,7 +69,89 @@ fn walk_mark(app: &App, petter: Entity) -> Option<ae::Vec2> {
 /// (`talking_to_the_dog_offers_a_pet_that_holds_both_still_until_it_ends`).
 fn arrive(app: &mut App, petter: Entity) {
     let mark = walk_mark(app, petter).expect("the petter is walking to a mark");
-    app.world_mut().get_mut::<BodyKinematics>(petter).unwrap().pos.x = mark.x;
+    app.world_mut().get_mut::<BodyKinematics>(petter).unwrap().pos = mark;
+}
+
+/// Where this update's hearts are.
+fn hearts_at(app: &App) -> Option<ae::Vec2> {
+    app.world()
+        .resource::<bevy::ecs::message::Messages<VfxInRoom>>()
+        .iter_current_update_messages()
+        .find_map(|message| match &message.vfx {
+            VfxMessage::Hearts { pos, .. } => Some(*pos),
+            _ => None,
+        })
+}
+
+/// A pet in a frame whose DOWN is `down`. The petter starts 30 px from the
+/// dog on the side axis of that frame, on its positive side.
+///
+/// Returns what the frame decides: the facing of the dog at the request, how
+/// far the mark is from the dog on the side axis, how far the mark is from
+/// the petter's own height on DOWN, the facing of the petter in the gesture,
+/// and where the hearts are from the dog's centre (side axis, DOWN).
+fn pet_in_a_frame(down: ae::Vec2) -> (f32, f32, f32, f32, (f32, f32)) {
+    let mut app = app();
+    let frame = ae::AccelerationFrame::new(down);
+    let dog_at = ae::Vec2::new(100.0, 100.0);
+    let start = dog_at + frame.side * 30.0;
+    let player = spawn_player(&mut app, start);
+    let dog = spawn_character(&mut app, dog_at, "good_dog");
+    let mut resolved = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+    resolved.publish_resolved_frame(ae::MotionFrame::from_direction(down, 900.0));
+    app.world_mut().entity_mut(player).insert(resolved);
+
+    ask_for_a_pet(&mut app, "good_dog");
+    app.update();
+    let dog_facing = app.world().get::<BodyKinematics>(dog).unwrap().facing;
+    let mark = walk_mark(&app, player).expect("the petter walks to a mark");
+
+    arrive(&mut app, player);
+    app.update();
+    assert!(anim(&app, player).petting, "down {down:?}: the petter on its mark does not pet");
+    let hearts = hearts_at(&app).expect("the pet shows hearts") - dog_at;
+    (
+        dog_facing,
+        (mark - dog_at).dot(frame.side),
+        (mark - start).dot(down),
+        app.world().get::<BodyKinematics>(player).unwrap().facing,
+        (hearts.dot(frame.side), hearts.dot(down)),
+    )
+}
+
+/// The pet is in the frame of the petter.
+///
+/// The control is normal gravity, where the side axis is world x. The
+/// subjects are flipped gravity, which the shipped game has where the dog is
+/// (`central_hub_complex`), and sideways gravity. Each facing is a sign on
+/// the side axis, so the three results are the same numbers.
+///
+/// A pet on world x fails each subject another way. Flipped: the side of the
+/// dog is the sign of world x, which is the opposite sign on the side axis,
+/// so both bodies look away. Sideways: the mark is 30 px off the petter's own
+/// height, in the air beside the dog.
+#[test]
+fn a_pet_is_in_the_frame_of_the_petter() {
+    // The dog is 64 x 48 on the world axes, and its box is not turned here.
+    for (down, dog_half_on_side, dog_half_on_down) in [
+        (ae::Vec2::new(0.0, 1.0), 32.0, 24.0),
+        (ae::Vec2::new(0.0, -1.0), 32.0, 24.0),
+        (ae::Vec2::new(1.0, 0.0), 24.0, 32.0),
+    ] {
+        let (dog_facing, mark_on_side, mark_on_down, petter_facing, hearts) = pet_in_a_frame(down);
+        assert_eq!(dog_facing, 1.0, "down {down:?}: the dog does not turn to the side the petter is on");
+        assert!(
+            mark_on_side > dog_half_on_side,
+            "down {down:?}: the mark is {mark_on_side} from the dog on the side axis, inside its half {dog_half_on_side}"
+        );
+        assert_eq!(mark_on_down, 0.0, "down {down:?}: the mark is not at the petter's own height");
+        assert_eq!(petter_facing, -1.0, "down {down:?}: the petter does not face the dog");
+        assert_eq!(
+            hearts,
+            (dog_half_on_side, -dog_half_on_down),
+            "down {down:?}: the hearts are not at the top of the dog's front"
+        );
+    }
 }
 
 /// A hit that moves `body`: the recoil lock a strike opens.
@@ -353,7 +435,7 @@ fn the_gesture_hold_lets_go_when_the_pet_ends_and_only_its_own_bit() {
             BodyAnimFacts::default(),
             PetBeat {
                 petted: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(sim_id("good_dog"), None),
-                mark_x: 0.0,
+                mark: 0.0,
                 side: 1.0,
                 stage: PetStage::Gesture { remaining: 1.0 },
             },

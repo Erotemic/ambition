@@ -345,3 +345,114 @@ fn a_pet_holds_both_bodies_from_its_first_tick_and_lets_go_on_the_tick_it_breaks
     );
 }
 
+
+/// Pet the basement dog with the gravity of the hub complex at `down`, and
+/// answer, for the petter and for the dog, the world x of the way each looks
+/// when the gesture starts, and the world x from each to the other.
+///
+/// `facing` is a sign on the side axis of the body's own frame, so the way a
+/// body looks in the world is that axis times its facing.
+fn pet_the_dog_under(down: (f32, f32)) -> [(f32, f32); 2] {
+    use ambition_platformer2d::characters::actor::BodyAnimFacts;
+    use ambition_platformer2d::conversation::ActiveConversation;
+    use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;
+
+    let mut sim = fixed_60hz_room_sim("central_hub_complex");
+    sim.step_n(base(), 10);
+    sim.set_base_gravity_dir(down);
+    // Each body falls to the floor of this gravity.
+    sim.step_n(base(), 300);
+    let dog = {
+        let world = sim.world_mut();
+        let mut query = world.query::<(Entity, &WornCharacter)>();
+        query
+            .iter(world)
+            .find(|(_, worn)| worn.id() == "npc_companion_dog")
+            .map(|(entity, _)| entity)
+            .expect("the basement stages the authored dog")
+    };
+    let player = {
+        let world = sim.world_mut();
+        let mut query = world.query_filtered::<
+            Entity,
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        query.single(world).expect("one primary player")
+    };
+    let pos = |sim: &ambition_app::Platformer2dSimHarness, body: Entity| {
+        sim.world().get::<BodyKinematics>(body).expect("a live body").pos
+    };
+    for body in [player, dog] {
+        let frame = sim.world().get::<ResolvedMotionFrame>(body).expect("a frame");
+        assert_eq!(
+            (frame.down().x, frame.down().y),
+            down,
+            "premise: the gravity of the hub complex is the gravity of each body"
+        );
+    }
+    let here = pos(&sim, dog);
+    sim.teleport_player((here.x, here.y));
+    sim.step(ambition_app::AgentAction {
+        interact: true,
+        interact_held: true,
+        ..base()
+    });
+    let talking = |sim: &ambition_app::Platformer2dSimHarness| {
+        sim.world()
+            .get_resource::<ActiveConversation>()
+            .is_some_and(|conversation| conversation.talker() == Some(dog))
+    };
+    for _ in 0..10 {
+        if talking(&sim) {
+            break;
+        }
+        sim.step(base());
+    }
+    assert!(talking(&sim), "premise: Interact beside the dog talks to it under gravity {down:?}");
+    sim.world_mut()
+        .run_system_cached(ambition_content::yarn_vocabulary::cmd_pet)
+        .expect("the `<<pet>>` command runs");
+    let petting = |sim: &ambition_app::Platformer2dSimHarness| {
+        sim.world().get::<BodyAnimFacts>(player).expect("an animated body").petting
+    };
+    for _ in 0..300 {
+        if petting(&sim) {
+            break;
+        }
+        sim.step(base());
+    }
+    assert!(petting(&sim), "premise: the walk arrives and the gesture starts under gravity {down:?}");
+    let looks = |body: Entity, other: Entity| {
+        let kin = sim.world().get::<BodyKinematics>(body).expect("a live body");
+        let side = sim.world().get::<ResolvedMotionFrame>(body).expect("a frame").basis().side;
+        ((side * kin.facing).x, pos(&sim, other).x - kin.pos.x)
+    };
+    [looks(player, dog), looks(dog, player)]
+}
+
+/// The petter and the dog look at each other. `central_hub_complex` is one
+/// room with the hub's Flip Gravity switch and the basement's dog, so a
+/// player can pet the dog on the ceiling. There each body looked AWAY from
+/// the other: the pet wrote each facing as a sign on world x, and facing is a
+/// sign on the side axis of the body, which a flip turns over.
+#[test]
+fn the_petter_and_the_dog_look_at_each_other_under_flipped_gravity() {
+    for (name, down) in [("normal gravity (the control)", (0.0, 1.0)), ("flipped gravity", (0.0, -1.0))] {
+        let [petter, dog] = pet_the_dog_under(down);
+        assert!(petter.1.abs() > 1.0, "premise, {name}: the petter stands beside the dog: {petter:?}");
+        assert_eq!(
+            petter.0.signum(),
+            petter.1.signum(),
+            "{name}: the petter looks along world x {} and the dog is at {} from it",
+            petter.0,
+            petter.1
+        );
+        assert_eq!(
+            dog.0.signum(),
+            dog.1.signum(),
+            "{name}: the dog looks along world x {} and the petter is at {} from it",
+            dog.0,
+            dog.1
+        );
+    }
+}

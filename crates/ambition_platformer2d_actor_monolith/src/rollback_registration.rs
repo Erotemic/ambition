@@ -264,7 +264,7 @@ where
                     (1 << 63) | u64::from(remaining.to_bits())
                 }
             };
-            (u64::from(beat.mark_x.to_bits()) << 32) ^ stage ^ u64::from(beat.side.to_bits())
+            (u64::from(beat.mark.to_bits()) << 32) ^ stage ^ u64::from(beat.side.to_bits())
         },
     );
     registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeat>(

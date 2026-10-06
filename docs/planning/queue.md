@@ -2813,12 +2813,43 @@ by the other two. The docs of `SelfView::half_extent` and
 open and NOT built:
 
 - `WorldView::floor_below`, `supporting_floor` and `ground_below`
-  (`ambition_characters/src/perception.rs`) lay the same half on the WORLD
-  axes (`feet = me.pos.y + me.half_extent.y`). Predicted in turned gravity
-  (not measured): a brain looks for its floor under world +y and finds a
-  wall or nothing. They are a procedure in world axes, as the ambush is.
+  (`ambition_characters/src/perception.rs`) laid the same half on the WORLD
+  axes (`feet = me.pos.y + me.half_extent.y`). BUILT 2026-10-06, see "The
+  floor of a brain" below.
 - the view has no DOWN of a peer, so a reader uses the viewer's. Two bodies
   in two gravity zones are measured in one frame.
+
+**The floor of a brain, built 2026-10-06:** `floor_below`,
+`supporting_floor` and `ground_below` ask on the two axes of the viewing
+body (`SelfView::acceleration_frame`): a floor is toward its DOWN, its
+footprint is on its side axis, and `ground_below` answers a coordinate on the
+DOWN axis. In normal gravity the axes are world x and y and each answer is
+the one it was. `tech_press` (`ambition_combat`, `reeling.rs`), the one
+reader that laid `ground_below` on world y, reads the feet, the gap and the
+closing speed on the DOWN axis.
+
+- WHO IS UNDER TURNED GRAVITY IN THE SHIPPED GAMES (read 2026-10-06, files
+  and LDtk, nothing run): no room puts a brain that asks these questions
+  under turned gravity. Their only callers are the fighter brain. The
+  fighter brain is selected by one catalog (Smash: the `duelist` profiles),
+  and is on Smash CPU seats only; the three Smash stages are built in Rust
+  with no gravity zone and no switch, and item drops are off. The rooms that
+  turn gravity (`gravity_lab`, `wall_run`, `ceiling_cross`, `symmetry_room`,
+  the hub's flip switch, and two Sanic levels) hold stand-still, patrol,
+  wanderer and Smash-template brains. Not traced: the developer gravity
+  hotkey pressed in a Smash match, and `AMBITION_ACTOR_BRAIN_PROFILE`. So
+  the fixtures are synthetic views built by hand, and each arm says so.
+- Arms, each red before (`ambition_characters/src/perception/tests.rs`): a
+  brain whose DOWN is +x, with a solid 8 past its feet on +x and a solid
+  under it on world +y. Each query took the solid on +y, and with only the
+  solid on +x each answered `None` (a brain that sees no floor is in
+  `Recovery`). A control in normal gravity is green before and after. One arm
+  for the footprint on the side axis. `tech_press`: a body that tumbles
+  toward a floor on +x did not press.
+- NOT built, the same defect one step on: `floor_ahead` measures the floor
+  it is given on world x (`support.max.x - me.pos.x`), and `situation.rs`
+  takes the retreat sign and the width of the floor from world x. In turned
+  gravity they now get the right solid and measure it on the wrong axis.
 
 **Rejected, do not retry:** to make a READER of the record use the published
 footprint (`CenteredAabb`) when the record is zero-length. The footprint of a

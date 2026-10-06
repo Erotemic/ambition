@@ -409,3 +409,39 @@ fn near_the_floor_the_deflection_does_not_depend_on_the_launch_sign() {
          they were launched: right asked {right:?}, left asked {left:?}"
     );
 }
+
+/// A body whose DOWN is world +x, falling toward a floor that is ahead of it
+/// on x. The view is built by hand: no shipped room puts this brain under
+/// turned gravity.
+fn falling_toward_x(gap: f32, speed: f32) -> WorldView {
+    let floor_face = 500.0;
+    let half = ae::Vec2::new(10.0, 20.0);
+    let mut view = reeling(
+        ae::Vec2::new(floor_face - gap - half.y, 400.0),
+        ae::Vec2::new(speed, 0.0),
+    );
+    view.self_view.gravity_down = ae::Vec2::new(1.0, 0.0);
+    view.self_view.phase = BodyPhase::Neutral;
+    view.self_view.tumbling = true;
+    view.self_view.half_extent = half;
+    view.terrain = vec![PerceivedSolid {
+        aabb: ae::Aabb::new(ae::Vec2::new(floor_face + 50.0, 400.0), ae::Vec2::new(50.0, 400.0)),
+        kind: SolidKind::Solid,
+        open_for_self: false,
+    }];
+    view
+}
+
+/// The landing is toward the DOWN of the body: the gap and the closing speed
+/// are on that axis, not on world y.
+#[test]
+fn in_turned_gravity_a_tumbling_body_techs_the_landing_toward_its_own_down() {
+    let close = ae::movement::knockdown::TECH_WINDOW * 600.0 * 0.5;
+    assert!(
+        tech_press(Perceived::cheating(&falling_toward_x(close, 600.0))),
+        "the floor is half a window ahead on the DOWN of the body"
+    );
+    let far = ae::movement::knockdown::TECH_WINDOW * 600.0 * 4.0;
+    assert!(!tech_press(Perceived::cheating(&falling_toward_x(far, 600.0))), "still far from it");
+    assert!(!tech_press(Perceived::cheating(&falling_toward_x(close, -600.0))), "moving away from it");
+}

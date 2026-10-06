@@ -656,6 +656,40 @@ impl LaunchLaw {
     }
 }
 
+/// Where a body stands, on the two axes of its own frame. Built by
+/// `WorldView::footing` for the floor questions.
+struct Footing {
+    side: ae::Vec2,
+    down: ae::Vec2,
+    /// The feet of the body on its DOWN axis.
+    feet: f32,
+    /// The centre of the body on its side axis.
+    centre: f32,
+    /// Half the footprint of the body, on its side axis.
+    half_width: f32,
+    /// Half the body, toward its DOWN.
+    height: f32,
+}
+
+impl Footing {
+    /// The face of `solid` a body that falls toward its DOWN meets, on the
+    /// DOWN axis.
+    fn top_of(&self, solid: &ae::Aabb) -> f32 {
+        WorldView::span_on(solid, self.down).0
+    }
+
+    /// Is the footprint of the body over `solid`, on the side axis?
+    fn is_over(&self, solid: &ae::Aabb) -> bool {
+        let (low, high) = WorldView::span_on(solid, self.side);
+        low <= self.centre + self.half_width && high >= self.centre - self.half_width
+    }
+
+    /// See `WorldView::horizontal_gap`.
+    fn gap_to(&self, solid: &ae::Aabb) -> f32 {
+        WorldView::horizontal_gap(WorldView::span_on(solid, self.side), self.centre)
+    }
+}
+
 impl WorldView {
     /// How much floor is left in a direction, from the solid underfoot.
     ///
@@ -771,36 +805,58 @@ impl WorldView {
     /// body and the solid about any axis and both terms swap, so the order
     /// between two candidates is unchanged. A position in a list has no such
     /// property, which is the whole bug.
-    fn horizontal_gap(solid: &ae::Aabb, x: f32) -> f32 {
-        (solid.min.x - x).max(x - solid.max.x)
+    fn horizontal_gap(span: (f32, f32), x: f32) -> f32 {
+        (span.0 - x).max(x - span.1)
+    }
+
+    /// The two axes a floor question is asked on: the side axis of the body
+    /// and its DOWN. In normal gravity they are world x and world y.
+    ///
+    /// A floor is toward the DOWN of the body, and its footprint is on its
+    /// side axis. [`SelfView::half_extent`] is on these same axes.
+    fn floor_axes(&self) -> (ae::Vec2, ae::Vec2) {
+        let frame = self.self_view.acceleration_frame();
+        (frame.side, frame.down)
+    }
+
+    /// The extent of a box on a unit axis, as (low, high).
+    fn span_on(aabb: &ae::Aabb, axis: ae::Vec2) -> (f32, f32) {
+        let (a, b) = (aabb.min.dot(axis), aabb.max.dot(axis));
+        (a.min(b), a.max(b))
+    }
+
+    /// What every floor question measures: the feet of the body on its DOWN
+    /// axis, and its centre and half footprint on its side axis.
+    fn footing(&self) -> Footing {
+        let me = &self.self_view;
+        let (side, down) = self.floor_axes();
+        Footing {
+            side,
+            down,
+            feet: me.pos.dot(down) + me.half_extent.y,
+            centre: me.pos.dot(side),
+            half_width: me.half_extent.x,
+            height: me.half_extent.y,
+        }
     }
 
     pub fn floor_below(&self) -> Option<ae::Aabb> {
-        let me = &self.self_view;
-        let feet = me.pos.y + me.half_extent.y;
+        let at = self.footing();
         self.terrain
             .iter()
             .filter(|solid| Self::stands_on(solid))
-            .filter(|solid| {
-                solid.aabb.min.x <= me.pos.x + me.half_extent.x
-                    && solid.aabb.max.x >= me.pos.x - me.half_extent.x
-                    && solid.aabb.min.y >= feet - me.half_extent.y
-            })
+            .filter(|solid| at.is_over(&solid.aabb) && at.top_of(&solid.aabb) >= at.feet - at.height)
             .min_by(|a, b| {
-                (a.aabb.min.y - feet)
-                    .total_cmp(&(b.aabb.min.y - feet))
+                (at.top_of(&a.aabb) - at.feet)
+                    .total_cmp(&(at.top_of(&b.aabb) - at.feet))
                     // Ties are real and common — see `horizontal_gap`.
-                    .then_with(|| {
-                        Self::horizontal_gap(&a.aabb, me.pos.x)
-                            .total_cmp(&Self::horizontal_gap(&b.aabb, me.pos.x))
-                    })
+                    .then_with(|| at.gap_to(&a.aabb).total_cmp(&at.gap_to(&b.aabb)))
             })
             .map(|solid| solid.aabb)
     }
 
     pub fn supporting_floor(&self) -> Option<ae::Aabb> {
-        let me = &self.self_view;
-        let feet = me.pos.y + me.half_extent.y;
+        let at = self.footing();
         let support = self
             .terrain
             .iter()
@@ -821,23 +877,18 @@ impl WorldView {
                 // The platform ends at x=530. Being past the edge is not the
                 // absence of an edge; it is a NEGATIVE distance to one, and
                 // `floor_ahead` reports it as such now.
-                solid.aabb.min.x <= me.pos.x + me.half_extent.x
-                    && solid.aabb.max.x >= me.pos.x - me.half_extent.x
-                    && solid.aabb.min.y >= feet - me.half_extent.y
-                    && solid.aabb.min.y <= feet + me.half_extent.y * 2.0
+                let top = at.top_of(&solid.aabb);
+                at.is_over(&solid.aabb) && top >= at.feet - at.height && top <= at.feet + at.height * 2.0
             })
             .min_by(|a, b| {
-                (a.aabb.min.y - feet)
+                (at.top_of(&a.aabb) - at.feet)
                     .abs()
-                    .total_cmp(&(b.aabb.min.y - feet).abs())
+                    .total_cmp(&(at.top_of(&b.aabb) - at.feet).abs())
                     // ⛔ THE TIE IS WHERE THE MIRROR BROKE. Two respawn
                     // platforms sit at one height, so this comparison was
                     // decided by terrain list order for every body between
                     // them. See `horizontal_gap`.
-                    .then_with(|| {
-                        Self::horizontal_gap(&a.aabb, me.pos.x)
-                            .total_cmp(&Self::horizontal_gap(&b.aabb, me.pos.x))
-                    })
+                    .then_with(|| at.gap_to(&a.aabb).total_cmp(&at.gap_to(&b.aabb)))
             })?;
         Some(support.aabb)
     }
@@ -850,6 +901,10 @@ impl WorldView {
     /// platform, and a body that has walked off the lip is over nothing, and
     /// those are different situations no matter what height either is at.
     ///
+    /// The answer is a coordinate on the DOWN axis of the body
+    /// (`pos.dot(gravity_down)`): in normal gravity, a world y. A reader
+    /// compares it with the feet of the body on that same axis.
+    ///
     /// it exists because "offstage" was a question about the ROOM.
     /// `StageView` is the room box, so on a platform stage a fighter that walked
     /// off the lip was still *inside the stage* for another hundred pixels of
@@ -858,20 +913,18 @@ impl WorldView {
     /// the room. Having somewhere to land is the question recovery is actually
     /// about.
     pub fn ground_below(&self) -> Option<f32> {
-        let me = &self.self_view;
-        let feet = me.pos.y + me.half_extent.y;
+        let at = self.footing();
         self.terrain
             .iter()
             .filter(|solid| Self::stands_on(solid))
             .filter(|solid| {
-                solid.aabb.min.x <= me.pos.x + me.half_extent.x
-                    && solid.aabb.max.x >= me.pos.x - me.half_extent.x
-                    // Below the feet, in the gravity sense this view is written
-                    // in (+y down). A solid the body is already inside counts:
-                    // it is still something to stand on.
-                    && solid.aabb.max.y >= feet
+                at.is_over(&solid.aabb)
+                    // Below the feet, toward the DOWN of the body. A solid the
+                    // body is already inside counts: it is still something to
+                    // stand on.
+                    && Self::span_on(&solid.aabb, at.down).1 >= at.feet
             })
-            .map(|solid| solid.aabb.min.y)
+            .map(|solid| at.top_of(&solid.aabb))
             .min_by(f32::total_cmp)
     }
 

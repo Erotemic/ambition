@@ -174,12 +174,13 @@ pub fn tech_press(view: Perceived<'_>) -> bool {
     let Some(floor_top) = view.ground_below() else {
         return false;
     };
-    // `ground_below` answers in the view's own +y-down sense, which is also the
-    // sense its terrain is published in, so the gap and the closing speed are
-    // read in the same frame rather than converted through gravity twice.
-    let feet = me.pos.y + me.half_extent.y;
+    // `ground_below` answers on the DOWN axis of the body, so the feet, the
+    // gap and the closing speed are read on that same axis. In normal gravity
+    // it is world y.
+    let down = me.acceleration_frame().down;
+    let feet = me.pos.dot(down) + me.half_extent.y;
     let gap = floor_top - feet;
-    let closing = me.vel.y;
+    let closing = me.vel.dot(down);
     if gap < 0.0 || closing <= 0.0 {
         return false;
     }

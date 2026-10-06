@@ -942,3 +942,97 @@ fn a_gate_open_for_self_is_no_floor_and_still_blocks_the_line_of_fire() {
         "the body fires through a gate its projectile meets as solid"
     );
 }
+
+/// The solids of the turned-room arms. The body is at the origin and its own
+/// half is 10 on its side axis and 16 toward its DOWN.
+///
+/// `ahead_on_x` is 8 past the feet of a body whose DOWN is +x. `under_y` is
+/// at the feet of a body whose DOWN is +y.
+fn ahead_on_x() -> PerceivedSolid {
+    wall(ae::Vec2::new(40.0, 0.0), ae::Vec2::new(16.0, 60.0))
+}
+
+fn under_y() -> PerceivedSolid {
+    wall(ae::Vec2::new(0.0, 32.0), ae::Vec2::new(60.0, 16.0))
+}
+
+/// A brain at the origin whose DOWN is `down`, that perceives `terrain`.
+///
+/// No shipped room puts a brain that asks these questions under turned
+/// gravity (the fighter brain is on Smash seats, and no Smash stage turns
+/// gravity), so the view is built by hand.
+fn brain_with_down(down: ae::Vec2, terrain: Vec<PerceivedSolid>) -> WorldView {
+    let mut self_view = self_view_at(ae::Vec2::ZERO, ActorFaction::Enemy);
+    self_view.gravity_down = down;
+    WorldView {
+        self_view,
+        viewport: Viewport::around(ae::Vec2::ZERO, ae::Vec2::splat(500.0)),
+        terrain,
+        ..Default::default()
+    }
+}
+
+const DOWN_X: ae::Vec2 = ae::Vec2::new(1.0, 0.0);
+const DOWN_Y: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
+
+/// The control of the three arms below: in normal gravity the floor is the
+/// solid under world +y, and the solid on +x is a wall beside the body.
+#[test]
+fn in_normal_gravity_the_floor_of_a_brain_is_under_world_y() {
+    let view = brain_with_down(DOWN_Y, vec![ahead_on_x(), under_y()]);
+    assert_eq!(view.floor_below(), Some(under_y().aabb));
+    assert_eq!(view.supporting_floor(), Some(under_y().aabb));
+    assert_eq!(view.ground_below(), Some(16.0));
+    let wall_only = brain_with_down(DOWN_Y, vec![ahead_on_x()]);
+    assert_eq!(
+        (wall_only.floor_below(), wall_only.supporting_floor(), wall_only.ground_below()),
+        (None, None, None),
+        "a wall beside the body is not its floor"
+    );
+}
+
+#[test]
+fn in_turned_gravity_the_floor_below_a_brain_is_toward_its_own_down() {
+    let view = brain_with_down(DOWN_X, vec![ahead_on_x(), under_y()]);
+    assert_eq!(
+        view.floor_below(),
+        Some(ahead_on_x().aabb),
+        "the solid toward the DOWN of the body is under it; the solid on world +y is a wall beside it"
+    );
+    assert!(brain_with_down(DOWN_X, vec![ahead_on_x()]).floor_below().is_some(), "with no other solid");
+    assert_eq!(brain_with_down(DOWN_X, vec![under_y()]).floor_below(), None, "a wall beside the body is not its floor");
+}
+
+#[test]
+fn in_turned_gravity_the_supporting_floor_of_a_brain_is_toward_its_own_down() {
+    let view = brain_with_down(DOWN_X, vec![ahead_on_x(), under_y()]);
+    assert_eq!(view.supporting_floor(), Some(ahead_on_x().aabb));
+    assert!(brain_with_down(DOWN_X, vec![ahead_on_x()]).supporting_floor().is_some(), "with no other solid");
+    assert_eq!(brain_with_down(DOWN_X, vec![under_y()]).supporting_floor(), None);
+}
+
+/// The answer is a coordinate on the DOWN axis of the body: the face of the
+/// solid that a body falling toward its DOWN meets.
+#[test]
+fn in_turned_gravity_the_ground_below_a_brain_is_toward_its_own_down() {
+    let view = brain_with_down(DOWN_X, vec![ahead_on_x(), under_y()]);
+    assert_eq!(view.ground_below(), Some(24.0), "the face of the solid on +x is at x = 24");
+    assert_eq!(brain_with_down(DOWN_X, vec![ahead_on_x()]).ground_below(), Some(24.0), "with no other solid");
+    assert_eq!(brain_with_down(DOWN_X, vec![under_y()]).ground_below(), None);
+}
+
+/// The footprint of the body is on its side axis: 10 each way on world y
+/// when its DOWN is +x.
+#[test]
+fn in_turned_gravity_the_footprint_of_a_brain_is_on_its_side_axis() {
+    let beside = wall(ae::Vec2::new(40.0, 50.0), ae::Vec2::new(16.0, 30.0));
+    let under = wall(ae::Vec2::new(40.0, 35.0), ae::Vec2::new(16.0, 30.0));
+    assert!(beside.aabb.min.y > 10.0 && under.aabb.min.y < 10.0, "premise: 20 and 5 from the centre on y");
+    let past = brain_with_down(DOWN_X, vec![beside]);
+    assert_eq!((past.floor_below(), past.supporting_floor(), past.ground_below()), (None, None, None));
+    let over = brain_with_down(DOWN_X, vec![under]);
+    assert_eq!(
+        (over.floor_below(), over.supporting_floor(), over.ground_below()),
+        (Some(under.aabb), Some(under.aabb), Some(24.0))
+    );
+}

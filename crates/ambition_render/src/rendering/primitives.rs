@@ -86,6 +86,15 @@ pub struct FeatureVisual {
     pub id: String,
 }
 
+/// The sheet row a prop plays instead of its idle row: the game's say, on a
+/// [`PropVisual`]. A prop is otherwise idle-only (`animate_props`), which a
+/// prop with a life of its own (a monitor that breaks) cannot be. Presentation
+/// only, so a game derives it from its state every frame and a rewind takes the
+/// look back with the state. The request plays on the sheet's own clock and
+/// holds its last frame; `CharacterAnimator::clip_finished` says when.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct PropClip(pub ambition_sim_view::ClipRequest);
+
 /// Marker for sprites spawned from `RoomSpec.props`. Prop animation (idle row
 /// tick) runs on `With<PropVisual>`, so the engine needs no feature entity for
 /// the prop. `Without<PortalSprite>` leaves the gate ring and gate portal to

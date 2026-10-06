@@ -269,6 +269,13 @@ impl CharacterAnimator {
         self.clip_held = false;
     }
 
+    /// Whether an authored clip is showing and has reached its last frame,
+    /// which it holds (an authored clip does not loop). What a presenter asks
+    /// to chain one clip after another.
+    pub fn clip_finished(&self) -> bool {
+        self.clip_slot.is_some() && self.clip_held
+    }
+
     /// Drive the current clip row by a move's normalized progress, or `None`
     /// to let it run on the sheet's own frame clock.
     ///

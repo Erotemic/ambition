@@ -381,13 +381,14 @@ pub fn animate_props(
             &PropVisual,
             Option<&ambition_time::ProperTimeScale>,
             Option<&mut bevy::sprite::Anchor>,
+            Option<&super::super::primitives::PropClip>,
         ),
         Without<super::super::primitives::PortalSprite>,
     >,
 ) {
     // ADR 0011: per-entity proper time. A prop that must tick while the world
     // is frozen gets a non-1.0 `ProperTimeScale`.
-    for (mut sprite, mut animator, prop, scale, anchor) in &mut query {
+    for (mut sprite, mut animator, prop, scale, anchor, clip) in &mut query {
         // Static-until-moving props use dt = 0, so `tick` does not advance.
         let dt = if PROP_KINDS_STATIC_UNTIL_MOVING.contains(&prop.kind.as_str()) {
             0.0
@@ -399,8 +400,8 @@ pub fn animate_props(
             &mut animator,
             anchor.map(|a| a.into_inner()),
             ambition_sprite_sheet::character::CharacterAnim::Idle,
-            // A prop plays no moves.
-            None,
+            // A prop plays no moves; the row its game names, if any.
+            clip.map(|clip| &clip.0),
             false,
             false,
             dt,

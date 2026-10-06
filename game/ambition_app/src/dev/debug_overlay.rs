@@ -271,7 +271,8 @@ pub(crate) fn draw_debug_overlay(
             draw_health_bars(
                 &mut gizmos,
                 world,
-                clusters.kinematics.aabb(),
+                // Over the box the body has, as the overlay draws it.
+                clusters.kinematics.collision_box(clusters.sweep.as_deref()),
                 player_health,
             );
         }

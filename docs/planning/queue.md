@@ -2719,7 +2719,7 @@ neighbours, and no class but the first was measured.
 | a shot | 12 | 12 | `projectile/systems.rs` (4), `projectile/collision.rs`, `projectile/body.rs` (6, 2 of them the comment lines), `clash.rs` | no: a shot is a free body with no support and no stance, and its size is its box |
 | the gravity of a body | 3 | 3 | `gravity/resolve.rs` (2), the frame of a throw (`ambition_held_items/src/lib.rs`) | no: this box is what resolves the frame, so the frame cannot turn it |
 | the centre only | 3 | 3 | `avatar/trail.rs`, `target_volumes.rs`, the boss extension | no: the centre of the two boxes is the same |
-| developer trace and overlay | 8 | 8 | `dev/trace` (6), the app's debug overlay (2) | not for the game. An overlay that draws the level box of a turned body shows a box the body does not have |
+| developer trace and overlay | 8 | 2 | `dev/trace` (6), the app's debug overlay (2) | yes for the trace. BUILT 2026-10-06, see below. What is left: a shot the overlay draws, and `detect_oob_scratch` (a scratch body of the tests has no record) |
 | a game with no turned gravity | 10 | 10 | Mary-O (4), Smash (4), Sanic (2) | no, until one of those games turns gravity |
 | the camera's framing bounds | 1 | 1 | `camera_snapshot.rs` | no: a bound of what to frame, not a contact |
 | inside the kernel | 3 | 3 | `player_state.rs` (turned by the frame on the same line), the crawler arm (2, it states its own DOWN) | no |
@@ -2728,8 +2728,8 @@ The first sort put the throw's gravity lookup of `ambition_held_items` in the
 world-and-reach class; it is a gravity lookup, and the table above has it
 there (16 and 3, not 17 and 2). The first sort also put the two world-axis
 procedures in the traversal class (6); they are a class of their own (4 and
-2). The search finds 50 lines on 2026-10-06 after the five classes that are
-built (the guard counts 47 of them: it leaves out the 2 comment lines and the
+2). The search finds 44 lines on 2026-10-06 after the classes that are
+built (the guard counts 41 of them: it leaves out the 2 comment lines and the
 test literal). Every line the guard counts now has a reason or the
 name DEFECT; no class is left "to convert".
 
@@ -2989,6 +2989,36 @@ Which crawler can hold which verb, in the shipped app (a probe, not kept):
   on a wall under gravity toward +y dived with its box 6 inside the solid
   ahead (the record is 20 deep on x, the frame 12). The blink is gated to the
   axis arm, where the two are the same.
+
+**The trace of a turned body, built 2026-10-06:** the flight recorder asked
+the level box for "is this body inside a solid", for the box it writes into
+a dump, for the "riding a platform" fact and for the solids near a snap. Its
+own header says it shares one definition with
+`remember_safe_player_position`; that reader was converted in the
+world-and-reach change and the recorder was not, so the two disagreed. For
+a body that lies along turned gravity the recorder reported "inside solid",
+and with it requested an automatic dump, for a solid beside the body and
+clear of it (the arm below; where a player in the symmetry room meets such a
+solid was not measured).
+
+- The live recorder asks `detect_oob_of(clusters, …)`, and the snapshot of
+  every body takes the record of its last step; both ask
+  `collision_box(record)`.
+- Arms, red first (`dev/trace/actor_oob.rs` and `dev/trace/tests.rs`), a
+  24x40 body with a record of DOWN +x and one thin solid: 16 away on world y
+  it was reported "inside solid (thin)" where its box is 12 deep (the false
+  alarm); 16 away on world x it was NOT reported where its box is 20 deep
+  (the alarm that was missed). The same body with DOWN +y is the control,
+  green before and after. Two arms for the snapshot path and two for the
+  path of the live recorder.
+- CORRECTION of this row: it said "an overlay that draws the level box of a
+  turned body shows a box the body does not have". I had not read the
+  overlay. It draws the body box through `collision_aabb` with the DOWN of
+  the gravity, so the box it draws was already turned. Its two matched lines
+  were a health bar placed over the level box (now over the collision box;
+  no arm, a gizmo line) and the box of a shot.
+- Not measured: the alarm in the symmetry room of the shipped game, before
+  and after.
 
 **A procedure written in world axes (2 lines; the ambush is built, the
 petting mark is NOT):** these two read a level half, and to turn the half

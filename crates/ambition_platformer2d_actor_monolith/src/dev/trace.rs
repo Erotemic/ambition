@@ -39,7 +39,7 @@ mod tests;
 
 
 pub use actor_oob::{body_snapshot, flush_actor_dump, record_actor_oob_frame_system};
-pub use detect::{build_frame, detect_oob_from_kinematics, detect_oob_scratch, record_frame};
+pub use detect::{build_frame, detect_oob_from_kinematics, detect_oob_of, detect_oob_scratch, record_frame};
 pub(crate) use detect::{synthesize_events_from_diff, update_previous_snapshot};
 pub use plugin::TraceSchedulePlugin;
 pub use systems::{

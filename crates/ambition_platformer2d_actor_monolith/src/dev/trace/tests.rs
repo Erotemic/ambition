@@ -857,3 +857,53 @@ fn equal_frame_numbers_from_different_sessions_do_not_replace_each_other() {
         vec![10.0, 20.0]
     );
 }
+
+/// The OOB reason of a 24x40 kernel body with one thin solid at `offset`
+/// from its centre, through the path the live recorder takes
+/// (`detect_oob_of`). `down` is the DOWN of the body's last step.
+fn oob_beside_a_solid(offset: ae::Vec2, down: ae::Vec2) -> Option<OobReason> {
+    let at = ae::Vec2::new(480.0, 384.0);
+    let solid = ae::Aabb::new(at + offset, ae::Vec2::splat(2.0));
+    let world = World::new(
+        "arena",
+        ae::Vec2::new(960.0, 768.0),
+        ae::Vec2::ZERO,
+        vec![Block::solid("thin", solid.min, solid.max - solid.min)],
+    );
+    let mut scratch = dummy_player(at);
+    scratch.kinematics.size = ae::Vec2::new(24.0, 40.0);
+    let mut record = ae::SweepSample::at_rest(scratch.kinematics, down);
+    let mut clusters = scratch.as_mut();
+    clusters.sweep = Some(&mut record);
+    detect_oob_of(&clusters, &world, OOB_MARGIN)
+}
+
+/// The control of the two arms below: a body that stands in normal gravity
+/// is 20 deep on world y and 12 on world x.
+#[test]
+fn the_recorder_reports_a_standing_body_inside_the_solid_its_box_touches() {
+    let down = ae::Vec2::new(0.0, 1.0);
+    assert!(matches!(
+        oob_beside_a_solid(ae::Vec2::new(0.0, 16.0), down),
+        Some(OobReason::InsideSolid { .. })
+    ));
+    assert!(oob_beside_a_solid(ae::Vec2::new(16.0, 0.0), down).is_none());
+}
+
+/// The false alarm a player sees in a room whose gravity is turned: the body
+/// lies along its floor, 12 deep on world y, and a solid 16 away on y is
+/// clear of it.
+#[test]
+fn the_recorder_does_not_report_a_body_that_lies_along_sideways_gravity_inside_a_solid_beside_it() {
+    let reason = oob_beside_a_solid(ae::Vec2::new(0.0, 16.0), ae::Vec2::new(1.0, 0.0));
+    assert!(reason.is_none(), "the solid is clear of the box the body has: {reason:?}");
+}
+
+/// And the alarm that was missed: it is 20 deep on world x.
+#[test]
+fn the_recorder_reports_a_body_that_lies_along_sideways_gravity_inside_the_solid_its_own_box_touches() {
+    assert!(matches!(
+        oob_beside_a_solid(ae::Vec2::new(16.0, 0.0), ae::Vec2::new(1.0, 0.0)),
+        Some(OobReason::InsideSolid { .. })
+    ));
+}

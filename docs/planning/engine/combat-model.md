@@ -168,6 +168,18 @@ carries the world direction. The victim's reaction applies magnitude and DI and
 does not read the direction again on the victim's axes. A captor and a captive,
 or an attacker and a victim, in two gravity frames agree about the launch.
 
+**Measured consequence (2026-10-06), open:** a move volume that strikes a
+body BEHIND its owner launches it the way the owner faces; before, it was
+launched away from the owner. In the Smash demo's CPU matches about one landed
+hit in six is such a hit, and the share of matches in which a CPU charges a
+smash fell from about 0.3 to about 0.1 (5 of 50 noise streams; control with
+the old rule put back: 3 of the first 10, against 0 of 10). The cause of the
+fall is not known. `the_repertoire_gets_used.rs` records it and takes a larger
+sample. Two decisions are the maintainer's: whether the Smash CPU is tuned for
+the new rule, and whether a volume gets an authored "away from the source"
+direction (`HitboxLaunch::AwayFromSource` exists at run time; `HitVolume` has
+no field for it).
+
 ### The point a hold rides
 
 A hold point is `CapturedBy::hold_offset_local` on the captor's axes, measured

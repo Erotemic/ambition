@@ -1039,7 +1039,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// checkpoint, with that object. A death keeps the spend of an object it
 /// keeps, so a throw into another participant's live room is not undone
 /// twice (review 2026-10-05, P3).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 314;
+/// ⛔⛤ 314 -> 315: `body.sweep_sample` also holds the DOWN of the body in the
+/// step that wrote the record (`SweepSample::down`), and its checksum folds
+/// it. A transit collapses the record with the body's size turned to that
+/// DOWN, so the box at the arrival of a body in turned gravity is the box
+/// the body has, not its level box (LEVEL-BOX-READERS).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 315;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

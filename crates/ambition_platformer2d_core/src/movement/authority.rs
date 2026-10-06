@@ -130,7 +130,8 @@ pub enum TransitVelocity {
 /// - The §3.1 motion record collapses to a zero-length sample at the
 ///   arrival: a transit is never a swept path (CC2 — a blink over spikes is
 ///   not a graze), and post-transit observers must not see the stale departure
-///   segment.
+///   segment. The sample keeps the turn of the body: a transit moves a body
+///   and does not turn it.
 pub fn transit_body(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
@@ -170,11 +171,17 @@ pub fn reconcile_transit(model: &mut MotionModel, clusters: &mut BodyClustersMut
     }
     let pos = clusters.kinematics.pos;
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
+        // A transit moves the body and does not turn it. The box at the
+        // arrival is the body's PRESENT size (a reset changes the size before
+        // it transits) turned to the DOWN of its last step. The next step
+        // turns the body in the frame it arrives in.
+        let down = sweep.down;
         *sweep = SweepSample {
             prev: pos,
             curr: pos,
             vel: clusters.kinematics.vel,
-            half: clusters.kinematics.size * 0.5,
+            half: clusters.kinematics.half_oriented(down),
+            down,
         };
     }
 }
@@ -442,6 +449,7 @@ mod tests {
             curr: Vec2::new(10.0, 10.0),
             vel: incoming,
             half: Vec2::splat(8.0),
+            down: Vec2::new(0.0, 1.0),
         };
         let (pos, vel) = {
             let mut clusters = scratch.as_mut();
@@ -520,6 +528,7 @@ mod tests {
             curr: Vec2::new(10.0, 10.0),
             vel: Vec2::new(-500.0, 220.0),
             half: Vec2::splat(8.0),
+            down: Vec2::new(0.0, 1.0),
         };
         let (pos, vel) = {
             let mut clusters = scratch.as_mut();
@@ -633,6 +642,7 @@ mod tests {
             curr: Vec2::new(50.0, 50.0),
             vel: Vec2::ZERO,
             half: Vec2::splat(8.0),
+            down: Vec2::new(0.0, 1.0),
         };
         let clusters = scratch.as_mut();
         carry_body(clusters.kinematics, Some(&mut sample), Vec2::new(3.0, 0.0));

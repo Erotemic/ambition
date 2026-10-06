@@ -500,9 +500,10 @@ fn step_surface_momentum(
     // the SurfaceBody itself so a spring pad can launch a rider airborne
     // (with the occlusion bookkeeping every launch records).
     //
-    // The ride circle is the body's extent along the frame's DOWN, so the box
-    // of this step is the frame's. The pad and the hazard gate test that box.
-    let step_half = clusters.kinematics.half_oriented(ctx.frame.down());
+    // The ride circle is the body's extent along the frame's DOWN, so the DOWN
+    // of this body is the frame's. The pad and the hazard gate test that box.
+    let body_down = ctx.frame.down();
+    let step_half = clusters.kinematics.half_oriented(body_down);
     if let Some(impulse) = touching_rebound_aabb(ctx.world, crate::Aabb::new(clusters.kinematics.pos, step_half)) {
         surface_momentum::apply_pad_impulse(ctx.world, &mut body, impulse, ctx.dt);
     }
@@ -526,7 +527,7 @@ fn step_surface_momentum(
     motion.route_memory = body.route_memory;
     motion.occlusions = body.occlusions;
     motion.spend_boost(ctx.dt);
-    write_sweep_sample(clusters, sweep_entry, step_half);
+    write_sweep_sample(clusters, sweep_entry, body_down);
 
     let mut events = FrameEvents {
         contacts,
@@ -566,8 +567,7 @@ fn step_adhesive_crawler(
         (true, false) => events.operations.push(super::MovementOp::CrawlDetach),
         _ => {}
     }
-    let step_half = clusters.kinematics.half_oriented(motion.body_down(ctx.world, ctx.frame));
-    write_sweep_sample(clusters, sweep_entry, step_half);
+    let step_half = write_sweep_sample(clusters, sweep_entry, motion.body_down(ctx.world, ctx.frame));
     apply_world_hazard_gate(ctx.world, clusters, ctx.frame, step_half, &mut events);
 
     MotionStepResult::from_events(events, ctx.frame)
@@ -578,19 +578,24 @@ fn step_adhesive_crawler(
 /// construction. `entry` is the position and velocity at the start of the
 /// step.
 ///
-/// `step_half` is the box the step moved. Each policy arm states it, and gives
-/// the same value to [`apply_world_hazard_gate`]: the record, the end test and
-/// the path test are of one box.
-pub(crate) fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec2, Vec2), step_half: Vec2) {
+/// `body_down` is the DOWN of the body in this step. Each policy arm states
+/// it. The box the step moved is the body's box turned to it, and this
+/// returns that box: the arm gives the same value to
+/// [`apply_world_hazard_gate`], so the record, the end test and the path test
+/// are of one box. The record keeps the DOWN for a later transit.
+pub(crate) fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec2, Vec2), body_down: Vec2) -> Vec2 {
     let curr = clusters.kinematics.pos;
+    let step_half = clusters.kinematics.half_oriented(body_down);
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
         *sweep = SweepSample {
             prev: entry.0,
             curr,
             vel: entry.1,
             half: step_half,
+            down: body_down,
         };
     }
+    step_half
 }
 
 /// "ONE" is now true.

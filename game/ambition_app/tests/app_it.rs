@@ -181,6 +181,7 @@ mod rollback_populated_timeline;
 mod rollback_provoked_actor;
 mod a_character_left_elsewhere_stays_there;
 mod a_carried_population_body_is_not_built_twice;
+mod a_wielded_transit_is_settled_before_the_path_is_read;
 mod a_world_reload_draws_its_room_once;
 mod a_challenged_body_is_provoked_whole;
 mod rollback_room_transition;

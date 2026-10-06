@@ -31,7 +31,7 @@ const DERIVERS: [&str; 2] = ["project_custody_onto_residency", "project_body_cus
 /// The nodes ordered after `start`: a dependency edge from a node, or from a
 /// set that contains it, puts the target and everything inside the target
 /// after it.
-fn after(graph: &ScheduleGraph, start: NodeId) -> HashSet<NodeId> {
+pub(crate) fn after(graph: &ScheduleGraph, start: NodeId) -> HashSet<NodeId> {
     let hierarchy = graph.hierarchy().graph();
     let dependency = graph.dependency().graph();
     let containers = |node: NodeId| {

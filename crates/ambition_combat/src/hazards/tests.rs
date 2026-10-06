@@ -158,6 +158,7 @@ fn a_fast_body_cannot_tunnel_through_a_hazard_between_frames() {
             curr: end,
             vel: ae::Vec2::new(2000.0, 0.0),
             half: ae::Vec2::new(14.0, 23.0),
+            down: ae::Vec2::new(0.0, 1.0),
         },
         ae::CenteredAabb::from_center_size(end, ae::Vec2::new(28.0, 46.0)),
         BodyBaseSize {

@@ -19,8 +19,10 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   its hitboxes refused.
 /// * **Time** — offered in `boss_conduct`; the hitbox exists for this tick's
 ///   combat.
-/// * **Read model** — world units, +Y down; a launch's `x` is mirrored away
-///   from its source.
+/// * **Read model** — world units, +Y down; a launch's `x` is AWAY from the
+///   hitbox's source (the side of the owner the struck body is on), whichever
+///   way the owner faces. The engine lowers it to a world direction when the
+///   hitbox lands (`HitboxLaunch::AwayFromSource`).
 pub struct RidingHitboxPort;
 
 /// How a riding hitbox launches what it hits.

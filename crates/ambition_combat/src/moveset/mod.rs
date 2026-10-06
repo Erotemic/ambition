@@ -1861,8 +1861,12 @@ pub fn advance_move_playback(
                                 growth: volume.knockback_growth,
                             },
                             // CM1: the authored launch direction rides the
-                            // volume through to the victim-side resolver.
-                            launch_dir: volume.launch_dir.map(|(x, y)| ae::Vec2::new(x, y)),
+                            // volume, on the owner's own axes, to the damage
+                            // resolver, which lowers it with `facing` and
+                            // `frame_down` below.
+                            launch_dir: volume
+                                .launch_dir
+                                .map(|(x, y)| crate::strike::HitboxLaunch::OwnerLocal(ae::Vec2::new(x, y))),
                             // The authored HOLD rides the same volume the launch
                             // does — an intermediate multi-hit pulse authors it,
                             // the final one does not.

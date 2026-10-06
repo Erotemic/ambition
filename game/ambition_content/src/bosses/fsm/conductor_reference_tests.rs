@@ -306,7 +306,8 @@ fn riding_hitbox(owner: Entity, offset: Vec2, half: Vec2, shape: Option<ae::Volu
             facing: 1.0,
             damage,
             knockback,
-            launch_dir,
+            // The same authoring the riding port lowers to: away from the source.
+            launch_dir: launch_dir.map(ambition_combat::strike::HitboxLaunch::AwayFromSource),
             frame_down: Vec2::new(0.0, 1.0),
             reaction: None,
         },

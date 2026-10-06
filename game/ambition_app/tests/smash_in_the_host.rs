@@ -5841,8 +5841,9 @@ fn quitting_a_smash_match_gives_the_pad_back() {
 }
 
 /// the fault was ONE inverted sign, and it was in the shared floor. An
-/// authored `launch_dir` is a vector in the victim's own acceleration frame,
-/// where `y` points TOWARD THE FEET — that is the authoring contract's own words
+/// authored `launch_dir` is a vector in the acceleration frame of the body
+/// that authors it (the victim's frame, in the law of that day; the source's
+/// frame now), where `y` points TOWARD THE FEET — that is the authoring contract's own words
 /// (`HitVolume::launch_dir`: *"(+x = facing, +y = gravity-down)"*), it is what
 /// all ~100 authored literals in the tree wrote, and `player_robot_moveset`
 /// already had a running test asserting the d-air's `y > 0` means DOWN.
@@ -6079,7 +6080,8 @@ mod launched {
                             base: UP_TILT_KNOCKBACK,
                             growth: Some(UP_TILT_GROWTH),
                         },
-                    launch_dir,
+                    launch_dir: launch_dir
+                        .map(ambition_platformer2d::combat::strike::HitboxLaunch::OwnerLocal),
                     frame_down: EVec2::new(0.0, 1.0),
                     strike_sfx: None,
                     reaction: None,
@@ -6923,7 +6925,11 @@ mod ring_out {
                             base: volume.knockback,
                             growth: volume.knockback_growth,
                         },
-                    launch_dir: volume.launch_dir.map(|(x, y)| EVec2::new(x, y)),
+                    launch_dir: volume.launch_dir.map(|(x, y)| {
+                        ambition_platformer2d::combat::strike::HitboxLaunch::OwnerLocal(
+                            EVec2::new(x, y),
+                        )
+                    }),
                     frame_down: EVec2::new(0.0, 1.0),
                     strike_sfx: None,
                     reaction: None,

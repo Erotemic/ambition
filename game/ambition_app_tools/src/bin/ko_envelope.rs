@@ -1284,7 +1284,11 @@ impl KoProbe {
                                     base: hit.knockback,
                                     growth: hit.knockback_growth,
                                 },
-                            launch_dir: hit.launch_dir.map(|(x, y)| EVec2::new(x, y)),
+                            launch_dir: hit.launch_dir.map(|(x, y)| {
+                                ambition_platformer2d::combat::strike::HitboxLaunch::OwnerLocal(
+                                    EVec2::new(x, y),
+                                )
+                            }),
                             frame_down: EVec2::new(0.0, 1.0),
                             strike_sfx: None,
                             reaction: None,
@@ -1314,6 +1318,16 @@ impl KoProbe {
                     attacker,
                     EVec2::new(anchor_x, attacker_y),
                 );
+                // A throw vector is local to the captor: +x is the way the
+                // captor faces. The captor holds the victim at +16, so it
+                // faces +x. Pin that, as the strike rows pin `facing: 1.0`.
+                if let Some(mut kin) = self
+                    .app
+                    .world_mut()
+                    .get_mut::<ambition_platformer2d::actor::BodyKinematics>(attacker)
+                {
+                    kin.facing = 1.0;
+                }
                 // `lasting`, not `default()`. A default `SmashHoldState` has
                 // `escape_seconds == 0.0`, which `escaped()` reads as a hold
                 // that is already over.

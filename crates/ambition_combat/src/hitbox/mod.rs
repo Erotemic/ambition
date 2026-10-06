@@ -1111,7 +1111,10 @@ pub fn apply_hitbox_damage(
                     magnitude,
                     source_pos: spatial_source,
                     impact_pos: impact,
-                    launch_dir: hitbox.launch_dir,
+                    // LOWERED HERE, as the autolink anchor below is: the
+                    // volume has the facing and the frame of the body that
+                    // threw it, and the reaction of the victim has neither.
+                    launch_dir: hitbox.launch_world(spatial_source, victim_body.center()),
                     // AUTOLINK, and the ATTACKER'S VELOCITY is sampled HERE.
                     // The reaction holds a victim and no attacker entity, and
                     // the velocity is a fact about this pulse rather than about

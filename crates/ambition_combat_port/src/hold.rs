@@ -12,7 +12,8 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 /// * **Operation** — one of:
 ///   * `Seize` — catch the nearest body that the owner's damage can land on
 ///     whose box meets the reach volume (`reach_offset`, `reach_half`: a box
-///     in the owner's local frame, +x the way it faces, +y down), and hold it
+///     in the owner's local frame, +x the way it faces, +y toward its feet;
+///     under turned gravity the box turns with the owner), and hold it
 ///     at `hold_offset` (local the same way) for at most `hold_s` seconds or
 ///     until it mashes free. The held body's move ends, its control is held,
 ///     gravity leaves it. A body already held, in hitstun, out of play or in
@@ -21,8 +22,10 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///     carry every tick).
 ///   * `Pummel` — `damage` to the held body, no knockback: it stays held.
 ///   * `Throw` — `damage`, then release, then launch it along `launch_dir`
-///     (owner-local) at a launch speed from `knockback` and `growth`, with
-///     the hit reaction a strike gives (hitstun).
+///     (owner-local: +x the way the owner faces, +y toward the owner's feet;
+///     the held body's own frame is not asked) at a launch speed from
+///     `knockback` and `growth`, with the hit reaction a strike gives
+///     (hitstun).
 ///   * `Release` — let go, no launch.
 ///   With nothing held, `Carry`, `Pummel`, `Throw` and `Release` do nothing.
 /// * **Owner** — `ambition_combat::extension` (the capture relation).

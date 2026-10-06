@@ -2128,6 +2128,55 @@ mod tests {
         );
     }
 
+    /// A THROW IS ON THE AXES OF THE CAPTOR, NOT OF THE CAPTIVE.
+    ///
+    /// `CaptureThrowRequested::launch_dir` is captor-local: +x the way the
+    /// captor faces, +y toward the captor's feet. The throw lowers it with
+    /// the captor's facing and frame, and the captive's own frame is not
+    /// asked. Each pair of the four gravity directions is an arm, with each
+    /// facing. In the 12 pairs that differ, a throw that reads the vector on
+    /// the captive's axes fails.
+    #[test]
+    fn a_throw_launches_on_the_axes_of_the_captor_whatever_the_frame_of_the_captive() {
+        const CARDINALS: [ae::Vec2; 4] = [
+            ae::Vec2::new(0.0, 1.0),
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(-1.0, 0.0),
+        ];
+        let framed = |down: ae::Vec2| {
+            let mut frame = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+            frame.publish_resolved_frame(ae::MotionFrame::from_direction(down, 900.0));
+            frame
+        };
+        let authored = ae::Vec2::new(0.6, -0.8);
+        for captor_down in CARDINALS {
+            let captor_frame = ae::AccelerationFrame::new(captor_down);
+            for captive_down in CARDINALS {
+                for facing in [1.0, -1.0] {
+                    let (mut app, captor, victim) = throw_app();
+                    app.world_mut().entity_mut(captor).insert(framed(captor_down));
+                    app.world_mut().entity_mut(victim).insert(framed(captive_down));
+                    app.world_mut().get_mut::<ae::BodyKinematics>(captor).unwrap().facing = facing;
+                    app.world_mut().write_message(crate::capture::CaptureThrowRequested {
+                        launch_dir: authored,
+                        ..throw(captor, 0.0)
+                    });
+                    app.update();
+                    let vel = app.world().get::<ae::BodyKinematics>(victim).unwrap().vel;
+                    assert!(vel.length() > 1.0, "the fixture threw nobody: {vel:?}");
+                    let expected = captor_frame.side * (authored.x * facing) + captor_frame.down * authored.y;
+                    assert!(
+                        (vel.normalize() - expected).length() < 1e-3,
+                        "captor down {captor_down:?} facing {facing}, captive down {captive_down:?}: \
+                         thrown along {:?}, the captor's axes give {expected:?}",
+                        vel.normalize()
+                    );
+                }
+            }
+        }
+    }
+
     /// A THROW GETS THE PERCENT SCALING EVERY OTHER LAUNCHER GETS.
     ///
     /// The proof that this rides the shared knockback law rather than a second
@@ -2993,7 +3042,19 @@ pub fn apply_capture_throws(
             magnitude: ae::hit_response::HitKnockbackMagnitude::LaunchSpeed(magnitude),
             source_pos: captor_kin.pos,
             impact_pos: kin.pos,
-            launch_dir: Some(request.launch_dir),
+            // The throw is written on the CAPTOR's axes, and it is lowered
+            // here, where the captor is: its facing and its own frame. The
+            // captive's frame is not asked. A captor and a captive in two
+            // gravity frames did not agree about "up" when the captive's
+            // reaction read this vector on the captive's axes.
+            launch_dir: Some(ae::hit_response::WorldLaunchDir::from_source_local(
+                request.launch_dir,
+                captor_kin.facing,
+                gravity
+                    .get(request.captor)
+                    .map(|frame| frame.down())
+                    .unwrap_or(ae::DEFAULT_GRAVITY_DIR),
+            )),
             follow: None,
         };
         let gravity_dir = gravity

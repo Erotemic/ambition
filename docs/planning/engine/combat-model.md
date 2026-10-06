@@ -154,6 +154,33 @@ knockback, autolink, wind/vacuum, weight independence, shield-only tuning, or a
 per-hit hitlag modifier, represent that property on the hit/reaction payload and
 keep the ordinary formula unchanged for ordinary hits.
 
+### The frame of an authored launch direction
+
+An authored launch vector is local to the body that authors it: `+x` is the way
+that body faces and `+y` is toward its feet. This is one law for a move volume
+(`HitVolume::launch_dir`), a throw (`CaptureThrowParams`, `BodyHold::Throw`) and
+a hold's geometry (`BodyHold::Seize`, the hold point).
+
+The PRODUCER lowers the vector once, to a world direction, with the source
+body's facing and resolved frame (`hit_response::WorldLaunchDir`): the hitbox
+resolver for a volume, `apply_capture_throws` for a throw. `HitKnockback`
+carries the world direction. The victim's reaction applies magnitude and DI and
+does not read the direction again on the victim's axes. A captor and a captive,
+or an attacker and a victim, in two gravity frames agree about the launch.
+
+Two cases are not this default, and each is named:
+
+- A hit with NO authored direction launches on the default diagonal: to the side
+  away from the source, with a rise against the VICTIM's gravity.
+- `HitboxLaunch::AwayFromSource` is a second authoring for a volume that pushes
+  out from its source on each side (the riding-hitbox port, a boss's buck). Its
+  `x` is away from the source on the source's side axis. The producer lowers it
+  also.
+
+Consequence: a volume that catches a body BEHIND its owner launches the body the
+way the owner faces, through the owner. A move that must send a body behind it
+backward authors a negative `x` on that volume.
+
 ## Kill envelope calibration
 
 Measured over 21 fighters and 500 rows. Every KO% here is rage-pinned

@@ -42,6 +42,70 @@ impl HitKnockbackMagnitude {
     }
 }
 
+/// A launch direction in WORLD space.
+///
+/// ⭐ ONE LAW, LOWERED ONCE. An authored launch vector is written on the axes
+/// of the body that throws the hit: `+x` is the way that body faces, `+y` is
+/// toward its feet (its gravity-down). So an up-launcher is `(0, -1)` and a
+/// spike is `(0, 1)`. The PRODUCER of the hit lowers the vector to world
+/// space, because only the producer has the source body's facing and frame.
+/// This type has no public field, so a hit cannot carry an authored vector
+/// that no producer lowered.
+///
+/// Before this type, [`HitKnockback::launch_dir`] was a bare vector, and the
+/// victim's reaction read it on the VICTIM's axes: `x` by the side of the
+/// source the victim was on, `y` toward the victim's feet. A volume that
+/// caught a body behind its owner launched it backward, and an attacker and
+/// a victim in two gravity frames disagreed about "up".
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct WorldLaunchDir(Vec2);
+
+impl WorldLaunchDir {
+    /// THE lowering of a vector on the source body's own axes: mirror `x` by
+    /// the facing of the source, then turn into the frame whose DOWN is
+    /// `source_down`. The same two steps place a body-local volume and an
+    /// autolink anchor ([`autolink_anchor_world`]).
+    pub fn from_source_local(local: Vec2, source_facing: f32, source_down: Vec2) -> Self {
+        let frame = AccelerationFrame::new(source_down);
+        let facing = if source_facing < 0.0 { -1.0 } else { 1.0 };
+        Self(frame.side * (local.x * facing) + frame.down * local.y)
+    }
+
+    /// A vector whose `x` is AWAY from the source and whose `y` is toward
+    /// `source_down`: the launch of a hit that pushes out from where it came
+    /// from (a buck off a boss's back, a volume that rides a boss). The side
+    /// is the side of `source_pos` that `victim_pos` is on, in the frame of
+    /// the source; a victim at the centre goes to the side of
+    /// `side_at_centre`.
+    ///
+    /// This is a second AUTHORING, with its own name, and not a second law:
+    /// it is also lowered by the producer, and the victim's reaction gets a
+    /// world vector either way.
+    pub fn away_from_source(
+        local: Vec2,
+        source_pos: Vec2,
+        victim_pos: Vec2,
+        source_down: Vec2,
+        side_at_centre: f32,
+    ) -> Self {
+        let frame = AccelerationFrame::new(source_down);
+        let offset = (victim_pos - source_pos).dot(frame.side);
+        let side = if offset.abs() > 0.001 {
+            offset.signum()
+        } else if side_at_centre < 0.0 {
+            -1.0
+        } else {
+            1.0
+        };
+        Self(frame.side * (local.x * side) + frame.down * local.y)
+    }
+
+    /// The direction, in world space. Not normalized.
+    pub fn world(self) -> Vec2 {
+        self.0
+    }
+}
+
 /// Knockback impulse carried by a hit. Producers fill this on hits that
 /// should push the victim around (enemy melee, enemy projectile, boss swing);
 /// leave `None` for impulse-free hits (player slash, pogo).
@@ -55,13 +119,13 @@ pub struct HitKnockback {
     pub source_pos: Vec2,
     /// World-space impact position — used for VFX position.
     pub impact_pos: Vec2,
-    /// Authored launch DIRECTION, a plain vector in the victim's own
-    /// acceleration frame (CM1): `x` = lateral (mirrored to point away from
-    /// the source by the resolver's side sign), `y` = toward the feet, the
-    /// same `y` [`AccelerationFrame`](crate::reference_frame::AccelerationFrame)
-    /// uses everywhere else — so an up-launcher authors `(0, -1)` and a spike
-    /// authors `(0, 1)`. `None` = the feel-tuned default diagonal.
-    pub launch_dir: Option<Vec2>,
+    /// The authored launch DIRECTION, already in WORLD space (CM1). The
+    /// producer of the hit lowers the authored vector while it has the source
+    /// body ([`WorldLaunchDir`]); the reaction of the victim applies the
+    /// magnitude and DI to it, and does not ask on whose axes it was written.
+    /// `None` = the feel-tuned default diagonal, away from the source in the
+    /// victim's own frame.
+    pub launch_dir: Option<WorldLaunchDir>,
     /// AUTOLINK: this pulse HOLDS the victim near the attacker instead of
     /// launching it away. `None` — the overwhelming majority — is an ordinary
     /// hit, and its cost is one byte in the fingerprint.
@@ -417,9 +481,13 @@ pub fn hit_strength_fraction(hitstop_seconds: f32, reference_hitlag_seconds: f32
     ((scale - MIN_HITLAG_SCALE) / span).clamp(0.0, 1.0)
 }
 
-/// THE frame-agnostic knockback velocity for ANY struck body (§A2 step 6):
-/// side away from the hit's source (falling back to the stored event dir, then
-/// away from facing), launched with a rise against the body's gravity.
+/// THE frame-agnostic knockback velocity for ANY struck body (§A2 step 6).
+///
+/// A hit that authors a direction launches along it: the direction is in
+/// world space already ([`WorldLaunchDir`]). A hit that authors none launches
+/// on the default diagonal: to the side away from the hit's source (falling
+/// back to the stored event dir, then away from facing), with a rise against
+/// the body's gravity.
 ///
 /// `FeelScale` magnitudes preserve the standard per-source feel vector used by contact damage,
 /// hazards, and projectiles. `LaunchSpeed` magnitudes preserve the absolute engine-unit speed
@@ -453,37 +521,34 @@ pub fn knockback_velocity(
     // preserve the standard feel speed, while authored melee preserves its absolute launch
     // speed.
     //
-    // the authored vector IS the local launch direction — `n * speed`, with
-    // only `x` mirrored by the away-from-source side. No `y` negation: local `y`
-    // means toward the feet here exactly as it does in every other local vector
-    // the engine passes around (see [`HitKnockback::launch_dir`]).
+    // An authored direction arrives in WORLD space: the producer lowered it
+    // with the source body's facing and frame ([`WorldLaunchDir`]). It is
+    // used as it is, `n * speed`. The victim's frame and the side of the
+    // source the victim is on decide only the DEFAULT diagonal of a hit that
+    // authors no direction.
     let authored = knockback
         .and_then(|k| k.launch_dir)
+        .map(WorldLaunchDir::world)
         .filter(|ld| ld.length_squared() > 1e-6);
-    let local = match (authored, magnitude) {
+    let launch = match (authored, magnitude) {
         (Some(ld), HitKnockbackMagnitude::FeelScale(scale)) => {
-            let n = ld.normalize();
             let speed = Vec2::new(tuning.knockback_x, tuning.knockback_y).length() * scale.max(0.0);
-            Vec2::new(dir * n.x, n.y) * speed
+            ld.normalize() * speed
         }
         (None, HitKnockbackMagnitude::FeelScale(scale)) => {
             let scale = scale.max(0.0);
-            Vec2::new(
+            frame.to_world(Vec2::new(
                 dir * tuning.knockback_x * scale,
                 -tuning.knockback_y * scale,
-            )
+            ))
         }
-        (Some(ld), HitKnockbackMagnitude::LaunchSpeed(speed)) => {
-            let n = ld.normalize();
-            Vec2::new(dir * n.x, n.y) * speed.max(0.0)
-        }
+        (Some(ld), HitKnockbackMagnitude::LaunchSpeed(speed)) => ld.normalize() * speed.max(0.0),
         (None, HitKnockbackMagnitude::LaunchSpeed(speed)) => {
             let default_dir =
                 Vec2::new(dir * tuning.knockback_x, -tuning.knockback_y).normalize_or_zero();
-            default_dir * speed.max(0.0)
+            frame.to_world(default_dir * speed.max(0.0))
         }
     };
-    let launch = frame.to_world(local);
     // CM2: the victim's held input rotates its own launch, bounded by the
     // authored DI budget. Inert at `di_max_angle == 0` (Ambition today).
     di_adjust(launch, di_input_local, gravity_dir, tuning.di_max_angle)
@@ -745,9 +810,11 @@ mod launch_direction_tests {
         }
     }
 
-    fn launched(launch_dir: Option<Vec2>, gravity_dir: Vec2, speed: f32) -> Vec2 {
+    /// The velocity of a victim under `victim_down`, struck from its local
+    /// left by a hit that carries `launch_dir`.
+    fn launched(launch_dir: Option<WorldLaunchDir>, victim_down: Vec2, speed: f32) -> Vec2 {
         let victim = Vec2::new(100.0, 200.0);
-        let frame = AccelerationFrame::new(gravity_dir);
+        let frame = AccelerationFrame::new(victim_down);
         let knockback = HitKnockback {
             // An ordinary hit: it stuns.
             reaction: HitReaction::Strike,
@@ -762,32 +829,34 @@ mod launch_direction_tests {
         knockback_velocity(
             victim,
             1.0,
-            gravity_dir,
+            victim_down,
             Some(&knockback),
             Vec2::ZERO,
             &tuning(),
         )
     }
 
-    /// THE CONVENTION, and it is the whole of.
+    const CARDINALS: [Vec2; 4] =
+        [Vec2::new(0.0, 1.0), Vec2::new(1.0, 0.0), Vec2::new(0.0, -1.0), Vec2::new(-1.0, 0.0)];
+
+    /// THE CONVENTION: an authored `y` points TOWARD THE FEET of the body
+    /// that throws the hit, the authoring contract's own words
+    /// (`HitVolume::launch_dir`: *"+x = facing, +y = gravity-down"*).
     ///
-    /// `launch_dir` is a plain vector in the victim's acceleration frame, where `y` points TOWARD
-    /// THE FEET — the authoring contract's own words (`HitVolume::launch_dir`: *"(+x = facing, +y =
-    /// gravity-down)"*), which every authored volume in the tree wrote against.
-    ///
-    /// the poison is the SPIKE half. A test that only checked the up-launcher
-    /// would also pass on a resolver that ignored `launch_dir`'s sign entirely
-    /// and always launched up.
+    /// The poison is the SPIKE half. A test that only checked the up-launcher
+    /// would also pass on a resolver that ignored the sign entirely and
+    /// always launched up.
     #[test]
     fn an_authored_up_launcher_rises_and_an_authored_spike_drives_down() {
         let down = Vec2::new(0.0, 1.0);
-        let rise = launched(Some(Vec2::new(0.0, -1.0)), down, 400.0);
+        let lowered = |local: Vec2| Some(WorldLaunchDir::from_source_local(local, 1.0, down));
+        let rise = launched(lowered(Vec2::new(0.0, -1.0)), down, 400.0);
         assert!(
             rise.y < -399.0 && rise.x.abs() < 1e-3,
             "an authored (0,-1) up-launcher must throw the victim AGAINST \
              gravity at the authored speed, got {rise:?}"
         );
-        let spike = launched(Some(Vec2::new(0.0, 1.0)), down, 400.0);
+        let spike = launched(lowered(Vec2::new(0.0, 1.0)), down, 400.0);
         assert!(
             spike.y > 399.0 && spike.x.abs() < 1e-3,
             "an authored (0,1) spike must drive the victim INTO the floor, got \
@@ -795,27 +864,74 @@ mod launch_direction_tests {
         );
     }
 
-    /// The authored vector IS the local launch, `x` mirrored to point away from
-    /// the source: no other transform sits between the table and the velocity.
+    /// The authored vector is on the SOURCE's axes, and the victim's frame
+    /// does not change it.
+    ///
+    /// Each gravity of the source against each gravity of the victim. The
+    /// launch is the authored vector in the frame of the source, at the
+    /// authored speed, sixteen times. The control is the four pairs where
+    /// the two frames are the same.
+    ///
+    /// Before, the reaction read the vector on the VICTIM's axes: with the
+    /// source under normal gravity and the victim under sideways gravity, an
+    /// up-and-out launch went sideways and "up" was the victim's up.
     #[test]
-    fn the_authored_vector_is_the_local_launch_under_every_gravity() {
+    fn the_authored_vector_is_on_the_axes_of_the_source_whatever_the_frame_of_the_victim() {
         let n = Vec2::new(0.6, -0.8);
         let speed = 250.0;
-        for gravity_dir in [
-            Vec2::new(0.0, 1.0),
-            Vec2::new(1.0, 0.0),
-            Vec2::new(0.0, -1.0),
-            Vec2::new(-1.0, 0.0),
-        ] {
-            let vel = launched(Some(n), gravity_dir, speed);
-            let frame = AccelerationFrame::new(gravity_dir);
-            let local = frame.to_local(vel);
-            assert!(
-                (local - n * speed).length() < 1e-3,
-                "authored {n:?} at {speed} must resolve to exactly that local \
-                 launch under gravity {gravity_dir:?}, got {local:?}"
-            );
+        for source_down in CARDINALS {
+            let expected = AccelerationFrame::new(source_down).to_world(n * speed);
+            for victim_down in CARDINALS {
+                let vel = launched(Some(WorldLaunchDir::from_source_local(n, 1.0, source_down)), victim_down, speed);
+                assert!(
+                    (vel - expected).length() < 1e-3,
+                    "authored {n:?} at {speed}, source down {source_down:?}, victim down {victim_down:?}: \
+                     the launch is {vel:?}, and on the axes of the source it is {expected:?}"
+                );
+            }
         }
+    }
+
+    /// `+x` is the way the SOURCE faces. It is not "away from the source".
+    ///
+    /// `launched` strikes the victim from its left, so "away" is world +x. A
+    /// source that faces +x agrees with that (the control). A source that
+    /// faces -x has caught the victim BEHIND it: the authored forward launch
+    /// goes the way the source faces, world -x. Before, the reaction mirrored
+    /// `x` by the side of the source the victim was on, and both went +x.
+    #[test]
+    fn plus_x_is_the_facing_of_the_source_also_for_a_victim_behind_it() {
+        let down = Vec2::new(0.0, 1.0);
+        let forward = Vec2::new(1.0, 0.0);
+        let in_front = launched(Some(WorldLaunchDir::from_source_local(forward, 1.0, down)), down, 300.0);
+        assert!((in_front - Vec2::new(300.0, 0.0)).length() < 1e-3, "control: {in_front:?}");
+        let behind = launched(Some(WorldLaunchDir::from_source_local(forward, -1.0, down)), down, 300.0);
+        assert!(
+            (behind - Vec2::new(-300.0, 0.0)).length() < 1e-3,
+            "a victim behind a source that faces -x is launched along that facing, got {behind:?}"
+        );
+    }
+
+    /// The other authoring: `x` away from the source, whichever way the
+    /// source faces. The side is the side of the source the victim is on, in
+    /// the frame of the SOURCE; a victim at the centre takes the fallback.
+    #[test]
+    fn an_away_from_source_launch_goes_to_the_side_the_victim_is_on() {
+        let down = Vec2::new(0.0, 1.0);
+        let out = Vec2::new(0.6, -0.8);
+        let source = Vec2::new(100.0, 100.0);
+        let away = |victim: Vec2, source_down: Vec2, fallback: f32| {
+            WorldLaunchDir::away_from_source(out, source, victim, source_down, fallback).world()
+        };
+        assert_eq!(away(source + Vec2::new(30.0, 0.0), down, -1.0), Vec2::new(0.6, -0.8));
+        assert_eq!(away(source - Vec2::new(30.0, 0.0), down, 1.0), Vec2::new(-0.6, -0.8));
+        assert_eq!(away(source, down, -1.0), Vec2::new(-0.6, -0.8), "a victim at the centre: the fallback side");
+        // Under gravity toward +x the side axis is world -y... the side is
+        // measured on the side axis of the source, not on world x.
+        let sideways = Vec2::new(1.0, 0.0);
+        let frame = AccelerationFrame::new(sideways);
+        let on_its_side = away(source + frame.side * 30.0, sideways, 1.0);
+        assert!((on_its_side - frame.to_world(out)).length() < 1e-6, "{on_its_side:?}");
     }
 
     /// DI STEERS A REAL LAUNCH, and opposite holds go opposite ways.
@@ -842,7 +958,7 @@ mod launch_direction_tests {
                 magnitude: HitKnockbackMagnitude::LaunchSpeed(400.0),
                 source_pos: victim - Vec2::new(40.0, 0.0),
                 impact_pos: victim,
-                launch_dir: Some(Vec2::new(0.0, -1.0)),
+                launch_dir: Some(WorldLaunchDir::from_source_local(Vec2::new(0.0, -1.0), 1.0, Vec2::new(0.0, 1.0))),
                 follow: None,
             };
             knockback_velocity(victim, 1.0, down, Some(&knockback), hold, &tuning)
@@ -1031,7 +1147,7 @@ mod autolink_tests {
             magnitude: HitKnockbackMagnitude::LaunchSpeed(200.0),
             source_pos: Vec2::ZERO,
             impact_pos: Vec2::new(20.0, 0.0),
-            launch_dir: Some(Vec2::new(0.0, -1.0)),
+            launch_dir: Some(WorldLaunchDir::from_source_local(Vec2::new(0.0, -1.0), 1.0, Vec2::new(0.0, 1.0))),
             follow: None,
         };
         assert!(kb.follow.is_none());

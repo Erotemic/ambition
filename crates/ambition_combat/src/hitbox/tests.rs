@@ -1241,7 +1241,7 @@ fn player_melee_never_targets_its_owner() {
                 base: 120.0,
                 growth: Some(2.0),
             },
-            launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
+            launch_dir: Some(crate::strike::HitboxLaunch::OwnerLocal(ae::Vec2::new(0.6, -0.8))),
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
         },
@@ -1324,7 +1324,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
                 base: 120.0,
                 growth: Some(2.0),
             },
-            launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
+            launch_dir: Some(crate::strike::HitboxLaunch::OwnerLocal(ae::Vec2::new(0.6, -0.8))),
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
         },
@@ -1351,7 +1351,181 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
         HitKnockbackMagnitude::LaunchSpeed(150.0),
         "30 accumulated damage at weight 2.0 applies the authored growth"
     );
-    assert_eq!(knockback.launch_dir, Some(ae::Vec2::new(0.6, -0.8)));
+    assert_eq!(
+        knockback.launch_dir.map(ae::hit_response::WorldLaunchDir::world),
+        Some(ae::Vec2::new(0.6, -0.8)),
+        "an owner that faces +x under normal gravity: the world direction is the authored vector"
+    );
+}
+
+/// One volume of `owner_facing` and `owner_down` at `owner_at` strikes a body
+/// at `victim_at` whose own gravity is `victim_down`. Returns the launch of
+/// the landed hit, and the velocity the victim's reaction gives it.
+fn landed_launch(
+    launch: crate::strike::HitboxLaunch,
+    owner_at: ae::Vec2,
+    owner_facing: f32,
+    owner_down: ae::Vec2,
+    victim_at: ae::Vec2,
+    victim_down: ae::Vec2,
+) -> (ae::Vec2, ae::Vec2) {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
+    app.add_message::<ParriedBodyHit>();
+    app.add_message::<VfxInRoom>();
+    app.init_resource::<CapturedHits>();
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+    let framed = |down: ae::Vec2| {
+        let mut frame = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+        frame.publish_resolved_frame(ae::MotionFrame::from_direction(down, 900.0));
+        frame
+    };
+    let owner = app
+        .world_mut()
+        .spawn((
+            ActorFaction::Player,
+            ae::CenteredAabb::from_center_size(owner_at, ae::Vec2::new(20.0, 20.0)),
+            framed(owner_down),
+        ))
+        .id();
+    app.world_mut().spawn((
+        ActorFaction::Enemy,
+        ae::CenteredAabb::from_center_size(victim_at, ae::Vec2::new(20.0, 20.0)),
+        ambition_platformer2d_core::BodyMotionFacts::default(),
+        ambition_platformer2d_core::BodyShieldState::default(),
+        ambition_characters::actor::BodyCombat::default(),
+        ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(100)),
+        framed(victim_down),
+    ));
+    app.world_mut().spawn((
+        Hitbox {
+            strike_sfx: None,
+            owner,
+            source: HitSide::Player,
+            // A volume on the owner that reaches each side of it.
+            anchor: HitboxAnchor::FollowOwner {
+                local_offset: ae::Vec2::ZERO,
+            },
+            half_extent: ae::Vec2::new(60.0, 60.0),
+            shape: None,
+            facing: owner_facing,
+            damage: 4,
+            knockback: crate::strike::HitboxKnockback::LaunchSpeed {
+                base: 200.0,
+                growth: Some(0.0),
+            },
+            launch_dir: Some(launch),
+            frame_down: owner_down,
+            reaction: None,
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+    app.update();
+    let cap = app.world().resource::<CapturedHits>();
+    let body_hits = cap.body_hits();
+    assert_eq!(body_hits.len(), 1, "the fixture landed no hit, so it measured nothing");
+    let knockback = body_hits[0].knockback.as_ref().expect("a landed strike has knockback");
+    let world = knockback
+        .launch_dir
+        .map(ae::hit_response::WorldLaunchDir::world)
+        .expect("an authored launch reaches the hit");
+    let vel = ae::hit_response::knockback_velocity(
+        victim_at,
+        1.0,
+        victim_down,
+        Some(knockback),
+        ae::Vec2::ZERO,
+        &crate::hit_reaction::hit_response_tuning(&Default::default(), false),
+    );
+    (world, vel)
+}
+
+const LAUNCH_CARDINALS: [ae::Vec2; 4] = [
+    ae::Vec2::new(0.0, 1.0),
+    ae::Vec2::new(1.0, 0.0),
+    ae::Vec2::new(0.0, -1.0),
+    ae::Vec2::new(-1.0, 0.0),
+];
+
+/// AN AUTHORED LAUNCH IS ON THE AXES OF THE BODY THAT STRIKES.
+///
+/// `HitVolume::launch_dir` is owner-local: +x the way the owner faces, +y
+/// toward the owner's feet. The resolver lowers it with the owner's facing
+/// and frame, and the victim's reaction does not read it again on the
+/// victim's axes. Each of the 16 pairs of frames is an arm. In the 12 pairs
+/// that differ, the law that read the vector in the victim's frame fails.
+#[test]
+fn a_volume_launches_on_the_axes_of_its_owner_whatever_the_frame_of_the_victim() {
+    let authored = ae::Vec2::new(0.6, -0.8);
+    let owner_at = ae::Vec2::new(100.0, 100.0);
+    for owner_down in LAUNCH_CARDINALS {
+        let owner_frame = ae::AccelerationFrame::new(owner_down);
+        let expected = owner_frame.side * authored.x + owner_frame.down * authored.y;
+        // The victim is ahead of the owner, on the owner's own floor.
+        let victim_at = owner_at + owner_frame.side * 30.0;
+        for victim_down in LAUNCH_CARDINALS {
+            let (world, vel) = landed_launch(
+                crate::strike::HitboxLaunch::OwnerLocal(authored),
+                owner_at,
+                1.0,
+                owner_down,
+                victim_at,
+                victim_down,
+            );
+            assert!(
+                (world - expected).length() < 1e-4,
+                "owner down {owner_down:?}, victim down {victim_down:?}: the hit carries {world:?}, the owner's axes give {expected:?}"
+            );
+            assert!(
+                (vel - expected * 200.0).length() < 1e-2,
+                "owner down {owner_down:?}, victim down {victim_down:?}: the victim left at {vel:?}, the owner's axes give {:?}",
+                expected * 200.0
+            );
+        }
+    }
+}
+
+/// `+x` IS THE WAY THE OWNER FACES, ALSO FOR A BODY BEHIND IT.
+///
+/// A volume that catches a body behind its owner launches it the way the
+/// owner faces: through the owner, not away from it. The law that mirrored
+/// local `x` by the side the victim is on fails the first two arms. The last
+/// arm is the second, NAMED authoring: `AwayFromSource` is the one that
+/// pushes out from the source, and it is not the default.
+#[test]
+fn a_volume_that_strikes_behind_its_owner_launches_the_way_the_owner_faces() {
+    let down = ae::Vec2::new(0.0, 1.0);
+    let owner_at = ae::Vec2::new(100.0, 100.0);
+    let forward = ae::Vec2::new(1.0, 0.0);
+    let behind = |facing: f32| owner_at - ae::Vec2::new(30.0 * facing, 0.0);
+    for facing in [1.0, -1.0] {
+        let (world, vel) = landed_launch(
+            crate::strike::HitboxLaunch::OwnerLocal(forward),
+            owner_at,
+            facing,
+            down,
+            behind(facing),
+            down,
+        );
+        assert!(
+            world.x * facing > 0.99 && vel.x * facing > 0.0,
+            "an owner that faces {facing} launched a body behind it away from itself: {world:?}, {vel:?}"
+        );
+    }
+    let (world, _) = landed_launch(
+        crate::strike::HitboxLaunch::AwayFromSource(forward),
+        owner_at,
+        1.0,
+        down,
+        behind(1.0),
+        down,
+    );
+    assert!(
+        world.x < -0.99,
+        "the away-from-source authoring did not push the body behind its source away from it: {world:?}"
+    );
 }
 
 /// The contact resolver stamps the already-selected player-marked victim explicitly so downstream

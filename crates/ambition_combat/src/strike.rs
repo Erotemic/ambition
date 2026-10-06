@@ -55,11 +55,12 @@ pub struct Hitbox {
     /// Explicitly unit-bearing knockback. Do not collapse feel multipliers and
     /// authored engine-unit speeds back into a bare scalar.
     pub knockback: HitboxKnockback,
-    /// Authored launch direction in the victim's gravity frame: `x` is lateral
-    /// and mirrored away from the source; `y` is toward the feet (`+y` is
-    /// gravity-down). Thus `(0, -1)` launches up and `(0, 1)` spikes down.
-    /// `None` uses the standard feel diagonal at the authored speed.
-    pub launch_dir: Option<ae::Vec2>,
+    /// The authored launch direction, with the axes it is written on
+    /// ([`HitboxLaunch`]). The damage resolver lowers it to world space when
+    /// the volume lands ([`Self::launch_world`]), with this volume's own
+    /// `facing` and `frame_down`: the facing and the frame of the body that
+    /// threw it. `None` uses the standard feel diagonal at the authored speed.
+    pub launch_dir: Option<HitboxLaunch>,
     /// The volume's REACTION override, carried verbatim from the authored
     /// volume. `None` is an ordinary hit, which is nearly every hitbox.
     ///
@@ -81,7 +82,50 @@ pub struct Hitbox {
     pub strike_sfx: Option<ambition_sfx::SfxId>,
 }
 
+/// An authored launch direction and the axes it is written on.
+///
+/// Each is lowered ONCE, by the damage resolver, to a world direction
+/// (`ae::hit_response::WorldLaunchDir`). The victim's reaction gets the world
+/// direction and does not ask which of these it was.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum HitboxLaunch {
+    /// On the owner's own axes, as a move volume authors it
+    /// (`HitVolume::launch_dir`): `+x` is the way the owner faced when it
+    /// threw the strike (`Hitbox::facing`), `+y` is toward its feet
+    /// (`Hitbox::frame_down`). `(0, -1)` launches up and `(0, 1)` spikes.
+    /// A body the volume catches BEHIND its owner is launched the way the
+    /// owner faces, as the volume says, and not back the other way.
+    OwnerLocal(ae::Vec2),
+    /// `x` is away from the strike's source, `y` is toward
+    /// `Hitbox::frame_down`: a hit that pushes out from where it came from,
+    /// whichever way its owner looks (a buck off a boss's back, a volume a
+    /// conducted boss swings).
+    AwayFromSource(ae::Vec2),
+}
+
 impl Hitbox {
+    /// The authored launch direction of this strike in world space, for a
+    /// victim at `victim_pos` struck from `source_pos`. THE one lowering of a
+    /// hitbox's launch: the damage resolver calls it while it has the volume.
+    pub fn launch_world(
+        &self,
+        source_pos: ae::Vec2,
+        victim_pos: ae::Vec2,
+    ) -> Option<ae::hit_response::WorldLaunchDir> {
+        Some(match self.launch_dir? {
+            HitboxLaunch::OwnerLocal(local) => {
+                ae::hit_response::WorldLaunchDir::from_source_local(local, self.facing, self.frame_down)
+            }
+            HitboxLaunch::AwayFromSource(local) => ae::hit_response::WorldLaunchDir::away_from_source(
+                local,
+                source_pos,
+                victim_pos,
+                self.frame_down,
+                self.facing,
+            ),
+        })
+    }
+
     /// The autolink this hitbox carries, if its reaction is one.
     pub fn autolink(&self) -> Option<ambition_entity_catalog::AutolinkVolume> {
         match self.reaction {

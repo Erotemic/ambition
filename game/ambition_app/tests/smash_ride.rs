@@ -1118,7 +1118,11 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
                 damage: 14,
                 // Hard enough to tumble: this is the launch half of Jon's pair.
                 knockback: ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(6.0),
-                launch_dir: Some(ambition_platformer2d::engine_core::Vec2::new(1.0, -1.0)),
+                launch_dir: Some(
+                    ambition_platformer2d::combat::strike::HitboxLaunch::OwnerLocal(
+                        ambition_platformer2d::engine_core::Vec2::new(1.0, -1.0),
+                    ),
+                ),
                 frame_down: ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),
                 reaction: None,
                 strike_sfx: None,
@@ -2933,7 +2937,11 @@ fn one_strong_hit(mounted: bool) -> (ambition_platformer2d::engine_core::Vec2, i
                 facing: 1.0,
                 damage: 14,
                 knockback: ambition_platformer2d::combat::strike::HitboxKnockback::FeelScale(6.0),
-                launch_dir: Some(ambition_platformer2d::engine_core::Vec2::new(1.0, -1.0)),
+                launch_dir: Some(
+                    ambition_platformer2d::combat::strike::HitboxLaunch::OwnerLocal(
+                        ambition_platformer2d::engine_core::Vec2::new(1.0, -1.0),
+                    ),
+                ),
                 frame_down: ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),
                 reaction: None,
                 strike_sfx: None,

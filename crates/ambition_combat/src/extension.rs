@@ -316,7 +316,11 @@ fn lower_riding_hitboxes(
                         crate::strike::HitboxKnockback::LaunchSpeed { base, growth }
                     }
                 },
-                launch_dir: h.launch_dir.map(ae::Vec2::from),
+                // The port's card: world units, +Y down, `x` away from the
+                // source. The owner's facing is not asked.
+                launch_dir: h
+                    .launch_dir
+                    .map(|dir| crate::strike::HitboxLaunch::AwayFromSource(ae::Vec2::from(dir))),
                 frame_down: ae::Vec2::new(0.0, 1.0),
                 reaction: None,
             },
@@ -326,6 +330,24 @@ fn lower_riding_hitboxes(
             Name::new(h.name),
         ));
     }
+}
+
+/// The reach volume of a seize in world space: its centre and its half.
+///
+/// `reach_offset` and `reach_half` are on the captor's own axes (`+x` the way
+/// it faces, `+y` toward its feet), the frame the port card states for every
+/// geometry of a hold. They are lowered as a body-local volume of a move is:
+/// mirror by the facing, then turn into the frame whose DOWN is `down`.
+fn seize_reach(
+    captor: &ae::BodyKinematics,
+    down: ae::Vec2,
+    reach_offset: ae::Vec2,
+    reach_half: ae::Vec2,
+) -> (ae::Vec2, ae::Vec2) {
+    let frame = ae::AccelerationFrame::new(down);
+    let facing = if captor.facing < 0.0 { -1.0 } else { 1.0 };
+    let centre = captor.pos + frame.to_world(ae::Vec2::new(reach_offset.x * facing, reach_offset.y));
+    (centre, frame.to_world_half(reach_half))
 }
 
 /// A module's hold on another body: the engine's capture relation
@@ -350,6 +372,7 @@ fn lower_body_holds(
         &ActorFaction,
         Option<&ambition_characters::control::DrivingParticipant>,
         Option<&crate::targeting::MatchTeam>,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
     victims: Query<crate::hitbox::StrikeVictim, Without<ambition_characters::control::ControlHolds>>,
     captives: Query<(Entity, &crate::capture::CapturedBy)>,
@@ -381,16 +404,24 @@ fn lower_body_holds(
                 if held.is_some() {
                     continue;
                 }
-                let Ok((kin, faction, driver, team)) = captors.get(captor) else {
+                let Ok((kin, faction, driver, team, captor_frame)) = captors.get(captor) else {
                     warn!("extension entry {} asked {:?}, which is no body, to seize; refused", s.entry, captor);
                     continue;
                 };
                 let room = tuning.room_of(captor);
                 let friendly_fire = tuning.in_room(room).unwrap_or_default().friendly_fire();
                 let attacker = crate::targeting::effective_faction(*faction, driver);
-                let facing = if kin.facing < 0.0 { -1.0 } else { 1.0 };
-                let centre = kin.pos + ae::Vec2::new(reach_offset[0] * facing, reach_offset[1]);
-                let reach = ae::CenteredAabb::new(centre, ae::Vec2::from(reach_half)).aabb();
+                // The reach is a box on the captor's own axes, as the hold
+                // point is (`constrain_captives`): mirror by its facing, then
+                // turn into its frame. A captor under sideways gravity
+                // reaches along its own floor, and its box lies along it.
+                let (centre, half) = seize_reach(
+                    kin,
+                    captor_frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down()),
+                    ae::Vec2::from(reach_offset),
+                    ae::Vec2::from(reach_half),
+                );
+                let reach = ae::CenteredAabb::new(centre, half).aabb();
                 let already: std::collections::HashSet<Entity> = captives
                     .iter()
                     .flat_map(|(victim, held)| [victim, held.captor])
@@ -478,3 +509,6 @@ fn lower_body_holds(
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

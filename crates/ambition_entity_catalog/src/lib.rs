@@ -932,9 +932,12 @@ pub struct HitVolume {
     /// treats zero as "unspecified" and substitutes the stage's value.
     #[serde(default)]
     pub knockback_growth: Option<f32>,
-    /// Body-local launch direction override `(+x = facing, +y = gravity-down)`.
-    /// `None` uses the facing+contact derivation. The runtime mirrors x by
-    /// facing, rotates into the owner's gravity frame, then applies DI.
+    /// Launch direction override on the OWNER's own axes: `+x` is the way the
+    /// owner faces, `+y` is toward its feet (its gravity-down). The runtime
+    /// mirrors x by the owner's facing and turns the vector into the owner's
+    /// gravity frame when the volume lands, then applies the victim's DI. A
+    /// body the volume catches behind its owner is launched the way the owner
+    /// faces. `None` uses the default diagonal, away from the source.
     #[serde(default)]
     pub launch_dir: Option<(f32, f32)>,
     /// How this volume's reaction differs from an ordinary hit. `None` is an

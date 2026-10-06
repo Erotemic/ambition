@@ -619,7 +619,7 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
                     None => put_bool(&mut bytes, false),
                     Some(dir) => {
                         put_bool(&mut bytes, true);
-                        put_vec2(&mut bytes, dir);
+                        put_vec2(&mut bytes, dir.world());
                     }
                 }
                 // ⛔⛔ THE REACTION KIND, AND IT WAS MISSING. `HitReaction`

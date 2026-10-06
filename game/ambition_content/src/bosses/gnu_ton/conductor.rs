@@ -60,7 +60,7 @@ const BUCK_WINDOW: f32 = 0.16;
 /// by the player's own air control (36 px). A hit's hitstun is what makes a
 /// throw a throw.
 const BUCK_THROW_SPEED: f32 = 900.0;
-/// Up and out, `x` mirrored away from him (`Hitbox::launch_dir`).
+/// Up and out, `x` away from him (`HitboxLaunch::AwayFromSource`).
 const BUCK_THROW_DIR: Vec2 = Vec2::new(0.75, -0.66);
 const BUCK_DAMAGE: i32 = 1;
 /// The gnu's reflex: from his hurt to the throw (its snort and rear-up), the
@@ -362,7 +362,7 @@ fn buck_throw(owner: Entity, owner_pos: Vec2, back: ae::Aabb) -> impl Bundle {
             facing: 1.0,
             damage: BUCK_DAMAGE,
             knockback: HitboxKnockback::LaunchSpeed { base: BUCK_THROW_SPEED, growth: None },
-            launch_dir: Some(BUCK_THROW_DIR),
+            launch_dir: Some(ambition_combat::strike::HitboxLaunch::AwayFromSource(BUCK_THROW_DIR)),
             frame_down: Vec2::new(0.0, 1.0),
             reaction: None,
         },

@@ -573,7 +573,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
         magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
         impact_pos: victim_pos,
-        launch_dir: Some(ae::Vec2::new(0.0, -1.0)),
+        launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(ae::Vec2::new(0.0, -1.0), 1.0, down)),
         follow: None,
     };
     let vel = resolved_body_knockback_velocity(
@@ -594,8 +594,8 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
         "the authored angle keeps the authored SPEED: |{vel:?}| vs {authored_speed}"
     );
 
-    // The lateral component mirrors to point AWAY from the source: hit
-    // from the left  positive local x  world +x.
+    // The lateral component is on the FACING of the source. A source that
+    // faces +x launches to world +x.
     let diag = ambition_combat::HitKnockback {
         // An ordinary hit: it stuns.
         reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
@@ -603,7 +603,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
         magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(authored_speed),
         source_pos,
         impact_pos: victim_pos,
-        launch_dir: Some(ae::Vec2::new(1.0, -1.0)),
+        launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(ae::Vec2::new(1.0, -1.0), 1.0, down)),
         follow: None,
     };
     let vel = resolved_body_knockback_velocity(
@@ -617,11 +617,30 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     );
     assert!(
         vel.x > 0.0 && vel.y < 0.0,
-        "a (1,-1) launcher throws up-and-away from the source: {vel:?}"
+        "a (1,-1) launcher throws up and along the facing of the source: {vel:?}"
     );
-    // Mirrored source  mirrored lateral, same rise.
-    let mirrored = ambition_combat::HitKnockback {
+    // The side of the victim that the source is on does not change the
+    // launch. The old law mirrored local x here, and this arm fails on it.
+    let other_side = ambition_combat::HitKnockback {
         source_pos: victim_pos + ae::Vec2::new(40.0, 0.0),
+        ..diag
+    };
+    let ovel = resolved_body_knockback_velocity(
+        victim_pos,
+        1.0,
+        down,
+        false,
+        Some(&other_side),
+        ae::Vec2::ZERO,
+        feel,
+    );
+    assert!(
+        (ovel - vel).length() < 1e-3,
+        "the source moved to the other side of the victim and the launch changed: {vel:?} vs {ovel:?}"
+    );
+    // A source that faces the other way mirrors the lateral, same rise.
+    let mirrored = ambition_combat::HitKnockback {
+        launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(ae::Vec2::new(1.0, -1.0), -1.0, down)),
         ..diag
     };
     let mvel = resolved_body_knockback_velocity(
@@ -635,54 +654,56 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
     );
     assert!(
         (mvel.x + vel.x).abs() < 1e-3 && (mvel.y - vel.y).abs() < 1e-3,
-        "the authored angle mirrors with the away-from-source side: {vel:?} vs {mvel:?}"
+        "the authored angle mirrors with the facing of the source: {vel:?} vs {mvel:?}"
     );
 }
 
 #[test]
-fn authored_launch_dir_conjugates_under_rotated_gravity() {
-    // C4: the authored angle is a LOCAL-frame fact, so the resolved
-    // velocity is identical in the victim's side/down frame under every
-    // gravity — the same conjugation invariant the flat + growth paths pin.
+fn authored_launch_dir_conjugates_under_the_gravity_of_the_source() {
+    // C4: the authored angle is a fact of the SOURCE body's frame. The
+    // resolved velocity, read on the side and down axes of the source, is
+    // `n * speed` under each gravity of the source and each gravity of the
+    // victim. The victim's frame has no part in it.
     let feel = Platformer2dFeelTuningMonolith::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let speed = 120.0;
-    //  the authored vector IS the local launch direction, so the expected local velocity is
-    // just `n * speed` — no negation anywhere.
     let n = ae::Vec2::new(0.6, -0.8); // already unit-length
     let local_expected = n * speed;
-    for gravity_dir in [
+    const CARDINALS: [ae::Vec2; 4] = [
         ae::Vec2::new(0.0, 1.0),
         ae::Vec2::new(1.0, 0.0),
         ae::Vec2::new(0.0, -1.0),
         ae::Vec2::new(-1.0, 0.0),
-    ] {
-        let frame = ae::AccelerationFrame::new(gravity_dir);
-        let source_pos = victim_pos - frame.side * 40.0;
-        let knockback = ambition_combat::HitKnockback {
-            // An ordinary hit: it stuns.
-            reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
-            dir: 0.0,
-            magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(speed),
-            source_pos,
-            impact_pos: victim_pos,
-            launch_dir: Some(n),
-            follow: None,
-        };
-        let vel = resolved_body_knockback_velocity(
-            victim_pos,
-            1.0,
-            gravity_dir,
-            false,
-            Some(&knockback),
-            ae::Vec2::ZERO,
-            feel,
-        );
-        let local_vel = ae::Vec2::new(vel.dot(frame.side), vel.dot(frame.down));
-        assert!(
-            (local_vel - local_expected).length() < 1e-3,
-            "authored launch must conjugate for {gravity_dir:?}: {local_vel:?}"
-        );
+    ];
+    for source_down in CARDINALS {
+        let source_frame = ae::AccelerationFrame::new(source_down);
+        for victim_down in CARDINALS {
+            let source_pos = victim_pos - source_frame.side * 40.0;
+            let knockback = ambition_combat::HitKnockback {
+                // An ordinary hit: it stuns.
+                reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
+                dir: 0.0,
+                magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(speed),
+                source_pos,
+                impact_pos: victim_pos,
+                launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(n, 1.0, source_down)),
+                follow: None,
+            };
+            let vel = resolved_body_knockback_velocity(
+                victim_pos,
+                1.0,
+                victim_down,
+                false,
+                Some(&knockback),
+                ae::Vec2::ZERO,
+                feel,
+            );
+            let local_vel = ae::Vec2::new(vel.dot(source_frame.side), vel.dot(source_frame.down));
+            assert!(
+                (local_vel - local_expected).length() < 1e-3,
+                "authored launch must be on the axes of the source for source {source_down:?}, victim {victim_down:?}: {local_vel:?}"
+            );
+        }
     }
 }
 
@@ -705,7 +726,7 @@ fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
         follow: None,
     };
     let degenerate = ambition_combat::HitKnockback {
-        launch_dir: Some(ae::Vec2::ZERO),
+        launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(ae::Vec2::ZERO, 1.0, down)),
         ..base
     };
     let expected = resolved_body_knockback_velocity(
@@ -1961,7 +1982,7 @@ fn meteor_reaction(
         magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(300.0),
         source_pos: body,
         impact_pos: body,
-        launch_dir: Some(launch_dir),
+        launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(launch_dir, 1.0, ae::Vec2::new(0.0, 1.0))),
         follow: None,
     };
     let mut vel = ae::Vec2::ZERO;
@@ -2008,7 +2029,7 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
             magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(400.0),
             source_pos: ae::Vec2::ZERO,
             impact_pos: ae::Vec2::ZERO,
-            launch_dir: Some(ae::Vec2::new(1.0, 0.0)),
+            launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(ae::Vec2::new(1.0, 0.0), 1.0, ae::Vec2::new(0.0, 1.0))),
             follow: None,
         };
         let mut feel = Platformer2dFeelTuningMonolith::default();

@@ -1272,7 +1272,7 @@ impl DrivenBodies<'_, '_> {
 pub fn pickup_held_item_system(
     mut commands: Commands,
     driven: DrivenBodies,
-    mut bodies: Query<(&mut ActorControl, &BodyKinematics, RepertoireQuery)>,
+    mut bodies: Query<(&mut ActorControl, &BodyKinematics, Option<&ae::SweepSample>, RepertoireQuery)>,
     // Holding the portal gun blocks a pickup (portal builds only).
     #[cfg(feature = "portal")] portal_guns: Query<&PortalGun>,
     mut grounds: Query<(Entity, &mut GroundItem, &mut ItemCustody)>,
@@ -1280,7 +1280,7 @@ pub fn pickup_held_item_system(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     for player in driven.entities() {
-        let Ok((mut control, kin, mut repertoire)) = bodies.get_mut(player) else {
+        let Ok((mut control, kin, last_step, mut repertoire)) = bodies.get_mut(player) else {
             continue;
         };
         // One item at a time: already holding a physical item, or the portal gun.
@@ -1295,7 +1295,8 @@ pub fn pickup_held_item_system(
         if !control.0.melee_pressed {
             continue;
         }
-        let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        // The reach of the body is its collision box, as its last step turned it.
+        let player_aabb = kin.collision_box(last_step);
         for (item, mut ground, mut custody) in &mut grounds {
             // Only an item that is IN THE WORLD, in the body's live room, can
             // be grabbed.

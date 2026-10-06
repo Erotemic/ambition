@@ -4,7 +4,6 @@
     "to convert: arrival and fit of a traversal": "a blink, a dive, a trapdoor, a teleport and the petting stand-off test where a body fits with its level box",
     "to convert: portals": "a portal transit, an eviction and their draws read a body's level box; a body turns through a portal, so this class has its own frame questions",
     "to convert: what a brain sees of a peer": "the half extent a brain is given for a peer is level",
-    "to convert: the pickup of a ground item": "the reach of a body that picks up a ground item",
     "a shot": "a shot is a free body with no support and no stance: its size is its box",
     "the gravity of a body": "this box is what resolves the frame of the body, so the frame cannot turn it",
     "the centre only": "the reader takes the centre, which the two boxes share",
@@ -28,11 +27,6 @@
       "file": "crates/ambition_boss_encounter/src/extension.rs",
       "code": ".map(|kin| kin.aabb().center())",
       "class": "the centre only"
-    },
-    {
-      "file": "crates/ambition_held_items/src/lib.rs",
-      "code": "let player_aabb = ae::Aabb::new(kin.pos, kin.size * 0.5);",
-      "class": "to convert: the pickup of a ground item"
     },
     {
       "file": "crates/ambition_held_items/src/lib.rs",

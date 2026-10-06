@@ -446,8 +446,68 @@ pub fn record_consumed_pickups(
     occurrences.consume(consumed.into_iter().map(|(_, sim_id)| sim_id));
 }
 
-/// The one-time pickups consumed since the last committed checkpoint: the room
-/// each was in, and the participants whose bodies were there (Q151).
+/// An occurrence that a row places in a live room, and that no entity is any
+/// longer, ended there: a thrown bomb exploded, a grenade opened its well. Its
+/// row becomes `Consumed`, so the room does not build it again where it
+/// ended, and the participants in the room own the ending
+/// ([`ConsumedSinceCheckpoint`]), as they own a consumed pickup.
+///
+/// ⭐ THE ENDING IS READ FROM THE LEDGER AND THE WORLD, NOT FROM THE THING
+/// THAT ENDED IT. A row of a live room is republished from its occurrence
+/// every tick, so a row whose occurrence no entity is any longer is the end
+/// of that occurrence, whichever system despawned it. A new kind of ending
+/// needs nothing here.
+///
+/// ⚠ ONLY A LIVE ROOM. A row of a room that is not live places an
+/// occurrence that has no entity because its room is not built (a dormant
+/// occurrence), and that is not an end. Gated with gameplay, so a room
+/// transition that builds or retires a room is not read half done.
+#[allow(clippy::type_complexity)]
+pub fn record_ended_occurrences(
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    // Every occurrence that is an entity, of any kind: a body a row places
+    // is not ended while it lives.
+    live: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+    occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    since: Option<ResMut<ConsumedSinceCheckpoint>>,
+) {
+    let (Some(rooms), Some(mut occurrences)) = (rooms, occurrences) else {
+        return;
+    };
+    let mut ended = Vec::new();
+    // Collected only when a live room has a placed row, which is not every tick.
+    let mut alive: Option<std::collections::BTreeSet<&ambition_platformer2d_shared_tangle::sim_id::SimId>> = None;
+    for (room, definition) in rooms.live_rooms() {
+        let id = &rooms.rooms().spec(definition).id;
+        for sim_id in occurrences.placed_in(id) {
+            let alive = alive.get_or_insert_with(|| live.iter().collect());
+            if !alive.contains(sim_id) {
+                ended.push((sim_id.clone(), id.clone(), room));
+            }
+        }
+    }
+    if ended.is_empty() {
+        return;
+    }
+    if let Some(mut since) = since {
+        for (sim_id, id, room) in &ended {
+            let mut owners: Vec<_> = participants
+                .iter()
+                .filter(|(body, _)| rooms.live().of(*body) == Some(*room))
+                .map(|(_, driver)| driver.0)
+                .collect();
+            owners.sort();
+            owners.dedup();
+            since.record(sim_id.clone(), id.clone(), owners);
+        }
+    }
+    occurrences.end(ended.into_iter().map(|(sim_id, ..)| sim_id));
+}
+
+/// The occurrences that ended since the last committed checkpoint (a one-time
+/// pickup consumed, a thrown bomb exploded): the room each was in, and the
+/// participants whose bodies were there (Q151).
 ///
 /// The ledger's `Consumed` row is the fact; this says whose horizons own it.
 /// A checkpoint restore puts the pinned ledger back, which has no row for a
@@ -465,7 +525,7 @@ pub struct ConsumedSinceCheckpoint {
     records: std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, ConsumedRecord>,
 }
 
-/// One pickup consumed since the checkpoint.
+/// One occurrence that ended since the checkpoint.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ConsumedRecord {
     /// The id of the room definition it was in.

@@ -1388,8 +1388,9 @@ pub struct ReleasedAs(pub Release);
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BagSpend {
     pub item: ambition_items::Item,
-    /// The object the quantity became. The spend stands while this object
-    /// stands: a restore that keeps the object keeps the spend, and a
+    /// The object the quantity became. The spend stands while what the
+    /// object became stands: a restore that keeps the object, or keeps its
+    /// end (an exploded bomb's `Consumed` row), keeps the spend, and a
     /// restore that takes the object back puts the quantity back.
     pub object: ambition_platformer2d_shared_tangle::sim_id::SimId,
 }

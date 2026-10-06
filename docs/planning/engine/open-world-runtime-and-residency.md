@@ -87,6 +87,11 @@ budget is stored, because a budget with no consumer is not a policy.
   lies, in the tick it appears (`AuthoredOccurrences::admit_mints`). A mint
   left in a retired room is rebuilt when the room is live again, and across a
   save.
+- An occurrence that a row places in a live room, and that no entity is any
+  longer, ended there (a bomb exploded): its row becomes `Consumed`
+  (`AuthoredOccurrences::end`), so its room does not build it again, and
+  the participants in the room own the ending (Q151, BAG-RECORD-HORIZON in
+  [`../queue.md`](../queue.md)).
 - A persistent (`DeadStaysDead`) authored body released in another room gets a
   `Placed { room, at }` row (`record_placed_bodies`). Its home room does not
   build it. The room it lies in builds it there.

@@ -1529,6 +1529,17 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // restores, and its admission takes the dying participant out.
         app.init_resource::<ecs::pickups::ConsumedSinceCheckpoint>()
             .add_systems(sim, ecs::pickups::forget_consumed_pickups_at_checkpoint)
+            // An occurrence lying in a live room that ended there, read after
+            // the placement producers wrote this tick's rows and before the
+            // custody leg retracts an `InCustody` row.
+            .add_systems(
+                sim,
+                ecs::pickups::record_ended_occurrences
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Residency)
+                    .after(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Record)
+                    .before(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Project),
+            )
             .add_systems(
                 sim,
                 ecs::pickups::disown_consumed_pickups_on_restore

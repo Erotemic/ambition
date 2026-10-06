@@ -576,3 +576,49 @@ fn a_conversation_holds_only_the_talker_with_two_players_in_one_room() {
         crate::two_players_two_live_rooms::game_mode(&sim)
     );
 }
+
+/// A second player sees where its own blink lands. Seat 1 joins beside
+/// Alice in the hub and holds Blink: the blink preview has a reticle for seat
+/// 1's body, within a blink of it. Control: with nobody holding Blink there is
+/// no reticle.
+///
+/// The preview had one reticle, of the controlled subject, read from the
+/// primary seat's device. Poison, the controlled subject's reticle only: no
+/// reticle while seat 1 holds Blink.
+#[test]
+fn a_second_seat_holding_blink_has_its_own_reticle() {
+    let reticles = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .resource::<ambition_platformer2d::sim_view::BlinkPreviewFact>()
+            .reticles
+            .iter()
+            .map(|reticle| reticle.target)
+            .collect::<Vec<_>>()
+    };
+    let mut sim = booted_in("central_hub_complex");
+    let body = seat_one_joins(&mut sim);
+    sim.step_n(AgentAction::default(), 5);
+    assert_eq!(reticles(&sim), Vec::new(), "control: nobody holds Blink");
+    assert!(
+        sim.world()
+            .get::<ambition_platformer2d::engine_core::BodyAbilities>(body)
+            .is_some_and(|abilities| abilities.abilities.blink),
+        "precondition: seat 1's body can blink"
+    );
+    let at = place_of(&sim, body);
+    for _ in 0..3 {
+        sim.drive_seat(SEAT, ControlFrame { blink_held: true, ..ControlFrame::default() });
+        sim.step(AgentAction::default());
+    }
+    let shown = reticles(&sim);
+    sim.drive_seat(SEAT, ControlFrame::default());
+    let near = |target: &ambition_platformer2d::engine_core::Vec2| {
+        (target.x - at.0 as f32).abs() <= ambition_platformer2d::engine_core::BLINK_DISTANCE + 8.0
+            && (target.y - at.1 as f32).abs() <= ambition_platformer2d::engine_core::BLINK_DISTANCE + 8.0
+    };
+    assert_eq!(
+        (shown.len(), shown.iter().all(near)),
+        (1, true),
+        "the reticles while seat 1 holds Blink, from {at:?}: {shown:?}"
+    );
+}

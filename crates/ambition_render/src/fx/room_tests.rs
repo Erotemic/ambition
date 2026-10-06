@@ -102,11 +102,12 @@ fn the_blink_ring_is_drawn_in_its_body_s_own_live_room() {
     let second = LiveRoomInstance::ACTIVATION.next();
     spawn_live_room(app.world_mut(), second, room(SMALL));
     let fact = |room| ambition_sim_view::BlinkPreviewFact {
-        active: true,
-        target: AT,
-        precision: false,
-        body_min_extent: 0.0,
-        room,
+        reticles: vec![ambition_sim_view::BlinkReticle {
+            target: AT,
+            precision: false,
+            body_min_extent: 0.0,
+            room,
+        }],
     };
     app.insert_resource(fact(Some(second)));
     app.add_systems(Update, update_blink_preview);
@@ -132,6 +133,61 @@ fn the_blink_ring_is_drawn_in_its_body_s_own_live_room() {
     app.update();
     app.update();
     assert_eq!(embers(&mut app), Vec::new(), "a ring whose room cannot be told is drawn");
+}
+
+/// Two blinking bodies, one in each of two live rooms: each gets its own
+/// ring, placed by its own room and stamped with it. When the second body lets
+/// go, its ring goes and the first stays.
+#[cfg(feature = "input")]
+#[test]
+fn each_blinking_body_gets_its_own_ring() {
+    let mut app = App::new();
+    app.init_resource::<Time>();
+    insert_live_room_component(app.world_mut(), room(BIG));
+    let second = LiveRoomInstance::ACTIVATION.next();
+    spawn_live_room(app.world_mut(), second, room(SMALL));
+    let reticle = |room| ambition_sim_view::BlinkReticle {
+        target: AT,
+        precision: false,
+        body_min_extent: 0.0,
+        room: Some(room),
+    };
+    app.insert_resource(ambition_sim_view::BlinkPreviewFact {
+        reticles: vec![reticle(LiveRoomInstance::ACTIVATION), reticle(second)],
+    });
+    app.add_systems(Update, update_blink_preview);
+    app.update();
+    app.update();
+    let rings = |app: &mut App| -> Vec<(Option<u32>, BVec2)> {
+        let mut q = app
+            .world_mut()
+            .query::<(&BlinkPreviewVisual, &Transform, Option<&InRoomInstance>)>();
+        let mut rows: Vec<_> = q
+            .iter(app.world())
+            .map(|(_, transform, stamp)| (stamp.map(|stamp| stamp.0.ordinal()), transform.translation.truncate()))
+            .collect();
+        rows.sort_by(|a, b| a.0.cmp(&b.0));
+        rows.dedup();
+        rows
+    };
+    assert_eq!(
+        rings(&mut app),
+        vec![
+            (Some(LiveRoomInstance::ACTIVATION.ordinal()), flipped(BIG)),
+            (Some(second.ordinal()), flipped(SMALL)),
+        ],
+        "one ring for each blinking body, each placed by and stamped with its own room"
+    );
+    app.insert_resource(ambition_sim_view::BlinkPreviewFact {
+        reticles: vec![reticle(LiveRoomInstance::ACTIVATION)],
+    });
+    app.update();
+    app.update();
+    assert_eq!(
+        rings(&mut app),
+        vec![(Some(LiveRoomInstance::ACTIVATION.ordinal()), flipped(BIG))],
+        "the ring of the body that let go stays drawn"
+    );
 }
 
 /// Each burst of a firework sequence is asked for in the room of its

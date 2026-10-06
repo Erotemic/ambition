@@ -217,10 +217,14 @@ session, and it follows the primary:
 - the interact prompt (the first field of `NearestInteractable`). Measured:
   seat 1 stands on a switch and the prompt says nothing. Seat 1's own answer
   is in the map by body, and no HUD reads it.
-- the button prompts (`ControlPrompt`) and the blink reticle
-  (`BlinkPreviewFact`). Read in the code, not run.
+- the button prompts (`ControlPrompt`). Read in the code, not run.
 
-Nothing is built for them. They need your answer only if a second player
+The blink reticle was in this list. It is not a prompt but the preview of
+the player's own action, like the HUD Q150 made per participant, so it is
+built: each driven body that holds Blink has its own reticle and ring
+(2026-10-06, `a_second_seat_holding_blink_has_its_own_reticle`).
+
+Nothing is built for the others. They need your answer only if a second player
 must have a prompt of their own.
 
 ## Q158 — the fireball now leaves the hand at knee height and reaches 30% less: accept, retune, or except?

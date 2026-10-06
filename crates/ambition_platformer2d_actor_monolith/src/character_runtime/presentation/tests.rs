@@ -890,12 +890,139 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
     );
     assert!(
         world
+            .get::<ambition_combat::components::ActorSpriteOffset>(body)
+            .is_none(),
+        "the previous character's quad offset survived on a body that never carried one",
+    );
+    // THE HAND-OVER between the two grant roads. The plain character has a
+    // sheet and no posed body, so its art is drawn from the box: the quad is
+    // the frame fitted to the box that came back, not the serpent's quad.
+    let serpent_quad = standing.render;
+    let fitted = drawn_fit("robot", own_box);
+    assert_ne!(fitted, serpent_quad, "premise: the two quads differ");
+    assert_eq!(
+        world
             .get::<ambition_combat::components::ActorRenderSize>(body)
-            .is_none()
-            && world
-                .get::<ambition_combat::components::ActorSpriteOffset>(body)
-                .is_none(),
-        "the previous character's quad survived on a body that never carried one",
+            .map(|quad| quad.0),
+        Some(fitted),
+        "a body that changed from a posed character to one drawn from its box does not state \
+         the frame fitted to the box it stands in (the posed quad was {serpent_quad:?})",
+    );
+}
+
+/// The quad the renderer draws the art of `sheet` at for a body that stands in
+/// `standing`: its own rule (`sprite_render_size`), from a spec this test
+/// loads. Not the function the grant calls.
+fn drawn_fit(sheet: &str, standing: ambition_platformer2d_core::Vec2) -> ambition_platformer2d_core::Vec2 {
+    use ambition_sprite_sheet::character::sheets::{sprite_render_size, try_load_spec_for_target, SheetTuning};
+    let spec = try_load_spec_for_target(sheet, &SheetTuning::default())
+        .unwrap_or_else(|| panic!("the baked `{sheet}` sheet is published"));
+    sprite_render_size(&spec, standing)
+}
+
+/// A body whose art is drawn from its box states the quad of the character it
+/// wears NOW: the frame of that character's sheet fitted to the box the body
+/// stands in, which is what the renderer draws.
+///
+/// A re-wear keeps the box (`BaselineBoundary::Replacement`), so the quad is
+/// not the one the character is built with. Measured in the shipped game
+/// (2026-10-06): a player that wears the kernel guide is drawn at 32.7 by
+/// 33.5, and the guide is built at 50.4 by 51.6. Until that day a re-wear to
+/// such a character stated no quad, so the landmark query had no answer.
+#[test]
+fn a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears() {
+    let quad = |app: &App, body: Entity| {
+        app.world()
+            .get::<ambition_combat::components::ActorRenderSize>(body)
+            .map(|quad| quad.0)
+    };
+    let wear = |app: &mut App, body: Entity, character: &str| {
+        app.world_mut()
+            .entity_mut(body)
+            .insert(ambition_characters::actor::WornCharacter::new(character));
+        settle(app);
+    };
+    let mut app = session_app();
+    app.register_character(CharacterDefinition::new("guide", "Guide", "demo").with_sheet("kernel_guide"));
+    app.register_character(CharacterDefinition::new("dog", "Dog", "demo").with_sheet("companion_dog"));
+    app.register_character(CharacterDefinition::new("bare", "Bare", "demo"));
+    let standing = ambition_platformer2d_core::Vec2::new(30.0, 48.0);
+    let (guide, dog) = (drawn_fit("kernel_guide", standing), drawn_fit("companion_dog", standing));
+    assert!((guide - dog).length() > 1.0, "premise: the two characters are drawn at two quads: {guide:?}, {dog:?}");
+    let body = app
+        .world_mut()
+        .spawn((
+            ambition_characters::actor::WornCharacter::new("guide"),
+            ambition_platformer2d_core::BodyBaseSize { base_size: standing },
+            ambition_platformer2d_core::BodyKinematics {
+                size: standing,
+                ..Default::default()
+            },
+        ))
+        .id();
+    settle(&mut app);
+    assert_eq!(quad(&app, body), Some(guide), "the first wear");
+
+    // The re-wear: the box is kept, and the quad is the dog's.
+    wear(&mut app, body, "dog");
+    assert_eq!(quad(&app, body), Some(dog), "the body wears the dog and states another character's quad");
+    assert_eq!(
+        app.world()
+            .get::<ambition_platformer2d_core::BodyBaseSize>(body)
+            .map(|base| base.base_size),
+        Some(standing),
+        "premise: a re-wear keeps the box",
+    );
+
+    // The same character again changes nothing.
+    wear(&mut app, body, "dog");
+    assert_eq!(quad(&app, body), Some(dog), "the same character again");
+
+    // A character with no sheet has no art to draw: no quad.
+    wear(&mut app, body, "bare");
+    assert_eq!(quad(&app, body), None, "a body that wears no sheet states a quad");
+
+    // And back, from no quad.
+    wear(&mut app, body, "guide");
+    assert_eq!(quad(&app, body), Some(guide), "a wear from a character with no sheet");
+}
+
+/// A body its spawn built keeps the quad the spawn stated (the seed's, for
+/// the same character), and the quad still goes with that character.
+#[test]
+fn a_quad_the_spawn_stated_stands_until_the_body_wears_another_character() {
+    let mut app = session_app();
+    app.register_character(CharacterDefinition::new("guide", "Guide", "demo").with_sheet("kernel_guide"));
+    app.register_character(CharacterDefinition::new("dog", "Dog", "demo").with_sheet("companion_dog"));
+    let standing = ambition_platformer2d_core::Vec2::new(30.0, 48.0);
+    let built = ambition_platformer2d_core::Vec2::new(50.0, 52.0);
+    let body = app
+        .world_mut()
+        .spawn((
+            ambition_characters::actor::WornCharacter::new("guide"),
+            ambition_platformer2d_core::BodyBaseSize { base_size: standing },
+            ambition_platformer2d_core::BodyKinematics {
+                size: standing,
+                ..Default::default()
+            },
+            ambition_combat::components::ActorRenderSize(built),
+        ))
+        .id();
+    settle(&mut app);
+    let quad = |app: &App| {
+        app.world()
+            .get::<ambition_combat::components::ActorRenderSize>(body)
+            .map(|quad| quad.0)
+    };
+    assert_eq!(quad(&app), Some(built), "the grant replaced the quad the spawn stated");
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_characters::actor::WornCharacter::new("dog"));
+    settle(&mut app);
+    assert_eq!(
+        quad(&app),
+        Some(drawn_fit("companion_dog", standing)),
+        "the body wears the dog and keeps the quad its spawn stated for the guide",
     );
 }
 

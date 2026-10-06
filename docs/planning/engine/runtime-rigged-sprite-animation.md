@@ -270,10 +270,25 @@ frame height and the frame durations. It does not cover atlas packing.
   it was (37.0 ahead, 2.4 above), 26.4 above the feet. The rigged admiral's
   shot is first seen at (28.7, 15.0): the art and the rig agree to 0.04
   (`admiral_gun_sword`, both arms).
-- The quad is stated when the body is built, on every road. Two things can
-  make it stale, and neither is repaired: the development body-profile edit
-  of `BodyBaseSize`, and a body that changes to another character with no
-  posed body (the wear grant restates the quad only for a posed body).
+- ✅ A body that changes character states the quad of the character it wears
+  (2026-10-06). The wear grant restated a quad only for a posed body, so a
+  player that wore a character with a sheet and no posed body stated none.
+  The grant now states the frame fitted to the box the body keeps
+  (`sheets::fitted_render_size`, the renderer's `sprite_render_size`), when
+  the body carries no quad, and its record says the quad is that wear's, so
+  the retraction removes it. It is NOT the quad the seed resolves: a re-wear
+  keeps the box, and a player that wears the kernel guide is drawn at 32.7 by
+  33.5 while the guide is built at 50.4 by 51.6
+  ([Q159](../awaiting-maintainer-decision.md#q159--a-player-that-wears-a-character-with-no-posed-body-is-its-art-fitted-to-the-box-it-keeps-or-drawn-at-the-size-that-character-is-built-at)).
+  A body its spawn built keeps the seed's quad. Witnesses:
+  `a_reworn_body_states_the_quad_it_is_drawn_at` (the shipped game: stated
+  equals drawn after each wear) and the grant's fixture arms.
+- Two populations have no answer from their art. A sheet that publishes no
+  idle body is drawn by the catalog's `collision_scale`, which the grant does
+  not hold: 2 of the 149 characters of the main game (`npc_gnu_ton_boss`,
+  `npc_weird_hermit`; 13 are posed and 134 are drawn from the box). And the
+  development body-profile edit of `BodyBaseSize` leaves the stated quad as it
+  was.
 - A body with a sheet and no stated quad still gets its authored attack
   volumes scaled by a quad derived from its STANCE box
   (`moveset`: `kin.size` to `drawn_render_size`), while its art is drawn from

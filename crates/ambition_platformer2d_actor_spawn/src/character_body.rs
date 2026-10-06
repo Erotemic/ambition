@@ -43,6 +43,13 @@ pub struct GrantedBodyFacts {
     /// A sprite-authored body: the posed-body marker AND the standing geometry
     /// granted with it, carrying what that geometry displaced.
     pub posed_body: Option<DisplacedGeometry>,
+    /// The quad on the body ([`ambition_combat::components::ActorRenderSize`])
+    /// is this wear's: the character has a sheet and no posed body, so its art
+    /// is drawn from the body's box ([`drawn_from_its_box`]). The grant states
+    /// the quad when the body carries none; a body its spawn built states the
+    /// quad of the same character. The retraction removes it, so the next
+    /// character states its own.
+    pub drawn_quad: bool,
     /// The art has no left/right variant ([`ambition_platformer2d_core::Unmirrored`]).
     pub unmirrored: bool,
     /// The game components the character carries
@@ -89,6 +96,7 @@ impl GrantedBodyFacts {
             movement_tuning: movement_tuning.is_some(),
             // Filled by the grant's capture edit, which reads the body.
             posed_body: posed_body_for(prepared).map(|_| DisplacedGeometry::default()),
+            drawn_quad: drawn_from_its_box(prepared).is_some(),
             unmirrored: prepared.unmirrored,
             carried: prepared.carries.clone(),
         }
@@ -126,6 +134,7 @@ impl GrantedBodyFacts {
             pose_clock,
             movement_tuning,
             posed_body,
+            drawn_quad,
             unmirrored,
             carried,
         } = self;
@@ -146,6 +155,9 @@ impl GrantedBodyFacts {
         }
         if movement_tuning {
             scope.remove::<ambition_platformer2d_core::AuthoredMovementTuning>();
+        }
+        if drawn_quad {
+            scope.remove::<ambition_combat::components::ActorRenderSize>();
         }
         if let Some(displaced) = posed_body {
             scope.remove::<ambition_sprite_sheet::character::SpritePosedBody>();
@@ -216,6 +228,22 @@ fn posed_body_for(
         }
         ambition_characters::actor::definition::BodySource::Explicit { .. } => None,
     }
+}
+
+/// The sheet of a character whose art is drawn from its body's box: it has a
+/// sheet that publishes an idle body, and no posed body.
+///
+/// The renderer fits the frame of such a body to its standing box
+/// (`sheets::sprite_render_size`). A sheet that publishes no idle body is
+/// drawn by the catalog's `collision_scale`, which is not known here: a body
+/// that wears one states no quad, and the landmark query has no answer for it.
+fn drawn_from_its_box(prepared: &ambition_characters::prepared::PreparedCharacterDefinition) -> Option<&str> {
+    if posed_body_for(prepared).is_some() {
+        return None;
+    }
+    let sheet = prepared.sheet.as_deref()?;
+    ambition_sprite_sheet::character::sheets::fitted_render_size(sheet, ambition_platformer2d_core::Vec2::ONE)
+        .map(|_| sheet)
 }
 
 /// Who writes this body's action set and moves — the one axis on which
@@ -447,6 +475,27 @@ pub fn grant_prepared_character_body(
                 ambition_combat::components::ActorSpriteOffset(standing.sprite_offset),
             ));
             scope.insert(posed);
+        } else if let Some(sheet) = drawn_from_its_box(prepared) {
+            // THE QUAD OF A BODY DRAWN FROM ITS BOX, when the body carries
+            // none: the frame fitted to the box the body stands in as this
+            // batch lands, by the renderer's own rule. A re-wear keeps the
+            // box, so the art of the new character is fitted to it, and the
+            // quad the seed resolves for that character (its built size) is
+            // not what is drawn: a player that wears the dog is drawn at a
+            // third of the dog's built size (measured 2026-10-06).
+            //
+            // A body its spawn built carries the seed's quad for this same
+            // character, and keeps it. The retraction of the character before
+            // this one removed that character's quad earlier in the batch.
+            let sheet = sheet.to_owned();
+            scope.queue_insert_derived(move |body| {
+                if body.contains::<ambition_combat::components::ActorRenderSize>() {
+                    return None;
+                }
+                let standing = body.get::<ambition_platformer2d_core::BodyBaseSize>()?.base_size;
+                ambition_sprite_sheet::character::sheets::fitted_render_size(&sheet, standing)
+                    .map(ambition_combat::components::ActorRenderSize)
+            });
         }
         // The MOTION MODEL, on the same path and for the X9 reason.
         //

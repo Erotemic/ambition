@@ -930,3 +930,20 @@ fn a_mirror_row_is_drawn_instead_of_flipping_its_original() {
     plain.request(CharacterAnim::Idle);
     assert!(plain.face(true), "a sheet without mirror rows keeps flipping");
 }
+
+/// `fitted_render_size` is the renderer's rule for a baked sheet that
+/// publishes an idle body, whatever tuning the catalog gives the sheet; a
+/// sheet with no record has no answer.
+#[test]
+fn the_fitted_quad_of_a_sheet_is_the_renderers_fit_under_any_tuning() {
+    let standing = Vec2::new(30.0, 48.0);
+    for target in ["kernel_guide", "companion_dog", "pirate_raider"] {
+        let fitted = fitted_render_size(target, standing)
+            .unwrap_or_else(|| panic!("the baked `{target}` sheet publishes an idle body"));
+        for tuning in [SheetTuning::default(), SheetTuning::new(2.1, 1)] {
+            let spec = try_load_spec_for_target(target, &tuning).expect("the sheet loads");
+            assert_eq!(fitted, sprite_render_size(&spec, standing), "`{target}`");
+        }
+    }
+    assert_eq!(fitted_render_size("no_such_sheet", standing), None);
+}

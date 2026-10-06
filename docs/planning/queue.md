@@ -2456,9 +2456,27 @@ and the quad their art is drawn with is that value exactly. The unrigged smash
 admiral's shot is first seen (28.8 ahead, 15.0 below the centre), 9.0 above
 the feet, and hits the other fighter for 8 in 7 ticks; it was (37.0 ahead, 2.4
 above), 26.4 above the feet, 6 ticks. Control: a seat with no sheet states no
-quad (`a_seat_with_no_sheet_states_no_drawn_quad`). Both poisoned. The plan
-names what is open: two roads that leave the quad stale, and the attack-volume
-scale of a body with a sheet and no stated quad.
+quad (`a_seat_with_no_sheet_states_no_drawn_quad`). Both poisoned.
+
+**Re-wear (2026-10-06):** a body that changes to a character with a sheet and
+no posed body states the quad its art is drawn at. Measured first: only a
+player changes character in the shipped games; such a player stated no quad;
+and the renderer draws it with the frame fitted to the box the body keeps,
+which is not the quad the seed resolves for that character (the kernel guide:
+drawn 32.7 by 33.5, built 50.4 by 51.6; the dog: 36.0 by 30.0, built 108.6 by
+90.6). So the wear grant states the fit (`sheets::fitted_render_size`) when the
+body carries no quad, and records that the quad is that wear's; the
+retraction removes it. `EntityScope::queue_insert_derived` is new: the box is
+known only when the batch lands, after the retraction of the character before.
+Witnesses: the shipped game's player, stated against drawn, over four wears
+(`a_reworn_body_states_the_quad_it_is_drawn_at`); the fixture arms in
+`character_runtime/presentation/tests.rs` (re-wear, the same character again,
+no sheet, a quad the spawn stated, the hand-over from a posed body). Poisoned
+at both levels. Whether a worn character should be drawn fitted to the kept
+box at all is
+[Q159](awaiting-maintainer-decision.md#q159--a-player-that-wears-a-character-with-no-posed-body-is-its-art-fitted-to-the-box-it-keeps-or-drawn-at-the-size-that-character-is-built-at).
+The plan names what is open: two populations with no answer, and the
+attack-volume scale of a body with a sheet and no stated quad.
 
 **Review 2026-10-05:** two findings are rows of their own:
 LANDMARK-CLIP-TIME (a package clip always wraps; do it before another

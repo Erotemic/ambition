@@ -33,6 +33,19 @@ pub fn drawn_render_size(spec: &CharacterSheetSpec, collision: Vec2, carried: Op
     carried.unwrap_or_else(|| sprite_render_size(spec, collision))
 }
 
+/// [`sprite_render_size`] for the baked sheet `target`: the quad the art of a
+/// body that stands in `collision` is drawn at.
+///
+/// `None` when the sheet has no record or publishes no idle body. The quad of
+/// such a sheet depends on the catalog's `collision_scale`
+/// ([`sprite_render_size_scaled`], the fallback), which this function does not
+/// hold: a body that wears it states no quad.
+pub fn fitted_render_size(target: &str, collision: Vec2) -> Option<Vec2> {
+    let spec = spec_from_record(record_for_sheet_key(target)?, &SheetTuning::default());
+    spec.body_pixel_extent(CharacterAnim::Idle)?;
+    Some(sprite_render_size(&spec, collision))
+}
+
 /// Per-target sprite render size: the sheet's frame drawn at the scale that
 /// puts the character's own body rectangle on the collision box.
 pub fn sprite_render_size(spec: &CharacterSheetSpec, collision: Vec2) -> Vec2 {

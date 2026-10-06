@@ -4118,3 +4118,38 @@ fn the_primary_lane_projects_as_the_name_no_named_lane_may_take() {
          with the absent-lane default this projection relies on"
     );
 }
+
+/// `queue_insert_derived` reads the entity as the earlier writes of the SAME
+/// batch leave it. That order is why it exists: a re-wear puts back a body's
+/// box and then states a quad from that box, in one batch.
+#[test]
+fn a_derived_insert_reads_what_the_same_batch_wrote_before_it() {
+    #[derive(Component, Clone, Copy, Debug, PartialEq)]
+    struct Standing(f32);
+    #[derive(Component, Clone, Copy, Debug, PartialEq)]
+    struct Quad(f32);
+
+    let mut world = World::new();
+    let body = world.spawn(Standing(10.0)).id();
+    let absent = world.spawn_empty().id();
+    let mut queue = bevy::ecs::world::CommandQueue::default();
+    {
+        let mut commands = Commands::new(&mut queue, &world);
+        let mut scope = EntityScope::new(&mut commands, body);
+        // An earlier write of the batch replaces the box.
+        scope.insert(Standing(30.0));
+        scope.queue_insert_derived(|entity| entity.get::<Standing>().map(|standing| Quad(standing.0 * 2.0)));
+        // A later write does not reach back.
+        scope.insert(Standing(99.0));
+        // `None` inserts nothing.
+        EntityScope::new(&mut commands, absent)
+            .queue_insert_derived(|entity| entity.get::<Standing>().map(|standing| Quad(standing.0)));
+    }
+    queue.apply(&mut world);
+    assert_eq!(
+        world.get::<Quad>(body),
+        Some(&Quad(60.0)),
+        "the derived value is of the box the batch had written when the command landed",
+    );
+    assert_eq!(world.get::<Quad>(absent), None, "a derivation with no answer inserted a component");
+}

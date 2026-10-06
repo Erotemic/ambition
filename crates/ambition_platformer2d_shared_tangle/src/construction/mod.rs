@@ -438,6 +438,33 @@ impl<'w, 's, 'a> EntityScope<'w, 's, 'a> {
         self
     }
 
+    /// Queue the insert of a component whose value comes from this entity's
+    /// OTHER components, as they are when the command lands.
+    ///
+    /// For a value that depends on what an earlier write of the same batch
+    /// leaves. A re-wear retracts the old character's box and then states the
+    /// quad of the new art from the box the body keeps: that box is not known
+    /// when the commands are written. `derive` gets an
+    /// [`EntityRef`](bevy::ecs::world::EntityRef), so it reads this entity
+    /// only and cannot spawn or reach the world, and the insert is on this
+    /// entity: the scope's limits hold. `None` inserts nothing. A despawned
+    /// entity is a no-op.
+    pub fn queue_insert_derived<C: Component>(
+        &mut self,
+        derive: impl FnOnce(bevy::ecs::world::EntityRef<'_>) -> Option<C> + Send + 'static,
+    ) -> &mut Self {
+        let entity = self.entity;
+        self.commands.queue(move |world: &mut World| {
+            let Ok(mut entity_mut) = world.get_entity_mut(entity) else {
+                return;
+            };
+            if let Some(component) = derive(entity_mut.as_readonly()) {
+                entity_mut.insert(component);
+            }
+        });
+        self
+    }
+
     /// Queue a mutation of ONE component on this entity, CREATING it first when
     /// it is absent.
     ///

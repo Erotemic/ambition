@@ -86,6 +86,8 @@ pub struct TrexView {
     pub shock_rolling: bool,
     /// He holds a body in his jaws, thrashing it.
     pub thrashing: bool,
+    /// He rears through the beat between two phases (screaming, into phase 2).
+    pub rearing: bool,
     /// The hall he measured, once he has.
     pub hall: Option<Hall>,
 }
@@ -103,6 +105,7 @@ pub fn conductor_of(world: &World, rex: Entity) -> Option<TrexView> {
         rocks_falling: c.rocks_falling(),
         shock_rolling: c.shock_rolling(),
         thrashing: c.thrashing(),
+        rearing: c.rearing(),
         hall: c.hall_known.then_some(Hall { floor: c.hall_floor, left: c.hall_left, right: c.hall_right }),
     })
 }

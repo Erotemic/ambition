@@ -138,10 +138,22 @@ stochastic parrots, raptors").**
   rigged driver draws him (`the_trex_is_drawn_from_his_parts.rs`).
   `animate_bosses` now runs before the character animators and the driver.
 
+- His VOICE (Jon's picks of five audition rounds, 2026-10-06; round 1 "sounds
+  like a lawnmower"): one throat, the SFX renderer's new `creature` mode (the
+  audition code itself, `backends/creature_voice.py`): `boss.trex.roar`, the
+  phase-2 `boss.trex.scream`, seven growls in two takes each
+  (`boss.trex.growl_*`) and the death wail `boss.trex.death`. Each tell's
+  growl is its telegraph cue (which also keeps the moves readable); the
+  conductor screams him into phase 2 (rearing through the encounter's
+  transition lock, `BossConduct::between_phases`), roars the call, growls as
+  he seizes you, snarls as he flings you, yelps on the crash, huffs while he
+  stalks, and wails once dying. `every_boss_telegraph_cue_has_a_recipe` holds
+  every boss's telegraph cues to a recipe (a missing cue plays silence).
+
 Still open: his own tail-whoosh and wall-crash sounds (candidates and reels in
 `untracked/sfx-candidates/trex/`, for Jon's ear; the conductor borrows the
-bear's swipe and his stomp until then); the roar pick. Then
-`fight_discovery` tuning and Jon's playtest.
+bear's swipe and his stomp until then). Then `fight_discovery` tuning and
+Jon's playtest.
 
 Slices: (1) the body: one placement law for every boss drawn from a sheet,
 with the T-rex grounded, the hulls and the art's volumes; (2) the conductor,

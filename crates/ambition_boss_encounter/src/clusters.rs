@@ -107,6 +107,15 @@ impl BossEncounter {
             .as_ref()
             .map_or(BossEncounterPhase::Dormant, |state| state.phase)
     }
+
+    /// The encounter holds its beat between two phases: a transition lock
+    /// (the boss's "tell/scream" before the phase it queued) or the
+    /// `Transition` phase. The boss is invulnerable and runs no move.
+    pub fn between_phases(&self) -> bool {
+        self.encounter.as_ref().is_some_and(|state| {
+            state.transition_lock > 0.0 || state.phase == BossEncounterPhase::Transition
+        })
+    }
 }
 
 /// Per-spawn boss tweaks: the data behind "spawn boss X with tweaks Z at

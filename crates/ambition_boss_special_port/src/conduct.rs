@@ -26,7 +26,9 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   `holding` says the boss holds a body (`ambition.combat.body_hold`):
 ///   false once it mashed free, was thrown or released. `minions` counts the
 ///   living bodies of the boss's own encounter that are not bosses (its
-///   summons), in its live room.
+///   summons), in its live room. `between_phases` says the encounter holds
+///   its beat between two phases (a transition lock, or the `Transition`
+///   phase): the boss is invulnerable and its pattern runs no move.
 /// * **Absence** — `target` is `None` when the boss tracks nothing; `hall`
 ///   is `None` when the room cannot be told or has no floor under the boss.
 /// * **Replay** — derived each tick from rollback state.
@@ -71,6 +73,8 @@ pub struct BossConduct {
     pub holding: bool,
     /// Living summons of its encounter, in its live room.
     pub minions: u32,
+    /// The encounter holds its beat between two phases: no move runs.
+    pub between_phases: bool,
 }
 
 fn put_move(out: &mut Vec<u8>, m: Option<&LiveMove>) {
@@ -92,8 +96,9 @@ fn move_of(r: &mut WireReader<'_>) -> Result<Option<LiveMove>, WireError> {
 }
 
 impl Port for BossConductPort {
-    /// Version 2 (2026-10-06): `holding` and `minions`.
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 2);
+    /// Version 2 (2026-10-06): `holding` and `minions`. Version 3
+    /// (2026-10-06): `between_phases`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 3);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -116,6 +121,7 @@ impl Port for BossConductPort {
         wire::put_bool(out, v.enraged);
         wire::put_bool(out, v.holding);
         wire::put_u32(out, v.minions);
+        wire::put_bool(out, v.between_phases);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossConduct, WireError> {
@@ -141,6 +147,7 @@ impl Port for BossConductPort {
             enraged: r.bool()?,
             holding: r.bool()?,
             minions: r.u32()?,
+            between_phases: r.bool()?,
         })
     }
 }
@@ -274,6 +281,7 @@ mod tests {
             enraged: true,
             holding: true,
             minions: 3,
+            between_phases: true,
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
         let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, ..conduct };

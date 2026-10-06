@@ -82,6 +82,7 @@ mod pickup_regrowth_across_rooms;
 mod boss_motion_parity;
 mod boss_possession_specials;
 mod boss_sheet_wiring;
+mod the_hall_of_bosses_has_its_own_bosses;
 mod camera_names_its_view;
 mod canonical_reconstitution;
 mod carried_item_crosses_rooms;

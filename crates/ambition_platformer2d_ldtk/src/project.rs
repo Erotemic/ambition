@@ -148,6 +148,7 @@ impl LdtkLevel {
                 label_driven_bodies: None,
             },
             gallery: self.field_bool("gallery").unwrap_or(false),
+            practice: self.field_bool("practice").unwrap_or(false),
             mode: take("mode"),
             fall_out_margin: take_px("fall_out_margin"),
             side_out_margin: take_px("side_out_margin"),

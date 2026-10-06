@@ -269,6 +269,24 @@ the "may this be flipped" rule. There is no interactability condition today
   kills the boss on the spot if it is loaded (anyone fighting it sees it
   die), or marks it dead if it is not. No lock.
 
+**Built (2026-10-06):** the hall's Mockingbird and Warden doors lead to
+`hall_mockingbird_arena` and `hall_warden_arena`, copies of the story rooms
+whose doors return to the hall. Their bosses are `hall.mockingbird` and
+`hall.clockwork_warden`. Both rooms carry the level field `practice`
+(`RoomMetadata::practice` → `BossConfig::practice`). A practice boss's
+death:
+
+- drops the coin and health bounty, and a chest holding a purse
+  (`PRACTICE_CHEST_PURSE`);
+- drops no ability and no gauntlet, and moves no quest.
+
+Pinned by `boss_lifecycle::a_practice_copy_dies_without_the_story_consequences`
+and the `the_hall_of_bosses_has_its_own_bosses` tests.
+
+**Next:** the life switches. Hall-only bosses (T-rex, FSM, Exploding
+Gradient, Overflow, GNU-ton, Cut-the-Rope) stay real until each is placed in
+the main game (Jon, 2026-10-06).
+
 So a hall placement does not fire these archetype-keyed consequences:
 
 - `QuestAdvanceEvent::BossDefeated(archetype)`;

@@ -1082,6 +1082,7 @@ fn spawn_boss(app: &mut App, id: &str, center: ae::Vec2, half: ae::Vec2) -> Enti
                 id: id.into(),
                 name: id.into(),
                 spawn: center,
+                practice: false,
                 brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior:
                     ambition_boss_encounter::pattern::profile::BossBehaviorProfile::generic(

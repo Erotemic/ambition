@@ -186,6 +186,28 @@ impl Default for BossRewardProfile {
     }
 }
 
+/// What a practice copy's chest holds instead of its relic (Jon, 2026-10-06:
+/// "You can get a reward chest, but maybe its some health or money").
+pub const PRACTICE_CHEST_PURSE: i32 = 25;
+
+impl BossRewardProfile {
+    /// The reward a PRACTICE copy of this boss drops (`BossConfig::practice`):
+    /// the same chest, where the boss would drop it, holding a purse instead
+    /// of the archetype's relic. A boss that drops no chest drops none.
+    pub fn for_practice(&self) -> Self {
+        match self {
+            Self::None => Self::None,
+            Self::DropChest { offset, size, .. } => Self::DropChest {
+                pickup: ambition_entity_catalog::PickupKind::Currency {
+                    amount: PRACTICE_CHEST_PURSE,
+                },
+                offset: *offset,
+                size: *size,
+            },
+        }
+    }
+}
+
 /// Vec2 serde shim used by the boss-profile schema.
 mod boss_vec2_option {
     use ambition_platformer2d_core as ae;

@@ -275,6 +275,7 @@ mod tests {
                 id: "gnu_ton".into(),
                 name: "GNU-ton".into(),
                 spawn: Vec2::ZERO,
+                practice: false,
                 brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior: ambition_boss_encounter::pattern::profile::BossBehaviorProfile::generic(
                     ambition_boss_encounter::test_boss_catalog(),

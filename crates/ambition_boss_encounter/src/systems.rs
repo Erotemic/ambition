@@ -288,13 +288,16 @@ pub fn update_boss_encounters(
                     );
                 }
                 // Caused by the placement, so a replay that retracts this
-                // defeat retracts the quest step it advanced.
-                quests.push_event_caused_by(
-                    ambition_persistence::quest::QuestAdvanceEvent::BossDefeated(
-                        archetype_id.clone(),
-                    ),
-                    runtime_id.clone(),
-                );
+                // defeat retracts the quest step it advanced. A practice copy
+                // advances no quest: the story's boss is another placement.
+                if !feature.config.practice {
+                    quests.push_event_caused_by(
+                        ambition_persistence::quest::QuestAdvanceEvent::BossDefeated(
+                            archetype_id.clone(),
+                        ),
+                        runtime_id.clone(),
+                    );
+                }
             }
         }
 
@@ -314,7 +317,11 @@ pub fn update_boss_encounters(
             boss_anchors.entry(room).or_default().push(crate::BossRewardAnchor {
                 placement_id: runtime_id.clone(),
                 spawn: feature.config.spawn,
-                reward: reward.clone(),
+                reward: if feature.config.practice {
+                    reward.for_practice()
+                } else {
+                    reward.clone()
+                },
             });
         }
     }

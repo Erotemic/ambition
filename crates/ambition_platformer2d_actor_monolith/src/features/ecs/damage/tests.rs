@@ -2193,6 +2193,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
                     id: "heavy".into(),
                     name: "Heavy".into(),
                     spawn: ae::Vec2::ZERO,
+                    practice: false,
                     brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                     behavior: ambition_boss_encounter::pattern::profile::BossBehaviorProfile::generic(
                         ambition_boss_encounter::test_boss_catalog(),

@@ -31,6 +31,11 @@ pub struct BossConfig {
     /// session's frozen generation. Required, so no road resolves a boss from
     /// a second catalog (I2/I3).
     pub seed: BossSeed,
+    /// A PRACTICE copy (it stands in a practice room, the Hall of Bosses'
+    /// own arenas): it keeps its own life and death by its own placement id,
+    /// and its death fires none of its archetype's story consequences. See
+    /// `RoomMetadata::practice`.
+    pub practice: bool,
 }
 
 impl BossConfig {
@@ -366,6 +371,7 @@ impl BossClusterScratch {
                 id: id.into(),
                 name,
                 spawn: center,
+                practice: false,
                 brain,
                 behavior,
                 seed,
@@ -544,6 +550,7 @@ pub mod test_support {
             seed: BossSeed::resolved(catalog, &behavior.id, &name, 18),
             name,
             spawn: ae::Vec2::ZERO,
+            practice: false,
             brain: ambition_entity_catalog::placements::BossBrain::PhaseScript {
                 script_id: script_id.to_string(),
             },

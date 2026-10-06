@@ -175,6 +175,8 @@ pub enum ActorConstructionParams {
         authored: ambition_platformer2d_world::rooms::Authored<
             ambition_entity_catalog::placements::BossBrain,
         >,
+        /// It stands in a practice room (`RoomMetadata::practice`).
+        practice: bool,
     },
     /// One authored placement record beside its ALREADY-RESOLVED interpreter —
     /// the exact `(record, fn)` pair `PlacementLoweringPlan` froze at
@@ -521,8 +523,9 @@ impl ConstructionDomain for ActorConstruction {
             ActorConstructionParams::AuthoredEnemy { authored, .. } => {
                 format!("authored-enemy {} {}", authored.id, authored.name)
             }
-            ActorConstructionParams::AuthoredBoss { authored } => {
-                format!("authored-boss {} {}", authored.id, authored.name)
+            ActorConstructionParams::AuthoredBoss { authored, practice } => {
+                let practice = if *practice { " practice" } else { "" };
+                format!("authored-boss {} {}{practice}", authored.id, authored.name)
             }
             ActorConstructionParams::Placement { record, .. } => {
                 format!(
@@ -934,7 +937,7 @@ fn construct_authored_boss(
     ctx: &mut RootCtx<'_, '_, '_>,
 ) {
     let services = ctx.services;
-    let ActorConstructionParams::AuthoredBoss { authored } = parameters else {
+    let ActorConstructionParams::AuthoredBoss { authored, practice } = parameters else {
         unreachable!("dispatch pairs this fn with AuthoredBoss parameters")
     };
     let fate = ctx.facts.boss_fate(&authored.id);
@@ -944,6 +947,7 @@ fn construct_authored_boss(
         authored,
         &ambition_boss_encounter::BossOverrides::default(),
         fate,
+        *practice,
     );
 }
 
@@ -1457,7 +1461,7 @@ fn planned_boss_profile(
     bosses: &BossCatalog,
 ) -> Option<ambition_boss_encounter::pattern::profile::BossBehaviorProfile> {
     let (name, brain) = match parameters {
-        ActorConstructionParams::AuthoredBoss { authored } => (&authored.name, &authored.payload),
+        ActorConstructionParams::AuthoredBoss { authored, .. } => (&authored.name, &authored.payload),
         ActorConstructionParams::StagedActor(request) => match &request.kind {
             SpawnActorKind::Boss { brain, .. } => (&request.name, brain),
             _ => return None,
@@ -2130,6 +2134,7 @@ pub fn authored_actor_requests(
             },
             parameters: ActorConstructionParams::AuthoredBoss {
                 authored: boss.clone(),
+                practice: room.metadata.practice,
             },
             relations: Vec::new(),
         });

@@ -319,6 +319,7 @@ fn boss_spawn_attaches_brain_components() {
             &authored,
             &ambition_boss_encounter::BossOverrides::default(),
             ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
+            false,
         );
     });
     app.update();

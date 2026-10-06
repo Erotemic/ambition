@@ -581,6 +581,7 @@ fn active_metadata_returns_active_room_metadata() {
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
         gallery: false,
+        practice: false,
         mode: None,
         fall_out_margin: None,
         side_out_margin: None,
@@ -599,6 +600,7 @@ fn active_metadata_returns_active_room_metadata() {
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
         gallery: false,
+        practice: false,
         mode: None,
         fall_out_margin: None,
         side_out_margin: None,
@@ -642,6 +644,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
         gallery: false,
+        practice: false,
         mode: None,
         fall_out_margin: None,
         side_out_margin: None,
@@ -684,6 +687,7 @@ fn room_metadata_merge_preserves_existing_values() {
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
         gallery: false,
+        practice: false,
         mode: None,
         fall_out_margin: None,
         side_out_margin: None,
@@ -706,6 +710,7 @@ fn room_metadata_merge_preserves_existing_values() {
             label_driven_bodies: Some(true),
         },
         gallery: true,              // takes effect — a.gallery was false (merge ORs)
+        practice: true,             // takes effect — a.practice was false (merge ORs)
         mode: Some("sanic".into()), // takes effect — a.mode was None
         fall_out_margin: None,
         side_out_margin: None,
@@ -730,6 +735,7 @@ fn room_metadata_merge_preserves_existing_values() {
     assert_eq!(a.title.as_deref(), Some("CAVE 1"));
     assert_eq!(a.biome.as_deref(), Some("hub"));
     assert!(a.gallery, "merge ORs the gallery flag from a member level");
+    assert!(a.practice, "merge ORs the practice flag from a member level");
     assert_eq!(a.music_track.as_deref(), Some("hub_loop"));
     assert_eq!(a.fight_music_track.as_deref(), Some("boss_loop"));
     assert_eq!(a.ambient_profile.as_deref(), Some("damp"));

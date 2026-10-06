@@ -86,6 +86,7 @@ pub use ambition_encounter::{
     EncounterScriptError, EncounterTrigger,
 };
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
+pub use pattern::profile::PRACTICE_CHEST_PURSE;
 pub use registry::BossEncounterRegistry;
 pub use retraction::{
     defeats_a_restore_retracts, retract_defeat_records,

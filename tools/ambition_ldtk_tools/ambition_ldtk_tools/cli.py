@@ -38,6 +38,8 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     level set-field [--level ID --set key=value | <spec.yaml>]
                                    Update level-scoped metadata (biome /
                                    music_track / ambient_profile / etc.).
+    level clone <id> <new_id>      Copy a whole room under a new identifier with
+                                   fresh ids (a second, independent instance).
 
     entity add <spec.yaml>         Add entity instance(s) into a level.
     entity set-field <spec.yaml>   Set field instances on existing entities.
@@ -241,6 +243,8 @@ def cmd_level(args, rest):
         return _delegate("ambition_ldtk_tools.edit.level_delete", rest)
     if args.level_action == "add-field-def":
         return _delegate("ambition_ldtk_tools.edit.level_add_field_def", rest)
+    if args.level_action == "clone":
+        return _delegate("ambition_ldtk_tools.edit.level_clone", rest)
     return _todo(f"level {args.level_action}")
 
 
@@ -601,6 +605,15 @@ def build_parser() -> argparse.ArgumentParser:
             "Delete a whole level (room) from an LDtk file. Usage: "
             "level delete <level_id> [--ldtk PATH] (--in-place | --output PATH) "
             "[--backup]. Use when relocating a level to its own secondary world."
+        ),
+    )
+    level_sub.add_parser(
+        "clone",
+        help=(
+            "Copy a whole level under a new identifier with fresh ids (its "
+            "in-level EntityRefs re-pointed, its activeArea its own). Usage: "
+            "level clone <level_id> <new_id> --world-x X --world-y Y [--ldtk PATH] "
+            "(--in-place | --output PATH). For a second, independent instance of a room."
         ),
     )
     level_sub.add_parser(

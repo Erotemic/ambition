@@ -287,7 +287,18 @@ def main(argv=None) -> int:
     )
     project = tx.project
     level = find_level(project, spec["level_id"])
-    layer = find_ambition_layer(level)
+    # Every Entities layer, not just `Ambition`: camera zones live on
+    # `AmbitionCameras` since the layer split, and a selector that searched one
+    # layer reported "no entity matched" for an entity the level has.
+    find_ambition_layer(level)
+    layer = {
+        "entityInstances": [
+            entity
+            for li in level.get("layerInstances", [])
+            if li.get("__type", li.get("type")) == "Entities"
+            for entity in li.get("entityInstances", [])
+        ]
+    }
 
     edits = []
     for edit in spec["edits"]:

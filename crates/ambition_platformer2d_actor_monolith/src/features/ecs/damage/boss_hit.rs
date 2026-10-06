@@ -293,11 +293,15 @@ pub(crate) fn apply_boss_hit(
                 3,
             );
         }
+        // A PRACTICE copy (the Hall of Bosses' own arenas) drops the bounty
+        // above and nothing the story gives: the boss that teaches the ability
+        // and hands over the gauntlet is the main game's placement.
+        let story = !boss.config.practice;
         // North star: "every boss a failed objective function, every upgrade a
         // theorem" — a defeated boss drops the ability it embodies, so combat
         // (not just the merchant) teaches the player new verbs.
-        if let (Some(ability_id), Some(parent)) =
-            (boss.config.behavior.reward_ability.as_deref(), &parent)
+        if let (true, Some(ability_id), Some(parent)) =
+            (story, boss.config.behavior.reward_ability.as_deref(), &parent)
         {
             if let Some(item) = items.item_by_dialog_id(ability_id) {
                 drop_ability_pickup(
@@ -313,8 +317,8 @@ pub(crate) fn apply_boss_hit(
         }
         // …and its signature wielded attack drops as a ground-item gauntlet the
         // player picks up + uses (the player literally wields the boss's move).
-        if let (Some(gauntlet_id), Some(parent)) =
-            (boss.config.behavior.signature_gauntlet.as_deref(), &parent)
+        if let (true, Some(gauntlet_id), Some(parent)) =
+            (story, boss.config.behavior.signature_gauntlet.as_deref(), &parent)
         {
             if let Some(spec) = ambition_characters::brain::held_item_by_id(gauntlet_id) {
                 super::super::damage_drops::drop_held_weapon(

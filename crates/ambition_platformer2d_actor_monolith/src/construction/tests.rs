@@ -4578,3 +4578,35 @@ fn a_replacement_refuses_a_world_that_moved_under_it_and_names_the_binding_it_ex
         verification.violations
     );
 }
+
+/// A boss in a PRACTICE room (`RoomMetadata::practice`, the Hall of Bosses' own
+/// arenas) is planned as a practice copy, and one anywhere else is not: the
+/// row carries what the room says, and the boss's `BossConfig::practice` is
+/// set from it at spawn.
+#[test]
+fn a_practice_room_plans_its_bosses_as_practice_copies() {
+    let practice_of = |practice: bool| {
+        let mut room = giant_room();
+        room.metadata.practice = practice;
+        room.boss_spawns
+            .push(ambition_platformer2d_world::rooms::Authored::new(
+                "hall_copy",
+                "mockingbird",
+                ae::Aabb::new(ae::Vec2::new(100.0, 20.0), ae::Vec2::splat(30.0)),
+                ambition_entity_catalog::placements::BossBrain::PhaseScript {
+                    script_id: "mockingbird".into(),
+                },
+            ));
+        super::authored_actor_requests(&room, &[], None)
+            .into_iter()
+            .find_map(|request| match request.parameters {
+                ActorConstructionParams::AuthoredBoss { authored, practice } if authored.id == "hall_copy" => {
+                    Some(practice)
+                }
+                _ => None,
+            })
+            .expect("the boss is a plan row")
+    };
+    assert!(practice_of(true), "a practice room's boss is a practice copy");
+    assert!(!practice_of(false), "a boss anywhere else is not");
+}

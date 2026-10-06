@@ -126,6 +126,16 @@ pub struct RoomMetadata {
     /// bark ticker draws each NPC's `Hall` pool here and its `Idle` pool
     /// elsewhere. Authored as the LDtk level bool field `gallery`.
     pub gallery: bool,
+    /// This room is a boss PRACTICE room (the Hall of Bosses' own arenas):
+    /// its bosses are rematch copies, separate from the main game's. A
+    /// practice boss records its own life and death (by its own placement id,
+    /// Q57), drops a practice purse instead of its relic, and fires none of
+    /// the archetype's story consequences (quest steps, the ability it
+    /// teaches, its signature gauntlet). Jon, 2026-10-06: "killing the boss
+    /// in the hall should not impact the alive/dead status of the boss in the
+    /// game. They are completely separate." Authored as the LDtk level bool
+    /// field `practice`.
+    pub practice: bool,
     /// The GAME MODE this room belongs to (decomposition D-C, vision §5).
     ///
     /// A hosted demo's rules crate gates its systems on
@@ -219,6 +229,7 @@ impl RoomMetadata {
             && self.visual_profile.is_empty()
             && self.nameplate_policy.is_empty()
             && !self.gallery
+            && !self.practice
             && self.mode.is_none()
             && self.fall_out_margin.is_none()
             && self.side_out_margin.is_none()
@@ -274,6 +285,8 @@ impl RoomMetadata {
         }
         // A multi-level area is a gallery if ANY member level marks it one.
         self.gallery = self.gallery || other.gallery;
+        // Likewise practice: a boss in any member level is the area's.
+        self.practice = self.practice || other.practice;
         self.visual_profile.merge(other.visual_profile);
         self.nameplate_policy.merge(other.nameplate_policy);
     }

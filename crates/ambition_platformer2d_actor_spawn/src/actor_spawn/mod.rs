@@ -362,12 +362,14 @@ pub fn spawn_staged_actor_into(
                 aabb,
                 brain.clone(),
             );
+            // A runtime-staged boss stands in no authored room: never practice.
             spawn_boss_with_overrides_into(
                 &mut scope.reborrow(),
                 boss_catalog,
                 &authored,
                 overrides,
                 fate,
+                false,
             );
         }
         SpawnActorKind::Enemy { brain, character } => {
@@ -1024,6 +1026,8 @@ pub fn spawn_boss_with_overrides_into(
     >,
     overrides: &BossOverrides,
     fate: RecordedFate,
+    // It stands in a practice room (`RoomMetadata::practice`).
+    practice: bool,
 ) {
     let mut boss = BossClusterScratch::new(
         boss_catalog,
@@ -1032,6 +1036,7 @@ pub fn spawn_boss_with_overrides_into(
         authored.aabb,
         authored.payload.clone(),
     );
+    boss.config.practice = practice;
     // A placement's authored size outranks the sheet's body. `kin.size` is
     // the collision body; the render basis stays in `status.render_size`.
     if let Some(size) = overrides.combat_size {

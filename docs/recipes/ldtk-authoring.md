@@ -75,6 +75,21 @@ PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity add \
 area wipes the second pass, so re-run `entity add` after every `area create`.
 Worked example: `mary_o_1_3_area.ron` + `mary_o_1_3_named_blocks.yaml`.
 
+## A second instance of a room
+
+`level clone` copies a whole room under a new identifier with fresh ids: its
+IntGrid, its entities and fields, its level fields, every EntityRef inside it
+re-pointed at its copy, and its `activeArea` its own. Then make what must be
+unique unique (door ids, a boss's `encounter_id`) with `entity set-field`,
+and point doors at it. The Hall of Bosses' practice arenas were made this way
+(`hall_mockingbird_arena`, `hall_warden_arena`; level field `practice`).
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools level clone \
+  mockingbird_arena hall_mockingbird_arena --world-x 1984 --world-y 1424 \
+  --ldtk game/ambition_map_assets/ambition_content/worlds/sandbox.ldtk --in-place
+```
+
 ## Room music
 
 A level's `music_track` is what plays in it, and its `fight_music_track` is what

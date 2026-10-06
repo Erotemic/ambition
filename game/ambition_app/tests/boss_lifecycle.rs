@@ -235,6 +235,91 @@ fn a_defeated_boss_drops_its_signature_gauntlet_on_the_real_kill_road() {
     );
 }
 
+/// What one real kill of a mockingbird leaves, for the practice test below:
+/// one more `volley` gauntlet on the floor than before, the `pirate_treasure`
+/// quest's step (its step 0 is `BossDefeated("mockingbird")`, and it starts at
+/// boot), and what the boss's reward chest holds.
+fn one_real_mockingbird_kill(practice: bool) -> (bool, u8, Vec<ambition_platformer2d::entity_catalog::PickupKind>) {
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    spawn_mockingbird(&mut sim, "hall_copy");
+    sim.step(AgentAction::default());
+    {
+        let world = sim.world_mut();
+        let mut q = world.query::<&mut BossConfig>();
+        let mut config = q
+            .iter_mut(world)
+            .find(|config| config.id == "hall_copy")
+            .expect("the spawned boss has a config");
+        config.practice = practice;
+    }
+    let step_before = sim
+        .world()
+        .resource::<ambition_content::quest::QuestRegistry>()
+        .get("pirate_treasure")
+        .expect("the quest is authored")
+        .step;
+    assert_eq!(step_before, 0, "precondition: the quest waits on the mockingbird");
+    let volleys = |world: &mut World| ground_item_specs(world).iter().filter(|id| *id == "volley").count();
+    let volleys_before = volleys(sim.world_mut());
+
+    kill_boss_with_a_real_hit(&mut sim, "hall_copy", 600);
+    // Past the death outro (2.2 s), so the defeat is recorded and the chest drops.
+    for _ in 0..200 {
+        sim.step(AgentAction::default());
+    }
+    assert!(
+        boss_cleared(&sim, "hall_copy"),
+        "precondition: the real hit killed it and its death was recorded"
+    );
+    let dropped_gauntlet = volleys(sim.world_mut()) > volleys_before;
+    let step_after = sim
+        .world()
+        .resource::<ambition_content::quest::QuestRegistry>()
+        .get("pirate_treasure")
+        .expect("the quest is authored")
+        .step;
+    let world = sim.world_mut();
+    let mut chests = world.query::<(&BossRewardChest, &ambition_platformer2d::combat::ChestFeature)>();
+    let rewards = chests
+        .iter(world)
+        .filter(|(reward, _)| reward.encounter_id == "hall_copy")
+        .filter_map(|(_, chest)| chest.chest.reward.clone())
+        .collect();
+    (dropped_gauntlet, step_after, rewards)
+}
+
+/// ⭐ A PRACTICE copy (the Hall of Bosses' own arenas, `RoomMetadata::practice`)
+/// dies on the real road like any boss, but its death is not the story's: no
+/// signature gauntlet, no quest step, and its chest holds a purse instead of
+/// the archetype's relic. Jon, 2026-10-06: "killing the boss in the hall should
+/// not impact the alive/dead status of the boss in the game. They are
+/// completely separate."
+///
+/// The control is the same kill of a copy that is not practice: it drops the
+/// gauntlet, moves the quest and drops the relic, so each practice assertion
+/// is about the flag, not about a road that drops nothing anyway.
+#[test]
+fn a_practice_copy_dies_without_the_story_consequences() {
+    use ambition_platformer2d::entity_catalog::PickupKind;
+
+    let (gauntlet, step, chest) = one_real_mockingbird_kill(false);
+    assert!(gauntlet, "control: the story's mockingbird drops its gauntlet");
+    assert_eq!(step, 1, "control: the story's mockingbird moves `pirate_treasure` on");
+    assert_eq!(chest, vec![PickupKind::Custom("pirate_hoard".into())], "control: its relic");
+
+    let (gauntlet, step, chest) = one_real_mockingbird_kill(true);
+    assert!(!gauntlet, "a practice copy drops no signature gauntlet");
+    assert_eq!(step, 0, "a practice copy moves no quest");
+    assert_eq!(
+        chest,
+        vec![PickupKind::Currency {
+            amount: ambition_platformer2d::boss_encounter::PRACTICE_CHEST_PURSE
+        }],
+        "a practice copy's chest holds a purse"
+    );
+}
+
 /// Every `GroundItem` in the world, by its held-item id.
 fn ground_item_specs(world: &mut World) -> Vec<String> {
     let mut q = world.query::<&ambition_platformer2d::held_items::GroundItem>();

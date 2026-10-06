@@ -398,6 +398,7 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
             id: "boss_rider".into(),
             name: "Boss Rider".into(),
             spawn: ae::Vec2::ZERO,
+            practice: false,
             brain: ambition_entity_catalog::placements::BossBrain::Dormant,
             behavior: ambition_boss_encounter::pattern::profile::BossBehaviorProfile::generic(
                 ambition_boss_encounter::test_boss_catalog(),
@@ -1009,6 +1010,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
         id: "gnu_ton_rider".into(),
         name: profile.display_name.clone(),
         spawn: rider_pos,
+        practice: false,
         brain: ambition_entity_catalog::placements::BossBrain::Dormant,
         behavior: profile.behavior.clone(),
         seed: ambition_boss_encounter::BossSeed {
@@ -1174,6 +1176,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
                 id: "gnu_ton_rider".into(),
                 name: profile.display_name.clone(),
                 spawn: ae::Vec2::ZERO,
+                practice: false,
                 brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior: profile.behavior.clone(),
                 seed: ambition_boss_encounter::BossSeed {
@@ -1384,6 +1387,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
                 id: "gnu_ton_rider".into(),
                 name: profile.display_name.clone(),
                 spawn: rider_pos,
+                practice: false,
                 brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior: profile.behavior.clone(),
                 seed: ambition_boss_encounter::BossSeed {

@@ -140,14 +140,7 @@ pub fn resolve_view_subjects(
 ) {
     use bevy::prelude::DetectChangesMut as _;
     for (mut resolved, subject, participant) in &mut views {
-        let next = subject.map(|subject| subject.0).or_else(|| {
-            participant.and_then(|participant| {
-                ambition_platformer2d_actor_monolith::control::body_driving_seat(
-                    &drivers,
-                    participant.0,
-                )
-            })
-        });
+        let next = declared_subject(subject, participant, &drivers);
         //  `set_if_neq`, because a write every frame is a CHANGE every
         // frame. A view whose subject has not moved must not look to a reader
         // keyed on `is_changed()` as though it had.
@@ -155,15 +148,68 @@ pub fn resolve_view_subjects(
     }
 }
 
+/// The body a view's own declaration names: the body it names
+/// ([`ViewSubject`]), else the body that drives the seat it names
+/// ([`ViewParticipant`]). `None` for a view that names neither, or a seat that
+/// nothing drives.
+///
+/// The one rule behind [`ResolvedViewSubject`]. The live-room split asks it
+/// too, for a view that was opened this frame and is not resolved yet, so the
+/// two cannot disagree about which seat a view shows.
+fn declared_subject(
+    subject: Option<&ViewSubject>,
+    participant: Option<&ViewParticipant>,
+    drivers: &bevy::prelude::Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+) -> Option<Entity> {
+    subject.map(|subject| subject.0).or_else(|| {
+        participant.and_then(|participant| {
+            ambition_platformer2d_actor_monolith::control::body_driving_seat(drivers, participant.0)
+        })
+    })
+}
+
 /// A view the live-room split opened for one seat. The split closes it when
 /// the seats are in one live room again.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SplitForLiveRoom;
 
-/// A view whose [`ViewPlacement`] the live-room split wrote. The split removes
-/// that placement when it closes, and leaves every other placement alone.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PlacedByLiveRoomSplit;
+/// A view whose [`ViewPlacement`] the live-room split wrote, with the value it
+/// wrote. The split owns a placement only while the view's placement IS this
+/// value: it rewrites and removes that one, and no other.
+///
+/// A view with a placement and no mark was placed by its composition. A view
+/// whose placement is not the marked value was written over by another
+/// writer, and the placement is that writer's now: the split drops its mark
+/// and leaves the placement.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct PlacedByLiveRoomSplit(pub ViewPlacement);
+
+/// Who owns the placement of one view, for the live-room split.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum PlacementOwner {
+    /// The view has no placement: the split places it.
+    Nobody,
+    /// The split wrote the placement the view has.
+    Split,
+    /// Another writer placed the view. `marked`: a stale mark of the split
+    /// is still on it.
+    Other { marked: bool },
+}
+
+impl PlacementOwner {
+    fn of(placement: Option<&ViewPlacement>, mark: Option<&PlacedByLiveRoomSplit>) -> Self {
+        match (placement, mark) {
+            (None, _) => Self::Nobody,
+            (Some(placement), Some(mark)) if *placement == mark.0 => Self::Split,
+            (Some(_), mark) => Self::Other { marked: mark.is_some() },
+        }
+    }
+
+    /// The split lays this view out.
+    fn split_places(self) -> bool {
+        !matches!(self, Self::Other { .. })
+    }
+}
 
 /// The adaptive split of one live room (A2 in
 /// `docs/planning/game/multiplayer.md`): a game that declares this splits the
@@ -213,17 +259,29 @@ pub struct DistanceSplit {
 /// frames (V3), so one view cannot show two rooms.
 ///
 /// While the driven bodies of the seats are in two or more live rooms, every
-/// seat has a view: a seat that no view follows gets a new view
-/// ([`SplitForLiveRoom`], [`ViewParticipant`]), and every view takes one
-/// column, in id order. A view that names neither a body nor a seat follows
-/// seat zero, as the camera resolve frames it. When the seats are in one live
-/// room again, the views the split opened close and the placements it wrote
-/// are removed. A seat with no driven body (a spectator) or a body whose room
-/// cannot be told has no room, and does not open a split.
+/// seat has a view: a seat that no view shows gets a new view
+/// ([`SplitForLiveRoom`], [`ViewParticipant`]), and the views take one
+/// column each, in id order.
 ///
-/// The adaptive split applies only where one view follows seat zero's body:
-/// a match that frames a declared cast shows every seat already, and a
-/// composition that placed its own views keeps its layout.
+/// A view shows a seat when the body it frames is the body that drives the
+/// seat, whichever way the view named it ([`declared_subject`]: by body or by
+/// seat). A view that names neither a body nor a seat shows seat zero, as the
+/// camera resolve frames it.
+///
+/// THE SPLIT CHANGES ONLY WHAT IT OWNS. It owns the views it opened and the
+/// placements it wrote ([`PlacedByLiveRoomSplit`]). A view that its
+/// composition placed keeps its placement: the split does not write a column
+/// over it and does not mark it. Such a view still counts as one column, so
+/// the views the split does place stay clear of an ordinary column layout.
+/// When the seats are in one live room again, the views the split opened
+/// close and the placements it wrote are removed, and no other. A seat with
+/// no driven body (a spectator) or a body whose room cannot be told has no
+/// room, and does not open a split.
+///
+/// The adaptive split applies only where one view follows seat zero's body
+/// and no composition placed it: a match that frames a declared cast shows
+/// every seat already, and a composition that placed its own views keeps its
+/// layout.
 ///
 /// The rig that draws a new view is the presentation's
 /// (`ambition_render`'s split rig); the view is the observation fact.
@@ -246,7 +304,7 @@ pub fn split_views_by_live_room(
             Option<&ViewParticipant>,
             Option<&ViewPlacement>,
             bevy::prelude::Has<SplitForLiveRoom>,
-            bevy::prelude::Has<PlacedByLiveRoomSplit>,
+            Option<&PlacedByLiveRoomSplit>,
         ),
         bevy::prelude::With<LocalView>,
     >,
@@ -266,8 +324,12 @@ pub fn split_views_by_live_room(
     rooms.sort_unstable();
     rooms.dedup();
 
-    let laid_out_here = views.iter().all(|(_, id, subject, participant, _, opened, _)| {
-        *id == LocalViewId::FIRST && subject.is_none() && participant.is_none() || opened
+    let laid_out_here = views.iter().all(|(_, id, subject, participant, placement, opened, mark)| {
+        *id == LocalViewId::FIRST
+            && subject.is_none()
+            && participant.is_none()
+            && PlacementOwner::of(placement, mark).split_places()
+            || opened
     });
     let adaptive = adaptive
         .filter(|_| laid_out_here && cast.as_ref().is_none_or(|cast| cast.0.is_empty()))
@@ -325,52 +387,76 @@ pub fn split_views_by_live_room(
     };
 
     if rooms.len() < 2 && !apart {
-        for (view, _, _, _, _, opened, placed) in &views {
+        for (view, _, _, _, placement, opened, mark) in &views {
             if opened {
                 commands.entity(view).try_despawn();
-            } else if placed {
-                commands
-                    .entity(view)
-                    .try_remove::<(ViewPlacement, PlacedByLiveRoomSplit)>();
+                continue;
+            }
+            match PlacementOwner::of(placement, mark) {
+                PlacementOwner::Split => {
+                    commands
+                        .entity(view)
+                        .try_remove::<(ViewPlacement, PlacedByLiveRoomSplit)>();
+                }
+                // A mark with no placement, or on a placement another writer
+                // set: the mark goes, and the placement is not the split's.
+                _ if mark.is_some() => {
+                    commands.entity(view).try_remove::<PlacedByLiveRoomSplit>();
+                }
+                _ => {}
             }
         }
         return;
     }
 
-    let follows = |slot: PlayerSlot| {
-        views.iter().any(|(_, _, subject, participant, ..)| match (subject, participant) {
-            (Some(_), _) => false,
-            (None, Some(participant)) => participant.0 == slot,
-            (None, None) => slot == PlayerSlot::PRIMARY,
+    // A view shows the seat whose body it frames. A view opened this frame
+    // is not resolved yet, so the declaration is asked, by the rule the
+    // resolve uses.
+    let shows = |slot: PlayerSlot| {
+        let body = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot);
+        views.iter().any(|(_, _, subject, participant, ..)| {
+            if subject.is_none() && participant.is_none() {
+                return slot == PlayerSlot::PRIMARY;
+            }
+            body.is_some() && declared_subject(subject, participant, &drivers) == body
         })
     };
-    let unfollowed: Vec<PlayerSlot> = seats
+    let unshown: Vec<PlayerSlot> = seats
         .iter()
         .map(|(slot, _)| *slot)
-        .filter(|slot| !follows(*slot))
+        .filter(|slot| !shows(*slot))
         .collect();
-    let mut ids: Vec<(LocalViewId, Entity, Option<&ViewPlacement>)> = views
+    let mut ids: Vec<(LocalViewId, Entity, Option<&ViewPlacement>, Option<&PlacedByLiveRoomSplit>)> = views
         .iter()
-        .map(|(view, id, _, _, placement, ..)| (*id, view, placement))
+        .map(|(view, id, _, _, placement, _, mark)| (*id, view, placement, mark))
         .collect();
-    ids.sort_by_key(|(id, view, _)| (*id, *view));
-    let columns = ids.len() + unfollowed.len();
-    for (column, (_, view, placement)) in ids.iter().enumerate() {
-        let wanted = ViewPlacement::column(column, columns);
-        if placement.copied() != Some(wanted) {
-            commands.entity(*view).try_insert((wanted, PlacedByLiveRoomSplit));
+    ids.sort_by_key(|(id, view, ..)| (*id, *view));
+    let columns = ids.len() + unshown.len();
+    for (column, (_, view, placement, mark)) in ids.iter().enumerate() {
+        match PlacementOwner::of(*placement, *mark) {
+            PlacementOwner::Nobody | PlacementOwner::Split => {
+                let wanted = ViewPlacement::column(column, columns);
+                if placement.copied() != Some(wanted) {
+                    commands.entity(*view).try_insert((wanted, PlacedByLiveRoomSplit(wanted)));
+                }
+            }
+            PlacementOwner::Other { marked: true } => {
+                commands.entity(*view).try_remove::<PlacedByLiveRoomSplit>();
+            }
+            PlacementOwner::Other { marked: false } => {}
         }
     }
     let mut next = ids.last().map_or(0, |(id, ..)| id.0.saturating_add(1));
-    for (offset, slot) in unfollowed.into_iter().enumerate() {
+    for (offset, slot) in unshown.into_iter().enumerate() {
+        let column = ViewPlacement::column(ids.len() + offset, columns);
         commands.spawn((
             LocalView,
             LocalViewId(next),
             crate::camera_snapshot::local_view_facts(),
             ViewParticipant(slot),
             SplitForLiveRoom,
-            ViewPlacement::column(ids.len() + offset, columns),
-            PlacedByLiveRoomSplit,
+            column,
+            PlacedByLiveRoomSplit(column),
         ));
         next = next.saturating_add(1);
     }
@@ -1064,5 +1150,180 @@ mod tests {
         world.entity_mut(alice).insert(InRoomInstance(first));
         world.run_system_once(split_views_by_live_room).expect("the pass runs");
         assert_eq!(rows(&mut world), alone, "one live room again: the split closed");
+    }
+    /// The split pass over a world with two room roots: Bob (seat one) in the
+    /// first live room, Alice (seat zero) in `alice_room`.
+    mod ownership {
+        use super::*;
+        use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+        use bevy::ecs::system::RunSystemOnce as _;
+
+        pub(super) struct Couch {
+            pub world: World,
+            pub alice: Entity,
+            pub bob: Entity,
+        }
+
+        impl Couch {
+            /// Two live rooms, the two seats together in the first.
+            pub fn together() -> Self {
+                let first = LiveRoomInstance::ACTIVATION;
+                let mut world = World::new();
+                world.spawn((RoomInstanceRoot, first));
+                world.spawn((RoomInstanceRoot, first.next()));
+                let alice = world
+                    .spawn((DrivingParticipant(PlayerSlot::PRIMARY), InRoomInstance(first)))
+                    .id();
+                let bob = world
+                    .spawn((DrivingParticipant(PlayerSlot(1)), InRoomInstance(first)))
+                    .id();
+                Self { world, alice, bob }
+            }
+
+            /// Alice goes to the second live room (`true`) or comes back.
+            pub fn alice_leaves(&mut self, leaves: bool) {
+                let first = LiveRoomInstance::ACTIVATION;
+                let room = if leaves { first.next() } else { first };
+                self.world.entity_mut(self.alice).insert(InRoomInstance(room));
+            }
+
+            /// Two passes: the second sees what the first one's commands made.
+            pub fn pass(&mut self) {
+                for _ in 0..2 {
+                    self.world.run_system_once(split_views_by_live_room).expect("the pass runs");
+                }
+            }
+
+            pub fn view_count(&mut self) -> usize {
+                self.world.query_filtered::<(), With<LocalView>>().iter(&self.world).count()
+            }
+
+            /// The views the split opened, as the seats they follow.
+            pub fn opened_for(&mut self) -> Vec<u8> {
+                let mut seats: Vec<u8> = self
+                    .world
+                    .query_filtered::<&ViewParticipant, (With<LocalView>, With<SplitForLiveRoom>)>()
+                    .iter(&self.world)
+                    .map(|seat| seat.0 .0)
+                    .collect();
+                seats.sort_unstable();
+                seats
+            }
+        }
+    }
+
+    /// THE SPLIT DOES NOT TAKE A PLACEMENT IT DID NOT WRITE.
+    ///
+    /// A composition placed its view: the top half, which is no column. While
+    /// the seats are in two live rooms the split opens a view for the seat
+    /// that has none, and it leaves the composition's placement as it is: not
+    /// overwritten, and not marked as the split's. When the seats are in one
+    /// room again the placement is still there. The split that wrote a column
+    /// over it, marked it and then removed it at the merge left that view
+    /// with no placement at all (review 2026-10-06, P2).
+    #[test]
+    fn the_split_leaves_a_placement_it_did_not_write() {
+        let mut couch = ownership::Couch::together();
+        let top_half = ViewPlacement {
+            min: ae::Vec2::ZERO,
+            max: ae::Vec2::new(1.0, 0.5),
+        };
+        let host = couch.world.spawn((LocalView, LocalViewId::FIRST, top_half)).id();
+        let host_row = |couch: &mut ownership::Couch| {
+            (
+                couch.world.get::<ViewPlacement>(host).copied(),
+                couch.world.get::<PlacedByLiveRoomSplit>(host).is_some(),
+            )
+        };
+
+        couch.alice_leaves(true);
+        couch.pass();
+        assert_eq!(couch.opened_for(), vec![1], "premise: the split is open, with a view for seat one");
+        assert_eq!(
+            host_row(&mut couch),
+            (Some(top_half), false),
+            "open: (the placement of the composition's view, whether the split marks it as its own)"
+        );
+
+        couch.alice_leaves(false);
+        couch.pass();
+        assert_eq!(couch.opened_for(), Vec::<u8>::new(), "premise: the split closed");
+        assert_eq!(
+            host_row(&mut couch),
+            (Some(top_half), false),
+            "closed: the composition's placement did not survive a split and a merge"
+        );
+    }
+
+    /// A VIEW THAT NAMES THE BODY OF A SEAT SHOWS THAT SEAT.
+    ///
+    /// A composition gave Bob's body its own view by name (`ViewSubject`).
+    /// While the seats are in two live rooms, seat one has a view: that one.
+    /// The split opens no second view of Bob. The control: a view that names
+    /// a body that no seat drives shows no seat, and the split opens Bob's.
+    #[test]
+    fn a_view_that_names_the_body_of_a_seat_is_the_view_of_that_seat() {
+        let mut couch = ownership::Couch::together();
+        couch.world.spawn((LocalView, LocalViewId::FIRST));
+        let bob = couch.bob;
+        couch.world.spawn((LocalView, LocalViewId(1), ViewSubject(bob)));
+        couch.alice_leaves(true);
+        couch.pass();
+        assert_eq!(
+            (couch.view_count(), couch.opened_for()),
+            (2, vec![]),
+            "(views, seats the split opened a view for): Bob's body has a view by name, and the split opened another"
+        );
+
+        let mut couch = ownership::Couch::together();
+        couch.world.spawn((LocalView, LocalViewId::FIRST));
+        let prop = couch.world.spawn_empty().id();
+        couch.world.spawn((LocalView, LocalViewId(1), ViewSubject(prop)));
+        couch.alice_leaves(true);
+        couch.pass();
+        assert_eq!(
+            (couch.view_count(), couch.opened_for()),
+            (3, vec![1]),
+            "control: a view of a body that no seat drives is not the view of seat one"
+        );
+    }
+
+    /// A PLACEMENT THAT SOMEBODY ELSE WROTE OVER THE SPLIT'S IS THEIRS.
+    ///
+    /// The split wrote a column on the host view. A composition then wrote
+    /// its own placement there. The split does not write its column back,
+    /// and does not remove that placement when it closes.
+    #[test]
+    fn the_split_releases_a_placement_that_was_written_over() {
+        let mut couch = ownership::Couch::together();
+        let host = couch.world.spawn((LocalView, LocalViewId::FIRST)).id();
+        couch.alice_leaves(true);
+        couch.pass();
+        assert_eq!(
+            couch.world.get::<ViewPlacement>(host).copied(),
+            Some(ViewPlacement::column(0, 2)),
+            "premise: the split wrote the host view's column"
+        );
+        assert!(couch.world.get::<PlacedByLiveRoomSplit>(host).is_some(), "premise: and marked it");
+
+        let theirs = ViewPlacement {
+            min: ae::Vec2::new(0.25, 0.25),
+            max: ae::Vec2::new(0.75, 0.75),
+        };
+        couch.world.entity_mut(host).insert(theirs);
+        couch.pass();
+        assert_eq!(
+            (couch.world.get::<ViewPlacement>(host).copied(), couch.world.get::<PlacedByLiveRoomSplit>(host).is_some()),
+            (Some(theirs), false),
+            "open: the split wrote over, or still claims, a placement another writer set"
+        );
+        couch.alice_leaves(false);
+        couch.pass();
+        assert_eq!(
+            couch.world.get::<ViewPlacement>(host).copied(),
+            Some(theirs),
+            "closed: the split removed a placement it did not write"
+        );
     }
 }

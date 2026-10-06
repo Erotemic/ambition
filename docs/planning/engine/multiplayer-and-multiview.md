@@ -35,6 +35,12 @@ A participant is not a body, room, or camera. A local view is not a participant.
   (`split_views_by_live_room`), and the views close when the seats meet. Each
   camera draws only its view's live room. See "The view half" in
   [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md).
+  The split changes only what it owns: the views it opened and the placements
+  it wrote (`PlacedByLiveRoomSplit` holds the value it wrote). A placement a
+  composition wrote is not written over, not marked and not removed at the
+  merge. A view shows a seat when the body it frames drives that seat, by
+  `ViewSubject` or by `ViewParticipant`, so a view that names Bob's body is
+  Bob's view and the split opens no second one.
 - A camera count is not a view count. `[census] views` and `[census] camera`
   (`crates/ambition_render/src/runtime_census.rs`) print both; the census
   writes to stderr. Exactly one camera names each view.

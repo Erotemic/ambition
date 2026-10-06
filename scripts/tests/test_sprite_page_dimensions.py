@@ -37,10 +37,16 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 
 # variant -> (worst side, count over 2048, over 4096, over 8192)
+#
+# 2026-10-05: "sprites" over 2048 rose 64 -> 65 for ONE page, deliberately: Bob's
+# SVG-rig redraw (360 x 320 frames, a full fighter moveset) packs onto two pages
+# where his toon sheet took one. The same full regen lowered the rest, and the
+# ratchet takes the lower figures with it (over 4096: 23 -> 16; 0.25x over 2048:
+# 13 -> 9).
 RATCHET = {
-    "sprites": (16236, 64, 23, 7),
+    "sprites": (16236, 65, 16, 7),
     "sprites_0_5x": (8118, 24, 7, 0),
-    "sprites_0_25x": (4059, 13, 0, 0),
+    "sprites_0_25x": (4059, 9, 0, 0),
     "sprites_potato": (1015, 0, 0, 0),
     "sprite_packs": (2048, 0, 0, 0),
 }

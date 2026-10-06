@@ -446,7 +446,8 @@ review_cues=(
     # overwrite the rig's sheet with the toon render on every full run.
     merchant_prototype erdish raid_enforcer fascist_enforcer
     # Named characters whose YAML manifests already live in $sprites_dir.
-    alice bob craig eve general_hero judy mallory olivia
+    # bob is NOT here any more -- see `tackon_targets`, the same move as oiler.
+    alice craig eve general_hero judy mallory olivia
     peggy sybil trent trudy victor walter
     # Phase 6 + bonus follow-up: every review config is now an
     # actual catalog character. Install the rest so the Hall of
@@ -490,9 +491,19 @@ tackon_targets=(
     # shape as `goblin_cave_dagger` one array up: a target that no batch names
     # exists only on the machine that once rendered it.
     gnu_ton_apple
+    # Bob, redrawn 2026-10-05 as an SVG rig (`targets/characters/bob.py`, rig
+    # under `rigged/bob/`). The rig roster below globs only TOP-LEVEL
+    # `rigged/*.rig.json`, and he stayed in `review_cues`, so every full run
+    # installed `generated/review/bob_*` -- a toon render left over from
+    # before the redraw, which `draw-review` no longer produces -- and the game
+    # drew the old Bob with his new art committed and nothing red.
+    bob
     # The Flying Spaghetti Monster's thrown meatball, the `meatball` projectile
     # visual, named here for the same reason as the apple above.
     fsm_meatball
+    # The rocks the Tyrant King shakes from his arena's ceiling, the
+    # `trex_rock` projectile visual, named here for the same reason.
+    trex_rock
     # The two Fighting Polygons are named here because a `--target` render is
     # not a PUBLISH ROSTER. Both were rendered into this checkout one target at
     # a time (`scripts/regen/sprites.sh --target <name>`), which works and is the right
@@ -1383,6 +1394,10 @@ echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # character_sprites are gone).
 review_scratch="$renderer_dir/generated/review"
 mkdir -p "$review_scratch"
+# ⛔ EMPTY IT FIRST. The install loop below copies whatever `<cue>_*` it finds
+# here, so a cue `draw-review` stopped rendering (a character moved to its own
+# target) would be installed from a previous run's leftovers, silently. Bob was.
+find "$review_scratch" -maxdepth 1 -type f -delete
 run_renderer_python draw-review -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch"
 # `ron` is included because the sandbox SheetRegistry parses RON at
 # startup (see `presentation::character_sprites::registry`). Without
@@ -1395,7 +1410,10 @@ for cue in "${review_cues[@]}"; do
             cp "$src" "$sprites_dir/${cue}_spritesheet.$ext"
             echo "  installed ${cue}_spritesheet.$ext"
         else
-            echo "  WARN: $src missing — skipped"
+            # A promoted cue with no fresh render keeps a stale sheet in the
+            # game. Fail: drop the cue here, or publish it from its target.
+            echo "ERROR: review cue '$cue' was not rendered by draw-review ($src missing)" >&2
+            exit 1
         fi
     done
     # The part flipbook the generator published beside the sheet

@@ -1130,8 +1130,10 @@
         "stochastic_parrot": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Stochastic Parrot",
-            spritesheet: "sprites/stochastic_parrot_spritesheet.png",
-            manifest: "sprites/stochastic_parrot_spritesheet.ron",
+            // v2, the SVG-rigged scarlet macaw (renderer f0ada62), with the same
+            // twelve rows as the v1 sheet it replaces.
+            spritesheet: "sprites/stochastic_parrot_v2_spritesheet.png",
+            manifest: "sprites/stochastic_parrot_v2_spritesheet.ron",
             tier: MainHall,
             // Floating = gravity-free, so the lively Aerial brain flies it.
             body_kind: Floating,

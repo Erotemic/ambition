@@ -115,9 +115,7 @@ mod host_adapter {
     ///
     /// The authority is [`ControlledSubject`], not `PrimaryPlayer` — the same
     /// authority [`sync_portal_viewer`] uses for the eye of a view that names
-    /// no body of its own, and the one
-    /// `markers.rs` names outright ("Input, abilities, camera, portal viewer
-    /// ... derive from the `ControlledSubject` resource"). While possessing,
+    /// no body of its own. While possessing,
     /// the controlled body is the possessed actor, so the gun and the warp
     /// indicator now follow the body you are actually driving instead of
     /// staying on the home avatar.

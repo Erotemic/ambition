@@ -414,3 +414,122 @@ fn two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters() {
          stage before suspecting the cognition seed"
     );
 }
+
+/// A match of two CPU fighters on the Smash stage, in the real host, after
+/// `steps` steps of the developer's gravity cycle. Returns the DOWN of the
+/// fighters' frames, and over [`CYCLED_MATCH_UPDATES`] updates: how many
+/// samples of a seated fighter brain there were, and how many of them were on
+/// the ground.
+const CYCLED_MATCH_UPDATES: usize = 300;
+
+fn a_match_in_cycled_gravity(steps: usize, by_the_key: bool) -> ((f32, f32), usize, usize) {
+    use ambition_platformer2d::engine_core::BodyGroundState;
+    use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;
+    use ambition_platformer2d::world::AmbientGravityRequest;
+    let mut app = host();
+    let roster = ambition_demo_smash::smash_roster_at_levels([ORDINARY, ORDINARY], &[RUNG, RUNG]);
+    app.world_mut().insert_resource(roster);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE)));
+    let mut warmup = 0;
+    while seat_positions(&mut app).len() != 2 {
+        app.update();
+        warmup += 1;
+        assert!(warmup < 600, "two CPU seats never seated: the match did not start");
+    }
+    assert_eq!(fighter_streams(&mut app).len(), 2, "each seat has a fighter brain");
+    for _ in 0..steps {
+        if by_the_key {
+            press_the_gravity_key(&mut app);
+        } else {
+            // What the key and the developer menu's Gravity row write.
+            app.world_mut().write_message(AmbientGravityRequest::Cycle);
+        }
+    }
+    let (mut down, mut samples, mut grounded) = ((0.0, 0.0), 0, 0);
+    for _ in 0..CYCLED_MATCH_UPDATES {
+        app.update();
+        let world = app.world_mut();
+        for (_, frame, ground) in world.query::<(&MatchSeat, &ResolvedMotionFrame, &BodyGroundState)>().iter(world) {
+            down = (frame.down().x, frame.down().y);
+            samples += 1;
+            grounded += usize::from(ground.on_ground);
+        }
+    }
+    (down, samples, grounded)
+}
+
+/// One press of `\`, through the host's own key path.
+#[cfg(feature = "input")]
+fn press_the_gravity_key(app: &mut App) {
+    use leafwing_input_manager::prelude::Buttonlike;
+    Buttonlike::press(&KeyCode::Backslash, app.world_mut());
+    app.update();
+    Buttonlike::release(&KeyCode::Backslash, app.world_mut());
+    app.update();
+}
+
+#[cfg(not(feature = "input"))]
+fn press_the_gravity_key(_app: &mut App) {
+    panic!("the key path needs the `input` feature");
+}
+
+/// The developer's gravity key reaches a hosted Smash match, and no CPU
+/// fighter stands on a floor there.
+///
+/// `\` (and the developer menu's Gravity row) steps the ambient gravity of
+/// the primary seat's room. The desktop binary hosts Smash beside its own
+/// game, so the key turns the frame of each CPU fighter brain: the one road
+/// in the shipped composition that puts a fighter brain in turned gravity.
+///
+/// The fighter brain measures the floor it stands on along world x
+/// (`WorldView::floor_ahead`, and the retreat sign and floor share of
+/// `situation.rs`). In turned gravity that is the wrong axis. It is NOT
+/// converted, and this test is the reason and its guard: the stage is a
+/// platform in the open, so in turned gravity each fighter falls out and the
+/// match ends. A fighter that is never on the ground has no floor to measure.
+///
+/// Measured 2026-10-06, a fresh match for each direction, 900 updates: normal
+/// gravity 1457 of 1800 samples on the ground; toward -x 0 of 1056 (the last
+/// fighter was gone at update 662); toward -y 0 of 732 (gone at 366); toward
+/// +x 0 of 1056. This test runs 300 updates of each, to keep the lane short;
+/// the bound is 2% of the samples. The control's own numbers do not pass the
+/// bound, so the bound can fail.
+///
+/// The control is normal gravity, where the fighters stand and fight.
+///
+/// If a turned direction goes red, a fighter brain stands on a floor in
+/// turned gravity (a stage with a wall or a ceiling, or a fighter that
+/// recovers along the turned DOWN). Then the world-x floor chain is live:
+/// restate it on the viewer's axes, as `floor_below` and `ground_below` are
+/// (LEVEL-BOX-READERS, `docs/planning/queue.md`).
+#[test]
+fn the_gravity_key_turns_a_hosted_smash_match_and_no_cpu_fighter_stands_in_turned_gravity() {
+    let (down, samples, grounded) = a_match_in_cycled_gravity(0, false);
+    eprintln!("[cycled-match] steps=0 down={down:?} samples={samples} grounded={grounded}");
+    assert_eq!(down, (0.0, 1.0), "control: normal gravity");
+    assert!(
+        grounded * 10 > samples * 3,
+        "control: in normal gravity the fighters stand on the stage: {grounded} of {samples} samples on the ground"
+    );
+    for (steps, turned) in [(1, (-1.0, 0.0)), (2, (0.0, -1.0)), (3, (1.0, 0.0))] {
+        let (down, samples, grounded) = a_match_in_cycled_gravity(steps, false);
+        eprintln!("[cycled-match] steps={steps} down={down:?} samples={samples} grounded={grounded}");
+        assert_eq!(down, turned, "{steps} step(s) of the gravity cycle did not turn the frame of a CPU fighter");
+        assert!(samples > 0, "{steps} step(s): no fighter was sampled");
+        assert!(
+            grounded * 50 <= samples,
+            "gravity toward {turned:?}: {grounded} of {samples} samples of a CPU fighter were on the ground"
+        );
+    }
+}
+
+/// The same step through the real key: the road is the key, not only the
+/// message a test can write.
+#[cfg(feature = "input")]
+#[test]
+fn the_backslash_key_turns_the_frame_of_each_cpu_fighter_in_a_hosted_match() {
+    let (down, samples, _) = a_match_in_cycled_gravity(1, true);
+    assert!(samples > 0, "no fighter was sampled");
+    assert_eq!(down, (-1.0, 0.0), "one press of the key did not turn the frame of a CPU fighter");
+}

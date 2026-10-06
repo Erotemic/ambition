@@ -2878,10 +2878,44 @@ closing speed on the DOWN axis.
   takes the retreat sign and the width of the floor from world x. In turned
   gravity they now get the right solid and measure it on the wrong axis.
   Ruling (Yardrat, 2026-10-06): do not build it now, no shipped road puts a
-  fighter brain in turned gravity. The two roads nobody has read are what
+  fighter brain in turned gravity. The two roads nobody had read were what
   would make it live: the developer gravity hotkey pressed in a Smash match,
   and `AMBITION_ACTOR_BRAIN_PROFILE` (a fighter brain on a body in a room
-  that turns gravity). Read those two before this is called dead code.
+  that turns gravity).
+- The two roads, read and (the first) measured 2026-10-06. Decision: still
+  NOT built.
+  - The developer gravity key IS a road, measured in `build_visible_app`
+    (the composition the desktop binary runs), a hosted Smash match of two
+    CPU fighter brains: one step of the cycle turned the frame of each
+    fighter from (0, 1) to (-1, 0), and a real press of `\` turned it one
+    step more. The writers of the request are in `ambition_app` only (the
+    key, and the developer menu's Gravity row); the standalone Smash demo
+    app has none.
+  - No fighter stands on a floor there. A fresh match for each direction,
+    900 updates, samples of a seated fighter on the ground: normal gravity
+    1457 of 1800; toward -x 0 of 1056 (the last fighter was gone at update
+    662); toward -y 0 of 732 (gone at 366); toward +x 0 of 1056. The stage is
+    a platform in the open, so each fighter falls out and the match ends.
+    `floor_ahead` needs a floor under the body, so it has no body to
+    answer wrong for. One stage (the default), one character, CPU against
+    CPU.
+  - The guard of this decision:
+    `the_gravity_key_turns_a_hosted_smash_match_and_no_cpu_fighter_stands_in_turned_gravity`
+    (`game/ambition_app/tests/smash_cpu_cognition.rs`). It is red when a
+    fighter is on the ground in turned gravity for more than 2% of the
+    samples (a stage with a wall or a ceiling); then build this. The key
+    path has its own arm
+    (`the_backslash_key_turns_the_frame_of_each_cpu_fighter_in_a_hosted_match`).
+  - `AMBITION_ACTOR_BRAIN_PROFILE`, READ and not measured: a measurement knob
+    of `ambition_dev_tools` ("Not a gameplay feature"), unset in every
+    ordinary run. When it is set, each authored actor gets the named
+    profile's brain, and `Fighter` is reachable, so a fighter brain can
+    stand in `gravity_lab` or under the hub's flip switch, where there IS a
+    floor in turned gravity. So under the knob the chain is live. The knob
+    exists to make `hall_of_characters` a cognition benchmark, and that room
+    does not turn gravity. A benchmark in a room that turns gravity would
+    measure a brain that reads the floor on the wrong axis: build this
+    before such a benchmark.
 
 **Rejected, do not retry:** to make a READER of the record use the published
 footprint (`CenteredAabb`) when the record is zero-length. The footprint of a

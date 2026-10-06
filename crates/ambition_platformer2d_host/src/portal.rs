@@ -122,14 +122,17 @@ mod host_adapter {
     pub fn publish_portal_body_views(
         mut commands: Commands,
         bodies: Query<
-            (Entity, &BodyKinematics),
+            (Entity, &BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>),
             Or<(With<PortalSceneBody>, With<PortalAffordanceBody>)>,
         >,
     ) {
-        for (entity, kin) in &bodies {
+        use ambition_platformer2d_core::AabbExt;
+        for (entity, kin, last_step) in &bodies {
             commands.entity(entity).try_insert(PortalBodyView {
                 pos: kin.pos,
-                size: kin.size,
+                // The box the body has, turned as its last step turned it:
+                // the box the portal core transits.
+                size: kin.collision_box(last_step).half_size() * 2.0,
                 facing: kin.facing,
             });
         }
@@ -886,6 +889,33 @@ mod tests {
             .iter(app.world())
             .count();
         assert_eq!(carriers, 1, "exactly one portal carrier");
+    }
+
+    /// The view's `size` is the collision box of the body: the box the portal
+    /// core transits and the presentation cuts into pieces. A body that lies
+    /// along sideways gravity is 40 on x and 24 on y, and the view must say
+    /// so, or the pieces are cut from a box the body does not have.
+    #[test]
+    fn the_published_size_is_the_box_the_body_has() {
+        use ambition_platformer2d_core::SweepSample;
+        use ambition_portal2d_presentation::PortalSceneBody;
+        let mut app = App::new();
+        app.add_systems(Update, publish_portal_body_views);
+        let tall = body(Vec2::new(10.0, 20.0));
+        let no_record = app.world_mut().spawn((tall, PortalSceneBody)).id();
+        let level = app
+            .world_mut()
+            .spawn((tall, PortalSceneBody, SweepSample::at_rest(tall, Vec2::new(0.0, 1.0))))
+            .id();
+        let lying = app
+            .world_mut()
+            .spawn((tall, PortalSceneBody, SweepSample::at_rest(tall, Vec2::new(1.0, 0.0))))
+            .id();
+        app.update();
+        let size = |entity| app.world().get::<PortalBodyView>(entity).unwrap().size;
+        assert_eq!(size(no_record), Vec2::new(24.0, 40.0), "control: a body with no record is level");
+        assert_eq!(size(level), Vec2::new(24.0, 40.0), "control: a body in normal gravity is level");
+        assert_eq!(size(lying), Vec2::new(40.0, 24.0), "a body that lies along sideways gravity");
     }
 
     /// A despawned subject must not resurrect as a command-spawned shell.

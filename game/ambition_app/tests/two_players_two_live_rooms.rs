@@ -2837,7 +2837,7 @@ fn a_seat_cannot_cross_back_inside_its_own_cooldown() {
 }
 
 /// Alice talks to the hub's dog. Returns whether the conversation opened.
-fn alice_talks_to_the_dog(sim: &mut Platformer2dSimHarness) -> bool {
+pub(crate) fn alice_talks_to_the_dog(sim: &mut Platformer2dSimHarness) -> bool {
     let dog = {
         let world = sim.world_mut();
         let mut query = world.query::<(bevy::prelude::Entity, &ambition_platformer2d::characters::actor::WornCharacter)>();
@@ -2867,7 +2867,7 @@ fn alice_talks_to_the_dog(sim: &mut Platformer2dSimHarness) -> bool {
 }
 
 /// The session's game mode now.
-fn game_mode(sim: &Platformer2dSimHarness) -> Option<ambition_platformer2d::platformer::schedule::GameMode> {
+pub(crate) fn game_mode(sim: &Platformer2dSimHarness) -> Option<ambition_platformer2d::platformer::schedule::GameMode> {
     sim.world()
         .get_resource::<bevy::state::state::State<ambition_platformer2d::platformer::schedule::GameMode>>()
         .map(|mode| *mode.get())

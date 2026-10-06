@@ -377,6 +377,33 @@ world authors water today; the sandbox has slugs and pools.
 
 **Default in force until you rule:** (a) and (c), the current behaviour.
 
+## Q163 — when Alice talks to someone, does Bob beside her keep playing?
+
+Filed 2026-10-06. Blocks nothing: (a) is what the game does today.
+
+The 2026-08-06 ruling says a conversation claims only the talker's input and
+does not stop the world. Two rooms already followed it (OW1 cut 7u). In one
+room, the conversation put the whole session in the dialogue mode, which stops
+every gameplay-gated system. Measured 2026-10-06: Bob, beside Alice, moved
+176 px while she talked, but could not pick up the gun-sword or take a door.
+That was neither choice below, so the one-room case now follows the ruling
+(`a_conversation_holds_only_the_talker_with_two_players_in_one_room`).
+
+* **(a) Bob keeps playing (current).** Alice's input is held by the
+  conversation; Bob moves, fights, picks up and takes doors. Enemies in the
+  room keep acting, also on Alice, and a hit breaks her conversation (ruling
+  2026-08-06: sustained, not modal). This differs from one player: alone,
+  Alice's conversation still enters the dialogue mode, which stops every
+  gameplay-gated system, every move trigger among them, so no enemy starts
+  an attack while a single player talks.
+* **(b) A conversation pauses everyone in its room.** Bob's input is held
+  too, and the room's gameplay waits until the conversation ends. A player in
+  another room keeps playing.
+* **(c) Bob chooses:** he plays on, or presses a button to join and watch the
+  conversation (and is held while he watches).
+
+**Default in force until you rule:** (a).
+
 ## Q162 — how does the screen split when two players in one room drift apart?
 
 Filed 2026-10-06. Blocks nothing: (a) is what the game does today.

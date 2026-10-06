@@ -146,8 +146,13 @@ in `the_screen_splits_when_two_players_drift_apart.rs`.
   are one per session; and an online peer shows every
   seat on its shared view, since only A4's client-local layout knows which
   seats are its own.
-- Two players in one room still share a conversation's pause (the first
-  game-state question above).
+- A conversation holds only the talker, also with two players in one room
+  (ruling 2026-08-06; the one-room case is Q163 in
+  [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)):
+  the session enters the dialogue mode only while one seat drives a body and
+  one room is live. Before 2026-10-06 the mode was entered in one room, so a
+  second player beside the talker moved but could not pick up or take a door
+  (`a_conversation_holds_only_the_talker_with_two_players_in_one_room`).
 
 ### A4 — online participant
 

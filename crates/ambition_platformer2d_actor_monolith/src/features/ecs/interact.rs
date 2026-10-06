@@ -153,11 +153,12 @@ pub fn interact_ecs_actors_and_switches(
     >,
     mut set_flag: MessageWriter<SetFlagRequested>,
     mut quest_advance: MessageWriter<QuestAdvanceRequested>,
-    // With the live rooms, in one parameter: the system is at Bevy's
-    // parameter ceiling.
-    (mut switch_activated, live_rooms): (
+    // With the live rooms and the seats that drive a body, in one parameter:
+    // the system is at Bevy's parameter ceiling.
+    (mut switch_activated, live_rooms, seats): (
         MessageWriter<SwitchActivated>,
         ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+        Query<&ambition_characters::control::DrivingParticipant>,
     ),
     mut vfx: VfxWriter,
 ) {
@@ -265,15 +266,20 @@ pub fn interact_ecs_actors_and_switches(
                 super::super::npcs::npc_message(interactable, &identity.name, false),
                 2.6,
             );
-            // THE DIALOGUE MODE IS FOR ONE LIVE ROOM (OW1 cut 7u). The mode
-            // stops every gameplay-gated system of every live room, so in it
-            // another player in another room could not take a door. With
+            // THE DIALOGUE MODE IS FOR ONE PLAYER (OW1 cut 7u, Q163). The
+            // mode stops every gameplay-gated system of every live room, so
+            // in it another player could not take a door or pick anything up,
+            // in another room or beside the talker, while that player's body
+            // still moved. A conversation claims only the talker's input
+            // (ruling 2026-08-06). So with another seat driving a body, or
             // another room live, the conversation holds only its own
             // participants: the talker's seat is captured by the dialogue
             // input context, and the other participant by its conversation
-            // hold. Whether two players in ONE room share the pause is a
-            // product question (multiplayer.md), so that case is not changed.
-            if live_rooms.count() <= 1 {
+            // hold.
+            let mut driving: Vec<_> = seats.iter().map(|driver| driver.0).collect();
+            driving.sort_unstable();
+            driving.dedup();
+            if live_rooms.count() <= 1 && driving.len() <= 1 {
                 ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
                     ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue,
                     "npc_interact",

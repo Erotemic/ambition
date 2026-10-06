@@ -511,3 +511,68 @@ fn a_seat_that_comes_back_into_another_room_brings_what_it_holds() {
     );
 }
 
+
+/// Q163 (the default in force): a conversation claims only the talker
+/// (ruling 2026-08-06), also with two players in one room. Alice talks to the
+/// hub's dog with seat 1 beside her; seat 1 keeps playing: its input moves its
+/// body, it takes the gun-sword, and it goes through the door to
+/// `duel_arena`, all while Alice is still talking. The talker's own input is
+/// captured by the dialogue input context, which the harness's actions do
+/// not pass through, so it is not measured here.
+///
+/// Measured before: the conversation put the session in the dialogue mode,
+/// which stops every gameplay-gated system, so seat 1 moved (176 px) but could
+/// not pick up or take a door. Control: Alice alone still enters the dialogue
+/// mode (`a_conversation_in_one_room_does_not_stop_the_other_players_room`).
+#[test]
+fn a_conversation_holds_only_the_talker_with_two_players_in_one_room() {
+    let talking = |sim: &Platformer2dSimHarness| {
+        sim.world()
+            .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
+            .is_some_and(|conversation| conversation.talker().is_some())
+    };
+    let mut sim = booted_in("central_hub_complex");
+    let body = seat_one_joins(&mut sim);
+    sim.step_n(AgentAction::default(), 5);
+    assert!(
+        crate::two_players_two_live_rooms::alice_talks_to_the_dog(&mut sim),
+        "precondition: Alice did not talk to the dog"
+    );
+    let before = place_of(&sim, body);
+    for _ in 0..40 {
+        sim.drive_seat(SEAT, ControlFrame { axis_x: 1.0, ..ControlFrame::default() });
+        sim.step(AgentAction::default());
+    }
+    sim.drive_seat(SEAT, ControlFrame::default());
+    let moved = (place_of(&sim, body).0 - before.0).abs();
+    let gun = SimId::placement("ground_gun_sword");
+    let at = {
+        let world = sim.world_mut();
+        world
+            .query::<(&SimId, &ambition_platformer2d::held_items::GroundItem)>()
+            .iter(world)
+            .find(|(id, _)| **id == gun)
+            .map(|(_, ground)| ground.pos)
+            .expect("the hub lays out the gun-sword")
+    };
+    put_body_at(&mut sim, body, at);
+    sim.drive_seat(SEAT, ControlFrame { attack_pressed: true, ..ControlFrame::default() });
+    sim.step(AgentAction::default());
+    sim.drive_seat(SEAT, ControlFrame::default());
+    sim.step_n(AgentAction::default(), 3);
+    let took = {
+        let world = sim.world_mut();
+        world
+            .query::<(&SimId, &ambition_platformer2d::platformer::lifecycle::InCustodyOf)>()
+            .iter(world)
+            .any(|(id, custody)| *id == gun && custody.custodian == body)
+    };
+    assert!(talking(&sim), "precondition: Alice's conversation ended before seat 1 crossed");
+    let crossed = seat_one_goes_through_the_door(&mut sim, body, "central_hub_complex", "duel_arena");
+    assert_eq!(
+        (moved > 24, took, crossed),
+        (true, true, true),
+        "(seat 1 moved, took the gun-sword, went through the door) while Alice talked; mode {:?}",
+        crate::two_players_two_live_rooms::game_mode(&sim)
+    );
+}

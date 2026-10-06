@@ -659,9 +659,25 @@ mod the_decision_log {
 /// the body, not from the frame the brain emits.
 ///
 /// It runs several noise streams and asks for one. The measured per-stream
-/// charge rate is about 0.3, so `STREAMS = 10` decides the test about 97
-/// times in 100. If charges become rarer, re-measure the rate before raising
-/// `STREAMS`: a larger sample can hide a falling rate.
+/// charge rate is about 0.1 (5 of 50 streams, 2026-10-06), so `STREAMS = 34`
+/// decides the test about 97 times in 100. If charges become rarer,
+/// re-measure the rate before raising `STREAMS`: a larger sample can hide a
+/// falling rate.
+///
+/// ⚠ THE RATE FELL ONCE, AND THIS IS THE RECORD OF IT. It was about 0.3 with
+/// `STREAMS = 10` until 2026-10-06. That day a move volume's launch
+/// direction became owner-local (`HitboxLaunch::OwnerLocal`, commit
+/// 497a47d11): a body struck BEHIND its attacker is launched the way the
+/// attacker faces, and before it was launched away from the attacker. About
+/// one landed hit in six of these matches is such a hit. The control: with
+/// the old rule put back in `Hitbox::launch_world`, 3 of these 10 streams
+/// charge; with the new rule, 0 of 10 and 5 of 50. The CPU still charges (to
+/// 0.99 in three of the 50), so the claim below holds. Why it charges a
+/// third as often is NOT known: the rollout models a hit with the default
+/// diagonal, not with the authored direction, and was not changed.
+///
+/// The streams are independent matches, so they run on threads: 34 in turn
+/// take five minutes.
 ///
 /// Strict on whether, weak on when: pinning a charge percentage or a tech
 /// position would pin demo tuning.
@@ -671,14 +687,23 @@ fn the_cpu_charges_a_smash_and_techs_a_landing_in_some_match() {
     // when the opponent is committed or offstage). At 1800 ticks the measured
     // best charge was 0.00 in all streams tried.
     const WINDOW: usize = 5400;
-    const STREAMS: u64 = 10;
+    const STREAMS: u64 = 34;
+
+    let matches: Vec<(f32, usize, usize)> = std::thread::scope(|scope| {
+        let streams: Vec<_> = (0..STREAMS)
+            .map(|stream| scope.spawn(move || watch_the_vocabulary(WINDOW, 0x5F37_7A11 * (stream + 1))))
+            .collect();
+        streams
+            .into_iter()
+            .map(|stream| stream.join().expect("a match panicked"))
+            .collect()
+    });
 
     let mut charged_in = 0usize;
     let mut teched_in = 0usize;
     let mut tumbled_in = 0usize;
     let mut best_charge = 0.0f32;
-    for stream in 0..STREAMS {
-        let (charge, techs, tumbles) = watch_the_vocabulary(WINDOW, 0x5F37_7A11 * (stream + 1));
+    for (charge, techs, tumbles) in matches {
         best_charge = best_charge.max(charge);
         if charge > 0.0 {
             charged_in += 1;
@@ -696,7 +721,7 @@ fn the_cpu_charges_a_smash_and_techs_a_landing_in_some_match() {
         "no CPU held a smash in any of {STREAMS} matches of {WINDOW} ticks — the \
          charge multiplier is authored on every fighter and nobody paid for any \
          of it (best fraction seen {best_charge:.2}). This sample decides a \
-         per-stream rate of 0.3 about 97 times in 100, so zero here is a \
+         per-stream rate of 0.1 about 97 times in 100, so zero here is a \
          finding rather than a draw."
     );
     // Non-vacuity for the tech half: with no tumble there is no landing to

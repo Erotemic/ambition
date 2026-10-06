@@ -2605,13 +2605,23 @@
             // that changing it is now one number.
             standing_height: Some(75.8),
             composition: None,
-            default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
             // THE BODY, stated, so the row is a buildable character: the
             // T-rex's call SUMMONS raptors by this id, and a summon refuses a
             // character the cast cannot build (`preflight_planned_bodies`).
             // A raptor is a sprinter.
             locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            // THE WAY IT HUNTS, stated. With none, a body is lowered with the
+            // default profile, whose aggro radius is 0: it notices nobody and
+            // stood where the call left it (Jon, 2026-10-06). A pack hunter:
+            // it notices across the hall and runs you down at full stride.
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 700.0,
+                attack_range: 44.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+            )),
             max_health: Some(4),
             tags: ["enemy", "large"],
         barks: (

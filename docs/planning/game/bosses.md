@@ -150,10 +150,13 @@ stochastic parrots, raptors").**
   stalks, and wails once dying. `every_boss_telegraph_cue_has_a_recipe` holds
   every boss's telegraph cues to a recipe (a missing cue plays silence).
 
-Still open: his own tail-whoosh and wall-crash sounds (candidates and reels in
-`untracked/sfx-candidates/trex/`, for Jon's ear; the conductor borrows the
-bear's swipe and his stomp until then). Then `fight_discovery` tuning and
-Jon's playtest.
+- His tail and his crash have their own sounds (`boss.trex.tail_whip`, a whip
+  crack; `boss.trex.crash`, a quake boom; Jon: "its your pick"). His raptors
+  hunt (their catalog row states a profile: with none, a body is lowered
+  with a 0 aggro radius and stands where the call put it). Walking back in on
+  him dead is silent (he wails only for a death he was seen alive before).
+
+Still open: `fight_discovery` tuning and Jon's playtest.
 
 Slices: (1) the body: one placement law for every boss drawn from a sheet,
 with the T-rex grounded, the hulls and the art's volumes; (2) the conductor,

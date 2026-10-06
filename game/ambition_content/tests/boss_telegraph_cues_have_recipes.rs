@@ -61,17 +61,18 @@ fn every_boss_telegraph_cue_has_a_recipe() {
     assert!(missing.is_empty(), "telegraph cues with no recipe, which play silence: {missing:?}");
 }
 
-/// The T-rex's own voice (his module's cues, beyond his pattern's).
+/// The T-rex's own sounds (his module's cues, beyond his pattern's).
 #[test]
-fn every_cue_the_trex_voices_has_a_recipe() {
+fn every_cue_the_trex_plays_has_a_recipe() {
     if !recipes().is_dir() {
         eprintln!("no SFX recipes at {}: nothing to compare", recipes().display());
         return;
     }
     let missing: Vec<&str> = ambition_content_modules::trex::VOICE
         .iter()
+        .chain(ambition_content_modules::trex::BODY.iter())
         .copied()
         .filter(|cue| !recipes().join(format!("{cue}.sfx.yaml")).is_file())
         .collect();
-    assert!(missing.is_empty(), "cues the T-rex voices with no recipe, which play silence: {missing:?}");
+    assert!(missing.is_empty(), "cues the T-rex plays with no recipe, which play silence: {missing:?}");
 }

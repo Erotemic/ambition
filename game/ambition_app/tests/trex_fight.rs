@@ -714,6 +714,20 @@ fn his_tells_and_his_stalking_are_voiced() {
     assert!(said.len() >= 3, "thirty seconds of him voiced only {said:?}");
 }
 
+/// Kill him with a real hit, the road the game's defeats take (setting his HP
+/// to 0 does not kill him: his encounter phases on to its enrage).
+fn kill_him(sim: &mut Platformer2dSimHarness) {
+    let placement = {
+        let world = sim.world_mut();
+        world.query::<&BossConfig>().iter(world).find(|c| c.behavior.id == TREX_ID).map(|c| c.id.clone()).expect("the T-rex")
+    };
+    crate::boss_lifecycle::kill_boss_with_a_real_hit(sim, &placement, 60 * 10);
+    sim.step(AgentAction::default());
+    let world = sim.world_mut();
+    let dead = world.query::<(&BossConfig, &BodyHealth)>().iter(world).any(|(c, h)| c.behavior.id == TREX_ID && !h.alive());
+    assert!(dead, "premise: the real hit killed him");
+}
+
 /// He dies wailing, once.
 #[test]
 fn he_dies_with_one_wail() {
@@ -724,8 +738,8 @@ fn he_dies_with_one_wail() {
         sim.step(AgentAction::default());
     }
     heard(&mut sim, &mut cursor);
-    wound(&mut sim, 0.0);
-    let mut wails = 0;
+    kill_him(&mut sim);
+    let mut wails = heard(&mut sim, &mut cursor).iter().filter(|cue| **cue == "boss.trex.death").count();
     for _ in 0..60 * 5 {
         sim.step(AgentAction::default());
         wails += heard(&mut sim, &mut cursor).iter().filter(|cue| **cue == "boss.trex.death").count();
@@ -733,4 +747,62 @@ fn he_dies_with_one_wail() {
     assert_eq!(wails, 1, "he wailed {wails} times dying");
 }
 
+
+
+
+/// Enraged, his raptors run you down: called in at the walls, they come
+/// along the floor for a player in the open (they hunt by a profile of their
+/// own; with none, a body notices nobody and stands where it was put).
+#[test]
+fn his_raptors_run_you_down() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    wound(&mut sim, 0.15);
+    step_until(&mut sim, 60 * 40, "his enrage roar", |sim| matches!(rex(sim).view.performing, Some((Move::Roar, _))));
+    step_until(&mut sim, 60 * 6, "him to call", |sim| matches!(rex(sim).view.performing, Some((Move::Call, true))));
+    let hall = rex(&mut sim).view.hall.expect("hall");
+    let mut closest = f32::MAX;
+    for _ in 0..60 * 6 {
+        let (pk, _) = player(&mut sim);
+        let r = rex(&mut sim);
+        let x = if r.kin.pos.x > (hall.left + hall.right) * 0.5 { hall.left + 400.0 } else { hall.right - 400.0 };
+        place_player(&mut sim, ae::Vec2::new(x, hall.floor - pk.size.y * 0.5 - 1.0));
+        sim.step(AgentAction::default());
+        let p = player(&mut sim).0.pos;
+        for raptor in kin(&mut sim, "npc_raptor_stalker") {
+            closest = closest.min((raptor.x - p.x).abs());
+        }
+    }
+    assert!(closest < 80.0, "his raptors came no nearer than {closest} to a player in the open");
+}
+
+/// Walking back in on him dead is silent: the death wail sounds when he
+/// dies, not each time you enter a room where he lies dead (Jon, 2026-10-06).
+#[test]
+fn walking_back_in_on_him_dead_is_silent() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    kill_him(&mut sim);
+    // His death and its outro.
+    for _ in 0..60 * 6 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "hall_of_bosses"), "hall_of_bosses");
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let mut cursor = Default::default();
+    heard(&mut sim, &mut cursor);
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, ARENA), ARENA);
+    let mut wails = 0;
+    let mut saw_him = false;
+    for _ in 0..60 * 3 {
+        sim.step(AgentAction::default());
+        wails += heard(&mut sim, &mut cursor).iter().filter(|cue| **cue == "boss.trex.death").count();
+        let world = sim.world_mut();
+        saw_him |= world.query::<(&BossConfig, &BodyHealth)>().iter(world).any(|(c, h)| c.behavior.id == TREX_ID && !h.alive());
+    }
+    assert!(saw_him, "premise: he lies dead in the arena when the player walks back in");
+    assert_eq!(wails, 0, "walking back in on him dead, he wailed {wails} times");
+}
 

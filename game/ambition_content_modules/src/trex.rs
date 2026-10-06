@@ -191,10 +191,8 @@ const LAND_DAMAGE: i32 = 2;
 const LAND_KNOCKBACK: f32 = 1.6;
 
 // ⛔ A cue the bank does not hold plays NOTHING and says nothing: these name
-// cues `sfx.bank.txt` ships (`VOICE` is held to the recipes by
-// `every_cue_he_voices_has_a_recipe`). The tail whoosh and the wall crash
-// borrow the nearest until their own are auditioned
-// (`untracked/sfx-candidates/trex/`).
+// cues `sfx.bank.txt` ships (`VOICE` and `BODY` are held to the recipes by
+// `every_cue_the_trex_plays_has_a_recipe`).
 //
 // His VOICE is one throat (the SFX renderer's `creature` mode, Jon's picks of
 // 2026-10-06). Each tell's growl and the roar's roar are his pattern's
@@ -214,6 +212,9 @@ const GROWL_RISE: [&str; 2] = ["boss.trex.growl_rise_a", "boss.trex.growl_rise_b
 const GROWL_HURT: [&str; 2] = ["boss.trex.growl_hurt_a", "boss.trex.growl_hurt_b"];
 /// Stalking between moves, he huffs or growls when he has been quiet this long.
 const IDLE_VOICE_S: f32 = 3.2;
+
+/// Every cue his body makes (his voice is `VOICE`).
+pub const BODY: [&str; 6] = [SFX_BITE, SFX_TAIL, SFX_STEP, SFX_STOMP, SFX_CRASH, SFX_RUBBLE];
 
 /// Every cue his voice can play.
 pub const VOICE: [&str; 17] = [
@@ -236,10 +237,10 @@ pub const VOICE: [&str; 17] = [
     GROWL_HURT[1],
 ];
 const SFX_BITE: &str = "boss.trex.chomp";
-const SFX_TAIL: &str = "boss.bear_mauler.swipe";
+const SFX_TAIL: &str = "boss.trex.tail_whip";
 const SFX_STEP: &str = "enemy.trex.footstep";
 const SFX_STOMP: &str = "boss.trex.stomp";
-const SFX_CRASH: &str = "boss.trex.stomp";
+const SFX_CRASH: &str = "boss.trex.crash";
 const SFX_RUBBLE: &str = "world.rock.break";
 
 /// The jaw grab. The strike lunges like the bite but further, and the jaws
@@ -421,6 +422,9 @@ record! {
     /// whether he has screamed (into phase 2, the first).
     38 rearing: Option<f32>,
     39 screamed: bool,
+    /// He has been seen alive. A boss cleared before you walked in loads dead
+    /// and never was: his wail is for a death, not for a corpse.
+    40 seen_alive: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -640,8 +644,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     };
 
     // ── Dead: he settles on the floor and is drawn by the engine ──
+    if rex.alive {
+        c.seen_alive = true;
+    }
     if !rex.alive {
-        if !c.mourned {
+        if c.seen_alive && !c.mourned {
             c.mourned = true;
             play(inv, SFX_DEATH, at + Vec2::new(side * head_front(), -40.0))?;
         }

@@ -372,9 +372,21 @@ pub fn return_the_replay_subject_to_spawn(
 /// The body moves into the primary's room with what it holds, rides or wears
 /// (`custody_closure`, the rule a crossing uses): the room stamp is what says
 /// which room an entity is in.
+///
+/// ⭐ A FALLEN SEAT IN ANOTHER LIVE ROOM COMES BACK BY A CROSSING (OW4). The
+/// crossing joins the primary's room, and the room the seat leaves retires
+/// when no other player holds it, as a room any crossing leaves empty does.
+/// A direct move left that room live with nobody in it: a restore neither
+/// spared it nor built it again, so what lay in it stayed while the bag took
+/// its spends back. The seat is put back in play on the tick after the
+/// crossing commits, when it is in the primary's room. A stranded seat has
+/// no live room to leave, so it moves at once.
 #[allow(clippy::too_many_arguments)]
 pub fn bring_a_fallen_seat_back_beside_the_primary(
     mut commands: Commands,
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
+    mut pending: ResMut<ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit>,
+    boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
     primary: Query<
@@ -398,6 +410,10 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
             Option<&ambition_combat::death_rules::DeathInterlude>,
             Has<ambition_combat::death_rules::OutOfPlay>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            (
+                Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+                Option<&ambition_characters::control::DrivingParticipant>,
+            ),
             ae::BodyClusterQueryData,
             &mut ambition_platformer2d_core::movement::MotionModel,
             &mut ambition_characters::actor::BodyAnimFacts,
@@ -418,8 +434,19 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
     let primary_room = primary_room.copied();
     let live: Vec<_> = live_roots.iter().copied().collect();
     let edges: Vec<(Entity, Entity)> = custody.iter().map(|(entity, held)| (entity, held.custodian)).collect();
-    for (body, window, out_of_play, room, mut cluster_item, mut motion_model, mut anim, mut combat, safety, health) in
-        &mut seats
+    for (
+        body,
+        window,
+        out_of_play,
+        room,
+        (sim_id, driver),
+        mut cluster_item,
+        mut motion_model,
+        mut anim,
+        mut combat,
+        safety,
+        health,
+    ) in &mut seats
     {
         // Out of play: back only when its beat has closed and its
         // consequence (a level reset of its own room) has run.
@@ -427,6 +454,34 @@ pub fn bring_a_fallen_seat_back_beside_the_primary(
         let stranded = !out_of_play && room.is_some_and(|room| !live.contains(&room.0));
         if !fallen && !stranded {
             continue;
+        }
+        if let (true, Some(primary_room), Some(room), Some(sim_id), Some(driver), Some(rooms)) =
+            (fallen, primary_room, room, sim_id, driver, rooms.as_ref())
+        {
+            let target = rooms.definition_in(primary_room.0).map(|definition| rooms.rooms().spec(definition).id.clone());
+            if *room != primary_room && live.contains(&room.0) {
+                if let Some(target_room) = target {
+                    // Refused while another operation holds the slot: asked
+                    // again on the next tick, and the seat waits out of play.
+                    let _ = pending.record(
+                        boundary.as_deref().map_or(0, |boundary| boundary.current),
+                        ambition_platformer2d_actor_monolith::session::lifecycle_commit::LifecycleIntent::Transition(
+                            ambition_platformer2d_actor_monolith::session::lifecycle_commit::RoomTransitionIntent {
+                                subject: ambition_platformer2d_shared_tangle::lifecycle::LiveBodyId::new(
+                                    sim_id.clone(),
+                                    Some(room.0),
+                                ),
+                                target_room,
+                                arrival: at,
+                                edge_exit: false,
+                                zone_sfx: None,
+                                participant: Some(driver.0),
+                            },
+                        ),
+                    );
+                    continue;
+                }
+            }
         }
         if let Some(primary_room) = primary_room {
             if room != Some(&primary_room) {

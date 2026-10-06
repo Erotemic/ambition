@@ -247,7 +247,13 @@ fn a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room() {
         room_of(&sim, primary),
         "control: seat 1 stayed in the room Alice left"
     );
+    assert_eq!(
+        crate::two_players_two_live_rooms::live_rooms(&mut sim).len(),
+        2,
+        "control: the room seat 1 stayed in is live beside Alice's"
+    );
     die(&mut sim, body);
+    let body = bodies_of_the_seat(&mut sim).first().copied().unwrap_or(body);
     let at = place_of(&sim, body);
     let primary_at = place_of(&sim, primary);
     assert_eq!(room_of(&sim, body), room_of(&sim, primary), "seat 1 came back in another room");
@@ -255,6 +261,15 @@ fn a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room() {
         (at.0 - primary_at.0).abs() <= 8 && (at.1 - primary_at.1).abs() <= 24,
         "seat 1 came back at {at:?}, not beside the primary at {primary_at:?}"
     );
+    // OW4: the room seat 1 left by its return holds nobody, so it retires,
+    // as a room a crossing leaves empty does. It stayed live with nobody in
+    // it, and a restore of Alice's checkpoint neither spared it nor built it
+    // again.
+    let rooms: Vec<String> = crate::two_players_two_live_rooms::live_rooms(&mut sim)
+        .into_iter()
+        .map(|(_, id)| id)
+        .collect();
+    assert_eq!(rooms, [HUB.to_string()], "the live rooms after seat 1 came back");
 }
 
 // ── The three arms of the 2026-10-05 review (Namek): each was measured
@@ -495,3 +510,4 @@ fn a_seat_that_comes_back_into_another_room_brings_what_it_holds() {
         "(seat 1's room, the held item's room) after seat 1 came back beside the primary"
     );
 }
+

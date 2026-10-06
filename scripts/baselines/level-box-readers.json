@@ -1,10 +1,10 @@
 {
   "about": "The level-box reads of a body that scripts/check_level_box_readers.py finds, each with its class. A new read is not in this file: convert it, or add it with the class that says why the level box is right there. A line the search no longer finds must be deleted: the counts may only fall. LEVEL-BOX-READERS in docs/planning/queue.md has the table.",
   "classes": {
-    "DEFECT, a procedure written in world axes": "NOT a legitimate read: wrong in turned gravity. The ambush of a teleport puts 'behind' on world x and the feet on world y, and the petting mark is on world x at the petter's y. To turn this one half would give a wrong answer of another shape: state the procedure in the frame of the body (LEVEL-BOX-READERS, docs/planning/queue.md)",
+    "DEFECT, a procedure written in world axes": "NOT a legitimate read: wrong in turned gravity. The petting mark is on world x at the petter's y, and the fit test puts the petter's level box there. To turn this one half would give a wrong answer of another shape: state the procedure in the frame of the body (LEVEL-BOX-READERS, docs/planning/queue.md)",
     "a published view of the box the body has": "`kin` on this line is a `PortalBodyView`, not a `BodyKinematics`: its size is published by the host as the collision box, turned (`publish_portal_body_views`)",
     "the length of the half only": "the reader takes the length of the half (a reach of the portal viewer), which the level box and a box turned by a quarter share",
-    "to convert: what a brain sees of a peer": "the half extent a brain is given for a peer is level",
+    "the half of a body in its own frame, for a reader with a frame": "the half on the body's own axes (side, DOWN), given to a reader that lays it on a frame. The perception view: the recovery lens hands it to a kernel body, which turns it, and the rollout projects on side and down. The candidates of a teleport's ambush: `ambush_arrival` lays them on the frame of the teleporter. To turn it at the source turns it twice",
     "a shot": "a shot is a free body with no support and no stance: its size is its box",
     "the gravity of a body": "this box is what resolves the frame of the body, so the frame cannot turn it",
     "the centre only": "the reader takes the centre, which the two boxes share",
@@ -27,7 +27,7 @@
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/teleport.rs",
       "code": "half: kin.size * 0.5,",
-      "class": "DEFECT, a procedure written in world axes"
+      "class": "the half of a body in its own frame, for a reader with a frame"
     },
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/avatar/trail.rs",
@@ -72,12 +72,12 @@
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs",
       "code": "half_extent: kin.size * 0.5,",
-      "class": "to convert: what a brain sees of a peer"
+      "class": "the half of a body in its own frame, for a reader with a frame"
     },
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs",
       "code": "half_extent: body.kin.size * 0.5,",
-      "class": "to convert: what a brain sees of a peer"
+      "class": "the half of a body in its own frame, for a reader with a frame"
     },
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pet.rs",

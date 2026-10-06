@@ -144,6 +144,8 @@ fn span_across(b: ae::Aabb, across: ae::Vec2) -> (f32, f32) {
 struct FoeCandidate {
     entity: Entity,
     pos: ae::Vec2,
+    /// The half of the body on its OWN axes: x on its side axis, y toward its
+    /// DOWN. [`ambush_arrival`] lays it on the frame of the teleporter.
     half: ae::Vec2,
     faction: ambition_characters::actor::ActorFaction,
     team: Option<ambition_combat::targeting::MatchTeam>,
@@ -173,9 +175,9 @@ impl FoeCandidate {
             ) == ambition_combat::targeting::CombatRelation::Foe
     }
 
-    /// The world y of this body's FEET (`+y` is gravity-down).
-    fn feet_y(&self) -> f32 {
-        self.pos.y + self.half.y
+    /// The FEET of this body on the DOWN axis `down`.
+    fn feet_on(&self, down: ae::Vec2) -> f32 {
+        self.pos.dot(down) + self.half.y
     }
 }
 
@@ -214,12 +216,18 @@ struct Ambush {
 /// the foe's facing. A fighter who turns to meet you does not thereby drag you
 /// around to their front; the ambush is decided by where the attacker came
 /// from, which is the thing the attacker controls.
+///
+/// THE FRAME IS THE TELEPORTER'S. `down` is her DOWN: "behind" is on her side
+/// axis and the feet are on her DOWN axis, so in a room whose gravity is
+/// turned she arrives past him along the floor they share. The foe is
+/// measured in her frame: the chooser has no DOWN of a foe.
 fn ambush_arrival(
     me: &FoeCandidate,
     candidates: &[FoeCandidate],
     reach: f32,
     gap: f32,
     facing: f32,
+    down: ae::Vec2,
 ) -> Option<Ambush> {
     let mut ordered: Vec<&FoeCandidate> = candidates.iter().filter(|c| me.may_ambush(c)).collect();
     ordered.sort_by(|a, b| match (&a.sim, &b.sim) {
@@ -246,9 +254,11 @@ fn ambush_arrival(
     // Behind = further along the line the attacker was already on. Directly
     // above or below him there is no such line, and the tiebreak is where she is
     // LOOKING: an ambush carries past him the way she was already facing.
-    let side = if foe.pos.x > me.pos.x {
+    let frame = ae::AccelerationFrame::new(down);
+    let (my_side, foe_side) = (me.pos.dot(frame.side), foe.pos.dot(frame.side));
+    let side = if foe_side > my_side {
         1.0
-    } else if foe.pos.x < me.pos.x {
+    } else if foe_side < my_side {
         -1.0
     } else if facing != 0.0 {
         facing.signum()
@@ -256,10 +266,8 @@ fn ambush_arrival(
         1.0
     };
     Some(Ambush {
-        arrival: ae::Vec2::new(
-            foe.pos.x + side * (foe.half.x + me.half.x + gap),
-            foe.feet_y() - me.half.y,
-        ),
+        arrival: frame.side * (foe_side + side * (foe.half.x + me.half.x + gap))
+            + frame.down * (foe.feet_on(frame.down) - me.half.y),
         facing: -side,
     })
 }
@@ -396,7 +404,7 @@ pub fn apply_authored_teleports(
             // `TeleportParams::behind_nearest_foe` — firing into empty space
             // spends the move to arrive somewhere nobody asked for.
             let Some(ambush) =
-                ambush_arrival(me, &candidates, params.distance, params.behind_gap, facing)
+                ambush_arrival(me, &candidates, params.distance, params.behind_gap, facing, gravity_dir)
             else {
                 continue;
             };

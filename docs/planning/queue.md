@@ -2712,10 +2712,10 @@ neighbours, and no class but the first was measured.
 | a second WRITE of the published footprint | 4 | 0 | `ambition_mount` (3), the Gnu-ton conductor | yes. BUILT, see below |
 | world and reach tests of a body | 16 | 0 | loading zones and reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `breakables.rs`, the portal gun pickup, `safe_position.rs`, the rider against solids (`ambition_mount`), the pickup of a ground item (`ambition_held_items/src/lib.rs`) | yes. BUILT, see below |
 | arrival and fit checks of a traversal | 4 | 0 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (the arrival) | yes. BUILT, see below |
-| a procedure written in world axes | 2 | 2 | the candidates of a teleport's ambush (`teleport.rs`, `ambush_arrival`), the fit of the petter at its mark (`pet.rs`) | yes, and NOT by this rule: a DEFECT of the procedure, see below |
+| a procedure written in world axes | 2 | 2 | the candidates of a teleport's ambush (`teleport.rs`, `ambush_arrival`), the fit of the petter at its mark (`pet.rs`) | yes, and NOT by this rule. The ambush is BUILT (the procedure is in the frame of the teleporter, and its line stays: the half is on the body's own axes). The petting mark is a DEFECT, see below |
 | portals: the carve and the eviction of a body | 3 | 0 | `ambition_portal2d` `transit.rs` (the carve), `eviction.rs` (2) | yes. BUILT, see below |
 | portals: read line by line, and not a level-box read of a body | 6 | 6 | the gravity lookup of the transit (`transit.rs`: the guard has it with the gravity lookups), a shot's portal transit (the guard has it with the shots), the reach of the portal viewer (the host adapter: the LENGTH of the half only), two draws in `ambition_portal2d_presentation` (they read `PortalBodyView`, a published view whose local name is `kin`), and the test literal | no, each with its reason in the baseline of the guard |
-| what a brain sees of a peer | 2 | 2 | `perception.rs` (`half_extent`) | yes |
+| what a brain sees of a body | 2 | 2 | `perception.rs` (`half_extent` of the viewer and of a peer) | NO, read 2026-10-06: the half is in the body's own frame, and its readers have a frame. See "Rejected" below |
 | a shot | 12 | 12 | `projectile/systems.rs` (4), `projectile/collision.rs`, `projectile/body.rs` (6, 2 of them the comment lines), `clash.rs` | no: a shot is a free body with no support and no stance, and its size is its box |
 | the gravity of a body | 3 | 3 | `gravity/resolve.rs` (2), the frame of a throw (`ambition_held_items/src/lib.rs`) | no: this box is what resolves the frame, so the frame cannot turn it |
 | the centre only | 3 | 3 | `avatar/trail.rs`, `target_volumes.rs`, the boss extension | no: the centre of the two boxes is the same |
@@ -2730,7 +2730,8 @@ there (16 and 3, not 17 and 2). The first sort also put the two world-axis
 procedures in the traversal class (6); they are a class of their own (4 and
 2). The search finds 50 lines on 2026-10-06 after the five classes that are
 built (the guard counts 47 of them: it leaves out the 2 comment lines and the
-test literal).
+test literal). Every line the guard counts now has a reason or the
+name DEFECT; no class is left "to convert".
 
 **The transit record, built 2026-10-06 (rollback schema 314 to 315):**
 `transit_body` and `reconcile_transit` have 23 call sites outside tests. Ten
@@ -2812,6 +2813,58 @@ which it has).
 
 The arms were written AFTER the conversion (a mechanical edit), so each red
 was seen by putting the reader's old line back, not before the change.
+
+**Rejected, do not retry: to turn the half the perception view gives a
+brain.** The first sort marked the two `half_extent` lines of `perception.rs`
+"yes". They are the half on the body's OWN axes (x along its side, y along
+its DOWN), and three readers use it so, each with a frame:
+`RecoveryLens` (`ambition_combat/src/brain/fighter/recovery.rs`) writes it to
+the size of a kernel body and runs the kernel, which turns it; the rollout
+(`rollout.rs`) and the option scorer (`options.rs`) project the offset to a
+foe on `side` and `down` and compare with `half_extent.x` and `.y`. A half
+turned at the source is turned twice by the first and laid on the wrong axis
+by the other two. The docs of `SelfView::half_extent` and
+`PerceivedActor::half_extent` now say which frame it is in. Two things are
+open and NOT built:
+
+- `WorldView::floor_below`, `supporting_floor` and `ground_below`
+  (`ambition_characters/src/perception.rs`) laid the same half on the WORLD
+  axes (`feet = me.pos.y + me.half_extent.y`). BUILT 2026-10-06, see "The
+  floor of a brain" below.
+- the view has no DOWN of a peer, so a reader uses the viewer's. Two bodies
+  in two gravity zones are measured in one frame.
+
+**The floor of a brain, built 2026-10-06:** `floor_below`,
+`supporting_floor` and `ground_below` ask on the two axes of the viewing
+body (`SelfView::acceleration_frame`): a floor is toward its DOWN, its
+footprint is on its side axis, and `ground_below` answers a coordinate on the
+DOWN axis. In normal gravity the axes are world x and y and each answer is
+the one it was. `tech_press` (`ambition_combat`, `reeling.rs`), the one
+reader that laid `ground_below` on world y, reads the feet, the gap and the
+closing speed on the DOWN axis.
+
+- WHO IS UNDER TURNED GRAVITY IN THE SHIPPED GAMES (read 2026-10-06, files
+  and LDtk, nothing run): no room puts a brain that asks these questions
+  under turned gravity. Their only callers are the fighter brain. The
+  fighter brain is selected by one catalog (Smash: the `duelist` profiles),
+  and is on Smash CPU seats only; the three Smash stages are built in Rust
+  with no gravity zone and no switch, and item drops are off. The rooms that
+  turn gravity (`gravity_lab`, `wall_run`, `ceiling_cross`, `symmetry_room`,
+  the hub's flip switch, and two Sanic levels) hold stand-still, patrol,
+  wanderer and Smash-template brains. Not traced: the developer gravity
+  hotkey pressed in a Smash match, and `AMBITION_ACTOR_BRAIN_PROFILE`. So
+  the fixtures are synthetic views built by hand, and each arm says so.
+- Arms, each red before (`ambition_characters/src/perception/tests.rs`): a
+  brain whose DOWN is +x, with a solid 8 past its feet on +x and a solid
+  under it on world +y. Each query took the solid on +y, and with only the
+  solid on +x each answered `None` (a brain that sees no floor is in
+  `Recovery`). A control in normal gravity is green before and after. One arm
+  for the footprint on the side axis. `tech_press`: a body that tumbles
+  toward a floor on +x did not press.
+- NOT built, the same defect one step on: `floor_ahead` measures the floor
+  it is given on world x (`support.max.x - me.pos.x`), and `situation.rs`
+  takes the retreat sign and the width of the floor from world x. In turned
+  gravity they now get the right solid and measure it on the wrong axis.
 
 **Rejected, do not retry:** to make a READER of the record use the published
 footprint (`CenteredAabb`) when the record is zero-length. The footprint of a
@@ -2908,26 +2961,63 @@ turned, and the gun and the indicator the presentation draws from the view
 (`size.x * 0.45` in front on world x, `size.y * 0.5` over on world -y: two
 more world-axis procedures, in a drawing).
 
-**A procedure written in world axes (2 lines, NOT built, a defect):** these
-two read a level half, and to turn the half alone is wrong, because every
-other term of the procedure is a world axis.
+**A crawler that holds a traversal, measured 2026-10-06:** the four
+arrivals ask the DOWN of the resolved frame. A crawler on a wall is not
+turned to its frame (its DOWN is into the wall), and `reconcile_transit`
+keeps the turn it had, so for such a body the frame is the wrong box.
+Which crawler can hold which verb, in the shipped app (a probe, not kept):
 
-- `ambush_arrival` (`teleport.rs`): "behind" the foe is world x
-  (`foe.pos.x + side * (foe.half.x + me.half.x + gap)`) and the feet are
-  world y (`foe.feet_y() - me.half.y`). Predicted in gravity toward +x (not
-  measured): "behind" is along gravity, so she arrives over the head of the
-  foe or in the floor under his feet, and her "feet" are put level with his
-  side, not on his floor.
+- `npc_puppy_slug` is the only character with a crawler body (the one
+  `surface_walker: true` of the catalogs; no row authors `motion_model`).
+- a POSSESSED slug: the seat's Attack press does not reach its
+  `ActorControl` (`melee_pressed` read false after the press, where the home
+  body read true after its own), and it did not pick up a dive that lay on
+  it. No wielded verb fires.
+- a body that WEARS the slug (`WornCharacter`, the home body): it is an
+  attached `AdhesiveCrawler`; an Attack press over a dive picked it up, and
+  an Attack press with the dive in hand moved it 141 and detached it. So the
+  dive has a road. Not established: whether the shipped game lets a player
+  wear the slug where a dive lies (the writers of `WornCharacter` are the
+  session setup and a match seat).
+- the teleport and the trapdoor are specials of a moveset, and a body has the
+  moveset of the character it wears. The characters that author them are
+  the director, the oni leader, the performer, `smash_duelist_a` and
+  `player_robot`: none is a crawler. No road, so they are NOT changed, and
+  they still ask the frame.
+- BUILT for the dive: it asks `SweepSample::down_or(record, frame.down())`,
+  the DOWN of the last step and else of the frame. Arm, red first: a crawler
+  on a wall under gravity toward +y dived with its box 6 inside the solid
+  ahead (the record is 20 deep on x, the frame 12). The blink is gated to the
+  axis arm, where the two are the same.
+
+**A procedure written in world axes (2 lines; the ambush is built, the
+petting mark is NOT):** these two read a level half, and to turn the half
+alone is wrong, because every other term of the procedure is a world axis.
+
+- `ambush_arrival` (`teleport.rs`): "behind" the foe was world x
+  (`foe.pos.x + side * (foe.half.x + me.half.x + gap)`) and the feet were
+  world y (`foe.feet_y() - me.half.y`). BUILT 2026-10-06: the chooser takes
+  the DOWN of the teleporter; "behind" is on her side axis and the feet are
+  on her DOWN axis, and the halves are laid on that frame (so the guard has
+  the candidate half with the own-frame halves, not as a DEFECT). Arm
+  through the real system, red first, gravity toward +x, a foe 120 beside
+  her on the floor they share: she arrived at (342, 180), toward the floor
+  from him, where (300, 138) is past him along the floor; she now arrives
+  there and looks back. The control in normal gravity is green before and
+  after. Who authors it: the director (`director_second_draft`) and the oni
+  leader (`iaijutsu`); they are placed in `hall_of_characters` and
+  `ninja_dojo`, which do not turn gravity, and on the Smash roster. So the
+  fixture is synthetic. The foe is measured in the frame of the teleporter:
+  the chooser has no DOWN of a foe.
 - the petting mark (`pet.rs`): the mark is at world x from the petted body
   (`petted_x + side * reach`) at the y of the petter, and the fit test puts
   the petter's level box there. Predicted in gravity toward +x (not
   measured): the mark is off the floor plane, in the air over the petted
   body or inside the floor, so the fit test refuses the side in the floor
   and the petter walks to a mark it cannot stand on.
-- Both are in the baseline of the guard under a class named DEFECT, so that
-  "classified" is not read as "right". The fix is to state each procedure in
-  the frame of the body (side axis and DOWN), and then the half is the turned
-  half.
+- The petting mark is in the baseline of the guard under a class named
+  DEFECT, so that "classified" is not read as "right". The fix is to state
+  the procedure in the frame of the body (side axis and DOWN).
 
 **The guard, built 2026-10-06:** `scripts/check_level_box_readers.py` runs
 the search above and compares each line with

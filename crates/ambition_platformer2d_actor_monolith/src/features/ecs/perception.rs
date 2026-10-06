@@ -409,6 +409,8 @@ pub fn collect_perception_peers(
             // FB1: this was `kin.size` — the FULL body size passed as a HALF
             // extent, so every peer read as twice its real box. `BodyKinematics`
             // keeps full size (`aabb()` halves it); the view's contract is halves.
+            // The half is in the body's OWN frame, not turned to the world
+            // axes: see `PerceivedActor::half_extent`.
             half_extent: kin.size * 0.5,
             faction: *faction,
             alive: health.alive(),
@@ -1060,7 +1062,9 @@ pub(crate) fn perception_body_for(
         // FB1: was `body.kin.size` — the FULL size handed to a HALF
         // extent. `WorldView::reachable` swept a box twice the body (cite-ok:
         // that method was itself deleted later, in `db2dffa3a`; the bug it
-        // records is why this is a half extent).
+        // records is why this is a half extent). It is in the body's OWN
+        // frame, not turned: the recovery lens hands it to a kernel body,
+        // which turns it. See `SelfView::half_extent`.
         half_extent: body.kin.size * 0.5,
         faction,
         gravity_down,

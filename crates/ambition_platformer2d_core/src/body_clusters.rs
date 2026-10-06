@@ -258,6 +258,19 @@ impl SweepSample {
         }
     }
 
+    /// The DOWN of a body, for a reader that has its frame and its record: the
+    /// DOWN of its last step if a step has moved it, else `frame_down`.
+    ///
+    /// The two are the same for a body the axis arm moves. They are not the
+    /// same for a crawler on a wall: its DOWN is into the wall, its frame is
+    /// its gravity, and only the record says which box its step moved.
+    pub fn down_or(record: Option<&Self>, frame_down: Vec2) -> Vec2 {
+        record
+            .map(|record| record.down)
+            .filter(|down| *down != Vec2::ZERO)
+            .unwrap_or(frame_down)
+    }
+
     /// The segment's displacement (`curr − prev`).
     pub fn delta(&self) -> Vec2 {
         self.curr - self.prev

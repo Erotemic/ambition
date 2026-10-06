@@ -3182,42 +3182,57 @@ of a shot that overlaps something, or of the instrument.
 
 ### RIG-IMPOSTOR-CONTAINMENT — a part-drawn body is drawn whole or refused
 
-**Review 2026-10-05 (carried forward, not fixed):** cells are still
-`frame_size + 2 * IMPOSTOR_MARGIN`, the parity oracle still clips to the cell,
-and a page is drawn through one camera with no per-cell scissor. The
-invariant: every pixel an admitted rig can rasterize lies in its cell.
-Compute a conservative asymmetric draw envelope at preparation (frames,
-mirroring, transforms, tween and rotation), choose the cell class from it,
-and fall back to the baked sprite when no class holds it. Then remove the
-oracle's clip and add a two-body shared-page containment test.
+**The invariant:** every pixel a composited body draws lies in its cell. One
+camera draws a whole page with no per-cell scissor, so a part past its cell
+is cut from its own body and drawn into its neighbour's.
 
-**Owner:** `ambition_render::rendering::actors::rigged` (`impostor_cell_class`)
+**Owner:** `ambition_render::rendering::actors::rigged` (`impostor_margin`,
+`posed_reach`), `ambition_sprite_sheet::character::rigged` (`art_overhang`)
 and `scripts/measure_rigged_parity.py`. Plan:
 [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md).
 
-**Scope since 37497a444 (2026-10-05):** a part-drawn body now draws its parts
-in the world, and uses an impostor cell only while something composes it
+**Scope since 37497a444 (2026-10-05):** a part-drawn body draws its parts in
+the world, and uses an impostor cell only while something composes it
 (`ComposedBodyDemand`: hit flash, portal pieces, deep dream, quasar) or its
-frame fades as one picture. So the containment invariant applies to that
-composed road only. The semantic part rendering work
-([`engine/semantic-part-rendering-and-ragdolls.md`](engine/semantic-part-rendering-and-ragdolls.md))
-is reshaping that road; agree the change with it before editing.
+frame fades as one picture. So the invariant applies to that composed road
+only.
 
-**Current failure (review 2026-10-04):** the cell class is chosen from the
-flipbook's `frame_size` plus a margin. Parts can draw outside the frame: a
-banner past the cell of the oni leader that faces left. Such parts are cut
-at the cell edge. The parity script clips its oracle to the same cell, so
-the gate cannot see the cut. `every_published_flipbook_fits_an_impostor_cell`
-checks the frame size, not where the parts draw.
+**Solved, by kind of draw:**
 
-**Next action:** compute a conservative draw envelope per flipbook (every
-draw of every frame and mirror row, with tween in-betweens) at publication.
-Choose the cell from the envelope, or refuse admission to the part road when
-no class holds it. Then remove the oracle clip, so that a cut part reads as
-a parity failure.
+- A published frame (2026-10-05). The cell is the frame plus
+  `impostor_margin`, which covers the flipbook's stated `art_overhang`. The
+  oni leader's banner is drawn whole (`a_cell_holds_every_draw_of_its_body`).
+- A tween's in-between (2026-10-06, review P2). `art_overhang` is a
+  conservative envelope of every draw `tween_into` can make, taken when the
+  flipbook is read: each moving draw is sampled finely enough that no corner
+  moves more than half a pixel between samples, and that slack is added
+  (`tween_overhang`). A part that turns between two frames reaches where
+  neither frame does (`the_overhang_of_a_tweened_clip_covers_its_in_betweens`;
+  the published corpus: `no_in_between_of_a_published_flipbook_reaches_past_its_overhang`).
+  Measured on the 123 published flipbooks with a tweened clip: the in-betweens
+  move the stated overhang of 12 of them, by 0.21 px at most; no cell changed.
+- Parts placed by a `PartPose` (2026-10-06, review P2). A pose is in no file,
+  so its reach is measured each frame (`posed_reach`). While it is more than
+  the margin, the body is drawn directly, as a body whose frame fits no cell
+  is: whole, and its readers see no image, with one warning. The hold that
+  smooths composition demand smooths this too
+  (`a_part_pose_that_reaches_past_its_cell_is_drawn_directly`).
 
-**Acceptance:** the oni leader's banner is drawn whole while it faces left; with
-the envelope poisoned back to `frame_size`, the unclipped parity run fails.
+**Open:**
+
+1. `scripts/measure_rigged_parity.py` still clips its oracle to the cell, so
+   a cut part cannot read as a parity failure there. The clip was added when
+   the cell was the frame plus 16 px (the oni leader's banner read as 1153
+   wrong pixels of a correct draw). With the margin from `art_overhang` the
+   clip should remove nothing. Remove it and run the harness on a GPU
+   (`rigged_sprite_parity`); acceptance: the oni leader passes unclipped, and
+   with `impostor_margin` poisoned back to 16 px it fails.
+2. A posed body that reaches past its cell loses its composed readers (its
+   hit flash overlay, its portal pieces) while it does. If a ragdoll must keep
+   them, give the presentation a cell chosen from the pose's reach, or let a
+   pose declare an envelope. No shipped body carries a `PartPose` today.
+3. A two-body shared-page test that reads the pixels of both cells needs a
+   GPU; the three proofs above are on the draw geometry.
 
 ### CHARGE-SPEC-NAME — `SmashChargeSpec` is a generic mechanism
 

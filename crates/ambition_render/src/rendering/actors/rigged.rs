@@ -81,6 +81,16 @@
 //! cut. A body whose frame fits no cell draws directly even when read as one
 //! image (and says so): its readers see no image.
 //!
+//! ⛔ EVERY PIXEL A COMPOSITED BODY DRAWS LIES IN ITS CELL. One camera draws a
+//! whole page with no scissor, so a part past its cell is cut from its own
+//! body and drawn into its neighbour's. Three kinds of draw, three proofs:
+//! a published frame and a tween's in-between are inside the margin by the
+//! flipbook's stated overhang (`RiggedSpriteAsset::art_overhang`, a
+//! conservative envelope taken when the flipbook is read); parts placed by a
+//! [`PartPose`] are in no file, so they are measured each frame
+//! ([`posed_reach`]), and a body whose pose reaches past its cell draws
+//! directly while it does, as a body that fits no cell.
+//!
 //! ⛔ Nothing here runs unless [`RiggedSpriteAdmission`] admits the flipbooks
 //! (on by default since 2026-10-01). The crouch squash of a sheet without a
 //! crouch row squashes the root's quad about the line it holds still, as it
@@ -131,8 +141,11 @@ pub const IMPOSTOR_MARGIN: f32 = 16.0;
 /// switch measured, a blob of 522 px (`measure_composition_switch.py`,
 /// 2026-10-05).
 pub fn impostor_margin(flipbook: &ambition_sprite_sheet::character::rigged::RiggedSpriteAsset) -> f32 {
-    IMPOSTOR_MARGIN.max(flipbook.art_overhang.ceil() + 2.0)
+    IMPOSTOR_MARGIN.max(flipbook.art_overhang.ceil() + IMPOSTOR_FRINGE)
 }
+
+/// The fringe, in sheet pixels, a resampled part's border adds past its quad.
+pub const IMPOSTOR_FRINGE: f32 = 2.0;
 
 /// The cell sizes of the impostor atlases, in sheet pixels (one texel each),
 /// smallest first, with the most cells per side each atlas grows to. A frame
@@ -415,6 +428,11 @@ pub struct RiggedPresentation {
     /// Frames the body stays composited with no new demand
     /// ([`COMPOSED_HOLD_FRAMES`] after the last).
     pub composed_hold: u16,
+    /// Frames the body stays OFF the composited road after the last frame its
+    /// [`PartPose`] put a part past its cell ([`posed_reach`]): the same hold,
+    /// so a pose at the edge of the cell does not move the body between the
+    /// atlas and the world every frame.
+    pub overflow_hold: u16,
     /// The render layers its slots carry now: the root's own while drawn
     /// directly, the impostor layer while composited.
     pub layers: RenderLayers,
@@ -794,6 +812,7 @@ fn spawn_presentation(
         slots,
         impostor: None,
         composed_hold: 0,
+        overflow_hold: 0,
         layers: RenderLayers::default(),
         drawn: Vec::new(),
         posed,
@@ -828,6 +847,7 @@ pub fn drive_rigged_presentations(
     mut roots: Roots,
     mut slots: Slots,
     mut too_large: Local<HashSet<String>>,
+    mut posed_past_cell: Local<HashSet<String>>,
 ) {
     // Which bodies are composited this frame, and where their slots draw.
     let always = PartPresentation::current() == PartPresentation::Impostor;
@@ -836,7 +856,7 @@ pub fn drive_rigged_presentations(
     // so a body given a cell in one draws directly once more.
     let mut fresh_pages: Vec<(usize, usize)> = Vec::new();
     for (_, mut presentation, _, _) in &mut owners {
-        let Ok((animator, _, _, _, _, _, root_layers, _, _)) = roots.get(presentation.root) else {
+        let Ok((animator, _, _, _, _, _, root_layers, pose, _)) = roots.get(presentation.root) else {
             continue;
         };
         let flipbook = presentation.pages.flipbook.clone();
@@ -852,6 +872,21 @@ pub fn drive_rigged_presentations(
             presentation.composed_hold.saturating_sub(1)
         };
         let margin = impostor_margin(&flipbook);
+        // ⛔ A POSE IS IN NO FILE, SO ITS REACH IS MEASURED. The margin holds
+        // what the flipbook draws; a `PartPose` can put a part anywhere.
+        let past_cell = pose
+            .and_then(|pose| posed_reach(&mut presentation, animator, pose))
+            .filter(|reach| *reach + IMPOSTOR_FRINGE > margin);
+        presentation.overflow_hold = match past_cell {
+            Some(_) => COMPOSED_HOLD_FRAMES,
+            None => presentation.overflow_hold.saturating_sub(1),
+        };
+        if let Some(reach) = past_cell.filter(|_| wanted && posed_past_cell.insert(presentation.target.clone())) {
+            warn!(
+                "rigged sprites: `{}` is read as one image but its pose puts a part {reach:.0} px past its                  frame, more than the {margin} px its cell gives; while it does, its parts draw directly and                  its readers see no image",
+                presentation.target,
+            );
+        }
         let class = impostor_cell_class(flipbook.frame_size.as_vec2(), margin);
         if wanted && class.is_none() && too_large.insert(presentation.target.clone()) {
             warn!(
@@ -864,7 +899,9 @@ pub fn drive_rigged_presentations(
             );
         }
         let composited = match class {
-            Some(class) if can_composite && presentation.composed_hold > 0 => Some(class),
+            Some(class) if can_composite && presentation.composed_hold > 0 && presentation.overflow_hold == 0 => {
+                Some(class)
+            }
             _ => None,
         };
         match (composited, presentation.impostor) {
@@ -948,19 +985,15 @@ pub fn drive_rigged_presentations(
         // `frame_phase` of the way to the next (the flipbook's published rule).
         let mut drawn = std::mem::take(&mut presentation.drawn);
         let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
-        let tweened = row.and_then(|row| flipbook.tween_into(row, animator.frame, animator.frame_phase(), &mut drawn));
-        // ⭐ POSE IS AN INPUT. A root carrying a `PartPose` (a ragdoll, a
-        // reach) has each part that rides a joint placed from it; the frame
-        // still says which parts draw, in what order and colour.
         let mut posed_draws = std::mem::take(&mut presentation.posed_draws);
-        let draws = match (tweened, pose, presentation.posed.as_deref()) {
-            (Some(()), Some(pose), Some(posed)) => {
-                posed.place(&drawn, &pose.joints, &mut posed_draws);
-                Some(posed_draws.as_slice())
-            }
-            (Some(()), _, _) => Some(drawn.as_slice()),
-            (None, _, _) => None,
-        };
+        let draws = frame_draws(
+            &flipbook,
+            animator,
+            pose,
+            presentation.posed.as_deref(),
+            &mut drawn,
+            &mut posed_draws,
+        );
         let (Some(draws), Some(basis), Some(mut root_anchor)) = (draws, animator.render_basis, root_anchor) else {
             presentation.drawn = drawn;
             presentation.posed_draws = posed_draws;
@@ -1152,6 +1185,51 @@ pub fn drive_rigged_presentations(
             }
         }
     }
+}
+
+/// This frame's draws of one body, in draw order: its clip's frame, tweened
+/// toward the next when the clip is, and then placed by its pose when its
+/// root carries one. `None` for a row its flipbook leaves to the baked sheet.
+///
+/// ⭐ POSE IS AN INPUT. A root carrying a `PartPose` (a ragdoll, a reach) has
+/// each part that rides a joint placed from it; the frame still says which
+/// parts draw, in what order and colour.
+fn frame_draws<'a>(
+    flipbook: &ambition_sprite_sheet::character::rigged::RiggedSpriteAsset,
+    animator: &CharacterAnimator,
+    pose: Option<&PartPose>,
+    posed: Option<&PosedParts>,
+    drawn: &'a mut Vec<PartDraw>,
+    posed_draws: &'a mut Vec<PartDraw>,
+) -> Option<&'a [PartDraw]> {
+    let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row))?;
+    flipbook.tween_into(row, animator.frame, animator.frame_phase(), drawn)?;
+    Some(match (pose, posed) {
+        (Some(pose), Some(posed)) => {
+            posed.place(drawn, &pose.joints, posed_draws);
+            posed_draws.as_slice()
+        }
+        _ => drawn.as_slice(),
+    })
+}
+
+/// How far past its frame, in sheet pixels, `pose` puts a part of this body
+/// this frame. `None` when the pose places nothing: the body's tracks ride no
+/// rig, or its row is the baked sheet's.
+///
+/// The flipbook states how far its own draws reach (its frames and their
+/// in-betweens), and the cell is sized from that. A pose is not the
+/// flipbook's, so nothing states its reach before the frame it is drawn.
+fn posed_reach(presentation: &mut RiggedPresentation, animator: &CharacterAnimator, pose: &PartPose) -> Option<f32> {
+    let posed = presentation.posed.clone()?;
+    let flipbook = presentation.pages.flipbook.clone();
+    let mut drawn = std::mem::take(&mut presentation.drawn);
+    let mut posed_draws = std::mem::take(&mut presentation.posed_draws);
+    let reach = frame_draws(&flipbook, animator, Some(pose), Some(&posed), &mut drawn, &mut posed_draws)
+        .map(|draws| flipbook.reach_past_frame(draws));
+    presentation.drawn = drawn;
+    presentation.posed_draws = posed_draws;
+    reach
 }
 
 /// Write `draws` onto a presentation's slots, in draw order, each slot's

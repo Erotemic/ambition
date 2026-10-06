@@ -525,3 +525,88 @@ fn a_pose_no_clip_authored_moves_the_parts_that_ride_the_turned_joint() {
         }
     }
 }
+
+/// A long bar that turns about the centre of a frame that is wide and not
+/// tall. It lies along the frame in each of its two frames, and it stands
+/// across the frame half-way between them.
+const TURNING_BAR: &str = r#"(
+    schema_version: 2,
+    target: "bar",
+    pages: ["bar_parts.png"],
+    frame_size: (64, 24),
+    feet_pixel: (32.0, 12.0),
+    parts: [(name: "bar", page: 0, rect: (0, 0, 60, 4), pivot: (30.0, 2.0))],
+    tracks: ["bar"],
+    clips: {
+        "spin": (frame_duration_s: 0.1, tween: Linear, frames: [
+            [(part: 0, at: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0), track: 0)],
+            [(part: 0, at: (0.0, 0.0), rotation: 3.0, scale: (1.0, 1.0), track: 0)],
+        ]),
+    },
+)"#;
+
+/// THE ROOM A CELL NEEDS COVERS THE IN-BETWEENS OF A TWEENED CLIP.
+///
+/// `art_overhang` was the reach of the AUTHORED frames. A tweened clip draws
+/// between them, and a part that turns between two frames reaches where
+/// neither frame does: this bar fits the frame at each end and stands 18 px
+/// past it half-way. A cell sized from the authored frames cut it.
+#[test]
+fn the_overhang_of_a_tweened_clip_covers_its_in_betweens() {
+    let asset = RiggedSpriteAsset::from_published_ron(TURNING_BAR).expect("the bar parses");
+    for index in 0..2 {
+        let reach = asset.reach_past_frame(asset.frame("spin", index).unwrap());
+        assert!(reach <= 0.0, "premise: frame {index} of the bar fits the frame, and it reaches {reach} px past");
+    }
+    let mut out = Vec::new();
+    let mut farthest = 0.0_f32;
+    for index in 0..2 {
+        for step in 0..=200 {
+            asset.tween_into("spin", index, step as f32 / 200.0, &mut out).unwrap();
+            let reach = asset.reach_past_frame(&out);
+            assert!(
+                reach <= asset.art_overhang + 1.0e-3,
+                "frame {index}, {step}/200 of the way: the bar reaches {reach} px past the frame, and the flipbook states {}",
+                asset.art_overhang
+            );
+            farthest = farthest.max(reach);
+        }
+    }
+    assert!(farthest > 15.0, "premise: half-way, the bar stands past the frame; it reached {farthest} px");
+    assert!(
+        asset.art_overhang <= farthest + 1.0,
+        "the stated overhang, {} px, is more than a pixel past the farthest the bar reaches, {farthest} px",
+        asset.art_overhang
+    );
+}
+
+/// The same law over what is published: no in-between of a tweened clip of a
+/// published flipbook reaches past the overhang the flipbook states.
+#[test]
+fn no_in_between_of_a_published_flipbook_reaches_past_its_overhang() {
+    let mut out = Vec::new();
+    let mut tweened = 0;
+    for key in crate::baked_part_flipbooks::baked_part_flipbook_targets() {
+        let asset = RiggedSpriteAsset::baked(key).expect("a published flipbook parses");
+        let rows: Vec<String> = asset.clip_names().map(str::to_owned).collect();
+        for row in rows {
+            let clip = asset.clip(&row).unwrap();
+            if clip.tween == ClipTween::Step {
+                continue;
+            }
+            tweened += 1;
+            for index in 0..clip.frame_count() {
+                for step in 0..=16 {
+                    asset.tween_into(&row, index, step as f32 / 16.0, &mut out).unwrap();
+                    let reach = asset.reach_past_frame(&out);
+                    assert!(
+                        reach <= asset.art_overhang + 1.0e-3,
+                        "`{key}` `{row}` frame {index}, {step}/16 of the way: {reach} px past the frame, stated {}",
+                        asset.art_overhang
+                    );
+                }
+            }
+        }
+    }
+    assert!(tweened > 0, "premise: no published flipbook has a tweened clip, so this checked nothing");
+}

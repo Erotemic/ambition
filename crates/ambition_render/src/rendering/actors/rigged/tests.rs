@@ -1350,3 +1350,77 @@ fn a_cell_holds_every_draw_of_its_body() {
         assert!(impostor_margin(&flipbook) >= flipbook.art_overhang + 2.0, "`{key}`'s cell clips its art");
     }
 }
+
+/// ⛔ A POSE THAT REACHES PAST THE CELL IS NOT COMPOSITED. A cell holds the
+/// frame and the room its flipbook's own draws need (`impostor_margin`). A
+/// `PartPose` puts a part where no file says (a ragdoll, a reach): Mary-O's
+/// near arm carried 400 px from her body, outside every published frame. One
+/// camera draws a whole page with no scissor, so that arm, composited, was
+/// drawn into another body's cell and cut out of her own.
+///
+/// While her posed parts reach past her cell she is drawn directly, as a body
+/// whose frame fits no cell is: whole, and her readers see no image. The
+/// control is the same body with the pose her clip already has: composited.
+#[test]
+fn a_part_pose_that_reaches_past_its_cell_is_drawn_directly() {
+    use ambition_sprite_sheet::character::rigged::PartPose;
+    use ambition_sprite_sheet::character::NO_BAKED_IMAGE;
+    use bevy::math::Affine2;
+
+    let flipbook = RiggedSpriteAsset::baked("mary_o_v2").expect("a published flipbook");
+    let (mut app, root) = app_with(true, sheet_with("mary_o_v2", Some(flipbook.clone())));
+    pin_clip(&mut app, root, "idle", 0);
+    settle(&mut app);
+    let owner = owner(&app, root);
+    assert!(draws_impostor(&app, root, owner), "premise: read as one image, she is composited");
+
+    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(
+        ambition_sprite_sheet::baked_body_rigs::baked_body_rig("mary_o_v2").unwrap(),
+    )
+    .unwrap()
+    .prepare()
+    .unwrap();
+    let mut joints = Vec::new();
+    assert!(rig.solve("idle", 0, &mut joints));
+
+    // Control: the pose of her own clip, given as a `PartPose`.
+    app.world_mut().entity_mut(root).insert(PartPose { joints: joints.clone() });
+    settle(&mut app);
+    assert!(draws_impostor(&app, root, owner), "control: a pose inside her cell took her off the composited road");
+
+    // Her near arm, carried far outside every published frame.
+    let arm = rig.joint_names().iter().position(|name| name == "near_arm").unwrap();
+    joints[arm] = Affine2::from_translation(Vec2::new(400.0, 0.0)) * joints[arm];
+    let reach = {
+        let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
+        let mut placed = Vec::new();
+        presentation.posed.as_ref().expect("her tracks ride her rig").place(flipbook.frame("idle", 0).unwrap(), &joints, &mut placed);
+        flipbook.reach_past_frame(&placed)
+    };
+    assert!(
+        reach > impostor_margin(&flipbook),
+        "premise: the carried arm reaches {reach} px past her frame, inside the {} px her cell gives",
+        impostor_margin(&flipbook)
+    );
+    app.world_mut().entity_mut(root).insert(PartPose { joints });
+    app.update();
+    {
+        let presentation = app.world().get::<RiggedPresentation>(owner).unwrap();
+        assert!(presentation.impostor.is_none(), "a pose that reaches {reach} px past her frame is still composited in a cell");
+        assert_eq!(app.world().get::<Sprite>(root).unwrap().image, NO_BAKED_IMAGE, "her root still draws a cell");
+        for slot in &presentation.slots {
+            assert_eq!(
+                app.world().get::<RenderLayers>(*slot),
+                Some(&RenderLayers::default()),
+                "a part of a body drawn directly draws on the impostor layer, where no view sees it"
+            );
+        }
+    }
+
+    // The pose ends: she is composited again, after the hold.
+    app.world_mut().entity_mut(root).remove::<PartPose>();
+    for _ in 0..=COMPOSED_HOLD_FRAMES + 2 {
+        app.update();
+    }
+    assert!(draws_impostor(&app, root, owner), "she did not go back to her cell after the pose ended");
+}

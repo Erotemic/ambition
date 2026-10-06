@@ -147,6 +147,12 @@ pub struct RiggedSpriteAsset {
     /// How far, in sheet pixels, the art any draw makes reaches past the
     /// frame on its farthest side (0 when every draw stays inside): the room a
     /// composited cell needs around the frame so it clips nothing.
+    ///
+    /// It covers each published frame and each IN-BETWEEN a tweened clip
+    /// draws ([`Self::tween_into`]): a part that turns between two frames
+    /// reaches where neither frame does. It does not cover parts placed by a
+    /// [`PartPose`], which no file states; measure those with
+    /// [`Self::reach_past_frame`].
     pub art_overhang: f32,
     clips: BTreeMap<String, RigSpriteClip>,
     /// The rows that this flipbook leaves to the baked sheet.
@@ -155,21 +161,125 @@ pub struct RiggedSpriteAsset {
     max_draws: usize,
 }
 
+/// The four corners of a part's quad, from its pivot.
+fn part_corners(part: &RigPart) -> [Vec2; 4] {
+    [Vec2::ZERO, Vec2::new(part.size.x, 0.0), Vec2::new(0.0, part.size.y), part.size].map(|corner| corner - part.pivot)
+}
+
+/// How far past a `frame_size` frame (feet at `feet_pixel`) one draw of
+/// `part` reaches: its quad, turned and scaled about its pivot and placed at
+/// the draw, against the frame's four sides. Negative when the quad is inside
+/// the frame: its distance from the nearest side.
+fn draw_overhang(part: &RigPart, draw: &PartDraw, frame_size: Vec2, feet_pixel: Vec2) -> f32 {
+    let (c, s) = (draw.rotation.cos(), draw.rotation.sin());
+    let mut overhang = f32::NEG_INFINITY;
+    for corner in part_corners(part) {
+        let local = corner * draw.scale;
+        // Clockwise with +y down, as the draw turns it.
+        let at = feet_pixel + draw.at + Vec2::new(c * local.x - s * local.y, s * local.x + c * local.y);
+        overhang = overhang.max(-at.x).max(-at.y).max(at.x - frame_size.x).max(at.y - frame_size.y);
+    }
+    overhang
+}
+
 /// How far past a `frame_size` frame (feet at `feet_pixel`) any of `draws`
-/// reaches: each part's quad, turned and scaled about its pivot and placed at
-/// its draw, against the frame's four sides.
+/// reaches; `0` when every draw stays inside.
 fn art_overhang(parts: &[RigPart], draws: &[PartDraw], frame_size: Vec2, feet_pixel: Vec2) -> f32 {
+    draws
+        .iter()
+        .filter_map(|draw| Some(draw_overhang(parts.get(usize::from(draw.part))?, draw, frame_size, feet_pixel)))
+        .fold(0.0, f32::max)
+}
+
+/// `draw` moved `t` (0..1) of the way to `target`, the draw of its track in
+/// the next frame: its place and scale linearly, its angle the shorter way,
+/// its colour and opacity linearly. The one rule a tween draws by
+/// ([`RiggedSpriteAsset::tween_into`]) and its envelope is measured by
+/// ([`tween_overhang`]).
+fn tween_draw(draw: &PartDraw, target: &PartDraw, t: f32) -> PartDraw {
+    let opacity = draw.opacity() + (target.opacity() - draw.opacity()) * t;
+    PartDraw {
+        at: draw.at.lerp(target.at, t),
+        scale: draw.scale.lerp(target.scale, t),
+        rotation: draw.rotation + shorter_turn(draw.rotation, target.rotation) * t,
+        color: PartDraw::pack_color(draw.tint().lerp(target.tint(), t), opacity),
+        ..*draw
+    }
+}
+
+/// The turn from angle `from` to angle `to` the shorter way, in `[-PI, PI)`.
+fn shorter_turn(from: f32, to: f32) -> f32 {
+    (to - from + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU) - std::f32::consts::PI
+}
+
+/// The draw of the next frame that `draw` tweens to: the draw of its track,
+/// when that draw is the same part. `None` for a draw that holds still.
+fn tween_target<'a>(draw: &PartDraw, following: &'a [PartDraw]) -> Option<&'a PartDraw> {
+    let track = draw.track?;
+    following
+        .iter()
+        .find(|next| next.track == Some(track))
+        .filter(|target| target.part == draw.part)
+}
+
+/// The most a sampled in-between may be short of the true reach, in sheet
+/// pixels: the samples of one moving draw are spaced so that no corner moves
+/// more than twice this between two of them.
+const TWEEN_ENVELOPE_SLACK_PX: f32 = 0.25;
+
+/// The most samples of one moving draw. Past it the slack grows with the
+/// path, and the envelope stays conservative.
+const TWEEN_ENVELOPE_MOST_SAMPLES: usize = 2048;
+
+/// How far past the frame the IN-BETWEENS of the tweened clips reach: every
+/// draw that [`RiggedSpriteAsset::tween_into`] moves, at every `t`.
+///
+/// A CONSERVATIVE bound, not a sample. A corner of a moving draw is at
+/// `at(t) + turn(t) * (scale(t) * corner)`, and it moves no faster (per unit
+/// of `t`) than `|at1 - at0| + |turn| * r + |(scale1 - scale0) * corner|`,
+/// where `r` is the larger of the corner's two scaled lengths. So between two
+/// samples a distance `1 / n` of `t` apart, it is within `speed / (2 n)` of
+/// the nearer one. Each draw is sampled finely enough that this is at most
+/// [`TWEEN_ENVELOPE_SLACK_PX`], and that slack is added to its reach.
+fn tween_overhang(
+    parts: &[RigPart],
+    draws: &[PartDraw],
+    clips: &BTreeMap<String, RigSpriteClip>,
+    frame_size: Vec2,
+    feet_pixel: Vec2,
+) -> f32 {
+    let frame = |clip: &RigSpriteClip, index: usize| {
+        let (start, len) = clip.frames[index];
+        &draws[start as usize..(start + len) as usize]
+    };
     let mut overhang = 0.0_f32;
-    for draw in draws {
-        let Some(part) = parts.get(usize::from(draw.part)) else {
-            continue;
-        };
-        let (c, s) = (draw.rotation.cos(), draw.rotation.sin());
-        for corner in [Vec2::ZERO, Vec2::new(part.size.x, 0.0), Vec2::new(0.0, part.size.y), part.size] {
-            let local = (corner - part.pivot) * draw.scale;
-            // Clockwise with +y down, as the draw turns it.
-            let at = feet_pixel + draw.at + Vec2::new(c * local.x - s * local.y, s * local.x + c * local.y);
-            overhang = overhang.max(-at.x).max(-at.y).max(at.x - frame_size.x).max(at.y - frame_size.y);
+    for clip in clips.values().filter(|clip| clip.tween != ClipTween::Step) {
+        for index in 0..clip.frames.len() {
+            // The first after the last: a tweened clip loops.
+            let following = frame(clip, (index + 1) % clip.frames.len());
+            for draw in frame(clip, index) {
+                let (Some(target), Some(part)) = (tween_target(draw, following), parts.get(usize::from(draw.part))) else {
+                    continue;
+                };
+                let turn = shorter_turn(draw.rotation, target.rotation).abs();
+                let speed = part_corners(part)
+                    .into_iter()
+                    .map(|corner| {
+                        let (from, to) = (corner * draw.scale, corner * target.scale);
+                        draw.at.distance(target.at) + turn * from.length().max(to.length()) + from.distance(to)
+                    })
+                    .fold(0.0, f32::max);
+                if speed <= 0.0 {
+                    continue;
+                }
+                let samples = ((speed / (2.0 * TWEEN_ENVELOPE_SLACK_PX)).ceil() as usize).clamp(1, TWEEN_ENVELOPE_MOST_SAMPLES);
+                let slack = speed / (2.0 * samples as f32);
+                // The two ends are published frames: `art_overhang` has them.
+                for step in 1..samples {
+                    let between = tween_draw(draw, target, step as f32 / samples as f32);
+                    overhang = overhang.max(draw_overhang(part, &between, frame_size, feet_pixel) + slack);
+                }
+            }
         }
     }
     overhang
@@ -363,7 +473,8 @@ impl RiggedSpriteAsset {
         }
         let frame_size = UVec2::new(published.frame_size.0, published.frame_size.1);
         let feet_pixel = Vec2::new(published.feet_pixel.0, published.feet_pixel.1);
-        let art_overhang = art_overhang(&parts, &draws, frame_size.as_vec2(), feet_pixel);
+        let art_overhang = art_overhang(&parts, &draws, frame_size.as_vec2(), feet_pixel)
+            .max(tween_overhang(&parts, &draws, &clips, frame_size.as_vec2(), feet_pixel));
         Ok(Self {
             target: published.target,
             texel_scale: published.texel_scale,
@@ -525,20 +636,9 @@ impl RiggedSpriteAsset {
         let following = self.frame(row, (index + 1) % clip.frames.len())?;
         let t = t.min(1.0);
         for draw in out.iter_mut() {
-            let Some(track) = draw.track else { continue };
-            let Some(target) = following.iter().find(|next| next.track == Some(track)) else {
-                continue;
-            };
-            if target.part != draw.part {
-                continue;
+            if let Some(target) = tween_target(draw, following) {
+                *draw = tween_draw(draw, target, t);
             }
-            let turn = (target.rotation - draw.rotation + std::f32::consts::PI).rem_euclid(std::f32::consts::TAU)
-                - std::f32::consts::PI;
-            draw.at = draw.at.lerp(target.at, t);
-            draw.scale = draw.scale.lerp(target.scale, t);
-            draw.rotation += turn * t;
-            let opacity = draw.opacity() + (target.opacity() - draw.opacity()) * t;
-            draw.color = PartDraw::pack_color(draw.tint().lerp(target.tint(), t), opacity);
         }
         Some(())
     }
@@ -553,6 +653,14 @@ impl RiggedSpriteAsset {
             .and_then(|clip| clip.frame_opacity.get(index.min(clip.frames.len() - 1)))
             .copied()
             .unwrap_or(1.0)
+    }
+
+    /// How far, in sheet pixels, `draws` reach past this flipbook's frame on
+    /// their farthest side; `0` when every draw stays inside. The measure
+    /// behind [`Self::art_overhang`], for draws that are not a published
+    /// frame: a tween's in-between, parts placed by a [`PartPose`].
+    pub fn reach_past_frame(&self, draws: &[PartDraw]) -> f32 {
+        art_overhang(&self.parts, draws, self.frame_size.as_vec2(), self.feet_pixel)
     }
 
     /// The most draws any frame makes: the number of reusable slots a player

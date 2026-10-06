@@ -16,15 +16,15 @@ use crate::body_clusters::{BodyClusterScratch, SweepSample};
 use crate::world::Block;
 use crate::{AbilitySet, Aabb, MotionFrame, Vec2, World};
 
-const BODY: Vec2 = Vec2::new(48.0, 22.0);
+pub(super) const BODY: Vec2 = Vec2::new(48.0, 22.0);
 /// The box of the body when it lies along a vertical support.
-const STEP_HALF: Vec2 = Vec2::new(11.0, 24.0);
+pub(super) const STEP_HALF: Vec2 = Vec2::new(11.0, 24.0);
 const DT: f32 = 1.0 / 60.0;
 /// The right face of the wall the slug is attached to.
 const WALL_FACE_X: f32 = 48.0;
 
 /// A room with one wall on its left side and nothing else.
-fn room(hazard: Option<Aabb>) -> World {
+pub(super) fn room(hazard: Option<Aabb>) -> World {
     let size = Vec2::new(4000.0, 2400.0);
     let mut blocks = vec![Block::solid("left wall", Vec2::ZERO, Vec2::new(WALL_FACE_X, size.y))];
     if let Some(hazard) = hazard {
@@ -42,31 +42,41 @@ fn room(hazard: Option<Aabb>) -> World {
     }
 }
 
-fn normal_gravity() -> MotionFrame {
+pub(super) fn normal_gravity() -> MotionFrame {
     MotionFrame::from_acceleration(Vec2::new(0.0, GRAVITY)).expect("gravity is not zero")
 }
 
 /// Gravity toward +x: a falling body lies along a vertical support.
-fn sideways_gravity() -> MotionFrame {
+pub(super) fn sideways_gravity() -> MotionFrame {
     MotionFrame::from_acceleration(Vec2::new(GRAVITY, 0.0)).expect("gravity is not zero")
 }
 
 /// What one step of a body gave.
-struct Stepped {
-    reset: Option<ResetCause>,
-    sample: SweepSample,
-    attached: bool,
+pub(super) struct Stepped {
+    pub(super) reset: Option<ResetCause>,
+    pub(super) sample: SweepSample,
+    pub(super) attached: bool,
+    pub(super) pos: Vec2,
+    pub(super) vel: Vec2,
+    /// The water and the ladder the step cached (the axis arm caches them).
+    pub(super) in_water: bool,
+    pub(super) on_climbable: bool,
+    /// An axis body still hangs on a ledge.
+    pub(super) hanging: bool,
 }
 
 /// A body, and the step it takes.
 #[derive(Clone, Copy)]
-struct Body {
-    spec: MotionModelSpec,
+pub(super) struct Body {
+    pub(super) spec: MotionModelSpec,
     /// The normal of the wall a crawler starts attached to.
-    attached_to: Option<Vec2>,
-    pos: Vec2,
-    vel: Vec2,
-    frame: MotionFrame,
+    pub(super) attached_to: Option<Vec2>,
+    /// The ledge an axis body starts the step hanging on.
+    pub(super) hang: Option<crate::LedgeContact>,
+    pub(super) abilities: AbilitySet,
+    pub(super) pos: Vec2,
+    pub(super) vel: Vec2,
+    pub(super) frame: MotionFrame,
 }
 
 impl Body {
@@ -78,6 +88,8 @@ impl Body {
                 ..CrawlerParams::default()
             }),
             attached_to: Some(Vec2::new(1.0, 0.0)),
+            hang: None,
+            abilities: AbilitySet::default(),
             pos: Vec2::new(WALL_FACE_X + STEP_HALF.x, 1000.0),
             vel: Vec2::ZERO,
             frame: normal_gravity(),
@@ -85,10 +97,12 @@ impl Body {
     }
 
     /// A body in sideways gravity with no surface near it.
-    fn in_sideways_gravity(spec: MotionModelSpec, vel: Vec2) -> Self {
+    pub(super) fn in_sideways_gravity(spec: MotionModelSpec, vel: Vec2) -> Self {
         Self {
             spec,
             attached_to: None,
+            hang: None,
+            abilities: AbilitySet::default(),
             pos: Vec2::new(1000.0, 1200.0),
             vel,
             frame: sideways_gravity(),
@@ -97,8 +111,8 @@ impl Body {
 
     /// One step. `sampled` gives the body a [`SweepSample`], as an entity has;
     /// a body with none is tested at its end only.
-    fn step(self, world: &World, sampled: bool) -> Stepped {
-        let mut scratch = BodyClusterScratch::new_with_abilities(self.pos, AbilitySet::default());
+    pub(super) fn step(self, world: &World, sampled: bool) -> Stepped {
+        let mut scratch = BodyClusterScratch::new_with_abilities(self.pos, self.abilities);
         scratch.kinematics.size = BODY;
         scratch.base_size.base_size = BODY;
         scratch.kinematics.vel = self.vel;
@@ -108,6 +122,9 @@ impl Body {
         switch_motion_model(model, self.spec);
         if let (MotionModel::AdhesiveCrawler(crawler), Some(normal)) = (&mut *model, self.attached_to) {
             crawler.state = CrawlerState::attached(normal);
+        }
+        if let (MotionModel::AxisSwept(axis), Some(contact)) = (&mut *model, self.hang) {
+            axis.state.ledge_grab = Some(crate::LedgeGrabState::hanging(contact));
         }
         if sampled {
             clusters.sweep = Some(&mut sample);
@@ -128,10 +145,16 @@ impl Body {
             },
         );
         let attached = matches!(&*model, MotionModel::AdhesiveCrawler(crawler) if crawler.state.is_attached());
+        let hanging = matches!(&*model, MotionModel::AxisSwept(axis) if axis.state.ledge_grab.is_some());
         Stepped {
             reset: result.events.reset,
             sample,
             attached,
+            pos: scratch.kinematics.pos,
+            vel: scratch.kinematics.vel,
+            in_water: scratch.env_contact.water.is_some(),
+            on_climbable: scratch.env_contact.climbable.is_some(),
+            hanging,
         }
     }
 }
@@ -140,8 +163,8 @@ fn overlaps(a: Aabb, b: Aabb) -> bool {
     a.min.x < b.max.x && b.min.x < a.max.x && a.min.y < b.max.y && b.min.y < a.max.y
 }
 
-/// The hazard, as an offset box from `centre`.
-fn hazard_at(centre: Vec2, min: Vec2, max: Vec2) -> Aabb {
+/// A thin region, as an offset box from `centre`.
+pub(super) fn hazard_at(centre: Vec2, min: Vec2, max: Vec2) -> Aabb {
     Aabb {
         min: centre + min,
         max: centre + max,

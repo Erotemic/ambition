@@ -499,7 +499,11 @@ fn step_surface_momentum(
     // The axis arm drains the same lookup in its integration step. Drained on
     // the SurfaceBody itself so a spring pad can launch a rider airborne
     // (with the occlusion bookkeeping every launch records).
-    if let Some(impulse) = touching_rebound_aabb(ctx.world, clusters.kinematics.aabb()) {
+    //
+    // The ride circle is the body's extent along the frame's DOWN, so the box
+    // of this step is the frame's. The pad and the hazard gate test that box.
+    let step_half = clusters.kinematics.half_oriented(ctx.frame.down());
+    if let Some(impulse) = touching_rebound_aabb(ctx.world, crate::Aabb::new(clusters.kinematics.pos, step_half)) {
         surface_momentum::apply_pad_impulse(ctx.world, &mut body, impulse, ctx.dt);
     }
     clusters.kinematics.vel = body.vel;
@@ -522,9 +526,6 @@ fn step_surface_momentum(
     motion.route_memory = body.route_memory;
     motion.occlusions = body.occlusions;
     motion.spend_boost(ctx.dt);
-    // The ride circle is the body's extent along the frame's DOWN, so the box
-    // of this step is the frame's.
-    let step_half = clusters.kinematics.half_oriented(ctx.frame.down());
     write_sweep_sample(clusters, sweep_entry, step_half);
 
     let mut events = FrameEvents {

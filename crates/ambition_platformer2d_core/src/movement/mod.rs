@@ -441,7 +441,9 @@ fn update_body_simulation_inner(
         match crate::ledge_grab::ledge_carry_for_frame(
             world,
             grab.contact,
-            clusters.kinematics.aabb(),
+            // The box a solid stops is the body's box turned to the frame's
+            // DOWN, as in every collision of the step.
+            clusters.kinematics.aabb_oriented(frame.down()),
             clusters.kinematics.size,
             frame.down(),
         ) {
@@ -470,8 +472,13 @@ fn update_body_simulation_inner(
     // Cache water + climbable contact once per tick so movement,
     // jump-buffer, and integration all see the same answer. Also
     // clear a stale ledge grab if the ability is no longer enabled.
-    clusters.env_contact.water = world.water_at(clusters.kinematics.aabb());
-    clusters.env_contact.climbable = world.climbable_at(clusters.kinematics.aabb());
+    //
+    // The box that touches a region is the box the step moves: the body's
+    // box turned to the frame's DOWN. The level box found water beside a body
+    // in sideways gravity, and missed water under its own end.
+    let step_box = clusters.kinematics.aabb_oriented(frame.down());
+    clusters.env_contact.water = world.water_at(step_box);
+    clusters.env_contact.climbable = world.climbable_at(step_box);
     if !clusters.abilities.abilities.ledge_grab {
         state.ledge_grab = None;
     }

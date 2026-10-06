@@ -2601,18 +2601,36 @@ hazard, and the record itself. Each end case also steps a body with no sample:
 with a sample the path test covers a hit at the end, so the first poison of
 the end test left two cases green (a missed prediction, recorded in the commit).
 
+**Built 2026-10-06, the other world reads of a step:** four more readers in
+the kernel asked the world with the level box, and each now asks the box the
+step moved: `world.water_at` and `world.climbable_at` in the axis arm
+(`movement/mod.rs`), the knock-off test of a ledge carry (same file; found
+while the first three were read), and the rebound pad of the momentum arm
+(`movement/kernel.rs`; the axis arm asked the turned box already,
+`movement/integration.rs`). Measured before the change with the 48 by 22 body
+at rest in sideways gravity: it drowned in water beside it and did not drown
+in water under its own end; the same two wrong answers for a ladder, for a pad
+on the momentum arm, and for a solid near a hang on a moving solid (the hang
+broke for a solid beside the body, and the carry moved the body into a solid
+under its end). Witnesses (`movement/tests/step_box_world_reads.rs`): eight
+cases where the two boxes give opposite answers, and one control in normal
+gravity that fails if a reader swaps the sides of the box with no frame.
+
 **Open, read 2026-10-05, not built:**
 - A transit collapses the record to a zero-length sample with the level half
   (`movement/authority.rs`, `reconcile_transit`), and it has no frame to turn
   the box with. The two boxes differ only in sideways gravity, and only for
   the readers of that tick.
-- Three other world tests in the kernel ask the level box:
-  `world.water_at` and `world.climbable_at` in the axis arm
-  (`movement/mod.rs`) and the rebound pad of the momentum arm
-  (`movement/kernel.rs`; the axis arm asks the turned box,
-  `movement/integration.rs`). They are equal to the turned box in normal
-  gravity. Water states a world `top_y`, so it is not gravity-covariant in
-  other ways too: decide the three together.
+- Water is not gravity-covariant in a second way. `World::water_at` states the
+  surface as the world top of the region (`surface_y`) and measures the
+  submersion on world y, so in sideways gravity the surface of a pool is not
+  the face that is against gravity. The box that TOUCHES the water is now the
+  box of the step; what the surface of a region is, in a room whose gravity is
+  not down, is a design decision.
+- The axis arm is the only writer of `BodyEnvironmentContact` outside tests
+  (searched in `crates` and `game`, 2026-10-06). So a slug or a momentum body
+  is in no water and on no ladder, and it does not drown. Not measured in a
+  composed room.
 - The enemy body's own box (`features/enemies/integration.rs`, `aabb`) swaps
   its extents by `surface_normal.x.abs() > 0.5`, a second statement of
   `aabb_oriented(-surface_normal)`. They are equal for a cardinal normal.

@@ -1515,6 +1515,37 @@ fn every_seat_gets_the_body_facts_its_character_authors() {
     }
 }
 
+/// A seat states the quad its art is drawn at only when its seed resolved one
+/// from a sheet. A character with no sheet has no art scale: its seat states
+/// no quad, so the landmark query has no answer for it and each reader uses
+/// its own named fallback. A quad guessed from the box would be an answer.
+///
+/// The seat that does state one is held in the shipped game
+/// (`admiral_gun_sword` in `app_it`): this fixture's catalog is empty, so no
+/// character here has sheet sizing.
+#[test]
+fn a_seat_with_no_sheet_states_no_drawn_quad() {
+    let mut app = seating_app();
+    app.register_character({
+        let mut definition = CharacterDefinition::new("heavy", "Heavy", "demo");
+        definition.body = Some(ambition_characters::actor::definition::BodySource::Explicit {
+            half_extents: (19.0, 31.0),
+        });
+        definition
+    });
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("heavy")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut seats = world.query_filtered::<Option<&ambition_combat::components::ActorRenderSize>, With<MatchSeat>>();
+    let quads: Vec<_> = seats.iter(world).map(|quad| quad.map(|quad| quad.0)).collect();
+    assert_eq!(quads, vec![None], "a seat with no sheet states a drawn quad");
+}
+
 /// And a roster that says nothing does not get a suspension it never asked for.
 #[test]
 fn an_ordinary_roster_seats_fighters_that_can_act() {

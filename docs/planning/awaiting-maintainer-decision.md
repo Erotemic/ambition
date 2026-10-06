@@ -276,7 +276,7 @@ hip. Measured on flat ground, the shooter 160 from a standing target
 | --- | --- | --- | --- | --- |
 | hostile raider, gun-sword | (18.4 ahead, +14.0) | (26.6 ahead, -2.4) | 10.0 (was 26.4) | 14 ticks, hits for 2 (was 13 ticks, hits for 2) |
 | the player, held gun-sword | (8.9 ahead, +13.5) | (26.6 ahead, -2.4) | 10.5 (was 26.4) | not measured |
-| a match seat (the smash admiral, the Officer) | no change | | 26.4 | no change: a seat states no art scale |
+| a match seat (the smash admiral; first seen one tick after it is born) | (28.8 ahead, +15.0) | (37.0 ahead, -2.4) | 9.0 (was 26.4) | 142.6 from the other fighter: 7 ticks, hits for 8 (was 6 ticks, hits for 8) |
 
 The bolt flies level, so it still hits a body that stands on the same floor.
 Its line is 16 lower: not measured against a target that flies, a target on a

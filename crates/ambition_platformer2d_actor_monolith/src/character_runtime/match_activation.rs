@@ -81,6 +81,10 @@ fn realize_seat(
     // optional component, so the bank leaves the seed here and is inserted in
     // the same command flush as the body it belongs to.
     let resources = seed.body.0.resources.take();
+    // The quad this body's art is drawn at, read before the seed moves: the
+    // same resolution that sized its collider, as each actor spawn road reads
+    // it.
+    let render = seed.render_size;
     let cluster = seed.into_components();
     use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
     let body = commands
@@ -149,6 +153,16 @@ fn realize_seat(
         .id();
     if let Some(resources) = resources {
         commands.entity(body).insert(resources);
+    }
+    // THE DRAWN QUAD, STATED. Before the grant below, which reads what a
+    // posed body displaces. A seat stated none until 2026-10-05, so the
+    // simulation did not hold the scale its art is drawn at: a landmark of its
+    // art (the hand a shot leaves) had no answer, and an authored attack
+    // volume was scaled by a quad derived again from the stance box.
+    if let Some(render) = render {
+        commands
+            .entity(body)
+            .insert(ambition_combat::components::ActorRenderSize(render));
     }
     // THE AUTHORED MASS. Conditional: a character that authored none must
     // keep its archetype's rather than be overwritten with the ambient 1.0.

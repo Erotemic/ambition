@@ -261,11 +261,25 @@ frame height and the frame durations. It does not cover atlas packing.
   next row of the chain that has points, and at last from any row: a raider
   that fires answers from its `idle` row, because its package draws five
   rows (`death`, `hurt`, `idle`, `slash`, `taunt`).
-- A match seat states no art scale (no `SpritePosedBody`, no
-  `ActorRenderSize`): the renderer fits its frame to its collision box
-  (`sheets::drawn_render_size`), and the query does not read that rule. So a
-  seat with no rig holds its weapon at the fixed hand
-  (`admiral_gun_sword`, the unrigged arm). This is the next open step.
+- ✅ A match seat states its art scale (2026-10-05). The body seed resolves
+  the quad with the collider (`ActorClusterSeed::render_size`), and each actor
+  spawn road stated it as `ActorRenderSize`. The match-seat materializer did
+  not, so a seat with no rig held its weapon at the fixed hand. It states it
+  now, and the unrigged smash admiral fires from the hand its art draws: the
+  shot is first seen (28.8 ahead, 15.0 below the centre), 9.0 above the feet;
+  it was (37.0 ahead, 2.4 above), 26.4 above the feet. The rigged admiral's
+  shot is first seen at (28.7, 15.0): the art and the rig agree to 0.04
+  (`admiral_gun_sword`, both arms).
+- The quad is stated when the body is built, on every road. Two things can
+  make it stale, and neither is repaired: the development body-profile edit
+  of `BodyBaseSize`, and a body that changes to another character with no
+  posed body (the wear grant restates the quad only for a posed body).
+- A body with a sheet and no stated quad still gets its authored attack
+  volumes scaled by a quad derived from its STANCE box
+  (`moveset`: `kin.size` to `drawn_render_size`), while its art is drawn from
+  its standing box. In the two compositions measured (the main game's first
+  room, a smash match) each of the 5 bodies with a sheet states a quad, so no
+  body there takes that road.
 - The held-item place uses screen DOWN, as it did before: `ItemWorldPos`
   holds no body frame.
 
@@ -274,9 +288,9 @@ player fireball: the move's offset from the hand is the shot's own half extent
 along the aim, so the shot's rear edge is at the hand for each of the eight
 aims and each charge size. ✅ The three track families and the authored
 gesture hand. ✅ The hand muzzle, the held-item place and the prop over the
-hand: one function, `holding_hand_world`. Next: a match seat states its art
-scale, so that a seat answers as an adventure body does. Do not admit rigs (`BodyRigAdmission`)
-for this: the capability must not depend on rig rollout. Landmarks are
+hand: one function, `holding_hand_world`. ✅ A match seat states its art
+scale, so a seat answers as an adventure body does. Rigs are not admitted (`BodyRigAdmission`)
+for this: the capability does not depend on rig rollout. Landmarks are
 simulation facts: resolve them in simulation and never read them back from
 render transforms.
 
@@ -300,7 +314,7 @@ render transforms.
 | Sheet residency | The saving needs the baked sheet page to retire while parts draw, and the portal to draw parts first | Rigged character resident bytes below baked |
 | Body rig rollout | `BodyRigAdmission` is off. Turning it on changes shipped hurt geometry and the content fingerprint | Maintainer go-ahead; app suite green with it on |
 | More rigid parts | Pirate dynamic limb/neck geometry is one overlay per frame. Convert more of it to reusable parts only if useful | Saving above the 38% floor |
-| Semantic landmarks (Q41) | ✅ The query, the pet, the player fireball, the three track families with an authored gesture hand, and the hand muzzle with the held-item place (2026-10-05). Left: a match seat states no art scale. See "Semantic landmarks (Q41)" | ✅ A pet hand meets the authored contact point (`a_pet_hand_meets_the_contact_point.rs`: 1.4 world units; 15.2 on the box mark). Open: no consumer reads sprite bounds |
+| Semantic landmarks (Q41) | ✅ The query, the pet, the player fireball, the three track families with an authored gesture hand, and the hand muzzle with the held-item place, for a match seat too (2026-10-05). See "Semantic landmarks (Q41)" | ✅ A pet hand meets the authored contact point (`a_pet_hand_meets_the_contact_point.rs`: 1.4 world units; 15.2 on the box mark). Open: no consumer reads sprite bounds |
 | Physicalized pose | Only with a real mechanic: cosmetic ragdoll after a KO fact, or deterministic constrained ragdoll as canonical rollback state | Separate focused packet |
 
 Not measured: load and materialization time, and per-pane pixels of each view

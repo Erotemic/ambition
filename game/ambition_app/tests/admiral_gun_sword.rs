@@ -29,6 +29,9 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
         before,
         after,
         hand_before,
+        drawn_hand_before,
+        feet_before,
+        shot_half_height,
         ..
     } = fire_the_side_b(false);
 
@@ -48,16 +51,28 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
         "the shot was born at {origin:?} and his hand was at {hand_before:?} — a \
          drawn weapon fires from the barrel a player can see"
     );
-    // A match seat states no art scale (no `SpritePosedBody`, no
-    // `ActorRenderSize`), so the landmark query has no answer for it from the
-    // art, and with no rig the shot leaves the fixed hand: the named fallback
-    // (`ambition_held_items::holding_hand_world`). The shot is on the line
-    // through that hand. A seat that learns to state its scale moves this
-    // shot to the hip, where the rigged admiral below fires from.
+    // A match seat states the quad its art is drawn at (`ActorRenderSize`,
+    // from the resolution that sized its collider), so the landmark query
+    // answers for it from its art, and the shot leaves the hand the art
+    // draws: the same band the rigged admiral below holds against its rig
+    // hand. Until 2026-10-05 a seat stated no scale, and the shot left the
+    // fixed hand at chest height (`ambition_held_items::holding_hand_world`).
+    let drawn_hand = drawn_hand_before.expect("a match seat states the quad its art is drawn at");
+    let along = direction.dot(origin - drawn_hand);
+    let lifted = drawn_hand.y - origin.y;
     assert!(
-        direction.perp_dot(origin - hand_before).abs() < 0.5,
-        "the shot at {origin:?} flying {direction:?} is off the line through the fixed hand \
-         {hand_before:?}: an unrigged seat that states no art scale fires from the fixed hand"
+        (-0.5..=shot_half_height + 1.0).contains(&lifted) && (18.0..48.0).contains(&along),
+        "the shot at {origin:?} flying {direction:?} is {lifted} above and {along} along from the hand \
+         the art draws {drawn_hand:?}: an unrigged seat fires from the hand its art draws"
+    );
+    assert!(
+        origin.y + shot_half_height < feet_before,
+        "the shot at {origin:?} reaches the admiral's feet line {feet_before}: it was born touching the ground"
+    );
+    // The fixed hand is off that line, so this arm tells the two apart.
+    assert!(
+        direction.perp_dot(origin - hand_before).abs() > 5.0,
+        "the fixed hand {hand_before:?} is on the shot's line too, so the drawn hand was not shown to be the muzzle"
     );
     // ⛔ A DELTA, and a big one. The generic kick is 60px/s and the gun-sword's
     // is 380, so a threshold between them is what tells "the profile applied"
@@ -89,6 +104,10 @@ struct SideB {
     /// The rig's weapon hand in the world, on the tick before the shot, when
     /// the admiral has a rig.
     rig_hand_before: Option<bevy::math::Vec2>,
+    /// The hand the admiral's art draws, in the world, on the tick before the
+    /// shot: from the draw table of its sheet, at the scale the body states.
+    /// `None` when the body states no quad.
+    drawn_hand_before: Option<bevy::math::Vec2>,
     /// The admiral's feet line (world y, +y down), on the tick before the shot.
     feet_before: f32,
     /// Half the shot's height.
@@ -187,6 +206,27 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
         let down = Vec2::Y;
         Some(kin.pos + down * (kin.size.y * 0.5) + BodyRigPose::to_body(hand, kin.facing, down))
     };
+    // The hand the art draws on this tick. ⚠ From the DRAW table the renderer
+    // draws the row from, not from the landmark table the muzzle reads.
+    let drawn_hand = |app: &App| {
+        use ambition_platformer2d::sprite_sheet::character::rigged::RiggedSpriteAsset;
+        const SHEET: &str = "pirate_admiral";
+        let world = app.world();
+        let kin = world.get::<ambition_platformer2d::engine_core::BodyKinematics>(admiral)?;
+        let quad = world.get::<ambition_platformer2d::combat::components::ActorRenderSize>(admiral)?;
+        let frame_height = RiggedSpriteAsset::baked(SHEET)?.frame_size.y as f32;
+        Some(
+            crate::a_hand_muzzle_fires_from_the_drawn_hand::drawn_hand_this_tick(
+                world,
+                admiral,
+                kin,
+                SHEET,
+                quad.0.y / frame_height,
+                "front_hand",
+            )
+            .2,
+        )
+    };
     let rigged = app
         .world()
         .get::<ambition_platformer2d::combat::body_rig::BodyRig>(admiral)
@@ -196,6 +236,7 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
         let before = vel(&app);
         let hand_before = hand(&app);
         let rig_hand_before = rig_hand(&app);
+        let drawn_hand_before = drawn_hand(&app);
         let feet_before = {
             let kin = app
                 .world()
@@ -284,8 +325,9 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
             }
             eprintln!(
                 "side-B (rigs admitted: {admit_rigs}): shot first seen {:?} from the body centre (body size {:?}, \
-                 facing {}), {:.1} above the feet line, flying {:?}; the fixed hand {:?} and the rig hand {:?} from \
-                 the centre; alive {} ticks, travelled {:.0}; the other fighter (percent, place, from this body {:?}) {:?} -> {:?}",
+                 facing {}), {:.1} above the feet line, flying {:?}; the fixed hand {:?}, the rig hand {:?} and the \
+                 drawn hand {:?} from the centre; alive {} ticks, travelled {:.0}; the other fighter (percent, place, \
+                 from this body {:?}) {:?} -> {:?}",
                 found.2 - body.pos,
                 body.size,
                 body.facing,
@@ -293,17 +335,26 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
                 found.3,
                 hand_before - body.pos,
                 rig_hand_before.map(|hand| hand - body.pos),
+                drawn_hand_before.map(|hand| hand - body.pos),
                 path.len(),
                 (*path.last().expect("one place") - found.2).length(),
                 health_before.map(|(_, place)| place - body.pos),
                 health_before,
                 other_health(&mut app),
             );
-            shot = Some((found, before, after, hand_before, rig_hand_before, feet_before));
+            shot = Some((found, before, after, hand_before, rig_hand_before, drawn_hand_before, feet_before));
             break;
         }
     }
-    let ((visual, damage, origin, direction, shot_half_height), before, after, hand_before, rig_hand_before, feet_before) =
+    let (
+        (visual, damage, origin, direction, shot_half_height),
+        before,
+        after,
+        hand_before,
+        rig_hand_before,
+        drawn_hand_before,
+        feet_before,
+    ) =
         shot.expect("the admiral's side-B never produced a projectile he owns");
     SideB {
         visual,
@@ -314,6 +365,7 @@ fn fire_the_side_b(admit_rigs: bool) -> SideB {
         after,
         hand_before,
         rig_hand_before,
+        drawn_hand_before,
         feet_before,
         shot_half_height,
         rigged,

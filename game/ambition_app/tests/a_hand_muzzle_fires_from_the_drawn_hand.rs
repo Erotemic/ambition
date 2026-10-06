@@ -31,8 +31,8 @@ const AHEAD: f32 = 18.0;
 /// The row and frame a body's own clocks select on this tick, by the rule the
 /// rig and the landmark query share, and the place of `track` in that frame
 /// from the DRAW table, in the world.
-fn drawn_hand_this_tick(
-    sim: &ambition_app::Platformer2dSimHarness,
+pub(crate) fn drawn_hand_this_tick(
+    world: &bevy::prelude::World,
     entity: Entity,
     body: &BodyKinematics,
     sheet: &str,
@@ -45,8 +45,8 @@ fn drawn_hand_this_tick(
     let flipbook = RiggedSpriteAsset::baked(sheet).unwrap_or_else(|| panic!("{}", unpublished(sheet)));
     let table = ambition_platformer2d::sprite_sheet::baked_landmarks::body_landmarks(sheet)
         .unwrap_or_else(|| panic!("{}", unpublished(sheet)));
-    let playback = sim.world().get::<MovePlayback>(entity);
-    let clock = sim.world().get::<BodyPoseClock>(entity);
+    let playback = world.get::<MovePlayback>(entity);
+    let clock = world.get::<BodyPoseClock>(entity);
     let (row, frame) = select_pose_frame(
         table.as_ref(),
         playback.map(|playback| (&playback.spec.clip, playback.phase())),
@@ -140,7 +140,7 @@ fn a_hostile_raiders_shot_is_born_at_the_hand_its_art_draws() {
         body.pos,
         target.pos,
     );
-    let (row, frame, hand) = drawn_hand_this_tick(&sim, raider, &body, SHEET, world_per_pixel, "front_hand");
+    let (row, frame, hand) = drawn_hand_this_tick(sim.world(), raider, &body, SHEET, world_per_pixel, "front_hand");
     let feet_y = body.pos.y + body.size.y * 0.5;
     let fixed_hand = ambition_platformer2d::mount::rider_hand_world_pos(body.pos, body.facing, body.size.y);
     // The gun-sword the presentation draws over the hand, on this tick.
@@ -279,7 +279,7 @@ fn the_players_held_gun_sword_fires_from_the_hand_its_art_draws() {
     let (born, half, direction) = fired.expect("a tap with the gun-sword in hand fired no shot");
     let body = sim.world().get::<BodyKinematics>(player).expect("a live body").clone();
     let (row, frame, hand) =
-        drawn_hand_this_tick(&sim, player, &body, &sheet.target, sheet.world_per_pixel, "near_hand");
+        drawn_hand_this_tick(sim.world(), player, &body, &sheet.target, sheet.world_per_pixel, "near_hand");
     let feet_y = body.pos.y + body.size.y * 0.5;
     let fixed_hand = ambition_platformer2d::mount::rider_hand_world_pos(body.pos, body.facing, body.size.y);
     eprintln!(

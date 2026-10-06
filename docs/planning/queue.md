@@ -2380,9 +2380,20 @@ has no answer from its art and the fixed hand stands. The Officer was not
 measured for the same reason. No held-item unit test pinned the fixed hand
 (1 to 3 edits were predicted).
 
-**Current failure:** a match seat (the smash admiral, the Officer, a seat
-that holds a bomb) holds its weapon at the fixed hand, because it states no
-art scale. The named limits are in the plan.
+**Seat art scale (2026-10-05):** a match seat states the quad its art is
+drawn at. The body seed already resolved it with the collider, and each actor
+spawn road stated it; the match-seat materializer did not
+(`character_runtime/match_activation.rs`). Measured before the change in the
+shipped app: of 5 bodies with a sheet, the 3 in the main game stated a quad
+equal to the renderer's fit of the frame to the standing box, and the 2 smash
+seats stated none. After: the 2 seats state (90.95, 58.95) and (91.02, 91.02),
+and the quad their art is drawn with is that value exactly. The unrigged smash
+admiral's shot is first seen (28.8 ahead, 15.0 below the centre), 9.0 above
+the feet, and hits the other fighter for 8 in 7 ticks; it was (37.0 ahead, 2.4
+above), 26.4 above the feet, 6 ticks. Control: a seat with no sheet states no
+quad (`a_seat_with_no_sheet_states_no_drawn_quad`). Both poisoned. The plan
+names what is open: two roads that leave the quad stale, and the attack-volume
+scale of a body with a sheet and no stated quad.
 
 **Review 2026-10-05:** two findings are rows of their own:
 LANDMARK-CLIP-TIME (a package clip always wraps; do it before another
@@ -2392,8 +2403,8 @@ copied number). The seat art-scale step waits behind the first.
 **Acceptance:** ✅ one landmark query, answered by the rig or the package; ✅
 the pet hand meets the petted body's authored contact point; ✅ the player's
 shot leaves the hand; ✅ the three track families answer; ✅ a hand weapon,
-a held item and the prop over the hand read one hand. Open: a match seat
-states its art scale.
+a held item and the prop over the hand read one hand; ✅ a match seat states
+its art scale.
 
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 

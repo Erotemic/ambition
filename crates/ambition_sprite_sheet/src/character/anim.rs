@@ -389,6 +389,17 @@ pub fn non_looping(anim: CharacterAnim) -> bool {
     )
 }
 
+/// Does the animator loop sheet row `name` when a pose shows it?
+///
+/// The ONE loop rule for a row name: [`non_looping`] of the pose the row is
+/// ([`CharacterAnim::from_name`]). A row that is no pose is shown only when a
+/// move asks for it by name, and such a clip holds its last frame. The
+/// landmark table of the row reads this rule, so a landmark holds or wraps as
+/// the art does (`crate::baked_landmarks`).
+pub fn row_loops(name: &str) -> bool {
+    CharacterAnim::from_name(name).is_some_and(|anim| !non_looping(anim))
+}
+
 /// Content-driven animation pin for a body.
 ///
 /// The locomotion picker knows nothing about content states. A content state

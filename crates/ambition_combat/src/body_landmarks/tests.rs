@@ -11,6 +11,7 @@ use super::*;
 /// so the clip and frame an answer came from can be read off the answer.
 fn table() -> BodyLandmarkTable {
     let clip = |xs: &[f32]| LandmarkClip {
+        looping: true,
         frame_duration_s: 0.1,
         frames: xs
             .iter()
@@ -178,4 +179,69 @@ fn a_rig_point_is_placed_from_the_feet_mirrored_and_turned() {
     assert_eq!(rig_point_in_world(point, &body(1.0), down), Vec2::new(110.0, 194.0));
     assert_eq!(rig_point_in_world(point, &body(-1.0), down), Vec2::new(90.0, 194.0));
     assert_eq!(rig_point_in_world(point, &body(1.0), -down), Vec2::new(90.0, 206.0));
+}
+
+/// A rig and a package table are two sources of one answer, so they keep one
+/// time: more than one clip length in, a looping clip is on the same wrapped
+/// frame in both, and a one-shot clip is on its last frame in both.
+#[test]
+fn a_rig_and_a_package_keep_one_time_for_a_looping_and_a_one_shot_clip() {
+    use crate::body_rig::select_pose_frame;
+    use crate::hurtbox_resolution::POSE_HITSTUN;
+    const FRAMES: usize = 4;
+    const FRAME_S: f32 = 0.1;
+    // `idle` loops and `hurt` holds, in both sources.
+    let loops = |name: &str| name == "idle";
+    let rig = BodyRigDefinition {
+        joints: vec![RigJoint {
+            name: "arm".to_string(),
+            parent: None,
+        }],
+        attachments: Vec::new(),
+        hurt_parts: Vec::new(),
+        clips: ["idle", "hurt"]
+            .into_iter()
+            .map(|name| {
+                let pose = JointPose {
+                    translation: (0.0, 0.0),
+                    rotation: 0.0,
+                    scale: (1.0, 1.0),
+                };
+                (
+                    name.to_string(),
+                    RigClip {
+                        looping: loops(name),
+                        frame_duration_s: FRAME_S,
+                        frames: vec![vec![pose]; FRAMES],
+                    },
+                )
+            })
+            .collect(),
+    }
+    .prepare()
+    .expect("valid rig");
+    let table = BodyLandmarkTable {
+        frame_height: 100.0,
+        clips: ["idle", "hurt"]
+            .into_iter()
+            .map(|name| {
+                (
+                    name.to_string(),
+                    LandmarkClip {
+                        looping: loops(name),
+                        frame_duration_s: FRAME_S,
+                        frames: vec![LandmarkFrame::default(); FRAMES],
+                    },
+                )
+            })
+            .collect(),
+    };
+    // 0.65 s is 6.5 frames: past one length (4 frames), in the middle of a frame.
+    for (pose, row, frame) in [("idle", "idle", 2), (POSE_HITSTUN, "hurt", FRAMES - 1)] {
+        let clocks = Some((pose, 0.65));
+        let of_rig = select_pose_frame(&rig, None, clocks, None);
+        let of_table = select_pose_frame(&table, None, clocks, None);
+        assert_eq!(of_rig, Some((row, frame)), "the rig, pose `{pose}`");
+        assert_eq!(of_table, of_rig, "the package table against the rig, pose `{pose}`");
+    }
 }

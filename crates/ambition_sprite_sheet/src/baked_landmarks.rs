@@ -40,9 +40,13 @@ pub fn landmark_table(baked: BakedLandmarks) -> BodyLandmarkTable {
                     .into_iter()
                     .map(|frame| -> LandmarkFrame { frame.map(|point| point.map(|(x, y)| Vec2::new(x, y))) })
                     .collect();
+                // The loop statement is the animator's own rule for the row,
+                // so the table and the art keep one time.
+                let looping = crate::character::row_loops(&name);
                 (
                     name,
                     LandmarkClip {
+                        looping,
                         frame_duration_s: clip.frame_duration_s,
                         frames,
                     },
@@ -131,6 +135,70 @@ mod tests {
         } else {
             assert!(frames > 1000, "only {frames} frames draw both hands");
         }
+    }
+
+    /// The frame the visual animator shows for pose `anim` of `target`,
+    /// `lengths` clip lengths after the pose starts, and the frame this
+    /// target's landmark table gives for the same row at the same time.
+    fn animator_and_table_frames(target: &str, anim: crate::character::CharacterAnim, row: &str, lengths: f32) -> (usize, usize) {
+        use crate::character::sheets::{try_load_spec_for_target, SheetTuning};
+        use crate::character::{CharacterAnimator, CharacterSpriteAsset};
+        let asset = CharacterSpriteAsset {
+            texture: Default::default(),
+            layout: Default::default(),
+            spec: try_load_spec_for_target(target, &SheetTuning::new(1.0, 1)).expect("a published sheet"),
+            pages: Vec::new(),
+            requested_tier: Default::default(),
+            resolved_tier: Default::default(),
+            rigged: None,
+        };
+        let mut animator = CharacterAnimator::new(&asset);
+        // Start from another pose, so the request below starts the row.
+        animator.request(crate::character::CharacterAnim::Walk);
+        animator.request(anim);
+        assert_eq!(animator.current, anim, "{target} has its own `{row}` row");
+        let sheet_row = animator.spec.row(anim).clone();
+        let table = body_landmarks(target).expect("a landmark table");
+        let clip = table.clip(row).unwrap_or_else(|| panic!("{target} publishes no `{row}` clip"));
+        // The premise: the two keep one clock for this row.
+        assert_eq!(sheet_row.frame_count, clip.frames.len(), "{target}/{row}: frame counts");
+        assert!(
+            (sheet_row.duration_secs - clip.frame_duration_s).abs() < 1e-6,
+            "{target}/{row}: the sheet shows a frame for {} s and the table for {} s",
+            sheet_row.duration_secs,
+            clip.frame_duration_s,
+        );
+        // Eight steps a frame, to the middle of a frame: no step is on a
+        // frame edge.
+        let steps = (lengths * clip.frames.len() as f32 * 8.0).floor() as usize + 4;
+        let dt = clip.frame_duration_s / 8.0;
+        for _ in 0..steps {
+            animator.tick(dt);
+        }
+        (animator.frame, clip.frame_at_time(steps as f32 * dt))
+    }
+
+    /// A package landmark clip keeps the time of the row it describes. A row
+    /// the animator loops wraps, and a row the animator holds on its last
+    /// frame holds: more than two clip lengths in, the two show one frame.
+    ///
+    /// The table always wrapped. After a one-shot row ended, the sprite held
+    /// its last frame and the hand of the landmark table went back to the
+    /// first.
+    #[test]
+    fn a_landmark_clip_loops_or_holds_as_the_animator_shows_its_row() {
+        use crate::character::CharacterAnim;
+        if BAKED_LANDMARKS.is_empty() {
+            eprintln!("no published part flipbook on this checkout: no clip to compare");
+            return;
+        }
+        const TARGET: &str = "player_robot_v3";
+        let (shown, table) = animator_and_table_frames(TARGET, CharacterAnim::Idle, "idle", 2.3);
+        assert_eq!(table, shown, "the looping `idle` row, 2.3 lengths in");
+        let (shown, table) = animator_and_table_frames(TARGET, CharacterAnim::Shoot, "shoot", 2.3);
+        let last = body_landmarks(TARGET).expect("a table").clip("shoot").expect("the clip").frames.len() - 1;
+        assert_eq!(shown, last, "control: the animator holds the one-shot `shoot` row on its last frame");
+        assert_eq!(table, shown, "the one-shot `shoot` row, 2.3 lengths in");
     }
 
     #[test]

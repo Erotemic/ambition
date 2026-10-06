@@ -157,10 +157,14 @@ const SPEECH_BUBBLE_TEXT_ALPHA: f32 = 0.95;
 const SPEECH_BUBBLE_OUTLINE_ALPHA: f32 = 0.88;
 
 /// One ember of the live blink-destination indicator: a small rotating ring
-/// at the predicted landing while blink is held. Despawned on release or when
-/// blink is gated.
+/// at the predicted landing while blink is held, one ring for each blinking
+/// body. Despawned on release or when blink is gated.
 #[derive(Component)]
 pub struct BlinkPreviewVisual {
+    /// The reticle this ember belongs to, by its index in
+    /// `BlinkPreviewFact::reticles`.
+    #[allow(dead_code)]
+    ring: usize,
     /// Phase offset around the ring, in radians, so the ring keeps its shape
     /// while it spins. Read by `update_blink_preview`. `allow(dead_code)`
     /// because a feature-stripped dependency build compiles that reader out,
@@ -1221,35 +1225,42 @@ pub fn update_blink_preview(
     )>,
 ) {
     let spawn_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
-    // A body whose live room cannot be told shows no ring.
-    let placed = fact
-        .room
-        .and_then(|room| Some((room, rooms.in_room(room)?)));
-    let (Some(session_scope), Some((room, world)), true) = (spawn_scope, placed, fact.active) else {
+    // Each reticle placed by its body's live room. A body whose live room
+    // cannot be told shows no ring.
+    let rings: Vec<_> = fact
+        .reticles
+        .iter()
+        .map(|reticle| {
+            let room = reticle.room?;
+            Some((room, rooms.in_room(room)?, *reticle))
+        })
+        .collect();
+    let Some(session_scope) = spawn_scope else {
         for (entity, ..) in &existing {
             commands.entity(entity).despawn();
         }
         return;
     };
-    let session_scope = session_scope.in_room(Some(room));
-    let target = fact.target;
-    let precision = fact.precision;
-    // Match the post-blink burst palette, so the preview shows what is
-    // about to happen.
-    let color = if precision {
-        rgba(0.92, 0.42, 1.00, 0.85)
-    } else {
-        rgba(0.42, 1.00, 0.92, 0.80)
-    };
 
     const RING_EMBERS: usize = 4;
-    let radius = fact.body_min_extent * 0.45;
     let spin = time.elapsed_secs() * 2.4;
     let pulse = 1.0 + 0.18 * (time.elapsed_secs() * 5.5).sin();
-    let ember_size = (fact.body_min_extent * 0.18) * pulse;
+    // Match the post-blink burst palette, so the preview shows what is
+    // about to happen.
+    let color = |precision: bool| {
+        if precision {
+            rgba(0.92, 0.42, 1.00, 0.85)
+        } else {
+            rgba(0.42, 1.00, 0.92, 0.80)
+        }
+    };
 
-    let mut emitted = 0;
+    let mut drawn = vec![false; rings.len()];
     for (entity, ember, mut transform, mut sprite, stamp) in &mut existing {
+        let Some((room, world, reticle)) = rings.get(ember.ring).copied().flatten() else {
+            commands.entity(entity).despawn();
+            continue;
+        };
         // The body can blink into another live room while the ring shows.
         if stamp.map(|stamp| stamp.0) != Some(room) {
             commands
@@ -1257,28 +1268,29 @@ pub fn update_blink_preview(
                 .try_insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(room));
         }
         let angle = spin + ember.angle_offset;
-        let offset = ae::Vec2::new(angle.cos(), angle.sin()) * radius;
-        transform.translation = world_to_bevy(&world.0, target + offset, WORLD_Z_FX + 1.5);
-        sprite.custom_size = Some(BVec2::splat(ember_size.max(1.0)));
-        sprite.color = color;
-        emitted += 1;
+        let offset = ae::Vec2::new(angle.cos(), angle.sin()) * reticle.body_min_extent * 0.45;
+        transform.translation = world_to_bevy(&world.0, reticle.target + offset, WORLD_Z_FX + 1.5);
+        sprite.custom_size = Some(BVec2::splat((reticle.body_min_extent * 0.18 * pulse).max(1.0)));
+        sprite.color = color(reticle.precision);
+        drawn[ember.ring] = true;
     }
 
-    if emitted == 0 {
+    for (ring, placed) in rings.iter().enumerate() {
+        let (Some((room, world, reticle)), false) = (placed, drawn[ring]) else {
+            continue;
+        };
+        let session_scope = session_scope.in_room(Some(*room));
+        let ember_size = (reticle.body_min_extent * 0.18 * pulse).max(1.0);
         for i in 0..RING_EMBERS {
             let angle_offset = TAU * (i as f32) / RING_EMBERS as f32;
             let angle = spin + angle_offset;
-            let offset = ae::Vec2::new(angle.cos(), angle.sin()) * radius;
+            let offset = ae::Vec2::new(angle.cos(), angle.sin()) * reticle.body_min_extent * 0.45;
             commands.spawn_session_scoped(
                 session_scope,
                 (
-                    Sprite::from_color(color, BVec2::splat(ember_size.max(1.0))),
-                    Transform::from_translation(world_to_bevy(
-                        &world.0,
-                        target + offset,
-                        WORLD_Z_FX + 1.5,
-                    )),
-                    BlinkPreviewVisual { angle_offset },
+                    Sprite::from_color(color(reticle.precision), BVec2::splat(ember_size)),
+                    Transform::from_translation(world_to_bevy(&world.0, reticle.target + offset, WORLD_Z_FX + 1.5)),
+                    BlinkPreviewVisual { ring, angle_offset },
                 ),
             );
         }

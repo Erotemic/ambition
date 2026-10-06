@@ -533,9 +533,10 @@ repair, and red under its poison:
 **A joined player's view and HUD (2026-10-05).** Measured with a body from
 the join road (`a_joined_seat_has_a_view_and_a_hud.rs`): a HUD row on the
 shared view, a view of its own when the primary leaves the room, and a drawn
-second HUD in the rendered host. The interact prompt, the button prompts, the
-blink reticle and the declared readouts are one for each session and show
-the primary only; the list and what was run are in
+second HUD in the rendered host. The interact prompt, the button prompts and
+the declared readouts are one for each session and show the primary only;
+the blink reticle is one for each blinking body (2026-10-06); the list and
+what was run are in
 [Q153](awaiting-maintainer-decision.md#q153--how-does-a-second-player-join-ambition).
 
 **Acceptance:** Alice dies while Bob's room holds a boss he defeated after the

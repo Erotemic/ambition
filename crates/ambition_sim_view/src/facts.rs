@@ -924,12 +924,19 @@ pub fn rebuild_dynamic_feature_views(
     }
 }
 
-/// Render draws the ember ring; it computes nothing.
-#[derive(Resource, Default, Clone, Copy, Debug)]
+/// Where each blinking body would land. Render draws one ember ring for each
+/// reticle; it computes nothing.
+#[derive(Resource, Default, Clone, Debug, PartialEq)]
 pub struct BlinkPreviewFact {
-    /// Ring visible this tick (blink held / aiming, ability owned, gameplay
-    /// allowed).
-    pub active: bool,
+    /// One reticle for each driven body that holds blink or aims one this
+    /// tick (ability owned, gameplay allowed): the primary seat's first, then
+    /// the other seats in seat order.
+    pub reticles: Vec<BlinkReticle>,
+}
+
+/// One blinking body's ring.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BlinkReticle {
     /// Predicted landing point.
     pub target: ae::Vec2,
     /// Precision (steered) aim vs quick-tap — picks the ember palette.
@@ -942,7 +949,9 @@ pub struct BlinkPreviewFact {
     pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 }
 
-/// Rebuild [`BlinkPreviewFact`] each tick. Mirrors the destination
+/// Rebuild [`BlinkPreviewFact`] each tick, one reticle for each driven body:
+/// the controlled subject reads the primary seat's device actions, and each
+/// other seat's body reads the frame committed for its seat. Mirrors the destination
 /// resolution used by the engine and the `show_blink_preview` debug overlay.
 /// The blink button shares ground with menu input, so this honours the same
 /// gameplay-only gate as `draw_player_debug` — paused / dialog states don't
@@ -987,25 +996,61 @@ pub fn rebuild_blink_preview_fact(
         &ambition_platformer2d_core::BodyAbilities,
         &ambition_platformer2d_core::BodyMotionFacts,
     )>,
+    // Every other seat's body, and the frame committed for its seat: a
+    // second player sees where its own blink lands.
+    drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+    seats: Option<Res<ambition_characters::control::SlotControls>>,
 ) {
     use ambition_input::read_gameplay_control_frame;
-    use ambition_platformer2d_core as ae;
 
-    fact.active = false;
-    let Some((subject, (kin, abilities, motion_facts))) =
-        controlled.0.and_then(|e| player_q.get(e).ok().map(|body| (e, body)))
-    else {
-        return;
-    };
-    let actions = if mode.get().allows_gameplay() {
-        action_query.single().ok()
+    let gameplay = mode.get().allows_gameplay();
+    let primary = if gameplay {
+        action_query.single().ok().map(read_gameplay_control_frame).unwrap_or_default()
     } else {
-        None
+        Default::default()
     };
-    let controls = actions.map(read_gameplay_control_frame).unwrap_or_default();
+    let mut subjects: Vec<(Entity, ae::ControlFrame)> = controlled.0.map(|subject| (subject, primary)).into_iter().collect();
+    let mut others: Vec<_> = drivers
+        .iter()
+        .filter(|(body, driver)| {
+            driver.0 != ambition_characters::control::PlayerSlot::PRIMARY && Some(*body) != controlled.0
+        })
+        .map(|(body, driver)| (driver.0, body))
+        .collect();
+    others.sort_unstable();
+    for (slot, body) in others {
+        let controls = match seats.as_deref() {
+            Some(seats) if gameplay => seats.get(slot),
+            _ => Default::default(),
+        };
+        subjects.push((body, controls));
+    }
+    let reticles: Vec<BlinkReticle> = subjects
+        .into_iter()
+        .filter_map(|(subject, controls)| {
+            let (kin, abilities, motion_facts) = player_q.get(subject).ok()?;
+            blink_reticle(&collision, &live, subject, kin, abilities, motion_facts, controls)
+        })
+        .collect();
+    if fact.reticles != reticles {
+        fact.reticles = reticles;
+    }
+}
 
+/// One body's reticle, when it holds blink or aims one.
+#[cfg(feature = "input")]
+fn blink_reticle(
+    collision: &ambition_platformer2d_world::collision::CollisionWorld,
+    live: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    subject: Entity,
+    kin: &BodyKinematics,
+    abilities: &ambition_platformer2d_core::BodyAbilities,
+    motion_facts: &ambition_platformer2d_core::BodyMotionFacts,
+    controls: ae::ControlFrame,
+) -> Option<BlinkReticle> {
+    use ambition_platformer2d_core as ae;
     if !(abilities.abilities.blink && (controls.blink_held || motion_facts.blink_aiming)) {
-        return;
+        return None;
     }
 
     // The SAME composition `step_motion` collides against — see the parameter
@@ -1013,9 +1058,7 @@ pub fn rebuild_blink_preview_fact(
     // so while two rooms were live no reticle showed.
     let live_room = live.of(subject);
     let room = live_room.map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
-    let Some(blink_world) = collision.room(room.as_ref()).and_then(|room| room.solids()) else {
-        return;
-    };
+    let blink_world = collision.room(room.as_ref()).and_then(|room| room.solids())?;
     let target = if motion_facts.blink_aiming {
         ae::blink_destination_to_point_clusters(
             &blink_world,
@@ -1029,13 +1072,12 @@ pub fn rebuild_blink_preview_fact(
         ae::blink_destination_clusters(&blink_world, kin, abilities, aim, ae::BLINK_DISTANCE)
     };
 
-    *fact = BlinkPreviewFact {
-        active: true,
+    Some(BlinkReticle {
         target,
         precision: motion_facts.blink_aiming,
         body_min_extent: kin.size.min_element(),
         room: live_room,
-    };
+    })
 }
 
 /// Registers the observation-boundary view resources + their rebuilds in the
@@ -1547,7 +1589,7 @@ mod blink_preview_room_tests {
 
     /// The reticle of a subject aiming a blink 100 px right from x=100, in
     /// live room `room`. #0 has a wall at x 150..170 and #1 has none.
-    fn reticle(room: usize) -> BlinkPreviewFact {
+    fn reticle(room: usize) -> BlinkReticle {
         let mut app = App::new();
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.init_state::<ambition_platformer2d_shared_tangle::schedule::GameMode>();
@@ -1581,7 +1623,9 @@ mod blink_preview_room_tests {
         app.insert_resource(ControlledSubject(Some(subject)));
         app.add_systems(Update, rebuild_blink_preview_fact);
         app.update();
-        *app.world().resource::<BlinkPreviewFact>()
+        let reticles = &app.world().resource::<BlinkPreviewFact>().reticles;
+        assert_eq!(reticles.len(), 1, "one aiming subject, one reticle: {reticles:?}");
+        reticles[0]
     }
 
     /// OW1: the blink reticle resolves against the walls of the subject's
@@ -1591,10 +1635,10 @@ mod blink_preview_room_tests {
     #[test]
     fn the_blink_reticle_reads_the_walls_of_its_subjects_own_room() {
         let open = reticle(1);
-        assert!(open.active && open.target.x > 170.0, "the reticle in #1: {open:?}");
+        assert!(open.target.x > 170.0, "the reticle in #1: {open:?}");
         assert_eq!(open.room, Some(LiveRoomInstance::ACTIVATION.next()), "the reticle names its subject's room");
         let walled = reticle(0);
-        assert!(walled.active && walled.target.x < 150.0, "the reticle in #0: {walled:?}");
+        assert!(walled.target.x < 150.0, "the reticle in #0: {walled:?}");
     }
 }
 

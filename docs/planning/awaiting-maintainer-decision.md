@@ -330,6 +330,53 @@ is where it is drawn in either answer.
 
 **Default in force until you rule:** (a), the current behaviour.
 
+## Q160 — water in a room whose gravity is not down: where is the surface of a pool, and does a body that is not axis-swept get wet?
+
+Filed 2026-10-06. Blocks nothing: (a) and (c) are what the game does today.
+
+Two facts about water were read while the movement kernel was made to test
+the world with the box a step moves (CRAWLER-HAZARD-FOOTPRINT in
+[the queue](queue.md)). Both are about what water means for a body that is
+not an axis-swept body in normal gravity.
+
+**The surface.** `World::water_at` states the surface of a pool as the world
+top of its region (`surface_y`) and measures how far a body is under it on
+world y (`submersion`). Since 2026-10-06 the box that TOUCHES the water is
+the box of the step, so a body in sideways gravity is in the water its own
+box touches. The surface did not move: in a room whose gravity points to a
+wall, the surface of a pool is still its top edge on the screen, and a body
+that lies at the gravity side of the pool can read as not submerged. The
+readers of the two values are the audio environment, the submerged draw
+(`ambition_render`, `rendering/submerged.rs`) and the sim harness. Water is
+authored in three worlds (intro, sandbox, you_have_to_cut_the_rope; counted
+by the `Water` identifiers in the `.ldtk` files). Not counted: how many pools
+are in a room with turned gravity.
+
+* **(a) The surface stays on world y (current).** A pool is a box with its
+  surface at its top on the screen, whatever the gravity of the room is.
+  Nothing changes. A pool in a turned room reads wrong to the eye and to the
+  submersion value.
+* **(b) The surface is the face of the pool that is against gravity at the
+  body.** Submersion is measured along the DOWN of the body. A pool in a
+  turned room is a pool. `WaterContact::surface_y` becomes a coordinate of
+  the frame, and its three readers move with it. A pool in a gravity field
+  that is not uniform has no single surface, and needs a rule.
+
+**Who gets wet.** The axis arm is the only writer of the water and ladder
+contact of a body (`BodyEnvironmentContact`). A body on the crawler policy (a
+slug) or on the momentum policy (Sanic) is in no water and on no ladder: it
+does not drown, does not swim, and makes no splash. No Sanic, Mary-O or Smash
+world authors water today; the sandbox has slugs and pools.
+
+* **(c) Only an axis body is in water (current).** A slug crawls through a
+  pool as if it were air.
+* **(d) Every body reads the water it touches.** A body with no swim ability
+  drowns under any policy, as an axis body does. A slug that crawls into a
+  pool dies, and a momentum body needs a swim or a drown rule before a Sanic
+  world can author water.
+
+**Default in force until you rule:** (a) and (c), the current behaviour.
+
 ## Q154 — should a pickup that authors no policy be gone for the run once taken?
 
 Filed 2026-10-04. Blocks nothing: the engine reads the default as

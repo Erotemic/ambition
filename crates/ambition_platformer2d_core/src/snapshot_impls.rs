@@ -311,6 +311,7 @@ snapshot_pod!(crate::body_clusters::SweepSample {
     curr: vec2,
     vel: vec2,
     half: vec2,
+    down: vec2,
 });
 
 snapshot_pod!(crate::geometry::CenteredAabb {

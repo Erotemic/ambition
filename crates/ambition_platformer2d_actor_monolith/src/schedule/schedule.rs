@@ -199,6 +199,19 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             .chain()
             .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
     );
+    // A wielded traversal (a blink, a dive, a recall) is a transit: it
+    // collapses the body's record at the arrival. The contacts read the record
+    // after it, so a body that blinks into a hazard is hit on the tick it
+    // arrives. This order was stated only through the extension host's pull
+    // port (a member of `WieldedAbilities` that is in `BodyPathSet::Carry`),
+    // which is there for another reason. The cost of this direction: the path
+    // a body travelled in the step before it blinked is not read by the ECS
+    // hazards on that tick (LEVEL-BOX-READERS in the planning queue).
+    app.configure_sets(
+        sim,
+        ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Contacts
+            .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::WieldedAbilities),
+    );
 
     // The phases INSIDE PlayerSimulation. `PostPossession` is a HOST SLOT: the
     // engine registers nothing into it, and a host that registers nothing gets

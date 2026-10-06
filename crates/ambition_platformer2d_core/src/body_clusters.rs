@@ -221,6 +221,11 @@ pub struct SweepSample {
     /// A body on a wall, or in sideways gravity, lies along its support, so
     /// this is not always `size / 2`.
     pub half: Vec2,
+    /// The DOWN of the body in the step that wrote this record: the direction
+    /// `half` is turned to. A transit keeps it, because a transit moves the
+    /// body and does not turn it ([`crate::movement::reconcile_transit`]).
+    /// Zero for a body that no step has moved: such a body has its level box.
+    pub down: Vec2,
 }
 
 impl SweepSample {

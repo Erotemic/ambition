@@ -265,6 +265,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
             curr: end,
             vel,
             half: ae::Vec2::new(12.0, 20.0),
+            down: ae::Vec2::new(0.0, 1.0),
         },
     )).id();
     app.world_mut().entity_mut(body).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
@@ -302,10 +303,15 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
 /// so the segment that proves the body entered the zone was being discarded on
 /// exactly the frame it mattered. A body left TOUCHING the band rather than
 /// strictly inside it then never transitions, however long it stands there.
-#[test]
-fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
+/// The room a body crosses to, as `detect_room_transition_system` decides it:
+/// room `a` has one `EdgeExit` zone at `zone`, linked to room `b`. The body is
+/// the primary seat's, with the record `sample` when it has one.
+fn room_crossed_to(
+    zone: ae::Aabb,
+    body: ambition_platformer2d_core::BodyKinematics,
+    sample: Option<ae::SweepSample>,
+) -> Option<String> {
     use ambition_characters::control::SlotInteractionState;
-    use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use bevy::prelude::*;
 
@@ -327,6 +333,64 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
         }
     }
 
+    let mut room_a = spec_with(RoomMetadata::default(), "a");
+    room_a.loading_zones = vec![LoadingZone {
+        id: "exit_a".into(),
+        name: "east".into(),
+        activation: LoadingZoneActivation::EdgeExit,
+        aabb: zone,
+    }];
+    let mut room_b = spec_with(RoomMetadata::default(), "b");
+    room_b.loading_zones = vec![LoadingZone {
+        id: "entry_b".into(),
+        name: "west".into(),
+        activation: LoadingZoneActivation::EdgeExit,
+        aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(8.0, 40.0)),
+    }];
+    let set = RoomSet::from_parts_or_panic(
+        "a",
+        vec![room_a, room_b],
+        vec![RoomLink {
+            from_room: "a".into(),
+            from_zone: "exit_a".into(),
+            to_room: "b".into(),
+            to_zone: "entry_b".into(),
+            bidirectional: false,
+        }],
+    );
+
+    let mut app = App::new();
+    ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), set);
+    app.insert_resource(ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default());
+    app.insert_resource(GatePortalRegistry::default());
+    // The live phase is its own resource (rollback state) since
+    // `detect_room_transition_system` reads it.
+    app.init_resource::<GatePortalPhases>();
+    app.init_resource::<SlotInteractionState>();
+    app.init_resource::<Captured>();
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
+    app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
+    app.add_systems(Update, (detect_room_transition_system, capture).chain());
+
+    let mut entity = app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        // What `ensure_sim_id` gives a primary avatar on every host.
+        ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+        body,
+    ));
+    if let Some(sample) = sample {
+        entity.insert(sample);
+    }
+    entity.insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
+    app.update();
+    app.world().resource::<Captured>().0.clone()
+}
+
+#[test]
+fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
+    use ambition_platformer2d_core::BodyKinematics;
+
     // The exit band at the room's east edge, and a body stopped with its right
     // face exactly ON the band's left face — touching, not overlapping. This is
     // what a collision solver leaves behind when it advances to time-of-impact.
@@ -335,70 +399,17 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
     let stopped_at = ae::Vec2::new(zone_center.x - 8.0 - body_half.x, 100.0);
 
     let build = |sample: Option<ae::SweepSample>| {
-        let mut room_a = spec_with(RoomMetadata::default(), "a");
-        room_a.loading_zones = vec![LoadingZone {
-            id: "exit_a".into(),
-            name: "east".into(),
-            activation: LoadingZoneActivation::EdgeExit,
-            aabb: ae::Aabb::new(zone_center, ae::Vec2::new(8.0, 40.0)),
-        }];
-        let mut room_b = spec_with(RoomMetadata::default(), "b");
-        room_b.loading_zones = vec![LoadingZone {
-            id: "entry_b".into(),
-            name: "west".into(),
-            activation: LoadingZoneActivation::EdgeExit,
-            aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(8.0, 40.0)),
-        }];
-        let set = RoomSet::from_parts_or_panic(
-            "a",
-            vec![room_a, room_b],
-            vec![RoomLink {
-                from_room: "a".into(),
-                from_zone: "exit_a".into(),
-                to_room: "b".into(),
-                to_zone: "entry_b".into(),
-                bidirectional: false,
-            }],
-        );
-
-        let mut app = App::new();
-        ambition_platformer2d_world::rooms::insert_room_set(
-            app.world_mut(),
-            set,
-        );
-        app.insert_resource(
-            ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
-        );
-        app.insert_resource(GatePortalRegistry::default());
-        // The live phase is its own resource (rollback state) since
-        // `detect_room_transition_system` reads it.
-        app.init_resource::<GatePortalPhases>();
-        app.init_resource::<SlotInteractionState>();
-        app.init_resource::<Captured>();
-        app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
-        app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-        app.add_systems(Update, (detect_room_transition_system, capture).chain());
-
-        let body = BodyKinematics {
-            pos: stopped_at,
-            // ZERO, and that is the whole point: the wall took it.
-            vel: ae::Vec2::ZERO,
-            size: body_half * 2.0,
-            facing: 1.0,
-        };
-        let mut entity = app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            // What `ensure_sim_id` gives a primary avatar on every host.
-            ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
-            body,
-        ));
-        if let Some(sample) = sample {
-            entity.insert(sample);
-        }
-        entity.insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
-        app.update();
-        app.world().resource::<Captured>().0.clone()
+        room_crossed_to(
+            ae::Aabb::new(zone_center, ae::Vec2::new(8.0, 40.0)),
+            BodyKinematics {
+                pos: stopped_at,
+                // ZERO, and that is the whole point: the wall took it.
+                vel: ae::Vec2::ZERO,
+                size: body_half * 2.0,
+                facing: 1.0,
+            },
+            sample,
+        )
     };
 
     // The kernel's record of the frame: it walked 40 px east and was stopped.
@@ -407,6 +418,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
         curr: stopped_at,
         vel: ae::Vec2::new(2400.0, 0.0),
         half: body_half,
+        down: ae::Vec2::new(0.0, 1.0),
     };
     assert_eq!(
         build(Some(travelled)).as_deref(),
@@ -425,6 +437,72 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
         "and with no sample the reconstruction is `vel · dt` = 0, which cannot \
          describe that movement at all — if this ever names a room the fixture \
          has stopped modelling the collision that makes the bug possible",
+    );
+}
+
+/// A transit moves a body and does not turn it, and the record says so
+/// (`SweepSample::down`). The loading zones read the record a phase after the
+/// transits of the tick (a blink, a dive, a portal crossing), so the box they
+/// test at the arrival is the box the record states.
+///
+/// A 48 by 22 body falls one step in sideways gravity through the real
+/// kernel, and then transits. A thin zone under its end is touched by its own
+/// box (22 by 48) and not by its level box; a thin zone beside it is touched
+/// by its level box only. The collapsed record gave the level box, so the body
+/// crossed the zone beside it and not the zone it was in.
+#[test]
+fn a_body_that_transits_in_sideways_gravity_crosses_the_zone_its_own_box_touches() {
+    let size = ae::Vec2::new(48.0, 22.0);
+    let arrival = ae::Vec2::new(300.0, 200.0);
+    let mut scratch =
+        ae::BodyClusterScratch::new_with_abilities(ae::Vec2::new(100.0, 100.0), ae::AbilitySet::default());
+    scratch.kinematics.size = size;
+    scratch.base_size.base_size = size;
+    let world = empty_world("sideways");
+    let mut sample = ae::SweepSample::default();
+    {
+        let (model, mut clusters) = scratch.parts();
+        clusters.sweep = Some(&mut sample);
+        ambition_platformer2d_core::step_motion(
+            model,
+            &mut clusters,
+            ambition_platformer2d_core::MotionStepContext {
+                world: &world,
+                input: ae::InputState::default(),
+                frame: ae::MotionFrame::from_acceleration(
+                    ae::Vec2::new(ambition_platformer2d_core::movement::GRAVITY, 0.0),
+                )
+                .expect("gravity is not zero"),
+                facing_intent: 1.0,
+                dt: 1.0 / 60.0,
+                contact: ambition_platformer2d_core::BodyContactField::NONE,
+                pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
+            },
+        );
+        ambition_platformer2d_core::movement::transit_body(
+            model,
+            &mut clusters,
+            arrival,
+            ambition_platformer2d_core::movement::TransitVelocity::Zero,
+        );
+    }
+    assert_eq!((sample.prev, sample.curr), (arrival, arrival), "premise: the transit collapsed the record");
+    let body = scratch.kinematics;
+    let zone = |min: ae::Vec2, max: ae::Vec2| ae::Aabb {
+        min: arrival + min,
+        max: arrival + max,
+    };
+
+    assert_eq!(
+        room_crossed_to(zone(ae::Vec2::new(-4.0, 16.0), ae::Vec2::new(4.0, 20.0)), body, Some(sample)).as_deref(),
+        Some("b"),
+        "the zone under the end of the body touches its box, and the body must cross it",
+    );
+    assert_eq!(
+        room_crossed_to(zone(ae::Vec2::new(15.0, -3.0), ae::Vec2::new(20.0, 3.0)), body, Some(sample)),
+        None,
+        "the zone beside the body does not touch its box, and the body must not cross it",
     );
 }
 
@@ -846,6 +924,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
             curr: before,
             vel: ae::Vec2::ZERO,
             half: body_half,
+            down: ae::Vec2::new(0.0, 1.0),
         };
         {
             let (model, mut clusters) = scratch.parts();

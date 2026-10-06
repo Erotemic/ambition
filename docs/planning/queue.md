@@ -2643,24 +2643,137 @@ arms, and a cardinal control that was green before and after.
 **Open, read 2026-10-05, not built:**
 - A transit collapses the record to a zero-length sample with the level half
   (`movement/authority.rs`, `reconcile_transit`), and it has no frame to turn
-  the box with. The two boxes differ only in sideways gravity, and only for
-  the readers of that tick.
+  the box with. Measured by reading 2026-10-06 and moved to
+  LEVEL-BOX-READERS below, where it is one member of a family.
 - Water is not gravity-covariant in a second way. `World::water_at` states the
   surface as the world top of the region (`surface_y`) and measures the
   submersion on world y, so in sideways gravity the surface of a pool is not
   the face that is against gravity. The box that TOUCHES the water is now the
   box of the step; what the surface of a region is, in a room whose gravity is
-  not down, is a design decision.
+  not down, is a design decision:
+  [Q160](awaiting-maintainer-decision.md#q160--water-in-a-room-whose-gravity-is-not-down-where-is-the-surface-of-a-pool-and-does-a-body-that-is-not-axis-swept-get-wet).
 - The axis arm is the only writer of `BodyEnvironmentContact` outside tests
   (searched in `crates` and `game`, 2026-10-06). So a slug or a momentum body
   is in no water and on no ladder, and it does not drown. Not measured in a
-  composed room.
+  composed room. Whether it should is the second half of Q160.
 - The actor view derives a surface walker's draw size by the inverse of the
   rule (`ambition_sim_view/src/view_index.rs`: it swaps the published
   footprint back when `surface_normal.x.abs() > surface_normal.y.abs()`). The
   inverse is exact for a cardinal normal only: for any other normal the
   footprint is a bound of the turned box, and the raw size is not in it. The
   raw size is `BodyKinematics::size`. Read 2026-10-06, not measured.
+
+### LEVEL-BOX-READERS — a reader of a body's box outside the kernel asks the level box
+
+**Owner:** each reader's crate; the rule is the movement kernel's
+(`crates/ambition_platformer2d_core`). Filed 2026-10-06 from
+CRAWLER-HAZARD-FOOTPRINT.
+
+**The rule:** a body that is not square has one box, and it is turned to the
+DOWN of the body: the published footprint (`CenteredAabb`, written by
+`ambition_combat::body_geometry::publish_body_footprint`) or
+`BodyKinematics::aabb_oriented` with that DOWN. `BodyKinematics::aabb` and
+`size * 0.5` are the LEVEL box. The level box is right for a body with no
+frame of its own (a shot), for a reader that needs the centre only, and in a
+game that has no turned gravity. For any other reader it is a second statement
+that is equal to the rule in normal gravity and wrong in a room whose gravity
+is turned (the symmetry room of the main game has such arms).
+
+**Current failure (read, not measured, except where a row says so):** a
+pattern search of `crates` and `game` outside tests, 2026-10-06
+(`(kinematics|kin|body).aabb()`, `(kinematics|kin).size * 0.5`,
+`(kinematics|kin).size / 2`), found 78 lines in 19 crates: 75 lines of
+production code, 2 comment lines, and 1 literal of a test (the search leaves
+out test FILES, and `ambition_portal2d/src/transit.rs` has its tests in the
+file). After the transit record was built the same search finds 77. This is
+a LOWER bound: a reader that names the box another way is not in it. It is
+not a count of defects: the classes below were sorted by the line and its
+neighbours, and no class but the first was measured.
+
+| class | lines | where | a footprint question? |
+| --- | --- | --- | --- |
+| the transit record | 1 | `movement/authority.rs` (`reconcile_transit`) | yes. BUILT 2026-10-06, see below |
+| world and reach tests of a body | 17 | loading zones and interaction reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `ambition_held_items` (2), `breakables.rs`, the portal inventory adapter, `safe_position.rs`, the rider against solids (`ambition_mount`) | yes |
+| arrival and fit checks of a traversal | 6 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (2), the petting stand-off (`pet.rs`) | yes |
+| portals | 9 | `ambition_portal2d` `transit.rs` (3, one of them the test literal) and `eviction.rs` (2), the host adapter, a shot's portal transit, two draws in `ambition_portal2d_presentation` | yes for a body; not read line by line |
+| a second WRITE of the published footprint | 4 | `ambition_mount` (3: the rider's footprint while it rides and when it gets off), the Gnu-ton conductor | yes: it writes the level half into the value the rule publishes |
+| what a brain sees of a peer | 2 | `perception.rs` (`half_extent`) | yes |
+| a shot | 12 | `projectile/systems.rs` (4), `projectile/collision.rs`, `projectile/body.rs` (6, 2 of them the comment lines), `clash.rs` | no: a shot is a free body with no support and no stance, and its size is its box |
+| the gravity of a body | 2 | `gravity/resolve.rs` | no: this box is what resolves the frame, so the frame cannot turn it |
+| the centre only | 3 | `avatar/trail.rs`, `target_volumes.rs`, the boss extension | no: the centre of the two boxes is the same |
+| developer trace and overlay | 8 | `dev/trace` (6), the app's debug overlay (2) | not for the game. An overlay that draws the level box of a turned body shows a box the body does not have |
+| a game with no turned gravity | 10 | Mary-O (4), Smash (4), Sanic (2) | no, until one of those games turns gravity |
+| the camera's framing bounds | 1 | `camera_snapshot.rs` | no: a bound of what to frame, not a contact |
+| inside the kernel | 3 | `player_state.rs` (turned by the frame on the same line), the crawler arm (2, it states its own DOWN) | no |
+
+**The transit record, built 2026-10-06 (rollback schema 314 to 315):**
+`transit_body` and `reconcile_transit` have 23 call sites outside tests. Ten
+are tools, captures, the harness and the developer runtime, and one is
+Mary-O's pipe. Twelve run in the main game, so a transit can happen in turned
+gravity. A transit collapsed the record to a zero-length sample with the
+LEVEL half, because it has no frame to turn a box with. The record has two
+readers outside tests: the ECS hazard test (`ambition_combat/src/hazards.rs`,
+`body_touches`) and the loading zones (`world/rooms/systems.rs`). The window
+was one tick (the next kernel step writes the record again), and the wrong
+answer was an overlap of the level box that the turned box does not have: a
+hazard or a door beside the body, nearer than the long half minus the short
+half of the body (9 for the 30 by 48 player).
+
+The record now carries the DOWN of the body in the step that wrote it
+(`SweepSample::down`, written by `write_sweep_sample` beside `half`), and a
+collapse states the body's PRESENT size turned to that DOWN. The rule: a
+transit moves a body and does not turn it; the next step turns it. It holds
+for a reset that changes the size before it transits, in oblique gravity, and
+for a crawler that a transit takes off a wall (it arrives with the turn it
+had, the one case where the record at the arrival is not the box of the next
+step). No call site changed. Witnesses: `movement/tests/transit_record.rs`
+(four cases that were red, two controls, and the snapshot of the record), and
+`a_body_that_transits_in_sideways_gravity_crosses_the_zone_its_own_box_touches`
+(`world/rooms/tests.rs`: the real record through the real zone detector; the
+body crossed the zone beside it and not the zone it was in).
+
+**Rejected, do not retry:** to make a READER of the record use the published
+footprint (`CenteredAabb`) when the record is zero-length. The footprint of a
+boss is its draw envelope, not its collision box, so a boss that a seat drives
+would touch a door with its envelope in NORMAL gravity. A reader has no box
+fact that is the collision box turned at the arrival; the writer has.
+
+**When the readers run, measured in the shipped schedule 2026-10-06** (662
+systems, in the order they execute): the kernel step is 157; recall, blink
+and dive are 266, 268 and 272; `apply_hazard_contacts` is 294; the portal
+transit is 297; the loading zones are 309; the authored teleports and
+trapdoors are 367 and 369 (after both readers, so the next step writes the
+record before a reader sees their collapse). So the loading zones read the
+collapse of every blink, dive, recall and portal crossing of the tick, and
+the ECS hazards read the collapse of a blink, a dive and a recall. That last
+order was stated only through the extension host's pull port (a member of
+`WieldedAbilities` that is in `BodyPathSet::Carry`); my first report that no
+edge stated it was wrong. It is now stated on its own
+(`BodyPathSet::Contacts` after `ItemPickupSet::WieldedAbilities`,
+`schedule/schedule.rs`) and held by
+`a_wielded_transit_is_settled_before_the_path_is_read.rs`. The two paths are
+redundant: the guard goes red only when both are removed (seen with the pull
+port's membership removed on the tree before the edge).
+
+**Open:**
+- The direction of that order. Today a body that blinks into an ECS hazard is
+  hit on the tick it arrives, and the path it travelled in the kernel step
+  before the blink is not read by the ECS hazards on that tick (the collapse
+  comes first). The contract of `BodyPathSet` puts a portal crossing AFTER
+  the contacts for that reason. The other direction reads the travelled path
+  and hits a blink's arrival one tick later. Not changed: it moves every
+  wielded ability after the portal constraints of the tick.
+- `possession_trigger_system` (system 196) transits a body after the kernel
+  step and before both readers. Read from the order, not measured.
+
+**To reproduce (the next class):** in turned gravity, a region beside a body
+that is not square, nearer than the long half minus the short half and not
+touching its footprint. Each arm must be written and seen to fail before a
+reader is changed.
+
+**Acceptance:** each class marked "yes" has a failing arm in turned gravity,
+then asks the rule, one class per change; a class marked "no" keeps its one
+line of reason here; the pattern search is run again and the table matches it.
 
 ### CALIBRATION-LAB-SHOT — a shot born at chest height in the calibration lab is gone on its first tick
 

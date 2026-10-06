@@ -309,8 +309,7 @@ pub(crate) fn update_body_simulation_in_frame(
     );
     // The box this arm sweeps is the body's box turned to the frame's DOWN
     // (`aabb_oriented(frame.down())` in every collision of the step).
-    let step_half = clusters.kinematics.half_oriented(frame.down());
-    kernel::write_sweep_sample(clusters, (entry_pos, entry_vel), step_half);
+    let step_half = kernel::write_sweep_sample(clusters, (entry_pos, entry_vel), frame.down());
 
     // Hazard / out-of-bounds gate — body flags the cause; the owner applies its policy.
     //

@@ -450,6 +450,7 @@ mod tests {
             curr: kin.pos,
             vel: Vec2::new(0.0, 240.0),
             half: kin.size * 0.5,
+            down: Vec2::new(0.0, 1.0),
         };
 
         let sample = portal_sweep_sample(&kin, Some(&sweep)).expect("matching sample is valid");
@@ -470,6 +471,7 @@ mod tests {
             curr: Vec2::new(10.0, 20.0),
             vel: Vec2::new(0.0, 240.0),
             half: Vec2::new(12.0, 20.0),
+            down: Vec2::new(0.0, 1.0),
         };
 
         assert_eq!(portal_sweep_sample(&kin, Some(&sweep)), None);

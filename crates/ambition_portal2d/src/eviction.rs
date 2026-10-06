@@ -14,7 +14,7 @@
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 
-use ambition_platformer2d_core as ae;
+use ambition_platformer2d_core::{self as ae, AabbExt};
 
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, SessionScopeActivated};
@@ -125,13 +125,14 @@ fn evict_for_plane(
         if live.of(entity) != room {
             continue;
         }
-        let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        // The box the body has: turned as its last step turned it.
+        let body = kin.collision_box(sweep.as_deref());
         if !pp::straddles(body, &plane) {
             continue;
         }
         // Push so the trailing edge clears the plane on the centroid's side.
         let d = pp::front_distance(kin.pos, &plane.frame);
-        let half_n = (kin.size * 0.5).dot(n.abs());
+        let half_n = body.half_size().dot(n.abs());
         // Position authority (ADR 0024): the closing portal moves the body
         // clear of the plane.
         if d >= 0.0 {

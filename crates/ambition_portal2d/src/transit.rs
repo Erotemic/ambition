@@ -63,7 +63,9 @@ pub struct PortalCarves {
 /// opened a portal of the other room that stood at the same coordinates.
 pub fn publish_portal_carves(
     portals: Query<(Entity, &PlacedPortal)>,
-    bodies: Query<(Entity, &BodyKinematics)>,
+    // The record of a body's last step has its DOWN: the core has no frame
+    // of a body, and it asks the box the body has.
+    bodies: Query<(Entity, &BodyKinematics, Option<&ae::SweepSample>)>,
     transits: Query<(Entity, &PortalTransit)>,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     host_depths: Option<Res<PortalHostDepthsByRoom>>,
@@ -96,11 +98,12 @@ pub fn publish_portal_carves(
 
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
-    for (body_entity, kin) in &bodies {
+    for (body_entity, kin, record) in &bodies {
         let room = live.of(body_entity);
-        let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        let body = kin.collision_box(record);
+        let size = body.half_size() * 2.0;
         for p in by_room.in_room(room) {
-            if !portal_fits(kin.size, p) {
+            if !portal_fits(size, p) {
                 continue;
             }
             let ap = p.aperture();
@@ -216,7 +219,7 @@ pub fn portal_transit(
     let default_depths = PortalHostDepthsByRoom::default();
     let depths = host_depths.as_deref().unwrap_or(&default_depths);
 
-    for (entity, mut kin, mut transit, mut roll, cooldown, sweep) in &mut bodies {
+    for (entity, mut kin, mut transit, mut roll, cooldown, record) in &mut bodies {
         let room = live.of(entity);
         let all = by_room.in_room(room);
         // Per body, not once for all: `placement::wall_to_wall` classifies each
@@ -231,10 +234,13 @@ pub fn portal_transit(
         // The swept segment comes from the movement kernel's `SweepSample`. It
         // is used only when its `curr` equals the live `kin.pos`, so teleports
         // outside the sim phase are not swept travel.
-        let sweep = portal_sweep_sample(&*kin, sweep);
+        let sweep = portal_sweep_sample(&*kin, record);
+        // The size of the box the body has: its collision box, turned as its
+        // last step turned it. The core has no frame of a body.
+        let size = kin.collision_box(record).half_size() * 2.0;
         let step = transit_step_with_tuning(
             kin.pos,
-            kin.size,
+            size,
             kin.vel,
             sweep,
             transit.as_deref().copied(),

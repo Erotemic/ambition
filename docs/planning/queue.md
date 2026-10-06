@@ -2698,7 +2698,8 @@ neighbours, and no class but the first was measured.
 | world and reach tests of a body | 16 | 0 | loading zones and reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `breakables.rs`, the portal gun pickup, `safe_position.rs`, the rider against solids (`ambition_mount`), the pickup of a ground item (`ambition_held_items/src/lib.rs`) | yes. BUILT, see below |
 | arrival and fit checks of a traversal | 4 | 0 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (the arrival) | yes. BUILT, see below |
 | a procedure written in world axes | 2 | 2 | the candidates of a teleport's ambush (`teleport.rs`, `ambush_arrival`), the fit of the petter at its mark (`pet.rs`) | yes, and NOT by this rule: a DEFECT of the procedure, see below |
-| portals | 9 | 9 | `ambition_portal2d` `transit.rs` (3, one of them the test literal) and `eviction.rs` (2), the host adapter, a shot's portal transit, two draws in `ambition_portal2d_presentation` | yes for a body; not read line by line |
+| portals: the carve and the eviction of a body | 3 | 0 | `ambition_portal2d` `transit.rs` (the carve), `eviction.rs` (2) | yes. BUILT, see below |
+| portals: read line by line, and not a level-box read of a body | 6 | 6 | the gravity lookup of the transit (`transit.rs`: the guard has it with the gravity lookups), a shot's portal transit (the guard has it with the shots), the reach of the portal viewer (the host adapter: the LENGTH of the half only), two draws in `ambition_portal2d_presentation` (they read `PortalBodyView`, a published view whose local name is `kin`), and the test literal | no, each with its reason in the baseline of the guard |
 | what a brain sees of a peer | 2 | 2 | `perception.rs` (`half_extent`) | yes |
 | a shot | 12 | 12 | `projectile/systems.rs` (4), `projectile/collision.rs`, `projectile/body.rs` (6, 2 of them the comment lines), `clash.rs` | no: a shot is a free body with no support and no stance, and its size is its box |
 | the gravity of a body | 3 | 3 | `gravity/resolve.rs` (2), the frame of a throw (`ambition_held_items/src/lib.rs`) | no: this box is what resolves the frame, so the frame cannot turn it |
@@ -2712,8 +2713,8 @@ The first sort put the throw's gravity lookup of `ambition_held_items` in the
 world-and-reach class; it is a gravity lookup, and the table above has it
 there (16 and 3, not 17 and 2). The first sort also put the two world-axis
 procedures in the traversal class (6); they are a class of their own (4 and
-2). The search finds 53 lines on 2026-10-06 after the four classes that are
-built (the guard counts 50 of them: it leaves out the 2 comment lines and the
+2). The search finds 50 lines on 2026-10-06 after the five classes that are
+built (the guard counts 47 of them: it leaves out the 2 comment lines and the
 test literal).
 
 **The transit record, built 2026-10-06 (rollback schema 314 to 315):**
@@ -2856,6 +2857,41 @@ written and seen red before its line was changed:
 - the teleport, a 24x48 body: the unaimed rise stopped with its box 10 inside
   the ceiling, and the ledge assist stood its centre 12 from the face of the
   ledge where the body is 24 deep.
+
+**Portals, built 2026-10-06:** the portal core is a reader of every body and
+has no frame of one, so it asks the record: `kin.collision_box(record)`.
+The class had been sorted and not read. Read line by line, 3 of its 9 lines
+are level-box reads of a body, and the two LARGEST reads of the class were
+not in the search at all (a `kin.size` handed to a function, not a box built
+on the line):
+
+- the transit handed `kin.size` to `transit_step_with_tuning`, and the carve
+  handed it to `portal_fits`. Both now hand the size of the collision box;
+- `publish_portal_body_views` (the host adapter) published `size: kin.size`
+  to the presentation, which cuts the body into pieces with it. It now
+  publishes the size of the collision box, and the doc of
+  `PortalBodyView::size` says so.
+
+Arms (`ambition_portal2d/src/turned_body_tests.rs`), each written and seen
+red before the change, each with a control in normal gravity that was green
+before and after. The body has a record with DOWN +x:
+
+- fit: a 24x40 body lies along its floor and is 24 along a 32 opening. It
+  was refused (level 40) and now crosses. A 40x24 body is 40 along it. It
+  crossed (level 24) and now stays.
+- carve: a body at rest with its centre 15 from the capture box of an
+  opening. A 24x40 body is 20 deep toward the wall and cut no hole; a 40x24
+  body is 12 deep and cut one.
+- eviction: a floor portal closes under a body whose centre is 15 over its
+  plane. A 24x40 body is 12 deep there and was pushed; a 40x24 body is 20
+  deep and was left to straddle a plane that is gone.
+- the view: a 24x40 body with DOWN +x was published as 24x40
+  (`ambition_platformer2d_host`, runs with `--features portal_render`).
+
+Not measured: a crossing in a room of the shipped game whose gravity is
+turned, and the gun and the indicator the presentation draws from the view
+(`size.x * 0.45` in front on world x, `size.y * 0.5` over on world -y: two
+more world-axis procedures, in a drawing).
 
 **A procedure written in world axes (2 lines, NOT built, a defect):** these
 two read a level half, and to turn the half alone is wrong, because every

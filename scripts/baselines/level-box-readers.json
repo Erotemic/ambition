@@ -2,7 +2,8 @@
   "about": "The level-box reads of a body that scripts/check_level_box_readers.py finds, each with its class. A new read is not in this file: convert it, or add it with the class that says why the level box is right there. A line the search no longer finds must be deleted: the counts may only fall. LEVEL-BOX-READERS in docs/planning/queue.md has the table.",
   "classes": {
     "DEFECT, a procedure written in world axes": "NOT a legitimate read: wrong in turned gravity. The ambush of a teleport puts 'behind' on world x and the feet on world y, and the petting mark is on world x at the petter's y. To turn this one half would give a wrong answer of another shape: state the procedure in the frame of the body (LEVEL-BOX-READERS, docs/planning/queue.md)",
-    "to convert: portals": "a portal transit, an eviction and their draws read a body's level box; a body turns through a portal, so this class has its own frame questions",
+    "a published view of the box the body has": "`kin` on this line is a `PortalBodyView`, not a `BodyKinematics`: its size is published by the host as the collision box, turned (`publish_portal_body_views`)",
+    "the length of the half only": "the reader takes the length of the half (a reach of the portal viewer), which the level box and a box turned by a quarter share",
     "to convert: what a brain sees of a peer": "the half extent a brain is given for a peer is level",
     "a shot": "a shot is a free body with no support and no stance: its size is its box",
     "the gravity of a body": "this box is what resolves the frame of the body, so the frame cannot turn it",
@@ -136,7 +137,7 @@
     {
       "file": "crates/ambition_platformer2d_host/src/portal.rs",
       "code": "Some((kin.pos, kin.size * 0.5, room, rooms.in_room(room)?))",
-      "class": "to convert: portals"
+      "class": "the length of the half only"
     },
     {
       "file": "crates/ambition_platformer2d_shared_tangle/src/projectile/body.rs",
@@ -164,39 +165,24 @@
       "class": "a shot"
     },
     {
-      "file": "crates/ambition_portal2d/src/eviction.rs",
-      "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
-      "class": "to convert: portals"
-    },
-    {
-      "file": "crates/ambition_portal2d/src/eviction.rs",
-      "code": "let half_n = (kin.size * 0.5).dot(n.abs());",
-      "class": "to convert: portals"
-    },
-    {
-      "file": "crates/ambition_portal2d/src/transit.rs",
-      "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
-      "class": "to convert: portals"
-    },
-    {
       "file": "crates/ambition_portal2d/src/transit.rs",
       "code": "kin.size * 0.5,",
-      "class": "to convert: portals"
+      "class": "the gravity of a body"
     },
     {
       "file": "crates/ambition_portal2d_presentation/src/gun_visuals.rs",
       "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
-      "class": "to convert: portals"
+      "class": "a published view of the box the body has"
     },
     {
       "file": "crates/ambition_portal2d_presentation/src/visuals.rs",
       "code": "let body = ae::Aabb::new(kin.pos, kin.size * 0.5);",
-      "class": "to convert: portals"
+      "class": "a published view of the box the body has"
     },
     {
       "file": "crates/ambition_projectiles/src/portal_transit.rs",
       "code": "let half = kin.size * 0.5;",
-      "class": "to convert: portals"
+      "class": "a shot"
     },
     {
       "file": "crates/ambition_sim_view/src/camera_snapshot.rs",

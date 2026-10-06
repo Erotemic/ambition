@@ -92,6 +92,8 @@ pub use schedule::PortalSet;
 
 // Domain-owned rollback declaration; the host supplies the backend registrar.
 mod rollback_registration;
+#[cfg(test)]
+mod turned_body_tests;
 pub use rollback_registration::{
     register_portal_gun_rollback_state, register_portal_rollback_state, register_rollback_state,
 };

@@ -1418,8 +1418,15 @@ impl BagSpendsSinceCheckpoint {
         &self.spends
     }
 
+    /// The spends that `kept` keeps, in the order they were made.
+    pub fn keeping(&self, kept: impl Fn(&BagSpend) -> bool) -> Self {
+        Self {
+            spends: self.spends.iter().filter(|spend| kept(spend)).cloned().collect(),
+        }
+    }
+
     /// Forget every spend: a checkpoint commit makes them part of the
-    /// baseline, and a checkpoint restore or a fresh run puts the bag back.
+    /// baseline. A restore keeps the ones it keeps.
     pub fn forget_all(&mut self) {
         if !self.spends.is_empty() {
             self.spends.clear();

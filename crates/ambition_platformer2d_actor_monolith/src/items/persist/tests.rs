@@ -191,6 +191,8 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     app.world_mut().insert_resource(ItemCheckpointRestoreInputs {
         minted: Default::default(),
         owned: starter,
+        grants: Default::default(),
+        spends: Default::default(),
     });
     app.world_mut()
         .insert_resource(ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore);

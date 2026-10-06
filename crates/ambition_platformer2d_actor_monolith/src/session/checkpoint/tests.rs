@@ -891,6 +891,8 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
             item: Some(ItemCheckpointRestoreInputs {
                 minted: Default::default(),
                 owned: Default::default(),
+                grants: Default::default(),
+                spends: Default::default(),
             }),
             fresh: false,
             replay: None,
@@ -1240,6 +1242,8 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             item: Some(crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                 minted: MintedItemBaseline::default(),
                 owned: Default::default(),
+                grants: Default::default(),
+                spends: Default::default(),
             }),
             fresh: false,
             replay: None,

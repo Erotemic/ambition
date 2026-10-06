@@ -171,6 +171,103 @@ impacts, stun stars, shockwave, rocks), auditioned before they are ported;
 (6) art: rows the moves need that the sheet lacks (stunned, rear, leap); (7)
 tuning from `fight_discovery` and Jon's playtest.
 
+## The Mockingbird — air chase (proposed 2026-10-06, Jon)
+
+**Art: shipped.** The boss wears `mockingbird_boss_v2`, an SVG-rigged
+redesign: a big mecha jet engine with a hooded, skull-like face and a lipless
+grin, rigid jet wings with missiles, two rotors, a thruster and two grappling
+claws. The first design (`mockingbird_boss/`) still publishes as its lineage.
+
+**The fight Jon wants:** a fast air chase. The Mockingbird holds one side of
+the screen and chases burning flying sharks that flee across a sky that never
+stops moving. The sharks are the player's footing: moving platforms to dodge
+and attack from. It fires missiles and fireballs, and dives into the stage to
+chase and bite, which opens it to damage. A player who falls off the bottom is
+caught by a shark and carried back up, so the fight keeps going. When it dies,
+its treasure falls into a "ground" room below, which joins the chase to the
+normal LDtk levels. The fight must not assume the player can fly (or has the
+fuel to).
+
+What exists (measured 2026-10-06):
+
+- **Parallax:** 4 fixed layers offset by camera position
+  (`ambition_render/src/rendering/parallax.rs`). No time-based scroll, no
+  tiling, no wraparound, no autoscroll camera.
+- **Moving platforms:** `Sweep`, `Path` and `VerticalLoop`, which wraps like an
+  elevator (`ambition_platformer2d_world/src/platforms/mod.rs`). No horizontal
+  wrap. The burning flying shark is a mount sheet, not a platform.
+- **The current fight:** 28 HP in `mockingbird_arena` (960x768, between the
+  cove and the dojo, placement `cove.mockingbird`). It uses `AirSwoop` and
+  cycles `wing_sweep`, `dive_lane`, `broadside` and `echo_fan`.
+
+**Proposal: no "chase level" type. Four room features, each useful on its
+own; the chase room composes them.** The stage is static and only looks like
+it moves:
+
+1. **Autoscrolling parallax:** a room states a scroll velocity, and its
+   layers tile and wrap horizontally at their own factor (a Hanna-Barbera
+   loop). Presentation only.
+2. **A horizontal wrapping motion** for moving platforms, the sideways
+   sibling of `VerticalLoop`. Sharks leave one edge and re-enter at the
+   other, weaving on a bob. A platform can wear a character sheet (the shark
+   rig).
+3. **A fall rescue:** a room rule that, instead of the kill floor, sends a
+   carrier platform up under a falling player and lifts them back into play.
+4. **A reward anchor in another room:** the chest is already keyed by
+   placement id (`BossRewardAnchor.placement_id`). The chase's anchor sits
+   at the top of the ground room, so the treasure falls in from the sky
+   there.
+
+The Mockingbird itself is boss content: it is anchored to one side, with
+volleys (missiles from the wingtip, fireballs), and a dive-in bite that ends
+in a recovery window.
+
+Open (Jon): how the player gets up into the chase from the ground room. My
+proposal: a shark swoops down and the player rides it up through the
+ceiling.
+
+## The hall of bosses: its own instances, and life switches (proposed 2026-10-06, Jon)
+
+**The problem.** Two of the hall's ten doors lead into main-game rooms
+instead of rooms of their own:
+
+- the Mockingbird: `hall_to_mockingbird_portal` → `mockingbird_arena`, whose
+  exit leads to the cove;
+- the Clockwork Warden: `hall_to_warden_portal` → `basement_boss`, whose exit
+  leads to the hub.
+
+So you walk through a door and come out somewhere else. The other eight
+lead to dedicated arenas that return to the hall.
+
+**Wanted.** The hall has its own instance of every boss: separate rooms and
+separate placements, so the hall's progress and the main game's progress are
+independent. This already works: progress is keyed by authored placement id
+(Q57). The world already has archetypes placed twice (Mode Collapse, the
+Warden).
+
+**Life switches.** A switch outside each hall door shows that hall boss's
+state: green when it is alive, red when it is dead.
+
+- Flipping red to green revives it. `retract_defeat_records` already moves a
+  placement back to `Untouched` and clears its looted flag.
+- Green to red, if allowed, kills it:
+  - when the boss is loaded, through its death;
+  - when it is not loaded, by recording it `Cleared`, so the next visit finds
+    a corpse.
+
+The switch shows the boss's state; it stores no state of its own. Today's
+`Switch` toggles its own save entry, so this is a new switch action, plus
+the "may this be flipped" rule. There is no interactability condition today
+(`features/ecs/interact.rs`).
+
+**Archetype-keyed things a hall kill would trigger** (decide per item):
+
+- `QuestAdvanceEvent::BossDefeated(archetype)`;
+- the signature gauntlet drop;
+- the reward contents (`pirate_hoard`);
+- Yarn `boss_cleared("cove.mockingbird")` is keyed by placement, so it is
+  unaffected.
+
 ## Mode Collapse music (Q148)
 
 Mode Collapse (`boss_encounters/mode_collapse_boss.ron`, a summoner that floods

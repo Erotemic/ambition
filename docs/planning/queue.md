@@ -2685,7 +2685,7 @@ neighbours, and no class but the first was measured.
 | world and reach tests of a body | 17 | loading zones and interaction reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `ambition_held_items` (2), `breakables.rs`, the portal inventory adapter, `safe_position.rs`, the rider against solids (`ambition_mount`) | yes |
 | arrival and fit checks of a traversal | 6 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (2), the petting stand-off (`pet.rs`) | yes |
 | portals | 9 | `ambition_portal2d` `transit.rs` (3, one of them the test literal) and `eviction.rs` (2), the host adapter, a shot's portal transit, two draws in `ambition_portal2d_presentation` | yes for a body; not read line by line |
-| a second WRITE of the published footprint | 4 | `ambition_mount` (3: the rider's footprint while it rides and when it gets off), the Gnu-ton conductor | yes: it writes the level half into the value the rule publishes |
+| a second WRITE of the published footprint | 4 | `ambition_mount` (3: the rider's footprint while it rides and when it gets off), the Gnu-ton conductor | yes. BUILT 2026-10-06, see below |
 | what a brain sees of a peer | 2 | `perception.rs` (`half_extent`) | yes |
 | a shot | 12 | `projectile/systems.rs` (4), `projectile/collision.rs`, `projectile/body.rs` (6, 2 of them the comment lines), `clash.rs` | no: a shot is a free body with no support and no stance, and its size is its box |
 | the gravity of a body | 2 | `gravity/resolve.rs` | no: this box is what resolves the frame, so the frame cannot turn it |
@@ -2721,6 +2721,21 @@ step). No call site changed. Witnesses: `movement/tests/transit_record.rs`
 (`world/rooms/tests.rs`: the real record through the real zone detector; the
 body crossed the zone beside it and not the zone it was in).
 
+**The second writers of the footprint, built 2026-10-06:** the saddle pin
+(`sync_riders_to_mounts`), a dismount, a mount's death and the Gnu-ton
+conductor each wrote `size / 2` into a body's published footprint after they
+moved it. That half was level in turned gravity, and it replaced the envelope
+of a rider that has one (in normal gravity too). They now write the CENTRE
+only. The size of a footprint is the publish rule's to state, at body
+integration each tick: the body's size or its envelope, turned to its DOWN.
+A change of size on one of these roads would show one tick later; none
+happens today (`MountedSize` has no production writer, and the conductor
+does not resize a fist). Witnesses (`ambition_mount`, `footprint_tests`): the
+pin in turned gravity and with an envelope, a dismount and a mount's death in
+turned gravity, each red before with the half (15, 24); each writer's poison
+turns only its own cases red. The conductor has no arm of its own: its
+system needs the whole Gnu-ton fixture, and the change is the same one line.
+
 **Rejected, do not retry:** to make a READER of the record use the published
 footprint (`CenteredAabb`) when the record is zero-length. The footprint of a
 boss is its draw envelope, not its collision box, so a boss that a seat drives
@@ -2752,8 +2767,11 @@ port's membership removed on the tree before the edge).
   the contacts for that reason. The other direction reads the travelled path
   and hits a blink's arrival one tick later. Not changed: it moves every
   wielded ability after the portal constraints of the tick.
-- `possession_trigger_system` (system 196) transits a body after the kernel
-  step and before both readers. Read from the order, not measured.
+- `possession_trigger_system` (system 196 of 662: after the kernel step at
+  157, before the ECS hazards at 294 and the loading zones at 309) transits a
+  body. It calls `transit_body` (`control/possession.rs`), so its record is
+  collapsed by `reconcile_transit` and keeps the turn of the body. What the
+  two readers then see of a possession was not measured.
 
 **To reproduce (the next class):** in turned gravity, a region beside a body
 that is not square, nearer than the long half minus the short half and not

@@ -375,9 +375,12 @@ where
     );
     // Granted with the rig, by a body whose feet are not under its centre (a
     // conducted boss's birth kit), and constant after: presence like the rig's.
-    registrar.rollback_component_clone::<ambition_combat::body_rig::RigFeetOffset>(
+    // Probed by value: it is two floats, and a presence probe would see a
+    // restore that brought back the wrong offset as the right one.
+    registrar.rollback_component_clone_probed::<ambition_combat::body_rig::RigFeetOffset>(
         OWNER,
         "actor.rig_feet_offset",
+        |feet| (u64::from(feet.0.x.to_bits()) << 32) | u64::from(feet.0.y.to_bits()),
     );
     registrar.rollback_component_clone::<crate::features::PickupCollectLock>(
         OWNER,

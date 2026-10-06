@@ -61,5 +61,7 @@ mod tests {
     /// it, and the animator has no name rule for it, so it calls it a
     /// one-shot. Neither times it: only the T-rex boss shows it, and his
     /// sprite and his rig both follow his module's PIN (`PinnedRow::looping`).
-    const EXPECTED: [&str; 6] = ["crouch", "crouch_jump", "jump", "skid", "stunned", "taunt"];
+    /// `grab_shake` (the T-rex thrashing you in his jaws) is the same case:
+    /// pinned looping while he shakes.
+    const EXPECTED: [&str; 7] = ["crouch", "crouch_jump", "grab_shake", "jump", "skid", "stunned", "taunt"];
 }

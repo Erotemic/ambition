@@ -31,10 +31,7 @@ const EXPECTED_SHEETS: [(&str, &str); 7] = [
         "gnu_ton_boss/gnu_ton_rider_spritesheet.png",
     ),
     ("gradient_sentinel", "boss_spritesheet.png"),
-    (
-        "mockingbird",
-        "mockingbird_boss/mockingbird_boss_spritesheet.png",
-    ),
+    ("mockingbird", "mockingbird_boss_v2_spritesheet.png"),
     (
         "smirking_behemoth_boss",
         "smirking_behemoth_boss_spritesheet.png",

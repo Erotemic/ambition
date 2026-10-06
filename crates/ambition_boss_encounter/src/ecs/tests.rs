@@ -191,8 +191,8 @@ fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
     // authored `sprite_target`), or the registry lookup misses.
     assert_eq!(
         sprite_target_for_boss(crate::test_boss_catalog(), &behavior),
-        "mockingbird_boss",
-        "mockingbird behavior must map to its 'mockingbird_boss' sheet target",
+        "mockingbird_boss_v2",
+        "mockingbird behavior must map to its 'mockingbird_boss_v2' sheet target",
     );
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(500.0, 185.0));
     let pos = ae::Vec2::new(500.0, 400.0);

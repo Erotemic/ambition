@@ -279,26 +279,33 @@ fn boss_atlas_falls_back_when_record_rows_dont_line_up() {
 }
 
 #[test]
-fn mockingbird_flips_to_face_the_player_unlike_right_facing_sheets() {
-    // Player to the right  facing > 0.
-    assert!(content_sheet("mockingbird").authored_faces_left);
+fn a_left_drawn_sheet_flips_to_face_the_player_unlike_right_facing_sheets() {
+    // Every shipped sheet is drawn facing right since the Mockingbird's
+    // redesign (2026-10-06; its first design faced left), so the left-drawn
+    // case is a spec that says so.
+    assert!(!content_sheet("mockingbird").authored_faces_left);
     assert!(!sentinel_sheet().authored_faces_left);
     assert!(!content_sheet("giant_gnu").authored_faces_left);
     assert!(!content_sheet("smirking_behemoth_boss").authored_faces_left);
+    let left_drawn = BossSheetSpec {
+        authored_faces_left: true,
+        ..sentinel_sheet()
+    };
 
     // Right-facing sheet: face right (no flip) when the player is right,
     // flip when the player is left — the unchanged default.
     assert!(!sentinel_sheet().flip_x(1.0));
     assert!(sentinel_sheet().flip_x(-1.0));
+    assert!(!content_sheet("mockingbird").flip_x(1.0));
 
-    // Left-authored mockingbird: inverted, so it still faces the player.
+    // Left-authored: inverted, so it still faces the player.
     assert!(
-        content_sheet("mockingbird").flip_x(1.0),
-        "player on the right ⇒ flip so the left-drawn bird faces right"
+        left_drawn.flip_x(1.0),
+        "player on the right ⇒ flip so a left-drawn sheet faces right"
     );
     assert!(
-        !content_sheet("mockingbird").flip_x(-1.0),
-        "player on the left ⇒ no flip, bird faces left toward them"
+        !left_drawn.flip_x(-1.0),
+        "player on the left ⇒ no flip, a left-drawn sheet faces left toward them"
     );
 }
 

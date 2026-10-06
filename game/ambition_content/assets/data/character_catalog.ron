@@ -2440,8 +2440,8 @@
         ),
         "npc_mockingbird_boss": (
             display_name: "Mockingbird Boss",
-            spritesheet: "sprites/mockingbird_boss/mockingbird_boss_spritesheet.png",
-            manifest: "sprites/mockingbird_boss/mockingbird_boss_spritesheet.ron",
+            spritesheet: "sprites/mockingbird_boss_v2_spritesheet.png",
+            manifest: "sprites/mockingbird_boss_v2_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
             // Its MEASURED height under the ONE spawn box every level places it

@@ -538,6 +538,9 @@ tackon_targets=(
     hud_icons
     sandbag
     burning_flying_shark
+    # The Mockingbird boss's art since 2026-10-06 (`boss_art_keys.ron`); its
+    # first design, `mockingbird_boss`, still publishes below as its lineage.
+    mockingbird_boss_v2
     pipi_tau
     sanic
     super_sanic

@@ -4,7 +4,7 @@
 (
     sprite_filenames: {
         "gradient_sentinel": "boss_spritesheet.png",
-        "mockingbird": "mockingbird_boss/mockingbird_boss_spritesheet.png",
+        "mockingbird": "mockingbird_boss_v2_spritesheet.png",
         "smirking_behemoth_boss": "smirking_behemoth_boss_spritesheet.png",
         "giant_gnu": "gnu_ton_boss/giant_gnu_spritesheet.png",
         "gnu_ton_rider": "gnu_ton_boss/gnu_ton_rider_spritesheet.png",

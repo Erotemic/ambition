@@ -3186,7 +3186,7 @@ fn each_view_of_the_split_shows_its_own_participants_purse() {
 #[test]
 fn bob_beside_alice_has_his_own_hud_on_the_shared_view() {
     use ambition_platformer2d::characters::actor::BodyWallet;
-    fn give_purses(sim: &mut Platformer2dSimHarness) {
+    fn give_purses(sim: &mut Platformer2dSimHarness) -> (bevy::prelude::Entity, bevy::prelude::Entity) {
         let world = sim.world_mut();
         let mut bodies = world.query::<(
             bevy::prelude::Entity,
@@ -3199,8 +3199,10 @@ fn bob_beside_alice_has_his_own_hud_on_the_shared_view() {
             .iter()
             .find(|(_, feature, _)| feature.is_some_and(|feature| feature.0 == BOB))
             .map(|(body, ..)| *body);
-        world.entity_mut(alice.expect("Alice's body")).insert(BodyWallet { balance: 3 });
-        world.entity_mut(bob.expect("Bob's body")).insert(BodyWallet { balance: 11 });
+        let (alice, bob) = (alice.expect("Alice's body"), bob.expect("Bob's body"));
+        world.entity_mut(alice).insert(BodyWallet { balance: 3 });
+        world.entity_mut(bob).insert(BodyWallet { balance: 11 });
+        (alice, bob)
     }
     fn shown(sim: &mut Platformer2dSimHarness) -> Vec<(u8, i32, Vec<(u8, i32)>)> {
         let world = sim.world_mut();
@@ -3220,15 +3222,21 @@ fn bob_beside_alice_has_his_own_hud_on_the_shared_view() {
         shown
     }
     let (mut sim, _) = alice_beside_bob();
-    give_purses(&mut sim);
-    sim.step_n(base(), 2);
+    let (alice, bob) = give_purses(&mut sim);
+    // The fixture puts Bob out of the shared view, which opens a view of his
+    // own (A2, `the_screen_splits_when_two_players_drift_apart.rs`). Beside
+    // Alice, the views merge after a second together.
+    let beside = sim.world_mut().get::<ambition_platformer2d::engine_core::BodyKinematics>(alice).expect("Alice's body").pos
+        + ambition_platformer2d::engine_core::Vec2::new(40.0, 0.0);
+    crate::a_second_seat_joins_the_session::put_body_at(&mut sim, bob, beside);
+    sim.step_n(base(), 90);
     assert_eq!(
         shown(&mut sim),
         vec![(0, 3, vec![(1, 11)])],
         "(view, its own purse, the other seats on it) with Alice and Bob in one room"
     );
     let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
-    give_purses(&mut sim);
+    let _ = give_purses(&mut sim);
     sim.step_n(base(), 2);
     assert_eq!(
         shown(&mut sim),

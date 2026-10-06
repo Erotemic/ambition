@@ -146,6 +146,9 @@ impl Plugin for AmbitionExperiencePlugin {
             ambition_platformer2d::abilities::mana::REGEN_PER_SEC,
         ));
         declare_ambition_seating(app, &self.config.route_id);
+        // Two players in one room share a view until one leaves what it shows
+        // (A2). The values are the default feel, until the maintainer rules.
+        app.init_resource::<ambition_sim_view::AdaptiveSplit>();
     }
 }
 

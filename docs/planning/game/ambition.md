@@ -35,7 +35,8 @@ The most important Ambition-driven engine work is:
 5. add platformer reachability/navigation;
 6. support persistent/spawned actor populations;
 7. multiplayer and multiview: two local players in two live rooms with a view
-   each is built; adaptive split, online and mixed parties are not (see
+   each is built, and so is the adaptive split in one room; online and mixed
+   parties are not (see
    [`multiplayer.md`](multiplayer.md));
 8. layer reactive character intelligence/dialogue over authoritative world facts.
 

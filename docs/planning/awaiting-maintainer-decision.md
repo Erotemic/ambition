@@ -377,6 +377,30 @@ world authors water today; the sandbox has slugs and pools.
 
 **Default in force until you rule:** (a) and (c), the current behaviour.
 
+## Q162 — how does the screen split when two players in one room drift apart?
+
+Filed 2026-10-06. Blocks nothing: (a) is what the game does today.
+
+A2 in [multiplayer](game/multiplayer.md) is built with a fixed default
+(`AdaptiveSplit` in `ambition_sim_view`, declared by Ambition's experience
+plugin). The split opens when Bob's body is farther from Alice's than 0.9 of
+half the shared view's visible width or height. It closes when every body has
+been within 0.5 of that half size for 1 second. The shared view follows seat
+zero, so Bob reaches the screen edge just before the split. Witness:
+`a_second_view_opens_when_the_players_drift_apart_in_one_room_and_closes_when_they_regroup`.
+
+* **(a) Columns, one per seat, at fixed thresholds (current).** The same
+  layout as the split for two rooms. The screen changes in one frame.
+* **(b) The shared view frames both players first.** It pans and zooms out to
+  keep both bodies in frame, up to a zoom limit, and splits only past that
+  limit. This is the usual co-op camera; it needs a group framing in the camera
+  resolve, which does not exist yet.
+* **(c) A split along the line between the players (Voronoi).** The divider
+  turns with the players' bearing, and the two halves blend as they come back
+  together. This needs a mask in the render rig.
+
+**Default in force until you rule:** (a), with the values above.
+
 ## Q161 — when Alice dies, does what Bob left lying in a room nobody holds go back with her?
 
 Filed 2026-10-06. Blocks nothing: (a) is what the game does today.

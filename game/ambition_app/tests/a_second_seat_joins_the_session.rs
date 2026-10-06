@@ -293,7 +293,7 @@ fn seat_one_joins(sim: &mut Platformer2dSimHarness) -> Entity {
     body
 }
 
-fn put_body_at(sim: &mut Platformer2dSimHarness, body: Entity, at: ambition_platformer2d::engine_core::Vec2) {
+pub(crate) fn put_body_at(sim: &mut Platformer2dSimHarness, body: Entity, at: ambition_platformer2d::engine_core::Vec2) {
     let world = sim.world_mut();
     let mut bodies = world.query::<(
         ambition_platformer2d::engine_core::BodyClusterQueryData,

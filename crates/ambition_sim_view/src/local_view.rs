@@ -165,8 +165,47 @@ pub struct SplitForLiveRoom;
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlacedByLiveRoomSplit;
 
+/// The adaptive split of one live room (A2 in
+/// `docs/planning/game/multiplayer.md`): a game that declares this splits the
+/// screen when a seat's body leaves what the shared view shows, and merges it
+/// again when the seats are together. Absent: only different live rooms split
+/// the screen. The values are feel, not rules.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, PartialEq)]
+pub struct AdaptiveSplit {
+    /// The split opens when a seat's body is farther from seat zero's than
+    /// this part of half the shared view's visible size, on either axis.
+    pub split_beyond: f32,
+    /// The split closes when every seat's body has been within this part of
+    /// that half size for [`Self::merge_after`] seconds. Smaller than
+    /// [`Self::split_beyond`], so the screen does not chatter at one distance.
+    pub merge_within: f32,
+    /// Seconds the seats stay together before the split closes.
+    pub merge_after: f32,
+}
+
+impl Default for AdaptiveSplit {
+    fn default() -> Self {
+        Self {
+            split_beyond: 0.9,
+            merge_within: 0.5,
+            merge_after: 1.0,
+        }
+    }
+}
+
+/// Whether the distance split is open, and the size it measures by.
+/// Presentation state, not simulation: it decides only which views exist.
+#[derive(Default)]
+pub struct DistanceSplit {
+    /// Half the shared view's visible size when the split opened. The views
+    /// are narrower while it is open, so the merge measures by this one.
+    open_at: Option<ambition_platformer2d_core::Vec2>,
+    /// Seconds the seats have been together while the split is open.
+    together_for: f32,
+}
+
 /// OPEN A VIEW FOR EACH SEAT WHILE THE SEATS ARE IN DIFFERENT LIVE ROOMS
-/// (view half, cut V5).
+/// (view half, cut V5), OR FAR APART IN ONE ([`AdaptiveSplit`], A2).
 ///
 /// The presentation rule of `docs/planning/game/multiplayer.md`: if
 /// participants are in different rooms, the split is mandatory. Live rooms
@@ -182,13 +221,23 @@ pub struct PlacedByLiveRoomSplit;
 /// are removed. A seat with no driven body (a spectator) or a body whose room
 /// cannot be told has no room, and does not open a split.
 ///
+/// The adaptive split applies only where one view follows seat zero's body:
+/// a match that frames a declared cast shows every seat already, and a
+/// composition that placed its own views keeps its layout.
+///
 /// The rig that draws a new view is the presentation's
 /// (`ambition_render`'s split rig); the view is the observation fact.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn split_views_by_live_room(
     mut commands: bevy::prelude::Commands,
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     drivers: bevy::prelude::Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+    adaptive: Option<bevy::prelude::Res<AdaptiveSplit>>,
+    cast: Option<bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::FramedCast>>,
+    time: Option<bevy::prelude::Res<bevy::prelude::Time>>,
+    bodies: bevy::prelude::Query<&ambition_platformer2d_core::BodyKinematics>,
+    framed: bevy::prelude::Query<(&LocalViewId, &crate::camera_snapshot::ResolvedCameraSnapshot)>,
+    mut distance: bevy::prelude::Local<DistanceSplit>,
     views: bevy::prelude::Query<
         (
             Entity,
@@ -217,7 +266,65 @@ pub fn split_views_by_live_room(
     rooms.sort_unstable();
     rooms.dedup();
 
-    if rooms.len() < 2 {
+    let laid_out_here = views.iter().all(|(_, id, subject, participant, _, opened, _)| {
+        *id == LocalViewId::FIRST && subject.is_none() && participant.is_none() || opened
+    });
+    let adaptive = adaptive
+        .filter(|_| laid_out_here && cast.as_ref().is_none_or(|cast| cast.0.is_empty()))
+        .map(|policy| *policy);
+    let apart = match adaptive {
+        Some(policy) => {
+            // Each other seat's body against seat zero's, in seat zero's room.
+            let anchor = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, PlayerSlot::PRIMARY)
+                .and_then(|body| bodies.get(body).ok().map(|kin| (body, kin.pos)));
+            let offsets: Vec<ambition_platformer2d_core::Vec2> = anchor
+                .map(|(anchor, at)| {
+                    seats
+                        .iter()
+                        .filter(|(slot, room)| *slot != PlayerSlot::PRIMARY && Some(*room) == live.of(anchor))
+                        .filter_map(|(slot, _)| {
+                            let body = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, *slot)?;
+                            Some((bodies.get(body).ok()?.pos - at).abs())
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            let shown = framed
+                .iter()
+                .find(|(id, _)| **id == LocalViewId::FIRST)
+                .and_then(|(_, resolved)| resolved.frame().map(|frame| frame.snapshot.visible_view * 0.5));
+            let beyond = |half: ambition_platformer2d_core::Vec2, part: f32| {
+                offsets.iter().any(|offset| offset.x > half.x * part || offset.y > half.y * part)
+            };
+            match distance.open_at {
+                None => {
+                    if let Some(half) = shown.filter(|half| beyond(*half, policy.split_beyond)) {
+                        *distance = DistanceSplit {
+                            open_at: Some(half),
+                            together_for: 0.0,
+                        };
+                    }
+                }
+                Some(half) => {
+                    if beyond(half, policy.merge_within) {
+                        distance.together_for = 0.0;
+                    } else {
+                        distance.together_for += time.as_ref().map_or(0.0, |time| time.delta_secs());
+                        if distance.together_for >= policy.merge_after {
+                            *distance = DistanceSplit::default();
+                        }
+                    }
+                }
+            }
+            distance.open_at.is_some()
+        }
+        None => {
+            *distance = DistanceSplit::default();
+            false
+        }
+    };
+
+    if rooms.len() < 2 && !apart {
         for (view, _, _, _, _, opened, placed) in &views {
             if opened {
                 commands.entity(view).try_despawn();

@@ -420,3 +420,36 @@ fn she_surfaces_through_the_floor_of_her_own_live_room() {
         after.pos.y
     );
 }
+
+/// In sideways gravity she lies along the stage, so she is `HALF.y` deep
+/// toward it, not `HALF.x`. The surfacing stands her box on the face.
+#[test]
+fn in_sideways_gravity_she_surfaces_with_her_own_box_on_the_floor() {
+    // Gravity toward world +x. The stage is a wall whose face toward her is
+    // at x = 0, and she is 60px under it.
+    let (mut app, body) = app_with_body(ae::Vec2::new(60.0, 150.0));
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        ae::RoomGeometry(ae::World::new(
+            "trapdoor_sideways",
+            ae::Vec2::new(2000.0, 2000.0),
+            ae::Vec2::ZERO,
+            vec![solid("stage", ae::Vec2::new(50.0, 0.0), ae::Vec2::new(50.0, 400.0))],
+        )),
+    );
+    app.world_mut()
+        .get_mut::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>(body)
+        .unwrap()
+        .publish_resolved_frame(ae::MotionFrame::from_direction(ae::Vec2::new(1.0, 0.0), 900.0));
+    fire(&mut app, body, down(120.0));
+    fire(&mut app, body, up(120.0));
+    assert_eq!(mode(&app, body), ae::player_state::BodyMode::Standing);
+    let after = kin(&app, body);
+    assert!((after.pos.y - 150.0).abs() < 1e-3, "she surfaces where she steered to: {:?}", after.pos);
+    assert!(
+        (after.pos.x - (0.0 - HALF.y)).abs() < 1e-3,
+        "she lies along the stage, so her centre is {} from its face; it is at x = {}",
+        HALF.y,
+        after.pos.x
+    );
+}

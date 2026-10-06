@@ -328,3 +328,128 @@ fn a_blink_stops_at_a_wall_of_its_own_live_room() {
         "the body blinked to {pos:?}, through #1's wall at x = 380"
     );
 }
+
+/// Gravity toward world `+x`. The 24x40 body lies along its floor: its box is
+/// 40 on x and 24 on y. Its side axis is world `-y`, so a body that faces `+1`
+/// blinks toward world `-y`.
+const SIDEWAYS: ae::Vec2 = ae::Vec2::new(1.0, 0.0);
+/// The half of the 24x40 body, turned to [`SIDEWAYS`].
+const TURNED_HALF: ae::Vec2 = ae::Vec2::new(20.0, 12.0);
+
+/// A player at (300, 300) that holds the blink, in sideways gravity, in a
+/// live room with `blocks`.
+fn sideways_player(app: &mut App, blocks: Vec<ae::Block>) -> Entity {
+    let player = spawn_player_holding(app, BLINK_ID, 1.0);
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        ambition_platformer2d_core::RoomGeometry(ae::World::new(
+            "test",
+            ae::Vec2::new(600.0, 600.0),
+            ae::Vec2::new(300.0, 300.0),
+            blocks,
+        )),
+    );
+    app.world_mut()
+        .get_mut::<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>(player)
+        .unwrap()
+        .publish_resolved_frame(ae::MotionFrame::from_direction(SIDEWAYS, 900.0));
+    player
+}
+
+/// Press Attack with the local aim `aim` (none: the facing), and answer where
+/// the body is after the blink.
+fn blink_with_aim(app: &mut App, player: Entity, aim: Option<ae::LocalAxes>) -> ae::Vec2 {
+    {
+        let mut control = app.world_mut().get_mut::<ActorControl>(player).unwrap();
+        control.0.melee_pressed = true;
+        if let Some(aim) = aim {
+            control.0.aim = aim;
+        }
+    }
+    app.update();
+    player_pos(app, player)
+}
+
+/// The premise of the sideways arms: which world axis each aim is.
+#[test]
+fn in_sideways_gravity_a_blink_goes_along_the_axes_of_the_body() {
+    let mut app = test_app();
+    let player = sideways_player(&mut app, Vec::new());
+    assert_eq!(
+        blink_with_aim(&mut app, player, None),
+        ae::Vec2::new(300.0, 300.0 - BLINK_DISTANCE),
+        "a body that faces +1 in gravity toward +x blinks toward world -y"
+    );
+    let mut app = test_app();
+    let player = sideways_player(&mut app, Vec::new());
+    assert_eq!(
+        blink_with_aim(&mut app, player, Some(ae::LocalAxes::new(0.0, 1.0))),
+        ae::Vec2::new(300.0 + BLINK_DISTANCE, 300.0),
+        "a blink aimed down goes toward world +x"
+    );
+}
+
+/// The body is 20 deep toward its floor, not 12: the pull-back from the floor
+/// must use the half of the box the body has.
+#[test]
+fn in_sideways_gravity_a_blink_toward_the_floor_does_not_embed() {
+    let mut app = test_app();
+    // The floor: its face is at x = 350.
+    let floor = ae::Block::solid("floor", ae::Vec2::new(350.0, 0.0), ae::Vec2::new(250.0, 600.0));
+    let player = sideways_player(&mut app, vec![floor]);
+    let pos = blink_with_aim(&mut app, player, Some(ae::LocalAxes::new(0.0, 1.0)));
+    assert!(pos.x > 300.0, "the blink must carry the body toward the floor: {pos:?}");
+    assert!(
+        pos.x + TURNED_HALF.x <= 350.0 + 1e-3,
+        "the blink put the body in the floor: its box ends at x = {}, the floor is at x = 350",
+        pos.x + TURNED_HALF.x
+    );
+}
+
+/// The body is 12 deep along its floor, not 20: a blink at a wall stops the
+/// margin short of it, not the margin and 8 more.
+#[test]
+fn in_sideways_gravity_a_blink_along_the_floor_stops_at_the_wall() {
+    let mut app = test_app();
+    // A wall ahead of the body (world -y): its face is at y = 200.
+    let wall = ae::Block::solid("wall", ae::Vec2::new(0.0, 100.0), ae::Vec2::new(600.0, 100.0));
+    let player = sideways_player(&mut app, vec![wall]);
+    let pos = blink_with_aim(&mut app, player, None);
+    let gap = (pos.y - TURNED_HALF.y) - 200.0;
+    assert!(gap >= -1e-3, "the blink put the body in the wall: gap {gap}");
+    assert!(
+        gap <= 2.0 + 1e-3,
+        "the blink stopped {gap} short of the wall; the margin is 2"
+    );
+}
+
+/// The centre ray misses a solid that the box of the body would clip at the
+/// arrival: the safety net must ask the box the body has.
+#[test]
+fn in_sideways_gravity_a_blink_refuses_an_arrival_its_own_box_would_clip() {
+    let mut app = test_app();
+    // Beside the arrival at (300, 150): from x = 314, past the level half
+    // (12) and inside the turned half (20).
+    let corner = ae::Block::solid("corner", ae::Vec2::new(314.0, 140.0), ae::Vec2::new(16.0, 20.0));
+    let player = sideways_player(&mut app, vec![corner]);
+    let pos = blink_with_aim(&mut app, player, None);
+    assert_eq!(
+        pos,
+        ae::Vec2::new(300.0, 300.0),
+        "the arrival clips a solid, and the body must stay where it is"
+    );
+}
+
+/// The control of the arm above: a solid past the box of the body does not
+/// stop the blink.
+#[test]
+fn in_sideways_gravity_a_blink_arrives_beside_a_solid_its_box_does_not_touch() {
+    let mut app = test_app();
+    // From x = 322: past the turned half (20).
+    let corner = ae::Block::solid("corner", ae::Vec2::new(322.0, 140.0), ae::Vec2::new(16.0, 20.0));
+    let player = sideways_player(&mut app, vec![corner]);
+    assert_eq!(
+        blink_with_aim(&mut app, player, None),
+        ae::Vec2::new(300.0, 300.0 - BLINK_DISTANCE)
+    );
+}

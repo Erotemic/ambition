@@ -1,7 +1,7 @@
 {
   "about": "The level-box reads of a body that scripts/check_level_box_readers.py finds, each with its class. A new read is not in this file: convert it, or add it with the class that says why the level box is right there. A line the search no longer finds must be deleted: the counts may only fall. LEVEL-BOX-READERS in docs/planning/queue.md has the table.",
   "classes": {
-    "to convert: arrival and fit of a traversal": "a blink, a dive, a trapdoor, a teleport and the petting stand-off test where a body fits with its level box",
+    "DEFECT, a procedure written in world axes": "NOT a legitimate read: wrong in turned gravity. The ambush of a teleport puts 'behind' on world x and the feet on world y, and the petting mark is on world x at the petter's y. To turn this one half would give a wrong answer of another shape: state the procedure in the frame of the body (LEVEL-BOX-READERS, docs/planning/queue.md)",
     "to convert: portals": "a portal transit, an eviction and their draws read a body's level box; a body turns through a portal, so this class has its own frame questions",
     "to convert: what a brain sees of a peer": "the half extent a brain is given for a peer is level",
     "a shot": "a shot is a free body with no support and no stance: its size is its box",
@@ -13,16 +13,6 @@
     "inside the kernel": "the kernel turns the half itself on this line, or the crawler arm states its own DOWN"
   },
   "reads": [
-    {
-      "file": "crates/ambition_abilities/src/traversal/blink.rs",
-      "code": "let half = clusters.kinematics.size * 0.5;",
-      "class": "to convert: arrival and fit of a traversal"
-    },
-    {
-      "file": "crates/ambition_abilities/src/traversal/dive.rs",
-      "code": "let half = clusters.kinematics.size * 0.5;",
-      "class": "to convert: arrival and fit of a traversal"
-    },
     {
       "file": "crates/ambition_boss_encounter/src/extension.rs",
       "code": ".map(|kin| kin.aabb().center())",
@@ -36,17 +26,7 @@
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/teleport.rs",
       "code": "half: kin.size * 0.5,",
-      "class": "to convert: arrival and fit of a traversal"
-    },
-    {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/teleport.rs",
-      "code": "let half = clusters.kinematics.size * 0.5;",
-      "class": "to convert: arrival and fit of a traversal"
-    },
-    {
-      "file": "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/trapdoor.rs",
-      "code": "let half = clusters.kinematics.size * 0.5;",
-      "class": "to convert: arrival and fit of a traversal"
+      "class": "DEFECT, a procedure written in world axes"
     },
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/avatar/trail.rs",
@@ -101,7 +81,7 @@
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pet.rs",
       "code": "petter_kin.size * 0.5,",
-      "class": "to convert: arrival and fit of a traversal"
+      "class": "DEFECT, a procedure written in world axes"
     },
     {
       "file": "crates/ambition_platformer2d_actor_monolith/src/features/ecs/target_volumes.rs",

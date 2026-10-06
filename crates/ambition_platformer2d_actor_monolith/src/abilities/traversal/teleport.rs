@@ -378,7 +378,8 @@ pub fn apply_authored_teleports(
 
         let mut clusters = cluster_item.as_clusters_mut();
         let from = clusters.kinematics.pos;
-        let half = clusters.kinematics.size * 0.5;
+        // The box the body has: turned to the DOWN of its resolved frame.
+        let half = clusters.kinematics.half_oriented(gravity_dir);
         // WHERE, and how far. An ambush aims at a BODY rather than along the
         // stick, and it travels the whole way to the far side of him — but it is
         // clamped by exactly the same wall rule, because a teleport that could

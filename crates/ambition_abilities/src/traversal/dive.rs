@@ -125,7 +125,9 @@ pub fn fire_dive_system(
         // the body's extent in the lunge direction (half-height for a vertical
         // dive), as the blink does, or a downward dive embeds in the floor
         // and trips the OOB detector.
-        let half = clusters.kinematics.size * 0.5;
+        // The half is of the box the body has: turned to the DOWN of its
+        // resolved frame, as the kernel turns it for the step.
+        let half = clusters.kinematics.half_oriented(resolved_frame.down());
         let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
         // One collision view for the clamp raycast and the embed check, so
         // moving platforms and ECS solids also stop the lunge.

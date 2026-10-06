@@ -2696,7 +2696,8 @@ neighbours, and no class but the first was measured.
 | the transit record | 1 | 0 | `movement/authority.rs` (`reconcile_transit`) | yes. BUILT, see below |
 | a second WRITE of the published footprint | 4 | 0 | `ambition_mount` (3), the Gnu-ton conductor | yes. BUILT, see below |
 | world and reach tests of a body | 16 | 0 | loading zones and reach (`world/rooms/systems.rs`, 3), `interact.rs`, `chests.rs`, `pickups.rs`, `shrine.rs`, `empowerment.rs`, `interactable_proximity.rs` (2), `world_item.rs`, `breakables.rs`, the portal gun pickup, `safe_position.rs`, the rider against solids (`ambition_mount`), the pickup of a ground item (`ambition_held_items/src/lib.rs`) | yes. BUILT, see below |
-| arrival and fit checks of a traversal | 6 | 6 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (2), the petting stand-off (`pet.rs`) | yes |
+| arrival and fit checks of a traversal | 4 | 0 | `blink.rs`, `dive.rs`, `trapdoor.rs`, `teleport.rs` (the arrival) | yes. BUILT, see below |
+| a procedure written in world axes | 2 | 2 | the candidates of a teleport's ambush (`teleport.rs`, `ambush_arrival`), the fit of the petter at its mark (`pet.rs`) | yes, and NOT by this rule: a DEFECT of the procedure, see below |
 | portals | 9 | 9 | `ambition_portal2d` `transit.rs` (3, one of them the test literal) and `eviction.rs` (2), the host adapter, a shot's portal transit, two draws in `ambition_portal2d_presentation` | yes for a body; not read line by line |
 | what a brain sees of a peer | 2 | 2 | `perception.rs` (`half_extent`) | yes |
 | a shot | 12 | 12 | `projectile/systems.rs` (4), `projectile/collision.rs`, `projectile/body.rs` (6, 2 of them the comment lines), `clash.rs` | no: a shot is a free body with no support and no stance, and its size is its box |
@@ -2709,9 +2710,11 @@ neighbours, and no class but the first was measured.
 
 The first sort put the throw's gravity lookup of `ambition_held_items` in the
 world-and-reach class; it is a gravity lookup, and the table above has it
-there (16 and 3, not 17 and 2). The search finds 57 lines on 2026-10-06 after
-the three classes that are built (the guard counts 54 of them: it leaves out
-the 2 comment lines and the test literal).
+there (16 and 3, not 17 and 2). The first sort also put the two world-axis
+procedures in the traversal class (6); they are a class of their own (4 and
+2). The search finds 53 lines on 2026-10-06 after the four classes that are
+built (the guard counts 50 of them: it leaves out the 2 comment lines and the
+test literal).
 
 **The transit record, built 2026-10-06 (rollback schema 314 to 315):**
 `transit_body` and `reconcile_transit` have 23 call sites outside tests. Ten
@@ -2830,6 +2833,50 @@ port's membership removed on the tree before the edge).
   body. It calls `transit_body` (`control/possession.rs`), so its record is
   collapsed by `reconcile_transit` and keeps the turn of the body. What the
   two readers then see of a possession was not measured.
+
+**The arrival of a traversal, built 2026-10-06:** the blink, the dive, the
+surfacing of the trapdoor and the authored teleport each hold the resolved
+frame of the body, so they ask `kinematics.half_oriented(resolved_frame.down())`,
+the call the kernel makes for the step. They do NOT ask the record
+(`collision_box(last_step)`): the frame is the authority and the record is
+its copy for a reader that has no frame, and to read the copy where the frame
+is at hand makes two sources of one fact. Arms in gravity toward +x, each
+written and seen red before its line was changed:
+
+- blink and dive, a 24x40 body (`ambition_abilities`, 3 arms each): toward
+  the floor the body landed 6 inside it (its box ended at 356 where the floor
+  is at 350; the pull-back used 12 where the body is 20 deep, and the safety
+  net asked the same level box); along the floor at a wall it stopped 10
+  short where the margin is 2; and it arrived where a solid the centre ray
+  misses clips its box, where the safety net must refuse. A premise arm for
+  each (which world axis each aim is) and a control (a solid past the box
+  does not stop the arrival) were green before and after.
+- the trapdoor, a 32x64 body: she surfaced with her centre 16 from the face
+  of the stage where she is 32 deep (16 inside it).
+- the teleport, a 24x48 body: the unaimed rise stopped with its box 10 inside
+  the ceiling, and the ledge assist stood its centre 12 from the face of the
+  ledge where the body is 24 deep.
+
+**A procedure written in world axes (2 lines, NOT built, a defect):** these
+two read a level half, and to turn the half alone is wrong, because every
+other term of the procedure is a world axis.
+
+- `ambush_arrival` (`teleport.rs`): "behind" the foe is world x
+  (`foe.pos.x + side * (foe.half.x + me.half.x + gap)`) and the feet are
+  world y (`foe.feet_y() - me.half.y`). Predicted in gravity toward +x (not
+  measured): "behind" is along gravity, so she arrives over the head of the
+  foe or in the floor under his feet, and her "feet" are put level with his
+  side, not on his floor.
+- the petting mark (`pet.rs`): the mark is at world x from the petted body
+  (`petted_x + side * reach`) at the y of the petter, and the fit test puts
+  the petter's level box there. Predicted in gravity toward +x (not
+  measured): the mark is off the floor plane, in the air over the petted
+  body or inside the floor, so the fit test refuses the side in the floor
+  and the petter walks to a mark it cannot stand on.
+- Both are in the baseline of the guard under a class named DEFECT, so that
+  "classified" is not read as "right". The fix is to state each procedure in
+  the frame of the body (side axis and DOWN), and then the half is the turned
+  half.
 
 **The guard, built 2026-10-06:** `scripts/check_level_box_readers.py` runs
 the search above and compares each line with

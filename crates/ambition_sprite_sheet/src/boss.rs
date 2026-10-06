@@ -80,6 +80,14 @@ pub struct BossSheetSpec {
     /// shared with the art. Presentation only: a layer moves no geometry.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub layers: Vec<String>,
+    /// The CHARACTER whose part flipbook draws this sheet, when the sheet
+    /// reuses that character's art (the T-rex boss wears `trex_enemy`'s
+    /// sheet). Its rows are this sheet's rows BY NAME, so the boss is drawn
+    /// from parts, cell for cell, wherever rigged sprites are admitted
+    /// (`ambition_render`'s `pose_boss_part_animators`). `None` draws the
+    /// baked sheet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parts: Option<String>,
 }
 
 /// Parsed boss-sheet data used by provider catalog builders and tests.
@@ -132,6 +140,7 @@ impl BossSheetSpec {
             body_centered: false,
             authored_faces_left: false,
             layers: Vec::new(),
+            parts: None,
         }
     }
 }

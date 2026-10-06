@@ -311,5 +311,8 @@
         frame_sample_inset: 1,
         body_centered: false,
         authored_faces_left: false,
+        // Drawn from the T-rex character's PARTS (the rig his hurtboxes are
+        // posed from), row by row by name, where rigged sprites are admitted.
+        parts: Some("npc_trex_enemy"),
     ),
 }

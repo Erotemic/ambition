@@ -132,17 +132,15 @@ stochastic parrots, raptors").**
   (`BossConduct::minions`).
 - Roar candidates for Jon's ear: `untracked/sfx-candidates/trex_roar/`
   (a new source-filter `roar` mode in the SFX renderer).
+- He is DRAWN from his parts too: `BossSheetSpec::parts` names
+  `npc_trex_enemy`, whose sheet the renderer demands; the cell
+  `animate_bosses` draws poses that character's animator by row name, and the
+  rigged driver draws him (`the_trex_is_drawn_from_his_parts.rs`).
+  `animate_bosses` now runs before the character animators and the driver.
 
 Still open: his own tail-whoosh and wall-crash sounds (candidates and reels in
 `untracked/sfx-candidates/trex/`, for Jon's ear; the conductor borrows the
-bear's swipe and his stomp until then); per-pose hurt hulls (the box you
-hit is still his whole body box; what hurts YOU is only his art's volumes,
-`body_damage: 0`). For the hulls: `build_sheet` publishes declared
-`hurtbox_parts` verbatim, unmoved by the auto-crop the T-rex sheet uses (every
-target that declares parts turns the crop off, or adds its padding by hand), and
-the union of a row's parts becomes that pose's COLLISION box for the
-`trex_enemy` catalog character sharing the sheet — so it needs a translated
-parts frame in the renderer and a check on that enemy first. Then
+bear's swipe and his stomp until then); the roar pick. Then
 `fight_discovery` tuning and Jon's playtest.
 
 Slices: (1) the body: one placement law for every boss drawn from a sheet,

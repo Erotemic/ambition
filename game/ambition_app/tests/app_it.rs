@@ -99,6 +99,7 @@ mod cut_rope_arena;
 mod gnu_ton_fight;
 mod fsm_fight;
 mod trex_fight;
+mod the_trex_is_drawn_from_his_parts;
 mod cut_rope_victory_identity;
 mod d71_transaction_census;
 mod dash_stability;

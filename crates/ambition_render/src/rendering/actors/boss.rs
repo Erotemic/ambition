@@ -207,3 +207,88 @@ pub fn animate_bosses(
         };
     }
 }
+
+/// A boss sheet drawn from a character's parts ([`sprites::BossSheetSpec::parts`])
+/// asks for that character's sheet: nothing else in a boss room names it.
+///
+/// Asked once each time the sheet is only declared (never realized, or retired
+/// by a quality change); the materializer owns what happens next.
+pub fn demand_boss_part_sheets(
+    assets: Option<Res<GameAssets>>,
+    bosses: Query<&BossAnimator>,
+    demand: Option<ResMut<ambition_characters::load_demand::CharacterLoadDemand>>,
+    mut asked: Local<std::collections::HashSet<String>>,
+) {
+    let (Some(assets), Some(mut demand)) = (assets, demand) else {
+        return;
+    };
+    for boss in &bosses {
+        let Some(id) = boss.spec.parts.as_deref() else {
+            continue;
+        };
+        match assets.characters.sheet_state(id) {
+            ambition_sprite_sheet::character::CharacterSheetState::Declared { .. } => {
+                if asked.insert(id.to_owned()) {
+                    demand.request(id);
+                }
+            }
+            _ => {
+                asked.remove(id);
+            }
+        }
+    }
+}
+
+/// Give a boss whose sheet is drawn from a character's parts that character's
+/// [`CharacterAnimator`], which is what the rigged driver follows, once its
+/// sheet is realized; and a new one when the sheet is realized again at
+/// another tier.
+///
+/// The animator is never ticked: [`pose_boss_part_animators`] shows the cell
+/// [`animate_bosses`] drew. Its render basis is the boss's own, so a part
+/// lands where the baked boss frame puts its pixel.
+pub fn bind_boss_part_animators(
+    mut commands: Commands,
+    assets: Option<Res<GameAssets>>,
+    bosses: Query<(Entity, &BossAnimator, Option<&super::BoundSpriteQuality>), With<FeatureVisual>>,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    for (entity, boss, bound) in &bosses {
+        let (Some(id), Some(basis)) = (boss.spec.parts.as_deref(), boss.render_basis) else {
+            continue;
+        };
+        let Some(sheet) = assets.characters.sheet(id) else {
+            continue;
+        };
+        if bound.is_some_and(|bound| bound.scale == sheet.resolved_tier) {
+            continue;
+        }
+        let mut animator = CharacterAnimator::new(sheet);
+        animator.ensure_render_basis(basis.render_size, basis.feet_anchor);
+        commands.entity(entity).try_insert((
+            animator,
+            super::BoundSpriteQuality {
+                scale: sheet.resolved_tier,
+            },
+        ));
+    }
+}
+
+/// Show, on a part-drawn boss's [`CharacterAnimator`], the cell
+/// [`animate_bosses`] drew this frame: the row of the same NAME, the same
+/// frame. After `animate_bosses` and before the rigged driver, which then
+/// draws the boss from its parts over the root's baked frame.
+pub fn pose_boss_part_animators(
+    mut bosses: Query<(&BossAnimator, &sprites::BossDrawnCell, &mut CharacterAnimator), With<FeatureVisual>>,
+) {
+    for (boss, drawn, mut animator) in &mut bosses {
+        let Some(name) = boss.record.rows.get(drawn.row).map(|row| row.animation.as_str()) else {
+            continue;
+        };
+        if let Some(slot) = animator.spec.clip_slot([name]) {
+            animator.show_cell(slot, drawn.frame);
+        }
+    }
+}

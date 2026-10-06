@@ -2815,6 +2815,24 @@ port's membership removed on the tree before the edge).
   collapsed by `reconcile_transit` and keeps the turn of the body. What the
   two readers then see of a possession was not measured.
 
+**The guard, built 2026-10-06:** `scripts/check_level_box_readers.py` runs
+the search above and compares each line with
+`scripts/baselines/level-box-readers.json`, where each read has a class and
+each class has its reason. It prints the search, so a reader can run it
+again. It is red when the search finds a line the baseline does not have (a
+new read: convert it or classify it), and when the baseline has a line the
+search no longer finds (the count of a file may only fall). The identity of a
+line is its file and its text, with a count: a line number would go stale at
+each edit above it. The guard finds 55 lines, not 58: it leaves out the 2
+comment lines and the test literal that the first census counted. Poison: one
+`kinematics.aabb()` in a scratch file under `crates` made it red with the
+file and line, and it was green again with the file removed
+(`scripts/tests/test_level_box_readers.py` holds the same on a scratch tree).
+It is in the maintenance lane of `scripts/run_tests.py`. It stops the obvious
+regrowth. It does not show that no reader asks the level box: a box built
+another way (`Aabb::new(pos, half)` from a local, a destructured `size`) is
+not found.
+
 **To reproduce (the next class):** in turned gravity, a region beside a body
 that is not square, nearer than the long half minus the short half and not
 touching its footprint. Each arm must be written and seen to fail before a

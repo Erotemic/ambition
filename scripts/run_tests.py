@@ -1489,6 +1489,17 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_host_produced_sim_consumed_requests.py",
             ],
         ),
+        # A body that is not square has one box, turned to its DOWN. A reader
+        # outside the kernel that asks `BodyKinematics::aabb()` gets the LEVEL
+        # box: right in normal gravity, wrong in a room whose gravity is turned
+        # (LEVEL-BOX-READERS). Each read the search finds is classified in the
+        # baseline with its reason, so a new read must be converted or
+        # classified. This finds the spellings of its search and no other: it
+        # stops the obvious regrowth, and it does not show there is none.
+        Job(
+            "each level-box read of a body is classified",
+            [sys.executable, "scripts/check_level_box_readers.py"],
+        ),
         # `CheckpointDomainApply`'s authorization is made out of WHEN its
         # reducers run: the commit executor runs that schedule and nothing else
         # does, so a reducer living in it cannot act on an unadmitted request.

@@ -3336,6 +3336,10 @@ fn finalize_prepared_cast(
 }
 
 /// The fold, plus admission, with the definitions it refuses withheld.
+///
+/// `#[non_exhaustive]` for the reason [`PreparedCharacterDefinition`] is: the
+/// admission pass is the only thing that may say what this composition supports.
+#[non_exhaustive]
 pub struct AdmittedCast {
     /// Exactly the definitions this composition can support.
     pub registry: PreparedCharacterRegistry,

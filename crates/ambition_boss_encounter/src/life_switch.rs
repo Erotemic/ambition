@@ -40,7 +40,8 @@ pub fn apply_boss_life_switches(
         &crate::BossConfig,
         &mut crate::BossEncounter,
         &mut ambition_characters::actor::BodyHealth,
-        &mut ambition_platformer2d_core::BodyKinematics,
+        ambition_platformer2d_core::BodyClusterQueryData,
+        &mut ambition_platformer2d_core::MotionModel,
     )>,
 ) {
     for activation in &switches.0 {
@@ -59,18 +60,25 @@ pub fn apply_boss_life_switches(
                     commands.entity(chest).despawn();
                 }
             }
-            for (config, mut status, _health, mut kin) in &mut bosses {
+            for (config, mut status, _health, mut cluster_item, mut model) in &mut bosses {
                 if config.id == target {
                     status.encounter = None;
-                    kin.pos = config.spawn;
-                    kin.vel = ambition_platformer2d_core::Vec2::ZERO;
+                    // A discrete transit (ADR 0024), not a field write: the
+                    // boss leaves wherever it fell, and contacts and the motion
+                    // record described that place.
+                    ambition_platformer2d_core::movement::transit_body(
+                        &mut model,
+                        &mut cluster_item.as_clusters_mut(),
+                        config.spawn,
+                        ambition_platformer2d_core::movement::TransitVelocity::Zero,
+                    );
                 }
             }
         } else {
             let data = save.data_mut();
             data.set_boss(target, ambition_persistence::save_data::PersistedEncounterState::Cleared);
             data.set_flag(ambition_encounter::encounter_reward_looted_flag(target), true);
-            for (config, mut status, mut health, _kin) in &mut bosses {
+            for (config, mut status, mut health, _clusters, _model) in &mut bosses {
                 if config.id == target {
                     health.health.current = 0;
                     if let Some(phase) = status.encounter.as_mut() {

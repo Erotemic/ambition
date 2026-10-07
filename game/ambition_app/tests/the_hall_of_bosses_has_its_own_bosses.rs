@@ -282,9 +282,33 @@ fn a_life_switch_kills_a_loaded_boss_at_once_and_revives_it() {
     assert_eq!(phase, "Death");
     assert_eq!(boss_record(&sim, "hall.mockingbird"), "Cleared");
 
+    // The boss died where it fell. Move it well away from its spawn first, so
+    // that "back at its spawn" can only be the revive's doing.
+    let spawn = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &mut ambition_platformer2d::engine_core::BodyKinematics)>();
+        let (config, mut kin) = q
+            .iter_mut(world)
+            .find(|(config, _)| config.id == "hall.mockingbird")
+            .expect("the hall's Mockingbird is in its sky");
+        kin.pos = config.spawn + ambition_platformer2d::engine_core::Vec2::new(300.0, 200.0);
+        config.spawn
+    };
     queue_life_press(&mut sim, "hall.mockingbird");
     sim.step(crate::common::base());
     assert_eq!(boss_record(&sim, "hall.mockingbird"), "Untouched", "revived in the save");
+    let at = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&BossConfig, &ambition_platformer2d::engine_core::BodyKinematics)>();
+        q.iter(world)
+            .find(|(config, _)| config.id == "hall.mockingbird")
+            .map(|(_, kin)| kin.pos)
+            .expect("the hall's Mockingbird is in its sky")
+    };
+    assert!(
+        at.distance(spawn) < 40.0,
+        "the revive puts the boss back at its spawn {spawn:?}, not where it fell: {at:?}"
+    );
     let mut revived = false;
     for _ in 0..400 {
         sim.step(crate::common::base());

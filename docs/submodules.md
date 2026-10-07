@@ -6,6 +6,11 @@ place to look before you update, commit in or repoint a submodule.
 
 ## The rule
 
+This is the rule for **normal development**: the superproject is on its `main`
+branch, and so is each submodule. A stale gitlink on active development is not an
+error, just bookkeeping that lags. Looking at an old commit is a different
+situation with a different rule; see [Looking at an old commit](#looking-at-an-old-commit-review-mode).
+
 1. **Every submodule is on its `main` branch**, tracking `origin/main`.
 2. **The pin is the commit this repository records for a submodule** (the
    gitlink). When a pin disagrees with the submodule's `main`, **the pin is
@@ -37,6 +42,7 @@ the submodule is not initialized (`.gitmodules` lists them).
 ./run_developer_setup.sh               # the whole machine, submodules included
 scripts/setup/submodules.sh            # only the submodule phase
 scripts/setup/submodules.sh --bump-pins   # also stage pins that lag main
+scripts/setup/submodules.sh --follow-main  # development behaviour on a non-main checkout
 ```
 
 `scripts/setup/submodules.sh` is idempotent and is what the rule above looks
@@ -56,6 +62,31 @@ of these:
 Afterwards it compares each pin with the submodule's `origin/main`. A pin that
 differs prints `the PIN needs updating`; `--bump-pins` stages those gitlinks
 (`git add <path>`) and commits nothing.
+
+## Looking at an old commit (review mode)
+
+`git checkout <sha>`, `git bisect`, a rebase and a deliberate non-`main` branch
+all leave the superproject somewhere other than `main`. Running a general setup
+command there must not quietly turn historical Ambition code into a mixture of
+that code and today's submodule tips, so the script picks its mode from what the
+**superproject** is:
+
+| The superproject is | Mode | Already-present submodules |
+| --- | --- | --- |
+| on branch `main` | development | follow their own `origin/main` (the table above) |
+| on a detached HEAD, or on any other branch | **review** | **not moved**; any difference from the commit this checkout records is reported |
+| anywhere, with `--follow-main` | development | follow `origin/main`, deliberately |
+
+In review mode a **missing** submodule is initialized at the commit this checkout
+records (not at today's `main`), the recorded pin is not called stale (it is the
+historical truth), and `--bump-pins` is refused. A submodule left at a different
+commit than the checkout records is named, with the command that restores the
+recorded state (`git submodule update -- <path>`, safe only when it is clean).
+
+Dirty, ahead and diverged submodules are never touched in either mode. A fresh
+`git worktree` on a feature branch is review mode by this rule, which is the
+conservative reading; pass `--follow-main` there if you want it to develop
+against each submodule's `main`.
 
 ## Updating a pin
 
@@ -128,6 +159,7 @@ the change first.
 
 | You see | It means | Do |
 | --- | --- | --- |
+| `REVIEW mode` | the superproject is on a detached HEAD or a non-`main` branch | nothing, if you are reviewing; `--follow-main` if you are developing |
 | `refusing to merge unrelated histories` | the checkout is on the pre-split lineage | `scripts/setup/submodules.sh` |
 | `LEFT ALONE`, ahead | unpushed commits in the submodule | push them to `main`, then bump the pin |
 | `LEFT ALONE`, diverged | both sides have commits | merge them, keeping the superset |

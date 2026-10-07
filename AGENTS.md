@@ -32,7 +32,7 @@ See `docs/recipes/fresh-agent-navigation.md`.
 
 ## Authoring submodules are part of the architecture
 
-**Submodule policy: [`docs/submodules.md`](docs/submodules.md).** Every submodule is on its `main`; a pin that disagrees with a submodule's `main` is a stale pin, so update the pin (`scripts/setup/submodules.sh --bump-pins`, then commit). A checkout on the pre-split history ("unrelated histories") is expected and is realigned by `scripts/setup/submodules.sh`, which keeps the old position under `refs/backup/pre-split/*`. Never lose work to realign: unpushed, divergent and dirty checkouts are left alone.
+**Submodule policy: [`docs/submodules.md`](docs/submodules.md).** In normal development (the superproject on `main`) every submodule is on its `main`; on a detached HEAD or a non-`main` branch setup is in REVIEW mode and moves no present submodule (`--follow-main` overrides); a pin that disagrees with a submodule's `main` is a stale pin, so update the pin (`scripts/setup/submodules.sh --bump-pins`, then commit). A checkout on the pre-split history ("unrelated histories") is expected and is realigned by `scripts/setup/submodules.sh`, which keeps the old position under `refs/backup/pre-split/*`. Never lose work to realign: unpushed, divergent and dirty checkouts are left alone.
 
 An empty authoring/content submodule directory does NOT mean the capability is absent. Check `.gitmodules`, the root README's authoring-toolchain table, and the canonical repositories:
 

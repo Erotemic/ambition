@@ -160,7 +160,10 @@ def test_a_detached_checkout_at_main_is_attached_to_main_without_moving(super_an
 
 
 def test_a_clean_checkout_behind_main_is_fast_forwarded_and_the_stale_pin_is_reported(super_and_sub):
+    """DEVELOPMENT MODE: the superproject is on `main`, so a stale gitlink is
+    bookkeeping and the submodule follows its own origin/main."""
     top, sub = super_and_sub
+    assert git(top, "branch", "--show-current") == "main", "the premise: active development"
     wt = _wt(top)
     new = _advance_remote(sub)
     result = run_phase(top)
@@ -234,3 +237,147 @@ def test_a_diverged_checkout_is_left_alone_and_both_sides_are_counted(super_and_
     assert git(wt, "rev-parse", "HEAD") == mine
     assert git(wt, "branch", "--show-current") == "agent/work"
     assert "diverged" in result.stderr and "LEFT ALONE" in result.stderr
+
+
+# --- review mode: a historical or deliberately non-main superproject ----------
+#
+# `git checkout <sha>`, `git bisect` and a rebase leave the superproject on a
+# detached HEAD; a deliberate branch is anything but `main`. Running a general
+# setup command there must not turn historical Ambition code into a mixture with
+# today's submodule tips, so present submodules are not moved. Dirty, ahead and
+# diverged work is protected in BOTH modes (nothing moves in review mode at all).
+
+
+def _run(top: Path, *args: str):
+    env = dict(os.environ, GIT_ALLOW_PROTOCOL="file")
+    return subprocess.run(
+        ["bash", "scripts/setup/submodules.sh", *args],
+        cwd=top, capture_output=True, text=True, env=env,
+    )
+
+
+def _pin(top: Path) -> str:
+    return git(top, "ls-files", "--stage", "vendor/sub").split()[1]
+
+
+def _detached_at_the_commit_that_records_the_old_pin(top: Path) -> str:
+    """The superproject is moved to a historical commit; returns that commit."""
+    here = git(top, "rev-parse", "HEAD")
+    git(top, "checkout", "-q", "--detach", here)
+    return here
+
+
+def test_review_mode_does_not_move_a_clean_present_submodule_to_todays_main(super_and_sub):
+    """⛔ THE POINT OF REVIEW MODE. origin/main has moved on; this detached checkout
+    records the older pin, and the submodule is clean and present: it stays."""
+    top, sub = super_and_sub
+    wt = _wt(top)
+    recorded = _pin(top)
+    _advance_remote(sub)  # today's main is now ahead of the pin
+    _detached_at_the_commit_that_records_the_old_pin(top)
+
+    result = _run(top)
+    assert result.returncode == 0, result.stderr
+    assert git(wt, "rev-parse", "HEAD") == recorded, "review mode moved a present submodule to origin/main"
+    assert "REVIEW mode" in result.stderr
+    assert "not main" in result.stderr
+    # and it is not told that the historical pin is "stale"
+    assert "the PIN needs updating" not in result.stderr
+
+
+def test_a_non_main_superproject_branch_is_review_mode_too(super_and_sub):
+    top, sub = super_and_sub
+    wt = _wt(top)
+    recorded = _pin(top)
+    _advance_remote(sub)
+    git(top, "checkout", "-q", "-b", "review/some-branch")
+
+    result = _run(top)
+    assert result.returncode == 0, result.stderr
+    assert git(wt, "rev-parse", "HEAD") == recorded
+    assert "REVIEW mode" in result.stderr and "review/some-branch" in result.stderr
+
+
+def test_review_mode_reports_a_mixture_instead_of_hiding_it(super_and_sub):
+    """A submodule left at a different commit than this checkout records is named,
+    with the command that restores the recorded state, and still not moved."""
+    top, sub = super_and_sub
+    wt = _wt(top)
+    old_pin = _pin(top)
+    new = _advance_remote(sub)
+    git(wt, "fetch", "-q", "origin")
+    git(wt, "checkout", "-q", "--detach", new)  # the checkout is ahead of the pin, clean
+    _detached_at_the_commit_that_records_the_old_pin(top)
+
+    result = _run(top)
+    assert result.returncode == 0, result.stderr
+    assert git(wt, "rev-parse", "HEAD") == new, "review mode moved the checkout"
+    assert "records " + old_pin[:9] in result.stderr
+    assert "AHEAD of the recorded pin" in result.stderr
+    assert "git submodule update -- vendor/sub" in result.stdout
+
+
+def test_review_mode_initializes_a_missing_submodule_at_the_recorded_commit_not_main(super_and_sub):
+    top, sub = super_and_sub
+    recorded = _pin(top)
+    _advance_remote(sub)
+    shutil.rmtree(top / "vendor/sub")
+    (top / "vendor/sub").mkdir()
+    _detached_at_the_commit_that_records_the_old_pin(top)
+
+    result = _run(top)
+    assert result.returncode == 0, result.stderr
+    assert git(top / "vendor/sub", "rev-parse", "HEAD") == recorded, "a historical checkout was given today's submodule"
+
+
+def test_review_mode_preserves_dirty_and_ahead_work_and_says_so(super_and_sub):
+    top, sub = super_and_sub
+    wt = _wt(top)
+    (wt / "a.txt").write_text("uncommitted edit that exists nowhere else")
+    head = git(wt, "rev-parse", "HEAD")
+    _detached_at_the_commit_that_records_the_old_pin(top)
+
+    result = _run(top)
+    assert result.returncode == 0, result.stderr
+    assert git(wt, "rev-parse", "HEAD") == head
+    assert (wt / "a.txt").read_text() == "uncommitted edit that exists nowhere else"
+    assert "uncommitted changes" in result.stderr
+
+
+def test_review_mode_refuses_to_bump_pins(super_and_sub):
+    """Restaging gitlinks from a historical checkout would rewrite history's pins."""
+    top, sub = super_and_sub
+    _advance_remote(sub)
+    _detached_at_the_commit_that_records_the_old_pin(top)
+    result = _run(top, "--bump-pins")
+    assert result.returncode != 0
+    assert "review mode" in result.stderr
+    assert git(top, "diff", "--cached", "--raw", "vendor/sub") == "", "a pin was staged"
+
+
+def test_follow_main_selects_development_behaviour_on_a_non_main_checkout(super_and_sub):
+    """The explicit override: a deliberate branch or worktree that wants it."""
+    top, sub = super_and_sub
+    wt = _wt(top)
+    new = _advance_remote(sub)
+    _detached_at_the_commit_that_records_the_old_pin(top)
+
+    result = _run(top, "--follow-main")
+    assert result.returncode == 0, result.stderr
+    assert git(wt, "rev-parse", "HEAD") == new
+    assert "REVIEW mode" not in result.stderr
+    assert "the PIN needs updating" in result.stderr
+
+
+def test_review_mode_preserves_local_commits_on_a_branch_and_names_them(super_and_sub):
+    top, _ = super_and_sub
+    wt = _wt(top)
+    git(wt, "checkout", "-q", "-b", "agent/work")
+    ahead = _commit(wt, "local.txt")
+    _detached_at_the_commit_that_records_the_old_pin(top)
+
+    result = _run(top)
+    assert result.returncode == 0, result.stderr
+    assert git(wt, "rev-parse", "HEAD") == ahead
+    assert git(wt, "branch", "--show-current") == "agent/work", "the branch was detached or switched"
+    assert "AHEAD of the recorded pin" in result.stderr

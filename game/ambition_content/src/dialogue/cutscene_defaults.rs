@@ -2,15 +2,24 @@
 
 use ambition_cutscene::CutsceneLibrary;
 
-/// Every cutscene `pack` ships: the `cutscene_library` it lowered from
-/// `assets/data/cutscenes/*.ron`. Installed at composition; the library does
-/// not reload.
+/// Every cutscene `pack` ships, in library order: the `cutscene_library` it
+/// lowered from `assets/data/cutscenes/*.ron`. A pack that declares no cutscene
+/// file ships none (it compiles; the startup validator then names each room
+/// binding that has no script).
+pub fn cutscene_scripts_of(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Vec<ambition_cutscene::CutsceneScript> {
+    ambition_cutscene::content_schema::lowered_cutscenes(pack)
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// Every cutscene `pack` ships, as a library. Installed at composition, and
+/// revised by a content reload (`reload::publish_cutscene_library`).
 pub fn cutscene_library_of(pack: &ambition_content_pack::PreparedContentPack) -> CutsceneLibrary {
     let mut library = CutsceneLibrary::default();
-    for script in ambition_cutscene::content_schema::lowered_cutscenes(pack)
-        .expect("Ambition's pack declares its cutscene_library files")
-    {
-        library.insert(script.clone());
+    for script in cutscene_scripts_of(pack) {
+        library.insert(script);
     }
     library
 }

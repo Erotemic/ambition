@@ -38,8 +38,19 @@ the pack-derived families in
 `PACK_DERIVED_FAMILIES`: the fighter-brain ladder, encounter waves, the boss
 seed library, the validator bands and the item catalog. A changed family that
 is not in that list refuses the candidate. A family that is added later is
-refused until it declares a publisher. The cutscene libraries and the quest
-book do not take part today.
+refused until it declares a publisher. The quest book does not take part
+today.
+
+The cutscene library does (2026-10-07), as a pack-derived family with a
+shared-registry publisher: the library also holds rows other providers add, so
+the publication removes the rows the App's selected pack (generation N) owns,
+while the library still holds exactly that script, and inserts the candidate's.
+A cutscene that is playing holds its own copy of its script and is not touched.
+A candidate that stops declaring a cutscene file removes that file's rows. Not
+judged at reload: a room's `entry_cutscene` that names a cutscene the candidate
+removed. The room set is session-scoped and rooms are not a reloadable family;
+the startup graph validator (`validate_cutscene_bindings`) is the judge of that
+reference, and `drain_cutscene_triggers` skips a missing script silently.
 
 The music-cue catalog took the same road as the audio registries: it is
 admitted at request time (`AdaptiveMusicCatalogRegistry::with_replaced`,
@@ -279,7 +290,9 @@ whether the prior scene is unchanged, recovered or stopped.
 
 ## Open work
 
-- The cutscene libraries and the quest book do not take part in reload.
+- The quest book does not take part in reload.
+- A candidate that removes a cutscene a room still names is not refused (see
+  above); a reload-time reference check needs the session's room set.
 - Supersession of an in-flight generation through a real cancellation.
 - Demo packs do not reload in a running demo.
 - Measure source read, changed-section preparation, candidate construction,

@@ -687,6 +687,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         domain: ambition_encounter::content_schema::ENCOUNTER_WAVES_SCHEMA,
         publish: publish_encounter_waves,
     },
+    PackDerivedFamily {
+        domain: ambition_cutscene::content_schema::CUTSCENE_LIBRARY_SCHEMA,
+        publish: publish_cutscene_library,
+    },
     // The boss seed library and the validator bands are calibration for the
     // offline fight validator. MEASURED 2026-10-01: their only readers are
     // `bosses::seed_library` and `bosses::validator_bands`, and only
@@ -762,6 +766,45 @@ fn publish_encounter_waves(
         None => {
             world.remove_resource::<EncounterWaveBook>();
         }
+    }
+}
+
+/// Replace the cutscene scripts THIS PACK owns, and only those.
+///
+/// ⛔ The library is a shared registry: `AmbitionDialogueContentPlugin` adds the
+/// pack's rows at composition, and another plugin or a test may add its own, so
+/// the publication is not "insert a new library". The rows Ambition owns are the
+/// ones the App's selected pack (generation N, still selected at this point)
+/// lowered; a row is removed only while the library still holds exactly that
+/// script, so a foreign row that reuses an id survives, and then the candidate's
+/// rows are inserted.
+///
+/// A cutscene that is PLAYING is not touched: `drain_cutscene_triggers` clones
+/// the script into the runtime when it starts, so the running cutscene finishes
+/// as generation N wrote it and the next trigger reads N+1.
+///
+/// An unchanged cutscene family writes nothing.
+fn publish_cutscene_library(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    let previous = crate::pack::selected(world)
+        .map(crate::dialogue::cutscene_defaults::cutscene_scripts_of)
+        .unwrap_or_default();
+    let next = crate::dialogue::cutscene_defaults::cutscene_scripts_of(pack);
+    if previous == next {
+        return;
+    }
+    let Some(mut library) = world.get_resource_mut::<ambition_cutscene::CutsceneLibrary>() else {
+        return;
+    };
+    for script in &previous {
+        if library.get(&script.id) == Some(script) {
+            library.scripts.remove(&script.id);
+        }
+    }
+    for script in next {
+        library.insert(script);
     }
 }
 

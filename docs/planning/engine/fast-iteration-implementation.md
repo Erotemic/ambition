@@ -224,8 +224,13 @@ Steps that remain as rules:
   key that the boss plays.
 - Demo packs do not reload in a running demo; the reload road is
   `ambition_content::reload` and serves the Ambition pack only.
-- Cutscene libraries and the quest book do not take part. The music-cue catalog
-  does (2026-10-07): witnesses `an_adaptive_cue_edit_is_visible_with_its_session_and_with_the_other_changed_families`,
+- The quest book does not take part. The cutscene library does (2026-10-07):
+  witnesses `a_cutscene_edit_is_visible_with_its_session_and_with_the_other_changed_families`,
+  `a_refused_candidate_leaves_the_cutscene_library_at_the_live_generation`,
+  `an_unchanged_or_stale_cutscene_candidate_publishes_nothing`, and the unit
+  arms `a_cutscene_publication_replaces_only_the_rows_the_pack_owns` and
+  `a_cutscene_file_the_candidate_drops_removes_its_rows_and_only_its_rows`. The
+  music-cue catalog does (2026-10-07): witnesses `an_adaptive_cue_edit_is_visible_with_its_session_and_with_the_other_changed_families`,
   `a_refused_candidate_leaves_the_adaptive_cues_at_the_live_generation`,
   `a_candidate_that_drops_the_adaptive_cues_is_refused_and_the_live_cues_survive`
   and `an_unchanged_or_stale_cue_candidate_publishes_nothing`.

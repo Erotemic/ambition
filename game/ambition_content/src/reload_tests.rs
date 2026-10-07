@@ -4022,3 +4022,126 @@ fn a_boundary_that_closes_after_the_breaker_still_publishes() {
          boundary: name it, close `Q118`, and make this the opposite assertion.",
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I2/I3: the cutscene library takes part in the generation transaction.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The first beat of `test_intro`, the hub's boot cutscene: a banner whose
+/// text a pack edit can change.
+fn test_intro_banner(library: &ambition_cutscene::CutsceneLibrary) -> Option<String> {
+    match library.get("test_intro")?.beats.first()? {
+        ambition_cutscene::CutsceneBeat::Banner { text, .. } => Some(text.clone()),
+        _ => None,
+    }
+}
+
+/// The shipped pack with `test_intro`'s banner reworded.
+fn pack_with_a_reworded_boot_banner() -> ambition_content_pack::PreparedContentPack {
+    let mut edited = false;
+    let pack = crate::pack::compile_pack_with(|declared, text| {
+        if declared != "data/cutscenes/sandbox.ron" {
+            return text;
+        }
+        let out = text.replacen("// boot sequence", "// boot sequence, revised", 1);
+        edited = out != text;
+        out
+    })
+    .expect("the edited pack compiles");
+    assert!(edited, "the cutscene file no longer states the edited banner, so the arm tests nothing");
+    pack
+}
+
+/// A world that composed Ambition's cutscenes the way the plugin does, plus one
+/// row another provider added, and a cutscene that is playing.
+fn world_with_cutscenes_and_one_foreign_row() -> bevy::ecs::world::World {
+    let mut world = bevy::ecs::world::World::new();
+    let pack = crate::pack::select(&mut world);
+    let mut library = crate::dialogue::cutscene_defaults::cutscene_library_of(&pack);
+    library.insert(ambition_cutscene::CutsceneScript::new(
+        "foreign_probe",
+        vec![ambition_cutscene::CutsceneBeat::Wait { seconds: 1.0 }],
+    ));
+    let playing = library.get("test_intro").expect("the boot cutscene").clone();
+    world.insert_resource(library);
+    world.insert_resource(ambition_cutscene::ActiveCutscene {
+        runtime: Some(ambition_cutscene::CutsceneRuntime::new(playing)),
+        ..Default::default()
+    });
+    world
+}
+
+/// ⭐ **A CUTSCENE PUBLICATION REPLACES THE ROWS THE PACK OWNS, AND NOTHING ELSE.**
+///
+/// The library is shared: Ambition's rows and another provider's live in one
+/// map, and a cutscene that is playing holds its own copy of its script. A
+/// publication that built a new library (as the encounter waves do) would erase
+/// the foreign row; one that edited the running runtime would change a cutscene
+/// under the player. ⛔ And a family that did not change must write nothing.
+#[test]
+fn a_cutscene_publication_replaces_only_the_rows_the_pack_owns() {
+    let mut world = world_with_cutscenes_and_one_foreign_row();
+    let before = world
+        .resource::<ambition_cutscene::CutsceneLibrary>()
+        .get("test_intro")
+        .cloned();
+    assert_eq!(
+        test_intro_banner(world.resource::<ambition_cutscene::CutsceneLibrary>()).as_deref(),
+        Some("// boot sequence"),
+        "the premise: generation N's banner"
+    );
+
+    // Unchanged content: no write at all (change detection is the witness).
+    world.clear_trackers();
+    crate::reload::publish_participant_families(&mut world, crate::pack::shipped());
+    assert!(
+        !bevy::ecs::change_detection::DetectChanges::is_changed(
+            &world.resource_ref::<ambition_cutscene::CutsceneLibrary>()
+        ),
+        "⛔ an unchanged cutscene family was rewritten"
+    );
+
+    // A reworded banner: N+1's row replaces N's.
+    let candidate = pack_with_a_reworded_boot_banner();
+    crate::reload::publish_participant_families(&mut world, &candidate);
+    let library = world.resource::<ambition_cutscene::CutsceneLibrary>();
+    assert_eq!(
+        test_intro_banner(library).as_deref(),
+        Some("// boot sequence, revised"),
+        "the candidate's row was not published"
+    );
+    assert!(library.get("foreign_probe").is_some(), "⛔ ANOTHER PROVIDER'S ROW WAS ERASED");
+    // The running cutscene finishes as generation N wrote it.
+    let running = world
+        .resource::<ambition_cutscene::ActiveCutscene>()
+        .runtime
+        .as_ref()
+        .map(|runtime| runtime.script.clone());
+    assert_eq!(running, before, "⛔ A PLAYING CUTSCENE WAS CHANGED UNDER THE PLAYER");
+}
+
+/// A candidate that stops declaring a cutscene file removes the rows that file
+/// gave, and only those: "absent means remove", not "keep generation N's".
+#[test]
+fn a_cutscene_file_the_candidate_drops_removes_its_rows_and_only_its_rows() {
+    let mut world = world_with_cutscenes_and_one_foreign_row();
+    let dropped_ids: Vec<String> = crate::dialogue::cutscene_defaults::cutscene_scripts_of(
+        &crate::pack::compile_pack_omitting(&["data/cutscenes/sandbox.ron"]).expect("compiles"),
+    )
+    .into_iter()
+    .map(|script| script.id)
+    .collect();
+    assert!(
+        !dropped_ids.contains(&"test_intro".to_string()),
+        "the premise: the sandbox file is where test_intro lives"
+    );
+
+    let candidate = crate::pack::compile_pack_omitting(&["data/cutscenes/sandbox.ron"]).expect("compiles");
+    crate::reload::publish_participant_families(&mut world, &candidate);
+    let library = world.resource::<ambition_cutscene::CutsceneLibrary>();
+    assert!(library.get("test_intro").is_none(), "a dropped file's row survived");
+    assert!(library.get("foreign_probe").is_some(), "another provider's row was erased");
+    for id in &dropped_ids {
+        assert!(library.get(id).is_some(), "{id} belongs to a file the candidate still declares");
+    }
+}

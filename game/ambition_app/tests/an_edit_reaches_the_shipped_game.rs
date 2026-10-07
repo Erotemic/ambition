@@ -3960,3 +3960,189 @@ fn a_candidate_that_drops_the_adaptive_cues_is_refused_and_the_live_cues_survive
         "a refused candidate became the App's selection"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I2/I3: the cutscene library takes part in a reload.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The text of `test_intro`'s opening banner in the App's cutscene library.
+fn boot_banner(app: &bevy::prelude::App) -> String {
+    match app
+        .world()
+        .resource::<ambition_platformer2d::cutscene::CutsceneLibrary>()
+        .get("test_intro")
+        .expect("the boot cutscene")
+        .beats
+        .first()
+        .expect("a first beat")
+    {
+        ambition_platformer2d::cutscene::CutsceneBeat::Banner { text, .. } => text.clone(),
+        other => panic!("test_intro no longer opens on a banner: {other:?}"),
+    }
+}
+
+/// `test_intro`'s banner reworded, optionally with an SFX cue edited too (a
+/// second participating family) or the SFX registry dropped (a refusal).
+fn pack_with_a_reworded_boot_banner(
+    also_edit_sfx: bool,
+    drop_sfx: bool,
+) -> std::sync::Arc<ambition_platformer2d::content::PreparedContentPack> {
+    let mut edited = false;
+    let edit = |declared: &str, text: String| {
+        if declared == "data/cutscenes/sandbox.ron" {
+            let out = text.replacen("// boot sequence", "// boot sequence, revised", 1);
+            edited = out != text;
+            return out;
+        }
+        if also_edit_sfx && declared == "audio/sfx_registry.ron" {
+            return text.replacen(
+                "frequency: 460.0, frequency_end: 720.0,",
+                "frequency: 461.0, frequency_end: 720.0,",
+                1,
+            );
+        }
+        text
+    };
+    let pack = if drop_sfx {
+        ambition_content::pack::compile_pack_omitting_with(&["audio/sfx_registry.ron"], edit)
+    } else {
+        ambition_content::pack::compile_pack_with(edit)
+    }
+    .expect("an edited cutscene compiles");
+    assert!(edited, "the cutscene file no longer states the edited banner");
+    std::sync::Arc::new(pack)
+}
+
+/// ⭐ **A CUTSCENE EDIT IS VISIBLE WITH ITS SESSION AND WITH EVERY OTHER CHANGED
+/// FAMILY, ON THE SAME FRAME.** The candidate rewords the boot banner and edits
+/// an SFX cue; frame by frame the test records whether the shell activated a new
+/// session, whether the library states N+1, and whether the SFX catalog does.
+#[test]
+fn a_cutscene_edit_is_visible_with_its_session_and_with_the_other_changed_families() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let sfx_before = first_sfx_frequency_of(&app);
+    assert_eq!(boot_banner(&app), "// boot sequence", "the premise: N's banner");
+
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(
+            pack_with_a_reworded_boot_banner(true, false),
+            Some(base),
+        ),
+    );
+    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
+    assert_eq!(boot_banner(&app), "// boot sequence", "⛔ the request published the library on the spot");
+
+    let mut first_flip = None;
+    for frame in 0..240 {
+        app.update();
+        let seen = (
+            activation_id(&app) != Some(live_activation),
+            boot_banner(&app) == "// boot sequence, revised",
+            first_sfx_frequency_of(&app) == sfx_before + 1.0,
+        );
+        if seen != (false, false, false) {
+            first_flip = Some((frame, seen));
+            break;
+        }
+    }
+    let (frame, seen) = first_flip.expect("the edit never reached the game");
+    assert_eq!(
+        seen,
+        (true, true, true),
+        "⛔ ON FRAME {frame} THE FAMILIES WERE NOT VISIBLE TOGETHER (activation, cutscenes, sfx): {seen:?}"
+    );
+}
+
+fn first_sfx_frequency_of(app: &bevy::prelude::App) -> f32 {
+    app.world()
+        .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>()
+        .sfx_for(ambition_content::AMBITION_CONTENT_PROVIDER)
+        .expect("the provider's SFX")
+        .sfx[0]
+        .frequency
+}
+
+/// ⛔ A candidate that edits a cutscene and is then REFUSED (its SFX registry is
+/// dropped; the provider expects it) leaves the library at N: the same
+/// retention law as the audio and cue families.
+#[test]
+fn a_refused_candidate_leaves_the_cutscene_library_at_the_live_generation() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(
+            pack_with_a_reworded_boot_banner(false, true),
+            Some(base),
+        ),
+    );
+    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(activation_id(&app), Some(live_activation), "the refused candidate activated");
+    assert_eq!(boot_banner(&app), "// boot sequence", "⛔ A REFUSED CANDIDATE'S CUTSCENES WERE PUBLISHED");
+    assert_eq!(
+        ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
+        base,
+        "a refused candidate became the App's selection"
+    );
+}
+
+/// Identical content is a no-op, and a candidate prepared against a generation
+/// that has since moved is refused as stale and cannot fold its edit in.
+#[test]
+fn an_unchanged_or_stale_cutscene_candidate_publishes_nothing() {
+    let mut app = app_playing_gameplay();
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let same = std::sync::Arc::new(ambition_content::pack::compile_pack_with(|_, text| text).expect("compiles"));
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(same, Some(base)),
+    );
+    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Unchanged), "{outcome:?}");
+
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(
+            pack_with_a_reworded_boot_banner(false, false),
+            Some(base),
+        ),
+    );
+    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(boot_banner(&app), "// boot sequence, revised", "the premise: the edit published");
+
+    let stale = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            if declared == "data/cutscenes/sandbox.ron" {
+                return text.replacen("// boot sequence", "// boot sequence, stale", 1);
+            }
+            text
+        })
+        .expect("compiles"),
+    );
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(stale, Some(base)),
+    );
+    assert!(
+        matches!(
+            outcome,
+            ambition_content::reload::ReloadRequest::Refused(
+                ambition_content::reload::MoveReload::StaleGeneration { .. }
+            )
+        ),
+        "a stale candidate was not refused as stale: {outcome:?}"
+    );
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(boot_banner(&app), "// boot sequence, revised", "a stale candidate changed the library");
+}

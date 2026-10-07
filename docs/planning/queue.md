@@ -2027,7 +2027,7 @@ hosts agreed (I did not measure which road corrects it).
   survived. One candidate (not measured): nothing writes the ledger into the
   save before the correction on frame 3. That would be an order of systems,
   not a rule, so the witness reads the row on each frame.
-- ⛔ THE RESIDUAL, not repaired: when the candidate is of the experience that
+- ✅ CLOSED 2026-10-05 (`ed7dec550`; the stale-candidate discard recorded further down this row; witness re-run green 2026-10-07). Was the residual: when the candidate is of the experience that
   has the live save (a restart, a world reload), the prepared value is the live
   save at the preparation. The session that plays can change it before the
   adoption, and the candidate is then built from the older value. A witness

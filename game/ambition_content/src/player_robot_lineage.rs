@@ -8,13 +8,15 @@
 //! before it. That is provenance only; nothing is inherited along the chain.
 //! What is here checks that the rows say what the lineage means.
 
-/// The robot's lineage, oldest first: the provider's default character and each
+/// The robot's lineage in the SHIPPED catalog, oldest first (test-only: it
+/// inspects the shipped product, and no composition asks it): the provider's default character and each
 /// row its `derived_from` names, followed back to the row that names none.
 ///
 /// # Panics
 ///
 /// When a row on the chain names a character the catalog does not have, or
 /// the chain comes back to itself.
+#[cfg(test)]
 pub fn lineage() -> Vec<String> {
     let catalog = crate::character_catalog::shipped_catalog();
     let mut chain = vec![crate::character_catalog::DEFAULT_CHARACTER.to_string()];

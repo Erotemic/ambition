@@ -50,7 +50,7 @@ fn half_a_second_longer(path: &str, text: String) -> String {
 /// A composition that registered its declared cast against `pack`.
 fn app_selecting(pack: std::sync::Arc<PreparedContentPack>) -> bevy::prelude::App {
     let mut app = bevy::prelude::App::new();
-    select_pack(&mut app, pack);
+    select_pack(&mut app, pack).expect("nothing has consumed the selection yet");
     crate::character_catalog::register_cast(&mut app);
     // The raw road, named. This fixture installs no technique handlers, so real
     // admission would withhold every character naming a native effect, which is
@@ -196,7 +196,7 @@ fn two_different_packs_publish_two_different_content_identities() {
 
     let identity_of = |pack: std::sync::Arc<PreparedContentPack>| {
         let mut app = bevy::prelude::App::new();
-        select_pack(&mut app, pack);
+        select_pack(&mut app, pack).expect("nothing has consumed the selection yet");
         app.world().resource::<SelectedContentIdentity>().0.clone()
     };
     assert_ne!(
@@ -302,23 +302,34 @@ fn pack_that_disagrees_everywhere() -> std::sync::Arc<PreparedContentPack> {
 }
 
 /// One App composed with the real content plugin, over `pack` when one is
-/// given, over nothing otherwise.
-fn composed_with_the_plugin(pack: Option<std::sync::Arc<PreparedContentPack>>) -> bevy::prelude::App {
-    use bevy::ecs::system::RunSystemOnce as _;
+/// given, over nothing otherwise. The quest book is NOT populated yet: it fills
+/// lazily, at the first simulation tick, which is the road a late selection
+/// would contaminate.
+fn composed_without_ticking(pack: Option<std::sync::Arc<PreparedContentPack>>) -> bevy::prelude::App {
     use bevy::prelude::*;
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     if let Some(pack) = pack {
-        select_pack(&mut app, pack);
+        select_pack(&mut app, pack).expect("nothing has consumed the selection yet");
     }
     app.add_plugins(crate::AmbitionContentPlugin);
     ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
-    // The quest registry fills at its first sim tick; run that system by hand so
-    // the installed quest book can be read without a schedule.
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+    app
+}
+
+/// Run the quest registry's startup system by hand, as the first tick would.
+fn populate_quests(app: &mut bevy::prelude::App) {
+    use bevy::ecs::system::RunSystemOnce as _;
     app.world_mut()
         .run_system_once(crate::quest::populate_quest_registry)
         .expect("the quest registry populates from the App's pack");
+}
+
+/// [`composed_without_ticking`], with the quest book already populated.
+fn composed_with_the_plugin(pack: Option<std::sync::Arc<PreparedContentPack>>) -> bevy::prelude::App {
+    let mut app = composed_without_ticking(pack);
+    populate_quests(&mut app);
     app
 }
 
@@ -558,54 +569,99 @@ fn an_app_with_no_selection_gets_the_shipped_content_beside_an_edited_one() {
     );
 }
 
-/// An App that selects a pack AFTER composing does not revise what it
-/// installed: selection is not publication. The reload transaction is the only
-/// road that revises a published family.
+/// ⭐ SELECTION IS SEALED BY ITS FIRST CONSUMER. A different pack chosen after
+/// the plugin installed from the selection is refused, and refusing changes
+/// nothing: not the selection, not the published identity, not an installed
+/// family, and not the lazily populated quest book.
+///
+/// Accepting it would leave the App naming N+1 (so a reload would call a real
+/// N+1 candidate `Unchanged`) while every installed family served N, and the
+/// first tick would then fill the quests from N+1.
 #[test]
-fn selecting_after_composition_publishes_nothing() {
+fn a_different_pack_selected_after_composition_is_refused_and_changes_nothing() {
+    use ambition_platformer2d_runtime::SelectedContentIdentity;
+
     let shipped = compile_pack().expect("compiles");
     let mover = a_character_in_both(&shipped);
     let ids = cutscene_ids(&shipped);
 
-    let mut app = composed_with_the_plugin(None);
-    let before = installed_in(&app, &mover, &ids);
-    select_pack(&mut app, pack_that_disagrees_everywhere());
+    // Composed, but the quest book has not filled: the lazy road is open.
+    let mut app = composed_without_ticking(None);
+    let before_fingerprint = selected(app.world()).map(|pack| pack.fingerprint);
+    let before_identity = app.world().resource::<SelectedContentIdentity>().0.clone();
 
+    let refusal = select_pack(&mut app, pack_that_disagrees_everywhere())
+        .expect_err("a sealed selection must refuse a different pack");
+    assert_ne!(refusal.in_use, refusal.requested, "the refusal names both packs");
+
+    assert_eq!(selected(app.world()).map(|pack| pack.fingerprint), before_fingerprint);
+    assert_eq!(app.world().resource::<SelectedContentIdentity>().0, before_identity);
+
+    // The lazy reader now runs: it must read the generation the rest of the
+    // App serves, not the refused one.
+    populate_quests(&mut app);
     assert_eq!(
         installed_in(&app, &mover, &ids),
-        before,
-        "choosing a pack republished an installed family without a reload"
+        expected_from(&shipped, &mover),
+        "a refused selection still reached an installed family"
     );
 }
 
-/// The production source names the boot pack in a short, reasoned list. A
-/// runtime reader that reaches for [`shipped`] because it is convenient
-/// raises one of these counts and fails here, with the file named.
+/// The same pack again is harmless, and an unconsumed selection can still be
+/// replaced: the seal is the first consumer, not the first selection.
+#[test]
+fn selection_is_replaceable_until_consumed_and_idempotent_after() {
+    let shipped = std::sync::Arc::new(compile_pack().expect("compiles"));
+    let edited = pack_that_disagrees_everywhere();
+
+    let mut app = bevy::prelude::App::new();
+    select_pack(&mut app, std::sync::Arc::clone(&shipped)).expect("first selection");
+    select_pack(&mut app, std::sync::Arc::clone(&edited)).expect("nothing consumed it yet");
+    assert_eq!(selected(app.world()).map(|p| p.fingerprint), Some(edited.fingerprint));
+
+    let _consumer = select(app.world_mut());
+    select_pack(&mut app, std::sync::Arc::clone(&edited)).expect("the same pack is harmless");
+    select_pack(&mut app, shipped).expect_err("a different pack after the first consumer");
+    assert_eq!(selected(app.world()).map(|p| p.fingerprint), Some(edited.fingerprint));
+}
+
+/// The production source reaches the boot pack only through a short, reasoned
+/// list. A runtime reader that calls ANY boot-scoped road raises one of these
+/// counts and fails here, with the file named.
 ///
-/// Counted per file over non-test code: `#[cfg(test)]` blocks and test files
-/// are subjects of their own (they inspect the shipped product, which is what
-/// `shipped` is for). The list is the boot-scoped inspection roads:
+/// The boot-scoped surface is not only the literal `pack::shipped()`: every
+/// `shipped_*` convenience (a boot read behind a name), `authored_movesets::`
+/// (the shipped fighters' tables) and a bare `lineage()` reach it too, so all
+/// count. A call hidden behind a new `shipped_*` helper is counted at the
+/// helper's caller; a helper not named `shipped_*` that reads the boot pack
+/// would show at its own `pack::shipped()` line.
 ///
+/// Counted per file over non-test code (`#[cfg(test)]` blocks and test files
+/// are subjects of their own: they inspect the shipped product, which is what
+/// these roads are for). Definitions (`fn ...`) do not count; calls do. The
+/// list:
+///
+/// * the `*_of(pack)` siblings call `shipped()` once each in their `shipped_*`
+///   helper: `audio_registries`, `bosses/mod`, `character_catalog`, `quest`;
 /// * `authored_movesets.rs` — the shipped fighters' tables, for tests and the
 ///   `moveset_takes` tool;
-/// * `*::shipped_*` helpers — one per family, each the boot-scoped sibling of a
-///   `*_of(pack)` function that a composition uses;
 /// * `content_validation::validate_embedded_content_graph` — offline validation
 ///   of the shipped world (a composition validates its own pack through
 ///   `validate_content_graph`);
-/// * `moves_are_content.rs` — a test-only module.
 ///
-/// Nothing in `ambition_app` may name it: the host composes through the plugin
-/// and the registers, which select.
+/// A module that `lib.rs` declares under `#[cfg(test)]`, or whose file opens
+/// with `#![cfg(test)]`, is test code and is skipped.
+///
+/// Nothing in `ambition_app` may reach any of them: the host composes through
+/// the plugin and the registers, which select.
 #[test]
-fn production_code_names_the_shipped_pack_only_in_the_boot_scoped_roads() {
+fn production_code_reaches_the_boot_pack_only_in_the_boot_scoped_roads() {
     const ALLOWED: &[(&str, usize)] = &[
         ("audio_registries.rs", 1),
         ("authored_movesets.rs", 3),
         ("bosses/mod.rs", 1),
-        ("character_catalog.rs", 2),
+        ("character_catalog.rs", 3),
         ("content_validation.rs", 1),
-        ("moves_are_content.rs", 3),
         ("quest.rs", 1),
     ];
 
@@ -620,9 +676,32 @@ fn production_code_names_the_shipped_pack_only_in_the_boot_scoped_roads() {
         }
     }
 
-    /// Non-test occurrences of `needle` in `text`: skips comment lines and the
-    /// bodies of `#[cfg(test)]` blocks.
-    fn production_hits(text: &str, needle: &str) -> usize {
+    /// Boot-scoped reads on one code line: `pack::shipped(`, `shipped_*(`,
+    /// `authored_movesets::` and `lineage(`. A definition line counts nothing.
+    fn boot_reads(line: &str) -> usize {
+        if line.contains("fn ") {
+            return 0;
+        }
+        let mut count = line.matches("pack::shipped(").count()
+            + line.matches("authored_movesets::").count()
+            + line.matches("lineage()").count();
+        let mut rest = line;
+        while let Some(at) = rest.find("shipped_") {
+            let after = &rest[at + "shipped_".len()..];
+            let ident_len = after
+                .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+                .unwrap_or(after.len());
+            if after[ident_len..].starts_with('(') {
+                count += 1;
+            }
+            rest = &after[ident_len..];
+        }
+        count
+    }
+
+    /// Non-test boot reads in `text`: skips comment lines and the bodies of
+    /// `#[cfg(test)]` blocks.
+    fn production_hits(text: &str) -> usize {
         let mut hits = 0;
         let mut depth: i64 = 0;
         let mut test_block_depth: Option<i64> = None;
@@ -635,9 +714,8 @@ fn production_code_names_the_shipped_pack_only_in_the_boot_scoped_roads() {
             if test_block_depth.is_none() && trimmed.starts_with("#[cfg(test)]") {
                 armed = true;
             }
-            let in_test = test_block_depth.is_some();
-            if !in_test && !armed {
-                hits += line.matches(needle).count();
+            if test_block_depth.is_none() && !armed {
+                hits += boot_reads(line);
             }
             let opens = line.matches('{').count() as i64;
             let closes = line.matches('}').count() as i64;
@@ -653,22 +731,49 @@ fn production_code_names_the_shipped_pack_only_in_the_boot_scoped_roads() {
         hits
     }
 
-    let needle = "pack::shipped()";
+    let is_test_file = |rel: &str| {
+        rel.ends_with("_tests.rs")
+            || rel.ends_with("/tests.rs")
+            || rel == "tests.rs"
+            || rel.contains("/tests/")
+            || rel.ends_with("_tests/mod.rs")
+    };
+
     let crate_src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    // Modules `lib.rs` declares under `#[cfg(test)]`: `mod name;` right after it.
+    let lib = std::fs::read_to_string(crate_src.join("lib.rs")).expect("lib.rs");
+    let mut test_modules = std::collections::BTreeSet::new();
+    let mut after_cfg_test = false;
+    for line in lib.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("#[cfg(test)]") {
+            after_cfg_test = true;
+        } else if after_cfg_test && !trimmed.starts_with("#[") && !trimmed.starts_with("//") {
+            let declared = trimmed.trim_start_matches("pub ").trim_start_matches("pub(crate) ");
+            if let Some(name) = declared.strip_prefix("mod ").and_then(|rest| rest.strip_suffix(';')) {
+                test_modules.insert(name.to_string());
+            }
+            after_cfg_test = false;
+        }
+    }
+    assert!(
+        test_modules.contains("moveset_artifact"),
+        "the cfg(test) module scan read nothing from lib.rs: {test_modules:?}"
+    );
     let mut files = Vec::new();
     walk(&crate_src, &mut files);
     let mut found: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     for path in files {
         let rel = path.strip_prefix(&crate_src).unwrap().to_string_lossy().replace('\\', "/");
-        let is_test_file = rel.ends_with("_tests.rs")
-            || rel.ends_with("/tests.rs")
-            || rel == "tests.rs"
-            || rel.contains("/tests/")
-            || rel.ends_with("_tests/mod.rs");
-        if is_test_file || rel == "pack.rs" {
+        let top = rel.split('/').next().unwrap_or("").trim_end_matches(".rs");
+        if is_test_file(&rel) || rel == "pack.rs" || test_modules.contains(top) {
             continue;
         }
-        let hits = production_hits(&std::fs::read_to_string(&path).expect("readable source"), needle);
+        let text = std::fs::read_to_string(&path).expect("readable source");
+        if text.lines().any(|line| line.trim_start().starts_with("#![cfg(test)]")) {
+            continue;
+        }
+        let hits = production_hits(&text);
         if hits > 0 {
             found.insert(rel, hits);
         }
@@ -679,7 +784,7 @@ fn production_code_names_the_shipped_pack_only_in_the_boot_scoped_roads() {
         .collect();
     assert_eq!(
         found, allowed,
-        "a production file reads the boot pack. If it is a boot-scoped inspection road, \
+        "a production file reaches the boot pack. If it is a boot-scoped inspection road, \
          add it to ALLOWED with its reason; if it installs or reads App content, take the \
          App's pack (`pack::select` at composition, `Res<SelectedContentPack>` in a system)"
     );
@@ -690,9 +795,9 @@ fn production_code_names_the_shipped_pack_only_in_the_boot_scoped_roads() {
     for path in app_files {
         let text = std::fs::read_to_string(&path).expect("readable source");
         assert_eq!(
-            production_hits(&text, "pack::shipped"),
+            production_hits(&text),
             0,
-            "{} reads the boot pack; the host composes through the content registers",
+            "{} reaches the boot pack; the host composes through the content registers",
             path.display()
         );
     }

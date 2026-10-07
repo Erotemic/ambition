@@ -4471,6 +4471,61 @@ fn a_provider_that_takes_a_cutscene_id_while_the_generation_waits_cancels_it() {
     assert_eq!(boot_banner(&app), "// the other provider", "⛔ THE FOREIGN ROW WAS OVERWRITTEN");
 }
 
+/// ⛔ **A STEP THE PLAYER REACHES WHILE A GENERATION WAITS IS PINNED TOO.** The
+/// candidate rewrites step 1's condition (a FUTURE step while the player is on
+/// step 0, so it is admitted: rule 3). Before it activates the player reaches
+/// step 1, which is now their current objective, and the candidate would change
+/// what they are chasing. The gate asks the compatibility question again with the
+/// save as it is then and cancels; the live book keeps the original condition.
+#[test]
+fn a_step_the_player_reaches_while_the_generation_waits_is_pinned_at_the_gate() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let mut edited = false;
+    let candidate = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            if declared != "data/quests.ron" {
+                return text;
+            }
+            let out = text.replacen(
+                r#"EncounterCleared("goblin_encounter")"#,
+                r#"FlagSet("test_switch_toggled")"#,
+                1,
+            );
+            edited = out != text;
+            out
+        })
+        .expect("compiles"),
+    );
+    assert!(edited, "the quest book no longer states the edited condition");
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+    );
+    assert!(
+        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
+        "the premise: a future step may be edited while the player is on step 0: {outcome:?}"
+    );
+    app.world_mut()
+        .resource_mut::<ambition_content::quest::QuestRegistry>()
+        .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet("met_any_hub_npc".to_string()));
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(
+        activation_id(&app),
+        Some(live_activation),
+        "⛔ THE GENERATION ACTIVATED AND CHANGED THE OBJECTIVE THE PLAYER REACHED"
+    );
+    assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "the refused generation is still pending");
+    assert_eq!(
+        quest_place(&app, "first_steps").map(|(_, active, step)| (active, step)),
+        Some((true, 1)),
+        "the player was moved off their step"
+    );
+}
+
 /// The control for the gate's quest question: the SAME moving save under a
 /// candidate that does not touch the quest book activates. Without it the
 /// cancel above could be any cause; with it the quest question is the only

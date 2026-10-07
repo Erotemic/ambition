@@ -90,7 +90,12 @@ step) is a decision to make deliberately, and the rule's comment is where to
 change it. Witnesses: `an_edited_book_must_keep_the_conditions_of_the_steps_a_player_has_done_or_is_doing`,
 `an_edited_book_may_change_text_and_the_steps_after_the_current_one` (control),
 `the_pinned_prefix_ends_at_the_current_step`; poisoned by shrinking the range to
-`0..current` and to `0..0`.
+`0..current` and to `0..0`. The gate asks the same rule again, so a step the player reaches while a
+generation waits is pinned at activation:
+`a_step_the_player_reaches_while_the_generation_waits_is_pinned_at_the_gate`
+(a future-step edit is admitted, the player reaches the step, the gate cancels;
+poisoned by dropping the quest question from the gate, which turns it and
+`a_quest_book_that_loses_its_place_while_the_generation_waits_is_cancelled` red).
 
 ### Cutscene rows have no recorded owner (2026-10-07)
 

@@ -29,13 +29,15 @@ pub const PIRATE_TREASURE_REWARD: &[(Item, u32)] = &[
 ];
 
 /// The quests `pack` ships: the `quest_book` it lowered from
-/// `assets/data/quests.ron`.
+/// `assets/data/quests.ron`. A pack that declares no quest file ships none: it
+/// compiles, and a reload can propose it, so the next session starts with an
+/// empty book rather than panicking in `populate_quest_registry`.
 pub fn quest_specs_of(
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> Vec<ambition_persistence::quest::QuestSpec> {
     ambition_persistence::quest::content_schema::lowered_quest_book(pack)
-        .expect("Ambition's pack declares data/quests.ron as its quest_book")
-        .clone()
+        .cloned()
+        .unwrap_or_default()
 }
 
 /// The quests of Ambition's SHIPPED pack: for a validator or a test whose

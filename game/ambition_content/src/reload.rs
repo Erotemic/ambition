@@ -147,6 +147,13 @@ pub enum MoveReload {
     /// (`quest::populate_quest_registry`), and that rebuild clamps a step it
     /// cannot place, so the move would silently rewind a player.
     QuestBookRefused(String),
+    /// The candidate breaks a reference the unchanged world or another family
+    /// holds (a room whose `entry_cutscene` names a script the candidate no
+    /// longer has, a quest step naming a boss that does not exist, a boss phase
+    /// naming a music track the candidate dropped). The same judge as startup
+    /// (`content_validation::validate_content_graph`), asked of the candidate
+    /// against the world that is running. Nothing was staged.
+    ContentGraphRefused(Vec<String>),
 }
 
 /// Republish the cast's move tables from an already-compiled pack.
@@ -750,6 +757,46 @@ fn publish_nothing_the_next_session_derives(
 ) {
 }
 
+/// Does the candidate still form one consistent content graph with the world
+/// that is running?
+///
+/// ⭐ THE ONE JUDGE. This is `content_validation::validate_content_graph`, the
+/// function startup runs over the composed game and aborts on, asked of the
+/// candidate pack, its music registry and its character catalog against the
+/// LDtk project the App is playing (`ActiveLdtkProject`, which a reload does not
+/// change: the worlds are not a reloadable family). It replaces what this file
+/// used to list as "not judged": a room naming a cutscene the candidate removed,
+/// a quest step naming a boss, encounter, flag or room that does not exist, a
+/// boss or encounter naming a music track the candidate dropped, an NPC naming
+/// a dialogue or character the candidate no longer has. Warnings are not
+/// refusals; the live generation is clean, so an error is the candidate's.
+///
+/// An App with no LDtk project (a headless composition without a world) has
+/// nothing to judge against and is not asked.
+///
+/// Runs after the candidate's character catalog and boss catalog were admitted
+/// (a candidate that cannot form them is already refused), so the lowerings it
+/// reads are present; the music registry may be absent in a candidate and then
+/// judges as an empty one, which names every track the world still asks for.
+fn candidate_content_graph(
+    world: &bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Result<(), Vec<String>> {
+    let Some(project) = world.get_resource::<ambition_platformer2d_ldtk::ActiveLdtkProject>() else {
+        return Ok(());
+    };
+    let music = ambition_audio::content_schema::lowered_music_registry(pack)
+        .cloned()
+        .unwrap_or_else(|| ambition_audio::spec::MusicRegistry { default_track: String::new(), tracks: Vec::new() });
+    let report = crate::content_validation::validate_content_graph(
+        pack,
+        &music,
+        &project.0,
+        &crate::character_catalog::catalog_of(pack),
+    );
+    if report.is_ok() { Ok(()) } else { Err(report.errors) }
+}
+
 /// Does the candidate's quest book keep every recorded quest placeable? A quest
 /// the save has in progress must still have its step: the rebuild at the next
 /// session clamps an out-of-range step to the last one
@@ -1300,6 +1347,10 @@ pub fn request_reload(
     if let Err(error) = candidate_quest_book(world, &pack) {
         discard_staged_reload(world);
         return ReloadRequest::Refused(MoveReload::QuestBookRefused(error));
+    }
+    if let Err(errors) = candidate_content_graph(world, &pack) {
+        discard_staged_reload(world);
+        return ReloadRequest::Refused(MoveReload::ContentGraphRefused(errors));
     }
     let admitted_cast = match support
         .map(|support| match &character_catalog {

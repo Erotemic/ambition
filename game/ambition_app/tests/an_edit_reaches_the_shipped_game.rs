@@ -4525,3 +4525,120 @@ fn reverting_the_content_while_a_generation_is_in_flight_cancels_it() {
     assert!(ambition_content::reload::pending_pack(app.world()).is_none());
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I2/I3: a candidate is judged against the world that is running.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Request `candidate` against the shipped game and say what happened, with the
+/// live generation untouched afterwards.
+fn request_and_expect_a_graph_refusal(
+    candidate: std::sync::Arc<ambition_platformer2d::content::PreparedContentPack>,
+) -> Vec<String> {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let started = std::time::Instant::now();
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+    );
+    eprintln!("[content-graph] the candidate was judged in {:?}", started.elapsed());
+    let ambition_content::reload::ReloadRequest::Refused(ambition_content::reload::MoveReload::ContentGraphRefused(errors)) =
+        outcome
+    else {
+        panic!("a candidate that breaks the content graph was not refused as such: {outcome:?}");
+    };
+    assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "a refused candidate is pending");
+    for _ in 0..60 {
+        app.update();
+    }
+    assert_eq!(activation_id(&app), Some(live_activation), "a refused candidate activated");
+    assert_eq!(
+        ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
+        base,
+        "a refused candidate became the App's selection"
+    );
+    errors
+}
+
+/// ⛔ **A CANDIDATE THAT REMOVES A CUTSCENE THE WORLD STILL NAMES IS REFUSED.**
+/// The hub's `entry_cutscene` field names `test_intro`; the candidate renames the
+/// script, so the room's binding would silently never play
+/// (`drain_cutscene_triggers` skips a missing script). Startup refuses the same
+/// graph; the reload now asks the same judge.
+#[test]
+fn a_candidate_that_removes_a_cutscene_a_room_names_is_refused() {
+    let mut edited = false;
+    let candidate = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            if declared == "data/cutscenes/sandbox.ron" {
+                let out = text.replacen(r#"id: "test_intro","#, r#"id: "test_intro_renamed","#, 1);
+                edited = out != text;
+                return out;
+            }
+            text
+        })
+        .expect("a renamed script compiles"),
+    );
+    assert!(edited, "the cutscene file no longer states the renamed script");
+    let errors = request_and_expect_a_graph_refusal(candidate);
+    assert!(
+        errors.iter().any(|error| error.contains("test_intro") && error.contains("unknown cutscene")),
+        "the refusal does not name the dead binding: {errors:?}"
+    );
+}
+
+/// ⛔ **A QUEST STEP THAT NAMES A BOSS THAT DOES NOT EXIST IS REFUSED**, with the
+/// quest named, instead of becoming a step nobody can complete.
+#[test]
+fn a_candidate_whose_quest_names_a_boss_that_does_not_exist_is_refused() {
+    let mut edited = false;
+    let candidate = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            if declared == "data/quests.ron" {
+                let out = text.replacen(
+                    r#"BossDefeated("clockwork_warden")"#,
+                    r#"BossDefeated("no_such_boss")"#,
+                    1,
+                );
+                edited = out != text;
+                return out;
+            }
+            text
+        })
+        .expect("a quest that names an unknown boss compiles"),
+    );
+    assert!(edited, "the quest book no longer states the edited boss");
+    let errors = request_and_expect_a_graph_refusal(candidate);
+    assert!(
+        errors.iter().any(|error| error.contains("first_steps") && error.contains("no_such_boss")),
+        "the refusal does not name the quest and the boss: {errors:?}"
+    );
+}
+
+/// A pack without its quest file COMPILES (measured: `quest_specs_of` used to
+/// panic for it), so a reload can propose it. The next session starts with an
+/// empty book and does not panic in `populate_quest_registry`.
+#[test]
+fn a_candidate_without_a_quest_file_starts_the_next_session_with_no_quests() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    assert!(quest_place(&app, "first_steps").is_some(), "the premise: N has the quest");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let candidate = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_omitting(&["data/quests.ron"]).expect("a pack without quests compiles"),
+    );
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+    );
+    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_ne!(activation_id(&app), Some(live_activation), "the candidate never activated");
+    let registry = app.world().resource::<ambition_content::quest::QuestRegistry>();
+    assert!(registry.initialized, "the new session never populated its registry");
+    assert!(registry.quests.is_empty(), "the new session kept quests the candidate does not declare");
+}

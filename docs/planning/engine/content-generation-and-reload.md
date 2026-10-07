@@ -49,20 +49,33 @@ second copy of a fact the next session derives. What the transaction owns is
 admission: `candidate_quest_book` refuses a candidate that leaves a quest the
 save has in progress without its step (the rebuild would clamp it silently).
 Measured, not assumed: the registry is empty for the first tick of the new
-session, never N's. Not judged: a step naming a boss, encounter, flag or room
-that does not exist (the startup graph validator does; the worlds do not
-reload). A removed quest is allowed, and the save keeps its row.
+session, never N's. A step naming a boss, encounter, flag or room that does not
+exist is refused by the content-graph judge (below). A removed quest is
+allowed, and the save keeps its row. A pack with no quest file compiles and
+starts the next session with an empty book (it used to panic there).
+
+### The content graph is judged at request time
+
+A candidate is judged against the world that is running by the SAME function
+startup aborts on, `content_validation::validate_content_graph`, with the
+candidate's pack, music registry and character catalog and the App's
+`ActiveLdtkProject` (the worlds do not reload). A refusal is
+`MoveReload::ContentGraphRefused(errors)`, before anything is staged for the
+rest of the transaction. It covers every cross-reference that function covers:
+room links and zones, room and encounter music, NPC dialogue, character and
+brain ids, quest steps, cutscene bindings and boss music. It costs about 15 ms
+(measured). An App with no LDtk project is not asked. Not judged: references the
+validator itself does not cover (a Yarn node naming a cutscene, an item id in a
+dialogue).
 
 The cutscene library does (2026-10-07), as a pack-derived family with a
 shared-registry publisher: the library also holds rows other providers add, so
 the publication removes the rows the App's selected pack (generation N) owns,
 while the library still holds exactly that script, and inserts the candidate's.
 A cutscene that is playing holds its own copy of its script and is not touched.
-A candidate that stops declaring a cutscene file removes that file's rows. Not
-judged at reload: a room's `entry_cutscene` that names a cutscene the candidate
-removed. The room set is session-scoped and rooms are not a reloadable family;
-the startup graph validator (`validate_cutscene_bindings`) is the judge of that
-reference, and `drain_cutscene_triggers` skips a missing script silently.
+A candidate that stops declaring a cutscene file removes that file's rows. A
+room's `entry_cutscene` that names a cutscene the candidate removed is refused
+at request time by the content-graph judge (below).
 
 The music-cue catalog took the same road as the audio registries: it is
 admitted at request time (`AdaptiveMusicCatalogRegistry::with_replaced`,
@@ -321,8 +334,6 @@ whether the prior scene is unchanged, recovered or stopped.
 
 ## Open work
 
-- A candidate that removes a cutscene a room still names is not refused (see
-  above); a reload-time reference check needs the session's room set.
 - Demo packs do not reload in a running demo.
 - Measure source read, changed-section preparation, candidate construction,
   activation, scenario reset and first observed behavior separately (M0).

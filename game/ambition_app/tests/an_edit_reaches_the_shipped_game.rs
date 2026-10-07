@@ -4146,3 +4146,256 @@ fn an_unchanged_or_stale_cutscene_candidate_publishes_nothing() {
     }
     assert_eq!(boot_banner(&app), "// boot sequence, revised", "a stale candidate changed the library");
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I2/I3: the quest book takes part in a reload.
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn quest_title(app: &bevy::prelude::App, id: &str) -> Option<String> {
+    app.world()
+        .resource::<ambition_content::quest::QuestRegistry>()
+        .get(id)
+        .map(|state| state.spec.title.clone())
+}
+
+fn pack_with_a_retitled_first_quest() -> std::sync::Arc<ambition_platformer2d::content::PreparedContentPack> {
+    let mut edited = false;
+    let pack = ambition_content::pack::compile_pack_with(|declared, text| {
+        if declared == "data/quests.ron" {
+            let out = text.replacen(r#"title: "First Steps""#, r#"title: "First Steps, revised""#, 1);
+            edited = out != text;
+            return out;
+        }
+        text
+    })
+    .expect("an edited quest book compiles");
+    assert!(edited, "the quest book no longer states the edited title");
+    std::sync::Arc::new(pack)
+}
+
+/// The quest's place as the registry states it: its title, whether it is in
+/// progress, and its step.
+fn quest_place(app: &bevy::prelude::App, id: &str) -> Option<(String, bool, u8)> {
+    app.world()
+        .resource::<ambition_content::quest::QuestRegistry>()
+        .get(id)
+        .map(|state| (state.spec.title.clone(), state.is_active(), state.step))
+}
+
+/// A quest book whose `first_steps` loses its last two steps (so a player past
+/// its first step has nowhere to stand), optionally with the SFX registry
+/// dropped (a refusal downstream of admission).
+fn pack_with_a_one_step_first_quest() -> std::sync::Arc<ambition_platformer2d::content::PreparedContentPack> {
+    let mut edited = false;
+    let pack = ambition_content::pack::compile_pack_with(|declared, text| {
+        if declared == "data/quests.ron" {
+            let out = text.replacen(
+                r#"            (
+                description: "Clear the goblin encounter.",
+                condition: EncounterCleared("goblin_encounter"),
+            ),
+            (
+                description: "Defeat the clockwork warden.",
+                condition: BossDefeated("clockwork_warden"),
+            ),
+"#,
+                "",
+                1,
+            );
+            edited = out != text;
+            return out;
+        }
+        text
+    })
+    .expect("a shorter quest compiles");
+    assert!(edited, "the quest book no longer states the edited steps");
+    std::sync::Arc::new(pack)
+}
+
+/// Move `first_steps` to its second step the way the game does: an advance
+/// event, drained by the pump, mirrored into the save.
+fn advance_first_steps_one_step(app: &mut bevy::prelude::App) {
+    app.world_mut()
+        .resource_mut::<ambition_content::quest::QuestRegistry>()
+        .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet("met_any_hub_npc".to_string()));
+    for _ in 0..5 {
+        app.update();
+    }
+    assert_eq!(
+        quest_place(app, "first_steps").map(|(_, active, step)| (active, step)),
+        Some((true, 1)),
+        "the premise: first_steps stands on its second step"
+    );
+}
+
+/// ⭐ **A QUEST EDIT IS PLAYED FROM THE NEXT SESSION, WITH THE PLAYER'S PROGRESS,
+/// AND NEVER N'S BOOK IN THE NEW SESSION.**
+///
+/// The registry is session state: the new session's first tick fills it from the
+/// selected pack and the save. The candidate retitles a quest AND edits an SFX
+/// cue; the player stands on the quest's second step. Frame by frame: when the
+/// shell activates the new session and the SFX catalog states N+1, the quest
+/// registry must not state N (it is empty until its first tick, then N+1), and
+/// settled it says N+1's title at the SAME place.
+#[test]
+fn a_quest_edit_is_played_from_the_next_session_with_the_players_progress() {
+    let mut app = app_playing_gameplay();
+    advance_first_steps_one_step(&mut app);
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let sfx_before = first_sfx_frequency_of(&app);
+    assert_eq!(quest_place(&app, "first_steps").map(|place| place.0).as_deref(), Some("First Steps"));
+
+    let mut edited = (false, false);
+    let candidate = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            if declared == "data/quests.ron" {
+                let out = text.replacen(r#"title: "First Steps""#, r#"title: "First Steps, revised""#, 1);
+                edited.0 = out != text;
+                return out;
+            }
+            if declared == "audio/sfx_registry.ron" {
+                let out = text.replacen(
+                    "frequency: 460.0, frequency_end: 720.0,",
+                    "frequency: 461.0, frequency_end: 720.0,",
+                    1,
+                );
+                edited.1 = out != text;
+                return out;
+            }
+            text
+        })
+        .expect("compiles"),
+    );
+    assert_eq!(edited, (true, true), "the pack no longer states the edited quest title and cue");
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+    );
+    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
+    assert_eq!(
+        quest_place(&app, "first_steps").map(|place| place.0).as_deref(),
+        Some("First Steps"),
+        "⛔ the request changed the live quest book"
+    );
+
+    let mut flip = None;
+    for frame in 0..240 {
+        app.update();
+        let activated = activation_id(&app) != Some(live_activation);
+        let title = quest_place(&app, "first_steps").map(|place| place.0);
+        if !activated {
+            assert_eq!(title.as_deref(), Some("First Steps"), "N's session lost its quest book early");
+            continue;
+        }
+        flip = Some((frame, first_sfx_frequency_of(&app) == sfx_before + 1.0, title));
+        break;
+    }
+    let (frame, sfx_is_new, title) = flip.expect("the edit never activated");
+    assert!(sfx_is_new, "frame {frame}: the session activated before the SFX family published");
+    assert_ne!(
+        title.as_deref(),
+        Some("First Steps"),
+        "⛔ frame {frame}: THE NEW SESSION SERVES N'S QUEST BOOK"
+    );
+    for _ in 0..10 {
+        app.update();
+    }
+    assert_eq!(
+        quest_place(&app, "first_steps"),
+        Some(("First Steps, revised".to_string(), true, 1)),
+        "the new session's quest book is not N+1's with the player's progress"
+    );
+}
+
+/// ⛔ A candidate that edits the quest book and is then REFUSED (its SFX registry
+/// is dropped) leaves the quest book, and the player's place in it, at N.
+#[test]
+fn a_refused_candidate_leaves_the_quest_book_at_the_live_generation() {
+    let mut app = app_playing_gameplay();
+    advance_first_steps_one_step(&mut app);
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let mut edited = false;
+    let candidate = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_omitting_with(&["audio/sfx_registry.ron"], |declared, text| {
+            if declared == "data/quests.ron" {
+                let out = text.replacen(r#"title: "First Steps""#, r#"title: "First Steps, revised""#, 1);
+                edited = out != text;
+                return out;
+            }
+            text
+        })
+        .expect("compiles"),
+    );
+    assert!(edited);
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+    );
+    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(activation_id(&app), Some(live_activation), "the refused candidate activated");
+    assert_eq!(
+        quest_place(&app, "first_steps"),
+        Some(("First Steps".to_string(), true, 1)),
+        "⛔ A REFUSED CANDIDATE CHANGED THE QUEST BOOK OR THE PLAYER'S PLACE IN IT"
+    );
+}
+
+/// ⛔ **A QUEST BOOK THAT HAS NO PLACE FOR A RECORDED STEP IS REFUSED, NOT
+/// CLAMPED.** The same candidate (`first_steps` cut to one step) is admitted
+/// while the player is on step 0 and refused, at request time, once the save
+/// records step 1, with the live book and the staged state untouched.
+#[test]
+fn a_quest_book_with_no_place_for_a_recorded_step_is_refused() {
+    // The control: nobody has progressed, so one step is enough.
+    let mut app = app_playing_gameplay();
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(pack_with_a_one_step_first_quest(), Some(base)),
+    );
+    assert!(
+        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
+        "the control candidate was refused although no progress is lost: {outcome:?}"
+    );
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(
+        app.world()
+            .resource::<ambition_content::quest::QuestRegistry>()
+            .get("first_steps")
+            .map(|state| state.spec.steps.len()),
+        Some(1),
+        "the control candidate never reached the new session"
+    );
+
+    // The arm: the player is past step 0.
+    let mut app = app_playing_gameplay();
+    advance_first_steps_one_step(&mut app);
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(pack_with_a_one_step_first_quest(), Some(base)),
+    );
+    assert!(
+        matches!(
+            outcome,
+            ambition_content::reload::ReloadRequest::Refused(
+                ambition_content::reload::MoveReload::QuestBookRefused(ref why)
+            ) if why.contains("first_steps")
+        ),
+        "a quest book with no place for step 1 was not refused: {outcome:?}"
+    );
+    assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "a refused candidate is pending");
+    for _ in 0..60 {
+        app.update();
+    }
+    assert_eq!(activation_id(&app), Some(live_activation), "a refused candidate activated");
+    assert_eq!(quest_place(&app, "first_steps"), Some(("First Steps".to_string(), true, 1)));
+}

@@ -1199,12 +1199,13 @@ encounters, the character catalog, fighter facets, the boss seed library,
 validator bands, items and audio registries. Content ownership is App-scoped
 (I3 step 1): every install reads the App's `SelectedContentPack`, and the
 process boot pack (`pack::shipped()`) is for inspection of the shipped product
-only. The quest book is installed per App but does not take part in reload.
-The adaptive music-cue catalog (admitted with
+only. The adaptive music-cue catalog (admitted with
 `AdaptiveMusicCatalogRegistry::with_replaced`) and the cutscene library
 (`publish_cutscene_library`, which replaces only the rows the selected pack
 owns) do, since 2026-10-07, each with witnesses in
-`an_edit_reaches_the_shipped_game.rs`. The procedural tier (I4) runs
+`an_edit_reaches_the_shipped_game.rs`; so does the quest book, as session-derived
+state (it publishes nothing at the commit; `candidate_quest_book` admits or
+refuses against the saved progress). The procedural tier (I4) runs
 technique, boss-special and wielded-item modules on the linked and WASM roads,
 with hot reload through the mechanical-edit protocol.
 
@@ -1215,7 +1216,7 @@ Rust move tables are migration scaffolding.
 
 **Open work:**
 
-- Converge the remaining reloadable registries on one prepare/admit/publish contract.
+- The three families that did not reload (music cues, cutscenes, quests) all take part since 2026-10-07. What remains of "converge the registries" is the list of NOT-judged references in `content-generation-and-reload.md` (a room naming a removed cutscene; a quest step naming a boss or room that does not exist), and supersession (below).
 - I4: save eligibility; ports for body motion so the remaining wielded items (dive, blink, grapple, mark/recall) can become modules; GNU-ton's conductor as a module.
 
 **Blocked by:** nothing.

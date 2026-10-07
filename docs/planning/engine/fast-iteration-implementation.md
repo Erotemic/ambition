@@ -224,7 +224,11 @@ Steps that remain as rules:
   key that the boss plays.
 - Demo packs do not reload in a running demo; the reload road is
   `ambition_content::reload` and serves the Ambition pack only.
-- The quest book does not take part. The cutscene library does (2026-10-07):
+- The quest book takes part as session-derived state (2026-10-07): witnesses
+  `a_quest_edit_is_played_from_the_next_session_with_the_players_progress`,
+  `a_refused_candidate_leaves_the_quest_book_at_the_live_generation` and
+  `a_quest_book_with_no_place_for_a_recorded_step_is_refused`. The cutscene
+  library does (2026-10-07):
   witnesses `a_cutscene_edit_is_visible_with_its_session_and_with_the_other_changed_families`,
   `a_refused_candidate_leaves_the_cutscene_library_at_the_live_generation`,
   `an_unchanged_or_stale_cutscene_candidate_publishes_nothing`, and the unit

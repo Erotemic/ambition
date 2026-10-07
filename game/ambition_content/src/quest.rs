@@ -50,8 +50,13 @@ pub fn shipped_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
 ///
 /// The quest book is read from the App's [`crate::pack::SelectedContentPack`].
 /// A world without one is a composition that never installed the content
-/// plugin: the system panics, and does not answer from the boot pack. The quest
-/// book does not reload; it is read once, at startup.
+/// plugin: the system panics, and does not answer from the boot pack.
+///
+/// It runs again after every session teardown (which resets the registry), so a
+/// content reload's quest book reaches the NEXT session here: the commit
+/// installs the candidate as the selection, and this reads it with the player's
+/// recorded progress from the save. See `reload::candidate_quest_book`, which
+/// refuses a book this cannot place.
 pub fn populate_quest_registry(
     mut registry: ResMut<QuestRegistry>,
     selected: Res<crate::pack::SelectedContentPack>,

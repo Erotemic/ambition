@@ -140,6 +140,13 @@ pub enum MoveReload {
     /// providers' fragments (a music track id that another provider maps to a
     /// different file). Nothing was staged; the live audio keeps its catalog.
     AudioCatalogRefused(String),
+    /// The candidate's quest book would break progress the save records: a
+    /// quest in progress at a step the candidate no longer has. Nothing was
+    /// staged. The quest registry is session state, rebuilt from the selected
+    /// pack and the save when the next session starts
+    /// (`quest::populate_quest_registry`), and that rebuild clamps a step it
+    /// cannot place, so the move would silently rewind a player.
+    QuestBookRefused(String),
 }
 
 /// Republish the cast's move tables from an already-compiled pack.
@@ -349,6 +356,9 @@ pub(crate) fn publish_candidate(
         Ok(cues) => cues,
         Err(error) => return MoveReload::AudioCatalogRefused(error),
     };
+    if let Err(error) = candidate_quest_book(world, candidate.pack()) {
+        return MoveReload::QuestBookRefused(error);
+    }
     let pack = candidate.into_pack();
     let outcome = reload_move_tables_from(world, &pack);
     // The selection follows the cast's admission, not the compile. A refused
@@ -691,6 +701,10 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
         domain: ambition_cutscene::content_schema::CUTSCENE_LIBRARY_SCHEMA,
         publish: publish_cutscene_library,
     },
+    PackDerivedFamily {
+        domain: ambition_persistence::quest::content_schema::QUEST_BOOK_SCHEMA,
+        publish: publish_nothing_the_next_session_derives,
+    },
     // The boss seed library and the validator bands are calibration for the
     // offline fight validator. MEASURED 2026-10-01: their only readers are
     // `bosses::seed_library` and `bosses::validator_bands`, and only
@@ -717,6 +731,67 @@ fn publish_nothing_a_running_game_reads(
     _world: &mut bevy::ecs::world::World,
     _pack: &ambition_content_pack::PreparedContentPack,
 ) {
+}
+
+/// The quest book publishes nothing at the commit, and that is the design.
+///
+/// `QuestRegistry` is SESSION state, not a published table: a session's
+/// teardown resets it, and the first tick of the next session fills it again
+/// from the App's selected pack and the save (`quest::populate_quest_registry`).
+/// A reload always activates a new session, and the commit installs the
+/// selection before that session's first tick, so the new session's registry is
+/// the candidate's quest book with the player's recorded progress. Editing the
+/// live registry here would write a second copy of a fact the next session
+/// derives, and a rollback-registered one. What the transaction owns is
+/// ADMISSION: [`candidate_quest_book`] refuses what that derivation cannot place.
+fn publish_nothing_the_next_session_derives(
+    _world: &mut bevy::ecs::world::World,
+    _pack: &ambition_content_pack::PreparedContentPack,
+) {
+}
+
+/// Does the candidate's quest book keep every recorded quest placeable? A quest
+/// the save has in progress must still have its step: the rebuild at the next
+/// session clamps an out-of-range step to the last one
+/// (`QuestState::apply_persisted`), which would put a player back a step, or
+/// forward past a step they never did, without a word. Refused, not clamped.
+///
+/// Not judged: a step whose boss, encounter, flag or room id names something
+/// that does not exist. Those ids are checked against the worlds by the startup
+/// graph validator (`validate_quest_conditions`); the room set is session-scoped
+/// and the worlds are not a reloadable family. A removed quest is allowed: the
+/// save keeps its row, and a later candidate that names it again resumes it.
+fn candidate_quest_book(
+    world: &bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Result<(), String> {
+    let changes_quests = crate::pack::selected(world).is_some_and(|active| {
+        ambition_content_pack::changed_domains(active, pack)
+            .iter()
+            .any(|schema| schema.0 == ambition_persistence::quest::content_schema::QUEST_BOOK_SCHEMA)
+    });
+    if !changes_quests {
+        return Ok(());
+    }
+    let Some(save) = world.get_resource::<ambition_persistence::save::AmbitionGameSave>() else {
+        return Ok(());
+    };
+    let Some(book) = ambition_persistence::quest::content_schema::lowered_quest_book(pack) else {
+        return Ok(());
+    };
+    for spec in book {
+        let (state, step) = save.data().quest(&spec.id);
+        if matches!(state, ambition_persistence::save_data::PersistedQuestState::InProgress)
+            && usize::from(step) >= spec.steps.len()
+        {
+            return Err(format!(
+                "quest '{}' is in progress at step {step} (counting from 0) but the candidate gives it {} step(s)",
+                spec.id,
+                spec.steps.len()
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Absent in the candidate means remove, not keep. See
@@ -1188,6 +1263,10 @@ pub fn request_reload(
             return ReloadRequest::Refused(MoveReload::AudioCatalogRefused(error));
         }
     };
+    if let Err(error) = candidate_quest_book(world, &pack) {
+        discard_staged_reload(world);
+        return ReloadRequest::Refused(MoveReload::QuestBookRefused(error));
+    }
     let admitted_cast = match support
         .map(|support| match &character_catalog {
             Some(catalog) => {

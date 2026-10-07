@@ -38,8 +38,20 @@ the pack-derived families in
 `PACK_DERIVED_FAMILIES`: the fighter-brain ladder, encounter waves, the boss
 seed library, the validator bands and the item catalog. A changed family that
 is not in that list refuses the candidate. A family that is added later is
-refused until it declares a publisher. The quest book does not take part
-today.
+refused until it declares a publisher.
+
+The quest book takes part too (2026-10-07), and it is the one family that
+publishes nothing at the commit: `QuestRegistry` is session state (a teardown
+resets it and the next session's first tick fills it from the App's selected
+pack and the save), so the new session's registry is the candidate's book with
+the player's recorded progress, and editing the live registry would write a
+second copy of a fact the next session derives. What the transaction owns is
+admission: `candidate_quest_book` refuses a candidate that leaves a quest the
+save has in progress without its step (the rebuild would clamp it silently).
+Measured, not assumed: the registry is empty for the first tick of the new
+session, never N's. Not judged: a step naming a boss, encounter, flag or room
+that does not exist (the startup graph validator does; the worlds do not
+reload). A removed quest is allowed, and the save keeps its row.
 
 The cutscene library does (2026-10-07), as a pack-derived family with a
 shared-registry publisher: the library also holds rows other providers add, so
@@ -290,7 +302,6 @@ whether the prior scene is unchanged, recovered or stopped.
 
 ## Open work
 
-- The quest book does not take part in reload.
 - A candidate that removes a cutscene a room still names is not refused (see
   above); a reload-time reference check needs the session's room set.
 - Supersession of an in-flight generation through a real cancellation.

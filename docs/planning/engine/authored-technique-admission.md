@@ -146,7 +146,16 @@ a decision-free slice:
   mechanical edit.
 - *Pinned revision.* Pinning it adds an occurrence field, so it moves the
   rollback registration and checksum inputs, and it needs the identity rule
-  (content binding, not pointer address) chosen first.
+  (content binding, not pointer address) chosen first. Read 2026-10-07, not
+  run: the hazard it guards is a restored blob naming a move of a revision other
+  than the live one (`MovePlayback::resumed` resolves the spec from the owner's
+  current `ActorMoveset`). A publication cannot sit across a timeline:
+  admission refuses a foreign or unhealthy one (`publication_boundary`), and a
+  rebasable local timeline is stopped in the same step as the publication
+  (`rebase_local_timeline_onto_the_new_generation`), so no snapshot taken before
+  it is resimulated after it. The pin would matter to a host that rolls back
+  across a reload, which the reload refuses today. The cost is the registration
+  change; the benefit is a guard on a road that is closed.
 - *Move-start clone.* The clone is the `.cloned()` of a `MoveSpec` out of
   `MovesetContract::moves: Vec<MoveSpec>` at the six selection sites in
   `moveset/mod.rs`, once per accepted move, not per tick. Removing it means

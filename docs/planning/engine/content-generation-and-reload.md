@@ -33,12 +33,22 @@ The data reload road is implemented.
 
 **Families that take part** (`reload::participates`): movesets, the character
 catalog, the smash-fighter facet, boss profiles and encounters, the audio
-registries (music and SFX), and the pack-derived families in
+registries (music and SFX), the adaptive music-cue catalog (2026-10-07), and
+the pack-derived families in
 `PACK_DERIVED_FAMILIES`: the fighter-brain ladder, encounter waves, the boss
 seed library, the validator bands and the item catalog. A changed family that
 is not in that list refuses the candidate. A family that is added later is
-refused until it declares a publisher. The cutscene libraries, the quest book
-and the music-cue catalog do not take part today.
+refused until it declares a publisher. The cutscene libraries and the quest
+book do not take part today.
+
+The music-cue catalog took the same road as the audio registries: it is
+admitted at request time (`AdaptiveMusicCatalogRegistry::with_replaced`,
+which keeps every other provider's catalog and removes Ambition's when a
+candidate declares no cue file), carried by the pending generation, published
+at the commit, and the transaction's preparation reads which providers have
+cues through `PendingGenerationInputs::adaptive_providers`. A pack without its
+cue file compiles; that was measured, not assumed. The director's source cache
+is keyed by the asset path, so a cue whose file changed loads the new file.
 
 A candidate that is mechanically identical to the selected pack is
 `Unchanged` and requests nothing. A file watcher fires on a save, not on a
@@ -269,8 +279,7 @@ whether the prior scene is unchanged, recovered or stopped.
 
 ## Open work
 
-- The cutscene libraries, the quest book and the music-cue catalog do not take
-  part in reload.
+- The cutscene libraries and the quest book do not take part in reload.
 - Supersession of an in-flight generation through a real cancellation.
 - Demo packs do not reload in a running demo.
 - Measure source read, changed-section preparation, candidate construction,

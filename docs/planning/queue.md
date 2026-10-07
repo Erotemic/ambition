@@ -1170,8 +1170,8 @@ App cannot differ between N and N+1.
   SFX rows from N+1 and expects the refusal; reading `self.audio_catalogs`
   makes it fail. A music-fragment drop cannot be built: the pack compiler
   refuses it first, because bosses reference music tracks. Adaptive-cue
-  presence is the next audio consumer of the channel, when a candidate check
-  asks for it.
+  presence was the next consumer and is on the channel too
+  (`adaptive_providers`; measured: a pack without its cue file compiles).
 
 ⛔ Not by an ordering edge and not by re-fingerprinting. Do not reopen A10.5's
 guarantee that a candidate that cannot be built never retires the live session.
@@ -1199,8 +1199,10 @@ encounters, the character catalog, fighter facets, the boss seed library,
 validator bands, items and audio registries. Content ownership is App-scoped
 (I3 step 1): every install reads the App's `SelectedContentPack`, and the
 process boot pack (`pack::shipped()`) is for inspection of the shipped product
-only. Quests, cutscenes and music cues are installed per App but do not take
-part in reload. The procedural tier (I4) runs
+only. Quests and cutscenes are installed per App but do not take part in
+reload. The adaptive music-cue catalog does since 2026-10-07 (admitted with
+`AdaptiveMusicCatalogRegistry::with_replaced`, published at the commit, four
+witnesses in `an_edit_reaches_the_shipped_game.rs`). The procedural tier (I4) runs
 technique, boss-special and wielded-item modules on the linked and WASM roads,
 with hot reload through the mechanical-edit protocol.
 

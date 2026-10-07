@@ -65,9 +65,12 @@ impl Plugin for AmbitionContentPlugin {
         // Register Ambition's adaptive music catalog under its content provider.
         #[cfg(feature = "audio")]
         {
-            let cue_catalog = crate::music::music_cue_catalog_from(&pack);
-            use ambition_audio::music::AdaptiveMusicCatalogAppExt;
-            app.register_adaptive_music_catalog(crate::AMBITION_CONTENT_PROVIDER, cue_catalog);
+            // A pack with no cue file registers none; the provider's
+            // preparation then refuses a session that expects adaptive cues.
+            if let Some(cue_catalog) = crate::music::music_cue_catalog_from(&pack) {
+                use ambition_audio::music::AdaptiveMusicCatalogAppExt;
+                app.register_adaptive_music_catalog(crate::AMBITION_CONTENT_PROVIDER, cue_catalog);
+            }
         }
 
         // Install validated encounter waves lowered from this App's pack.

@@ -8,15 +8,16 @@
 
 use ambition_audio::music::MusicCueCatalog;
 
-/// The director's catalog for the adaptive music `pack` lowered.
+/// The director's catalog for the adaptive music `pack` lowered, or `None` for a
+/// pack that carries no cue file (it compiles; the provider's preparation then
+/// refuses a session that expects adaptive cues).
 ///
-/// A composition passes its selected pack; the catalog is installed at
-/// composition and is not part of a reload (see the I3 plan).
-pub fn music_cue_catalog_from(pack: &ambition_content_pack::PreparedContentPack) -> MusicCueCatalog {
-    let authored = ambition_audio::content_schema::lowered_music_cues(pack)
-        .cloned()
-        .expect("the music_cue_catalog schema lowers its file for every pack that compiles");
-    MusicCueCatalog::from_parts(authored.cues, authored.encounter_bindings)
+/// A composition passes its selected pack; a reload passes its candidate.
+pub fn music_cue_catalog_from(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Option<MusicCueCatalog> {
+    let authored = ambition_audio::content_schema::lowered_music_cues(pack).cloned()?;
+    Some(MusicCueCatalog::from_parts(authored.cues, authored.encounter_bindings))
 }
 
 #[cfg(test)]
@@ -40,6 +41,19 @@ mod tests {
         })
     }
 
+    /// ⭐ A pack without its cue file COMPILES, and carries no catalog. Measured
+    /// 2026-10-07 after the lowering's `expect` ("for every pack that compiles")
+    /// claimed otherwise. So "does the provider have adaptive cues" can differ
+    /// between generation N and N+1, and a reload's preparation reads the
+    /// candidate's answer (`adaptive_cues_ready_for`), not the App's.
+    #[test]
+    fn a_pack_without_its_cue_file_compiles_and_carries_no_catalog() {
+        let pack = crate::pack::compile_pack_omitting(&[CUES])
+            .expect("a pack that stops declaring its cue file compiles");
+        assert!(music_cue_catalog_from(&pack).is_none());
+        assert!(music_cue_catalog_from(crate::pack::shipped()).is_some());
+    }
+
     /// The goblin lab's binding is what the cue file says. An edit to the
     /// file changes the catalog the game registers, and a binding that names
     /// a state the cue does not have refuses the pack.
@@ -55,15 +69,18 @@ mod tests {
             (binding.cue_id, binding.starting_state)
         };
         assert_eq!(
-            binding(&music_cue_catalog_from(crate::pack::shipped())),
+            binding(&music_cue_catalog_from(crate::pack::shipped()).expect("the shipped cues")),
             ("first_goblin_tune_v2".to_string(), "intro".to_string())
         );
-        assert!(music_cue_catalog_from(crate::pack::shipped()).validate_references().is_empty());
+        assert!(music_cue_catalog_from(crate::pack::shipped())
+            .expect("the shipped cues")
+            .validate_references()
+            .is_empty());
 
         let edited = compiled_with(r#"starting_state: "intro""#, r#"starting_state: "wave1""#)
             .expect("a binding that starts on another state compiles");
         assert_eq!(
-            binding(&music_cue_catalog_from(&edited)),
+            binding(&music_cue_catalog_from(&edited).expect("the edited cues")),
             ("first_goblin_tune_v2".to_string(), "wave1".to_string())
         );
 

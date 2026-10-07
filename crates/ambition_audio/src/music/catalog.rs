@@ -79,7 +79,11 @@ impl MusicCueCatalog {
 
 #[derive(Resource, Clone, Default)]
 pub struct LoadedMusicCueAssets {
-    pub(super) sources: HashMap<MusicSourceKey, Handle<KiraAudioSource>>,
+    /// Each handle with the asset path it was requested for. The path is part
+    /// of what was loaded: a content reload can point the same cue, section and
+    /// layer at another file, and a handle that outlives its path would keep
+    /// playing the file the author replaced.
+    pub(super) sources: HashMap<MusicSourceKey, (String, Handle<KiraAudioSource>)>,
 }
 
 impl LoadedMusicCueAssets {
@@ -97,12 +101,21 @@ impl LoadedMusicCueAssets {
                 section_id,
                 layer_id,
             ))
-            .cloned()
+            .map(|(_, handle)| handle.clone())
+    }
+
+    /// Does the cache hold `key` for exactly this asset path? A different path
+    /// under the same key is a stale entry, not a hit.
+    pub(super) fn holds(&self, key: &MusicSourceKey, path: &str) -> bool {
+        self.sources
+            .get(key)
+            .is_some_and(|(loaded, _)| loaded == path)
     }
 
     /// Lazily request a cue's file-backed sources the first time it is about to
     /// play (load-on-play). Idempotent: already-requested sources are left as-is,
-    /// so a cue loads exactly once and steady-state playback does no work.
+    /// so a cue loads exactly once and steady-state playback does no work. A source
+    /// whose path changed (a reload) is requested again.
     ///
     /// This replaces eager "load every catalog cue at startup": authored cues are
     /// only `asset_server.load()`ed when their `Play` directive actually fires.
@@ -115,9 +128,10 @@ impl LoadedMusicCueAssets {
         for section in &cue.sections {
             for source in &section.sources {
                 let key = MusicSourceKey::new(provider_id, &cue.id, &section.id, &source.layer_id);
-                if !self.sources.contains_key(&key) {
-                    let rel = format!("{}/{}", cue.asset_root.trim_end_matches('/'), source.path);
-                    self.sources.insert(key, asset_server.load(rel));
+                let rel = format!("{}/{}", cue.asset_root.trim_end_matches('/'), source.path);
+                if !self.holds(&key, &rel) {
+                    let handle = asset_server.load(rel.clone());
+                    self.sources.insert(key, (rel, handle));
                 }
             }
         }
@@ -215,6 +229,45 @@ impl AdaptiveMusicCatalogRegistry {
         // the active audio context selects one complete catalog.
         self.providers.insert(provider_id, catalog);
         Ok(())
+    }
+
+    /// This registry with `provider_id`'s catalog replaced by `catalog`, or
+    /// removed when `catalog` is `None`; the receiver is not touched.
+    ///
+    /// A content reload's replacement: [`Self::register`] refuses a provider's
+    /// SECOND, different definition on purpose (two composition-time plugins
+    /// disagreeing is a bug), so a reload cannot go through it. This is the
+    /// explicit lifecycle road. It validates the candidate exactly as
+    /// `register` does, leaves every other provider's catalog as it was, and
+    /// returns a new value, so a caller can admit the candidate first and
+    /// publish it later, or drop it with nothing changed. Removal is for a
+    /// candidate that stops declaring cues: keeping the provider's old catalog
+    /// would let one family stay at N while the pack moved to N+1.
+    pub fn with_replaced(
+        &self,
+        provider_id: &str,
+        catalog: Option<MusicCueCatalog>,
+    ) -> Result<Self, AdaptiveMusicCatalogError> {
+        if provider_id.trim().is_empty() {
+            return Err(AdaptiveMusicCatalogError::EmptyProviderId);
+        }
+        let mut next = self.clone();
+        match catalog {
+            Some(catalog) => {
+                let errors = catalog.validate_references();
+                if !errors.is_empty() {
+                    return Err(AdaptiveMusicCatalogError::InvalidCatalog {
+                        provider_id: provider_id.to_string(),
+                        errors,
+                    });
+                }
+                next.providers.insert(provider_id.to_string(), catalog);
+            }
+            None => {
+                next.providers.remove(provider_id);
+            }
+        }
+        Ok(next)
     }
 
     pub fn catalog_for(&self, provider_id: &str) -> Option<&MusicCueCatalog> {
@@ -370,5 +423,94 @@ mod provider_registry_tests {
             .sources[0]
             .path;
         assert_eq!(path, "a.ogg");
+    }
+
+    fn first_path(registry: &AdaptiveMusicCatalogRegistry, provider: &str, cue: &str) -> String {
+        registry
+            .catalog_for(provider)
+            .and_then(|catalog| catalog.cue(cue))
+            .expect("the provider's cue")
+            .sections[0]
+            .sources[0]
+            .path
+            .clone()
+    }
+
+    /// A reload replaces ONE provider's catalog in a new value: the other
+    /// provider's catalog survives, and the registry it was built from is not
+    /// touched until the caller publishes the result.
+    #[test]
+    fn replacing_one_providers_catalog_leaves_the_others_and_the_original() {
+        let mut registry = AdaptiveMusicCatalogRegistry::default();
+        registry.register("a", catalog("a_cue", "a.ogg")).unwrap();
+        registry.register("b", catalog("b_cue", "b.ogg")).unwrap();
+
+        let next = registry
+            .with_replaced("a", Some(catalog("a_cue", "a_v2.ogg")))
+            .expect("a valid catalog replaces the provider's");
+
+        assert_eq!(first_path(&next, "a", "a_cue"), "a_v2.ogg");
+        assert_eq!(first_path(&next, "b", "b_cue"), "b.ogg", "another provider's catalog survived");
+        assert_eq!(
+            first_path(&registry, "a", "a_cue"),
+            "a.ogg",
+            "⛔ building the candidate changed the live registry"
+        );
+    }
+
+    /// An invalid candidate is refused as `register` refuses it, and a refusal
+    /// is a value: nothing about the receiver changed.
+    #[test]
+    fn replacing_with_a_dangling_catalog_is_refused() {
+        let mut registry = AdaptiveMusicCatalogRegistry::default();
+        registry.register("a", catalog("a_cue", "a.ogg")).unwrap();
+        let mut broken = catalog("a_cue", "a.ogg");
+        broken.add_encounter_binding(EncounterMusicBinding {
+            encounter_id: "fight".to_owned(),
+            cue_id: "no_such_cue".to_owned(),
+            starting_state: "main".to_owned(),
+            wave_states: Vec::new(),
+            wave2_reinforced_state: None,
+            cleared_state: "main".to_owned(),
+        });
+        let error = registry.with_replaced("a", Some(broken)).unwrap_err();
+        assert!(matches!(error, AdaptiveMusicCatalogError::InvalidCatalog { .. }), "{error:?}");
+        assert_eq!(first_path(&registry, "a", "a_cue"), "a.ogg");
+        assert_eq!(
+            registry.with_replaced(" ", Some(catalog("x", "x.ogg"))).unwrap_err(),
+            AdaptiveMusicCatalogError::EmptyProviderId
+        );
+    }
+
+    /// A candidate that stops declaring cues removes the provider's catalog
+    /// from the new value, and only that provider's.
+    #[test]
+    fn replacing_with_nothing_removes_only_that_provider() {
+        let mut registry = AdaptiveMusicCatalogRegistry::default();
+        registry.register("a", catalog("a_cue", "a.ogg")).unwrap();
+        registry.register("b", catalog("b_cue", "b.ogg")).unwrap();
+        let next = registry.with_replaced("a", None).expect("removal is valid");
+        assert!(next.catalog_for("a").is_none());
+        assert!(next.catalog_for("b").is_some());
+        assert!(registry.catalog_for("a").is_some(), "the receiver changed");
+    }
+
+    /// ⛔ A cached source is a hit only for the path it was requested for. A
+    /// reload that points a cue's section at another file must request it
+    /// again; a cache keyed by cue, section and layer alone kept playing the
+    /// replaced file.
+    #[test]
+    fn a_cached_cue_source_is_stale_when_its_path_changed() {
+        let mut assets = LoadedMusicCueAssets::default();
+        let key = MusicSourceKey::new("a", "a_cue", "loop", "full");
+        assets
+            .sources
+            .insert(key.clone(), ("audio/adaptive/a.ogg".to_owned(), Handle::default()));
+        assert!(assets.holds(&key, "audio/adaptive/a.ogg"));
+        assert!(
+            !assets.holds(&key, "audio/adaptive/a_v2.ogg"),
+            "the entry for the old path answered for the new one"
+        );
+        assert!(!assets.holds(&MusicSourceKey::new("a", "a_cue", "loop", "other"), "audio/adaptive/a.ogg"));
     }
 }

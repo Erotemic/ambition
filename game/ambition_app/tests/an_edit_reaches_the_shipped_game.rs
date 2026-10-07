@@ -3674,3 +3674,289 @@ fn a_candidate_that_edits_a_providers_audio_activates_and_publishes_it() {
     assert_ne!(activation_id(&app), Some(live_activation), "the edit never activated");
     assert_eq!(first_frequency(&app), before + 1.0, "the edited cue was not published");
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I2/I3: the adaptive music catalog takes part in a reload.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The goblin lab's cue binding as the App's adaptive catalog states it.
+#[cfg(feature = "audio")]
+fn goblin_binding(app: &bevy::prelude::App) -> (String, String) {
+    let binding = app
+        .world()
+        .resource::<ambition_platformer2d::audio::music::AdaptiveMusicCatalogRegistry>()
+        .catalog_for(ambition_content::AMBITION_CONTENT_PROVIDER)
+        .expect("the provider's adaptive catalog")
+        .encounter_bindings()
+        .iter()
+        .find(|binding| binding.encounter_id == "goblin_encounter")
+        .expect("the goblin lab binds a cue")
+        .clone();
+    (binding.cue_id, binding.starting_state)
+}
+
+/// The pack with the goblin binding starting on `wave1` (and, when asked, the
+/// SFX cue's frequency edited, so a second participating family changes with it).
+#[cfg(feature = "audio")]
+fn pack_with_goblin_starting_on_wave1(
+    also_edit_sfx: bool,
+) -> std::sync::Arc<ambition_platformer2d::content::PreparedContentPack> {
+    let mut cue_edited = false;
+    let pack = ambition_content::pack::compile_pack_with(|declared, text| {
+        if declared == "audio/music_cues.ron" {
+            let out = text.replacen(r#"starting_state: "intro""#, r#"starting_state: "wave1""#, 1);
+            cue_edited = out != text;
+            return out;
+        }
+        if also_edit_sfx && declared == "audio/sfx_registry.ron" {
+            return text.replacen(
+                "frequency: 460.0, frequency_end: 720.0,",
+                "frequency: 461.0, frequency_end: 720.0,",
+                1,
+            );
+        }
+        text
+    })
+    .expect("an edited binding compiles");
+    assert!(cue_edited, "the cue file no longer states the edited binding");
+    std::sync::Arc::new(pack)
+}
+
+#[cfg(feature = "audio")]
+fn first_sfx_frequency(app: &bevy::prelude::App) -> f32 {
+    app.world()
+        .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>()
+        .sfx_for(ambition_content::AMBITION_CONTENT_PROVIDER)
+        .expect("the provider's SFX")
+        .sfx[0]
+        .frequency
+}
+
+/// ⭐ **A CUE EDIT IS PLAYED, AND IT BECOMES VISIBLE AT THE ACTIVATION BOUNDARY
+/// TOGETHER WITH EVERY OTHER CHANGED FAMILY.**
+///
+/// One candidate edits the goblin lab's cue binding AND an SFX cue. Frame by
+/// frame the test records three facts: has the shell activated a new session,
+/// does the adaptive catalog state N+1, does the SFX catalog state N+1. All
+/// three must flip on the SAME frame, and not before the request's frame has
+/// passed. A cue catalog published at request time flips first; one published
+/// a frame late (an ordering edge instead of the commit) flips last.
+#[cfg(feature = "audio")]
+#[test]
+fn an_adaptive_cue_edit_is_visible_with_its_session_and_with_the_other_changed_families() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let sfx_before = first_sfx_frequency(&app);
+    assert_eq!(
+        goblin_binding(&app),
+        ("first_goblin_tune_v2".to_string(), "intro".to_string()),
+        "the premise: N starts the goblin cue on its intro"
+    );
+
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(
+            pack_with_goblin_starting_on_wave1(true),
+            Some(base),
+        ),
+    );
+    assert!(
+        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
+        "{outcome:?}"
+    );
+    assert_eq!(
+        goblin_binding(&app).1,
+        "intro",
+        "⛔ the request published the cue catalog on the spot"
+    );
+
+    let mut first_flip = None;
+    for frame in 0..240 {
+        app.update();
+        let seen = (
+            activation_id(&app) != Some(live_activation),
+            goblin_binding(&app).1 == "wave1",
+            first_sfx_frequency(&app) == sfx_before + 1.0,
+        );
+        if seen != (false, false, false) {
+            first_flip = Some((frame, seen));
+            break;
+        }
+    }
+    let (frame, seen) = first_flip.expect("the edit never reached the game");
+    assert_eq!(
+        seen,
+        (true, true, true),
+        "⛔ ON FRAME {frame} THE FAMILIES WERE NOT VISIBLE TOGETHER \
+         (activation, cue catalog, sfx): {seen:?}"
+    );
+}
+
+/// ⛔ **A CANDIDATE THAT CHANGES THE CUES AND IS THEN REFUSED LEAVES THE CUES
+/// AT N.**
+///
+/// N+1 starts the goblin cue on wave1 AND drops the SFX registry. The cue edit
+/// is valid, the dropped registry is refused by the candidate's own preparation
+/// (the arm above), so nothing may publish: the catalog still states `intro`,
+/// the selection is N, and the live session is the one that was running.
+#[cfg(feature = "audio")]
+#[test]
+fn a_refused_candidate_leaves_the_adaptive_cues_at_the_live_generation() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+
+    let mut cue_edited = false;
+    let candidate = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_omitting_with(&["audio/sfx_registry.ron"], |declared, text| {
+            if declared == "audio/music_cues.ron" {
+                let out = text.replacen(r#"starting_state: "intro""#, r#"starting_state: "wave1""#, 1);
+                cue_edited = out != text;
+                return out;
+            }
+            text
+        })
+        .expect("compiles"),
+    );
+    assert!(cue_edited, "the cue file no longer states the edited binding");
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+    );
+    assert!(
+        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
+        "refused at request time, so the preparation arm never runs: {outcome:?}"
+    );
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(activation_id(&app), Some(live_activation), "the refused candidate activated");
+    assert_eq!(
+        goblin_binding(&app).1,
+        "intro",
+        "⛔ A REFUSED CANDIDATE'S CUE CATALOG WAS PUBLISHED"
+    );
+    assert_eq!(
+        ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
+        base,
+        "a refused candidate became the App's selection"
+    );
+}
+
+/// Identical content is a no-op, and a candidate prepared against a generation
+/// that has since moved is refused as stale, so it cannot fold its cue edit
+/// into a catalog it did not read.
+#[cfg(feature = "audio")]
+#[test]
+fn an_unchanged_or_stale_cue_candidate_publishes_nothing() {
+    let mut app = app_playing_gameplay();
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+
+    // No-op: the shipped pack again.
+    let same = std::sync::Arc::new(ambition_content::pack::compile_pack_with(|_, text| text).expect("compiles"));
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(same, Some(base)),
+    );
+    assert!(
+        matches!(outcome, ambition_content::reload::ReloadRequest::Unchanged),
+        "identical content minted a generation: {outcome:?}"
+    );
+
+    // Publish a real edit, so `base` is now behind.
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(
+            pack_with_goblin_starting_on_wave1(false),
+            Some(base),
+        ),
+    );
+    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(goblin_binding(&app).1, "wave1", "the premise: the edit published");
+    let published = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    assert_ne!(published, base);
+
+    // Stale: another cue edit, still prepared against the OLD base.
+    let stale = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            if declared == "audio/music_cues.ron" {
+                return text.replacen(r#"starting_state: "intro""#, r#"starting_state: "wave2""#, 1);
+            }
+            text
+        })
+        .expect("compiles"),
+    );
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(stale, Some(base)),
+    );
+    assert!(
+        matches!(
+            outcome,
+            ambition_content::reload::ReloadRequest::Refused(
+                ambition_content::reload::MoveReload::StaleGeneration { .. }
+            )
+        ),
+        "a stale candidate was not refused as stale: {outcome:?}"
+    );
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(goblin_binding(&app).1, "wave1", "a stale candidate changed the cue catalog");
+    assert_eq!(
+        ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
+        published
+    );
+}
+
+/// ⛔⛤ **A CANDIDATE THAT DROPS THE PROVIDER'S ADAPTIVE CUES IS REFUSED BY ITS
+/// OWN PREPARATION, AND THE LIVE SESSION KEEPS ITS CUES.**
+///
+/// A pack without `audio/music_cues.ron` compiles (measured; the lowering used
+/// to claim otherwise). The provider EXPECTS adaptive cues, so a preparation
+/// that sees N+1's catalog fails with "Adaptive music is not ready". Preparation
+/// used to read the App's registry, which is N until the commit, found the
+/// catalog, admitted the session, and the commit then published a registry
+/// without it. The control is the edited-binding arm above: the same family,
+/// changed and not dropped, activates.
+#[cfg(feature = "audio")]
+#[test]
+fn a_candidate_that_drops_the_adaptive_cues_is_refused_and_the_live_cues_survive() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    assert_eq!(goblin_binding(&app).1, "intro", "the premise: N has the provider's cues");
+
+    let candidate = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_omitting(&["audio/music_cues.ron"])
+            .expect("a pack that stops declaring its cues compiles"),
+    );
+    assert_ne!(candidate.fingerprint, base, "the premise: N+1 differs from N");
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+    );
+    assert!(
+        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
+        "refused at REQUEST time, so the preparation question this arm asks never arises: {outcome:?}"
+    );
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(
+        activation_id(&app),
+        Some(live_activation),
+        "⛔ A CANDIDATE WITHOUT THE PROVIDER'S ADAPTIVE CUES ACTIVATED: its preparation was \
+         answered from the App's cue catalog, which is still N"
+    );
+    assert_eq!(goblin_binding(&app).1, "intro", "⛔ A REFUSED CANDIDATE CHANGED THE LIVE CUES");
+    assert_eq!(
+        ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
+        base,
+        "a refused candidate became the App's selection"
+    );
+}

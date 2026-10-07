@@ -381,6 +381,16 @@ pub fn compile_pack_with(
 /// A path that no manifest line names is refused, so a renamed source cannot
 /// turn a witness into a no-op.
 pub fn compile_pack_omitting(omit: &[&str]) -> Result<PreparedContentPack, CompileFailure> {
+    compile_pack_omitting_with(omit, |_, text| text)
+}
+
+/// [`compile_pack_omitting`] with an edit to each remaining source's text, as
+/// [`compile_pack_with`] does: a candidate that changes one family and drops
+/// another.
+pub fn compile_pack_omitting_with(
+    omit: &[&str],
+    mut edit: impl FnMut(&str, String) -> String,
+) -> Result<PreparedContentPack, CompileFailure> {
     let mut remaining = omit.to_vec();
     let manifest: String = PACK_MANIFEST_RON
         .lines()
@@ -400,6 +410,10 @@ pub fn compile_pack_omitting(omit: &[&str]) -> Result<PreparedContentPack, Compi
     let sources: Vec<(String, String)> = embedded_sources()
         .into_iter()
         .filter(|(path, _)| !omit.contains(&path.as_str()))
+        .map(|(path, text)| {
+            let text = edit(&path, text);
+            (path, text)
+        })
         .collect();
     let draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(&manifest, sources)?;
     ambition_content_pack::compile(

@@ -345,6 +345,10 @@ pub(crate) fn publish_candidate(
         Ok(audio) => audio,
         Err(error) => return MoveReload::AudioCatalogRefused(error),
     };
+    let adaptive_cues = match candidate_adaptive_cues(world, candidate.pack()) {
+        Ok(cues) => cues,
+        Err(error) => return MoveReload::AudioCatalogRefused(error),
+    };
     let pack = candidate.into_pack();
     let outcome = reload_move_tables_from(world, &pack);
     // The selection follows the cast's admission, not the compile. A refused
@@ -356,6 +360,7 @@ pub(crate) fn publish_candidate(
         if let Some(audio) = audio {
             publish_audio(world, audio);
         }
+        publish_adaptive_cues(world, adaptive_cues);
         crate::pack::install_selection(world, pack);
     }
     outcome
@@ -374,6 +379,7 @@ fn participates(domain: &str) -> bool {
         || domain == ambition_characters::smash_fighter::SMASH_FIGHTER_SCHEMA
         || BOSS_DOMAINS.contains(&domain)
         || AUDIO_DOMAINS.contains(&domain)
+        || ADAPTIVE_MUSIC_DOMAINS.contains(&domain)
         || PACK_DERIVED_FAMILIES
             .iter()
             .any(|family| family.domain == domain)
@@ -400,6 +406,95 @@ const AUDIO_DOMAINS: &[&str] = &[
     ambition_audio::content_schema::SFX_REGISTRY_SCHEMA,
     ambition_audio::content_schema::SFX_CUE_SCHEMA,
 ];
+
+/// The domains of the adaptive music catalog: the cue file, one cue, and one
+/// encounter's binding to a cue. They take part in a reload with or without the
+/// `audio` feature (they are pack content, and the pack is selected either
+/// way); only a build with the director has a registry to publish them into.
+const ADAPTIVE_MUSIC_DOMAINS: &[&str] = &[
+    ambition_audio::content_schema::MUSIC_CUE_CATALOG_SCHEMA,
+    ambition_audio::content_schema::MUSIC_CUE_SCHEMA,
+    ambition_audio::content_schema::ENCOUNTER_MUSIC_BINDING_SCHEMA,
+];
+
+/// What a generation carries for the adaptive music catalog: the candidate
+/// registry, `None` when it changes no cue domain. A build without the music
+/// director has no registry, so it carries nothing.
+#[cfg(feature = "audio")]
+type AdaptiveCues = Option<ambition_audio::music::AdaptiveMusicCatalogRegistry>;
+#[cfg(not(feature = "audio"))]
+type AdaptiveCues = ();
+
+/// The adaptive music catalog a candidate publishes, or nothing when it
+/// changes no cue domain. Assembled from the App's registry with Ambition's
+/// catalog replaced (`AdaptiveMusicCatalogRegistry::with_replaced`), so another
+/// provider's catalog survives and the App's registry is not touched here.
+///
+/// Admission, not publication: a catalog the director's registry would refuse
+/// refuses the request, before anything is staged.
+#[cfg(feature = "audio")]
+fn candidate_adaptive_cues(
+    world: &bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Result<AdaptiveCues, String> {
+    let changes_cues = crate::pack::selected(world).is_some_and(|active| {
+        ambition_content_pack::changed_domains(active, pack)
+            .iter()
+            .any(|schema| ADAPTIVE_MUSIC_DOMAINS.contains(&schema.0.as_str()))
+    });
+    if !changes_cues {
+        return Ok(None);
+    }
+    let registry = world
+        .get_resource::<ambition_audio::music::AdaptiveMusicCatalogRegistry>()
+        .ok_or("this App registers no adaptive music catalog")?;
+    registry
+        .with_replaced(
+            crate::AMBITION_CONTENT_PROVIDER,
+            crate::music::music_cue_catalog_from(pack),
+        )
+        .map(Some)
+        .map_err(|error| error.to_string())
+}
+#[cfg(not(feature = "audio"))]
+fn candidate_adaptive_cues(
+    _world: &bevy::ecs::world::World,
+    _pack: &ambition_content_pack::PreparedContentPack,
+) -> Result<AdaptiveCues, String> {
+    Ok(())
+}
+
+/// The providers a candidate's adaptive registry carries a catalog for: what
+/// the preparation channel needs of it (`adaptive_cues_ready_for`).
+fn adaptive_providers_of(cues: &AdaptiveCues) -> Option<std::collections::BTreeSet<String>> {
+    #[cfg(feature = "audio")]
+    return cues
+        .as_ref()
+        .map(|registry| registry.providers().map(str::to_owned).collect());
+    #[cfg(not(feature = "audio"))]
+    {
+        let _ = cues;
+        None
+    }
+}
+
+/// Publish a reload's adaptive music catalog.
+///
+/// One resource, read each frame by the intent system and the director, so the
+/// replacement is the whole publication: a cue's authority (`authorize_cues`)
+/// is derived from the catalog each frame and holds no copy. What the director
+/// caches (`LoadedMusicCueAssets`) is keyed by the asset path, so a cue whose
+/// file changed is requested again on its next play. A cue that is playing keeps
+/// the layers it started with until the director next shuts it down or changes
+/// state.
+fn publish_adaptive_cues(world: &mut bevy::ecs::world::World, cues: AdaptiveCues) {
+    #[cfg(feature = "audio")]
+    if let Some(registry) = cues {
+        world.insert_resource(registry);
+    }
+    #[cfg(not(feature = "audio"))]
+    let _ = (world, cues);
+}
 
 /// The audio catalog a candidate publishes, or `None` when it changes no audio
 /// domain. Built from the App's registry with Ambition's fragment replaced.
@@ -1043,6 +1138,13 @@ pub fn request_reload(
             return ReloadRequest::Refused(MoveReload::AudioCatalogRefused(error));
         }
     };
+    let adaptive_cues = match candidate_adaptive_cues(world, &pack) {
+        Ok(cues) => cues,
+        Err(error) => {
+            discard_staged_reload(world);
+            return ReloadRequest::Refused(MoveReload::AudioCatalogRefused(error));
+        }
+    };
     let admitted_cast = match support
         .map(|support| match &character_catalog {
             Some(catalog) => {
@@ -1083,6 +1185,7 @@ pub fn request_reload(
             admitted_cast,
             bosses,
             audio,
+            adaptive_cues,
         },
     );
     // `ReplaceWith`, not `GoTo`: a reload is not navigation and must not push
@@ -1140,6 +1243,11 @@ pub struct PendingGeneration {
     /// The audio catalog this generation publishes; `None` when it changes no
     /// audio domain.
     audio: Option<ambition_audio::catalog::AudioCatalogRegistry>,
+    /// The adaptive music catalog this generation publishes; nothing when it
+    /// changes no cue domain. Preparation sees only which providers have cues
+    /// (`PendingGenerationInputs::adaptive_providers`); the registry itself is
+    /// published at the commit.
+    adaptive_cues: AdaptiveCues,
 }
 
 impl PendingGeneration {
@@ -1535,6 +1643,8 @@ pub fn adopt_preparation_transaction(
                             // And the audio registry, which preparation asks
                             // which providers have music and SFX.
                             pending.audio.clone(),
+                            // And which providers have adaptive cues.
+                            adaptive_providers_of(&pending.adaptive_cues),
                         )
                     };
                     // Hold the route from adoption. Only the gate's answer at
@@ -1562,7 +1672,7 @@ pub fn adopt_preparation_transaction(
                             }
                         }
                     }
-                    let (claim, characters, bosses, catalog, audio) = claim;
+                    let (claim, characters, bosses, catalog, audio, adaptive_providers) = claim;
                     // The only place the claim is made: the transaction first
                     // has a name here.
                     world.insert_resource(ambition_platformer2d_runtime::PendingGenerationInputs {
@@ -1572,6 +1682,7 @@ pub fn adopt_preparation_transaction(
                         bosses,
                         catalog,
                         audio,
+                        adaptive_providers,
                     });
                 });
             }
@@ -1650,6 +1761,7 @@ pub fn commit_content_generation(
                     if let Some(audio) = generation.audio {
                         publish_audio(world, audio);
                     }
+                    publish_adaptive_cues(world, generation.adaptive_cues);
                     // Every other participating family lands here too, from
                     // the same pack, in the same command.
                     publish_participant_families(world, &generation.pack);

@@ -565,12 +565,16 @@ impl PlatformerPreparation<'_> {
             && !music_ready
             && !procedural_sfx_ready;
 
+        // ⛔ THE CANDIDATE'S CUES, NOT THE APP'S: see [`adaptive_cues_ready_for`].
         #[cfg(feature = "audio")]
-        let adaptive_cues_ready = self
-            .adaptive_catalogs
-            .as_deref()
-            .and_then(|catalogs| catalogs.catalog_for(authored.audio_provider.as_str()))
-            .is_some();
+        let adaptive_cues_ready = adaptive_cues_ready_for(
+            self.adaptive_catalogs
+                .as_deref()
+                .is_some_and(|catalogs| catalogs.catalog_for(authored.audio_provider.as_str()).is_some()),
+            self.content_inputs.2.as_deref(),
+            transaction.barrier.load_id.as_str(),
+            authored.audio_provider.as_str(),
+        );
         #[cfg(not(feature = "audio"))]
         let adaptive_cues_ready = false;
         #[cfg(feature = "audio")]
@@ -1294,10 +1298,6 @@ pub(crate) fn candidate_bosses_for(
     }
 }
 
-/// The character catalog `load_id`'s transaction publishes, or `None` when it
-/// publishes none or the claim is a stranger's. Either `None` means the App's
-/// catalog: for the first it is this transaction's own generation's, and a
-/// stranger's candidate must never be read.
 /// The audio catalog registry `load_id`'s transaction publishes, or the App's
 /// when it publishes none.
 ///
@@ -1316,6 +1316,30 @@ pub(crate) fn candidate_audio_for<'a>(
         .unwrap_or(active)
 }
 
+/// Does `provider` have adaptive cues in the generation `load_id`'s transaction
+/// publishes? `active` is the App's answer (generation N), used when the
+/// transaction's claim is ours and carries no cue change, or when there is no
+/// claim at all. A stranger's claim is never read.
+#[cfg(feature = "audio")]
+pub(crate) fn adaptive_cues_ready_for(
+    active: bool,
+    pending: Option<&ambition_platformer2d_runtime::PendingGenerationInputs>,
+    load_id: &str,
+    provider: &str,
+) -> bool {
+    match pending
+        .and_then(|claim| claim.adaptive_providers_for(load_id))
+        .flatten()
+    {
+        Some(providers) => providers.contains(provider),
+        None => active,
+    }
+}
+
+/// The character catalog `load_id`'s transaction publishes, or `None` when it
+/// publishes none or the claim is a stranger's. Either `None` means the App's
+/// catalog: for the first it is this transaction's own generation's, and a
+/// stranger's candidate must never be read.
 pub(crate) fn candidate_catalog_for(
     pending: Option<&ambition_platformer2d_runtime::PendingGenerationInputs>,
     load_id: &str,
@@ -3232,6 +3256,7 @@ mod tests {
             bosses: None,
             catalog: None,
             audio: None,
+            adaptive_providers: None,
         }
     }
 
@@ -4398,6 +4423,7 @@ mod mechanical_registries_reach_the_identity {
             bosses: None,
             catalog: None,
             audio: None,
+            adaptive_providers: None,
         };
 
         // ⛔ THE ASSERTION THE ARM IS FOR.
@@ -4479,6 +4505,7 @@ mod mechanical_registries_reach_the_identity {
             bosses: None,
             catalog: None,
             audio: Some(candidate.clone()),
+            adaptive_providers: None,
         };
         assert!(
             candidate_audio_for(&live, Some(&mine), "shell.game.7")
@@ -4503,6 +4530,47 @@ mod mechanical_registries_reach_the_identity {
         assert!(candidate_audio_for(&live, Some(&audioless), "shell.game.7")
             .sfx_for("provider")
             .is_some());
+    }
+
+    /// ⛔⛤ **PREPARE N+1'S ADAPTIVE CUES, NOT THE ONES THE APP STILL HAS.**
+    ///
+    /// A pack without its cue file compiles, so a reload can drop a provider's
+    /// whole adaptive catalog. Preparation asked the App's registry (N), found
+    /// the catalog, admitted the session, and the commit then published a
+    /// registry without it: the provider expects adaptive cues and has none.
+    #[cfg(feature = "audio")]
+    #[test]
+    fn a_transaction_is_prepared_against_its_own_candidate_adaptive_cues_not_the_apps() {
+        let claim = |providers: Option<&[&str]>| ambition_platformer2d_runtime::PendingGenerationInputs {
+            load_id: "shell.game.7".to_string(),
+            identity: "pack 2 cfp1:bb".to_string(),
+            characters: None,
+            bosses: None,
+            catalog: None,
+            audio: None,
+            adaptive_providers: providers
+                .map(|ids| ids.iter().map(|id| id.to_string()).collect()),
+        };
+        // ⭐ THE PREMISE FIRST: the App has the provider's cues (`active`), the
+        // candidate has none.
+        let drops = claim(Some(&[]));
+        assert!(
+            !adaptive_cues_ready_for(true, Some(&drops), "shell.game.7", "provider"),
+            "the transaction was prepared against the App's cues, which its own commit removes",
+        );
+        // ⛔ A STRANGER'S CANDIDATE IS NOT A FALLBACK.
+        assert!(
+            adaptive_cues_ready_for(true, Some(&drops), "shell.game.8", "provider"),
+            "an unrelated preparation read a candidate it never owned",
+        );
+        // A candidate that names the provider is ready even where the App has none.
+        let adds = claim(Some(&["provider"]));
+        assert!(adaptive_cues_ready_for(false, Some(&adds), "shell.game.7", "provider"));
+        // ⚠ OUR CLAIM CARRYING NO CUE CHANGE: the App's answer is this transaction's own.
+        let unchanged = claim(None);
+        assert!(adaptive_cues_ready_for(true, Some(&unchanged), "shell.game.7", "provider"));
+        assert!(!adaptive_cues_ready_for(false, Some(&unchanged), "shell.game.7", "provider"));
+        assert!(adaptive_cues_ready_for(true, None, "shell.game.7", "provider"));
     }
 
     /// ⛔⛤ **A DEVELOPER'S POPULATION CAP CHANGES THE ROSTER AND MUST CHANGE THE

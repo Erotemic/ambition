@@ -66,8 +66,9 @@ pub enum MoveReload {
     #[cfg(test)]
     Unchanged { generation: u64 },
     /// The revision was refused at admission: an authored effect names a
-    /// technique this composition did not install. The previous cast is still
-    /// the published one.
+    /// technique this composition did not install, a nested reference does not
+    /// resolve, or a technique flow cannot run (each detail names the
+    /// character, move and cause). The previous cast is still the published one.
     Refused(Vec<String>),
     /// The candidate was prepared against a content generation that is no
     /// longer selected. Nothing was published (not the cast, not the

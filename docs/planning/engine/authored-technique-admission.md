@@ -211,7 +211,7 @@ ADMISSION, not a new type.
   proven by a census.
 - **Witnesses.** `prepared_tests::technique_flow_admission`: for each structural
   rule (edge past the end, cycle, `Wait` that never expires, unreachable node, no
-  nodes), a flow that round-trips through the authored RON format is refused
+  nodes, and the `MAX_TECHNIQUE_FLOW_NODES` budget), a flow that round-trips through the authored RON format is refused
   with a diagnostic naming the move and the problem, its character is absent from
   the registry, a sibling character with a sound flow keeps that flow as authored,
   an unrelated character is untouched, and the same flow in a revision refuses the

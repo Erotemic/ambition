@@ -1126,8 +1126,9 @@ mod technique_flow_admission {
         })
     }
 
-    /// Every structural rule `TechniqueFlow::problems` states, each broken once,
-    /// with what the refusal must say.
+    /// Every structural rule `TechniqueFlow::problems` states (rules 1 to 5 of the
+    /// owner doc, INCLUDING the node budget `MAX_TECHNIQUE_FLOW_NODES`), each
+    /// broken once, with what the refusal must say.
     fn broken() -> Vec<(&'static str, TechniqueFlow, &'static str)> {
         vec![
             (
@@ -1166,6 +1167,13 @@ mod technique_flow_admission {
                 "no nodes at all",
                 authored(TechniqueFlow { nodes: vec![] }),
                 "no nodes",
+            ),
+            (
+                "more nodes than the version-1 budget",
+                authored(TechniqueFlow {
+                    nodes: vec![FlowNode::Finish; ambition_entity_catalog::MAX_TECHNIQUE_FLOW_NODES + 1],
+                }),
+                "at most",
             ),
         ]
     }

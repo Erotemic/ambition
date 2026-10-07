@@ -619,7 +619,7 @@ pub fn activate_staged_revision(
         RevisionAdmission::Refused { refusals, previous } => {
             bevy::prelude::error!(
                 "a staged cast revision was REFUSED and the previous cast is still \
-                 active ({previous}); {} authored effect(s):\n    {}",
+                 active ({previous}); {} admission refusal(s):\n    {}",
                 refusals.len(),
                 refusals
                     .iter()
@@ -1124,12 +1124,14 @@ pub fn stage_move_section(
     Vec::new()
 }
 
-/// Every authored effect the preparation barrier refused, as a published fact.
+/// Every admission refusal the preparation barrier made, as a published fact:
+/// an authored effect this composition does not support, a nested reference that
+/// does not resolve, or a technique flow the interpreter cannot run.
 ///
 /// ⭐ EMPTY IS THE CLAIM WORTH ASSERTING. The shipped composition must prepare a
-/// cast whose every authored effect names a technique it installed; a fixture
-/// can read this instead of scraping a log, and an inspector can show an author
-/// exactly which move is inert.
+/// cast admission refuses nothing of; a fixture can read this instead of
+/// scraping a log, and an inspector can show an author exactly which move or
+/// character was withheld, and why.
 ///
 /// ⛔⛤ **THIS SAID THE OPPOSITE OF WHAT THE CODE DOES, CORRECTED 2026-09-19.**
 /// It read *"Its presence does NOT mean the definitions were withheld — today
@@ -3328,8 +3330,9 @@ fn finalize_prepared_cast(
     let admitted = admit_and_finalize_cast(staged, &authorities, previous, support);
     if !admitted.refusals.is_empty() {
         bevy::prelude::error!(
-            "{} authored effect(s) name a technique this composition does not \
-             support. The definitions carrying them were NOT published:\n    {}",
+            "{} admission refusal(s) (an effect this composition does not support, a \
+             reference that does not resolve, or a technique flow that cannot run). \
+             The definitions carrying them were NOT published:\n    {}",
             admitted.refusals.len(),
             admitted
                 .refusals
@@ -3349,13 +3352,14 @@ fn finalize_prepared_cast(
 /// admission pass is the only thing that may say what this composition supports.
 #[non_exhaustive]
 pub struct AdmittedCast {
-    /// Exactly the definitions this composition can support.
+    /// Exactly the definitions admission accepts: supported effects, resolving
+    /// references and runnable flows.
     pub registry: PreparedCharacterRegistry,
     /// Why each withheld definition was withheld.
     pub refusals: Vec<AdmissionRefusal>,
 }
 
-/// Fold the staged cast and publish only what this composition can support.
+/// Fold the staged cast and publish only what admission accepts.
 ///
 /// ⛔⛔ **DETECTING AND THEN PUBLISHING ANYWAY IS NOT ADMISSION — IT IS STARTUP
 /// LINTING, and that is what this did until GPT review #9 said so.** The pass

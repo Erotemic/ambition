@@ -64,7 +64,7 @@ fn the_shipped_composition_closes_its_barrier_through_the_checked_road() {
     assert!(
         ambition_platformer2d::characters::prepared::barrier_closed_with_admission(sim.world()),
         "the unchecked backstop folded the cast before the admitting barrier \
-         could, so every authored effect in this composition was published \
+         could, so every authored effect and flow in this composition was published \
          WITHOUT being checked against the techniques it installs — and nothing \
          else in this suite can tell the difference"
     );

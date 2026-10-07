@@ -1175,8 +1175,13 @@ pub fn request_reload(
     // transaction's late events (`PreparationRequested`, `TransactionEnded`) name
     // a request that is no longer pending and are ignored.
     //
-    // A candidate that is refused at admission (stale, speculating timeline)
+    // A candidate that is refused at ADMISSION (stale, speculating timeline)
     // does NOT cancel what is in flight: an invalid request mutates nothing.
+    // One refused AFTER that point (an unknown character, a catalog, the
+    // quest book, the content graph) does cancel it: the candidate is the whole
+    // on-disk state, so the generation in flight describes a disk that no longer
+    // exists, and those refusals discard the staged reload it shares. Nothing is
+    // pending afterwards and the live content is untouched.
     let in_flight = world
         .get_resource::<PendingGeneration>()
         .map(|pending| pending.request.clone());

@@ -4589,6 +4589,57 @@ fn a_candidate_that_removes_a_cutscene_a_room_names_is_refused() {
     );
 }
 
+/// ⛔ **A CANDIDATE REFUSED AFTER ADMISSION ALSO ENDS THE GENERATION IN FLIGHT.**
+/// A is requested, then the author saves B, which breaks the content graph. B is
+/// refused, and A, which described a disk that no longer exists, is cancelled
+/// rather than left to publish an edit the newest disk state does not carry.
+#[test]
+fn a_candidate_refused_by_the_content_graph_cancels_the_generation_in_flight() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let a = request_the_banner(&mut app, "// A, which the refused save replaces", false);
+    assert!(matches!(a, ambition_content::reload::ReloadRequest::Requested { .. }), "{a:?}");
+    app.update();
+    assert!(ambition_content::reload::pending_pack(app.world()).is_some(), "the premise: A is in flight");
+
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let mut edited = false;
+    let broken = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            if declared == "data/cutscenes/sandbox.ron" {
+                let out = text.replacen(r#"id: "test_intro","#, r#"id: "test_intro_renamed","#, 1);
+                edited = out != text;
+                return out;
+            }
+            text
+        })
+        .expect("a renamed script compiles"),
+    );
+    assert!(edited, "the cutscene file no longer states the renamed script");
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(broken, Some(base)),
+    );
+    assert!(
+        matches!(
+            outcome,
+            ambition_content::reload::ReloadRequest::Refused(
+                ambition_content::reload::MoveReload::ContentGraphRefused(_)
+            )
+        ),
+        "the premise: B is refused by the content graph: {outcome:?}"
+    );
+    assert!(
+        ambition_content::reload::pending_pack(app.world()).is_none(),
+        "⛔ A STAYED PENDING BESIDE THE REFUSAL OF THE SAVE THAT REPLACED IT"
+    );
+    for _ in 0..240 {
+        app.update();
+        assert_eq!(boot_banner(&app), "// boot sequence", "⛔ THE CANCELLED GENERATION'S CUTSCENES WERE PUBLISHED");
+    }
+    assert_eq!(activation_id(&app), Some(live_activation), "the cancelled generation activated");
+}
+
 /// ⛔ **A QUEST STEP THAT NAMES A BOSS THAT DOES NOT EXIST IS REFUSED**, with the
 /// quest named, instead of becoming a step nobody can complete.
 #[test]

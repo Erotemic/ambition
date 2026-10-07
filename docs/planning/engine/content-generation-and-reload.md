@@ -54,6 +54,23 @@ exist is refused by the content-graph judge (below). A removed quest is
 allowed, and the save keeps its row. A pack with no quest file compiles and
 starts the next session with an empty book (it used to panic there).
 
+⚠ **Known limit: both judgments are made at request time and not repeated at
+the commit.** The quest check reads the save as it was when the candidate was
+requested, and the content-graph judge reads the `ActiveLdtkProject`. The commit
+is deliberately infallible, so a save that advances a quest between the request
+and the activation (a few frames to about a second) can still meet a candidate
+that cuts that quest's steps; the rebuild then clamps the step, which is the
+silent move the check exists to prevent. Closing it needs a re-check at the gate
+that can refuse the activation, which is a lifecycle decision and not started.
+
+A request that is refused AFTER admission (an unknown character, a catalog,
+the quest book, the content graph) still cancels the generation in flight, while
+one refused AT admission (stale base, speculating timeline) does not. The
+candidate is the whole on-disk state, so what was in flight describes a disk
+that no longer exists, and the late refusals discard the staged reload that
+generation shares. Witness:
+`a_candidate_refused_by_the_content_graph_cancels_the_generation_in_flight`.
+
 ### The content graph is judged at request time
 
 A candidate is judged against the world that is running by the SAME function

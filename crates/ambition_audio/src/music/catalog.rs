@@ -513,4 +513,43 @@ mod provider_registry_tests {
         );
         assert!(!assets.holds(&MusicSourceKey::new("a", "a_cue", "loop", "other"), "audio/adaptive/a.ogg"));
     }
+
+    /// ⛔ The same, through the loader the music directive actually calls: a
+    /// cue whose file changed is requested again and the cache then holds the
+    /// new path; an unchanged cue is not requested a second time.
+    #[test]
+    fn ensure_cue_loaded_requests_a_changed_path_again_and_an_unchanged_one_once() {
+        let mut app = App::new();
+        app.add_plugins((
+            bevy::app::TaskPoolPlugin::default(),
+            bevy::asset::AssetPlugin::default(),
+        ))
+        .init_asset::<KiraAudioSource>();
+        let server = app.world().resource::<AssetServer>().clone();
+        let cue_of = |file: &str| {
+            let mut cue = catalog("a_cue", file)
+                .cue("a_cue")
+                .expect("the cue the helper authored")
+                .clone();
+            cue.asset_root = "audio/adaptive".to_owned();
+            cue
+        };
+        let key = |cue: &MusicCueSpec| {
+            let section = &cue.sections[0];
+            MusicSourceKey::new("a", &cue.id, &section.id, &section.sources[0].layer_id)
+        };
+
+        let mut assets = LoadedMusicCueAssets::default();
+        let before = cue_of("a.ogg");
+        assets.ensure_cue_loaded("a", &before, &server);
+        let first = assets.sources[&key(&before)].1.clone();
+        assets.ensure_cue_loaded("a", &before, &server);
+        assert_eq!(assets.sources[&key(&before)].1, first, "an unchanged cue was requested twice");
+
+        let after = cue_of("a_v2.ogg");
+        assets.ensure_cue_loaded("a", &after, &server);
+        let (path, handle) = &assets.sources[&key(&after)];
+        assert_eq!(path, "audio/adaptive/a_v2.ogg", "the cache kept the replaced file's path");
+        assert_ne!(*handle, first, "the replaced file was never requested");
+    }
 }

@@ -1138,7 +1138,13 @@ pub struct SheetSizing {
 ///
 /// Now the fold happens ONCE, at the finalization barrier, and what a body reads has no questions
 /// left in it.
+///
+/// ⛔ `#[non_exhaustive]`: the preparation barrier is the only constructor. A
+/// struct literal in another crate would build a "prepared" definition no
+/// check ever saw; the fields stay readable and a test may still edit a
+/// prepared value's fields, but it cannot conjure one.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct PreparedCharacterDefinition {
     pub id: ambition_entity_catalog::CharacterId,
     pub display_name: String,

@@ -137,8 +137,15 @@ Open:
 Assessed 2026-10-07 as a fallback packet and NOT started; none of the three is
 a decision-free slice:
 
-- *Constructors.* There is no checked-flow type whose constructors could be
-  made private: `TechniqueFlow` is deserialized authored data with public
+- *Constructors.* Half landed 2026-10-07: `PreparedCharacterDefinition` is
+  `#[non_exhaustive]`, so no crate but `ambition_characters` can build one by
+  struct expression or functional update (a scratch literal in
+  `ambition_content` fails with E0639; no such literal existed, and the whole
+  workspace checks). The preparation barrier is its only constructor. Not
+  done: its fields are still public to read and edit (about 130 field reads
+  across the tree, and tests edit prepared values), and "fallible" is still the
+  report-and-publish-anyway barrier. For the flow itself there is no
+  checked-flow type whose constructors could be made private: `TechniqueFlow` is deserialized authored data with public
   fields, and its one gate is `TechniqueFlow::problems` at character
   preparation. "Private and fallible" therefore means designing a new checked
   newtype that `MoveSpec::flow` would hold, which changes the authored/prepared

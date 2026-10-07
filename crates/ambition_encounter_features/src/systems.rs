@@ -511,6 +511,8 @@ pub fn drive_wave_encounters(
             // is a warning and not an error.
             // The persisted toggle is the whole effect, and the drain made it.
             ambition_encounter::switches::SwitchAction::ToggleFlag => {}
+            // The boss domain carries it out (`apply_boss_life_switches`).
+            ambition_encounter::switches::SwitchAction::BossLife => {}
             ambition_encounter::switches::SwitchAction::Unhandled(action) => {
                 bevy::log::warn!(
                     target: "ambition_encounter::switches",

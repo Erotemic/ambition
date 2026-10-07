@@ -350,6 +350,15 @@ pub enum SwitchAction {
     /// world remembers. Authored as `ToggleFlag`; the flag is the switch's own
     /// entry in the save, which the room reads when it is built again.
     ToggleFlag,
+    /// A boss's LIFE, shown and set by a switch (the Hall of Bosses' switches
+    /// by its doors, Jon 2026-10-06). The switch stores nothing: it is ON while
+    /// the boss its `target_encounter` names (a placement id) is not recorded
+    /// defeated. A press asks for the other state: a dead boss revives, a
+    /// living one dies on the spot ("If the boss is loaded in the simulation
+    /// and the boss-alive switch goes red, it brings the boss health to zero
+    /// and kills it immediately, otherwise ... it just marks the boss as
+    /// dead"). The boss domain carries it out (`apply_boss_life_switches`).
+    BossLife,
     /// Authored but not a kind this engine acts on. Carried rather than dropped
     /// so a consumer can report it; the string road could not tell this apart
     /// from a handled action that did nothing.
@@ -398,8 +407,26 @@ impl SwitchAction {
         if action == "ToggleFlag" {
             return Self::ToggleFlag;
         }
+        if action == "BossLife" {
+            return Self::BossLife;
+        }
         Self::Unhandled(action.to_string())
     }
+}
+
+/// What a [`SwitchAction::BossLife`] switch shows: ON while the boss
+/// placement `target` is not recorded defeated. `None` for a switch that names
+/// no boss.
+pub fn boss_life_switch_on(
+    save: &ambition_persistence::save_data::AmbitionGameSaveData,
+    target: &str,
+) -> Option<bool> {
+    (!target.is_empty()).then(|| {
+        !matches!(
+            save.boss(target),
+            ambition_persistence::save_data::PersistedEncounterState::Cleared
+        )
+    })
 }
 
 /// One activation, resolved: what was pressed, what it asks for, and — for the
@@ -504,6 +531,14 @@ pub fn drain_switch_activations(
             SwitchAction::SetGravity(_) => {
                 save.data_mut().set_switch(&activation.id, true);
                 true
+            }
+            // The boss's record is the switch's state, and the boss domain
+            // writes it (`apply_boss_life_switches`, ordered after this drain):
+            // this publishes the state the press asks for, ON = alive.
+            SwitchAction::BossLife => {
+                boss_life_switch_on(save.data(), &activation.target_encounter)
+                    .map(|alive| !alive)
+                    .unwrap_or(false)
             }
             SwitchAction::Unhandled(_) => save.data().switch(&activation.id),
         };

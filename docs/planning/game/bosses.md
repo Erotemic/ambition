@@ -283,7 +283,20 @@ death:
 Pinned by `boss_lifecycle::a_practice_copy_dies_without_the_story_consequences`
 and the `the_hall_of_bosses_has_its_own_bosses` tests.
 
-**Next:** the life switches. Hall-only bosses (T-rex, FSM, Exploding
+**Built (2026-10-06): the life switches.** There is one by each of the nine
+boss doors (`SwitchAction::BossLife`, `target_encounter` = the hall boss's
+placement). Each is green while that boss is alive, and stores nothing of
+its own: it shows the boss's record, so a boss killed in a fight turns it
+red. A press on a green switch kills the boss: zero health and `Death` at
+once if loaded, otherwise just recorded dead, and its reward reads looted,
+so a switch kill pays nothing. A press on a red switch revives it: the
+defeat records are retracted and a loaded body is re-seeded at its spawn.
+The hall-only bosses now have placement ids (`hall.trex`, `hall.gnu_ton`,
+…), so existing saves see them alive once. Mode Collapse's hall arena is a
+practice room, because Mode Collapse has a main-game placement (the overfit
+annex).
+
+Hall-only bosses (T-rex, FSM, Exploding
 Gradient, Overflow, GNU-ton, Cut-the-Rope) stay real until each is placed in
 the main game (Jon, 2026-10-06).
 

@@ -25,7 +25,6 @@ impl BossSpecRoster for BossEncounterSpec {
             phase2_to_enrage_hp: 0.22,
             intro_seconds: 2.4,
             transition_seconds: 1.6,
-            death_seconds: 2.4,
             // Gradient Sentinel: violin track from the first beat of every phase, including Intro.
             music_intro: "fast_paced_violin_boss".into(),
             music_phase1: "fast_paced_violin_boss".into(),

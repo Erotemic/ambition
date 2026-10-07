@@ -16,7 +16,6 @@
     phase2_to_enrage_hp: 0.25,
     intro_seconds: 2.4,
     transition_seconds: 1.8,
-    death_seconds: 2.6,
     music_intro: "dinosaur_liberators",
     music_phase1: "dinosaur_liberators",
     music_phase2: "dinosaur_liberators",

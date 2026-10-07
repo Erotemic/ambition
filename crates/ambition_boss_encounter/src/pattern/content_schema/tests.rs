@@ -259,7 +259,6 @@ const ENCOUNTER: &str = r#"(
     phase2_to_enrage_hp: 0.22,
     intro_seconds: 2.4,
     transition_seconds: 1.6,
-    death_seconds: 2.4,
     music_intro: "fast_paced_violin_boss",
     music_phase1: "fast_paced_violin_boss",
     music_phase2: "fast_paced_violin_boss",

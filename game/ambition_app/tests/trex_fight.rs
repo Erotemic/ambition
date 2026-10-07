@@ -904,7 +904,7 @@ fn walking_back_in_on_him_dead_is_silent() {
     let mut sim = arena();
     untouchable_player(&mut sim, true);
     kill_him(&mut sim);
-    // His death and its outro.
+    // His death.
     for _ in 0..60 * 6 {
         sim.step(AgentAction::default());
     }

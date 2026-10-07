@@ -141,7 +141,23 @@ fn a_restore_after_a_boss(
     }
     let (x, y) = facts(&mut sim).at;
     sim.teleport_player((x as f32 + 64.0, y as f32));
-    sim.step_n(AgentAction::default(), 30);
+    // At rest before the facts are read: a body still falling when the
+    // request is made is somewhere else when the outcome is read, whatever
+    // the restore did. The boss's reward chest can be under the teleport.
+    let mut at_rest = 0;
+    for _ in 0..240 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let still = world
+            .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+            .iter(world)
+            .all(|kin| kin.vel == ambition_platformer2d::engine_core::Vec2::ZERO);
+        at_rest = if still { at_rest + 1 } else { 0 };
+        if at_rest >= 10 {
+            break;
+        }
+    }
+    assert!(at_rest >= 10, "precondition: the body comes to rest after the teleport");
     let before = facts(&mut sim);
 
     if road == Road::PublicationRefused(Refusal::BeforeTheRoomIsBuilt) {

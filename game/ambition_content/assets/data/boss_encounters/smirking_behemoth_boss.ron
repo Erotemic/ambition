@@ -12,7 +12,6 @@
     phase2_to_enrage_hp: 0.22,
     intro_seconds: 1.0,
     transition_seconds: 1.0,
-    death_seconds: 2.0,
     music_intro: "smirking_behemoth_boss",
     music_phase1: "smirking_behemoth_boss",
     music_phase2: "smirking_behemoth_boss",

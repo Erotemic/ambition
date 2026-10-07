@@ -77,7 +77,12 @@ impl std::fmt::Display for ContentFingerprint {
 }
 
 /// The compiled pack.
+///
+/// `#[non_exhaustive]`: the compiler in this crate is the only constructor. A
+/// literal elsewhere would be a pack no validation ran for, carrying a
+/// fingerprint nothing derived.
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct PreparedContentPack {
     pub id: PackId,
     pub version: PackVersion,

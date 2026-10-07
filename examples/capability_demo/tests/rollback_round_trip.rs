@@ -5,7 +5,6 @@
 //! resimulation. Missing `PulseCooldown` registration would allow a pulse to fire
 //! twice from one charge on a resimulated frame.
 
-use ambition_platformer2d::session::insert_session_world_component;
 use ambition_platformer2d::sim::ControlFrame;
 use ambition_platformer2d::world::{
     prelude::{AuthoredWorld, Vec2},
@@ -38,7 +37,7 @@ fn compose(
         Vec2::new(100.0, 100.0),
         Vec::new(),
     );
-    let set = RoomSet::from_parts(
+    let set = RoomSet::from_parts_or_panic(
         "pulse_room",
         vec![RoomSpec::new("pulse_room", world)],
         Vec::new(),
@@ -74,7 +73,10 @@ fn compose(
     // hits Bevy 0.19's `ArchetypeExists` panic
     // (`bevy_ecs/src/world/mod.rs:407`, `.unwrap()` on
     // `try_register_required_components`).
-    insert_session_world_component(app.world_mut(), set);
+    // `insert_room_set` seats the activation room as the live room as well; a
+    // bare session insert leaves a set with no live room, and the harness's
+    // observation of "the session's live room" then has nothing to read.
+    ambition_platformer2d::world::rooms::insert_room_set(app.world_mut(), set);
     // The PROFILE under test, authored rather than defaulted — so "the profile
     // survived" means something a default could not have provided.
     app.insert_resource(PulseProfiles::from_prepared(vec![PulseProfile {

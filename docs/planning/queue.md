@@ -1334,8 +1334,21 @@ second authoring source.
   provider schema, a provider semantic action with a real device binding
   (`ProviderBindings`), and a causal fact, through public APIs only. It needs no
   new central enum variant and no private reader.
+  State 2026-10-07: `examples/capability_demo` already does all three (a
+  registered schema, a `ProviderBindings` action that returns as
+  `SemanticActionPressed`, causal facts), and its rollback test compiles and
+  fails when the cooldown's registration is removed. It is not yet the witness
+  this bullet asks for, because it names implementation crates
+  (`ambition_content_pack`, `ambition_causal`, `ambition_input`,
+  `ambition_platformer2d_core`). Whether that is a gap depends on the reading
+  [`godot-class-2d-capability.md`](engine/godot-class-2d-capability.md) leaves
+  open at Gate C5: if an extension must go through the facade, the facade has no
+  content-schema surface and the demo is the gap; if an extension may name the
+  crates it extends, the demo is the witness and this bullet is done. That is a
+  ruling, not an implementation.
 
-**Blocked by:** nothing.
+**Blocked by:** nothing for the duplicate readers above; the external-capability
+witness waits on the Gate C5 reading.
 
 **Acceptance:** each fact has one authoritative read; diagnostics name the
 authored source; the old reader is deleted.

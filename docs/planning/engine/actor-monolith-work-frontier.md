@@ -302,9 +302,12 @@ is move-contact attribution, a different subject on the same `MovePlayback`. Say
 
 **Owner:** [authored technique admission](authored-technique-admission.md).
 A12a is landed (`TechniqueFlow::problems`). A12b is half landed: edges are
-`u16` and the per-tick clone is gone (`Arc<MoveSpec>`). **Open:** prepared
-constructors are still public and infallible; no prepared revision is pinned on
-the playback; the move start still deep-clones a `MoveSpec`. Do not create a VM,
+`u16` and the per-tick clone is gone (`Arc<MoveSpec>`). **Decided 2026-10-07** (see the A12b decision in the owner doc): no stored
+checked-flow type yet; the production boundary already withholds unchecked
+flows (`#[non_exhaustive]` prepared definitions, test-only `insert_prepared`).
+**Still open, by measurement and not by decision:** no prepared revision is
+pinned on the playback (the road it guards is closed today); the move start
+deep-clones a `MoveSpec` (median 0.81 us). Do not create a VM,
 a per-beat signal bus or a code registry to fix this.
 
 ## Packet receipt and stop conditions

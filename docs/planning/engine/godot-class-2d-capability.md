@@ -339,13 +339,19 @@ configuration/content failures, run tests, and produce a release artifact
 without importing implementation crates.
 
 Evidence: `fixtures/minimal_game`, `fixtures/external_consumer` and
-`fixtures/headless_profile` depend on `ambition_platformer2d` only.
-`examples/capability_demo` names implementation crates (`ambition_content_pack`,
-`ambition_causal`, `ambition_input`, `ambition_platformer2d_core`) because it
-proves that a capability registers its own content schema, which the facade does
-not surface. So C5 has two readings. If a game that extends the engine must also
-go through the facade, the capability demo is the gap. If extension may name the
-crates it extends, C5 is about consumption and the fixtures satisfy it.
+`fixtures/headless_profile` depend on `ambition_platformer2d` only (consumption).
+`examples/capability_demo` is the extension witness: it names the narrow crates it
+extends (`ambition_content_pack`, `ambition_causal`, `ambition_input`,
+`ambition_platformer2d_core`, `ambition_sim_schedule`) because it proves that a
+capability registers its own content schema, which the facade does not surface.
+
+**Read 2026-10-07 (review ruling):** an extension may name the narrow public
+crates it extends and is not forced through the umbrella facade; what it may not
+name is engine-internal topology. The demo used to name
+`ambition_platformer2d_shared_tangle` for two schedule items, which moved to the
+narrow `ambition_sim_schedule`; `scripts/tests/test_capability_demo_names_no_engine_topology_crate.py`
+keeps it off. Not yet done: a release artifact for an extension (the gate's last
+clause) has no witness here.
 
 ### Gate C6 — agent-first operability
 

@@ -679,9 +679,16 @@ fn production_code_reaches_the_boot_pack_only_in_the_boot_scoped_roads() {
     /// Boot-scoped reads on one code line: `pack::shipped(`, `shipped_*(`,
     /// `authored_movesets::` and `lineage(`. A definition line counts nothing.
     fn boot_reads(line: &str) -> usize {
-        if line.contains("fn ") {
-            return 0;
-        }
+        // A definition line counts nothing, but a one-line function's BODY
+        // does: only what follows its first `{` is read.
+        let line = if line.contains("fn ") {
+            match line.split_once('{') {
+                Some((_, body)) => body,
+                None => return 0,
+            }
+        } else {
+            line
+        };
         let mut count = line.matches("pack::shipped(").count()
             + line.matches("authored_movesets::").count()
             + line.matches("lineage()").count();
@@ -714,6 +721,17 @@ fn production_code_reaches_the_boot_pack_only_in_the_boot_scoped_roads() {
             if test_block_depth.is_none() && trimmed.starts_with("#[cfg(test)]") {
                 armed = true;
             }
+            // `#[cfg(test)] use x;` or `mod x;` opens no block: disarm, so the
+            // next production block is not skipped for it.
+            if armed
+                && !trimmed.starts_with('#')
+                && !trimmed.is_empty()
+                && trimmed.ends_with(';')
+                && !trimmed.contains('{')
+            {
+                armed = false;
+                continue;
+            }
             if test_block_depth.is_none() && !armed {
                 hits += boot_reads(line);
             }
@@ -730,6 +748,22 @@ fn production_code_reaches_the_boot_pack_only_in_the_boot_scoped_roads() {
         }
         hits
     }
+
+    // The scanner against its own blind spots, so the census below cannot pass
+    // by not seeing: a one-line function body, and a test-only `use` that must
+    // not swallow the production block after it.
+    assert_eq!(production_hits("fn f() { pack::shipped() }"), 1, "a one-line fn body is invisible");
+    assert_eq!(production_hits("fn f();"), 0);
+    assert_eq!(
+        production_hits("#[cfg(test)]\nuse x::y;\nfn g() {\n    pack::shipped();\n}\n"),
+        1,
+        "a test-only `use` swallowed the production block after it"
+    );
+    assert_eq!(
+        production_hits("#[cfg(test)]\nmod t {\n    fn g() { pack::shipped(); }\n}\n"),
+        0,
+        "a test block is production"
+    );
 
     let is_test_file = |rel: &str| {
         rel.ends_with("_tests.rs")

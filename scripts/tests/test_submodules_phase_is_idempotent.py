@@ -1,4 +1,9 @@
-"""`scripts/setup/submodules.sh` must never move a checkout somebody is using.
+"""`scripts/setup/submodules.sh` puts submodules on `main` and never loses work.
+
+The policy (docs/submodules.md): every submodule is on `main`, and a pin that
+disagrees with a submodule's `main` is a pin to update. The phase moves a clean
+checkout onto `origin/main` only when that cannot orphan a commit; unpushed,
+divergent and dirty checkouts are left alone and reported.
 
 ⛔⛔ THE FAILURE THIS PINS IS NOT HYPOTHETICAL. A bare
 `git submodule update --init --recursive` moves every submodule to the recorded
@@ -126,3 +131,106 @@ def test_a_dirty_submodule_is_never_touched(super_and_sub):
 
     assert git(sub_wt, "rev-parse", "HEAD") == head_before
     assert (sub_wt / "a.txt").read_text() == "uncommitted edit that exists nowhere else"
+
+
+# --- the `main` policy -------------------------------------------------------
+
+
+def _advance_remote(sub: Path, name: str = "b.txt") -> str:
+    """The submodule's own origin moves on, as main does between pin bumps."""
+    return _commit(sub, name)
+
+
+def _wt(top: Path) -> Path:
+    wt = top / "vendor/sub"
+    git(wt, "config", "user.email", "t@t")
+    git(wt, "config", "user.name", "t")
+    return wt
+
+
+def test_a_detached_checkout_at_main_is_attached_to_main_without_moving(super_and_sub):
+    top, _ = super_and_sub
+    wt = _wt(top)
+    git(wt, "checkout", "-q", "--detach")
+    head = git(wt, "rev-parse", "HEAD")
+    result = run_phase(top)
+    assert result.returncode == 0, result.stderr
+    assert git(wt, "branch", "--show-current") == "main"
+    assert git(wt, "rev-parse", "HEAD") == head
+
+
+def test_a_clean_checkout_behind_main_is_fast_forwarded_and_the_stale_pin_is_reported(super_and_sub):
+    top, sub = super_and_sub
+    wt = _wt(top)
+    new = _advance_remote(sub)
+    result = run_phase(top)
+    assert result.returncode == 0, result.stderr
+    assert git(wt, "rev-parse", "HEAD") == new
+    assert git(wt, "branch", "--show-current") == "main"
+    # the checkout moved; the SUPERPROJECT pin did not, and the phase says so
+    assert git(top, "ls-files", "--stage", "vendor/sub").split()[1] != new
+    assert "the PIN needs updating" in result.stderr
+    assert "--bump-pins" in result.stdout
+
+
+def test_bump_pins_stages_the_gitlink_and_commits_nothing(super_and_sub):
+    top, sub = super_and_sub
+    head_before = git(top, "rev-parse", "HEAD")
+    new = _advance_remote(sub)
+    env = dict(os.environ, GIT_ALLOW_PROTOCOL="file")
+    result = subprocess.run(
+        ["bash", "scripts/setup/submodules.sh", "--bump-pins"],
+        cwd=top, capture_output=True, text=True, env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert git(top, "diff", "--cached", "--raw", "vendor/sub").split()[3].startswith(new[:7])
+    assert git(top, "rev-parse", "HEAD") == head_before, "the phase committed"
+
+
+def test_a_checkout_on_the_pre_split_history_is_kept_under_a_ref_and_moved_to_main(super_and_sub):
+    """The split was intentional, so an old lineage is an expected state."""
+    top, sub = super_and_sub
+    wt = _wt(top)
+    old = git(wt, "rev-parse", "HEAD")
+    # origin's main is rewritten onto a new root, as at the split
+    git(sub, "checkout", "-q", "--orphan", "split")
+    _commit(sub, "fresh.txt")
+    git(sub, "branch", "-M", "main")
+    new = git(sub, "rev-parse", "HEAD")
+    assert git(wt, "fetch", "-q", "origin") == ""
+    assert subprocess.run(["git", "merge-base", old, new], cwd=wt, capture_output=True, text=True).stdout.strip() == ""
+
+    result = run_phase(top)
+    assert result.returncode == 0, result.stderr
+    assert git(wt, "rev-parse", "HEAD") == new
+    assert git(wt, "branch", "--show-current") == "main"
+    assert git(wt, "rev-parse", f"refs/backup/pre-split/{old[:12]}") == old, "the old position was not kept"
+    assert "pre-split" in result.stdout
+
+
+def test_a_dirty_checkout_on_the_pre_split_history_is_left_alone(super_and_sub):
+    top, sub = super_and_sub
+    wt = _wt(top)
+    old = git(wt, "rev-parse", "HEAD")
+    (wt / "a.txt").write_text("uncommitted")
+    git(sub, "checkout", "-q", "--orphan", "split")
+    _commit(sub, "fresh.txt")
+    git(sub, "branch", "-M", "main")
+    result = run_phase(top)
+    assert result.returncode == 0, result.stderr
+    assert git(wt, "rev-parse", "HEAD") == old
+    assert (wt / "a.txt").read_text() == "uncommitted"
+    assert "LEFT ALONE" in result.stderr
+
+
+def test_a_diverged_checkout_is_left_alone_and_both_sides_are_counted(super_and_sub):
+    top, sub = super_and_sub
+    wt = _wt(top)
+    git(wt, "checkout", "-q", "-b", "agent/work")
+    mine = _commit(wt, "mine.txt")
+    _advance_remote(sub, "theirs.txt")
+    result = run_phase(top)
+    assert result.returncode == 0, result.stderr
+    assert git(wt, "rev-parse", "HEAD") == mine
+    assert git(wt, "branch", "--show-current") == "agent/work"
+    assert "diverged" in result.stderr and "LEFT ALONE" in result.stderr

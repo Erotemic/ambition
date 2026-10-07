@@ -129,14 +129,16 @@ For the durable authoring doctrine, read
 [`docs/concepts/agent-native-authoring.md`](docs/concepts/agent-native-authoring.md).
 For tool entry points, read [`docs/tools/index.md`](docs/tools/index.md).
 
-A normal full clone can initialize the submodules with:
+A normal full clone prepares the submodules with:
 
 ```bash
-git submodule update --init --recursive
+scripts/setup/submodules.sh
 ```
 
-`./run_developer_setup.sh` also initializes the active authoring submodules and
-creates their tool-local Python environments. If an agent is operating from a
+which initializes each one and keeps it on its `main` (the policy, the pin rule
+and the pre-split history are in [`docs/submodules.md`](docs/submodules.md)).
+`./run_developer_setup.sh` runs that phase and also creates the tool-local Python
+environments. If an agent is operating from a
 source export where submodules cannot be fetched, it should explicitly report
 that its audit of those capabilities is partial rather than planning replacements
 for unseen tooling.

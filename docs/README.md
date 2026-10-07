@@ -33,6 +33,7 @@ That is normally enough to begin useful work.
 | Current subsystem implementation notes | [`systems/`](systems/index.md), then source |
 | Repeatable procedures | [`recipes/`](recipes/index.md) |
 | Author-time tools | [`tools/`](tools/index.md) |
+| Submodule policy (main, pins, the history split) | [`submodules.md`](submodules.md) |
 | Current implementation fact | source, manifests, and tests |
 | Localization | generated `.agent/` indexes |
 | Failure history and engineering lessons | [`../dev/`](../dev/README.md) |
@@ -87,6 +88,8 @@ migration ledger, future plan, or dated audit, DELETE it.
 - [`recipes/index.md`](recipes/index.md) — commands and repeatable workflows.
 - [`tools/index.md`](tools/index.md) — author-time generators, validators, and
   reports.
+- [`submodules.md`](submodules.md) — the submodule policy: every submodule on
+  `main`, a lagging pin is a pin to update, and the intentional history split.
 - **Generated assets** — spritesheets, portraits, backgrounds, quality tiers,
   music and the SFX bank are OUTPUT built from small authored sources that git
   does carry, which is why the outputs are ignored. One command rebuilds them

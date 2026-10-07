@@ -1051,7 +1051,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 316 -> 317: `actor.summoned_to_the_fight` (clone) — a body summoned
 /// into a fight (a boss's minion) knows where the fight is: it perceives as a
 /// seated fighter does, not through the perception window.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 317;
+/// ⛔⛤ 317 -> 318: the boss cursor (`BossEncounter`) also encodes `guarded`, a
+/// conductor's guard over its hull, which decides whether a hit lands. The
+/// field landed with the Mockingbird's air chase without a bump; the codec-shape
+/// ratchet found it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 318;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

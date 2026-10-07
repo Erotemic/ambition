@@ -149,6 +149,11 @@ impl Plugin for MyCapability {
 }
 ```
 
+A capability that lives outside the engine and does not otherwise need the
+facade can name the narrow crate instead: `use ambition_sim_schedule::{Platformer2dSimulationPhase, SimScheduleExt};`
+(it depends only on `bevy`, and `examples/capability_demo` is the worked
+example). The facade path above re-exports the same items.
+
 Pick the phase by what your system reads:
 
 | Phase | For |

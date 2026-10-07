@@ -151,9 +151,14 @@ a decision-free slice:
   `MovesetContract::moves: Vec<MoveSpec>` at the six selection sites in
   `moveset/mod.rs`, once per accepted move, not per tick. Removing it means
   `Vec<Arc<MoveSpec>>` in the contract: about 310 `.moves` uses, 78 `moves:`
-  constructions and 260 `ActorMoveset` mentions. No cost has been measured,
-  so the blast radius has no number to justify it. Measure a move start in a
-  profile first.
+  constructions and 260 `ActorMoveset` mentions. Measured 2026-10-07 (a
+  throwaway test over `authored_movesets::tables()`, hot cache, 2,000 clones
+  per move, dev profile, which is optimized here): 470 shipped moves, median
+  0.81 us, p99 2.03 us, worst 2.29 us (`npc_bob/bulkhead_drop`). That is under
+  0.015% of a 60 Hz frame for a move start, which happens at most once per
+  accepted move. Pre-registered at under 20 us and held. A cold cache could cost
+  a few times that and is not measured. On this number the clone is not worth
+  the type change; revisit only if a profile of a real fight shows move starts.
 
 The interpreter has a defensive step guard equal to the checked node count. A
 missing node or an exhausted guard is an invariant failure: report it and

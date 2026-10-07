@@ -38,6 +38,8 @@ mod ids;
 mod profile;
 mod registry;
 mod retraction;
+mod life_switch;
+pub use life_switch::apply_boss_life_switches;
 mod rewards;
 mod specs;
 #[cfg(test)]
@@ -153,6 +155,11 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
                 // Mount-death → `mount_died` external phase trigger, ahead of
                 // the phase driver so the swap is same-frame (Q19).
                 notify_bosses_on_mount_death,
+                // A boss-life switch press (kill / revive) lands before the
+                // driver reads the boss, so it acts on it the same tick.
+                crate::life_switch::apply_boss_life_switches
+                    // ⛔ AFTER THE ONE DRAIN: it reads this tick's presses.
+                    .after(ambition_encounter::switches::SwitchActivationDrained),
                 update_boss_encounters,
                 // The phase this tick ended must not keep a move it chose.
                 crate::ecs::interrupt_boss_windups_on_phase_change,

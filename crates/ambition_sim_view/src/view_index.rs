@@ -473,7 +473,18 @@ pub fn rebuild_feature_view_index(
                 breakable_state: None,
                 chest_opened: false,
                 fighting: false,
-                switch_on: save.data().switch(&switch.activation.id),
+                // A boss-life switch shows the boss's life (it stores none);
+                // every other switch shows its own persisted state.
+                switch_on: match ambition_encounter::switches::SwitchAction::parse(&switch.activation.action) {
+                    ambition_encounter::switches::SwitchAction::BossLife => {
+                        ambition_encounter::switches::boss_life_switch_on(
+                            save.data(),
+                            &switch.activation.target_encounter,
+                        )
+                        .unwrap_or(false)
+                    }
+                    _ => save.data().switch(&switch.activation.id),
+                },
                 rotation_rad: 0.0,
                 alive: true,
                 hit_flash_secs: 0.0,

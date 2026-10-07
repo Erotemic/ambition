@@ -107,3 +107,189 @@ fn the_halls_mockingbird_spawns_as_a_practice_boss() {
         vec![("cove.mockingbird".to_string(), false)]
     );
 }
+
+// ---- The life switches ------------------------------------------------------
+
+const WARDEN_SWITCH: &str = "hall_warden_life_switch";
+const MOCKINGBIRD_SWITCH: &str = "hall_mockingbird_life_switch";
+
+fn hall() -> Platformer2dSimHarness {
+    let mut sim = Platformer2dSimHarness::new_with_options(crate::common::fixed_60hz_room_options(HALL))
+        .expect("the hall boots");
+    for _ in 0..10 {
+        sim.step(crate::common::base());
+    }
+    sim
+}
+
+fn boss_record(sim: &Platformer2dSimHarness, placement: &str) -> String {
+    format!(
+        "{:?}",
+        sim.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .boss(placement)
+    )
+}
+
+/// What the switch `id` shows (its published view): green while ON.
+fn shown(sim: &mut Platformer2dSimHarness, id: &str) -> bool {
+    use ambition_platformer2d::combat::components::FeatureId;
+    use ambition_platformer2d::encounter::switches::SwitchFeature;
+    let world = sim.world_mut();
+    let feature_id = world
+        .query::<(&SwitchFeature, &FeatureId)>()
+        .iter(world)
+        .find(|(feature, _)| feature.activation.id == id)
+        .map(|(_, feature_id)| feature_id.0.clone())
+        .unwrap_or_else(|| panic!("the hall authors {id}"));
+    world
+        .resource::<ambition_platformer2d::sim_view::FeatureViewIndex>()
+        .get(&feature_id)
+        .expect("the switch publishes a view")
+        .switch_on
+}
+
+/// Stand on the switch and press Interact once, the way a player does.
+fn press(sim: &mut Platformer2dSimHarness, id: &str) {
+    let at = {
+        let world = sim.world_mut();
+        world
+            .query::<(
+                &ambition_platformer2d::encounter::switches::SwitchFeature,
+                &ambition_platformer2d::engine_core::geometry::CenteredAabb,
+            )>()
+            .iter(world)
+            .find(|(feature, _)| feature.activation.id == id)
+            .map(|(_, aabb)| (aabb.center.x, aabb.center.y))
+            .unwrap_or_else(|| panic!("the hall authors {id}"))
+    };
+    sim.teleport_player(at);
+    sim.step(crate::common::base());
+    sim.step(AgentAction {
+        interact: true,
+        ..crate::common::base()
+    });
+    for _ in 0..5 {
+        sim.step(crate::common::base());
+    }
+}
+
+/// ⭐ A switch by a hall door shows that boss's life and sets it: green while
+/// it lives; a press kills it (red), another revives it (green). The boss is
+/// not loaded (it is behind the door), so a kill only marks it dead. The
+/// Mockingbird's switch is the control: pressing the Warden's leaves it alone.
+#[test]
+fn a_hall_switch_shows_and_sets_its_bosss_life() {
+    let mut sim = hall();
+    assert_eq!(boss_record(&sim, "hall.clockwork_warden"), "Untouched");
+    assert!(shown(&mut sim, WARDEN_SWITCH), "a living boss's switch is green");
+
+    press(&mut sim, WARDEN_SWITCH);
+    assert_eq!(boss_record(&sim, "hall.clockwork_warden"), "Cleared", "the press killed it");
+    assert!(!shown(&mut sim, WARDEN_SWITCH), "a dead boss's switch is red");
+    assert!(
+        sim.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .flag(&ambition_platformer2d::encounter::encounter_reward_looted_flag(
+                "hall.clockwork_warden"
+            )),
+        "a switch kill pays nothing: its reward reads looted"
+    );
+    assert!(shown(&mut sim, MOCKINGBIRD_SWITCH), "another boss's switch is untouched");
+    assert_eq!(boss_record(&sim, "hall.mockingbird"), "Untouched");
+
+    press(&mut sim, WARDEN_SWITCH);
+    assert_eq!(boss_record(&sim, "hall.clockwork_warden"), "Untouched", "the press revived it");
+    assert!(shown(&mut sim, WARDEN_SWITCH), "green again");
+}
+
+/// The switch stores nothing: a boss that dies in a FIGHT (its record goes
+/// `Cleared`, no press) turns its switch red.
+#[test]
+fn a_boss_killed_in_a_fight_turns_its_switch_red() {
+    let mut sim = hall();
+    assert!(shown(&mut sim, MOCKINGBIRD_SWITCH));
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_boss(
+            "hall.mockingbird",
+            ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared,
+        );
+    sim.step(crate::common::base());
+    assert!(!shown(&mut sim, MOCKINGBIRD_SWITCH), "its switch shows the boss's death");
+}
+
+fn queue_life_press(sim: &mut Platformer2dSimHarness, target: &str) {
+    use ambition_platformer2d::encounter::switches::SwitchActivationQueue;
+    sim.world_mut()
+        .resource_mut::<SwitchActivationQueue>()
+        .0
+        .push(
+            ambition_platformer2d::encounter::SwitchActivation {
+                id: MOCKINGBIRD_SWITCH.into(),
+                action: "BossLife".into(),
+                target_encounter: target.into(),
+            }
+            .into(),
+        );
+}
+
+fn mockingbird_state(sim: &mut Platformer2dSimHarness) -> (i32, String) {
+    let world = sim.world_mut();
+    let mut q = world.query::<(
+        &BossConfig,
+        &ambition_platformer2d::boss_encounter::BossEncounter,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+    )>();
+    q.iter(world)
+        .find(|(config, _, _)| config.id == "hall.mockingbird")
+        .map(|(_, status, health)| (health.health.current, format!("{:?}", status.encounter_phase())))
+        .expect("the hall's Mockingbird is in its arena")
+}
+
+/// "If the boss is loaded in the simulation and the boss-alive switch goes
+/// red, it brings the boss health to zero and kills it immediately." The
+/// press comes from the hall while the boss fights in its arena (another
+/// player's press), so it is queued as the switch would queue it.
+#[test]
+fn a_life_switch_kills_a_loaded_boss_at_once_and_revives_it() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        crate::common::fixed_60hz_room_options("hall_mockingbird_arena"),
+    )
+    .expect("the hall's Mockingbird arena boots");
+    // Until it fights: a living, woken boss is the precondition.
+    let mut woke = false;
+    for _ in 0..400 {
+        sim.step(crate::common::base());
+        let (hp, phase) = mockingbird_state(&mut sim);
+        if hp > 0 && phase.starts_with("Phase") {
+            woke = true;
+            break;
+        }
+    }
+    assert!(woke, "precondition: the Mockingbird wakes and fights: {:?}", mockingbird_state(&mut sim));
+
+    queue_life_press(&mut sim, "hall.mockingbird");
+    sim.step(crate::common::base());
+    let (hp, phase) = mockingbird_state(&mut sim);
+    assert_eq!(hp, 0, "killed at once, not after a fight");
+    assert_eq!(phase, "Death");
+    assert_eq!(boss_record(&sim, "hall.mockingbird"), "Cleared");
+
+    queue_life_press(&mut sim, "hall.mockingbird");
+    sim.step(crate::common::base());
+    assert_eq!(boss_record(&sim, "hall.mockingbird"), "Untouched", "revived in the save");
+    let mut revived = false;
+    for _ in 0..400 {
+        sim.step(crate::common::base());
+        let (hp, phase) = mockingbird_state(&mut sim);
+        if hp > 0 && phase.starts_with("Phase") {
+            revived = true;
+            break;
+        }
+    }
+    assert!(revived, "it fights again: {:?}", mockingbird_state(&mut sim));
+}

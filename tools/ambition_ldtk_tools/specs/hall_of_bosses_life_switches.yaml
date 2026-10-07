@@ -1,0 +1,86 @@
+# The Hall of Bosses' life switches (Jon, 2026-10-06): one by each boss door,
+# green while that hall boss is alive, red while it is dead. A press revives
+# a dead boss or kills a living one (`SwitchAction::BossLife`).
+level_id: hall_of_bosses
+entities:
+  - type: Switch
+    px: [220, 304]
+    size: [24, 32]
+    fields:
+      id: hall_warden_life_switch
+      name: Clockwork Warden life switch
+      prompt: "Revive or defeat the Clockwork Warden"
+      target_encounter: hall.clockwork_warden
+      action: BossLife
+  - type: Switch
+    px: [628, 304]
+    size: [24, 32]
+    fields:
+      id: hall_mockingbird_life_switch
+      name: Mockingbird life switch
+      prompt: "Revive or defeat the Mockingbird"
+      target_encounter: hall.mockingbird
+      action: BossLife
+  - type: Switch
+    px: [628, 448]
+    size: [24, 32]
+    fields:
+      id: hall_gnu_ton_life_switch
+      name: GNU-ton life switch
+      prompt: "Revive or defeat the GNU-ton"
+      target_encounter: hall.gnu_ton
+      action: BossLife
+  - type: Switch
+    px: [302, 448]
+    size: [24, 32]
+    fields:
+      id: hall_cut_the_rope_life_switch
+      name: Cut the Rope life switch
+      prompt: "Revive or defeat the Cut the Rope"
+      target_encounter: hall.cut_the_rope
+      action: BossLife
+  - type: Switch
+    px: [1246, 304]
+    size: [24, 32]
+    fields:
+      id: hall_flying_spaghetti_monster_life_switch
+      name: Flying Spaghetti Monster life switch
+      prompt: "Revive or defeat the Flying Spaghetti Monster"
+      target_encounter: hall.flying_spaghetti_monster
+      action: BossLife
+  - type: Switch
+    px: [1246, 448]
+    size: [24, 32]
+    fields:
+      id: hall_trex_life_switch
+      name: T-Rex life switch
+      prompt: "Revive or defeat the T-Rex"
+      target_encounter: hall.trex
+      action: BossLife
+  - type: Switch
+    px: [924, 448]
+    size: [24, 32]
+    fields:
+      id: hall_mode_collapse_life_switch
+      name: Mode Collapse life switch
+      prompt: "Revive or defeat the Mode Collapse"
+      target_encounter: hall.mode_collapse
+      action: BossLife
+  - type: Switch
+    px: [924, 304]
+    size: [24, 32]
+    fields:
+      id: hall_exploding_gradient_life_switch
+      name: Exploding Gradient life switch
+      prompt: "Revive or defeat the Exploding Gradient"
+      target_encounter: hall.exploding_gradient
+      action: BossLife
+  - type: Switch
+    px: [1474, 448]
+    size: [24, 32]
+    fields:
+      id: hall_overflow_life_switch
+      name: Overflow life switch
+      prompt: "Revive or defeat the Overflow"
+      target_encounter: hall.overflow
+      action: BossLife

@@ -229,6 +229,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_projectiles/src/extension.rs",
     ),
     "AmbitionGameSave": (
+        "crates/ambition_boss_encounter/src/life_switch.rs",
         "crates/ambition_boss_encounter/src/retraction.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter/src/switches.rs",
@@ -362,6 +363,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
     ),
     "QuestRegistry": (
+        "crates/ambition_boss_encounter/src/life_switch.rs",
         "crates/ambition_boss_encounter/src/retraction.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter_features/src/systems.rs",

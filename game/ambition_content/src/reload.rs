@@ -1785,6 +1785,57 @@ fn publication_hold_for(
     ))
 }
 
+/// Why the content half of a pending generation can no longer be activated,
+/// asked at the activation gate.
+///
+/// ⛔ A SINGLE `Err(String)` CHAINED THROUGH `and_then` LOGGED EVERY REFUSAL AS
+/// "the save moved", so a cutscene id another provider took while the candidate
+/// waited was reported as a save problem. The reason is a value now, one variant
+/// per question, so a diagnostic (and a test) can say which precondition changed.
+/// The boundary refusals (an unhealthy or foreign rollback timeline) are answered
+/// separately in [`answer_the_publication_gate`] and name themselves.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ActivationRefusal {
+    /// The save no longer fits the candidate's quest book: the player reached or
+    /// finished something the candidate does not keep (`candidate_quest_book`).
+    QuestProgressIncompatible(String),
+    /// Another provider holds a cutscene id the candidate would publish
+    /// (`candidate_cutscene_ownership`).
+    CutsceneOwnershipChanged(String),
+}
+
+impl std::fmt::Display for ActivationRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::QuestProgressIncompatible(why) => write!(
+                f,
+                "the save moved while the transaction was in flight and the candidate's \
+                 quest book no longer fits it ({why})"
+            ),
+            Self::CutsceneOwnershipChanged(why) => write!(
+                f,
+                "another provider claimed a cutscene id while the transaction was in \
+                 flight, and publishing would overwrite it ({why})"
+            ),
+        }
+    }
+}
+
+/// The first content-side precondition of the pending generation that no longer
+/// holds, or `None` (also when nothing is pending). Quest compatibility is asked
+/// first, then cutscene ownership; a generation that fails both reports the
+/// first, and cancelling it ends both.
+pub fn activation_refusal(world: &bevy::ecs::world::World) -> Option<ActivationRefusal> {
+    let pending = world.get_resource::<PendingGeneration>()?;
+    if let Err(why) = candidate_quest_book(world, &pending.pack) {
+        return Some(ActivationRefusal::QuestProgressIncompatible(why));
+    }
+    if let Err(why) = candidate_cutscene_ownership(world, &pending.pack) {
+        return Some(ActivationRefusal::CutsceneOwnershipChanged(why));
+    }
+    None
+}
+
 /// The activation gate (`Q118`).
 ///
 /// The shell runs this in the same exclusive operation that emits
@@ -1801,23 +1852,19 @@ pub fn answer_the_publication_gate(
     use ambition_platformer2d::game_shell::ShellGateVerdict;
     match publication_boundary(world) {
         PublicationBoundary::Legal | PublicationBoundary::RebasableTimeline => {
-            // ⭐ THE SAVE MOVES WHILE A GENERATION WAITS. The quest book was
-            // admitted at request time against the save as it was, and the next
-            // session rebuilds the registry from the save as it is at the
-            // activation. Asked again here, with the same function, so a player
-            // who reached a step the candidate no longer has cancels the
-            // generation instead of being clamped by the rebuild. The selection
-            // is still the live pack at this point, which is what the question
-            // compares the candidate against.
-            let verdict = world.get_resource::<PendingGeneration>().map(|pending| {
-                candidate_quest_book(world, &pending.pack)
-                    .and_then(|()| candidate_cutscene_ownership(world, &pending.pack))
-            });
-            if let Some(Err(why)) = verdict {
+            // ⭐ THE WORLD MOVES WHILE A GENERATION WAITS, in more than one way, and
+            // the refusal says WHICH. The quest book was admitted at request time
+            // against the save as it was, and the next session rebuilds the
+            // registry from the save as it is at the activation; another provider
+            // can also take a cutscene id the candidate was going to publish. Both
+            // are asked again here with the SAME functions, the selection still
+            // being the live pack, so a player who reached a step the candidate no
+            // longer pins, or a foreign row that appeared, cancels the generation
+            // instead of being clamped or overwritten. See [`ActivationRefusal`].
+            if let Some(reason) = activation_refusal(world) {
                 bevy::log::warn!(
                     target: "ambition_content::reload",
-                    "the route was refused at its activation: the save moved while \
-                     the transaction was in flight ({why})."
+                    "the route was refused at its activation: {reason}"
                 );
                 return ShellGateVerdict::Refuse;
             }

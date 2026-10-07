@@ -114,7 +114,13 @@ and leaves the foreign row. Witnesses:
 its control `a_candidate_cutscene_that_replaces_ambitions_own_row_is_admitted`,
 `a_candidate_dropping_a_cutscene_a_foreign_row_now_holds_leaves_the_foreign_row`,
 and the gate arm `a_provider_that_takes_a_cutscene_id_while_the_generation_waits_cancels_it`
-(poisoned by removing the question from the gate only). Provider provenance in
+(poisoned by removing the question from the gate only). The gate's refusal is a value, `ActivationRefusal` (`QuestProgressIncompatible` or
+`CutsceneOwnershipChanged`), produced by `activation_refusal` and logged as such;
+it used to chain both questions through one error and log every refusal as "the
+save moved". Witnesses: `a_provider_that_takes_a_cutscene_id_while_the_generation_waits_cancels_it`
+(classifies the in-flight race as the cutscene reason, not the save) and
+`a_quest_refusal_at_activation_names_the_quest_and_the_save_not_a_cutscene`;
+poisoned by reporting the cutscene error as the quest variant. Provider provenance in
 the registry itself (so replacement is provider-local rather than refused) is
 the larger design; this closes the loss without it.
 

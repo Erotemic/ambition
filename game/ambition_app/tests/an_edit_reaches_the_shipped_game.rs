@@ -4459,6 +4459,20 @@ fn a_provider_that_takes_a_cutscene_id_while_the_generation_waits_cancels_it() {
                 seconds: 1.0,
             }],
         ));
+    // ⭐ THE REASON IS THE CUTSCENE'S, NOT THE SAVE'S. The gate used to chain both
+    // questions through one error and log every refusal as "the save moved". It
+    // asks `activation_refusal` now and logs that value, so classifying the
+    // in-flight state classifies the log line the gate emits.
+    let reason = ambition_content::reload::activation_refusal(app.world())
+        .expect("a foreign row took the id while the generation waited, and nothing refused");
+    assert!(
+        matches!(reason, ambition_content::reload::ActivationRefusal::CutsceneOwnershipChanged(ref why) if why.contains("test_intro")),
+        "⛔ the cutscene-ownership race was reported as {reason:?}"
+    );
+    assert!(
+        !reason.to_string().contains("save moved"),
+        "the cutscene refusal still blames the save: {reason}"
+    );
     for _ in 0..240 {
         app.update();
     }
@@ -4524,6 +4538,54 @@ fn a_step_the_player_reaches_while_the_generation_waits_is_pinned_at_the_gate() 
         Some((true, 1)),
         "the player was moved off their step"
     );
+}
+
+/// ⭐ THE SAVE'S REASON IS THE QUEST'S. The mirror of the cutscene arm: the same
+/// activation question, answered by the other precondition, names the quest book
+/// and the save, and does not mention a cutscene. Deterministic: the save is
+/// moved directly while the generation waits, then the in-flight state is
+/// classified before the shell gets to act on it.
+#[test]
+fn a_quest_refusal_at_activation_names_the_quest_and_the_save_not_a_cutscene() {
+    let mut app = app_playing_gameplay();
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let candidate = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            if declared != "data/quests.ron" {
+                return text;
+            }
+            text.replacen(
+                r#"EncounterCleared("goblin_encounter")"#,
+                r#"FlagSet("test_switch_toggled")"#,
+                1,
+            )
+        })
+        .expect("compiles"),
+    );
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+    );
+    assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
+    assert!(
+        ambition_content::reload::activation_refusal(app.world()).is_none(),
+        "the premise: nothing refuses while the player is on step 0"
+    );
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .data_mut()
+        .set_quest(
+            "first_steps",
+            ambition_platformer2d::persistence::save_data::PersistedQuestState::InProgress,
+            1,
+        );
+    let reason = ambition_content::reload::activation_refusal(app.world())
+        .expect("the player reached the edited step and nothing refused");
+    assert!(
+        matches!(reason, ambition_content::reload::ActivationRefusal::QuestProgressIncompatible(ref why) if why.contains("first_steps")),
+        "⛔ the quest race was reported as {reason:?}"
+    );
+    assert!(!reason.to_string().contains("cutscene"), "the quest refusal blames a cutscene: {reason}");
 }
 
 /// The control for the gate's quest question: the SAME moving save under a

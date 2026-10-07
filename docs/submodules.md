@@ -16,9 +16,10 @@ situation with a different rule; see [Looking at an old commit](#looking-at-an-o
    gitlink). When a pin disagrees with the submodule's `main`, **the pin is
    stale: update the pin.** Do not hold a checkout back to match an old pin, and
    do not work on a detached HEAD.
-3. **Never lose work to make the rule true.** A checkout moves only when it is
-   clean and the move cannot orphan a commit. Anything else is left where it is
-   and reported.
+3. **Never lose work to make the rule true.** A checkout moves only when the move
+   can neither orphan a commit nor overwrite local work (judged by what it would
+   write, not by whether `git status` is clean). Anything else is left where it
+   is and reported.
 
 The history of the music, sprite and other tool repositories was split once, on
 purpose (see [The history split](#the-history-split)). It is not an error.
@@ -46,18 +47,45 @@ scripts/setup/submodules.sh --follow-main  # development behaviour on a non-main
 ```
 
 `scripts/setup/submodules.sh` is idempotent and is what the rule above looks
-like as code. For each submodule it fetches `origin` and then does exactly one
-of these:
+like as code. For each submodule it fetches `origin`, then judges the move by
+**what it would overwrite or orphan**, not by whether `git status` is clean. Four
+facts are kept apart: where HEAD is, where **local `main`** is, where `origin/main`
+is, and what the move would write.
 
-| The checkout is | It does |
+| The state is | Setup does |
 | --- | --- |
 | not initialized | initializes it, then applies the rows below |
-| at `origin/main`, detached or on another branch name | attaches `main` there; no content moves |
-| strictly behind `origin/main`, clean | fast-forwards `main` to `origin/main` |
-| on the **pre-split history** (no common commit with `origin/main`), clean | keeps the old position as `refs/backup/pre-split/<sha>` and moves to `origin/main` |
-| ahead of `origin/main` (unpushed commits) | **leaves it** and says `LEFT ALONE` |
-| diverged from `origin/main` | **leaves it**, counts the commits on each side |
-| dirty (uncommitted changes) in any of the moving cases | **leaves it** |
+| local `main` is **ahead** of `origin/main` (unpushed commits), whichever branch is checked out | never resets or moves `main`; leaves the checkout; says what the commits are and what to do |
+| local `main` has **diverged** from `origin/main` | leaves both sides; counts each; asks for reconciliation |
+| the checkout (a branch or a detached HEAD) is ahead of, or diverged from, `origin/main` | leaves it (`LEFT ALONE`) |
+| on a **named non-main branch with tracked edits** | leaves it on that branch, even when its commit equals `origin/main` |
+| the move would **overwrite a modified tracked path** | changes nothing; names the paths |
+| the move would write over an **untracked or ignored path** that exists | changes nothing; names the paths |
+| otherwise: `main` absent, equal, or behind `origin/main` | attaches `main`, creating it or fast-forwarding it; tracked edits the move does not touch are carried through |
+| on the **pre-split history** (no common commit with `origin/main`) | keeps the old HEAD and local `main` as `refs/backup/pre-split/<sha>`, then moves to `origin/main` |
+
+Untracked files are **not** "dirty". An untracked `notes.txt` blocks nothing unless
+`origin/main` adds a tracked `notes.txt`; an ignored file is held to the same rule
+(git itself would overwrite it silently, so setup checks). Operations are
+non-forcing: a fast-forward merge, a ref update guarded by the old value, and a
+checkout that git refuses when it would lose work. `checkout -B` runs only for the
+pre-split move, after both old positions are kept. Setup never commits, merges,
+rebases or discards on your behalf.
+
+### When work blocks convergence
+
+The message names the state (it never just says "dirty"). In every case the
+guidance is the same: **inspect the work; if it is important, review it, commit
+it appropriately on the right branch, integrate it into the submodule's `main`
+and push; then rerun setup.** Setup will not discard it.
+
+| You see | It means | Do |
+| --- | --- | --- |
+| `local main has N commit(s) origin/main lacks` | unpushed development on `main` | `git -C <path> log --oneline origin/main..main`; integrate/push |
+| `local main has diverged ... needs reconciliation` | `main` and `origin/main` each have commits the other lacks | merge `origin/main` into `main` keeping the semantic superset; push |
+| `local tracked edits that would be overwritten` | an incoming change touches a path you modified | commit the edits on the right branch and integrate, or set them aside |
+| `an untracked path that following origin/main needs to write` | an untracked or ignored file sits where the update writes | move it, or add and commit it if it is meaningful |
+| `on branch 'X' with tracked edits; LEFT on 'X'` | work in progress that belongs to branch `X` | commit it on `X`, integrate into `main`, push |
 
 Afterwards it compares each pin with the submodule's `origin/main`. A pin that
 differs prints `the PIN needs updating`; `--bump-pins` stages those gitlinks
@@ -81,7 +109,7 @@ In review mode a **missing** submodule is initialized at the commit this checkou
 records (not at today's `main`), the recorded pin is not called stale (it is the
 historical truth), and `--bump-pins` is refused. A submodule left at a different
 commit than the checkout records is named, with the command that restores the
-recorded state (`git submodule update -- <path>`, safe only when it is clean).
+recorded state (`git submodule update -- <path>`, safe only when the move would overwrite none of your local edits).
 
 Dirty, ahead and diverged submodules are never touched in either mode. A fresh
 `git worktree` on a feature branch is review mode by this rule, which is the
@@ -139,8 +167,9 @@ fatal: refusing to merge unrelated histories
 ```
 
 That is expected. Do not merge, do not `--allow-unrelated-histories`. Run
-`scripts/setup/submodules.sh`: for a clean checkout it records the old position
-under `refs/backup/pre-split/<sha>` and moves to `origin/main`.
+`scripts/setup/submodules.sh`: it records the old position (and local `main`, if
+it differs) under `refs/backup/pre-split/<sha>` and moves to `origin/main`, unless
+the move would overwrite a local tracked edit or an untracked path.
 
 By hand, the same thing is:
 
@@ -152,8 +181,8 @@ git -C <path> checkout -B main origin/main
 To look at what the old line held: `git -C <path> log refs/backup/pre-split/<sha>`
 and `git -C <path> diff origin/main refs/backup/pre-split/<sha>`. Delete the ref
 with `git -C <path> update-ref -d refs/backup/pre-split/<sha>` when you are sure
-nothing there is wanted. A dirty pre-split checkout is not moved; commit or stash
-the change first.
+nothing there is wanted. A pre-split checkout whose tracked edits the move would overwrite is not moved;
+commit the change on the right branch first.
 
 ## Troubleshooting
 

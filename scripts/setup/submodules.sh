@@ -25,22 +25,36 @@
 #
 # In EITHER mode a dirty, ahead or diverged submodule is never touched.
 #
-# THE DEVELOPMENT RULE: every submodule is on its `main` branch (tracking `origin/main`),
+# THE DEVELOPMENT RULE: every submodule is on its `main` branch at `origin/main`,
 # and a gitlink that disagrees with a submodule's `main` means the PIN is stale:
-# update the pin, do not hold the checkout back. So, per initialized submodule
-# that has no uncommitted changes:
-#   - at `origin/main`, detached or on another branch name: attach `main` (no
-#     content moves);
-#   - strictly behind `origin/main`: fast-forward `main` to it;
-#   - on the PRE-SPLIT history (no common commit with `origin/main`; the split
-#     was intentional): keep the old position under `refs/backup/pre-split/*`
-#     and move to `origin/main`;
-#   - ahead of `origin/main` (unpushed commits) or diverged from it: LEFT ALONE
-#     and reported. That is somebody's work, and AGENTS.md says to keep the
-#     semantic superset of a divergent line, not to pick one;
-#   - dirty: LEFT ALONE.
+# update the pin, do not hold the checkout back. Setup moves a checkout there only
+# when that DESTROYS NOTHING, and judges that by what the move would overwrite, not
+# by whether `git status` is empty. Four facts are kept apart: where HEAD is, where
+# LOCAL `main` is, where `origin/main` is, and what the move would write.
+#
+#   - local `main` has commits origin/main lacks (ahead), or has diverged: it is
+#     somebody's unpushed work and is NEVER reset or moved, whichever branch is
+#     checked out; the checkout is left as it is and the state is reported;
+#   - HEAD is on commits origin/main lacks (a branch or a detached HEAD): left;
+#   - HEAD is on a NAMED non-main branch with tracked edits: left on that branch
+#     (switching would take work in progress off the branch it belongs to);
+#   - the move would overwrite a locally modified TRACKED path, or write over an
+#     UNTRACKED or IGNORED path that exists on disk: nothing is changed and the
+#     path is named. An untracked file the move does not need is NOT dirty and
+#     blocks nothing;
+#   - otherwise: attach `main` (creating it, or fast-forwarding it while it is an
+#     ancestor of origin/main). Tracked edits the move does not touch are carried
+#     through. Operations are non-forcing: a fast-forward merge, a ref update
+#     guarded by the old value, a checkout git refuses when it would lose work;
+#   - on the PRE-SPLIT history (no common commit with `origin/main`; the split was
+#     intentional): keep the old HEAD and local main under
+#     `refs/backup/pre-split/*`, then move. This is the ONLY place a branch is
+#     reset (`checkout -B`), and nothing is orphaned by it.
 # Then, for each gitlink that is not `origin/main`, it says the pin needs
 # updating, and `--bump-pins` stages it (it never commits).
+#
+# Setup never commits, merges, rebases or discards on anyone's behalf; when work
+# blocks convergence it says what the work is and what to do.
 #
 # An empty authoring directory does NOT mean the capability is absent; see the
 # canonical repositories listed in AGENTS.md.
@@ -180,11 +194,106 @@ report_submodule() {
     log "   to see the state this commit recorded: git submodule update -- $path   (only when it is clean)"
 }
 
-# Put one submodule on `main` as far as that is safe; see the header. Never
-# discards a commit: every move is a fast-forward, a same-commit attach, or is
-# preceded by a ref at the old position.
+# How commit A relates to commit B: absent (A is empty), same, behind (A is an
+# ancestor of B), ahead (B is an ancestor of A), diverged, or unrelated (no
+# common commit; the intentional history split).
+commit_relation() {
+    local abs="$1" a="$2" b="$3"
+    if [ -z "$a" ]; then echo absent
+    elif [ "$a" = "$b" ]; then echo same
+    elif git -C "$abs" merge-base --is-ancestor "$a" "$b"; then echo behind
+    elif git -C "$abs" merge-base --is-ancestor "$b" "$a"; then echo ahead
+    elif [ -z "$(git -C "$abs" merge-base "$a" "$b" 2>/dev/null)" ]; then echo unrelated
+    else echo diverged
+    fi
+}
+
+# Would moving the checkout from HEAD to `target` overwrite local work? Judged by
+# what the move WRITES, not by whether `git status` is empty:
+#
+#   tracked   a path the move changes that is also modified/staged locally
+#   untracked a path the move ADDS that already exists on disk (an untracked file,
+#             a file in the way of a directory, OR AN IGNORED FILE: git itself
+#             overwrites those silently, so this check does not leave them to it)
+#
+# An untracked file the move does not need is not a hazard and is not reported.
+# Sets `hazard_tracked` / `hazard_untracked` (newline lists); returns 0 when there
+# is a hazard.
+transition_hazard() {
+    local abs="$1" target="$2" incoming local_edits p d
+    hazard_tracked=""
+    hazard_untracked=""
+    incoming="$(git -C "$abs" -c core.quotepath=off diff --name-only HEAD "$target" -- 2>/dev/null | sort -u)"
+    local_edits="$(git -C "$abs" -c core.quotepath=off diff --name-only HEAD -- 2>/dev/null | sort -u)"
+    if [ -n "$incoming" ] && [ -n "$local_edits" ]; then
+        hazard_tracked="$(comm -12 <(printf '%s\n' "$incoming") <(printf '%s\n' "$local_edits"))"
+    fi
+    while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        if [ -e "$abs/$p" ] || [ -L "$abs/$p" ]; then
+            hazard_untracked+="$p"$'\n'
+            continue
+        fi
+        d="$p"
+        while [ "$d" != "${d%/*}" ]; do
+            d="${d%/*}"
+            if [ -e "$abs/$d" ] && [ ! -d "$abs/$d" ]; then
+                hazard_untracked+="$p (blocked by the file $d)"$'\n'
+                break
+            fi
+        done
+    done < <(git -C "$abs" -c core.quotepath=off diff --name-only --diff-filter=ACR HEAD "$target" -- 2>/dev/null)
+    [ -n "$hazard_tracked" ] || [ -n "$hazard_untracked" ]
+}
+
+# Say what blocked the move and what to do. Never "dirty": the state is named.
+explain_hazard() {
+    local path="$1"
+    if [ -n "$hazard_tracked" ]; then
+        warn "$path has local tracked edits that would be overwritten by following origin/main: $(printf '%s' "$hazard_tracked" | head -5 | tr '\n' ' ')"
+        log "   nothing was changed. Inspect: git -C $path status ; git -C $path diff"
+        log "   If the edits are important, review them, commit them on the appropriate branch,"
+        log "   integrate that into the submodule's main and push, then rerun setup. Setup will not discard them."
+    fi
+    if [ -n "$hazard_untracked" ]; then
+        warn "$path has an untracked path that following origin/main needs to write: $(printf '%s' "$hazard_untracked" | head -5 | tr '\n' ' ')"
+        log "   nothing was changed. Move or delete it if it is not needed; if it is meaningful, add and commit it"
+        log "   appropriately and integrate it into main. Then rerun setup. Setup will not overwrite it."
+    fi
+}
+
+log_local_main_work() {
+    local path="$1" abs="$repo_root/$1" rel="$2" main="$3" local_main="$4" n
+    case "$rel" in
+        ahead)
+            n="$(git -C "$abs" rev-list --count "$main..$local_main")"
+            warn "$path: local main has $n commit(s) origin/main lacks (unpushed development); main was NOT moved and the checkout was left as it is"
+            log "   inspect: git -C $path log --oneline origin/main..main"
+            log "   If that work is important: review it, commit anything uncommitted as appropriate, integrate it into main,"
+            log "   push, then rerun setup. Setup never resets or discards it."
+            ;;
+        diverged)
+            warn "$path: local main has diverged from origin/main and needs reconciliation; main was NOT moved and the checkout was left as it is"
+            log "   local main: $(git -C "$abs" rev-list --count "$main..$local_main") commit(s) origin/main lacks"
+            log "   origin/main: $(git -C "$abs" rev-list --count "$local_main..$main") commit(s) local main lacks"
+            log "   Reconcile: merge origin/main into main keeping the semantic superset of both lines (AGENTS.md), push, then rerun setup."
+            ;;
+    esac
+}
+
+# Put one submodule on `main` at `origin/main` as far as that is SAFE. The
+# invariant: no local commit becomes unreachable and no local file or edit is
+# overwritten because setup wanted `main` to follow `origin/main`.
+#
+# The facts are kept separate: where HEAD is, where LOCAL `main` is, where
+# `origin/main` is, whether the move would overwrite tracked edits, and whether it
+# would overwrite an untracked path. Operations are the non-forcing ones: a
+# fast-forward merge, a ref update guarded by the old value, or a checkout git
+# refuses when it would lose something. `checkout -B` (which resets a branch) is
+# used ONLY on the intentional pre-split migration, after both old positions are
+# kept under refs/backup/pre-split/*.
 sync_submodule() {
-    local path="$1" abs="$repo_root/$1" head main branch relation dirty ahead
+    local path="$1" abs="$repo_root/$1" head main branch local_main main_rel head_rel old n
     git -C "$abs" fetch -q origin 2>/dev/null \
         || warn "$path: could not fetch origin (offline?); judging against what is already fetched"
     main="$(git -C "$abs" rev-parse --verify -q origin/main || true)"
@@ -194,59 +303,93 @@ sync_submodule() {
     fi
     head="$(git -C "$abs" rev-parse HEAD)"
     branch="$(git -C "$abs" branch --show-current 2>/dev/null || true)"
-    dirty="$(git -C "$abs" status --porcelain --untracked-files=no | head -1)"
+    local_main="$(git -C "$abs" rev-parse --verify -q refs/heads/main || true)"
+    main_rel="$(commit_relation "$abs" "$local_main" "$main")"
+    head_rel="$(commit_relation "$abs" "$head" "$main")"
 
-    if [ "$head" = "$main" ]; then
-        relation=same
-    elif git -C "$abs" merge-base --is-ancestor "$head" "$main"; then
-        relation=behind
-    elif git -C "$abs" merge-base --is-ancestor "$main" "$head"; then
-        relation=ahead
-    elif [ -z "$(git -C "$abs" merge-base "$head" "$main" 2>/dev/null)" ]; then
-        relation=unrelated
-    else
-        relation=diverged
-    fi
-
-    case "$relation" in
-        same)
-            if [ "$branch" != main ]; then
-                git -C "$abs" checkout -q -B main origin/main
-                log "$path: attached main at ${main:0:9} (was ${branch:-detached})"
-            fi
-            ;;
-        behind)
-            if [ -n "$dirty" ]; then
-                warn "$path is behind origin/main but has uncommitted changes; LEFT ALONE"
-                return 0
-            fi
-            git -C "$abs" checkout -q -B main origin/main
-            log "$path: fast-forwarded to origin/main ${main:0:9} (from ${head:0:9})"
-            ;;
-        unrelated)
-            # The history was split on purpose, so a checkout on the old lineage
-            # is expected on an older machine. Keep where it was, then move.
-            if [ -n "$dirty" ]; then
-                warn "$path is on the pre-split history and has uncommitted changes; LEFT ALONE"
-                return 0
-            fi
-            local backup="refs/backup/pre-split/${head:0:12}"
-            git -C "$abs" update-ref "$backup" "$head"
-            git -C "$abs" checkout -q -B main origin/main
-            log "$path: was on the pre-split history (${head:0:9}); kept as $backup, now on origin/main ${main:0:9}"
-            ;;
-        ahead)
-            ahead="$(git -C "$abs" rev-list --count "$main..$head")"
-            warn "$path has $ahead commit(s) origin/main lacks and was LEFT ALONE"
-            log "   push them (git -C $path push origin HEAD:main) or keep working; then bump the pin"
-            ;;
-        diverged)
-            warn "$path has diverged from origin/main and was LEFT ALONE"
-            log "   ours:   $(git -C "$abs" rev-list --count "$main..$head") commit(s) origin/main lacks"
-            log "   theirs: $(git -C "$abs" rev-list --count "$head..$main") commit(s) this checkout lacks"
-            log "   keep the semantic superset of both lines (AGENTS.md); do not pick by recency"
+    # 1. LOCAL main with work origin/main lacks is protected before anything else,
+    #    whichever branch is checked out: its commits are only reachable from it.
+    case "$main_rel" in
+        ahead|diverged)
+            log_local_main_work "$path" "$main_rel" "$main" "$local_main"
+            return 0
             ;;
     esac
+
+    # 2. The checkout itself: work on a branch/detached HEAD that origin/main lacks.
+    if [ "$branch" != main ]; then
+        case "$head_rel" in
+            ahead|diverged)
+                local where="a detached HEAD"
+                [ -z "$branch" ] || where="branch '$branch'"
+                if [ "$head_rel" = diverged ]; then
+                    warn "$path: $where has diverged from origin/main and was LEFT ALONE"
+                    log "   ours: $(git -C "$abs" rev-list --count "$main..$head") commit(s) origin/main lacks"
+                    log "   theirs: $(git -C "$abs" rev-list --count "$head..$main") commit(s) this checkout lacks"
+                    log "   Reconcile: merge origin/main in, keeping the semantic superset of both lines (AGENTS.md); do not pick by recency."
+                else
+                    n="$(git -C "$abs" rev-list --count "$main..$head")"
+                    warn "$path: $where has $n commit(s) origin/main lacks and was LEFT ALONE"
+                    log "   If that work is important, review it, commit anything uncommitted, integrate it into main and push."
+                fi
+                [ -n "$branch" ] || log "   (HEAD is detached: keep it with: git -C $path switch -c <name>)"
+                log "   Then rerun setup. Setup never moves a checkout off unpushed work."
+                return 0
+                ;;
+        esac
+        # A named non-main branch with tracked edits: switching would take the work
+        # in progress off the branch it belongs to, even when the commits match.
+        if [ -n "$branch" ] && ! git -C "$abs" diff --quiet HEAD --; then
+            warn "$path is on branch '$branch' with tracked edits; LEFT on '$branch' (switching to main would carry them off it)"
+            log "   Commit the work on '$branch', integrate it into main, push, then rerun setup."
+            return 0
+        fi
+    fi
+
+    # 3. Already there.
+    if [ "$branch" = main ] && [ "$head_rel" = same ]; then
+        return 0
+    fi
+
+    # 4. The move would write the tree between HEAD and origin/main.
+    if transition_hazard "$abs" "$main"; then
+        explain_hazard "$path"
+        return 0
+    fi
+
+    # 5. The intentional history split: keep BOTH old positions, then move. This
+    #    is the only place a branch is reset, and nothing is orphaned by it.
+    if [ "$head_rel" = unrelated ] || [ "$main_rel" = unrelated ]; then
+        local pos
+        for pos in "$head" "$local_main"; do
+            [ -n "$pos" ] || continue
+            [ "$(commit_relation "$abs" "$pos" "$main")" = unrelated ] || continue
+            git -C "$abs" update-ref "refs/backup/pre-split/${pos:0:12}" "$pos"
+            log "$path: pre-split position ${pos:0:9} kept as refs/backup/pre-split/${pos:0:12}"
+        done
+        git -C "$abs" checkout -q -B main origin/main \
+            || { warn "$path: git refused the pre-split move (nothing was lost; the old positions are kept under refs/backup/pre-split/*)"; return 0; }
+        log "$path: moved to origin/main ${main:0:9} (was on the pre-split history)"
+        return 0
+    fi
+
+    # 6. The ordinary case: local main is absent, equal, or behind origin/main.
+    if [ "$branch" = main ]; then
+        git -C "$abs" merge -q --ff-only origin/main \
+            || { warn "$path: git refused the fast-forward (nothing was changed)"; return 0; }
+        log "$path: fast-forwarded main to origin/main ${main:0:9} (from ${head:0:9})"
+        return 0
+    fi
+    if [ -z "$local_main" ]; then
+        git -C "$abs" branch -q --track main origin/main
+    elif [ "$local_main" != "$main" ]; then
+        # local main is BEHIND origin/main (an ancestor), so this loses no commit;
+        # the old value guards against it having moved since it was read.
+        git -C "$abs" update-ref refs/heads/main "$main" "$local_main"
+    fi
+    git -C "$abs" checkout -q main \
+        || { warn "$path: git refused to switch to main (nothing was lost)"; return 0; }
+    log "$path: now on main at origin/main ${main:0:9} (was ${branch:-detached} at ${head:0:9})"
 }
 
 # True when the recorded gitlink is not the submodule's `origin/main` and the

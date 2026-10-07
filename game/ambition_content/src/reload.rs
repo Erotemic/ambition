@@ -440,7 +440,7 @@ const ADAPTIVE_MUSIC_DOMAINS: &[&str] = &[
 #[cfg(feature = "audio")]
 type AdaptiveCues = Option<ambition_audio::music::AdaptiveMusicCatalogRegistry>;
 #[cfg(not(feature = "audio"))]
-type AdaptiveCues = ();
+type AdaptiveCues = Option<std::convert::Infallible>;
 
 /// The adaptive music catalog a candidate publishes, or nothing when it
 /// changes no cue domain. Assembled from the App's registry with Ambition's
@@ -478,7 +478,7 @@ fn candidate_adaptive_cues(
     _world: &bevy::ecs::world::World,
     _pack: &ambition_content_pack::PreparedContentPack,
 ) -> Result<AdaptiveCues, String> {
-    Ok(())
+    Ok(None)
 }
 
 /// The providers a candidate's adaptive registry carries a catalog for: what

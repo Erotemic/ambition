@@ -432,23 +432,32 @@ pub fn export_sources_to(root: &std::path::Path) -> std::io::Result<usize> {
     Ok(written)
 }
 
-/// The prepared pack, compiled once per process.
+/// Ambition's canonical SHIPPED pack, compiled once per process.
 ///
-/// Every family's install reads this one value. Compiling per family would
-/// multiply the cost and let two families disagree about their pack.
+/// ⛔ BOOT-SCOPED INSPECTION ONLY. The subject of a caller is "the pack this
+/// product ships": a source-content test, an offline validator, a tool. It is
+/// NOT "the pack of this App". An App's content is whatever
+/// [`SelectedContentPack`] holds: read it with [`selected`] (or take
+/// `Res<SelectedContentPack>` in a system), and install it with [`select`]
+/// during composition. A runtime reader that calls this function gives every
+/// App in the process the first App's content.
+///
+/// The name says this on purpose. `crate::pack_selection_tests` scans the
+/// production source and refuses a call outside its short, reasoned list.
 ///
 /// Fails loudly: a silent partial start (content that lost a character or an
 /// item) would be worse.
-pub fn prepared() -> &'static PreparedContentPack {
+pub fn shipped() -> &'static PreparedContentPack {
     boot_pack()
 }
 
 /// The process's boot pack, behind an `Arc` so an App can hold it without a
 /// second compile.
 ///
-/// Private. [`prepared`] is the read for a family not yet migrated to
-/// App-scoped selection; [`selected`] is the read for one that is. Handing out
-/// the `Arc` would make "which pack is this App's" answerable from anywhere.
+/// Private. [`shipped`] is the read for a caller whose subject is the shipped
+/// product; [`select`] is the only road by which an App gets this value, and
+/// only when nothing chose a pack for it. Handing out the `Arc` would make
+/// "which pack is this App's" answerable from anywhere.
 fn boot_pack() -> &'static std::sync::Arc<PreparedContentPack> {
     static PREPARED: std::sync::OnceLock<std::sync::Arc<PreparedContentPack>> =
         std::sync::OnceLock::new();
@@ -517,14 +526,22 @@ pub(crate) fn install_selection(
 
 /// This App's pack, selecting the process's boot pack if nothing chose one.
 ///
+/// Every App-owned install (a plugin's `build`, a `register` function) calls
+/// this once and derives its family from the result. The first caller in an
+/// App fixes the selection for the others, so no two families of one App can
+/// read different packs.
+///
 /// The fallback is an insert, not a read-through. A read-through would answer
 /// from the boot pack while the App believed it had a selection, so later
 /// `selected` calls could disagree with the first.
-pub fn select(world: &mut bevy::ecs::world::World) -> &PreparedContentPack {
+///
+/// Selection is not publication: a pack chosen after a family installed does
+/// not revise that family. Use [`select_pack`] before composition.
+pub fn select(world: &mut bevy::ecs::world::World) -> std::sync::Arc<PreparedContentPack> {
     if !world.contains_resource::<SelectedContentPack>() {
         install_selection(world, std::sync::Arc::clone(boot_pack()));
     }
-    world.resource::<SelectedContentPack>().get()
+    std::sync::Arc::clone(&world.resource::<SelectedContentPack>().0)
 }
 
 /// This App's pack, or `None` when nothing has selected one.

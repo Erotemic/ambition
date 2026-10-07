@@ -22,7 +22,7 @@ fn every_intro_dialogue_id_is_registered_with_validator() {
     // and a reader has to check both to learn they say one thing.
     // ⚠ The name kept is the one that says WHY the property matters; the
     // deleted name said only what the code did.
-    let catalog = crate::character_catalog::load_catalog();
+    let catalog = crate::character_catalog::shipped_catalog();
     let known: std::collections::HashSet<String> = crate::dialogue::known_dialogue_ids(&catalog)
         .into_iter()
         .collect();
@@ -123,7 +123,7 @@ fn each_intro_room_says_its_cutscene_in_data_and_the_library_has_it() {
         .to_room_set(&manifest, &LdtkVocabulary::engine())
         .expect("the shipped worlds compose")
         .rooms;
-    let lib = crate::dialogue::cutscene_defaults::default_cutscene_library();
+    let lib = crate::dialogue::cutscene_defaults::cutscene_library_of(crate::pack::shipped());
     for (room, cutscene) in [
         ("intro_wake_room", "intro_wake"),
         ("intro_raid_corridor", "intro_raid"),

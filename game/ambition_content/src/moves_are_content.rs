@@ -17,7 +17,7 @@ use ambition_characters::moveset_content_schema::lowered_movesets;
 #[test]
 fn every_character_the_move_section_names_is_one_this_game_builds() {
     let buildable: std::collections::BTreeSet<&str> =
-        crate::character_catalog::buildable_cast().collect();
+        crate::character_catalog::shipped_buildable_cast().collect();
     assert!(
         buildable.len() >= 20,
         "{} buildable character(s) — the set this compares against is not the \
@@ -25,7 +25,7 @@ fn every_character_the_move_section_names_is_one_this_game_builds() {
         buildable.len()
     );
     let table =
-        lowered_movesets(crate::pack::prepared()).expect("the shipped pack carries a move section");
+        lowered_movesets(crate::pack::shipped()).expect("the shipped pack carries a move section");
     assert!(!table.is_empty(), "the move section is empty");
     let strangers: Vec<&str> = table
         .keys()
@@ -50,11 +50,11 @@ fn every_character_the_move_section_names_is_one_this_game_builds() {
 #[test]
 fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
     let table =
-        lowered_movesets(crate::pack::prepared()).expect("the shipped pack carries a move section");
+        lowered_movesets(crate::pack::shipped()).expect("the shipped pack carries a move section");
     let mut checked = 0usize;
     for id in table.keys().map(String::as_str) {
         let definition = ambition_characters::pack_facets::fold_character_facets(
-            crate::pack::prepared(),
+            crate::pack::shipped(),
             ambition_platformer2d::character::CharacterDefinition::new(
                 id,
                 id,

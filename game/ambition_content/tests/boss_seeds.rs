@@ -23,7 +23,7 @@ use ambition_boss_encounter::pattern::seeds::SeedLibrary;
 use ambition_characters::brain::boss_pattern::{
     BossAttackPattern, BossAttackProfile, BossPatternStep,
 };
-use ambition_content::bosses::{boss_profiles_ron, seed_library};
+use ambition_content::bosses::{boss_profiles_ron, seed_library_of};
 use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 
 /// One authored appearance of an attack: its telegraph and active durations.
@@ -129,7 +129,7 @@ fn move_key(profile: &BossAttackProfile) -> &str {
 }
 
 fn library() -> &'static SeedLibrary {
-    seed_library()
+    seed_library_of(ambition_content::pack::shipped())
 }
 
 /// (1) Coverage, both directions. A move the roster uses that no seed claims is an

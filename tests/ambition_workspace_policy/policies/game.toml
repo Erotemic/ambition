@@ -270,7 +270,7 @@ watch_paths = ["game/ambition_app/src/app/sim_resources.rs"]
 rationale = "app/sim_resources.rs must not construct named content inline"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-forbid = ["QuestRegistry::default()", "BossEncounterRegistry::default()", "default_cutscene_library()", "default_room_cutscene_bindings()", "install_boss_banter", "install_pirate_banter", "crate::intro::IntroPlugin"]
+forbid = ["QuestRegistry::default()", "BossEncounterRegistry::default()", "default_cutscene_library()", "cutscene_library_of(", "pack::shipped", "default_room_cutscene_bindings()", "install_boss_banter", "install_pirate_banter", "crate::intro::IntroPlugin"]
 file = "game/ambition_app/src/app/sim_resources.rs"
 
 [[policy]]

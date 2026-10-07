@@ -128,7 +128,7 @@ fn every_summoned_minion_id_resolves_a_body() {
     const KNOWN_UNRESOLVED: &[(&str, &str)] = &[];
 
     let buildable: std::collections::BTreeSet<&str> =
-        ambition_content::character_catalog::buildable_cast().collect();
+        ambition_content::character_catalog::shipped_buildable_cast().collect();
 
     // the SCANNED half: every `*_ARCHETYPE` constant in the engine and the
     // games, wherever somebody writes the next one.

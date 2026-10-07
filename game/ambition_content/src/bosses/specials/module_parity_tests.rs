@@ -234,7 +234,7 @@ fn world(road: Road, technique: &Technique) -> (App, Vec<Entity>) {
         LiveRoomInstance::ACTIVATION,
         ae::RoomGeometry(ae::World::new("arena", ae::Vec2::new(1792.0, 900.0), ae::Vec2::ZERO, Vec::new())),
     ));
-    let catalog = crate::bosses::authored_boss_catalog();
+    let catalog = crate::bosses::shipped_boss_catalog();
     let player = app
         .world_mut()
         .spawn((

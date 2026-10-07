@@ -2,11 +2,12 @@
 
 use ambition_cutscene::CutsceneLibrary;
 
-/// Every cutscene Ambition ships: the `cutscene_library` its pack lowered from
-/// `assets/data/cutscenes/*.ron`.
-pub fn default_cutscene_library() -> CutsceneLibrary {
+/// Every cutscene `pack` ships: the `cutscene_library` it lowered from
+/// `assets/data/cutscenes/*.ron`. Installed at composition; the library does
+/// not reload.
+pub fn cutscene_library_of(pack: &ambition_content_pack::PreparedContentPack) -> CutsceneLibrary {
     let mut library = CutsceneLibrary::default();
-    for script in ambition_cutscene::content_schema::lowered_cutscenes(crate::pack::prepared())
+    for script in ambition_cutscene::content_schema::lowered_cutscenes(pack)
         .expect("Ambition's pack declares its cutscene_library files")
     {
         library.insert(script.clone());
@@ -35,7 +36,7 @@ mod tests {
         let shipped = crate::pack::compile_pack().expect("the shipped pack compiles");
         let mut shipped_ids = ids(&shipped);
         shipped_ids.sort();
-        let installed: Vec<String> = default_cutscene_library().scripts.into_keys().collect();
+        let installed: Vec<String> = cutscene_library_of(crate::pack::shipped()).scripts.into_keys().collect();
         assert_eq!(shipped_ids, installed);
 
         let append = |file: &'static str, script: &'static str| {
@@ -60,13 +61,13 @@ mod tests {
 
     #[test]
     fn default_cutscene_library_includes_test_intro() {
-        let lib = default_cutscene_library();
+        let lib = cutscene_library_of(crate::pack::shipped());
         assert!(lib.get("test_intro").is_some());
     }
 
     #[test]
     fn default_cutscene_library_includes_boss_intro() {
-        let lib = default_cutscene_library();
+        let lib = cutscene_library_of(crate::pack::shipped());
         assert!(lib.get("boss_intro_gradient_sentinel").is_some());
     }
 }

@@ -8,13 +8,11 @@
 
 use ambition_audio::music::MusicCueCatalog;
 
-/// Ambition's adaptive music catalog, from its boot pack.
-pub fn ambition_music_cue_catalog() -> MusicCueCatalog {
-    music_cue_catalog_from(crate::pack::prepared())
-}
-
 /// The director's catalog for the adaptive music `pack` lowered.
-fn music_cue_catalog_from(pack: &ambition_content_pack::PreparedContentPack) -> MusicCueCatalog {
+///
+/// A composition passes its selected pack; the catalog is installed at
+/// composition and is not part of a reload (see the I3 plan).
+pub fn music_cue_catalog_from(pack: &ambition_content_pack::PreparedContentPack) -> MusicCueCatalog {
     let authored = ambition_audio::content_schema::lowered_music_cues(pack)
         .cloned()
         .expect("the music_cue_catalog schema lowers its file for every pack that compiles");
@@ -57,10 +55,10 @@ mod tests {
             (binding.cue_id, binding.starting_state)
         };
         assert_eq!(
-            binding(&ambition_music_cue_catalog()),
+            binding(&music_cue_catalog_from(crate::pack::shipped())),
             ("first_goblin_tune_v2".to_string(), "intro".to_string())
         );
-        assert!(ambition_music_cue_catalog().validate_references().is_empty());
+        assert!(music_cue_catalog_from(crate::pack::shipped()).validate_references().is_empty());
 
         let edited = compiled_with(r#"starting_state: "intro""#, r#"starting_state: "wave1""#)
             .expect("a binding that starts on another state compiles");

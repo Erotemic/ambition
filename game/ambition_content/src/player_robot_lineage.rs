@@ -16,7 +16,7 @@
 /// When a row on the chain names a character the catalog does not have, or
 /// the chain comes back to itself.
 pub fn lineage() -> Vec<String> {
-    let catalog = crate::character_catalog::load_catalog();
+    let catalog = crate::character_catalog::shipped_catalog();
     let mut chain = vec![crate::character_catalog::DEFAULT_CHARACTER.to_string()];
     while let Some(previous) = catalog
         .get(chain.last().expect("the chain starts non-empty"))
@@ -387,7 +387,7 @@ mod tests {
     /// asks, through the situation pool and then `fallback_dialogue`.
     #[test]
     fn every_incarnation_says_something() {
-        let catalog = crate::character_catalog::load_catalog();
+        let catalog = crate::character_catalog::shipped_catalog();
         for id in &lineage() {
             let id = id.as_str();
             for situation in [

@@ -164,7 +164,7 @@ mod tests {
         );
 
         let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 400.0), ae::Vec2::new(64.0, 64.0));
-        let boss_catalog = crate::bosses::authored_boss_catalog();
+        let boss_catalog = crate::bosses::shipped_boss_catalog();
         let boss = BossClusterScratch::new(
             &boss_catalog,
             "test_boss",
@@ -234,7 +234,7 @@ mod tests {
         );
 
         let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 400.0), ae::Vec2::new(64.0, 64.0));
-        let boss_catalog = crate::bosses::authored_boss_catalog();
+        let boss_catalog = crate::bosses::shipped_boss_catalog();
         let boss = BossClusterScratch::new(
             &boss_catalog,
             "test_boss",

@@ -17,6 +17,10 @@ pub struct AmbitionQuestContentPlugin;
 impl Plugin for AmbitionQuestContentPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        // `populate_quest_registry` reads the App's selected pack at startup.
+        // Selecting here makes the plugin self-sufficient and, like every other
+        // selection, idempotent.
+        crate::pack::select(app.world_mut());
         app.insert_resource(crate::quest::QuestRegistry::default());
         // ⭐ THE QUEST DOMAIN PUBLISHES ITS OWN QUESTION, from the plugin that
         // owns the roster and the pump. First condition published by the GAME

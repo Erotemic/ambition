@@ -5,7 +5,7 @@
 //! the loop below.
 
 use ambition_asset_manager::AssetProfile;
-use ambition_content::audio_registries::load_music_registry;
+use ambition_content::audio_registries::shipped_music_registry;
 use ambition_sprite_sheet::game_assets::GameAssetConfig;
 
 #[test]
@@ -18,14 +18,14 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
     // App-local catalog supplied by the composition root.
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
-    let music = load_music_registry();
+    let music = shipped_music_registry();
     let character_catalog =
         ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(
                 &ambition_content::character_catalog::character_catalog_ron(),
             ),
         );
-    let boss_catalog = ambition_content::bosses::authored_boss_catalog();
+    let boss_catalog = ambition_content::bosses::shipped_boss_catalog();
     // The intro entries are a CONTENT extension (the app assembly wires
     // them through `build_sandbox_catalog_with`); mirror that wiring here.
     let catalog = ambition_platformer2d_actor_monolith::assets::platformer_assets::build_sandbox_catalog_with(

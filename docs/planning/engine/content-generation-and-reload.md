@@ -269,9 +269,6 @@ whether the prior scene is unchanged, recovered or stopped.
 
 ## Open work
 
-- `ambition_content::pack::prepared()` is a process-global `OnceLock` that
-  serves the boot-time pack. Readers that still call it do not see a reload.
-  Move them to the App-scoped selection (I3 step 1).
 - The cutscene libraries, the quest book and the music-cue catalog do not take
   part in reload.
 - Supersession of an in-flight generation through a real cancellation.

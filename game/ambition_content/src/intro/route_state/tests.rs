@@ -68,7 +68,7 @@ fn emit_chains_promotes_bob_survey_to_private_marks() {
 /// steps.
 #[test]
 fn cartography_quest_advances_through_alice_bob_p5() {
-    use crate::quest::{apply_quest_advance_events, default_quest_specs, QuestRegistry};
+    use crate::quest::{apply_quest_advance_events, shipped_quest_specs, QuestRegistry};
     use ambition_combat::events::SetFlagRequested;
     use ambition_persistence::quest::QuestAdvanceRequested;
     use ambition_persistence::save::AmbitionGameSave;
@@ -78,7 +78,7 @@ fn cartography_quest_advances_through_alice_bob_p5() {
     let mut app = App::new();
     app.insert_resource(AmbitionGameSave::default());
     let mut registry = QuestRegistry::default();
-    for spec in default_quest_specs() {
+    for spec in shipped_quest_specs() {
         registry.ensure(spec);
     }
     if let Some(q) = registry.quests.get_mut("intro_cartography_route") {

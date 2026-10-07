@@ -163,7 +163,7 @@ fn world(road: Road, arm: Arm) -> (App, Entity, Entity) {
             PlayerEntity,
         ))
         .id();
-    let catalog = crate::bosses::authored_boss_catalog();
+    let catalog = crate::bosses::shipped_boss_catalog();
     // Built as the game builds it: a placement id of its own, and the god's
     // behaviour through its phase script.
     let mut boss = BossClusterScratch::new(

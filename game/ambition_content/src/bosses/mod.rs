@@ -45,7 +45,7 @@ const BOSS_PROFILES_RON_STATIC: Option<&'static str> = Some(include_str!("../../
 const BOSS_PROFILES_RON_STATIC: Option<&'static str> = None;
 
 /// `boss_sheets.ron` and `boss_art_keys.ron`: not pack sources (see
-/// [`boss_catalog_fragment`]), read off disk the same way.
+/// [`boss_catalog_fragment_from`]), read off disk the same way.
 pub const BOSS_SHEETS_SOURCE_PATH: &str = "data/boss_sheets.ron";
 #[cfg(feature = "static_content")]
 const BOSS_SHEETS_RON_STATIC: Option<&'static str> = Some(include_str!("../../assets/data/boss_sheets.ron"));
@@ -87,21 +87,27 @@ pub fn boss_validator_bands_ron() -> String {
     crate::pack::source_text(BOSS_VALIDATOR_BANDS_SOURCE_PATH, BOSS_VALIDATOR_BANDS_RON_STATIC)
 }
 
-/// The validator bands the fight validator judges against.
-pub fn validator_bands() -> &'static ambition_boss_encounter::pattern::validator::ValidatorBands {
-    ambition_boss_encounter::pattern::content_schema::lowered_validator_bands(
-        crate::pack::prepared(),
-    )
+/// The validator bands the fight validator judges against, from `pack`.
+///
+/// The validator is an authoring tool, not an installed runtime resource: its
+/// callers name the pack they judge, and the shipped game's tests pass
+/// [`crate::pack::shipped`].
+pub fn validator_bands_of(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> &ambition_boss_encounter::pattern::validator::ValidatorBands {
+    ambition_boss_encounter::pattern::content_schema::lowered_validator_bands(pack)
     .expect("the bands schema lowers its calibration for every pack that compiles")
 }
 
-/// The boss seed library.
+/// The boss seed library of `pack`.
 ///
 /// Same move as the bands: the compiler's lowered artifact, not a re-parse.
 /// The schema refuses an inverted duration band (which matches nothing, so every
 /// instance silently falls outside it) and an attack claimed by two seeds.
-pub fn seed_library() -> &'static ambition_boss_encounter::pattern::seeds::SeedLibrary {
-    ambition_boss_encounter::pattern::content_schema::lowered_seed_library(crate::pack::prepared())
+pub fn seed_library_of(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> &ambition_boss_encounter::pattern::seeds::SeedLibrary {
+    ambition_boss_encounter::pattern::content_schema::lowered_seed_library(pack)
         .expect("the seed schema lowers its library for every pack that compiles")
 }
 
@@ -165,13 +171,9 @@ boss_encounter_sources!(
 /// Stated here rather than left implied, because "the boss content goes through
 /// the compiler" is the kind of half-true claim this whole effort exists to stop
 /// making.
-pub fn boss_catalog_fragment() -> ambition_boss_encounter::BossCatalogFragment {
-    boss_catalog_fragment_from(crate::pack::prepared())
-        .unwrap_or_else(|error| panic!("Ambition boss content should form one valid catalog fragment: {error}"))
-}
-
-/// Ambition's boss fragment from `pack`: the boot pack at startup, a reload's
-/// candidate pack at request time (`crate::reload`).
+///
+/// The fragment is built from the pack the caller names: a composition passes
+/// its selected pack ([`register`]), a reload its candidate (`crate::reload`).
 pub fn boss_catalog_fragment_from(
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> Result<ambition_boss_encounter::BossCatalogFragment, String> {
@@ -209,28 +211,43 @@ pub fn boss_catalog_fragment_from(
     Ok(fragment)
 }
 
-/// Assemble Ambition's boss catalog without constructing a Bevy App.
+/// Assemble the boss catalog of `pack` without constructing a Bevy App.
 ///
-/// Pure content tests use this helper so they exercise the same provider
-/// fragment as production composition rather than installing process state.
-pub fn authored_boss_catalog() -> ambition_boss_encounter::BossCatalog {
+/// Pure content tests and the content validator use this helper so they
+/// exercise the same provider fragment as production composition rather than
+/// installing process state.
+pub fn boss_catalog_of(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> ambition_boss_encounter::BossCatalog {
     let mut registry = ambition_boss_encounter::BossCatalogRegistry::default();
     registry
-        .register(boss_catalog_fragment())
+        .register(boss_catalog_fragment_from(pack).unwrap_or_else(|error| {
+            panic!("Ambition boss content should form one valid catalog fragment: {error}")
+        }))
         .expect("Ambition boss fragment should register");
     registry
         .assemble()
         .expect("Ambition boss fragment should assemble")
 }
 
-/// Contribute Ambition's immutable boss fragment to one Bevy App.
+/// The boss catalog of Ambition's SHIPPED pack: for a test or a validator whose
+/// subject is the shipped product, not a composition.
+pub fn shipped_boss_catalog() -> ambition_boss_encounter::BossCatalog {
+    boss_catalog_of(crate::pack::shipped())
+}
+
+/// Contribute Ambition's immutable boss fragment, lowered from the App's
+/// selected pack, to one Bevy App.
 ///
 /// Registration is idempotent for the same provider payload, so a host may
 /// call this before building its asset catalog and later add
 /// [`AmbitionBossContentPlugin`] without coordinating install order.
 pub fn register(app: &mut App) {
     use ambition_boss_encounter::BossCatalogAppExt as _;
-    app.register_boss_catalog_fragment(boss_catalog_fragment());
+    let pack = crate::pack::select(app.world_mut());
+    app.register_boss_catalog_fragment(boss_catalog_fragment_from(&pack).unwrap_or_else(|error| {
+        panic!("Ambition boss content should form one valid catalog fragment: {error}")
+    }));
 }
 
 /// Registers Ambition's boss fragment, initializes the live encounter
@@ -508,7 +525,7 @@ mod apple_rain_animation_key_tests {
     /// profile identity. It is deliberately not asserting which.
     #[test]
     fn apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked() {
-        let catalog = super::authored_boss_catalog();
+        let catalog = super::shipped_boss_catalog();
         let profile = BossAttackProfile::Special("apple_rain".to_string());
         let claimed =
             ambition_boss_encounter::behavior::boss_animation_keys_for_profile(&catalog, &profile);
@@ -535,7 +552,7 @@ mod encounter_book_tests {
     #[test]
     fn the_encounter_book_the_runtime_loads_is_the_one_the_compiler_merged() {
         let book = ambition_boss_encounter::pattern::content_schema::lowered_boss_encounters(
-            crate::pack::prepared(),
+            crate::pack::shipped(),
         )
         .expect("the encounter schema merges its files for every pack that compiles");
         assert_eq!(
@@ -543,7 +560,7 @@ mod encounter_book_tests {
             super::BOSS_ENCOUNTERS.len(),
             "one merged entry per authored file"
         );
-        let catalog = super::authored_boss_catalog();
+        let catalog = super::shipped_boss_catalog();
         for (id, spec) in book {
             assert_eq!(
                 catalog.encounter(id),
@@ -567,7 +584,7 @@ mod sheet_body_tests {
     fn a_boss_is_built_with_the_body_its_sheet_draws() {
         use ambition_platformer2d_core::{Aabb, AabbExt, Vec2};
 
-        let catalog = super::authored_boss_catalog();
+        let catalog = super::shipped_boss_catalog();
         let boss = ambition_boss_encounter::BossClusterScratch::new(
             &catalog,
             "boss_clockwork_warden",
@@ -604,7 +621,7 @@ mod sheet_body_tests {
     fn every_authored_boss_takes_its_body_from_the_sheet_it_wears() {
         use ambition_platformer2d_core::{Aabb, Vec2};
 
-        let catalog = super::authored_boss_catalog();
+        let catalog = super::shipped_boss_catalog();
         let bodiless: Vec<String> = catalog
             .encounter_specs()
             .map(|spec| spec.id.clone())

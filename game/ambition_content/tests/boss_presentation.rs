@@ -90,7 +90,7 @@ const EXPECTED_STRIKE_ROWS: [(&str, &[&str]); 11] = [
 fn each_geometry_strike_asks_for_exactly_these_rows() {
     use ambition_characters::brain::boss_pattern::BUILTIN_STRIKE_KEYS;
     use ambition_characters::brain::BossAttackProfile;
-    let catalog = ambition_content::bosses::authored_boss_catalog();
+    let catalog = ambition_content::bosses::shipped_boss_catalog();
     let got: BTreeMap<&str, Vec<String>> = BUILTIN_STRIKE_KEYS
         .iter()
         .map(|key| {
@@ -143,7 +143,7 @@ const EXPECTED_ATTACK_ART: [(&str, bool, Option<&str>, Option<&str>); 14] = [
 #[test]
 fn each_attack_plays_exactly_this_row_and_samples_exactly_this_row() {
     use ambition_characters::brain::BossAttackProfile;
-    let catalog = ambition_content::bosses::authored_boss_catalog();
+    let catalog = ambition_content::bosses::shipped_boss_catalog();
     let got: Vec<(&str, bool, Option<String>, Option<String>)> = EXPECTED_ATTACK_ART
         .iter()
         .map(|(move_id, special, _, _)| {
@@ -175,7 +175,7 @@ fn each_attack_plays_exactly_this_row_and_samples_exactly_this_row() {
 
 #[test]
 fn the_boss_sheet_filenames_are_exactly_these_seven() {
-    let catalog = ambition_content::bosses::authored_boss_catalog();
+    let catalog = ambition_content::bosses::shipped_boss_catalog();
     let got: BTreeMap<&str, &str> = catalog.sprite_filenames().collect();
     let want: BTreeMap<&str, &str> = EXPECTED_SHEETS.iter().copied().collect();
     assert_eq!(
@@ -187,7 +187,7 @@ fn the_boss_sheet_filenames_are_exactly_these_seven() {
 
 #[test]
 fn the_ten_telegraphing_specials_ask_for_exactly_these_rows() {
-    let catalog = ambition_content::bosses::authored_boss_catalog();
+    let catalog = ambition_content::bosses::shipped_boss_catalog();
     for (special, want) in EXPECTED_TELEGRAPHS {
         let got: Vec<&str> = catalog
             .special_animation_keys(special)
@@ -209,7 +209,7 @@ fn the_ten_telegraphing_specials_ask_for_exactly_these_rows() {
 #[test]
 fn every_telegraphing_special_is_one_the_profiles_actually_declare() {
     use ambition_characters::brain::BossAttackProfile;
-    let catalog = ambition_content::bosses::authored_boss_catalog();
+    let catalog = ambition_content::bosses::shipped_boss_catalog();
     // Every encounter has a behavior and vice versa — `BossCatalogFragment`
     // validates both directions — so walking the encounters reaches every boss.
     let declared: BTreeSet<String> = catalog

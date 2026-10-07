@@ -54,9 +54,11 @@ impl ContentValidationReport {
     }
 }
 
-/// Validate the checked-in sandbox content graph.
+/// Validate the checked-in sandbox content graph, against Ambition's SHIPPED
+/// pack. The subject is the shipped product, not a composition.
 pub fn validate_embedded_content_graph() -> ContentValidationReport {
-    let music = crate::audio_registries::load_music_registry();
+    let pack = crate::pack::shipped();
+    let music = crate::audio_registries::music_registry_of(pack);
     let project = match LdtkProject::load_default_for_dev(&crate::worlds::world_manifest()) {
         Ok(project) => project,
         Err(error) => {
@@ -65,13 +67,18 @@ pub fn validate_embedded_content_graph() -> ContentValidationReport {
             return report;
         }
     };
-    let character_catalog = crate::character_catalog::load_catalog();
-    validate_content_graph(&music, &project, &character_catalog)
+    let character_catalog = crate::character_catalog::catalog_of(pack);
+    validate_content_graph(pack, &music, &project, &character_catalog)
 }
 
 /// Validate relationships among the music registry and the LDtk world
 /// (room/encounter/boss music references, dialogue, quests, patrols).
+///
+/// `pack` is the pack under validation: a composition passes its selected pack,
+/// so the boss roster, encounter waves, quests and cutscenes judged here are
+/// the ones the App installed.
 pub fn validate_content_graph(
+    pack: &ambition_content_pack::PreparedContentPack,
     music: &MusicRegistry,
     project: &LdtkProject,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
@@ -124,9 +131,9 @@ pub fn validate_content_graph(
     validate_room_music_tracks(project, music, &mut report);
     validate_npc_dialogue_ids(project, character_catalog, &mut report);
     validate_npc_brain_overrides(project, character_catalog, &mut report);
-    validate_quest_conditions(&rooms, music, &mut report);
-    validate_cutscene_bindings(project, &mut report);
-    let boss_catalog = crate::bosses::authored_boss_catalog();
+    validate_quest_conditions(pack, &rooms, music, &mut report);
+    validate_cutscene_bindings(pack, project, &mut report);
+    let boss_catalog = crate::bosses::boss_catalog_of(pack);
     validate_boss_music_tracks(music, &boss_catalog, &mut report);
 
     report
@@ -252,6 +259,7 @@ fn validate_npc_brain_overrides(
 }
 
 fn validate_quest_conditions(
+    pack: &ambition_content_pack::PreparedContentPack,
     rooms: &[ambition_platformer2d::world::rooms::RoomSpec],
     music: &MusicRegistry,
     report: &mut ContentValidationReport,
@@ -262,10 +270,10 @@ fn validate_quest_conditions(
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
 
-    // The same book the plugin installs, read from the prepared pack, not from
-    // a process-global shared with whichever App ran first.
+    // The same book the plugin installs, read from the pack under validation,
+    // not from a process-global shared with whichever App ran first.
     let waves =
-        ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
+        ambition_encounter::content_schema::lowered_encounter_waves(pack)
             .cloned()
             .map(ambition_encounter::EncounterWaveBook);
     // The encounter loader reads composed rooms. It must not read an
@@ -287,9 +295,9 @@ fn validate_quest_conditions(
         }
     }
 
-    let boss_catalog = crate::bosses::authored_boss_catalog();
+    let boss_catalog = crate::bosses::boss_catalog_of(pack);
     let ids = QuestTargets::of(rooms, &loaded_encounters, &boss_catalog);
-    check_quest_steps(&crate::quest::default_quest_specs(), &ids, report);
+    check_quest_steps(&crate::quest::quest_specs_of(pack), &ids, report);
 }
 
 /// What a quest step may name, each set read from the owner of its id.
@@ -399,12 +407,16 @@ fn check_quest_steps(
 /// by construction. The other two halves do not: a misspelled script id loads,
 /// and two levels of one active area can both set the field, where the area
 /// merge keeps the first and drops the other with no message.
-fn validate_cutscene_bindings(project: &LdtkProject, report: &mut ContentValidationReport) {
+fn validate_cutscene_bindings(
+    pack: &ambition_content_pack::PreparedContentPack,
+    project: &LdtkProject,
+    report: &mut ContentValidationReport,
+) {
     let room_ids = active_area_ids(project);
     // Both endpoints. `drain_cutscene_triggers` does
     // `let Some(script) = library.get(&id) else { continue; }`, so a binding to
     // a missing cutscene is silent at runtime.
-    let library = crate::dialogue::cutscene_defaults::default_cutscene_library();
+    let library = crate::dialogue::cutscene_defaults::cutscene_library_of(pack);
 
     let bound = authored_entry_cutscenes(project);
     let rows: Vec<(&str, &str, &str)> = bound
@@ -595,8 +607,8 @@ mod tests {
     fn errors_about_an_arrival_zone_after(
         edit: impl Fn(&mut Vec<ambition_platformer2d_ldtk::LdtkFieldInstance>),
     ) -> Vec<String> {
-        let music = crate::audio_registries::load_music_registry();
-        let character_catalog = crate::character_catalog::load_catalog();
+        let music = crate::audio_registries::shipped_music_registry();
+        let character_catalog = crate::character_catalog::shipped_catalog();
         let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
         // A zone that some exit targets: it has an arrival, so the LDtk owner
@@ -635,7 +647,7 @@ mod tests {
             .map(|entity| &mut entity.field_instances)
             .expect("the zone is still there");
         edit(fields);
-        validate_content_graph(&music, &project, &character_catalog)
+        validate_content_graph(crate::pack::shipped(), &music, &project, &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid) || error.contains(&name))
@@ -695,8 +707,8 @@ mod tests {
     /// target is accepted and the door is in the graph.
     #[test]
     fn a_target_with_a_stray_space_is_one_door_for_the_validator_and_the_runtime() {
-        let music = crate::audio_registries::load_music_registry();
-        let character_catalog = crate::character_catalog::load_catalog();
+        let music = crate::audio_registries::shipped_music_registry();
+        let character_catalog = crate::character_catalog::shipped_catalog();
         let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
         let exit = project
@@ -728,7 +740,7 @@ mod tests {
         );
 
         let name = format!("{area}:{id}");
-        let errors: Vec<String> = validate_content_graph(&music, &project, &character_catalog)
+        let errors: Vec<String> = validate_content_graph(crate::pack::shipped(), &music, &project, &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid) || error.contains(&name))
@@ -777,8 +789,8 @@ mod tests {
     /// that names the root warns and closes. The validator must refuse it.
     #[test]
     fn a_spawn_naming_a_root_that_exists_only_as_variants_is_refused() {
-        let music = crate::audio_registries::load_music_registry();
-        let character_catalog = crate::character_catalog::load_catalog();
+        let music = crate::audio_registries::shipped_music_registry();
+        let character_catalog = crate::character_catalog::shipped_catalog();
         let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
         let spawn = project
@@ -797,7 +809,7 @@ mod tests {
             "dialogue_id",
             serde_json::Value::String("oiler_post_stabilizer".into()),
         );
-        let errors: Vec<String> = validate_content_graph(&music, &project, &character_catalog)
+        let errors: Vec<String> = validate_content_graph(crate::pack::shipped(), &music, &project, &character_catalog)
             .errors
             .into_iter()
             .filter(|error| error.contains(&iid))
@@ -820,7 +832,7 @@ mod tests {
     /// as `music_track`.
     #[test]
     fn a_rooms_fight_music_track_is_read_and_checked() {
-        let music = crate::audio_registries::load_music_registry();
+        let music = crate::audio_registries::shipped_music_registry();
         let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
         let set_fight_track = |project: &mut LdtkProject, track: &str| {
@@ -859,11 +871,11 @@ mod tests {
 
     #[test]
     fn validates_ldtk_loading_zone_targets() {
-        let music = crate::audio_registries::load_music_registry();
+        let music = crate::audio_registries::shipped_music_registry();
         let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
-        let character_catalog = crate::character_catalog::load_catalog();
-        let report = validate_content_graph(&music, &project, &character_catalog);
+        let character_catalog = crate::character_catalog::shipped_catalog();
+        let report = validate_content_graph(crate::pack::shipped(), &music, &project, &character_catalog);
         assert!(
             report
                 .errors
@@ -971,7 +983,7 @@ mod tests {
             assert!(room_ids.contains(room), "{room} is not a room: {room_ids:?}");
         }
         let mut report = ContentValidationReport::default();
-        validate_cutscene_bindings(&project, &mut report);
+        validate_cutscene_bindings(crate::pack::shipped(), &project, &mut report);
         assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 
@@ -990,7 +1002,7 @@ mod tests {
                 &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
             )
             .expect("the embedded world composes");
-        let boss_catalog = crate::bosses::authored_boss_catalog();
+        let boss_catalog = crate::bosses::shipped_boss_catalog();
         let loaded = ambition_encounter_features::load_encounter_specs_from_rooms(
             &rooms,
             &ambition_persistence::save_data::AmbitionGameSaveData::default(),
@@ -1062,7 +1074,7 @@ mod tests {
 
         // The shipped quests.
         let mut report = ContentValidationReport::default();
-        check_quest_steps(&crate::quest::default_quest_specs(), &ids, &mut report);
+        check_quest_steps(&crate::quest::shipped_quest_specs(), &ids, &mut report);
         assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 

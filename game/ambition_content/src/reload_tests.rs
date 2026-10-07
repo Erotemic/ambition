@@ -402,7 +402,7 @@ fn a_shipped_table(root: &std::path::Path) -> (std::path::PathBuf, String) {
     let table = ambition_characters::moveset_content_schema::lowered_movesets(&shipped)
         .expect("a move section");
     let buildable: std::collections::BTreeSet<&str> =
-        crate::character_catalog::buildable_cast().collect();
+        crate::character_catalog::shipped_buildable_cast().collect();
     // The file whose document names `who`: a file is named for its table, and
     // one table may serve several characters.
     let file_of = |who: &str| {
@@ -2942,7 +2942,7 @@ fn the_fighter_ladder_is_the_second_family_the_transaction_carries() {
     app.world_mut()
         .insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
             ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
-                crate::pack::prepared(),
+                crate::pack::shipped(),
             )
             .cloned()
             .expect("the shipped pack lowers its ladder"),
@@ -3028,7 +3028,7 @@ fn a_candidate_that_declares_no_ladder_removes_the_live_one() {
     let mut world = bevy::ecs::world::World::new();
     world.insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
         ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
-            crate::pack::prepared(),
+            crate::pack::shipped(),
         )
         .cloned()
         .expect("the shipped pack lowers its ladder"),
@@ -3097,7 +3097,7 @@ fn the_encounter_wave_book_is_the_third_family_the_transaction_carries() {
     let mut app = host_with_the_shipped_cast();
     app.world_mut()
         .insert_resource(ambition_encounter::EncounterWaveBook(
-            ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
+            ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::shipped())
                 .cloned()
                 .expect("the shipped pack lowers its wave book"),
         ));
@@ -3176,7 +3176,7 @@ fn publishing_a_generation_installs_every_pack_derived_family() {
          function's doing and not a leftover"
     );
 
-    crate::reload::publish_participant_families(&mut world, crate::pack::prepared());
+    crate::reload::publish_participant_families(&mut world, crate::pack::shipped());
 
     assert!(
         world
@@ -3216,7 +3216,7 @@ fn a_ladder_only_generation_needs_no_technique_table() {
     app.world_mut()
         .insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
             ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
-                crate::pack::prepared(),
+                crate::pack::shipped(),
             )
             .cloned()
             .expect("the shipped pack lowers its ladder"),

@@ -194,8 +194,18 @@ Steps that remain as rules:
 
 **Open:**
 
-- Readers of `ambition_content::pack::prepared()` (a process-global
-  `OnceLock`) do not see a reload. Move them to the App-scoped selection.
+- Boot-pack readers: DONE (step 1). Every App-owned content install (items,
+  encounter waves, fighter ladder, character catalog and cast, boss fragment,
+  audio registries, quests, cutscenes, music cues, and the startup content
+  validation) derives from the App's `SelectedContentPack`; `plugin.rs` and
+  each `register` call `pack::select` once. The boot read is
+  `pack::shipped()`, named for its subject (offline validation, tools,
+  source-content tests), and
+  `pack_selection_tests::production_code_names_the_shipped_pack_only_in_the_boot_scoped_roads`
+  counts its production uses per file. `two_real_compositions_install_their_own_pack_in_every_family`
+  composes the real plugin over two packs that disagree in ten families.
+  Selection is still not publication: only the reload transaction revises an
+  installed family.
 - The presentation provider lookups, match preparation and readers below the
   monolith still read the App cast on purpose: shell menus have a session gate
   and no generation.

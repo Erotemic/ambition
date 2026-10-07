@@ -78,6 +78,19 @@ fn assert_returned(sim: &mut Platformer2dSimHarness, authored: &SimId, why: &str
     assert!(live[0].1.in_world(), "{why} — but it is {:?}", live[0].1);
 }
 
+/// Assert that the last checkpoint restore passed its verification. A restore
+/// that fails it pauses the game and leaves the world as it applied it, so a
+/// test that reads only the world can pass on a restore that failed.
+fn assert_the_restore_committed(sim: &mut Platformer2dSimHarness) {
+    let outcome = format!(
+        "{:?}",
+        sim.world()
+            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+            .latest()
+    );
+    assert!(outcome.starts_with("Some(Committed"), "the restore did not commit: {outcome}");
+}
+
 /// Assert that `authored` is in a hand, exactly once.
 fn assert_still_held(sim: &mut Platformer2dSimHarness, authored: &SimId, why: &str) {
     let live = occurrences(sim, authored);
@@ -453,6 +466,7 @@ fn a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it() {
     );
 
     die(&mut sim);
+    assert_the_restore_committed(&mut sim);
 
     // The death resumes at the checkpoint, which is in the room whose record
     // MINTED the reward — so the pedestal is genuinely rebuilt, and "the
@@ -489,6 +503,31 @@ fn a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it() {
         live[0].1.held_by(custodian),
         "and back into the hand the checkpoint NAMED: a restore that put it \
          anywhere else — or into nobody's hand at all — satisfies every count above"
+    );
+    // AND IT IS IN THE HOLDER'S LIVE ROOM. The restore built it into a hand
+    // after the restore's own crossing, so no crossing stamped it. Put down
+    // without a stamp, it is a room resident that leaves with any departing
+    // room (`InRoomInstance::leaves_with`), also with another player's room.
+    sim.step_frame(ControlFrame {
+        attack_pressed: true,
+        shield_held: true,
+        ..ControlFrame::default()
+    });
+    sim.step_n(base(), 30);
+    assert_returned(&mut sim, &reward, "precondition: the rebuilt object was put down");
+    type Stamp = ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    let holder_room = sim.world().get::<Stamp>(custodian).copied();
+    let mut stamps = sim.world_mut().query::<(&SimId, Option<&Stamp>)>();
+    let object_room: Vec<Option<Stamp>> = stamps
+        .iter(sim.world())
+        .filter(|(id, _)| *id == &reward)
+        .map(|(_, stamp)| stamp.copied())
+        .collect();
+    assert!(holder_room.is_some(), "precondition: the body is in a live room");
+    assert_eq!(
+        object_room,
+        vec![holder_room],
+        "the object built again into the hand is in its holder's live room"
     );
 }
 
@@ -718,6 +757,7 @@ fn a_banked_runtime_mint_returns_to_the_hand_that_banked_it() {
     );
 
     die(&mut sim);
+    assert_the_restore_committed(&mut sim);
 
     let live = occurrences(&mut sim, &minted);
     assert_eq!(
@@ -1167,12 +1207,11 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
          different road and are excluded by provenance"
     );
 
-    // ⚠ Off the hub's floor opening. The Mockingbird holds the spot it is
-    // placed at (2026-10-06), so its gauntlet falls where it dies; placed on
-    // the player it died over the opening by the cove door, and a gauntlet
-    // picked up THERE and banked does not come back after a death (measured
-    // 2026-10-06: `docs/planning/queue.md`, "A gauntlet banked over the hub's
-    // floor opening"). That is its own defect, not this test's subject.
+    // ⚠ At this offset the pickup teleport crosses into `hall_of_bosses` and
+    // back, and the boss leaves with the room before its death outro records
+    // the defeat. At dx 0 the defeat is recorded after the checkpoint, and the
+    // death retracts it with its gauntlet (`docs/planning/queue.md`,
+    // DEFEAT-AFTER-ITS-DROP).
     crate::boss_lifecycle::spawn_mockingbird_beside(&mut sim, GAUNTLET_BOSS, -200.0);
     crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, GAUNTLET_BOSS, 600);
     sim.step_n(base(), 120);

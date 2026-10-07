@@ -626,18 +626,42 @@ after Bob's room kept the explosion); the spend reads the live object only
   object lies, the custody restore moves it into the banked hand whatever
   the row says, so only a held object needs the precedence.
 
-### A gauntlet banked over the hub's floor opening — found 2026-10-06, open
+### DEFEAT-AFTER-ITS-DROP — a boss's drop can be banked before its defeat is recorded
 
-A boss's signature gauntlet, picked up where it fell by the cove door in
-`central_hub_main` (the player at about (1002, 861), over the floor opening to
-the stitched basement), banked by a checkpoint, does not come back after a
-death: `occurrences` is empty from 30 frames into the death and stays so. The
-same gauntlet picked up 200 px either side comes back
-(`death_restores_the_checkpoint::a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it`).
-Measured by moving where the test's Mockingbird dies (dx -400, -200 and +300
-pass; 0 fails). The test now places its boss off the opening
-(`spawn_mockingbird_beside`, dx -200); repro: place it at dx 0. Suspect the
-occurrence's live room: the opening is where the two levels of the area meet.
+Found 2026-10-06 as "a gauntlet banked over the hub's floor opening". The
+opening is not the cause (measured 2026-10-07). A boss mints its drops on the
+killing hit (`apply_boss_hit`), and `update_boss_encounters` records the
+defeat (`BossDefeatsSinceCheckpoint`, the save's `Cleared`) only when the death
+outro ends (`death_seconds`, 2.4 s). A checkpoint in that window banks the drop
+in the hand and not its defeat. A death then retracts the defeat (Q51) and its
+mints with it (`retract_mints_of_retracted_boss_defeats`), so the banked
+gauntlet is gone. Probe: the record is `[]` 120 frames after the kill and
+`["banked_gauntlet_boss"]` after the checkpoint. The passing arm at dx -200
+passes because its pickup teleport crosses into `hall_of_bosses` and back, and
+the boss leaves with the room before its outro ends.
+
+**Repaired on the way (2026-10-07):** the custody restore's rebuild arm (an
+object banked in a hand that no entity answers for) failed its own
+verification. The verification reads `InCustodyOf`, which a projection derives
+later in the tick, so the restore failed closed into `Paused` with
+`Failed { failure: Custody }`. Two tests reached that arm and passed, because
+they read only the world. The item domain now chains
+`project_custody_onto_residency` after the custody restore in
+`CheckpointDomainApply`, and the rebuilt object gets its holder's
+`InRoomInstance` (without it, put down, it was a resident with no live room).
+Witnesses: `assert_the_restore_committed` in
+`a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it` and
+`a_banked_runtime_mint_returns_to_the_hand_that_banked_it` (poison, no
+projection: both `Failed { failure: Custody }`), and the stamp arm of the first
+(poison, no stamp: `[None]` for `[Some(#3)]`).
+
+**Next action:** one moment for one defeat. Record the defeat on the kill, in
+the same tick as its drops, and delete the outro delay if nothing else reads it.
+Then `a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it`
+needs no offset and no crossing.
+
+**Acceptance:** a drop picked up and banked in the tick after the kill comes
+back to the hand after a death, with the boss still cleared.
 
 ### WEAR-REFUSES-UNPREPARED — a character outside the prepared generation is never worn — ✅ DONE 2026-10-03 (two remainders)
 

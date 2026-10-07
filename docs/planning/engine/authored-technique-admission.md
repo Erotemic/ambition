@@ -134,8 +134,9 @@ Open:
   identity; identity follows content binding);
 - a move start deep-clones a `MoveSpec`.
 
-Assessed 2026-10-07 as a fallback packet and NOT started; none of the three is
-a decision-free slice:
+Assessed 2026-10-07 as a fallback packet and NOT started. The three items were
+read as decisions for a maintainer; they are the implementing agent's, and the
+decision on the first is recorded below this list:
 
 - *Constructors.* Half landed 2026-10-07: `PreparedCharacterDefinition` is
   `#[non_exhaustive]`, so no crate but `ambition_characters` can build one by
@@ -175,6 +176,44 @@ a decision-free slice:
   accepted move. Pre-registered at under 20 us and held. A cold cache could cost
   a few times that and is not measured. On this number the clone is not worth
   the type change; revisit only if a profile of a real fight shows move starts.
+
+**A12b decision (2026-10-07; delegated to the implementing agent, not a
+maintainer question).** Authored data and the checked runtime value stay two
+things, and the check stays on the authored side of the barrier:
+
+- `TechniqueFlow` remains deserializable authored data with public structure.
+  `TechniqueFlow::problems` is its admission, and character preparation
+  (`prepared.rs`, the flow loop beside the unresolved-reference report) is the
+  one production caller. Nothing makes an authored flow impossible to write.
+- **No `CheckedFlow` newtype yet, and the reason is measured, not a preference.**
+  A checked value is only a guarantee if the interpreter reads it, and the
+  interpreter reads `MovePlayback::spec: Arc<MoveSpec>`, which is built from
+  `MovesetContract::moves: Vec<MoveSpec>`. Storing a checked flow therefore
+  splits `MoveSpec` into an authored and a prepared form: about 310 `.moves`
+  uses, 78 `moves:` constructions and 260 `ActorMoveset` mentions (the same
+  population the move-start clone note below counted). A newtype that is
+  checked per use would make the interpreter's path fallible at runtime, which
+  the A12 execution rules forbid ("a broken flow costs authored intent, not a
+  trapped fighter").
+- **The hole such a type would close is closed at the production boundary
+  already.** Read from source on 2026-10-07: no `&mut PreparedCharacterDefinition`
+  exists in the workspace; `PreparedCharacterRegistry::get` and `iter` hand out
+  shared references; the one hatch that stores a prepared value other than the
+  barrier's, `insert_prepared`, is `#[cfg(any(test, feature = "test-support"))]`;
+  and `PreparedCharacterDefinition` is `#[non_exhaustive]`, so no other crate
+  can build one. Every production `ActorMoveset` is built from a prepared kit
+  (`character_body.rs`, `starting_character.rs`), a prepared match seat
+  (`match_activation.rs`), the repertoire fold of those (`hand.rs`), a
+  persona derived from the action set (`avatar/bundles.rs`), or the boss attack
+  table, which authors `flow: None`. What remains editable is a prepared value's
+  public fields inside tests.
+- **What would change this:** a production road that builds a `MovesetContract`
+  carrying a flow from something other than a prepared definition (today there
+  is none). If one appears, the right shape is a prepared move table produced by
+  character preparation, `MovesetContract::moves` holding prepared moves, and
+  `TechniqueFlow` unchanged on the authored side, which is the pipeline drawn at
+  the top of this file (authored source, validation, checked flow, prepared
+  definition). That is the split priced above.
 
 The interpreter has a defensive step guard equal to the checked node count. A
 missing node or an exhausted guard is an invariant failure: report it and

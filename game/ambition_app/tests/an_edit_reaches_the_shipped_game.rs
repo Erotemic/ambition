@@ -4435,6 +4435,42 @@ fn a_quest_book_that_loses_its_place_while_the_generation_waits_is_cancelled() {
     );
 }
 
+/// ⛔ **A PROVIDER THAT TAKES AN AMBITION CUTSCENE ID WHILE A GENERATION WAITS
+/// CANCELS IT, NOT OVERWRITTEN BY IT.** The candidate rewords `test_intro` and is
+/// admitted while the library holds Ambition's row. Before it activates another
+/// provider replaces that row (same id). The publication cannot refuse, so the
+/// activation gate asks the ownership question again and cancels: the foreign row
+/// is still there afterwards and the session is not replaced.
+#[test]
+fn a_provider_that_takes_a_cutscene_id_while_the_generation_waits_cancels_it() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let requested = request_the_banner(&mut app, "// a banner the foreign row must survive", false);
+    assert!(
+        matches!(requested, ambition_content::reload::ReloadRequest::Requested { .. }),
+        "the premise: admitted while the library held Ambition's own row: {requested:?}"
+    );
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::cutscene::CutsceneLibrary>()
+        .insert(ambition_platformer2d::cutscene::CutsceneScript::new(
+            "test_intro",
+            vec![ambition_platformer2d::cutscene::CutsceneBeat::Banner {
+                text: "// the other provider".to_string(),
+                seconds: 1.0,
+            }],
+        ));
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(
+        activation_id(&app),
+        Some(live_activation),
+        "⛔ THE GENERATION ACTIVATED OVER ANOTHER PROVIDER'S CUTSCENE"
+    );
+    assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "the refused generation is still pending");
+    assert_eq!(boot_banner(&app), "// the other provider", "⛔ THE FOREIGN ROW WAS OVERWRITTEN");
+}
+
 /// The control for the gate's quest question: the SAME moving save under a
 /// candidate that does not touch the quest book activates. Without it the
 /// cancel above could be any cause; with it the quest question is the only

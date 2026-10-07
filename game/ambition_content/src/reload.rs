@@ -140,13 +140,22 @@ pub enum MoveReload {
     /// providers' fragments (a music track id that another provider maps to a
     /// different file). Nothing was staged; the live audio keeps its catalog.
     AudioCatalogRefused(String),
-    /// The candidate's quest book would break progress the save records: a
-    /// quest in progress at a step the candidate no longer has. Nothing was
-    /// staged. The quest registry is session state, rebuilt from the selected
-    /// pack and the save when the next session starts
-    /// (`quest::populate_quest_registry`), and that rebuild clamps a step it
-    /// cannot place, so the move would silently rewind a player.
+    /// The candidate's quest book is not compatible with the progress the save
+    /// records: a quest in progress at a step the candidate no longer has, or
+    /// whose completed prefix or current objective changed condition. Nothing
+    /// was staged. The quest registry is session state, rebuilt from the
+    /// selected pack and the save when the next session starts
+    /// (`quest::populate_quest_registry`); that rebuild would clamp a step it
+    /// cannot place and would read an index against a different step list, so
+    /// the move would silently rewind a player or change what they are chasing.
+    /// The rule is on `candidate_quest_book`.
     QuestBookRefused(String),
+    /// The candidate gives a cutscene an id that ANOTHER PROVIDER's row holds in
+    /// the shared `CutsceneLibrary`. Nothing was staged. The library is one map
+    /// with no record of who wrote a row, so a publication that inserted the
+    /// candidate's row would erase the other provider's; refusing is the only
+    /// answer that loses nothing. See [`candidate_cutscene_ownership`].
+    CutsceneOwnershipRefused(String),
     /// The candidate breaks a reference the unchanged world or another family
     /// holds (a room whose `entry_cutscene` names a script the candidate no
     /// longer has, a quest step naming a boss that does not exist, a boss phase
@@ -365,6 +374,9 @@ pub(crate) fn publish_candidate(
     };
     if let Err(error) = candidate_quest_book(world, candidate.pack()) {
         return MoveReload::QuestBookRefused(error);
+    }
+    if let Err(error) = candidate_cutscene_ownership(world, candidate.pack()) {
+        return MoveReload::CutsceneOwnershipRefused(error);
     }
     let pack = candidate.into_pack();
     let outcome = reload_move_tables_from(world, &pack);
@@ -797,22 +809,43 @@ fn candidate_content_graph(
     if report.is_ok() { Ok(()) } else { Err(report.errors) }
 }
 
-/// Does the candidate's quest book keep every recorded quest placeable? A quest
-/// the save has in progress must still have its step: the rebuild at the next
-/// session clamps an out-of-range step to the last one
-/// (`QuestState::apply_persisted`), which would put a player back a step, or
-/// forward past a step they never did, without a word. Refused, not clamped.
+/// Is the candidate's quest book COMPATIBLE with the progress the save records?
 ///
-/// Not judged: a step whose boss, encounter, flag or room id names something
-/// that does not exist. Those ids are checked against the worlds by the startup
-/// graph validator (`validate_quest_conditions`); the room set is session-scoped
-/// and the worlds are not a reloadable family. A removed quest is allowed: the
-/// save keeps its row, and a later candidate that names it again resumes it.
-fn candidate_quest_book(
+/// ⭐ THE COMPATIBILITY RULE (stated, not inferred from an index). A save records
+/// a quest as `(InProgress, k)`: steps `0..k` are DONE and step `k` is the
+/// objective the player is pursuing now. That number means something only
+/// against the step list it was recorded under, so the candidate is compared with
+/// the quest book the App is playing (generation N, still the selection at this
+/// point):
+///
+/// 1. **The step must exist.** `k < candidate.steps.len()`. The rebuild at the
+///    next session clamps an out-of-range step to the last one, which would
+///    rewind a player or push them past a step they never did, without a word.
+/// 2. **The completed prefix and the current objective keep their CONDITIONS.**
+///    For `i` in `0..=k`, the candidate's step `i` has the same
+///    `QuestStepCondition` as N's. Otherwise the save says the player already
+///    did a thing the candidate never asked of them, or silently swaps the
+///    objective they are chasing (`BossDefeated(warden)` → `BossDefeated(dragon)`).
+/// 3. **Free to edit:** a step's description text, every step AFTER `k`, the
+///    title and summary, and `auto_start`. Nothing recorded depends on them.
+///
+/// Refused, never clamped or rewritten: the author finishes or resets the quest
+/// (or edits only what rule 3 allows), and the refusal names the step and both
+/// conditions.
+///
+/// Not judged: a quest the active pack does not carry (it was removed, or never
+/// shipped) has no baseline to compare, so a save row for it is admitted under
+/// rule 1 only; the save keeps its row, and a later candidate that names it again
+/// resumes it. Also not judged: whether a step's boss, encounter, flag or room id
+/// names something that exists. The startup graph validator checks those
+/// (`validate_quest_conditions`), and `candidate_content_graph` asks it of the
+/// candidate.
+pub(crate) fn candidate_quest_book(
     world: &bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> Result<(), String> {
-    let changes_quests = crate::pack::selected(world).is_some_and(|active| {
+    let active = crate::pack::selected(world);
+    let changes_quests = active.is_some_and(|active| {
         ambition_content_pack::changed_domains(active, pack)
             .iter()
             .any(|schema| schema.0 == ambition_persistence::quest::content_schema::QUEST_BOOK_SCHEMA)
@@ -826,16 +859,35 @@ fn candidate_quest_book(
     let Some(book) = ambition_persistence::quest::content_schema::lowered_quest_book(pack) else {
         return Ok(());
     };
+    let playing = active.and_then(ambition_persistence::quest::content_schema::lowered_quest_book);
     for spec in book {
         let (state, step) = save.data().quest(&spec.id);
-        if matches!(state, ambition_persistence::save_data::PersistedQuestState::InProgress)
-            && usize::from(step) >= spec.steps.len()
-        {
+        if !matches!(state, ambition_persistence::save_data::PersistedQuestState::InProgress) {
+            continue;
+        }
+        let current = usize::from(step);
+        if current >= spec.steps.len() {
             return Err(format!(
                 "quest '{}' is in progress at step {step} (counting from 0) but the candidate gives it {} step(s)",
                 spec.id,
                 spec.steps.len()
             ));
+        }
+        let Some(before) = playing.and_then(|book| book.iter().find(|quest| quest.id == spec.id)) else {
+            continue;
+        };
+        for index in 0..=current {
+            let (was, now) = (before.steps.get(index), &spec.steps[index]);
+            if was.is_some_and(|was| was.condition != now.condition) {
+                return Err(format!(
+                    "quest '{}' is in progress at step {step} (counting from 0), and the candidate changes the condition of step {index} \
+                     ({}) from {:?} to {:?}; a step the player has done, or is doing, keeps its condition (its text and the later steps are free to edit)",
+                    spec.id,
+                    if index < current { "already completed" } else { "the current objective" },
+                    was.map(|was| &was.condition),
+                    now.condition,
+                ));
+            }
         }
     }
     Ok(())
@@ -891,6 +943,56 @@ fn publish_encounter_waves(
     }
 }
 
+/// May the candidate's cutscene rows be written without erasing another
+/// provider's?
+///
+/// ⛔ `CutsceneLibrary` is ONE map from id to script and records no writer, so
+/// "the rows Ambition owns" is not stored anywhere: it is derived as the rows
+/// the App's selected pack lowered (generation N) that the library still holds
+/// unchanged. A candidate row may take an id only when the library has no row
+/// there, or holds exactly generation N's row (Ambition's own, being replaced).
+/// A row at that id that is anything else belongs to another provider (or to a
+/// provider that overwrote ours), and the publication, which cannot refuse,
+/// would overwrite it. So this refuses, naming the ids.
+///
+/// Asked again at the activation gate: a provider can add a row between the
+/// request and the activation, and a check that held at the request must not be
+/// trusted at the publication.
+///
+/// A family the candidate does not change writes nothing and is not asked.
+pub(crate) fn candidate_cutscene_ownership(
+    world: &bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Result<(), String> {
+    let Some(library) = world.get_resource::<ambition_cutscene::CutsceneLibrary>() else {
+        return Ok(());
+    };
+    let previous = crate::pack::selected(world)
+        .map(crate::dialogue::cutscene_defaults::cutscene_scripts_of)
+        .unwrap_or_default();
+    let next = crate::dialogue::cutscene_defaults::cutscene_scripts_of(pack);
+    if previous == next {
+        return Ok(());
+    }
+    let mut taken: Vec<&str> = next
+        .iter()
+        .filter(|script| match library.get(&script.id) {
+            None => false,
+            Some(held) => !previous.iter().any(|ours| ours.id == script.id && ours == held),
+        })
+        .map(|script| script.id.as_str())
+        .collect();
+    taken.sort_unstable();
+    if taken.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "the candidate's cutscene id(s) {} are held by another provider's row in the shared library; publishing would erase it",
+            taken.join(", ")
+        ))
+    }
+}
+
 /// Replace the cutscene scripts THIS PACK owns, and only those.
 ///
 /// ⛔ The library is a shared registry: `AmbitionDialogueContentPlugin` adds the
@@ -898,8 +1000,9 @@ fn publish_encounter_waves(
 /// the publication is not "insert a new library". The rows Ambition owns are the
 /// ones the App's selected pack (generation N, still selected at this point)
 /// lowered; a row is removed only while the library still holds exactly that
-/// script, so a foreign row that reuses an id survives, and then the candidate's
-/// rows are inserted.
+/// script, so a foreign row that reuses an id survives the removal. The insert
+/// would overwrite one, which is why [`candidate_cutscene_ownership`] refuses a
+/// candidate that names an id a foreign row holds, before this runs.
 ///
 /// A cutscene that is PLAYING is not touched: `drain_cutscene_triggers` clones
 /// the script into the runtime when it starts, so the running cutscene finishes
@@ -1353,6 +1456,10 @@ pub fn request_reload(
         discard_staged_reload(world);
         return ReloadRequest::Refused(MoveReload::QuestBookRefused(error));
     }
+    if let Err(error) = candidate_cutscene_ownership(world, &pack) {
+        discard_staged_reload(world);
+        return ReloadRequest::Refused(MoveReload::CutsceneOwnershipRefused(error));
+    }
     if let Err(errors) = candidate_content_graph(world, &pack) {
         discard_staged_reload(world);
         return ReloadRequest::Refused(MoveReload::ContentGraphRefused(errors));
@@ -1702,9 +1809,10 @@ pub fn answer_the_publication_gate(
             // generation instead of being clamped by the rebuild. The selection
             // is still the live pack at this point, which is what the question
             // compares the candidate against.
-            let verdict = world
-                .get_resource::<PendingGeneration>()
-                .map(|pending| candidate_quest_book(world, &pending.pack));
+            let verdict = world.get_resource::<PendingGeneration>().map(|pending| {
+                candidate_quest_book(world, &pending.pack)
+                    .and_then(|()| candidate_cutscene_ownership(world, &pending.pack))
+            });
             if let Some(Err(why)) = verdict {
                 bevy::log::warn!(
                     target: "ambition_content::reload",

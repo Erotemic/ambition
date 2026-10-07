@@ -46,8 +46,8 @@ resets it and the next session's first tick fills it from the App's selected
 pack and the save), so the new session's registry is the candidate's book with
 the player's recorded progress, and editing the live registry would write a
 second copy of a fact the next session derives. What the transaction owns is
-admission: `candidate_quest_book` refuses a candidate that leaves a quest the
-save has in progress without its step (the rebuild would clamp it silently).
+admission: `candidate_quest_book` refuses a candidate that is not compatible
+with the progress the save records (the rule is below).
 Measured, not assumed: the registry is empty for the first tick of the new
 session, never N's. A step naming a boss, encounter, flag or room that does not
 exist is refused by the content-graph judge (below). A removed quest is
@@ -57,7 +57,7 @@ starts the next session with an empty book (it used to panic there).
 The quest check is asked twice. At request time it reads the save as it was,
 and the activation gate (`answer_the_publication_gate`) asks the same function
 again, with the save as it is then, in the operation that activates the route.
-A player who reached a step the candidate no longer has cancels the generation
+A player whose recorded progress the candidate no longer fits cancels the generation
 through the gate's existing `Refuse` (the shell cancels the transaction and
 `TransactionEnded` discards the staged generation), instead of the next
 session's rebuild clamping their step. The commit stays infallible. Witness:
@@ -66,6 +66,52 @@ red before the gate asked (the generation activated over the moved save). The
 content-graph judgment is not repeated: it reads the App's `ActiveLdtkProject`,
 and the worlds do not reload, so nothing it reads moves while a generation
 waits.
+
+### What recorded quest progress is compatible with (2026-10-07)
+
+A save records `(InProgress, k)`: steps `0..k` are done and step `k` is the
+objective now. The number means something only against the step list it was
+recorded under, so the old check (`k < candidate.steps.len()`) admitted a
+same-length candidate that swapped a completed step's condition (the save then
+says the player did something they never did) or the current one (the objective
+changed silently). `candidate_quest_book` now states the rule, comparing the
+candidate with the book the App is playing (generation N):
+
+1. step `k` must exist;
+2. steps `0..=k` keep their **conditions** (`QuestStepCondition`);
+3. free to edit: step descriptions, every step after `k`, title, summary,
+   `auto_start`.
+
+Refused, never clamped or rewritten; the message names the step, whether it was
+completed or current, and both conditions. A quest the active pack does not
+carry has no baseline, so a save row for it is held to rule 1 only. This is a
+policy, not a derivation: a looser one (let the author re-point the current
+step) is a decision to make deliberately, and the rule's comment is where to
+change it. Witnesses: `an_edited_book_must_keep_the_conditions_of_the_steps_a_player_has_done_or_is_doing`,
+`an_edited_book_may_change_text_and_the_steps_after_the_current_one` (control),
+`the_pinned_prefix_ends_at_the_current_step`; poisoned by shrinking the range to
+`0..current` and to `0..0`.
+
+### Cutscene rows have no recorded owner (2026-10-07)
+
+`CutsceneLibrary` is one `id -> script` map. The publication removes the rows
+Ambition owns only while the library still holds exactly generation N's script,
+which protects a foreign row from the removal, but its insert half overwrote a
+foreign row that reused an id (a review finding; the first arm used a different
+id and could not collide). The publication cannot refuse, so the answer is a
+collision refusal at admission: `candidate_cutscene_ownership` refuses a
+candidate row whose id the library holds as anything other than generation N's
+own row, naming the ids (`MoveReload::CutsceneOwnershipRefused`). It is asked
+again at the activation gate, because a provider can take an id between the
+request and the activation. Dropping an id a foreign row now holds is allowed
+and leaves the foreign row. Witnesses:
+`a_candidate_cutscene_whose_id_a_foreign_row_holds_is_refused_before_it_can_overwrite_it`,
+its control `a_candidate_cutscene_that_replaces_ambitions_own_row_is_admitted`,
+`a_candidate_dropping_a_cutscene_a_foreign_row_now_holds_leaves_the_foreign_row`,
+and the gate arm `a_provider_that_takes_a_cutscene_id_while_the_generation_waits_cancels_it`
+(poisoned by removing the question from the gate only). Provider provenance in
+the registry itself (so replacement is provider-local rather than refused) is
+the larger design; this closes the loss without it.
 
 A request that is refused AFTER admission (an unknown character, a catalog,
 the quest book, the content graph) still cancels the generation in flight, while

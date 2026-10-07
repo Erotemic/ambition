@@ -4224,3 +4224,170 @@ fn a_cutscene_file_the_candidate_drops_removes_its_rows_and_only_its_rows() {
         assert!(library.get(id).is_some(), "{id} belongs to a file the candidate still declares");
     }
 }
+
+/// The shipped world, but another provider holds `test_intro` (the SAME id the
+/// pack ships, not a different one: the original arm used `foreign_probe`, which
+/// can never collide).
+fn world_where_a_foreign_provider_holds_the_boot_cutscene() -> bevy::ecs::world::World {
+    let mut world = world_with_cutscenes_and_one_foreign_row();
+    world
+        .resource_mut::<ambition_cutscene::CutsceneLibrary>()
+        .insert(ambition_cutscene::CutsceneScript::new(
+            "test_intro",
+            vec![ambition_cutscene::CutsceneBeat::Wait { seconds: 9.0 }],
+        ));
+    world
+}
+
+/// ⭐ **A FOREIGN ROW THAT REUSES AN AMBITION CUTSCENE ID IS NOT OVERWRITTEN.**
+///
+/// The library records no writer. Generation N's row was replaced by another
+/// provider's at the same id; the candidate then edits that id. The removal half
+/// of the publication leaves the foreign row alone (it is not N's script), but
+/// the insert half would overwrite it, and the publication cannot refuse. So the
+/// refusal lives at admission, and this arm pins it with the colliding id.
+#[test]
+fn a_candidate_cutscene_whose_id_a_foreign_row_holds_is_refused_before_it_can_overwrite_it() {
+    let world = world_where_a_foreign_provider_holds_the_boot_cutscene();
+    let candidate = pack_with_a_reworded_boot_banner();
+    let refusal = crate::reload::candidate_cutscene_ownership(&world, &candidate)
+        .expect_err("⛔ a candidate that would overwrite another provider's row was admitted");
+    assert!(refusal.contains("test_intro"), "the refusal does not name the id: {refusal}");
+    // Admission wrote nothing: the foreign row is what it was.
+    let held = world
+        .resource::<ambition_cutscene::CutsceneLibrary>()
+        .get("test_intro")
+        .cloned()
+        .expect("the foreign row");
+    assert!(
+        matches!(held.beats.as_slice(), [ambition_cutscene::CutsceneBeat::Wait { seconds }] if *seconds == 9.0),
+        "the foreign row changed"
+    );
+}
+
+/// The control for the arm above: with Ambition's own row in place the same
+/// candidate is admitted, so the refusal above is the foreign row's doing and
+/// not a check that refuses every cutscene edit.
+#[test]
+fn a_candidate_cutscene_that_replaces_ambitions_own_row_is_admitted() {
+    let world = world_with_cutscenes_and_one_foreign_row();
+    crate::reload::candidate_cutscene_ownership(&world, &pack_with_a_reworded_boot_banner())
+        .expect("replacing the pack's own row was refused");
+    // An unchanged family is not asked at all, even over a foreign collision.
+    let colliding = world_where_a_foreign_provider_holds_the_boot_cutscene();
+    crate::reload::candidate_cutscene_ownership(&colliding, crate::pack::shipped())
+        .expect("a family the candidate does not change must not be judged");
+}
+
+/// A candidate that DROPS the colliding id is allowed and leaves the foreign row:
+/// "absent means remove" removes only what the pack still owns.
+#[test]
+fn a_candidate_dropping_a_cutscene_a_foreign_row_now_holds_leaves_the_foreign_row() {
+    let mut world = world_where_a_foreign_provider_holds_the_boot_cutscene();
+    let candidate = crate::pack::compile_pack_omitting(&["data/cutscenes/sandbox.ron"]).expect("compiles");
+    crate::reload::candidate_cutscene_ownership(&world, &candidate)
+        .expect("dropping the id is not an overwrite");
+    crate::reload::publish_participant_families(&mut world, &candidate);
+    assert!(
+        world.resource::<ambition_cutscene::CutsceneLibrary>().get("test_intro").is_some(),
+        "⛔ the foreign row at a dropped id was removed"
+    );
+}
+
+// ── quest compatibility: what recorded progress means against an edited book ──
+
+/// The shipped pack, selected, with `first_steps` in progress at `step`.
+fn world_with_first_steps_in_progress_at(step: u8) -> bevy::ecs::world::World {
+    let mut world = bevy::ecs::world::World::new();
+    let _ = crate::pack::select(&mut world);
+    let mut save = ambition_persistence::save::AmbitionGameSave::default();
+    save.data_mut().set_quest(
+        "first_steps",
+        ambition_persistence::save_data::PersistedQuestState::InProgress,
+        step,
+    );
+    world.insert_resource(save);
+    world
+}
+
+/// The shipped quest book with one text replacement in `data/quests.ron`.
+fn pack_with_quest_text_replaced(from: &str, to: &str) -> ambition_content_pack::PreparedContentPack {
+    let mut edited = false;
+    let pack = crate::pack::compile_pack_with(|declared, text| {
+        if declared != "data/quests.ron" {
+            return text;
+        }
+        let out = text.replacen(from, to, 1);
+        edited = out != text;
+        out
+    })
+    .expect("the edited quest book compiles");
+    assert!(edited, "the quest book no longer states {from:?}, so the arm tests nothing");
+    pack
+}
+
+/// ⭐ **RECORDED PROGRESS IS COMPATIBLE ONLY WITH THE STEPS IT WAS RECORDED
+/// AGAINST.** `first_steps` is `[FlagSet(met_any_hub_npc), EncounterCleared(
+/// goblin_encounter), BossDefeated(clockwork_warden)]` and the player has done
+/// step 0 and stands on step 1. A same-length candidate that swaps step 0's
+/// condition says the player already did something they never did; one that
+/// swaps step 1's silently changes what they are chasing. Both are refused (the
+/// old check, `step < steps.len()`, admitted both). Text and later steps are free.
+#[test]
+fn an_edited_book_must_keep_the_conditions_of_the_steps_a_player_has_done_or_is_doing() {
+    let world = world_with_first_steps_in_progress_at(1);
+
+    let completed = pack_with_quest_text_replaced(
+        r#"FlagSet("met_any_hub_npc")"#,
+        r#"FlagSet("met_someone_else")"#,
+    );
+    let why = crate::reload::candidate_quest_book(&world, &completed)
+        .expect_err("⛔ a candidate that rewrote a COMPLETED step's condition was admitted");
+    assert!(why.contains("step 0") && why.contains("already completed"), "{why}");
+
+    let current = pack_with_quest_text_replaced(
+        r#"EncounterCleared("goblin_encounter")"#,
+        r#"EncounterCleared("a_different_encounter")"#,
+    );
+    let why = crate::reload::candidate_quest_book(&world, &current)
+        .expect_err("⛔ a candidate that swapped the CURRENT objective was admitted");
+    assert!(why.contains("step 1") && why.contains("current objective"), "{why}");
+}
+
+/// The control: what recorded progress does NOT depend on stays editable, so the
+/// refusals above are the rule and not "any quest edit is refused".
+#[test]
+fn an_edited_book_may_change_text_and_the_steps_after_the_current_one() {
+    let world = world_with_first_steps_in_progress_at(1);
+    // Step text, title, and the LAST step's condition (the player is on step 1).
+    for (from, to) in [
+        (r#"description: "Clear the goblin encounter.""#, r#"description: "Clear the goblins.""#),
+        (r#"title: "First Steps""#, r#"title: "First Steps, revised""#),
+        (r#"BossDefeated("clockwork_warden")"#, r#"BossDefeated("another_boss")"#),
+    ] {
+        crate::reload::candidate_quest_book(&world, &pack_with_quest_text_replaced(from, to))
+            .unwrap_or_else(|why| panic!("editing {from:?} was refused: {why}"));
+    }
+}
+
+/// A player not yet past step 0 may have step 0 rewritten (it is the current
+/// objective, so it is refused); a player on step 0 and a rewrite of step 1
+/// (a future step) is admitted. Pins the boundary at `k`, not at the quest.
+#[test]
+fn the_pinned_prefix_ends_at_the_current_step() {
+    let world = world_with_first_steps_in_progress_at(0);
+    let future = pack_with_quest_text_replaced(
+        r#"EncounterCleared("goblin_encounter")"#,
+        r#"EncounterCleared("a_different_encounter")"#,
+    );
+    crate::reload::candidate_quest_book(&world, &future)
+        .expect("a step the player has not reached was refused");
+    let current = pack_with_quest_text_replaced(
+        r#"FlagSet("met_any_hub_npc")"#,
+        r#"FlagSet("met_someone_else")"#,
+    );
+    assert!(
+        crate::reload::candidate_quest_book(&world, &current).is_err(),
+        "the current objective was rewritten under a player standing on it"
+    );
+}

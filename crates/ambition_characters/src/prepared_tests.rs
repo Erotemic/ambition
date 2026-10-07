@@ -1260,6 +1260,70 @@ mod technique_flow_admission {
         }
     }
 
+    /// ⭐ THE FIXPOINT, now that a flow can be the reason. The published registry
+    /// must have no reference that resolves only in the candidate: a summoner whose
+    /// beast is withheld for its FLOW has to go with it, or the registry the check
+    /// was meant to make safe holds a rider naming a character that is not in it.
+    #[test]
+    fn a_summoner_of_a_character_withheld_for_its_flow_is_withheld_with_it() {
+        use crate::prepared_fixtures::{moveset_with, slash};
+        use ambition_entity_catalog::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
+        use ambition_entity_catalog::{
+            check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery,
+            TechniqueOffer, TechniqueParams,
+        };
+        let mut support = TechniqueSupport::default();
+        support
+            .declare(
+                SUMMON_RIDE,
+                TechniqueOffer {
+                    owner: "test::flow_fixpoint",
+                    params: TechniqueParams::Checked(
+                        check_hydrates::<ambition_entity_catalog::smash_ride::SummonRideParams>,
+                    ),
+                    references: NestedReferences::Characters(summon_ride_character_refs),
+                    delivery: TechniqueDelivery::Action,
+                },
+            )
+            .expect("a fresh table admits the first claim");
+        let summon = EffectRef {
+            key: SUMMON_RIDE.to_string(),
+            params: ParamValue::parse(
+                "(character_id: \"beast\", half_extents: (1.0, 1.0), seconds: 1.0, reach: 1.0)",
+            )
+            .expect("params parse"),
+        };
+        let mut call = slash("call_the_beast", "cue", "strike");
+        call.windows[0].sustain_effect = Some(summon);
+        let summoner = CharacterDefinition::new("summoner", "summoner", "test_demo")
+            .with_moveset(moveset_with(&[("special", "call_the_beast")], vec![call]));
+
+        let beast_with = |flow| with_flow("beast", Some(flow));
+        // The control: a sound beast is published and so is its summoner.
+        let sound_cast = admit_and_finalize_cast(
+            vec![staged(summoner.clone()), staged(beast_with(sound()))],
+            &CastAuthorities::default(),
+            CharacterCatalogGeneration::default(),
+            &support,
+        );
+        assert!(sound_cast.refusals.is_empty(), "premise: {:?}", sound_cast.refusals);
+        assert!(sound_cast.registry.get("summoner").is_some() && sound_cast.registry.get("beast").is_some());
+
+        for (what, flow, _) in broken() {
+            let admitted = admit_and_finalize_cast(
+                vec![staged(summoner.clone()), staged(beast_with(flow))],
+                &CastAuthorities::default(),
+                CharacterCatalogGeneration::default(),
+                &support,
+            );
+            assert!(admitted.registry.get("beast").is_none(), "{what}: the beast was published");
+            assert!(
+                admitted.registry.get("summoner").is_none(),
+                "⛔ {what}: the summoner was published naming a beast the registry does not hold"
+            );
+        }
+    }
+
     /// The reload road: a revision carrying an invalid flow is refused WHOLE, the
     /// last-good cast keeps its definition and its generation.
     #[test]

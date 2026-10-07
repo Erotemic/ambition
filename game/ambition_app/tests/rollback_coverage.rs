@@ -1210,6 +1210,17 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_content::pack::SelectedContentPack",
         "content selection: which prepared pack this App answers from; replaced only by a developer reload at a session boundary, never by a tick, and rewinding it would restore old move tables under a revised cast",
     ),
+    // ⭐ THE MARKER BESIDE THE SELECTION: "the first consumer has read the
+    // selection". It is inserted by `pack::select` (build time) and never
+    // removed, so `select_pack` of a different pack afterwards is refused and
+    // the App cannot answer from two packs. A tick writes nothing here, and a
+    // rewind that cleared it would re-open the late-selection split the seal
+    // exists to close (installed families from one pack, the selection from
+    // another).
+    (
+        "ambition_content::pack::SelectionSealed",
+        "marker that the App's selected content pack has been read by its first consumer; inserted at composition and never changed by a tick, and rewinding it would re-open the late-selection split it closes",
+    ),
     // ⭐ THE SAME KIND OF FACT AS THE TWO ABOVE, one step over: a composition
     // DECLARING that it closes the preparation barrier with an admission check,
     // so `CharacterPreparationPlugin`'s unchecked backstop stands down. Inserted

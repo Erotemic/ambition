@@ -73,6 +73,10 @@ for intended direction.
 * Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
 * **Crate layering:** foundations and domain services feed the unified simulation heart; observation/presentation consume it; runtime/provider/host compose it; game providers own named content. Do not carve `ambition_platformer2d_actor_monolith` merely because it is large. See `docs/architecture/engine-architecture.md` and `docs/planning/tracks.md`.
 
+### Other agents and cloned VMs
+
+A hostname or VM name is not evidence that two agents share a checkout or filesystem: cloned VMs reuse names. Use repository/worktree/filesystem evidence before any same-machine precaution. See `docs/recipes/coordinator-and-worker-sessions.md`.
+
 ### Assets in worktrees
 
 Binary asset payloads are git-ignored but may be PRESENT on disk. `ls` before concluding an asset is unavailable.

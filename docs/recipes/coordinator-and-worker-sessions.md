@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-10-02
+last_verified: 2026-10-07
 related_docs:
   - AGENTS.md
   - docs/recipes/cheapest-sufficient-check.md
@@ -13,6 +13,22 @@ session needs none of it.
 
 The shape that works: **workers write; the coordinator holds the build lease and
 verifies.**
+
+## Cloned VMs share a name, not a filesystem
+
+Agents often run on separate cloned VMs that answer to the SAME hostname (two
+different boxes have both been `aivm-2404`). **A hostname or VM name is not
+evidence that two agents share a working tree, a `target/` directory, a
+`.git` directory or a filesystem.** Do not skip a push, assume the other agent
+sees your uncommitted edits, take a "same machine" lock, or decide that a build
+lease is already held on that basis. Ask the repository: `git rev-parse
+--show-toplevel` and `git worktree list` for the checkout, `df`/`stat -c %d` or a
+marker file you wrote for the filesystem, `cargo`'s own lock for a shared
+`target/`. Until concrete evidence shows a shared checkout, treat another agent
+as remote: coordinate through commits and pushes (see
+[submodules](../submodules.md) for the pin rule), not through assumptions about
+where it runs. The same rule is why `scripts/profile_desktop.sh` keys perf
+history on the machine id and not the hostname.
 
 ## Workers do not run `cargo` by default
 

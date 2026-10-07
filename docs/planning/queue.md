@@ -1216,7 +1216,7 @@ Rust move tables are migration scaffolding.
 
 **Open work:**
 
-- The three families that did not reload (music cues, cutscenes, quests) all take part since 2026-10-07. What remains of "converge the registries" is the list of NOT-judged references in `content-generation-and-reload.md` (a room naming a removed cutscene; a quest step naming a boss or room that does not exist), and supersession (below).
+- The three families that did not reload (music cues, cutscenes, quests) all take part since 2026-10-07. What remains of "converge the registries" is the list of NOT-judged references in `content-generation-and-reload.md` (a room naming a removed cutscene; a quest step naming a boss or room that does not exist). Supersession of an in-flight generation is done (2026-10-07).
 - I4: save eligibility; ports for body motion so the remaining wielded items (dive, blink, grapple, mark/recall) can become modules; GNU-ton's conductor as a module.
 
 **Blocked by:** nothing.

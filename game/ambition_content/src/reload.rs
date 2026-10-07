@@ -1077,13 +1077,13 @@ pub enum ReloadRequest {
     /// A rollback timeline is speculating, or its authority is unhealthy. See
     /// [`MoveReload::RefusedDuringLiveTimeline`].
     Refused(MoveReload),
-    /// A generation is already in flight, so this one was refused.
-    ///
-    /// Stated refusal, not last-write-wins. Overwriting the in-flight state let
-    /// a second generation adopt the first request's `LoadId`, and a file
-    /// watcher makes close saves common. Supersession through a real
-    /// cancellation would also be valid, but is not implemented.
-    AlreadyPending { route: String },
+    /// The candidate is identical to the selected pack and a generation was in
+    /// flight: the author changed their mind back. The in-flight generation was
+    /// cancelled (`cancelled` is its request identity) and nothing replaces it,
+    /// so the live content stays what it is.
+    CancelledInFlight {
+        cancelled: ambition_platformer2d::game_shell::ShellRequestId,
+    },
     /// The request was issued. Nothing is published yet; the new generation
     /// appears when the shell activates it.
     Requested {
@@ -1091,6 +1091,11 @@ pub enum ReloadRequest {
         /// The identity this call minted, so the caller can correlate the
         /// transaction it started.
         request: ambition_platformer2d::game_shell::ShellRequestId,
+        /// The generation this request SUPERSEDED, when one was in flight: the
+        /// newest admitted candidate wins, and the older one was cancelled
+        /// (its staged cast, its hold, its claim and its shell transaction).
+        /// `None` when nothing was in flight.
+        superseded: Option<ambition_platformer2d::game_shell::ShellRequestId>,
     },
 }
 
@@ -1113,18 +1118,37 @@ pub fn request_reload(
 ) -> ReloadRequest {
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteCatalog, ShellRouter};
 
-    // One generation in flight at a time. Check first, before staging can
-    // overwrite the first candidate.
-    if let Some(pending) = world.get_resource::<PendingGeneration>() {
-        return ReloadRequest::AlreadyPending {
-            route: pending.route.clone(),
-        };
-    }
+    // ⭐ ONE GENERATION IN FLIGHT, AND THE NEWEST ADMITTED CANDIDATE WINS. A
+    // second request used to be refused (`AlreadyPending`) because overwriting
+    // the in-flight state let a second generation adopt the first one's load.
+    // Nothing is overwritten now: the in-flight generation is CANCELLED first,
+    // by the road the publication-lease breaker already uses (its content half
+    // dropped, then `ShellCommand::CancelPending`), and only then is the new
+    // one staged. Adoption matches on the request identity, so the cancelled
+    // transaction's late events (`PreparationRequested`, `TransactionEnded`) name
+    // a request that is no longer pending and are ignored.
+    //
+    // A candidate that is refused at admission (stale, speculating timeline)
+    // does NOT cancel what is in flight: an invalid request mutates nothing.
+    let in_flight = world
+        .get_resource::<PendingGeneration>()
+        .map(|pending| pending.request.clone());
 
     // Shared preflight; see [`admit_candidate`].
     match admit_candidate(world, &candidate) {
         CandidateAdmission::Refused(answer) => return ReloadRequest::Refused(answer),
-        CandidateAdmission::Unchanged => return ReloadRequest::Unchanged,
+        CandidateAdmission::Unchanged => {
+            // Identical to what is live. With a generation in flight this is a
+            // REVERT, and leaving the in-flight one would publish the edit the
+            // author just undid.
+            return match in_flight {
+                Some(cancelled) => {
+                    cancel_in_flight_generation(world, cancelled.clone());
+                    ReloadRequest::CancelledInFlight { cancelled }
+                }
+                None => ReloadRequest::Unchanged,
+            };
+        }
         CandidateAdmission::Proceed => {}
     }
 
@@ -1141,6 +1165,16 @@ pub fn request_reload(
         .is_some_and(|spec| spec.preparation.is_some());
     if !prepares {
         return ReloadRequest::RouteHasNoPreparation(route.as_str().to_string());
+    }
+
+    // The request will go through to staging, so what is in flight stops now:
+    // before the cast is staged (a second revision cannot stage over the first
+    // one's) and before the refusal paths below, which discard the staged
+    // reload and would otherwise throw away THIS pending generation's state
+    // while the old one lived on.
+    let superseded = in_flight;
+    if let Some(cancelled) = &superseded {
+        cancel_in_flight_generation(world, cancelled.clone());
     }
 
     // Stage the cast revision here and publish it at activation.
@@ -1319,7 +1353,22 @@ pub fn request_reload(
     ReloadRequest::Requested {
         route: route.as_str().to_string(),
         request,
+        superseded,
     }
+}
+
+/// Cancel the generation in flight: the content half (its staged cast, its
+/// claim and its activation hold) and then the shell's transaction. The same two
+/// steps, in the same order, as [`break_the_publication_lease_when_the_boundary_closes`]:
+/// the content half goes first and unconditionally, because the shell's answer
+/// can race with the transaction ending this frame, and `CancelPending` does
+/// nothing when it already did.
+fn cancel_in_flight_generation(
+    world: &mut bevy::ecs::world::World,
+    request: ambition_platformer2d::game_shell::ShellRequestId,
+) {
+    discard_staged_reload(world);
+    world.write_message(ambition_platformer2d::game_shell::ShellCommand::CancelPending { request });
 }
 
 /// One pending generation: the transaction, the candidate, and the admitted

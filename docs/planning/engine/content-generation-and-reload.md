@@ -224,8 +224,27 @@ pending or invalid; they never activate a mixture.
 
 A candidate carries its requested source revision, base ContentEpoch, selected
 profile identity and an attempt key. Superseded work can finish but cannot
-publish. Today a second request while one is in flight is refused
-(`ReloadRequest::AlreadyPending`), not superseded.
+publish.
+
+A second request while one is in flight SUPERSEDES it (2026-10-07; it used to be
+refused as `AlreadyPending`). The newest candidate that passes admission wins:
+the in-flight generation is cancelled by the road the publication-lease breaker
+uses (its content half dropped: staged cast, claim, activation hold and gate
+registration; then `ShellCommand::CancelPending`), and only then is the new one
+staged, with its own request identity. Adoption matches on that identity, so the
+cancelled transaction's late events name a request that is no longer pending
+and are ignored (`a_cancelled_generations_late_end_does_not_discard_its_successor`).
+A candidate refused at admission (stale, a speculating timeline) cancels
+nothing. A candidate equal to the live content while one is in flight is a
+revert: the in-flight generation is cancelled and nothing replaces it
+(`ReloadRequest::CancelledInFlight`). The answer to a superseding request
+carries the identity it superseded. Measured while writing it: without the
+explicit cancel, a superseding request already supersedes the shell's
+transaction (`ReplaceWith` does), so what the cancel adds is the content half
+(a leaked activation-gate registration for the old request, which nothing
+released) and the revert case, which has no `ReplaceWith` at all. Not measured to
+matter: a staged cast revision of a superseded generation did not leak into its
+successors even without the discard.
 
 ## Activation state machine
 
@@ -304,7 +323,6 @@ whether the prior scene is unchanged, recovered or stopped.
 
 - A candidate that removes a cutscene a room still names is not refused (see
   above); a reload-time reference check needs the session's room set.
-- Supersession of an in-flight generation through a real cancellation.
 - Demo packs do not reload in a running demo.
 - Measure source read, changed-section preparation, candidate construction,
   activation, scenario reset and first observed behavior separately (M0).

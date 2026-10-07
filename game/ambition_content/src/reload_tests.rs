@@ -1508,7 +1508,7 @@ fn a_changed_candidate_requests_a_re_preparation_of_the_active_route() {
     assert!(
         matches!(
             &outcome,
-            ReloadRequest::Requested { route, request }
+            ReloadRequest::Requested { route, request, superseded: None }
                 if route == "game" && request.as_str().starts_with("reload.game.")
         ),
         "got {outcome:?}"
@@ -2039,21 +2039,26 @@ fn a_pending_generation_claims_its_own_transaction_and_not_the_apps_identity() {
     );
 }
 
-/// A second request is refused while one is in flight. Otherwise a second
-/// request could replace the pending pack before adoption, and the second
-/// generation would adopt the first request's `LoadId`. A watcher makes close
-/// saves common.
+/// ⭐ **A SECOND REQUEST SUPERSEDES THE ONE IN FLIGHT.** The first generation is
+/// cancelled (its shell transaction by `CancelPending`, its content half at
+/// once), and the second is the only pending generation, staged against the live
+/// cast, with its own identity.
+///
+/// It used to be refused: overwriting the first let the second adopt the first
+/// request's load. Nothing is overwritten here; the first is gone before the
+/// second is staged, and adoption matches on the request identity.
 #[test]
-fn a_second_request_is_refused_while_a_generation_is_pending() {
+fn a_second_request_supersedes_the_one_in_flight_and_cancels_it() {
     let mut app = host_with_a_live_cast();
     let _ = reload_move_tables_selecting(
         app.world_mut(),
         std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
     shell_active_on(&mut app, true);
-    assert!(matches!(
-        request_reload(app.world_mut(), a_publishable_candidate()),
-        ReloadRequest::Requested { .. }
-    ));
+    let ReloadRequest::Requested { request: first_request, superseded: None, .. } =
+        request_reload(app.world_mut(), a_publishable_candidate())
+    else {
+        panic!("the first request was not issued");
+    };
     let first = crate::reload::pending_pack(app.world())
         .expect("a pending generation")
         .fingerprint;
@@ -2063,20 +2068,145 @@ fn a_second_request_is_refused_while_a_generation_is_pending() {
         None,
     );
     let outcome = request_reload(app.world_mut(), second);
-    assert_eq!(
-        outcome,
-        ReloadRequest::AlreadyPending {
-            route: "game".to_string()
-        },
-        "got {outcome:?}"
-    );
-    assert_eq!(
+    let ReloadRequest::Requested { request: second_request, superseded, .. } = outcome else {
+        panic!("a second request while one is in flight was not accepted: {outcome:?}");
+    };
+    assert_eq!(superseded, Some(first_request.clone()), "the answer does not say what it superseded");
+    assert_ne!(second_request, first_request, "the second request reused the first's identity");
+    assert_ne!(
         crate::reload::pending_pack(app.world())
             .expect("a pending generation")
             .fingerprint,
         first,
-        "the refused second request replaced the pending generation anyway"
+        "⛔ the first generation is still the pending one"
     );
+    assert!(
+        issued_commands(&mut app).iter().any(|command| matches!(
+            command,
+            ShellCommand::CancelPending { request } if *request == first_request
+        )),
+        "the first generation's shell transaction was never cancelled"
+    );
+    assert!(
+        request_of_pending(app.world()) == Some(second_request),
+        "the pending generation does not carry the second request's identity"
+    );
+}
+
+/// The cancelled generation's own end arrives LATE, naming a request that is no
+/// longer pending. It must not discard its successor: the identity decides, not
+/// the route.
+#[test]
+fn a_cancelled_generations_late_end_does_not_discard_its_successor() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
+    shell_active_on(&mut app, true);
+    app.add_systems(
+        bevy::app::Update,
+        (adopt_preparation_transaction, commit_content_generation).chain(),
+    );
+    let ReloadRequest::Requested { request: first_request, .. } =
+        request_reload(app.world_mut(), a_publishable_candidate())
+    else {
+        panic!("the first request was not issued");
+    };
+    let second = ambition_content_pack::CandidateGeneration::prepared_against(
+        std::sync::Arc::new(pack_of(&doc_text(0.66)).expect("compiles")),
+        None,
+    );
+    assert!(matches!(request_reload(app.world_mut(), second), ReloadRequest::Requested { .. }));
+    let successor = crate::reload::pending_pack(app.world()).expect("a successor").fingerprint;
+
+    app.world_mut().write_message(
+        ambition_platformer2d::game_shell::ShellEvent::TransactionEnded {
+            route_id: ShellRouteId::new("game"),
+            barrier: ambient_barrier("shell.game.cancelled"),
+            request: Some(first_request),
+            reason: ambition_platformer2d::game_shell::TransactionEnd::Cancelled,
+        },
+    );
+    app.update();
+    assert_eq!(
+        crate::reload::pending_pack(app.world()).map(|pack| pack.fingerprint),
+        Some(successor),
+        "⛔ THE CANCELLED GENERATION'S END DISCARDED ITS SUCCESSOR"
+    );
+}
+
+/// A revert: the candidate equals what is live while a generation is in flight.
+/// The in-flight edit is the one the author just undid, so it is cancelled and
+/// nothing replaces it; with nothing in flight the same candidate is `Unchanged`.
+#[test]
+fn a_candidate_equal_to_the_live_content_cancels_the_generation_in_flight() {
+    let mut app = host_with_a_live_cast();
+    let live = std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles"));
+    let _ = reload_move_tables_selecting(app.world_mut(), std::sync::Arc::clone(&live));
+    shell_active_on(&mut app, true);
+    let revert = || ambition_content_pack::CandidateGeneration::prepared_against(std::sync::Arc::clone(&live), None);
+    assert_eq!(
+        request_reload(app.world_mut(), revert()),
+        ReloadRequest::Unchanged,
+        "the control: with nothing in flight, the live content again is a no-op"
+    );
+
+    let ReloadRequest::Requested { request, .. } = request_reload(app.world_mut(), a_publishable_candidate())
+    else {
+        panic!("the edit was not requested");
+    };
+    let outcome = request_reload(app.world_mut(), revert());
+    assert_eq!(outcome, ReloadRequest::CancelledInFlight { cancelled: request.clone() });
+    assert!(crate::reload::pending_pack(app.world()).is_none(), "the cancelled generation is still pending");
+    assert!(
+        !app.world().contains_resource::<ambition_characters::prepared::StagedCastRevision>(),
+        "the cancelled generation's staged cast revision survived"
+    );
+    assert!(
+        issued_commands(&mut app).iter().any(|command| matches!(
+            command,
+            ShellCommand::CancelPending { request: cancelled } if *cancelled == request
+        )),
+        "the cancelled generation's shell transaction was never cancelled"
+    );
+}
+
+/// ⛔ A candidate that is refused at admission leaves the generation in flight
+/// alone: an invalid request mutates nothing, including what is pending.
+#[test]
+fn a_refused_second_request_does_not_cancel_the_generation_in_flight() {
+    let mut app = host_with_a_live_cast();
+    let _ = reload_move_tables_selecting(
+        app.world_mut(),
+        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
+    shell_active_on(&mut app, true);
+    assert!(matches!(
+        request_reload(app.world_mut(), a_publishable_candidate()),
+        ReloadRequest::Requested { .. }
+    ));
+    let first = crate::reload::pending_pack(app.world()).expect("pending").fingerprint;
+
+    // Prepared against a base that is not the live one: stale.
+    let stale = ambition_content_pack::CandidateGeneration::prepared_against(
+        std::sync::Arc::new(pack_of(&doc_text(0.66)).expect("compiles")),
+        Some(ambition_content_pack::ContentFingerprint(0xdead_beef)),
+    );
+    let outcome = request_reload(app.world_mut(), stale);
+    assert!(
+        matches!(outcome, ReloadRequest::Refused(MoveReload::StaleGeneration { .. })),
+        "the premise: the stale candidate is refused at admission: {outcome:?}"
+    );
+    assert_eq!(
+        crate::reload::pending_pack(app.world()).map(|pack| pack.fingerprint),
+        Some(first),
+        "⛔ A REFUSED REQUEST CANCELLED THE GENERATION IN FLIGHT"
+    );
+}
+
+fn request_of_pending(
+    world: &bevy::ecs::world::World,
+) -> Option<ambition_platformer2d::game_shell::ShellRequestId> {
+    world.get_resource::<PendingGeneration>().map(PendingGeneration::request_for_tests)
 }
 
 /// The request road refuses a composition with no technique table up front.
@@ -2292,58 +2422,6 @@ fn an_unrelated_rejection_while_our_own_load_is_pending_keeps_the_reload() {
         live_duration(&app),
         before,
         "an unrelated rejection discarded a reload it says nothing about"
-    );
-}
-
-/// A superseded reload is told, and the next request is accepted. Without a
-/// supersession event, the staged generation would wait forever and
-/// [`ReloadRequest::AlreadyPending`] would refuse every later save.
-///
-/// The second candidate must differ from the selected pack; otherwise
-/// `request_reload` returns `Unchanged` before the pending check.
-#[test]
-fn a_superseded_reload_is_told_and_stops_refusing_later_requests() {
-    let mut app = host_with_a_live_cast();
-    let _ = reload_move_tables_selecting(
-        app.world_mut(),
-        std::sync::Arc::new(pack_of(&doc_text(0.2)).expect("compiles")));
-    shell_active_on(&mut app, true);
-    app.add_systems(
-        bevy::app::Update,
-        (adopt_preparation_transaction, commit_content_generation)
-            .chain(),
-    );
-
-    let ReloadRequest::Requested { request, .. } =
-        request_reload(app.world_mut(), a_publishable_candidate())
-    else {
-        panic!("the reload was not requested");
-    };
-    // Premise: while one is pending, a second is refused.
-    assert!(
-        matches!(
-            request_reload(app.world_mut(), a_publishable_candidate()),
-            ReloadRequest::AlreadyPending { .. }
-        ),
-        "the fixture cannot show a release: nothing was being refused"
-    );
-
-    app.world_mut().write_message(
-        ambition_platformer2d::game_shell::ShellEvent::TransactionEnded {
-            route_id: ShellRouteId::new("game"),
-            barrier: ambient_barrier("shell.game.superseding"),
-            request: Some(request),
-            reason: ambition_platformer2d::game_shell::TransactionEnd::Superseded,
-        },
-    );
-    app.update();
-
-    // The slot is free.
-    let again = request_reload(app.world_mut(), a_publishable_candidate());
-    assert!(
-        matches!(again, ReloadRequest::Requested { .. }),
-        "a superseded reload still holds the slot, so no later save can land: \
-         {again:?}"
     );
 }
 

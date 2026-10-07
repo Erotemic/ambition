@@ -4151,28 +4151,6 @@ fn an_unchanged_or_stale_cutscene_candidate_publishes_nothing() {
 // I2/I3: the quest book takes part in a reload.
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn quest_title(app: &bevy::prelude::App, id: &str) -> Option<String> {
-    app.world()
-        .resource::<ambition_content::quest::QuestRegistry>()
-        .get(id)
-        .map(|state| state.spec.title.clone())
-}
-
-fn pack_with_a_retitled_first_quest() -> std::sync::Arc<ambition_platformer2d::content::PreparedContentPack> {
-    let mut edited = false;
-    let pack = ambition_content::pack::compile_pack_with(|declared, text| {
-        if declared == "data/quests.ron" {
-            let out = text.replacen(r#"title: "First Steps""#, r#"title: "First Steps, revised""#, 1);
-            edited = out != text;
-            return out;
-        }
-        text
-    })
-    .expect("an edited quest book compiles");
-    assert!(edited, "the quest book no longer states the edited title");
-    std::sync::Arc::new(pack)
-}
-
 /// The quest's place as the registry states it: its title, whether it is in
 /// progress, and its step.
 fn quest_place(app: &bevy::prelude::App, id: &str) -> Option<(String, bool, u8)> {
@@ -4399,3 +4377,151 @@ fn a_quest_book_with_no_place_for_a_recorded_step_is_refused() {
     assert_eq!(activation_id(&app), Some(live_activation), "a refused candidate activated");
     assert_eq!(quest_place(&app, "first_steps"), Some(("First Steps".to_string(), true, 1)));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I3: a newer candidate supersedes the generation in flight.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A pack that rewords the boot banner to `text` (the observable the supersession
+/// arms read) and optionally edits an SFX cue (a second family).
+fn pack_with_the_boot_banner(text: &'static str, also_edit_sfx: bool) -> std::sync::Arc<ambition_platformer2d::content::PreparedContentPack> {
+    let mut edited = false;
+    let pack = ambition_content::pack::compile_pack_with(|declared, source| {
+        if declared == "data/cutscenes/sandbox.ron" {
+            let out = source.replacen("// boot sequence", text, 1);
+            edited = out != source;
+            return out;
+        }
+        if also_edit_sfx && declared == "audio/sfx_registry.ron" {
+            return source.replacen(
+                "frequency: 460.0, frequency_end: 720.0,",
+                "frequency: 461.0, frequency_end: 720.0,",
+                1,
+            );
+        }
+        source
+    })
+    .expect("an edited banner compiles");
+    assert!(edited, "the cutscene file no longer states the edited banner");
+    std::sync::Arc::new(pack)
+}
+
+fn request_the_banner(
+    app: &mut bevy::prelude::App,
+    text: &'static str,
+    also_edit_sfx: bool,
+) -> ambition_content::reload::ReloadRequest {
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(
+            pack_with_the_boot_banner(text, also_edit_sfx),
+            Some(base),
+        ),
+    )
+}
+
+/// ⭐ **THE NEWEST CANDIDATE WINS, AND THE SUPERSEDED ONE NEVER BECOMES VISIBLE.**
+///
+/// Candidate A is in flight (requested, adopted, not yet activated) when B is
+/// requested. A is cancelled; B activates alone. Frame by frame the library's
+/// banner is read, and A's text must never be seen; the shell activates exactly
+/// one new session (B's), and B's second family (an SFX cue) arrives with it.
+#[test]
+fn a_newer_candidate_supersedes_the_one_in_flight_and_the_old_one_is_never_seen() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let sfx_before = first_sfx_frequency_of(&app);
+
+    let a = request_the_banner(&mut app, "// A, which is superseded", false);
+    let ambition_content::reload::ReloadRequest::Requested { request: a_request, superseded: None, .. } = a else {
+        panic!("A was not requested: {a:?}");
+    };
+    let a_hold = ambition_platformer2d::game_shell::ShellHoldId::new(format!(
+        "content-publication:{}",
+        a_request.as_str()
+    ));
+    // Two frames: A's transaction exists and is ADOPTED (so it holds the route
+    // and has a claim), and it has not activated.
+    app.update();
+    app.update();
+    assert!(ambition_content::reload::pending_pack(app.world()).is_some(), "the premise: A is in flight");
+    assert!(
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
+            .held(&ShellRouteId::new("ambition_gameplay"))
+            .iter()
+            .any(|hold| format!("{hold:?}").contains("content-publication:")),
+        "the premise: A has been adopted and holds the route"
+    );
+    assert_eq!(activation_id(&app), Some(live_activation), "the premise: A has not activated");
+
+    let b = request_the_banner(&mut app, "// B, which wins", true);
+    let ambition_content::reload::ReloadRequest::Requested { superseded: Some(_), .. } = b else {
+        panic!("B did not supersede A: {b:?}");
+    };
+
+    // A's activation gate is forgotten with A: a registration that outlives its
+    // transaction is a hold nobody will ever release.
+    assert!(
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ShellActivationGates>()
+            .evaluator(&a_hold)
+            .is_none(),
+        "⛔ THE SUPERSEDED GENERATION'S ACTIVATION GATE WAS LEFT REGISTERED"
+    );
+    let mut activations = std::collections::BTreeSet::new();
+    for _ in 0..240 {
+        app.update();
+        let banner = boot_banner(&app);
+        assert_ne!(banner, "// A, which is superseded", "⛔ THE SUPERSEDED CANDIDATE'S CUTSCENES WERE PUBLISHED");
+        activations.insert(activation_id(&app));
+    }
+    assert_eq!(boot_banner(&app), "// B, which wins", "the newest candidate never published");
+    assert_eq!(first_sfx_frequency_of(&app), sfx_before + 1.0, "B's second family did not arrive with it");
+    assert_eq!(
+        activations.len(),
+        2,
+        "the shell activated {activations:?}: the live session and B's, and no session of A's"
+    );
+    assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "a generation is still pending");
+    let held = app
+        .world()
+        .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
+        .held(&ShellRouteId::new("ambition_gameplay"));
+    let leaked: Vec<_> = held
+        .iter()
+        .filter(|hold| format!("{hold:?}").contains("content-publication:"))
+        .collect();
+    assert!(leaked.is_empty(), "a cancelled generation's hold outlived it: {leaked:?}");
+}
+
+/// A revert in flight: A is requested, then the content goes back to what is
+/// running. A is cancelled, nothing replaces it, and the game never leaves N.
+#[test]
+fn reverting_the_content_while_a_generation_is_in_flight_cancels_it() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let a = request_the_banner(&mut app, "// A, which is reverted", false);
+    assert!(matches!(a, ambition_content::reload::ReloadRequest::Requested { .. }), "{a:?}");
+    app.update();
+    assert!(ambition_content::reload::pending_pack(app.world()).is_some(), "the premise: A is in flight");
+
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let live = std::sync::Arc::new(ambition_content::pack::compile_pack_with(|_, text| text).expect("compiles"));
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(live, Some(base)),
+    );
+    assert!(
+        matches!(outcome, ambition_content::reload::ReloadRequest::CancelledInFlight { .. }),
+        "{outcome:?}"
+    );
+    for _ in 0..240 {
+        app.update();
+        assert_eq!(boot_banner(&app), "// boot sequence", "⛔ THE REVERTED CANDIDATE'S CUTSCENES WERE PUBLISHED");
+    }
+    assert_eq!(activation_id(&app), Some(live_activation), "the cancelled candidate's session activated");
+    assert!(ambition_content::reload::pending_pack(app.world()).is_none());
+}
+

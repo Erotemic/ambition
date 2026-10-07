@@ -107,9 +107,18 @@ pub fn watch_content_sources(world: &mut World) {
     let mut watch = world.resource_mut::<ContentSourceWatch>();
     use crate::reload::ReloadRequest;
     match &answer {
-        ReloadRequest::Requested { route, .. } => {
-            info!("content reload requested for route `{route}`");
+        ReloadRequest::Requested { route, superseded, .. } => {
+            match superseded {
+                Some(older) => info!(
+                    "content reload requested for route `{route}`; it supersedes the one in flight ({older:?})"
+                ),
+                None => info!("content reload requested for route `{route}`"),
+            }
             watch.requested += 1;
+            watch.dirty = false;
+        }
+        ReloadRequest::CancelledInFlight { cancelled } => {
+            info!("content sources changed back to what is running; the reload in flight ({cancelled:?}) was cancelled");
             watch.dirty = false;
         }
         ReloadRequest::Unchanged => {
@@ -125,8 +134,7 @@ pub fn watch_content_sources(world: &mut World) {
             watch.dirty = false;
         }
         // Kept: asked for again at the next look.
-        ReloadRequest::AlreadyPending { .. }
-        | ReloadRequest::NoActiveRoute
+        ReloadRequest::NoActiveRoute
         | ReloadRequest::RouteHasNoPreparation(_) => {
             let said = format!("{answer:?}");
             if watch.waiting.as_ref() != Some(&said) {

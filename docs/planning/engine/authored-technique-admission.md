@@ -134,6 +134,27 @@ Open:
   identity; identity follows content binding);
 - a move start deep-clones a `MoveSpec`.
 
+Assessed 2026-10-07 as a fallback packet and NOT started; none of the three is
+a decision-free slice:
+
+- *Constructors.* There is no checked-flow type whose constructors could be
+  made private: `TechniqueFlow` is deserialized authored data with public
+  fields, and its one gate is `TechniqueFlow::problems` at character
+  preparation. "Private and fallible" therefore means designing a new checked
+  newtype that `MoveSpec::flow` would hold, which changes the authored/prepared
+  split of the contract crate. That is a representation decision, not a
+  mechanical edit.
+- *Pinned revision.* Pinning it adds an occurrence field, so it moves the
+  rollback registration and checksum inputs, and it needs the identity rule
+  (content binding, not pointer address) chosen first.
+- *Move-start clone.* The clone is the `.cloned()` of a `MoveSpec` out of
+  `MovesetContract::moves: Vec<MoveSpec>` at the six selection sites in
+  `moveset/mod.rs`, once per accepted move, not per tick. Removing it means
+  `Vec<Arc<MoveSpec>>` in the contract: about 310 `.moves` uses, 78 `moves:`
+  constructions and 260 `ActorMoveset` mentions. No cost has been measured,
+  so the blast radius has no number to justify it. Measure a move start in a
+  profile first.
+
 The interpreter has a defensive step guard equal to the checked node count. A
 missing node or an exhausted guard is an invariant failure: report it and
 cancel through normal teardown.

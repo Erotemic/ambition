@@ -183,7 +183,7 @@ fn the_mockingbird_is_drawn_at_the_scale_its_volumes_are_measured() {
     let world_manifest = ambition_content::worlds::world_manifest();
     let project = ambition_platformer2d::ldtk_map::LdtkProject::load_default_for_dev(&world_manifest).expect("the world loads");
     let rooms = project.to_room_set(&world_manifest, &ambition_app::composed_ldtk_vocabulary()).expect("it lowers");
-    let sheet = ambition_content::bosses::authored_boss_catalog().sheet_for_key("mockingbird");
+    let sheet = ambition_content::bosses::shipped_boss_catalog().sheet_for_key("mockingbird");
     let mut placed = 0;
     for room in &rooms.rooms {
         for boss in room.boss_spawns.iter().filter(|boss| boss.name == "Mockingbird") {

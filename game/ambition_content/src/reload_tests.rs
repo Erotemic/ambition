@@ -1116,8 +1116,8 @@ fn a_candidate_that_changes_only_the_validator_calibration_publishes() {
     for (path, from, to) in [
         (
             crate::bosses::BOSS_SEEDS_SOURCE_PATH,
-            "telegraph: (min_s: 0.44, max_s: 1.00),",
-            "telegraph: (min_s: 0.44, max_s: 1.01),",
+            "telegraph: (min_s: 0.50, max_s: 1.00),",
+            "telegraph: (min_s: 0.50, max_s: 1.01),",
         ),
         (crate::bosses::BOSS_VALIDATOR_BANDS_SOURCE_PATH, "heavy: 30.0,", "heavy: 31.0,"),
     ] {

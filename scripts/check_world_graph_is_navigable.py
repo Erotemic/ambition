@@ -69,6 +69,15 @@ def assert_area_field_matches_the_engine() -> None:
         )
 
 
+def field_text(value) -> str | None:
+    """`ambition_platformer2d_ldtk::fields::field_text`'s rule, exactly: a string
+    field is read trimmed and a blank one is absent. A reference the engine
+    resolves after trimming must not be reported here as dangling."""
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
 def area_of(level: dict) -> str:
     """The room a level belongs to — `LdtkLevel::active_area`'s rule, exactly."""
     for field in level.get("fieldInstances") or []:
@@ -168,11 +177,12 @@ def main() -> int:
                         f.get("__identifier"): f.get("__value")
                         for f in entity.get("fieldInstances") or []
                     }
-                    target = fields.get("target_room")
-                    if not target or not fields.get("target_zone"):
+                    target = field_text(fields.get("target_room"))
+                    target_zone = field_text(fields.get("target_zone"))
+                    if not target or not target_zone:
                         continue
                     zones += 1
-                    doors.append((room, fields.get("id") or entity.get("iid"), target, fields["target_zone"]))
+                    doors.append((room, fields.get("id") or entity.get("iid"), target, target_zone))
                     edges.add((room, target))
                     if fields.get("bidirectional") is True:
                         both_ways += 1

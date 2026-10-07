@@ -197,6 +197,35 @@ def test_the_same_world_passes_when_the_arrival_zone_exists(tmp_path: Path) -> N
     assert module.main() == 0
 
 
+def test_a_door_target_is_read_with_the_engines_text_rule(tmp_path: Path) -> None:
+    """The engine reads a reference field trimmed, and a blank one as absent
+    (`field_text`). A padded target (`"vault "`) resolves in the game, so this
+    check must not report it as a dangling door; and a blank one is no door."""
+    module = _module()
+    module.WORLDS = tmp_path
+    (tmp_path / "padded.ldtk").write_text(
+        _world(
+            [
+                _level("hub_level", "hub", [("to_vault", "vault ", " back ", True)]),
+                _level("vault_level", "vault", [("back", "hub", "to_vault", True)]),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert module.main() == 0
+    (tmp_path / "padded.ldtk").write_text(
+        _world(
+            [
+                # A blank target is an arrival-only zone, not a door to "".
+                _level("hub_level", "hub", [("to_vault", "vault", "back", True), ("landing", "  ", "  ", False)]),
+                _level("vault_level", "vault", [("back", "hub", "to_vault", True)]),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert module.main() == 0
+
+
 def test_a_door_naming_a_room_that_is_no_area_is_reported(tmp_path: Path) -> None:
     """⛔⛔ THE FIRST ARM, AND IT HAD NO FIXTURE TEST UNTIL NOW.
 

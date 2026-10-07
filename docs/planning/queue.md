@@ -1318,8 +1318,13 @@ second authoring source.
   no shipped quest uses it. The cutscene bindings still read `active_area_ids`
   from the project; that is the level-by-level read the two-per-room rule
   needs.
-  `scripts/check_world_graph_is_navigable.py` is a third reader of the zone
-  targets (it does not trim, so it is stricter than the engine).
+  ✅ 2026-10-07, `scripts/check_world_graph_is_navigable.py` read the zone
+  targets untrimmed, so it was stricter than the engine (a `"vault "` target
+  resolves in the game and was reported as dangling). It reads them with the
+  engine's `field_text` rule now (`a_door_target_is_read_with_the_engines_text_rule`,
+  red before). It is still a second reader of the target fields, and it owns the
+  trap analysis the Rust side does not have; the id of a zone is read as the
+  engine reads it, untrimmed.
 
 **Open work:**
 

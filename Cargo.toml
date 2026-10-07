@@ -57,6 +57,7 @@ members = [
     "crates/ambition_menu",
     "crates/ambition_persistence",
     "crates/ambition_platformer2d_shared_tangle",
+    "crates/ambition_sim_schedule",
     "crates/ambition_platformer2d_provider",
     "crates/ambition_portal2d",
     "crates/ambition_projectiles",

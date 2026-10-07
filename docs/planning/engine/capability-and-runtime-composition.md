@@ -28,7 +28,7 @@ python3 scripts/measure_minimum_profile_closure.py --minimum
   any planning page that disagrees. It also fails if `ambition_render` re-enters
   the facade's mandatory graph.
 
-The capability-footprint sentinel (`fixtures/minimal_game`) links 56 other
+The capability-footprint sentinel (`fixtures/minimal_game`) links 57 other
 workspace packages besides the facade — the `ambition_closure` of
 `scripts/baselines/capability-footprint-baseline.json`, a different subject
 from the facade closure. Re-quote this sentence in the commit that changes the

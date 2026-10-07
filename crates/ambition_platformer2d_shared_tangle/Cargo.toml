@@ -31,6 +31,8 @@ bevy = { version = "0.19.1", default-features = false, features = [
 # The content-free pure-logic foundation (geometry / world / movement / the shared BodyKinematics
 # body component). Foundation-only — still NEVER ambition_platformer2d_actor_monolith.
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The simulation schedule seam and phase vocabulary; re-exported from `schedule`.
+ambition_sim_schedule = { path = "../ambition_sim_schedule" }
 # The registration protocol the construction registry answers (identity meta,
 # new/idempotent/conflict, canonical rows). Dependency-free.
 ambition_registry_core = { path = "../ambition_registry_core" }

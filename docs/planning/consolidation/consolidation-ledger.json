@@ -2007,7 +2007,8 @@
         "ambition_binding",
         "ambition_platformer2d_core",
         "ambition_projectile_spec",
-        "ambition_registry_core"
+        "ambition_registry_core",
+        "ambition_sim_schedule"
       ],
       "nonblank_rust_loc": 21569,
       "package": "ambition_platformer2d_shared_tangle",
@@ -2412,6 +2413,23 @@
       ],
       "rust_files": 14,
       "test_rust_loc_heuristic": 446
+    },
+    {
+      "dev_workspace_dependencies": [],
+      "direct_bevy_dependency": true,
+      "direct_workspace_dependencies": [],
+      "nonblank_rust_loc": 213,
+      "package": "ambition_sim_schedule",
+      "path": "crates/ambition_sim_schedule",
+      "public_items_heuristic": 11,
+      "public_root_reexports_or_modules_heuristic": 0,
+      "raw_rust_loc": 236,
+      "responsibility_clue": "The simulation schedule seam and the coarse simulation phase set an outside capability joins: which schedule the host simulates in (SimSchedule / SimScheduleExt) and where in a tick to stand. Depends only on bevy, so an extension that names it links none of the engine.",
+      "reverse_workspace_dependencies": [
+        "ambition_platformer2d_shared_tangle"
+      ],
+      "rust_files": 1,
+      "test_rust_loc_heuristic": 0
     },
     {
       "dev_workspace_dependencies": [],

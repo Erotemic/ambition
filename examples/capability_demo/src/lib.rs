@@ -12,7 +12,7 @@
 //! to know. `PulseRequested` is unchanged and stays the seam either way: a
 //! scripted sequence and an AI write it the same way a press does.
 
-use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+use ambition_sim_schedule::SimScheduleExt;
 use bevy::prelude::*;
 
 mod schema;
@@ -180,7 +180,7 @@ impl Plugin for PulsePlugin {
             // which is what a pulse is.
             (tick_pulse_cooldowns, fire_pulses)
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
+                .in_set(ambition_sim_schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
         );
     }
 }

@@ -1334,21 +1334,28 @@ second authoring source.
   provider schema, a provider semantic action with a real device binding
   (`ProviderBindings`), and a causal fact, through public APIs only. It needs no
   new central enum variant and no private reader.
-  State 2026-10-07: `examples/capability_demo` already does all three (a
-  registered schema, a `ProviderBindings` action that returns as
-  `SemanticActionPressed`, causal facts), and its rollback test compiles and
-  fails when the cooldown's registration is removed. It is not yet the witness
-  this bullet asks for, because it names implementation crates
-  (`ambition_content_pack`, `ambition_causal`, `ambition_input`,
-  `ambition_platformer2d_core`). Whether that is a gap depends on the reading
-  [`godot-class-2d-capability.md`](engine/godot-class-2d-capability.md) leaves
-  open at Gate C5: if an extension must go through the facade, the facade has no
-  content-schema surface and the demo is the gap; if an extension may name the
-  crates it extends, the demo is the witness and this bullet is done. That is a
-  ruling, not an implementation.
+  State 2026-10-07: `examples/capability_demo` does all three (a registered
+  schema, a `ProviderBindings` action that returns as `SemanticActionPressed`,
+  causal facts), and its rollback test compiles and fails when the cooldown's
+  registration is removed.
+  **Gate C5 is read (review ruling, 2026-10-07):** an extension may name the
+  narrow public crates it extends (`ambition_content_pack`, `ambition_causal`,
+  `ambition_input`, `ambition_platformer2d_core`); it is NOT forced through the
+  umbrella facade, because [`public-sdk-1.0.md`](engine/public-sdk-1.0.md) says the
+  facade is not the dependency boundary for independent builders. What it may
+  not name is engine-internal topology. The demo named one such crate,
+  `ambition_platformer2d_shared_tangle`, for two items (`SimScheduleExt` and a
+  phase set); those moved to a narrow crate, `ambition_sim_schedule` (depends only
+  on `bevy`; `shared_tangle::schedule` re-exports them, so no engine path moved),
+  and `scripts/tests/test_capability_demo_names_no_engine_topology_crate.py`
+  keeps the demo off the tangle crate. **The demo is now the external-capability
+  witness**: its normal closure is eight narrow crates. Owed, not done: the phase
+  set is still called `Platformer2dSimulationPhaseMonolith` (378 occurrences in
+  114 files), a topology name on a public vocabulary; a rename is mechanical
+  and is its own slice.
 
-**Blocked by:** nothing for the duplicate readers above; the external-capability
-witness waits on the Gate C5 reading.
+**Blocked by:** nothing. The external-capability witness is
+`examples/capability_demo` (Gate C5 read above).
 
 **Acceptance:** each fact has one authoritative read; diagnostics name the
 authored source; the old reader is deleted.

@@ -729,6 +729,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_projectile_spec",
  "ambition_registry_core",
+ "ambition_sim_schedule",
  "bevy",
  "tracing",
 ]
@@ -801,6 +802,13 @@ name = "ambition_sfx_bank"
 version = "0.1.0"
 dependencies = [
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "ambition_sim_schedule"
+version = "0.1.0"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]

@@ -844,6 +844,7 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_projectile_spec",
  "ambition_registry_core",
+ "ambition_sim_schedule",
  "bevy",
  "tracing",
 ]
@@ -979,6 +980,13 @@ dependencies = [
  "ambition_platformer2d",
  "bevy",
  "serde_json",
+]
+
+[[package]]
+name = "ambition_sim_schedule"
+version = "0.1.0"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]
@@ -2762,8 +2770,8 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_rollback_ggrs",
  "ambition_platformer2d_runtime",
- "ambition_platformer2d_shared_tangle",
  "ambition_sim_harness",
+ "ambition_sim_schedule",
  "bevy",
  "ron 0.11.0",
  "serde",

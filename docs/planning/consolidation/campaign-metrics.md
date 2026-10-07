@@ -11,7 +11,7 @@ full record, `--crate-table` for the package graph).
 
 | Metric | Value | Counting rule |
 | --- | ---: | --- |
-| Workspace packages | 88 | Root `Cargo.toml` `[workspace].members`. |
+| Workspace packages | 89 | Root `Cargo.toml` `[workspace].members`. |
 | Workspace Rust files | 2,032 | `*.rs` under workspace member directories. |
 | Repository tracked Rust files | 2,058 | `git ls-files` entries ending in `.rs`. |
 | Workspace raw Rust LOC | 894,419 | Physical lines under workspace member directories. |

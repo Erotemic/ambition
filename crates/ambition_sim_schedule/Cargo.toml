@@ -1,0 +1,15 @@
+[package]
+name = "ambition_sim_schedule"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The simulation schedule seam and coarse phase vocabulary an outside capability joins: SimSchedule / SimScheduleExt and the simulation phase set. Depends only on bevy. See docs/sdk/api-reference.md."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# The ECS and app surface only: no state, no input, no render. An extension that
+# names this crate links bevy and nothing of the engine.
+bevy = { version = "0.19.1", default-features = false }

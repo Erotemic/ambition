@@ -1744,7 +1744,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "::content_identity::ContentEpochSequence",
         "epoch allocator; mutated only by hot reload, which restarts the session",
     ),
-    ("::schedule::SimSchedule", "schedule handle"),
+    ("ambition_sim_schedule::SimSchedule", "schedule handle"),
     (
         "::rooms::stage::LastRoomConstructionCommit",
         "construction receipt: lifecycle evidence, not frame state",
@@ -2085,7 +2085,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "which entity is the camera. Written where the camera is SPAWNED by the          render composition; a rewind does not respawn the camera, and a          simulation that depended on which entity draws it would already be          wrong. Presentation identity",
     ),
     (
-        "ambition_platformer2d_shared_tangle::schedule::SimulationReplayState",
+        "ambition_sim_schedule::SimulationReplayState",
         "the marker saying THIS PASS IS A REPLAY — its own doc calls it a          \"host-owned marker for a historical replay pass\", raised after loading          historical state and cleared when the host finishes the request batch.          It is the machinery doing the rewinding, so a rewind that restored it          would be restoring the thing doing the restoring. Same argument as          `PendingSeatInputs` and `RollbackExecutionStats`; it sits in a different          module only because the SCHEDULE vocabulary owns the marker while the          driver owns the writers",
     ),
     (

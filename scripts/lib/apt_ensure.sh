@@ -10,6 +10,14 @@
 # up front. At most one update runs per process. APT_ENSURE_LOG_PREFIX controls
 # the message prefix.
 
+# ⛔ `VAR=value sudo cmd` DOES NOT PASS `VAR` TO `cmd`: sudo's `env_reset` (the
+# default) drops it. `DEBIAN_FRONTEND=noninteractive` written that way never
+# reached apt-get, so a package's debconf dialog (and needrestart's "pending
+# kernel upgrade" whiptail) opened or failed in the middle of setup. The
+# variables are set by `env` AFTER sudo. NEEDRESTART_SUSPEND stops needrestart
+# from restarting the machine's services during an unattended install.
+_APT_ENSURE_NONINTERACTIVE=(env DEBIAN_FRONTEND=noninteractive NEEDRESTART_SUSPEND=1)
+
 # Whether `apt-get update` has already run in this process. At most once:
 # apt_ensure and apt_ensure_optional are called separately but share metadata.
 _apt_ensure_updated=0
@@ -88,7 +96,7 @@ _apt_ensure_install() {
         _apt_ensure_update "$sudo_prefix" || _apt_ensure_warn "apt-get update failed; trying the install anyway"
     fi
 
-    if DEBIAN_FRONTEND=noninteractive "${sudo_cmd[@]}" apt-get install -y "$@"; then
+    if "${sudo_cmd[@]}" "${_APT_ENSURE_NONINTERACTIVE[@]}" apt-get install -y "$@"; then
         return 0
     fi
     if [[ "$_apt_ensure_updated" -ne 0 ]]; then
@@ -96,7 +104,7 @@ _apt_ensure_install() {
     fi
     _apt_ensure_log "install failed; refreshing apt metadata and retrying once"
     _apt_ensure_update "$sudo_prefix" || return 1
-    DEBIAN_FRONTEND=noninteractive "${sudo_cmd[@]}" apt-get install -y "$@"
+    "${sudo_cmd[@]}" "${_APT_ENSURE_NONINTERACTIVE[@]}" apt-get install -y "$@"
 }
 
 apt_ensure() {

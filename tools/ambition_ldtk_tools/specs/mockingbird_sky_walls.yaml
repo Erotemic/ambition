@@ -1,0 +1,19 @@
+# The Mockingbird's sky's side walls: invisible (a transparent `color`), so
+# the open sky shows through. A body that rides a shark off either edge is
+# scraped off it instead of leaving the screen. Added after
+# `mockingbird_sky_area.ron` (`area create` would lower them into IntGrid
+# cells and lose the colour).
+level_id: mockingbird_sky
+entities:
+  - type: Solid
+    px: [0, 0]
+    size: [8, 704]
+    fields:
+      name: sky_wall_left
+      color: "#00000000"
+  - type: Solid
+    px: [1272, 0]
+    size: [8, 704]
+    fields:
+      name: sky_wall_right
+      color: "#00000000"

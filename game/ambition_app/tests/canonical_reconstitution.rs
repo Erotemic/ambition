@@ -1826,7 +1826,7 @@ fn how_many_boss_families_retract_their_defeat_on_a_replay() {
     // One room per behaviour: the family that retracts, and a family that has no
     // reset system of its own. Two points, not eleven, because each costs a room
     // boot and the question here is whether the SPLIT is real.
-    const ROOMS: [&str; 2] = ["you_have_to_cut_the_rope", "mockingbird_arena"];
+    const ROOMS: [&str; 2] = ["you_have_to_cut_the_rope", "mockingbird_sky"];
 
     let mut report: Vec<String> = Vec::new();
     for room in ROOMS {
@@ -1983,7 +1983,7 @@ fn does_a_death_retract_a_boss_defeat_the_same_way_a_retry_does() {
 ///
 /// Jon's ruling (2026-09-05) keyed boss progress to a stable AUTHORED encounter
 /// id. This walks the whole road with nothing hand-seeded except the defeat
-/// itself: boot the real `mockingbird_arena`, read the placement id the ROOM
+/// itself: boot the real `mockingbird_sky`, read the placement id the ROOM
 /// gives its boss, record a clearance under exactly that id the way production
 /// does, and ask the condition catalog the question the shipped `cove.yarn` and
 /// `kernel.yarn` lines ask, spelled as an author spelled them.
@@ -2025,7 +2025,7 @@ fn the_shipped_mockingbird_gate_opens_when_its_authored_placement_is_cleared() {
          several ({authored:?}) and the extras are uncovered"
     );
 
-    let mut sim = fixed_60hz_room_sim("mockingbird_arena");
+    let mut sim = fixed_60hz_room_sim("mockingbird_sky");
     let _ = settle_after_construction(&mut sim, &BTreeSet::new());
 
     let placements: Vec<String> = {

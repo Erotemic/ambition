@@ -53,6 +53,34 @@ impl ParallaxLayerVisual {
     }
 }
 
+/// One panel of a layer that scrolls on its own and wraps (the room's
+/// `sky_scroll`): a Hanna-Barbera loop.
+///
+/// The layer is drawn as [`WRAP_SLOTS`] panels side by side, every other one
+/// mirrored, so the seams match whatever the art is (a mirrored edge meets
+/// itself) and the loop repeats every two panels. Each panel sits at its
+/// `slot` times the panel's width, plus the scroll so far wrapped into one
+/// period ([`wrapped_scroll_x`]).
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ParallaxWrap {
+    pub slot: i8,
+    /// The layer's own speed (world px/s): the room's scroll times its
+    /// parallax factor.
+    pub speed_px_s: f32,
+}
+
+/// The slots of a wrapping layer: four panels cover the view at every phase
+/// of the two-panel period.
+pub const WRAP_SLOTS: [i8; 4] = [-2, -1, 0, 1];
+
+/// Where panel `slot` of a wrapping layer sits, relative to the layer's
+/// unwrapped position, `elapsed_s` into the scroll.
+pub fn wrapped_scroll_x(slot: i8, speed_px_s: f32, elapsed_s: f32, panel_w: f32) -> f32 {
+    let period = 2.0 * panel_w;
+    let scroll = if period > 0.0 { (elapsed_s * speed_px_s).rem_euclid(period) } else { 0.0 };
+    slot as f32 * panel_w + scroll
+}
+
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoundParallaxLayer {
     theme: ParallaxTheme,
@@ -146,7 +174,18 @@ pub fn spawn_parallax_layers(
     }
     let theme = ParallaxTheme::from_room_metadata(metadata);
     let max_layers = quality.and_then(|q| q.max_layers).unwrap_or(usize::MAX);
-    for spec in RUNTIME_PARALLAX_LAYERS.iter().take(max_layers) {
+    // A room whose sky scrolls draws each layer as a row of wrapping panels.
+    let scroll = metadata.visual_profile.sky_scroll_px_s.map(|px_s| px_s as f32);
+    let slots: &[Option<i8>] = if scroll.is_some() {
+        &[Some(WRAP_SLOTS[0]), Some(WRAP_SLOTS[1]), Some(WRAP_SLOTS[2]), Some(WRAP_SLOTS[3])]
+    } else {
+        &[None]
+    };
+    for (spec, slot) in RUNTIME_PARALLAX_LAYERS
+        .iter()
+        .take(max_layers)
+        .flat_map(|spec| slots.iter().map(move |slot| (spec, *slot)))
+    {
         let Some(image) = assets.parallax_layers.get(theme, spec.asset) else {
             continue;
         };
@@ -154,7 +193,9 @@ pub fn spawn_parallax_layers(
         // scope. `sync_parallax_layers` sizes it against the owning view.
         let mut sprite = Sprite::from_image(image.clone());
         sprite.custom_size = None;
-        commands.spawn_session_scoped(
+        // Every other panel mirrored, so each seam meets its own edge.
+        sprite.flip_x = slot.is_some_and(|slot| slot.rem_euclid(2) == 1);
+        let mut layer = commands.spawn_session_scoped(
             session_scope,
             (
                 sprite,
@@ -175,12 +216,16 @@ pub fn spawn_parallax_layers(
                 ProjectionRestingLayers(parallax_resting_layers()),
                 RoomVisual,
                 Name::new(format!(
-                    "Background parallax layer: {} {}",
+                    "Background parallax layer: {} {}{}",
                     theme.key(),
-                    spec.asset.key()
+                    spec.asset.key(),
+                    slot.map_or(String::new(), |slot| format!(" (wrap {slot})"))
                 )),
             ),
         );
+        if let (Some(slot), Some(scroll)) = (slot, scroll) {
+            layer.insert(ParallaxWrap { slot, speed_px_s: scroll * spec.factor });
+        }
     }
 }
 
@@ -402,7 +447,7 @@ pub fn mirror_parallax_layers_per_view(
             Entity,
             &Sprite,
             &ParallaxLayerVisual,
-            Option<&BoundParallaxLayer>,
+            (Option<&BoundParallaxLayer>, Option<&ParallaxWrap>),
             Option<&ambition_sim_view::PresentedForView>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
@@ -476,7 +521,7 @@ pub fn mirror_parallax_layers_per_view(
         mirrored.insert((copy.root, key.0));
     }
 
-    for (root, sprite, layer, bound, key, stamp) in &roots {
+    for (root, sprite, layer, (bound, wrap), key, stamp) in &roots {
         let drawers = drawers(stamp);
         let claimer = drawers[0];
         if key.map(|key| key.0) != Some(claimer) {
@@ -516,6 +561,9 @@ pub fn mirror_parallax_layers_per_view(
             );
             if let Some(bound) = bound {
                 copy.insert(*bound);
+            }
+            if let Some(wrap) = wrap {
+                copy.insert(*wrap);
             }
             // The copy is its root's room's, and retires with it.
             if let Some(stamp) = stamp {
@@ -574,10 +622,13 @@ pub fn sync_parallax_layers(
             &mut ParallaxLayerVisual,
             Option<&ambition_sim_view::PresentedForView>,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            Option<&ParallaxWrap>,
         ),
         (Without<Camera>, Without<PortalCaptureParallaxLayerVisual>),
     >,
+    time: Option<Res<Time>>,
 ) {
+    let elapsed_s = time.map_or(0.0, |time| time.elapsed_secs());
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
 
     // Where each view's camera stands, and how big that view's rectangle is.
@@ -613,7 +664,7 @@ pub fn sync_parallax_layers(
             ));
     }
 
-    for (mut transform, mut sprite, mut visibility, mut layer, key, stamp) in &mut layers {
+    for (mut transform, mut sprite, mut visibility, mut layer, key, stamp, wrap) in &mut layers {
         let resolved = on_hand
             .drawn_for(key.copied())
             .and_then(|view| drawn_by.get(&view).copied())
@@ -646,6 +697,9 @@ pub fn sync_parallax_layers(
             layer.travel = travel;
         }
         sync_parallax_transform_to_camera(&mut transform, &layer, camera_xy);
+        if let Some(wrap) = wrap {
+            transform.translation.x += wrapped_scroll_x(wrap.slot, wrap.speed_px_s, elapsed_s, panel_size.x);
+        }
     }
 }
 
@@ -1025,6 +1079,41 @@ mod parallax_travel_tests {
             quarter < edge,
             "travel should decrease monotonically from the left edge inward"
         );
+    }
+}
+
+/// The air chase's sky (`sky_scroll`): it never stops moving and never shows
+/// an edge.
+#[cfg(test)]
+mod wrapping_sky_tests {
+    use super::*;
+
+    /// At every moment of the scroll the four panels cover the view with no
+    /// gap, and they move the way the scroll runs.
+    #[test]
+    fn the_wrapping_panels_always_cover_the_view_and_move_with_the_scroll() {
+        let panel_w = 1000.0;
+        let speed = -230.0;
+        let view_half = panel_w * 0.5;
+        for step in 0..400 {
+            let t = step as f32 * 0.137;
+            let mut spans: Vec<(f32, f32)> = WRAP_SLOTS
+                .iter()
+                .map(|slot| {
+                    let x = wrapped_scroll_x(*slot, speed, t, panel_w);
+                    (x - panel_w * 0.5, x + panel_w * 0.5)
+                })
+                .collect();
+            spans.sort_by(|a, b| a.0.total_cmp(&b.0));
+            assert!(spans[0].0 <= -view_half && spans[3].1 >= view_half, "the view's edge shows at {t}s: {spans:?}");
+            for pair in spans.windows(2) {
+                assert!((pair[0].1 - pair[1].0).abs() < 1e-2, "a gap between panels at {t}s: {spans:?}");
+            }
+        }
+        // Between two moments inside one period, every panel moved by the
+        // scroll.
+        let (a, b) = (wrapped_scroll_x(0, speed, 1.0, panel_w), wrapped_scroll_x(0, speed, 1.5, panel_w));
+        assert!((b - a - speed * 0.5).abs() < 1e-2, "the panel moved {} in half a second", b - a);
     }
 }
 

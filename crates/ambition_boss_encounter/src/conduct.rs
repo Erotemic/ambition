@@ -91,8 +91,9 @@ pub fn queue_boss_conducts(
         if !bound.contains(&config.behavior.id.as_str()) {
             continue;
         }
-        let hall = rooms
-            .of(boss)
+        let geometry = rooms.of(boss);
+        let room = geometry.map(|geometry| [geometry.0.size.x, geometry.0.size.y]);
+        let hall = geometry
             .and_then(|geometry| crate::hall::measure_hall(&geometry.0, kin.pos))
             .map(|h| RoomHall {
                 floor: h.floor,
@@ -127,6 +128,7 @@ pub fn queue_boss_conducts(
                     })
                     .count() as u32,
                 between_phases: encounter.between_phases(),
+                room,
             },
         );
     }
@@ -177,6 +179,17 @@ pub fn lower_conducted_poses(
             Some(mut facing) => facing.0 = pose.side,
             None => {
                 commands.entity(submitted.scope).try_insert(ConductedFacing(pose.side));
+            }
+        }
+    }
+}
+
+/// Lower `ambition.boss.guard` into the boss's `BossEncounter::guarded`.
+pub fn lower_boss_guards(mut outbox: ResMut<ExtensionOutbox>, mut bosses: Query<&mut BossEncounter>) {
+    for submitted in outbox.drain::<ambition_boss_special_port::BossGuardPort>() {
+        if let Ok(mut status) = bosses.get_mut(submitted.scope) {
+            if status.guarded != submitted.value.guarded {
+                status.guarded = submitted.value.guarded;
             }
         }
     }

@@ -741,14 +741,16 @@
         64,
         16
       ],
-      "note": "a platform states exactly ONE motion. sweep_dx, path_id and loop_dy are three answers to the same question and the converter refuses more than one.",
+      "note": "a platform states exactly ONE motion. sweep_dx, path_id, loop_dy, loop_dx and lift_dy are five answers to the same question and the converter refuses more than one.",
       "fields": [
         {
           "name": "sweep_dx",
           "presence": "optional",
           "conflicts_with": [
             "path_id",
-            "loop_dy"
+            "loop_dy",
+            "loop_dx",
+            "lift_dy"
           ],
           "on_invalid": "open",
           "sample": "240",
@@ -759,7 +761,9 @@
           "presence": "optional",
           "conflicts_with": [
             "loop_dy",
-            "speed"
+            "speed",
+            "loop_dx",
+            "lift_dy"
           ],
           "on_invalid": "open",
           "sample": "lift_path",
@@ -781,7 +785,11 @@
           "nonzero": true,
           "on_invalid": "refused",
           "sample": "-640",
-          "note": "the signed height of a wrapping shaft (positive travels DOWN). Zero is refused: a shaft with no span never moves."
+          "note": "the signed height of a wrapping shaft (positive travels DOWN). Zero is refused: a shaft with no span never moves.",
+          "conflicts_with": [
+            "loop_dx",
+            "lift_dy"
+          ]
         },
         {
           "name": "loop_min_y",
@@ -792,6 +800,68 @@
           "on_invalid": "open",
           "sample": "-96",
           "note": "a POSITION (it takes the level offset), naming where the wrapping shaft starts. On its own it describes no motion, so it is refused without loop_dy."
+        },
+        {
+          "name": "loop_dx",
+          "presence": "optional",
+          "conflicts_with": [
+            "sweep_dx",
+            "path_id",
+            "loop_dy",
+            "lift_dy"
+          ],
+          "nonzero": true,
+          "on_invalid": "refused",
+          "sample": "-1900",
+          "note": "the signed length of a wrapping horizontal lane (positive travels RIGHT): a flock that leaves one side and comes back in at the other. Zero is refused: a lane with no length never moves."
+        },
+        {
+          "name": "loop_min_x",
+          "presence": "optional",
+          "requires_fields": [
+            "loop_dx"
+          ],
+          "on_invalid": "open",
+          "sample": "-160",
+          "note": "a POSITION (it takes the level offset), naming where the wrapping lane starts. On its own it describes no motion, so it is refused without loop_dx."
+        },
+        {
+          "name": "bob",
+          "presence": "optional",
+          "requires_fields": [
+            "loop_dx"
+          ],
+          "on_invalid": "open",
+          "sample": "8",
+          "note": "how far a horizontal loop rises and falls about its authored height (pixels). Only a horizontal loop bobs, so it is refused without loop_dx."
+        },
+        {
+          "name": "lift_dy",
+          "presence": "optional",
+          "conflicts_with": [
+            "sweep_dx",
+            "path_id",
+            "loop_dy",
+            "loop_dx"
+          ],
+          "nonzero": true,
+          "on_invalid": "refused",
+          "sample": "-900",
+          "note": "a lift that waits for a rider: it rests until a body stands on it, carries it this signed height (negative travels UP) at `speed`, and comes back down. Zero is refused."
+        },
+        {
+          "name": "visual",
+          "presence": "optional",
+          "on_invalid": "open",
+          "sample": "burning_flying_shark",
+          "note": "the registered prop sheet it is drawn as (its `fly` row loops); empty draws the plain platform."
+        },
+        {
+          "name": "one_way",
+          "presence": "optional",
+          "on_invalid": "open",
+          "sample": "true",
+          "note": "a body jumps up through it and lands on its top (a shark's back) instead of striking its underside. Its climb must stay under MAX_ONE_WAY_CLIMB (420 px/s) or it is refused: faster, its own rider is left below its face."
         }
       ]
     },

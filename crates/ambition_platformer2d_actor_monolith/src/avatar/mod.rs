@@ -7,6 +7,7 @@ pub mod body_integration;
 pub mod bundles;
 pub mod components;
 pub mod events;
+pub mod fall_rescue;
 pub mod movement_components;
 pub mod starting_character;
 pub mod systems;
@@ -17,6 +18,7 @@ pub use body_integration::{
     PlayerBodyFrameOutput,
 };
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
+pub use fall_rescue::rescue_falling_bodies;
 pub use starting_character::{
     apply_worn_character_gameplay, apply_worn_character_overlay, apply_worn_motion_model,
     gate_body_control, motion_model_spec_for_character,

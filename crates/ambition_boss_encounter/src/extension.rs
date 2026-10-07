@@ -41,7 +41,7 @@ pub fn install_summons(app: &mut App) {
 }
 
 /// Install the conducted-boss trigger and its boss-domain request ports in
-/// `boss_conduct`: the pose, the drawn row, a burst, a camera shake, and a
+/// `boss_conduct`: the pose, the drawn row, the guard, a burst, a camera shake, and a
 /// summon.
 pub fn install_conduct(app: &mut App) {
     use ambition_boss_special_port::{BossConductPort, ConductedPosePort, DrawnRowPort};
@@ -63,6 +63,11 @@ pub fn install_conduct(app: &mut App) {
         BOSS_CONDUCT,
         "ambition_boss_encounter",
         crate::conduct::lower_drawn_rows,
+    );
+    app.install_extension_request::<ambition_boss_special_port::BossGuardPort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::lower_boss_guards,
     );
     app.install_extension_request::<ambition_combat_port::BurstPort, _>(
         BOSS_CONDUCT,

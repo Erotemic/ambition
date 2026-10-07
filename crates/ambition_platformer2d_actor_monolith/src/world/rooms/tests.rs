@@ -590,6 +590,8 @@ fn active_metadata_returns_active_room_metadata() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        fall_rescue: None,
+        boss_reward_drop: None,
     };
     let m2 = RoomMetadata {
         biome: Some("cave".into()),
@@ -609,6 +611,8 @@ fn active_metadata_returns_active_room_metadata() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        fall_rescue: None,
+        boss_reward_drop: None,
     };
     let set = RoomSet::from_parts_or_panic(
         "first",
@@ -653,6 +657,8 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        fall_rescue: None,
+        boss_reward_drop: None,
     };
     assert!(!m.is_empty());
 
@@ -696,6 +702,8 @@ fn room_metadata_merge_preserves_existing_values() {
         title: None,
         entry_cutscene: None,
         while_live: None,
+        fall_rescue: None,
+        boss_reward_drop: None,
     };
     let b = RoomMetadata {
         biome: Some("CONFLICT".into()),        // ignored — a.biome wins
@@ -728,8 +736,13 @@ fn room_metadata_merge_preserves_existing_values() {
         entry_cutscene: Some("cave_intro".into()),
         // takes effect — a had none.
         while_live: Some("encounter.start encounter:cave".into()),
+        // takes effect — a had none.
+        fall_rescue: Some("burning_flying_shark".into()),
+        boss_reward_drop: Some("cove.mockingbird".into()),
     };
     a.merge(b);
+    assert_eq!(a.fall_rescue.as_deref(), Some("burning_flying_shark"));
+    assert_eq!(a.boss_reward_drop.as_deref(), Some("cove.mockingbird"));
     assert_eq!(a.entry_cutscene.as_deref(), Some("cave_intro"));
     assert_eq!(a.while_live.as_deref(), Some("encounter.start encounter:cave"));
     assert_eq!(a.title.as_deref(), Some("CAVE 1"));
@@ -780,6 +793,7 @@ fn room_visual_profile_merge_prefers_existing_values() {
         palette: Some("warm".into()),
         lighting_hint: None,
         foreground_treatment: None,
+        sky_scroll_px_s: None,
     };
     let b = RoomVisualProfile {
         id: Some("conflict".into()),
@@ -787,6 +801,7 @@ fn room_visual_profile_merge_prefers_existing_values() {
         palette: Some("cool".into()),
         lighting_hint: Some("low_key".into()),
         foreground_treatment: Some("dust".into()),
+        sky_scroll_px_s: Some(-600),
     };
     a.merge(b);
     assert_eq!(a.id.as_deref(), Some("intro"));
@@ -794,6 +809,7 @@ fn room_visual_profile_merge_prefers_existing_values() {
     assert_eq!(a.palette.as_deref(), Some("warm"));
     assert_eq!(a.lighting_hint.as_deref(), Some("low_key"));
     assert_eq!(a.foreground_treatment.as_deref(), Some("dust"));
+    assert_eq!(a.sky_scroll_px_s, Some(-600));
 }
 
 #[test]

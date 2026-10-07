@@ -373,7 +373,7 @@ fn a_committed_checkpoint_restore_changes_each_of_those_facts() {
     );
 }
 
-/// The authored boss of `mockingbird_arena`, and whether the save records it
+/// The authored boss of `trex_arena`, and whether the save records it
 /// cleared: (the boss bodies of the room that are alive, those that are not,
 /// cleared).
 fn the_arena_boss(sim: &mut Platformer2dSimHarness) -> (Option<String>, usize, usize, bool) {
@@ -394,7 +394,7 @@ fn the_arena_boss(sim: &mut Platformer2dSimHarness) -> (Option<String>, usize, u
 
 /// AFTER A RESTORE, THE ROOM AND THE SAVE AGREE ABOUT AN AUTHORED BOSS.
 ///
-/// A checkpoint in `mockingbird_arena`, then its authored boss defeated, then
+/// A checkpoint in `trex_arena`, then its authored boss defeated, then
 /// a death. After the restore the arena holds its boss alive, and the save does
 /// not record it cleared. On each frame of the death and the restore, a boss
 /// that is alive is not presented as defeated. Control: before the death the
@@ -409,13 +409,15 @@ fn the_arena_boss(sim: &mut Platformer2dSimHarness) -> (Option<String>, usize, u
 /// already taken that record back. Its first PHASE is construction's: a boss
 /// built with the fate `Dead` starts `Defeated`. So with the prospect's boss
 /// half poisoned (the room built from the save before the retraction), the
-/// boss is alive with 28 health and `Defeated` on the first frame of the
+/// boss is alive with full health and `Defeated` on the first frame of the
 /// restored room, and `Active` one frame later. The frame check below sees
 /// that frame.
 #[test]
 fn a_restored_room_builds_the_boss_the_restore_takes_back_alive() {
     use crate::common::fixed_60hz_room_sim;
-    let mut sim = fixed_60hz_room_sim("mockingbird_arena");
+    // A boss arena with a floor: in the Mockingbird's sky, a fall once it is
+    // dead drops the player out of the room before its defeat is recorded.
+    let mut sim = fixed_60hz_room_sim("trex_arena");
     sim.step_n(AgentAction::default(), 15);
     commit_a_checkpoint(&mut sim);
     let (id, alive, _, cleared) = the_arena_boss(&mut sim);

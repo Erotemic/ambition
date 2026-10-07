@@ -139,29 +139,37 @@
         ),
     ),
     // ============================================================
-    // Mockingbird — airborne ship/bird-like boss. Cycle pattern,
-    // no per-phase movement variants. Underdeveloped today; the
-    // intent is a duel-style boss whose three attacks (WingSweep /
-    // DiveLane / Broadside) chain via the flat cycle rhythm.
+    // The Mockingbird — the AIR CHASE (`docs/planning/game/bosses.md`, "The
+    // Mockingbird"; Jon, 2026-10-06). Conducted: these `Special` keys say
+    // which move and when; `ambition_content_modules::mockingbird` flies it,
+    // fires its shots, raises and drops its guard and draws its rows.
+    //
+    // It holds the left of an open sky over a flock of burning sharks that
+    // drift toward it. Out there its hull turns every blow; it fires missiles
+    // off its wingtip and fireballs from its throat, and snaps at whoever
+    // rides a shark into reach. Then it DIVES at you and bites, and that opens
+    // it: winded, it hangs in the sky with its guard down (each dive's Rest is
+    // that stun and its flight home), the fight's punish window.
+    // Phase 2: salvoes, a wider fan, and a dive that turns and comes twice.
+    // Enraged: a strafing run along the top of the sky raining fire on the
+    // flock, and a low pass back under it.
     // ============================================================
     "mockingbird": (
         id: "mockingbird",
         signature_gauntlet: Some("volley"),
         combat_size: Some((500.0, 185.0)),
-        movement: AirSwoop(
-            x_radius: 250.0,
-            y_radius: 62.0,
-            x_frequency: 0.56,
-            y_frequency: 1.35,
-            chase_scale: 0.08,
-            chase_limit: 95.0,
-            speed: 320.0,
+        movement: AnchorSway(
+            x_radius: 0.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
+            speed: 0.0,
         ),
         movement_phase2: None,
         movement_enrage: None,
         strike_speed_scale: 1.0,
-        // Macro tuning disabled — Mockingbird stays in Engage,
-        // attacks via flat Cycle rhythm. All zeros / 1.0s.
         macro_tuning: (
             too_close_distance: 0.0,
             too_far_distance: 0.0,
@@ -174,18 +182,125 @@
             retreat_distance: 0.0,
         ),
         attacks: [
-            Strike("wing_sweep"),
-            Strike("dive_lane"),
-            Strike("broadside"),
-            // The mimic copies one shot across a cone aimed at you.
-            Special("echo_fan"),
+            Special("mockingbird_missile"),
+            Special("mockingbird_salvo"),
+            Special("mockingbird_fireballs"),
+            Special("mockingbird_fire_fan"),
+            Special("mockingbird_snap"),
+            Special("mockingbird_dive"),
+            Special("mockingbird_double_dive"),
+            Special("mockingbird_strafe"),
         ],
-        attack_cooldown: 1.05,
-        attack_windup: 0.44,
-        attack_active: 0.28,
+        attack_cooldown: 1.0,
+        attack_windup: 0.5,
+        attack_active: 0.3,
         attack_damage: 2,
         body_damage: 1,
-        attack_pattern: Cycle,
+        attack_pattern: Scripted(
+            intro: (steps: [
+                // A beat to look at it, then a missile to learn it by. (Each
+                // key has ONE tell and ONE strike length wherever it appears:
+                // the engine compiles one move per key.)
+                Rest(duration: 0.6),
+                Telegraph(profile: Special("mockingbird_missile"), duration: 0.8,
+                    telegraph: Some((pose: Some("missile"), cue: Some("boss.mockingbird.lock_on")))),
+                Strike(profile: Special("mockingbird_missile"), duration: 0.45),
+                Rest(duration: 1.0),
+            ]),
+            // PHASE 1: shots from its side, a snap at whoever rides into
+            // reach, then the dive. The Rest after the dive is the stun.
+            phase1: (steps: [
+                Telegraph(profile: Special("mockingbird_missile"), duration: 0.8,
+                    telegraph: Some((pose: Some("missile"), cue: Some("boss.mockingbird.lock_on")))),
+                Strike(profile: Special("mockingbird_missile"), duration: 0.45),
+                Rest(duration: 0.9),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("mockingbird_snap"), duration: 0.75,
+                            telegraph: Some((pose: Some("chomp"), cue: Some("boss.mockingbird.growl")))),
+                        Strike(profile: Special("mockingbird_snap"), duration: 0.35),
+                        Rest(duration: 0.7),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("mockingbird_fireballs"), duration: 0.7,
+                            telegraph: Some((pose: Some("slash"), cue: Some("boss.mockingbird.charge")))),
+                        Strike(profile: Special("mockingbird_fireballs"), duration: 0.35),
+                        Rest(duration: 0.9),
+                    ]),
+                ]),
+                Telegraph(profile: Special("mockingbird_missile"), duration: 0.8,
+                    telegraph: Some((pose: Some("missile"), cue: Some("boss.mockingbird.lock_on")))),
+                Strike(profile: Special("mockingbird_missile"), duration: 0.45),
+                Rest(duration: 0.8),
+                Telegraph(profile: Special("mockingbird_dive"), duration: 0.95,
+                    telegraph: Some((pose: Some("dive"), cue: Some("boss.mockingbird.spool")))),
+                Strike(profile: Special("mockingbird_dive"), duration: 1.2),
+                Rest(duration: 3.3),
+            ]),
+            transition: (steps: [Rest(duration: 2.2)]),
+            // PHASE 2: salvoes and a wider fan; the dive turns and comes twice.
+            phase2: (steps: [
+                Telegraph(profile: Special("mockingbird_salvo"), duration: 0.7,
+                    telegraph: Some((pose: Some("missile"), cue: Some("boss.mockingbird.lock_on_salvo")))),
+                Strike(profile: Special("mockingbird_salvo"), duration: 0.9),
+                Rest(duration: 0.7),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("mockingbird_snap"), duration: 0.75,
+                            telegraph: Some((pose: Some("chomp"), cue: Some("boss.mockingbird.growl")))),
+                        Strike(profile: Special("mockingbird_snap"), duration: 0.35),
+                        Rest(duration: 0.7),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("mockingbird_fire_fan"), duration: 0.65,
+                            telegraph: Some((pose: Some("slash"), cue: Some("boss.mockingbird.charge_fan")))),
+                        Strike(profile: Special("mockingbird_fire_fan"), duration: 0.35),
+                        Rest(duration: 0.7),
+                    ]),
+                ]),
+                Telegraph(profile: Special("mockingbird_double_dive"), duration: 0.85,
+                    telegraph: Some((pose: Some("screech"), cue: Some("boss.mockingbird.spool")))),
+                Strike(profile: Special("mockingbird_double_dive"), duration: 2.0),
+                Rest(duration: 3.0),
+                Telegraph(profile: Special("mockingbird_fireballs"), duration: 0.7,
+                    telegraph: Some((pose: Some("slash"), cue: Some("boss.mockingbird.charge")))),
+                Strike(profile: Special("mockingbird_fireballs"), duration: 0.35),
+                Rest(duration: 0.6),
+                Telegraph(profile: Special("mockingbird_dive"), duration: 0.95,
+                    telegraph: Some((pose: Some("dive"), cue: Some("boss.mockingbird.spool")))),
+                Strike(profile: Special("mockingbird_dive"), duration: 1.2),
+                Rest(duration: 2.8),
+            ]),
+            // ENRAGED, BURNING: the strafing run, then everything faster.
+            enrage: (steps: [
+                Telegraph(profile: Special("mockingbird_strafe"), duration: 0.8,
+                    telegraph: Some((pose: Some("thrust"), cue: Some("boss.mockingbird.screech")))),
+                Strike(profile: Special("mockingbird_strafe"), duration: 4.2),
+                Rest(duration: 0.6),
+                Telegraph(profile: Special("mockingbird_salvo"), duration: 0.7,
+                    telegraph: Some((pose: Some("missile"), cue: Some("boss.mockingbird.lock_on_salvo")))),
+                Strike(profile: Special("mockingbird_salvo"), duration: 0.9),
+                Rest(duration: 0.5),
+                Telegraph(profile: Special("mockingbird_double_dive"), duration: 0.85,
+                    telegraph: Some((pose: Some("screech"), cue: Some("boss.mockingbird.spool")))),
+                Strike(profile: Special("mockingbird_double_dive"), duration: 2.0),
+                Rest(duration: 2.6),
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("mockingbird_snap"), duration: 0.75,
+                            telegraph: Some((pose: Some("chomp"), cue: Some("boss.mockingbird.growl")))),
+                        Strike(profile: Special("mockingbird_snap"), duration: 0.35),
+                        Rest(duration: 0.7),
+                    ]),
+                    (weight: 2.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("mockingbird_fire_fan"), duration: 0.65,
+                            telegraph: Some((pose: Some("slash"), cue: Some("boss.mockingbird.charge_fan")))),
+                        Strike(profile: Special("mockingbird_fire_fan"), duration: 0.35),
+                        Rest(duration: 0.5),
+                    ]),
+                ]),
+            ]),
+        ),
         reward: DropChest(
             pickup: Custom("pirate_hoard"),
             offset: (0.0, 24.0),

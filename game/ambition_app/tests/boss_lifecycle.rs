@@ -57,7 +57,14 @@ fn player_pos(world: &mut World) -> (f32, f32) {
 }
 
 pub(crate) fn spawn_mockingbird(sim: &mut Platformer2dSimHarness, runtime_id: &str) {
+    spawn_mockingbird_beside(sim, runtime_id, 0.0);
+}
+
+/// A mockingbird `dx` to the side of the player. It holds the spot it is
+/// placed at, so this is where it dies and drops what it drops.
+pub(crate) fn spawn_mockingbird_beside(sim: &mut Platformer2dSimHarness, runtime_id: &str, dx: f32) {
     let (px, py) = player_pos(sim.world_mut());
+    let px = px + dx;
     sim.spawn_boss_at(
         runtime_id,
         "mockingbird",
@@ -134,8 +141,21 @@ pub(crate) fn kill_boss_with_a_real_hit(
     for frame in 0..max_frames {
         if boss_phase(sim.world_mut(), placement_id).is_some_and(|phase| !phase.boss_invulnerable())
         {
+            // A conductor's guard (the Mockingbird out at its side) turns a
+            // blow; these tests are about what a defeat leaves, not how to
+            // get through a guard (`mockingbird_fight` is), so the blow lands
+            // in a moment the guard is down.
+            lower_guard(sim.world_mut(), placement_id);
             let at = boss_pos(sim.world_mut(), placement_id)
                 .unwrap_or_else(|| panic!("boss {placement_id} has no body to aim at"));
+            // The Mockingbird holds its spot and knocks a player who spawned
+            // on it away, so its bounty would fall out of reach: the blow is
+            // struck from beside it, as a sword's is. (Other bosses are left
+            // where they are: a test may keep its drop out of reach on
+            // purpose.)
+            if boss_behavior(sim.world_mut(), placement_id).as_deref() == Some("mockingbird") {
+                sim.teleport_player((at.x, at.y));
+            }
             // A volume around the boss rather than a point: the hit is resolved
             // against the victim's own collision box, and a zero-area box at the
             // centre is a different question from "something struck it".
@@ -166,6 +186,19 @@ pub(crate) fn kill_boss_with_a_real_hit(
          (phase was {:?})",
         boss_phase(sim.world_mut(), placement_id),
     );
+}
+
+/// Drop the guard of boss `placement_id` (`BossEncounter::guarded`).
+fn lower_guard(world: &mut bevy::prelude::World, placement_id: &str) {
+    let mut q = world.query::<(
+        &ambition_platformer2d::boss_encounter::BossConfig,
+        &mut ambition_platformer2d::boss_encounter::BossEncounter,
+    )>();
+    for (config, mut status) in q.iter_mut(world) {
+        if config.id == placement_id {
+            status.guarded = false;
+        }
+    }
 }
 
 // ⚠ `pub(crate)` on the three helpers above: `death_restores_the_checkpoint`
@@ -886,6 +919,11 @@ fn boss_spawn(world: &mut World, placement_id: &str) -> Option<bevy::prelude::Ve
     q.iter(world)
         .find(|config| config.id == placement_id)
         .map(|config| bevy::prelude::Vec2::new(config.spawn.x, config.spawn.y))
+}
+
+fn boss_behavior(world: &mut World, placement_id: &str) -> Option<String> {
+    let mut q = world.query::<&BossConfig>();
+    q.iter(world).find(|config| config.id == placement_id).map(|config| config.behavior.id.clone())
 }
 
 fn boss_pos(world: &mut World, placement_id: &str) -> Option<bevy::prelude::Vec2> {

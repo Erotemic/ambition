@@ -1,8 +1,9 @@
 // Boss encounter spec — Mockingbird.
 //
-// Pirate-faction arena boss. Shorter HP pool than the gradient
-// sentinel — design intent is "swooping aerial pressure" rather
-// than attrition. Uses the `how_to_kill_a_mockingbird` audio
+// Pirate-faction boss, fought as an AIR CHASE over a flock of burning
+// sharks (`boss_profiles.ron`, `ambition_content_modules::mockingbird`). It
+// is open to damage only after its dives, so its pool is sized for windows,
+// not attrition: 40, in three phases. Uses the `how_to_kill_a_mockingbird`
 // score (rendered separately by the music renderer); falls back
 // to existing boss tracks if the audio asset isn't on disk.
 //
@@ -20,7 +21,7 @@
 (
     id: "mockingbird",
     name: "Mockingbird",
-    max_hp: 28,
+    max_hp: 40,
     phase1_to_transition_hp: 0.60,
     phase2_to_enrage_hp: 0.25,
     intro_seconds: 2.0,

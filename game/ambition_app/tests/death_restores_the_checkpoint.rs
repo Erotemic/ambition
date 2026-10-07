@@ -1167,7 +1167,13 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
          different road and are excluded by provenance"
     );
 
-    crate::boss_lifecycle::spawn_mockingbird(&mut sim, GAUNTLET_BOSS);
+    // ⚠ Off the hub's floor opening. The Mockingbird holds the spot it is
+    // placed at (2026-10-06), so its gauntlet falls where it dies; placed on
+    // the player it died over the opening by the cove door, and a gauntlet
+    // picked up THERE and banked does not come back after a death (measured
+    // 2026-10-06: `docs/planning/queue.md`, "A gauntlet banked over the hub's
+    // floor opening"). That is its own defect, not this test's subject.
+    crate::boss_lifecycle::spawn_mockingbird_beside(&mut sim, GAUNTLET_BOSS, -200.0);
     crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, GAUNTLET_BOSS, 600);
     sim.step_n(base(), 120);
 

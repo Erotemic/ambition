@@ -219,7 +219,7 @@ fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
     let mut rooms_checked = 0;
     let mut bosses_checked = 0;
     for room in [
-        "mockingbird_arena",
+        "mockingbird_sky",
         "gnu_ton_arena",
         "trex_arena",
         "flying_spaghetti_monster_arena",

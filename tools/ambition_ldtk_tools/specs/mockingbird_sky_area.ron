@@ -1,0 +1,222 @@
+// The Mockingbird's sky: the AIR CHASE (docs/planning/game/bosses.md, "The
+// Mockingbird"; Jon, 2026-10-06).
+//
+// An open sky that never stops moving (`sky_scroll` over the `open_sky`
+// backdrop: it scrolls and wraps), framed whole on screen (its camera zone's
+// zoom shows all 1280 x 720 of it). The Mockingbird holds its left side
+// (`cove.mockingbird`). Three lanes of burning sharks (`MovingPlatform`
+// `loop_dx`, drawn as `burning_flying_shark`, one-way: jump up through one and
+// land on its back) drift toward it and wrap from the left edge back in at the
+// right: the only footing. A body that falls is caught by a shark and lifted
+// back into play while the Mockingbird lives (`fall_rescue`); once it is dead,
+// the bottom's exit drops you to the shore below (`mockingbird_arena`), where
+// its treasure fell.
+//
+// The side walls are invisible Solids added by `mockingbird_sky_walls.yaml`
+// (a second pass: `area create` lowers static collision into IntGrid cells,
+// and these must keep their transparent colour). Re-run it after every
+// `area create --replace-existing`.
+//
+//   +----------------------------------------------+ y = 0
+//   |                                              |
+//   |  [Mockingbird]    <- sharks drift left       | lane 1, y 300
+//   |   (home)        ===       ===       ===      | lane 2, y 430
+//   |             ===       ===       ===          | lane 3, y 560
+//   |                                              |
+//   |============= exit: down to the shore ========| y = 704
+//   +----------------------------------------------+ y = 720
+(
+    id: "mockingbird_sky",
+    level_id: "mockingbird_sky",
+    world_x: 1744,
+    world_y: 7232,
+    px_wid: 1280,
+    px_hei: 720,
+    fill_collision: "empty",
+    biome: "cove",
+    music_track: "how_to_kill_a_mockingbird",
+    ambient_profile: "wind",
+    visual_theme: "sky",
+    parallax_theme: "open_sky",
+    sky_scroll: -800,
+    fall_rescue: "burning_flying_shark",
+    entities: [
+        (
+            type: "BossSpawn",
+            px: [125, 235],
+            size: [130, 130],
+            fields: (
+                name: "Mockingbird",
+                brain: "PhaseScript:mockingbird",
+                encounter_id: "cove.mockingbird",
+            ),
+        ),
+        (
+            type: "MovingPlatform",
+            px: [60, 300],
+            size: [120, 22],
+            fields: (
+                id: "mockingbird_sky_shark_1",
+                name: "Burning shark 1",
+                loop_dx: -1560.0,
+                loop_min_x: -140.0,
+                bob: 7.0,
+                speed: 105.0,
+                visual: "burning_flying_shark",
+                one_way: true,
+            ),
+        ),
+        (
+            type: "MovingPlatform",
+            px: [580, 300],
+            size: [120, 22],
+            fields: (
+                id: "mockingbird_sky_shark_2",
+                name: "Burning shark 2",
+                loop_dx: -1560.0,
+                loop_min_x: -140.0,
+                bob: 7.0,
+                speed: 105.0,
+                visual: "burning_flying_shark",
+                one_way: true,
+            ),
+        ),
+        (
+            type: "MovingPlatform",
+            px: [1100, 300],
+            size: [120, 22],
+            fields: (
+                id: "mockingbird_sky_shark_3",
+                name: "Burning shark 3",
+                loop_dx: -1560.0,
+                loop_min_x: -140.0,
+                bob: 7.0,
+                speed: 105.0,
+                visual: "burning_flying_shark",
+                one_way: true,
+            ),
+        ),
+        (
+            type: "MovingPlatform",
+            px: [220, 430],
+            size: [120, 22],
+            fields: (
+                id: "mockingbird_sky_shark_4",
+                name: "Burning shark 4",
+                loop_dx: -1560.0,
+                loop_min_x: -140.0,
+                bob: 7.0,
+                speed: 75.0,
+                visual: "burning_flying_shark",
+                one_way: true,
+            ),
+        ),
+        (
+            type: "MovingPlatform",
+            px: [740, 430],
+            size: [120, 22],
+            fields: (
+                id: "mockingbird_sky_shark_5",
+                name: "Burning shark 5",
+                loop_dx: -1560.0,
+                loop_min_x: -140.0,
+                bob: 7.0,
+                speed: 75.0,
+                visual: "burning_flying_shark",
+                one_way: true,
+            ),
+        ),
+        (
+            type: "MovingPlatform",
+            px: [1150, 430],
+            size: [120, 22],
+            fields: (
+                id: "mockingbird_sky_shark_6",
+                name: "Burning shark 6",
+                loop_dx: -1560.0,
+                loop_min_x: -140.0,
+                bob: 7.0,
+                speed: 75.0,
+                visual: "burning_flying_shark",
+                one_way: true,
+            ),
+        ),
+        (
+            type: "MovingPlatform",
+            px: [140, 560],
+            size: [120, 22],
+            fields: (
+                id: "mockingbird_sky_shark_7",
+                name: "Burning shark 7",
+                loop_dx: -1560.0,
+                loop_min_x: -140.0,
+                bob: 7.0,
+                speed: 92.0,
+                visual: "burning_flying_shark",
+                one_way: true,
+            ),
+        ),
+        (
+            type: "MovingPlatform",
+            px: [660, 560],
+            size: [120, 22],
+            fields: (
+                id: "mockingbird_sky_shark_8",
+                name: "Burning shark 8",
+                loop_dx: -1560.0,
+                loop_min_x: -140.0,
+                bob: 7.0,
+                speed: 92.0,
+                visual: "burning_flying_shark",
+                one_way: true,
+            ),
+        ),
+        (
+            type: "MovingPlatform",
+            px: [1155, 560],
+            size: [120, 22],
+            fields: (
+                id: "mockingbird_sky_shark_9",
+                name: "Burning shark 9",
+                loop_dx: -1560.0,
+                loop_min_x: -140.0,
+                bob: 7.0,
+                speed: 92.0,
+                visual: "burning_flying_shark",
+                one_way: true,
+            ),
+        ),
+        (
+            type: "PlayerStart",
+            px: [626, 590],
+            size: [28, 46],
+            fields: (
+                name: "mockingbird_sky_spawn",
+            ),
+        ),
+        (
+            type: "LoadingZone",
+            px: [0, 704],
+            size: [1280, 16],
+            fields: (
+                id: "mockingbird_sky_to_shore",
+                name: "down to the shore",
+                activation: "EdgeExit",
+                target_room: "mockingbird_arena",
+                target_zone: "mockingbird_arena_to_sky",
+            ),
+        ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [1280, 720],
+            fields: (
+                id: "mockingbird_sky_camera",
+                name: "mockingbird_sky_camera",
+                mode: "Default",
+                clamp_mode: "room_bounds",
+                zoom: 1.6,
+            ),
+        ),
+    ],
+)

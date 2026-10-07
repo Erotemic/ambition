@@ -101,6 +101,10 @@ pub struct BossEncounter {
     /// `health`, this is fight authority; music, walls, HUD, and other encounter
     /// presentation remain encounter-owned.
     pub encounter: Option<super::ActorPhaseState>,
+    /// Its conductor guards its hull (`ambition.boss.guard`): melee and
+    /// projectile hits clang off it and take no HP. Holds until the conductor
+    /// changes it.
+    pub guarded: bool,
 }
 
 impl BossEncounter {
@@ -380,6 +384,7 @@ impl BossClusterScratch {
                 sprite_metrics: None,
                 encounter: None,
                 render_size: render_basis,
+                guarded: false,
             },
             health: ambition_characters::actor::BodyHealth::new(health),
         };
@@ -520,6 +525,7 @@ pub mod test_support {
                 encounter: Some(encounter),
                 // Test fixtures don't render; a placeholder render basis is fine.
                 render_size: ae::Vec2::splat(64.0),
+                guarded: false,
             },
             ambition_characters::actor::BodyHealth::new(health),
         )
@@ -563,6 +569,7 @@ pub mod test_support {
 ///
 /// A cursor, because the rest of `BossEncounter` is sprite metrics derived
 /// from the sheet registry, and `ActorPhaseState.triggers` is authored data.
+/// The conductor's guard is in it.
 impl SnapshotCursor for BossEncounter {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         match &self.encounter {
@@ -575,6 +582,8 @@ impl SnapshotCursor for BossEncounter {
                 e.start_phase.encode(out);
             }
         }
+        // The guard is fight authority too: it decides whether a hit lands.
+        put_bool(out, self.guarded);
     }
 }
 

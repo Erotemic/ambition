@@ -171,7 +171,7 @@ impacts, stun stars, shockwave, rocks), auditioned before they are ported;
 (6) art: rows the moves need that the sheet lacks (stunned, rear, leap); (7)
 tuning from `fight_discovery` and Jon's playtest.
 
-## The Mockingbird — air chase (proposed 2026-10-06, Jon)
+## The Mockingbird — air chase (proposed 2026-10-06, Jon; built 2026-10-06)
 
 **Art: shipped.** The boss wears `mockingbird_boss_v2`, an SVG-rigged
 redesign: a big mecha jet engine with a hooded, skull-like face and a lipless
@@ -225,6 +225,39 @@ in a recovery window.
 **Ruled (Jon, 2026-10-06):** the player gets up into the chase from the
 ground room on a shark that swoops down and carries them up through the
 ceiling.
+
+**Built (2026-10-06).** The four room features and the boss, as proposed:
+
+- **Rooms.** `mockingbird_sky` (1280x720 at camera zoom 1.6, placement
+  `cove.mockingbird`, 40 HP) sits above `mockingbird_arena`, which is now the
+  shore: no boss, a hole in its ceiling, and a lift shark
+  (`MovingPlatform.lift_dy`) that waits for a rider and carries them up into
+  the sky. Falling out of the sky's bottom after the kill lands you on the
+  shore. The hall has its own copies (`hall_mockingbird_sky`/`_arena`,
+  `hall.mockingbird`, practice).
+- **Room features.** `sky_scroll` (px/s) wraps the parallax in 4 mirrored
+  panels (`ParallaxWrap`), and the new `open_sky` backdrop is a cloud sea with
+  no sun or vignette. Platforms gain `loop_dx`/`loop_min_x`/`bob`
+  (`HorizontalLoop`), `lift_dy` (`Lift`), `one_way` and `visual` (drawn from a
+  sheet via `PlatformLooks`). `fall_rescue` (a carrier sheet) spawns a ferry
+  under a falling body while a boss in the room lives. `boss_reward_drop`
+  makes a room host that boss's chest, which falls from the top centre.
+- **The boss** is conducted (`ambition_content_modules::mockingbird`) and owns
+  its own position. It is guarded (hits clang, `BossGuard`) except while
+  diving, winded, flying home or on the strafe's low pass. Phase 1: missile,
+  near snap or far fireballs, dive-bite. Phase 2 opens with a screech: missile
+  salvo, double dive, fireballs. Enrage: a strafe run that drops bombs, and the
+  5-ball fire fan. Shot down, it falls trailing smoke. New art rows: missile,
+  dive, chomp, stunned and screech; a missile prop sheet; 12
+  `boss.mockingbird.*` SFX.
+- **Tests:** `game/ambition_app/tests/mockingbird_fight.rs` (12).
+
+Open:
+
+- The SFX are first picks and have not been auditioned.
+- A rescue costs no HP. A chip of damage per catch would make falling matter.
+- Tuning lives in `mockingbird.rs` (speeds, stun lengths) and
+  `boss_profiles.ron` (tells, rests, the pattern per phase).
 
 ## The hall of bosses: its own instances, and life switches (proposed 2026-10-06, Jon)
 

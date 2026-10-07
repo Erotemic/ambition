@@ -11,14 +11,12 @@
         skill_tested: "Leave the floor on the tell, and land somewhere useful.",
         fair_counters: [Jump, Blink],
         threat: Medium,
-        telegraph: (min_s: 0.44, max_s: 1.00),
-        active: (min_s: 0.28, max_s: 3.30),
+        telegraph: (min_s: 0.50, max_s: 1.00),
+        active: (min_s: 0.32, max_s: 3.30),
         instances: [
             "trex_tail_whip", // the T-rex: the tail coils, then sweeps low behind him
             "trex_stomp",     // the T-rex: he rears and stamps, and a shock runs the floor both ways
             "side_sweep",           // two arms, boss-relative left+right
-            "wing_sweep",           // mockingbird, cycle-timed
-            "broadside",            // two tall side columns — a sweep you jump BETWEEN
             "pendulum",             // GNU-ton: a fist on a string, low across where you stood
             "cradle",               // GNU-ton: Newton's cradle, one fist swinging at a time
             "stomp",                // GNU-ton's gnu: a shock rolling out along the floor
@@ -65,6 +63,7 @@
             "demonstrate",      // GNU-ton: a fist tracks, locks, falls, and sticks
             "demonstrate_pair", // GNU-ton: the second fist falls where you dodged to
             "noodly_dive",   // the FSM: tracks you from above, falls, and lies stranded on the floor
+            "mockingbird_snap", // the Mockingbird: a lunging bite at whoever rides a shark into its reach
         ],
         recipes: [
             (
@@ -167,11 +166,12 @@
         fair_counters: [Jump, Dash, WalkOut, Blink],
         threat: Light,
         telegraph: (min_s: 0.60, max_s: 1.40),
-        active: (min_s: 0.26, max_s: 3.00),
+        active: (min_s: 0.26, max_s: 4.20),
         instances: [
             "apple_rain",     // GNU-ton; a 2.2s spawn window at 0.35s cadence
             "overfit_volley", // five sampled ghosts, then five tracking shots
             "overflow_flood", // a falling wall with ONE gap (78px half-width)
+            "mockingbird_strafe", // the Mockingbird, enraged: a run along the top of the sky raining fire on the flock, and back low
         ],
         recipes: [
             (
@@ -202,12 +202,15 @@
         skill_tested: "Read a radial pattern under time pressure; pick the gap.",
         fair_counters: [Dash, WalkOut, Blink, Shield],
         threat: Light,
-        telegraph: (min_s: 0.44, max_s: 1.50),
-        active: (min_s: 0.28, max_s: 0.40),
+        telegraph: (min_s: 0.65, max_s: 1.50),
+        active: (min_s: 0.35, max_s: 0.90),
         instances: [
             "mode_collapse_converge", // 12 shots, a 190px ring, closing inward
-            "echo_fan",               // 7 shots, ~52° cone, aimed at the player
             "meatball_volley",        // the FSM: 3 (5 enraged) lobbed meatballs fanned at you; a ledge is an umbrella
+            "mockingbird_missile", // the Mockingbird: a missile off its wingtip, at you
+            "mockingbird_salvo", // the Mockingbird, wounded: three missiles, each aimed again
+            "mockingbird_fireballs", // the Mockingbird: three fireballs spat in a fan at you
+            "mockingbird_fire_fan", // the Mockingbird, wounded: five, wider
         ],
         recipes: [
             (
@@ -217,10 +220,10 @@
                 notes: "12 shots inward. The longest telegraph in the roster, and it needs every tick: the player must pick a gap BEFORE the ring exists. Spawn radius ≥ 190px or there is no gap to pick.",
             ),
             (
-                name: "reflect_cone",
-                telegraph_s: 0.44,
-                active_s: 0.28,
-                notes: "`echo_fan`. A short tell is fair here ONLY because the player caused it — the fan answers a shot they chose to fire. Never use this timing for an unprompted burst.",
+                name: "aimed_spit",
+                telegraph_s: 0.70,
+                active_s: 0.35,
+                notes: "The Mockingbird's fireballs (2026-10-06): three, a fan centred on where you are, from across the sky. Fire builds in its throat for the whole tell (and roars), so the spread reads before it leaves; at range, 42 ticks is room to pick the gap.",
             ),
         ],
     ),
@@ -261,18 +264,19 @@
         skill_tested: "Commit to a side before the boss does; do not chase.",
         fair_counters: [Jump, Dash, WalkOut],
         threat: Medium,
-        telegraph: (min_s: 0.44, max_s: 1.10),
-        active: (min_s: 0.28, max_s: 0.50),
+        telegraph: (min_s: 0.80, max_s: 1.10),
+        active: (min_s: 0.50, max_s: 2.00),
         instances: [
             "trex_charge",    // the T-rex: a roar and a scrape, then the hall at a run into the wall, and the stun
-            "dive_lane", // mockingbird; a narrow 0.22-wide lane along the dive path
+            "mockingbird_dive", // the Mockingbird: across the sky at where you were, a bite at the end, then winded (the punish)
+            "mockingbird_double_dive", // the Mockingbird, wounded: the dive turns at the end of its first bite and comes again
         ],
         recipes: [
             (
-                name: "cycle_dive",
-                telegraph_s: 0.44,
-                active_s: 0.28,
-                notes: "The only shipped tuning, and it is CYCLE-timed (flat `attack_windup`/`attack_active` on the profile, not per-step). A Scripted boss re-authoring it should start near 0.60s of tell: 26 ticks reads as fair on a flyer whose whole body is the telegraph, and as unfair on a grounded boss.",
+                name: "dive_and_bite",
+                telegraph_s: 0.95,
+                active_s: 1.20,
+                notes: "The Mockingbird's dive (2026-10-06): it tips over toward you and spools up, crosses the sky at where you were, and bites at the end. Its Rest is the punish: winded, guard down, then the flight home. The strike is long because the crossing IS the strike; the tell is what lets the player commit to a side.",
             ),
         ],
     ),

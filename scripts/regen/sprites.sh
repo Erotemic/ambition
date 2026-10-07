@@ -504,6 +504,9 @@ tackon_targets=(
     # The rocks the Tyrant King shakes from his arena's ceiling, the
     # `trex_rock` projectile visual, named here for the same reason.
     trex_rock
+    # The Mockingbird's wingtip missile, the `mockingbird_missile` projectile
+    # visual, named here for the same reason.
+    mockingbird_missile
     # The two Fighting Polygons are named here because a `--target` render is
     # not a PUBLISH ROSTER. Both were rendered into this checkout one target at
     # a time (`scripts/regen/sprites.sh --target <name>`), which works and is the right

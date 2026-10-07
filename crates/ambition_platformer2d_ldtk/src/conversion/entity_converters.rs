@@ -946,8 +946,16 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
         path_id: field_string(entity, "path_id"),
         loop_dy: field_f32(entity, "loop_dy"),
         loop_anchor_y: field_f32(entity, "loop_min_y").map(|y| y + ctx.offset.y),
+        loop_dx: field_f32(entity, "loop_dx"),
+        loop_anchor_x: field_f32(entity, "loop_min_x").map(|x| x + ctx.offset.x),
+        bob: field_f32(entity, "bob"),
+        lift_dy: field_f32(entity, "lift_dy"),
     }
     .classify()?;
+    // What it is drawn as: a registered prop sheet (`burning_flying_shark`).
+    let visual = field_string(entity, "visual")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
     Ok(RoomEmission::moving_platform(
         ambition_platformer2d_world::platforms::MovingPlatformSpec::new(
             // Read the authored `id` first and fall back to the iid, as `LoadingZone`,
@@ -959,7 +967,9 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
             start_pos,
             size,
             motion,
-        ),
+        )
+        .with_visual(visual)
+        .with_one_way(field_bool(entity, "one_way").unwrap_or(false)),
     ))
 }
 

@@ -94,6 +94,22 @@ THEMES: tuple[Theme, ...] = (
         40,
     ),
     Theme(
+        # The Mockingbird's air chase (2026-10-06): a bright open sky of
+        # cloud banks and wind streaks, scrolled and wrapped by the game
+        # (`sky_scroll`), so nothing in it may read as a fixed landmark.
+        "open_sky",
+        (74, 132, 204),
+        (138, 186, 230),
+        (196, 222, 242),
+        (150, 176, 206),
+        (246, 250, 255),
+        (255, 246, 222),
+        # No sun: the sky wraps mirrored, and a sun would come round twice.
+        "none",
+        "cloud_sea",
+        0,
+    ),
+    Theme(
         "skybridge",
         (86, 124, 176),
         (132, 172, 208),
@@ -389,7 +405,9 @@ def _draw_sky(theme: Theme) -> Image.Image:
         for x in range(SIZE):
             nx = math.sin(x / SIZE * math.tau * 1.4 + 0.4) * 2.8
             ny = math.sin(y / SIZE * math.tau * 0.9 + 1.1) * 2.0
-            vignette = -14.0 * max(0.0, abs(x - SIZE / 2) / (SIZE / 2) - 0.35)
+            # No vignette over a sky that wraps: mirrored panels would meet
+            # at a dark seam that sweeps past.
+            vignette = 0.0 if theme.key == "open_sky" else -14.0 * max(0.0, abs(x - SIZE / 2) / (SIZE / 2) - 0.35)
             shade = nx + ny + vignette
             px[x, y] = (
                 _clamp(c[0] + shade),
@@ -696,6 +714,54 @@ def _add_cloud_decks(draw: ImageDraw.ImageDraw, color: RGBA, glow: RGBA) -> None
     _periodic_band(draw, _scale_alpha(color, 0.72), 156, 44, 14, 12, 0.3, 1.6)
     _periodic_band(draw, _scale_alpha(color, 0.84), 516, 68, 18, 14, 1.2, 0.6)
     _periodic_band(draw, _scale_alpha(glow, 0.36), 498, 26, 10, 10, 2.4, 1.0)
+
+
+def _add_cumulus(
+    draw: ImageDraw.ImageDraw,
+    rng: random.Random,
+    cx: float,
+    cy: float,
+    w: float,
+    h: float,
+    top: RGBA,
+    shade: RGBA,
+) -> None:
+    """A puffy cloud: a shaded underside, a heap of lit puffs over it, and a
+    brighter crown where the sun catches it."""
+    draw.ellipse([cx - w * 0.5, cy - h * 0.1, cx + w * 0.5, cy + h * 0.34], fill=shade)
+    puffs = []
+    for _ in range(7):
+        px = cx + rng.uniform(-0.36, 0.36) * w
+        r = rng.uniform(0.17, 0.29) * w
+        py = cy - rng.uniform(0.02, 0.42) * h
+        puffs.append((px, py, r))
+        draw.ellipse([px - r, py - r * 0.82, px + r, py + r * 0.62], fill=top)
+    crown = _scale_alpha((min(255, top[0] + 8), min(255, top[1] + 6), min(255, top[2] + 4), top[3]), 1.0)
+    for px, py, r in sorted(puffs, key=lambda p: p[1])[:3]:
+        draw.ellipse([px - r * 0.55, py - r * 0.7, px + r * 0.35, py - r * 0.05], fill=crown)
+
+
+def _add_cloud_sea(draw: ImageDraw.ImageDraw, layer_key: str, top: RGBA, shade: RGBA) -> None:
+    """The open sky's clouds: far, a low sea of cloud and two great banks;
+    near, scattered cumulus at every height; foreground, wind streaks."""
+    rng = random.Random(_seed("open_sky", layer_key))
+    if layer_key == "far_backplate":
+        _periodic_band(draw, _scale_alpha(top, 0.9), 600, 90, 14, 16, 0.4, 1.2)
+        _periodic_band(draw, _scale_alpha(shade, 0.8), 668, 70, 12, 10, 1.3, 0.7)
+        for cx, cy, w in ((150, 470, 300), (560, 430, 360)):
+            _add_cumulus(draw, rng, cx, cy, w, w * 0.45, _scale_alpha(top, 0.8), _scale_alpha(shade, 0.7))
+    elif layer_key == "near_background":
+        for _ in range(6):
+            w = rng.uniform(140, 260)
+            _add_cumulus(
+                draw, rng, rng.uniform(60, SIZE - 60), rng.uniform(140, SIZE - 120), w, w * 0.5, top, shade
+            )
+    else:
+        for _ in range(14):
+            y = rng.uniform(40, SIZE - 40)
+            x = rng.uniform(-100, SIZE)
+            length = rng.uniform(140, 320)
+            _line(draw, [(x, y), (x + length, y + rng.uniform(-4, 4))], _scale_alpha(top, 0.6), rng.randint(3, 6))
 
 
 def _add_monoliths(draw: ImageDraw.ImageDraw, color: RGBA, accent: RGBA) -> None:
@@ -1293,6 +1359,13 @@ def _add_theme_landmark(
     elif theme.key == "cave":
         _add_stalactites(draw, _scale_alpha(base, 0.9))
         _add_crystals(draw, base, _scale_alpha(accent, 0.85))
+    elif theme.key == "open_sky":
+        _add_cloud_sea(
+            draw,
+            layer_key,
+            _rgba(theme.accent, _clamp(230 * alpha_scale)),
+            _rgba(theme.silhouette, _clamp(200 * alpha_scale)),
+        )
 
 
 def _draw_far_backplate(theme: Theme) -> Image.Image:
@@ -1333,10 +1406,12 @@ def _draw_foreground_atmosphere(theme: Theme) -> Image.Image:
     img = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img, "RGBA")
     _add_theme_landmark(draw, theme, "foreground_atmosphere", 0.72)
-    # Stronger edge framing and local atmosphere.
-    edge = _rgba(theme.silhouette, 48)
-    draw.ellipse([-160, 60, 210, 728], fill=edge)
-    draw.ellipse([SIZE - 210, 48, SIZE + 160, 730], fill=edge)
+    # Stronger edge framing and local atmosphere (not over an open sky: it
+    # scrolls and wraps, and a dark frame would sweep past as a wall).
+    if theme.key != "open_sky":
+        edge = _rgba(theme.silhouette, 48)
+        draw.ellipse([-160, 60, 210, 728], fill=edge)
+        draw.ellipse([SIZE - 210, 48, SIZE + 160, 730], fill=edge)
     for _ in range(8):
         y = rng.randint(90, 620)
         _line(

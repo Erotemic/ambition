@@ -19,6 +19,7 @@ pub mod gradient_cascade;
 pub mod gradient_nova;
 pub mod meteor;
 pub mod minima_trap;
+pub mod mockingbird;
 pub mod mode_collapse;
 pub mod overfit_volley;
 pub mod overflow_flood;
@@ -47,6 +48,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     gradient_nova::module,
     meteor::module,
     minima_trap::module,
+    mockingbird::module,
     mode_collapse::module,
     overfit_volley::module,
     overflow_flood::module,

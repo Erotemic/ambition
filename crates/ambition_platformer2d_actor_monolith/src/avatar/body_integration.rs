@@ -249,16 +249,37 @@ pub fn surface_skidding(
 ///
 /// Every live room's platforms advance, each on its own root: a room that is
 /// live is simulated, whether or not a camera looks at it.
+///
+/// A LIFT waits for a rider, so before it advances it is told whether a body
+/// a participant drives stands on it: grounded, its feet on the lift's top,
+/// in the lift's own live room.
+#[allow(clippy::type_complexity)]
 pub fn advance_moving_platforms(
     world_time: Res<ambition_time::WorldTime>,
     mut rooms: Query<
-        &mut ambition_platformer2d_world::collision::MovingPlatformSet,
+        (
+            Entity,
+            &mut ambition_platformer2d_world::collision::MovingPlatformSet,
+        ),
         bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
+    riders: Query<
+        (Entity, &ae::BodyKinematics, &ae::BodyGroundState),
+        bevy::prelude::With<ambition_characters::control::DrivingParticipant>,
+    >,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let sim_dt = world_time.sim_dt();
-    for mut platforms in &mut rooms {
+    for (root, mut platforms) in &mut rooms {
+        let room = live.of(root);
         for platform in platforms.0.iter_mut() {
+            if platform.is_lift() {
+                let ridden = riders.iter().any(|(body, kin, ground)| {
+                    live.of(body) == room
+                        && platform.is_supporting_body(kin.aabb(), ground.on_ground, ae::Vec2::Y)
+                });
+                platform.set_ridden(ridden);
+            }
             platform.update(sim_dt);
         }
     }

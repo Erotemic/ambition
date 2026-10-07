@@ -435,7 +435,7 @@ fn probe_what_the_shipped_ceiling_is_still_holding() {
 #[test]
 #[ignore = "audit listing: prints what each waiver covers; read it, do not assert on it"]
 fn probe_what_every_waiver_actually_covers() {
-    for room in ["combat_calibration_lab", "mockingbird_arena"] {
+    for room in ["combat_calibration_lab", "mockingbird_sky"] {
         let mut sim = Platformer2dSimHarness::new_with_options(
             ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
                 .with_timestep(TimestepMode::fixed_60hz())
@@ -520,13 +520,13 @@ fn every_component_in_a_boss_arena_is_registered_derived_or_waived() {
     let mut sim = Platformer2dSimHarness::new_with_options(
         ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_required_start_room("mockingbird_arena"),
+            .with_required_start_room("mockingbird_sky"),
     )
     .expect("sandbox sim builds in a boss arena");
     for _ in 0..8 {
         sim.step(AgentAction::default());
     }
-    assert_components_accounted(&mut sim, "mockingbird_arena");
+    assert_components_accounted(&mut sim, "mockingbird_sky");
 }
 
 /// Populations no sweep had ever visited. (A19)

@@ -130,6 +130,11 @@ fn the_shipped_roster_against_section_threes_rules() {
 /// every move, distinct from every other (the charge's tell carries the roar,
 /// so it cannot be mistaken for the upward snap's), and a Rest after every
 /// Strike.
+/// The Mockingbird's 2026-10-06 air chase made it four (5/7 → 5/6): its
+/// cycle of untelegraphed strikes became a scripted pattern whose every move
+/// has its own pose and cue (the salvo's lock-on climbs where the missile's
+/// beeps three times; the wide fan whistles; the double dive rears and
+/// screams where the dive tips over), and a Rest after every Strike.
 ///
 /// The eighth warning: the smirking behemoth never demands a `WalkOut`. Its kit is a beam,
 /// a sweep, a slam and a nova — every one answered by jumping or dashing. A player
@@ -138,4 +143,4 @@ fn the_shipped_roster_against_section_threes_rules() {
 /// Rule 1 (telegraph proportionality) fires nowhere, which corrects BD4 §7's
 /// (`sweep`, `dash_through`), whose floor is 20 ticks, not a heavy's 30.
 const EXPECTED_ERRORS: usize = 5;
-const EXPECTED_WARNINGS: usize = 7;
+const EXPECTED_WARNINGS: usize = 6;

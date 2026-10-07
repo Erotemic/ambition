@@ -100,6 +100,40 @@ pub(super) fn register(app: &mut App) {
         },
     );
 
+    // The Mockingbird's wingtip missile: its own sheet (the missile its
+    // wing carries, motor lit, the flame flickering), nose along its flight,
+    // bursting where it ends.
+    app.register_projectile_visual(
+        "mockingbird_missile",
+        ProjectileArt {
+            source: ProjectileArtSource::Sheet {
+                target: "mockingbird_missile".to_string(),
+                animation: "fly".to_string(),
+                animate: true,
+            },
+            size: ProjectileRenderSize::FixedWidth(78.0),
+            rotation: ProjectileRotation::VelocityAligned,
+            debug_tint: [0.82, 0.84, 0.88, 1.0],
+            label: "mockingbird_missile".to_string(),
+            expiry_vfx: Some(ProjectileExpiryBurst {
+                fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                scale: 0.9,
+            }),
+        },
+    );
+    // Its fireball: the energy ball, hotter and redder than the player's,
+    // bursting where it ends.
+    app.register_projectile_visual(
+        "mockingbird_fireball",
+        ProjectileArt {
+            expiry_vfx: Some(ProjectileExpiryBurst {
+                fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                scale: 0.6,
+            }),
+            ..energy_ball([1.0, 0.44, 0.14, 1.0], "mockingbird_fireball")
+        },
+    );
+
     // The Projectile Polygon's charge shot, in five tiers.
     //
     // Five looks, not one scaled. A held shot must read as different from a tap
@@ -249,6 +283,8 @@ mod tests {
             "apple",
             "meatball",
             "trex_rock",
+            "mockingbird_missile",
+            "mockingbird_fireball",
             "lasersword",
             "glider",
         ] {

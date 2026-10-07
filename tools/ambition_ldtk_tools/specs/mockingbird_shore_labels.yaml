@@ -1,0 +1,9 @@
+# The shores' intro labels, rewritten when the Mockingbird's fight moved to the sky (2026-10-06).
+level_id: mockingbird_arena
+edits:
+  - target:
+      identifier: DebugLabel
+      match:
+        name: mockingbird_arena_intro_label
+    fields:
+      text: "The Mockingbird's shore. A burning shark waits to carry you up into the chase."

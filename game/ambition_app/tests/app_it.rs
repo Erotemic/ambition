@@ -99,6 +99,7 @@ mod crouch_stability;
 mod cut_rope_arena;
 mod gnu_ton_fight;
 mod fsm_fight;
+mod mockingbird_fight;
 mod trex_fight;
 mod the_trex_is_drawn_from_his_parts;
 mod cut_rope_victory_identity;

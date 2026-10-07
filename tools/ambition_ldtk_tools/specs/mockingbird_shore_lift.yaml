@@ -1,0 +1,25 @@
+# The shore's way up into the Mockingbird's sky (Jon, 2026-10-06: "a shark
+# carries you up"). A burning shark rests by the gap in the ceiling; stand on
+# it and it rises through the gap (`lift_dy`), and the gap's exit takes you
+# into the chase, where another catches you.
+level_id: mockingbird_arena
+entities:
+  - type: MovingPlatform
+    px: [600, 660]
+    size: [120, 22]
+    fields:
+      id: mockingbird_arena_lift
+      name: Burning shark (lift)
+      lift_dy: -791
+      speed: 300
+      visual: burning_flying_shark
+      one_way: true
+  - type: LoadingZone
+    px: [576, 0]
+    size: [176, 16]
+    fields:
+      id: mockingbird_arena_to_sky
+      name: up into the sky
+      activation: EdgeExit
+      target_room: mockingbird_sky
+      target_zone: mockingbird_sky_to_shore

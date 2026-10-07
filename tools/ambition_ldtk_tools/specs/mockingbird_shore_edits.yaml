@@ -1,0 +1,10 @@
+# The Mockingbird's fight moved to the sky (`mockingbird_sky`, 2026-10-06): its
+# old arena is the SHORE below it. Its boss goes; a burning shark waits by a
+# gap in the ceiling (`mockingbird_shore_lift.yaml`) to carry you up into the
+# chase, and the boss's treasure falls in here (`boss_reward_drop`).
+level_id: mockingbird_arena
+deletes:
+  - target:
+      identifier: BossSpawn
+      match:
+        encounter_id: cove.mockingbird

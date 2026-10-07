@@ -28,9 +28,13 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   living bodies of the boss's own encounter that are not bosses (its
 ///   summons), in its live room. `between_phases` says the encounter holds
 ///   its beat between two phases (a transition lock, or the `Transition`
-///   phase): the boss is invulnerable and its pattern runs no move.
+///   phase): the boss is invulnerable and its pattern runs no move. `room`
+///   is the size of the boss's live room (its origin is the top left): a
+///   boss with no floor under it (one that flies an open sky) stages its
+///   moves against the room itself.
 /// * **Absence** — `target` is `None` when the boss tracks nothing; `hall`
-///   is `None` when the room cannot be told or has no floor under the boss.
+///   is `None` when the room cannot be told or has no floor under the boss;
+///   `room` is `None` when the room cannot be told.
 /// * **Replay** — derived each tick from rollback state.
 pub struct BossConductPort;
 
@@ -75,6 +79,8 @@ pub struct BossConduct {
     pub minions: u32,
     /// The encounter holds its beat between two phases: no move runs.
     pub between_phases: bool,
+    /// The size of the boss's live room.
+    pub room: Option<[f32; 2]>,
 }
 
 fn put_move(out: &mut Vec<u8>, m: Option<&LiveMove>) {
@@ -97,8 +103,8 @@ fn move_of(r: &mut WireReader<'_>) -> Result<Option<LiveMove>, WireError> {
 
 impl Port for BossConductPort {
     /// Version 2 (2026-10-06): `holding` and `minions`. Version 3
-    /// (2026-10-06): `between_phases`.
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 3);
+    /// (2026-10-06): `between_phases`. Version 4 (2026-10-06): `room`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 4);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -122,6 +128,7 @@ impl Port for BossConductPort {
         wire::put_bool(out, v.holding);
         wire::put_u32(out, v.minions);
         wire::put_bool(out, v.between_phases);
+        wire::put_opt(out, v.room, wire::put_vec2);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossConduct, WireError> {
@@ -148,6 +155,7 @@ impl Port for BossConductPort {
             holding: r.bool()?,
             minions: r.u32()?,
             between_phases: r.bool()?,
+            room: r.opt(WireReader::vec2)?,
         })
     }
 }
@@ -205,6 +213,40 @@ impl Port for ConductedPosePort {
             None
         };
         Ok(ConductedPose { pose, side: r.f32()? })
+    }
+}
+
+/// The request port marker for a boss's guard: whether its hull turns blows.
+///
+/// Port card:
+///
+/// * **Operation** — guard the boss (`guarded`), or drop its guard. A
+///   guarded boss takes no HP from melee or projectile hits: they clang off
+///   with a spark, the way a puzzle boss's do. The guard holds until changed,
+///   so a conductor states it every tick it has an opinion. The Mockingbird
+///   keeps its guard up out of reach and drops it when it dives in to bite.
+/// * **Owner** — `ambition_boss_encounter::extension` (`BossEncounter::guarded`).
+/// * **Scope** — the boss the invocation ran for. A scope that is not a boss
+///   is refused.
+/// * **Time** — `boss_conduct`, this tick: before combat reads it.
+pub struct BossGuardPort;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BossGuard {
+    pub guarded: bool,
+}
+
+impl Port for BossGuardPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.guard", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = BossGuard;
+
+    fn encode(v: &BossGuard, out: &mut Vec<u8>) {
+        wire::put_bool(out, v.guarded);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<BossGuard, WireError> {
+        Ok(BossGuard { guarded: r.bool()? })
     }
 }
 
@@ -282,10 +324,14 @@ mod tests {
             holding: true,
             minions: 3,
             between_phases: true,
+            room: Some([1280.0, 720.0]),
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
         let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, ..conduct };
         assert_eq!(round::<BossConductPort>(&bare), bare);
+        for guarded in [false, true] {
+            assert_eq!(round::<BossGuardPort>(&BossGuard { guarded }), BossGuard { guarded });
+        }
         for pose in [None, Some(Pose { position: [1.0, 1.0], velocity: [0.0, 2.0] })] {
             let v = ConductedPose { pose, side: -1.0 };
             assert_eq!(round::<ConductedPosePort>(&v), v);

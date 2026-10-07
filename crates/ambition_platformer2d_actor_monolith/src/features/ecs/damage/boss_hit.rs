@@ -137,7 +137,9 @@ pub(crate) fn apply_boss_hit(
     if !health.alive() {
         return false;
     }
-    if boss.config.behavior.environmental_kill_only
+    // A guarded hull (`ambition.boss.guard`, the Mockingbird out of reach)
+    // turns blows the way a puzzle boss does: an honest clang, no HP.
+    if (boss.config.behavior.environmental_kill_only || boss.status.guarded)
         && matches!(event.source, HitSource::Melee | HitSource::Projectile)
     {
         // Environmental puzzle bosses (e.g. the Smirking Behemoth) take

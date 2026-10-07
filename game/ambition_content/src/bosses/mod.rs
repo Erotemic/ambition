@@ -16,6 +16,7 @@ pub mod fsm;
 pub mod trex;
 pub mod gnu_ton;
 pub mod hall;
+pub mod mockingbird;
 pub mod specials;
 #[cfg(feature = "ui")]
 pub mod yarn;
@@ -205,6 +206,7 @@ pub fn boss_catalog_fragment_from(
     .with_birth_kit(gnu_ton::conductor::GNU_TON_ID, gnu_ton::conductor::birth)
     .with_birth_kit(fsm::conductor::FSM_ID, fsm::birth)
     .with_birth_kit(trex::TREX_ID, trex::birth)
+    .with_birth_kit(mockingbird::MOCKINGBIRD_ID, mockingbird::birth)
     .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, cut_rope::birth);
     Ok(fragment)
 }
@@ -292,6 +294,8 @@ impl Plugin for AmbitionBossContentPlugin {
         // data into this App. The same provider fragment serves standalone and
         // multi-game hosts without process-global install order.
         register(app);
+        // The Mockingbird's sky is fought on burning sharks.
+        mockingbird::register_shark_platforms(app);
 
         app.insert_resource(ambition_boss_encounter::BossEncounterRegistry::default());
 

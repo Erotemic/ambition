@@ -433,6 +433,14 @@ impl LiveRoomSpecs<'_, '_> {
         &self.live
     }
 
+    /// Every live room and the spec it instantiates.
+    pub fn live_specs(&self) -> Vec<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, &RoomSpec)> {
+        self.roots
+            .iter()
+            .map(|(live, definition)| (*live, self.rooms.spec(*definition)))
+            .collect()
+    }
+
     /// Which definition live room `room` instantiates. `None` when no live
     /// room is `room`.
     pub fn definition_in(

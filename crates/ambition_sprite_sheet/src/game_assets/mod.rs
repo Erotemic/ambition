@@ -180,6 +180,9 @@ pub enum ParallaxTheme {
     Water,
     Forest,
     Cave,
+    /// An open daylight sky of cloud banks and wind streaks: the Mockingbird's
+    /// air chase, drawn wrapping as it scrolls (`sky_scroll`).
+    OpenSky,
 }
 
 impl ParallaxTheme {
@@ -194,6 +197,7 @@ impl ParallaxTheme {
         Self::Water,
         Self::Forest,
         Self::Cave,
+        Self::OpenSky,
     ];
 
     pub const fn key(self) -> &'static str {
@@ -208,6 +212,7 @@ impl ParallaxTheme {
             Self::Water => "water",
             Self::Forest => "forest",
             Self::Cave => "cave",
+            Self::OpenSky => "open_sky",
         }
     }
 
@@ -276,6 +281,7 @@ impl ParallaxTheme {
                 Some(Self::Forest)
             }
             "cave" | "damp" => Some(Self::Cave),
+            "open_sky" | "clouds" | "air_chase" => Some(Self::OpenSky),
             _ => None,
         }
     }

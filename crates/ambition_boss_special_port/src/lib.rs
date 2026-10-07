@@ -200,7 +200,8 @@ impl BossSummon {
 
 pub mod conduct;
 pub use conduct::{
-    BossConduct, BossConductPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort, LiveMove, Pose, RoomHall,
+    BossConduct, BossConductPort, BossGuard, BossGuardPort, ConductedPose, ConductedPosePort, DrawnRow, DrawnRowPort,
+    LiveMove, Pose, RoomHall,
 };
 
 #[cfg(test)]

@@ -626,6 +626,19 @@ after Bob's room kept the explosion); the spend reads the live object only
   object lies, the custody restore moves it into the banked hand whatever
   the row says, so only a held object needs the precedence.
 
+### A gauntlet banked over the hub's floor opening — found 2026-10-06, open
+
+A boss's signature gauntlet, picked up where it fell by the cove door in
+`central_hub_main` (the player at about (1002, 861), over the floor opening to
+the stitched basement), banked by a checkpoint, does not come back after a
+death: `occurrences` is empty from 30 frames into the death and stays so. The
+same gauntlet picked up 200 px either side comes back
+(`death_restores_the_checkpoint::a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it`).
+Measured by moving where the test's Mockingbird dies (dx -400, -200 and +300
+pass; 0 fails). The test now places its boss off the opening
+(`spawn_mockingbird_beside`, dx -200); repro: place it at dx 0. Suspect the
+occurrence's live room: the opening is where the two levels of the area meet.
+
 ### WEAR-REFUSES-UNPREPARED — a character outside the prepared generation is never worn — ✅ DONE 2026-10-03 (two remainders)
 
 **Owner:** `ambition_combat::worn_kit::WornKit::of` and

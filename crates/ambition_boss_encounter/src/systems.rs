@@ -91,11 +91,14 @@ pub fn update_boss_encounters(
     // retracts (BOSS-REPLAY-RETRACTION), and the live room each fell in.
     // And the driven bodies, to say who won a defeat.
     // And the tick, which dates a music claim.
-    (mut since_checkpoint, rooms, drivers, sim_tick): (
+    // And the boss catalog, for the reward a room hosts for a boss placed in
+    // another room (`RoomMetadata::boss_reward_drop`).
+    (mut since_checkpoint, rooms, drivers, sim_tick, catalog): (
         ResMut<crate::retraction::BossDefeatsSinceCheckpoint>,
         ambition_platformer2d_world::rooms::LiveRoomSpecs,
         Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
         Option<Res<ambition_time::SimTick>>,
+        Option<Res<crate::BossCatalog>>,
     ),
     mut bosses: Query<
         (
@@ -141,6 +144,15 @@ pub fn update_boss_encounters(
         ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
         Vec<crate::BossRewardAnchor>,
     > = std::collections::BTreeMap::new();
+
+    // A placement whose reward another room hosts drops it there, not where
+    // the boss fell (the Mockingbird dies over an open sky).
+    let dropped_elsewhere: std::collections::BTreeSet<&str> = rooms
+        .rooms()
+        .rooms
+        .iter()
+        .filter_map(|room| room.metadata.boss_reward_drop.as_deref())
+        .collect();
 
     for (boss_entity, _feature_id, mut feature, mut health, mut combat, overrides, boss_sim_id) in &mut bosses {
         let archetype_id = feature.config.behavior.id.clone();
@@ -313,7 +325,10 @@ pub fn update_boss_encounters(
             }
         }
         // A boss in no live room drops nothing: no room is simulated there.
-        if let Some(room) = geometry.room_of(boss_entity) {
+        if let Some(room) = geometry
+            .room_of(boss_entity)
+            .filter(|_| !dropped_elsewhere.contains(runtime_id.as_str()))
+        {
             boss_anchors.entry(room).or_default().push(crate::BossRewardAnchor {
                 placement_id: runtime_id.clone(),
                 spawn: feature.config.spawn,
@@ -343,6 +358,46 @@ pub fn update_boss_encounters(
         music_request.claim_priority(room, BOSS_MUSIC_OWNER, track, now);
     }
 
+    // A live room that hosts another room's boss reward: its chest falls in
+    // from the top of this room, over its middle.
+    for (room, spec) in rooms.live_specs() {
+        let Some(placement) = spec.metadata.boss_reward_drop.as_deref() else {
+            continue;
+        };
+        let Some((archetype, practice)) = rooms.rooms().rooms.iter().find_map(|boss_room| {
+            boss_room.boss_spawns.iter().find(|boss| boss.id == placement).map(|boss| {
+                let archetype = match &boss.payload {
+                    ambition_entity_catalog::placements::BossBrain::PhaseScript { script_id } => {
+                        script_id.clone()
+                    }
+                    _ => boss.name.to_lowercase(),
+                };
+                (archetype, boss_room.metadata.practice || spec.metadata.practice)
+            })
+        }) else {
+            continue;
+        };
+        let Some(reward) = catalog
+            .as_deref()
+            .and_then(|catalog| catalog.behavior(&archetype))
+            .map(|behavior| behavior.reward.clone())
+        else {
+            continue;
+        };
+        let Some(world) = geometry.in_room(room) else {
+            continue;
+        };
+        let offset = match &reward {
+            crate::BossRewardProfile::DropChest { offset, size, .. } => *offset - ae_vec(0.0, size.y),
+            _ => continue,
+        };
+        boss_anchors.entry(room).or_default().push(crate::BossRewardAnchor {
+            placement_id: placement.to_string(),
+            spawn: ae_vec(world.0.size.x * 0.5, 0.0) - offset,
+            reward: if practice { reward.for_practice() } else { reward },
+        });
+    }
+
     // Each live room's chests, in that room and on its floor.
     for (room, anchors) in &boss_anchors {
         let Some(world) = geometry.in_room(*room) else {
@@ -357,6 +412,10 @@ pub fn update_boss_encounters(
             &reward_chests,
         );
     }
+}
+
+fn ae_vec(x: f32, y: f32) -> ambition_platformer2d_core::Vec2 {
+    ambition_platformer2d_core::Vec2::new(x, y)
 }
 
 /// Feed [`MountDied`](ambition_platformer2d_shared_tangle::body::MountDied)

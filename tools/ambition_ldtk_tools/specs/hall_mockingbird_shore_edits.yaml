@@ -1,0 +1,8 @@
+# The Hall of Bosses' Mockingbird shore: the same edits as the story's
+# (`mockingbird_shore_edits.yaml`), for its practice copy.
+level_id: hall_mockingbird_arena
+deletes:
+  - target:
+      identifier: BossSpawn
+      match:
+        encounter_id: hall.mockingbird

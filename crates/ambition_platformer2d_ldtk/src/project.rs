@@ -139,6 +139,7 @@ impl LdtkLevel {
                 palette: take("palette"),
                 lighting_hint: take("lighting_hint"),
                 foreground_treatment: take("foreground_treatment"),
+                sky_scroll_px_s: self.field_i32("sky_scroll").filter(|px_s| *px_s != 0),
             },
             nameplate_policy: ambition_platformer2d_world::rooms::RoomNameplatePolicy {
                 full_opacity_count: take_count("nameplate_full_opacity_count"),
@@ -161,6 +162,8 @@ impl LdtkLevel {
             entry_cutscene: take("entry_cutscene"),
             while_live: take("while_live"),
             title: take("title"),
+            fall_rescue: take("fall_rescue"),
+            boss_reward_drop: take("boss_reward_drop"),
         }
     }
 

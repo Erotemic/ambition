@@ -4,7 +4,9 @@
 //! game's rooms (`mockingbird_arena`, `basement_boss`), so you walked through a
 //! door in the hall and came out of the cove or the hub. Now those two doors
 //! lead to the hall's own copies, PRACTICE rooms (`RoomMetadata::practice`)
-//! whose bosses are separate placements from the main game's.
+//! whose bosses are separate placements from the main game's. (The
+//! Mockingbird's copy is its shore, `hall_mockingbird_arena`, under its own
+//! sky, `hall_mockingbird_sky`, where it is fought.)
 
 #![cfg(feature = "rl_sim")]
 
@@ -62,7 +64,8 @@ fn the_halls_mockingbird_and_warden_are_practice_copies_at_their_own_placements(
             .unwrap_or_else(|| panic!("room {id} is authored"))
     };
     for (hall_room, placement, game_room) in [
-        ("hall_mockingbird_arena", "hall.mockingbird", "mockingbird_arena"),
+        // The Mockingbird is fought in the sky over its shore (2026-10-06).
+        ("hall_mockingbird_sky", "hall.mockingbird", "mockingbird_sky"),
         ("hall_warden_arena", "hall.clockwork_warden", "basement_boss"),
     ] {
         let hall = room(hall_room);
@@ -99,11 +102,11 @@ fn boss_practice_in(room: &str) -> Vec<(String, bool)> {
 #[test]
 fn the_halls_mockingbird_spawns_as_a_practice_boss() {
     assert_eq!(
-        boss_practice_in("hall_mockingbird_arena"),
+        boss_practice_in("hall_mockingbird_sky"),
         vec![("hall.mockingbird".to_string(), true)]
     );
     assert_eq!(
-        boss_practice_in("mockingbird_arena"),
+        boss_practice_in("mockingbird_sky"),
         vec![("cove.mockingbird".to_string(), false)]
     );
 }
@@ -247,7 +250,7 @@ fn mockingbird_state(sim: &mut Platformer2dSimHarness) -> (i32, String) {
     q.iter(world)
         .find(|(config, _, _)| config.id == "hall.mockingbird")
         .map(|(_, status, health)| (health.health.current, format!("{:?}", status.encounter_phase())))
-        .expect("the hall's Mockingbird is in its arena")
+        .expect("the hall's Mockingbird is in its sky")
 }
 
 /// "If the boss is loaded in the simulation and the boss-alive switch goes
@@ -257,9 +260,9 @@ fn mockingbird_state(sim: &mut Platformer2dSimHarness) -> (i32, String) {
 #[test]
 fn a_life_switch_kills_a_loaded_boss_at_once_and_revives_it() {
     let mut sim = Platformer2dSimHarness::new_with_options(
-        crate::common::fixed_60hz_room_options("hall_mockingbird_arena"),
+        crate::common::fixed_60hz_room_options("hall_mockingbird_sky"),
     )
-    .expect("the hall's Mockingbird arena boots");
+    .expect("the hall's Mockingbird sky boots");
     // Until it fights: a living, woken boss is the precondition.
     let mut woke = false;
     for _ in 0..400 {

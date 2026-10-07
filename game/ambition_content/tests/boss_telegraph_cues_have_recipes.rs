@@ -76,3 +76,18 @@ fn every_cue_the_trex_plays_has_a_recipe() {
         .collect();
     assert!(missing.is_empty(), "cues the T-rex plays with no recipe, which play silence: {missing:?}");
 }
+
+/// The Mockingbird's own sounds (its module's cues, beyond its pattern's).
+#[test]
+fn every_cue_the_mockingbird_plays_has_a_recipe() {
+    if !recipes().is_dir() {
+        eprintln!("no SFX recipes at {}: nothing to compare", recipes().display());
+        return;
+    }
+    let missing: Vec<&str> = ambition_content_modules::mockingbird::SOUNDS
+        .iter()
+        .copied()
+        .filter(|cue| !recipes().join(format!("{cue}.sfx.yaml")).is_file())
+        .collect();
+    assert!(missing.is_empty(), "cues the Mockingbird plays with no recipe, which play silence: {missing:?}");
+}

@@ -1,0 +1,9 @@
+# The hall's Mockingbird shore's intro label (2026-10-06).
+level_id: hall_mockingbird_arena
+edits:
+  - target:
+      identifier: DebugLabel
+      match:
+        name: hall_mockingbird_arena_intro_label
+    fields:
+      text: "Hall of Bosses: the Mockingbird, for practice. Ride the shark up into its sky."

@@ -20,7 +20,6 @@
         "mode_collapse_converge": ["spike_halo"],
         "gradient_nova": ["spike_halo"],
         "overflow_flood": ["spike_halo"],
-        "echo_fan": ["spike_halo", "eye_beam"],
         // GNU-ton's lectures. Every `Special` draws the scholar's spike-halo row
         // (arms raised: he is conducting), so that is the row each names.
         // `apple_rain` deliberately claims nothing (see
@@ -53,6 +52,15 @@
         "trex_jaw_grab": ["grab_reach"],
         "trex_call": ["roar"],
         "lesser_appendages": ["summon"],
+        // The Mockingbird's air chase: its module draws each move's row.
+        "mockingbird_missile": ["missile"],
+        "mockingbird_salvo": ["missile"],
+        "mockingbird_fireballs": ["slash"],
+        "mockingbird_fire_fan": ["slash"],
+        "mockingbird_snap": ["chomp"],
+        "mockingbird_dive": ["dive"],
+        "mockingbird_double_dive": ["dive"],
+        "mockingbird_strafe": ["thrust"],
     },
     // The sheet rows each geometry strike claims. The first row is the
     // canonical runtime key; the others are row-name aliases, so a

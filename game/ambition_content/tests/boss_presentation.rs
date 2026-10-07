@@ -41,12 +41,19 @@ const EXPECTED_SHEETS: [(&str, &str); 7] = [
 
 /// The nineteen content specials that telegraph, and the sprite rows each one
 /// asks for. The first key is the canonical runtime key.
-const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 19] = [
-    ("echo_fan", &["spike_halo", "eye_beam"]),
+const EXPECTED_TELEGRAPHS: [(&str, &[&str]); 26] = [
     ("eye_beam", &["eye_beam", "spike_halo"]),
     ("gradient_cascade", &["spike_halo"]),
     ("gradient_nova", &["spike_halo"]),
     ("minima_trap", &["spike_halo"]),
+    ("mockingbird_dive", &["dive"]),
+    ("mockingbird_double_dive", &["dive"]),
+    ("mockingbird_fire_fan", &["slash"]),
+    ("mockingbird_fireballs", &["slash"]),
+    ("mockingbird_missile", &["missile"]),
+    ("mockingbird_salvo", &["missile"]),
+    ("mockingbird_snap", &["chomp"]),
+    ("mockingbird_strafe", &["thrust"]),
     ("mode_collapse_converge", &["spike_halo"]),
     ("overfit_volley", &["spike_halo", "eye_beam"]),
     ("overflow_flood", &["spike_halo"]),

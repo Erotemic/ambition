@@ -433,13 +433,17 @@ mod actor_decision_phase_tests {
     const MOVEMENT_MEMBERSHIP: [(
         &str,
         ambition_platformer2d_shared_tangle::schedule::WorldPrepSet,
-    ); 7] = [
+    ); 8] = [
         (
             "tick_capture_holds",
             ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
         ),
         (
             "steer_mount_from_rider",
+            ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
+        ),
+        (
+            "rescue_falling_bodies",
             ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
         ),
         (
@@ -1208,7 +1212,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // mount steering, then platforms, then the contact snapshot.
         app.add_systems(
             sim,
-            (crate::avatar::advance_moving_platforms, snapshot_body_contact)
+            (
+                crate::avatar::rescue_falling_bodies,
+                crate::avatar::advance_moving_platforms,
+                snapshot_body_contact,
+            )
                 .chain()
                 .after(ambition_mount::MountsSteeredByRiders)
                 .in_set(

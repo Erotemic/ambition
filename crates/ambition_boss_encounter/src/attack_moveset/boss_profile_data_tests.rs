@@ -34,8 +34,11 @@ fn legacy_baseline_pins() {
     assert_eq!(gnu.body_damage, 0);
     // His fists are conducted by content: every move is a `Special`.
     assert!(gnu.attacks.iter().all(|attack| attack.is_special()), "{:?}", gnu.attacks);
+    // The Mockingbird is a conducted air chase (2026-10-06): a scripted
+    // pattern of `Special`s its module performs.
     let mocker = BossBehaviorProfile::mockingbird();
-    assert!(matches!(mocker.attack_pattern, BossAttackPattern::Cycle));
+    assert!(matches!(mocker.attack_pattern, BossAttackPattern::Scripted { .. }));
+    assert!(mocker.attacks.iter().all(|attack| attack.is_special()), "{:?}", mocker.attacks);
 }
 
 /// The authored profile is a contact chase: `engage_distance = 0`, no

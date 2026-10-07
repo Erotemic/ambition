@@ -449,7 +449,7 @@ fn mockingbird_strike_speed_scales(sim: &mut ambition_sim_harness::Platformer2dS
 fn a_boss_tuning_saved_while_the_game_runs_is_played() {
     use ambition_content::content_watch::ContentSourceWatch;
     const EDITED: f32 = 0.37;
-    let mut sim = common::fixed_60hz_room_sim("mockingbird_arena");
+    let mut sim = common::fixed_60hz_room_sim("mockingbird_sky");
     for _ in 0..40 {
         sim.step(common::base());
     }

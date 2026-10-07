@@ -47,7 +47,39 @@ pub enum MovingPlatformMotionSpec {
         anchor_y: Option<f32>,
         speed: f32,
     },
+    /// A wrapping HORIZONTAL loop, the sideways sibling of
+    /// [`Self::VerticalLoop`]: a flock that leaves one side of the room and
+    /// comes back in at the other, bobbing as it flies (the Mockingbird's
+    /// sharks, fleeing across a sky that never stops).
+    ///
+    /// `dx` is the lane: magnitude is its length, sign the direction of
+    /// travel. Anchored, the authored position is a phase within a shared
+    /// lane (`anchor_x` is its left end); `None` starts the lane at the
+    /// platform. `bob` is how far it rises and falls about its authored
+    /// height, over [`BOB_PERIOD_S`].
+    HorizontalLoop {
+        dx: f32,
+        anchor_x: Option<f32>,
+        speed: f32,
+        bob: f32,
+    },
+    /// A lift that waits for a rider: it rests where it was authored until a
+    /// body stands on it, then carries it `dy` (negative rises) at `speed`
+    /// and, once there, comes back down to rest the way it went. A ride out of
+    /// a room through its ceiling: a shark that swoops down for you.
+    Lift { dy: f32, speed: f32 },
 }
+
+/// How long a [`MovingPlatformMotionSpec::HorizontalLoop`] takes to rise and
+/// fall once.
+pub const BOB_PERIOD_S: f32 = 2.6;
+
+/// The fastest a ONE-WAY platform may climb (px/s). The one-way landing rule
+/// compares a body's previous feet with the surface's CURRENT face; a face
+/// that rose further than `ONE_WAY_CROSSING_SLOP` in one tick would leave its
+/// own rider below it, and the rider would fall through. At 60 Hz the slop
+/// (8 px) allows 480 px/s; this keeps a margin.
+pub const MAX_ONE_WAY_CLIMB: f32 = 420.0;
 
 /// The motion fields an editor can write on one platform, before they are known
 /// to describe a coherent motion.
@@ -62,6 +94,10 @@ pub struct AuthoredPlatformMotion {
     pub path_id: Option<String>,
     pub loop_dy: Option<f32>,
     pub loop_anchor_y: Option<f32>,
+    pub loop_dx: Option<f32>,
+    pub loop_anchor_x: Option<f32>,
+    pub bob: Option<f32>,
+    pub lift_dy: Option<f32>,
 }
 
 impl AuthoredPlatformMotion {
@@ -86,6 +122,12 @@ impl AuthoredPlatformMotion {
         if self.loop_dy.is_some() {
             authored.push("loop_dy");
         }
+        if self.loop_dx.is_some() {
+            authored.push("loop_dx");
+        }
+        if self.lift_dy.is_some() {
+            authored.push("lift_dy");
+        }
         if authored.len() > 1 {
             return Err(format!(
                 "authors {} at once, but a platform has exactly one motion — \
@@ -101,6 +143,39 @@ impl AuthoredPlatformMotion {
                  all"
                 .to_string(),
             );
+        }
+
+        if self.loop_anchor_x.is_some() && self.loop_dx.is_none() {
+            return Err("authors loop_min_x without loop_dx — the anchor names where a \
+                 wrapping lane starts, so on its own it describes no motion at all"
+                .to_string());
+        }
+        if self.bob.is_some() && self.loop_dx.is_none() {
+            return Err("authors bob without loop_dx — only a horizontal loop bobs".to_string());
+        }
+        if let Some(dx) = self.loop_dx {
+            if dx.abs() <= f32::EPSILON {
+                return Err("authors loop_dx of zero — a lane with no length never moves; \
+                     give it a signed length (positive travels RIGHT) or clear it"
+                    .to_string());
+            }
+            return Ok(MovingPlatformMotionSpec::HorizontalLoop {
+                dx,
+                anchor_x: self.loop_anchor_x,
+                speed: self.speed.unwrap_or(DEFAULT_PLATFORM_SPEED),
+                bob: self.bob.unwrap_or(0.0),
+            });
+        }
+        if let Some(dy) = self.lift_dy {
+            if dy.abs() <= f32::EPSILON {
+                return Err("authors lift_dy of zero — a lift that goes nowhere; give it a \
+                     signed rise (negative travels UP) or clear it"
+                    .to_string());
+            }
+            return Ok(MovingPlatformMotionSpec::Lift {
+                dy,
+                speed: self.speed.unwrap_or(DEFAULT_PLATFORM_SPEED),
+            });
         }
 
         if let Some(dy) = self.loop_dy {
@@ -144,6 +219,14 @@ pub struct MovingPlatformSpec {
     pub start_pos: ae::Vec2,
     pub size: ae::Vec2,
     pub motion: MovingPlatformMotionSpec,
+    /// The sheet it is drawn as (a registered prop sheet kind, such as
+    /// `burning_flying_shark`); `None` draws the plain platform.
+    #[serde(default)]
+    pub visual: Option<String>,
+    /// A body jumps up through it and lands on top (a shark's back), instead
+    /// of striking its underside. Its climb is held to [`MAX_ONE_WAY_CLIMB`].
+    #[serde(default)]
+    pub one_way: bool,
 }
 
 impl MovingPlatformSpec {
@@ -160,10 +243,53 @@ impl MovingPlatformSpec {
             start_pos,
             size,
             motion,
+            visual: None,
+            one_way: false,
         }
     }
 
+    /// Draw it as `visual` (a registered prop sheet kind).
+    pub fn with_visual(mut self, visual: Option<String>) -> Self {
+        self.visual = visual;
+        self
+    }
+
+    /// Make it one-way ([`Self::one_way`]).
+    pub fn with_one_way(mut self, one_way: bool) -> Self {
+        self.one_way = one_way;
+        self
+    }
+
     pub fn resolve(self, paths: &[KinematicPathSpec]) -> Result<MovingPlatformState, String> {
+        let (visual, one_way) = (self.visual.clone(), self.one_way);
+        if one_way {
+            let climb = match &self.motion {
+                MovingPlatformMotionSpec::VerticalLoop { speed, .. } | MovingPlatformMotionSpec::Lift { speed, .. } => {
+                    *speed
+                }
+                MovingPlatformMotionSpec::HorizontalLoop { bob, .. } => {
+                    bob.abs() * std::f32::consts::TAU / BOB_PERIOD_S
+                }
+                MovingPlatformMotionSpec::Sweep { .. } => 0.0,
+                // A path owns its speed; its climb is its own business.
+                MovingPlatformMotionSpec::Path { .. } => 0.0,
+            };
+            if climb > MAX_ONE_WAY_CLIMB {
+                return Err(format!(
+                    "MovingPlatform '{}' is one-way but climbs at {climb} px/s; above \
+                     {MAX_ONE_WAY_CLIMB} its own rider is left below its face and falls through",
+                    self.name
+                ));
+            }
+        }
+        self.resolve_motion(paths).map(|mut state| {
+            state.visual = visual;
+            state.one_way = one_way;
+            state
+        })
+    }
+
+    fn resolve_motion(self, paths: &[KinematicPathSpec]) -> Result<MovingPlatformState, String> {
         match self.motion {
             MovingPlatformMotionSpec::Path { path_id } => {
                 let Some(path_spec) = paths.iter().find(|path| path.matches_id(&path_id)) else {
@@ -208,6 +334,33 @@ impl MovingPlatformSpec {
                     dy > 0.0,
                 ))
             }
+            MovingPlatformMotionSpec::HorizontalLoop { dx, anchor_x, speed, bob } => {
+                let (min_x, max_x) = match anchor_x {
+                    Some(base) => (base, base + dx.abs()),
+                    None => {
+                        let end_x = self.start_pos.x + dx;
+                        (self.start_pos.x.min(end_x), self.start_pos.x.max(end_x))
+                    }
+                };
+                Ok(MovingPlatformState::from_horizontal_loop(
+                    self.id,
+                    self.name,
+                    self.start_pos,
+                    self.size,
+                    (min_x, max_x),
+                    speed,
+                    dx > 0.0,
+                    bob,
+                ))
+            }
+            MovingPlatformMotionSpec::Lift { dy, speed } => Ok(MovingPlatformState::lift(
+                self.id,
+                self.name,
+                self.start_pos,
+                self.size,
+                dy,
+                speed,
+            )),
             MovingPlatformMotionSpec::Sweep { dx, speed } => Ok(MovingPlatformState::from_sweep(
                 self.id,
                 self.name,
@@ -230,6 +383,12 @@ pub struct MovingPlatformState {
     motion: MovingPlatformMotion,
     /// Displacement applied by the most recent [`Self::update`] advance.
     last_delta: ae::Vec2,
+    /// The sheet it is drawn as (`MovingPlatformSpec::visual`).
+    #[serde(default)]
+    pub visual: Option<String>,
+    /// One-way (`MovingPlatformSpec::one_way`).
+    #[serde(default)]
+    pub one_way: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -264,6 +423,44 @@ enum MovingPlatformMotion {
         /// descends on screen.
         dir: f32,
     },
+    /// A one-way horizontal loop that bobs: it wraps where a sweep reverses.
+    SideLoop {
+        min_x: f32,
+        max_x: f32,
+        speed: f32,
+        /// `+1` travels right, `-1` left.
+        dir: f32,
+        /// The height it bobs about, how far, and how far into the bob.
+        base_y: f32,
+        bob: f32,
+        bob_t: f32,
+    },
+    /// A lift that waits for a rider (`MovingPlatformMotionSpec::Lift`).
+    Lift {
+        rest_y: f32,
+        /// Where it carries a rider to.
+        end_y: f32,
+        speed: f32,
+        /// A body stood on it at the last advance ([`MovingPlatformState::set_ridden`]).
+        ridden: bool,
+        stage: LiftStage,
+    },
+    /// A carrier that comes up under a falling body, lifts it to `rise_to_y`
+    /// and then flies off with the flock, out past `gone_x`: the fall rescue.
+    Ferry {
+        rise_to_y: f32,
+        rise_speed: f32,
+        drift: f32,
+        gone_x: f32,
+    },
+}
+
+/// Where a [`MovingPlatformMotion::Lift`] is in its round trip.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LiftStage {
+    Resting,
+    Carrying,
+    Returning,
 }
 
 impl MovingPlatformState {
@@ -309,6 +506,8 @@ impl MovingPlatformState {
                 dir,
             },
             last_delta: ae::Vec2::ZERO,
+            visual: None,
+            one_way: false,
         }
     }
 
@@ -345,6 +544,8 @@ impl MovingPlatformState {
                 dir: if downward { 1.0 } else { -1.0 },
             },
             last_delta: ae::Vec2::ZERO,
+            visual: None,
+            one_way: false,
         }
     }
 
@@ -366,6 +567,171 @@ impl MovingPlatformState {
                 dir: 1,
             },
             last_delta: ae::Vec2::ZERO,
+            visual: None,
+            one_way: false,
+        }
+    }
+
+    /// A wrapping horizontal loop between `min_x` and `max_x` that bobs `bob`
+    /// about its authored height. Its bob starts at a phase taken from where
+    /// it starts in the lane, so a flock does not bob in step.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_horizontal_loop(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        start_pos: ae::Vec2,
+        size: ae::Vec2,
+        (min_x, max_x): (f32, f32),
+        speed: f32,
+        rightward: bool,
+        bob: f32,
+    ) -> Self {
+        let (min_x, max_x) = if min_x <= max_x { (min_x, max_x) } else { (max_x, min_x) };
+        let span = (max_x - min_x).max(1.0);
+        Self {
+            id: id.into(),
+            name: name.into(),
+            pos: start_pos,
+            size,
+            motion: MovingPlatformMotion::SideLoop {
+                min_x,
+                max_x,
+                speed: speed.max(0.0),
+                dir: if rightward { 1.0 } else { -1.0 },
+                base_y: start_pos.y,
+                bob,
+                bob_t: ((start_pos.x - min_x) / span).rem_euclid(1.0) * BOB_PERIOD_S,
+            },
+            last_delta: ae::Vec2::ZERO,
+            visual: None,
+            one_way: false,
+        }
+    }
+
+    /// A lift resting at `start_pos` that carries a rider `dy` at `speed`.
+    pub fn lift(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        start_pos: ae::Vec2,
+        size: ae::Vec2,
+        dy: f32,
+        speed: f32,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            pos: start_pos,
+            size,
+            motion: MovingPlatformMotion::Lift {
+                rest_y: start_pos.y,
+                end_y: start_pos.y + dy,
+                speed: speed.max(1.0),
+                ridden: false,
+                stage: LiftStage::Resting,
+            },
+            last_delta: ae::Vec2::ZERO,
+            visual: None,
+            one_way: false,
+        }
+    }
+
+    /// A rescue carrier, spawned under a falling body at `start_pos`: it
+    /// rises to `rise_to_y` at `rise_speed`, then flies at `drift` (px/s,
+    /// signed) until it is past `gone_x`, where it is spent
+    /// ([`Self::is_spent`]).
+    #[allow(clippy::too_many_arguments)]
+    pub fn ferry(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        start_pos: ae::Vec2,
+        size: ae::Vec2,
+        rise_to_y: f32,
+        rise_speed: f32,
+        drift: f32,
+        gone_x: f32,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            pos: start_pos,
+            size,
+            motion: MovingPlatformMotion::Ferry {
+                rise_to_y,
+                rise_speed: rise_speed.max(1.0),
+                drift,
+                gone_x,
+            },
+            last_delta: ae::Vec2::ZERO,
+            visual: None,
+            one_way: false,
+        }
+    }
+
+    /// Draw it as `visual` (a registered prop sheet kind).
+    pub fn with_visual(mut self, visual: impl Into<String>) -> Self {
+        self.visual = Some(visual.into());
+        self
+    }
+
+    /// Make it one-way: a body jumps up through it and lands on top.
+    pub fn one_way(mut self) -> Self {
+        self.one_way = true;
+        self
+    }
+
+    /// Tell a lift whether a body stands on it. The advance asks before each
+    /// [`Self::update`]; any other motion ignores it.
+    pub fn set_ridden(&mut self, on: bool) {
+        if let MovingPlatformMotion::Lift { ridden, .. } = &mut self.motion {
+            *ridden = on;
+        }
+    }
+
+    /// Whether this is a lift (so the advance asks whether it is ridden).
+    pub fn is_lift(&self) -> bool {
+        matches!(self.motion, MovingPlatformMotion::Lift { .. })
+    }
+
+    /// Where a lift is in its round trip; `None` for any other motion.
+    pub fn lift_stage(&self) -> Option<LiftStage> {
+        match self.motion {
+            MovingPlatformMotion::Lift { stage, .. } => Some(stage),
+            _ => None,
+        }
+    }
+
+    /// A ferry that has flown past its end: its rescue is over and whoever
+    /// launched it takes it away.
+    pub fn is_spent(&self) -> bool {
+        match self.motion {
+            MovingPlatformMotion::Ferry { drift, gone_x, rise_to_y, .. } => {
+                self.pos.y <= rise_to_y + 0.5
+                    && if drift < 0.0 { self.pos.x < gone_x } else { self.pos.x > gone_x }
+            }
+            _ => false,
+        }
+    }
+
+    /// Which way it flies sideways, when it does: `-1.0` left, `1.0` right.
+    /// `None` for a motion with no sideways heading (a lift, a shaft, a path).
+    pub fn heading_x(&self) -> Option<f32> {
+        match &self.motion {
+            MovingPlatformMotion::Sweep { dir, .. } | MovingPlatformMotion::SideLoop { dir, .. } => Some(*dir),
+            MovingPlatformMotion::Ferry { drift, .. } if *drift != 0.0 => Some(drift.signum()),
+            _ => None,
+        }
+    }
+
+    /// Whether it is a rescue ferry.
+    pub fn is_ferry(&self) -> bool {
+        matches!(self.motion, MovingPlatformMotion::Ferry { .. })
+    }
+
+    /// The lane a horizontally-LOOPING platform runs in, as `(min_x, max_x)`.
+    pub fn horizontal_loop_span(&self) -> Option<(f32, f32)> {
+        match self.motion {
+            MovingPlatformMotion::SideLoop { min_x, max_x, .. } => Some((min_x, max_x)),
+            _ => None,
         }
     }
 
@@ -424,6 +790,76 @@ impl MovingPlatformState {
                 // The TRAVEL, never the teleport.
                 carried = Some(step);
             }
+            MovingPlatformMotion::SideLoop {
+                min_x,
+                max_x,
+                speed,
+                dir,
+                base_y,
+                bob,
+                bob_t,
+            } => {
+                *bob_t = (*bob_t + dt).rem_euclid(BOB_PERIOD_S);
+                let y = *base_y + *bob * (std::f32::consts::TAU * *bob_t / BOB_PERIOD_S).sin();
+                let step = ae::Vec2::new(*speed * *dir * dt, y - self.pos.y);
+                self.pos += step;
+                let span = *max_x - *min_x;
+                if span > 0.0 {
+                    if self.pos.x > *max_x {
+                        self.pos.x -= span;
+                    } else if self.pos.x < *min_x {
+                        self.pos.x += span;
+                    }
+                }
+                carried = Some(step);
+            }
+            MovingPlatformMotion::Lift {
+                rest_y,
+                end_y,
+                speed,
+                ridden,
+                stage,
+            } => {
+                let toward = |from: f32, to: f32, max: f32| from + (to - from).clamp(-max, max);
+                match stage {
+                    LiftStage::Resting => {
+                        self.pos.y = *rest_y;
+                        if *ridden {
+                            *stage = LiftStage::Carrying;
+                        }
+                    }
+                    LiftStage::Carrying => {
+                        self.pos.y = toward(self.pos.y, *end_y, *speed * dt);
+                        if (self.pos.y - *end_y).abs() < 0.5 {
+                            *stage = LiftStage::Returning;
+                        }
+                    }
+                    LiftStage::Returning => {
+                        // Back the way it went, a little slower: it swoops
+                        // down to wait again.
+                        self.pos.y = toward(self.pos.y, *rest_y, *speed * 0.8 * dt);
+                        if (self.pos.y - *rest_y).abs() < 0.5 {
+                            self.pos.y = *rest_y;
+                            *stage = LiftStage::Resting;
+                        }
+                    }
+                }
+            }
+            MovingPlatformMotion::Ferry {
+                rise_to_y,
+                rise_speed,
+                drift,
+                ..
+            } => {
+                if self.pos.y > *rise_to_y {
+                    // Rising, easing in to its height over its last 80 px.
+                    let left = self.pos.y - *rise_to_y;
+                    let v = (*rise_speed * (left / 80.0).clamp(0.25, 1.0)).min(left / dt.max(1e-4));
+                    self.pos.y -= v * dt;
+                } else {
+                    self.pos.x += *drift * dt;
+                }
+            }
         }
         self.last_delta = carried.unwrap_or(self.pos - old);
         self.last_delta
@@ -452,13 +888,23 @@ impl MovingPlatformState {
             MovingPlatformMotion::Sweep { dir, .. } => *dir,
             MovingPlatformMotion::Path { dir, .. } => *dir as f32,
             MovingPlatformMotion::Loop { dir, .. } => *dir,
+            MovingPlatformMotion::SideLoop { dir, .. } => *dir,
+            MovingPlatformMotion::Lift { stage, .. } => {
+                if *stage == LiftStage::Returning {
+                    -1.0
+                } else {
+                    1.0
+                }
+            }
+            MovingPlatformMotion::Ferry { drift, .. } => drift.signum(),
         }
     }
 
-    /// The collision face this platform presents this frame. Moving platforms are always
-    /// two-axis `BlinkWall{Soft}` solids. One-way motion requires a frame-consistent crossing
-    /// rule because the existing one-way test compares previous feet with the current support
-    /// face; do not expose one-way authored motion until that rule exists.
+    /// The collision face this platform presents this frame: a two-axis `BlinkWall{Soft}`
+    /// solid, or a `OneWay` surface when authored so. The one-way landing rule compares a
+    /// body's previous feet with the CURRENT support face, which is frame-consistent only
+    /// while the face moves less than `ONE_WAY_CROSSING_SLOP` a tick: a one-way platform's
+    /// climb is held under [`MAX_ONE_WAY_CLIMB`] when it is resolved.
     pub fn as_collision_block(&self) -> ae::Block {
         ae::Block {
             // The platform's LDtk iid IS its durable identity (§3.6
@@ -475,8 +921,12 @@ impl MovingPlatformState {
             // axes. They are deliberately *not* hard blink blockers: if the
             // player has the soft blink-through upgrade, blink pathing may pass
             // through the moving platform just like a soft blink membrane.
-            kind: ae::BlockKind::BlinkWall {
-                tier: ae::BlinkWallTier::Soft,
+            kind: if self.one_way {
+                ae::BlockKind::OneWay
+            } else {
+                ae::BlockKind::BlinkWall {
+                    tier: ae::BlinkWallTier::Soft,
+                }
             },
             art_color: None,
         }

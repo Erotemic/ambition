@@ -28,6 +28,11 @@ pub struct RoomVisualProfile {
     pub lighting_hint: Option<String>,
     /// Foreground treatment hint for generated atmosphere layers.
     pub foreground_treatment: Option<String>,
+    /// The backdrop scrolls on its own at this speed (world px/s; negative
+    /// runs it left, as if the room flew right), each layer at its parallax
+    /// factor of it, and wraps (level field `sky_scroll`). The Mockingbird's
+    /// air chase: a stage that stands still and a sky that never stops.
+    pub sky_scroll_px_s: Option<i32>,
 }
 
 impl RoomVisualProfile {
@@ -37,6 +42,7 @@ impl RoomVisualProfile {
             && self.palette.is_none()
             && self.lighting_hint.is_none()
             && self.foreground_treatment.is_none()
+            && self.sky_scroll_px_s.is_none()
     }
 
     pub fn merge(&mut self, other: RoomVisualProfile) {
@@ -54,6 +60,9 @@ impl RoomVisualProfile {
         }
         if self.foreground_treatment.is_none() {
             self.foreground_treatment = other.foreground_treatment;
+        }
+        if self.sky_scroll_px_s.is_none() {
+            self.sky_scroll_px_s = other.sky_scroll_px_s;
         }
     }
 
@@ -217,6 +226,18 @@ pub struct RoomMetadata {
     /// Authored as the LDtk level string field `while_live`, merged
     /// first-`Some`-wins like every other string field here.
     pub while_live: Option<String>,
+    /// This room catches a fall: a driven body that falls toward its bottom
+    /// is caught by a carrier drawn as this prop sheet (the Mockingbird's
+    /// burning sharks) and lifted back into play, while any boss in the room
+    /// lives (or it has none). Once every boss in it is dead, a fall is a
+    /// fall: the bottom's exit takes it. Authored as the LDtk level string
+    /// field `fall_rescue`; `None` lets a body fall.
+    pub fall_rescue: Option<String>,
+    /// The boss placement whose reward chest this room hosts (the level
+    /// string field `boss_reward_drop`): its treasure falls in from the top
+    /// of this room, not where the boss died. The Mockingbird dies over an
+    /// open sky; its chest lands in the room below.
+    pub boss_reward_drop: Option<String>,
 }
 
 impl RoomMetadata {
@@ -238,6 +259,8 @@ impl RoomMetadata {
             && self.title.is_none()
             && self.entry_cutscene.is_none()
             && self.while_live.is_none()
+            && self.fall_rescue.is_none()
+            && self.boss_reward_drop.is_none()
     }
 
     /// Fold `other` into `self`, preferring values already set.
@@ -282,6 +305,12 @@ impl RoomMetadata {
         }
         if self.while_live.is_none() {
             self.while_live = other.while_live;
+        }
+        if self.fall_rescue.is_none() {
+            self.fall_rescue = other.fall_rescue;
+        }
+        if self.boss_reward_drop.is_none() {
+            self.boss_reward_drop = other.boss_reward_drop;
         }
         // A multi-level area is a gallery if ANY member level marks it one.
         self.gallery = self.gallery || other.gallery;

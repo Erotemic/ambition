@@ -376,6 +376,16 @@ OPTIONAL_LEVEL_FIELDS = (
     # One command line asked for on each tick while the room is live
     # (`RoomMetadata::while_live`).
     "while_live",
+    # A boss practice room (`RoomMetadata::practice`).
+    "practice",
+    # The backdrop scrolls on its own and wraps, world px/s
+    # (`RoomVisualProfile::sky_scroll_px_s`): the Mockingbird's air chase.
+    "sky_scroll",
+    # The carrier that catches a falling body (`RoomMetadata::fall_rescue`).
+    "fall_rescue",
+    # The boss placement whose chest this room hosts
+    # (`RoomMetadata::boss_reward_drop`).
+    "boss_reward_drop",
 )
 
 

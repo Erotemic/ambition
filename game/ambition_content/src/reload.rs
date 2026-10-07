@@ -1694,6 +1694,25 @@ pub fn answer_the_publication_gate(
     use ambition_platformer2d::game_shell::ShellGateVerdict;
     match publication_boundary(world) {
         PublicationBoundary::Legal | PublicationBoundary::RebasableTimeline => {
+            // ⭐ THE SAVE MOVES WHILE A GENERATION WAITS. The quest book was
+            // admitted at request time against the save as it was, and the next
+            // session rebuilds the registry from the save as it is at the
+            // activation. Asked again here, with the same function, so a player
+            // who reached a step the candidate no longer has cancels the
+            // generation instead of being clamped by the rebuild. The selection
+            // is still the live pack at this point, which is what the question
+            // compares the candidate against.
+            let verdict = world
+                .get_resource::<PendingGeneration>()
+                .map(|pending| candidate_quest_book(world, &pending.pack));
+            if let Some(Err(why)) = verdict {
+                bevy::log::warn!(
+                    target: "ambition_content::reload",
+                    "the route was refused at its activation: the save moved while \
+                     the transaction was in flight ({why})."
+                );
+                return ShellGateVerdict::Refuse;
+            }
             ShellGateVerdict::Admit
         }
         PublicationBoundary::Unhealthy(detail) => {

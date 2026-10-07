@@ -54,14 +54,18 @@ exist is refused by the content-graph judge (below). A removed quest is
 allowed, and the save keeps its row. A pack with no quest file compiles and
 starts the next session with an empty book (it used to panic there).
 
-⚠ **Known limit: both judgments are made at request time and not repeated at
-the commit.** The quest check reads the save as it was when the candidate was
-requested, and the content-graph judge reads the `ActiveLdtkProject`. The commit
-is deliberately infallible, so a save that advances a quest between the request
-and the activation (a few frames to about a second) can still meet a candidate
-that cuts that quest's steps; the rebuild then clamps the step, which is the
-silent move the check exists to prevent. Closing it needs a re-check at the gate
-that can refuse the activation, which is a lifecycle decision and not started.
+The quest check is asked twice. At request time it reads the save as it was,
+and the activation gate (`answer_the_publication_gate`) asks the same function
+again, with the save as it is then, in the operation that activates the route.
+A player who reached a step the candidate no longer has cancels the generation
+through the gate's existing `Refuse` (the shell cancels the transaction and
+`TransactionEnded` discards the staged generation), instead of the next
+session's rebuild clamping their step. The commit stays infallible. Witness:
+`a_quest_book_that_loses_its_place_while_the_generation_waits_is_cancelled`,
+red before the gate asked (the generation activated over the moved save). The
+content-graph judgment is not repeated: it reads the App's `ActiveLdtkProject`,
+and the worlds do not reload, so nothing it reads moves while a generation
+waits.
 
 A request that is refused AFTER admission (an unknown character, a catalog,
 the quest book, the content graph) still cancels the generation in flight, while

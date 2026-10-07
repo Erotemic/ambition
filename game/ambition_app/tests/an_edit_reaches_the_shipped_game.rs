@@ -4378,6 +4378,63 @@ fn a_quest_book_with_no_place_for_a_recorded_step_is_refused() {
     assert_eq!(quest_place(&app, "first_steps"), Some(("First Steps".to_string(), true, 1)));
 }
 
+/// ⛔ **A SAVE THAT MOVES WHILE A GENERATION WAITS CANCELS IT, NOT CLAMPS IT.**
+/// The candidate (`first_steps` cut to one step) is admitted while the player is
+/// on step 0. Before it activates the player reaches step 1, and the book has no
+/// place for them. The activation gate asks the same question again with the
+/// save as it is then, and refuses: the session is not replaced and the player
+/// stays on their step in the live book.
+#[test]
+fn a_quest_book_that_loses_its_place_while_the_generation_waits_is_cancelled() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(pack_with_a_one_step_first_quest(), Some(base)),
+    );
+    assert!(
+        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
+        "the premise: admitted while nobody has progressed: {outcome:?}"
+    );
+    assert!(ambition_content::reload::pending_pack(app.world()).is_some(), "the premise: it is in flight");
+    // The save moves under the waiting generation.
+    app.world_mut()
+        .resource_mut::<ambition_content::quest::QuestRegistry>()
+        .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet("met_any_hub_npc".to_string()));
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(
+        activation_id(&app),
+        Some(live_activation),
+        "⛔ THE GENERATION ACTIVATED OVER A SAVE IT HAS NO PLACE FOR"
+    );
+    assert!(ambition_content::reload::pending_pack(app.world()).is_none(), "the refused generation is still pending");
+    let leaked: Vec<_> = app
+        .world()
+        .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
+        .held(&ShellRouteId::new("ambition_gameplay"))
+        .iter()
+        .filter(|hold| format!("{hold:?}").contains("content-publication:"))
+        .map(|hold| format!("{hold:?}"))
+        .collect();
+    assert!(leaked.is_empty(), "the refused generation's hold outlived it: {leaked:?}");
+    assert_eq!(
+        quest_place(&app, "first_steps").map(|(_, active, step)| (active, step)),
+        Some((true, 1)),
+        "the player was moved off their step"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_content::quest::QuestRegistry>()
+            .get("first_steps")
+            .map(|state| state.spec.steps.len()),
+        Some(3),
+        "the live book is not the one the player was admitted against"
+    );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // I3: a newer candidate supersedes the generation in flight.
 // ─────────────────────────────────────────────────────────────────────────────

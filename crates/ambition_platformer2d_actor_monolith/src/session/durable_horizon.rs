@@ -474,7 +474,7 @@ pub fn install_durable_save_horizon(app: &mut App) {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
                 .after(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
                 .before(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation,
                 ),
         )
         .add_systems(

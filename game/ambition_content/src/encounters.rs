@@ -23,7 +23,7 @@ use ambition_encounter::{
 };
 use ambition_persistence::save_data::PersistedEncounterState;
 use ambition_platformer2d_shared_tangle::schedule::{
-    Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+    Platformer2dSimulationPhase, SimScheduleExt,
 };
 
 /// The puzzle's stable encounter id (and save-flag namespace).
@@ -125,12 +125,12 @@ impl Plugin for AmbitionEncounterContentPlugin {
             // The chamber starts the attunement in data: `symmetry_room`'s
             // `while_live` line is `encounter.start encounter:symmetry_attunement`.
             spawn_symmetry_attunement
-                .in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
+                .in_set(Platformer2dSimulationPhase::GameplayEffects),
         );
         app.add_systems(
             sim,
             celebrate_symmetry_attunement
-                .in_set(Platformer2dSimulationPhaseMonolith::Progression)
+                .in_set(Platformer2dSimulationPhase::Progression)
                 .after(ambition_encounter::EncounterLifecycleSet),
         );
     }

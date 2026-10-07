@@ -20,7 +20,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     LifecycleCheckpointHorizonPlugin, ResetToCheckpoint,
 };
 use ambition_platformer2d_shared_tangle::schedule::{
-    Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+    Platformer2dSimulationPhase, SimScheduleExt,
 };
 
 /// Installs the reset horizon's channels, host-level ordering, and typed domain
@@ -41,12 +41,12 @@ impl Plugin for CheckpointHorizonPlugin {
         app.configure_sets(
             sim,
             CheckpointRestore
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .before(crate::sandbox_reset::RoomReplayAdmission),
         );
         app.configure_sets(
             sim,
-            CheckpointCapture.in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+            CheckpointCapture.in_set(Platformer2dSimulationPhase::PlayerSimulation),
         );
 
         // The host composes domains. It deliberately does not name occurrence,

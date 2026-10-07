@@ -311,13 +311,13 @@ pub struct EmpowermentLifecyclePlugin;
 impl Plugin for EmpowermentLifecyclePlugin {
     fn build(&self, app: &mut App) {
         use ambition_platformer2d_shared_tangle::schedule::{
-            Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+            Platformer2dSimulationPhase, SimScheduleExt,
         };
         app.add_observer(release_empowerment_projection);
         let sim = app.sim_schedule();
         app.configure_sets(
             sim,
-            EmpowermentExpiry.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
+            EmpowermentExpiry.in_set(Platformer2dSimulationPhase::GameplayEffects),
         );
         app.add_systems(sim, run_empowerments.in_set(EmpowermentExpiry));
     }

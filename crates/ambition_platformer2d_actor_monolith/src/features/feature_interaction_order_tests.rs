@@ -20,7 +20,7 @@ use bevy::ecs::schedule::{NodeId, Schedules, SystemKey, SystemSet as _};
 use bevy::prelude::App;
 
 use ambition_platformer2d_shared_tangle::schedule::FeatureInteractionSet;
-use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
 /// The phase order, head to tail. Each boundary's justification lives on the
@@ -124,7 +124,7 @@ fn the_feature_interaction_phases_are_chained_head_to_tail() {
 }
 
 /// Every phase is nested inside
-/// [`Platformer2dSimulationPhaseMonolith::FeatureInteraction`].
+/// [`Platformer2dSimulationPhase::FeatureInteraction`].
 ///
 /// The chain above orders the phases relative to each other; this is what keeps
 /// the whole group where the rest of the frame expects it. A phase that fell out
@@ -140,7 +140,7 @@ fn every_feature_interaction_phase_is_nested_in_the_containing_set() {
 
     let parent_key = graph
         .system_sets
-        .get_key(Platformer2dSimulationPhaseMonolith::FeatureInteraction.intern())
+        .get_key(Platformer2dSimulationPhase::FeatureInteraction.intern())
         .expect("FeatureInteraction must be a registered SystemSet");
     for phase in PHASES {
         let child_key = graph
@@ -153,7 +153,7 @@ fn every_feature_interaction_phase_is_nested_in_the_containing_set() {
                 .graph()
                 .contains_edge(NodeId::Set(parent_key), NodeId::Set(child_key)),
             "{phase:?} must be nested inside \
-             Platformer2dSimulationPhaseMonolith::FeatureInteraction"
+             Platformer2dSimulationPhase::FeatureInteraction"
         );
     }
 }
@@ -215,7 +215,7 @@ fn every_feature_interaction_system_is_in_its_named_phase() {
 ///
 /// The whole point of the vocabulary is that no interleave is positional any
 /// more. A system added straight to
-/// [`Platformer2dSimulationPhaseMonolith::FeatureInteraction`] would be ordered
+/// [`Platformer2dSimulationPhase::FeatureInteraction`] would be ordered
 /// against nothing in particular and would re-introduce exactly the "documented
 /// only in prose at the call site" state this replaced — and it would do so
 /// silently, because the chain assertions above would stay green.
@@ -229,7 +229,7 @@ fn no_system_sits_in_the_phase_without_a_named_set() {
 
     let parent_key = graph
         .system_sets
-        .get_key(Platformer2dSimulationPhaseMonolith::FeatureInteraction.intern())
+        .get_key(Platformer2dSimulationPhase::FeatureInteraction.intern())
         .expect("FeatureInteraction must be a registered SystemSet");
     let direct_systems: Vec<String> = graph
         .hierarchy()

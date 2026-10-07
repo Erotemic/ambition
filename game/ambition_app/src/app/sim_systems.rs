@@ -14,7 +14,7 @@
 //! `ambition_app`, had no consumer at all.
 //!
 //! This system is a narrow query/resource system registered in the
-//! [`Platformer2dSimulationPhaseMonolith::CoreSimulation`] chain configured by
+//! [`Platformer2dSimulationPhase::CoreSimulation`] chain configured by
 //! [`super::schedule::configure_platformer2d_simulation_phases`]. Cross-set ordering lives in the
 //! schedule; intra-set ordering is expressed by `.chain()` where registered.
 

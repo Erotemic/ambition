@@ -1738,7 +1738,7 @@ mod tests {
 
 /// Install the reusable FX cue pipeline: requests fan out, spawn, then age.
 ///
-/// This function owns the three-stage order. `Platformer2dSimulationPhaseMonolith`
+/// This function owns the three-stage order. `Platformer2dSimulationPhase`
 /// and `session_world_exists` come from `ambition_platformer2d_shared_tangle`
 /// (already a dependency), and `rendering::WorldLabelLayoutSet` is this
 /// crate's own.
@@ -1753,7 +1753,7 @@ mod tests {
 ///   and never leaves.
 pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
     use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
-    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
     use bevy::prelude::{IntoScheduleConfigs as _, Update};
 
     app.add_systems(
@@ -1764,7 +1764,7 @@ pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
             process_fx_requests,
         )
             .chain()
-            .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
+            .after(Platformer2dSimulationPhase::CoreSimulation)
             .before(vfx_spawn_messages)
             .run_if(session_world_exists),
     );

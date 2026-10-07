@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, VecDeque};
 
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
-use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 use ambition_time::SimTick;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::schedule::InternedScheduleLabel;
@@ -127,7 +127,7 @@ pub(crate) fn install_telemetry_systems(app: &mut App, sim: InternedScheduleLabe
         publish_worldline_history
             .run_if(crate::spacetime_is_active)
             .in_set(Relativity2dSet::PublishView)
-            .in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+            .in_set(Platformer2dSimulationPhase::FeatureViewSync),
     )
     .add_systems(Update, clear_worldlines_without_live_spacetime);
 }

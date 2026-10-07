@@ -234,7 +234,7 @@ impl<M: Message + Clone> Default for NarrativeInputPlugin<M> {
 impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
     fn build(&self, app: &mut App) {
         use ambition_platformer2d_shared_tangle::schedule::{
-            GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+            GameplaySimulationRoot, Platformer2dSimulationPhase, SimScheduleExt as _,
         };
 
         let sim = app.sim_schedule();
@@ -259,7 +259,7 @@ impl<M: Message + Clone> Plugin for NarrativeInputPlugin<M> {
                     // input stamped for tick N+1 is acted on in the step that
                     // IS tick N+1, not in the one after it.
                     .after(ambition_platformer2d_shared_tangle::schedule::SimClockHead)
-                    .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                    .before(Platformer2dSimulationPhase::CoreSimulation),
             )
             .add_systems(Update, prune_narrative_inputs::<M>)
             .add_systems(

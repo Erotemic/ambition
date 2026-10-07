@@ -66,7 +66,7 @@ impl Platformer2dSimHarness {
     /// puts it — which can be before the integrator, before the phase that
     /// publishes what it reads, or between a producer and the consumer that was
     /// promised its output. ⇒ Name a phase:
-    /// `Platformer2dSimulationPhaseMonolith::*`, or an `.after`/`.before` on a
+    /// `Platformer2dSimulationPhase::*`, or an `.after`/`.before` on a
     /// system that already has one.
     ///
     /// ⚠ **PLACEMENT IS DETERMINISTIC, SO THIS IS A WRONG-ANSWER RISK AND NOT A

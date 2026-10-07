@@ -1203,11 +1203,11 @@ pub fn install_grid_unified_menu(app: &mut App) {
             // What actually keeps the menu and the sim from fighting over a press
             // is the `simulation_authorized` + `in_base_mode` gating above, not
             // this edge. See `tests/sim_phase_pins.rs`.
-            .before(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+            .before(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation),
     );
     app.add_systems(
         Update,
-        grid_menu_republish_view.after(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+        grid_menu_republish_view.after(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::CoreSimulation),
     );
     // ⛔ NOTHING IS REGISTERED HERE ANY MORE, and the ordering edge that used to
     // be went with it. Carrying the active page across a backend switch needed a

@@ -1305,7 +1305,7 @@ rationale = "F2 schedule-label pass: pure schedule labels live in ambition_platf
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_platformer2d_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
-forbid = ["ambition_platformer2d_actor_monolith::schedule::Platformer2dSimulationPhaseMonolith", "ambition_platformer2d_actor_monolith::schedule::CombatSet", "ambition_platformer2d_actor_monolith::schedule::BossSteerSlot", "ambition_platformer2d_actor_monolith::schedule::PresentationSetupSet", "ambition_platformer2d_actor_monolith::schedule::SimulationSetupSet"]
+forbid = ["ambition_platformer2d_actor_monolith::schedule::Platformer2dSimulationPhase", "ambition_platformer2d_actor_monolith::schedule::CombatSet", "ambition_platformer2d_actor_monolith::schedule::BossSteerSlot", "ambition_platformer2d_actor_monolith::schedule::PresentationSetupSet", "ambition_platformer2d_actor_monolith::schedule::SimulationSetupSet"]
 
 
 # was: architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates

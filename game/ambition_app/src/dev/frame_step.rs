@@ -24,7 +24,7 @@ use ambition_platformer2d::platformer::developer_hotkeys::{
     DeveloperAction, DeveloperHotkeyBindings,
 };
 use ambition_platformer2d::platformer::schedule::{
-    GameplayGated, GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith,
+    GameplayGated, GameplaySimulationRoot, Platformer2dSimulationPhase,
     SimScheduleExt as _,
 };
 use ambition_platformer2d::runtime::SimulationHost;
@@ -169,7 +169,7 @@ impl Plugin for FrameStepPanelPlugin {
         );
         app.configure_sets(
             Update,
-            Platformer2dSimulationPhaseMonolith::PresentationVisualSync
+            Platformer2dSimulationPhase::PresentationVisualSync
                 .run_if(frame_step_allows_world_frame),
         );
 

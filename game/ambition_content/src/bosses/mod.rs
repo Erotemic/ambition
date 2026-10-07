@@ -454,7 +454,7 @@ impl Plugin for AmbitionBossContentPlugin {
             (gate_gnu_ton_arena_ladder, gnu_back_is_ground)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
                 .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
         // GNU-ton's conductor performs the scholar's live move with his fists.
         // After the saddle pin (so he is on the gnu this tick unless Eureka says

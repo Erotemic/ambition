@@ -780,7 +780,7 @@ pub fn install_roster_seating(app: &mut bevy::prelude::App) {
 /// Install the frame-to-tick latch drain, in the sim phase and order it belongs to.
 ///
 /// ⭐ THE SAME ARGUMENT [`install_roster_seating`] MAKES, one seam over. The
-/// system, the phase (`Platformer2dSimulationPhaseMonolith::PlayerInput`) and the
+/// system, the phase (`Platformer2dSimulationPhase::PlayerInput`) and the
 /// `ambition_input::InputSet::Route` edge it must precede are all THIS crate's
 /// facts: the latch and its destination are `ambition_characters::control`'s, the
 /// phase enum is ours, and `ambition_input` is a dependency. A composition that
@@ -806,7 +806,7 @@ pub fn install_latched_slot_publication(app: &mut bevy::prelude::App) {
         sim,
         publish_latched_slot_controls
             .in_set(
-                ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput,
+                ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerInput,
             )
             .before(ambition_input::InputSet::Route),
     );

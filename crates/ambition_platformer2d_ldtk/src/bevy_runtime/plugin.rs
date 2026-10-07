@@ -37,7 +37,7 @@ impl Plugin for AmbitionLdtkRegistrationPlugin {
 /// (`sync_plugin_spawned_ambition_entities`) and rebuilds the per-active-area
 /// spine index.
 ///
-/// Runs in [`Platformer2dSimulationPhaseMonolith::LdtkRuntimeSpine`]
+/// Runs in [`Platformer2dSimulationPhase::LdtkRuntimeSpine`]
 /// (configured by `actor_monolith/src/schedule/schedule.rs`). Every system in
 /// the chain is in `ldtk_world::bevy_runtime`, so this crate owns the schedule
 /// registration.

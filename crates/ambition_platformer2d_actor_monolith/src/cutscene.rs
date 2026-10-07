@@ -123,7 +123,7 @@ fn end_cutscene(
 ///
 /// ⛔⛤ **THE CLOCK IS `WorldTime`, NOT `Res<Time>`, FOR TWO SEPARATE REASONS.**
 /// This system is registered into
-/// `Platformer2dSimulationPhaseMonolith::Cutscene` (see `:181`), and
+/// `Platformer2dSimulationPhase::Cutscene` (see `:181`), and
 /// `sim_schedule()` IS `Update` under the `RenderFrame` host — so on the frame
 /// clock a cutscene's beat timings would depend on how fast the machine draws,
 /// and two replays of the same input stream could enter different beats.
@@ -215,7 +215,7 @@ pub fn tick_active_cutscene(
 
 /// Module-local Bevy plugin: schedules the cutscene chain
 /// (`auto_trigger_room_cutscenes` → `drain_cutscene_triggers` →
-/// `tick_active_cutscene`) into [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Cutscene`].
+/// `tick_active_cutscene`) into [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Cutscene`].
 ///
 /// The presentation overlay (`ambition_render::cutscene::sync_cutscene_ui`) is
 /// scheduled separately by the render/app side — this plugin owns only the
@@ -244,7 +244,7 @@ impl Plugin for CutsceneSchedulePlugin {
                 tick_active_cutscene,
             )
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Cutscene),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Cutscene),
         );
     }
 }

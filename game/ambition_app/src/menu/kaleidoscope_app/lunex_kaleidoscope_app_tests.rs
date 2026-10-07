@@ -2323,7 +2323,7 @@ fn menu_confirm_label_resolves_the_focused_item_verb() {
 #[test]
 fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     use ambition_platformer2d::platformer::schedule::{
-        Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+        Platformer2dSimulationPhase, SimScheduleExt,
     };
     use ambition_platformer2d::sim_view::{ControlContextKind, ControlPrompt};
     use bevy::prelude::IntoScheduleConfigs;
@@ -2357,7 +2357,7 @@ fn the_provider_publishes_the_focused_item_verb_into_the_control_prompt() {
     app.add_systems(
         Update,
         ambition_platformer2d::sim_view::rebuild_control_prompt
-            .in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+            .in_set(Platformer2dSimulationPhase::FeatureViewSync),
     );
     super::install_menu_confirm_provider(&mut app);
     app.update();

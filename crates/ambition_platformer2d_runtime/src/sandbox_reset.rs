@@ -24,7 +24,7 @@ use ambition_combat::RoomReplayAdmitted;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
-use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::time_control::{ClockRequester, ClockResetRequest};
@@ -541,7 +541,7 @@ impl Plugin for RoomReplaySchedulePlugin {
                 return_the_replay_subject_to_spawn.in_set(RoomReplayConsequences),
             )
                 .chain()
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
                 // EXACTLY equivalent to the `.before(InputTimersAdvanced)` this
                 // replaces, not merely stricter: that system is the FIRST element
                 // of the tuple that gets `.chain().in_set(PlayerInputSet::Device)`,

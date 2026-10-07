@@ -127,7 +127,7 @@ SUBJECTS: dict[str, tuple[str, dict[str, str]]] = {
         "schedule loses its trigger on every rewind",
         {
             "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs::auto_trigger_room_cutscenes": (
-                "PRODUCER, in `Platformer2dSimulationPhaseMonolith::Cutscene` — in the "
+                "PRODUCER, in `Platformer2dSimulationPhase::Cutscene` — in the "
                 "sim schedule, so a replay re-produces it (read 2026-09-17)"
             ),
             "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs::drain_cutscene_triggers": (

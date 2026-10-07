@@ -185,7 +185,7 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
 
 // ── Progression-phase content slots ──────────────────────────────────────────
 //
-// The `Platformer2dSimulationPhaseMonolith::Progression` chain is
+// The `Platformer2dSimulationPhase::Progression` chain is
 // engine-generic (boss-encounter tick, save mirrors, room metadata/music,
 // portal phase, map visits). Named-game content that must interleave with it
 // uses these labeled slots: the host anchors each slot into the engine chain

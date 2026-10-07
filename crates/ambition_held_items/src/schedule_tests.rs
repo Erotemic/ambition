@@ -11,7 +11,7 @@
 use super::HeldItemSimulationPlugin;
 use ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled;
 use ambition_platformer2d_shared_tangle::schedule::{
-    GameplayGated, HeldItemStep, ItemPickupSet, Platformer2dSimulationPhaseMonolith,
+    GameplayGated, HeldItemStep, ItemPickupSet, Platformer2dSimulationPhase,
     SimScheduleExt as _,
 };
 use bevy::app::App;
@@ -67,7 +67,7 @@ fn the_set_this_crate_owns_is_inside_the_phase_and_after_custody() {
         let core = set_key(graph, ItemPickupSet::CoreHeldItems);
         assert!(
             graph.hierarchy().graph().contains_edge(
-                set_key(graph, Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+                set_key(graph, Platformer2dSimulationPhase::PlayerSimulation),
                 core
             ),
             "CoreHeldItems must be inside PlayerSimulation — outside the phase it runs on a \

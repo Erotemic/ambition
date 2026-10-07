@@ -958,7 +958,7 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 // `.before(CoreSimulation)` alone gives no edge to a reader
                 // ordered against `GameplaySimulationRoot`.
                 .in_set(ambition_platformer2d_core::ConfirmedFrameBoundaryPublished)
-                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
         )
         // A peer that could not prepare the operation ends it on each peer,
         // before the freeze reads the slot on this frame.

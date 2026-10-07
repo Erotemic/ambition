@@ -127,7 +127,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             portal_input_adapter_system
                 .in_set(GameplayGated)
                 .in_set(PortalSet::InputAdapter)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation),
         );
 
         // Resolve the `FirePortalGun` gesture → the generic `PortalFireIntent` (origin from the
@@ -138,7 +138,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             resolve_portal_fire_intent
                 .in_set(GameplayGated)
                 .in_set(PortalSet::InputAdapter)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation)
                 .after(portal_input_adapter_system),
         );
 
@@ -211,7 +211,7 @@ mod schedule_tests {
     use bevy::prelude::*;
 
     use ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases;
-    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 
     // A seat-frame writer whose ONLY scheduling constraint is set
     // membership: `InputSet::Route`. It carries no manual ordering against
@@ -226,7 +226,7 @@ mod schedule_tests {
 
     /// The general input contract: any system tagged `InputSet::Route` is pinned BEFORE the
     /// canonical primary-slot publication in
-    /// `Platformer2dSimulationPhaseMonolith::PlayerInput`.
+    /// `Platformer2dSimulationPhase::PlayerInput`.
     #[test]
     fn input_set_populate_runs_before_primary_slot_publication() {
         use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControls};
@@ -250,7 +250,7 @@ mod schedule_tests {
             Update,
             publish_seat_controls_when_nobody_else_does
                 .in_set(PrimarySlotInputCommit)
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
+                .in_set(Platformer2dSimulationPhase::PlayerInput),
         );
 
         app.update();

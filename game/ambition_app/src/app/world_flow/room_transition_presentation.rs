@@ -23,7 +23,7 @@ use ambition_platformer2d::load_presentation::{
 };
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::render::rendering::UnclaimedFeatureViews;
-use ambition_platformer2d::sim::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d::sim::Platformer2dSimulationPhase;
 
 use super::room_transition_assets::{
     contribute_room_transition_assets_system, poll_room_transition_asset_readiness_system,
@@ -286,7 +286,7 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
         .configure_sets(
             Update,
             RoomTransitionCoverSet
-                .after(Platformer2dSimulationPhaseMonolith::PresentationVisualSync),
+                .after(Platformer2dSimulationPhase::PresentationVisualSync),
         )
         .add_systems(
             Update,

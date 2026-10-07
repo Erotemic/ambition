@@ -42,7 +42,7 @@ pub use light_pulse::{
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::schedule::{
-    Platformer2dSimulationPhaseMonolith, PlayerInputSet, SimScheduleExt, WorldPrepSet,
+    Platformer2dSimulationPhase, PlayerInputSet, SimScheduleExt, WorldPrepSet,
 };
 use ambition_platformer2d::provider::{
     AuthoredCatalogFragments, PlatformerExperienceAuthoring, SessionContents,
@@ -576,7 +576,7 @@ impl Plugin for TwinTrackExperiencePlugin {
                 .run_if(ambition_platformer2d::runtime::in_mode(
                     TWINTRACK_EXPERIENCE,
                 ))
-                .in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
+                .in_set(Platformer2dSimulationPhase::GameplayEffects),
         )
         .add_systems(
             Update,

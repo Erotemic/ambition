@@ -89,7 +89,7 @@ impl Plugin for IntroPlugin {
             sim,
             super::route_state::emit_intro_flag_chains
                 .after(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::GameplayEffects,
                 )
                 .run_if(
                     bevy::prelude::resource_exists_and_changed::<

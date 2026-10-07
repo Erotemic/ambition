@@ -21,7 +21,7 @@ use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
     LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
 };
 use ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested;
-use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
+use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, SimScheduleExt};
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 pub use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -208,7 +208,7 @@ impl Plugin for RoomDeparturePlugin {
         let sim = app.sim_schedule();
         app.configure_sets(
             sim,
-            DepartureSet.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
+            DepartureSet.in_set(Platformer2dSimulationPhase::GameplayEffects),
         );
         app.add_systems(sim, drive_departures.in_set(DepartureSet));
         // A checkpoint restore's replay, at its publication.

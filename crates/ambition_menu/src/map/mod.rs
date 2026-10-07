@@ -152,7 +152,7 @@ pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
                 ui::sync_map_menu,
             )
                 .after(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation,
                 )
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );

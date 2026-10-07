@@ -79,7 +79,7 @@ impl Plugin for GravityPlugin {
             )
                 .chain()
                 .in_set(GravitySet::ZoneSnapshot)
-                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
         );
 
         // THE frame resolution phase (ADR 0024): after the zone snapshot, before
@@ -92,7 +92,7 @@ impl Plugin for GravityPlugin {
             sim,
             FrameResolveSet
                 .after(GravitySet::ZoneSnapshot)
-                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
         );
         // Ambient-gravity changes arrive as REQUESTS from outside the sim and
         // are applied here, in the sim, before the resolver copies the ambient
@@ -127,7 +127,7 @@ impl Plugin for GravityPlugin {
             sim,
             reset_gravity_on_room_reset
                 .in_set(GravitySet::RoomReset)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::RoomTransition)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::RoomTransition)
                 .after(crate::session::reset::ContentRoomResetSet),
         );
         app.add_systems(

@@ -182,7 +182,7 @@ impl Plugin for AuthoredSwitchCommandPlugin {
                 // could miss its own frame, and without the second the request
                 // would wait for the next one. Both sets live in this schedule,
                 // so neither is the silently-vacuous cross-schedule kind.
-                .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction)
+                .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureInteraction)
                 .before(AuthoredCommandSet),
         );
     }

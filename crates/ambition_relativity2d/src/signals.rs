@@ -8,7 +8,7 @@ use ambition_platformer2d_core::snapshot::{
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
 use ambition_platformer2d_shared_tangle::schedule::{
-    CombatSet, Platformer2dSimulationPhaseMonolith, WorldPrepSet,
+    CombatSet, Platformer2dSimulationPhase, WorldPrepSet,
 };
 use ambition_relativity::{
     coordinate_frequency_from_emitter, observed_frequency_from_coordinate, InvariantSpeed,
@@ -750,14 +750,14 @@ pub(crate) fn install_signal_systems(app: &mut App, sim: InternedScheduleLabel) 
             .chain()
             .run_if(crate::spacetime_is_active)
             .in_set(CombatSet::Materialize)
-            .in_set(Platformer2dSimulationPhaseMonolith::Combat),
+            .in_set(Platformer2dSimulationPhase::Combat),
     )
     .add_systems(
         sim,
         publish_signal_view
             .run_if(crate::spacetime_is_active)
             .in_set(Relativity2dSet::PublishView)
-            .in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+            .in_set(Platformer2dSimulationPhase::FeatureViewSync),
     )
     .add_systems(Update, clear_signal_view_without_live_spacetime);
 }

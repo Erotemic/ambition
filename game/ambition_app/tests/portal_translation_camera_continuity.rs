@@ -5,7 +5,7 @@
 
 use crate::common::{base, hold_right};
 
-use ambition_app::app::{Platformer2dSimulationPhaseMonolith, StartRoomOverride};
+use ambition_app::app::{Platformer2dSimulationPhase, StartRoomOverride};
 use ambition_app::AgentAction;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::platformer::camera_layers::MainCamera;
@@ -106,7 +106,7 @@ impl HeadlessCameraHarness {
                 ambition_platformer2d::host::portal::sync_portal_camera_continuity_focus
                     .before(ambition_platformer2d::host::portal::apply_portal_camera_continuity),
                 ambition_platformer2d::host::portal::apply_portal_camera_continuity
-                    .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
+                    .after(Platformer2dSimulationPhase::CoreSimulation)
                     .before(camera_follow),
                 // Same-frame clamp pad into the sim resolve, like the host.
                 ambition_platformer2d::render::rendering::publish_portal_camera_clamp

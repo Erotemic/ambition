@@ -180,7 +180,7 @@ impl Plugin for PulsePlugin {
             // which is what a pulse is.
             (tick_pulse_cooldowns, fire_pulses)
                 .chain()
-                .in_set(ambition_sim_schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
+                .in_set(ambition_sim_schedule::Platformer2dSimulationPhase::GameplayEffects),
         );
     }
 }

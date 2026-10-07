@@ -174,7 +174,7 @@ impl bevy::prelude::Plugin for EncounterRewardSyncPlugin {
             sim,
             sync_encounter_reward_chests
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Progression,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression,
                 )
                 .after(ambition_encounter::EncounterLifecycleSet),
         );
@@ -185,7 +185,7 @@ impl bevy::prelude::Plugin for EncounterRewardSyncPlugin {
             sim,
             retire_rewards_for_rearmed_encounters
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Progression,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression,
                 )
                 .after(ambition_encounter::switches::SwitchActivationDrained),
         );

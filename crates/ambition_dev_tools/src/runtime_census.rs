@@ -1174,7 +1174,7 @@ fn sim_phase_names() -> Vec<&'static str> {
 #[cfg(not(target_arch = "wasm32"))]
 fn install_sim_phase_boundaries(app: &mut App) {
     use ambition_platformer2d_shared_tangle::schedule::{
-        ActorDecisionSet, Platformer2dSimulationPhaseMonolith as Phase, PlayerInputSet,
+        ActorDecisionSet, Platformer2dSimulationPhase as Phase, PlayerInputSet,
         SimScheduleExt as _, WorldPrepSet,
     };
 

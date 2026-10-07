@@ -178,7 +178,7 @@ pub use ambition_characters::brain::state_machine::NPC_PATROL_SPEED;
 use ambition_combat::util::*;
 
 /// Schedules the gameplay-effect bus chain into
-/// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects`].
+/// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::GameplayEffects`].
 pub struct GameplayEffectsSchedulePlugin;
 
 impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
@@ -227,7 +227,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 ecs::effect_bus::apply_gameplay_sfx_effects,
             )
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::GameplayEffects),
         );
     }
 }
@@ -299,7 +299,7 @@ pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
         sim,
         (refresh_body_damageable_volumes, refresh_boss_damageable_volumes)
             .in_set(ambition_combat::components::DamageFacingVolumesPublished)
-            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Combat)
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat)
             // Victim geometry is published between the move clock and the damage pass: AFTER
             // `Playback`, because a move's first active frame must not publish the previous frame's
             // volumes, and BEFORE `Resolve`, because that is what reads them.
@@ -336,7 +336,7 @@ fn configure_actor_decision_phases(app: &mut App) {
             ActorDecisionSet::Publish,
         )
             .chain()
-            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
     );
     app.configure_sets(
         sim,
@@ -349,7 +349,7 @@ fn configure_actor_decision_phases(app: &mut App) {
         sim,
         ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions
             .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
-            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
     );
     app.configure_sets(
         sim,
@@ -382,7 +382,7 @@ fn configure_actor_decision_phases(app: &mut App) {
             .chain()
             .after(ActorDecisionSet::Publish)
             .before(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate)
-            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
     );
 }
 
@@ -617,7 +617,7 @@ mod actor_decision_phase_tests {
 
         let world_prep = graph
             .system_sets
-            .get_key(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep.intern())
+            .get_key(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep.intern())
             .expect("WorldPrep must be registered");
         for phase in DECISION_PHASES {
             let phase_key = graph
@@ -717,7 +717,7 @@ mod actor_decision_phase_tests {
     #[test]
     fn the_boss_animator_takes_the_gate_and_not_a_phase() {
         use ambition_platformer2d_shared_tangle::schedule::{
-            GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith,
+            GameplaySimulationRoot, Platformer2dSimulationPhase,
         };
 
         let mut app = composed_app();
@@ -729,7 +729,7 @@ mod actor_decision_phase_tests {
 
         let world_prep = graph
             .system_sets
-            .get_key(Platformer2dSimulationPhaseMonolith::WorldPrep.intern())
+            .get_key(Platformer2dSimulationPhase::WorldPrep.intern())
             .expect("WorldPrep must be a registered SystemSet");
         let ancestors = phase_ancestors(graph, system_key(graph, "drive_boss_animators"));
         assert!(
@@ -868,7 +868,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             crate::features::combat_rules::project_combat_rules
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
         // S4: spend a stock per KO. `CombatSet:Settle` is the phase for "everything that reads
         // this tick's damage outcome rather than producing it", which is exactly what this is —
@@ -1033,7 +1033,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 update_ecs_bosses,
             )
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
         // "This body starts again", announced to whoever authored it.
         //
@@ -1048,7 +1048,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             (track_body_life_stats, ae::announce_body_restarts)
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep)
                 .before(rebuild_feature_ecs_world_overlay),
         );
         // Advance the accumulating sim clock before any actor brain reads its
@@ -1059,7 +1059,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             sim,
             advance_gameplay_elapsed
                 .before(select_actor_targets)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
         // R1.3: the SIM owns the boss animation frame + writes the geometry sample
         // (retiring the render→sim write-back in `animate_bosses`). Runs after the
@@ -1348,7 +1348,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             ambition_platformer2d_shared_tangle::schedule::BossSteerSlot
                 .after(tick_boss_brains_system)
                 .before(integrate_boss_bodies)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
         // The cut-rope steer system itself is registered by the content
         // plugin (`crate::content::bosses`), in `BossSteerSlot`.
@@ -1375,7 +1375,7 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 crate::avatar::regen_player_mana,
             )
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureCollection),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureCollection),
         );
     }
 }
@@ -1465,7 +1465,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 FeatureInteractionSet::SwitchIndex,
             )
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureInteraction),
         );
 
         app.add_systems(

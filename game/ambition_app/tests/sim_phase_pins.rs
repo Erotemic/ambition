@@ -8,7 +8,7 @@
 use bevy::ecs::schedule::{ScheduleLabel, Schedules, SystemSet};
 use bevy::prelude::*;
 
-use ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith as Phase;
+use ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase as Phase;
 use ambition_platformer2d::rollback::GgrsSchedule;
 
 /// Number of systems in a set, initializing the schedule first because Bevy

@@ -708,7 +708,7 @@ impl Plugin for SanicRulesPlugin {
             take_the_controls_at_the_goal,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
             .after(ambition_platformer2d::actors::avatar::ControlledBrainTick)
             .before(ambition_platformer2d::actors::avatar::WornControlGateSet);
         // After the gate: read the rev and transform from the technique edges
@@ -719,7 +719,7 @@ impl Plugin for SanicRulesPlugin {
             ball_dash::capture_ball_dash_input,
             toggle_sanic_form,
         )
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
             .after(ambition_platformer2d::actors::avatar::WornControlGateSet);
         let gate = ambition_platformer2d::runtime::in_rules_scope(self.scope);
         app.add_systems(sim, sanic_pre_gate.run_if(gate.clone()));
@@ -755,7 +755,7 @@ impl Plugin for SanicRulesPlugin {
             cycle_act_after_clear,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects)
             // The act begins on the tick its owner is born.
             .after(ambition_platformer2d::runtime::ModeOwnersSpawned)
             // An act that asks to leave is carried out the same tick.
@@ -771,7 +771,7 @@ impl Plugin for SanicRulesPlugin {
                 .before(emit_sanic_skid_sfx),
         );
         let milestone_sfx = emit_sanic_milestone_sfx
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects);
         // The badnik defeat runs before the engine's shared body-contact-damage
         // pass so a stomp/roll never also hurts Sanic (the rule zeroes the
         // badnik's health that frame; the contact pass skips a dead attacker).
@@ -779,19 +779,19 @@ impl Plugin for SanicRulesPlugin {
         // that edge the order against `integrate_sim_bodies` was not stated,
         // and the schedule's sort decided which tick's positions the defeat read.
         let badniks = badnik::defeat_badniks
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
             .after(ambition_platformer2d::platformer::schedule::WorldPrepSet::AfterIntegrate)
             .before(ambition_platformer2d::platformer::schedule::WorldPrepSet::ContactDamage);
         // The shared player resolver spends wallet armor before death and emits
         // the deterministic fact this Sanic presentation consumes.
         let ring_loss = scatter_rings_on_hit
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerSimulation)
             .after(ambition_platformer2d::damage::PlayerHitResolutionSet);
         // The scattered-ring burst runs between the coin magnet and the
         // collect: it owns each ring's position during the lock, so collect
         // sees the ring at its arc, not on the knocked-back body.
         let scatter_arc = arc_scattered_rings
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureCollection)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::FeatureCollection)
             .after(ambition_platformer2d::actors::features::PickupMagnetize)
             .before(ambition_platformer2d::actors::features::PickupCollect);
         // Monitor boxes: re-arm on (re)load, break on stomp/roll. Broken
@@ -799,7 +799,7 @@ impl Plugin for SanicRulesPlugin {
         // `removed_block_names` after the engine's per-frame rebuild clears it
         // (the same slot Mary-O's bricks and encounter lock walls take).
         let monitor_rules = monitors::break_monitor_boxes
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects);
         let monitor_overlay = monitors::contribute_broken_monitors_to_overlay
             .in_set(ambition_platformer2d::platformer::schedule::FeatureWorldOverlayContributions);
         // Aliased: the fully-qualified path wraps three ways at every call and

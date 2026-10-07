@@ -51,7 +51,7 @@ pub use ambition_platformer2d::actors::schedule::{
 };
 pub use ambition_platformer2d::actors::schedule::configure_platformer2d_simulation_phases;
 pub use ambition_platformer2d::sim::{
-    BossSteerSlot, Platformer2dSimulationPhaseMonolith, PresentationSetupSet,
+    BossSteerSlot, Platformer2dSimulationPhase, PresentationSetupSet,
 };
 #[cfg(not(target_arch = "wasm32"))]
 pub use cli::run_visible;

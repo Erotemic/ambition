@@ -3,7 +3,7 @@
 //! [`resolve_body_motion_frames`] publishes every integrated body's
 //! [`ResolvedMotionFrame`] exactly once per sim tick, after the environment's
 //! zone snapshot ([`super::GravitySet::ZoneSnapshot`]) and before
-//! `Platformer2dSimulationPhaseMonolith::CoreSimulation` — so controller interpretation (the player brain
+//! `Platformer2dSimulationPhase::CoreSimulation` — so controller interpretation (the player brain
 //! in `PlayerInput`, actor/possessed brains in `WorldPrep`), body integration,
 //! and every combat/ability consumer read the SAME value for the tick.
 //!
@@ -330,12 +330,12 @@ mod tests {
     }
 
     /// Schedule-ordering evidence (ADR 0024): the frame resolution phase runs
-    /// BEFORE `Platformer2dSimulationPhaseMonolith::PlayerInput` — the earliest CoreSimulation consumer —
+    /// BEFORE `Platformer2dSimulationPhase::PlayerInput` — the earliest CoreSimulation consumer —
     /// so a probe there observes THIS tick's zone-resolved frame, not last
     /// tick's. Uses the real `configure_platformer2d_simulation_phases` + `GravityPlugin` wiring.
     #[test]
     fn the_frame_is_resolved_before_the_first_core_simulation_consumer() {
-        use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+        use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 
         #[derive(Resource, Default)]
         struct ProbeSawZoneFrame(bool);
@@ -365,7 +365,7 @@ mod tests {
         app.init_resource::<ProbeSawZoneFrame>();
         app.add_systems(
             Update,
-            player_input_probe.in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
+            player_input_probe.in_set(Platformer2dSimulationPhase::PlayerInput),
         );
 
         app.world_mut().spawn(GravityZone {

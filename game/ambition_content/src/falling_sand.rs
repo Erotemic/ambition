@@ -136,7 +136,7 @@ impl Plugin for FallingSandRoomPlugin {
                     // the settled ledger is current for the tile exclusion.
                     .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
                     .after(FallingSandSimSet)
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
             )
             // `bevy_falling_sand` inits `ParticleSimulationRun` unconditionally,
             // so its chunk scan (`par_handle_movement_by_chunks` over the full

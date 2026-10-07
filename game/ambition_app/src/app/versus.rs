@@ -912,7 +912,7 @@ mod stage_rule_tests {
         app.init_resource::<ambition_platformer2d::characters::load_demand::CharacterLoadDemand>();
         app.init_resource::<ambition_platformer2d::input::LocalDeviceOrder>();
         app.insert_resource(ambition_platformer2d::game_shell::ShellRouter::default());
-        // The projection normally runs in `Platformer2dSimulationPhaseMonolith::WorldPrep`; here it
+        // The projection normally runs in `Platformer2dSimulationPhase::WorldPrep`; here it
         // runs straight after the declarer, which is the same ORDER and all these tests need.
         // Asserting on the resolved value rather than on a global is the whole point of AE6 — a
         // test that read the baseline would be asserting the borrow it replaced. The REAL exit

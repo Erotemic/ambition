@@ -440,7 +440,7 @@ mod held_item_steps {
     //! name steps the domain configures.
     use ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled;
     use ambition_platformer2d_shared_tangle::schedule::{
-        HeldItemStep, ItemPickupSet, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+        HeldItemStep, ItemPickupSet, Platformer2dSimulationPhase, SimScheduleExt as _,
     };
     use bevy::app::App;
     use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemSet};
@@ -554,7 +554,7 @@ mod held_item_steps {
             }
             assert!(
                 graph.hierarchy().graph().contains_edge(
-                    set_key(graph, Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+                    set_key(graph, Platformer2dSimulationPhase::PlayerSimulation),
                     core
                 ),
                 "CoreHeldItems must be inside PlayerSimulation — outside the phase it runs on \

@@ -2,7 +2,7 @@
 //! content crate, and the app crate.
 //!
 //! What stays here is the vocabulary other layers order against: the
-//! `Platformer2dSimulationPhaseMonolith` schedule labels (+ the content/machinery slot sets)
+//! `Platformer2dSimulationPhase` schedule labels (+ the content/machinery slot sets)
 //! and the device -> ControlFrame populate systems the menu/host layers anchor to.
 
 mod input_systems;

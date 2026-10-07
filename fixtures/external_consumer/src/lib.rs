@@ -411,7 +411,7 @@ impl Plugin for OutlanderExperiencePlugin {
         // names a literal schedule, so the same system runs under the fixed
         // tick and a GGRS host alike.
         {
-            use ambition_platformer2d::sim::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
+            use ambition_platformer2d::sim::{Platformer2dSimulationPhase, SimScheduleExt};
             let sim = app.sim_schedule();
             app.add_systems(
                 sim,
@@ -426,7 +426,7 @@ impl Plugin for OutlanderExperiencePlugin {
                     ridge_gate_system,
                 )
                     .chain()
-                    .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+                    .in_set(Platformer2dSimulationPhase::PlayerSimulation),
             );
         }
         // Consumer-owned authoritative state joins rollback through the public

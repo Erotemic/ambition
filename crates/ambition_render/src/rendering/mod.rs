@@ -403,7 +403,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
 }
 
 /// Schedules the per-frame visual animation chain into
-/// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync`].
+/// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync`].
 ///
 /// Spawns dynamic feature visuals first (so `sync_visuals` finds them the same
 /// frame), then mirrors transforms and atlas indices, upgrades enemy and boss
@@ -422,7 +422,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // hosts.
         app.configure_sets(
             Update,
-            ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync
+            ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync
                 .after(ambition_sim_view::PresentedPoseSet),
         );
         app.init_resource::<wielded_item_visuals::WieldedItemVisualCatalog>();
@@ -437,7 +437,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             Update,
             features::forget_unclaimed_feature_views_while_dormant
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
                 )
                 .run_if(bevy::ecs::schedule::common_conditions::not(
                     session_presentation_is_ready,
@@ -461,7 +461,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .after(actors::rigged::drive_rigged_presentations)
                 .before(hit_flash::sync_hit_flash_overlays)
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
                 )
                 .run_if(session_presentation_is_ready),
         );
@@ -470,7 +470,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             BossOverlaySet
                 .after(BossAnimation)
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
                 )
                 .run_if(session_presentation_is_ready),
         );
@@ -552,7 +552,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             )
                 .chain()
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
                 )
                 .run_if(session_presentation_is_ready),
         );
@@ -575,7 +575,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
             ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet
                 .before(actors::rigged::drive_rigged_presentations)
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
                 ),
         );
         app.add_systems(
@@ -612,7 +612,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     .in_set(BodyOwnedDrawableSync),
             )
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
                 )
                 .run_if(session_presentation_is_ready),
         );
@@ -631,7 +631,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 dizzy_stars::emit_dizzy_stars,
             )
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
                 )
                 .run_if(session_presentation_is_ready),
         );
@@ -700,7 +700,7 @@ mod schedule_tests {
     /// The room's visuals must be spawned inside the ordered visual chain, not
     /// unordered in `Update`.
     ///
-    /// `Platformer2dSimulationPhaseMonolith::PresentationVisualSync` sounds like a
+    /// `Platformer2dSimulationPhase::PresentationVisualSync` sounds like a
     /// sim phase, but its members and the respawn are all registered in `Update`,
     /// so an ordinary edge works. Without it, a room transition leaves every
     /// authored feature with a stand-in.
@@ -744,7 +744,7 @@ mod schedule_tests {
             .expect("Update exists")
             .graph()
             .systems_in_set(
-                ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync
+                ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync
                     .intern(),
             )
             .expect("the chain registers that set in Update")

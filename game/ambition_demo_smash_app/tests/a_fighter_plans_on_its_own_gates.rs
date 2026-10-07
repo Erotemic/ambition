@@ -126,14 +126,14 @@ fn the_cpu_over_the_void(gate: Gate) -> Vec<Vec2> {
         open_for: (gate == Gate::OpenForIt).then_some(cpu),
     });
     use ambition_platformer2d::sim::{
-        FeatureWorldOverlayContributions, Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+        FeatureWorldOverlayContributions, Platformer2dSimulationPhase, SimScheduleExt,
     };
     let sim = app.sim_schedule();
     app.add_systems(
         sim,
         floor_the_void
             .in_set(FeatureWorldOverlayContributions)
-            .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
+            .in_set(Platformer2dSimulationPhase::WorldPrep),
     );
     {
         let mut kin = app

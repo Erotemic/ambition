@@ -74,7 +74,7 @@ impl Plugin for HeldItemSimulationPlugin {
         app.configure_sets(
             sim,
             ItemPickupSet::CoreHeldItems
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation)
                 .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
         );
         // ⭐ THE DOMAIN'S OWN STEPS, as a chain of SETS. `HeldItemStep` is

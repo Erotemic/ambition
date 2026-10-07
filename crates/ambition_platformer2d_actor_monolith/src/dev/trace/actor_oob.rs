@@ -95,7 +95,7 @@ fn solid_shapes(world: &ae::World) -> Vec<CollisionTraceShape> {
 /// augmented world the player tick uses, of the body's own live room (OW1).
 /// The frame holds each live room a body was in: its area, envelope and
 /// solids. A body whose room cannot be told (two rooms live, no stamp) is
-/// not recorded. Runs in `Platformer2dSimulationPhaseMonolith::Trace` (after
+/// not recorded. Runs in `Platformer2dSimulationPhase::Trace` (after
 /// `CoreSimulation`) so it captures resolved post-integration positions.
 #[allow(clippy::too_many_arguments)]
 pub fn record_actor_oob_frame_system(

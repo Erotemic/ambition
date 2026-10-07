@@ -8,7 +8,7 @@ use bevy::app::App;
 use bevy::prelude::*;
 
 pub use ambition_sim_schedule::{
-    simulation_pass_is_authoritative, GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith,
+    simulation_pass_is_authoritative, GameplaySimulationRoot, Platformer2dSimulationPhase,
     SimSchedule, SimScheduleExt, SimulationReplayState,
 };
 
@@ -83,7 +83,7 @@ pub struct SimulationSetupSet;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct BossSteerSlot;
 
-/// The phases inside [`Platformer2dSimulationPhaseMonolith::Combat`], and the content slots between
+/// The phases inside [`Platformer2dSimulationPhase::Combat`], and the content slots between
 /// them.
 ///
 /// The engine owns the combat spine — trigger, playback, materialize, resolve,
@@ -145,7 +145,7 @@ pub struct GameplayGated;
 
 /// The tick's CLOCK: advance the timeline, apply the time scale, publish
 /// `WorldTime` and its `SimDt` mirror. Inside [`GameplaySimulationRoot`] and
-/// ahead of [`Platformer2dSimulationPhaseMonolith::CoreSimulation`].
+/// ahead of [`Platformer2dSimulationPhase::CoreSimulation`].
 ///
 /// A system that reads time for THIS tick orders after it — the gravity-zone
 /// snapshot oscillates zones by `SimDt` ahead of the core phases, and with the
@@ -158,7 +158,7 @@ pub struct GameplayGated;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct SimClockHead;
 
-/// Ordered semantic phases inside [`Platformer2dSimulationPhaseMonolith::PlayerInput`].
+/// Ordered semantic phases inside [`Platformer2dSimulationPhase::PlayerInput`].
 /// Cross-crate consumers order against these sets rather than leaf systems.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PlayerInputSet {
@@ -201,7 +201,7 @@ pub enum PlayerInputSet {
     BodyMode,
 }
 
-/// Ordered semantic phases inside [`Platformer2dSimulationPhaseMonolith::Progression`].
+/// Ordered semantic phases inside [`Platformer2dSimulationPhase::Progression`].
 /// Boss advance and hazards remain separate because encounter lifecycle slots lie between them.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ProgressionSet {
@@ -225,7 +225,7 @@ pub enum ProgressionSet {
 }
 
 /// Detect, apply, and reset phases inside
-/// [`Platformer2dSimulationPhaseMonolith::RoomTransition`]. Hosts that replace
+/// [`Platformer2dSimulationPhase::RoomTransition`]. Hosts that replace
 /// transition policy join the [`Self::Apply`] slot.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum RoomTransitionSet {
@@ -241,7 +241,7 @@ pub enum RoomTransitionSet {
 }
 
 /// The travelled-path contract, inside
-/// [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`]: when a body's
+/// [`Platformer2dSimulationPhase::PlayerSimulation`]: when a body's
 /// `SweepSample` is the whole of this tick's travel, and who reads it then.
 ///
 /// Integration and the constraints after it ([`WorldPrepSet`]) run a phase
@@ -270,7 +270,7 @@ pub enum BodyPathSet {
     Crossing,
 }
 
-/// Movement-order anchors inside [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
+/// Movement-order anchors inside [`Platformer2dSimulationPhase::WorldPrep`].
 /// Consumers can state whether they run before or after body integration.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum WorldPrepSet {
@@ -353,7 +353,7 @@ pub enum ItemPickupSet {
 }
 
 /// Ordered stages for a loose item's physical life in the world, inside
-/// [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`].
+/// [`Platformer2dSimulationPhase::PlayerSimulation`].
 ///
 /// ⛔⛔ THE CARVE THAT CREATED `ambition_world_items` LOST THIS ORDERING, and the
 /// loss was invisible. `step_item_motion` / `collect_world_items` used to sit in
@@ -447,7 +447,7 @@ pub enum ResidencyStep {
 }
 
 /// Ordered authority boundaries for one autonomous actor decision, inside
-/// [`Platformer2dSimulationPhaseMonolith::WorldPrep`].
+/// [`Platformer2dSimulationPhase::WorldPrep`].
 ///
 /// These are deliberately coarser than individual systems. The contract is
 /// semantic: targeting settles first, eligibility/projections are prepared,
@@ -477,7 +477,7 @@ pub enum ActorDecisionSet {
 }
 
 /// Ordered possession, host extension, and outcome phases inside
-/// [`Platformer2dSimulationPhaseMonolith::PlayerSimulation`].
+/// [`Platformer2dSimulationPhase::PlayerSimulation`].
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PlayerSimulationSet {
     /// Who is driving which body. Possession triggers and releases; a target
@@ -491,7 +491,7 @@ pub enum PlayerSimulationSet {
     Outcome,
 }
 
-/// Ordered phases inside [`Platformer2dSimulationPhaseMonolith::FeatureInteraction`]. The host
+/// Ordered phases inside [`Platformer2dSimulationPhase::FeatureInteraction`]. The host
 /// chains these sets to encode a total cross-domain order and preserve Bevy's deferred-command
 /// sync points; [`Self::SwitchIndex`] therefore observes all preceding switch mutations.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]

@@ -12,7 +12,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     despawn_scoped_entity, ModeScopedEntity, ModeVisit,
 };
 use ambition_platformer2d_shared_tangle::schedule::{
-    Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+    Platformer2dSimulationPhase, SimScheduleExt as _,
 };
 use ambition_platformer2d_actor_monolith::session::governing_rules::CurrentRoom;
 
@@ -235,7 +235,7 @@ fn configure_mode_owner_sets(app: &mut App) {
     let sim = app.sim_schedule();
     app.configure_sets(
         sim,
-        ModeOwnersSpawned.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
+        ModeOwnersSpawned.in_set(Platformer2dSimulationPhase::GameplayEffects),
     );
     app.configure_sets(
         sim,
@@ -310,7 +310,7 @@ impl Plugin for ModeScopePlugin {
         app.add_systems(
             sim,
             despawn_departed_mode_entities
-                .in_set(Platformer2dSimulationPhaseMonolith::Progression),
+                .in_set(Platformer2dSimulationPhase::Progression),
         );
     }
 }

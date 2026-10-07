@@ -1332,7 +1332,7 @@ impl Plugin for MaryORulesPlugin {
             cycle_level_on_flag_tally,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects)
             // The level begins on the tick its owner is born.
             .after(ambition_platformer2d::runtime::ModeOwnersSpawned)
             // A level that asks to leave is carried out the same tick.
@@ -1351,7 +1351,7 @@ impl Plugin for MaryORulesPlugin {
         // position wins this frame instead of racing the shared integrator.
         let pipe_rules = (warp_through_secret_pipe, pipe::run_pipe_transits)
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerSimulation)
             .after(ambition_platformer2d::damage::PlayerHitResolutionSet);
         // The walkers are registered by `install_mary_o_content`, the single
         // authored-content composition seam shared by direct and shell hosts.
@@ -1418,7 +1418,7 @@ impl Plugin for MaryORulesPlugin {
             star::begin_star_power,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::FeatureInteraction);
         // The two systems that deliberately react AFTER the empowerment ends,
         // saying so against the engine's set instead of by sitting next to
         // `run_empowerments` in the chain above.
@@ -1444,7 +1444,7 @@ impl Plugin for MaryORulesPlugin {
             star::play_star_music,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects)
             .after(ambition_platformer2d::actors::features::empowerment::EmpowermentExpiry);
         // Mary-O's locomotion POLICY and her spark's press edge. Both read the
         // sustained control slot off the body's freshly-produced `ActorControl`,
@@ -1456,7 +1456,7 @@ impl Plugin for MaryORulesPlugin {
             movement::fire_spark_on_run_press,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::PlayerInput)
             .after(ambition_platformer2d::actors::avatar::ControlledBrainTick);
         // The bricks — the reactive-block primitive's SECOND consumer: re-arm on
         // (re)load, break the bonked one, and contribute broken bricks to the
@@ -1465,7 +1465,7 @@ impl Plugin for MaryORulesPlugin {
         // overlay rebuild clears that list — the same slot `contribute_encounter_lock_walls`
         // takes — so the removals survive the per-frame clean slate.
         let bricks = bricks::break_bricks
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::FeatureInteraction);
         let brick_overlay = (
             bricks::contribute_broken_bricks_to_overlay,
             // A struck hidden block stops being pass-through in the SAME slot a

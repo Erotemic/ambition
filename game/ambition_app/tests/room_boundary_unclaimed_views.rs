@@ -463,7 +463,7 @@ fn no_magenta_placeholder_is_visible_while_the_cover_is_down() {
 /// members ARE rather than reasoning from a set's name.
 #[test]
 fn the_room_transition_cover_is_ordered_after_the_unclaimed_census() {
-    use ambition_app::app::{Platformer2dSimulationPhaseMonolith, RoomTransitionCoverSet};
+    use ambition_app::app::{Platformer2dSimulationPhase, RoomTransitionCoverSet};
     use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
 
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
@@ -484,7 +484,7 @@ fn the_room_transition_cover_is_ordered_after_the_unclaimed_census() {
     let graph = schedules.get(Update).expect("Update exists").graph();
 
     let census_members = graph
-        .systems_in_set(Platformer2dSimulationPhaseMonolith::PresentationVisualSync.intern())
+        .systems_in_set(Platformer2dSimulationPhase::PresentationVisualSync.intern())
         .expect("PresentationVisualSync is a registered set")
         .len();
     assert!(
@@ -507,7 +507,7 @@ fn the_room_transition_cover_is_ordered_after_the_unclaimed_census() {
 
     let census_key = graph
         .system_sets
-        .get_key(Platformer2dSimulationPhaseMonolith::PresentationVisualSync.intern())
+        .get_key(Platformer2dSimulationPhase::PresentationVisualSync.intern())
         .expect("PresentationVisualSync must be a registered SystemSet");
     let cover_key = graph
         .system_sets

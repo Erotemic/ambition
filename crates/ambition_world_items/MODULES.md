@@ -22,7 +22,7 @@ _Hand-written notes live here and survive regeneration: the crate's authoritativ
 Carved out of `actor_monolith::items::pickup` on 2026-09-02 (`69641a83f`). The
 carve moved `add_systems` and the ordering BETWEEN the two systems, and left
 behind the `configure_sets` that said their set was
-`.in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation)` and
+`.in_set(Platformer2dSimulationPhase::PlayerSimulation)` and
 `.after(shared_tangle::lifecycle::BodyCustodySettled)` — so **two facts were
 missing**: phase membership (`GameplayGated` does not imply
 `GameplaySimulationRoot`, so the systems were not authorized as part of a

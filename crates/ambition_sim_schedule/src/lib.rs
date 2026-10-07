@@ -6,7 +6,7 @@
 //! the host's SIMULATION schedule, not bare `Update`, so they run on the fixed
 //! tick and resimulate under rollback. That needs exactly two things: which
 //! schedule that is ([`SimScheduleExt::sim_schedule`]) and where in a tick to
-//! stand ([`Platformer2dSimulationPhaseMonolith`]). They used to be reachable only through
+//! stand ([`Platformer2dSimulationPhase`]). They used to be reachable only through
 //! `ambition_platformer2d_shared_tangle`, a crate named for the engine's
 //! internal topology, so the extension's dependency closure grew by that
 //! crate's whole tree to name two items. This crate has no engine dependency:
@@ -99,7 +99,7 @@ impl SimSchedule {
     /// `ReadInputs` under GGRS. Widen this predicate to mean "the host steps on a
     /// fixed tick" and both install: the GGRS one empties the table at
     /// `ReadInputs`, then the sim one writes NEUTRAL over every seat in
-    /// `Platformer2dSimulationPhaseMonolith::PlayerInput` — inside
+    /// `Platformer2dSimulationPhase::PlayerInput` — inside
     /// `CoreSimulation`, while `publish_ggrs_input` is `.before(CoreSimulation)`,
     /// so nothing puts the confirmed input back. Total input loss under rollback,
     /// one predicate away.
@@ -181,7 +181,7 @@ pub struct GameplaySimulationRoot;
 /// Coarse simulation-order vocabulary shared by host, runtime, content, view,
 /// and render. Every phase is nested inside [`GameplaySimulationRoot`].
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub enum Platformer2dSimulationPhaseMonolith {
+pub enum Platformer2dSimulationPhase {
     /// Top-level set that contains the six sub-sets below. Kept as a
     /// distinct label so existing `.before/.after(CoreSimulation)`
     /// constraints from presentation/audio/HUD systems continue to
@@ -229,7 +229,7 @@ pub enum Platformer2dSimulationPhaseMonolith {
     /// same-frame mutation to feature state.
     FeatureViewSync,
     /// Presentation-side container set for visual systems that read
-    /// the feature view cache. Configured after [`Platformer2dSimulationPhaseMonolith::FeatureViewSync`].
+    /// the feature view cache. Configured after [`Platformer2dSimulationPhase::FeatureViewSync`].
     PresentationVisualSync,
     /// Trace recording + dump flush. Runs after CoreSimulation.
     Trace,

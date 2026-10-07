@@ -157,7 +157,7 @@ pub fn run(args: CaptureProbeArgs) {
             // `*out = frame` would overwrite the press.
             force_a_grab_in_range
                 .after(
-                    ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
+                    ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep,
                 )
                 .before(ambition_platformer2d::platformer::schedule::CombatSet::Trigger),
         );

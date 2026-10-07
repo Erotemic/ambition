@@ -44,7 +44,7 @@ impl bevy::prelude::Plugin for WorldGatingSchedulePlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
                 .before(ambition_combat::hazards::HazardTickSet)
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep,
                 ),
         );
     }
@@ -56,7 +56,7 @@ mod tests {
     use bevy::prelude::App;
 
     use ambition_platformer2d_shared_tangle::schedule::{
-        FeatureWorldOverlayContributions, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+        FeatureWorldOverlayContributions, Platformer2dSimulationPhase, SimScheduleExt as _,
     };
 
     /// Both writers of `gate_solids`, both overlay contributors.
@@ -106,7 +106,7 @@ mod tests {
             .expect("FeatureWorldOverlayContributions must be a registered SystemSet");
         let world_prep = graph
             .system_sets
-            .get_key(Platformer2dSimulationPhaseMonolith::WorldPrep.intern())
+            .get_key(Platformer2dSimulationPhase::WorldPrep.intern())
             .expect("WorldPrep must be a registered SystemSet");
 
         for system in systems {

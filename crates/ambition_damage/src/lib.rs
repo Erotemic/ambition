@@ -1649,7 +1649,7 @@ pub fn install_staged_hit_lifecycle_guard(
     schedule: impl bevy::ecs::schedule::ScheduleLabel,
 ) {
     use ambition_platformer2d_shared_tangle::schedule::{
-        GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith,
+        GameplaySimulationRoot, Platformer2dSimulationPhase,
     };
     use bevy::prelude::IntoScheduleConfigs as _;
 
@@ -1657,8 +1657,8 @@ pub fn install_staged_hit_lifecycle_guard(
         schedule,
         void_pending_player_hits_at_lifecycle_boundaries
             .in_set(GameplaySimulationRoot)
-            .after(Platformer2dSimulationPhaseMonolith::ResetProcessing)
-            .before(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+            .after(Platformer2dSimulationPhase::ResetProcessing)
+            .before(Platformer2dSimulationPhase::FeatureViewSync),
     );
     // A checkpoint restore's replay, at its publication.
     app.add_systems(

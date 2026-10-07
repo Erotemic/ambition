@@ -15,7 +15,7 @@ use ambition_platformer2d_core::snapshot::{
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
 use ambition_platformer2d_shared_tangle::schedule::{
-    Platformer2dSimulationPhaseMonolith, SimScheduleExt, WorldPrepSet,
+    Platformer2dSimulationPhase, SimScheduleExt, WorldPrepSet,
 };
 use ambition_relativity::{ClockRateResult, IntervalKind, InvariantSpeed};
 use ambition_time::{ProperTimeScale, WorldTime};
@@ -406,7 +406,7 @@ impl Plugin for Relativity2dPlugin {
             publish_clock_view
                 .run_if(spacetime_is_active)
                 .in_set(Relativity2dSet::PublishView)
-                .in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+                .in_set(Platformer2dSimulationPhase::FeatureViewSync),
         )
         .add_systems(Update, clear_view_without_live_spacetime);
     }

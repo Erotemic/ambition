@@ -160,7 +160,7 @@ fn gate_the_pit(
 /// gate open for it or not.
 fn walk_the_bridge(marker_open_for_the_badnik: bool) -> Vec<Vec2> {
     use ambition_platformer2d::sim::{
-        FeatureWorldOverlayContributions, Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+        FeatureWorldOverlayContributions, Platformer2dSimulationPhase, SimScheduleExt,
     };
     let mut app = boot();
     let badnik = badniks(&mut app)[0];
@@ -170,7 +170,7 @@ fn walk_the_bridge(marker_open_for_the_badnik: bool) -> Vec<Vec2> {
         sim,
         gate_the_pit
             .in_set(FeatureWorldOverlayContributions)
-            .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
+            .in_set(Platformer2dSimulationPhase::WorldPrep),
     );
     {
         let world = app.world_mut();

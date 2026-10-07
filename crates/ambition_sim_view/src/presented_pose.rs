@@ -357,7 +357,7 @@ impl bevy::prelude::Plugin for PresentedPosePlugin {
             app.configure_sets(
                 Update,
                 PresentedPoseSet
-                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
             );
         }
         // The rollback host's phase lives in the GGRS driver's own accumulator,
@@ -502,7 +502,7 @@ mod tests {
     #[test]
     fn frame_stepped_presented_pose_runs_after_feature_view_sync() {
         use ambition_platformer2d_shared_tangle::schedule::{
-            Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+            Platformer2dSimulationPhase, SimScheduleExt as _,
         };
         use bevy::ecs::schedule::{NodeId, Schedules};
         use bevy::prelude::{App, IntoScheduleConfigs as _, Update};
@@ -514,7 +514,7 @@ mod tests {
         // register their consumer set through the plugin.
         app.add_systems(
             Update,
-            (|| {}).in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+            (|| {}).in_set(Platformer2dSimulationPhase::FeatureViewSync),
         );
 
         let schedules = app.world().resource::<Schedules>();
@@ -524,7 +524,7 @@ mod tests {
         let graph = schedule.graph();
         let producer = graph
             .system_sets
-            .get_key(Platformer2dSimulationPhaseMonolith::FeatureViewSync.intern())
+            .get_key(Platformer2dSimulationPhase::FeatureViewSync.intern())
             .expect("FeatureViewSync must be registered");
         let consumer = graph
             .system_sets

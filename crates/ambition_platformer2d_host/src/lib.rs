@@ -23,7 +23,7 @@ pub mod portal;
 // Only the input bridge + portal continuity order against the sandbox phases.
 #[cfg(any(feature = "input", feature = "portal_render"))]
 use ambition_platformer2d_shared_tangle::schedule::{
-    Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+    Platformer2dSimulationPhase, SimScheduleExt as _,
 };
 
 /// The windowed-host plugin group (see the crate docs).
@@ -318,7 +318,7 @@ impl Plugin for HostInputBindingsPlugin {
                     //
                     // Keep the pin for the `RenderFrame` host; do not read it as proof the
                     // other two are ordered.
-                    .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                    .before(Platformer2dSimulationPhase::CoreSimulation),
             );
 
         // The roster-driven seating pair installs ITSELF: both systems live in the
@@ -434,7 +434,7 @@ impl Plugin for HostProjectileVisualsPlugin {
 ///
 /// It lives in the HOST rather than in `PlatformerPresentationPlugin` for the
 /// same layering reason `HostProjectileVisualsPlugin` gives: the ordering edge
-/// names `Platformer2dSimulationPhaseMonolith::CoreSimulation`, and
+/// names `Platformer2dSimulationPhase::CoreSimulation`, and
 /// `ambition_render` depends on neither the schedule nor the runtime.
 ///
 ///  `update_blink_preview` is deliberately NOT here. It reads leafwing
@@ -512,7 +512,7 @@ impl Plugin for HostCameraPlugin {
                 Update,
                 (
                     crate::portal::apply_portal_camera_continuity
-                        .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
+                        .after(Platformer2dSimulationPhase::CoreSimulation)
                         .after(crate::portal::sync_portal_camera_continuity_focus)
                         .before(camera_follow),
                     // Same-frame pad into the sim resolve (E4-17): after the

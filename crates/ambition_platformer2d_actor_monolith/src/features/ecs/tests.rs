@@ -418,8 +418,8 @@ fn interact_buffered_starts_npc_dialogue() {
 
 /// Regression for the presentation-reader ordering contract:
 /// every system added to
-/// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync`] must run
-/// after [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync`].
+/// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync`] must run
+/// after [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync`].
 ///
 /// Structural check: inspect the actual Bevy schedule graph rather than depend on the
 /// executor's behavior with two otherwise-unordered systems. `.after()` between sets becomes a
@@ -428,7 +428,7 @@ fn interact_buffered_starts_npc_dialogue() {
 /// fallback.
 #[test]
 fn presentation_visual_sync_runs_after_feature_view_sync() {
-    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+    use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
     use crate::schedule::{configure_platformer2d_simulation_phases};
     use bevy::ecs::schedule::{NodeId, Schedules};
     use bevy::prelude::{IntoScheduleConfigs, Update};
@@ -442,8 +442,8 @@ fn presentation_visual_sync_runs_after_feature_view_sync() {
     app.add_systems(
         Update,
         (
-            (|| {}).in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
-            (|| {}).in_set(Platformer2dSimulationPhaseMonolith::PresentationVisualSync),
+            (|| {}).in_set(Platformer2dSimulationPhase::FeatureViewSync),
+            (|| {}).in_set(Platformer2dSimulationPhase::PresentationVisualSync),
         ),
     );
 
@@ -454,11 +454,11 @@ fn presentation_visual_sync_runs_after_feature_view_sync() {
     let graph = schedule.graph();
     let fvs_key = graph
         .system_sets
-        .get_key(Platformer2dSimulationPhaseMonolith::FeatureViewSync.intern())
+        .get_key(Platformer2dSimulationPhase::FeatureViewSync.intern())
         .expect("FeatureViewSync must be a registered SystemSet");
     let pvs_key = graph
         .system_sets
-        .get_key(Platformer2dSimulationPhaseMonolith::PresentationVisualSync.intern())
+        .get_key(Platformer2dSimulationPhase::PresentationVisualSync.intern())
         .expect("PresentationVisualSync must be a registered SystemSet");
     let edge_present = graph
         .dependency()

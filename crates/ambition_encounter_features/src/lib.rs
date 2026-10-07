@@ -84,7 +84,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
                 ambition_combat::banner::tick_gameplay_banner,
             )
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::EncounterSimulation),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::EncounterSimulation),
         );
         // The wave EFFECT adapter + the ownership-driven cleanup adapter (E10)
         // react to this frame's lifecycle events, so they run after the
@@ -104,7 +104,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             sim,
             (apply_wave_encounter_effects, apply_encounter_cleanup)
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Progression)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression)
                 .after(EncounterLifecycleSet),
         );
         // ⭐ THE TWO `gate_solids` ROADS MOVED OUT (2026-09-03), together, to

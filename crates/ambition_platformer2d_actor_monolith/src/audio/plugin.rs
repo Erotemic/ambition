@@ -104,7 +104,7 @@ impl Plugin for Platformer2dAudioPlugin {
             .add_systems(
                 Update,
                 audio_play_sfx_messages
-                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
             )
             // Observe the player's WaterContact and request the matching
             // audio environment; the smoother ramps `wetness`, then
@@ -119,7 +119,7 @@ impl Plugin for Platformer2dAudioPlugin {
                     apply_audio_environment,
                 )
                     .chain()
-                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
             )
             // Neutral music intent: the content layer resolves Ambition
             // encounter/boss/room/radio gameplay into a content-agnostic
@@ -163,7 +163,7 @@ impl Plugin for Platformer2dAudioPlugin {
                     // case a stale room/encounter candidate cannot switch the
                     // base channel before gameplay authority exists.
                     .run_if(simulation_authorized)
-                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
             )
             // Reset all activation-local audio request/director state on both
             // gameplay and frontend transitions. This runs outside the gameplay
@@ -171,7 +171,7 @@ impl Plugin for Platformer2dAudioPlugin {
             .add_systems(
                 Update,
                 reset_audio_request_state_on_context_change
-                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation)
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation)
                     .before(audio_play_sfx_messages)
                     .before(crate::music::compute_music_intent)
                     .before(apply_frontend_music_policy),
@@ -185,7 +185,7 @@ impl Plugin for Platformer2dAudioPlugin {
             .add_systems(
                 Update,
                 apply_frontend_music_policy
-                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
             );
     }
 }

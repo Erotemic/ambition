@@ -851,7 +851,7 @@ pub mod sim {
     pub use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
     pub use ambition_platformer2d_shared_tangle::schedule::{
         BossSteerSlot, FeatureWorldOverlayContributions, GameMode,
-        Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimSchedule, SimScheduleExt,
+        Platformer2dSimulationPhase, PresentationSetupSet, SimSchedule, SimScheduleExt,
         SimulationSetupSet, WorldItemSet,
     };
 

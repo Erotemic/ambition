@@ -833,7 +833,7 @@ impl Plugin for CharacterRuntimePlugin {
                     // post-movement here (`PlayerSimulation` and `WorldPrep` both precede
                     // `Combat`), so this is the one slot where clocks and positions are
                     // simultaneously current.
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Combat)
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat)
                     .after(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback)
                     .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Resolve),
             )
@@ -852,7 +852,7 @@ impl Plugin for CharacterRuntimePlugin {
                     presentation::inherit_projectile_presentation_sources,
                 )
                     .chain()
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Combat)
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Combat)
                     .before(ambition_platformer2d_shared_tangle::schedule::CombatSet::Playback),
             )
             .add_systems(
@@ -928,7 +928,7 @@ impl Plugin for CharacterRuntimePlugin {
                 // condition itself rather than a schedule-level proxy for it,
                 // and a gate here would be a second opinion that could disagree.
                 live_match_clock::count_the_live_match_ticks
-                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
             )
             .add_systems(
                 sim,

@@ -29,7 +29,7 @@
 //! registration is the only road.
 //!
 //! ⛔⛔ **AND THE SIMULATION HAS TO BE AUTHORIZED, WHICH IS A THIRD PREMISE.**
-//! The drain sits in `Platformer2dSimulationPhaseMonolith::PlayerInput`, under
+//! The drain sits in `Platformer2dSimulationPhase::PlayerInput`, under
 //! `GameplaySimulationRoot`, which runs only while `simulation_authorized` finds
 //! a LIVE SESSION SCOPE. Written first against the shell host, this file failed
 //! with the seat still neutral — not because the drain was missing but because
@@ -54,7 +54,7 @@ use ambition_platformer2d::characters::control::{
 };
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::lifecycle::{SessionRoot, SessionScopeId};
-use ambition_platformer2d::sim::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d::sim::Platformer2dSimulationPhase;
 
 const SEAT: PlayerSlot = PlayerSlot(0);
 
@@ -93,7 +93,7 @@ fn fixed_tick_app() -> App {
     app.init_resource::<PhaseRan>();
     app.add_systems(
         sim,
-        note_the_phase_ran.in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
+        note_the_phase_ran.in_set(Platformer2dSimulationPhase::PlayerInput),
     );
     app
 }

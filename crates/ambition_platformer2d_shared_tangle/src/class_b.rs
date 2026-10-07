@@ -139,7 +139,7 @@ impl ClassBRemapLog {
 }
 
 /// Clear the ledger at the head of the sim frame. Registered by the engine's
-/// `Platformer2dSimulationFoundationPlugin` `.before(Platformer2dSimulationPhaseMonolith::CoreSimulation)`, which is upstream
+/// `Platformer2dSimulationFoundationPlugin` `.before(Platformer2dSimulationPhase::CoreSimulation)`, which is upstream
 /// of every Class-B writer including `ResetProcessing` (a tail set, but still
 /// inside the same frame).
 pub fn clear_class_b_remap_log(mut log: ResMut<ClassBRemapLog>) {

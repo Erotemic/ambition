@@ -2,7 +2,7 @@
 //!
 //! Single source of truth for the concrete sandbox app schedule.
 //!
-//! `ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith`
+//! `ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase`
 //! is the reusable phase vocabulary AND the app's realization of it: it lives in
 //! the lowest platformer crate and 18 packages order against it. A second,
 //! aspirational `PlatformerRuntimeSet` stood beside it with ZERO members until
@@ -20,11 +20,11 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::lifecycle::simulation_authorized;
 use ambition_platformer2d_shared_tangle::schedule::{
     gameplay_allowed, CombatSet, GameplayGated, GameplaySimulationRoot,
-    Platformer2dSimulationPhaseMonolith, PlayerInputSet, PlayerSimulationSet, RoomTransitionSet,
+    Platformer2dSimulationPhase, PlayerInputSet, PlayerSimulationSet, RoomTransitionSet,
     SimScheduleExt, WorldPrepSet,
 };
 
-/// Configure the chained ordering between [`Platformer2dSimulationPhaseMonolith`] variants.
+/// Configure the chained ordering between [`Platformer2dSimulationPhase`] variants.
 ///
 /// Within `CoreSimulation`:
 /// `WorldPrep → PlayerInput → PlayerSimulation → RoomTransition →
@@ -47,7 +47,7 @@ use ambition_platformer2d_shared_tangle::schedule::{
 pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     let sim = app.sim_schedule();
 
-    // THE session gate. Every Platformer2dSimulationPhaseMonolith variant is nested inside
+    // THE session gate. Every Platformer2dSimulationPhase variant is nested inside
     // `GameplaySimulationRoot` below, so this ONE condition puts the whole
     // gameplay simulation (tick timeline included) to sleep at frontend routes
     // in session-gated hosts, and is inert everywhere else
@@ -64,18 +64,18 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     app.configure_sets(
         sim,
         (
-            Platformer2dSimulationPhaseMonolith::CoreSimulation,
-            Platformer2dSimulationPhaseMonolith::FeatureCollection,
-            Platformer2dSimulationPhaseMonolith::FeatureInteraction,
-            Platformer2dSimulationPhaseMonolith::LdtkRuntimeSpine,
-            Platformer2dSimulationPhaseMonolith::EncounterSimulation,
-            Platformer2dSimulationPhaseMonolith::Cutscene,
-            Platformer2dSimulationPhaseMonolith::GameplayEffects,
-            Platformer2dSimulationPhaseMonolith::Progression,
-            Platformer2dSimulationPhaseMonolith::ResetProcessing,
-            Platformer2dSimulationPhaseMonolith::FeatureViewSync,
-            Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
-            Platformer2dSimulationPhaseMonolith::Trace,
+            Platformer2dSimulationPhase::CoreSimulation,
+            Platformer2dSimulationPhase::FeatureCollection,
+            Platformer2dSimulationPhase::FeatureInteraction,
+            Platformer2dSimulationPhase::LdtkRuntimeSpine,
+            Platformer2dSimulationPhase::EncounterSimulation,
+            Platformer2dSimulationPhase::Cutscene,
+            Platformer2dSimulationPhase::GameplayEffects,
+            Platformer2dSimulationPhase::Progression,
+            Platformer2dSimulationPhase::ResetProcessing,
+            Platformer2dSimulationPhase::FeatureViewSync,
+            Platformer2dSimulationPhase::PresentationVisualSync,
+            Platformer2dSimulationPhase::Trace,
         )
             .in_set(GameplaySimulationRoot),
     );
@@ -85,7 +85,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
         sim,
         ambition_platformer2d_shared_tangle::schedule::SimClockHead
             .in_set(GameplaySimulationRoot)
-            .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
+            .before(Platformer2dSimulationPhase::CoreSimulation),
     );
 
     // Sub-sets inside CoreSimulation, ordered.
@@ -98,15 +98,15 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     app.configure_sets(
         sim,
         (
-            Platformer2dSimulationPhaseMonolith::PlayerInput,
-            Platformer2dSimulationPhaseMonolith::WorldPrep,
-            Platformer2dSimulationPhaseMonolith::PlayerSimulation,
-            Platformer2dSimulationPhaseMonolith::RoomTransition,
-            Platformer2dSimulationPhaseMonolith::Combat,
-            Platformer2dSimulationPhaseMonolith::PresentationSync,
+            Platformer2dSimulationPhase::PlayerInput,
+            Platformer2dSimulationPhase::WorldPrep,
+            Platformer2dSimulationPhase::PlayerSimulation,
+            Platformer2dSimulationPhase::RoomTransition,
+            Platformer2dSimulationPhase::Combat,
+            Platformer2dSimulationPhase::PresentationSync,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhaseMonolith::CoreSimulation),
+            .in_set(Platformer2dSimulationPhase::CoreSimulation),
     );
 
     // The phases INSIDE PlayerInput. Naming them changed no order — this is the
@@ -123,7 +123,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             PlayerInputSet::Brain,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
+            .in_set(Platformer2dSimulationPhase::PlayerInput),
     );
     // ⛔⛔ `ControlGate` AND `BodyMode` ARE NOT IN THIS PHASE, and they cannot
     // be. Both act on FINISHED control, and control is finished for a possessed
@@ -143,7 +143,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             RoomTransitionSet::Reset,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhaseMonolith::RoomTransition),
+            .in_set(Platformer2dSimulationPhase::RoomTransition),
     );
 
     // The movement anchor inside WorldPrep. Three placement sets around the one
@@ -157,7 +157,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             WorldPrepSet::AfterIntegrate,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
+            .in_set(Platformer2dSimulationPhase::WorldPrep),
     );
     // Every body's effective verbs, from its base and this tick's contributions.
     // Sources write their contribution in `BeforeIntegrate`; movement reads the
@@ -167,7 +167,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
         ambition_platformer2d_core::project_body_abilities
             .after(WorldPrepSet::BeforeIntegrate)
             .before(WorldPrepSet::Integrate)
-            .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
+            .in_set(Platformer2dSimulationPhase::WorldPrep),
     );
     // A LABEL, not a chain position: see `WorldPrepSet::ContactDamage` for why
     // chaining it would add edges nobody chose.
@@ -184,7 +184,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
         sim,
         WorldPrepSet::ContactDamage
             .after(WorldPrepSet::AfterIntegrate)
-            .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
+            .in_set(Platformer2dSimulationPhase::WorldPrep),
     );
 
     // The travelled-path contract: carries, then the readers of the settled path.
@@ -197,7 +197,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             ambition_platformer2d_shared_tangle::schedule::BodyPathSet::Crossing,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+            .in_set(Platformer2dSimulationPhase::PlayerSimulation),
     );
     // A wielded traversal (a blink, a dive, a recall) is a transit: it
     // collapses the body's record at the arrival. The contacts read the record
@@ -224,7 +224,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             PlayerSimulationSet::Outcome,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+            .in_set(Platformer2dSimulationPhase::PlayerSimulation),
     );
 
     // The phases INSIDE Combat, plus the two content slots between them. Same
@@ -242,7 +242,7 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             CombatSet::Settle,
         )
             .chain()
-            .in_set(Platformer2dSimulationPhaseMonolith::Combat),
+            .in_set(Platformer2dSimulationPhase::Combat),
     );
     // `ContentSpecials` sits INSIDE `Materialize` rather than between phases: a
     // boss special dispatched this frame must reach its content technique this
@@ -265,26 +265,26 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     app.configure_sets(
         sim,
         (
-            Platformer2dSimulationPhaseMonolith::CoreSimulation,
-            Platformer2dSimulationPhaseMonolith::FeatureCollection,
-            Platformer2dSimulationPhaseMonolith::FeatureInteraction,
-            Platformer2dSimulationPhaseMonolith::LdtkRuntimeSpine,
-            Platformer2dSimulationPhaseMonolith::EncounterSimulation,
-            Platformer2dSimulationPhaseMonolith::Cutscene,
-            Platformer2dSimulationPhaseMonolith::GameplayEffects,
-            Platformer2dSimulationPhaseMonolith::Progression,
-            Platformer2dSimulationPhaseMonolith::ResetProcessing,
+            Platformer2dSimulationPhase::CoreSimulation,
+            Platformer2dSimulationPhase::FeatureCollection,
+            Platformer2dSimulationPhase::FeatureInteraction,
+            Platformer2dSimulationPhase::LdtkRuntimeSpine,
+            Platformer2dSimulationPhase::EncounterSimulation,
+            Platformer2dSimulationPhase::Cutscene,
+            Platformer2dSimulationPhase::GameplayEffects,
+            Platformer2dSimulationPhase::Progression,
+            Platformer2dSimulationPhase::ResetProcessing,
             // FeatureViewSync is the final sim-side tail; everything
             // that mutates ECS feature state — including
             // ResetProcessing — has already run.
-            Platformer2dSimulationPhaseMonolith::FeatureViewSync,
+            Platformer2dSimulationPhase::FeatureViewSync,
         )
             .chain(),
     )
     .configure_sets(
         sim,
-        Platformer2dSimulationPhaseMonolith::Trace
-            .after(Platformer2dSimulationPhaseMonolith::CoreSimulation),
+        Platformer2dSimulationPhase::Trace
+            .after(Platformer2dSimulationPhase::CoreSimulation),
     )
     // Presentation visual chain: must observe this frame's
     // FeatureViewIndex rebuild. Owning the ordering at the set level
@@ -294,8 +294,8 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
     // ordering survives.
     .configure_sets(
         sim,
-        Platformer2dSimulationPhaseMonolith::PresentationVisualSync
-            .after(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+        Platformer2dSimulationPhase::PresentationVisualSync
+            .after(Platformer2dSimulationPhase::FeatureViewSync),
     );
 
     app.configure_sets(

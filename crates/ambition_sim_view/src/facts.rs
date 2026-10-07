@@ -2,7 +2,7 @@
 //! resources presentation consumes INSTEAD of querying live sim components.
 //!
 //! Every resource here is a plain-data snapshot rebuilt once per tick in the
-//! sim tail (`Platformer2dSimulationPhaseMonolith::FeatureViewSync`) by a function of sim state — no
+//! sim tail (`Platformer2dSimulationPhase::FeatureViewSync`) by a function of sim state — no
 //! caching across ticks, no `Entity`/`Handle` borrows — so any observer
 //! (render, RL, netcode confirmation, the fighter brain) can read the same
 //! facts. This module (with `view_index`/`anim_helpers`/`pose_view`/
@@ -1106,7 +1106,7 @@ impl Plugin for SimViewPlugin {
         app.add_systems(
             sim,
             rebuild_blink_preview_fact
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
         );
         app.add_systems(
             sim,
@@ -1124,13 +1124,13 @@ impl Plugin for SimViewPlugin {
                 rebuild_projectile_views,
                 rebuild_dynamic_feature_views,
             )
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
         );
         app.configure_sets(
             sim,
             (BodyClockViewSet::Reset, BodyClockViewSet::Contribute)
                 .chain()
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
         );
     }
 }

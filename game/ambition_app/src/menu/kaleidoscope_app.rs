@@ -116,7 +116,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
 ///
 /// `publish_menu_confirm_prompt` WRITES the inventory's `UiCue` and
 /// `rebuild_control_prompt` READS the cues — and the reader lives in the sim
-/// schedule's [`Platformer2dSimulationPhaseMonolith::FeatureViewSync`]. Registering the writer in `Update`
+/// schedule's [`Platformer2dSimulationPhase::FeatureViewSync`]. Registering the writer in `Update`
 /// (a different schedule) made the read one frame stale under a `FixedUpdate`
 /// sim, and non-deterministic about WHICH frame's label it saw (Update and
 /// FixedUpdate interleave by wall-clock). Co-locating the writer in the same
@@ -125,7 +125,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
 /// producer→consumer edge is explicit, not incidental.
 pub(crate) fn install_menu_confirm_provider(app: &mut App) {
     use ambition_platformer2d::platformer::schedule::{
-        Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+        Platformer2dSimulationPhase, SimScheduleExt,
     };
     use bevy::prelude::IntoScheduleConfigs;
     let sim = app.sim_schedule();
@@ -135,7 +135,7 @@ pub(crate) fn install_menu_confirm_provider(app: &mut App) {
     app.add_systems(
         sim,
         publish_menu_confirm_prompt
-            .in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync)
+            .in_set(Platformer2dSimulationPhase::FeatureViewSync)
             .before(ambition_platformer2d::sim_view::ControlPromptRebuilt),
     );
 }

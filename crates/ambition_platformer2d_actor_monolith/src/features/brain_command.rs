@@ -529,7 +529,7 @@ impl Plugin for BrainCommandPlugin {
                 apply_release_provocations.before(apply_brain_commands),
                 apply_brain_commands,
             )
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::GameplayEffects),
         );
     }
 }

@@ -13,7 +13,7 @@
 
 use ambition_app::{Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::gameplay_trace::{ActorTraceBuffer, GameplayTraceBuffer};
-use ambition_platformer2d::sim::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
+use ambition_platformer2d::sim::{Platformer2dSimulationPhase, SimScheduleExt};
 use ambition_platformer2d::time::time_control::{ClockRequester, ClockScaleRequest};
 use ambition_platformer2d::time::{ClockDomain, ClockState};
 use bevy::prelude::*;
@@ -49,7 +49,7 @@ fn every_trace_row_states_the_scale_its_dts_were_stepped_at() {
             app.add_systems(
                 sim,
                 move_the_clock_before_the_trace
-                    .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
+                    .after(Platformer2dSimulationPhase::CoreSimulation)
                     // Before the chain that owns the clock (requests, the
                     // smoothing ramp, resets), so the ramp carries the moved
                     // scale into the next tick's head. Unordered against it,
@@ -59,7 +59,7 @@ fn every_trace_row_states_the_scale_its_dts_were_stepped_at() {
                     // premise below failed (2026-10-01, when two new extension
                     // sets changed that order).
                     .before(ambition_platformer2d::time::time_control::apply_clock_scale_requests)
-                    .before(Platformer2dSimulationPhaseMonolith::Trace),
+                    .before(Platformer2dSimulationPhase::Trace),
             );
             Ok(())
         },

@@ -178,13 +178,13 @@ pub struct TransformBeatPlugin;
 
 impl Plugin for TransformBeatPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
+        use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhase, SimScheduleExt};
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
             (begin_requested_transform_beats, run_transform_beats)
                 .chain()
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+                .in_set(Platformer2dSimulationPhase::PlayerSimulation),
         );
     }
 }

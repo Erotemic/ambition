@@ -33,7 +33,7 @@ fn the_gravity_snapshot_reads_the_clock_its_own_tick_published() {
     app.add_systems(
         sim,
         (|tick: Res<SimTick>, mut seen: ResMut<Seen>| seen.input.push(tick.get()))
-            .in_set(ambition_platformer2d::sim::Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+            .in_set(ambition_platformer2d::sim::Platformer2dSimulationPhase::PlayerSimulation),
     );
     for _ in 0..600 {
         app.update();

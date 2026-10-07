@@ -3,18 +3,18 @@
 //! Boss-encounter advance, quest event
 //! pumping, room-metadata/music/portal sync, map-menu visit tracking,
 //! and the populate-from-LDtk-and-save registry refreshers all run in
-//! `Platformer2dSimulationPhaseMonolith::Progression`.
+//! `Platformer2dSimulationPhase::Progression`.
 //!
 //! Extracted from `app/plugins.rs` (ecs-cleanup-plan #8) so the top-level
 //! simulation orchestration reads as a list of named domain plugins.
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 use ambition_platformer2d_shared_tangle::schedule::ProgressionSet;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-/// Schedules the `Platformer2dSimulationPhaseMonolith::Progression` system chain plus the
+/// Schedules the `Platformer2dSimulationPhase::Progression` system chain plus the
 /// registry-populate systems that share the same set.
 pub struct ProgressionSchedulePlugin;
 
@@ -52,7 +52,7 @@ impl Plugin for ProgressionSchedulePlugin {
                 ProgressionSet::Map,
             )
                 .chain()
-                .in_set(Platformer2dSimulationPhaseMonolith::Progression),
+                .in_set(Platformer2dSimulationPhase::Progression),
         );
         // ⭐ THE EIGHT BOSS SYSTEMS THAT STOOD HERE NOW INSTALL THEMSELVES.
         // `ambition_boss_encounter::BossEncounterSimulationPlugin` owns them,
@@ -132,7 +132,7 @@ impl Plugin for ProgressionSchedulePlugin {
                 ambition_boss_encounter::populate_boss_encounter_registry,
                 ambition_encounter_features::project_live_encounter_occurrences,
             )
-                .in_set(Platformer2dSimulationPhaseMonolith::Progression),
+                .in_set(Platformer2dSimulationPhase::Progression),
         );
     }
 }

@@ -50,7 +50,7 @@ impl Plugin for YarnBindingsPlugin {
             (ambition_dialog::dialog_input, ambition_dialog::dialog_reveal_tick)
                 .chain()
                 .after(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation,
                 )
                 // After this frame's claims are declared, so an overlay opened
                 // over the conversation captures its input from the next frame on.

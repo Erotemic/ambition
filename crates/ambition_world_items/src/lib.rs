@@ -65,7 +65,7 @@ impl bevy::prelude::Plugin for WorldItemSimulationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled;
         use ambition_platformer2d_shared_tangle::schedule::{
-            GameplayGated, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _, WorldItemSet,
+            GameplayGated, Platformer2dSimulationPhase, SimScheduleExt as _, WorldItemSet,
         };
         use bevy::prelude::IntoScheduleConfigs;
 
@@ -85,7 +85,7 @@ impl bevy::prelude::Plugin for WorldItemSimulationPlugin {
             sim,
             (WorldItemSet::Motion, WorldItemSet::PreCollect, WorldItemSet::Collect)
                 .chain()
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation)
+                .in_set(Platformer2dSimulationPhase::PlayerSimulation)
                 .in_set(GameplayGated),
         );
         // Collection reads custody, so it must not run before custody settles;
@@ -117,7 +117,7 @@ mod simulation_phase_tests {
     use super::WorldItemSimulationPlugin;
     use ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled;
     use ambition_platformer2d_shared_tangle::schedule::{
-        GameplayGated, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _, WorldItemSet,
+        GameplayGated, Platformer2dSimulationPhase, SimScheduleExt as _, WorldItemSet,
     };
     use bevy::app::App;
     use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemSet};
@@ -222,7 +222,7 @@ mod simulation_phase_tests {
         with_graph(|graph| {
             let phase = set_key(
                 graph,
-                Platformer2dSimulationPhaseMonolith::PlayerSimulation,
+                Platformer2dSimulationPhase::PlayerSimulation,
             );
             for set in [
                 WorldItemSet::Motion,

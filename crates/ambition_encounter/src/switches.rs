@@ -84,7 +84,7 @@ impl EncounterSwitchIndex {
 /// The encounter system drains it and applies the matching reset.
 ///
 /// NOT actually drained within the producing frame: the producer runs in
-/// `Platformer2dSimulationPhaseMonolith::GameplayEffects` and the consumer in `EncounterSimulation`,
+/// `Platformer2dSimulationPhase::GameplayEffects` and the consumer in `EncounterSimulation`,
 /// which is ordered EARLIER — so an activation pushed on frame N is applied on
 /// frame N+1 and the queue is live state at a rollback save boundary. `Clone`
 /// (and its rollback registration) exist for exactly that reason: without them

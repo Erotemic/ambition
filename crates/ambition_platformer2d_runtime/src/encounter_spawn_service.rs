@@ -24,7 +24,7 @@ impl bevy::prelude::Plugin for EncounterSpawnServicePlugin {
             sim,
             ambition_platformer2d_actor_monolith::features::serve_encounter_spawn_commands
                 .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::EncounterSimulation,
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::EncounterSimulation,
                 )
                 .after(ambition_encounter_features::WaveEncounterDriven)
                 .run_if(bevy::ecs::prelude::any_with_component::<ambition_encounter::Encounter>),

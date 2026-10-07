@@ -158,7 +158,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // through every recharge.
                 project_prompt_readiness.after(ControlPromptRebuilt),
             )
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
         );
     }
 }

@@ -389,7 +389,7 @@ pub struct AuthoredCommandPlugin;
 impl Plugin for AuthoredCommandPlugin {
     fn build(&self, app: &mut App) {
         use crate::schedule::{
-            GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+            GameplaySimulationRoot, Platformer2dSimulationPhase, SimScheduleExt as _,
         };
 
         let sim = app.sim_schedule();
@@ -404,8 +404,8 @@ impl Plugin for AuthoredCommandPlugin {
                 // silently-vacuous cross-schedule kind.
                 AuthoredCommandSet
                     .in_set(GameplaySimulationRoot)
-                    .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
-                    .before(Platformer2dSimulationPhaseMonolith::GameplayEffects),
+                    .after(Platformer2dSimulationPhase::CoreSimulation)
+                    .before(Platformer2dSimulationPhase::GameplayEffects),
             )
             .add_systems(
                 sim,

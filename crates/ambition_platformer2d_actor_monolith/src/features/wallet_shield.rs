@@ -11,7 +11,7 @@ use bevy::prelude::*;
 
 use ambition_characters::actor::{BodyWalletShield, WornCharacter};
 use ambition_platformer2d_shared_tangle::schedule::{
-    Platformer2dSimulationPhaseMonolith, PlayerInputSet, SimScheduleExt,
+    Platformer2dSimulationPhase, PlayerInputSet, SimScheduleExt,
 };
 
 
@@ -66,7 +66,7 @@ impl Plugin for WalletShieldPlugin {
         app.add_systems(
             sim,
             project_wallet_shields
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .after(PlayerInputSet::Persona)
                 .before(ambition_damage::PlayerHitResolutionSet),
         );

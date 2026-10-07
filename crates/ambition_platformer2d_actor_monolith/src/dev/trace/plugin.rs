@@ -1,6 +1,6 @@
 //! Module-local Bevy [`Plugin`] for the gameplay trace recorder.
 //!
-//! The trace runs in [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::Trace`] (configured by
+//! The trace runs in [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Trace`] (configured by
 //! `actor_monolith/src/schedule/schedule.rs`), which orders after
 //! `CoreSimulation` so the per-frame snapshot captures the resolved player
 //! state. Both the
@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 pub struct TraceSchedulePlugin;
@@ -38,7 +38,7 @@ impl Plugin for TraceSchedulePlugin {
                     // requests a dump when any character leaves the world.
                     super::record_actor_oob_frame_system,
                 )
-                    .in_set(Platformer2dSimulationPhaseMonolith::Trace),
+                    .in_set(Platformer2dSimulationPhase::Trace),
             )
             // Disk writes are irreversible host effects, so they stay outside
             // the simulation schedule.

@@ -131,7 +131,7 @@ systems belong in the **sim schedule**, not bare `Update`, so they participate
 in both fixed-step simulation and rollback re-simulation:
 
 ```rust
-use ambition_platformer2d::sim::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
+use ambition_platformer2d::sim::{Platformer2dSimulationPhase, SimScheduleExt};
 
 impl Plugin for MyCapability {
     fn build(&self, app: &mut App) {
@@ -143,7 +143,7 @@ impl Plugin for MyCapability {
             sim,
             (charge_beacon, open_gate)
                 .chain()
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+                .in_set(Platformer2dSimulationPhase::PlayerSimulation),
         );
     }
 }

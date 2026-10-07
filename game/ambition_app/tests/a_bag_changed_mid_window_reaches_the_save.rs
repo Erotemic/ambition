@@ -3514,7 +3514,7 @@ fn an_ambient_gravity_request_raised_outside_the_simulation_is_lost() {
 //
 // ⛔⛤ THE CLAIM UNDER TEST, AND WHY IT NEEDED A WITNESS RATHER THAN A READING.
 // `emit_intro_flag_chains` is added to the sim schedule
-// `.after(Platformer2dSimulationPhaseMonolith::GameplayEffects)`
+// `.after(Platformer2dSimulationPhase::GameplayEffects)`
 // (`game/ambition_content/src/intro/plugin.rs:145-158`), and its consumer
 // `apply_flag_effects` runs INSIDE `GameplayEffects`
 // (`crates/ambition_platformer2d_actor_monolith/src/features/mod.rs:216`). So a
@@ -3657,7 +3657,7 @@ fn gated_witness_sim_with(rollback: bool, gate: bool) -> Platformer2dSimHarness 
         ambition_app::rl_sim::ambition_sim_composition(app, options)?;
         let label = app.sim_schedule();
         let phase =
-            ambition_platformer2d::sim::Platformer2dSimulationPhaseMonolith::GameplayEffects;
+            ambition_platformer2d::sim::Platformer2dSimulationPhase::GameplayEffects;
         app.add_systems(label, prime_the_save_once.before(phase));
         if gate {
             app.add_systems(
@@ -3691,7 +3691,7 @@ fn witness_sim_with(
         ambition_app::rl_sim::ambition_sim_composition(app, options)?;
         let label = app.sim_schedule();
         let phase =
-            ambition_platformer2d::sim::Platformer2dSimulationPhaseMonolith::GameplayEffects;
+            ambition_platformer2d::sim::Platformer2dSimulationPhase::GameplayEffects;
         match (after_consumer, raise) {
             (true, true) => app.add_systems(label, request_the_flag_once.after(phase)),
             (true, false) => app.add_systems(label, request_nothing.after(phase)),

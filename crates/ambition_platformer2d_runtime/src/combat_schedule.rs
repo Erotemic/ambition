@@ -3,7 +3,7 @@
 //! EFFECTS-stage brain-action consumers (enemy melee/ranged spawns, boss
 //! special-attack spawns), projectile + hitbox + feature-hit resolution,
 //! the cut-rope boss-arena tick, and mount/rider link bookkeeping all run
-//! here in `Platformer2dSimulationPhaseMonolith::Combat`.
+//! here in `Platformer2dSimulationPhase::Combat`.
 //!
 //! Extracted from `app/plugins.rs` (ecs-cleanup-plan #8) so the top-level
 //! simulation orchestration reads as a list of named domain plugins rather
@@ -19,7 +19,7 @@ use ambition_platformer2d_shared_tangle::schedule::CombatSet;
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
-/// Schedules the `Platformer2dSimulationPhaseMonolith::Combat` system chain.
+/// Schedules the `Platformer2dSimulationPhase::Combat` system chain.
 pub struct CombatSchedulePlugin;
 
 /// Install a technique handler AND declare the key it answers, in one statement.
@@ -659,7 +659,7 @@ impl Plugin for CombatSchedulePlugin {
             sim,
             ambition_combat::footstool::claim_footstools
                 .in_set(ambition_combat::footstool::FootstoolsClaimed)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput),
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerInput),
         );
 
         // One body holds an edge. It resolves after the kernel, so it sees
@@ -850,7 +850,7 @@ impl Plugin for CombatSchedulePlugin {
         // Map the content combat-extension slots into the chain. The app
         // owns this composition (where a domain-local set sits in the
         // global phase); the content plugins own the systems that hang on
-        // each slot. Both slots live in `Platformer2dSimulationPhaseMonolith::Combat`.
+        // each slot. Both slots live in `Platformer2dSimulationPhase::Combat`.
         //
         // What remains here is the one edge the phase order cannot express: a boss special must
         // reach its content technique BEFORE the effect executors that drain its output, and both

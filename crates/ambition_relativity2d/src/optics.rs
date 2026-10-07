@@ -10,7 +10,7 @@ use std::collections::VecDeque;
 use ambition_platformer2d_core::snapshot::{put_f32, put_str, put_u64, Reader, SnapshotState};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
-use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 use ambition_relativity::{
     minkowski_doppler_measurement, observe_photon_direction, InvariantSpeed, MinkowskiEvent,
 };
@@ -274,7 +274,7 @@ pub(crate) fn install_optics_systems(app: &mut App, sim: InternedScheduleLabel) 
         publish_optical_view
             .run_if(crate::spacetime_is_active)
             .in_set(Relativity2dSet::PublishOptics)
-            .in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync)
+            .in_set(Platformer2dSimulationPhase::FeatureViewSync)
             .after(Relativity2dSet::PublishView),
     )
     .add_systems(Update, clear_optical_view_without_live_spacetime);

@@ -11,7 +11,7 @@ use ambition_app::rl_sim::{
     AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
 };
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
-use ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith as Phase;
+use ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase as Phase;
 use bevy::prelude::*;
 
 /// How long to run each graph. Long enough for enemies to wake, chase, swing and

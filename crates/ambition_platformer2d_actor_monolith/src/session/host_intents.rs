@@ -197,7 +197,7 @@ impl<M: Message + Clone> Default for HostIntentPlugin<M> {
 impl<M: Message + Clone> Plugin for HostIntentPlugin<M> {
     fn build(&self, app: &mut App) {
         use ambition_platformer2d_shared_tangle::schedule::{
-            GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith, SimClockHead,
+            GameplaySimulationRoot, Platformer2dSimulationPhase, SimClockHead,
             SimScheduleExt as _,
         };
         let sim = app.sim_schedule();
@@ -211,7 +211,7 @@ impl<M: Message + Clone> Plugin for HostIntentPlugin<M> {
                 release_host_intents::<M>
                     .in_set(GameplaySimulationRoot)
                     .after(SimClockHead)
-                    .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                    .before(Platformer2dSimulationPhase::CoreSimulation),
             )
             .add_systems(Update, prune_host_intents::<M>);
     }

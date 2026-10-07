@@ -7,7 +7,7 @@ use ambition_platformer2d_actor_monolith::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::schedule::{gameplay_suspended, GameplayGated};
 use ambition_platformer2d_shared_tangle::schedule::{
-    Platformer2dSimulationPhaseMonolith, PlayerInputSet, PlayerSimulationSet,
+    Platformer2dSimulationPhase, PlayerInputSet, PlayerSimulationSet,
 };
 
 /// Registers the engine-generic player frame for windowed and headless hosts.
@@ -69,8 +69,8 @@ impl Plugin for PlayerSchedulePlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .after(Platformer2dSimulationPhaseMonolith::ResetProcessing)
-                .before(Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+                .after(Platformer2dSimulationPhase::ResetProcessing)
+                .before(Platformer2dSimulationPhase::FeatureViewSync),
         );
 
         // The dev-tools DOMAIN set (its systems live in `DevToolsSimPlugin`;
@@ -208,7 +208,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.configure_sets(
             sim,
             ambition_platformer2d_actor_monolith::session::reset::ContentDialogueFollowupSet
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
+                .in_set(Platformer2dSimulationPhase::PlayerInput),
         );
 
         // Universal-brain effects resolver — AFTER `WorldPrep` so it observes
@@ -224,8 +224,8 @@ impl Plugin for PlayerSchedulePlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .after(Platformer2dSimulationPhaseMonolith::WorldPrep)
-                .before(Platformer2dSimulationPhaseMonolith::PlayerSimulation),
+                .after(Platformer2dSimulationPhase::WorldPrep)
+                .before(Platformer2dSimulationPhase::PlayerSimulation),
         );
 
         // Possession transfers the player brain to the driven body; the vacated home body
@@ -332,7 +332,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::session::death::close_death_interlude
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .before(crate::sandbox_reset::RoomReplayAdmission),
         );
         // A seat with no body joins on a Jump press in its input for the frame,
@@ -341,7 +341,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::session::join::seat_a_joining_participant
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
                 .after(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Device)
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::CharacterProjection),
         );
@@ -356,7 +356,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::control::cleanup_timers_system
-                .in_set(Platformer2dSimulationPhaseMonolith::PresentationSync),
+                .in_set(Platformer2dSimulationPhase::PresentationSync),
         );
     }
 }

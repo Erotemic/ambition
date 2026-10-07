@@ -11,7 +11,7 @@
 //! fires cannot disagree.
 
 use ambition_platformer2d_shared_tangle::schedule::{
-    Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+    Platformer2dSimulationPhase, SimScheduleExt,
 };
 use bevy::prelude::*;
 
@@ -26,7 +26,7 @@ impl Plugin for EffectiveRepertoirePlugin {
             ambition_combat::hand::reconcile_effective_repertoire
                 .in_set(ambition_combat::hand::EffectiveRepertoireReconciled)
                 .after(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Persona)
-                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
+                .in_set(Platformer2dSimulationPhase::PlayerInput),
         );
     }
 }

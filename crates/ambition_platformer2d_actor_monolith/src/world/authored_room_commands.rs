@@ -101,7 +101,7 @@ pub struct AuthoredRoomCommandPlugin;
 impl Plugin for AuthoredRoomCommandPlugin {
     fn build(&self, app: &mut App) {
         use ambition_platformer2d_shared_tangle::schedule::{
-            GameplaySimulationRoot, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+            GameplaySimulationRoot, Platformer2dSimulationPhase, SimScheduleExt as _,
         };
 
         let sim = app.sim_schedule();
@@ -113,7 +113,7 @@ impl Plugin for AuthoredRoomCommandPlugin {
                 // route asks for nothing, and before the runner so a request
                 // is performed on the tick it is made.
                 .in_set(GameplaySimulationRoot)
-                .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
+                .after(Platformer2dSimulationPhase::CoreSimulation)
                 .before(AuthoredCommandSet),
         );
     }

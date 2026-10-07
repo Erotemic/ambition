@@ -18,7 +18,7 @@
 //!
 //! ## How it attributes a write to a phase
 //!
-//! `Platformer2dSimulationPhaseMonolith` names the phases A4 will split. A probe
+//! `Platformer2dSimulationPhase` names the phases A4 will split. A probe
 //! runs after each phase and records every body whose `BodyKinematics` change tick
 //! has MOVED since the previous probe in the same tick. A body credited to two
 //! phases was advanced twice.
@@ -79,14 +79,14 @@ use std::collections::BTreeMap;
 use ambition_app::AmbitionSim;
 use ambition_app::{Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use ambition_platformer2d::engine_core::{BodyKinematics, ControlFrame};
-use ambition_platformer2d::sim::{Platformer2dSimulationPhaseMonolith as Phase, SimScheduleExt};
+use ambition_platformer2d::sim::{Platformer2dSimulationPhase as Phase, SimScheduleExt};
 use ambition_platformer2d::platformer::schedule::WorldPrepSet;
 use bevy::ecs::change_detection::Tick;
 use bevy::prelude::*;
 
 /// The phases probed, in schedule order.
 ///
-/// ⛔⛔ THESE ARE `Platformer2dSimulationPhaseMonolith`, AND THE FIRST VERSION OF
+/// ⛔⛔ THESE ARE `Platformer2dSimulationPhase`, AND THE FIRST VERSION OF
 /// THIS FILE PROBED `PlatformerRuntimeSet` INSTEAD — WHICH HAD NO MEMBERS.
 ///
 /// MEASURED 2026-09-10: `in_set(PlatformerRuntimeSet::..)` appeared **zero**

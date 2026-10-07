@@ -270,7 +270,7 @@ impl SimulationHostAppExt for App {
 }
 
 /// The canonical simulation-phase SETS + the engine resources every consumer
-/// needs before any `.in_set(Platformer2dSimulationPhaseMonolith::…)` registration or host override.
+/// needs before any `.in_set(Platformer2dSimulationPhase::…)` registration or host override.
 ///
 /// First plugin in [`PlatformerEnginePlugins`]. Hosts may override ordinary
 /// engine configuration resources before `add_plugins` (Bevy's
@@ -343,7 +343,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
             app.world_mut(),
         );
         // Declare the canonical simulation-phase ordering. System
-        // registrations elsewhere only need `.in_set(Platformer2dSimulationPhaseMonolith::X)`.
+        // registrations elsewhere only need `.in_set(Platformer2dSimulationPhase::X)`.
         ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(
             app,
         );
@@ -360,7 +360,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
             sim,
             ambition_platformer2d_shared_tangle::class_b::clear_class_b_remap_log
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
         );
         // N3.1's identity vocabulary. Every body the sim can identify from an
         // authored fact gets its `SimId` at the head of the frame, before anything
@@ -374,7 +374,7 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
         );
         // ...and again at the TAIL, after the last in-tick spawner (room
         // transition lowering, wave spawns, summons, sandbox reset), so identity
@@ -395,8 +395,8 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::ResetProcessing)
-                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
+                .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::ResetProcessing)
+                .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
         );
         // Shrine activation pulse (interaction → save flash).
         app.init_resource::<ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse>();

@@ -5,7 +5,7 @@
 use ambition_platformer2d_core::snapshot::{put_str, Reader, SnapshotState};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
-use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
 use ambition_relativity::{
     observe_photon_direction, solve_null_intercept_constant_velocity, MinkowskiEvent,
 };
@@ -160,7 +160,7 @@ pub(crate) fn install_targeting_systems(app: &mut App, sim: InternedScheduleLabe
         publish_targeting_view
             .run_if(crate::spacetime_is_active)
             .in_set(Relativity2dSet::PublishTargeting)
-            .in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync)
+            .in_set(Platformer2dSimulationPhase::FeatureViewSync)
             .after(Relativity2dSet::PublishOptics),
     )
     .add_systems(Update, clear_targeting_view_without_live_spacetime);

@@ -108,7 +108,7 @@ fn the_noether_attunement_completes_through_the_generic_path() {
 ///
 /// `apply_switch_effects` (`features/ecs/effect_bus.rs`) PUSHES into
 /// `SwitchActivationQueue` inside
-/// `Platformer2dSimulationPhaseMonolith::GameplayEffects`.
+/// `Platformer2dSimulationPhase::GameplayEffects`.
 /// `drain_switch_activations` (`ambition_encounter/src/switches.rs`) takes the
 /// whole queue with `std::mem::take`, registered `.in_set(SwitchActivationDrained)`
 /// — and that set is never `configure_sets`'d into any simulation phase.

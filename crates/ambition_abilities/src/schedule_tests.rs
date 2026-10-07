@@ -14,7 +14,7 @@
 
 use super::AbilitySimulationPlugin;
 use ambition_platformer2d_shared_tangle::schedule::{
-    ItemPickupSet, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+    ItemPickupSet, Platformer2dSimulationPhase, SimScheduleExt as _,
 };
 use bevy::app::App;
 use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemSet};
@@ -65,7 +65,7 @@ fn with_graph(f: impl FnOnce(&ScheduleGraph)) {
 #[test]
 fn both_sets_this_crate_owns_are_inside_the_player_phase() {
     with_graph(|graph| {
-        let phase = set_key(graph, Platformer2dSimulationPhaseMonolith::PlayerSimulation);
+        let phase = set_key(graph, Platformer2dSimulationPhase::PlayerSimulation);
         for set in [
             ItemPickupSet::ThrownItemEffects,
             ItemPickupSet::WieldedAbilities,

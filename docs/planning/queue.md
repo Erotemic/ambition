@@ -1349,10 +1349,9 @@ second authoring source.
   on `bevy`; `shared_tangle::schedule` re-exports them, so no engine path moved),
   and `scripts/tests/test_capability_demo_names_no_engine_topology_crate.py`
   keeps the demo off the tangle crate. **The demo is now the external-capability
-  witness**: its normal closure is eight narrow crates. Owed, not done: the phase
-  set is still called `Platformer2dSimulationPhaseMonolith` (378 occurrences in
-  114 files), a topology name on a public vocabulary; a rename is mechanical
-  and is its own slice.
+  witness**: its normal closure is eight narrow crates. The phase set's topology name was dropped in the same sitting
+  (`Platformer2dSimulationPhaseMonolith` is now `Platformer2dSimulationPhase`; 378 uses,
+  114 files, compile-verified; the 0019 ADR keeps the old name as a record).
 
 **Blocked by:** nothing. The external-capability witness is
 `examples/capability_demo` (Gate C5 read above).

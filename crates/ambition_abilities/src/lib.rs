@@ -62,7 +62,7 @@ impl Plugin for AbilitySimulationPlugin {
         app.configure_sets(
             sim,
             (ItemPickupSet::ThrownItemEffects, ItemPickupSet::WieldedAbilities).in_set(
-                ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation,
+                ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation,
             ),
         );
 

@@ -21,7 +21,7 @@ use ambition_platformer2d::dev_tools::dev_tools::{
 use ambition_platformer2d::inventory_ui;
 use ambition_platformer2d::ldtk_map as ldtk_world;
 use ambition_platformer2d::platformer::schedule::{
-    Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimScheduleExt,
+    Platformer2dSimulationPhase, PresentationSetupSet, SimScheduleExt,
 };
 // The rest of `fx` moved to `HostVfxPresentationPlugin` (see
 // `install_projectile_and_vfx_systems`); the blink preview ring is the one
@@ -216,7 +216,7 @@ fn register_app_local_sim_systems(app: &mut App) {
         sim,
         apply_player_reset_input_system
             .in_set(GameplayGated)
-            .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
+            .in_set(Platformer2dSimulationPhase::PlayerInput)
             .before(ambition_platformer2d::actors::control::InputTimersAdvanced)
             .before(ambition_platformer2d::runtime::RoomReplayAdmission),
     );
@@ -555,7 +555,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 // reason belongs to the pair above it.
             )
                 .chain()
-                .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
+                .after(Platformer2dSimulationPhase::CoreSimulation)
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         )
         .add_systems(PostUpdate, restart_local_ggrs_after_hot_reload);
@@ -763,7 +763,7 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
     app.add_systems(
         Update,
         fx::update_blink_preview
-            .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
+            .after(Platformer2dSimulationPhase::CoreSimulation)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }
@@ -778,7 +778,7 @@ pub(super) fn add_physics_debris_plugins(app: &mut App) {
     app.add_plugins(physics::AmbitionPhysicsPlugin).add_systems(
         Update,
         physics_spawn_debris_messages
-            .after(Platformer2dSimulationPhaseMonolith::CoreSimulation)
+            .after(Platformer2dSimulationPhase::CoreSimulation)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }

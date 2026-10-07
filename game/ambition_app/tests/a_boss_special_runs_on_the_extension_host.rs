@@ -1,10 +1,10 @@
-//! The Mockingbird's echo fan runs as a procedural module on the extension
+//! The clockwork warden's overfit volley runs as a procedural module on the extension
 //! host (fast-iteration I4), in the assembled game, from a real brain press.
 //!
 //! The road under test, with nothing injected: the boss pattern presses
-//! `Special("echo_fan")` → the boss domain's trigger adapter → the host runs
-//! `ambition_content_modules::echo_fan` → the projectile domain's request
-//! adapter → `ProjectileSpawnRequest` → seven shots in flight.
+//! `Special("overfit_volley")` → the boss domain's trigger adapter → the host runs
+//! `ambition_content_modules::overfit_volley` → the projectile domain's request
+//! adapter → `ProjectileSpawnRequest` → five bolts in flight.
 //!
 //! The second arm runs the same fight under a GGRS sync-test session. A
 //! rollback resimulates the strike; if the module's strike latch were not
@@ -22,15 +22,19 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use ambition_platformer2d::projectiles::entity::ProjectileOwner;
 use bevy::prelude::{Entity, World};
 
-const BOSS: &str = "echo_fan_boss";
-const FAN: usize = 7;
-/// Long enough for the Mockingbird's attack cycle to reach the echo fan twice.
+const BOSS: &str = "volley_warden";
+/// One bolt per memorised point, five points over the volley's telegraph.
+const FAN: usize = 5;
+/// The volley's bolt speed (`overfit_volley::SHOT_SPEED`), which tells its
+/// bolts from every other projectile the warden owns.
+const FAN_SPEED: f32 = 360.0;
+/// Long enough for the warden's phase-1 cycle to reach its volley twice.
 /// Measured: 900 ticks reach it once.
 const TWO_STRIKES: usize = 1800;
 /// Long enough to reach it once under the slower sync-test harness.
 const ONE_STRIKE: usize = 900;
 
-fn spawn_mockingbird(sim: &mut Platformer2dSimHarness) -> Entity {
+fn spawn_volley_warden(sim: &mut Platformer2dSimHarness) -> Entity {
     let (px, py) = {
         let world = sim.world_mut();
         let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
@@ -39,11 +43,11 @@ fn spawn_mockingbird(sim: &mut Platformer2dSimHarness) -> Entity {
     };
     sim.spawn_boss_at(
         BOSS,
-        "mockingbird",
-        (px + 120.0, py - 60.0),
-        (30.0, 30.0),
+        "clockwork_warden",
+        (px + 150.0, py - 40.0),
+        (40.0, 40.0),
         BossBrain::PhaseScript {
-            script_id: "mockingbird".to_string(),
+            script_id: "clockwork_warden".to_string(),
         },
     );
     let world = sim.world_mut();
@@ -54,16 +58,16 @@ fn spawn_mockingbird(sim: &mut Platformer2dSimHarness) -> Entity {
         .expect("the spawned boss is present")
 }
 
-/// How many shots the boss owns that fly at the echo fan's speed. A count,
+/// How many shots the boss owns that fly at the volley's speed. A count,
 /// not a set of entities: a rollback may rebuild a shot under a new entity.
 fn fan_shots(world: &mut World, boss: Entity) -> usize {
     let mut q = world.query::<(&ProjectileOwner, &BodyKinematics)>();
     q.iter(world)
-        .filter(|(owner, kin)| owner.0 == boss && (kin.vel.length() - 300.0).abs() < 1.0)
+        .filter(|(owner, kin)| owner.0 == boss && (kin.vel.length() - FAN_SPEED).abs() < 1.0)
         .count()
 }
 
-/// The size of each burst of echo-fan SPAWN REQUESTS the boss made, in tick
+/// The size of each burst of volley SPAWN REQUESTS the boss made, in tick
 /// order. Exact without a rollback session: a request is counted once, when
 /// it is made, whatever happens to the shot after. (Under a sync-test session
 /// a resimulated tick makes its requests again, so that arm counts live shots
@@ -71,7 +75,7 @@ fn fan_shots(world: &mut World, boss: Entity) -> usize {
 fn fight_requests(sim: &mut Platformer2dSimHarness, ticks: usize) -> Vec<usize> {
     use ambition_platformer2d::projectiles::spawn_request::ProjectileSpawnRequest;
     use bevy::ecs::message::Messages;
-    let boss = spawn_mockingbird(sim);
+    let boss = spawn_volley_warden(sim);
     let mut cursor = sim.world().resource::<Messages<ProjectileSpawnRequest>>().get_cursor();
     let mut bursts = Vec::new();
     for _ in 0..ticks {
@@ -79,7 +83,7 @@ fn fight_requests(sim: &mut Platformer2dSimHarness, ticks: usize) -> Vec<usize> 
         let messages = sim.world().resource::<Messages<ProjectileSpawnRequest>>();
         let fan = cursor
             .read(messages)
-            .filter(|r| r.owner == boss && (r.projectile.body.kin.vel.length() - 300.0).abs() < 1.0)
+            .filter(|r| r.owner == boss && (r.projectile.body.kin.vel.length() - FAN_SPEED).abs() < 1.0)
             .count();
         if fan > 0 {
             bursts.push(fan);
@@ -88,11 +92,11 @@ fn fight_requests(sim: &mut Platformer2dSimHarness, ticks: usize) -> Vec<usize> 
     bursts
 }
 
-/// The size of each rise in the boss's echo-fan shot count, in tick order.
+/// The size of each rise in the boss's volley shot count, in tick order.
 /// A fan lives 2 s and the boss's cycle reaches it every ~7 s, so two fans
 /// never overlap.
 fn fight(sim: &mut Platformer2dSimHarness, ticks: usize, mut each_tick: impl FnMut(&Platformer2dSimHarness)) -> Vec<usize> {
-    let boss = spawn_mockingbird(sim);
+    let boss = spawn_volley_warden(sim);
     let mut seen = fan_shots(sim.world_mut(), boss);
     let mut bursts = Vec::new();
     for _ in 0..ticks {
@@ -108,13 +112,13 @@ fn fight(sim: &mut Platformer2dSimHarness, ticks: usize, mut each_tick: impl FnM
 }
 
 #[test]
-fn the_mockingbird_fires_one_fan_per_strike_through_the_extension_host() {
+fn the_warden_fires_one_volley_per_strike_through_the_extension_host() {
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
     let bursts = fight_requests(&mut sim, TWO_STRIKES);
     assert!(
         bursts.len() >= 2,
-        "the boss reached its echo fan {} times in {TWO_STRIKES} ticks; the arm needs two \
+        "the boss reached its volley {} times in {TWO_STRIKES} ticks; the arm needs two \
          strikes to show that one strike fires once: {bursts:?}",
         bursts.len()
     );
@@ -141,7 +145,7 @@ fn a_rollback_replays_the_fan_and_its_strike_latch() {
     // ⭐ The premise: a sync test that never saw a fan certified nothing.
     assert!(
         !bursts.is_empty(),
-        "no echo fan fired under the sync test, so no rollback replayed one"
+        "no volley fired under the sync test, so no rollback replayed one"
     );
     assert!(
         bursts.iter().all(|&n| n == FAN),
@@ -152,7 +156,7 @@ fn a_rollback_replays_the_fan_and_its_strike_latch() {
 
 /// ⭐ THE NO-RELINK ROAD, IN THE ASSEMBLED GAME. The module crate is built for
 /// `wasm32-unknown-unknown` (only the module and its port values compile), the
-/// same game binary loads it, and the echo fan fires from the file: the
+/// same game binary loads it, and the volley fires from the file: the
 /// admitted entry is the loaded one, and the fight still fires one fan of
 /// seven per strike.
 #[test]
@@ -174,8 +178,8 @@ fn a_module_rebuilt_as_wasm_replaces_the_linked_one_in_the_same_game() {
     let fan = admitted
         .entries
         .iter()
-        .find(|e| e.path == "ambition::echo_fan/fire")
-        .expect("the echo fan is admitted");
+        .find(|e| e.path == "ambition::overfit_volley/volley")
+        .expect("the overfit volley is admitted");
     assert!(
         matches!(fan.runner, ambition_platformer2d::extension::EntryRunner::Loaded { .. }),
         "the loaded build replaced the linked one: {:?}",
@@ -304,8 +308,8 @@ fn the_prepared_content_identity_names_the_module_code_the_session_runs() {
         .expect("sandbox sim builds");
     let (linked_modules, linked_fingerprint) = modules_section(&mut linked);
     assert!(
-        linked_modules.contains("module\tambition::echo_fan\tnative ambition_content_modules "),
-        "the linked echo fan is in the generation:\n{linked_modules}"
+        linked_modules.contains("module\tambition::overfit_volley\tnative ambition_content_modules "),
+        "the linked overfit volley is in the generation:\n{linked_modules}"
     );
     assert!(!linked_modules.contains("loaded"), "{linked_modules}");
 
@@ -320,8 +324,8 @@ fn the_prepared_content_identity_names_the_module_code_the_session_runs() {
     .expect("the sandbox builds with the loaded module");
     let (loaded_modules, loaded_fingerprint) = modules_section(&mut loaded);
     assert!(
-        loaded_modules.contains("module\tambition::echo_fan\tloaded ambition-ext-1 "),
-        "the loaded echo fan, with its byte digest, is in the generation:\n{loaded_modules}"
+        loaded_modules.contains("module\tambition::overfit_volley\tloaded ambition-ext-1 "),
+        "the loaded overfit volley, with its byte digest, is in the generation:\n{loaded_modules}"
     );
     assert_ne!(linked_fingerprint, loaded_fingerprint);
 }

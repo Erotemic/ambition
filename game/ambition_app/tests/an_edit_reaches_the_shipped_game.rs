@@ -4435,6 +4435,35 @@ fn a_quest_book_that_loses_its_place_while_the_generation_waits_is_cancelled() {
     );
 }
 
+/// The control for the gate's quest question: the SAME moving save under a
+/// candidate that does not touch the quest book activates. Without it the
+/// cancel above could be any cause; with it the quest question is the only
+/// thing that differs.
+#[test]
+fn a_save_that_moves_while_a_generation_without_quest_changes_waits_does_not_cancel_it() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let requested = request_the_banner(&mut app, "// a banner, no quest edit", false);
+    assert!(matches!(requested, ambition_content::reload::ReloadRequest::Requested { .. }), "{requested:?}");
+    app.world_mut()
+        .resource_mut::<ambition_content::quest::QuestRegistry>()
+        .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet("met_any_hub_npc".to_string()));
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_ne!(
+        activation_id(&app),
+        Some(live_activation),
+        "a candidate with no quest edit was cancelled by a save that moved"
+    );
+    assert_eq!(boot_banner(&app), "// a banner, no quest edit", "the candidate never published");
+    assert_eq!(
+        quest_place(&app, "first_steps").map(|(_, active, step)| (active, step)),
+        Some((true, 1)),
+        "the player's step did not survive the activation"
+    );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // I3: a newer candidate supersedes the generation in flight.
 // ─────────────────────────────────────────────────────────────────────────────

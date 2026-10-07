@@ -817,10 +817,11 @@ fn domain_restoration_is_registered_in_the_commit_schedule_and_not_in_the_simula
         .graph();
     assert_eq!(
         apply_graph.systems.iter().count(),
-        6,
-        "the occurrence, entitlement and custody reducers, the two fresh-run \
-         baseline adoptions and the mint-grant forgetter are this composition's \
-         installed domains, and all six belong to the commit's schedule"
+        7,
+        "the occurrence, entitlement and custody reducers, the custody \
+         projection the verification reads, the two fresh-run baseline \
+         adoptions and the mint-grant forgetter are this composition's \
+         installed domains, and all seven belong to the commit's schedule"
     );
 }
 

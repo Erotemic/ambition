@@ -167,6 +167,8 @@ pub fn restore_custody_to_checkpoint(
         &ambition_platformer2d_shared_tangle::sim_id::SimId,
         RepertoireQuery,
     )>,
+    // The live room of each holder, for an object built again into its hand.
+    stamps: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
 ) {
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
     let Some(inputs) = inputs else {
@@ -405,9 +407,10 @@ pub fn restore_custody_to_checkpoint(
         //
         // `InCustodyOf` is NOT written here, for the same reason the arms
         // above do not write it: it is derived from `ItemCustody` by
-        // `project_custody_onto_residency`, later in this same tick and two
-        // phases before any room sweep reads it.
-        commands.spawn_room_in_session(
+        // `project_custody_onto_residency`, which the item domain chains
+        // after this system in `CheckpointDomainApply`, so the restore's
+        // verification reads it.
+        let mut rebuilt = commands.spawn_room_in_session(
             scope,
             (
                 occurrence.clone(),
@@ -417,6 +420,14 @@ pub fn restore_custody_to_checkpoint(
                 ItemCustody::Held { holder },
             ),
         );
+        // The object is in its holder's live room. A carried object gets that
+        // stamp from the crossing that moves its holder, but this object did not
+        // exist during the restore's crossing. Without a stamp it leaves with
+        // any departing room (`InRoomInstance::leaves_with`), and the restore's
+        // own crossing retires the room it replaces on the next tick.
+        if let Ok(stamp) = stamps.get(holder) {
+            rebuilt.insert(*stamp);
+        }
         equip_held_spec(&mut commands, holder, &mut repertoire, held);
     }
 }

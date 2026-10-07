@@ -706,11 +706,18 @@ impl Plugin for ItemCheckpointHorizonPlugin {
         // unconfirmed request is what the confirmed-frame lifecycle exists to
         // prevent. `.chain()` because the entitlement bag and the hand are one
         // decision: the bag is restored first, then custody re-equips out of it.
+        //
+        // The custody projection runs again after the custody restore. The
+        // restore's verification reads `InCustodyOf`, and the restore writes
+        // only `ItemCustody`; an object it builds again into a hand has no
+        // `InCustodyOf` until the projection runs. In the simulation the
+        // projection runs later in the tick, but the verification runs first.
         .add_systems(
             ambition_platformer2d_shared_tangle::lifecycle::CheckpointDomainApply,
             (
                 restore_owned_items_to_checkpoint,
                 super::restore_custody_to_checkpoint,
+                ambition_held_items::project_custody_onto_residency,
                 start_the_item_domain_fresh,
                 keep_the_bag_records_the_restore_keeps,
             )

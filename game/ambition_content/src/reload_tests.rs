@@ -2507,7 +2507,8 @@ fn a_candidate_prepared_against_a_pack_that_is_no_longer_selected_is_refused() {
     );
 
     // Nothing moved. A refusal that staged, selected or requested would be half
-    // a transaction, and `AlreadyPending` would refuse every later save.
+    // a transaction, and a generation left pending would be cancelled by the
+    // next request instead of the refusal leaving nothing behind.
     assert!(
         crate::reload::pending_pack(app.world()).is_none(),
         "a refused candidate was left staged, so no later save can land"

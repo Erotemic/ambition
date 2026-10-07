@@ -89,7 +89,7 @@ Rules:
 `EffectSite` path: `windows[w].volumes[v].on_hit`,
 `windows[w].sustain_effect`, `events[e].kind`, `flow.nodes[n]`. Every level
 destructures without `..`, so a new field is a compile error at the walk.
-`unsupported_authored_effects` joins the walk to the installed table, and
+`admission_refusals` joins the walk to the installed table, and
 `activate_staged_revision` refuses the whole candidate. The same traversal feeds
 admission, forward and reverse references and discovery. Do not keep a second
 list of effect-bearing fields.
@@ -115,7 +115,8 @@ limits, not measured costs.
 6. Every `Emit` passes installed-key, site, parameter and nested-reference
    checks.
 
-`TechniqueFlow::problems` enforces 1 to 5; `TechniqueFlow::successors` is the
+`TechniqueFlow::problems` enforces 1 to 5, and `admission_refusals` refuses a
+move whose flow reports any; `TechniqueFlow::successors` is the
 one edge enumeration. Repeat windows are the supported way to repeat timeline
 actions. A bounded repetition construct needs an explicit iteration budget; do
 not add it as a back edge or a VM.
@@ -138,20 +139,14 @@ Assessed 2026-10-07 as a fallback packet and NOT started. The three items were
 read as decisions for a maintainer; they are the implementing agent's, and the
 decision on the first is recorded below this list:
 
-- *Constructors.* Half landed 2026-10-07: `PreparedCharacterDefinition` is
+- *Constructors.* Landed 2026-10-07: `PreparedCharacterDefinition` is
   `#[non_exhaustive]`, so no crate but `ambition_characters` can build one by
-  struct expression or functional update (a scratch literal in
-  `ambition_content` fails with E0639; no such literal existed, and the whole
-  workspace checks). The preparation barrier is its only constructor. Not
-  done: its fields are still public to read and edit (about 130 field reads
-  across the tree, and tests edit prepared values), and "fallible" is still the
-  report-and-publish-anyway barrier. For the flow itself there is no
-  checked-flow type whose constructors could be made private: `TechniqueFlow` is deserialized authored data with public
-  fields, and its one gate is `TechniqueFlow::problems` at character
-  preparation. "Private and fallible" therefore means designing a new checked
-  newtype that `MoveSpec::flow` would hold, which changes the authored/prepared
-  split of the contract crate. That is a representation decision, not a
-  mechanical edit.
+  struct expression or functional update, and the barrier is "fallible" in the
+  sense that matters: a structurally invalid flow is REFUSED at admission and its
+  definition withheld (see the A12b invariant below; an earlier version of this
+  note said the barrier reported and published anyway, and it did until this
+  repair). Not done: the fields are still public to read and edit (about 130
+  field reads across the tree, and tests edit prepared values).
 - *Pinned revision.* Pinning it adds an occurrence field, so it moves the
   rollback registration and checksum inputs, and it needs the identity rule
   (content binding, not pointer address) chosen first. Read 2026-10-07, not
@@ -177,43 +172,62 @@ decision on the first is recorded below this list:
   a few times that and is not measured. On this number the clone is not worth
   the type change; revisit only if a profile of a real fight shows move starts.
 
-**A12b decision (2026-10-07; delegated to the implementing agent, not a
-maintainer question).** Authored data and the checked runtime value stay two
-things, and the check stays on the authored side of the barrier:
+**A12b: the invariant, and a correction (2026-10-07).** Authored data stays
+permissive and a prepared value is trustworthy; the line between them is
+ADMISSION, not a new type.
 
-- `TechniqueFlow` remains deserializable authored data with public structure.
-  `TechniqueFlow::problems` is its admission, and character preparation
-  (`prepared.rs`, the flow loop beside the unresolved-reference report) is the
-  one production caller. Nothing makes an authored flow impossible to write.
-- **No `CheckedFlow` newtype yet, and the reason is measured, not a preference.**
-  A checked value is only a guarantee if the interpreter reads it, and the
-  interpreter reads `MovePlayback::spec: Arc<MoveSpec>`, which is built from
-  `MovesetContract::moves: Vec<MoveSpec>`. Storing a checked flow therefore
-  splits `MoveSpec` into an authored and a prepared form: about 310 `.moves`
-  uses, 78 `moves:` constructions and 260 `ActorMoveset` mentions (the same
-  population the move-start clone note below counted). A newtype that is
-  checked per use would make the interpreter's path fallible at runtime, which
-  the A12 execution rules forbid ("a broken flow costs authored intent, not a
-  trapped fighter").
-- **The hole such a type would close is closed at the production boundary
-  already.** Read from source on 2026-10-07: no `&mut PreparedCharacterDefinition`
-  exists in the workspace; `PreparedCharacterRegistry::get` and `iter` hand out
-  shared references; the one hatch that stores a prepared value other than the
-  barrier's, `insert_prepared`, is `#[cfg(any(test, feature = "test-support"))]`;
-  and `PreparedCharacterDefinition` is `#[non_exhaustive]`, so no other crate
-  can build one. Every production `ActorMoveset` is built from a prepared kit
-  (`character_body.rs`, `starting_character.rs`), a prepared match seat
-  (`match_activation.rs`), the repertoire fold of those (`hand.rs`), a
-  persona derived from the action set (`avatar/bundles.rs`), or the boss attack
-  table, which authors `flow: None`. What remains editable is a prepared value's
-  public fields inside tests.
-- **What would change this:** a production road that builds a `MovesetContract`
-  carrying a flow from something other than a prepared definition (today there
-  is none). If one appears, the right shape is a prepared move table produced by
-  character preparation, `MovesetContract::moves` holding prepared moves, and
-  `TechniqueFlow` unchanged on the authored side, which is the pipeline drawn at
-  the top of this file (authored source, validation, checked flow, prepared
-  definition). That is the split priced above.
+- ⛔ **CORRECTION.** An earlier version of this section said the production
+  boundary already withheld malformed flows. That was false. `prepare_character`
+  called `TechniqueFlow::problems`, pushed each problem onto the definition's
+  `unresolved` list ("reported, not refused") and the definition was published
+  anyway, so a flow with an edge past its node list, a never-expiring `Wait`, a
+  cycle or an unreachable node became part of the prepared catalog, and the
+  interpreter's step guard was the only thing standing between it and a fighter.
+  `#[non_exhaustive]` on `PreparedCharacterDefinition` only stopped OTHER crates
+  building one; it did not make the authorized road sound.
+- **The invariant now:** a `PreparedCharacterRegistry` that the production roads
+  publish holds no move whose `TechniqueFlow::problems` is non-empty. The check
+  is `admission_refusals` (formerly `unsupported_authored_effects`; the refusal
+  type is `AdmissionRefusal`), the one function the boot barrier's fixpoint, a
+  revision and a revision over a candidate catalog all call, so there is no road
+  that checks effects and skips flows. The admission unit follows the road:
+  the barrier withholds exactly the CHARACTER whose move is refused (the rest of
+  the cast publishes), and a reload revision is refused WHOLE with the last-good
+  cast and its generation untouched. Preparation no longer reports flow problems
+  (one authority for the fact); the refusal carries each problem with the
+  character, move and rule, so an author sees every one at once.
+- **Why not a stored `CheckedFlow` type.** Considered and rejected on cost and
+  on what it would add. The interpreter reads `MovePlayback::spec: Arc<MoveSpec>`
+  from `MovesetContract::moves: Vec<MoveSpec>`, so storing a distinct checked flow
+  splits `MoveSpec` into authored and prepared forms (about 310 `.moves` uses, 78
+  `moves:` constructions, 260 `ActorMoveset` mentions); a newtype checked per use
+  makes the interpreter fallible at runtime, which the execution rules forbid.
+  And it would add nothing here: every road that can publish a registry is the
+  admission road (`insert_prepared` and the unchecked barrier are
+  `#[cfg(any(test, feature = "test-support"))]`, enabled only from
+  dev-dependencies), and every production `ActorMoveset` comes from a prepared
+  kit, a prepared match seat, the repertoire fold of those, a persona derived from
+  an action set, or the boss attack table (`flow: None`). Read from source, not
+  proven by a census.
+- **Witnesses.** `prepared_tests::technique_flow_admission`: for each structural
+  rule (edge past the end, cycle, `Wait` that never expires, unreachable node, no
+  nodes), a flow that round-trips through the authored RON format is refused
+  with a diagnostic naming the move and the problem, its character is absent from
+  the registry, a sibling character with a sound flow keeps that flow as authored,
+  an unrelated character is untouched, and the same flow in a revision refuses the
+  whole edit and leaves the generation. Poisoned by dropping the check, which
+  fails the withholding and revision arms and leaves the floor and control arms
+  green. The shipped corpus is held by
+  `the_shipped_composition_withheld_nothing_at_its_barrier`.
+- **What would reopen the type question:** a production road that builds a
+  `MovesetContract` carrying a flow from something other than a prepared
+  definition. Today there is none. If one appears, the shape is a prepared move
+  table from character preparation with `TechniqueFlow` unchanged on the authored
+  side.
+- **Still open in A12b:** a prepared revision is not pinned on the playback
+  (the road it guards is closed today, see above), the move start deep-clones a
+  `MoveSpec` (median 0.81 us), and `PreparedCharacterDefinition`'s fields are
+  still public to read and edit (tests edit them; no production code does).
 
 The interpreter has a defensive step guard equal to the checked node count. A
 missing node or an exhausted guard is an invariant failure: report it and
@@ -272,6 +286,7 @@ tool, not a new CLI.
 | Acceptance row | Guard |
 |---|---|
 | invalid or uninstalled calls cannot publish | `prepared::admit_and_finalize_cast` withholds the refused definition |
+| a flow the interpreter cannot run cannot publish | `prepared_tests::technique_flow_admission::{a_character_whose_flow_cannot_run_is_withheld_and_the_diagnostic_names_the_move, a_revision_with_a_flow_that_cannot_run_is_refused_whole_and_the_last_good_cast_stays}` |
 | nested references resolve | `prepared_tests::{nested_references, held_item_references}`, `the_techniques_that_name_other_definitions_declare_that_they_do` |
 | rejection leaves the generation unchanged | `a_refused_revision_leaves_the_active_generation_unchanged` |
 | shipped flows keep their traces | `every_shipped_flow_still_runs_the_trace_it_was_authored_for` |

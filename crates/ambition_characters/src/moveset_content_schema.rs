@@ -20,7 +20,7 @@
 //!
 //! ⚠ **STRUCTURE IS NOT ADMISSION.** Whether this composition installed the
 //! techniques a move REFERENCES is a different question, answered where it has
-//! always been answered — `crate::prepared::unsupported_authored_effects`, at
+//! always been answered — `crate::prepared::admission_refusals`, at
 //! the preparation barrier, with the site. Asking it twice would be the second
 //! validator I2's own Stop clause forbids.
 //!

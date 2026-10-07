@@ -1079,71 +1079,238 @@ fn mirror_symmetry_survives_preparation_and_reaches_the_body_blueprint() {
     }
 }
 
-/// ⛔⛔ **A BROKEN AUTHORED FLOW REACHED THE RUNTIME WITH NOTHING IN THE
-/// PREPARATION PIPELINE LOOKING AT IT.**
-///
-/// `TechniqueFlow::problems` exists because every one of its failures is silent:
-/// a transition past the end of the list, a `Wait` that can never expire, a
-/// cycle, a node nothing arrives at. Until this, its only production callers were
-/// per-crate roster tests walking hand-built `tables()` — so a character prepared
-/// from a SERIALIZED definition, which is exactly the road the admission contract
-/// is being built for, was validated by nobody.
-///
-/// ⭐ REPORTED, NOT REFUSED, which is this seam's established policy: preparation
-/// publishes with its failures carried onto the value, and the
-/// shipped-composition guard reads `unresolved_references`. A data error becomes
-/// a red test rather than a boot failure.
-#[test]
-fn a_move_whose_flow_cannot_run_is_reported_by_preparation() {
-    use crate::brain::ActionSet;
-    use ambition_entity_catalog::{FlowNode, TechniqueFlow};
-
-    let broken = |flow: Option<TechniqueFlow>| {
-        let mut spec = slash("special", "swing", "hit");
-        spec.flow = flow;
-        prepare_and_finalize_for_test(
-            CharacterDefinition::new("oni", "Oni", "demo")
-                .with_action_set(ActionSet::default())
-                .with_moveset(moveset_with(&[], vec![spec])),
-            &CharacterBindings::default(),
-        )
-        .prepared
-        .unresolved_references()
-        .map(str::to_string)
-        .collect::<Vec<_>>()
+// ---------------------------------------------------------------------------
+// ⛔⛔ A TECHNIQUE FLOW THE INTERPRETER CANNOT RUN IS NOT A PREPARED VALUE.
+//
+// `TechniqueFlow::problems` was called by preparation, which REPORTED each
+// problem on the definition and published it anyway, so a structurally invalid
+// flow that deserialized fine became part of the runtime catalog. These arms
+// run the PRODUCTION admission road (`admit_and_finalize_cast`, the barrier's
+// fixpoint, and `activate_staged_revision`, the reload transaction) with flows
+// that parse and are structurally wrong.
+//
+// ⭐ THE ADMISSION UNIT IS THE CHARACTER at the barrier (it withholds exactly the
+// definitions named, as it does for an uninstalled effect) and the WHOLE EDIT in
+// a revision (a transaction is not applied by halves). Both are asserted.
+// ---------------------------------------------------------------------------
+mod technique_flow_admission {
+    use super::*;
+    use crate::prepared::{
+        activate_staged_revision, admit_and_finalize_cast, CharacterCatalogGeneration,
+        PreparedCharacterRegistry, RevisionOutcome, StagedCastRevision,
     };
+    use ambition_entity_catalog::{FlowNode, FlowSignal, TechniqueFlow, TechniqueSupport};
 
-    // ⛔ THE FLOOR. A move with a sound flow — and one with none at all — must
-    // report nothing, or the row below is satisfied by preparation complaining
-    // about every character it sees.
-    assert_eq!(broken(None), Vec::<String>::new());
-    assert_eq!(
-        broken(Some(TechniqueFlow {
-            nodes: vec![FlowNode::Finish],
-        })),
-        Vec::<String>::new(),
-    );
+    /// What an author could have written: it must round-trip through the
+    /// authored format, or the arm proves nothing about AUTHORED data.
+    fn authored(flow: TechniqueFlow) -> TechniqueFlow {
+        let text = ron::to_string(&flow).expect("a flow serializes");
+        ron::from_str(&text).unwrap_or_else(|error| {
+            panic!("the invalid flow does not even deserialize ({error}); the arm would test the parser: {text}")
+        })
+    }
 
-    let reported = broken(Some(TechniqueFlow {
-        nodes: vec![
-            FlowNode::Emit {
-                effect: ambition_entity_catalog::EffectRef {
-                    key: "demo.thing".to_string(),
-                    params: Default::default(),
-                },
-                // Past the end of a two-node list.
-                then: 9,
-            },
-            FlowNode::Finish,
-        ],
-    }));
-    assert!(
-        reported
-            .iter()
-            .any(|line| line.contains("move `special` flow") && line.contains("past the last node")),
-        "a flow whose transition leaves the list prepared cleanly, so the move \
-         plays and silently stops. Report was: {reported:?}"
-    );
+    fn wait(on_timeout: u16, then: u16, timeout_s: f32) -> FlowNode {
+        FlowNode::Wait {
+            on: FlowSignal::Connected,
+            timeout_s,
+            then,
+            on_timeout,
+        }
+    }
+
+    /// A sound flow: wait for a connect, then finish either way.
+    fn sound() -> TechniqueFlow {
+        authored(TechniqueFlow {
+            nodes: vec![wait(1, 1, 0.5), FlowNode::Finish],
+        })
+    }
+
+    /// Every structural rule `TechniqueFlow::problems` states, each broken once,
+    /// with what the refusal must say.
+    fn broken() -> Vec<(&'static str, TechniqueFlow, &'static str)> {
+        vec![
+            (
+                "an edge past the end of the node list",
+                authored(TechniqueFlow {
+                    nodes: vec![wait(9, 1, 0.5), FlowNode::Finish],
+                }),
+                "past the last node",
+            ),
+            (
+                "a cycle",
+                authored(TechniqueFlow {
+                    nodes: vec![
+                        FlowNode::Branch { on: FlowSignal::Connected, then: 1, otherwise: 2 },
+                        FlowNode::Branch { on: FlowSignal::Blocked, then: 0, otherwise: 2 },
+                        FlowNode::Finish,
+                    ],
+                }),
+                "loops",
+            ),
+            (
+                "a wait that never expires",
+                authored(TechniqueFlow {
+                    nodes: vec![wait(1, 1, 0.0), FlowNode::Finish],
+                }),
+                "never",
+            ),
+            (
+                "a node nothing reaches",
+                authored(TechniqueFlow {
+                    nodes: vec![wait(2, 2, 0.5), FlowNode::Finish, FlowNode::Finish],
+                }),
+                "unreachable",
+            ),
+            (
+                "no nodes at all",
+                authored(TechniqueFlow { nodes: vec![] }),
+                "no nodes",
+            ),
+        ]
+    }
+
+    /// The character: one move carrying `flow`.
+    fn with_flow(id: &str, flow: Option<TechniqueFlow>) -> CharacterDefinition {
+        use crate::prepared_fixtures::{moveset_with, slash};
+        let mut spec = slash("the_move", "cue", "strike");
+        spec.flow = flow;
+        CharacterDefinition::new(id, id, "test_demo")
+            .with_moveset(moveset_with(&[("special", "the_move")], vec![spec]))
+    }
+
+    fn staged(definition: CharacterDefinition) -> crate::prepared::StagedCharacter {
+        crate::prepared::prepare_for_registration(definition, &CharacterBindings::default()).staged
+    }
+
+    fn no_techniques() -> TechniqueSupport {
+        TechniqueSupport::default()
+    }
+
+    fn admitted_with(
+        bad: TechniqueFlow,
+    ) -> crate::prepared::AdmittedCast {
+        admit_and_finalize_cast(
+            vec![
+                staged(with_flow("oni", Some(bad))),
+                staged(with_flow("monk", Some(sound()))),
+                staged(with_flow("bystander", None)),
+            ],
+            &CastAuthorities::default(),
+            CharacterCatalogGeneration::default(),
+            &no_techniques(),
+        )
+    }
+
+    /// ⭐ THE FALSIFIER, for every structural rule: the invalid flow is named by an
+    /// authored-source diagnostic and its character does NOT reach the registry.
+    #[test]
+    fn a_character_whose_flow_cannot_run_is_withheld_and_the_diagnostic_names_the_move() {
+        for (what, flow, says) in broken() {
+            let admitted = admitted_with(flow);
+            assert!(
+                admitted.registry.get("oni").is_none(),
+                "⛔ {what}: a character whose flow cannot run was PUBLISHED as a prepared definition"
+            );
+            let mine: Vec<_> = admitted.refusals.iter().filter(|r| r.character == "oni").collect();
+            assert!(
+                mine.iter().any(|r| r.detail.contains("the_move") && r.detail.contains("flow") && r.detail.contains(says)),
+                "{what}: no refusal names the move and the problem ({says:?}); got {:?}",
+                admitted.refusals
+            );
+        }
+    }
+
+    /// ⭐ THE FLOOR AND THE UNIT. Valid techniques prepare normally, with their
+    /// flow intact, and an unrelated character is untouched: refusing the oni must
+    /// not empty the cast (a check that withheld everything would pass the arm
+    /// above while emptying the game).
+    #[test]
+    fn valid_techniques_still_prepare_and_the_rest_of_the_cast_is_untouched() {
+        for (what, flow, _) in broken() {
+            let admitted = admitted_with(flow);
+            let monk = admitted
+                .registry
+                .get("monk")
+                .unwrap_or_else(|| panic!("{what}: a character with a SOUND flow was withheld: {:?}", admitted.refusals));
+            let carried = monk
+                .kit
+                .projectable_moveset()
+                .and_then(|moveset| moveset.moves.iter().find(|mv| mv.id == "the_move"))
+                .and_then(|mv| mv.flow.clone());
+            assert_eq!(carried, Some(sound()), "{what}: the sound flow did not arrive as authored");
+            assert!(admitted.registry.get("bystander").is_some(), "{what}: an unrelated character was withheld");
+            assert_eq!(admitted.refusals.iter().filter(|r| r.character != "oni").count(), 0, "{what}: something else was refused: {:?}", admitted.refusals);
+        }
+    }
+
+    /// The control that the refusal is the FLOW's doing: the same character with
+    /// a sound flow, or none, is published.
+    #[test]
+    fn the_same_character_with_a_sound_flow_or_none_is_published() {
+        for flow in [None, Some(sound())] {
+            let admitted = admit_and_finalize_cast(
+                vec![staged(with_flow("oni", flow))],
+                &CastAuthorities::default(),
+                CharacterCatalogGeneration::default(),
+                &no_techniques(),
+            );
+            assert!(admitted.registry.get("oni").is_some(), "{:?}", admitted.refusals);
+            assert!(admitted.refusals.is_empty(), "{:?}", admitted.refusals);
+        }
+    }
+
+    /// The reload road: a revision carrying an invalid flow is refused WHOLE, the
+    /// last-good cast keeps its definition and its generation.
+    #[test]
+    fn a_revision_with_a_flow_that_cannot_run_is_refused_whole_and_the_last_good_cast_stays() {
+        for (what, flow, says) in broken() {
+            let mut world = bevy::ecs::world::World::new();
+            let sources = vec![staged(with_flow("oni", Some(sound()))), staged(with_flow("monk", Some(sound())))];
+            let admitted = admit_and_finalize_cast(
+                sources.clone(),
+                &CastAuthorities::default(),
+                CharacterCatalogGeneration::default(),
+                &no_techniques(),
+            );
+            assert!(admitted.refusals.is_empty(), "premise: {:?}", admitted.refusals);
+            world.insert_resource(admitted.registry);
+            let mut overrides = crate::prepared::StagedCharacterOverrides::default();
+            for source in sources {
+                overrides.by_id.insert(ambition_entity_catalog::CharacterId::new(source.id()), source);
+            }
+            world.insert_resource(overrides);
+            let before = world.resource::<PreparedCharacterRegistry>().generation();
+
+            let revised = staged(with_flow("oni", Some(flow)));
+            let id = ambition_entity_catalog::CharacterId::new(revised.id());
+            world
+                .get_resource_or_insert_with(StagedCastRevision::default)
+                .insert_for_test(id, revised);
+            // A second, VALID edit in the same revision: the unit is the whole edit.
+            let mut renamed = with_flow("monk", Some(sound()));
+            renamed.display_name = "Monk, renamed".to_string();
+            let renamed = staged(renamed);
+            let id = ambition_entity_catalog::CharacterId::new(renamed.id());
+            world.resource_mut::<StagedCastRevision>().insert_for_test(id, renamed);
+
+            let outcome = activate_staged_revision(&mut world, &no_techniques());
+            match &outcome {
+                RevisionOutcome::Refused { refusals, .. } => assert!(
+                    refusals.iter().any(|r| r.detail.contains("the_move") && r.detail.contains(says)),
+                    "{what}: the refusal does not name the problem: {refusals:?}"
+                ),
+                other => panic!("⛔ {what}: a revision carrying a flow that cannot run was not refused: {other:?}"),
+            }
+            let active = world.resource::<PreparedCharacterRegistry>();
+            assert_eq!(active.generation(), before, "{what}: a refused revision moved the generation");
+            assert_eq!(
+                active.get("monk").map(|monk| monk.display_name.as_str()),
+                Some("monk"),
+                "{what}: half of a refused revision was applied"
+            );
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1162,7 +1329,7 @@ fn a_move_whose_flow_cannot_run_is_reported_by_preparation() {
 // ---------------------------------------------------------------------------
 mod nested_references {
     use super::*;
-    use crate::prepared::unsupported_authored_effects;
+    use crate::prepared::admission_refusals;
     use ambition_entity_catalog::smash_ride::{summon_ride_character_refs, SUMMON_RIDE};
     use ambition_entity_catalog::{
         check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
@@ -1237,7 +1404,7 @@ mod nested_references {
     #[test]
     fn a_summon_naming_an_unprepared_character_is_refused_at_preparation() {
         let registry = registry_with_summon("burning_flying_shark", &[]);
-        let refusals = unsupported_authored_effects(&supporting_summons(), &registry);
+        let refusals = admission_refusals(&supporting_summons(), &registry);
         assert_eq!(
             refusals.len(),
             1,
@@ -1266,7 +1433,7 @@ mod nested_references {
     #[test]
     fn the_same_summon_passes_once_its_mount_is_prepared() {
         let registry = registry_with_summon("burning_flying_shark", &["burning_flying_shark"]);
-        let refusals = unsupported_authored_effects(&supporting_summons(), &registry);
+        let refusals = admission_refusals(&supporting_summons(), &registry);
         assert!(
             refusals.is_empty(),
             "a summon whose mount IS prepared was refused: {refusals:?}"
@@ -2032,7 +2199,7 @@ mod revision_activation {
 mod held_item_references {
     use super::*;
     use crate::brain::action_set::{held_item_by_id, held_item_ids};
-    use crate::prepared::unsupported_authored_effects;
+    use crate::prepared::admission_refusals;
     use ambition_entity_catalog::smash_bomb::{bomb_held_item_refs, DropBombParams, DROP_BOMB};
     use ambition_entity_catalog::{
         check_hydrates, EffectRef, NestedReferences, ParamValue, TechniqueDelivery, TechniqueOffer,
@@ -2108,7 +2275,7 @@ mod held_item_references {
              refusal below would say nothing"
         );
 
-        let refusals = unsupported_authored_effects(&supporting_bombs(), &cast_dropping(item));
+        let refusals = admission_refusals(&supporting_bombs(), &cast_dropping(item));
 
         assert_eq!(refusals.len(), 1, "expected one refusal; got {refusals:?}");
         assert!(
@@ -2129,7 +2296,7 @@ mod held_item_references {
             .expect("the held-item registry is empty, so this arm proves nothing");
         assert!(held_item_by_id(item).is_some());
 
-        let refusals = unsupported_authored_effects(&supporting_bombs(), &cast_dropping(item));
+        let refusals = admission_refusals(&supporting_bombs(), &cast_dropping(item));
 
         assert!(
             refusals.is_empty(),

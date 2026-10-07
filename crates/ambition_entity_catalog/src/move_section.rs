@@ -12,7 +12,7 @@
 //!
 //! A lossless round trip is not an admissible move, and this module must not
 //! decide admission. That is answered by
-//! `ambition_characters::prepared::unsupported_authored_effects`, which walks
+//! `ambition_characters::prepared::admission_refusals`, which walks
 //! `MoveSpec::effect_refs`, calls `TechniqueSupport::admit_at` with the site,
 //! and checks nested references. The artifact road admits by hydrating into
 //! the prepared registry and running that pass, so there is one validator.

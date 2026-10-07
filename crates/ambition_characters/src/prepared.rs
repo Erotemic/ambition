@@ -352,20 +352,39 @@ impl PreparedKit {
     }
 }
 
-/// One authored effect a composition cannot support, and whose definition it
-/// therefore may not publish.
+/// One authored fact the admission pass refuses, and whose definition it
+/// therefore may not publish: an effect this composition cannot support, a
+/// reference it cannot resolve, or a technique flow the interpreter cannot run.
 ///
 /// ⚠ `character` is what makes REFUSAL possible rather than merely reportable:
 /// the fold withholds exactly the definitions named here.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EffectRefusal {
+pub struct AdmissionRefusal {
     /// The prepared character whose moveset carries the effect.
     pub character: String,
     /// The full human-readable refusal, naming move, site and cause.
     pub detail: String,
 }
 
-/// Every authored effect in `prepared` that `installed` will not support.
+/// Everything in `prepared` that admission refuses: every authored effect
+/// `installed` will not support, and every structurally invalid technique flow.
+///
+/// ⛔⛔ **A FLOW THE INTERPRETER CANNOT RUN IS REFUSED HERE, NOT REPORTED.** This
+/// used to be reported by `prepare_character` and published anyway, so a
+/// `PreparedCharacterDefinition` could carry a flow with an edge past the end of
+/// its node list, a `Wait` that never expires, a cycle, or a node nothing
+/// reaches, and `#[non_exhaustive]` on the type only stopped OTHER crates
+/// building such a value, not the authorized road publishing one. The structural
+/// rules of `TechniqueFlow::problems` are what the interpreter relies on (its
+/// step guard is "an invariant failure: report and cancel", not a handled case),
+/// so a value that claims to be prepared must have passed them.
+///
+/// ⭐ The three admission sites (the boot barrier's fixpoint, a revision, a
+/// revision over a candidate catalog) all call this one function, so the policy
+/// follows each road's unit: the barrier withholds the CHARACTER, a revision is
+/// refused whole. Authored data stays permissive (a flow deserializes whatever
+/// it says, and the refusal carries every problem, so an author sees them all);
+/// the admitted registry does not.
 ///
 /// ⛔⛔ **`TechniqueSupport::admit` HAD NO PRODUCTION CALLER OVER AUTHORED
 /// EFFECTS, AND NEITHER DID `MoveSpec::effect_refs`.** Both halves existed since
@@ -380,23 +399,31 @@ pub struct EffectRefusal {
 /// ⚠ `kit`'s moveset, NOT `authored_moveset`: the kit always carries one
 /// (derived from the action set when the character authored no timelines), so
 /// this is the full set of effects a body wearing that character can reach.
-pub fn unsupported_authored_effects(
+pub fn admission_refusals(
     installed: &ambition_entity_catalog::TechniqueSupport,
     prepared: &PreparedCharacterRegistry,
-) -> Vec<EffectRefusal> {
-    let mut refusals: Vec<EffectRefusal> = Vec::new();
+) -> Vec<AdmissionRefusal> {
+    let mut refusals: Vec<AdmissionRefusal> = Vec::new();
     for (id, definition) in prepared.iter() {
         let Some(moveset) = definition.kit.projectable_moveset() else {
             continue;
         };
         for mv in &moveset.moves {
+            if let Some(flow) = mv.flow.as_ref() {
+                for problem in flow.problems() {
+                    refusals.push(AdmissionRefusal {
+                        character: id.to_string(),
+                        detail: format!("{id} / {} / flow: {problem}", mv.id),
+                    });
+                }
+            }
             for (site, effect) in mv.effect_refs() {
                 // ⭐ THE SITE TRAVELS WITH THE EFFECT. `effect_refs` went to the
                 // trouble of labelling every reference and this call discarded
                 // it, so a technique authored somewhere its handler never reads
                 // passed validation and answered nothing at runtime.
                 if let Err(refusal) = installed.admit_at(Some(&site), effect) {
-                    refusals.push(EffectRefusal {
+                    refusals.push(AdmissionRefusal {
                         character: id.to_string(),
                         detail: format!("{id} / {} / {site:?}: {refusal}", mv.id),
                     });
@@ -424,7 +451,7 @@ pub fn unsupported_authored_effects(
                 // fire time.
                 for named in offer.references.held_items(effect) {
                     if crate::brain::action_set::held_item_by_id(&named).is_none() {
-                        refusals.push(EffectRefusal {
+                        refusals.push(AdmissionRefusal {
                             character: id.to_string(),
                             detail: format!(
                                 "{id} / {} / {site:?}: effect '{}' names held item \
@@ -437,7 +464,7 @@ pub fn unsupported_authored_effects(
                 }
                 for named in offer.references.characters(effect) {
                     if prepared.get(&named).is_none() {
-                        refusals.push(EffectRefusal {
+                        refusals.push(AdmissionRefusal {
                             character: id.to_string(),
                             detail: format!(
                                 "{id} / {} / {site:?}: effect '{}' names character \
@@ -509,7 +536,7 @@ pub enum RevisionOutcome {
     },
     /// The revision was refused. **The active registry and its generation are
     /// unchanged** — the last-good cast is still the published one.
-    Refused { refusals: Vec<EffectRefusal> },
+    Refused { refusals: Vec<AdmissionRefusal> },
     /// Every staged definition is byte-for-byte what the live cast was built
     /// from, so nothing was published and **the generation did not move**.
     ///
@@ -600,7 +627,7 @@ pub fn activate_staged_revision(
                     .collect::<Vec<_>>()
                     .join("\n    ")
             );
-            world.insert_resource(AuthoredEffectRefusals(refusals.clone()));
+            world.insert_resource(AuthoredAdmissionRefusals(refusals.clone()));
             RevisionOutcome::Refused { refusals }
         }
         RevisionAdmission::Admitted(admitted) => publish_admitted_revision(world, admitted),
@@ -722,7 +749,7 @@ pub enum RevisionAdmission {
         generation: CharacterCatalogGeneration,
     },
     Refused {
-        refusals: Vec<EffectRefusal>,
+        refusals: Vec<AdmissionRefusal>,
         previous: CharacterCatalogGeneration,
     },
     Admitted(AdmittedRevision),
@@ -802,7 +829,7 @@ pub fn admit_staged_revision(
     // ⚠ ADMITTED AGAINST THE WHOLE CANDIDATE, not against the edit alone: a
     // summon in an edited move may name a character the edit did not touch, and
     // an edit may REMOVE the definition some untouched move was naming.
-    let refusals = unsupported_authored_effects(support, &candidate);
+    let refusals = admission_refusals(support, &candidate);
     if !refusals.is_empty() {
         return RevisionAdmission::Refused { refusals, previous };
     }
@@ -873,7 +900,7 @@ pub fn admit_staged_revision_with_catalog(
         &authorities,
         previous,
     );
-    let refusals = unsupported_authored_effects(support, &candidate);
+    let refusals = admission_refusals(support, &candidate);
     if !refusals.is_empty() {
         return RevisionAdmission::Refused { refusals, previous };
     }
@@ -952,7 +979,7 @@ pub fn publish_admitted_revision(
         world.insert_resource(assembled.owners);
         world.insert_resource(assembled.brain_profiles);
     }
-    world.insert_resource(AuthoredEffectRefusals(Vec::new()));
+    world.insert_resource(AuthoredAdmissionRefusals(Vec::new()));
     world.insert_resource(candidate);
     RevisionOutcome::Activated {
         generation,
@@ -1118,7 +1145,7 @@ pub fn stage_move_section(
 /// was wrong about its own status quo. Whether refusing is the right POLICY is
 /// still `Q97`; what it does today is not in doubt.
 #[derive(bevy::prelude::Resource, Default, Debug, Clone, PartialEq, Eq)]
-pub struct AuthoredEffectRefusals(pub Vec<EffectRefusal>);
+pub struct AuthoredAdmissionRefusals(pub Vec<AdmissionRefusal>);
 
 /// The catalog facts that size a body from its sheet: the frame is scaled so the
 /// visible body is `standing_height` tall, else by the placement box times the
@@ -1681,21 +1708,12 @@ fn prepare_character(
     }
 
     let report = ledger.finish();
-    // ⛔⛔ **A BROKEN FLOW REACHED THE RUNTIME WITH NOTHING IN THE PIPELINE
-    // LOOKING AT IT.** `TechniqueFlow::problems` exists because every one of its
-    // failures is silent — a transition past the end of the list, a `Wait` that
-    // can never expire, a cycle, a node nothing arrives at — and until now its
-    // only production callers were per-crate roster tests over hand-built
-    // `tables()`. A character prepared from a SERIALIZED definition, which is
-    // exactly the road the admission contract is being built for, was validated
-    // by nobody.
-    //
-    // ⭐ REPORTED, NOT REFUSED, and that is this seam's established policy rather
-    // than a softening: preparation publishes with its failures carried onto the
-    // value ("a placeholder beats a session that refuses to boot"), and the
-    // shipped-composition guard reads `unresolved_references`. So a broken flow
-    // is a RED TEST in every composition that prepares the character, without
-    // making a data error a boot failure.
+    // ⛔ A technique flow's structure is NOT checked here. It used to be, as a
+    // report carried onto a definition that was published anyway; it is an
+    // ADMISSION refusal now (`admission_refusals`), because a flow the
+    // interpreter cannot run must not become a prepared value. One authority
+    // for the fact: a flow problem on a published definition would be a second
+    // statement of it, and could only disagree.
     let mut unresolved: Vec<String> = report
         .unresolved()
         .iter()
@@ -1710,16 +1728,6 @@ fn prepare_character(
             line
         })
         .collect();
-    if let Some(moveset) = definition.moveset.as_ref() {
-        for spec in &moveset.moves {
-            let Some(flow) = spec.flow.as_ref() else {
-                continue;
-            };
-            for problem in flow.problems() {
-                unresolved.push(format!("move `{}` flow: {problem}", spec.id));
-            }
-        }
-    }
     // A rig that does not validate is REPORTED and DROPPED: the body is built
     // without articulated geometry rather than with geometry nothing can solve.
     let body_rig = definition.body_rig.filter(|rig| match rig.prepare() {
@@ -3331,7 +3339,7 @@ fn finalize_prepared_cast(
                 .join("\n    ")
         );
     }
-    world.insert_resource(AuthoredEffectRefusals(admitted.refusals));
+    world.insert_resource(AuthoredAdmissionRefusals(admitted.refusals));
     world.insert_resource(admitted.registry);
 }
 
@@ -3344,7 +3352,7 @@ pub struct AdmittedCast {
     /// Exactly the definitions this composition can support.
     pub registry: PreparedCharacterRegistry,
     /// Why each withheld definition was withheld.
-    pub refusals: Vec<EffectRefusal>,
+    pub refusals: Vec<AdmissionRefusal>,
 }
 
 /// Fold the staged cast and publish only what this composition can support.
@@ -3396,7 +3404,7 @@ pub struct AdmittedCast {
 /// refusals are derived from a registry folded from `kept`), so the loop runs at
 /// most once per staged character. The shrink is ASSERTED rather than assumed —
 /// a round that refuses somebody and removes nobody would otherwise spin
-/// forever, and that would be a defect in `unsupported_authored_effects`
+/// forever, and that would be a defect in `admission_refusals`
 /// reporting a character it was not given.
 pub(crate) fn admit_and_finalize_cast(
     staged: Vec<StagedCharacter>,
@@ -3413,14 +3421,14 @@ pub(crate) fn admit_and_finalize_cast(
     support: &ambition_entity_catalog::TechniqueSupport,
 ) -> AdmittedCast {
     let mut kept = staged;
-    let mut refusals: Vec<EffectRefusal> = Vec::new();
+    let mut refusals: Vec<AdmissionRefusal> = Vec::new();
     loop {
         // ⚠ REFERENCES RESOLVE AGAINST THE CAST AS IT WOULD BE PUBLISHED, which
         // is why the fold is inside the loop: a summon may name a character
         // staged after its rider, and it may name one this round is about to
         // withhold.
         let candidate = finalize_cast(kept.iter().cloned(), authorities, previous);
-        let round = unsupported_authored_effects(support, &candidate);
+        let round = admission_refusals(support, &candidate);
         if round.is_empty() {
             return AdmittedCast {
                 registry: candidate,

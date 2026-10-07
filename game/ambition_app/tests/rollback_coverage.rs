@@ -1182,7 +1182,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "diagnostic: counts faulted invocations for a developer; nothing in the simulation reads it",
     ),
     (
-        "ambition_characters::prepared::AuthoredEffectRefusals",
+        "ambition_characters::prepared::AuthoredAdmissionRefusals",
         "preparation output: which authored effects the barrier refused; written once at the preparation barrier and never by the simulation",
     ),
     (

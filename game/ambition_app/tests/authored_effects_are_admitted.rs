@@ -10,7 +10,7 @@
 //! `warn!` to a refusal.
 //!
 //! ✔ **THE PASS IS WIRED NOW, and the last two tests in this file are how that
-//! is known rather than assumed.** `unsupported_authored_effects` joins the two
+//! is known rather than assumed.** `admission_refusals` joins the two
 //! halves and `activate_staged_revision` refuses a revision on any refusal;
 //! `the_barrier_closes_through_the_checked_road_under_the_real_lifecycle` holds
 //! the ordering under `finish()`/`cleanup()`/`update()`, and
@@ -193,7 +193,7 @@ fn the_barrier_closes_through_the_checked_road_under_the_real_lifecycle() {
 /// re-derives `admit_at` itself against `InstalledTechniques`, so it passes
 /// whether or not the barrier ever consulted them."*
 ///
-/// `AuthoredEffectRefusals` exists so a refusal is an inspectable fact rather
+/// `AuthoredAdmissionRefusals` exists so a refusal is an inspectable fact rather
 /// than a log line, and until this test **nothing outside a rollback waiver list
 /// ever read it.** ⭐ ASK THE ARTIFACT, NOT THE FUNCTION.
 ///
@@ -207,7 +207,7 @@ fn the_shipped_composition_withheld_nothing_at_its_barrier() {
         .expect("sandbox sim builds");
     let refusals = sim
         .world()
-        .get_resource::<ambition_platformer2d::characters::prepared::AuthoredEffectRefusals>()
+        .get_resource::<ambition_platformer2d::characters::prepared::AuthoredAdmissionRefusals>()
         .map(|r| r.0.clone())
         .unwrap_or_default();
 

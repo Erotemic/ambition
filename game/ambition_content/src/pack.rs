@@ -371,6 +371,44 @@ pub fn compile_pack_with(
     )
 }
 
+/// The same compile, with the manifest no longer declaring `omit`.
+///
+/// `compile_pack_with` edits source text and cannot change the declaration
+/// list, so it cannot express a candidate that DROPS a family. This one does:
+/// each omitted path loses its manifest line and its source. For a witness of
+/// what a reload does when N+1 stops declaring something N declared.
+///
+/// A path that no manifest line names is refused, so a renamed source cannot
+/// turn a witness into a no-op.
+pub fn compile_pack_omitting(omit: &[&str]) -> Result<PreparedContentPack, CompileFailure> {
+    let mut remaining = omit.to_vec();
+    let manifest: String = PACK_MANIFEST_RON
+        .lines()
+        .filter(|line| {
+            let named = omit.iter().position(|path| line.contains(&format!("path: \"{path}\"")));
+            if let Some(index) = named {
+                remaining.retain(|path| *path != omit[index]);
+            }
+            named.is_none()
+        })
+        .map(|line| format!("{line}\n"))
+        .collect();
+    assert!(
+        remaining.is_empty(),
+        "no manifest line declares {remaining:?}, so the pack would omit nothing"
+    );
+    let sources: Vec<(String, String)> = embedded_sources()
+        .into_iter()
+        .filter(|(path, _)| !omit.contains(&path.as_str()))
+        .collect();
+    let draft = ambition_content_pack::ContentPackDraft::from_manifest_ron(&manifest, sources)?;
+    ambition_content_pack::compile(
+        &draft,
+        &pack_schemas(),
+        &ambition_content_pack::AssetsUnchecked,
+    )
+}
+
 /// Compile the pack reading every declared source from `root`.
 ///
 /// This lets a prebuilt host play an edited file (fast-iteration I2). The

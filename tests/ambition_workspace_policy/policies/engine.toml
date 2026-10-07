@@ -1831,7 +1831,14 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_actor_sp
     "ambition_abilities",
     # One diagnostic resource, `GameplayTraceBuffer` — the same shape as the
     # `ambition_causal` row above.
-    "ambition_gameplay_trace", "ambition_entity_catalog"]
+    "ambition_gameplay_trace", "ambition_entity_catalog",
+    # The audio catalog a reload transaction carries (2026-10-07):
+    # `PendingGenerationInputs::audio` is the N+1 `AudioCatalogRegistry`, handed
+    # to the transaction's own preparation beside the cast, the boss catalog and
+    # the character catalog. A data-only edge (no audio backend feature): the
+    # claim has to NAME the registry type, and putting the claim anywhere lower
+    # would make the content-identity crate depend on the provider.
+    "ambition_audio"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]

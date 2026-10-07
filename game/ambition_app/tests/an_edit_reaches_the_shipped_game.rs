@@ -3500,3 +3500,177 @@ fn a_prepared_candidate_never_counts_as_a_canonical_session_root() {
          separate"
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CANDIDATE-GENERATION-ORDER: the candidate is prepared against ITS audio.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The shipped app, activated on its gameplay route and settled.
+fn app_playing_gameplay() -> bevy::prelude::App {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.finish();
+    app.update();
+    app.world_mut().write_message(ShellCommand::ReplaceWith {
+        route: ShellRouteId::new("ambition_gameplay"),
+        request: None,
+    });
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some("ambition_gameplay"),
+        "the shipped composition never activated its gameplay route"
+    );
+    app
+}
+
+fn provider_audio(app: &bevy::prelude::App) -> (bool, bool) {
+    let catalogs = app
+        .world()
+        .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>();
+    let provider = ambition_content::AMBITION_CONTENT_PROVIDER;
+    (
+        catalogs.music_for(provider).is_some(),
+        catalogs.sfx_for(provider).is_some(),
+    )
+}
+
+/// ⛔⛤ **A CANDIDATE THAT DROPS A PROVIDER'S WHOLE MUSIC OR SFX FRAGMENT IS
+/// REFUSED BY ITS OWN PREPARATION, AND THE LIVE SESSION KEEPS ITS AUDIO.**
+///
+/// N has Ambition's music and SFX. N+1 stops declaring one registry. The
+/// provider EXPECTS both (`with_music`, `with_procedural_sfx`), so a preparation
+/// that sees N+1's audio fails with "Provider music is not ready". Preparation
+/// used to read the App's registry, which is N until the commit, found the
+/// fragment, admitted the session, and the commit then published a catalog with
+/// no music.
+///
+/// ⭐ Nothing here fakes the boundary: the request, the shell's lifecycle and
+/// the provider's preparation all run as in the game. The control below edits
+/// the SAME registry without dropping it and activates, so the refusal is about
+/// presence and not about the audio domain being unreloadable.
+#[test]
+fn a_candidate_that_drops_a_providers_audio_is_refused_and_the_live_audio_survives() {
+    for (omitted, what) in [
+        ("audio/sfx_registry.ron", "SFX"),
+    ] {
+        let mut app = app_playing_gameplay();
+        assert_eq!(
+            provider_audio(&app),
+            (true, true),
+            "the premise: N carries both of the provider's audio registries"
+        );
+        let live_activation = activation_id(&app).expect("a live session");
+        let base = ambition_content::pack::selected(app.world())
+            .expect("a selection")
+            .fingerprint;
+
+        let candidate = std::sync::Arc::new(
+            ambition_content::pack::compile_pack_omitting(&[omitted])
+                .expect("a pack that stops declaring one registry compiles"),
+        );
+        assert_ne!(candidate.fingerprint, base, "the premise: N+1 differs from N");
+        let outcome = ambition_content::reload::request_reload(
+            app.world_mut(),
+            ambition_content::CandidateGeneration::prepared_against(
+                std::sync::Arc::clone(&candidate),
+                Some(base),
+            ),
+        );
+        assert!(
+            matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
+            "dropping the {what} registry was refused at REQUEST time, so the \
+             candidate-preparation question this arm asks never arises: {outcome:?}"
+        );
+        for _ in 0..240 {
+            app.update();
+        }
+
+        assert_eq!(
+            activation_id(&app),
+            Some(live_activation),
+            "⛔ A CANDIDATE WITHOUT THE PROVIDER'S {what} ACTIVATED: its preparation \
+             was answered from the App's audio, which is still N"
+        );
+        assert_eq!(
+            provider_audio(&app),
+            (true, true),
+            "⛔ A REFUSED CANDIDATE CHANGED THE LIVE AUDIO CATALOG"
+        );
+        assert_eq!(
+            ambition_content::pack::selected(app.world())
+                .expect("a selection")
+                .fingerprint,
+            base,
+            "a refused candidate became the App's selection"
+        );
+        assert!(
+            ambition_content::reload::pending_pack(app.world()).is_none(),
+            "a refused candidate is still pending"
+        );
+        let held = app
+            .world()
+            .resource::<ambition_platformer2d::game_shell::ShellRouteHolds>()
+            .held(&ShellRouteId::new("ambition_gameplay"));
+        // The load presentation keeps its own ready-hold while the failure is
+        // on screen; the reload's holds are the `content-publication:` ones.
+        let leaked: Vec<_> = held
+            .iter()
+            .filter(|hold| format!("{hold:?}").contains("content-publication:"))
+            .collect();
+        assert!(leaked.is_empty(), "a refused candidate's reload hold outlived it: {leaked:?}");
+    }
+}
+
+/// The control for the arm above: the SAME registry, edited and not dropped,
+/// activates and publishes. Without it the refusal could be the audio domain
+/// being unreloadable, or a harness that never activates anything.
+#[test]
+fn a_candidate_that_edits_a_providers_audio_activates_and_publishes_it() {
+    let mut app = app_playing_gameplay();
+    let live_activation = activation_id(&app).expect("a live session");
+    let base = ambition_content::pack::selected(app.world())
+        .expect("a selection")
+        .fingerprint;
+    let first_frequency = |app: &bevy::prelude::App| {
+        app.world()
+            .resource::<ambition_platformer2d::audio::catalog::AudioCatalogRegistry>()
+            .sfx_for(ambition_content::AMBITION_CONTENT_PROVIDER)
+            .expect("the provider's SFX")
+            .sfx[0]
+            .frequency
+    };
+    let before = first_frequency(&app);
+    let mut edited = false;
+    let candidate = std::sync::Arc::new(
+        ambition_content::pack::compile_pack_with(|declared, text| {
+            if declared == "audio/sfx_registry.ron" {
+                let out = text.replacen(
+                    "frequency: 460.0, frequency_end: 720.0,",
+                    "frequency: 461.0, frequency_end: 720.0,",
+                    1,
+                );
+                edited = out != text;
+                return out;
+            }
+            text
+        })
+        .expect("compiles"),
+    );
+    assert!(edited, "the SFX registry no longer states the edited cue");
+    let outcome = ambition_content::reload::request_reload(
+        app.world_mut(),
+        ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
+    );
+    assert!(
+        matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
+        "{outcome:?}"
+    );
+    assert_eq!(first_frequency(&app), before, "the request published on the spot");
+    for _ in 0..240 {
+        app.update();
+    }
+    assert_ne!(activation_id(&app), Some(live_activation), "the edit never activated");
+    assert_eq!(first_frequency(&app), before + 1.0, "the edited cue was not published");
+}

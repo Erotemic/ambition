@@ -272,6 +272,17 @@ pub struct PendingGenerationInputs {
     /// brain profile, the starting character's sheet), so a claim that carried
     /// only the cast built N+1's bodies with N's catalog beside N+1's cast.
     pub catalog: Option<ambition_characters::prepared::CandidateCatalog>,
+    /// The candidate AUDIO CATALOG REGISTRY this transaction will publish, or
+    /// `None` when the candidate changes no audio domain. Same rule as
+    /// `characters`.
+    ///
+    /// Preparation asks it one question per provider: is there a fragment, does
+    /// it carry music, does it carry SFX. A reload replaces a provider's
+    /// fragment, so N and N+1 usually agree, but a candidate that drops a
+    /// provider's whole music or SFX fragment does not, and a preparation that
+    /// asked the App's registry (N) would admit a session whose audio is not
+    /// there.
+    pub audio: Option<ambition_audio::catalog::AudioCatalogRegistry>,
 }
 
 impl PendingGenerationInputs {
@@ -301,6 +312,16 @@ impl PendingGenerationInputs {
     #[allow(clippy::option_option)]
     pub fn bosses_for(&self, load_id: &str) -> Option<Option<&ambition_boss_encounter::BossCatalog>> {
         (self.load_id == load_id).then_some(self.bosses.as_ref())
+    }
+
+    /// The candidate audio catalog registry for `load_id`; the two `None`s are
+    /// those of [`Self::characters_for`].
+    #[allow(clippy::option_option)]
+    pub fn audio_for(
+        &self,
+        load_id: &str,
+    ) -> Option<Option<&ambition_audio::catalog::AudioCatalogRegistry>> {
+        (self.load_id == load_id).then_some(self.audio.as_ref())
     }
 
     /// The candidate character catalog for `load_id`; the two `None`s are

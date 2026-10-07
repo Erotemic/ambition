@@ -681,6 +681,7 @@ name = "ambition_platformer2d_runtime"
 version = "0.1.0"
 dependencies = [
  "ambition_abilities",
+ "ambition_audio",
  "ambition_boss_encounter",
  "ambition_character_sprites",
  "ambition_characters",

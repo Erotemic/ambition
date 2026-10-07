@@ -21,6 +21,7 @@
 | [`extension`](src/extension.rs) | The boss domain's extension adapters. |
 | [`hall`](src/hall.rs) | The hall a boss fight happens in: its floor and its walls, measured once from the room. |
 | [`ids`](src/ids.rs) | Boss encounter id helper: `encounter_id_from_name` slugs an authored boss name into a stable id (`"Clockwork Warden"` -> `"clockwork_warden"`). |
+| [`life_switch`](src/life_switch.rs) | A boss's life, set by a switch (`SwitchAction::BossLife`). |
 | [`pattern`](src/pattern/mod.rs) | The boss pattern's thinking: tick, control flow, validator, seeds and profile. |
 | [`profile`](src/profile.rs) | Assembled per-boss profile: the content-facing bundle. |
 | [`registry`](src/registry.rs) | `BossEncounterRegistry`: the read-only boss data catalog. |
@@ -31,7 +32,7 @@
 | [`specs`](src/specs.rs) | App-local boss-encounter spec access. |
 | [`systems`](src/systems.rs) | Boss-encounter Bevy systems: the per-frame driver. |
 
-_24 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

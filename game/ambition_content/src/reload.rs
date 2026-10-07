@@ -1532,6 +1532,9 @@ pub fn adopt_preparation_transaction(
                                 .admitted_cast
                                 .as_ref()
                                 .and_then(|admitted| admitted.candidate_catalog().cloned()),
+                            // And the audio registry, which preparation asks
+                            // which providers have music and SFX.
+                            pending.audio.clone(),
                         )
                     };
                     // Hold the route from adoption. Only the gate's answer at
@@ -1559,7 +1562,7 @@ pub fn adopt_preparation_transaction(
                             }
                         }
                     }
-                    let (claim, characters, bosses, catalog) = claim;
+                    let (claim, characters, bosses, catalog, audio) = claim;
                     // The only place the claim is made: the transaction first
                     // has a name here.
                     world.insert_resource(ambition_platformer2d_runtime::PendingGenerationInputs {
@@ -1568,6 +1571,7 @@ pub fn adopt_preparation_transaction(
                         characters,
                         bosses,
                         catalog,
+                        audio,
                     });
                 });
             }

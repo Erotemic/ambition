@@ -32,6 +32,8 @@ ambition_registry_core = { path = "../ambition_registry_core" }
 # that offer and `room_transition/commit.rs` reads whether a conversation is live.
 ambition_conversation = { path = "../ambition_conversation" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
+# The audio catalog registry a reload transaction carries (`PendingGenerationInputs::audio`).
+ambition_audio = { path = "../ambition_audio", default-features = false }
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
 ambition_projectiles = { path = "../ambition_projectiles" }

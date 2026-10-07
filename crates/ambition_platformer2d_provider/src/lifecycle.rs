@@ -382,6 +382,20 @@ impl PlatformerPreparation<'_> {
         candidate_catalog_for(self.content_inputs.2.as_deref(), transaction.barrier.load_id.as_str())
     }
 
+    /// The audio catalog registry THIS transaction must be prepared against:
+    /// the one it publishes at its commit, or the App's when it publishes none.
+    /// See [`candidate_audio_for`].
+    fn audio_for<'a>(
+        &'a self,
+        transaction: &ProviderLoadTransaction,
+    ) -> &'a ambition_audio::catalog::AudioCatalogRegistry {
+        candidate_audio_for(
+            &self.audio_catalogs,
+            self.content_inputs.2.as_deref(),
+            transaction.barrier.load_id.as_str(),
+        )
+    }
+
     fn candidate_bosses_for(
         &self,
         transaction: &ProviderLoadTransaction,
@@ -444,7 +458,7 @@ impl PlatformerPreparation<'_> {
             let catalog = candidate_catalog
                 .as_ref()
                 .map_or(&*self.character_catalog, |candidate| &candidate.assembled.catalog);
-            authored.validate(catalog, &self.audio_catalogs)
+            authored.validate(catalog, self.audio_for(transaction))
         };
         if let Some((work_id, failure)) = validation {
             self.fail(transaction, work_id, failure);
@@ -508,14 +522,12 @@ impl PlatformerPreparation<'_> {
         });
         self.complete(transaction, PREPARE_SPRITES_WORK_ID);
 
-        let music_ready = self
-            .audio_catalogs
-            .music_for(authored.audio_provider.as_str())
-            .is_some();
-        let procedural_sfx_ready = self
-            .audio_catalogs
-            .sfx_for(authored.audio_provider.as_str())
-            .is_some();
+        // ⛔ THE CANDIDATE'S AUDIO, NOT THE APP'S: a reload that drops a
+        // provider's whole music or SFX fragment would otherwise be admitted
+        // against the outgoing generation's fragment and then publish silence.
+        let audio = self.audio_for(transaction);
+        let music_ready = audio.music_for(authored.audio_provider.as_str()).is_some();
+        let procedural_sfx_ready = audio.sfx_for(authored.audio_provider.as_str()).is_some();
         if authored.expects_music && !music_ready {
             self.fail(
                 transaction,
@@ -1286,6 +1298,24 @@ pub(crate) fn candidate_bosses_for(
 /// publishes none or the claim is a stranger's. Either `None` means the App's
 /// catalog: for the first it is this transaction's own generation's, and a
 /// stranger's candidate must never be read.
+/// The audio catalog registry `load_id`'s transaction publishes, or the App's
+/// when it publishes none.
+///
+/// The same rule as [`candidate_cast_for`]: a claim that is ours and carries no
+/// audio means the candidate changes no audio domain, so the App's registry IS
+/// this transaction's value; a stranger's claim is never read. Unlike the cast,
+/// this returns a borrow, because the registry is only ever asked questions.
+pub(crate) fn candidate_audio_for<'a>(
+    active: &'a ambition_audio::catalog::AudioCatalogRegistry,
+    pending: Option<&'a ambition_platformer2d_runtime::PendingGenerationInputs>,
+    load_id: &str,
+) -> &'a ambition_audio::catalog::AudioCatalogRegistry {
+    pending
+        .and_then(|claim| claim.audio_for(load_id))
+        .flatten()
+        .unwrap_or(active)
+}
+
 pub(crate) fn candidate_catalog_for(
     pending: Option<&ambition_platformer2d_runtime::PendingGenerationInputs>,
     load_id: &str,
@@ -3201,6 +3231,7 @@ mod tests {
             characters: None,
             bosses: None,
             catalog: None,
+            audio: None,
         }
     }
 
@@ -4366,6 +4397,7 @@ mod mechanical_registries_reach_the_identity {
             characters: Some(candidate.clone()),
             bosses: None,
             catalog: None,
+            audio: None,
         };
 
         // ⛔ THE ASSERTION THE ARM IS FOR.
@@ -4413,6 +4445,64 @@ mod mechanical_registries_reach_the_identity {
             candidate_cast_for(None, Some(&mine), "shell.game.8").is_none(),
             "a stranger's candidate became the cast for an App that published none",
         );
+    }
+
+    /// ⛔⛤ **PREPARE N+1'S AUDIO, NOT THE AUDIO THE APP STILL HAS PUBLISHED.**
+    ///
+    /// A reload replaces a provider's audio fragment at its commit, so N and N+1
+    /// agree on which providers have music and SFX, except when the candidate
+    /// DROPS a provider's whole music or SFX fragment. Preparation asked the
+    /// App's registry (N), found the fragment present, and admitted a session
+    /// whose audio the commit then removed.
+    ///
+    /// ⭐ The discriminator is PRESENCE, the one fact preparation reads.
+    #[test]
+    fn a_transaction_is_prepared_against_its_own_candidate_audio_not_the_apps() {
+        use ambition_audio::catalog::{AudioCatalogFragment, AudioCatalogRegistry};
+        let sfx = || ambition_audio::spec::SfxRegistry { sample_rate: 44100, sfx: Vec::new() };
+        let mut live = AudioCatalogRegistry::default();
+        live.register(AudioCatalogFragment::new("provider", None, Some(sfx())).expect("fragment"))
+            .expect("registers");
+        let mut candidate = AudioCatalogRegistry::default();
+        candidate
+            .register(AudioCatalogFragment::new("provider", None, None).expect("fragment"))
+            .expect("registers");
+        // ⭐ THE PREMISE FIRST: N and N+1 disagree about presence.
+        assert!(live.sfx_for("provider").is_some());
+        assert!(candidate.sfx_for("provider").is_none());
+        assert!(candidate.has_provider("provider"), "an empty fragment is still a fragment");
+
+        let mine = ambition_platformer2d_runtime::PendingGenerationInputs {
+            load_id: "shell.game.7".to_string(),
+            identity: "pack 2 cfp1:bb".to_string(),
+            characters: None,
+            bosses: None,
+            catalog: None,
+            audio: Some(candidate.clone()),
+        };
+        assert!(
+            candidate_audio_for(&live, Some(&mine), "shell.game.7")
+                .sfx_for("provider")
+                .is_none(),
+            "the transaction was prepared against the App's audio, which still has the \
+             SFX its own commit removes",
+        );
+        // ⛔ A STRANGER'S CANDIDATE IS NOT A FALLBACK.
+        assert!(
+            candidate_audio_for(&live, Some(&mine), "shell.game.8")
+                .sfx_for("provider")
+                .is_some(),
+            "an unrelated preparation was prepared against a candidate it never owned",
+        );
+        // ⚠ OUR CLAIM CARRYING NO AUDIO MEANS THE CANDIDATE CHANGES NONE: the
+        // App's registry is this transaction's own value.
+        let audioless = ambition_platformer2d_runtime::PendingGenerationInputs {
+            audio: None,
+            ..mine.clone()
+        };
+        assert!(candidate_audio_for(&live, Some(&audioless), "shell.game.7")
+            .sfx_for("provider")
+            .is_some());
     }
 
     /// ⛔⛤ **A DEVELOPER'S POPULATION CAP CHANGES THE ROSTER AND MUST CHANGE THE

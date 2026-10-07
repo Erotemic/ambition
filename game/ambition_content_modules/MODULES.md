@@ -15,6 +15,7 @@
 | [`gradient_nova`](src/gradient_nova.rs) | The gradient nova: on the first tick of a strike, sixteen shots burst out of the boss in a full circle, at three speed tiers so the ring tears into layers. |
 | [`meteor`](src/meteor.rs) | Meteor: Attack while holding the meteor drops a line of falling rocks on a zone ahead of the body, across its gravity. |
 | [`minima_trap`](src/minima_trap.rs) | Minima trap: on the first strike tick a pit of damage opens where the boss's target is, and a crawler appears beside it, on the boss's side. |
+| [`mockingbird`](src/mockingbird.rs) | The Mockingbird's conductor: the air chase. |
 | [`mode_collapse`](src/mode_collapse.rs) | Mode collapse: during the telegraph the boss locks where its target is; on the first strike tick a ring of shots appears around that point and converges on it. |
 | [`overfit_volley`](src/overfit_volley.rs) | Overfit volley: during the telegraph the boss memorises where its target is, once at the start and then every interval of gameplay time; on the first strike tick it fires one bolt at each memorised point. |
 | [`overflow_flood`](src/overflow_flood.rs) | Overflow's boundary flood: during the telegraph the boss locks where its target is (the safe lane); on the first strike tick shots fall from above in every column of the boss's room except that lane. |
@@ -28,7 +29,7 @@
 | [`vortex`](src/vortex.rs) | Vortex: Attack while holding the vortex gauntlet opens a singularity ahead of the body along the aim. |
 | [`wielded`](src/wielded.rs) | What the wielded abilities share: the descriptor of a stateless entry on the `wielded_use` trigger, and the payment rule. |
 
-_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

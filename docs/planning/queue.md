@@ -1191,7 +1191,11 @@ stale attempt carries the generation it was prepared against. A build that reads
 content off disk watches the pack's sources (`ambition_content::content_watch`)
 and reloads on save. Participating families include moves, boss profiles and
 encounters, the character catalog, fighter facets, the boss seed library,
-validator bands, items and audio registries. The procedural tier (I4) runs
+validator bands, items and audio registries. Content ownership is App-scoped
+(I3 step 1): every install reads the App's `SelectedContentPack`, and the
+process boot pack (`pack::shipped()`) is for inspection of the shipped product
+only. Quests, cutscenes and music cues are installed per App but do not take
+part in reload. The procedural tier (I4) runs
 technique, boss-special and wielded-item modules on the linked and WASM roads,
 with hot reload through the mechanical-edit protocol.
 

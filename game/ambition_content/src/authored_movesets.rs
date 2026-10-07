@@ -18,7 +18,7 @@ use ambition_entity_catalog::MovesetContract;
 /// A fighter's tests read this, so they guard the file the game plays and not
 /// a copy of it.
 pub fn shipped(character: &str) -> MovesetContract {
-    ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::prepared())
+    ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::shipped())
         .and_then(|table| table.get(character))
         .cloned()
         .unwrap_or_else(|| panic!("the shipped pack carries no move table for `{character}`"))
@@ -34,7 +34,7 @@ pub fn shipped(character: &str) -> MovesetContract {
 pub fn on_a_platform_fighter_stage(character: &str) -> MovesetContract {
     let moveset = shipped(character);
     match ambition_characters::smash_fighter::content_schema::facet(
-        crate::pack::prepared(),
+        crate::pack::shipped(),
         character,
     ) {
         Some(facet) => ambition_characters::move_damage::move_damage_over(
@@ -54,7 +54,7 @@ pub fn on_a_platform_fighter_stage(character: &str) -> MovesetContract {
 /// does not count one table twice.
 pub fn tables() -> Vec<(String, MovesetContract)> {
     let lowered =
-        ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::prepared())
+        ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::shipped())
             .expect("the shipped pack carries a move section");
     let mut out: Vec<(String, MovesetContract)> = Vec::new();
     for (id, contract) in lowered {

@@ -37,9 +37,10 @@ impl Plugin for AmbitionDialogueContentPlugin {
         // too. So this plugin adds its rows and does not replace the registry,
         // and the order in which the plugins are added does not matter.
         let world = app.world_mut();
+        let pack = crate::pack::select(world);
         world
             .get_resource_or_init::<ambition_cutscene::CutsceneLibrary>()
             .scripts
-            .extend(cutscene_defaults::default_cutscene_library().scripts);
+            .extend(cutscene_defaults::cutscene_library_of(&pack).scripts);
     }
 }

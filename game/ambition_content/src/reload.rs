@@ -3,10 +3,11 @@
 //! This is the production caller of the staged cast revision road
 //! (`stage_move_section`, admission, publication).
 //!
-//! It does not use `pack::prepared()`. That function is a `OnceLock` that
-//! serves the boot-time pack forever. Reload compiles a fresh pack from disk.
-//! Readers that still use the `OnceLock` keep the boot-time value; moving them
-//! to an App-scoped selection is fast-iteration I3 step 1 and is not done here.
+//! It does not use `pack::shipped()`, the boot-scoped read: that function is a
+//! `OnceLock` that serves the boot-time pack forever. Reload compiles a fresh
+//! pack from disk and compares it with the App's selection
+//! ([`crate::pack::selected`]). Every install reads that selection (I3 step 1),
+//! and selection is not publication: only this transaction revises a family.
 //!
 //! A reload publishes the selected pack together with every participating
 //! domain: see [`participates`] (the moveset, character catalog, Smash fighter,

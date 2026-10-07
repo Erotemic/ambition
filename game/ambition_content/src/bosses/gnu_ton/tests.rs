@@ -65,11 +65,11 @@ fn floor_gate_count(app: &App) -> usize {
 /// single profile was torn down in the E6 teardown.
 fn spawn_gnu_ton_runtime() -> BossClusterScratch {
     let behavior =
-        BossBehaviorProfile::from_data(&crate::bosses::authored_boss_catalog(), "gnu_ton_rider");
+        BossBehaviorProfile::from_data(&crate::bosses::shipped_boss_catalog(), "gnu_ton_rider");
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(54.0, 96.0));
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-    let catalog = crate::bosses::authored_boss_catalog();
+    let catalog = crate::bosses::shipped_boss_catalog();
     let mut scratch = BossClusterScratch::new(
         &catalog,
         "boss_gnu_ton_rider",
@@ -88,13 +88,13 @@ fn spawn_gnu_ton_runtime() -> BossClusterScratch {
 /// shape), and the head-hurtbox alignment guard below is what pins it.
 fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
     let mut behavior =
-        BossBehaviorProfile::from_data(&crate::bosses::authored_boss_catalog(), "gnu_ton_rider");
+        BossBehaviorProfile::from_data(&crate::bosses::shipped_boss_catalog(), "gnu_ton_rider");
     behavior.sprite_target = Some("giant_gnu".to_string());
     let combat_size = ae::Vec2::new(220.0, 220.0);
     behavior.combat_size = Some(combat_size);
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
-    let catalog = crate::bosses::authored_boss_catalog();
+    let catalog = crate::bosses::shipped_boss_catalog();
     let mut scratch = BossClusterScratch::new(
         &catalog,
         "boss_giant_gnu",
@@ -119,7 +119,7 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
         "the giant's sprite metrics should resolve from the baked sheet registry"
     );
     let attack = ambition_characters::brain::BossAttackState::default();
-    let catalog = crate::bosses::authored_boss_catalog();
+    let catalog = crate::bosses::shipped_boss_catalog();
     let ctx = ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
         &catalog,
         boss.as_ref(),

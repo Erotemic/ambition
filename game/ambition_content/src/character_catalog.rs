@@ -21,37 +21,43 @@ pub fn character_catalog_ron() -> String {
     crate::pack::source_text(CATALOG_SOURCE_PATH, CHARACTER_CATALOG_RON_STATIC)
 }
 
-/// Parse Ambition's checked-in catalog into an explicit immutable value.
+/// The character catalog `pack` lowered, as an explicit immutable value.
 ///
-/// Goes through [`crate::pack::prepared`], so a preset typo or a duplicate
-/// identity is refused at composition, naming the character and field, not
-/// later as a spawn-time fallback.
-pub fn load_catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
-    let data =
-        ambition_characters::actor::character_catalog::lowered_catalog(crate::pack::prepared())
-            .expect("the character schema lowers its catalog for every pack that compiles")
-            .clone();
+/// Goes through the pack's compile, so a preset typo or a duplicate identity is
+/// refused at composition, naming the character and field, not later as a
+/// spawn-time fallback.
+pub fn catalog_of(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> ambition_characters::actor::character_catalog::CharacterCatalog {
+    let data = ambition_characters::actor::character_catalog::lowered_catalog(pack)
+        .expect("the character schema lowers its catalog for every pack that compiles")
+        .clone();
     ambition_characters::actor::character_catalog::CharacterCatalog::from_data(data)
+}
+
+/// The catalog of Ambition's SHIPPED pack: for a test or a tool whose subject
+/// is the shipped roster. A composition reads [`catalog_of`] its own selection.
+pub fn shipped_catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
+    catalog_of(crate::pack::shipped())
 }
 
 /// Register Ambition's immutable character fragment in one Bevy `App` and
 /// rebuild the deterministic assembled catalog resource.
+///
+/// The fragment is lowered from the App's selected pack ([`crate::pack::select`]).
 pub fn register(app: &mut bevy::prelude::App) {
-    use ambition_characters::actor::character_catalog::{
-        CharacterCatalogAppExt,
-    };
+    use ambition_characters::actor::character_catalog::CharacterCatalogAppExt;
 
-    let catalog =
-        ambition_characters::actor::character_catalog::lowered_catalog(crate::pack::prepared())
-            .expect("the character schema lowers its catalog for every pack that compiles")
-            .clone();
+    let pack = crate::pack::select(app.world_mut());
+    let catalog = catalog_of(&pack).data().clone();
     app.register_character_catalog_fragment(
         catalog_fragment(catalog).expect("the prepared catalog carries this provider's default character"),
     );
 }
 
-/// Ambition's character fragment from a lowered catalog: the boot pack's at
-/// startup, a reload's candidate pack's at request time (`crate::reload`).
+/// Ambition's character fragment from a lowered catalog: the App's selected
+/// pack's at startup, a reload's candidate pack's at request time
+/// (`crate::reload`).
 pub fn catalog_fragment(
     catalog: ambition_characters::actor::character_catalog::CharacterCatalogData,
 ) -> Result<
@@ -84,7 +90,8 @@ pub fn register_cast(app: &mut bevy::prelude::App) {
     register_characters(app);
 }
 
-/// Register every character this provider can build: [`buildable_cast`].
+/// Register every character this provider can build from the App's selected
+/// pack (see [`buildable_ids`]).
 ///
 /// Each definition names only what the row cannot say: the body built on the
 /// row's sheet at its `posed_body` scale, the hurtbox inset from that body, and
@@ -92,11 +99,12 @@ pub fn register_cast(app: &mut bevy::prelude::App) {
 pub fn register_characters(app: &mut bevy::prelude::App) {
     use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
 
-    let catalog = load_catalog();
     // ⭐ THE APP'S PACK, READ ONCE. Selecting here rather than per character is
     // what makes "which pack did this cast come from" one fact: a selection that
-    // changed mid-loop would register half a roster from each.
-    let pack = crate::pack::select(app.world_mut()).clone();
+    // changed mid-loop would register half a roster from each. The rows and the
+    // facets both come from it.
+    let pack = crate::pack::select(app.world_mut());
+    let catalog = catalog_of(&pack);
     // The articulated-rig trial switch: read once, because it decides the cast.
     // The shipped game does not admit rigs (see `BodyRigAdmission`).
     let rigs_admitted =
@@ -166,10 +174,10 @@ pub fn buildable_definitions(
 /// default is the provider's choice (see `CharacterCatalogFragment::from_prepared`).
 pub const DEFAULT_CHARACTER: &str = "player_robot_v3";
 
-/// The rows of the shipped pack's catalog that state how their body moves.
-fn rows_with_a_body() -> impl Iterator<Item = &'static str> {
+/// The rows of the SHIPPED pack's catalog that state how their body moves.
+fn shipped_rows_with_a_body() -> impl Iterator<Item = &'static str> {
     rows_with_a_body_in(
-        ambition_characters::actor::character_catalog::lowered_catalog(crate::pack::prepared())
+        ambition_characters::actor::character_catalog::lowered_catalog(crate::pack::shipped())
             .expect("the character schema lowers its catalog for every pack that compiles"),
     )
 }
@@ -194,11 +202,12 @@ fn rows_with_a_body_in(
         .map(|(id, _)| id.as_str())
 }
 
-/// Every id this game registers as a buildable character: every row that
-/// states how its body moves. A character is in the cast because its row says
+/// Every id the SHIPPED pack registers as a buildable character: every row that
+/// states how its body moves. A composition's own cast is [`buildable_ids`] of
+/// its selected catalog. A character is in the cast because its row says
 /// what it is, not because a list names it.
-pub fn buildable_cast() -> impl Iterator<Item = &'static str> {
-    rows_with_a_body()
+pub fn shipped_buildable_cast() -> impl Iterator<Item = &'static str> {
+    shipped_rows_with_a_body()
 }
 
 #[cfg(test)]
@@ -228,9 +237,9 @@ mod tests {
         let prepared = app
             .world()
             .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
-        let catalog = load_catalog();
+        let catalog = shipped_catalog();
         let movesets =
-            ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::prepared())
+            ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::shipped())
                 .expect("the pack authors move tables");
 
         let mut bodies = 0;
@@ -636,8 +645,8 @@ mod tests {
                 .as_ref()
                 .map(|profile| profile.as_str().to_string())
         };
-        let registered: std::collections::BTreeSet<&str> = buildable_cast().collect();
-        let catalog = load_catalog();
+        let registered: std::collections::BTreeSet<&str> = shipped_buildable_cast().collect();
+        let catalog = shipped_catalog();
         let mut pirates = 0;
         for id in catalog.data().characters.keys().filter(|id| id.starts_with("npc_pirate_")) {
             pirates += 1;
@@ -690,7 +699,7 @@ mod tests {
         // Control: the catalog still owns gravity-freedom.
         assert!(
             matches!(
-                load_catalog().body_kind("stochastic_parrot"),
+                shipped_catalog().body_kind("stochastic_parrot"),
                 Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
             ),
             "the parrot stopped being Floating in the catalog, which is where its \
@@ -712,7 +721,7 @@ mod tests {
         let prepared = app
             .world()
             .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
-        let incomplete: Vec<&str> = crate::character_catalog::buildable_cast()
+        let incomplete: Vec<&str> = crate::character_catalog::shipped_buildable_cast()
             .filter(|id| {
                 !prepared
                     .get(id)
@@ -724,7 +733,7 @@ mod tests {
             "{incomplete:?} are built and state no gait, so their bodies come from \
              somewhere other than the character"
         );
-        let total = crate::character_catalog::buildable_cast().count();
+        let total = crate::character_catalog::shipped_buildable_cast().count();
         assert!(total >= 44, "only {total} buildable characters");
 
         // Control: a hub NPC whose row states no body reads as incomplete, so the
@@ -752,7 +761,7 @@ mod tests {
         let prepared = app
             .world()
             .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
-        let authored: Vec<&str> = crate::character_catalog::buildable_cast()
+        let authored: Vec<&str> = crate::character_catalog::shipped_buildable_cast()
             .filter(|id| prepared.get(id).is_some_and(|character| character.abilities.is_some()))
             .collect();
         assert!(
@@ -761,7 +770,7 @@ mod tests {
              is a pure GRANT everywhere and the mask half is untested by content: \
              {authored:?}"
         );
-        let total = crate::character_catalog::buildable_cast().count();
+        let total = crate::character_catalog::shipped_buildable_cast().count();
         assert!(
             authored.len() < total,
             "every character now states its own verbs ({total} of {total}) — the \
@@ -816,10 +825,10 @@ mod tests {
             // Any temporary exception must name why the preset cannot yet be removed.
         ];
 
-        let catalog = load_catalog();
+        let catalog = shipped_catalog();
         let mut offenders = Vec::new();
         let mut authoring = 0;
-        for id in crate::character_catalog::buildable_cast() {
+        for id in crate::character_catalog::shipped_buildable_cast() {
             let Some(entry) = catalog.get(id) else {
                 continue;
             };
@@ -910,7 +919,7 @@ mod tests {
         let locomotion = definition.locomotion.expect("its own body");
         assert_eq!(locomotion.run_speed, 170.0);
         assert!(matches!(locomotion.move_style, MoveStyleSpec::Walk));
-        let row = load_catalog();
+        let row = shipped_catalog();
         let row = row.get("goblin").expect("the goblin's row");
         assert_eq!(
             row.named_autonomous_profile.as_deref(),
@@ -927,7 +936,7 @@ mod tests {
         );
         assert_eq!(
             definition.autonomous_profile.as_ref(),
-            load_catalog().autonomous_profile("medium_striker"),
+            shipped_catalog().autonomous_profile("medium_striker"),
             "the goblin is prepared with the shared policy it names"
         );
     }
@@ -939,7 +948,7 @@ mod tests {
     fn the_shipped_catalog_authors_a_shared_striker_policy() {
         // The shipped bytes, parsed as the game parses them. Keys are namespaced at
         // assembly, which `load_catalog` does not do, so this reads the local name.
-        let catalog = load_catalog();
+        let catalog = shipped_catalog();
         let profile = catalog
             .autonomous_profile("medium_striker")
             .expect("the shipped catalog authors the shared striker policy");
@@ -955,7 +964,7 @@ mod tests {
     /// change, so no unused row is left behind.
     #[test]
     fn no_authored_brain_preset_is_reachable_by_nobody() {
-        let catalog = load_catalog();
+        let catalog = shipped_catalog();
         let data = catalog.data();
         let adopted: std::collections::BTreeSet<&str> = data
             .characters
@@ -984,7 +993,7 @@ mod tests {
     /// the compiler also checks.
     #[test]
     fn the_shipped_cast_is_what_the_compiler_prepared() {
-        let pack = crate::pack::prepared();
+        let pack = crate::pack::shipped();
         assert_eq!(pack.namespace.0, "ambition");
         assert!(
             pack.ids_of(&ambition_content_pack::SchemaId::new("character"))
@@ -994,8 +1003,8 @@ mod tests {
         );
 
         // The catalog the game uses is the lowered artifact, entry for entry.
-        let catalog = load_catalog();
-        for id in buildable_cast() {
+        let catalog = shipped_catalog();
+        for id in shipped_buildable_cast() {
             let prepared = pack.get(&ambition_content_pack::SchemaId::new("character"), id);
             assert!(
                 prepared.is_some(),
@@ -1013,7 +1022,7 @@ mod tests {
     /// validation while the game loads something else.
     #[test]
     fn the_registered_app_catalog_is_the_compilers_artifact() {
-        let pack = crate::pack::prepared();
+        let pack = crate::pack::shipped();
         let lowered =
             ambition_characters::actor::character_catalog::lowered_catalog(pack).expect("lowered");
 
@@ -1075,7 +1084,7 @@ mod tests {
         let prepared = app
             .world()
             .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
-        for id in buildable_cast() {
+        for id in shipped_buildable_cast() {
             let authored = prepared
                 .get(id)
                 .unwrap_or_else(|| panic!("`{id}` is buildable and not prepared"));
@@ -1107,8 +1116,8 @@ mod tests {
         // An unregistered body is never built, so nothing fails at runtime.
         const KNOWN_UNREGISTERED: &[(&str, &str)] = &[];
 
-        let catalog = load_catalog();
-        let registered: std::collections::BTreeSet<&str> = buildable_cast().collect();
+        let catalog = shipped_catalog();
+        let registered: std::collections::BTreeSet<&str> = shipped_buildable_cast().collect();
         let mut unregistered = Vec::new();
         for id in catalog.data().characters.keys() {
             let bare = ambition_platformer2d::character::CharacterDefinition::new(
@@ -1116,7 +1125,7 @@ mod tests {
                 "unused",
                 crate::AMBITION_CONTENT_PROVIDER,
             );
-            if ambition_characters::pack_facets::fold_character_facets(crate::pack::prepared(), bare)
+            if ambition_characters::pack_facets::fold_character_facets(crate::pack::shipped(), bare)
                 .moveset
                 .is_some()
                 && !registered.contains(id.as_str())
@@ -1131,7 +1140,7 @@ mod tests {
         assert!(
             unexpected.is_empty(),
             "the pack authors a move table for these characters and they are \
-             not in `buildable_cast()`, so their moves reach no body: {unexpected:?}. State the character's body in \
+             not in `shipped_buildable_cast()`, so their moves reach no body: {unexpected:?}. State the character's body in \
              its row, which makes it buildable, or, if it genuinely cannot be \
              registered yet, add it to `KNOWN_UNREGISTERED` with the reason and \
              what unblocks it."
@@ -1156,7 +1165,7 @@ mod tests {
                 "unused",
                 crate::AMBITION_CONTENT_PROVIDER,
             );
-            ambition_characters::pack_facets::fold_character_facets(crate::pack::prepared(), bare)
+            ambition_characters::pack_facets::fold_character_facets(crate::pack::shipped(), bare)
                 .moveset
                 .is_some()
         });
@@ -1172,9 +1181,9 @@ mod tests {
     /// decision anybody made.
     #[test]
     fn the_buildable_cast_names_each_row_once() {
-        let catalog = load_catalog();
+        let catalog = shipped_catalog();
         let mut seen = std::collections::BTreeSet::new();
-        for id in buildable_cast() {
+        for id in shipped_buildable_cast() {
             assert!(
                 catalog.display_name(id).is_some(),
                 "buildable `{id}` has no character_catalog.ron row",

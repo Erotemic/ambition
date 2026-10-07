@@ -9,7 +9,7 @@
 fn shipped_characters_state_their_flight_answer_explicitly() {
     // What the character authors, before preparation resolves silence: its
     // catalog row's gait.
-    let catalog = ambition_content::character_catalog::load_catalog();
+    let catalog = ambition_content::character_catalog::shipped_catalog();
     let authored = |id: &str| {
         catalog
             .locomotion(id)

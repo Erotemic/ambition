@@ -46,17 +46,19 @@ pub const SFX_REGISTRY_RON_STATIC: Option<&'static str> =
 #[cfg(not(feature = "static_content"))]
 pub const SFX_REGISTRY_RON_STATIC: Option<&'static str> = None;
 
-/// Register Ambition's immutable audio fragments in one Bevy `App`. This is the
-/// sole authority: hosts read the assembled registries from the
-/// `AudioCatalogRegistry` resource (no process-global install seam remains).
+/// Register Ambition's immutable audio fragments in one Bevy `App`, lowered
+/// from the App's selected pack. This is the sole authority: hosts read the
+/// assembled registries from the `AudioCatalogRegistry` resource (no
+/// process-global install seam remains).
 pub fn register(app: &mut bevy::prelude::App) {
     use ambition_audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
 
+    let pack = crate::pack::select(app.world_mut());
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(
             crate::AMBITION_CONTENT_PROVIDER,
-            Some(load_music_registry()),
-            Some(load_sfx_registry()),
+            Some(music_registry_of(&pack)),
+            Some(sfx_registry_of(&pack)),
         )
         .expect("Ambition audio catalogs should be valid"),
     );
@@ -68,16 +70,22 @@ pub fn register(app: &mut bevy::prelude::App) {
 /// which needs an App; and nothing anywhere asked whether the OGG each track points at exists. The
 /// `music_registry` schema declares every track's audio file as a requirement, so a strict asset
 /// check reports a track whose file was never rendered.
-pub fn load_music_registry() -> MusicRegistry {
-    ambition_audio::content_schema::lowered_music_registry(crate::pack::prepared())
+pub fn music_registry_of(pack: &ambition_content_pack::PreparedContentPack) -> MusicRegistry {
+    ambition_audio::content_schema::lowered_music_registry(pack)
         .expect("the music schema lowers its registry for every pack that compiles")
         .clone()
 }
 
+/// The music registry of Ambition's SHIPPED pack: for a validator or a test
+/// whose subject is the shipped product, not a composition.
+pub fn shipped_music_registry() -> MusicRegistry {
+    music_registry_of(crate::pack::shipped())
+}
+
 /// The hand-authored SFX synthesis registry. Same move as the music registry:
 /// the compiler's lowered artifact, not a re-parse.
-pub fn load_sfx_registry() -> SfxRegistry {
-    ambition_audio::content_schema::lowered_sfx_registry(crate::pack::prepared())
+pub fn sfx_registry_of(pack: &ambition_content_pack::PreparedContentPack) -> SfxRegistry {
+    ambition_audio::content_schema::lowered_sfx_registry(pack)
         .expect("the sfx schema lowers its registry for every pack that compiles")
         .clone()
 }
@@ -86,11 +94,11 @@ pub fn load_sfx_registry() -> SfxRegistry {
 mod tests {
     #[test]
     fn both_registries_parse() {
-        let music = super::load_music_registry();
+        let music = super::shipped_music_registry();
         assert!(
             !music.tracks.is_empty(),
             "music registry should have tracks"
         );
-        let _sfx = super::load_sfx_registry();
+        let _sfx = super::sfx_registry_of(crate::pack::shipped());
     }
 }

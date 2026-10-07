@@ -15,7 +15,7 @@ use std::collections::BTreeMap;
 use ambition_boss_encounter::pattern::validator::{
     fight_beats, validate_fight, FightFinding, Severity,
 };
-use ambition_content::bosses::{boss_profiles_ron, seed_library, validator_bands};
+use ambition_content::bosses::{boss_profiles_ron, seed_library_of, validator_bands_of};
 use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
 
 fn profiles() -> BTreeMap<String, BossBehaviorProfile> {
@@ -30,14 +30,14 @@ fn findings_for(id: &str, profile: &BossBehaviorProfile) -> Vec<FightFinding> {
         profile.attack_active,
         profile.attack_cooldown,
     );
-    validate_fight(id, &beats, seed_library(), validator_bands())
+    validate_fight(id, &beats, seed_library_of(ambition_content::pack::shipped()), validator_bands_of(ambition_content::pack::shipped()))
 }
 
 /// The bands parse, and they say what §3 pinned. A calibration file that drifted
 /// from its own doc is worse than none.
 #[test]
 fn the_shipped_bands_are_section_threes_calibration_v0() {
-    let b = validator_bands();
+    let b = validator_bands_of(ambition_content::pack::shipped());
     assert_eq!(b.tick_hz, 60.0);
     assert_eq!(b.telegraph_ticks.light, 12.0);
     assert_eq!(b.telegraph_ticks.medium, 20.0);

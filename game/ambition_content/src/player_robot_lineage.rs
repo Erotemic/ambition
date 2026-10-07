@@ -8,15 +8,17 @@
 //! before it. That is provenance only; nothing is inherited along the chain.
 //! What is here checks that the rows say what the lineage means.
 
-/// The robot's lineage, oldest first: the provider's default character and each
+/// The robot's lineage in the SHIPPED catalog, oldest first (test-only: it
+/// inspects the shipped product, and no composition asks it): the provider's default character and each
 /// row its `derived_from` names, followed back to the row that names none.
 ///
 /// # Panics
 ///
 /// When a row on the chain names a character the catalog does not have, or
 /// the chain comes back to itself.
+#[cfg(test)]
 pub fn lineage() -> Vec<String> {
-    let catalog = crate::character_catalog::load_catalog();
+    let catalog = crate::character_catalog::shipped_catalog();
     let mut chain = vec![crate::character_catalog::DEFAULT_CHARACTER.to_string()];
     while let Some(previous) = catalog
         .get(chain.last().expect("the chain starts non-empty"))
@@ -387,7 +389,7 @@ mod tests {
     /// asks, through the situation pool and then `fallback_dialogue`.
     #[test]
     fn every_incarnation_says_something() {
-        let catalog = crate::character_catalog::load_catalog();
+        let catalog = crate::character_catalog::shipped_catalog();
         for id in &lineage() {
             let id = id.as_str();
             for situation in [

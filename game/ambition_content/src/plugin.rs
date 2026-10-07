@@ -11,6 +11,14 @@ pub struct AmbitionContentPlugin;
 
 impl Plugin for AmbitionContentPlugin {
     fn build(&self, app: &mut App) {
+        // ⭐ THE APP'S PACK, SELECTED FIRST. Every family below derives from this
+        // one value, so no two families of this App can read different packs. An
+        // App that chose a pack before composition keeps it; otherwise the
+        // process's shipped pack is selected here (`pack::select`). Selection is
+        // not publication: a later reload revises the families that
+        // participate in it (`reload.rs`); this install happens once.
+        let pack = crate::pack::select(app.world_mut());
+
         // Game-authored dormancy policy per actor.
         super::dormancy::register(app);
 
@@ -39,9 +47,9 @@ impl Plugin for AmbitionContentPlugin {
         // App-local world manifest shared by runtime and presentation readers.
         app.insert_resource(super::worlds::world_manifest());
 
-        // Insert the validated item catalog lowered from the prepared pack. It is
+        // Insert the validated item catalog lowered from this App's pack. It is
         // App-local: a content reload publishes a new one into this App only.
-        let items = ambition_items::content_schema::lowered_item_catalog(crate::pack::prepared())
+        let items = ambition_items::content_schema::lowered_item_catalog(&pack)
             .expect("the items schema lowers its catalog for every pack that compiles")
             .clone();
 
@@ -57,24 +65,22 @@ impl Plugin for AmbitionContentPlugin {
         // Register Ambition's adaptive music catalog under its content provider.
         #[cfg(feature = "audio")]
         {
-            let cue_catalog = crate::music::ambition_music_cue_catalog();
+            let cue_catalog = crate::music::music_cue_catalog_from(&pack);
             use ambition_audio::music::AdaptiveMusicCatalogAppExt;
             app.register_adaptive_music_catalog(crate::AMBITION_CONTENT_PROVIDER, cue_catalog);
         }
 
-        // Install validated encounter waves lowered from the prepared pack.
+        // Install validated encounter waves lowered from this App's pack.
         ambition_encounter::install_encounter_waves(
             app,
-            ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
+            ambition_encounter::content_schema::lowered_encounter_waves(&pack)
                 .cloned()
                 .expect("the encounter schema lowers its book for every pack that compiles"),
         );
 
         // Game-authored CPU difficulty ladder consumed during fighter construction.
         app.insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
-            ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
-                crate::pack::prepared(),
-            )
+            ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(&pack)
             .cloned()
             .expect("the fighter-ladder schema lowers its rungs for every pack that compiles"),
         ));

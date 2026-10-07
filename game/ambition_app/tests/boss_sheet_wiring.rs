@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 /// Load the provider-owned world manifest and assemble the same immutable
 /// App-local boss contribution production uses.
 fn content_boss_catalog() -> ambition_platformer2d::boss_encounter::BossCatalog {
-    ambition_content::bosses::authored_boss_catalog()
+    ambition_content::bosses::shipped_boss_catalog()
 }
 
 #[test]
@@ -36,7 +36,7 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
         ambition_platformer2d::actors::assets::platformer_assets::desktop_dev_default_catalog(
             &character_catalog,
             &boss_catalog,
-            &ambition_content::audio_registries::load_music_registry(),
+            &ambition_content::audio_registries::shipped_music_registry(),
             &world_manifest,
         );
 
@@ -318,7 +318,7 @@ fn boss_sheets_are_decoded_by_the_first_boss_room_and_not_at_boot() {
         ambition_platformer2d::actors::assets::platformer_assets::desktop_dev_default_catalog(
             &character_catalog,
             &boss_catalog,
-            &ambition_content::audio_registries::load_music_registry(),
+            &ambition_content::audio_registries::shipped_music_registry(),
             &world_manifest,
         );
     let dedicated: BTreeSet<&str> = boss_catalog

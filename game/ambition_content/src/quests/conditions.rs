@@ -2,7 +2,7 @@
 //!
 //! The game publishes this condition, not an engine crate. Quests are Ambition
 //! content: the roster is the pack's `quest_book` (`assets/data/quests.ron`),
-//! read by `crate::quest::default_quest_specs`, and
+//! read by `crate::quest::shipped_quest_specs`, and
 //! [`super::AmbitionQuestContentPlugin`] registers the pump that advances them.
 //! A domain owns its own publication, so the condition catalog is extensible
 //! by a game. A composition without Ambition's quests never sees the
@@ -56,7 +56,7 @@ pub fn active_descriptor() -> ConditionDescriptor {
 /// with no diagnostic. That is the permissive default [`ParamKind::Name`]
 /// warns about: preparation holds no `World`, so the refusal happens here.
 ///
-/// The roster is the `QuestRegistry`, not `default_quest_specs()`: the
+/// The roster is the `QuestRegistry`, not `shipped_quest_specs()`: the
 /// registry is what the composition ran, including quests added through
 /// `ensure`. Validating against the static list would reject a registered
 /// quest.

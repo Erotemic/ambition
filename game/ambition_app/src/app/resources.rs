@@ -169,7 +169,10 @@ pub fn init_sandbox_resources(app: &mut App) {
                 sandbox_init_failed();
             }
         };
+    // The App's own pack: validation judges the content this App installed.
+    let selected_pack = ambition_content::pack::select(app.world_mut());
     let content_report = content_validation::validate_content_graph(
+        &selected_pack,
         &music_registry,
         &ldtk_project,
         &character_catalog,

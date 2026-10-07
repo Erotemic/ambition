@@ -2,7 +2,7 @@
 use super::*;
 
 fn catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
-    crate::character_catalog::load_catalog()
+    crate::character_catalog::shipped_catalog()
 }
 
 #[test]

@@ -28,25 +28,39 @@ pub const PIRATE_TREASURE_REWARD: &[(Item, u32)] = &[
     (Item::DataChip, 1),
 ];
 
-/// The quests Ambition ships: the `quest_book` its pack lowered from
+/// The quests `pack` ships: the `quest_book` it lowered from
 /// `assets/data/quests.ron`.
-pub fn default_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
-    ambition_persistence::quest::content_schema::lowered_quest_book(crate::pack::prepared())
+pub fn quest_specs_of(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Vec<ambition_persistence::quest::QuestSpec> {
+    ambition_persistence::quest::content_schema::lowered_quest_book(pack)
         .expect("Ambition's pack declares data/quests.ron as its quest_book")
         .clone()
 }
 
-/// Startup system: register Ambition's authored specs and rehydrate
-/// from save. Content-side because it names the shipped quests; the
-/// registry it fills is generic.
+/// The quests of Ambition's SHIPPED pack: for a validator or a test whose
+/// subject is the shipped product, not a composition.
+pub fn shipped_quest_specs() -> Vec<ambition_persistence::quest::QuestSpec> {
+    quest_specs_of(crate::pack::shipped())
+}
+
+/// Startup system: register this App's authored specs and rehydrate
+/// from save. Content-side because it names the quests; the registry it fills
+/// is generic.
+///
+/// The quest book is read from the App's [`crate::pack::SelectedContentPack`].
+/// A world without one is a composition that never installed the content
+/// plugin: the system panics, and does not answer from the boot pack. The quest
+/// book does not reload; it is read once, at startup.
 pub fn populate_quest_registry(
     mut registry: ResMut<QuestRegistry>,
+    selected: Res<crate::pack::SelectedContentPack>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
 ) {
     if registry.initialized {
         return;
     }
-    for spec in default_quest_specs() {
+    for spec in quest_specs_of(selected.get()) {
         registry.ensure(spec);
     }
     let save_data = save.data();
@@ -117,7 +131,7 @@ mod tests {
     use super::*;
 
     fn pirate_treasure_spec() -> ambition_persistence::quest::QuestSpec {
-        default_quest_specs()
+        shipped_quest_specs()
             .into_iter()
             .find(|s| s.id == "pirate_treasure")
             .expect("pirate_treasure spec")
@@ -194,7 +208,7 @@ mod tests {
     fn a_quest_authored_in_the_pack_is_the_quest_the_game_gets() {
         use ambition_persistence::quest::content_schema::lowered_quest_book;
         let shipped = crate::pack::compile_pack().expect("the shipped pack compiles");
-        assert_eq!(lowered_quest_book(&shipped).cloned(), Some(default_quest_specs()));
+        assert_eq!(lowered_quest_book(&shipped).cloned(), Some(shipped_quest_specs()));
 
         let added = r#"(id: "pack_probe", title: "Probe", summary: "S",
             steps: [(description: "D", condition: FlagSet("probe_flag"))])"#;
@@ -240,7 +254,7 @@ mod tests {
         // against the specs; this guards the shipped CONTENT DECISION — that
         // these seven are the ones with a HUD entry from the first frame — so a
         // quest silently losing its `.auto_start()` is still caught.
-        let specs = default_quest_specs();
+        let specs = shipped_quest_specs();
         let mut marked: Vec<&str> = specs
             .iter()
             .filter(|s| s.auto_start)

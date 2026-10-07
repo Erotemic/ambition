@@ -966,11 +966,11 @@ mod tests {
             assert_eq!(named, &expected.iter().copied().collect::<BTreeSet<_>>(), "{body}");
         }
 
-        let catalog = crate::character_catalog::load_catalog();
+        let catalog = crate::character_catalog::shipped_catalog();
         let sheet_of_character = |id: &str| {
             boss_ron_target(&catalog.get(id).expect(id).spritesheet).expect(id).to_string()
         };
-        let rider = crate::bosses::authored_boss_catalog()
+        let rider = crate::bosses::shipped_boss_catalog()
             .sprite_filenames()
             .find(|(sheet, _)| *sheet == crate::bosses::gnu_ton::conductor::GNU_TON_ID)
             .map(|(_, file)| file.to_owned())

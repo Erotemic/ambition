@@ -342,7 +342,7 @@ mod tests {
         // The catalog the shipped pack plays, not the built-in table: authored
         // dialogue runs against that one.
         let catalog = ambition_items::content_schema::lowered_item_catalog(
-            ambition_content::pack::prepared(),
+            ambition_content::pack::shipped(),
         )
         .expect("the shipped pack carries an item catalog");
 

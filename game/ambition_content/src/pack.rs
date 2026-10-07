@@ -432,23 +432,32 @@ pub fn export_sources_to(root: &std::path::Path) -> std::io::Result<usize> {
     Ok(written)
 }
 
-/// The prepared pack, compiled once per process.
+/// Ambition's canonical SHIPPED pack, compiled once per process.
 ///
-/// Every family's install reads this one value. Compiling per family would
-/// multiply the cost and let two families disagree about their pack.
+/// ⛔ BOOT-SCOPED INSPECTION ONLY. The subject of a caller is "the pack this
+/// product ships": a source-content test, an offline validator, a tool. It is
+/// NOT "the pack of this App". An App's content is whatever
+/// [`SelectedContentPack`] holds: read it with [`selected`] (or take
+/// `Res<SelectedContentPack>` in a system), and install it with [`select`]
+/// during composition. A runtime reader that calls this function gives every
+/// App in the process the first App's content.
+///
+/// The name says this on purpose. `crate::pack_selection_tests` scans the
+/// production source and refuses a call outside its short, reasoned list.
 ///
 /// Fails loudly: a silent partial start (content that lost a character or an
 /// item) would be worse.
-pub fn prepared() -> &'static PreparedContentPack {
+pub fn shipped() -> &'static PreparedContentPack {
     boot_pack()
 }
 
 /// The process's boot pack, behind an `Arc` so an App can hold it without a
 /// second compile.
 ///
-/// Private. [`prepared`] is the read for a family not yet migrated to
-/// App-scoped selection; [`selected`] is the read for one that is. Handing out
-/// the `Arc` would make "which pack is this App's" answerable from anywhere.
+/// Private. [`shipped`] is the read for a caller whose subject is the shipped
+/// product; [`select`] is the only road by which an App gets this value, and
+/// only when nothing chose a pack for it. Handing out the `Arc` would make
+/// "which pack is this App's" answerable from anywhere.
 fn boot_pack() -> &'static std::sync::Arc<PreparedContentPack> {
     static PREPARED: std::sync::OnceLock<std::sync::Arc<PreparedContentPack>> =
         std::sync::OnceLock::new();
@@ -484,14 +493,61 @@ pub(crate) fn identity_line(pack: &PreparedContentPack) -> String {
     format!("{} {} {}", pack.id, pack.version, pack.fingerprint)
 }
 
-/// Give this App a pack of its own, replacing any previous selection.
+/// Why [`select_pack`] refused.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SelectionRefused {
+    /// The pack this App already installed content from.
+    pub in_use: String,
+    /// The pack the caller asked for.
+    pub requested: String,
+}
+
+impl std::fmt::Display for SelectionRefused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "this App already installed content from pack [{}]; selecting [{}] now would \
+             name one generation while the installed families serve another. Select before \
+             composing, or reload through `crate::reload`",
+            self.in_use, self.requested
+        )
+    }
+}
+
+/// Marks a selection as consumed: some App-owned content reader ([`select`])
+/// derived a family from it. Private, so only this module can seal.
+#[derive(bevy::prelude::Resource)]
+struct SelectionSealed;
+
+/// Give this App a pack of its own, BEFORE any content is installed from it.
 ///
-/// Selection is not publication. Installing a pack here changes what later
-/// reads answer; it does not revise a cast already published. That is
-/// [`crate::reload`]'s job, so a reload can refuse without having already
-/// replaced the App's content.
-pub fn select_pack(app: &mut bevy::prelude::App, pack: std::sync::Arc<PreparedContentPack>) {
-    install_selection(app.world_mut(), pack);
+/// Selection is an input to composition, not a way to revise a composition.
+/// The first [`select`] (every plugin `build` and `register` calls it) seals
+/// the selection. After that, choosing a DIFFERENT pack is refused and changes
+/// nothing: it would leave `SelectedContentPack` and the published identity
+/// naming N+1 while the installed families serve N, and a lazy reader (the
+/// quest book) would then read N+1. Choosing the same pack again is harmless.
+///
+/// Before the seal a selection may be replaced freely. Revising a sealed App
+/// is [`crate::reload`]'s job, at its activation boundary, through the private
+/// `install_selection`.
+pub fn select_pack(
+    app: &mut bevy::prelude::App,
+    pack: std::sync::Arc<PreparedContentPack>,
+) -> Result<(), SelectionRefused> {
+    let world = app.world_mut();
+    if world.contains_resource::<SelectionSealed>() {
+        let in_use = world.resource::<SelectedContentPack>();
+        if !std::sync::Arc::ptr_eq(&in_use.0, &pack) && in_use.0.fingerprint != pack.fingerprint {
+            return Err(SelectionRefused {
+                in_use: identity_line(&in_use.0),
+                requested: identity_line(&pack),
+            });
+        }
+        return Ok(());
+    }
+    install_selection(world, pack);
+    Ok(())
 }
 
 /// Install a selection and publish its identity to the engine.
@@ -517,14 +573,24 @@ pub(crate) fn install_selection(
 
 /// This App's pack, selecting the process's boot pack if nothing chose one.
 ///
+/// Every App-owned install (a plugin's `build`, a `register` function) calls
+/// this once and derives its family from the result. The first caller in an
+/// App fixes the selection for the others, so no two families of one App can
+/// read different packs.
+///
 /// The fallback is an insert, not a read-through. A read-through would answer
 /// from the boot pack while the App believed it had a selection, so later
 /// `selected` calls could disagree with the first.
-pub fn select(world: &mut bevy::ecs::world::World) -> &PreparedContentPack {
+///
+/// Selection is not publication, and a consumed selection is sealed: a later
+/// [`select_pack`] of another pack is refused.
+pub fn select(world: &mut bevy::ecs::world::World) -> std::sync::Arc<PreparedContentPack> {
     if !world.contains_resource::<SelectedContentPack>() {
         install_selection(world, std::sync::Arc::clone(boot_pack()));
     }
-    world.resource::<SelectedContentPack>().get()
+    // Consuming the selection seals it: see [`select_pack`].
+    world.insert_resource(SelectionSealed);
+    std::sync::Arc::clone(&world.resource::<SelectedContentPack>().0)
 }
 
 /// This App's pack, or `None` when nothing has selected one.

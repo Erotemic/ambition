@@ -66,7 +66,7 @@ fn the_whole_shipped_ladder_plays_without_l3() {
 #[test]
 fn the_prepared_pack_lowers_the_shipped_ladder() {
     let lowered = ambition_combat::brain::fighter::content_schema::lowered_fighter_brain_ladder(
-        ambition_content::pack::prepared(),
+        ambition_content::pack::shipped(),
     )
     .expect(
         "the prepared pack lowers no fighter ladder — the game is back on the \

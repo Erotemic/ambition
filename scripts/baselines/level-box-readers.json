@@ -9,7 +9,8 @@
     "a scratch body with no record": "`detect_oob_scratch` takes a `BodyClusterScratch`, which has no record of a step, so the level box is all it can ask. It has no production caller (the tests of the trace call it); the live recorder asks `detect_oob_of`",
     "a game with no turned gravity": "Mary-O, Smash and Sanic have no room whose gravity is turned; convert when one does",
     "the camera's framing bounds": "a bound of what the camera frames, not a contact",
-    "inside the kernel": "the kernel turns the half itself on this line, or the crawler arm states its own DOWN"
+    "inside the kernel": "the kernel turns the half itself on this line, or the crawler arm states its own DOWN",
+    "a lift's rider test at level gravity": "`advance_moving_platforms` asks `is_supporting_body` with the feet direction `Vec2::Y`, so it asks for the box a body has when its DOWN is the level's. Not measured against a room that turns gravity under a lift; when one is authored this read takes the rider's own box and its own DOWN, as the other platform readers do."
   },
   "reads": [
     {
@@ -206,6 +207,11 @@
       "file": "game/ambition_demo_smash/src/spring.rs",
       "code": "let reach = spring.half_extents + kin.size * 0.5;",
       "class": "a game with no turned gravity"
+    },
+    {
+      "file": "crates/ambition_platformer2d_actor_monolith/src/avatar/body_integration.rs",
+      "code": "&& platform.is_supporting_body(kin.aabb(), ground.on_ground, ae::Vec2::Y)",
+      "class": "a lift's rider test at level gravity"
     }
   ]
 }

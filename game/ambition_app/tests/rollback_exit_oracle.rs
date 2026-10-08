@@ -618,10 +618,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "an encounter id STRING; already a stable identity",
         ),
         (
-            "ambition_encounter::music::EncounterMusicRequest",
-            "authored music request; immutable at runtime",
-        ),
-        (
             "ambition_encounter::objective::EncounterObjective",
             "authored objective; immutable at runtime",
         ),

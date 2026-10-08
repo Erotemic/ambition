@@ -85,8 +85,8 @@ A set piece is authored data:
   `AllMembersDead`, `Timer(s)`, `PlayerEntered`, `Gate(String)`.
 - **Effects:** `CommandMoveTo`, `DropHazard`, `ForceKill`, `SetLockWalls`,
   `SetMusic`, `GrantReward`, `ReleasePayload`. `SetMusic` has no shipped
-  author and may be removed (Q72); encounter music becomes a scoped candidate
-  (queue row MUSIC-CANDIDATES).
+  author; it claims a candidate whose source is its own script (receipt
+  MUSIC-CANDIDATES).
 
 They resolve to inspectable components: `CommandedMove`, `FallingHazard`,
 `ReleaseOnDeath` + `PayloadReleased`. Add a beat or effect to this vocabulary,

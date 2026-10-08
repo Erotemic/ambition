@@ -1050,3 +1050,41 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
         );
     }
 }
+
+/// ⭐ A BOSS'S MUSIC CLAIM IS THE SAME AFTER A REWIND (MUSIC-CANDIDATES). The
+/// mockingbird wakes inside a GGRS sync-test session, so its claim begins on a
+/// tick that the session rewinds and resimulates. The music request is in the
+/// peer checksum by its value (schema 331), so a resimulated tick that dated
+/// the claim differently would be a checksum mismatch here.
+///
+/// The premise is asserted with the result: the claim exists, so the rewind
+/// covered a claim and not an empty request.
+#[test]
+fn a_boss_music_claim_is_the_same_after_a_rewind() {
+    let options = ambition_app::Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_sync_test_rollback_settings(4, 10);
+    let mut sim = Platformer2dSimHarness::new_with_options(options)
+        .expect("the sandbox builds under a GGRS sync-test session");
+    // The session rewinds only after its first few ticks, so the boss wakes
+    // (and claims) after a warm-up: a claim on tick 3 is never resimulated.
+    let mut first_error = None;
+    for tick in 0..20 {
+        if let Err(error) = sim.try_step(AgentAction::default()) {
+            first_error = Some(format!("warm-up tick {tick}: {error}"));
+            break;
+        }
+    }
+    spawn_mockingbird(&mut sim, "rewound_music_boss");
+    for tick in 0..40 {
+        if let Err(error) = sim.try_step(AgentAction::default()) {
+            first_error = Some(format!("tick {tick}: {error}"));
+            break;
+        }
+    }
+    assert_eq!(
+        (music_track(&sim).as_deref(), first_error),
+        (Some(MOCKINGBIRD_TRACK), None),
+        "(the boss's music claim, the first sync-test error) after 20 + 40 rewound ticks"
+    );
+}

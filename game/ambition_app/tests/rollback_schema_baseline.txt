@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v330
+ggrs-rollback-schema-v331
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -468,7 +468,7 @@ resource.sudden_death_entered	resource-canonical-custom-checksum	SuddenDeathEnte
 resource.switch_activation_queue	resource-clone-custom-checksum	SwitchActivationQueue	bevy_ggrs clone snapshot + queued switch activations, in order, by id/action/target
 resource.versus_match	resource-clone-custom-checksum	VersusMatch	bevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins
 resource.world_time	resource-canonical	WorldTime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-root.encounter_music_request	component-clone	EncounterMusicRequest	bevy_ggrs clone snapshot; not in the session checksum
+root.encounter_music_request	component-clone-custom-checksum	EncounterMusicRequest	bevy_ggrs clone snapshot + each room's music candidates (source, track, tick began) and base track, in key order
 root.geometry	component-clone	RoomGeometry	bevy_ggrs clone snapshot; not in the session checksum
 root.live_room_definition	component-canonical	LiveRoomDefinition	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 root.live_room_instance	component-canonical	LiveRoomInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

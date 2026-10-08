@@ -639,83 +639,6 @@ identity section.
 **Acceptance:** a baked sheet whose body box differs gives a different content
 fingerprint; a sheet whose packing alone differs gives the same one.
 
-### MUSIC-CANDIDATES — music is chosen from scoped, prioritized candidates
-
-**Review 2026-10-05 (carried forward; the in-room half is built, see below):**
-same-room music was last writer wins (one `priority_track`, one
-`priority_owner`, and `claim_priority` let a later writer win). Keep "star
-power ends when victory starts". The service
-holds `(room or scope, stable source) -> (cue, priority)` candidates with a
-deterministic order and tie-break, and a source releases only its own claim.
-Do not add a tier, a slot or an ordering edge for the next simultaneous
-customer.
-
-**Owner:** `ambition_encounter::music` (`EncounterMusicRequest`) and the music
-intent in `ambition_platformer2d_actor_monolith/src/music/intent.rs`.
-
-**Ruling:** Q72 and Q150 (2026-10-03). Each source contributes a candidate
-(scope, track/cue, priority) with ambient < encounter < boss. The highest
-authored priority wins; the primary participant breaks ties; the choice is
-deterministic. `EncounterEffect::SetMusic` may be removed; an encounter's
-ability to influence music stays.
-
-**Current state:** the arbitration across participants is built. An
-encounter claims one of two tiers (`priority_track`, `base_track`) of its
-live room, `EncounterMusicRequest::priority_of` ranks a room 2/1/0
-(boss/encounter/ambient), and `the_room_the_music_plays_for` picks the
-participants' room with the highest rank, the primary seat's on a tie, then
-the lowest room. Witnesses:
-`a_participants_boss_outranks_the_primary_seats_room_music` and
-`the_heard_room_is_the_highest_priority_then_the_primary_then_the_lowest`.
-No shipped encounter authors `SetMusic`.
-
-- **Built 2026-10-05: each source owns its candidate in a room.**
-  `EncounterMusicRequest` keeps, for each room, one priority candidate for
-  each source (the owner name) with its track and the simulation tick on
-  which the source began to claim. A claim by another source does not
-  replace it, and a release takes out only that source's candidate. The
-  candidate that plays is the one that began latest, and of candidates that
-  began on one tick, the source whose name sorts first: both are values, so
-  the order in which the systems run does not choose. A source that claims
-  on each tick keeps the tick it began on. `claim_of` reads one source's
-  own candidate. Each claimer passes `SimTick`
-  (the boss encounter, the encounter script, the cut-rope intro, and
-  Mary-O's death, victory and star). The component is a clone snapshot,
-  so the candidates rewind with it, and the schema is unchanged.
-  - Measured before: two sources claim one room and the later releases:
-    the room played nothing (the later claim had replaced the earlier).
-    Two sources that claim on each tick: the source that wrote last played
-    (`death` before `star` gave `star`, and the other order gave `death`).
-  - Witnesses (`ambition_encounter` `music::tests`):
-    `a_release_leaves_the_claim_of_another_source_in_the_room` and
-    `the_claim_that_plays_does_not_depend_on_the_order_of_the_claims`.
-    Poisons: a release clears the room (red); a claim moves its tick on
-    each claim (red, because the names then choose the other source).
-  - Still open: the priority is the tier (claims 2, base 1), not authored
-    per candidate; `EncounterEffect::SetMusic` has no shipped customer. No
-    composed witness drives two production sources into one room.
-- **Built 2026-10-08: a source is a kind and an instance.**
-  `ambition_encounter::MusicSource` names a candidate's source. A kind with
-  one source converts from its `&'static str`; each encounter script is its
-  own source, keyed by its encounter's `SimId`
-  (`script_music_source`), which survives a rewind. A script that ends
-  releases only its own claim.
-  Witness: `ambition_boss_encounter`
-  `two_scripts_in_one_room_are_two_music_candidates`.
-
-**What is left:**
-
-- The priority is fixed by the tier, not authored per candidate. Make it an
-  authored property of the candidate when content needs a value between the
-  tiers.
-- Remove `EncounterEffect::SetMusic`, or give it a customer.
-
-**Acceptance:** Bob's boss candidate in his room outranks Alice's ambient room
-music; two candidates of equal priority resolve to the primary participant's;
-in one room, two sources claim and the later one releases, and the earlier
-one's track plays with no new claim; the result is the same on every peer and
-after a rewind.
-
 ### MOUNT-RIDER-CUSTOMER — a shipped rider controls a shipped mount
 
 **Owner:** `features/brain_command.rs` (`MountedBrainCache`, the source-only
@@ -1166,6 +1089,27 @@ production invariant.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### MUSIC-CANDIDATES — music is chosen from scoped, prioritized candidates — ✅ DONE 2026-10-08
+
+Ruling Q72, Q150. Owner: `ambition_encounter::music` (`EncounterMusicRequest`,
+`MusicSource`) and `ambition_platformer2d_actor_monolith/src/music/intent.rs`.
+Each source owns one candidate per room; a source is a kind and an instance
+(each encounter script is its own source, keyed by its `SimId`); the latest
+claim plays, ties by source order; the request is in the peer checksum by
+value (schema 331). Witnesses:
+`a_participants_boss_outranks_the_primary_seats_room_music`,
+`the_heard_room_is_the_highest_priority_then_the_primary_then_the_lowest`,
+`a_release_leaves_the_claim_of_another_source_in_the_room`,
+`the_claim_that_plays_does_not_depend_on_the_order_of_the_claims`,
+`two_scripts_in_one_room_are_two_music_candidates`,
+`the_checksum_sees_each_part_of_a_claim_and_not_its_order` and
+`a_boss_music_claim_is_the_same_after_a_rewind` (poison: a resimulated tick
+that writes another track; a checksum mismatch with the value probe, none
+with the old presence probe). Deferred to its customer: a priority authored
+per candidate, when content needs a value between the tiers.
+`EncounterEffect::SetMusic` is kept with no shipped customer (Q74: usage is
+not worth).
 
 ### LEDGE-OCCUPANCY — two fighters can hold one ledge — ✅ DONE 2026-10-08
 

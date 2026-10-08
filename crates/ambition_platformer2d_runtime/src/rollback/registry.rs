@@ -1100,7 +1100,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 329 -> 330: `actor.body_combat` (`BodyCombat`) encodes
 /// `ledge_trump_lock_timer`, the lock a ledge trump owes its loser under a
 /// declared `CombatRules::ledge_trump_lockout`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 330;
+/// ⛔⛤ 330 -> 331: `root.encounter_music_request` (`EncounterMusicRequest`) is
+/// in the peer checksum by its own value (each room's candidates and base
+/// track). Every music claimer writes it during play, so its presence probe
+/// could not see two peers that disagree about the music a room asks for.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 331;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

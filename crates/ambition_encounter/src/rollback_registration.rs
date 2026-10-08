@@ -14,9 +14,11 @@ where
     R: RollbackRegistrar,
 {
     registrar.require_rollback::<crate::EncounterLifecycle>(OWNER, "entity:encounter_lifecycle");
-    registrar.rollback_component_clone::<crate::EncounterMusicRequest>(
+    registrar.rollback_component_clone_checksum::<crate::EncounterMusicRequest>(
         OWNER,
         "root.encounter_music_request",
+        "each room's music candidates (source, track, tick began) and base track, in key order",
+        crate::EncounterMusicRequest::checksum,
     );
     registrar.rollback_component_clone::<crate::Encounter>(OWNER, "encounter.identity");
     registrar.rollback_component_clone::<crate::EncounterObjective>(OWNER, "encounter.objective");

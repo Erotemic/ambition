@@ -258,6 +258,38 @@ impl EncounterMusicRequest {
         self.rooms.get(&room)?.base_track.as_deref()
     }
 
+    /// Entity-free value projection, for the peer checksum: each room with a
+    /// claim, its priority candidates (source, track, the tick each began)
+    /// and its base track. All are in key order, so two peers with one state
+    /// give one value whatever order their systems claimed in.
+    ///
+    /// Every claimer writes this component during play, so a presence probe
+    /// (one count, whatever the claims are) could not see two peers that
+    /// disagree about which music a room asks for.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_opt_str, put_str, put_u32, put_u64, put_u8};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.rooms.len() as u64);
+        for (room, tiers) in &self.rooms {
+            match room {
+                Some(room) => {
+                    put_u8(&mut bytes, 1);
+                    put_u32(&mut bytes, room.ordinal());
+                }
+                None => put_u8(&mut bytes, 0),
+            }
+            put_u64(&mut bytes, tiers.claims.len() as u64);
+            for (source, claim) in &tiers.claims {
+                put_str(&mut bytes, source.kind);
+                put_str(&mut bytes, &source.instance);
+                put_str(&mut bytes, &claim.track);
+                put_u64(&mut bytes, claim.began);
+            }
+            put_opt_str(&mut bytes, tiers.base_track.as_deref());
+        }
+        checksum_bytes(&bytes)
+    }
+
     /// The authored priority of what `room` asks to play (Q72): 2 for a
     /// focused fight's claim (a boss), 1 for an encounter's base track, 0 for
     /// no claim, where the room's own ambient music plays.
@@ -273,6 +305,47 @@ impl EncounterMusicRequest {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The peer checksum sees each part of a claim, and not the order of the
+    /// claims. The control: the same claims made in the other order.
+    #[test]
+    fn the_checksum_sees_each_part_of_a_claim_and_not_its_order() {
+        let room = Some(LiveRoomInstance::ACTIVATION);
+        let state = |edit: &dyn Fn(&mut EncounterMusicRequest)| {
+            let mut music = EncounterMusicRequest::default();
+            music.claim_priority(room, "boss", "boss_theme", 3);
+            music.claim_priority(room, MusicSource::instance("script", "a"), "a_theme", 4);
+            music.set_base_tracks([(room, "arena".to_string())]);
+            edit(&mut music);
+            music.checksum()
+        };
+        let base = state(&|_| {});
+        let reordered = {
+            let mut music = EncounterMusicRequest::default();
+            music.set_base_tracks([(room, "arena".to_string())]);
+            music.claim_priority(room, MusicSource::instance("script", "a"), "a_theme", 4);
+            music.claim_priority(room, "boss", "boss_theme", 3);
+            music.checksum()
+        };
+        let differs = [
+            state(&|music| music.claim_priority(room, "boss", "other_theme", 9)),
+            state(&|music| music.release_priority(room, "boss")),
+            state(&|music| music.claim_priority(room, MusicSource::instance("script", "b"), "a_theme", 4)),
+            state(&|music| music.set_base_tracks([(room, "other".to_string())])),
+            state(&|music| {
+                music.release_priority(room, "boss");
+                music.claim_priority(room, "boss", "boss_theme", 5);
+            }),
+            state(&|music| music.claim_priority(room.map(|room| room.next()), "boss", "boss_theme", 3)),
+        ]
+        .map(|checksum| checksum != base);
+        assert_eq!(
+            (reordered == base, differs),
+            (true, [true; 6]),
+            "(the reordered claims give the same checksum, each edit gives another: \
+             track, release, another instance, base track, began tick, another room)"
+        );
+    }
 
     /// A claim is kept in its own room. Two rooms; the boss owner claims the
     /// second. The first room has no fight track, and a release by another

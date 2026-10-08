@@ -704,10 +704,10 @@ fn a_press_during_the_recharge_is_refused_with_its_progress() {
         app.world_mut()
             .entity_mut(actor)
             .insert(ambition_characters::actor::BodyAnimFacts::default());
-        app.world_mut()
+        // The floor a one-second shot armed, with `remaining` of it left.
+        *app.world_mut()
             .get_mut::<ambition_combat::RangedRefire>(actor)
-            .unwrap()
-            .remaining = remaining;
+            .unwrap() = ambition_combat::RangedRefire { remaining, armed: 1.0 };
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {

@@ -99,9 +99,12 @@ disabled, a recharge bar, a cue); the engine does not hard-code one.
 
 **Built 2026-10-08, the action road.** `ambition_combat::WeaponReadiness`
 is the read model: `Ready`, `Recharging { progress }` or `NoRoom`, from the
-fire-rate floor (`RangedRefire`), the authored action (`ActionSet.ranged`:
-`refire_s` gives the progress, `max_live` the room) and the body's shots in
-flight. `progress` is `None` for a body with a floor and no authored action.
+fire-rate floor (`RangedRefire`: `remaining`, and `armed`, the length it
+was last armed with, which gives the progress), the authored action's
+live-shot limit (`ActionSet.ranged.max_live`) and the body's shots in flight.
+The floor keeps its own length because a held item arms it with the item's
+spec, not the body's action (schema 323). `progress` is `None` only for a
+floor with no armed length.
 `derive_weapon_readiness` (`ambition_sim_view::control_prompt`) writes it each
 tick onto `BodyWeaponReadiness`, which `RangedRefire` requires. It is declared
 derived (`derived.weapon_readiness`, schema 322), not snapshotted. The prompt's `ready` bit reads it, so a full weapon dims the
@@ -110,7 +113,9 @@ writes `RangedFireRefused { actor, readiness }` and starts no shoot pose,
 sound or shot. Held-item discharge fires through the same attempt with the
 item's own spec, so its refusal is published too. Witnesses: `a_press_during_the_recharge_is_refused_with_its_progress`
 (the control is the same press with the floor spent) and
-`readiness_says_what_the_floor_and_the_limit_decide`.
+`readiness_says_what_the_floor_and_the_limit_decide`, and
+`a_floor_armed_by_another_spec_reports_that_specs_progress` for a held
+item's shot (the control is the body's own shot).
 
 **Open: the fireball road.** The player's fireball fires through
 `PlayerProjectileState.spawner` (`ProjectileSpawner`: its own cooldown and a
@@ -119,11 +124,6 @@ press there returns `false`: an empty meter leaves only a trace event
 (`BlockedByResource`), and a cooldown leaves nothing. It needs the same read
 model (with a `no ammunition` state for the meter) before its prompt can say
 why.
-
-**Open: a held weapon's progress.** `derive_weapon_readiness` reads the body's
-authored action (`ActionSet.ranged`). A held item fires with its own spec, so
-the body's `Recharging` progress uses the wrong duration, or none, while the
-refusal (which reads the message's spec) is right.
 
 ## Menu activation policy
 

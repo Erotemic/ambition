@@ -947,10 +947,10 @@ decision layer; each poison listed in the plan turns one of them red.
 
 **Current state (2026-10-08):** the action road is built: `WeaponReadiness`
 on every body with a fire-rate floor, `RangedFireRefused` at the refusal, and
-the prompt reads the model. Two remainders: the player's fireball
-(`ProjectileSpawner`) still refuses a press with no fact and has no readiness;
-and a held weapon's progress reads the body's authored action, not the item's
-spec.
+the prompt reads the model. A held weapon's progress reads the length the
+floor was armed with (`RangedRefire::armed`), not the body's action. One
+remainder: the player's fireball (`ProjectileSpawner`) still refuses a press
+with no fact and has no readiness.
 
 **Acceptance:** a fireball press during its cooldown or with an empty meter
 makes no shot and publishes the readiness it refused on (`recharging` with

@@ -503,8 +503,9 @@ pub fn rebuild_control_prompt(
 }
 
 /// Derive each armed body's [`ambition_combat::BodyWeaponReadiness`] for this
-/// tick (`Q33`): one read model per body, from the floor, the authored action
-/// and the shots in flight. Every reader of "can this weapon fire" reads this,
+/// tick (`Q33`): one read model per body, from the floor (which also keeps
+/// the length it was armed with), the authored action's live-shot limit and
+/// the shots in flight. Every reader of "can this weapon fire" reads this,
 /// so the prompt, a meter and a cue cannot disagree.
 pub fn derive_weapon_readiness(
     mut bodies: Query<(
@@ -679,7 +680,7 @@ mod tests {
     /// ⭐ Q33: EACH ARMED BODY CARRIES ITS WEAPON'S READINESS. The read model
     /// says what the floor and the shot limit decide: recharging with its
     /// progress, then no room while its one shot flies, then ready. The
-    /// authored action is what gives the progress a duration.
+    /// floor's armed length gives the progress a duration.
     #[test]
     fn an_armed_body_carries_its_weapons_readiness_with_progress() {
         use ambition_combat::{BodyWeaponReadiness, RangedRefire, WeaponReadiness};
@@ -694,7 +695,7 @@ mod tests {
         );
         let body = app
             .world_mut()
-            .spawn((actions, RangedRefire { remaining: 0.25 }))
+            .spawn((actions, RangedRefire { remaining: 0.25, armed: 1.0 }))
             .id();
         let readiness = |app: &App| app.world().get::<BodyWeaponReadiness>(body).map(|view| view.0);
 

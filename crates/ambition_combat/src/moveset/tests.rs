@@ -2557,6 +2557,7 @@ fn a_recharging_weapon_refuses_the_firing_move_and_acceptance_spends_it() {
                 },
                 crate::components::RangedRefire {
                     remaining: cooldown,
+                    armed: cooldown,
                 },
                 ae::BodyKinematics {
                     pos: ae::Vec2::ZERO,
@@ -2654,7 +2655,7 @@ fn a_weapon_at_its_live_shot_limit_refuses_the_firing_move() {
                     ranged: Some(spec),
                     ..Default::default()
                 },
-                crate::components::RangedRefire { remaining: 0.0 },
+                crate::components::RangedRefire::default(),
                 ae::BodyKinematics {
                     pos: ae::Vec2::ZERO,
                     vel: ae::Vec2::ZERO,

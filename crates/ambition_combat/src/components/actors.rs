@@ -534,6 +534,13 @@ impl BodyMelee {
 pub struct RangedRefire {
     /// Seconds until the next shot may leave the weapon.
     pub remaining: f32,
+    /// The length of the floor when it was last armed (s).
+    ///
+    /// ⭐ THE FLOOR KEEPS ITS OWN LENGTH because more than one spec can arm
+    /// it: a held item fires with the item's spec, not the body's authored
+    /// action. A progress read from the body's action used the wrong
+    /// duration for that shot.
+    pub armed: f32,
 }
 
 impl RangedRefire {
@@ -544,7 +551,11 @@ impl RangedRefire {
 
     /// A committed shot spends the weapon for `refire_seconds`.
     pub fn arm(&mut self, refire_seconds: f32) {
-        self.remaining = self.remaining.max(refire_seconds.max(0.0));
+        let refire_seconds = refire_seconds.max(0.0);
+        if refire_seconds > self.remaining {
+            self.remaining = refire_seconds;
+            self.armed = refire_seconds;
+        }
     }
 
     pub fn tick(&mut self, dt: f32) {
@@ -559,6 +570,7 @@ impl RangedRefire {
             return IntentOutcome::Blocked(BlockReason::Cooldown);
         }
         self.remaining = refire_seconds.max(0.0);
+        self.armed = self.remaining;
         IntentOutcome::Accepted
     }
 }
@@ -575,8 +587,9 @@ pub enum WeaponReadiness {
     /// A press fires a shot.
     Ready,
     /// The fire-rate floor is not spent. `progress` goes from 0 (the shot
-    /// left) to 1 (ready). It is `None` when the body authors no ranged
-    /// action, because then no duration says how far the floor has come.
+    /// left) to 1 (ready). It is `None` when the floor has no armed length
+    /// (`RangedRefire::armed`), because then no duration says how far the
+    /// floor has come.
     Recharging { progress: Option<f32> },
     /// The weapon has as many shots in flight as it may have.
     NoRoom,
@@ -586,16 +599,17 @@ impl WeaponReadiness {
     /// The readiness of the weapon whose floor is `refire` and whose
     /// authored action is `spec`, with `live` of its shots in flight.
     ///
-    /// The floor is asked first, because it is the one with a progress.
+    /// The floor is asked first, because it is the one with a progress. The
+    /// progress is measured against the length the floor was armed with,
+    /// not against `spec`: the shot that armed it can have had another spec.
     pub fn of(
         refire: &RangedRefire,
         spec: Option<&ambition_characters::brain::RangedActionSpec>,
         live: usize,
     ) -> Self {
         if !refire.ready() {
-            let progress = spec.filter(|spec| spec.refire_s > 0.0).map(|spec| {
-                (1.0 - refire.remaining / spec.refire_s).clamp(0.0, 1.0)
-            });
+            let progress = (refire.armed > 0.0)
+                .then(|| (1.0 - refire.remaining / refire.armed).clamp(0.0, 1.0));
             return Self::Recharging { progress };
         }
         if spec.is_some_and(|spec| !spec.has_room_for_a_shot(live)) {
@@ -610,7 +624,8 @@ impl WeaponReadiness {
 }
 
 /// The body's weapon readiness this tick (`Q33`). Derived each tick from
-/// [`RangedRefire`], the body's `ActionSet` and its shots in flight; not
+/// [`RangedRefire`], the body's `ActionSet` (for the live-shot limit) and its
+/// shots in flight; not
 /// rollback state.
 ///
 /// A body with a fire-rate floor always carries one (`RangedRefire` requires
@@ -878,25 +893,58 @@ mod weapon_readiness_tests {
     use ambition_characters::brain::RangedActionSpec;
 
     /// Each state of the read model from the authorities it reads: the
-    /// floor (with and without an authored duration) and the live-shot
-    /// limit. A spent floor under the limit is the control.
+    /// floor (with and without an armed length) and the live-shot limit. A
+    /// spent floor under the limit is the control.
     #[test]
     fn readiness_says_what_the_floor_and_the_limit_decide() {
         let spec = RangedActionSpec::rock(300.0, 1)
             .with_refire(2.0)
             .with_max_live(1);
-        let spent = RangedRefire { remaining: 0.0 };
-        let hot = RangedRefire { remaining: 0.5 };
+        let spent = RangedRefire::default();
+        let mut hot = RangedRefire::default();
+        assert!(hot.try_fire(2.0).accepted());
+        hot.tick(1.5);
         assert_eq!(WeaponReadiness::of(&spent, Some(&spec), 0), WeaponReadiness::Ready);
         assert_eq!(
             WeaponReadiness::of(&hot, Some(&spec), 0),
             WeaponReadiness::Recharging { progress: Some(0.75) }
         );
         assert_eq!(
-            WeaponReadiness::of(&hot, None, 0),
+            WeaponReadiness::of(&RangedRefire { remaining: 0.5, armed: 0.0 }, Some(&spec), 0),
             WeaponReadiness::Recharging { progress: None },
-            "no authored duration, so no progress"
+            "a floor with no armed length has no progress"
         );
         assert_eq!(WeaponReadiness::of(&spent, Some(&spec), 1), WeaponReadiness::NoRoom);
+    }
+
+    /// ⭐ THE PROGRESS IS THE SHOT'S, NOT THE BODY'S. A held item arms the
+    /// floor with its own spec (two seconds here) while the body's authored
+    /// action says one second. With 0.5 s left the weapon is three quarters
+    /// ready; read against the body's action it was half. The control is a
+    /// shot of the body's own action, read the same way.
+    #[test]
+    fn a_floor_armed_by_another_spec_reports_that_specs_progress() {
+        let body_action = RangedActionSpec::rock(300.0, 1).with_refire(1.0);
+        let mut held_shot = RangedRefire::default();
+        assert!(held_shot.try_fire(2.0).accepted());
+        held_shot.tick(1.5);
+        assert_eq!(
+            WeaponReadiness::of(&held_shot, Some(&body_action), 0),
+            WeaponReadiness::Recharging { progress: Some(0.75) },
+            "the held item's two-second floor, not the body's one second"
+        );
+
+        let mut own_shot = RangedRefire::default();
+        own_shot.arm(1.0);
+        own_shot.tick(0.5);
+        assert_eq!(
+            WeaponReadiness::of(&own_shot, Some(&body_action), 0),
+            WeaponReadiness::Recharging { progress: Some(0.5) },
+            "control: the body's own one-second floor"
+        );
+
+        // `arm` never shortens a floor, so it keeps the longer floor's length.
+        own_shot.arm(0.1);
+        assert_eq!(own_shot.armed, 1.0);
     }
 }

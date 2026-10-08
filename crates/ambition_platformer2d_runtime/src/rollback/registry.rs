@@ -1074,7 +1074,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `message.ranged_fire_refused` (a refused attempt to fire). The first is
 /// derived and the second is cleared, so no snapshot bytes change; the schema
 /// dump, and so the fingerprint, does.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 322;
+/// ⛔⛤ 322 -> 323: `actor.ranged_refire` (`RangedRefire`) also encodes
+/// `armed`, the length of the floor when it was last armed. A held item arms
+/// the floor with its own spec, so the weapon's readiness progress reads the
+/// floor's length and not the body's authored action.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 323;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

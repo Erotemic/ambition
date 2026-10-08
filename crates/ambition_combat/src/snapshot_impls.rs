@@ -295,6 +295,7 @@ snapshot_pod!(crate::components::BodyMelee {
 
 snapshot_pod!(crate::components::RangedRefire {
     remaining: f32,
+    armed: f32,
 });
 
 snapshot_unit_enum!(crate::components::ActorDisposition {

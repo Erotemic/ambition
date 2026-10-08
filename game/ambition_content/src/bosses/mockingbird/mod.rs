@@ -28,7 +28,9 @@ pub fn birth(scope: &mut ambition_platformer2d_shared_tangle::construction::Enti
 }
 
 /// The burning shark as a platform: its sheet loads with the rest of the art,
-/// and it is drawn so the platform is its back. Its body box spans frame
+/// and it is drawn so the platform is its back. It loops its `idle` row, and
+/// it faces the way it flies through the scrolling sky: away from the
+/// Mockingbird. Its body box spans frame
 /// pixels 9..194 and its back, behind the saddle, is at row 60
 /// (`burning_flying_shark_spritesheet.ron`); the platform covers the back
 /// from the tail fin to the head (x 40..176), so a body stands on it.
@@ -44,7 +46,7 @@ pub fn register_shark_platforms(app: &mut App) {
     );
     app.register_platform_look(
         SHARK_SHEET,
-        PlatformLook { row: "fly".into(), span_px: [40.0, 176.0], top_px: 60.0, faces_right: true },
+        PlatformLook { row: "idle".into(), span_px: [40.0, 176.0], top_px: 60.0, faces_right: true },
     );
 }
 

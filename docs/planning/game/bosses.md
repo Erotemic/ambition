@@ -210,7 +210,10 @@ it moves:
 2. **A horizontal wrapping motion** for moving platforms, the sideways
    sibling of `VerticalLoop`. Sharks leave one edge and re-enter at the
    other, weaving on a bob. A platform can wear a character sheet (the shark
-   rig).
+   rig). The sheet loops its row (the shark's `idle`) and faces the way the
+   platform flies through the air: the sharks drift toward the Mockingbird
+   slower than the sky scrolls past, so they face away from it
+   (`the_mockingbirds_sharks_flee`).
 3. **A fall rescue:** a room rule that, instead of the kill floor, sends a
    carrier platform up under a falling player and lifts them back into play.
 4. **A reward anchor in another room:** the chest is already keyed by

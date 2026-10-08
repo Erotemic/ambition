@@ -38,6 +38,8 @@ pub struct CharacterAnimator {
     /// (`floor(phase * frames)`) instead of the sheet's frame clock. Set each
     /// frame by [`Self::slave_clip_to`]; cleared by any new request.
     clip_phase: Option<f32>,
+    /// The clip row loops on the sheet's clock ([`Self::request_loop`]).
+    clip_loops: bool,
     /// Drawing the current row's MIRROR row (the character seen from its other
     /// side) instead of flipping it. Set each frame by [`Self::face`].
     mirrored: bool,
@@ -68,6 +70,7 @@ impl CharacterAnimator {
             // No move is playing on a body that has just been built.
             clip_slot: None,
             clip_phase: None,
+            clip_loops: false,
             mirrored: false,
             frame: 0,
             elapsed: 0.0,
@@ -190,6 +193,7 @@ impl CharacterAnimator {
         // body to one authored row.
         let had_clip = self.clip_slot.take().is_some();
         self.clip_phase = None;
+        self.clip_loops = false;
         if self.current == anim && !had_clip {
             return;
         }
@@ -256,6 +260,7 @@ impl CharacterAnimator {
         chain: impl IntoIterator<Item = &'a str>,
         fallback: CharacterAnim,
     ) {
+        self.clip_loops = false;
         let Some(slot) = self.spec.clip_slot(chain) else {
             self.request(fallback);
             return;
@@ -269,6 +274,22 @@ impl CharacterAnimator {
         self.clip_held = false;
     }
 
+    /// LOOP an authored row on the sheet's own clock, if this sheet has one of
+    /// `chain`; otherwise the semantic pose. For a drawing with no move behind
+    /// it (a platform's sheet): [`Self::request_clip`] holds the last frame,
+    /// because a move's timeline owns its length.
+    pub fn request_loop<'a>(
+        &mut self,
+        chain: impl IntoIterator<Item = &'a str>,
+        fallback: CharacterAnim,
+    ) {
+        self.request_clip(chain, fallback);
+        if self.clip_slot.is_some() {
+            self.clip_loops = true;
+            self.clip_held = false;
+        }
+    }
+
     /// Draw authored row `slot` at `frame`, held there: an animator whose
     /// frame another clock owns (a boss drawn from its sim cursor). Nothing
     /// ticks it; the next call moves it. A frame past the row's end is its
@@ -277,6 +298,7 @@ impl CharacterAnimator {
         let count = self.spec.row_at(slot).frame_count.max(1);
         self.clip_slot = Some(slot);
         self.clip_phase = None;
+        self.clip_loops = false;
         self.mirrored = false;
         self.frame = frame.min(count - 1);
         self.elapsed = 0.0;
@@ -367,6 +389,7 @@ impl CharacterAnimator {
     ///
     /// An authored clip does not loop. The move's timeline owns its length, so
     /// the drawing holds the last frame, as `non_looping` does for attack poses.
+    /// A row asked for with [`Self::request_loop`] starts again.
     fn advance_slot(&mut self, slot: usize, dt: f32) {
         let row = self.spec.row_at(slot);
         if let (Some(phase), true) = (self.clip_phase, row.frame_count > 0) {
@@ -384,6 +407,10 @@ impl CharacterAnimator {
         while self.elapsed >= row.duration_secs {
             self.elapsed -= row.duration_secs;
             if self.frame + 1 >= row.frame_count {
+                if self.clip_loops {
+                    self.frame = 0;
+                    continue;
+                }
                 self.frame = row.frame_count - 1;
                 self.clip_held = true;
                 break;

@@ -712,12 +712,15 @@ impl MovingPlatformState {
         }
     }
 
-    /// Which way it flies sideways, when it does: `-1.0` left, `1.0` right.
-    /// `None` for a motion with no sideways heading (a lift, a shaft, a path).
-    pub fn heading_x(&self) -> Option<f32> {
+    /// How fast it flies sideways, when it does (world px/s; negative is
+    /// left). `None` for a motion with no sideways heading (a lift, a shaft, a
+    /// path).
+    pub fn velocity_x(&self) -> Option<f32> {
         match &self.motion {
-            MovingPlatformMotion::Sweep { dir, .. } | MovingPlatformMotion::SideLoop { dir, .. } => Some(*dir),
-            MovingPlatformMotion::Ferry { drift, .. } if *drift != 0.0 => Some(drift.signum()),
+            MovingPlatformMotion::Sweep { dir, speed, .. } | MovingPlatformMotion::SideLoop { dir, speed, .. } => {
+                Some(dir * speed)
+            }
+            MovingPlatformMotion::Ferry { drift, .. } if *drift != 0.0 => Some(*drift),
             _ => None,
         }
     }

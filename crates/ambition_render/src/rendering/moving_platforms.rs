@@ -87,12 +87,20 @@ fn sheet_point(platform: &MovingPlatformState) -> ae::Vec2 {
     ae::Vec2::new(platform.pos.x, platform.pos.y - platform.size.y * 0.5)
 }
 
-/// Whether the sheet is drawn flipped: it faces the way the platform flies.
-fn sheet_flipped(look: &PlatformLook, platform: &MovingPlatformState) -> bool {
-    match platform.heading_x() {
-        Some(dir) => (dir < 0.0) == look.faces_right,
-        None => !look.faces_right,
+/// Whether the sheet is drawn flipped: it faces the way the platform flies
+/// THROUGH THE AIR. `air_x` is how fast the room's air moves (its sky's
+/// scroll, world px/s; `0.0` for a sky that stands still).
+///
+/// A platform slower than the air that carries it flies the other way through
+/// it. The Mockingbird's sharks drift toward it at 105 px/s under a sky that
+/// runs past at 800 px/s, so they fly away from it and lose ground: they face
+/// away from it. A platform that does not move through the air faces right.
+fn sheet_flipped(look: &PlatformLook, platform: &MovingPlatformState, air_x: f32) -> bool {
+    let through_air = platform.velocity_x().unwrap_or(0.0) - air_x;
+    if through_air == 0.0 {
+        return !look.faces_right;
     }
+    (through_air < 0.0) == look.faces_right
 }
 
 /// The picture of one moving platform, tied to its index in the authoritative
@@ -120,9 +128,15 @@ pub fn sync_moving_platform_visuals(
     active_session: Option<Res<ActiveSessionScope>>,
     // The live room's geometry and its platforms, off one root.
     room: Single<
-        (&ae::RoomGeometry, Option<&MovingPlatformSet>),
+        (
+            &ae::RoomGeometry,
+            Option<&MovingPlatformSet>,
+            Option<&ambition_platformer2d_world::rooms::LiveRoomDefinition>,
+        ),
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
     >,
+    // The room's authored sky: a sheet faces the way it flies through it.
+    room_specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     mut existing: Query<(
         Entity,
         &MovingPlatformVisual,
@@ -135,7 +149,11 @@ pub fn sync_moving_platform_visuals(
     assets: Option<Res<GameAssets>>,
     time: Option<Res<Time>>,
 ) {
-    let (world, platform_set) = *room;
+    let (world, platform_set, definition) = *room;
+    let air_x = definition
+        .zip(room_specs.as_ref())
+        .and_then(|(definition, specs)| specs.rooms().spec(*definition).metadata.visual_profile.sky_scroll_px_s)
+        .map_or(0.0, |px_s| px_s as f32);
     let platforms = platform_set.map_or(&[][..], |set| &set.0[..]);
     let dt = time.map_or(0.0, |time| time.delta_secs());
     // The sheet a platform is drawn as, when its look is registered and its
@@ -161,13 +179,14 @@ pub fn sync_moving_platform_visuals(
         match (sheet, animator) {
             (Some((_, look, _)), Some(mut animator)) => {
                 transform.translation = world_to_bevy(&world.0, sheet_point(platform), WORLD_Z_BLOCK + 4.0);
-                animator.request_clip([look.row.as_str()], ambition_sprite_sheet::character::CharacterAnim::Walk);
+                // A loop: no move plays a platform's row, so nothing ends it.
+                animator.request_loop([look.row.as_str()], ambition_sprite_sheet::character::CharacterAnim::Walk);
                 super::actors::draw_animator_frame(
                     &mut sprite,
                     &mut animator,
                     anchor.map(|anchor| anchor.into_inner()),
                     dt,
-                    sheet_flipped(look, platform),
+                    sheet_flipped(look, platform, air_x),
                     super::actors::StanceSquash::NONE,
                 );
             }
@@ -197,7 +216,7 @@ pub fn sync_moving_platform_visuals(
                     render_size,
                     anchor,
                 );
-            sprite.flip_x = sheet_flipped(look, platform);
+            sprite.flip_x = sheet_flipped(look, platform, air_x);
             commands.spawn_session_scoped(
                 session_scope,
                 (
@@ -326,6 +345,100 @@ mod tests {
              a family that remembered its own start would still be at the old place"
         );
         assert_eq!(visuals(&mut app).len(), 1, "and it must not double-spawn");
+    }
+
+    fn shark_look() -> PlatformLook {
+        PlatformLook { row: "idle".into(), span_px: [40.0, 176.0], top_px: 60.0, faces_right: true }
+    }
+
+    /// A platform that sweeps `dx` at 130 px/s: right for a positive `dx`.
+    fn flying(dx: f32) -> MovingPlatformState {
+        MovingPlatformState::from_authored(ae::Vec2::new(400.0, 200.0), ae::Vec2::new(96.0, 16.0), dx, 130.0)
+    }
+
+    /// A sheet faces the way its platform flies through the air (Jon,
+    /// 2026-10-08: the Mockingbird's sharks must face away from it).
+    ///
+    /// Measured before: the facing was the platform's own heading, so sharks
+    /// that drift toward the Mockingbird faced it.
+    #[test]
+    fn a_sheet_faces_the_way_its_platform_flies_through_the_air() {
+        let look = shark_look();
+        let (right, left) = (flying(240.0), flying(-240.0));
+        assert_eq!((right.velocity_x(), left.velocity_x()), (Some(130.0), Some(-130.0)), "premise");
+
+        // Still air: it faces its own heading.
+        assert!(!sheet_flipped(&look, &right, 0.0));
+        assert!(sheet_flipped(&look, &left, 0.0), "in still air a sheet drawn facing right is flipped to fly left");
+
+        // The sky runs left faster than the platform drifts left: through the
+        // air the platform flies right, away from what holds the left side.
+        assert!(!sheet_flipped(&look, &left, -800.0), "a shark that loses ground to the sky faces the way it flees");
+        // A platform faster than the sky still faces its heading.
+        assert!(sheet_flipped(&look, &left, -100.0));
+        // The sky runs right: a platform that drifts right slower than it
+        // flies left through it.
+        assert!(sheet_flipped(&look, &right, 800.0));
+    }
+
+    /// A sheet-drawn platform loops its row for as long as it is drawn (Jon,
+    /// 2026-10-08: the sharks played one cycle and stopped).
+    ///
+    /// Measured before: the row was asked for as a move's clip, which holds
+    /// its last frame.
+    #[test]
+    fn a_sheet_drawn_platform_loops_its_row() {
+        use ambition_sprite_sheet::character::{try_load_spec_for_target, CharacterSpriteAsset, SheetTuning};
+        const SHARK: &str = "burning_flying_shark";
+
+        let spec = try_load_spec_for_target(SHARK, &SheetTuning::new(1.0, 0)).expect("the shark's baked sheet");
+        let slot = spec.clip_slot(["idle"]).expect("the shark's idle row");
+        let idle = ambition_sprite_sheet::character::CharacterAnim::Idle;
+        assert_eq!(spec.slot_for_anim(idle), slot, "premise: the idle row is the idle pose");
+        let (frames, cycle_s) = (spec.frame_count(idle), spec.clip_seconds(idle));
+        assert!(frames > 1, "premise: a row of one frame cannot show a loop");
+        let page = ambition_sprite_sheet::character::CharacterSpritePage {
+            texture: Handle::default(),
+            layout: Handle::default(),
+        };
+        let asset = CharacterSpriteAsset {
+            texture: Handle::default(),
+            layout: Handle::default(),
+            spec,
+            pages: vec![page],
+            requested_tier: Default::default(),
+            resolved_tier: Default::default(),
+            rigged: None,
+        };
+
+        let mut app = app_with_platforms(vec![platform("shark", 400.0).with_visual(SHARK)]);
+        let mut assets = GameAssets::default();
+        assets.characters.props.insert(SHARK.to_string(), asset);
+        app.insert_resource(assets);
+        app.world_mut().get_resource_or_init::<PlatformLooks>().0.insert(SHARK.to_string(), shark_look());
+        app.init_resource::<Time>();
+
+        // Three cycles, at 60 Hz.
+        let dt = 1.0 / 60.0;
+        let mut seen = Vec::new();
+        for _ in 0..(3.0 * cycle_s / dt) as usize {
+            app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(dt));
+            app.update();
+            let mut q = app.world_mut().query::<(&MovingPlatformVisual, &CharacterAnimator)>();
+            if let Some((_, animator)) = q.iter(app.world()).next() {
+                assert_eq!(animator.drawn_row(), Some(slot), "it draws the row of its look");
+                seen.push(animator.frame);
+            }
+        }
+        assert!(!seen.is_empty(), "premise: the platform is drawn as its sheet");
+        let restarts = seen.windows(2).filter(|pair| pair[1] < pair[0]).count();
+        assert!(restarts >= 2, "in three cycles the row started again {restarts} time(s): {seen:?}");
+        let last_third = &seen[seen.len() * 2 / 3..];
+        assert!(
+            last_third.iter().any(|frame| *frame != last_third[0]),
+            "the drawing stopped on frame {} in the third cycle",
+            last_third[0]
+        );
     }
 
     /// A shorter roster retires the visuals it no longer has. A room change

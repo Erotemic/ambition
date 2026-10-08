@@ -1060,26 +1060,6 @@ points) does.
 the saddle moves the rider with no gameplay edit; a mount with no published
 saddle still seats its rider at its authored seat.
 
-### CALIBRATION-LAB-SHOT — a shot born at chest height in the calibration lab is gone on its first tick
-
-**Owner:** unknown. Found 2026-10-05 while measuring RIG-LANDMARKS packet C.
-
-**Current failure (measured once):** in `combat_calibration_lab`, a hostile
-raider built 160 to the right of the player's start fires its gun-sword. With
-the shot born 26.6 ahead of the raider's centre and 2.4 above it (26.4 above
-its feet), the spawn request is made and no projectile exists on any of the
-next six ticks. Born 18.4 ahead and 14.0 below the centre (10.0 above its
-feet), the same shot flies 14 ticks and hits the player. In `mockingbird_arena`
-and `proving_grounds` both shots fly. Cause not found: one check was made,
-and the fixture moved to `mockingbird_arena`.
-
-**To reproduce:** `a_hand_muzzle_fires_from_the_drawn_hand.rs`, the raider
-arm, with the room changed to `combat_calibration_lab` and the landmark
-answer in `holding_hand_world` replaced by none (the fixed hand).
-
-**Acceptance:** the cause is named. It is a defect of the room, of the spawn
-of a shot that overlaps something, or of the instrument.
-
 ### RIG-IMPOSTOR-CONTAINMENT — a part-drawn body is drawn whole or refused
 
 **The invariant:** every pixel a composited body draws lies in its cell. One
@@ -1421,6 +1401,20 @@ Witnesses: `a_pet_hand_meets_the_contact_point.rs`,
 fireball's flight from the hand) and Q159 (fitting a worn character's art). The
 design and its open populations are in
 [semantic landmarks](engine/runtime-rigged-sprite-animation.md#semantic-landmarks-q41).
+
+### CALIBRATION-LAB-SHOT — a shot born at chest height in the calibration lab is gone on its first tick — ✅ CLOSED 2026-10-08
+
+The cause is the room. The raider stands 4 px past the right end of a solid
+in the lab's collision layer (144..272 by 688..704, the base of the rebound
+pad). A shot born 26.6 ahead at chest height has a 24 by 18 box that starts
+3.4 px inside that solid's lower corner; the sweep reports a start overlap
+(time of impact 0) and the world-hit branch ends the shot on its first step.
+The hip-height shot passes under the solid, and `mockingbird_arena` has no
+such block. Not a defect of the spawn or of the instrument: a muzzle inside a
+wall fires into the wall. Measured with a probe of the world-hit branch (the
+hit block's name, box and kind); the comment in
+`a_hand_muzzle_fires_from_the_drawn_hand.rs` now says why that room is not
+used.
 
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity — ✅ DONE 2026-10-03
 

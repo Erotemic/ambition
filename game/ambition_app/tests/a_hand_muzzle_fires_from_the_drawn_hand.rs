@@ -82,9 +82,11 @@ fn shot_of(sim: &ambition_app::Platformer2dSimHarness, owner: Entity) -> Option<
 #[test]
 fn a_hostile_raiders_shot_is_born_at_the_hand_its_art_draws() {
     // A room with a flat floor: the two bodies stand level, and the shot has
-    // a clear line. Not `combat_calibration_lab`: there a shot born at chest
-    // height at this place is gone on its first tick (measured 2026-10-05,
-    // cause not found), so that room cannot compare two heights.
+    // a clear line. Not `combat_calibration_lab`: there the raider stands 4 px
+    // past the end of a solid (144..272 by 688..704, under the rebound pad),
+    // and a shot born at chest height starts 3.4 px inside its corner, so the
+    // world-hit branch ends it on its first step. That room cannot compare two
+    // heights.
     let mut sim = fixed_60hz_room_sim("mockingbird_arena");
     sim.step_n(base(), 60);
     let player = {

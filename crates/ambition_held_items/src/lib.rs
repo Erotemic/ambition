@@ -888,11 +888,18 @@ pub fn record_placed_ground_items(
         String,
         std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, Vec2>,
     > = std::collections::BTreeMap::new();
+    let mut marks: Vec<ambition_platformer2d_shared_tangle::sim_id::SimId> = Vec::new();
     for (entity, sim_id, ground, custody, origin) in &items {
         let minted = matches!(
             origin,
             Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { .. })
         );
+        // The mark is PROVENANCE and is kept for a mint in ANY custody and with
+        // any row: a mint carried the tick it was made enters the ledger as
+        // `InCustody`, and still ends as a mint (`compact_ended_mints`).
+        if minted && !occurrences.is_mint(sim_id) {
+            marks.push(sim_id.clone());
+        }
         if !minted || !custody.in_world() || occurrences.remembers(sim_id) {
             continue;
         }
@@ -902,6 +909,7 @@ pub fn record_placed_ground_items(
         let room = &room_set.rooms().spec(definition).id;
         mints.entry(room.clone()).or_default().insert(sim_id.clone(), ground.pos);
     }
+    occurrences.mark_mints(marks);
     for (room, admitted) in mints {
         occurrences.admit_mints(&room, admitted);
     }

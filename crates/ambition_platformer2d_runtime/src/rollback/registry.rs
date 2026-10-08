@@ -1086,7 +1086,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// pinned baseline) has a `Spent` row, an authored chest a body opened
 /// (Q63), and `ConsumedSinceCheckpoint`'s projection says whether each
 /// record is spent.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 325;
+/// ⛔⛤ 325 -> 326: the occurrence ledger (`AuthoredOccurrences`, and its pinned
+/// baseline) also encodes which of its ids are RUNTIME MINTS (provenance, beside
+/// the rows), so a peer that disagrees about a mint's mark disagrees about
+/// whether its `Consumed` row survives the next checkpoint commit.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 326;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

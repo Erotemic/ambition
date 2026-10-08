@@ -122,6 +122,11 @@ where
         .rollback_component_canonical::<crate::components::BodyMelee>(OWNER, "actor.body_melee");
     registrar
         .rollback_component_canonical::<crate::components::RangedRefire>(OWNER, "actor.ranged_refire");
+    registrar.declare_rollback_derived_component::<crate::components::BodyWeaponReadiness>(
+        OWNER,
+        "derived.weapon_readiness",
+        "re-derived every tick from the fire-rate floor, the authored action and the shots in flight, before the prompt reads it",
+    );
     registrar.rollback_component_canonical::<crate::components::ActorDisposition>(
         OWNER,
         "actor.disposition",
@@ -364,6 +369,10 @@ where
     registrar.clear_message_on_rollback::<crate::stocks::BodyKnockedOut>(
         OWNER,
         "message.body_knocked_out",
+    );
+    registrar.clear_message_on_rollback::<crate::components::RangedFireRefused>(
+        OWNER,
+        "message.ranged_fire_refused",
     );
     registrar.clear_message_on_rollback::<crate::stocks::FighterStockSpent>(
         OWNER,

@@ -186,6 +186,7 @@ impl Plugin for CombatSchedulePlugin {
         // installed. A writer whose message is registered by a different plugin is a composition
         // that works until somebody composes differently.
         app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
+        app.add_message::<ambition_combat::RangedFireRefused>();
         // The programmatic actor-spawn seam (scenario tests, RL/agent scene setup)
         // installs itself; this composition supplies only the schedule. Why the
         // message, the set and the missing gameplay gate are the monolith's facts

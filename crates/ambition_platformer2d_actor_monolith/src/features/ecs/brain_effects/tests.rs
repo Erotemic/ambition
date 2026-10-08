@@ -45,6 +45,7 @@ fn build_app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.add_message::<ActorActionMessage>();
+    app.add_message::<ambition_combat::RangedFireRefused>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
     app.init_resource::<ProjectileSeqCounter>();
@@ -670,5 +671,93 @@ fn recoil_adds_to_a_waiting_launch_instead_of_erasing_it() {
         !staged.flinchless,
         "a frame carrying a real hit must stay non-flinchless — the recoil is the \
          push, the hit is still a hit"
+    );
+}
+
+/// ⭐ Q33: A PRESS DURING THE RECHARGE IS "NOT READY", NOT A SHOT.
+///
+/// The weapon recharges for one second and has a quarter of it left. An
+/// attempt makes no shot, starts no shoot pose and plays no sound, and the
+/// body publishes the refusal with the readiness it refused on: recharging,
+/// three quarters of the way. The control is the same press with the floor
+/// spent: it fires, with its pose, and nothing is refused.
+#[test]
+fn a_press_during_the_recharge_is_refused_with_its_progress() {
+    struct Press {
+        shots: usize,
+        posed: bool,
+        sounds: usize,
+        refused: Vec<ambition_combat::RangedFireRefused>,
+    }
+    fn press(remaining: f32) -> Press {
+        let mut app = build_app();
+        let actor_pos = ae::Vec2::new(300.0, 300.0);
+        let aabb = ae::Aabb::new(actor_pos, ae::Vec2::new(14.0, 23.0));
+        let enemy = ActorClusterSeed::new(
+            "recharging_weapon",
+            "Skitter",
+            aabb,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("small_skitter".into()),
+            &[],
+        );
+        let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
+        app.world_mut()
+            .entity_mut(actor)
+            .insert(ambition_characters::actor::BodyAnimFacts::default());
+        app.world_mut()
+            .get_mut::<ambition_combat::RangedRefire>(actor)
+            .unwrap()
+            .remaining = remaining;
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
+            .write(ActorActionMessage {
+                actor,
+                request: ActionRequest::Ranged {
+                    spec: RangedActionSpec::rock(300.0, 1).with_refire(1.0),
+                    origin: actor_pos,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                    dir_policy: ae::GameplayFramePolicy::WorldSpace,
+                    commitment: RangedCommitment::Attempt,
+                },
+                move_instance: None,
+            });
+        app.update();
+        let posed = app
+            .world()
+            .get::<ambition_characters::actor::BodyAnimFacts>(actor)
+            .unwrap()
+            .shoot_anim_timer
+            > 0.0;
+        let sounds = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_sfx::OwnedSfxMessage>>()
+            .drain()
+            .count();
+        let refused = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_combat::RangedFireRefused>>()
+            .drain()
+            .collect();
+        Press {
+            shots: live_projectile_bodies(&mut app).len(),
+            posed,
+            sounds,
+            refused,
+        }
+    }
+
+    let ready = press(0.0);
+    assert_eq!(ready.shots, 1, "control: a press with the floor spent fires");
+    assert!(ready.posed, "control: a shot that leaves starts its pose");
+    assert!(ready.refused.is_empty(), "control: a shot that leaves is not refused");
+
+    let hot = press(0.25);
+    assert_eq!(hot.shots, 0, "a press during the recharge made a shot");
+    assert!(!hot.posed, "a refused press started the shoot pose");
+    assert_eq!(hot.sounds, 0, "a refused press played a sound");
+    assert_eq!(
+        hot.refused.iter().map(|r| r.readiness).collect::<Vec<_>>(),
+        vec![ambition_combat::WeaponReadiness::Recharging { progress: Some(0.75) }],
+        "the refusal is a fact, and it says how far the recharge has come"
     );
 }

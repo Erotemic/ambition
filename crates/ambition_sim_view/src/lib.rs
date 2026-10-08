@@ -30,7 +30,8 @@ pub use combat_geometry_view::{
     CombatStrikeGeometryView, HurtboxSource,
 };
 pub use control_prompt::{
-    project_prompt_readiness, publish_frontend_context_prompt, rebuild_control_prompt,
+    derive_weapon_readiness, project_prompt_readiness, publish_frontend_context_prompt,
+    rebuild_control_prompt,
     ControlContextKind, ControlPrompt, ControlPromptRebuilt, PromptEntry, PromptNaming,
     LEGEND_ACTION_OPEN,
 };
@@ -156,6 +157,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // quiet frames on purpose; a fire-rate floor decays every tick,
                 // so reading it in there would re-derive the scheme all the way
                 // through every recharge.
+                derive_weapon_readiness.before(project_prompt_readiness),
                 project_prompt_readiness.after(ControlPromptRebuilt),
             )
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),

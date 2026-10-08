@@ -940,16 +940,21 @@ decision layer; each poison listed in the plan turns one of them red.
 
 ### WEAPON-READINESS — a refused trigger is visible as "not ready"
 
-**Owner:** `ambition_sim_view::control_prompt` and the fire roads. Plan:
+**Owner:** `projectile/systems.rs` (the fireball road). Plan:
 [`engine/participant-action-system.md`](engine/participant-action-system.md#p5--weapon-readiness-is-a-semantic-state-q33).
 
 **Ruling:** Q33 (2026-10-04).
 
-**Current failure:** a blocked shot is dropped with no fact; readiness is one
-boolean for one prompt slot.
+**Current state (2026-10-08):** the action road is built: `WeaponReadiness`
+on every body with a fire-rate floor, `RangedFireRefused` at the refusal, and
+the prompt reads the model. Two remainders: the player's fireball
+(`ProjectileSpawner`) still refuses a press with no fact and has no readiness;
+and a held weapon's progress reads the body's authored action, not the item's
+spec.
 
-**Acceptance:** fire during a cooldown makes no shot and no success
-presentation, and publishes `recharging` with progress; fire after it shoots.
+**Acceptance:** a fireball press during its cooldown or with an empty meter
+makes no shot and publishes the readiness it refused on (`recharging` with
+progress, or `no ammunition`); a press after it fires.
 
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 

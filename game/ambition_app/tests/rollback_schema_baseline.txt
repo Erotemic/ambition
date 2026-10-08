@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v321
+ggrs-rollback-schema-v322
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -190,6 +190,7 @@ derived.room_combat_tuning	derived	RoomCombatTuning	refolded on each live room r
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
 derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
 derived.wallet_shield	derived	BodyWalletShield	re-derived from the worn character and the room's rules every tick, before any hit is resolved
+derived.weapon_readiness	derived	BodyWeaponReadiness	re-derived every tick from the fire-rate floor, the authored action and the shots in flight, before the prompt reads it
 dynamic.projectile	dynamic-anchor	ProjectileGameplay	Rollback entity recreation plus the complete projectile component family
 encounter.camera_zoom	component-clone	EncounterCameraZoom	bevy_ggrs clone snapshot; not in the session checksum
 encounter.definition	component-clone	EncounterDef	bevy_ggrs clone snapshot; not in the session checksum
@@ -364,6 +365,7 @@ message.portal_fire_intent	message-clear	PortalFireIntent	clear abandoned-future
 message.portal_gun_equipped	message-clear	PortalGunEquipped	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_shot_fired	message-clear	PortalShotFired	clear abandoned-future message buffer in LoadWorld::Mapping
 message.quest_advance_requested	message-clear	QuestAdvanceRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.ranged_fire_refused	message-clear	RangedFireRefused	clear abandoned-future message buffer in LoadWorld::Mapping
 message.release_provocation	message-clear	ReleaseProvocation	clear abandoned-future message buffer in LoadWorld::Mapping
 message.reset_to_checkpoint	message-clear	ResetToCheckpoint	clear abandoned-future message buffer in LoadWorld::Mapping
 message.resolved_body_hit	message-clear	ResolvedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping

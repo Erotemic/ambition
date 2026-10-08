@@ -64,16 +64,24 @@ MIN_DECLARED = 40
 #: ⭐⭐ A CEILING, BECAUSE THE FLOOR CANNOT SEE THE DIRECTION THAT GETS WORSE.
 #: `MIN_DECLARED` catches the sweep collapsing. It is blind to someone ADDING a
 #: message nothing reads: `with NONE` goes up, the report prints it, and the run
-#: exits 0. ⇒ the four below are each TRIAGED in
-#: `engine/open-world-runtime-and-residency.md` — three published by design with
-#: their emission asserted here, one (`PulseFired`) a sentinel crate's outward
-#: seam. A FIFTH must be triaged the same way before this number moves.
+#: exits 0. ⇒ each one counted is TRIAGED, here, because the page that held the
+#: table lost it in a docs cleanup (8ac8e1e9e):
+#:
+#:   LoadEvent              PUBLISHED: `ambition_load` is composed from outside
+#:   SemanticActionPressed  PUBLISHED: by design, the provider-binding outcome
+#:   PortalGunEquipped      PUBLISHED: `picking_up_the_gun_announces_who_equipped_it`
+#:   PulseFired             PUBLISHED: a sentinel crate's outward seam
+#:   RangedFireRefused      PUBLISHED: Q33 lets each game choose its cue for a
+#:                          refused trigger; the fact is the seam a cue reads.
+#:                          Emission: `a_press_during_the_recharge_is_refused_with_its_progress`
+#:
+#: A SIXTH must be triaged the same way before this number moves.
 #: ⚠ This does NOT make "unread" a finding — the docstring's point stands, and a
 #: published channel is legitimate. It makes a NEW unread channel a DECISION,
 #: which is the same bargain `per_attempt_resource_census.py` strikes.
 #: ⚠ A COUNT, never an allowlist of names: a name list is an amnesty, and adding
 #: a row to it reads as housekeeping.
-MAX_UNREAD = 4
+MAX_UNREAD = 5
 
 
 def rust_files() -> list[pathlib.Path]:

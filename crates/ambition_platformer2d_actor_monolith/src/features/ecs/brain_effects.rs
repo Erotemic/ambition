@@ -120,6 +120,7 @@ pub fn muzzle_world_pos(
 pub fn spawn_projectiles_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     mut projectiles: MessageWriter<ProjectileSpawnRequest>,
+    mut refused: MessageWriter<ambition_combat::RangedFireRefused>,
     mut sfx: SfxWriter,
     mut actors: Query<(
         // ⭐ READ-ONLY NOW, AND THAT IS A CONSEQUENCE OF THE RECOIL MOVE. This was
@@ -253,12 +254,18 @@ pub fn spawn_projectiles_from_brain_actions(
         //
         // The live-shot limit is the same kind of gate and is asked with it. A
         // committed move asked it where the move was accepted.
-        if commitment == RangedCommitment::Attempt
-            && (!spec.has_room_for_a_shot(
-                weapon_shots.iter().filter(|owner| owner.0 == msg.actor).count(),
-            ) || !refire.try_fire(spec.refire_s).accepted())
-        {
-            continue;
+        if commitment == RangedCommitment::Attempt {
+            let live = weapon_shots.iter().filter(|owner| owner.0 == msg.actor).count();
+            let readiness = ambition_combat::WeaponReadiness::of(&*refire, Some(&spec), live);
+            if !readiness.ready() || !refire.try_fire(spec.refire_s).accepted() {
+                // ⭐ THE REFUSAL IS A FACT (`Q33`): before, a refused press and
+                // no press looked the same to everything downstream.
+                refused.write(ambition_combat::RangedFireRefused {
+                    actor: msg.actor,
+                    readiness,
+                });
+                continue;
+            }
         }
         // The shot is committed — arm the firing body's Shoot overlay pose (the
         // actor analogue of the player's post-fire pulse in `projectile::systems`).

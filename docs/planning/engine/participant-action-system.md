@@ -97,29 +97,33 @@ with progress. A trigger during a cooldown must not look like a successful
 shot. Each weapon's or game's presentation chooses the treatment (dimmed or
 disabled, a recharge bar, a cue); the engine does not hard-code one.
 
-**Today (2026-10-04).**
+**Built 2026-10-08, the action road.** `ambition_combat::WeaponReadiness`
+is the read model: `Ready`, `Recharging { progress }` or `NoRoom`, from the
+fire-rate floor (`RangedRefire`), the authored action (`ActionSet.ranged`:
+`refire_s` gives the progress, `max_live` the room) and the body's shots in
+flight. `progress` is `None` for a body with a floor and no authored action.
+`derive_weapon_readiness` (`ambition_sim_view::control_prompt`) writes it each
+tick onto `BodyWeaponReadiness`, which `RangedRefire` requires. It is declared
+derived (`derived.weapon_readiness`, schema 322), not snapshotted. The prompt's `ready` bit reads it, so a full weapon dims the
+slot as a hot one does. A refused attempt (`features/ecs/brain_effects.rs`)
+writes `RangedFireRefused { actor, readiness }` and starts no shoot pose,
+sound or shot. Held-item discharge fires through the same attempt with the
+item's own spec, so its refusal is published too. Witnesses: `a_press_during_the_recharge_is_refused_with_its_progress`
+(the control is the same press with the floor spent) and
+`readiness_says_what_the_floor_and_the_limit_decide`.
 
-- The actor/action refire floor is `RangedRefire`
-  (`ambition_combat/src/components/actors.rs`), authored per action as
-  `RangedActionSpec::refire_s`. A blocked attempt is dropped without a
-  message (`features/ecs/brain_effects.rs`, `try_fire(..).accepted()` then
-  `continue`), so nothing downstream can tell "refused" from "not pressed".
-- The only published readiness is one boolean, `ControlPromptEntry::ready`, for
-  `ControlSlot::Projectile` (`ambition_sim_view/src/control_prompt.rs`,
-  `project_prompt_readiness`). It has no progress, no reason, and no other
-  slot or weapon.
-- Other fire roads (the player's `ProjectileSpawner` cooldown, held-item
-  discharge) publish no readiness.
+**Open: the fireball road.** The player's fireball fires through
+`PlayerProjectileState.spawner` (`ProjectileSpawner`: its own cooldown and a
+resource meter, `projectile/systems.rs::try_fire_projectile`), and a refused
+press there returns `false`: an empty meter leaves only a trace event
+(`BlockedByResource`), and a cooldown leaves nothing. It needs the same read
+model (with a `no ammunition` state for the meter) before its prompt can say
+why.
 
-**Work (queue row WEAPON-READINESS).** One read model per (body, weapon/action)
-with the state, optional progress and the reason (`recharging`, `no room for
-another shot`, `no ammunition`), derived each tick from the existing
-authorities, so nothing new is rolled back. A refused trigger publishes a
-"refused" fact that presentation can show (or ignore); it never starts the
-success pose, sound or effect. The prompt readiness bit becomes a reader of the
-read model. Acceptance: a test presses fire during a cooldown and asserts no
-shot, no success presentation fact, and a `recharging` state with progress; the
-control is a press after the cooldown.
+**Open: a held weapon's progress.** `derive_weapon_readiness` reads the body's
+authored action (`ActionSet.ranged`). A held item fires with its own spec, so
+the body's `Recharging` progress uses the wrong duration, or none, while the
+refusal (which reads the message's spec) is right.
 
 ## Menu activation policy
 

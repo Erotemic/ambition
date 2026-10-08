@@ -1069,7 +1069,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `resource.quest_last_room` (`LastQuestRoom`) are COMPONENTS of the session root
 /// (C03), not resources. The keys and the projections are unchanged; the kind in
 /// each row is `component-canonical` and `component-clone-custom-checksum` now.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 321;
+/// ⛔⛤ 321 -> 322: `derived.weapon_readiness` (`BodyWeaponReadiness`, the
+/// read model of whether a body's weapon can fire, Q33) and
+/// `message.ranged_fire_refused` (a refused attempt to fire). The first is
+/// derived and the second is cleared, so no snapshot bytes change; the schema
+/// dump, and so the fingerprint, does.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 322;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

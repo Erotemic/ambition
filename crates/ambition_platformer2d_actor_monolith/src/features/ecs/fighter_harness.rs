@@ -55,6 +55,7 @@ impl FighterHarness {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
+        app.add_message::<ambition_combat::RangedFireRefused>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
         app.init_resource::<ProjectileSeqCounter>();

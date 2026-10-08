@@ -502,6 +502,29 @@ pub fn rebuild_control_prompt(
     set_prompt(&mut prompt, ControlContextKind::Gameplay, entries, None);
 }
 
+/// Derive each armed body's [`ambition_combat::BodyWeaponReadiness`] for this
+/// tick (`Q33`): one read model per body, from the floor, the authored action
+/// and the shots in flight. Every reader of "can this weapon fire" reads this,
+/// so the prompt, a meter and a cue cannot disagree.
+pub fn derive_weapon_readiness(
+    mut bodies: Query<(
+        Entity,
+        &ambition_combat::components::RangedRefire,
+        Option<&ActionSet>,
+        &mut ambition_combat::BodyWeaponReadiness,
+    )>,
+    shots: Query<&ambition_projectiles::ProjectileOwner, With<ambition_projectiles::WeaponShot>>,
+) {
+    for (body, refire, actions, mut view) in &mut bodies {
+        let live = shots.iter().filter(|owner| owner.0 == body).count();
+        let spec = actions.and_then(|actions| actions.ranged.as_ref());
+        let readiness = ambition_combat::WeaponReadiness::of(refire, spec, live);
+        if view.0 != readiness {
+            view.0 = readiness;
+        }
+    }
+}
+
 /// Say which prompt slots cannot fire right now.
 ///
 /// ⭐⭐ THE FACT IS THE BODY'S, and it is read rather than modelled:
@@ -521,7 +544,7 @@ pub fn rebuild_control_prompt(
 pub fn project_prompt_readiness(
     controlled: Option<Res<ControlledSubject>>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    bodies: Query<&ambition_combat::components::RangedRefire>,
+    bodies: Query<&ambition_combat::BodyWeaponReadiness>,
     mut prompt: ResMut<ControlPrompt>,
 ) {
     let subject = controlled
@@ -530,7 +553,7 @@ pub fn project_prompt_readiness(
         .or_else(|| primary.single().ok());
     let recharging = subject
         .and_then(|body| bodies.get(body).ok())
-        .is_some_and(|refire| !refire.ready());
+        .is_some_and(|view| !view.0.ready());
     for entry in &mut prompt.entries {
         // ⛔ ONLY the slot the cooldown governs. The refire floor is documented
         // as orthogonal to melee (invariant I3), so dimming anything else here
@@ -653,6 +676,48 @@ mod tests {
         app
     }
 
+    /// ⭐ Q33: EACH ARMED BODY CARRIES ITS WEAPON'S READINESS. The read model
+    /// says what the floor and the shot limit decide: recharging with its
+    /// progress, then no room while its one shot flies, then ready. The
+    /// authored action is what gives the progress a duration.
+    #[test]
+    fn an_armed_body_carries_its_weapons_readiness_with_progress() {
+        use ambition_combat::{BodyWeaponReadiness, RangedRefire, WeaponReadiness};
+
+        let mut app = App::new();
+        app.add_systems(Update, derive_weapon_readiness);
+        let mut actions = ActionSet::default();
+        actions.ranged = Some(
+            ambition_characters::brain::RangedActionSpec::rock(300.0, 1)
+                .with_refire(1.0)
+                .with_max_live(1),
+        );
+        let body = app
+            .world_mut()
+            .spawn((actions, RangedRefire { remaining: 0.25 }))
+            .id();
+        let readiness = |app: &App| app.world().get::<BodyWeaponReadiness>(body).map(|view| view.0);
+
+        app.update();
+        assert_eq!(
+            readiness(&app),
+            Some(WeaponReadiness::Recharging { progress: Some(0.75) }),
+            "a quarter of a one-second floor left"
+        );
+
+        app.world_mut().get_mut::<RangedRefire>(body).unwrap().remaining = 0.0;
+        let shot = app
+            .world_mut()
+            .spawn((ambition_projectiles::ProjectileOwner(body), ambition_projectiles::WeaponShot))
+            .id();
+        app.update();
+        assert_eq!(readiness(&app), Some(WeaponReadiness::NoRoom), "its one shot is in flight");
+
+        app.world_mut().despawn(shot);
+        app.update();
+        assert_eq!(readiness(&app), Some(WeaponReadiness::Ready), "control: the floor is spent and the shot is gone");
+    }
+
     /// A RECHARGING SHOT SAYS SO, AND ONLY THAT SHOT DOES.
     ///
     /// ⭐⭐ THE RULING THIS ANSWERS is *"give recharge enough presentation that an
@@ -673,7 +738,9 @@ mod tests {
         let mut app = app();
         app.add_systems(
             Update,
-            project_prompt_readiness.after(rebuild_control_prompt),
+            (derive_weapon_readiness, project_prompt_readiness)
+                .chain()
+                .after(rebuild_control_prompt),
         );
         let mut abilities = AbilitySet::default();
         abilities.jump = true;

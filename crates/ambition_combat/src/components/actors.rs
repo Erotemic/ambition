@@ -530,6 +530,7 @@ impl BodyMelee {
 /// accepted shot, so a spam controller and a human produce the same weapon
 /// rate. Rollback state (`actor.ranged_refire`).
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+#[require(BodyWeaponReadiness)]
 pub struct RangedRefire {
     /// Seconds until the next shot may leave the weapon.
     pub remaining: f32,
@@ -560,6 +561,80 @@ impl RangedRefire {
         self.remaining = refire_seconds.max(0.0);
         IntentOutcome::Accepted
     }
+}
+
+/// Can this body's weapon fire now, and if not, why (`Q33`)?
+///
+/// A read model, not an authority: the fire-rate floor ([`RangedRefire`]) and
+/// the live-shot limit (`RangedActionSpec::max_live`) decide, and this says
+/// what they decide. It is derived again each tick, so it is not rollback
+/// state. Presentation chooses how to show it (a dim button, a recharge bar,
+/// a cue); the engine does not.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum WeaponReadiness {
+    /// A press fires a shot.
+    Ready,
+    /// The fire-rate floor is not spent. `progress` goes from 0 (the shot
+    /// left) to 1 (ready). It is `None` when the body authors no ranged
+    /// action, because then no duration says how far the floor has come.
+    Recharging { progress: Option<f32> },
+    /// The weapon has as many shots in flight as it may have.
+    NoRoom,
+}
+
+impl WeaponReadiness {
+    /// The readiness of the weapon whose floor is `refire` and whose
+    /// authored action is `spec`, with `live` of its shots in flight.
+    ///
+    /// The floor is asked first, because it is the one with a progress.
+    pub fn of(
+        refire: &RangedRefire,
+        spec: Option<&ambition_characters::brain::RangedActionSpec>,
+        live: usize,
+    ) -> Self {
+        if !refire.ready() {
+            let progress = spec.filter(|spec| spec.refire_s > 0.0).map(|spec| {
+                (1.0 - refire.remaining / spec.refire_s).clamp(0.0, 1.0)
+            });
+            return Self::Recharging { progress };
+        }
+        if spec.is_some_and(|spec| !spec.has_room_for_a_shot(live)) {
+            return Self::NoRoom;
+        }
+        Self::Ready
+    }
+
+    pub fn ready(self) -> bool {
+        matches!(self, Self::Ready)
+    }
+}
+
+/// The body's weapon readiness this tick (`Q33`). Derived each tick from
+/// [`RangedRefire`], the body's `ActionSet` and its shots in flight; not
+/// rollback state.
+///
+/// A body with a fire-rate floor always carries one (`RangedRefire` requires
+/// it), so a reader never needs a second answer for a body not yet derived.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct BodyWeaponReadiness(pub WeaponReadiness);
+
+impl Default for BodyWeaponReadiness {
+    fn default() -> Self {
+        Self(WeaponReadiness::Ready)
+    }
+}
+
+/// A controller's attempt to fire that the body refused (`Q33`).
+///
+/// The body made no shot, so it also started no shot pose, sound or effect.
+/// Presentation may show the refusal (a click, a flash on the meter) or
+/// ignore it. A committed move is never refused here: it was asked where the
+/// move was accepted.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq)]
+pub struct RangedFireRefused {
+    pub actor: bevy::prelude::Entity,
+    /// Why: the readiness of the weapon at the refusal.
+    pub readiness: WeaponReadiness,
 }
 
 /// ECS-visible boss combat phase.
@@ -794,5 +869,34 @@ mod actor_disposition_tests {
         let standing = CombatStanding::of(ActorDisposition::Hostile, false);
         assert_eq!(standing, CombatStanding::Hostile);
         assert!(standing.takes_damage());
+    }
+}
+
+#[cfg(test)]
+mod weapon_readiness_tests {
+    use super::{RangedRefire, WeaponReadiness};
+    use ambition_characters::brain::RangedActionSpec;
+
+    /// Each state of the read model from the authorities it reads: the
+    /// floor (with and without an authored duration) and the live-shot
+    /// limit. A spent floor under the limit is the control.
+    #[test]
+    fn readiness_says_what_the_floor_and_the_limit_decide() {
+        let spec = RangedActionSpec::rock(300.0, 1)
+            .with_refire(2.0)
+            .with_max_live(1);
+        let spent = RangedRefire { remaining: 0.0 };
+        let hot = RangedRefire { remaining: 0.5 };
+        assert_eq!(WeaponReadiness::of(&spent, Some(&spec), 0), WeaponReadiness::Ready);
+        assert_eq!(
+            WeaponReadiness::of(&hot, Some(&spec), 0),
+            WeaponReadiness::Recharging { progress: Some(0.75) }
+        );
+        assert_eq!(
+            WeaponReadiness::of(&hot, None, 0),
+            WeaponReadiness::Recharging { progress: None },
+            "no authored duration, so no progress"
+        );
+        assert_eq!(WeaponReadiness::of(&spent, Some(&spec), 1), WeaponReadiness::NoRoom);
     }
 }

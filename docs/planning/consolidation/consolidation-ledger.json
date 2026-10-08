@@ -3796,10 +3796,8 @@
       ],
       "why_it_exists": "Content preparation, room construction, and hot reload were built at different layers and currently coordinate with ordered writes.",
       "consolidation_hypothesis": "None on this axis. Re-derived 2026-09-16: the item read that these values can move independently of the room verification verdict, which the gating above closed.",
-      "blocked_by": [
-        "ID-PEER"
-      ],
       "was_blocked_by": [
+        "ID-PEER peer-stable mechanical identity -- DISCHARGED 2026-10-03: `queue.md`'s ID-PEER row is DONE (a receipt; the standing rules are in engine/netcode.md, Identity rules). This entry is the receipt; it is not a live gate, and the item's own hypothesis has NOT been re-read against source merely because the gate lifted.",
         "A10 candidate-world/session publication -- DISCHARGED 2026-09-16: `queue.md`'s A10 row is DONE and its demolition is closed. This entry is the receipt; it is not a live gate, and the item's own hypothesis has NOT been re-read against source merely because the gate lifted."
       ],
       "metric_tags": []
@@ -5041,8 +5039,8 @@
       "representation": "struct of canonical digests plus local epoch",
       "classification": "MIXED_RESPONSIBILITY",
       "consolidation_hypothesis": "Do not use the local epoch half where peer-stable canonical identity is required. Keep exact local activation identity separate from peer comparison.",
-      "blocked_by": [
-        "ID-PEER"
+      "was_blocked_by": [
+        "ID-PEER peer-stable mechanical identity -- DISCHARGED 2026-10-03: `queue.md`'s ID-PEER row is DONE (a receipt; the standing rules are in engine/netcode.md, Identity rules). This entry is the receipt; it is not a live gate, and the item's own hypothesis has NOT been re-read against source merely because the gate lifted."
       ],
       "metric_tags": [
         "mixed_local_canonical_identity"
@@ -5231,8 +5229,8 @@
       "representation": "Component string key",
       "classification": "MIXED_RESPONSIBILITY",
       "consolidation_hypothesis": "Split local correlation from peer-stable construction provenance. Build canonical provenance from content fingerprints, stable world/room identity, canonical SimIds, and shared match/session identity where needed.",
-      "blocked_by": [
-        "ID-PEER"
+      "was_blocked_by": [
+        "ID-PEER peer-stable mechanical identity -- DISCHARGED 2026-10-03: `queue.md`'s ID-PEER row is DONE (a receipt; the standing rules are in engine/netcode.md, Identity rules). This entry is the receipt; it is not a live gate, and the item's own hypothesis has NOT been re-read against source merely because the gate lifted."
       ],
       "metric_tags": []
     },

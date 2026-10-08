@@ -457,24 +457,6 @@ and the third stale throw launches slower). `ambition_combat`
 dropping the record, blinding the read, and dropping the claim check each
 fail the predicted assertion.
 
-### DUEL-GUARD-RUNG — the CPU duel guard fails at rung 5 on main today
-
-**Owner:** [BRAIN](#brain--finish-truthful-fighter-attack-selection). The
-diagnostic half is done: `[dealt]` and the passenger assertion count only damage
-dealt to a seat.
-
-**Current state:** `two_cpus_in_the_shipped_composition_damage_each_other` passes
-at its default rung 9 and fails at rung 5 (`AMBITION_DUEL_RUNG=5`, about 0.2
-against the pair floor). Rung 5's fighters spend most of their damage on
-summoned bodies, because the brain answers 71–84% of its decisions with
-`grapeshot` and `call_the_shark`. That is a brain selection defect, owned by
-BRAIN.
-
-⛔ Do not fix this by lowering the floor or by normalising the metric.
-
-**Acceptance:** the guard passes at all five published rungs at HEAD, because
-rung 5's CPUs fight each other.
-
 ### A4 — separate control authority from body execution on the real schedule
 
 **Owner:** accepted control writer map and actor-monolith frontier.
@@ -1133,12 +1115,11 @@ before and after a change, on one binary, and report both columns.
 
 1. **A brain cannot decline to attack.** The decision takes `options.attacks.first()` whenever the body is free, so the move that survives at range is thrown until the world changes. The brain does not remember its own last move. A decline gate on decision ticks was built and was a no-op, because presses are bounded by move duration (24 ticks), not the decision cadence (5). Next: a refusal that lasts as long as the move would have (`frames.total_s`), which needs one more piece of brain state and its snapshot projection.
 2. **A counter and a buff cannot be chosen between.** Pricing them needs a defensive feature ("is the opponent committed to a swing"), not a wider admission rule.
-3. **Rung 5's CPUs do not fight each other** (DUEL-GUARD-RUNG).
-4. **`sanic` @5 leaves the stage early** (about 640–780 ticks, both seats airborne). That is a stage defect, not the one-move lock. The guard for it is a bout that ends early, not move variety.
-5. **A ranged move scores `launch: 0`.** A projectile hit writes a dimensionless `HitKnockbackMagnitude::FeelScale(0.85)`, not `LaunchSpeed`. Settle whether the feel reference belongs on `LaunchConditions`, whether `0.85` leaves the projectile stepper, and what `max_knockback` means for a launcher. A launcher also needs a hazard-coverage feature (its `reach_fit` is zero at every range).
-6. **A placed trap has a position, and `reach` is a radius.** Carry the dangerous region relative to the body at the resolved-offer seam, not another reach scalar.
-7. **A teleport's destination does not reach the brain** (`TeleportParams`: `behind_nearest_foe`, `behind_gap`, aim). It belongs in the same resolved offer.
-8. **The ladder's step per rung.** All shipped rungs author `rollout_depth: 0`, so `read_weight` is inert (Q90 ruling: remove it, row CPU-LADDER) and the L3 step the engine ladder takes at level 6 is missing. Measure `--rungs 3,4,6,7,8` to separate step size from one pair.
+3. **`sanic` @5 leaves the stage early** (about 640–780 ticks, both seats airborne). That is a stage defect, not the one-move lock. The guard for it is a bout that ends early, not move variety.
+4. **A ranged move scores `launch: 0`.** A projectile hit writes a dimensionless `HitKnockbackMagnitude::FeelScale(0.85)`, not `LaunchSpeed`. Settle whether the feel reference belongs on `LaunchConditions`, whether `0.85` leaves the projectile stepper, and what `max_knockback` means for a launcher. A launcher also needs a hazard-coverage feature (its `reach_fit` is zero at every range).
+5. **A placed trap has a position, and `reach` is a radius.** Carry the dangerous region relative to the body at the resolved-offer seam, not another reach scalar.
+6. **A teleport's destination does not reach the brain** (`TeleportParams`: `behind_nearest_foe`, `behind_gap`, aim). It belongs in the same resolved offer.
+7. **The ladder's step per rung.** All shipped rungs author `rollout_depth: 0`, so `read_weight` is inert (Q90 ruling: remove it, row CPU-LADDER) and the L3 step the engine ladder takes at level 6 is missing. Measure `--rungs 3,4,6,7,8` to separate step size from one pair.
 
 **Standing prohibitions:**
 

@@ -159,6 +159,7 @@ group it names.
 | `combat-without-inventory-boss-dialogue` | headless | `Inventory`, `HeldUse`, `BossEncounters`, `Dialogue` |
 | `collection-without-held-use` | headless | `HeldUse` |
 | `encounters-without-named-bosses` | headless | `BossEncounters` |
+| `world-without-cutscenes` | headless | `Cutscenes` |
 
 **Three claims per profile, none of which means anything alone**
 (`ambition_platformer2d_host/tests/supported_profiles.rs`):

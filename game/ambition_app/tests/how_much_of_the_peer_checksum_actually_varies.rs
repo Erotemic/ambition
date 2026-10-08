@@ -492,8 +492,9 @@ fn probe_which_hashed_entries_are_written_outside_the_rewinding_schedule() {
 /// STATE".** A presence probe counts carriers and is blind to a value, and a type
 /// that is not rollback-registered at all cannot appear here however it is
 /// written — `SeatControlFrameModes` and `PlayerDamagePolicy` are both written
-/// from `Update`, read by sim systems, and invisible to this arm because neither
-/// is registered. That is `SETTINGS-ROLLBACK`'s row, not a hole in this one.
+/// outside the simulation, read by sim systems, and invisible to this arm
+/// because neither is registered. `PlayerDamagePolicy` changes only at an
+/// admitted rebase (`Q120`), so no resimulated frame reads a new value.
 ///
 /// ⛔⛤ **THE POSITIVE CONTROL DIED OF SUCCESS ON 2026-09-16 AND THIS ARM IS
 /// WEAKER FOR IT — SAID OUT LOUD BECAUSE A GUARD CHANGED BY THE WORK IT WAS

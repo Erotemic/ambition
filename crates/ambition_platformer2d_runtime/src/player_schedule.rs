@@ -268,15 +268,23 @@ impl Plugin for PlayerSchedulePlugin {
             ambition_platformer2d_actor_monolith::body_whereabouts::record_bodies_away_from_home
                 .in_set(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Record),
         );
-        // ⛔⛤ THE SETTINGS READ THAT USED TO BE INSIDE THE SIMULATION SCHEDULE.
-        // `apply_player_hit_events`, `charge_projectile_input` and
-        // `apply_feature_hit_events` each read `Res<UserSettings>` — persisted,
-        // App-local, menu-mutable — so a rollback resimulation of a confirmed
-        // frame re-read whatever the difficulty slider says NOW. Resolved once
-        // per host frame here, in LITERAL `Update`, into the policy those three
-        // now read. See `ambition_damage::PlayerDamagePolicy`.
+        // The damage policy the simulation reads changes only through the
+        // mechanical-edit chain, before the timeline advances. A settings
+        // change stops and rebases a local timeline, or waits behind a foreign
+        // one, so no resimulated frame reads a policy its timeline did not
+        // have. See `ambition_damage::ProposedPlayerDamagePolicy`.
         app.init_resource::<ambition_damage::PlayerDamagePolicy>();
-        app.add_systems(Update, ambition_damage::project_player_damage_policy);
+        app.init_resource::<ambition_damage::ProposedPlayerDamagePolicy>();
+        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
+        app.add_systems(
+            bevy::app::PreUpdate,
+            (
+                ambition_damage::propose_player_damage_policy
+                    .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
+                ambition_damage::publish_player_damage_policy
+                    .in_set(ambition_platformer2d_core::MechanicalEditSet::Publish),
+            ),
+        );
         // ⛔⛤ **THE FEEL-TUNING EDITOR ROAD, `Q120`'s FIFTH — AND IT REGISTERS
         // HERE BECAUSE `ambition_dev_tools` DOES NOT DEPEND ON `ambition_combat`.**
         // Adding that edge to reach one resource would be dependency convenience

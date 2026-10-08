@@ -1174,26 +1174,71 @@ impl Default for PlayerDamagePolicy {
     }
 }
 
-/// Resolve the persisted settings into the policy simulation reads.
+/// The policy the settings ask for. The simulation does not read it.
 ///
-/// ⛔ **REGISTER THIS OUTSIDE THE SIMULATION SCHEDULE.** The whole point is that
-/// the settings resource is read once per host frame, at a host-side boundary,
-/// and never during a historical replay. `ambition_platformer2d_runtime`'s player
-/// schedule registers it in literal `Update`.
-pub fn project_player_damage_policy(
+/// A settings change is a mechanical edit (`Q120`): the System overlay can
+/// change difficulty, assist and power during a live timeline, and a
+/// resimulated frame must read the policy its timeline had. So the settings
+/// write this mirror and propose; [`publish_player_damage_policy`] copies it
+/// into [`PlayerDamagePolicy`] only when the timeline's owner admits the edit.
+/// A local timeline is stopped and rebased on the new policy; a foreign one
+/// refuses, and the proposal waits.
+#[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct ProposedPlayerDamagePolicy(pub PlayerDamagePolicy);
+
+/// The marker type that owns the damage-policy domain. Identity is the type.
+pub struct PlayerDamagePolicyDomain;
+
+/// This domain's key in `PendingMechanicalEdits`, declared beside the value.
+pub fn player_damage_policy_domain() -> ae::MechanicalDomain {
+    ae::MechanicalDomain::of::<PlayerDamagePolicyDomain>("player_damage_policy")
+}
+
+/// The policy that `settings` state. No settings is the unscaled policy.
+pub fn player_damage_policy_from(
+    settings: Option<&ambition_persistence::settings::UserSettings>,
+) -> PlayerDamagePolicy {
+    settings.map_or_else(PlayerDamagePolicy::default, |settings| PlayerDamagePolicy {
+        incoming: incoming_player_damage_multiplier(&settings.gameplay),
+        outgoing: settings.gameplay.player_damage_multiplier,
+    })
+}
+
+/// Propose the policy the settings state, when it differs from the last
+/// proposal. Runs in `MechanicalEditSet::Propose`, outside the simulation.
+pub fn propose_player_damage_policy(
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    mut proposed: ResMut<ProposedPlayerDamagePolicy>,
+    mut pending: ResMut<ae::PendingMechanicalEdits>,
+) {
+    let next = player_damage_policy_from(settings.as_deref());
+    if proposed.0 != next {
+        proposed.0 = next;
+        pending.propose(player_damage_policy_domain());
+    }
+}
+
+/// Copy an admitted proposal into the policy the simulation reads. This is the
+/// only writer of [`PlayerDamagePolicy`].
+///
+/// No change guard here: the guard is on the proposal, so a refused edit that
+/// waits for several frames is published when the timeline admits it.
+pub fn publish_player_damage_policy(
+    proposed: Res<ProposedPlayerDamagePolicy>,
+    admission: Option<Res<ae::MechanicalEditAdmission>>,
+    mut pending: ResMut<ae::PendingMechanicalEdits>,
     mut policy: ResMut<PlayerDamagePolicy>,
 ) {
-    let next = settings.as_deref().map_or_else(
-        PlayerDamagePolicy::default,
-        |settings| PlayerDamagePolicy {
-            incoming: incoming_player_damage_multiplier(&settings.gameplay),
-            outgoing: settings.gameplay.player_damage_multiplier,
-        },
-    );
-    // ⚠ Written through change detection: a resource rewritten every frame with
-    // the same value is one no consumer can use `is_changed` on.
-    bevy::prelude::DetectChangesMut::set_if_neq(&mut policy, next);
+    if !pending.is_pending(player_damage_policy_domain()) {
+        return;
+    }
+    // Absent means publish, as the resource's default says: a composition with
+    // no rollback host has no history that an edit could contradict.
+    if matches!(admission.as_deref(), Some(ae::MechanicalEditAdmission::Refuse)) {
+        return;
+    }
+    bevy::prelude::DetectChangesMut::set_if_neq(&mut policy, proposed.0);
+    pending.take(player_damage_policy_domain());
 }
 
 pub fn incoming_player_damage_multiplier(

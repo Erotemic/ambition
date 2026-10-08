@@ -9,6 +9,9 @@ written from `Update`, and carry zero rows in the rollback schema baseline. So
 "0 simulation readers" was true and "the simulation no longer reads App-local
 mutable policy" was not. ⇒ The projections are censused here too, with a
 hand-verified control apiece; see `PROJECTIONS`. **Projected is not admitted.**
+A projection that simulation reads is safe only when it changes at an admitted
+boundary (`Q120`): `PlayerDamagePolicy` does, since 2026-10-08. Each row says
+how its type is written.
 
 The 2026-09-13 architecture review's priority 1: `UserSettings` is waived in
 `rollback_coverage.rs` as *"user settings, forward-only"* — the category `Q119`
@@ -194,8 +197,9 @@ def readers() -> dict[str, set[str]]:
 # this list is a floor on the projections, not a count of them.
 PROJECTIONS: dict[str, str] = {
     "PlayerDamagePolicy": (
-        "two damage scalars resolved from `UserSettings.gameplay` by "
-        "`project_player_damage_policy`, registered in literal `Update`"
+        "two damage scalars from `UserSettings.gameplay`, proposed by "
+        "`propose_player_damage_policy` and written by the admitted "
+        "`publish_player_damage_policy` in `PreUpdate`"
     ),
     "SeatControlFrameModes": (
         "each seat's input-interpretation policy resolved from "
@@ -495,11 +499,11 @@ def main() -> int:
     print("\n" + "─" * 72)
     print("⛔⛤ AND THE PROJECTIONS, BECAUSE THE ZERO ABOVE IS NOT AN ANSWER ALONE.")
     print("   `Res<UserSettings>` left the simulation schedule by having its fields")
-    print("   resolved into small resources at a host-side boundary. Those resources")
-    print("   are then read INSIDE the simulation schedule, written from `Update`,")
-    print("   and carry ZERO rows in `rollback_schema_baseline.txt` — so a replay of")
-    print("   frame N reads whatever they hold NOW, exactly as before. The narrowing")
-    print("   is real; the TIMELINE defect is untouched. Projected is not admitted.")
+    print("   resolved into small resources. Those resources are read INSIDE the")
+    print("   simulation schedule and carry ZERO rows in `rollback_schema_baseline.txt`.")
+    print("   A replay of frame N is correct only if the resource changes at an")
+    print("   admitted rebase (`Q120`). Projected is not admitted: each row below")
+    print("   says how its type is written.")
     projection_controls = {
         "PlayerDamagePolicy": "apply_feature_hit_events",
         "SeatControlFrameModes": "tick_controlled_brains",

@@ -246,7 +246,7 @@ pub fn apply_brain_commands(
     // policy: that policy is recovered by identity, never from the mutable
     // `ActorPolicy` a provocation has overwritten. `Option`
     // because compositions that register no cast are ordinary.
-    prepared: crate::session::mechanics::SessionCast,
+    prepared: ambition_characters::prepared::SessionCast,
     mut commands_in: MessageReader<BrainCommand>,
     mut actors: Query<(
         Entity,

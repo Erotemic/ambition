@@ -34,7 +34,7 @@ pub fn project_wallet_shields(
     // Each body's own room's rule (OW1): with two rooms live, THE live room's
     // rule was the rule of no room, and no wallet shielded anywhere.
     rule: crate::session::governing_rules::RulesOf<WalletShieldRule>,
-    cast: crate::session::mechanics::SessionCast,
+    cast: ambition_characters::prepared::SessionCast,
     bodies: Query<(Entity, Option<&WornCharacter>, Has<BodyWalletShield>)>,
 ) {
     for (entity, worn, shielded) in &bodies {

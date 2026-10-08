@@ -245,7 +245,7 @@ pub fn prepare_the_match(
     roster: Option<Res<MatchParticipantRoster>>,
     // The running session's frozen cast, or the published one with no session
     // (`SessionCast`).
-    cast: crate::session::mechanics::SessionCast,
+    cast: ambition_characters::prepared::SessionCast,
     // REQUIRED, not optional: `engine.character-authority-is-app-local` forbids
     // making the character authority optional. A composition with no catalog
     // must be NAMED by the capability audit, not silently prepare fighters that
@@ -386,7 +386,7 @@ pub fn activate_the_prepared_match(
     // not to re-resolve anything: see `PreparedMatch:cast_moved_on`.
     // The PUBLISHED cast, read through `SessionCast::published`: the question
     // is whether the publication moved on, not which cast to play.
-    cast: crate::session::mechanics::SessionCast,
+    cast: ambition_characters::prepared::SessionCast,
 ) {
     let Some(prepared) = prepared else {
         return;

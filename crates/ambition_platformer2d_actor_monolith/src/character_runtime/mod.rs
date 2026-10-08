@@ -447,7 +447,7 @@ pub fn registered_portrait_target<'a>(
 pub fn declare_registered_characters(
     // The running session's frozen cast, or the published one with no session
     // (`SessionCast`); its change is that source's change.
-    cast: crate::session::mechanics::SessionCast,
+    cast: ambition_characters::prepared::SessionCast,
     // The sheet table lives INSIDE `GameAssets`, not as a standalone resource.
     assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
 ) {
@@ -691,7 +691,7 @@ pub fn materialize_demanded_character_sheets(
     // definition for every catalog row, so a composition with characters has it.
     // The running session's frozen cast, or the published one with no session
     // (`SessionCast`).
-    cast: crate::session::mechanics::SessionCast,
+    cast: ambition_characters::prepared::SessionCast,
     asset_catalog: Option<Res<Platformer2dAssetCatalog>>,
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,

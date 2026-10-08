@@ -60,7 +60,7 @@ pub fn fire_puppy_slug_gun_system(
     // the summoned ally IS a character (`npc_puppy_slug`), so this road needs
     // the cast to build it as one. `Option`: a composition that registers nobody
     // is ordinary, and there the summon is refused (`summon_cast`).
-    prepared: crate::session::mechanics::SessionCast,
+    prepared: ambition_characters::prepared::SessionCast,
     players: Query<(
         &ActorControl,
         &BodyKinematics,

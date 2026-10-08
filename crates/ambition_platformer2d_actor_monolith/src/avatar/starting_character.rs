@@ -372,7 +372,7 @@ pub fn apply_worn_character_gameplay(
     // session was not prepared against. MEASURED 2026-10-01: with the reload's
     // claim emptied, the frozen cast said 5 HP, the App said 9, and the live
     // goblins had 9 until this read the frozen cast.
-    cast: crate::session::mechanics::SessionCast,
+    cast: ambition_characters::prepared::SessionCast,
     // What the MATCH decided, when one is running. `Option` because most
     // compositions are not a match, which is the ordinary case rather than a
     // degraded one.

@@ -282,10 +282,6 @@ pub fn perception_extent_for(
     }
 }
 
-/// The cast a live-session system reads. Defined beside the cast it reads
-/// (`ambition_characters::session_cast`), so the crates below this one read the
-/// same answer; re-exported here for the monolith's readers.
-pub use ambition_characters::prepared::SessionCast;
 
 #[cfg(test)]
 mod tests {

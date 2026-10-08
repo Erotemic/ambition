@@ -21,7 +21,7 @@ pub fn apply_actor_stimuli(
     mut commands: Commands,
     // The prepared cast, so a provoked body can take its own CHARACTER's
     // answer instead of one matched out of its display name.
-    prepared: crate::session::mechanics::SessionCast,
+    prepared: ambition_characters::prepared::SessionCast,
     mut stimuli: MessageReader<ActorStimulus>,
     mut actors: Query<
         (

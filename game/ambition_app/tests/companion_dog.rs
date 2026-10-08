@@ -456,3 +456,156 @@ fn the_petter_and_the_dog_look_at_each_other_under_flipped_gravity() {
         );
     }
 }
+
+/// The basement dog and the primary player, in a hub that has run 10 ticks.
+fn the_dog_and_the_player() -> (ambition_app::Platformer2dSimHarness, Entity, Entity) {
+    let mut sim = fixed_60hz_room_sim("central_hub_complex");
+    sim.step_n(base(), 10);
+    let dog = {
+        let world = sim.world_mut();
+        let mut query = world.query::<(Entity, &WornCharacter)>();
+        query
+            .iter(world)
+            .find(|(_, worn)| worn.id() == "npc_companion_dog")
+            .map(|(entity, _)| entity)
+            .expect("the basement stages the authored dog")
+    };
+    let player = {
+        let world = sim.world_mut();
+        let mut query = world.query_filtered::<
+            Entity,
+            bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>,
+        >();
+        query.single(world).expect("one primary player")
+    };
+    (sim, dog, player)
+}
+
+/// The gap between the player's box and the dog's footprint on world x
+/// (the hub's side axis): negative when they overlap.
+fn gap_to_the_dog(sim: &ambition_app::Platformer2dSimHarness, player: Entity, dog: Entity) -> f32 {
+    let kin = sim.world().get::<BodyKinematics>(player).expect("a live player");
+    let footprint = sim
+        .world()
+        .get::<ambition_platformer2d::combat::components::CenteredAabb>(dog)
+        .expect("the dog has a footprint");
+    (kin.pos.x - footprint.center.x).abs() - footprint.half_size.x - kin.size.x * 0.5
+}
+
+/// Press Interact and wait for a conversation with the dog to open.
+fn talk_to_the_dog(sim: &mut ambition_app::Platformer2dSimHarness, dog: Entity) -> bool {
+    let talking = |sim: &ambition_app::Platformer2dSimHarness| {
+        sim.world()
+            .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
+            .is_some_and(|conversation| conversation.talker() == Some(dog))
+    };
+    sim.step(ambition_app::AgentAction {
+        interact: true,
+        interact_held: true,
+        ..base()
+    });
+    for _ in 0..10 {
+        if talking(sim) {
+            return true;
+        }
+        sim.step(base());
+    }
+    talking(sim)
+}
+
+/// ⭐ A CONVERSATION STEPS ITS BODIES APART, SO THEY LOOK LIKE THEY TALK.
+///
+/// Jon, 2026-10-07: *"When you engage in dialog, the dialog box should still
+/// come up, but if it is safe for the player to move to a spot where there is
+/// separation between the characters so it really looks like they are talking
+/// (e.g. similar to how the dog pet works) it should do so."*
+///
+/// The player talks to the dog from on top of it. The conversation opens, the
+/// player walks out to `TALK_GAP` from the dog's side, and the two face each
+/// other. The conversation is still open at the end: the step stays inside
+/// the reach a conversation breaks outside of.
+#[test]
+fn talking_from_on_top_of_the_dog_steps_the_player_out_to_a_talking_distance() {
+    use ambition_platformer2d::actors::features::ecs::{TalkSpacing, TALK_GAP};
+
+    let (mut sim, dog, player) = the_dog_and_the_player();
+    let here = sim.world().get::<BodyKinematics>(dog).expect("a live dog").pos;
+    sim.teleport_player((here.x + 4.0, here.y));
+    // Land, so the step is asked of a body on its floor.
+    sim.step_n(base(), 15);
+    // ⛔ THE PREMISE: the two overlap when the conversation opens.
+    assert!(
+        gap_to_the_dog(&sim, player, dog) < 0.0,
+        "the fixture did not stand the player on the dog: gap {}",
+        gap_to_the_dog(&sim, player, dog)
+    );
+    assert!(talk_to_the_dog(&mut sim, dog), "Interact on the dog talks to it");
+
+    let walking = |sim: &ambition_app::Platformer2dSimHarness| {
+        sim.world().get::<TalkSpacing>(player).map(|spacing| spacing.walking)
+    };
+    assert!(
+        walking(&sim).is_some_and(|walking| walking > 0.0),
+        "the conversation did not start a step: {:?}",
+        sim.world().get::<TalkSpacing>(player)
+    );
+    for _ in 0..180 {
+        if walking(&sim) == Some(0.0) {
+            break;
+        }
+        sim.step(base());
+    }
+    assert_eq!(walking(&sim), Some(0.0), "the step never ended");
+    let gap = gap_to_the_dog(&sim, player, dog);
+    assert!(
+        (gap - TALK_GAP).abs() <= 3.0,
+        "the player stopped {gap:.1}px from the dog, not at a talking distance of {TALK_GAP}px"
+    );
+    let at = |body: Entity| sim.world().get::<BodyKinematics>(body).expect("a live body");
+    let toward_the_dog = (at(dog).pos.x - at(player).pos.x).signum();
+    assert_eq!(
+        (at(player).facing, at(dog).facing),
+        (toward_the_dog, -toward_the_dog),
+        "the two do not face each other"
+    );
+    assert!(
+        sim.world()
+            .get_resource::<ambition_platformer2d::conversation::ActiveConversation>()
+            .is_some_and(|conversation| conversation.talker() == Some(dog)),
+        "the step broke the conversation it was for"
+    );
+}
+
+/// ⭐ INTERACT TALKS FROM A LITTLE WAY OFF, NOT ONLY FROM ON TOP.
+///
+/// Jon, 2026-10-07: *"We may also want a bit of a buffer so you can a talk
+/// interaction can be triggered when you are close enough to the other
+/// character."* A conversation used to open only when the two boxes
+/// overlapped. The player stands clear of the dog, inside the talk reach, and
+/// Interact opens the conversation.
+#[test]
+fn interact_talks_to_the_dog_from_a_step_away() {
+    let (mut sim, dog, player) = the_dog_and_the_player();
+    let footprint = *sim
+        .world()
+        .get::<ambition_platformer2d::combat::components::CenteredAabb>(dog)
+        .expect("the dog has a footprint");
+    let width = sim.world().get::<BodyKinematics>(player).expect("a live player").size.x;
+    let reach = ambition_platformer2d::interaction::TALK_REACH;
+    sim.teleport_player((
+        footprint.center.x + footprint.half_size.x + width * 0.5 + reach * 0.5,
+        footprint.center.y,
+    ));
+    sim.step_n(base(), 15);
+    // ⛔ THE PREMISE: clear of the dog, and inside the reach. The dog roams,
+    // so this is measured on the tick of the press.
+    let gap = gap_to_the_dog(&sim, player, dog);
+    assert!(
+        gap > 2.0 && gap < reach - 2.0,
+        "the fixture did not stand the player a step from the dog: gap {gap:.1}"
+    );
+    assert!(
+        talk_to_the_dog(&mut sim, dog),
+        "Interact {gap:.1}px from the dog did not talk to it"
+    );
+}

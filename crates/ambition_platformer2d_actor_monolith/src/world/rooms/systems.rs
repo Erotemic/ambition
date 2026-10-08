@@ -203,7 +203,12 @@ pub fn detect_room_transition_system(
         if matches!(zone.zone.activation, LoadingZoneActivation::Door) {
             let door = ae::AabbExt::center(zone.zone.aabb).distance(kin.pos);
             if talkable
-                .nearest_in_reach(subject_entity, kin.pos, kin.collision_box(sweep))
+                .nearest_in_reach(
+                    subject_entity,
+                    kin.pos,
+                    kin.collision_box(sweep),
+                    sweep.map_or(ae::Vec2::ZERO, |step| step.down),
+                )
                 .is_some_and(|talk| talk < door)
             {
                 continue;

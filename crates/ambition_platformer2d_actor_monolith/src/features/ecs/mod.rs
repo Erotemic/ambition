@@ -67,6 +67,7 @@ mod encounter_rewards;
 mod fighter_harness;
 mod interact;
 mod pet;
+mod talk_spacing;
 pub mod perception;
 pub mod pickups;
 pub(crate) mod spawn;
@@ -131,6 +132,7 @@ pub use pet::{
     advance_pet_beats, apply_pet_requests, project_pet_holds, PetBeat, PetRequested, PetStage,
     PET_SECONDS, PET_WALK_SPEED,
 };
+pub use talk_spacing::{space_the_talkers, TalkSpacing, TALK_GAP};
 // ⭐ THE MOUNT PAIR'S TESTS STAYED, because their fixtures are this crate's
 // construction road. They exercise `ambition_mount` from the composition.
 #[cfg(test)]

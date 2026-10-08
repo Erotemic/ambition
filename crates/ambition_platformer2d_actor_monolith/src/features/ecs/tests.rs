@@ -336,6 +336,19 @@ fn interact_buffered_starts_npc_dialogue() {
     let center = ae::Vec2::new(100.0, 100.0);
     let mut app = App::new();
     app.add_plugins(StatesPlugin);
+    // One room with no doors: the interaction asks the live room whether a
+    // door is nearer than the body it would talk to.
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "room",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new(
+                "room",
+                ae::World::new("room", ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, Vec::new()),
+            )],
+            Vec::new(),
+        ),
+    );
     app.init_state::<ambition_platformer2d_shared_tangle::schedule::GameMode>();
 
     app.insert_resource(GameplayBanner::default());

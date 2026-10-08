@@ -62,8 +62,8 @@ impl NearestInteractable {
 /// which resolves the interaction against the same controlled subject — so the
 /// "Talk / Open / Activate" label appears exactly where the interact would fire.
 ///
-/// The overlap test is binary today (AABB strict-intersects), matching the existing interact
-/// path. When the body overlaps multiple interactables simultaneously, the HUD label still
+/// The test is binary (AABB strict-intersects), matching the interact path: a body to talk
+/// to within the talk reach of the box, anything else against the box itself. When the body overlaps multiple interactables simultaneously, the HUD label still
 /// reflects what the buffered-interact systems would fire because both follow the same priority
 /// order.
 pub fn update_nearest_interactable(
@@ -108,7 +108,7 @@ pub fn update_nearest_interactable(
     for (body, kin, last_step) in &driven {
         by_body.insert(
             body,
-            variant_in_reach(kin.collision_box(last_step), &actors, &chests, &switches),
+            variant_in_reach(kin.collision_box(last_step), down_of(last_step), &actors, &chests, &switches),
         );
     }
 
@@ -120,7 +120,13 @@ pub fn update_nearest_interactable(
     let chosen =
         match subject.and_then(|subject| bodies.get(subject).ok().map(|body| (subject, body))) {
             Some((subject, (kin, last_step))) => {
-                let variant = variant_in_reach(kin.collision_box(last_step), &actors, &chests, &switches);
+                let variant = variant_in_reach(
+                    kin.collision_box(last_step),
+                    down_of(last_step),
+                    &actors,
+                    &chests,
+                    &switches,
+                );
                 by_body.insert(subject, variant.clone());
                 variant
             }
@@ -131,13 +137,22 @@ pub fn update_nearest_interactable(
     }
 }
 
+/// The DOWN of a body's last step, or zero for a body with no record (no
+/// turn): the answer `collision_box` takes from the same record.
+fn down_of(last_step: Option<&ambition_platformer2d_core::SweepSample>) -> ambition_platformer2d_core::Vec2 {
+    last_step.map_or(ambition_platformer2d_core::Vec2::ZERO, |step| step.down)
+}
+
 /// What ONE body's reach box overlaps, in the priority order the buffered
-/// interact systems fire in.
+/// interact systems fire in. A body to talk to is found in the talk reach
+/// ([`ambition_interaction::talk_reach`]) of the box, for a body whose DOWN is
+/// `down`: the reach Interact opens a conversation in.
 ///
 /// ⭐ EXTRACTED SO EVERY BODY GETS THE SAME ANSWER. Inlining it per caller is how
 /// a second seat ends up asking a slightly different question from the first.
 fn variant_in_reach(
     reach: ambition_platformer2d_core::Aabb,
+    down: ambition_platformer2d_core::Vec2,
     actors: &Query<
         (
             &CenteredAabb,
@@ -153,6 +168,7 @@ fn variant_in_reach(
     switches: &Query<&CenteredAabb, (With<FeatureSimEntity>, With<SwitchFeature>)>,
 ) -> InteractVariant {
     let player_aabb = reach;
+    let talk_aabb = ambition_interaction::talk_reach(reach, down);
 
     // Talkable actors first — `Talk` is the most common contextual swap and the
     // one players need feedback on while approaching dialog. A talkable actor
@@ -167,7 +183,7 @@ fn variant_in_reach(
         {
             continue;
         }
-        if aabb.aabb().strict_intersects(player_aabb) {
+        if aabb.aabb().strict_intersects(talk_aabb) {
             chosen = InteractVariant::Talk;
             break;
         }

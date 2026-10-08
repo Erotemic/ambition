@@ -22,7 +22,14 @@ pub struct ConversationCutBark {
 
 pub fn break_dialogue_on_hit_or_separation(
     mut conversation: ResMut<ActiveConversation>,
-    bodies: Query<(&CenteredAabb, Option<&BodyCombat>)>,
+    bodies: Query<(
+        &CenteredAabb,
+        Option<&BodyCombat>,
+        Option<(
+            &ambition_platformer2d_core::BodyKinematics,
+            Option<&ambition_platformer2d_core::SweepSample>,
+        )>,
+    )>,
     mut barks: MessageWriter<ConversationCutBark>,
 ) {
     if !conversation.is_live() {
@@ -34,7 +41,8 @@ pub fn break_dialogue_on_hit_or_separation(
         // away from anything.
         return;
     };
-    let (Ok((a_aabb, a_combat)), Ok((b_aabb, b_combat))) = (bodies.get(*a), bodies.get(*b)) else {
+    let (Ok((a_aabb, a_combat, a_body)), Ok((b_aabb, b_combat, _))) = (bodies.get(*a), bodies.get(*b))
+    else {
         // A participant stopped existing — despawned, or the room swapped under
         // the conversation. That is a separation of the most literal kind.
         conversation.close();
@@ -45,7 +53,17 @@ pub fn break_dialogue_on_hit_or_separation(
     // beat two bodies share asks.
     let struck = |combat: Option<&BodyCombat>| combat.is_some_and(BodyCombat::is_knocked);
     let any_struck = struck(a_combat) || struck(b_combat);
-    let in_reach = a_aabb.aabb().strict_intersects(b_aabb.aabb());
+    // The reach Interact opened the conversation in: the talk reach of the
+    // initiator's collision box (`a` is the initiator), against the other
+    // body's footprint. A body with no kinematics talks from its footprint.
+    let talk_box = match a_body {
+        Some((kin, step)) => ambition_interaction::talk_reach(
+            kin.collision_box(step),
+            step.map_or(ambition_platformer2d_core::Vec2::ZERO, |step| step.down),
+        ),
+        None => ambition_interaction::talk_reach(a_aabb.aabb(), ambition_platformer2d_core::Vec2::ZERO),
+    };
+    let in_reach = talk_box.strict_intersects(b_aabb.aabb());
 
     let Some(reason) = DialogueBreak::evaluate(any_struck, in_reach) else {
         return;

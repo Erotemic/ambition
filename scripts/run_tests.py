@@ -539,6 +539,16 @@ def slow_python_checker_jobs() -> list[Job]:
             "LDtk worlds: no uid allocated and discarded",
             [sys.executable, "scripts/check_ldtk_uid_leak.py"],
         ),
+        # The authoring policy (`ambition_ldtk_tools policy check`) had no gate,
+        # and five CameraZones drifted onto the wrong layer. It runs under the
+        # LDtk tool's interpreter, which has the package.
+        Job(
+            "LDtk worlds: the authoring policy holds",
+            [
+                tool_python(REPO / "tools" / "ambition_ldtk_tools", "AMBITION_LDTK_PYTHON"),
+                "scripts/check_ldtk_policy.py",
+            ],
+        ),
         Job(
             # ⚠ NON-STRICT ON PURPOSE: it reports, it does not fail. This is
             # a linter for PROSE, so a false positive is a matter of a name

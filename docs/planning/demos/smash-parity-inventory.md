@@ -523,7 +523,7 @@ complete kits
 | `P11` | Capture acquisition policy | E2 | ◐ one writer of `CaptureAttemptRequested` (`translate_authored_capture_effects`); standing, dash, pivot and command grabs ship; tether, hit-grab and aerial do not (§6). |
 | `P12` | Recovery-use budget | E1 | ✔ `recovery_charges`. Helplessness is a stored episode, not `charges == 0`. |
 | `P13` | Participant-generic item path | E2 | ✔ `DrivenBodies`. |
-| `P14` | Resolved presentation facts | E1 | ✔ charge, unhittable, launch beat, shield-break phase, `KnockoutBeatRequested::eliminated`, finish zoom. |
+| `P14` | Resolved presentation facts | E1 | ✔ charge, unhittable, launch beat, shield-break phase, `KnockoutBeatRequested::eliminated` and `::launch` (the ring-out blast shoots from the crossed edge, opposite the launch), `KnockedOutOfTheWorld` (a ringed-out fighter is not drawn until it respawns), finish zoom. |
 
 None of these needs the actor-monolith carve or composition cleanup first. `E2`
 means coordinated work, not a prerequisite.

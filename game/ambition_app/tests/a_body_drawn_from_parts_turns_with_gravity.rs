@@ -15,7 +15,7 @@
 
 use ambition_platformer2d::game_shell::ShellCommand;
 use ambition_platformer2d::platformer::lifecycle::PlayerVisual;
-use ambition_platformer2d::render::rendering::actors::rigged::{RiggedPresentation, RiggedPresentations};
+use ambition_platformer2d::render::rendering::actors::rigged::{RiggedPresentation, RiggedPresentedBy};
 use bevy::prelude::*;
 
 /// The turn of a transform about the view axis, in radians.
@@ -51,12 +51,11 @@ fn the_players_parts_turn_with_sideways_gravity() {
     for _ in 0..60 {
         app.update();
     }
-    let owner = *app
+    let owner = app
         .world()
-        .resource::<RiggedPresentations>()
-        .0
-        .get(&player)
-        .expect("premise: the shipped game draws its player from parts");
+        .get::<RiggedPresentedBy>(player)
+        .expect("premise: the shipped game draws its player from parts")
+        .owner();
     assert!(
         turn_of(app.world().get::<Transform>(player).unwrap()).abs() < 0.01,
         "premise: the player stands level in normal gravity"

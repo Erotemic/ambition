@@ -565,7 +565,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // Every camera layered into a window shares its main texture, or the
         // window goes black under its HUD (`window_camera_stack`).
         app.add_systems(bevy::app::Last, window_camera_stack::report_incompatible_window_stacks);
-        app.init_resource::<actors::rigged::RiggedPresentations>();
+        // A presentation owner that goes, by any road, gives back its cell.
+        app.add_observer(actors::rigged::give_back_the_cell_of_a_removed_presentation);
         app.init_resource::<actors::rigged::RiggedImpostorAtlas>();
         // Who reads a part-drawn body as one image this frame, declared before
         // the driver composites those bodies (`ComposedBodyDemand`).

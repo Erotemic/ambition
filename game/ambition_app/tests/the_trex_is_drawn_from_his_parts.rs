@@ -15,7 +15,7 @@
 use std::collections::BTreeSet;
 
 use ambition_app::app::{build_visible_app_with, StartRoomMustResolve, StartRoomOverride, VisibleRenderMode};
-use ambition_platformer2d::render::rendering::actors::rigged::RiggedPresentations;
+use ambition_platformer2d::render::rendering::actors::rigged::RiggedPresentedBy;
 use ambition_platformer2d::sprite_sheet::boss::{BossAnimator, BossDrawnCell};
 use ambition_platformer2d::sprite_sheet::character::CharacterAnimator;
 use bevy::prelude::*;
@@ -28,7 +28,7 @@ fn part_drawn_boss(app: &mut App) -> Option<Entity> {
     let world = app.world_mut();
     let mut bosses = world.query_filtered::<Entity, (With<BossAnimator>, With<CharacterAnimator>)>();
     let boss = bosses.iter(world).next()?;
-    world.resource::<RiggedPresentations>().0.contains_key(&boss).then_some(boss)
+    world.get::<RiggedPresentedBy>(boss).is_some().then_some(boss)
 }
 
 #[test]

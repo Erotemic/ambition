@@ -119,8 +119,8 @@ fn app_anchored(admit: bool, sheet: CharacterSpriteAsset, anchor: Anchor) -> (Ap
     app.init_resource::<Assets<Image>>();
     app.init_resource::<Assets<TextureAtlasLayout>>();
     let sheet = with_pages(sheet, || ready_page(&mut app));
-    app.init_resource::<RiggedPresentations>()
-        .init_resource::<RiggedImpostorAtlas>()
+    app.add_observer(give_back_the_cell_of_a_removed_presentation);
+    app.init_resource::<RiggedImpostorAtlas>()
         .init_resource::<Squash>()
         .init_resource::<ComposedBodyDemand>()
         .insert_resource(Composite(true))
@@ -156,12 +156,17 @@ fn settle(app: &mut App) {
     app.update();
 }
 
+/// No root has a presentation owner.
+fn no_presentations(app: &mut App) -> bool {
+    let mut owners = app.world_mut().query::<&RiggedPresentation>();
+    owners.iter(app.world()).count() == 0
+}
+
 fn owner(app: &App, root: Entity) -> Entity {
-    *app.world()
-        .resource::<RiggedPresentations>()
-        .0
-        .get(&root)
+    app.world()
+        .get::<RiggedPresentedBy>(root)
         .expect("the root has a rigged presentation")
+        .owner()
 }
 
 /// `(translation, visible)` of every slot, in draw order: sheet pixels from
@@ -284,7 +289,7 @@ fn a_rigged_root_draws_its_impostor_from_parts_in_reusable_slots() {
 fn with_the_trial_off_no_root_gets_parts() {
     let (mut app, root) = app(false);
     app.update();
-    assert!(app.world().resource::<RiggedPresentations>().0.is_empty());
+    assert!(no_presentations(&mut app));
     let mut parts = app.world_mut().query::<&RiggedPartSlot>();
     assert_eq!(parts.iter(app.world()).count(), 0);
     assert!(draws_baked(&app, root));
@@ -604,7 +609,7 @@ fn a_body_stays_baked_until_every_part_page_is_ready() {
     app.world_mut().resource_mut::<GameAssets>().characters.publish("raider", sheet);
     for _ in 0..5 {
         app.update();
-        assert!(app.world().resource::<RiggedPresentations>().0.is_empty(), "bound to pages still loading");
+        assert!(no_presentations(&mut app), "bound to pages still loading");
         assert!(draws_baked(&app, root), "the baked root stopped drawing");
     }
 
@@ -693,7 +698,7 @@ fn a_rewear_drops_the_old_characters_parts_while_the_new_pages_load() {
             app.world().get_entity(raider_owner).is_err(),
             "the raider's parts stayed on the lookout's root while its pages loaded"
         );
-        assert!(app.world().resource::<RiggedPresentations>().0.is_empty(), "bound to pages still loading");
+        assert!(no_presentations(&mut app), "bound to pages still loading");
         assert!(draws_baked(&app, root), "the baked root is not drawn");
     }
 

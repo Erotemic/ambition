@@ -19,10 +19,17 @@
 
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 use ambition_platformer2d::render::rendering::actors::rigged::{
-    RiggedPartSlot, RiggedPresentation, RiggedPresentations,
+    RiggedPartSlot, RiggedPresentation, RiggedPresentationOf,
 };
 use ambition_platformer2d::sprite_sheet::character::rigged::RiggedSpriteAdmission;
 use bevy::prelude::*;
+
+/// Every rigged presentation owner in the world.
+fn presentation_owners(app: &mut App) -> Vec<Entity> {
+    let world = app.world_mut();
+    let mut owners = world.query_filtered::<Entity, With<RiggedPresentation>>();
+    owners.iter(world).collect()
+}
 
 /// Seat two Carl Stargans in the shipped game and let the match settle. `admit`
 /// inserts that switch; `None` inserts nothing, as the shipped game does.
@@ -65,18 +72,12 @@ fn seated_pair(admit: Option<bool>) -> App {
 #[test]
 fn an_admitted_rig_character_is_drawn_from_its_parts() {
     let mut app = seated_pair(Some(true));
-    let presentations: Vec<Entity> = app
-        .world()
-        .resource::<RiggedPresentations>()
-        .0
-        .values()
-        .copied()
-        .collect();
+    let presentations: Vec<Entity> = presentation_owners(&mut app);
     assert_eq!(presentations.len(), 2, "each seated body has one rigged presentation");
     for owner in presentations {
         let world = app.world();
         let presentation = world.get::<RiggedPresentation>(owner).unwrap();
-        let root = presentation.root;
+        let root = world.get::<RiggedPresentationOf>(owner).unwrap().0;
         let bound = world
             .get::<ambition_platformer2d::render::rendering::actors::BoundSpriteQuality>(root)
             .expect("a bound root");
@@ -139,7 +140,7 @@ fn an_admitted_rig_character_is_drawn_from_its_parts() {
 #[test]
 fn with_the_switch_off_no_part_is_drawn() {
     let mut app = seated_pair(Some(false));
-    assert!(app.world().resource::<RiggedPresentations>().0.is_empty());
+    assert!(presentation_owners(&mut app).is_empty());
     let mut slots = app.world_mut().query::<&RiggedPartSlot>();
     assert_eq!(slots.iter(app.world()).count(), 0);
 }
@@ -155,7 +156,7 @@ fn the_shipped_game_draws_the_rig_characters_from_their_parts() {
     );
     let mut app = seated_pair(None);
     assert_eq!(
-        app.world().resource::<RiggedPresentations>().0.len(),
+        presentation_owners(&mut app).len(),
         2,
         "each seated body has one rigged presentation"
     );
@@ -189,7 +190,7 @@ fn a_second_view_draws_the_same_parts_and_makes_no_more() {
     // despawned and another spawned.
     let census = |app: &mut App| {
         let world = app.world_mut();
-        let mut owners: Vec<Entity> = world.resource::<RiggedPresentations>().0.values().copied().collect();
+        let mut owners: Vec<Entity> = world.query_filtered::<Entity, With<RiggedPresentation>>().iter(world).collect();
         owners.sort();
         let mut slots = world.query_filtered::<Entity, With<RiggedPartSlot>>();
         let mut slots: Vec<Entity> = slots.iter(world).collect();
@@ -224,10 +225,10 @@ fn a_second_view_draws_the_same_parts_and_makes_no_more() {
     let mut cameras = world.query_filtered::<Option<&RenderLayers>, (With<MainCamera>, With<Camera>)>();
     let cameras: Vec<RenderLayers> = cameras.iter(world).map(|layers| layers.cloned().unwrap_or_default()).collect();
     assert_eq!(cameras.len(), 2, "the host camera and the pane camera");
-    let mut presentations = world.query::<&RiggedPresentation>();
+    let mut presentations = world.query::<(&RiggedPresentation, &RiggedPresentationOf)>();
     let mut checked = 0;
-    for presentation in presentations.iter(world) {
-        let root = layers_of(world, presentation.root);
+    for (presentation, of) in presentations.iter(world) {
+        let root = layers_of(world, of.0);
         for camera in &cameras {
             assert!(camera.intersects(&root), "a view on {camera:?} does not draw the root on {root:?}");
         }

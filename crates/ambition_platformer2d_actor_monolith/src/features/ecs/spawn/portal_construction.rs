@@ -38,6 +38,15 @@ pub(super) fn authored_requests(
                         sim_id,
                     );
                 }
+                OccurrenceDisposition::Spent => {
+                    bevy::log::warn!(
+                        target: "ambition_platformer2d::construction",
+                        "room `{}` remembers portal-gun occurrence `{:?}` as spent, but it has no \
+                         spent state; building it as authored",
+                        room.id,
+                        sim_id,
+                    );
+                }
                 OccurrenceDisposition::Authored => {}
             }
             Some(ambition_portal2d::PortalGunConstructionRequest {

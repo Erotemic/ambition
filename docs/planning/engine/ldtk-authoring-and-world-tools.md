@@ -199,7 +199,10 @@ The carried-but-unconsumed fields (`requires_facing`, pickup `collected`, chest 
 `debris_cue`) are deleted. The Q63 ruling (2026-10-03) wants the facing gate,
 per-chest persistence and physical-pickup persistence, and defers the debris
 cue. Each returns with its consumer in one change. An authored field that
-reaches a runtime representation must have a consumer.
+reaches a runtime representation must have a consumer. Chest and pickup
+persistence landed as occurrence-ledger rows, not as fields; `ChestSpec`
+gained `opened` (Q105) with its lowering, but `ChestSpawn` in the LDtk
+projects does not declare it yet.
 
 Importer diagnostics should retain provider, source entity/field and normalized
 semantic path so an authoring agent can fix the actual source. One shared

@@ -122,7 +122,7 @@ pub fn record_placed_bodies(
             Some(OccurrenceWhereabouts::Placed { room: recorded, at }) => {
                 recorded == room && at.distance(feet) > WHEREABOUTS_REFRESH_DISTANCE
             }
-            None | Some(OccurrenceWhereabouts::Consumed) => false,
+            None | Some(OccurrenceWhereabouts::Consumed | OccurrenceWhereabouts::Spent) => false,
         };
         // A row for a family no room can build elsewhere would suppress the
         // body at home and build it nowhere (`keeps_durable_whereabouts`).

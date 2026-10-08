@@ -304,6 +304,7 @@ fn ledger_from_save(
                         at: Vec2::new(*x as f32, *y as f32),
                     },
                     PersistedWhereabouts::Consumed => OccurrenceWhereabouts::Consumed,
+                    PersistedWhereabouts::Spent => OccurrenceWhereabouts::Spent,
                 },
             )
         })
@@ -632,6 +633,7 @@ pub fn persist_occurrence_horizon_to_save(
                             y: at.y.round() as i32,
                         },
                         OccurrenceWhereabouts::Consumed => PersistedWhereabouts::Consumed,
+                        OccurrenceWhereabouts::Spent => PersistedWhereabouts::Spent,
                     },
                 )
             })

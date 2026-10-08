@@ -1846,6 +1846,25 @@ pub fn relocate_request(
     }
 }
 
+/// Make `request` build its occurrence spent (`OccurrenceDisposition::Spent`).
+/// Returns whether the family has a spent state.
+///
+/// ⭐ THE REMEMBERED STATE LOWERS THROUGH THE AUTHORED ONE (Q105). An opened
+/// chest is built from a record that says `opened`, exactly as a chest
+/// authored open is, so one lowering inserts the `Opened` marker for both.
+pub fn spend_request(request: &mut ActorConstructionRequest) -> bool {
+    match &mut request.parameters {
+        ActorConstructionParams::Placement { record, .. } => match &mut record.schema {
+            ambition_entity_catalog::placements::PlacementSchema::Chest(chest) => {
+                chest.opened = true;
+                true
+            }
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
 /// Return authored requests that may need reconstruction outside their source room.
 ///
 /// A family belongs here only if occurrence state can record a placed position

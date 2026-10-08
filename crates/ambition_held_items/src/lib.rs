@@ -951,7 +951,8 @@ pub fn record_placed_ground_items(
             ) => recorded_room == room,
             None
             | Some(
-                ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Consumed,
+                ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Consumed
+                | ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Spent,
             ) => false,
         };
         if !comes_to_rest_here {

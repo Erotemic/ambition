@@ -1082,7 +1082,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `cooldown_armed`, the length of its cooldown when it was last set. Each
 /// projectile kind has its own cooldown, so the fireball's readiness progress
 /// reads the length that was set.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 324;
+/// ⛔⛤ 324 -> 325: the occurrence ledger (`AuthoredOccurrences`, and its
+/// pinned baseline) has a `Spent` row, an authored chest a body opened
+/// (Q63), and `ConsumedSinceCheckpoint`'s projection says whether each
+/// record is spent.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 325;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

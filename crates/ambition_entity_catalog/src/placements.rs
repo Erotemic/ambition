@@ -183,23 +183,27 @@ impl PickupSpec {
 }
 
 
-/// An authored chest's optional reward and persistence policy.
+/// An authored chest: its optional reward, and whether it starts opened.
 ///
-/// There is no authored chest state. The live authority for "is this chest
-/// opened" is the `ambition_combat::Opened` marker, written by
-/// `boss_encounter::rewards` and rollback-registered as `feature.opened`. An
-/// authored state that nothing lowers into the marker would let an opened
-/// chest grant its reward again. If authored opened chests are needed, add
-/// the field and its lowering together.
+/// The live authority for "is this chest opened" is the
+/// `ambition_combat::Opened` marker (`feature.opened`). `opened` LOWERS INTO
+/// THAT MARKER (`spawn_chest_into`), and so does a chest the world remembers
+/// opened: construction sets `opened` on its record
+/// (`construction::spend_request`, Q105). An authored state that did not lower
+/// into the marker would let an opened chest grant its reward again.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ChestSpec {
     pub reward: Option<PickupKind>,
+    /// The chest starts opened: its reward is already taken (Q105).
+    #[serde(default)]
+    pub opened: bool,
 }
 
 impl ChestSpec {
     pub fn new(reward: Option<PickupKind>) -> Self {
         Self {
             reward,
+            opened: false,
         }
     }
 }

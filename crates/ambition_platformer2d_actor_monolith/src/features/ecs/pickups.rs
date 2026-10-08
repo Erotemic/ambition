@@ -507,10 +507,12 @@ pub fn record_ended_occurrences(
 }
 
 /// The occurrences that ended since the last committed checkpoint (a one-time
-/// pickup consumed, a thrown bomb exploded): the room each was in, and the
-/// participants whose bodies were there (Q151).
+/// pickup consumed, a thrown bomb exploded) or were spent there (a chest
+/// opened): the room each was in, and the participants whose bodies were
+/// there (Q151).
 ///
-/// The ledger's `Consumed` row is the fact; this says whose horizons own it.
+/// The ledger's `Consumed` or `Spent` row is the fact; this says whose
+/// horizons own it.
 /// A checkpoint restore puts the pinned ledger back, which has no row for a
 /// pickup consumed after the checkpoint, and a room that is not live has no
 /// pickup to write the row again. So the restore's acceptance pins the rows
@@ -533,6 +535,8 @@ struct ConsumedRecord {
     room: String,
     /// The participants whose bodies were in its live room, in seat order.
     owners: Vec<ambition_characters::control::PlayerSlot>,
+    /// Spent where it lies (a `Spent` row), not ended (a `Consumed` row).
+    spent: bool,
 }
 
 impl ConsumedSinceCheckpoint {
@@ -543,7 +547,18 @@ impl ConsumedSinceCheckpoint {
         room: String,
         owners: Vec<ambition_characters::control::PlayerSlot>,
     ) {
-        self.records.insert(occurrence, ConsumedRecord { room, owners });
+        self.records.insert(occurrence, ConsumedRecord { room, owners, spent: false });
+    }
+
+    /// Remember that `occurrence` was spent in room `room` (a chest opened),
+    /// owned by `owners`.
+    pub fn record_spent(
+        &mut self,
+        occurrence: ambition_platformer2d_shared_tangle::sim_id::SimId,
+        room: String,
+        owners: Vec<ambition_characters::control::PlayerSlot>,
+    ) {
+        self.records.insert(occurrence, ConsumedRecord { room, owners, spent: true });
     }
 
     /// Whose horizons own the consumption of `occurrence`, if it is recorded.
@@ -554,15 +569,34 @@ impl ConsumedSinceCheckpoint {
         self.records.get(occurrence).map(|record| record.owners.as_slice())
     }
 
-    /// The pickups consumed since the checkpoint that one of `participants`
-    /// owns, in id order.
+    /// The occurrences consumed since the checkpoint that one of
+    /// `participants` owns, in id order.
     pub fn owned_by<'a>(
         &'a self,
         participants: &'a [ambition_characters::control::PlayerSlot],
     ) -> impl Iterator<Item = ambition_platformer2d_shared_tangle::sim_id::SimId> + 'a {
+        self.owned_where(participants, false)
+    }
+
+    /// The occurrences spent since the checkpoint that one of `participants`
+    /// owns, in id order.
+    pub fn spent_owned_by<'a>(
+        &'a self,
+        participants: &'a [ambition_characters::control::PlayerSlot],
+    ) -> impl Iterator<Item = ambition_platformer2d_shared_tangle::sim_id::SimId> + 'a {
+        self.owned_where(participants, true)
+    }
+
+    fn owned_where<'a>(
+        &'a self,
+        participants: &'a [ambition_characters::control::PlayerSlot],
+        spent: bool,
+    ) -> impl Iterator<Item = ambition_platformer2d_shared_tangle::sim_id::SimId> + 'a {
         self.records
             .iter()
-            .filter(|(_, record)| record.owners.iter().any(|owner| participants.contains(owner)))
+            .filter(move |(_, record)| {
+                record.spent == spent && record.owners.iter().any(|owner| participants.contains(owner))
+            })
             .map(|(occurrence, _)| occurrence.clone())
     }
 
@@ -590,6 +624,7 @@ impl ConsumedSinceCheckpoint {
         for (occurrence, record) in &self.records {
             put_str(&mut bytes, occurrence.as_str());
             put_str(&mut bytes, &record.room);
+            put_u64(&mut bytes, u64::from(record.spent));
             put_u64(&mut bytes, record.owners.len() as u64);
             for owner in &record.owners {
                 put_u64(&mut bytes, u64::from(owner.0));

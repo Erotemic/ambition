@@ -169,7 +169,9 @@ do not share a transition authority: a breakable transitions through a
 chest not at all. There is nothing duplicated to consolidate yet.
 
 Write-only authored fields are deleted. `ChestSpec::new(reward)` is the only
-chest constructor; chest persistence is `encounter_reward_looted_flag`.
+chest constructor. An encounter's reward chest persists through
+`encounter_reward_looted_flag`; an authored chest through its `Spent`
+occurrence row (Q63), which lowers through `ChestSpec::opened`.
 `features/ecs/world_overlay.rs::breakable_geometry_agreement` guards melee and
 projectile geometry agreement. A published surface plus a damageable volume
 gives one compound contact (Q96).

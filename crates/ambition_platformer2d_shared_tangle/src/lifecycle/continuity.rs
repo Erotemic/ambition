@@ -47,6 +47,14 @@ pub enum OccurrenceWhereabouts {
     /// [`AuthoredOccurrences::rewind_argument`]), so a rewind takes it back, and
     /// a checkpoint restore replaces it with the pinned ledger.
     Consumed,
+    /// Where its record puts it, and used up: a chest a body opened (Q63).
+    /// Its room builds it from its record in the state gameplay left it in,
+    /// not as authored, so an opened chest does not grant its reward again.
+    ///
+    /// Written by `open_ecs_chests` for an authored chest. Like `Consumed`,
+    /// it is terminal, and the participants in its room own it
+    /// (`ConsumedSinceCheckpoint`).
+    Spent,
 }
 
 /// What reconstruction must do about one authored record, in the room it is
@@ -74,6 +82,10 @@ pub enum OccurrenceDisposition {
     /// or it is deliberately gone. Minting a fresh one would put two live things
     /// behind one identity, or resurrect something the world remembers killing.
     Suppressed,
+    /// Author it from the record, in its spent state: a chest that a body
+    /// opened is built opened. The authored state and the remembered one
+    /// lower into the same canonical state (Q105).
+    Spent,
 }
 
 impl OccurrenceDisposition {
@@ -279,6 +291,7 @@ impl AuthoredOccurrences {
                     // either: it comes back when the room it is lying in is
                     // built, from the record this room holds.
                     OccurrenceWhereabouts::Placed { .. } => OccurrenceDisposition::Suppressed,
+                    OccurrenceWhereabouts::Spent => OccurrenceDisposition::Spent,
                 };
                 (sim_id.clone(), disposition)
             })
@@ -524,6 +537,21 @@ impl AuthoredOccurrences {
         written
     }
 
+    /// Remember that these authored occurrences are spent where their records
+    /// put them (an opened chest). Only an id with no row is written: a chest
+    /// is never carried, and a `Spent` row is terminal. Returns how many rows
+    /// it wrote.
+    pub fn spend(&mut self, sim_ids: impl IntoIterator<Item = SimId>) -> usize {
+        let mut written = 0;
+        for sim_id in sim_ids {
+            if !self.rows.contains_key(&sim_id) {
+                Arc::make_mut(&mut self.rows).insert(sim_id, OccurrenceWhereabouts::Spent);
+                written += 1;
+            }
+        }
+        written
+    }
+
     /// Remember that these occurrences, lying in a room, ended there: a bomb
     /// that exploded, a grenade that opened its well. Each `Placed` row
     /// becomes `Consumed`. A row of another kind is not touched: a carried
@@ -634,6 +662,7 @@ impl AuthoredOccurrences {
                     put_vec2(out, *at);
                 }
                 OccurrenceWhereabouts::Consumed => put_u8(out, 2),
+                OccurrenceWhereabouts::Spent => put_u8(out, 3),
             }
         }
     }
@@ -1232,6 +1261,7 @@ mod tests {
                     hasher.write(&at.y.to_bits().to_le_bytes());
                 }
                 OccurrenceWhereabouts::Consumed => hasher.write(&[3]),
+                OccurrenceWhereabouts::Spent => hasher.write(&[4]),
             }
         }
         hasher.finish()

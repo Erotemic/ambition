@@ -197,6 +197,9 @@ pub enum PersistedWhereabouts {
     /// express it: otherwise a save silently undoes a terminal disposition.
     /// `a_consumed_occurrence_is_not_resurrected_by_a_load` guards this.
     Consumed,
+    /// Where its record puts it, and used up: an opened chest (Q63). Its room
+    /// builds it opened, so a load does not close it and re-arm its reward.
+    Spent,
 }
 
 /// One occurrence's whereabouts, keyed by its `SimId` as a string.

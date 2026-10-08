@@ -691,6 +691,20 @@ impl RoomFeatureConstructionPlan {
                         true
                     }
                     ambition_platformer2d_shared_tangle::lifecycle::OccurrenceDisposition::Suppressed => false,
+                    ambition_platformer2d_shared_tangle::lifecycle::OccurrenceDisposition::Spent => {
+                        // The same refusal as a relocation: a family with no
+                        // spent state is built as authored and says so.
+                        if !crate::construction::spend_request(request) {
+                            bevy::log::warn!(
+                                target: "ambition_platformer2d::construction",
+                                "room `{}` remembers `{:?}` as spent, but its construction \
+                                 request has no spent state; building it as authored",
+                                room.id,
+                                request.sim_id,
+                            );
+                        }
+                        true
+                    }
                 }
             });
         }

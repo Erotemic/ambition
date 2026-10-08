@@ -85,13 +85,10 @@ fn chest_from_authored(
         ambition_platformer2d_world::rooms::ChestSpec,
     >,
 ) -> ambition_interaction::Chest {
-    // ⛔ NO STATE IS LOWERED BECAUSE NONE IS AUTHORED. `ChestSpec.state` was
-    // deleted 2026-09-12 along with `Chest::state`: the component field was read
-    // by nothing, so an authored `Opened` chest spawned with the runtime — which
-    // gates on the `ambition_combat::Opened` marker — treating it as CLOSED, and
-    // **its reward was grantable again.** See `ChestSpec`'s own doc comment for
-    // the census and for why the state was made inexpressible rather than
-    // warned about.
+    // ⛔ THE OPENED STATE IS NOT A FIELD OF THE COMPONENT. A `Chest::state` that
+    // the runtime did not read once let an authored-open chest grant its
+    // reward again; `ChestSpec::opened` lowers into the `Opened` marker in
+    // `spawn_chest_into`, which is what the runtime gates on.
     ambition_interaction::Chest {
         id: authored.id.clone(),
         reward: authored.payload.reward.as_ref().map(pickup_kind_from_spec),
@@ -536,6 +533,11 @@ pub(crate) fn spawn_chest_into(
                 chest_from_authored(authored),
             ),
     ));
+    // Authored open, or remembered open (`construction::spend_request`): the
+    // same canonical state a chest a body opened has (Q105).
+    if authored.payload.opened {
+        scope.insert_session_scoped(ambition_combat::components::Opened);
+    }
 }
 
 pub(crate) fn lower_breakable_placement(

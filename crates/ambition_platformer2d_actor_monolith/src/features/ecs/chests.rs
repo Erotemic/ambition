@@ -53,6 +53,8 @@ pub fn open_ecs_chests(
             Option<&Opened>,
             Option<&FallingChest>,
             Option<&ambition_combat::components::BossRewardChest>,
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+            Option<&ambition_platformer2d_shared_tangle::construction::SpawnOrigin>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -70,10 +72,16 @@ pub fn open_ecs_chests(
     // What a chest gave: a retracted defeat takes back a boss reward
     // chest's, and a restore keeps an ordinary chest's while one of the
     // participants in its room is spared (Q151).
-    (sim_ids, mut reward_grants, participants): (
+    //
+    // And where an authored chest is remembered opened, and whose horizons
+    // own that (Q63, Q151).
+    (sim_ids, mut reward_grants, participants, mut occurrences, mut spent_since, room_specs): (
         Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
         Option<ResMut<crate::items::pickup::RewardGrantsSinceCheckpoint>>,
         Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
+        Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+        Option<ResMut<super::pickups::ConsumedSinceCheckpoint>>,
+        Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     ),
 ) {
     // Iterate every player so each player's own buffered interact
@@ -105,7 +113,7 @@ pub fn open_ecs_chests(
         };
         let reach_aabb = subject_kin.collision_box(subject_step);
         let subject_room = rooms.of(subject);
-        for (entity, id, name, aabb, chest, opened, falling, boss_reward) in &chests {
+        for (entity, id, name, aabb, chest, opened, falling, boss_reward, chest_sim_id, origin) in &chests {
             if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(reach_aabb) {
                 continue;
             }
@@ -113,6 +121,32 @@ pub fn open_ecs_chests(
                 continue;
             }
             commands.entity(entity).insert(Opened);
+            // ⭐ AN AUTHORED CHEST IS REMEMBERED OPENED (Q63). Its row is
+            // `Spent`, so each later build of its room builds it opened and its
+            // reward is not granted again; the participants in its room own the
+            // row (Q151), as they own the reward below. A reward chest that an
+            // encounter or a boss makes has its own record instead.
+            if let (
+                Some(chest_sim_id),
+                Some(ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored { .. }),
+                Some(occurrences),
+            ) = (chest_sim_id, origin, occurrences.as_deref_mut())
+            {
+                if occurrences.spend([chest_sim_id.clone()]) > 0 {
+                    let room = room_specs.as_ref().and_then(|specs| {
+                        specs
+                            .definition_of(entity)
+                            .map(|definition| specs.rooms().spec(definition).id.clone())
+                    });
+                    if let (Some(room), Some(spent_since)) = (room, spent_since.as_deref_mut()) {
+                        spent_since.record_spent(
+                            chest_sim_id.clone(),
+                            room,
+                            super::world_time_schedule::owners_beside(entity, &rooms, &participants),
+                        );
+                    }
+                }
+            }
             acting.consume_interact(subject);
             super::interact::pose_interact(&mut anims, subject, INTERACT_ANIM_HOLD_SECS);
             banner.show(format!("opened {}", name.0.as_str()), 2.6);

@@ -722,13 +722,16 @@ pub fn resume_at_checkpoint_on_reset(
             })
             .collect();
         // The ledger this restore promises: the checkpoint's, and the
-        // one-time pickups a spared participant consumed since it (Q151).
+        // one-time pickups a spared participant consumed since it and the
+        // chests one opened (Q151).
         // Pinned here, so the room the restore rebuilds and the
         // verification both read it.
         let lifecycle = pin_lifecycle_inputs(occurrences, custody).map(|mut inputs| {
             if let Some(consumed) = consumed.as_ref() {
                 let mut ledger = inputs.occurrences.remembered().clone();
-                if ledger.consume(consumed.owned_by(&spared_participants)) > 0 {
+                let written = ledger.consume(consumed.owned_by(&spared_participants))
+                    + ledger.spend(consumed.spent_owned_by(&spared_participants));
+                if written > 0 {
                     inputs.occurrences.adopt(ledger);
                 }
             }

@@ -175,6 +175,84 @@ fn room_features_lower_through_the_caller_supplied_registry() {
     );
 }
 
+/// ⭐ Q105: A CHEST AUTHORED OPEN IS BUILT AS A CHEST A BODY OPENED: its
+/// `ChestSpec::opened` lowers into the `Opened` marker the runtime gates on,
+/// so its reward cannot be granted. The control is the same chest authored
+/// closed, in the same room.
+#[test]
+fn a_chest_authored_open_is_built_with_the_opened_marker() {
+    use crate::construction::placements::PlacementLoweringRegistry;
+    use ambition_entity_catalog::placements::{ChestSpec, PlacementKind, PlacementSchema};
+    use ambition_entity_catalog::PickupKind;
+    use ambition_platformer2d_core::Vec2;
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d_world::placements::PlacementRecord;
+
+    let mut registry = PlacementLoweringRegistry::default();
+    registry
+        .try_register(
+            PlacementKind::Chest,
+            "test",
+            "spawn_test",
+            "chest.v1",
+            crate::features::ecs::spawn_static::lower_chest_placement,
+        )
+        .unwrap();
+    let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
+        "test_room",
+        ae::World::new("test_room", Vec2::splat(1000.0), Vec2::ZERO, Vec::new()),
+    );
+    for (id, opened, x) in [("chest_open", true, 0.0), ("chest_closed", false, 100.0)] {
+        let mut chest = ChestSpec::new(Some(PickupKind::Health { amount: 1 }));
+        chest.opened = opened;
+        room.placements.push(PlacementRecord::new(
+            id,
+            PlacementSchema::Chest(chest),
+            ae::Aabb::new(Vec2::new(x, 0.0), Vec2::splat(8.0)),
+        ));
+    }
+    let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+    let boss_catalog = ambition_boss_encounter::test_boss_catalog();
+    let plan = RoomFeatureConstructionPlan::prepare(
+        &room,
+        &registry,
+        &Default::default(),
+        &boss_catalog,
+        crate::features::ActorConstructionContext::new(
+            &crate::construction::engine_construction_registry(),
+            &catalog,
+            &Default::default(),
+            ambition_platformer2d_shared_tangle::construction::ContentBinding::content_unstated(
+                Default::default(),
+            ),
+        ),
+    )
+    .expect("the room prepares");
+
+    let mut app = App::new();
+    app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
+    app.add_systems(Update, move |mut commands: Commands| {
+        spawn_room_feature_entities_from_plan(&mut commands, &plan, SessionSpawnScope::UNSCOPED, &crate::construction::PersistedFates::unrecorded());
+    });
+    app.update();
+
+    let mut built: Vec<(String, bool)> = app
+        .world_mut()
+        .query::<(
+            &ambition_combat::components::FeatureId,
+            Option<&ambition_combat::components::Opened>,
+        )>()
+        .iter(app.world())
+        .map(|(id, opened)| (id.as_str().to_string(), opened.is_some()))
+        .collect();
+    built.sort();
+    assert_eq!(
+        built,
+        vec![("chest_closed".to_string(), false), ("chest_open".to_string(), true)],
+        "(id, opened) of each chest built; the closed one is the control"
+    );
+}
+
 /// The row is deleted (AC6); the claim survives because it was never really about the row: a body's
 /// driver is the profile SOMETHING published, and now the only thing that can publish one is a
 /// character or a placement.

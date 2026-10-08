@@ -79,6 +79,7 @@ mod boss_lifecycle;
 mod boss_replay_retraction;
 mod breakable_respawn_across_rooms;
 mod pickup_regrowth_across_rooms;
+mod an_opened_chest_stays_opened;
 mod boss_motion_parity;
 mod boss_possession_specials;
 mod boss_sheet_wiring;

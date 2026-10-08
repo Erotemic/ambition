@@ -776,8 +776,23 @@ change. Q105 (2026-10-03): an authored world may start non-pristine (a chest
 already open, a pickup already absent, a door open); the authored state lowers
 into the same canonical state gameplay produces, such as the `Opened` marker.
 
-**Next action:** measure what a save → quit → load keeps today of an opened
-chest and a collected pickup, then add the missing durable fact.
+**Current state (2026-10-08):** a one-time pickup (`HazardRespawn::Never`)
+stays taken through its `Consumed` occurrence row (Q154,
+`a_one_time_heart_stays_gone_when_its_room_is_built_again`). An authored
+chest that a body opens writes a `Spent` row, which the participants in its
+room own (Q151) and the save carries (`PersistedWhereabouts::Spent`); each
+later build of its room sets `ChestSpec::opened` on its record
+(`construction::spend_request`), and that field lowers into the `Opened`
+marker, as a chest authored open does (Q105). Witnesses:
+`an_opened_chest_is_built_opened_when_its_room_is_built_again`,
+`a_death_closes_again_only_a_chest_opened_after_the_checkpoint`,
+`a_load_builds_opened_a_chest_the_file_remembers_spent` and
+`a_chest_authored_open_is_built_with_the_opened_marker`. Remaining: the
+facing gate, and an `opened` field on LDtk's `ChestSpawn` (the editor
+schema declares only `name` and `reward`).
+
+**Next action:** the facing gate: an authored interactable that requires
+facing, and its consumer in the interact road.
 
 **Acceptance:** an opened chest and a taken pickup stay so across a reload; an
 interactable that requires facing refuses a body that faces away; a chest

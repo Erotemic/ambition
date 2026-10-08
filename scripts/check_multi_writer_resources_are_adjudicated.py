@@ -440,6 +440,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "ConsumedSinceCheckpoint": (
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
@@ -457,6 +458,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "AuthoredOccurrences": (
         "crates/ambition_held_items/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/body_whereabouts.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
@@ -1988,17 +1990,20 @@ ADJUDICATED: dict[str, str] = {
         "value checksum (`feature.world_time_schedule`)."
     ),
     "ConsumedSinceCheckpoint": (
-        "CORRECT — ONE RECORDER, ONE DISOWNER, TWO FORGETTERS, ONE TYPE, ONE FILE "
-        "(Q151, 2026-10-04). The map is private (`features/ecs/pickups.rs`). "
+        "CORRECT — TWO RECORDERS OF DISJOINT ROWS, ONE DISOWNER, TWO FORGETTERS, "
+        "ONE TYPE (Q151, 2026-10-04). The map is private (`features/ecs/pickups.rs`). "
         "`record` is called only by `record_consumed_pickups`, on the tick a "
         "one-time pickup's `Consumed` row is new, with the participants in its "
-        "live room. `keep_only_owners` is called only by "
+        "live room. `record_spent` (added 2026-10-08, Q63) is called only by "
+        "`open_ecs_chests` (`features/ecs/chests.rs`), on the tick an authored "
+        "chest's `Spent` row is new; a chest id is never a pickup id, so the two "
+        "recorders never write one key. `keep_only_owners` is called only by "
         "`disown_consumed_pickups_on_restore`, on an ADMITTED checkpoint restore. "
         "`forget_all` is called by `forget_consumed_pickups_at_checkpoint` on a "
         "checkpoint commit and by `SessionScopedResources::reset` (`teardown.rs`) "
         "at the session edge. The restore's acceptance "
-        "(`resume_at_checkpoint_on_reset`) only READS it (`owned_by`), to pin the "
-        "rows a spared participant owns. Every writer but the teardown runs in "
+        "(`resume_at_checkpoint_on_reset`) only READS it (`owned_by`, "
+        "`spent_owned_by`), to pin the rows a spared participant owns. Every writer but the teardown runs in "
         "the simulation schedule, and the type is rollback state with a value "
         "checksum (`feature.consumed_since_checkpoint`)."
     ),
@@ -2048,7 +2053,13 @@ ADJUDICATED: dict[str, str] = {
         "CHECKED 2026-09-18 rather than quoted, which is worth saying on a day two "
         "other completeness claims in this tree turned out one true and one "
         "false. An ENDED occurrence enters through `consume` (above), which writes "
-        "only the terminal state.\n"
+        "only the terminal state. The seventh METHOD and eighth FILE, added "
+        "2026-10-08 (Q63), is `spend(ids)`, taken by `open_ecs_chests` "
+        "(`actor_monolith/src/features/ecs/chests.rs`) for an AUTHORED chest a "
+        "body opened. Like `consume` it writes a terminal row (`Spent`) only where "
+        "the id has no row, so it can neither revive nor move a live occurrence; "
+        "a chest is never carried, and a `Spent` occurrence is still built "
+        "(opened), so no object leaves the world through it.\n"
         "    ⛔⛤ AND THE REGISTRATION HISTORY IS THE OPPOSITE OF A FIX TO REACH "
         "FOR. This was `declare_rollback_derived_resource` — in no snapshot — "
         "while `adopt_rows` was already a non-rederived producer, which its own "

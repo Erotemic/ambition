@@ -962,9 +962,27 @@ struct CastFraming {
 }
 
 /// Half the extra room left around the cast's bounding box, in world units.
-/// Small on purpose: the view is a FLOOR, so authored zoom still wins whenever
-/// it is already wider.
+/// The box with this margin is the composition the view asks for.
 const CAST_FRAMING_MARGIN: f32 = 48.0;
+
+/// The hard bound on how far a framed cast may zoom the view in, as a
+/// fraction of the authored view. A cast whose members stand together asks
+/// for a view smaller than this, and this bound clamps it.
+const CAST_FRAMING_MIN_VIEW_SCALE: f32 = 0.75;
+
+/// The view a framed cast asks for (`Q86`).
+///
+/// The authored view, scaled so that the cast box and its margin
+/// (`presented`) fill it in the tighter axis. It is a TARGET in both
+/// directions: a cast that spreads out asks for a larger view, and a cast
+/// that closes in asks for a smaller one. The hard bound
+/// ([`CAST_FRAMING_MIN_VIEW_SCALE`]) clamps the target and does not replace
+/// it. The smoothing is the eased cast box, and the room constraint is the
+/// clamp downstream.
+fn cast_view_target(authored: ae::Vec2, presented: ae::Vec2) -> ae::Vec2 {
+    let desired = (presented.x / authored.x).max(presented.y / authored.y);
+    authored * desired.max(CAST_FRAMING_MIN_VIEW_SCALE)
+}
 
 /// Exponential close rate for cast framing.
 ///
@@ -1334,7 +1352,6 @@ pub fn resolve_camera_observation(
                         }
                         return;
                     };
-                    // A FLOOR, so authored zoom still wins when wider.
                     let dt = time.delta_secs().max(0.0);
                     let alpha = (1.0 - (-CAST_FRAMING_CLOSE_HZ * dt).exp()).clamp(0.0, 1.0);
                     // THE CAP IS FOR DISCONTINUITIES, and this resolve has
@@ -1393,7 +1410,7 @@ pub fn resolve_camera_observation(
                     let centre: ae::Vec2 = bounds.center().into();
                     let span: ae::Vec2 = (bounds.max - bounds.min).into();
                     let presented = span + ae::Vec2::splat(CAST_FRAMING_MARGIN * 2.0);
-                    base_view = base_view.max(presented);
+                    base_view = cast_view_target(base_view, presented);
                     // AND THE CLAMP IS TOLD WHAT IT MAY NOT HIDE. Framing the
                     // cast is worth nothing if the room clamp then throws the
                     // centre away, which is exactly what it did — see
@@ -3270,6 +3287,52 @@ mod resolved_snapshot_lifetime_tests {
              that can open the view on the avatar is the ease reset that went \
              with the `None`.",
             framed_b.snapshot.center_world
+        );
+    }
+
+    /// ⭐ Q86: A FRAMED CAST ASKS FOR A COMPOSITION, NOT ONLY A FLOOR.
+    ///
+    /// Two fighters that stand close ask for a view smaller than the authored
+    /// one, so the view zooms in. Two that stand on top of each other ask
+    /// for less than the hard bound, and the bound clamps the target. The
+    /// control is a wide cast: the view grows to hold it, as it did before.
+    #[test]
+    fn a_cast_that_closes_in_zooms_the_view_in_down_to_the_hard_bound() {
+        let view_for = |gap: f32| {
+            let mut app = app_with_a_framed_cast();
+            let a = cast_member(&mut app, ae::Vec2::new(-gap / 2.0, 0.0));
+            let b = cast_member(&mut app, ae::Vec2::new(gap / 2.0, 0.0));
+            app.world_mut()
+                .resource_mut::<ambition_platformer2d_shared_tangle::markers::FramedCast>()
+                .0 = vec![a, b];
+            app.update();
+            frame_of(&app).expect("a framed cast resolves a frame").snapshot.base_view
+        };
+        let (w, h) = ambition_persistence::settings::UserSettings::default()
+            .video
+            .camera_zoom
+            .base_view();
+        let authored = ae::Vec2::new(w, h);
+
+        // The cast box is the gap plus one body (24 wide) plus the margin.
+        let close_gap = 0.9 * authored.x - 24.0 - CAST_FRAMING_MARGIN * 2.0;
+        let close = view_for(close_gap);
+        assert!(
+            (close.x - 0.9 * authored.x).abs() < 0.5 && (close.y - 0.9 * authored.y).abs() < 0.5,
+            "a cast that fills 0.9 of the authored width asks for 0.9 of the view: {close} \
+             (authored {authored})"
+        );
+
+        let together = view_for(0.0);
+        assert!(
+            (together - authored * CAST_FRAMING_MIN_VIEW_SCALE).length() < 0.5,
+            "a cast at one spot is clamped by the hard bound: {together}"
+        );
+
+        let wide = view_for(2.0 * authored.x);
+        assert!(
+            wide.x > authored.x * 2.0,
+            "control: a wide cast grows the view to hold it: {wide}"
         );
     }
 }

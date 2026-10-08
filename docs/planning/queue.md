@@ -763,20 +763,6 @@ animation composition.
 **Acceptance:** the customer mounts, the mount obeys the rider, and on
 dismount the mount runs the brain it had before; the same after a rewind.
 
-### CAST-FRAMING-TARGET — framing asks for a composition, not only a floor
-
-**Owner:** `ambition_sim_view::camera_snapshot` (`CastFraming`).
-
-**Ruling:** Q86 (2026-10-03): framing expresses a bidirectional desired target.
-Desired framing/subject scale, hard zoom bounds, room constraints and smoothing
-stay separate; downstream stages clamp the target.
-
-**Current state:** the cast bounds set a minimum view size, so framing can
-only zoom out.
-
-**Acceptance:** two subjects that close in zoom the view in toward the desired
-subject scale, and a hard bound or room constraint still clamps that target.
-
 ### AUTHORED-INTERACTABLE-STATE — facing gates, per-chest and per-pickup persistence
 
 **Owner:** `ambition_entity_catalog::placements` (`InteractableSpec`,
@@ -1229,6 +1215,16 @@ production invariant.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### CAST-FRAMING-TARGET — framing asks for a composition, not only a floor — ✅ DONE 2026-10-08
+
+Q86. A framed cast asks for a view (`camera_snapshot::cast_view_target`):
+the authored view scaled so the eased cast box and its margin fill it in the
+tighter axis, in both directions. The hard bound
+(`CAST_FRAMING_MIN_VIEW_SCALE`, 0.75 of the authored view) clamps that
+target; the eased box is the smoothing and the room clamp is downstream.
+Witness: `a_cast_that_closes_in_zooms_the_view_in_down_to_the_hard_bound`
+(the control is a wide cast, which grows the view as before).
 
 ### WEAPON-READINESS — a refused trigger is visible as "not ready" — ✅ DONE 2026-10-08
 

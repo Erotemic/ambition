@@ -195,7 +195,19 @@ only so that CPUs look different is not allowed.
 - `two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list`,
   `the_reset_leaves_the_facing_to_its_caller` and
   `an_arrival_does_not_turn_the_body_around` guard defects that the probe found.
-- No unit test reflects one decision input and asserts the reflected decision.
+- `brain/fighter/decision/tests.rs`,
+  `the_decision_of_a_reflected_scene_is_the_reflected_decision` (2026-10-08):
+  eight scenes, each stepped as written and reflected about the stage centre,
+  for 60 ticks at the immediate profile and rungs 3, 6 and 9 (execution noise
+  removed). Lateral fields must negate; vertical fields and buttons must be
+  equal. Three scenes put both bodies at one x. Poison: the zero guard in
+  `apply_movement`'s `side_toward` removed, so `signum(0.0) = +1` chose the
+  side; all three stacked scenes failed on `locomotion.x` at tick 0. No
+  defect was found: the decision layer reflects in every scene.
+  Not witnessed: the raw `signum` sites in `rollout.rs` (lines that take
+  `toward` from a zero lateral) gave no asymmetry in these scenes, so either
+  the scenes do not reach them at zero or the result does not change the
+  chosen option. A scene that reaches them is still to find.
 
 **Known asymmetry sources (not yet triaged; each is a defect in a Noether
 scene or an authored rule that must be named):**
@@ -234,9 +246,8 @@ rather than add a second outcome test:
    the first tick and the first field that part.
 2. A symmetric stage, mirrored spawns, one brain and profile, and no
    symmetry-breaking input, so any divergence is a defect.
-3. A unit-level reflection test of the decision layer: build one observation,
-   reflect it, and assert the reflected decision (catches `signum(0)`,
-   left/right constants and one-sided queries without a match).
+3. ✅ A unit-level reflection test of the decision layer (built 2026-10-08,
+   see Coverage). Extend its scenes to reach the `rollout.rs` sites.
 4. A same-tick tie fixture (two bodies grab one ledge or one target) that shows
    which authored rule breaks the tie, so a tie-break by entity order fails.
 5. Poisons: a `signum(0) = +1` site, an unmirrored random draw, a list-order

@@ -200,7 +200,8 @@ fn a_second_seat_that_dies_comes_back_beside_the_primary() {
     if let Some(mut health) = sim.world_mut().get_mut::<BodyHealth>(body) {
         health.health.current = 1;
     }
-    let restores_before = sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned();
+    let restores_before = ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator").latest().cloned();
 
     die(&mut sim, body);
     let at = place_of(&sim, body);
@@ -216,7 +217,8 @@ fn a_second_seat_that_dies_comes_back_beside_the_primary() {
         "seat 1 came back without its health: {health:?}"
     );
     assert_eq!(
-        sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned(),
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator").latest().cloned(),
         restores_before,
         "the death of seat 1 asked for a checkpoint restore of the primary"
     );
@@ -384,12 +386,13 @@ fn a_primary_that_waited_for_a_seat_comes_back_when_the_seat_leaves_its_room() {
         "seat 1 left the primary's room and the primary is still out of play: its room was never asked again"
     );
     assert!(
-        sim.world()
-            .resource::<SessionCheckpointOutcomes>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
             .latest()
             .is_some_and(|outcome| outcome.committed()),
         "the primary came back without a committed restore: {:?}",
-        sim.world().resource::<SessionCheckpointOutcomes>().latest()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator").latest()
     );
     kill(&mut sim, body);
     sim.step_n(AgentAction::default(), 900);

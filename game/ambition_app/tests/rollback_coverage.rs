@@ -19,6 +19,27 @@ use bevy::prelude::*;
 /// harmful, plus the reason. This list is the part of the test that can lie —
 /// keep it short and justified.
 const WAIVED: &[(&str, &str)] = &[
+    // ⭐ MOVED HERE FROM `RESOURCE_WAIVED` (C03, 2026-10-07): the checkpoint
+    // coordinator is components of the session root, and this one is the member
+    // that is deliberately not rollback state.
+    // ⛔⛔ THE HOST FACT THAT MAY NOT BE SNAPSHOTTED, and the reason the
+    // checkpoint terminal road is split in two. "This host could not prepare the
+    // destination" is decided by asset residency and construction preflight —
+    // work that runs in `Update`, is not simulated, does not rewind, and is not
+    // guaranteed to agree between two peers. Registering it would put a
+    // non-deterministic value into the checksum; RESTORING it would resurrect an
+    // operation the host has already given up on and re-publish its terminal
+    // outcome.
+    //
+    // ⭐ AND THE WRITE IT ENABLES IS STILL REGISTERED. Nothing here excuses
+    // spending `PendingLifecycleCommit` from `Update` — that was the defect
+    // `check_rollback_mutators_run_in_sim` caught. Readiness leaves the key here;
+    // the retraction happens at a commit boundary, which is where every other
+    // write to the lifecycle slot happens. See the type's own doc.
+    (
+        "ambition_platformer2d_actor_monolith::session::checkpoint::AbandonedCheckpointOperation",
+        "a host-side note, on the session root, that a room preparation failed: asset residency and construction preflight are not simulated and two peers need not agree, so snapshotting it would checksum a non-deterministic value and restoring it would resurrect an abandoned operation",
+    ),
     // ⛔⛤ THE SESSION'S CONTENT GENERATION, WHICH MOVED ONTO ITS ROOT ON
     // 2026-09-14 (A10.4) AND SO ENTERED THIS CENSUS. It was a process-global
     // `Resource`; it is a component on the session root now, because two
@@ -1258,24 +1279,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         "ambition_platformer2d_runtime::sim_identity::UnmintedBodyCensus",
         "diagnostic counter of body-OBSERVATIONS the identity sweeper declined to name — the sweeper re-judges every body every tick, so this is not a headcount; an observation ABOUT the simulation that nothing reads back, and rewinding it would erase observations that happened",
-    ),
-    // ⛔⛔ THE HOST FACT THAT MAY NOT BE SNAPSHOTTED, and the reason the
-    // checkpoint terminal road is split in two. "This host could not prepare the
-    // destination" is decided by asset residency and construction preflight —
-    // work that runs in `Update`, is not simulated, does not rewind, and is not
-    // guaranteed to agree between two peers. Registering it would put a
-    // non-deterministic value into the checksum; RESTORING it would resurrect an
-    // operation the host has already given up on and re-publish its terminal
-    // outcome.
-    //
-    // ⭐ AND THE WRITE IT ENABLES IS STILL REGISTERED. Nothing here excuses
-    // spending `PendingLifecycleCommit` from `Update` — that was the defect
-    // `check_rollback_mutators_run_in_sim` caught. Readiness leaves the key here;
-    // the retraction happens at a commit boundary, which is where every other
-    // write to the lifecycle slot happens. See the type's own doc.
-    (
-        "ambition_platformer2d_actor_monolith::session::checkpoint::AbandonedCheckpointOperation",
-        "a host-side note that a room preparation failed: asset residency and construction preflight are not simulated and two peers need not agree, so snapshotting it would checksum a non-deterministic value and restoring it would resurrect an abandoned operation",
     ),
     // ⛔⛔ THE EAGER COMMIT'S DEBT TO THE DOMAINS, AND IT MUST NEVER SURVIVE A
     // FRAME. `commit_ready_room_transition_system` is an ordinary system and the

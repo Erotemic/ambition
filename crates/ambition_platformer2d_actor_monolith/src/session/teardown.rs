@@ -179,14 +179,12 @@ pub struct SessionScopedResources<'w> {
     /// the gravity domain answers that itself, in
     /// `gravity::lifecycle::reset_gravity_on_room_reset`.
     base_gravity: ResMut<'w, ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
-    // ⛔⛤ **`OutstandingCheckpointRequest` WAS A MEMBER HERE AND IS NOT ANY MORE,
-    // 2026-09-13 — because ONE fact wants ONE owner.** It was added when a review
-    // found it crossing sessions; a second review found the REST of the checkpoint
-    // coordinator still process-global, which made this the wrong home: half a
-    // domain's session state reset by a central aggregate and half by nothing.
-    // ⇒ `SessionOwnedCheckpointState` owns all six, with its own exhaustive
-    // destructure, at the ACTIVATION edge. Keeping a copy here too would be two
-    // mechanisms for one rule, which is what this file exists to remove.
+    // ⛔⛤ **THE CHECKPOINT COORDINATOR IS NOT A MEMBER HERE, AND ITS OWNER IS THE
+    // SESSION ROOT (C03, 2026-10-07).** `OutstandingCheckpointRequest` was a member
+    // until 2026-09-13, when a review found the rest of the coordinator still
+    // process-global and gave all six their own bundle and their own reset. The six
+    // are components of the root now (`SessionCheckpointState`), so neither list
+    // resets them: a new root carries new components.
     /// ⛔⛤ **CUTSCENE PLAYBACK, WHICH USED TO OUTLIVE THE SESSION THAT STARTED
     /// IT.** `LastCutsceneRoom` above is the MEMORY of where one played; this is
     /// the runtime that is playing. While `is_playing()` holds,

@@ -1,6 +1,6 @@
 """`scripts/setup/submodules.sh` puts submodules on `main` and never loses work.
 
-The policy (docs/submodules.md): every submodule is on `main`, and a pin that
+The policy (docs/recipes/submodules.md): every submodule is on `main`, and a pin that
 disagrees with a submodule's `main` is a pin to update. The phase moves a clean
 checkout onto `origin/main` only when that cannot orphan a commit; unpushed,
 divergent and dirty checkouts are left alone and reported.

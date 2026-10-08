@@ -339,12 +339,12 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
         let scope = world
             .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
             .and_then(|scope| scope.current());
-        let key = world
-            .resource_mut::<SessionCheckpointOperations>()
+        let key = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SessionCheckpointOperations>(world)
+            .expect("the live session root carries the checkpoint coordinator")
             .admit(scope)
             .expect("a live session can still mint an operation key");
-        world
-            .resource_mut::<AcceptedCheckpointRestore>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore>(world)
+            .expect("the live session root carries the checkpoint coordinator")
             .accept(AcceptedRestore {
                 key,
                 frame: 0,
@@ -491,12 +491,12 @@ fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
         let scope = world
             .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
             .and_then(|scope| scope.current());
-        let key = world
-            .resource_mut::<SessionCheckpointOperations>()
+        let key = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SessionCheckpointOperations>(world)
+            .expect("the live session root carries the checkpoint coordinator")
             .admit(scope)
             .expect("a live session can still mint an operation key");
-        world
-            .resource_mut::<AcceptedCheckpointRestore>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore>(world)
+            .expect("the live session root carries the checkpoint coordinator")
             .accept(AcceptedRestore {
                 key,
                 frame: 0,

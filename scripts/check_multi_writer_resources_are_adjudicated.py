@@ -667,10 +667,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/app/dev_runtime.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
-    "AbandonedCheckpointOperation": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
-        "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
-    ),
     "ActiveCutscene": (
         "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
@@ -2691,22 +2687,6 @@ ADJUDICATED: dict[str, str] = {
         "like any other, so the one-armer argument holds for every shipped "
         "composition."
     ),
-    "AbandonedCheckpointOperation": (
-        "A PRODUCER AND A SESSION-BOUNDARY RESET, THE SAME SHAPE ALREADY "
-        "ESTABLISHED FOR OTHER SESSION-SCOPED TYPES. "
-        "`abandon_failed_checkpoint_restore_system` "
-        "(`crates/ambition_platformer2d_runtime/src/room_transition/loading.rs:1433`) "
-        "takes the key off a failed load and leaves it here; its own doc "
-        "(`:1422`) says the commit executor spends it. "
-        "`reset_checkpoint_coordinator_on_activation` "
-        "(path: crates/ambition_platformer2d_actor_monolith/src/session/"
-        "checkpoint.rs:1733) "
-        "does `*abandoned = AbandonedCheckpointOperation::default()` (`:1755`) "
-        "only on activation of a NEW session — its own doc: \"the session about "
-        "to read these writes them first, so nothing a previous session left "
-        "can reach it.\" Not a live-frame race. Measured by CalculexAmbition, "
-        "2026-09-18; citations re-derived here before landing."
-    ),
     "ActiveGameplaySession": (
         "PRODUCER AND TEARDOWN, NOT TWO ACTIVATION AUTHORITIES. "
         "`adopt_candidate_platformer_session` "
@@ -3803,6 +3783,10 @@ ADJUDICATED: dict[str, str] = {
 #: `dict[str, int]` and a same-cardinality writer swap on
 #: `EncounterMusicRequest` left the guard green. The file set is the owner.
 SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
+    "AbandonedCheckpointOperation": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/loading.rs",
+    ),
     "EncounterMusicRequest": (
         "crates/ambition_boss_encounter/src/encounter_script.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
@@ -3838,6 +3822,21 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
 #: different lifetime: a session boundary reclaims these, so "two writers" is a
 #: question about one session's state rather than about the App's.
 SESSION_WORLD_ADJUDICATED: dict[str, str] = {
+    "AbandonedCheckpointOperation": (
+        "CORRECT -- A PRODUCER AND THE EXECUTOR THAT SPENDS IT, ON THE SESSION "
+        "ROOT SINCE C03 (2026-10-07). It was a multi-writer RESOURCE adjudicated "
+        "as `a producer and a session-boundary reset`; the reset is deleted with "
+        "the move, because a new session's root is born with the default. "
+        "`abandon_failed_checkpoint_restore_system` "
+        "(`room_transition/loading.rs`) takes the key off a failed load and "
+        "notes it here from `Update`; `terminalize_abandoned_checkpoint_restore` "
+        "(`session/checkpoint.rs`), run by the commit executor on a frame no "
+        "rewind can reach, clears it when the note is stale or spent. The note is "
+        "VALUE-COMPLETE (key, admitted frame, the accepted operation's checksum), "
+        "so a note about an operation this timeline never admitted is discarded "
+        "instead of spent. Deliberately not rollback state; see the waiver in "
+        "`rollback_coverage.rs`."
+    ),
     "EncounterMusicRequest": (
         "CORRECT — EIGHT WRITERS, A TWO-TIER PROTOCOL, AND THE PRIORITY TIER IS "
         "OWNER-CHECKED BY THE COMPILER SINCE 2026-09-18. The component is built "

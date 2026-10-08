@@ -368,10 +368,6 @@ def explicit_narrow_lifetime_resources() -> dict[str, Any]:
             REPO / "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
             "SessionScopedResources",
         ),
-        (
-            REPO / "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
-            "SessionOwnedCheckpointState",
-        ),
     ]
     found: dict[str, list[str]] = {}
     resmut = re.compile(r"ResMut\s*<\s*'?[A-Za-z_][A-Za-z0-9_]*\s*,\s*(?P<type>[A-Za-z_][A-Za-z0-9_:]*)\s*>")

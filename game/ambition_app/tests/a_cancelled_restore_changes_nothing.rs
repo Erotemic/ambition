@@ -177,7 +177,8 @@ fn a_restore_after_a_boss(
 /// Ask for a restore to the checkpoint, and step until the session answers
 /// it, for 300 frames at most.
 fn ask_for_a_restore(sim: &mut Platformer2dSimHarness, road: Road) -> Option<CheckpointRestoreOutcome> {
-    let answered_before = sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned();
+    let answered_before = ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator").latest().cloned();
     sim.world_mut()
         .write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
     let mut outcome = None;
@@ -197,7 +198,8 @@ fn ask_for_a_restore(sim: &mut Platformer2dSimHarness, road: Road) -> Option<Che
             );
         }
         sim.step(AgentAction::default());
-        let latest = sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned();
+        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator").latest().cloned();
         if latest != answered_before {
             outcome = latest;
             break;
@@ -322,7 +324,8 @@ fn a_checkpoint_restore_with_two_primary_bodies_is_refused_and_the_next_one_comm
     assert_eq!(
         (
             outcome.as_ref().and_then(|outcome| outcome.cancellation()),
-            sim.world().resource::<OutstandingCheckpointRequest>().0,
+            ambition_platformer2d::platformer::lifecycle::session_world_component::<OutstandingCheckpointRequest>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator").0,
         ),
         (Some(RestoreCancellation::AmbiguousSubject), None),
         "(the outcome, the request still owed) of a restore with two primary bodies: {outcome:?}"

@@ -653,12 +653,12 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
         let scope = world
             .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
             .and_then(|scope| scope.current());
-        let key = world
-            .resource_mut::<SessionCheckpointOperations>()
+        let key = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SessionCheckpointOperations>(world)
+            .expect("the live session root carries the checkpoint coordinator")
             .admit(scope)
             .expect("a live session can still mint an operation key");
-        world
-            .resource_mut::<AcceptedCheckpointRestore>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore>(world)
+            .expect("the live session root carries the checkpoint coordinator")
             .accept(AcceptedRestore {
                 key,
                 frame: 0,
@@ -685,9 +685,8 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
     let mut ended = false;
     for _ in 0..600 {
         sim.step(AgentAction::default());
-        if sim
-            .world()
-            .resource::<SessionCheckpointOutcomes>()
+        if ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
             .outcome_for(key)
             .is_some()
         {
@@ -704,9 +703,8 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
          does not spend that note, the accepted operation and its lifecycle intent \
          stay live and readiness reopens the same invalid transaction every frame"
     );
-    let outcome = *sim
-        .world()
-        .resource::<SessionCheckpointOutcomes>()
+    let outcome = *ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
         .outcome_for(key)
         .expect("checked above");
     assert_eq!(
@@ -717,8 +715,8 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
          and left the world unverified, and nothing was applied"
     );
     assert!(
-        sim.world()
-            .resource::<AcceptedCheckpointRestore>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<AcceptedCheckpointRestore>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
             .accepted()
             .is_none(),
         "the accepted operation outlived its own terminal answer"

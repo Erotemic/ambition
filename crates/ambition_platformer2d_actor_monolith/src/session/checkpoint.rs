@@ -52,7 +52,7 @@ use ambition_platformer2d_core::{self as ae};
 /// ⭐ THE GENERATION IS PART OF THE VALUE, so a memory left over from a retired
 /// session simply does not match the live one and self-corrects. That is why
 /// this is not also session-scoped state.
-#[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+#[derive(bevy::prelude::Component, Default, Clone, Debug, PartialEq)]
 pub struct SessionStartupResume {
     /// The session generation this state describes, and how far it got.
     state: Option<(Option<u64>, StartupResume)>,
@@ -105,11 +105,13 @@ impl SessionStartupResume {
     /// records what happens otherwise: excluding a local stamp with nothing
     /// identifying WHICH session the value describes is FALSE-NEGATIVE, because
     /// two peers can then hold the same state stamped for different sessions and
-    /// agree. Here `reset_checkpoint_coordinator_on_activation` runs in
-    /// [`ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate`] and defaults this resource before the
-    /// incoming session's provider builds anything, so a generation from another
-    /// session cannot be alive to be compared. The stored generation is the live
-    /// one, always.
+    /// agree. Here the value lives ON THE SESSION ROOT (C03, 2026-10-07): a new
+    /// session's root is born with the default, before its provider builds
+    /// anything, so a generation from another session cannot be alive to be
+    /// compared. The stored generation is the live one, always. (Until then a
+    /// reset at `SessionScopeSet::Activate` defaulted this resource; the
+    /// root made that reset redundant, and the generation in the value is the
+    /// remainder of the same argument.)
     ///
     /// ⚠ **PRESENCE IS KEPT, VALUE IS DROPPED.** `None` means a composition with
     /// no session lifecycle at all, which is a real distinction from "session
@@ -177,13 +179,13 @@ pub fn restore_checkpoint_on_session_start(
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     // ⛔⛔ NOT `Local`s. See [`SessionStartupResume`].
-    mut progress: ResMut<SessionStartupResume>,
+    mut progress: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionStartupResume>,
     // The SAME operation state the reset road uses. A startup crossing and a
     // death crossing are one operation asked twice, so they are admitted,
     // pinned, applied and answered by one mechanism.
-    mut accepted: ResMut<AcceptedCheckpointRestore>,
-    mut operations: ResMut<SessionCheckpointOperations>,
-    outcomes: Res<SessionCheckpointOutcomes>,
+    mut accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<AcceptedCheckpointRestore>,
+    mut operations: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOperations>,
+    outcomes: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<SessionCheckpointOutcomes>,
     baselines: (
         Option<Res<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
         Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
@@ -419,7 +421,7 @@ pub fn resume_at_checkpoint_on_reset(
         ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint,
     >,
     mut new_games: bevy::prelude::MessageReader<crate::session::reset::NewGameRequested>,
-    mut outstanding: ResMut<OutstandingCheckpointRequest>,
+    mut outstanding: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<OutstandingCheckpointRequest>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     // The subject's own live room (OW1 Cut A). The sole live room was read,
     // so while two rooms were live a death was owed and never served.
@@ -443,10 +445,10 @@ pub fn resume_at_checkpoint_on_reset(
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     )>,
-    mut accepted: ResMut<AcceptedCheckpointRestore>,
-    mut operations: ResMut<SessionCheckpointOperations>,
+    mut accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<AcceptedCheckpointRestore>,
+    mut operations: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOperations>,
     // The answer of a request that is refused before it is an operation.
-    mut outcomes: ResMut<SessionCheckpointOutcomes>,
+    mut outcomes: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOutcomes>,
     // WHOSE operation. Absent only in an explicit standalone profile, which has
     // one declared lifetime and cannot retain operations across destruction.
     scope: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
@@ -913,7 +915,7 @@ pub fn resume_at_checkpoint_on_reset(
 /// now live in `CheckpointDomainApply` and only a commit executor runs that.
 /// Holding these values does not permit a restore — being invoked by the commit
 /// does. This is the operation's DATA.
-#[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+#[derive(bevy::prelude::Component, Default, Clone, Debug, PartialEq)]
 pub struct AcceptedCheckpointRestore(Option<AcceptedRestore>);
 
 /// Which restore operation this is.
@@ -998,7 +1000,7 @@ impl CheckpointOperationKey {
 /// ⭐ SEPARATE FROM THE ACCEPTED VALUE because it must survive the accepted
 /// value's retirement: the next operation's key has to differ from the last
 /// one's, and the last one is gone by then.
-#[derive(bevy::prelude::Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(bevy::prelude::Component, Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SessionCheckpointOperations {
     next_sequence: u64,
 }
@@ -1313,8 +1315,7 @@ pub fn prospective_commit_fates(
 ) -> crate::construction::PersistedFates {
     use crate::features::ecs::world_time_schedule::{remaining_in, remaining_scheduled_returns, WorldTimeSchedule};
     let facts = crate::construction::PersistedFates::of_world(world);
-    let Some(replay) = world
-        .get_resource::<AcceptedCheckpointRestore>()
+    let Some(replay) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
         .and_then(|accepted| accepted.inputs_for_key(key))
         .and_then(|accepted| accepted.replay.clone())
     else {
@@ -1370,8 +1371,7 @@ pub fn prospective_commit_fates(
 /// ([`ambition_combat::events::AdmittedReplays`]); it is removed again on
 /// every path.
 pub fn run_restore_consequences(world: &mut bevy::prelude::World, key: CheckpointOperationKey) {
-    let Some(replay) = world
-        .get_resource::<AcceptedCheckpointRestore>()
+    let Some(replay) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
         .and_then(|accepted| accepted.inputs_for_key(key))
         .and_then(|accepted| accepted.replay.clone())
     else {
@@ -1389,9 +1389,9 @@ pub fn run_restore_consequences(world: &mut bevy::prelude::World, key: Checkpoin
 /// inputs have no operation left to describe, and holding them would let a
 /// later unrelated transition match a stale intent by value.
 pub fn retire_accepted_checkpoint_restore(
-    mut accepted: ResMut<AcceptedCheckpointRestore>,
+    mut accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<AcceptedCheckpointRestore>,
     pending: Res<crate::session::lifecycle_commit::PendingLifecycleCommit>,
-    outcomes: Option<ResMut<SessionCheckpointOutcomes>>,
+    mut outcomes: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOutcomes>,
 ) {
     let still_pending = accepted.accepted().is_some_and(|accepted| {
         pending
@@ -1406,7 +1406,7 @@ pub fn retire_accepted_checkpoint_restore(
         // operation unanswered, and until 2026-10-05 it was retired with no
         // outcome (review 2026-10-05, P1). Each of those roads ran none of the
         // restore's consequences, so the live world is as it was.
-        if let (Some(operation), Some(mut outcomes)) = (accepted.retire(), outcomes) {
+        if let Some(operation) = accepted.retire() {
             if outcomes.outcome_for(operation.key).is_none() {
                 outcomes.publish(CheckpointRestoreOutcome::Cancelled {
                     key: operation.key,
@@ -1446,7 +1446,7 @@ pub enum RestoreTo {
 /// whole job — so a rewind past the frame the request arrived on must take the
 /// request with it, or one timeline restores a checkpoint the other never asked
 /// for.
-#[derive(bevy::prelude::Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(bevy::prelude::Component, Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OutstandingCheckpointRequest(pub Option<RestoreTo>);
 
 impl OutstandingCheckpointRequest {
@@ -1489,8 +1489,7 @@ pub fn apply_committed_checkpoint_restore(
         CheckpointDomainApply, CheckpointRestoreInputs,
     };
 
-    let Some(accepted) = world
-        .get_resource::<AcceptedCheckpointRestore>()
+    let Some(accepted) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
         .and_then(|accepted| accepted.inputs_for_key(key))
         .cloned()
     else {
@@ -1564,13 +1563,13 @@ pub fn apply_committed_checkpoint_restore(
     };
     // ⛔ EXACTLY ONE TERMINAL OUTCOME PER OPERATION, and the session is its sole
     // writer. `publish` refuses a second one for a key it has already answered.
-    if let Some(mut outcomes) = world.get_resource_mut::<SessionCheckpointOutcomes>() {
+    if let Some(mut outcomes) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<SessionCheckpointOutcomes>(world) {
         outcomes.publish(outcome);
     }
     // The accepted operation is answered. Retiring it here rather than waiting
     // for the slot means a later transaction cannot be opened against an
     // operation that has already had its terminal outcome.
-    if let Some(mut accepted_state) = world.get_resource_mut::<AcceptedCheckpointRestore>() {
+    if let Some(mut accepted_state) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore>(world) {
         if accepted_state
             .accepted()
             .is_some_and(|outstanding| outstanding.key == accepted.key)
@@ -1658,7 +1657,7 @@ pub fn cancel_accepted_checkpoint_restore(
 /// ⚠ ONE SLOT, LAST WRITER WINS. At most one restore is accepted at a time, so a
 /// second abandoned note means the first was already answered (or never
 /// accepted).
-#[derive(bevy::prelude::Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(bevy::prelude::Component, Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AbandonedCheckpointOperation(Option<AbandonedOperation>);
 
 /// The identity of an abandoned operation, complete enough that a rewound
@@ -1731,8 +1730,7 @@ pub fn terminalize_abandoned_checkpoint_restore(
     world: &mut World,
     confirmed_through: Option<i32>,
 ) -> AbandonmentVerdict {
-    let Some(note) = world
-        .get_resource::<AbandonedCheckpointOperation>()
+    let Some(note) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AbandonedCheckpointOperation>(world)
         .and_then(|abandoned| abandoned.0)
     else {
         return AbandonmentVerdict::Nothing;
@@ -1741,13 +1739,12 @@ pub fn terminalize_abandoned_checkpoint_restore(
     // A rewind can leave a note about an operation this timeline never admitted,
     // or admitted differently; the key alone cannot tell those apart because the
     // sequence counter rewinds with everything else.
-    let live = world
-        .get_resource::<AcceptedCheckpointRestore>()
+    let live = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
         .and_then(|accepted| accepted.accepted().cloned());
     let Some(live) = live.filter(|live| {
         live.key == note.key && live.frame == note.admitted_frame && live.checksum() == note.operation
     }) else {
-        if let Some(mut abandoned) = world.get_resource_mut::<AbandonedCheckpointOperation>() {
+        if let Some(mut abandoned) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<AbandonedCheckpointOperation>(world) {
             abandoned.clear();
         }
         return AbandonmentVerdict::Stale;
@@ -1758,31 +1755,38 @@ pub fn terminalize_abandoned_checkpoint_restore(
         // this boundary will be asked again.
         return AbandonmentVerdict::NotYetConfirmed;
     }
-    if let Some(mut abandoned) = world.get_resource_mut::<AbandonedCheckpointOperation>() {
+    if let Some(mut abandoned) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<AbandonedCheckpointOperation>(world) {
         abandoned.clear();
     }
-    if !world.contains_resource::<SessionCheckpointOutcomes>()
-        || !world.contains_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
-    {
+    let Some(root) = ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world) else {
+        return AbandonmentVerdict::Stale;
+    };
+    if !world.contains_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>() {
         return AbandonmentVerdict::Stale;
     }
-    world.resource_scope(|world, mut accepted: Mut<AcceptedCheckpointRestore>| {
-        world.resource_scope(|world, mut outcomes: Mut<SessionCheckpointOutcomes>| {
-            let mut pending = world
-                .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-            let ended = cancel_accepted_checkpoint_restore(
-                &mut accepted,
-                &mut outcomes,
-                &mut pending,
-                note.key,
-                RestoreCancellation::PreparationFailed,
-            );
-            if ended {
-                AbandonmentVerdict::Ended
-            } else {
-                AbandonmentVerdict::Stale
-            }
-        })
+    world.resource_scope(|world, mut pending: Mut<crate::session::lifecycle_commit::PendingLifecycleCommit>| {
+        let Ok(mut root) = world.get_entity_mut(root) else {
+            return AbandonmentVerdict::Stale;
+        };
+        // The accepted operation and its outcome are two components of the
+        // one session root, so one borrow holds both.
+        let Ok((mut accepted, mut outcomes)) = root
+            .get_components_mut::<(&mut AcceptedCheckpointRestore, &mut SessionCheckpointOutcomes)>()
+        else {
+            return AbandonmentVerdict::Stale;
+        };
+        let ended = cancel_accepted_checkpoint_restore(
+            &mut accepted,
+            &mut outcomes,
+            &mut pending,
+            note.key,
+            RestoreCancellation::PreparationFailed,
+        );
+        if ended {
+            AbandonmentVerdict::Ended
+        } else {
+            AbandonmentVerdict::Stale
+        }
     })
 }
 
@@ -2224,7 +2228,7 @@ impl CheckpointRestoreOutcome {
 /// ⚠ AND PRESENTATION SHOULD NOT POLL THIS. When a terminal notification is
 /// wanted, publish a message at completion; a single-latest resource is the
 /// session's own bookkeeping, not a feed.
-#[derive(bevy::prelude::Resource, Default, Clone, Debug, PartialEq)]
+#[derive(bevy::prelude::Component, Default, Clone, Debug, PartialEq)]
 pub struct SessionCheckpointOutcomes(Option<CheckpointRestoreOutcome>);
 
 impl SessionCheckpointOutcomes {
@@ -2289,21 +2293,33 @@ impl SessionCheckpointOutcomes {
 /// claim about file placement.
 pub struct SessionCheckpointHorizonPlugin;
 
-/// Every checkpoint-coordinator value whose lifetime is ONE gameplay session.
+/// Every checkpoint-coordinator value whose lifetime is ONE gameplay session,
+/// stored ON THE SESSION ROOT.
 ///
-/// ⛔⛤ **THE DOMAIN OWNS THIS, AND ONLY ONE MEMBER USED TO BE OWNED AT ALL.** A
-/// 2026-09-13 review found `OutstandingCheckpointRequest` crossing sessions and it
-/// was added to the central `SessionScopedResources`. A second review found the
-/// REST OF THE FAMILY still process-global — the same omission the central
-/// aggregate exists to prevent, one domain over.
+/// ⭐ **THE SESSION ROOT IS THE OWNER (C03, 2026-10-07).** These six were
+/// process-global resources, and a reset at `SessionScopeSet::Activate` made
+/// each new session start from the defaults. A value stored on the root needs no
+/// reset: a new root carries new components, so a candidate session that is
+/// being prepared while another plays holds ITS OWN coordinator, and two
+/// sessions can disagree about an accepted restore without either reading the
+/// other's. `SessionScopedResources` and this family were a partition of the
+/// reset roads; this family is no longer in either.
 ///
-/// ⇒ **FIVE OF THE SIX ARE CANONICAL ROLLBACK STATE, so their residue is inside
-/// B's checksum — MEASURED 2026-09-16 in `rollback_registration.rs`, not counted
-/// off the list below.** All five register as `resource-clone-custom-checksum`
-/// under the monolith's `OWNER`:
+/// ⛔⛤ **HOW A ROOT GETS THEM.** [`SessionCheckpointHorizonPlugin`] registers
+/// each as a REQUIRED component of `SessionRoot`, so the root carries all six
+/// from the moment a candidate is published (the swap inserts `SessionRoot`), and
+/// a direct host or a focused test that spawns a root gets them too. A hidden
+/// candidate carries `CandidateSessionRoot` and none of them: nothing reads a
+/// coordinator before its session is the live one.
+///
+/// ⚠ **THE ROLLBACK KEYS DID NOT MOVE.** Five are canonical rollback state and
+/// register as `resource-clone-custom-checksum` under the monolith's `OWNER`:
 /// `resource.session_checkpoint_operations`, `resource.session_checkpoint_outcomes`,
 /// `resource.accepted_checkpoint_restore`, `resource.outstanding_checkpoint_request`,
-/// `resource.session_startup_resume`.
+/// `resource.session_startup_resume`. A key is a wire identity, not an address:
+/// the names keep their `resource.` prefix on purpose, and what changed is the
+/// STORAGE KIND (now `component-clone-custom-checksum`, on the root, beside
+/// `root.room_set`).
 ///
 /// ⛔ **THE SIXTH, `AbandonedCheckpointOperation`, IS DELIBERATELY NOT REGISTERED
 /// ON EITHER ROAD, AND ITS ABSENCE IS THE DESIGN.** It is written from `Update`,
@@ -2312,101 +2328,79 @@ pub struct SessionCheckpointHorizonPlugin;
 /// rewound past its branch DISCARDS it (`AbandonmentVerdict::Stale`) instead of
 /// cancelling a healthy replacement. Registering it would make a host-side
 /// preparation failure, which two peers need not agree about, into shared
-/// state. ⚠ So a reader auditing this family must not read "six session-owned
-/// values" as "six rollback values": the partition is 5 + 1, the 1 is reasoned,
-/// and `scripts/check_session_owner_census_matches_source.py` now checks it.
+/// state. The partition is 5 + 1 and the 1 is reasoned.
 ///
+/// - `SessionCheckpointOperations` is *the session's* admitted-operation
+///   counter. The operation KEY carries `SessionScopeId`, so a fresh counter
+///   cannot recycle an identity; a room REBASE keeps the counter (a different
+///   boundary, which a root does not touch).
+/// - `SessionCheckpointOutcomes` is the previous restore's terminal result, and
+///   a session starts with none.
+/// - `AcceptedCheckpointRestore` and `AbandonedCheckpointOperation` together let
+///   `terminalize_abandoned_checkpoint_restore` recognise an abandoned
+///   operation of THIS session; a session that replaced it cannot be handed the
+///   old one's bookkeeping, because that root is gone.
+/// - `SessionStartupResume` keeps its generation in the value. With the root as
+///   owner the generation can no longer be another session's; it stays because
+///   it is also what a direct host with no scope reports (`None`).
 ///
-/// - `SessionCheckpointOperations` documents itself as *the session's*
-///   admitted-operation counter, and its `next_sequence` survived. Two otherwise
-///   identical sessions B could start with different counters merely because one
-///   process admitted more restores in its previous run. ⚠ The operation KEY
-///   already carries `SessionScopeId`, so resetting the sequence cannot recycle
-///   an identity — and its comment about not resetting at a room REBASE is about
-///   a different boundary, which this reducer does not touch.
-/// - `SessionCheckpointOutcomes` retained the previous session's terminal result.
-/// - `AcceptedCheckpointRestore` (registered) + `AbandonedCheckpointOperation`
-///   (host-side, per the partition above) together let
-///   `terminalize_abandoned_checkpoint_restore` recognise **A's** abandoned
-///   operation after B began and publish an A-scoped cancellation into B's
-///   outcomes. Scope keys stop it masquerading as B's, but it is still A's
-///   bookkeeping written into B's canonical resource.
-/// - `SessionStartupResume` self-disqualifies by generation, which prevents the
-///   behavioural bug — but self-disqualification is not initial-state EQUALITY,
-///   and its checksum carried the stale value until something overwrote it.
-///
-/// ⚠ **EXHAUSTIVELY DESTRUCTURED, DELIBERATELY NO `..`** — the same device
-/// `SessionScopedResources::reset` uses. Adding a coordinator resource without
-/// deciding its session semantics becomes a compile error at the only moment its
-/// author is still looking.
-#[derive(bevy::ecs::system::SystemParam)]
-pub struct SessionOwnedCheckpointState<'w> {
-    operations: ResMut<'w, SessionCheckpointOperations>,
-    outcomes: ResMut<'w, SessionCheckpointOutcomes>,
-    accepted: ResMut<'w, AcceptedCheckpointRestore>,
-    abandoned: ResMut<'w, AbandonedCheckpointOperation>,
-    startup_resume: ResMut<'w, SessionStartupResume>,
-    outstanding: ResMut<'w, OutstandingCheckpointRequest>,
+/// ⚠ A bundle with no `..` is the DECLARATION: add a coordinator value here and
+/// to [`require_checkpoint_state_on_session_root`], and the unit test
+/// `a_session_root_carries_the_whole_checkpoint_coordinator` names the gap.
+#[derive(bevy::prelude::Bundle, Default, Clone)]
+pub struct SessionCheckpointState {
+    pub operations: SessionCheckpointOperations,
+    pub outcomes: SessionCheckpointOutcomes,
+    pub accepted: AcceptedCheckpointRestore,
+    pub abandoned: AbandonedCheckpointOperation,
+    pub startup_resume: SessionStartupResume,
+    pub outstanding: OutstandingCheckpointRequest,
 }
 
-/// Re-establish the checkpoint coordinator for a session about to be built.
+/// Make every session root carry a [`SessionCheckpointState`].
 ///
-/// ⭐ **ACTIVATION, NOT RETIREMENT, AND NOT A ROOM REBASE.** Activation is the
-/// edge that is CORRECTNESS: the session about to read these writes them first,
-/// so nothing a previous session left can reach it, and an abnormal exit that
-/// skipped its teardown cannot change that. A room rebase deliberately KEEPS the
-/// operation counter — that is the boundary this must not be confused with.
-pub fn reset_checkpoint_coordinator_on_activation(
-    mut activated: MessageReader<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated,
-    >,
-    state: SessionOwnedCheckpointState,
-) {
-    if activated.read().count() == 0 {
-        return;
+/// Bevy refuses a required-components registration once an entity with the
+/// requiring component exists. A plugin installed late (a focused test that
+/// built its root first) must not leave that root without a coordinator, because
+/// every system that reads one is a `Single` on the root and would skip in
+/// silence. So the roots that exist are given the bundle here, and every root
+/// built after gets it by requirement.
+pub fn require_checkpoint_state_on_session_root(app: &mut App) {
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
+    let world = app.world_mut();
+    let mut late = false;
+    macro_rules! require {
+        ($($component:ty),+ $(,)?) => {$(
+            late |= world.try_register_required_components::<SessionRoot, $component>().is_err();
+        )+};
     }
-    let SessionOwnedCheckpointState {
-        mut operations,
-        mut outcomes,
-        mut accepted,
-        mut abandoned,
-        mut startup_resume,
-        mut outstanding,
-    } = state;
-    *operations = SessionCheckpointOperations::default();
-    *outcomes = SessionCheckpointOutcomes::default();
-    *accepted = AcceptedCheckpointRestore::default();
-    *abandoned = AbandonedCheckpointOperation::default();
-    *startup_resume = SessionStartupResume::default();
-    *outstanding = OutstandingCheckpointRequest::default();
+    require!(
+        SessionCheckpointOperations,
+        SessionCheckpointOutcomes,
+        AcceptedCheckpointRestore,
+        AbandonedCheckpointOperation,
+        SessionStartupResume,
+        OutstandingCheckpointRequest,
+    );
+    if late {
+        let roots: Vec<Entity> = world
+            .query_filtered::<Entity, With<SessionRoot>>()
+            .iter(world)
+            .collect();
+        for root in roots {
+            world.entity_mut(root).insert_if_new(SessionCheckpointState::default());
+        }
+    }
 }
 
 impl Plugin for SessionCheckpointHorizonPlugin {
     fn build(&self, app: &mut App) {
         let sim = ambition_platformer2d_shared_tangle::schedule::SimScheduleExt::sim_schedule(app);
 
-        app.init_resource::<AcceptedCheckpointRestore>();
-        app.init_resource::<SessionCheckpointOperations>();
-        app.init_resource::<SessionCheckpointOutcomes>();
-        app.init_resource::<SessionStartupResume>();
-        app.init_resource::<OutstandingCheckpointRequest>();
-        app.init_resource::<AbandonedCheckpointOperation>();
-        // ⛔⛔ THE CHANNEL BESIDE THE SYSTEM THAT READS IT. A `MessageReader` for
-        // an unregistered message fails PARAMETER VALIDATION at runtime, not at
-        // compile time — it killed three unit apps and six fixtures earlier today
-        // in two other domains. `add_message` is guarded against a second
-        // registration, so a composition that also installs `SessionScopePlugin`
-        // pays nothing and one that does not is saved.
-        app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>();
+        require_checkpoint_state_on_session_root(app);
         // The admission reads the New Game intent; the ledger that releases it
         // is `NewGameResetPlugin`'s.
         app.add_message::<crate::session::reset::NewGameRequested>();
-        // ⛔ THE DOMAIN'S OWN SESSION EDGE. See `SessionOwnedCheckpointState`.
-        app.add_systems(
-            bevy::prelude::Update,
-            reset_checkpoint_coordinator_on_activation
-                .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate),
-        );
         // ⭐ ADMISSION IS ALL THAT REMAINS IN THE SIMULATION. The restore itself
         // runs from the commit executor, so `CheckpointRestore` now contains the
         // session's admission and the retirement that follows the slot — and

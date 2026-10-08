@@ -632,7 +632,7 @@ pub fn begin_room_transition_load_system(
         // checkpoint horizon, and "no accepted restore" is the resource's own
         // `None` (measured 2026-10-03 over app_it, the demo suites and the lib
         // tests).
-        Res<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
     ),
     // `Option`, and absence is a legal answer: a composition with no registered characters is
     // the ordinary case, and an empty registry means "no character states a default" — which is
@@ -1544,10 +1544,8 @@ pub fn abandon_failed_checkpoint_restore_system(
     // the guard forbids — and what this system used to do — is WRITING it. The
     // note is value-complete because the live operation is right here, so a
     // caller cannot record half of an identity.
-    accepted: Res<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
-    mut abandoned: ResMut<
-        ambition_platformer2d_actor_monolith::session::checkpoint::AbandonedCheckpointOperation,
-    >,
+    accepted: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
+    mut abandoned: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<ambition_platformer2d_actor_monolith::session::checkpoint::AbandonedCheckpointOperation>,
 ) {
     let Some(active) = state.active.as_mut() else {
         return;
@@ -1920,8 +1918,7 @@ mod tests {
 mod checkpoint_failure_tests {
     use super::*;
     use ambition_platformer2d_actor_monolith::session::checkpoint::{
-        AbandonedCheckpointOperation, AcceptedCheckpointRestore, AcceptedRestore,
-        RestoreCancellation, SessionCheckpointOperations, SessionCheckpointOutcomes,
+        AcceptedCheckpointRestore, AcceptedRestore, RestoreCancellation, SessionCheckpointOperations, SessionCheckpointOutcomes,
     };
     use crate::room_transition::commit::terminalize_abandoned_checkpoint_restore_system;
     use bevy::prelude::IntoScheduleConfigs;
@@ -1967,15 +1964,17 @@ mod checkpoint_failure_tests {
     fn a_failed_preparation_ends_the_operation_once_and_does_not_retry_it() {
         let mut app = App::new();
         app.init_resource::<RoomTransitionLoadState>();
-        app.init_resource::<AcceptedCheckpointRestore>();
-        app.init_resource::<SessionCheckpointOutcomes>();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointState::default(),
+        );
         app.init_resource::<PendingLifecycleCommit>();
 
         let key = SessionCheckpointOperations::default()
             .admit(None)
             .expect("a fresh counter mints a key");
-        app.world_mut()
-            .resource_mut::<AcceptedCheckpointRestore>()
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<AcceptedCheckpointRestore>(app.world_mut())
+            .unwrap()
             .accept(AcceptedRestore {
                 key,
                 frame: 0,
@@ -2031,7 +2030,6 @@ mod checkpoint_failure_tests {
             .resource_mut::<RoomTransitionLoadState>()
             .active = Some(active);
 
-        app.init_resource::<AbandonedCheckpointOperation>();
         // ⭐ BOTH HALVES, because either alone proves nothing. The `Update` noter
         // may not touch rollback state and the commit executor never sees the
         // transaction; the terminal road only exists when they are composed.
@@ -2044,9 +2042,8 @@ mod checkpoint_failure_tests {
         app.update();
 
         // ── ONE TERMINAL ANSWER, AND IT SAYS WHY ────────────────────────────
-        let outcome = *app
-            .world()
-            .resource::<SessionCheckpointOutcomes>()
+        let outcome = *ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<SessionCheckpointOutcomes>(app.world())
+            .unwrap()
             .outcome_for(key)
             .expect("a failed preparation must terminate its operation");
         assert_eq!(
@@ -2064,8 +2061,8 @@ mod checkpoint_failure_tests {
 
         // ── AND IT WILL NOT BE TRIED AGAIN ──────────────────────────────────
         assert!(
-            app.world()
-                .resource::<AcceptedCheckpointRestore>()
+            ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(app.world())
+            .unwrap()
                 .accepted()
                 .is_none(),
             "the candidate outlived the operation it belonged to"
@@ -2084,8 +2081,8 @@ mod checkpoint_failure_tests {
         // pass must not publish a second answer for one operation.
         app.update();
         assert_eq!(
-            app.world()
-                .resource::<SessionCheckpointOutcomes>()
+            ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<SessionCheckpointOutcomes>(app.world())
+            .unwrap()
                 .outcome_for(key)
                 .map(|outcome| outcome.cancellation()),
             Some(Some(RestoreCancellation::PreparationFailed)),
@@ -2101,8 +2098,10 @@ mod checkpoint_failure_tests {
     fn a_failed_ordinary_crossing_is_left_alone() {
         let mut app = App::new();
         app.init_resource::<RoomTransitionLoadState>();
-        app.init_resource::<AcceptedCheckpointRestore>();
-        app.init_resource::<SessionCheckpointOutcomes>();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_actor_monolith::session::checkpoint::SessionCheckpointState::default(),
+        );
         app.init_resource::<PendingLifecycleCommit>();
         assert!(app
             .world_mut()
@@ -2146,7 +2145,6 @@ mod checkpoint_failure_tests {
         app.world_mut()
             .resource_mut::<RoomTransitionLoadState>()
             .active = Some(active);
-        app.init_resource::<AbandonedCheckpointOperation>();
         app.add_systems(bevy::prelude::Update, abandon_failed_checkpoint_restore_system);
         app.add_systems(
             bevy::prelude::Update,
@@ -2163,9 +2161,8 @@ mod checkpoint_failure_tests {
             "an ordinary crossing's intent was spent by the checkpoint road's \
              terminalization, so a retryable door failure became permanent"
         );
-        assert!(app
-            .world()
-            .resource::<SessionCheckpointOutcomes>()
+        assert!(ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<SessionCheckpointOutcomes>(app.world())
+            .unwrap()
             .latest()
             .is_none());
     }

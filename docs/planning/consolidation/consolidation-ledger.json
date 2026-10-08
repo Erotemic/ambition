@@ -4207,30 +4207,28 @@
     {
       "id": "LIFE-CHECKPOINT-RESOURCE-AGGREGATE",
       "category": "lifecycle",
-      "name": "SessionOwnedCheckpointState process-storage aggregate",
+      "name": "SessionCheckpointState root-owned checkpoint coordinator",
       "owner": "ambition_platformer2d_actor_monolith::session::checkpoint",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
-      "current_truth": "SessionOwnedCheckpointState names six App resources for one gameplay-session checkpoint coordinator and resets all six at session activation.",
+      "current_truth": "SessionCheckpointState names six components of the session root for one gameplay-session checkpoint coordinator. The activation reset and its aggregate param are deleted; a new root is born with the defaults (C03, 2026-10-07).",
       "source_paths": [
         "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "SessionOwnedCheckpointState names six App resources for one gameplay-session checkpoint coordinator and resets all six at session activation.",
+          "claim": "SessionCheckpointState names six components of the session root for one gameplay-session checkpoint coordinator. The activation reset and its aggregate param are deleted; a new root is born with the defaults (C03, 2026-10-07).",
           "sources": [
             "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs"
           ]
         }
       ],
       "semantic_lifetime": "gameplay session",
-      "representation": "6 process/App Resources accessed through one SystemParam",
-      "classification": "actual storage owner is broader than semantic owner",
-      "consolidation_hypothesis": "Consider one session-owned checkpoint coordinator state or root-owned components after checkpoint and A10 lifecycle boundaries stabilize.",
-      "metric_tags": [
-        "lifecycle_narrower_than_storage"
-      ]
+      "representation": "6 components of the SessionRoot, required by SessionRoot through SessionCheckpointHorizonPlugin",
+      "classification": "owner-scoped state",
+      "consolidation_hypothesis": "Landed 2026-10-07. The remaining C03 families follow the same shape: root component, rollback key unchanged, reset deleted.",
+      "metric_tags": []
     },
     {
       "id": "LIFE-SESSION-MECHANICS",

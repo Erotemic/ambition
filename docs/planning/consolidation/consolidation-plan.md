@@ -104,16 +104,20 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ## 3. C03 — Consolidate session-owned state and reduce reset-only App globals
 
-**State:** OPEN. Startable. Not started.
+**State:** IN PROGRESS. Family 1 of the checkpoint coordinator landed 2026-10-07
+(see "Landed families" below); the other families are not started.
 
 ### Scope and current authority
 
-Source explicitly groups **46** App resources as gameplay-session or
-activated-generation state:
+Source explicitly groups **40** App resources as gameplay-session or
+activated-generation state (46 until the checkpoint family left on 2026-10-07):
 
-<!-- session-owner-census: SessionScopedResources=39 SessionOwnedCheckpointState=6 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=39 SessionMechanics=1 -->
+<!-- session-root-family: SessionCheckpointState=6 -->
 - `SessionScopedResources` (**39**) in `actor_monolith/src/session/teardown.rs`;
-- `SessionOwnedCheckpointState` (6) in `actor_monolith/src/session/checkpoint.rs`;
+- (`SessionOwnedCheckpointState`, the third bundle of six, is DELETED: its values are
+  components of the session root, `SessionCheckpointState` (6) in
+  `actor_monolith/src/session/checkpoint.rs`, and no reset runs for them.)
 - `SessionMechanics` (1 resource with six fields; do not count its fields).
 
 The HTML comment above is the machine-readable copy.
@@ -165,7 +169,7 @@ Include them in the migration.
 | participant state | `ControlledSubject`, `PossessionState` | 2 |
 | encounter state | `EncounterView`, `BossEncounterRegistry`, `AuthoredOccurrences` | 3 |
 | simulation clocks / timeline state | `GameplayElapsed`, `LiveMatchTicks`, `SessionMatchOrdinal`, `ProjectileSeqCounter` | 4 |
-| checkpoint / restore state | the six `SessionOwnedCheckpointState` members, `SaveRestored`, `CustodyBaseline`, `MintedItemBaseline`, `OccurrenceBaseline` | 10 |
+| checkpoint / restore state | ~~the six `SessionOwnedCheckpointState` members~~ (LANDED, on the root), `SaveRestored`, `CustodyBaseline`, `MintedItemBaseline`, `OccurrenceBaseline` | 4 |
 | session request / admission queues | `CutsceneTriggerQueue`, `SwitchActivationQueue`, `PendingLifecycleCommit` | 3 |
 | admitted mechanics / configuration | `SessionMechanics`, `BaseGravity` | 2 |
 | cutscene / session gameplay state | `ActiveCutscene`, `ActiveConversation`, `CutsceneSkipHold` | 3 |
@@ -176,11 +180,11 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=23/12 SessionWorldMut=10/9 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
+<!-- alias-split: SessionWorldRef=27/14 SessionWorldMut=20/11 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 23 / 12 |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 10 / 9 |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 27 / 14 |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 20 / 11 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
 | `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |
 | `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 9 / 9 |
@@ -203,7 +207,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 46 values. Work owner by owner:
+Do not begin by moving all 40 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
@@ -212,8 +216,8 @@ Do not begin by moving all 46 values. Work owner by owner:
    boundary before you change storage. A rollback key is a wire identity. Do not
    rename a key to match a type (`RoomTransitionCooldown` registers as
    `resource.sandbox_sim_state` on purpose).
-4. Pick one coherent family with one owner. `SessionOwnedCheckpointState` is a
-   good first review unit.
+4. Pick one coherent family with one owner. (`SessionOwnedCheckpointState` was the
+   first review unit and has landed; see "Landed families".)
 5. Choose storage from semantics: a `SessionRoot` component for live-session
    state; an explicit session-keyed coordinator when the value must exist before
    the root; an App resource only when process lifetime is real.
@@ -221,6 +225,45 @@ Do not begin by moving all 46 values. Work owner by owner:
    the sole authority.
 7. Keep direct Bevy queries and system parameters. Do not add a generic state
    container.
+
+### Landed families
+
+**1. The checkpoint coordinator, 2026-10-07.** `SessionCheckpointOperations`,
+`SessionCheckpointOutcomes`, `AcceptedCheckpointRestore`,
+`AbandonedCheckpointOperation`, `SessionStartupResume` and
+`OutstandingCheckpointRequest` are components of the session root. They were
+process-global resources that `reset_checkpoint_coordinator_on_activation`
+overwrote at each activation; that system, the `SessionOwnedCheckpointState`
+`SystemParam` and the `SessionScopeActivated` registration made for it are deleted.
+
+- **Owner:** the session root. `SessionCheckpointHorizonPlugin` registers each as a
+  required component of `SessionRoot` (`require_checkpoint_state_on_session_root`),
+  so a root has all six from the moment a candidate is published, a direct host's
+  root has them too, and a hidden candidate has none (nothing reads a coordinator
+  before its session is live). A plugin installed after a root exists backfills it,
+  because every reader is a `Single` on the root and would otherwise skip in silence.
+- **Rollback identities did not move.** The five registered values keep their keys
+  (`resource.session_checkpoint_operations` and the rest; a key is a wire identity).
+  The kind in each row is `component-clone-custom-checksum` now, and
+  `GGRS_ROLLBACK_SCHEMA_VERSION` went 318 -> 319 (the readable baseline, the JSON
+  baseline and the codec-shape record follow). `AbandonedCheckpointOperation` is
+  still deliberately not registered; its waiver moved from `RESOURCE_WAIVED` to
+  `WAIVED` in `rollback_coverage.rs`.
+- **Witness that two sessions disagree without contamination:**
+  `checkpoint::tests::two_session_roots_hold_two_checkpoint_coordinators`. Session A
+  is live with three spent operations and an owed restore; a candidate root beside
+  it holds nothing and leaves A's coordinator untouched; after the swap the live
+  coordinator is fresh and its first operation has sequence zero. Its guard of
+  the plugin's list against the bundle:
+  `a_session_root_carries_the_whole_checkpoint_coordinator`.
+- **Counts:** the App-resource census is 40 (39 + `SessionMechanics`), down from 46.
+  The root family has its own marker above; RULE 3 (every member registers or is
+  declared deliberately unregistered) and RULE 4 (the census name list) still hold
+  for it.
+- The restore's readers (`room_transition` loading and commit, the confirmed commit
+  in `rollback_ggrs`) are `SessionWorldRef`/`SessionWorldMut` params or
+  `session_world_component` reads. The terminalizer holds the accepted operation
+  and the outcomes through one `get_components_mut` borrow.
 
 ### Constraints
 

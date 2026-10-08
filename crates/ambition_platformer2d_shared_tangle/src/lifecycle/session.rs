@@ -766,7 +766,7 @@ const DIRECT_HOST_SESSION_SCOPE: SessionScopeId = SessionScopeId(0);
 /// root built there would carry an identity no shell gave it (C07). Measured
 /// 2026-10-03: that branch was reached only by ungated lib-test fixtures, never
 /// by `app_it` or the demo suites.
-pub fn insert_session_world_component<T: Component>(world: &mut World, component: T) -> Entity {
+pub fn insert_session_world_component<T: Bundle>(world: &mut World, component: T) -> Entity {
     let active_scope = world
         .get_resource::<ActiveSessionScope>()
         .and_then(ActiveSessionScope::current);

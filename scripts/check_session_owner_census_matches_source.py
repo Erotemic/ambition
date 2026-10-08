@@ -17,14 +17,23 @@ reads. That is deliberately a SECOND copy of the number — the point is not to
 avoid a second copy, which prose already was, but to make the second copy
 CHECKABLE.
 
+⭐ **C03 MOVED THE CHECKPOINT FAMILY OFF THIS CENSUS (2026-10-07).**
+`SessionOwnedCheckpointState` was a `SystemParam` bundle of six `ResMut`s that a
+system reset at each activation; those six are components of the session root now
+(`SessionCheckpointState`, a plain `Bundle`), so there is nothing to reset and the
+family is no longer an App resource. It is a ROOT FAMILY here: a second marker
+(`session-root-family`) states its member count, RULE 3 (the rollback partition)
+and RULE 4 (the name list) still hold for it, and its members are not part of the
+App-resource total.
+
 ⚠ **IT COUNTS RESOURCES, NOT FIELDS, and the distinction is what the first
-parser got wrong.** `SessionScopedResources` and `SessionOwnedCheckpointState`
-are `SystemParam` bundles whose every field is one `ResMut<'w, T>` or
-`Option<ResMut<'w, T>>` — one resource each. `SessionMechanics` is ONE resource that happens to have six fields, and
+parser got wrong.** `SessionScopedResources` is a `SystemParam` bundle whose
+every field is one `ResMut<'w, T>` or `Option<ResMut<'w, T>>` — one resource
+each. `SessionMechanics` is ONE resource that happens to have six fields, and
 counting its fields reads the total as 41 instead of 36.
 
 ⛔⛤ **RULE 3 — AND A COUNT IS NOT A CHECK ON A LIST.** The first two rules agree
-that `SessionOwnedCheckpointState` has SIX members and would keep agreeing if all
+that `SessionCheckpointState` has SIX members and would keep agreeing if all
 six were replaced. The thing C03 step 3 actually needs before it moves storage is
 the ROLLBACK PARTITION: which members are rollback-registered, under which key,
 and which are deliberately host-side. Source's own doc block said *"Four of these
@@ -55,8 +64,15 @@ MARKER = re.compile(r"<!--\s*session-owner-census:\s*(.+?)\s*-->")
 #: group name -> (file, how to count it)
 BUNDLES = {
     "SessionScopedResources": "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    "SessionOwnedCheckpointState": "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
 }
+#: Families whose members are COMPONENTS of the session root (C03). Not App
+#: resources, so not in the total; counted by a second marker.
+ROOT_FAMILIES = {
+    "SessionCheckpointState": "crates/ambition_platformer2d_actor_monolith/src/session/checkpoint.rs",
+}
+ROOT_MARKER = re.compile(r"<!--\s*session-root-family:\s*(.+?)\s*-->")
+#: A root family is a `Bundle`: `pub name: Type,` per member.
+FAMILY_FIELD = re.compile(r"^\s{4}pub\s+\w+:\s*([\w:]+),\s*$", re.M)
 #: ⚠ NOT a bundle: one resource with six fields. Counting its fields is the
 #: mistake this guard's docstring records, so it is asserted to EXIST and is
 #: never counted by field.
@@ -75,7 +91,7 @@ RESMUT_FIELD = re.compile(
     r"^\s{4}(?:pub\s+)?\w+:\s*(?:Option<\s*)?ResMut<'w,\s*([\w:]+)>>?,\s*$", re.M
 )
 
-CHECKPOINT = REPO / BUNDLES["SessionOwnedCheckpointState"]
+CHECKPOINT = REPO / ROOT_FAMILIES["SessionCheckpointState"]
 #: ⛔⛔ THE WHOLE WORKSPACE, NOT THE CRATE THAT OWNS THE STRUCT. A member could
 #: be registered from anywhere, and "it is not registered in the file I looked
 #: in" is a claim about the query, not about the member. MEASURED 2026-09-16: no
@@ -95,7 +111,10 @@ REGISTRATION_ROOTS = ("crates", "game")
 #: ⚠ Every one of them takes `(owner, name, ...)` as its first two arguments, so
 #: one call-site shape covers all ten.
 REGISTRAR_TRAIT = REPO / "crates/ambition_platformer2d_core/src/snapshot.rs"
-RESOURCE_METHOD = re.compile(r"fn (rollback_resource_\w+)<T>")
+#: ⭐ RESOURCE AND COMPONENT METHODS BOTH (C03, 2026-10-07): a root family's
+#: members register as components, and a scan that asked only about resources
+#: would report every one of them unregistered.
+RESOURCE_METHOD = re.compile(r"fn (rollback_(?:resource|component)_\w+)<T>")
 
 
 COMMENT = re.compile(r"^\s*(?://|///|//!).*$", re.M)
@@ -213,8 +232,8 @@ def workspace_registrations() -> tuple[dict[str, str], list[str]]:
 def checkpoint_partition() -> list[str]:
     """RULE 3: every member registers, or source declares why it does not."""
     text = CHECKPOINT.read_text(encoding="utf-8")
-    start = text.index("pub struct SessionOwnedCheckpointState")
-    members = RESMUT_FIELD.findall(text[start : text.index("\n}\n", start)])
+    start = text.index("pub struct SessionCheckpointState")
+    members = FAMILY_FIELD.findall(text[start : text.index("\n}\n", start)])
 
     registrations, findings = workspace_registrations()
     if findings:
@@ -224,7 +243,7 @@ def checkpoint_partition() -> list[str]:
     if len(members) < 3:
         return [
             f"  RULE 3 parsed {len(members)} member(s) of "
-            "SessionOwnedCheckpointState; the field scan is broken"
+            "SessionCheckpointState; the field scan is broken"
         ]
 
     #: The doc block above the struct is where a host-side claim must live.
@@ -292,7 +311,8 @@ def member_lists() -> list[str]:
     text = CENSUS.read_text(encoding="utf-8")
     findings = []
     checked = 0
-    for name, rel in BUNDLES.items():
+    groups = {**BUNDLES, **ROOT_FAMILIES}
+    for name, rel in groups.items():
         source = set(source_members(rel, name))
         if len(source) < 3:
             findings.append(
@@ -318,10 +338,10 @@ def member_lists() -> list[str]:
                 )
     # ⛔ ANTI-VACUITY. A census whose lists stopped being backtick-fenced matches
     # nothing and this rule certifies a document it never read.
-    if not findings and checked < len(BUNDLES):
+    if not findings and checked < len(groups):
         findings.append(
             f"  RULE 4 found {checked} member list(s) in {CENSUS.name} for "
-            f"{len(BUNDLES)} bundle(s). A list it cannot find is a list it cannot "
+            f"{len(groups)} group(s). A list it cannot find is a list it cannot "
             "check, and this rule must refuse rather than report clean."
         )
     return findings
@@ -331,7 +351,8 @@ def source_members(rel: str, name: str) -> list[str]:
     text = (REPO / rel).read_text(encoding="utf-8")
     start = text.index(f"pub struct {name}")
     end = text.index("\n}\n", start)
-    return [m.rsplit("::", 1)[-1] for m in RESMUT_FIELD.findall(text[start:end])]
+    pattern = FAMILY_FIELD if name in ROOT_FAMILIES else RESMUT_FIELD
+    return [m.rsplit("::", 1)[-1] for m in pattern.findall(text[start:end])]
 
 
 def declared() -> dict[str, int]:
@@ -339,6 +360,19 @@ def declared() -> dict[str, int]:
     if not match:
         raise SystemExit(
             "⛔⛔ the plan carries no `session-owner-census` marker. A guard that "
+            "cannot find its subject must refuse, not report clean."
+        )
+    return {
+        name: int(value)
+        for name, value in (pair.split("=") for pair in match.group(1).split())
+    }
+
+
+def declared_root_families() -> dict[str, int]:
+    match = ROOT_MARKER.search(PLAN.read_text(encoding="utf-8"))
+    if not match:
+        raise SystemExit(
+            "⛔⛔ the plan carries no `session-root-family` marker. A guard that "
             "cannot find its subject must refuse, not report clean."
         )
     return {
@@ -521,6 +555,19 @@ def main() -> int:
                 f"  {name}: the plan says {stated[name]}, {rel} has {real}"
             )
 
+    stated_roots = declared_root_families()
+    for name, rel in ROOT_FAMILIES.items():
+        real = len(source_members(rel, name))
+        if real < 3:
+            findings.append(
+                f"  {name} parsed as {real} field(s) in {rel}; the scan is "
+                "broken, not the census"
+            )
+        elif real != stated_roots.get(name):
+            findings.append(
+                f"  {name}: the plan says {stated_roots.get(name)}, {rel} has {real}"
+            )
+
     real_bundle = bundle_members(BUNDLES[BUNDLE], BUNDLE)
     findings.extend(stray_counts(real_bundle))
     findings.extend(stray_totals(sum(stated.values())))
@@ -554,7 +601,7 @@ def main() -> int:
         + f" ({total} App resources)"
     )
     print(
-        "  and RULE 3: every SessionOwnedCheckpointState member either registers "
+        "  and RULE 3: every SessionCheckpointState member either registers "
         "for rollback under a key the doc block names, or source declares its "
         "absence deliberate."
     )

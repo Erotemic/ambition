@@ -84,14 +84,16 @@ fn occurrences(sim: &mut Platformer2dSimHarness, authored: &SimId) -> Vec<Entity
 /// operation publishes its outcome.
 fn request_sandbox_reset(sim: &mut Platformer2dSimHarness) {
     use ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes;
-    let before = sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned();
+    let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator").latest().cloned();
     ambition_platformer2d::actors::session::host_intents::write_host_intent(
         sim.world_mut(),
         ambition_platformer2d::actors::session::reset::NewGameRequested,
     );
     for _ in 0..120 {
         sim.step(base());
-        if sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned() != before {
+        if ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator").latest().cloned() != before {
             // One more frame so the fresh room's deferred work lands.
             sim.step(base());
             return;

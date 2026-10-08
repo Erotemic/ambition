@@ -24,7 +24,7 @@ thing, or to assemble a lighter setup than the default.
 |---|---|---|
 | `system_packages.sh` | host apt packages for a desktop build and the asset pipeline | — |
 | `rust_toolchain.sh` | rustup + stable + rustfmt/clippy/llvm-tools | — |
-| `submodules.sh` | initializes the authoring submodules and keeps each on its `main` at `origin/main` when that overwrites and orphans nothing, when the superproject is on `main` (development) and moves nothing present on a detached HEAD or non-`main` branch (review; `--follow-main` overrides); `--bump-pins` stages lagging pins. Policy: [`docs/submodules.md`](../../docs/submodules.md) | — |
+| `submodules.sh` | initializes the authoring submodules and keeps each on its `main` at `origin/main` when that overwrites and orphans nothing, when the superproject is on `main` (development) and moves nothing present on a detached HEAD or non-`main` branch (review; `--follow-main` overrides); `--bump-pins` stages lagging pins. Policy: [`docs/recipes/submodules.md`](../../docs/recipes/submodules.md) | — |
 | `resource_tally.sh` | arms the accounting git hook | — |
 | `python_tools.sh` | a per-machine venv for each authoring tool, plus the `scripts/` environment. `--verify` checks without installing | submodules |
 | `audio_libraries.sh` | sampled instruments + sfizz. `--status` reports what this machine has | system packages |

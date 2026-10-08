@@ -1018,7 +1018,7 @@ pub fn commit_ready_room_transition_system(
     // Whether the checkpoint operation this commit carries is a fresh run (a
     // New Game): then it is a whole-session restart.
     accepted_restores: Option<
-        Res<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>,
     >,
 ) {
     let (

@@ -501,8 +501,9 @@ WAIVERS: dict[str, str] = {
         "this entry is void."
     ),
     "hand_the_save_to_the_activating_experience": (
-        "\u2b50 THE SAME CHAIN ARGUMENT AS `reset_checkpoint_coordinator_on_"
-        "activation`: it is a member of `SessionScopeSet::Activate` "
+        "\u2b50 THE SAME CHAIN ARGUMENT AS `reset_session_scoped_resources_on_"
+        "activation` (the checkpoint coordinator's own twin was deleted in C03, "
+        "2026-10-07, when its values moved onto the session root): it is a member of `SessionScopeSet::Activate` "
         "(`ambition_game_shell/src/session.rs`), between the bridge that announces "
         "the activation and the providers that build the session, so no rollback "
         "session exists for this scope while it writes `AmbitionGameSave`.\n"
@@ -511,28 +512,6 @@ WAIVERS: dict[str, str] = {
         "experience gets its own save. Without it, another experience's room "
         "visits reached Ambition's save and the peer checksum (Q129, ID-PEER "
         "road 4)."
-    ),
-    "reset_checkpoint_coordinator_on_activation": (
-        "\u2b50 THE SAME CHAIN ARGUMENT AS `reset_session_scoped_resources_on_"
-        "activation`, AND DELIBERATELY THE SAME ONE -- it is the checkpoint "
-        "domain's own member of `SessionScopeSet::Activate` "
-        "(`session/checkpoint.rs:1775`), so it is covered by the shell's "
-        "`(GameplaySessionSet::Bridge, SessionScopeSet::Activate, "
-        "GameplaySessionSet::Providers).chain()` (`ambition_game_shell/src/"
-        "session.rs:366`, re-read 2026-09-18). A provider makes the root live in "
-        "`Providers`, and `maintain_local_session` starts GGRS only when "
-        "`session_world_entity(world).is_some()`, so no session exists for this "
-        "scope until after `Activate` has run.\n"
-        "    \u26d4 IT IS NOT A HYGIENE WAIVER. The function's own doc says "
-        "ACTIVATION IS CORRECTNESS: the session about to read these resources "
-        "writes them first, which is what stops a previous session's checkpoint "
-        "operation counter reaching the next one. `SessionCheckpointOperations` "
-        "also feeds a peer checksum, so an inherited value is an ID-PEER "
-        "divergence and not merely stale UI.\n"
-        "    \u26a0 A ROOM REBASE IS THE BOUNDARY THIS MUST NOT BE CONFUSED WITH: "
-        "a rebase deliberately KEEPS the operation counter and does not raise "
-        "`SessionScopeActivated`, so this system does not run for one. If it ever "
-        "gains a second trigger, the chain argument covers only the activation."
     ),
     # -- added 2026-09-18, the FIFTH SPELLING's one finding --------------------
     "commit_confirmed_lifecycle": (

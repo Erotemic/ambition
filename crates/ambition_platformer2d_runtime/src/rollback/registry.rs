@@ -1055,7 +1055,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// conductor's guard over its hull, which decides whether a hit lands. The
 /// field landed with the Mockingbird's air chase without a bump; the codec-shape
 /// ratchet found it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 318;
+/// ⛔⛤ 318 -> 319: the five checkpoint-coordinator rows
+/// (`resource.session_checkpoint_operations`, `resource.session_checkpoint_outcomes`,
+/// `resource.accepted_checkpoint_restore`, `resource.outstanding_checkpoint_request`,
+/// `resource.session_startup_resume`) are COMPONENTS of the session root, not
+/// resources (C03). The keys and the projections are unchanged; the storage kind
+/// in each row is `component-clone-custom-checksum` now, so a snapshot carries the
+/// values on the root entity and the fingerprint moves once.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 319;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -194,13 +194,15 @@ fn a_room_replay_keeps_the_home_body_of_a_second_seat() {
     sim.step_n(AgentAction::default(), 30);
     let away = place_of(&sim, primary);
 
-    let answered_before = sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned();
+    let answered_before = ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator").latest().cloned();
     sim.world_mut()
         .write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
     let mut outcome = None;
     for _ in 0..300 {
         sim.step(AgentAction::default());
-        let latest = sim.world().resource::<SessionCheckpointOutcomes>().latest().cloned();
+        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator").latest().cloned();
         if latest != answered_before {
             outcome = latest;
             break;

@@ -84,9 +84,11 @@ fn assert_returned(sim: &mut Platformer2dSimHarness, authored: &SimId, why: &str
 fn assert_the_restore_committed(sim: &mut Platformer2dSimHarness) {
     let outcome = format!(
         "{:?}",
-        sim.world()
-            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
-            .latest()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes,
+        >(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
+        .latest()
     );
     assert!(outcome.starts_with("Some(Committed"), "the restore did not commit: {outcome}");
 }
@@ -1923,8 +1925,8 @@ fn the_bag_after_a_new_game(
     sim.step_n(base(), 240);
     let outcome = format!(
         "{:?}",
-        sim.world()
-            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );
     assert!(outcome.starts_with("Some(Committed"), "precondition: the New Game committed: {outcome}");

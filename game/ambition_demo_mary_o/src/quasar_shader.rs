@@ -167,12 +167,13 @@ impl Material2d for MaryOQuasarMaterial {
     }
 }
 
-/// How long a Mary-O overlay may be "not yet" before it is a report.
+/// How long a quasar that shows may have no overlay before it is a report.
 ///
 /// The two blocking conditions — no `custom_size`, no resolvable sprite frame —
-/// are both ordinary while the texture decodes, and a boot prints them for a
-/// frame or two. One second at 60fps is far past any decode, so a candidate
-/// still waiting here is one whose overlay is never going to appear.
+/// are both ordinary for a frame or two: a part-drawn body gets its image the
+/// frame after its demand is first declared. One second at 60fps is far past
+/// that, so a candidate still waiting here is one whose overlay is never going
+/// to appear.
 ///
 /// counted per candidate and reported ONCE, not re-warned every frame
 /// after the threshold: a diagnostic that fires sixty times a second for a
@@ -190,16 +191,25 @@ struct MaryOQuasarOverlay {
     source: Entity,
 }
 
+/// Build the overlay of each body the quasar shows on and that has none.
+///
+/// Only while it shows: the overlay is built from the image of her root
+/// sprite, and a part-drawn body has that image only while something reads it
+/// ([`declare_quasar_demand`]). So a body the quasar does not show on is not
+/// "waiting", and the report below is about a quasar that is dark.
 fn attach_quasar_overlays(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<MaryOQuasarMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
+    settings: Res<MaryOQuasarShaderSettings>,
     candidates: Query<
         (
             Entity,
             &WornCharacter,
+            &BodyHealth,
+            Option<&Visibility>,
             &Transform,
             &Sprite,
             Option<&Anchor>,
@@ -213,14 +223,15 @@ fn attach_quasar_overlays(
     mut waiting: Local<HashMap<Entity, (u32, bool)>>,
 ) {
     waiting.retain(|entity, _| candidates.get(*entity).is_ok());
-    for (source_entity, worn, transform, sprite, anchor, frame, session_owner) in &candidates {
-        if !crate::powerups::is_her_form(worn.id()) {
+    for (source_entity, worn, health, visibility, transform, sprite, anchor, frame, session_owner) in &candidates {
+        if !quasar_shows(worn, health, visibility, &settings) {
+            waiting.remove(&source_entity);
             continue;
         }
         // The two ways attaching can silently do nothing. Both are "not yet"
-        // conditions that normally clear within a frame or two of the sprite
-        // loading, so they are only worth a word if they PERSIST — which is
-        // exactly the case where the overlay never appears and nothing says so.
+        // conditions that normally clear within a frame or two, so they are
+        // only worth a word if they PERSIST — which is exactly the case where
+        // the quasar is dark and nothing says so.
         let mut report = |reason: std::fmt::Arguments| {
             let (frames, reported) = waiting.entry(source_entity).or_insert((0, false));
             *frames += 1;
@@ -228,7 +239,7 @@ fn attach_quasar_overlays(
                 *reported = true;
                 warn!(
                     target: "mary_o::quasar",
-                    "overlay STILL not attached after {frames} frames: {reason}"
+                    "the quasar shows and its overlay is STILL not attached after {frames} frames: {reason}"
                 );
             }
         };
@@ -306,17 +317,23 @@ fn quasar_shows(
 /// Declare every body the quasar draws over as read as one image
 /// (`ComposedBodyDemand`): the shader samples its root sprite, which a
 /// part-drawn body has only while it is composited.
+///
+/// ⛔ From the FACTS that turn the quasar on, never from the overlay pair
+/// ([`MaryOQuasarSource`]). The pair is built from the composited image, so a
+/// demand that waited for the pair was never declared: her first quasar was
+/// dark until a hit flash composited her
+/// (`the_first_quasar_is_drawn::her_first_quasar_is_drawn_at_once`).
 fn declare_quasar_demand(
     settings: Res<MaryOQuasarShaderSettings>,
-    sources: Query<(Entity, &WornCharacter, &BodyHealth, Option<&Visibility>), With<MaryOQuasarSource>>,
+    bodies: Query<(Entity, &WornCharacter, &BodyHealth, Option<&Visibility>), With<PlayerVisual>>,
     demand: Option<ResMut<ambition_platformer2d::sprite_sheet::character::rigged::ComposedBodyDemand>>,
 ) {
     let Some(mut demand) = demand else {
         return;
     };
-    for (source, worn, health, visibility) in &sources {
+    for (body, worn, health, visibility) in &bodies {
         if quasar_shows(worn, health, visibility, &settings) {
-            demand.declare(source);
+            demand.declare(body);
         }
     }
 }
@@ -396,21 +413,23 @@ fn sync_quasar_overlays(
                 settings.strength,
             );
         }
-        *overlay_visibility = if enabled {
+        // Shown only with a frame to read this frame. A part-drawn body gets
+        // its image the frame after its demand is first declared; until then
+        // the material holds the image of the last quasar, which is a cell the
+        // body gave back.
+        let read = enabled
+            .then(|| {
+                let render_size = source_sprite.custom_size?;
+                let (uv_rect, frame_texel) = current_sprite_frame(source_sprite, &texture_layouts, &images)?;
+                Some((render_size, uv_rect, frame_texel))
+            })
+            .flatten();
+        *overlay_visibility = if read.is_some() {
             Visibility::Visible
         } else {
             Visibility::Hidden
         };
-        if !enabled {
-            continue;
-        }
-
-        let Some(render_size) = source_sprite.custom_size else {
-            continue;
-        };
-        let Some((uv_rect, frame_texel)) =
-            current_sprite_frame(source_sprite, &texture_layouts, &images)
-        else {
+        let Some((render_size, uv_rect, frame_texel)) = read else {
             continue;
         };
 

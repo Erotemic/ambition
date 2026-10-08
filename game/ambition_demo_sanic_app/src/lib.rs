@@ -159,6 +159,14 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
     // Both paths therefore exercise the same provider resolver, ownership, bank, and
     // playback-evidence systems.
     install_sanic_audio(&mut app);
+    // A `Headless` app is stepped by its caller, and `App::update()` does not
+    // finish the plugins: only a runner does. So finish them here, or the app
+    // a test steps is not the one a player runs (the room trail's gizmo groups
+    // are registered in `Plugin::finish`, and the trail draw panicked with no
+    // group). A caller cannot add a plugin after this returns.
+    if render == RenderMode::Headless {
+        ambition_platformer2d::app::finish_stepped_app(&mut app);
+    }
     app
 }
 

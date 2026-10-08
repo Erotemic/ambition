@@ -33,6 +33,7 @@ mod snake_geometry_timeline;
 mod room_replay;
 mod scripted_level_run;
 mod shell_cycle;
+mod the_first_quasar_is_drawn;
 mod the_transform_beat_reads_real_art;
 mod two_rooms;
 mod weaker_form_refusal;

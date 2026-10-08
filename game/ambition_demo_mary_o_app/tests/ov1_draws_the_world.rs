@@ -319,16 +319,13 @@ fn mary_o_is_realized_from_her_parts_with_no_baked_page_requested() {
         .collect();
     assert!(!parts.is_empty() && parts.iter().all(|path| path.contains("_parts")), "{parts:?}");
     let requested = |path: &str| server.get_handle::<Image>(path.to_owned()).is_some();
-    // ⛔ A CONTROL FIRST: the lookup finds a baked page that IS requested — a
-    // character in this room drawn from its sheet — or a miss below means nothing.
-    let control = assets
-        .characters
-        .resident_sheets()
-        .find(|(_, sheet)| !sheet.parts_only())
-        .and_then(|(_, sheet)| server.get_path(sheet.texture.id()))
-        .map(|path| path.to_string())
-        .expect("no character in the room is drawn from a baked sheet");
-    assert!(requested(&control), "the path lookup cannot see the requested page {control}");
+    // ⛔ A CONTROL FIRST: the lookup finds a page that IS requested, or a miss
+    // below means nothing. The control is her own part pages. It was a baked
+    // page of another character in the room, and 1-1 has none now: `ai_slop`
+    // and `solid_snake` are drawn from parts also (measured 2026-10-08).
+    for page in &parts {
+        assert!(requested(page), "the path lookup cannot see the requested page {page}");
+    }
     let mut baked = Vec::new();
     for directory in ["sprites", "sprites_0_5x", "sprites_0_25x", "sprites_potato"] {
         for form in ["mary_o_v2", "mary_o_v2_tall", "mary_o_v2_fire"] {

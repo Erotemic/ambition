@@ -1638,6 +1638,24 @@ pub fn enable_manual_stepping(app: &mut App) -> std::time::Duration {
     period
 }
 
+/// Finish the plugins of an app that its caller steps with `App::update()`.
+///
+/// A runner does this before the first update (`App::run`); `update()` does
+/// not. So a stepped app that skips it runs without what a plugin registers in
+/// `Plugin::finish`, which is not the composition a player runs. Call it after
+/// the last plugin is added: Bevy refuses a plugin added later. It does nothing
+/// to an app that is finished.
+pub fn finish_stepped_app(app: &mut App) {
+    use bevy::app::PluginsState;
+    while app.plugins_state() == PluginsState::Adding {
+        bevy::tasks::tick_global_task_pools_on_main_thread();
+    }
+    if app.plugins_state() == PluginsState::Ready {
+        app.finish();
+        app.cleanup();
+    }
+}
+
 pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display) {
     use bevy::window::{ExitCondition, Window, WindowPlugin};
 
@@ -1708,7 +1726,14 @@ pub fn install_windowed_foundation(app: &mut App, title: &str, display: Display)
             // error, not a no-op, so the cfg has to move the call and not the type.
             #[cfg(not(target_arch = "wasm32"))]
             let plugins = plugins.disable::<bevy::app::TerminalCtrlCHandlerPlugin>();
-            app.add_plugins(plugins)
+            // With no backend, Bevy registers the render-sync remove hooks
+            // (`CameraPlugin`) and not the resource they write
+            // (`PendingSyncEntity`, which `ExtractPlugin` owns), so the despawn
+            // of a camera panics. `SyncWorldPlugin` is that resource. Nothing
+            // drains it here, so it holds one record for each such despawn
+            // (the same fix, with its measurement, is in `ambition_app`'s
+            // no-window arm, Q114).
+            app.add_plugins(plugins).add_plugins(bevy::render::sync_world::SyncWorldPlugin)
         }
     };
 

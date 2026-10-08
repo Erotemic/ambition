@@ -283,6 +283,12 @@ pub struct BodyCombat {
     pub hitstun_timer: f32,
     /// Short HARD control-lock at the start of a knockback (no input authority).
     pub recoil_lock_timer: f32,
+    /// A HARD control lock while positive: the body lost a ledge to a trump
+    /// (`ambition_combat::ledge_trump`), and the ruleset's
+    /// `CombatRules::ledge_trump_lockout` says how long it cannot act. Its own
+    /// field, for the reason [`Self::landing_lag_timer`] gives: the lock is
+    /// shared and the cause is not.
+    pub ledge_trump_lock_timer: f32,
     /// ASLEEP: a control status a MOVE put this body into, not a consequence of
     /// being hit.
     ///
@@ -446,6 +452,7 @@ impl BodyCombat {
         self.recoil_lock_timer
             .max(self.landing_lag_timer)
             .max(self.sleep_timer)
+            .max(self.ledge_trump_lock_timer)
     }
 
     /// Whether a hit is moving this body now: its recoil lock or its hitstun
@@ -486,6 +493,7 @@ impl BodyCombat {
         self.struck_recently = (self.struck_recently - dt).max(0.0);
         self.hitstun_timer = (self.hitstun_timer - dt).max(0.0);
         self.recoil_lock_timer = (self.recoil_lock_timer - dt).max(0.0);
+        self.ledge_trump_lock_timer = (self.ledge_trump_lock_timer - dt).max(0.0);
         self.sleep_timer = (self.sleep_timer - dt).max(0.0);
         self.hitstop_timer = (self.hitstop_timer - dt).max(0.0);
         self.landing_lag_timer = (self.landing_lag_timer - dt).max(0.0);
@@ -504,6 +512,7 @@ impl BodyCombat {
         self.damage_invuln_timer = 0.0;
         self.hitstun_timer = 0.0;
         self.recoil_lock_timer = 0.0;
+        self.ledge_trump_lock_timer = 0.0;
         self.landing_lag_timer = 0.0;
         // A fighter who respawns still asleep from the stock before is helpless
         // on arrival with nothing on screen explaining why.
@@ -663,6 +672,7 @@ mod hard_lock_tests {
             struck_recently: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
+            ledge_trump_lock_timer: _,
             // Ticked with the rest: a sleep runs down on the same clock as
             // every other reaction, so nothing has to remember it separately.
             sleep_timer: _,
@@ -694,6 +704,7 @@ mod hard_lock_tests {
             damage_invuln_timer: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
+            ledge_trump_lock_timer: _,
             landing_lag_timer: _,
             // ⭐ CLEARED, and it must be: a fighter who respawns still asleep
             // from the stock before is helpless on arrival with nothing on

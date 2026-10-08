@@ -2674,6 +2674,8 @@ mod body_combat_rebuild_contract {
             struck_recently: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
+            // A lock a ledge trump owes; the trump writes it, nothing here does.
+            ledge_trump_lock_timer: _,
             hitstop_timer: _,
             asdi_owed: _,
             landing_lag_timer: _,

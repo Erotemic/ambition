@@ -227,7 +227,7 @@ Preserve these and build new features on their seams.
 | Two-frame ledge vulnerability | ✔ | S/M | E1 | |
 | Ledge regrab limit | ✔ | — | E1 | Answered by diminishing intangibility; do not add a count. |
 | Edgehog vs trump knob | ✔ | M | E1 | `CombatRules::ledge_occupancy`. The knob ships; what it governs does not hold yet (next row). |
-| Ledge occupancy (one holder per ledge) | ◐ | M | E1 | One corner is one edge whatever the bodies' sizes; a rewind across a trump gives the same holder; the regrab limit is built (2026-10-08). The trumped body's lockout is open. See "Ledge occupancy" below and queue row LEDGE-OCCUPANCY. |
+| Ledge occupancy (one holder per ledge) | ◐ | M | E1 | One corner is one edge whatever the bodies' sizes; a rewind across a trump gives the same holder; the regrab limit and the trumped body's lockout are built (2026-10-08). See "Ledge occupancy" below and queue row LEDGE-OCCUPANCY. |
 | Tether recovery | ▢ | M | E1 | Reuse grapple/spatial-link machinery. |
 | Teleport recovery | ✔ | S/M | — | `smash.teleport`, `RecoveryRoute::Teleport`. |
 | Stall-then-fall move | ▢ | S/M | — | Existing windows suffice unless a fighter proves otherwise. |
@@ -271,7 +271,17 @@ buys the window: the two rules compose, as in Ultimate. Witnesses:
 `each_regrab_before_landing_earns_less_and_the_seventh_is_refused` and
 `a_hit_and_a_landing_give_the_ledge_grabs_back_and_a_push_does_not`.
 
-**Open.** The trumped body's lockout (Ultimate: about 30 frames, unverified).
+**Built 2026-10-08: the trumped body's lockout, a declared rule.**
+`CombatRules::ledge_trump_lockout` (seconds; `None` and `0.0` leave the
+loser in control, as every trump did) sets
+`BodyCombat::ledge_trump_lock_timer` on the body the trump knocks off. It
+is a sixth cause of `BodyCombat::hard_lock_timer`, so the input gate strips
+every verb while it runs (schema 329). The Smash rules declare 0.5 s, a
+tuning value from Ultimate's unverified "about 30 frames". Witness:
+`a_declared_lockout_holds_the_trumped_body_and_not_the_one_that_trumped`
+(controls: the winner gets no lock; no declared lockout gives none).
+Not built: Ultimate's "the trumping body cannot let go for about 20 frames"
+(from the same unverified source).
 
 **Target.** Super Smash Bros. Ultimate-like ledge occupancy and trump. Do not
 guess Ultimate's timings from memory: research them (getup/roll/jump options,

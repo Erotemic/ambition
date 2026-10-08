@@ -56,6 +56,9 @@ snapshot_pod!(crate::actor::body::BodyCombat {
     damage_invuln_timer: f32,
     hitstun_timer: f32,
     recoil_lock_timer: f32,
+    // A lock like the one above: two peers that disagree about how long a
+    // trumped fighter cannot act resimulate different matches.
+    ledge_trump_lock_timer: f32,
     // ASLEEP. A control status a move applied, and rollback state for the same
     // reason every lock beside it is: two peers disagreeing about how long a
     // fighter stays helpless resimulate different matches from that moment.

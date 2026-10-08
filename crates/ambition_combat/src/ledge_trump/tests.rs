@@ -435,3 +435,42 @@ fn app_two_faces(left: ae::Vec2, right: ae::Vec2) -> App {
     hanging_on(&mut app, "right", probed_contact(right, 1.0), 0.02);
     app
 }
+
+/// THE TRUMPED BODY'S LOCKOUT (LEDGE-OCCUPANCY): a declared
+/// `ledge_trump_lockout` holds the body that lost the edge for that long, as
+/// a hard control lock. The controls: the winner gets no lock, and a world
+/// that declares no lockout leaves the loser in control.
+#[test]
+fn a_declared_lockout_holds_the_trumped_body_and_not_the_one_that_trumped() {
+    let locks_after_trump = |lockout: Option<f32>| -> (f32, f32) {
+        let mut app = app();
+        if let Some(lockout) = lockout {
+            app.world_mut().insert_resource(crate::rules::ResolvedCombatTuning {
+                ledge_trump_lockout: lockout,
+                ..Default::default()
+            });
+        }
+        let edge = ae::Vec2::new(100.0, 100.0);
+        let loser = hanging_at(&mut app, "loser", edge, 0.5);
+        let winner = hanging_at(&mut app, "winner", edge, 0.1);
+        for body in [loser, winner] {
+            app.world_mut()
+                .entity_mut(body)
+                .insert(ambition_characters::actor::BodyCombat::default());
+        }
+        app.update();
+        assert!(!still_hanging(&app, loser), "precondition: the fixture trumped nobody");
+        let lock = |body| {
+            app.world()
+                .get::<ambition_characters::actor::BodyCombat>(body)
+                .expect("the body kept its combat state")
+                .hard_lock_timer()
+        };
+        (lock(loser), lock(winner))
+    };
+    assert_eq!(
+        (locks_after_trump(Some(0.5)), locks_after_trump(None)),
+        ((0.5, 0.0), (0.0, 0.0)),
+        "((loser, winner) with a 0.5 s lockout, the same with none): the hard lock"
+    );
+}

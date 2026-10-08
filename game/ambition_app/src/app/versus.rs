@@ -545,6 +545,7 @@ pub fn versus_combat_rules() -> ambition_platformer2d::combat::rules::CombatRule
         growth_base: None,
         // The versus route drops a trumped body where it hung.
         ledge_trump_pop: None,
+        ledge_trump_lockout: None,
         // The versus route says nothing: its edges trump, which is what
         // they always did.
         ledge_occupancy: None,

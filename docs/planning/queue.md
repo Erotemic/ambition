@@ -849,7 +849,12 @@ six grabs per airtime with decaying intangibility, reset by landing or a hit
 (`each_regrab_before_landing_earns_less_and_the_seventh_is_refused`).
 Ultimate's rules are in the plan.
 
-**Next action:** the trumped body's lockout, as the plan's open list says.
+The trumped body's lockout is a declared rule
+(`CombatRules::ledge_trump_lockout`; Smash 0.5 s;
+`a_declared_lockout_holds_the_trumped_body_and_not_the_one_that_trumped`).
+
+**Next action:** a body that dies while hanging (a hazard kills it, Q43)
+must free the edge: the resolver reads every hang, out of play or not.
 
 **Acceptance:** with two fighters of different sizes on one corner, one holds
 it; trump, release, death and knockoff each free or transfer the hold as the

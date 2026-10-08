@@ -48,15 +48,29 @@ the simulation authority; holds and UI are projections of it.
   tests `recoil_lock_timer > 0.0 || hitstun_timer > 0.0` on `BodyCombat`. A
   poison tick or chip damage does not move the bodies, so it does not end the
   conversation.
-- **Break on separation: the two bodies' own AABBs must overlap**
-  (`strict_intersects`). No authored range or radius owns a number. This is
-  tighter than a normal talking range; if it feels wrong in play, change this
-  one predicate.
+- **Break on separation: one talk reach.** A conversation breaks when the
+  other body leaves the talk reach of the initiator
+  (`ambition_interaction::talk_reach`: the collision box grown by
+  `TALK_REACH`, 32 px, on the side axis of the body's frame). Interact opens a
+  conversation in the same reach, the Talk prompt offers one in it, and the
+  door's "a nearer talk keeps the press" rule asks it. To change the range,
+  change that one function. A door that the speaker stands in and that is
+  nearer than the other body keeps the press
+  (`LiveRoomSpecs::nearest_door_under`, asked from both sides).
+- **Spacing (Jon, 2026-10-07):** when a conversation opens, the initiator
+  walks (`CommandedMove`) to `TALK_GAP` (16 px, inside the reach) from the
+  other body's side, so the two stand apart and face each other
+  (`features::ecs::talk_spacing`, record `TalkSpacing`). It uses its own side,
+  or the other side when only that one is safe. A side is safe when nothing
+  solid, hazardous or springy is on the way and there is floor under each
+  half body width. With no safe side, the two only turn to face each other.
+  A pet during the conversation takes over the walk.
 - **Bark on a break:** the second participant speaks a
   `ConversationCutBark`, only for separation (`reason.wants_its_own_bark()`). A
   hit break emits no cut bark, because `npc_hit_bark_line` already fires. The
   line and pool are a cast question.
-- **Holding station:** a conversation zeroes its participants' movement intent.
+- **Holding station:** a conversation zeroes its participants' movement intent
+  (the spacing walk above is a scripted move, not intent).
   A grounded body then stands still, a flying body hovers
   (`integrate_flight_clusters` decays to rest under neutral input), and a
   falling body with no flight keeps falling and breaks the conversation. No

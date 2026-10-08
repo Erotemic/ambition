@@ -742,35 +742,6 @@ ladder field is inert.
 are the only installers. A Smash pack source may name a file outside its
 root, as George's facet does.
 
-### MIRROR-SYMMETRY — mirrored CPUs stay mirrored per tick
-
-**Owner:** `ambition_combat::brain` and the systems it reads. Plan:
-[`engine/fighter-brain.md`](engine/fighter-brain.md#mirror-symmetry-is-a-correctness-property-q49).
-
-**Ruling:** Q49 (2026-10-04): symmetry is a correctness property; variation
-comes only from modelled asymmetric facts.
-
-**Current failure:** the left-first query poison of plan item 5 is not run;
-a candidate site is `recovery.rs` `nearest_support` (an `(x, y)` tie-break,
-not triaged). The signum and list-order poisons are null in the Emmy match
-(the population does not reach them) and red in their unit witnesses. The seat-0 term
-is triaged 2026-10-08: it is the authored grab tie (inverting the tie swaps
-each fighter's split exactly; 58% now, within spread). Built 2026-10-08: the
-Emmy test compares the full state per tick
-(`two_emmys_are_one_fighter_reflected_until_the_first_grab`); two Emmys part
-first on frame 883, when one grab dash takes the other (the grab tie). The
-left-first recovery search is triaged (no decision reads the order). The
-zero-lateral `signum` sites in `rollout.rs` were a defect, fixed 2026-10-08
-(`the_shadow_of_a_reflected_scene_is_the_reflected_shadow`). The two `SimId` tie-breaks are triaged
-(plan item 4, 2026-10-08): the grab tie is an authored rule with a fixture,
-and the target tie is not reachable with one foe. The decision
-layer has its reflection test (plan item 3, 2026-10-08), and it found no
-defect.
-
-**Acceptance:** a per-tick reflection test of position, velocity, facing,
-move, decision and stream position; a reflected-observation unit test of the
-decision layer; each poison listed in the plan turns one of them red.
-
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 
 **Owner:** `ambition_sprite_sheet` (`baked_landmarks`) and
@@ -961,9 +932,10 @@ no `id` field). Fixed: a replaced level carries the iid, uid and seed of the
 level, each layer's iid, and each entity's iid matched by type and position
 (`carry_identities`), and a built entity sits on its policy layer
 (`place_on_policy_layers`). A regen of the committed hall now writes it byte
-for byte (`tests/test_area_regen_keeps_identities.py`; poisons red). The other
-`edit` writers (entity add/move/set-field, level clone, camera auto-cover) are
-not measured.
+for byte (`tests/test_area_regen_keeps_identities.py`; poisons red).
+`camera auto-cover --create` writes the same bytes on a second run. Not
+measured: the spec-driven `entity` writers (move, set-field) and `level clone`
+(which mints fresh ids by design).
 
 **Acceptance:** a second run of each writer on its own output changes no
 byte.
@@ -1019,14 +991,20 @@ reads cargo output to it.
 **Open items:**
 
 1. **The compile-cost ratchet fails the full gate** (`scripts/compile_ratchet.py`, measured 2026-09-18). Its baseline records commit `b3bd00a4a` (2026-09-05), which no ref reaches, and it disagrees with itself in three places. Over budget: `ambition_platformer2d_actor_monolith`'s largest unit (100,742 → 115,105 lines) and edit cost, and `ambition_geometry`'s worst edit cost (94.9% of the workspace). ⛔ Do not re-freeze to go green. Next: find which part of the monolith's largest unit belongs in its own crate, and repair the baseline's self-disagreement before any deliberate re-freeze. <!-- cite-ok: `b3bd00a4a` is quoted BECAUSE it resolves nowhere; it is `dev/compile_ratchet_baseline.json`'s own recorded `commit` field -->
-2. **An arm fails only in company** (see [the triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)): `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps` failed once on 2026-09-10, and its assertion was never captured. Three other instances of the signature were per-arm measurements reading process-global state (`app_it` runs arms as threads of one process); they are fixed, and `scripts/a_test_static_is_a_channel_between_arms.py` guards the class. Next: capture this arm's assertion. The next candidate of the class is `hall_redecode_census.rs`, which asserts over a delta of a process-wide counter. ⛔ Do not add a retry.
+2. **An arm fails only in company** (see [the triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)): `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps` failed once on 2026-09-10, and its assertion was never captured. Three other instances of the signature were per-arm measurements reading process-global state (`app_it` runs arms as threads of one process); they are fixed, and `scripts/a_test_static_is_a_channel_between_arms.py` guards the class. Next: capture this arm's assertion. `hall_redecode_census.rs` asserts over a delta of a process-wide counter, and it is not a candidate: it is `#[ignore]`d and run alone by `scripts/measure_hall_redecodes.sh` (read 2026-10-08). The A9 probe found and repaired two couplings that fail a composition without `BossEncounters` (`simulation_world` required `BossCatalog`; the progression plugin registered `populate_boss_encounter_registry`); whether either was this failure is not known. ⛔ Do not add a retry.
 3. **One older session-root handoff failure** did not reproduce in four full runs, and its assertion was never captured. Both candidate arms (`the_shipped_app_never_holds_two_session_roots_across_a_handoff`, `a_candidate_session_replaced_while_pending_is_discarded`) assert their own premises, so a new failure carries its cause. The next step is not more runs.
 
 4. **`NOT RUN` is a first-class receipt state** (Q59 ruling, 2026-10-03). A
    ledger or receipt must tell PASS, FAIL, "not run, not required now" and "not
    run, required at this boundary" apart; a gate blocks only where its policy
-   requires it at the current boundary. Next: find the receipts that collapse a
-   lane that did not run into PASS or FAIL, and give each lane its cadence in
+   requires it at the current boundary. Two collapses repaired (2026-10-08):
+   `last_test_run.py` read a `--only-job` status as the lane's PASS (it now
+   says `NOT RUN: n of the lane's m job(s)` and exits 2; a FAIL in the
+   selection still exits 1), and a full gate on a machine without
+   `wasm32-unknown-unknown` dropped the web check from the plan and wrote
+   `done` (it is now planned as unrunnable, `Job.missing`, so the run is
+   `incomplete`). Next: the receipts outside `run_tests.py` (the commit
+   messages and queue rows that quote a lane), and each lane's cadence in
    [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence).
 
 5. **A sync test did not see an effect that only the first run of a frame
@@ -1107,6 +1085,19 @@ with the old presence probe). Deferred to its customer: a priority authored
 per candidate, when content needs a value between the tiers.
 `EncounterEffect::SetMusic` is kept with no shipped customer (Q74: usage is
 not worth).
+
+### MIRROR-SYMMETRY — mirrored CPUs stay mirrored per tick — ✅ DONE 2026-10-08
+
+Q49: symmetry is a correctness property. Plan:
+[`engine/fighter-brain.md`](engine/fighter-brain.md#mirror-symmetry-is-a-correctness-property-q49).
+Two Emmys are one fighter reflected, compared per tick over the full state
+(`two_emmys_are_one_fighter_reflected_until_the_first_grab`), until frame 883,
+when one grab takes the other: the grab tie is an authored rule
+(`two_bodies_grabbing_each_other_on_one_tick_make_one_hold`), and inverting it
+swaps each fighter's split exactly. The decision layer has its reflection test.
+Each poison of plan item 5 is red: placement and an unmirrored stream in the
+match; the zero-lateral `signum`, the floor list order and the left-first
+`nearest_support` in their unit witnesses, which the match does not reach.
 
 ### LEDGE-OCCUPANCY — two fighters can hold one ledge — ✅ DONE 2026-10-08
 

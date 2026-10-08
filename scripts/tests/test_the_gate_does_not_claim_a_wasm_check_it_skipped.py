@@ -8,7 +8,9 @@ zero — and the coverage footer said, unconditionally:
     - the wasm/web build LINK (the wasm CHECK ran)
 
 The LINK branch has always warned when the target is missing. The CHECK branch
-did not, and the footer spoke for both. Found by review 2026-09-02.
+did not, and the footer spoke for both. Found by review 2026-09-02. Since
+2026-10-08 a missing target plans both jobs as unrunnable (`Job.missing`), so
+the status file and its reader say NOT RUN as well (Q59).
 
 ⛔ THIS IS THE FOURTH CONDITIONALLY-BLIND CHECK IN THIS REPO IN A DAY, and the
 family is the point: a check that is CORRECT and does not run, reported as
@@ -23,6 +25,7 @@ it survived. `wasm_target_installed` is monkeypatched.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -56,20 +59,29 @@ def test_the_footer_still_credits_a_check_that_was_planned():
     )
 
 
-def test_the_plan_warns_out_loud_when_the_target_is_missing(monkeypatch, capsys):
-    """⭐ THE WARNING GOES WHERE THE PLAN IS MADE, not only in the footer.
+def test_a_missing_target_plans_the_check_as_not_run(monkeypatch, tmp_path):
+    """⭐ Q59: THE SKIPPED CHECK IS IN THE RECEIPT, not only on the console.
 
-    A footer is read after a green run; a plan-time line is read while waiting.
+    The plan printed `SKIPPING the web build CHECK` and left the job out, so
+    the status file said `done` and `last_test_run.py` said every job passed.
+    Now the job is planned with its remedy, is not executed, and the run is
+    `incomplete` with the job in `unrunnable`.
     """
     monkeypatch.setattr(run_tests, "wasm_target_installed", lambda: False)
     jobs = run_tests.build_jobs(only=[], heavy=False, libtest_args=[])
-    out = capsys.readouterr().out
-    assert "SKIPPING the web build CHECK" in out, (
-        f"a skipped web CHECK must announce itself:\n{out}"
+    web = [j for j in jobs if "web build check" in j.name]
+    assert len(web) == 1 and web[0].missing and "rustup target add" in web[0].missing, web
+
+    monkeypatch.setattr(run_tests, "free_gb_on_target", lambda: 500.0)
+    monkeypatch.setattr(run_tests, "append_cost_ledger", lambda *a, **k: None)
+    status = tmp_path / "status.json"
+    rc = run_tests.run(
+        [run_tests.Job("a cheap job", [sys.executable, "-c", "pass"]), web[0]],
+        False, status_json=str(status),
     )
-    assert not any("web build check" in j.name for j in jobs), (
-        "premise: with the target absent the job really is out of the plan"
-    )
+    written = json.loads(status.read_text())
+    assert rc != 0 and written["state"] == "incomplete", written
+    assert [u["job"] for u in written["unrunnable"]] == [web[0].name], written
 
 
 def test_the_job_is_planned_when_the_target_is_present(monkeypatch, capsys):
@@ -80,7 +92,7 @@ def test_the_job_is_planned_when_the_target_is_present(monkeypatch, capsys):
         "positive control: the job IS planned when the target exists, so the "
         "test above is measuring the branch and not a permanently empty plan"
     )
-    assert "SKIPPING the web build CHECK" not in out
+    assert all(not j.missing for j in jobs if "web build check" in j.name)
 
 
 if __name__ == "__main__":

@@ -584,3 +584,40 @@ fn a_carrying_route_gets_home_exactly_as_far_as_its_author_claimed() {
         "a teleport that reaches the ledge did not count as a way home"
     );
 }
+
+/// ⭐ MIRROR (Q49): TWO SUPPORTS AT ONE DISTANCE ARE TOLD APART BY THE BODY.
+/// Two shelves mirrored about the stage centre, and a body on the centre line:
+/// both shelves are at one distance. The body facing right and the same body
+/// facing left are one scene reflected, so the support each one aims a carry
+/// at must be the reflection of the other's. The `(x, y)` tie-break gave the
+/// left shelf to both.
+#[test]
+fn two_supports_at_one_distance_are_told_apart_by_the_facing_and_not_by_x() {
+    let at = ae::Vec2::new(400.0, 200.0);
+    let support = |facing: f32| {
+        let mut view = shelf_stage(at);
+        view.self_view.facing = facing;
+        view.terrain = [200.0, 600.0]
+            .map(|x| PerceivedSolid {
+                aabb: ae::Aabb::new(ae::Vec2::new(x, 332.0), ae::Vec2::new(60.0, 16.0)),
+                kind: SolidKind::Solid,
+                open_for_self: false,
+            })
+            .to_vec();
+        let lens = bare_lens(&view, with_an_air_jump()).expect("the stage is known");
+        assert_eq!(lens.origin, ae::Vec2::ZERO, "precondition: lens coordinates are world coordinates");
+        lens.nearest_support(at).expect("the stage has solids")
+    };
+    let (right, left) = (support(1.0), support(-1.0));
+    assert_eq!(
+        right.distance_squared(at),
+        left.distance_squared(at),
+        "precondition: the two shelves are at one distance from the body"
+    );
+    assert_eq!(
+        (right.x, right.y),
+        (800.0 - left.x, left.y),
+        "the body facing right aims at {right:?} and facing left at {left:?}: not one scene reflected"
+    );
+    assert!(right.x > at.x, "the support on the side the body faces wins: {right:?}");
+}

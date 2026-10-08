@@ -476,9 +476,21 @@ admission. Reduced tools and tests may omit capabilities explicitly. The ruling
 says: implement this architecture rather than continuing to census hypothetical
 composition variants.
 
-**Next implementation:** encode supported profiles as named capability
-contracts, then make construction/step witnesses and absence guards test those
-contracts.
+**Done 2026-10-08 (first set):** five named profiles are a registry
+(`ambition_platformer2d_runtime::profile`): `headless-body-world`,
+`windowed-body-world`, `combat-without-inventory-boss-dialogue`,
+`collection-without-held-use`, `encounters-without-named-bosses`. Each constructs
+and steps a real body, installs none of what it omits, and has its session-edge
+parameters validated; a control arm proves the probe can say yes
+(`ambition_platformer2d_host/tests/supported_profiles.rs`,
+`scripts/check_engine_profiles.py`). The probe found eight couplings that made a
+promised omission fail on its first tick; all are repaired in source, and the table
+is in [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md#supported-profiles).
+
+**Open:** the claim is *not installed*, not *not linked* (`Q106`: the crates behind
+these capabilities are unconditional dependencies); content that requires an omitted
+capability refusing at admission is not witnessed; re-entry is not exercised;
+`Cutscenes` is a capability but in no profile yet.
 
 **Blocked by:** nothing.
 

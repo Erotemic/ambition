@@ -175,7 +175,15 @@ impl Plugin for LifecycleCheckpointHorizonPlugin {
         // reducers to this schedule, and a replace drops every reducer a plugin
         // built earlier added (the New Game save wipe was lost that way).
         app.init_schedule(CheckpointDomainApply);
-        app.init_resource::<OccurrenceBaseline>()
+        // ⭐ THE LEDGER IS INSTALLED WITH ITS BASELINE, not with whichever domain
+        // happens to write it. It lived in `HeldItemSimulationPlugin` ("this is
+        // where the producer is registered") while the session teardown and the
+        // room loader read it as REQUIRED, so a composition that left held-use
+        // out (a collection-only game) failed parameter validation on the first
+        // tick instead of remembering nothing. The ledger is session lifecycle
+        // state; held items are one of its writers.
+        app.init_resource::<super::AuthoredOccurrences>()
+            .init_resource::<OccurrenceBaseline>()
             .init_resource::<CustodyBaseline>()
             .add_systems(
                 sim,

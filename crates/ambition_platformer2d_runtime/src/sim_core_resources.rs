@@ -192,7 +192,17 @@ impl Plugin for SimCoreResourcesPlugin {
             // The quest + boss-encounter registries are ENGINE vocabulary
             // read by the encounter/progression chains; content POPULATES
             // them (never owns the init).
-            .init_resource::<ambition_persistence::quest::QuestRegistry>();
+            .init_resource::<ambition_persistence::quest::QuestRegistry>()
+            // ⛔ THE BOSS CATALOG IS A CONSTRUCTION INPUT, NOT A BOSS CAPABILITY.
+            // `simulation_world` and every room build take it to resolve a boss
+            // placement, so a composition that leaves named bosses out still needs
+            // one — EMPTY, which makes a boss placement refuse rather than panic
+            // the setup on a missing resource. It was installed by
+            // `BossEncounterSimulationPlugin`, and omitting that plugin (the
+            // `combat-without-inventory-boss-dialogue` profile) failed the world
+            // setup on its first tick. `init` never clobbers a catalog content
+            // registered first.
+            .init_resource::<ambition_boss_encounter::BossCatalog>();
         // The room the quest producer last announced: a component of each session
         // root (C03), born empty with the root.
         ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<ambition_persistence::quest::LastQuestRoom>(app);

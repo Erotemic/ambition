@@ -181,12 +181,20 @@ impl<M: Message + Clone> NarrativeInputWriter<'_, M> {
 /// Runs at the head of the sim schedule and writes into the ordinary channel, so
 /// consumers are unchanged and unaware any of this happened.
 pub fn release_narrative_inputs<M: Message + Clone>(
-    conversation: Res<ActiveConversation>,
+    // `Option`: a payload's ledger is installed by the domain that owns the
+    // payload (the shop's, the authored command's), and a composition that leaves
+    // dialogue out has the ledger and no conversation authority. With no
+    // authority there is no live conversation, and `release` releases nothing
+    // when none is live — exactly the answer, not a substitute for one.
+    conversation: Option<Res<ActiveConversation>>,
     tick: Option<Res<ambition_time::SimTick>>,
     mut ledger: ResMut<NarrativeInputLedger<M>>,
     mut messages: ResMut<Messages<M>>,
 ) {
-    let released = ledger.release(tick.map(|tick| tick.0), conversation.instance());
+    let released = ledger.release(
+        tick.map(|tick| tick.0),
+        conversation.as_deref().and_then(ActiveConversation::instance),
+    );
     if !released.is_empty() {
         messages.write_batch(released);
     }

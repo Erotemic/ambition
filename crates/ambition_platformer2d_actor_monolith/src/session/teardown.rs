@@ -65,7 +65,8 @@ pub struct SessionScopedResources<'w> {
     /// session between retirement and the next activation's first rebuild.
     encounter_view: ResMut<'w, EncounterView>,
     /// Boss profiles; `specs_loaded` re-arms the populate pass on next activation.
-    boss_registry: ResMut<'w, BossEncounterRegistry>,
+    /// `Option`: named bosses are removable (`Capability::BossEncounters`).
+    boss_registry: Option<ResMut<'w, BossEncounterRegistry>>,
     /// The boss defeats since the last checkpoint. The next session's file is
     /// its baseline, so a replay there must retract none of this session's.
     /// `Option` because a composition without the boss capability has none.
@@ -193,10 +194,13 @@ pub struct SessionScopedResources<'w> {
     /// script's `seen_flag` into the CURRENT `AmbitionGameSave` — so A's stale
     /// cutscene finishing after B installed its save writes A's narrative flag
     /// into B's file.
-    active_cutscene: ResMut<'w, ambition_cutscene::ActiveCutscene>,
+    // The cutscene and conversation members are `Option`: they belong to
+    // capabilities a composition may leave out (`Capability::Cutscenes`,
+    // `Capability::Dialogue`), and a session that never had them has nothing to reset.
+    active_cutscene: Option<ResMut<'w, ambition_cutscene::ActiveCutscene>>,
     /// The other half: a trigger raised just before retirement and consumed just
     /// after the next session begins plays A's cutscene in B.
-    cutscene_triggers: ResMut<'w, ambition_cutscene::CutsceneTriggerQueue>,
+    cutscene_triggers: Option<ResMut<'w, ambition_cutscene::CutsceneTriggerQueue>>,
     /// ⛔⛤ **THE CONVERSATION THE SIMULATION IS HAVING — same class as the
     /// cutscene above, and the 2026-09-13 review rated it a RISK rather than a
     /// confirmed bug for one reason: `break_dialogue_on_hit_or_separation` closes
@@ -209,13 +213,13 @@ pub struct SessionScopedResources<'w> {
     /// ⭐ **SO IT IS MADE IMPOSSIBLE RATHER THAN TIMED.** One line of membership
     /// here costs nothing and removes the interval; establishing exactly how long
     /// the interval is would cost a poison test and leave the interval there.
-    active_conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
+    active_conversation: Option<ResMut<'w, ambition_conversation::ActiveConversation>>,
     /// The cutscene's partial skip hold. Simulation state since the skip
     /// reads the seat's `ControlFrame::cancel_held` inside the timeline; reset
     /// here so a half-held skip from the retired session cannot finish on the
     /// next session's opening cutscene. (A completed dismiss or skip no longer
     /// waits in a resource between frames: it is part of the tick's input.)
-    cutscene_skip_hold: ResMut<'w, ambition_cutscene::CutsceneSkipHold>,
+    cutscene_skip_hold: Option<ResMut<'w, ambition_cutscene::CutsceneSkipHold>>,
     /// ⛔⛤ **THE MATCH-IDENTITY MIRRORS, AND THEY ARE HERE FOR A PEER
     /// CHECKSUM RATHER THAN FOR HYGIENE.** Each of the three below is stamped
     /// with a whole [`MatchInstance`] and decides whether it belongs to the live
@@ -529,7 +533,9 @@ fn reset(resources: SessionScopedResources) {
     *possession = PossessionState::default();
     *controlled_subject = ControlledSubject::default();
     *encounter_view = EncounterView::default();
-    *boss_registry = BossEncounterRegistry::default();
+    if let Some(boss_registry) = boss_registry.as_deref_mut() {
+        *boss_registry = BossEncounterRegistry::default();
+    }
     if let Some(mut since) = boss_defeats_since_checkpoint {
         since.forget_all();
     }
@@ -558,10 +564,18 @@ fn reset(resources: SessionScopedResources) {
     *projectile_seq = ambition_projectiles::ProjectileSeqCounter::default();
     *pending_lifecycle = crate::session::lifecycle_commit::PendingLifecycleCommit::default();
     *base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
-    *active_cutscene = ambition_cutscene::ActiveCutscene::default();
-    *cutscene_triggers = ambition_cutscene::CutsceneTriggerQueue::default();
-    *active_conversation = ambition_conversation::ActiveConversation::default();
-    *cutscene_skip_hold = ambition_cutscene::CutsceneSkipHold::default();
+    if let Some(active_cutscene) = active_cutscene.as_deref_mut() {
+        *active_cutscene = ambition_cutscene::ActiveCutscene::default();
+    }
+    if let Some(cutscene_triggers) = cutscene_triggers.as_deref_mut() {
+        *cutscene_triggers = ambition_cutscene::CutsceneTriggerQueue::default();
+    }
+    if let Some(active_conversation) = active_conversation.as_deref_mut() {
+        *active_conversation = ambition_conversation::ActiveConversation::default();
+    }
+    if let Some(cutscene_skip_hold) = cutscene_skip_hold.as_deref_mut() {
+        *cutscene_skip_hold = ambition_cutscene::CutsceneSkipHold::default();
+    }
     *settled = ambition_match::StocksMatchSettled::default();
     *sudden_death = ambition_match::SuddenDeathEntered::default();
     *live_match_ticks =

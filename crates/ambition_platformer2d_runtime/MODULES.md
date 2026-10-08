@@ -23,6 +23,7 @@
 | [`portal_body`](src/portal_body.rs) | What a portal transit means for the body it moved. |
 | [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly and schedule placement. |
 | [`portal_seat`](src/portal_seat.rs) | What a portal transit means for the body a seat drives. |
+| [`profile`](src/profile.rs) | Named supported engine profiles: capability contracts, not plugin lists. |
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
 | [`rollback`](src/rollback/mod.rs) | Backend-neutral rollback schema composition. |
@@ -37,7 +38,7 @@
 | [`verdict_census`](src/verdict_census.rs) | `[census] verdicts` — WHAT AUTHORED CONTENT ASKED, AND WHAT IS STUCK. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -145,10 +145,74 @@ only when the capability is absent is invisible to a workspace lane.
 `the-featureless-facade-links-none-of-these` walks a per-package
 feature-resolved tree and measures the right graph.
 
-Start with a small profile set: headless body and world; windowed body and
-world; headless combat; collection without held use; generic encounters without
-named bosses. Each profile instantiates a real domain object and advances
-behavior.
+## Supported profiles
+
+**Implemented 2026-10-08 (A9).** The profile set is a registry, not a convention:
+`ambition_platformer2d_runtime::profile` declares each `EngineProfile` (name, face,
+the `Capability` set it omits) and `PlatformerEnginePlugins::for_profile` builds the
+group it names.
+
+| profile | face | omits |
+| --- | --- | --- |
+| `headless-body-world` | headless | nothing |
+| `windowed-body-world` | windowed (drawing host) | nothing |
+| `combat-without-inventory-boss-dialogue` | headless | `Inventory`, `HeldUse`, `BossEncounters`, `Dialogue` |
+| `collection-without-held-use` | headless | `HeldUse` |
+| `encounters-without-named-bosses` | headless | `BossEncounters` |
+
+**Three claims per profile, none of which means anything alone**
+(`ambition_platformer2d_host/tests/supported_profiles.rs`):
+
+1. it STEPS A REAL BODY: sixty frames expend sixty ticks and the primary body
+   moved. A probe that only builds certified an engine that took zero fixed steps;
+2. each omitted capability is NOT INSTALLED (`Capability::is_installed`: its plugins
+   are not added and the resource only it owns does not exist), and each kept one is;
+3. the CONTROL arm builds the full group and requires every capability to read
+   installed, so a probe that is always false cannot make a profile pass.
+
+A fourth check covers the edges a ticking fixture never reaches:
+`session_edge_params_validate` asks Bevy whether the session-teardown bundle and
+the room-transition finalizer validate in the composition. The first probe of the
+`Dialogue` omission stepped cleanly and would have failed at the first room
+transition and the first session end.
+
+**What the probe found, and what changed.** Omitting a capability failed on its
+first tick in each case below. Each is a coupling repaired in source, not a profile
+excluded:
+
+| omission | failing parameter | repair |
+| --- | --- | --- |
+| `HeldUse` | `AuthoredOccurrences` (required by the session teardown and the room loader) installed by `HeldItemSimulationPlugin` | the ledger is session lifecycle state; `LifecycleCheckpointHorizonPlugin` installs it |
+| `HeldUse` | `fire_puppy_slug_gun_system` ran ungated | the item-pickup kernel nests `CoreHeldItems` in `PlayerSimulation` itself, as the held-items domain also does |
+| `Dialogue` | the conversation UI bridge required `DialogState` | `ConversationPlugin` is a member of the group (a plugin added from another plugin's `build` is invisible to `disable`) |
+| `Dialogue` | the narrative ledger's release, the interaction system's `DialogueDispatch`, `space_the_talkers`, the transition finalizer, the teardown bundle, `rebuild_dialog_view` | each takes the conversation authority or `DialogState` as `Option`; C07's table records the reason |
+| `Dialogue` | `speak_conversation_cut_barks` read a message only conversation registered | the consumer registers what it reads |
+| `BossEncounters` | `simulation_world` required `BossCatalog` | the empty catalog is core construction input (`SimCoreResourcesPlugin`) |
+| `BossEncounters` | `populate_boss_encounter_registry` was registered by the progression plugin every composition carries | the boss plugin registers it |
+| `BossEncounters`, `Cutscenes` | the teardown bundle required their state | the members are `Option` |
+
+**What a profile does NOT claim.**
+
+* It claims *not installed*, not *not linked*. The crates behind these capabilities are
+  unconditional dependencies (`Q106`); `scripts/check_engine_profiles.py` asserts they
+  ARE in the closure, so the day one becomes optional that check goes red and the
+  contract can be upgraded.
+* The bag itself (`OwnedItems`) is core state. `Inventory` removes collecting and the
+  authored conditions that ask about the bag, not the bag.
+* The closure claim that holds is the facade's: the headless host closure contains no
+  `ambition_render` and no `ambition_menu`; the windowed one contains `ambition_render`.
+* Not omittable today, each for a reason the probe printed: `dev_tools_sim` (the
+  feel-tuning proposal system requires its `PendingMechanicalEdits`). It is not in the
+  list.
+* Content that requires an omitted capability (a Yarn script asked of a game with no
+  dialogue; a boss placement with no boss capability) must refuse at admission. The
+  ruling is `Q146`/`Q144`; the witnesses here are a content-free fixture and do not test
+  that refusal.
+* Re-entry (a second session in the same process) is not exercised by these witnesses.
+
+**Dropping one of these profiles' promises from the registry is a decision; a
+witness that stopped iterating the registry would pass for any list**, so the guard
+requires the iteration and the control arm to still be in the file.
 
 ## Rollback and external effects
 

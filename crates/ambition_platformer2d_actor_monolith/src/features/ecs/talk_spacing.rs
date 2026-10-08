@@ -71,7 +71,9 @@ pub struct TalkSpacing {
 #[allow(clippy::too_many_arguments)]
 pub fn space_the_talkers(
     mut commands: Commands,
-    conversation: Res<ActiveConversation>,
+    // `Option`: no conversation authority (`Capability::Dialogue` omitted) means
+    // nobody is talking; the step only forgets records it already holds.
+    conversation: Option<Res<ActiveConversation>>,
     world_time: Res<ambition_time::WorldTime>,
     rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
@@ -82,7 +84,9 @@ pub fn space_the_talkers(
     mut spacings: Query<(Entity, &mut TalkSpacing)>,
     mut bodies: Query<&mut BodyKinematics>,
 ) {
-    let pair = conversation.initiator().zip(conversation.talker());
+    let pair = conversation
+        .as_deref()
+        .and_then(|conversation| conversation.initiator().zip(conversation.talker()));
     // A record whose conversation has closed goes, with its step. A pet owns
     // the walk it put on the body, so that walk stays.
     for (body, spacing) in &spacings {

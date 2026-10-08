@@ -94,7 +94,11 @@ impl TalkableBodies<'_, '_> {
 /// standing next to, not whatever the vacated home avatar is next to. In normal
 /// play the two are the same entity, so single-player behavior is unchanged.
 pub fn interact_ecs_actors_and_switches(
-    mut dialogue: DialogueDispatch,
+    // `Option`: a composition that leaves dialogue out (`Capability::Dialogue`)
+    // has no conversation authority, and the interaction system still serves
+    // switches. No dispatch is the same state as a body with no dialogue
+    // identity below: dialogue is skipped, the rest of the system runs.
+    mut dialogue: Option<DialogueDispatch>,
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
     // ⭐ EVERY DRIVEN BODY. The gesture half was already per-body —
@@ -209,18 +213,16 @@ pub fn interact_ecs_actors_and_switches(
         // would make dialogue authority depend on whichever provider initialized
         // first in this process. A speaker-less body skips dialogue but still
         // works switches below.
-        let speaker_id = dialogue.speaker_id(
-            subject,
-            interactions.get(subject).ok(),
-            identities.get(subject).ok(),
-        );
+        let speaker_id = dialogue.as_ref().and_then(|dialogue| {
+            dialogue.speaker_id(subject, interactions.get(subject).ok(), identities.get(subject).ok())
+        });
         // A body reaches an NPC or a switch only in its own live room (OW1
         // cut 7b): two live rooms can hold one at the same position.
         let subject_room = live_rooms.of(subject);
         for (actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane)) in
             &actors
         {
-            let Some(speaker_id) = speaker_id.as_deref() else {
+            let (Some(speaker_id), Some(dialogue)) = (speaker_id.as_deref(), dialogue.as_mut()) else {
                 break;
             };
             if live_rooms.of(actor_entity) != subject_room {

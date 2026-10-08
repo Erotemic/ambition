@@ -771,6 +771,17 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
             [CARGO, "check", "-p", "ambition_platformer2d_actor_monolith",
              "--no-default-features"]))
 
+    # ⭐ THE HEADLESS PROFILES MUST HOLD WITH NO RENDERER COMPILED. The default-feature
+    # run of `supported_profiles` builds the drawing host too, so it cannot show that a
+    # headless profile does not depend on it; this run can. It also carries the dependency
+    # closure half of the contract: no `ambition_render` in this feature set's tree
+    # (`scripts/check_engine_profiles.py` reads that).
+    if everything and (not only or "ambition_platformer2d_host" in only):
+        check_jobs.append(Job(
+            "engine profiles: headless witnesses with no renderer (--no-default-features)",
+            [CARGO, "test", "-p", "ambition_platformer2d_host", "--no-default-features",
+             "--test", "supported_profiles"]))
+
     # Exhaustive mode also exercises the causal feature against the real app composition rather
     # than assuming that a leaf-crate feature compile proves the assembled consumer.
     if not only and everything:
@@ -1286,6 +1297,18 @@ def build_maintenance_jobs() -> list[Job]:
             [
                 sys.executable,
                 "scripts/check_session_owner_census_matches_source.py",
+            ],
+        ),
+        # ⭐ A PROFILE IS A PROMISE ABOUT WHAT IS ABSENT. The Rust witnesses step a
+        # real body per named profile; this holds the half a test cannot: the
+        # registry/marker agreement and what each profile's dependency closure
+        # contains (headless: no renderer; the crates behind removable
+        # capabilities stay linked, so the contract claims "not installed").
+        Job(
+            "A9's engine profiles: registry, markers and dependency closure",
+            [
+                sys.executable,
+                "scripts/check_engine_profiles.py",
             ],
         ),
         # ⛔ AN OPTIONAL READ OF A SESSION AUTHORITY IS A CLAIM ABOUT WHICH

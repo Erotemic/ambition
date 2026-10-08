@@ -43,7 +43,13 @@ pub struct DialogView {
 /// frame (no dialogue mutation) does no string work; during an active dialogue
 /// the state mutates every reveal tick anyway, which is exactly when the
 /// overlay needs fresh text.
-pub fn rebuild_dialog_view(dialogue: Res<DialogState>, mut view: ResMut<DialogView>) {
+///
+/// `Option`: a composition without the dialogue capability (`Capability::Dialogue`)
+/// has no `DialogState`, and the view stays at its idle default.
+pub fn rebuild_dialog_view(dialogue: Option<Res<DialogState>>, mut view: ResMut<DialogView>) {
+    let Some(dialogue) = dialogue else {
+        return;
+    };
     if !dialogue.is_changed() && !view.active && !dialogue.active() {
         return;
     }

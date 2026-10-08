@@ -39,6 +39,7 @@ mod portal_schedule;
 #[cfg(feature = "portal")]
 mod portal_seat;
 mod progression_schedule;
+pub mod profile;
 pub mod projectile_schedule;
 /// Backend-neutral rollback schema composition and exact prepared-content identity.
 pub mod rollback;
@@ -417,11 +418,26 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
 #[derive(Default)]
 pub struct PlatformerEnginePlugins {
     pub host: SimulationHost,
+    /// Capabilities this composition leaves out (see [`profile`]).
+    omitted: Vec<profile::Capability>,
 }
 
 impl PlatformerEnginePlugins {
     pub fn new(host: SimulationHost) -> Self {
-        Self { host }
+        Self { host, omitted: Vec::new() }
+    }
+
+    /// Leave a capability out of the group.
+    pub fn without(mut self, capability: profile::Capability) -> Self {
+        if !self.omitted.contains(&capability) {
+            self.omitted.push(capability);
+        }
+        self
+    }
+
+    /// The group a supported profile names.
+    pub fn for_profile(host: SimulationHost, profile: &profile::EngineProfile) -> Self {
+        profile.omits.iter().fold(Self::new(host), |group, capability| group.without(*capability))
     }
 
     /// See the type docs for the ordering rule.
@@ -432,6 +448,7 @@ impl PlatformerEnginePlugins {
 
 impl PluginGroup for PlatformerEnginePlugins {
     fn build(self) -> PluginGroupBuilder {
+        let omitted = self.omitted.clone();
         let builder = PluginGroupBuilder::start::<Self>()
             // Sets + engine resources FIRST (see Platformer2dSimulationFoundationPlugin docs).
             .add(Platformer2dSimulationFoundationPlugin { host: self.host });
@@ -504,6 +521,12 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Feature (room-entity) collection + interaction schedules.
             .add(ambition_platformer2d_actor_monolith::features::FeatureCollectionSchedulePlugin)
             .add(ambition_platformer2d_actor_monolith::features::FeatureInteractionSchedulePlugin)
+            // CONVERSATION IS A MEMBER OF THIS GROUP, not something the interaction
+            // schedule installs from inside its own `build`: a plugin added from
+            // another plugin's `build` is invisible to `PluginGroupBuilder::disable`,
+            // so a composition could drop `DialogSimStatePlugin` and still carry the
+            // conversation UI bridge that requires its `DialogState`.
+            .add(ambition_conversation::ConversationPlugin)
             .add(ambition_encounter_features::EncounterSimulationSchedulePlugin)
             // Every writer of `gate_solids`, in one place: the encounter-phase
             // seal walls and the authored-condition ones. Their adjacency is the
@@ -679,7 +702,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // PortalPlugin + the portal-set schedule placement (the three
             // ordering landmines documented on the plugin).
             .add(PortalSchedulePlugin);
-        builder
+        omitted.iter().fold(builder, |builder, capability| capability.omit(builder))
     }
 }
 

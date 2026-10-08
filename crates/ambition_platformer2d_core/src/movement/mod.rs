@@ -320,11 +320,9 @@ pub(crate) fn update_body_simulation_in_frame(
     // immediately before calling the gate; this arm captures its endpoints out
     // here, so the gate has to be out here too.
     //
-    // ⛔⛔ AND ONLY ON THE PATH THAT USED TO REACH IT. `SimPhaseReach` exists
-    // because moving the gate out here would otherwise have ADDED three
-    // populations the tail never judged — a zero-dt tick, a drowning, and a frame
-    // an active ledge grab consumed. This is an ordering fix, not a widening.
-    if reach == SimPhaseReach::Completed {
+    // ⛔⛔ AND ONLY ON THE PATHS `SimPhaseReach` NAMES. A zero-dt tick and a
+    // drowning are not judged here; a body held on a ledge is (Q43).
+    if matches!(reach, SimPhaseReach::Completed | SimPhaseReach::LedgeHeld) {
         kernel::apply_world_hazard_gate(world, clusters, frame, step_half, &mut events);
     }
 
@@ -387,16 +385,16 @@ pub(super) fn recovery_refresh(
     }
 }
 
-/// Did the simulation phase run to its END this tick, or short-circuit?
+/// Did the simulation phase run to its END this tick, hold the body on a
+/// ledge, or short-circuit?
 ///
-/// ⛔ THE HAZARD/OOB GATE RUNS ONLY ON `Completed`, AND THAT IS A POPULATION
-/// DECISION, not a detail. `update_body_simulation_inner` has three early
-/// returns — a `raw_dt <= 0.0` tick, a drowning, and a frame an active ledge
-/// grab consumed — and none of them ever reached the gate while it sat in that
-/// function's tail. Moving the gate to the caller without this flag silently
-/// added all three: a body hanging on a ledge whose box overlaps a hazard
-/// (spikes under a lip is an authored shape) would start dying, and a frozen
-/// frame would judge a body nothing had stepped.
+/// ⛔ THE HAZARD/OOB GATE RUNS ON `Completed` AND `LedgeHeld` ONLY, AND THAT IS
+/// A POPULATION DECISION, not a detail. `update_body_simulation_inner` has
+/// three early returns: a `raw_dt <= 0.0` tick, a drowning, and a frame an
+/// active ledge grab consumed. A frozen frame must not judge a body nothing
+/// stepped, and a drowning has its own end. A body held on a ledge is in the
+/// world, and a hazard beats a ledge hang (Q43, 2026-10-04): spikes under a
+/// lip kill the body hanging on it.
 ///
 /// ⚠ The SAMPLE WRITE is deliberately NOT gated on this. It runs on every path,
 /// because a zero-dt tick must record a zero-length segment rather than keep a
@@ -405,6 +403,9 @@ pub(super) fn recovery_refresh(
 enum SimPhaseReach {
     /// The phase ran to its tail: the body was stepped and may be judged.
     Completed,
+    /// The active ledge grab held the body this tick. It was not integrated,
+    /// and it is judged where it hangs.
+    LedgeHeld,
     /// The phase returned early; this tick did not step the body.
     ShortCircuited,
 }
@@ -663,7 +664,7 @@ fn update_body_simulation_inner(
         tuning,
         &mut events,
     ) {
-        return (events, SimPhaseReach::ShortCircuited);
+        return (events, SimPhaseReach::LedgeHeld);
     }
 
     // Consume the buffered jump (or convert to swim stroke /

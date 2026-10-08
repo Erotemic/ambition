@@ -342,84 +342,58 @@ fn walking_a_floor_flush_with_a_hazards_top_face_is_not_a_hit() {
     }
 }
 
-/// ⛔⛔ THE GATE'S POPULATION, GUARDED. Moving `apply_world_hazard_gate` out of
-/// `update_body_simulation_inner`'s tail to fix its ORDERING would otherwise have
-/// widened WHO it judges: three early returns — a `raw_dt <= 0.0` tick, a
-/// drowning, and a frame an active ledge grab consumed — never reached the gate,
-/// and after the move they all would have.
+/// ⛔⛔ THE GATE'S POPULATION, GUARDED. A frame that an active ledge grab
+/// consumes returns early from the simulation phase. `Q43` rules that a hazard
+/// wins over a ledge hang: spikes under a lip kill the body that hangs over
+/// them. So the gate judges a held frame, and the hang does not make the body
+/// immune.
 ///
-/// A body hanging on a ledge whose box overlaps a hazard is the case with teeth,
-/// because spikes under a lip is an authored shape. It was immune while hanging;
-/// it stays immune. Both arms run the SAME body at the SAME place in the SAME
-/// world, so the only variable is whether the hang consumed the frame.
+/// Both arms hang the SAME body at the SAME place on the SAME ledge. The only
+/// variable is whether the spikes are in the world, so the control proves the
+/// hang holds when nothing hurts it.
 #[test]
-fn a_hanging_body_is_not_judged_by_the_hazard_gate() {
-    fn spiked_world() -> World {
-        let mut world = test_world();
-        world.blocks.push(crate::world::Block::hazard(
-            "spikes under the lip",
-            Vec2::new(370.0, 370.0),
-            Vec2::new(60.0, 60.0),
-        ));
-        world
+fn a_hazard_wins_over_a_ledge_hang() {
+    fn hang_once(world: &World) -> (Option<ResetCause>, bool) {
+        let hang_at = Vec2::new(400.0, 400.0);
+        let mut abilities = AbilitySet::sandbox_all();
+        abilities.ledge_grab = true;
+        let mut scratch = BodyClusterScratch::new_with_abilities(hang_at, abilities);
+        let contact = crate::LedgeContact {
+            wall_normal_x: -1.0,
+            anchor: hang_at,
+            climb_target: hang_at + Vec2::new(31.0, -43.0),
+        };
+        scratch.axis_mut().ledge_grab = Some(crate::LedgeGrabState::hanging(contact));
+        let mut sample = SweepSample::default();
+        let (model, mut clusters) = scratch.parts();
+        clusters.sweep = Some(&mut sample);
+        let step = update_player_simulation_with_clusters(
+            world,
+            model,
+            &mut clusters,
+            InputState::default(),
+            1.0 / 60.0,
+            TEST_TUNING,
+        );
+        (step.reset, scratch.axis().ledge_grab.is_some())
     }
-    let hang_at = Vec2::new(400.0, 400.0);
 
-    // ⭐ PREMISE ARM. Without the hang, this exact body in this exact place IS a
-    // hazard hit — so the other arm's `None` means the gate was skipped, not that
-    // the body was somewhere harmless.
-    let mut abilities = AbilitySet::sandbox_all();
-    abilities.ledge_grab = true;
-    let mut scratch = BodyClusterScratch::new_with_abilities(hang_at, abilities);
-    let mut sample = SweepSample::default();
-    let (model, mut clusters) = scratch.parts();
-    clusters.sweep = Some(&mut sample);
-    let falling = update_player_simulation_with_clusters(
-        &spiked_world(),
-        model,
-        &mut clusters,
-        InputState::default(),
-        1.0 / 60.0,
-        TEST_TUNING,
-    );
+    // CONTROL. Without spikes the hang holds and nothing resets the body, so
+    // a reset in the other arm comes from the spikes, not from the hang.
+    let (reset, still_hanging) = hang_once(&test_world());
+    assert_eq!(reset, None, "control — a hang over plain ground resets nothing");
+    assert!(still_hanging, "control — a hang over plain ground holds");
+
+    let mut spiked = test_world();
+    spiked.blocks.push(crate::world::Block::hazard(
+        "spikes under the lip",
+        Vec2::new(370.0, 370.0),
+        Vec2::new(60.0, 60.0),
+    ));
+    let (reset, _) = hang_once(&spiked);
     assert_eq!(
-        falling.reset,
+        reset,
         Some(ResetCause::Hazard),
-        "premise — a body sitting in these spikes is a hazard hit when nothing \
-         consumes its frame",
-    );
-
-    // THE ARM UNDER TEST. Same body, same spikes, but an active ledge grab owns
-    // the frame.
-    let mut abilities = AbilitySet::sandbox_all();
-    abilities.ledge_grab = true;
-    let mut scratch = BodyClusterScratch::new_with_abilities(hang_at, abilities);
-    let contact = crate::LedgeContact {
-        wall_normal_x: -1.0,
-        anchor: hang_at,
-        climb_target: hang_at + Vec2::new(31.0, -43.0),
-    };
-    scratch.axis_mut().ledge_grab = Some(crate::LedgeGrabState::hanging(contact));
-    let mut sample = SweepSample::default();
-    let (model, mut clusters) = scratch.parts();
-    clusters.sweep = Some(&mut sample);
-    let hanging = update_player_simulation_with_clusters(
-        &spiked_world(),
-        model,
-        &mut clusters,
-        InputState::default(),
-        1.0 / 60.0,
-        TEST_TUNING,
-    );
-
-    assert!(
-        scratch.axis().ledge_grab.is_some(),
-        "premise — the hang must still be active, or this arm did not exercise \
-         the path that consumes the frame",
-    );
-    assert_eq!(
-        hanging.reset, None,
-        "a body hanging on a ledge is not stepped by the simulation phase, so the \
-         hazard gate does not judge it — the same body that dies when it falls",
+        "Q43: a body hanging over spikes is a hazard hit; the hang is not immunity",
     );
 }

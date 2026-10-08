@@ -259,6 +259,16 @@ impl BodyMotionFacts {
         self.evade_invulnerable || self.getup_invulnerable || self.ledge_intangible
     }
 
+    /// Is this body safe from a hazard volume? The same as [`Self::evading`],
+    /// but a body that HANGS on a ledge gets no immunity from its ledge window
+    /// (`Q43`): spikes under a lip kill the body that hangs over them. The
+    /// window still makes an attack miss, because attacks read `evading`. A
+    /// ledge getup (climb, roll or attack) keeps its window against hazards.
+    pub fn evading_hazards(&self) -> bool {
+        let hanging = self.ledge.is_some_and(|ledge| !ledge.climbing);
+        self.evade_invulnerable || self.getup_invulnerable || (self.ledge_intangible && !hanging)
+    }
+
     /// Project the active policy's semantic facts. Non-axis policies have no
     /// axis maneuvers by construction — their projection is the default.
     pub fn from_model(model: &MotionModel) -> Self {

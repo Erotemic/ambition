@@ -119,29 +119,23 @@ holding a ledge gives no implicit immunity from a hazard. A hanging body in a
 lethal hazard gets the normal hazard result; an exception is an explicit,
 named gameplay rule.
 
-Two roads give the immunity today:
+Both roads obey the ruling:
 
-1. **Kernel hazard gate.** `apply_world_hazard_gate` runs only when the
-   simulation phase reaches `SimPhaseReach::Completed`
-   (`ambition_platformer2d_core/src/movement/mod.rs`). A frame that an active
-   ledge grab consumes short-circuits, so a hanging body is never judged. The
-   doc comment on `SimPhaseReach` and the test
-   `movement/tests/hazard_sweep.rs::a_hanging_body_is_not_judged_by_the_hazard_gate`
-   pin this immunity; both flip. Keep the other two short-circuits (a zero-dt
-   tick, a drowning) as they are: the ruling is about the hang, and a frozen
-   frame still judges no body.
-2. **Combat hazard volumes.** `ambition_combat/src/hazards.rs` skips a body
-   that is not `body_vulnerable`, and `BodyFacts::evading()` includes
-   `ledge_intangible` (the grab window, `LEDGE_GRAB_INVULN_TIME`). Decision
-   for this work: the ledge-grab window protects from attacks only; a hazard
-   volume ignores `ledge_intangible`. Dodge, getup and other intangibility
-   keep their present hazard behaviour (Q43 does not rule on them).
-
-Work is queue row HAZARD-BEATS-LEDGE. Acceptance: a body hanging on a lip with
-a lethal hazard under it dies on both roads (witness), the same body on a lip
-without a hazard keeps hanging (control), and the attack-only reading of the
-grab window has its own test (an attack during the window misses; a hazard
-during the window kills).
+1. **Kernel hazard gate.** `apply_world_hazard_gate` runs when the simulation
+   phase reaches `SimPhaseReach::Completed` or `SimPhaseReach::LedgeHeld` (a
+   frame that an active ledge grab consumed)
+   (`ambition_platformer2d_core/src/movement/mod.rs`). A zero-dt tick and a
+   drowning still return before the gate: the ruling is about the hang.
+   Witness: `movement/tests/hazard_sweep.rs::a_hazard_wins_over_a_ledge_hang`
+   (the same hang over plain ground is the control).
+2. **Combat hazard volumes.** `ambition_combat/src/hazards.rs` reads
+   `BodyMotionFacts::evading_hazards()`, which is `evading()` without the
+   ledge window while the body hangs. The window still makes an attack miss,
+   because attacks read `evading()`. A ledge getup (climb, roll, attack),
+   a dodge and a getup from the floor keep their windows against hazards
+   (Q43 does not rule on them). Witness:
+   `hazards/tests.rs::a_hazard_hits_a_body_that_hangs_inside_its_ledge_window`
+   (a ledge roll is the control).
 
 Ledge occupancy (two bodies on one ledge) is a separate defect, owned by
 [`../demos/smash-parity-inventory.md`](../demos/smash-parity-inventory.md#ledge-occupancy)

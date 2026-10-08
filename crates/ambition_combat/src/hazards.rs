@@ -127,7 +127,7 @@ pub fn apply_hazard_contacts(
         {
             if !crate::util::body_vulnerable(
                 victim_health.health.invulnerable,
-                facts.evading(),
+                facts.evading_hazards(),
                 shield,
                 combat,
             ) || !body_touches(hurtbox, Some(kin.pos), sweep, hazard.aabb())
@@ -172,7 +172,7 @@ pub fn apply_hazard_contacts(
             if health.current() <= 0
                 || !crate::util::body_vulnerable(
                     health.health.invulnerable,
-                    facts.evading(),
+                    facts.evading_hazards(),
                     shield,
                     combat,
                 )

@@ -242,13 +242,17 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
 /// per-actor brain perception reads: the Smash brain's reaction latency
 /// (`obs_history` lookback by `reaction_delay_s`) is inert without it. Distinct
 /// from `time_control::SimClock` (a time-*scale* request) — this is elapsed time.
-#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq)]
+///
+/// A component of the session root (C03): each session's clock starts at zero
+/// with its root, so two peers that reach one route by different shell
+/// histories agree on it, and no reset is owed at a session edge.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct GameplayElapsed(pub f32);
 
 /// Advance [`GameplayElapsed`] by the scaled gameplay dt each frame. Runs at the
 /// head of `WorldPrep`, before any actor brain reads the snapshot.
 pub fn advance_gameplay_elapsed(
-    mut elapsed: bevy::prelude::ResMut<GameplayElapsed>,
+    mut elapsed: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<GameplayElapsed>,
     world_time: bevy::prelude::Res<ambition_time::WorldTime>,
 ) {
     elapsed.0 += world_time.sim_dt();
@@ -1010,7 +1014,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             crate::features::ecs::spawn_static::lower_portal_placement,
         );
         // Accumulating sim-time for brain perception (reaction latency).
-        app.init_resource::<GameplayElapsed>();
+        ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<GameplayElapsed>(app);
         // ⭐ THE WORLD-SOURCE HOT-RELOAD WATCHER MOVED OUT, resource and system
         // together, to `ambition_dev_tools::DevToolsSimPlugin` — the crate that
         // owns it. A simulation package registering a developer facility is the
@@ -1518,8 +1522,10 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // from a save that holds no broken breakable and no collected pickup
         // (OW5). The replay set is in `PlayerInput`, before the mirror's
         // phase; see the system's doc.
-        app.init_resource::<ecs::world_time_schedule::WorldTimeSchedule>()
-            .add_systems(
+        ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<
+            ecs::world_time_schedule::WorldTimeSchedule,
+        >(app);
+        app.add_systems(
                 sim,
                 (
                     ecs::world_time_schedule::forget_scheduled_returns_on_replay,
@@ -1579,19 +1585,29 @@ mod feature_interaction_order_tests;
 #[cfg(test)]
 mod sim_clock_tests {
     use super::{advance_gameplay_elapsed, GameplayElapsed};
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        require_on_session_root, session_world_component, SessionRoot, SessionScopeId,
+    };
     use bevy::prelude::*;
+
+    fn clock(app: &App) -> f32 {
+        session_world_component::<GameplayElapsed>(app.world())
+            .expect("the session root carries the clock")
+            .0
+    }
 
     #[test]
     fn gameplay_clock_accumulates_scaled_dt() {
         let mut app = App::new();
         app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
-        app.init_resource::<GameplayElapsed>();
+        require_on_session_root::<GameplayElapsed>(&mut app);
+        app.world_mut().spawn(SessionRoot(SessionScopeId(1)));
         app.add_systems(Update, advance_gameplay_elapsed);
 
         app.update();
         app.update();
         app.update();
-        let elapsed = app.world().resource::<GameplayElapsed>().0;
+        let elapsed = clock(&app);
         assert!(
             (elapsed - 3.0 / 60.0).abs() < 1e-6,
             "three ticks at 1/60 s must accumulate 3/60 s; got {elapsed}"
@@ -1601,7 +1617,7 @@ mod sim_clock_tests {
         // and every other sim timer that reads it stop together.
         app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 0.0));
         app.update();
-        let after_pause = app.world().resource::<GameplayElapsed>().0;
+        let after_pause = clock(&app);
         assert_eq!(
             elapsed, after_pause,
             "a paused frame must not advance sim-time"

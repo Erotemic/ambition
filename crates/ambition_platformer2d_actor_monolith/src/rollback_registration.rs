@@ -190,11 +190,14 @@ where
         OWNER,
         "message.sudden_death_began",
     );
-    registrar.rollback_resource_canonical::<crate::features::GameplayElapsed>(
+    // ⭐ COMPONENTS OF THE SESSION ROOT (C03), under the same keys: a new
+    // session's root is born with its clock at zero and no scheduled return,
+    // so neither is reset at a session edge.
+    registrar.rollback_component_canonical::<crate::features::GameplayElapsed>(
         OWNER,
         "resource.gameplay_elapsed",
     );
-    registrar.rollback_resource_clone_checksum::<crate::features::ecs::world_time_schedule::WorldTimeSchedule>(
+    registrar.rollback_component_clone_checksum::<crate::features::ecs::world_time_schedule::WorldTimeSchedule>(
         OWNER,
         "feature.world_time_schedule",
         "when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)",

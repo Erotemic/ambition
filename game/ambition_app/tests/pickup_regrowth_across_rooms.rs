@@ -26,7 +26,9 @@ const PLAIN: &str = "one-time heart";
 const REGROW_S: f32 = 4.0;
 
 fn now(sim: &Platformer2dSimHarness) -> f32 {
-    sim.world().resource::<GameplayElapsed>().0
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<GameplayElapsed>(sim.world())
+        .expect("the session root carries the clock")
+        .0
 }
 
 /// (collected, the time its regrowth still needs) of the pickup `name`, or
@@ -40,8 +42,8 @@ fn pickup(sim: &mut Platformer2dSimHarness, name: &str) -> Option<(bool, Option<
 }
 
 fn records(sim: &Platformer2dSimHarness) -> usize {
-    sim.world()
-        .resource::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>()
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>(sim.world())
+        .expect("the session root carries the schedule")
         .records()
         .count()
 }

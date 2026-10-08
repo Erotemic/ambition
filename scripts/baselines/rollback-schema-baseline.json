@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v331",
+    "version": "ggrs-rollback-schema-v332",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -91,7 +91,7 @@
       "extension.body_records\tcomponent-clone-custom-checksum\tBodyRecords\tbevy_ggrs clone snapshot + every module record of the body: schema shape digest and canonical values",
       "extension.session_records\tcomponent-clone-custom-checksum\tSessionRecords\tbevy_ggrs clone snapshot + every session-attached module record: schema shape digest and canonical values",
       "feature.consumed_since_checkpoint\tresource-clone-custom-checksum\tConsumedSinceCheckpoint\tbevy_ggrs clone snapshot + the one-time pickups consumed and the authored chests opened since the last checkpoint, with their room and whose horizons own each (Q151)",
-      "feature.world_time_schedule\tresource-clone-custom-checksum\tWorldTimeSchedule\tbevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)",
+      "feature.world_time_schedule\tcomponent-clone-custom-checksum\tWorldTimeSchedule\tbevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)",
       "player.projectile_state\tcomponent-canonical\tPlayerProjectileState",
       "player.safety_state\tcomponent-canonical\tPlayerSafetyState",
       "projectile.allegiance\tcomponent-canonical\tProjectileAllegiance",
@@ -110,7 +110,7 @@
       "resource.clock_regime_policy\tresource-canonical\tRegimePolicy\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.clock_state\tresource-canonical\tClockState\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.custody_baseline\tresource-clone-custom-checksum\tCustodyBaseline\tbevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
-      "resource.gameplay_elapsed\tresource-canonical\tGameplayElapsed\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
+      "resource.gameplay_elapsed\tcomponent-canonical\tGameplayElapsed",
       "resource.gate_portal_phases\tresource-clone-custom-checksum\tGatePortalPhases\tbevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection",
       "resource.impact_hitstop\tresource-clone-custom-checksum\tImpactHitstop\tbevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock",
       "resource.live_match_ticks\tresource-canonical-custom-checksum\tLiveMatchTicks\tbevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from the match's own start, and the peer match ordinal, excluding the host-local session and activation-tick stamps",

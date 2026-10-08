@@ -226,7 +226,7 @@ pub fn tick_actor_brains(
     // independent contracts in a tuple or context bag.
     world_time: Res<WorldTime>,
     // Accumulating sim-time, for the brain's reaction-latency lookback.
-    sim_clock: Res<crate::features::GameplayElapsed>,
+    sim_clock: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::features::GameplayElapsed>,
     // Peers, projectiles and hostility: what a body can perceive this tick.
     perceived: crate::features::ecs::perception::PerceivedWorld,
     // How far a sighted body sees: one value for the session, read here.

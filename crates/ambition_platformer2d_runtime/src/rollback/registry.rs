@@ -1104,7 +1104,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// in the peer checksum by its own value (each room's candidates and base
 /// track). Every music claimer writes it during play, so its presence probe
 /// could not see two peers that disagree about the music a room asks for.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 331;
+/// ⛔⛤ 331 -> 332: `resource.gameplay_elapsed` (`GameplayElapsed`) and
+/// `feature.world_time_schedule` (`WorldTimeSchedule`) are components of the
+/// session root (C03), under the same keys; their kinds are
+/// `component-canonical` and `component-clone-custom-checksum`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 332;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

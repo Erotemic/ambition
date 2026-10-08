@@ -1347,8 +1347,7 @@ pub fn prospective_commit_fates(
         >(world)
         .map(|rooms| rooms.spec(definition).id.clone())
     });
-    let remaining = world
-        .get_resource::<WorldTimeSchedule>()
+    let remaining = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<WorldTimeSchedule>(world)
         .map(|schedule| {
             let mut schedule = schedule.clone();
             if let Some(room) = &replayed_room {

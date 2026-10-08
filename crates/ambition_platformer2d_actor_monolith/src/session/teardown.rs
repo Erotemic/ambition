@@ -72,11 +72,6 @@ pub struct SessionScopedResources<'w> {
     /// `Option` because a composition without the boss capability has none.
     boss_defeats_since_checkpoint:
         Option<ResMut<'w, ambition_boss_encounter::BossDefeatsSinceCheckpoint>>,
-    /// When broken breakables respawn and collected pickups regrow, on this
-    /// session's clock (OW5). The next session's clock starts again at zero,
-    /// and its rooms are built whole.
-    world_time_schedule:
-        Option<ResMut<'w, crate::features::ecs::world_time_schedule::WorldTimeSchedule>>,
     /// The one-time pickups consumed since the last checkpoint, with their
     /// owners. The next session's file is its baseline.
     consumed_since_checkpoint:
@@ -268,21 +263,6 @@ pub struct SessionScopedResources<'w> {
     /// session and activating its first match. The eager edge closes it: a new
     /// session's mint is new, because a new session's state is new.
     match_ordinal: ResMut<'w, ambition_match::seating::SessionMatchOrdinal>,
-    /// ⛔⛤ **AN ABSOLUTE PER-APP ACCUMULATOR THAT WAS INSIDE THE PEER CHECKSUM,
-    /// FOUND 2026-09-16 BY THE TWO-HOST PEER-VISIBLE CENSUS.** `GameplayElapsed`
-    /// has exactly one writer — `advance_gameplay_elapsed`, `+= sim_dt` every
-    /// frame — is `init_resource`'d once at App build, and was reset nowhere. It
-    /// is registered `rollback_resource_canonical`, so its WHOLE value is
-    /// compared between peers. Two hosts that reached the same route by different
-    /// shell histories therefore disagreed about it on the frame they arrived,
-    /// and about every perception memory derived from it
-    /// (`actors/update.rs` hands it to the brain as the reaction-latency
-    /// lookback, which is its only consumer).
-    ///
-    /// Its consumer asks how long ago something was seen, which a
-    /// session-relative clock answers identically. `SimTick` (below) took the
-    /// same road when `Q128` was decided.
-    gameplay_elapsed: ResMut<'w, crate::features::GameplayElapsed>,
     /// The canonical timeline (`Q128`). A session starts at tick `0` on every
     /// peer, whatever the App ran before it. `Option` because a composition
     /// without the sim clock has none.
@@ -497,7 +477,6 @@ fn reset(resources: SessionScopedResources) {
         mut encounter_view,
         mut boss_registry,
         boss_defeats_since_checkpoint,
-        world_time_schedule,
         consumed_since_checkpoint,
         reward_grants,
         bag_spends,
@@ -521,7 +500,6 @@ fn reset(resources: SessionScopedResources) {
         mut sudden_death,
         mut live_match_ticks,
         mut match_ordinal,
-        mut gameplay_elapsed,
         sim_tick,
         impact_hitstop,
         requested_clock_scale,
@@ -538,9 +516,6 @@ fn reset(resources: SessionScopedResources) {
     }
     if let Some(mut since) = boss_defeats_since_checkpoint {
         since.forget_all();
-    }
-    if let Some(mut schedule) = world_time_schedule {
-        schedule.forget_all();
     }
     if let Some(mut since) = consumed_since_checkpoint {
         since.forget_all();
@@ -581,7 +556,6 @@ fn reset(resources: SessionScopedResources) {
     *live_match_ticks =
         crate::character_runtime::live_match_clock::LiveMatchTicks::default();
     *match_ordinal = ambition_match::seating::SessionMatchOrdinal::default();
-    *gameplay_elapsed = crate::features::GameplayElapsed::default();
     if let Some(mut tick) = sim_tick {
         *tick = ambition_time::SimTick::default();
     }

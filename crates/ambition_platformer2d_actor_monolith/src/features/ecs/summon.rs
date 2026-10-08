@@ -81,7 +81,7 @@ pub fn apply_summon_effects(
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
     // `Option` like every other reader of it: a composition with no registered characters is
     // ordinary, not degraded.
-    prepared_characters: crate::session::mechanics::SessionCast,
+    prepared_characters: ambition_characters::prepared::SessionCast,
     // The sheets and the boss catalog of the running session, and not those of
     // the App: a reload publishes the App's before the session that runs them
     // is activated. `None`: no session runs, see `SessionMechanics`.

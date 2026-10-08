@@ -1403,7 +1403,7 @@ pub fn serve_encounter_spawn_commands(
     catalog: bevy::prelude::Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     // The session's cast, not the App's (`SessionCast`). A shell session that
     // lost its generation is answered with no spawn, as a live room rebuild is.
-    cast: crate::session::mechanics::SessionCast,
+    cast: ambition_characters::prepared::SessionCast,
     // The sheets of the running session, as every construction road reads
     // them (`GenerationMechanics::sheets`). `None`: no session runs, see
     // `SessionMechanics`.

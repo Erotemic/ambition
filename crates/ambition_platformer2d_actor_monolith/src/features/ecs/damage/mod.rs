@@ -343,7 +343,7 @@ pub struct FeatureHitCatalogs<'w> {
     /// OWN voice rather than the engine's. `Option` because a bare engine App
     /// legitimately has no prepared cast — the same shape the ambient ticker
     /// already uses.
-    pub prepared: crate::session::mechanics::SessionCast<'w>,
+    pub prepared: ambition_characters::prepared::SessionCast<'w>,
     /// The running session's generation. A split offspring sizes its body from
     /// its sheet like anything else (U1 stage B), and that sheet is the
     /// generation's, as for every construction road (`GenerationMechanics`).

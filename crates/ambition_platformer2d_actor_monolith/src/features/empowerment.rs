@@ -107,7 +107,7 @@ impl Default for ContactHarm {
 /// the SET instead.
 pub fn run_empowerments(
     time: Res<ambition_time::WorldTime>,
-    cast: crate::session::mechanics::SessionCast,
+    cast: ambition_characters::prepared::SessionCast,
     mut commands: Commands,
     mut bodies: Query<
         (
@@ -177,7 +177,7 @@ pub fn run_empowerments(
 /// something orders it `.after(EmpowermentExpiry)`.
 pub fn apply_contact_harm(
     mut hit_events: MessageWriter<HitEvent>,
-    cast: crate::session::mechanics::SessionCast,
+    cast: ambition_characters::prepared::SessionCast,
     empowered: Query<
         (
             Entity,
@@ -325,7 +325,7 @@ impl Plugin for EmpowermentLifecyclePlugin {
 
 fn release_empowerment_projection(
     removal: On<bevy::ecs::lifecycle::Remove, Empowered>,
-    cast: crate::session::mechanics::SessionCast,
+    cast: ambition_characters::prepared::SessionCast,
     mut bodies: Query<(&mut BodyHealth, Option<&WornCharacter>)>,
 ) {
     if let Ok((mut health, worn)) = bodies.get_mut(removal.entity) {

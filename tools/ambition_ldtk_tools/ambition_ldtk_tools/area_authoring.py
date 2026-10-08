@@ -918,7 +918,37 @@ def build_level(project: dict, spec: dict) -> dict:
         "layerInstances": layer_instances,
         "__neighbours": [],
     }
+    place_on_policy_layers(project, level)
     return level
+
+
+def place_on_policy_layers(project: dict, level: dict) -> None:
+    """Put each entity of a built level on the layer the authoring policy gives
+    its type (`edit.policy.DEFAULT_ENTITY_LAYER_RULES`, which `policy check`
+    reads), when the project defines that layer. Without this a generated
+    CameraZone sat on `Ambition`, and `policy check` refused every regen.
+    """
+    from ambition_ldtk_tools.edit.policy import DEFAULT_ENTITY_LAYER_RULES
+    from ambition_ldtk_tools.ldtk.layers import ensure_entities_layer_instance
+
+    source = next(
+        (layer for layer in level["layerInstances"] if layer.get("__identifier") == "Ambition"),
+        None,
+    )
+    if source is None:
+        return
+    for entity_type, layer_id in DEFAULT_ENTITY_LAYER_RULES.items():
+        moving = [e for e in source["entityInstances"] if e.get("__identifier") == entity_type]
+        dest_def = find_layer_def_optional(project, layer_id)
+        if not moving or dest_def is None:
+            continue
+        dest = ensure_entities_layer_instance(
+            project, level, layer_id, dest_def=dest_def, clone_from="Ambition"
+        )
+        dest["entityInstances"] = [*dest.get("entityInstances", []), *moving]
+        source["entityInstances"] = [
+            e for e in source["entityInstances"] if e.get("__identifier") != entity_type
+        ]
 
 
 def summarize_level(level: dict, lowered_count: int = 0, lowered_cells: int = 0) -> str:
@@ -1487,6 +1517,80 @@ def list_free_spots(project: dict, target_room: str) -> int:
     return 0
 
 
+def carry_identities(project: dict, old: dict, new: dict, next_uid_before: int) -> None:
+    """Give a rebuilt level the identities of the level it replaces.
+
+    A regenerated level is the same level: its iid, uid and editor seed, each
+    layer's iid, and each entity's iid stay as they were. An entity is the
+    same entity when its type and position are the same. The runtime uses an
+    entity's iid as its id when it has no `id` field, so a fresh iid loses
+    the state saved against the old one, and another level's reference to an
+    old iid points at nothing. Only an entity with no match keeps its new iid.
+
+    When every identity was carried, `nextUid` goes back to its value before
+    the build, so a second run on unchanged input writes the same bytes.
+    """
+    iid_map: dict[str, str] = {new["iid"]: old["iid"]}
+    new["iid"] = old["iid"]
+    new["uid"] = old["uid"]
+    old_layers = {layer.get("__identifier"): layer for layer in old.get("layerInstances") or []}
+    # An entity is matched over the whole level: one that moves to another
+    # layer (the policy layer of its type) is still the same entity.
+    old_entities: dict[tuple, list[str]] = {}
+    for previous in old.get("layerInstances") or []:
+        for entity in previous.get("entityInstances") or []:
+            key = (entity.get("__identifier"), tuple(entity.get("px") or ()))
+            old_entities.setdefault(key, []).append(entity["iid"])
+    for layer in new.get("layerInstances") or []:
+        layer["levelId"] = old["uid"]
+        previous = old_layers.get(layer.get("__identifier"))
+        if previous is not None:
+            iid_map[layer["iid"]] = previous["iid"]
+            layer["iid"] = previous["iid"]
+            if "seed" in previous:
+                layer["seed"] = previous["seed"]
+        for entity in layer.get("entityInstances") or []:
+            key = (entity.get("__identifier"), tuple(entity.get("px") or ()))
+            if old_entities.get(key):
+                carried = old_entities[key].pop(0)
+                iid_map[entity["iid"]] = carried
+                entity["iid"] = carried
+
+    def remap(value):
+        if isinstance(value, dict):
+            for field in ("entityIid", "layerIid", "levelIid"):
+                if value.get(field) in iid_map:
+                    value[field] = iid_map[value[field]]
+            for inner in value.values():
+                remap(inner)
+        elif isinstance(value, list):
+            for inner in value:
+                remap(inner)
+
+    remap(new)
+    fresh = [
+        iid
+        for layer in new.get("layerInstances") or []
+        for iid in [layer["iid"], *(entity["iid"] for entity in layer.get("entityInstances") or [])]
+        if iid not in iid_map.values()
+    ]
+    def uids(value):
+        if isinstance(value, dict):
+            if isinstance(value.get("uid"), int):
+                yield value["uid"]
+            for inner in value.values():
+                yield from uids(inner)
+        elif isinstance(value, list):
+            for inner in value:
+                yield from uids(inner)
+
+    # A definition the build added (an EntityRef field def) keeps its uid, so
+    # the counter cannot go back below it.
+    defined_since = [uid for uid in uids(project.get("defs") or {}) if uid >= next_uid_before]
+    if not fresh and not defined_since:
+        project["nextUid"] = next_uid_before
+
+
 def compile_area_create_plan(
     project: dict,
     spec: dict,
@@ -1516,10 +1620,12 @@ def compile_area_create_plan(
     if existing_index is not None and not replace_existing:
         raise SystemExit(f"level identifier '{level_id}' already exists")
 
+    next_uid_before = int(project.get("nextUid", 1))
     level = build_level(project, spec)
     reciprocal_summaries: list[str] = []
 
     if existing_index is not None:
+        carry_identities(project, project["levels"][existing_index], level, next_uid_before)
         plan.add_op(ReplaceExistingLevelOp(existing_index))
     plan.add_op(AppendGeneratedLevelOp(level=level, area_id=str(spec["id"])))
     if spec.get("connect_to"):

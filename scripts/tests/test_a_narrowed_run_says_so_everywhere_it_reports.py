@@ -158,3 +158,56 @@ def test_the_interpreter_preflight_reads_the_selected_plan_not_the_lane(
     with pytest.raises(SystemExit) as raised:
         run_tests.run(jobs, False, status_json=str(tmp_path / "b.json"))
     assert raised.value.code == 2
+
+
+def _last_test_run(status: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(REPO / "scripts" / "last_test_run.py"),
+         "--status-json", str(status), "--max-age", "600"],
+        capture_output=True, text=True,
+    )
+
+
+def test_the_reader_reports_the_unselected_jobs_as_not_run(monkeypatch, tmp_path):
+    """⛔ Q59: NOT RUN IS NOT PASS. The status file carries the narrowing, and
+    `last_test_run.py`, the reader agents are told to use, did not read it: a
+    one-job selection printed `all 1 jobs passed.` and exited 0 for a lane
+    whose other job never ran."""
+    monkeypatch.setattr(run_tests, "append_cost_ledger", lambda *a, **k: None)
+    _, _, path = _run(monkeypatch, tmp_path, rust_only=True, only_job="repo tooling")
+
+    proc = _last_test_run(path)
+
+    assert proc.returncode == 2, f"a narrowed run read as the lane's verdict:\n{proc.stdout}"
+    assert "NOT RUN: 1 of the `--rust` lane's 2 job(s)" in proc.stdout, proc.stdout
+    assert "all 1 jobs passed" not in proc.stdout, proc.stdout
+
+
+def test_the_reader_gives_an_unnarrowed_green_run_its_verdict(monkeypatch, tmp_path):
+    """⭐ THE CONTROL ARM: the same run without `--only-job` is a PASS."""
+    monkeypatch.setattr(run_tests, "append_cost_ledger", lambda *a, **k: None)
+    _, _, path = _run(monkeypatch, tmp_path, rust_only=True)
+
+    proc = _last_test_run(path)
+
+    assert proc.returncode == 0, proc.stdout
+    assert "all 2 jobs passed." in proc.stdout, proc.stdout
+    assert "NOT RUN" not in proc.stdout, proc.stdout
+
+
+def test_a_failed_selection_is_still_a_failure(monkeypatch, tmp_path):
+    """⭐ A FAIL in the selection is a FAIL: the NOT RUN of the rest does not
+    soften it to a refusal."""
+    monkeypatch.setattr(run_tests, "free_gb_on_target", lambda: 500.0)
+    monkeypatch.setattr(run_tests, "append_cost_ledger", lambda *a, **k: None)
+    status = tmp_path / "status.json"
+    run_tests.run(
+        [run_tests.Job("repo tooling (scripts/tests)", [sys.executable, "-c", "raise SystemExit(1)"]),
+         run_tests.Job("workspace (default features)", [sys.executable, "-c", "pass"])],
+        False, status_json=str(status), rust_only=True, only_job="repo tooling",
+    )
+
+    proc = _last_test_run(status)
+
+    assert proc.returncode == 1, proc.stdout
+    assert "1 job(s) FAILED" in proc.stdout, proc.stdout

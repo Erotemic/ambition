@@ -55,7 +55,7 @@ pub fn authorize_staged_character_presentation_sources(
     states: Option<Res<CharacterLoadStates>>,
     // The running session's frozen cast, or the published one with no session
     // (`SessionCast`).
-    registry: crate::session::mechanics::SessionCast,
+    registry: ambition_characters::prepared::SessionCast,
     audio_catalog: Option<Res<ambition_audio::catalog::AudioCatalogRegistry>>,
     bank_ids: Option<Res<ambition_audio::catalog::SfxBankRegistry>>,
     selection: Option<ResMut<ambition_audio::selection::ActiveAudioSelection>>,
@@ -115,7 +115,7 @@ pub fn publish_body_presentation_sources(
     mut commands: Commands,
     // The running session's frozen cast, or the published one with no session
     // (`SessionCast`).
-    registry: crate::session::mechanics::SessionCast,
+    registry: ambition_characters::prepared::SessionCast,
     bodies: Query<
         (
             Entity,
@@ -217,7 +217,7 @@ pub fn project_prepared_character_definitions(
     mut commands: Commands,
     // The session's cast (`SessionCast`), not the App's: a cast a reload
     // publishes reaches the bodies when its generation is activated.
-    cast: crate::session::mechanics::SessionCast,
+    cast: ambition_characters::prepared::SessionCast,
     changed_bodies: Query<
         (
             Entity,

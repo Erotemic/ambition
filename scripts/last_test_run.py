@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Read the last `run_tests.py` result and reject stale answers.
 
-Exit status is the verdict: 0 when every job passed, 1 when a job failed, and 2
-when the status is missing, unfinished, stale, or claims a dead process is still
-running.
+Exit status is the verdict: 0 when every job of the lane passed, 1 when a job
+failed, and 2 when the status is missing, unfinished, stale, claims a dead
+process is still running, or is a `--only-job` selection whose other jobs did
+not run (Q59: NOT RUN is not PASS).
 
 Usage::
 
@@ -222,6 +223,17 @@ def main() -> int:
     if failed:
         print(f"\n{len(failed)} job(s) FAILED: {', '.join(str(f) for f in failed)}")
         return 1
+    # A `--only-job` run is a focused check: its jobs passed, and the rest of
+    # the lane is NOT RUN (Q59). Read as a verdict on the lane, it is a PASS for
+    # jobs that nothing ran.
+    planned = status.get("planned_jobs")
+    if status.get("only_job") is not None and isinstance(planned, int) and planned > len(jobs):
+        print(
+            f"\nthe {len(jobs)} selected job(s) passed. NOT RUN: {planned - len(jobs)} of "
+            f"the `{status.get('lane', '?')}` lane's {planned} job(s) "
+            f"(`--only-job {status['only_job']!r}`). This is not a verdict on the lane."
+        )
+        return 2
     print(f"\nall {len(jobs)} jobs passed.")
     return 0
 

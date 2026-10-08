@@ -352,3 +352,86 @@ fn the_same_anchor_in_two_live_rooms_is_two_edges() {
         "(camper and arrival in one room, camper in the other live room): (camper hangs, arrival hangs)"
     );
 }
+
+/// A block whose top-left corner is (100, 100) and top-right corner (300, 100).
+fn one_block_world() -> ae::World {
+    ae::World::new(
+        "ledge",
+        ae::Vec2::new(800.0, 600.0),
+        ae::Vec2::ZERO,
+        vec![ae::world::Block::solid(
+            "stage",
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(200.0, 200.0),
+        )],
+    )
+}
+
+/// The contact the kernel's probe gives a body of `size` clung to one face of
+/// [`one_block_world`]'s block, its head 13 px above the lip. `face` is the
+/// wall normal: -1 for the left face, +1 for the right.
+fn probed_contact(size: ae::Vec2, face: f32) -> LedgeContact {
+    let wall_x = if face < 0.0 { 100.0 } else { 300.0 };
+    let pos = ae::Vec2::new(wall_x + face * size.x * 0.5, 87.0 + size.y * 0.5);
+    ae::ledge_grab::probe_ledge_grab_in_frame(pos, size, face, &one_block_world(), ae::Vec2::new(0.0, 1.0))
+        .unwrap_or_else(|| panic!("premise: a {size:?} body on face {face} catches its ledge"))
+}
+
+fn hanging_on(app: &mut App, id: &str, contact: LedgeContact, elapsed: f32) -> Entity {
+    let entity = hanging_at(app, id, contact.anchor, elapsed);
+    let mut model = app
+        .world_mut()
+        .get_mut::<ambition_platformer2d_core::movement::MotionModel>(entity)
+        .expect("the body has a motion model");
+    if let ae::MotionModel::AxisSwept(axis) = &mut *model {
+        axis.state.ledge_grab = Some(LedgeGrabState {
+            elapsed,
+            ..LedgeGrabState::hanging(contact)
+        });
+    }
+    entity
+}
+
+/// ⭐ ONE CORNER IS ONE EDGE, WHATEVER THE BODIES' SIZES.
+///
+/// The contacts come from the kernel's probe, not from a shared anchor built
+/// by hand: a small and a large fighter on one corner hang at centres more
+/// than 1 px apart, and the rule compared those centres. The later arrival
+/// keeps the edge. The control is the same pair on the two faces of the
+/// block: two edges, both kept.
+#[test]
+fn two_fighters_of_different_sizes_on_one_corner_are_one_edge() {
+    let small_size = ae::Vec2::new(28.0, 46.0);
+    let large_size = ae::Vec2::new(44.0, 76.0);
+    let small = probed_contact(small_size, -1.0);
+    let large = probed_contact(large_size, -1.0);
+    assert!(
+        small.anchor.distance(large.anchor) > SAME_EDGE_EPSILON,
+        "premise: the two hang centres differ, or this case is the old one"
+    );
+
+    let mut app = app();
+    let camper = hanging_on(&mut app, "small", small, 1.4);
+    let arriving = hanging_on(&mut app, "large", large, 0.02);
+    app.update();
+    assert!(still_hanging(&app, arriving), "the later arrival lost the edge");
+    assert!(!still_hanging(&app, camper), "two fighters of different sizes shared one corner");
+
+    // Control: one on each face of the block is two edges.
+    let mut app = app_two_faces(small_size, large_size);
+    app.update();
+    let bodies: Vec<Entity> = {
+        let world = app.world_mut();
+        let mut query = world.query::<(Entity, &SimId)>();
+        query.iter(world).map(|(entity, _)| entity).collect()
+    };
+    let hanging: Vec<bool> = bodies.into_iter().map(|entity| still_hanging(&app, entity)).collect();
+    assert_eq!(hanging, vec![true, true], "control: a body on each face keeps its own edge");
+}
+
+fn app_two_faces(left: ae::Vec2, right: ae::Vec2) -> App {
+    let mut app = app();
+    hanging_on(&mut app, "left", probed_contact(left, -1.0), 1.4);
+    hanging_on(&mut app, "right", probed_contact(right, 1.0), 0.02);
+    app
+}

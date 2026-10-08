@@ -919,13 +919,13 @@ ledge grab. Plan:
 **Ruling:** Q43 follow-up (2026-10-04): the target is Super Smash Bros.
 Ultimate-like occupancy and trump, deterministic and rollback-compatible.
 
-**Current failure:** "one edge" is two hang anchors within 1 px, and an anchor
-depends on the body's size, so two fighters of different sizes both hang on one
-corner. No ledge occupant exists.
+**Current state (2026-10-08):** one corner is one edge whatever the bodies'
+sizes (`LedgeContact::edge_key`; witness
+`two_fighters_of_different_sizes_on_one_corner_are_one_edge`). Ultimate's
+rules are in the plan.
 
-**Next action:** Ultimate's rules are in the plan (researched 2026-10-08,
-with the gaps the engine decides). Key occupancy by the ledge, not by a
-body's anchor.
+**Next action:** a rewind witness across a trump; then the trumped body's
+lockout and the regrab limit, as the plan's open list says.
 
 **Acceptance:** with two fighters of different sizes on one corner, one holds
 it; trump, release, death and knockoff each free or transfer the hold as the

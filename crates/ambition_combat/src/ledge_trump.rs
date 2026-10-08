@@ -15,9 +15,9 @@ use bevy::prelude::*;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-/// How close two anchors must be to be the same edge, in world px. A ledge
-/// anchor is written by the kernel from the same contact geometry for both
-/// bodies, so this is a float-equality tolerance rather than a reach.
+/// How close two edge keys must be to be the same edge, in world px. The
+/// key (`LedgeContact::edge_key`) is fixed to the corner whatever the body's
+/// size, so this is a float-equality tolerance rather than a reach.
 const SAME_EDGE_EPSILON: f32 = 1.0;
 
 /// The set [`resolve_ledge_trumps`] runs in. The engine installs it, so a
@@ -52,12 +52,14 @@ pub fn resolve_ledge_trumps(
     // drops the loser, which is what every trump did before the knob.
     rules: crate::rules::CombatTuningOf,
 ) {
-    // (room, anchor, elapsed, id, entity) for every body currently hanging.
-    // Two bodies share an edge only in one live room (OW1): the same anchor in
-    // two live rooms is two edges.
+    // (room, edge, elapsed, id, entity) for every body currently hanging.
+    // Two bodies share an edge only in one live room (OW1): the same corner in
+    // two live rooms is two edges. The edge is the ledge's corner and face,
+    // not the hanging body's centre: that centre depends on the body's size,
+    // so two fighters of different sizes on one corner had two "edges".
     type Holder = (
         Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-        ae::Vec2,
+        (ae::Vec2, f32),
         f32,
         SimId,
         Entity,
@@ -73,7 +75,8 @@ pub fn resolve_ledge_trumps(
         let Some(hang) = axis.state.ledge_grab.as_ref().filter(|l| !l.climbing) else {
             continue;
         };
-        holders.push((rules.room_of(entity), hang.contact.anchor, hang.elapsed, id.clone(), entity));
+        let edge = (hang.contact.edge_key(), hang.contact.wall_normal_x.signum());
+        holders.push((rules.room_of(entity), edge, hang.elapsed, id.clone(), entity));
     }
     if holders.len() < 2 {
         return;
@@ -108,18 +111,21 @@ pub fn resolve_ledge_trumps(
             .then_with(|| a.3.cmp(&b.3))
     });
 
-    let mut kept: Vec<(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, ae::Vec2)> =
-        Vec::new();
+    let mut kept: Vec<(
+        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        (ae::Vec2, f32),
+    )> = Vec::new();
     let mut trumped: Vec<(Entity, f32)> = Vec::new();
-    for (room, anchor, _, _, entity) in &holders {
-        if kept.iter().any(|(held_room, held)| {
+    for (room, (key, face), _, _, entity) in &holders {
+        if kept.iter().any(|(held_room, (held_key, held_face))| {
             held_room == room
-                && held.distance_squared(*anchor) <= SAME_EDGE_EPSILON * SAME_EDGE_EPSILON
+                && held_face == face
+                && held_key.distance_squared(*key) <= SAME_EDGE_EPSILON * SAME_EDGE_EPSILON
         }) {
             let pop = rules.in_room(*room).map_or(0.0, |rules| rules.ledge_trump_pop);
             trumped.push((*entity, pop));
         } else {
-            kept.push((*room, *anchor));
+            kept.push((*room, (*key, *face)));
         }
     }
 

@@ -201,6 +201,21 @@ pub struct LedgeContact {
     pub climb_target: Vec2,
 }
 
+impl LedgeContact {
+    /// A point fixed to the ledge's corner, the same for every body that
+    /// hangs on it whatever its size.
+    ///
+    /// The probe puts `anchor` at the corner plus `(half_side - 1, half_down - 4)`
+    /// and `climb_target` at the corner minus `(half_side + 4, half_down + 1)`,
+    /// both in the body's frame. Their midpoint is the corner plus
+    /// `(-2.5, -2.5)` in that frame: the body's half size cancels. Two bodies
+    /// on one corner in one frame have the same key; compare `wall_normal_x`
+    /// too, because the two faces of a one-block-wide pillar share a lip.
+    pub fn edge_key(&self) -> Vec2 {
+        (self.anchor + self.climb_target) * 0.5
+    }
+}
+
 /// Which getup the player chose when leaving the hang. The state
 /// machine interpolates position differently for each variant, and
 /// the sandbox HUD reads this to label the action ("Climb" / "Roll")

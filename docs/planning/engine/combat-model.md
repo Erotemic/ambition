@@ -137,7 +137,7 @@ Both roads obey the ruling:
    `hazards/tests.rs::a_hazard_hits_a_body_that_hangs_inside_its_ledge_window`
    (a ledge roll is the control).
 
-Ledge occupancy (two bodies on one ledge) is a separate defect, owned by
+Ledge occupancy (one holder per edge) is owned by
 [`../demos/smash-parity-inventory.md`](../demos/smash-parity-inventory.md#ledge-occupancy)
 §5 (queue row LEDGE-OCCUPANCY).
 

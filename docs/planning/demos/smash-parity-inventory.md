@@ -227,25 +227,30 @@ Preserve these and build new features on their seams.
 | Two-frame ledge vulnerability | ✔ | S/M | E1 | |
 | Ledge regrab limit | ✔ | — | E1 | Answered by diminishing intangibility; do not add a count. |
 | Edgehog vs trump knob | ✔ | M | E1 | `CombatRules::ledge_occupancy`. The knob ships; what it governs does not hold yet (next row). |
-| Ledge occupancy (one holder per ledge) | ◐ | M | E1 | ⚠ Two fighters can hang on one ledge at once (maintainer report, 2026-10-04). See "Ledge occupancy" below and queue row LEDGE-OCCUPANCY. |
+| Ledge occupancy (one holder per ledge) | ◐ | M | E1 | One corner is one edge whatever the bodies' sizes (2026-10-08); the trumped body's lockout and the regrab limit are open. See "Ledge occupancy" below and queue row LEDGE-OCCUPANCY. |
 | Tether recovery | ▢ | M | E1 | Reuse grapple/spatial-link machinery. |
 | Teleport recovery | ✔ | S/M | — | `smash.teleport`, `RecoveryRoute::Teleport`. |
 | Stall-then-fall move | ▢ | S/M | — | Existing windows suffice unless a fighter proves otherwise. |
 
 ### Ledge occupancy
 
-**Current failure.** A ledge has no occupant. Custody is per body
-(`MotionModel::ledge_grab`, `BodyLedgeState`), and `resolve_ledge_trumps`
-(`ambition_combat/src/ledge_trump.rs`) finds "one edge" by comparing the
-hanging bodies' anchors within `SAME_EDGE_EPSILON = 1.0` px. The anchor is the
-hanging body's centre, which depends on its collision size
-(`ledge_grab/runtime.rs`, `hang_center`), so two fighters of different sizes on
-one corner have anchors more than 1 px apart and both keep the ledge. Bodies
-differ in size (catalog `collision_scale` runs from 0.8 to 2.1). Every trump
-test builds
-one shared anchor by hand, so none sees this. Also: a newcomer may grab while
-the holder is mid-getup (climbing bodies are not candidates), and a grab is
-never refused (the trump knocks off after both latched, by design).
+**Built 2026-10-08: one corner is one edge.** `resolve_ledge_trumps`
+(`ambition_combat/src/ledge_trump.rs`) keys an edge by the ledge, not by the
+hanging body's centre: `LedgeContact::edge_key` is the midpoint of the anchor
+and the climb target, which the probe places on opposite sides of the corner
+by the body's half size, so the size cancels; the face (`wall_normal_x`) is
+part of the key. Occupancy is derived each tick from the rollback-registered
+hang (`actor.motion_model`), so release, a death and a knockoff free the edge
+with no stored occupant to forget. Witness:
+`two_fighters_of_different_sizes_on_one_corner_are_one_edge` (contacts from
+the kernel's probe for a 28 by 46 and a 44 by 76 body; control: one on each
+face keeps both). Kept: a newcomer may grab while the holder is mid-getup
+(`a_body_mid_getup_is_neither_trumper_nor_trumped`), and a grab is never
+refused (the trump knocks off after both latched, by design).
+
+**Open.** The trumped body's lockout (Ultimate: about 30 frames, unverified)
+and the regrab limit and multipliers are not built. A rewind across a trump
+has no witness of its own; the hang it derives from is rollback state.
 
 **Target.** Super Smash Bros. Ultimate-like ledge occupancy and trump. Do not
 guess Ultimate's timings from memory: research them (getup/roll/jump options,

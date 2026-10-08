@@ -1190,10 +1190,13 @@ fn dropped_gauntlet(sim: &mut Platformer2dSimHarness) -> Vec<Option<SimId>> {
 /// acquire   the ordinary pressed pickup
 /// bank      a real shrine rest, with it in hand: the CAPTURE that could not
 ///           see it, because both baselines query `&SimId`
-/// die       the attempt sweep destroys it (`SpawnedThisAttempt`), and the
-///           checkpoint's description puts it back — the half that had no
-///           recipe to work from
+/// die       the restore keeps it in the hand the checkpoint names, and keeps
+///           the defeat that minted it
 /// ```
+///
+/// The object in the hand survives the death as the same entity. The arm that
+/// builds a banked object again from its description is held by
+/// `a_banked_runtime_mint_returns_to_the_hand_that_banked_it`.
 ///
 /// ⇒ So this is not a second test of the mint. It is the only test of what the
 /// mint was FOR: the reward for beating a boss surviving a death that the
@@ -1209,12 +1212,13 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
          different road and are excluded by provenance"
     );
 
-    // ⚠ At this offset the pickup teleport crosses into `hall_of_bosses` and
-    // back, and the boss leaves with the room before its death outro records
-    // the defeat. At dx 0 the defeat is recorded after the checkpoint, and the
-    // death retracts it with its gauntlet (`docs/planning/queue.md`,
-    // DEFEAT-AFTER-ITS-DROP).
-    crate::boss_lifecycle::spawn_mockingbird_beside(&mut sim, GAUNTLET_BOSS, -200.0);
+    // On the player, so the pickup does not cross a door: a crossing takes
+    // the boss out with its room, and the death then has no defeat to
+    // retract. The defeat is recorded when the death settles, in the tick of
+    // the kill, so the checkpoint banks the defeat with its drop. When it was
+    // recorded at the end of a 2.2 s death outro, this checkpoint banked the
+    // gauntlet and not its defeat, and the death retracted both (Q51).
+    crate::boss_lifecycle::spawn_mockingbird(&mut sim, GAUNTLET_BOSS);
     crate::boss_lifecycle::kill_boss_with_a_real_hit(&mut sim, GAUNTLET_BOSS, 600);
     sim.step_n(base(), 120);
 
@@ -1264,6 +1268,17 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
     );
 
     die(&mut sim);
+    assert_the_restore_committed(&mut sim);
+    assert!(
+        matches!(
+            sim.world()
+                .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+                .data()
+                .boss(GAUNTLET_BOSS),
+            ambition_platformer2d::persistence::save_data::PersistedEncounterState::Cleared
+        ),
+        "the checkpoint banked the defeat, so the death keeps the boss cleared"
+    );
 
     let after = occurrences(&mut sim, &occurrence);
     assert_eq!(

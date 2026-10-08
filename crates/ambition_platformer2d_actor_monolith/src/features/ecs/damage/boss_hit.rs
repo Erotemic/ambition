@@ -4,7 +4,8 @@
 //! `BossEncounter.encounter: ActorPhaseState`). Player damage mutates the entity in
 //! place via [`apply_entity_boss_damage`]; the death CONSEQUENCES that aren't
 //! immediate VFX (save Cleared + quest + music restore) are resolved by
-//! `update_boss_encounters` once the death outro elapses.
+//! `update_boss_encounters` when the death settles (`death_settled`), in the
+//! tick of the kill or the next tick with a running clock.
 
 use super::super::ae;
 use super::super::damage_drops::{drop_ability_pickup, drop_currency_coin, drop_health_pickup};
@@ -216,8 +217,8 @@ pub(crate) fn apply_boss_hit(
     // `applied` is false during invulnerable phases (Intro / Transition / the
     // transition_lock tell) so we suppress the hit VFX; `killed` flags the lethal
     // hit. The death CONSEQUENCES that aren't immediate feedback (save Cleared +
-    // quest + music restore) are resolved by `update_boss_encounters` once the
-    // death outro elapses.
+    // quest + music restore) are resolved by `update_boss_encounters` when the
+    // death settles.
     let (applied, killed, wallet_spent) =
         apply_entity_boss_damage(boss.status, health, combat, wallet_shield, amount);
     if !applied {

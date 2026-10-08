@@ -16,7 +16,6 @@
     phase2_to_enrage_hp: 0.25,
     intro_seconds: 2.6,
     transition_seconds: 2.0,
-    death_seconds: 2.6,
     music_intro: "crooked_ascent_boss",
     music_phase1: "crooked_ascent_boss",
     music_phase2: "crooked_ascent_boss",

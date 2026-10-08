@@ -53,8 +53,12 @@
 //!
 //! Each rigged root gets one presentation OWNER whose children are the part
 //! slots. The owner is not a child of the root, because a player's root is its
-//! simulation body, and the body must not grow presentation children.
-//! [`RiggedPresentations`] maps a root to its owner.
+//! simulation body, and the body must not grow presentation children. It is
+//! related to its root ([`RiggedPresentationOf`], [`RiggedPresentedBy`]), and
+//! the relationship despawns the owner and its slots with the root. So the
+//! parts of a body that is gone are gone also where no presentation system
+//! runs: a quit to the title despawns the session's bodies, and the systems
+//! that draw parts run only while a session is presented.
 //!
 //! The slots are allocated once per flipbook (its most draws in one frame) and
 //! reused: a frame change writes their rect, transform and visibility, and
@@ -214,9 +218,36 @@ const IMPOSTOR_QUAD_OFFSET: Vec2 = Vec2::new(8192.0, 0.0);
 /// impostors are drawn before any view samples them in the same frame.
 const IMPOSTOR_CAMERA_ORDER: isize = -100_000;
 
-/// The owner entity of each rigged root.
-#[derive(Resource, Default, Debug)]
-pub struct RiggedPresentations(pub HashMap<Entity, Entity>);
+/// On a presentation owner: the rigged root it draws.
+#[derive(Component, Debug)]
+#[relationship(relationship_target = RiggedPresentedBy)]
+pub struct RiggedPresentationOf(pub Entity);
+
+/// On a rigged root: its presentation owner. `linked_spawn`: the owner, and
+/// with it its part slots, is despawned with the root.
+#[derive(Component, Debug)]
+#[relationship_target(relationship = RiggedPresentationOf, linked_spawn)]
+pub struct RiggedPresentedBy(Entity);
+
+impl RiggedPresentedBy {
+    /// The presentation owner.
+    pub fn owner(&self) -> Entity {
+        self.0
+    }
+}
+
+/// A presentation that goes, by any road, gives back its impostor cell.
+pub fn give_back_the_cell_of_a_removed_presentation(
+    removed: On<Remove, RiggedPresentation>,
+    presentations: Query<&RiggedPresentation>,
+    atlas: Option<ResMut<RiggedImpostorAtlas>>,
+) {
+    if let (Ok(presentation), Some(mut atlas)) = (presentations.get(removed.entity), atlas) {
+        if let Some(impostor) = presentation.impostor.as_ref() {
+            atlas.give(impostor);
+        }
+    }
+}
 
 /// The shared impostor atlases, the pages of each cell class
 /// ([`IMPOSTOR_CELL_CLASSES`]): two targets each, their cameras, and which
@@ -415,7 +446,6 @@ pub struct Impostor {
 /// The presentation owner of one rigged root.
 #[derive(Component)]
 pub struct RiggedPresentation {
-    pub root: Entity,
     /// The sheet target whose parts these are.
     pub target: String,
     pub pages: RiggedSpritePages,
@@ -534,10 +564,15 @@ pub fn bind_rigged_presentations(
     assets: Option<Res<GameAssets>>,
     asset_server: Option<Res<AssetServer>>,
     mut impostors: ImpostorAssets,
-    mut owners: ResMut<RiggedPresentations>,
     mut by_sheet: Local<HashMap<(String, TextureResolutionScale), RiggedSpritePages>>,
     mut posed_by_target: Local<HashMap<String, Option<Arc<PosedParts>>>>,
-    mut roots: Query<(Entity, &CharacterAnimator, Option<&BoundSpriteQuality>, &mut Sprite)>,
+    mut roots: Query<(
+        Entity,
+        &CharacterAnimator,
+        Option<&BoundSpriteQuality>,
+        &mut Sprite,
+        Option<&RiggedPresentedBy>,
+    )>,
     presentations: Query<&RiggedPresentation>,
 ) {
     if !admission.is_some_and(|admission| admission.admit) {
@@ -558,24 +593,13 @@ pub fn bind_rigged_presentations(
             }
         }
     }
-    // A root that went away, or lost its sheet, loses its owner.
-    owners.0.retain(|root, owner| {
-        if roots.contains(*root) {
-            return true;
-        }
-        if let Some(impostor) = presentations.get(*owner).ok().and_then(|presentation| presentation.impostor.as_ref()) {
-            impostors.atlas.give(impostor);
-        }
-        commands.entity(*owner).try_despawn();
-        false
-    });
-    for (root, animator, bound, mut sprite) in &mut roots {
+    // A root that went away took its owner with it (`RiggedPresentedBy`); a
+    // root that lost its sheet loses its owner below.
+    for (root, animator, bound, mut sprite, presented) in &mut roots {
+        let owner = presented.map(RiggedPresentedBy::owner);
         let tier = bound.map_or(TextureResolutionScale::Full, |bound| bound.scale);
         let wanted = by_sheet.get(&(animator.spec.base_sheet_key().to_owned(), tier));
-        let current = owners
-            .0
-            .get(&root)
-            .and_then(|owner| presentations.get(*owner).ok());
+        let current = owner.and_then(|owner| presentations.get(owner).ok());
         let same = match (wanted, current) {
             (Some(wanted), Some(current)) => Arc::ptr_eq(&wanted.flipbook, &current.pages.flipbook),
             (None, None) => true,
@@ -597,19 +621,19 @@ pub fn bind_rigged_presentations(
             // (both have `idle`, `walk`). Drop them now: the root draws the new
             // character's baked sheet until its pages are ready.
             if current.is_some_and(|current| current.target != target) {
-                drop_presentation(&mut commands, &mut owners, &mut impostors.atlas, &presentations, root);
+                drop_presentation(&mut commands, root, owner);
                 draw_baked_frame(&mut sprite, animator);
             }
             continue;
         }
-        drop_presentation(&mut commands, &mut owners, &mut impostors.atlas, &presentations, root);
+        drop_presentation(&mut commands, root, owner);
         match wanted {
             Some(pages) => {
                 let posed = posed_by_target
                     .entry(target.to_owned())
                     .or_insert_with(|| bind_posed_parts(pages, target))
                     .clone();
-                owners.0.insert(root, spawn_presentation(&mut commands, root, target, pages.clone(), posed));
+                spawn_presentation(&mut commands, root, target, pages.clone(), posed);
             }
             // Back to the baked sheet: the root draws itself again.
             None => draw_baked_frame(&mut sprite, animator),
@@ -617,18 +641,11 @@ pub fn bind_rigged_presentations(
     }
 }
 
-fn drop_presentation(
-    commands: &mut Commands,
-    owners: &mut RiggedPresentations,
-    atlas: &mut RiggedImpostorAtlas,
-    presentations: &Query<&RiggedPresentation>,
-    root: Entity,
-) {
-    if let Some(owner) = owners.0.remove(&root) {
+/// Despawn `root`'s presentation owner, if it has one. Its impostor cell is
+/// given back by [`give_back_the_cell_of_a_removed_presentation`].
+fn drop_presentation(commands: &mut Commands, root: Entity, owner: Option<Entity>) {
+    if let Some(owner) = owner {
         commands.entity(root).try_remove::<FrameInSprite>();
-        if let Some(impostor) = presentations.get(owner).ok().and_then(|presentation| presentation.impostor.as_ref()) {
-            atlas.give(impostor);
-        }
         commands.entity(owner).try_despawn();
     }
 }
@@ -788,7 +805,12 @@ fn spawn_presentation(
     posed: Option<Arc<PosedParts>>,
 ) -> Entity {
     let owner = commands
-        .spawn((Name::new("rigged presentation"), Transform::default(), Visibility::Hidden))
+        .spawn((
+            Name::new("rigged presentation"),
+            Transform::default(),
+            Visibility::Hidden,
+            RiggedPresentationOf(root),
+        ))
         .id();
     let slots = (0..pages.flipbook.max_draws())
         .map(|_| {
@@ -806,7 +828,6 @@ fn spawn_presentation(
         })
         .collect();
     commands.entity(owner).insert(RiggedPresentation {
-        root,
         target: target.to_owned(),
         pages,
         slots,
@@ -842,7 +863,10 @@ pub fn drive_rigged_presentations(
     mut commands: Commands,
     mut impostors: ImpostorAssets,
     demand: Option<ResMut<ComposedBodyDemand>>,
-    mut owners: Query<(Entity, &mut RiggedPresentation, &mut Visibility, &mut Transform), Without<RiggedPartSlot>>,
+    mut owners: Query<
+        (Entity, &RiggedPresentationOf, &mut RiggedPresentation, &mut Visibility, &mut Transform),
+        Without<RiggedPartSlot>,
+    >,
     mut cameras: Query<&mut Camera, With<RiggedImpostorCamera>>,
     mut roots: Roots,
     mut slots: Slots,
@@ -855,8 +879,8 @@ pub fn drive_rigged_presentations(
     // Pages built this frame: their cameras arrive with this frame's commands,
     // so a body given a cell in one draws directly once more.
     let mut fresh_pages: Vec<(usize, usize)> = Vec::new();
-    for (_, mut presentation, _, _) in &mut owners {
-        let Ok((animator, _, _, _, _, _, root_layers, pose, _)) = roots.get(presentation.root) else {
+    for (_, &RiggedPresentationOf(root), mut presentation, _, _) in &mut owners {
+        let Ok((animator, _, _, _, _, _, root_layers, pose, _)) = roots.get(root) else {
             continue;
         };
         let flipbook = presentation.pages.flipbook.clone();
@@ -865,7 +889,7 @@ pub fn drive_rigged_presentations(
         // it (alice's blink drew her arm through her coat).
         let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
         let fades = row.is_some_and(|row| flipbook.frame_opacity(row, animator.frame) < 1.0);
-        let wanted = always || fades || demand.as_ref().is_some_and(|demand| demand.is_declared(presentation.root));
+        let wanted = always || fades || demand.as_ref().is_some_and(|demand| demand.is_declared(root));
         presentation.composed_hold = if wanted {
             COMPOSED_HOLD_FRAMES
         } else {
@@ -973,9 +997,9 @@ pub fn drive_rigged_presentations(
     // The bodies drawn into their page this frame: if the page renders, their
     // cells hold this frame's draws under its new generation.
     let mut drawn_into: Vec<(Entity, usize, usize)> = Vec::new();
-    for (owner, mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
+    for (owner, &RiggedPresentationOf(root), mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
         let Ok((animator, mut root_sprite, root_anchor, color_shift, root_transform, root_visibility, _, pose, frame_in_sprite)) =
-            roots.get_mut(presentation.root)
+            roots.get_mut(root)
         else {
             continue;
         };
@@ -1000,7 +1024,7 @@ pub fn drive_rigged_presentations(
             // The baked frame draws the body, and is its whole image.
             draw_baked_frame(&mut root_sprite, animator);
             if frame_in_sprite.is_some() {
-                commands.entity(presentation.root).try_remove::<FrameInSprite>();
+                commands.entity(root).try_remove::<FrameInSprite>();
             }
             owner_visibility.set_if_neq(Visibility::Hidden);
             continue;
@@ -1011,7 +1035,7 @@ pub fn drive_rigged_presentations(
         let Some(impostor) = impostor else {
             // Drawn directly, the root shows no image at all.
             if frame_in_sprite.is_some() {
-                commands.entity(presentation.root).try_remove::<FrameInSprite>();
+                commands.entity(root).try_remove::<FrameInSprite>();
             }
             let root_visible = root_shows(root_visibility);
             let frame_size = flipbook.frame_size.as_vec2();
@@ -1126,7 +1150,7 @@ pub fn drive_rigged_presentations(
             max: (Vec2::splat(margin) + flipbook.frame_size.as_vec2()) / atlas.cell_size(),
         };
         if frame_in_sprite != Some(&frame) {
-            commands.entity(presentation.root).try_insert(frame);
+            commands.entity(root).try_insert(frame);
         }
 
         // ⛔ A CELL THAT IS CURRENT KEEPS ITS SLOTS UNTOUCHED. Its slots hold
@@ -1176,7 +1200,7 @@ pub fn drive_rigged_presentations(
         let Some(generation) = atlases.0[class].get(page).map(|atlas| atlas.generation) else {
             continue;
         };
-        if let Ok((_, mut presentation, _, _)) = owners.get_mut(owner) {
+        if let Ok((_, _, mut presentation, _, _)) = owners.get_mut(owner) {
             if let Some((_, _, stamped)) = presentation.shown.as_mut() {
                 // A page that did not render keeps its generation, and so does
                 // every cell that was current; a page that rendered redrew

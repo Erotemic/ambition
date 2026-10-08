@@ -32,7 +32,6 @@ REQUIRED_FIELDS = {
     "phase2_to_enrage_hp",
     "intro_seconds",
     "transition_seconds",
-    "death_seconds",
     "music_intro",
     "music_phase1",
     "music_phase2",
@@ -103,7 +102,6 @@ def test_timing_fields_are_positive():
         for field in (
             "intro_seconds",
             "transition_seconds",
-            "death_seconds",
         ):
             assert data[field] > 0.0, (
                 f"{ron_path.name}: {field}={data[field]} should be positive"

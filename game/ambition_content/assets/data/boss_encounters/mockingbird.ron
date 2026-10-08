@@ -26,7 +26,6 @@
     phase2_to_enrage_hp: 0.25,
     intro_seconds: 2.0,
     transition_seconds: 1.4,
-    death_seconds: 2.2,
     music_intro: "how_to_kill_a_mockingbird",
     music_phase1: "how_to_kill_a_mockingbird",
     music_phase2: "how_to_kill_a_mockingbird",

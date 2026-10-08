@@ -19,7 +19,6 @@
     phase2_to_enrage_hp: 0.22,
     intro_seconds: 2.4,
     transition_seconds: 1.6,
-    death_seconds: 2.4,
     // Gradient Sentinel: fast violin theme from the moment the
     // encounter wakes up, through every active phase. The earlier
     // "intro keeps the calmer pulse-drift bed for an escalation"

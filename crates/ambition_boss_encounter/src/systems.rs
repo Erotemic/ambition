@@ -124,8 +124,8 @@ pub fn update_boss_encounters(
         return;
     };
 
-    // Sim clock: phase pacing (intro/phase-change timers, death outro, reward
-    // grace) freezes with the player in bullet-time (ADR 0010), so phase
+    // Sim clock: phase pacing (intro/phase-change timers, the death edge,
+    // reward grace) freezes with the player in bullet-time (ADR 0010), so phase
     // transitions do not fire while the sim is stopped.
     let dt = world_time.sim_dt();
 
@@ -214,11 +214,11 @@ pub fn update_boss_encounters(
             .status
             .encounter
             .as_ref()
-            .is_some_and(|phase| phase.death_outro_complete(spec.death_seconds));
+            .is_some_and(|phase| phase.death_settled());
 
         // Wake (Dormant → start) while alive, then advance the phase
-        // mechanism. The phase also ticks when dead, so the death outro timer
-        // advances (and `death_outro_complete` can fire).
+        // mechanism. The phase also ticks when dead, so its timer advances
+        // and `death_settled` can become true.
         let alive = health.alive();
         let hp_fraction = health.health.ratio();
         let mut phase_events = Vec::new();
@@ -248,7 +248,7 @@ pub fn update_boss_encounters(
             let p = feature.status.encounter.as_ref().expect("seeded");
             (
                 p.phase,
-                p.death_outro_complete(spec.death_seconds),
+                p.death_settled(),
                 p.boss_invulnerable(),
             )
         };
@@ -258,8 +258,8 @@ pub fn update_boss_encounters(
             combat.hit_flash = 0.0;
         }
 
-        // Death resolution: once the outro ends, record this placement as
-        // Cleared and fire the quest event (once, when the placement first
+        // Death resolution: on the tick the death settles, record this
+        // placement as Cleared and fire the quest event (once, when the placement first
         // becomes Cleared). The quest event carries the archetype id (quest
         // objectives are about the boss kind, e.g. "defeat the Gradient
         // Sentinel").
@@ -269,8 +269,11 @@ pub fn update_boss_encounters(
             if health.alive() {
                 health.health.current = 0;
             }
-            // The edge, not the resting state: recorded on the frame the outro
-            // completes and never again, so the record can be retracted while
+            // The edge, not the resting state: recorded on the tick the death
+            // settles and never again. That is the tick of the killing hit, or
+            // the next tick with a running clock, so a checkpoint cannot bank
+            // the drops of that hit without the defeat that caused them. Never
+            // again, so the record can be retracted while
             // the corpse stands. `boss_is_cleared` still guards the quest
             // event, which fires once per placement.
             if !death_was_already_settled && !crate::boss_is_cleared(&save, &feature.config) {

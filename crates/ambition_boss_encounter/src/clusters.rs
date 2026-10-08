@@ -54,7 +54,7 @@ impl BossConfig {
 }
 
 /// The rest of a boss's profile, beside its behaviour: the encounter (HP,
-/// phase triggers, death outro, music) and the reward.
+/// phase triggers, music) and the reward.
 ///
 /// ⛔ RESOLVED WITH THE BEHAVIOUR, from the same catalog. Seeded on the first
 /// tick from the App's catalog instead, a session that froze one generation

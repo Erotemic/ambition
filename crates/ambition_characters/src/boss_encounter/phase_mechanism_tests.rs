@@ -213,7 +213,6 @@ fn legacy_spec() -> BossEncounterSpec {
         phase2_to_enrage_hp: 0.20,
         intro_seconds: 2.0,
         transition_seconds: 1.0,
-        death_seconds: 1.0,
         music_intro: String::new(),
         music_phase1: String::new(),
         music_phase2: String::new(),

@@ -77,8 +77,8 @@ pub(crate) fn spawn_mockingbird_beside(sim: &mut Platformer2dSimHarness, runtime
 }
 
 /// Drive the boss to death by mutating its ENTITY-LOCAL state (R3: the entity is
-/// the source of truth). `update_boss_encounters` then runs the death outro +
-/// records the consequences the tests assert.
+/// the source of truth). `update_boss_encounters` then records the
+/// consequences the tests assert.
 ///
 /// ⛔⛔ **IT DROPS NOTHING, AND THE REWARD ASSERTION BELOW PASSES ANYWAY.**
 /// Every boss drop — the signature gauntlet, the ability pickup, the dropped
@@ -297,7 +297,8 @@ fn one_real_mockingbird_kill(practice: bool) -> (bool, u8, Vec<ambition_platform
     let volleys_before = volleys(sim.world_mut());
 
     kill_boss_with_a_real_hit(&mut sim, "hall_copy", 600);
-    // Past the death outro (2.2 s), so the defeat is recorded and the chest drops.
+    // The defeat is recorded when the death settles; the steps let the chest
+    // fall.
     for _ in 0..200 {
         sim.step(AgentAction::default());
     }
@@ -487,8 +488,7 @@ fn defeated_boss_is_recorded_cleared_drops_reward_and_clears_music() {
 
     force_kill_boss(&mut sim, "dying_boss");
 
-    // Step past the death outro (mockingbird `death_seconds` = 2.2s ≈ 132
-    // frames) so the death resolves: save Cleared + reward-chest sync + music
+    // Step so the death resolves: save Cleared + reward-chest sync + music
     // lifetime restore all run.
     for _ in 0..200 {
         sim.step(AgentAction::default());
@@ -773,7 +773,7 @@ fn encounter_script_gate_force_kills_through_the_real_schedule() {
     // The boss is alive until the gate fires.
     assert_eq!(boss_alive(sim.world_mut(), "scripted"), Some(true));
 
-    // Fire the gate → the script force-kills member 0; step past the death outro.
+    // Fire the gate → the script force-kills member 0; step so it resolves.
     sim.world_mut()
         .write_message(EncounterGate::new("kill_now"));
     for _ in 0..200 {

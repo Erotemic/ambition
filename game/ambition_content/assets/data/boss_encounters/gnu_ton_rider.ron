@@ -14,7 +14,6 @@
     phase2_to_enrage_hp: 0.28,
     intro_seconds: 2.8,
     transition_seconds: 2.0,
-    death_seconds: 3.0,
     music_intro: "standing_on_shoulders",
     music_phase1: "standing_on_shoulders",
     music_phase2: "standing_on_shoulders",

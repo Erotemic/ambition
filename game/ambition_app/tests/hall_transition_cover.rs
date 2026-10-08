@@ -1129,3 +1129,53 @@ fn two_round_trips_through_the_gallery_return_the_same_working_set() {
         first.2, second.2
     );
 }
+
+/// The part slots and presentation owners of the bodies drawn from parts.
+fn drawn_parts(app: &mut App) -> (usize, usize) {
+    use ambition_platformer2d::render::rendering::actors::rigged::{RiggedPartSlot, RiggedPresentation};
+    let world = app.world_mut();
+    let owners = world.query_filtered::<(), With<RiggedPresentation>>().iter(world).count();
+    let slots = world.query_filtered::<(), With<RiggedPartSlot>>().iter(world).count();
+    (owners, slots)
+}
+
+/// Jon, 2026-10-07: after a quit to the title from the Hall, the Hall's
+/// characters stayed drawn behind the title. The part slots of a body drawn
+/// from parts were despawned only by the system that binds them, and that
+/// system runs only while a session is presented. Measured: 2095 part slots
+/// drawn on the title. A presentation owner is now despawned with its body
+/// (`RiggedPresentedBy`, `linked_spawn`).
+#[test]
+fn a_quit_to_the_title_from_the_hall_leaves_no_body_drawn_from_parts() {
+    let (mut app, _) = boot_and_record_the_hall_transition();
+    let mut in_hall = false;
+    for _ in 0..600 {
+        step(&mut app);
+        in_hall = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world()).is_some_and(|live| {
+            let mut sets = app.world_mut().query::<&ambition_platformer2d::world::rooms::RoomSet>();
+            sets.iter(app.world())
+                .next()
+                .is_some_and(|set| set.spec(live).id.contains("hall_of_characters"))
+        });
+        if in_hall {
+            break;
+        }
+    }
+    assert!(in_hall, "precondition: the transition reached the Hall");
+    assert!(settle_cast(&mut app, 120), "HARNESS GAVE UP: the Hall's cast never went quiet");
+    let (owners, slots) = drawn_parts(&mut app);
+    assert!(
+        owners > 0 && slots > 0,
+        "control: the Hall draws bodies from parts ({owners} owners, {slots} slots)"
+    );
+
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    for _ in 0..240 {
+        step(&mut app);
+    }
+    assert_eq!(
+        drawn_parts(&mut app),
+        (0, 0),
+        "presentation owners and part slots left on the title after the session's bodies are gone"
+    );
+}

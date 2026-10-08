@@ -32,7 +32,6 @@ pub struct BossEncounterSpec {
     pub phase2_to_enrage_hp: f32,
     pub intro_seconds: f32,
     pub transition_seconds: f32,
-    pub death_seconds: f32,
     /// Music track ids per phase. Empty disables the swap.
     pub music_intro: String,
     pub music_phase1: String,
@@ -253,12 +252,15 @@ impl ActorPhaseState {
         self.transition_lock > 0.0 || self.phase.boss_invulnerable()
     }
 
-    /// True once a dead boss's death outro has elapsed `death_seconds` — the
-    /// caller (the death-resolution system) reads this to write the save +
-    /// quest event. `phase_elapsed` keeps advancing during `Death` (see
-    /// [`tick`](Self::tick)) so this can fire.
-    pub fn death_outro_complete(&self, death_seconds: f32) -> bool {
-        matches!(self.phase, BossEncounterPhase::Death) && self.phase_elapsed >= death_seconds
+    /// True once the boss is dead and simulation time has run since it died.
+    /// The death-resolution system records the defeat on the tick this
+    /// becomes true, which is the tick of the kill or the first tick after it
+    /// with a running clock. So the defeat and the drops of the killing hit
+    /// are in the same checkpoint. A stopped clock does not settle a death, as
+    /// it fires no phase trigger. `phase_elapsed` keeps advancing during
+    /// `Death` (see [`tick`](Self::tick)).
+    pub fn death_settled(&self) -> bool {
+        matches!(self.phase, BossEncounterPhase::Death) && self.phase_elapsed > 0.0
     }
 
     /// Force the boss straight to `Death` (environmental kills / lethal damage
@@ -286,7 +288,7 @@ impl ActorPhaseState {
             return Vec::new();
         }
         self.phase_elapsed += dt;
-        // Death advances its outro timer (for `death_outro_complete`) but fires
+        // Death advances its timer (for `death_settled`) but fires
         // no further triggers — it is terminal.
         if matches!(self.phase, BossEncounterPhase::Death) {
             return Vec::new();

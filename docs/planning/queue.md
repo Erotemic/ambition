@@ -267,284 +267,6 @@ Witnesses:
   write used to be lost (the `Update` write was rewound away). It lands now,
   and every replay of a tick agrees.
 
-### DEATH-IS-ROOM-LOCAL — a participant's death rewinds its own horizon, not the session's
-
-**Owner:** the death/checkpoint road (`session/checkpoint.rs`,
-`runtime/sandbox_reset.rs`) and
-[open-world runtime and residency](engine/open-world-runtime-and-residency.md).
-
-**Ruling:** Q151 (2026-10-03, [`maintainer-decisions.md`](maintainer-decisions.md)).
-An ordinary death is local to the dying participant and the affected room.
-Another participant's live room and its consequences (a boss defeat, its
-reward) stay. The live world and durable state share one rewind horizon. An
-explicit whole-session reload may rewind the whole session. No global durable
-rewind followed by reconciliation of surviving rooms.
-
-**Current state:** the boss half is done. The death's admission
-(`resume_at_checkpoint_on_reset`) names the live rooms that other participants
-hold (`RoomReplayAdmitted::spared`), and `retract_boss_defeats_on_replay`
-keeps the defeats in those rooms. A New Game spares nothing. The subject's own
-room is never spared, also when another participant shares it. The option-A
-machinery (`RoomsOwedTheRestore`, the replay of every other live room) is
-deleted (rollback schema 305). Witness:
-`a_death_in_one_room_leaves_the_boss_defeat_in_the_other_players_room`.
-
-**Breakable respawns are served by the live room:** the restore forgets
-every respawn record, and `mirror_breakable_respawns` records Bob's again
-on the next tick from his platform's running timer, with the same due time
-(probe, 2026-10-03). Witness:
-`a_death_keeps_the_respawn_of_a_platform_in_another_players_room`.
-A pickup's regrowth (Q152) is served the same way, from its running
-`RespawnTimer` through `regrow_pickups`
-(`a_death_keeps_the_regrowth_of_a_heart_in_another_players_room`).
-
-**Alice's custody across Bob's room is served:** an item Alice banked in
-hand and then put down in Bob's live room is back in her hand after her
-death, held once, with the ledger saying `InCustody`
-(`a_death_takes_back_what_was_put_down_in_another_players_room`). Every
-other ledger row of a live room is republished from live state while the
-room is loaded (`continuity.rs`), as the respawn record is.
-
-**A reward taken from Bob's boss stays:** Alice opens the chest of Bob's
-boss in his room after the checkpoint and dies in the hub. She keeps the
-coins, and the chest stays looted with the boss cleared
-(`a_death_keeps_the_reward_taken_from_the_other_players_boss`).
-
-**The wallet goes back with the bag (2026-10-04).** A death restored the
-bag (`OwnedItemsBaseline`) and not the wallet, so a purchase after the
-checkpoint lost its goods and kept its price, and the save mirrored the loss.
-The baseline now also holds the primary body's balance at the checkpoint
-(captured at commit, adopted from the save on load, pinned in the restore
-inputs), and the restore writes it back, plus the coins of each reward
-grant still on record (a defeat the death keeps, such as Bob's boss, keeps
-what it paid: `a_death_keeps_the_reward_taken_from_the_other_players_boss`).
-Another participant's wallet is not rewound. Witness:
-`a_death_undoes_a_purchase_since_the_checkpoint_whole` (control: a purchase
-before the checkpoint survives); poisons on capture, load adoption and
-restore each fail it. Schema 308 -> 309. `OwnedItems` is one session-wide
-bag (the demo inventory is a demonstration, 2026-10-01: no per-seat bags).
-
-**A grant names its owners (2026-10-04).** A coin Alice took in Bob's live
-room, while he was there, was lost when she died elsewhere: the coin stayed
-gone in his room and her wallet went back to the checkpoint (measured: 0 of
-25 kept). What a placed pickup or an ordinary chest gives is now recorded
-(`GrantSource::Authored`) with the participants in its live room when it was
-taken, and the restore's acceptance keeps it in the bag and the purse while
-one of them is spared. Alone, the room is built again with the source, so
-the grant goes back with it. Witnesses:
-`a_death_keeps_the_coin_taken_in_another_players_live_room` (control: the
-coin taken alone) and `an_ordinary_chests_grant_is_owned_by_the_seats_in_its_room`
-(control: a boss reward chest keeps its placement). Poisons: never keep, and
-always keep, an authored grant; record a pickup's or a chest's grant with no
-owners. Schema 311 -> 312. What a spared participant takes OUT of the
-shared bag since the checkpoint was not recorded, so Alice's death gave it
-back; the spend that production has is recorded now (the P3 note below), and
-the purchase case is open. A production road seats a second player since the
-Q153 default (2026-10-05, below).
-
-- Review 2026-10-05, P3: the shape for that residual. The restore rebuilds
-  "the checkpoint bag plus the surviving bag mutations since it", so each
-  mutation needs a sign and a provenance: (owners, item, signed delta,
-  cause), recorded where the mutation happens (a grant is one kind; a use, a
-  sale, a purchase and a transfer are others). A rewind takes the dying
-  participant out of the owners and folds what is left over the checkpoint
-  bag. Not another list of positive exceptions, and not ownership inferred
-  later from room residency. A purchase is the sharp case: Bob's purse is
-  outside Alice's rewind, so reverting the bag alone loses his purchase with
-  no refund. Solve the shared-bag customers first; this is not a general
-  inventory-event framework.
-  - **Built 2026-10-05 for the one customer production has.** Read first:
-    every road that takes from the shared bag acts for the primary body
-    (a shop buy or sale, an item use from the menu, and the throw of an item
-    the menu equipped from the bag), and the restore's subject is always the
-    primary body. So rewinding those spends is correct, with one exception.
-    Alice throws a menu-equipped quantity into Bob's live room. The throw
-    spends the quantity and mints an object in his room. On her death, the
-    checkpoint's bag gives the quantity back while the object stays.
-    Measured: 2 javelins after the death, where there was 1.
-  - The spend is recorded where it happens:
-    `ambition_held_items::BagSpendsSinceCheckpoint` (item, and the object the
-    quantity became). Its owner is the OBJECT, not the participants in the
-    room of the throw. The acceptance keeps the spend of each object the
-    restore keeps (lying in a spared room, or held by a body there), and the
-    record is forgotten at a commit, a restore and a teardown. Schema 313 ->
-    314.
-  - Witness:
-    `a_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_room`
-    (red at 2 before). Control 1: the same throw in Alice's own room is
-    undone (1, 1). Control 2: thrown into Bob's room, then carried out in
-    Alice's hand, is also undone (1, 1); a room-owned spend gives 0 there.
-  - Poisons: no record (red at 2); keep every spend (control 1 red, 0);
-    keep every held object (control 2 red, 0).
-  - Not built: the purchase case has no production subject (the shop pays
-    from the primary purse only, and the primary is the one who dies). The
-    grants record (`RewardGrantsSinceCheckpoint`) and the spends record stay
-    two records. Join them if a third kind of mutation of the shared bag
-    gets a road that can survive the dying participant's rewind.
-
-**The items go with the coins (2026-10-04).** An item a kept reward gave was
-lost: the restore put the checkpoint's bag back whole while the reward stayed
-taken (Bob's chest stayed looted; a banked defeat's mint was not built
-again). The restore's acceptance now pins the bag and purse it promises: the
-checkpoint's, plus what each grant it keeps gave. A grant is kept unless its
-boss defeat is one the restore retracts. The boss crate states that rule once
-(`retracted_by_restore`, shared with `take_for_restore`), and
-`kept_by_restore` applies it to the grants. The verification reads the same
-bag. Witnesses: `a_death_keeps_the_item_taken_from_the_other_players_boss`
-(bag 1 then 0 before) and
-`a_death_keeps_an_ability_taken_after_the_checkpoint_from_a_banked_defeat`.
-Poisons: no grant pinned (both fail, and so does the coin witness); every
-grant kept (the defeat retracted by a death keeps its ability and bounty).
-This keeps a grant even if its source could come back, on two measured facts
-stated at `kept_by_restore`: a bag-pickup mint has no ledger row, and an
-opened chest's looted flag is not rewound.
-
-**The whole-session restart is served (2026-10-04).** Measured 2026-10-03:
-a New Game beside Bob's live room took back his boss defeat in the save and
-its chest, while his room stayed the same instance with the dead boss in
-it. Now the commit of a fresh checkpoint operation is a restart: it retires
-every other live room in the same publication (`retires_beside`: residents
-in the outgoing roster, roots despawned at application), and no other
-player's body keeps a room live or is joined. The transaction's world stays
-the replaced room alone, because two live room roots wear one identity
-(open-world "Root identity"). Witness:
-`a_new_game_leaves_no_live_room_holding_what_it_took_back` (no longer
-ignored; it also counts live rooms and entities stamped with a room that is
-not live). Where a seated participant's body goes on a restart is part of
-the join road (Q153): here Bob is a placement of his room and goes with it.
-
-**A defeat Bob won in a room he has since left stays (2026-10-04).** A
-defeat record carries the participants whose bodies were in its room when the
-boss fell (`BossDefeatSinceCheckpoint::present`), and the death's admission
-names every participant but the dying one (`RoomReplayAdmitted::spared_participants`).
-The restore keeps a defeat one of them won, outside the dying participant's
-own room. A defeat with nobody else present still goes back. Witness:
-`a_death_keeps_the_defeat_another_player_won_in_a_room_he_left` (poisons: the
-restore ignores `present`, or the record leaves it empty; both read the boss
-uncleared). Decision recorded here: a defeat is credited to everyone in its
-room when it falls, since the edge has no attacker; a shared win stays when
-one of its winners dies elsewhere.
-
-**Ownership, not exceptions (review 2026-10-04).** A review found that the
-restore is still a global rewind with exceptions (`spared`,
-`spared_participants`), and that the exceptions fail where nothing live
-republishes a consequence. Target: each consequence since the checkpoint
-names the participants whose horizons own it; a participant's rewind takes
-them out of each, and a consequence with no owner left goes back. Do not add
-new uses of `spared` / `spared_participants` as the model.
-
-- ✅ 2026-10-04, dormant world time: a `WorldTimeSchedule` record holds its
-  owners (the seats in its live room when it was made). The restore's
-  admission takes the dying participant out of each record
-  (`disown_scheduled_returns_on_restore`), and the commit keeps a record of a
-  room that is not live while it has an owner. It used to forget every
-  record. Witness:
-  `a_death_keeps_the_respawn_of_a_platform_another_player_broke_in_a_room_he_left`
-  (control: Alice's own break goes back). Poisons: the commit forgets all, a
-  record with no owners, and an admission that keeps every owner each fail
-  it. Schema 310.
-- ✅ 2026-10-04, consumed one-time pickups: `ConsumedSinceCheckpoint`
-  holds each row consumed since the checkpoint with its room and owners. The
-  restore's acceptance (`resume_at_checkpoint_on_reset`) pins the rows a
-  spared participant owns into the ledger it restores, so the room the
-  restore rebuilds, a later rebuild and the restore's verification all read
-  one ledger. The admission takes the dying participant out of each record
-  (`disown_consumed_pickups_on_restore`). It used to put the checkpoint's
-  ledger back whole, so the room authored the pickup again on a later visit.
-  Witness:
-  `a_death_keeps_gone_a_one_time_heart_another_player_took_in_a_room_he_left`
-  (control: Alice's own heart comes back; the witness also asserts that the
-  restore committed). Poisons: the acceptance pins nothing, the record has no
-  owners (both fail the subject), and the acceptance ignores owners (fails
-  the control and the Q154 death test). Disabling the disown changes nothing
-  in play, because only the primary participant's death restores; its
-  arithmetic is held by
-  `a_restore_takes_the_dying_participant_out_of_each_consumed_record`.
-  Schema 311. A row cannot be written back by a `CheckpointDomainApply`
-  reducer: `verify_restored_domains` compares the ledger with the pinned
-  one and fails closed into `Paused`. The first version of this slice did
-  that, and the witness found it.
-- ✅ 2026-10-04, boss defeats: a restore keeps only the spared participants
-  in each kept defeat's `present` (`take_for_restore`), so a later restore
-  of another participant does not keep a defeat for a winner whose own
-  restore already took it back. Not reachable in play today (only the
-  primary body's death restores), so a unit test holds the arithmetic:
-  `a_restore_takes_the_dying_participant_out_of_a_kept_defeats_winners`
-  (poison: no shrink; Alice's later restore keeps the shared defeat).
-
-**A joined player and a death (2026-10-05, Q153 default).** A seat with no
-body joins on a Jump press beside the primary (`session/join.rs`), so Bob can
-be a `PlayerEntity` of the session and not a placement. Then the roster
-question "is anybody still in play" was session-wide, so Bob in play in
-another room kept Alice's room from going back (against Q151). It is now
-asked of the room that would go back, and only the primary's room goes back,
-because the restore's subject is the primary (`close_death_interlude`). A
-second seat whose beat closed comes back beside the primary, into the
-primary's room (`bring_a_fallen_seat_back_beside_the_primary`). Witnesses:
-`a_participant_in_play_in_another_room_does_not_hold_back_the_level` (red
-`[0, 0]` before, for [Bob in the stage, Bob in the hall]; poison "any room
-with nobody in play goes back" makes a second seat's death send the hall
-back) and `a_second_seat_joins_the_session.rs` (poisons, each red: no join;
-no return; no restamp into the primary's room; a join that a resimulation
-does not repeat, red because seat 1 has no body after the rewound frames).
-⚠ Found by that last poison: `rollback_health` stayed green while a
-resimulation lost a player body, so the sync-test checksum did not see the
-body's absence. Measured why, and repaired: GGRS never saves the state that
-the first run of a frame leaves, so a body that only the first run builds is
-in no saved state (TEST-LANES item 5, `first_run_witness`).
-
-**Review of the join road (2026-10-05, Namek), three defects repaired.**
-Each arm is in `a_second_seat_joins_the_session.rs`, measured before the
-repair, and red under its poison:
-- R1, both out of play for ever: a primary that fell while a seat played in
-  its room was asked once; when the seat walked out, or fell in another
-  room, nothing asked again. A waiting primary now stays owed
-  (`consequence_pending`) and is asked on each tick, and it is spent on the
-  tick its room goes back
-  (`a_primary_that_waited_for_a_seat_comes_back_when_the_seat_leaves_its_room`;
-  poison, spend at close: the primary is out of play 600 frames after the seat
-  left).
-- R8, a New Game froze a seat in another live room: the room was retired and
-  the body kept its stamp (live rooms [#2], stamp #0; 0 px for 40 frames of
-  input). A seat body whose stamp names no live room moves beside the
-  primary (`a_new_game_takes_a_seat_in_another_room_into_the_new_room`).
-- R5, the return moved the body and not what it held (the item stayed
-  stamped #0, held). The return moves the custody closure, through
-  `custody_closure`, which the crossing now uses too
-  (`a_seat_that_comes_back_into_another_room_brings_what_it_holds`).
-- Repaired 2026-10-06, OW4: a fallen seat in another live room comes back
-  by a crossing into the primary's room (a `Transition` intent with its
-  participant), so the crossing joins that room and retires the room the
-  seat leaves when no other player holds it. A direct move had left that
-  room live with nobody in it, which a restore neither spared nor built
-  again (`a_second_seat_that_dies_in_another_room_comes_back_in_the_primarys_room`;
-  before: live rooms `[switch_lab, central_hub_complex]`). A stranded seat
-  still moves at once: its stamp names no live room to leave. Not witnessed
-  under a sync test: the harness cannot kill a second seat inside the
-  timeline (a death message written from outside is lost on the
-  resimulation, and the kernel's death road is the primary's); the crossing
-  road it uses is (`two_players_in_two_live_rooms_resimulate_to_the_same_world`).
-  Nothing else retires an empty live room yet.
-- Answered with no defect: the join reads no state that differs between
-  peers or between a first run and a resimulation (first-run witness, two
-  seats); a restore asked for on the frame of the return commits; a reload
-  of a dead seat changes nothing. The second-pad finding is for Jon (Q153).
-
-**A joined player's view and HUD (2026-10-05).** Measured with a body from
-the join road (`a_joined_seat_has_a_view_and_a_hud.rs`): a HUD row on the
-shared view, a view of its own when the primary leaves the room, and a drawn
-second HUD in the rendered host. The interact prompt, the button prompts and
-the declared readouts are one for each session and show the primary only;
-the blink reticle is one for each blinking body (2026-10-06); the list and
-what was run are in
-[Q153](awaiting-maintainer-decision.md#q153--how-does-a-second-player-join-ambition).
-
-**Acceptance:** Alice dies while Bob's room holds a boss he defeated after the
-checkpoint: Bob's room, the boss row and its reward stay; Alice's room agrees
-with the durable records it reads; a durable record written in Alice's room
-after the checkpoint goes back. The shared-room and whole-session-reload
-cases have their own arms.
-
 ### BAG-RECORD-HORIZON — a bag record is owned by what is left of its consequence
 
 **Owner:** `items::pickup::minted_horizon` (the grant and spend records),
@@ -625,43 +347,6 @@ after Bob's room kept the explosion); the spend reads the live object only
   `a_death_takes_back_what_was_put_down_in_another_players_room`: when the
   object lies, the custody restore moves it into the banked hand whatever
   the row says, so only a held object needs the precedence.
-
-### DEFEAT-AFTER-ITS-DROP — a boss's drop can be banked before its defeat is recorded
-
-Found 2026-10-06 as "a gauntlet banked over the hub's floor opening". The
-opening is not the cause (measured 2026-10-07). A boss mints its drops on the
-killing hit (`apply_boss_hit`), and `update_boss_encounters` records the
-defeat (`BossDefeatsSinceCheckpoint`, the save's `Cleared`) only when the death
-outro ends (`death_seconds`, 2.4 s). A checkpoint in that window banks the drop
-in the hand and not its defeat. A death then retracts the defeat (Q51) and its
-mints with it (`retract_mints_of_retracted_boss_defeats`), so the banked
-gauntlet is gone. Probe: the record is `[]` 120 frames after the kill and
-`["banked_gauntlet_boss"]` after the checkpoint. The passing arm at dx -200
-passes because its pickup teleport crosses into `hall_of_bosses` and back, and
-the boss leaves with the room before its outro ends.
-
-**Repaired on the way (2026-10-07):** the custody restore's rebuild arm (an
-object banked in a hand that no entity answers for) failed its own
-verification. The verification reads `InCustodyOf`, which a projection derives
-later in the tick, so the restore failed closed into `Paused` with
-`Failed { failure: Custody }`. Two tests reached that arm and passed, because
-they read only the world. The item domain now chains
-`project_custody_onto_residency` after the custody restore in
-`CheckpointDomainApply`, and the rebuilt object gets its holder's
-`InRoomInstance` (without it, put down, it was a resident with no live room).
-Witnesses: `assert_the_restore_committed` in
-`a_banked_object_whose_room_unloaded_returns_to_the_hand_that_banked_it` and
-`a_banked_runtime_mint_returns_to_the_hand_that_banked_it` (poison, no
-projection: both `Failed { failure: Custody }`), and the stamp arm of the first
-(poison, no stamp: `[None]` for `[Some(#3)]`).
-
-**Next action:** one moment for one defeat. Record the defeat on the kill, in
-the same tick as its drops, and delete the outro delay if nothing else reads it.
-Then `a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it`
-needs no offset and no crossing.
-
-**Acceptance:** a drop picked up and banked in the tick after the kill comes
-back to the hand after a death, with the boss still cleared.
 
 ### WEAR-REFUSES-UNPREPARED — a character outside the prepared generation is never worn — ✅ DONE 2026-10-03 (two remainders)
 
@@ -3504,6 +3189,21 @@ production invariant.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### DEATH-IS-ROOM-LOCAL — a participant's death rewinds its own horizon, not the session's — ✅ DONE 2026-10-07
+
+Q151. Each consequence since the checkpoint names the participants whose
+horizons own it (a boss defeat's `present`, `GrantSource::Authored { owners }`,
+`WorldTimeSchedule` owners, `ConsumedSinceCheckpoint`; a bag spend is owned by
+its object), and a restore takes the dying participant out of each. A New Game
+retires every other live room (`retires_beside`). Witnesses:
+`boss_replay_retraction.rs`, `death_restores_the_checkpoint.rs`,
+`pickup_regrowth_across_rooms.rs`, `a_second_seat_joins_the_session.rs`. The
+design summary is in [open-world runtime](engine/open-world-runtime-and-residency.md)
+("Death horizon (Q151)"); BAG-RECORD-HORIZON continues it. ⛔ No global
+durable rewind followed by reconciliation of surviving rooms; no new uses of
+`RoomReplayAdmitted::spared` / `spared_participants` as the model; a
+`CheckpointDomainApply` reducer does not write back a row the acceptance pins.
 
 ### NPC-UNREGISTERED-CHARACTER — a person who names an unregistered character stopped the game — ✅ DONE 2026-10-05
 

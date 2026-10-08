@@ -22,10 +22,11 @@
 | [`pack`](src/pack.rs) | [`SpritePackCatalog`]: the runtime schema for a cross-target *ultrapack*. |
 | [`portrait`](src/portrait.rs) | Runtime vocabulary for separately published dialogue portrait sheets. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_sprite_sheet`. |
+| [`sheet_mechanics`](src/sheet_mechanics.rs) | The mechanical projection of a sheet record: the part of it the simulation reads, for the content identity. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotCursor` for this crate's own types — the rollback checksum wire. |
 | [`sprite_packs`](src/sprite_packs.rs) | Quality-tiered shared-page sprite packs (ultrapacks) — the runtime side. |
 
-_18 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

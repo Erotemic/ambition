@@ -296,7 +296,18 @@ fn a_challenge_made_through_a_possessed_body_names_that_body_and_is_remembered()
         .expect("the `<<challenge>>` command runs");
     // The choice ends the node, and the box closes. Nothing else ends the
     // conversation: the possessed body is given no command, so it stays in
-    // talk reach.
+    // talk reach. The box opens one frame after the conversation does, so a
+    // close before that frame closes nothing.
+    let box_open = |sim: &ambition_app::Platformer2dSimHarness| {
+        sim.world().resource::<ambition_platformer2d::dialog::DialogState>().active()
+    };
+    for _ in 0..10 {
+        if box_open(&sim) {
+            break;
+        }
+        sim.step(base());
+    }
+    assert!(box_open(&sim), "setup: the conversation with {id} opened no dialogue box");
     sim.world_mut()
         .resource_mut::<ambition_platformer2d::dialog::DialogState>()
         .close();

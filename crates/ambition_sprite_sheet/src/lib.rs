@@ -59,6 +59,7 @@ pub mod pack;
 pub use pack::{PackCatalogError, PackFrame, PackTarget, ResolvedFrame, SpritePackCatalog};
 
 pub mod portrait;
+pub mod sheet_mechanics;
 mod snapshot_impls;
 pub use portrait::{
     available_portrait_targets, baked_portrait_registry, parse_portrait_manifest,

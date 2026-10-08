@@ -682,9 +682,11 @@ publish attack polygons. 30 catalog rows state a scale that sizes the body
 from its sheet (25 by standing height, 5 as a posed body). Not measured:
 whether two renders of one renderer revision differ at all.
 
-The engineering fix covers the mechanical part of each sheet (body metrics,
-frame size, row durations, attack geometry) and not its atlas packing. The
-question is what a difference then does:
+The engineering half is built (2026-10-08): a digest of the mechanical part
+of each sheet (body metrics, frame size, row durations, attack geometry), not
+its atlas packing (`ambition_sprite_sheet::sheet_mechanics`,
+`baked_sheet_mechanics_digest`). It is not in the fingerprint. The question is
+what a difference then does:
 
 * **(a) Cover it, and refuse.** Two machines whose sheets differ in a
   mechanical value are two content identities, and the session is refused, as

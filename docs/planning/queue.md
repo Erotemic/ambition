@@ -327,9 +327,22 @@ after Bob's room kept the explosion); the spend reads the live object only
   default in force: (a), the current behaviour.
 - A `Consumed` row of an ended runtime mint stays in the ledger and the save
   for the run. A runtime mint with no row is built by nothing, so the row is
-  needed only until the checkpoint after the end; compacting it needs the
-  ledger to know which rows are runtime mints.
-- Built 2026-10-06: an object in a room the restore spares stays where it
+  needed only until the checkpoint after the end; the restore's spend rule
+  reads it until then (`session/checkpoint.rs`, the pinned ledger's end).
+  Measured 2026-10-08: the ledger cannot tell a mint row. `SimId` is an opaque
+  string that nothing may parse; provenance is `SpawnOrigin`, on the live
+  entity only; `admit_mints` (`continuity.rs`) is the one place that knows a
+  row is a mint, and it does not record it; the save's `minted_items` drops a
+  mint when its row stops being `Placed`. So compaction needs the ledger to
+  record mint rows at `admit_mints` (rollback state, checksum and save field),
+  then drop `Consumed` mint rows when a checkpoint commits, before
+  `capture_occurrence_baseline`. No test asserts a mint's `Consumed` row
+  today; the behavioural witnesses are the three bomb/javelin tests in
+  `death_restores_the_checkpoint.rs`.
+
+**Built 2026-10-06:**
+
+- An object in a room the restore spares stays where it
   is. Bob takes the hub's gun-sword after Alice's checkpoint. Measured
   before: when he carried it out after her death, the restore took it out of
   his hand and authored it on its pedestal again; when he put it down in

@@ -1459,9 +1459,9 @@ fn a_refused_reset_changes_no_domain_state_and_is_not_lost() {
 /// republish it — the object is not here to be seen. That is the row the
 /// baseline exists for, and restoring it is the reducer's alone.
 ///
-/// ⚠ NOT `Consumed`, which is the other row a rebuild cannot reproduce:
-/// `continuity.rs` says in as many words that its producer does not exist yet,
-/// so a fixture built on it would be testing fabricated state.
+/// `Consumed` rows have their own producers now (`record_consumed_pickups`,
+/// `record_ended_occurrences`) and their own witnesses below; this one is
+/// about a `Placed` row in another room.
 #[test]
 fn a_reset_restores_a_whereabouts_row_about_a_room_it_is_not_rebuilding() {
     use ambition_platformer2d::platformer::lifecycle::{

@@ -1170,7 +1170,11 @@ the room, and the save carries them across a load
 (`a_one_time_heart_stays_gone_when_its_room_is_built_again`,
 `a_load_does_not_build_a_one_time_heart_the_file_remembers_taken`,
 `an_opened_chest_is_built_opened_when_its_room_is_built_again`,
-`a_load_builds_opened_a_chest_the_file_remembers_spent`). A chest authored
+`a_load_builds_opened_a_chest_the_file_remembers_spent`, and end to end
+through a written save file,
+`a_chest_opened_in_play_is_opened_after_its_save_file_is_loaded`). Two
+bodies that open one chest on one tick are paid once
+(`two_bodies_on_one_chest_in_one_tick_are_paid_once`). A chest authored
 open (`ChestSpec::opened`) lowers into the `Opened` marker that play sets.
 `InteractableSpec::requires_facing` lowers into `RequiresFacing`, and the
 interact road refuses a person or switch the body does not face

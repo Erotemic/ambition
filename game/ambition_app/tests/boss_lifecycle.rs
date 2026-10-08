@@ -1015,9 +1015,8 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
         assert!(boss_cleared(&sim, id), "precondition: {id} is defeated and recorded cleared");
     }
 
-    let before = sim
-        .world()
-        .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+    let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
         .latest()
         .cloned();
     ambition_platformer2d::actors::session::host_intents::write_host_intent(
@@ -1027,9 +1026,8 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
     let mut committed = false;
     for _ in 0..120 {
         sim.step(AgentAction::default());
-        let latest = sim
-            .world()
-            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
             .latest()
             .cloned();
         if latest != before {

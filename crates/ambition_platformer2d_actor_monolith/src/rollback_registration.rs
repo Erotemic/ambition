@@ -679,6 +679,10 @@ where
         OWNER,
         "resource.save_restored",
     );
+    // ⭐ THE CHECKPOINT COORDINATOR LIVES ON THE SESSION ROOT (C03, 2026-10-07):
+    // the five rows below are COMPONENT registrations on the root, beside
+    // `root.room_set`, and their KEYS ARE UNCHANGED. A key is a wire identity, so
+    // the names keep their `resource.` prefix; what moved is the storage.
     // ⛔⛔ THIS WAS TWO `Local`s ON A SIM SYSTEM.
     // `restore_checkpoint_on_session_start` runs in `PlayerSimulation`, and a
     // `Local` does not rewind: a rollback crossing the frame it routed on would
@@ -703,7 +707,7 @@ where
     // the same admission, which is what makes a host-side load that names a key
     // still correct after a resimulation; a counter that drifted between
     // timelines would authorize a load for an operation the other never made.
-    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::SessionCheckpointOperations>(
+    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::SessionCheckpointOperations>(
         OWNER,
         "resource.session_checkpoint_operations",
         "how many checkpoint restores this session has admitted",
@@ -713,19 +717,19 @@ where
     // it several frames later to learn that its own crossing finished. A rewind
     // that brought back a `Committed` the other timeline had not published would
     // let one side believe a restore landed that the other never made.
-    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::SessionCheckpointOutcomes>(
+    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::SessionCheckpointOutcomes>(
         OWNER,
         "resource.session_checkpoint_outcomes",
         "the terminal outcome of the last answered checkpoint operation",
         crate::session::checkpoint::SessionCheckpointOutcomes::checksum,
     );
-    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::AcceptedCheckpointRestore>(
+    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::AcceptedCheckpointRestore>(
         OWNER,
         "resource.accepted_checkpoint_restore",
         "which operation was accepted, the occurrence population it reconstructs, and the replay whose consequences run at its publication",
         crate::session::checkpoint::AcceptedCheckpointRestore::checksum,
     );
-    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::OutstandingCheckpointRequest>(
+    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::OutstandingCheckpointRequest>(
         OWNER,
         "resource.outstanding_checkpoint_request",
         "whether the session is still owed a checkpoint restore",
@@ -737,7 +741,7 @@ where
     // is the opposite case: the VALUE changed from two per-generation latches to
     // a state machine naming an admitted operation, so keeping the old name
     // would let two peers agree on a key whose contents mean different things.
-    registrar.rollback_resource_clone_checksum::<crate::session::checkpoint::SessionStartupResume>(
+    registrar.rollback_component_clone_checksum::<crate::session::checkpoint::SessionStartupResume>(
         OWNER,
         "resource.session_startup_resume",
         "which session generation startup resolution reached, and which operation it routed",

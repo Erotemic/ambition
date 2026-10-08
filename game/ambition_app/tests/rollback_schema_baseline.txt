@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v319
+ggrs-rollback-schema-v320
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -419,7 +419,7 @@ projectile.live_marker	component-canonical	LiveProjectile	bevy_ggrs canonical co
 projectile.seq	component-canonical	ProjectileSeq	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.visual_id	component-canonical	ProjectileVisualId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.weapon_shot	component-canonical	WeaponShot	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.accepted_checkpoint_restore	resource-clone-custom-checksum	AcceptedCheckpointRestore	bevy_ggrs clone snapshot + which operation was accepted, the occurrence population it reconstructs, and the replay whose consequences run at its publication
+resource.accepted_checkpoint_restore	component-clone-custom-checksum	AcceptedCheckpointRestore	bevy_ggrs clone snapshot + which operation was accepted, the occurrence population it reconstructs, and the replay whose consequences run at its publication
 resource.active_conversation	resource-clone	ActiveConversation	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
 resource.active_match	resource-canonical-custom-checksum	ActiveMatch	bevy_ggrs canonical codec snapshot + checksum over the agreed seat count and the peer match ordinal, excluding the host-local session and activation-tick stamps
 resource.active_round_scope	resource-canonical	ActiveRoundScope	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
@@ -437,7 +437,7 @@ resource.impact_hitstop	resource-clone-custom-checksum	ImpactHitstop	bevy_ggrs c
 resource.live_match_ticks	resource-canonical-custom-checksum	LiveMatchTicks	bevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from the match's own start, and the peer match ordinal, excluding the host-local session and activation-tick stamps
 resource.minted_item_baseline	resource-clone-custom-checksum	MintedItemBaseline	bevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection
 resource.occurrence_baseline	resource-clone-custom-checksum	OccurrenceBaseline	bevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection
-resource.outstanding_checkpoint_request	resource-clone-custom-checksum	OutstandingCheckpointRequest	bevy_ggrs clone snapshot + whether the session is still owed a checkpoint restore
+resource.outstanding_checkpoint_request	component-clone-custom-checksum	OutstandingCheckpointRequest	bevy_ggrs clone snapshot + whether the session is still owed a checkpoint restore
 resource.owned_items	resource-clone	OwnedItems	bevy_ggrs clone snapshot; not in the session checksum
 resource.owned_items_baseline	resource-clone-custom-checksum	OwnedItemsBaseline	bevy_ggrs clone snapshot + entity-free stored-quantity and checkpoint purse checksum projection
 resource.pending_lifecycle_commit	resource-canonical	PendingLifecycleCommit	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -453,10 +453,10 @@ resource.reward_grants_since_checkpoint	resource-clone-custom-checksum	RewardGra
 resource.sandbox_save	resource-clone-custom-checksum	AmbitionGameSave	bevy_ggrs clone snapshot + serialized whole-save checksum projection, its dormant-record rows hashed once per Arc
 resource.sandbox_sim_state	resource-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.save_restored	resource-clone	SaveRestored	bevy_ggrs clone snapshot; not in the session checksum
-resource.session_checkpoint_operations	resource-clone-custom-checksum	SessionCheckpointOperations	bevy_ggrs clone snapshot + how many checkpoint restores this session has admitted
-resource.session_checkpoint_outcomes	resource-clone-custom-checksum	SessionCheckpointOutcomes	bevy_ggrs clone snapshot + the terminal outcome of the last answered checkpoint operation
+resource.session_checkpoint_operations	component-clone-custom-checksum	SessionCheckpointOperations	bevy_ggrs clone snapshot + how many checkpoint restores this session has admitted
+resource.session_checkpoint_outcomes	component-clone-custom-checksum	SessionCheckpointOutcomes	bevy_ggrs clone snapshot + the terminal outcome of the last answered checkpoint operation
 resource.session_match_ordinal	resource-canonical-custom-checksum	SessionMatchOrdinal	bevy_ggrs canonical codec snapshot + checksum over the count of matches this session has activated only, excluding the host-local session stamp
-resource.session_startup_resume	resource-clone-custom-checksum	SessionStartupResume	bevy_ggrs clone snapshot + which session generation startup resolution reached, and which operation it routed
+resource.session_startup_resume	component-clone-custom-checksum	SessionStartupResume	bevy_ggrs clone snapshot + which session generation startup resolution reached, and which operation it routed
 resource.sim_dt	derived	SimDt	mirrored from WorldTime::sim_dt at SimClockHead, ahead of every reader
 resource.sim_tick	resource-canonical	SimTick	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.slot_interaction_state	resource-canonical	SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

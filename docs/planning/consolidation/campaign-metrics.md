@@ -21,7 +21,7 @@ full record, `--crate-table` for the package graph).
 | Optional `Res`/`ResMut` occurrences | 745 | Source-text pattern over production files, test items and comments stripped. Discovery only. |
 | Optional `Res`/`ResMut` unique types | 200 | The type tails of the same pattern. |
 | Mechanical editor domains | 7 | Production `MechanicalDomain::of::<T>` sites. The ledger has rows for six; `ExtensionModuleCode` has none yet. |
-| Explicit session/generation-owned App resources | 36 | Every `ResMut` field of `SessionScopedResources` and `SessionOwnedCheckpointState`, optional fields included, plus `SessionMechanics`. |
+| Explicit session/generation-owned App resources | 40 | Every `ResMut` field of `SessionScopedResources`, optional fields included, plus `SessionMechanics`. (46 until `SessionOwnedCheckpointState` left on 2026-10-07: its six values are components of the session root.) |
 | Duplicate-authority families | 0 open, 20 resolved, 4 separations | One `duplicate_authority_state` field per ledger item. The census page states the split. |
 
 ⚠ Two instruments count the session-owned set. `architecture_census.py` reads

@@ -2342,9 +2342,8 @@ fn a_checkpoint_reset_beside_another_live_room_is_served_in_the_players_own_room
     for _ in 0..30 {
         sim.step(base());
     }
-    let owed = sim
-        .world_mut()
-        .resource::<ambition_platformer2d::actors::session::checkpoint::OutstandingCheckpointRequest>()
+    let owed = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::OutstandingCheckpointRequest>(sim.world_mut())
+        .expect("the live session root carries the checkpoint coordinator")
         .0;
     assert_eq!(owed, None, "the session is still owed the checkpoint reset");
     let (pos, _, _, _) = alice_and_spawn_of(&mut sim, HUB);

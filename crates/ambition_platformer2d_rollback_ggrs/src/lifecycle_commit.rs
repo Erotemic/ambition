@@ -761,7 +761,7 @@ fn commit_transition(
     // here.
     // A fresh checkpoint operation (a New Game) is a whole-session restart.
     let restart = checkpoint_operation
-        .zip(world.get_resource::<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>())
+        .zip(ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<ambition_platformer2d_actor_monolith::session::checkpoint::AcceptedCheckpointRestore>(world))
         .and_then(|(key, accepted)| accepted.inputs_for_key(key))
         .is_some_and(|accepted| accepted.fresh);
     let mut state: bevy::ecs::system::SystemState<

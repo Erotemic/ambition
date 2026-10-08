@@ -234,9 +234,8 @@ fn a_checkpoint_reset_does_not_rebuild_a_body_that_lives_in_another_players_room
     assert_eq!(before.len(), 1, "control: one body of {id} before the reset: {before:?}");
     sim.world_mut().write_message(ambition_platformer2d::platformer::lifecycle::ResetToCheckpoint);
     sim.step_n(base(), 30);
-    let owed = sim
-        .world_mut()
-        .resource::<ambition_platformer2d::actors::session::checkpoint::OutstandingCheckpointRequest>()
+    let owed = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::OutstandingCheckpointRequest>(sim.world_mut())
+        .expect("the live session root carries the checkpoint coordinator")
         .0;
     assert_eq!(owed, None, "setup: the session is still owed the checkpoint reset");
     assert_eq!(

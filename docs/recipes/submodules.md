@@ -194,7 +194,7 @@ commit the change on the right branch first.
 | `LEFT ALONE`, diverged | both sides have commits | merge them, keeping the superset |
 | `the PIN needs updating` | the pin lags the submodule's `main` | `scripts/setup/submodules.sh --bump-pins`, commit |
 | `could not fetch origin (offline?)` | no network; judged from what is already fetched | rerun online |
-| a fresh worktree has empty submodules | worktrees do not share initialized submodules | `python3 scripts/mirror_assets_for_worktree.py` (see [adding-an-asset](recipes/adding-an-asset.md)) |
+| a fresh worktree has empty submodules | worktrees do not share initialized submodules | `python3 scripts/mirror_assets_for_worktree.py` (see [adding-an-asset](adding-an-asset.md)) |
 
 Setting up system packages and audio libraries is a separate phase
 (`scripts/setup/audio_libraries.sh`); a third-party apt repository with an

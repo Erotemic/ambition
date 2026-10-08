@@ -24,10 +24,12 @@ def test_the_marker_is_the_authority_the_guard_reads():
     stated = guard.declared()
     assert set(stated) == {
         "SessionScopedResources",
-        "SessionOwnedCheckpointState",
         "SessionMechanics",
     }, stated
     assert sum(stated.values()) >= 30, stated
+    # C03 moved the checkpoint family onto the session root: it has its own
+    # marker, and its members are not App resources, so not in the total.
+    assert guard.declared_root_families() == {"SessionCheckpointState": 6}
 
 
 def test_the_bundle_count_is_read_from_source_not_the_marker():
@@ -37,7 +39,7 @@ def test_the_bundle_count_is_read_from_source_not_the_marker():
     away, the CONSTANT included: `bundle_members` returning a fixed 29 would
     satisfy `real == declared[...]` forever. MEASURED 2026-09-16 by collapsing it
     to exactly that — the arm below passed, and what caught the constant was the
-    OTHER bundle disagreeing (`SessionOwnedCheckpointState` is 6).
+    OTHER group disagreeing (`SessionCheckpointState` is 6).
 
     ⇒ So this arm now asserts the two bundles report DIFFERENT counts from the
     same reader. Two subjects through one function means a collapsing function
@@ -46,11 +48,13 @@ def test_the_bundle_count_is_read_from_source_not_the_marker():
     scoped = guard.bundle_members(
         guard.BUNDLES["SessionScopedResources"], "SessionScopedResources"
     )
-    checkpoint = guard.bundle_members(
-        guard.BUNDLES["SessionOwnedCheckpointState"], "SessionOwnedCheckpointState"
+    checkpoint = len(
+        guard.source_members(
+            guard.ROOT_FAMILIES["SessionCheckpointState"], "SessionCheckpointState"
+        )
     )
     assert scoped == guard.declared()["SessionScopedResources"]
-    assert checkpoint == guard.declared()["SessionOwnedCheckpointState"]
+    assert checkpoint == guard.declared_root_families()["SessionCheckpointState"]
     assert scoped != checkpoint, (
         f"both bundles read as {scoped}; a reader that returns the same number "
         "for two different structs is not reading them"
@@ -238,7 +242,7 @@ def test_rule_3_knows_which_checkpoint_members_are_rollback_state():
     assert "AbandonedCheckpointOperation" not in registrations, (
         "it is written from `Update`, which never rewinds, and carries a "
         "value-complete note so a rewound world DISCARDS it. If it is registered "
-        "now, the doc block above `SessionOwnedCheckpointState` must be rewritten "
+        "now, the doc block above `SessionCheckpointState` must be rewritten "
         "— not this assertion relaxed."
     )
 
@@ -255,7 +259,7 @@ def test_rule_3_can_fail_on_an_undeclared_unregistered_member():
     partition function about a member the doc block does not mention at all.
     """
     text = guard.CHECKPOINT.read_text(encoding="utf-8")
-    start = text.index("pub struct SessionOwnedCheckpointState")
+    start = text.index("pub struct SessionCheckpointState")
     doc = text[max(0, start - 4000) : start]
     windows = guard._doc_windows(doc)
     declared = {
@@ -313,7 +317,7 @@ def test_rule_4_checks_the_member_list_not_only_its_length():
         guard.BUNDLES["SessionScopedResources"], "SessionScopedResources"
     )
     checkpoint = guard.source_members(
-        guard.BUNDLES["SessionOwnedCheckpointState"], "SessionOwnedCheckpointState"
+        guard.ROOT_FAMILIES["SessionCheckpointState"], "SessionCheckpointState"
     )
     # ⚠ The census must carry the real names, not a count of them.
     census = guard.CENSUS.read_text(encoding="utf-8")

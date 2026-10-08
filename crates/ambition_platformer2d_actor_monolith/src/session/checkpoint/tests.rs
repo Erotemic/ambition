@@ -8,6 +8,29 @@ use ambition_platformer2d_shared_tangle::shrine::ShrineActivationPulse;
 
 use crate::shrine::{heal_save_shrine_system, HealShrine};
 
+/// Give the fixture's session root the whole checkpoint coordinator, as the
+/// plugin's required-components registration does in a composed app.
+fn install_checkpoint_state(world: &mut World) {
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        world,
+        SessionCheckpointState::default(),
+    );
+}
+
+/// One coordinator value of the live session root.
+fn held<T: Component>(world: &World) -> &T {
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<T>(world)
+        .expect("the fixture's session root carries the checkpoint coordinator")
+}
+
+/// The mutable form of [`held`].
+fn held_mut<T: Component<Mutability = bevy::ecs::component::Mutable>>(
+    world: &mut World,
+) -> Mut<'_, T> {
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<T>(world)
+        .expect("the fixture's session root carries the checkpoint coordinator")
+}
+
 /// A save point that actually saves, and a session that resumes there.
 ///
 /// The shrine claimed both halves and delivered neither: it called
@@ -117,11 +140,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
         .begin();
     ambition_platformer2d_world::rooms::insert_room_set(next.world_mut(), room_set("shrine_room"));
     next.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-    next.init_resource::<SessionStartupResume>();
-    // The operation state the startup road now shares with the reset road.
-    next.init_resource::<AcceptedCheckpointRestore>();
-    next.init_resource::<SessionCheckpointOperations>();
-    next.init_resource::<SessionCheckpointOutcomes>();
+    install_checkpoint_state(next.world_mut());
     next.add_systems(Update, restore_checkpoint_on_session_start);
     // The REAL player bundle, at the room's authored spawn — the body the
     // construction path produces, with every cluster the transit authority reads.
@@ -181,11 +200,7 @@ fn a_checkpoint_from_another_room_leaves_the_body_where_it_spawned() {
     // The slot a transition is recorded into: production initializes it in sim-core resources,
     // so a fixture running this system owes it too.
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-    app.init_resource::<SessionStartupResume>();
-    // The operation state the startup road now shares with the reset road.
-    app.init_resource::<AcceptedCheckpointRestore>();
-    app.init_resource::<SessionCheckpointOperations>();
-    app.init_resource::<SessionCheckpointOutcomes>();
+    install_checkpoint_state(app.world_mut());
     app.add_systems(Update, restore_checkpoint_on_session_start);
     let body = app
         .world_mut()
@@ -258,11 +273,7 @@ fn a_checkpoint_in_another_room_of_this_world_routes_the_session_there() {
     // The slot a transition is recorded into: production initializes it in sim-core resources,
     // so a fixture running this system owes it too.
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-    app.init_resource::<SessionStartupResume>();
-    // The operation state the startup road now shares with the reset road.
-    app.init_resource::<AcceptedCheckpointRestore>();
-    app.init_resource::<SessionCheckpointOperations>();
-    app.init_resource::<SessionCheckpointOutcomes>();
+    install_checkpoint_state(app.world_mut());
     app.add_systems(Update, restore_checkpoint_on_session_start);
     app.update();
 
@@ -369,11 +380,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
         ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
     ));
     app.init_resource::<PendingLifecycleCommit>();
-    app.init_resource::<SessionStartupResume>();
-    // The operation state the startup road now shares with the reset road.
-    app.init_resource::<AcceptedCheckpointRestore>();
-    app.init_resource::<SessionCheckpointOperations>();
-    app.init_resource::<SessionCheckpointOutcomes>();
+    install_checkpoint_state(app.world_mut());
     app.add_systems(Update, restore_checkpoint_on_session_start);
 
     // SOMEBODY ELSE ALREADY OWNS THE SLOT. A door crossing recorded on an
@@ -405,8 +412,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
         "the refused resume overwrote the incumbent lifecycle operation"
     );
     assert!(
-        app.world()
-            .resource::<SessionStartupResume>()
+        held::<super::SessionStartupResume>(app.world())
             .state_for(None)
             .is_none(),
         "the resume recorded that it had routed while the slot refused it, so \
@@ -447,8 +453,7 @@ fn a_refused_slot_leaves_the_checkpoint_resume_retryable() {
         .0;
     assert!(
         matches!(
-            app.world()
-                .resource::<SessionStartupResume>()
+            held::<super::SessionStartupResume>(app.world())
                 .state_for(Some(generation)),
             Some(StartupResume::Routed(_))
         ),
@@ -515,11 +520,7 @@ fn a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists() {
         ),
     );
     app.init_resource::<PendingLifecycleCommit>();
-    app.init_resource::<SessionStartupResume>();
-    // The operation state the startup road now shares with the reset road.
-    app.init_resource::<AcceptedCheckpointRestore>();
-    app.init_resource::<SessionCheckpointOperations>();
-    app.init_resource::<SessionCheckpointOutcomes>();
+    install_checkpoint_state(app.world_mut());
     app.add_systems(Update, restore_checkpoint_on_session_start);
 
     // No body at all: construction has not finished.
@@ -532,8 +533,7 @@ fn a_resume_with_no_constructed_subject_stays_pending_until_the_body_exists() {
         "a crossing was recorded for a body nobody can name"
     );
     assert!(
-        app.world()
-            .resource::<SessionStartupResume>()
+        held::<super::SessionStartupResume>(app.world())
             .state_for(None)
             .is_none(),
         "the session marked its resume routed before it had a subject"
@@ -609,10 +609,7 @@ fn a_resume_with_two_primary_bodies_ends_and_does_not_ask_for_ever() {
             ),
         );
         app.init_resource::<PendingLifecycleCommit>();
-        app.init_resource::<SessionStartupResume>();
-        app.init_resource::<AcceptedCheckpointRestore>();
-        app.init_resource::<SessionCheckpointOperations>();
-        app.init_resource::<SessionCheckpointOutcomes>();
+        install_checkpoint_state(app.world_mut());
         app.add_systems(Update, restore_checkpoint_on_session_start);
         for _ in 0..primaries {
             // The full body, as the same-room branch moves it.
@@ -630,7 +627,7 @@ fn a_resume_with_two_primary_bodies_ends_and_does_not_ask_for_ever() {
             .resource::<ActiveSessionScope>()
             .current()
             .map(|scope| scope.0);
-        let state = app.world().resource::<SessionStartupResume>().state_for(generation);
+        let state = held::<super::SessionStartupResume>(app.world()).state_for(generation);
         let crossing = app.world().resource::<PendingLifecycleCommit>().pending.is_some();
         let world = app.world_mut();
         let places = world
@@ -868,7 +865,7 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
 
     let mut app = App::new();
     app.add_plugins(ambition_platformer2d_shared_tangle::lifecycle::LifecycleCheckpointHorizonPlugin);
-    app.init_resource::<super::AcceptedCheckpointRestore>();
+    install_checkpoint_state(app.world_mut());
 
     // ── AN ORDINARY DOOR: no accepted operation, nothing applied ─────────────
     assert!(
@@ -879,8 +876,7 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
 
     // ── THE SECOND OPERATION IS OUTSTANDING; A TRANSACTION OPENED FOR THE
     //    FIRST MUST NOT BE SERVED IT — and the two intents are IDENTICAL ──────
-    app.world_mut()
-        .resource_mut::<super::AcceptedCheckpointRestore>()
+    held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
         .accept(super::AcceptedRestore {
             key: second,
             frame: 3,
@@ -1059,8 +1055,7 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
             app.world()
                 .resource::<bevy::ecs::message::Messages<ambition_combat::events::RoomReplayAdmitted>>()
                 .len(),
-            app.world()
-                .resource::<super::AcceptedCheckpointRestore>()
+            held::<super::AcceptedCheckpointRestore>(app.world())
                 .accepted()
                 .and_then(|accepted| accepted.replay.as_ref())
                 .map(|replay| replay.to_checkpoint),
@@ -1073,7 +1068,7 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
     for _ in 0..3 {
         app.world_mut().run_schedule(sim);
     }
-    let accepted = app.world().resource::<super::AcceptedCheckpointRestore>();
+    let accepted = held::<super::AcceptedCheckpointRestore>(app.world());
     assert!(
         accepted.accepted().is_some(),
         "the accepted restore was retired while its intent still held the slot. \
@@ -1103,9 +1098,7 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
 
     // ── THE SLOT GIVES UP THE INTENT, AND NOTHING COMMITTED IT ───────────────
     // A refused publication, a subject that is gone, or a retraction.
-    let key = app
-        .world()
-        .resource::<super::AcceptedCheckpointRestore>()
+    let key = held::<super::AcceptedCheckpointRestore>(app.world())
         .accepted()
         .map(|accepted| accepted.key)
         .expect("asserted above");
@@ -1114,8 +1107,7 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
         .take();
     app.world_mut().run_schedule(sim);
     assert!(
-        app.world()
-            .resource::<super::AcceptedCheckpointRestore>()
+        held::<super::AcceptedCheckpointRestore>(app.world())
             .accepted()
             .is_none(),
         "the accepted restore outlived the operation that owned it. Two crossings \
@@ -1125,7 +1117,7 @@ fn the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_t
     // ⛔⛔ AND IT IS ANSWERED. Until 2026-10-05 it was retired with no outcome
     // (review 2026-10-05, P1).
     assert_eq!(
-        app.world().resource::<super::SessionCheckpointOutcomes>().latest(),
+        held::<super::SessionCheckpointOutcomes>(app.world()).latest(),
         Some(&super::CheckpointRestoreOutcome::Cancelled {
             key,
             reason: super::RestoreCancellation::NotCommitted,
@@ -1172,19 +1164,16 @@ fn an_operation_answered_before_its_intent_leaves_keeps_its_one_answer() {
     ));
     app.world_mut().write_message(ResetToCheckpoint);
     app.world_mut().run_schedule(sim);
-    let key = app
-        .world()
-        .resource::<super::AcceptedCheckpointRestore>()
+    let key = held::<super::AcceptedCheckpointRestore>(app.world())
         .accepted()
         .map(|accepted| accepted.key)
         .expect("the reset was admitted");
-    app.world_mut()
-        .resource_mut::<super::SessionCheckpointOutcomes>()
+    held_mut::<super::SessionCheckpointOutcomes>(app.world_mut())
         .publish(super::CheckpointRestoreOutcome::Committed { key });
     app.world_mut().resource_mut::<PendingLifecycleCommit>().take();
     app.world_mut().run_schedule(sim);
     assert_eq!(
-        app.world().resource::<super::SessionCheckpointOutcomes>().latest(),
+        held::<super::SessionCheckpointOutcomes>(app.world()).latest(),
         Some(&super::CheckpointRestoreOutcome::Committed { key }),
         "the operation's one answer"
     );
@@ -1397,8 +1386,7 @@ fn with_two_live_rooms_a_restore_is_verified_against_the_room_it_names() {
     let restore = |target: &str, bobs_room_live: bool| -> Option<super::RestoreFailure> {
         let mut app = App::new();
         app.add_plugins(LifecycleCheckpointHorizonPlugin);
-        app.init_resource::<super::AcceptedCheckpointRestore>();
-        app.init_resource::<super::SessionCheckpointOutcomes>();
+        install_checkpoint_state(app.world_mut());
         app.insert_resource(bevy::prelude::NextState::<
             ambition_platformer2d_shared_tangle::schedule::GameMode,
         >::default());
@@ -1431,8 +1419,7 @@ fn with_two_live_rooms_a_restore_is_verified_against_the_room_it_names() {
         let key = super::SessionCheckpointOperations::default()
             .admit(None)
             .expect("a fresh counter mints a key");
-        app.world_mut()
-            .resource_mut::<super::AcceptedCheckpointRestore>()
+        held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
             .accept(super::AcceptedRestore {
                 key,
                 frame: 0,
@@ -1448,9 +1435,7 @@ fn with_two_live_rooms_a_restore_is_verified_against_the_room_it_names() {
             super::apply_committed_checkpoint_restore(app.world_mut(), key),
             "the commit did not run the operation at all"
         );
-        let outcome = app
-            .world()
-            .resource::<super::SessionCheckpointOutcomes>()
+        let outcome = held::<super::SessionCheckpointOutcomes>(app.world())
             .outcome_for(key)
             .expect("an answered operation has a terminal outcome");
         outcome.failure()
@@ -1492,11 +1477,7 @@ fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure()
 
     let mut app = App::new();
     app.add_plugins(LifecycleCheckpointHorizonPlugin);
-    app.init_resource::<super::AcceptedCheckpointRestore>();
-    app.init_resource::<super::SessionCheckpointOutcomes>();
-    // The mode resource alone: `init_state` wants a `StateTransition` schedule
-    // this fixture has no use for, and what is under test is what the session
-    // REQUESTS, not what a transition schedule does with the request.
+    install_checkpoint_state(app.world_mut());
     app.insert_resource(bevy::prelude::NextState::<
         ambition_platformer2d_shared_tangle::schedule::GameMode,
     >::default());
@@ -1515,8 +1496,7 @@ fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure()
         .into_iter()
         .collect(),
     );
-    app.world_mut()
-        .resource_mut::<super::AcceptedCheckpointRestore>()
+    held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
         .accept(super::AcceptedRestore {
             key,
             frame: 0,
@@ -1538,7 +1518,7 @@ fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure()
          a verification result"
     );
 
-    let outcomes = app.world().resource::<super::SessionCheckpointOutcomes>();
+    let outcomes = held::<super::SessionCheckpointOutcomes>(app.world());
     let outcome = outcomes
         .outcome_for(key)
         .expect("an answered operation has a terminal outcome");
@@ -1573,12 +1553,10 @@ fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure()
 
     // ⛔ AND EXACTLY ONE. A second publication for one operation would let a
     // `Committed` follow a `Failed` for the same restore.
-    app.world_mut()
-        .resource_mut::<super::SessionCheckpointOutcomes>()
+    held_mut::<super::SessionCheckpointOutcomes>(app.world_mut())
         .publish(super::CheckpointRestoreOutcome::Committed { key });
     assert!(
-        !app.world()
-            .resource::<super::SessionCheckpointOutcomes>()
+        !held::<super::SessionCheckpointOutcomes>(app.world())
             .outcome_for(key)
             .expect("the outcome is still there")
             .committed(),
@@ -1642,10 +1620,7 @@ fn a_routed_startup_resume_waits_for_its_own_operations_outcome() {
         ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
     ));
     app.init_resource::<PendingLifecycleCommit>();
-    app.init_resource::<SessionStartupResume>();
-    app.init_resource::<AcceptedCheckpointRestore>();
-    app.init_resource::<SessionCheckpointOperations>();
-    app.init_resource::<SessionCheckpointOutcomes>();
+    install_checkpoint_state(app.world_mut());
     app.add_systems(Update, restore_checkpoint_on_session_start);
 
     let generation = Some(
@@ -1658,7 +1633,7 @@ fn a_routed_startup_resume_waits_for_its_own_operations_outcome() {
 
     app.update();
     let Some(StartupResume::Routed(key)) =
-        app.world().resource::<SessionStartupResume>().state_for(generation)
+        held::<super::SessionStartupResume>(app.world()).state_for(generation)
     else {
         panic!("the startup resume did not route a crossing to the checkpoint's room");
     };
@@ -1666,8 +1641,7 @@ fn a_routed_startup_resume_waits_for_its_own_operations_outcome() {
     // crossing recorded a bare transition and its destination was prepared from
     // whatever the live ledger held.
     assert!(
-        app.world()
-            .resource::<AcceptedCheckpointRestore>()
+        held::<super::AcceptedCheckpointRestore>(app.world())
             .inputs_for_key(key)
             .is_some(),
         "a startup crossing is a checkpoint reconstruction and must be an \
@@ -1679,18 +1653,17 @@ fn a_routed_startup_resume_waits_for_its_own_operations_outcome() {
     app.world_mut().resource_mut::<PendingLifecycleCommit>().take();
     app.update();
     assert_eq!(
-        app.world().resource::<SessionStartupResume>().state_for(generation),
+        held::<super::SessionStartupResume>(app.world()).state_for(generation),
         Some(StartupResume::Routed(key)),
         "the routed resume re-asked while its own operation was still in flight"
     );
 
     // ── ITS OPERATION IS ANSWERED ────────────────────────────────────────────
-    app.world_mut()
-        .resource_mut::<SessionCheckpointOutcomes>()
+    held_mut::<super::SessionCheckpointOutcomes>(app.world_mut())
         .publish(CheckpointRestoreOutcome::Committed { key });
     app.update();
     assert_eq!(
-        app.world().resource::<SessionStartupResume>().state_for(generation),
+        held::<super::SessionStartupResume>(app.world()).state_for(generation),
         Some(StartupResume::Satisfied),
         "the routed crossing committed and startup never noticed, so a later \
          room transition can still be mistaken for the resume it is waiting on"
@@ -1743,22 +1716,17 @@ fn a_startup_resume_whose_operation_is_retracted_asks_again() {
         ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
     ));
     app.init_resource::<PendingLifecycleCommit>();
-    app.init_resource::<SessionStartupResume>();
-    app.init_resource::<AcceptedCheckpointRestore>();
-    app.init_resource::<SessionCheckpointOperations>();
-    app.init_resource::<SessionCheckpointOutcomes>();
+    install_checkpoint_state(app.world_mut());
     app.add_systems(Update, restore_checkpoint_on_session_start);
 
     app.update();
-    let first = app.world().resource::<AcceptedCheckpointRestore>().accepted().is_some();
+    let first = held::<super::AcceptedCheckpointRestore>(app.world()).accepted().is_some();
     assert!(first, "the first update must route and accept an operation");
 
     // The crossing is retracted before it commits: the slot is cleared and the
     // accepted operation retired, with no outcome ever published.
     app.world_mut().resource_mut::<PendingLifecycleCommit>().take();
-    let _ = app
-        .world_mut()
-        .resource_mut::<AcceptedCheckpointRestore>()
+    let _ = held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
         .retire();
 
     // One update notices the operation is gone; the next asks again.
@@ -1830,7 +1798,8 @@ fn an_exhausted_operation_counter_refuses_the_slot_rather_than_the_identity() {
         PrimaryPlayer,
         ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
     ));
-    app.insert_resource(SessionCheckpointOperations::exhausted_for_test());
+    *held_mut::<SessionCheckpointOperations>(app.world_mut()) =
+        SessionCheckpointOperations::exhausted_for_test();
 
     app.world_mut().write_message(ResetToCheckpoint);
     app.world_mut().run_schedule(sim);
@@ -1842,14 +1811,13 @@ fn an_exhausted_operation_counter_refuses_the_slot_rather_than_the_identity() {
          continuity, no domain restore, and the reset spent"
     );
     assert!(
-        app.world()
-            .resource::<AcceptedCheckpointRestore>()
+        held::<super::AcceptedCheckpointRestore>(app.world())
             .accepted()
             .is_none(),
         "an operation was accepted without an identity"
     );
     assert!(
-        app.world().resource::<OutstandingCheckpointRequest>().0.is_some(),
+        held::<super::OutstandingCheckpointRequest>(app.world()).0.is_some(),
         "the request was spent on an operation that never happened; it is still \
          owed, and a session that later regains capacity must be able to serve it"
     );
@@ -1884,8 +1852,7 @@ fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
     let verify = |holders: Vec<(SimId, SimId)>| -> Option<super::RestoreFailure> {
         let mut app = App::new();
         app.add_plugins(LifecycleCheckpointHorizonPlugin);
-        app.init_resource::<AcceptedCheckpointRestore>();
-        app.init_resource::<SessionCheckpointOutcomes>();
+        install_checkpoint_state(app.world_mut());
         app.insert_resource(bevy::prelude::NextState::<
             ambition_platformer2d_shared_tangle::schedule::GameMode,
         >::default());
@@ -1912,8 +1879,7 @@ fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
         let mut custody = CustodyBaseline::default();
         custody.adopt([(banked.clone(), rightful.clone())].into_iter().collect());
         let key = SessionCheckpointOperations::default().admit(None).unwrap();
-        app.world_mut()
-            .resource_mut::<AcceptedCheckpointRestore>()
+        held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
             .accept(super::AcceptedRestore {
                 key,
                 frame: 0,
@@ -1929,8 +1895,7 @@ fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
                 replay: None,
             });
         assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
-        app.world()
-            .resource::<SessionCheckpointOutcomes>()
+        held::<super::SessionCheckpointOutcomes>(app.world())
             .outcome_for(key)
             .expect("an answered operation has an outcome")
             .failure()
@@ -2010,6 +1975,19 @@ fn a_session_that_can_reset_with(
     app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
     app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
     let sim = app.sim_schedule();
+    // ⛔ THE PRODUCTION ORDER, STATED. `CheckpointRestore` sits in `PlayerInput`,
+    // before the `PlayerSimulation` set that holds the startup resume. The
+    // fixture composes no phases, and which of the two ran first was whatever
+    // the executor's access sets happened to give: the death road (the one this
+    // fixture exists for) ran first while the coordinator was a pair of
+    // resources, and the startup road won the slot once it was components on the
+    // root (2026-10-07). A startup crossing with the slot taken is not what the
+    // arms below measure.
+    app.configure_sets(
+        sim,
+        ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestore
+            .before(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems),
+    );
     if lifecycle_horizon {
         app.add_plugins(
             ambition_platformer2d_shared_tangle::lifecycle::LifecycleCheckpointHorizonPlugin,
@@ -2051,8 +2029,7 @@ fn verification_requires_the_rebuilt_room_to_contain_what_the_checkpoint_puts_in
     let verify = |spawn: Vec<SimId>| -> Option<super::RestoreFailure> {
         let mut app = App::new();
         app.add_plugins(LifecycleCheckpointHorizonPlugin);
-        app.init_resource::<AcceptedCheckpointRestore>();
-        app.init_resource::<SessionCheckpointOutcomes>();
+        install_checkpoint_state(app.world_mut());
         app.insert_resource(bevy::prelude::NextState::<
             ambition_platformer2d_shared_tangle::schedule::GameMode,
         >::default());
@@ -2077,8 +2054,7 @@ fn verification_requires_the_rebuilt_room_to_contain_what_the_checkpoint_puts_in
         occurrences.adopt(ledger);
 
         let key = SessionCheckpointOperations::default().admit(None).unwrap();
-        app.world_mut()
-            .resource_mut::<AcceptedCheckpointRestore>()
+        held_mut::<super::AcceptedCheckpointRestore>(app.world_mut())
             .accept(super::AcceptedRestore {
                 key,
                 frame: 0,
@@ -2094,8 +2070,7 @@ fn verification_requires_the_rebuilt_room_to_contain_what_the_checkpoint_puts_in
                 replay: None,
             });
         assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
-        app.world()
-            .resource::<SessionCheckpointOutcomes>()
+        held::<super::SessionCheckpointOutcomes>(app.world())
             .outcome_for(key)
             .expect("an answered operation has an outcome")
             .failure()
@@ -2143,9 +2118,7 @@ fn a_restore_admitted_without_the_lifecycle_horizon_pins_no_lifecycle_inputs() {
         let (mut app, sim) = a_session_that_can_reset_with(lifecycle_horizon);
         app.world_mut().write_message(ResetToCheckpoint);
         app.world_mut().run_schedule(sim);
-        let accepted = app
-            .world()
-            .resource::<AcceptedCheckpointRestore>()
+        let accepted = held::<super::AcceptedCheckpointRestore>(app.world())
             .accepted()
             .expect("the reset was admitted in both compositions")
             .clone();
@@ -2209,9 +2182,7 @@ fn a_new_game_is_admitted_as_a_fresh_restore_at_the_start_room() {
             app.world_mut().write_message(crate::session::reset::NewGameRequested);
         }
         app.world_mut().run_schedule(sim);
-        let accepted = app
-            .world()
-            .resource::<AcceptedCheckpointRestore>()
+        let accepted = held::<super::AcceptedCheckpointRestore>(app.world())
             .accepted()
             .expect("the request was admitted")
             .clone();
@@ -2243,9 +2214,7 @@ fn two_reset_requests_in_one_tick_become_one_operation() {
     app.world_mut().write_message(ResetToCheckpoint);
     app.world_mut().run_schedule(sim);
 
-    let accepted = app
-        .world()
-        .resource::<AcceptedCheckpointRestore>()
+    let accepted = held::<super::AcceptedCheckpointRestore>(app.world())
         .accepted()
         .expect("the reset was admitted")
         .clone();
@@ -2255,15 +2224,14 @@ fn two_reset_requests_in_one_tick_become_one_operation() {
          two reconstructions' worth of consequences ride behind one crossing"
     );
     assert!(
-        app.world().resource::<OutstandingCheckpointRequest>().0.is_none(),
+        held::<super::OutstandingCheckpointRequest>(app.world()).0.is_none(),
         "the coalesced request was not spent by the operation that serves it"
     );
 
     // ⛔ AND A SECOND TICK WITH NO NEW REQUEST ADMITS NOTHING FURTHER.
     app.world_mut().run_schedule(sim);
     assert_eq!(
-        app.world()
-            .resource::<AcceptedCheckpointRestore>()
+        held::<super::AcceptedCheckpointRestore>(app.world())
             .accepted()
             .map(|accepted| accepted.key),
         Some(accepted.key),
@@ -2300,15 +2268,11 @@ fn an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits() {
     app.world_mut().write_message(ResetToCheckpoint);
     app.world_mut().run_schedule(sim);
 
-    let key = app
-        .world()
-        .resource::<AcceptedCheckpointRestore>()
+    let key = held::<super::AcceptedCheckpointRestore>(app.world())
         .accepted()
         .expect("the reset was admitted")
         .key;
-    let pinned = app
-        .world()
-        .resource::<AcceptedCheckpointRestore>()
+    let pinned = held::<super::AcceptedCheckpointRestore>(app.world())
         .inputs_for_key(key)
         .expect("its own key finds it")
         .clone();
@@ -2381,9 +2345,7 @@ fn an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits() {
          snapshot check below is about a horizon that never moved"
     );
 
-    let still = app
-        .world()
-        .resource::<AcceptedCheckpointRestore>()
+    let still = held::<super::AcceptedCheckpointRestore>(app.world())
         .inputs_for_key(key)
         .expect("the operation is still outstanding");
     assert_eq!(
@@ -2406,19 +2368,15 @@ fn world_with_an_abandoned_operation(
     noted: &AcceptedRestore,
 ) -> bevy::prelude::World {
     let mut world = bevy::prelude::World::new();
-    world.init_resource::<AcceptedCheckpointRestore>();
-    world.init_resource::<SessionCheckpointOutcomes>();
     world.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
-    world.init_resource::<AbandonedCheckpointOperation>();
+    install_checkpoint_state(&mut world);
     assert!(world
         .resource_mut::<crate::session::lifecycle_commit::PendingLifecycleCommit>()
         .record(accepted.frame, accepted.intent.clone())
         .admitted());
-    world
-        .resource_mut::<AcceptedCheckpointRestore>()
+    held_mut::<super::AcceptedCheckpointRestore>(&mut world)
         .accept(accepted);
-    world
-        .resource_mut::<AbandonedCheckpointOperation>()
+    held_mut::<super::AbandonedCheckpointOperation>(&mut world)
         .note(noted);
     world
 }
@@ -2477,8 +2435,7 @@ fn an_abandoned_operation_waits_for_its_admitted_frame_to_be_confirmed() {
          never be simulated again"
     );
     assert!(
-        world
-            .resource::<AcceptedCheckpointRestore>()
+        held::<super::AcceptedCheckpointRestore>(&world)
             .inputs_for_key(key)
             .is_some(),
         "the accepted operation was retired on a frame a rewind can revisit"
@@ -2491,14 +2448,13 @@ fn an_abandoned_operation_waits_for_its_admitted_frame_to_be_confirmed() {
         "the lifecycle intent was spent on a frame a rewind can revisit"
     );
     assert!(
-        world
-            .resource::<SessionCheckpointOutcomes>()
+        held::<super::SessionCheckpointOutcomes>(&world)
             .outcome_for(key)
             .is_none(),
         "a terminal outcome was published for an operation that is still speculative"
     );
     assert_eq!(
-        world.resource::<AbandonedCheckpointOperation>().pending(),
+        held::<super::AbandonedCheckpointOperation>(&world).pending(),
         Some(key),
         "the note was dropped rather than kept, so the failed preparation is \
          forgotten and readiness reopens the same invalid transaction forever"
@@ -2513,8 +2469,7 @@ fn an_abandoned_operation_waits_for_its_admitted_frame_to_be_confirmed() {
          anything"
     );
     assert_eq!(
-        world
-            .resource::<SessionCheckpointOutcomes>()
+        held::<super::SessionCheckpointOutcomes>(&world)
             .outcome_for(key)
             .map(|outcome| outcome.cancellation()),
         Some(Some(RestoreCancellation::PreparationFailed)),
@@ -2557,8 +2512,7 @@ fn a_note_from_a_rewound_branch_cannot_end_the_operation_that_reused_its_key() {
          operation that reused its key"
     );
     assert!(
-        world
-            .resource::<AcceptedCheckpointRestore>()
+        held::<super::AcceptedCheckpointRestore>(&world)
             .inputs_for_key(key)
             .is_some(),
         "the replayed operation was retired by another timeline's failure"
@@ -2572,109 +2526,134 @@ fn a_note_from_a_rewound_branch_cannot_end_the_operation_that_reused_its_key() {
          timeline's failure, so its crossing simply never happens"
     );
     assert!(
-        world
-            .resource::<SessionCheckpointOutcomes>()
+        held::<super::SessionCheckpointOutcomes>(&world)
             .outcome_for(key)
             .is_none(),
         "a terminal outcome was published against a key whose operation is live"
     );
     assert_eq!(
-        world.resource::<AbandonedCheckpointOperation>().pending(),
+        held::<super::AbandonedCheckpointOperation>(&world).pending(),
         None,
         "the stale note survived, so it gets to ask the same wrong question at \
          every later boundary"
     );
 }
 
-/// ⛔⛤ **THE WHOLE COORDINATOR IS SESSION-OWNED, AND ONLY ONE MEMBER WAS —
-/// MEASURED BY A SECOND 2026-09-13 REVIEW AFTER THE FIRST FIXED ONE.**
+/// ⭐ **TWO SESSION ROOTS HOLD TWO COORDINATORS, AND NEITHER READS THE OTHER'S
+/// (C03, 2026-10-07).**
 ///
-/// `OutstandingCheckpointRequest` was found crossing sessions and reset; the rest
-/// of the family stayed process-global. FOUR of them are canonical ROLLBACK
-/// state, so the residue is inside the next session's checksum — most clearly
-/// `SessionCheckpointOperations.next_sequence`, which meant two otherwise
-/// identical sessions B could start with different counters merely because one
-/// process admitted more restores in its PREVIOUS run.
+/// The six checkpoint-coordinator values were process-global resources, reset at
+/// the activation of each session (the reset was added after two reviews each
+/// found a member crossing sessions; the second found the REST of the family).
+/// They are components of the session root now, so there is nothing to reset: a
+/// session starts from the coordinator its root was born with.
 ///
-/// ⭐ **THE COUNTER IS THE SHARPEST CASE AND ALSO THE SAFEST TO RESET**: the
-/// operation key already carries `SessionScopeId`, so starting B's sequence at
-/// zero cannot recycle an identity A spent.
+/// The arm: session A is live and has spent three operations and is owed a
+/// restore. Session B is prepared beside it (a candidate root). While B waits,
+/// the live coordinator is A's and is not touched. B is then published and A
+/// retired, in the order the shell does it, and the live coordinator is B's:
+/// fresh, with the first operation of B at sequence zero.
 ///
-/// ⚠ **ACTIVATION, NOT A ROOM REBASE.** The counter deliberately SURVIVES a
-/// rebase — a different boundary, and this reducer does not run there.
+/// ⛔ POISONED TWICE, 2026-10-07, each restored by copy. (1) The plugin's
+/// requirement not registered: the six composed `a_cancelled_restore_changes_nothing`
+/// arms fail at their first read of the coordinator, loudly (a `Single` that
+/// matched nothing would have skipped the system instead; the read is where it
+/// is caught). (2) B given A's operation counter at the swap, which is what the
+/// process-global resource did without its reset: THIS arm fails at the
+/// `assert_eq!` on the checksum (`...824` against a fresh `...827`).
 #[test]
-fn an_activating_session_starts_the_checkpoint_coordinator_from_zero() {
-    use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeActivated, SessionScopeId};
+fn two_session_roots_hold_two_checkpoint_coordinators() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        CandidateSessionRoot, SessionRoot, SessionScopeId,
+    };
 
-    // ⚠ THE REDUCER, NOT THE WHOLE PLUGIN. `SessionCheckpointHorizonPlugin`'s
-    // other systems want a save file, a lifecycle slot and three channels another
-    // plugin registers; building all of that would make this arm about the
-    // fixture. What is under test is the SESSION EDGE.
     let mut app = App::new();
-    app.add_message::<SessionScopeActivated>();
-    app.init_resource::<SessionCheckpointOperations>();
-    app.init_resource::<SessionCheckpointOutcomes>();
-    app.init_resource::<AcceptedCheckpointRestore>();
-    app.init_resource::<AbandonedCheckpointOperation>();
-    app.init_resource::<SessionStartupResume>();
-    app.init_resource::<OutstandingCheckpointRequest>();
-    app.add_systems(
-        bevy::prelude::Update,
-        super::reset_checkpoint_coordinator_on_activation,
-    );
+    require_checkpoint_state_on_session_root(&mut app);
+    let world = app.world_mut();
 
-    // Session A spends operations and is left owed a restore it never got.
+    // Session A: live, spent.
+    let a = world.spawn(SessionRoot(SessionScopeId(0))).id();
     {
-        let world = app.world_mut();
-        let mut operations = world.resource_mut::<SessionCheckpointOperations>();
+        let mut operations = held_mut::<SessionCheckpointOperations>(world);
         for _ in 0..3 {
             operations.admit(Some(SessionScopeId(0))).expect("admits");
         }
-        world.insert_resource(OutstandingCheckpointRequest(Some(super::RestoreTo::LastCheckpoint)));
     }
-    let spent = app
-        .world()
-        .resource::<SessionCheckpointOperations>()
-        .checksum();
+    held_mut::<OutstandingCheckpointRequest>(world).ask(RestoreTo::LastCheckpoint);
+    let spent = held::<SessionCheckpointOperations>(world).checksum();
     let fresh = SessionCheckpointOperations::default().checksum();
-    // ⚠ THE PREMISE: a coordinator that never moved makes "reset" vacuous.
-    assert_ne!(
-        spent, fresh,
-        "the fixture admitted no operations, so the counter below is compared \
-         against itself"
-    );
+    // ⚠ THE PREMISE: a coordinator that never moved makes "separate" vacuous.
+    assert_ne!(spent, fresh, "the fixture admitted no operation");
 
-    app.world_mut()
-        .write_message(SessionScopeActivated(SessionScopeId(1)));
-    app.update();
+    // Session B: prepared beside A. A candidate is not a session root, and the
+    // requirement is on `SessionRoot`, so B holds no coordinator YET.
+    let b = world.spawn(CandidateSessionRoot(SessionScopeId(1))).id();
+    assert!(world.get::<SessionCheckpointOperations>(b).is_none());
+    assert_eq!(
+        held::<SessionCheckpointOperations>(world).checksum(),
+        spent,
+        "preparing a candidate changed the live session's coordinator"
+    );
+    assert!(held::<OutstandingCheckpointRequest>(world).0.is_some());
+
+    // The shell's order: the live session retires, then the candidate is
+    // published (`publish_candidate_session`'s swap).
+    world.despawn(a);
+    world.entity_mut(b).remove::<CandidateSessionRoot>();
+    world.entity_mut(b).insert(SessionRoot(SessionScopeId(1)));
 
     assert_eq!(
-        app.world()
-            .resource::<SessionCheckpointOperations>()
-            .checksum(),
+        held::<SessionCheckpointOperations>(world).checksum(),
         fresh,
         "session B inherited A's admitted-operation counter, and that counter is \
          inside the canonical checksum — so two mechanically identical sessions \
          disagree because of what happened in a run that already ended"
     );
     assert!(
-        app.world()
-            .resource::<OutstandingCheckpointRequest>()
-            .0
-            .is_none(),
+        held::<OutstandingCheckpointRequest>(world).0.is_none(),
         "a restore owed to the RETIRED session survived into this one, which then \
          performs a checkpoint reset it never requested"
     );
-    // ⭐ AND THE CONSEQUENCE THE COUNTER EXISTS FOR: B's first operation is B's
-    // first, not A's fourth.
-    let first = app
-        .world_mut()
-        .resource_mut::<SessionCheckpointOperations>()
+    let first = held_mut::<SessionCheckpointOperations>(world)
         .admit(Some(SessionScopeId(1)))
         .expect("B admits its first operation");
     assert_eq!(
         first.sequence, 0,
         "B's first admitted operation did not get sequence zero under B's scope"
+    );
+}
+
+/// The bundle that tests insert and the requirement that production registers
+/// name the same six values. A seventh value added to one and not the other is a
+/// session root that is missing it in one of the two worlds.
+#[test]
+fn a_session_root_carries_the_whole_checkpoint_coordinator() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
+
+    let mut required = App::new();
+    require_checkpoint_state_on_session_root(&mut required);
+    let from_the_requirement = required.world_mut().spawn(SessionRoot(SessionScopeId(0))).id();
+    let mut bundled = World::new();
+    let from_the_bundle = bundled
+        .spawn((SessionRoot(SessionScopeId(0)), SessionCheckpointState::default()))
+        .id();
+
+    let components_of = |world: &World, entity: Entity| {
+        let mut names: Vec<String> = world
+            .inspect_entity(entity)
+            .expect("the root exists")
+            .map(|info| info.name().to_string())
+            .filter(|name| name.contains("::checkpoint::"))
+            .collect();
+        names.sort();
+        names
+    };
+    let required_set = components_of(required.world(), from_the_requirement);
+    let bundled_set = components_of(&bundled, from_the_bundle);
+    assert_eq!(required_set.len(), 6, "the requirement names {required_set:?}");
+    assert_eq!(
+        required_set, bundled_set,
+        "the plugin's required components and the bundle disagree"
     );
 }
 

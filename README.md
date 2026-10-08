@@ -136,7 +136,7 @@ scripts/setup/submodules.sh
 ```
 
 which initializes each one and keeps it on its `main` (the policy, the pin rule
-and the pre-split history are in [`docs/submodules.md`](docs/submodules.md)).
+and the pre-split history are in [`docs/recipes/submodules.md`](docs/recipes/submodules.md)).
 `./run_developer_setup.sh` runs that phase and also creates the tool-local Python
 environments. If an agent is operating from a
 source export where submodules cannot be fetched, it should explicitly report

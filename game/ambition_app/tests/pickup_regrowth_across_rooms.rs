@@ -376,8 +376,8 @@ fn one_time_heart_after_a_death_elsewhere(by_bob: bool) -> (Option<(bool, Option
     // stops play, which would also leave the heart gone.
     let outcome = format!(
         "{:?}",
-        sim.world()
-            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );
     assert!(outcome.starts_with("Some(Committed"), "precondition: the death's restore committed: {outcome}");
@@ -475,8 +475,8 @@ fn a_coin_taken_after_the_checkpoint_then(
         crate::death_restores_the_checkpoint::die(&mut sim);
         let outcome = format!(
             "{:?}",
-            sim.world()
-                .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+            ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
                 .latest()
         );
         assert!(outcome.starts_with("Some(Committed"), "precondition: the death's restore committed: {outcome}");

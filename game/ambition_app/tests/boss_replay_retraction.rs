@@ -703,8 +703,8 @@ fn a_banked_wardens_ability_taken_after_the_checkpoint() -> (u32, u32, usize) {
     die(&mut sim);
     let outcome = format!(
         "{:?}",
-        sim.world()
-            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );
     assert!(outcome.starts_with("Some(Committed"), "precondition: the death's restore committed: {outcome}");
@@ -1175,8 +1175,8 @@ fn alice_loots_bobs_chest_of_then_dies(
     crate::death_restores_the_checkpoint::die(&mut sim);
     let outcome = format!(
         "{:?}",
-        sim.world()
-            .resource::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
             .latest()
     );
     assert!(outcome.starts_with("Some(Committed"), "precondition: Alice's restore committed: {outcome}");

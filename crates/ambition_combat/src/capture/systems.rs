@@ -1076,11 +1076,35 @@ mod tests {
     /// throws. A mirror is a fixed point: identical inputs produce identical
     /// states however a tie is resolved, so the only symmetric resolution is the
     /// one that never grants a grab at all.
+    ///
+    /// ⭐ MIRROR-SYMMETRY item 4: the winner is the authored rule's (the lower
+    /// `SimId`, the genre's port order), in both spawn orders and both message
+    /// orders. With `east` spawned first, the entity order and the `SimId`
+    /// order agree, so only the other spawn order can show a tie-break by
+    /// entity order.
     #[test]
     fn two_bodies_grabbing_each_other_on_one_tick_make_one_hold() {
+        for west_first in [false, true] {
+            let captive = the_captive_of_a_mutual_grab(west_first);
+            assert_eq!(
+                captive, "west",
+                "the tie went to the body spawned {} and not to the lower `SimId`",
+                if west_first { "first" } else { "second" }
+            );
+        }
+    }
+
+    /// The name of the body held after `east` and `west` grab each other on one
+    /// tick, with `west` spawned (and its message written) first or second.
+    fn the_captive_of_a_mutual_grab(west_first: bool) -> &'static str {
         let mut app = capture_app();
-        let east = grounded_body(&mut app, "east", ae::Vec2::new(0.0, 0.0));
-        let west = grounded_body(&mut app, "west", ae::Vec2::new(16.0, 0.0));
+        let (east, west) = if west_first {
+            let west = grounded_body(&mut app, "west", ae::Vec2::new(16.0, 0.0));
+            (grounded_body(&mut app, "east", ae::Vec2::new(0.0, 0.0)), west)
+        } else {
+            let east = grounded_body(&mut app, "east", ae::Vec2::new(0.0, 0.0));
+            (east, grounded_body(&mut app, "west", ae::Vec2::new(16.0, 0.0)))
+        };
         // Hostile to each other, so neither grab is refused by friendly fire.
         app.world_mut()
             .entity_mut(west)
@@ -1092,9 +1116,10 @@ mod tests {
             .expect("the fixture body has kinematics")
             .facing = -1.0;
 
-        // ONE pass, both attempts.
-        app.world_mut().write_message(attempt(east));
-        app.world_mut().write_message(attempt(west));
+        // ONE pass, both attempts, in spawn order.
+        let (first, second) = if west_first { (west, east) } else { (east, west) };
+        app.world_mut().write_message(attempt(first));
+        app.world_mut().write_message(attempt(second));
         app.update();
 
         let held: Vec<Entity> = [east, west]
@@ -1122,9 +1147,12 @@ mod tests {
             app.world().get::<CapturedBy>(captor).is_none(),
             "the winner of the tie is ALSO held, which is the deadlock this guards"
         );
-        // ⛔ AND THE WINNER IS THE `SimId` TIE-BREAK'S, not whichever message
-        // happened to be written first. `east` sorts before `west`.
-        assert_eq!(captive, west, "the tie went the other way");
+        // The winner is the `SimId` tie-break's: `east` sorts before `west`.
+        if captive == west {
+            "west"
+        } else {
+            "east"
+        }
     }
 
     /// ⛔⛔ NO BODY IS EVER BOTH A CAPTOR AND A CAPTIVE, and the accepted

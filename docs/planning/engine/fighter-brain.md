@@ -217,8 +217,12 @@ scene or an authored rule that must be named):**
 - `brain/smash/mod.rs`, perch side: falls back to `toward` only near zero, else
   an absolute `cross.signum()` from a seed phase.
 - Grab contention: `capture/systems.rs` breaks a same-tick tie by `SimId`.
+  Triaged 2026-10-08: an authored rule (the genre's port order), not a
+  defect. `two_bodies_grabbing_each_other_on_one_tick_make_one_hold` runs
+  both spawn orders, so a tie-break by entity order fails it (poisoned).
 - Target selection breaks an exact-distance tie by `SimId`
-  (`ambition_combat/src/targeting.rs`).
+  (`ambition_combat/src/targeting.rs`). Triaged 2026-10-08: not reachable
+  in a two-fighter mirror, where each body has one foe.
 - `movement/recovery.rs`, `DRIFT_SIDES = [0.0, -1.0, 1.0]`: the search tries
   one side first.
 - The measured seat term: seat 0 takes about 69% of decided pairs on a mirror
@@ -248,8 +252,11 @@ rather than add a second outcome test:
    symmetry-breaking input, so any divergence is a defect.
 3. ✅ A unit-level reflection test of the decision layer (built 2026-10-08,
    see Coverage). Extend its scenes to reach the `rollout.rs` sites.
-4. A same-tick tie fixture (two bodies grab one ledge or one target) that shows
-   which authored rule breaks the tie, so a tie-break by entity order fails.
+4. ✅ A same-tick tie fixture (2026-10-08): two bodies grab each other on one
+   tick, in both spawn orders, and the lower `SimId` wins
+   (`two_bodies_grabbing_each_other_on_one_tick_make_one_hold`; poison: an
+   entity-order tie-break, red). Two bodies on one ledge are the ledge
+   policy's (`CombatRules::ledge_occupancy`, receipt LEDGE-OCCUPANCY).
 5. Poisons: a `signum(0) = +1` site, an unmirrored random draw, a list-order
    tie-break and a left-first query must each turn the test red.
 

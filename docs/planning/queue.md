@@ -746,8 +746,10 @@ root, as George's facet does.
 **Ruling:** Q49 (2026-10-04): symmetry is a correctness property; variation
 comes only from modelled asymmetric facts.
 
-**Current failure:** the 69% seat-0 term is untriaged, and no poison of
-plan item 5 has been run against the per-tick test. Built 2026-10-08: the
+**Current failure:** two poisons of plan item 5 (a list-order tie-break and
+a left-first query) are not run against the per-tick test. The seat-0 term
+is triaged 2026-10-08: it is the authored grab tie (inverting the tie swaps
+each fighter's split exactly; 58% now, within spread). Built 2026-10-08: the
 Emmy test compares the full state per tick
 (`two_emmys_are_one_fighter_reflected_until_the_first_grab`); two Emmys part
 first on frame 883, when one grab dash takes the other (the grab tie). The

@@ -126,12 +126,15 @@ cargo run --release -p ambition_demo_smash_app --bin smash_tool -- ladder-rig \
   --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron
 ```
 
-**Known seat term.** Seat 0 takes about two thirds of decided pairs in this
-control. The cause is the contested-grab tie-break: `ambition_combat::capture::systems`
-awards a same-tick mutual grab to the lower `SimId`, which is seat 0. Inverting
-that comparator flips the sign of the term. The tie-break itself is correct: a
-mirror is a fixed point, and granting nobody the grab was measured at zero
-captures. Other terms may also contribute; only one cell was inverted.
+**Known seat term.** The contested-grab tie-break
+(`ambition_combat::capture::systems`) awards a same-tick mutual grab to the
+lower `SimId`, which is seat 0. Measured 2026-10-08 (rung 6, shipped ladder,
+40 paired seeds, three fighters): seat 0 takes 26 of 45 decided pairs (58%,
+within spread), and with the comparator inverted it takes 19 of 45; each
+fighter's split swaps exactly. So the grab tie is the whole seat term in this
+control. The tie-break itself is correct: a mirror is a fixed point, and
+granting nobody the grab was measured at zero captures. The figures are in
+`ladder_rig.rs` (`--rungs` docs).
 
 **Open rig change.** `--paired` exchanges the two seats' noise streams, which
 cannot cancel a term keyed on seat. To cancel it, the pairing must exchange the
@@ -242,9 +245,10 @@ scene or an authored rule that must be named):**
   reports, and no production reader reads those two fields: the brain asks
   `regained()` and `bounded_by()`, which do not depend on the order. A
   reader that wants `steps` must take the minimum over the efforts first.
-- The measured seat term: seat 0 takes about 69% of decided pairs on a mirror
-  (`ladder_rig.rs`, `--paired` docs); decision order is the suspect, not
-  placement.
+- The measured seat term. Triaged 2026-10-08: it is the grab tie above.
+  Inverting the tie swaps each fighter's split exactly (see **Known seat
+  term**). The record before was 69% of decided pairs (40 : 18); it is 58%
+  (26 : 19, within spread) now, and what moved it was not bisected.
 
 **Per-seat streams.** Ordinary fighters seed cognition per seat
 (`fighter_cognition_seed` in `actor_spawn/brain_builders.rs`), and Emmy opts
@@ -282,7 +286,13 @@ rather than add a second outcome test:
    Emmy match reaches no zero lateral distance before the grab. The poison is
    effective: `the_shadow_of_a_reflected_scene_is_the_reflected_shadow` is
    red under it. That unit test is the witness for this source; the match
-   population does not reach it.
+   population does not reach it. A placement poison (seat 1 two pixels out in
+   `ambition_match::prepared::seat_placement`) is red at frame 0 through the
+   per-tick claim. The mirror line is the stage's centre, not the first
+   frame's mean, which would move with the poison. An unmirrored stream
+   (Emmy seeded per seat) is red through the shared-stream precondition, not
+   the per-tick claim. Not yet poisoned: a list-order tie-break and a
+   left-first query.
 
 The current requirement that two ordinary fighters MUST break the mirror stays
 only while per-seat streams are policy; it is a fact about that policy, not a

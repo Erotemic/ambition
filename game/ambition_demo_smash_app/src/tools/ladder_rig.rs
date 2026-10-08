@@ -190,25 +190,27 @@ pub struct LadderRigArgs {
     /// The null control is `--rungs X,X --character F --opponent F --paired`.
     /// It pairs by swapping the seats' noise streams (see [`Mirror::Noise`]).
     /// Any result other than `even` there is the seat term, and every ladder
-    /// verdict carries it. Measured on rung 6, shipped ladder, 40 paired seeds:
+    /// verdict carries it. Measured 2026-10-08 on rung 6, shipped ladder, 40
+    /// paired seeds, and again with the contested-grab tie inverted (the
+    /// higher `SimId` takes a mutual grab):
     ///
     /// ```text
-    /// smash_duelist_a     seat0 17 : 6  seat1   (+17 tied)   p = 0.035
-    /// smash_duelist_b     seat0 11 : 4  seat1   (+25 tied)   p = 0.118  (within spread)
-    /// smash_george_booul  seat0 12 : 8  seat1   (+20 tied)   p = 0.503  (within spread)
-    /// pooled              seat0 40 : 18 seat1   (+62 tied)   p = 0.0054
+    ///                     shipped tie           inverted tie
+    /// smash_duelist_a     seat0  9 : 10 seat1   seat0 10 :  9   (+21 tied)
+    /// smash_duelist_b     seat0  7 :  3 seat1   seat0  3 :  7   (+30 tied)
+    /// smash_george_booul  seat0 10 :  6 seat1   seat0  6 : 10   (+24 tied)
+    /// pooled              seat0 26 : 19 seat1   seat0 19 : 26   (+75 tied)
     /// ```
     ///
-    /// Seat 0 takes about 69% of decided pairs, for all three fighters. An
-    /// unpaired row (the default) carries this seat term undiscounted; paired
-    /// rung and fighter arms cancel it.
+    /// Each row is within spread. Inverting the tie swaps every row exactly, so
+    /// the seat term in this control is the contested-grab tie-break
+    /// (`ambition_combat::capture::systems`), an authored rule (Q49), and
+    /// nothing else. An unpaired row (the default) carries it undiscounted;
+    /// paired rung and fighter arms cancel it. The record before this one was
+    /// `40 : 18` (69%, p = 0.0054); what moved it was not bisected.
     ///
-    /// The cause is not placement: `ambition_demo_smash::respawn_placement`
-    /// places seats 0 and 1 symmetrically at ±32px. Decision order within a
-    /// tick is a likely cause and is not measured.
-    ///
-    /// About a third of the pairs tie exactly. That is expected when only one
-    /// term changes, and shows that the swap works.
+    /// Most pairs tie exactly. That is expected when only one term changes,
+    /// and shows that the swap works.
     #[arg(long)]
     pub rungs: Option<String>,
     /// Run each seed twice with the rungs swapped between seats, and report the

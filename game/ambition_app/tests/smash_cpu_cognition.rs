@@ -196,11 +196,14 @@ fn first_unreflected_field(a: &SeatState, b: &SeatState, mid: f32) -> Option<Str
 }
 
 /// The first frame on which the two seats are not reflections of each other
-/// about the midline of the first frame, and the field that parts there.
+/// about the stage's centre line, and the field that parts there.
 /// `with_stream: false` ignores a difference of stream alone.
+///
+/// The centre line is the stage's (`ambition_demo_smash::stage_centre`), not
+/// the mean of the first frame: a mean moves with an asymmetric placement and
+/// so hides it.
 fn first_part(frames: &[[SeatState; 2]], with_stream: bool) -> Option<(usize, String)> {
-    let first = frames.first()?;
-    let mid = (first[0].pos.x + first[1].pos.x) / 2.0;
+    let mid = ambition_demo_smash::stage_centre().x;
     frames.iter().enumerate().find_map(|(index, [a, b])| {
         first_unreflected_field(a, b, mid)
             .filter(|field| with_stream || !field.starts_with("stream:"))

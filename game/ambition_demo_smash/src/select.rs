@@ -14,6 +14,13 @@ use crate::{MatchParticipant, MatchParticipantRoster};
 /// `SlotControls`.
 pub const MAX_SMASH_SEATS: usize = 4;
 
+/// How many local input sources the select screen gives a hand: the keyboard
+/// and one pad for each slot. Four pads can then fill the four slots with the
+/// keyboard in none of them, and the keyboard can take a slot when a pad
+/// leaves one free. A hand is not a slot: see
+/// [`SmashSelect::slot_driven_by`].
+pub const MAX_SELECT_SOURCES: usize = MAX_SMASH_SEATS + 1;
+
 /// Ordered fighter IDs requested by the select grid.
 ///
 /// Layout derives from this list's length. [`SmashRoster::assemble`] drops IDs
@@ -597,12 +604,13 @@ pub fn source_name_under(
     devices: &ambition_platformer2d::input::LocalDeviceOrder,
     policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
 ) -> String {
-    let pads = devices.devices().len();
     match local_source_under(device, policy) {
         ambition_platformer2d::actor::LocalInputSource::Keyboard => "KEYBOARD".to_string(),
         // A slot for an unplugged pad still names that pad; that is more
         // useful for debugging than hiding the gap.
-        ambition_platformer2d::actor::LocalInputSource::Pad(pad) if (pad as usize) < pads => {
+        ambition_platformer2d::actor::LocalInputSource::Pad(pad)
+            if devices.pad(pad as usize).is_some() =>
+        {
             format!("PAD {}", pad + 1)
         }
         ambition_platformer2d::actor::LocalInputSource::Pad(pad) => {
@@ -614,21 +622,32 @@ pub fn source_name_under(
 /// Which source a slot's occupant number names, under a stated policy. The
 /// label and the roster must use this same mapping.
 ///
-/// The keyboard is device zero only under the multi-source policies;
-/// `UnifiedPrimary` has no keyboard seat.
+/// It is the input crate's mapping for a seat with no declared plan
+/// (`source_for_seat`), which is also what gives each lobby hand its pad. So a
+/// hand, its label and the roster it publishes name one controller.
 pub fn local_source_under(
     device: usize,
     policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
 ) -> ambition_platformer2d::actor::LocalInputSource {
-    use ambition_platformer2d::actor::LocalInputSource;
-    match policy {
-        // One seat per pad, no keyboard seat: the index is the pad.
-        ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary => {
-            LocalInputSource::Pad(device as u8)
+    use ambition_platformer2d::input::sources::{keyboard_owner_for, source_for_seat, KeyboardOwner};
+    // The lobby's keyboard owner. Any count of two or more asks the policy.
+    let keyboard_owner = keyboard_owner_for(policy, KeyboardOwner::default(), MAX_SELECT_SOURCES);
+    source_for_seat(keyboard_owner, device as u8)
+}
+
+/// Whether the source a lobby hand names is there: the keyboard always, a pad
+/// while it is connected. A hand whose pad is unplugged is not drawn and
+/// cannot be given a slot.
+pub fn source_is_present(
+    device: usize,
+    devices: &ambition_platformer2d::input::LocalDeviceOrder,
+    policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
+) -> bool {
+    match local_source_under(device, policy) {
+        ambition_platformer2d::actor::LocalInputSource::Keyboard => true,
+        ambition_platformer2d::actor::LocalInputSource::Pad(pad) => {
+            devices.pad(pad as usize).is_some()
         }
-        // The keyboard is player one and each pad brings its own slot.
-        _ if device == 0 => LocalInputSource::Keyboard,
-        _ => LocalInputSource::Pad((device - 1) as u8),
     }
 }
 

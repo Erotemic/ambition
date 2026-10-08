@@ -93,5 +93,23 @@ pub fn keyboard_owner_for(
     }
 }
 
+/// The source the seat in `slot` listens to when no channel plan is declared.
+///
+/// The keyboard is not a pad, so the seats above the keyboard seat count
+/// their pads from zero: with the keyboard on seat 0, seat 1 is pad 0. With no
+/// keyboard seat, seat `n` is pad `n`. A lobby label, a lobby cursor and the
+/// roster the lobby publishes must all use this one mapping.
+pub fn source_for_seat(
+    keyboard_owner: Option<ParticipantId>,
+    slot: u8,
+) -> crate::channels::LocalInputSource {
+    use crate::channels::LocalInputSource;
+    match keyboard_owner.map(ParticipantId::slot) {
+        Some(owner) if owner == slot => LocalInputSource::Keyboard,
+        Some(owner) if owner < slot => LocalInputSource::Pad(slot - 1),
+        _ => LocalInputSource::Pad(slot),
+    }
+}
+
 #[cfg(test)]
 mod tests;

@@ -384,6 +384,79 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
     );
 }
 
+/// Jon's report, 2026-10-08: one stick moved every hand on the select screen.
+/// In the shipped host, the middle of three pads disconnects as Bevy does it
+/// (the entity stays, the component goes). Each pad that is left moves the
+/// hand of its own seat and no other, and the pad that comes back gets its
+/// seat again.
+///
+/// Measured before in the standalone demo: pad a moved the hands of seats 1
+/// and 2, and pad c moved none. The seat of the missing pad had no pad
+/// association, and leafwing gives such a seat the first connected pad. The
+/// rules are in `ambition_input::local_seats`; the match half is in
+/// `ambition_demo_smash_app`'s `each_pad_drives_its_own_seat`.
+#[test]
+fn a_pad_that_disconnects_on_the_select_screen_moves_no_other_hand() {
+    use bevy::input::gamepad::{Gamepad, GamepadAxis};
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    let pads: Vec<Entity> = ["pad a", "pad b", "pad c"]
+        .iter()
+        .map(|name| {
+            app.world_mut()
+                .spawn((Gamepad::default(), Name::new(name.to_string())))
+                .id()
+        })
+        .collect();
+    settle(&mut app);
+    settle(&mut app);
+
+    let hands_moved_by = |app: &mut App, pad: Entity| -> Vec<u8> {
+        let set = |app: &mut App, x: f32| {
+            app.world_mut()
+                .get_mut::<Gamepad>(pad)
+                .expect("a connected pad")
+                .analog_mut()
+                .set(GamepadAxis::LeftStickX, x);
+        };
+        set(app, 1.0);
+        for _ in 0..3 {
+            app.update();
+        }
+        let moved = app
+            .world()
+            .resource::<ambition_platformer2d::input::SeatMenuFrames>()
+            .seats()
+            .filter(|(_, frame)| frame.analog.x != 0.0)
+            .map(|(seat, _)| seat)
+            .collect();
+        set(app, 0.0);
+        for _ in 0..2 {
+            app.update();
+        }
+        moved
+    };
+    assert_eq!(
+        pads.iter().map(|pad| hands_moved_by(&mut app, *pad)).collect::<Vec<_>>(),
+        [[1], [2], [3]],
+        "premise: the keyboard has seat 0 and each pad has the next seat"
+    );
+
+    app.world_mut().entity_mut(pads[1]).remove::<Gamepad>();
+    settle(&mut app);
+    assert_eq!(hands_moved_by(&mut app, pads[0]), [1]);
+    assert_eq!(hands_moved_by(&mut app, pads[2]), [3]);
+
+    app.world_mut().entity_mut(pads[1]).insert(Gamepad::default());
+    settle(&mut app);
+    assert_eq!(
+        pads.iter().map(|pad| hands_moved_by(&mut app, *pad)).collect::<Vec<_>>(),
+        [[1], [2], [3]]
+    );
+}
+
 /// PROBE: "even when we add a CPU player in smash there is
 /// only ever one player that shows up in game."
 ///

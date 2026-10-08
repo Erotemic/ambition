@@ -471,7 +471,7 @@ fn track_versus_roster(
             let roster = versus_roster_from(
                 frozen
                     .map(|topology| topology.players())
-                    .unwrap_or_else(|| devices.devices().len().max(1)),
+                    .unwrap_or_else(|| devices.connected().len().max(1)),
                 // frozen means ACTIVATED, unfrozen means PROPOSED. The
                 // seat count above already comes from the frozen topology when
                 // one exists, so when it does, the session has already agreed

@@ -55,7 +55,15 @@ impl RouteSeating {
         match self.seats {
             SeatCount::Fixed(seats) => seats,
             SeatCount::OnePerSource { max } => {
-                let pads = devices.map_or(0, |devices| devices.devices().len());
+                let pads = devices.map_or(0, |devices| match self.policy {
+                    // A session with no declared plan gives each connected
+                    // pad a channel, counted from the first connected pad.
+                    InputAssignmentPolicy::UnifiedPrimary => devices.connected().len(),
+                    // A seat number names a pad slot. A pad above an empty
+                    // slot keeps its number, so its seat stays on offer.
+                    InputAssignmentPolicy::JoinToClaim
+                    | InputAssignmentPolicy::ExplicitAssignment => devices.span(),
+                });
                 let sources = self.policy.sources_that_can_claim(pads);
                 sources.clamp(1, usize::from(max.max(1))) as u8
             }

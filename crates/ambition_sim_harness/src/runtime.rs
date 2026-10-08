@@ -195,12 +195,10 @@ impl Platformer2dSimHarness {
             // the harness options.
             {
                 let world = app.world_mut();
-                let order = LocalDeviceOrder::from_devices(
-                    world
-                        .get_resource::<LocalDeviceOrder>()
-                        .map(|order| order.devices().to_vec())
-                        .unwrap_or_default(),
-                );
+                let order = world
+                    .get_resource::<LocalDeviceOrder>()
+                    .cloned()
+                    .unwrap_or_default();
                 if let Some(mut topology) = world.get_resource_mut::<LocalSeatTopology>() {
                     // the harness declares the IDENTITY mapping: seat `n`
                     // plays on pad `n`. A headless run has no devices at all and

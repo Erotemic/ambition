@@ -239,8 +239,8 @@ pub fn update_seat_active_devices(
 
     // Gamepads: a button just pressed or an axis past a generous deflection,
     // given to the seat whose map is associated with that pad. With one seat,
-    // leafwing's any-pad fallback gives every pad to the primary. With more, an
-    // unheld pad is a spare and marks no seat.
+    // every pad is the primary's: the seat follows the pad its player uses.
+    // With more, a pad no seat holds is a spare and marks no seat.
     const GAMEPAD_AXIS_DEFLECTION: f32 = 0.5;
     for (pad_entity, pad, name) in pads.iter() {
         let button = pad.get_just_pressed().next().is_some();

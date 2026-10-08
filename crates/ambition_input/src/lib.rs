@@ -72,8 +72,7 @@ pub use control::{
 pub use glyphs::glyph_for;
 #[cfg(feature = "input")]
 pub use local_seats::{
-    assign_local_seat_devices, track_local_device_order, LocalSeatTopology,
-    SeatDeviceOwnership as LocalSeatDeviceOwnership,
+    assign_local_seat_devices, track_local_device_order, LocalSeatTopology, NO_PAD,
 };
 pub use seating::{LocalDeviceOrder, LocalSeatOffer, SeatingDeclared, SessionSeatingSource};
 
@@ -120,7 +119,7 @@ pub use participant::{
 pub use rebind::{also_bound_to, bindable, capture, pressed_controls_this_frame};
 pub use settings::{BindingOverride, ControlFilters, OverrideControl, OverrideDeviceClass};
 /// How local sources become participants, and who owns the keyboard.
-pub use sources::{InputAssignmentPolicy, KeyboardOwner};
+pub use sources::{source_for_seat, InputAssignmentPolicy, KeyboardOwner};
 // Export only `key_name`, not the whole module: a HUD legend needs only it.
 pub use presets::{key_name, ActionKeys, KeyboardPreset, MovementKeys, PresetId};
 pub use semantic::{
@@ -166,9 +165,6 @@ pub fn install_input_pipeline(app: &mut bevy::prelude::App) {
             .chain(),
     );
     app.init_resource::<LocalDeviceOrder>();
-    // Which pad each seat holds, kept across disconnects.
-    // `assign_local_seat_devices` panics without it.
-    app.init_resource::<LocalSeatDeviceOwnership>();
     app.add_systems(
         PreUpdate,
         (track_local_device_order, assign_local_seat_devices)

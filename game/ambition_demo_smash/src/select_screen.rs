@@ -16,7 +16,9 @@ use ambition_platformer2d::character::{
 use bevy::input::touch::Touches;
 use bevy::prelude::*;
 
-use crate::select::{SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SMASH_SEATS};
+use crate::select::{
+    SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SELECT_SOURCES, MAX_SMASH_SEATS,
+};
 use cursor::{CursorTarget, HitRect, SelectCursors};
 use layout::SelectLayout;
 
@@ -162,6 +164,15 @@ const SLOT_COLORS: [Color; MAX_SMASH_SEATS] = [
     Color::srgb(0.99, 0.82, 0.30),
     Color::srgb(0.44, 0.90, 0.52),
 ];
+
+/// The colour of a seat's hand. A hand is a local input source, and there
+/// is one more of them than slots (`MAX_SELECT_SOURCES`).
+fn hand_color(seat: usize) -> Color {
+    SLOT_COLORS
+        .get(seat)
+        .copied()
+        .unwrap_or(Color::srgb(0.80, 0.52, 0.98))
+}
 
 const INK: Color = Color::srgb(0.94, 0.96, 1.0);
 const DIM_INK: Color = Color::srgb(0.55, 0.60, 0.72);
@@ -784,8 +795,8 @@ pub fn spawn_select_screen(
             }
             // One hand per seat, in the seat's `SLOT_COLORS`, so the hand
             // matches the token it grabs.
-            for seat in 0..MAX_SMASH_SEATS {
-                let tint = SLOT_COLORS[seat];
+            for seat in 0..MAX_SELECT_SOURCES {
+                let tint = hand_color(seat);
                 root.spawn((
                     CursorNode(seat),
                     Node {
@@ -827,6 +838,10 @@ pub(crate) struct SelectScreenInputs<'w, 's> {
     mouse: Option<Res<'w, ButtonInput<MouseButton>>>,
     touches: Option<Res<'w, Touches>>,
     seat_frames: Option<Res<'w, ambition_platformer2d::input::SeatMenuFrames>>,
+    // Which pads are connected, and what a seat number names here. Optional:
+    // a fixture with no input world drives the seats it writes frames for.
+    devices: Option<Res<'w, ambition_platformer2d::input::LocalDeviceOrder>>,
+    offer: Option<Res<'w, ambition_platformer2d::input::LocalSeatOffer>>,
     global_frame: Option<Res<'w, ambition_platformer2d::input::MenuControlFrame>>,
     host: Option<Res<'w, ambition_platformer2d::game_shell::ShellHostConfiguration>>,
     time: Res<'w, Time>,
@@ -836,7 +851,7 @@ pub(crate) struct SelectScreenInputs<'w, 's> {
 pub(crate) struct SelectDriverLocal {
     last_mouse: Option<Vec2>,
     fingers: std::collections::HashMap<u64, usize>,
-    back_hold_seconds: [f32; MAX_SMASH_SEATS],
+    back_hold_seconds: [f32; MAX_SELECT_SOURCES],
 }
 
 /// Holding Back is navigation; tapping Back is token manipulation.
@@ -927,7 +942,7 @@ pub(crate) fn drive_the_cursor(
         page_back: bool,
         page_forward: bool,
     }
-    let mut drives = [SeatDrive::default(); MAX_SMASH_SEATS];
+    let mut drives = [SeatDrive::default(); MAX_SELECT_SOURCES];
 
     // The mouse, keyboard and global frame speak for seat 0 (a keyboard on a
     // route with no seats reports on the global frame). Pads speak for their
@@ -936,7 +951,7 @@ pub(crate) fn drive_the_cursor(
 
     // ── the pads ─────────────────────────────────────────────────────────
     if let Some(seat_frames) = inputs.seat_frames.as_deref() {
-        for seat in 0..MAX_SMASH_SEATS {
+        for seat in 0..MAX_SELECT_SOURCES {
             let frame = seat_frames.for_seat(seat as u8);
             let drive = &mut drives[seat];
             if frame.left {
@@ -1035,7 +1050,7 @@ pub(crate) fn drive_the_cursor(
             // A seat mid-carry claims the next finger. Tap-token, tap-fighter
             // uses two fingers, because the first lifted; without this the
             // second tap would drive seat 0. Lowest seat wins a tie.
-            let carrying = (0..MAX_SMASH_SEATS).find(|seat| {
+            let carrying = (0..MAX_SELECT_SOURCES).find(|seat| {
                 !taken.contains(seat)
                     && cursors
                         .seat(*seat)
@@ -1074,8 +1089,14 @@ pub(crate) fn drive_the_cursor(
         }
     }
 
-    // Which input participants are present, derived from the per-seat menu
-    // frames (one per `InputParticipant`), not from device order.
+    // Which input sources are present: the seats with a per-seat menu frame
+    // (one per `InputParticipant`) whose source is there. A seat whose pad is
+    // unplugged keeps its number and its participant, and is not present.
+    let policy_of_seats = inputs
+        .offer
+        .as_deref()
+        .map(|offer| offer.policy())
+        .unwrap_or_default();
     let mut connected_sources: Vec<usize> = inputs
         .seat_frames
         .as_deref()
@@ -1083,7 +1104,12 @@ pub(crate) fn drive_the_cursor(
             frames
                 .seats()
                 .map(|(seat, _)| seat as usize)
-                .filter(|seat| *seat < MAX_SMASH_SEATS)
+                .filter(|seat| *seat < MAX_SELECT_SOURCES)
+                .filter(|seat| {
+                    inputs.devices.as_deref().is_none_or(|devices| {
+                        crate::select::source_is_present(*seat, devices, policy_of_seats)
+                    })
+                })
                 .collect()
         })
         .unwrap_or_default();
@@ -1109,7 +1135,7 @@ pub(crate) fn drive_the_cursor(
     }
 
     // ── each seat, in seat order ─────────────────────────────────────────
-    for seat in 0..MAX_SMASH_SEATS {
+    for seat in 0..MAX_SELECT_SOURCES {
         let drive = drives[seat];
         // Which card is this person's? Not `seat`: see
         // [`SmashSelect::slot_driven_by`]. The cursor is seat-keyed; the card
@@ -1121,7 +1147,7 @@ pub(crate) fn drive_the_cursor(
         {
             let pointer = cursors
                 .seat_mut(seat)
-                .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS");
+                .expect("`seat` is bounded by the loop over 0..MAX_SELECT_SOURCES");
 
             // Start on a portrait, not the origin, spread per seat so four
             // cursors do not stack.
@@ -1179,7 +1205,7 @@ pub(crate) fn drive_the_cursor(
             // policy), the owner does not steal it.
             if cursors
                 .seat(seat)
-                .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+                .expect("`seat` is bounded by the loop over 0..MAX_SELECT_SOURCES")
                 .carrying
                 .is_none()
             {
@@ -1199,7 +1225,7 @@ pub(crate) fn drive_the_cursor(
                         if let Some(rect) = token_rect(&token_layout, &select, &fighters, own) {
                             let pointer = cursors
                                 .seat_mut(seat)
-                                .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS");
+                                .expect("`seat` is bounded by the loop over 0..MAX_SELECT_SOURCES");
                             pointer.move_to(rect.center());
                             cursors.try_grab(seat, own);
                         }
@@ -1211,15 +1237,15 @@ pub(crate) fn drive_the_cursor(
 
         let position = cursors
             .seat(seat)
-            .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+            .expect("`seat` is bounded by the loop over 0..MAX_SELECT_SOURCES")
             .position;
         let carrying = cursors
             .seat(seat)
-            .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+            .expect("`seat` is bounded by the loop over 0..MAX_SELECT_SOURCES")
             .carrying;
         let release_should_drop = cursors
             .seat(seat)
-            .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+            .expect("`seat` is bounded by the loop over 0..MAX_SELECT_SOURCES")
             .release_should_drop();
 
         if drive.pressed {
@@ -1276,7 +1302,7 @@ pub(crate) fn drive_the_cursor(
                         select.set_pick(slot, pick);
                         cursors
                             .seat_mut(seat)
-                            .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+                            .expect("`seat` is bounded by the loop over 0..MAX_SELECT_SOURCES")
                             .drop_it();
                     }
                 }
@@ -1315,7 +1341,7 @@ pub(crate) fn drive_the_cursor(
                     select.set_pick(slot, pick);
                     cursors
                         .seat_mut(seat)
-                        .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+                        .expect("`seat` is bounded by the loop over 0..MAX_SELECT_SOURCES")
                         .drop_it();
                 }
             }
@@ -1577,6 +1603,7 @@ pub fn sync_select_tokens_and_cursors(
     page: Res<SelectPage>,
     windows: Query<&Window>,
     offer: Option<Res<ambition_platformer2d::input::LocalSeatOffer>>,
+    devices: Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
     mut tokens: Query<(&SlotToken, &mut Node, &mut Visibility), Without<CursorNode>>,
     mut cursor_nodes: Query<(&CursorNode, &mut Node, &mut Visibility), Without<SlotToken>>,
 ) {
@@ -1597,7 +1624,7 @@ pub fn sync_select_tokens_and_cursors(
             Some(HitRect::from_center_size(
                 cursors
                     .seat(seat)
-                    .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS")
+                    .expect("`seat` is bounded by the loop over 0..MAX_SELECT_SOURCES")
                     .position,
                 Vec2::splat(layout.token_px()),
             ))
@@ -1621,15 +1648,23 @@ pub fn sync_select_tokens_and_cursors(
         // Cursors are indexed by input seat, not match slot. Using
         // `select.slot(seat)` would show a phantom hand for a CPU hole in a
         // sparse roster (human / CPU / human). `LocalSeatOffer` is the
-        // authority for how many local participants are offered.
-        if seat >= offered_seats {
+        // authority for how many local participants are offered. A seat whose
+        // pad is unplugged keeps its number and draws no hand.
+        let present = devices.as_deref().is_none_or(|devices| {
+            crate::select::source_is_present(
+                seat,
+                devices,
+                offer.as_deref().map(|offer| offer.policy()).unwrap_or_default(),
+            )
+        });
+        if seat >= offered_seats || !present {
             set_visibility(&mut visibility, Visibility::Hidden);
             continue;
         }
         set_visibility(&mut visibility, Visibility::Inherited);
         let pointer = cursors
             .seat(seat)
-            .expect("`seat` is bounded by the loop over 0..MAX_SMASH_SEATS");
+            .expect("`seat` is bounded by the loop over 0..MAX_SELECT_SOURCES");
         let at = if pointer.placed {
             pointer.position
         } else {

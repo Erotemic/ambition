@@ -1,19 +1,29 @@
-//! Local gamepad ownership for participant seats.
+//! Which controller each participant seat hears.
 //!
-//! A single seat remains unassociated so any connected pad can drive it. With
-//! multiple seats, seat `n` owns the `n`-th controller in remembered connection
-//! order; unmatched seats clear stale associations. [`LocalDeviceOrder`] records
-//! arrival order because Bevy entity indices may be recycled.
+//! [`LocalDeviceOrder`] is the one answer to "which controller is pad `n`".
+//! A seat listens to a source ([`LocalInputSource`]): the frozen channel plan
+//! of a session names it, and without a plan the seat number and the keyboard
+//! owner do ([`crate::sources::source_for_seat`]). [`assign_local_seat_devices`]
+//! projects that source onto the seat's input map and decides nothing else.
+//!
+//! No seat is left without an association while pads are connected. leafwing
+//! gives an input map with no gamepad the FIRST connected pad, so such a seat
+//! follows another seat's controller.
 
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::InputMap;
 
-use crate::channels::LocalChannelPlan;
-pub use crate::seating::LocalDeviceOrder;
-#[cfg(test)]
-use crate::channels::LocalInputSource;
+use crate::channels::{LocalChannelPlan, LocalInputSource};
 use crate::participant::ParticipantId;
+pub use crate::seating::LocalDeviceOrder;
+use crate::seating::PadIdentity;
 use crate::{InputParticipant, Platformer2dInputActionMonolith};
+
+/// The association of a seat that hears no pad: a keyboard seat, a seat whose
+/// controller is unplugged, and a seat the plan gives no source.
+/// `Entity::PLACEHOLDER` is leafwing's own answer when no gamepad exists, so no
+/// connected pad matches it.
+pub const NO_PAD: Entity = Entity::PLACEHOLDER;
 
 /// Frozen local-device topology for one gameplay session.
 ///
@@ -25,7 +35,8 @@ use crate::{InputParticipant, Platformer2dInputActionMonolith};
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct LocalSeatTopology {
     generation: u64,
-    seats: Vec<Entity>,
+    /// The pad table as it was when the session decided its seating.
+    pads: LocalDeviceOrder,
     /// Roster-declared mapping from input sources to local channels.
     /// `None` means no roster has declared a plan and device discovery supplies
     /// the fallback topology.
@@ -33,33 +44,33 @@ pub struct LocalSeatTopology {
 }
 
 impl LocalSeatTopology {
-    /// Freeze the current device order as this session's seating.
+    /// Freeze the current pad table as this session's seating.
     ///
     /// The generation advances on every capture, also when the seats are the
     /// same. Consumers cache against "the topology was decided again" (as with
     /// `CharacterCatalogGeneration`).
     pub fn capture(&mut self, order: &LocalDeviceOrder) {
         self.generation = self.generation.wrapping_add(1);
-        self.seats = order.devices().to_vec();
+        self.pads = order.clone();
         // A recapture is a new decision. A declaration from an old roster must
         // not size this session.
         self.declared = None;
     }
 
     /// How many local players this session seats. At least one: a
-    /// keyboard-only desktop has no device rows but has a player, and a
+    /// keyboard-only desktop has no connected pad but has a player, and a
     /// session with zero local handles accepts no input.
     ///
-    /// The roster's declaration wins when present (see `declared`). The device
-    /// count is the fallback.
+    /// The roster's declaration wins when present (see `declared`). The number
+    /// of connected pads is the fallback.
     pub fn players(&self) -> usize {
         match &self.declared {
             Some(plan) => plan.channels().max(1),
-            None => self.seats.len().max(1),
+            None => self.pads.connected_slots().count().max(1),
         }
     }
 
-    /// Freeze the device order AND the channel plan the roster declared.
+    /// Freeze the pad table AND the channel plan the roster declared.
     ///
     /// This is a separate entry point because some callers of
     /// [`Self::capture`] have no roster (the rollback observatory, device
@@ -80,24 +91,25 @@ impl LocalSeatTopology {
         self.declared.as_ref().map(|plan| plan.channels())
     }
 
-    /// The controller a channel drives, if any.
-    ///
-    /// `None` is a channel with no pad: one on the keyboard, or one whose
-    /// controller is unplugged. Neither is an error.
-    pub fn device_for_channel(&self, channel: ParticipantId) -> Option<Entity> {
-        let index = match &self.declared {
-            Some(plan) => plan.source_for(channel)?.pad_index()?,
-            None => channel.slot() as usize,
-        };
-        self.seats.get(index).copied()
+    /// The pad a channel drives when no plan was declared: the pads that were
+    /// connected at the capture, in slot order, one for each channel.
+    fn undeclared_pad(&self, index: usize) -> Option<LocalInputSource> {
+        self.pads
+            .connected_slots()
+            .nth(index)
+            .map(|slot| LocalInputSource::Pad(slot as u8))
     }
 
-    /// The controller at this index of the frozen device order.
+    /// The controller a channel drove when the session froze, if any.
     ///
-    /// This is a device index, not a channel. To ask which pad a seat drives,
-    /// use [`Self::device_for_channel`].
-    pub fn device_at(&self, index: usize) -> Option<Entity> {
-        self.seats.get(index).copied()
+    /// `None` is a channel with no pad: one on the keyboard, or one whose
+    /// controller was unplugged. Neither is an error.
+    pub fn device_for_channel(&self, channel: ParticipantId) -> Option<Entity> {
+        let source = match &self.declared {
+            Some(plan) => plan.source_for(channel)?,
+            None => self.undeclared_pad(channel.slot() as usize)?,
+        };
+        self.pads.pad(source.pad_index()?)
     }
 
     /// Bumped on every capture; `0` means never captured.
@@ -111,194 +123,89 @@ impl LocalSeatTopology {
     }
 }
 
-/// Record connections in the order they happen, and forget disconnections.
+/// Keep the pad table in step with the connected controllers.
 pub fn track_local_device_order(
-    pads: Query<Entity, With<Gamepad>>,
+    pads: Query<(Entity, &Gamepad, Option<&Name>)>,
     mut order: ResMut<LocalDeviceOrder>,
 ) {
-    let live: Vec<Entity> = pads.iter().collect();
-    let mut next: Vec<Entity> = order
-        .0
+    let mut live: Vec<(Entity, PadIdentity)> = pads
         .iter()
-        .copied()
-        .filter(|pad| live.contains(pad))
+        .map(|(entity, pad, name)| {
+            (
+                entity,
+                PadIdentity::new(
+                    name.map(|name| name.as_str().to_string()),
+                    pad.vendor_id(),
+                    pad.product_id(),
+                ),
+            )
+        })
         .collect();
-    let mut fresh: Vec<Entity> = live
-        .iter()
-        .copied()
-        .filter(|pad| !next.contains(pad))
-        .collect();
-    fresh.sort_by_key(|pad| pad.index());
-    next.extend(fresh);
+    // Query order is not stable. Two controllers that connect in one frame
+    // take their slots in the order of their entity indices.
+    live.sort_by_key(|(pad, _)| pad.index());
     // Write only on a real change. This runs every frame, and an
-    // unconditional `ResMut` deref would mark the order changed every frame.
-    if next != order.0 {
-        order.0 = next;
+    // unconditional `ResMut` deref would mark the table changed every frame.
+    let mut next = order.clone();
+    if next.track(&live) {
+        *order = next;
     }
 }
 
-/// What a controller is, across disconnects.
+/// The pad a lone seat hears: the controller its player used last.
 ///
-/// An `Entity` cannot answer this: a reconnecting pad is a new entity with a
-/// new generation. The OS-provided name and USB vendor/product survive an
-/// unplug.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct PadIdentity {
-    name: Option<String>,
-    vendor: Option<u16>,
-    product: Option<u16>,
+/// One player can pick up any connected controller. The seat follows the pad
+/// that shows input, and keeps it while it stays connected.
+fn pad_in_use(current: Option<Entity>, order: &LocalDeviceOrder, pads: &Query<&Gamepad>) -> Option<Entity> {
+    const AXIS_DEFLECTION: f32 = 0.5;
+    let connected = order.connected();
+    let used = connected.iter().copied().find(|pad| {
+        pads.get(*pad).is_ok_and(|pad| {
+            pad.get_just_pressed().next().is_some()
+                || pad.get_analog_axes().any(|axis| {
+                    pad.get(*axis)
+                        .is_some_and(|value| value.abs() >= AXIS_DEFLECTION)
+                })
+        })
+    });
+    used.or(current.filter(|pad| connected.contains(pad)))
+        .or(connected.first().copied())
 }
 
-impl PadIdentity {
-    fn of(pad: Option<&Gamepad>, name: Option<&Name>) -> Self {
-        Self {
-            name: name.map(|name| name.as_str().to_string()),
-            vendor: pad.and_then(|pad| pad.vendor_id()),
-            product: pad.and_then(|pad| pad.product_id()),
-        }
-    }
-
-    /// Whether this identity says anything at all.
-    fn is_known(&self) -> bool {
-        self.name.is_some() || self.vendor.is_some() || self.product.is_some()
-    }
-}
-
-/// Which pad each seat holds, kept across disconnects.
-///
-/// Positional assignment (seat `n` gets the `n`-th pad) is wrong: when a pad
-/// leaves, [`LocalDeviceOrder`] drops it, every later seat shifts down one,
-/// and a seat takes another player's controller.
-///
-/// So the assignment is remembered, not recomputed. A seat keeps its pad
-/// while that pad exists. A pad that leaves frees only its own seat. A free
-/// pad goes only to a seat that has none, so a reconnect restores the same
-/// assignment.
-#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
-pub struct SeatDeviceOwnership {
-    held: std::collections::BTreeMap<u8, Entity>,
-    /// What each seat's controller was, kept after it disconnects so the
-    /// same controller finds the same seat when it comes back.
-    remembered: std::collections::BTreeMap<u8, PadIdentity>,
-}
-
-impl SeatDeviceOwnership {
-    /// The pad this seat holds, if it still has one.
-    pub fn pad_for(&self, slot: u8) -> Option<Entity> {
-        self.held.get(&slot).copied()
-    }
-
-    /// Whether any seat holds this pad.
-    pub fn is_held(&self, pad: Entity) -> bool {
-        self.held.values().any(|held| *held == pad)
-    }
-
-    /// The seat waiting for this exact controller, if one is.
-    fn seat_awaiting(&self, identity: &PadIdentity) -> Option<u8> {
-        if !identity.is_known() {
-            return None;
-        }
-        self.remembered
-            .iter()
-            .find(|(slot, remembered)| *remembered == identity && !self.held.contains_key(slot))
-            .map(|(slot, _)| *slot)
-    }
-
-    fn claim(&mut self, slot: u8, pad: Entity, identity: PadIdentity) {
-        self.held.insert(slot, pad);
-        self.remembered.insert(slot, identity);
-    }
-
-    /// Forget the entity each seat holds when its pad is gone. Keep the
-    /// remembered identity.
-    fn retire_missing(&mut self, live: &[Entity]) {
-        self.held.retain(|_, pad| live.contains(pad));
-    }
-}
-
-/// Which pad the frozen session decided this seat holds.
-///
-/// The declared plan is the answer when there is one. It says which source
-/// each dense channel listens to. Example: a lobby that seats the human on
-/// pad 1 against a CPU declares `channel 0 -> pad 1`. Indexing the device
-/// order by channel would give them an unused pad.
-///
-/// Without a plan, the seat number indexes the device order, minus one for a
-/// keyboard seat below it (the keyboard is not a row). This fallback can only
-/// express a keyboard player in a lower seat than a pad player. When it fails
-/// it returns `None`, and that player has no input.
-fn frozen_pad_for_seat(
-    topology: &LocalSeatTopology,
-    slot: u8,
-    keyboard_owner: Option<ParticipantId>,
-) -> Option<Entity> {
-    if topology.declared_channels().is_some() {
-        return topology.device_for_channel(ParticipantId(slot));
-    }
-    let pad_index = match keyboard_owner {
-        Some(owner) if owner.slot() < slot => slot.saturating_sub(1),
-        _ => slot,
-    };
-    topology.device_at(pad_index as usize)
-}
-
-/// Give each local seat its own controller.
+/// Give each local seat the controller of its source.
 ///
 /// Runs in `PreUpdate` before leafwing resolves actions, so a seat that joins
 /// is playable on the tick it joins.
 ///
-/// While a session owns a frozen topology, the mapping comes from it.
-/// `LocalDeviceOrder` is live, and a disconnect that reorders it would change
-/// which physical device drives each GGRS handle. The session must freeze the
-/// mapping, not only the handle count.
-///
-/// Live discovery still runs for the next session. It does not change this
-/// one.
+/// While a session owns a frozen topology, a seat hears only the controller
+/// the session froze for it. A controller that disconnects leaves its seat with
+/// no input, the same controller gets its seat back, and a different controller
+/// does not. Without a frozen topology (a lobby, a menu) the live pad table
+/// decides, so controllers connect and disconnect freely.
 pub fn assign_local_seat_devices(
     order: Res<LocalDeviceOrder>,
     topology: Option<Res<LocalSeatTopology>>,
     offer: Option<Res<crate::seating::LocalSeatOffer>>,
     keyboard: Option<Res<crate::sources::KeyboardOwner>>,
-    mut ownership: ResMut<SeatDeviceOwnership>,
-    pads: Query<(Option<&Gamepad>, Option<&Name>)>,
+    pads: Query<&Gamepad>,
     mut seats: Query<(
         &InputParticipant,
         &mut InputMap<Platformer2dInputActionMonolith>,
     )>,
 ) {
     let frozen = topology.filter(|topology| topology.is_frozen());
-    // Use the frozen topology's player count, not the number of seat
-    // entities. During activation a two-player topology can exist while only
-    // the primary entity does. Counting entities would take the solo branch,
-    // clear the primary's pad restriction, and let handle 1's pad drive seat 0.
-    let players = match frozen.as_ref() {
-        Some(topology) => topology.players(),
-        None => seats.iter().len(),
-    };
-    // Solo: keep leafwing's any-pad behaviour.
-    if players < 2 {
-        for (_, mut map) in &mut seats {
-            if map.gamepad().is_some() {
-                map.clear_gamepad();
-            }
-        }
-        return;
-    }
+    // The larger of the two counts. During activation a two-player topology can
+    // exist while only the primary entity does, and a lobby can hold several
+    // seats while a one-player topology still stands. Neither is one player.
+    let players = frozen
+        .as_ref()
+        .map_or(0, |topology| topology.players())
+        .max(seats.iter().len());
 
-    // A seat that holds the keyboard does not also take a pad. Otherwise,
-    // with one keyboard player and one pad player, the only pad goes to the
-    // keyboard player.
-    //
-    // Under the default `UnifiedPrimary` this is `None` and
-    // `pad_index == slot`. A session opts in to couch partitioning; a second
-    // controller does not impose it.
-    //
-    // A declared plan outranks the policy. `keyboard_owner_for` answers
-    // `Some(PRIMARY)` for every `JoinToClaim` session, which binds that seat
-    // to `Entity::PLACEHOLDER` and deafens it to all pads. That is wrong for
-    // the Smash couch, where both players hold pads. A plan says who is on
-    // the keyboard, including nobody.
-    let keyboard_owner = match frozen.as_ref().and_then(|t| t.declared_channels()) {
+    let plan = frozen.as_ref().and_then(|t| t.declared_channels());
+    // A declared plan outranks the policy. It says who is on the keyboard,
+    // including nobody.
+    let keyboard_owner = match plan {
         Some(plan) => plan.keyboard_channel(),
         None => crate::sources::keyboard_owner_for(
             offer.map(|offer| offer.policy()).unwrap_or_default(),
@@ -307,117 +214,36 @@ pub fn assign_local_seat_devices(
         ),
     };
 
-    // Pads that still exist. A seat's claim survives only while its pad does.
-    let live: Vec<Entity> = order.devices().to_vec();
-    ownership.retire_missing(&live);
-
-    // Claim in slot order, not query order. A free pad goes to the lowest
-    // seat that needs one. Archetype iteration order is not stable (ADR 0023).
-    let mut order_of_seats: Vec<(u8, Entity)> = seats
-        .iter()
-        .map(|(participant, _)| (participant.id.slot(), participant.id))
-        .map(|(slot, _)| (slot, Entity::PLACEHOLDER))
-        .collect();
-    order_of_seats.sort_by_key(|(slot, _)| *slot);
-    let seat_slots: Vec<u8> = order_of_seats.into_iter().map(|(slot, _)| slot).collect();
-    // A returning controller goes back to its own seat first.
-    {
-        for pad in &live {
-            if ownership.is_held(*pad) {
-                continue;
-            }
-            let identity = pads
-                .get(*pad)
-                .map(|(gamepad, name)| PadIdentity::of(gamepad, name))
-                .unwrap_or_default();
-            if let Some(slot) = ownership.seat_awaiting(&identity) {
-                ownership.claim(slot, *pad, identity);
-            }
-        }
-    }
-
-    // Then seats with no pad take the remaining pads, in slot order. The write
-    // pass below only reads these decisions.
-    for slot in &seat_slots {
-        let slot = *slot;
-        if keyboard_owner.map(|owner| owner.slot()) == Some(slot) {
-            continue;
-        }
-        if ownership
-            .pad_for(slot)
-            .is_some_and(|pad| live.contains(&pad))
-        {
-            continue;
-        }
-        if let Some(topology) = frozen.as_ref() {
-            // In a frozen session the topology decides the pad, but ownership
-            // must still record its identity. Without this, `remembered` stays
-            // empty, the identity pass above does nothing, and a reconnected
-            // pad never returns to its seat.
-            //
-            // This does not reorder the freeze: the pad comes from the
-            // topology's recorded handle, not from the free pads.
-            if let Some(pad) = frozen_pad_for_seat(topology, slot, keyboard_owner)
-                .filter(|pad| live.contains(pad) && !ownership.is_held(*pad))
-            {
-                let identity = pads
-                    .get(pad)
-                    .map(|(gamepad, name)| PadIdentity::of(gamepad, name))
-                    .unwrap_or_default();
-                ownership.claim(slot, pad, identity);
-            }
-            continue;
-        }
-        if let Some(free) = live.iter().copied().find(|pad| !ownership.is_held(*pad)) {
-            let identity = pads
-                .get(free)
-                .map(|(gamepad, name)| PadIdentity::of(gamepad, name))
-                .unwrap_or_default();
-            ownership.claim(slot, free, identity);
-        }
-    }
-
     for (participant, mut map) in &mut seats {
         let slot = participant.id.slot();
-        let wanted = if keyboard_owner == Some(participant.id) {
-            // `Entity::PLACEHOLDER` is leafwing's fallback when no gamepad
-            // exists, so no real pad matches it. A keyboard seat hears no pad.
-            Some(Entity::PLACEHOLDER)
-        } else if let Some(topology) = frozen.as_ref() {
-            // A frozen session's mapping does not move.
-            let recorded = frozen_pad_for_seat(topology, slot, keyboard_owner);
-            match recorded {
-                // Still plugged in: the session's answer stands.
-                Some(pad) if live.contains(&pad) => Some(pad),
-                // The recorded pad is gone. If the same controller came back,
-                // the identity pass gave it back to this seat.
-                _ => ownership
-                    .pad_for(slot)
-                    .filter(|pad| live.contains(pad))
-                    // Otherwise stay deaf, never `None`. A dead entity matches
-                    // no pad, but `None` matches every pad and would put
-                    // another player's pad into this frozen seat.
-                    .or(recorded)
-                    .or(Some(Entity::PLACEHOLDER)),
-            }
-        } else {
-            // The pad this seat holds, decided above. Another player's
-            // unplug does not move it.
-            ownership.pad_for(slot).filter(|pad| live.contains(pad))
+        let source = match plan {
+            Some(plan) => plan.source_for(participant.id),
+            None => Some(crate::sources::source_for_seat(keyboard_owner, slot)),
         };
+        let wanted = match (source, frozen.as_ref()) {
+            // One player with no plan hears the pad that player uses.
+            (Some(LocalInputSource::Pad(_)), _) if players < 2 && plan.is_none() => {
+                pad_in_use(map.gamepad(), &order, &pads)
+            }
+            (Some(LocalInputSource::Pad(index)), Some(topology)) => {
+                let index = match plan {
+                    Some(_) => Some(index as usize),
+                    // No plan: the pads connected at the freeze, one each.
+                    None => topology
+                        .undeclared_pad(index as usize)
+                        .and_then(LocalInputSource::pad_index),
+                };
+                index.and_then(|index| topology.pads.still_held(&order, index))
+            }
+            (Some(LocalInputSource::Pad(index)), None) => order.pad(index as usize),
+            (Some(LocalInputSource::Keyboard), _) | (None, _) => None,
+        }
+        .unwrap_or(NO_PAD);
         // Skip unchanged maps. `InputMap` is a component, and writing it every
         // frame marks it changed for every observer, including the settings
         // UI, which rebuilds bindings on change.
-        if map.gamepad() == wanted {
-            continue;
-        }
-        match wanted {
-            Some(pad) => {
-                map.set_gamepad(pad);
-            }
-            None => {
-                map.clear_gamepad();
-            }
+        if map.gamepad() != Some(wanted) {
+            map.set_gamepad(wanted);
         }
     }
 }
@@ -440,7 +266,6 @@ mod tests {
     fn seat_app() -> App {
         let mut app = App::new();
         app.init_resource::<LocalDeviceOrder>();
-        app.init_resource::<SeatDeviceOwnership>();
         app.add_systems(
             Update,
             (track_local_device_order, assign_local_seat_devices).chain(),
@@ -463,6 +288,19 @@ mod tests {
             .get::<InputMap<Platformer2dInputActionMonolith>>()
             .expect("the seat keeps its input map")
             .gamepad()
+    }
+
+    /// Freeze the session's seating from the pad table the app tracked, as a
+    /// session does. `plan` is the roster's declaration, if it made one.
+    fn freeze(app: &mut App, plan: Option<LocalChannelPlan>) {
+        app.update();
+        let mut topology = LocalSeatTopology::default();
+        let order = app.world().resource::<LocalDeviceOrder>().clone();
+        match plan {
+            Some(plan) => topology.capture_for_roster(&order, plan),
+            None => topology.capture(&order),
+        }
+        app.insert_resource(topology);
     }
 
     #[test]
@@ -506,20 +344,14 @@ mod tests {
             .spawn((Gamepad::default(), Name::new("the only pad")))
             .id();
 
-        // Two declared seats, one device. Frozen before any assignment pass,
-        // as in a real match.
-        let frozen = {
-            let mut topology = LocalSeatTopology::default();
-            topology.capture_for_roster(
-                &LocalDeviceOrder::from_devices(vec![pad]),
-                LocalChannelPlan::from_sources([
-                    LocalInputSource::Keyboard,
-                    LocalInputSource::Pad(0),
-                ]),
-            );
-            topology
-        };
-        app.insert_resource(frozen);
+        // Two declared seats, one device.
+        freeze(
+            &mut app,
+            Some(LocalChannelPlan::from_sources([
+                LocalInputSource::Keyboard,
+                LocalInputSource::Pad(0),
+            ])),
+        );
         app.update();
         assert_eq!(
             assigned(&app, two),
@@ -659,7 +491,7 @@ mod tests {
         let pad = app.world_mut().spawn(Gamepad::default()).id();
         app.update();
         assert_eq!(assigned(&app, one), Some(pad));
-        assert_eq!(assigned(&app, two), None);
+        assert_eq!(assigned(&app, two), Some(NO_PAD));
     }
 
     /// Two seats, two pads, unplug player one's: ownership must not transfer.
@@ -706,7 +538,7 @@ mod tests {
         // Player one's controller drops out.
         app.world_mut().entity_mut(pad_a).despawn();
         app.update();
-        assert_eq!(assigned(&app, one), None);
+        assert_eq!(assigned(&app, one), Some(NO_PAD));
         assert_eq!(assigned(&app, two), Some(pad_b));
 
         // ...and comes back. A DIFFERENT entity, as a real reconnection is.
@@ -749,8 +581,8 @@ mod tests {
         app.world_mut().entity_mut(pad_a).despawn();
         app.world_mut().entity_mut(pad_b).despawn();
         app.update();
-        assert_eq!(assigned(&app, one), None);
-        assert_eq!(assigned(&app, two), None);
+        assert_eq!(assigned(&app, one), Some(NO_PAD));
+        assert_eq!(assigned(&app, two), Some(NO_PAD));
 
         // Player TWO plugs back in first.
         let pad_b_again = app
@@ -765,7 +597,7 @@ mod tests {
         );
         assert_eq!(
             assigned(&app, one),
-            None,
+            Some(NO_PAD),
             "seat one is still waiting for its pad"
         );
 
@@ -811,8 +643,8 @@ mod tests {
         // Player one's controller drops and comes back.
         app.world_mut().entity_mut(pad_a).despawn();
         app.update();
-        // Not `None`: that means "any pad" and would put pad B in this seat.
-        // A dead id hears nothing, which is correct for a missing controller.
+        // Not `None`: leafwing gives such a seat the first connected pad,
+        // which is pad B.
         assert_ne!(
             assigned(&app, one),
             Some(pad_b),
@@ -821,7 +653,7 @@ mod tests {
         assert_ne!(
             assigned(&app, one),
             None,
-            "an unset gamepad answers every pad"
+            "an unset gamepad answers the first connected pad"
         );
         let pad_a_again = app
             .world_mut()
@@ -875,14 +707,11 @@ mod tests {
         );
         assert_eq!(
             assigned(&app, one),
-            Some(pad_a),
-            "handle 0 must keep pointing at the controller the session was built \
-             around, even though it is gone: that seat reads nothing, which is \
-             the truth. Promoting pad B into it would silently hand seat one's \
-             confirmed GGRS inputs to seat two's physical controller — the \
-             mapping is frozen precisely so a disconnect cannot do that. (A \
-             despawned entity is never recycled into an equal `Entity`; the \
-             generation moves, so a new pad cannot inherit this binding.)"
+            Some(NO_PAD),
+            "handle 0 reads nothing while its controller is gone. Promoting pad \
+             B into it would hand seat one's confirmed GGRS inputs to seat \
+             two's physical controller. The mapping is frozen so that a \
+             disconnect cannot do that."
         );
     }
 
@@ -897,7 +726,7 @@ mod tests {
         app.update();
         // Discovery still works: the first seat takes the only pad.
         assert_eq!(assigned(&app, one), Some(pad_a));
-        assert_eq!(assigned(&app, two), None);
+        assert_eq!(assigned(&app, two), Some(NO_PAD));
 
         // A second pad arrives and finds the seat that has none.
         let pad_b = app.world_mut().spawn(Gamepad::default()).id();
@@ -914,7 +743,7 @@ mod tests {
         app.update();
         assert_eq!(
             assigned(&app, one),
-            None,
+            Some(NO_PAD),
             "player one's seat reads nothing, which is the truth"
         );
         assert_eq!(
@@ -926,8 +755,8 @@ mod tests {
     }
 
     /// During activation a two-player topology can be frozen while only the
-    /// primary participant exists. Counting entities would take the solo
-    /// branch and let any pad drive seat 0.
+    /// primary participant exists. Counting entities would take the branch
+    /// for one player, and the primary would follow pad B when it shows input.
     #[test]
     fn a_frozen_two_player_session_binds_the_primary_before_seat_two_exists() {
         let mut app = seat_app();
@@ -943,16 +772,16 @@ mod tests {
         };
         assert_eq!(frozen.players(), 2, "the fixture must freeze two players");
         app.insert_resource(frozen);
+        push_stick(&mut app, pad_b, 1.0);
         app.update();
 
         assert_eq!(
             assigned(&app, one),
             Some(pad_a),
-            "seat two has not materialized yet, so the entity count says SOLO and \
-             the primary was handed any-pad behaviour — pad B could drive it until \
-             the second participant appeared"
+            "seat two has not materialized yet, so the entity count says one \
+             player, and the primary followed pad B until the second \
+             participant appeared"
         );
-        let _ = pad_b;
     }
 
     /// A frozen session's seats must remember which controller they hold, or
@@ -972,19 +801,10 @@ mod tests {
             .spawn((Gamepad::default(), Name::new("pad b")))
             .id();
 
-        // In the shipped path, ownership is empty at the freeze: before a
-        // roster exists there is one participant, and `players < 2` returns
-        // early. This test uses that order.
-        let frozen = {
-            let mut topology = LocalSeatTopology::default();
-            topology.capture_for_roster(
-                &LocalDeviceOrder::from_devices(vec![pad_a, pad_b]),
-                LocalChannelPlan::from_sources([0, 1].map(LocalInputSource::Pad)),
-            );
-            topology
-        };
-        assert!(frozen.is_frozen(), "the fixture must actually freeze");
-        app.insert_resource(frozen);
+        freeze(
+            &mut app,
+            Some(LocalChannelPlan::from_sources([0, 1].map(LocalInputSource::Pad))),
+        );
         app.update();
         assert_eq!(assigned(&app, one), Some(pad_a));
         assert_eq!(assigned(&app, two), Some(pad_b));
@@ -1018,20 +838,141 @@ mod tests {
         );
     }
 
+    /// One player with two controllers connected can use either one: the
+    /// seat follows the pad that shows input. Measured before: the seat had
+    /// no association, leafwing gave it the first pad, and the second pad did
+    /// nothing.
     #[test]
-    fn a_lone_seat_keeps_any_pad() {
+    fn a_lone_seat_follows_the_pad_its_player_uses() {
         let mut app = seat_app();
         let seat = spawn_seat(&mut app, ParticipantId::PRIMARY);
-        app.world_mut().spawn(Gamepad::default());
-        app.world_mut().spawn(Gamepad::default());
+        let first = app.world_mut().spawn(Gamepad::default()).id();
+        let second = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+        assert_eq!(assigned(&app, seat), Some(first));
+
+        push_stick(&mut app, second, 1.0);
+        app.update();
+        assert_eq!(assigned(&app, seat), Some(second), "the player picked up the other pad");
+        push_stick(&mut app, second, 0.0);
+        app.update();
+        assert_eq!(assigned(&app, seat), Some(second), "and keeps it when the stick is at rest");
+
+        app.world_mut().entity_mut(second).remove::<Gamepad>();
+        app.update();
+        assert_eq!(assigned(&app, seat), Some(first), "its pad is gone, and one is left");
+    }
+
+    fn push_stick(app: &mut App, pad: Entity, x: f32) {
+        app.world_mut()
+            .get_mut::<Gamepad>(pad)
+            .expect("a connected pad")
+            .analog_mut()
+            .set(bevy::input::gamepad::GamepadAxis::LeftStickX, x);
+    }
+
+    /// Jon's report, 2026-10-08: one stick moved every cursor. A lobby of the
+    /// keyboard and three pads, and the middle pad disconnects as Bevy does it
+    /// (the entity stays, the component goes). Measured before: the seat of
+    /// the missing pad had no association and followed pad A, and pad C drove
+    /// no seat, because the seat above it was gone and its claim was not.
+    /// Poison: give the seat of a missing pad no association (`None`).
+    #[test]
+    fn a_disconnect_in_a_lobby_moves_no_other_controller() {
+        let mut app = seat_app();
+        app.insert_resource(crate::seating::LocalSeatOffer::offered(
+            "a lobby",
+            4,
+            crate::sources::InputAssignmentPolicy::JoinToClaim,
+        ));
+        let seats: Vec<Entity> = (0..4).map(|slot| spawn_seat(&mut app, ParticipantId(slot))).collect();
+        let pad_a = app.world_mut().spawn(Gamepad::default()).id();
+        let pad_b = app.world_mut().spawn(Gamepad::default()).id();
+        let pad_c = app.world_mut().spawn(Gamepad::default()).id();
+        app.update();
+        let heard = |app: &App| seats.iter().map(|seat| assigned(app, *seat)).collect::<Vec<_>>();
+        assert_eq!(
+            heard(&app),
+            [Some(NO_PAD), Some(pad_a), Some(pad_b), Some(pad_c)],
+            "the keyboard seat and one seat for each pad"
+        );
+
+        app.world_mut().entity_mut(pad_b).remove::<Gamepad>();
         app.update();
         assert_eq!(
-            assigned(&app, seat),
-            None,
-            "a solo player with a spare controller plugged in must keep using \
-             either one; partitioning devices they never asked to partition \
-             would silently kill the pad that happened to sort second"
+            heard(&app),
+            [Some(NO_PAD), Some(pad_a), Some(NO_PAD), Some(pad_c)],
+            "a seat with no association follows the first connected pad, so \
+             one stick moves two seats"
         );
+
+        // The pad comes back on its own entity, as a real controller does.
+        app.world_mut().entity_mut(pad_b).insert(Gamepad::default());
+        app.update();
+        assert_eq!(heard(&app), [Some(NO_PAD), Some(pad_a), Some(pad_b), Some(pad_c)]);
+    }
+
+    /// In a match a controller cannot take the seat of another one. Player
+    /// one's pad disconnects and a different controller connects: the table
+    /// puts it in the empty slot, and the frozen seat does not hear it. Then
+    /// player one's own pad comes back and the seat hears it again.
+    #[test]
+    fn a_frozen_seat_does_not_hear_a_different_controller() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad_a = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad a")))
+            .id();
+        let pad_b = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad b")))
+            .id();
+        freeze(
+            &mut app,
+            Some(LocalChannelPlan::from_sources([0, 1].map(LocalInputSource::Pad))),
+        );
+        app.update();
+        assert_eq!(assigned(&app, one), Some(pad_a));
+
+        app.world_mut().entity_mut(pad_a).remove::<Gamepad>();
+        let other = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("another pad")))
+            .id();
+        app.update();
+        assert_eq!(
+            app.world().resource::<LocalDeviceOrder>().pad(0),
+            Some(other),
+            "premise: the new controller is in the slot of the missing one"
+        );
+        assert_eq!(assigned(&app, one), Some(NO_PAD), "a different controller took the seat");
+        assert_eq!(assigned(&app, two), Some(pad_b));
+
+        app.world_mut().entity_mut(other).despawn();
+        app.world_mut().entity_mut(pad_a).insert(Gamepad::default());
+        app.update();
+        assert_eq!(assigned(&app, one), Some(pad_a), "its own controller came back");
+    }
+
+    /// One person plays a CPU and holds the SECOND pad. The plan names pad 1,
+    /// so the seat hears pad 1. Measured before: a session of one player
+    /// cleared the association, leafwing gave the seat the first pad, and the
+    /// pad in the player's hands did nothing.
+    #[test]
+    fn a_lone_player_on_the_second_pad_is_heard_on_that_pad() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let spare = app.world_mut().spawn(Gamepad::default()).id();
+        let held = app.world_mut().spawn(Gamepad::default()).id();
+        freeze(
+            &mut app,
+            Some(LocalChannelPlan::from_sources([LocalInputSource::Pad(1)])),
+        );
+        push_stick(&mut app, spare, 1.0);
+        app.update();
+        assert_eq!(assigned(&app, one), Some(held));
     }
 
     #[test]
@@ -1068,10 +1009,8 @@ mod tests {
         app.update();
         assert_eq!(
             assigned(&app, two),
-            None,
-            "a seat still associated with an unplugged controller reads a \
-             device that does not exist, so it stops responding without ever \
-             saying so"
+            Some(NO_PAD),
+            "the seat of an unplugged controller hears no pad"
         );
         assert_eq!(
             assigned(&app, one),
@@ -1217,7 +1156,7 @@ mod local_seat_topology_tests {
         // A third pad joins mid-match. The live order changes; the session's
         // seating does not, because the session cannot add a handle.
         let live = order(3);
-        assert_eq!(live.devices().len(), 3);
+        assert_eq!(live.connected().len(), 3);
         assert_eq!(
             topology.players(),
             2,
@@ -1261,14 +1200,9 @@ mod local_seat_topology_tests {
         let mut topology = LocalSeatTopology::default();
         topology.capture(&live);
         let channel = ParticipantId;
-        assert_eq!(
-            topology.device_for_channel(channel(0)),
-            Some(live.devices()[0])
-        );
-        assert_eq!(
-            topology.device_for_channel(channel(1)),
-            Some(live.devices()[1])
-        );
+        assert_eq!(topology.device_for_channel(channel(0)), live.pad(0));
+        assert_eq!(topology.device_for_channel(channel(1)), live.pad(1));
+        assert!(live.pad(1).is_some());
         assert_eq!(
             topology.device_for_channel(channel(2)),
             None,

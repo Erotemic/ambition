@@ -1230,6 +1230,10 @@ pub fn smash_combat_rules() -> ambition_platformer2d::combat::rules::CombatRules
         // trump is a real edge-guard option. 260px/s is a shove, not a kill.
         // A starting value; tune by play.
         ledge_trump_pop: Some(260.0),
+        // Ultimate holds a trumped fighter for about 30 frames. The number is
+        // a tuning value: its only source is a forum measurement seen through
+        // a search summary (smash-parity-inventory.md, "Ledge occupancy").
+        ledge_trump_lockout: Some(0.5),
         // Ultimate's rule: a recovering fighter can steal the edge back.
         // `Hog` is the other generation's rule.
         ledge_occupancy: Some(ambition_platformer2d::combat::rules::LedgeOccupancy::Trump),

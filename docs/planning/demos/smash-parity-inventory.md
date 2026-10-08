@@ -112,7 +112,7 @@ Preserve these and build new features on their seams.
 | Locomotion | Walk/run continuum, initial dash, dash dance, foxtrot, turnaround, teeter | `LocomotionTuning`, `BodyMotionFacts` |
 | Body contact | Jostle and pushback | movement sweep |
 | Footstool | Grounded/airborne reactions, phantom footstool | `combat/src/footstool.rs` |
-| Ledge | Grab, two-frame vulnerability, diminishing intangibility, getups, trump pop, drop. ⚠ Occupancy is not one-holder yet: see §5 "Ledge occupancy" | `ledge_grab`, `ledge_trump` |
+| Ledge | Grab, two-frame vulnerability, diminishing intangibility, regrab limit, getups, one holder per edge, trump pop and lockout, drop. See §5 "Ledge occupancy" | `ledge_grab`, `ledge_trump` |
 | Capture | Grab relation, shield bypass, pummel, four throws, mash escape, hit interrupts hold | `ambition_combat::capture`, `entity_catalog/src/smash_capture.rs` |
 | Dash grab | Derived from each fighter's standing grab | `SmashCaptureRepertoire`, `grab_dash` |
 | Match | Stocks, blast zones, elimination, timer, tiebreak, sudden death, finish zoom on the verdict | `ambition_combat::stocks`, `ambition_combat::finish_zoom` |
@@ -225,9 +225,9 @@ Preserve these and build new features on their seams.
 | Post-recovery helpless | ✔ | M | E1 | Derived (`body_is_helpless`). |
 | Ledge-trump pop | ◐ | S/M | E1 | Pop ships (`ledge_trump_pop`); the commitment window does not. |
 | Two-frame ledge vulnerability | ✔ | S/M | E1 | |
-| Ledge regrab limit | ✔ | — | E1 | Answered by diminishing intangibility; do not add a count. |
-| Edgehog vs trump knob | ✔ | M | E1 | `CombatRules::ledge_occupancy`. The knob ships; what it governs does not hold yet (next row). |
-| Ledge occupancy (one holder per ledge) | ◐ | M | E1 | One corner is one edge whatever the bodies' sizes; a rewind across a trump gives the same holder; the regrab limit is built (2026-10-08). The trumped body's lockout is open. See "Ledge occupancy" below and queue row LEDGE-OCCUPANCY. |
+| Ledge regrab limit | ✔ | — | E1 | Ultimate's rule (2026-10-08): six grabs per airtime, intangibility ×0.8, ×0.5, then none; landing or a hit resets the count. One grab site scales the airtime-earned window by the count, so the two inputs feed one authority. Superseded the 2026-08-24 "do not add a count" answer, under the Ultimate target in "Ledge occupancy" below. |
+| Edgehog vs trump knob | ✔ | M | E1 | `CombatRules::ledge_occupancy`. |
+| Ledge occupancy (one holder per ledge) | ✔ | M | E1 | One corner is one edge whatever the bodies' sizes; a body out of play holds no edge; a rewind across a trump gives the same holder; the trumped body's lockout is a declared rule (2026-10-08). See "Ledge occupancy" below. |
 | Tether recovery | ▢ | M | E1 | Reuse grapple/spatial-link machinery. |
 | Teleport recovery | ✔ | S/M | — | `smash.teleport`, `RecoveryRoute::Teleport`. |
 | Stall-then-fall move | ▢ | S/M | — | Existing windows suffice unless a fighter proves otherwise. |
@@ -271,7 +271,26 @@ buys the window: the two rules compose, as in Ultimate. Witnesses:
 `each_regrab_before_landing_earns_less_and_the_seventh_is_refused` and
 `a_hit_and_a_landing_give_the_ledge_grabs_back_and_a_push_does_not`.
 
-**Open.** The trumped body's lockout (Ultimate: about 30 frames, unverified).
+**Built 2026-10-08: the trumped body's lockout, a declared rule.**
+`CombatRules::ledge_trump_lockout` (seconds; `None` and `0.0` leave the
+loser in control, as every trump did) sets
+`BodyCombat::ledge_trump_lock_timer` on the body the trump knocks off. It
+is a sixth cause of `BodyCombat::hard_lock_timer`, so the input gate strips
+every verb while it runs (schema 329). The Smash rules declare 0.5 s, a
+tuning value from Ultimate's unverified "about 30 frames". Witness:
+`a_declared_lockout_holds_the_trumped_body_and_not_the_one_that_trumped`
+(controls: the winner gets no lock; no declared lockout gives none).
+Not built: Ultimate's "the trumping body cannot let go for about 20 frames"
+(from the same unverified source).
+
+**Built 2026-10-08: a body out of play holds no edge.** A hazard can kill a
+hanging body (Q43), and no death road ends the hang: the body keeps it
+through its death beat until its respawn starts it again
+(`reset_body_clusters`). `resolve_ledge_trumps` reads every hang, so under
+Hog a dead camper knocked a live newcomer off (measured before the fix:
+the newcomer lost the edge). The resolver now skips a body with `OutOfPlay`.
+Witness: `a_body_out_of_play_holds_no_edge` (control: the camper alive keeps
+the edge under Hog).
 
 **Target.** Super Smash Bros. Ultimate-like ledge occupancy and trump. Do not
 guess Ultimate's timings from memory: research them (getup/roll/jump options,

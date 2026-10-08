@@ -835,30 +835,6 @@ roll out, so their habit counts now decay at 0.9, not `t × 0.6`.
 rules/content; another game can build the brain with no ladder; no authored
 ladder field is inert.
 
-### LEDGE-OCCUPANCY — two fighters can hold one ledge
-
-**Owner:** `ambition_combat::ledge_trump`, `ambition_platformer2d_core`
-ledge grab. Plan:
-[`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md#ledge-occupancy).
-
-**Ruling:** Q43 follow-up (2026-10-04): the target is Super Smash Bros.
-Ultimate-like occupancy and trump, deterministic and rollback-compatible.
-
-**Current state (2026-10-08):** one corner is one edge whatever the bodies'
-sizes (`LedgeContact::edge_key`; witness
-`two_fighters_of_different_sizes_on_one_corner_are_one_edge`). A rewind
-across a trump gives the same holder on every tick
-(`a_rewind_across_a_ledge_trump_gives_the_same_holder`). The regrab limit:
-six grabs per airtime with decaying intangibility, reset by landing or a hit
-(`each_regrab_before_landing_earns_less_and_the_seventh_is_refused`).
-Ultimate's rules are in the plan.
-
-**Next action:** the trumped body's lockout, as the plan's open list says.
-
-**Acceptance:** with two fighters of different sizes on one corner, one holds
-it; trump, release, death and knockoff each free or transfer the hold as the
-plan says; a rewind across a trump gives the same holder.
-
 ### MIRROR-SYMMETRY — mirrored CPUs stay mirrored per tick
 
 **Owner:** `ambition_combat::brain` and the systems it reads. Plan:
@@ -1170,6 +1146,22 @@ production invariant.
 
 Closed rows that an open row, a script or an inbound link still names.
 
+### LEDGE-OCCUPANCY — two fighters can hold one ledge — ✅ DONE 2026-10-08
+
+Q43 follow-up: Ultimate-like occupancy and trump, deterministic and
+rollback-compatible. Plan:
+[`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md#ledge-occupancy).
+One corner is one edge whatever the bodies' sizes
+(`two_fighters_of_different_sizes_on_one_corner_are_one_edge`); occupancy is
+derived each tick from the hang, so release and knockoff free the edge, and a
+body out of play holds none (`a_body_out_of_play_holds_no_edge`). A rewind
+across a trump gives the same holder
+(`a_rewind_across_a_ledge_trump_gives_the_same_holder`). The regrab limit
+(six per airtime, decaying intangibility, reset by landing or a hit) and the
+trumped body's lockout (`CombatRules::ledge_trump_lockout`, Smash 0.5 s) are
+built. Not built: Ultimate's "the trumper cannot let go for about 20 frames"
+(unverified source).
+
 ### AUTHORED-INTERACTABLE-STATE — facing gates, per-chest and per-pickup persistence — ✅ DONE 2026-10-08
 
 Q63, Q105. A one-time pickup stays taken through its `Consumed` occurrence
@@ -1178,7 +1170,11 @@ the room, and the save carries them across a load
 (`a_one_time_heart_stays_gone_when_its_room_is_built_again`,
 `a_load_does_not_build_a_one_time_heart_the_file_remembers_taken`,
 `an_opened_chest_is_built_opened_when_its_room_is_built_again`,
-`a_load_builds_opened_a_chest_the_file_remembers_spent`). A chest authored
+`a_load_builds_opened_a_chest_the_file_remembers_spent`, and end to end
+through a written save file,
+`a_chest_opened_in_play_is_opened_after_its_save_file_is_loaded`). Two
+bodies that open one chest on one tick are paid once
+(`two_bodies_on_one_chest_in_one_tick_are_paid_once`). A chest authored
 open (`ChestSpec::opened`) lowers into the `Opened` marker that play sets.
 `InteractableSpec::requires_facing` lowers into `RequiresFacing`, and the
 interact road refuses a person or switch the body does not face

@@ -97,6 +97,8 @@ pub fn detect_room_transition_system(
             &ambition_platformer2d_core::BodyKinematics,
             Option<&ae::SweepSample>,
             Option<&ambition_characters::control::DrivingParticipant>,
+            // The frame the body faces in: the Interact reach's facing gate.
+            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         ),
         Without<ambition_combat::death_rules::OutOfPlay>,
     >,
@@ -125,7 +127,7 @@ pub fn detect_room_transition_system(
         let Some(subject_entity) = crate::control::body_driving_seat(&drivers, seat) else {
             continue;
         };
-        let Ok((kin, sweep, driver)) = bodies.get(subject_entity) else {
+        let Ok((kin, sweep, driver, frame)) = bodies.get(subject_entity) else {
             continue;
         };
         let Some(definition) = rooms.definition_of(subject_entity) else {
@@ -202,15 +204,10 @@ pub fn detect_room_transition_system(
         // interaction phase.
         if matches!(zone.zone.activation, LoadingZoneActivation::Door) {
             let door = ae::AabbExt::center(zone.zone.aabb).distance(kin.pos);
-            if talkable
-                .nearest_in_reach(
-                    subject_entity,
-                    kin.pos,
-                    kin.collision_box(sweep),
-                    sweep.map_or(ae::Vec2::ZERO, |step| step.down),
-                )
-                .is_some_and(|talk| talk < door)
-            {
+            let reach = crate::features::ecs::InteractReach::of(kin, sweep, frame, rooms.live().of(subject_entity));
+            if talkable.nearest_in_reach(subject_entity, &reach).is_some_and(|talk| {
+                !crate::features::ecs::InteractReach::a_door_keeps_the_press(Some(door), talk)
+            }) {
                 continue;
             }
         }

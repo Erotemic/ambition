@@ -46,6 +46,14 @@ pub fn resolve_ledge_trumps(
         // the kinematics above are: a body without a resolved frame still loses
         // the edge, it simply falls under screen-down like it always did.
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        // OPTIONAL for the reason the kinematics are: a body with no combat
+        // state still loses the edge; it only has no lock to receive.
+        Option<&mut ambition_characters::actor::BodyCombat>,
+        // A body out of play holds no edge. A hazard can kill a hanging body
+        // (Q43), and no death road ends the hang: the body keeps it through
+        // its death beat until its respawn starts it again. Read as a holder,
+        // a dead camper under Hog knocked a live newcomer off.
+        bevy::prelude::Has<crate::death_rules::OutOfPlay>,
     )>,
     // The match's own answer to *what does losing the edge cost*, per live
     // room. A world that declares no combat rules still trumps — it simply
@@ -65,7 +73,10 @@ pub fn resolve_ledge_trumps(
         Entity,
     );
     let mut holders: Vec<Holder> = Vec::new();
-    for (entity, id, model, _, _, _) in bodies.iter() {
+    for (entity, id, model, _, _, _, _, out_of_play) in bodies.iter() {
+        if out_of_play {
+            continue;
+        }
         let ae::MotionModel::AxisSwept(axis) = &*model else {
             continue;
         };
@@ -115,22 +126,24 @@ pub fn resolve_ledge_trumps(
         Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
         (ae::Vec2, f32),
     )> = Vec::new();
-    let mut trumped: Vec<(Entity, f32)> = Vec::new();
+    let mut trumped: Vec<(Entity, f32, f32)> = Vec::new();
     for (room, (key, face), _, _, entity) in &holders {
         if kept.iter().any(|(held_room, (held_key, held_face))| {
             held_room == room
                 && held_face == face
                 && held_key.distance_squared(*key) <= SAME_EDGE_EPSILON * SAME_EDGE_EPSILON
         }) {
-            let pop = rules.in_room(*room).map_or(0.0, |rules| rules.ledge_trump_pop);
-            trumped.push((*entity, pop));
+            let room_rules = rules.in_room(*room);
+            let pop = room_rules.map_or(0.0, |rules| rules.ledge_trump_pop);
+            let lockout = room_rules.map_or(0.0, |rules| rules.ledge_trump_lockout);
+            trumped.push((*entity, pop, lockout));
         } else {
             kept.push((*room, (*key, *face)));
         }
     }
 
-    for (entity, pop) in trumped {
-        let Ok((_, _, mut model, mut ledge, mut kin, frame)) = bodies.get_mut(entity) else {
+    for (entity, pop, lockout) in trumped {
+        let Ok((_, _, mut model, mut ledge, mut kin, frame, combat, _)) = bodies.get_mut(entity) else {
             continue;
         };
         let body_frame = frame
@@ -178,6 +191,10 @@ pub fn resolve_ledge_trumps(
             // the safest thing on the stage.
             if let ae::MotionModel::AxisSwept(axis) = &mut *model {
                 axis.state.ledge_invuln_timer = 0.0;
+            }
+            // The declared lockout: how long the loser cannot act.
+            if let Some(mut combat) = combat {
+                combat.ledge_trump_lock_timer = combat.ledge_trump_lock_timer.max(lockout);
             }
         }
     }

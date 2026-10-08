@@ -8,7 +8,6 @@ use ambition_combat::components::{
     CenteredAabb, ChestFeature, FallingChest, FeatureId, FeatureName, Opened,
 };
 use ambition_combat::events::{GameplayBanner, SetFlagRequested};
-use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
@@ -39,7 +38,11 @@ pub fn open_ecs_chests(
     >,
     // Presentation anim for whichever body opened the chest.
     mut anims: Query<&mut ambition_characters::actor::BodyAnimFacts>,
-    bodies: Query<(&ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+    bodies: Query<(
+        &ambition_platformer2d_core::BodyKinematics,
+        Option<&ambition_platformer2d_core::SweepSample>,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    )>,
     // `&ChestFeature`, not `With<ChestFeature>` — that one word is the whole of "authored
     // chest rewards are never granted". The payload was filled by all three chest authors and
     // read by nobody: this system knew a chest was there and never asked what was IN it.
@@ -84,14 +87,10 @@ pub fn open_ecs_chests(
         Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     ),
 ) {
-    // Iterate every player so each player's own buffered interact
-    // can open a chest the player is overlapping. Per-player interact
-    // state is independent (each player has their own
-    // `PlayerInteractionState`); the chest is shared (a future co-op
-    // build can still gate "first-come gets the open" by inserting
-    // the `Opened` marker, which keeps subsequent attempts no-ops).
-    // OVERNIGHT-TODO #17.6/#17.8 — preserve single-player behavior
-    // because the iterator has one entity today.
+    // Iterate every driven body so each body's own buffered interact can
+    // open a chest it overlaps. The chest is shared: the first body in this
+    // pass opens it, and `opened_this_pass` keeps a later body in the same
+    // pass from opening it again.
     // Same hold time as the NPC / switch interact gesture. Kept in
     // sync with `interact_ecs_actors_and_switches::INTERACT_ANIM_HOLD_SECS`
     // so the player's reach-and-open animation feels uniform across
@@ -104,23 +103,29 @@ pub fn open_ecs_chests(
     if subjects.is_empty() {
         subjects.extend(primary.iter().next());
     }
+    // The chests this pass opened. `Opened` goes in through deferred commands,
+    // so the query below still shows them closed: without this, two bodies
+    // that press on one chest on one tick were both paid its reward.
+    let mut opened_this_pass: Vec<Entity> = Vec::new();
     for subject in subjects {
         if !acting.buffered_interact(subject) {
             continue;
         }
-        let Ok((subject_kin, subject_step)) = bodies.get(subject) else {
+        let Ok((subject_kin, subject_step, subject_frame)) = bodies.get(subject) else {
             continue;
         };
-        let reach_aabb = subject_kin.collision_box(subject_step);
-        let subject_room = rooms.of(subject);
+        let reach = super::InteractReach::of(subject_kin, subject_step, subject_frame, rooms.of(subject));
         for (entity, id, name, aabb, chest, opened, falling, boss_reward, chest_sim_id, origin) in &chests {
-            if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(reach_aabb) {
-                continue;
-            }
-            if rooms.of(entity) != subject_room {
+            // A chest has no facing gate: its spec has no `requires_facing`.
+            if falling.is_some()
+                || opened.is_some()
+                || opened_this_pass.contains(&entity)
+                || !reach.touches(rooms.of(entity), aabb, false)
+            {
                 continue;
             }
             commands.entity(entity).insert(Opened);
+            opened_this_pass.push(entity);
             // ⭐ AN AUTHORED CHEST IS REMEMBERED OPENED (Q63). Its row is
             // `Spent`, so each later build of its room builds it opened and its
             // reward is not granted again; the participants in its room own the

@@ -129,7 +129,7 @@ pub use ecs::{
     ecs_boss_animation_frame_sample,
     integrate_boss_bodies, integrate_sim_bodies,
     projectile_reaches_boss, projectile_reaches_breakable, FeatureContact,
-    interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
+    interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests, InteractReach,
     project_boss_attack_state_from_move,
     rebuild_feature_ecs_world_overlay, refresh_body_damageable_volumes,
     refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes,

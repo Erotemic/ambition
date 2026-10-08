@@ -175,3 +175,49 @@ fn a_load_builds_opened_a_chest_the_file_remembers_spent() {
         "(a file with no row, a file with the chest spent): the chest after the load"
     );
 }
+
+/// The save file a session writes after `steps` ticks in the chest's room,
+/// opening the chest first when `open`, read back as a fresh process reads it.
+fn the_save_file_written_after(open: bool) -> ambition_platformer2d::persistence::save_data::AmbitionGameSaveData {
+    use ambition_platformer2d::persistence::save::{load_save, write_save, AmbitionGameSave};
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(base(), 30);
+    if open {
+        open_the_chest(&mut sim);
+    }
+    // The durable horizon is mirrored into the save by the simulation.
+    sim.step_n(base(), 4);
+    let data = sim.world().resource::<AmbitionGameSave>().0.clone();
+    let path = std::env::temp_dir().join(format!(
+        "ambition_chest_save_{}_{}_{open}.ron",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_nanos())
+    ));
+    write_save(&path, &data).expect("the save file is written");
+    let loaded = load_save(&path);
+    let _ = std::fs::remove_file(&path);
+    assert!(
+        loaded.present && loaded.writable,
+        "precondition: the file this build wrote reads back as a present, writable save"
+    );
+    loaded.data
+}
+
+/// Save, quit, load, end to end: a chest opened in play reaches the save file
+/// the session writes, and a fresh session loaded from that file builds it
+/// opened. The control is the same road with the chest left closed. (Review
+/// 2026-10-08: the arm above builds its file by hand, so it does not show
+/// that play writes the row.)
+#[test]
+fn a_chest_opened_in_play_is_opened_after_its_save_file_is_loaded() {
+    assert_eq!(
+        (
+            chest_after_a_load(&the_save_file_written_after(false)),
+            chest_after_a_load(&the_save_file_written_after(true)),
+        ),
+        (Some(false), Some(true)),
+        "(a file written with the chest closed, one written after it was opened): the chest after the load"
+    );
+}

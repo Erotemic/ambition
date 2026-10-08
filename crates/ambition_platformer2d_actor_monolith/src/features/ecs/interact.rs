@@ -29,6 +29,99 @@ use ambition_combat::events::{GameplayBanner, SetFlagRequested};
 use ambition_conversation::DialogueDispatch;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
+/// What one body's Interact press reaches. The one rule for the press
+/// ([`interact_ecs_actors_and_switches`], `open_ecs_chests`), for the door
+/// that shares the press ([`TalkableBodies`]) and for the prompt
+/// (`ambition_sim_view::update_nearest_interactable`), so the prompt names
+/// what the press does. Before, the prompt asked a copy with no live-room
+/// check, no door rule and no facing gate (review 2026-10-08).
+#[derive(Clone, Copy, Debug)]
+pub struct InteractReach {
+    pos: ambition_platformer2d_core::Vec2,
+    facing: f32,
+    /// The run axis of the body's own frame: forward for the facing gate.
+    side: ambition_platformer2d_core::Vec2,
+    /// The body's collision box: what a chest or a switch must touch.
+    reach: ambition_platformer2d_core::Aabb,
+    /// The box a body talks from ([`ambition_interaction::talk_reach`]).
+    talk: ambition_platformer2d_core::Aabb,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+}
+
+impl InteractReach {
+    /// The reach of a body with these kinematics, last step and frame, in
+    /// the live room `room`.
+    pub fn of(
+        kin: &ambition_platformer2d_core::BodyKinematics,
+        step: Option<&ambition_platformer2d_core::SweepSample>,
+        frame: Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    ) -> Self {
+        let reach = kin.collision_box(step);
+        Self {
+            pos: kin.pos,
+            facing: kin.facing,
+            side: frame.map_or(ambition_platformer2d_core::Vec2::X, |frame| frame.basis().side),
+            reach,
+            // A body talks from a little farther than it touches.
+            talk: ambition_interaction::talk_reach(
+                reach,
+                step.map_or(ambition_platformer2d_core::Vec2::ZERO, |step| step.down),
+            ),
+            room,
+        }
+    }
+
+    /// The body's collision box.
+    pub fn collision_box(&self) -> ambition_platformer2d_core::Aabb {
+        self.reach
+    }
+
+    /// Where the body stands.
+    pub fn pos(&self) -> ambition_platformer2d_core::Vec2 {
+        self.pos
+    }
+
+    /// The facing gate (Q63): a target that requires facing is reached only
+    /// by a body that faces it.
+    fn passes_the_facing_gate(&self, target: ambition_platformer2d_core::Vec2, requires_facing: bool) -> bool {
+        !requires_facing || ambition_interaction::faces(self.pos, self.facing, self.side, target)
+    }
+
+    /// Can the press talk to a peaceful body at `aabb` in live room `room`?
+    /// The door rule is not part of it: see [`Self::a_door_keeps_the_press`].
+    pub fn can_talk_to(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        aabb: &CenteredAabb,
+        requires_facing: bool,
+    ) -> bool {
+        // OW1 cut 7b: two live rooms can hold a body at one position.
+        room == self.room
+            && aabb.aabb().strict_intersects(self.talk)
+            && self.passes_the_facing_gate(aabb.center, requires_facing)
+    }
+
+    /// Does the press reach a chest or a switch at `aabb` in live room `room`?
+    pub fn touches(
+        &self,
+        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        aabb: &CenteredAabb,
+        requires_facing: bool,
+    ) -> bool {
+        room == self.room
+            && aabb.aabb().strict_intersects(self.reach)
+            && self.passes_the_facing_gate(aabb.center, requires_facing)
+    }
+
+    /// One press can be for a door or for a body to talk to: the nearer of
+    /// the two takes it, and a tie goes to the door. `door` is the distance
+    /// to the door the body stands in, `talker` the distance to the body.
+    pub fn a_door_keeps_the_press(door: Option<f32>, talker: f32) -> bool {
+        door.is_some_and(|door| door <= talker)
+    }
+}
+
 /// The bodies Interact can talk to: peaceful feature actors with a
 /// conversation payload. The same filter [`interact_ecs_actors_and_switches`]
 /// talks through, read by a door that must know whether the press is its own.
@@ -45,6 +138,7 @@ pub struct TalkableBodies<'w, 's> {
             (
                 Has<ambition_combat::death_rules::OutOfPlay>,
                 Option<&'static ambition_platformer2d_core::DepthPlane>,
+                Has<ambition_combat::components::RequiresFacing>,
             ),
         ),
         (
@@ -53,30 +147,22 @@ pub struct TalkableBodies<'w, 's> {
             With<FeatureSimEntity>,
         ),
     >,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
 }
 
 impl TalkableBodies<'_, '_> {
-    /// The distance from `subject`'s position to the nearest body it can talk
-    /// to, if there is one: a body in the talk reach
-    /// ([`ambition_interaction::talk_reach`]) of `subject`'s collision box,
-    /// for a body whose DOWN is `down`.
-    pub fn nearest_in_reach(
-        &self,
-        subject: Entity,
-        at: ambition_platformer2d_core::Vec2,
-        collision_box: ambition_platformer2d_core::Aabb,
-        down: ambition_platformer2d_core::Vec2,
-    ) -> Option<f32> {
-        let reach = ambition_interaction::talk_reach(collision_box, down);
+    /// The distance from `subject`'s position to the nearest body its press
+    /// can talk to ([`InteractReach::can_talk_to`]), if there is one.
+    pub fn nearest_in_reach(&self, subject: Entity, reach: &InteractReach) -> Option<f32> {
         self.bodies
             .iter()
-            .filter(|(entity, aabb, disposition, health, (out_of_play, plane))| {
+            .filter(|(entity, aabb, disposition, health, (out_of_play, plane, requires_facing))| {
                 *entity != subject
                     && !disposition.is_hostile()
                     && !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
-                    && aabb.aabb().strict_intersects(reach)
+                    && reach.can_talk_to(self.rooms.of(*entity), aabb, *requires_facing)
             })
-            .map(|(_, aabb, ..)| aabb.center.distance(at))
+            .map(|(_, aabb, ..)| aabb.center.distance(reach.pos()))
             .min_by(f32::total_cmp)
     }
 }
@@ -206,21 +292,12 @@ pub fn interact_ecs_actors_and_switches(
         let Ok((subject_kin, subject_step, subject_frame)) = bodies.get(subject) else {
             continue;
         };
-        let reach_aabb = subject_kin.collision_box(subject_step);
-        // The facing gate (Q63): forward is the body's facing along the run
-        // axis of its own frame, so a body in sideways gravity faces as it runs.
-        let side = subject_frame
-            .map_or(ambition_platformer2d_core::Vec2::X, |frame| frame.basis().side);
-        let faces = |target| ambition_interaction::faces(subject_kin.pos, subject_kin.facing, side, target);
-        // A body talks from a little farther than it touches.
-        let talk_aabb = ambition_interaction::talk_reach(
-            reach_aabb,
-            subject_step.map_or(ambition_platformer2d_core::Vec2::ZERO, |step| step.down),
-        );
-        // The door this body stands in, if any. A door nearer than a body to
-        // talk to keeps the press: the door's own rule, from its side
-        // (`LiveRoomSpecs::nearest_door_under`).
-        let door = rooms.nearest_door_under(subject, reach_aabb, subject_kin.pos);
+        // A body reaches an NPC or a switch only in its own live room (OW1
+        // cut 7b): two live rooms can hold one at the same position.
+        let subject_room = live_rooms.of(subject);
+        let reach = InteractReach::of(subject_kin, subject_step, subject_frame, subject_room);
+        // The door this body stands in, if any (`LiveRoomSpecs::nearest_door_under`).
+        let door = rooms.nearest_door_under(subject, reach.collision_box(), subject_kin.pos);
         // WHO is doing the talking. A possessed body speaks as the character it IS;
         // the home avatar speaks as the character it WEARS; a body that is neither
         // speaks as its placement. Ids, never display names — a name is a
@@ -233,18 +310,12 @@ pub fn interact_ecs_actors_and_switches(
         let speaker_id = dialogue.as_ref().and_then(|dialogue| {
             dialogue.speaker_id(subject, interactions.get(subject).ok(), identities.get(subject).ok())
         });
-        // A body reaches an NPC or a switch only in its own live room (OW1
-        // cut 7b): two live rooms can hold one at the same position.
-        let subject_room = live_rooms.of(subject);
         for (actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane, requires_facing)) in
             &actors
         {
             let (Some(speaker_id), Some(dialogue)) = (speaker_id.as_deref(), dialogue.as_mut()) else {
                 break;
             };
-            if live_rooms.of(actor_entity) != subject_room {
-                continue;
-            }
             // A hostile actor gates dialogue off; a dead one is an intangible corpse
             // and cannot be talked to.
             if disposition.is_hostile()
@@ -253,13 +324,9 @@ pub fn interact_ecs_actors_and_switches(
                 continue;
             }
             let interactable = &interaction_payload.interactable;
-            if !aabb.aabb().strict_intersects(talk_aabb) {
-                continue;
-            }
-            if requires_facing && !faces(aabb.center) {
-                continue;
-            }
-            if door.is_some_and(|door| door <= aabb.center.distance(subject_kin.pos)) {
+            if !reach.can_talk_to(live_rooms.of(actor_entity), aabb, requires_facing)
+                || InteractReach::a_door_keeps_the_press(door, aabb.center.distance(subject_kin.pos))
+            {
                 continue;
             }
             let request = super::super::npcs::npc_dialogue_request(
@@ -352,14 +419,8 @@ pub fn interact_ecs_actors_and_switches(
             return;
         }
         for (switch_entity, name, aabb, switch, requires_facing) in &switches {
-            if !aabb.aabb().strict_intersects(reach_aabb) {
-                continue;
-            }
-            if requires_facing && !faces(aabb.center) {
-                continue;
-            }
             let room = live_rooms.of(switch_entity);
-            if room != subject_room {
+            if !reach.touches(room, aabb, requires_facing) {
                 continue;
             }
             acting.consume_interact(subject);

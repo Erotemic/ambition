@@ -340,6 +340,12 @@ pub struct CombatRules {
     /// `wall_normal_x`. Reading it off the trumped body's facing would be wrong
     /// the moment a body hangs facing out.
     pub ledge_trump_pop: Option<f32>,
+    /// LEDGE TRUMP LOCKOUT: how long a body that lost its ledge to a trump
+    /// cannot act, in seconds (`BodyCombat::ledge_trump_lock_timer`). `None`
+    /// and `0.0` leave it in control, which is what every trump did before
+    /// this existed. A game rule like the pop beside it: Ultimate holds the
+    /// trumped fighter, and a game that does not says nothing.
+    pub ledge_trump_lockout: Option<f32>,
     /// WHO KEEPS A CONTESTED EDGE — the newcomer or the body already on it?
     ///
     /// `None` is [`LedgeOccupancy::Trump`], which is what every ledge did
@@ -429,6 +435,10 @@ pub struct ResolvedCombatTuning {
     /// See [`CombatRules::ledge_trump_pop`]. RESOLVED, so `0.0` — drop
     /// the trumped body in place — is what a world that declared nothing gets.
     pub ledge_trump_pop: f32,
+    /// See [`CombatRules::ledge_trump_lockout`]. RESOLVED, so `0.0` (the
+    /// trumped body stays in control) is what a world that declared nothing
+    /// gets.
+    pub ledge_trump_lockout: f32,
     /// See [`CombatRules::ledge_occupancy`].
     pub ledge_occupancy: LedgeOccupancy,
     /// See [`CombatRules::double_jump_cancel`].
@@ -653,6 +663,7 @@ impl ResolvedCombatTuning {
                 // what every body did before the knob existed.
                 bark_chance: rules.bark_chance.unwrap_or(1.0).clamp(0.0, 1.0),
                 ledge_trump_pop: rules.ledge_trump_pop.unwrap_or(0.0).max(0.0),
+                ledge_trump_lockout: rules.ledge_trump_lockout.unwrap_or(0.0).max(0.0),
                 ledge_occupancy: rules.ledge_occupancy.unwrap_or_default(),
                 double_jump_cancel: rules.double_jump_cancel.unwrap_or(false),
                 strike_weight: None,
@@ -707,6 +718,7 @@ impl ResolvedCombatTuning {
                 sudden_death_damage: None,
                 bark_chance: 1.0,
                 ledge_trump_pop: 0.0,
+                ledge_trump_lockout: 0.0,
                 ledge_occupancy: LedgeOccupancy::Trump,
                 double_jump_cancel: false,
                 strike_weight: None,
@@ -939,6 +951,7 @@ mod tests {
                 growth_base: None,
                 bark_chance: None,
                 ledge_trump_pop: None,
+                ledge_trump_lockout: None,
                 ledge_occupancy: None,
                 double_jump_cancel: None,
                 di_max_angle: 0.30,
@@ -984,6 +997,7 @@ mod tests {
             growth_base: None,
             bark_chance: None,
             ledge_trump_pop: None,
+            ledge_trump_lockout: None,
             ledge_occupancy: None,
             double_jump_cancel: None,
             di_max_angle: 0.30,
@@ -1028,6 +1042,7 @@ mod tests {
                 // An undeclared world barks on every hit.
                 bark_chance: 1.0,
                 ledge_trump_pop: 0.0,
+                ledge_trump_lockout: 0.0,
                 ledge_occupancy: LedgeOccupancy::Trump,
                 double_jump_cancel: false,
                 knockback_growth: 0.0,

@@ -1672,6 +1672,91 @@ fn an_undriven_home_body_in_a_door_is_not_crossed_for_anyone() {
     );
 }
 
+/// ⭐ ONLY A PERSON THE PRESS CAN TALK TO KEEPS A DOOR'S PRESS (review
+/// 2026-10-08). The body stands in the door 10 px from its centre, and a
+/// peaceful person stands 2 px from the body. Arms:
+///
+/// - the person in the body's own live room keeps the press: no crossing;
+/// - the person in the other live room cannot be talked to, so the door
+///   takes the press;
+/// - the person in the body's own room behind the body, gated to be faced,
+///   cannot be talked to either.
+///
+/// The door asked a copy of the talk rule with no live-room check and no
+/// facing gate, so a person the press could not reach held the door shut.
+#[test]
+fn only_a_person_the_press_can_talk_to_keeps_a_doors_press() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        activation_room_root, session_world_component, InRoomInstance, LiveRoomInstance, SessionRoot,
+    };
+    let crosses = |other_room: bool, behind_and_gated: bool| -> bool {
+        let mut app = app_with_a_door(true, None);
+        let scope = session_world_component::<SessionRoot>(app.world())
+            .expect("the fixture has a session root")
+            .0;
+        let a = session_world_component::<RoomSet>(app.world())
+            .and_then(|rooms| rooms.definition_by_id("a"))
+            .expect("the fixture's set has room `a`");
+        let second = LiveRoomInstance::ACTIVATION.next();
+        app.world_mut().spawn(activation_room_root(scope)).insert((
+            second,
+            a,
+            ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_1"),
+        ));
+        let body = app
+            .world_mut()
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>>()
+            .single(app.world())
+            .expect("the home body");
+        let at = ae::Vec2::new(110.0, 100.0);
+        app.world_mut()
+            .get_mut::<ambition_platformer2d_core::BodyKinematics>(body)
+            .expect("the body has kinematics")
+            .pos = at;
+        app.world_mut()
+            .entity_mut(body)
+            .insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
+        let person_at = at + ae::Vec2::new(if behind_and_gated { -2.0 } else { 2.0 }, 0.0);
+        let person = app
+            .world_mut()
+            .spawn((
+                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
+                ambition_combat::components::CenteredAabb::from_center_size(person_at, ae::Vec2::new(16.0, 24.0)),
+                ambition_combat::components::ActorDisposition::Peaceful,
+                ambition_combat::components::ActorIdentity::new("guide", "Guide"),
+                ambition_combat::components::ActorInteraction {
+                    interactable: ambition_interaction::Interactable::new(
+                        "guide",
+                        "Talk",
+                        ae::Aabb::new(person_at, ae::Vec2::new(16.0, 24.0)),
+                        ambition_interaction::InteractionKind::Npc {
+                            character_id: None,
+                            dialogue_id: Some("hub_guide".into()),
+                            patrol_radius: 0.0,
+                            patrol_path_id: None,
+                            brain_override: None,
+                        },
+                    ),
+                },
+                InRoomInstance(if other_room { second } else { LiveRoomInstance::ACTIVATION }),
+            ))
+            .id();
+        if behind_and_gated {
+            app.world_mut()
+                .entity_mut(person)
+                .insert(ambition_combat::components::RequiresFacing);
+        }
+        app.update();
+        pending_intent(&app).is_some()
+    };
+    assert_eq!(
+        (crosses(false, false), crosses(true, false), crosses(false, true)),
+        (false, true, true),
+        "(person in the body's room, person in the other live room, gated person behind the body): \
+         the door took the press"
+    );
+}
+
 /// OW1 cut 6a: a crossing reads the crossing body's own live room.
 ///
 /// Live room #0 is room `a` and #1 is room `b`. `b`'s walk zone stands where

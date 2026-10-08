@@ -139,7 +139,7 @@ Both roads obey the ruling:
 
 Ledge occupancy (one holder per edge) is owned by
 [`../demos/smash-parity-inventory.md`](../demos/smash-parity-inventory.md#ledge-occupancy)
-§5 (queue row LEDGE-OCCUPANCY).
+§5 (receipt LEDGE-OCCUPANCY in the queue).
 
 ## Damage and launch variants
 

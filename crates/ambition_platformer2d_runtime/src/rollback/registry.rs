@@ -1097,7 +1097,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// baseline) also encodes which of its ids are RUNTIME MINTS (provenance, beside
 /// the rows), so a peer that disagrees about a mint's mark disagrees about
 /// whether its `Consumed` row survives the next checkpoint commit.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 329;
+/// ⛔⛤ 329 -> 330: `actor.body_combat` (`BodyCombat`) encodes
+/// `ledge_trump_lock_timer`, the lock a ledge trump owes its loser under a
+/// declared `CombatRules::ledge_trump_lockout`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 330;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

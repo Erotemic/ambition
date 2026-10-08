@@ -435,10 +435,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
-    "WorldTimeSchedule": (
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/world_time_schedule.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    ),
     "ConsumedSinceCheckpoint": (
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
@@ -746,10 +742,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "FixedStepsTaken": (
         "game/ambition_app/src/app/cli.rs",
         "game/ambition_app/src/headless.rs",
-    ),
-    "GameplayElapsed": (
-        "crates/ambition_platformer2d_actor_monolith/src/features/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "ImpactHitstop": (
         "crates/ambition_combat/src/impact_hitstop/mod.rs",
@@ -1968,27 +1960,6 @@ ADJUDICATED: dict[str, str] = {
         "simulation schedule or the checkpoint apply, and the type is rollback "
         "state with a value checksum (`resource.reward_grants_since_checkpoint`)."
     ),
-    "WorldTimeSchedule": (
-        "CORRECT — ONE MIRROR PER CUSTOMER, THREE FORGETTERS, ONE TYPE, ONE FILE "
-        "(OW5 2026-10-02; Q152 2026-10-04). The map is private "
-        "(`features/ecs/world_time_schedule.rs`) and every write goes through "
-        "`record`, `forget`, `forget_room` or `forget_all`; `record` keeps an "
-        "existing due time. Each customer's live `RespawnTimer` is the authority "
-        "while its room is live: `mirror_breakable_respawns` (breakables) and "
-        "`regrow_pickups` (pickups) record a running timer's due time and forget "
-        "it when the occurrence is whole. The two customers' keys are disjoint "
-        "(authored ids are unique in a room). "
-        "`forget_scheduled_returns_on_replay` calls `forget_room` on an ADMITTED "
-        "replay. A checkpoint restore takes the dying participant out of each "
-        "record's owners at its admission (`disown_scheduled_returns_on_restore`, "
-        "`keep_only_owners`), and the checkpoint apply "
-        "(`forget_scheduled_returns_on_restore`) forgets the records of live rooms "
-        "and those with no owner left, or every record on a New Game (Q151). "
-        "`SessionScopedResources::reset` (`teardown.rs`) calls `forget_all` at the "
-        "session edge. Every writer but the teardown runs in the simulation "
-        "schedule or the checkpoint apply, and the type is rollback state with a "
-        "value checksum (`feature.world_time_schedule`)."
-    ),
     "ConsumedSinceCheckpoint": (
         "CORRECT — TWO RECORDERS OF DISJOINT ROWS, ONE DISOWNER, TWO FORGETTERS, "
         "ONE TYPE (Q151, 2026-10-04). The map is private (`features/ecs/pickups.rs`). "
@@ -2271,19 +2242,9 @@ ADJUDICATED: dict[str, str] = {
         "one function, with comments and test modules stripped. ⇒ Nothing here is "
         "two owners of one fact."
     ),
-    "GameplayElapsed": (
-        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
-        "\"writer\" is not an authority. `advance_gameplay_elapsed` (`features/mod.rs`) is the "
-        "only production system that writes it inside a session; the other file is "
-        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
-        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
-        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
-        "one function, with comments and test modules stripped. ⇒ Nothing here is "
-        "two owners of one fact."
-    ),
     "ImpactHitstop": (
-        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, the shape of "
-        "`GameplayElapsed`. The impact freeze is armed only by "
+        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY. "
+        "The impact freeze is armed only by "
         "`request_impact_hitstop_on_resolved_hits` (`impact_hitstop/mod.rs`, its one "
         "`ResMut` site); the other file is `SESSION_SCOPE_RESET`, where "
         "`SessionScopedResources::reset` clears it at the session edge. It holds an "
@@ -3917,7 +3878,6 @@ SOLE_IN_SESSION_OWNER: dict[str, str] = {
     "ControlledSubject": "resolve_controlled_subject",
     "CutsceneSkipHold": "tick_active_cutscene",
     "EncounterView": "apply_wave_encounter_effects",
-    "GameplayElapsed": "advance_gameplay_elapsed",
     "LiveMatchTicks": "count_the_live_match_ticks",
     "SaveRestored": "complete_durable_restore",
     "SessionMatchOrdinal": "activate_the_prepared_match",

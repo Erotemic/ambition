@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v331
+ggrs-rollback-schema-v332
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -256,7 +256,7 @@ feature.requires_facing	component-clone	RequiresFacing	bevy_ggrs clone snapshot;
 feature.respawn_timer	component-clone	RespawnTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.stand_timer	component-clone	StandTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.switch	component-clone	SwitchFeature	bevy_ggrs clone snapshot; not in the session checksum
-feature.world_time_schedule	resource-clone-custom-checksum	WorldTimeSchedule	bevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)
+feature.world_time_schedule	component-clone-custom-checksum	WorldTimeSchedule	bevy_ggrs clone snapshot + when each broken breakable respawns and each collected pickup regrows, on the session clock, and whose horizons own it, kept when their room retires (OW5, Q152, Q151)
 gravity.oscillating_zone	component-clone	OscillatingZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -433,7 +433,7 @@ resource.clock_state	resource-canonical	ClockState	bevy_ggrs canonical codec sna
 resource.custody_baseline	resource-clone-custom-checksum	CustodyBaseline	bevy_ggrs clone snapshot + entity-free remembered-custody checksum projection
 resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; not in the session checksum
 resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; not in the session checksum
-resource.gameplay_elapsed	resource-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.gameplay_elapsed	component-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.gate_portal_phases	resource-clone-custom-checksum	GatePortalPhases	bevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection
 resource.gravity_field	derived	GravityField	re-derived from the primary body's ResolvedMotionFrame in FrameResolveSet; read only by presentation
 resource.impact_hitstop	resource-clone-custom-checksum	ImpactHitstop	bevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock

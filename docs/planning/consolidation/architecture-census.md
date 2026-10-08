@@ -42,10 +42,10 @@ These single-owner shapes hold now. Code against them.
 
 Open pressure:
 
-- **38** process/App resources are explicitly documented by source as session- or
+- **36** process/App resources are explicitly documented by source as session- or
   generation-owned and are still App resources (section 3; campaign C03).
-- Some optional reads of required authorities still mean both "capability not
-  installed" and "authority went missing" (section 8; campaign C07).
+- Each optional read of a session-owned canonical authority states what its
+  absence means (C07 converged 2026-10-08; `session-authority-none-arms.md`).
 - The facade crate and the large crates still need ownership review (sections 11
   and 12; campaigns C08 and C09).
 
@@ -186,24 +186,24 @@ because their semantic lifetime is one session or one activated generation.
 
 | ID | Family | Semantic owner | Storage/representation | Current state | Classification | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| LIFE-SESSION-RESOURCE-AGGREGATE | SessionScopedResources process-storage aggregate | gameplay session | **37** process/App Resources accessed through one SystemParam | SessionScopedResources names 37 App resources that source states belong to one gameplay session. Activation resets them for correctness and retirement resets them for hygiene. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
+| LIFE-SESSION-RESOURCE-AGGREGATE | SessionScopedResources process-storage aggregate | gameplay session | **35** process/App Resources accessed through one SystemParam | SessionScopedResources names 35 App resources that source states belong to one gameplay session. Activation resets them for correctness and retirement resets them for hygiene. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-CHECKPOINT-RESOURCE-AGGREGATE | SessionCheckpointState root-owned checkpoint coordinator | gameplay session | 6 components of the SessionRoot (required by `SessionRoot` through `SessionCheckpointHorizonPlugin`) | SessionCheckpointState names six components of the session root for one gameplay-session checkpoint coordinator. The reset system and the SessionOwnedCheckpointState aggregate are deleted (C03, 2026-10-07); a new root is born with the defaults. | owner-scoped state | SOURCE_CONFIRMED |
 | LIFE-SESSION-MECHANICS | Generation-owned mechanics stored as App resource | content generation within gameplay session | Resource | SessionMechanics is an App Resource whose semantic owner is the activated generation. Retirement removes it; activation overwrites it. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-ROOT-OWNED-WORLD | Session-root-owned world components | gameplay session / room | Components on SessionRoot and on each live room root | `RoomSet`, initial-body policy and session requests are on the canonical `SessionRoot`; `RoomGeometry` and `MovingPlatformSet` are on each live room's own root. None is a process-global resource. | owner-scoped state | SOURCE_CONFIRMED |
 
 ### Explicit narrower-lifetime App resources
 
-`SessionScopedResources` names **37** process resources whose source says one
+`SessionScopedResources` names **35** process resources whose source says one
 gameplay session owns them:
 
-`PossessionState, ControlledSubject, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, GameplayElapsed, BossDefeatsSinceCheckpoint, WorldTimeSchedule, ConsumedSinceCheckpoint, RewardGrantsSinceCheckpoint, BagSpendsSinceCheckpoint, SimTick, ImpactHitstop, RequestedClockScale, ClockState, WorldTime, GatePortalPhases, OwnedItemsBaseline`.
+`PossessionState, ControlledSubject, EncounterView, BossEncounterRegistry, QuestRegistry, RoomTransitionCooldown, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, BossDefeatsSinceCheckpoint, ConsumedSinceCheckpoint, RewardGrantsSinceCheckpoint, BagSpendsSinceCheckpoint, SimTick, ImpactHitstop, RequestedClockScale, ClockState, WorldTime, GatePortalPhases, OwnedItemsBaseline`.
 
 `SessionCheckpointState` (a root family, NOT an App resource since C03 landed it on 2026-10-07) holds **6** checkpoint-coordinator components of the session root:
 
 `SessionCheckpointOperations, SessionCheckpointOutcomes, AcceptedCheckpointRestore, AbandonedCheckpointOperation, SessionStartupResume, OutstandingCheckpointRequest`.
 
 `SessionMechanics` is one more App resource whose semantic owner is the activated
-content generation. The unique total is **38** — the two App-resource lists are disjoint, so
+content generation. The unique total is **36** — the two App-resource lists are disjoint, so
 it is their sum (the root family is not counted). `scripts/check_session_owner_census_matches_source.py` checks
 both name lists and every restated count against source.
 
@@ -328,7 +328,7 @@ A raw `Option<Res<T>>` is not evidence of a defect.
 | --- | --- | --- | --- | --- | --- |
 | CAP-SESSION-SCOPE-OPTIONAL | Optional ActiveSessionScope in mixed compositions | capability legitimately absent today, with compatibility semantics | SessionSpawnScope::for_optional_active_session interprets missing ActiveSessionScope as a direct/legacy process-resident composition and present-with-no-current as a shell frontend where gameplay spawning must sleep. | If session lifecycle becomes universal, remove the missing-resource meaning. Until then, do not make it required without migrating direct/headless compositions. | SOURCE_CONFIRMED |
 | CAP-SESSION-MECHANICS-OPTIONAL | Optional SessionMechanics for live room construction | required for live room construction in every composition | `GenerationMechanics::for_live_session` refuses a live rebuild when no `SessionMechanics` is installed. A direct composition that rebuilds rooms installs its own scoped `SessionMechanics`. | — (closed by C04) | SOURCE_CONFIRMED |
-| CAP-CONTENT-BINDING-OPTIONAL | Optional ActiveContentBinding at room verification | required canonical authority in shell production; explicit direct fixture absence | Room verification permits no ActiveContentBinding in direct fixtures, but refuses it when SessionGatedSimulation marks a shell-routed session. | Keep the discriminator. Whether direct entry must own a binding is a composition decision (C07). | SOURCE_CONFIRMED |
+| CAP-CONTENT-BINDING-OPTIONAL | Optional ActiveContentBinding at room verification | required canonical authority of every session root a room publishes into | Room verification refuses a room whose session root holds no ActiveContentBinding, in a direct composition too (2026-10-08); a direct fixture with no session root states none. | Keep. Decided under C07: direct entry owns a binding, as its session setup already stated. | SOURCE_CONFIRMED |
 | CAP-MECHANICAL-ADMISSION-OPTIONAL | Optional MechanicalEditAdmission in non-rollback compositions | capability legitimately absent | Editor publishers treat absent MechanicalEditAdmission as Publish. Source states this is intentional because a composition with no rollback host has no history to protect; a host that can refuse installs the resource. | — | SOURCE_CONFIRMED |
 | CAP-INITIAL-READINESS | Optional InitialGameplayReadiness | optional presentation/startup capability | Visible direct-entry hosts can install a closed startup readiness gate. Apps that omit it keep the normal behavior. | — | SOURCE_CONFIRMED |
 | CAP-LDTK-INDEX | Optional LDtk session-world index | capability legitimately absent | PreparedPlatformerSource carries an installed LDtk index only when an authoring format installs one. RON-authored sessions legitimately carry none. | — | SOURCE_CONFIRMED |
@@ -413,7 +413,7 @@ fan-out improves. Small crates are not merge candidates because they are small.
 | BEVY-MECHANICAL-EDIT | Mechanical edit admission protocol | JUSTIFIED_AMBITION_SEMANTICS | Change detection can see an editor write but cannot decide whether it may change mechanics under rollback. For player stats it cannot even detect the edit: the editor resource has two writers, so the proposer compares against `PlayerStatsSyncSnapshot`. Admission (`decide_mechanical_edit_admission`) is shared and domain-blind. | Keep direct Bevy mechanisms visible. Retain custom code only for the stated Ambition invariant or a small ergonomic adapter. | SOURCE_CONFIRMED |
 | BEVY-FACADE-REEXPORTS | Facade and convenience mirrors | REVIEWED_2026_09_18 | The facade's renames are crate-alias prefix strips that map back to the owner by rule. The two item renames are written at the owner as well as at the facade. Two drivers that arrive from two crates are a feature selection, not a second owner. | Keep direct Bevy mechanisms visible. Retain custom code only for the stated Ambition invariant or a small ergonomic adapter. | SOURCE_CONFIRMED |
 
-<!-- alias-census: parameter_form=49 files=24 -->
+<!-- alias-census: parameter_form=58 files=27 -->
 The line above is `BEVY-SESSION-ROOT`'s machine-readable count.
 `scripts/check_alias_census_agrees_with_source.py` compares it with a live
 measurement. The per-spelling split is in the plan, under C03.
@@ -475,9 +475,7 @@ Keep these distinctions:
 
 1. Process storage for state that source declares session- or generation-owned,
    where resets and stale-owner guards compensate for the lifetime mismatch (C03).
-2. Optional reads that do not say whether absence is a capability choice or a
-   missing required authority (C07).
-3. Readers that assume exactly one live room (`SoleLiveRoom*`), owned by the
+2. Readers that assume exactly one live room (`SoleLiveRoom*`), owned by the
    open-world residency plan.
 
 ### Transitional complexity

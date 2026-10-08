@@ -191,9 +191,22 @@ the real realization places body integration inside
 `WorldPrepSet::Integrate`. Prior prose that mapped old and new set names by name
 is not an implementation guide.
 
-**Next implementation:** size the packet against the actual schedule seam:
-control production, accepted control authority, then body execution/integration.
-Keep the measured invariant that a body is advanced once per tick.
+**Measured 2026-10-08:** `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
+reads the declared access of every system in the shipped `GgrsSchedule`. It found
+22 `ActorControl` writers. None is unordered against `PlayerInputSet::ControlGate`.
+Ten are in the gate or before it. Twelve are after it, and the test pins them
+as a declared list. Eight of the twelve spend a press, integrate, or derive from
+a gated frame. Four produce intent that no restriction sees:
+- The boss road (`tick_boss_brains_system`, `tick_commanded_moves`,
+  `face_conducted_bosses`) decides and integrates after actor integration and
+  contact damage.
+- `shark_ride::tick_departures` writes its velocity in `BeforeIntegrate`.
+
+**Next implementation:** move the boss road's decision in front of the gate.
+That makes bosses one more publication into the one integration road. Then
+move the shark departure, and remove each row from
+`WRITES_CONTROL_AFTER_THE_GATE` as its writer moves. Keep the measured
+invariant that a body is advanced once per tick.
 
 **Acceptance:** one accepted control fact feeds one body execution road; no
 second body tick or hidden writer is introduced; schedule witnesses are placed
@@ -741,6 +754,15 @@ ladder field is inert.
 `ambition_content` `plugin.rs` and `reload.rs` (`publish_fighter_ladder`)
 are the only installers. A Smash pack source may name a file outside its
 root, as George's facet does.
+
+**Next (2026-10-08):** the engine still carries a level curve,
+`FighterBrainProfile::for_level` (13 production fallback sites), and the demo
+plays it. The order of the move is in
+[`fighter-brain.md` F1](engine/fighter-brain.md#f1--the-authored-ladder-is-the-authority-q88-2026-10-03):
+the ladder becomes a rule scoped to the rooms it governs (`ambition_app`
+composes Smash, so a second `AuthoredFighterLadder` installer would make two
+authorities), Smash declares its pack's rows for its mode, and then the floor
+becomes one level-free default.
 
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 

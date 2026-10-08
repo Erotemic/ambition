@@ -153,6 +153,13 @@ retraction road.
 | rollback over handoff | `possession_survives_the_real_rollback_window`, `a_mount_dying_under_a_possession_survives_rewinds` |
 | two mechanisms releasing independently | `a_mount_dying_under_a_possession_leaves_the_player_driving` |
 
+**Control-writer census (2026-10-08):** `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
+classifies each `ActorControl` writer against `ControlGate`: 10 before, 12
+after, 0 unordered. The after-gate list is declared in the test
+(`WRITES_CONTROL_AFTER_THE_GATE`), with a reason for each row. The four rows
+marked "produces" are the open debt: the boss road (brain, commanded move,
+conducted facing) and the shark departure.
+
 **Open:** the regrouping; the distinction of home-avatar, driver, camera and
 participant identities; arms for removal of a controlled body, two
 participants, action continuity and no double body tick (the schedule-level

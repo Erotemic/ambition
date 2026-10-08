@@ -961,9 +961,10 @@ no `id` field). Fixed: a replaced level carries the iid, uid and seed of the
 level, each layer's iid, and each entity's iid matched by type and position
 (`carry_identities`), and a built entity sits on its policy layer
 (`place_on_policy_layers`). A regen of the committed hall now writes it byte
-for byte (`tests/test_area_regen_keeps_identities.py`; poisons red). The other
-`edit` writers (entity add/move/set-field, level clone, camera auto-cover) are
-not measured.
+for byte (`tests/test_area_regen_keeps_identities.py`; poisons red).
+`camera auto-cover --create` writes the same bytes on a second run. Not
+measured: the spec-driven `entity` writers (move, set-field) and `level clone`
+(which mints fresh ids by design).
 
 **Acceptance:** a second run of each writer on its own output changes no
 byte.

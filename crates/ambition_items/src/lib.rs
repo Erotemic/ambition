@@ -594,6 +594,21 @@ pub struct ItemUseRequested {
 }
 
 impl OwnedItems {
+    /// Entity-free value projection: each item's count, in catalog order.
+    ///
+    /// ⭐ THE BAG IS COMPARED (Q129). Shared durable state is peer state, and
+    /// peers compare its canonical form, so the bag is in the peer checksum
+    /// by its own value rather than only through the save that mirrors it.
+    pub fn checksum(&self) -> u64 {
+        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_u32, put_u64};
+        let mut bytes = Vec::new();
+        put_u64(&mut bytes, self.counts.len() as u64);
+        for count in &self.counts {
+            put_u32(&mut bytes, *count);
+        }
+        checksum_bytes(&bytes)
+    }
+
     /// How many of `item` the bag stores. The hand is NOT counted here — see
     /// [`Inventory`] for the reader that wants both.
     pub fn count(&self, item: Item) -> u32 {

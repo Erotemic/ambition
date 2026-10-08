@@ -14,26 +14,19 @@ use bevy_math::bounding::Aabb2d as Aabb;
 
 /// A player-facing interaction trigger.
 ///
-/// ⛔⛤ **`requires_facing: bool` IS GONE, 2026-09-12.** It was authored on
-/// `InteractableSpec`, threaded in by `spawn_static.rs`, set explicitly by
-/// content — and consulted by NO production code, so an interactable declaring
-/// it must be faced could be used from behind. A public, serializable,
-/// documented authoring field that advertises a rule the engine does not
-/// implement, and a third-party provider had no way to infer that.
-///
-/// ⇒ **DELETED, NOT LEFT AS A DESIGN CALL.** This comment used to end *"wiring
-/// it or deleting it is a design call"*, and that framing is what kept three
-/// no-op fields alive in one crate. **Deciding what the future feature should do
-/// is a different question from making the field impossible to misuse**, and
-/// only the second one was blocked on anything. Whoever wants facing-gated
-/// interaction adds the field and the CHECK together.
+/// ⛔ EVERY FIELD HAS A READER. `requires_facing` came back (Q63) with its
+/// check: construction puts `RequiresFacing` on the root, and the interact
+/// road refuses a body that does not [`faces`] the interactable. An authored
+/// field that advertises a rule the engine does not implement lets content be
+/// used in a way its author forbade, so a field and its check land together.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Interactable {
     pub id: String,
     pub prompt: String,
     pub aabb: Aabb,
     pub kind: InteractionKind,
-    pub enabled: bool,
+    /// A body must face it to use it (Q63). See [`faces`].
+    pub requires_facing: bool,
 }
 
 impl Interactable {
@@ -48,7 +41,7 @@ impl Interactable {
             prompt: prompt.into(),
             aabb,
             kind,
-            enabled: true,
+            requires_facing: false,
         }
     }
 }
@@ -292,6 +285,13 @@ pub enum BreakableState {
 /// prompt offers one inside it, and a conversation breaks outside it. The gap
 /// a conversation puts between its two bodies is inside it.
 pub const TALK_REACH: f32 = 32.0;
+
+/// Does a body at `pos`, facing `facing` (its sign) along `side` (the run
+/// axis of its own frame), face `target`? A target straight above or below
+/// it is faced, so a gate never refuses a body for being level with it.
+pub fn faces(pos: bevy_math::Vec2, facing: f32, side: bevy_math::Vec2, target: bevy_math::Vec2) -> bool {
+    (target - pos).dot(side) * facing >= 0.0
+}
 
 /// The box a body talks from: its collision box, grown by [`TALK_REACH`] on
 /// each end of its side axis.

@@ -213,7 +213,7 @@ pub(crate) fn interactable_from_authored(
         prompt: authored.payload.prompt.clone(),
         aabb: authored.aabb,
         kind: interaction_kind_from_spec(&authored.payload.kind),
-        enabled: authored.payload.enabled,
+        requires_facing: authored.payload.requires_facing,
     }
 }
 
@@ -536,7 +536,7 @@ pub(crate) fn spawn_chest_into(
     // Authored open, or remembered open (`construction::spend_request`): the
     // same canonical state a chest a body opened has (Q105).
     if authored.payload.opened {
-        scope.insert_session_scoped(ambition_combat::components::Opened);
+        scope.insert(ambition_combat::components::Opened);
     }
 }
 

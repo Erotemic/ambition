@@ -8,7 +8,12 @@ pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,
 {
-    registrar.rollback_resource_clone::<crate::OwnedItems>(OWNER, "resource.owned_items");
+    registrar.rollback_resource_clone_checksum::<crate::OwnedItems>(
+        OWNER,
+        "resource.owned_items",
+        "each item's stored count, in catalog order (Q129: the bag is compared)",
+        crate::OwnedItems::checksum,
+    );
     registrar.clear_message_on_rollback::<crate::ItemGrantRequested>(
         OWNER,
         "message.item_grant_requested",

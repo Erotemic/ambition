@@ -509,12 +509,11 @@ fn probe_which_hashed_entries_are_written_outside_the_rewinding_schedule() {
 /// audit ran and that the world was moving; they do NOT prove the
 /// outside-the-schedule DETECTOR still has power, because nothing in the tree
 /// exercises it any more.
-/// ⇒ **OWED: a SYNTHETIC positive control** — compose a system that writes a
-/// rollback-registered hashed resource from `Update` and assert this arm names
-/// it. That is a poison-as-fixture rather than a live defect, so it cannot die
-/// of success the way this one did. Until then this arm can report clean over a
-/// broken detector, and that is the failure mode to suspect first if it is ever
-/// the only thing standing between a regression and a green lane.
+/// ⇒ **THE SYNTHETIC POSITIVE CONTROL** (2026-10-08):
+/// `the_outside_the_schedule_detector_names_a_hashed_resource_written_from_update`
+/// writes the hashed bag from `Update` and asserts the detector names it. It is a
+/// poison kept as a fixture, not a live defect, so it cannot die of success the
+/// way this one did.
 /// (YardratAmbition's arm and their framing: a control pinned to a live defect
 /// dies when the defect is fixed.)
 #[test]
@@ -559,126 +558,55 @@ fn no_registered_type_is_written_outside_the_rewinding_schedule() {
 }
 
 
-/// ⛔⛤ **THE SYNTHETIC POSITIVE CONTROL THIS FILE OWES CANNOT BE BUILT FROM A
-/// CLONE-REGISTERED RESOURCE, AND THIS ARM IS THE MEASUREMENT THAT SAYS SO.**
+/// ⭐ THE POSITIVE CONTROL OF
+/// `no_registered_type_is_written_outside_the_rewinding_schedule`: a hashed
+/// resource written from `Update` is named by the detector.
 ///
-/// `no_registered_type_is_written_outside_the_rewinding_schedule` asserts a set
-/// is EMPTY, and an empty set is what a clean world reports AND what a blind
-/// detector reports. Its separator used to be `AmbitionGameSave` — a LIVE
-/// DEFECT, which ROLLBACK-BAG-DESYNC's P0 repair removed. Its doc names a
-/// synthetic subject as the durable replacement: write a rollback-registered
-/// resource from `Update` in a fixture and assert the detector names it.
+/// This fixture adds the same grant system to `Update` instead of
+/// `app.sim_schedule()`, so `OwnedItems` (registered, inside the peer
+/// checksum) is written outside the rewinding schedule on every tick from the
+/// fourth. The detector compares each type's census at the end of the GGRS
+/// advance with its census at the end of the frame, so it sees only a type
+/// whose probe reads its value.
 ///
-/// ⛔ **IT DOES NOT.** This fixture adds the same grant system to `Update`
-/// instead of `app.sim_schedule()`, so `OwnedItems` — registered, inside the
-/// peer checksum — is written outside the rewinding schedule on every tick from
-/// the fourth. MEASURED: 240 live comparisons, and
-/// `written_outside_the_rewinding_schedule()` returns `[]`.
+/// Until 2026-10-08 the bag had a presence probe (`(count: 1, xor: 0)`
+/// whatever its value), and this arm recorded that the detector could not see
+/// this write. Q129 hashes the bag by its own value
+/// (`OwnedItems::checksum`), so the fixture is now the control the arm above
+/// was owed: a poison kept as a fixture, which cannot be fixed away the way a
+/// live defect can.
 ///
-/// ⇒ **THE CAUSE IS THE PROBE'S STRENGTH, NOT THE DETECTOR'S PLACEMENT.**
-/// `record_live_census` runs in `Last`, after `Update`, so the write is
-/// certainly in the world when the comparison happens. But `OwnedItems` is
-/// `rollback_resource_clone`, which gets a PRESENCE probe — and a presence
-/// census of a resource is `(count: 1, xor: 0)` whatever the value is. The
-/// comparison is between two identical censuses of a value that changed.
-///
-/// ⛔⛤ **SO THE ARM ABOVE HAS A NARROWER POPULATION THAN ITS OWN DOC CLAIMS.**
-/// It says the population is *"types whose probe can see a value change"*, which
-/// is right — but the consequence was not drawn: **every clone-registered
-/// RESOURCE is outside it**, and `AmbitionGameSave` was only ever visible
-/// because it is `rollback_resource_clone_checksum`, which gets a value probe.
-/// An outside-the-schedule write to any of the clone-registered resources would
-/// be reported as a clean world today.
-///
-/// ⚠ AND `strengthen_with` CANNOT CLOSE IT: its bound is `T: Component`, so a
-/// resource's probe cannot be upgraded at runtime the way `GroundItem`'s is in
-/// `does_a_presence_probed_row_move_when_its_value_does`. ⇒ The road is to give
-/// `strengthen_with` a resource half, or to use a value-probed subject — and the
-/// two value-probed resources in reach (`AmbitionGameSave`, `LastQuestRoom`) are
-/// in `ambition_persistence`, which is not a dependency of this crate and must
-/// not become one for a test fixture.
-///
-/// ⇒ **THIS ARM IS THE TRIPWIRE FOR THAT WORK.** It asserts the limitation, so
-/// the day a resource probe can be strengthened it goes RED and whoever did it
-/// is handed the control that has been owed since 2026-09-16. A recorded
-/// limitation with a failing test attached is the difference between a known gap
-/// and a forgotten one.
-///
-/// ⛔⛤ **`#[ignore]`, AND THE REASON WAS A SHARED COUNTER IN THIS FILE — MEASURED
-/// AND CLOSED 2026-09-16.** Building a SECOND sim App in this process made the
-/// arm above report **99** types written outside the rewinding schedule instead
-/// of none, only under default parallelism, never alone and never under
-/// `--test-threads=1`. The triage page's two hypotheses were LEAK (the second App
-/// leaves process state behind) and CONCURRENCY (the two interfere only while
-/// running at once), and the shared thing turned out to be neither a plugin's
-/// global nor Bevy's task pools: it was `playing`, this file's own input cadence,
-/// whose phase lived in a `static AtomicUsize` because `run_with` took a bare
-/// `fn() -> AgentAction`.
-///
-/// ⇒ The two arms drew from ONE counter, so each App received an arbitrary
-/// subsequence of the phases, and the audit's live-versus-restored comparison
-/// then reported nearly every registered component as written outside the
-/// schedule. THE CONTROLLED COMPARISON, on one box, same commit:
-///
-///     per-call cadence (`playing()`)     15 runs, 15 passed
-///     shared `static` cadence restored   10 runs, 8 FAILED with the 99-type list
-///
-/// ⚠ **A CONCURRENCY EFFECT AND A SHARED-STATE EFFECT ARE THE SAME THING WHEN THE
-/// SHARED STATE IS IN THE MEASUREMENT.** The page was right that simultaneity was
-/// required and right that process state was shared; both hypotheses pointed at
-/// the engine because that is where the reader was looking. The channel was one
-/// `static` in the harness, four lines from the arms it broke.
-///
-/// ⚠ NOT the item catalog: it was then a process-global `OnceLock` that ALLOWED
-/// identical reinstallation, and both fixtures installed the same one. It is an
-/// App-local resource now (2026-10-01), so it cannot be a channel at all.
-///
-/// ⚠ AND THE LIMITATION THIS ARM RECORDS IS UNCHANGED: the detector cannot see a
-/// PRESENCE-probed resource's value change, so the `Update` write this fixture
-/// makes is invisible to it. That is still a real gap, still without a positive
-/// control, and it is why the arm asserts the detector does NOT name the subject.
+/// The other clone-registered resources still have presence probes, so an
+/// `Update` write to one of them is still invisible to the detector
+/// (`RollbackChecksumProbes::presence_only_type_names`).
 #[test]
-fn the_outside_the_schedule_detector_cannot_see_a_presence_probed_resource() {
+fn the_outside_the_schedule_detector_names_a_hashed_resource_written_from_update() {
     let sim = run_with_a_writer_outside_the_schedule();
     let subject = std::any::type_name::<OwnedItems>();
     let audit = sim
         .world()
         .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
-    // ⛔ THE PREMISE: the comparison actually happened. Without it the empty set
-    // below is about the audit and the arm would pin the wrong limitation.
+    // The premise: the comparison happened, so an empty set below would be
+    // about the detector and not about the audit.
     assert!(
         audit.live_comparisons > 0,
-        "the live census never ran, so this says nothing about probe strength \
-         ({})",
+        "the live census never ran, so this says nothing about the detector ({})",
         audit.coverage()
     );
-    let outside: Vec<&str> = audit.written_outside_the_rewinding_schedule();
     let probes = sim
         .world()
         .resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>();
-    let presence_only: std::collections::BTreeSet<&str> = probes.presence_only_type_names();
-    // ⛔ AND THE SECOND PREMISE, WHICH IS THE WHOLE EXPLANATION: the subject is
-    // presence-probed. If it ever becomes a value probe this assertion fails
-    // FIRST and names the reason, instead of the reader concluding the detector
-    // is broken.
     assert!(
-        presence_only.contains(&subject),
-        "`{subject}` is no longer a presence-only probe, so the limitation this \
-         arm records has changed shape. ⇒ Re-derive it: if its probe is now a \
-         VALUE probe, the detector should see the `Update` write this fixture \
-         makes, and this file finally owes the positive control \
-         `no_registered_type_is_written_outside_the_rewinding_schedule` has been \
-         missing. presence_only={} of {} probes",
-        presence_only.len(),
-        probes.type_names().len()
+        !probes.presence_only_type_names().contains(&subject),
+        "precondition: `{subject}` has a presence probe again, so the detector \
+         cannot see its value change and this control measures nothing"
     );
+    let outside: Vec<&str> = audit.written_outside_the_rewinding_schedule();
     assert!(
-        !outside.contains(&subject),
-        "the detector DID name `{subject}`, which is the outcome this arm exists \
-         to stop recording as impossible. ⇒ GOOD NEWS, AND ACT ON IT: delete this \
-         arm and make the same fixture the positive control \
-         `no_registered_type_is_written_outside_the_rewinding_schedule` owes. \
-         Found: {outside:?} over {} live comparison(s).",
+        outside.contains(&subject),
+        "the fixture writes `{subject}` from `Update` on every tick, and the \
+         detector did not name it over {} live comparison(s): it is blind. \
+         Named: {outside:?}",
         audit.live_comparisons
     );
 }
@@ -739,11 +667,9 @@ fn the_outside_the_schedule_detector_cannot_see_a_presence_probed_resource() {
 /// `TaskPoolPlugin` initialises them once per process and two Apps then schedule
 /// their systems onto one set of worker threads.
 ///
-/// ⚠ AND B'S `outside=0` IS THE SECOND CONFIRMATION of the tripwire above: the
-/// fixture writes `OwnedItems` from `Update` on every tick from the fourth, and
-/// the detector reports nothing, because a presence census of a resource is
-/// `(count: 1, xor: 0)` whatever the value is. Two independent runs, same
-/// reading.
+/// ⚠ B's `outside=0` was measured while `OwnedItems` had a presence probe. It
+/// has a value probe since 2026-10-08 (Q129); this probe was not run again
+/// after that.
 ///
 /// Print-only: it asserts nothing, because its job is to tell the next person
 /// WHICH of the two searches to run.

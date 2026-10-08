@@ -126,7 +126,12 @@ pub fn interact_ecs_actors_and_switches(
     mut anims: Query<&mut ambition_characters::actor::BodyAnimFacts>,
     // The driven body's kinematics — body-generic so the reach test uses the
     // controlled subject's position whether it's the player or a possessed actor.
-    bodies: Query<(&ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+    // Its frame says which way is forward for the facing gate.
+    bodies: Query<(
+        &ambition_platformer2d_core::BodyKinematics,
+        Option<&ambition_platformer2d_core::SweepSample>,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    )>,
     // The driven body's identity + interaction payload, when it has them (a
     // possessed actor). The home avatar has neither and speaks as its worn
     // character instead.
@@ -147,6 +152,7 @@ pub fn interact_ecs_actors_and_switches(
             (
                 bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
                 Option<&ambition_platformer2d_core::DepthPlane>,
+                bevy::prelude::Has<ambition_combat::components::RequiresFacing>,
             ),
         ),
         With<FeatureSimEntity>,
@@ -156,7 +162,13 @@ pub fn interact_ecs_actors_and_switches(
     // the press. Writing a state at press time is wrong for a toggle that has
     // just turned the switch off.
     switches: Query<
-        (Entity, &FeatureName, &CenteredAabb, &SwitchFeature),
+        (
+            Entity,
+            &FeatureName,
+            &CenteredAabb,
+            &SwitchFeature,
+            bevy::prelude::Has<ambition_combat::components::RequiresFacing>,
+        ),
         With<FeatureSimEntity>,
     >,
     mut set_flag: MessageWriter<SetFlagRequested>,
@@ -191,10 +203,15 @@ pub fn interact_ecs_actors_and_switches(
         if !acting.buffered_interact(subject) {
             continue;
         }
-        let Ok((subject_kin, subject_step)) = bodies.get(subject) else {
+        let Ok((subject_kin, subject_step, subject_frame)) = bodies.get(subject) else {
             continue;
         };
         let reach_aabb = subject_kin.collision_box(subject_step);
+        // The facing gate (Q63): forward is the body's facing along the run
+        // axis of its own frame, so a body in sideways gravity faces as it runs.
+        let side = subject_frame
+            .map_or(ambition_platformer2d_core::Vec2::X, |frame| frame.basis().side);
+        let faces = |target| ambition_interaction::faces(subject_kin.pos, subject_kin.facing, side, target);
         // A body talks from a little farther than it touches.
         let talk_aabb = ambition_interaction::talk_reach(
             reach_aabb,
@@ -219,7 +236,7 @@ pub fn interact_ecs_actors_and_switches(
         // A body reaches an NPC or a switch only in its own live room (OW1
         // cut 7b): two live rooms can hold one at the same position.
         let subject_room = live_rooms.of(subject);
-        for (actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane)) in
+        for (actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane, requires_facing)) in
             &actors
         {
             let (Some(speaker_id), Some(dialogue)) = (speaker_id.as_deref(), dialogue.as_mut()) else {
@@ -237,6 +254,9 @@ pub fn interact_ecs_actors_and_switches(
             }
             let interactable = &interaction_payload.interactable;
             if !aabb.aabb().strict_intersects(talk_aabb) {
+                continue;
+            }
+            if requires_facing && !faces(aabb.center) {
                 continue;
             }
             if door.is_some_and(|door| door <= aabb.center.distance(subject_kin.pos)) {
@@ -331,8 +351,11 @@ pub fn interact_ecs_actors_and_switches(
             // flipped. Unlike the switch loop below, that is the right scope.
             return;
         }
-        for (switch_entity, name, aabb, switch) in &switches {
+        for (switch_entity, name, aabb, switch, requires_facing) in &switches {
             if !aabb.aabb().strict_intersects(reach_aabb) {
+                continue;
+            }
+            if requires_facing && !faces(aabb.center) {
                 continue;
             }
             let room = live_rooms.of(switch_entity);

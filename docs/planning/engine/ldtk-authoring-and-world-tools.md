@@ -201,8 +201,9 @@ per-chest persistence and physical-pickup persistence, and defers the debris
 cue. Each returns with its consumer in one change. An authored field that
 reaches a runtime representation must have a consumer. Chest and pickup
 persistence landed as occurrence-ledger rows, not as fields; `ChestSpec`
-gained `opened` (Q105) with its lowering, but `ChestSpawn` in the LDtk
-projects does not declare it yet.
+gained `opened` (Q105) and `InteractableSpec` gained `requires_facing`
+(Q63), each with its consumer, but the LDtk contract
+(`ldtk_entity_contract.json`) does not declare either yet.
 
 Importer diagnostics should retain provider, source entity/field and normalized
 semantic path so an authoring agent can fix the actual source. One shared

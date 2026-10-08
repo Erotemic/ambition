@@ -329,7 +329,7 @@ pub enum CutsceneEvent {
 /// room becomes live on its own, and one id could remember only one of them.
 /// With one live room the set has one member, and it flips as the one id did.
 /// The same shape as the quest producer's `LastQuestRoom`.
-#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Component, Debug, Default, Clone, PartialEq, Eq)]
 pub struct LastCutsceneRoom(pub Vec<String>);
 
 /// Live cutscene playback state. `runtime` is authoritative while a cutscene is running;

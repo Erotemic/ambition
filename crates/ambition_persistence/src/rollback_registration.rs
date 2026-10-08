@@ -44,7 +44,9 @@ where
         // "~6 systems that pair a non-rewinding edge-detector with these very
         // resources" the paragraph above names — so a rewind across a room
         // change could resimulate without the `RoomEntered` push.
-        .rollback_resource_clone_checksum::<crate::quest::registry::LastQuestRoom>(
+        // ⭐ A COMPONENT OF THE SESSION ROOT (C03, 2026-10-07), under the same key:
+        // a new session's root is born with no memory, so none is reset.
+        .rollback_component_clone_checksum::<crate::quest::registry::LastQuestRoom>(
             OWNER,
             "resource.quest_last_room",
             "the room ids that were live when the RoomEntered producer last looked",

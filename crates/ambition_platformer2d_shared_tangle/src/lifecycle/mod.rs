@@ -55,6 +55,7 @@ pub use session_messages::{
 };
 pub use session::{
     despawn_retired_session_entities, insert_session_world_component, live_session_scope,
+    require_on_session_root,
     session_root_for_scope, session_world_component, session_world_component_mut,
     session_world_component_mut_at,
     session_world_entity,

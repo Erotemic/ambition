@@ -769,14 +769,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/menu/grid_backend.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
-    "LastCutsceneRoom": (
-        "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    ),
-    "LastQuestRoom": (
-        "crates/ambition_platformer2d_actor_monolith/src/quest/mod.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    ),
     "LeaveRequested": (
         "game/ambition_demo_smash/src/lib.rs",
         "game/ambition_demo_smash/src/select_screen.rs",
@@ -2277,26 +2269,6 @@ ADJUDICATED: dict[str, str] = {
         "absolute expiry on `SimTick`, which the same reset sets to 0 (Q128), so a "
         "freeze kept across the edge would hold the new session until the old "
         "tick came round. ⇒ Nothing here is two owners of one fact (read 2026-10-03)"
-    ),
-    "LastCutsceneRoom": (
-        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
-        "\"writer\" is not an authority. `auto_trigger_room_cutscenes` (`cutscene.rs`) is the "
-        "only production system that writes it inside a session; the other file is "
-        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
-        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
-        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
-        "one function, with comments and test modules stripped. ⇒ Nothing here is "
-        "two owners of one fact."
-    ),
-    "LastQuestRoom": (
-        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
-        "\"writer\" is not an authority. `push_room_entered_quest_events` (`quest/mod.rs`) is the "
-        "only production system that writes it inside a session; the other file is "
-        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
-        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
-        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
-        "one function, with comments and test modules stripped. ⇒ Nothing here is "
-        "two owners of one fact."
     ),
     "LiveMatchTicks": (
         "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
@@ -3895,7 +3867,8 @@ MIN_SESSION_WORLD_TYPES = 4
 #: (`ActiveCutscene`, `ControlledSubject`, `CutsceneSkipHold`, `EncounterView`,
 #: `GameplayElapsed`, `LastCutsceneRoom`, `LastQuestRoom`, `LiveMatchTicks`,
 #: `ProjectileSeqCounter`, `SaveRestored`, `SessionMatchOrdinal`,
-#: `StocksMatchSettled`, `SuddenDeathEntered`). ⇒ Whether that MEMBERSHIP is right
+#: `StocksMatchSettled`, `SuddenDeathEntered`) — `LastCutsceneRoom` and `LastQuestRoom`
+#: left it on 2026-10-07 when C03 made them components of the session root. ⇒ Whether that MEMBERSHIP is right
 #: is a live question with its own owner —
 #: `check_session_owner_census_matches_source.py` ratchets the member list
 #: against the source — so a verdict here should name this road and point at that
@@ -3924,8 +3897,6 @@ SOLE_IN_SESSION_OWNER: dict[str, str] = {
     "CutsceneSkipHold": "tick_active_cutscene",
     "EncounterView": "apply_wave_encounter_effects",
     "GameplayElapsed": "advance_gameplay_elapsed",
-    "LastCutsceneRoom": "auto_trigger_room_cutscenes",
-    "LastQuestRoom": "push_room_entered_quest_events",
     "LiveMatchTicks": "count_the_live_match_ticks",
     "SaveRestored": "complete_durable_restore",
     "SessionMatchOrdinal": "activate_the_prepared_match",

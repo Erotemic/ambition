@@ -29,7 +29,7 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 pub fn auto_trigger_room_cutscenes(
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut queue: ResMut<CutsceneTriggerQueue>,
-    mut last_rooms: ResMut<ambition_cutscene::LastCutsceneRoom>,
+    mut last_rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<ambition_cutscene::LastCutsceneRoom>,
 ) {
     let mut live: Vec<(String, Option<String>)> = rooms
         .live_rooms()
@@ -231,7 +231,8 @@ impl Plugin for CutsceneSchedulePlugin {
         // starts which cutscene is the room's own metadata.
         app.init_resource::<CutsceneLibrary>();
         app.init_resource::<CutsceneTriggerQueue>();
-        app.init_resource::<ambition_cutscene::LastCutsceneRoom>();
+        // The room this session last announced: a component of the session root.
+        ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<ambition_cutscene::LastCutsceneRoom>(app);
         app.init_resource::<ActiveCutscene>();
         // The skip hold, accumulated by `tick_active_cutscene` from the seat's
         // `cancel_held`. See `CutsceneSkipHold`.
@@ -324,5 +325,78 @@ mod tests {
         queue.request("a");
         queue.request("b");
         assert_eq!(queue.0, vec!["a".to_string(), "b".to_string()]);
+    }
+
+    /// ⭐ **THE CUTSCENE ROOM MEMORY IS THE SESSION'S, AND SO IS THE QUEST ONE
+    /// (C03, 2026-10-07).** A new game that starts in the room the last session
+    /// ended in must queue that room's entry cutscene again; the memory was a
+    /// process-global resource that a reset cleared, and is a component of the
+    /// session root now. A candidate beside a live session has none, and the live
+    /// session's is not changed by it. Poisoned by giving the new root the old
+    /// one's memory at the swap: the second request is skipped.
+    #[test]
+    fn a_new_session_in_the_same_room_queues_its_entry_cutscene_again() {
+        use ambition_cutscene::{CutsceneTriggerQueue, LastCutsceneRoom};
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            require_on_session_root, session_world_entity, CandidateSessionRoot, SessionRoot,
+            SessionScopeId,
+        };
+        use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
+
+        let rooms = || {
+            let mut spec = RoomSpec::new(
+                "hall",
+                ambition_platformer2d_core::World::new(
+                    "hall",
+                    ambition_platformer2d_core::Vec2::new(640.0, 480.0),
+                    ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+                    Vec::new(),
+                ),
+            );
+            spec.metadata.entry_cutscene = Some("hall_intro".to_owned());
+            RoomSet::from_parts_or_panic("hall", vec![spec], Vec::new())
+        };
+        let mut app = App::new();
+        app.init_resource::<CutsceneTriggerQueue>()
+            .add_systems(Update, auto_trigger_room_cutscenes);
+        require_on_session_root::<LastCutsceneRoom>(&mut app);
+        app.world_mut().spawn((SessionRoot(SessionScopeId(1)), rooms()));
+        ambition_platformer2d_world::rooms::seat_sole_live_room_by_id(app.world_mut(), "hall")
+            .expect("the fixture set holds its room");
+        let queued = |app: &App| app.world().resource::<CutsceneTriggerQueue>().0.len();
+        app.update();
+        assert_eq!(queued(&app), 1, "the first frame queues the entry cutscene");
+        let a = session_world_entity(app.world()).expect("session A is live");
+
+        let b = app
+            .world_mut()
+            .spawn((CandidateSessionRoot(SessionScopeId(2)), rooms()))
+            .id();
+        assert!(app.world().get::<LastCutsceneRoom>(b).is_none());
+        app.update();
+        assert_eq!(queued(&app), 1, "a candidate queued a cutscene");
+        assert_eq!(
+            app.world().get::<LastCutsceneRoom>(a).unwrap().0,
+            vec!["hall".to_owned()],
+            "preparing a candidate changed the live session's memory"
+        );
+
+        app.world_mut().despawn(a);
+        app.world_mut().entity_mut(b).remove::<CandidateSessionRoot>();
+        app.world_mut().entity_mut(b).insert(SessionRoot(SessionScopeId(2)));
+        ambition_platformer2d_world::rooms::seat_sole_live_room_by_id(app.world_mut(), "hall")
+            .expect("B holds its room");
+        assert_eq!(
+            app.world().get::<LastCutsceneRoom>(b).unwrap().0,
+            Vec::<String>::new(),
+            "B was born with A's memory"
+        );
+        app.update();
+        assert_eq!(
+            queued(&app),
+            2,
+            "a new game that starts in the room the last session ended in skipped its \
+             entry cutscene"
+        );
     }
 }

@@ -2357,40 +2357,17 @@ pub struct SessionCheckpointState {
     pub outstanding: OutstandingCheckpointRequest,
 }
 
-/// Make every session root carry a [`SessionCheckpointState`].
-///
-/// Bevy refuses a required-components registration once an entity with the
-/// requiring component exists. A plugin installed late (a focused test that
-/// built its root first) must not leave that root without a coordinator, because
-/// every system that reads one is a `Single` on the root and would skip in
-/// silence. So the roots that exist are given the bundle here, and every root
-/// built after gets it by requirement.
+/// Make every session root carry a [`SessionCheckpointState`]: the six values
+/// are required by `SessionRoot`
+/// ([`ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root`]).
 pub fn require_checkpoint_state_on_session_root(app: &mut App) {
-    use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
-    let world = app.world_mut();
-    let mut late = false;
-    macro_rules! require {
-        ($($component:ty),+ $(,)?) => {$(
-            late |= world.try_register_required_components::<SessionRoot, $component>().is_err();
-        )+};
-    }
-    require!(
-        SessionCheckpointOperations,
-        SessionCheckpointOutcomes,
-        AcceptedCheckpointRestore,
-        AbandonedCheckpointOperation,
-        SessionStartupResume,
-        OutstandingCheckpointRequest,
-    );
-    if late {
-        let roots: Vec<Entity> = world
-            .query_filtered::<Entity, With<SessionRoot>>()
-            .iter(world)
-            .collect();
-        for root in roots {
-            world.entity_mut(root).insert_if_new(SessionCheckpointState::default());
-        }
-    }
+    use ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root as require;
+    require::<SessionCheckpointOperations>(app);
+    require::<SessionCheckpointOutcomes>(app);
+    require::<AcceptedCheckpointRestore>(app);
+    require::<AbandonedCheckpointOperation>(app);
+    require::<SessionStartupResume>(app);
+    require::<OutstandingCheckpointRequest>(app);
 }
 
 impl Plugin for SessionCheckpointHorizonPlugin {

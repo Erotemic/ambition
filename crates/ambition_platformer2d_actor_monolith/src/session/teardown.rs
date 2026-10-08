@@ -141,15 +141,13 @@ pub struct SessionScopedResources<'w> {
         ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
     custody_baseline: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,
     minted_baseline: ResMut<'w, crate::items::pickup::minted_horizon::MintedItemBaseline>,
-    /// ⛔⛔ THE TWO ROOM-ENTRY EDGE MEMORIES (S2 moved them out of `Local`s; S6
-    /// makes them session-scoped). Each remembers "the room I last announced",
-    /// so the next tick's `RoomEntered` push / cutscene trigger fires only on a
-    /// CHANGE. Inherited across sessions, a new game that starts in the room
-    /// the previous session ended in — quitting at the start and starting
-    /// over is exactly that — would skip its first room's quest events and
-    /// cutscene trigger, because the memory already said "you are there".
-    quest_last_room: ResMut<'w, ambition_persistence::quest::LastQuestRoom>,
-    cutscene_last_room: ResMut<'w, ambition_cutscene::LastCutsceneRoom>,
+    // ⭐ THE TWO ROOM-ENTRY EDGE MEMORIES (`LastQuestRoom`, `LastCutsceneRoom`) ARE
+    // NOT MEMBERS HERE (C03, 2026-10-07). Each remembers "the room I last
+    // announced", so the next tick's `RoomEntered` push / cutscene trigger fires
+    // only on a CHANGE; inherited across sessions, a new game that starts in the
+    // room the previous session ended in would skip its first room's quest events
+    // and cutscene trigger. They are components of the session root now, so a new
+    // session's root is born with no memory and nothing resets them.
     /// ⭐ THE DETERMINISTIC PROJECTILE ID SOURCE, and it is CANONICAL rollback
     /// state (`rollback_resource_canonical::<ProjectileSeqCounter>`), so its
     /// value is inside the state checksum. A process-global monotonic counter
@@ -508,8 +506,6 @@ fn reset(resources: SessionScopedResources) {
         mut occurrence_baseline,
         mut custody_baseline,
         mut minted_baseline,
-        mut quest_last_room,
-        mut cutscene_last_room,
         mut projectile_seq,
         mut pending_lifecycle,
         mut base_gravity,
@@ -559,8 +555,6 @@ fn reset(resources: SessionScopedResources) {
         ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline::default();
     *custody_baseline = ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline::default();
     *minted_baseline = crate::items::pickup::minted_horizon::MintedItemBaseline::default();
-    *quest_last_room = ambition_persistence::quest::LastQuestRoom::default();
-    *cutscene_last_room = ambition_cutscene::LastCutsceneRoom::default();
     *projectile_seq = ambition_projectiles::ProjectileSeqCounter::default();
     *pending_lifecycle = crate::session::lifecycle_commit::PendingLifecycleCommit::default();
     *base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();

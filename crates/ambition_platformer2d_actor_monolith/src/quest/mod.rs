@@ -25,7 +25,7 @@ use bevy::prelude::*;
 pub fn push_room_entered_quest_events(
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut registry: ResMut<ambition_persistence::quest::QuestRegistry>,
-    mut last_rooms: ResMut<ambition_persistence::quest::LastQuestRoom>,
+    mut last_rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<ambition_persistence::quest::LastQuestRoom>,
 ) {
     let mut live: Vec<String> = rooms
         .live_rooms()
@@ -55,7 +55,10 @@ pub fn push_room_entered_quest_events(
 mod tests {
     use super::*;
     use ambition_persistence::quest::{LastQuestRoom, QuestAdvanceEvent, QuestRegistry};
-    use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        require_on_session_root, session_world_component, session_world_component_mut, SessionRoot,
+        SessionScopeId,
+    };
     use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
 
     fn room(id: &str) -> RoomSpec {
@@ -73,8 +76,8 @@ mod tests {
     fn app_in(room_id: &str) -> App {
         let mut app = App::new();
         app.init_resource::<QuestRegistry>()
-            .init_resource::<LastQuestRoom>()
             .add_systems(Update, push_room_entered_quest_events);
+        require_on_session_root::<LastQuestRoom>(&mut app);
         app.world_mut().spawn((
             SessionRoot(SessionScopeId(1)),
             RoomSet::from_parts_or_panic(room_id, vec![room(room_id)], Vec::new()),
@@ -106,13 +109,13 @@ mod tests {
         app.update();
         assert_eq!(room_entered_pushes(&mut app), 1, "an unchanged room is not re-announced");
         assert_eq!(
-            app.world().resource::<LastQuestRoom>().0,
+            session_world_component::<LastQuestRoom>(app.world()).unwrap().0,
             vec!["hall".to_owned()],
-            "the memory is the resource"
+            "the memory is the session root's component"
         );
 
         // A rollback restores the resource to its pre-flip value.
-        app.world_mut().resource_mut::<LastQuestRoom>().0 = Vec::new();
+        session_world_component_mut::<LastQuestRoom>(app.world_mut()).unwrap().0 = Vec::new();
         app.update();
         assert_eq!(
             room_entered_pushes(&mut app),
@@ -128,13 +131,11 @@ mod tests {
     /// two rooms were live, and `cellar` was never entered.
     #[test]
     fn a_room_that_becomes_live_beside_another_is_entered() {
-        use ambition_platformer2d_shared_tangle::lifecycle::{
-            session_world_component, LiveRoomInstance, RoomInstanceRoot,
-        };
+        use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
         let mut app = App::new();
         app.init_resource::<QuestRegistry>()
-            .init_resource::<LastQuestRoom>()
             .add_systems(Update, push_room_entered_quest_events);
+        require_on_session_root::<LastQuestRoom>(&mut app);
         app.world_mut().spawn((
             SessionRoot(SessionScopeId(1)),
             RoomSet::from_parts_or_panic("hall", vec![room("hall"), room("cellar")], Vec::new()),
@@ -168,12 +169,74 @@ mod tests {
         app.world_mut().spawn((RoomInstanceRoot, first.next().next(), hall));
         app.update();
         assert_eq!(
-            (entered(&app), app.world().resource::<LastQuestRoom>().0.clone()),
+            (
+                entered(&app),
+                session_world_component::<LastQuestRoom>(app.world()).unwrap().0.clone(),
+            ),
             (
                 vec!["hall".to_owned(), "cellar".to_owned()],
                 vec!["cellar".to_owned(), "hall".to_owned()],
             ),
             "(rooms entered, the memory): each room id is entered once, as it becomes live"
+        );
+    }
+
+    /// ⭐ **A SESSION'S ROOM MEMORY IS THE SESSION'S (C03, 2026-10-07).**
+    ///
+    /// The memory was a process-global resource that a reset cleared at each
+    /// session edge, because a new game that starts in the room the last session
+    /// ended in would otherwise skip its first room's `RoomEntered`. It is a
+    /// component of the session root now.
+    ///
+    /// Session A is live in `hall` and has announced it. Session B is prepared
+    /// beside it (a candidate root, which has no memory and is not a session
+    /// root): A's memory is untouched. A is retired and B published, in the
+    /// shell's order, with the same `hall` live, and B's first frame announces
+    /// it. Poisoned by giving B A's memory at the swap: the second push is
+    /// skipped and the arm fails on the count.
+    #[test]
+    fn a_new_session_in_the_same_room_announces_it_again() {
+        use ambition_platformer2d_shared_tangle::lifecycle::CandidateSessionRoot;
+        let mut app = app_in("hall");
+        app.update();
+        assert_eq!(room_entered_pushes(&mut app), 1);
+        let a = ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world())
+            .expect("session A is live");
+
+        // B is prepared beside A: no memory yet, and A's is not read or changed.
+        let b = app
+            .world_mut()
+            .spawn((
+                CandidateSessionRoot(SessionScopeId(2)),
+                RoomSet::from_parts_or_panic("hall", vec![room("hall")], Vec::new()),
+            ))
+            .id();
+        assert!(app.world().get::<LastQuestRoom>(b).is_none());
+        app.update();
+        assert_eq!(room_entered_pushes(&mut app), 1, "a candidate was announced");
+        assert_eq!(
+            app.world().get::<LastQuestRoom>(a).unwrap().0,
+            vec!["hall".to_owned()],
+            "preparing a candidate changed the live session's memory"
+        );
+
+        // The shell's order: retire A, then publish B.
+        app.world_mut().despawn(a);
+        app.world_mut().entity_mut(b).remove::<CandidateSessionRoot>();
+        app.world_mut().entity_mut(b).insert(SessionRoot(SessionScopeId(2)));
+        ambition_platformer2d_world::rooms::seat_sole_live_room_by_id(app.world_mut(), "hall")
+            .expect("B holds its room");
+        assert_eq!(
+            app.world().get::<LastQuestRoom>(b).unwrap().0,
+            Vec::<String>::new(),
+            "B was born with A's memory"
+        );
+        app.update();
+        assert_eq!(
+            room_entered_pushes(&mut app),
+            2,
+            "a new game that starts in the room the last session ended in skipped its first \
+             RoomEntered"
         );
     }
 }

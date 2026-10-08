@@ -129,10 +129,10 @@ mod tests {
             .fold(0.0f32, f32::max)
     }
 
-    // Verb binding is checked by construction: `SmashRepertoire` owns the verb
-    // strings and is a struct with no `Default`, so a missing slot is a compile
-    // error. Coverage in every posture is checked by
-    // `ambition_entity_catalog::smash_repertoire` and by
+    // The verbs are checked when the cast is prepared: each one must be in
+    // the runtime verb vocabulary and name a move of this table, and
+    // `registered_character_art_resolves.rs` refuses a shipped character
+    // with an unresolved one. Coverage in every posture is checked by
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// The tolerance band, as an assertion: no Oiler move closes its window inside

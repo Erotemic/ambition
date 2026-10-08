@@ -1165,9 +1165,16 @@ stand-in may keep an incomplete kit.)
 
 **Owner:** [`engine/character-authoring-package.md`](engine/character-authoring-package.md).
 
-**Next implementation:** for each remaining duplicated authored/runtime value,
-choose one authoring owner and make every runtime representation a projection or
-admitted prepared value. Prefer deleting the second truth to synchronizing it.
+**Current state (2026-10-08):** no known residual. The last one, the Smash
+stand-in's hand-written verb list, is content in the form every fighter
+authors (owner document, closed slices).
+
+**Next implementation:** search for a new duplicated authored/runtime value
+with the owner document's two questions (A1). For each one found, choose one
+authoring owner and make every runtime representation a projection or admitted
+prepared value. Prefer deleting the second truth to synchronizing it. Exit
+criterion 5 (another experience consumes a character without irrelevant
+facets) is not yet measured.
 
 **Acceptance:** the owner document can name one authoritative authored value for
 each migrated fact, and production consumers cannot bypass its preparation or
@@ -1246,11 +1253,24 @@ is not blocked.
 **Not the fix:** a digest of each sheet's text. It also changes when only the
 atlas packing changes.
 
-**The fix:** a digest of the mechanical projection of each baked record (body
-metrics, frame size, row durations, authored attack geometry), as `Q122` asks
-for the authored sheets. `build.rs` can write it, as it writes
-`BAKED_LANDMARKS_DIGEST` for the landmark tables (RIG-LANDMARKS), which are the
-same class and are covered.
+**The projection is built (2026-10-08):**
+`ambition_sprite_sheet::sheet_mechanics` encodes each record's mechanics (key,
+target, frame size, body metrics with every box, part, polygon and feet,
+per-animation hurtboxes, hitboxes and frame durations, tuning, drawn facing,
+and each row's animation, frame count, durations and mirror) and not its
+packing (images, pages, `label_width`, `y_offset`, `row_index`, `rects`).
+`character::sheets::baked_sheet_mechanics_digest` is that digest over the baked
+index in key order, computed once at runtime. Witnesses:
+`a_sheet_whose_packing_alone_differs_has_the_same_digest` (poison: hash the
+rects; red), `a_sheet_whose_mechanics_differ_has_another_digest`,
+`the_baked_digest_is_this_builds_records_in_key_order`.
+
+**What is left is the ruling.** The digest is not in the content fingerprint,
+because Q157's default in force is (c), leave it out. Ruling (a) is one
+section, `characters.baked-sheets`, beside `characters.baked-landmarks` in
+`prepare_platformer_content` (a field on `MechanicalRegistries` filled by both
+provider roads, as `baked_landmarks` is). Ruling (b) needs a weaker class of
+identity section.
 
 **Acceptance:** a baked sheet whose body box differs gives a different content
 fingerprint; a sheet whose packing alone differs gives the same one.
@@ -1557,6 +1577,21 @@ that gives it meaning.
 `game/ambition_content/assets/data/`, and its schema is registered by
 `ambition_combat`. Every shipped rung sets the rollout fields to zero, so
 `read_weight` is read only behind `uses_rollouts()` and changes nothing.
+Measured 2026-10-08: `read_weight` has a second meaning. `FighterState::new`
+(`ambition_characters/src/brain/fighter/data.rs`) gives it to
+`HabitModel::new` as the habit DECAY, so the rungs' 0.0 to 1.0 values change
+the habit counts the decision tick writes (and rollback snapshots), while the
+only reader of those counts is the rollout (`predicted_foe_intent`). Deleting
+the field needs two answers in the same slice: the habit decay's own value,
+and whether the rollout's read keeps a gate.
+
+**Decided 2026-10-08 (engineering, under Q90):** the habit decay becomes a
+named constant, 0.9 (the value `HabitModel`'s own doc calls "a read"); the
+rollout reads the habit whenever the read is genuine (the modal choice beats
+the uniform prior), because the rollout itself runs only for a profile that
+pays for it (`uses_rollouts`). No shipped behaviour changes (no rung rolls
+out); the habit counts the decision tick writes change value. A rung that
+should read less is a new, correctly named parameter with its own witness.
 
 **Acceptance:** the ladder data and its level vocabulary live with the Smash
 rules/content; another game can build the brain with no ladder; no authored
@@ -2086,41 +2121,13 @@ Ultimate-like occupancy and trump, deterministic and rollback-compatible.
 depends on the body's size, so two fighters of different sizes both hang on one
 corner. No ledge occupant exists.
 
-**Next action:** write down Ultimate's ledge rules (researched, not recalled)
-in the plan, then key occupancy by the ledge, not by a body's anchor.
+**Next action:** Ultimate's rules are in the plan (researched 2026-10-08,
+with the gaps the engine decides). Key occupancy by the ledge, not by a
+body's anchor.
 
 **Acceptance:** with two fighters of different sizes on one corner, one holds
 it; trump, release, death and knockoff each free or transfer the hold as the
 plan says; a rewind across a trump gives the same holder.
-
-### HAZARD-BEATS-LEDGE — a hanging body is immune to hazards
-
-**Owner:** `ambition_platformer2d_core::movement` (hazard gate) and
-`ambition_combat::hazards`. Plan:
-[`engine/combat-model.md`](engine/combat-model.md#hazards-beat-a-ledge-hang-q43).
-
-**Ruling:** Q43 (2026-10-04): a hazard wins over a ledge hang.
-
-**Current failure:** the kernel hazard gate skips a frame the ledge grab
-consumed, and hazard volumes respect the ledge-grab intangibility window.
-
-**Acceptance:** a body hanging over a lethal hazard dies on both roads; the
-same hang without a hazard holds; an attack in the grab window still misses.
-
-### HALL-STILL — every Hall actor stays where it is placed
-
-**Owner:** `ambition_platformer2d_core::movement::adhesive_crawler`. Plan:
-[`../concepts/hall-of-characters-is-not-special.md`](../concepts/hall-of-characters-is-not-special.md#what-the-hall-is-for-q85-2026-10-04).
-
-**Ruling:** Q85 (2026-10-04): the Hall's stationary policy holds for every
-showcase actor through one population policy.
-
-**Current failure:** a Puppy Slug (`npc_puppy_slug`, the one
-`surface_walker`) crawls under a `stand_still` brain, because the crawler's
-pace comes from its policy and it never reads the commanded axis.
-
-**Acceptance:** a test steps the generated Hall and finds every spawned actor
-where it started; a crawler with a patrolling brain still moves (control).
 
 ### MIRROR-SYMMETRY — mirrored CPUs stay mirrored per tick
 
@@ -2132,8 +2139,10 @@ comes only from modelled asymmetric facts.
 
 **Current failure:** the Emmy test compares positions only, accepts a break at
 the first grab, and asks only 1.5x the ordinary rate; known asymmetry sources
-(`signum(0)`, `SimId` tie-breaks, a left-first recovery search, a 69% seat-0
-term) are untriaged.
+(`SimId` tie-breaks, a left-first recovery search, a 69% seat-0 term, the
+zero-lateral `signum` sites in `rollout.rs`) are untriaged. The decision
+layer has its reflection test (plan item 3, 2026-10-08), and it found no
+defect.
 
 **Acceptance:** a per-tick reflection test of position, velocity, facing,
 move, decision and stream position; a reflected-observation unit test of the
@@ -3122,8 +3131,8 @@ green lane does not clear:
 [`running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md).
 How a check can fail to run: [`checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md).
 
-**Current state:** the `app_it` lane runs (`713 passed / 0 failed / 45 ignored`
-on 2026-09-17). Cargo diagnostics are read through
+**Current state:** the `app_it` lane runs (re-run 2026-10-08; read the count
+from a fresh run, not from here). Cargo diagnostics are read through
 `scripts/lib/cargo_output.py`, which disables colour and strips ANSI codes, and
 `scripts/tests/test_cargo_diagnostics_are_read_plain.py` holds every script that
 reads cargo output to it.

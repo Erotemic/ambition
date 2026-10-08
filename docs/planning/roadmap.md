@@ -33,7 +33,26 @@ The rule, the ordering, the absence criterion and the minimum-host tests live in
 [`../architecture/package-and-capability-boundaries.md`](../architecture/package-and-capability-boundaries.md).
 They are not restated here.
 
-### P0 — authoritative-state correctness and lifetime boundaries
+### Program order (Jon, 2026-09-28)
+
+Pick work from the programs below in this order. Each slice needs a real
+Ambition consumer; a duplicate authority is fixed when a slice finds it, not by
+a broad census.
+
+1. Deterministic simulation and lifetime correctness, with canonical
+   construction where it is a prerequisite.
+2. Runtime-loaded content and prepared generations (fast iteration).
+3. Capability composability and the public SDK.
+4. The persistent world, with the Alice/Bob delivery quest as its acceptance
+   slice.
+5. Multiview and multiplayer on the same participant, body and world model.
+6. Reactive characters: world facts, observations, memory, goals and typed
+   intents.
+
+Measured runtime quality and build iteration are not a program of their own:
+take them when a measurement makes them the blocker.
+
+### Program 1 — authoritative-state correctness and lifetime boundaries
 
 The immediate correctness program is broader than rollback registration. An
 authoritative population needs the right rewind codec and participation, stable
@@ -47,7 +66,7 @@ structural tests.
 
 Owner: [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
 
-### P1 — canonical construction and reconstitution
+### Program 1 prerequisite — canonical construction and reconstitution
 
 **Converged.** Fresh construction, room transition, same-room replay, new-game
 reset and save restore run one constructor. A save load adopts its occurrence
@@ -59,7 +78,7 @@ New reset or reconstruction roads must use this model, not a separate ledger.
 
 Owner: [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
 
-### Fast iteration - current cross-program priority
+### Program 2 — fast iteration and prepared generations
 
 The maintainer's edit-to-play latency is a current architecture requirement, not
 only the lower-priority profiling work below.
@@ -78,7 +97,7 @@ I2/I3 row in [the queue](queue.md) and the
 [extension model](engine/extension-model.md). Do not wait for a mod marketplace,
 every demo, or a whole actor-monolith carve.
 
-### P2 — persistent systemic world foundation
+### Program 4 — persistent systemic world foundation
 
 Build world residency, occurrence lifetime/provenance, item custody, body/item
 capability gating, persistent actor population, and platformer reachability on
@@ -115,7 +134,7 @@ Where P2 stands:
   clock. Open work (the OW cuts and the remaining `SoleLiveRoom` readers) is in
   [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).
 
-### P3 — measured runtime quality and developer iteration
+### Measured runtime quality and developer iteration
 
 Treat performance as several measured problems rather than one generic ECS
 optimization agenda:
@@ -135,17 +154,14 @@ Owners:
 - [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md)
 - [`engine/project-build-and-distribution.md`](engine/project-build-and-distribution.md)
 
-### P4 - ownership-based engine composition and supported public profiles
+### Program 3 — ownership-based engine composition and supported public profiles
 
 Use [`engine/architecture.md`](engine/architecture.md) for the target authorities
-and the [bounded packets](engine/actor-monolith-work-frontier.md) for their state.
-Landed: A1 checkpoint restoration, A2 projectile contacts, A8 several live rooms,
-A10 candidate construction, A11a/A11b installed technique support. Open: A3
-acceptance, A4 body-execution regrouping, A5 destructibles, A6/A7 definition and
-item separation, A9 minimal profiles, A11c and A12b. These are independent work
-streams, not sequential prerequisites for game development. The frontier's A12
-(flow bounds) is not `queue.md`'s A12 (move-contact attribution). The
-[queue](queue.md) selects current priority.
+and the [bounded packets](engine/actor-monolith-work-frontier.md) for which
+packets have landed and which are open; this page does not copy that list. The
+packets are independent work streams, not sequential prerequisites for game
+development. The frontier's A12 (flow bounds) is not `queue.md`'s A12
+(move-contact attribution). The [queue](queue.md) selects current priority.
 
 The outcome is a set of recognizable state/behavior/lifetime authorities and a
 public programmatic engine that can be used without accidental flagship
@@ -153,7 +169,7 @@ requirements. Preserve the corrected spawn boundary, coherent internal cycles,
 explicit composition and normal downward dependencies. Do not optimize for crate
 count, zero foreign installs, zero SCCs or a cosmetically renamed runtime.
 
-### P5 — multiplayer and multiview
+### Program 5 — multiplayer and multiview
 
 Apply the same participant, actor, lifetime, world-residency and presentation
 semantics to local, online and mixed participants and to shared/fixed/adaptive
@@ -165,7 +181,7 @@ customer.
 Owners: [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md)
 and [`game/multiplayer.md`](game/multiplayer.md).
 
-### P6 — reactive world, characters and authored orchestration
+### Program 6 — reactive world, characters and authored orchestration
 
 Expose deterministic world truth and observations first. Let character
 AI/dialogue and authored orchestration consume typed facts/actions without

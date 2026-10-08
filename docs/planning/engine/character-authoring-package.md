@@ -102,18 +102,20 @@ reading from the character*. A missing author and a redundant derivation are the
 same defect seen from two ends. A geometry fact is three components (collision
 size, render quad, quad offset); closing one of them looks like closing the seam.
 
-**Open residuals:**
-
-- **The stand-in table** (`smash_duelist_a.ron`). The source is a hand-written
-  verb list in `game/ambition_demo_smash/src/moveset.rs`; the target owner is
-  `SmashRepertoire` -> `into_contract()`, with `borrows:` as the established
-  derive. `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`
-  measures the surplus. Q89 (2026-10-04, [`../maintainer-decisions.md`](../maintainer-decisions.md))
-  allows a stand-in an incomplete kit, so the migration must allow a partial
-  kit (for example, `Option` slots) rather than make the surplus zero.
+**Open residuals:** none known (re-measured 2026-10-08). Search again with
+the two questions above before the next slice.
 
 **Closed slices and their guards:**
 
+- The Smash stand-in's table is content (`smash_duelist_a.ron`, which
+  `smash_duelist_b` borrows) in the same `verbs:` form every fighter authors;
+  the hand-written Rust verb list is gone. Q89 lets a stand-in keep an
+  incomplete kit, and
+  `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`
+  pins the gap at two specials. No fighter is built through
+  `SmashRepertoire::into_contract` now; its `REPERTOIRE_VERBS` still feeds the
+  verb vocabulary that preparation checks each table against
+  (`registered_character_art_resolves.rs` refuses an unresolved verb).
 - Knockback weight is authored in George's `smash_fighter.ron`, not patched by
   the demo (`george_carries_the_knockback_weight_his_own_facet_authors`).
 - Mary-O's transformation beat follows the catalog row's sheet

@@ -952,9 +952,18 @@ in this clone, so `48f8e26 → cb7062a` is not re-measured. LDtk files still
 rewrite far beyond their edits after `54d99e7fb` and `2e69e81b9`; the writer
 is not identified.
 
-**Next action:** run each LDtk writer twice on an unchanged input and compare
-the two outputs with `diff semantic`; the writer whose second run is not
-`identical` is a rewriter.
+**Measured 2026-10-08:** each whole-file writer ran twice on an unchanged
+copy. `compact`, `policy fix`, `asset editor-art` and `repair` write the same
+bytes on a second run. The rewriter was `generate hall-of-characters`, through
+`area create --replace-existing`: it allocated every iid and uid again, so each
+regen renumbered 145 iids and 5 uids (139 of them runtime ids of entities with
+no `id` field). Fixed: a replaced level carries the iid, uid and seed of the
+level, each layer's iid, and each entity's iid matched by type and position
+(`carry_identities`), and a built entity sits on its policy layer
+(`place_on_policy_layers`). A regen of the committed hall now writes it byte
+for byte (`tests/test_area_regen_keeps_identities.py`; poisons red). The other
+`edit` writers (entity add/move/set-field, level clone, camera auto-cover) are
+not measured.
 
 **Acceptance:** a second run of each writer on its own output changes no
 byte.

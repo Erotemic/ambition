@@ -457,7 +457,11 @@ these capabilities are unconditional dependencies); `Dialogue` has no pack
 capability (Yarn is not a pack schema), so a Yarn script asked of a profile
 without dialogue is not refused at admission; no shipped host admits content
 under a reduced profile (the refusal is witnessed at the profile's schema set);
-re-entry is not exercised; `Cutscenes` is a capability but in no profile yet.
+`world-without-cutscenes` (2026-10-08) omits `Cutscenes` and steps; a pack
+that requires `cutscene` is refused under it. Re-entry is witnessed for
+the headless profiles (`a_second_session_in_one_process_steps_as_the_first`:
+a second session in one process puts the body at the same position bit for
+bit; poison: a process-global spawn offset, red).
 
 **Blocked by:** nothing.
 

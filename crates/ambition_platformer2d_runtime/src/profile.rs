@@ -177,6 +177,7 @@ impl EngineProfile {
 // profile-contract: combat-without-inventory-boss-dialogue
 // profile-contract: collection-without-held-use
 // profile-contract: encounters-without-named-bosses
+// profile-contract: world-without-cutscenes
 
 /// A body in a world with no renderer and nothing omitted.
 pub const HEADLESS_BODY_WORLD: EngineProfile = EngineProfile {
@@ -223,13 +224,22 @@ pub const ENCOUNTERS_WITHOUT_NAMED_BOSSES: EngineProfile = EngineProfile {
     omits: &[Capability::BossEncounters],
 };
 
+/// A world with its people, items and bosses, and no scripted cutscene.
+pub const WORLD_WITHOUT_CUTSCENES: EngineProfile = EngineProfile {
+    name: "world-without-cutscenes",
+    summary: "rooms, people, items and bosses with no scripted cutscene",
+    face: HostFace::Headless,
+    omits: &[Capability::Cutscenes],
+};
+
 /// Every supported profile, in the order the witnesses run them.
-pub const SUPPORTED_PROFILES: [EngineProfile; 5] = [
+pub const SUPPORTED_PROFILES: [EngineProfile; 6] = [
     HEADLESS_BODY_WORLD,
     WINDOWED_BODY_WORLD,
     COMBAT_WITHOUT_INVENTORY_BOSS_DIALOGUE,
     COLLECTION_WITHOUT_HELD_USE,
     ENCOUNTERS_WITHOUT_NAMED_BOSSES,
+    WORLD_WITHOUT_CUTSCENES,
 ];
 
 /// Whether the session-edge parameter bundles validate in `world`.

@@ -159,6 +159,7 @@ group it names.
 | `combat-without-inventory-boss-dialogue` | headless | `Inventory`, `HeldUse`, `BossEncounters`, `Dialogue` |
 | `collection-without-held-use` | headless | `HeldUse` |
 | `encounters-without-named-bosses` | headless | `BossEncounters` |
+| `world-without-cutscenes` | headless | `Cutscenes` |
 
 **Three claims per profile, none of which means anything alone**
 (`ambition_platformer2d_host/tests/supported_profiles.rs`):
@@ -190,6 +191,7 @@ excluded:
 | `BossEncounters` | `simulation_world` required `BossCatalog` | the empty catalog is core construction input (`SimCoreResourcesPlugin`) |
 | `BossEncounters` | `populate_boss_encounter_registry` was registered by the progression plugin every composition carries | the boss plugin registers it |
 | `BossEncounters`, `Cutscenes` | the teardown bundle required their state | the members are `Option` |
+| `Cutscenes` (with bosses kept) | `update_boss_encounters` required `CutsceneTriggerQueue` to request a boss intro | the queue is `Option`: with no cutscenes nothing plays the intro, and its banner still shows (`an_intro_requests_its_cutscene_where_there_is_a_queue`) |
 
 **What a profile does NOT claim.**
 
@@ -209,7 +211,9 @@ excluded:
   `ambition_engine_schemas::engine_schemas_without(profile.omitted_content_capabilities())`
   (witness `a_profile_refuses_content_that_needs_a_capability_it_omits`). A Yarn script
   asked of a game with no dialogue is not refused: dialogue has no pack capability.
-* Re-entry (a second session in the same process) is not exercised by these witnesses.
+* Re-entry: a second session of each headless profile in one process steps as the
+  first, bit for bit (`a_second_session_in_one_process_steps_as_the_first`). The
+  windowed profile is not compared.
 
 **Dropping one of these profiles' promises from the registry is a decision; a
 witness that stopped iterating the registry would pass for any list**, so the guard

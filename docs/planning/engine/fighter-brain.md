@@ -233,7 +233,11 @@ scene or an authored rule that must be named):**
   (`ambition_combat/src/targeting.rs`). Triaged 2026-10-08: not reachable
   in a two-fighter mirror, where each body has one foe.
 - `movement/recovery.rs`, `DRIFT_SIDES = [0.0, -1.0, 1.0]`: the search tries
-  one side first.
+  one side first. Triaged 2026-10-08: not a defect for a decision. The order
+  chooses only which effort `RecoveryOutlook::Regained { steps, effort }`
+  reports, and no production reader reads those two fields: the brain asks
+  `regained()` and `bounded_by()`, which do not depend on the order. A
+  reader that wants `steps` must take the minimum over the efforts first.
 - The measured seat term: seat 0 takes about 69% of decided pairs on a mirror
   (`ladder_rig.rs`, `--paired` docs); decision order is the suspect, not
   placement.

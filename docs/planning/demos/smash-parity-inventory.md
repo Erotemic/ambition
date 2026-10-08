@@ -252,6 +252,26 @@ guess Ultimate's timings from memory: research them (getup/roll/jump options,
 trump, the trumped body's state, invincibility on regrab, what a hit, a death
 or a respawn does to the hold) and write the result here before you build.
 
+**Ultimate's rules, researched 2026-10-08.** Sources: SmashWiki
+[Edge](https://www.ssbwiki.com/Edge) and [Ledge](https://www.ssbwiki.com/Ledge).
+
+| Rule | Ultimate | Source |
+|---|---|---|
+| Occupancy | One holder per edge. The only exception is the two Ice Climbers of one player. | Edge |
+| Trump | A body that grabs an occupied edge takes it; the holder is "gently removed" and falls with no intangibility. | Edge, Ledge |
+| Trumped body's lockout | About 30 frames before it can act, and the trumping body cannot let go for about 20. **Unverified**: a forum measurement seen only through a search summary (the thread returned 403). Treat as a tuning value, not a fact. | — |
+| Grab intangibility | `60 * (a / 300) + (44 - p / 120 * 44)` frames, `a` = airtime (max 300), `p` = damage percent (max 120); minimum 23, maximum 123. | Edge, Ledge |
+| Regrab | At most 6 grabs before landing; hitstun resets the count. Intangibility ×0.8 after the first regrab, ×0.5 after the second, none from the third. | Edge, Ledge |
+| Hang time | 6.5 s under 100%. | Edge, Ledge |
+| Options | Climb, getup attack, roll, jump, drop (and the drop-down attack). | Edge |
+
+Not found in the sources: whether a body may take an edge while its holder
+is mid-getup, and what a hit or a KO does to the hold beyond freeing it. The
+engine keeps its tested rule for the first
+(`a_body_mid_getup_is_neither_trumper_nor_trumped`: a body mid-getup has left
+the edge, so it is not trumped and does not block a newcomer), and a hit that
+ends the hang, a death and a knockoff free the edge.
+
 **Model to define.** A deterministic occupancy relation keyed by the ledge
 itself (its authored corner in its live room, not a body-size-dependent
 anchor): at most one holder per ledge. It covers contention between two actors

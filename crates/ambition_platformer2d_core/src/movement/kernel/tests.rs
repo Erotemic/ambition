@@ -65,6 +65,15 @@ fn step(
     )
 }
 
+/// A driver that commands the crawler forward on its side axis. A crawler
+/// advances only on a command; a test that wants it to crawl says so.
+fn crawl_forward() -> InputState {
+    InputState {
+        axes: LocalAxes::new(1.0, 0.0),
+        ..InputState::default()
+    }
+}
+
 fn one_free_tick(model: &mut MotionModel, frame: MotionFrame, input: InputState) -> (Vec2, Vec2) {
     let world = empty_world();
     let start = Vec2::splat(500.0);
@@ -549,6 +558,44 @@ fn the_crawler_announces_its_attach_and_detach_edges() {
     );
 }
 
+/// ⭐ A CRAWLER MOVES ON ITS DRIVER'S COMMAND ONLY (Q85).
+///
+/// A `stand_still` brain commands no motion. The crawl pace is a policy
+/// fact, so a crawler that read only its pace and facing would crawl under
+/// that brain. Here a crawler seats on a floor and is given no command for
+/// two seconds: it stays where it clings. The control is the same crawler
+/// given a command, which crawls.
+#[test]
+fn a_crawler_given_no_command_stays_where_it_clings() {
+    let floor = Block::solid("floor", Vec2::new(0.0, 600.0), Vec2::new(2000.0, 200.0));
+    let world = World::new("crawler_still", Vec2::splat(10_000.0), Vec2::splat(500.0), vec![floor]);
+    let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
+    let seated = |input: InputState| {
+        let mut scratch =
+            BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 560.0), AbilitySet::default());
+        scratch.kinematics.size = Vec2::new(24.0, 16.0);
+        scratch.kinematics.facing = 1.0;
+        let mut model = MotionModel::adhesive_crawler(CrawlerParams {
+            crawl_speed: 120.0,
+            ..CrawlerParams::default()
+        });
+        for _ in 0..120 {
+            step(&mut model, &world, &mut scratch, frame, InputState::default());
+        }
+        let attached = matches!(&model, MotionModel::AdhesiveCrawler(c) if c.state.is_attached());
+        assert!(attached, "premise: the crawler never seated on the floor");
+        let start = scratch.kinematics.pos;
+        for _ in 0..120 {
+            step(&mut model, &world, &mut scratch, frame, input);
+        }
+        (scratch.kinematics.pos - start).length()
+    };
+    let still = seated(InputState::default());
+    assert!(still < 0.5, "a crawler given no command crawled {still:.1}px");
+    let moved = seated(crawl_forward());
+    assert!(moved > 100.0, "control: a crawler given a command crawled only {moved:.1}px");
+}
+
 #[test]
 fn the_crawler_crawls_wraps_a_convex_corner_and_keeps_gluing() {
     // A lone solid block: the crawler lands on top, crawls right, wraps the
@@ -578,7 +625,7 @@ fn the_crawler_crawls_wraps_a_convex_corner_and_keeps_gluing() {
             &world,
             &mut scratch,
             frame,
-            InputState::default(),
+            crawl_forward(),
         );
         let MotionModel::AdhesiveCrawler(crawler) = &model else {
             unreachable!();
@@ -748,7 +795,7 @@ fn the_crawler_circumnavigates_an_island_gluing_to_all_four_faces() {
             &world,
             &mut scratch,
             frame,
-            InputState::default(),
+            crawl_forward(),
         );
         let MotionModel::AdhesiveCrawler(crawler) = &model else {
             unreachable!();
@@ -814,7 +861,7 @@ fn an_oblique_frame_crawler_attaches_to_the_landed_surfaces_true_normal() {
             &world,
             &mut scratch,
             frame,
-            InputState::default(),
+            crawl_forward(),
         );
         let MotionModel::AdhesiveCrawler(crawler) = &model else {
             unreachable!();
@@ -881,7 +928,7 @@ fn the_crawler_circumnavigates_an_arbitrarily_rotated_chain_island() {
             &world,
             &mut scratch,
             frame,
-            InputState::default(),
+            crawl_forward(),
         );
         let MotionModel::AdhesiveCrawler(crawler) = &model else {
             unreachable!();

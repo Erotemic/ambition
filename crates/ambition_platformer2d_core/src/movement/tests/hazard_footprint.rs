@@ -129,12 +129,22 @@ impl Body {
         if sampled {
             clusters.sweep = Some(&mut sample);
         }
+        // A crawler crawls on a command: on this wall, facing -1, it crawls
+        // toward -y. Every other model is given no command.
+        let input = if matches!(&*model, MotionModel::AdhesiveCrawler(_)) {
+            InputState {
+                axes: crate::LocalAxes::new(-1.0, 0.0),
+                ..InputState::default()
+            }
+        } else {
+            InputState::default()
+        };
         let result = step_motion(
             model,
             &mut clusters,
             MotionStepContext {
                 world,
-                input: InputState::default(),
+                input,
                 frame: self.frame,
                 // A crawler that faces -1 on this wall crawls toward -y.
                 facing_intent: -1.0,

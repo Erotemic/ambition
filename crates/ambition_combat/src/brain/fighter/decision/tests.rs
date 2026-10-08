@@ -1719,3 +1719,147 @@ fn a_kit_that_cannot_reach_presses_the_move_that_closes_the_distance() {
          this fixture is staged past"
     );
 }
+
+/// One scene of the reflection test: the decider and its foe, in world x
+/// and lateral velocity, with facings and footing.
+#[derive(Clone, Copy, Debug)]
+struct MirrorCase {
+    me_x: f32,
+    me_vx: f32,
+    me_facing: f32,
+    foe_x: f32,
+    foe_vx: f32,
+    foe_facing: f32,
+    grounded: bool,
+}
+
+/// The stage of `scene` is centred on this x.
+const STAGE_CENTRE_X: f32 = 400.0;
+
+fn mirror_scene(case: MirrorCase, reflected: bool) -> WorldView {
+    let x = |x: f32| if reflected { 2.0 * STAGE_CENTRE_X - x } else { x };
+    let s = if reflected { -1.0 } else { 1.0 };
+    let mut view = scene(x(case.me_x), x(case.foe_x));
+    view.self_view.vel = ae::Vec2::new(s * case.me_vx, 0.0);
+    view.self_view.facing = s * case.me_facing;
+    view.self_view.on_ground = case.grounded;
+    let foe = &mut view.actors[0];
+    foe.vel = ae::Vec2::new(s * case.foe_vx, 0.0);
+    foe.facing = s * case.foe_facing;
+    foe.on_ground = case.grounded;
+    view
+}
+
+/// The first field where `mirror` is not the reflection of `frame`.
+fn first_unreflected_field(frame: &ActorControlFrame, mirror: &ActorControlFrame) -> Option<String> {
+    let near = |a: f32, b: f32| (a - b).abs() <= 1e-4;
+    let lateral = [
+        ("locomotion.x", frame.locomotion.x, mirror.locomotion.x),
+        ("attack_axis.x", frame.attack_axis.x, mirror.attack_axis.x),
+        ("velocity_target.x", frame.velocity_target.0.x, mirror.velocity_target.0.x),
+        ("facing", frame.facing, mirror.facing),
+    ];
+    for (name, a, b) in lateral {
+        if !near(a, -b) {
+            return Some(format!("{name}: {a} against reflected {b}"));
+        }
+    }
+    let vertical = [
+        ("locomotion.y", frame.locomotion.y, mirror.locomotion.y),
+        ("attack_axis.y", frame.attack_axis.y, mirror.attack_axis.y),
+        ("velocity_target.y", frame.velocity_target.0.y, mirror.velocity_target.0.y),
+    ];
+    for (name, a, b) in vertical {
+        if !near(a, b) {
+            return Some(format!("{name}: {a} against {b}"));
+        }
+    }
+    let buttons = [
+        ("melee_pressed", frame.melee_pressed, mirror.melee_pressed),
+        ("melee_held", frame.melee_held, mirror.melee_held),
+        ("melee_released", frame.melee_released, mirror.melee_released),
+        ("jump_pressed", frame.jump_pressed, mirror.jump_pressed),
+        ("jump_held", frame.jump_held, mirror.jump_held),
+        ("burst_pressed", frame.burst_pressed, mirror.burst_pressed),
+        ("fire", frame.fire.is_some(), mirror.fire.is_some()),
+    ];
+    for (name, a, b) in buttons {
+        if a != b {
+            return Some(format!("{name}: {a} against {b}"));
+        }
+    }
+    None
+}
+
+/// ⭐ Q49: THE DECISION OF A REFLECTED SCENE IS THE REFLECTED DECISION.
+///
+/// One brain, one profile, one seed. Each case is stepped twice: as written,
+/// and reflected about the stage centre (positions, lateral velocities and
+/// facings). Each emitted frame must be the reflection of the other: lateral
+/// fields negated, vertical fields and buttons equal. A side chosen by a
+/// constant (`signum(0.0) = +1`, a left-first search) gives the same side in
+/// both scenes and fails here.
+///
+/// The stacked cases put both bodies at one x, where "toward the foe" is not
+/// a side: the facing is the only fact that can choose one.
+#[test]
+fn the_decision_of_a_reflected_scene_is_the_reflected_decision() {
+    let case = |me_x, me_vx, me_facing, foe_x, foe_vx, foe_facing, grounded| MirrorCase {
+        me_x,
+        me_vx,
+        me_facing,
+        foe_x,
+        foe_vx,
+        foe_facing,
+        grounded,
+    };
+    let cases = [
+        case(300.0, 0.0, 1.0, 500.0, 0.0, -1.0, true),
+        case(300.0, 0.0, 1.0, 340.0, 0.0, -1.0, true),
+        case(300.0, 120.0, 1.0, 360.0, -80.0, -1.0, true),
+        case(250.0, -60.0, -1.0, 330.0, 0.0, 1.0, false),
+        case(-80.0, 0.0, 1.0, 400.0, 0.0, -1.0, false),
+        // Stacked: one x for both bodies.
+        case(400.0, 0.0, 1.0, 400.0, 0.0, -1.0, true),
+        case(300.0, 0.0, -1.0, 300.0, 0.0, 1.0, true),
+        case(300.0, 0.0, 1.0, 300.0, 0.0, 1.0, false),
+    ];
+    let mut profiles = vec![("immediate", immediate_profile())];
+    for level in [3, 6, 9] {
+        let mut profile = FighterBrainProfile::for_level(level);
+        // The execution stream is a per-seat fact. Q49 allows it only as a
+        // modelled asymmetry, so this test removes it.
+        profile.execution_noise = 0.0;
+        profiles.push(("rung", profile));
+    }
+    let mut failures = Vec::new();
+    let mut lateral_seen = false;
+    for (label, profile) in &profiles {
+        for (index, case) in cases.iter().enumerate() {
+            let snapshot = armed_snapshot();
+            let (cfg, mut state) = rig(profile.clone());
+            let (_, mut mirror_state) = rig(profile.clone());
+            let view = mirror_scene(*case, false);
+            let mirror_view = mirror_scene(*case, true);
+            let mut out = ActorControlFrame::neutral();
+            let mut mirror_out = ActorControlFrame::neutral();
+            for tick in 0..60 {
+                tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+                tick_fighter(&cfg, &mut mirror_state, &snapshot, Some(&mirror_view), &mut mirror_out);
+                lateral_seen |= out.locomotion.x != 0.0;
+                if let Some(field) = first_unreflected_field(&out, &mirror_out) {
+                    failures.push(format!(
+                        "{label} level {} case {index} {case:?}, tick {tick}: {field}",
+                        profile.level
+                    ));
+                    break;
+                }
+            }
+        }
+    }
+    assert!(
+        lateral_seen,
+        "premise — no case emitted a lateral, so negation was never tested"
+    );
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

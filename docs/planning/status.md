@@ -44,6 +44,10 @@ These are settled. Code against them; do not reopen them without a new ruling.
   protocol; it does not add a second rollback road.
 - **Durable save state rewinds.** Every writer of hashed save state runs in the
   simulation schedule. Disk I/O stays outside the simulation.
+- **Mechanical identity is mechanical.** The rollback schema fingerprint
+  hashes each row's mechanism token, not its prose `detail` (`Q122`).
+- **An unhealthy rollback session is refused.** The harness step fails on an
+  invalidated session instead of stepping it (`Q138`).
 - **Rigged sprites are on** in the shipped game. Owner:
   [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md).
 
@@ -52,18 +56,11 @@ These are settled. Code against them; do not reopen them without a new ruling.
 | Campaign | Where it is tracked |
 | --- | --- |
 | One owner per mechanical fact | [AUTHORITY-POLISH](queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) (C11) |
-| Session-owned App state | C03 in [`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md) — startable |
-| Composition contracts | C07 in the consolidation plan — startable |
+| Session-owned App state | C03 in [`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md) — in progress |
+| Composition contracts | C07 in the consolidation plan — in progress |
 | Safe reload across every registry | [I2/I3](queue.md#i2i3--finish-independent-content-authoring-and-safe-reload) |
 | Truthful minimal engine profiles | A9 in the queue |
 | Persistent world | OW cuts in [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md) |
-
-## Ruled but not yet implemented
-
-- `Q122`: mechanical identity fingerprints mechanical facts, not prose. The
-  rollback schema fingerprint still hashes the prose `detail`.
-- `Q138`: an invalidated harness must refuse or fail. The harness step does not
-  yet check rollback health.
 
 Netplay is not a goal this year. No session in this repository observes a real
 peer: `SyncTestSession` is the only one constructed. A green local rollback lane
@@ -71,22 +68,16 @@ says nothing about two peers agreeing.
 
 ## Current execution
 
-Read the rows in `queue.md` before you pick up work. In summary:
+Read the rows in `queue.md` before you pick up work; the queue is the only list
+of open rows, and this page does not copy it. P0 is architecture and
+correctness, and P1 is ownership, composition and iteration. Inside each tier,
+take rows in the program priority order: determinism and lifetime, then
+prepared generations, composability, the persistent world, multiview and
+reactive characters.
 
-- **P0:** sync-point resimulation, peer-stable identity, the rollback mutator
-  population, settings/rollback admission, throw modifiers, the CPU duel guard,
-  A4 control/body execution, and authority polish.
-- **P1:** per-actor gates, boss replay retraction, menu over dialogue,
-  candidate generation order, content reload (I2/I3), duplicate content
-  authorities, A9 profiles, A7 item occurrences, fighter attack selection, Smash
-  parity, character authoring, dead-session refusal, baked sheet identity, the
-  durable-horizon checksum, and test lanes.
-
-One open P1 row is blocked on a maintainer ruling: `BAKED-SHEET-IDENTITY`, on
-`Q157`.
-`scripts/check_blocking_set_names_every_gate.py` keeps the queue's
-`**Blocked by:**` fields and the blocking-set table in
-`awaiting-maintainer-decision.md` in agreement.
+A row that waits on a maintainer ruling names it in its `**Blocked by:**`
+field. `scripts/check_blocking_set_names_every_gate.py` keeps those fields and
+the blocking-set table in `awaiting-maintainer-decision.md` in agreement.
 
 If a row closes, remove it from the queue unless another open row needs a short
 receipt.

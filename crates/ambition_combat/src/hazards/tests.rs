@@ -3,7 +3,7 @@ use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::{BodyBaseSize, BodyMotionFacts, BodyShieldState};
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
-use bevy::prelude::{App, MessageReader, ResMut, Resource, Update};
+use bevy::prelude::{App, MessageReader, ResMut, Resource, Update, With};
 
 #[derive(Resource, Default)]
 struct HitLog(Vec<HitSource>);
@@ -190,5 +190,45 @@ fn a_fast_body_cannot_tunnel_through_a_hazard_between_frames() {
             .iter()
             .any(|s| matches!(s, HitSource::Hazard)),
         "a body whose path crossed the hazard should take the hit (no tunneling)"
+    );
+}
+
+/// One hazard tick for a player whose ledge window is open, with the given
+/// ledge state. True when the hazard hit landed.
+fn hazard_hits_a_ledge_body(ledge: Option<ambition_platformer2d_core::LedgeFacts>) -> bool {
+    let mut app = app_with_hazard_system();
+    let pos = ae::Vec2::new(100.0, 100.0);
+    spawn_player(&mut app, pos);
+    spawn_hazard(&mut app, "spikes", pos);
+    let mut players = app.world_mut().query_filtered::<&mut BodyMotionFacts, With<PlayerEntity>>();
+    for mut facts in players.iter_mut(app.world_mut()) {
+        facts.ledge_intangible = true;
+        facts.ledge = ledge;
+        assert!(facts.evading(), "premise — the ledge window makes an attack miss");
+    }
+    app.update();
+    app.world().resource::<HitLog>().0.iter().any(|s| matches!(s, HitSource::Hazard))
+}
+
+/// ⭐ Q43: A LEDGE HANG IS NOT IMMUNE TO A HAZARD. The ledge window is open in
+/// both arms, so an attack misses in both (the premise in the helper). Only
+/// the hang differs: the hanging body takes the hazard hit, and a body in a
+/// ledge roll keeps its window against the hazard.
+#[test]
+fn a_hazard_hits_a_body_that_hangs_inside_its_ledge_window() {
+    use ambition_platformer2d_core::{LedgeFacts, LedgeGetupKind};
+    assert!(
+        !hazard_hits_a_ledge_body(Some(LedgeFacts {
+            climbing: true,
+            getup_kind: LedgeGetupKind::Roll,
+        })),
+        "control — a ledge roll keeps its window against a hazard",
+    );
+    assert!(
+        hazard_hits_a_ledge_body(Some(LedgeFacts {
+            climbing: false,
+            getup_kind: LedgeGetupKind::Climb,
+        })),
+        "Q43: a body that hangs over spikes takes the hazard hit",
     );
 }

@@ -347,9 +347,28 @@ not its type. Hold each road with a value census over a built world across two
 local histories (`two_local_histories_name_every_simulated_entity_identically`,
 which first asserts the local tokens differ), or by shape where no argument can
 carry a local term (`SimId::match_spawn`). Test the road the shipped composition
-calls, not the minting crate's helper. The road table is ID-PEER in
-[`../queue.md`](../queue.md); `game/ambition_app/tests/id_peer_audit.rs` holds
-the arms.
+calls, not the minting crate's helper. The closed roads are listed in the
+ID-PEER receipt in [`../queue.md`](../queue.md#receipts);
+`game/ambition_app/tests/id_peer_audit.rs` holds the arms.
+
+Standing prohibitions:
+
+- Keep the session term in the rendered `TransactionId`. Only its peer
+  projection drops it, because the construction scope's gather filter and A10's
+  candidate-vs-live separation read the local stamp.
+- Do not project `TransactionId` to `{room}` alone. The peer content term
+  (`PeerContentIdentity`) must stay in the projection.
+- Do not replace a raw `SessionScopeId` with the nearest canonical-looking
+  value. Before Q128, `SimTick` looked canonical and was host-local.
+- Do not mint a local `PeerSessionIdentity`. A peer session identity comes only
+  from a session handshake.
+- An id that crosses to a peer is a function of content or of a canonically
+  sorted set, never of insertion or allocation order (`RollbackOrdered`, an
+  `Entity` index).
+- `id_peer_audit` censuses type names, so it cannot see a provenance defect.
+  Hold provenance with value-level arms in the crate that mints the identity.
+  `scripts/one_owner_per_canonical_identity.py` keeps each constant identity to
+  one production mint.
 
 ## What GGRS actually folds into the peer checksum
 

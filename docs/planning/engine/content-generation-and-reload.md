@@ -412,6 +412,14 @@ whether the prior scene is unchanged, recovered or stopped.
 
 ## Open work
 
+- **A generation that drops a worn id** (WEAR-REFUSES remainder, Q103). When
+  the cast changes and no longer holds the id a live body wears, the body keeps
+  its kit from the old generation and the refusal is reported once. That mixes
+  generation N and N+1. The repair is probably at admission: a generation that
+  drops a live body's character is not admitted.
+- **The home body of an unprepared starting id.** `session::setup` still builds
+  the home body (an empty kit, named after the id, reported). Refusing it is a
+  session-admission question: the session then has no body to drive.
 - Demo packs do not reload in a running demo.
 - Measure source read, changed-section preparation, candidate construction,
   activation, scenario reset and first observed behavior separately (M0).

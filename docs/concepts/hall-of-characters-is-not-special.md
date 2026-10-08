@@ -59,20 +59,17 @@ stays where it was placed. A body that moves in spite of that is an engine
 defect in how that body's motion model obeys its driver, not a reason to
 special-case the Hall or that character.
 
-**Known violation (2026-10-04, queue row HALL-STILL).** One Puppy Slug crawls.
-`npc_puppy_slug` is the catalog's one `surface_walker: true` row, so it gets
-the `AdhesiveCrawler` motion model (`ambition_characters/src/prepared.rs`).
-The crawler's pace is set from the driver's policy, not from what the driver
-commands (`features/enemies/integration.rs`: `crawl_speed` from
-`ActorTuning::crawl_speed(policy)`), and the kernel passes the crawler only a
-facing sign (`movement/kernel.rs`, `facing_intent`), so `step_crawler`
-(`movement/adhesive_crawler.rs`) always advances. A `stand_still` brain
-commands no motion, and the crawler does not read that. The fix belongs in the
-crawler (advance by the driver's commanded axis, as every other motion model
-does), so a stand-still crawler stays still in every room and a patrolling one
-keeps patrolling. The regression steps the generated Hall and asserts that
-every spawned actor's position is unchanged after a few seconds (not only the
-slug); the control is a crawler with a patrolling brain, which must move.
+**How the crawler obeys (2026-10-08).** `npc_puppy_slug` is the catalog's
+one `surface_walker: true` row, so it gets the `AdhesiveCrawler` motion model.
+The crawler used to advance at its policy's pace whatever its driver
+commanded, so the one slug in the Hall crawled. Now `step_crawler`
+(`movement/adhesive_crawler.rs`) advances only on the commanded lateral axis,
+as every other motion model does; with no command it stays seated on its
+surface, and it falls if that surface goes. Witnesses:
+`a_crawler_given_no_command_stays_where_it_clings` (core) and
+`game/ambition_app/tests/a_still_brain_keeps_its_body_still.rs`, which steps
+the generated Hall and finds every actor where it settled, with a patrolling
+slug as the control.
 
 ## Where this has already bitten
 

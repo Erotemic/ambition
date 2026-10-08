@@ -109,7 +109,7 @@ Current spread (skin → hair):
 ## Batch 2 (toon sketches)
 
 Seven first-pass sketches on the toon template. Each may be
-promoted to a bespoke template (like trent_elder / bob_engineer /
+promoted to a bespoke template (like trent_elder /
 alice_cryptographer) when a story room calls for it. The sketches
 fix the canonical names + phenotype + prop + outfit in place so
 later refinements can iterate on geometry without re-deriving
@@ -128,7 +128,7 @@ identity.
 ## Promotion criteria
 
 A batch-2 sketch should be promoted out of toon (i.e. given a
-bespoke target like trent_elder / bob_engineer / alice_cryptographer)
+bespoke target like trent_elder / alice_cryptographer)
 when:
 
 - The story room needs multi-view rendering (front pose for dialog,
@@ -140,12 +140,11 @@ when:
   `idle / walk / talk / interact / hit / death` vocabulary.
 
 Promote into a new file `targets/<name>_<role>.py` + new adapter,
-following the trent_elder / bob_engineer / alice_cryptographer
-file conventions.
+following the trent_elder / alice_cryptographer file conventions.
 
 ## Templates
 
-Five renderer targets serve the landed crew today:
+Five renderer targets serve the landed crew today (Bob's is a rig, not a template):
 
 - **`toon`** (`targets/characters/toon_side.py`) — the shared cartoon
   template that still ships Mallory, Judy, and the batch-2 sketches. Its
@@ -167,17 +166,12 @@ Five renderer targets serve the landed crew today:
   jaw + beard + robe + side-fringe + chain-of-office) is documented
   so a future "council batch" character can be added by overriding
   the palette and a few proportions.
-- **`bob_engineer`** (`targets/bob_engineer.py`) — bespoke template
-  for Bob, builds on the trent_elder lessons and adds **multi-view
-  rendering**: each animation locks one of three views (3/4 / side /
-  front) via the `ANIMATION_VIEWS` table, with per-view draw
-  functions for head, body, and arms. Walking uses the side
-  profile (one eye, ear visible, nose forward, leg swing); talking
-  and interact use the front view (symmetric face + ears + bangs);
-  idle stays at 3/4 for canonical-preview continuity. Also lands a
-  visible-legs construction (no robe hiding them), workshop boots,
-  and a leather tool belt with three hanging tools (key ring /
-  wrench / hammer). Single archetype today.
+- **`bob`** (`targets/characters/bob.py`) — an SVG-rigged fighter, not a
+  procedural template. `data/characters/bob/bob.svg` (in the renderer package) owns the art and marks
+  every joint; `rigged/bob/bob_side.rig.json` owns the skeleton and the clips,
+  authored as key poses by `tools/ambition_sprite2d_renderer/scripts/build_bob_rig.py`; the rows and their
+  fighter-category coverage are in `_bob_motion.py`. The target owns only the
+  effects, the hit volumes and publication.
 - **`alice_cryptographer`** (`targets/alice_cryptographer.py`) —
   bespoke template for Alice, third scaffold after Trent and Bob.
   Silhouette philosophy: a knee-length cinched traveling coat over

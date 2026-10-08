@@ -387,6 +387,24 @@ fn record_index() -> &'static HashMap<String, SheetRecord> {
     INDEX.get_or_init(|| crate::index_baked_table(crate::baked_sheet_rons::BAKED_SHEET_RONS).sheets)
 }
 
+/// The digest of the mechanical projection of every baked sheet record, in
+/// key order ([`crate::sheet_mechanics`]): the identity of the body metrics,
+/// boxes and row timings this build compiles in. Computed once, on first ask.
+///
+/// Not in the content fingerprint: whether a difference here refuses a peer
+/// session is `Q157`, and its default in force is to leave it out. Ruling (a)
+/// is one section beside `characters.baked-landmarks` in the provider's
+/// `prepare_platformer_content`.
+pub fn baked_sheet_mechanics_digest() -> &'static str {
+    static DIGEST: OnceLock<String> = OnceLock::new();
+    DIGEST.get_or_init(|| {
+        let index = record_index();
+        let mut keys: Vec<&String> = index.keys().collect();
+        keys.sort_unstable();
+        crate::sheet_mechanics::sheet_mechanics_digest(keys.into_iter().map(|key| &index[key]))
+    })
+}
+
 /// Every baked sheet key ([`SheetRecord::key`]), sorted: the names a
 /// character's `sheet` reference resolves against. These are keys, never rig
 /// targets (many sheets share one rig). The list is baked, so a provider does

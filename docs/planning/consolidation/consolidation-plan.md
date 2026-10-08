@@ -13,7 +13,7 @@ Executable slices go to [`queue.md`](../queue.md).
 | Rank | ID | Opportunity | State | Size | Gate |
 | --- | --- | --- | --- | --- | --- |
 | 1 | C01 | One live room/session replacement transaction (A10) | ✅ DONE 2026-09-15 | large | — |
-| 2 | C02 | Separate local lifetime/correlation identity from peer-stable provenance | ✅ DONE 2026-10-03 as [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity): every road closed | large | — |
+| 2 | C02 | Separate local lifetime/correlation identity from peer-stable provenance | ✅ DONE 2026-10-03 as [ID-PEER](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity---done-2026-10-03): every road closed | large | — |
 | 3 | C03 | Consolidate session-owned state and reduce reset-only App globals | OPEN — startable, not started | large | none |
 | 4 | C04 | Activated generation mechanics are the only live construction source | ✅ DONE 2026-09-20 | medium | — |
 | 5 | C05 | Collapse live content/session publication onto one admitted candidate | ⛔ DECIDED 2026-09-19: do not start; kept for its regression rule | none | — |

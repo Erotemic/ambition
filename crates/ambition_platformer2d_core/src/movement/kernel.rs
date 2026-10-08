@@ -558,6 +558,7 @@ fn step_adhesive_crawler(
         clusters,
         ctx.frame,
         ctx.facing_intent,
+        ctx.input.axes.x,
         ctx.dt,
         &mut events.contacts,
         &mut events.constraint_conflicts,

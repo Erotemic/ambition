@@ -36,237 +36,6 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
 
 ## P0 — architecture and correctness
 
-### ID-PEER — remove host-local lineage from peer-stable mechanical identity
-
-**Status:** ✅ DONE 2026-10-03. Every road is closed; the standing prohibitions
-below still hold.
-
-**Owner:** deterministic identity / rollback architecture. The identity map is
-in [`consolidation/architecture-census.md`](consolidation/architecture-census.md).
-The input-payload contract is in
-[`engine/netcode.md`](engine/netcode.md#the-input-payload-two-peers-exchange),
-and schema negotiation is netcode's
-[`N3`](engine/netcode.md#n3--contentschema-negotiation).
-
-**Current state:** every road that touches `SessionRoot`, activation or
-provenance is closed, and each one has an arm in
-`game/ambition_app/tests/id_peer_audit.rs` or `shell_host_lifecycle.rs`. The
-closed roads are: the smash roster seed, `SessionScopedEntity` in the checksum,
-the match ordinal, the `MatchInstance`-stamped resources, `SessionMatchOrdinal`,
-`random_context`, the checkpoint operation keys, the session root's `SimId`
-(the constant `SimId::singleton("session", "root")`), `TransactionId`
-provenance, `GameplayElapsed`, the startup-resume checksum, perception's
-`Entity`-index fallback, and the GGRS carrier order
-(`rebase_rollback_carrier_order`). The `ControlFrame` shape is pinned by a
-ratchet. The peer-identity checkpoint that C03 and C05 waited on is discharged.
-`two_local_histories_compute_the_same_ggrs_component_checksums` and
-`the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
-show no row that differs between a fresh host and a veteran one: `SimTick`
-agreed from 2026-10-03 (road 2), and `AmbitionGameSave` from the same day
-(road 4). Road 3 closed the same day with two peers in one process. Every
-road is closed.
-
-**Open roads:**
-
-1. ✅ **CLOSED 2026-10-03: the snapshot schema fingerprint hashes mechanical
-   facts, not prose** (`Q122`, schema v303). `compute_schema_fingerprint`
-   hashes `RollbackRegistry::mechanical_dump()`: each peer-schema row's name,
-   kind, wire type and mechanism token. A token names the road within the kind
-   (entity, set or map remapping; the canonical checksum style; probed or
-   unhashed). It is declared with the road's sentence in
-   `rollback_kind::spelling` and recorded in
-   `the_mechanism_tokens_are_recorded`. The prose stays in `schema_dump()` and
-   both baselines. A custom-checksum description, a derived row's reason and the
-   dynamic anchor's note (87 rows) map to the token `described`. Those 87 rows
-   describe the projection code, and the schema version answers for that code,
-   not the words. Witness: `rewording_a_row_leaves_the_fingerprint_alone`.
-   Control: `a_row_on_another_mechanism_moves_the_fingerprint`.
-2. ✅ **CLOSED 2026-10-03: the canonical timeline is session-relative**
-   (`Q128` decided by engineering as option (a) and confirmed by the
-   maintainer 2026-10-03, with the session-scope
-   activation as the agreed start). `SimTick` is a `SessionScopedResources`
-   member, so the activation sets it to `0` on every host, whatever the App ran
-   before. `advance_sim_tick` lost the `Local` that skipped the first increment:
-   a reset could not clear it, and a rewind to the first frame did not restore
-   it. Now the first step is tick `1`, and `0` names the moment before it. Two
-   process-wide stores held an absolute tick across a session and are scoped
-   with it: `ImpactHitstop` (session-scoped), and `NarrativeInputLedger`
-   (forgets its records on `SessionScopeActivated`, because a conversation's
-   instance id contains the tick it opened on). Host intents already filter by
-   scope. Witness: `two_local_histories_compute_the_same_ggrs_component_checksums`
-   and `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
-   no longer excuse `SimTick`. Poison (the tick reset skipped): both name it.
-   Why not a rebase at frame zero: room crossings also declare frame zero, and
-   stored ticks outlive a crossing. Why not a projection: it would drop the
-   timeline. A P2P session (`N2`) must activate its session scope at the agreed
-   start, which is the same edge.
-3. ✅ **CLOSED 2026-10-03: the unchecksummed float rows** (S7 in
-   [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md);
-   23 rows by the census script on 2026-10-03).
-   ⛔ The state half was a carrier count until 2026-10-03: all eleven sharp
-   rows are presence-probed, and a presence census returns `xor: 0`, so
-   `two_local_histories_agree_about_the_sharp_unchecksummed_rows` compared how
-   many carriers each had. It now strengthens them with a value probe
-   (`strengthen_the_sharp_rows`), and the values agree across the two hosts in
-   five walks. The timeline half: `game/ambition_app/tests/two_peers.rs` runs
-   two GGRS P2P peers in one process over an in-memory link three updates late
-   (`start_peer_session`, `loopback_pair`), with value probes on 22 float rows
-   (`lifecycle.room_visual` is a unit marker). Both peers agree on every probed
-   row at every confirmed frame to 240, with rollbacks, and GGRS reports no
-   desync. Poisons: a position changed on one peer is a desync in
-   `session_health`; a value outside the checksum is no desync, and only the
-   census names it. `two_peers_agree_in_the_rooms_that_carry_the_float_rows`
-   walks seven more rooms, and together the walks carry 21 of the 22 rows; the
-   22nd (`MountedSize`) has no production writer. A peer-session room crossing
-   is netcode's open question, not this road's (the lifecycle commit runs only
-   under a local sync test).
-4. ✅ **CLOSED 2026-10-03: the save belongs to the experience that plays it**
-   (`Q129`, decided the same day: shared durable state is peer state). Measured: the save
-   differed in one field, `flags`. The veteran's Sanic and Mary-O sessions had
-   written their room-visit flags (`room_visited_<room>`) into the one
-   process-wide save, and the autosave wrote them into Ambition's
-   file. `SaveOwner` (`ambition_persistence::save`) records whose save is
-   live, and the shell gives it to the activating experience
-   (`hand_the_save_to_the_activating_experience`, `SessionScopeSet::Activate`,
-   before the providers build): the save it had earlier in the process, else
-   its own `<experience>/sandbox_save.ron`, else a new save. Ambition's file
-   path is unchanged. Witness: both two-host arms above, with the save's
-   waiver deleted. Poison (the handover skipped): both name
-   `AmbitionGameSave`. Unit arms: `each_experience_gets_its_own_save_back`,
-   `the_autosave_writes_the_owners_file`.
-
-A negotiated input version does not exist. It is not owed while netcode is at
-`N2`.
-
-**Standing prohibitions:**
-
-- Keep the session term in the rendered `TransactionId`. Only its peer
-  projection drops it, because the construction scope's gather filter and A10's
-  candidate-vs-live separation read the local stamp.
-- Do not project `TransactionId` to `{room}` alone. The peer content term
-  (`PeerContentIdentity`) must stay in the projection.
-- Do not replace a raw `SessionScopeId` with the nearest canonical-looking value.
-  `SimTick` looks canonical and is host-local.
-- Do not mint a local `PeerSessionIdentity`. A peer session identity can only
-  come from a session handshake.
-- An id that crosses to a peer is a function of content or of a canonically
-  sorted set. It is never a function of insertion or allocation order
-  (`RollbackOrdered`, an `Entity` index).
-- `id_peer_audit` censuses type names, so it cannot see a provenance defect.
-  Hold provenance with value-level arms in the crate that mints the identity.
-  `scripts/one_owner_per_canonical_identity.py` keeps each constant identity to
-  one production mint.
-
-**Blocked by:** nothing.
-
-**Acceptance:** two Apps that have burned different numbers of local session
-activations can enter the same deterministic match and produce the same
-canonical mechanical identity/checksum. The witness must first assert that their
-local counters differ.
-
-### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state — ✅ DONE 2026-10-03
-
-**Owner:** rollback scheduling (`scripts/check_rollback_mutators_run_in_sim.py`).
-
-**Current state (measured 2026-10-03):** the guard reads every rollback
-registration in every supported parameter spelling, including writes in the
-body of an exclusive-world system. It reports 490 systems that mutate rollback
-state and 0 acknowledged offenders.
-
-✅ `adopt_occurrence_checkpoint_from_save`, `complete_durable_restore` and
-`restore_inventory_from_save` left the scan on 2026-10-03: they run in the
-simulation schedule (BODY-BORN-ON-THE-TIMELINE). For one day before that they
-were `WAIVERS`, held by a runtime check that no save was applied over a live
-timeline. That check was red on main for one commit (0ef79200b): the Sanic and
-Mary-O rollback fixtures build their body on the timeline. The check and its
-waivers are gone with the `Update` window. The old waiver's "the latch has no
-`true -> false` transition" was false: teardown is one.
-
-✅ `reconcile_roster_with_frozen_topology` left on 2026-10-03. Its one rollback
-write was `ActiveMatch::adopt_seat_topology`, a copy of the roster's record that <!-- cite-ok: records a deleted method -->
-nothing read. The copy is deleted (schema 302), and the reconciler reads
-`ActiveMatch` only.
-
-The exit code means "no new offender", not "clean". `ACKNOWLEDGED` names drift
-that is real and the row that owes it. `WAIVERS` carry an argument. A banked
-name that the scan stops reporting is fatal.
-
-**Next action:** none. No offender is acknowledged.
-
-**Known limits of the guard:**
-
-- `Transform` writes are excluded by name. Ruled 2026-09-19 (`Q139`): do not
-  grow architecture to satisfy this census. A green says nothing about
-  `Transform`.
-- A write inside a helper is attributed to the registered system that calls it,
-  for ONE hop only (`inherited_mutations`, 2026-10-03). A call is attributed only
-  when it is a free-function call (not a method) to a name defined once in
-  production sources, or once in the caller's file. A helper name defined in
-  several places (`tick`, `install`) is not attributed, and neither is a write
-  two calls deep. The hop added 4 registered systems (490 to 494) and no new
-  offender. `handle_ldtk_hot_reload` is seen again through
-  `reload_ldtk_world_from_disk`, and its waiver now has a subject.
-- A run condition is not a reachability proof.
-
-⛔ Do not demote `derived`-documented clone registrations on a keyword match. A
-component whose presence a query filter reads is authoritative even when its
-value is derived. A waiver is a claim about the tree: re-read the function it
-cites when you touch it.
-
-**Blocked by:** nothing.
-
-**Acceptance:** ✅ met 2026-10-03. Each item and its test in
-`scripts/tests/test_rollback_mutators_run_in_sim.py`:
-- The population is every rollback registration, not one registration
-  spelling: `test_the_scan_covers_the_whole_registration_surface_not_one_file`.
-- `handle_ldtk_hot_reload` is visible without its waiver being deleted:
-  `test_the_hot_reload_is_seen_through_its_helper`. Poisoned three ways (method
-  calls counted, uniqueness dropped, inheritance dropped); each fails its arm.
-- A poison that respells a write in a supported param form still reddens the
-  guard: the bundle-field, exclusive-world, session-world-helper and
-  qualified-spelling arms.
-- The population floor fails when a spelling stops matching:
-  `test_a_shrinking_population_is_a_failure_not_a_clean_report`.
-The first, third and fourth were met by earlier work and mapped here, not
-re-poisoned. The known limits above stay open as limits, not as this row.
-
-### BODY-BORN-ON-THE-TIMELINE — the simulation applies the save — ✅ DONE 2026-10-03
-
-**Owner:** durable restore (`session/durable_horizon.rs`).
-
-**Result:** the restore chain (`adopt_occurrence_checkpoint_from_save`,
-`restore_inventory_from_save`, `complete_durable_restore`) runs in the
-simulation schedule, at the head of the gameplay root, after the clock and
-before the core step. The save, the latch and every value the chain writes are
-rollback state (`AmbitionGameSave` is `resource-clone-custom-checksum`;
-this row said otherwise for a day, from a search of one crate's registration
-file). So applying the file is an ordinary deterministic step: a rewind past it
-applies it again on the same tick. It does not matter whether the body was built
-before the timeline started or by it.
-
-Removed with the `Update` window: the `Q135` session-start gate in
-`maintain_local_session` and `durable_hydration_is_pending`, the live-timeline
-check `refuse_a_restore_over_a_live_timeline`, the fixture declaration <!-- cite-ok: records a deleted check -->
-`TheBodyIsBornOnTheTimeline`, and three mutator-guard waivers. The gate would
-deadlock now: under the rollback host the sim does not run until a session
-starts. `Q135` is reopened in the awaiting file with the evidence. Its
-guarantee holds: no tick is simulated over an unapplied save
-(`a_conversation_on_the_first_tick_of_a_session_is_counted_exactly_once` passes
-without the gate).
-
-Witnesses:
-- `the_save_is_applied_by_the_simulation` (Sanic fixture, body born on the
-  timeline): `(in the GGRS step, in Update) == (1, 0)`, healthy. Poison (the
-  chain back in `Update`): `(0, 1)`.
-- `a_startup_load_is_applied_on_the_timeline_and_resimulates_identically`
-  (shipped composition, seeded occurrence and custody rows): the session is
-  live before the save is applied, and every one of 240 frames is healthy. This
-  is the acceptance's "a non-empty save resimulates checksum-identically across
-  its rise".
-- `a_mid_session_load_does_not_reach_back_across_the_rewind`: a load's ledger
-  write used to be lost (the `Update` write was rewound away). It lands now,
-  and every replay of a tick agrees.
-
 ### BAG-RECORD-HORIZON — a bag record is owned by what is left of its consequence
 
 **Owner:** `items::pickup::minted_horizon` (the grant and spend records),
@@ -361,42 +130,6 @@ after Bob's room kept the explosion); the spend reads the live object only
   object lies, the custody restore moves it into the banked hand whatever
   the row says, so only a held object needs the precedence.
 
-### WEAR-REFUSES-UNPREPARED — a character outside the prepared generation is never worn — ✅ DONE 2026-10-03 (two remainders)
-
-**Owner:** `ambition_combat::worn_kit::WornKit::of` and
-`avatar/starting_character.rs::wear_character`.
-
-**Ruling:** Q103 (2026-10-03): refuse. A character admitted into simulation was
-prepared for that generation; no engine-default kit, no App-global catalog read.
-
-**Done:** the kit compiler takes a prepared definition (`WornKit::of`), not an
-id, so no road can ask for the kit of an id outside the cast. `WornKit::resolve`
-and `resolve_playable_action_set` (the peaceful kit) are deleted. This also
-closes the match-kit arm, which wore an unprepared id with a stage's borrowed
-set. `wear_character` answers `None` for such an id and writes nothing: no name
-made from the id, no identity. On a refusal `apply_worn_character_gameplay`
-consumes the request, reports it, and puts `WornCharacter` back to the character
-last applied (`PersonaBaseline::id`), so the body's id and its kit stay one
-answer.
-
-**Witnesses** (`avatar::starting_character::tests`):
-`a_rewear_to_an_unprepared_id_keeps_the_previous_character` (the id, the name,
-the pistol, the identity and the baseline are kept, and the request is consumed)
-and `an_unprepared_id_writes_nothing_on_the_body` (no cast, an empty cast, and a
-borrowed match kit). Poisons: the old fallback fails both; the refusal without
-the `WornCharacter` revert fails the first.
-
-**Remainders, not decided here:**
-
-- **A generation that drops a worn id.** When the cast changes and no longer
-  holds the id a live body wears, the body keeps its kit from the old
-  generation and the refusal is reported once. That mixes generation N and
-  N+1, which Q103 forbids. The repair is probably at admission (a generation
-  that drops a live body's character is not admitted), not at wear time.
-- **The home body of an unprepared starting id.** `session::setup` still builds
-  the home body (an empty kit, named after the id, reported). Refusing it is a
-  session-admission question: the session then has no body to drive.
-
 ### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
 
 **Owner:** rollback/mechanical-policy owners.
@@ -437,38 +170,6 @@ share accessibility settings, so input interpretation travels with the input.
 that timeline, not whatever the settings UI contains now; the settings-to-policy
 projection remains witnessed end to end; and no `sim`-schedule system takes
 either policy resource as a parameter.
-
-### THROW-MODIFIERS — route throws through rage and staleness policy — ✅ DONE 2026-10-03
-
-**Owner:** Smash combat/knockback policy.
-
-**Ruling (`Q133`, 2026-09-19):** for the Smash-like game, follow Smash. Ordinary
-scaling throws obey rage, and set knockback keeps its set-knockback semantics.
-Rage is game-level combat policy that the engine must be able to express.
-
-**Done:** rage, as before: `ambition_entity_catalog::launch::launch_speed`
-owns the rule that a set launch declines rage, and the throw road calls it
-(`a_hurt_captor_throws_farther_and_a_set_throw_is_immune`).
-
-Staleness, following Smash: a throw stales the THROW, which is its own move.
-`CaptureThrowRequested` carries the emitting use's `move_instance`, and
-`apply_capture_throws` claims the captor's playback only when it is that use.
-The throw reads the move's stale count and records the use on the playback's
-landed edge, as `mark_move_playback_landed_hits` does for a landing.
-Damage stales through `hitbox::staled_damage`, the one law both roads use.
-The percent term stales through `knockback_stale_scale`. A set throw
-stales its damage and not its launch. A throw that no use claims is not
-staled and not recorded. Shipped throw moves author no hit volumes, so a
-throw is recorded once.
-
-**Witnesses:** `ambition_demo_smash` `capture::a_repeated_throw_stales_and_a_neutral_ruleset_leaves_it_whole`
-(three grab-and-throw sequences on George's table through the production
-chain: 11/10/9 against the neutral 11/11/11, three uses recorded in each arm,
-and the third stale throw launches slower). `ambition_combat`
-`a_set_throw_stales_its_damage_and_not_its_launch` and
-`a_throw_that_no_playing_use_claims_is_not_staled_or_recorded`. Poisoned:
-dropping the record, blinding the read, and dropping the claim check each
-fail the predicted assertion.
 
 ### A4 — separate control authority from body execution on the real schedule
 
@@ -524,161 +225,6 @@ head of each step. That is the canonical clock, not a defect.
 owners; rollback rows are authorities, not projections; construction publishes
 no plausible-but-incomplete object; required mechanical policy does not fail
 open. Close with a fresh census rather than a checked list.
-
-### CHECKPOINT-ADMISSION-IS-NOT-COMMIT — an accepted restore changes nothing until it commits — ✅ BUILT 2026-10-05
-
-**Source:** GPT review 2026-10-05, P1 (its first priority). **Owner:**
-`session/checkpoint.rs` (`resume_at_checkpoint_on_reset`,
-`cancel_accepted_checkpoint_restore`, `apply_committed_checkpoint_restore`)
-and the room-transition terminal roads (`room_transition/{loading,commit}.rs`).
-
-**The defect.** The admission of a checkpoint restore writes
-`RoomReplayAdmitted` (`.to_the_checkpoint()`) on the frame it accepts the
-operation, before the room is prepared. Fourteen production systems read that
-message on that frame (census 2026-10-05). They return the subject to spawn,
-retract boss defeats in the save (rows, looted flags, quests, chest,
-`BossDefeatRetracted` and the rewards it takes back), forget timers, disown
-`WorldTimeSchedule` and `ConsumedSinceCheckpoint` records, and reset gravity,
-portals, cut-rope arenas and pending hits. None of them runs at the commit.
-So `CheckpointRestoreOutcome::Cancelled` ("the live world is unchanged") is
-false on the composed path. `a_failed_preparation_ends_the_operation_once_and_does_not_retry_it`
-does not see it, because it composes none of those readers.
-
-**A second hole.** Only a preparation failure publishes `Cancelled`. A
-refused publication (`finalize_committed_room_transition`, `published ==
-false`) and the terminal `SubjectGone` / `SubjectCannotTransit` roads take the
-intent, and `retire_accepted_checkpoint_restore` then retires the operation
-with no outcome. That breaks "one operation, one terminal outcome".
-
-**The ruled shape (review):**
-- Accept: pin the prospective restore inputs, and the prospective persisted
-  fates (the save with the retracted boss rows, and the scheduled returns).
-  Change no live gameplay state.
-- Prepare: build the candidate from those values
-  (`CommitFactsSource::Stated`), not from the live save. Moving the boss
-  retraction to the commit alone is not enough, because the candidate reads
-  boss fate from the live save.
-- Publication accepted: apply the checkpoint domain exactly once (in
-  `CheckpointDomainApply`, inside the exclusive commit, before a rebase: a
-  message written there would be read in frame 0 of the new timeline, which a
-  rewind can clear), and publish `Committed`.
-- Every terminal road that does not commit: discard the prospective state,
-  publish `Cancelled` exactly once, and leave live state bit for bit as it
-  was. One terminalization answers a preparation failure, a refused
-  publication and an invalid subject.
-- Do not repair a cancellation by reversing mutations afterwards: that is a
-  second reconstruction authority.
-
-**Measured before the fix (2026-10-05):** a checkpoint at 7 coins, then a
-boss defeated and its bounty paid, then the body moved away, then a restore
-whose preparation fails. The outcome was `Cancelled`, and every fact had
-changed: the body was back at spawn ((1303, 952) to (950, 904)), the boss
-uncleared, the purse 57 to 7, the defeats since the checkpoint 1 to 0.
-
-**Built:**
-- The admission pins its replay in the operation (`AcceptedRestore::replay`)
-  and writes no `RoomReplayAdmitted`.
-- The room of a restore is built from `CommitFactsSource::AfterTheRestore`:
-  the facts at the commit, with the consequences that construction reads
-  applied to COPIES by the same functions (`prospective_commit_fates`: the
-  boss retraction's record edits, `retract_defeat_records`; the two timer
-  consequences, `forget_room` and `keep_only_owners`).
-- The consequences run in a new schedule, `RestoreConsequences`, from
-  `verify_and_publish` after its verdict accepts the room, while the
-  candidates are hidden and before anything of the old room is retired. That
-  is the world the replay was admitted against: the subject goes back to the
-  old spawn, then arrives. All fourteen readers read through one parameter,
-  `AdmittedReplays` (the messages in the simulation, the pinned replay in that
-  schedule), in sets that keep the simulation's order.
-- One terminal rule: an operation whose intent leaves the slot with no outcome
-  gets `Cancelled { NotCommitted }` from `retire_accepted_checkpoint_restore`,
-  the one place a refused publication, a subject that is gone or cannot
-  transit, and a retraction all reach.
-- Schema 312 -> 313 (the operation's checksum folds the replay).
-
-**Witnesses:** `a_cancelled_restore_changes_nothing` (app_it). The property:
-the four facts are as before the request. Its control: a committed restore
-changes each of them. Poison: the admission writes the replay again; the
-property goes red with exactly the measured facts. Unit:
-`the_accepted_restore_outlives_its_frame_matches_its_intent_and_retires_with_the_slot`
-(no replay message at the admission, and `Cancelled { NotCommitted }` when
-the intent leaves uncommitted; poison: no publish, red). Control:
-`an_operation_answered_before_its_intent_leaves_keeps_its_one_answer`.
-
-**The prospect, measured by poison (construction reads the live world
-instead):** the timer half is load-bearing, and three tests go red
-(`breakable_respawn_across_rooms` ×2,
-`pickup_regrowth_across_rooms::a_death_keeps_the_regrowth_of_a_heart_in_another_players_room`).
-The boss half is load-bearing for the boss's first PHASE, not its life
-(measured 2026-10-05). Its life is the encounter driver's:
-`update_boss_encounters` gives it full health on its first tick unless the
-save records the placement cleared. A boss built with the fate `Dead` starts
-`Defeated`, and `update_ecs_bosses` makes it `Active` one tick later. With
-the boss half alone poisoned (no retraction edit in the prospect), the
-restored boss is alive (28) and `Defeated` on frame 2 of the death.
-`a_restored_room_builds_the_boss_the_restore_takes_back_alive` now checks
-each frame of the death and goes red there; the timer tests stay green under
-that poison.
-
-**The refused publication, composed (2026-10-05).** `verify_and_publish`
-refuses in two places, and they are different code. Each has an arm in
-`a_cancelled_restore_changes_nothing.rs`; each asserts one outcome,
-`Cancelled { NotCommitted }`, and the four facts as before the request.
-
-| Refusal | Injector | Premise the arm asserts |
-|---|---|---|
-| Before the room is built (the `refuse` closure) | two holders of one identity | the three violation lists are empty |
-| At the verdict | the session's content generation moves on each frame, so the plan is prepared against one and verified against the next | `RosterViolation::ContentBindingMismatch` |
-
-Arms: `a_checkpoint_restore_whose_publication_is_refused_...` and
-`a_checkpoint_restore_whose_room_fails_its_verdict_...`. Both injectors are
-ones the suite already uses for a refused room; the road from the request to
-the retirement is production. Measured: one more holder of an identity that
-is live in the room gives the early refusal for each of five identities, so
-a twin cannot reach the verdict.
-
-Poisons. The retirement publishes no outcome: the two arms are red with no
-outcome, and the failed-preparation arm and the control are green. The
-consequences run before the verdict is read: the verdict arm is red with
-each of the four facts moved, and the early arm is GREEN, because an early
-refusal does not come to that line. That was a missed prediction (70% red
-for the early arm) and it is the reason the verdict arm exists.
-
-**A restore that cannot name its subject is refused (2026-10-05).** The
-subject of a restore is the one primary body, read with `.single()`. With
-no primary body the request stays owed, which is right: the body is not
-built yet. With two it stayed owed too, and no frame of play changes two
-into one. Measured in the shipped composition with a second home body that
-has the primary markers: the request was owed for 300 frames, with no
-operation and no outcome. `resume_at_checkpoint_on_reset` now refuses that
-request: it gets a key and its one outcome, `Cancelled { AmbiguousSubject }`
-(code 3), and it is spent; no lifecycle slot is taken. Witness:
-`a_checkpoint_restore_with_two_primary_bodies_is_refused_and_the_next_one_commits`
-(the four facts as before the request; then the second body is not primary
-any more, and the next request commits). The run before the repair is the
-poison: red with no outcome and the request owed. No schema bump: the
-outcome's fold already writes the reason code, and the schema baseline is
-unchanged. No production code builds two primary bodies; the join road
-builds a second home body with no primary marker (`spawn_home_body`).
-The startup road had the same shape in both of its branches (the routed
-crossing and the same-room placement): with two primary bodies
-`restore_checkpoint_on_session_start` asked again on each tick for ever
-(measured: the state unset after five ticks in each branch). It admits no
-operation there, so it owes no outcome; it now ends as a checkpoint in an
-unknown room ends, with an error and `StartupResume::Satisfied`, and the
-session keeps the place it opened in. With no primary body it still asks
-again, because construction is not finished. Witness:
-`a_resume_with_two_primary_bodies_ends_and_does_not_ask_for_ever` (one
-primary body takes each road as the control; each branch poisoned in turn
-is red on its own assertion).
-
-**Not built, and why:** a composed witness for a subject that is gone or
-cannot transit. From reading, not from a measurement: the subject of a
-restore is the one primary body, and no production code removes it or its
-`MotionModel`, cluster or `BodyCombat` while its session lives. The one
-despawn is the retirement of the session scope, which takes the operation
-back. An arm would remove the body by hand, so the road stays with its unit
-witness.
 
 ## P1 — ownership, composition and iteration
 
@@ -869,8 +415,9 @@ App cannot differ between N and N+1.
   (`PendingGenerationInputs::audio_for(load_id)`), and the lifecycle resolves
   it through `candidate_audio_for`, falling back to the App's registry only
   when no claim exists for that `load_id`. Witness:
-  `a_candidate_that_loses_its_sfx_fragment_is_refused_before_it_retires_the_live_session`
-  (with its control) in `an_edit_reaches_the_shipped_game.rs`, which drops the
+  `a_candidate_that_drops_a_providers_audio_is_refused_and_the_live_audio_survives`
+  (control: `a_candidate_that_edits_a_providers_audio_activates_and_publishes_it`)
+  in `an_edit_reaches_the_shipped_game.rs`, which drops the
   SFX rows from N+1 and expects the refusal; reading `self.audio_catalogs`
   makes it fail. A music-fragment drop cannot be built: the pack compiler
   refuses it first, because bosses reference music tracks. Adaptive-cue
@@ -1025,7 +572,7 @@ second authoring source.
   ✅ 2026-10-07, `scripts/check_world_graph_is_navigable.py` read the zone
   targets untrimmed, so it was stricter than the engine (a `"vault "` target
   resolves in the game and was reported as dangling). It reads them with the
-  engine's `field_text` rule now (`a_door_target_is_read_with_the_engines_text_rule`,
+  engine's `field_text` rule now (`test_a_door_target_is_read_with_the_engines_text_rule`,
   red before). It is still a second reader of the target fields, and it owns the
   trap analysis the Rust side does not have; the id of a zone is read as the
   engine reads it, untrimmed.
@@ -1177,9 +724,16 @@ stand-in may keep an incomplete kit.)
 
 **Owner:** [`engine/character-authoring-package.md`](engine/character-authoring-package.md).
 
-**Next implementation:** for each remaining duplicated authored/runtime value,
-choose one authoring owner and make every runtime representation a projection or
-admitted prepared value. Prefer deleting the second truth to synchronizing it.
+**Current state (2026-10-08):** no known residual. The last one, the Smash
+stand-in's hand-written verb list, is content in the form every fighter
+authors (owner document, closed slices).
+
+**Next implementation:** search for a new duplicated authored/runtime value
+with the owner document's two questions (A1). For each one found, choose one
+authoring owner and make every runtime representation a projection or admitted
+prepared value. Prefer deleting the second truth to synchronizing it. Exit
+criterion 5 (another experience consumes a character without irrelevant
+facets) is not yet measured.
 
 **Acceptance:** the owner document can name one authoritative authored value for
 each migrated fact, and production consumers cannot bypass its preparation or
@@ -1258,11 +812,24 @@ is not blocked.
 **Not the fix:** a digest of each sheet's text. It also changes when only the
 atlas packing changes.
 
-**The fix:** a digest of the mechanical projection of each baked record (body
-metrics, frame size, row durations, authored attack geometry), as `Q122` asks
-for the authored sheets. `build.rs` can write it, as it writes
-`BAKED_LANDMARKS_DIGEST` for the landmark tables (RIG-LANDMARKS), which are the
-same class and are covered.
+**The projection is built (2026-10-08):**
+`ambition_sprite_sheet::sheet_mechanics` encodes each record's mechanics (key,
+target, frame size, body metrics with every box, part, polygon and feet,
+per-animation hurtboxes, hitboxes and frame durations, tuning, drawn facing,
+and each row's animation, frame count, durations and mirror) and not its
+packing (images, pages, `label_width`, `y_offset`, `row_index`, `rects`).
+`character::sheets::baked_sheet_mechanics_digest` is that digest over the baked
+index in key order, computed once at runtime. Witnesses:
+`a_sheet_whose_packing_alone_differs_has_the_same_digest` (poison: hash the
+rects; red), `a_sheet_whose_mechanics_differ_has_another_digest`,
+`the_baked_digest_is_this_builds_records_in_key_order`.
+
+**What is left is the ruling.** The digest is not in the content fingerprint,
+because Q157's default in force is (c), leave it out. Ruling (a) is one
+section, `characters.baked-sheets`, beside `characters.baked-landmarks` in
+`prepare_platformer_content` (a field on `MechanicalRegistries` filled by both
+provider roads, as `baked_landmarks` is). Ruling (b) needs a weaker class of
+identity section.
 
 **Acceptance:** a baked sheet whose body box differs gives a different content
 fingerprint; a sheet whose packing alone differs gives the same one.
@@ -1569,6 +1136,21 @@ that gives it meaning.
 `game/ambition_content/assets/data/`, and its schema is registered by
 `ambition_combat`. Every shipped rung sets the rollout fields to zero, so
 `read_weight` is read only behind `uses_rollouts()` and changes nothing.
+Measured 2026-10-08: `read_weight` has a second meaning. `FighterState::new`
+(`ambition_characters/src/brain/fighter/data.rs`) gives it to
+`HabitModel::new` as the habit DECAY, so the rungs' 0.0 to 1.0 values change
+the habit counts the decision tick writes (and rollback snapshots), while the
+only reader of those counts is the rollout (`predicted_foe_intent`). Deleting
+the field needs two answers in the same slice: the habit decay's own value,
+and whether the rollout's read keeps a gate.
+
+**Decided 2026-10-08 (engineering, under Q90):** the habit decay becomes a
+named constant, 0.9 (the value `HabitModel`'s own doc calls "a read"); the
+rollout reads the habit whenever the read is genuine (the modal choice beats
+the uniform prior), because the rollout itself runs only for a profile that
+pays for it (`uses_rollouts`). No shipped behaviour changes (no rung rolls
+out); the habit counts the decision tick writes change value. A rung that
+should read less is a new, correctly named parameter with its own witness.
 
 **Acceptance:** the ladder data and its level vocabulary live with the Smash
 rules/content; another game can build the brain with no ladder; no authored
@@ -2098,41 +1680,13 @@ Ultimate-like occupancy and trump, deterministic and rollback-compatible.
 depends on the body's size, so two fighters of different sizes both hang on one
 corner. No ledge occupant exists.
 
-**Next action:** write down Ultimate's ledge rules (researched, not recalled)
-in the plan, then key occupancy by the ledge, not by a body's anchor.
+**Next action:** Ultimate's rules are in the plan (researched 2026-10-08,
+with the gaps the engine decides). Key occupancy by the ledge, not by a
+body's anchor.
 
 **Acceptance:** with two fighters of different sizes on one corner, one holds
 it; trump, release, death and knockoff each free or transfer the hold as the
 plan says; a rewind across a trump gives the same holder.
-
-### HAZARD-BEATS-LEDGE — a hanging body is immune to hazards
-
-**Owner:** `ambition_platformer2d_core::movement` (hazard gate) and
-`ambition_combat::hazards`. Plan:
-[`engine/combat-model.md`](engine/combat-model.md#hazards-beat-a-ledge-hang-q43).
-
-**Ruling:** Q43 (2026-10-04): a hazard wins over a ledge hang.
-
-**Current failure:** the kernel hazard gate skips a frame the ledge grab
-consumed, and hazard volumes respect the ledge-grab intangibility window.
-
-**Acceptance:** a body hanging over a lethal hazard dies on both roads; the
-same hang without a hazard holds; an attack in the grab window still misses.
-
-### HALL-STILL — every Hall actor stays where it is placed
-
-**Owner:** `ambition_platformer2d_core::movement::adhesive_crawler`. Plan:
-[`../concepts/hall-of-characters-is-not-special.md`](../concepts/hall-of-characters-is-not-special.md#what-the-hall-is-for-q85-2026-10-04).
-
-**Ruling:** Q85 (2026-10-04): the Hall's stationary policy holds for every
-showcase actor through one population policy.
-
-**Current failure:** a Puppy Slug (`npc_puppy_slug`, the one
-`surface_walker`) crawls under a `stand_still` brain, because the crawler's
-pace comes from its policy and it never reads the commanded axis.
-
-**Acceptance:** a test steps the generated Hall and finds every spawned actor
-where it started; a crawler with a patrolling brain still moves (control).
 
 ### MIRROR-SYMMETRY — mirrored CPUs stay mirrored per tick
 
@@ -2144,8 +1698,10 @@ comes only from modelled asymmetric facts.
 
 **Current failure:** the Emmy test compares positions only, accepts a break at
 the first grab, and asks only 1.5x the ordinary rate; known asymmetry sources
-(`signum(0)`, `SimId` tie-breaks, a left-first recovery search, a 69% seat-0
-term) are untriaged.
+(`SimId` tie-breaks, a left-first recovery search, a 69% seat-0 term, the
+zero-lateral `signum` sites in `rollout.rs`) are untriaged. The decision
+layer has its reflection test (plan item 3, 2026-10-08), and it found no
+defect.
 
 **Acceptance:** a per-tick reflection test of position, velocity, facing,
 move, decision and stream position; a reflected-observation unit test of the
@@ -3134,8 +2690,8 @@ green lane does not clear:
 [`running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md).
 How a check can fail to run: [`checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md).
 
-**Current state:** the `app_it` lane runs (`713 passed / 0 failed / 45 ignored`
-on 2026-09-17). Cargo diagnostics are read through
+**Current state:** the `app_it` lane runs (re-run 2026-10-08; read the count
+from a fresh run, not from here). Cargo diagnostics are read through
 `scripts/lib/cargo_output.py`, which disables colour and strips ANSI codes, and
 `scripts/tests/test_cargo_diagnostics_are_read_plain.py` holds every script that
 reads cargo output to it.
@@ -3195,6 +2751,83 @@ production invariant.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### ID-PEER — remove host-local lineage from peer-stable mechanical identity — ✅ DONE 2026-10-03
+
+Two Apps that burned different numbers of local session activations reach the
+same canonical identities and checksums. Closed roads: the smash roster seed,
+`SessionScopedEntity` in the checksum, the match ordinal, `random_context`,
+checkpoint operation keys, the session root's `SimId`, `TransactionId`
+provenance, `GameplayElapsed`, the startup-resume checksum, perception's
+`Entity` fallback, the GGRS carrier order, the schema fingerprint over
+mechanical facts (Q122, `rewording_a_row_leaves_the_fingerprint_alone`), the
+session-relative `SimTick` (Q128), the unchecksummed float rows
+(`two_peers.rs`, two GGRS peers in one process) and the save handed to its
+experience (Q129, `SaveOwner`). Witnesses:
+`two_local_histories_compute_the_same_ggrs_component_checksums`,
+`the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
+and the arms in `id_peer_audit.rs`. The standing rules are in
+[netcode identity rules](engine/netcode.md#identity-rules).
+
+### ROLLBACK-MUTATOR-POPULATION — the mutator guard sees a quarter of rollback state — ✅ DONE 2026-10-03
+
+`scripts/check_rollback_mutators_run_in_sim.py` reads every rollback
+registration in every supported parameter spelling, including exclusive-world
+bodies and one helper hop (`inherited_mutations`). 494 systems, 0 acknowledged
+offenders. The save restore chain left the scan with BODY-BORN-ON-THE-TIMELINE;
+`reconcile_roster_with_frozen_topology` left when the unread
+`ActiveMatch` copy was deleted (schema 302). The guard's limits (`Transform`
+excluded by name, Q139; one hop; a run condition is not reachability) are
+stated in the script (`PRESENTATION_SHARED`, `BLIND_SPOTS`). Tests:
+`scripts/tests/test_rollback_mutators_run_in_sim.py`.
+
+### BODY-BORN-ON-THE-TIMELINE — the simulation applies the save — ✅ DONE 2026-10-03
+
+The restore chain (`adopt_occurrence_checkpoint_from_save`,
+`restore_inventory_from_save`, `complete_durable_restore`) runs at the head of
+the gameplay root in the simulation schedule, so a rewind past it applies it
+again on the same tick. Deleted with the `Update` window: the Q135
+session-start gate, `refuse_a_restore_over_a_live_timeline`, the fixture <!-- cite-ok: records a deleted check -->
+declaration `TheBodyIsBornOnTheTimeline` and three mutator-guard waivers. Q135
+is reopened in the awaiting file. Witnesses:
+`the_save_is_applied_by_the_simulation`,
+`a_startup_load_is_applied_on_the_timeline_and_resimulates_identically`,
+`a_mid_session_load_does_not_reach_back_across_the_rewind`.
+
+### WEAR-REFUSES-UNPREPARED — a character outside the prepared generation is never worn — ✅ DONE 2026-10-03
+
+Q103: refuse. The kit compiler takes a prepared definition (`WornKit::of`);
+`WornKit::resolve` and the peaceful-kit fallback are deleted. A re-wear to an
+unprepared id writes nothing and puts `WornCharacter` back to
+`PersonaBaseline::id`. Witnesses
+(`avatar::starting_character::tests`):
+`a_rewear_to_an_unprepared_id_keeps_the_previous_character`,
+`an_unprepared_id_writes_nothing_on_the_body`. The two remainders (a generation
+that drops a worn id; the home body of an unprepared starting id) are open work
+in [content generations](engine/content-generation-and-reload.md#open-work).
+
+### THROW-MODIFIERS — route throws through rage and staleness policy — ✅ DONE 2026-10-03
+
+Q133: follow Smash. A set launch declines rage
+(`ambition_entity_catalog::launch::launch_speed`). A throw stales the throw
+move: `CaptureThrowRequested` carries the use's `move_instance`, damage stales
+through `hitbox::staled_damage` and the percent term through
+`knockback_stale_scale`; a set throw stales its damage, not its launch.
+Witnesses: `a_hurt_captor_throws_farther_and_a_set_throw_is_immune`,
+`capture::a_repeated_throw_stales_and_a_neutral_ruleset_leaves_it_whole`,
+`a_set_throw_stales_its_damage_and_not_its_launch`,
+`a_throw_that_no_playing_use_claims_is_not_staled_or_recorded`.
+
+### CHECKPOINT-ADMISSION-IS-NOT-COMMIT — an accepted restore changes nothing until it commits — ✅ BUILT 2026-10-05
+
+An accepted restore pins its replay and changes no live state; its room is
+built from the prospective facts, and its consequences run at the commit
+(`RestoreConsequences`). One terminal rule gives every uncommitted operation
+`Cancelled { NotCommitted }`; two primary bodies give `AmbiguousSubject`.
+Schema 313. Witness: `a_cancelled_restore_changes_nothing` (three refusal
+arms, and a committed control). The design, the witnesses and the one open
+witness are in
+[checkpoint restoration](engine/checkpoint-restoration-protocol.md).
 
 ### DEATH-IS-ROOM-LOCAL — a participant's death rewinds its own horizon, not the session's — ✅ DONE 2026-10-07
 

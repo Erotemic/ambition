@@ -238,62 +238,6 @@ open. Close with a fresh census rather than a checked list.
 
 ## P1 — ownership, composition and iteration
 
-### CANDIDATE-GENERATION-ORDER — a candidate session is prepared from the generation before its own activation
-
-**Owner:** [`engine/extension-model.md`](engine/extension-model.md) (content
-reload) jointly with the session-lifecycle owner,
-`crates/ambition_platformer2d_provider/src/lifecycle.rs`.
-
-**Current shape:** live session A stays on published generation N. Candidate B
-is built and verified from transaction-local N+1, which
-`PendingGenerationInputs` (`ambition_platformer2d_runtime/src/content_identity.rs`)
-hands to the transaction's own preparation, keyed by its `load_id` claim.
-Adoption makes B/N+1 authoritative atomically. Construction runs
-`.before(AmbitionGameShellSet::Pending)` and the content commit runs after it, so
-the channel, not an ordering edge, is how a candidate sees N+1. The channel
-carries the admitted cast (`characters`), the boss catalog (`bosses`), the
-character catalog (`catalog`) and the audio catalog (`audio`). The fighter ladder and the encounter waves are
-standing projections that converge after the commit, so they are not frozen.
-Guard: `the_candidate_is_built_before_the_router_advances_and_providers_only_adopts`.
-
-**Next action:** none open for the channel. A boss's numbers already reach the candidate. Construction
-seeds each boss from the frozen N+1 catalog (`SessionMechanics::bosses`), and
-since 2026-10-03 `BossConfig::seed` is required, so no boss reads the App
-catalog at construction or on its first tick. Witness:
-`a_boss_tuning_saved_while_the_game_runs_is_played`. Read from source
-2026-10-03, not measured by a test: the other inputs preparation reads from the
-App cannot differ between N and N+1.
-- `ReloadRequest` refuses a change to `sheets` (`AuthoredSheets`), and its
-  only writer is `register_character_sheet_ron` at plugin build.
-- `forced_brains`, `population_cap` and `perception_extent` are immutable
-  developer knobs, read once at build.
-- Audio was the exception, and is now closed (2026-10-07). Its domains take
-  part in a reload, and the transaction holds the N+1 `AudioCatalogRegistry`
-  until the commit, while preparation used to read the App's (N), only for
-  provider presence: `validate`'s `has_provider`, and `music_ready` /
-  `procedural_sfx_ready`. The channel now carries `audio`
-  (`PendingGenerationInputs::audio_for(load_id)`), and the lifecycle resolves
-  it through `candidate_audio_for`, falling back to the App's registry only
-  when no claim exists for that `load_id`. Witness:
-  `a_candidate_that_drops_a_providers_audio_is_refused_and_the_live_audio_survives`
-  (control: `a_candidate_that_edits_a_providers_audio_activates_and_publishes_it`)
-  in `an_edit_reaches_the_shipped_game.rs`, which drops the
-  SFX rows from N+1 and expects the refusal; reading `self.audio_catalogs`
-  makes it fail. A music-fragment drop cannot be built: the pack compiler
-  refuses it first, because bosses reference music tracks. Adaptive-cue
-  presence was the next consumer and is on the channel too
-  (`adaptive_providers`; measured: a pack without its cue file compiles).
-
-⛔ Not by an ordering edge and not by re-fingerprinting. Do not reopen A10.5's
-guarantee that a candidate that cannot be built never retires the live session.
-This is engineering, not a maintainer question.
-
-**Blocked by:** nothing.
-
-**Acceptance:** every generation input a candidate must see at N+1 reaches it
-through the transaction-local channel rather than through global publication,
-and a value that is a standing projection is stated as one rather than frozen.
-
 ### I2/I3 — finish independent content authoring and safe reload
 
 **Owner:** [`engine/extension-model.md`](engine/extension-model.md) and content
@@ -1095,6 +1039,21 @@ production invariant.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### CANDIDATE-GENERATION-ORDER — a candidate session is prepared from the generation before its own activation — ✅ DONE 2026-10-08
+
+Owner: [`engine/extension-model.md`](engine/extension-model.md) and
+`crates/ambition_platformer2d_provider/src/lifecycle.rs`. Candidate B is built
+from transaction-local N+1 (`PendingGenerationInputs`, keyed by `load_id`):
+the cast, bosses, character catalog, audio and adaptive cue providers. The
+fighter ladder and the encounter waves are stated standing projections.
+`AuthoredSheets` cannot change across the window (a reload refuses it), and
+`forced_brains`, `population_cap` and `perception_extent` are inserted once at
+plugin build (re-read 2026-10-08). Witnesses:
+`the_candidate_is_built_before_the_router_advances_and_providers_only_adopts`,
+`a_boss_tuning_saved_while_the_game_runs_is_played`,
+`a_candidate_that_drops_a_providers_audio_is_refused_and_the_live_audio_survives`
+(control `a_candidate_that_edits_a_providers_audio_activates_and_publishes_it`).
 
 ### MUSIC-CANDIDATES — music is chosen from scoped, prioritized candidates — ✅ DONE 2026-10-08
 

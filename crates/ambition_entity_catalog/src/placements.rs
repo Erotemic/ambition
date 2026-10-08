@@ -103,7 +103,13 @@ pub struct HazardSpec {
 pub struct InteractableSpec {
     pub prompt: String,
     pub kind: InteractionKindSpec,
-    pub enabled: bool,
+    /// A body must face it to use it (Q63): the body's facing, along the run
+    /// axis of its own frame, points toward the interactable's centre. An
+    /// authored rule, not sprite geometry. Lowered into the
+    /// `ambition_combat::components::RequiresFacing` marker, which the
+    /// interact road reads.
+    #[serde(default)]
+    pub requires_facing: bool,
 }
 
 impl InteractableSpec {
@@ -111,7 +117,7 @@ impl InteractableSpec {
         Self {
             prompt: prompt.into(),
             kind,
-            enabled: true,
+            requires_facing: false,
         }
     }
 }

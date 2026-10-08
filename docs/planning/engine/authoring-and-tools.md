@@ -104,7 +104,8 @@ persistence, and defers the breakable debris cue; each comes back as a field
 and its consumer in one change. Per-chest and pickup persistence are
 occurrence-ledger rows (`Spent`, `Consumed`), not authored fields; a chest
 authored open (`ChestSpec::opened`, Q105) lowers into the same `Opened`
-marker. The facing gate is open (queue row
+marker. The facing gate is `InteractableSpec::requires_facing` with its
+check in the interact road (queue row
 [AUTHORED-INTERACTABLE-STATE](../queue.md#authored-interactable-state--facing-gates-per-chest-and-per-pickup-persistence)).
 The maintainer's Interact constraint governs behavioral changes.
 

@@ -787,12 +787,19 @@ marker, as a chest authored open does (Q105). Witnesses:
 `an_opened_chest_is_built_opened_when_its_room_is_built_again`,
 `a_death_closes_again_only_a_chest_opened_after_the_checkpoint`,
 `a_load_builds_opened_a_chest_the_file_remembers_spent` and
-`a_chest_authored_open_is_built_with_the_opened_marker`. Remaining: the
-facing gate, and an `opened` field on LDtk's `ChestSpawn` (the editor
-schema declares only `name` and `reward`).
+`a_chest_authored_open_is_built_with_the_opened_marker`. The facing gate
+(2026-10-08): `InteractableSpec::requires_facing` lowers into the
+`RequiresFacing` marker, and the interact road refuses a person or a switch
+that the body does not face along the run axis of its own frame
+(`ambition_interaction::faces`); witnesses
+`a_facing_gated_switch_refuses_a_body_that_faces_away` and
+`a_facing_gated_person_is_not_talked_to_from_behind`. The inert
+`InteractableSpec::enabled`, never authored and never read, is deleted.
 
-**Next action:** the facing gate: an authored interactable that requires
-facing, and its consumer in the interact road.
+**Next action:** let LDtk author them: `requires_facing` on `NpcSpawn` and
+`Switch`, and `opened` on `ChestSpawn`, as rows in
+`ldtk_entity_contract.json` with their converter reads (the contract is
+proved in both directions).
 
 **Acceptance:** an opened chest and a taken pickup stay so across a reload; an
 interactable that requires facing refuses a body that faces away; a chest

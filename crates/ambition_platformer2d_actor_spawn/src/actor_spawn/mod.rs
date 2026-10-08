@@ -2019,6 +2019,10 @@ pub fn spawn_interactable_into(
     // Applies to an NPC body; a switch or a door has no recorded fate.
     fate: RecordedFate,
 ) {
+    // The facing gate is the root's, whichever body the row becomes (Q63).
+    if interactable.requires_facing {
+        scope.insert(ambition_combat::components::RequiresFacing);
+    }
     if matches!(
         interactable.kind,
         ambition_interaction::InteractionKind::Npc { .. }

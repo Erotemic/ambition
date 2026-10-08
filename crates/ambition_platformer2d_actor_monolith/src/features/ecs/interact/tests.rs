@@ -788,3 +788,71 @@ fn a_body_in_sideways_gravity_reaches_the_switch_its_own_box_touches() {
         "the switch beside the body is not in its reach, and the press must not activate it"
     );
 }
+
+/// ⭐ Q63: A FACING-GATED SWITCH REFUSES A BODY THAT FACES AWAY. The body faces
+/// right. A gated switch on its left is not activated; the controls are the
+/// same gated switch on its right, and an ungated switch on its left.
+#[test]
+fn a_facing_gated_switch_refuses_a_body_that_faces_away() {
+    let activated_by_a_press = |offset: f32, gated: bool| -> Vec<String> {
+        let mut app = interaction_app();
+        spawn_driven_body(&mut app, ae::Vec2::ZERO, 0);
+        buffer_interact(&mut app, 0, 0.15);
+        let switch = spawn_switch(&mut app, "gate", ae::Vec2::new(offset, 0.0));
+        if gated {
+            app.world_mut()
+                .entity_mut(switch)
+                .insert(ambition_combat::components::RequiresFacing);
+        }
+        app.update();
+        activated(&app)
+    };
+    assert_eq!(
+        (
+            activated_by_a_press(-10.0, true),
+            activated_by_a_press(10.0, true),
+            activated_by_a_press(-10.0, false),
+        ),
+        (Vec::<String>::new(), vec!["gate".to_string()], vec!["gate".to_string()]),
+        "(gated behind, gated ahead, ungated behind): the switches a press activated"
+    );
+}
+
+/// ⭐ Q63: A FACING-GATED PERSON IS NOT TALKED TO FROM BEHIND. The control is
+/// the same person in front of the body.
+#[test]
+fn a_facing_gated_person_is_not_talked_to_from_behind() {
+    let talks = |offset: f32| -> bool {
+        let center = ae::Vec2::new(100.0, 100.0);
+        let mut app = dialogue_app(&["hall_player", "hall_player__self"]);
+        let player = spawn_interaction_player_wearing(&mut app, center, "goblin");
+        app.world_mut()
+            .get_mut::<ambition_platformer2d_core::BodyKinematics>(player)
+            .expect("the player has a body")
+            .facing = 1.0;
+        let pedestal = spawn_pedestal(
+            &mut app,
+            center + ae::Vec2::new(offset, 0.0),
+            "player_robot_v3",
+            "hall_player",
+        );
+        app.world_mut()
+            .entity_mut(pedestal)
+            .insert(ambition_combat::components::RequiresFacing);
+        app.add_systems(
+            Update,
+            (
+                interact_ecs_actors_and_switches,
+                ambition_conversation::project_the_dialog_ui_from_the_conversation,
+            )
+                .chain(),
+        );
+        app.update();
+        app.world().resource::<ambition_dialog::DialogState>().active()
+    };
+    assert_eq!(
+        (talks(-10.0), talks(10.0)),
+        (false, true),
+        "(behind the body, in front of it): a conversation opened"
+    );
+}

@@ -1086,7 +1086,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// pinned baseline) has a `Spent` row, an authored chest a body opened
 /// (Q63), and `ConsumedSinceCheckpoint`'s projection says whether each
 /// record is spent.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 325;
+/// ⛔⛤ 325 -> 326: `feature.requires_facing` (clone) — an interactable a
+/// body must face to use (Q63), put on the root by construction.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 326;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

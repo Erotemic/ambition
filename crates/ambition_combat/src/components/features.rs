@@ -26,6 +26,12 @@ impl FeatureId {
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct FeatureName(pub String);
 
+/// A body must face this interactable to use it (Q63,
+/// `InteractableSpec::requires_facing`). Put on the root by construction;
+/// the interact road asks `ambition_interaction::faces`.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RequiresFacing;
+
 impl FeatureName {
     pub fn new(name: impl Into<String>) -> Self {
         Self(name.into())

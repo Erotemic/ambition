@@ -243,6 +243,10 @@ where
         },
     );
     registrar.rollback_component_clone::<crate::components::FeatureName>(OWNER, "feature.name");
+    registrar.rollback_component_clone::<crate::components::RequiresFacing>(
+        OWNER,
+        "feature.requires_facing",
+    );
     registrar.rollback_component_clone::<crate::components::BreakableFeature>(
         OWNER,
         "feature.breakable",

@@ -803,7 +803,7 @@ mod authored_enemy_reads_its_character {
                 patrol_path_id: None,
                 patrol_radius: 0.0,
             },
-            enabled: true,
+            requires_facing: false,
         };
         let named = npc(Some("npc_pirate_quartermaster"));
         assert_eq!(

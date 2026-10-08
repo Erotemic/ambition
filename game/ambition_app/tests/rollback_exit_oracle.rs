@@ -646,10 +646,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored room geometry; immutable while the room is loaded",
         ),
         (
-            "ambition_items::OwnedItems",
-            "inventory set; wants a canonical projection (G2b)",
-        ),
-        (
             "ambition_platformer2d_actor_monolith::session::durable_horizon::SaveRestored",
             "the save-applied latch, set in literal `Update` and so NOT in step \
              with the sim ticks a checksum covers — projecting the bool reddened \

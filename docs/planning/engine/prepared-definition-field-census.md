@@ -126,7 +126,8 @@ provider's declarations. The wear road reads the prepared cast only. There is no
 read-time fold, and no fallback: the kit compiler takes a prepared definition
 (`WornKit::of`), and a re-wear to an id outside the cast is refused and puts the
 body's previous character back (Q103, 2026-10-03; queue
-`WEAR-REFUSES-UNPREPARED`, which names two remainders).
+`WEAR-REFUSES-UNPREPARED`; its two remainders are open work in
+[content generations](content-generation-and-reload.md#open-work)).
 
 ### Open: the autonomous profile reference is not retained
 

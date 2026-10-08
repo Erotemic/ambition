@@ -64,7 +64,7 @@ arm when the rule needs a new subject.
 Local lifecycle identities such as `SessionScopeId`, `ContentEpoch` and shell/load
 correlation ids remain useful for ownership/correlation. They are not substitutes
 for peer-stable mechanical identity. The current cross-peer cleanup is tracked by
-[ID-PEER in the queue](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
+[ID-PEER in the queue](../queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity---done-2026-10-03).
 
 ### Deterministic selection and composition
 

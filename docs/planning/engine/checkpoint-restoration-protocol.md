@@ -127,12 +127,29 @@ placement, clocks and portals are deliberately not checked: placement has no
 postcondition from the transit authority, and clocks and portals have no
 accepted snapshot.
 
-**Replay consumers.** `RoomReplayAdmitted` readers
-(`ambition_platformer2d_runtime::sandbox_reset`, `game/ambition_content/src/portal/reset_adapter.rs`,
-`game/ambition_content/src/bosses/cut_rope/`) describe admission. An admission
-notification is never the checkpoint commit token. `ResetToCheckpoint` and
-`RoomReplayAdmitted` are registered by the host's `CheckpointHorizonPlugin`, not
-by a domain offer.
+**Replay consequences run at the commit, not at the admission.** The admission
+pins its replay in the operation (`AcceptedRestore::replay`) and writes no
+`RoomReplayAdmitted`. The room of a restore is built from
+`CommitFactsSource::AfterTheRestore`: the facts at the commit, with the
+consequences that construction reads applied to copies by the same functions
+(`prospective_commit_fates`: `retract_defeat_records`, and the timer
+consequences `forget_room` and `keep_only_owners`). The consequences run in the
+`RestoreConsequences` schedule, from `verify_and_publish` after its verdict
+accepts the room, while the candidates are hidden and before the old room is
+retired. Every replay reader (spawn return, boss retraction, timers,
+`WorldTimeSchedule`, `ConsumedSinceCheckpoint`, gravity, portals, cut-rope
+arenas, pending hits) reads through one parameter, `AdmittedReplays`
+(`ambition_combat::events`): the messages in the simulation, the pinned replay
+in that schedule. `ResetToCheckpoint` and `RoomReplayAdmitted` are registered by
+the host's `CheckpointHorizonPlugin`, not by a domain offer.
+
+**One terminal rule.** An operation whose intent leaves the slot with no outcome
+gets `Cancelled { NotCommitted }` from `retire_accepted_checkpoint_restore`, the
+one place that a refused publication (before the room is built, or at the
+verdict), a subject that is gone or cannot transit, and a retraction all reach.
+A reset request with two primary bodies gets `Cancelled { AmbiguousSubject }`
+and is spent; a startup resume in that world ends as a checkpoint in an unknown
+room ends, because it admitted no operation.
 
 ## Acceptance matrix
 
@@ -148,6 +165,9 @@ Every row has a witness that fails for that row's property.
 | Same room, different occurrence outlook | `a_checkpoint_outlook_refuses_a_plan_prepared_without_one`; `every_prefetched_plan_carries_an_empty_occurrence_outlook` |
 | No checkpoint or invalid destination | `a_checkpoint_from_another_room_leaves_the_body_where_it_spawned` |
 | Save adoption plus startup | `canonical_reconstitution::a_save_with_a_checkpoint_and_an_occurrence_lands_both` |
+| A cancelled restore changes nothing (body, boss, purse, defeats) | `a_cancelled_restore_changes_nothing` (preparation failure; refused publication; refused verdict); control: a committed restore changes each fact |
+| The prospect is what construction reads | `breakable_respawn_across_rooms`, `a_restored_room_builds_the_boss_the_restore_takes_back_alive` |
+| Two primary bodies | `a_checkpoint_restore_with_two_primary_bodies_is_refused_and_the_next_one_commits`; `a_resume_with_two_primary_bodies_ends_and_does_not_ask_for_ever` |
 | Prepare failure or cancellation | `a_failed_preparation_ends_the_operation_once_and_does_not_retry_it`, `a_failed_preparation_is_ended_by_the_confirmed_host_too`, `a_failed_ordinary_crossing_is_left_alone`, `a_startup_resume_whose_operation_is_retracted_asks_again` |
 | Failure after destructive apply | `a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure` |
 | Held, thrown and minted carried items | the death suite; `custody_verification_names_the_custodian_and_refuses_a_duplicate` |
@@ -166,6 +186,10 @@ filter is not a pass.
 
 - Widen post-apply verification: checkpoint replay consequences, deferred
   flushes and the final rollback baseline.
+- A subject that is gone or cannot transit has a unit witness only. No
+  production road removes the primary body or its `MotionModel`, cluster or
+  `BodyCombat` while its session lives, so a composed arm would remove it by
+  hand.
 - The terminal outcome has no presentation consumer. When one is needed, publish
   a message at completion; do not poll the single-latest outcome resource.
 - `prefetch_neighbor_room_preparation_system`
@@ -187,3 +211,7 @@ filter is not a pass.
   raw requests.
 - A cached plan is promoted only for the outlook it was prepared with; do not
   fill in the prefetch outlook to raise the hit rate.
+- Do not repair a cancellation by reversing mutations afterwards: that is a
+  second reconstruction authority.
+- Do not build a restore's room from the live save: the prospect is the commit
+  facts with the replay's consequences applied to copies.

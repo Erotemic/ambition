@@ -513,13 +513,17 @@ impl ResourceMeter {
         }
     }
 
+    /// Whether the meter holds `cost`. This is the rule [`Self::try_spend`]
+    /// spends by, so a reader that asks before a press gets the answer the
+    /// press gets.
+    pub fn can_pay(&self, cost: f32) -> bool {
+        cost >= 0.0 && self.current + 1e-6 >= cost
+    }
+
     /// Try to consume `cost`. Returns `true` and subtracts on success,
     /// `false` and leaves the meter unchanged on failure.
     pub fn try_spend(&mut self, cost: f32) -> bool {
-        if cost < 0.0 {
-            return false;
-        }
-        if self.current + 1e-6 < cost {
+        if !self.can_pay(cost) {
             return false;
         }
         self.current = (self.current - cost).max(0.0);

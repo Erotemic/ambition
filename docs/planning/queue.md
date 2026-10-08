@@ -938,24 +938,6 @@ defect.
 move, decision and stream position; a reflected-observation unit test of the
 decision layer; each poison listed in the plan turns one of them red.
 
-### WEAPON-READINESS — a refused trigger is visible as "not ready"
-
-**Owner:** `projectile/systems.rs` (the fireball road). Plan:
-[`engine/participant-action-system.md`](engine/participant-action-system.md#p5--weapon-readiness-is-a-semantic-state-q33).
-
-**Ruling:** Q33 (2026-10-04).
-
-**Current state (2026-10-08):** the action road is built: `WeaponReadiness`
-on every body with a fire-rate floor, `RangedFireRefused` at the refusal, and
-the prompt reads the model. A held weapon's progress reads the length the
-floor was armed with (`RangedRefire::armed`), not the body's action. One
-remainder: the player's fireball (`ProjectileSpawner`) still refuses a press
-with no fact and has no readiness.
-
-**Acceptance:** a fireball press during its cooldown or with an empty meter
-makes no shot and publishes the readiness it refused on (`recharging` with
-progress, or `no ammunition`); a press after it fires.
-
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 
 **Owner:** `ambition_sprite_sheet` (`baked_landmarks`) and
@@ -1247,6 +1229,17 @@ production invariant.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### WEAPON-READINESS — a refused trigger is visible as "not ready" — ✅ DONE 2026-10-08
+
+Q33. `WeaponReadiness` (`Ready`, `Recharging { progress }`, `NoRoom`,
+`NoAmmunition`) is the read model of the weapon a body's ranged press
+reaches: the fire-rate floor, which keeps the length it was armed with (a
+held item arms it with its own spec), or a charge body's fireball spawner,
+which keeps the length of its cooldown. Each refusal on either road writes
+`RangedFireRefused` with that readiness, and the prompt reads the model.
+Plan and witnesses:
+[`engine/participant-action-system.md`](engine/participant-action-system.md#p5--weapon-readiness-is-a-semantic-state-q33).
 
 ### GATE-PER-ACTOR — a body/capability gate is solid or open for each actor — ✅ DONE 2026-10-03
 

@@ -72,6 +72,7 @@ impl SnapshotState for crate::PlayerProjectileState {
         put_f32(out, meter.regen_rate);
         put_f32(out, meter.decay_rate);
         put_f32(out, self.spawner.cooldown_remaining);
+        put_f32(out, self.spawner.cooldown_armed);
 
         put_u32(out, self.motion_buffer.samples.len() as u32);
         for sample in &self.motion_buffer.samples {
@@ -101,6 +102,7 @@ impl SnapshotState for crate::PlayerProjectileState {
             decay_rate: r.f32()?,
         };
         let cooldown_remaining = r.f32()?;
+        let cooldown_armed = r.f32()?;
         let sample_count = r.u32()? as usize;
         let mut samples = VecDeque::with_capacity(sample_count);
         for _ in 0..sample_count {
@@ -126,6 +128,7 @@ impl SnapshotState for crate::PlayerProjectileState {
             spawner: crate::ProjectileSpawner {
                 meter,
                 cooldown_remaining,
+                cooldown_armed,
             },
             motion_buffer: crate::MotionInputBuffer { samples, window },
             clock,

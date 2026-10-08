@@ -503,25 +503,67 @@ pub fn rebuild_control_prompt(
 }
 
 /// Derive each armed body's [`ambition_combat::BodyWeaponReadiness`] for this
-/// tick (`Q33`): one read model per body, from the floor (which also keeps
-/// the length it was armed with), the authored action's live-shot limit and
-/// the shots in flight. Every reader of "can this weapon fire" reads this,
-/// so the prompt, a meter and a cue cannot disagree.
+/// tick (`Q33`): one read model per body, of the weapon its ranged press
+/// reaches. Every reader of "can this weapon fire" reads this, so the
+/// prompt, a meter and a cue cannot disagree.
+///
+/// ⭐ ONE PRESS, ONE OWNER, AND THE READ MODEL ASKS THE SAME QUESTION
+/// ([`ambition_combat::action_emission::charge_stream_owns_the_press`]). A
+/// charge body's press reaches its fireball (`PlayerProjectileState`'s
+/// spawner: a cooldown and a meter); every other press reaches the
+/// fire-rate floor (`RangedRefire`, which keeps the length it was armed
+/// with), the authored action's live-shot limit and the shots in flight.
+///
+/// A charge body need not carry `RangedRefire`, and so need not carry the
+/// read model either: it is inserted on the first tick.
+#[allow(clippy::type_complexity)]
 pub fn derive_weapon_readiness(
-    mut bodies: Query<(
-        Entity,
-        &ambition_combat::components::RangedRefire,
-        Option<&ActionSet>,
-        &mut ambition_combat::BodyWeaponReadiness,
-    )>,
+    mut commands: Commands,
+    mut bodies: Query<
+        (
+            Entity,
+            Option<&ambition_combat::components::RangedRefire>,
+            Option<&ActionSet>,
+            Option<&ambition_projectiles::PlayerProjectileState>,
+            Has<ambition_characters::brain::ChargesProjectiles>,
+            Option<&ActorMoveset>,
+            Option<&mut ambition_combat::BodyWeaponReadiness>,
+        ),
+        Or<(
+            With<ambition_combat::components::RangedRefire>,
+            With<ambition_projectiles::PlayerProjectileState>,
+        )>,
+    >,
     shots: Query<&ambition_projectiles::ProjectileOwner, With<ambition_projectiles::WeaponShot>>,
 ) {
-    for (body, refire, actions, mut view) in &mut bodies {
-        let live = shots.iter().filter(|owner| owner.0 == body).count();
-        let spec = actions.and_then(|actions| actions.ranged.as_ref());
-        let readiness = ambition_combat::WeaponReadiness::of(refire, spec, live);
-        if view.0 != readiness {
-            view.0 = readiness;
+    for (body, refire, actions, fireball, charges, moveset, view) in &mut bodies {
+        let fireball = fireball.filter(|_| {
+            ambition_combat::action_emission::charge_stream_owns_the_press(charges, moveset)
+        });
+        let readiness = match (fireball, refire) {
+            (Some(fireball), _) => ambition_combat::WeaponReadiness::of_spawner(
+                &fireball.spawner,
+                ambition_projectiles::ProjectileKind::Fireball,
+            ),
+            (None, Some(refire)) => {
+                let live = shots.iter().filter(|owner| owner.0 == body).count();
+                let spec = actions.and_then(|actions| actions.ranged.as_ref());
+                ambition_combat::WeaponReadiness::of(refire, spec, live)
+            }
+            // A state with no charge and no floor: this body has no ranged press.
+            (None, None) => continue,
+        };
+        match view {
+            Some(mut view) => {
+                if view.0 != readiness {
+                    view.0 = readiness;
+                }
+            }
+            None => {
+                commands
+                    .entity(body)
+                    .insert(ambition_combat::BodyWeaponReadiness(readiness));
+            }
         }
     }
 }
@@ -717,6 +759,60 @@ mod tests {
         app.world_mut().despawn(shot);
         app.update();
         assert_eq!(readiness(&app), Some(WeaponReadiness::Ready), "control: the floor is spent and the shot is gone");
+    }
+
+    /// ⭐ Q33: A CHARGE BODY'S READINESS IS ITS FIREBALL'S. Its press reaches
+    /// the spawner (a cooldown, then a meter), so the read model says what
+    /// the spawner decides, and the body gets the read model although it
+    /// carries no fire-rate floor. The control is a body with the same
+    /// spawner and a hot floor that does not charge: its press reaches the
+    /// floor, and so does its readiness.
+    #[test]
+    fn a_charge_body_carries_its_fireballs_readiness() {
+        use ambition_combat::{BodyWeaponReadiness, RangedRefire, WeaponReadiness};
+        use ambition_projectiles::{PlayerProjectileState, ProjectileKind};
+
+        let mut app = App::new();
+        app.add_systems(Update, derive_weapon_readiness);
+        let mut hot = PlayerProjectileState::default();
+        hot.spawner
+            .try_spawn(ProjectileKind::Fireball, Default::default(), Default::default(), 1.0)
+            .unwrap();
+        hot.spawner.tick(ProjectileKind::Fireball.cooldown() / 4.0);
+        let charger = app
+            .world_mut()
+            .spawn((hot.clone(), ambition_characters::brain::ChargesProjectiles))
+            .id();
+        let other = app
+            .world_mut()
+            .spawn((PlayerProjectileState::default(), RangedRefire { remaining: 0.5, armed: 1.0 }))
+            .id();
+        let readiness =
+            |app: &App, body| app.world().get::<BodyWeaponReadiness>(body).map(|view| view.0);
+
+        app.update();
+        let Some(WeaponReadiness::Recharging { progress: Some(progress) }) = readiness(&app, charger)
+        else {
+            panic!("the fireball is in its cooldown: {:?}", readiness(&app, charger));
+        };
+        assert!((progress - 0.25).abs() < 1e-4, "a quarter of the cooldown: {progress}");
+        assert_eq!(
+            readiness(&app, other),
+            Some(WeaponReadiness::Recharging { progress: Some(0.5) }),
+            "control: a body that does not charge reads its floor"
+        );
+
+        {
+            let mut state = app.world_mut().get_mut::<PlayerProjectileState>(charger).unwrap();
+            state.spawner.cooldown_remaining = 0.0;
+            state.spawner.meter.current = 0.0;
+        }
+        app.update();
+        assert_eq!(
+            readiness(&app, charger),
+            Some(WeaponReadiness::NoAmmunition),
+            "the cooldown is spent and the meter is empty"
+        );
     }
 
     /// A RECHARGING SHOT SAYS SO, AND ONLY THAT SHOT DOES.

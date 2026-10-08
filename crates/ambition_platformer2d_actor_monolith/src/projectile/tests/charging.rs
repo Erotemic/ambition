@@ -310,16 +310,36 @@ fn half_circle_still_fires_hadouken_super() {
     );
 }
 
+/// Every refusal the fireball road has published so far.
+fn refusals(app: &mut bevy::prelude::App) -> Vec<ambition_combat::RangedFireRefused> {
+    app.world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<ambition_combat::RangedFireRefused>>()
+        .drain()
+        .collect()
+}
+
+/// ⭐ Q33: A PRESS IN THE COOLDOWN MAKES NO SHOT AND SAYS WHY. The control
+/// is the first press, which fires and publishes no refusal.
 #[test]
 fn cooldown_blocks_second_fire_in_same_window() {
     let mut app = min_app();
     tap_projectile(&mut app);
+    assert!(refusals(&mut app).is_empty(), "control: the first press fires");
     // Don't advance past the cooldown — second tap should be no-op.
     tap_projectile(&mut app);
     let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert_eq!(bodies.len(), 1);
+    let refused = refusals(&mut app);
+    assert_eq!(refused.len(), 1, "the refused press is published once: {refused:?}");
+    let ambition_combat::WeaponReadiness::Recharging { progress: Some(progress) } =
+        refused[0].readiness
+    else {
+        panic!("refused on the cooldown, with a progress: {:?}", refused[0]);
+    };
+    assert!(progress > 0.0 && progress < 1.0, "part of the cooldown is spent: {progress}");
 }
 
+/// ⭐ Q33: A PRESS WITH AN EMPTY METER MAKES NO SHOT AND SAYS "NO AMMUNITION".
 #[test]
 fn out_of_resource_blocks_fire() {
     let mut app = min_app();
@@ -330,6 +350,12 @@ fn out_of_resource_blocks_fire() {
     tap_projectile(&mut app);
     let bodies = crate::projectile::tests::projectile_bodies(&mut app);
     assert!(bodies.is_empty());
+    let refused = refusals(&mut app);
+    assert_eq!(
+        refused.iter().map(|r| r.readiness).collect::<Vec<_>>(),
+        vec![ambition_combat::WeaponReadiness::NoAmmunition],
+        "the empty meter is the reason"
+    );
 }
 
 #[test]

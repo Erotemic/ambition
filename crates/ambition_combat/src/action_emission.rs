@@ -15,6 +15,21 @@ use ambition_characters::brain::{
 
 use crate::moveset::{routes_ranged, ActorMoveset};
 
+/// Does the charge stream (the fireball road) own this body's ranged press?
+///
+/// ⛔ ONE PRESS, ONE OWNER, DECIDED ON THE EFFECTIVE REPERTOIRE. Charging is
+/// a CHARACTER fact (`ChargesProjectiles`), but the hand replaces the ranged
+/// slot after it: preparation revokes a charger's own `ranged` verb, so a
+/// `ranged` move in the live moveset is the held item's, and a held item is
+/// the whole ranged vocabulary. The move answers the press; the charge path
+/// does not hear it until the hand lets go.
+///
+/// The emitter below and the readiness read model both ask this, so the
+/// weapon a prompt reads is the weapon a press reaches.
+pub fn charge_stream_owns_the_press(charges: bool, moveset: Option<&ActorMoveset>) -> bool {
+    charges && !moveset.is_some_and(routes_ranged)
+}
+
 /// Bevy system: walk every actor entity that has a Brain +
 /// ActionSet + ambition_characters::control::ActorControl + BodyKinematics and emit one
 /// `ActorActionMessage` per resolved action request. Runs after the
@@ -83,22 +98,12 @@ pub fn emit_player_projectile_tick_messages(
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
     for (entity, control, charges, moveset) in &actors {
-        let moveset_ranged = moveset.is_some_and(routes_ranged);
         // Capability gate, not an identity gate: emit the charge-tick stream for
         // any actor that carries the chargeable-projectile ability — the player
         // today, a possessed body that adopts the player's kit tomorrow. (Was
         // `brain.is_player()`; bosses/enemies carry a `ranged` ActionSet for their
         // OWN projectiles, so this stays a dedicated opt-in marker, pay-for-use.)
-        if charges.is_none() {
-            continue;
-        }
-        // ⛔ ONE PRESS, ONE OWNER, DECIDED ON THE EFFECTIVE REPERTOIRE. Charging
-        // is a CHARACTER fact, but the hand replaces the ranged slot after it:
-        // preparation revokes a charger's own `ranged` verb, so a `ranged` move
-        // in the live moveset is the held item's — and a held item is the whole
-        // ranged vocabulary. The move answers the press; the charge path does
-        // not hear it until the hand lets go.
-        if moveset_ranged {
+        if !charge_stream_owns_the_press(charges.is_some(), moveset) {
             continue;
         }
         let frame = &control.0;

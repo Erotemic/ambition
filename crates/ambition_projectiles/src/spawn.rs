@@ -11,6 +11,10 @@ use ambition_platformer2d_core::ResourceMeter;
 pub struct ProjectileSpawner {
     pub meter: ResourceMeter,
     pub cooldown_remaining: f32,
+    /// The length of the cooldown when it was last set (s). Each kind has
+    /// its own cooldown, so the length is kept with the timer: a progress
+    /// read against one constant would be wrong for the other kinds.
+    pub cooldown_armed: f32,
 }
 
 impl ProjectileSpawner {
@@ -18,6 +22,7 @@ impl ProjectileSpawner {
         Self {
             meter: ResourceMeter::new(max_resource, regen_rate, 0.0),
             cooldown_remaining: 0.0,
+            cooldown_armed: 0.0,
         }
     }
 
@@ -48,6 +53,7 @@ impl ProjectileSpawner {
             return Err(SpawnFailure::OutOfResource);
         }
         self.cooldown_remaining = kind.cooldown();
+        self.cooldown_armed = self.cooldown_remaining;
         Ok(kind.spec(origin, direction, outgoing_damage_multiplier))
     }
 }

@@ -127,6 +127,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<ambition_combat::stocks::BodyKnockedOut>();
     app.add_message::<ambition_damage::WalletShieldSpent>();
     app.add_message::<ambition_projectiles::ProjectileSpawnRequest>();
+    app.add_message::<ambition_combat::RangedFireRefused>();
     // The unified stepper can heal the player on a parry, so the message must be
     // registered even though player projectiles never trigger it.
     app.add_message::<crate::avatar::PlayerHealRequested>();

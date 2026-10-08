@@ -593,6 +593,8 @@ pub enum WeaponReadiness {
     Recharging { progress: Option<f32> },
     /// The weapon has as many shots in flight as it may have.
     NoRoom,
+    /// The weapon's resource meter cannot pay for a shot.
+    NoAmmunition,
 }
 
 impl WeaponReadiness {
@@ -618,6 +620,27 @@ impl WeaponReadiness {
         Self::Ready
     }
 
+    /// The readiness of a meter-and-cooldown weapon (the player's fireball,
+    /// [`ambition_projectiles::ProjectileSpawner`]) for a shot of `kind`.
+    ///
+    /// The questions are asked in the order `ProjectileSpawner::try_spawn`
+    /// asks them, so the answer is the reason a press is refused.
+    pub fn of_spawner(
+        spawner: &ambition_projectiles::ProjectileSpawner,
+        kind: ambition_projectiles::ProjectileKind,
+    ) -> Self {
+        if spawner.cooldown_remaining > 0.0 {
+            let progress = (spawner.cooldown_armed > 0.0).then(|| {
+                (1.0 - spawner.cooldown_remaining / spawner.cooldown_armed).clamp(0.0, 1.0)
+            });
+            return Self::Recharging { progress };
+        }
+        if !spawner.meter.can_pay(kind.cost()) {
+            return Self::NoAmmunition;
+        }
+        Self::Ready
+    }
+
     pub fn ready(self) -> bool {
         matches!(self, Self::Ready)
     }
@@ -639,7 +662,8 @@ impl Default for BodyWeaponReadiness {
     }
 }
 
-/// A controller's attempt to fire that the body refused (`Q33`).
+/// A controller's attempt to fire that the body refused (`Q33`), on the
+/// action road or the fireball road.
 ///
 /// The body made no shot, so it also started no shot pose, sound or effect.
 /// Presentation may show the refusal (a click, a flash on the meter) or
@@ -915,6 +939,37 @@ mod weapon_readiness_tests {
             "a floor with no armed length has no progress"
         );
         assert_eq!(WeaponReadiness::of(&spent, Some(&spec), 1), WeaponReadiness::NoRoom);
+    }
+
+    /// The fireball's spawner: its cooldown (with the length of the kind that
+    /// set it), then its meter, in the order a press is refused.
+    #[test]
+    fn a_spawner_says_its_cooldown_then_its_meter() {
+        use ambition_projectiles::{ProjectileKind, ProjectileSpawner};
+        let mut spawner = ProjectileSpawner::new(3.0, 0.0);
+        assert_eq!(
+            WeaponReadiness::of_spawner(&spawner, ProjectileKind::Fireball),
+            WeaponReadiness::Ready
+        );
+        spawner
+            .try_spawn(ProjectileKind::Hadouken, Default::default(), Default::default(), 1.0)
+            .unwrap();
+        spawner.tick(ProjectileKind::Hadouken.cooldown() / 2.0);
+        let WeaponReadiness::Recharging { progress: Some(progress) } =
+            WeaponReadiness::of_spawner(&spawner, ProjectileKind::Fireball)
+        else {
+            panic!("a spawner in its cooldown is recharging with a progress");
+        };
+        assert!(
+            (progress - 0.5).abs() < 1e-4,
+            "half of the Hadouken's cooldown, not of the Fireball's: {progress}"
+        );
+        spawner.tick(ProjectileKind::Hadouken.cooldown());
+        assert_eq!(
+            WeaponReadiness::of_spawner(&spawner, ProjectileKind::Fireball),
+            WeaponReadiness::NoAmmunition,
+            "the Hadouken spent the meter"
+        );
     }
 
     /// ⭐ THE PROGRESS IS THE SHOT'S, NOT THE BODY'S. A held item arms the

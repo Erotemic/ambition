@@ -181,6 +181,8 @@ pub fn charge_projectile_input(
     // Firing emits a next-tick `ProjectileSpawnRequest`; its materializer runs after this
     // system so newly-fired projectiles first tick next frame.
     mut spawn_projectiles: MessageWriter<ProjectileSpawnRequest>,
+    // A refused press says why (`Q33`), as the action road's refusal does.
+    mut refused: MessageWriter<ambition_combat::RangedFireRefused>,
 ) {
     // Sim clock: spawner pacing freezes in bullet-time alongside the world.
     let dt = world_time.sim_dt();
@@ -317,6 +319,7 @@ pub fn charge_projectile_input(
                     0,
                     &mut events,
                     &mut spawn_projectiles,
+                    &mut refused,
                 ) as u32;
                 state.motion_buffer.clear();
                 state.charging = None;
@@ -342,6 +345,7 @@ pub fn charge_projectile_input(
                     tier,
                     &mut events,
                     &mut spawn_projectiles,
+                    &mut refused,
                 ) as u32;
             }
         } else if tick_info.intent && state.charging.is_none() && state.unlocked.fireball {
@@ -357,6 +361,7 @@ pub fn charge_projectile_input(
                 0,
                 &mut events,
                 &mut spawn_projectiles,
+                &mut refused,
             ) as u32;
         }
 
@@ -400,7 +405,19 @@ fn try_fire_projectile(
     charge_tier: u8,
     events: &mut Vec<ProjectileTraceEvent>,
     spawn_projectiles: &mut MessageWriter<ProjectileSpawnRequest>,
+    refused: &mut MessageWriter<ambition_combat::RangedFireRefused>,
 ) -> bool {
+    // ⭐ THE REFUSAL IS A FACT (`Q33`). Before, a cooldown refusal left
+    // nothing and an empty meter left only a trace event, so a refused press
+    // and no press looked the same to everything downstream. A failed
+    // `try_spawn` changes nothing, so the readiness read after it is the
+    // readiness the press was refused on.
+    let mut refuse = |state: &PlayerProjectileState| {
+        refused.write(ambition_combat::RangedFireRefused {
+            actor: owner,
+            readiness: ambition_combat::WeaponReadiness::of_spawner(&state.spawner, kind),
+        });
+    };
     match state
         .spawner
         .try_spawn(kind, origin, direction, damage_mult)
@@ -420,9 +437,13 @@ fn try_fire_projectile(
         }
         Err(ambition_projectiles::SpawnFailure::OutOfResource) => {
             events.push(ProjectileTraceEvent::BlockedByResource { kind });
+            refuse(state);
             false
         }
-        Err(ambition_projectiles::SpawnFailure::Cooldown) => false,
+        Err(ambition_projectiles::SpawnFailure::Cooldown) => {
+            refuse(state);
+            false
+        }
     }
 }
 

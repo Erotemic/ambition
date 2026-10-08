@@ -117,13 +117,24 @@ item's own spec, so its refusal is published too. Witnesses: `a_press_during_the
 `a_floor_armed_by_another_spec_reports_that_specs_progress` for a held
 item's shot (the control is the body's own shot).
 
-**Open: the fireball road.** The player's fireball fires through
-`PlayerProjectileState.spawner` (`ProjectileSpawner`: its own cooldown and a
-resource meter, `projectile/systems.rs::try_fire_projectile`), and a refused
-press there returns `false`: an empty meter leaves only a trace event
-(`BlockedByResource`), and a cooldown leaves nothing. It needs the same read
-model (with a `no ammunition` state for the meter) before its prompt can say
-why.
+**Built 2026-10-08, the fireball road.** A charge body's press reaches
+its fireball (`PlayerProjectileState.spawner`, `ProjectileSpawner`: a
+cooldown and a resource meter), not the floor.
+`WeaponReadiness::of_spawner` asks the spawner's questions in the order
+`try_spawn` asks them: `Recharging { progress }` from the cooldown and
+`cooldown_armed` (each kind has its own cooldown, schema 324), then
+`NoAmmunition` when the meter cannot pay (`ResourceMeter::can_pay`, the
+rule `try_spend` spends by). A refused press
+(`projectile/systems.rs::try_fire_projectile`) writes `RangedFireRefused`
+with that readiness. `derive_weapon_readiness` reads the weapon the press
+reaches, by the predicate the emitter uses
+(`action_emission::charge_stream_owns_the_press`), and inserts the read
+model on a charge body that has no floor. Witnesses:
+`cooldown_blocks_second_fire_in_same_window` and
+`out_of_resource_blocks_fire` (the control is the first press, which fires
+and is not refused), `a_spawner_says_its_cooldown_then_its_meter`, and
+`a_charge_body_carries_its_fireballs_readiness` (the control is a body with
+the same spawner that does not charge: it reads its floor).
 
 ## Menu activation policy
 

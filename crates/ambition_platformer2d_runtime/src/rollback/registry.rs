@@ -1078,7 +1078,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `armed`, the length of the floor when it was last armed. A held item arms
 /// the floor with its own spec, so the weapon's readiness progress reads the
 /// floor's length and not the body's authored action.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 323;
+/// ⛔⛤ 323 -> 324: `PlayerProjectileState`'s spawner also encodes
+/// `cooldown_armed`, the length of its cooldown when it was last set. Each
+/// projectile kind has its own cooldown, so the fireball's readiness progress
+/// reads the length that was set.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 324;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

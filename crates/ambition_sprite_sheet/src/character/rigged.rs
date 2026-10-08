@@ -770,6 +770,13 @@ impl FrameInSprite {
 /// in [`ComposedBodyDemandSet`], which runs before the driver. A body stays
 /// composited a short while after its last declaration, so a flickering demand
 /// does not move it between atlas and world every frame.
+///
+/// ⛔ Declare from the FACT that turns the reader on (a flash cue, a status, a
+/// portal in the room), not from state the reader builds out of the composited
+/// image. A reader that waits for that state before it declares never
+/// declares: Mary-O's first quasar was dark until a hit flash composited her.
+/// Until the image arrives (the frame after the first declaration) the reader
+/// draws nothing.
 #[derive(Resource, Default, Debug)]
 pub struct ComposedBodyDemand(bevy::platform::collections::HashSet<Entity>);
 

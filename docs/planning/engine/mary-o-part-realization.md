@@ -576,7 +576,7 @@ PNG.
 | --- | --- | --- |
 | Hit flash and blink (and its portal pieces) | root image + atlas rect | `rendering/hit_flash.rs:213-235, 720-735` |
 | Portal compositor (root is the only candidate) | root image + rect, `PortalPieceTint` | `ambition_portal2d_presentation/src/far_side.rs:217-247` |
-| Mary-O quasar star overlay | root image + frame | `game/ambition_demo_mary_o/src/quasar_shader.rs:228-250` |
+| Mary-O quasar star overlay | root image + frame | `game/ambition_demo_mary_o/src/quasar_shader.rs:246-273` |
 | Generic `SpriteEffect`, deep-dream overlay (not on Mary-O today) | host sprite image | `crates/ambition_sprite_fx/src/lib.rs` |
 | Loader: no baked PNG means no `CharacterSpriteAsset`, so no parts | file existence | `character_sprites/assets.rs:491-499` |
 | Part page folder is derived from the baked texture path | path | `character_sprites/rigged.rs:94-95` |

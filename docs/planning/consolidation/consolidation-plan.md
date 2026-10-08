@@ -18,9 +18,9 @@ Executable slices go to [`queue.md`](../queue.md).
 | 4 | C04 | Activated generation mechanics are the only live construction source | ✅ DONE 2026-09-20 | medium | — |
 | 5 | C05 | Collapse live content/session publication onto one admitted candidate | ⛔ DECIDED 2026-09-19: do not start; kept for its regression rule | none | — |
 | 6 | C06 | Converge reconstruction roads on one materialization/publication engine | ✅ CONVERGED 2026-09-23 | — | — |
-| 7 | C07 | Explicit composition contracts for required optional authorities | OPEN — startable | medium | none |
+| 7 | C07 | Explicit composition contracts for required optional authorities | ✅ CONVERGED 2026-10-08 | medium | — |
 | 8 | C08 | Prune compatibility facades and forwarding mirrors | OPEN — later cleanup | medium | stay off identity surfaces while ID-PEER runs |
-| 9 | C09 | Review crate boundaries by semantic ownership, not size | OPEN — later structural review | medium-large | after C03 and C07 settle owners |
+| 9 | C09 | Review crate boundaries by semantic ownership, not size | OPEN — later structural review | medium-large | after C03 settles owners (C07 converged) |
 | 10 | C10 | Separate current planning state from history | ✅ DONE 2026-09-14 | small | — |
 | 11 | C11 | Authority polish: one owner per mechanical fact, no mirror in the rollback kernel | ACTIVE as [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel); the queue row owns the order | medium | runs beside C03 and C07 |
 
@@ -95,6 +95,36 @@ verdict itself. Keep each road's retention filter explicit (`RoomResident` for
 transitions and dev reload, the wider `RoomScopedEntity` sweep for New Game).
 Do not merge those filters.
 
+### C07 — explicit composition contracts (converged 2026-10-08)
+
+Capabilities are optional and composable (Q146/Q144), and a production
+composition cannot hold a live state without its required owners:
+
+- Each optional read of a session-owned canonical authority names what its
+  `None` means, in a closed class vocabulary:
+  [session-authority-none-arms.md](session-authority-none-arms.md), held to source
+  by `scripts/check_session_authority_none_arms.py`.
+- Each supported profile installs every capability it does not omit and
+  validates its session-edge parameters, and refuses content that needs a
+  capability it omits (A9, `ambition_platformer2d_host/tests/supported_profiles.rs`).
+- A session-gated composition with no active scope refuses to mint a session root.
+- A root that a room publishes into refuses the room when it holds no
+  `ActiveContentBinding`, in a direct composition too (2026-10-08). Measured first,
+  with a probe on the arm: the SDK host tests verify 29 rooms in direct
+  compositions, and the shipped app and the three demo suites 2,302 shell-routed
+  ones; each root held a binding. Only monolith lib fixtures published into a root
+  without one, and they now state it. Witness:
+  `stage::tests::a_direct_root_with_no_content_binding_refuses_the_room` (poison:
+  the refusal only when shell-routed; red, the room publishes). A direct fixture
+  with no session root states no binding: there is no generation to be stale
+  against.
+
+**Regression rules:** a new optional read of a canonical authority gets a row, or
+the check is red. Do not make a required canonical authority optional so that a
+fixture can skip it; the fixture installs it. The ruling's greyed-out
+return-to-shell row has no composition to apply to (every composition that shows
+the system menu is shell-hosted); do not build it until a shell-less one exists.
+
 ### C10 — planning separation
 
 `queue.md` holds open executable work. `status.md` is a short orientation.
@@ -104,18 +134,18 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ## 3. C03 — Consolidate session-owned state and reduce reset-only App globals
 
-**State:** IN PROGRESS. Family 1 of the checkpoint coordinator landed 2026-10-07
-(see "Landed families" below); the other families are not started.
+**State:** IN PROGRESS. Three families have landed (see "Landed families"
+below); the others are not started.
 
 ### Scope and current authority
 
-Source explicitly groups **38** App resources as gameplay-session or
+Source explicitly groups **36** App resources as gameplay-session or
 activated-generation state (46 until the checkpoint family and the room memories
-left on 2026-10-07):
+left on 2026-10-07, 38 until the session clock left on 2026-10-08):
 
-<!-- session-owner-census: SessionScopedResources=37 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=35 SessionMechanics=1 -->
 <!-- session-root-family: SessionCheckpointState=6 -->
-- `SessionScopedResources` (**37**) in `actor_monolith/src/session/teardown.rs`;
+- `SessionScopedResources` (**35**) in `actor_monolith/src/session/teardown.rs`;
 - (`SessionOwnedCheckpointState`, the third bundle of six, is DELETED: its values are
   components of the session root, `SessionCheckpointState` (6) in
   `actor_monolith/src/session/checkpoint.rs`, and no reset runs for them.)
@@ -123,10 +153,8 @@ left on 2026-10-07):
 
 The HTML comment above is the machine-readable copy.
 `scripts/check_session_owner_census_matches_source.py` compares it with source.
-The census page lists the member names. The bundle also holds two optional
-members that the guard does not count: `BossDefeatsSinceCheckpoint` (checkpoint /
-restore state) and `WorldTimeSchedule` (a session-clock schedule).
-Include them in the migration.
+The census page lists the member names. The guard counts the optional
+(`Option<ResMut<..>>`) members too, for example `BossDefeatsSinceCheckpoint`.
 
 ### Measured facts that shape the campaign
 
@@ -181,11 +209,11 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=27/14 SessionWorldMut=22/13 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
+<!-- alias-split: SessionWorldRef=30/16 SessionWorldMut=28/15 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 27 / 14 |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 22 / 13 |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 30 / 16 |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 28 / 15 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
 | `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |
 | `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 9 / 9 |
@@ -208,7 +236,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 38 values. Work owner by owner:
+Do not begin by moving all 36 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
@@ -280,7 +308,7 @@ session ended in would otherwise skip its first room's quest event and cutscene.
   `component-clone-custom-checksum` and `component-canonical`. The schema version
   moves 319 -> 320.
 - **Deleted:** the two members of `SessionScopedResources` and their two reset lines.
-  `SessionScopedResources` is 37 and the App-resource total 38.
+  `SessionScopedResources` was 37 and the App-resource total 38.
 - **Witnesses:** `quest::tests::a_new_session_in_the_same_room_announces_it_again` and
   `cutscene::tests::a_new_session_in_the_same_room_queues_its_entry_cutscene_again`
   (A live and having announced `hall`; a candidate beside it has no memory and
@@ -290,6 +318,29 @@ session ended in would otherwise skip its first room's quest event and cutscene.
   two of the group, are read from crates below `SessionRoot` (`ambition_damage`,
   `ambition_characters::control`), so a root component would need those crates to
   name an upward type or a new seam. They are a different family.
+
+**3. The session clock, 2026-10-08.** `GameplayElapsed` (the session's sum of the
+scaled simulation dt, which the brain reads for its reaction-latency lookback) and
+`WorldTimeSchedule` (OW5: when each gone occurrence comes back, on that clock) are
+components of the session root, each required by `SessionRoot`.
+
+- **Rollback identities did not move:** `resource.gameplay_elapsed` and
+  `feature.world_time_schedule` keep their keys; their kinds are
+  `component-canonical` and `component-clone-custom-checksum`. The schema version
+  moves 331 -> 332.
+- **Deleted:** the two members of `SessionScopedResources` and their two reset lines.
+  `SessionScopedResources` is 35 and the App-resource total 36.
+- **Witness:**
+  `world_time_schedule::tests::two_session_roots_hold_two_clocks_and_two_schedules`
+  (A runs and schedules a return; a candidate beside it has neither and changes
+  neither; after the swap B counts from zero with no record).
+- **The match family is not started, and it is larger than the bundle shows:**
+  `StocksMatchSettled`, `SuddenDeathEntered`, `LiveMatchTicks` and
+  `SessionMatchOrdinal` are bundle members, and each is stamped with the
+  `MatchInstance` that `ActiveMatch` mints. `ActiveMatch` is not a bundle member (the
+  teardown removes it), but it is the same family. Measured 2026-10-08: about 360
+  references in 40 files (189 for `ActiveMatch` alone), the Smash demo's presentation
+  reads included.
 
 ### Constraints
 
@@ -308,133 +359,6 @@ safe.
 
 **Risk:** medium-high. Moving rollback state or pre-root coordinator state to the
 wrong owner can break startup, restore or snapshots.
-
-## 7. C07 — Explicit composition contracts for required optional authorities
-
-**State:** OPEN. Startable.
-
-### Ruling (2026-09-19, Q146/Q144)
-
-There are two supported composition modes, direct and shell-hosted, and the game
-is essentially the same in both. Capabilities stay optional and composable. When
-authored production content requires a capability that the composition lacks,
-the composition refuses that content or its admission. Reduced tools and tests
-may omit capabilities explicitly. No anonymous App-global fallback state returns.
-
-The ruling's "greyed-out return-to-shell row" has no composition to apply to:
-every composition that shows the system menu is shell-hosted. Do not build a
-disabled menu state until a shell-less composition exists.
-
-### Current state
-
-- `python3 scripts/architecture_census.py` reports 745 optional `Res`/`ResMut`
-  occurrences over 200 type spellings (2026-10-02). It is a discovery index, not a
-  defect list.
-- Three high-authority cases already use a composition discriminator
-  (`SessionGatedSimulation`): session scope, generation mechanics and content
-  binding. The shell-routed side refuses.
-- `ActiveSessionScope` is the largest single population of optional reads.
-- Eleven session-owned members (C03's list) are read optionally in production:
-  `ControlledSubject`, `AuthoredOccurrences`, `SessionMechanics`,
-  `OccurrenceBaseline`, `CustodyBaseline`, `MintedItemBaseline`, `BaseGravity`,
-  `ActiveConversation`, `StocksMatchSettled`, `PendingLifecycleCommit`,
-  `AcceptedCheckpointRestore`. This is the sharpest entry population, because
-  each `None` arm reads past a declared session owner.
-  Triage so far (2026-10-03). Each `None` arm was probed over `app_it`, the five
-  `*_it` suites, every target of the demo crates, and the touched crates' lib
-  tests.
-  - `PendingLifecycleCommit` (`drive_departures`) and `AcceptedCheckpointRestore`
-    (the room loader) were never absent, so both reads are now required.
-  - `StocksMatchSettled` was absent only in a character fixture, so its reason is
-    stated at the read.
-  - The three `ActiveConversation` reads already state theirs.
-  - `BaseGravity` waits on Q136.
-  - `ControlledSubject`: five reads were never absent in a composed suite and
-    are now required (`possession_trigger_system`, `gate_body_control`,
-    `rebuild_player_hud_facts`, `rebuild_hostile_wielded_items_view`,
-    `portal_input_adapter_system`). Only two unit fixtures in the monolith lib
-    ran a reader without the resource; they now insert it, as `PossessionPlugin`
-    does. `admit_room_replay` was not probed (it is in the restore chain).
-  - `AuthoredOccurrences`: its two writers scheduled with
-    `HeldItemSimulationPlugin` were never absent, in the Smash compositions
-    also, and are now required (`project_custody_onto_authored_occurrences`,
-    `record_placed_bodies`). The other reads (`minted_horizon`,
-    `durable_horizon`, the room loader, the checkpoint) are still optional and
-    not probed.
-  - `SessionMechanics` (2026-10-04): five live systems read it as "the value
-    of the generation, or that of the App when there is no generation"
-    (`fire_puppy_slug_gun_system`, `apply_summon_effects`,
-    `refresh_boss_damageable_volumes`, `serve_encounter_spawn_commands`,
-    `apply_feature_hit_events`). The `None` arm fired in four `app_it` modules
-    (`latched_input_reaches_the_tick`, `participant_input`,
-    `shell_host_lifecycle`, `smash_in_the_host`) and in lib fixtures. Measured
-    at the read: no session ran, and no body existed. One state is a direct
-    host that publishes a root and no generation. The other is the remainder of
-    the schedule run that retired the session: the session gate answered `true`
-    275 to 340 system ticks before the read, in the same run, and at the read
-    there was no root and no scope. So the `None` arm now returns, and the
-    App-registry parameters are deleted from the five systems: a live system
-    cannot reach the sheets or the boss catalog of the App. A required `Res` is
-    wrong here: the resource is removed at retirement, and the read would fail
-    parameter validation in that remainder. Witnesses:
-    `a_spawn_request_with_no_generation_builds_no_body`,
-    `a_hit_with_no_generation_is_not_resolved` (poison: an empty generation in
-    place of the refusal). A request that a refusal leaves on the bus is not
-    drained by the reader: the session edge owns that, see
-    [SESSION-EDGE-STATE](../engine/construction-and-reconstitution.md#the-session-edge).
-    The readers that build a room (the room loader, the prefetch, the world
-    reload) refuse through `GenerationMechanics::for_live_session`, and
-    `SenseExtent` refuses through the composition gate; none was changed.
-  - `OccurrenceBaseline`, `CustodyBaseline`, `MintedItemBaseline` (2026-10-04):
-    the four reads outside the restore chain were never absent, in the lib
-    fixtures also, and are now required (`capture_occurrence_baseline`,
-    `capture_custody_baseline`, `adopt_pinned_lifecycle_baselines`,
-    `restore_inventory_from_save`). The reads in `minted_horizon`,
-    `durable_horizon` and the checkpoint are still optional and not probed.
-  - **2026-10-08, after C03's checkpoint and room-memory families.** The remaining
-    reads are now a table, not a triage log:
-    [session-authority-none-arms.md](session-authority-none-arms.md) has one row per
-    function that reads a canonical authority optionally (83 rows, plus 42
-    presentation functions classified by prefix), a closed class vocabulary
-    (`reduced-composition`, `lifecycle-remainder`, `presentation`, `refuses`) and a
-    reason, and `scripts/check_session_authority_none_arms.py` holds it to source (a
-    new optional read with no row is red; so is a stale row). The `minted_horizon`
-    reads this section called "not probed" were settled by structure: the plugin
-    that registers the reader (`ItemCheckpointHorizonPlugin`, the boss plugin, the
-    features plugin, the combat plugin, the lifecycle horizon plugin) also installs the
-    resource, so twelve reads were converted to required. The reads that stay optional are the ones a
-    *different* plugin installs. `ActiveSessionScope` is the one population whose
-    `None` has two meanings (absent resource: no `SessionScopePlugin`, spawn
-    process-resident; present with no current scope: no gameplay, sleep); 26
-    non-presentation functions read it, and which meaning a *named composition*
-    supports is A9's profile question, not an ownership one. A9 answered it for the
-    supported profiles (2026-10-08): the omissions it exercises turned a dozen
-    required reads of dialogue, boss and cutscene state into `Option`s with a stated
-    reason, and moved the durable-room ledger from the held-items plugin to the
-    lifecycle horizon plugin.
-- ✅ The fallback no `Option` scan could see is closed (2026-10-03):
-  `insert_session_world_component` refuses in a session-gated composition
-  with no root and no active scope. A direct host (no gate) builds its one root
-  at the named `DIRECT_HOST_SESSION_SCOPE`. Measured first: the branch was
-  reached only by ungated lib-test fixtures, never by `app_it` or the demo
-  suites. Witness:
-  `a_gated_composition_with_no_active_scope_refuses_to_mint_a_session_root`
-  (poison: drop the assert).
-
-### Work
-
-Triage per call site, not per type. Ask what the `None` arm does: does it read
-or write state that a second coexisting session could legitimately hold
-differently? Many sites document their reason at the parameter; read that
-comment first. (`BaseGravity` in the kaleidoscope menu is a legitimate optional
-read: its `None` arm renders "n/a".)
-
-**Acceptance:** each optional canonical authority has one documented reason for
-absence, and a production profile cannot represent a live state without its
-required owners.
-
-**Risk:** medium. Making every resource required fights Bevy and removes
-supported compositions. Leaving required state optional fails open.
 
 ## 8. C08 — Prune compatibility facades and forwarding mirrors
 

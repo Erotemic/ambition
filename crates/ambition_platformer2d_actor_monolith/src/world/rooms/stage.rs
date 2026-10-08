@@ -1306,6 +1306,13 @@ mod tests {
             app.world_mut(),
             RoomSet::from_parts_or_panic("n", vec![empty_spec("n"), candidate_spec()], Vec::new()),
         );
+        // The session's content generation, as a session setup states it: a
+        // root that a room publishes into owes one (C07). The fixture's plans
+        // are prepared under it.
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            super::transaction::ActiveContentBinding(ContentBinding::content_unstated(Default::default())),
+        );
         let outgoing = ["n_body_a", "n_body_b"]
             .into_iter()
             .map(|id| {
@@ -1783,6 +1790,51 @@ mod tests {
         // further in.
     }
 
+    /// ⭐ C07: A ROOT WITH NO CONTENT BINDING REFUSES THE ROOM IN A DIRECT
+    /// COMPOSITION TOO. The fixture has no `SessionGatedSimulation`, as a
+    /// direct host has none, and its root carries no `ActiveContentBinding`:
+    /// the room is refused and the live world does not move. Before C07 closed,
+    /// only a shell-routed composition refused here, and a direct one published
+    /// a room whose staleness nothing checked. The control: the same fixture
+    /// with its binding publishes.
+    #[test]
+    fn a_direct_root_with_no_content_binding_refuses_the_room() {
+        let platform = MovingPlatformState::from_authored(
+            ae::Vec2::new(10.0, 20.0),
+            ae::Vec2::new(32.0, 8.0),
+            64.0,
+            10.0,
+        );
+        let publishes = |strip_binding: bool| {
+            let (mut app, outgoing) = last_good_world(platform.clone());
+            assert!(
+                !app.world()
+                    .contains_resource::<ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>(),
+                "precondition: the fixture is a direct composition"
+            );
+            if strip_binding {
+                let root = ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world())
+                    .expect("precondition: the fixture has a session root");
+                app.world_mut()
+                    .entity_mut(root)
+                    .remove::<super::transaction::ActiveContentBinding>();
+            }
+            let before = live_world(&mut app);
+            stage_the_candidate(&mut app, candidate_plan(), outgoing);
+            let published = app
+                .world()
+                .resource::<crate::world::rooms::LastConstructionVerification>()
+                .published;
+            (published, live_world(&mut app) == before)
+        };
+        assert_eq!(publishes(false), (true, false), "control: with its binding the room publishes and the world moves");
+        assert_eq!(
+            publishes(true),
+            (false, true),
+            "a direct root with no content binding published the room, or the refusal moved the live world"
+        );
+    }
+
     /// ⛔⛤ **A REFUSED CANDIDATE LEAVES WORLD N EXACTLY AS IT WAS.**
     ///
     /// The refusal is a REAL production one: the room transaction compares the
@@ -1943,10 +1995,14 @@ mod tests {
         );
         app.add_message::<ambition_platformer2d_world::rooms::RoomLoaded>();
         app.add_message::<ambition_platformer2d_actor_spawn::SpawnActorRequest>();
-        // A root that carries geometry and NOTHING ELSE.
+        // A root that carries geometry and its content binding, and no room set.
         ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
             app.world_mut(),
             ambition_platformer2d_core::RoomGeometry(empty_spec("n").world.clone()),
+        );
+        insert_session_world_component(
+            app.world_mut(),
+            super::transaction::ActiveContentBinding(ContentBinding::content_unstated(Default::default())),
         );
         // ⛔ THE PREMISE, both halves: there IS a root (or this arm is the
         // no-root one wearing a different name), and it carries no room set.

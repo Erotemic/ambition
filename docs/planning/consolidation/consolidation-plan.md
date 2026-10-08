@@ -391,6 +391,23 @@ disabled menu state until a shell-less composition exists.
     `capture_custody_baseline`, `adopt_pinned_lifecycle_baselines`,
     `restore_inventory_from_save`). The reads in `minted_horizon`,
     `durable_horizon` and the checkpoint are still optional and not probed.
+  - **2026-10-08, after C03's checkpoint and room-memory families.** The remaining
+    reads are now a table, not a triage log:
+    [session-authority-none-arms.md](session-authority-none-arms.md) has one row per
+    function that reads a canonical authority optionally (83 rows, plus 42
+    presentation functions classified by prefix), a closed class vocabulary
+    (`reduced-composition`, `lifecycle-remainder`, `presentation`, `refuses`) and a
+    reason, and `scripts/check_session_authority_none_arms.py` holds it to source (a
+    new optional read with no row is red; so is a stale row). The `minted_horizon`
+    reads this section called "not probed" were settled by structure: the plugin
+    that registers the reader (`ItemCheckpointHorizonPlugin`, the boss plugin, the
+    features plugin, the combat plugin) also installs the resource, so eleven
+    reads were converted to required. The reads that stay optional are the ones a
+    *different* plugin installs. `ActiveSessionScope` is the one population whose
+    `None` has two meanings (absent resource: no `SessionScopePlugin`, spawn
+    process-resident; present with no current scope: no gameplay, sleep); 26
+    non-presentation functions read it, and which meaning a *named composition*
+    supports is A9's profile question, not an ownership one.
 - ✅ The fallback no `Option` scan could see is closed (2026-10-03):
   `insert_session_world_component` refuses in a session-gated composition
   with no root and no active scope. A direct host (no gate) builds its one root

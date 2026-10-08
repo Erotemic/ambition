@@ -103,9 +103,9 @@ pub fn request_impact_hitstop_on_resolved_hits(
     mut hits: MessageReader<crate::hitbox::ResolvedBodyHit>,
     feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
     tick: Option<Res<ambition_time::SimTick>>,
-    hold: Option<ResMut<ImpactHitstop>>,
+    mut hold: ResMut<ImpactHitstop>,
 ) {
-    let (Some(feel), Some(tick), Some(mut hold)) = (feel, tick, hold) else {
+    let (Some(feel), Some(tick)) = (feel, tick) else {
         // A headless fixture that installed no feel route still runs this
         // schedule; no tuning means no freeze rather than a panic.
         hits.clear();

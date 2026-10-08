@@ -219,9 +219,9 @@ pub fn forget_boss_defeats_at_checkpoint(
 /// (fresh-run reducer, in `CheckpointDomainApply`)
 pub fn forget_boss_defeats_on_a_fresh_run(
     fresh: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>>,
-    since: Option<ResMut<BossDefeatsSinceCheckpoint>>,
+    mut since: ResMut<BossDefeatsSinceCheckpoint>,
 ) {
-    if let (Some(_), Some(mut since)) = (fresh, since) {
+    if fresh.is_some() {
         since.forget_all();
     }
 }

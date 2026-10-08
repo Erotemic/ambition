@@ -446,7 +446,7 @@ fn only_a_taken_authored_never_pickup_is_remembered_as_consumed() {
     use ambition_platformer2d_shared_tangle::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
     let mut app = App::new();
-    app.init_resource::<AuthoredOccurrences>();
+    app.init_resource::<AuthoredOccurrences>().init_resource::<ConsumedSinceCheckpoint>();
     app.add_systems(Update, record_consumed_pickups);
     let pickup = |app: &mut App, id: &str, respawn: HazardRespawn, authored: bool, taken: bool| {
         let mut feature = ambition_interaction::Pickup::new(id, ambition_interaction::PickupKind::Health { amount: 1 });

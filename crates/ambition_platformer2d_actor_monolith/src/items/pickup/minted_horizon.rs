@@ -124,14 +124,11 @@ impl MintedItemBaseline {
 pub fn capture_minted_item_baseline(
     mut commits: MessageReader<CheckpointCommitted>,
     carried: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
-    baseline: Option<ResMut<MintedItemBaseline>>,
+    mut baseline: ResMut<MintedItemBaseline>,
 ) {
     // Drained unconditionally, like every other reader of this channel: a commit
     // seen during a load must not be re-read against a world that has moved on.
     let committed = commits.read().count() > 0;
-    let Some(mut baseline) = baseline else {
-        return;
-    };
     if !committed {
         return;
     }
@@ -219,11 +216,11 @@ pub fn capture_owned_items_baseline(
         &ambition_characters::actor::BodyWallet,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    baseline: Option<ResMut<OwnedItemsBaseline>>,
+    mut baseline: ResMut<OwnedItemsBaseline>,
 ) {
     // Drained unconditionally, like every other reader of this channel.
     let committed = commits.read().count() > 0;
-    let (Some(owned), Some(mut baseline)) = (owned, baseline) else {
+    let Some(owned) = owned else {
         return;
     };
     if !committed {
@@ -324,8 +321,8 @@ pub fn reduce_owned_items_to_baseline(
 pub fn start_the_item_domain_fresh(
     fresh: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>>,
     inputs: Option<Res<ItemCheckpointRestoreInputs>>,
-    minted: Option<ResMut<MintedItemBaseline>>,
-    owned: Option<ResMut<OwnedItemsBaseline>>,
+    mut minted: ResMut<MintedItemBaseline>,
+    mut owned: ResMut<OwnedItemsBaseline>,
     mut wallets: Query<
         &mut ambition_characters::actor::BodyWallet,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
@@ -340,15 +337,11 @@ pub fn start_the_item_domain_fresh(
     let Some(inputs) = inputs else {
         return;
     };
-    if let Some(mut minted) = minted {
-        if *minted != inputs.minted {
-            *minted = inputs.minted.clone();
-        }
+    if *minted != inputs.minted {
+        *minted = inputs.minted.clone();
     }
-    if let Some(mut owned) = owned {
-        if *owned != inputs.owned {
-            *owned = inputs.owned.clone();
-        }
+    if *owned != inputs.owned {
+        *owned = inputs.owned.clone();
     }
 }
 
@@ -544,14 +537,12 @@ impl RewardGrantsSinceCheckpoint {
 pub fn forget_bag_records_at_checkpoint(
     mut commits: MessageReader<CheckpointCommitted>,
     mut grants: ResMut<RewardGrantsSinceCheckpoint>,
-    spends: Option<ResMut<ambition_held_items::BagSpendsSinceCheckpoint>>,
+    mut spends: ResMut<ambition_held_items::BagSpendsSinceCheckpoint>,
 ) {
     // Drained unconditionally, like every other reader of this channel.
     if commits.read().count() > 0 {
         grants.forget_all();
-        if let Some(mut spends) = spends {
-            spends.forget_all();
-        }
+        spends.forget_all();
     }
 }
 
@@ -561,21 +552,17 @@ pub fn forget_bag_records_at_checkpoint(
 /// (checkpoint reducer, in `CheckpointDomainApply`)
 pub fn keep_the_bag_records_the_restore_keeps(
     inputs: Option<Res<ItemCheckpointRestoreInputs>>,
-    grants: Option<ResMut<RewardGrantsSinceCheckpoint>>,
-    spends: Option<ResMut<ambition_held_items::BagSpendsSinceCheckpoint>>,
+    mut grants: ResMut<RewardGrantsSinceCheckpoint>,
+    mut spends: ResMut<ambition_held_items::BagSpendsSinceCheckpoint>,
 ) {
     let Some(inputs) = inputs else {
         return;
     };
-    if let Some(mut grants) = grants {
-        if *grants != inputs.grants {
-            *grants = inputs.grants.clone();
-        }
+    if *grants != inputs.grants {
+        *grants = inputs.grants.clone();
     }
-    if let Some(mut spends) = spends {
-        if *spends != inputs.spends {
-            *spends = inputs.spends.clone();
-        }
+    if *spends != inputs.spends {
+        *spends = inputs.spends.clone();
     }
 }
 
@@ -601,7 +588,7 @@ pub fn retract_mints_of_retracted_boss_defeats(
     mut hands: Query<ambition_combat::hand::RepertoireQuery>,
     save: Option<Res<AmbitionGameSave>>,
     occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
-    grants: Option<ResMut<RewardGrantsSinceCheckpoint>>,
+    mut grants: ResMut<RewardGrantsSinceCheckpoint>,
     mut wallets: Query<(&SimId, &mut ambition_characters::actor::BodyWallet)>,
     owned: Option<ResMut<ambition_items::OwnedItems>>,
 ) {
@@ -614,7 +601,7 @@ pub fn retract_mints_of_retracted_boss_defeats(
         return;
     }
     let mut owned = owned;
-    for grant in grants.map(|mut grants| grants.take_for(&bosses, &placements)).unwrap_or_default() {
+    for grant in grants.take_for(&bosses, &placements) {
         if grant.granted.coins != 0 {
             if let Some((_, mut wallet)) = wallets.iter_mut().find(|(id, _)| **id == grant.collector) {
                 wallet.add(-grant.granted.coins);

@@ -194,6 +194,10 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // `tick_pending_challenges` counts down starts on the tick the
                 // narrative asked for it rather than the one after.
                 ecs::arm_requested_challenges,
+                // Before the pet: a pet asked for in the conversation puts its
+                // own walk on the initiator after this has moved its step,
+                // so the pet's walk is the one that stays.
+                ecs::space_the_talkers,
                 ecs::apply_pet_requests,
                 // The pet's script: the walk's arrival, the gesture's end, and
                 // its interruption. After the request, so a petter already on

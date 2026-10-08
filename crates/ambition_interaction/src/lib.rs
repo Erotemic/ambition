@@ -73,7 +73,7 @@ pub enum InteractionKind {
         /// (the explicit `brain_override` / catalog `default_brain` does). `0.0`
         /// (the default) leaves the selected patrol preset's authored radius.
         /// Ignored by every non-patrol preset. Dialog reach does not depend on
-        /// it: an interact reaches the NPC when the bodies overlap.
+        /// it: an interact reaches the NPC within [`TALK_REACH`] of it.
         patrol_radius: f32,
         /// Optional authored `KinematicPathSpec` lookup id, threaded to a
         /// selected patrol preset that supports one. Like `patrol_radius`, a
@@ -285,9 +285,61 @@ pub enum BreakableState {
     Respawning,
 }
 
+/// How far apart two bodies can stand and still talk, in world units: the gap
+/// between their boxes on the side axis of the body that talks.
+///
+/// The one range of a conversation. Interact opens one inside it, the
+/// prompt offers one inside it, and a conversation breaks outside it. The gap
+/// a conversation puts between its two bodies is inside it.
+pub const TALK_REACH: f32 = 32.0;
+
+/// The box a body talks from: its collision box, grown by [`TALK_REACH`] on
+/// each end of its side axis.
+///
+/// `down` is the body's DOWN. Gravity is cardinal, so the side axis is world
+/// x unless `down` is on world x; a zero `down` (a body with no turn) is world
+/// x. Only the side axis grows, so a body does not talk through a floor to a
+/// body on the floor above.
+pub fn talk_reach(collision_box: Aabb, down: bevy_math::Vec2) -> Aabb {
+    let grow = if down.x.abs() > down.y.abs() {
+        bevy_math::Vec2::new(0.0, TALK_REACH)
+    } else {
+        bevy_math::Vec2::new(TALK_REACH, 0.0)
+    };
+    Aabb {
+        min: collision_box.min - grow,
+        max: collision_box.max + grow,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The reach grows on the side axis of the body's frame and not across
+    /// it: level, flipped, sideways, and with no turn.
+    #[test]
+    fn talk_reach_grows_only_on_the_side_axis() {
+        use bevy_math::Vec2;
+        let body = Aabb {
+            min: Vec2::new(0.0, 0.0),
+            max: Vec2::new(24.0, 48.0),
+        };
+        let level = Aabb {
+            min: Vec2::new(-TALK_REACH, 0.0),
+            max: Vec2::new(24.0 + TALK_REACH, 48.0),
+        };
+        assert_eq!(talk_reach(body, Vec2::new(0.0, 1.0)), level);
+        assert_eq!(talk_reach(body, Vec2::new(0.0, -1.0)), level);
+        assert_eq!(talk_reach(body, Vec2::ZERO), level);
+        assert_eq!(
+            talk_reach(body, Vec2::new(1.0, 0.0)),
+            Aabb {
+                min: Vec2::new(0.0, -TALK_REACH),
+                max: Vec2::new(24.0, 48.0 + TALK_REACH),
+            }
+        );
+    }
 
     #[test]
     fn breakable_moves_through_cracking_to_broken() {

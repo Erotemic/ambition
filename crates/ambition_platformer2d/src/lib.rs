@@ -505,6 +505,7 @@ pub use ambition_game_shell as game_shell;
 /// checkpoint policy over these components.
 pub use ambition_held_items as held_items;
 pub use ambition_input as input;
+pub use ambition_interaction as interaction;
 #[cfg(feature = "ambition_inventory_ui")]
 pub use ambition_inventory_ui as inventory_ui;
 pub use ambition_items as items;

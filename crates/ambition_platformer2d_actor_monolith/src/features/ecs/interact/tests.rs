@@ -6,6 +6,21 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use bevy::prelude::{App, NextState, Update};
 
+/// One room with no doors, the room every body here is in: the interaction
+/// asks the live room whether a door is nearer than a body to talk to, and
+/// production installs the room set with the session.
+pub(super) fn install_a_room_without_doors(app: &mut App) {
+    let world = ae::World::new("room", ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, Vec::new());
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "room",
+            vec![ambition_platformer2d_world::rooms::RoomSpec::new("room", world)],
+            Vec::new(),
+        ),
+    );
+}
+
 /// The switch ids this tick's interactions activated.
 ///
 /// Not the switch's state, which is the save's: the interaction's own output is
@@ -50,6 +65,7 @@ fn spawn_interaction_player_wearing(app: &mut App, pos: ae::Vec2, worn: &str) ->
 fn buffered_interact_toggles_an_adjacent_switch() {
     let center = ae::Vec2::new(100.0, 100.0);
     let mut app = App::new();
+    install_a_room_without_doors(&mut app);
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
     //  the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
@@ -118,6 +134,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     let subject_pos = ae::Vec2::new(600.0, 0.0);
 
     let mut app = App::new();
+    install_a_room_without_doors(&mut app);
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
     //  the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
@@ -241,6 +258,7 @@ fn spawn_pedestal(app: &mut App, pos: ae::Vec2, character_id: &str, dialogue_id:
 
 fn dialogue_app(nodes: &[&str]) -> App {
     let mut app = App::new();
+    install_a_room_without_doors(&mut app);
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
     //  the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
@@ -418,6 +436,7 @@ fn an_unpopulated_node_index_never_suppresses() {
 /// The resources `interact_ecs_actors_and_switches` needs, and nothing else.
 fn interaction_app() -> App {
     let mut app = App::new();
+    install_a_room_without_doors(&mut app);
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
     app.init_resource::<ambition_conversation::ActiveConversation>();

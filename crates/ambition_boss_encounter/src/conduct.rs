@@ -234,6 +234,7 @@ pub fn lower_bursts(
             "dust" => ParticleKind::Dust,
             "shard" => ParticleKind::Shard,
             "heart" => ParticleKind::Heart,
+            "streak" => ParticleKind::Streak,
             other => {
                 warn!("extension entry {} asked for a burst of {other:?}; refused", submitted.entry);
                 continue;

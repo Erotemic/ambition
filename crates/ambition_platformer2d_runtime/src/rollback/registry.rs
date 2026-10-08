@@ -1062,11 +1062,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// resources (C03). The keys and the projections are unchanged; the storage kind
 /// in each row is `component-clone-custom-checksum` now, so a snapshot carries the
 /// values on the root entity and the fingerprint moves once.
-/// ⛔⛤ 319 -> 320: `cutscene.last_room` (`LastCutsceneRoom`) and
+/// ⛔⛤ 319 -> 320: `entity:knocked_out_of_the_world` (canonical) — a fighter
+/// knocked out past the blast envelope is not drawn while its death window is
+/// open.
+/// ⛔⛤ 320 -> 321: `cutscene.last_room` (`LastCutsceneRoom`) and
 /// `resource.quest_last_room` (`LastQuestRoom`) are COMPONENTS of the session root
 /// (C03), not resources. The keys and the projections are unchanged; the kind in
 /// each row is `component-canonical` and `component-clone-custom-checksum` now.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 320;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 321;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -174,7 +174,7 @@ pub struct PetRequested {
 /// Pin a body where it stands with no side speed, keeping its fall (its
 /// speed toward `down`): the pet beat holds both bodies, and a held body is
 /// pinned by the motion authority, not by a bare velocity write.
-fn stop_where_it_stands(
+pub(super) fn stop_where_it_stands(
     kinematics: &mut ambition_platformer2d_core::BodyKinematics,
     down: ambition_platformer2d_core::Vec2,
 ) {
@@ -185,7 +185,7 @@ fn stop_where_it_stands(
 
 /// The frame a pet is in: the frame of the petter, or normal gravity for a
 /// body that has no frame.
-fn pet_frame(
+pub(super) fn pet_frame(
     frames: &Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     petter: Entity,
 ) -> ambition_platformer2d_core::AccelerationFrame {
@@ -196,7 +196,7 @@ fn pet_frame(
 }
 
 /// The half of a world box on a unit axis.
-fn half_on(half_size: ambition_platformer2d_core::Vec2, axis: ambition_platformer2d_core::Vec2) -> f32 {
+pub(super) fn half_on(half_size: ambition_platformer2d_core::Vec2, axis: ambition_platformer2d_core::Vec2) -> f32 {
     (half_size.x * axis.x).abs() + (half_size.y * axis.y).abs()
 }
 

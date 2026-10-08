@@ -267,6 +267,20 @@ where
             (u64::from(beat.mark.to_bits()) << 32) ^ stage ^ u64::from(beat.side.to_bits())
         },
     );
+    // A conversation's spacing: where the initiator steps to and the time
+    // the step has left. A rewind into the step must resume it, and one
+    // before the conversation must not keep a record the resimulation has
+    // not made. It is the one record of the step: no second decision is
+    // made while it is present.
+    registrar.rollback_component_clone_probed::<crate::features::ecs::TalkSpacing>(
+        OWNER,
+        "actor.talk_spacing",
+        |spacing| {
+            (u64::from(spacing.mark.to_bits()) << 32)
+                ^ u64::from(spacing.walking.to_bits())
+                ^ (u64::from(spacing.side.to_bits()) << 1)
+        },
+    );
     registrar.rollback_component_clone_probed::<crate::features::transform_beat::TransformBeat>(
         OWNER,
         "actor.transform_beat",

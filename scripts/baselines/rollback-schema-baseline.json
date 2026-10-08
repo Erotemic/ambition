@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v320",
+    "version": "ggrs-rollback-schema-v321",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -85,6 +85,7 @@
       "entity.spawn_origin\tcomponent-canonical\tSpawnOrigin",
       "entity:fighter_eliminated\tcomponent-canonical\tFighterEliminated",
       "entity:fighter_stocks\tcomponent-canonical\tFighterStocks",
+      "entity:knocked_out_of_the_world\tcomponent-canonical\tKnockedOutOfTheWorld",
       "entity:pending_respawn\tcomponent-canonical\tPendingRespawn",
       "entity:respawn_grace\tcomponent-canonical\tRespawnGrace",
       "extension.body_records\tcomponent-clone-custom-checksum\tBodyRecords\tbevy_ggrs clone snapshot + every module record of the body: schema shape digest and canonical values",
@@ -187,6 +188,7 @@
     "ambition_combat::moveset::StrikeRank",
     "ambition_combat::stale::BodyStaleMoves",
     "ambition_combat::stocks::FighterEliminated",
+    "ambition_combat::stocks::KnockedOutOfTheWorld",
     "ambition_combat::stocks::PendingRespawn",
     "ambition_combat::stocks::RespawnGrace",
     "ambition_combat::targeting::MatchTeam",

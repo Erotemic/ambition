@@ -563,7 +563,7 @@ pub fn bind_rigged_presentations(
     admission: Option<Res<RiggedSpriteAdmission>>,
     assets: Option<Res<GameAssets>>,
     asset_server: Option<Res<AssetServer>>,
-    mut impostors: ImpostorAssets,
+    impostors: ImpostorAssets,
     mut by_sheet: Local<HashMap<(String, TextureResolutionScale), RiggedSpritePages>>,
     mut posed_by_target: Local<HashMap<String, Option<Arc<PosedParts>>>>,
     mut roots: Query<(

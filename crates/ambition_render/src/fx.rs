@@ -360,6 +360,34 @@ pub fn vfx_spawn_messages(
                     kind,
                 );
             }
+            VfxMessage::Jet {
+                pos,
+                toward,
+                spread,
+                count,
+                speed,
+                color,
+                kind,
+            } => spawn_jet(
+                &mut commands,
+                spawn_scope,
+                world,
+                pos,
+                toward,
+                spread,
+                count as usize,
+                speed,
+                color,
+                kind,
+            ),
+            VfxMessage::Beam {
+                pos,
+                toward,
+                length,
+                width,
+                color,
+                seconds,
+            } => spawn_beam(&mut commands, spawn_scope, world, pos, toward, length, width, color, seconds),
             VfxMessage::Dust { pos, facing } => {
                 spawn_dust(&mut commands, spawn_scope, world, pos, facing)
             }
@@ -726,12 +754,116 @@ pub fn update_particles(
             ParticleKind::Shard => p.radius * (1.0 - 0.15 * t),
             // Swells in, then holds its size as it fades.
             ParticleKind::Heart => p.radius * (0.6 + 0.4 * (t * 5.0).min(1.0)),
+            ParticleKind::Streak => p.radius * (1.0 - 0.5 * t),
         };
         if let Some(world) = world.of(entity) {
             transform.translation = world_to_bevy(&world.0, p.pos, WORLD_Z_FX);
         }
-        sprite.custom_size = Some(BVec2::splat(size.max(0.5)));
+        if p.kind == ParticleKind::Streak {
+            // Stretched along its velocity: the faster, the longer.
+            let length = (p.vel.length() * STREAK_SECONDS).max(size * 2.0);
+            sprite.custom_size = Some(BVec2::new(length, size.max(0.5)));
+            transform.rotation = bevy::math::Quat::from_rotation_z(screen_angle(p.vel));
+        } else {
+            sprite.custom_size = Some(BVec2::splat(size.max(0.5)));
+        }
         sprite.color = rgba(p.rgba[0], p.rgba[1], p.rgba[2], alpha);
+    }
+}
+
+/// How long a streak's drawn line is, as the seconds of travel at its speed.
+const STREAK_SECONDS: f32 = 0.045;
+
+/// The angle on screen of a world-space direction (world +y is down, Bevy +y
+/// is up), for a sprite whose length lies along its +x axis.
+fn screen_angle(world_dir: ae::Vec2) -> f32 {
+    (-world_dir.y).atan2(world_dir.x)
+}
+
+/// A column of light from `base` along `toward`. See [`VfxMessage::Beam`].
+#[derive(Component)]
+pub struct BeamVisual {
+    base: ae::Vec2,
+    toward: ae::Vec2,
+    length: f32,
+    width: f32,
+    rgba: [f32; 4],
+    age: f32,
+    lifetime: f32,
+}
+
+/// The fraction of its lifetime a beam takes to reach its full length.
+const BEAM_GROWTH: f32 = 0.18;
+
+/// The beam's drawn length and width at age fraction `t` in `0..=1`: it
+/// shoots out quickly (ease-out), then holds its length while it thins.
+fn beam_shape(length: f32, width: f32, t: f32) -> (f32, f32) {
+    let grown = (t / BEAM_GROWTH).min(1.0);
+    let reach = 1.0 - (1.0 - grown) * (1.0 - grown);
+    (length * reach, width * (1.0 - 0.7 * t))
+}
+
+pub fn spawn_beam(
+    commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
+    world: &ae::World,
+    base: ae::Vec2,
+    toward: ae::Vec2,
+    length: f32,
+    width: f32,
+    color_rgba: [f32; 4],
+    seconds: f32,
+) {
+    let Some(session_scope) = session_scope else {
+        return;
+    };
+    let toward = toward.normalize_or(ae::Vec2::new(0.0, -1.0));
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            Sprite::from_color(
+                rgba(color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3]),
+                BVec2::new(1.0, width),
+            ),
+            Transform::from_translation(world_to_bevy(world, base, WORLD_Z_FX + 1.0))
+                .with_rotation(bevy::math::Quat::from_rotation_z(screen_angle(toward))),
+            BeamVisual {
+                base,
+                toward,
+                length,
+                width,
+                rgba: color_rgba,
+                age: 0.0,
+                lifetime: seconds.max(0.05),
+            },
+        ),
+    );
+}
+
+pub fn update_beams(
+    mut commands: Commands,
+    time: Res<Time>,
+    world: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
+    mut query: Query<(Entity, &mut BeamVisual, &mut Transform, &mut Sprite)>,
+) {
+    let dt = time.delta_secs();
+    for (entity, mut beam, mut transform, mut sprite) in &mut query {
+        beam.age += dt;
+        if beam.age >= beam.lifetime {
+            commands.entity(entity).despawn();
+            continue;
+        }
+        let t = (beam.age / beam.lifetime).clamp(0.0, 1.0);
+        let (length, width) = beam_shape(beam.length, beam.width, t);
+        // The sprite is centred on its middle, so the middle is half the drawn
+        // length out from the base.
+        let middle = beam.base + beam.toward * (length / 2.0);
+        if let Some(world) = world.of(entity) {
+            transform.translation = world_to_bevy(&world.0, middle, WORLD_Z_FX + 1.0);
+        }
+        sprite.custom_size = Some(BVec2::new(length.max(0.5), width.max(0.5)));
+        let alpha = beam.rgba[3] * (1.0 - t) * (1.0 - t);
+        sprite.color = rgba(beam.rgba[0], beam.rgba[1], beam.rgba[2], alpha);
     }
 }
 
@@ -921,6 +1053,7 @@ const fn particle_drag(kind: ParticleKind) -> f32 {
         ParticleKind::Dust => 4.7,
         ParticleKind::Shard => 1.8,
         ParticleKind::Heart => 0.9,
+        ParticleKind::Streak => 2.6,
     }
 }
 
@@ -932,6 +1065,8 @@ const fn particle_gravity(kind: ParticleKind) -> f32 {
         ParticleKind::Shard => 650.0,
         // Negative: a heart keeps rising (world y is down-positive).
         ParticleKind::Heart => -30.0,
+        // A streak is a line of light: it does not fall.
+        ParticleKind::Streak => 0.0,
     }
 }
 
@@ -975,6 +1110,61 @@ pub fn spawn_burst(
         let strength = speed * (0.45 + 0.55 * ((i * 13 + 5) % 11) as f32 / 10.0);
         let vel = ae::Vec2::new(angle.cos() * strength, angle.sin() * strength);
         let radius = 2.0 + 2.5 * ((i * 5 + 1) % 7) as f32 / 6.0;
+        let lifetime = BURST_MIN_LIFETIME + BURST_LIFETIME_SPREAD * ((i * 7 + 3) % 9) as f32 / 8.0;
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                Sprite::from_color(
+                    rgba(color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3]),
+                    BVec2::splat(radius),
+                ),
+                Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX)),
+                ParticleVisual {
+                    kind,
+                    pos,
+                    vel,
+                    age: 0.0,
+                    lifetime,
+                    radius,
+                    rgba: color_rgba,
+                    gravity: particle_gravity(kind),
+                    drag: particle_drag(kind),
+                },
+            ),
+        );
+    }
+}
+
+/// A burst thrown in one direction: see [`VfxMessage::Jet`]. The particles
+/// are spread evenly across the cone, with the same deterministic variety of
+/// speed, size and lifetime as [`spawn_burst`].
+pub fn spawn_jet(
+    commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
+    world: &ae::World,
+    pos: ae::Vec2,
+    toward: ae::Vec2,
+    spread: f32,
+    count: usize,
+    speed: f32,
+    color_rgba: [f32; 4],
+    kind: ParticleKind,
+) {
+    let Some(session_scope) = session_scope else {
+        return;
+    };
+    let toward = toward.normalize_or(ae::Vec2::new(0.0, -1.0));
+    let centre = toward.y.atan2(toward.x);
+    let count = count.max(1);
+    for i in 0..count {
+        let t = if count == 1 { 0.5 } else { i as f32 / (count - 1) as f32 };
+        let wobble = ((i * 37 + 17) as f32).sin() * 0.3 * spread / count as f32;
+        let angle = centre + spread * (2.0 * t - 1.0) + wobble;
+        // The middle of the cone is the fastest, so the jet has a spine.
+        let core = 1.0 - (2.0 * t - 1.0).abs();
+        let strength = speed * (0.45 + 0.35 * core + 0.2 * ((i * 13 + 5) % 11) as f32 / 10.0);
+        let vel = ae::Vec2::new(angle.cos() * strength, angle.sin() * strength);
+        let radius = 2.5 + 3.0 * ((i * 5 + 1) % 7) as f32 / 6.0;
         let lifetime = BURST_MIN_LIFETIME + BURST_LIFETIME_SPREAD * ((i * 7 + 3) % 9) as f32 / 8.0;
         commands.spawn_session_scoped(
             session_scope,
@@ -1299,6 +1489,8 @@ pub fn update_blink_preview(
 
 #[cfg(test)]
 mod room_tests;
+#[cfg(test)]
+mod jet_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1779,6 +1971,7 @@ pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
         Update,
         (
             update_particles,
+            update_beams,
             update_effects,
             update_impacts,
             update_speech_bubbles,
@@ -1816,16 +2009,16 @@ mod install_tests {
         update
             .initialize(app.world_mut())
             .expect("the Update schedule initializes");
-        // Eleven: the eight registered systems plus the three `apply_deferred`
+        // Thirteen: the nine registered systems plus the four `apply_deferred`
         // sync points Bevy inserts between chained members. They cannot be
         // filtered out, because without the `debug` feature every system name
         // is a placeholder. If Bevy changes its sync-point policy, update this
         // count.
         assert_eq!(
             update.systems_len(),
-            11,
+            13,
             "the FX pipeline lost a stage in the carve: 3 request systems + \
-             vfx_spawn_messages + 4 ageing systems, plus 3 Bevy sync points"
+             vfx_spawn_messages + 5 ageing systems, plus 4 Bevy sync points"
         );
     }
 }

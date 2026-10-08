@@ -57,13 +57,17 @@ pub struct TalkableBodies<'w, 's> {
 
 impl TalkableBodies<'_, '_> {
     /// The distance from `subject`'s position to the nearest body it can talk
-    /// to in its reach box, if there is one.
+    /// to, if there is one: a body in the talk reach
+    /// ([`ambition_interaction::talk_reach`]) of `subject`'s collision box,
+    /// for a body whose DOWN is `down`.
     pub fn nearest_in_reach(
         &self,
         subject: Entity,
         at: ambition_platformer2d_core::Vec2,
-        reach: ambition_platformer2d_core::Aabb,
+        collision_box: ambition_platformer2d_core::Aabb,
+        down: ambition_platformer2d_core::Vec2,
     ) -> Option<f32> {
+        let reach = ambition_interaction::talk_reach(collision_box, down);
         self.bodies
             .iter()
             .filter(|(entity, aabb, disposition, health, (out_of_play, plane))| {
@@ -155,9 +159,11 @@ pub fn interact_ecs_actors_and_switches(
     mut quest_advance: MessageWriter<QuestAdvanceRequested>,
     // With the live rooms and the seats that drive a body, in one parameter:
     // the system is at Bevy's parameter ceiling.
-    (mut switch_activated, live_rooms, seats): (
+    // The live rooms with their specs: a door the body stands in is nearer
+    // than a body to talk to, or not.
+    (mut switch_activated, rooms, seats): (
         MessageWriter<SwitchActivated>,
-        ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+        ambition_platformer2d_world::rooms::LiveRoomSpecs,
         Query<&ambition_characters::control::DrivingParticipant>,
     ),
     mut vfx: VfxWriter,
@@ -166,6 +172,7 @@ pub fn interact_ecs_actors_and_switches(
     // commits. Short enough that the gesture clears before dialogue UI
     // or the room transition takes camera focus.
     const INTERACT_ANIM_HOLD_SECS: f32 = 0.28;
+    let live_rooms = rooms.live();
     // The body actually doing the interacting: the controlled subject (the body
     // holding the primary seat), falling back to the primary player itself for
     // the startup frame before the subject resolver has run.
@@ -184,6 +191,15 @@ pub fn interact_ecs_actors_and_switches(
             continue;
         };
         let reach_aabb = subject_kin.collision_box(subject_step);
+        // A body talks from a little farther than it touches.
+        let talk_aabb = ambition_interaction::talk_reach(
+            reach_aabb,
+            subject_step.map_or(ambition_platformer2d_core::Vec2::ZERO, |step| step.down),
+        );
+        // The door this body stands in, if any. A door nearer than a body to
+        // talk to keeps the press: the door's own rule, from its side
+        // (`LiveRoomSpecs::nearest_door_under`).
+        let door = rooms.nearest_door_under(subject, reach_aabb, subject_kin.pos);
         // WHO is doing the talking. A possessed body speaks as the character it IS;
         // the home avatar speaks as the character it WEARS; a body that is neither
         // speaks as its placement. Ids, never display names — a name is a
@@ -218,7 +234,10 @@ pub fn interact_ecs_actors_and_switches(
                 continue;
             }
             let interactable = &interaction_payload.interactable;
-            if !aabb.aabb().strict_intersects(reach_aabb) {
+            if !aabb.aabb().strict_intersects(talk_aabb) {
+                continue;
+            }
+            if door.is_some_and(|door| door <= aabb.center.distance(subject_kin.pos)) {
                 continue;
             }
             let request = super::super::npcs::npc_dialogue_request(

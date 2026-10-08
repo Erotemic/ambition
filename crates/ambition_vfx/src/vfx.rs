@@ -28,6 +28,9 @@ pub enum ParticleKind {
     Shard,
     /// A heart that drifts up and fades: affection, not force.
     Heart,
+    /// A bright line drawn stretched along its own velocity: the jet of a
+    /// blast. It slows and thins as it fades, and does not fall.
+    Streak,
 }
 
 /// High-level physics-debris recipe a gameplay event handler emits
@@ -336,6 +339,28 @@ pub enum VfxMessage {
         pos: ae::Vec2,
         text: String,
     },
+    /// A burst thrown in one direction: `count` particles leave `pos` inside
+    /// a cone of half-angle `spread` (radians) about `toward` (a unit vector,
+    /// world space, +y down). A [`Self::Burst`] throws in every direction.
+    Jet {
+        pos: ae::Vec2,
+        toward: ae::Vec2,
+        spread: f32,
+        count: u32,
+        speed: f32,
+        color: [f32; 4],
+        kind: ParticleKind,
+    },
+    /// A column of light that shoots from `pos` along `toward` (a unit vector,
+    /// world space, +y down) to `length`, then thins and fades over `seconds`.
+    Beam {
+        pos: ae::Vec2,
+        toward: ae::Vec2,
+        length: f32,
+        width: f32,
+        color: [f32; 4],
+        seconds: f32,
+    },
     /// The body with this feature id plays its short bark pose. Emitted with an
     /// ambient bark's speech bubble. The pose's timer belongs to presentation,
     /// so a rewind cannot leave it on the simulated body.
@@ -466,9 +491,10 @@ pub struct KnockoutBeatRequested {
     /// Whether that was its LAST stock. The simulation's own answer, never a
     /// comparison of remaining against zero on the presentation side.
     pub eliminated: bool,
-    /// How fast it was going when it went out — the launch trail's own band, so
-    /// the plume and the burst that ends it agree about the same flight.
-    pub speed: f32,
+    /// Its velocity when it went out, in world units per second. Its length is
+    /// scored on the launch trail's own band, so the plume and the blast that
+    /// ends it agree about the same flight; its direction aims the blast.
+    pub launch: ae::Vec2,
     /// The live room the body left play in (`LiveRooms::of`). The beat is
     /// drawn in that room.
     pub room: Option<LiveRoomInstance>,

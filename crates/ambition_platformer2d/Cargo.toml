@@ -197,6 +197,7 @@ ambition_combat = { path = "../ambition_combat" }
 ambition_boss_encounter = { path = "../ambition_boss_encounter" }
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 ambition_conversation = { path = "../ambition_conversation" }
+ambition_interaction = { path = "../ambition_interaction" }
 # ⛔⛔ THE EIGHT BELOW ARE NOT OPTIONAL AND ADVERTISING THEM WAS THE DEFECT (A9).
 # Measured by `scripts/measure_minimum_profile_parentage.py`: each is linked by a
 # NON-OPTIONAL dependency of this facade -- every one of them by

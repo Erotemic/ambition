@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v320
+ggrs-rollback-schema-v321
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -69,6 +69,7 @@ actor.stored_move_charge	component-clone	StoredMoveCharge	bevy_ggrs clone snapsh
 actor.strike_rank	component-canonical	StrikeRank	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.summoned_to_the_fight	component-clone	SummonedToTheFight	bevy_ggrs clone snapshot; not in the session checksum
 actor.surface_state	component-canonical	ActorSurfaceState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.talk_spacing	component-clone	TalkSpacing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.target	component-clone-cursor	ActorTarget	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.transform_beat	component-clone	TransformBeat	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.transform_beat_requested	component-clone	TransformBeatRequested	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -216,6 +217,7 @@ entity:fighter_stocks	component-canonical	FighterStocks	bevy_ggrs canonical code
 entity:ground_item	required-rollback	GroundItem	component presence automatically installs bevy_ggrs::Rollback
 entity:heal_shrine	required-rollback	HealShrine	component presence automatically installs bevy_ggrs::Rollback
 entity:hitbox	required-rollback	Hitbox	component presence automatically installs bevy_ggrs::Rollback
+entity:knocked_out_of_the_world	component-canonical	KnockedOutOfTheWorld	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:live_projectile	required-rollback	LiveProjectile	component presence automatically installs bevy_ggrs::Rollback
 entity:mary_o_mode_owner	required-rollback	MaryOLevelState	component presence automatically installs bevy_ggrs::Rollback
 entity:module_entity	required-rollback	ModuleEntity	component presence automatically installs bevy_ggrs::Rollback

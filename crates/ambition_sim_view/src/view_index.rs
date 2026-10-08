@@ -319,6 +319,9 @@ pub fn rebuild_feature_view_index(
                 Option<&ae::DepthPlane>,
                 // The body, for the live room it is in.
                 Entity,
+                // A fighter knocked out past the blast envelope is not drawn
+                // while it waits to come back.
+                bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
             ),
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., written at
@@ -515,7 +518,7 @@ pub fn rebuild_feature_view_index(
         sprite_offset,
         respawn_grace,
         body_mode,
-        (playback, line_anchor, limb, depth_plane, entity),
+        (playback, line_anchor, limb, depth_plane, entity, out_of_the_world),
     ) in &actors
     {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
@@ -536,7 +539,7 @@ pub fn rebuild_feature_view_index(
         // fighter. `BodyMode::hides_the_body` is where the sentence lives now so
         // the two roads cannot drift apart again.
         let submerged = body_mode.is_some_and(|m| m.body_mode.hides_the_body());
-        let visible = (!hostile || alive) && !submerged;
+        let visible = (!hostile || alive) && !submerged && !out_of_the_world;
         let flash = combat.is_some_and(|c| c.hit_flash > 0.0)
             || (hostile
                 && ambition_combat::moveset::melee_swing_of(playback, moveset)

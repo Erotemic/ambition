@@ -428,6 +428,31 @@ impl LiveRoomSpecs<'_, '_> {
         &self.rooms
     }
 
+    /// How far `at` is from the centre of the nearest door that `body`
+    /// overlaps in the live room of `entity`, or `None` when it is in no
+    /// door. A door is a [`LoadingZoneActivation::Door`] zone: the kind a
+    /// press opens.
+    ///
+    /// One press can be for a door or for a body to talk to. The nearer of
+    /// the two takes it, and both the door and the conversation ask this
+    /// distance, so the two cannot both take one press.
+    pub fn nearest_door_under(
+        &self,
+        entity: bevy_ecs::entity::Entity,
+        body: ae::Aabb,
+        at: ae::Vec2,
+    ) -> Option<f32> {
+        use ae::AabbExt as _;
+        self.spec_of(entity)?
+            .loading_zones
+            .iter()
+            .filter(|zone| {
+                matches!(zone.activation, LoadingZoneActivation::Door) && body.strict_intersects(zone.aabb)
+            })
+            .map(|zone| zone.aabb.center().distance(at))
+            .min_by(f32::total_cmp)
+    }
+
     /// Which live room an entity is in, by the rule every reader here uses.
     pub fn live(&self) -> &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'_, '_> {
         &self.live

@@ -796,6 +796,37 @@ pub fn insert_session_world_component<T: Bundle>(world: &mut World, component: T
     entity
 }
 
+/// Make every session root carry a `T`, born with `T::default()`.
+///
+/// ⭐ **THIS IS HOW A VALUE BECOMES THE SESSION ROOT'S (C03).** A value that
+/// lives on the root needs no reset at a session edge: a new root is born with
+/// the default, and a candidate prepared beside a live session holds its own.
+/// The requirement is on [`SessionRoot`], so a root has `T` from the moment a
+/// candidate is published (the swap inserts `SessionRoot`); a hidden candidate
+/// has none, because nothing reads a session's state before it is live.
+///
+/// ⛔ Bevy refuses a required-components registration once an entity with the
+/// requiring component exists. A plugin installed late (a focused test that
+/// built its root first) must not leave that root without `T`, because every
+/// reader of the root's state is a `Single` on the root and would skip in
+/// silence. So the roots that exist are given `T` here, and every root built
+/// after gets it by requirement.
+pub fn require_on_session_root<T: Component + Default>(app: &mut App) {
+    let world = app.world_mut();
+    if world
+        .try_register_required_components::<SessionRoot, T>()
+        .is_err()
+    {
+        let roots: Vec<Entity> = world
+            .query_filtered::<Entity, With<SessionRoot>>()
+            .iter(world)
+            .collect();
+        for root in roots {
+            world.entity_mut(root).insert_if_new(T::default());
+        }
+    }
+}
+
 /// Signal that a session scope has retired.
 #[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SessionScopeRetired(pub SessionScopeId);

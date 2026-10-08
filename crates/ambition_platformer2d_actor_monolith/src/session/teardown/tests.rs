@@ -44,8 +44,6 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>();
     app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>();
     app.init_resource::<crate::items::pickup::minted_horizon::MintedItemBaseline>();
-    app.init_resource::<ambition_persistence::quest::LastQuestRoom>();
-    app.init_resource::<ambition_cutscene::LastCutsceneRoom>();
     app.init_resource::<ambition_projectiles::ProjectileSeqCounter>();
     app.init_resource::<crate::session::lifecycle_commit::PendingLifecycleCommit>();
     // ⛔ THE OWNER. `reset_session_scoped_resources_on_retire` refuses a
@@ -105,13 +103,6 @@ fn app_with_populated_mirrors() -> App {
     app.world_mut()
         .resource_mut::<crate::session::durable_horizon::SaveRestored>()
         .0 = true;
-    // Session A last announced this room to quests and cutscenes.
-    app.world_mut()
-        .resource_mut::<ambition_persistence::quest::LastQuestRoom>()
-        .0 = vec!["intro_wake_room".to_owned()];
-    app.world_mut()
-        .resource_mut::<ambition_cutscene::LastCutsceneRoom>()
-        .0 = vec!["intro_wake_room".to_owned()];
     // ...and its world had somewhere to put things.
     {
         let world = app.world_mut();
@@ -288,22 +279,6 @@ fn retirement_clears_every_session_scoped_mirror() {
         "a ledger describing the retired session's world survived teardown: it \
          says where objects are and who was holding them in a world that no \
          longer exists"
-    );
-    assert_eq!(
-        app.world()
-            .resource::<ambition_persistence::quest::LastQuestRoom>()
-            .0,
-        Vec::<String>::new(),
-        "the quest room-entry memory survived teardown: a new game starting in \
-         the room the last session ended in would skip its first RoomEntered"
-    );
-    assert_eq!(
-        app.world()
-            .resource::<ambition_cutscene::LastCutsceneRoom>()
-            .0,
-        Vec::<String>::new(),
-        "the cutscene room-entry memory survived teardown: the first room's \
-         trigger would not fire"
     );
 }
 

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v320
+ggrs-rollback-schema-v321
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -141,7 +141,7 @@ content.sanic_rolling	component-clone	Rolling	bevy_ggrs clone snapshot; not in t
 content.sanic_scattered_ring	component-clone	ScatteredRing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_spent_monitors	resource-clone-custom-checksum	SpentMonitors	bevy_ggrs clone snapshot + an order-independent checksum over the spent names
 content.sanic_super_form_latch	component-clone	SuperFormLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-cutscene.last_room	resource-canonical	LastCutsceneRoom	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
+cutscene.last_room	component-canonical	LastCutsceneRoom	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.skip_hold	resource-canonical	CutsceneSkipHold	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 derived.ability_contributions	derived	AbilityContributions	each source rewrites its own key from its own state before integration every tick
@@ -446,7 +446,7 @@ resource.placement_continuity	resource-clone-custom-checksum	AuthoredOccurrences
 resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; not in the session checksum
 resource.possession_state	resource-clone	PossessionState	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.quest_last_room	resource-clone-custom-checksum	LastQuestRoom	bevy_ggrs clone snapshot + the room ids that were live when the RoomEntered producer last looked
+resource.quest_last_room	component-clone-custom-checksum	LastQuestRoom	bevy_ggrs clone snapshot + the room ids that were live when the RoomEntered producer last looked
 resource.quest_registry	resource-clone-custom-checksum	QuestRegistry	bevy_ggrs clone snapshot + quest identity, progression, pending-advance and caused-advance checksum projection
 resource.requested_clock_scale	resource-canonical	RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.reward_grants_since_checkpoint	resource-clone-custom-checksum	RewardGrantsSinceCheckpoint	bevy_ggrs clone snapshot + the grants of the pickups collected and the chests opened since the last checkpoint: a retracted boss defeat takes back a mint's and its reward chest's, and a death keeps a placed source's while one of its owners is spared

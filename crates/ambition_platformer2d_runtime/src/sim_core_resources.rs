@@ -192,8 +192,10 @@ impl Plugin for SimCoreResourcesPlugin {
             // The quest + boss-encounter registries are ENGINE vocabulary
             // read by the encounter/progression chains; content POPULATES
             // them (never owns the init).
-            .init_resource::<ambition_persistence::quest::QuestRegistry>()
-            .init_resource::<ambition_persistence::quest::LastQuestRoom>();
+            .init_resource::<ambition_persistence::quest::QuestRegistry>();
+        // The room the quest producer last announced: a component of each session
+        // root (C03), born empty with the root.
+        ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<ambition_persistence::quest::LastQuestRoom>(app);
 
         // ── The world-state log ───────────────────────────────────────────
         //

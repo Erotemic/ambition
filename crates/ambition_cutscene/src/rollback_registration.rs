@@ -25,7 +25,11 @@ where
     );
     // The trigger's last-room state must rewind with the cutscene; otherwise a
     // resimulation can suppress a transition that should fire again.
-    registrar.rollback_resource_optional_canonical::<crate::LastCutsceneRoom>(
+    //
+    // ⭐ A COMPONENT OF THE SESSION ROOT (C03, 2026-10-07), under the same key.
+    // A session's memory of the room it last announced is that session's, so a
+    // new root is born with none and no reset is owed at a session edge.
+    registrar.rollback_component_canonical::<crate::LastCutsceneRoom>(
         OWNER,
         "cutscene.last_room",
     );

@@ -68,7 +68,7 @@ pub struct CausedQuestAdvance {
 /// A set, not one id: with two live rooms (Alice and Bob apart, OW1), each
 /// room is entered on its own, and one id could remember only one of them.
 /// With one live room the set has one member, and it flips as the one id did.
-#[derive(bevy::prelude::Resource, Debug, Default, Clone, PartialEq, Eq)]
+#[derive(bevy::prelude::Component, Debug, Default, Clone, PartialEq, Eq)]
 pub struct LastQuestRoom(pub Vec<String>);
 
 impl LastQuestRoom {

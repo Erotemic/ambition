@@ -109,12 +109,13 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ### Scope and current authority
 
-Source explicitly groups **40** App resources as gameplay-session or
-activated-generation state (46 until the checkpoint family left on 2026-10-07):
+Source explicitly groups **38** App resources as gameplay-session or
+activated-generation state (46 until the checkpoint family and the room memories
+left on 2026-10-07):
 
-<!-- session-owner-census: SessionScopedResources=39 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=37 SessionMechanics=1 -->
 <!-- session-root-family: SessionCheckpointState=6 -->
-- `SessionScopedResources` (**39**) in `actor_monolith/src/session/teardown.rs`;
+- `SessionScopedResources` (**37**) in `actor_monolith/src/session/teardown.rs`;
 - (`SessionOwnedCheckpointState`, the third bundle of six, is DELETED: its values are
   components of the session root, `SessionCheckpointState` (6) in
   `actor_monolith/src/session/checkpoint.rs`, and no reset runs for them.)
@@ -165,7 +166,7 @@ Include them in the migration.
 
 | category | members | n |
 | --- | --- | ---: |
-| current room / world / session state | `LastCutsceneRoom`, `LastQuestRoom`, `RoomTransitionCooldown`, `SlotInteractionState` | 4 |
+| current room / world / session state | ~~`LastCutsceneRoom`, `LastQuestRoom`~~ (LANDED, on the root), `RoomTransitionCooldown`, `SlotInteractionState` | 2 |
 | participant state | `ControlledSubject`, `PossessionState` | 2 |
 | encounter state | `EncounterView`, `BossEncounterRegistry`, `AuthoredOccurrences` | 3 |
 | simulation clocks / timeline state | `GameplayElapsed`, `LiveMatchTicks`, `SessionMatchOrdinal`, `ProjectileSeqCounter` | 4 |
@@ -180,11 +181,11 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=27/14 SessionWorldMut=20/11 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
+<!-- alias-split: SessionWorldRef=27/14 SessionWorldMut=22/13 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
 | `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 27 / 14 |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 20 / 11 |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 22 / 13 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
 | `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |
 | `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 9 / 9 |
@@ -207,7 +208,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 40 values. Work owner by owner:
+Do not begin by moving all 38 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
@@ -264,6 +265,31 @@ overwrote at each activation; that system, the `SessionOwnedCheckpointState`
   in `rollback_ggrs`) are `SessionWorldRef`/`SessionWorldMut` params or
   `session_world_component` reads. The terminalizer holds the accepted operation
   and the outcomes through one `get_components_mut` borrow.
+
+**2. The room-entry memories, 2026-10-07.** `LastQuestRoom` (the rooms the quest
+producer last announced) and `LastCutsceneRoom` (the same for entry cutscenes) are
+components of the session root. Each is a single-writer edge detector that a reset
+cleared at every session edge, because a new game that starts in the room the last
+session ended in would otherwise skip its first room's quest event and cutscene.
+
+- **Owner:** the session root; each is required by `SessionRoot`
+  (`require_on_session_root`, the helper family 1's six values now use too, which
+  also backfills a root that exists when a plugin installs late).
+- **Rollback identities did not move:** `resource.quest_last_room` and
+  `cutscene.last_room` keep their keys; their kinds are
+  `component-clone-custom-checksum` and `component-canonical`. The schema version
+  moves 319 -> 320.
+- **Deleted:** the two members of `SessionScopedResources` and their two reset lines.
+  `SessionScopedResources` is 37 and the App-resource total 38.
+- **Witnesses:** `quest::tests::a_new_session_in_the_same_room_announces_it_again` and
+  `cutscene::tests::a_new_session_in_the_same_room_queues_its_entry_cutscene_again`
+  (A live and having announced `hall`; a candidate beside it has no memory and
+  changes none; after the swap B announces `hall`). Each poisoned by giving B A's
+  memory at the swap: the arm fails on "B was born with A's memory".
+- Not done, and why: `RoomTransitionCooldown` and `SlotInteractionState`, the other
+  two of the group, are read from crates below `SessionRoot` (`ambition_damage`,
+  `ambition_characters::control`), so a root component would need those crates to
+  name an upward type or a new seam. They are a different family.
 
 ### Constraints
 

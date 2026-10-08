@@ -81,7 +81,7 @@ mod tests {
     fn the_cosmic_calendar_is_held_on_the_page_it_is_thrown_on() {
         let calendar = find(&crate::authored_movesets::shipped("npc_carl_stargan"), "cosmic_calendar");
         let charge = calendar
-            .smash_charge
+            .move_charge
             .as_ref()
             .expect("fourteen billion years is a hold");
         assert!(!charge.stores, "a stored calendar is somebody else's move");

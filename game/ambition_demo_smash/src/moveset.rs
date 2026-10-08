@@ -346,7 +346,7 @@ mod tests {
         // and the multiplier is unpayable. This keeps the engine fallback
         // (`CHARGE_POSE_FRACTION`) from becoming the contract.
         assert!(
-            smash.smash_charge.is_some(),
+            smash.move_charge.is_some(),
             "this smash derives its charge pose from the engine fallback \
              instead of authoring one"
         );

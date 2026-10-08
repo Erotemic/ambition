@@ -131,7 +131,7 @@ Preserve these and build new features on their seams.
 |---|---:|---:|---:|---|
 | True hold/release smash charge | ✔ | M | E1 | `MoveSpec::charge_gesture` (`Smash` is the default). No CPU throws a smash on the shipped ladder, so no CPU charges one (see *Shipped but unreached*). |
 | Charge cues and pose | ✔ | S | — | Presentation reads resolved charge state. |
-| Charge storage | ✔ | M | E1 | `SmashChargeSpec::stores`, opt-in; decided in `cancel_move_playback`. Customer: Projectile Polygon's power ball. |
+| Charge storage | ✔ | M | E1 | `MoveChargeSpec::stores`, opt-in; decided in `cancel_move_playback`. Customer: Projectile Polygon's power ball. |
 | Jab 1 → 2 → 3 chains | ✔ | — | E1 | Held Attack continues only to a successor the window names. |
 | Rapid jab + finisher | ✔ | — | E1 | `MoveSpec::repeat: Option<MoveLoop>`. |
 | Combat action buffer | ✔ | M | E1 | `BodyActionBuffer` (attack, grab, pogo, special); spent only when action acceptance accepts. |

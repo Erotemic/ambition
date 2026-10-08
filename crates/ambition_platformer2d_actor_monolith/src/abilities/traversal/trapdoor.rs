@@ -41,7 +41,7 @@ pub fn apply_authored_trapdoors(
     )>,
     // ⛔⛔ THE MOVE THAT AUTHORED THE BEAT, so a refused submerge can END it.
     // Without this the timeline runs on regardless — including the three-second
-    // `smash_charge` freeze, which knows nothing about whether she went under —
+    // `move_charge` freeze, which knows nothing about whether she went under —
     // and a fighter who pressed down-B a frame after walking off a ledge hangs
     // motionless in mid-air for three seconds. See the refusal below.
     mut playbacks: Query<&mut ambition_combat::moveset::MovePlayback>,

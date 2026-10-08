@@ -1114,19 +1114,25 @@ only.
 3. A two-body shared-page test that reads the pixels of both cells needs a
    GPU; the three proofs above are on the draw geometry.
 
-### CHARGE-SPEC-NAME — `SmashChargeSpec` is a generic mechanism
+### CHARGE-SPEC-NAME — the charge multiplier still carries a game's name
 
-**Owner:** `ambition_entity_catalog` (`SmashChargeSpec`, field `smash_charge`).
+**Owner:** `ambition_entity_catalog` (`MoveSpec::smash_charge_mult`) and the
+moveset inspector's bundle contract (`tools/ambition_moveset_inspector`).
 
-**Ruling:** Q44 (2026-10-04): no leaf-game name on a generic API.
+**Ruling:** Q44 (2026-10-04): no leaf-game name on a generic API; apply the
+rule to any other generic mechanism with a historical game name.
 
-**Current state:** 21 Rust references; 7 RON sites, including the Performer
-and Projectile Polygon, not only Smash fighters. The sibling names
-(`MoveCharge`, `ChargeSustain`, `ChargeGesture`) suggest `MoveChargeSpec` /
-`move_charge`. `ChargeGesture::Smash` names the gesture and stays.
+**Current state (2026-10-08):** the spec and its field are renamed
+(`MoveChargeSpec`, `move_charge`). `smash_charge_mult` is the same case: it
+scales any charged move, and it is authored on every move of every table. It
+also reaches the inspector's web bundle (`web/app.js`,
+`check_bundle_contract.mjs`) and `moveset_export`'s JSON key. The smash
+GESTURE (`ChargeGesture::Smash`), the `smash_charge` animation clip and its
+SFX ids name the gesture and stay.
 
-**Acceptance:** no `SmashChargeSpec` in source; the content fingerprint change
-is the only content change.
+**Acceptance:** no `smash_charge_mult` in source or content; the inspector's
+contract check passes with the new key; the content fingerprint change is the
+only content change.
 
 ### MENU-HOVER — hover is a third menu state
 

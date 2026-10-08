@@ -140,7 +140,7 @@ pub struct BodyPoseView {
     ///
     /// ⛔ presentation must not re-derive it from move names or Startup
     /// progress: a tapped smash and a fully held one share both.
-    pub smash_charge: Option<f32>,
+    pub move_charge: Option<f32>,
     /// The sprite quad this body's SHEET authored, when its geometry is
     /// sheet-authored (`SpritePosedBody`); `None` when the render must size the
     /// quad itself.
@@ -251,7 +251,7 @@ impl Default for BodyPoseView {
             grab_reach: None,
             line_anchor: None,
             charge_tier: None,
-            smash_charge: None,
+            move_charge: None,
             authored_render: None,
             authored_offset: None,
             geometry: PoseGeometry::Settled,
@@ -563,7 +563,7 @@ pub fn rebuild_body_pose_views(
             }),
             charge_tier: projectile_state
                 .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold))),
-            smash_charge: charge,
+            move_charge: charge,
             authored_render: sheet_authored_body
                 .then(|| authored_render.map(|r| r.0))
                 .flatten(),
@@ -1008,7 +1008,7 @@ mod pose_view_tests {
             gates: Default::default(),
             start_impulse: None,
             smash_charge_mult: 1.0,
-            smash_charge: None,
+            move_charge: None,
             charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
             repeat: None,
             landing_lag_s: None,

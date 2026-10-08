@@ -603,7 +603,7 @@ mod tests {
              timeline running over a body standing in the air"
         );
         assert!(
-            air.smash_charge.is_none(),
+            air.move_charge.is_none(),
             "the airborne form authors a hold; a freeze whose beat never happens \
              is three seconds of a fighter stuck in mid-air"
         );

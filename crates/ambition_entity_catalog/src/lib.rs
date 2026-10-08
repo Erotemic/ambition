@@ -2038,7 +2038,7 @@ pub struct MoveSpec {
     /// How a chargeable use of this move holds and releases its charge.
     ///
     /// `None` = the derived policy: the hold sits a fraction into the leading
-    /// Startup window and lasts [`SmashChargeSpec::DEFAULT_MAX_HOLD_S`].
+    /// Startup window and lasts [`MoveChargeSpec::DEFAULT_MAX_HOLD_S`].
     /// Authoring one is how a move differs — a slower windup that pays off
     /// sooner, or a charge that cannot be held at all.
     ///
@@ -2050,7 +2050,7 @@ pub struct MoveSpec {
     /// [`Self::charge_gesture`] says which press holds it. A use reached
     /// through another verb is never chargeable.
     #[serde(default)]
-    pub smash_charge: Option<SmashChargeSpec>,
+    pub move_charge: Option<MoveChargeSpec>,
     /// Which press holds this move's charge.
     ///
     /// A smash attack and a held neutral special both freeze a timeline while
@@ -2160,7 +2160,7 @@ impl MoveLoop {
 /// Both values are seconds of the owner's proper time, like every clock on a
 /// [`MoveSpec`]: a dilated fighter charges as slowly as it swings.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct SmashChargeSpec {
+pub struct MoveChargeSpec {
     /// The instant the timeline freezes while Attack is held.
     pub hold_at_s: f32,
     /// The longest that freeze may last. Reaching it releases the move whether
@@ -2235,7 +2235,7 @@ pub enum ChargeGesture {
     Special,
 }
 
-impl SmashChargeSpec {
+impl MoveChargeSpec {
     /// A full charge takes one second (60 frames at 60Hz). A move that wants a
     /// different commitment authors its own policy.
     pub const DEFAULT_MAX_HOLD_S: f32 = 1.0;
@@ -2255,7 +2255,7 @@ impl SmashChargeSpec {
     }
 }
 
-/// Serde default for [`SmashChargeSpec::roots`]: a charge roots its body, which
+/// Serde default for [`MoveChargeSpec::roots`]: a charge roots its body, which
 /// is what every policy authored before the field meant.
 fn charge_roots_by_default() -> bool {
     true
@@ -2301,7 +2301,7 @@ impl MoveSpec {
             gates: _,
             start_impulse: _,
             smash_charge_mult: _,
-            smash_charge: _,
+            move_charge: _,
             charge_gesture: _,
             repeat: _,
             landing_lag_s: _,
@@ -2540,13 +2540,13 @@ impl MoveSpec {
     /// The derived hold point comes from the timeline the move already
     /// authors, so every fighter with a charge multiplier is chargeable
     /// without moveset changes.
-    pub fn charge_policy(&self) -> Option<SmashChargeSpec> {
+    pub fn charge_policy(&self) -> Option<MoveChargeSpec> {
         // Either payoff says this move charges. A charged shot pays in the
         // projectile it releases and has no melee volume for
-        // `smash_charge_mult` to scale, so an explicit `smash_charge` is its
+        // `smash_charge_mult` to scale, so an explicit `move_charge` is its
         // own statement of intent.
-        let Some(policy) = self.smash_charge.or_else(|| {
-            (self.smash_charge_mult > 1.0).then_some(SmashChargeSpec {
+        let Some(policy) = self.move_charge.or_else(|| {
+            (self.smash_charge_mult > 1.0).then_some(MoveChargeSpec {
                 // The charge pose is in the windup, not at the hitbox: a
                 // charged smash freezes in its windup and releases into the
                 // swing.
@@ -2558,7 +2558,7 @@ impl MoveSpec {
                 // strictly before the first Active window. The rest of the
                 // windup plays on release.
                 hold_at_s: self.derived_charge_hold_at_s(),
-                max_hold_s: SmashChargeSpec::DEFAULT_MAX_HOLD_S,
+                max_hold_s: MoveChargeSpec::DEFAULT_MAX_HOLD_S,
                 // A derived policy never stores. A smash charge is a
                 // commitment inside one swing; a stored charge must be
                 // authored.
@@ -2969,7 +2969,7 @@ impl MoveCoverage {
 ///
 /// This is a fallback, not the authoring contract. A charge pose is an
 /// animation fact, so it belongs on the move as an explicit
-/// `smash_charge.hold_at_s` inside its leading Startup. The shipped smash
+/// `move_charge.hold_at_s` inside its leading Startup. The shipped smash
 /// tables author that, and the smash stand-in table's contract test refuses a smash
 /// that derives its pose. This value is for a move that says nothing (a boss
 /// swing, a fixture, an old table).
@@ -4219,7 +4219,7 @@ impl EntityCatalogDoc {
                 // before the first Active instant by `derived_charge_hold_at_s`.
                 // Authoring overrides that clamp, so this refuses a bad
                 // override.
-                if let Some(policy) = mv.charge_policy().filter(|_| mv.smash_charge.is_some()) {
+                if let Some(policy) = mv.charge_policy().filter(|_| mv.move_charge.is_some()) {
                     let first_active = mv
                         .windows
                         .iter()

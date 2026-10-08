@@ -146,7 +146,7 @@ mod tests {
             .find(|m| m.id == "polygon_brawler_haymaker")
             .expect("his neutral-B");
         let charge = haymaker
-            .smash_charge
+            .move_charge
             .as_ref()
             .expect("his neutral-B charges");
         assert!(
@@ -173,7 +173,7 @@ mod tests {
             .find(|m| m.id == "polygon_projectile_charge_shot")
             .expect("her neutral-B");
         assert!(
-            shot.smash_charge.as_ref().is_some_and(|c| c.stores),
+            shot.move_charge.as_ref().is_some_and(|c| c.stores),
             "her charge shot stopped storing, so the brawler's not-storing says \
              nothing any more — the storing was asked for on THAT move \
              specifically",

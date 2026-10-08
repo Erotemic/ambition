@@ -499,7 +499,7 @@ fn move_json(
         },
         "start_impulse": spec.start_impulse.map(|i| vec![i.0, i.1]),
         "smash_charge_mult": spec.smash_charge_mult,
-        "charge": spec.smash_charge.as_ref().map(|c| serde_json::json!({
+        "charge": spec.move_charge.as_ref().map(|c| serde_json::json!({
             "hold_at_s": c.hold_at_s,
             "max_hold_s": c.max_hold_s,
             "gesture": format!("{:?}", spec.charge_gesture).to_lowercase(),

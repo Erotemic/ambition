@@ -398,7 +398,7 @@ pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
         gates: MoveGates::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
@@ -454,7 +454,7 @@ pub fn hitless_special(id: &str, clip: &str, commits_at_s: f32, duration_s: f32)
         gates: MoveGates::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
@@ -866,7 +866,7 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
         gates: MoveGates::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
@@ -1134,7 +1134,7 @@ mod charge_tests {
     #[test]
     fn a_charge_sets_its_spec_its_gesture_and_its_payoff() {
         let m = charge(swing(), held());
-        let spec = m.smash_charge.as_ref().expect("the charge is authored");
+        let spec = m.move_charge.as_ref().expect("the charge is authored");
         assert_eq!(spec.max_hold_s, 1.2);
         assert!(spec.roots, "the hold roots him");
         assert!(!spec.stores, "and does not bank");
@@ -1177,7 +1177,7 @@ mod charge_tests {
         flat.multiplier = 1.0;
         let m = charge(swing(), flat);
         assert_eq!(m.smash_charge_mult, 1.0);
-        assert!(m.smash_charge.is_some(), "and it is still a charge");
+        assert!(m.move_charge.is_some(), "and it is still a charge");
     }
 
     /// What cannot be right: a hold that makes the move weaker.
@@ -1435,7 +1435,7 @@ mod tipper_tests {
 
 /// A smash charge: the hold, what it buys, and which button drives it.
 ///
-/// A `SmashChargeSpec` travels with two companions, `charge_gesture` and
+/// A `MoveChargeSpec` travels with two companions, `charge_gesture` and
 /// `smash_charge_mult`. As fields here, they are set where the charge is
 /// decided, and a caller cannot forget one.
 ///
@@ -1497,7 +1497,7 @@ pub fn charge(mut m: MoveSpec, charge: Charge) -> MoveSpec {
          move WEAKER is the one reading of this number that cannot be right",
         charge.multiplier,
     );
-    m.smash_charge = Some(crate::SmashChargeSpec {
+    m.move_charge = Some(crate::MoveChargeSpec {
         hold_at_s: charge.hold_at_s,
         max_hold_s: charge.max_hold_s,
         stores: charge.stores,

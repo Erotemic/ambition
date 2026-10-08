@@ -566,7 +566,7 @@ pub struct OverlayFacts {
     /// `MovePlayback::smash_charge_fraction`; `None` on release. Do not derive
     /// it here from a move name or Startup progress: a tapped smash and a held
     /// one share both.
-    pub smash_charge: Option<f32>,
+    pub move_charge: Option<f32>,
 }
 
 /// Unified overlay-fact dispatch.
@@ -609,9 +609,9 @@ fn overlay_facts_for_source(
         .get(feature.id.as_str())
         .map(|view| overlay_facts_from_feature(view, defense_policy))
         .unwrap_or_default();
-    facts.smash_charge = anim_frames
+    facts.move_charge = anim_frames
         .get(feature.id.as_str())
-        .and_then(|frame| frame.smash_charge);
+        .and_then(|frame| frame.move_charge);
     facts
 }
 
@@ -632,7 +632,7 @@ fn overlay_facts_from_pose(
         parry_flash_secs: pose.parry_flash_secs,
         hit_strength: pose.hit_strength,
         iframe_blink: shared_iframe_blink(pose.unhittable, pose.defense_cues, policy),
-        smash_charge: pose.smash_charge,
+        move_charge: pose.move_charge,
     }
 }
 
@@ -645,7 +645,7 @@ fn overlay_facts_from_feature(
         parry_flash_secs: view.parry_flash_secs,
         hit_strength: view.hit_strength,
         iframe_blink: shared_iframe_blink(view.unhittable, view.defense_cues, policy),
-        smash_charge: None,
+        move_charge: None,
     }
 }
 
@@ -687,7 +687,7 @@ fn overlay_look(
     if facts.iframe_blink {
         return (blink_intensity(tick), BLINK_TINT);
     }
-    if let Some(charge) = facts.smash_charge {
+    if let Some(charge) = facts.move_charge {
         return (charge_pulse_intensity(charge, tick), CHARGE_TINT);
     }
     (0.0, FLASH_TINT)
@@ -937,7 +937,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             iframe_blink: true,
-            smash_charge: None,
+            move_charge: None,
         };
         // Every tick of the blink cycle, including its peak.
         for tick in 0..BLINK_PERIOD_TICKS * 2 {
@@ -951,7 +951,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             iframe_blink: true,
-            smash_charge: None,
+            move_charge: None,
         };
         let (intensity, tint) = overlay_look(after, BLINK_PERIOD_TICKS / 2, None);
         assert_eq!(tint, BLINK_TINT);
@@ -1030,7 +1030,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             iframe_blink: false,
-            smash_charge: Some(1.0),
+            move_charge: Some(1.0),
         };
         let mid = (CHARGE_PHASE_WRAP / 7) as u64;
         assert_eq!(overlay_look(charging, mid, None).1, CHARGE_TINT);
@@ -1051,7 +1051,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             iframe_blink: true,
-            smash_charge: Some(1.0),
+            move_charge: Some(1.0),
         };
         assert_eq!(overlay_look(struck_while_charging, mid, None).1, FLASH_TINT);
     }
@@ -1098,7 +1098,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.8,
             iframe_blink: true,
-            smash_charge: Some(0.5),
+            move_charge: Some(0.5),
         };
         let tick = 17;
         assert_eq!(
@@ -1120,7 +1120,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             iframe_blink: true,
-            smash_charge: Some(0.5),
+            move_charge: Some(0.5),
         };
         assert_eq!(
             overlay_look(blinking, tick, None).0,
@@ -1150,7 +1150,7 @@ mod tests {
             parry_flash_secs: REFERENCE_PARRY_SECONDS,
             hit_strength: 0.0,
             iframe_blink: true,
-            smash_charge: None,
+            move_charge: None,
         };
         let (intensity, tint) = overlay_look(parried, 0, None);
         assert_eq!(tint, PARRY_TINT, "the parry outranks the i-frame blink");
@@ -1180,7 +1180,7 @@ mod tests {
             parry_flash_secs: REFERENCE_PARRY_SECONDS,
             hit_strength: 0.6,
             iframe_blink: false,
-            smash_charge: None,
+            move_charge: None,
         };
         assert_eq!(overlay_look(struck_mid_parry, 0, None).1, IMPACT_TINT);
     }
@@ -1195,7 +1195,7 @@ mod tests {
             // A raised guard in its parry window is unhittable: the state a cue
             // driven by `parrying()` would fire on.
             iframe_blink: true,
-            smash_charge: None,
+            move_charge: None,
         };
         for tick in 0..BLINK_PERIOD_TICKS * 3 {
             assert_eq!(
@@ -1212,7 +1212,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             iframe_blink: false,
-            smash_charge: None,
+            move_charge: None,
         }
     }
 
@@ -1222,7 +1222,7 @@ mod tests {
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
             iframe_blink: true,
-            smash_charge: None,
+            move_charge: None,
         }
     }
 }

@@ -64,11 +64,11 @@ pub fn emit_smash_charge_cues(
     // unordered anyway.
     let actors = anim_frames.iter().filter_map(|(id, frame)| {
         frame
-            .smash_charge
+            .move_charge
             .map(|charge| (BodyCueKey::Feature(id.to_string()), frame.pos, charge))
     });
     let bodies = poses.iter().filter_map(|(entity, pose)| {
-        pose.smash_charge
+        pose.move_charge
             .map(|charge| (BodyCueKey::Body(entity), pose.pos, charge))
     });
 
@@ -341,7 +341,7 @@ mod tests {
                         facing: 1.0,
                         gravity_dir: ambition_platformer2d_core::DEFAULT_GRAVITY_DIR,
                         clip: None,
-                        smash_charge: Some(*charge),
+                        move_charge: Some(*charge),
                     },
                 )
             })

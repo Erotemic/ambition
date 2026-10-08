@@ -120,7 +120,7 @@ pub struct ActorAnimFrame {
     ///
     /// ⛔ presentation must not re-derive it from move names or Startup
     /// progress: a tapped smash and a fully held one share both.
-    pub smash_charge: Option<f32>,
+    pub move_charge: Option<f32>,
 }
 
 /// The clip + fallbacks one active move asks for. See [`ActorAnimFrame::clip`].
@@ -364,7 +364,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 // (sprite redirect P2 — air dodge, tumble, knockdown, getup).
                 // the move wins: a body that is mid-swing while tumbling is
                 // drawn as its swing, which is what its timeline says it is.
-                smash_charge: charge,
+                move_charge: charge,
                 // A HELD CHARGE outranks the move's own row, and only while it
                 // is held: the whole point of the beat is that a fighter
                 // winding up looks different from one swinging. It goes AHEAD

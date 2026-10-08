@@ -105,7 +105,7 @@ mod tests {
         );
 
         let charge = m
-            .smash_charge
+            .move_charge
             .as_ref()
             .expect("`charge` authors the hold, and nothing else here can");
         assert_eq!(charge.max_hold_s, 1.0);

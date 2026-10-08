@@ -125,7 +125,7 @@ fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
         },
         start_impulse: None,
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: ChargeGesture::default(),
         repeat: None,
         flow: None,
@@ -1115,7 +1115,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
         gates: MoveGates::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
@@ -1357,7 +1357,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.7,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: ChargeGesture::default(),
         repeat: None,
         landing_lag_s: None,
@@ -1388,7 +1388,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         "the charge freezes at {} and the first strike goes live at {first_active}",
         derived.hold_at_s
     );
-    assert_eq!(derived.max_hold_s, SmashChargeSpec::DEFAULT_MAX_HOLD_S);
+    assert_eq!(derived.max_hold_s, MoveChargeSpec::DEFAULT_MAX_HOLD_S);
 
     // A move that pays nothing for a hold must not freeze its timeline for one.
     let mut unpaid = spec.clone();
@@ -1396,7 +1396,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
     assert!(unpaid.charge_policy().is_none());
 
     // Authoring overrides the derivation...
-    spec.smash_charge = Some(SmashChargeSpec {
+    spec.move_charge = Some(MoveChargeSpec {
         hold_at_s: 0.12,
         max_hold_s: 0.8,
         stores: false,
@@ -1406,7 +1406,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
     assert_eq!(spec.charge_policy().unwrap().hold_at_s, 0.12);
 
     // ... including all the way to "this smash does not hold".
-    spec.smash_charge = Some(SmashChargeSpec {
+    spec.move_charge = Some(MoveChargeSpec {
         hold_at_s: 0.12,
         max_hold_s: 0.0,
         stores: false,
@@ -1439,7 +1439,7 @@ fn frame_data_reports_the_charge_hold_point_and_only_for_a_charging_move() {
 /// Authoring must not put a hitbox inside a held charge.
 ///
 /// The derived hold point is clamped before the first Active instant, but an
-/// authored `smash_charge` overrides that clamp, so validation must catch a
+/// authored `move_charge` overrides that clamp, so validation must catch a
 /// bad override.
 #[test]
 fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
@@ -1465,7 +1465,7 @@ fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
                 sustain_effect: None,
             },
         ];
-        m.smash_charge = Some(SmashChargeSpec {
+        m.move_charge = Some(MoveChargeSpec {
             hold_at_s,
             max_hold_s: 0.8,
             stores: false,

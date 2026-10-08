@@ -832,7 +832,7 @@ mod expressiveness_census {
         }
         // Charge, launch impulse and a second hit window are mechanics, so they
         // belong to this shared definition.
-        if mv.smash_charge.is_some() {
+        if mv.move_charge.is_some() {
             why.push("charge");
         }
         if mv.start_impulse.is_some() {

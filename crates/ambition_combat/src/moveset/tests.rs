@@ -1763,7 +1763,7 @@ fn a_forward_special_selects_the_directional_move() {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
@@ -1816,7 +1816,7 @@ fn gesture_test_move(id: &str) -> MoveSpec {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
@@ -1965,7 +1965,7 @@ fn lunge_facing_left(unmirrored: bool) -> (ae::Vec2, f32) {
         gates: Default::default(),
         start_impulse: Some((150.0, 0.0)),
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
@@ -4699,7 +4699,7 @@ fn uncancelable(id: &str) -> MoveSpec {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
@@ -4997,7 +4997,7 @@ fn charging_smash() -> MoveSpec {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: CHARGE_MULT,
-        smash_charge: Some(ambition_entity_catalog::SmashChargeSpec {
+        move_charge: Some(ambition_entity_catalog::MoveChargeSpec {
             hold_at_s: CHARGE_HOLD_AT_S,
             max_hold_s: CHARGE_MAX_HOLD_S,
             stores: false,
@@ -5266,7 +5266,7 @@ fn a_charge_whose_policy_does_not_root_leaves_the_body_its_steering() {
             .get_mut::<ActorMoveset>(body)
             .expect("the fixture body carries a moveset");
         for m in &mut moveset.0.moves {
-            if let Some(policy) = m.smash_charge.as_mut() {
+            if let Some(policy) = m.move_charge.as_mut() {
                 policy.roots = false;
             }
         }
@@ -5498,7 +5498,7 @@ fn defended_move() -> MoveSpec {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
@@ -5796,7 +5796,7 @@ fn chain_link(
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat,
         landing_lag_s: None,
@@ -6502,7 +6502,7 @@ fn a_buffered_up_special_replays_as_an_up_special_after_the_stick_centres() {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
-        smash_charge: None,
+        move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
         landing_lag_s: None,
@@ -7909,7 +7909,7 @@ fn an_authored_policy_charges_without_a_damage_multiplier() {
     assert_eq!(policy.max_hold_s, CHARGE_MAX_HOLD_S);
     // And a move that authors NEITHER still charges nothing.
     let mut plain = charging_special();
-    plain.smash_charge = None;
+    plain.move_charge = None;
     assert!(
         plain.charge_policy().is_none(),
         "a move with no multiplier and no policy charges anyway"
@@ -9034,7 +9034,7 @@ use bevy::ecs::system::RunSystemOnce as _;
 
 fn storing_smash() -> MoveSpec {
     let mut spec = charging_smash();
-    spec.smash_charge = Some(ambition_entity_catalog::SmashChargeSpec {
+    spec.move_charge = Some(ambition_entity_catalog::MoveChargeSpec {
         hold_at_s: CHARGE_HOLD_AT_S,
         max_hold_s: CHARGE_MAX_HOLD_S,
         stores: true,
@@ -9711,7 +9711,7 @@ mod until_pressed_again_ends_on_any_action {
                 .get_mut::<ActorMoveset>(body)
                 .expect("the fixture body carries a moveset");
             for m in &mut moveset.0.moves {
-                if let Some(policy) = m.smash_charge.as_mut() {
+                if let Some(policy) = m.move_charge.as_mut() {
                     policy.sustain = ambition_entity_catalog::ChargeSustain::UntilPressedAgain;
                     policy.max_hold_s = 10.0;
                 }

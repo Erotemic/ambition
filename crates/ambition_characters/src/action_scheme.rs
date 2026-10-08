@@ -565,7 +565,7 @@ mod tests {
                 start_impulse: None,
                 smash_charge_mult: 1.0,
                 charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
-                smash_charge: None,
+                move_charge: None,
                 repeat: None,
                 landing_lag_s: None,
                 autocancel_after_s: None,

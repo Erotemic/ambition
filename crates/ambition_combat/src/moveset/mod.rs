@@ -362,7 +362,7 @@ pub struct MovePlayback {
 pub struct MoveCharge {
     /// The policy this use resolved at its start. Held rather than re-read so a
     /// content reload mid-move cannot move the hold point under a frozen clock.
-    pub policy: ambition_entity_catalog::SmashChargeSpec,
+    pub policy: ambition_entity_catalog::MoveChargeSpec,
     /// Seconds of the owner's proper time spent holding.
     pub held_s: f32,
     /// The fraction the release froze, `0..=1`. `None` = still charging (or not
@@ -408,7 +408,7 @@ pub fn stored_move_charge_probe(stored: &StoredMoveCharge) -> u64 {
 }
 
 impl MoveCharge {
-    fn new(policy: ambition_entity_catalog::SmashChargeSpec) -> Self {
+    fn new(policy: ambition_entity_catalog::MoveChargeSpec) -> Self {
         Self {
             policy,
             held_s: 0.0,
@@ -421,7 +421,7 @@ impl MoveCharge {
     /// ⛔ CLAMPED TO THE POLICY'S OWN MAXIMUM. A bank made under a longer
     /// authored hold — a content edit between the interruption and the resume —
     /// must not hand back more charge than this policy can reach.
-    fn resumed(policy: ambition_entity_catalog::SmashChargeSpec, held_s: f32) -> Self {
+    fn resumed(policy: ambition_entity_catalog::MoveChargeSpec, held_s: f32) -> Self {
         Self {
             held_s: held_s.clamp(0.0, policy.max_hold_s),
             policy,
@@ -891,7 +891,7 @@ impl MovePlayback {
     /// ⛔⛔ AND THE POLICY DECIDES, because one mechanic serves two moves. The
     /// Actor's trapdoor freezes its timeline exactly the way a smash does and
     /// the beat it freezes is TRAVEL under the stage — rooting that would
-    /// delete the move. `SmashChargeSpec::roots` is where the two say which
+    /// delete the move. `MoveChargeSpec::roots` is where the two say which
     /// they are; it defaults to `true`, so every smash is unmoved.
     pub fn rooted_by_charge(&self) -> bool {
         self.charge.is_some_and(|charge| {

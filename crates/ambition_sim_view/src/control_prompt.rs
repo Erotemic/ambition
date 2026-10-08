@@ -657,7 +657,7 @@ mod tests {
                 gates: Default::default(),
                 start_impulse: None,
                 smash_charge_mult: 1.0,
-                smash_charge: None,
+                move_charge: None,
                 charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
                 repeat: None,
                 flow: None,

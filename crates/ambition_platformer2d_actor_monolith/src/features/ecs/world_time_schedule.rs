@@ -427,11 +427,11 @@ pub fn forget_scheduled_returns_on_restore(
     inputs: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs>>,
     fresh: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    schedule: Option<ResMut<WorldTimeSchedule>>,
+    mut schedule: ResMut<WorldTimeSchedule>,
 ) {
-    let (Some(_), Some(mut schedule)) = (inputs, schedule) else {
+    if inputs.is_none() {
         return;
-    };
+    }
     if fresh.is_some() {
         schedule.forget_all();
         return;

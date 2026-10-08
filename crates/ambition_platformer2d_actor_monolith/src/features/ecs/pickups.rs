@@ -413,7 +413,7 @@ pub fn record_consumed_pickups(
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
-    since: Option<ResMut<ConsumedSinceCheckpoint>>,
+    mut since: ResMut<ConsumedSinceCheckpoint>,
 ) {
     let Some(mut occurrences) = occurrences else {
         return;
@@ -434,7 +434,7 @@ pub fn record_consumed_pickups(
     if consumed.is_empty() {
         return;
     }
-    if let (Some(rooms), Some(mut since)) = (rooms, since) {
+    if let Some(rooms) = rooms {
         for (entity, sim_id) in &consumed {
             let Some(definition) = rooms.definition_of(*entity) else {
                 continue;
@@ -473,7 +473,7 @@ pub fn record_ended_occurrences(
     live: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     participants: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
     occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
-    since: Option<ResMut<ConsumedSinceCheckpoint>>,
+    mut since: ResMut<ConsumedSinceCheckpoint>,
 ) {
     let (Some(rooms), Some(mut occurrences)) = (rooms, occurrences) else {
         return;
@@ -493,17 +493,15 @@ pub fn record_ended_occurrences(
     if ended.is_empty() {
         return;
     }
-    if let Some(mut since) = since {
-        for (sim_id, id, room) in &ended {
-            let mut owners: Vec<_> = participants
-                .iter()
-                .filter(|(body, _)| rooms.live().of(*body) == Some(*room))
-                .map(|(_, driver)| driver.0)
-                .collect();
-            owners.sort();
-            owners.dedup();
-            since.record(sim_id.clone(), id.clone(), owners);
-        }
+    for (sim_id, id, room) in &ended {
+        let mut owners: Vec<_> = participants
+            .iter()
+            .filter(|(body, _)| rooms.live().of(*body) == Some(*room))
+            .map(|(_, driver)| driver.0)
+            .collect();
+        owners.sort();
+        owners.dedup();
+        since.record(sim_id.clone(), id.clone(), owners);
     }
     occurrences.end(ended.into_iter().map(|(sim_id, ..)| sim_id));
 }

@@ -1288,6 +1288,19 @@ def build_maintenance_jobs() -> list[Job]:
                 "scripts/check_session_owner_census_matches_source.py",
             ],
         ),
+        # ⛔ AN OPTIONAL READ OF A SESSION AUTHORITY IS A CLAIM ABOUT WHICH
+        # COMPOSITIONS EXIST. C07's table says, per function, what the `None`
+        # arm means (reduced composition, lifecycle remainder, presentation,
+        # refusal); a new `Option<Res<_>>` of a canonical authority with no row
+        # is a `None` arm nobody has justified, and a row whose function no
+        # longer reads one is a claim about code that is gone.
+        Job(
+            "C07's optional reads of session authorities each say what None means",
+            [
+                sys.executable,
+                "scripts/check_session_authority_none_arms.py",
+            ],
+        ),
         # ⛔⛤ A HEADING RENAME BREAKS EVERY POINTER TO IT AND NOTHING ELSE
         # HERE SEES IT. Marking the A10 row done broke `status.md`'s only link
         # to it, and this lane stayed 10/10 across four runs either side of that

@@ -248,9 +248,20 @@ face keeps both). Kept: a newcomer may grab while the holder is mid-getup
 (`a_body_mid_getup_is_neither_trumper_nor_trumped`), and a grab is never
 refused (the trump knocks off after both latched, by design).
 
+**Built 2026-10-08: a rewind across a trump gives the same holder.**
+`a_rewind_across_a_ledge_trump_gives_the_same_holder` (app_it) drops two
+player bodies past one floating lip in the calibration lab: seat 1's body
+takes the edge on tick 2 and Alice trumps it on tick 14. A GGRS sync-test
+session (rewinding 4 frames each tick) gives the same holders on all 60
+ticks as a world with no rollback session, and stays healthy. Poison: the
+trump kept a one-shot memo in a `Local` (state the rollback does not
+restore); the resimulated tick 15 had both bodies hanging and GGRS reported
+a checksum mismatch at frame 14. A second poison, the trump moved to
+`Update`, failed the fixed-tick precondition instead (both bodies hung for
+one tick), so it says nothing about the rewind.
+
 **Open.** The trumped body's lockout (Ultimate: about 30 frames, unverified)
-and the regrab limit and multipliers are not built. A rewind across a trump
-has no witness of its own; the hang it derives from is rollback state.
+and the regrab limit and multipliers are not built.
 
 **Target.** Super Smash Bros. Ultimate-like ledge occupancy and trump. Do not
 guess Ultimate's timings from memory: research them (getup/roll/jump options,

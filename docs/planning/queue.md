@@ -884,11 +884,13 @@ Ultimate-like occupancy and trump, deterministic and rollback-compatible.
 
 **Current state (2026-10-08):** one corner is one edge whatever the bodies'
 sizes (`LedgeContact::edge_key`; witness
-`two_fighters_of_different_sizes_on_one_corner_are_one_edge`). Ultimate's
-rules are in the plan.
+`two_fighters_of_different_sizes_on_one_corner_are_one_edge`). A rewind
+across a trump gives the same holder on every tick
+(`a_rewind_across_a_ledge_trump_gives_the_same_holder`). Ultimate's rules
+are in the plan.
 
-**Next action:** a rewind witness across a trump; then the trumped body's
-lockout and the regrab limit, as the plan's open list says.
+**Next action:** the regrab limit, then the trumped body's lockout, as the
+plan's open list says.
 
 **Acceptance:** with two fighters of different sizes on one corner, one holds
 it; trump, release, death and knockoff each free or transfer the hold as the

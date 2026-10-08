@@ -742,22 +742,26 @@ fn two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list() {
 /// ⭐ `PerceivedActor` IS BUILT ~1,900 TIMES PER TICK and its width is the
 /// multiplier on that. Measured 2026-09-01 in `hall_of_characters` at 130
 /// bodies: every actor builds one per perceived peer, ~14.4 of them, every tick.
-/// At 80 bytes that is ~150 KB written and discarded per tick; a field added
+/// At 88 bytes that is ~165 KB written and discarded per tick; a field added
 /// carelessly is paid 1,900 times before anything reads it.
 ///
 /// ⛔ A RATCHET, NOT A TARGET. Growing it is a decision, not an accident, and
 /// this is where that decision gets made rather than in a `#[derive]` nobody
 /// re-reads. Lowering the number is the improvement.
 ///
+/// 88 since 2026-10-08 (REACH-VIEW): `attack_reach`, the reach of the move a
+/// perceived foe plays, read from its hitbox. Without it the brain assumed
+/// one reach for every swing (`assumed_foe_reach`).
+///
 /// ⚠ It is also the number the "per-build cost rises with population" open
-/// question is argued over — see the measurements journal. 80 bytes × 14.4 peers
-/// is ~1.15 KB per actor's view, which FITS L1, and that is why crude "cache
+/// question is argued over — see the measurements journal. 88 bytes × 14.4 peers
+/// is ~1.27 KB per actor's view, which FITS L1, and that is why crude "cache
 /// pressure" is not an accepted explanation there.
 #[test]
 fn the_perception_structs_do_not_silently_widen() {
     assert_eq!(
         std::mem::size_of::<PerceivedActor>(),
-        80,
+        88,
         "PerceivedActor changed width; it is constructed ~1,900 times per tick"
     );
     assert_eq!(std::mem::size_of::<PerceivedProjectile>(), 24);

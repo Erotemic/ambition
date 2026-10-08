@@ -140,6 +140,7 @@
       "resource.switch_activation_queue\tresource-clone-custom-checksum\tSwitchActivationQueue\tbevy_ggrs clone snapshot + queued switch activations, in order, by id/action/target",
       "resource.versus_match\tresource-clone-custom-checksum\tVersusMatch\tbevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins",
       "resource.world_time\tresource-canonical\tWorldTime\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
+      "root.encounter_music_request\tcomponent-clone-custom-checksum\tEncounterMusicRequest\tbevy_ggrs clone snapshot + each room's music candidates (source, track, tick began) and base track, in key order",
       "root.live_room_definition\tcomponent-canonical\tLiveRoomDefinition",
       "root.live_room_instance\tcomponent-canonical\tLiveRoomInstance",
       "root.moving_platform_set\tcomponent-canonical\tMovingPlatformSet",

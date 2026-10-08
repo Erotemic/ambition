@@ -86,9 +86,8 @@ fn observing_one_situation_leaves_the_others_alone() {
     assert_eq!(m.count(Situation::EdgeGuard, Choice::Attack), before);
 }
 
-/// `read_weight` is the whole of §1's *"Level-9 reads = sampling the model;
-/// lower levels ignore it."* A level-1 profile passes zero and the model, however
-/// confident, contributes nothing.
+/// A scorer that passes a zero weight gets nothing from the model, however
+/// confident it is; a positive weight gets a bonus.
 #[test]
 fn a_brain_that_does_not_read_gets_nothing_from_a_confident_model() {
     let mut m = HabitModel::new(0.9);

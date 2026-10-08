@@ -1,7 +1,7 @@
 //! Data-driven fighter-brain difficulty profiles.
 //!
 //! Profiles author reaction delay, input-rate limits, execution noise, rollout
-//! depth/breadth, read weight, and utility weights for ladder levels. Live brain
+//! depth/breadth, and utility weights for ladder levels. Live brain
 //! layers consume [`crate::perception::Perceived`], which can only be produced by
 //! delayed perception in normal gameplay; the explicit `Perceived::cheating`
 //! constructor is reserved for rigs/tests. Shipped profiles never use zero
@@ -30,8 +30,6 @@ pub struct FighterBrainProfile {
     pub rollout_depth: u32,
     /// How many candidate options L3 rolls out. `0` with `rollout_depth = 0`.
     pub rollout_k: u32,
-    /// How hard the brain leans on the opponent model (FB5). `0` ignores it.
-    pub read_weight: f32,
     pub utility_weights: UtilityWeights,
 }
 
@@ -78,7 +76,6 @@ impl FighterBrainProfile {
             // affordable.
             rollout_depth: if level >= 6 { 12 } else { 0 },
             rollout_k: if level >= 6 { 4 } else { 0 },
-            read_weight: t * 0.6,
             utility_weights: UtilityWeights::default(),
         }
     }

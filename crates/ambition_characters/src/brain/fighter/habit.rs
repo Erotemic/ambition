@@ -40,10 +40,17 @@ impl Choice {
     ];
 }
 
+/// The decay a fighter brain's habit model uses (`HabitModel::decay`): `0.9`,
+/// the value that keeps a recency-weighted read (Q90). It is one constant, not a
+/// rung's parameter: the field that set it per rung (`read_weight`) changed no
+/// shipped decision and was deleted.
+pub const HABIT_DECAY: f32 = 0.9;
+
 /// Decayed frequency counts over `(Situation, Choice)`.
 ///
 /// `Default` is an empty model, which predicts nothing and whose every frequency
-/// is the uniform prior. A brain with `read_weight = 0` (levels 1–3) never asks.
+/// is the uniform prior. Only the L3 rollout asks it, so a brain that runs no
+/// rollout never does (`FighterBrainProfile::uses_rollouts`).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct HabitModel {
     counts: BTreeMap<(Situation, Choice), f32>,
@@ -121,15 +128,13 @@ impl HabitModel {
             .map(|(c, n)| (c, n / total))
     }
 
-    /// How much a brain with this `read_weight` should shade its scoring toward the
-    /// read: `read_weight × (frequency − uniform)`, so an opponent who does the
-    /// expected thing exactly as often as chance contributes nothing at all.
-    ///
-    /// Level 1–3 pass `read_weight = 0` and get zero, exactly as §1 says: *"Level-9
-    /// reads = sampling the model; lower levels ignore it."*
-    pub fn read_bonus(&self, situation: Situation, choice: Choice, read_weight: f32) -> f32 {
+    /// How much a scorer with this `weight` should shade a score toward the read:
+    /// `weight × (frequency − uniform)`, so an opponent who does the expected
+    /// thing exactly as often as chance contributes nothing at all. No
+    /// production scorer calls it; one that does states its own weight.
+    pub fn read_bonus(&self, situation: Situation, choice: Choice, weight: f32) -> f32 {
         let uniform = 1.0 / Choice::ALL.len() as f32;
-        read_weight * (self.frequency(situation, choice) - uniform)
+        weight * (self.frequency(situation, choice) - uniform)
     }
 
     /// Every non-empty row, in a stable order. What a trace prints and what FB6's

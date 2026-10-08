@@ -189,7 +189,7 @@ impl FighterState {
     pub fn new(cfg: &FighterCfg, seed: u64) -> Self {
         Self {
             perception: DelayedPerception::from_reaction_ms(cfg.profile.reaction_ms, cfg.tick_hz),
-            habits: HabitModel::new(cfg.profile.read_weight.max(0.0)),
+            habits: HabitModel::new(super::habit::HABIT_DECAY),
             held: ActorControlFrame::neutral(),
             ticks_until_decision: 0,
             apm: ApmLedger::default(),

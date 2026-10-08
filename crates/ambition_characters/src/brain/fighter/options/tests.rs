@@ -1989,11 +1989,12 @@ fn a_body_with_no_foe_is_offered_no_foe_relative_verb() {
 /// ⭐⭐ EVERY WEIGHT MUST BE ABLE TO CHANGE A SCORE — the guard against a knob
 /// that is authored, tuned, and silently ignored.
 ///
-/// ⛔ **THIS EXISTS BECAUSE ONE ALREADY WAS.** `read_weight` is authored on all
-/// nine rungs of the shipped ladder, rising 0.0 → 0.9, and reaches the fighter
-/// only through a rollout the shipped rows disable — so it has never changed a
-/// decision in the shipped game. Nothing failed, because nothing compares an
-/// authored knob against its own effect. See `docs/planning/engine/fighter-brain.md`.
+/// ⛔ **THIS EXISTS BECAUSE ONE ALREADY WAS.** `read_weight` was authored on
+/// all nine rungs of the shipped ladder, rising 0.0 → 1.0, and reached the
+/// fighter only through a rollout the shipped rows disable — so it never
+/// changed a decision in the shipped game, and it was deleted (Q90). Nothing
+/// failed while it lived, because nothing compared an authored knob against
+/// its own effect. See `docs/planning/engine/fighter-brain.md`.
 ///
 /// ⇒ The failure mode this catches is the cheap and likely one: a field added to
 /// [`UtilityWeights`] and forgotten in [`Features::dot`]. That field would
@@ -2041,7 +2042,7 @@ fn every_utility_weight_can_change_a_score() {
             moved, baseline,
             "changing `{name}` did not change the score, so it is a knob that can \
              be authored and tuned and will never affect a decision — the defect \
-             `read_weight` already has. Add it to `Features::dot`."
+             `read_weight` had until Q90 deleted it. Add it to `Features::dot`."
         );
     }
 

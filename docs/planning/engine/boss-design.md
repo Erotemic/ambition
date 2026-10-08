@@ -206,6 +206,6 @@ agent-authored fight that Jon rates as fun.
 | BD3 | Telegraph identity | data and validator done; presentation consumer open |
 | BD4 | Seed library | done |
 | BD5 | Fight validator | diagnostic; rule 4 blocked; enforcement deferred |
-| BD6 | Playtester rig and report | `fight_discovery` first cut; fighter-brain rung needs F1-F4 of [fighter brain](fighter-brain.md) (ladder authority, `read_weight`, representative rosters, mid-ladder progression) |
+| BD6 | Playtester rig and report | `fight_discovery` first cut; fighter-brain rung needs F1-F4 of [fighter brain](fighter-brain.md) (ladder authority, representative rosters, mid-ladder progression) |
 | BD7 | Pilot: re-author one boss (mockingbird or behemoth) through the loop; calibrate bands with Jon | open |
 | BD8 | Hollow Lite boss through the pipeline | open |

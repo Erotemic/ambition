@@ -541,7 +541,7 @@ before and after a change, on one binary, and report both columns.
 4. **A ranged move scores `launch: 0`.** A projectile hit writes a dimensionless `HitKnockbackMagnitude::FeelScale(0.85)`, not `LaunchSpeed`. Settle whether the feel reference belongs on `LaunchConditions`, whether `0.85` leaves the projectile stepper, and what `max_knockback` means for a launcher. A launcher also needs a hazard-coverage feature (its `reach_fit` is zero at every range).
 5. **A placed trap has a position, and `reach` is a radius.** Carry the dangerous region relative to the body at the resolved-offer seam, not another reach scalar.
 6. **A teleport's destination does not reach the brain** (`TeleportParams`: `behind_nearest_foe`, `behind_gap`, aim). It belongs in the same resolved offer.
-7. **The ladder's step per rung.** All shipped rungs author `rollout_depth: 0`, so `read_weight` is inert (Q90 ruling: remove it, row CPU-LADDER) and the L3 step the engine ladder takes at level 6 is missing. Measure `--rungs 3,4,6,7,8` to separate step size from one pair.
+7. **The ladder's step per rung.** All shipped rungs author `rollout_depth: 0`, so the habit read is off at every rung (`read_weight` is deleted, Q90) and the L3 step the engine ladder takes at level 6 is missing. Measure `--rungs 3,4,6,7,8` to separate step size from one pair.
 
 **Standing prohibitions:**
 
@@ -888,23 +888,11 @@ that gives it meaning.
 
 **Current state:** `fighter_brain_ladder.ron` is in
 `game/ambition_content/assets/data/`, and its schema is registered by
-`ambition_combat`. Every shipped rung sets the rollout fields to zero, so
-`read_weight` is read only behind `uses_rollouts()` and changes nothing.
-Measured 2026-10-08: `read_weight` has a second meaning. `FighterState::new`
-(`ambition_characters/src/brain/fighter/data.rs`) gives it to
-`HabitModel::new` as the habit DECAY, so the rungs' 0.0 to 1.0 values change
-the habit counts the decision tick writes (and rollback snapshots), while the
-only reader of those counts is the rollout (`predicted_foe_intent`). Deleting
-the field needs two answers in the same slice: the habit decay's own value,
-and whether the rollout's read keeps a gate.
-
-**Decided 2026-10-08 (engineering, under Q90):** the habit decay becomes a
-named constant, 0.9 (the value `HabitModel`'s own doc calls "a read"); the
-rollout reads the habit whenever the read is genuine (the modal choice beats
-the uniform prior), because the rollout itself runs only for a profile that
-pays for it (`uses_rollouts`). No shipped behaviour changes (no rung rolls
-out); the habit counts the decision tick writes change value. A rung that
-should read less is a new, correctly named parameter with its own witness.
+`ambition_combat`. ✅ Q90 is built (2026-10-08): `read_weight` is deleted from
+the profile, the ladder and every fixture; the habit decay is the constant
+`HABIT_DECAY` (0.9); the rollout reads the habit whenever the read is genuine.
+No ladder rung changes (none rolls out). `for_level` brains at levels 6 to 9
+roll out, so their habit counts now decay at 0.9, not `t × 0.6`.
 
 **Acceptance:** the ladder data and its level vocabulary live with the Smash
 rules/content; another game can build the brain with no ladder; no authored

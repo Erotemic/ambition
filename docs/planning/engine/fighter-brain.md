@@ -383,14 +383,17 @@ The maintainer decision about which authority should remain lives in
 [`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
 Until resolved, every calibration receipt must name the ladder source explicitly.
 
-### Authored `read_weight` is not a normal shipped-axis today
+### `read_weight` is deleted (Q90, 2026-10-08)
 
-The authored values and the current rollout configuration make its effect
-unreachable in the shipped ladder, while the engine floor can make it live.
-
-Whether to wire it into the non-rollout scorer or remove it is a product/design
-decision coupled to the ladder-authority decision. Do not tune around it as if it
-were already a working shipped axis.
+It changed no shipped decision: the only reader of the habit model is the L3
+rollout, which every shipped rung disables. It had a second, hidden meaning: it
+was the habit model's decay. The decay is now one constant
+(`habit::HABIT_DECAY`, 0.9), and the rollout reads the habit whenever the read
+is genuine, because it runs only for a profile that pays for it
+(`uses_rollouts`). The decay change moves `for_level` brains at levels 6 to 9
+(which roll out), such as the dismounted rider: their decay was `t × 0.6`. A
+rung that should read less is a new, correctly named parameter with its own
+witness.
 
 ### The middle-rung inversion was traced to utility progression, not reflexes
 
@@ -429,16 +432,10 @@ Whichever survives:
 - fallback behavior cannot turn a failed authored load into a different silent
   experiment.
 
-### F2 — resolve `read_weight`
+### F2 — ✅ `read_weight` removed (Q90, 2026-10-08)
 
-After F1, choose one:
-
-- integrate it into a scorer that is actually active at the authored rungs and
-  add behavior acceptance; or
-- remove the field/rollback/config surface if the chosen ladder leaves it inert.
-
-Do not keep an authored difficulty knob that looks live but has no reachable
-reader.
+See the finding above. Do not keep an authored difficulty knob that looks live
+but has no reachable reader.
 
 ### F3 — make evaluation rosters representative
 

@@ -94,10 +94,10 @@ mod ladder_projection_tests {
     /// does not have.
     const LADDER: &str = "[
         (level: 1, reaction_ms: 500.0, apm_cap: 60.0, execution_noise: 0.40,
-         rollout_depth: 0, rollout_k: 0, read_weight: 0.0,
+         rollout_depth: 0, rollout_k: 0,
          utility_weights: (reach_fit: 1.0, frame_advantage: 0.10, kill_potential: 0.00, stage_risk: -0.10, expected_payoff: 0.00)),
         (level: 2, reaction_ms: 450.0, apm_cap: 90.0, execution_noise: 0.35,
-         rollout_depth: 0, rollout_k: 0, read_weight: 0.0,
+         rollout_depth: 0, rollout_k: 0,
          utility_weights: (reach_fit: 1.0, frame_advantage: 0.20, kill_potential: 0.00, stage_risk: -0.20, expected_payoff: 0.00)),
     ]";
 

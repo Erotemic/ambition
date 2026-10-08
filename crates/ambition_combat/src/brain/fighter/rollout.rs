@@ -777,16 +777,16 @@ fn strike(
 ///
 /// * Mid-move: nothing — a commitment completes on its own clock, and
 ///   `shadow_step` ignores intents from non-Idle bodies anyway.
-/// * A genuine read (`read_weight > 0`, and the modal choice strictly beats
-///   the uniform prior): the modal [`Choice`](ambition_characters::brain::fighter::habit::Choice), mapped
-///   to an intent.
+/// * A genuine read (the modal choice strictly beats the uniform prior): the
+///   modal [`Choice`](ambition_characters::brain::fighter::habit::Choice), mapped
+///   to an intent. The rollout that asks runs only for a profile that pays for
+///   it (`uses_rollouts`), so no second gate is needed here (Q90).
 /// * Otherwise: inertia. Ignorance predicts a body keeps doing what it is
 ///   doing, not that it starts doing something new.
 pub fn predicted_foe_intent(
     state: &ShadowState,
     situation: Situation,
     habits: &HabitModel,
-    read_weight: f32,
     tuning: &ShadowTuning,
 ) -> ShadowIntent {
     use ambition_characters::brain::fighter::habit::Choice;
@@ -798,21 +798,19 @@ pub fn predicted_foe_intent(
     // "approach" keeps meaning approach after a crossup. `Drive.lateral` is
     // always world-frame `side` units.
     let toward_me = (state.me.pos - state.foe.pos).dot(frame.side).signum();
-    if read_weight > 0.0 {
-        if let Some((choice, frequency)) = habits.read(situation) {
-            let uniform = 1.0 / Choice::ALL.len() as f32;
-            if frequency > uniform {
-                return match choice {
-                    Choice::Approach => ShadowIntent::Drive { lateral: toward_me },
-                    Choice::Retreat => ShadowIntent::Drive {
-                        lateral: -toward_me,
-                    },
-                    Choice::Jump => ShadowIntent::Jump,
-                    Choice::Attack => ShadowIntent::StartAttack,
-                    Choice::Shield => ShadowIntent::Shield,
-                    Choice::Wait => ShadowIntent::Hold,
-                };
-            }
+    if let Some((choice, frequency)) = habits.read(situation) {
+        let uniform = 1.0 / Choice::ALL.len() as f32;
+        if frequency > uniform {
+            return match choice {
+                Choice::Approach => ShadowIntent::Drive { lateral: toward_me },
+                Choice::Retreat => ShadowIntent::Drive {
+                    lateral: -toward_me,
+                },
+                Choice::Jump => ShadowIntent::Jump,
+                Choice::Attack => ShadowIntent::StartAttack,
+                Choice::Shield => ShadowIntent::Shield,
+                Choice::Wait => ShadowIntent::Hold,
+            };
         }
     }
     // Inertia: a grounded mover keeps its lateral drive; an airborne body is
@@ -915,7 +913,7 @@ fn rollout_value(
     let mut ko_me = false;
     let mut ko_foe = false;
     for _ in 0..depth {
-        let foe_intent = predicted_foe_intent(&s, situation, habits, profile.read_weight, tuning);
+        let foe_intent = predicted_foe_intent(&s, situation, habits, tuning);
         for event in shadow_step(&mut s, dt, sustained, &foe_intent, tuning) {
             match event {
                 ShadowEvent::Ko { of_me: true } => ko_me = true,
@@ -1114,8 +1112,7 @@ pub fn refine_by_rollout(
                 } else {
                     ShadowIntent::Hold
                 };
-                let foe_intent =
-                    predicted_foe_intent(&probe, situation, habits, profile.read_weight, tuning);
+                let foe_intent = predicted_foe_intent(&probe, situation, habits, tuning);
                 for event in shadow_step(&mut probe, dt, &held, &foe_intent, tuning) {
                     if matches!(event, ShadowEvent::Ko { of_me: true }) {
                         died = true;

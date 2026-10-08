@@ -128,7 +128,6 @@ fn immediate_profile() -> FighterBrainProfile {
         execution_noise: 0.0,
         rollout_depth: 0,
         rollout_k: 0,
-        read_weight: 0.5,
         utility_weights: UtilityWeights::default(),
     }
 }

@@ -239,7 +239,7 @@ const CAP_BINDS_THROUGH: u8 = 7;
 #[ignore = "PROBE, print-only: null controls for what orders the ladder"]
 fn probe_what_separates_the_rungs() {
     let scenarios = suite();
-    for arm in 0..5 {
+    for arm in 0..4 {
         let mut curve = Vec::new();
         for level in 1..=9u8 {
             let mut profile = FighterBrainProfile::for_level(level);
@@ -249,8 +249,7 @@ fn probe_what_separates_the_rungs() {
                     profile.rollout_depth = 0;
                     profile.rollout_k = 0;
                 }
-                3 => profile.read_weight = 0.0,
-                4 => profile.apm_cap = 0.0,
+                3 => profile.apm_cap = 0.0,
                 _ => {}
             }
             let rows: Vec<ScenarioOutcome> = scenarios
@@ -260,7 +259,7 @@ fn probe_what_separates_the_rungs() {
             let apm: f32 = rows.iter().map(|row| row.apm).sum::<f32>() / rows.len() as f32;
             curve.push((level, (apm * 10.0).round() / 10.0));
         }
-        let name = ["as shipped", "no noise", "no rollout", "no read", "no cap"][arm];
+        let name = ["as shipped", "no noise", "no rollout", "no cap"][arm];
         println!("{name:<12} {curve:?}");
     }
 }

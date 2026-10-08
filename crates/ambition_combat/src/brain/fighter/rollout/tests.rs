@@ -84,7 +84,7 @@ fn state(me_x: f32, foe_x: f32) -> ShadowState {
     ShadowState::from_perceived(Perceived::cheating(&view)).expect("a hostile is in view")
 }
 
-fn profile(rollout_k: u32, rollout_depth: u32, read_weight: f32) -> FighterBrainProfile {
+fn profile(rollout_k: u32, rollout_depth: u32) -> FighterBrainProfile {
     FighterBrainProfile {
         level: 9,
         reaction_ms: 150.0,
@@ -92,7 +92,6 @@ fn profile(rollout_k: u32, rollout_depth: u32, read_weight: f32) -> FighterBrain
         execution_noise: 0.05,
         rollout_depth,
         rollout_k,
-        read_weight,
         utility_weights: ambition_characters::brain::fighter::options::UtilityWeights::v1(),
     }
 }
@@ -342,28 +341,21 @@ fn prediction_uses_the_modal_habit_only_when_it_beats_chance() {
         habits.observe(Situation::Neutral, Choice::Attack);
     }
     assert_eq!(
-        predicted_foe_intent(&s, Situation::Neutral, &habits, 1.0, &tuning),
+        predicted_foe_intent(&s, Situation::Neutral, &habits, &tuning),
         ShadowIntent::StartAttack
-    );
-
-    // `read_weight = 0` never consults the model, however confident it is.
-    assert_eq!(
-        predicted_foe_intent(&s, Situation::Neutral, &habits, 0.0, &tuning),
-        ShadowIntent::Hold,
-        "a low rung predicts inertia, not habits"
     );
 
     // An empty model is the uniform prior: no read, inertia only.
     let empty = HabitModel::new(0.5);
     assert_eq!(
-        predicted_foe_intent(&s, Situation::Neutral, &empty, 1.0, &tuning),
+        predicted_foe_intent(&s, Situation::Neutral, &empty, &tuning),
         ShadowIntent::Hold
     );
 
     // Inertia is direction-preserving: a foe walking left keeps walking left.
     let mut moving = state(300.0, 400.0);
     moving.foe.vel = ae::Vec2::new(-tuning.ground_speed, 0.0);
-    match predicted_foe_intent(&moving, Situation::Neutral, &empty, 1.0, &tuning) {
+    match predicted_foe_intent(&moving, Situation::Neutral, &empty, &tuning) {
         ShadowIntent::Drive { lateral } => assert!(lateral < 0.0),
         other => panic!("expected inertia drive, got {other:?}"),
     }
@@ -388,7 +380,7 @@ fn zero_depth_or_zero_k_is_l2s_order_unchanged() {
                 Situation::Neutral,
                 &options,
                 &habits,
-                &profile(k, depth, 0.0),
+                &profile(k, depth),
                 &tuning,
                 60.0,
                 6,
@@ -420,7 +412,7 @@ fn the_rollout_prefers_the_move_that_actually_connects() {
         Situation::Advantage,
         &options,
         &habits,
-        &profile(4, 30, 0.0),
+        &profile(4, 30),
         &ShadowTuning::default(),
         60.0,
         6,
@@ -455,7 +447,7 @@ fn the_worst_shipped_budget_is_cheap_enough_to_be_a_non_event() {
     for _ in 0..4 {
         habits.observe(Situation::Neutral, Choice::Approach);
     }
-    let p = profile(4, 20, 1.0);
+    let p = profile(4, 20);
     let tuning = ShadowTuning::default();
     let started = std::time::Instant::now();
     for _ in 0..100 {
@@ -497,7 +489,7 @@ fn l3_decides_identically_twice() {
     habits.observe(Situation::Advantage, Choice::Shield);
     habits.observe(Situation::Advantage, Choice::Shield);
     habits.observe(Situation::Advantage, Choice::Shield);
-    let p = profile(3, 24, 1.0);
+    let p = profile(3, 24);
     let tuning = ShadowTuning::default();
     let one = refine_by_rollout(
         Perceived::cheating(&view),
@@ -658,7 +650,7 @@ fn the_movement_veto_survives_having_nothing_to_swing() {
         Situation::Neutral,
         &options,
         &HabitModel::default(),
-        &profile(4, 12, 0.0),
+        &profile(4, 12),
         &ShadowTuning::default(),
         60.0,
         // A body committed for a full second: long enough that walking 400 px to
@@ -921,7 +913,7 @@ fn the_same_falling_line_is_condemned_or_reprieved_by_the_bodys_own_kit() {
             Situation::Neutral,
             &options,
             &HabitModel::default(),
-            &profile(4, 12, 0.0),
+            &profile(4, 12),
             &ShadowTuning::default(),
             60.0,
             60,
@@ -989,7 +981,7 @@ fn an_unmodelled_verb_is_still_unjudged_with_a_lens_attached() {
         Situation::Neutral,
         &options,
         &HabitModel::default(),
-        &profile(4, 12, 0.0),
+        &profile(4, 12),
         &ShadowTuning::default(),
         60.0,
         60,
@@ -1042,7 +1034,7 @@ fn a_decision_taken_through_the_lens_repeats_exactly() {
             Situation::Neutral,
             &options,
             &HabitModel::default(),
-            &profile(4, 12, 0.0),
+            &profile(4, 12),
             &ShadowTuning::default(),
             60.0,
             60,
@@ -1151,7 +1143,7 @@ fn a_walk_off_the_lip_is_not_reprieved_by_the_platform_it_is_leaving() {
             Situation::Neutral,
             &options,
             &HabitModel::default(),
-            &profile(4, 12, 0.0),
+            &profile(4, 12),
             &ShadowTuning::default(),
             60.0,
             60,
@@ -1228,7 +1220,7 @@ fn a_verb_the_shadow_cannot_model_is_reported_as_unjudged() {
         Situation::Recovery,
         &options,
         &HabitModel::default(),
-        &profile(4, 12, 0.0),
+        &profile(4, 12),
         &ShadowTuning::default(),
         60.0,
         60,
@@ -1299,89 +1291,3 @@ fn the_shadow_models_exactly_these_movement_verbs() {
     );
 }
 
-/// ⛔⛔ `read_weight` CANNOT REACH A FIGHTER THE SHIPPED LADDER CONFIGURES —
-/// the defect, pinned where an engineer meets it instead of only in a doc.
-///
-/// `read_weight` is authored on all nine rungs of
-/// `game/ambition_content/assets/data/fighter_brain_ladder.ron`, rising 0.0 →
-/// 0.9, and it reads like one of the ladder's main difficulty axes. It has two
-/// consumers: `HabitModel::read_bonus`, which nothing in production calls, and
-/// `habits.read(situation)` inside this function — **behind
-/// `uses_rollouts()`**. Those same nine rows set `rollout_depth: 0` and
-/// `rollout_k: 0`. ⇒ So no shipped fighter has ever been affected by it.
-///
-/// ⚠ **THIS TEST IS NOT A REQUEST TO KEEP IT THAT WAY.** It is a characterisation:
-/// it records what is true today so the situation cannot change silently. Wiring
-/// `read_bonus` into the L2 scorer is one of the two options in
-/// `docs/planning/awaiting-maintainer-decision.md`, and doing so SHOULD redden
-/// this — at which point delete it and update that entry, because the fact it
-/// records will no longer be a fact.
-///
-/// ⭐ Found by a rig arm that came back BYTE-IDENTICAL to its control after
-/// zeroing rung 5's `read_weight`. A change that produces an identical file is
-/// not a null result, it is a wiring result — and it is only visible if you diff
-/// the whole output instead of reading the verdict line.
-#[test]
-fn read_weight_changes_nothing_while_the_shipped_rows_disable_the_rollout() {
-    let view = view_with(300.0, 380.0); // gap 80, the same fixture the marquee rollout test uses
-    let options = OptionSet {
-        movement: Vec::new(),
-        attacks: vec![attack("jab", frames(0.08, 40.0, 4, 0.0))],
-        motions: Vec::new(),
-    };
-
-    // The shipped rows, on every rung: both rollout fields zero.
-    let shipped = |read_weight: f32| profile(0, 0, read_weight);
-
-    // ⛔ The habit model is POPULATED, so this is not passing because there is
-    // nothing to read. Production populates it the same way, every decision.
-    let mut habits = HabitModel::new(0.9);
-    for _ in 0..8 {
-        habits.observe(Situation::Neutral, Choice::Attack);
-    }
-    assert!(
-        !habits.is_empty(),
-        "the fixture must have habits to read, or this test proves nothing"
-    );
-
-    for read_weight in [0.0, 0.2, 0.5, 0.9] {
-        let refined = refine_by_rollout(
-            Perceived::cheating(&view),
-            Situation::Neutral,
-            &options,
-            &habits,
-            &shipped(read_weight),
-            &ShadowTuning::default(),
-            60.0,
-            6,
-            None,
-        );
-        assert!(
-            refined.is_none(),
-            "with the shipped rollout settings, read_weight = {read_weight} \
-             produced a refinement — the knob has become live, which is a GOOD \
-             change and makes this characterisation test wrong. Delete it and \
-             update awaiting-maintainer-decision.md."
-        );
-    }
-
-    // ⭐ And the same fixture WITH rollouts on does refine, so the `None`s above
-    // are the gate and not a broken fixture. Without this line the test would
-    // pass just as well against a `refine_by_rollout` that never returns `Some`.
-    let live = refine_by_rollout(
-        Perceived::cheating(&view),
-        Situation::Neutral,
-        &options,
-        &habits,
-        &profile(4, 12, 0.9),
-        &ShadowTuning::default(),
-        60.0,
-        6,
-        None,
-    );
-    assert!(
-        live.is_some(),
-        "the fixture cannot refine even with rollouts ON, so the assertions \
-         above were measuring a broken fixture rather than the gate"
-    );
-}

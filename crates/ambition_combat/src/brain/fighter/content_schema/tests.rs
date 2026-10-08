@@ -23,7 +23,7 @@ fn nine_rungs(reaction_at_five: f32) -> String {
         };
         rows.push_str(&format!(
             "  (level: {level}, reaction_ms: {reaction:.1}, apm_cap: {:.1}, \
-             execution_noise: {:.3}, rollout_depth: 0, rollout_k: 0, read_weight: 0.0, \
+             execution_noise: {:.3}, rollout_depth: 0, rollout_k: 0, \
              utility_weights: (reach_fit: 1.0, frame_advantage: 0.1, kill_potential: 0.0, \
              stage_risk: -0.1, expected_payoff: 0.0)),\n",
             60.0 + t * 300.0,

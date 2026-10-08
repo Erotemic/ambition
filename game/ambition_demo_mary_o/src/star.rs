@@ -127,7 +127,7 @@ pub fn play_star_music(
     };
     let now = sim_tick.as_ref().map_or(0, |tick| tick.0);
     let rooms: Vec<_> = stars.iter().map(|body| live.of(body)).collect();
-    music.release_priority_where(STAR_MUSIC_OWNER, |room| !rooms.contains(&room));
+    music.release_priority_where(STAR_MUSIC_OWNER, |_, room| !rooms.contains(&room));
     for room in rooms {
         music.claim_priority(room, STAR_MUSIC_OWNER, crate::provider::MARY_O_STAR_MUSIC_TRACK, now);
     }

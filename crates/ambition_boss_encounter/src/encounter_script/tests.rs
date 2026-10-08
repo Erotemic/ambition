@@ -365,3 +365,60 @@ fn a_gate_fired_in_one_live_room_advances_only_that_rooms_script() {
         "the gate fired in #1 did not kill only #1's boss"
     );
 }
+
+/// ⭐ MUSIC-CANDIDATES: TWO SCRIPTS IN ONE ROOM ARE TWO MUSIC SOURCES. Each
+/// script's `SetMusic` is the candidate of that script (its encounter's
+/// `SimId`), so a script that ends takes only its own track with it.
+///
+/// The first script claims `first_theme` on tick 1, and the second claims
+/// `second_theme` on tick 4. While both live, the later claim plays. When the
+/// second ends, the first's track plays again with no new claim. When both
+/// end, nothing plays. With one source for every script, the second's claim
+/// replaced the first's, and the ended script's track kept playing.
+#[test]
+fn two_scripts_in_one_room_are_two_music_candidates() {
+    use ambition_platformer2d_shared_tangle::lifecycle::session_world_component;
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use ambition_time::SimTick;
+
+    let mut app = test_app();
+    app.insert_resource(SimTick(0));
+    let script = |id: &str, after: f32, theme: &str| {
+        (
+            SimId::singleton("encounter", id),
+            EncounterParticipants::new(Vec::new()),
+            EncounterScript::new(vec![EncounterBeat::new(
+                EncounterTrigger::Timer(after),
+                vec![EncounterEffect::SetMusic(Some(theme.into()))],
+            )]),
+        )
+    };
+    let first = app.world_mut().spawn(script("first", 0.0, "first_theme")).id();
+    let second = app.world_mut().spawn(script("second", 0.05, "second_theme")).id();
+    let step = |app: &mut App, ticks: usize| {
+        for _ in 0..ticks {
+            app.world_mut().resource_mut::<SimTick>().0 += 1;
+            app.update();
+        }
+    };
+    let playing = |app: &App| {
+        session_world_component::<EncounterMusicRequest>(app.world())
+            .expect("the fixture inserts one")
+            .desired_track(None)
+            .map(str::to_owned)
+    };
+
+    step(&mut app, 10);
+    let both_live = playing(&app);
+    app.world_mut().entity_mut(second).despawn();
+    step(&mut app, 1);
+    let the_second_ended = playing(&app);
+    app.world_mut().entity_mut(first).despawn();
+    step(&mut app, 1);
+    let both_ended = playing(&app);
+    assert_eq!(
+        (both_live.as_deref(), the_second_ended.as_deref(), both_ended.as_deref()),
+        (Some("second_theme"), Some("first_theme"), None),
+        "(both scripts live, the second ended, both ended): the track that plays"
+    );
+}

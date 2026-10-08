@@ -73,7 +73,7 @@ pub fn play_death_music(
         .filter(|(_, window)| window.open())
         .map(|(body, _)| live.of(body))
         .collect();
-    music.release_priority_where(DEATH_MUSIC_OWNER, |room| !rooms.contains(&room));
+    music.release_priority_where(DEATH_MUSIC_OWNER, |_, room| !rooms.contains(&room));
     for room in rooms {
         music.claim_priority(room, DEATH_MUSIC_OWNER, crate::provider::MARY_O_DEATH_MUSIC_TRACK, now);
     }

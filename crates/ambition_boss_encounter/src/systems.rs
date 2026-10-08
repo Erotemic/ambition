@@ -353,7 +353,7 @@ pub fn update_boss_encounters(
     // Release only this system's own claim. It has no run condition, so the
     // "no boss is fighting" arm runs every frame of every game; clearing the
     // whole tier would silence every other music claimant.
-    music_request.release_priority_where(BOSS_MUSIC_OWNER, |room| {
+    music_request.release_priority_where(BOSS_MUSIC_OWNER, |_, room| {
         !active_music_tracks.contains_key(&room)
     });
     let now = sim_tick.as_ref().map_or(0, |tick| tick.0);

@@ -80,6 +80,40 @@ pub struct EncounterMusicRequest {
     rooms: std::collections::BTreeMap<Option<LiveRoomInstance>, RoomMusicTiers>,
 }
 
+/// Who claims the music of a room: a kind of source and which source of that
+/// kind. A kind with one source (the boss music, Mary-O's star) is its kind
+/// alone, from `&'static str`. A kind with many sources names each one by a
+/// durable id, so two of them in one room are two candidates: two encounter
+/// scripts (`MusicSource::instance`). The id must survive a rewind, so it is
+/// a `SimId` and not an ECS `Entity`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MusicSource {
+    kind: &'static str,
+    /// Empty for a kind with one source.
+    instance: String,
+}
+
+impl MusicSource {
+    /// The source `instance` of the kind `kind`.
+    pub fn instance(kind: &'static str, instance: impl Into<String>) -> Self {
+        Self {
+            kind,
+            instance: instance.into(),
+        }
+    }
+
+    /// The kind of this source.
+    pub fn kind(&self) -> &'static str {
+        self.kind
+    }
+}
+
+impl From<&'static str> for MusicSource {
+    fn from(kind: &'static str) -> Self {
+        Self::instance(kind, String::new())
+    }
+}
+
 /// The two tiers of one live room.
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 struct RoomMusicTiers {
@@ -87,7 +121,7 @@ struct RoomMusicTiers {
     /// source that claims this room. Any of them overrides `base_track`.
     /// Each source owns its own candidate, so a release takes out only that
     /// candidate and the others stay (review 2026-10-05, P6).
-    claims: std::collections::BTreeMap<&'static str, PriorityClaim>,
+    claims: std::collections::BTreeMap<MusicSource, PriorityClaim>,
     /// Lower-priority encounter track (a wave / arena lockdown). Written every
     /// frame — `Some(track)` while in flight, `None` otherwise — so its
     /// per-frame `None` can never override a priority claim.
@@ -111,8 +145,8 @@ impl RoomMusicTiers {
 
     /// The claim that plays: the one that began latest, because the newest
     /// fight is the one the player looks at. Of claims that began on one
-    /// tick, the source whose name sorts first. Both are values, not the
-    /// order in which the systems ran.
+    /// tick, the source that sorts first (by kind, then by instance). Both
+    /// are values, not the order in which the systems ran.
     fn winning_claim(&self) -> Option<&PriorityClaim> {
         self.claims
             .iter()
@@ -141,13 +175,14 @@ impl EncounterMusicRequest {
     pub fn claim_priority(
         &mut self,
         room: Option<LiveRoomInstance>,
-        owner: &'static str,
+        owner: impl Into<MusicSource>,
         track: impl Into<String>,
         now: u64,
     ) {
+        let owner = owner.into();
         let track = track.into();
         let tiers = self.rooms.entry(room).or_default();
-        match tiers.claims.get_mut(owner) {
+        match tiers.claims.get_mut(&owner) {
             Some(claim) => {
                 if claim.track != track {
                     claim.track = track;
@@ -162,22 +197,24 @@ impl EncounterMusicRequest {
     /// Release the priority tier of `room`, but only if `owner` still holds
     /// it. A source with nothing to say says nothing, rather than silencing
     /// whoever does.
-    pub fn release_priority(&mut self, room: Option<LiveRoomInstance>, owner: &'static str) {
-        self.release_priority_where(owner, |claimed| claimed == room);
+    pub fn release_priority(&mut self, room: Option<LiveRoomInstance>, owner: impl Into<MusicSource>) {
+        let owner = owner.into();
+        self.release_priority_where(owner.kind(), |source, claimed| *source == owner && claimed == room);
     }
 
-    /// Release `owner`'s claim in every room for which `release` is true. A
-    /// source that states its claims for every room each frame releases
-    /// the rooms it has nothing to say for here.
+    /// Release each claim of a source of the kind `kind` in each room for
+    /// which `release` is true. A kind that states the claims of all its
+    /// sources each frame releases here the sources and rooms it has nothing
+    /// to say for.
     pub fn release_priority_where(
         &mut self,
-        owner: &'static str,
-        mut release: impl FnMut(Option<LiveRoomInstance>) -> bool,
+        kind: &'static str,
+        mut release: impl FnMut(&MusicSource, Option<LiveRoomInstance>) -> bool,
     ) {
         for (room, tiers) in &mut self.rooms {
-            if tiers.claims.contains_key(owner) && release(*room) {
-                tiers.claims.remove(owner);
-            }
+            tiers
+                .claims
+                .retain(|source, _| source.kind() != kind || !release(source, *room));
         }
         self.rooms.retain(|_, tiers| !tiers.is_empty());
     }
@@ -192,8 +229,8 @@ impl EncounterMusicRequest {
 
     /// The track of `owner`'s own candidate in `room`, whether or not it is
     /// the one that plays.
-    pub fn claim_of(&self, room: Option<LiveRoomInstance>, owner: &'static str) -> Option<&str> {
-        Some(self.rooms.get(&room)?.claims.get(owner)?.track.as_str())
+    pub fn claim_of(&self, room: Option<LiveRoomInstance>, owner: impl Into<MusicSource>) -> Option<&str> {
+        Some(self.rooms.get(&room)?.claims.get(&owner.into())?.track.as_str())
     }
 
     /// Publish the BASE tier of every room: each room in `tracks` gets its

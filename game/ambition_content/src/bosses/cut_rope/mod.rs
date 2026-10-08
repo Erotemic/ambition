@@ -268,7 +268,7 @@ pub fn release_cut_rope_music_outside_its_room(
     let Some(mut music) = music else {
         return;
     };
-    music.release_priority_where(CUT_ROPE_MUSIC_OWNER, |room| {
+    music.release_priority_where(CUT_ROPE_MUSIC_OWNER, |_, room| {
         rooms
             .definition_named(room)
             .is_none_or(|definition| rooms.rooms().spec(definition).id != CUT_ROPE_ROOM_ID)

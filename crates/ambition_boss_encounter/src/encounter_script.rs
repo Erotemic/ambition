@@ -31,6 +31,18 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     LiveRoomInstance, LiveRooms, SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 
+/// The music source of one encounter script: its kind, and its encounter's
+/// `SimId`, which survives a rewind. A script with no id shares the one
+/// unnamed source of the kind.
+pub fn script_music_source(
+    encounter_id: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+) -> ambition_encounter::MusicSource {
+    ambition_encounter::MusicSource::instance(
+        SCRIPT_MUSIC_OWNER,
+        encounter_id.map_or("", |id| id.as_str()),
+    )
+}
+
 /// Advance every encounter script and execute the effects it yields this
 /// tick. The trigger evaluation and cursor logic are generic
 /// (`EncounterScript::advance`, reading fired gates and participant deadness);
@@ -85,22 +97,20 @@ pub fn tick_encounter_scripts(
     // No shipped encounter authors `EncounterEffect::SetMusic` yet; this keeps
     // the capability correct.
     //
-    // Limitation: this is correct only while at most one script is live in a
-    // room. Each source has its own candidate in each room, but
-    // `SCRIPT_MUSIC_OWNER` is one source for every `EncounterScript`, so two
-    // live scripts in one room share one candidate: the later `SetMusic`
-    // changes its track, and a script that ends while the other lives leaves
-    // the candidate in place. No content has two concurrent scripts today.
-    // The fix is a source per script, keyed by the durable `encounter_id`.
-    // Do not key it by ECS `Entity`, which does not survive a rewind. Add a
-    // two-script test with the fix.
-    // Each live room's own claim: release it in each room with no live script.
-    let scripted: Vec<Option<LiveRoomInstance>> =
-        scripts.iter().map(|(occurrence, ..)| live.of(occurrence)).collect();
-    music.release_priority_where(SCRIPT_MUSIC_OWNER, |room| !scripted.contains(&room));
+    // Each script is its own source (`script_music_source`), so two live
+    // scripts in one room are two candidates. Release each script's claim in
+    // each room where that script is not live.
+    let scripted: Vec<(ambition_encounter::MusicSource, Option<LiveRoomInstance>)> = scripts
+        .iter()
+        .map(|(occurrence, _, _, encounter_id, _)| (script_music_source(encounter_id), live.of(occurrence)))
+        .collect();
+    music.release_priority_where(SCRIPT_MUSIC_OWNER, |source, room| {
+        !scripted.iter().any(|(live_source, live_room)| live_source == source && *live_room == room)
+    });
 
     for (occurrence, participants, mut script, encounter_id, mut counter) in &mut scripts {
         let room = live.of(occurrence);
+        let source = script_music_source(encounter_id);
         let fired_here: Vec<String> = fired
             .iter()
             .filter(|(_, fired_in)| *fired_in == room)
@@ -122,8 +132,8 @@ pub fn tick_encounter_scripts(
                 }
                 EncounterEffect::Banner { text, secs } => banner.show(text.clone(), *secs),
                 EncounterEffect::SetMusic(track) => match track {
-                    Some(track) => music.claim_priority(room, SCRIPT_MUSIC_OWNER, track.clone(), now),
-                    None => music.release_priority(room, SCRIPT_MUSIC_OWNER),
+                    Some(track) => music.claim_priority(room, source.clone(), track.clone(), now),
+                    None => music.release_priority(room, source.clone()),
                 },
                 EncounterEffect::CommandMoveTo {
                     member,

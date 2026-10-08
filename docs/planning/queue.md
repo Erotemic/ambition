@@ -692,16 +692,19 @@ No shipped encounter authors `SetMusic`.
     Poisons: a release clears the room (red); a claim moves its tick on
     each claim (red, because the names then choose the other source).
   - Still open: the priority is the tier (claims 2, base 1), not authored
-    per candidate; `SCRIPT_MUSIC_OWNER` is one source for every script, so
-    two scripts in one room share one candidate; `EncounterEffect::SetMusic`
-    has no shipped customer. No composed witness drives two production
-    sources into one room.
+    per candidate; `EncounterEffect::SetMusic` has no shipped customer. No
+    composed witness drives two production sources into one room.
+- **Built 2026-10-08: a source is a kind and an instance.**
+  `ambition_encounter::MusicSource` names a candidate's source. A kind with
+  one source converts from its `&'static str`; each encounter script is its
+  own source, keyed by its encounter's `SimId`
+  (`script_music_source`), which survives a rewind. A script that ends
+  releases only its own claim.
+  Witness: `ambition_boss_encounter`
+  `two_scripts_in_one_room_are_two_music_candidates`.
 
 **What is left:**
 
-- A source is a kind (a `&'static str`), not an instance: two instances of
-  one kind in one room share one candidate (the encounter script case
-  above).
 - The priority is fixed by the tier, not authored per candidate. Make it an
   authored property of the candidate when content needs a value between the
   tiers.

@@ -33,7 +33,7 @@ pub use lifecycle::{
     reduce_encounter_lifecycles, EncounterCommand, EncounterCommandKind, EncounterLifecycle,
     EncounterLifecycleSet, EncounterPhase,
 };
-pub use music::EncounterMusicRequest;
+pub use music::{EncounterMusicRequest, MusicSource};
 pub use objective::{objective_met, EncounterObjective, Objective};
 pub use participants::{
     EncounterCleanupPolicy, EncounterParticipant, EncounterParticipants, EncounterRole, Ownership,

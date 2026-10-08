@@ -157,3 +157,62 @@ fn every_supported_profile_steps_a_body_and_installs_none_of_what_it_omits() {
         println!("PROFILE-WITNESS {} ok ticks={ticks} omits={}", profile.name, profile.omits.len());
     }
 }
+
+/// ⭐ A PROFILE REFUSES CONTENT THAT NEEDS WHAT IT OMITS (A9, Q100). For each
+/// supported profile and each content capability it omits, a pack that
+/// requires that capability is refused at admission with `MissingCapability`
+/// against the profile's schemas. The control: the full engine schemas admit
+/// the same pack. And the ids the runtime spells are the owners' constants.
+#[test]
+fn a_profile_refuses_content_that_needs_a_capability_it_omits() {
+    use ambition_content_pack::{
+        CapabilityId, ContentPackDraft, ContentPackManifest, DiagnosticCode, ModuleNamespace, NoAssets,
+        PackId, PackVersion,
+    };
+    assert_eq!(
+        (Capability::Cutscenes.content_capability(), Capability::BossEncounters.content_capability()),
+        (
+            Some(ambition_cutscene::content_schema::CUTSCENE_CAPABILITY),
+            Some(ambition_boss_encounter::pattern::content_schema::BOSS_PATTERN_CAPABILITY),
+        ),
+        "the runtime's content capability ids are the owners' constants"
+    );
+    let needing = |capability: &str| {
+        ContentPackDraft::from_sources(
+            ContentPackManifest {
+                id: PackId("needs_one".into()),
+                version: PackVersion("1.0.0".into()),
+                namespace: ModuleNamespace("profile_test".into()),
+                requires: vec![CapabilityId::new(capability)],
+                sources: Vec::new(),
+            },
+            Vec::new(),
+        )
+        .expect("a manifest with no sources drafts")
+    };
+    let mut refused = Vec::new();
+    for profile in SUPPORTED_PROFILES {
+        let schemas = ambition_engine_schemas::engine_schemas_without(&profile.omitted_content_capabilities());
+        for capability in profile.omitted_content_capabilities() {
+            let draft = needing(capability);
+            let under_profile = ambition_content_pack::compile(&draft, &schemas, &NoAssets);
+            let under_full = ambition_content_pack::compile(&draft, &ambition_engine_schemas::engine_schemas(), &NoAssets);
+            assert!(under_full.is_ok(), "control: the full engine admits a pack that needs `{capability}`");
+            if under_profile.is_err_and(|failure| failure.has(DiagnosticCode::MissingCapability)) {
+                refused.push(format!("{}: {capability}", profile.name));
+            }
+        }
+    }
+    println!("PROFILE-ADMISSION refused {refused:?}");
+    let omitting: Vec<String> = SUPPORTED_PROFILES
+        .iter()
+        .flat_map(|profile| {
+            profile
+                .omitted_content_capabilities()
+                .into_iter()
+                .map(move |capability| format!("{}: {capability}", profile.name))
+        })
+        .collect();
+    assert!(!omitting.is_empty(), "precondition: some profile omits a content capability");
+    assert_eq!(refused, omitting, "the (profile, omitted capability) pairs whose pack was refused");
+}

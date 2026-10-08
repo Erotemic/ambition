@@ -94,3 +94,9 @@ ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 # this host group + a fixture content plugin (which builds a one-room world).
 ambition_characters = { path = "../ambition_characters" }
 ambition_platformer2d_provider = { path = "../ambition_platformer2d_provider" }
+# A profile's admission refusal (A9): its omitted content capabilities, the
+# schema list without them, and the owners' capability constants.
+ambition_engine_schemas = { path = "../ambition_engine_schemas" }
+ambition_content_pack = { path = "../ambition_content_pack" }
+ambition_cutscene = { path = "../ambition_cutscene", features = ["content_pack"] }
+ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["content_pack"] }

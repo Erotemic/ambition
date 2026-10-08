@@ -441,10 +441,21 @@ parameters validated; a control arm proves the probe can say yes
 promised omission fail on its first tick; all are repaired in source, and the table
 is in [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md#supported-profiles).
 
+**Done 2026-10-08 (admission):** a profile admits content with
+`ambition_engine_schemas::engine_schemas_without(profile.omitted_content_capabilities())`;
+`Capability::content_capability` names the pack capability each runtime
+capability interprets (`BossEncounters` → `boss_pattern`, `Cutscenes` →
+`cutscene`). A pack whose manifest requires an omitted one is refused with
+`MissingCapability`; the full schemas admit the same pack. Witness:
+`supported_profiles.rs` `a_profile_refuses_content_that_needs_a_capability_it_omits`
+(poison: the omission filter off gives no refusals).
+
 **Open:** the claim is *not installed*, not *not linked* (`Q106`: the crates behind
-these capabilities are unconditional dependencies); content that requires an omitted
-capability refusing at admission is not witnessed; re-entry is not exercised;
-`Cutscenes` is a capability but in no profile yet.
+these capabilities are unconditional dependencies); `Dialogue` has no pack
+capability (Yarn is not a pack schema), so a Yarn script asked of a profile
+without dialogue is not refused at admission; no shipped host admits content
+under a reduced profile (the refusal is witnessed at the profile's schema set);
+re-entry is not exercised; `Cutscenes` is a capability but in no profile yet.
 
 **Blocked by:** nothing.
 

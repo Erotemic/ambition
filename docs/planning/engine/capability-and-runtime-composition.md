@@ -204,10 +204,11 @@ excluded:
 * Not omittable today, each for a reason the probe printed: `dev_tools_sim` (the
   feel-tuning proposal system requires its `PendingMechanicalEdits`). It is not in the
   list.
-* Content that requires an omitted capability (a Yarn script asked of a game with no
-  dialogue; a boss placement with no boss capability) must refuse at admission. The
-  ruling is `Q146`/`Q144`; the witnesses here are a content-free fixture and do not test
-  that refusal.
+* Content that requires an omitted capability must refuse at admission (`Q146`/`Q144`).
+  A pack that requires an omitted pack capability is refused: a profile's schemas are
+  `ambition_engine_schemas::engine_schemas_without(profile.omitted_content_capabilities())`
+  (witness `a_profile_refuses_content_that_needs_a_capability_it_omits`). A Yarn script
+  asked of a game with no dialogue is not refused: dialogue has no pack capability.
 * Re-entry (a second session in the same process) is not exercised by these witnesses.
 
 **Dropping one of these profiles' promises from the registry is a decision; a

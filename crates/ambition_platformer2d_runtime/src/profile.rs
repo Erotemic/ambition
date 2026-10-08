@@ -62,6 +62,26 @@ impl Capability {
         }
     }
 
+    /// The content-pack capability this runtime capability interprets, when
+    /// authored content can need it: a pack that requires it is refused by a
+    /// composition that omits this capability
+    /// (`ambition_engine_schemas::engine_schemas_without`). `None` when no
+    /// pack capability belongs to this one alone: the item catalog is read by
+    /// collection and by held use, and dialogue is not a pack schema.
+    ///
+    /// The ids are the owners' constants (`ambition_cutscene::content_schema::
+    /// CUTSCENE_CAPABILITY`, `ambition_boss_encounter::pattern::content_schema::
+    /// BOSS_PATTERN_CAPABILITY`), spelled here because this crate does not
+    /// enable their `content_pack` feature; `supported_profiles.rs` holds the
+    /// two equal.
+    pub const fn content_capability(self) -> Option<&'static str> {
+        match self {
+            Capability::Cutscenes => Some("cutscene"),
+            Capability::BossEncounters => Some("boss_pattern"),
+            Capability::Dialogue | Capability::HeldUse | Capability::Inventory => None,
+        }
+    }
+
     /// Drop this capability's plugins from the engine group.
     pub fn omit(self, group: PluginGroupBuilder) -> PluginGroupBuilder {
         match self {
@@ -140,6 +160,16 @@ pub struct EngineProfile {
     pub face: HostFace,
     /// The capabilities this profile promises are NOT installed.
     pub omits: &'static [Capability],
+}
+
+impl EngineProfile {
+    /// The content-pack capabilities this profile cannot interpret: pass them
+    /// to `ambition_engine_schemas::engine_schemas_without` for the schemas
+    /// this profile admits content with, so a pack that needs one is refused
+    /// at admission (Q100).
+    pub fn omitted_content_capabilities(&self) -> Vec<&'static str> {
+        self.omits.iter().filter_map(|capability| capability.content_capability()).collect()
+    }
 }
 
 // profile-contract: headless-body-world

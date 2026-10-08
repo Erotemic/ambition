@@ -9,6 +9,15 @@ pub use ambition_content_pack::SchemaRegistry;
 /// schemas without knowing the internal crates that own the built-in entries.
 /// Registration order has no semantic meaning; duplicate IDs are refused.
 pub fn engine_schemas() -> SchemaRegistry {
+    engine_schemas_without(&[])
+}
+
+/// The engine-owned schema set without the schemas of the content
+/// capabilities in `omitted`: what a composition that does not install those
+/// capabilities can admit. A pack that requires one of them is refused with
+/// `MissingCapability` (A9, Q100). An engine profile names its omissions with
+/// `EngineProfile::omitted_content_capabilities`.
+pub fn engine_schemas_without(omitted: &[&str]) -> SchemaRegistry {
     let mut registry = SchemaRegistry::new();
     for schema in [
         ambition_characters::actor::character_catalog::character_catalog_schema(),
@@ -32,6 +41,9 @@ pub fn engine_schemas() -> SchemaRegistry {
         ambition_persistence::quest::content_schema::quest_book_schema(),
         ambition_cutscene::content_schema::cutscene_library_schema(),
     ] {
+        if omitted.contains(&schema.capability.0.as_str()) {
+            continue;
+        }
         registry
             .register(schema)
             .expect("the engine's own schemas are registered once");

@@ -174,6 +174,7 @@ pub(super) fn step_crawler(
     clusters: &mut BodyClustersMut<'_>,
     frame: MotionFrame,
     facing_intent: f32,
+    crawl_axis: f32,
     dt: f32,
     contacts: &mut Vec<Contact>,
     conflicts: &mut Vec<AxisConstraintConflict>,
@@ -181,6 +182,11 @@ pub(super) fn step_crawler(
     if facing_intent.abs() > 0.001 {
         clusters.kinematics.facing = facing_intent.signum();
     }
+    // The crawler advances only while its driver commands motion on its side
+    // axis, as every other motion model does. The pace is the policy's
+    // (`crawl_speed`); the command says whether to go. A driver that commands
+    // nothing (a `stand_still` brain) keeps the crawler where it clings.
+    let crawling = crawl_axis.abs() > 0.001;
 
     let attachment = match motion.state.attachment() {
         None => {
@@ -193,7 +199,7 @@ pub(super) fn step_crawler(
     let normal = match attachment {
         CrawlAttachment::Chain { chain, s } => {
             crawl_chain(
-                motion, world, clusters, frame, dt, contacts, conflicts, chain, s,
+                motion, world, clusters, frame, crawling, dt, contacts, conflicts, chain, s,
             );
             return;
         }
@@ -215,6 +221,22 @@ pub(super) fn step_crawler(
         if let Some(block) = world.first_overlapping_block(probe, cling_pred) {
             clusters.kinematics.pos += block.velocity;
         }
+    }
+    if !crawling {
+        // Still: it stays while the surface is under it, and falls when the
+        // surface has gone, as a crawling body does.
+        let support = body_thick.min(body_long);
+        let reach = body_thick + body_long + 4.0;
+        if let Some(surface) = surface_toward(world, clusters.kinematics.pos, normal, support, reach) {
+            clusters.kinematics.pos = seated_on(surface, clusters.kinematics.pos, normal, body_thick);
+            clusters.kinematics.vel = Vec2::ZERO;
+            finish_attached(clusters);
+        } else {
+            motion.detach();
+            fall_step(motion, world, clusters, frame, dt, contacts, conflicts);
+        }
+        publish_attachment_contact(motion, world, clusters, contacts);
+        return;
     }
 
     let n = normal;
@@ -314,6 +336,7 @@ fn crawl_chain(
     world: &World,
     clusters: &mut BodyClustersMut<'_>,
     frame: MotionFrame,
+    crawling: bool,
     dt: f32,
     contacts: &mut Vec<Contact>,
     conflicts: &mut Vec<AxisConstraintConflict>,
@@ -327,7 +350,7 @@ fn crawl_chain(
         return;
     };
     let facing = clusters.kinematics.facing;
-    let speed = motion.params.crawl_speed;
+    let speed = if crawling { motion.params.crawl_speed } else { 0.0 };
     let next_s = s + facing * speed * dt;
     let total = surface.total_length();
     if !surface.closed && !(0.0..=total).contains(&next_s) {

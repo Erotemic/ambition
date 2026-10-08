@@ -3759,7 +3759,10 @@ fn two_rooms_under_a_sync_test(poison: bool) -> (bool, Result<(), String>) {
     use ambition_platformer2d::sim::SimScheduleExt;
     let options = fixed_60hz_room_options(ROOM)
         .with_save(a_save_that_has_seen_the_hub_intro())
-        .with_sync_test_rollback_settings(4, 10);
+        .with_sync_test_rollback_settings(4, 10)
+        // The session must carry slot 1, or slot 1's input never reaches
+        // Bob and the control that he runs is not measured.
+        .with_rollback_players(2);
     let sim = Platformer2dSimHarness::build(options, |app, options| {
         ambition_app::rl_sim::ambition_sim_composition(app, options)?;
         app.init_resource::<NudgeBobsRoom>();

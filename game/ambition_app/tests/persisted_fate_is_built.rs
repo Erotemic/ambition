@@ -294,6 +294,12 @@ fn a_challenge_made_through_a_possessed_body_names_that_body_and_is_remembered()
     sim.world_mut()
         .run_system_cached(ambition_content::yarn_vocabulary::cmd_challenge)
         .expect("the `<<challenge>>` command runs");
+    // The choice ends the node, and the box closes. Nothing else ends the
+    // conversation: the possessed body is given no command, so it stays in
+    // talk reach.
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::dialog::DialogState>()
+        .close();
     // The challenge is armed, and its grace runs once the conversation is
     // over and play resumes.
     for _ in 0..600 {

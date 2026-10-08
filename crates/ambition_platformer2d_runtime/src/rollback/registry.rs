@@ -1093,10 +1093,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// only through the save that mirrors it.
 /// ⛔⛤ 327 -> 328: `actor.motion_model` encodes `ledge_grabs`, the ledge
 /// grabs a body made since it landed or was hit (the regrab limit).
-/// ⛔⛤ 328 -> 329: `actor.body_combat` (`BodyCombat`) encodes
+/// ⛔⛤ 328 -> 329: the occurrence ledger (`AuthoredOccurrences`, and its pinned
+/// baseline) also encodes which of its ids are RUNTIME MINTS (provenance, beside
+/// the rows), so a peer that disagrees about a mint's mark disagrees about
+/// whether its `Consumed` row survives the next checkpoint commit.
+/// ⛔⛤ 329 -> 330: `actor.body_combat` (`BodyCombat`) encodes
 /// `ledge_trump_lock_timer`, the lock a ledge trump owes its loser under a
 /// declared `CombatRules::ledge_trump_lockout`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 329;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 330;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -94,20 +94,24 @@ after Bob's room kept the explosion); the spend reads the live object only
   owners). The spend reads the row, so it follows if the ledger comes to
   keep a spared participant's dormant rows. Filed as Q161 (2026-10-06),
   default in force: (a), the current behaviour.
-- A `Consumed` row of an ended runtime mint stays in the ledger and the save
-  for the run. A runtime mint with no row is built by nothing, so the row is
-  needed only until the checkpoint after the end; the restore's spend rule
-  reads it until then (`session/checkpoint.rs`, the pinned ledger's end).
-  Measured 2026-10-08: the ledger cannot tell a mint row. `SimId` is an opaque
-  string that nothing may parse; provenance is `SpawnOrigin`, on the live
-  entity only; `admit_mints` (`continuity.rs`) is the one place that knows a
-  row is a mint, and it does not record it; the save's `minted_items` drops a
-  mint when its row stops being `Placed`. So compaction needs the ledger to
-  record mint rows at `admit_mints` (rollback state, checksum and save field),
-  then drop `Consumed` mint rows when a checkpoint commits, before
-  `capture_occurrence_baseline`. No test asserts a mint's `Consumed` row
-  today; the behavioural witnesses are the three bomb/javelin tests in
-  `death_restores_the_checkpoint.rs`.
+
+**Built 2026-10-08 (mint-row compaction):** a `Consumed` row of an ended
+runtime mint no longer stays in the ledger and the save for the run. The
+ledger records mint-ness as provenance BESIDE the row (`AuthoredOccurrences`
+`mints`, not a new variant of `OccurrenceWhereabouts`), marked from
+`SpawnOrigin::Dynamic` by `record_placed_ground_items` and by `admit_mints`;
+`compact_ended_mints_at_checkpoint` drops the `Consumed` row of a marked id
+when a checkpoint commits, before `capture_occurrence_baseline`, so only a
+row ended before the committed checkpoint goes. An authored `Consumed` (a
+taken pickup) and a `Spent` (an opened chest) are never marked and stay. The
+mark is rollback state (hashed in `encode_rows`, schema 328) and a save field
+(`PersistedOccurrence.mint`, default false, absent from old files). Witness:
+`a_bomb_that_exploded_leaves_no_ledger_row_once_a_checkpoint_commits`
+(live ledger, pinned baseline and save carry no row; controls: authored
+`Consumed` and `Spent` survive; a death afterwards leaves the bag alone), and
+the unit tests beside `compact_ended_mints` in `continuity.rs`. The three
+bomb/javelin tests stay green. Poisons, each red: compaction never runs; it
+drops every `Consumed` row (the authored control goes).
 
 **Built 2026-10-06:**
 

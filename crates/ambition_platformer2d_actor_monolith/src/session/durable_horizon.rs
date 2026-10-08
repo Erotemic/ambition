@@ -229,9 +229,10 @@ impl CandidateDurableHorizon {
     /// while another experience plays. [`CandidateSave::horizon_of`] is the
     /// production caller.
     pub fn from_save(save: &ambition_persistence::save_data::AmbitionGameSaveData) -> Self {
-        let (rows, custody) = ledger_from_save(save);
+        let (rows, custody, mints) = ledger_from_save(save);
         let mut occurrences = AuthoredOccurrences::default();
         occurrences.adopt_rows(rows);
+        occurrences.adopt_mints(mints);
         Self {
             occurrences,
             custody,
@@ -290,6 +291,7 @@ fn ledger_from_save(
 ) -> (
     BTreeMap<SimId, OccurrenceWhereabouts>,
     BTreeMap<SimId, SimId>,
+    Vec<SimId>,
 ) {
     let ledger_rows: BTreeMap<SimId, OccurrenceWhereabouts> = data
         .occurrences()
@@ -320,7 +322,15 @@ fn ledger_from_save(
         })
         .collect();
 
-    (ledger_rows, held)
+    // The rows the file marks as runtime mints (provenance, beside the row).
+    let mints: Vec<SimId> = data
+        .occurrences()
+        .iter()
+        .filter(|row| row.mint)
+        .map(|row| SimId::from_snapshot(row.id.clone()))
+        .collect();
+
+    (ledger_rows, held, mints)
 }
 
 fn adopt_the_ledger(
@@ -329,8 +339,9 @@ fn adopt_the_ledger(
     occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
     custody_baseline: Option<ResMut<CustodyBaseline>>,
 ) {
-    let (ledger_rows, held) = ledger_from_save(data);
+    let (ledger_rows, held, mints) = ledger_from_save(data);
     occurrences.adopt_rows(ledger_rows);
+    occurrences.adopt_mints(mints);
     if let Some(mut baseline) = occurrence_baseline {
         baseline.adopt(occurrences.clone());
     }
@@ -636,6 +647,7 @@ pub fn persist_occurrence_horizon_to_save(
                         OccurrenceWhereabouts::Spent => PersistedWhereabouts::Spent,
                     },
                 )
+                .minted(occurrences.is_mint(sim_id))
             })
             .collect()
     });

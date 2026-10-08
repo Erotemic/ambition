@@ -206,6 +206,15 @@ pub struct AuthoredOccurrences {
     /// room find the rows that place an occurrence there without a walk over
     /// the dormant rows of every other room ([`Self::placed_in`]).
     placed: Arc<BTreeMap<String, BTreeSet<SimId>>>,
+    /// The ids that are RUNTIME MINTS: occurrences no authored record builds.
+    /// This is PROVENANCE, kept beside the row and not in it: the row says where
+    /// an occurrence is, and an ended mint (`Consumed`) is the one row that
+    /// stops mattering once a checkpoint commits after its end
+    /// ([`Self::compact_ended_mints`]). An authored occurrence is never marked,
+    /// so its `Consumed` and `Spent` rows (a taken one-time pickup, an opened
+    /// chest) stay for the run. Rollback and save state: the snapshot clones
+    /// it, the peer checksum and the file carry it.
+    mints: Arc<BTreeSet<SimId>>,
 }
 
 /// Equal rows, with the same allocation first: a snapshot and the live ledger
@@ -214,6 +223,7 @@ impl PartialEq for AuthoredOccurrences {
     fn eq(&self, other: &Self) -> bool {
         (Arc::ptr_eq(&self.rows, &other.rows) || self.rows == other.rows)
             && (Arc::ptr_eq(&self.custody, &other.custody) || self.custody == other.custody)
+            && (Arc::ptr_eq(&self.mints, &other.mints) || self.mints == other.mints)
     }
 }
 
@@ -226,7 +236,7 @@ impl PartialEq for AuthoredOccurrences {
 /// whatever their memos hold.
 struct RowsDigest {
     domain: &'static str,
-    slot: std::sync::Mutex<Option<(Arc<BTreeMap<SimId, OccurrenceWhereabouts>>, u64)>>,
+    slot: std::sync::Mutex<Option<(Arc<BTreeMap<SimId, OccurrenceWhereabouts>>, Arc<BTreeSet<SimId>>, u64)>>,
 }
 
 impl RowsDigest {
@@ -236,17 +246,17 @@ impl RowsDigest {
 
     fn of(&self, ledger: &AuthoredOccurrences) -> u64 {
         // No rows costs nothing to hash, and leaves the slot to rows that do.
-        if ledger.rows.is_empty() {
+        if ledger.rows.is_empty() && ledger.mints.is_empty() {
             return ledger.digest(self.domain);
         }
         let mut slot = self.slot.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        if let Some((held, digest)) = slot.as_ref() {
-            if Arc::ptr_eq(held, &ledger.rows) {
+        if let Some((held, held_mints, digest)) = slot.as_ref() {
+            if Arc::ptr_eq(held, &ledger.rows) && Arc::ptr_eq(held_mints, &ledger.mints) {
                 return *digest;
             }
         }
         let digest = ledger.digest(self.domain);
-        *slot = Some((ledger.rows.clone(), digest));
+        *slot = Some((ledger.rows.clone(), ledger.mints.clone(), digest));
         digest
     }
 }
@@ -336,8 +346,81 @@ impl AuthoredOccurrences {
                 }
             }
             self.placed = Arc::new(placed);
+            // A mark outlives only the row it describes.
+            if self.mints.iter().any(|sim_id| !rows.contains_key(sim_id)) {
+                self.mints = Arc::new(self.mints.iter().filter(|sim_id| rows.contains_key(*sim_id)).cloned().collect());
+            }
             self.rows = Arc::new(rows);
         }
+    }
+
+    /// Adopt the runtime-mint marks a save file remembered: only for an id this
+    /// ledger holds a row for (call it after [`Self::adopt_rows`]).
+    pub fn adopt_mints(&mut self, ids: impl IntoIterator<Item = SimId>) {
+        let marked: BTreeSet<SimId> = ids.into_iter().filter(|sim_id| self.rows.contains_key(sim_id)).collect();
+        if *self.mints != marked {
+            self.mints = Arc::new(marked);
+        }
+    }
+
+    /// Whether this id is recorded as a runtime mint.
+    pub fn is_mint(&self, sim_id: &SimId) -> bool {
+        self.mints.contains(sim_id)
+    }
+
+    /// Every id recorded as a runtime mint, in identity order — for the writer
+    /// that puts this value on disk.
+    pub fn mints(&self) -> impl Iterator<Item = &SimId> {
+        self.mints.iter()
+    }
+
+    /// Record that these live occurrences are runtime mints, whatever their row
+    /// is (a mint carried the tick it was made has an `InCustody` row, not a
+    /// `Placed` one, and still ends as a mint). Only a new mark writes.
+    ///
+    /// The caller decides what a runtime mint is (its provenance); the ledger
+    /// only keeps the mark.
+    pub fn mark_mints(&mut self, ids: impl IntoIterator<Item = SimId>) {
+        for sim_id in ids {
+            if !self.mints.contains(&sim_id) {
+                Arc::make_mut(&mut self.mints).insert(sim_id);
+            }
+        }
+    }
+
+    /// Forget the rows of runtime mints that ended before a checkpoint committed
+    /// (the caller runs this at the commit, before the baseline is captured).
+    ///
+    /// ⭐ A runtime mint has no authored record, so nothing builds it again once
+    /// it has no `Placed` row: the `Consumed` row of an ended one was needed only
+    /// until the checkpoint after its end, which is when the restore's spend
+    /// rule stops reading it. An AUTHORED occurrence is never marked, so a taken
+    /// one-time pickup's `Consumed` row and an opened chest's `Spent` row stay.
+    /// A mark with no row (its occurrence left the ledger another way) goes too.
+    /// Returns the rows it dropped.
+    pub fn compact_ended_mints(&mut self) -> usize {
+        let ended: Vec<SimId> = self
+            .mints
+            .iter()
+            .filter(|sim_id| matches!(self.rows.get(*sim_id), Some(OccurrenceWhereabouts::Consumed)))
+            .cloned()
+            .collect();
+        let rowless = self.mints.iter().any(|sim_id| !self.rows.contains_key(sim_id));
+        if ended.is_empty() && !rowless {
+            return 0;
+        }
+        let rows = Arc::make_mut(&mut self.rows);
+        for sim_id in &ended {
+            rows.remove(sim_id);
+        }
+        let mints: BTreeSet<SimId> = self
+            .mints
+            .iter()
+            .filter(|sim_id| self.rows.contains_key(*sim_id))
+            .cloned()
+            .collect();
+        self.mints = Arc::new(mints);
+        ended.len()
     }
 
     /// The ids whose row places them in `room`, from the placement index, so
@@ -455,6 +538,7 @@ impl AuthoredOccurrences {
                     at,
                 };
                 self.reindex_placed(&sim_id, None, Some(&row));
+                Arc::make_mut(&mut self.mints).insert(sim_id.clone());
                 Arc::make_mut(&mut self.rows).insert(sim_id, row);
             }
         }
@@ -603,6 +687,12 @@ impl AuthoredOccurrences {
                 custody.remove(sim_id);
             }
         }
+        if held.iter().any(|sim_id| self.mints.contains(sim_id)) {
+            let mints = Arc::make_mut(&mut self.mints);
+            for sim_id in &held {
+                mints.remove(sim_id);
+            }
+        }
         held
     }
 
@@ -664,6 +754,12 @@ impl AuthoredOccurrences {
                 OccurrenceWhereabouts::Consumed => put_u8(out, 2),
                 OccurrenceWhereabouts::Spent => put_u8(out, 3),
             }
+        }
+        // The provenance mark: ordered by identity like the rows, length-prefixed
+        // after them so the two sequences cannot run together.
+        put_u64(out, self.mints.len() as u64);
+        for sim_id in self.mints.iter() {
+            put_str(out, sim_id.as_str());
         }
     }
 
@@ -789,6 +885,28 @@ impl OccurrenceBaseline {
     /// [`AuthoredOccurrences::peer_stable_checksum`] for the measurement.
     pub fn checksum(&self) -> u64 {
         BASELINE_DIGEST.of(&self.0)
+    }
+}
+
+/// Drop the ended runtime mints' rows at the instant a checkpoint commits, BEFORE
+/// [`capture_occurrence_baseline`] copies the ledger (the schedule edge is in
+/// `LifecycleCheckpointHorizonPlugin`).
+///
+/// A row that ended before this commit is a fact the checkpoint after it no
+/// longer needs: the restore's spend rule reads the pinned ledger's end of an
+/// object, and a spend recorded before this checkpoint is already in the bag the
+/// checkpoint captured. See [`AuthoredOccurrences::compact_ended_mints`].
+pub fn compact_ended_mints_at_checkpoint(
+    mut commits: bevy::prelude::MessageReader<super::CheckpointCommitted>,
+    occurrences: Option<ResMut<AuthoredOccurrences>>,
+) {
+    // Drained unconditionally, like every reader of this channel.
+    let committed = commits.read().count() > 0;
+    let Some(mut occurrences) = occurrences else {
+        return;
+    };
+    if committed {
+        occurrences.compact_ended_mints();
     }
 }
 
@@ -1410,6 +1528,121 @@ mod tests {
             );
         }
         assert_ne!(first.peer_stable_checksum(), second.peer_stable_checksum(), "a moved row did not move the checksum");
+    }
+
+    /// MINT-ROW COMPACTION: the `Consumed` row of an ENDED RUNTIME MINT goes when a
+    /// checkpoint commits after its end; nothing authored does. The controls are
+    /// the three other rows that must stay: a taken one-time pickup (`Consumed`,
+    /// authored), an opened chest (`Spent`, authored) and a mint that has not
+    /// ended (`Placed`).
+    #[test]
+    fn compaction_drops_only_the_consumed_rows_of_runtime_mints() {
+        let (bomb, javelin, pickup, chest) = (
+            SimId::placement("mint/bomb"),
+            SimId::placement("mint/javelin"),
+            SimId::placement("authored/pickup"),
+            SimId::placement("authored/chest"),
+        );
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.admit_mints(
+            "room",
+            [(bomb.clone(), Vec2::ZERO), (javelin.clone(), Vec2::ZERO)].into_iter().collect(),
+        );
+        assert_eq!(ledger.end([bomb.clone()]), [bomb.clone()].into_iter().collect());
+        assert_eq!(ledger.consume([pickup.clone()]), 1);
+        assert_eq!(ledger.spend([chest.clone()]), 1);
+        let before = ledger.clone();
+        assert!(ledger.is_mint(&bomb), "a mint admitted by the ledger is marked");
+        assert!(!ledger.is_mint(&pickup) && !ledger.is_mint(&chest), "an authored occurrence is never marked");
+
+        assert_eq!(ledger.compact_ended_mints(), 1);
+
+        assert_eq!(ledger.whereabouts(&bomb), None, "the ended mint's row is dropped");
+        assert!(!ledger.is_mint(&bomb), "and so is its mark");
+        assert!(matches!(ledger.whereabouts(&javelin), Some(OccurrenceWhereabouts::Placed { .. })), "a mint still lying keeps its row");
+        assert!(ledger.is_mint(&javelin));
+        assert_eq!(ledger.whereabouts(&pickup), Some(&OccurrenceWhereabouts::Consumed), "CONTROL: an authored Consumed stays");
+        assert_eq!(ledger.whereabouts(&chest), Some(&OccurrenceWhereabouts::Spent), "CONTROL: an opened chest stays opened");
+        assert_ne!(ledger, before);
+        assert_ne!(
+            ledger.peer_stable_checksum(),
+            before.peer_stable_checksum(),
+            "the drop is a peer-visible change"
+        );
+        assert_eq!(ledger.compact_ended_mints(), 0, "a second compaction finds nothing");
+    }
+
+    /// A mint is recorded as one even when its first row is not a placement (it
+    /// was carried the tick it was made), and an unmarked ledger agrees with a
+    /// marked one only if no mark exists: the mark is hashed.
+    #[test]
+    fn a_mark_is_provenance_beside_any_row_and_is_hashed() {
+        let carried = SimId::placement("mint/carried");
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.republish_custody([carried.clone()].into_iter().collect());
+        let unmarked = ledger.peer_stable_checksum();
+        ledger.mark_mints([carried.clone()]);
+        assert!(ledger.is_mint(&carried));
+        assert_ne!(ledger.peer_stable_checksum(), unmarked, "an unhashed mark is a divergence nobody sees");
+        // Put down and ended: it still ends as a mint.
+        assert!(ledger
+            .republish_placements("room", [(carried.clone(), Vec2::ZERO)].into_iter().collect())
+            .is_empty());
+        ledger.end([carried.clone()]);
+        assert_eq!(ledger.compact_ended_mints(), 1);
+        assert_eq!(ledger.whereabouts(&carried), None);
+    }
+
+    /// A retraction (a replayed boss defeat takes its mints back) and an adopted
+    /// row set both keep the marks and the rows in step.
+    #[test]
+    fn a_mark_never_outlives_its_row() {
+        let (a, b) = (SimId::placement("mint/a"), SimId::placement("mint/b"));
+        let mut ledger = AuthoredOccurrences::default();
+        ledger.admit_mints("room", [(a.clone(), Vec2::ZERO), (b.clone(), Vec2::ZERO)].into_iter().collect());
+        ledger.retract(&[a.clone()].into_iter().collect());
+        assert!(!ledger.is_mint(&a) && ledger.is_mint(&b));
+        ledger.adopt_rows(BTreeMap::new());
+        assert!(!ledger.is_mint(&b), "adopting rows without b's row leaves no mark for it");
+        ledger.adopt_rows(BTreeMap::from([(b.clone(), OccurrenceWhereabouts::Consumed)]));
+        ledger.adopt_mints([a.clone(), b.clone()]);
+        assert!(!ledger.is_mint(&a), "a save's mark for an id with no row is ignored");
+        assert!(ledger.is_mint(&b));
+    }
+
+    /// The compaction runs at the commit and BEFORE the baseline copies the
+    /// ledger: the checkpoint after an ended mint's end does not carry its row.
+    #[test]
+    fn the_baseline_a_commit_captures_has_no_ended_mint_row() {
+        use bevy::prelude::*;
+        let ended = SimId::placement("mint/ended");
+        let mut app = App::new();
+        app.add_message::<super::super::CheckpointCommitted>()
+            .init_resource::<AuthoredOccurrences>()
+            .init_resource::<OccurrenceBaseline>()
+            .add_systems(
+                Update,
+                (compact_ended_mints_at_checkpoint.before(capture_occurrence_baseline), capture_occurrence_baseline),
+            );
+        {
+            let mut ledger = app.world_mut().resource_mut::<AuthoredOccurrences>();
+            ledger.admit_mints("room", [(ended.clone(), Vec2::ZERO)].into_iter().collect());
+            ledger.end([ended.clone()]);
+        }
+        app.update();
+        assert_eq!(
+            app.world().resource::<AuthoredOccurrences>().whereabouts(&ended),
+            Some(&OccurrenceWhereabouts::Consumed),
+            "before a commit the ended mint's row stands: the restore's spend rule reads it"
+        );
+        app.world_mut().write_message(super::super::CheckpointCommitted::default());
+        app.update();
+        assert_eq!(app.world().resource::<AuthoredOccurrences>().whereabouts(&ended), None);
+        assert_eq!(
+            app.world().resource::<OccurrenceBaseline>().remembered().whereabouts(&ended),
+            None,
+            "the baseline was copied after the compaction"
+        );
     }
 
     /// M2 cut C: a clone of a ledger with 10,000 dormant rows, its checksum,

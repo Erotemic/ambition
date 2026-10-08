@@ -211,6 +211,13 @@ pub enum PersistedWhereabouts {
 pub struct PersistedOccurrence {
     pub id: String,
     pub whereabouts: PersistedWhereabouts,
+    /// Whether this occurrence is a RUNTIME MINT (no authored record builds it).
+    /// Provenance, beside the row: an ended mint's `Consumed` row is dropped at
+    /// the next checkpoint commit, an authored occurrence's never is. A file
+    /// written before this field existed reads `false`, which keeps every row it
+    /// had; and an unmarked row serializes exactly as it did.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub mint: bool,
 }
 
 impl PersistedOccurrence {
@@ -218,7 +225,14 @@ impl PersistedOccurrence {
         Self {
             id: id.into(),
             whereabouts,
+            mint: false,
         }
+    }
+
+    /// This row, marked as a runtime mint.
+    pub fn minted(mut self, mint: bool) -> Self {
+        self.mint = mint;
+        self
     }
 }
 

@@ -11,7 +11,8 @@ use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 use crate::schedule::SimScheduleExt;
 
 use super::{
-    capture_custody_baseline, capture_occurrence_baseline, restore_occurrence_baseline,
+    capture_custody_baseline, capture_occurrence_baseline, compact_ended_mints_at_checkpoint,
+    restore_occurrence_baseline,
     CustodyBaseline, OccurrenceBaseline,
 };
 
@@ -188,6 +189,13 @@ impl Plugin for LifecycleCheckpointHorizonPlugin {
             .add_systems(
                 sim,
                 (capture_occurrence_baseline, capture_custody_baseline)
+                    .in_set(CheckpointCapture),
+            )
+            // The ended mints' rows go BEFORE the baseline copies the ledger.
+            .add_systems(
+                sim,
+                compact_ended_mints_at_checkpoint
+                    .before(capture_occurrence_baseline)
                     .in_set(CheckpointCapture),
             )
             .add_systems(

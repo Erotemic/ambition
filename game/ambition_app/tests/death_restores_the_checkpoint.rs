@@ -2048,6 +2048,104 @@ fn an_object_that_ended_is_not_built_again_when_its_room_is_live_again() {
     );
 }
 
+/// MINT-ROW COMPACTION (BAG-RECORD-HORIZON, open item 2). A `Consumed` row of an
+/// ENDED RUNTIME MINT stays for as long as the restore's spend rule may read it,
+/// and is gone when a checkpoint commits after its end: the ledger, the
+/// checkpoint's baseline and the save all lose it. Before the commit it is
+/// there, marked as a mint.
+///
+/// The controls are the rows that must outlive the commit: a taken one-time
+/// pickup's `Consumed` and an opened chest's `Spent`. Both are authored, so
+/// neither is marked; a compaction that dropped every `Consumed` row would
+/// resurrect the pickup and re-arm the chest's reward.
+///
+/// The save is checked for the controls' presence too, which is what shows the
+/// mirror ran: "the save has no row for the bomb" is otherwise satisfied by a
+/// save that mirrors nothing.
+#[test]
+fn a_bomb_that_exploded_leaves_no_ledger_row_once_a_checkpoint_commits() {
+    use ambition_platformer2d::item::{ItemGrantRequested, OwnedItems};
+    use ambition_platformer2d::platformer::lifecycle::{AuthoredOccurrences, OccurrenceBaseline, OccurrenceWhereabouts};
+    use bevy::ecs::system::RunSystemOnce;
+
+    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
+    assert_eq!(sim.observation().active_room, ROOM, "precondition: Alice is in the hub");
+    sim.world_mut().write_message(ItemGrantRequested { item: Item::Bomb, count: 1 });
+    sim.step_n(base(), 4);
+    commit_a_checkpoint(&mut sim);
+    sim.world_mut()
+        .run_system_once(
+            |mut commands: bevy::prelude::Commands,
+             items: ambition_platformer2d::items::ItemCatalogRead,
+             mut bodies: bevy::prelude::Query<
+                (Entity, ambition_platformer2d::combat::hand::RepertoireQuery),
+                ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+            >| {
+                let (player, mut repertoire) = bodies.single_mut().expect("one primary body");
+                let spec = ambition_platformer2d::held_items::held_spec_for_item(items.get(), Item::Bomb)
+                    .expect("a bomb is a wired weapon with a held spec");
+                ambition_platformer2d::held_items::equip_held_spec(&mut commands, player, &mut repertoire, spec);
+            },
+        )
+        .expect("the equip verb runs");
+    sim.step(AgentAction { attack: true, ..base() });
+    let mut bomb = None;
+    for _ in 0..120 {
+        sim.step(base());
+        bomb = bomb.or_else(|| dynamic_occurrences(&mut sim).into_iter().next());
+    }
+    let bomb = bomb.expect("precondition: the throw minted a bomb");
+    assert_eq!(sim.world().resource::<OwnedItems>().count(Item::Bomb), 0, "precondition: the throw spent it");
+    assert!(dynamic_occurrences(&mut sim).is_empty(), "precondition: the bomb exploded and is no entity");
+
+    let pickup = SimId::placement("a_pickup_the_world_remembers_taking");
+    let chest = SimId::placement("a_chest_the_world_remembers_opening");
+    {
+        let mut ledger = sim.world_mut().resource_mut::<AuthoredOccurrences>();
+        assert_eq!(
+            ledger.whereabouts(&bomb),
+            Some(&OccurrenceWhereabouts::Consumed),
+            "precondition: the bomb's end is a Consumed row"
+        );
+        assert!(ledger.is_mint(&bomb), "precondition: the row is marked as a runtime mint");
+        assert_eq!(ledger.consume([pickup.clone()]), 1);
+        assert_eq!(ledger.spend([chest.clone()]), 1);
+    }
+    sim.step_n(base(), 3);
+    let in_save = |sim: &mut Platformer2dSimHarness, id: &SimId| {
+        sim.world()
+            .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+            .data()
+            .occurrences()
+            .iter()
+            .any(|row| row.id == id.as_str())
+    };
+    assert!(in_save(&mut sim, &bomb), "before a commit the save mirrors the bomb's end");
+
+    commit_a_checkpoint(&mut sim);
+    sim.step_n(base(), 3);
+
+    let ledger = sim.world().resource::<AuthoredOccurrences>();
+    assert_eq!(ledger.whereabouts(&bomb), None, "a checkpoint committed after the bomb ended: its row is gone");
+    assert!(!ledger.is_mint(&bomb), "and so is its mark");
+    assert_eq!(ledger.whereabouts(&pickup), Some(&OccurrenceWhereabouts::Consumed), "CONTROL: the taken pickup stays taken");
+    assert_eq!(ledger.whereabouts(&chest), Some(&OccurrenceWhereabouts::Spent), "CONTROL: the opened chest stays opened");
+    assert_eq!(
+        sim.world().resource::<OccurrenceBaseline>().remembered().whereabouts(&bomb),
+        None,
+        "the checkpoint's baseline was copied after the compaction"
+    );
+    assert!(in_save(&mut sim, &pickup) && in_save(&mut sim, &chest), "CONTROL: the save mirrors the authored rows");
+    assert!(!in_save(&mut sim, &bomb), "the save has no row for the bomb");
+    die(&mut sim);
+    sim.step_n(base(), 90);
+    assert_eq!(
+        sim.world().resource::<OwnedItems>().count(Item::Bomb),
+        0,
+        "the bomb was spent before this checkpoint; a death after it gives nothing back"
+    );
+}
+
 /// A thrown object can lie in a room that is not live: Bob leaves the room
 /// the javelin lies in. The spend then follows the object's ledger row, not
 /// the object, which is no entity. Alice's restore puts back the ledger it

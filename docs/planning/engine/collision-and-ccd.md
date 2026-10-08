@@ -19,13 +19,24 @@ existing infrastructure. The collision-invariant oracle remains an on-demand
 room/seed/tick diagnostic. Do not replace these mechanisms merely to unify names.
 
 Hazard contact already reads the current path, and the wrapper writes its sample
-before invoking the gate. `SimPhaseReach::Completed` preserves the original gate
-population; sample writing still occurs on zero-dt and early-return paths so a
+before invoking the gate. The gate runs on `SimPhaseReach::Completed` and
+`LedgeHeld`: a hazard wins over a ledge hang (Q43), and only a hanging body
+gives up its ledge intangibility (`BodyMotionFacts::evading_hazards`). Sample writing still occurs on zero-dt and early-return paths so a
 stale path is not reused. A missing sample keeps the endpoint-only arm permanently: the fighter
 brain's recovery planner runs the kernel over a scratch body that is not an
 entity. No ECS reader rebuilds a segment from `vel * dt`; that is a second motion
 model. Preserve these populations when you move the gate. Source and regression home:
 `crates/ambition_platformer2d_core/src/movement/tests/hazard_sweep.rs`.
+
+**One solidity mechanism (Q102).** `collision_semantics::is_full_collision_surface`
+(with `is_support_surface`) names the kinds with full collision: `Solid`,
+`BlinkWall` and `Barrier`. A solid breakable publishes `BlockKind::Barrier`,
+which no blink upgrade passes
+(`the_hard_blink_upgrade_does_not_pass_an_unbroken_solid_breakable`). A moving
+platform stays `BlinkWall { Soft }`: the soft upgrade passes it by design, and
+no reader treats it differently from a solid
+(`the_soft_blink_upgrade_passes_a_moving_platform`). Do not make a solid object
+a blink wall to borrow full collision.
 
 ## A2: one contact decision through selection and reaction
 

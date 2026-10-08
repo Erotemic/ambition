@@ -63,6 +63,18 @@ a trigger-driven property of the entity.
   centre-based on purpose.
 - **A replay that un-defeats a boss un-grants its consequences** for every
   family (Q51/Q56, `retract_boss_defeats_on_replay`).
+  `BossDefeatsSinceCheckpoint` records each placement cleared since the last
+  committed checkpoint. The retraction puts the placement back to `Untouched`,
+  despawns its reward chest and clears its looted flag, despawns its mints and
+  retracts their ledger rows, takes back what a mint or the chest granted
+  (`RewardGrantsSinceCheckpoint`: coins down to zero, the item out of the bag),
+  and puts back the quest steps the defeat caused
+  (`QuestRegistry::retract_caused_by`, with the quest's payout). A flag a later
+  conversation set stays: it records the conversation. A room replay retracts
+  the defeats in its live room; the checkpoint road retracts every defeat since
+  the checkpoint except in live rooms another participant holds (Q151), at the
+  restore's commit (`RestoreConsequences`). Witnesses:
+  `game/ambition_app/tests/boss_replay_retraction.rs`.
 
 ## Scripted encounters are data
 

@@ -23,6 +23,11 @@ windowing removed, and the actual systems intact.
   (`game/ambition_app/tests/app_it.rs`, `autotests = false`). The sibling
   `.rs` files are its modules. Run one module with
   `cargo test -p ambition_app --test app_it -- <module_name>`.
+- **An unhealthy rollback session is refused, not stepped** (Q138).
+  `step` and `step_frame` panic with the session's error; `try_step` returns
+  it. An arm whose subject is behaviour over a diverged session says so with
+  `step_over_an_unhealthy_session`
+  (`the_harness_refuses_to_step_an_unhealthy_session`).
 
 "Can't test it" is almost never true. If the real sim cannot be exercised
 headless from some state, fix that first. Do not build a proxy.

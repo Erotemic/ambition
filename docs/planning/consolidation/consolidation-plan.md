@@ -381,7 +381,7 @@ disabled menu state until a shell-less composition exists.
     `a_hit_with_no_generation_is_not_resolved` (poison: an empty generation in
     place of the refusal). A request that a refusal leaves on the bus is not
     drained by the reader: the session edge owns that, see
-    [SESSION-EDGE-STATE](../queue.md#session-edge-state--a-session-starts-from-nothing-the-last-one-left).
+    [SESSION-EDGE-STATE](../engine/construction-and-reconstitution.md#the-session-edge).
     The readers that build a room (the room loader, the prefetch, the world
     reload) refuse through `GenerationMechanics::for_live_session`, and
     `SenseExtent` refuses through the composition gate; none was changed.

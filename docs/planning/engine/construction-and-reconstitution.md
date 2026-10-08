@@ -246,6 +246,72 @@ plugin mutation remains an engine fault; do not convert it into a successful
 refusal. If a fallback reconstructs the pinned old scenario, label it recovered,
 not unchanged.
 
+## The session edge
+
+A session starts from nothing the last one left: a session that follows
+another is equal, on every tick from 0, to the first session of a fresh host
+with the same save. The rules:
+
+- **What a session spawns as it runs ends with it.** A run-time spawn takes its
+  session scope (`spawn_room_in_session` with `SessionCommands::spawn_scope()`).
+  The plain-`Commands` road `SpawnScopedExt` is deleted. ⚠ No source guard
+  forbids a plain `spawn` that names `RoomScopedEntity` by hand; the witness
+  asks a running world for each room-scoped entity with no session owner.
+- **Channels end at the activation.** Every simulation channel a domain
+  declares to the rollback census is emptied (`lifecycle::session_messages`).
+  Each presentation channel ends too (`end_presentation_effects_with_their_session`;
+  a new family ends by default). `OwnedSfxMessage` crosses, because its reader
+  plays only for the live audio owner. The camera rests
+  (`rest_the_camera_on_activation`).
+- **Session state resets at the activation.** `SessionScopedResources` holds
+  the shared members. An owner that keeps its own per-session state resets it
+  in `SessionScopeSet::Activate`: portal frames
+  (`forget_portal_frames_on_activation`), the cut-rope heavy-object cycle
+  (`restart_heavy_object_cycle_on_activation`) and every per-attempt ledger
+  (`install_attempt_scoped` registers `forget_attempts_on_activation`).
+- **A session is built from its own experience's save.** Persistence prepares
+  it (`prepare_the_save_of`); the builder reads it through `CandidateSave`, and
+  the first room's fates are a stated value. A candidate remembers the save it
+  was built from (`PreparedFromSave`); `candidate_session_gate` discards a
+  stale one, and `advance_pending_route` asks each gate on each frame the route
+  waits (Q118).
+- **A session begins with the bag its experience declares**
+  (`PlatformerExperienceAuthoring::with_initial_inventory`, installed by
+  `StartingBag::begin_the_session`); a persisted inventory overlays it.
+- **Host configuration is not session state.** `FriendlyFire`, `RegimePolicy`
+  and `FactionRelations` cross the edge on purpose.
+  `scripts/check_host_configuration_has_no_session_writer.py` fails when a
+  system writes one inside a session; it must then join the reset.
+- **The timeline starts with the session world.**
+  `rollback::start_the_timeline_with_the_session_world` orders the maintainer
+  after the providers; every rollback composer calls it.
+
+Witnesses are in `game/ambition_app/tests/shell_host_lifecycle.rs`
+(`what_a_session_spawned_and_cycled_does_not_reach_the_next_session`,
+`a_session_that_follows_another_starts_as_a_fresh_hosts_does`,
+`an_effect_that_a_session_asked_for_is_not_presented_by_the_next`,
+`a_session_prepared_while_another_experience_plays_is_built_from_its_own_save`,
+`each_experience_begins_with_its_own_bag`,
+`a_block_broken_in_one_session_is_whole_in_the_next`,
+`the_victory_npc_of_a_cleared_boss_ends_with_its_session`),
+`a_session_that_replaces_its_own_experience_is_built_from_the_save_at_its_adoption`
+and `id_peer_audit::a_new_session_starts_at_the_neutral_pace_with_an_empty_clock_bus`.
+
+Named limits, not measured or not built:
+
+- A shell App that lowers a composition-level bag into its one experience. No
+  composition builds one; one that did would get an error at preparation.
+- A content reload that changes item uniqueness between a candidate's
+  preparation and its adoption (the bag is built from the catalog at
+  preparation).
+- A save that changes on each frame would hold the route for as long as it
+  changes. No save field does that.
+- For two peers, a door plan lowers from this host's save
+  (`minted_baseline_from_save`); it must lower from a horizon the peers agree
+  on ([netcode](netcode.md)).
+- The pocket demo composes the shell with no rollback backend, so it has no
+  maintainer to order.
+
 ## Rollback, persistence and multiple rooms
 
 The existing confirmed room transition starts a new baseline; snapshots do not

@@ -56,7 +56,74 @@ rebuild remain kernel operations. Keep that distinction.
 A held item's shot is an `ActorActionMessage::Ranged` on the one projectile
 road (`ambition_held_items`). There is no second projectile simulation.
 
-## Decisions for the remaining cycles
+## One box for a turned body
+
+A body that is not square has one collision box, turned to the DOWN of the
+body: `BodyKinematics::collision_box(last_step)`, which reads the DOWN from the
+body's record (`SweepSample`), because a crawler on a wall is not turned to its
+gravity. The published footprint (`CenteredAabb`) is a different fact: the
+envelope of a body that has one (a boss is drawn larger than the box that
+stops it). `BodyKinematics::aabb` and `size * 0.5` are the LEVEL box. The level box is right for a shot (a free body
+with no frame), for a reader of the centre only, for the gravity lookup that
+resolves the frame, and in a game with no turned gravity. For any other reader
+it is a second statement, equal to the rule in normal gravity and wrong where
+gravity turns.
+
+Inside the kernel, each policy arm states the box its step moved
+(`BodyKinematics::half_oriented`; the crawler arm from
+`AdhesiveCrawlerMotion::body_down`), and gives that one value to the sweep
+record, the hazard gate, water, climbables, the ledge carry and the rebound
+pad (queue CRAWLER-HAZARD-FOOTPRINT, 2026-10-05/06; witnesses in
+`movement/tests/hazard_footprint.rs` and `step_box_world_reads.rs`).
+`ActorMut::aabb` asks the same rule (`integration/body_box_tests.rs`).
+
+Built 2026-10-06 (queue LEVEL-BOX-READERS): the transit record
+(`reconcile_transit`, schema 315), the world and reach readers, the arrival of
+each traversal, the portal carve and eviction, the brain's floor queries, the
+trace, and the two procedures written in world axes (the pet and
+`CommandedMove`'s facing). `scripts/check_level_box_readers.py` compares the
+search with `scripts/baselines/level-box-readers.json`, where each remaining
+read has a class and a reason; it is red on a new read and on a baseline line
+that is gone. It finds only the spellings it searches: a box built another way
+is not found.
+
+⛔ Rejected, do not retry:
+
+- Turning the half that the perception view gives a brain. It is on the body's
+  own axes, and its three readers (`RecoveryLens`, the rollout, the option
+  scorer) each apply a frame: a half turned at the source is turned twice or
+  laid on the wrong axis.
+- A reader of a zero-length transit record that falls back to `CenteredAabb`.
+  A boss's footprint is its draw envelope, not its collision box.
+
+Open, each with what makes it live:
+
+- `floor_ahead` and `situation.rs` measure the floor on world x. Not built:
+  no fighter stands in turned gravity on a shipped road.
+  `the_gravity_key_turns_a_hosted_smash_match_and_no_cpu_fighter_stands_in_turned_gravity`
+  goes red when one does; build it then, or before a cognition benchmark in a
+  room that turns gravity (`AMBITION_ACTOR_BRAIN_PROFILE`).
+- The perception view has no DOWN of a peer, so a reader uses the viewer's.
+- The order of the transit collapse and the contact readers: a body that
+  blinks into an ECS hazard is hit on its arrival tick, and the path it
+  travelled before the blink is not read that tick
+  (`a_wielded_transit_is_settled_before_the_path_is_read.rs` holds the order).
+- `possession_trigger_system` transits a body through `transit_body`; what the
+  hazard and loading-zone readers see of it is not measured.
+- A body walked with no frame (a boss in an encounter script) is on world x.
+  No boss is in a room that turns gravity.
+- A petted body in another frame than its petter is not handled.
+- The portal presentation draws the gun and the indicator on world axes; a
+  crossing in a shipped room whose gravity is turned is not measured.
+- The actor view (`ambition_sim_view/src/view_index.rs`) derives a surface
+  walker's draw size by inverting the footprint when the normal is mostly
+  sideways. That is exact for a cardinal normal only; the raw size is
+  `BodyKinematics::size`. Read, not measured.
+- Water in a room whose gravity is not down: where the surface of a pool is,
+  and whether a body that is not axis-swept gets wet (the axis arm is the only
+  writer of `BodyEnvironmentContact`), is
+  [Q160](../awaiting-maintainer-decision.md#q160--water-in-a-room-whose-gravity-is-not-down-where-is-the-surface-of-a-pool-and-does-a-body-that-is-not-axis-swept-get-wet).
+
 
 Possession acquisition/traversal policy may remain an optional ability. Its
 accepted control relation should be co-located with input projection rather than

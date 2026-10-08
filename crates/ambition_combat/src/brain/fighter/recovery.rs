@@ -87,6 +87,9 @@ pub struct RecoveryLens {
     kit: BodyKit,
     frame: ae::MotionFrame,
     body_size: ae::Vec2,
+    /// `+1` or `-1` along `frame.side()`. Two mirrored bodies have opposite
+    /// facings, so a tie that the facing decides stays mirrored (Q49).
+    facing: f32,
     /// The buttons-only search. Every armed search is this one plus a burst, so
     /// the horizon and timestep can never differ between routes.
     probe: ae::movement::recovery::RecoveryProbe,
@@ -156,6 +159,7 @@ impl RecoveryLens {
             kit,
             frame,
             body_size: view.self_view.half_extent * 2.0,
+            facing: if view.self_view.facing < 0.0 { -1.0 } else { 1.0 },
             probe: ae::movement::recovery::RecoveryProbe::seconds(RECOVERY_PROBE_SECONDS, dt),
             routes: routes.iter().take(MAX_PROBED_ROUTES).copied().collect(),
         })
@@ -213,8 +217,16 @@ impl RecoveryLens {
                 (clamped, clamped.distance_squared(from))
             })
             .min_by(|a, b| {
+                // The offset along the side the body faces.
+                let ahead = |point: ae::Vec2| (point - from).dot(self.frame.side()) * self.facing;
                 a.1.partial_cmp(&b.1)
                     .unwrap_or(std::cmp::Ordering::Equal)
+                    // ⛔ MIRROR (Q49): two supports at one distance were told
+                    // apart by `(x, y)` only, so the left one won for both
+                    // mirrored bodies. The support on the side the body faces
+                    // wins. The `(x, y)` order is left for two points at one
+                    // offset along the side, which a reflection does not swap.
+                    .then_with(|| ahead(b.0).total_cmp(&ahead(a.0)))
                     .then_with(|| {
                         (a.0.x, a.0.y)
                             .partial_cmp(&(b.0.x, b.0.y))

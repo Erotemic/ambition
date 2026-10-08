@@ -296,12 +296,17 @@ rather than add a second outcome test:
    stands over the twin respawn platforms before the grab, because a respawn
    follows a knockout. The poison is effective:
    `two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list`
-   is red under it, and it stays that source's witness. Not yet poisoned: a
-   left-first query. One candidate is in `brain/fighter/recovery.rs`,
-   `nearest_support`: two supports at one distance are told apart by `(x, y)`,
-   so the left one wins for both mirrored bodies. Two mirrored supports are at
-   one distance only from a body on the centre line; a tie between two other
-   blocks needs exact float equality. Not triaged.
+   is red under it, and it stays that source's witness. A left-first query
+   (2026-10-08): `brain/fighter/recovery.rs` `nearest_support` (the support a
+   carry route aims at) told two supports at one distance apart by `(x, y)`
+   only, so the left one won for both mirrored bodies. The support on the side
+   the body faces wins now; `(x, y)` decides only two points at one offset
+   along the side, which a reflection does not swap. Witness:
+   `two_supports_at_one_distance_are_told_apart_by_the_facing_and_not_by_x`
+   (poison: the facing comparison removed; red at the reflection claim, both
+   facings aim at the left shelf). The Emmy match does not reach it: two
+   mirrored supports are at one distance only from a body on the centre line,
+   and only a carry route asks.
 
 The current requirement that two ordinary fighters MUST break the mirror stays
 only while per-seat streams are policy; it is a fact about that policy, not a

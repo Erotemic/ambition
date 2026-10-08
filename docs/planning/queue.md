@@ -742,35 +742,6 @@ ladder field is inert.
 are the only installers. A Smash pack source may name a file outside its
 root, as George's facet does.
 
-### MIRROR-SYMMETRY — mirrored CPUs stay mirrored per tick
-
-**Owner:** `ambition_combat::brain` and the systems it reads. Plan:
-[`engine/fighter-brain.md`](engine/fighter-brain.md#mirror-symmetry-is-a-correctness-property-q49).
-
-**Ruling:** Q49 (2026-10-04): symmetry is a correctness property; variation
-comes only from modelled asymmetric facts.
-
-**Current failure:** the left-first query poison of plan item 5 is not run;
-a candidate site is `recovery.rs` `nearest_support` (an `(x, y)` tie-break,
-not triaged). The signum and list-order poisons are null in the Emmy match
-(the population does not reach them) and red in their unit witnesses. The seat-0 term
-is triaged 2026-10-08: it is the authored grab tie (inverting the tie swaps
-each fighter's split exactly; 58% now, within spread). Built 2026-10-08: the
-Emmy test compares the full state per tick
-(`two_emmys_are_one_fighter_reflected_until_the_first_grab`); two Emmys part
-first on frame 883, when one grab dash takes the other (the grab tie). The
-left-first recovery search is triaged (no decision reads the order). The
-zero-lateral `signum` sites in `rollout.rs` were a defect, fixed 2026-10-08
-(`the_shadow_of_a_reflected_scene_is_the_reflected_shadow`). The two `SimId` tie-breaks are triaged
-(plan item 4, 2026-10-08): the grab tie is an authored rule with a fixture,
-and the target tie is not reachable with one foe. The decision
-layer has its reflection test (plan item 3, 2026-10-08), and it found no
-defect.
-
-**Acceptance:** a per-tick reflection test of position, velocity, facing,
-move, decision and stream position; a reflected-observation unit test of the
-decision layer; each poison listed in the plan turns one of them red.
-
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 
 **Owner:** `ambition_sprite_sheet` (`baked_landmarks`) and
@@ -1114,6 +1085,19 @@ with the old presence probe). Deferred to its customer: a priority authored
 per candidate, when content needs a value between the tiers.
 `EncounterEffect::SetMusic` is kept with no shipped customer (Q74: usage is
 not worth).
+
+### MIRROR-SYMMETRY — mirrored CPUs stay mirrored per tick — ✅ DONE 2026-10-08
+
+Q49: symmetry is a correctness property. Plan:
+[`engine/fighter-brain.md`](engine/fighter-brain.md#mirror-symmetry-is-a-correctness-property-q49).
+Two Emmys are one fighter reflected, compared per tick over the full state
+(`two_emmys_are_one_fighter_reflected_until_the_first_grab`), until frame 883,
+when one grab takes the other: the grab tie is an authored rule
+(`two_bodies_grabbing_each_other_on_one_tick_make_one_hold`), and inverting it
+swaps each fighter's split exactly. The decision layer has its reflection test.
+Each poison of plan item 5 is red: placement and an unmirrored stream in the
+match; the zero-lateral `signum`, the floor list order and the left-first
+`nearest_support` in their unit witnesses, which the match does not reach.
 
 ### LEDGE-OCCUPANCY — two fighters can hold one ledge — ✅ DONE 2026-10-08
 

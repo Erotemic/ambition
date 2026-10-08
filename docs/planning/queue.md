@@ -415,8 +415,9 @@ App cannot differ between N and N+1.
   (`PendingGenerationInputs::audio_for(load_id)`), and the lifecycle resolves
   it through `candidate_audio_for`, falling back to the App's registry only
   when no claim exists for that `load_id`. Witness:
-  `a_candidate_that_loses_its_sfx_fragment_is_refused_before_it_retires_the_live_session`
-  (with its control) in `an_edit_reaches_the_shipped_game.rs`, which drops the
+  `a_candidate_that_drops_a_providers_audio_is_refused_and_the_live_audio_survives`
+  (control: `a_candidate_that_edits_a_providers_audio_activates_and_publishes_it`)
+  in `an_edit_reaches_the_shipped_game.rs`, which drops the
   SFX rows from N+1 and expects the refusal; reading `self.audio_catalogs`
   makes it fail. A music-fragment drop cannot be built: the pack compiler
   refuses it first, because bosses reference music tracks. Adaptive-cue
@@ -571,7 +572,7 @@ second authoring source.
   ✅ 2026-10-07, `scripts/check_world_graph_is_navigable.py` read the zone
   targets untrimmed, so it was stricter than the engine (a `"vault "` target
   resolves in the game and was reported as dangling). It reads them with the
-  engine's `field_text` rule now (`a_door_target_is_read_with_the_engines_text_rule`,
+  engine's `field_text` rule now (`test_a_door_target_is_read_with_the_engines_text_rule`,
   red before). It is still a second reader of the target fields, and it owns the
   trap analysis the Rust side does not have; the id of a zone is read as the
   engine reads it, untrimmed.

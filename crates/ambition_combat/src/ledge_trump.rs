@@ -49,6 +49,11 @@ pub fn resolve_ledge_trumps(
         // OPTIONAL for the reason the kinematics are: a body with no combat
         // state still loses the edge; it only has no lock to receive.
         Option<&mut ambition_characters::actor::BodyCombat>,
+        // A body out of play holds no edge. A hazard can kill a hanging body
+        // (Q43), and no death road ends the hang: the body keeps it through
+        // its death beat until its respawn starts it again. Read as a holder,
+        // a dead camper under Hog knocked a live newcomer off.
+        bevy::prelude::Has<crate::death_rules::OutOfPlay>,
     )>,
     // The match's own answer to *what does losing the edge cost*, per live
     // room. A world that declares no combat rules still trumps — it simply
@@ -68,7 +73,10 @@ pub fn resolve_ledge_trumps(
         Entity,
     );
     let mut holders: Vec<Holder> = Vec::new();
-    for (entity, id, model, _, _, _, _) in bodies.iter() {
+    for (entity, id, model, _, _, _, _, out_of_play) in bodies.iter() {
+        if out_of_play {
+            continue;
+        }
         let ae::MotionModel::AxisSwept(axis) = &*model else {
             continue;
         };
@@ -135,7 +143,7 @@ pub fn resolve_ledge_trumps(
     }
 
     for (entity, pop, lockout) in trumped {
-        let Ok((_, _, mut model, mut ledge, mut kin, frame, combat)) = bodies.get_mut(entity) else {
+        let Ok((_, _, mut model, mut ledge, mut kin, frame, combat, _)) = bodies.get_mut(entity) else {
             continue;
         };
         let body_frame = frame

@@ -831,35 +831,6 @@ roll out, so their habit counts now decay at 0.9, not `t × 0.6`.
 rules/content; another game can build the brain with no ladder; no authored
 ladder field is inert.
 
-### LEDGE-OCCUPANCY — two fighters can hold one ledge
-
-**Owner:** `ambition_combat::ledge_trump`, `ambition_platformer2d_core`
-ledge grab. Plan:
-[`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md#ledge-occupancy).
-
-**Ruling:** Q43 follow-up (2026-10-04): the target is Super Smash Bros.
-Ultimate-like occupancy and trump, deterministic and rollback-compatible.
-
-**Current state (2026-10-08):** one corner is one edge whatever the bodies'
-sizes (`LedgeContact::edge_key`; witness
-`two_fighters_of_different_sizes_on_one_corner_are_one_edge`). A rewind
-across a trump gives the same holder on every tick
-(`a_rewind_across_a_ledge_trump_gives_the_same_holder`). The regrab limit:
-six grabs per airtime with decaying intangibility, reset by landing or a hit
-(`each_regrab_before_landing_earns_less_and_the_seventh_is_refused`).
-Ultimate's rules are in the plan.
-
-The trumped body's lockout is a declared rule
-(`CombatRules::ledge_trump_lockout`; Smash 0.5 s;
-`a_declared_lockout_holds_the_trumped_body_and_not_the_one_that_trumped`).
-
-**Next action:** a body that dies while hanging (a hazard kills it, Q43)
-must free the edge: the resolver reads every hang, out of play or not.
-
-**Acceptance:** with two fighters of different sizes on one corner, one holds
-it; trump, release, death and knockoff each free or transfer the hold as the
-plan says; a rewind across a trump gives the same holder.
-
 ### MIRROR-SYMMETRY — mirrored CPUs stay mirrored per tick
 
 **Owner:** `ambition_combat::brain` and the systems it reads. Plan:
@@ -1170,6 +1141,22 @@ production invariant.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### LEDGE-OCCUPANCY — two fighters can hold one ledge — ✅ DONE 2026-10-08
+
+Q43 follow-up: Ultimate-like occupancy and trump, deterministic and
+rollback-compatible. Plan:
+[`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md#ledge-occupancy).
+One corner is one edge whatever the bodies' sizes
+(`two_fighters_of_different_sizes_on_one_corner_are_one_edge`); occupancy is
+derived each tick from the hang, so release and knockoff free the edge, and a
+body out of play holds none (`a_body_out_of_play_holds_no_edge`). A rewind
+across a trump gives the same holder
+(`a_rewind_across_a_ledge_trump_gives_the_same_holder`). The regrab limit
+(six per airtime, decaying intangibility, reset by landing or a hit) and the
+trumped body's lockout (`CombatRules::ledge_trump_lockout`, Smash 0.5 s) are
+built. Not built: Ultimate's "the trumper cannot let go for about 20 frames"
+(unverified source).
 
 ### AUTHORED-INTERACTABLE-STATE — facing gates, per-chest and per-pickup persistence — ✅ DONE 2026-10-08
 

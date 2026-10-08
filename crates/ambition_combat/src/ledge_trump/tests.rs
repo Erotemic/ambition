@@ -474,3 +474,34 @@ fn a_declared_lockout_holds_the_trumped_body_and_not_the_one_that_trumped() {
         "((loser, winner) with a 0.5 s lockout, the same with none): the hard lock"
     );
 }
+
+/// A BODY OUT OF PLAY HOLDS NO EDGE (LEDGE-OCCUPANCY: a death frees the
+/// hold). A hazard kills a hanging body (Q43), and its death beat keeps its
+/// hang. Under Hog the older holder keeps the edge, so a dead camper knocked
+/// a live newcomer off. The control is the same contest with the camper
+/// alive, where Hog keeps the camper.
+#[test]
+fn a_body_out_of_play_holds_no_edge() {
+    let newcomer_keeps_the_edge = |camper_is_dead: bool| -> bool {
+        let mut app = app();
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            ledge_occupancy: crate::rules::LedgeOccupancy::Hog,
+            ..Default::default()
+        });
+        let anchor = ae::Vec2::new(100.0, 100.0);
+        let camper = hanging_at(&mut app, "camper", anchor, 1.4);
+        let arriving = hanging_at(&mut app, "arriving", anchor, 0.02);
+        if camper_is_dead {
+            app.world_mut()
+                .entity_mut(camper)
+                .insert(crate::death_rules::OutOfPlay);
+        }
+        app.update();
+        still_hanging(&app, arriving)
+    };
+    assert_eq!(
+        (newcomer_keeps_the_edge(false), newcomer_keeps_the_edge(true)),
+        (false, true),
+        "(camper alive, camper out of play) under Hog: the newcomer kept the edge"
+    );
+}

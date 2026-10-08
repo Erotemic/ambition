@@ -265,7 +265,7 @@ pub fn acquire_captures(
     // grab. Granting NEITHER was tried and MEASURED: 126 attempts over a minute
     // produced ZERO captures, zero pummels, zero throws. One winner it is, which
     // is also the genre's answer (Ultimate resolves a same-frame grab by port).
-    // `two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters` measures
+    // `two_emmys_are_one_fighter_reflected_until_the_first_grab` measures
     // that reflection and had to learn this rule exists.
     resolved.sort_by(|(a_attempt, a_victim), (b_attempt, b_victim)| {
         let key = |captor: Entity, victim: Entity| {

@@ -65,6 +65,149 @@ fn seat_positions(app: &mut App) -> Vec<(usize, ambition_platformer2d::engine_co
     rows
 }
 
+/// What one seated fighter is on one tick: the state that two mirrored
+/// fighters must hold as reflections of each other (Q49).
+#[derive(Clone, Debug)]
+struct SeatState {
+    pos: ambition_platformer2d::engine_core::Vec2,
+    vel: ambition_platformer2d::engine_core::Vec2,
+    facing: f32,
+    control: Option<ambition_platformer2d::characters::actor::control::ActorControlFrame>,
+    /// The move that plays and its clock.
+    playing: Option<(String, f32)>,
+    /// The position in the fighter's cognitive stream.
+    stream: Option<u64>,
+}
+
+/// The two seats' states, seat 0 first, or `None` unless exactly two are seated.
+fn seat_states(app: &mut App) -> Option<[SeatState; 2]> {
+    use ambition_platformer2d::characters::control::ActorControl;
+    use ambition_platformer2d::combat::moveset::MovePlayback;
+    let world = app.world_mut();
+    let mut rows: Vec<(usize, SeatState)> = world
+        .query::<(
+            &MatchSeat,
+            &BodyKinematics,
+            Option<&ActorControl>,
+            Option<&MovePlayback>,
+            Option<&Brain>,
+        )>()
+        .iter(world)
+        .map(|(seat, kin, control, playback, brain)| {
+            (
+                seat.0,
+                SeatState {
+                    pos: kin.pos,
+                    vel: kin.vel,
+                    facing: kin.facing,
+                    control: control.map(|control| control.0.clone()),
+                    playing: playback.map(|playback| (playback.spec.id.clone(), playback.t)),
+                    stream: match brain {
+                        Some(Brain::StateMachine(StateMachineCfg::Fighter { state, .. })) => Some(state.noise),
+                        _ => None,
+                    },
+                },
+            )
+        })
+        .collect();
+    rows.sort_by_key(|(seat, _)| *seat);
+    match rows.as_slice() {
+        [(_, a), (_, b)] => Some([a.clone(), b.clone()]),
+        _ => None,
+    }
+}
+
+/// The first field on which seat 1 is not seat 0 reflected about `mid`, or
+/// `None`. Lateral values negate about the midline; vertical values, the move
+/// and its clock, the buttons and the stream are equal. The stream is asked
+/// last, so a pair whose streams differ still reports the first body field
+/// that parts.
+fn first_unreflected_field(a: &SeatState, b: &SeatState, mid: f32) -> Option<String> {
+    let near = |x: f32, y: f32, tolerance: f32| (x - y).abs() <= tolerance;
+    let lateral = [
+        ("pos.x", a.pos.x - mid, -(b.pos.x - mid), 0.5),
+        ("vel.x", a.vel.x, -b.vel.x, 0.5),
+        ("facing", a.facing, -b.facing, 1e-4),
+    ];
+    for (name, x, y, tolerance) in lateral {
+        if !near(x, y, tolerance) {
+            return Some(format!("{name}: {x} against reflected {y}"));
+        }
+    }
+    let vertical = [("pos.y", a.pos.y, b.pos.y, 0.5), ("vel.y", a.vel.y, b.vel.y, 0.5)];
+    for (name, x, y, tolerance) in vertical {
+        if !near(x, y, tolerance) {
+            return Some(format!("{name}: {x} against {y}"));
+        }
+    }
+    if a.playing.as_ref().map(|(id, _)| id) != b.playing.as_ref().map(|(id, _)| id) {
+        return Some(format!("move: {:?} against {:?}", a.playing, b.playing));
+    }
+    if let (Some((_, ta)), Some((_, tb))) = (&a.playing, &b.playing) {
+        if !near(*ta, *tb, 1e-4) {
+            return Some(format!("move clock: {ta} against {tb}"));
+        }
+    }
+    match (&a.control, &b.control) {
+        (Some(x), Some(y)) => {
+            let lateral = [
+                ("control.locomotion.x", x.locomotion.x, -y.locomotion.x),
+                ("control.attack_axis.x", x.attack_axis.x, -y.attack_axis.x),
+                ("control.facing", x.facing, -y.facing),
+            ];
+            for (name, p, q) in lateral {
+                if !near(p, q, 1e-4) {
+                    return Some(format!("{name}: {p} against reflected {q}"));
+                }
+            }
+            let vertical = [
+                ("control.locomotion.y", x.locomotion.y, y.locomotion.y),
+                ("control.attack_axis.y", x.attack_axis.y, y.attack_axis.y),
+            ];
+            for (name, p, q) in vertical {
+                if !near(p, q, 1e-4) {
+                    return Some(format!("{name}: {p} against {q}"));
+                }
+            }
+            let buttons = [
+                ("control.melee_pressed", x.melee_pressed, y.melee_pressed),
+                ("control.melee_held", x.melee_held, y.melee_held),
+                ("control.jump_pressed", x.jump_pressed, y.jump_pressed),
+                ("control.jump_held", x.jump_held, y.jump_held),
+                ("control.burst_pressed", x.burst_pressed, y.burst_pressed),
+                ("control.shield_held", x.shield_held, y.shield_held),
+                ("control.grab_pressed", x.grab_pressed, y.grab_pressed),
+                ("control.special_pressed", x.special_pressed, y.special_pressed),
+                ("control.fire", x.fire.is_some(), y.fire.is_some()),
+            ];
+            for (name, p, q) in buttons {
+                if p != q {
+                    return Some(format!("{name}: {p} against {q}"));
+                }
+            }
+        }
+        (None, None) => {}
+        _ => return Some("control: one seat has none".to_string()),
+    }
+    if a.stream != b.stream {
+        return Some(format!("stream: {:?} against {:?}", a.stream, b.stream));
+    }
+    None
+}
+
+/// The first frame on which the two seats are not reflections of each other
+/// about the midline of the first frame, and the field that parts there.
+/// `with_stream: false` ignores a difference of stream alone.
+fn first_part(frames: &[[SeatState; 2]], with_stream: bool) -> Option<(usize, String)> {
+    let first = frames.first()?;
+    let mid = (first[0].pos.x + first[1].pos.x) / 2.0;
+    frames.iter().enumerate().find_map(|(index, [a, b])| {
+        first_unreflected_field(a, b, mid)
+            .filter(|field| with_stream || !field.starts_with("stream:"))
+            .map(|field| (index, field))
+    })
+}
+
 /// The composed host, one frame in — which is where the seatable registry exists.
 ///
 /// the frame is load-bearing and this is the second suite to need the note:
@@ -90,7 +233,8 @@ fn play_mirror_match(
     ticks: usize,
 ) -> (
     Vec<(usize, u64)>,
-    Vec<Vec<(usize, ambition_platformer2d::engine_core::Vec2)>>,
+    // The two seats' full state on each frame both are seated.
+    Vec<[SeatState; 2]>,
     // ⭐ WHICH FRAMES A GRAB WAS LIVE ON. A mutual grab is a TIE, and resolving
     // one is the single gameplay rule on this stage that treats two mirrored
     // bodies differently — see `acquire_captures`. The mirror below is allowed
@@ -126,7 +270,7 @@ fn play_mirror_match(
             ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
         )));
 
-    let mut frames: Vec<Vec<(usize, ambition_platformer2d::engine_core::Vec2)>> = Vec::new();
+    let mut frames: Vec<[SeatState; 2]> = Vec::new();
     let mut grabbing: Vec<bool> = Vec::new();
 
     // ⛔⛤ **WAIT FOR THE PREMISE, THEN MEASURE — THIS USED TO SPEND A FIXED
@@ -152,8 +296,7 @@ fn play_mirror_match(
     let first_two_seated = loop {
         app.update();
         warmup += 1;
-        let seated = seat_positions(&mut app);
-        if seated.len() == 2 {
+        if let Some(seated) = seat_states(&mut app) {
             break seated;
         }
         assert!(
@@ -187,8 +330,7 @@ fn play_mirror_match(
     let mut left_mid_window: Option<usize> = None;
     for tick in 1..ticks {
         app.update();
-        let seated = seat_positions(&mut app);
-        if seated.len() == 2 {
+        if let Some(seated) = seat_states(&mut app) {
             grabbing.push(held_now(&mut app));
             frames.push(seated);
         } else if left_mid_window.is_none() {
@@ -262,66 +404,47 @@ fn two_seats_of_an_ordinary_selectable_fighter_do_not_share_a_stream() {
     );
 }
 
-/// How long the two bodies stay an exact reflection of each other, and how
-/// many frames were observed at all.
+/// ⭐ TWO EMMYS ARE ONE FIGHTER REFLECTED, TICK BY TICK, UNTIL THE FIRST
+/// GRAB (Q49, MIRROR-SYMMETRY).
 ///
-/// the midline is the stage's own symmetry, read off the first frame both bodies
-/// exist on rather than written here as a literal. "A reflection" then means seat 1
-/// is seat 0 flipped about it:
+/// Each frame compares the state that can part (`first_unreflected_field`):
+/// position, velocity, facing, the move and its clock, the published control
+/// and the stream position. Lateral values must negate about the stage
+/// midline; the others must be equal. A part reports its frame and field.
 ///
-/// ```text
-/// mirror error = |(x0 − mid) + (x1 − mid)|  +  |y0 − y1|
-/// ```
-fn mirrored_frames(
-    frames: &[Vec<(usize, ambition_platformer2d::engine_core::Vec2)>],
-) -> (usize, usize) {
-    let Some(first) = frames.first() else {
-        return (0, 0);
-    };
-    let mid = (first[0].1.x + first[1].1.x) / 2.0;
-    let mut held = 0usize;
-    for frame in frames {
-        let error = ((frame[0].1.x - mid) + (frame[1].1.x - mid)).abs()
-            + (frame[0].1.y - frame[1].1.y).abs();
-        if error > 1.0 {
-            break;
-        }
-        held += 1;
-    }
-    (held, frames.len())
-}
-
-/// Two Emmys remain mirror-symmetric substantially longer than fighters with
-/// independent streams. The comparison uses the same observation window for
-/// both pairs so the assertion measures controller-stream behavior rather than
-/// a short-window symmetry shared by every fighter.
+/// The stage has one authored asymmetry: two bodies that grab each other on
+/// one tick are a tie, and the lower `SimId` takes the hold
+/// (`two_bodies_grabbing_each_other_on_one_tick_make_one_hold`). A mirror is
+/// a fixed point, so no tie rule keeps the reflection; granting neither grab
+/// was measured at zero captures in a minute. So the mirror may part when the
+/// first grab holds, and not before. Measured 2026-10-08: the first part is on
+/// frame 883, when seat 0's grab dash takes seat 1 and seat 1's is cancelled.
+///
+/// The control: two ordinary fighters, whose streams differ by policy, part
+/// on a body field inside the same window, so the comparison can say no.
 #[test]
-fn two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters() {
-    // One window for both, so the comparison cannot be an artifact of two
-    // different observation lengths.
+fn two_emmys_are_one_fighter_reflected_until_the_first_grab() {
+    // One window for both pairs.
     const WINDOW: usize = 1200;
 
     let (emmy_streams, emmy_frames, emmy_grabbing) = play_mirror_match(EMMY, WINDOW);
     let (ordinary_streams, ordinary_frames, _) = play_mirror_match(ORDINARY, WINDOW);
 
-    let (emmy_mirrored, emmy_seen) = mirrored_frames(&emmy_frames);
-    let (ordinary_mirrored, ordinary_seen) = mirrored_frames(&ordinary_frames);
-
-    // Non-vacuity, three ways: both matches must really have run, the spawns must
-    // really be mirrored, and the two pairs must really differ in cognition — or
-    // the comparison below is measuring nothing.
+    // Non-vacuity: both matches ran, the spawns are apart, and the pairs
+    // differ in cognition.
     assert!(
-        emmy_seen > 500 && ordinary_seen > 500,
-        "a match did not run long enough to compare (emmy {emmy_seen} frames, \
-         ordinary {ordinary_seen} frames)"
+        emmy_frames.len() > 500 && ordinary_frames.len() > 500,
+        "a match did not run long enough to compare (emmy {} frames, ordinary {} frames)",
+        emmy_frames.len(),
+        ordinary_frames.len(),
     );
     let first = &emmy_frames[0];
     assert!(
-        (first[0].1.x - first[1].1.x).abs() > 1.0,
+        (first[0].pos.x - first[1].pos.x).abs() > 1.0,
         "the two seats spawned on top of each other ({}, {}), so 'a mirror about \
-         the midline' is not a claim this stage can express any more",
-        first[0].1.x,
-        first[1].1.x,
+         the midline' is not a claim this stage can express",
+        first[0].pos.x,
+        first[1].pos.x,
     );
     assert_eq!(
         emmy_streams[0].1, emmy_streams[1].1,
@@ -330,89 +453,38 @@ fn two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters() {
     );
     assert_ne!(
         ordinary_streams[0].1, ordinary_streams[1].1,
-        "the control pair shared a stream too, so there is no contrast to measure \
-         ({ordinary_streams:?})"
+        "the control pair shared a stream too, so there is no contrast ({ordinary_streams:?})"
     );
 
-    // THE CLAIM: the ordinary pair's reflection breaks, and Emmy's does not.
-    assert!(
-        ordinary_mirrored < ordinary_seen,
-        "two {ORDINARY} CPUs stayed an exact reflection for the whole \
-         {ordinary_seen}-frame match despite having different cognitive streams — \
-         so this window cannot tell shared cognition from separate cognition, and \
-         the Emmy figure below means nothing"
-    );
-    // ⛔⛔ A RATE, NOT A COUNT, and this compared counts across matches of
-    // DIFFERENT LENGTHS. The claim above is "the ordinary pair's reflection
-    // breaks and Emmy's does not", which is a property of the fraction of the
-    // match spent reflected — but a decisive Emmy match is a SHORT one, so a
-    // perfect mirror could lose to a long sloppy one on absolute frames.
-    // Measured: 856 of 856 (100%) against 440 of 1376 (32%), and `856 > 880`
-    // is false. The stronger result failed the weaker test.
-    // ⛔⛔ THE MARGIN WAS 2.0 AND IT WAS FITTED BEFORE ANY SHARED ACTION WAS
-    // ABSOLUTE-DIRECTIONAL. Re-derived 2026-08-24 when the platform fighter
-    // stopped guarding in the air (`ShieldTuning::air_guard`) and a shield press
-    // up there became the AIR DODGE. That one rule moved BOTH ends, and the
-    // mechanism is the dodge's own geometry:
-    //
-    //   `vel = (frame.side() * aim.x + frame.down() * aim.y) * air_dodge_speed`
-    //
-    //   - a NEUTRAL stick sets velocity to ZERO, and two bodies that both halt
-    //     in mid-air keep whatever reflection they had. The INDEPENDENT pair
-    //     rose from a recorded 32% to 52%.
-    //   - a DIRECTIONAL stick aims in the gravity frame's axes, not
-    //     facing-relative — which is correct for the genre — so two mirrored
-    //     bodies sharing one stream dodge the same ABSOLUTE way and stop being
-    //     each other's reflection. Emmy fell from a recorded 100% to 84%.
-    //
-    // ⇒ so the claim is unchanged and only the constant moved, because the
-    // world it was measured in did. 84% against 52% is still decisive; the same
-    // shape as before, with the floor raised and the ceiling lowered by one
-    // mechanic that belongs to both pairs equally.
-    let emmy_rate = emmy_mirrored as f64 / emmy_seen as f64;
-    let ordinary_rate = ordinary_mirrored as f64 / ordinary_seen as f64;
-    assert!(
-        emmy_rate > ordinary_rate * 1.5,
-        "two Emmys held a mirror for {emmy_mirrored} of {emmy_seen} frames \
-         ({:.0}%) while two {ORDINARY} held one for {ordinary_mirrored} of \
-         {ordinary_seen} ({:.0}%) — not the decisive difference a shared \
-         cognitive stream should produce",
-        emmy_rate * 100.0,
-        ordinary_rate * 100.0
-    );
-    // ⛔⛔ THE MIRROR MAY BREAK IN EXACTLY ONE PLACE, and this is the clause
-    // that says where. A shared cognitive stream keeps two bodies reflected
-    // under symmetric circumstances — unless a GAMEPLAY rule has to treat them
-    // differently, and this stage has one: two bodies that grab each other on
-    // the same tick are a TIE, and `acquire_captures` resolves it in favour of
-    // the lower `SimId`.
-    //
-    // ⚠ THERE IS NO SYMMETRIC ALTERNATIVE. A mirror is a fixed point —
-    // identical inputs produce identical states however a tie is resolved — so
-    // the only resolution that preserves the reflection is granting NEITHER
-    // grab, and that was tried and measured: 126 attempts over a minute, zero
-    // captures, zero pummels, zero throws. Granting BOTH is the deadlock that
-    // cost D194 a third of a match.
-    //
-    // ⭐ so the claim is now "the reflection holds until a grab is live", which
-    // is STRONGER where it matters: a cognition leak breaks the mirror with no
-    // capture anywhere in sight, and that still fails here.
+    let emmy_part = first_part(&emmy_frames, true);
     let first_grab = emmy_grabbing.iter().position(|held| *held);
-    // ⭐ REPORTED ON SUCCESS TOO: the clause below is only doing work when the
-    // mirror actually breaks, and a reader who cannot see these three numbers
-    // cannot tell a guard that held from one that had nothing to hold.
+    let ordinary_part = first_part(&ordinary_frames, false);
+    // Reported on success too: the grab clause works only when the mirror
+    // parts, and a reader must see where it did.
     println!(
-        "[mirror] emmy held {emmy_mirrored} of {emmy_seen} frames, first grab at \
-         {first_grab:?}; {ORDINARY} held {ordinary_mirrored} of {ordinary_seen}"
+        "[mirror] emmy first part {emmy_part:?} of {} frames, first grab at \
+         {first_grab:?}; {ORDINARY} first body part {ordinary_part:?}",
+        emmy_frames.len(),
     );
+
+    // THE CONTROL: the comparison says no to two fighters with two streams.
     assert!(
-        emmy_mirrored == emmy_seen || first_grab.is_some_and(|grab| emmy_mirrored + 1 >= grab),
-        "two Emmys broke their mirror after {emmy_mirrored} of {emmy_seen} frames, \
-         and the first grab on the stage was at frame {first_grab:?} — so the \
-         reflection did not end where the one rule that arbitrates between two \
-         mirrored bodies fires. Check for a per-seat gameplay asymmetry on the \
-         stage before suspecting the cognition seed"
+        ordinary_part.is_some(),
+        "two {ORDINARY} CPUs with different streams stayed reflections on every \
+         body field for {} frames, so this comparison cannot tell one mind from two",
+        ordinary_frames.len(),
     );
+    // THE CLAIM: two Emmys part only where the grab tie is resolved.
+    if let Some((part, field)) = &emmy_part {
+        assert!(
+            first_grab.is_some_and(|grab| part + 1 >= grab),
+            "two Emmys parted on frame {part} of {} ({field}) and the first grab \
+             was at frame {first_grab:?}. A mirror that parts before the grab tie \
+             has an asymmetry no authored rule names: a `signum(0)` side, a \
+             list-order tie or a per-seat draw (fighter-brain.md, Q49)",
+            emmy_frames.len(),
+        );
+    }
 }
 
 /// A match of two CPU fighters on the Smash stage, in the real host, after

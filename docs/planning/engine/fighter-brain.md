@@ -186,11 +186,15 @@ only so that CPUs look different is not allowed.
 **Coverage today (2026-10-04).**
 
 - `game/ambition_app/tests/smash_cpu_cognition.rs`,
-  `two_emmys_hold_a_mirror_far_longer_than_two_ordinary_fighters`: an outcome
-  test. It compares reflected positions only (not velocity, facing, action or
-  decision), within 1 px, for 1200 ticks, until the first break. It accepts a
-  break at the first grab. It asks Emmy only to hold 1.5x longer than an
-  ordinary pair, and it requires the ordinary pair to break.
+  `two_emmys_are_one_fighter_reflected_until_the_first_grab` (2026-10-08,
+  plan item 1): each of 1200 frames compares position, velocity, facing, the
+  move and its clock, the published control and the stream position (lateral
+  values negate about the midline) and reports the first frame and field that
+  part. Two Emmys may part only when the first grab holds (the grab tie). The
+  control: two ordinary fighters part on a body field. Measured: the Emmys
+  part on frame 883, when one grab dash takes the other. It replaced an
+  outcome test that compared positions only and asked Emmy to hold 1.5x
+  longer than an ordinary pair.
 - The probe above (`--noise 0` trace) finds defects by hand; it is not a test.
 - `two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list`,
   `the_reset_leaves_the_facing_to_its_caller` and
@@ -257,7 +261,8 @@ Until then the Emmy exception is the Noether scene.
 **Regression to add (queue row MIRROR-SYMMETRY).** Strengthen the Emmy test
 rather than add a second outcome test:
 
-1. A per-tick reflection comparison of the full state that can diverge:
+1. ✅ A per-tick reflection comparison of the full state that can diverge
+   (built 2026-10-08, see Coverage):
    position, velocity, facing, action/move id and phase, the decision
    published to `ActorControl`, and each body's random-stream position. Report
    the first tick and the first field that part.
@@ -272,6 +277,12 @@ rather than add a second outcome test:
    policy's (`CombatRules::ledge_occupancy`, receipt LEDGE-OCCUPANCY).
 5. Poisons: a `signum(0) = +1` site, an unmirrored random draw, a list-order
    tie-break and a left-first query must each turn the test red.
+   2026-10-08, the `signum(0)` poison (`SignumOr` returns `signum()` at zero):
+   the per-tick test stays green with the first part on frame 883, so the
+   Emmy match reaches no zero lateral distance before the grab. The poison is
+   effective: `the_shadow_of_a_reflected_scene_is_the_reflected_shadow` is
+   red under it. That unit test is the witness for this source; the match
+   population does not reach it.
 
 The current requirement that two ordinary fighters MUST break the mirror stays
 only while per-seat streams are policy; it is a fact about that policy, not a

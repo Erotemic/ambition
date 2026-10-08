@@ -1779,48 +1779,29 @@ fn totals(readings: Vec<Quantity>) -> Vec<u32> {
     readings.into_iter().map(|q| q.bag + q.live + q.dormant).collect()
 }
 
-/// The quantity of `thrown.item`, in the bag, in the world and in the rooms
-/// that are not live (a ledger row that places the object, with no live
-/// object): just before the first death, then after each death, then (with
-/// `alice_goes_back`) in the room it was thrown in.
-fn quantities_across_deaths(thrown: Thrown) -> Vec<Quantity> {
+/// Alice, in the hub with Bob in `switch_lab`, banks a checkpoint with one
+/// `item` in the bag, equips it, and throws it in room `into`, which mints
+/// one object; with `carried_back` she picks it up again; and she goes back
+/// to the hub. Returns the world and the minted object.
+fn throw_after_a_checkpoint(item: Item, into: &str, carried_back: bool) -> (Platformer2dSimHarness, SimId) {
     use ambition_platformer2d::item::ItemGrantRequested;
     use ambition_platformer2d::item::OwnedItems;
-    use ambition_platformer2d::platformer::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
     use bevy::ecs::system::RunSystemOnce;
-
     let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_for_a_replay();
     assert_eq!(sim.observation().active_room, ROOM, "precondition: Alice is in the hub");
     sim.world_mut().write_message(ItemGrantRequested {
-        item: thrown.item,
+        item: item,
         count: 1,
     });
     sim.step_n(base(), 4);
     commit_a_checkpoint(&mut sim);
-    let item = thrown.item;
-    let count = |sim: &mut Platformer2dSimHarness, object: Option<&SimId>| {
-        let live = dynamic_occurrences(sim);
-        let dormant = object.is_some_and(|object| {
-            !live.contains(object)
-                && matches!(
-                    sim.world().resource::<AuthoredOccurrences>().whereabouts(object),
-                    Some(OccurrenceWhereabouts::Placed { .. })
-                )
-        });
-        Quantity {
-            bag: sim.world().resource::<OwnedItems>().count(item),
-            live: live.len() as u32,
-            dormant: u32::from(dormant),
-        }
-    };
     assert_eq!(
-        count(&mut sim, None),
-        Quantity { bag: 1, live: 0, dormant: 0 },
+        (sim.world().resource::<OwnedItems>().count(item), dynamic_occurrences(&mut sim).len()),
+        (1, 0),
         "precondition: the checkpoint has one, in the bag"
     );
-
-    if thrown.into != ROOM {
-        assert_eq!(crate::common::walk_through_the_door_to(&mut sim, thrown.into), thrown.into);
+    if into != ROOM {
+        assert_eq!(crate::common::walk_through_the_door_to(&mut sim, into), into);
         sim.step_n(base(), 10);
     }
     sim.world_mut()
@@ -1855,14 +1836,43 @@ fn quantities_across_deaths(thrown: Thrown) -> Vec<Quantity> {
         "precondition: the throw spent the quantity"
     );
     let object = object.expect("precondition: the throw minted one object");
-    if thrown.carried_back {
+    if carried_back {
         let at = resting_place(&mut sim, &object);
         pick_up(&mut sim, at, &object);
     }
-    if thrown.into != ROOM {
+    if into != ROOM {
         assert_eq!(crate::common::walk_through_the_door_to(&mut sim, ROOM), ROOM);
         sim.step_n(base(), 10);
     }
+    (sim, object)
+}
+
+/// The quantity of `thrown.item`, in the bag, in the world and in the rooms
+/// that are not live (a ledger row that places the object, with no live
+/// object): just before the first death, then after each death, then (with
+/// `alice_goes_back`) in the room it was thrown in.
+fn quantities_across_deaths(thrown: Thrown) -> Vec<Quantity> {
+    use ambition_platformer2d::item::OwnedItems;
+    use ambition_platformer2d::platformer::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
+
+    let (mut sim, object) = throw_after_a_checkpoint(thrown.item, thrown.into, thrown.carried_back);
+    let item = thrown.item;
+    let count = |sim: &mut Platformer2dSimHarness, object: Option<&SimId>| {
+        let live = dynamic_occurrences(sim);
+        let dormant = object.is_some_and(|object| {
+            !live.contains(object)
+                && matches!(
+                    sim.world().resource::<AuthoredOccurrences>().whereabouts(object),
+                    Some(OccurrenceWhereabouts::Placed { .. })
+                )
+        });
+        Quantity {
+            bag: sim.world().resource::<OwnedItems>().count(item),
+            live: live.len() as u32,
+            dormant: u32::from(dormant),
+        }
+    };
+
     if thrown.bob_leaves {
         let (hub, _) = crate::two_players_two_live_rooms::where_they_are(&mut sim);
         crate::two_players_two_live_rooms::bob_goes_to_the_hub(&mut sim, hub.expect("Alice is in a live room"));
@@ -2351,4 +2361,45 @@ fn a_death_takes_back_from_bobs_hand_what_alice_banked_in_hers() {
         "(held by Bob, held by another, lying, ledger row) after Alice's death"
     );
     assert_still_held(&mut sim, &reward, "Alice banked it in hand, so her death puts it back there");
+}
+
+/// ⭐ A DEATH KEEPS THE MINT MARK OF WHAT IT KEEPS IN ANOTHER PLAYER'S ROOM
+/// (review 2026-10-08). Alice banks a checkpoint, throws a javelin into Bob's
+/// live room (a runtime mint), goes back to the hub and dies. Her restore
+/// keeps the javelin's row, because Bob's room is not built again, and it
+/// must keep the row's provenance too: the checkpoint compaction drops only
+/// a consumed MINT, and the mark is in the peer checksum and the save.
+///
+/// Read on the first frame the restore is accepted, from the ledger it pins,
+/// before any later producer can mark the live object again. The control is
+/// the live ledger just before the death.
+#[test]
+fn a_death_keeps_the_mint_mark_of_what_it_keeps_in_another_players_room() {
+    use ambition_platformer2d::actors::session::checkpoint::AcceptedCheckpointRestore;
+    use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
+    let (mut sim, javelin) = throw_after_a_checkpoint(MINTED_ITEM, "switch_lab", false);
+    let before = {
+        let ledger = sim.world().resource::<AuthoredOccurrences>();
+        (ledger.whereabouts(&javelin).is_some(), ledger.is_mint(&javelin))
+    };
+    let mut pinned = None;
+    die_and_watch(&mut sim, |sim, _| {
+        if pinned.is_some() {
+            return;
+        }
+        pinned = ambition_platformer2d::platformer::lifecycle::session_world_component::<AcceptedCheckpointRestore>(
+            sim.world(),
+        )
+        .and_then(AcceptedCheckpointRestore::accepted)
+        .and_then(|accepted| accepted.lifecycle.as_ref())
+        .map(|inputs| {
+            let ledger = inputs.occurrences.remembered();
+            (ledger.whereabouts(&javelin).is_some(), ledger.is_mint(&javelin))
+        });
+    });
+    assert_eq!(
+        (before, pinned),
+        ((true, true), Some((true, true))),
+        "((row, mint mark) in the live ledger before the death, the same in the ledger the restore pins)"
+    );
 }

@@ -760,7 +760,7 @@ pub fn resume_at_checkpoint_on_reset(
                     .rows()
                     .map(|(id, holder)| (id.clone(), holder.clone()))
                     .collect();
-                for (id, holder) in kept {
+                for (id, holder) in kept.iter().copied() {
                     let now = match holder {
                         Some(holder) => {
                             held.insert(id.clone(), holder.clone());
@@ -774,7 +774,19 @@ pub fn resume_at_checkpoint_on_reset(
                     };
                 }
                 let mut ledger = inputs.occurrences.remembered().clone();
+                // A kept row keeps its provenance: an object minted after the
+                // checkpoint is a runtime mint in the ledger this restore pins
+                // too, so the checkpoint compaction can drop it once it is
+                // consumed. `adopt_mints` keeps a mark only for an id with a row.
+                let marks: Vec<_> = ledger
+                    .mints()
+                    .cloned()
+                    .chain(kept.iter().map(|(id, _)| (*id).clone()).filter(|id| {
+                        live_ledger.as_ref().is_some_and(|ledger| ledger.is_mint(id))
+                    }))
+                    .collect();
                 ledger.adopt_rows(rows);
+                ledger.adopt_mints(marks);
                 inputs.occurrences.adopt(ledger);
                 inputs.custody.adopt(held);
             }

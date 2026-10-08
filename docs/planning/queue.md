@@ -112,6 +112,12 @@ mark is rollback state (hashed in `encode_rows`, schema 328) and a save field
 the unit tests beside `compact_ended_mints` in `continuity.rs`. The three
 bomb/javelin tests stay green. Poisons, each red: compaction never runs; it
 drops every `Consumed` row (the authored control goes).
+Review 2026-10-08: a restore that keeps a spared room's live row keeps its
+mint mark too (`session/checkpoint.rs`, from the live ledger). Measured
+before: the pinned ledger held the javelin's row and no mark.
+Witness: `a_death_keeps_the_mint_mark_of_what_it_keeps_in_another_players_room`
+(read on the frame the restore is accepted; control: the live ledger
+before the death).
 
 **Built 2026-10-06:**
 

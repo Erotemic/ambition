@@ -484,3 +484,46 @@ fn a_restart_gives_her_weapon_back_ready() {
         "she restarted with her weapon still recharging"
     );
 }
+
+/// Her spark does not push her back (Jon, 2026-10-08).
+///
+/// A ranged action that states no discharge takes the generic one, and the
+/// generic one kicks the shooter back along the shot.
+#[test]
+fn her_spark_does_not_push_her_back() {
+    let mut app = boot();
+    let body = seated(&mut app).expect("Mary-O is seated");
+    app.world_mut()
+        .entity_mut(body)
+        .insert(WornEquipment::new(vec![cinder_beacon()]));
+    // Let her take the fire form and come to rest.
+    for _ in 0..90 {
+        step(&mut app, ControlFrame::default());
+    }
+    let at = |app: &App| *app.world().get::<ae::BodyKinematics>(body).expect("her body");
+    let rest = at(&app);
+    assert!(rest.vel.x.abs() < 0.01, "premise: she stands still ({:?})", rest.vel);
+
+    let mut sparks = 0;
+    let mut furthest = 0.0f32;
+    for tick in 0..60 {
+        step(
+            &mut app,
+            ControlFrame {
+                modifier_pressed: tick == 0,
+                modifier_held: tick < 4,
+                ..ControlFrame::default()
+            },
+        );
+        let mut live = app
+            .world_mut()
+            .query::<&ambition_platformer2d::projectiles::ProjectileVisualId>();
+        sparks = sparks.max(live.iter(app.world()).filter(|visual| visual.0 == SPARK_VISUAL).count());
+        furthest = furthest.max((at(&app).pos.x - rest.pos.x).abs());
+    }
+    assert!(sparks > 0, "premise: she threw no spark, so nothing could push her");
+    assert!(
+        furthest < 0.01,
+        "she stood still, threw a spark, and moved {furthest:.2} px: the shot pushed her"
+    );
+}

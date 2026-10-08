@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::characters::brain::action_set::{ProjectileFlight, RangedActionSpec};
+use ambition_platformer2d::characters::brain::action_set::{Discharge, ProjectileFlight, RangedActionSpec};
 use ambition_platformer2d::characters::equipment::{
     EquipmentGrant, EquipmentRow, ModifierOp, ModifierScope, OnHit, ParamModifier, WornEquipment,
 };
@@ -149,6 +149,12 @@ fn spark_shot() -> RangedActionSpec {
         .with_refire(SPARK_REFIRE_S)
         // The classic rule: two of her sparks on screen at once.
         .with_max_live(2)
+        // No kick. A ranged action that states no discharge takes the generic
+        // one, which pushes the shooter back; she slid 4 px for each spark.
+        .with_discharge(Discharge {
+            recoil: 0.0,
+            ..Discharge::default()
+        })
 }
 
 /// Seconds between two sparks. The body's `RangedRefire` enforces it.
@@ -1386,6 +1392,8 @@ mod tests {
         // limit passes at any number, so the number is asserted here, and the
         // fold must keep it.
         assert_eq!(shot.max_live, Some(2), "two of her sparks may fly at once");
+        // And no kick: the fold must keep the discharge the spark states.
+        assert_eq!(shot.discharge.map(|discharge| discharge.recoil), Some(0.0));
     }
 
     /// The spark expires by an authored policy — a bounce budget AND a lifetime,

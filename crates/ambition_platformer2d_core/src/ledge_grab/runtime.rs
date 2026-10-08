@@ -688,6 +688,11 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     if clusters.ledge.release_cooldown > 0.0 {
         return false;
     }
+    // The regrab limit: a body that grabbed this many times since it landed
+    // or was hit falls past the edge.
+    if axis_state.ledge_grabs >= super::LEDGE_GRABS_PER_AIRTIME {
+        return false;
+    }
 
     let mut contact: Option<LedgeContact> = None;
     if let Some(wall_normal) =
@@ -759,7 +764,10 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     // body spent off a ledge, so a fighter that was knocked away and recovered
     // gets all of it and one that drops and instantly re-catches gets the floor.
     // A flat grant made the edge a free reset you could hold forever.
-    let earned = super::ledge_grab_invuln_earned(axis_state.time_off_ledge);
+    // Each regrab before the body lands or is hit earns less of the window.
+    let earned = super::ledge_grab_invuln_earned(axis_state.time_off_ledge)
+        * super::ledge_regrab_invuln_scale(axis_state.ledge_grabs);
+    axis_state.ledge_grabs = axis_state.ledge_grabs.saturating_add(1);
     if axis_state.ledge_invuln_timer < earned {
         axis_state.ledge_invuln_timer = earned;
     }

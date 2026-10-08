@@ -844,11 +844,12 @@ Ultimate-like occupancy and trump, deterministic and rollback-compatible.
 sizes (`LedgeContact::edge_key`; witness
 `two_fighters_of_different_sizes_on_one_corner_are_one_edge`). A rewind
 across a trump gives the same holder on every tick
-(`a_rewind_across_a_ledge_trump_gives_the_same_holder`). Ultimate's rules
-are in the plan.
+(`a_rewind_across_a_ledge_trump_gives_the_same_holder`). The regrab limit:
+six grabs per airtime with decaying intangibility, reset by landing or a hit
+(`each_regrab_before_landing_earns_less_and_the_seventh_is_refused`).
+Ultimate's rules are in the plan.
 
-**Next action:** the regrab limit, then the trumped body's lockout, as the
-plan's open list says.
+**Next action:** the trumped body's lockout, as the plan's open list says.
 
 **Acceptance:** with two fighters of different sizes on one corner, one holds
 it; trump, release, death and knockoff each free or transfer the hold as the

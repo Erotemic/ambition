@@ -1091,7 +1091,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 326 -> 327: `resource.owned_items` (`OwnedItems`) is in the peer
 /// checksum by its own value (Q129: shared durable state is compared), not
 /// only through the save that mirrors it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 327;
+/// ⛔⛤ 327 -> 328: `actor.motion_model` encodes `ledge_grabs`, the ledge
+/// grabs a body made since it landed or was hit (the regrab limit).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 328;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

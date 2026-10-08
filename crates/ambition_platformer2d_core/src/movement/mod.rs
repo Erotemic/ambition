@@ -631,6 +631,8 @@ fn update_body_simulation_inner(
         }
         if clusters.ground.on_ground {
             state.coyote_timer = tuning.locomotion.coyote_time;
+            // Landing gives the ledge grabs back.
+            state.ledge_grabs = 0;
             // Landing ends an air dodge outright — window, endlag and budget.
             state.air_dodge_timer = 0.0;
             state.air_dodge_endlag_timer = 0.0;

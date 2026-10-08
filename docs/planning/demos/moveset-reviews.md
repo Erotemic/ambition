@@ -54,7 +54,7 @@ The guard decides this list by scanning each fighter's moveset files (`*_moveset
 and `data/movesets/*.ron`) for the maintainer's name:
 
 `bob`, `carl_stargan`, `cellular_automaton`, `emmy_noether`, `medic`,
-`ninja_shadow_oni_leader`, `pugnacious_polygon`, and
+`ninja_shadow_oni_leader`, `pugnacious_polygon`, and <!-- cite-ok: character ids in the catalog data, not Rust items -->
 `imperfect_cellular_automaton` (which wears `cellular_automaton`'s table).
 
 These are the demonstration: each design is an agent's decision. A fighter that

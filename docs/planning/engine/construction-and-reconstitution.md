@@ -254,7 +254,7 @@ with the same save. The rules:
 
 - **What a session spawns as it runs ends with it.** A run-time spawn takes its
   session scope (`spawn_room_in_session` with `SessionCommands::spawn_scope()`).
-  The plain-`Commands` road `SpawnScopedExt` is deleted. ⚠ No source guard
+  The plain-`Commands` road `SpawnScopedExt` is deleted. ⚠ No source guard <!-- cite-ok: a deleted name -->
   forbids a plain `spawn` that names `RoomScopedEntity` by hand; the witness
   asks a running world for each room-scoped entity with no session owner.
 - **Channels end at the activation.** Every simulation channel a domain

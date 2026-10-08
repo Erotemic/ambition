@@ -128,7 +128,7 @@ the two questions above before the next slice.
 - The display-name join of the character demand is deleted. Room staging
   demands a character by the id its placement or request names
   (`EnemySpawnSpec::character_id`, `SpawnActorKind::Enemy { character }`), not
-  by its placement name, and the demand's `canonical_character_id` fallback is
+  by its placement name, and the demand's `canonical_character_id` fallback is <!-- cite-ok: a deleted name -->
   gone. Measured over `app_it` (2026-10-03): 28 demanded tokens reached it, and
   21 of them were captions or placement ids that named no character; the demos
   demanded none. Guard: `every_shipped_room_demands_its_characters_by_id`

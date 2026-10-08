@@ -73,7 +73,7 @@ component.
   models carry `Option`; the HUD prints `MP -` for a body with no Mana.
 - Spawn and reset share one baseline: `ActorResources::reset_to_start` restores
   the declarations the seat was built from.
-- `BodyMana`, `ResetMeter` and the implicit move meter are deleted.
+- `BodyMana`, `ResetMeter` and the implicit move meter are deleted. <!-- cite-ok: deleted names -->
   `ResourceMeter` survives only as the value type of non-body meters (projectile
   ammo).
 

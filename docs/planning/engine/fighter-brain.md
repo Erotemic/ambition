@@ -482,7 +482,7 @@ resolver is today's.
 helps at rung 3, is roughly neutral at rung 6, and fails the damage gate at
 rung 9, where the brain stops choosing `jab` entirely (jab was over half of the
 damage at HEAD). This is one fight per rung: a direction, not a curve.
-`npc_emmy_noether` already fails the same rung-9 gate at HEAD with the kit change
+`npc_emmy_noether` already fails the same rung-9 gate at HEAD with the kit change <!-- cite-ok: a character id in the catalog data, not a Rust item -->
 a no-op, so the gate is calibrated to one fighter. Refuted explanations: the CPU
 does not run constantly, the attack-kit-to-movement coupling
 (`lifting_candidates`) is inert on the shipped roster

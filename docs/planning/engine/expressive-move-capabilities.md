@@ -197,7 +197,7 @@ against them.
 | Control impairment | Sing, sleep | Shipped: `sleep_timer` as a named cause in the hard lock, plus `smash.sleep` | Mash escape | Combat or status owner |
 | Local time alteration | Witch Time | `ProperTimeScale`; move and hurtbox clocks use entity proper time | A proper-time completeness audit (locomotion, animation, playback, recovery and status clocks) | Time + consuming domains |
 | Timed stat modifiers | Deep Breathing, Monado | some tuning, armor, invulnerability | Scoped modifiers applied by the owner of the affected quantity; no stat-writing god system | Owner of the quantity |
-| Character meters | Limit, MP, fuel, ammo | `ResourceMeter`, `BodyMana`, other budgets | Content-defined resources with prepared handles and atomic costs | Character + [resource owner](composable-actor-resources.md) |
+| Character meters | Limit, MP, fuel, ammo | Declared resources in `ActorResources` (Mana, Limit); `ResourceMeter` for a meter that is not a body's (projectile ammo) | Content-defined resources with prepared handles and atomic costs | Character + [resource owner](composable-actor-resources.md) |
 | Conditional move variants | Limit specials, KO Punch | move gates, repertoire resolution | State-conditioned move binding in one action-selection authority | Moveset resolution |
 | Transformations or forms | Stone, stance swaps | some body modes | One `ResolvedForm` authority that changes moveset, body, art and hurtboxes together | Character form |
 | Summoned attack actor | Phantom, turret | generic summoning; the shark is summon + mount | Owner relation, lifetime, command policy, attribution | Actor or summon |
@@ -309,7 +309,7 @@ integrates with the world `sim_dt` while combat timelines use
 **Resources** have a focused owner: [composable actor
 resources](composable-actor-resources.md) (stable content identity -> validated
 composition -> prepared handle -> dense actor-local state). Do not turn
-`BodyMana` into all resources or replace it with a string-keyed global manager.
+one meter into all resources, and do not replace the declared resources with a string-keyed global manager.
 Fill, decay, stock and efficiency policy stays with the capability or ruleset
 that owns the rule.
 

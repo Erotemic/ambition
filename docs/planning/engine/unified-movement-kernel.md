@@ -18,14 +18,14 @@ through to the riding path. Only the block road has a face-transition rule
 without a second crawler controller.
 
 No authored level places both a `SurfaceChain` and a crawler
-(`npc_puppy_slug` and variants). `SurfaceChain` is placed only in the Sanic
+(`npc_puppy_slug` and variants). `SurfaceChain` is placed only in the Sanic <!-- cite-ok: a character id in the catalog data, not a Rust item -->
 levels. Do not build the rule speculatively: a rule nothing exercises cannot be
 falsified.
 
 How to re-check: count placements per **level**, not per file. Every world file
 carries the `SurfaceChain` entity definition, so a file-level grep matches all of
 them. `sandbox.ldtk` holds many levels. A crawler is placed through a generic
-spawn entity with `npc_puppy_slug` in a field value, so read field values, not
+spawn entity with `npc_puppy_slug` in a field value, so read field values, not <!-- cite-ok: a character id in the catalog data, not a Rust item -->
 only `__identifier`.
 
 ### Portal transit inside gravity zones (behavior test owed)

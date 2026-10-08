@@ -237,7 +237,7 @@ claim about a role, not a verdict on a fighter. ⛔ Scope a tuning pass on **the
 band**, never on whether the instrument hit its ceiling — that error left two
 fighters (ninja 300, clerk 271) out of a pass they belonged in.
 
-**What is deliberately left outside the band.** `npc_emmy_noether` and `npc_oiler`
+**What is deliberately left outside the band.** `npc_emmy_noether` and `npc_oiler` <!-- cite-ok: character ids in the catalog data, not Rust items -->
 are each built around one licensed kill move with everything else capped by a
 named constant (`BREAK_GROWTH`, `TORQUE_GROWTH`) and enforced by
 `exactly_one_move_grows_like_a_kill_move`. Two shared archetype tables move 3 and

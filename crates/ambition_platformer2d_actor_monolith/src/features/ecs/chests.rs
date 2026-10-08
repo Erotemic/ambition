@@ -8,7 +8,6 @@ use ambition_combat::components::{
     CenteredAabb, ChestFeature, FallingChest, FeatureId, FeatureName, Opened,
 };
 use ambition_combat::events::{GameplayBanner, SetFlagRequested};
-use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
@@ -39,7 +38,11 @@ pub fn open_ecs_chests(
     >,
     // Presentation anim for whichever body opened the chest.
     mut anims: Query<&mut ambition_characters::actor::BodyAnimFacts>,
-    bodies: Query<(&ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+    bodies: Query<(
+        &ambition_platformer2d_core::BodyKinematics,
+        Option<&ambition_platformer2d_core::SweepSample>,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    )>,
     // `&ChestFeature`, not `With<ChestFeature>` — that one word is the whole of "authored
     // chest rewards are never granted". The payload was filled by all three chest authors and
     // read by nobody: this system knew a chest was there and never asked what was IN it.
@@ -108,20 +111,17 @@ pub fn open_ecs_chests(
         if !acting.buffered_interact(subject) {
             continue;
         }
-        let Ok((subject_kin, subject_step)) = bodies.get(subject) else {
+        let Ok((subject_kin, subject_step, subject_frame)) = bodies.get(subject) else {
             continue;
         };
-        let reach_aabb = subject_kin.collision_box(subject_step);
-        let subject_room = rooms.of(subject);
+        let reach = super::InteractReach::of(subject_kin, subject_step, subject_frame, rooms.of(subject));
         for (entity, id, name, aabb, chest, opened, falling, boss_reward, chest_sim_id, origin) in &chests {
+            // A chest has no facing gate: its spec has no `requires_facing`.
             if falling.is_some()
                 || opened.is_some()
                 || opened_this_pass.contains(&entity)
-                || !aabb.aabb().strict_intersects(reach_aabb)
+                || !reach.touches(rooms.of(entity), aabb, false)
             {
-                continue;
-            }
-            if rooms.of(entity) != subject_room {
                 continue;
             }
             commands.entity(entity).insert(Opened);

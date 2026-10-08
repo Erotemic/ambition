@@ -6,14 +6,13 @@
 //! [`super::resolvers::resolve_interact`] via the [`super::WorldView`]
 //! the affordance compute system builds each frame.
 //!
-//! Uses the same `strict_intersects` test the buffered-interact
-//! systems use ([`ambition_platformer2d_actor_monolith::features::interact_ecs_actors_and_switches`],
-//! [`ambition_platformer2d_actor_monolith::features::open_ecs_chests`]) so the HUD label switches at
-//! exactly the moment the corresponding interaction would actually
-//! fire — no off-by-one frame where the prompt says "Talk" but the
-//! buffered press silently misses.
+//! It asks the rule the press asks
+//! ([`ambition_platformer2d_actor_monolith::features::InteractReach`]): the
+//! same reach, live room, facing gate and door rule as
+//! [`ambition_platformer2d_actor_monolith::features::interact_ecs_actors_and_switches`]
+//! and [`ambition_platformer2d_actor_monolith::features::open_ecs_chests`]. So
+//! the label says "Talk" only where the press talks.
 
-use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::*;
 
 use super::variants::InteractVariant;
@@ -22,6 +21,7 @@ use ambition_encounter::switches::SwitchFeature;
 use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
+use ambition_platformer2d_actor_monolith::features::InteractReach;
 
 /// Resource: the nearest live interactable overlapping the controlled
 /// subject's AABB, classified into an [`InteractVariant`]. Default is
@@ -53,22 +53,66 @@ impl NearestInteractable {
     }
 }
 
-/// Rebuild [`NearestInteractable`] each frame from the controlled
-/// subject's overlap against peaceful actors, switches, and unopened
-/// chests.
+/// The peaceful bodies a prompt can name Talk for.
+type Talkers<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static CenteredAabb,
+        &'static ActorDisposition,
+        &'static ActorInteraction,
+        Option<&'static ambition_characters::actor::BodyHealth>,
+        // The world's hands are off this body: no prompt from it either.
+        bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+        Option<&'static ambition_platformer2d_core::DepthPlane>,
+        bevy::prelude::Has<ambition_combat::components::RequiresFacing>,
+    ),
+    With<FeatureSimEntity>,
+>;
+
+/// The chests a prompt can name Open for.
+type Chests<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static CenteredAabb,
+        Option<&'static Opened>,
+        bevy::prelude::Has<ambition_combat::components::FallingChest>,
+    ),
+    (With<FeatureSimEntity>, With<ChestFeature>),
+>;
+
+/// The switches a prompt can name Activate for.
+type Switches<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static CenteredAabb,
+        bevy::prelude::Has<ambition_combat::components::RequiresFacing>,
+    ),
+    (With<FeatureSimEntity>, With<SwitchFeature>),
+>;
+
+/// A body's kinematics, last step and frame: what its reach is built from.
+type Reaching = (
+    &'static ambition_platformer2d_core::BodyKinematics,
+    Option<&'static ambition_platformer2d_core::SweepSample>,
+    Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+);
+
+/// Rebuild [`NearestInteractable`] each frame from what each driven body's
+/// press reaches.
 ///
 /// The prompt follows the body the player is DRIVING (the home avatar, or a
 /// possessed actor), matching [`ambition_platformer2d_actor_monolith::features::interact_ecs_actors_and_switches`],
 /// which resolves the interaction against the same controlled subject — so the
 /// "Talk / Open / Activate" label appears exactly where the interact would fire.
-///
-/// The test is binary (AABB strict-intersects), matching the interact path: a body to talk
-/// to within the talk reach of the box, anything else against the box itself. When the body overlaps multiple interactables simultaneously, the HUD label still
-/// reflects what the buffered-interact systems would fire because both follow the same priority
-/// order.
 pub fn update_nearest_interactable(
     controlled: Option<Res<ControlledSubject>>,
-    bodies: Query<(&ambition_platformer2d_core::BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>)>,
+    bodies: Query<Reaching>,
     primary: Query<
         Entity,
         (
@@ -76,40 +120,30 @@ pub fn update_nearest_interactable(
             With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         ),
     >,
-    actors: Query<
-        (
-            &CenteredAabb,
-            &ActorDisposition,
-            &ActorInteraction,
-            Option<&ambition_characters::actor::BodyHealth>,
-            // The world's hands are off this body — no prompt from it either.
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
-            Option<&ambition_platformer2d_core::DepthPlane>,
-        ),
-        With<FeatureSimEntity>,
-    >,
-    chests: Query<(&CenteredAabb, Option<&Opened>), (With<FeatureSimEntity>, With<ChestFeature>)>,
-    switches: Query<&CenteredAabb, (With<FeatureSimEntity>, With<SwitchFeature>)>,
-    driven: Query<
-        (
-            Entity,
-            &ambition_platformer2d_core::BodyKinematics,
-            Option<&ambition_platformer2d_core::SweepSample>,
-        ),
-        With<ambition_characters::control::DrivingParticipant>,
-    >,
+    actors: Talkers,
+    chests: Chests,
+    switches: Switches,
+    driven: Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
+    // The live rooms, and the doors in them: the press's room and door rules.
+    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut out: ResMut<NearestInteractable>,
 ) {
+    let variant_of = |body: Entity| {
+        bodies.get(body).ok().map(|(kin, step, frame)| {
+            let reach = InteractReach::of(kin, step, frame, rooms.live().of(body));
+            let door = rooms.nearest_door_under(body, reach.collision_box(), reach.pos());
+            variant_in_reach(&reach, door, rooms.live(), &actors, &chests, &switches)
+        })
+    };
     // ⭐⭐ EVERY DRIVEN BODY, not just the one holding the primary seat. The
     // label on screen is still seat zero's, but a consumer deciding something
     // about a PARTICULAR body needs that body's answer — see the type's doc.
     let mut by_body: std::collections::HashMap<Entity, InteractVariant> =
         std::collections::HashMap::new();
-    for (body, kin, last_step) in &driven {
-        by_body.insert(
-            body,
-            variant_in_reach(kin.collision_box(last_step), down_of(last_step), &actors, &chests, &switches),
-        );
+    for body in &driven {
+        if let Some(variant) = variant_of(body) {
+            by_body.insert(body, variant);
+        }
     }
 
     let subject = controlled
@@ -117,65 +151,39 @@ pub fn update_nearest_interactable(
         .or_else(|| primary.single().ok());
     // The primary body may not be a driving participant in a bare fixture, so
     // its own answer is computed here rather than assumed to be in the map.
-    let chosen =
-        match subject.and_then(|subject| bodies.get(subject).ok().map(|body| (subject, body))) {
-            Some((subject, (kin, last_step))) => {
-                let variant = variant_in_reach(
-                    kin.collision_box(last_step),
-                    down_of(last_step),
-                    &actors,
-                    &chests,
-                    &switches,
-                );
-                by_body.insert(subject, variant.clone());
-                variant
-            }
-            None => InteractVariant::None,
-        };
+    let chosen = match subject.and_then(|subject| variant_of(subject).map(|variant| (subject, variant))) {
+        Some((subject, variant)) => {
+            by_body.insert(subject, variant.clone());
+            variant
+        }
+        None => InteractVariant::None,
+    };
     if out.0 != chosen || out.1 != by_body {
         *out = NearestInteractable(chosen, by_body);
     }
 }
 
-/// The DOWN of a body's last step, or zero for a body with no record (no
-/// turn): the answer `collision_box` takes from the same record.
-fn down_of(last_step: Option<&ambition_platformer2d_core::SweepSample>) -> ambition_platformer2d_core::Vec2 {
-    last_step.map_or(ambition_platformer2d_core::Vec2::ZERO, |step| step.down)
-}
-
-/// What ONE body's reach box overlaps, in the priority order the buffered
-/// interact systems fire in. A body to talk to is found in the talk reach
-/// ([`ambition_interaction::talk_reach`]) of the box, for a body whose DOWN is
-/// `down`: the reach Interact opens a conversation in.
+/// What ONE body's press reaches, in the priority order the buffered
+/// interact systems fire in. `door` is the distance to the door the body
+/// stands in, if any: a door the press is for takes it from a body to talk
+/// to ([`InteractReach::a_door_keeps_the_press`]), and the prompt then names
+/// what else the press reaches.
 ///
 /// ⭐ EXTRACTED SO EVERY BODY GETS THE SAME ANSWER. Inlining it per caller is how
 /// a second seat ends up asking a slightly different question from the first.
 fn variant_in_reach(
-    reach: ambition_platformer2d_core::Aabb,
-    down: ambition_platformer2d_core::Vec2,
-    actors: &Query<
-        (
-            &CenteredAabb,
-            &ActorDisposition,
-            &ActorInteraction,
-            Option<&ambition_characters::actor::BodyHealth>,
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
-            Option<&ambition_platformer2d_core::DepthPlane>,
-        ),
-        With<FeatureSimEntity>,
-    >,
-    chests: &Query<(&CenteredAabb, Option<&Opened>), (With<FeatureSimEntity>, With<ChestFeature>)>,
-    switches: &Query<&CenteredAabb, (With<FeatureSimEntity>, With<SwitchFeature>)>,
+    reach: &InteractReach,
+    door: Option<f32>,
+    rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    actors: &Talkers,
+    chests: &Chests,
+    switches: &Switches,
 ) -> InteractVariant {
-    let player_aabb = reach;
-    let talk_aabb = ambition_interaction::talk_reach(reach, down);
-
     // Talkable actors first — `Talk` is the most common contextual swap and the
     // one players need feedback on while approaching dialog. A talkable actor
     // carries `ActorInteraction`; a provoked one keeps it but flips to
     // `Hostile`, so the disposition gate drops it out of the prompt.
-    let mut chosen = InteractVariant::None;
-    for (aabb, disposition, _interaction, health, out_of_play, plane) in actors {
+    for (entity, aabb, disposition, _interaction, health, out_of_play, plane, requires_facing) in actors {
         // A hostile actor drops out of the Talk prompt; a dead one is an
         // intangible corpse and offers no prompt.
         if disposition.is_hostile()
@@ -183,32 +191,25 @@ fn variant_in_reach(
         {
             continue;
         }
-        if aabb.aabb().strict_intersects(talk_aabb) {
-            chosen = InteractVariant::Talk;
-            break;
+        if reach.can_talk_to(rooms.of(entity), aabb, requires_facing)
+            && !InteractReach::a_door_keeps_the_press(door, aabb.center.distance(reach.pos()))
+        {
+            return InteractVariant::Talk;
         }
     }
-
-    if matches!(chosen, InteractVariant::None) {
-        for (aabb, opened) in chests {
-            if opened.is_some() {
-                continue;
-            }
-            if aabb.aabb().strict_intersects(player_aabb) {
-                chosen = InteractVariant::Open;
-                break;
-            }
+    for (entity, aabb, opened, falling) in chests {
+        // A chest has no facing gate: its spec has no `requires_facing`.
+        if opened.is_none() && !falling && reach.touches(rooms.of(entity), aabb, false) {
+            return InteractVariant::Open;
         }
     }
-
-    if matches!(chosen, InteractVariant::None) {
-        for aabb in switches {
-            if aabb.aabb().strict_intersects(player_aabb) {
-                chosen = InteractVariant::Activate;
-                break;
-            }
+    for (entity, aabb, requires_facing) in switches {
+        if reach.touches(rooms.of(entity), aabb, requires_facing) {
+            return InteractVariant::Activate;
         }
     }
-
-    chosen
+    InteractVariant::None
 }
+
+#[cfg(test)]
+mod tests;

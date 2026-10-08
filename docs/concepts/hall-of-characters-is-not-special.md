@@ -59,7 +59,7 @@ stays where it was placed. A body that moves in spite of that is an engine
 defect in how that body's motion model obeys its driver, not a reason to
 special-case the Hall or that character.
 
-**How the crawler obeys (2026-10-08).** `npc_puppy_slug` is the catalog's
+**How the crawler obeys (2026-10-08).** `npc_puppy_slug` is the catalog's <!-- cite-ok: a character id in the catalog data, not a Rust item -->
 one `surface_walker: true` row, so it gets the `AdhesiveCrawler` motion model.
 The crawler used to advance at its policy's pace whatever its driver
 commanded, so the one slug in the Hall crawled. Now `step_crawler`

@@ -2307,11 +2307,9 @@ pub fn freeze_local_seating_for_the_decided_match(
     //
     // - it sizes the ggrs session's LOCAL HANDLES, so a one-human-one-CPU smash
     //   match built a two-handle session whose second handle nothing ever wrote;
-    // - it picks solo-vs-couch in `assign_local_seat_devices`, where `players
-    //   < 2` means "leave leafwing's any-pad behaviour alone". A solo player
-    //   against a CPU was taking the COUCH branch, which assigns pads
-    //   positionally — fine while their pad is at index 0, and nothing at all
-    //   the moment it is not.
+    // - it is the number of players `assign_local_seat_devices` seats. Each
+    //   seat hears the pad its channel names in the plan, also when one
+    //   person plays a CPU on the second pad.
     //
     // A CPU seat needs a body and a brain. It does not need a device or a
     // rollback handle, and counting it as though it did is what made the two

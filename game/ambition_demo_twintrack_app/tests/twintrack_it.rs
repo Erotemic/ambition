@@ -1177,9 +1177,9 @@ fn the_plaza_opens_split_between_its_two_participants() {
 /// framing her regardless.
 ///
 /// the failure this forbids is a seat with no pad reading somebody ELSE's
-/// pad. `assign_local_seat_devices` clears an association it cannot satisfy
-/// rather than falling back to any-pad, which is exactly the leafwing default
-/// that would have made player one's stick move both bodies.
+/// pad. `assign_local_seat_devices` gives a seat with no pad `NO_PAD`. A seat
+/// with no association gets leafwing's default, the first connected pad,
+/// which would have made player one's stick move both bodies.
 #[test]
 fn with_nobody_in_the_second_seat_the_twin_stands_still_and_stays_watched() {
     let mut app = ambition_demo_twintrack_app::build_demo_app();

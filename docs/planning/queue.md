@@ -308,7 +308,7 @@ second authoring source.
   dependency (`ui`), so replacing the scan is a dependency decision.
 - LDtk/world cross-reference rules in `content_validation.rs` repeat rules that
   a world owner already checks. ✅ 2026-10-03, the LoadingZone target rule:
-  `validate_ldtk_room_links` refused every zone without both targets, which
+  `validate_ldtk_room_links` refused every zone without both targets, which <!-- cite-ok: the function's name on 2026-10-03; it is `validate_room_links` now -->
   refused a landing pad that `LdtkProject::validate` allows and reported half a
   target twice. It now checks only that a complete target names a room and a
   zone that exist (`a_landing_pad_is_allowed_and_half_a_target_is_refused_once`).
@@ -365,7 +365,7 @@ second authoring source.
   the change: the sets were equal (198 flags, 172 NPCs, 38 pickups, 72 rooms)
   but for one flag that the scan did not know, `npc_generic_npc_talked`, which
   a talk to an NPC with no dialogue sets. The validator has no scan of the
-  LDtk entities for a quest target now; `authored_flag_ids`,
+  LDtk entities for a quest target now; `authored_flag_ids`, <!-- cite-ok: records deleted functions -->
   `authored_npc_ids`, `authored_pickup_ids` and `authored_entity_iids` are
   deleted. <!-- cite-ok: records deleted functions -->
   ✅ 2026-10-08, `QuestStepCondition::ItemCollected` had no producer of its
@@ -407,7 +407,7 @@ second authoring source.
   and `scripts/tests/test_capability_demo_names_no_engine_topology_crate.py`
   keeps the demo off the tangle crate. **The demo is now the external-capability
   witness**: its normal closure is eight narrow crates. The phase set's topology name was dropped in the same sitting
-  (`Platformer2dSimulationPhaseMonolith` is now `Platformer2dSimulationPhase`; 378 uses,
+  (`Platformer2dSimulationPhaseMonolith` is now `Platformer2dSimulationPhase`; 378 uses, <!-- cite-ok: records the old name -->
   114 files, compile-verified; the 0019 ADR keeps the old name as a record).
 
 **Blocked by:** nothing. The external-capability witness is
@@ -1281,9 +1281,9 @@ hit block's name, box and kind); the comment in
 `a_hand_muzzle_fires_from_the_drawn_hand.rs` now says why that room is not
 used.
 
-### CHARGE-SPEC-NAME — `SmashChargeSpec` is a generic mechanism — ✅ DONE 2026-10-08
+### CHARGE-SPEC-NAME — `SmashChargeSpec` is a generic mechanism — ✅ DONE 2026-10-08 <!-- cite-ok: the retired name this row records -->
 
-Q44: no leaf-game name on a generic API. `SmashChargeSpec` is
+Q44: no leaf-game name on a generic API. `SmashChargeSpec` is <!-- cite-ok: the retired name this row records -->
 `MoveChargeSpec`, the field `move_charge`, and the payoff multiplier
 `charge_mult`, in every source, table (the renderer submodule's George table
 too), the exporter's JSON and the moveset inspector (`web/app.js`,

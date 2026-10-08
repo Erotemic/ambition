@@ -1476,8 +1476,7 @@ fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
     let order = app
         .world()
         .resource::<ambition_platformer2d::input::LocalDeviceOrder>()
-        .devices()
-        .to_vec();
+        .connected();
     assert_eq!(
         order, pads,
         "the pads were not assigned in connection order"

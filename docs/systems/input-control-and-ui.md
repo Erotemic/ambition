@@ -35,6 +35,47 @@ its action ID, label, gate, and availability are character/context dependent.
 Content techniques may replace a base action on a slot, but must consume the
 shared resolver's keyed technique edge rather than intercepting a raw verb.
 
+## Local seats and controllers
+
+Owner: `ambition_input` (`seating.rs`, `local_seats.rs`, `sources.rs`,
+`channels.rs`).
+
+- **The pad table is the one answer to "which controller is pad `n`".**
+  `LocalDeviceOrder` gives each connected controller a numbered slot, and
+  `LocalInputSource::Pad(n)` is slot `n`. A slot keeps its number: a disconnect
+  empties the slot and moves no other controller. A controller that comes back
+  takes the slot it had (by its entity first, because Bevy keeps the entity of a
+  disconnected gamepad, and then by its name and USB identifiers). A new
+  controller takes the lowest empty slot.
+- **A seat listens to one source.** The frozen `LocalChannelPlan` of a session
+  names the source of each channel. Without a plan, `sources::source_for_seat`
+  names it from the seat number and the keyboard owner: the keyboard seat is
+  the keyboard, and the other seats count their pads from zero. A lobby hand,
+  its label and the roster the lobby publishes use this one mapping.
+- **`assign_local_seat_devices` projects the source onto the seat's input map**
+  and decides nothing else. A seat with no pad gets `NO_PAD`. ⛔ Do not leave a
+  seat with no association while pads are connected: leafwing gives such an
+  input map the first connected pad, so the seat follows another seat's
+  controller.
+- **One player with no plan** hears the pad that player uses. The seat follows
+  the connected pad that shows input.
+- **A frozen session** (`LocalSeatTopology`) keeps the pad table as it was at
+  the freeze. A seat hears only the controller that was frozen for it. A
+  controller that disconnects leaves its seat with no input, the same controller
+  gets the seat back, and a different controller does not get it.
+- **Without a frozen session** (a lobby, a menu) the live pad table decides, so
+  controllers connect and disconnect freely.
+
+The Smash select screen gives a hand to each source: the keyboard and up to
+four pads (`MAX_SELECT_SOURCES`). A hand takes one of the four slots, so four
+pads can play with the keyboard in no slot.
+
+Witnesses: `seating::pad_table_tests` and `local_seats::tests` in
+`ambition_input` (run with `--features input`),
+`smash_in_the_host::a_pad_that_disconnects_on_the_select_screen_moves_no_other_hand`
+in `app_it`, and `each_pad_drives_its_own_seat` in `ambition_demo_smash_app`
+(run with `--features input`).
+
 ## Menus and shell modes
 
 Gameplay control and menu control are separate semantic frames. Shell routing,

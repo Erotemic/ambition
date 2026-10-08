@@ -2156,7 +2156,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 SMASH_SELECT_ROUTE,
                 RouteSeating::new(
                     SeatCount::OnePerSource {
-                        max: select::MAX_SMASH_SEATS as u8,
+                        max: select::MAX_SELECT_SOURCES as u8,
                     },
                     couch,
                 ),
@@ -2531,7 +2531,7 @@ fn the_select_screen_owns_its_input(
         return false;
     }
     contexts.as_deref().is_none_or(|contexts| {
-        (0..select::MAX_SMASH_SEATS as u8).any(|seat| {
+        (0..select::MAX_SELECT_SOURCES as u8).any(|seat| {
             contexts
                 .for_seat(seat)
                 .allows(ambition_platformer2d::input::SELECT_CONTEXT)

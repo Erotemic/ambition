@@ -38,7 +38,7 @@ starts as a talking NPC and becomes a melee boss only if the player chooses
   disposition and arms the hostile volumes.
 - **Placement:** the design name "Noether Chamber" is the LDtk level
   `symmetry_room`. The PCA is an `NpcSpawn` there (`character_id` and
-  `dialogue_id` `perfect_cellular_automaton`, `brain_override: stand_still`). It
+  `dialogue_id` `perfect_cellular_automaton`, `brain_override: stand_still`). It <!-- cite-ok: a dialogue and character id in the content data, not a Rust item -->
   is also placed in `hall_of_characters`.
 
 Remaining PCA work is encounter and narrative polish, not kit.

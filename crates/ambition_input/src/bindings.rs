@@ -235,7 +235,8 @@ pub fn action_named(name: &str) -> Option<Platformer2dInputActionMonolith> {
 ///
 /// * The seat's controller survives. The seat-device pass owns which pad the
 ///   map answers, so the current gamepad association is carried into the
-///   rebuilt map. It does not fall back to leafwing's any-pad for a frame.
+///   rebuilt map. It does not fall back to leafwing's first connected pad for
+///   a frame.
 /// * Edges do not leak across bindings. `ActionState` is reset when the map
 ///   changes, because a press under the old bindings is not a press under the
 ///   new ones.

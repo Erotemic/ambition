@@ -7,7 +7,7 @@
 //! viewport, so a headless app clicks exactly where a windowed one draws.
 
 use ambition_demo_smash::select::{
-    SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SMASH_SEATS,
+    SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SELECT_SOURCES, MAX_SMASH_SEATS,
 };
 use ambition_demo_smash::select_screen::cursor::{HitRect, SelectCursors};
 use ambition_demo_smash::select_screen::layout::SelectLayout;
@@ -35,7 +35,7 @@ fn plug_in(app: &mut App, count: usize) {
     let derived = app
         .world()
         .get_resource::<ambition_platformer2d::input::LocalDeviceOrder>()
-        .map(|order| order.devices().len())
+        .map(|order| order.connected().len())
         .unwrap_or(0);
     if derived < count {
         app.world_mut()
@@ -210,8 +210,8 @@ fn a_plugged_in_pad_has_a_cursor_before_anybody_admits_it() {
     };
     assert_eq!(
         shown.len(),
-        MAX_SMASH_SEATS,
-        "the screen did not draw one cursor per seat: {shown:?}"
+        MAX_SELECT_SOURCES,
+        "the screen did not make one cursor per input source: {shown:?}"
     );
     assert!(
         shown[1].1,

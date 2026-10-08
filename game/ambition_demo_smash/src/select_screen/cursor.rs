@@ -184,12 +184,12 @@ impl SelectCursor {
 /// cursor is not drawn. A seat that joins mid-lobby then already has one.
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default)]
 pub struct SelectCursors {
-    seats: [SelectCursor; crate::select::MAX_SMASH_SEATS],
+    seats: [SelectCursor; crate::select::MAX_SELECT_SOURCES],
 }
 
 impl SelectCursors {
     /// An out-of-range seat resolves to `None`, not to another player's
-    /// cursor. Production readers stay inside `0..MAX_SMASH_SEATS`.
+    /// cursor. Production readers stay inside `0..MAX_SELECT_SOURCES`.
     pub fn seat(&self, seat: usize) -> Option<&SelectCursor> {
         self.seats.get(seat)
     }
@@ -366,7 +366,7 @@ mod tests {
     #[test]
     fn a_seat_past_the_end_resolves_to_nobody_rather_than_the_last_seat() {
         let mut cursors = SelectCursors::default();
-        let past_the_end = crate::select::MAX_SMASH_SEATS + 3;
+        let past_the_end = crate::select::MAX_SELECT_SOURCES + 3;
 
         assert!(cursors.seat(past_the_end).is_none());
         assert!(cursors.seat_mut(past_the_end).is_none());
@@ -379,7 +379,7 @@ mod tests {
         );
         assert_eq!(
             cursors
-                .seat(crate::select::MAX_SMASH_SEATS - 1)
+                .seat(crate::select::MAX_SELECT_SOURCES - 1)
                 .expect("the last seat exists")
                 .carrying,
             None,

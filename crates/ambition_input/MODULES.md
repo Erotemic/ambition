@@ -14,7 +14,7 @@
 | [`cues`](src/cues.rs) | Resolved UI cues: what the submit controls do now, in the owning surface's words. |
 | [`glyphs`](src/glyphs.rs) | Device-conditional glyph rendering for a seat's bindings. |
 | [`layout`](src/layout.rs) | Game/mode-specific gamepad binding profiles. |
-| [`local_seats`](src/local_seats.rs) | Local gamepad ownership for participant seats. |
+| [`local_seats`](src/local_seats.rs) | Which controller each participant seat hears. |
 | [`menu`](src/menu.rs) | Menu-side input vocabulary: the `MenuInputFrame`, `MenuControlFrame`, and `MenuInputState` resources and the `MenuDir` / `analog_to_dir` helpers. |
 | [`motion_input`](src/motion_input.rs) | Motion-input gesture recognition: a rolling directional buffer, a generic ordered-subsequence matcher ([`MotionInputBuffer::detect_sequence`]), and an open, content-owned [`MotionTechniqueCatalog`] of named techniques. |
 | [`participant`](src/participant.rs) | The persistent input participant — the person in front of a controller. |

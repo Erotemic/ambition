@@ -110,12 +110,10 @@ fn decided_or_device_seating(world: &mut World) -> usize {
             // Record the roster's count ON the topology, so the handle count,
             // the per-seat latches and the roster all cite one number rather
             // than agreeing by coincidence.
-            let order = ambition_input::LocalDeviceOrder::from_devices(
-                world
-                    .get_resource::<ambition_input::LocalDeviceOrder>()
-                    .map(|order| order.devices().to_vec())
-                    .unwrap_or_default(),
-            );
+            let order = world
+                .get_resource::<ambition_input::LocalDeviceOrder>()
+                .cloned()
+                .unwrap_or_default();
             let generation = world
                 .get_resource_mut::<ambition_input::LocalSeatTopology>()
                 .map(|mut topology| {
@@ -464,9 +462,8 @@ fn freeze_local_seating(world: &mut World) -> ambition_input::LocalSeatTopology 
     }
     let order = world
         .get_resource::<ambition_input::LocalDeviceOrder>()
-        .map(|devices| devices.devices().to_vec())
+        .cloned()
         .unwrap_or_default();
-    let order = ambition_input::LocalDeviceOrder::from_devices(order);
     let mut topology =
         world.get_resource_or_insert_with(ambition_input::LocalSeatTopology::default);
     topology.capture(&order);

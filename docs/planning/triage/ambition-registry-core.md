@@ -63,7 +63,7 @@ kind from its name or return type.
 - `PreparedCharacterRegistry` keeps declaration admission and prepared/
   hot-reload replacement as distinct operations.
 - `FrontendAudioRegistry` states override semantics in source. Its precedence
-  is product layering and needs its own ruling. (`CombatBanterRegistry` is
+  is product layering and needs its own ruling. (`CombatBanterRegistry` is <!-- cite-ok: a deleted name -->
   deleted: a character's lines are its catalog row's `barks`, and a boss names
   its row as `voice` in its encounter data.)
 

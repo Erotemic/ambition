@@ -30,7 +30,7 @@ use ambition_app::rl_sim::{
 // reaches it by.
 use ambition_platformer2d::input::{
     assign_local_seat_devices, track_local_device_order, InputParticipant, LocalDeviceOrder,
-    LocalSeatDeviceOwnership, Platformer2dInputActionMonolith,
+    Platformer2dInputActionMonolith,
 };
 use ambition_platformer2d::versus_match::{
     ControllerBinding, MatchParticipant, MatchParticipantRoster,
@@ -63,8 +63,6 @@ fn two_pad_rollback_harness() -> Platformer2dSimHarness {
 
     let app = sim.app_mut();
     app.init_resource::<LocalDeviceOrder>();
-    // Without it `assign_local_seat_devices` panics on a missing resource.
-    app.init_resource::<LocalSeatDeviceOwnership>();
     app.add_systems(
         PreUpdate,
         (track_local_device_order, assign_local_seat_devices).chain(),
@@ -90,10 +88,9 @@ fn two_pad_rollback_harness() -> Platformer2dSimHarness {
 
 /// Plug in a pad. Returns its entity so a test can unplug the SAME one.
 ///
-/// `Name` is not decoration: `SeatDeviceOwnership` remembers a disconnected pad
-/// by its `PadIdentity`, and a nameless pad is indistinguishable from every
-/// other nameless pad — which is precisely the case where a reconnect can hand
-/// the wrong seat the wrong controller.
+/// `Name` is not decoration: the pad table remembers a disconnected pad by its
+/// `PadIdentity`, and a nameless pad that comes back as a new entity is not
+/// known as the pad that left.
 fn plug_in_a_pad(sim: &mut Platformer2dSimHarness, name: &str) -> Entity {
     sim.world_mut()
         .spawn((Gamepad::default(), Name::new(name.to_owned())))
@@ -135,10 +132,7 @@ fn two_human_roster() -> MatchParticipantRoster {
 
 /// Which pad each seat's input map is restricted to, keyed by participant id.
 ///
-/// read from the INPUT MAP rather than from `SeatDeviceOwnership`. The
-/// ownership resource is what the assignment system WROTE; the map is what the
-/// input layer will actually READ. Asserting on the former proves the bookkeeping
-/// agrees with itself.
+/// Read from the INPUT MAP: the map is what the input layer reads.
 fn pad_per_seat(sim: &mut Platformer2dSimHarness) -> Vec<(u8, Option<Entity>)> {
     let world = sim.world_mut();
     let mut query = world.query::<(

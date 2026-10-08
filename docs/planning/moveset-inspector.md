@@ -85,7 +85,7 @@ tool boundary; geometry and combat state come from the sim-view.
 
 ## Standing rules from the closed milestones
 
-- **Default target.** The default target is `sandbag_infinite`, a passive
+- **Default target.** The default target is `sandbag_infinite`, a passive <!-- cite-ok: a character id in the catalog data, not a Rust item -->
   immortal dummy, so the same move on two fighters is measured against one body.
   The value lives in three places that must agree:
   `ambition_demo_smash::INSPECTION_TARGET`, `DEFAULT_SCENARIO_TARGET` in the

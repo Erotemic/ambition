@@ -261,7 +261,7 @@ Do not promote these until the trigger exists:
   from an independent package boundary.
 - **Body-generic NPC economy/world interaction:** NPC agency or multiplayer
   currency pressure.
-- **Gravity pressure plate:** a real authored customer. `GravityFlipSwitch` was
+- **Gravity pressure plate:** a real authored customer. `GravityFlipSwitch` was <!-- cite-ok: a deleted name -->
   deleted under `Q137` (2026-09-19); a new plate is an input into
   `BaseGravity`, not a second implementation.
 - **Route-keyed music inside one experience:** a product need for, for example,

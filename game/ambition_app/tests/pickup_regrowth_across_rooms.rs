@@ -539,3 +539,54 @@ fn a_second_death_keeps_the_coin_taken_in_another_players_live_room() {
          after each of Alice's two deaths"
     );
 }
+
+/// The one-time heart after a load of `file` into its room, as a fresh
+/// process does.
+fn one_time_heart_after_a_load(
+    file: &ambition_platformer2d::persistence::save_data::AmbitionGameSaveData,
+) -> Option<(bool, Option<f32>)> {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    settle(&mut sim, 8);
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
+        .0 = file.clone();
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::actors::session::durable_horizon::SaveRestored>()
+        .0 = false;
+    settle(&mut sim, 90);
+    assert!(
+        sim.world()
+            .resource::<ambition_platformer2d::actors::session::durable_horizon::SaveRestored>()
+            .0,
+        "precondition: the load landed"
+    );
+    pickup(&mut sim, PLAIN)
+}
+
+/// Q63: save, quit, load. A file whose ledger says the one-time heart is
+/// consumed builds its room without it. The control is a file with no row,
+/// which builds the heart whole.
+#[test]
+fn a_load_does_not_build_a_one_time_heart_the_file_remembers_taken() {
+    use ambition_platformer2d::persistence::save_data::{
+        AmbitionGameSaveData, PersistedOccurrence, PersistedWhereabouts,
+    };
+    let heart = {
+        let mut sim = fixed_60hz_room_sim(ROOM);
+        settle(&mut sim, 2);
+        sim_id_of(&mut sim, PLAIN).as_str().to_string()
+    };
+    let mut taken = AmbitionGameSaveData::new();
+    taken.set_durable_horizon(
+        vec![PersistedOccurrence::new(heart, PersistedWhereabouts::Consumed)],
+        Vec::new(),
+    );
+    assert_eq!(
+        (
+            one_time_heart_after_a_load(&AmbitionGameSaveData::new()),
+            one_time_heart_after_a_load(&taken),
+        ),
+        (Some((false, None)), None),
+        "(a file with no row, a file with the heart consumed): the heart after the load"
+    );
+}

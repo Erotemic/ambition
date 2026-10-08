@@ -464,7 +464,8 @@ pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
             // character's catalog `default_brain`.
             brain_override: field_text(entity, "brain_override"),
         },
-    );
+    )
+    .requiring_facing(field_bool(entity, "requires_facing").unwrap_or(false));
     let (id, name, aabb) = authored_triple(entity, display_name, min, size);
     let mut record = ambition_platformer2d_world::placements::PlacementRecord::new(
         id,
@@ -677,9 +678,10 @@ pub(super) fn convert_gravity_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
 
 pub(super) fn convert_chest_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    let chest = ambition_platformer2d_world::rooms::ChestSpec::new(
+    let mut chest = ambition_platformer2d_world::rooms::ChestSpec::new(
         field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
     );
+    chest.opened = field_bool(entity, "opened").unwrap_or(false);
     let (id, name, aabb) = authored_triple(entity, name, min, size);
     let mut record = ambition_platformer2d_world::placements::PlacementRecord::new(
         id,
@@ -1012,7 +1014,8 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
         ambition_platformer2d_world::rooms::InteractionKindSpec::Custom(format!(
             "switch:{id}:{action}:{target_encounter}"
         )),
-    );
+    )
+    .requiring_facing(field_bool(entity, "requires_facing").unwrap_or(false));
     // Use the LDtk field `id` as the authored entity id, so the SwitchRuntime id
     // matches the SwitchActivation id. The iid (for example "Switch-4072") would
     // not match, and switch state updates would do nothing. Keep it before `id`

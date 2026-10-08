@@ -1944,6 +1944,51 @@ mod tests {
         Value::String(value.to_string())
     }
 
+    /// AUTHORED-INTERACTABLE-STATE (Q63, Q105): an LDtk author writes a chest
+    /// that starts opened and an NPC or switch that a body must face. Each
+    /// field reaches its spec; the control is the same entity without it.
+    #[test]
+    fn an_author_writes_an_opened_chest_and_a_facing_gate() {
+        use ambition_entity_catalog::placements::PlacementSchema;
+        let convert = |identifier: &str, fields: &[(&str, Value)]| {
+            let entity = entity_at(identifier, [96, 400], [16, 32], fields);
+            let no_paths = BTreeMap::new();
+            let ctx = LdtkEntityCtx {
+                entity: &entity,
+                name: identifier.to_string(),
+                min: ae::Vec2::new(96.0, 400.0),
+                size: ae::Vec2::new(16.0, 32.0),
+                offset: ae::Vec2::ZERO,
+                kinematic_path_ids: &no_paths,
+            };
+            let converter = match identifier {
+                "ChestSpawn" => super::entity_converters::convert_chest_spawn,
+                "NpcSpawn" => super::entity_converters::convert_npc_spawn,
+                _ => super::entity_converters::convert_switch,
+            };
+            match converter(&ctx).expect("the entity converts").placements.remove(0).schema {
+                PlacementSchema::Chest(chest) => chest.opened,
+                PlacementSchema::Interactable(interactable) => interactable.requires_facing,
+                other => panic!("{identifier} converted to {other:?}"),
+            }
+        };
+        let set = |name: &'static str| vec![(name, Value::Bool(true))];
+        assert_eq!(
+            (
+                convert("ChestSpawn", &set("opened")),
+                convert("NpcSpawn", &set("requires_facing")),
+                convert("Switch", &set("requires_facing")),
+            ),
+            (true, true, true),
+            "(chest opened, NPC gated, switch gated): the authored field reached the spec"
+        );
+        assert_eq!(
+            (convert("ChestSpawn", &[]), convert("NpcSpawn", &[]), convert("Switch", &[])),
+            (false, false, false),
+            "control: without the field, the chest is closed and nothing is gated"
+        );
+    }
+
     /// A zone is found by its id in its room. The LDtk owner refuses a blank
     /// id, which names nothing, and a second zone of the area with the same
     /// id, which is never found.

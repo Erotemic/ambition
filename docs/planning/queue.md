@@ -730,48 +730,6 @@ animation composition.
 **Acceptance:** the customer mounts, the mount obeys the rider, and on
 dismount the mount runs the brain it had before; the same after a rewind.
 
-### AUTHORED-INTERACTABLE-STATE — facing gates, per-chest and per-pickup persistence
-
-**Owner:** `ambition_entity_catalog::placements` (`InteractableSpec`,
-`ChestSpec`, `PickupSpec`) and their consumers.
-
-**Ruling:** Q63 (2026-10-03). Wanted: a facing gate with authored semantics
-(not sprite geometry); per-chest persistence; persistence of a physical pickup
-(a different fact from a Q45 entitlement). The per-breakable debris cue is
-wanted, but deferred. Each capability adds its field and its consumer in one
-change. Q105 (2026-10-03): an authored world may start non-pristine (a chest
-already open, a pickup already absent, a door open); the authored state lowers
-into the same canonical state gameplay produces, such as the `Opened` marker.
-
-**Current state (2026-10-08):** a one-time pickup (`HazardRespawn::Never`)
-stays taken through its `Consumed` occurrence row (Q154,
-`a_one_time_heart_stays_gone_when_its_room_is_built_again`). An authored
-chest that a body opens writes a `Spent` row, which the participants in its
-room own (Q151) and the save carries (`PersistedWhereabouts::Spent`); each
-later build of its room sets `ChestSpec::opened` on its record
-(`construction::spend_request`), and that field lowers into the `Opened`
-marker, as a chest authored open does (Q105). Witnesses:
-`an_opened_chest_is_built_opened_when_its_room_is_built_again`,
-`a_death_closes_again_only_a_chest_opened_after_the_checkpoint`,
-`a_load_builds_opened_a_chest_the_file_remembers_spent` and
-`a_chest_authored_open_is_built_with_the_opened_marker`. The facing gate
-(2026-10-08): `InteractableSpec::requires_facing` lowers into the
-`RequiresFacing` marker, and the interact road refuses a person or a switch
-that the body does not face along the run axis of its own frame
-(`ambition_interaction::faces`); witnesses
-`a_facing_gated_switch_refuses_a_body_that_faces_away` and
-`a_facing_gated_person_is_not_talked_to_from_behind`. The inert
-`InteractableSpec::enabled`, never authored and never read, is deleted.
-
-**Next action:** let LDtk author them: `requires_facing` on `NpcSpawn` and
-`Switch`, and `opened` on `ChestSpawn`, as rows in
-`ldtk_entity_contract.json` with their converter reads (the contract is
-proved in both directions).
-
-**Acceptance:** an opened chest and a taken pickup stay so across a reload; an
-interactable that requires facing refuses a body that faces away; a chest
-authored open is built with the same state as a chest the player opened.
-
 ### REACH-VIEW — AI reads reach from the move's geometry
 
 **Owner:** the moveset; `ambition_entity_catalog::MoveFrameData::reach` for
@@ -1206,6 +1164,25 @@ production invariant.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### AUTHORED-INTERACTABLE-STATE — facing gates, per-chest and per-pickup persistence — ✅ DONE 2026-10-08
+
+Q63, Q105. A one-time pickup stays taken through its `Consumed` occurrence
+row, and an opened chest through its `Spent` row; both survive a rebuild of
+the room, and the save carries them across a load
+(`a_one_time_heart_stays_gone_when_its_room_is_built_again`,
+`a_load_does_not_build_a_one_time_heart_the_file_remembers_taken`,
+`an_opened_chest_is_built_opened_when_its_room_is_built_again`,
+`a_load_builds_opened_a_chest_the_file_remembers_spent`). A chest authored
+open (`ChestSpec::opened`) lowers into the `Opened` marker that play sets.
+`InteractableSpec::requires_facing` lowers into `RequiresFacing`, and the
+interact road refuses a person or switch the body does not face
+(`a_facing_gated_switch_refuses_a_body_that_faces_away`). LDtk authors both
+(`opened` on `ChestSpawn`, `requires_facing` on `NpcSpawn` and `Switch`:
+contract rows, converter reads, editor definitions in `sandbox.ldtk`;
+`an_author_writes_an_opened_chest_and_a_facing_gate`). The inert
+`InteractableSpec::enabled` is deleted. Deferred by Q63 itself: the
+per-breakable debris cue.
 
 ### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update` — ✅ DONE 2026-10-08
 

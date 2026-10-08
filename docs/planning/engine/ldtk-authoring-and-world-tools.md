@@ -202,8 +202,10 @@ cue. Each returns with its consumer in one change. An authored field that
 reaches a runtime representation must have a consumer. Chest and pickup
 persistence landed as occurrence-ledger rows, not as fields; `ChestSpec`
 gained `opened` (Q105) and `InteractableSpec` gained `requires_facing`
-(Q63), each with its consumer, but the LDtk contract
-(`ldtk_entity_contract.json`) does not declare either yet.
+(Q63), each with its consumer. The LDtk contract (`ldtk_entity_contract.json`)
+declares both (`opened` on `ChestSpawn`, `requires_facing` on `NpcSpawn` and
+`Switch`), the converters read them, and `sandbox.ldtk` defines them for the
+editor.
 
 Importer diagnostics should retain provider, source entity/field and normalized
 semantic path so an authoring agent can fix the actual source. One shared

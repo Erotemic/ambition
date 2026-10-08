@@ -227,7 +227,7 @@ Preserve these and build new features on their seams.
 | Two-frame ledge vulnerability | ✔ | S/M | E1 | |
 | Ledge regrab limit | ✔ | — | E1 | Answered by diminishing intangibility; do not add a count. |
 | Edgehog vs trump knob | ✔ | M | E1 | `CombatRules::ledge_occupancy`. The knob ships; what it governs does not hold yet (next row). |
-| Ledge occupancy (one holder per ledge) | ◐ | M | E1 | One corner is one edge whatever the bodies' sizes (2026-10-08); the trumped body's lockout and the regrab limit are open. See "Ledge occupancy" below and queue row LEDGE-OCCUPANCY. |
+| Ledge occupancy (one holder per ledge) | ◐ | M | E1 | One corner is one edge whatever the bodies' sizes; a rewind across a trump gives the same holder; the regrab limit is built (2026-10-08). The trumped body's lockout is open. See "Ledge occupancy" below and queue row LEDGE-OCCUPANCY. |
 | Tether recovery | ▢ | M | E1 | Reuse grapple/spatial-link machinery. |
 | Teleport recovery | ✔ | S/M | — | `smash.teleport`, `RecoveryRoute::Teleport`. |
 | Stall-then-fall move | ▢ | S/M | — | Existing windows suffice unless a fighter proves otherwise. |
@@ -248,9 +248,30 @@ face keeps both). Kept: a newcomer may grab while the holder is mid-getup
 (`a_body_mid_getup_is_neither_trumper_nor_trumped`), and a grab is never
 refused (the trump knocks off after both latched, by design).
 
-**Open.** The trumped body's lockout (Ultimate: about 30 frames, unverified)
-and the regrab limit and multipliers are not built. A rewind across a trump
-has no witness of its own; the hang it derives from is rollback state.
+**Built 2026-10-08: a rewind across a trump gives the same holder.**
+`a_rewind_across_a_ledge_trump_gives_the_same_holder` (app_it) drops two
+player bodies past one floating lip in the calibration lab: seat 1's body
+takes the edge on tick 2 and Alice trumps it on tick 14. A GGRS sync-test
+session (rewinding 4 frames each tick) gives the same holders on all 60
+ticks as a world with no rollback session, and stays healthy. Poison: the
+trump kept a one-shot memo in a `Local` (state the rollback does not
+restore); the resimulated tick 15 had both bodies hanging and GGRS reported
+a checksum mismatch at frame 14. A second poison, the trump moved to
+`Update`, failed the fixed-tick precondition instead (both bodies hung for
+one tick), so it says nothing about the rewind.
+
+**Built 2026-10-08: the regrab limit.** `AxisManeuverState::ledge_grabs`
+counts the grabs a body made since it landed or was hit (rollback state,
+schema 328). Each grab's earned intangibility is scaled by
+`ledge_regrab_invuln_scale` (1.0, 0.8, 0.5, then 0), and a grab past
+`LEDGE_GRABS_PER_AIRTIME` (6) is refused. Landing resets the count, and so
+does a launch that is not flinchless (the hit that charges hitstun), at the
+kernel's launch gateway; a windbox push does not. The airtime clock still
+buys the window: the two rules compose, as in Ultimate. Witnesses:
+`each_regrab_before_landing_earns_less_and_the_seventh_is_refused` and
+`a_hit_and_a_landing_give_the_ledge_grabs_back_and_a_push_does_not`.
+
+**Open.** The trumped body's lockout (Ultimate: about 30 frames, unverified).
 
 **Target.** Super Smash Bros. Ultimate-like ledge occupancy and trump. Do not
 guess Ultimate's timings from memory: research them (getup/roll/jump options,

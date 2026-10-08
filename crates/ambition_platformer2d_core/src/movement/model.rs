@@ -174,6 +174,11 @@ pub struct AxisManeuverState {
     /// zero: a body that has never touched a ledge has been off one forever, and
     /// a zero would hand every first grab in a match the minimum window.
     pub time_off_ledge: f32,
+    /// The ledge grabs this body made since it last landed or was hit.
+    /// It scales each grab's intangibility
+    /// ([`crate::ledge_grab::ledge_regrab_invuln_scale`]) and refuses a grab
+    /// past [`crate::ledge_grab::LEDGE_GRABS_PER_AIRTIME`].
+    pub ledge_grabs: u8,
     /// Buffered MOVEMENT actions (jump/burst/blink press windows). The combat
     /// verbs (attack/pogo/grab/special) buffer on the shared
     /// `BodyActionBuffer`; both halves are live, and they decay on the same
@@ -473,6 +478,7 @@ impl Default for AxisManeuverState {
             pre_wall_vel: Vec2::ZERO,
             pre_wall_vel_age: 0.0,
             time_off_ledge: crate::ledge_grab::LEDGE_INVULN_FULL_AIRTIME,
+            ledge_grabs: 0,
             buffer_jump: 0.0,
             jump_squat_timer: 0.0,
             buffer_burst: 0.0,

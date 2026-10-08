@@ -395,6 +395,13 @@
           "on_invalid": "open",
           "sample": "npc_alice",
           "note": "the catalog character this NPC wears. Unlike EnemySpawn the converter TOLERATES absence \u2014 the display name then stands in \u2014 but every NpcSpawn in the tree authors one."
+        },
+        {
+          "name": "requires_facing",
+          "presence": "optional",
+          "on_invalid": "open",
+          "sample": "true",
+          "note": "a body must face the NPC to use it (Q63): its facing, along the run axis of its own frame, points toward the centre. Absent is false."
         }
       ]
     },
@@ -471,6 +478,13 @@
           "default": "PickupKind::Custom(<the typo>)",
           "sample": "health:2",
           "note": "same grammar and the same silent hole as PickupSpawn.kind. Absent is legal: a chest with no reward."
+        },
+        {
+          "name": "opened",
+          "presence": "optional",
+          "on_invalid": "open",
+          "sample": "true",
+          "note": "the chest starts opened: its reward is already taken (Q105). A chest a body opens in play is remembered by the occurrence ledger, not by this field. Absent is false."
         }
       ]
     },
@@ -934,6 +948,13 @@
           "on_invalid": "open",
           "sample": "encounter.signal encounter:symmetry_attunement gravity_down",
           "note": "one authored command call \u2014 `<domain>.<verb> <arg>\u2026`, whitespace-separated \u2014 performed when the switch is activated. Read off the raw LdtkProject by `world::authored_switch_commands`, not by this converter, and PREPARED once when the room is read: the id is checked against the published command catalog, the arity against the descriptor, and a `placement:`/`encounter:` reference is minted through SimId's own constructor. ABSENT means the switch belongs to its other consumers (encounter arming, reset, the sand sim) \u2014 which is why it is optional. A line this composition cannot perform is dropped with a warning at prepare time rather than on the tick."
+        },
+        {
+          "name": "requires_facing",
+          "presence": "optional",
+          "on_invalid": "open",
+          "sample": "true",
+          "note": "a body must face the switch to use it (Q63): its facing, along the run axis of its own frame, points toward the centre. Absent is false."
         }
       ]
     },

@@ -1930,3 +1930,44 @@ fn the_hang_limit_does_not_interrupt_a_getup_already_underway() {
         "the hang limit cancelled a getup the player had already committed to"
     );
 }
+
+/// THE REGRAB LIMIT (Ultimate, LEDGE-OCCUPANCY). With full airtime, the
+/// grabs a body made before this one since it landed or was hit scale the
+/// window: all of it, then 0.8, then 0.5, then none. The seventh grab is
+/// refused. The control is the sixth, which latches.
+#[test]
+fn each_regrab_before_landing_earns_less_and_the_seventh_is_refused() {
+    let world = world_with(vec![Block::solid(
+        "ledge",
+        Vec2::new(100.0, 100.0),
+        Vec2::new(200.0, 200.0),
+    )]);
+    // The full window is 0.5 s (`LEDGE_GRAB_INVULN_TIME`).
+    assert_eq!(LEDGE_GRAB_INVULN_TIME, 0.5, "precondition: the expected windows below");
+    let grab_after = |grabs_before: u8| -> Option<f32> {
+        let mut scratch = scratch_at(Vec2::new(86.0, 110.0));
+        scratch.abilities.abilities.ledge_grab = true;
+        scratch.kinematics.vel = Vec2::new(0.0, 150.0);
+        scratch.axis_mut().time_off_ledge = crate::ledge_grab::LEDGE_INVULN_FULL_AIRTIME;
+        scratch.axis_mut().ledge_grabs = grabs_before;
+        let mut events = crate::movement::FrameEvents::default();
+        try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events)
+            .then(|| {
+                assert_eq!(scratch.axis().ledge_grabs, grabs_before + 1, "the grab is counted");
+                (scratch.axis().ledge_invuln_timer * 1000.0).round() / 1000.0
+            })
+    };
+    assert_eq!(
+        (0..7).map(grab_after).collect::<Vec<_>>(),
+        vec![
+            Some(0.5),
+            Some(0.4),
+            Some(0.25),
+            Some(0.0),
+            Some(0.0),
+            Some(0.0),
+            None,
+        ],
+        "the intangibility of grabs 1 to 7 without landing (None: refused)"
+    );
+}

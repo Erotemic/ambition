@@ -120,6 +120,14 @@ impl InteractableSpec {
             requires_facing: false,
         }
     }
+
+    /// The same spec, with the facing gate set to `requires_facing`.
+    pub fn requiring_facing(self, requires_facing: bool) -> Self {
+        Self {
+            requires_facing,
+            ..self
+        }
+    }
 }
 
 /// The authored interaction category carried by [`InteractableSpec`].

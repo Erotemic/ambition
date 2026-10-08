@@ -395,6 +395,13 @@ fn accept_external_launch(
             if travel == LaunchTravel::Applied {
                 clusters.kinematics.vel = launch;
             }
+            // A hit gives the ledge grabs back. A launch that is not
+            // flinchless is the hit that charges hitstun (`hit_reaction`), so
+            // this is the one site that sees every such hit. A push does not:
+            // it leaves the body in control.
+            if !flinchless {
+                axis.state.ledge_grabs = 0;
+            }
             // and the floor game starts HERE, for the same reason the drain
             // is here. "Was this launch big enough to send the body tumbling"
             // is a question only the model can answer — the threshold is authored

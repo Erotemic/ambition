@@ -1091,11 +1091,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 326 -> 327: `resource.owned_items` (`OwnedItems`) is in the peer
 /// checksum by its own value (Q129: shared durable state is compared), not
 /// only through the save that mirrors it.
-/// ⛔⛤ 327 -> 328: the occurrence ledger (`AuthoredOccurrences`, and its pinned
+/// ⛔⛤ 327 -> 328: `actor.motion_model` encodes `ledge_grabs`, the ledge
+/// grabs a body made since it landed or was hit (the regrab limit).
+/// ⛔⛤ 328 -> 329: the occurrence ledger (`AuthoredOccurrences`, and its pinned
 /// baseline) also encodes which of its ids are RUNTIME MINTS (provenance, beside
 /// the rows), so a peer that disagrees about a mint's mark disagrees about
 /// whether its `Consumed` row survives the next checkpoint commit.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 328;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 329;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -78,7 +78,9 @@ pub const LEDGE_GRAB_INVULN_TIME: f32 = 0.50;
 
 /// How long a body must spend OFF a ledge to earn the full window.
 ///
-/// A counter would punish the recovery as hard as the stall; the clock only punishes the stall.
+/// The clock only punishes the stall. The grab count ([`LEDGE_GRABS_PER_AIRTIME`])
+/// is the second half of the same rule: it resets on landing and on a hit, so it
+/// does not punish a body that was knocked away and recovered.
 ///
 /// the CURVE is rough and the numbers are placeholders. What is confirmed
 /// about the genre is the shape — airtime buys the window — not the constants.
@@ -116,6 +118,25 @@ pub const LEDGE_GRAB_VULNERABLE_TIME: f32 = 2.0 / 60.0;
 pub fn ledge_grab_invuln_earned(time_off_ledge: f32) -> f32 {
     let t = (time_off_ledge / LEDGE_INVULN_FULL_AIRTIME).clamp(0.0, 1.0);
     LEDGE_INVULN_MIN_TIME + (LEDGE_GRAB_INVULN_TIME - LEDGE_INVULN_MIN_TIME) * t
+}
+
+/// How many ledge grabs a body may make before it lands or is hit
+/// (`AxisManeuverState::ledge_grabs`). The next grab is refused. Ultimate's
+/// number (SmashWiki "Edge", 2026-10-08).
+pub const LEDGE_GRABS_PER_AIRTIME: u8 = 6;
+
+/// The fraction of the earned window ([`ledge_grab_invuln_earned`]) that a
+/// grab gets, given the grabs this body made before it since it landed or was
+/// hit. Ultimate: the first grab gets all of it, the first regrab 0.8, the
+/// second 0.5, and the third and later none (SmashWiki "Edge" and "Ledge",
+/// 2026-10-08).
+pub fn ledge_regrab_invuln_scale(grabs_before: u8) -> f32 {
+    match grabs_before {
+        0 => 1.0,
+        1 => 0.8,
+        2 => 0.5,
+        _ => 0.0,
+    }
 }
 
 /// How long a body may hang before the ledge lets go of it. `0.0` disables the

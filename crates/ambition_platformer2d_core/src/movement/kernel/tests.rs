@@ -1697,3 +1697,55 @@ fn a_momentum_boost_lifts_the_run_cap_without_writing_the_params() {
         "a half-second boost outlived two seconds of steps"
     );
 }
+
+/// A HIT AND A LANDING GIVE THE LEDGE GRABS BACK; A PUSH DOES NOT. The count
+/// is what refuses the seventh grab (`ledge_grab::LEDGE_GRABS_PER_AIRTIME`).
+/// A launch that is not flinchless is the hit that charges hitstun.
+#[test]
+fn a_hit_and_a_landing_give_the_ledge_grabs_back_and_a_push_does_not() {
+    let world = empty_world();
+    let grabs_after = |launch: Option<(Vec2, bool)>, on_ground: bool| -> u8 {
+        let mut scratch =
+            BodyClusterScratch::new_with_abilities(Vec2::splat(300.0), AbilitySet::default());
+        let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+        if let MotionModel::AxisSwept(axis) = &mut model {
+            axis.state.ledge_grabs = 4;
+        }
+        {
+            let mut clusters = scratch.as_mut();
+            clusters.ground.on_ground = on_ground;
+            if let Some((velocity, flinchless)) = launch {
+                clusters.flight.stage_launch(velocity, flinchless);
+            }
+            step_motion(
+                &mut model,
+                &mut clusters,
+                MotionStepContext {
+                    world: &world,
+                    input: InputState::default(),
+                    frame: MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0),
+                    facing_intent: 0.0,
+                    dt: DT,
+                    contact: crate::movement::body_contact::BodyContactField::NONE,
+                    pose_owned_externally: false,
+                    recovery_commitment_outstanding: false,
+                },
+            );
+        }
+        match model {
+            MotionModel::AxisSwept(axis) => axis.state.ledge_grabs,
+            _ => unreachable!("an axis model stays one"),
+        }
+    };
+    let up = Vec2::new(0.0, -300.0);
+    assert_eq!(
+        (
+            grabs_after(None, false),
+            grabs_after(Some((up, true)), false),
+            grabs_after(Some((up, false)), false),
+            grabs_after(None, true),
+        ),
+        (4, 4, 0, 0),
+        "(airborne, pushed, hit, landed): the grabs left counted"
+    );
+}

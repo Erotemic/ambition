@@ -420,3 +420,70 @@ fn a_body_in_sideways_gravity_opens_the_chest_its_own_box_touches() {
         "the chest beside the body is not in its reach, and the press must not open it"
     );
 }
+
+/// TWO BODIES ON ONE CHEST, IN ONE TICK, ARE PAID ONCE. `Opened` goes in
+/// through deferred commands, so a second body in the same pass still saw
+/// the chest closed and was paid its reward again (review 2026-10-08). The
+/// control is `two_driven_bodies_each_open_their_own_chest`: two chests pay
+/// twice.
+#[test]
+fn two_bodies_on_one_chest_in_one_tick_are_paid_once() {
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+
+    let mut app = app();
+    app.insert_resource(ControlledSubject(None));
+    {
+        let mut gestures = app.world_mut().resource_mut::<SlotInteractionState>();
+        gestures.primary_mut().interact_buffer_timer = 0.5;
+        if let Some(second) = gestures.get_mut(PlayerSlot(1)) {
+            second.interact_buffer_timer = 0.5;
+        }
+    }
+    let center = ae::Vec2::new(100.0, 100.0);
+    let bodies: Vec<Entity> = [(0u8, "seat_a"), (1u8, "seat_b")]
+        .into_iter()
+        .map(|(slot, sim)| {
+            app.world_mut()
+                .spawn((
+                    BodyKinematics {
+                        pos: center,
+                        size: ae::Vec2::new(28.0, 46.0),
+                        facing: 1.0,
+                        ..Default::default()
+                    },
+                    BodyBaseSize {
+                        base_size: ae::Vec2::new(28.0, 46.0),
+                    },
+                    BodyAnimFacts::default(),
+                    ambition_characters::actor::BodyWallet::default(),
+                    DrivingParticipant(PlayerSlot(slot)),
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement(sim),
+                ))
+                .id()
+        })
+        .collect();
+    let chest = chest_holding(
+        &mut app,
+        "shared",
+        center,
+        Some(ambition_interaction::PickupKind::Currency { amount: 7 }),
+    );
+
+    app.update();
+
+    assert!(app.world().get::<Opened>(chest).is_some(), "precondition: the chest opened");
+    let paid: Vec<u32> = bodies
+        .iter()
+        .map(|body| {
+            app.world()
+                .get::<ambition_characters::actor::BodyWallet>(*body)
+                .expect("the body has a wallet")
+                .balance as u32
+        })
+        .collect();
+    assert_eq!(
+        paid.iter().sum::<u32>(),
+        7,
+        "one chest holding 7 paid {paid:?} across the two bodies that pressed on one tick"
+    );
+}

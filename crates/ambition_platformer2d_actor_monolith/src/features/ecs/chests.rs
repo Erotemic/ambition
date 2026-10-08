@@ -84,14 +84,10 @@ pub fn open_ecs_chests(
         Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     ),
 ) {
-    // Iterate every player so each player's own buffered interact
-    // can open a chest the player is overlapping. Per-player interact
-    // state is independent (each player has their own
-    // `PlayerInteractionState`); the chest is shared (a future co-op
-    // build can still gate "first-come gets the open" by inserting
-    // the `Opened` marker, which keeps subsequent attempts no-ops).
-    // OVERNIGHT-TODO #17.6/#17.8 — preserve single-player behavior
-    // because the iterator has one entity today.
+    // Iterate every driven body so each body's own buffered interact can
+    // open a chest it overlaps. The chest is shared: the first body in this
+    // pass opens it, and `opened_this_pass` keeps a later body in the same
+    // pass from opening it again.
     // Same hold time as the NPC / switch interact gesture. Kept in
     // sync with `interact_ecs_actors_and_switches::INTERACT_ANIM_HOLD_SECS`
     // so the player's reach-and-open animation feels uniform across
@@ -104,6 +100,10 @@ pub fn open_ecs_chests(
     if subjects.is_empty() {
         subjects.extend(primary.iter().next());
     }
+    // The chests this pass opened. `Opened` goes in through deferred commands,
+    // so the query below still shows them closed: without this, two bodies
+    // that press on one chest on one tick were both paid its reward.
+    let mut opened_this_pass: Vec<Entity> = Vec::new();
     for subject in subjects {
         if !acting.buffered_interact(subject) {
             continue;
@@ -114,13 +114,18 @@ pub fn open_ecs_chests(
         let reach_aabb = subject_kin.collision_box(subject_step);
         let subject_room = rooms.of(subject);
         for (entity, id, name, aabb, chest, opened, falling, boss_reward, chest_sim_id, origin) in &chests {
-            if falling.is_some() || opened.is_some() || !aabb.aabb().strict_intersects(reach_aabb) {
+            if falling.is_some()
+                || opened.is_some()
+                || opened_this_pass.contains(&entity)
+                || !aabb.aabb().strict_intersects(reach_aabb)
+            {
                 continue;
             }
             if rooms.of(entity) != subject_room {
                 continue;
             }
             commands.entity(entity).insert(Opened);
+            opened_this_pass.push(entity);
             // ⭐ AN AUTHORED CHEST IS REMEMBERED OPENED (Q63). Its row is
             // `Spent`, so each later build of its room builds it opened and its
             // reward is not granted again; the participants in its room own the

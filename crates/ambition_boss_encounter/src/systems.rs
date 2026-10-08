@@ -67,7 +67,9 @@ pub fn update_boss_encounters(
         ambition_encounter::EncounterMusicRequest,
     >,
     mut quests: ResMut<QuestRegistry>,
-    mut cutscene_queue: ResMut<CutsceneTriggerQueue>,
+    // `Option`: a composition without cutscenes (`Capability::Cutscenes`
+    // omitted) has no queue and nothing to play a boss intro.
+    mut cutscene_queue: Option<ResMut<CutsceneTriggerQueue>>,
     // The geometry of each boss's own live room, where its reward chest
     // settles. A sole-room read here stopped every boss, in every room, while
     // two rooms were live (OW1 cut 7e).
@@ -230,7 +232,7 @@ pub fn update_boss_encounters(
             phase_events.extend(phase.tick(dt, hp_fraction));
         }
         for ev in &phase_events {
-            publish_events(&archetype_id, ev, &mut cutscene_queue, &mut banner);
+            publish_events(&archetype_id, ev, cutscene_queue.as_deref_mut(), &mut banner);
             // the transition edge, from the authority that commits it. Every
             // consumer of "this boss just changed phase" reads this, not a
             // diff against its own memory (see `BossPhaseChanged`).

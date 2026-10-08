@@ -29,7 +29,7 @@ pub struct BossPhaseChanged {
 pub(super) fn publish_events(
     encounter_id: &str,
     event: &BossPhaseEvent,
-    cutscene_queue: &mut CutsceneTriggerQueue,
+    cutscene_queue: Option<&mut CutsceneTriggerQueue>,
     banner: &mut ambition_combat::GameplayBanner,
 ) {
     // Only the exposed phase change carries banner/cutscene; the brief
@@ -37,8 +37,8 @@ pub(super) fn publish_events(
     let BossPhaseEvent::PhaseChanged { to, .. } = event else {
         return;
     };
-    if matches!(to, BossEncounterPhase::Intro) {
-        cutscene_queue.request(format!("boss_intro_{encounter_id}"));
+    if let (BossEncounterPhase::Intro, Some(queue)) = (to, cutscene_queue) {
+        queue.request(format!("boss_intro_{encounter_id}"));
     }
     let text = match to {
         BossEncounterPhase::Intro => format!("BOSS APPROACHES — {encounter_id}"),
@@ -54,5 +54,28 @@ pub(super) fn publish_events(
     // The victory banner replaces the "DEFEATED" phase banner on a kill.
     if matches!(to, BossEncounterPhase::Death) {
         banner.show(format!("VICTORY: {encounter_id}"), 2.5);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A boss that enters its intro requests `boss_intro_<id>`, and only then.
+    /// A composition without cutscenes has no queue: the intro still shows its
+    /// banner (`world-without-cutscenes` profile).
+    #[test]
+    fn an_intro_requests_its_cutscene_where_there_is_a_queue() {
+        let intro = BossPhaseEvent::PhaseChanged { from: BossEncounterPhase::Dormant, to: BossEncounterPhase::Intro };
+        let phase1 = BossPhaseEvent::PhaseChanged { from: BossEncounterPhase::Intro, to: BossEncounterPhase::Phase1 };
+        let mut queue = CutsceneTriggerQueue::default();
+        let mut banner = ambition_combat::GameplayBanner::default();
+        publish_events("warden", &intro, Some(&mut queue), &mut banner);
+        publish_events("warden", &phase1, Some(&mut queue), &mut banner);
+        assert_eq!(queue.0, vec!["boss_intro_warden".to_string()], "the intro's request, and not phase 1's");
+
+        let mut banner = ambition_combat::GameplayBanner::default();
+        publish_events("warden", &intro, None, &mut banner);
+        assert_eq!(banner.text, "BOSS APPROACHES — warden", "with no queue the intro still shows its banner");
     }
 }

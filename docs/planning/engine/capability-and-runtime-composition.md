@@ -191,6 +191,7 @@ excluded:
 | `BossEncounters` | `simulation_world` required `BossCatalog` | the empty catalog is core construction input (`SimCoreResourcesPlugin`) |
 | `BossEncounters` | `populate_boss_encounter_registry` was registered by the progression plugin every composition carries | the boss plugin registers it |
 | `BossEncounters`, `Cutscenes` | the teardown bundle required their state | the members are `Option` |
+| `Cutscenes` (with bosses kept) | `update_boss_encounters` required `CutsceneTriggerQueue` to request a boss intro | the queue is `Option`: with no cutscenes nothing plays the intro, and its banner still shows (`an_intro_requests_its_cutscene_where_there_is_a_queue`) |
 
 **What a profile does NOT claim.**
 

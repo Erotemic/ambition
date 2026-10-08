@@ -1055,7 +1055,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// conductor's guard over its hull, which decides whether a hit lands. The
 /// field landed with the Mockingbird's air chase without a bump; the codec-shape
 /// ratchet found it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 318;
+/// ⛔⛤ 318 -> 319: `entity:knocked_out_of_the_world` (canonical) — a fighter
+/// knocked out past the blast envelope is not drawn while its death window is
+/// open.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 319;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -95,6 +95,10 @@ pub struct BodyPoseView {
     /// to the renderer the same way `morph_ball` is, because presentation reads
     /// the view and never the sim's components.
     pub submerged: bool,
+    /// The body was knocked out past the blast envelope and is not drawn until
+    /// it is placed again. Carried from the simulation's
+    /// `KnockedOutOfTheWorld`, the same way `submerged` is.
+    pub out_of_the_world: bool,
     /// WHERE THE WIRE THIS BODY IS HANGING FROM COMES DOWN FROM, in world
     /// space, or `None` for a body not on one.
     ///
@@ -242,6 +246,7 @@ impl Default for BodyPoseView {
             hp_max: 0,
             morph_ball: false,
             submerged: false,
+            out_of_the_world: false,
             wire_anchor: None,
             grab_reach: None,
             line_anchor: None,
@@ -339,6 +344,7 @@ pub fn rebuild_body_pose_views(
                 // WHO the body is and whose body it was GRANTED — see `PoseGeometry`.
                 Option<&ambition_characters::actor::WornCharacter>,
                 Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
+                bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
                 Option<&mut BodyPoseView>,
             ),
         ),
@@ -392,6 +398,7 @@ pub fn rebuild_body_pose_views(
             line_anchor,
             worn,
             granted,
+            out_of_the_world,
             pose,
         ),
     ) in &mut bodies
@@ -530,6 +537,7 @@ pub fn rebuild_body_pose_views(
             // The SAME predicate the actor road asks — see
             // `BodyMode::hides_the_body`. Two read-models, one sentence.
             submerged: body_mode.is_some_and(|m| m.body_mode.hides_the_body()),
+            out_of_the_world,
             // The SAME projection the actor road reads — see
             // `BodyMotionFacts::wire_anchor`.
             wire_anchor: motion_facts.and_then(|m| m.wire_anchor),

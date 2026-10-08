@@ -164,6 +164,22 @@ pub struct FighterStockSpent {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PendingRespawn;
 
+/// This fighter was knocked out past the blast envelope
+/// ([`crate::HitSource::LeftTheWorld`]) and is not in the world until it is
+/// placed again. Presentation draws nothing of it: the knockout blast is
+/// drawn where it left.
+///
+/// The body stays where it crossed the blast line while its death window is
+/// open (`OutOfPlay` stops the world from moving it), so without this fact it
+/// was drawn frozen at the edge of the screen. A knockout on the stage (a
+/// meter death) does not set it, and the body plays its death pose there.
+///
+/// Set by [`spend_fighter_stocks`]. Removed by
+/// [`respawn_when_the_interlude_closes`]; an eliminated fighter keeps it
+/// until its ruleset removes the body.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct KnockedOutOfTheWorld;
+
 /// The interval elapsed — the ruleset's cue to PLACE the body.
 ///
 /// ⭐ THE SEAM. The engine owns *when* a fighter comes back; a ruleset owns
@@ -255,6 +271,7 @@ pub fn respawn_when_the_interlude_closes(
         let holds = holds.map(|holds| holds.into_inner());
         commands.entity(entity).remove::<(
             PendingRespawn,
+            KnockedOutOfTheWorld,
             crate::death_rules::OutOfPlay,
             crate::death_rules::DeathInterlude,
         )>();
@@ -394,9 +411,12 @@ pub fn spend_fighter_stocks(
             beat.write(ambition_vfx::vfx::KnockoutBeatRequested {
                 pos: kin.pos,
                 eliminated,
-                speed: kin.vel.length(),
+                launch: kin.vel,
                 room: live.of(knockout.body),
             });
+        }
+        if knockout.cause == crate::HitSource::LeftTheWorld {
+            commands.entity(knockout.body).try_insert(KnockedOutOfTheWorld);
         }
         if eliminated {
             commands.entity(knockout.body).try_insert(FighterEliminated);
@@ -768,10 +788,10 @@ mod tests {
             !beats[0].eliminated,
             "a fighter with stocks left was reported as eliminated"
         );
-        assert!(
-            (beats[0].speed - 1261.0).abs() < 1e-3,
-            "the beat did not carry the flight that ended: {}",
-            beats[0].speed
+        assert_eq!(
+            beats[0].launch,
+            ambition_platformer2d_core::Vec2::new(0.0, -1261.0),
+            "the beat did not carry the flight that ended"
         );
     }
 
@@ -1022,6 +1042,48 @@ mod tests {
             "the same two fighters came back as a different SET when they were \
              spawned in the opposite order — returning is supposed to depend on \
              the window closing and nothing else"
+        );
+    }
+
+    /// Jon, 2026-10-07: a fighter knocked out past the blast line stayed drawn,
+    /// frozen at the edge of the screen, for its whole death window. A
+    /// ring-out takes the body out of the world until it is placed again; a
+    /// knockout on the stage (a meter death) does not, so its death pose is
+    /// still drawn there.
+    #[test]
+    fn a_ring_out_is_out_of_the_world_until_the_fighter_returns() {
+        let mut app = respawn_app(0.1);
+        let ring_out = settled_fighter(&mut app, 3);
+        let on_stage = settled_fighter(&mut app, 3);
+        knock_out(&mut app, ring_out);
+        app.world_mut()
+            .resource_mut::<Messages<BodyKnockedOut>>()
+            .write(BodyKnockedOut {
+                body: on_stage,
+                cause: crate::HitSource::Melee,
+            });
+        app.update();
+        assert!(
+            app.world().get::<PendingRespawn>(on_stage).is_some(),
+            "control: the knockout on the stage also opened a window"
+        );
+        assert!(app.world().get::<KnockedOutOfTheWorld>(ring_out).is_some(), "the ring-out is out of the world");
+        assert!(
+            app.world().get::<KnockedOutOfTheWorld>(on_stage).is_none(),
+            "a knockout on the stage keeps the body in the world"
+        );
+        let mut returned = false;
+        for _ in 0..120 {
+            app.update();
+            if returned_this_tick(&mut app).contains(&ring_out) {
+                returned = true;
+                break;
+            }
+        }
+        assert!(returned, "precondition: the fighter came back");
+        assert!(
+            app.world().get::<KnockedOutOfTheWorld>(ring_out).is_none(),
+            "a fighter placed again is in the world again"
         );
     }
 

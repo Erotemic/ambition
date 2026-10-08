@@ -155,6 +155,12 @@ where
         OWNER,
         "entity:pending_respawn",
     );
+    // Whether a fighter waiting to come back is drawn: set with the window by
+    // a ring-out, so a rewind into the window must restore it with the window.
+    registrar.rollback_component_canonical::<crate::stocks::KnockedOutOfTheWorld>(
+        OWNER,
+        "entity:knocked_out_of_the_world",
+    );
     registrar.rollback_component_canonical::<crate::components::RulesetOwnsDeath>(
         OWNER,
         "actor.ruleset_owns_death",

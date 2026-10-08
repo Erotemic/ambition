@@ -137,3 +137,109 @@ fn an_ordinary_knockout_returns_to_the_select_screen_on_its_own() {
          way out"
     );
 }
+
+/// ⭐ A FIGHTER KNOCKED PAST THE BLAST ZONE IS NOT DRAWN UNTIL IT COMES BACK.
+///
+/// Jon, 2026-10-07: *"In smash when a character is KOed their image just
+/// freezes on the edge of the blast zone ... the character should not be
+/// visible after they cross the threshold."* The ring-out parks the body at
+/// the envelope edge for the respawn wait, so without a hide the last frame of
+/// the fighter stays drawn there.
+///
+/// Two stocks, so the ring-out is followed by a respawn: the witness reads the
+/// drawn row hidden DURING the wait and drawn again AFTER it. The second half
+/// is the control: a hide that never lifts would also pass the first half.
+#[test]
+fn a_fighter_knocked_out_of_the_world_is_not_drawn_until_it_returns() {
+    use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
+    use ambition_platformer2d::combat::components::FeatureId;
+    use bevy::prelude::*;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..30 {
+        app.update();
+    }
+    let mut roster = ambition_demo_smash::smash_roster(["performer", "performer"]);
+    roster.rules.stocks = Some(2);
+    app.world_mut().insert_resource(roster);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+        )));
+
+    let seat_one = |app: &mut App| -> Option<(Entity, String)> {
+        let world = app.world_mut();
+        let mut query = world.query::<(Entity, &MatchSeat, &FeatureId)>();
+        query
+            .iter(world)
+            .find(|(_, seat, _)| seat.0 == 1)
+            .map(|(entity, _, id)| (entity, id.0.clone()))
+    };
+    let mut live = false;
+    for _ in 0..900 {
+        app.update();
+        let held = {
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<
+                &MatchSeat,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
+            >();
+            q.iter(world).count()
+        };
+        if seat_one(&mut app).is_some() && held == 0 {
+            live = true;
+            break;
+        }
+    }
+    assert!(live, "the opening ceremony never released the cast");
+    let (body, id) = seat_one(&mut app).expect("seat one is seated");
+
+    let out = |app: &App| {
+        app.world()
+            .get::<ambition_platformer2d::combat::stocks::KnockedOutOfTheWorld>(body)
+            .is_some()
+    };
+    let drawn = |app: &App| {
+        app.world()
+            .resource::<ambition_platformer2d::sim_view::FeatureViewIndex>()
+            .get(&id)
+            .map(|view| view.visible)
+    };
+    assert_eq!(drawn(&app), Some(true), "a live fighter is drawn");
+
+    for _ in 0..600 {
+        if let Some(mut kin) = app.world_mut().get_mut::<BodyKinematics>(body) {
+            kin.vel = ambition_platformer2d::engine_core::Vec2::new(2_400.0, -200.0);
+        }
+        app.update();
+        if out(&app) {
+            break;
+        }
+    }
+    // ⛔ THE PREMISE: the body crossed the blast zone and is waiting to return.
+    assert!(out(&app), "the fixture never knocked seat one out of the world");
+    // The view rebuild runs after the sim tick that marked the body.
+    app.update();
+    assert!(out(&app), "the wait ended in one tick, so nothing was measured");
+    assert_eq!(
+        drawn(&app),
+        Some(false),
+        "a fighter past the blast zone is still drawn: its image freezes at the \
+         edge of the envelope while it waits to respawn"
+    );
+
+    for _ in 0..2_000 {
+        app.update();
+        if !out(&app) {
+            break;
+        }
+    }
+    assert!(!out(&app), "the fighter never came back from the ring-out");
+    app.update();
+    assert_eq!(
+        drawn(&app),
+        Some(true),
+        "the respawned fighter is not drawn: the hide outlived the wait"
+    );
+}

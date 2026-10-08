@@ -18,7 +18,8 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, PlayerVisual, SessionSpawnScope, SpawnSessionScopedExt,
 };
 
-/// Hide every submerged body, and hand every other one back.
+/// Hide every submerged body and every body knocked out of the world, and
+/// hand every other one back.
 ///
 /// Restore to `Inherited`, never `Visible`. A death overlay or a
 /// room-transition fade hides bodies through the parent; `Visible` would
@@ -28,7 +29,7 @@ pub fn sync_submerged_visibility(
     mut bodies: Query<(&ambition_sim_view::BodyPoseView, &mut Visibility), With<PlayerVisual>>,
 ) {
     for (pose, mut visibility) in &mut bodies {
-        if pose.submerged {
+        if pose.submerged || pose.out_of_the_world {
             if *visibility != Visibility::Hidden {
                 *visibility = Visibility::Hidden;
             }

@@ -124,6 +124,13 @@ impl SnapshotState for crate::stocks::PendingRespawn {
     }
 }
 
+impl SnapshotState for crate::stocks::KnockedOutOfTheWorld {
+    fn encode(&self, _out: &mut Vec<u8>) {}
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::stocks::KnockedOutOfTheWorld)
+    }
+}
+
 impl SnapshotState for crate::stocks::RespawnGrace {
     // The remaining beat is snapshot state for the same reason every other timer
     // is: a rewind that restored the protection but not its clock resimulates a

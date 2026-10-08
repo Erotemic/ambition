@@ -209,7 +209,9 @@ excluded:
   `ambition_engine_schemas::engine_schemas_without(profile.omitted_content_capabilities())`
   (witness `a_profile_refuses_content_that_needs_a_capability_it_omits`). A Yarn script
   asked of a game with no dialogue is not refused: dialogue has no pack capability.
-* Re-entry (a second session in the same process) is not exercised by these witnesses.
+* Re-entry: a second session of each headless profile in one process steps as the
+  first, bit for bit (`a_second_session_in_one_process_steps_as_the_first`). The
+  windowed profile is not compared.
 
 **Dropping one of these profiles' promises from the registry is a decision; a
 witness that stopped iterating the registry would pass for any list**, so the guard

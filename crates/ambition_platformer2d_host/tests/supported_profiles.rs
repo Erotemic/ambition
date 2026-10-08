@@ -216,3 +216,52 @@ fn a_profile_refuses_content_that_needs_a_capability_it_omits() {
     assert!(!omitting.is_empty(), "precondition: some profile omits a content capability");
     assert_eq!(refused, omitting, "the (profile, omitted capability) pairs whose pack was refused");
 }
+
+/// Where the primary body is after `ticks` fixed ticks of a session that
+/// `profile` builds, counted from the tick the body first exists.
+fn body_after(profile: &EngineProfile, ticks: usize) -> Vec2 {
+    let mut app = build(profile);
+    app.update();
+    for _ in 0..30 {
+        app.update();
+        if body_position(&mut app).is_some() {
+            break;
+        }
+    }
+    for _ in 0..ticks {
+        app.update();
+    }
+    body_position(&mut app).unwrap_or_else(|| panic!("{}: no primary body", profile.name))
+}
+
+/// ⭐ RE-ENTRY (A9): A SECOND SESSION IN ONE PROCESS STEPS AS THE FIRST. Each
+/// headless profile builds a session, steps it and drops it, then builds a
+/// second one and steps it the same way: the body must be at the same
+/// position, bit for bit. A process-global value that the first session
+/// leaves behind (a `OnceLock`, a static cache) shows here as a difference.
+///
+/// The control: one more tick moves the body, so the comparison can say no.
+#[test]
+fn a_second_session_in_one_process_steps_as_the_first() {
+    let mut compared = Vec::new();
+    for profile in SUPPORTED_PROFILES.iter().filter(|profile| profile.face == HostFace::Headless) {
+        // Eight ticks: the body is still falling, so a tick moves it.
+        let first = body_after(profile, 8);
+        let second = body_after(profile, 8);
+        assert_eq!(
+            (first.x.to_bits(), first.y.to_bits()),
+            (second.x.to_bits(), second.y.to_bits()),
+            "{}: the second session's body is at {second:?}, the first's at {first:?}",
+            profile.name
+        );
+        let later = body_after(profile, 9);
+        assert_ne!(
+            first, later,
+            "{}: control: one more tick did not move the body, so equal positions prove nothing",
+            profile.name
+        );
+        compared.push(profile.name);
+    }
+    println!("PROFILE-REENTRY ok {compared:?}");
+    assert!(!compared.is_empty(), "precondition: some supported profile is headless");
+}

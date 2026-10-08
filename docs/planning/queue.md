@@ -635,39 +635,6 @@ identity section.
 **Acceptance:** a baked sheet whose body box differs gives a different content
 fingerprint; a sheet whose packing alone differs gives the same one.
 
-### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update`
-
-**Owner:** `ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs`.
-
-**Current state:** every writer of hashed save state runs in the simulation
-schedule: the three `persist_*_to_save` mirrors and
-`count_the_dialogue_visit_when_a_conversation_opens`.
-`resources_crossing_the_rewind_boundary.py` reports that `AmbitionGameSave` does
-not cross the rewind boundary. `AuthoredOccurrences` is rollback state with a
-peer-stable checksum. The restore chain runs in the simulation schedule
-(BODY-BORN-ON-THE-TIMELINE, 2026-10-03) and writes only while `SaveRestored` is
-false, for exactly one primary body with a wallet, held by
-`a_population_the_restore_cannot_complete_on_is_written_to_by_nobody`.
-
-**Decided 2026-10-03:** Q129: shared durable world state is peer state, and the
-eventual peer protocol compares its canonical semantic form, not the save
-file's bytes; the netplay representation waits for active peer networking.
-Q134: dialogue visit counts are per participant, not shared world state.
-
-**What is left:** `dialog_visits` lives in the shared save and its checksum
-projection, which Q134 rules out. It moves to the participant with the
-reactive-character memory model (P6), not before. `OwnedItems` is
-`resource-clone` while `OwnedItemsBaseline` is hashed; under Q129 the bag is
-compared, so the two agree (engineering, `ROLLBACK-BAG-DESYNC`'s deferred
-split).
-
-**Acceptance:** ✅ Q129 is answered and the three mirrors follow the ruling (they
-run in the simulation, and the save stays in the checksum); ✅ the
-dialog increment has its own answer, which was not the mirrors'; ✅ the one-shot
-pair's ordering against GGRS start is characterised rather than assumed; and ✅
-the restore chain has its road: the simulation schedule (2026-10-03,
-BODY-BORN-ON-THE-TIMELINE), which replaced the `Q135` session-start gate.
-
 ### MUSIC-CANDIDATES — music is chosen from scoped, prioritized candidates
 
 **Review 2026-10-05 (carried forward; the in-room half is built, see below):**
@@ -1238,6 +1205,17 @@ production invariant.
 
 Closed rows that an open row, a script or an inbound link still names.
 
+### DURABLE-HORIZON-CHECKSUM — the save mirrors write hashed state from `Update` — ✅ DONE 2026-10-08
+
+Q129: shared durable world state is peer state, compared by its canonical
+form. Every writer of the hashed save runs in the simulation schedule (the
+three `persist_*_to_save` mirrors, the dialogue-visit count and the restore
+chain, BODY-BORN-ON-THE-TIMELINE). The bag (`OwnedItems`) is in the peer
+checksum by its own value (schema 327,
+`the_bag_is_compared_by_its_own_value`). Deferred to P6, not before:
+`dialog_visits` moves out of the shared save to the participant with the
+reactive-character memory model (Q134).
+
 ### CAST-FRAMING-TARGET — framing asks for a composition, not only a floor — ✅ DONE 2026-10-08
 
 Q86. A framed cast asks for a view (`camera_snapshot::cast_view_target`):
@@ -1564,7 +1542,8 @@ replay did not re-derive. They register through `app.sim_schedule()` now. Guards
 `AmbitionGameSave` from the checksum: most of its writers run inside rewinding
 schedules. Deferred: the authority/representation split. Q129 (decided
 2026-10-03) keeps shared durable state in what peers compare, by its canonical
-semantic form rather than the save's serialization.
+semantic form rather than the save's serialization. The bag itself is compared
+by its own value (schema 327).
 
 ### MENU-RESET-MIDSESSION — the menu writes rollback state from `Update` — CLOSED 2026-09-19
 

@@ -1088,7 +1088,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// record is spent.
 /// ⛔⛤ 325 -> 326: `feature.requires_facing` (clone) — an interactable a
 /// body must face to use (Q63), put on the root by construction.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 326;
+/// ⛔⛤ 326 -> 327: `resource.owned_items` (`OwnedItems`) is in the peer
+/// checksum by its own value (Q129: shared durable state is compared), not
+/// only through the save that mirrors it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 327;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

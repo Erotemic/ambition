@@ -1,9 +1,10 @@
 //! ROLLBACK-BAG-DESYNC — the per-entry attribution the row says is owed.
 //!
 //! The row establishes that granting an item once per tick desyncs a GGRS
-//! sync test within six ticks, by either road, while `OwnedItems` itself is
-//! `resource-clone` and **not hashed** — so the bag cannot be the value the two
-//! passes disagree about. Something hashed derives from it. Three candidates were
+//! sync test within six ticks, by either road, while `OwnedItems` itself was
+//! `resource-clone` and **not hashed** — so the bag could not be the value the
+//! two passes disagreed about. Something hashed derived from it. (The bag is
+//! hashed by its own value since schema 327, Q129.) Three candidates were
 //! eliminated by measurement and the row's own next step is:
 //!
 //! > *"The registry already knows every entry that feeds the peer checksum, so
@@ -520,4 +521,43 @@ fn the_saves_hashed_snapshot_tracks_the_frames_it_is_compared_at() {
          has drifted back out of the rewind window, or its projection has \
          narrowed to something that no longer tracks the state it covers."
     );
+}
+
+/// ⭐ Q129: THE BAG IS COMPARED BY ITS OWN VALUE. While a grant moves the bag
+/// every tick, the audit's census of `OwnedItems` takes more than one value
+/// across the compared frames, and the bag agrees with its replay. A
+/// presence-probed resource takes one census value whatever it holds, so
+/// before the bag was in the peer checksum this read 1. The control is the
+/// same system granting nothing: the bag does not move, and neither does its
+/// census.
+#[test]
+fn the_bag_is_compared_by_its_own_value() {
+    let censuses = |sim: &mut Platformer2dSimHarness| {
+        sim.world_mut()
+            .insert_resource(ambition_platformer2d::rollback::RollbackRestoreAudit::enabled());
+        for _ in 0..LIVE_STEPS {
+            sim.step(AgentAction::default());
+        }
+        let audit = sim
+            .world()
+            .resource::<ambition_platformer2d::rollback::RollbackRestoreAudit>();
+        assert!(
+            audit.resimulations > 0,
+            "the audit saw no resimulation ({}), so its census says nothing",
+            audit.coverage()
+        );
+        let bag_diverged = audit
+            .divergences
+            .iter()
+            .any(|divergence| divergence.type_name.ends_with("OwnedItems"));
+        (audit.distinct_censuses_across_compared_frames_of::<OwnedItems>(), bag_diverged)
+    };
+    let (moving, moving_diverged) = censuses(&mut sim_composed_with(grant_each_tick));
+    let (still, _) = censuses(&mut sim_composed_with(touch_the_bag_each_tick));
+    assert!(
+        moving > 1 && !moving_diverged,
+        "a moving bag took {moving} census value(s) across the compared frames \
+         (diverged: {moving_diverged}); the peer checksum does not see the bag"
+    );
+    assert_eq!(still, 1, "control: a bag that does not move keeps one census value");
 }

@@ -259,6 +259,11 @@ pub struct PerceivedActor {
     /// `0.0` for `Neutral` and for phases with no authored clock. Frame data is
     /// public knowledge; a player who studied the character has this number.
     pub phase_remaining: f32,
+    /// The reach of the move this body plays, from the move's own hitboxes
+    /// (`MoveFrameData::reach`, Q35), or `None` when it plays no move. Seen
+    /// as the phase is: a player who knows the character knows how far its
+    /// swing reaches.
+    pub attack_reach: Option<f32>,
     /// Currently in i-frames (post-hit invulnerability). Visible: the body flashes.
     pub invulnerable: bool,
     /// Falling out of a launch, so this body's next landing is a knockdown

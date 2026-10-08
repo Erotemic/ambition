@@ -1225,3 +1225,20 @@ fn the_reach_is_that_of_the_move_the_press_starts() {
         "a body with no moveset has no attack move"
     );
 }
+
+/// ⭐ REACH-VIEW (Q35): A WATCHER READS A SWING'S REACH FROM THE MOVE'S
+/// HITBOX. Two moves that differ only in where their hitbox sits give two
+/// reaches 20 px apart; nothing about the sprite changes. A body that plays
+/// no move has none, and the shadow then uses its stated assumption.
+#[test]
+fn a_watcher_reads_a_swings_reach_from_its_hitbox() {
+    use crate::features::ecs::perception::attack_reach_of;
+    let reach = |offset: f32| {
+        attack_reach_of(Some(&ambition_combat::moveset::MovePlayback::new(strike("poke", offset), 1.0)))
+    };
+    assert_eq!(
+        (reach(30.0), reach(50.0), attack_reach_of(None)),
+        (Some(36.0), Some(56.0), None),
+        "(hitbox at 30 px, hitbox at 50 px, no move): the reach a watcher reads"
+    );
+}

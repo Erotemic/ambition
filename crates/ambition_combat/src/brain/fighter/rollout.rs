@@ -94,6 +94,11 @@ pub struct ShadowFighter {
     pub invulnerable: bool,
     /// Set when a KO event fired for this fighter; a KOed body stops updating.
     pub koed: bool,
+    /// The reach of the move this fighter plays, when it is known: the
+    /// perceived move of a foe (`PerceivedActor::attack_reach`), or a move
+    /// the rollout started. `None` for an attack the shadow only predicts,
+    /// which reaches `ShadowTuning::assumed_foe_reach`.
+    pub attack_reach: Option<f32>,
 }
 
 /// An in-flight hostile projectile, ballistic. `PerceivedProjectile` carries
@@ -185,6 +190,7 @@ fn fighter_from_self(view: &SelfView, gravity_down: ae::Vec2) -> ShadowFighter {
         shield_raised: matches!(view.phase, BodyPhase::Shielding),
         invulnerable: view.invulnerable,
         koed: false,
+        attack_reach: None,
     }
 }
 
@@ -215,6 +221,7 @@ fn fighter_from_actor(actor: &PerceivedActor, gravity_down: ae::Vec2) -> ShadowF
         shield_raised: actor.shield_raised,
         invulnerable: actor.invulnerable,
         koed: false,
+        attack_reach: actor.attack_reach,
     }
 }
 
@@ -548,6 +555,8 @@ fn apply_intent(
         ShadowIntent::StartAttack => {
             // With no side to the opponent, the body keeps its facing.
             f.facing = toward_opponent.signum_or(f.facing);
+            // A predicted attack: its move is not known.
+            f.attack_reach = None;
             f.shield_raised = false;
             f.phase = ShadowPhase::Committed {
                 phase: BodyPhase::AttackStartup,
@@ -564,6 +573,7 @@ fn apply_intent(
         ShadowIntent::StartMove { frames } => {
             // With no side to the opponent, the body keeps its facing.
             f.facing = toward_opponent.signum_or(f.facing);
+            f.attack_reach = Some(frames.reach);
             f.shield_raised = false;
             // The move's authored self-motion, applied EXACTLY as the real
             // trigger seam does (`trigger_moveset_moves`): body-local,
@@ -704,9 +714,9 @@ fn my_knockback(me: &ShadowFighter, foe: &ShadowFighter) -> Option<HitKnockback>
     })
 }
 
-/// Does the foe's committed attack land on me this tick? Their reach is the
-/// model assumption `assumed_foe_reach` — the view names their phase and
-/// clock, not their move.
+/// Does the foe's committed attack land on me this tick? Its reach is the
+/// reach of the move it plays when the view names it (REACH-VIEW, Q35), and
+/// the model assumption `assumed_foe_reach` for an attack only predicted.
 fn foe_attack_lands(
     foe: &ShadowFighter,
     me: &ShadowFighter,
@@ -732,7 +742,7 @@ fn foe_attack_lands(
     let lateral = delta.dot(side) * foe.facing;
     let vertical = delta.dot(down).abs();
     lateral >= -me.half_extent.x
-        && lateral <= tuning.assumed_foe_reach + me.half_extent.x
+        && lateral <= foe.attack_reach.unwrap_or(tuning.assumed_foe_reach) + me.half_extent.x
         && vertical <= foe.half_extent.y + me.half_extent.y
 }
 

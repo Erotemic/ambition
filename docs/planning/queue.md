@@ -805,7 +805,15 @@ was poisoned alone, and only its own test failed.
   the hitbox to the foe. A view from geometry must add the travel of the
   charge to the reach of the bite. This needs a measurement of how far the
   charge moves the hitbox while the Active window is open.
-- The fighter's `assumed_foe_reach`: a number for the reach of the FOE.
+- The fighter's `assumed_foe_reach` (60 px): since 2026-10-08 it is only
+  the reach of an attack the shadow predicts. A foe the view sees swinging
+  carries the reach of the move it plays (`PerceivedActor::attack_reach`,
+  from `MoveFrameData::reach`), and the shadow lands that swing from there.
+  Witnesses: `a_watcher_reads_a_swings_reach_from_its_hitbox` (monolith;
+  two hitboxes 20 px apart read 36 and 56) and
+  `a_foes_swing_reaches_as_far_as_the_move_it_plays` (combat; a 100 px move
+  lands from 90 px, a 40 px move and the 60 px assumption do not). Each
+  poisoned.
 - A body with no attack move keeps the authored distance of its brain. One
   case looks incorrect and is not measured in play: a dismounted rider with no
   ranged item gets a MeleeBrute brain whose distance is the profile's
@@ -837,6 +845,12 @@ roll out, so their habit counts now decay at 0.9, not `t × 0.6`.
 **Acceptance:** the ladder data and its level vocabulary live with the Smash
 rules/content; another game can build the brain with no ladder; no authored
 ladder field is inert.
+
+**Measured 2026-10-08 (NamekAmbition):** the Smash demo app installs no
+`AuthoredFighterLadder` (`the_ladder_the_demo_runs.rs` pins the floor).
+`ambition_content` `plugin.rs` and `reload.rs` (`publish_fighter_ladder`)
+are the only installers. A Smash pack source may name a file outside its
+root, as George's facet does.
 
 ### MIRROR-SYMMETRY — mirrored CPUs stay mirrored per tick
 

@@ -183,6 +183,8 @@ pub struct PerceptionPeer {
     /// animation. This is what lets a brain punish a whiffed swing.
     pub phase: BodyPhase,
     pub phase_remaining: f32,
+    /// See [`ambition_characters::perception::PerceivedActor::attack_reach`].
+    pub attack_reach: Option<f32>,
     pub invulnerable: bool,
     /// Falling out of a launch, so the next landing is a knockdown unless it is
     /// teched. Visible from across the stage — a tumbling body is tumbling in
@@ -285,6 +287,13 @@ pub fn body_phase(
         return (BodyPhase::Shielding, 0.0);
     }
     (BodyPhase::Neutral, 0.0)
+}
+
+/// The reach of the move a body plays, from the move's own hitboxes
+/// (`MoveFrameData::reach`, Q35), or `None` when it plays no move. What a
+/// watcher reads as `PerceivedActor::attack_reach`.
+pub(crate) fn attack_reach_of(playback: Option<&ambition_combat::moveset::MovePlayback>) -> Option<f32> {
+    playback.map(|playback| playback.spec.frame_data().reach)
 }
 
 /// True while the body is in post-hit i-frames — visible, because it flashes.
@@ -418,6 +427,7 @@ pub fn collect_perception_peers(
             shield_raised: shield.is_some_and(|s| s.active),
             phase,
             phase_remaining,
+            attack_reach: attack_reach_of(melee.playback),
             tumbling: facts.is_some_and(|f| f.tumbling),
             // HANGING, not climbing: a body already pulling itself up has left
             // the edge, which is the same distinction `resolve_ledge_trumps`
@@ -844,6 +854,7 @@ pub fn build_world_view(
             shield_raised: p.shield_raised,
             phase: p.phase,
             phase_remaining: p.phase_remaining,
+            attack_reach: p.attack_reach,
             invulnerable: p.invulnerable,
             tumbling: p.tumbling,
             ledge_hanging: p.ledge_hanging,

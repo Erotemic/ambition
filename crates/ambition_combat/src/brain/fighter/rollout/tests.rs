@@ -1345,3 +1345,32 @@ fn the_shadow_of_a_reflected_scene_is_the_reflected_shadow() {
         "(stacked, 60 px apart): the verbs whose shadow and reflected shadow parted"
     );
 }
+
+/// ⭐ REACH-VIEW (Q35): A FOE'S SWING REACHES AS FAR AS THE MOVE IT PLAYS. The
+/// foe stands 90 px away in the Active window of a swing. When the view names
+/// its move's reach (100 px), the shadow lands the swing on me; with a 40 px
+/// move it does not. The control: with no named move, the shadow uses the
+/// stated assumption (`assumed_foe_reach`, 60 px), which does not reach.
+#[test]
+fn a_foes_swing_reaches_as_far_as_the_move_it_plays() {
+    let tuning = ShadowTuning::default();
+    assert_eq!(tuning.assumed_foe_reach, 60.0, "precondition: the control's reach");
+    let lands = |attack_reach: Option<f32>| {
+        let mut s = state(400.0, 490.0);
+        s.foe.facing = -1.0;
+        s.foe.phase = ShadowPhase::Committed {
+            phase: BodyPhase::AttackActive,
+            remaining: 0.1,
+            landed: false,
+        };
+        s.foe.attack_reach = attack_reach;
+        shadow_step(&mut s, DT, &ShadowIntent::Hold, &ShadowIntent::Hold, &tuning)
+            .iter()
+            .any(|event| matches!(event, ShadowEvent::Hit { on_me: true, .. }))
+    };
+    assert_eq!(
+        (lands(Some(100.0)), lands(Some(40.0)), lands(None)),
+        (true, false, false),
+        "(a 100 px move, a 40 px move, no named move): the foe's swing lands on me from 90 px"
+    );
+}

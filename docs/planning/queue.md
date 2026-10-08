@@ -1102,26 +1102,6 @@ only.
 3. A two-body shared-page test that reads the pixels of both cells needs a
    GPU; the three proofs above are on the draw geometry.
 
-### CHARGE-SPEC-NAME — the charge multiplier still carries a game's name
-
-**Owner:** `ambition_entity_catalog` (`MoveSpec::smash_charge_mult`) and the
-moveset inspector's bundle contract (`tools/ambition_moveset_inspector`).
-
-**Ruling:** Q44 (2026-10-04): no leaf-game name on a generic API; apply the
-rule to any other generic mechanism with a historical game name.
-
-**Current state (2026-10-08):** the spec and its field are renamed
-(`MoveChargeSpec`, `move_charge`). `smash_charge_mult` is the same case: it
-scales any charged move, and it is authored on every move of every table. It
-also reaches the inspector's web bundle (`web/app.js`,
-`check_bundle_contract.mjs`) and `moveset_export`'s JSON key. The smash
-GESTURE (`ChargeGesture::Smash`), the `smash_charge` animation clip and its
-SFX ids name the gesture and stay.
-
-**Acceptance:** no `smash_charge_mult` in source or content; the inspector's
-contract check passes with the new key; the content fingerprint change is the
-only content change.
-
 ### DENSE-MELEE-ROOM — author the dense-melee development room
 
 **Owner:** content; first measured customer
@@ -1386,6 +1366,16 @@ wall fires into the wall. Measured with a probe of the world-hit branch (the
 hit block's name, box and kind); the comment in
 `a_hand_muzzle_fires_from_the_drawn_hand.rs` now says why that room is not
 used.
+
+### CHARGE-SPEC-NAME — `SmashChargeSpec` is a generic mechanism — ✅ DONE 2026-10-08
+
+Q44: no leaf-game name on a generic API. `SmashChargeSpec` is
+`MoveChargeSpec`, the field `move_charge`, and the payoff multiplier
+`charge_mult`, in every source, table (the renderer submodule's George table
+too), the exporter's JSON and the moveset inspector (`web/app.js`,
+`check_bundle_contract.mjs`). The smash GESTURE (`ChargeGesture::Smash`), the
+`smash_charge` animation clip and its SFX ids name the gesture and stay. The
+content fingerprint moved; no rollback row did.
 
 ### ID-PEER — remove host-local lineage from peer-stable mechanical identity — ✅ DONE 2026-10-03
 

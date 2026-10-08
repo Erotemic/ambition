@@ -1005,7 +1005,7 @@ impl MovePlayback {
     ///
     /// ⛔⛔ ONE AUTHORITY, AND THE OTHER ONE PAID OUT UNCONDITIONALLY. A use
     /// that never entered charge mode scales by `1.0`, full stop. It used to
-    /// fall through to a TIMELINE reading — `smash_charge_mult` interpolated by
+    /// fall through to a TIMELINE reading — `charge_mult` interpolated by
     /// how far the clock had run through the leading Startup window — which
     /// sounds like a partial payoff and is not one: a strike volume only ever
     /// spawns INSIDE an Active window, Active begins where that Startup window
@@ -1019,7 +1019,7 @@ impl MovePlayback {
     /// not have this one by inheritance.
     pub fn charge_scale(&self) -> f32 {
         match self.charge {
-            Some(charge) => 1.0 + charge.fraction() * (self.spec.smash_charge_mult - 1.0),
+            Some(charge) => 1.0 + charge.fraction() * (self.spec.charge_mult - 1.0),
             None => 1.0,
         }
     }
@@ -1756,7 +1756,7 @@ pub fn advance_move_playback(
                         .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
                     let frame_down = body_frame.down;
                     // CM3: the smash-charge payoff. The scale interpolates
-                    // `1.0 → smash_charge_mult` by the charge fraction reached at
+                    // `1.0 → charge_mult` by the charge fraction reached at
                     // this release instant (`t`, the owner's clock), so a held
                     // smash lands harder than a tap. `1.0` (every non-charge move)
                     // leaves damage/knockback byte-identical — parity.

@@ -1,6 +1,6 @@
 //! How long a fighter leans on a smash before letting go.
 //!
-//! `smash_charge_mult` is authored per move and the runtime freezes the timeline
+//! `charge_mult` is authored per move and the runtime freezes the timeline
 //! while Attack is held, so the multiplier a smash actually pays is decided by
 //! whoever is holding the button. No brain held it, which made every CPU smash a
 //! tap and quietly re-tuned every fighter's strongest option down to its floor.

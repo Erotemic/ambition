@@ -397,7 +397,7 @@ pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
         events: Vec::new(),
         gates: MoveGates::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
@@ -453,7 +453,7 @@ pub fn hitless_special(id: &str, clip: &str, commits_at_s: f32, duration_s: f32)
         events: Vec::new(),
         gates: MoveGates::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
@@ -865,7 +865,7 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
         events: Vec::new(),
         gates: MoveGates::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
@@ -1139,7 +1139,7 @@ mod charge_tests {
         assert!(spec.roots, "the hold roots him");
         assert!(!spec.stores, "and does not bank");
         assert_eq!(m.charge_gesture, crate::ChargeGesture::Special);
-        assert_eq!(m.smash_charge_mult, 1.6);
+        assert_eq!(m.charge_mult, 1.6);
     }
 
     /// The move's own timeline is untouched — a charge is a hold ON a move, not
@@ -1176,7 +1176,7 @@ mod charge_tests {
         let mut flat = held();
         flat.multiplier = 1.0;
         let m = charge(swing(), flat);
-        assert_eq!(m.smash_charge_mult, 1.0);
+        assert_eq!(m.charge_mult, 1.0);
         assert!(m.move_charge.is_some(), "and it is still a charge");
     }
 
@@ -1436,7 +1436,7 @@ mod tipper_tests {
 /// A smash charge: the hold, what it buys, and which button drives it.
 ///
 /// A `MoveChargeSpec` travels with two companions, `charge_gesture` and
-/// `smash_charge_mult`. As fields here, they are set where the charge is
+/// `charge_mult`. As fields here, they are set where the charge is
 /// decided, and a caller cannot forget one.
 ///
 /// `projectile_polygon_moveset.rs` builds its charge shot as a whole
@@ -1505,7 +1505,7 @@ pub fn charge(mut m: MoveSpec, charge: Charge) -> MoveSpec {
         sustain: charge.sustain,
     });
     m.charge_gesture = charge.gesture;
-    m.smash_charge_mult = charge.multiplier;
+    m.charge_mult = charge.multiplier;
     m
 }
 

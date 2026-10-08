@@ -828,7 +828,7 @@ const MOVE_COLUMNS = [
   ["total", "Total", (m) => m.duration_f, (m) => f1(m.duration_f)],
   ["damage", "Dmg", (m) => m.derived.max_damage, (m) => int(m.derived.max_damage)],
   ["charged", "Dmg×", (m) => m.derived.max_damage_charged,
-    (m) => (m.smash_charge_mult > 1 ? int(m.derived.max_damage_charged) : "—")],
+    (m) => (m.charge_mult > 1 ? int(m.derived.max_damage_charged) : "—")],
   ["kb", "KB", (m) => m.derived.max_knockback, (m) => int(m.derived.max_knockback)],
   /* A SEPARATE COLUMN, NOT A BIGGER `Dmg`. Sorting a moveset by damage with
    * shots folded in would rank a projectile against a melee hitbox as though a

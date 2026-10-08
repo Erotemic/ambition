@@ -1910,7 +1910,7 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
 /// ⛔⛔ THIS IS THE ARITHMETIC THE FIRST SURVIVABILITY FIX GOT WRONG. Jon's rule
 /// is a count — *"hitting it 'enough' … roughly three hits"* — and a pool below
 /// the largest single hit makes that false on its face. The summon was given 24;
-/// the admiral's own forward smash is 17 damage with `smash_charge_mult = 1.7`,
+/// the admiral's own forward smash is 17 damage with `charge_mult = 1.7`,
 /// which lands at 28.9. Jon reported the shark still dying instantly on a build
 /// carrying the 24, and that is exactly what a 24 HP body does when the thing
 /// hitting it deals 29.
@@ -1983,7 +1983,7 @@ fn a_recovery_mount_cannot_be_deleted_by_one_hit() {
         with_movesets += 1;
         let body_ranged = prepared.kit.action_set().and_then(|set| set.ranged.clone());
         for spec in &moveset.moves {
-            let mult = spec.smash_charge_mult.max(1.0);
+            let mult = spec.charge_mult.max(1.0);
             for window in &spec.windows {
                 for volume in &window.volumes {
                     record(

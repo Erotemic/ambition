@@ -69,7 +69,7 @@ const SUMMON_BOARD_DEADLINE_S: f32 = 1.0;
 /// The authored shark has 6, fair in its own game; the summon overrides it.
 ///
 /// The cast's largest hit is George Booul's forward smash: `damage: 21` at
-/// `smash_charge_mult = 1.7`, 36 exactly. 40 clears it: about five typical
+/// `charge_mult = 1.7`, 36 exactly. 40 clears it: about five typical
 /// connections, or one charged George smash plus a little more.
 /// `a_recovery_mount_cannot_be_deleted_by_one_hit` reads the whole selectable
 /// cast, so a bigger smash trips it.

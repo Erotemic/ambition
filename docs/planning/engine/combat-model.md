@@ -216,7 +216,7 @@ resolved `smash_up` rows the launch required to cross the rise line is ~1241
 (spread 0.61%) even though bases span 112-178 and growths 1.90-6.40 — so the
 authoring lever there is `growth = (1241 - base) / (1.25 * target_KO%)`. The same
 derivation on `smash_forward` gives a 17.94% spread, still unexplained. Hitbox X
-offset, `launch_dir`, `smash_charge_mult` and a `+damage` term do not explain
+offset, `launch_dir`, `charge_mult` and a `+damage` term do not explain
 it; do not re-test them.
 
 **Where a KO% is already measured, no stage constant is needed.**

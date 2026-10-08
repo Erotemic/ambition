@@ -508,7 +508,7 @@ fn widening_swing() -> ambition_entity_catalog::MoveSpec {
         windows: vec![],
         gates: ambition_entity_catalog::MoveGates::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,

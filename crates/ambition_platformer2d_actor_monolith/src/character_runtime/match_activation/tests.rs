@@ -947,7 +947,7 @@ fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
             events: Vec::new(),
             gates: MoveGates::default(),
             start_impulse: None,
-            smash_charge_mult: 1.0,
+            charge_mult: 1.0,
             move_charge: None,
             charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
             repeat: None,

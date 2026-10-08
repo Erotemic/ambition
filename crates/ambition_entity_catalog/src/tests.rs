@@ -124,7 +124,7 @@ fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
             ..Default::default()
         },
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ChargeGesture::default(),
         repeat: None,
@@ -298,7 +298,7 @@ const R2_FIGHTER: &str = r#"
                             ]),
                         ],
                         start_impulse: Some((30.0, 0.0)),
-                        smash_charge_mult: 1.0,
+                        charge_mult: 1.0,
                     ),
                     (
                         id: "dair",
@@ -1114,7 +1114,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
         events,
         gates: MoveGates::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ChargeGesture::default(),
         repeat: None,
@@ -1356,7 +1356,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         events: vec![],
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.7,
+        charge_mult: 1.7,
         move_charge: None,
         charge_gesture: ChargeGesture::default(),
         repeat: None,
@@ -1392,7 +1392,7 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
 
     // A move that pays nothing for a hold must not freeze its timeline for one.
     let mut unpaid = spec.clone();
-    unpaid.smash_charge_mult = 1.0;
+    unpaid.charge_mult = 1.0;
     assert!(unpaid.charge_policy().is_none());
 
     // Authoring overrides the derivation...
@@ -1431,7 +1431,7 @@ fn frame_data_reports_the_charge_hold_point_and_only_for_a_charging_move() {
         None,
         "a move authoring no payoff does not charge, so it has no hold point"
     );
-    m.smash_charge_mult = 2.0;
+    m.charge_mult = 2.0;
     let policy = m.charge_policy().expect("a paying smash resolves a policy");
     assert_eq!(m.frame_data().charge_hold_at_s, Some(policy.hold_at_s));
 }
@@ -1446,7 +1446,7 @@ fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
     let make = |hold_at_s: f32| {
         let mut m = bare_move("smash", None);
         m.duration_s = 0.5;
-        m.smash_charge_mult = 2.0;
+        m.charge_mult = 2.0;
         m.windows = vec![
             MoveWindow {
                 start_s: 0.0,

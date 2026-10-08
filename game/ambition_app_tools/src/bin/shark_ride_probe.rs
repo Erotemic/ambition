@@ -86,7 +86,7 @@ fn main() {
     }
     // Someone swings. A passive match proves only that the ride ends; the
     // failure to test is a shark deleted by a hit. This lands the admiral's
-    // forward smash: 17 damage x `smash_charge_mult` 1.7 = 29, the hardest hit
+    // forward smash: 17 damage x `charge_mult` 1.7 = 29, the hardest hit
     // the fighter under test can produce. It is not the hardest in the game
     // (George Booul's is 21 x 1.7 = 36);
     // `a_recovery_mount_cannot_be_deleted_by_one_hit` checks the whole cast.

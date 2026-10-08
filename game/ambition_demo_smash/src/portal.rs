@@ -644,7 +644,7 @@ mod tests {
                 events: Vec::new(),
                 gates: Default::default(),
                 start_impulse: None,
-                smash_charge_mult: 1.0,
+                charge_mult: 1.0,
                 move_charge: None,
                 charge_gesture: Default::default(),
                 repeat: None,

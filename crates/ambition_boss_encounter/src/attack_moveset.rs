@@ -176,7 +176,7 @@ pub fn boss_attack_moveset(
                 events,
                 gates: Default::default(),
                 start_impulse: None,
-                smash_charge_mult: 1.0,
+                charge_mult: 1.0,
                 move_charge: None,
                 charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
                 repeat: None,

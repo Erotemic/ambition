@@ -228,7 +228,7 @@ pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s
         events: Vec::new(),
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
@@ -258,7 +258,7 @@ pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
         events: Vec::new(),
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: crate::ChargeGesture::default(),
         repeat: None,
@@ -304,7 +304,7 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         events,
         gates,
         start_impulse,
-        smash_charge_mult,
+        charge_mult,
         // A charge policy has both kinds: `hold_at_s` is a point and shifts
         // with the added startup; `max_hold_s` is a duration and does not.
         move_charge,
@@ -338,7 +338,7 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         events,
         gates,
         start_impulse,
-        smash_charge_mult,
+        charge_mult,
         move_charge: move_charge.map(|policy| crate::MoveChargeSpec {
             hold_at_s: policy.hold_at_s + RUNNING_GRAB_EXTRA_STARTUP_S,
             ..policy
@@ -683,7 +683,7 @@ mod tests {
             events: Vec::new(),
             gates: Default::default(),
             start_impulse: None,
-            smash_charge_mult: 1.0,
+            charge_mult: 1.0,
             move_charge: None,
             charge_gesture: crate::ChargeGesture::default(),
             repeat: None,

@@ -24,7 +24,7 @@
         "tilt_up": [5],
         "tilt_down": [4],
         // The smash attacks: a full charge multiplies these by the move's
-        // `smash_charge_mult`.
+        // `charge_mult`.
         "smash_forward": [15],
         "smash_up": [14],
         "smash_down": [12],

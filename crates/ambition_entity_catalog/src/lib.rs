@@ -2029,12 +2029,12 @@ pub struct MoveSpec {
     pub start_impulse: Option<(f32, f32)>,
     /// Smash-charge payoff: the multiplier a fully charged release applies to
     /// this move's damage and knockback. The applied scale interpolates
-    /// `1.0 → smash_charge_mult` by the charge fraction reached at release
+    /// `1.0 → charge_mult` by the charge fraction reached at release
     /// (how far the owner's clock advanced through the leading Startup
     /// window). The default `1.0` is no charge scaling. A smash roster authors
     /// for example `2.0`, so a held smash lands twice as hard as a tap.
     #[serde(default = "default_charge_mult")]
-    pub smash_charge_mult: f32,
+    pub charge_mult: f32,
     /// How a chargeable use of this move holds and releases its charge.
     ///
     /// `None` = the derived policy: the hold sits a fraction into the leading
@@ -2044,7 +2044,7 @@ pub struct MoveSpec {
     ///
     /// Authoring one also declares that the move charges. A charged shot needs
     /// this: its payoff is the projectile, and it has no melee volume for
-    /// [`Self::smash_charge_mult`] to scale. Either statement counts; see
+    /// [`Self::charge_mult`] to scale. Either statement counts; see
     /// [`Self::charge_policy`].
     ///
     /// [`Self::charge_gesture`] says which press holds it. A use reached
@@ -2122,7 +2122,7 @@ pub struct MoveSpec {
     pub flow: Option<TechniqueFlow>,
 }
 
-/// Serde default for [`MoveSpec::smash_charge_mult`]: the multiplicative
+/// Serde default for [`MoveSpec::charge_mult`]: the multiplicative
 /// identity, so every existing move is unscaled (parity).
 fn default_charge_mult() -> f32 {
     1.0
@@ -2300,7 +2300,7 @@ impl MoveSpec {
             events,
             gates: _,
             start_impulse: _,
-            smash_charge_mult: _,
+            charge_mult: _,
             move_charge: _,
             charge_gesture: _,
             repeat: _,
@@ -2543,10 +2543,10 @@ impl MoveSpec {
     pub fn charge_policy(&self) -> Option<MoveChargeSpec> {
         // Either payoff says this move charges. A charged shot pays in the
         // projectile it releases and has no melee volume for
-        // `smash_charge_mult` to scale, so an explicit `move_charge` is its
+        // `charge_mult` to scale, so an explicit `move_charge` is its
         // own statement of intent.
         let Some(policy) = self.move_charge.or_else(|| {
-            (self.smash_charge_mult > 1.0).then_some(MoveChargeSpec {
+            (self.charge_mult > 1.0).then_some(MoveChargeSpec {
                 // The charge pose is in the windup, not at the hitbox: a
                 // charged smash freezes in its windup and releases into the
                 // swing.

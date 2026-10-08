@@ -439,7 +439,7 @@ fn derived_json(
         "projectile_size_charged": charged.map(|(_, _, m)| m),
         // The charge payoff a full hold applies, so a smash's ceiling is one
         // multiplication away.
-        "max_damage_charged": (max_damage as f32 * spec.smash_charge_mult).round() as i32,
+        "max_damage_charged": (max_damage as f32 * spec.charge_mult).round() as i32,
     })
 }
 
@@ -498,7 +498,7 @@ fn move_json(
             "roots_steering": spec.gates.roots_steering,
         },
         "start_impulse": spec.start_impulse.map(|i| vec![i.0, i.1]),
-        "smash_charge_mult": spec.smash_charge_mult,
+        "charge_mult": spec.charge_mult,
         "charge": spec.move_charge.as_ref().map(|c| serde_json::json!({
             "hold_at_s": c.hold_at_s,
             "max_hold_s": c.max_hold_s,

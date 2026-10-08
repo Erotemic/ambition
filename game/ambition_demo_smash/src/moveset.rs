@@ -338,7 +338,7 @@ mod tests {
              stock never ends on it"
         );
         assert!(
-            smash.smash_charge_mult > 1.0,
+            smash.charge_mult > 1.0,
             "holding the smash pays nothing, so there is no reason to charge it"
         );
         // The payoff is reachable. This roster authors each smash's charge

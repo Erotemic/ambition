@@ -216,7 +216,7 @@ mod tests {
             .expect("she has a down smash");
 
         // The swing, unchanged.
-        assert_eq!(down_smash.smash_charge_mult, 1.75, "still a charged smash");
+        assert_eq!(down_smash.charge_mult, 1.75, "still a charged smash");
         assert!(
             down_smash
                 .windows

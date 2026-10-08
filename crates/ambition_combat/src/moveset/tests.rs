@@ -1287,7 +1287,7 @@ fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
 }
 
 /// CM3: a fully-charged release scales the spawned hitbox's damage AND
-/// knockback by `smash_charge_mult`; `1.0` is byte-parity.
+/// knockback by `charge_mult`; `1.0` is byte-parity.
 #[test]
 fn a_charged_release_scales_the_spawned_hitbox() {
     fn charge_move(mult: f32) -> MoveSpec {
@@ -1302,7 +1302,7 @@ fn a_charged_release_scales_the_spawned_hitbox() {
                             id: "smash",
                             clip: (clip: "slash", fallbacks: ["idle"]),
                             duration_s: 0.5,
-                            smash_charge_mult: {mult},
+                            charge_mult: {mult},
                             landing_lag_s: None,
                             autocancel_after_s: None,
                             sprite_spin_hz: None,
@@ -1762,7 +1762,7 @@ fn a_forward_special_selects_the_directional_move() {
         events: vec![],
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
@@ -1815,7 +1815,7 @@ fn gesture_test_move(id: &str) -> MoveSpec {
         events: vec![],
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
@@ -1964,7 +1964,7 @@ fn lunge_facing_left(unmirrored: bool) -> (ae::Vec2, f32) {
         events: vec![],
         gates: Default::default(),
         start_impulse: Some((150.0, 0.0)),
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
@@ -4698,7 +4698,7 @@ fn uncancelable(id: &str) -> MoveSpec {
         events: vec![],
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
@@ -4996,7 +4996,7 @@ fn charging_smash() -> MoveSpec {
         events: vec![],
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: CHARGE_MULT,
+        charge_mult: CHARGE_MULT,
         move_charge: Some(ambition_entity_catalog::MoveChargeSpec {
             hold_at_s: CHARGE_HOLD_AT_S,
             max_hold_s: CHARGE_MAX_HOLD_S,
@@ -5497,7 +5497,7 @@ fn defended_move() -> MoveSpec {
         events: vec![],
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
@@ -5795,7 +5795,7 @@ fn chain_link(
         events: vec![],
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat,
@@ -6501,7 +6501,7 @@ fn a_buffered_up_special_replays_as_an_up_special_after_the_stick_centres() {
         events: vec![],
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::Smash,
         repeat: None,
@@ -6589,7 +6589,7 @@ fn a_buffered_up_special_replays_as_an_up_special_after_the_stick_centres() {
 /// ⛔⛔ A USE THAT NEVER ENTERED CHARGE MODE PAYS NOTHING, at every instant a
 /// strike could spawn.
 ///
-/// The deleted road read `smash_charge_mult` against how far the clock had run
+/// The deleted road read `charge_mult` against how far the clock had run
 /// through the leading Startup window. That sounds like a partial payoff and is
 /// not one: a strike volume only spawns INSIDE an Active window, Active begins
 /// where that Startup window ends, and the fraction clamps — so the timeline
@@ -6601,7 +6601,7 @@ fn a_buffered_up_special_replays_as_an_up_special_after_the_stick_centres() {
 fn a_move_used_without_the_smash_gesture_lands_at_unit_scale() {
     let spec = charging_smash();
     assert!(
-        spec.smash_charge_mult > 1.0,
+        spec.charge_mult > 1.0,
         "the fixture authors no payoff, so this cannot observe one being denied"
     );
     let mut pb = MovePlayback::new(spec, 1.0).charged_by_gesture(None);
@@ -7840,7 +7840,7 @@ fn charging_special() -> MoveSpec {
     // a fixture that kept one would still charge with the widening reverted —
     // the test would pass over the code it exists to defend. A shot's payoff is
     // the thing it fires; there is no melee volume for a multiplier to scale.
-    spec.smash_charge_mult = 1.0;
+    spec.charge_mult = 1.0;
     spec
 }
 
@@ -7891,14 +7891,14 @@ fn a_move_that_charges_on_special_freezes_for_a_special_press_and_not_a_smash() 
 
 /// An explicitly authored policy is enough on its own.
 ///
-/// ⛔ THE POISON: `charging_special` sets `smash_charge_mult` to `1.0`, so this
+/// ⛔ THE POISON: `charging_special` sets `charge_mult` to `1.0`, so this
 /// can only pass if `charge_policy` reads the authored policy. Revert the
 /// widening and it fails.
 #[test]
 fn an_authored_policy_charges_without_a_damage_multiplier() {
     let spec = charging_special();
     assert_eq!(
-        spec.smash_charge_mult, 1.0,
+        spec.charge_mult, 1.0,
         "the fixture pays a multiplier, so this cannot observe one being unnecessary"
     );
     let policy = spec

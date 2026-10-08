@@ -94,7 +94,7 @@ mod tests {
             "the freeze must sit inside the move"
         );
         assert!(
-            calendar.smash_charge_mult > 1.0,
+            calendar.charge_mult > 1.0,
             "holding it must buy something"
         );
     }

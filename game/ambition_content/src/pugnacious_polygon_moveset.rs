@@ -159,10 +159,10 @@ mod tests {
             "a charge that does not root him is a threat with no commitment",
         );
         assert!(
-            haymaker.smash_charge_mult > 1.0,
+            haymaker.charge_mult > 1.0,
             "charging his punch pays {}x, so holding it is strictly worse than \
              throwing it",
-            haymaker.smash_charge_mult,
+            haymaker.charge_mult,
         );
 
         // The other half of the contrast, asserted rather than described.

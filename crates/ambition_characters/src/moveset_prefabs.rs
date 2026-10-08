@@ -264,7 +264,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         },
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
@@ -407,7 +407,7 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
         }],
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
@@ -433,10 +433,10 @@ pub struct SimpleChargeParams {
     #[serde(default = "scp_knockback")]
     pub knockback: f32,
     /// CM3 smash-charge payoff: the multiplier a fully-charged release applies to
-    /// damage + knockback (`1.0 → smash_charge_mult` by charge fraction). DEFAULT
+    /// damage + knockback (`1.0 → charge_mult` by charge fraction). DEFAULT
     /// `1.0` = no scaling (parity); a smash roster authors e.g. `2.0`.
     #[serde(default = "scp_charge_mult")]
-    pub smash_charge_mult: f32,
+    pub charge_mult: f32,
     /// CM5: the release SFX cue (`None` = engine default). See
     /// [`SimpleMeleeParams::swing_sfx`].
     #[serde(default)]
@@ -482,7 +482,7 @@ impl Default for SimpleChargeParams {
             damage: scp_damage(),
             reach_px: scp_reach(),
             knockback: scp_knockback(),
-            smash_charge_mult: scp_charge_mult(),
+            charge_mult: scp_charge_mult(),
             swing_sfx: None,
             swing_vfx: None,
             hit_sfx: None,
@@ -579,7 +579,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         gates: Default::default(),
         start_impulse: None,
         // CM3: the charge move's payoff — the authored release multiplier.
-        smash_charge_mult: p.smash_charge_mult,
+        charge_mult: p.charge_mult,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,
@@ -786,7 +786,7 @@ pub fn special_move_from_spec(spec: &SpecialActionSpec) -> MoveSpec {
         events: vec![],
         gates: Default::default(),
         start_impulse: None,
-        smash_charge_mult: 1.0,
+        charge_mult: 1.0,
         move_charge: None,
         charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
         repeat: None,

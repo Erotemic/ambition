@@ -1351,7 +1351,7 @@ fn every_lateral_this_brain_emits_is_in_the_bodys_own_frame() {
 
 /// THE SMASH IS HELD, AND THAT IS WHAT MAKES IT A SMASH.
 ///
-/// `smash_charge_mult` is authored per move and paid out against how long Attack
+/// `charge_mult` is authored per move and paid out against how long Attack
 /// stays down, so a brain that only ever tapped was silently taking every
 /// fighter's strongest option at its floor. The hold rides the pending press so
 /// the situation that read the opening is the one that pays for it.

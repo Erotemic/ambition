@@ -59,7 +59,7 @@ for (const c of bundle.characters ?? []) {
     const mAt = `${at}.move[${m.id}]`;
     need(m, mAt, [
       "id", "display_name", "verbs", "clip", "duration_s", "duration_f",
-      "gates", "start_impulse", "smash_charge_mult", "charge",
+      "gates", "start_impulse", "charge_mult", "charge",
       "landing_lag_s", "autocancel_after_s", "repeat", "windows", "events", "derived",
     ]);
     need(m.gates, `${mAt}.gates`,

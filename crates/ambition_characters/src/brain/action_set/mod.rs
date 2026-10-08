@@ -943,7 +943,7 @@ fn default_ranged_refire_s() -> f32 {
 /// The ladder a held shot climbs.
 ///
 /// ⭐ THE SHOT IS THE PAYOFF, which is what makes this its own type rather than
-/// another `smash_charge_mult`. A charged melee swing pays in one number: the
+/// another `charge_mult`. A charged melee swing pays in one number: the
 /// volume it already spawns hits harder. A charged shot pays in an OBJECT — it
 /// leaves bigger, faster, and looking like a different thing — and a player has
 /// to be able to read which one is coming at them before it arrives.

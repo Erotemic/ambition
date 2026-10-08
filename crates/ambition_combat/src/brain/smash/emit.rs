@@ -10,14 +10,6 @@ use ambition_platformer2d_core as ae;
 use super::action::SpecificAction;
 use super::observation::ObservationFrame;
 
-/// Local sign-or-fallback helper — see action.rs for the rationale.
-fn signum_or(x: f32, fallback: f32) -> f32 {
-    if x.abs() < 0.001 {
-        fallback
-    } else {
-        x.signum()
-    }
-}
 
 /// Walk speed (px/s) the emitter sends when the brain commits
 /// `Walk`. Should approximately match an enemy's chase speed.
@@ -56,7 +48,7 @@ pub fn emit_inputs(
             out.locomotion = ae::LocalAxes::ZERO;
         }
         SpecificAction::Walk { dir } => {
-            let signed_dir = signum_or(dir, 0.0);
+            let signed_dir = crate::util::SignumOr::signum_or(dir, 0.0);
             // Walk = a partial throttle of the body's own top speed; its
             // tuning owns the px/s scale. (jitter-free here; intent is the throttle)
             out.locomotion =
@@ -77,7 +69,7 @@ pub fn emit_inputs(
             // `resolve_burst_maneuver` what a press would MEAN on this body
             // first; nothing in the smash brain does, which is why dropping the
             // press is the correct shape and not a lost capability.
-            let signed_dir = signum_or(dir, 0.0);
+            let signed_dir = crate::util::SignumOr::signum_or(dir, 0.0);
             out.locomotion = ae::LocalAxes::new(signed_dir, 0.0);
             if signed_dir.abs() > 0.001 {
                 out.facing = signed_dir;
@@ -98,7 +90,7 @@ pub fn emit_inputs(
             // Face along the attack axis (x component).
             let axis_x = dir.x;
             if axis_x.abs() > 0.001 {
-                out.facing = signum_or(axis_x, out.facing);
+                out.facing = crate::util::SignumOr::signum_or(axis_x, out.facing);
             }
         }
         SpecificAction::RangedAttack { dir } => {

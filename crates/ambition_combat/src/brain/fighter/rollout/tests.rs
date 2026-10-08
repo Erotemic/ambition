@@ -1291,3 +1291,57 @@ fn the_shadow_models_exactly_these_movement_verbs() {
     );
 }
 
+
+/// ⭐ MIRROR-SYMMETRY (Q49): THE SHADOW OF A REFLECTED SCENE IS THE REFLECTED
+/// SHADOW, ALSO WHEN THE TWO BODIES STAND AT ONE X. Two stacked bodies have no
+/// side toward each other, so an approach, a dash and an attack start give no
+/// side either. `f32::signum(0.0)` is `+1`: both the scene and its reflection
+/// drove toward `+side`, so the two shadows parted.
+///
+/// The scene: both bodies at x 400, the viewer facing right and the foe
+/// left; its reflection about x 400 faces each the other way. The control: the
+/// same verbs with the foe 60 px to the side, where the shadows part only by
+/// the reflection.
+#[test]
+fn the_shadow_of_a_reflected_scene_is_the_reflected_shadow() {
+    use ambition_characters::brain::fighter::options::MovementVerb;
+    let parted = |foe_offset: f32| -> Vec<String> {
+        let scene = |reflected: bool| {
+            let sign = if reflected { -1.0 } else { 1.0 };
+            let mut s = state(400.0, 400.0 + sign * foe_offset);
+            s.me.facing = sign;
+            s.foe.facing = -sign;
+            s
+        };
+        let tuning = ShadowTuning::default();
+        let mut parted = Vec::new();
+        let intents: [(&str, Box<dyn Fn(&ShadowState) -> ShadowIntent>); 3] = [
+            ("approach", Box::new(|s: &ShadowState| movement_intent(MovementVerb::Approach, s).expect("modelled"))),
+            ("dash", Box::new(|s: &ShadowState| movement_intent(MovementVerb::Dash, s).expect("modelled"))),
+            ("attack", Box::new(|_: &ShadowState| ShadowIntent::StartAttack)),
+        ];
+        for (name, intent) in intents {
+            let (mut a, mut b) = (scene(false), scene(true));
+            let (ia, ib) = (intent(&a), intent(&b));
+            for _ in 0..20 {
+                shadow_step(&mut a, DT, &ia, &ShadowIntent::Hold, &tuning);
+                shadow_step(&mut b, DT, &ib, &ShadowIntent::Hold, &tuning);
+            }
+            let reflected = (a.me.pos.x - 400.0 + (b.me.pos.x - 400.0)).abs() < 1e-3
+                && (a.me.facing + b.me.facing).abs() < 1e-6
+                && (a.foe.pos.x - 400.0 + (b.foe.pos.x - 400.0)).abs() < 1e-3;
+            if !reflected {
+                parted.push(format!(
+                    "{name}: me x {} against {}, facing {} against {}",
+                    a.me.pos.x, b.me.pos.x, a.me.facing, b.me.facing
+                ));
+            }
+        }
+        parted
+    };
+    assert_eq!(
+        (parted(0.0), parted(60.0)),
+        (Vec::<String>::new(), Vec::<String>::new()),
+        "(stacked, 60 px apart): the verbs whose shadow and reflected shadow parted"
+    );
+}

@@ -20,6 +20,7 @@
 //! stands on now has an EXTENT ([`ShadowFighter::ground_span`]); everything above it remains
 //! omitted.
 
+use crate::util::SignumOr as _;
 use ambition_entity_catalog::MoveFrameData;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::hit_response::{self, HitKnockback, HitKnockbackMagnitude};
@@ -310,7 +311,9 @@ pub fn shadow_step(
     advance_phase(&mut s.foe, dt, tuning);
 
     // 2 — intents (only an Idle body has authority), then integration.
-    let toward_foe = (s.foe.pos - s.me.pos).dot(frame.side).signum();
+    // No side at zero: `f32::signum(0.0)` is `+1`, so two stacked bodies would
+    // both turn toward `+side`, and a mirrored pair would stop being mirrored.
+    let toward_foe = (s.foe.pos - s.me.pos).dot(frame.side).signum_or(0.0);
     apply_intent(
         &mut s.me, my_intent, toward_foe, frame.side, down, tuning, dt,
     );
@@ -543,7 +546,8 @@ fn apply_intent(
             }
         }
         ShadowIntent::StartAttack => {
-            f.facing = if toward_opponent < 0.0 { -1.0 } else { 1.0 };
+            // With no side to the opponent, the body keeps its facing.
+            f.facing = toward_opponent.signum_or(f.facing);
             f.shield_raised = false;
             f.phase = ShadowPhase::Committed {
                 phase: BodyPhase::AttackStartup,
@@ -558,7 +562,8 @@ fn apply_intent(
             }
         }
         ShadowIntent::StartMove { frames } => {
-            f.facing = if toward_opponent < 0.0 { -1.0 } else { 1.0 };
+            // With no side to the opponent, the body keeps its facing.
+            f.facing = toward_opponent.signum_or(f.facing);
             f.shield_raised = false;
             // The move's authored self-motion, applied EXACTLY as the real
             // trigger seam does (`trigger_moveset_moves`): body-local,
@@ -797,7 +802,7 @@ pub fn predicted_foe_intent(
     // The foe's "toward my opponent" sense, resolved against live geometry so
     // "approach" keeps meaning approach after a crossup. `Drive.lateral` is
     // always world-frame `side` units.
-    let toward_me = (state.me.pos - state.foe.pos).dot(frame.side).signum();
+    let toward_me = (state.me.pos - state.foe.pos).dot(frame.side).signum_or(0.0);
     if let Some((choice, frequency)) = habits.read(situation) {
         let uniform = 1.0 / Choice::ALL.len() as f32;
         if frequency > uniform {
@@ -897,7 +902,7 @@ fn rollout_value(
     let mut s = start.clone();
     if let Some(frames) = candidate {
         let frame = ae::AccelerationFrame::new(s.gravity_down);
-        let toward = (s.foe.pos - s.me.pos).dot(frame.side).signum();
+        let toward = (s.foe.pos - s.me.pos).dot(frame.side).signum_or(0.0);
         apply_intent(
             &mut s.me,
             &ShadowIntent::StartMove {
@@ -1228,7 +1233,7 @@ fn movement_intent(
 ) -> Option<ShadowIntent> {
     use ambition_characters::brain::fighter::options::MovementVerb;
     let frame = ae::AccelerationFrame::new(start.gravity_down);
-    let toward = (start.foe.pos - start.me.pos).dot(frame.side).signum();
+    let toward = (start.foe.pos - start.me.pos).dot(frame.side).signum_or(0.0);
     Some(match verb {
         MovementVerb::Approach => ShadowIntent::Drive { lateral: toward },
         MovementVerb::Dash => ShadowIntent::Dash { lateral: toward },
@@ -1243,7 +1248,7 @@ fn movement_intent(
                 + start.stage.bounds.max.dot(frame.side))
                 * 0.5
                 - start.me.pos.dot(frame.side))
-            .signum(),
+            .signum_or(0.0),
         },
         // ⭐⭐ SHIELD IS MODELLED, AND IT IS A MODEL RATHER THAN A GUESS. A body
         // that raises its guard SETTLES: the real sim brakes it, and its own

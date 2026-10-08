@@ -14,16 +14,6 @@ use ambition_characters::brain::action_set::ActionSet;
 use ambition_characters::brain::smash::BroadMode;
 use ambition_characters::brain::smash::SmashCfg;
 
-/// Local replacement for the `SignumOr` trait that lives in
-/// `content::features::util` with restrictive visibility. The brain
-/// module can't see that trait, so we inline the one-line helper.
-fn signum_or(x: f32, fallback: f32) -> f32 {
-    if x.abs() < 0.001 {
-        fallback
-    } else {
-        x.signum()
-    }
-}
 
 /// Concrete action the actor will commit this tick. Each variant
 /// carries the parameters [`emit_inputs`] needs to translate into
@@ -171,7 +161,7 @@ pub fn choose_action(
                 // at point-blank cross-up range inside the facing/run alignment band —
                 // otherwise the swing would face the held direction and whiff when the
                 // foe crosses to the other side. Facing can hold; the strike tracks.
-                let toward_side = signum_or(obs.to_target_side(), obs.self_facing);
+                let toward_side = crate::util::SignumOr::signum_or(obs.to_target_side(), obs.self_facing);
                 return SpecificAction::MeleeAttack {
                     dir: obs.side_axis() * toward_side,
                 };
@@ -219,8 +209,8 @@ pub fn choose_action(
                 // Allies stacked exactly on top — no usable direction.
                 return SpecificAction::Idle;
             }
-            let away_dir_x = signum_or(obs.crowding.away_dir.x, 0.0);
-            let toward_target_x = signum_or(obs.to_target_x, 0.0);
+            let away_dir_x = crate::util::SignumOr::signum_or(obs.crowding.away_dir.x, 0.0);
+            let toward_target_x = crate::util::SignumOr::signum_or(obs.to_target_x, 0.0);
             if away_dir_x.abs() < 0.001 || toward_target_x.abs() < 0.001 {
                 return SpecificAction::Idle;
             }
@@ -238,7 +228,7 @@ pub fn choose_action(
         BroadMode::Recover => {
             // Stub: walk toward the target's x as a "return to
             // stage" pseudo-recovery until ledge data is wired.
-            let dir = signum_or(obs.to_target_x, 0.0);
+            let dir = crate::util::SignumOr::signum_or(obs.to_target_x, 0.0);
             SpecificAction::Walk { dir }
         }
     }

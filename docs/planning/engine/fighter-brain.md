@@ -204,16 +204,25 @@ only so that CPUs look different is not allowed.
   `apply_movement`'s `side_toward` removed, so `signum(0.0) = +1` chose the
   side; all three stacked scenes failed on `locomotion.x` at tick 0. No
   defect was found: the decision layer reflects in every scene.
-  Not witnessed: the raw `signum` sites in `rollout.rs` (lines that take
-  `toward` from a zero lateral) gave no asymmetry in these scenes, so either
-  the scenes do not reach them at zero or the result does not change the
-  chosen option. A scene that reaches them is still to find.
+  The raw `signum` sites in `rollout.rs` gave no asymmetry in these scenes:
+  the chosen options did not depend on them. The shadow model has its own
+  reflection test since 2026-10-08 (see the next item).
+- `brain/fighter/rollout/tests.rs`,
+  `the_shadow_of_a_reflected_scene_is_the_reflected_shadow` (2026-10-08): two
+  stacked bodies and the reflected scene, stepped with an approach, a dash
+  and an attack start. It found a defect: with `signum(0.0) = +1` both
+  shadows drove to `+side` (x 490 against 490) and both attack starts turned
+  to face `+side`. Every lateral sign in the brain now asks one rule,
+  `ambition_combat::util::SignumOr` (zero gives no side, and an attack start
+  keeps its facing); the two local copies in `brain/smash` are deleted.
+  Control: the same verbs with the foe 60 px to the side.
 
 **Known asymmetry sources (not yet triaged; each is a defect in a Noether
 scene or an authored rule that must be named):**
 
 - `f32::signum(0.0) = +1` where a zero lateral distance or velocity picks a side
-  (`brain/fighter/decision.rs`, `brain/fighter/rollout.rs`).
+  (`brain/fighter/decision.rs`, `brain/fighter/rollout.rs`). Fixed 2026-10-08
+  in both: they ask `util::SignumOr` (see Coverage).
 - `brain/smash/mod.rs`, perch side: falls back to `toward` only near zero, else
   an absolute `cross.signum()` from a seed phase.
 - Grab contention: `capture/systems.rs` breaks a same-tick tie by `SimId`.

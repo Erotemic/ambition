@@ -1182,14 +1182,10 @@ fn apply_movement(
     let frame_axes = view.self_view.acceleration_frame();
     // `f32::signum(0.0)` is `1.0`, not `0.0` — so a delta that lies exactly along the
     // body's gravity axis (nothing to the side at all) would come back as FULL THROTTLE
-    // sideways. The deadzone is the same one `smash/emit.rs::signum_or` uses.
+    // sideways. The deadzone is the crate's one (`util::SignumOr`), which the
+    // shadow model asks too.
     let side_toward = |world_delta: Vec2| {
-        let side = frame_axes.to_local(world_delta).x;
-        if side.abs() < 0.001 {
-            0.0
-        } else {
-            side.signum()
-        }
+        crate::util::SignumOr::signum_or(frame_axes.to_local(world_delta).x, 0.0)
     };
     let toward = view
         .nearest_hostile()

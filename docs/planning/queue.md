@@ -848,8 +848,9 @@ comes only from modelled asymmetric facts.
 
 **Current failure:** the Emmy test compares positions only, accepts a break at
 the first grab, and asks only 1.5x the ordinary rate; known asymmetry sources
-(a left-first recovery search, a 69% seat-0 term, the zero-lateral `signum`
-sites in `rollout.rs`) are untriaged. The two `SimId` tie-breaks are triaged
+(a left-first recovery search, a 69% seat-0 term) are untriaged. The
+zero-lateral `signum` sites in `rollout.rs` were a defect, fixed 2026-10-08
+(`the_shadow_of_a_reflected_scene_is_the_reflected_shadow`). The two `SimId` tie-breaks are triaged
 (plan item 4, 2026-10-08): the grab tie is an authored rule with a fixture,
 and the target tie is not reachable with one foe. The decision
 layer has its reflection test (plan item 3, 2026-10-08), and it found no

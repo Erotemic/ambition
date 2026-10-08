@@ -190,6 +190,9 @@ pub fn collect_ecs_pickups(
     mut sfx: SfxWriter,
     mut vfx: VfxWriter,
     mut set_flag: MessageWriter<SetFlagRequested>,
+    // A quest step `ItemCollected(id)` names a pickup by its placement id, and
+    // this is the one place a pickup is collected.
+    mut quest_advance: MessageWriter<ambition_persistence::quest::QuestAdvanceRequested>,
     (mut owned, items): (Option<ResMut<ambition_items::OwnedItems>>, ambition_items::ItemCatalogRead),
     // The tie-break's authority. Read through a lookup rather than joined onto
     // the collector query so a body without one still competes on distance —
@@ -236,6 +239,9 @@ pub fn collect_ecs_pickups(
             continue;
         };
         commands.entity(entity).insert(Collected);
+        quest_advance.write(ambition_persistence::quest::QuestAdvanceRequested(
+            ambition_persistence::quest::QuestAdvanceEvent::ItemCollected(pickup.pickup.id.clone()),
+        ));
         // Q152: a pickup authored to regrow counts its regrowth down, as a
         // broken breakable counts its respawn (`world_time_schedule`).
         if let ambition_entity_catalog::placements::HazardRespawn::AfterSeconds(seconds) =

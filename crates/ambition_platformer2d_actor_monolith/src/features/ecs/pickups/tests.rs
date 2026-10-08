@@ -47,6 +47,7 @@ fn collect_marks_only_the_overlapping_pickup() {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<SetFlagRequested>();
+    app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
     app.add_systems(Update, collect_ecs_pickups);
 
     let center = ae::Vec2::new(64.0, 64.0);
@@ -74,6 +75,7 @@ fn currency_pickup_credits_the_player_wallet() {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<SetFlagRequested>();
+    app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
     app.add_systems(Update, collect_ecs_pickups);
 
     let center = ae::Vec2::new(64.0, 64.0);
@@ -124,6 +126,7 @@ fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<SetFlagRequested>();
+    app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
     app.add_systems(Update, collect_ecs_pickups);
 
     let center = ae::Vec2::new(64.0, 64.0);
@@ -170,6 +173,7 @@ fn collect_is_a_noop_with_no_player() {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<SetFlagRequested>();
+    app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
     app.add_systems(Update, collect_ecs_pickups);
 
     let pickup = health_pickup_at(&mut app, "hp", ae::Vec2::new(64.0, 64.0));
@@ -341,6 +345,7 @@ mod who_gets_it {
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
         app.add_message::<SetFlagRequested>();
+        app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
         app.add_systems(Update, collect_ecs_pickups);
 
         let ring = ae::Vec2::new(64.0, 64.0);
@@ -409,6 +414,7 @@ mod who_gets_it {
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxInRoom>();
         app.add_message::<SetFlagRequested>();
+        app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
         app.add_systems(Update, collect_ecs_pickups);
 
         let ring = ae::Vec2::new(64.0, 64.0);
@@ -545,6 +551,7 @@ fn a_body_in_sideways_gravity_collects_the_pickup_its_own_box_touches() {
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
     app.add_message::<SetFlagRequested>();
+    app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
     app.add_systems(Update, collect_ecs_pickups);
 
     let center = ae::Vec2::new(64.0, 64.0);
@@ -565,5 +572,38 @@ fn a_body_in_sideways_gravity_collects_the_pickup_its_own_box_touches() {
     assert!(
         app.world().get::<Collected>(beside).is_none(),
         "the pickup beside the body is not in its box, and the body must not collect it"
+    );
+}
+
+/// A collected pickup reports `QuestAdvanceEvent::ItemCollected` with its
+/// placement id, the id a quest step names and the content validator accepts.
+/// A pickup the body does not touch reports nothing. Before this, no system
+/// wrote `ItemCollected`, so a validated quest step on a pickup never advanced.
+#[test]
+fn a_collected_pickup_reports_its_id_to_the_quests() {
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.add_message::<PlayerHealRequested>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<VfxInRoom>();
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<ambition_persistence::quest::QuestAdvanceRequested>();
+    app.add_systems(Update, collect_ecs_pickups);
+
+    let center = ae::Vec2::new(64.0, 64.0);
+    player_at(&mut app, center);
+    health_pickup_at(&mut app, "hp_near", center);
+    health_pickup_at(&mut app, "hp_far", ae::Vec2::new(1000.0, 1000.0));
+
+    app.update();
+
+    let messages = app
+        .world()
+        .resource::<bevy::ecs::message::Messages<ambition_persistence::quest::QuestAdvanceRequested>>();
+    let reported: Vec<_> = messages.iter_current_update_messages().map(|request| request.0.clone()).collect();
+    assert_eq!(
+        reported,
+        vec![ambition_persistence::quest::QuestAdvanceEvent::ItemCollected("hp_near".into())],
+        "the quest events of one update: the collected pickup only"
     );
 }

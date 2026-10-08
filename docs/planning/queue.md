@@ -368,9 +368,11 @@ second authoring source.
   LDtk entities for a quest target now; `authored_flag_ids`,
   `authored_npc_ids`, `authored_pickup_ids` and `authored_entity_iids` are
   deleted. <!-- cite-ok: records deleted functions -->
-  Open: `QuestStepCondition::ItemCollected` has no producer of its event in
-  the tree (a search for `ItemCollected` over `.rs`, `.ron` and `.yarn`), and
-  no shipped quest uses it. The cutscene bindings still read `active_area_ids`
+  ✅ 2026-10-08, `QuestStepCondition::ItemCollected` had no producer of its
+  event, so the validator accepted a step on a pickup that could not advance.
+  `collect_ecs_pickups` writes `ItemCollected(pickup id)`, the placement id
+  the validator reads (`a_collected_pickup_reports_its_id_to_the_quests`).
+  No shipped quest uses it. Open: the cutscene bindings still read `active_area_ids`
   from the project; that is the level-by-level read the two-per-room rule
   needs.
   ✅ 2026-10-07, `scripts/check_world_graph_is_navigable.py` read the zone
@@ -744,10 +746,12 @@ root, as George's facet does.
 **Ruling:** Q49 (2026-10-04): symmetry is a correctness property; variation
 comes only from modelled asymmetric facts.
 
-**Current failure:** the Emmy test compares positions only, accepts a break at
-the first grab, and asks only 1.5x the ordinary rate; known asymmetry sources
-(the 69% seat-0 term) is untriaged; the left-first recovery search is
-triaged (no decision reads the order). The
+**Current failure:** the 69% seat-0 term is untriaged, and no poison of
+plan item 5 has been run against the per-tick test. Built 2026-10-08: the
+Emmy test compares the full state per tick
+(`two_emmys_are_one_fighter_reflected_until_the_first_grab`); two Emmys part
+first on frame 883, when one grab dash takes the other (the grab tie). The
+left-first recovery search is triaged (no decision reads the order). The
 zero-lateral `signum` sites in `rollout.rs` were a defect, fixed 2026-10-08
 (`the_shadow_of_a_reflected_scene_is_the_reflected_shadow`). The two `SimId` tie-breaks are triaged
 (plan item 4, 2026-10-08): the grab tie is an authored rule with a fixture,

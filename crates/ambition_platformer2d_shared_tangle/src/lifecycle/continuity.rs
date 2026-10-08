@@ -898,11 +898,10 @@ impl OccurrenceBaseline {
 /// checkpoint captured. See [`AuthoredOccurrences::compact_ended_mints`].
 pub fn compact_ended_mints_at_checkpoint(
     mut commits: bevy::prelude::MessageReader<super::CheckpointCommitted>,
-    // Required: `LifecycleCheckpointHorizonPlugin` installs the ledger in the
-    // same `build` that schedules this system.
     mut occurrences: ResMut<AuthoredOccurrences>,
 ) {
-    // Drained unconditionally, like every reader of this channel.
+    // Drained unconditionally, like every reader of this channel. The ledger is
+    // required: the plugin that adds this system installs it.
     let committed = commits.read().count() > 0;
     if committed {
         occurrences.compact_ended_mints();

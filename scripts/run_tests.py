@@ -272,6 +272,11 @@ class Job:
     # default for safety and the right one for honesty: anything else would
     # silently claim knowledge about jobs nobody has classified.
     builds: bool = False
+    #: Set when the plan already knows this job cannot run on this machine (a
+    #: missing toolchain target): the remedy. The job is not executed, and it is
+    #: recorded as `unrunnable`, so the run is NOT RUN for it and not `done`.
+    #: A job that is left out of the plan instead cannot show in any receipt (Q59).
+    missing: str | None = None
 
 
 @dataclass
@@ -903,34 +908,26 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # dependency graph, once), 26 s warm. That is the price of not finding a whole build target
     # broken by accident; the LINK's price (a release wasm artifact) is not, and its failure
     # class (a missing wasm feature dying at `rust-lld`) has not recurred.
-    if not only and wasm_target_installed():
+    # ⛔ A machine without wasm32 still PLANS the web jobs, as unrunnable. When
+    # they were left out of the plan, the run wrote `done` and the reader said
+    # every job passed, while the web build was not checked (Q59).
+    no_wasm = (None if wasm_target_installed() else
+               "the wasm32-unknown-unknown target is not installed: "
+               "`rustup target add wasm32-unknown-unknown`")
+    if not only:
         jobs.append(Job(
             "web build check [web_served_assets]",
             [CARGO, "check", "-p", "ambition_app", "--lib",
              "--target", "wasm32-unknown-unknown",
-             "--no-default-features", "--features", "web_served_assets"]))
-    elif not only:
-        # ⛔ SAY IT WHERE THE PLAN IS MADE. The LINK branch below has always
-        # warned when the target is missing; this one did not, so a machine
-        # without wasm32 planned no web job, passed everything, and printed a
-        # footer claiming the wasm CHECK ran.
-        print("run_tests: SKIPPING the web build CHECK — the "
-              "wasm32-unknown-unknown target is not installed "
-              "(`rustup target add wasm32-unknown-unknown`). "
-              "The web build is UNCHECKED in this run, and a #[cfg] break on "
-              "that target is invisible to every other job.")
+             "--no-default-features", "--features", "web_served_assets"],
+            missing=no_wasm))
     if not only and everything:
-        if wasm_target_installed():
-            jobs.append(Job(
-                "web build LINK [web, release]",
-                [CARGO, "build", "-p", "ambition_app", "--lib", "--release",
-                 "--target", "wasm32-unknown-unknown",
-                 "--no-default-features", "--features", "web"]))
-        else:
-            print("run_tests: SKIPPING the web build LINK — the "
-                  "wasm32-unknown-unknown target is not installed "
-                  "(`rustup target add wasm32-unknown-unknown`). "
-                  "The web build is UNCHECKED in this run.")
+        jobs.append(Job(
+            "web build LINK [web, release]",
+            [CARGO, "build", "-p", "ambition_app", "--lib", "--release",
+             "--target", "wasm32-unknown-unknown",
+             "--no-default-features", "--features", "web"],
+            missing=no_wasm))
 
     # Compile/link checks do not prove the web persona can boot. Step the web
     # composition natively under `visible_web_base`; `web_served_assets` also
@@ -2433,7 +2430,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         print(coverage_notice(
             exhaustive, filtered, rust_only, tool_tests_only, maintenance_only,
             rust_alone=rust_alone,
-            web_check_planned=any("web build check" in j.name for j in jobs),
+            web_check_planned=any("web build check" in j.name and not j.missing for j in jobs),
             run_scope=scope,
         ))
         return 0
@@ -2584,6 +2581,10 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     aborted_on_disk: str | None = dropped_for_disk[0] if dropped_for_disk else None
     try:
         for j in jobs:
+            if j.missing:
+                print(f"\033[33m    INCOMPLETE ({j.name}) — {j.missing}\033[0m")
+                results.append(JobResult(j.name, j.argv, False, 0.0, None, j.missing))
+                continue
             # ⛔⛔ CHECK THE DISK BETWEEN JOBS, NOT ONLY BEFORE THE FIRST.
             #
             # The up-front refusal above is the one that gets read; it is also
@@ -2680,7 +2681,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     notice = coverage_notice(
         exhaustive, filtered, rust_only, tool_tests_only, maintenance_only,
         rust_alone=rust_alone,
-        web_check_planned=any("web build check" in j.name for j in jobs),
+        web_check_planned=any("web build check" in j.name and not j.missing for j in jobs),
         run_scope=scope,
     )
     if notice:

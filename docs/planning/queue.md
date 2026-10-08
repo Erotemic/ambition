@@ -1026,8 +1026,14 @@ reads cargo output to it.
 4. **`NOT RUN` is a first-class receipt state** (Q59 ruling, 2026-10-03). A
    ledger or receipt must tell PASS, FAIL, "not run, not required now" and "not
    run, required at this boundary" apart; a gate blocks only where its policy
-   requires it at the current boundary. Next: find the receipts that collapse a
-   lane that did not run into PASS or FAIL, and give each lane its cadence in
+   requires it at the current boundary. Two collapses repaired (2026-10-08):
+   `last_test_run.py` read a `--only-job` status as the lane's PASS (it now
+   says `NOT RUN: n of the lane's m job(s)` and exits 2; a FAIL in the
+   selection still exits 1), and a full gate on a machine without
+   `wasm32-unknown-unknown` dropped the web check from the plan and wrote
+   `done` (it is now planned as unrunnable, `Job.missing`, so the run is
+   `incomplete`). Next: the receipts outside `run_tests.py` (the commit
+   messages and queue rows that quote a lane), and each lane's cadence in
    [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence).
 
 5. **A sync test did not see an effect that only the first run of a frame

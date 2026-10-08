@@ -56,7 +56,6 @@ fn grid_app() -> App {
     app.init_resource::<ambition_platformer2d::actors::session::host_intents::HostIntentLedger<ambition_platformer2d::actors::session::reset::NewGameRequested>>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<bevy::app::AppExit>();
-    app.add_observer(grid_menu_pointer_hover);
     // nav PUBLISHES activations now, so a harness that registers nav without
     // the consumer would silently swallow every keyboard select — the exact
     // failure the one-event convergence exists to make impossible. Chained, so
@@ -604,7 +603,7 @@ fn up_from_non_top_row_stays_in_body() {
     );
 }
 
-use crate::menu::test_support::{spawn_control, trigger_over};
+use crate::menu::test_support::trigger_over;
 use ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuTab;
 use ambition_platformer2d::menu::AmbitionMenuControl;
 
@@ -896,57 +895,75 @@ fn open_routing_lands_on_mapped_tab() {
     assert_eq!(active_tab(&app), MenuPage::Map);
 }
 
-/// Spawn a hoverable control and fire a `Pointer<Over>` at it (the exact
-/// event a republish synthesizes under a stationary mouse).
-fn hover_control(app: &mut App, action: MenuPageAction) {
-    let entity = spawn_control(app, action);
-    // The observer fires synchronously; avoid `app.update()` so open routing
-    // does not reseed the cursor before the assertion.
-    trigger_over(app, entity);
+/// ⭐ Q70, THE SHIPPED INSTALL: the Grid backend observes no pointer hover, so
+/// no hover can write its cursor. The arm below composes its systems by hand
+/// and cannot see an observer the install adds; this one asks the install.
+/// The control is the install's press observers, which are counted.
+#[test]
+fn the_grid_install_observes_no_pointer_hover() {
+    use bevy::picking::events::{Over, Pointer, Press};
+
+    let mut app = App::new();
+    install_grid_unified_menu(&mut app);
+    let world = app.world_mut();
+    let over = world.register_event_key::<Pointer<Over>>();
+    let press = world.register_event_key::<Pointer<Press>>();
+    let watching = |world: &mut World, key| {
+        world
+            .query::<&bevy::ecs::observer::Observer>()
+            .iter(world)
+            .filter(|observer| observer.descriptor().event_keys().contains(&key))
+            .count()
+    };
+    assert!(watching(world, press) > 0, "control: the install observes presses, so the census sees its observers");
+    assert_eq!(watching(world, over), 0, "the Grid install observes a pointer hover; a hover must not move the cursor (Q70)");
 }
 
-/// Without the gate, every arrow-key move rebuilt the menu → fired `Over` → snapped the cursor
-/// back to the mouse.
+/// ⭐ Q70: A HOVER IS A THIRD STATE, NOT A CURSOR MOVE.
+///
+/// A genuine mouse hovers a row other than the one the cursor is on: the
+/// cursor stays where it was (the renderer draws the hover itself, from
+/// `Interaction`). The control is the same row pressed: it still equips.
 #[test]
-fn hover_is_gated_on_active_input_being_mouse() {
+fn a_hover_over_a_grid_row_leaves_the_cursor_and_a_press_still_activates_it() {
     use ambition_platformer2d::input::{ActiveDevice, SeatActiveDevices};
-    use ambition_platformer2d::items::Item;
 
-    let mut app = grid_app();
-    // Open the menu so the hover handler's `overlay.visible` guard passes.
+    let mut app = render_app();
+    let axe = Item::from_index(1).unwrap();
+    app.world_mut().resource_mut::<OwnedItems>().grant(ambition_platformer2d::items::builtin_item_catalog(), axe, 1);
     set_frame(&mut app, |f| f.inventory = true);
     app.update();
-
-    // Park the keyboard cursor on a known item, then drop the active source
-    // onto Keyboard — the exact state during arrow-key navigation.
+    set_frame(&mut app, |_| {});
+    app.update();
+    app.update();
     let parked = MenuFocus::Item(Item::ALL[0].index());
-    app.world_mut()
-        .resource_mut::<KaleidoscopeCursor>()
-        .mark_keyboard(parked);
-    app.world_mut()
-        .resource_mut::<SeatActiveDevices>()
-        .mark_primary(ActiveDevice::Keyboard);
-
-    // A republish-style `Over` on a DIFFERENT item must NOT move the cursor.
-    let other = Item::ALL[1];
-    hover_control(&mut app, MenuPageAction::Equip(other));
-    assert_eq!(
-        app.world().resource::<KaleidoscopeCursor>().focus(),
-        parked,
-        "an Over while on the keyboard is ignored — no snap-back"
-    );
-
-    // Now a GENUINE mouse move would set active=Mouse; the same Over then
-    // takes ownership and moves the cursor onto the hovered item.
+    app.world_mut().resource_mut::<KaleidoscopeCursor>().mark_keyboard(parked);
     app.world_mut()
         .resource_mut::<SeatActiveDevices>()
         .mark_primary(ActiveDevice::Mouse);
-    hover_control(&mut app, MenuPageAction::Equip(other));
+    let axe_ctrl = {
+        let mut q = app
+            .world_mut()
+            .query::<(Entity, &AmbitionMenuControl<MenuPageAction>)>();
+        q.iter(app.world())
+            .find(|(_, c)| matches!(c.action, Some(MenuPageAction::Equip(i)) if i == axe))
+            .map(|(e, _)| e)
+            .expect("Axe equip control spawned")
+    };
+    assert_ne!(parked, MenuFocus::Item(axe.index()), "premise: the hover is over another row");
+
+    trigger_over(&mut app, axe_ctrl);
+    app.world_mut().entity_mut(axe_ctrl).insert(Interaction::Hovered);
+    app.update();
     assert_eq!(
         app.world().resource::<KaleidoscopeCursor>().focus(),
-        MenuFocus::Item(other.index()),
-        "with active=Mouse a genuine hover moves the cursor"
+        parked,
+        "a hover moved the Grid cursor"
     );
+
+    press_interaction(&mut app, axe_ctrl);
+    app.update();
+    assert_eq!(equipped_in_hand(&mut app), Some(axe), "control: a press on the row still activates it");
 }
 
 // ---- Features C/D: Grid independent scroll (mouse wheel + scrollbar drag) ----
@@ -1088,8 +1105,8 @@ fn grid_override_survives_hover_and_clears_on_keyboard() {
     app.update();
     assert_eq!(grid_window_start(&app), Some(1), "wheel set an override");
 
-    // A hover (cursor-follow) moves the CURSOR but, with the override set, the
-    // EFFECTIVE window stays at the override — hovering does not scroll the list.
+    // A cursor move (here a keyboard mark) with the override set leaves the
+    // EFFECTIVE window at the override: the list does not scroll.
     app.world_mut()
         .resource_mut::<ambition_platformer2d::input::SeatActiveDevices>()
         .mark_primary(ambition_platformer2d::input::ActiveDevice::Mouse);

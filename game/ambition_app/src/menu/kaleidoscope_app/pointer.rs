@@ -80,9 +80,8 @@ pub(crate) fn kaleidoscope_pointer_move(
     // feature is COMPILED rather than when the cube is selected, and a grid menu
     // control carries the same `AmbitionMenuControl<MenuPageAction>` this query
     // matches. ⇒ With the flat backend active, a mouse move over a GRID row
-    // reached here and wrote the shared cursor with `owner = Pointer` while
-    // `grid_menu_pointer_hover` — which DOES carry the test — was writing it with
-    // `owner = Keyboard`.
+    // reached here and wrote the shared cursor with `owner = Pointer`. (A grid
+    // hover moves no cursor at all: hover is a presentation state, Q70.)
     //
     // ⚠ BELOW THE DRAG-CANCEL ABOVE, DELIBERATELY. A press can only have been
     // armed while this backend was active and open (the press observer's own

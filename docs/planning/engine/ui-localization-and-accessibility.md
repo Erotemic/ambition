@@ -128,8 +128,12 @@ Current shape (flat `bevy_ui` renderer, `ambition_menu/src/render/bevy_ui/`):
 - The launcher does not read `MenuActionPreviewed`. A hover does not move
   `ShellLauncherState::selected`; a click still activates the pointed row.
 
-Open: the in-game Grid menu still moves its cursor on hover (queue row
-MENU-HOVER).
+- The in-game Grid menu has no hover writer of its cursor (2026-10-08): the
+  observer that moved `KaleidoscopeCursor` on `Pointer<Over>` is deleted, so
+  a hover is drawn by the renderer and a press still activates the row.
+  Witnesses: `the_grid_install_observes_no_pointer_hover` (the shipped
+  install; control: its press observers are counted) and
+  `a_hover_over_a_grid_row_leaves_the_cursor_and_a_press_still_activates_it`.
 
 Tests set `Interaction` directly only in a crate-level harness. In a fully
 assembled Bevy host, the UI focus system rewrites `Interaction` from the real

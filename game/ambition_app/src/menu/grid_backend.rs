@@ -19,7 +19,7 @@ use ambition_platformer2d::menu::render::bevy_ui::{
     BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
 use ambition_platformer2d::menu::{
-    ActiveMenuPages, AmbitionMenuControl, MenuActionActivated, MenuFocusKey, MenuNode, MenuRect,
+    ActiveMenuPages, MenuActionActivated, MenuFocusKey, MenuNode, MenuRect,
     MenuTabActivated,
 };
 
@@ -1101,63 +1101,11 @@ pub(crate) fn grid_menu_tab_activated(
     }
 }
 
-/// Hover: move the cursor onto the hovered control (so keyboard + pointer agree).
-///
-/// Gated on the machine's active device being `Mouse`: the menu republishes (despawn + respawn
-/// its controls) on every cursor move, and a fresh control spawning under a STATIONARY mouse
-/// makes `bevy_ui` picking fire a `Pointer<Over>`. A GENUINE mouse move marks `Mouse` first
-/// (see `update_seat_active_devices`), so real hovering still works; only the rebuild-induced
-/// `Over` is ignored. Activation itself comes from Bevy UI's shared `Interaction` bridge and is
-/// independent of this hover ownership gate.
-pub(crate) fn grid_menu_pointer_hover(
-    over: On<Pointer<Over>>,
-    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
-    devices: Res<ambition_platformer2d::input::SeatActiveDevices>,
-    controls: Query<&AmbitionMenuControl<MenuPageAction>>,
-    settings: Res<UserSettings>,
-    quality_confirm: Res<VisualQualityConfirmState>,
-    system: SystemMenuParams,
-    // ⭐ `GridMenuTabState` IS GONE FROM THIS SIGNATURE, not renamed away: the
-    // hover handler took it for the active tab alone, and the tab is derived from
-    // `pages` now. A collapse that leaves the old resource threaded through
-    // unused has not finished.
-    system_nav: Res<KaleidoscopeSystemNav>,
-    mut cursor: ResMut<KaleidoscopeCursor>,
-) {
-    // Backend read from `system` (it owns the resource); a separate `Res` would
-    // B0002-conflict with that `ResMut`.
-    if system.backend() != InventoryUiBackend::Grid || !overlay.visible {
-        return;
-    }
-    // Only a genuine mouse move (which set active=Mouse) may move the cursor;
-    // a rebuild-induced `Over` while on keyboard/gamepad/touch is ignored.
-    if devices.machine() != ambition_platformer2d::input::ActiveDevice::Mouse {
-        return;
-    }
-    let Ok(ctrl) = controls.get(over.entity) else {
-        return;
-    };
-    let Some(action) = ctrl.action else {
-        return;
-    };
-    let active_page = active_page(&pages);
-    let model = system.model(&settings);
-    let rows =
-        system_rows_with_quality_prompt(&model, system_nav.open_entry, quality_confirm.pending());
-    let focus = focus_for_action(action, active_page, &rows);
-    cursor.mark_keyboard(focus);
-}
-
 /// Install the flat Bevy-UI/Grid backend systems. Registered independently from
 /// the cube backend so builds can omit this presentation without installing its
 /// Bevy-UI tree, picking observers, or scroll systems.
 pub fn install_grid_unified_menu(app: &mut App) {
-    app.init_resource::<GridMenuTabState>()
-        // The pointer-hover observer reads `SeatActiveDevices`; the input plugin
-        // also inits it, but init here too so the Grid backend is self-sufficient
-        // (`init_resource` is idempotent).
-        .init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
+    app.init_resource::<GridMenuTabState>();
     // registered HERE, beside the system that publishes it, not only in the
     // `install_bevy_ui_menu_actions` block below. `grid_menu_nav` now writes this
     // message, so a composition that installs nav without the pointer bridge
@@ -1243,8 +1191,6 @@ pub fn install_grid_unified_menu(app: &mut App) {
                 .before(grid_menu_republish_view),
         );
     }
-    #[cfg(feature = "input")]
-    app.add_observer(grid_menu_pointer_hover);
 }
 
 #[cfg(all(test, feature = "input"))]

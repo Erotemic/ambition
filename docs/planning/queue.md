@@ -1134,29 +1134,6 @@ SFX ids name the gesture and stay.
 contract check passes with the new key; the content fingerprint change is the
 only content change.
 
-### MENU-HOVER — hover is a third menu state
-
-**Owner:** `ambition_menu::render::bevy_ui`. Plan:
-[`engine/ui-localization-and-accessibility.md`](engine/ui-localization-and-accessibility.md#hover-is-a-third-state-q70).
-
-**Ruling:** Q70 (2026-10-04).
-
-**Current state:** the flat renderer draws hover as its own state. One rule,
-`hover_lift`, lightens the tab or control fill. `sync_bevy_ui_menu_hover` is
-the only writer of `MenuVisualState::hovered`, and the in-place restyles
-follow it. The launcher ignores `MenuActionPreviewed`, so a hover does not move
-`ShellLauncherState::selected`. Tests: `ambition_menu` `bevy_ui::tests`
-(`a_hovered_tab_draws_the_hover_style` and the hover tests after it) and
-`ambition_game_shell` `pointer_hover_tests`.
-
-**Next action:** the in-game Grid menu still moves its cursor on hover
-(`grid_menu_pointer_hover` in `game/ambition_app/src/menu/grid_backend.rs`
-calls `cursor.mark_keyboard`). Make that hover presentation-only too; keep
-pointer activation.
-
-**Acceptance:** a hover over a Grid menu row leaves `KaleidoscopeCursor`
-unchanged, and a click on the row still activates it.
-
 ### DENSE-MELEE-ROOM — author the dense-melee development room
 
 **Owner:** content; first measured customer

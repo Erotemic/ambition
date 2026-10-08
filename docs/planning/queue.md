@@ -746,8 +746,10 @@ root, as George's facet does.
 **Ruling:** Q49 (2026-10-04): symmetry is a correctness property; variation
 comes only from modelled asymmetric facts.
 
-**Current failure:** two poisons of plan item 5 (a list-order tie-break and
-a left-first query) are not run against the per-tick test. The seat-0 term
+**Current failure:** the left-first query poison of plan item 5 is not run;
+a candidate site is `recovery.rs` `nearest_support` (an `(x, y)` tie-break,
+not triaged). The signum and list-order poisons are null in the Emmy match
+(the population does not reach them) and red in their unit witnesses. The seat-0 term
 is triaged 2026-10-08: it is the authored grab tie (inverting the tie swaps
 each fighter's split exactly; 58% now, within spread). Built 2026-10-08: the
 Emmy test compares the full state per tick

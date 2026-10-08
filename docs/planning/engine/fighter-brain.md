@@ -291,8 +291,17 @@ rather than add a second outcome test:
    per-tick claim. The mirror line is the stage's centre, not the first
    frame's mean, which would move with the poison. An unmirrored stream
    (Emmy seeded per seat) is red through the shared-stream precondition, not
-   the per-tick claim. Not yet poisoned: a list-order tie-break and a
-   left-first query.
+   the per-tick claim. A list-order poison (the `supporting_floor` tie by
+   terrain order, the historical mirror break) is null in the match: no body
+   stands over the twin respawn platforms before the grab, because a respawn
+   follows a knockout. The poison is effective:
+   `two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list`
+   is red under it, and it stays that source's witness. Not yet poisoned: a
+   left-first query. One candidate is in `brain/fighter/recovery.rs`,
+   `nearest_support`: two supports at one distance are told apart by `(x, y)`,
+   so the left one wins for both mirrored bodies. Two mirrored supports are at
+   one distance only from a body on the centre line; a tie between two other
+   blocks needs exact float equality. Not triaged.
 
 The current requirement that two ordinary fighters MUST break the mirror stays
 only while per-seat streams are policy; it is a fact about that policy, not a

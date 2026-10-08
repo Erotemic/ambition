@@ -85,6 +85,7 @@ const MEMBERSHIP: [(&str, FeatureInteractionSet); 9] = [
 fn composed_app() -> App {
     let mut app = App::new();
     app.add_plugins(super::FeatureInteractionSchedulePlugin);
+    app.add_plugins(ambition_conversation::ConversationPlugin);
     app.add_plugins(ambition_encounter_features::EncounterSimulationSchedulePlugin);
     app
 }

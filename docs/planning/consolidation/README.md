@@ -54,6 +54,7 @@ lists).
 | `scripts/check_consolidation_ledger_still_resolves.py` | every cited path exists, every CamelCase name in a `current_truth` resolves, workspace crates match cargo, storage-kind claims match source |
 | `scripts/check_consolidation_ledger_states_are_live.py` | every ledger ID is named on the census page; the page's evidence class equals the ledger's; the DUP State column, the `suspect_duplicate_authority` tag and the split sentence agree; every `blocked_by` names a live queue row or `Q` question |
 | `scripts/check_session_owner_census_matches_source.py` | the `session-owner-census` marker in the plan, the census name lists and every restated count match `teardown.rs` and `checkpoint.rs` |
+| `scripts/check_engine_profiles.py` | A9: the profile registry and its `profile-contract:` markers agree, the witness still iterates the registry with its control arm, and the headless/windowed dependency closures say what the contract says |
 | `scripts/check_session_authority_none_arms.py` | every function that reads a canonical session authority optionally has a `none-arm:` row in `session-authority-none-arms.md` with a class from the closed vocabulary and a reason; no row is stale |
 | `scripts/check_alias_census_agrees_with_source.py` | the `alias-census` marker in the census and the `alias-split` marker in the plan match a live count |
 | `scripts/check_collapsed_authorities_stay_collapsed.py` | deleted second owners stay deleted in code |

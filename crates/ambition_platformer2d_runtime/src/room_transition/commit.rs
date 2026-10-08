@@ -640,8 +640,10 @@ pub struct RoomTransitionFinalize<'w, 's> {
     effects: RoomTransitionEffects<'w>,
     clock: RoomClock<'w>,
     dev_state: ResMut<'w, ambition_dev_tools::DeveloperRuntimeState>,
-    dialogue: ResMut<'w, ambition_dialog::DialogState>,
-    conversation: ResMut<'w, ambition_conversation::ActiveConversation>,
+    // `Option`: the dialogue capability is removable (`Capability::Dialogue`), and a
+    // transition in a composition without it has no text box or conversation to close.
+    dialogue: Option<ResMut<'w, ambition_dialog::DialogState>>,
+    conversation: Option<ResMut<'w, ambition_conversation::ActiveConversation>>,
     carryover: RoomTransitionCombatReset<'w, 's>,
     bodies: TransitBodies<'w, 's>,
     /// The room set AFTER publication — the landing diagnostic reports against
@@ -738,11 +740,15 @@ impl RoomTransitionFinalize<'_, '_> {
             };
             safety.last_safe_pos = arrival_pos;
         }
-        self.dialogue.close();
+        if let Some(dialogue) = self.dialogue.as_deref_mut() {
+            dialogue.close();
+        }
         // the AUTHORITY too, and it is not the same close. `DialogState` going quiet only
         // takes the text box away; the simulation's conversation names two BODIES, and this
         // transition just despawned the room they were standing in.
-        self.conversation.close();
+        if let Some(conversation) = self.conversation.as_deref_mut() {
+            conversation.close();
+        }
         if let (Some(log), Some(subject)) = (self.bodies.class_b.as_mut(), subject) {
             log.record(
                 subject,

@@ -1,0 +1,159 @@
+//! SUPPORTED PROFILES: each named composition constructs, steps a REAL BODY, and
+//! does not install what it promises it does not.
+//!
+//! ⭐ Three claims per profile, and none is worth anything without the other two:
+//!
+//! 1. **it steps a subject** -- the sim tick advanced AND the primary body moved.
+//!    `composes_through_the_sdk` already learned that a probe can certify only
+//!    that the engine BUILDS (13 MB, 0.47 s, zero fixed steps); the body moving is
+//!    the proof the sim ran over something real.
+//! 2. **the promised absences are absent** -- `Capability::is_installed` is false
+//!    for each omitted capability.
+//! 3. **the probe can say yes** -- the CONTROL arm builds the full group and
+//!    requires every capability to read installed. Without it, a probe that is
+//!    always false makes every profile pass.
+//!
+//! Each witness prints `PROFILE-WITNESS <name> ...`; `scripts/check_engine_profiles.py`
+//! runs this file under both feature sets and requires a line per profile.
+
+use bevy::prelude::*;
+use bevy::time::{Fixed, Time, TimeUpdateStrategy};
+
+use ambition_platformer2d_core::BodyKinematics;
+use ambition_platformer2d_runtime::profile::{
+    Capability, EngineProfile, HostFace, SUPPORTED_PROFILES,
+};
+use ambition_platformer2d_runtime::{
+    add_headless_foundation, PlatformerEnginePlugins, SimTick, SimulationHost,
+};
+use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
+
+mod support;
+use support::FixtureContentPlugin;
+
+#[cfg(feature = "render")]
+fn drawing_host_installed(app: &App) -> bool {
+    app.is_plugin_added::<ambition_platformer2d_host::HostCameraPlugin>()
+}
+#[cfg(not(feature = "render"))]
+fn drawing_host_installed(_app: &App) -> bool {
+    false
+}
+
+fn build(profile: &EngineProfile) -> App {
+    let mut app = App::new();
+    add_headless_foundation(&mut app);
+    app.add_plugins(PlatformerEnginePlugins::for_profile(SimulationHost::Fixed60Hz, profile));
+    if profile.face == HostFace::Windowed {
+        app.add_plugins(ambition_platformer2d_host::PlatformerHostPlugins);
+    }
+    app.add_plugins(FixtureContentPlugin);
+    let timestep = app.world().resource::<Time<Fixed>>().timestep();
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(timestep));
+    app
+}
+
+fn body_position(app: &mut App) -> Option<Vec2> {
+    app.world_mut()
+        .query_filtered::<&BodyKinematics, With<PrimaryPlayer>>()
+        .iter(app.world())
+        .next()
+        .map(|body| body.pos)
+}
+
+/// Step until the body exists, then step a second and require the body to move.
+fn step_a_real_subject(app: &mut App, profile: &EngineProfile) -> u64 {
+    app.update(); // Startup builds the world and the body.
+    let mut settled = None;
+    for _ in 0..30 {
+        app.update();
+        if let Some(pos) = body_position(app) {
+            settled = Some(pos);
+            break;
+        }
+    }
+    let before = settled.unwrap_or_else(|| {
+        panic!("{}: no primary body appeared, so nothing real was stepped", profile.name)
+    });
+    let tick_before = app.world().resource::<SimTick>().get();
+    for _ in 0..60 {
+        app.update();
+    }
+    let ticks = app.world().resource::<SimTick>().get() - tick_before;
+    assert_eq!(ticks, 60, "{}: sixty frames at the tick dt must expend sixty ticks", profile.name);
+    let after = body_position(app).expect("the body is gone after stepping");
+    assert!(
+        after != before,
+        "{}: the primary body did not move in a second ({before:?} -> {after:?}); \
+         the schedule ran over a body that nothing stepped",
+        profile.name
+    );
+    ticks
+}
+
+/// THE CONTROL: the full group installs every capability, so `is_installed` can say yes.
+#[test]
+fn the_control_installs_every_capability_and_the_probe_sees_it() {
+    let full = EngineProfile {
+        name: "control-full-engine",
+        summary: "nothing omitted",
+        face: HostFace::Headless,
+        omits: &[],
+    };
+    let mut app = build(&full);
+    step_a_real_subject(&mut app, &full);
+    ambition_platformer2d_runtime::profile::session_edge_params_validate(app.world_mut())
+        .expect("the full engine's session-edge parameters must validate");
+    for capability in Capability::ALL {
+        assert!(
+            capability.is_installed(&app),
+            "the full engine reads `{}` as not installed, so the probe cannot say yes and \
+             every profile's absence proof is vacuous",
+            capability.name()
+        );
+    }
+    println!("PROFILE-WITNESS control-full-engine ok");
+}
+
+#[test]
+fn every_supported_profile_steps_a_body_and_installs_none_of_what_it_omits() {
+    for profile in SUPPORTED_PROFILES.iter() {
+        if profile.face == HostFace::Windowed && !cfg!(feature = "render") {
+            // Not compiled in this feature set; the other run carries it. The
+            // guard requires its witness line from the union of both runs.
+            continue;
+        }
+        let mut app = build(profile);
+        let ticks = step_a_real_subject(&mut app, profile);
+        for capability in profile.omits {
+            assert!(
+                !capability.is_installed(&app),
+                "{}: promises `{}` is not installed and it is",
+                profile.name,
+                capability.name()
+            );
+        }
+        // The session edges: teardown and room transition take capability-owned
+        // state as parameters and do not run while a fixture ticks.
+        if let Err(refusal) = ambition_platformer2d_runtime::profile::session_edge_params_validate(app.world_mut()) {
+            panic!("{}: {refusal}", profile.name);
+        }
+        // The kept capabilities are still there: an omission list that took out
+        // everything would pass the line above.
+        for capability in Capability::ALL {
+            if !profile.omits.contains(&capability) {
+                assert!(
+                    capability.is_installed(&app),
+                    "{}: `{}` is not omitted by this profile and is not installed",
+                    profile.name,
+                    capability.name()
+                );
+            }
+        }
+        match profile.face {
+            HostFace::Windowed => assert!(drawing_host_installed(&app), "{}: no drawing host", profile.name),
+            HostFace::Headless => assert!(!drawing_host_installed(&app), "{}: a headless profile installed the drawing host", profile.name),
+        }
+        println!("PROFILE-WITNESS {} ok ticks={ticks} omits={}", profile.name, profile.omits.len());
+    }
+}

@@ -401,13 +401,17 @@ disabled menu state until a shell-less composition exists.
     new optional read with no row is red; so is a stale row). The `minted_horizon`
     reads this section called "not probed" were settled by structure: the plugin
     that registers the reader (`ItemCheckpointHorizonPlugin`, the boss plugin, the
-    features plugin, the combat plugin) also installs the resource, so eleven
-    reads were converted to required. The reads that stay optional are the ones a
+    features plugin, the combat plugin, the lifecycle horizon plugin) also installs the
+    resource, so twelve reads were converted to required. The reads that stay optional are the ones a
     *different* plugin installs. `ActiveSessionScope` is the one population whose
     `None` has two meanings (absent resource: no `SessionScopePlugin`, spawn
     process-resident; present with no current scope: no gameplay, sleep); 26
     non-presentation functions read it, and which meaning a *named composition*
-    supports is A9's profile question, not an ownership one.
+    supports is A9's profile question, not an ownership one. A9 answered it for the
+    supported profiles (2026-10-08): the omissions it exercises turned a dozen
+    required reads of dialogue, boss and cutscene state into `Option`s with a stated
+    reason, and moved the durable-room ledger from the held-items plugin to the
+    lifecycle horizon plugin.
 - ✅ The fallback no `Option` scan could see is closed (2026-10-03):
   `insert_session_world_component` refuses in a session-gated composition
   with no root and no active scope. A direct host (no gate) builds its one root

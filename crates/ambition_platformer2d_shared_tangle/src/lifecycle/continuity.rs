@@ -816,9 +816,9 @@ pub fn capture_occurrence_baseline(
 /// capture landing between acceptance and commit belongs to the next operation.
 pub fn restore_occurrence_baseline(
     inputs: Option<bevy::prelude::Res<super::CheckpointRestoreInputs>>,
-    occurrences: Option<ResMut<AuthoredOccurrences>>,
+    mut occurrences: ResMut<AuthoredOccurrences>,
 ) {
-    let (Some(inputs), Some(mut occurrences)) = (inputs, occurrences) else {
+    let Some(inputs) = inputs else {
         return;
     };
     reduce_occurrences_to_baseline(&inputs.occurrences, &mut occurrences);

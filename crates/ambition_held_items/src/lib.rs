@@ -59,15 +59,10 @@ impl Plugin for HeldItemSimulationPlugin {
             use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
             app.publish_condition(conditions::is_held_descriptor(), conditions::is_held);
         }
-        // Durable room state, and the only leg of it that has a producer.
-        // Inserted here because this is where the producer is registered. A
-        // consumer that a composition can schedule without this plugin takes it
-        // as an `Option`: such a composition remembers nothing and authors every
-        // room from its records, which is what it did before the ledger
-        // existed. The two writers scheduled with this plugin take it as
-        // required (`project_custody_onto_authored_occurrences` here, and
-        // `record_placed_bodies` in the runtime that adds this plugin).
-        app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>();
+        // The durable-room ledger (`AuthoredOccurrences`) is NOT installed here:
+        // it is session lifecycle state and `LifecycleCheckpointHorizonPlugin`
+        // owns it, so a composition without held-use still has one. This plugin
+        // is one of its writers (`project_custody_onto_authored_occurrences`).
         // ⛔ THE SET THIS DOMAIN OWNS, configured END TO END here: its phase
         // and its custody edge. The kernel adds the edge to its two sibling
         // variants; nothing else may configure this one.

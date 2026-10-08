@@ -122,16 +122,12 @@ impl Plugin for ProgressionSchedulePlugin {
                 .before(ProgressionSet::WorldSync),
         );
 
-        // The boss registry populates from the LDtk project + save once (its `initialized`
-        // short-circuit; the reset flow flips it back). The wave encounters are built per live
-        // room, every tick a live room lacks its occurrences: a new room gets them the tick
-        // after its commit, and a fresh run's empty save rebuilds them.
+        // The wave encounters are built per live room, every tick a live room lacks its
+        // occurrences: a new room gets them the tick after its commit, and a fresh run's
+        // empty save rebuilds them. (The boss registry's population is the boss plugin's.)
         app.add_systems(
             sim,
-            (
-                ambition_boss_encounter::populate_boss_encounter_registry,
-                ambition_encounter_features::project_live_encounter_occurrences,
-            )
+            ambition_encounter_features::project_live_encounter_occurrences
                 .in_set(Platformer2dSimulationPhase::Progression),
         );
     }

@@ -1408,7 +1408,13 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // cut-bark port channel, its own narrative payload, its presentation
         // pair, and its three sim systems placed by PHASE. Nothing about
         // conversation is registered here any more.
-        app.add_plugins(ambition_conversation::ConversationPlugin);
+        // (`ConversationPlugin` is a member of `PlatformerEnginePlugins`, so a
+        // composition can leave dialogue out; this plugin only orders its phases.)
+        // The cut-bark channel is conversation's to PRODUCE, and this plugin
+        // consumes it (`speak_conversation_cut_barks`). A consumer registers what
+        // it reads (registration is idempotent), or a composition that leaves
+        // dialogue out fails the reader's parameter validation on tick one.
+        app.add_message::<ambition_conversation::ConversationCutBark>();
         // the ledger payloads that are NOT conversation's. The ledger is
         // the record of what the narrative — which runs outside the simulation —
         // told the simulation, stamped with the tick it applies from. A rewind

@@ -169,6 +169,16 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
                 .chain()
                 .in_set(ProgressionSet::BossAdvance),
         );
+        // The registry fills from the LDtk project + save once (its `initialized`
+        // short-circuit; the reset flow flips it back). It was registered by the
+        // progression plugin, which every composition carries, so a composition
+        // that leaves named bosses out failed this system's parameter validation
+        // on its first tick; the capability's own plugin registers it now.
+        app.add_systems(
+            sim,
+            populate_boss_encounter_registry
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression),
+        );
         app.add_systems(
             sim,
             (

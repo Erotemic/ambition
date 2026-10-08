@@ -66,6 +66,19 @@ impl Plugin for ItemPickupSimulationPlugin {
             )
                 .chain(),
         );
+        // ⛔ THE KERNEL'S SYSTEMS RUN IN `CoreHeldItems`, SO THE KERNEL NESTS IT.
+        // The held-items domain nests the set in `PlayerSimulation` as well (and
+        // adds its custody edge); this is the same membership, stated by the
+        // plugin whose systems depend on it. Without it a composition that
+        // leaves held-use out has a set no phase owns, and the shrine, the gun
+        // and the match spawn run on every schedule pass with none of the
+        // phase's gating: MEASURED, `fire_puppy_slug_gun_system` failed
+        // parameter validation on the first tick of a collection-only host.
+        app.configure_sets(
+            sim,
+            ItemPickupSet::CoreHeldItems
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation),
+        );
         // ⭐ THE KERNEL'S OWN SYSTEMS ATTACH TO A STEP, they are not links of the
         // domain's chain. Each says where it runs in the domain's vocabulary,
         // which is what lets the domain leave this crate without these edges

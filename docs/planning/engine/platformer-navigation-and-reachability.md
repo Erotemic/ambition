@@ -189,6 +189,13 @@ The rules the slice holds:
 - **The brain's state is rewound.** `RoamState` (goal, leg, phase, clocks) is in
   the `Brain` component, which is stored by clone, and in its checksum cursor.
 
+These two rules are held by
+`companion_dog::a_dog_that_navigates_resimulates_to_the_same_world_with_its_graph_dropped`
+(2026-10-09): 40 seconds of the basement under a sync test that rewinds and
+replays each frame, while a system outside the timeline drops the graphs. The
+dog goes by legs and the session stays healthy. Its control is a nudge of the
+dog's body from outside the timeline, which is a mismatch.
+
 Guards: `navigation::envelope::tests::a_gap_inside_the_envelope_is_crossed_and_one_outside_is_not`
 (the envelope against the kernel) and
 `navigation::graph::tests::a_body_that_follows_the_advice_arrives` (a body that

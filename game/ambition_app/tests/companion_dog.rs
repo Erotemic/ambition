@@ -113,6 +113,131 @@ fn the_basement_dog_is_peaceful_and_goes_to_places_on_the_rooms_surfaces() {
     assert!(barked, "the dog did not give an ambient bark");
 }
 
+/// What a system from outside the timeline does to the dog's room under the
+/// sync test. Each counts its own runs, and a count does not rewind.
+#[derive(bevy::prelude::Resource, Clone, Copy, PartialEq, Eq)]
+enum FromOutsideTheTimeline {
+    /// Move the dog's body a little: rollback state. The control.
+    NudgeTheDog,
+    /// Drop the surface graphs: a derived cache, built again when asked for.
+    DropTheGraphs,
+}
+
+fn act_from_outside_the_timeline(
+    what: bevy::prelude::Res<FromOutsideTheTimeline>,
+    mut runs: bevy::prelude::Local<u32>,
+    mut navigation: bevy::prelude::ResMut<
+        ambition_platformer2d::actors::features::ecs::navigation::RoomNavigation,
+    >,
+    mut bodies: bevy::prelude::Query<(&mut BodyKinematics, &WornCharacter)>,
+) {
+    *runs += 1;
+    match *what {
+        FromOutsideTheTimeline::NudgeTheDog => {
+            for (mut kin, worn) in &mut bodies {
+                if worn.id() == "npc_companion_dog" {
+                    kin.pos.x += (*runs % 7) as f32 * 0.01;
+                }
+            }
+        }
+        // Not each run: a build of the basement graph is tens of milliseconds.
+        FromOutsideTheTimeline::DropTheGraphs => {
+            if *runs % 400 == 0 {
+                *navigation = Default::default();
+            }
+        }
+    }
+}
+
+/// (surfaces the dog stood on, its take-offs, the session ran, its health)
+/// after 40 seconds of the basement under a sync test that rewinds and
+/// replays each frame.
+fn the_dog_under_a_sync_test(
+    what: FromOutsideTheTimeline,
+) -> (usize, usize, bool, Result<(), String>) {
+    use crate::common::fixed_60hz_room_options;
+    use ambition_platformer2d::actors::features::ecs::navigation::RoomNavigation;
+    use ambition_platformer2d::engine_core::BodyGroundState;
+    use ambition_platformer2d::sim::SimScheduleExt;
+
+    let options =
+        fixed_60hz_room_options("central_hub_complex").with_sync_test_rollback_settings(4, 10);
+    let mut sim = ambition_app::Platformer2dSimHarness::build(options, |app, options| {
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        app.insert_resource(what);
+        let label = app.sim_schedule();
+        app.add_systems(label, act_from_outside_the_timeline);
+        Ok(())
+    })
+    .expect("the hub boots under a sync test");
+    let mut stood_on = std::collections::BTreeSet::new();
+    let mut take_offs = 0;
+    let mut was_on_ground = true;
+    for _ in 0..2400 {
+        // `try_step`: an unhealthy session refuses the step, and that refusal
+        // is the reading, so the loop ends at it.
+        if sim.try_step(base()).is_err() {
+            break;
+        }
+        let world = sim.world_mut();
+        let mut dogs = world.query::<(&WornCharacter, &BodyKinematics, &BodyGroundState)>();
+        let Some((_, kin, ground)) =
+            dogs.iter(world).find(|(worn, ..)| worn.id() == "npc_companion_dog")
+        else {
+            continue;
+        };
+        let (feet, on_ground) = (kin.pos + bevy::math::Vec2::Y * kin.size.y * 0.5, ground.on_ground);
+        if on_ground {
+            let navigation = world.resource::<RoomNavigation>();
+            if let Some(surface) = navigation.graphs().next().and_then(|graph| graph.surface_at(feet)) {
+                stood_on.insert(surface);
+            }
+        } else if was_on_ground {
+            take_offs += 1;
+        }
+        was_on_ground = on_ground;
+    }
+    (
+        stood_on.len(),
+        take_offs,
+        ambition_platformer2d::rollback::session_is_active(sim.world()),
+        ambition_platformer2d::rollback::session_health(sim.world()),
+    )
+}
+
+/// ⭐ A DOG THAT NAVIGATES RESIMULATES TO THE SAME WORLD.
+///
+/// What a navigating body adds to a rewind: its brain holds a leg and a phase
+/// (`NavFollower`), the advice it reads is written again each tick, and the
+/// graph the advice comes from is a cache that no snapshot holds. A sync test
+/// rewinds and replays each frame and compares checksums.
+///
+/// The graph is dropped from outside the timeline while the dog is on its way.
+/// If the graph were state, a replay with a graph built at a different moment
+/// would be a different world.
+///
+/// The control is a nudge of the dog's body from outside the timeline: it must
+/// be a mismatch, or the checksum does not see the dog.
+#[test]
+fn a_dog_that_navigates_resimulates_to_the_same_world_with_its_graph_dropped() {
+    let (_, _, active, health) = the_dog_under_a_sync_test(FromOutsideTheTimeline::NudgeTheDog);
+    assert!(
+        active && health.is_err(),
+        "control: a nudge of the dog from outside the timeline must be a mismatch, or this \
+         sync test does not see the dog (active {active}, health {health:?})"
+    );
+    let (stood_on, take_offs, active, health) =
+        the_dog_under_a_sync_test(FromOutsideTheTimeline::DropTheGraphs);
+    // ⛔ THE PREMISE: the dog went by legs in these frames. A dog that rests
+    // for 40 seconds holds under any sync test.
+    assert!(
+        stood_on >= 2 && take_offs >= 2,
+        "premise: the dog stood on {stood_on} surface(s) and left the ground {take_offs} time(s) \
+         (active {active}, health {health:?})"
+    );
+    assert_eq!((active, health), (true, Ok(())));
+}
+
 /// ⭐ THE DOG COMES TO A PLAYER WHO IS FAR FROM IT, UP THE PLATFORMS.
 ///
 /// The dog keeps near the player (`stay_within` in its catalog row). The

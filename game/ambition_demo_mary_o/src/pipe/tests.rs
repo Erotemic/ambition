@@ -11,6 +11,8 @@ const TILE: f32 = 32.0;
 fn descent() -> PipeTransit {
     PipeTransit::begin(
         ae::Vec2::new(100.0, 100.0),
+        // The mouth is under her: she stands on the pipe's centre line.
+        ae::Vec2::new(100.0, 132.0),
         ae::Vec2::new(500.0, 900.0),
         // `+y` is DOWN: you sink INTO a surface pipe.
         ae::Vec2::new(0.0, 1.0),
@@ -98,6 +100,7 @@ fn the_emergence_travels_the_same_way_as_the_entry() {
     ] {
         let t = PipeTransit::begin(
             ae::Vec2::new(100.0, 400.0),
+            ae::Vec2::new(100.0, 400.0),
             ae::Vec2::new(500.0, 900.0),
             axis,
             TILE,
@@ -136,6 +139,7 @@ fn the_slide_eases_in_and_out_rather_than_moving_at_a_constant_rate() {
 fn an_ascent_is_the_same_machine_pointed_the_other_way() {
     let up = PipeTransit::begin(
         ae::Vec2::new(500.0, 900.0),
+        ae::Vec2::new(500.0, 868.0),
         ae::Vec2::new(100.0, 100.0),
         ae::Vec2::new(0.0, -1.0),
         TILE,
@@ -175,3 +179,46 @@ fn the_slide_never_overshoots_either_end_of_its_segment() {
         );
     }
 }
+
+/// She steps to the middle of the pipe before she goes down it (Jon,
+/// 2026-10-08). A mouth is wider than she is, so she can press into it off the
+/// centre line.
+///
+/// Measured before: the slide started where she stood, so 12 px off the line
+/// she went down the pipe's wall.
+#[test]
+fn she_steps_to_the_centre_of_the_pipe_before_she_sinks() {
+    let at = ae::Vec2::new(112.0, 100.0);
+    let mouth = ae::Vec2::new(100.0, 132.0);
+    let transit = PipeTransit::begin(at, mouth, ae::Vec2::new(500.0, 900.0), ae::Vec2::new(0.0, 1.0), TILE);
+    assert_eq!(transit.phase, TransitPhase::Centering);
+
+    let (path, crossed_at) = run(transit);
+    let crossed_at = crossed_at.expect("the transit crosses");
+    let step_ticks = (CENTER_S / DT).ceil() as usize;
+    // The step is across the mouth only: she does not sink while she steps.
+    for (tick, pos) in path.iter().enumerate().take(step_ticks - 1) {
+        assert_eq!(pos.y, at.y, "tick {tick}: she sank before she reached the centre line");
+        assert!(pos.x <= at.x && pos.x >= mouth.x, "tick {tick}: the step left the way to the line ({pos:?})");
+    }
+    // From the end of the step to the crossing she is on the line.
+    let mut sank = false;
+    for (tick, pos) in path.iter().enumerate().take(crossed_at).skip(step_ticks) {
+        assert!((pos.x - mouth.x).abs() < 0.001, "tick {tick}: she slides {} px off the pipe's centre line", pos.x - mouth.x);
+        sank |= pos.y > at.y + TILE;
+    }
+    assert!(sank, "premise: she sinks into the pipe after the step");
+    assert!(
+        ((crossed_at as f32 + 1.0) * DT - (CENTER_S + SWALLOW_S)).abs() < 4.0 * DT,
+        "the step is added before the swallow, and the swallow keeps its length"
+    );
+}
+
+/// A body that stands on the centre line takes no step.
+#[test]
+fn a_body_on_the_centre_line_sinks_at_once() {
+    let transit = descent();
+    assert_eq!(transit.phase, TransitPhase::Swallowing);
+    assert_eq!(transit.to, transit.swallowed);
+}
+

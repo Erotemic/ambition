@@ -123,6 +123,8 @@ const REFERENCE_PARRY_SECONDS: f32 = 0.18;
 /// material) use ~0.9, and the HazardColumn telegraph quad uses +1.0 of boss
 /// z. HUD layers are in the hundreds.
 const FLASH_OVERLAY_Z_BIAS: f32 = 1.5;
+// Under the plane of an enclosure, so a pipe hides a flash with its body.
+const _: () = assert!(FLASH_OVERLAY_Z_BIAS < super::BODY_DEPTH_BAND);
 
 /// Install the material plugin behind the hit-flash overlay.
 pub fn add_hit_flash_material_plugin(app: &mut App) {

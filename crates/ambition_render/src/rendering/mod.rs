@@ -212,6 +212,17 @@ pub use world::{
     sync_lock_wall_visuals, sync_removed_block_visuals, PresentedRoomVisuals,
 };
 
+/// How far above a body's own depth the things drawn ON the body reach: an
+/// overlay shader, a flash silhouette. An enclosure (a pipe a body goes
+/// inside, `PropDraw::Enclosure`) is drawn at the top of this band, so all
+/// that is in the band is hidden with the body.
+///
+/// ⛔ An overlay at or above the band is drawn over the pipe that hides its
+/// body. The enclosure plane was `+1.0`, and Mary-O's quasar (`+1.0`) and the
+/// hit flash (`+1.5`) were over it (Jon, 2026-10-08). Each overlay asserts its
+/// bias against this constant where it states the bias.
+pub const BODY_DEPTH_BAND: f32 = 1.75;
+
 /// The public seam for content-owned per-actor overlays: sibling meshes and
 /// materials that decorate animated actor sprites (for example Ambition's
 /// puppy-slug deep-dream pass). [`PresentationVisualAnimationPlugin`] places

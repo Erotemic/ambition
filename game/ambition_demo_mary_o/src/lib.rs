@@ -231,6 +231,11 @@ impl PipeHalf {
         }
     }
 
+    /// The middle of the pipe: a point of the line a body slides along.
+    fn centre(&self) -> ae::Vec2 {
+        (self.aabb.min + self.aabb.max) * 0.5
+    }
+
     /// Where a body coming OUT of this half stands.
     ///
     /// Derived from the mouth, not authored: out of a lip that hangs overhead you fall, just clear
@@ -635,6 +640,10 @@ fn authored_blocks_named(room: &RoomSpec, prefix: &str) -> Vec<(String, ae::Vec2
     out
 }
 
+/// How far each shaft tile of a pipe reaches under the tile before it (px).
+/// See [`scenery_for_authored_room`].
+const PIPE_TILE_OVERLAP: f32 = 2.0;
+
 /// The flagpole and warp-pipe LOOK: decorative props laid over the transparent
 /// collision blocks the file authors. Presentation only — none of it changes
 /// geometry, the grab band, or the warp mouths.
@@ -702,13 +711,19 @@ fn scenery_for_authored_room(room: &RoomSpec) -> Vec<PropSpec> {
         let mut row = 0usize;
         while laid < size.y - 0.5 {
             let height = (size.y - laid).min(T);
+            // A shaft tile reaches back under the tile before it, so no two
+            // tiles only touch. A sprite fades over half a texel at its edge,
+            // and a row of edges that touch is a row of seams. The shaft's art
+            // is the same on every row, and the head's neck is the shaft, so
+            // the part that is under is the same picture.
+            let under = if row == 0 { 0.0 } else { PIPE_TILE_OVERLAP };
             let top = if mouth_down {
                 min.y + size.y - laid - height
             } else {
-                min.y + laid
+                min.y + laid - under
             };
             let at = ae::Vec2::new(min.x, top);
-            let tile = ae::Vec2::new(size.x, height);
+            let tile = ae::Vec2::new(size.x, height + under);
             laid += height;
             row += 1;
             if row == 1 {
@@ -1747,6 +1762,7 @@ fn warp_through_secret_pipe(
 
         commands.entity(entity).try_insert(pipe::PipeTransit::begin(
             kin.pos,
+            tube.entrance.centre(),
             tube.exit.arrival(),
             tube.entrance.travel_axis(),
             T,
@@ -3727,6 +3743,7 @@ mod rollback_probes {
         let phase = match transit.phase {
             pipe::TransitPhase::Swallowing => 1,
             pipe::TransitPhase::Emerging => 2,
+            pipe::TransitPhase::Centering => 3,
         };
         // The transit OWNS the body's position for its duration, so `elapsed`
         // alone is not the state — where it is going matters as much.
@@ -3736,5 +3753,6 @@ mod rollback_probes {
             ^ point(transit.from).rotate_left(7)
             ^ point(transit.to).rotate_left(19)
             ^ point(transit.arrival).rotate_left(31)
+            ^ point(transit.swallowed).rotate_left(43)
     }
 }

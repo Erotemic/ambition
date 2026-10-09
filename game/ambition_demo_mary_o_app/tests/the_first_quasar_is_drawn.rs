@@ -157,3 +157,48 @@ fn a_second_quasar_is_drawn_after_she_went_back_to_her_parts() {
     assert!(frames.is_some(), "{FRAMES_TO_SHOW} frames into her second quasar no overlay is shown");
     assert_the_quasar_reads_her_image(&mut app, player);
 }
+
+/// A pipe hides her quasar with her (Jon, 2026-10-08: the rainbow was drawn
+/// over the pipe she went down).
+///
+/// A pipe is drawn in front of the cast, so a body inside it is hidden. What
+/// is drawn ON a body (the quasar's overlay, a flash) is above the body, and
+/// it must stay under the pipe's plane (`BODY_DEPTH_BAND`).
+///
+/// Measured before: the overlay and the pipes of 1-1 were both drawn at
+/// depth 21.0.
+#[test]
+fn a_pipe_hides_her_quasar_with_her() {
+    use ambition_platformer2d::render::rendering::PropVisual;
+
+    let mut app = drawn_level();
+    let player = player(&mut app);
+    give_the_quasar(&mut app, player, 999.0);
+    assert!(
+        frames_until(&mut app, FRAMES_TO_SHOW, |app| !shown_overlays(app).is_empty()).is_some(),
+        "premise: the quasar is shown"
+    );
+    let world = app.world_mut();
+    let body_z = world.get::<Transform>(player).expect("her transform").translation.z;
+    let mut overlays = world.query::<(&MeshMaterial2d<MaryOQuasarMaterial>, &Transform, &Visibility)>();
+    let overlay_z = overlays
+        .iter(world)
+        .find(|(.., visibility)| **visibility == Visibility::Visible)
+        .map(|(_, transform, _)| transform.translation.z)
+        .expect("the shown overlay");
+    let mut props = world.query::<(&PropVisual, &Transform)>();
+    let pipes: Vec<f32> = props
+        .iter(world)
+        .filter(|(prop, _)| prop.draw.occludes_bodies())
+        .map(|(_, transform)| transform.translation.z)
+        .collect();
+    assert!(pipes.len() >= 2, "premise: 1-1 draws its pipes ({})", pipes.len());
+    assert!(overlay_z > body_z, "premise: the quasar is drawn over her ({overlay_z} against {body_z})");
+    for pipe_z in pipes {
+        assert!(
+            overlay_z < pipe_z,
+            "her quasar is drawn at depth {overlay_z} and a pipe at {pipe_z}: the pipe does not hide it"
+        );
+    }
+}
+

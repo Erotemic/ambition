@@ -1560,6 +1560,63 @@ def featureless_facade_report(root: Path) -> tuple[list[str], list[str]]:
     return present, missing
 
 
+# ⭐ THE SDK GAME LINKS NO CAPABILITY IT OMITS (SDK-GAME). Outlander is the small
+# independent game on the public facade: its own workspace and lockfile, so the
+# resolver sees exactly what a third party gets. It selects the renderer and
+# rollback, and nothing below. Measured in BOTH builds, because a windowed build
+# that links what the headless one omits is presentation changing capability:
+# until 2026-10-09 the monolith's `visible` turned on portals and the LDtk crate,
+# so the windowed Outlander linked both (61 crates; 59 after the cut).
+SDK_GAME = "fixtures/external_consumer"
+SDK_GAME_BUILDS: tuple[tuple[str, ...], ...] = ((), ("visible",))
+# The facade's optional capabilities Outlander does not select. Name a crate
+# here only when a measurement shows it absent from both builds.
+SDK_GAME_OMITS = (
+    "ambition_inventory_ui",
+    "ambition_portal2d",
+    "ambition_portal2d_presentation",
+    "ambition_platformer2d_ldtk",
+    "ambition_settings_menu",
+    "ambition_touch_input",
+    "ambition_relativity",
+    "ambition_relativity2d",
+)
+# The anti-vacuity floor: Outlander names the facade and asks for the renderer,
+# so a closure without these measured nothing.
+SDK_GAME_FLOOR = ("ambition_platformer2d", "ambition_render")
+
+
+@functools.cache
+def sdk_game_closure(root: Path, features: tuple[str, ...]) -> set[str]:
+    """The `ambition_*` crates the SDK game links in the build `features` selects."""
+    # `--offline`, not `--locked`: this lockfile is git-ignored, so a fresh clone
+    # has none to hold, and the resolver writes it from the manifests.
+    command = [cargo_binary(), "tree", "--prefix", "none", "--edges", "normal", "--offline"]
+    if features:
+        command += ["--features", ",".join(features)]
+    result = subprocess.run(
+        command, cwd=root / SDK_GAME, capture_output=True, text=True, check=False
+    )
+    if result.returncode != 0:
+        return set()
+    return {
+        line.split(" ", 1)[0]
+        for line in result.stdout.splitlines()
+        if line.startswith("ambition_")
+    }
+
+
+def sdk_game_report(root: Path) -> tuple[list[str], list[str]]:
+    """`(omitted crates linked, floor crates missing)`, each as `build: crate`."""
+    present, missing = [], []
+    for features in SDK_GAME_BUILDS:
+        build = "+".join(features) or "headless"
+        closure = sdk_game_closure(root, features)
+        present += [f"{build}: {crate}" for crate in SDK_GAME_OMITS if crate in closure]
+        missing += [f"{build}: {crate}" for crate in SDK_GAME_FLOOR if crate not in closure]
+    return present, missing
+
+
 @functools.cache
 def sentinel_linked_closure(root: Path) -> set[str]:
     """The `ambition_*` crates the sentinel actually LINKS, from cargo's resolver.
@@ -2635,6 +2692,34 @@ def main() -> int:
             f"with every facade feature off)"
         )
 
+    present, missing = sdk_game_report(root)
+    if missing:
+        broken += 1
+        print("  RED  the-sdk-game-links-no-capability-it-omits  (INSTRUMENT BROKEN)")
+        print(
+            "       The SDK game's closure is missing crates it names, so "
+            "`cargo tree` measured nothing (a stale `Cargo.lock` in "
+            f"{SDK_GAME} is the usual cause):"
+        )
+        for crate in missing:
+            print(f"       ABSENT {crate}")
+    elif present:
+        broken += 1
+        print("  RED  the-sdk-game-links-no-capability-it-omits")
+        print(
+            "       The SDK game links a facade capability it does not select. "
+            f"Find the edge with `cargo tree -e normal,features -i <crate>` in {SDK_GAME} "
+            "and make it follow the capability's own feature."
+        )
+        for crate in present:
+            print(f"       LINKED {crate}")
+    else:
+        sizes = ", ".join(
+            f"{'+'.join(features) or 'headless'} {len(sdk_game_closure(root, features))}"
+            for features in SDK_GAME_BUILDS
+        )
+        print(f"  ok   the-sdk-game-links-no-capability-it-omits  ({sizes} ambition crates)")
+
     # ⛔ The sentinel's own lockfile is a PREREQUISITE of these two contracts and
     # of nothing else, so its staleness is reported as one RED and the remaining
     # 37 contracts still get verdicts. See `SentinelLockfileStale`.
@@ -2820,7 +2905,8 @@ def main() -> int:
         #   3. the featureless consumer's closure
         #   4. the-peer-visible-schema-may-not-move-without-the-version
         #   5. the-peer-input-payload-may-not-move-without-its-identity
-        + 5
+        #   6. the-sdk-game-links-no-capability-it-omits
+        + 6
     )
     if broken:
         print(f"\n{broken} of {total} absence contracts are violated.")

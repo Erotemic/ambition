@@ -256,7 +256,6 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
- "ambition_portal2d",
  "ambition_projectiles",
  "ambition_resource_spec",
  "ambition_sfx",
@@ -445,7 +444,6 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
- "ambition_portal2d",
  "ambition_time",
  "bevy",
 ]
@@ -634,10 +632,8 @@ dependencies = [
  "ambition_persistence",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_core",
- "ambition_platformer2d_ldtk",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
- "ambition_portal2d",
  "ambition_projectiles",
  "ambition_registry_core",
  "ambition_resource_spec",
@@ -648,9 +644,7 @@ dependencies = [
  "ambition_world_items",
  "avian2d",
  "bevy",
- "bevy_asset_loader",
  "bevy_ecs",
- "bevy_ecs_ldtk",
  "bevy_framepace",
  "bevy_kira_audio",
  "leafwing-input-manager",
@@ -705,22 +699,6 @@ dependencies = [
  "ambition_sim_view",
  "ambition_sprite_sheet",
  "bevy",
-]
-
-[[package]]
-name = "ambition_platformer2d_ldtk"
-version = "0.1.0"
-dependencies = [
- "ambition_asset_manager",
- "ambition_entity_catalog",
- "ambition_platformer2d_core",
- "ambition_platformer2d_shared_tangle",
- "ambition_platformer2d_world",
- "bevy",
- "bevy_asset_loader",
- "bevy_ecs_ldtk",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -819,16 +797,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition_portal2d"
-version = "0.1.0"
-dependencies = [
- "ambition_platformer2d_core",
- "ambition_platformer2d_shared_tangle",
- "bevy",
- "serde",
-]
-
-[[package]]
 name = "ambition_projectile_spec"
 version = "0.1.0"
 dependencies = [
@@ -847,7 +815,6 @@ dependencies = [
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",
- "ambition_portal2d",
  "ambition_projectile_spec",
  "ambition_sfx",
  "ambition_vfx",
@@ -1454,36 +1421,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_asset_loader"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ef4cba5fb56abd9842dece351e61f9c4f6beaa08a9e92760e5cd9472c43e14d"
-dependencies = [
- "anyhow",
- "bevy_app",
- "bevy_asset",
- "bevy_asset_loader_derive",
- "bevy_ecs",
- "bevy_log",
- "bevy_platform",
- "bevy_reflect",
- "bevy_state",
- "bevy_utils",
- "path-slash",
-]
-
-[[package]]
-name = "bevy_asset_loader_derive"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c0596de511aeb25cd2d9e0680a67a9e51ce37962806a1c7aaa4b9ad2c6fd4ff"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
 name = "bevy_asset_macros"
 version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1653,35 +1590,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_ecs_ldtk"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01738ce9068b654567ce3bb58fd59c5e2e3be4db29037d52eaac463bb39a1296"
-dependencies = [
- "bevy",
- "bevy_ecs_ldtk_macros",
- "bevy_ecs_tilemap",
- "derive-getters",
- "derive_more",
- "paste",
- "regex",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
-]
-
-[[package]]
-name = "bevy_ecs_ldtk_macros"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29c8f1243b566d4a9f9a06ddb924b57299d650d62c40f185e838f9255ceac622"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
 name = "bevy_ecs_macro_logic"
 version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1704,16 +1612,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "bevy_ecs_tilemap"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0110f93feeaf310d87accf3820a21ebda01063bac12eba9c35e417092a80c34"
-dependencies = [
- "bevy",
- "log",
 ]
 
 [[package]]
@@ -3340,17 +3238,6 @@ name = "data-encoding"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
-
-[[package]]
-name = "derive-getters"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74ef43543e701c01ad77d3a5922755c6a1d71b22d942cb8042be4994b380caff"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
 
 [[package]]
 name = "derive_more"
@@ -5369,12 +5256,6 @@ name = "pastey"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4"
-
-[[package]]
-name = "path-slash"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e91099d4268b0e11973f036e885d652fb0b21fedcf69738c627f94db6a44f42"
 
 [[package]]
 name = "percent-encoding"

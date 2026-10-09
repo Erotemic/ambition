@@ -1272,6 +1272,34 @@ def test_the_featureless_closure_is_not_silently_empty():
     )
 
 
+def test_the_sdk_game_closure_catches_a_capability_it_omits(monkeypatch):
+    """The red probe, against the LIVE closure: a crate both builds link, named as
+    omitted, reports once per build."""
+    import check_absence_contracts as contracts
+
+    linked = contracts.SDK_GAME_FLOOR[0]
+    for features in contracts.SDK_GAME_BUILDS:
+        assert linked in contracts.sdk_game_closure(REPO, features), (
+            f"`{linked}` is not in the {features or 'headless'} closure, so this "
+            "probe would report nothing and prove nothing"
+        )
+    monkeypatch.setattr(contracts, "SDK_GAME_OMITS", (linked,))
+    present, missing = contracts.sdk_game_report(REPO)
+    assert not missing
+    assert present == [f"headless: {linked}", f"visible: {linked}"]
+
+
+def test_the_sdk_game_closure_reports_a_broken_instrument_rather_than_ok(monkeypatch):
+    """The anti-vacuity control: an empty closure contains no omitted crate, so
+    without the floor a failed `cargo tree` would print ok."""
+    import check_absence_contracts as contracts
+
+    monkeypatch.setattr(contracts, "sdk_game_closure", lambda _root, _features: set())
+    present, missing = contracts.sdk_game_report(REPO)
+    assert not present
+    assert len(missing) == len(contracts.SDK_GAME_FLOOR) * len(contracts.SDK_GAME_BUILDS)
+
+
 def test_a_variable_width_field_is_refused_even_with_the_identity_bumped():
     """⛔⛤ THE SECOND REVIEW'S POISON, AND THE DISTINCTION IT TURNS ON.
 

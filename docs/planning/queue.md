@@ -206,6 +206,27 @@ does not name `shared_tangle`, the actor monolith or Ambition content. It leaves
 out capabilities it does not use, so they are absent from its Cargo graph. It
 runs headless and visibly and produces a release artifact.
 
+**SG1 done 2026-10-09:** Outlander (`fixtures/external_consumer`) is the SDK
+game: its own workspace and lockfile, the facade only, no `shared_tangle`,
+monolith or Ambition content named in its source. Measured: its windowed build
+linked `ambition_portal2d` and `ambition_platformer2d_ldtk`, which it never
+selects, because the monolith's `visible` turned on `portal`, `portal_render`,
+`portal_ldtk` and `ldtk_runtime`. They are out of `visible` now; a game that
+uses them selects them (the Ambition app and sanic already did). Outlander's
+windowed closure went from 61 to 59 ambition crates. New contract
+`the-sdk-game-links-no-capability-it-omits` (`check_absence_contracts.py`)
+resolves both builds and forbids the eight facade capabilities Outlander
+omits, with a floor. Poison (the old `visible`): red, naming exactly
+`visible: ambition_portal2d` and `visible: ambition_platformer2d_ldtk`. The
+lane now compiles `outlander_visible` (`--features visible --bins`). Measured
+on the way and not from this change (red on the uncut manifest too):
+mary_o_app `her_spark_leaves_her_hand` (3 tests, the fire sheet's published
+rows) and smash_app `nothing_a_match_created_survives_into_the_next_one`
+under `--features visible`. Still linked through the monolith and not used by
+Outlander: menu, items, encounter, boss_encounter, cutscene, conversation,
+held_items, audio (the deferred monolith carve). Next: SG2, a relocatable
+release artifact (`outlander_asset_root` bakes `CARGO_MANIFEST_DIR` in).
+
 **Acceptance:** a dependency check shows the omitted capability crates absent
 from the game's graph; its headless test and its windowed build both run in a
 lane; a release artifact is produced by a documented command.

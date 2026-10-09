@@ -126,15 +126,17 @@ web_platform = [
 # `bevy = { … }` dep above. Anything that uses `Sprite`, `Camera2d`,
 # `BackgroundColor`, `Window`, etc. should sit behind a presentation
 # `cfg(feature = "visible")` gate.
+# ⛔ NO `ldtk_runtime`, `portal`, `portal_render` OR `portal_ldtk` HERE. A
+# windowed build must select the same capabilities as the headless build of the
+# same game; presentation does not add mechanics (Q146). A game that uses
+# portals or LDtk asks for them through the facade's own features. Until
+# 2026-10-09 this list held all four, so every windowed game compiled portals
+# and the LDtk crate (`the-sdk-game-links-no-capability-it-omits`).
 visible = [
-    "ldtk_runtime",
     "input",
     "audio",
     "ui",
     "physics_debris",
-    "portal",
-    "portal_render",
-    "portal_ldtk",
     "bevy/2d_bevy_render",
     "bevy/ui_bevy_render",
     "bevy/scene",

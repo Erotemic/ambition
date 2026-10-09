@@ -473,6 +473,13 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
 /// Walking through the thin-wall doorway pair (c136/c137) must keep the APPARENT (screen-space)
 /// player position smooth for the WHOLE walk — the engage frame, every anchored frame, the
 /// anchor-release frame, and the settle afterwards.
+///
+/// A door through a thin wall is a pair like each other (2026-10-09): on the frame the body
+/// snaps by the wall's thickness, the camera cuts by the same translation, so the body stays
+/// where it was on screen. The view window shows the far side joined to the near side at the
+/// seam, so the picture is the same before and after the cut. On each other frame the camera
+/// moves as it does for a walk. Before, the door had no cut, and its window was held to the
+/// slab: a body that crossed was drawn two times.
 #[test]
 fn thin_wall_walk_keeps_apparent_player_position_smooth() {
     let mut harness = HeadlessCameraHarness::new();
@@ -513,13 +520,13 @@ fn thin_wall_walk_keeps_apparent_player_position_smooth() {
     let mut previous = harness.step(base());
 
     // Walk right through the doorway and keep walking; the whole pass must
-    // read as ordinary walking. The body's VISUAL is continuous by the clip
-    // pieces (the slices tile across the seam even as the authoritative pos
-    // snaps by the wall thickness), so what the player actually SEES jump is
-    // the CAMERA: any one-frame camera step much larger than a frame of walk
-    // speed (270/60 = 4.5px) is the world lurching behind the character.
+    // read as ordinary walking. What the player sees is the body's place on
+    // screen: on the snap frame the camera goes with the body, and on each
+    // other frame a camera step much larger than a frame of walk speed
+    // (270/60 = 4.5px) is the world lurching behind the character.
     let mut crossed = false;
     let mut max_camera_step = 0.0_f32;
+    let mut snap_screen_step = None;
     let mut max_smooth_screen_step = 0.0_f32;
     let mut worst: Option<(usize, CameraSample, CameraSample)> = None;
     for frame in 0..240 {
@@ -542,14 +549,17 @@ fn thin_wall_walk_keeps_apparent_player_position_smooth() {
                 "map-aware body continuity at the snap frame: {mapped_step:.2}px \
                  (frame {frame}, prev {previous:?}, cur {current:?})"
             );
+            // The camera cut with the body: the body did not move on screen
+            // by more than a frame of walking.
+            snap_screen_step = Some((current.screen_pos() - previous.screen_pos()).length());
         } else {
             max_smooth_screen_step =
                 max_smooth_screen_step.max((current.screen_pos() - previous.screen_pos()).length());
-        }
-        let camera_step = (current.camera_center - previous.camera_center).length();
-        if camera_step > max_camera_step {
-            max_camera_step = camera_step;
-            worst = Some((frame, previous, current));
+            let camera_step = (current.camera_center - previous.camera_center).length();
+            if camera_step > max_camera_step {
+                max_camera_step = camera_step;
+                worst = Some((frame, previous, current));
+            }
         }
         previous = current;
         if current.player_pos.x > exit.pos.x + 200.0 {
@@ -557,11 +567,16 @@ fn thin_wall_walk_keeps_apparent_player_position_smooth() {
         }
     }
     assert!(crossed, "the walk should transit the thin-wall pair");
+    let snap_screen_step = snap_screen_step.expect("a snap frame");
+    assert!(
+        snap_screen_step <= 12.0,
+        "on the snap frame the camera cuts with the body, so the body stays where it was on \
+         screen; it moved {snap_screen_step:.2}px"
+    );
     assert!(
         max_camera_step <= 12.0,
-        "a thin-wall doorway is a doorway, not a teleport: the camera must \
-         never lurch the world (max one-frame camera step {max_camera_step:.2}px \
-         at {worst:#?})"
+        "away from the snap frame the camera moves as for a walk (max one-frame camera step \
+         {max_camera_step:.2}px at {worst:#?})"
     );
     assert!(
         max_smooth_screen_step <= 12.0,

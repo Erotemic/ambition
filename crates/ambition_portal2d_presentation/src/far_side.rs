@@ -84,7 +84,7 @@ pub fn composite_far_side_bodies(
         // updates only in `PostUpdate`, so pieces would use last frame's pose
         // and lag behind a moving body.
         &Transform,
-        Option<&ambition_portal2d::PortalTransit>,
+        Option<&crate::PortalTransitView>,
     )>,
 ) {
     for entity in &stale {
@@ -265,7 +265,7 @@ fn restore_hidden(
         Option<&Anchor>,
         // Same query as `composite_far_side_bodies`.
         &Transform,
-        Option<&ambition_portal2d::PortalTransit>,
+        Option<&crate::PortalTransitView>,
     )>,
 ) {
     for (entity, ..) in candidates.iter_mut() {
@@ -381,14 +381,11 @@ mod tests {
             "and the far-side compositor owns that hide"
         );
 
-        // Frame N+1: `PortalTransit` arrives. That is the handoff; it changes
+        // Frame N+1: `PortalTransitView` arrives. That is the handoff; it changes
         // the far-side classification from `FarCovered` to `Transiting`.
         app.world_mut()
             .entity_mut(body)
-            .insert(ambition_portal2d::PortalTransit {
-                straddling: pane().channel,
-                crossed: false,
-            });
+            .insert(crate::PortalTransitView { straddling: pane().channel });
         app.update();
 
         assert_eq!(
@@ -700,10 +697,7 @@ mod tests {
         let body = spawn_candidate(&mut app, Vec2::new(505.0, 300.0), Vec2::new(24.0, 24.0));
         app.world_mut()
             .entity_mut(body)
-            .insert(ambition_portal2d::PortalTransit {
-                straddling: PortalChannel::Authored(PortalChannelColor::Purple),
-                crossed: false,
-            });
+            .insert(crate::PortalTransitView { straddling: PortalChannel::Authored(PortalChannelColor::Purple) });
         app.update();
         assert_eq!(
             visibility(&app, body),

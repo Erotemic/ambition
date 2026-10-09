@@ -73,10 +73,7 @@ fn spawn_body(app: &mut App, sprite: Sprite, transiting: bool) -> Entity {
         Transform::from_translation(translation),
     ));
     if transiting {
-        body.insert(PortalTransit {
-            straddling: left.channel,
-            crossed: false,
-        });
+        body.insert(crate::PortalTransitView { straddling: left.channel });
     }
     let body = body.id();
     let (left, right) = thin_wall_pair();
@@ -186,6 +183,28 @@ fn transit_replaces_sprite_with_two_clipped_pieces() {
         layered, 0,
         "pieces live on the default WORLD layer so portal captures photograph them"
     );
+}
+
+/// Each body that straddles a portal is cut, not one body only: two bodies in
+/// transit give two pairs of pieces, and both real sprites are hidden. The
+/// control is a third body that does not transit, which stays whole.
+#[test]
+fn each_body_in_transit_is_cut_into_its_own_two_pieces() {
+    let mut app = test_app();
+    let sprite = loaded_sprite(&mut app);
+    let first = spawn_body(&mut app, sprite.clone(), true);
+    let second = spawn_body(&mut app, sprite.clone(), true);
+    let whole = spawn_body(&mut app, sprite, false);
+    app.update();
+    app.update();
+    assert_eq!(piece_materials(&mut app).len(), 4, "two pieces for each of two bodies in transit");
+    for (body, hidden) in [(first, true), (second, true), (whole, false)] {
+        assert_eq!(
+            app.world().get::<crate::source_visibility::PortalTransitHidden>(body).is_some(),
+            hidden,
+            "the body in transit is drawn as its pieces, and the other as itself"
+        );
+    }
 }
 
 /// No transit: no pieces, the real sprite shows whole.

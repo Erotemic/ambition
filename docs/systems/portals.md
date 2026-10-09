@@ -61,9 +61,45 @@ partner's. The colour-name label stays.
   capture photographs it. Its z follows the pane-dominance rule: over the
   glass for the portal you are in front of, under it for the far one.
 
+### A body that crosses
+
+Each body that straddles a portal is drawn as two clipped pieces, one at each
+face (`sync_portal_body_pieces`): the player, an NPC, a dog. A body that is
+not the player is drawn by another entity than its own, so the host publishes
+the facts onto the visual that draws it while it is in transit
+(`publish_transiting_feature_bodies`: the scene-body tag, the pose, and
+`PortalTransitView`). Presentation reads that fact and not the simulation's
+`PortalTransit`.
+
+### The picture is the viewer's chart
+
+Near a portal its view window takes over the half-plane behind its face: the
+near side is drawn as it is, and the far side is drawn joined to it at the
+seam. The far half of a body that crosses is seen through the window, joined
+to the near half. This is so for each pair. A door through a thin wall (two
+opposed faces a wall's thickness apart) is not a special case:
+
+- Its map is a translation by the wall's thickness. A window held to the slab
+  showed the far side moved by that thickness beside the far side itself, so
+  a body that crossed was drawn two times. The door's window takes over as
+  each other window does, and the wall's thickness is not drawn while you are
+  at the door.
+- The camera cuts at the crossing by the same translation, so the picture on
+  screen is the same before and after it.
+- A window that closes is still the near one or the far one
+  (`pane_dominant`), so the far portal's line and label are under the glass
+  after a crossing too.
+
+What cannot be removed: away from a door, its window is a wedge, and the far
+side inside the wedge is moved by the wall's thickness against the far side
+outside it. The screen has the wall's thickness more space than the two sides
+have between them, so a picture that shows both has one seam where they do
+not meet. At the door the seam is the door's own line.
+
 To see it: `capture_scene portal_lab X,Y out.png` and
 `--portal-shot TICK:X,Y:DX,DY[:b]`, which fires a shot of a pair that no gun
-owns. A gun's portals go when no gun is in the room, so a gun shot in a
+owns, and `--player-at X,Y[@TICK]`, which puts the player at a point (repeat
+it to step the player through a portal). A gun's portals go when no gun is in the room, so a gun shot in a
 capture leaves nothing to photograph.
 
 ## Validation

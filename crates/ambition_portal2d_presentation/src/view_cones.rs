@@ -561,14 +561,6 @@ pub struct PortalViewConeConfig {
     /// (world px). `0.0` asks the renderer for a full-view half-plane that is
     /// clipped by the active camera frame.
     pub half_plane_preview_max_lateral: f32,
-    /// Maximum face separation (world px) for an opposed-normal pair to count
-    /// as a DOORWAY — a hole through a thin shared wall rather than a
-    /// wormhole between disjoint places. A doorway's window is clipped to the
-    /// wall slab and never takes over the half-plane: its two charts are the
-    /// same visual space, so a takeover pane would photograph a region that
-    /// is also directly on screen and double-image it. The kin criterion for
-    /// the camera is `PortalCameraContinuityConfig::min_anchor_camera_cut`.
-    pub doorway_pair_max_gap: f32,
     /// Z range over which nearer portals' windows draw ON TOP of farther ones
     /// (added to `z` by an inverse-distance bias). Kept under the rim gap.
     pub z_proximity_span: f32,
@@ -644,7 +636,6 @@ impl Default for PortalViewConeConfig {
             half_plane_preview_full_distance: 1.0,
             half_plane_preview_blend_distance: 120.0,
             half_plane_preview_max_lateral: 0.0,
-            doorway_pair_max_gap: 64.0,
             z_proximity_span: 0.35,
             blend_rate: 10.0,
             min_depth: 22.0,
@@ -1036,6 +1027,14 @@ pub fn sync_portal_view_cones(
         sync_cone_material_tint(&cone_materials, materials, rig.cone, config.tint);
 
         let plan = compute_cone(&portal, &partner, &config, viewer, frame.size, convention);
+        // Which pane of the pair the viewer is in front of, before the window
+        // can close: a closed window is still the near one or the far one, and
+        // the portal's frame is drawn over or under the glass by this answer.
+        // A window that closed when the viewer crossed kept its old answer,
+        // and its frame was drawn over its partner's glass.
+        let (z, pane_dominant) =
+            pane_z(&config, viewer, &portal, &partner, Some(rig.pane_dominant));
+        rig.pane_dominant = pane_dominant;
         if plan.target <= 0.0 {
             rig.blend = 0.0;
             cam.is_active = false;
@@ -1059,9 +1058,6 @@ pub fn sync_portal_view_cones(
             &exit,
             convention,
         );
-        let (z, pane_dominant) =
-            pane_z(&config, viewer, &portal, &partner, Some(rig.pane_dominant));
-        rig.pane_dominant = pane_dominant;
         let render = cone_render(
             &cone,
             &enter,

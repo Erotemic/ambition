@@ -907,16 +907,15 @@ fn window_depth_clips_to_the_host_wall_thickness() {
     );
 }
 
-/// A DOORWAY pair (opposed faces across a thin slab) never takes over the
-/// half-plane, even standing AT the aperture: its two charts are the same
-/// visual space, so a takeover pane would photograph a region that is
-/// also directly on screen and double-image everything in it (frames,
-/// the transiting body, the world at a parallax offset). The pane is the
-/// slab. Disjoint pairs keep the takeover
-/// (`doorway_view_cone_reaches_half_plane_without_immediate_snap` is the
-/// control at 640px separation).
+/// A door through a thin wall (opposed faces a wall's thickness apart) takes
+/// over the half-plane as each other pair does: standing in the aperture, its
+/// pane reaches far past the wall, so it covers the far side that is drawn
+/// directly there. A pane held to the slab showed the far side moved by the
+/// wall's thickness beside the far side itself, and a body that crossed was
+/// drawn two times. The control is the same eye with the takeover off (exact
+/// mode): the finite window alone stays inside the wall.
 #[test]
-fn thin_wall_doorway_pane_stays_inside_the_slab_at_the_aperture() {
+fn a_door_through_a_thin_wall_takes_over_the_half_plane_as_each_pair_does() {
     let world = Vec2::new(1600.0, 900.0);
     let wall = ae::Aabb::new(Vec2::new(512.0, 450.0), Vec2::new(12.0, 450.0));
     let near = placed(
@@ -929,39 +928,29 @@ fn thin_wall_doorway_pane_stays_inside_the_slab_at_the_aperture() {
         Vec2::new(524.0, 450.0),
         Vec2::new(1.0, 0.0),
     );
-    // DEFAULT config: half-plane takeover enabled — the doorway rule
-    // itself must suppress it, not a tuning knob.
-    let config = dynamic_config();
-    let viewer = PortalViewer {
-        observer: None,
-        room: None,
-        present: true,
-        eye: near.pos + near.normal * 0.5, // standing in the aperture
-        half_size: Vec2::ZERO,
-        occluders: vec![wall],
-    };
-    let plan = compute_cone(
-        &near,
-        &far,
-        &config,
-        Some(&viewer),
-        world,
-        MapConvention::Reflection,
-    );
-    assert!(plan.target > 0.0, "the doorway window is open");
     let wall_back = 524.0;
-    for p in plan
-        .wedge
-        .entry_quad
-        .iter()
-        .chain(plan.min.entry_quad.iter())
-    {
-        assert!(
-            p.x <= wall_back + 0.6,
-            "a doorway pane must stay inside the wall slab even at the \
-             aperture (no takeover), got {p:?}",
-        );
-    }
+    let reach = |config: &PortalViewConeConfig| {
+        let viewer = PortalViewer {
+            observer: None,
+            room: None,
+            present: true,
+            eye: near.pos + near.normal * 0.5, // standing in the aperture
+            half_size: Vec2::ZERO,
+            occluders: vec![wall],
+        };
+        let plan = compute_cone(&near, &far, config, Some(&viewer), world, MapConvention::Reflection);
+        assert!(plan.target > 0.0, "the door's window is open");
+        plan.wedge.entry_quad.iter().map(|p| p.x).fold(f32::MIN, f32::max)
+    };
+    let taken_over = reach(&dynamic_config());
+    assert!(
+        taken_over > wall_back + world.x * 0.5,
+        "in the aperture the pane covers the far side, got a reach of {taken_over}"
+    );
+    let mut exact = dynamic_config();
+    exact.half_plane_preview_full_distance = 0.0;
+    let finite = reach(&exact);
+    assert!(finite <= wall_back + 0.6, "with no takeover the window stays in the wall, got {finite}");
 }
 
 #[test]

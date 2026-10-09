@@ -82,8 +82,10 @@ Two rules keep the look honest about collision:
 
 - The front of the two-state look is not authored. It goes through the centre
   of the room with a fixed lean.
-- A look does not read the visual quality tier. Each look adds two quads that
-  fill the screen.
+- A look is all or nothing for the visual quality tier. A tier with no budget
+  for screen shaders (`screen_shader_scale` of zero: Potato) draws no look, and
+  the room is its block sprites. A sign or a door that the look dressed before
+  the tier changed keeps its dress until the room loads again.
 - The glow is drawn in the shader. There is no bloom pass.
 - A look dresses the static blocks of the room. A moving platform is not a block of the room, and it keeps its own art.
 - A door that a portal hides keeps its frame.

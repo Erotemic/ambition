@@ -27,7 +27,9 @@
 //! renderer's `EntityArt` seam.
 //!
 //! The original block sprites stay under the surface quads. If a material does
-//! not draw, the room looks as it did before.
+//! not draw, the room looks as it did before. That is also the fallback for a
+//! device with no budget for a shader that fills the screen
+//! ([`looks_are_in_budget`]).
 
 use bevy::{
     asset::embedded_asset,
@@ -44,6 +46,7 @@ use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, InRoomInstance, SessionScopeSet, SessionSpawnScope, SpawnSessionScopedExt,
 };
+use ambition_persistence::settings::ResolvedVisualQuality;
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, LoadingZoneActivation, RoomSpec};
 use ambition_render::rendering::label_layout::{MirroredWorldLabel, StaticWorldLabel, WorldLabel};
 use ambition_render::rendering::{
@@ -187,10 +190,31 @@ impl RoomLook for RoomBlueprintMaterial {
 #[derive(Resource, Default)]
 struct RoomLookInstalled;
 
-/// Marks a live room whose look is spawned. It is stamped with the room, so it
-/// leaves with the room, and the look is spawned again on a replay.
+/// Marks each entity of a spawned look. It is stamped with the room, so it
+/// leaves with the room, and the look is spawned again on a replay. A live
+/// room with no such entity has no look.
 #[derive(Component)]
 struct PresentedRoomLook;
+
+/// Whether this device draws a room look.
+///
+/// A look is a shader that fills the screen, two times. The quality budget
+/// says if a device draws such shaders (the Potato tier does not), and the
+/// screen filter reads the same number.
+fn looks_are_in_budget(quality: Option<Res<ResolvedVisualQuality>>) -> bool {
+    quality.is_none_or(|quality| quality.budget.shaders.screen_shader_scale > 0.0)
+}
+
+/// Take each look away when the budget for it goes. The block sprites below
+/// are then the room.
+fn retire_looks_out_of_budget(
+    mut commands: Commands,
+    pieces: Query<Entity, With<PresentedRoomLook>>,
+) {
+    for piece in &pieces {
+        commands.entity(piece).try_despawn();
+    }
+}
 
 /// The unit quad every piece of a look scales.
 #[derive(Resource)]
@@ -221,7 +245,12 @@ pub fn install(app: &mut App) {
     install_look::<RoomBlueprintMaterial>(app);
     app.add_systems(
         Update,
-        ink_labels_on_the_clean_side.run_if(resource_exists::<Assets<RoomStateMaterial>>),
+        (
+            ink_labels_on_the_clean_side
+                .run_if(resource_exists::<Assets<RoomStateMaterial>>)
+                .run_if(looks_are_in_budget),
+            retire_looks_out_of_budget.run_if(not(looks_are_in_budget)),
+        ),
     );
 }
 
@@ -241,9 +270,15 @@ where
             .in_set(SessionScopeSet::Presentation)
             // Absent collections mean that this app does not draw.
             .run_if(resource_exists::<Assets<Mesh>>)
-            .run_if(resource_exists::<Assets<M>>),
+            .run_if(resource_exists::<Assets<M>>)
+            .run_if(looks_are_in_budget),
     );
-    app.add_systems(Update, dress_doors::<M>.run_if(resource_exists::<Assets<M>>));
+    app.add_systems(
+        Update,
+        dress_doors::<M>
+            .run_if(resource_exists::<Assets<M>>)
+            .run_if(looks_are_in_budget),
+    );
 }
 
 /// Whether a room asks for the look `M`.
@@ -380,6 +415,7 @@ fn present_room_look<M: RoomLook>(
                         .with_scale(Vec3::new(size.x + pad * 2.0, size.y + pad * 2.0, 1.0)),
                     Name::new(name),
                     RoomVisual,
+                    PresentedRoomLook,
                 ),
             );
             // A quad that draws a block is a visual of that block: it leaves
@@ -464,10 +500,6 @@ fn present_room_look<M: RoomLook>(
             KIND_SOLID,
             OVERLAY_Z,
             None,
-        );
-        commands.spawn_session_scoped(
-            scope,
-            (PresentedRoomLook, RoomVisual, Name::new("presented room look")),
         );
     }
 }

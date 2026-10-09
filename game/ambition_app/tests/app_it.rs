@@ -96,6 +96,7 @@ mod character_provider_namespace;
 mod collision_overlay_order;
 mod collision_invariant_oracle;
 mod companion_dog;
+mod a_brain_is_told_the_law_its_body_moves_by;
 mod composes_through_the_sdk;
 mod content_dormancy;
 mod crouch_stability;

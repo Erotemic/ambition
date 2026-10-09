@@ -278,7 +278,14 @@ pub fn tick_actor_brains(
     mut decisions: ResMut<ActorDecisionFrames>,
     // Any body's collision extent, read-only: a rider's mount, for its width,
     // and whether turning it mirrors it at all.
-    bodies: Query<(&ae::BodyKinematics, bevy::prelude::Has<ae::Unmirrored>)>,
+    //
+    // And a body's authored movement feel, when it has one: the tuning the
+    // integrator moves it by, for the brain snapshot's movement law.
+    bodies: Query<(
+        &ae::BodyKinematics,
+        bevy::prelude::Has<ae::Unmirrored>,
+        Option<&ae::AuthoredMovementTuning>,
+    )>,
     // A rider's mount, for whether the pair steers in flight. See
     // `steers_in_flight`.
     carriers: Query<(&ae::ActorSurfaceState, &ae::BodyFlightState)>,
@@ -630,11 +637,12 @@ pub fn tick_actor_brains(
                                 rules: *rules,
                             }),
                         aerial,
+                        bodies.get(this_actor_entity).ok().and_then(|(_, _, authored)| authored),
                     );
                     snapshot.navigation = navigation.of(this_actor_entity);
                     // An `Unmirrored` mount shows no turn, so its rider turns
                     // by its own box.
-                    if let Some((mount, false)) = riding.and_then(|riding| bodies.get(riding.mount).ok()) {
+                    if let Some((mount, false, _)) = riding.and_then(|riding| bodies.get(riding.mount).ok()) {
                         snapshot.actor_half_width = snapshot.actor_half_width.max(mount.size.x * 0.5);
                     }
                     // WHERE THIS WALKER'S GROUND RUNS OUT, asked only for a body
@@ -2335,6 +2343,19 @@ pub(crate) fn steers_in_flight(
 /// backend reads from; `crowding` is only consulted by the Smash
 /// brain, but always populating it keeps the snapshot uniform across
 /// state-machine variants.
+/// The movement law a body on the ground moves by: its character's authored
+/// feel when it has one, else its config's own. The integrator resolves it
+/// this way (`resolved_tuning` in `enemies/integration.rs`), and what a brain
+/// is told must be what its body does.
+pub(crate) fn movement_law_of(
+    config: &ambition_combat::actor_tuning::ActorConfig,
+    authored: Option<&ae::AuthoredMovementTuning>,
+) -> ae::MovementTuning {
+    authored
+        .map(|authored| authored.0)
+        .unwrap_or_else(|| config.tuning.movement.body_tuning(config.tuning.max_run_speed))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn build_enemy_brain_snapshot(
     body: &crate::actor_clusters::ActorClusterQueryDataReadOnlyItem<'_, '_>,
@@ -2372,8 +2393,18 @@ fn build_enemy_brain_snapshot(
     // Whether the brain steers a 2D `velocity_target`, resolved by the caller,
     // which knows whether this body rides a mount. See `steers_in_flight`.
     aerial: bool,
+    // The body's authored movement feel, when it has one. See `movement_law`.
+    authored_tuning: Option<&ae::AuthoredMovementTuning>,
 ) -> ambition_characters::brain::BrainSnapshot {
     let swing = ambition_combat::moveset::melee_swing_of(playback, moveset);
+    // THE MOVEMENT LAW THIS BODY MOVES BY, resolved as the integrator
+    // resolves it (`integrate_sim_bodies`: the character's authored feel,
+    // else its config's). The snapshot took the config's alone, and its
+    // comment said it was the same projection. It was not for a body that
+    // authors its feel. Measured in the hall, 2026-10-09: Mary-O's brain was
+    // told run 270, jump 520 and one air jump, and her body moves at run 300,
+    // jump 450 and has no air jump.
+    let movement_law = movement_law_of(body.config, authored_tuning);
     ambition_characters::brain::BrainSnapshot {
         actor_pos: body.kin.pos,
         actor_vel: body.kin.vel,
@@ -2456,21 +2487,16 @@ fn build_enemy_brain_snapshot(
         max_run_speed: if body.flight.fly_enabled {
             body.config.tuning.flight_speed(&body.policy.0)
         } else {
-            body.config.tuning.max_run_speed
+            movement_law.max_run_speed
         },
         // THE MOVEMENT LAW THIS BODY PLAYS UNDER, for the brains that
         // predict rather than steer. The line above takes one number out of the
         // same tuning as a throttle scale; a rollout has to step the body
         // forward, so it needs the law and not one field of it.
         //
-        // `body_tuning` is the same projection the rich integration path takes, so the
+        // `movement_law` is resolved as the integration path resolves it, so the
         // predictor and the integrator read one source — which is the whole point.
-        movement_tuning: Some(
-            body.config
-                .tuning
-                .movement
-                .body_tuning(body.config.tuning.max_run_speed),
-        ),
+        movement_tuning: Some(movement_law),
         // THE VERBS THAT LAW APPLIES TO, from the body's own ability
         // cluster — the same component the movement kernel reads. A rollout that
         // asks whether a fall is recoverable has to drive the kernel, and the

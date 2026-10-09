@@ -162,10 +162,15 @@ OPEN, cost:
   (`companion_dog::the_basement_dog_...` holds it). YardratAmbition found the
   cause by reading the integrator; two signals I tried first (`PosedBody`, the
   prepared character's motion model) were wrong.
-- OPEN, found on the way and not measured: the brain snapshot's
-  `movement_tuning` is `body_tuning(max_run_speed)` and does not read
-  `AuthoredMovementTuning`, which the integrator prefers. Its comment says it
-  is the same projection. For a body that authors its feel they can differ.
+- CLOSED 2026-10-09, found on the way (its own slice): the brain snapshot's
+  movement law was the config's tuning alone, and the integrator prefers a
+  body's `AuthoredMovementTuning`. Measured in the hall: of 138 bodies two
+  author their feel (Mary-O and tall Mary-O), and both were told run 270,
+  jump 520 and one air jump while they move at run 300, jump 450 and no air
+  jump. The snapshot now resolves the law as the integrator does
+  (`movement_law_of`). Guard:
+  `a_brain_is_told_the_law_its_body_moves_by` (a patrol that asks Mary-O for
+  100 px/s gets 100; it got 111.1 with the fix taken out).
 
 The rules the slice holds:
 

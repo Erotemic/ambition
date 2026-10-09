@@ -11,7 +11,16 @@ description = "Ambition app shell: assembly, binaries, host glue, headless/RL dr
 autotests = false
 
 [lib]
-crate-type = ["rlib", "cdylib"]
+# rlib ONLY. The web and Android builds ask for the shared library on their own
+# command line (`cargo rustc --crate-type cdylib`, in `build_for_web.sh` and
+# `build_for_android.sh`). A cdylib here removes the metadata hash from this
+# target's output file names, so each feature set of this crate wrote the same
+# `libambition_app.rlib`: a `capture_scene` build and an `app_it` build
+# rebuilt this crate after each other (measured 2026-10-09: 16.9 s against
+# 2.9 s for the same test), and each desktop build also linked a 674 MB
+# `libambition_app.so` that nothing on the desktop loads. The monolith met
+# the same defect (its `[lib]` comment).
+crate-type = ["rlib"]
 
 [features]
 # Personas mirror the pre-split ambition_platformer2d_actor_monolith graph; each forwards to the

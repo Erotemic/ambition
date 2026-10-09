@@ -841,7 +841,9 @@ python3 "$ROOT/scripts/package_asset_guard.py" compose \
 log "APK asset tree size: $(dir_size "$ASSETS_OUT")"
 
 rm -rf "$JNI_OUT/$TARGET_ABI"
-CARGO_NDK_ARGS=(cargo ndk -t "$TARGET_ABI" -P "$MIN_SDK" -o "$JNI_OUT" build -p ambition_app --lib)
+# `rustc --crate-type cdylib`: the manifest declares an rlib only (see its
+# `[lib]`), and Gradle packages the shared library.
+CARGO_NDK_ARGS=(cargo ndk -t "$TARGET_ABI" -P "$MIN_SDK" -o "$JNI_OUT" rustc -p ambition_app --lib --crate-type cdylib)
 case "$RUST_PROFILE" in
     debug) ;;
     release) CARGO_NDK_ARGS+=(--release) ;;

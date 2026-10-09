@@ -630,8 +630,15 @@ fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
             .unwrap_or_else(|| panic!("`{target}` has a published flipbook"))
             .row_draws_the_body_whole(row)
     };
+    // ⚠ The sheets are untracked, so this reads the sheet THIS machine last
+    // published. A machine that has not published the robot since its blink
+    // rows became plain poses fails here, and the cure is not in the code.
     for row in ["blink_out", "blink_in", "blink_out~mirrored", "idle"] {
-        assert!(whole("player_robot_v3", row), "player_robot_v3 {row}");
+        assert!(
+            whole("player_robot_v3", row),
+            "player_robot_v3 does not draw its body whole in `{row}`. If this machine's sheet is from \
+             before 2026-10-09, publish it again: scripts/regen/sprites.sh --target player_robot_v3"
+        );
     }
     // Its death fades the frame as one picture.
     assert!(!whole("player_robot_v3", "death"));

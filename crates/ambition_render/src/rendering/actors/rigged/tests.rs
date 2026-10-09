@@ -961,12 +961,16 @@ fn a_frame_that_fades_as_one_picture_fades_its_cell() {
 /// through the row the frame is, and it is gone when the row ends. The row's
 /// own frame is drawn whole, for the warp to cut.
 ///
-/// The control is a sheet that takes its own body apart in that row (the old
-/// robot): its cell has no warp, and it keeps its own blink.
+/// The control is a sheet that fades its own body in that row (alice): its
+/// cell has no warp, and it keeps its own blink.
 #[test]
 fn a_blink_row_warps_its_bodys_cell_and_a_sheet_with_its_own_blink_keeps_it() {
     let (flipbook, mut app, root) = robot();
-    assert!(flipbook.row_draws_the_body_whole("blink_out"), "premise: the robot's blink row is a plain pose");
+    assert!(
+        flipbook.row_draws_the_body_whole("blink_out"),
+        "premise: the robot's blink row is a plain pose. The sheets are untracked: if this machine's is from \
+         before 2026-10-09, publish it again: scripts/regen/sprites.sh --target player_robot_v3"
+    );
     let owner_of = owner(&app, root);
     let last = flipbook.clip("blink_out").expect("a blink clip").frame_count() - 1;
     assert!(last >= 2, "the blink clip has too few frames to be part way through");
@@ -987,14 +991,13 @@ fn a_blink_row_warps_its_bodys_cell_and_a_sheet_with_its_own_blink_keeps_it() {
     assert_eq!(atlas(&app).cells.warp[cell], Vec4::ZERO, "the warp stays after the row ends");
 
     // The control.
-    let own = RiggedSpriteAsset::baked("robot").expect("the old robot publishes a flipbook");
-    assert!(!own.row_draws_the_body_whole("blink_out"), "control: the old robot draws a plain blink row now");
-    let (mut app, root) = app_with(true, sheet_with("robot", Some(own)));
+    let own = RiggedSpriteAsset::baked("alice").expect("alice publishes a flipbook");
+    assert!(!own.row_draws_the_body_whole("blink_out"), "control: alice draws a plain blink row now; choose another sheet");
+    let (mut app, root) = app_with(true, sheet_with("alice", Some(own)));
     app.update();
     pin_clip(&mut app, root, "blink_out", 2);
     app.update();
-    // Its body is not composited for the warp, so there can be no atlas at
-    // all; when there is one, no cell of it has a warp.
+    // No cell of an atlas has a warp (its body is composited to fade).
     let warped = app
         .world()
         .resource::<RiggedImpostorAtlas>()

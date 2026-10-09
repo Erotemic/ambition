@@ -215,3 +215,33 @@ fn a_body_with_no_jump_cannot_reach_what_needs_one() {
     assert!(matches!(graph.next(fixture.middle("ledge"), fixture.middle("cellar")), NavNext::Leg(_)));
     assert!(matches!(fixture.graph.next(floor, fixture.middle("perch")), NavNext::Leg(_)));
 }
+
+/// ⭐ A LEG THAT RUNS INTO A WALL FAILS WHEN IT STOPS, NOT AT THE STEP LIMIT.
+///
+/// The floor ends at a wall the body cannot jump, and a lower floor lies past
+/// it. The walk-off proposal off that end pushes into the wall. Measured on the
+/// shipped rooms, rollouts like it were most of the build's failed steps,
+/// because each ran to `MAX_LEG_STEPS`.
+#[test]
+fn a_leg_into_a_wall_fails_when_the_body_stops() {
+    let world = World::new(
+        "a wall at the end of the floor",
+        Vec2::new(4000.0, 3000.0),
+        Vec2::ZERO,
+        vec![
+            Block::solid("floor", Vec2::new(0.0, FLOOR), Vec2::new(1500.0, 64.0)),
+            // To the top of the room: its own top is too high for any leg.
+            Block::solid("wall", Vec2::new(1500.0, 0.0), Vec2::new(32.0, FLOOR + 64.0)),
+            Block::solid("below", Vec2::new(1532.0, FLOOR + 100.0), Vec2::new(1000.0, 64.0)),
+        ],
+    );
+    let graph = NavGraph::build(&world, &walker(), normal_frame()).expect("a graph");
+    assert!(graph.links.is_empty(), "a leg crossed a wall it cannot jump: {:?}", graph.links);
+    assert!(graph.cost.rollouts > 0, "no leg was rolled out, so nothing below is measured");
+    assert!(
+        graph.cost.steps < MAX_LEG_STEPS,
+        "{} kernel steps over {} rollouts: a rollout stood at the wall until the step limit",
+        graph.cost.steps,
+        graph.cost.rollouts
+    );
+}

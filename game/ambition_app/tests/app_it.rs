@@ -156,6 +156,7 @@ mod mary_o_hud_surround;
 mod mary_o_lap_in_the_host;
 mod movement_axis;
 mod neighbor_prefetch_prepares_rooms;
+mod nav_graph_census;
 mod no_character_resolves_art_by_an_ambiguous_root;
 mod one_character_two_contexts;
 mod parallax_theme_retires_on_walk;

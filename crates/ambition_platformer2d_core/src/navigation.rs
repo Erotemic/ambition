@@ -182,6 +182,13 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                 let progress = if landed { LegProgress::Arrived } else { LegProgress::Failed };
                 return (LegInput::default(), progress);
             }
+            // Below the landing top and still falling: the body has missed,
+            // and it cannot come back up. Fail now, not where it lands. A hop
+            // to a higher surface is below the top on its way up too, so the
+            // test also needs downward motion.
+            if below(leg.land) < -LAND_TOLERANCE && facts.vel.dot(facts.down) > 0.0 {
+                return (LegInput::default(), LegProgress::Failed);
+            }
             let input = LegInput {
                 axis: steer_to(leg.land, 16.0),
                 full_speed: true,
@@ -289,5 +296,21 @@ mod tests {
         assert_eq!(follow_leg(&leg, LegPhase::Air, &landed).1, LegProgress::Arrived);
         let fell = facts(Vec2::new(140.0, 200.0), Vec2::ZERO, true);
         assert_eq!(follow_leg(&leg, LegPhase::Air, &fell).1, LegProgress::Failed);
+    }
+
+    /// Below the landing top and falling, a leg has missed: it cannot come back
+    /// up. Below the top and rising is a hop to a higher surface on its way.
+    #[test]
+    fn a_body_below_its_landing_and_falling_has_missed() {
+        let leg = NavLeg {
+            kind: NavLegKind::Hop,
+            start: Vec2::new(0.0, 100.0),
+            takeoff: Vec2::new(0.0, 100.0),
+            land: Vec2::new(80.0, 60.0),
+        };
+        let below_the_top = Vec2::new(60.0, 60.0 + LAND_TOLERANCE + 1.0);
+        let falling = follow_leg(&leg, LegPhase::Air, &facts(below_the_top, Vec2::new(100.0, 50.0), false));
+        let rising = follow_leg(&leg, LegPhase::Air, &facts(below_the_top, Vec2::new(100.0, -50.0), false));
+        assert_eq!((falling.1, rising.1), (LegProgress::Failed, LegProgress::Going(LegPhase::Air)));
     }
 }

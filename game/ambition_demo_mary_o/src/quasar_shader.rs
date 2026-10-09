@@ -42,6 +42,8 @@ use ambition_platformer2d::sprite_sheet::character::rigged::FrameInSprite;
 const EFFECT_STRENGTH: f32 = 1.0;
 const OVERLAY_ALPHA: f32 = 0.96;
 const OVERLAY_Z_BIAS: f32 = 1.0;
+// Under the plane of an enclosure, so a pipe hides the quasar with her.
+const _: () = assert!(OVERLAY_Z_BIAS < ambition_platformer2d::render::rendering::BODY_DEPTH_BAND);
 
 #[derive(Resource, Default)]
 struct QuasarShaderInstalled;

@@ -285,10 +285,18 @@ pub(crate) fn prop_sprite_bundle(
     collision: BVec2,
 ) -> (Sprite, Anchor, CharacterAnimator) {
     let (render_size, anchor) = prop_sprite_geometry(draw, &asset.spec, collision);
-    let (mut sprite, anchor, animator) =
+    let (mut sprite, mut anchor, animator) =
         build_character_presentation_with_render_size(asset, render_size, anchor);
     // Which way the prop points is authored data, not a second sheet.
     sprite.flip_y = flip_y;
+    if flip_y {
+        // A packed sheet trims each frame, and the anchor places the trimmed
+        // rect in its frame. A flip mirrors the frame, so it mirrors that
+        // placement also, as the facing flip does for x
+        // (`draw_animator_frame`). Without this the art of a pipe head that
+        // hangs from a ceiling stood off its shaft by the trim.
+        anchor.0.y = -anchor.0.y;
+    }
     (sprite, anchor, animator)
 }
 
@@ -312,7 +320,7 @@ pub fn spawn_room_prop(
     // Built world draws in front, so a body inside it is hidden; scenery sits
     // behind the cast.
     let z = if prop.draw.occludes_bodies() {
-        WORLD_Z_PLAYER + 1.0
+        WORLD_Z_PLAYER + super::BODY_DEPTH_BAND
     } else {
         feature_z(kind)
     };
@@ -1670,6 +1678,49 @@ mod lock_wall_visual_tests {
 mod prop_geometry_tests {
     use super::*;
     use ambition_sprite_sheet::character::sheets::{try_load_spec_for_target, SheetTuning};
+
+    /// A prop drawn upside down is the mirror of the prop drawn upright (the
+    /// head of a pipe that hangs from a ceiling). The pipe-head sheet is
+    /// trimmed: its art starts two rows under the top of its frame.
+    ///
+    /// Measured before: the flip turned the picture inside its trimmed rect
+    /// and left the rect where it was, so the head's art stood two rows off
+    /// the shaft it joins (Jon, 2026-10-08: a gap above the bottom cap).
+    #[test]
+    fn a_prop_drawn_upside_down_is_the_mirror_of_the_upright_prop() {
+        use ambition_sprite_sheet::character::{CharacterSpriteAsset, CharacterSpritePage};
+        let spec = try_load_spec_for_target("super_mary_o_pipe_top", &SheetTuning::new(1.0, 0))
+            .expect("the pipe-head sheet is baked into the manifest");
+        let asset = CharacterSpriteAsset {
+            texture: Handle::default(),
+            layout: Handle::default(),
+            spec,
+            pages: vec![CharacterSpritePage { texture: Handle::default(), layout: Handle::default() }],
+            requested_tier: Default::default(),
+            resolved_tier: Default::default(),
+            rigged: None,
+        };
+        let authored = BVec2::new(64.0, 32.0);
+        // `(top, bottom)` of the drawn art about the middle of its box, +y up.
+        let drawn = |flip_y: bool| {
+            let (sprite, anchor, _) = prop_sprite_bundle(PropDraw::Enclosure, flip_y, &asset, authored);
+            assert_eq!(sprite.flip_y, flip_y);
+            let size = sprite.custom_size.expect("a sized sprite");
+            let middle = -anchor.0.y * size.y;
+            (middle + size.y * 0.5, middle - size.y * 0.5)
+        };
+        let (top, bottom) = drawn(false);
+        assert!(top < authored.y * 0.5 - 1.0, "premise: the upright art starts under the top of its box ({top})");
+        assert!((bottom + authored.y * 0.5).abs() < 0.01, "premise: the upright art stands on the bottom of its box ({bottom})");
+
+        let (flipped_top, flipped_bottom) = drawn(true);
+        assert!(
+            (flipped_top + bottom).abs() < 0.01 && (flipped_bottom + top).abs() < 0.01,
+            "upside down the art spans {flipped_bottom}..{flipped_top}; the mirror of {bottom}..{top} is {}..{}",
+            -top,
+            -bottom
+        );
+    }
 
     /// A pipe's art must match the surface a body stands on.
     ///

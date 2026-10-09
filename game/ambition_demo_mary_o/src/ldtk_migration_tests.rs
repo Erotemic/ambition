@@ -154,6 +154,58 @@ fn every_authored_pole_wears_its_finial_and_its_flag() {
     );
 }
 
+/// The tiles of a pipe leave no seam (Jon, 2026-10-08: a line at each tile
+/// of every pipe).
+///
+/// A sprite fades over half a texel at its edge. So two tiles that only touch
+/// show a line, and a tile that reaches under its neighbour does not. The
+/// tiles of a pipe cover its block exactly, none reaches out of it, and each
+/// one reaches under the one before it.
+///
+/// Measured before: each tile began exactly where the one before it ended.
+#[test]
+fn the_tiles_of_every_pipe_reach_under_each_other() {
+    let room_set = crate::authored_world();
+    let mut pipes = 0usize;
+    let mut joints = 0usize;
+    for room in &room_set.rooms {
+        let props = crate::scenery_for_authored_room(room);
+        for (half, pipe) in crate::pipe_halves_of(room) {
+            pipes += 1;
+            let name = format!("pipe_{}_{}", pipe.link, pipe.role.authored().to_ascii_lowercase());
+            // `(top, bottom)` of each tile of this pipe, from its top down.
+            let mut tiles: Vec<(f32, f32)> = props
+                .iter()
+                .filter(|prop| prop.id.starts_with(&format!("{name}_")))
+                .map(|prop| (prop.pos.y - prop.size.y * 0.5, prop.pos.y + prop.size.y * 0.5))
+                .collect();
+            tiles.sort_by(|a, b| a.0.total_cmp(&b.0));
+            assert!(!tiles.is_empty(), "{}: `{name}` has no art", room.id);
+            assert!(
+                (tiles[0].0 - half.aabb.min.y).abs() < 0.01
+                    && (tiles.last().unwrap().1 - half.aabb.max.y).abs() < 0.01,
+                "{}: the tiles of `{name}` span {}..{}, and its block {}..{}",
+                room.id,
+                tiles[0].0,
+                tiles.last().unwrap().1,
+                half.aabb.min.y,
+                half.aabb.max.y,
+            );
+            for pair in tiles.windows(2) {
+                joints += 1;
+                let under = pair[0].1 - pair[1].0;
+                assert!(
+                    under >= 1.0,
+                    "{}: two tiles of `{name}` meet at y {} with {under} px of one under the other",
+                    room.id,
+                    pair[1].0,
+                );
+            }
+        }
+    }
+    assert!(pipes >= 4 && joints >= 4, "premise: the levels author pipes of several tiles ({pipes} pipes, {joints} joints)");
+}
+
 /// ONE instrument, `#[ignore]`d so it never runs in the suite — what the
 /// authored file actually contains, when a claim about it needs settling.
 ///

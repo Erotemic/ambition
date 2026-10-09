@@ -34,6 +34,13 @@ use ambition_platformer2d::platformer::markers::PlayerEntity;
 pub const SWALLOW_S: f32 = 0.5;
 pub const EMERGE_S: f32 = 0.5;
 
+/// Seconds spent stepping across the mouth to the pipe's centre line, before
+/// the slide. Short: it is a step, and a body that is on the line skips it.
+pub const CENTER_S: f32 = 0.14;
+
+/// A body this near the centre line (px) is on it.
+const ON_THE_LINE: f32 = 0.5;
+
 /// How far along the tube's axis the body travels in each phase. Two tiles is the
 /// pipe's own height, so the slide starts at the lip and ends with the body fully
 /// inside the pipe's footprint — which is exactly the span the pipe art covers, so
@@ -65,6 +72,8 @@ pub struct PipeEntryLatch {
 /// Which half of the transit is running.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TransitPhase {
+    /// Stepping across the mouth to the pipe's centre line, before the slide.
+    Centering,
     /// Sliding INTO the near pipe, before the crossing.
     Swallowing,
     /// Rising OUT of the far pipe, after it.
@@ -84,6 +93,8 @@ pub struct PipeTransit {
     pub from: ae::Vec2,
     /// ...and where it ends.
     pub to: ae::Vec2,
+    /// Where the swallow ends: inside the near pipe, on its centre line.
+    pub swallowed: ae::Vec2,
     /// The far pipe's throat — where the body reappears when the swallow ends,
     /// and where the emergence slide starts from.
     pub throat: ae::Vec2,
@@ -92,19 +103,29 @@ pub struct PipeTransit {
 }
 
 impl PipeTransit {
-    /// Begin a transit: the body sinks `TRAVEL_TILES` along `axis` from where it
-    /// stands, then rises the same distance out of the far pipe to `arrival`.
+    /// Begin a transit: the body steps across the mouth to the pipe's centre
+    /// line, sinks `TRAVEL_TILES` along `axis`, then rises the same distance out
+    /// of the far pipe to `arrival`.
     ///
     /// `axis` is the direction of travel INTO the near pipe — screen-down for the
     /// descent tube, screen-up for the ascent one — so both ends of the trip use
-    /// the same construction and neither hard-codes a direction.
-    pub fn begin(at: ae::Vec2, arrival: ae::Vec2, axis: ae::Vec2, tile: f32) -> Self {
+    /// the same construction and neither hard-codes a direction. `mouth` is a
+    /// point of the near pipe's centre line. A mouth is wider than a body, so
+    /// she can press into it off the line; a slide from there would go down
+    /// the pipe's wall.
+    pub fn begin(at: ae::Vec2, mouth: ae::Vec2, arrival: ae::Vec2, axis: ae::Vec2, tile: f32) -> Self {
         let travel = axis * (TRAVEL_TILES * tile);
+        // Across the mouth only: the part of the way to `mouth` that is not
+        // along the pipe.
+        let to_mouth = mouth - at;
+        let centred = at + (to_mouth - axis * to_mouth.dot(axis));
+        let on_the_line = centred.distance(at) < ON_THE_LINE;
         Self {
-            phase: TransitPhase::Swallowing,
+            phase: if on_the_line { TransitPhase::Swallowing } else { TransitPhase::Centering },
             elapsed: 0.0,
             from: at,
-            to: at + travel,
+            to: if on_the_line { centred + travel } else { centred },
+            swallowed: centred + travel,
             // The emergence continues the journey, it does not reverse it. The
             // throat is a pipe-length BEHIND the arrival along the travel axis, so
             // the body keeps moving the same way it entered: down a descent tube it
@@ -139,6 +160,7 @@ pub struct TransitEffects {
 pub fn step_pipe_transit(transit: PipeTransit, dt: f32) -> TransitEffects {
     let elapsed = transit.elapsed + dt;
     let duration = match transit.phase {
+        TransitPhase::Centering => CENTER_S,
         TransitPhase::Swallowing => SWALLOW_S,
         TransitPhase::Emerging => EMERGE_S,
     };
@@ -152,6 +174,18 @@ pub fn step_pipe_transit(transit: PipeTransit, dt: f32) -> TransitEffects {
         };
     }
     match transit.phase {
+        // On the centre line: sink from here.
+        TransitPhase::Centering => TransitEffects {
+            pos: transit.to,
+            next: Some(PipeTransit {
+                phase: TransitPhase::Swallowing,
+                elapsed: 0.0,
+                from: transit.to,
+                to: transit.swallowed,
+                ..transit
+            }),
+            crossed: false,
+        },
         // Fully swallowed: cross to the far pipe's throat and start rising.
         TransitPhase::Swallowing => TransitEffects {
             pos: transit.throat,

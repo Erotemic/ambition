@@ -49,6 +49,30 @@ room can pass `area create`, `repair` and `validate` while an `EnemySpawn` has n
 `character_id`, which the converter refuses at load. Run `vocabulary check`
 before you hand a room off.
 
+## A placed actor starts on the ground: `EnemySpawn.grounding`
+
+A placement box is seldom drawn exactly on its floor. The room planner moves
+the box before it builds the body, so the body does not fall (and play a
+landing sound) when the room starts. `EnemySpawn.grounding` states the rule for
+one placement:
+
+| value | where the body starts |
+| --- | --- |
+| blank or `Auto` | the character decides: a body that walks starts on the ground, a body that flies starts where it is placed |
+| `Ground` | on the ground, for a flyer also |
+| `Exact` | exactly where it is placed; use this for a body that must drop in |
+
+"On the ground" is the first surface under the box that a body can rest on: a
+collision block, a moving platform where it starts, or a breakable platform. A
+box whose lower half is in a surface is moved up onto it. The planner keeps the
+placement where it is drawn when no surface is under it, when the box touches
+a `GravityZone`, and for a rider (`mounted_on`). The search uses the placement
+box, so draw the box as wide as the body where a ledge is near.
+
+An `NpcSpawn` follows the `Auto` rule and has no field to override it. The rule
+is `RoomSpec::settled_on_ground` and `placed_as_it_starts`
+(`crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs`).
+
 ## ⛔ `area create` DROPS the name of a static-collision entity
 
 `Solid`, `OneWayPlatform`, `BlinkWall` and `HazardBlock` in an `area create`

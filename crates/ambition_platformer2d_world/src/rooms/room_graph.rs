@@ -80,6 +80,74 @@ impl RoomSpec {
             switch_commands: Vec::new(),
         }
     }
+
+    /// `body` put on the surface of this room that supports it, as the room is
+    /// when it starts. `None` when the room has no answer.
+    ///
+    /// A placement uses this to start its body on the ground
+    /// ([`crate::rooms::SpawnGrounding`]). The surfaces are:
+    ///
+    /// - the collision blocks that a body can rest on;
+    /// - each moving platform, where it starts;
+    /// - each breakable platform that blocks movement.
+    ///
+    /// A body above a surface is moved down to it. A body whose lower half is
+    /// in a surface is moved up onto it: a placement that is drawn some pixels
+    /// low starts in its floor, and the first tick pushes it out (or drops it
+    /// through a one-way platform).
+    ///
+    /// The answer is `None`, and the caller keeps the placement, when:
+    ///
+    /// - no surface is under `body`;
+    /// - `body` touches a gravity zone, because down is the zone's to state;
+    /// - `body` is in a surface to more than half of its height, or the place
+    ///   on top of that surface is in a different surface.
+    ///
+    /// A body that already rests on a surface is returned where it is.
+    pub fn settled_on_ground(&self, body: ae::Aabb) -> Option<ae::Aabb> {
+        use ae::AabbExt;
+
+        let in_a_gravity_zone = self.gravity_zones.iter().any(|zone| {
+            body.strict_intersects(ae::Aabb::new(zone.center, zone.half_extent))
+        });
+        if in_a_gravity_zone {
+            return None;
+        }
+        let blocks = self
+            .world
+            .blocks
+            .iter()
+            .filter(|block| ae::collision_semantics::is_support_surface(block.kind))
+            .map(|block| block.aabb);
+        let platforms = self.moving_platforms.iter().map(|platform| platform.aabb());
+        let breakables = self.placements.iter().filter_map(|record| match &record.schema {
+            ambition_entity_catalog::placements::PlacementSchema::Breakable(breakable)
+                if breakable.collision.blocks_movement() =>
+            {
+                Some(record.aabb)
+            }
+            _ => None,
+        });
+        let surfaces: Vec<ae::Aabb> = blocks.chain(platforms).chain(breakables).collect();
+        let holds = |body: ae::Aabb| surfaces.iter().filter(move |surface| body.strict_intersects(**surface));
+
+        // The highest surface that the body is in.
+        if let Some(top) = holds(body).map(|surface| surface.top()).min_by(f32::total_cmp) {
+            if top < body.center().y {
+                return None;
+            }
+            let lifted = body.translated(ae::Vec2::new(0.0, top - body.bottom()));
+            return holds(lifted).next().is_none().then_some(lifted);
+        }
+        // The room is as tall as the longest fall in it.
+        let reach = ae::Vec2::new(0.0, self.world.size.y + body.height());
+        let first = surfaces
+            .iter()
+            .filter_map(|surface| body.sweep_hit(reach, *surface))
+            .map(|hit| hit.time_of_impact)
+            .min_by(f32::total_cmp)?;
+        Some(body.translated(reach * first))
+    }
 }
 
 /// Why a room set could not be built.
@@ -698,4 +766,122 @@ pub fn seat_sole_live_room_by_id(
             .definition_by_id(id)?;
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(world, definition);
     Some(definition)
+}
+
+#[cfg(test)]
+mod settled_on_ground_tests {
+    use super::*;
+    use ae::AabbExt;
+
+    /// A room 400 wide and 300 tall, with a floor whose top is at 250.
+    fn room(mut blocks: Vec<ae::Block>) -> RoomSpec {
+        blocks.push(ae::Block::solid(
+            "floor",
+            ae::Vec2::new(0.0, 250.0),
+            ae::Vec2::new(400.0, 50.0),
+        ));
+        RoomSpec::new(
+            "fixture",
+            ae::World::new("fixture", ae::Vec2::new(400.0, 300.0), ae::Vec2::ZERO, blocks),
+        )
+    }
+
+    /// A box 28 wide and 28 tall with its feet at `feet`.
+    fn placed(x: f32, feet: f32) -> ae::Aabb {
+        ae::aabb_from_min_size(ae::Vec2::new(x, feet - 28.0), ae::Vec2::new(28.0, 28.0))
+    }
+
+    fn feet(body: ae::Aabb) -> f32 {
+        body.bottom()
+    }
+
+    #[test]
+    fn a_box_above_the_floor_is_moved_down_to_it() {
+        let settled = room(Vec::new()).settled_on_ground(placed(100.0, 214.0)).expect("a floor is under it");
+        assert_eq!(feet(settled), 250.0);
+        assert_eq!(settled.left(), 100.0, "it moves down only");
+    }
+
+    #[test]
+    fn a_box_on_the_floor_stays_where_it_is() {
+        let body = placed(100.0, 250.0);
+        assert_eq!(room(Vec::new()).settled_on_ground(body), Some(body));
+    }
+
+    #[test]
+    fn the_first_surface_under_the_box_holds_it() {
+        let step = ae::Block::solid("step", ae::Vec2::new(110.0, 200.0), ae::Vec2::new(60.0, 50.0));
+        let ledge = ae::Block::one_way("ledge", ae::Vec2::new(200.0, 150.0), ae::Vec2::new(60.0, 8.0));
+        let room = room(vec![step, ledge]);
+        // Half of the box is over the step: the step holds it.
+        assert_eq!(feet(room.settled_on_ground(placed(100.0, 120.0)).unwrap()), 200.0);
+        // A platform that a body lands on from above holds it also.
+        assert_eq!(feet(room.settled_on_ground(placed(210.0, 120.0)).unwrap()), 150.0);
+        // A box under that platform does not go up to it.
+        assert_eq!(feet(room.settled_on_ground(placed(210.0, 230.0)).unwrap()), 250.0);
+    }
+
+    /// Measured 2026-10-08 in `basement_enemies`: five of its eight enemies
+    /// were placed 6 to 15 px in a platform. Three were pushed out on the
+    /// first tick, and two fell through the platform to the floor, 116 px.
+    #[test]
+    fn a_box_with_its_feet_in_a_surface_is_moved_up_onto_it() {
+        let ledge = ae::Block::one_way("ledge", ae::Vec2::new(90.0, 150.0), ae::Vec2::new(200.0, 8.0));
+        let low_roof = ae::Block::solid("roof", ae::Vec2::new(200.0, 110.0), ae::Vec2::new(90.0, 20.0));
+        let room = room(vec![ledge, low_roof]);
+        assert_eq!(feet(room.settled_on_ground(placed(100.0, 161.0)).unwrap()), 150.0, "11 px in the ledge");
+        assert_eq!(feet(room.settled_on_ground(placed(100.0, 256.0)).unwrap()), 250.0, "6 px in the floor");
+        assert_eq!(
+            room.settled_on_ground(placed(100.0, 170.0)),
+            None,
+            "more than half of the box is under the top of the ledge"
+        );
+        assert_eq!(
+            room.settled_on_ground(placed(210.0, 161.0)),
+            None,
+            "the place on top of the ledge is in the roof (130 to 150 is 20 px, the box is 28)"
+        );
+    }
+
+    #[test]
+    fn a_moving_platform_holds_the_box_where_the_platform_starts() {
+        let mut room = room(Vec::new());
+        let platform = crate::platforms::MovingPlatformState::from_authored(
+            ae::Vec2::new(100.0, 180.0),
+            ae::Vec2::new(64.0, 12.0),
+            80.0,
+            40.0,
+        );
+        let top = platform.aabb().top();
+        let over_it = platform.aabb().center().x - 14.0;
+        room.moving_platforms.push(platform);
+        assert!(top < 250.0, "premise: the platform is above the floor ({top})");
+        assert_eq!(feet(room.settled_on_ground(placed(over_it, top - 30.0)).unwrap()), top);
+    }
+
+    #[test]
+    fn the_room_has_no_answer_over_a_pit_in_a_wall_or_in_a_gravity_zone() {
+        let pit = RoomSpec::new(
+            "pit",
+            ae::World::new("pit", ae::Vec2::new(400.0, 300.0), ae::Vec2::ZERO, Vec::new()),
+        );
+        assert_eq!(pit.settled_on_ground(placed(100.0, 100.0)), None, "nothing is under it");
+
+        // The wall's top is at 60, above the centre (86) of the box.
+        let wall = ae::Block::solid("wall", ae::Vec2::new(90.0, 60.0), ae::Vec2::new(60.0, 60.0));
+        assert_eq!(room(vec![wall]).settled_on_ground(placed(100.0, 100.0)), None, "it starts in a wall");
+
+        let mut lifted = room(Vec::new());
+        lifted.gravity_zones.push(crate::rooms::GravityZoneSpec {
+            id: "zone".to_string(),
+            name: "zone".to_string(),
+            center: ae::Vec2::new(110.0, 100.0),
+            half_extent: ae::Vec2::new(40.0, 40.0),
+            dir: ae::Vec2::new(0.0, -1.0),
+            oscillate_amplitude: 0.0,
+            oscillate_freq: 0.0,
+        });
+        assert_eq!(lifted.settled_on_ground(placed(100.0, 100.0)), None, "down is the zone's to state");
+        assert_eq!(feet(lifted.settled_on_ground(placed(300.0, 100.0)).unwrap()), 250.0, "outside the zone");
+    }
 }

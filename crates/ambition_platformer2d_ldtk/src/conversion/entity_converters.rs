@@ -756,6 +756,21 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             }
         }
     }
+    // Where the body starts against the ground is placement context: a
+    // placement that says nothing lets its character decide (`Auto`).
+    if let Some(grounding) = field_string(entity, "grounding") {
+        use ambition_platformer2d_world::rooms::SpawnGrounding;
+        payload.grounding = match grounding.trim() {
+            "" | "Auto" => SpawnGrounding::Auto,
+            "Ground" => SpawnGrounding::Ground,
+            "Exact" => SpawnGrounding::Exact,
+            other => {
+                return Err(format!(
+                    "EnemySpawn `{name}` authors grounding `{other}`, which is not one of Auto / Ground / Exact"
+                ))
+            }
+        };
+    }
     // The depth plane is placement context too: one character can be scenery
     // behind one fight and a body you talk to in another room.
     if let Some(plane) = field_string(entity, "depth_plane") {

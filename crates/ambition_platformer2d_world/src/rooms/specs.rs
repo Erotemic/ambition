@@ -304,6 +304,41 @@ impl SpawnPlane {
     }
 }
 
+/// Where a placed body starts, against the ground under its placement.
+///
+/// A placement is drawn in an editor, and it is seldom exactly on its floor.
+/// A body that starts above its floor falls to it when the room starts, and
+/// each fall plays a landing sound.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SpawnGrounding {
+    /// The character decides. A body that walks starts on the ground under
+    /// its placement, and a body that flies starts where it is placed.
+    #[default]
+    Auto,
+    /// The body starts on the ground under its placement.
+    Ground,
+    /// The body starts exactly where it is placed, and falls from there if
+    /// it can fall. For a body that must drop in.
+    Exact,
+}
+
+impl SpawnGrounding {
+    /// Whether serialization may omit this value without changing semantics.
+    pub const fn is_default(&self) -> bool {
+        matches!(self, Self::Auto)
+    }
+
+    /// Whether a body starts on the ground under its placement. `flies` is
+    /// what its character states (`CharacterLocomotion::baseline_free_flight`).
+    pub const fn puts_on_ground(self, flies: bool) -> bool {
+        match self {
+            Self::Auto => !flies,
+            Self::Ground => true,
+            Self::Exact => false,
+        }
+    }
+}
+
 /// An authored enemy's behaviour and its art are two different identities.
 ///
 /// `brain` selects behavior while `character_id` selects the body. Gameplay
@@ -331,6 +366,10 @@ pub struct EnemySpawnSpec {
     /// where the fight happens.
     #[serde(default, skip_serializing_if = "SpawnPlane::is_default")]
     pub plane: SpawnPlane,
+    /// Where this occurrence starts, against the ground under it. `Auto` (the
+    /// default) lets the character decide.
+    #[serde(default, skip_serializing_if = "SpawnGrounding::is_default")]
+    pub grounding: SpawnGrounding,
     /// Placement-specific respawn policy. `None` means the placement did not
     /// specify one, so construction uses `UNDESCRIBED_BODY_RESPAWN`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -364,6 +403,7 @@ impl EnemySpawnSpec {
             character_id: character_id.into(),
             facing: SpawnFacing::default(),
             plane: SpawnPlane::default(),
+            grounding: SpawnGrounding::default(),
             respawn: None,
             disposition: None,
             brain_profile: None,
@@ -481,6 +521,22 @@ mod enemy_spawn_identity_tests {
         assert_eq!(spec.facing, SpawnFacing::Right);
         assert_eq!(SpawnFacing::Right.sign(), 1.0);
         assert_eq!(SpawnFacing::Left.sign(), -1.0);
+    }
+
+    /// `Auto` follows the character, and a placement can state either answer.
+    #[test]
+    fn a_placement_states_where_its_body_starts_or_lets_the_character_decide() {
+        use super::SpawnGrounding::{Auto, Exact, Ground};
+        let spec = EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Passive,
+            "fretjaw",
+        );
+        assert_eq!(spec.grounding, Auto);
+        let (walks, flies) = (false, true);
+        assert!(Auto.puts_on_ground(walks));
+        assert!(!Auto.puts_on_ground(flies));
+        assert!(Ground.puts_on_ground(walks) && Ground.puts_on_ground(flies));
+        assert!(!Exact.puts_on_ground(walks) && !Exact.puts_on_ground(flies));
     }
 
     /// Presentation and gameplay identity are both derived from the required

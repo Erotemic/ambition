@@ -73,6 +73,23 @@ An `NpcSpawn` follows the `Auto` rule and has no field to override it. The rule
 is `RoomSpec::settled_on_ground` and `placed_as_it_starts`
 (`crates/ambition_platformer2d_actor_monolith/src/construction/mod.rs`).
 
+## A rope is as long as its `Prop` box
+
+A `Prop` whose sheet is a column that tiles fills its box: the sheet's cap is
+drawn at the top of the box, its end at the bottom, and its tile as many times
+as fill the space between. The width of the box sets the scale of the art, and
+the height of the box is the length. So one sheet gives a rope of any length:
+make the box taller. The one sheet that tiles now is `cut_rope_rope` (the rope
+of the cut-the-rope arena).
+
+A sheet states its tile in its target (`column_tile`, the first row of the tile
+and the row after its last), and the art must join itself there. See
+`SheetRecord::column_tile` in `crates/ambition_sprite_sheet/src/lib.rs` and
+`targets/props/cut_rope_rope.py` in the sprite renderer.
+
+Each other `Prop` is one picture that is fitted inside its box, so a box that
+is tall and narrow gives small art, not long art.
+
 ## ⛔ `area create` DROPS the name of a static-collision entity
 
 `Solid`, `OneWayPlatform`, `BlinkWall` and `HazardBlock` in an `area create`

@@ -180,6 +180,7 @@ fn fsm_record(frame_w: u32, frame_h: u32, label_w: u32) -> ambition_sprite_sheet
         body_metrics: None,
         tuning: None,
         authored_faces_left: false,
+        column_tile: None,
         rows,
     }
 }

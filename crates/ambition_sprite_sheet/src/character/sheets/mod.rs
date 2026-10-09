@@ -189,6 +189,78 @@ impl CharacterSheetSpec {
     pub fn authored_faces_left(&self) -> bool {
         self.record.authored_faces_left
     }
+
+    /// The cap, the tile and the end of a sheet that is a column that tiles
+    /// ([`crate::ColumnTile`]), measured on the atlas rect of its idle frame.
+    /// `None` for a sheet that is one picture.
+    ///
+    /// The atlas rect is the frame trimmed to its art and moved in by
+    /// [`Self::frame_sample_inset`], so the cap and the end are what is left
+    /// of them inside that rect.
+    pub fn column_slices(&self) -> Option<ColumnSlices> {
+        let tile = self.record.column_tile?;
+        let rect = self.texture_rect_for_flat_index(self.flat_index(CharacterAnim::Idle, 0))?.size().as_vec2();
+        let trim = self.frame_trim(CharacterAnim::Idle, 0);
+        // Rows of the logical frame, from its top, where the atlas rect starts
+        // and ends.
+        let top = trim.offset.y as f32 + self.frame_sample_inset as f32;
+        let bottom = top + rect.y;
+        let logical = trim.logical.y as f32;
+        let cap = (tile.start * logical - top).max(0.0);
+        let end = (bottom - tile.end * logical).max(0.0);
+        let tile = rect.y - cap - end;
+        (tile >= 1.0 && rect.x >= 1.0).then_some(ColumnSlices { rect, cap, tile, end })
+    }
+}
+
+/// A column that tiles, in texels of the atlas rect of its sheet's idle frame
+/// ([`CharacterSheetSpec::column_slices`]). `cap + tile + end` is the height
+/// of the rect.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ColumnSlices {
+    /// The size of the atlas rect.
+    pub rect: Vec2,
+    /// The rows at the top that are drawn one time.
+    pub cap: f32,
+    /// The rows that repeat.
+    pub tile: f32,
+    /// The rows at the bottom that are drawn one time.
+    pub end: f32,
+}
+
+impl ColumnSlices {
+    /// How the column fills a box `size` (world units): the scale of the cap
+    /// and of the end, the number of tiles, and the scale of a tile's height.
+    ///
+    /// The width of the box sets the scale, as it does for the art of a
+    /// narrow prop. A whole number of tiles is drawn, so the last tile ends
+    /// where the end starts and the pattern is not cut: each tile is made
+    /// taller to take up what is left, by less than one tile in all. A box
+    /// too short for the cap, one tile and the end keeps all three and makes
+    /// them shorter.
+    pub fn fill(&self, size: Vec2) -> ColumnFill {
+        let scale = (size.x.max(0.01) / self.rect.x).min(size.y.max(0.01) / self.rect.y);
+        let between = size.y - (self.cap + self.end) * scale;
+        let tiles = (between / (self.tile * scale) + 1e-4).floor().max(1.0);
+        ColumnFill {
+            scale,
+            tiles: tiles as u32,
+            tile_scale: between / (self.tile * tiles),
+        }
+    }
+}
+
+/// [`ColumnSlices::fill`]: how a column fills one box.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ColumnFill {
+    /// World units for each texel of the cap and of the end, and for each
+    /// texel of width.
+    pub scale: f32,
+    /// The number of whole tiles between the cap and the end.
+    pub tiles: u32,
+    /// World units for each texel of a tile's height. Not less than `scale`
+    /// in a box that holds one tile or more at `scale`.
+    pub tile_scale: f32,
 }
 
 impl SheetTuning {
@@ -534,6 +606,9 @@ pub fn try_load_pack_spec_for_target(
     record.authored_faces_left = record_for_sheet_key(target)
         .map(|base| base.authored_faces_left)
         .unwrap_or(false);
+    // The same for a column that tiles: fractions of the frame, so they hold
+    // for the pack's copy of the drawing.
+    record.column_tile = record_for_sheet_key(target).and_then(|base| base.column_tile);
     let spec = spec_from_record(&record, tuning);
     spec.maps(CharacterAnim::Idle).then_some((spec, tier))
 }

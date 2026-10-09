@@ -91,6 +91,56 @@ fn rope_cut_gates(sim: &mut Platformer2dSimHarness) -> usize {
         .unwrap_or(0)
 }
 
+/// The map hangs the rope from the ceiling and ends it on the heavy object.
+///
+/// The rope is drawn from the top of its authored box to the bottom
+/// (`a_rope_is_drawn_from_the_top_of_its_box_to_the_bottom`, in the
+/// renderer), so the box is where the rope is. A box that starts under the
+/// ceiling is a rope that hangs from nothing (Jon, 2026-10-09).
+#[test]
+fn the_ropes_box_starts_at_the_ceiling_and_ends_on_the_heavy_object() {
+    use ambition_platformer2d::engine_core as ae;
+    let mut sim = cut_rope_sim();
+    let world = sim.world_mut();
+    let live_definition = ambition_platformer2d::world::rooms::sole_live_room_definition(world)
+        .expect("the session has a live room");
+    let mut q = world.query::<&RoomSet>();
+    let rooms = q.iter(world).next().expect("the session has a room set");
+    let spec = rooms.spec(live_definition);
+    assert_eq!(spec.id, CUT_ROPE_ROOM, "the harness started in the wrong room");
+    let prop = |kind: &str| {
+        spec.props.iter().find(|p| p.kind == kind).unwrap_or_else(|| panic!("the room authors a `{kind}` prop"))
+    };
+    let (rope, anvil) = (prop(ROPE_KIND), prop("cut_rope_anvil"));
+    let (rope_top, rope_bottom) = (rope.pos.y - rope.size.y * 0.5, rope.pos.y + rope.size.y * 0.5);
+    let solid_at = |p: ae::Vec2| {
+        spec.world.blocks.iter().any(|block| {
+            matches!(block.kind, ae::BlockKind::Solid)
+                && p.x >= block.aabb.min.x
+                && p.x <= block.aabb.max.x
+                && p.y >= block.aabb.min.y
+                && p.y <= block.aabb.max.y
+        })
+    };
+    assert!(
+        solid_at(ae::Vec2::new(rope.pos.x, rope_top - 1.0)) && !solid_at(ae::Vec2::new(rope.pos.x, rope_top + 1.0)),
+        "the top of the rope's box (y {rope_top}) is not the under side of a solid ceiling: \
+         (solid 1 above, solid 1 under) = ({}, {})",
+        solid_at(ae::Vec2::new(rope.pos.x, rope_top - 1.0)),
+        solid_at(ae::Vec2::new(rope.pos.x, rope_top + 1.0))
+    );
+    let anvil_top = anvil.pos.y - anvil.size.y * 0.5;
+    assert!(
+        (rope_bottom - anvil_top).abs() < 0.5
+            && (rope.pos.x - anvil.pos.x).abs() <= anvil.size.x * 0.5,
+        "the rope's box ends at y {rope_bottom}, x {}; the heavy object's box starts at y {anvil_top} \
+         and is {} wide about x {}",
+        rope.pos.x,
+        anvil.size.x,
+        anvil.pos.x
+    );
+}
+
 /// Slashing the authored rope hands the fight to the generic encounter script.
 #[test]
 fn slashing_the_rope_publishes_the_gate_the_encounter_script_waits_on() {

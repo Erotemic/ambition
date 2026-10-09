@@ -138,7 +138,30 @@ pub struct SheetRecord {
     /// applies this, and it must be the only place that does.
     #[serde(default)]
     pub authored_faces_left: bool,
+    /// The sheet is a column that tiles (a rope, a chain): see [`ColumnTile`].
+    /// `None` (the default, and each sheet that omits the field): the frame
+    /// is one picture.
+    #[serde(default)]
+    pub column_tile: Option<ColumnTile>,
     pub rows: Vec<SheetRow>,
+}
+
+/// The part of a sheet's idle frame that repeats down a column, as fractions
+/// of the frame height (0 the top row, 1 under the bottom row).
+///
+/// The rows above `start` are the cap, the rows from `end` are the end, and
+/// the rows between are one tile. The renderer draws the cap at the top of a
+/// prop's box, the end at its bottom, and the tile as many times as fill the
+/// space between (`CharacterSheetSpec::column_slices`), so one sheet gives a
+/// column of any length. The art must join itself: the row at `end` is the
+/// same as the row at `start`.
+///
+/// Fractions, not rows: a reduced copy of the sheet (a quality tier) has
+/// fewer rows and the same fractions.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+pub struct ColumnTile {
+    pub start: f32,
+    pub end: f32,
 }
 
 impl SheetRecord {

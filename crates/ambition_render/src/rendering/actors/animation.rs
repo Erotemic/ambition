@@ -145,6 +145,10 @@ pub(crate) fn draw_animator_frame(
     if let (Some(size), Some(a)) = (sprite.custom_size, anchor.as_deref()) {
         animator.ensure_render_basis(size, a.0);
     }
+    // A column that tiles fills the box its owner gave it.
+    if animator.keeps_its_quad {
+        return;
+    }
     // The anchor x mirrors with the facing flip so an off-centre trim stays consistent
     // left/right.
     if let (Some((mut size, mut anchor_v)), Some(anchor)) = (animator.current_render(), anchor) {

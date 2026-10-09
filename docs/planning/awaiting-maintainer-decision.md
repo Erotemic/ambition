@@ -532,6 +532,45 @@ Owner: the regrowth/restock row in
 * **(c) Per-world default:** a world declares its pickup default (Ambition
   `Never`, the arcade demos `OnRoomReload`).
 
+## Q165 — on a viewport shorter than 720 px, what sizes the screens that are laid out in pixels?
+
+Filed 2026-10-09. Blocks nothing. **Default in force until you rule:** (a),
+the current behaviour.
+
+The UI has two units. The launcher, the pause menu and the cube menu are a
+percent of the viewport. The smash select screen
+(`game/ambition_demo_smash/src/select_screen.rs`), the dialogue box, the HUD
+and the touch controls are pixels. No code sets Bevy's `UiScale`.
+
+Measured 2026-10-09 with `capture_scene` at 640x360 (a phone in landscape has
+about this viewport; a window on a GPU was not seen):
+
+- The smash select screen does not fit: the title is cut at the right edge,
+  the roster shows 3 of its 6 columns, and no player slot and no START button
+  is on screen.
+- The dialogue box covers the lower half of the screen and the menu under it.
+- The touch stick is over the left side of each menu.
+- CLOSED the same day, as a defect and not a question: a menu row's label was
+  20 px in a row that is a percent of the viewport, so launcher descriptions
+  ran over each other. The label is a viewport unit now (`CONTROL_TEXT_VH`).
+
+At 960x540 and 1280x720 each of these screens is whole.
+
+Owner: no page owns UI scale. The nearest is the menu backend
+(`crates/ambition_menu/src/render/bevy_ui/`).
+
+* **(a) Keep pixels; 720 px is the least supported viewport height (current).**
+  No work. A small window or a phone gets screens that do not fit.
+* **(b) One `UiScale`, the viewport height over 720.** Each screen laid out in
+  pixels keeps its 720p layout at each size, with one writer. Touch controls
+  and text get smaller with the screen, so they need a floor (a least size in
+  millimetres for a finger, a least text height), which makes the scale a
+  policy and not a ratio.
+* **(c) Lay out each screen in viewport units, one screen at a time.** No
+  global scale; each screen states what it does when it is small (the roster
+  can scroll, the dialogue box can have fewer lines). The most work, and the
+  only answer that lets a screen have a different layout on a phone.
+
 ## Architecture and engine policy
 
 ## Q94 — what residency-memory limit should the runtime target?

@@ -394,6 +394,7 @@ where
                                 // which is the ASCII subset.
                                 TextFont {
                                     font: font.cloned().unwrap_or_default().into(),
+                                    font_size: FontSize::Vh(CONTROL_TEXT_VH),
                                     ..default()
                                 },
                                 TextColor(label_color),
@@ -432,6 +433,15 @@ where
 // Draw-order layers that mirror the cube's depth bands. Without them, bevy_ui
 // sibling order paints a later background panel over earlier text. A per-node
 // `ZIndex` gives back-to-front order: panels, then controls, then text.
+/// The size of a control's label, its value and a tab's label, as a percent
+/// of viewport height: 20 px on a 720 px viewport.
+///
+/// A control's box is a percent of the viewport ([`crate::MenuRect`]). Text in
+/// pixels did not follow it: on a 360 px viewport a row was half as tall, its
+/// label was not, and each description ran into the row below (the launcher,
+/// measured 2026-10-09).
+pub(crate) const CONTROL_TEXT_VH: f32 = 20.0 / 7.2;
+
 const LAYER_CONTROL: i32 = 10;
 const LAYER_TEXT: i32 = 20;
 

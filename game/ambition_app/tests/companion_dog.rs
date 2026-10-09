@@ -111,6 +111,11 @@ fn the_basement_dog_is_peaceful_and_goes_to_places_on_the_rooms_surfaces() {
         "the dog left the ground at ticks {take_offs:?}"
     );
     assert!(barked, "the dog did not give an ambient bark");
+    // One graph still, after a minute: the key a graph is kept under holds no
+    // value that moves from tick to tick (the body's whole motion frame is in
+    // it). A key that moved would build the basement's graph again each time.
+    let kept = sim.world().resource::<RoomNavigation>().len();
+    assert_eq!(kept, 1, "one dog in one room was advised from {kept} graphs in a minute");
 }
 
 /// What a system from outside the timeline does to the dog's room under the

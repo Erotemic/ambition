@@ -261,15 +261,16 @@ What it added, all of it general:
     picture, and no part the `idle` row draws fades on its own. A sheet says
     so with its own draws; there is no flag and no list. Measured on the published
     tables, 2026-10-09 (the test prints the two lists): 17 have a blink row.
-    Four draw the body whole there and get the engine's blink:
-    `player_robot_v3`, `goblin`, `goblin_shaman_staff` and `performer` (the
-    last three were not looked at in a capture). Thirteen fade or take apart
-    their own body and keep their own blink, as before: `alice`, `bob`,
-    `director`, `medic`, `ninja_shadow_duelist`, `ninja_shadow_oni_leader`,
-    `officer`, `perfect_cellular_automaton`, `player_robot_v2`,
-    `pointed_polygon`, `projectile_polygon`, `pugnacious_polygon` and
-    `robot`. Each gets the engine's when it is published again with plain
-    rows.
+    Six draw the body whole there and get the engine's blink:
+    `player_robot_v3`, `player_robot_v2`, `robot`, `goblin`,
+    `goblin_shaman_staff` and `performer` (the two older robots since their
+    generator's blink rows are plain poses too, `robot_side.py`; the last
+    three were not looked at in a capture). Eleven fade or take apart their
+    own body and keep their own blink, as before: `alice`, `bob`, `director`,
+    `medic`, `ninja_shadow_duelist`, `ninja_shadow_oni_leader`, `officer`,
+    `perfect_cellular_automaton`, `pointed_polygon`, `projectile_polygon` and
+    `pugnacious_polygon`. Each gets the engine's when it is published again
+    with plain rows.
   - The baked fallback frame of player robot v3 (drawn only when a body fits
     no cell, or its pages are not ready) is the plain pose with its portal
     pieces.

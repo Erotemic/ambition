@@ -1,14 +1,17 @@
 //! WORLD-ACCEPTANCE: one headless playthrough of the shipped game.
 //!
-//! The player walks from the hub to Alice through the real exits of each room
+//! The player takes the Blink in the hub's basement (a held item: Attack
+//! becomes a blink), walks from the hub to Alice through the real exits of each room
 //! (a door is entered with Interact, an edge exit by standing in it), takes her
 //! note, carries it to Bob, and hands it over. Each step asserts its fact
 //! against the authority that owns it: the live room, the bag, the save's
-//! flags, the quest registry, and the collision overlay of the live room.
+//! flags, the quest registry, the collision overlay of the live room, and the
+//! custody of the one Blink.
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
-use bevy::prelude::{App, KeyCode};
+use ambition_platformer2d::platformer::sim_id::SimId;
+use bevy::prelude::{App, Entity, KeyCode};
 use leafwing_input_manager::prelude::Buttonlike;
 
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, room_of};
@@ -26,6 +29,70 @@ const ROUTE_TO_ALICE: &[&str] = &[
     "under_town_pipes",
     "alice_relay",
 ];
+
+/// The Blink lying in the hub's basement: a held item, so it has one identity
+/// and one custody wherever it goes.
+const BLINK: &str = "ground_blink";
+
+type Custody = ambition_platformer2d::held_items::ItemCustody;
+type Ground = ambition_platformer2d::held_items::GroundItem;
+
+/// Every live occurrence of `id`, and its custody. A count, not a lookup: a
+/// copy and a loss are both failures.
+fn occurrences(app: &mut App, id: &SimId) -> Vec<(Entity, Custody)> {
+    let world = app.world_mut();
+    world
+        .query::<(Entity, &SimId, &Custody)>()
+        .iter(world)
+        .filter(|(_, sim_id, _)| *sim_id == id)
+        .map(|(entity, _, custody)| (entity, *custody))
+        .collect()
+}
+
+/// Does the player hold the one occurrence of `id`?
+fn the_player_holds(app: &mut App, id: &SimId) -> bool {
+    let player = primary_body(app);
+    matches!(occurrences(app, id).as_slice(), [(_, Custody::Held { holder })] if *holder == player)
+}
+
+/// Stand on the Blink and press Attack until it is in hand.
+fn take(app: &mut App, id: &SimId) {
+    let at = {
+        let world = app.world_mut();
+        let found: Vec<ae::Vec2> = world
+            .query::<(&SimId, &Ground, &Custody)>()
+            .iter(world)
+            .filter(|(sim_id, _, custody)| *sim_id == id && custody.in_world())
+            .map(|(_, ground, _)| ground.pos)
+            .collect();
+        assert_eq!(found.len(), 1, "exactly one `{}` lies in the world", id.as_str());
+        found[0]
+    };
+    let body = primary_body(app);
+    put_body_at(app, body, at);
+    for _ in 0..40 {
+        crate::the_note_travels_from_alice_to_bob::tap(app, KeyCode::KeyX);
+        if the_player_holds(app, id) {
+            return;
+        }
+    }
+    panic!("pressed Attack on `{}` for 40 taps and never held it", id.as_str());
+}
+
+/// How far one Attack, aimed along the facing, carries the standing player.
+fn attack_travel(app: &mut App) -> f32 {
+    let body = primary_body(app);
+    for _ in 0..30 {
+        app.update();
+    }
+    let before = app.world().get::<ae::BodyKinematics>(body).expect("a body").pos;
+    crate::the_note_travels_from_alice_to_bob::tap(app, KeyCode::KeyX);
+    for _ in 0..20 {
+        app.update();
+    }
+    let after = app.world().get::<ae::BodyKinematics>(body).expect("a body").pos;
+    (after - before).length()
+}
 
 /// The wall in `alice_relay` that Bob's survey opens (`gated_by`).
 const RETURN_LOCK: &str = "alice_private_return_lock";
@@ -113,11 +180,24 @@ fn the_note_reaches_bob_and_opens_alices_return() {
     assert_eq!(start, "central_hub_complex", "the shipped game starts in the hub");
     let step0 = quest_step(&app).expect("the intro quest starts by itself");
 
+    // A capability: the Blink, from the hub's basement, into the hand. With
+    // it, Attack is a blink; without it, Attack is a strike that does not
+    // carry the body.
+    let blink = SimId::placement(BLINK);
+    let control = attack_travel(&mut app);
+    take(&mut app, &blink);
+    let travel = attack_travel(&mut app);
+    assert!(
+        control < 24.0 && travel > 96.0,
+        "Attack carried the body {control:.0} px before the Blink and {travel:.0} px with it"
+    );
+
     for room in ROUTE_TO_ALICE {
         go_through(&mut app, room);
     }
     assert!(gate_stands(&app, RETURN_LOCK), "before the survey, Alice's return lock does not stand");
 
+    assert!(the_player_holds(&mut app, &blink), "the Blink did not come along to Alice");
     talk_and_choose(&mut app, "npc_alice", "Take the note.");
     assert_eq!(
         (bag(&app, "sealednote"), flag(&app, NOTE_FLAG), quest_step(&app)),
@@ -160,6 +240,7 @@ fn the_note_reaches_bob_and_opens_alices_return() {
         go_through(&mut app, room);
     }
     assert!(!gate_stands(&app, RETURN_LOCK), "after the load, Alice's return lock stands again");
+    assert!(the_player_holds(&mut app, &blink), "after the load, the Blink is not in the player's hand");
     talk_and_choose(&mut app, "npc_alice", "What now?");
 
     // The death step waits for Q164: a death takes back the survey and keeps

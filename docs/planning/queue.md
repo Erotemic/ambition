@@ -150,9 +150,14 @@ file (bag, flags, quest step), and the walk back to the open wall. Poison
 (the survey flag cleared from the file): red at the after-load assertion.
 Found: a death before any checkpoint takes the survey back and keeps the
 facts it made, two horizons in one death; filed as
-[Q164](awaiting-maintainer-decision.md). Next: the death step (after Q164),
-a capability on the route (the hub basement's Blink, a held item), and a
-second participant.
+[Q164](awaiting-maintainer-decision.md).
+
+**WA3 done 2026-10-09:** the playthrough first takes the Blink from the hub
+basement. Attack moves the player 0 px before the take and 170 px after it,
+and the one `ground_blink` is `Held` by the player at Alice and after the
+load. Poisons: no take, red at the capability assertion (0 px and 0 px); a
+stow before the route, red at "did not come along to Alice". Next: the death
+step (after Q164), and a second participant.
 
 **Next action:** one reproducible headless playthrough of the shipped game, on
 the real composition: explore connected rooms, acquire a meaningful capability,

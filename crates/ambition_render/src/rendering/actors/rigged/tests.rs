@@ -956,13 +956,43 @@ fn a_frame_that_fades_as_one_picture_fades_its_cell() {
     assert_eq!(atlas(&app).cells.opacity[cell / 4][cell % 4], 1.0);
 }
 
+/// The robot's published flipbook with one part of its body (track 0) half
+/// clear in each frame of `row`: a sheet with a fade of its own there.
+fn robot_that_fades_its_body_in(row: &str) -> RiggedSpriteAsset {
+    let text = ambition_sprite_sheet::baked_part_flipbooks::published_ron_on_build_host("player_robot_v3").unwrap();
+    let key = format!("\"{row}\": (");
+    let start = text.find(&key).expect("the robot has the clip");
+    // The clip ends at the parenthesis that closes the one after its key.
+    let open = start + key.len() - 1;
+    let (mut depth, mut end) = (0, open);
+    for (offset, c) in text[open..].char_indices() {
+        match c {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = open + offset + 1;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let clip = text[open..end].replace("track: 0),", "track: 0, opacity: 0.5),");
+    assert_ne!(clip, text[open..end], "the row has no draw of track 0 to fade");
+    let text = format!("{}{clip}{}", &text[..open], &text[end..]);
+    RiggedSpriteAsset::from_published_ron(&text).expect("the variant parses")
+}
+
 /// A body on a blink row is taken apart in its cell by the engine's warp, by
 /// the ROW it draws (no preview): the cell's warp says a departure and how far
 /// through the row the frame is, and it is gone when the row ends. The row's
 /// own frame is drawn whole, for the warp to cut.
 ///
-/// The control is a sheet that fades its own body in that row (alice): its
-/// cell has no warp, and it keeps its own blink.
+/// The control is a sheet that fades its own body in that row: its cell has
+/// no warp, and it keeps its own blink. Each published sheet draws a plain
+/// blink row since 2026-10-09, so the control is the robot's own table with
+/// one body part of that row made half clear.
 #[test]
 fn a_blink_row_warps_its_bodys_cell_and_a_sheet_with_its_own_blink_keeps_it() {
     let (flipbook, mut app, root) = robot();
@@ -991,9 +1021,9 @@ fn a_blink_row_warps_its_bodys_cell_and_a_sheet_with_its_own_blink_keeps_it() {
     assert_eq!(atlas(&app).cells.warp[cell], Vec4::ZERO, "the warp stays after the row ends");
 
     // The control.
-    let own = RiggedSpriteAsset::baked("alice").expect("alice publishes a flipbook");
-    assert!(!own.row_draws_the_body_whole("blink_out"), "control: alice draws a plain blink row now; choose another sheet");
-    let (mut app, root) = app_with(true, sheet_with("alice", Some(own)));
+    let own = robot_that_fades_its_body_in("blink_out");
+    assert!(!own.row_draws_the_body_whole("blink_out"), "control: the variant draws its body whole");
+    let (mut app, root) = app_with(true, sheet_with("player_robot_v3", Some(own)));
     app.update();
     pin_clip(&mut app, root, "blink_out", 2);
     app.update();

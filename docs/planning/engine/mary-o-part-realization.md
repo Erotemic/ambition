@@ -260,17 +260,18 @@ What it added, all of it general:
     (`RiggedSpriteAsset::row_draws_the_body_whole`): no frame fades as one
     picture, and no part the `idle` row draws fades on its own. A sheet says
     so with its own draws; there is no flag and no list. Measured on the published
-    tables, 2026-10-09 (the test prints the two lists): 17 have a blink row.
-    The names below are sprite targets, and no Rust item. Six draw the body
-    whole there and get the engine's blink: player_robot_v3, player_robot_v2,
-    robot, goblin, goblin_shaman_staff and performer (the two older robots
-    since their generator's blink rows are plain poses too, `robot_side.py`;
-    the last three were not looked at in a capture). Eleven fade or take apart
-    their own body and keep their own blink, as before: alice, bob, director,
+    tables, 2026-10-09 (the test prints the lists): 17 have a blink row, and
+    each of the 17 draws the body whole there and gets the engine's blink. The
+    names below are sprite targets, and no Rust item. Six did from the start:
+    player_robot_v3, player_robot_v2, robot, goblin, goblin_shaman_staff and
+    performer. Eleven faded or took apart their own body and were published
+    again the same day with plain rows (Jon's ruling): alice, bob, director,
     medic, ninja_shadow_duelist, ninja_shadow_oni_leader, officer,
     perfect_cellular_automaton, pointed_polygon, projectile_polygon and
-    pugnacious_polygon. Each gets the engine's when it is published again with
-    plain rows.
+    pugnacious_polygon. Their effect pieces stay, and their `entrance` rows
+    keep their own fade: the warp is for the two blink rows. A sheet that
+    fades its body in a blink row again has its own blink again, with no
+    change in the game.
   - The baked fallback frame of player robot v3 (drawn only when a body fits
     no cell, or its pages are not ready) is the plain pose with its portal
     pieces.

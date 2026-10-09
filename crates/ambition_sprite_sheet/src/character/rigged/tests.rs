@@ -621,8 +621,9 @@ fn a_blink_row_and_its_mirror_have_the_teleport_warp() {
 
 /// The engine's blink is for a sheet whose blink rows draw the body whole.
 /// Player robot v3 draws plain poses there (its portal pieces fade, and they
-/// are no part of its body). A sheet that still fades its own body in those
-/// rows keeps its own blink: the control.
+/// are no part of its body). A row that fades its own body (a death) is not
+/// whole: the control. A sheet that fades its body in a blink row keeps its
+/// own blink; the lists printed below say which sheets those are.
 #[test]
 fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
     let whole = |target: &str, row: &str| {
@@ -655,9 +656,38 @@ fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
             engine_blink.push(target);
         } else {
             own_blink.push(target);
+            // Why not: the least frame opacity of the row, and how many draws
+            // of a body part are not opaque.
+            for row in ["blink_out", "blink_in"] {
+                let Some(clip) = flipbook.clips.get(row) else { continue };
+                let least = clip.frame_opacity.iter().copied().fold(1.0, f32::min);
+                let key = |draw: &PartDraw| draw.track.unwrap_or(draw.part);
+                let body: Vec<u16> = flipbook.frame("idle", 0).unwrap_or_default().iter().map(key).collect();
+                let (mut faded, mut draws) = (0, 0);
+                for (start, len) in &clip.frames {
+                    for draw in &flipbook.draws[*start as usize..(*start + *len) as usize] {
+                        draws += 1;
+                        faded += usize::from(draw.color[3] < 254 && body.contains(&key(draw)));
+                    }
+                }
+                eprintln!(
+                    "  {target} {row}: least frame opacity {least:.2}, {faded} of {draws} draws are a \
+                     body part that is not opaque, {} frames",
+                    clip.frames.len()
+                );
+            }
         }
     }
-    assert!(!own_blink.is_empty(), "control: no sheet takes its own body apart in blink_out");
+    // The control is read from the sheets: the rule must say "not whole" of
+    // some published row, or it says "whole" of each row and decides nothing.
+    // It was the sheets with a blink of their own, and since 2026-10-09 each
+    // published blink row is a plain pose, so that set can be empty.
+    let not_whole: usize = crate::baked_part_flipbooks::baked_part_flipbook_targets()
+        .filter_map(RiggedSpriteAsset::baked)
+        .map(|flipbook| flipbook.clips.keys().filter(|row| !flipbook.row_draws_the_body_whole(row)).count())
+        .sum();
+    assert!(not_whole > 0, "control: each row of each published sheet draws the body whole");
+    eprintln!("rows that do not draw the body whole, over all sheets: {not_whole}");
     assert!(engine_blink.contains(&"player_robot_v3"));
     eprintln!("the engine's blink: {engine_blink:?}");
     eprintln!("their own blink: {own_blink:?}");

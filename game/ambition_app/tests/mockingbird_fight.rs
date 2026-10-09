@@ -598,3 +598,67 @@ fn the_shore_shark_carries_you_up_into_the_sky() {
     assert!(now.pos.y < 700.0, "arriving from below, the player was not carried up: {:?}", now.pos);
     assert_eq!(hp_after, hp);
 }
+
+/// A4: in its shipped sky the Mockingbird's path is its conductor's, and its
+/// brain's frame moves nothing.
+///
+/// The conductor submits the bird's pose on each tick it conducts
+/// (`ConductedPose`; `lower_conducted_poses` constrains the body to it and
+/// marks `PoseOwnedExternally`). An undriven bird is conducted on each tick, so
+/// its hover, dives, strafes and flights home are the conductor's position. A
+/// hold blanks the brain's frame in the control gate, and the path does not
+/// change, to the pixel. The harness boss of `boss_motion_parity` showed the
+/// same: 174.0 px of path held or not.
+///
+/// The control is the unheld brain: it writes a moving frame, so "the same path"
+/// is not a brain that did nothing.
+///
+/// ⚠ No one-line poison makes the brain move the bird. Measured 2026-10-09: with
+/// the conductor made never to submit a pose, the bird does not move at all
+/// (0.0 px over 300 ticks, held or not), so the brain's movement frame has no
+/// reader for this boss on any road. That fails the premise above, not the
+/// equality.
+#[test]
+fn its_path_is_its_conductors_and_a_hold_on_its_brain_changes_nothing() {
+    use ambition_platformer2d::characters::control::{ActorControl, ControlHold, ControlHolds};
+    const FRAMES: usize = 300;
+    let run = |held: bool| -> (Vec<ae::Vec2>, usize) {
+        let mut sim = sky();
+        let entity = {
+            let world = sim.world_mut();
+            world
+                .query::<(Entity, &BossConfig)>()
+                .iter(world)
+                .find(|(_, config)| config.behavior.id == MOCKINGBIRD_ID)
+                .map(|(entity, _)| entity)
+                .expect("the Mockingbird")
+        };
+        if held {
+            sim.world_mut().entity_mut(entity).insert(ControlHolds::only(ControlHold::Sequence));
+        }
+        let mut path = Vec::with_capacity(FRAMES);
+        let mut moving_frames = 0;
+        for _ in 0..FRAMES {
+            step_across(&mut sim);
+            path.push(bird(&mut sim).kin.pos);
+            let frame = &sim.world().get::<ActorControl>(entity).expect("its control frame").0;
+            if frame.velocity_target.0.length() > 0.0 || frame.locomotion.x != 0.0 {
+                moving_frames += 1;
+            }
+        }
+        (path, moving_frames)
+    };
+    let (free, brain_moving) = run(false);
+    let (held, held_moving) = run(true);
+    let length: f32 = free.windows(2).map(|pair| (pair[1] - pair[0]).length()).sum();
+    assert!(length > 20.0, "premise: the bird moves ({length:.1} px over {FRAMES} ticks)");
+    assert!(
+        brain_moving > FRAMES / 2,
+        "control: the unheld brain wrote a moving frame on only {brain_moving} of {FRAMES} ticks"
+    );
+    assert_eq!(held_moving, 0, "premise: the hold blanks the brain's frame");
+    assert_eq!(
+        free, held,
+        "the bird's path changed when its brain's frame was blanked, so the brain moves it"
+    );
+}

@@ -46,3 +46,4 @@ mod a_pose_says_whose_geometry_it_carries;
 mod the_cast_is_its_pack;
 mod body_rig_trial;
 mod placed_actors_start_on_the_ground;
+mod her_spark_leaves_her_hand;

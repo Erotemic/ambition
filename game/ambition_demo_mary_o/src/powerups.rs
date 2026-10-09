@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::characters::brain::action_set::{Discharge, ProjectileFlight, RangedActionSpec};
+use ambition_platformer2d::characters::brain::action_set::{Discharge, Muzzle, ProjectileFlight, RangedActionSpec};
 use ambition_platformer2d::characters::equipment::{
     EquipmentGrant, EquipmentRow, ModifierOp, ModifierScope, OnHit, ParamModifier, WornEquipment,
 };
@@ -152,10 +152,28 @@ fn spark_shot() -> RangedActionSpec {
         // No kick. A ranged action that states no discharge takes the generic
         // one, which pushes the shooter back; she slid 4 px for each spark.
         .with_discharge(Discharge {
+            muzzle: SPARK_MUZZLE,
             recoil: 0.0,
             ..Discharge::default()
         })
 }
+
+/// Where a spark is born: its rear edge is at the hand she throws it with.
+///
+/// The hand is her near hand in the middle frame of her `shoot` row: `(27.47,
+/// -36.88)` px from her feet in the published rig of her fire form
+/// (`mary_o_v2_fire_body_rig.ron`). She is 64 px tall, so the hand is `(27.47,
+/// -4.88)` px from her centre, and the spark's centre is [`SPARK_HALF_EXTENT`]
+/// more along the throw. A [`Muzzle::Offset`] is a fraction of her height.
+///
+/// The shipped demo admits no body rig, so the hand is stated here and not
+/// asked of the rig. `her_spark_is_born_at_her_throwing_hand` (`mary_o_it`)
+/// compares these numbers with the published rig: pose the row again and it
+/// fails with the new hand.
+pub const SPARK_MUZZLE: Muzzle = Muzzle::Offset {
+    x: 0.5855,
+    y: -0.0762,
+};
 
 /// Seconds between two sparks. The body's `RangedRefire` enforces it.
 ///

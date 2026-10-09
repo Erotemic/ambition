@@ -18,7 +18,12 @@ pub use rollback_registration::register_rollback_state;
 /// it exists so that "where my files are" is an APP fact. As a global it
 /// was shared by every test in a binary and by every process on the machine.
 #[derive(bevy::prelude::Resource, Clone, Debug)]
-pub struct PersistenceRoot(pub std::path::PathBuf, Option<std::sync::Arc<IsolatedRoot>>);
+pub struct PersistenceRoot(
+    pub std::path::PathBuf,
+    // Held for its `Drop` only, which removes an isolated directory: nothing
+    // reads it.
+    #[allow(dead_code)] Option<std::sync::Arc<IsolatedRoot>>,
+);
 
 /// The directory of an isolated root, removed when the last holder of the
 /// root is dropped (the App's resource, and each clone of it).

@@ -211,6 +211,7 @@
             "mockingbird_salvo", // the Mockingbird, wounded: three missiles, each aimed again
             "mockingbird_fireballs", // the Mockingbird: three fireballs spat in a fan at you
             "mockingbird_fire_fan", // the Mockingbird, wounded: five, wider
+            "mockingbird_lightsabers", // the Mockingbird, on fire: three burning lightsabers spat in a fan at you, that come back
         ],
         recipes: [
             (

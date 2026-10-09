@@ -1118,7 +1118,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `resource.custody_baseline`, `resource.minted_item_baseline`,
 /// `resource.owned_items_baseline`) are components of the session root (C03),
 /// under the same keys; their kind is `component-clone-custom-checksum`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 335;
+/// ⛔⛤ 335 -> 336: the `actor.brain` cursor (`Brain`) encodes the state of a
+/// `Roam` brain (tag 4): its goal, its leg and phase, the end of its rest, its
+/// count of choices and its failed legs. Payload only; no key moved.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 336;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

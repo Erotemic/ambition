@@ -80,6 +80,8 @@ struct SceneCaptureConfig {
     /// Keep the developer overlays in the shot (`--dev-overlays`). By default a
     /// verification screenshot shows the product.
     dev_overlays: bool,
+    /// Draw the navigation graph in the shot (`--nav-overlay`).
+    nav_overlay: bool,
     /// Put the combat debug view in the shot (`--combat-overlay`).
     ///
     /// `--dev-overlays` only stops the tool from hiding what a build shows.
@@ -230,6 +232,8 @@ OPTIONS:
                         ordinary capture if the sequence runs out first.
     --include-ui        keep the game's UI in the shot
     --dev-overlays      stop silencing the developer chrome
+    --nav-overlay       draw the surface graph a navigating body is advised from
+                        (surfaces green, hops yellow, drops orange)
     --combat-overlay    force the COMBAT gizmos on (hitboxes, collision boxes)
     --boss-hp F         hold every boss's health at fraction F of its max, to
                         photograph art it wears by its wounds
@@ -408,6 +412,9 @@ fn install_room_capture(app: &mut App) {
         sim,
         (hold_boss_health, place_player_beside, record_flags),
     );
+    if app.world().resource::<SceneCaptureConfig>().nav_overlay {
+        app.insert_resource(ambition_app::dev::navigation_overlay::NavigationOverlay { shown: true });
+    }
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
         Update,
@@ -569,6 +576,7 @@ impl SceneCaptureConfig {
         let mut include_ui = false;
         let mut dev_overlays = false;
         let mut combat_overlay = false;
+        let mut nav_overlay = false;
         let mut boss_hp: Option<f32> = None;
         let mut screen_effects: Vec<ScreenEffect> = Vec::new();
         // One shot every frame by default.
@@ -593,6 +601,10 @@ impl SceneCaptureConfig {
                 // the gizmos need `DeveloperRuntimeState.debug` and the gizmo
                 // toggles, which the chrome settings do not touch.
                 // `force_combat_overlay` runs after the silencer.
+                "--nav-overlay" => {
+                    nav_overlay = true;
+                    1
+                }
                 "--combat-overlay" => {
                     combat_overlay = true;
                     1
@@ -852,6 +864,7 @@ impl SceneCaptureConfig {
                 body_warp: None,
                 dev_overlays,
                 combat_overlay,
+                nav_overlay,
                 boss_hp,
                 screen_effects,
                 press,
@@ -897,6 +910,7 @@ impl SceneCaptureConfig {
             character,
             dev_overlays,
             combat_overlay,
+            nav_overlay,
             boss_hp,
             screen_effects,
             follow_player,

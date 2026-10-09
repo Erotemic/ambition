@@ -179,3 +179,39 @@ fn the_waypoints_are_reachable_and_the_same_for_one_seed() {
     assert!(points[..count as usize].iter().all(|point| fixture.graph.surface_at(*point).is_some_and(|at| at != shelf)));
     assert_ne!(points, fixture.graph.waypoints(feet, 8).0);
 }
+
+#[test]
+fn a_place_beside_a_point_is_on_the_surface_under_it_when_that_is_in_reach() {
+    let fixture = Fixture::new();
+    let feet = fixture.middle("floor");
+    // A body that stands on the perch: its centre is above the perch's top.
+    let on_the_perch = fixture.middle("perch") - Vec2::Y * 40.0;
+    let place = fixture.graph.place_beside(feet, on_the_perch, 60.0, 160.0).expect("the perch is in reach");
+    assert_eq!(fixture.graph.surface_at(place), Some(fixture.surface("perch")));
+    assert!((place.x - on_the_perch.x).abs() > 30.0, "beside the point, not on it: {place:?}");
+    // Over the shelf, which is out of reach: no place.
+    let on_the_shelf = fixture.middle("shelf") - Vec2::Y * 40.0;
+    assert_eq!(fixture.graph.place_beside(feet, on_the_shelf, 60.0, 160.0), None);
+}
+
+/// Reach is a fact about the body's real abilities. The same room, the same
+/// size and speed, and no jump: each place that needs a jump is out of reach,
+/// and the drops are still there.
+#[test]
+fn a_body_with_no_jump_cannot_reach_what_needs_one() {
+    let fixture = Fixture::new();
+    let mut grounded = walker();
+    grounded.abilities.abilities.jump = false;
+    let graph = NavGraph::build(&fixture.world, &grounded, normal_frame()).expect("a walker has a graph");
+    let floor = fixture.middle("floor");
+    for needs_a_jump in ["perch", "ledge", "cellar"] {
+        assert_eq!(graph.next(floor, fixture.middle(needs_a_jump)), NavNext::Unreachable, "{needs_a_jump}");
+    }
+    // Each leg it has goes down. (A leg can still be named a hop: the press
+    // does nothing, the body walks off the end, and it arrives.)
+    assert!(!graph.links.is_empty());
+    assert!(graph.links.iter().all(|link| link.leg.land.y > link.leg.start.y + 1.0), "{:#?}", graph.links);
+    // The control: down is still a route, and with the jump the perch is one.
+    assert!(matches!(graph.next(fixture.middle("ledge"), fixture.middle("cellar")), NavNext::Leg(_)));
+    assert!(matches!(fixture.graph.next(floor, fixture.middle("perch")), NavNext::Leg(_)));
+}

@@ -9,8 +9,22 @@ use ambition_platformer2d::vfx::vfx::VfxMessage;
 use ambition_platformer2d::vfx::vfx::VfxInRoom;
 use bevy::prelude::{Entity, Messages};
 
+/// ⭐ THE DOG GOES TO PLACES BY THE ROOM'S SURFACES.
+///
+/// Jon, 2026-10-09: the dog "should navigate to random waypoints, and not jump
+/// in a fixed pattern". The dog has the `Roam` brain. The navigation advisor
+/// gives it places it can reach and the legs to them, from the surface graph
+/// of the room for the dog's own tuning. The shipped app, the authored room
+/// and the authored catalog row.
+///
+/// The graph is not trusted here: the dog's feet are. A surface counts when
+/// the dog STANDS on it.
 #[test]
-fn the_basement_dog_is_peaceful_and_roams_across_the_floor() {
+fn the_basement_dog_is_peaceful_and_goes_to_places_on_the_rooms_surfaces() {
+    use ambition_platformer2d::actors::features::ecs::navigation::RoomNavigation;
+    use ambition_platformer2d::engine_core::BodyGroundState;
+    use std::collections::BTreeSet;
+
     let mut sim = fixed_60hz_room_sim("central_hub_complex");
     sim.step_n(base(), 10);
 
@@ -21,29 +35,43 @@ fn the_basement_dog_is_peaceful_and_roams_across_the_floor() {
         let (entity, _, disposition, abilities) = query
             .iter(world)
             .find(|(_, worn, ..)| worn.id() == "npc_companion_dog")
-            .expect("the basement stages the authored dog");
+            .expect("the basement stages the authored dog")
+        ;
         assert_eq!(*disposition, ActorDisposition::Peaceful);
         assert!(abilities.abilities.move_horizontal && abilities.abilities.jump);
         assert!(!abilities.abilities.attack);
         entity
     };
-
-    let start = sim
-        .world()
-        .get::<BodyKinematics>(dog)
-        .expect("the dog has a live body")
-        .pos;
-    let mut min_x = start.x;
-    let mut max_x = start.x;
-    let mut min_y = start.y;
     let dog_id = sim
         .world()
         .get::<FeatureId>(dog)
         .expect("the dog has a feature id")
         .as_str()
         .to_string();
+    // The graph for the dog's settled tuning is the last one built.
+    let graph = sim
+        .world()
+        .resource::<RoomNavigation>()
+        .graphs()
+        .last()
+        .cloned()
+        .expect("the advisor built a graph for the dog");
+    let feet = |sim: &ambition_app::Platformer2dSimHarness| {
+        let kin = sim.world().get::<BodyKinematics>(dog).expect("the dog stays in the room");
+        kin.pos + bevy::math::Vec2::Y * kin.size.y * 0.5
+    };
+    let home = graph.surface_at(feet(&sim)).expect("the dog starts on a standing surface");
+    let reachable: BTreeSet<usize> = graph.reachable_from(home).into_iter().collect();
+    // ⛔ THE PREMISES: the basement gives the dog places to go, and the room
+    // has places it cannot go (the hall above it).
+    assert!(reachable.len() >= 6, "the dog can reach only {} surfaces", reachable.len());
+    assert!(reachable.len() < graph.surfaces.len(), "control: each surface of the room is in reach");
+
+    let mut stood_on = BTreeSet::new();
+    let mut take_offs = Vec::new();
+    let mut was_on_ground = true;
     let mut barked = false;
-    for _ in 0..2400 {
+    for tick in 0..3600 {
         sim.step(base());
         // The bark pose is presentation: the sim asks for it with a message
         // naming the dog, and keeps no gesture state on the body.
@@ -52,24 +80,75 @@ fn the_basement_dog_is_peaceful_and_roams_across_the_floor() {
                 matches!(message, VfxMessage::BarkGesture { ref feature_id, .. } if *feature_id == dog_id)
             });
         }
-        let pos = sim
-            .world()
-            .get::<BodyKinematics>(dog)
-            .expect("the dog stays in the room")
-            .pos;
-        min_x = min_x.min(pos.x);
-        max_x = max_x.max(pos.x);
-        min_y = min_y.min(pos.y);
+        let on_ground = sim.world().get::<BodyGroundState>(dog).expect("a live body").on_ground;
+        if on_ground {
+            if let Some(surface) = graph.surface_at(feet(&sim)) {
+                stood_on.insert(surface);
+            }
+        } else if was_on_ground {
+            take_offs.push(tick);
+        }
+        was_on_ground = on_ground;
     }
     assert!(
-        max_x - min_x > 1000.0,
-        "the dog did not cross the basement: {min_x}..{max_x}"
+        stood_on.len() >= 4,
+        "in a minute the dog stood on {} surface(s): {stood_on:?}",
+        stood_on.len()
     );
     assert!(
-        start.y - min_y > 5.0,
-        "the dog did not hop: {start:?}, {min_y}"
+        stood_on.is_subset(&reachable),
+        "the dog stood where the graph says it cannot: {:?}",
+        stood_on.difference(&reachable).collect::<Vec<_>>()
+    );
+    // Not on a clock: the times between the dog's take-offs are not one time.
+    let waits: Vec<i32> = take_offs.windows(2).map(|pair| pair[1] - pair[0]).collect();
+    let (shortest, longest) = (waits.iter().min().copied(), waits.iter().max().copied());
+    assert!(
+        take_offs.len() >= 4 && longest.zip(shortest).is_some_and(|(long, short)| long - short > 30),
+        "the dog left the ground at ticks {take_offs:?}"
     );
     assert!(barked, "the dog did not give an ambient bark");
+}
+
+/// ⭐ THE DOG COMES TO A PLAYER WHO IS FAR FROM IT, UP THE PLATFORMS.
+///
+/// The dog keeps near the player (`stay_within` in its catalog row). The
+/// player stands on the upper deck of the basement, at the far end from the
+/// dog. No straight walk gets there: the dog must climb. The advisor gives the
+/// dog a place beside the player and the legs to it.
+#[test]
+fn the_dog_climbs_to_a_player_who_stands_far_away_on_the_upper_deck() {
+    let (mut sim, dog, player) = the_dog_and_the_player();
+    let at = |sim: &ambition_app::Platformer2dSimHarness, body: Entity| {
+        sim.world().get::<BodyKinematics>(body).expect("a live body").pos
+    };
+    let floor = at(&sim, dog).y;
+    // The upper deck of the basement, near its left end.
+    sim.teleport_player((420.0, 1024.0 + 608.0 - 60.0));
+    sim.step_n(base(), 30);
+    let stands = at(&sim, player);
+    // ⛔ THE PREMISES: the player is far from the dog and well above its floor.
+    assert!(
+        (stands.x - at(&sim, dog).x).abs() > 900.0 && floor - stands.y > 250.0,
+        "the fixture did not stand the player far up the deck: player {stands:?}, dog {:?}",
+        at(&sim, dog)
+    );
+    let mut arrived = None;
+    for tick in 0..3000 {
+        sim.step(base());
+        let gap = at(&sim, dog) - at(&sim, player);
+        if gap.x.abs() < 200.0 && gap.y.abs() < 40.0 {
+            arrived = Some(tick);
+            break;
+        }
+    }
+    assert!(
+        arrived.is_some(),
+        "in 50 s the dog did not come to the player: dog {:?}, player {:?}, brain {:?}",
+        at(&sim, dog),
+        at(&sim, player),
+        sim.world().get::<ambition_platformer2d::characters::brain::Brain>(dog),
+    );
 }
 
 /// Interact beside the dog talks to it, and does not pet it: the pet is a

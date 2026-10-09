@@ -72,8 +72,14 @@ REPO = Path(__file__).resolve().parent.parent
 
 #: `ResMut<T>` as a parameter, with its BINDING, because the spend patterns below
 #: are about what the body does to that binding.
+#:
+#: ⛔ A SESSION-SCOPED VALUE IS HELD THE SAME WAY UNDER ANOTHER NAME. C03 moved
+#: values from `Resource` to a component of the session root, read through
+#: `SessionWorldMut<T>` (a `Single` over the root), often as `Option<..>`. The
+#: spend is the same; only the spelling changed, and family 5's switch queue
+#: fell out of the count when it moved.
 _RESMUT = re.compile(
-    r"\b(?:mut\s+)?(\w+)\s*:\s*(?:[\w:]*::)?ResMut\s*<\s*(?:'[a-z_]+\s*,\s*)?([\w:]+)\s*>"
+    r"\b(?:mut\s+)?(\w+)\s*:\s*(?:Option\s*<\s*)?(?:[\w:]*::)?(?:ResMut|SessionWorldMut)\s*<\s*(?:'\w+\s*,\s*)*([\w:]+)\s*>"
 )
 
 

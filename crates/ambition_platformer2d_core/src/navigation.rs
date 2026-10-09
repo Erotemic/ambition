@@ -212,8 +212,10 @@ pub enum NavNext {
 /// Perception, not state: the navigation advisor writes it again each tick,
 /// before the brains decide, from the room's surface graph, the body, and the
 /// goal the body's brain holds. A brain reads it in its `BrainSnapshot`.
-#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct NavAdvice {
+    /// The body's feet point this tick: what the legs are measured from.
+    pub feet: Vec2,
     /// Points the body can reach from its surface, one on each of some
     /// surfaces. Feet points.
     pub waypoints: [Vec2; NAV_WAYPOINTS],
@@ -222,12 +224,24 @@ pub struct NavAdvice {
     /// the goal it holds now.
     pub goal: Option<Vec2>,
     pub next: NavNext,
+    /// A place beside the body's target that the body can reach, when the
+    /// target stands over a surface in reach. A feet point.
+    pub target_place: Option<Vec2>,
 }
 
 impl NavAdvice {
     pub fn waypoints(&self) -> &[Vec2] {
         &self.waypoints[..(self.waypoint_count as usize).min(NAV_WAYPOINTS)]
     }
+}
+
+/// SplitMix64: one well-mixed number from one number. The one source of
+/// choice in navigation, so a choice is the same on each peer.
+pub fn mix(seed: u64) -> u64 {
+    let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^ (z >> 31)
 }
 
 #[cfg(test)]

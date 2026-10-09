@@ -25,6 +25,7 @@
 | [`motion_codec`](src/motion_codec.rs) | The movement-policy (`MotionModel`) rollback checksum codec — ADR 0024 §9. |
 | [`motion_quality`](src/motion_quality.rs) | Numeric diagnostics for the shape of an authoritative per-tick trajectory. |
 | [`movement`](src/movement/mod.rs) | One trusted, frame-aware movement kernel with swappable physics policies. |
+| [`navigation`](src/navigation.rs) | The navigation contract: one leg of a route, and the rule that follows it. |
 | [`player_state`](src/player_state.rs) | Reusable player-state vocabulary. |
 | [`resources`](src/resources.rs) | The per-actor resource bank: the one mutable authority for every resource a body holds. |
 | [`rollback_kind`](src/rollback_kind.rs) | What a rollback registration IS, and the sentence that describes it. |
@@ -35,7 +36,7 @@
 | [`surface_loop`](src/surface_loop.rs) | Attached loops: a full 360° loop a runner enters from a floor and leaves onto the same floor, as one authored fact. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_28 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_29 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

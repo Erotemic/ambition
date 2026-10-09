@@ -243,6 +243,10 @@ pub struct BrainSnapshot {
     /// snapshot builder learns about stage geometry under the
     /// actor.
     pub terrain: Option<crate::brain::smash::TerrainAwareness>,
+    /// What this body can know of the routes from where it stands, this tick
+    /// (`ae::navigation`). Written by the navigation advisor for a body whose
+    /// brain navigates; the default (no place, no answer) for every other.
+    pub navigation: ae::navigation::NavAdvice,
 }
 
 /// The facing a brain asks for toward a target `side` px away along the body's
@@ -317,6 +321,7 @@ impl BrainSnapshot {
             player_input: None,
             crowding: None,
             terrain: None,
+            navigation: ae::navigation::NavAdvice::default(),
             air_jumps_remaining: 0,
         }
     }

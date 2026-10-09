@@ -209,6 +209,7 @@ pub fn tick_controlled_brains(
             // the brain ignores.
             crowding: None,
             terrain: None,
+            navigation: Default::default(),
             // Player brain does not consult this snapshot field; air-jump
             // acceptance remains body-side movement state.
             air_jumps_remaining: 0,

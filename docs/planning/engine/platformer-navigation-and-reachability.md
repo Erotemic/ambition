@@ -110,8 +110,24 @@ The advice has three things: places in reach (seeded by the brain's own count
 of choices, not a clock), the next leg to the brain's goal, and a place beside
 the body's target when a route goes there (`target_place`). The last one is a
 goal that moves: a brain that follows or chases asks for it each time it
-chooses. Roam uses it to keep near the player. A hostile brain does not use it
-yet.
+chooses. Roam uses it to keep near the player. A `MeleeBrute` whose profile
+says `navigates` uses it to go to a foe on another surface. No shipped profile
+says so: no room has platforms a brute's jump reaches.
+
+Both brains drive one `NavFollower`
+(`ambition_characters::brain::state_machine::nav_follower`): the goal, the leg
+and its clock. A brain owns where to go. The follower owns how the body gets
+there.
+
+Whom a body attends to: its combat target when it has one, and if not, the
+nearest player in its room. A peaceful body has no combat target
+(`ActorTarget.entity` is `None`), so a companion could not keep near anybody by
+the target alone.
+
+LIMIT, a perception leak: the place beside the target is computed from the
+target's true position. A brute asks for it only while it chases, and it
+chases only a foe it believes in, but the place is where the foe IS and not
+where the brute believes it is.
 
 An author's page is [`docs/systems/npc-navigation.md`](../../systems/npc-navigation.md).
 

@@ -167,6 +167,76 @@ fn the_dog_climbs_to_a_player_who_stands_far_away_on_the_upper_deck() {
     );
 }
 
+/// ⭐ NAVIGATION IS A CAPABILITY OF A BRAIN, NOT OF THE DOG'S BRAIN.
+///
+/// The dog's body with another policy: a `MeleeBrute` whose profile says it
+/// navigates. That brain shares one thing with `Roam`, the route follower.
+/// It chases its target as each brute does, and when the target stands on
+/// another surface it takes the room's routes to it. The control is the same
+/// brute with `navigates` off: it runs along the floor under the deck and
+/// does not come up.
+///
+/// No shipped character has this policy yet: the rooms are sized for the
+/// player's jump, and a brute cannot reach their platforms. This test is the
+/// proof that the policy works where the room allows it.
+#[test]
+fn a_brute_brain_in_the_dogs_body_climbs_to_its_target_and_one_that_does_not_navigate_stays_below() {
+    use ambition_platformer2d::characters::brain::state_machine::{MeleeBruteCfg, MeleeBruteState};
+    use ambition_platformer2d::combat::components::{ActorAggression, Grudge};
+    use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
+
+    let climbs = |navigates: bool| {
+        let (mut sim, dog, player) = the_dog_and_the_player();
+        let at = |sim: &ambition_app::Platformer2dSimHarness, body: Entity| {
+            sim.world().get::<BodyKinematics>(body).expect("a live body").pos
+        };
+        *sim.world_mut().get_mut::<Brain>(dog).expect("the dog has a brain") =
+            Brain::StateMachine(StateMachineCfg::MeleeBrute {
+                cfg: MeleeBruteCfg {
+                    aggressiveness: 1.0,
+                    aggro_radius: 4000.0,
+                    attack_range: 36.0,
+                    chase_speed: 110.0,
+                    navigates,
+                },
+                state: MeleeBruteState::default(),
+            });
+        // A brute chases a foe: the body has a grudge against the player, so
+        // the player is its combat target.
+        *sim.world_mut().get_mut::<ActorAggression>(dog).expect("an aggression") =
+            ActorAggression { grudge: Some(Grudge::Body(player)), ..ActorAggression::hostile() };
+        let floor = at(&sim, dog).y;
+        // On the upper deck, above the dog and in its sight: a brute chases a
+        // foe it knows of, and a foe across the room is not one.
+        sim.teleport_player((1480.0, 1024.0 + 608.0 - 60.0));
+        sim.step_n(base(), 30);
+        assert!(floor - at(&sim, player).y > 250.0, "premise: the player stands well above the dog's floor");
+        assert!(
+            sim.world()
+                .get::<ambition_platformer2d::combat::components::ActorTarget>(dog)
+                .is_some_and(|target| target.entity == Some(player)),
+            "premise: the brute's target is the player"
+        );
+        let mut highest = floor;
+        for _ in 0..3000 {
+            sim.step(base());
+            let gap = at(&sim, dog) - at(&sim, player);
+            highest = highest.min(at(&sim, dog).y);
+            if gap.x.abs() < 200.0 && gap.y.abs() < 40.0 {
+                return (true, floor - highest);
+            }
+        }
+        (false, floor - highest)
+    };
+    let (arrived, rose) = climbs(true);
+    assert!(arrived, "the brute that navigates did not come to its target; it rose {rose:.0} px");
+    let (arrived, rose) = climbs(false);
+    assert!(
+        !arrived && rose < 100.0,
+        "control: the brute that does not navigate came up (arrived {arrived}, rose {rose:.0} px)"
+    );
+}
+
 /// Interact beside the dog talks to it, and does not pet it: the pet is a
 /// choice in that conversation (`<<pet>>` in `hall_npc_companion_dog`). Picking
 /// it pets the dog, both bodies hold still for the whole pet, and both let go

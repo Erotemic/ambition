@@ -38,6 +38,29 @@ Give the character a `Roam` brain preset in
 The character needs the `Walk` and `Jump` abilities. A run-up and a jump are
 at the body's top speed (`run_speed` in its `locomotion`).
 
+## A hostile body
+
+A `MeleeBrute` can go to a foe on another surface by the same routes. Set
+`navigates: true` on its brain profile (`autonomous_profiles` in the
+catalog), which is the road a hostile or provoked body's brain is built by.
+A `MeleeBrute` catalog preset has the same field.
+
+```ron
+"pirate_boarder_heavy": (
+    template: MeleeBrute,
+    aggro_radius: 500.0,
+    attack_range: 90.0,
+    navigates: true,
+),
+```
+
+No shipped profile sets it. The rooms are sized for the player's jump, and a
+brute does not reach their platforms, so the field changes nothing there. The
+proof is a test that gives the brain to the dog's body in the hub basement
+(`a_brute_brain_in_the_dogs_body_climbs_to_its_target_...`). The brute goes by
+a route only to a foe it knows of (its ordinary chase), on a surface that is
+not its own. When no route goes there, it chases as before.
+
 ## How to make a room that a body can navigate
 
 A body goes only where its own jump reaches. The numbers are the body's, not

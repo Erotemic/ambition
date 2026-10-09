@@ -95,7 +95,8 @@ integrate, or derive from a gated frame.
 - **One commanded-move road (done 2026-10-09).** `drive_commanded_moves`
   walks every body that carries a `CommandedMove`, a boss too: a boss's
   attack intent and presses are cleared, and a dead body is not walked.
-  Deleted: `tick_commanded_moves` and its registration by the content plugin.
+  Deleted: the boss crate's own commanded-move system and its registration by
+  the content plugin.
   The `BossSteerSlot` now runs after the walk, so a conducted facing or content
   steering has the last word. Measured: the cut-rope lure's trajectory is
   byte-identical over 240 ticks with the two roads and with the one (the boss
@@ -115,9 +116,12 @@ integrate, or derive from a gated frame.
   for this boss. The harness boss of `boss_motion_parity` is the same: 174.0
   px held or not. `woken_boss_moves_and_stays_afloat` says "the pattern's
   desired velocity is ... reaching the integrator", and for this boss it is
-  not. Open: whether the brain should write no movement frame for a
-  conducted boss. That frame is a write with no reader; deleting it is
-  allowed (Q74: an inert parameter is deletable for lying).
+  not.
+  Decided 2026-10-09: the brain keeps its write. The body road declines
+  locomotion for a held body in one place (`integrate_actor_body` passes
+  `pose_owned_externally` to the body update), for a rider and a conducted
+  boss alike. A brain that also skips its write for a conducted boss would be
+  a second copy of that rule.
 
 **Acceptance:** one accepted control fact feeds one body execution road; no
 second body tick or hidden writer is introduced; schedule witnesses are placed
@@ -416,8 +420,10 @@ published. The run's own "render cost" line: 3392 s of the 4436 s in 7
 renderer processes (tack-ons 1374 s, draw-review 893 s, draw-all 700 s, late
 targets 287 s, factions 136 s). The other ~1044 s are stages outside the
 renderer (ultrapack, quality variants, LDtk). The tack-on batch was at 143 of
-144 after 1145 s, so its last target held about 230 s alone; starting the
-longest targets first would cut that tail. Still serial: the faction-leader
+144 after 1145 s, so its last target held about 230 s alone. Since renderer
+`890c457` a batch starts the slowest known targets first (each target's last
+publish seconds, kept in `.cache/publish_seconds.json`); its effect on a full
+regen is not measured yet. Still serial: the faction-leader
 lineup, the review canonical gallery, the ultrapack and the quality
 variants. Also found in that regen:
 - a run through the `/home/agent/code/ambition` alias wrote `relPath`s that

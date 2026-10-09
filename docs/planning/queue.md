@@ -356,7 +356,10 @@ reads cargo output to it.
    tested tree, red at `a_new_untracked_source_file_is_part_of_the_tested_tree`).
    A row holds the tree at both ends of its job, and a check counts when
    both hold the change's paths (`36eb555ee`): a file the host of a shared
-   folder edited during a 14-job run had voided two passing jobs. Only the
+   folder edited during a 14-job run had voided two passing jobs. A
+   checked-out submodule is recorded at the commit it has checked out
+   (`8ac789621`): the index entry had made a change that moved a pointer
+   impossible to certify. Only the
    run that writes the default status records evidence, so a test's fake
    jobs do not. Not held: the demo rule's fourth case (an instrument a demo
    test reads), the external-consumer fixtures, the matrix rows without a
@@ -446,12 +449,12 @@ room refused after the first published leaves a mixed world; the status says
   The arm also holds that the advice of the status is true: with the fault
   gone, the reload applied again brings each live room to one generation.
 
-**Next action (open, not started):** make the sequence transactional. The
-later rooms are built against state that the first room's finalization makes
-(the room set, the live room counter), so the rooms cannot simply be verified
-before one of them is finalized. A design is owed before code: hold each
-room's `FrozenPublicationEffects` behind a hold that the reload owns, and
-verify the later rooms against the projected set.
+**Next action:** build the design (written 2026-10-09, in
+[the residency plan](engine/open-world-runtime-and-residency.md#design-a-multi-room-publication-checks-every-room-then-commits-every-room)).
+First check every room and promote none, with each later room checked
+against the projected set and counter; then commit every room or refuse
+every room. First measure the three reads it names, then change the
+mixed-world arm into a "rebuilds none" arm.
 
 **Acceptance:** met for the first half: the injected fault is caught by an
 assertion that names the mixed state. Multi-room publication is called

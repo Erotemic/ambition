@@ -167,7 +167,15 @@ the second participant's room. Poison (gated walls re-evaluated only in the
 primary's live room): red at the after-hand-over assertion, with the lock
 still standing in `alice_relay`. Control: with no pads, the same Jump presses
 give seat 1 no body in 120 frames, because the session opened one handle.
-Next: the death step (after Q164).
+
+**WA5 done 2026-10-09:** the death step, the part Q164 does not decide.
+`a_death_sends_the_blink_back_to_where_it_lay`: the player dies at Alice with
+the Blink in hand and no checkpoint. After the death no Blink is in the live
+world (not in the hand, not dropped there), back in the hub the one Blink lies
+where it was found and can be taken again, and Alice's return lock agrees
+with the survey flag. Poison (the restore keeps the dying player's held
+objects as a spared room's): red at "a Blink is in the live world", the Blink
+still `Held`. Next: the fact horizon of a death, when Q164 is ruled.
 
 **Next action:** one reproducible headless playthrough of the shipped game, on
 the real composition: explore connected rooms, acquire a meaningful capability,

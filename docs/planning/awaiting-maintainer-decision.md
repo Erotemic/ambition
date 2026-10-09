@@ -383,8 +383,10 @@ world authors water today; the sandbox has slugs and pools.
 
 ## Q164 — when the player dies, does the story it made since the checkpoint go back too?
 
-Filed 2026-10-09. Blocks the death step of the WORLD-ACCEPTANCE scenario
-([the queue](queue.md)); the rest of the scenario goes on without it.
+Filed 2026-10-09. Blocks the fact half of the death step of the
+WORLD-ACCEPTANCE scenario ([the queue](queue.md), WA5). The object half is
+built: a held Blink taken after the checkpoint goes back to where it lay, one
+occurrence, and that holds under each option below.
 
 Measured with the shipped game (`a_playthrough_of_the_persistent_world`): the
 player takes Alice's note, gives it to Bob, gets his survey, and dies before

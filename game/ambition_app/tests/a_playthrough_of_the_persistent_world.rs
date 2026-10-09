@@ -10,7 +10,8 @@
 //!
 //! A second participant joins on a second pad, stays at Alice while the
 //! player carries the note to Bob, and sees Alice's return lock open in its
-//! own live room.
+//! own live room. A death with the Blink in hand sends it back to where it
+//! lay.
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
@@ -59,8 +60,9 @@ fn the_player_holds(app: &mut App, id: &SimId) -> bool {
     matches!(occurrences(app, id).as_slice(), [(_, Custody::Held { holder })] if *holder == player)
 }
 
-/// Stand on the Blink and press Attack until it is in hand.
-fn take(app: &mut App, id: &SimId) {
+/// Stand on the Blink and press Attack until it is in hand. Answers where it
+/// lay.
+fn take(app: &mut App, id: &SimId) -> ae::Vec2 {
     let at = {
         let world = app.world_mut();
         let found: Vec<ae::Vec2> = world
@@ -77,7 +79,7 @@ fn take(app: &mut App, id: &SimId) {
     for _ in 0..40 {
         crate::the_note_travels_from_alice_to_bob::tap(app, KeyCode::KeyX);
         if the_player_holds(app, id) {
-            return;
+            return at;
         }
     }
     panic!("pressed Attack on `{}` for 40 taps and never held it", id.as_str());
@@ -371,4 +373,82 @@ fn the_hand_over_opens_the_wall_in_the_other_participants_room() {
         vec![("alice_relay".to_string(), false), ("bob_relay".to_string(), false)],
         "(live room, return lock stands) after the hand-over in the other room"
     );
+}
+
+/// The player dies (a hazard), and the death beat runs until the body is back
+/// in play.
+fn die(app: &mut App) {
+    use ambition_platformer2d::combat::death_rules::{ActorDiedMessage, DeathCause, OutOfPlay};
+    let body = primary_body(app);
+    let pos = app.world().get::<ae::BodyKinematics>(body).expect("a body").pos;
+    app.world_mut().write_message(ActorDiedMessage {
+        victim: body,
+        pos,
+        cause: DeathCause {
+            source: ambition_platformer2d::combat::HitSource::Hazard,
+            attacker: None,
+        },
+    });
+    app.update();
+    assert!(app.world().entity(body).contains::<OutOfPlay>(), "control: the dead player is out of play");
+    for _ in 0..600 {
+        app.update();
+        let body = primary_body(app);
+        if !app.world().entity(body).contains::<OutOfPlay>() {
+            for _ in 0..60 {
+                app.update();
+            }
+            return;
+        }
+    }
+    panic!("the player never came back into play after the death");
+}
+
+/// ⭐ THE DEATH STEP, the part Q164 does not decide. The player carries the
+/// Blink to Alice and Bob and dies with no checkpoint taken. The Blink was
+/// acquired after the checkpoint, so it goes back (Q124): it is not in the
+/// hand, not dropped where the player died, and not copied; it lies where it
+/// was found, and it can be taken again. Alice's return lock agrees with the
+/// survey flag whichever way Q164 rules on the flag.
+#[test]
+fn a_death_sends_the_blink_back_to_where_it_lay() {
+    let mut app = a_returning_players_session();
+    let blink = SimId::placement(BLINK);
+    let found_at = take(&mut app, &blink);
+    for room in ROUTE_TO_ALICE {
+        go_through(&mut app, room);
+    }
+    talk_and_choose(&mut app, "npc_alice", "Take the note.");
+    go_through(&mut app, "bob_relay");
+    talk_and_choose(&mut app, "npc_bob", "Hand him the sealed note.");
+    go_through(&mut app, "alice_relay");
+    assert!(the_player_holds(&mut app, &blink), "control: the Blink is in hand when the player dies");
+
+    die(&mut app);
+    assert_eq!(live_room(&mut app), "alice_relay", "with no checkpoint, the player comes back in the room of the death");
+    assert_eq!(
+        occurrences(&mut app, &blink),
+        vec![],
+        "after the death, a Blink is in the live world (in hand, or dropped where the player died)"
+    );
+    assert_eq!(
+        gate_stands(&app, RETURN_LOCK),
+        !flag(&app, SURVEY_FLAG),
+        "after the death, Alice's return lock disagrees with the survey flag"
+    );
+
+    for room in ["under_town_pipes", "drain_alley", "intro_escape_shaft", "intro_raid_corridor", "intro_wake_room", "central_hub_complex"] {
+        go_through(&mut app, room);
+    }
+    let lying: Vec<ae::Vec2> = {
+        let world = app.world_mut();
+        world
+            .query::<(&SimId, &Ground, &Custody)>()
+            .iter(world)
+            .filter(|(id, _, custody)| *id == &blink && custody.in_world())
+            .map(|(_, ground, _)| ground.pos)
+            .collect()
+    };
+    assert_eq!(lying, vec![found_at], "back in the hub, the Blinks lying in the world");
+    take(&mut app, &blink);
 }

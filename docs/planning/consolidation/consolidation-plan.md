@@ -134,19 +134,20 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ## 3. C03 — Consolidate session-owned state and reduce reset-only App globals
 
-**State:** IN PROGRESS. Four families have landed (see "Landed families"
+**State:** IN PROGRESS. Six families have landed (see "Landed families"
 below); the others are not started.
 
 ### Scope and current authority
 
-Source explicitly groups **35** App resources as gameplay-session or
+Source explicitly groups **33** App resources as gameplay-session or
 activated-generation state (46 until the checkpoint family and the room memories
-left on 2026-10-07, 38 until the session clock left and 36 until the door
-countdown left on 2026-10-08):
+left on 2026-10-07; on 2026-10-08, 38 until the session clock left, 36 until the
+door countdown left, 35 until the switch queue left and 34 until the encounter
+view left):
 
-<!-- session-owner-census: SessionScopedResources=34 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=32 SessionMechanics=1 -->
 <!-- session-root-family: SessionCheckpointState=6 -->
-- `SessionScopedResources` (**34**) in `actor_monolith/src/session/teardown.rs`;
+- `SessionScopedResources` (**32**) in `actor_monolith/src/session/teardown.rs`;
 - (`SessionOwnedCheckpointState`, the third bundle of six, is DELETED: its values are
   components of the session root, `SessionCheckpointState` (6) in
   `actor_monolith/src/session/checkpoint.rs`, and no reset runs for them.)
@@ -197,10 +198,10 @@ The census page lists the member names. The guard counts the optional
 | --- | --- | ---: |
 | current room / world / session state | ~~`LastCutsceneRoom`, `LastQuestRoom`, `RoomTransitionCooldown`~~ (LANDED, on the root), `SlotInteractionState` | 1 |
 | participant state | `ControlledSubject`, `PossessionState` | 2 |
-| encounter state | `EncounterView`, `BossEncounterRegistry`, `AuthoredOccurrences` | 3 |
+| encounter state | ~~`EncounterView`~~ (LANDED, on the root), `BossEncounterRegistry`, `AuthoredOccurrences` | 2 |
 | simulation clocks / timeline state | `GameplayElapsed`, `LiveMatchTicks`, `SessionMatchOrdinal`, `ProjectileSeqCounter` | 4 |
 | checkpoint / restore state | ~~the six `SessionOwnedCheckpointState` members~~ (LANDED, on the root), `SaveRestored`, `CustodyBaseline`, `MintedItemBaseline`, `OccurrenceBaseline` | 4 |
-| session request / admission queues | `CutsceneTriggerQueue`, `SwitchActivationQueue`, `PendingLifecycleCommit` | 3 |
+| session request / admission queues | `CutsceneTriggerQueue`, ~~`SwitchActivationQueue`~~ (LANDED, on the root), `PendingLifecycleCommit` | 2 |
 | admitted mechanics / configuration | `SessionMechanics`, `BaseGravity` | 2 |
 | cutscene / session gameplay state | `ActiveCutscene`, `ActiveConversation`, `CutsceneSkipHold` | 3 |
 | transient progression | `QuestRegistry`, `StocksMatchSettled`, `SuddenDeathEntered` | 3 |
@@ -210,11 +211,11 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=32/18 SessionWorldMut=31/18 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
+<!-- alias-split: SessionWorldRef=33/19 SessionWorldMut=34/20 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 32 / 18 |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 31 / 18 |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 33 / 19 |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 34 / 20 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
 | `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |
 | `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 9 / 9 |
@@ -237,7 +238,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 35 values. Work owner by owner:
+Do not begin by moving all 33 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
@@ -361,6 +362,38 @@ component of the session root, required by `SessionRoot`.
   lifetime in `SessionWorldMut<..>`, and the alias takes two. The `RoomClock`
   field was invisible, and so was a ninth `EncounterMusicRequest` writer (the
   audio context reset). Both are recorded with verdicts.
+
+**5. The switch queue, 2026-10-08.** `SwitchActivationQueue` (the switch presses
+waiting for the encounter drain, which runs one tick after the producer) is a
+component of the session root, required by `SessionRoot`.
+
+- **Rollback identity did not move:** `resource.switch_activation_queue` keeps
+  its key; its kind is `component-clone-custom-checksum`. The schema version
+  moves 333 -> 334.
+- **Deleted:** the member of `SessionScopedResources` and its reset line.
+  `SessionScopedResources` was 33 and the App-resource total 34.
+- **Witness:**
+  `one_drain_one_author::a_press_queued_in_one_session_is_not_delivered_into_the_next`
+  (A's press is drained on A, the control; a press waiting on A at the swap is
+  not drained on B). It reads the presses the drain resolved, not the switch
+  flag: the first poison passed against a flag reading, because a toggle applied
+  twice reads like one never applied. Poisoned by a default that holds a press:
+  the arm fails on "A's waiting press was delivered into session B".
+
+**6. The encounter view, 2026-10-08.** `EncounterView` (the camera zoom each live
+room's encounters want, republished every tick) is a component of the session
+root, required by `SessionRoot`. Its publisher takes `SessionWorldMut`; the
+camera reads `Option<SessionWorldRef<..>>`, so with no session there is no zoom.
+
+- **Rollback identity did not move:** `derived.encounter_view` is a derived
+  component under the same key. The schema text prints `derived` for both forms,
+  so the version does not move.
+- **Deleted:** the member of `SessionScopedResources` and its reset line.
+  `SessionScopedResources` was 32 and the App-resource total 33.
+- **Witness:** `entity::tests::two_session_roots_hold_two_encounter_views` (A's
+  encounter zooms A's room, the control; a candidate has no view; after the swap
+  B's room is not zoomed). Poisoned by a default that zooms the room: the arm
+  fails on "B was born framing A's encounter".
 
 ### Constraints
 

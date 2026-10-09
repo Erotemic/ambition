@@ -8,8 +8,6 @@ use super::*;
 use crate::control::possession::PossessionState;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
-use ambition_encounter::switches::SwitchActivationQueue;
-use ambition_encounter::SwitchActivation;
 
 /// ⛔⛔ THIS LIST IS THE SECOND HALF OF `SessionScopedResources`, AND IT IS
 /// HAND-KEPT WHERE THE OTHER HALF IS NOT. The `reset` function destructures the
@@ -30,11 +28,9 @@ fn app_with_populated_mirrors() -> App {
     app.add_message::<SessionScopeActivated>();
     app.init_resource::<PossessionState>();
     app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
-    app.init_resource::<ambition_encounter::EncounterView>();
     app.init_resource::<BossEncounterRegistry>();
     app.init_resource::<ambition_persistence::quest::QuestRegistry>();
     app.init_resource::<SlotInteractionState>();
-    app.init_resource::<SwitchActivationQueue>();
     app.init_resource::<crate::session::durable_horizon::SaveRestored>();
     // The occurrence ledger and its three checkpoint copies. Session-scoped for
     // the same reason as the rest: each is a statement about ONE live world.
@@ -77,17 +73,6 @@ fn app_with_populated_mirrors() -> App {
         .resource_mut::<SlotInteractionState>()
         .primary_mut()
         .interact_buffer_timer = 0.75;
-    app.world_mut()
-        .resource_mut::<SwitchActivationQueue>()
-        .0
-        .push(
-            SwitchActivation {
-                id: "session_a_switch".to_owned(),
-                action: "reset".to_owned(),
-                target_encounter: "session_a_encounter".to_owned(),
-            }
-            .into(),
-        );
     // Session A applied its save.
     app.world_mut()
         .resource_mut::<crate::session::durable_horizon::SaveRestored>()
@@ -230,7 +215,6 @@ fn retirement_clears_every_session_scoped_mirror() {
         .resource::<SlotInteractionState>()
         .primary()
         .buffered());
-    assert_eq!(app.world().resource::<SwitchActivationQueue>().0.len(), 1);
     assert!(
         !the_four_ledgers_are_empty(&app),
         "the fixture seeded no world-describing ledger, so clearing them below \
@@ -253,10 +237,6 @@ fn retirement_clears_every_session_scoped_mirror() {
             .primary()
             .buffered(),
         "slot-level interaction buffer carried across teardown"
-    );
-    assert!(
-        app.world().resource::<SwitchActivationQueue>().0.is_empty(),
-        "pending switch activation carried across teardown"
     );
     assert!(
         the_four_ledgers_are_empty(&app),
@@ -320,10 +300,6 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
             .primary()
             .buffered(),
         "session B started with a buffered interact nobody pressed in it"
-    );
-    assert!(
-        app.world().resource::<SwitchActivationQueue>().0.is_empty(),
-        "a switch activation produced in A was about to be delivered into B"
     );
     assert!(
         the_four_ledgers_are_empty(&app),

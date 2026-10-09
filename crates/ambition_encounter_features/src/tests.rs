@@ -960,7 +960,6 @@ fn completing_a_two_switch_encounter_greens_both_and_leaves_it_disarmed() {
     app.add_message::<ambition_combat::events::GameplayBannerRequested>();
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
-    app.init_resource::<ambition_encounter::EncounterView>();
     app.init_resource::<ambition_persistence::quest::QuestRegistry>();
 
     // TWO links, both red: the shape the first-link-only completion mishandled.
@@ -983,6 +982,7 @@ fn completing_a_two_switch_encounter_greens_both_and_leaves_it_disarmed() {
     app.world_mut().spawn((
         ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(scope),
         ambition_encounter::EncounterMusicRequest::default(),
+        ambition_encounter::EncounterView::default(),
     ));
 
     // A wave encounter — completion effects apply only to encounters carrying
@@ -1081,7 +1081,6 @@ fn the_encounter_track_clears_even_on_a_frame_with_no_player_body() {
     app.add_message::<ambition_combat::events::GameplayBannerRequested>();
     app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>();
-    app.init_resource::<ambition_encounter::EncounterView>();
     app.init_resource::<ambition_persistence::quest::QuestRegistry>();
     app.insert_resource(switch_index(&[]));
 
@@ -1094,6 +1093,7 @@ fn the_encounter_track_clears_even_on_a_frame_with_no_player_body() {
         .spawn((
             ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(scope),
             ambition_encounter::EncounterMusicRequest::default(),
+            ambition_encounter::EncounterView::default(),
         ))
         .id();
 

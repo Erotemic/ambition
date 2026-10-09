@@ -90,7 +90,10 @@ impl EncounterSwitchIndex {
 /// (and its rollback registration) exist for exactly that reason: without them
 /// a rewind keeps predicted activations and resimulation pushes them again,
 /// double-applying an encounter reset.
-#[derive(Resource, Default, Clone)]
+///
+/// A component of the session root (C03): a press queued in one session is
+/// never delivered into another, because a new root starts with an empty queue.
+#[derive(bevy::prelude::Component, Default, Clone)]
 pub struct SwitchActivationQueue(pub Vec<QueuedSwitchActivation>);
 
 impl From<SwitchActivation> for QueuedSwitchActivation {
@@ -494,7 +497,7 @@ pub struct SwitchActivationDrained;
 /// would race that order and each would need its own toggle; this drains once,
 /// in queue order, and every consumer reads [`ResolvedSwitchActivations`].
 pub fn drain_switch_activations(
-    mut queue: bevy::prelude::ResMut<SwitchActivationQueue>,
+    mut queue: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SwitchActivationQueue>,
     mut resolved: bevy::prelude::ResMut<ResolvedSwitchActivations>,
     mut save: bevy::prelude::ResMut<ambition_persistence::save::AmbitionGameSave>,
 ) {
@@ -561,7 +564,10 @@ mod one_drain_one_author {
     fn app_with(activations: Vec<SwitchActivation>) -> App {
         let mut app = App::new();
         app.insert_resource(AmbitionGameSave::default());
-        app.insert_resource(SwitchActivationQueue(activations.into_iter().map(Into::into).collect()));
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            SwitchActivationQueue(activations.into_iter().map(Into::into).collect()),
+        );
         app.init_resource::<ResolvedSwitchActivations>();
         app.add_systems(Update, drain_switch_activations);
         app
@@ -646,10 +652,12 @@ mod one_drain_one_author {
             SwitchAction::ToggleFlag
         );
 
-        app.world_mut()
-            .resource_mut::<SwitchActivationQueue>()
-            .0
-            .push(activation("lever", "ToggleFlag").into());
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<SwitchActivationQueue>(
+            app.world_mut(),
+        )
+        .expect("the session root carries the queue")
+        .0
+        .push(activation("lever", "ToggleFlag").into());
         app.update();
         assert!(
             !app.world().resource::<AmbitionGameSave>().data().switch("lever"),
@@ -701,6 +709,55 @@ mod one_drain_one_author {
             "two peers holding the same activations in a different order have \
              diverged — SwitchActivationQueue::checksum says so"
         );
+    }
+
+    /// ⭐ C03: A PRESS QUEUED IN ONE SESSION IS NOT DELIVERED INTO THE NEXT.
+    /// The queue crosses one frame on purpose (the drain runs before the
+    /// producer), so a session can end with a press in it. Session A's press
+    /// is drained on A (the control). A second press waits on A when a
+    /// candidate root B, which has no queue, is swapped in; the drain on B
+    /// applies nothing. Before C03 the queue was an App resource, and a reset
+    /// at the session edge was what kept B from applying A's press.
+    #[test]
+    fn a_press_queued_in_one_session_is_not_delivered_into_the_next() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            require_on_session_root, session_world_component_mut, CandidateSessionRoot, SessionRoot,
+            SessionScopeId,
+        };
+        let mut app = App::new();
+        app.insert_resource(AmbitionGameSave::default());
+        app.init_resource::<ResolvedSwitchActivations>();
+        require_on_session_root::<SwitchActivationQueue>(&mut app);
+        app.add_systems(Update, drain_switch_activations);
+        let press = |app: &mut App, id: &str| {
+            session_world_component_mut::<SwitchActivationQueue>(app.world_mut())
+                .expect("the live root carries a queue")
+                .0
+                .push(activation(id, "ToggleFlag").into());
+        };
+        // What the drain resolved this tick, not a flag: a toggle applied twice
+        // reads like one never applied.
+        let drained = |app: &App| -> Vec<String> {
+            app.world().resource::<ResolvedSwitchActivations>().0.iter().map(|a| a.id.clone()).collect()
+        };
+
+        // A states its queue, so only B is born from the requirement.
+        let a = app.world_mut().spawn((SessionRoot(SessionScopeId(1)), SwitchActivationQueue(Vec::new()))).id();
+        press(&mut app, "first");
+        app.update();
+        assert_eq!(drained(&app), vec!["first"], "the control: A's press, and only it, is drained on A");
+
+        press(&mut app, "second");
+        let b = app.world_mut().spawn(CandidateSessionRoot(SessionScopeId(2))).id();
+        assert!(
+            app.world().get::<SwitchActivationQueue>(b).is_none(),
+            "a candidate root is not a session root, so it carries no queue yet"
+        );
+        app.world_mut().despawn(a);
+        app.world_mut().entity_mut(b).remove::<CandidateSessionRoot>();
+        app.world_mut().entity_mut(b).insert(SessionRoot(SessionScopeId(2)));
+        app.update();
+        assert_eq!(drained(&app), Vec::<String>::new(), "A's waiting press was delivered into session B");
     }
 }
 

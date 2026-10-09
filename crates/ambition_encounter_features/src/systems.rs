@@ -551,7 +551,7 @@ pub fn apply_wave_encounter_effects(
     mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         EncounterMusicRequest,
     >,
-    mut encounter_view: ResMut<EncounterView>,
+    mut encounter_view: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<EncounterView>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut banner_requests: MessageWriter<ambition_combat::events::GameplayBannerRequested>,
     // The staging-policy view (E12): lifecycle + authored presentation

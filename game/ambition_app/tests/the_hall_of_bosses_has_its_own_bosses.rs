@@ -227,8 +227,8 @@ fn a_boss_killed_in_a_fight_turns_its_switch_red() {
 
 fn queue_life_press(sim: &mut Platformer2dSimHarness, target: &str) {
     use ambition_platformer2d::encounter::switches::SwitchActivationQueue;
-    sim.world_mut()
-        .resource_mut::<SwitchActivationQueue>()
+    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SwitchActivationQueue>(sim.world_mut())
+        .expect("the live session root carries the switch queue")
         .0
         .push(
             ambition_platformer2d::encounter::SwitchActivation {

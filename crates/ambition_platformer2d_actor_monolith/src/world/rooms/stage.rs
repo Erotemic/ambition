@@ -632,6 +632,61 @@ impl RoomConstructionPlan {
         retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
         restore: Option<crate::session::checkpoint::CheckpointOperationKey>,
     ) -> transaction::PublicationHandle {
+        self.stage_live_world(
+            commands,
+            outgoing,
+            carry_body,
+            next_rooms,
+            arrival,
+            succession,
+            retires_beside,
+            restore,
+            false,
+        )
+    }
+
+    /// [`Self::replace_live_world`] for one room of a sequence that publishes
+    /// all or none. The verdict waits for the owner of the sequence: a room
+    /// that passes promotes nothing until the owner calls
+    /// [`transaction::commit_held_publication`] or
+    /// [`transaction::refuse_held_publication`].
+    #[allow(clippy::too_many_arguments)]
+    pub fn replace_live_world_held<'a>(
+        &self,
+        commands: &mut Commands,
+        outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
+        carry_body: Option<Entity>,
+        next_rooms: Option<RoomSet>,
+        arrival: Option<transaction::StagedArrival>,
+        succession: Option<transaction::LiveRoomSuccession>,
+        retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
+    ) -> transaction::PublicationHandle {
+        self.stage_live_world(
+            commands,
+            outgoing,
+            carry_body,
+            next_rooms,
+            arrival,
+            succession,
+            retires_beside,
+            None,
+            true,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn stage_live_world<'a>(
+        &self,
+        commands: &mut Commands,
+        outgoing: impl IntoIterator<Item = (Entity, bool)> + 'a,
+        carry_body: Option<Entity>,
+        next_rooms: Option<RoomSet>,
+        arrival: Option<transaction::StagedArrival>,
+        succession: Option<transaction::LiveRoomSuccession>,
+        retires_beside: Vec<ambition_platformer2d_world::rooms::LiveRoomInstance>,
+        restore: Option<crate::session::checkpoint::CheckpointOperationKey>,
+        held: bool,
+    ) -> transaction::PublicationHandle {
         // Collected HERE rather than inside the staged closure: the roster comes
         // from the caller's own query, which cannot outlive this call.
         let outgoing: Vec<(Entity, bool)> = outgoing
@@ -654,7 +709,8 @@ impl RoomConstructionPlan {
         pending = pending
             .replacing(succession)
             .retiring_beside(retires_beside)
-            .restoring(restore);
+            .restoring(restore)
+            .holding(held);
         let publishes_as = pending.publishes_as();
         // ⛔ **ON THE PUBLICATION ITSELF, and inserted BEFORE the transaction
         // opens**, because `transaction::open` READS it: the identities standing

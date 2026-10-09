@@ -266,6 +266,127 @@ pub fn publication_succeeded(world: &World, publication: PublicationHandle) -> b
         .is_some_and(|verdict| verdict.published)
 }
 
+/// Record a verdict on the publication as its retention asks.
+fn record_verdict(
+    world: &mut World,
+    publication: PublicationHandle,
+    retention: PublicationRetention,
+    published: bool,
+) {
+    if let Ok(mut entity) = world.get_entity_mut(publication.0) {
+        match retention {
+            PublicationRetention::UntilTheVerdictIsRecorded => entity.despawn(),
+            PublicationRetention::UntilOwnerRetires => {
+                entity.insert(PublicationVerdict { published });
+            }
+        }
+    }
+}
+
+/// A publication that passed its check and waits for the owner of its
+/// sequence. Its candidates are not promoted and its effects are frozen on it
+/// ([`FrozenPublicationEffects`]). A sequence of rooms that must publish all
+/// or none checks each room first, and then commits each room or refuses each
+/// room: no room of it is the world's before every room passed.
+#[derive(Component)]
+struct HeldForOwner {
+    supersessions: usize,
+}
+
+/// Whether the publication passed its check and waits for its owner.
+pub fn publication_is_held(world: &World, publication: PublicationHandle) -> bool {
+    world.get::<HeldForOwner>(publication.0).is_some()
+}
+
+/// Promote and finalize a held publication. `false` if it was not held.
+pub fn commit_held_publication(world: &mut World, publication: PublicationHandle) -> bool {
+    let Some(HeldForOwner { supersessions }) = world
+        .get_entity_mut(publication.0)
+        .ok()
+        .and_then(|mut entity| entity.take::<HeldForOwner>())
+    else {
+        return false;
+    };
+    let Some((room_id, transactions, retention)) = world
+        .get::<RoomPublication>(publication.0)
+        .map(|about| (about.room_id.clone(), about.transactions.clone(), about.retention))
+    else {
+        return false;
+    };
+    let Some(FrozenPublicationEffects { target, effects, baseline, .. }) = world
+        .get_entity_mut(publication.0)
+        .ok()
+        .and_then(|mut entity| entity.take::<FrozenPublicationEffects>())
+    else {
+        return false;
+    };
+    let left_to_custodian = promote_and_finalize(
+        world,
+        publication,
+        &room_id,
+        &transactions,
+        target,
+        effects,
+        baseline,
+    );
+    record_verdict(world, publication, retention, true);
+    world.insert_resource(LastConstructionVerification {
+        room_id,
+        violations: Vec::new(),
+        projection_violations: Vec::new(),
+        staged_violations: Vec::new(),
+        published: true,
+        left_to_custodian,
+        supersessions,
+    });
+    true
+}
+
+/// Refuse a held publication because another room of its sequence was
+/// refused. Nothing of it was promoted, so this is the refusal road of a room
+/// that failed its own check: its candidates are dropped and its frozen
+/// effects go with the publication, having done nothing.
+pub fn refuse_held_publication(world: &mut World, publication: PublicationHandle) {
+    let held = world
+        .get_entity_mut(publication.0)
+        .ok()
+        .and_then(|mut entity| entity.take::<HeldForOwner>())
+        .is_some();
+    let Some((room_id, transactions, retention)) = world
+        .get::<RoomPublication>(publication.0)
+        .map(|about| (about.room_id.clone(), about.transactions.clone(), about.retention))
+    else {
+        return;
+    };
+    if !held {
+        return;
+    }
+    crate::items::pickup::discard_custody_handoffs(world, publication);
+    if let Ok(mut entity) = world.get_entity_mut(publication.0) {
+        entity.remove::<(PendingWorldReplacement, FrozenPublicationEffects)>();
+    }
+    let dropped: usize = transactions
+        .iter()
+        .map(|transaction| {
+            ambition_platformer2d_shared_tangle::construction::retire_candidate(world, transaction)
+        })
+        .sum();
+    ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+        "room-refused {room_id} (passed its check; another room of its sequence was \
+         refused, {dropped} roots dropped, live world kept)"
+    ));
+    record_verdict(world, publication, retention, false);
+    world.insert_resource(LastConstructionVerification {
+        room_id,
+        violations: Vec::new(),
+        projection_violations: Vec::new(),
+        staged_violations: Vec::new(),
+        published: false,
+        left_to_custodian: 0,
+        supersessions: 0,
+    });
+}
+
 /// What [`open`] establishes and [`verify_and_publish`] is owed: the world this
 /// transaction opened against, and what it DECLARED it would do to that world.
 ///
@@ -419,6 +540,11 @@ pub(crate) struct PendingWorldReplacement {
     /// verdict accepts the room, its consequences run before anything of the
     /// old room is retired (`session::checkpoint::run_restore_consequences`).
     restore: Option<crate::session::checkpoint::CheckpointOperationKey>,
+    /// The verdict waits for the owner of a sequence of publications. A room
+    /// that passes its check promotes nothing until the owner commits it
+    /// ([`commit_held_publication`]) or refuses it
+    /// ([`refuse_held_publication`]).
+    held: bool,
 }
 
 /// A publication's live rooms: the one it mints, and what becomes of the
@@ -581,7 +707,14 @@ impl PendingWorldReplacement {
             succession: None,
             retires_beside: Vec::new(),
             restore: None,
+            held: false,
         }
+    }
+
+    /// Hold the verdict for the owner of a sequence of publications.
+    pub(crate) fn holding(mut self, held: bool) -> Self {
+        self.held = held;
+        self
     }
 
     /// State the other live rooms this publication retires whole.
@@ -866,12 +999,18 @@ pub(crate) fn verify_staged_world(
             match world.get::<RoomSet>(root) {
                 None => violations.push(StagedWorldViolation::NoRoomSetToPublishInto),
                 Some(rooms) => {
+                    // A publication that brings a set mints against the counter
+                    // that the application holds after it takes the set
+                    // (`inherit_live_room_counter`, the larger of the two). A
+                    // later room of a held sequence is checked against a set
+                    // whose counter has moved past each mint before it.
+                    let next = match staged_rooms {
+                        Some(staged) => rooms.next_live_room().max(staged.next_live_room()),
+                        None => rooms.next_live_room(),
+                    };
                     if let Some(mints) = pending.succession.and_then(LiveRoomSuccession::mints) {
-                        if mints != rooms.next_live_room() {
-                            violations.push(StagedWorldViolation::StaleMint {
-                                mints,
-                                next: rooms.next_live_room(),
-                            });
+                        if mints != next {
+                            violations.push(StagedWorldViolation::StaleMint { mints, next });
                         }
                     }
                 }
@@ -1891,6 +2030,92 @@ pub fn finalize_room_publication(world: &mut World, publication: PublicationHand
     superseded.left_to_custodian
 }
 
+/// Promote a checked room and finalize it, or leave its effects frozen when
+/// it publishes into a candidate session. Returns the bodies left to their
+/// custodian.
+fn promote_and_finalize(
+    world: &mut World,
+    publication: PublicationHandle,
+    room_id: &str,
+    transactions: &[ambition_platformer2d_shared_tangle::construction::TransactionId],
+    publishing_into: Option<bevy::ecs::entity::Entity>,
+    effects: PublicationEffects,
+    baseline: TransactionBaseline,
+) -> usize {
+    // ⛔⛔ THE RESTORE'S CONSEQUENCES, HERE AND NOWHERE EARLIER: the verdict
+    // accepted the room, the candidates are still hidden, and nothing of
+    // the old room is retired. Each consequence sees the world the replay
+    // was admitted against (the subject goes back to the old spawn, then
+    // arrives below), and none touches the room just built. A refused
+    // room never reaches this line, so a cancelled restore changed nothing.
+    let restore = world
+        .get::<PendingWorldReplacement>(publication.0)
+        .and_then(|pending| pending.restore);
+    if let Some(key) = restore {
+        crate::session::checkpoint::run_restore_consequences(world, key);
+    }
+    let admitted: usize = transactions
+        .iter()
+        .map(|transaction| {
+            ambition_platformer2d_shared_tangle::construction::publish_candidate(
+                world,
+                transaction,
+            )
+        })
+        .sum();
+    // ⛔⛤ **AND ONLY NOW IS N RETIRED.** Every candidate this room built is
+    // authoritative as of the line above; the bodies it declared it was
+    // replacing go on the line below, in that order and never the other
+    // one. See `retire_superseded`.
+    //
+    // ⚠ **THE SWEEP RUNS BEFORE THE BACKSTOP**, and the reason is simply that
+    // a domain-aware retirement should precede a declaration-driven one — NOT,
+    // as I first wrote, because `retire_superseded` could otherwise despawn a
+    // physics body past its grace period. MEASURED: a physics room entity
+    // carries `RoomVisual` and `PhysicsRoomEntity` and no `SimId`, so it is
+    // invisible to `TransactionBaseline::capture` and out of
+    // `retire_superseded`'s reach entirely.
+    // ⛔⛤ **AND ONLY NOW DOES THE LIVE WORLD CHANGE AT ALL.** The outgoing
+    // room is swept and the world-defining state published here, after the
+    // candidate became authoritative — never before it, which is the order
+    // `replace_live_world` used to name as a destructive window it could only
+    // give one address to.
+    // ⛔⛤ **AND HERE THE ROOM STOPS DOING THINGS TO THE WORLD AND STATES
+    // WHAT IT OWES IT — 2026-09-15 REVIEW, FINDING 1.** Everything that
+    // follows the line above reaches OUTSIDE this room's own candidate
+    // population: predecessors despawned, hands stripped, the world-defining
+    // state replaced, and a `RoomLoaded` the live session's combat reads. A
+    // room built into a candidate session that has not been admitted yet may
+    // not do any of it. See [`FrozenPublicationEffects`].
+    let deferred = publishing_into.is_some_and(|root| {
+        ambition_platformer2d_shared_tangle::construction::entity_is_still_a_candidate(
+            world, root,
+        )
+    });
+    if let Ok(mut entity) = world.get_entity_mut(publication.0) {
+        entity.insert(FrozenPublicationEffects {
+            room_id: room_id.to_string(),
+            target: publishing_into,
+            effects,
+            baseline,
+            admitted,
+        });
+    }
+    if deferred {
+        // ⭐ THE ROOM IS REAL INSIDE ITS SESSION AND INVISIBLE OUTSIDE IT.
+        // Said on the same channel as `room-loaded` so the two are readable
+        // as the two halves of one lifecycle rather than a missing event.
+        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+            "room-materialized {room_id} ({admitted} roots admitted inside a \
+             pending candidate session; its effects wait for the session's \
+             publication)"
+        ));
+        0
+    } else {
+        finalize_room_publication(world, publication)
+    }
+}
+
 fn verify_and_publish(
     world: &mut World,
     publication: PublicationHandle,
@@ -1926,14 +2151,7 @@ fn verify_and_publish(
     // publication nobody holds ends here, where the last thing that will ever
     // touch it is; one with an owner stands until that owner retires it.
     let record = |world: &mut World, published: bool| {
-        if let Ok(mut entity) = world.get_entity_mut(publication.0) {
-            match retention {
-                PublicationRetention::UntilTheVerdictIsRecorded => entity.despawn(),
-                PublicationRetention::UntilOwnerRetires => {
-                    entity.insert(PublicationVerdict { published });
-                }
-            }
-        }
+        record_verdict(world, publication, retention, published);
     };
     let refuse = |world: &mut World, room_id: String| {
         record(world, false);
@@ -2290,78 +2508,41 @@ fn verify_and_publish(
         violations.is_empty() && projection_violations.is_empty() && staged_violations.is_empty();
     let mut left_to_custodian = 0;
     let supersessions = effects.supersessions().count();
-    if published {
-        // ⛔⛔ THE RESTORE'S CONSEQUENCES, HERE AND NOWHERE EARLIER: the verdict
-        // accepted the room, the candidates are still hidden, and nothing of
-        // the old room is retired. Each consequence sees the world the replay
-        // was admitted against (the subject goes back to the old spawn, then
-        // arrives below), and none touches the room just built. A refused
-        // room never reaches this line, so a cancelled restore changed nothing.
-        let restore = world
-            .get::<PendingWorldReplacement>(publication.0)
-            .and_then(|pending| pending.restore);
-        if let Some(key) = restore {
-            crate::session::checkpoint::run_restore_consequences(world, key);
-        }
-        let admitted: usize = transactions
-            .iter()
-            .map(|transaction| {
-                ambition_platformer2d_shared_tangle::construction::publish_candidate(
-                    world,
-                    transaction,
-                )
-            })
-            .sum();
-        // ⛔⛤ **AND ONLY NOW IS N RETIRED.** Every candidate this room built is
-        // authoritative as of the line above; the bodies it declared it was
-        // replacing go on the line below, in that order and never the other
-        // one. See `retire_superseded`.
-        //
-        // ⚠ **THE SWEEP RUNS BEFORE THE BACKSTOP**, and the reason is simply that
-        // a domain-aware retirement should precede a declaration-driven one — NOT,
-        // as I first wrote, because `retire_superseded` could otherwise despawn a
-        // physics body past its grace period. MEASURED: a physics room entity
-        // carries `RoomVisual` and `PhysicsRoomEntity` and no `SimId`, so it is
-        // invisible to `TransactionBaseline::capture` and out of
-        // `retire_superseded`'s reach entirely.
-        // ⛔⛤ **AND ONLY NOW DOES THE LIVE WORLD CHANGE AT ALL.** The outgoing
-        // room is swept and the world-defining state published here, after the
-        // candidate became authoritative — never before it, which is the order
-        // `replace_live_world` used to name as a destructive window it could only
-        // give one address to.
-        // ⛔⛤ **AND HERE THE ROOM STOPS DOING THINGS TO THE WORLD AND STATES
-        // WHAT IT OWES IT — 2026-09-15 REVIEW, FINDING 1.** Everything that
-        // follows the line above reaches OUTSIDE this room's own candidate
-        // population: predecessors despawned, hands stripped, the world-defining
-        // state replaced, and a `RoomLoaded` the live session's combat reads. A
-        // room built into a candidate session that has not been admitted yet may
-        // not do any of it. See [`FrozenPublicationEffects`].
-        let deferred = publishing_into.is_some_and(|root| {
-            ambition_platformer2d_shared_tangle::construction::entity_is_still_a_candidate(
-                world, root,
-            )
-        });
+    let held = world
+        .get::<PendingWorldReplacement>(publication.0)
+        .is_some_and(|pending| pending.held);
+    if published && held {
+        // The room passed, and the owner of its sequence decides. Nothing is
+        // promoted and nothing outside the room changes; the effects wait on
+        // the publication, as they wait for a candidate session.
         if let Ok(mut entity) = world.get_entity_mut(publication.0) {
-            entity.insert(FrozenPublicationEffects {
-                room_id: room_id.clone(),
-                target: publishing_into,
-                effects,
-                baseline,
-                admitted,
-            });
-        }
-        if deferred {
-            // ⭐ THE ROOM IS REAL INSIDE ITS SESSION AND INVISIBLE OUTSIDE IT.
-            // Said on the same channel as `room-loaded` so the two are readable
-            // as the two halves of one lifecycle rather than a missing event.
-            ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-                "room-materialized {room_id} ({admitted} roots admitted inside a \
-                 pending candidate session; its effects wait for the session's \
-                 publication)"
+            entity.insert((
+                FrozenPublicationEffects {
+                    room_id: room_id.clone(),
+                    target: publishing_into,
+                    effects,
+                    baseline,
+                    admitted: 0,
+                },
+                HeldForOwner { supersessions },
             ));
-        } else {
-            left_to_custodian = finalize_room_publication(world, publication);
         }
+        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+            "room-checked {room_id} (passed; held for the owner of its sequence, \
+             nothing promoted)"
+        ));
+        return;
+    }
+    if published {
+        left_to_custodian = promote_and_finalize(
+            world,
+            publication,
+            &room_id,
+            &transactions,
+            publishing_into,
+            effects,
+            baseline,
+        );
     } else {
 
         // ⛔ AND THE SAME ON THE LATE REFUSAL. Handoffs were recorded when this

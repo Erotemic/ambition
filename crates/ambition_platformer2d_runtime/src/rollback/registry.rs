@@ -1111,7 +1111,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 332 -> 333: `resource.sandbox_sim_state` (`RoomTransitionCooldown`) is a
 /// component of the session root (C03), under the same key; its kind is
 /// `component-canonical`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 333;
+/// ⛔⛤ 333 -> 334: `resource.switch_activation_queue` (`SwitchActivationQueue`)
+/// is a component of the session root (C03), under the same key; its kind is
+/// `component-clone-custom-checksum`.
+/// ⛔⛤ 334 -> 335: the four checkpoint baselines (`resource.occurrence_baseline`,
+/// `resource.custody_baseline`, `resource.minted_item_baseline`,
+/// `resource.owned_items_baseline`) are components of the session root (C03),
+/// under the same keys; their kind is `component-clone-custom-checksum`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 335;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -354,29 +354,27 @@ fn probe_whether_s8s_baselines_are_quiet_or_frozen() {
     // clean bill of health: the audit reports what DIVERGED, never whether the
     // capture ran at all. So the row count is printed beside the digest.
     let rows_before = (
-        sim.world().resource::<CustodyBaseline>().rows().count(),
-        sim.world()
-            .resource::<OccurrenceBaseline>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<CustodyBaseline>(sim.world()).unwrap().rows().count(),
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<OccurrenceBaseline>(sim.world()).unwrap()
             .remembered()
             .rows()
             .count(),
     );
     let before = (
-        CustodyBaseline::checksum(sim.world().resource::<CustodyBaseline>()),
-        OccurrenceBaseline::checksum(sim.world().resource::<OccurrenceBaseline>()),
+        CustodyBaseline::checksum(ambition_platformer2d::platformer::lifecycle::session_world_component::<CustodyBaseline>(sim.world()).unwrap()),
+        OccurrenceBaseline::checksum(ambition_platformer2d::platformer::lifecycle::session_world_component::<OccurrenceBaseline>(sim.world()).unwrap()),
     );
     let mut action = playing();
     for _ in 0..240 {
         sim.step(action());
     }
     let after = (
-        CustodyBaseline::checksum(sim.world().resource::<CustodyBaseline>()),
-        OccurrenceBaseline::checksum(sim.world().resource::<OccurrenceBaseline>()),
+        CustodyBaseline::checksum(ambition_platformer2d::platformer::lifecycle::session_world_component::<CustodyBaseline>(sim.world()).unwrap()),
+        OccurrenceBaseline::checksum(ambition_platformer2d::platformer::lifecycle::session_world_component::<OccurrenceBaseline>(sim.world()).unwrap()),
     );
     let rows_after = (
-        sim.world().resource::<CustodyBaseline>().rows().count(),
-        sim.world()
-            .resource::<OccurrenceBaseline>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<CustodyBaseline>(sim.world()).unwrap().rows().count(),
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<OccurrenceBaseline>(sim.world()).unwrap()
             .remembered()
             .rows()
             .count(),

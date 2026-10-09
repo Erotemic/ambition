@@ -25,7 +25,7 @@
 
 use std::collections::BTreeMap;
 
-use bevy::prelude::{MessageReader, Query, ResMut, Resource, With};
+use bevy::prelude::{Component, MessageReader, Query, With};
 
 use super::{horizon::CheckpointCommitted, InCustodyOf, RoomScopedEntity};
 use crate::sim_id::SimId;
@@ -40,7 +40,7 @@ use crate::sim_id::SimId;
 /// back, and an unnameable hand is one a restore could not find again anyway.
 /// The live ledger keeps suppressing it either way, because that leg reads
 /// [`InCustodyOf`] and never asks who.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct CustodyBaseline {
     /// occurrence → the body that was carrying it.
     ///
@@ -139,17 +139,21 @@ pub fn live_custody_rows(
 
 /// Record custody at checkpoint commit, including an empty custody set.
 ///
-/// The baseline is required: `LifecycleCheckpointHorizonPlugin` installs it in
-/// the same `build` that schedules this system.
+/// The baseline is the session root's: `LifecycleCheckpointHorizonPlugin`
+/// requires it on every root. A world with no root drains the commit and
+/// writes nothing.
 pub fn capture_custody_baseline(
     mut commits: MessageReader<CheckpointCommitted>,
     carried: Query<(&SimId, &InCustodyOf), With<RoomScopedEntity>>,
     custodians: Query<&SimId>,
-    mut baseline: ResMut<CustodyBaseline>,
+    baseline: Option<super::SessionWorldMut<CustodyBaseline>>,
 ) {
     if commits.read().count() == 0 {
         return;
     }
+    let Some(mut baseline) = baseline else {
+        return;
+    };
     let held = live_custody_rows(&carried, &custodians);
     if baseline.held != held {
         baseline.held = held;
@@ -172,8 +176,9 @@ mod tests {
     fn horizon_world() -> App {
         let mut app = App::new();
         app.add_message::<CheckpointCommitted>()
-            .init_resource::<CustodyBaseline>()
             .add_systems(Update, capture_custody_baseline);
+        crate::lifecycle::require_on_session_root::<CustodyBaseline>(&mut app);
+        crate::lifecycle::insert_session_world_component(app.world_mut(), Name::new("session"));
         app
     }
 
@@ -210,8 +215,8 @@ mod tests {
         app.update();
 
         assert_eq!(
-            app.world()
-                .resource::<CustodyBaseline>()
+            crate::lifecycle::session_world_component::<CustodyBaseline>(app.world())
+                .unwrap()
                 .custodian_of(&SimId::placement("key")),
             Some(&SimId::player_slot(0)),
         );
@@ -226,13 +231,13 @@ mod tests {
 
         app.world_mut().write_message(CheckpointCommitted);
         app.update();
-        assert!(!app.world().resource::<CustodyBaseline>().is_empty());
+        assert!(!crate::lifecycle::session_world_component::<CustodyBaseline>(app.world()).unwrap().is_empty());
 
         app.world_mut().entity_mut(early).remove::<InCustodyOf>();
         app.world_mut().write_message(CheckpointCommitted);
         app.update();
         assert!(
-            app.world().resource::<CustodyBaseline>().is_empty(),
+            crate::lifecycle::session_world_component::<CustodyBaseline>(app.world()).unwrap().is_empty(),
             "the second checkpoint saw empty hands and must say so"
         );
     }
@@ -251,6 +256,6 @@ mod tests {
 
         app.world_mut().write_message(CheckpointCommitted);
         app.update();
-        assert!(app.world().resource::<CustodyBaseline>().is_empty());
+        assert!(crate::lifecycle::session_world_component::<CustodyBaseline>(app.world()).unwrap().is_empty());
     }
 }

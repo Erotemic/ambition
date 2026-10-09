@@ -2052,8 +2052,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         );
         let mut remembered = AuthoredOccurrences::default();
         remembered.adopt_rows(rows);
-        app.world_mut()
-            .resource_mut::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>(app.world_mut()).unwrap()
             .adopt(remembered);
     }
 
@@ -2065,8 +2064,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         .world()
         .get_resource::<ambition_platformer2d::actors::session::mechanics::SessionMechanics>()
         .map(|mechanics| format!("{mechanics:?}"));
-    let platforms_before = ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(app
-        .world()).expect("the live room has moving platforms")
+    let platforms_before = ambition_platformer2d::session::sole_live_room_component::<ambition_platformer2d::world::collision::MovingPlatformSet>(app.world()).expect("the live room has moving platforms")
         .0
         .len();
     assert!(
@@ -2080,11 +2078,9 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         app.world()
             .get_resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
             .cloned(),
-        app.world()
-            .get_resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>(app.world())
             .cloned(),
-        app.world()
-            .get_resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>(app.world())
             .cloned(),
     );
     assert!(
@@ -2186,16 +2182,14 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         "⛔ A REFUSED CANDIDATE CHANGED THE LIVE SESSION'S OCCURRENCE LEDGER"
     );
     assert_eq!(
-        app.world()
-            .get_resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>(app.world())
             .cloned(),
         durable_before.1,
         "⛔ A REFUSED CANDIDATE CHANGED THE LIVE SESSION'S CHECKPOINT OCCURRENCE \
          BASELINE — rollback-authoritative state, for a world that was never built"
     );
     assert_eq!(
-        app.world()
-            .get_resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>(app.world())
             .cloned(),
         durable_before.2,
         "⛔ A REFUSED CANDIDATE CHANGED THE LIVE SESSION'S CHECKPOINT CUSTODY \
@@ -2850,11 +2844,13 @@ fn a_candidate_reconstructs_a_mint_only_its_own_save_describes() {
         }]);
     }
     // ⭐ THE PREMISE ON THE OTHER SIDE: nothing live can describe M, so a
-    // reconstruction can only have come from the candidate's own horizon.
+    // reconstruction can only have come from the candidate's own horizon. At a
+    // cold start no session root exists, so no live baseline exists either.
     assert!(
-        app.world()
-            .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
-            .is_empty(),
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline,
+        >(app.world())
+        .is_none_or(|baseline| baseline.is_empty()),
         "the live minted baseline already describes something, so a rebuilt mint \
          would not prove which horizon supplied its description"
     );
@@ -3222,8 +3218,7 @@ fn preparing_a_candidate_does_not_install_its_minted_baseline_over_the_live_one(
     // A's baseline cannot describe M; B's save can. If preparing B installs B's
     // horizon process-wide — which is what finding 1 was about, in the resource
     // finding 2 added — A's baseline learns about M.
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>(app.world_mut()).unwrap()
         .adopt(Default::default());
     {
         let mut save = app
@@ -3237,8 +3232,7 @@ fn preparing_a_candidate_does_not_install_its_minted_baseline_over_the_live_one(
         }]);
     }
     assert!(
-        app.world()
-            .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>(app.world()).unwrap()
             .description_of(&id)
             .is_none(),
         "the premise: A's live baseline does not describe this mint"
@@ -3253,8 +3247,7 @@ fn preparing_a_candidate_does_not_install_its_minted_baseline_over_the_live_one(
     }
 
     assert!(
-        app.world()
-            .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>(app.world()).unwrap()
             .description_of(&id)
             .is_none(),
         "⛔ PREPARING A CANDIDATE INSTALLED ITS MINTED BASELINE OVER THE PLAYING \

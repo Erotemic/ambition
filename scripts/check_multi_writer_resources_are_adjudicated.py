@@ -520,12 +520,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/menu/grid_backend.rs",
         "game/ambition_app/src/menu/kaleidoscope_app.rs",
     ),
-    "MintedItemBaseline": (
-        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    ),
     "SessionSeatingSource": (
         "crates/ambition_game_shell/src/route_seating.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/local_session.rs",
@@ -581,12 +575,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/sim_core_resources.rs",
         "crates/ambition_portal2d/src/plugin.rs",
     ),
-    "CustodyBaseline": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/custody_horizon.rs",
-        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs",
-    ),
     "CutsceneTriggerQueue": (
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_platformer2d_actor_monolith/src/cutscene.rs",
@@ -617,12 +605,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs",
         "game/ambition_content/src/yarn_vocabulary.rs",
     ),
-    "OccurrenceBaseline": (
-        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
-        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs",
-    ),
     "PossessionState": (
         "crates/ambition_platformer2d_actor_monolith/src/control/possession.rs",
         "crates/ambition_platformer2d_actor_monolith/src/control/authority.rs",
@@ -642,11 +624,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
         "crates/ambition_platformer2d_runtime/src/input_drive.rs",
-    ),
-    "SwitchActivationQueue": (
-        "crates/ambition_encounter/src/switches.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "Warmup": (
         "game/ambition_demo_mary_o_app/src/bin/capture_mary_o.rs",
@@ -724,10 +701,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/dev/portal_inspector.rs",
         "game/ambition_content/src/portal/reorient_setting.rs",
     ),
-    "EncounterView": (
-        "crates/ambition_encounter_features/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    ),
     "FallingSandRoomState": (
         "game/ambition_content/src/falling_sand.rs",
         "game/ambition_content/src/falling_sand_sim.rs",
@@ -779,11 +752,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "MusicIntent": (
         "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
         "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs",
-    ),
-    "OwnedItemsBaseline": (
-        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "PortalCameraContinuitySelection": (
         "game/ambition_app/src/dev/portal_inspector.rs",
@@ -2016,119 +1984,6 @@ ADJUDICATED: dict[str, str] = {
         "distinction that matters here — the two telemetry systems are the pair, "
         "and they are in one module by design."
     ),
-    "SwitchActivationQueue": (
-        "CORRECT — ONE PRODUCER, ONE CONSUMER, AND IT IS A CROSS-TICK CHANNEL BY "
-        "CONSTRUCTION. `apply_switch_effects` (`features/ecs/effect_bus.rs`) "
-        "PUSHES, inside `Platformer2dSimulationPhase::GameplayEffects`; "
-        "`drain_switch_activations` (`ambition_encounter/src/switches.rs`) "
-        "`std::mem::take`s the whole queue, `.in_set(SwitchActivationDrained)`; the "
-        "third writer is `SESSION_SCOPE_RESET`. One pusher, one taker, one "
-        "session-edge clear.\n"
-        "    ⚠ `SwitchActivationDrained` is never `configure_sets`'d into any "
-        "phase, so *\"nothing orders the drain against the producer\"* is literally "
-        "true — and I first wrote that down as *\"executor order, stable per build "
-        "and arbitrary\"*, which is WRONG and is the correction worth keeping. The "
-        "drain's position is pinned by its CONSUMERS: `drive_wave_encounters` is "
-        "`.in_set(EncounterSimulation).after(SwitchActivationDrained)`, and the "
-        "phase chain is `... EncounterSimulation -> Cutscene -> GameplayEffects -> "
-        "Progression`. ⇒ The drain must precede a system two phases BEFORE the "
-        "producer, so an activation is always resolved on the FOLLOWING tick. "
-        "Deterministic, peer-stable, and forced.\n"
-        "    ⛔ AND THE OBVIOUS REPAIR IS A SCHEDULE CYCLE. Adding "
-        "`.after(apply_switch_effects)` would put the drain after "
-        "`GameplayEffects` and before `drive_wave_encounters` in "
-        "`EncounterSimulation`, which is earlier in the same frame. The one-tick "
-        "delay is the price of the phase order, not a missing edge.\n"
-        "    ⭐ MEASURED AND PINNED: "
-        "`a_switch_activation_is_drained_on_the_tick_after_it_was_pushed` "
-        "(`game/ambition_app/tests/symmetry_attunement.rs`) reads "
-        "`(queued, resolved) == (1, 0)` one step after a real `SwitchActivated` "
-        "through the shipped composition, and `(0, 1)` the step after — so the "
-        "delay is a DELAY and not a loss. ⚠ This is NOT the ordering gap "
-        "`switches.rs` records at line 437: that one is two writers of the SAVE's "
-        "switch family (`drain_switch_activations` vs "
-        "`content/src/falling_sand_sim.rs`), routed to "
-        "`world-facts-observations-and-memory.md`, and it is still open."
-    ),
-    "OccurrenceBaseline": (
-        "CORRECT — ONE WRITER PER LIFECYCLE EVENT, AND THE EVENTS ARE DISJOINT. "
-        "Measured per system 2026-09-18: CAPTURE is `capture_occurrence_baseline` "
-        "on `CheckpointCommitted` (`shared_tangle/src/lifecycle/continuity.rs`); "
-        "ADOPT is `DurableHorizon::install`, whose doc says *\"Called by ADOPTION "
-        "and by nothing else\"*, reached from `adopt_the_ledger` / "
-        "`adopt_occurrence_checkpoint_from_save`; NEW GAME is "
-        "`adopt_pinned_lifecycle_baselines` (`shared_tangle/src/lifecycle/horizon.rs`), "
-        "which runs only in the commit's `CheckpointDomainApply` and only with "
-        "`FreshRunRestore` installed; and `SESSION_SCOPE_RESET` at the session "
-        "edge. ⇒ Four writer functions, four "
-        "different lifecycle facts, none of them able to fire on another's event. "
-        "That is not two owners of one fact; it is one fact with four stated "
-        "transitions. ⚠ The `Update` placement of the adopt road is a separate "
-        "and OPEN question — `queue.md`'s DURABLE-HORIZON-CHECKSUM row and Q135 — "
-        "and this verdict is about authority, not about schedule."
-    ),
-    "CustodyBaseline": (
-        "CORRECT — THE SAME FOUR TRANSITIONS AS `OccurrenceBaseline`, WITH ITS OWN "
-        "CAPTURER. `capture_custody_baseline` "
-        "(`shared_tangle/src/lifecycle/custody_horizon.rs`) on `CheckpointCommitted`; "
-        "`DurableHorizon::install` on adoption; "
-        "`adopt_pinned_lifecycle_baselines` on New Game (the commit's "
-        "`CheckpointDomainApply`, with `FreshRunRestore` installed); "
-        "`SESSION_SCOPE_RESET` at the session edge. ⭐ One reducer per mechanical "
-        "domain: the lifecycle layer adopts these two, the item domain its own two "
-        "(`start_the_item_domain_fresh`). ⚠ Its `Update` adopt road is Q135's, as "
-        "above."
-    ),
-    "MintedItemBaseline": (
-        "CORRECT — THE ITEM DOMAIN'S COPY OF THE SAME FOUR TRANSITIONS, ADOPTED BY "
-        "ITS OWN DOMAIN ON PURPOSE. `capture_minted_item_baseline` on "
-        "`CheckpointCommitted`; `DurableHorizon::install` on adoption; "
-        "`restore_inventory_from_save` in `items/persist.rs`; "
-        "`start_the_item_domain_fresh` on New Game (the commit's "
-        "`CheckpointDomainApply`); `SESSION_SCOPE_RESET` at the session edge. ⭐ The "
-        "domain-local adoption is a RECORDED correction, not an inconsistency: "
-        "`minted_horizon.rs` says the item baselines are adopted in one function "
-        "because `OwnedItemsBaseline` *\"once joined capture, restore and rollback "
-        "but silently missed durable adoption\"*, and keeping them together makes "
-        "that omission local to the domain rather than a fifth cross-crate census."
-    ),
-    "OwnedItemsBaseline": (
-        "CORRECT ON AUTHORITY, AND IT SURFACED A CHECKSUM ASYMMETRY THAT IS NOT "
-        "THIS GUARD'S TO RULE ON. Authority first: three in-session writer "
-        "functions, three events — `capture_owned_items_baseline` on "
-        "`CheckpointCommitted`, `restore_inventory_from_save` (`items/persist.rs`) "
-        "on the load road, and `start_the_item_domain_fresh` on the New Game "
-        "commit — and the session boundary.\n"
-        "    ⭐ THE THIRD FILE IS `SESSION_SCOPE_RESET` (2026-10-04). Until then "
-        "this was the one checkpoint baseline of four that was NOT in "
-        "`SessionScopedResources`, with the reason that the bag is not "
-        "session-scoped either, so the baseline travels with the value it "
-        "baselines. MEASURED on the shell host, two hosts with EQUAL saves: at "
-        "tick 0 a session that followed another one held the old session's "
-        "baseline and a fresh host held zeros, in the peer census; they agreed "
-        "from tick 1, when the restore writes it. A fresh process has captured "
-        "no baseline, so the row differed with equal saves, and a zero baseline "
-        "beside a full bag is the state every first session has at tick 0. "
-        "`SessionScopedResources::reset` now sets it to the default at the "
-        "session edge. POISON-VERIFIED: with that line removed, "
-        "`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does` "
-        "fails on this row at tick 0.\n"
-        "    ⛔⛤ **AND THE ASYMMETRY WORTH A RULING IS THE CHECKSUM ONE.** "
-        "`OwnedItems` is `rollback_resource_clone` — restored, NOT in the peer "
-        "checksum, and unhashed by KIND rather than by any stated decision (its "
-        "registration in `ambition_items/src/rollback_registration.rs` carries no "
-        "reason). `OwnedItemsBaseline` wraps that same `OwnedItems` and is "
-        "`rollback_resource_clone_checksum`, projecting `to_persisted()` rows. ⇒ "
-        "The player's stored quantities are OUT of the peer contract as the bag and "
-        "IN as its baseline, and the first `CheckpointCommitted` copies the live "
-        "value across that line. Nothing can observe it today because only "
-        "`SyncTestSession` is ever constructed — one peer replaying itself, whose "
-        "two save files are the same file. Routed to "
-        "Q129, decided 2026-10-03 (`docs/planning/maintainer-decisions.md`): "
-        "shared durable state is peer state, compared by its canonical semantic "
-        "form, so making the live bag and its baseline agree is "
-        "`DURABLE-HORIZON-CHECKSUM`'s engineering."
-    ),
     "ClassBRemapLog": (
         "CORRECT — AND IT IS THE CASE WHERE MANY WRITERS ARE THE DESIGN, ENFORCED BY "
         "THE TYPE. Nine files write it and that is the contract: "
@@ -2170,16 +2025,6 @@ ADJUDICATED: dict[str, str] = {
         "its default at the session edge. It is rollback-registered "
         "(`cutscene.skip_hold`) and accumulates from the seat's `cancel_held`, so a "
         "rewind restores the hold with the tick that grew it. MEASURED 2026-09-28 per SYSTEM rather than "
-        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
-        "one function, with comments and test modules stripped. ⇒ Nothing here is "
-        "two owners of one fact."
-    ),
-    "EncounterView": (
-        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
-        "\"writer\" is not an authority. `apply_wave_encounter_effects` (`ambition_encounter_features/src/systems.rs`) is the "
-        "only production system that writes it inside a session; the other file is "
-        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
-        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
         "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
         "one function, with comments and test modules stripped. ⇒ Nothing here is "
         "two owners of one fact."
@@ -3704,6 +3549,29 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
         "game/ambition_app/src/app/dev_runtime.rs",
     ),
+    "SwitchActivationQueue": (
+        "crates/ambition_encounter/src/switches.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+    ),
+    "CustodyBaseline": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/custody_horizon.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs",
+    ),
+    "MintedItemBaseline": (
+        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+    ),
+    "OccurrenceBaseline": (
+        "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
+        "crates/ambition_platformer2d_shared_tangle/src/lifecycle/horizon.rs",
+    ),
+    "OwnedItemsBaseline": (
+        "crates/ambition_platformer2d_actor_monolith/src/items/persist.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
+    ),
 }
 
 #: ⛤ **IT WAS FOUR TYPES AND EIGHT WRITERS ON 2026-09-17; IT IS TWO AND NINE.**
@@ -3732,6 +3600,50 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
 #: different lifetime: a session boundary reclaims these, so "two writers" is a
 #: question about one session's state rather than about the App's.
 SESSION_WORLD_ADJUDICATED: dict[str, str] = {
+    "OccurrenceBaseline": (
+        "CORRECT -- ONE WRITER PER LIFECYCLE EVENT, ON THE SESSION ROOT SINCE C03 "
+        "(2026-10-08). It was a multi-writer RESOURCE adjudicated as four "
+        "disjoint transitions; the fourth, the session-edge reset, is deleted "
+        "with the move, because a new session's root is born with the empty "
+        "checkpoint. CAPTURE is `capture_occurrence_baseline` on "
+        "`CheckpointCommitted` (`continuity.rs`); NEW GAME is "
+        "`adopt_pinned_lifecycle_baselines` (`horizon.rs`), only in the commit's "
+        "`CheckpointDomainApply` with `FreshRunRestore` installed; LOAD is "
+        "`adopt_the_ledger` on the live session and "
+        "`CandidateCheckpointBaselines::adopt_onto` on a candidate's root after "
+        "its promotion (`durable_horizon.rs`). No writer can fire on another's "
+        "event. The `Update` placement of the load road is Q135's question, not "
+        "this verdict's."
+    ),
+    "CustodyBaseline": (
+        "CORRECT -- THE SAME TRANSITIONS AS `OccurrenceBaseline`, WITH ITS OWN "
+        "CAPTURER, ON THE SESSION ROOT SINCE C03 (2026-10-08). "
+        "`capture_custody_baseline` (`custody_horizon.rs`) on "
+        "`CheckpointCommitted`; `adopt_pinned_lifecycle_baselines` on New Game; "
+        "`adopt_the_ledger` / `CandidateCheckpointBaselines::adopt_onto` on a "
+        "load. One reducer per mechanical domain: the lifecycle layer adopts "
+        "these two, the item domain its own two."
+    ),
+    "MintedItemBaseline": (
+        "CORRECT -- THE ITEM DOMAIN'S COPY OF THE SAME TRANSITIONS, ON THE "
+        "SESSION ROOT SINCE C03 (2026-10-08). `capture_minted_item_baseline` on "
+        "`CheckpointCommitted`; `start_the_item_domain_fresh` on New Game; "
+        "`restore_inventory_from_save` (`items/persist.rs`) and "
+        "`CandidateCheckpointBaselines::adopt_onto` on a load. The domain adopts "
+        "both item baselines in one function on purpose: `OwnedItemsBaseline` "
+        "once missed durable adoption while it joined capture, restore and "
+        "rollback."
+    ),
+    "OwnedItemsBaseline": (
+        "CORRECT -- THREE WRITERS, THREE EVENTS, ON THE SESSION ROOT SINCE C03 "
+        "(2026-10-08). `capture_owned_items_baseline` on `CheckpointCommitted`, "
+        "`restore_inventory_from_save` on the load road, "
+        "`start_the_item_domain_fresh` on the New Game commit. The session-edge "
+        "reset added 2026-10-04 (a session that followed another held the old "
+        "session's baseline at tick 0 while a fresh host held zeros) is deleted: "
+        "the new root is born with the default, which is what the reset wrote. "
+        "The checksum asymmetry with `OwnedItems` is Q129's, decided 2026-10-03."
+    ),
     "AbandonedCheckpointOperation": (
         "CORRECT -- A PRODUCER AND THE EXECUTOR THAT SPENDS IT, ON THE SESSION "
         "ROOT SINCE C03 (2026-10-07). It was a multi-writer RESOURCE adjudicated "
@@ -3802,6 +3714,41 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "every seat free. ⇒ An armer and a clear cannot disagree about a value; "
         "the countdown's only invariant is that it reaches zero."
     ),
+    "SwitchActivationQueue": (
+        "CORRECT — ONE PRODUCER, ONE CONSUMER, AND IT IS A CROSS-TICK CHANNEL BY "
+        "CONSTRUCTION. `apply_switch_effects` (`features/ecs/effect_bus.rs`) "
+        "PUSHES, inside `Platformer2dSimulationPhase::GameplayEffects`; "
+        "`drain_switch_activations` (`ambition_encounter/src/switches.rs`) "
+        "`std::mem::take`s the whole queue, `.in_set(SwitchActivationDrained)`; the "
+        "session-edge clear is deleted: since C03 (2026-10-08) the queue is a "
+        "component of the session root, and a new root is born empty. One "
+        "pusher, one taker.\n"
+        "    ⚠ `SwitchActivationDrained` is never `configure_sets`'d into any "
+        "phase, so *\"nothing orders the drain against the producer\"* is literally "
+        "true — and I first wrote that down as *\"executor order, stable per build "
+        "and arbitrary\"*, which is WRONG and is the correction worth keeping. The "
+        "drain's position is pinned by its CONSUMERS: `drive_wave_encounters` is "
+        "`.in_set(EncounterSimulation).after(SwitchActivationDrained)`, and the "
+        "phase chain is `... EncounterSimulation -> Cutscene -> GameplayEffects -> "
+        "Progression`. ⇒ The drain must precede a system two phases BEFORE the "
+        "producer, so an activation is always resolved on the FOLLOWING tick. "
+        "Deterministic, peer-stable, and forced.\n"
+        "    ⛔ AND THE OBVIOUS REPAIR IS A SCHEDULE CYCLE. Adding "
+        "`.after(apply_switch_effects)` would put the drain after "
+        "`GameplayEffects` and before `drive_wave_encounters` in "
+        "`EncounterSimulation`, which is earlier in the same frame. The one-tick "
+        "delay is the price of the phase order, not a missing edge.\n"
+        "    ⭐ MEASURED AND PINNED: "
+        "`a_switch_activation_is_drained_on_the_tick_after_it_was_pushed` "
+        "(`game/ambition_app/tests/symmetry_attunement.rs`) reads "
+        "`(queued, resolved) == (1, 0)` one step after a real `SwitchActivated` "
+        "through the shipped composition, and `(0, 1)` the step after — so the "
+        "delay is a DELAY and not a loss. ⚠ This is NOT the ordering gap "
+        "`switches.rs` records at line 437: that one is two writers of the SAVE's "
+        "switch family (`drain_switch_activations` vs "
+        "`content/src/falling_sand_sim.rs`), routed to "
+        "`world-facts-observations-and-memory.md`, and it is still open."
+    ),
 }
 
 
@@ -3853,7 +3800,6 @@ SESSION_SCOPE_RESET = (
 SOLE_IN_SESSION_OWNER: dict[str, str] = {
     "ControlledSubject": "resolve_controlled_subject",
     "CutsceneSkipHold": "tick_active_cutscene",
-    "EncounterView": "apply_wave_encounter_effects",
     "LiveMatchTicks": "count_the_live_match_ticks",
     "SaveRestored": "complete_durable_restore",
     "SessionMatchOrdinal": "activate_the_prepared_match",

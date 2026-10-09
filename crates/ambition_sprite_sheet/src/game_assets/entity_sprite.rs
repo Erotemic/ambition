@@ -40,6 +40,12 @@ pub enum EntitySprite {
     MovingPlatform,
     // Loading zones
     DoorZone,
+    /// A door of another make. No kind resolves to these: a game chooses one
+    /// with `EntityArt` on a door visual. Each has the outer shape of
+    /// [`Self::DoorZone`], so the swap does not change the geometry.
+    DoorStone,
+    DoorVoxel,
+    DoorBlueprint,
     EdgeExit,
     // Player projectiles (Fireball + Hadouken share the same sprite)
     ProjectileEnergy,
@@ -49,7 +55,7 @@ pub enum EntitySprite {
     /// A live bonus block: warm plate, rivets, interrobang glyph.
     ///
     /// Not reachable from `BlockKind`: bonus blocks are `BlockKind::Solid` like
-    /// every wall, so a game names this through the `BlockArt` component.
+    /// every wall, so a game names this through the `EntityArt` component.
     BonusBlockTile,
     /// A used bonus block: the same plate and rivets, drained and glyphless.
     ///
@@ -89,6 +95,9 @@ impl EntitySprite {
             Self::ReboundPad => "entities/rebound_pad.png",
             Self::MovingPlatform => "entities/moving_platform.png",
             Self::DoorZone => "entities/door_zone.png",
+            Self::DoorStone => "entities/door_stone.png",
+            Self::DoorVoxel => "entities/door_voxel.png",
+            Self::DoorBlueprint => "entities/door_blueprint.png",
             Self::EdgeExit => "entities/edge_exit.png",
             Self::ProjectileEnergy => "entities/projectile_energy.png",
             Self::BonusBlockTile => "entities/bonus_block_tile.png",
@@ -121,6 +130,9 @@ impl EntitySprite {
         Self::ReboundPad,
         Self::MovingPlatform,
         Self::DoorZone,
+        Self::DoorStone,
+        Self::DoorVoxel,
+        Self::DoorBlueprint,
         Self::EdgeExit,
         Self::ProjectileEnergy,
         Self::BonusBlockTile,
@@ -160,6 +172,9 @@ pub fn entity_sprite_asset_id(key: EntitySprite) -> AssetId {
         EntitySprite::ReboundPad => "rebound_pad",
         EntitySprite::MovingPlatform => "moving_platform",
         EntitySprite::DoorZone => "door_zone",
+        EntitySprite::DoorStone => "door_stone",
+        EntitySprite::DoorVoxel => "door_voxel",
+        EntitySprite::DoorBlueprint => "door_blueprint",
         EntitySprite::EdgeExit => "edge_exit",
         EntitySprite::ProjectileEnergy => "projectile_energy",
         EntitySprite::BonusBlockTile => "bonus_block_tile",

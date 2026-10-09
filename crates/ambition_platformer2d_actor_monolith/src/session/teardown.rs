@@ -40,8 +40,6 @@ use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use crate::control::possession::PossessionState;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
-use ambition_encounter::switches::SwitchActivationQueue;
-use ambition_encounter::EncounterView;
 use ambition_persistence::quest::QuestRegistry;
 
 /// The process-global resources that mirror ONE live session's state.
@@ -60,9 +58,6 @@ pub struct SessionScopedResources<'w> {
     /// without an explicit reset it would hold the retired session's dead body
     /// across the whole frontend visit.
     controlled_subject: ResMut<'w, ControlledSubject>,
-    /// The encounter read model — cleared so no published view describes the dead
-    /// session between retirement and the next activation's first rebuild.
-    encounter_view: ResMut<'w, EncounterView>,
     /// Boss profiles; `specs_loaded` re-arms the populate pass on next activation.
     /// `Option`: named bosses are removable (`Capability::BossEncounters`).
     boss_registry: Option<ResMut<'w, BossEncounterRegistry>>,
@@ -85,10 +80,6 @@ pub struct SessionScopedResources<'w> {
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Slot-level buffered gestures belong to the retired control session.
     slot_interactions: ResMut<'w, SlotInteractionState>,
-    /// Switch activations intentionally cross one simulation-frame boundary.
-    /// Retirement between production and consumption must not deliver a
-    /// session-A activation into session B.
-    switch_activations: ResMut<'w, SwitchActivationQueue>,
     /// Whether the loaded save has been applied to the current world.
     /// Retirement resets the latch so the next session restores into its fresh world.
     save_restored: ResMut<'w, crate::session::durable_horizon::SaveRestored>,
@@ -105,35 +96,14 @@ pub struct SessionScopedResources<'w> {
     /// over 639 shipped activations: reset, then install, then the world is
     /// promoted.
     occurrences: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
-    /// The checkpoint copies of the same three facts. They describe the same one
-    /// world, so they carry the same defect and get the same answer — a
-    /// checkpoint baseline from the previous session is a baseline for a world
-    /// that no longer exists.
-    ///
-    /// ⭐ THE FOURTH CHECKPOINT BASELINE, `OwnedItemsBaseline`, IS A MEMBER SINCE
-    /// 2026-10-04 ([`owned_items_baseline`](Self::owned_items_baseline)). It
-    /// was left out on purpose on 2026-09-18, and the argument was real but its
-    /// premise was wrong, so the argument stays here with the measurement.
-    ///
-    /// The argument: these three describe WORLD PLACEMENT, which a new session
-    /// invalidates. Stored quantities are the player's and travel with the bag
-    /// (`OwnedItems` is not in this file), so "resetting the baseline without
-    /// resetting the bag would make a death in session B restore to an empty
-    /// entitlement while the bag still held items". And the peer divergence it
-    /// could carry "is the two peers' SAVE FILES differing, which resetting at
-    /// the session edge does not cure".
-    ///
-    /// The measurement (shell host, rollback, two hosts with EQUAL saves): at
-    /// tick 0 of a session that followed another one the baseline held the old
-    /// session's bag, and on a fresh host it held zeros. The two agreed from
-    /// tick 1, when the restore writes it. So the row differed with equal
-    /// saves, because a fresh process has captured no baseline. And the hazard
-    /// (a zero baseline, a full bag) is the state each first session has at
-    /// tick 0. The reset adds no state that a first session does not have.
-    occurrence_baseline:
-        ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>,
-    custody_baseline: ResMut<'w, ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>,
-    minted_baseline: ResMut<'w, crate::items::pickup::minted_horizon::MintedItemBaseline>,
+    // ⭐ THE FOUR CHECKPOINT BASELINES (`OccurrenceBaseline`, `CustodyBaseline`,
+    // `MintedItemBaseline`, `OwnedItemsBaseline`) ARE NOT MEMBERS HERE (C03,
+    // 2026-10-08). A checkpoint baseline from the previous session is a
+    // baseline for a world that no longer exists. They are components of the
+    // session root now, so a new session's root is born with the empty
+    // checkpoint a fresh process has, and nothing resets them. A load writes
+    // the file's checkpoint onto the new root after its promotion
+    // (`CandidateCheckpointBaselines::adopt_onto`).
     // ⭐ THE TWO ROOM-ENTRY EDGE MEMORIES (`LastQuestRoom`, `LastCutsceneRoom`) ARE
     // NOT MEMBERS HERE (C03, 2026-10-07). Each remembers "the room I last
     // announced", so the next tick's `RoomEntered` push / cutscene trigger fires
@@ -292,11 +262,6 @@ pub struct SessionScopedResources<'w> {
     /// its portals open from `Off` on every peer. `Option` because a
     /// composition without the room domain has none.
     gate_portal_phases: Option<ResMut<'w, ambition_platformer2d_world::rooms::GatePortalPhases>>,
-    /// The bag at the last checkpoint. See the note above `occurrence_baseline`
-    /// for why it was not a member until 2026-10-04. `Option` because a
-    /// composition without the pickup domain has none.
-    owned_items_baseline:
-        Option<ResMut<'w, crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
 }
 
 /// Re-establish the session mirrors for a scope that is about to be built.
@@ -471,7 +436,6 @@ fn reset(resources: SessionScopedResources) {
     let SessionScopedResources {
         mut possession,
         mut controlled_subject,
-        mut encounter_view,
         mut boss_registry,
         boss_defeats_since_checkpoint,
         consumed_since_checkpoint,
@@ -479,12 +443,8 @@ fn reset(resources: SessionScopedResources) {
         bag_spends,
         mut quest_registry,
         mut slot_interactions,
-        mut switch_activations,
         mut save_restored,
         mut occurrences,
-        mut occurrence_baseline,
-        mut custody_baseline,
-        mut minted_baseline,
         mut projectile_seq,
         mut pending_lifecycle,
         mut base_gravity,
@@ -502,11 +462,9 @@ fn reset(resources: SessionScopedResources) {
         clock_state,
         world_time,
         gate_portal_phases,
-        owned_items_baseline,
     } = resources;
     *possession = PossessionState::default();
     *controlled_subject = ControlledSubject::default();
-    *encounter_view = EncounterView::default();
     if let Some(boss_registry) = boss_registry.as_deref_mut() {
         *boss_registry = BossEncounterRegistry::default();
     }
@@ -524,13 +482,8 @@ fn reset(resources: SessionScopedResources) {
     }
     *quest_registry = QuestRegistry::default();
     *slot_interactions = SlotInteractionState::default();
-    *switch_activations = SwitchActivationQueue::default();
     *save_restored = crate::session::durable_horizon::SaveRestored::default();
     *occurrences = ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::default();
-    *occurrence_baseline =
-        ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline::default();
-    *custody_baseline = ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline::default();
-    *minted_baseline = crate::items::pickup::minted_horizon::MintedItemBaseline::default();
     *projectile_seq = ambition_projectiles::ProjectileSeqCounter::default();
     *pending_lifecycle = crate::session::lifecycle_commit::PendingLifecycleCommit::default();
     *base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
@@ -568,9 +521,6 @@ fn reset(resources: SessionScopedResources) {
     }
     if let Some(mut phases) = gate_portal_phases {
         *phases = ambition_platformer2d_world::rooms::GatePortalPhases::default();
-    }
-    if let Some(mut baseline) = owned_items_baseline {
-        *baseline = crate::items::pickup::minted_horizon::OwnedItemsBaseline::default();
     }
 }
 

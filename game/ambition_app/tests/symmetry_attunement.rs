@@ -156,8 +156,8 @@ fn a_switch_activation_is_drained_on_the_tick_after_it_was_pushed() {
         .resource_mut::<ambition_platformer2d::encounter::switches::ResolvedSwitchActivations>()
         .0
         .clear();
-    sim.world_mut()
-        .resource_mut::<ambition_platformer2d::encounter::switches::SwitchActivationQueue>()
+    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<ambition_platformer2d::encounter::switches::SwitchActivationQueue>(sim.world_mut())
+        .expect("the live session root carries the switch queue")
         .0
         .clear();
 
@@ -201,9 +201,8 @@ fn a_switch_activation_is_drained_on_the_tick_after_it_was_pushed() {
 /// `(queued, resolved)` for the switch activation channel, in one place so the
 /// two readings in the arm above cannot drift apart.
 fn queue_and_resolved(sim: &mut Platformer2dSimHarness) -> (usize, usize) {
-    let queued = sim
-        .world_mut()
-        .resource::<ambition_platformer2d::encounter::switches::SwitchActivationQueue>()
+    let queued = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::encounter::switches::SwitchActivationQueue>(sim.world())
+        .expect("the live session root carries the switch queue")
         .0
         .len();
     let resolved = sim

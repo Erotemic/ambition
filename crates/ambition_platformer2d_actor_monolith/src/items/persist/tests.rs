@@ -7,8 +7,13 @@ fn app_with(save: AmbitionGameSave, owned: OwnedItems, wallet: i32) -> (App, Ent
     app.insert_resource(save);
     app.insert_resource(owned);
     app.init_resource::<crate::session::durable_horizon::SaveRestored>();
-    app.init_resource::<crate::items::pickup::minted_horizon::MintedItemBaseline>();
-    app.init_resource::<crate::items::pickup::minted_horizon::OwnedItemsBaseline>();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        (
+            crate::items::pickup::minted_horizon::MintedItemBaseline::default(),
+            crate::items::pickup::minted_horizon::OwnedItemsBaseline::default(),
+        ),
+    );
     app.add_systems(
         Update,
         (
@@ -100,9 +105,10 @@ fn a_fresh_process_adopts_the_post_load_bag_as_its_checkpoint_baseline() {
     let (mut app, _player) = app_with(save, OwnedItems::starter(ambition_items::builtin_item_catalog()), 5);
     app.update();
 
-    let baseline = app
-        .world()
-        .resource::<crate::items::pickup::minted_horizon::OwnedItemsBaseline>();
+    let baseline = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+        crate::items::pickup::minted_horizon::OwnedItemsBaseline,
+    >(app.world())
+    .unwrap();
     assert_eq!(baseline.remembered().count(Item::HealthCell), 4);
     assert_eq!(
         baseline.remembered().count(Item::Fireball),
@@ -178,7 +184,7 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
         "the fixture never acquired the old run's weapon"
     );
     assert_eq!(
-        app.world().resource::<OwnedItemsBaseline>().remembered().count(Item::Bomb),
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<OwnedItemsBaseline>(app.world()).unwrap().remembered().count(Item::Bomb),
         1,
         "the fixture's checkpoint never held the old run's weapon"
     );
@@ -244,7 +250,7 @@ fn a_new_game_does_not_write_the_old_runs_inventory_back_into_the_fresh_save() {
     // before 2026-09-29, so a death after a New Game and before any shrine
     // restored nothing to the bag.
     assert_eq!(
-        app.world().resource::<OwnedItemsBaseline>().remembered(),
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<OwnedItemsBaseline>(app.world()).unwrap().remembered(),
         &OwnedItems::starter(ambition_items::builtin_item_catalog()),
         "a death after this New Game would restore the wrong bag"
     );

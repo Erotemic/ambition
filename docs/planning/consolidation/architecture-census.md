@@ -42,7 +42,7 @@ These single-owner shapes hold now. Code against them.
 
 Open pressure:
 
-- **35** process/App resources are explicitly documented by source as session- or
+- **29** process/App resources are explicitly documented by source as session- or
   generation-owned and are still App resources (section 3; campaign C03).
 - Each optional read of a session-owned canonical authority states what its
   absence means (C07 converged 2026-10-08; `session-authority-none-arms.md`).
@@ -186,32 +186,37 @@ because their semantic lifetime is one session or one activated generation.
 
 | ID | Family | Semantic owner | Storage/representation | Current state | Classification | Evidence |
 | --- | --- | --- | --- | --- | --- | --- |
-| LIFE-SESSION-RESOURCE-AGGREGATE | SessionScopedResources process-storage aggregate | gameplay session | **34** process/App Resources accessed through one SystemParam | SessionScopedResources names 34 App resources that source states belong to one gameplay session. Activation resets them for correctness and retirement resets them for hygiene. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
+| LIFE-SESSION-RESOURCE-AGGREGATE | SessionScopedResources process-storage aggregate | gameplay session | **28** process/App Resources accessed through one SystemParam | SessionScopedResources names 28 App resources that source states belong to one gameplay session. Activation resets them for correctness and retirement resets them for hygiene. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-CHECKPOINT-RESOURCE-AGGREGATE | SessionCheckpointState root-owned checkpoint coordinator | gameplay session | 6 components of the SessionRoot (required by `SessionRoot` through `SessionCheckpointHorizonPlugin`) | SessionCheckpointState names six components of the session root for one gameplay-session checkpoint coordinator. The reset system and the SessionOwnedCheckpointState aggregate are deleted (C03, 2026-10-07); a new root is born with the defaults. | owner-scoped state | SOURCE_CONFIRMED |
 | LIFE-SESSION-MECHANICS | Generation-owned mechanics stored as App resource | content generation within gameplay session | Resource | SessionMechanics is an App Resource whose semantic owner is the activated generation. Retirement removes it; activation overwrites it. | actual storage owner is broader than semantic owner | SOURCE_CONFIRMED |
 | LIFE-ROOT-OWNED-WORLD | Session-root-owned world components | gameplay session / room | Components on SessionRoot and on each live room root | `RoomSet`, initial-body policy and session requests are on the canonical `SessionRoot`; `RoomGeometry` and `MovingPlatformSet` are on each live room's own root. None is a process-global resource. | owner-scoped state | SOURCE_CONFIRMED |
 
 ### Explicit narrower-lifetime App resources
 
-`SessionScopedResources` names **34** process resources whose source says one
+`SessionScopedResources` names **28** process resources whose source says one
 gameplay session owns them:
 
-`PossessionState, ControlledSubject, EncounterView, BossEncounterRegistry, QuestRegistry, SlotInteractionState, SwitchActivationQueue, SaveRestored, AuthoredOccurrences, OccurrenceBaseline, CustodyBaseline, MintedItemBaseline, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, BossDefeatsSinceCheckpoint, ConsumedSinceCheckpoint, RewardGrantsSinceCheckpoint, BagSpendsSinceCheckpoint, SimTick, ImpactHitstop, RequestedClockScale, ClockState, WorldTime, GatePortalPhases, OwnedItemsBaseline`.
+`PossessionState, ControlledSubject, BossEncounterRegistry, QuestRegistry, SlotInteractionState, SaveRestored, AuthoredOccurrences, ProjectileSeqCounter, PendingLifecycleCommit, BaseGravity, ActiveCutscene, CutsceneTriggerQueue, ActiveConversation, CutsceneSkipHold, StocksMatchSettled, SuddenDeathEntered, LiveMatchTicks, SessionMatchOrdinal, BossDefeatsSinceCheckpoint, ConsumedSinceCheckpoint, RewardGrantsSinceCheckpoint, BagSpendsSinceCheckpoint, SimTick, ImpactHitstop, RequestedClockScale, ClockState, WorldTime, GatePortalPhases`.
 
 `SessionCheckpointState` (a root family, NOT an App resource since C03 landed it on 2026-10-07) holds **6** checkpoint-coordinator components of the session root:
 
 `SessionCheckpointOperations, SessionCheckpointOutcomes, AcceptedCheckpointRestore, AbandonedCheckpointOperation, SessionStartupResume, OutstandingCheckpointRequest`.
 
 `SessionMechanics` is one more App resource whose semantic owner is the activated
-content generation. The unique total is **35** — the two App-resource lists are disjoint, so
+content generation. The unique total is **29** — the two App-resource lists are disjoint, so
 it is their sum (the root family is not counted). `scripts/check_session_owner_census_matches_source.py` checks
 both name lists and every restated count against source.
 
-The last ten members are optional (`Option<ResMut<..>>`, present only when
-their capability is installed), and they are counted. `RequestedClockScale` and
+Fifteen members are optional (`Option<ResMut<..>>`, present only when their
+capability is installed), and they are counted: `BossEncounterRegistry`, the four
+since-checkpoint records, `ActiveCutscene`, `CutsceneTriggerQueue`,
+`ActiveConversation`, `CutsceneSkipHold`, `SimTick`, `ImpactHitstop`,
+`RequestedClockScale`, `ClockState`, `WorldTime` and `GatePortalPhases` (parsed
+from the struct 2026-10-08). `RequestedClockScale` and
 `ClockState` joined on 2026-10-04: the pace of a session that ended in a hitstop
 was measured in the first ticks of the next session. `WorldTime`,
-`GatePortalPhases` and `OwnedItemsBaseline` joined the same day: a census of
+`GatePortalPhases` and `OwnedItemsBaseline` joined the same day (the last left
+for the session root with the other checkpoint baselines on 2026-10-08): a census of
 what two peers compare, at each tick from 0, between a session that followed
 another one and the first session of a fresh host with the same save
 (`shell_host_lifecycle::a_session_that_follows_another_starts_as_a_fresh_hosts_does`). Until 2026-10-03 the guard
@@ -413,7 +418,7 @@ fan-out improves. Small crates are not merge candidates because they are small.
 | BEVY-MECHANICAL-EDIT | Mechanical edit admission protocol | JUSTIFIED_AMBITION_SEMANTICS | Change detection can see an editor write but cannot decide whether it may change mechanics under rollback. For player stats it cannot even detect the edit: the editor resource has two writers, so the proposer compares against `PlayerStatsSyncSnapshot`. Admission (`decide_mechanical_edit_admission`) is shared and domain-blind. | Keep direct Bevy mechanisms visible. Retain custom code only for the stated Ambition invariant or a small ergonomic adapter. | SOURCE_CONFIRMED |
 | BEVY-FACADE-REEXPORTS | Facade and convenience mirrors | REVIEWED_2026_09_18 | The facade's renames are crate-alias prefix strips that map back to the owner by rule. The two item renames are written at the owner as well as at the facade. Two drivers that arrive from two crates are a feature selection, not a second owner. | Keep direct Bevy mechanisms visible. Retain custom code only for the stated Ambition invariant or a small ergonomic adapter. | SOURCE_CONFIRMED |
 
-<!-- alias-census: parameter_form=63 files=31 -->
+<!-- alias-census: parameter_form=91 files=40 -->
 The line above is `BEVY-SESSION-ROOT`'s machine-readable count.
 `scripts/check_alias_census_agrees_with_source.py` compares it with a live
 measurement. The per-spelling split is in the plan, under C03.

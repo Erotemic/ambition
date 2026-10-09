@@ -1,0 +1,40 @@
+# The engine asset files Outlander's release artifact carries, relative to
+# crates/ambition_platformer2d_actor_monolith/assets. Written by
+# `scripts/package_outlander.py --measure` (the files a smoke run opened).
+backgrounds/parallax_layers/hub_far_backplate.png
+backgrounds/parallax_layers/hub_foreground_atmosphere.png
+backgrounds/parallax_layers/hub_near_background.png
+backgrounds/parallax_layers/hub_sky.png
+sprites/entities/bonus_block_tile.png
+sprites/entities/boss_core.png
+sprites/entities/breakable_broken.png
+sprites/entities/breakable_cracked.png
+sprites/entities/breakable_intact.png
+sprites/entities/chest_closed.png
+sprites/entities/chest_open.png
+sprites/entities/door_zone.png
+sprites/entities/edge_exit.png
+sprites/entities/hard_blink_tile.png
+sprites/entities/hazard_spikes.png
+sprites/entities/hazard_tile.png
+sprites/entities/lock_wall_tile.png
+sprites/entities/moving_platform.png
+sprites/entities/npc_terminal.png
+sprites/entities/one_way_tile.png
+sprites/entities/pickup_ability.png
+sprites/entities/pickup_currency.png
+sprites/entities/pickup_health.png
+sprites/entities/pogo_orb.png
+sprites/entities/projectile_energy.png
+sprites/entities/rebound_pad.png
+sprites/entities/sandbag_dummy.png
+sprites/entities/soft_blink_tile.png
+sprites/entities/solid_tile.png
+sprites/entities/spent_block_tile.png
+sprites/entities/switch_armed.png
+sprites/entities/switch_disabled.png
+sprites/generic_action_fx_spritesheet.png
+sprites/generic_exotic_fx_spritesheet.png
+sprites/generic_explosions_spritesheet.png
+sprites/generic_world_fx_spritesheet.png
+sprites/props/shrine_spritesheet.png

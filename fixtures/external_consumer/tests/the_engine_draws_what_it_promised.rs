@@ -14,7 +14,7 @@
 
 use bevy::prelude::*;
 
-use outlander::build_windowed_app;
+use outlander::stepped_windowed_app;
 
 /// Drive the app until `ready` answers, or give up after `frames`.
 fn settle_until(app: &mut App, frames: usize, ready: impl Fn(&App) -> bool) -> bool {
@@ -46,7 +46,7 @@ fn parallax_layer_positions(app: &mut App) -> Vec<(f32, f32)> {
 /// you walk: nothing about that reads as a missing system.
 #[test]
 fn the_backdrop_is_drawn_and_follows_the_camera() {
-    let mut app = build_windowed_app(false);
+    let mut app = stepped_windowed_app();
 
     let spawned = settle_until(&mut app, 600, |app| {
         app.world()

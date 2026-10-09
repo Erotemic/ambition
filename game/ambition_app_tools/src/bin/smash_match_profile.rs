@@ -418,7 +418,10 @@ fn run_windowed(fighters: usize, seconds: f32, character: String) {
             "until the window closes".to_string()
         }
     );
-    app.run();
+    // The app's exit is the tool's: an abort (code 3) must not exit 0.
+    if let bevy::app::AppExit::Error(code) = app.run() {
+        std::process::exit(i32::from(code.get()));
+    }
 }
 
 /// Where the windowed run is in the sequence that reaches a live round.

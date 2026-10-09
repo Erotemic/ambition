@@ -13,6 +13,7 @@
 //! | backdrop | the room | what is behind the architecture |
 //! | surface | one block | the architecture |
 //! | underside | below one platform | what hangs from a platform |
+//! | portal | around one door | what frames a door |
 //! | overlay | the room | what floats in front of the architecture |
 //!
 //! Each look gives the roles its own meaning, in its own shader:
@@ -40,9 +41,9 @@ use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, InRoomInstance, SessionScopeSet, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_platformer2d_world::rooms::{LiveRoomSpecs, RoomSpec};
+use ambition_platformer2d_world::rooms::{LiveRoomSpecs, LoadingZoneActivation, RoomSpec};
 use ambition_render::rendering::label_layout::{MirroredWorldLabel, StaticWorldLabel, WorldLabel};
-use ambition_render::rendering::RoomVisual;
+use ambition_render::rendering::{BlockVisual, RoomVisual, DOOR_SPRITE_ASPECT};
 
 /// Above the parallax panels (`-18.0..=-15.0`), below the blocks.
 const BACKDROP_Z: f32 = -14.5;
@@ -52,6 +53,11 @@ const UNDERSIDE_Z: f32 = WORLD_Z_BLOCK + 0.1;
 const UNDERSIDE_REACH: f32 = 230.0;
 /// A block at most this tall is a platform, and gets an underside.
 const PLATFORM_MAX_HEIGHT: f32 = 40.0;
+/// Between the undersides and the surfaces, so a floor covers the foot of a
+/// door frame. The door sprite is far above (`WORLD_Z_BLOCK + 6.0`).
+const PORTAL_Z: f32 = WORLD_Z_BLOCK + 0.15;
+/// How far a portal quad reaches past its door's trigger box.
+const PORTAL_PAD: f32 = 56.0;
 /// Directly above the block sprite it replaces.
 const SURFACE_Z: f32 = WORLD_Z_BLOCK + 0.2;
 /// Above the surfaces, below climbables, water, doors and bodies.
@@ -66,6 +72,7 @@ const ROLE_BACKDROP: f32 = 0.0;
 const ROLE_SURFACE: f32 = 1.0;
 const ROLE_OVERLAY: f32 = 2.0;
 const ROLE_UNDERSIDE: f32 = 3.0;
+const ROLE_PORTAL: f32 = 4.0;
 
 /// The block kinds a look draws, as the shader reads them.
 const KIND_SOLID: f32 = 0.0;
@@ -87,8 +94,10 @@ pub trait RoomLook: Material2d {
     /// One window into the look's scene.
     ///
     /// - `piece`: what this quad draws, `min.x, min.y, size.x, size.y`.
-    /// - `room`: `x, y` = the room size, `z` = the role, `w` = the block kind
-    ///   (for a surface or an underside).
+    /// - `room`: `x, y` = the room size, `z` = the role. `w` = the block kind
+    ///   for a surface or an underside, and the width of the door sprite as
+    ///   a fraction of its height for a portal, whose `piece` is the trigger
+    ///   box of the door.
     /// - `front`: a point on the room's front (`x, y`) and its normal
     ///   (`z, w`).
     fn window(piece: Vec4, room: Vec4, front: Vec4) -> Self;
@@ -259,9 +268,16 @@ fn present_room_look<M: RoomLook>(
         let scope = session_scope.in_room(Some(room));
         let world = &spec.world;
         let front = room_front(world);
-        let mut spawn = |name: String, min: Vec2, size: Vec2, pad: f32, role: f32, kind: f32, z: f32| {
+        let mut spawn = |name: String,
+                         min: Vec2,
+                         size: Vec2,
+                         pad: f32,
+                         role: f32,
+                         kind: f32,
+                         z: f32,
+                         block: Option<&ae::Block>| {
             let center = ae::Vec2::new(min.x + size.x * 0.5, min.y + size.y * 0.5);
-            commands.spawn_session_scoped(
+            let mut quad = commands.spawn_session_scoped(
                 scope,
                 (
                     Mesh2d(quad.clone()),
@@ -276,6 +292,15 @@ fn present_room_look<M: RoomLook>(
                     RoomVisual,
                 ),
             );
+            // A quad that draws a block is a visual of that block: it leaves
+            // when the block is removed, and it flinches when the block is
+            // struck, as the block sprite does.
+            if let Some(block) = block {
+                quad.insert(BlockVisual {
+                    block_name: block.name.clone(),
+                    geo_id: block.id.clone(),
+                });
+            }
         };
         let room_size = Vec2::new(world.size.x, world.size.y);
         spawn(
@@ -286,6 +311,7 @@ fn present_room_look<M: RoomLook>(
             ROLE_BACKDROP,
             KIND_SOLID,
             BACKDROP_Z,
+            None,
         );
         for block in &world.blocks {
             // Terrain only. A blink wall, a hazard or a pad says what it is
@@ -307,6 +333,7 @@ fn present_room_look<M: RoomLook>(
                 ROLE_SURFACE,
                 kind,
                 SURFACE_Z,
+                Some(block),
             );
             if size.y <= PLATFORM_MAX_HEIGHT && size.x >= 96.0 {
                 spawn(
@@ -317,8 +344,26 @@ fn present_room_look<M: RoomLook>(
                     ROLE_UNDERSIDE,
                     kind,
                     UNDERSIDE_Z,
+                    Some(block),
                 );
             }
+        }
+        for zone in &spec.loading_zones {
+            if !matches!(zone.activation, LoadingZoneActivation::Door) {
+                continue;
+            }
+            let half = zone.aabb.half_size();
+            let center = zone.aabb.center();
+            spawn(
+                format!("room look portal: {}", zone.name),
+                Vec2::new(center.x - half.x, center.y - half.y),
+                Vec2::new(half.x * 2.0, half.y * 2.0),
+                PORTAL_PAD,
+                ROLE_PORTAL,
+                DOOR_SPRITE_ASPECT,
+                PORTAL_Z,
+                None,
+            );
         }
         spawn(
             "room look overlay".to_string(),
@@ -328,6 +373,7 @@ fn present_room_look<M: RoomLook>(
             ROLE_OVERLAY,
             KIND_SOLID,
             OVERLAY_Z,
+            None,
         );
         commands.spawn_session_scoped(
             scope,

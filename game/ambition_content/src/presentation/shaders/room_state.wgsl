@@ -591,9 +591,11 @@ fn underside(p: vec2<f32>) -> vec4<f32> {
             if u.x >= vox - 1.0 || u.y >= vox - 1.0 {
                 col = col * 0.55;
             }
-            if part == 2 || part == 4 {
-                let tone = select(CYAN, MAGENTA, part == 4);
-                col = mix(col, tone, 0.80 * (0.75 + 0.25 * sin(t * 2.0 + p.x * 0.05)));
+            // The mass is in blocks. The gold lines stay thin, and they are lit.
+            let exact = underside_part(l, w);
+            if exact == 2 || exact == 4 {
+                let tone = select(CYAN, MAGENTA, exact == 4);
+                col = mix(col, tone, 0.85 * (0.75 + 0.25 * sin(t * 2.0 + p.x * 0.05)));
             }
             return vec4<f32>(col, 1.0);
         }
@@ -633,6 +635,97 @@ fn underside(p: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(select(MAGENTA, CYAN, r > 0.82) + vec3<f32>(0.25 * fall), clamp(a, 0.0, 1.0));
 }
 
+// ---------------------------------------------------------------- portal --
+
+/// What the frame of a door is made of at `l` (from the upper left corner of
+/// the door sprite, y down). `s` is the size of the door sprite.
+/// 0 = air, 1 = stone, 2 = lit stone, 3 = a gold line, 4 = the recessed
+/// field in the arch, 5 = shaded stone, 6 = the keystone.
+fn portal_part(l: vec2<f32>, s: vec2<f32>) -> i32 {
+    let cx = l.x - s.x * 0.5;
+    let ax = abs(cx);
+    let half = s.x * 0.5;
+    let inner = half + 2.0;
+    let outer = half + 15.0;
+    if l.y > s.y {
+        return 0;
+    }
+    if l.y >= 0.0 {
+        // Two pilasters on a plinth. The door fills the opening.
+        if ax < half - 1.0 {
+            return 0;
+        }
+        if l.y > s.y - 9.0 && ax < outer + 4.0 {
+            return select(5, 2, l.y < s.y - 7.0);
+        }
+        if ax >= inner && ax < outer {
+            let across = (ax - inner) / (outer - inner);
+            if abs(across - 0.5) < 0.06 { return 5; }
+            return select(1, 2, (cx < 0.0) == (across > 0.78));
+        }
+        return 0;
+    }
+    // The impost: a band at the spring of the arch.
+    if l.y >= -6.0 {
+        if ax < outer + 3.0 {
+            return select(2, 3, l.y > -2.4 && l.y < -0.8);
+        }
+        return 0;
+    }
+    // The arch.
+    let up = -(l.y + 6.0);
+    let d = length(vec2<f32>(cx, up));
+    if ax < 5.5 && d >= inner && d < outer + 5.0 {
+        return 6;
+    }
+    if d < inner {
+        // A small gold figure in the field.
+        let figure = abs(ax + abs(up - inner * 0.46) - 5.0);
+        return select(4, 3, figure < 0.9);
+    }
+    if d < outer {
+        return select(1, 3, d < inner + 1.7 || d > outer - 1.5);
+    }
+    return 0;
+}
+
+fn portal(p: vec2<f32>) -> vec4<f32> {
+    let t = globals.time;
+    // The door sprite stands on the floor of its trigger box, centred.
+    let s = vec2<f32>(piece.w * room.w, piece.w);
+    let origin = vec2<f32>(piece.x + (piece.z - s.x) * 0.5, piece.y);
+    if claim(p).state == 1 {
+        let vox = VOXEL * 0.5;
+        let cell = floor(p / vox);
+        let part = portal_part((cell + vec2<f32>(0.5)) * vox - origin, s);
+        let r = rand_cell(cell, 690u);
+        if part == 0 || r < 0.10 {
+            return vec4<f32>(0.0);
+        }
+        let u = p - cell * vox;
+        let pulse = 0.70 + 0.30 * sin(t * 2.4 + origin.x * 0.03);
+        var col = mix(INK_LO, INK_HI, 0.20 + 0.55 * r);
+        if part == 2 { col = col * 1.5 + vec3<f32>(0.030, 0.026, 0.060); }
+        if part == 4 { col = INK_LO + MAGENTA * 0.13 * pulse; }
+        if u.x >= vox - 1.0 || u.y >= vox - 1.0 { col = col * 0.55; }
+        // The mass is in blocks. The gold lines stay thin, and they are lit.
+        if portal_part(p - origin, s) == 3 { col = mix(col, CYAN, 0.90); }
+        if part == 6 { col = MAGENTA * pulse + vec3<f32>(0.20); }
+        return vec4<f32>(col, 1.0);
+    }
+    let part = portal_part(p - origin, s);
+    if part == 0 {
+        return vec4<f32>(0.0);
+    }
+    var col = mix(STONE, STONE_SHADE, 0.20);
+    if part == 2 { col = STONE_LIT; }
+    if part == 3 { col = mix(GOLD, GOLD_LIT, 0.30); }
+    if part == 4 { col = mix(STONE, STONE_SHADE, 0.70); }
+    if part == 5 { col = STONE_SHADE; }
+    if part == 6 { col = GOLD_LIT; }
+    return vec4<f32>(col, 1.0);
+}
+
 // ------------------------------------------------------------------ main --
 
 fn shade(mesh: VertexOutput) -> vec4<f32> {
@@ -646,8 +739,10 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
         col = surface(p);
     } else if role < 2.5 {
         col = overlay(p);
-    } else {
+    } else if role < 3.5 {
         col = underside(p);
+    } else {
+        col = portal(p);
     }
     // Display values to linear.
     return vec4<f32>(pow(max(col.rgb, vec3<f32>(0.0)), vec3<f32>(2.2)), col.a);

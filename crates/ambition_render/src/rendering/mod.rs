@@ -209,6 +209,7 @@ pub use wielded_item_visuals::{
 pub use world::{
     apply_block_art, build_filled_ground_meshes, flinch_struck_blocks, refresh_entity_sprite_handles_on_game_assets_change,
     present_live_room_visuals, spawn_room_visuals, spawn_surface_chain_visuals,
+    DOOR_SPRITE_ASPECT,
     sync_lock_wall_visuals, sync_removed_block_visuals, PresentedRoomVisuals,
 };
 

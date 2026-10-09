@@ -916,7 +916,7 @@ pub fn spawn_block(
 /// `ground = true`, so its bottom edge is the door's feet). A door keeps this
 /// aspect instead of stretching to the trigger box. Keep in sync with the
 /// `door_zone` drawer in the sprite renderer.
-const DOOR_SPRITE_ASPECT: f32 = 0.56;
+pub const DOOR_SPRITE_ASPECT: f32 = 0.56;
 
 pub fn spawn_loading_zone(
     commands: &mut Commands,

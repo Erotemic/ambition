@@ -162,6 +162,30 @@ fn underside(p: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(tone, a);
 }
 
+// ---------------------------------------------------------------- portal --
+
+/// The trigger box of a door: the volume a press reads, as a marching dashed
+/// outline with brackets at its corners.
+fn portal(p: vec2<f32>) -> vec4<f32> {
+    let t = globals.time;
+    let l = p - piece.xy;
+    let s = piece.zw;
+    let q = abs(l - s * 0.5) - s * 0.5;
+    let sd = length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0);
+    if sd > 0.0 {
+        return vec4<f32>(PATH, exp(-sd / 3.0) * 0.16);
+    }
+    // March along the outline, in one direction.
+    let along = select(l.x - l.y, l.y - l.x, (l.x < 1.5) || (l.y > s.y - 1.5));
+    let dashed = step(fract(along / 9.0 - t * 0.8), 0.5);
+    var a = stroke(-sd, 0.6) * dashed * 0.9;
+    let corner = abs(abs(l - s * 0.5) - s * 0.5);
+    if min(corner.x, corner.y) < 1.4 && max(corner.x, corner.y) < 9.0 {
+        a = 1.0;
+    }
+    return vec4<f32>(PATH, max(a, 0.055));
+}
+
 // --------------------------------------------------------------- overlay --
 
 fn overlay(p: vec2<f32>) -> vec4<f32> {
@@ -195,8 +219,10 @@ fn shade(mesh: VertexOutput) -> vec4<f32> {
         col = surface(p);
     } else if role < 2.5 {
         col = overlay(p);
-    } else {
+    } else if role < 3.5 {
         col = underside(p);
+    } else {
+        col = portal(p);
     }
     // Display values to linear.
     return vec4<f32>(pow(max(col.rgb, vec3<f32>(0.0)), vec3<f32>(2.2)), col.a);

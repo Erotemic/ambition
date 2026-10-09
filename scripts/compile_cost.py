@@ -511,6 +511,10 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
         if verbose:
             print("  measuring the warm no-op (the control) …", flush=True)
         warm = run_timed(scenario.command, merged_env)
+        # Each phase warms once too, for the reason the build does: a phase
+        # that builds its own binary (`cargo run` of a tool) was a cold build in
+        # its control (measured 2026-10-09: 227 s against 33 s after the edit).
+        run_phases(scenario, merged_env, "warming", verbose)
         phases = run_phases(scenario, merged_env, "warm_noop", verbose)
 
         if verbose:

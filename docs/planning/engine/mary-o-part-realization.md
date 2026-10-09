@@ -259,10 +259,17 @@ What it added, all of it general:
   - The warp is for a row that draws the body whole
     (`RiggedSpriteAsset::row_draws_the_body_whole`): no frame fades as one
     picture, and no part the `idle` row draws fades on its own. A sheet says
-    so with its own draws; there is no flag and no list. The other sheets with
-    a blink row (17 part tables have one) still fade or take apart their own
-    body there, so they keep their own blink, as before. Each gets the
-    engine's when it is published again with plain rows.
+    so with its own draws; there is no flag and no list. Measured on the published
+    tables, 2026-10-09 (the test prints the two lists): 17 have a blink row.
+    Four draw the body whole there and get the engine's blink:
+    `player_robot_v3`, `goblin`, `goblin_shaman_staff` and `performer` (the
+    last three were not looked at in a capture). Thirteen fade or take apart
+    their own body and keep their own blink, as before: `alice`, `bob`,
+    `director`, `medic`, `ninja_shadow_duelist`, `ninja_shadow_oni_leader`,
+    `officer`, `perfect_cellular_automaton`, `player_robot_v2`,
+    `pointed_polygon`, `projectile_polygon`, `pugnacious_polygon` and
+    `robot`. Each gets the engine's when it is published again with plain
+    rows.
   - The baked fallback frame of player robot v3 (drawn only when a body fits
     no cell, or its pages are not ready) is the plain pose with its portal
     pieces.

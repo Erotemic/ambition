@@ -277,6 +277,16 @@ reads cargo output to it.
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
 
+A test that needs a sheet row a commit just added is red on each machine until
+that machine publishes the sheet again: the sheets are untracked. Measured
+2026-10-09, the default gate at `19e44c13`: 14 of 16 jobs green. The workspace
+job ran 9730 tests, 9728 passed, and the 2 that failed
+(`her_spark_leaves_her_hand::*` in the Mary-O app) said "her fire sheet has no
+`shoot` row" on a machine that had not regenerated `mary_o_v2_fire`. The other
+red job was the wasm check (a native-only call, fixed by its owner). Open: such
+a test says what is missing and not what to run; the failure reads as a
+defect.
+
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a
 production invariant.

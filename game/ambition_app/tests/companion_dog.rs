@@ -150,8 +150,8 @@ fn act_from_outside_the_timeline(
 }
 
 /// (surfaces the dog stood on, its take-offs, the session ran, its health)
-/// after 40 seconds of the basement under a sync test that rewinds and
-/// replays each frame.
+/// after as much as 40 seconds of the basement under a sync test that rewinds
+/// and replays each frame.
 fn the_dog_under_a_sync_test(
     what: FromOutsideTheTimeline,
 ) -> (usize, usize, bool, Result<(), String>) {
@@ -173,10 +173,19 @@ fn the_dog_under_a_sync_test(
     let mut stood_on = std::collections::BTreeSet::new();
     let mut take_offs = 0;
     let mut was_on_ground = true;
-    for _ in 0..2400 {
+    // The run ends five seconds after the dog has gone by legs (the premise
+    // of the caller), and at 40 seconds if it has not.
+    let mut went_at = None;
+    for tick in 0..2400 {
         // `try_step`: an unhealthy session refuses the step, and that refusal
         // is the reading, so the loop ends at it.
         if sim.try_step(base()).is_err() {
+            break;
+        }
+        if went_at.is_none() && stood_on.len() >= 2 && take_offs >= 2 {
+            went_at = Some(tick);
+        }
+        if went_at.is_some_and(|went| tick > went + 300) {
             break;
         }
         let world = sim.world_mut();

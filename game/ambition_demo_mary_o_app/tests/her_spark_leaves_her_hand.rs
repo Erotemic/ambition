@@ -314,3 +314,84 @@ fn her_throw_is_drawn() {
     }
     assert_ne!(shown(&app).0, CharacterAnim::Shoot, "the throw ended and she still shows it");
 }
+
+/// A spark she throws while she touches a wall does not come out of the far
+/// side of the wall.
+///
+/// The hand of her throw is in front of her body box, so against a wall the
+/// spark is born inside the wall. The left wall of the fixture course is one
+/// tile (32 px) thick, from x = -32 to x = 0.
+///
+/// Measured 2026-10-09: the spark born in the wall is gone on its first tick
+/// and is never seen in flight.
+#[test]
+fn a_spark_thrown_against_a_wall_does_not_pass_the_wall() {
+    use ambition_demo_mary_o::powerups::SPARK_VISUAL;
+    use ambition_platformer2d::projectiles::ProjectileVisualId;
+
+    /// One press, then 60 ticks: where the spark was born, and each place a
+    /// spark was seen in flight.
+    fn throw_and_watch(app: &mut App, body: Entity) -> (Vec2, Vec2, Vec<Vec2>) {
+        let mut born = Vec::new();
+        let mut seen: Vec<Vec2> = Vec::new();
+        for tick in 0..60 {
+            step(
+                app,
+                ControlFrame {
+                    modifier_held: true,
+                    modifier_pressed: tick == 0,
+                    ..ControlFrame::default()
+                },
+            );
+            born.extend(requests(app, body));
+            let world = app.world_mut();
+            let mut sparks = world.query::<(&ProjectileVisualId, &BodyKinematics)>();
+            seen.extend(sparks.iter(world).filter(|(visual, _)| visual.0 == SPARK_VISUAL).map(|(_, kin)| kin.pos));
+        }
+        assert_eq!(born.len(), 1, "control: she threw one spark: {born:?}");
+        (born[0].0, born[0].1, seen)
+    }
+
+    let (mut app, body) = in_her_fire_form(ambition_demo_mary_o_app::build_demo_app());
+    // Control: a spark thrown in the open is seen in flight, so an empty list
+    // at the wall is a spark that is gone and not a watch that sees nothing.
+    let (_, _, in_the_open) = throw_and_watch(&mut app, body);
+    assert!(!in_the_open.is_empty(), "control: a spark thrown in the open was never seen in flight");
+
+    // Walk into the left wall.
+    let mut at_wall = false;
+    for _ in 0..600 {
+        step(
+            &mut app,
+            ControlFrame {
+                axis_x: -1.0,
+                aim_x: -1.0,
+                left_pressed: true,
+                ..ControlFrame::default()
+            },
+        );
+        let kin = app.world().get::<BodyKinematics>(body).expect("a live body");
+        if kin.pos.x - kin.size.x * 0.5 <= 0.05 {
+            at_wall = true;
+            break;
+        }
+    }
+    assert!(at_wall, "control: she reached the left wall");
+    for _ in 0..60 {
+        step(&mut app, ControlFrame::default());
+    }
+    let kin = app.world().get::<BodyKinematics>(body).expect("a live body").clone();
+    assert!(
+        kin.facing < 0.0 && kin.pos.x - kin.size.x * 0.5 <= 0.05,
+        "control: she faces the wall she touches"
+    );
+
+    let (born, half, seen) = throw_and_watch(&mut app, body);
+    assert!(born.x < 0.0, "premise: the spark is born inside the wall ({born:?})");
+    let far_side = -32.0;
+    let beyond: Vec<&Vec2> = seen.iter().filter(|pos| pos.x + half.x < far_side).collect();
+    assert!(
+        beyond.is_empty(),
+        "a spark thrown against the wall was seen past its far side: {beyond:?} (all places: {seen:?})"
+    );
+}

@@ -23,6 +23,7 @@ pub mod ledge_grab;
 pub mod motion_codec;
 pub mod motion_quality;
 pub mod movement;
+pub mod navigation;
 pub mod player_state;
 pub mod resources;
 pub mod rollback_registration;

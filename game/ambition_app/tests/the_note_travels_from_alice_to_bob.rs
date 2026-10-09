@@ -16,13 +16,13 @@ use leafwing_input_manager::prelude::Buttonlike;
 
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, cross, room_of};
 
-const QUEST: &str = "intro_cartography_route";
-const NOTE_FLAG: &str = "alice_route_note_carried";
-const SURVEY_FLAG: &str = "bob_field_survey_received";
+pub(crate) const QUEST: &str = "intro_cartography_route";
+pub(crate) const NOTE_FLAG: &str = "alice_route_note_carried";
+pub(crate) const SURVEY_FLAG: &str = "bob_field_survey_received";
 
 /// The shipped shell session, for a player who has seen the hub's intro: the
 /// intro cutscene holds the seat's input while it plays.
-fn a_returning_players_session() -> App {
+pub(crate) fn a_returning_players_session() -> App {
     use ambition_app::app::{build_visible_app, VisibleRenderMode};
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
@@ -39,14 +39,14 @@ fn a_returning_players_session() -> App {
     app
 }
 
-fn tap(app: &mut App, key: KeyCode) {
+pub(crate) fn tap(app: &mut App, key: KeyCode) {
     Buttonlike::press(&key, app.world_mut());
     app.update();
     Buttonlike::release(&key, app.world_mut());
     app.update();
 }
 
-fn npc(app: &mut App, id: &str) -> Entity {
+pub(crate) fn npc(app: &mut App, id: &str) -> Entity {
     let world = app.world_mut();
     world
         .query::<(Entity, &WornCharacter)>()
@@ -56,7 +56,7 @@ fn npc(app: &mut App, id: &str) -> Entity {
         .unwrap_or_else(|| panic!("the room stages `{id}`"))
 }
 
-fn put_body_at(app: &mut App, body: Entity, at: ambition_platformer2d::engine_core::Vec2) {
+pub(crate) fn put_body_at(app: &mut App, body: Entity, at: ambition_platformer2d::engine_core::Vec2) {
     use ambition_platformer2d::engine_core as ae;
     let mut state = bevy::ecs::system::SystemState::<
         bevy::prelude::Query<(ae::BodyClusterQueryData, &mut ambition_platformer2d::actor::MotionModel)>,
@@ -68,13 +68,13 @@ fn put_body_at(app: &mut App, body: Entity, at: ambition_platformer2d::engine_co
     state.apply(app.world_mut());
 }
 
-fn dialog_active(app: &App) -> bool {
+pub(crate) fn dialog_active(app: &App) -> bool {
     app.world()
         .resource::<ambition_platformer2d::dialog::DialogState>()
         .active()
 }
 
-fn first_choice(app: &App) -> Option<String> {
+pub(crate) fn first_choice(app: &App) -> Option<String> {
     app.world()
         .resource::<ambition_platformer2d::dialog::DialogState>()
         .options()
@@ -84,7 +84,7 @@ fn first_choice(app: &App) -> Option<String> {
 
 /// Stand beside `npc_id`, press Interact, and take the first choice when its
 /// label is `choice`. Then press through the rest of the conversation.
-fn talk_and_choose(app: &mut App, npc_id: &str, choice: &str) {
+pub(crate) fn talk_and_choose(app: &mut App, npc_id: &str, choice: &str) {
     let npc = npc(app, npc_id);
     let at = app.world().get::<BodyKinematics>(npc).expect("a live NPC").pos;
     let body = primary_body(app);
@@ -124,14 +124,14 @@ fn talk_and_choose(app: &mut App, npc_id: &str, choice: &str) {
     }
 }
 
-fn flag(app: &App, id: &str) -> bool {
+pub(crate) fn flag(app: &App, id: &str) -> bool {
     app.world()
         .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
         .data()
         .flag(id)
 }
 
-fn bag(app: &App, dialog_id: &str) -> u32 {
+pub(crate) fn bag(app: &App, dialog_id: &str) -> u32 {
     let item = ambition_platformer2d::items::item_catalog(app.world())
         .item_by_dialog_id(dialog_id)
         .unwrap_or_else(|| panic!("the catalog names `{dialog_id}`"));
@@ -140,7 +140,7 @@ fn bag(app: &App, dialog_id: &str) -> u32 {
         .count(item)
 }
 
-fn quest_step(app: &App) -> Option<u8> {
+pub(crate) fn quest_step(app: &App) -> Option<u8> {
     app.world()
         .resource::<ambition_content::quest::QuestRegistry>()
         .get(QUEST)

@@ -703,6 +703,16 @@ const ACTIVATION_CEILING: std::time::Duration = std::time::Duration::from_secs(1
 ///
 /// When the route is not active after [`ACTIVATION_CEILING`].
 pub fn step_until_route_is_active(app: &mut bevy::prelude::App, route: &str) -> usize {
+    step_until_route_is_active_within(app, route, ACTIVATION_CEILING)
+}
+
+/// [`step_until_route_is_active`] with the ceiling given, so that a test can
+/// see the ceiling end a wait.
+fn step_until_route_is_active_within(
+    app: &mut bevy::prelude::App,
+    route: &str,
+    ceiling: std::time::Duration,
+) -> usize {
     let active = |app: &bevy::prelude::App| {
         app.world()
             .get_resource::<ambition_platformer2d::game_shell::ShellRouter>()
@@ -718,7 +728,7 @@ pub fn step_until_route_is_active(app: &mut bevy::prelude::App, route: &str) -> 
             return frames;
         }
         assert!(
-            started.elapsed() < ACTIVATION_CEILING,
+            started.elapsed() < ceiling,
             "the route `{route}` is not active after {frames} frames and {:?}; the active route is {:?}",
             started.elapsed(),
             active(app)
@@ -758,6 +768,7 @@ pub fn step_until_route_is_active_and_settled(app: &mut bevy::prelude::App, rout
 pub struct ActivationWindow {
     route: &'static str,
     started: std::time::Instant,
+    ceiling: std::time::Duration,
     frames: usize,
     active_on: Option<usize>,
 }
@@ -767,6 +778,7 @@ impl ActivationWindow {
         Self {
             route,
             started: std::time::Instant::now(),
+            ceiling: ACTIVATION_CEILING,
             frames: 0,
             active_on: None,
         }
@@ -793,7 +805,7 @@ impl ActivationWindow {
                 .is_some_and(|active_on| self.frames >= active_on + SETTLE_FRAMES_AFTER_ACTIVATION);
         if !closed {
             assert!(
-                self.active_on.is_some() || self.started.elapsed() < ACTIVATION_CEILING,
+                self.active_on.is_some() || self.started.elapsed() < self.ceiling,
                 "the route `{}` is not active after {} frames and {:?}",
                 self.route,
                 self.frames,
@@ -805,5 +817,30 @@ impl ActivationWindow {
             self.frames += 1;
         }
         closed
+    }
+}
+
+
+/// The two waits end when the route never activates. Each arm gives the wait
+/// a ceiling of 50 ms and an app that has no shell; without the ceiling the
+/// arm does not end.
+#[test]
+#[should_panic(expected = "the route `no_such_route` is not active after")]
+fn a_wait_for_a_route_that_never_activates_ends_at_its_ceiling() {
+    let mut app = bevy::prelude::App::new();
+    step_until_route_is_active_within(&mut app, "no_such_route", std::time::Duration::from_millis(50));
+}
+
+#[test]
+#[should_panic(expected = "the route `no_such_route` is not active after")]
+fn an_activation_window_for_a_route_that_never_activates_ends_at_its_ceiling() {
+    let mut app = bevy::prelude::App::new();
+    let mut window = ActivationWindow::new("no_such_route");
+    window.ceiling = std::time::Duration::from_millis(50);
+    loop {
+        if window.closed(&app) {
+            break;
+        }
+        app.update();
     }
 }

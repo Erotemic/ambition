@@ -878,3 +878,24 @@ def test_a_field_the_census_does_not_measure_is_reported():
         "unlocated",
         "unlocated_types",
     }
+
+
+def test_a_session_root_holder_and_an_optional_resmut_are_holds() -> None:
+    """C03 moved session values onto the session root, read through
+    `SessionWorldMut<T>`, and many systems hold a resource as
+    `Option<ResMut<T>>`. Both are an exclusive hold, as a bare `ResMut<T>` is:
+    family 5's switch queue fell out of the spend count when it moved."""
+    holds = [
+        "mut queue: SessionWorldMut<PendingSwitchToggles>",
+        "queue: Option<SessionWorldMut<'_, '_, PendingSwitchToggles>>",
+        "mut tools: Option<ResMut<DeveloperTools>>",
+        "mut plain: ResMut<'w, Plain>",
+    ]
+    assert [guard._RESMUT.findall(text) for text in holds] == [
+        [("queue", "PendingSwitchToggles")],
+        [("queue", "PendingSwitchToggles")],
+        [("tools", "DeveloperTools")],
+        [("plain", "Plain")],
+    ]
+    # A read-only access is not a hold.
+    assert guard._RESMUT.findall("view: SessionWorldRef<PendingSwitchToggles>") == []

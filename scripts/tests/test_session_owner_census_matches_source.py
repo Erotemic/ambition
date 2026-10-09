@@ -26,7 +26,9 @@ def test_the_marker_is_the_authority_the_guard_reads():
         "SessionScopedResources",
         "SessionMechanics",
     }, stated
-    assert sum(stated.values()) >= 30, stated
+    # A floor against a marker that parses as nearly empty, not a target: each
+    # C03 move lowers the true total (29 on 2026-10-08).
+    assert sum(stated.values()) >= 20, stated
     # C03 moved the checkpoint family onto the session root: it has its own
     # marker, and its members are not App resources, so not in the total.
     assert guard.declared_root_families() == {"SessionCheckpointState": 6}

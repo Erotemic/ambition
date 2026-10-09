@@ -842,7 +842,7 @@ impl AuthoredOccurrences {
 /// [`AuthoredOccurrences::encode_rows`] under their own domain. See
 /// [`AuthoredOccurrences::rewind_argument`] for the record of the refuted
 /// argument.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
+#[derive(bevy::prelude::Component, Clone, Debug, Default, PartialEq)]
 pub struct OccurrenceBaseline(AuthoredOccurrences);
 
 impl OccurrenceBaseline {
@@ -911,18 +911,19 @@ pub fn compact_ended_mints_at_checkpoint(
 /// Record what the world remembers, at the instant a checkpoint commits.
 ///
 /// The absence of a ledger resource entirely is the only case that writes nothing, because
-/// there is then nothing in this domain to remember. The baseline is required:
-/// `LifecycleCheckpointHorizonPlugin` installs it in the same `build` that
-/// schedules this system.
+/// there is then nothing in this domain to remember. The baseline is the session
+/// root's: `LifecycleCheckpointHorizonPlugin` requires it on every root. A world
+/// with no root has no session to remember for, so it drains the commit and
+/// writes nothing.
 pub fn capture_occurrence_baseline(
     mut commits: bevy::prelude::MessageReader<super::CheckpointCommitted>,
     occurrences: Option<bevy::prelude::Res<AuthoredOccurrences>>,
-    mut baseline: ResMut<OccurrenceBaseline>,
+    baseline: Option<super::SessionWorldMut<OccurrenceBaseline>>,
 ) {
     // Drained unconditionally: a commit seen during a load must not be re-read
     // on a later frame and charged to a world that has moved on.
     let committed = commits.read().count() > 0;
-    let Some(occurrences) = occurrences else {
+    let (Some(occurrences), Some(mut baseline)) = (occurrences, baseline) else {
         return;
     };
     if !committed {
@@ -1617,11 +1618,11 @@ mod tests {
         let mut app = App::new();
         app.add_message::<super::super::CheckpointCommitted>()
             .init_resource::<AuthoredOccurrences>()
-            .init_resource::<OccurrenceBaseline>()
             .add_systems(
                 Update,
                 (compact_ended_mints_at_checkpoint.before(capture_occurrence_baseline), capture_occurrence_baseline),
             );
+        let root = crate::lifecycle::insert_session_world_component(app.world_mut(), OccurrenceBaseline::default());
         {
             let mut ledger = app.world_mut().resource_mut::<AuthoredOccurrences>();
             ledger.admit_mints("room", [(ended.clone(), Vec2::ZERO)].into_iter().collect());
@@ -1637,7 +1638,7 @@ mod tests {
         app.update();
         assert_eq!(app.world().resource::<AuthoredOccurrences>().whereabouts(&ended), None);
         assert_eq!(
-            app.world().resource::<OccurrenceBaseline>().remembered().whereabouts(&ended),
+            app.world().get::<OccurrenceBaseline>(root).unwrap().remembered().whereabouts(&ended),
             None,
             "the baseline was copied after the compaction"
         );

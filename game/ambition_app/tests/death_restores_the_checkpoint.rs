@@ -1240,9 +1240,7 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
     // ⭐ THE TWO BASELINES, ASSERTED BEFORE THE DEATH. Without these, "the
     // gauntlet did not come back" cannot tell a capture that never saw it from a
     // restore that could not rebuild it — and they want different fixes.
-    let custody_rows: Vec<String> = sim
-        .world()
-        .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+    let custody_rows: Vec<String> = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>(sim.world()).unwrap()
         .rows()
         .map(|(held, by)| format!("{} <- {}", held.as_str(), by.as_str()))
         .collect();
@@ -1253,9 +1251,7 @@ fn a_boss_gauntlet_banked_at_a_checkpoint_returns_to_the_hand_that_banked_it() {
         "the checkpoint's custody baseline has no row for the gauntlet, so          nothing will ask for it back; rows were {custody_rows:?}"
     );
 
-    let minted: Vec<String> = sim
-        .world()
-        .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
+    let minted: Vec<String> = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>(sim.world()).unwrap()
         .rows()
         .map(|(id, description)| format!("{} = {}", id.as_str(), description.held_item))
         .collect();
@@ -2141,7 +2137,7 @@ fn a_bomb_that_exploded_leaves_no_ledger_row_once_a_checkpoint_commits() {
     assert_eq!(ledger.whereabouts(&pickup), Some(&OccurrenceWhereabouts::Consumed), "CONTROL: the taken pickup stays taken");
     assert_eq!(ledger.whereabouts(&chest), Some(&OccurrenceWhereabouts::Spent), "CONTROL: the opened chest stays opened");
     assert_eq!(
-        sim.world().resource::<OccurrenceBaseline>().remembered().whereabouts(&bomb),
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<OccurrenceBaseline>(sim.world()).unwrap().remembered().whereabouts(&bomb),
         None,
         "the checkpoint's baseline was copied after the compaction"
     );

@@ -221,18 +221,22 @@ fn a_second_session_does_not_inherit_the_first_sessions_occurrence_ledger() {
             .collect(),
         );
     // ⭐ AND THE THREE CHECKPOINT COPIES OF THE SAME FACTS. They describe the
-    // same one world and carry the same defect, so they get the same answer and
-    // the same arm — a baseline from the previous session is a baseline for a
-    // world that no longer exists.
+    // same one world, so they get the same arm — a baseline from the previous
+    // session is a baseline for a world that no longer exists. They are the
+    // session root's (C03), so they are seeded on A's root.
     {
         let world = app.world_mut();
         let ledger = world.resource::<AuthoredOccurrences>().clone();
-        world
-            .resource_mut::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
-            .adopt(ledger);
-        world
-            .resource_mut::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
-            .adopt(
+        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
+            ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline,
+        >(world)
+        .expect("A's root carries the occurrence baseline")
+        .adopt(ledger);
+        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
+            ambition_platformer2d::platformer::lifecycle::CustodyBaseline,
+        >(world)
+        .expect("A's root carries the custody baseline")
+        .adopt(
                 [(
                     probe.clone(),
                     SimId::placement("session_isolation_custodian"),
@@ -240,9 +244,11 @@ fn a_second_session_does_not_inherit_the_first_sessions_occurrence_ledger() {
                 .into_iter()
                 .collect(),
             );
-        world
-            .resource_mut::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
-            .adopt(
+        ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
+            ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline,
+        >(world)
+        .expect("A's root carries the minted-item baseline")
+        .adopt(
                 [(
                     probe.clone(),
                     ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemDescription {
@@ -264,24 +270,11 @@ fn a_second_session_does_not_inherit_the_first_sessions_occurrence_ledger() {
         "the fixture failed to seed the ledger it is about to ask a session \
          boundary to clear"
     );
-    assert!(
-        !app.world()
-            .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
-            .remembered()
-            .is_empty(),
-        "the fixture failed to seed the occurrence baseline"
-    );
-    assert!(
-        !app.world()
-            .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
-            .is_empty(),
-        "the fixture failed to seed the custody baseline"
-    );
-    assert!(
-        !app.world()
-            .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
-            .is_empty(),
-        "the fixture failed to seed the minted-item baseline"
+    assert_eq!(
+        checkpoint_rows_for(&app, &probe),
+        [true, true, true],
+        "the fixture failed to seed the three checkpoint baselines (occurrence, \
+         custody, minted item)"
     );
 
     app.world_mut().write_message(ShellCommand::QuitToHome);
@@ -296,26 +289,11 @@ fn a_second_session_does_not_inherit_the_first_sessions_occurrence_ledger() {
          the launcher: {:?}",
         ledger_ids(&app)
     );
-    assert!(
-        app.world()
-            .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
-            .remembered()
-            .is_empty(),
-        "the occurrence BASELINE still describes the retired session's world"
-    );
-    assert!(
-        app.world()
-            .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
-            .is_empty(),
-        "the custody BASELINE still says who was holding what in the retired \
-         session"
-    );
-    assert!(
-        app.world()
-            .resource::<ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline>()
-            .is_empty(),
-        "the minted-item BASELINE still says how to rebuild the retired \
-         session's runtime mints"
+    assert_eq!(
+        checkpoint_rows_for(&app, &probe),
+        [false, false, false],
+        "a checkpoint baseline (occurrence, custody, minted item) still describes \
+         the retired session's world at the launcher"
     );
 
     // ⛔⛔ AND THE FILE IS A SECOND ROAD, WHICH IS NOT A DEFECT. The durable
@@ -351,6 +329,34 @@ fn a_second_session_does_not_inherit_the_first_sessions_occurrence_ledger() {
          the next session's world. Ledger was {:?}",
         ledger_ids(&app)
     );
+    assert_eq!(
+        checkpoint_rows_for(&app, &probe),
+        [false, false, false],
+        "session B was born with session A's checkpoint (occurrence, custody, \
+         minted item): its first death restores A's world"
+    );
+}
+
+/// Whether the live session's occurrence, custody and minted-item checkpoint
+/// baselines each hold a row for `id`. No live root holds none.
+fn checkpoint_rows_for(
+    app: &App,
+    id: &ambition_platformer2d::platformer::sim_id::SimId,
+) -> [bool; 3] {
+    use ambition_platformer2d::platformer::lifecycle::{
+        session_world_component, CustodyBaseline, OccurrenceBaseline,
+    };
+    let world = app.world();
+    [
+        session_world_component::<OccurrenceBaseline>(world)
+            .is_some_and(|baseline| baseline.remembered().whereabouts(id).is_some()),
+        session_world_component::<CustodyBaseline>(world)
+            .is_some_and(|baseline| baseline.was_carried(id)),
+        session_world_component::<
+            ambition_platformer2d::actors::items::pickup::minted_horizon::MintedItemBaseline,
+        >(world)
+        .is_some_and(|baseline| baseline.description_of(id).is_some()),
+    ]
 }
 
 /// Every identity the live occurrence ledger holds a row for.

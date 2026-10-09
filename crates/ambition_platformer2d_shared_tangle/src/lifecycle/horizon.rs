@@ -137,19 +137,19 @@ pub struct FreshRunRestore;
 pub fn adopt_pinned_lifecycle_baselines(
     fresh: Option<bevy::prelude::Res<FreshRunRestore>>,
     inputs: Option<bevy::prelude::Res<CheckpointRestoreInputs>>,
-    // Required: `LifecycleCheckpointHorizonPlugin` installs both baselines in
-    // the same `build` that schedules this reducer.
-    mut occurrences: bevy::prelude::ResMut<OccurrenceBaseline>,
-    mut custody: bevy::prelude::ResMut<CustodyBaseline>,
+    // `LifecycleCheckpointHorizonPlugin` requires both baselines on every
+    // session root, so a restore with no root has no checkpoint to move.
+    mut occurrences: super::SessionWorldMut<OccurrenceBaseline>,
+    mut custody: super::SessionWorldMut<CustodyBaseline>,
 ) {
     let (Some(_), Some(inputs)) = (fresh, inputs) else {
         return;
     };
-    if *occurrences != inputs.occurrences {
-        *occurrences = inputs.occurrences.clone();
+    if **occurrences != inputs.occurrences {
+        **occurrences = inputs.occurrences.clone();
     }
-    if *custody != inputs.custody {
-        *custody = inputs.custody.clone();
+    if **custody != inputs.custody {
+        **custody = inputs.custody.clone();
     }
 }
 
@@ -183,9 +183,12 @@ impl Plugin for LifecycleCheckpointHorizonPlugin {
         // out (a collection-only game) failed parameter validation on the first
         // tick instead of remembering nothing. The ledger is session lifecycle
         // state; held items are one of its writers.
+        // ⭐ THE BASELINES ARE THE SESSION ROOT'S (C03): a new session is born
+        // with an empty checkpoint, and a candidate prepared beside a live
+        // session cannot see the live one's.
+        super::require_on_session_root::<OccurrenceBaseline>(app);
+        super::require_on_session_root::<CustodyBaseline>(app);
         app.init_resource::<super::AuthoredOccurrences>()
-            .init_resource::<OccurrenceBaseline>()
-            .init_resource::<CustodyBaseline>()
             .add_systems(
                 sim,
                 (capture_occurrence_baseline, capture_custody_baseline)
@@ -217,13 +220,13 @@ where
 {
     const OWNER: &str = env!("CARGO_PKG_NAME");
 
-    registrar.rollback_resource_clone_checksum::<OccurrenceBaseline>(
+    registrar.rollback_component_clone_checksum::<OccurrenceBaseline>(
         OWNER,
         "resource.occurrence_baseline",
         "entity-free remembered-whereabouts checksum projection",
         OccurrenceBaseline::checksum,
     );
-    registrar.rollback_resource_clone_checksum::<CustodyBaseline>(
+    registrar.rollback_component_clone_checksum::<CustodyBaseline>(
         OWNER,
         "resource.custody_baseline",
         "entity-free remembered-custody checksum projection",
@@ -271,8 +274,12 @@ mod participant_tests {
     fn lifecycle_checkpoint_offer_installs_its_baselines() {
         let mut app = App::new();
         app.add_plugins(LifecycleCheckpointHorizonPlugin);
-        assert!(app.world().contains_resource::<OccurrenceBaseline>());
-        assert!(app.world().contains_resource::<CustodyBaseline>());
+        let root = crate::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            bevy::prelude::Name::new("session"),
+        );
+        assert!(app.world().get::<OccurrenceBaseline>(root).is_some());
+        assert!(app.world().get::<CustodyBaseline>(root).is_some());
     }
 
     /// A fresh run makes the restored values the checkpoint; a death does not.
@@ -286,8 +293,9 @@ mod participant_tests {
             let mut app = App::new();
             app.add_plugins(LifecycleCheckpointHorizonPlugin);
             let held = BTreeMap::from([(SimId::from_snapshot("apple".into()), SimId::from_snapshot("alice".into()))]);
-            app.world_mut().resource_mut::<CustodyBaseline>().adopt(held);
-            let old_run = app.world().resource::<CustodyBaseline>().clone();
+            let root = crate::lifecycle::insert_session_world_component(app.world_mut(), CustodyBaseline::default());
+            app.world_mut().get_mut::<CustodyBaseline>(root).unwrap().adopt(held);
+            let old_run = app.world().get::<CustodyBaseline>(root).unwrap().clone();
             app.world_mut().insert_resource(super::CheckpointRestoreInputs {
                 occurrences: Default::default(),
                 custody: Default::default(),
@@ -296,7 +304,7 @@ mod participant_tests {
                 app.world_mut().insert_resource(super::FreshRunRestore);
             }
             app.world_mut().run_schedule(super::CheckpointDomainApply);
-            let after = app.world().resource::<CustodyBaseline>().clone();
+            let after = app.world().get::<CustodyBaseline>(root).unwrap().clone();
             if fresh {
                 assert_eq!(after, CustodyBaseline::default(), "a New Game kept the old run's checkpoint");
             } else {

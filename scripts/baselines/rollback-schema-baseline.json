@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v334",
+    "version": "ggrs-rollback-schema-v335",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -109,16 +109,16 @@
       "resource.base_gravity\tresource-canonical\tBaseGravity\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.clock_regime_policy\tresource-canonical\tRegimePolicy\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.clock_state\tresource-canonical\tClockState\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
-      "resource.custody_baseline\tresource-clone-custom-checksum\tCustodyBaseline\tbevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
+      "resource.custody_baseline\tcomponent-clone-custom-checksum\tCustodyBaseline\tbevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
       "resource.gameplay_elapsed\tcomponent-canonical\tGameplayElapsed",
       "resource.gate_portal_phases\tresource-clone-custom-checksum\tGatePortalPhases\tbevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection",
       "resource.impact_hitstop\tresource-clone-custom-checksum\tImpactHitstop\tbevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock",
       "resource.live_match_ticks\tresource-canonical-custom-checksum\tLiveMatchTicks\tbevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from the match's own start, and the peer match ordinal, excluding the host-local session and activation-tick stamps",
-      "resource.minted_item_baseline\tresource-clone-custom-checksum\tMintedItemBaseline\tbevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection",
-      "resource.occurrence_baseline\tresource-clone-custom-checksum\tOccurrenceBaseline\tbevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection",
+      "resource.minted_item_baseline\tcomponent-clone-custom-checksum\tMintedItemBaseline\tbevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection",
+      "resource.occurrence_baseline\tcomponent-clone-custom-checksum\tOccurrenceBaseline\tbevy_ggrs clone snapshot + entity-free remembered-whereabouts checksum projection",
       "resource.outstanding_checkpoint_request\tcomponent-clone-custom-checksum\tOutstandingCheckpointRequest\tbevy_ggrs clone snapshot + whether the session is still owed a checkpoint restore",
       "resource.owned_items\tresource-clone-custom-checksum\tOwnedItems\tbevy_ggrs clone snapshot + each item's stored count, in catalog order (Q129: the bag is compared)",
-      "resource.owned_items_baseline\tresource-clone-custom-checksum\tOwnedItemsBaseline\tbevy_ggrs clone snapshot + entity-free stored-quantity and checkpoint purse checksum projection",
+      "resource.owned_items_baseline\tcomponent-clone-custom-checksum\tOwnedItemsBaseline\tbevy_ggrs clone snapshot + entity-free stored-quantity and checkpoint purse checksum projection",
       "resource.pending_lifecycle_commit\tresource-canonical\tPendingLifecycleCommit\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.pending_player_hit_events\tresource-clone-custom-checksum\tPendingPlayerHitEvents\tbevy_ggrs clone snapshot + entity-free staged-hit and room checksum projection",
       "resource.placement_continuity\tresource-clone-custom-checksum\tAuthoredOccurrences\tbevy_ggrs clone snapshot + authoritative occurrence whereabouts; domain-separated fold over (SimId, whereabouts)",

@@ -1066,9 +1066,7 @@ fn a_checkpoint_taken_while_possessing_does_not_manufacture_an_item() {
 
     // asserted, not assumed: if the row stopped forming, the reset below would
     // prove nothing about what the restore does with one.
-    let rows: Vec<String> = sim
-        .world()
-        .resource::<CustodyBaseline>()
+    let rows: Vec<String> = ambition_platformer2d::platformer::lifecycle::session_world_component::<CustodyBaseline>(sim.world()).unwrap()
         .rows()
         .map(|(occurrence, custodian)| format!("{} <- {}", occurrence.as_str(), custodian.as_str()))
         .collect();

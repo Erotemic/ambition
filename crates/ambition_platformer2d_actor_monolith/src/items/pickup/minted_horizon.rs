@@ -9,7 +9,8 @@
 use std::collections::BTreeMap;
 
 use bevy::prelude::{
-    App, Commands, Entity, IntoScheduleConfigs, MessageReader, Plugin, Query, Res, ResMut, Resource, With,
+    App, Commands, Component, Entity, IntoScheduleConfigs, MessageReader, Plugin, Query, Res, ResMut,
+    Resource, With,
 };
 
 use ambition_persistence::save::AmbitionGameSave;
@@ -18,7 +19,8 @@ use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 
 use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    CheckpointCapture, CheckpointCommitted, RoomScopedEntity,
+    require_on_session_root, CheckpointCapture, CheckpointCommitted, RoomScopedEntity,
+    SessionWorldMut,
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -40,7 +42,7 @@ pub struct MintedItemDescription {
 
 /// How to rebuild each runtime-minted instance remembered at the last
 /// committed checkpoint, keyed by the occurrence's own identity.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct MintedItemBaseline {
     /// occurrence → how to make it again.
     minted: BTreeMap<SimId, MintedItemDescription>,
@@ -124,14 +126,14 @@ impl MintedItemBaseline {
 pub fn capture_minted_item_baseline(
     mut commits: MessageReader<CheckpointCommitted>,
     carried: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
-    mut baseline: ResMut<MintedItemBaseline>,
+    baseline: Option<SessionWorldMut<MintedItemBaseline>>,
 ) {
     // Drained unconditionally, like every other reader of this channel: a commit
     // seen during a load must not be re-read against a world that has moved on.
     let committed = commits.read().count() > 0;
-    if !committed {
+    let (true, Some(mut baseline)) = (committed, baseline) else {
         return;
-    }
+    };
     let minted = live_minted_descriptions(&carried);
     if baseline.minted != minted {
         baseline.minted = minted;
@@ -150,7 +152,7 @@ pub fn capture_minted_item_baseline(
 /// lost the goods or the coins. It is the PRIMARY body's balance, the one a
 /// death restores and the one the save holds; another participant's wallet is
 /// not rewound by this player's death (Q151).
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
+#[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct OwnedItemsBaseline {
     bag: ambition_items::OwnedItems,
     purse: i32,
@@ -216,11 +218,11 @@ pub fn capture_owned_items_baseline(
         &ambition_characters::actor::BodyWallet,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    mut baseline: ResMut<OwnedItemsBaseline>,
+    baseline: Option<SessionWorldMut<OwnedItemsBaseline>>,
 ) {
     // Drained unconditionally, like every other reader of this channel.
     let committed = commits.read().count() > 0;
-    let Some(owned) = owned else {
+    let (Some(owned), Some(mut baseline)) = (owned, baseline) else {
         return;
     };
     if !committed {
@@ -321,8 +323,10 @@ pub fn reduce_owned_items_to_baseline(
 pub fn start_the_item_domain_fresh(
     fresh: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>>,
     inputs: Option<Res<ItemCheckpointRestoreInputs>>,
-    mut minted: ResMut<MintedItemBaseline>,
-    mut owned: ResMut<OwnedItemsBaseline>,
+    // The baselines are the session root's. A world with no root still resets
+    // the wallet: the fresh run is a fact about the body, not the root.
+    minted: Option<SessionWorldMut<MintedItemBaseline>>,
+    owned: Option<SessionWorldMut<OwnedItemsBaseline>>,
     mut wallets: Query<
         &mut ambition_characters::actor::BodyWallet,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
@@ -337,11 +341,15 @@ pub fn start_the_item_domain_fresh(
     let Some(inputs) = inputs else {
         return;
     };
-    if *minted != inputs.minted {
-        *minted = inputs.minted.clone();
+    if let Some(mut minted) = minted {
+        if **minted != inputs.minted {
+            **minted = inputs.minted.clone();
+        }
     }
-    if *owned != inputs.owned {
-        *owned = inputs.owned.clone();
+    if let Some(mut owned) = owned {
+        if **owned != inputs.owned {
+            **owned = inputs.owned.clone();
+        }
     }
 }
 
@@ -656,14 +664,16 @@ pub struct ItemCheckpointHorizonPlugin;
 impl Plugin for ItemCheckpointHorizonPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        // ⭐ THE BASELINES ARE THE SESSION ROOT'S (C03), like the lifecycle
+        // pair: a new session is born with an empty checkpoint.
+        require_on_session_root::<MintedItemBaseline>(app);
+        require_on_session_root::<OwnedItemsBaseline>(app);
         // Keeping the edge here makes the contribution carry its own scheduling obligation
         // instead of making the host know which item set produces the facts.
         app.configure_sets(
             sim,
             CheckpointCapture.after(super::ItemPickupSet::CoreHeldItems),
         )
-        .init_resource::<MintedItemBaseline>()
-        .init_resource::<OwnedItemsBaseline>()
         .add_systems(
             sim,
             (capture_minted_item_baseline, capture_owned_items_baseline).in_set(CheckpointCapture),
@@ -871,13 +881,13 @@ where
 {
     const OWNER: &str = env!("CARGO_PKG_NAME");
 
-    registrar.rollback_resource_clone_checksum::<MintedItemBaseline>(
+    registrar.rollback_component_clone_checksum::<MintedItemBaseline>(
         OWNER,
         "resource.minted_item_baseline",
         "entity-free minted-instance-description checksum projection",
         MintedItemBaseline::checksum,
     );
-    registrar.rollback_resource_clone_checksum::<OwnedItemsBaseline>(
+    registrar.rollback_component_clone_checksum::<OwnedItemsBaseline>(
         OWNER,
         "resource.owned_items_baseline",
         "entity-free stored-quantity and checkpoint purse checksum projection",
@@ -976,9 +986,17 @@ mod tests {
     fn horizon_world() -> App {
         let mut app = App::new();
         app.add_message::<CheckpointCommitted>()
-            .init_resource::<MintedItemBaseline>()
             .add_systems(Update, capture_minted_item_baseline);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            MintedItemBaseline::default(),
+        );
         app
+    }
+
+    fn minted_baseline(app: &App) -> &MintedItemBaseline {
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component(app.world())
+            .expect("the horizon world has a session root with a baseline")
     }
 
     fn ground(spec_id: &str) -> GroundItem {
@@ -1041,7 +1059,7 @@ mod tests {
         app.world_mut().write_message(CheckpointCommitted);
         app.update();
 
-        let baseline = app.world().resource::<MintedItemBaseline>();
+        let baseline = minted_baseline(&app);
         assert_eq!(
             baseline.len(),
             1,
@@ -1070,7 +1088,7 @@ mod tests {
         let mut app = horizon_world();
         app.world_mut().write_message(CheckpointCommitted);
         app.update();
-        assert!(app.world().resource::<MintedItemBaseline>().is_empty());
+        assert!(minted_baseline(&app).is_empty());
 
         let thrower = SimId::player_slot(0);
         let late = SimId::spawned(&thrower, 0);
@@ -1086,8 +1104,7 @@ mod tests {
         app.update();
 
         assert!(
-            app.world()
-                .resource::<MintedItemBaseline>()
+            minted_baseline(&app)
                 .description_of(&late)
                 .is_none(),
             "nothing was committed after the mint, so the checkpoint cannot know about it"
@@ -1115,13 +1132,13 @@ mod tests {
         );
         app.world_mut().write_message(CheckpointCommitted);
         app.update();
-        assert!(!app.world().resource::<MintedItemBaseline>().is_empty());
+        assert!(!minted_baseline(&app).is_empty());
 
         app.world_mut().entity_mut(item).despawn();
         app.world_mut().write_message(CheckpointCommitted);
         app.update();
         assert!(
-            app.world().resource::<MintedItemBaseline>().is_empty(),
+            minted_baseline(&app).is_empty(),
             "the second checkpoint saw no mint at all and must say so"
         );
     }
@@ -1172,7 +1189,7 @@ mod tests {
             .write(CheckpointCommitted::default());
         app.update();
 
-        let baseline = app.world().resource::<MintedItemBaseline>();
+        let baseline = minted_baseline(&app);
         assert!(
             baseline.description_of(&carried_mint).is_some(),
             "the carried mint stopped being described, so widening the population \

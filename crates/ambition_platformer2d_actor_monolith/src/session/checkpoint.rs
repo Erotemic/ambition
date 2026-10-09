@@ -187,10 +187,10 @@ pub fn restore_checkpoint_on_session_start(
     mut operations: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<SessionCheckpointOperations>,
     outcomes: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<SessionCheckpointOutcomes>,
     baselines: (
-        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
-        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
-        Option<Res<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
-        Option<Res<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
     ),
 ) {
     let Some(room_set) = room_set.as_ref() else {
@@ -324,8 +324,8 @@ pub fn restore_checkpoint_on_session_start(
             lifecycle: pin_lifecycle_inputs(occurrences, custody),
             item: minted.zip(owned).map(|(minted, owned)| {
                 crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
-                    minted: minted.clone(),
-                    owned: owned.clone(),
+                    minted: (**minted).clone(),
+                    owned: (**owned).clone(),
                     grants: Default::default(),
                     spends: Default::default(),
                 }
@@ -455,10 +455,10 @@ pub fn resume_at_checkpoint_on_reset(
     // The pinned inputs, read ONCE on acceptance. `Option` because a composition
     // can install the session offer without the lifecycle or item ones.
     baselines: (
-        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
-        Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
-        Option<Res<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
-        Option<Res<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::items::pickup::minted_horizon::MintedItemBaseline>>,
+        Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::items::pickup::minted_horizon::OwnedItemsBaseline>>,
         // What a new game's starter bag is made of (which items stack).
         ambition_items::ItemCatalogRead<'_>,
         // The one-time pickups consumed since the checkpoint, with their owners.
@@ -798,7 +798,7 @@ pub fn resume_at_checkpoint_on_reset(
         // chest in another participant's room gave. The purse is the primary
         // body's, so it keeps the coins that body collected.
         let item = minted.zip(owned).map(|(minted, owned)| {
-            let mut owned = owned.clone();
+            let mut owned = (**owned).clone();
             let mut kept_grants = crate::items::pickup::RewardGrantsSinceCheckpoint::default();
             let mut kept_spends = ambition_held_items::BagSpendsSinceCheckpoint::default();
             if let (Some(grants), Some(defeats)) = (grants.as_ref(), defeats.as_ref()) {
@@ -867,7 +867,7 @@ pub fn resume_at_checkpoint_on_reset(
                 }
             }
             crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
-                minted: minted.clone(),
+                minted: (**minted).clone(),
                 owned,
                 grants: kept_grants,
                 spends: kept_spends,
@@ -1078,12 +1078,13 @@ impl SessionCheckpointOperations {
 
 /// Pin the lifecycle half of a restore from the live baselines.
 ///
-/// ⛔ BOTH OR NEITHER. `LifecycleCheckpointHorizonPlugin` installs the two
-/// baselines together, so one without the other is a composition error. It pins
+/// ⛔ BOTH OR NEITHER. `LifecycleCheckpointHorizonPlugin` requires the two
+/// baselines on the session root together, so one without the other is a
+/// composition error. It pins
 /// `None` and logs it, and does not fill the missing half with an empty one.
 fn pin_lifecycle_inputs(
-    occurrences: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
-    custody: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
+    occurrences: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
+    custody: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
 ) -> Option<ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs> {
     if occurrences.is_some() != custody.is_some() {
         bevy::log::error!(
@@ -1094,8 +1095,8 @@ fn pin_lifecycle_inputs(
     }
     occurrences.zip(custody).map(|(occurrences, custody)| {
         ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
-            occurrences: occurrences.clone(),
-            custody: custody.clone(),
+            occurrences: (**occurrences).clone(),
+            custody: (**custody).clone(),
         }
     })
 }

@@ -204,3 +204,27 @@ def test_a_run_with_a_status_of_its_own_records_no_evidence(monkeypatch, tmp_pat
     fake = run_tests.Job(REPO_TOOLING_JOB, [sys.executable, "-c", "pass"])
     assert run_tests.run([fake], False, status_json=str(tmp_path / "status.json")) == 0
     assert len(lane_ledger.rows(REPO)) == before, "a test's fake job was recorded as evidence"
+
+
+def test_an_unrelated_edit_during_the_run_does_not_void_it(repo: Path) -> None:
+    """A docs file changed by the host while the job ran: the change's paths
+    were the same at both ends, so the run certifies it. An edit to the
+    change's own path during the run does not."""
+    commit(repo, "crates/alpha/src/lib.rs", "// two\n")
+    before = lane_ledger.tested_tree(repo)
+    (repo / "docs/a.md").write_text("edited by the host\n")
+    after = lane_ledger.tested_tree(repo)
+    assert before != after
+    lane_ledger.record(repo, before, "j", ["cargo", "test", "-p", "alpha"], True, None, tree_after=after)
+    assert verdicts(repo) == {"cargo test -p alpha": (True, "passed on this change")}
+
+    (repo / "crates/alpha/src/lib.rs").write_text("// moved mid-run\n")
+    moved = lane_ledger.tested_tree(repo)
+    lane_ledger.record(repo, after, "j", ["cargo", "test", "-p", "alpha"], True, None, tree_after=moved)
+    (repo / "crates/alpha/src/lib.rs").write_text("// two\n")
+    rows = lane_ledger.rows(repo)
+    assert len(rows) == 2 and rows[-1]["tree_after"] == moved
+    # The newest row on a current tree decides; the moved row is not current,
+    # so the earlier row still certifies, and the moved one alone would not.
+    lane_ledger.ledger_path(repo).write_text(lane_ledger.ledger_path(repo).read_text().splitlines()[-1] + "\n")
+    assert verdicts(repo) == {"cargo test -p alpha": (False, "ran only on a tree before this change")}

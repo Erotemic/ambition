@@ -106,6 +106,21 @@ pattern". Nothing in the slice is about the dog.
 | Advisor | `actor_monolith::features::ecs::navigation` | A system in `ActorDecisionSet::Observe`. For each body whose brain navigates it writes a `NavAdvice`: places the body can reach, and the next leg to the brain's goal. Keeps the graphs (`RoomNavigation`). |
 | Roam brain | `ambition_characters::brain::state_machine::roam` | Policy. Chooses a place, follows legs, rests. Catalog preset `Roam(...)`. |
 
+The advice has three things: places in reach (seeded by the brain's own count
+of choices, not a clock), the next leg to the brain's goal, and a place beside
+the body's target when a route goes there (`target_place`). The last one is a
+goal that moves: a brain that follows or chases asks for it each time it
+chooses. Roam uses it to keep near the player. A hostile brain does not use it
+yet.
+
+An author's page is [`docs/systems/npc-navigation.md`](../../systems/npc-navigation.md).
+
+Build cost, measured by YardratAmbition 2026-10-09 on 76 shipped rooms and two
+bodies, before any cut: about 0.25 to 0.3 ms for each rollout; 25 builds are
+over 20 ms; the worst is `hall_of_characters` at 185 ms. A graph is built on
+the first tick a navigating body is in the room. OPEN: cut the rollouts that
+fall to the step cap, then decide if the build moves to room load.
+
 The rules the slice holds:
 
 - **No second physics, and no second follower.** A leg is in the graph because

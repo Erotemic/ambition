@@ -46,7 +46,7 @@ the way in its own slice:
    two-session witness shows it leaks
    ([consolidation plan §3](consolidation/consolidation-plan.md#3-c03--consolidate-session-owned-state-and-reduce-reset-only-app-globals)).
 2. [WORLD-ACCEPTANCE](#world-acceptance--one-headless-playthrough-of-the-persistent-world).
-3. [SDK-GAME](#sdk-game--a-small-independent-game-on-the-supported-api).
+3. [SDK-GAME](#sdk-game--a-small-independent-game-on-the-supported-api): acceptance met 2026-10-09.
 4. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable).
 5. [NAVIGATION](#navigation--a-character-reaches-an-item-in-another-room).
 
@@ -196,15 +196,11 @@ it; a poison at each step reddens that step's assertion.
 (P3); release artifact per
 [build and distribution](engine/project-build-and-distribution.md).
 
-**Current failure:** A9's named profiles construct and step bodies with
-capabilities left out, but a left-out capability can stay in the Cargo graph,
-and reduced profiles have not been run through every shipped content-admission
-path. Clean internal ownership does not yet prove a reusable engine.
-
-**Next action:** build a small game that uses only the supported public API and
-does not name `shared_tangle`, the actor monolith or Ambition content. It leaves
-out capabilities it does not use, so they are absent from its Cargo graph. It
-runs headless and visibly and produces a release artifact.
+**State 2026-10-09: acceptance met (SG1–SG3 below).** What is left is the
+deferred monolith carve: through the monolith, Outlander's build still links
+menu, items, encounter, boss_encounter, cutscene, conversation, held_items and
+audio, which its profile does not install. That is not a next action for this
+priority.
 
 **SG1 done 2026-10-09:** Outlander (`fixtures/external_consumer`) is the SDK
 game: its own workspace and lockfile, the facade only, no `shared_tangle`,

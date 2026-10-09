@@ -114,6 +114,58 @@ fn activation_id(app: &bevy::prelude::App) -> Option<u64> {
         .map(|active| active.activation_id.0)
 }
 
+/// Step until the content generation the arm requested has ended (activated,
+/// refused or cancelled: each terminal path removes `PendingGeneration`), then
+/// step the frames the old fixed loop stepped after the activation.
+///
+/// A fixed 240 frames is not a wait. In company the first activation was seen
+/// on frame 83 against frame 3 alone (TEST-LANES item 3), so a generation can
+/// still be pending at frame 240. An arm that then asserts "the refused
+/// candidate did not activate" passes before the refusal is decided.
+///
+/// # Panics
+///
+/// When no generation is pending at the call (the arm's premise is gone), or
+/// when one is still pending after `common::ACTIVATION_CEILING`.
+fn step_until_the_generation_settles(app: &mut bevy::prelude::App) {
+    use ambition_content::reload::PendingGeneration;
+    assert!(
+        app.world().contains_resource::<PendingGeneration>(),
+        "no content generation is pending, so this arm judges a reload that was never requested or already ended"
+    );
+    let started = std::time::Instant::now();
+    let mut frames = 0usize;
+    while app.world().contains_resource::<PendingGeneration>() {
+        assert!(
+            started.elapsed() < crate::common::ACTIVATION_CEILING,
+            "the generation is still pending after {frames} frames ({:?})",
+            started.elapsed()
+        );
+        app.update();
+        frames += 1;
+    }
+    for _ in 0..crate::common::SETTLE_FRAMES_AFTER_ACTIVATION {
+        app.update();
+    }
+}
+
+/// For a request refused at request time: no generation exists, so there is
+/// nothing to wait for. Step the settle frames and hold that none appears.
+fn step_with_no_generation_pending(app: &mut bevy::prelude::App) {
+    use ambition_content::reload::PendingGeneration;
+    assert!(
+        !app.world().contains_resource::<PendingGeneration>(),
+        "a generation is pending after a request that was refused at request time"
+    );
+    for _ in 0..crate::common::SETTLE_FRAMES_AFTER_ACTIVATION {
+        app.update();
+    }
+    assert!(
+        !app.world().contains_resource::<PendingGeneration>(),
+        "a generation appeared after a request that was refused at request time"
+    );
+}
+
 fn active_route(app: &bevy::prelude::App) -> Option<String> {
     app.world()
         .get_resource::<ShellRouter>()
@@ -3837,9 +3889,7 @@ fn a_candidate_that_drops_a_providers_audio_is_refused_and_the_live_audio_surviv
             "dropping the {what} registry was refused at REQUEST time, so the \
              candidate-preparation question this arm asks never arises: {outcome:?}"
         );
-        for _ in 0..240 {
-            app.update();
-        }
+        step_until_the_generation_settles(&mut app);
 
         assert_eq!(
             activation_id(&app),
@@ -3922,9 +3972,7 @@ fn a_candidate_that_edits_a_providers_audio_activates_and_publishes_it() {
         "{outcome:?}"
     );
     assert_eq!(first_frequency(&app), before, "the request published on the spot");
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_ne!(activation_id(&app), Some(live_activation), "the edit never activated");
     assert_eq!(first_frequency(&app), before + 1.0, "the edited cue was not published");
 }
@@ -4082,9 +4130,7 @@ fn a_refused_candidate_leaves_the_adaptive_cues_at_the_live_generation() {
         matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
         "refused at request time, so the preparation arm never runs: {outcome:?}"
     );
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_eq!(activation_id(&app), Some(live_activation), "the refused candidate activated");
     assert_eq!(
         goblin_binding(&app).1,
@@ -4127,9 +4173,7 @@ fn an_unchanged_or_stale_cue_candidate_publishes_nothing() {
         ),
     );
     assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_eq!(goblin_binding(&app).1, "wave1", "the premise: the edit published");
     let published = ambition_content::pack::selected(app.world()).expect("a selection").fingerprint;
     assert_ne!(published, base);
@@ -4157,9 +4201,7 @@ fn an_unchanged_or_stale_cue_candidate_publishes_nothing() {
         ),
         "a stale candidate was not refused as stale: {outcome:?}"
     );
-    for _ in 0..240 {
-        app.update();
-    }
+    step_with_no_generation_pending(&mut app);
     assert_eq!(goblin_binding(&app).1, "wave1", "a stale candidate changed the cue catalog");
     assert_eq!(
         ambition_content::pack::selected(app.world()).expect("a selection").fingerprint,
@@ -4198,9 +4240,7 @@ fn a_candidate_that_drops_the_adaptive_cues_is_refused_and_the_live_cues_survive
         matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
         "refused at REQUEST time, so the preparation question this arm asks never arises: {outcome:?}"
     );
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_eq!(
         activation_id(&app),
         Some(live_activation),
@@ -4335,9 +4375,7 @@ fn a_refused_candidate_leaves_the_cutscene_library_at_the_live_generation() {
         ),
     );
     assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_eq!(activation_id(&app), Some(live_activation), "the refused candidate activated");
     assert_eq!(boot_banner(&app), "// boot sequence", "⛔ A REFUSED CANDIDATE'S CUTSCENES WERE PUBLISHED");
     assert_eq!(
@@ -4368,9 +4406,7 @@ fn an_unchanged_or_stale_cutscene_candidate_publishes_nothing() {
         ),
     );
     assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_eq!(boot_banner(&app), "// boot sequence, revised", "the premise: the edit published");
 
     let stale = std::sync::Arc::new(
@@ -4395,9 +4431,7 @@ fn an_unchanged_or_stale_cutscene_candidate_publishes_nothing() {
         ),
         "a stale candidate was not refused as stale: {outcome:?}"
     );
-    for _ in 0..240 {
-        app.update();
-    }
+    step_with_no_generation_pending(&mut app);
     assert_eq!(boot_banner(&app), "// boot sequence, revised", "a stale candidate changed the library");
 }
 
@@ -4566,9 +4600,7 @@ fn a_refused_candidate_leaves_the_quest_book_at_the_live_generation() {
         ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
     );
     assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_eq!(activation_id(&app), Some(live_activation), "the refused candidate activated");
     assert_eq!(
         quest_place(&app, "first_steps"),
@@ -4594,9 +4626,7 @@ fn a_quest_book_with_no_place_for_a_recorded_step_is_refused() {
         matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }),
         "the control candidate was refused although no progress is lost: {outcome:?}"
     );
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_eq!(
         app.world()
             .resource::<ambition_content::quest::QuestRegistry>()
@@ -4656,9 +4686,7 @@ fn a_quest_book_that_loses_its_place_while_the_generation_waits_is_cancelled() {
     app.world_mut()
         .resource_mut::<ambition_content::quest::QuestRegistry>()
         .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet("met_any_hub_npc".to_string()));
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_eq!(
         activation_id(&app),
         Some(live_activation),
@@ -4727,9 +4755,7 @@ fn a_provider_that_takes_a_cutscene_id_while_the_generation_waits_cancels_it() {
         !reason.to_string().contains("save moved"),
         "the cutscene refusal still blames the save: {reason}"
     );
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_eq!(
         activation_id(&app),
         Some(live_activation),
@@ -4778,9 +4804,7 @@ fn a_step_the_player_reaches_while_the_generation_waits_is_pinned_at_the_gate() 
     app.world_mut()
         .resource_mut::<ambition_content::quest::QuestRegistry>()
         .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet("met_any_hub_npc".to_string()));
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_eq!(
         activation_id(&app),
         Some(live_activation),
@@ -4855,9 +4879,7 @@ fn a_save_that_moves_while_a_generation_without_quest_changes_waits_does_not_can
     app.world_mut()
         .resource_mut::<ambition_content::quest::QuestRegistry>()
         .push_event(ambition_platformer2d::persistence::quest::QuestAdvanceEvent::FlagSet("met_any_hub_npc".to_string()));
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_ne!(
         activation_id(&app),
         Some(live_activation),
@@ -5178,9 +5200,7 @@ fn a_candidate_without_a_quest_file_starts_the_next_session_with_no_quests() {
         ambition_content::CandidateGeneration::prepared_against(candidate, Some(base)),
     );
     assert!(matches!(outcome, ambition_content::reload::ReloadRequest::Requested { .. }), "{outcome:?}");
-    for _ in 0..240 {
-        app.update();
-    }
+    step_until_the_generation_settles(&mut app);
     assert_ne!(activation_id(&app), Some(live_activation), "the candidate never activated");
     let registry = app.world().resource::<ambition_content::quest::QuestRegistry>();
     assert!(registry.initialized, "the new session never populated its registry");

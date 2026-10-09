@@ -2589,7 +2589,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         status = Path(tempfile.gettempdir()) / f"run_tests_status.nested.{os.getpid()}.json"
     else:
         status = REPO / "target" / STATUS_NAME
-    # The ledger is evidence a push is judged by (`required_checks.py`), so
+    # The ledger is the evidence `required_checks.py` reports from, so
     # only the run that writes the default status writes it. A test drives
     # this loop with fake jobs under real job names and a status of its own;
     # its rows would certify checks that never ran.

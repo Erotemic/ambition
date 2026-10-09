@@ -593,7 +593,48 @@ fn dead_leaf(p: vec2<f32>) -> vec3<f32> {
     return vec3<f32>(0.020, 0.070, 0.060) * (0.6 + r);
 }
 
+/// A blink wall: a veil, not stone. A blink goes through it, so it is glass
+/// in a gold lattice on the clean side and a curtain of blocks that flicker
+/// on the corrupted side. The wall's own sprite shows through it a little.
+/// A hard wall has a closer lattice and less light.
+fn veil(p: vec2<f32>) -> vec4<f32> {
+    let t = globals.time;
+    let l = p - piece.xy;
+    let s = piece.zw;
+    if l.x < 0.0 || l.y < 0.0 || l.x >= s.x || l.y >= s.y {
+        return vec4<f32>(0.0);
+    }
+    let hard = room.w > 2.5;
+    let pitch = select(14.0, 9.0, hard);
+    let a = abs(fract((p.x + p.y) / pitch) - 0.5) * pitch;
+    let b = abs(fract((p.x - p.y) / pitch) - 0.5) * pitch;
+    let lattice = smoothstep(1.3, 0.4, min(a, b));
+    let rim = min(min(l.x, l.y), min(s.x - l.x, s.y - l.y));
+    let frame = smoothstep(2.4, 1.2, rim);
+    if claim(p).state == 1 {
+        let cell = floor(p / 8.0);
+        let beat = floor(t * 2.5 + rand_cell(cell, 750u) * 2.5);
+        let flick = rand_cell(cell + vec2<f32>(beat * 3.0, 0.0), 751u);
+        var col = vec3<f32>(0.150, 0.060, 0.260) * (0.7 + 0.6 * rand_cell(cell, 752u));
+        if flick > select(0.86, 0.93, hard) {
+            col = mix(col, MAGENTA, 0.55);
+        }
+        col = mix(col, MAGENTA * 0.85, lattice * 0.55);
+        col = mix(col, CYAN, frame);
+        return vec4<f32>(col, select(0.80, 0.90, hard));
+    }
+    var col = select(vec3<f32>(0.760, 0.710, 0.940), vec3<f32>(0.600, 0.530, 0.860), hard);
+    // Light goes across the glass.
+    let shimmer = smoothstep(0.75, 1.0, sin((p.x + p.y) * 0.035 - t * 1.4));
+    col = col + shimmer * vec3<f32>(0.090, 0.090, 0.050);
+    col = mix(col, mix(GOLD, GOLD_LIT, 0.3), max(lattice * 0.85, frame));
+    return vec4<f32>(col, select(0.78, 0.88, hard));
+}
+
 fn surface(p: vec2<f32>) -> vec4<f32> {
+    if room.w > 1.5 {
+        return veil(p);
+    }
     let l = p - piece.xy;
     let s = piece.zw;
     let inside = l.x >= 0.0 && l.y >= 0.0 && l.x < s.x && l.y < s.y;

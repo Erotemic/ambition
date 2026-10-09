@@ -43,7 +43,7 @@ correctly. The role of a quad selects the layer.
 | Role | Quad | Two-state look | Drawing look |
 | --- | --- | --- | --- |
 | backdrop | the room | sky, far towers, islands, a viaduct, construction lines | grid, far outlines, paths with nodes |
-| surface | one `Solid` or `OneWay` block | masonry, cap, gold trim, ivy on the corners | outline and hatch; a one-way platform is closed on top only |
+| surface | one `Solid`, `OneWay` or `BlinkWall` block | masonry, cap, gold trim, ivy on the corners; a blink wall is a veil of glass in a gold lattice | outline and hatch; a one-way platform is closed on top only; a blink wall has no closed side |
 | underside | below one platform | brackets, arches, a banner, ivy, water or light that falls | drop lines; marks that rise below a one-way platform |
 | portal | around one door | an arch on pilasters | the trigger box of the door |
 | overlay | the room | loose blocks, short tears | register marks, a scan line |

@@ -86,6 +86,8 @@ const ROLE_PORTAL: f32 = 4.0;
 /// The block kinds a look draws, as the shader reads them.
 const KIND_SOLID: f32 = 0.0;
 const KIND_ONE_WAY: f32 = 1.0;
+const KIND_BLINK_SOFT: f32 = 2.0;
+const KIND_BLINK_HARD: f32 = 3.0;
 
 /// Text on the pale side of the two-state look: ink, with a paper halo so that
 /// a sign that crosses the front stays readable.
@@ -440,11 +442,18 @@ fn present_room_look<M: RoomLook>(
             None,
         );
         for block in &world.blocks {
-            // Terrain only. A blink wall, a hazard or a pad says what it is
-            // with its own art, and that art stays.
+            // Terrain and blink walls. A look must keep a blink wall a thing
+            // of its own, not stone: a blink goes through it. A hazard or a
+            // pad says what it is with its own art, and that art stays.
             let kind = match block.kind {
                 ae::BlockKind::Solid => KIND_SOLID,
                 ae::BlockKind::OneWay => KIND_ONE_WAY,
+                ae::BlockKind::BlinkWall {
+                    tier: ae::BlinkWallTier::Soft,
+                } => KIND_BLINK_SOFT,
+                ae::BlockKind::BlinkWall {
+                    tier: ae::BlinkWallTier::Hard,
+                } => KIND_BLINK_HARD,
                 _ => continue,
             };
             let half = block.aabb.half_size();
@@ -461,7 +470,8 @@ fn present_room_look<M: RoomLook>(
                 SURFACE_Z,
                 Some(block),
             );
-            if size.y <= PLATFORM_MAX_HEIGHT && size.x >= 96.0 {
+            let is_terrain = kind == KIND_SOLID || kind == KIND_ONE_WAY;
+            if is_terrain && size.y <= PLATFORM_MAX_HEIGHT && size.x >= 96.0 {
                 spawn(
                     format!("room look underside: {}", block.name),
                     Vec2::new(min.x, min.y + size.y),

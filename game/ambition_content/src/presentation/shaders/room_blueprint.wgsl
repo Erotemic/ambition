@@ -20,6 +20,7 @@ const PAPER_BOTTOM: vec3<f32> = vec3<f32>(0.043, 0.088, 0.168);
 const LINE_SOLID: vec3<f32> = vec3<f32>(0.300, 0.780, 1.000);
 const LINE_ONE_WAY: vec3<f32> = vec3<f32>(0.360, 0.960, 0.600);
 const LINE_FAR: vec3<f32> = vec3<f32>(0.140, 0.340, 0.620);
+const LINE_BLINK: vec3<f32> = vec3<f32>(0.720, 0.560, 1.000);
 const PATH: vec3<f32> = vec3<f32>(0.980, 0.820, 0.300);
 const NODE: vec3<f32> = vec3<f32>(0.860, 0.970, 1.000);
 
@@ -34,6 +35,9 @@ fn camera_engine() -> vec2<f32> {
 }
 
 fn line_of_kind() -> vec3<f32> {
+    if room.w > 1.5 {
+        return LINE_BLINK;
+    }
     return select(LINE_SOLID, LINE_ONE_WAY, room.w > 0.5);
 }
 
@@ -97,7 +101,8 @@ fn surface(p: vec2<f32>) -> vec4<f32> {
     let l = p - piece.xy;
     let s = piece.zw;
     let tone = line_of_kind();
-    let one_way = room.w > 0.5;
+    let one_way = room.w > 0.5 && room.w < 1.5;
+    let blink = room.w > 1.5;
     // Signed distance to the block edge. Negative is inside.
     let q = abs(l - s * 0.5) - s * 0.5;
     let sd = length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0);
@@ -114,10 +119,22 @@ fn surface(p: vec2<f32>) -> vec4<f32> {
     if !one_way && pmod(p.x + p.y, 9.0) < 1.0 {
         col = col + tone * 0.090;
     }
+    if blink {
+        // A blink goes through this wall: no side is closed, and the hatch
+        // goes two ways. A hard wall has the closer dash.
+        alpha = 0.55;
+        if pmod(p.x - p.y, 9.0) < 1.0 {
+            col = col + tone * 0.090;
+        }
+    }
     col = col + tone * exp(sd / 6.0) * 0.22;
     // The outline. A one-way platform is closed on top only: the other
     // three sides are dashed.
     var outline = stroke(-sd, 0.8);
+    if blink {
+        let dash = select(10.0, 5.0, room.w > 2.5);
+        outline = outline * step(fract((l.x + l.y) / dash), 0.5);
+    }
     if one_way {
         let top = l.y < 2.2;
         let dashed = step(fract((l.x + l.y) / 8.0), 0.5);

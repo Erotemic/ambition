@@ -224,6 +224,9 @@ pub struct NavAdvice {
     /// the goal it holds now.
     pub goal: Option<Vec2>,
     pub next: NavNext,
+    /// A place beside the body's target that the body can reach, when the
+    /// target stands over a surface in reach. A feet point.
+    pub target_place: Option<Vec2>,
 }
 
 impl NavAdvice {

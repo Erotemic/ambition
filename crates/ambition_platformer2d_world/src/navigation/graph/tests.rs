@@ -179,3 +179,17 @@ fn the_waypoints_are_reachable_and_the_same_for_one_seed() {
     assert!(points[..count as usize].iter().all(|point| fixture.graph.surface_at(*point).is_some_and(|at| at != shelf)));
     assert_ne!(points, fixture.graph.waypoints(feet, 8).0);
 }
+
+#[test]
+fn a_place_beside_a_point_is_on_the_surface_under_it_when_that_is_in_reach() {
+    let fixture = Fixture::new();
+    let feet = fixture.middle("floor");
+    // A body that stands on the perch: its centre is above the perch's top.
+    let on_the_perch = fixture.middle("perch") - Vec2::Y * 40.0;
+    let place = fixture.graph.place_beside(feet, on_the_perch, 60.0, 160.0).expect("the perch is in reach");
+    assert_eq!(fixture.graph.surface_at(place), Some(fixture.surface("perch")));
+    assert!((place.x - on_the_perch.x).abs() > 30.0, "beside the point, not on it: {place:?}");
+    // Over the shelf, which is out of reach: no place.
+    let on_the_shelf = fixture.middle("shelf") - Vec2::Y * 40.0;
+    assert_eq!(fixture.graph.place_beside(feet, on_the_shelf, 60.0, 160.0), None);
+}

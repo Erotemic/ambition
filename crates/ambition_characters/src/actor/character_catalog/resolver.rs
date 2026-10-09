@@ -134,6 +134,8 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             rest_min_s,
             rest_max_s,
             company,
+            stay_within,
+            playful,
             notice_radius,
         } => StateMachineCfg::Roam {
             cfg: crate::brain::state_machine::RoamCfg {
@@ -142,6 +144,8 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
                 rest_min_s: *rest_min_s,
                 rest_max_s: *rest_max_s,
                 company: *company,
+                stay_within: *stay_within,
+                playful: *playful,
                 notice_radius: *notice_radius,
             },
             state: crate::brain::state_machine::RoamState::default(),

@@ -110,6 +110,47 @@ fn the_basement_dog_is_peaceful_and_goes_to_places_on_the_rooms_surfaces() {
     assert!(barked, "the dog did not give an ambient bark");
 }
 
+/// ⭐ THE DOG COMES TO A PLAYER WHO IS FAR FROM IT, UP THE PLATFORMS.
+///
+/// The dog keeps near the player (`stay_within` in its catalog row). The
+/// player stands on the upper deck of the basement, at the far end from the
+/// dog. No straight walk gets there: the dog must climb. The advisor gives the
+/// dog a place beside the player and the legs to it.
+#[test]
+fn the_dog_climbs_to_a_player_who_stands_far_away_on_the_upper_deck() {
+    let (mut sim, dog, player) = the_dog_and_the_player();
+    let at = |sim: &ambition_app::Platformer2dSimHarness, body: Entity| {
+        sim.world().get::<BodyKinematics>(body).expect("a live body").pos
+    };
+    let floor = at(&sim, dog).y;
+    // The upper deck of the basement, near its left end.
+    sim.teleport_player((420.0, 1024.0 + 608.0 - 60.0));
+    sim.step_n(base(), 30);
+    let stands = at(&sim, player);
+    // ⛔ THE PREMISES: the player is far from the dog and well above its floor.
+    assert!(
+        (stands.x - at(&sim, dog).x).abs() > 900.0 && floor - stands.y > 250.0,
+        "the fixture did not stand the player far up the deck: player {stands:?}, dog {:?}",
+        at(&sim, dog)
+    );
+    let mut arrived = None;
+    for tick in 0..3000 {
+        sim.step(base());
+        let gap = at(&sim, dog) - at(&sim, player);
+        if gap.x.abs() < 200.0 && gap.y.abs() < 40.0 {
+            arrived = Some(tick);
+            break;
+        }
+    }
+    assert!(
+        arrived.is_some(),
+        "in 50 s the dog did not come to the player: dog {:?}, player {:?}, brain {:?}",
+        at(&sim, dog),
+        at(&sim, player),
+        sim.world().get::<ambition_platformer2d::characters::brain::Brain>(dog),
+    );
+}
+
 /// Interact beside the dog talks to it, and does not pet it: the pet is a
 /// choice in that conversation (`<<pet>>` in `hall_npc_companion_dog`). Picking
 /// it pets the dog, both bodies hold still for the whole pet, and both let go

@@ -23,6 +23,10 @@ use ae::navigation::{NavAdvice, NavNext};
 use ambition_platformer2d_world::navigation::NavGraph;
 use bevy::prelude::{Entity, Query, ResMut, Resource};
 
+/// How far beside its target a body stands, past its own width (px).
+const TARGET_ROOM: f32 = 12.0;
+/// A target this far above a surface, or less, stands over it (px).
+const TARGET_DEPTH: f32 = 160.0;
 /// The most graphs kept: rooms times body tunings that navigate in them.
 const GRAPHS_KEPT: usize = 16;
 
@@ -129,10 +133,13 @@ pub fn advise_navigation(
         &ae::BodyKinematics,
         &ae::BodyBaseSize,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+        // Whom the body attends to: the same read-model its brain's
+        // `target_pos` comes from.
+        Option<&ambition_combat::components::ActorTarget>,
     )>,
 ) {
     advice.by_body.clear();
-    for (entity, brain, model, abilities, kinematics, base_size, frame) in &bodies {
+    for (entity, brain, model, abilities, kinematics, base_size, frame, target) in &bodies {
         let Some(request) = brain.navigation_request() else {
             continue;
         };
@@ -166,6 +173,12 @@ pub fn advise_navigation(
         let feet = kinematics.pos + graph.frame.down * graph.half.y;
         let (waypoints, waypoint_count) = graph.waypoints(feet, request.choice);
         let next = request.goal.map_or(NavNext::Unknown, |goal| graph.next(feet, goal));
-        advice.by_body.insert(entity, NavAdvice { feet, waypoints, waypoint_count, goal: request.goal, next });
+        let target_place = target
+            .filter(|target| target.entity.is_some())
+            .and_then(|target| graph.place_beside(feet, target.pos, kinematics.size.x + TARGET_ROOM, TARGET_DEPTH));
+        advice.by_body.insert(
+            entity,
+            NavAdvice { feet, waypoints, waypoint_count, goal: request.goal, next, target_place },
+        );
     }
 }

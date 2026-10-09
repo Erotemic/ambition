@@ -983,6 +983,13 @@ pub enum BrainPreset {
         rest_max_s: f32,
         #[serde(default)]
         company: f32,
+        /// Farther than this from the player, the body goes to the player
+        /// next. Zero: it does not keep near.
+        #[serde(default)]
+        stay_within: f32,
+        /// How often the body runs four places with no rest, 0 to 1.
+        #[serde(default)]
+        playful: f32,
         #[serde(default)]
         notice_radius: f32,
     },

@@ -197,7 +197,9 @@
             trot_speed: 105.0,
             rest_min_s: 1.2,
             rest_max_s: 4.0,
-            company: 0.3,
+            company: 0.25,
+            stay_within: 520.0,
+            playful: 0.2,
             notice_radius: 120.0,
         ),
         "patrol_peaceful": Patrol(

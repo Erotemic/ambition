@@ -285,6 +285,28 @@ impl NavGraph {
         }
     }
 
+    /// A place beside `point` that a body at `feet` can get to: on the nearest
+    /// surface under `point` (a body's centre, or its feet), `beside` away
+    /// from it along the surface, on the side the body comes from. `None`
+    /// when no surface in reach is under the point within `depth`.
+    pub fn place_beside(&self, feet: Vec2, point: Vec2, beside: f32, depth: f32) -> Option<Vec2> {
+        let from = self.surface_at(feet)?;
+        let reachable = self.reachable_from(from);
+        let (along, below) = (self.frame.along(point), self.frame.below(point));
+        let under = reachable
+            .into_iter()
+            .filter(|index| {
+                let surface = &self.surfaces[*index];
+                along >= surface.left - self.half.x
+                    && along <= surface.right + self.half.x
+                    && surface.top >= below - LAND_TOLERANCE
+                    && surface.top <= below + depth
+            })
+            .min_by(|a, b| self.surfaces[*a].top.total_cmp(&self.surfaces[*b].top).then(a.cmp(b)))?;
+        let side = if self.frame.along(feet) < along { -1.0 } else { 1.0 };
+        Some(self.point_on(under, along + side * beside))
+    }
+
     /// Up to [`NAV_WAYPOINTS`] points a body at `feet` can get to, one on each
     /// of some surfaces. `seed` chooses the surfaces and the place on each.
     pub fn waypoints(&self, feet: Vec2, seed: u64) -> ([Vec2; NAV_WAYPOINTS], u8) {

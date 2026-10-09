@@ -79,9 +79,9 @@ Four produced intent after the gate. All four are moved (2026-10-09):
 - `shark_ride::tick_departures` runs after `ActorDecisionSet::Publish` and before
   the gate.
 - The boss brain (`tick_boss_brains_system`) runs after `ActorDecisionSet::Publish`
-  and before the gate, and `BossSteerSlot` (`tick_commanded_moves`,
-  `face_conducted_bosses`, content steering) is in the gate after
-  `blank_scripted_control_frames`, beside `drive_commanded_moves`.
+  and before the gate, and `BossSteerSlot` (`face_conducted_bosses`, content
+  steering) is in the gate after `blank_scripted_control_frames` and after
+  `drive_commanded_moves`.
   `integrate_boss_bodies` stays after contact damage. Witness:
   `boss_motion_parity::the_frame_a_held_boss_integrates_under_is_the_gated_one`
   (control: the unheld brain writes a moving frame). Poison (the old schedule):
@@ -92,16 +92,32 @@ integrate, or derive from a gated frame.
 
 **Open:**
 
-- **Two commanded-move roads.** `drive_commanded_moves` excludes bosses
-  (`Without<BossAttackIntent>`); `tick_commanded_moves` walks a boss with no
-  motion-model speed and clears its attack intent. Fold them into one road; the
-  walk speed of a boss changes when they fold, so measure the cut-rope lure.
-- **A boss fixture the brain does not move.** In the harness boss
-  (`spawn_boss_at`, mockingbird), the brain writes a moving `velocity_target`,
-  but the body's path is the same with or without a hold: 174.0 px over 300
-  ticks, all of it the axis-swept model's own hover. So
-  `woken_boss_moves_and_stays_afloat` passes without the brain. Measure a
-  shipped boss room before calling it a defect of the boss road.
+- **One commanded-move road (done 2026-10-09).** `drive_commanded_moves`
+  walks every body that carries a `CommandedMove`, a boss too: a boss's
+  attack intent and presses are cleared, and a dead body is not walked.
+  Deleted: `tick_commanded_moves` and its registration by the content plugin.
+  The `BossSteerSlot` now runs after the walk, so a conducted facing or content
+  steering has the last word. Measured: the cut-rope lure's trajectory is
+  byte-identical over 240 ticks with the two roads and with the one (the boss
+  integrator reads `velocity_target`, which the walker does not change on a
+  normal frame). Witnesses: `a_lured_boss_walks_to_its_mark_and_starts_no_attack`,
+  `a_dead_body_is_not_walked` and `the_cut_rope_walks_the_boss_to_its_mark`.
+  Poisons: the walk skips bosses, red at "did not walk to its mark ... no
+  nearer than 320"; the intent kept, red at "a lured boss still wants to
+  attack".
+- **The Mockingbird's brain moves nothing (measured 2026-10-09).** In its
+  shipped sky the conductor owns the bird's pose (`ConductedPose`, then
+  `PoseOwnedExternally`), and the path with a `ControlHold` equals the path
+  without, to the pixel, while the unheld brain writes a moving frame
+  (`its_path_is_its_conductors_and_a_hold_on_its_brain_changes_nothing`).
+  With the conductor made never to submit a pose, the bird does not move at
+  all (0.0 px over 300 ticks), so the brain's movement frame has no reader
+  for this boss. The harness boss of `boss_motion_parity` is the same: 174.0
+  px held or not. `woken_boss_moves_and_stays_afloat` says "the pattern's
+  desired velocity is ... reaching the integrator", and for this boss it is
+  not. Open: whether the brain should write no movement frame for a
+  conducted boss. That frame is a write with no reader; deleting it is
+  allowed (Q74: an inert parameter is deletable for lying).
 
 **Acceptance:** one accepted control fact feeds one body execution road; no
 second body tick or hidden writer is introduced; schedule witnesses are placed
@@ -363,8 +379,8 @@ reads cargo output to it.
    `1485939ec` changed the rollback host and was pushed without the demo
    lane; the gate names that lane for it. Witness
    `scripts/tests/test_required_checks.py` (poisons: freshness ignored, red at
-   `a_pass_before_a_later_edit_is_old`; untracked files left out of the
-   tested tree, red at `a_new_untracked_source_file_is_part_of_the_tested_tree`).
+   `test_a_pass_before_a_later_edit_is_old`; untracked files left out of the
+   tested tree, red at `test_a_new_untracked_source_file_is_part_of_the_tested_tree`).
    A row holds the tree at both ends of its job, and a check counts when
    both hold the change's paths (`36eb555ee`): a file the host of a shared
    folder edited during a 14-job run had voided two passing jobs. A
@@ -396,8 +412,14 @@ until someone runs the check.
 A full regen took more than 2.5 h on one process, and now takes 74 min on 7
 (2026-10-09, `38865ba48`). `AMBITION_SPRITE_JOBS` defaults to half the cores,
 at most 8. A batch with one failure keeps the cache key of each target that
-published. Still serial: the faction-leader lineup, the review canonical
-gallery, the ultrapack and the quality variants. Also found in that regen:
+published. The run's own "render cost" line: 3392 s of the 4436 s in 7
+renderer processes (tack-ons 1374 s, draw-review 893 s, draw-all 700 s, late
+targets 287 s, factions 136 s). The other ~1044 s are stages outside the
+renderer (ultrapack, quality variants, LDtk). The tack-on batch was at 143 of
+144 after 1145 s, so its last target held about 230 s alone; starting the
+longest targets first would cut that tail. Still serial: the faction-leader
+lineup, the review canonical gallery, the ultrapack and the quality
+variants. Also found in that regen:
 - a run through the `/home/agent/code/ambition` alias wrote `relPath`s that
   climb to `/` into five worlds. Fixed in `rel_to_ldtk`, which now keeps both
   paths in one spelling (`test_a_repo_reached_through_a_symlinked_alias_keeps_the_virtual_mount`).

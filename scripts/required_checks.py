@@ -3,12 +3,13 @@
 
     python3 scripts/required_checks.py                 # HEAD against origin/main
     python3 scripts/required_checks.py --base <rev> --rev <rev>
-    python3 scripts/required_checks.py --pre-push       # read by the pre-push hook
 
 The change is what `--rev` adds since it left `--base` (`git diff base...rev`).
 Each rule below names paths and the checks a change to them requires. A check is
 CERTIFIED when `run_tests.py` recorded it as passed (`target/lane_ledger.jsonl`)
 on a tree that agrees with `--rev` on every path of the change.
+
+It reports. A push does not wait for it (Q166, ruled 2026-10-09).
 
 Exit codes: 0 every required check is certified; 1 a required check is not
 certified (each one is named, with the command that runs it); 2 the question
@@ -39,6 +40,12 @@ import lane_ledger  # noqa: E402
 
 #: The run_tests job that runs `scripts/tests` (the repo tooling lane).
 REPO_TOOLING_JOB = "repo tooling (scripts/tests; repo-coupled)"
+#: The authoring tool's own tests. A change to the tool reached the worlds
+#: through a sprite regen, and no rule named this job.
+LDTK_TOOLS_DIR = "tools/ambition_ldtk_tools"
+LDTK_TOOLS_JOB = "ldtk authoring tool tests"
+#: Jobs that only the detached tool lane plans (`run_tests.py --tool-tests`).
+DETACHED_TOOL_JOBS = {LDTK_TOOLS_JOB}
 
 #: The demo host apps. `app_it` and the pytest lane run none of their tests.
 DEMO_HOST_APPS = (
@@ -121,6 +128,8 @@ def requirements_for(path: str, members: dict[str, str]) -> set[Requirement]:
         required.update(CargoTest(app) for app in DEMO_HOST_APPS)
     if path.startswith("scripts/") and path.endswith(".py"):
         required.add(Job(REPO_TOOLING_JOB))
+    if path.startswith(LDTK_TOOLS_DIR + "/") and path.endswith(".py"):
+        required.add(Job(LDTK_TOOLS_JOB))
     return required
 
 
@@ -230,7 +239,8 @@ def remedy(missing: list[Requirement]) -> str:
         flags = " ".join(f"-p {package}" for package in packages)
         lines.append(f"./run_tests.sh {flags} --only-job '(default features)'")
     for job in jobs:
-        lines.append(f"./run_tests.sh --only-job '{job}'")
+        lane = "--tool-tests " if job in DETACHED_TOOL_JOBS else ""
+        lines.append(f"./run_tests.sh {lane}--only-job '{job}'")
     return "\n".join(f"    {line}" for line in lines)
 
 
@@ -243,47 +253,20 @@ def report(paths: list[str], verdicts: list[Verdict]) -> int:
         print(f"  {mark} {verdict.requirement.label()}  ({verdict.reason}; for {shown}{more})")
     missing = [v.requirement for v in verdicts if not v.certified]
     if missing:
-        print("\nREFUSED: the change requires checks this tree has not passed. Run:")
+        print("\nNOT CERTIFIED: the change requires checks this tree has not passed. Run:")
         print(remedy(missing))
         return 1
     return 0
-
-
-def pre_push_base(repo: Path, lines: list[str]) -> list[tuple[str, str]]:
-    """`(base, rev)` for each ref the push updates on `main`.
-
-    git gives the hook `<local ref> <local sha> <remote ref> <remote sha>` on
-    stdin. A deletion has no content to check.
-    """
-    out = []
-    for line in lines:
-        parts = line.split()
-        if len(parts) != 4:
-            continue
-        _, local_sha, remote_ref, remote_sha = parts
-        if remote_ref != "refs/heads/main" or set(local_sha) == {"0"}:
-            continue
-        known = subprocess.run(
-            ["git", "cat-file", "-e", f"{remote_sha}^{{commit}}"], cwd=repo, capture_output=True
-        ).returncode == 0
-        base = remote_sha if known and set(remote_sha) != {"0"} else "origin/main"
-        out.append((base, local_sha))
-    return out
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--base", default="origin/main")
     parser.add_argument("--rev", default="HEAD")
-    parser.add_argument("--pre-push", action="store_true", help="read the refs git gives a pre-push hook on stdin")
     args = parser.parse_args()
     try:
-        pairs = pre_push_base(REPO, sys.stdin.read().splitlines()) if args.pre_push else [(args.base, args.rev)]
-        worst = 0
-        for base, rev in pairs:
-            paths, verdicts = judge(REPO, base, rev)
-            worst = max(worst, report(paths, verdicts))
-        return worst
+        paths, verdicts = judge(REPO, args.base, args.rev)
+        return report(paths, verdicts)
     except subprocess.CalledProcessError as error:
         print(f"required_checks: git refused: {error.stderr.decode() if isinstance(error.stderr, bytes) else error.stderr}")
         return 2

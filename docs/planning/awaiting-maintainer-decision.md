@@ -573,42 +573,6 @@ Owner: no page owns UI scale. The nearest is the menu backend
 
 ## Architecture and engine policy
 
-## Q166 — may a push to main wait for the long lanes that its change requires?
-
-Filed 2026-10-09 by CalculexAmbition, at NamekAmbition's request. Blocks
-nothing. **Default in force until you rule:** (a). The hook is written and not
-installed.
-
-Your rule to the agents (2026-10-02, Q59 cadence) is: push each slice after its
-fast gates, and run the long lanes after the push. TEST-LANES asks that
-required lanes are enforced, not stated in prose. `scripts/required_checks.py`
-now names the checks a change requires (a changed crate's own tests; the four
-demo apps for death, restore, replay and rollback-host paths; the repo tooling
-job for `scripts/`) and says whether `run_tests.py` recorded each one as
-passed on a tree with the change in it. `scripts/install_pre_push_hook.py`
-would make a push to main wait for that answer. Toothbrush says yes; Namek
-says it is your rule to change.
-
-Measured: a one-file change to `game/ambition_app/tests/common/mod.rs` owed the
-whole `ambition_app` job, 1018 s; main moved 2 commits in that time. A merge
-does not owe the job again when it leaves the change's paths as they were: a
-row counts while the paths of the change are unchanged since that run. A merge
-that touches the same paths does owe it. The checks it names caught two real
-misses on 2026-10-09: a `scripts/` change pushed without the tooling job (a
-guard went red on main), and a rollback-host change pushed without the demo
-apps.
-
-* **(a) Report only (current).** Agents run `required_checks.py` and quote its
-  answer; a push is not refused. The rule stays prose that a tool can check.
-* **(b) The hook refuses a push to main until the required checks pass.**
-  `git push --no-verify` still exists. A change to a crate low in the graph
-  waits for the long lanes before it is on main. CalculexAmbition recommends
-  this one: both misses above were pushed by agents who believed their fast
-  gates were enough, and each cost another session a red main.
-* **(c) The hook refuses only the short checks** (a crate's own tests and the
-  tooling job) and reports the long ones (the `ambition_app` job, the demo
-  apps), which keeps "long lanes after the push".
-
 ## Q94 — what residency-memory limit should the runtime target?
 
 Needs a maintainer/hardware/product value. The residency mechanism can enforce a

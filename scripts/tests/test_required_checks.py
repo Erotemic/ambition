@@ -167,31 +167,6 @@ def test_a_job_requirement_is_met_by_that_job_only() -> None:
     assert not covers({"job": "doc links (active KB)"}, Job(REPO_TOOLING_JOB))
 
 
-def test_the_hook_block_is_installed_once_and_keeps_other_text() -> None:
-    from install_pre_push_hook import BLOCK, with_block
-
-    other = "#!/bin/sh\necho other hook\n"
-    once = with_block(other)
-    assert once.startswith(other) and BLOCK.rstrip("\n") in once
-    assert with_block(once) == once, "a second install must not add a second block"
-    assert with_block("").startswith("#!/bin/sh\n")
-
-
-def test_the_hook_checks_a_push_to_main_from_the_remote_tip(repo: Path) -> None:
-    """git hands the hook `<local ref> <local sha> <remote ref> <remote sha>`;
-    the base is the remote tip, and a deletion or another branch is not judged."""
-    base = git(repo, "rev-parse", "base")
-    commit(repo, "crates/alpha/src/lib.rs", "// two\n")
-    head = git(repo, "rev-parse", "HEAD")
-    zero = "0" * 40
-    lines = [
-        f"refs/heads/x {head} refs/heads/main {base}",
-        f"refs/heads/x {head} refs/heads/feature {base}",
-        f"(delete) {zero} refs/heads/main {base}",
-    ]
-    assert required_checks.pre_push_base(repo, lines) == [(base, head)]
-
-
 def test_a_run_with_a_status_of_its_own_records_no_evidence(monkeypatch, tmp_path: Path) -> None:
     """Tests drive `run_tests.run` with fake jobs under real job names. Only
     the run that writes the default status may write the ledger, or a fake
@@ -251,3 +226,27 @@ def test_a_moved_submodule_pointer_is_tested_at_its_checkout(repo: Path, tmp_pat
     git(repo, "commit", "-q", "-m", "alpha and the pointer")
 
     assert verdicts(repo) == {"cargo test -p alpha": (True, "passed on this change")}
+
+
+def test_a_change_to_the_ldtk_tool_requires_its_tests() -> None:
+    from required_checks import LDTK_TOOLS_JOB, requirements_for
+
+    assert requirements_for("tools/ambition_ldtk_tools/ambition_ldtk_tools/ldtk/paths.py", {}) == {
+        Job(LDTK_TOOLS_JOB)
+    }
+    assert requirements_for("tools/ambition_ldtk_tools/README.md", {}) == set()
+
+
+def test_each_job_a_rule_names_is_a_job_of_the_runner() -> None:
+    """A rule that names a job the runner does not plan can never be met."""
+    import run_tests
+
+    from required_checks import LDTK_TOOLS_JOB
+
+    from required_checks import DETACHED_TOOL_JOBS, remedy
+
+    planned = {job.name for job in run_tests.build_jobs([], heavy=True, libtest_args=[], everything=True)}
+    detached = {job.name for job in run_tests.build_detached_tool_jobs()}
+    for name in (REPO_TOOLING_JOB, LDTK_TOOLS_JOB):
+        assert name in (detached if name in DETACHED_TOOL_JOBS else planned), name
+    assert "--tool-tests --only-job 'ldtk authoring tool tests'" in remedy([Job(LDTK_TOOLS_JOB)])

@@ -22,9 +22,8 @@ The duplicate-authority families that the census named are closed: 20 are
 resolved and 4 are deliberate separations (the census states the derived split).
 Room and session replacement is one candidate publication. Live construction
 reads only the activated generation. The open consolidation work is C03
-(session-owned state that is still stored as App resources), C07 (optional
-authorities that a production profile requires), C08 and C09 (facade and crate
-boundaries), and the AUTHORITY-POLISH lane in the queue. The plan's priority
+(session-owned state that is still stored as App resources), C08 and C09
+(facade and crate boundaries), and the AUTHORITY-POLISH lane in the queue. The plan's priority
 table is the authority for campaign state.
 
 ## Evidence words

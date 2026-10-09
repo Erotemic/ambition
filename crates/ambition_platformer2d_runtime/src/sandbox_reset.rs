@@ -269,7 +269,7 @@ pub fn return_the_replay_subject_to_spawn(
     world: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
-    mut sim_state: ResMut<RoomTransitionCooldown>,
+    mut sim_state: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut sfx_writer: SfxWriter,
     mut vfx_writer: VfxWriter,

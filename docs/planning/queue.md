@@ -140,47 +140,6 @@ before the death).
   object lies, the custody restore moves it into the banked hand whatever
   the row says, so only a held object needs the precedence.
 
-### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
-
-**Owner:** rollback/mechanical-policy owners.
-
-**Current state:** no simulation system reads `UserSettings`
-(`scripts/measure_user_settings_in_simulation.py`). The frame-mode half is
-closed: `ControlFrame` carries `control_frame_modes`, stamped at capture in
-`populate_seat_control_frames`, and GGRS replays it per frame. The damage half is
-open: `project_player_damage_policy` writes `PlayerDamagePolicy` from
-`UserSettings.gameplay` in `Update`, the policy has no rollback registration, and
-three simulation systems read it (`apply_player_hit_events`,
-`apply_feature_hit_events`, `charge_projectile_input`). The in-game System
-overlay can change `Difficulty`, `Assist` and `PlayerDamage` during a live
-timeline, so a resimulation of frame N reads the policy that holds now.
-
-**Ruling (`Q127`, 2026-09-19): deprioritised.** There is no generic
-one-dimensional difficulty architecture. Difficulty is game policy expressed as
-presets. Participant handicaps and CPU brain levels are separate concepts from
-match policy. Spend no substantial effort here until the default game plays
-exceptionally well, and do not box the design in.
-
-**Ruling (`Q68`, 2026-10-03):** difficulty, gameplay modifiers and combat
-behaviour are game-owned settings; the shell owns audio, display, bindings,
-reusable accessibility and localization. `UserSettings.gameplay` is in the shell
-crate today.
-
-**Next action (when picked up):** use the `PortalTuning` precedent (the `Q120`
-admission protocol). The settings road writes a mirror and proposes in
-`MechanicalEditSet::Propose`, and the publisher is the only writer of the
-authority. A match-wide policy is admitted at match activation; a
-per-participant policy travels with deterministic per-seat input. Do not
-reintroduce simulation reads of mutable `UserSettings`. Peers must not have to
-share accessibility settings, so input interpretation travels with the input.
-
-**Blocked by:** nothing.
-
-**Acceptance:** rewinding/resimulating frame N observes the policy admitted for
-that timeline, not whatever the settings UI contains now; the settings-to-policy
-projection remains witnessed end to end; and no `sim`-schedule system takes
-either policy resource as a parameter.
-
 ### A4 — separate control authority from body execution on the real schedule
 
 **Owner:** accepted control writer map and actor-monolith frontier.
@@ -191,9 +150,22 @@ the real realization places body integration inside
 `WorldPrepSet::Integrate`. Prior prose that mapped old and new set names by name
 is not an implementation guide.
 
-**Next implementation:** size the packet against the actual schedule seam:
-control production, accepted control authority, then body execution/integration.
-Keep the measured invariant that a body is advanced once per tick.
+**Measured 2026-10-08:** `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
+reads the declared access of every system in the shipped `GgrsSchedule`. It found
+22 `ActorControl` writers. None is unordered against `PlayerInputSet::ControlGate`.
+Ten are in the gate or before it. Twelve are after it, and the test pins them
+as a declared list. Eight of the twelve spend a press, integrate, or derive from
+a gated frame. Four produce intent that no restriction sees:
+- The boss road (`tick_boss_brains_system`, `tick_commanded_moves`,
+  `face_conducted_bosses`) decides and integrates after actor integration and
+  contact damage.
+- `shark_ride::tick_departures` writes its velocity in `BeforeIntegrate`.
+
+**Next implementation:** move the boss road's decision in front of the gate.
+That makes bosses one more publication into the one integration road. Then
+move the shark departure, and remove each row from
+`WRITES_CONTROL_AFTER_THE_GATE` as its writer moves. Keep the measured
+invariant that a body is advanced once per tick.
 
 **Acceptance:** one accepted control fact feeds one body execution road; no
 second body tick or hidden writer is introduced; schedule witnesses are placed
@@ -742,6 +714,15 @@ ladder field is inert.
 are the only installers. A Smash pack source may name a file outside its
 root, as George's facet does.
 
+**Next (2026-10-08):** the engine still carries a level curve,
+`FighterBrainProfile::for_level` (13 production fallback sites), and the demo
+plays it. The order of the move is in
+[`fighter-brain.md` F1](engine/fighter-brain.md#f1--the-authored-ladder-is-the-authority-q88-2026-10-03):
+the ladder becomes a rule scoped to the rooms it governs (`ambition_app`
+composes Smash, so a second `AuthoredFighterLadder` installer would make two
+authorities), Smash declares its pack's rows for its mode, and then the floor
+becomes one level-free default.
+
 ### LANDMARK-CLIP-TIME — a published landmark clip loops or holds as the row it describes
 
 **Owner:** `ambition_sprite_sheet` (`baked_landmarks`) and
@@ -1049,6 +1030,22 @@ production invariant.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### SETTINGS-ROLLBACK — a settings change reaches simulation only at an admitted rebase — ✅ DONE 2026-10-08
+
+The frame-mode half was closed earlier (`ControlFrame` carries
+`control_frame_modes`). The damage half: `PlayerDamagePolicy` was written from
+`UserSettings` in `Update` and read by three simulation systems, so a
+resimulated frame read the current difficulty. It is now a `Q120` mechanical
+domain. `propose_player_damage_policy` writes `ProposedPlayerDamagePolicy` and
+proposes; `publish_player_damage_policy`, the only writer of the policy, copies
+it in `MechanicalEditSet::Publish` when the timeline admits it. A local
+timeline is stopped and rebased; a foreign or unhealthy one refuses, and the
+proposal waits. No simulation system reads `UserSettings` or the proposal.
+Witness: `a_settings_change_reaches_the_simulated_policy_only_when_the_timeline_admits_it`
+(poisons: a publisher that ignores the admission; a proposer that never
+proposes). `Q127` (match-wide or per participant) changes the shape of the
+policy, not this road.
 
 ### CANDIDATE-GENERATION-ORDER — a candidate session is prepared from the generation before its own activation — ✅ DONE 2026-10-08
 

@@ -192,6 +192,141 @@ fn the_one_control_gate_lives_after_the_later_publication() {
     }
 }
 
+/// The systems that write `ActorControl` AFTER `PlayerInputSet::ControlGate`,
+/// by short name, and why each may. A writer after the gate writes a frame that
+/// no restriction saw, so each one here is a decision, not an accident.
+const WRITES_CONTROL_AFTER_THE_GATE: &[(&str, &str)] = &[
+    // It spends a press that the gated frame accepted. It clears an edge and
+    // makes no new intent.
+    ("pickup_held_item_system", "spends a press"),
+    ("throw_held_item_system", "spends a press"),
+    ("drop_portal_gun_system", "spends a press"),
+    ("resolve_portal_fire_intent", "spends a press"),
+    // It is the body execution that consumes the frame.
+    ("integrate_sim_bodies", "integrates"),
+    ("integrate_boss_bodies", "integrates"),
+    // It copies a frame that the gate accepted onto a second body. A gate on
+    // the second body does not apply to the copy.
+    ("steer_mount_from_rider", "derives from the rider's gated frame"),
+    ("fan_out_limb_intents", "derives from the boss's routed strikes"),
+    // ⛔ OPEN A4 DEBT: these PRODUCE intent after the gate. The boss road
+    // decides and integrates after actor integration and contact damage
+    // (`apply_actor_contact_damage` -> `tick_npc_idle_barks` -> the boss
+    // chain), so no restriction sees a boss frame. A shark departure writes its
+    // velocity in `BeforeIntegrate`, after the gate. Remove a row when its
+    // writer moves in front of the gate.
+    ("tick_boss_brains_system", "produces: the boss road"),
+    ("tick_commanded_moves", "produces: the boss road"),
+    ("face_conducted_bosses", "produces: the boss road"),
+    ("tick_departures", "produces: a scripted shark departure"),
+];
+
+/// ⭐ A4: ONE ACCEPTED CONTROL FACT FEEDS ONE BODY EXECUTION ROAD.
+///
+/// The placement test above says WHERE the gate is. This says what it is
+/// between, over the systems and not the set names. Each system of the shipped
+/// sim schedule that declares a write of `ActorControl` is ordered against
+/// `PlayerInputSet::ControlGate`: it is in the gate, before it, or after it, and
+/// never unordered. The writers after the gate are exactly
+/// [`WRITES_CONTROL_AFTER_THE_GATE`]. Each gate system is ordered before
+/// `WorldPrepSet::Integrate`.
+///
+/// The population is declared component access. An exclusive system has access
+/// to every component, so it is listed apart and is not a control writer here;
+/// a write through `Commands` is not access and is not seen.
+#[test]
+fn every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration() {
+    use crate::reload_publication_is_installed::{systems_in as members, Ordering};
+    use ambition_platformer2d::characters::control::ActorControl;
+    use ambition_platformer2d::platformer::schedule::{PlayerInputSet, WorldPrepSet};
+    use bevy::ecs::system::System;
+
+    let mut app = shipped_app();
+    let control = app.world_mut().register_component::<ActorControl>();
+    let label = GgrsSchedule.intern();
+    let (writers, exclusive, (before, after, unordered), gate_len, late_gate) = app.world_mut().resource_scope(
+        |world, mut schedules: Mut<Schedules>| {
+            let schedule = schedules.get_mut(label).expect("the sim schedule exists");
+            let keys: Vec<_> = schedule.graph().systems.iter().map(|(key, _, _)| key).collect();
+            assert!(
+                keys.len() > 100,
+                "the sim schedule's graph holds {} systems, so it was already built \
+                 and the census below is about nothing",
+                keys.len()
+            );
+            let mut writers = Vec::new();
+            let mut exclusive = 0usize;
+            for key in keys {
+                let node = &mut schedule.graph_mut().systems[key];
+                if node.is_exclusive() {
+                    exclusive += 1;
+                    continue;
+                }
+                let access = node.initialize(world);
+                if access.combined_access().has_write(control) {
+                    writers.push((key, format!("{}", node.name())));
+                }
+            }
+            let graph = schedule.graph();
+            let ordering = Ordering::of(graph);
+            let gate = members(graph, PlayerInputSet::ControlGate);
+            let integrate = members(graph, WorldPrepSet::Integrate);
+            assert!(!integrate.is_empty(), "precondition: integration has systems");
+            let mut before = Vec::new();
+            let mut after = Vec::new();
+            let mut unordered = Vec::new();
+            for (key, name) in &writers {
+                if gate.contains(key) || ordering.reaches(&[*key], &gate) {
+                    before.push(name.clone());
+                } else if ordering.reaches(&gate, &[*key]) {
+                    after.push(name.clone());
+                } else {
+                    unordered.push(name.clone());
+                }
+            }
+            let late_gate: Vec<String> = gate
+                .iter()
+                .filter(|key| !ordering.reaches(&[**key], &integrate))
+                .map(|key| format!("{}", graph.systems[*key].name()))
+                .collect();
+            (writers, exclusive, (before, after, unordered), gate.len(), late_gate)
+        },
+    );
+    eprintln!(
+        "A4-CONTROL-WRITERS {} writer(s), {gate_len} gate system(s), {exclusive} exclusive system(s) set apart: {:?}",
+        writers.len(),
+        writers.iter().map(|(_, name)| name.as_str()).collect::<Vec<_>>()
+    );
+    assert!(
+        writers.len() >= 2 && gate_len > 0,
+        "precondition: the census found {} control writer(s) and {gate_len} gate system(s); \
+         control is published in two places and restricted in one",
+        writers.len()
+    );
+    eprintln!("A4-CONTROL-WRITERS before the gate: {before:?}");
+    assert!(
+        unordered.is_empty(),
+        "these systems write `ActorControl` with no order to the gate, so the \
+         executor decides whether a restriction sees their frame: {unordered:?}"
+    );
+    let short = |name: &String| name.rsplit("::").next().unwrap_or(name).to_string();
+    let mut found: Vec<String> = after.iter().map(short).collect();
+    found.sort();
+    let mut declared: Vec<String> =
+        WRITES_CONTROL_AFTER_THE_GATE.iter().map(|(name, _)| name.to_string()).collect();
+    declared.sort();
+    assert_eq!(
+        found, declared,
+        "the systems that write `ActorControl` after the gate are not the declared \
+         list. A new one writes a frame no restriction saw; a missing one moved in \
+         front of the gate, so remove its row"
+    );
+    assert!(
+        late_gate.is_empty(),
+        "these gate systems are not ordered before integration: {late_gate:?}"
+    );
+}
+
 /// Is `set` a descendant of `parent` in the schedule's hierarchy?
 fn set_is_inside(
     app: &mut App,

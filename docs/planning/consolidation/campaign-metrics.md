@@ -21,13 +21,12 @@ full record, `--crate-table` for the package graph).
 | Optional `Res`/`ResMut` occurrences | 745 | Source-text pattern over production files, test items and comments stripped. Discovery only. |
 | Optional `Res`/`ResMut` unique types | 200 | The type tails of the same pattern. |
 | Mechanical editor domains | 7 | Production `MechanicalDomain::of::<T>` sites. The ledger has rows for six; `ExtensionModuleCode` has none yet. |
-| Explicit session/generation-owned App resources | 38 | Every `ResMut` field of `SessionScopedResources`, optional fields included, plus `SessionMechanics`. (46 until C03 moved the checkpoint coordinator and the two room memories onto the session root on 2026-10-07.) |
+| Explicit session/generation-owned App resources | 35 | Every `ResMut` field of `SessionScopedResources`, optional fields included, plus `SessionMechanics`. (46 until C03 moved the checkpoint coordinator and the two room memories onto the session root on 2026-10-07; 38 until the session clock and its return schedule moved, and 36 until the door countdown moved, on 2026-10-08.) |
 | Duplicate-authority families | 0 open, 20 resolved, 4 separations | One `duplicate_authority_state` field per ledger item. The census page states the split. |
 
 ⚠ Two instruments count the session-owned set. `architecture_census.py` reads
-36 because it includes the two `Option<ResMut<..>>` members of
-`SessionScopedResources` (`BossDefeatsSinceCheckpoint`,
-`WorldTimeSchedule`). `scripts/check_session_owner_census_matches_source.py`
+the `Option<ResMut<..>>` members of `SessionScopedResources` too (for example
+`BossDefeatsSinceCheckpoint`). `scripts/check_session_owner_census_matches_source.py`
 counts only the required `ResMut` fields, and the plan's marker follows it.
 
 ## Manual ledger metric tags

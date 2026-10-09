@@ -21,7 +21,7 @@
 //! encoded; this is a repoint, not a schema change.
 
 use ambition_platformer2d_core as ae;
-use bevy::prelude::Resource;
+use bevy::prelude::Component;
 
 /// Per-player "last known safe spot" used by hazard knockback and debug
 /// respawn helpers. Stored on each player so future co-op builds keep safe
@@ -102,7 +102,11 @@ impl SafePositionContext {
 ///
 /// Per-player "last safe position" lives on each player entity as
 /// `PlayerSafetyState`.
-#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
+///
+/// A component of the session root (C03): two sessions can hold different
+/// countdowns, and a new root starts with every seat free, so no reset runs
+/// at a session edge.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct RoomTransitionCooldown {
     remaining: [f32; Self::SEATS],
 }

@@ -22,7 +22,9 @@ const PLATFORM: &str = "respawning breakable platform";
 const RESPAWN_S: f32 = 3.0;
 
 fn now(sim: &Platformer2dSimHarness) -> f32 {
-    sim.world().resource::<GameplayElapsed>().0
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<GameplayElapsed>(sim.world())
+        .expect("the session root carries the clock")
+        .0
 }
 
 /// (broken, the time its respawn still needs) of the platform, or `None` when
@@ -143,9 +145,8 @@ fn a_platform_whose_respawn_fell_due_while_away_is_whole_on_return() {
         "precondition: the respawn fell due while away"
     );
     settle(&mut sim, 2);
-    let schedule = sim
-        .world()
-        .resource::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>();
+    let schedule = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>(sim.world())
+        .expect("the session root carries the schedule");
     let records = schedule.records().count();
     assert_eq!(
         (platform(&mut sim), records),
@@ -192,8 +193,8 @@ fn platform_after_alices_death(bob_holds_it: bool) -> (bool, usize) {
     break_the_platform_for(&mut sim, LONG_S);
     settle(&mut sim, 2);
     let records = |sim: &Platformer2dSimHarness| {
-        sim.world()
-            .resource::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>(sim.world())
+        .expect("the session root carries the schedule")
             .records()
             .count()
     };
@@ -245,8 +246,8 @@ fn a_dormant_record_after_alices_death(bobs: bool) -> (Option<f32>, usize) {
     // The schedule is keyed by the room and the platform's authored id; the
     // room has one record, the platform's.
     let schedule_due = |sim: &Platformer2dSimHarness| {
-        sim.world()
-            .resource::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>()
+        ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::features::ecs::world_time_schedule::WorldTimeSchedule>(sim.world())
+        .expect("the session root carries the schedule")
             .records()
             .find(|((room, _), _)| room == ROOM)
             .map(|(_, due)| due)

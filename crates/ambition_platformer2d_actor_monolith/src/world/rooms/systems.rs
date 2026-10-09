@@ -79,7 +79,9 @@ pub fn detect_room_transition_system(
     // The room the crossing body is in: its own live room's definition, so
     // with two live rooms each body crosses its own room's zones (OW1 cut 6a).
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    sim_state: Res<ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
+    sim_state: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown,
+    >,
     portals: Res<GatePortalRegistry>,
     phases: Res<GatePortalPhases>,
     // The transition subjects are the DRIVEN bodies, one per seat: if a driven

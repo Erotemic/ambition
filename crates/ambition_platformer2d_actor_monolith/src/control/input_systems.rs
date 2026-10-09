@@ -31,7 +31,7 @@ pub struct InputTimersAdvanced;
 /// nothing with the two systems below but the clock.
 pub fn tick_room_transition_cooldown(
     world_time: Res<ambition_time::WorldTime>,
-    mut sim_state: ResMut<
+    mut sim_state: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown,
     >,
 ) {
@@ -667,5 +667,63 @@ mod interaction_suppression_tests {
     fn no_press_buffers_nothing() {
         assert!(!buffered_after(false, 0.0));
         assert!(!buffered_after(false, 1.0));
+    }
+}
+
+#[cfg(test)]
+mod room_transition_cooldown_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        require_on_session_root, session_world_component, session_world_component_mut,
+        CandidateSessionRoot, SessionRoot, SessionScopeId,
+    };
+    use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
+
+    /// ⭐ C03: TWO SESSION ROOTS HOLD TWO DOOR COUNTDOWNS. Session A's seat 0
+    /// waits after a crossing, and the countdown runs on A's root. A candidate
+    /// root B beside it holds none and changes none. After the swap the live
+    /// countdown is B's, with every seat free. Before C03 the countdown was an
+    /// App resource, and a reset at the session edge was what kept B from
+    /// starting inside A's wait.
+    #[test]
+    fn two_session_roots_hold_two_door_countdowns() {
+        let dt = 1.0 / 60.0;
+        let mut app = App::new();
+        app.insert_resource(ambition_time::WorldTime::new(dt, dt));
+        require_on_session_root::<RoomTransitionCooldown>(&mut app);
+        app.add_systems(Update, tick_room_transition_cooldown);
+        let wait = |app: &App| {
+            session_world_component::<RoomTransitionCooldown>(app.world()).map(|cooldown| cooldown.remaining(0))
+        };
+
+        let a = app.world_mut().spawn(SessionRoot(SessionScopeId(1))).id();
+        session_world_component_mut::<RoomTransitionCooldown>(app.world_mut())
+            .expect("A carries a countdown")
+            .hold(0, 1.0);
+        app.update();
+        let after_one_tick = wait(&app).expect("A carries a countdown");
+        assert!(
+            after_one_tick > 0.0 && after_one_tick < 1.0,
+            "precondition: A's seat 0 waits and its countdown runs, at {after_one_tick}"
+        );
+
+        let b = app.world_mut().spawn(CandidateSessionRoot(SessionScopeId(2))).id();
+        app.update();
+        assert!(
+            app.world().get::<RoomTransitionCooldown>(b).is_none(),
+            "a candidate root is not a session root, so it carries no countdown yet"
+        );
+        assert!(wait(&app).expect("A carries a countdown") < after_one_tick, "preparing a candidate stopped A's countdown");
+
+        app.world_mut().despawn(a);
+        app.world_mut().entity_mut(b).remove::<CandidateSessionRoot>();
+        app.world_mut().entity_mut(b).insert(SessionRoot(SessionScopeId(2)));
+        app.update();
+        assert_eq!(
+            wait(&app),
+            Some(0.0),
+            "B was born inside A's door countdown: seat 0 waits {:?}",
+            wait(&app)
+        );
     }
 }

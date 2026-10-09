@@ -76,7 +76,8 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
         app.world_mut(),
         set,
     );
-    app.insert_resource(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
         ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
     );
     app.insert_resource(GatePortalRegistry::default());
@@ -219,7 +220,8 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
         app.world_mut(),
         set,
     );
-    app.insert_resource(
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
         ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
     );
     app.insert_resource(GatePortalRegistry::default());
@@ -361,7 +363,10 @@ fn room_crossed_to(
 
     let mut app = App::new();
     ambition_platformer2d_world::rooms::insert_room_set(app.world_mut(), set);
-    app.insert_resource(ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default());
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
     app.insert_resource(GatePortalRegistry::default());
     // The live phase is its own resource (rollback state) since
     // `detect_room_transition_system` reads it.
@@ -1539,9 +1544,10 @@ fn app_with_a_door(
             app.world_mut(),
             set,
         );
-        app.insert_resource(
-            ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
-        );
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
         app.insert_resource(GatePortalRegistry::default());
         app.init_resource::<GatePortalPhases>();
         app.init_resource::<SlotInteractionState>();
@@ -1815,9 +1821,10 @@ fn a_crossing_reads_the_crossing_bodys_own_live_room() {
             b,
             ambition_platformer2d_shared_tangle::sim_id::SimId::singleton("session", "room_instance_1"),
         ));
-        app.insert_resource(
-            ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
-        );
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default(),
+    );
         app.insert_resource(GatePortalRegistry::default());
         app.init_resource::<GatePortalPhases>();
         app.init_resource::<SlotInteractionState>();

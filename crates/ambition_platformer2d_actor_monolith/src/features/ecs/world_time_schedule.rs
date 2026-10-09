@@ -52,7 +52,9 @@ use std::sync::Arc;
 use bevy::prelude::*;
 
 use ambition_combat::components::{BreakableFeature, Collected, FeatureId, PickupFeature, RespawnTimer};
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    session_world_component, FeatureSimEntity, SessionWorldMut, SessionWorldRef,
+};
 
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use crate::features::GameplayElapsed;
@@ -70,7 +72,11 @@ use crate::features::GameplayElapsed;
 /// records of every room that is not live stay here. A clone copies a pointer,
 /// a write copies the records only when a snapshot shares them, and the
 /// checksum is kept with the allocation it was computed from.
-#[derive(Resource, Clone, Debug, Default)]
+///
+/// A component of the session root (C03), beside the clock its due times are
+/// on: a new session's root is born with no record, so no reset is owed at a
+/// session edge.
+#[derive(Component, Clone, Debug, Default)]
 pub struct WorldTimeSchedule {
     due: Arc<Records>,
 }
@@ -235,15 +241,14 @@ impl WorldTimeSchedule {
 /// id, authored id): the records whose return is not yet due. A room commit
 /// reads it (`PersistedFates::with_scheduled_returns`).
 pub fn remaining_scheduled_returns(world: &World) -> BTreeMap<(String, String), f32> {
-    world
-        .get_resource::<WorldTimeSchedule>()
+    session_world_component::<WorldTimeSchedule>(world)
         .map_or_else(BTreeMap::new, |schedule| remaining_in(schedule, world))
 }
 
 /// [`remaining_scheduled_returns`] of `schedule`, which may be a copy: the
 /// schedule a commit will find after a change that has not happened yet.
 pub fn remaining_in(schedule: &WorldTimeSchedule, world: &World) -> BTreeMap<(String, String), f32> {
-    let Some(now) = world.get_resource::<GameplayElapsed>() else {
+    let Some(now) = session_world_component::<GameplayElapsed>(world) else {
         return BTreeMap::new();
     };
     schedule
@@ -263,14 +268,14 @@ pub fn remaining_in(schedule: &WorldTimeSchedule, world: &World) -> BTreeMap<(St
 /// frame, and only on a peer that loads. The rule is on values: no record,
 /// and a timer runs.
 pub fn mirror_breakable_respawns(
-    elapsed: Res<GameplayElapsed>,
+    elapsed: SessionWorldRef<GameplayElapsed>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     breakables: Query<
         (Entity, &FeatureId, &BreakableFeature, Option<&RespawnTimer>),
         With<FeatureSimEntity>,
     >,
     participants: Query<(Entity, &DrivingParticipant)>,
-    mut schedule: ResMut<WorldTimeSchedule>,
+    mut schedule: SessionWorldMut<WorldTimeSchedule>,
 ) {
     for (entity, feature, breakable, timer) in &breakables {
         let Some(definition) = rooms.definition_of(entity) else {
@@ -301,14 +306,14 @@ pub fn mirror_breakable_respawns(
 /// ⛔ NO CHANGE-TICK GATE, for the reason the breakable mirror gives.
 pub fn regrow_pickups(
     world_time: Res<ambition_time::WorldTime>,
-    elapsed: Res<GameplayElapsed>,
+    elapsed: SessionWorldRef<GameplayElapsed>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     mut pickups: Query<
         (Entity, &FeatureId, Has<Collected>, Option<&mut RespawnTimer>),
         (With<PickupFeature>, With<FeatureSimEntity>),
     >,
     participants: Query<(Entity, &DrivingParticipant)>,
-    mut schedule: ResMut<WorldTimeSchedule>,
+    mut schedule: SessionWorldMut<WorldTimeSchedule>,
     mut commands: Commands,
 ) {
     // The sim clock, as a breakable's respawn: the regrowth freezes in
@@ -382,7 +387,7 @@ pub fn forget_scheduled_returns_on_replay(
     mut replays: ambition_combat::events::AdmittedReplays,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     running: Query<Entity, (With<RespawnTimer>, With<FeatureSimEntity>)>,
-    mut schedule: ResMut<WorldTimeSchedule>,
+    mut schedule: SessionWorldMut<WorldTimeSchedule>,
     mut commands: Commands,
 ) {
     for replay in replays.read() {
@@ -408,7 +413,7 @@ pub fn forget_scheduled_returns_on_replay(
 /// spared and the commit does not.
 pub fn disown_scheduled_returns_on_restore(
     mut replays: ambition_combat::events::AdmittedReplays,
-    mut schedule: ResMut<WorldTimeSchedule>,
+    mut schedule: SessionWorldMut<WorldTimeSchedule>,
 ) {
     for replay in replays.read() {
         if replay.to_checkpoint {
@@ -427,7 +432,7 @@ pub fn forget_scheduled_returns_on_restore(
     inputs: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs>>,
     fresh: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::FreshRunRestore>>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    mut schedule: ResMut<WorldTimeSchedule>,
+    mut schedule: SessionWorldMut<WorldTimeSchedule>,
 ) {
     if inputs.is_none() {
         return;
@@ -446,6 +451,59 @@ pub fn forget_scheduled_returns_on_restore(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ⭐ C03: TWO SESSION ROOTS HOLD TWO CLOCKS AND TWO SCHEDULES. Session A is
+    /// live, its clock runs and it has a scheduled return. A candidate root B
+    /// beside it holds neither and changes neither. After the swap the live
+    /// clock is B's, counted from zero, and B has no record of A's. Before C03
+    /// both were App resources, and a reset at the session edge was what kept
+    /// B from reading A's.
+    #[test]
+    fn two_session_roots_hold_two_clocks_and_two_schedules() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            require_on_session_root, session_world_component_mut, CandidateSessionRoot, SessionRoot,
+            SessionScopeId,
+        };
+        let dt = 1.0 / 60.0;
+        let mut app = App::new();
+        app.insert_resource(ambition_time::WorldTime::new(dt, dt));
+        require_on_session_root::<GameplayElapsed>(&mut app);
+        require_on_session_root::<WorldTimeSchedule>(&mut app);
+        app.add_systems(Update, crate::features::advance_gameplay_elapsed);
+        let clock = |app: &App| session_world_component::<GameplayElapsed>(app.world()).map(|clock| clock.0);
+        let records = |app: &App| {
+            session_world_component::<WorldTimeSchedule>(app.world()).map(|schedule| schedule.records().count())
+        };
+
+        let a = app.world_mut().spawn(SessionRoot(SessionScopeId(1))).id();
+        for _ in 0..3 {
+            app.update();
+        }
+        session_world_component_mut::<WorldTimeSchedule>(app.world_mut())
+            .expect("A carries a schedule")
+            .record("hall", "crate", 5.0, &[PlayerSlot::PRIMARY]);
+        assert_eq!((clock(&app), records(&app)), (Some(dt + dt + dt), Some(1)), "precondition: A ran and scheduled");
+
+        let b = app.world_mut().spawn(CandidateSessionRoot(SessionScopeId(2))).id();
+        app.update();
+        assert!(
+            app.world().get::<GameplayElapsed>(b).is_none() && app.world().get::<WorldTimeSchedule>(b).is_none(),
+            "a candidate root is not a session root, so it carries no clock yet"
+        );
+        assert_eq!((clock(&app), records(&app)), (Some(dt + dt + dt + dt), Some(1)), "preparing a candidate changed A");
+
+        app.world_mut().despawn(a);
+        app.world_mut().entity_mut(b).remove::<CandidateSessionRoot>();
+        app.world_mut().entity_mut(b).insert(SessionRoot(SessionScopeId(2)));
+        app.update();
+        assert_eq!(
+            (clock(&app), records(&app)),
+            (Some(dt), Some(0)),
+            "B was born with A's clock or schedule: the live session counts from {:?} with {:?} record(s)",
+            clock(&app),
+            records(&app)
+        );
+    }
 
     /// A record answers how long a breakable stays broken, and nothing once
     /// it is due.

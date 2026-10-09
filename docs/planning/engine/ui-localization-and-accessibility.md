@@ -33,9 +33,9 @@ mechanics-specific accessibility.
 
 Today the shell-level `UserSettings` (`ambition_persistence::settings`) also
 holds the game-owned group `gameplay` (difficulty, assist, player damage,
-portal facing). Move that group to the game when the settings admission work
-([SETTINGS-ROLLBACK](../queue.md#settings-rollback--finish-the-settingsmechanics-admission-boundary))
-is picked up.
+portal facing). Move that group to the game (`Q68`). Nothing blocks the move:
+the admission road the group feeds is built
+([SETTINGS-ROLLBACK](../queue.md#settings-rollback--a-settings-change-reaches-simulation-only-at-an-admitted-rebase---done-2026-10-08)).
 
 ## Triggered localization/accessibility backlog
 

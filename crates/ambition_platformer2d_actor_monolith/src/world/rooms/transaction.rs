@@ -2152,19 +2152,25 @@ fn verify_and_publish(
                 );
             }
         }
-        None if shell_routed => {
-            // A shell-routed composition owes this state on its root. Publishing
-            // here would admit a room whose staleness nothing checked.
+        // A root that a room publishes into owes its binding in every
+        // composition (C07): a direct host's session setup states one as a
+        // shell session's does. Measured 2026-10-08 with a probe on this arm: the
+        // SDK host tests verify 29 rooms in direct compositions and the shipped
+        // app and the three demo suites 2,302 shell-routed ones, and each root
+        // held a binding. Publishing here would admit a room whose staleness
+        // nothing checked.
+        None if shell_routed || publishing_into.is_some() => {
             bevy::log::error!(
                 target: "ambition_platformer2d::construction",
-                "room `{room_id}` cannot be verified: this composition routes \
-                 gameplay through a shell session, so `ActiveContentBinding` is a \
-                 canonical authority its session root must hold, and it is absent"
+                "room `{room_id}` cannot be verified: `ActiveContentBinding` is a \
+                 canonical authority of the session root the room publishes into, \
+                 and it is absent"
             );
             refuse(world, room_id);
             return;
         }
-        // A direct-entry fixture states no binding and means it.
+        // A direct-entry fixture with no session root states no binding and
+        // means it: there is no generation for the room to be stale against.
         None => {}
     }
     violations.sort_by_key(|violation| format!("{violation:?}"));

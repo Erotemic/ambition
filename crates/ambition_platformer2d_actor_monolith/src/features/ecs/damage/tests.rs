@@ -218,14 +218,17 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         register_hit_pipeline_messages(&mut app);
         // ⭐ THE WHOLE ROAD, not the resource the system reads. The slider is set
         // on `UserSettings` exactly as the settings screen sets it, and
-        // `project_player_damage_policy` — the host-side stage that resolves it —
-        // runs chained ahead of the consumer. A fixture that wrote
+        // the propose and publish pair that resolves it runs chained ahead of
+        // the consumer. A fixture that wrote
         // `PlayerDamagePolicy` directly would still pass with the projection
         // deleted, which is the half of this migration worth guarding.
+        app.init_resource::<ambition_damage::ProposedPlayerDamagePolicy>();
+        app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
         app.add_systems(
             Update,
             (
-                ambition_damage::project_player_damage_policy,
+                ambition_damage::propose_player_damage_policy,
+                ambition_damage::publish_player_damage_policy,
                 apply_feature_hit_events,
             )
                 .chain(),

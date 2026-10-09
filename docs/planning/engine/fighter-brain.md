@@ -434,9 +434,9 @@ measures the engine floor, where every rung has the same utility weights (v1).
 `the_ladder_the_demo_runs.rs` pins both facts; update this section when either
 changes.
 
-The maintainer decision about which authority should remain lives in
-[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md).
-Until resolved, every calibration receipt must name the ladder source explicitly.
+Q88 (2026-10-03) decided which authority remains: the brain owns the knobs,
+and Smash content owns the ladder (see F1). Until the demo installs one, every
+calibration receipt must name the ladder source explicitly.
 
 ### `read_weight` is deleted (Q90, 2026-10-08)
 
@@ -475,10 +475,34 @@ becomes game content. Neither is an AI architecture question.
 
 ## Current work
 
-### F1 — resolve the ladder authority decision
+### F1 — the authored ladder is the authority (Q88, 2026-10-03)
 
-Choose whether the authored content ladder is the required game authority or
-whether a reusable engine-floor ladder remains a supported production policy.
+Q88 decided it: the generic brain exposes the knobs, and Smash rules/content own
+the mapping from "CPU level N" to them. Two facts still disagree with it
+(measured 2026-10-08):
+
+- `FighterBrainProfile::for_level` is a level curve in the brain crate, and 13
+  production sites fall back to it when no ladder is installed. It is the "Smash
+  difficulty curve" that Q88 says another game must not inherit.
+- The Smash demo installs no ladder (`the_ladder_the_demo_runs.rs`), so the demo
+  and its rig play that curve, not Smash content.
+
+The move: the Smash demo pack lists the ladder file and the demo installs it
+from its pack; the shipped game's pack names the same file (a pack source may
+leave its root, as George's facet does), so there is one file; then the
+engine floor becomes one level-free default profile. Each step changes what a
+CPU does, so each re-measures the rig with the ladder named.
+
+⛔ The install cannot be a second `insert_resource`. `ambition_app` composes
+`ambition_demo_smash`, so the shipped game would have two installers of the
+one App-global `AuthoredFighterLadder` (`ambition_content`'s plugin and reload,
+and Smash's plugin), and the later one would win. The ladder is a rule of the
+rooms it governs. Smash already declares its combat rules with
+`declare_rules(RulesScope::Mode(SMASH_MODE), ..)`, and `RulesOf<T>::of(entity)`
+answers per room. So the step is: the ladder becomes a scoped rule;
+`project_authored_fighter_ladder` reads it for each brain's room; Smash
+declares its pack's rows for its mode; the content reload republishes a
+scoped declaration, not the resource. Measured 2026-10-08.
 
 Whichever survives:
 

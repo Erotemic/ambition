@@ -2626,7 +2626,10 @@ fn a_candidate_session_does_not_retire_the_playing_sessions_world() {
     });
     let mut handed_over = false;
     let mut lost = std::collections::BTreeSet::new();
-    for _ in 0..240 {
+    // Bounded by the shared wall-clock ceiling, not by a frame count: the
+    // loop ends at the handoff, and the frames it takes vary with load.
+    let started = std::time::Instant::now();
+    while started.elapsed() < crate::common::ACTIVATION_CEILING {
         app.update();
         match scope(&app) {
             // ⛔ THE ONLY FRAMES THIS ARM JUDGES. Once the active scope has
@@ -2695,7 +2698,14 @@ fn a_shell_handoff_publishes_the_incoming_sessions_room() {
         route: gameplay,
         request: None,
     });
-    for _ in 0..240 {
+    // Until the activation id moves (the handoff), under the shared ceiling,
+    // then the settle frames; the assertion below names a handoff that never
+    // came.
+    let started = std::time::Instant::now();
+    while activation_id(&app) == before && started.elapsed() < crate::common::ACTIVATION_CEILING {
+        app.update();
+    }
+    for _ in 0..crate::common::SETTLE_FRAMES_AFTER_ACTIVATION {
         app.update();
     }
     let after = activation_id(&app);

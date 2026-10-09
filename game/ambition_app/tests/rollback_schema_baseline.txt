@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v336
+ggrs-rollback-schema-v337
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -173,6 +173,7 @@ derived.gated_lock_wall_verdicts	derived	GatedLockWallVerdicts	why each authored
 derived.global_transform	derived	GlobalTransform	Bevy transform propagation rebuilds it from Transform and hierarchy
 derived.gravity_zones	derived	GravityZones	rebuilt from authoritative GravityZone components before body integration
 derived.input_stream_recorder	derived	InputStreamRecorder	tick-addressed recording: a resimulation rewrites its own tail, so the stream needs no restore — and snapshotting it made frame N cost N
+derived.navigation_advice	derived	NavigationAdvice	rebuilt in the Observe phase from the room's surface graph, each body and its brain's goal
 derived.nearest_interactable	derived	NearestInteractable	proximity read model recomputed per frame
 derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt every tick before brains read it
 derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
@@ -187,6 +188,7 @@ derived.resolved_motion_frame	derived	ResolvedMotionFrame	published every tick f
 derived.resolved_switch_activations	derived	ResolvedSwitchActivations	this tick's drained switch activations with their post-toggle values; rebuilt every drain
 derived.resolved_technique_edges	derived	ResolvedTechniqueEdges	cleared and republished from current input every frame
 derived.room_combat_tuning	derived	RoomCombatTuning	refolded on each live room root from that room's CombatRules over the world baseline every WorldPrep
+derived.room_navigation	derived	RoomNavigation	a cache of surface graphs, each a pure function of a room's authored geometry and a body's tuning
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
 derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
 derived.wallet_shield	derived	BodyWalletShield	re-derived from the worn character and the room's rules every tick, before any hit is resolved

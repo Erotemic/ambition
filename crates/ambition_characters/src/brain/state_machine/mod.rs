@@ -19,7 +19,9 @@ use ambition_platformer2d_core as ae;
 use super::smash::{SmashCfg, SmashState};
 use super::snapshot::BrainSnapshot;
 
+pub mod nav_follower;
 pub mod roam;
+pub use nav_follower::{Followed, NavFollower};
 pub use roam::{RoamCfg, RoamState};
 
 // ===== Top-level state-machine variant =====

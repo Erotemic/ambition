@@ -1121,7 +1121,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 335 -> 336: the `actor.brain` cursor (`Brain`) encodes the state of a
 /// `Roam` brain (tag 4): its goal, its leg and phase, the end of its rest, its
 /// count of choices and its failed legs. Payload only; no key moved.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 336;
+/// ⛔⛤ 336 -> 337: the `Roam` arm of the `actor.brain` cursor encodes its route
+/// follower (`NavFollower`) whole, with the follower's own leg clock: one more
+/// `f32`. Two derived resources are declared: `derived.navigation_advice` and
+/// `derived.room_navigation`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 337;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

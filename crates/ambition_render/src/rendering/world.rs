@@ -12,7 +12,7 @@ use bevy::sprite::Anchor;
 use super::label_layout::WorldLabelFamily;
 use super::nameplates::DoorNameplateSource;
 use super::primitives::{
-    block_color, feature_color, feature_z, spawn_world_label, BlockArt, BlockVisual, FeatureVisual,
+    block_color, feature_color, feature_z, spawn_world_label, EntityArt, BlockVisual, FeatureVisual,
     LockWallVisual, PropVisual, RoomVisual,
 };
 use ambition_platformer2d_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
@@ -738,7 +738,7 @@ fn tiled_block_stretch(render: BVec2, source_px: f32) -> f32 {
 /// identity. Do not despawn and respawn instead.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoundEntitySprite {
-    // `pub(crate)`: `apply_block_art` rewrites this when a game names its own
+    // `pub(crate)`: `apply_entity_art` rewrites this when a game names its own
     // art for a block. The asset-reload refresher reads it back.
     pub(crate) key: game_assets::EntitySprite,
 }
@@ -749,29 +749,30 @@ impl BoundEntitySprite {
     }
 }
 
-/// Apply game-authored [`BlockArt`] over the kind-derived block presentation.
+/// Apply game-authored [`EntityArt`] over the kind-derived presentation of a
+/// block or a door.
 ///
 /// Update `BoundEntitySprite` as well as `Sprite`, so asset reloads keep the
 /// resolved binding. Blocks without authored art keep their kind texture.
 /// Clear the placeholder tint when named art takes over: `Sprite::color`
 /// multiplies the image.
-pub fn apply_block_art(
+pub fn apply_entity_art(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     mut blocks: Query<
         (
             Entity,
-            &BlockArt,
+            &EntityArt,
             Option<&mut BoundEntitySprite>,
             &mut Sprite,
         ),
-        Or<(Changed<BlockArt>, Added<BoundEntitySprite>)>,
+        Or<(Changed<EntityArt>, Added<BoundEntitySprite>)>,
     >,
 ) {
     let Some(assets) = assets else {
         return;
     };
-    for (entity, BlockArt(art), bound, mut sprite) in &mut blocks {
+    for (entity, EntityArt(art), bound, mut sprite) in &mut blocks {
         match bound {
             Some(mut bound) => {
                 if bound.key != *art {
@@ -791,7 +792,7 @@ pub fn apply_block_art(
         // for specific art, so its absence must be reported, not silent.
         let Some(handle) = assets.entities.get(*art) else {
             warn!(
-                "BlockArt names {art:?}, which is not in `GameAssets.entities` — \
+                "EntityArt names {art:?}, which is not in `GameAssets.entities` — \
                  the block keeps its BlockKind's texture. The sprite is declared \
                  but its image never reached this composition's catalog."
             );
@@ -845,14 +846,14 @@ pub fn spawn_block(
     let render = BVec2::new(size.x, size.y);
     // Tiled surfaces repeat the kind's tile at native scale so visible edges
     // match collision edges. Point objects may use prop art. Missing art falls
-    // back to a coloured quad. `BlockArt` can replace the default later.
+    // back to a coloured quad. `EntityArt` can replace the default later.
     let tile_key = game_assets::block_tile_sprite(block.kind);
     let is_tiled_surface = tile_key.is_some();
     let sprite_key = tile_key.or_else(|| game_assets::point_block_sprite(block.kind));
     // An authored placeholder colour wins over every art path at spawn: the
     // shape has no sprite yet. Read it before the art lookup so no texture is
     // bound, and `refresh_entity_sprite_handles_on_game_assets_change` cannot
-    // paint over it on an asset reload. `apply_block_art` creates a binding
+    // paint over it on an asset reload. `apply_entity_art` creates a binding
     // when a game names art for this block.
     let placeholder = block
         .art_color

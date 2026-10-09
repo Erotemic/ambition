@@ -34,6 +34,7 @@ audits; Git history keeps them.
 | Portals | [`portals.md`](portals.md) |
 | Transition spawn validation | [`transition-spawn-validation.md`](transition-spawn-validation.md) |
 | Parallax | [`parallax-backgrounds.md`](parallax-backgrounds.md) |
+| Room looks | [`room-looks.md`](room-looks.md) |
 | Boss profiles/encounters | [`boss-behavior-profiles.md`](boss-behavior-profiles.md), [`boss-encounter-architecture.md`](boss-encounter-architecture.md) |
 | Factions | [`factions.md`](factions.md) |
 | Developer tools | [`developer-tools.md`](developer-tools.md) |

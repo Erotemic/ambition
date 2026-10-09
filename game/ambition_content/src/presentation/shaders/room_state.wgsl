@@ -612,9 +612,9 @@ fn underside(p: vec2<f32>) -> vec4<f32> {
             return vec4<f32>(vec3<f32>(0.300, 0.395, 0.585) * fold, 1.0);
         }
     }
-    // Light leaks out of the underside of a corrupted platform.
-    let air = air_state(p);
-    if air < 0.05 || l.x < 0.0 || l.x >= w || l.y < 0.0 {
+    // What falls from a platform. Water on the clean side, light on the
+    // corrupted side: the same streams, at the same places.
+    if l.x < 0.0 || l.x >= w || l.y < 0.0 {
         return vec4<f32>(0.0);
     }
     let col_i = floor(l.x / 40.0);
@@ -630,9 +630,27 @@ fn underside(p: vec2<f32>) -> vec4<f32> {
     }
     let dx = abs(l.x - cx);
     let fall = pow(1.0 - l.y / len, 1.6);
+    let air = air_state(p);
+    // Light.
     let flow = 0.62 + 0.38 * sin(l.y * 0.12 - t * 6.0 + r * 6.283);
-    let a = fall * flow * (smoothstep(1.4, 0.3, dx) + exp(-dx / 5.0) * 0.32) * air;
-    return vec4<f32>(select(MAGENTA, CYAN, r > 0.82) + vec3<f32>(0.25 * fall), clamp(a, 0.0, 1.0));
+    let light_a = fall * flow * (smoothstep(1.4, 0.3, dx) + exp(-dx / 5.0) * 0.32) * air;
+    let light = select(MAGENTA, CYAN, r > 0.82) + vec3<f32>(0.25 * fall);
+    // Water: a thin fall that widens, with streaks that run down it, and
+    // mist where it ends. Half of the streams only.
+    var water_a = 0.0;
+    if r < 0.5 {
+        let width = 1.6 + 3.2 * (l.y / len);
+        let streak = 0.55 + 0.45 * value_noise(vec2<f32>(l.x * 3.0, l.y - t * 150.0), 9.0, 683u);
+        let body = smoothstep(width, width - 1.4, dx) * streak * (0.35 + 0.50 * fall);
+        let mist = exp(-dx / 16.0) * smoothstep(len * 0.55, len, l.y) * 0.30;
+        water_a = max(body, mist) * (1.0 - air);
+    }
+    let water = vec3<f32>(0.930, 0.965, 1.000);
+    let a = max(light_a, water_a);
+    if a <= 0.001 {
+        return vec4<f32>(0.0);
+    }
+    return vec4<f32>(mix(water, light, light_a / a), clamp(a, 0.0, 1.0));
 }
 
 // ---------------------------------------------------------------- portal --

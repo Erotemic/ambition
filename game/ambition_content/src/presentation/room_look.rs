@@ -23,6 +23,9 @@
 //! | `clean_corrupted` | [`RoomStateMaterial`]: one architecture in two states. The corrupted state is DERIVED in the shader from the same construction as the clean state, and a scalar field with a blocky front decides which state a point shows. |
 //! | `debug_beautiful` | [`RoomBlueprintMaterial`]: the collision truth of the room, drawn as a drawing. A solid is a closed outline, a one-way platform has an open underside. |
 //!
+//! A look also chooses the door of the room ([`RoomLook::door_art`]), with the
+//! renderer's `EntityArt` seam.
+//!
 //! The original block sprites stay under the surface quads. If a material does
 //! not draw, the room looks as it did before.
 
@@ -43,7 +46,10 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, LoadingZoneActivation, RoomSpec};
 use ambition_render::rendering::label_layout::{MirroredWorldLabel, StaticWorldLabel, WorldLabel};
-use ambition_render::rendering::{BlockVisual, RoomVisual, DOOR_SPRITE_ASPECT};
+use ambition_render::rendering::{
+    BlockVisual, EntityArt, LoadingZoneVisual, RoomVisual, DOOR_SPRITE_ASPECT,
+};
+use ambition_sprite_sheet::game_assets::EntitySprite;
 
 /// Above the parallax panels (`-18.0..=-15.0`), below the blocks.
 const BACKDROP_Z: f32 = -14.5;
@@ -101,6 +107,9 @@ pub trait RoomLook: Material2d {
     /// - `front`: a point on the room's front (`x, y`) and its normal
     ///   (`z, w`).
     fn window(piece: Vec4, room: Vec4, front: Vec4) -> Self;
+
+    /// The door this look gives to a door at `at` in `world`.
+    fn door_art(world: &ae::World, at: ae::Vec2) -> EntitySprite;
 }
 
 /// One architecture in two states: clean and corrupted.
@@ -131,6 +140,14 @@ impl RoomLook for RoomStateMaterial {
     fn window(piece: Vec4, room: Vec4, front: Vec4) -> Self {
         Self { piece, room, front }
     }
+
+    fn door_art(world: &ae::World, at: ae::Vec2) -> EntitySprite {
+        if behind_front(world, at) > 0.0 {
+            EntitySprite::DoorVoxel
+        } else {
+            EntitySprite::DoorStone
+        }
+    }
 }
 
 /// The collision truth of a room, drawn as a drawing.
@@ -160,6 +177,10 @@ impl RoomLook for RoomBlueprintMaterial {
 
     fn window(piece: Vec4, room: Vec4, front: Vec4) -> Self {
         Self { piece, room, front }
+    }
+
+    fn door_art(_world: &ae::World, _at: ae::Vec2) -> EntitySprite {
+        EntitySprite::DoorBlueprint
     }
 }
 
@@ -222,6 +243,7 @@ where
             .run_if(resource_exists::<Assets<Mesh>>)
             .run_if(resource_exists::<Assets<M>>),
     );
+    app.add_systems(Update, dress_doors::<M>.run_if(resource_exists::<Assets<M>>));
 }
 
 /// Whether a room asks for the look `M`.
@@ -234,6 +256,74 @@ fn asks_for<M: RoomLook>(spec: &RoomSpec) -> bool {
 fn room_front(world: &ae::World) -> Vec4 {
     let normal = Vec2::new(1.0, 0.32).normalize();
     Vec4::new(world.size.x * 0.5, world.size.y * 0.5, normal.x, normal.y)
+}
+
+/// How far `at` is behind the front of `world`, in world px. Positive is the
+/// corrupted side of the two-state look.
+///
+/// The shader is the authority on the front (`field` in `room_state.wgsl`).
+/// This is its part that does not move: the plane and the large wobble. The
+/// part that moves is at most 65 px, so a sign or a door that close to the
+/// front can be dressed for the other side.
+fn behind_front(world: &ae::World, at: ae::Vec2) -> f32 {
+    let front = room_front(world);
+    let wobble = (value_noise(Vec2::new(at.x, at.y), 260.0, 7) - 0.5) * 260.0;
+    (at.x - front.x) * front.z + (at.y - front.y) * front.w + wobble
+}
+
+/// `rand_cell` of `room_look_common.wgsl`: a value in `[0, 1)` for one
+/// integer cell. The two must agree bit for bit.
+fn rand_cell(cell: Vec2, salt: u32) -> f32 {
+    let x = cell.x.floor() as i32 as u32;
+    let y = cell.y.floor() as i32 as u32;
+    let mut h = x.wrapping_mul(1_597_334_677)
+        ^ y.wrapping_mul(3_812_015_801)
+        ^ salt.wrapping_mul(668_265_263);
+    h ^= h >> 16;
+    h = h.wrapping_mul(0x7feb_352d);
+    h ^= h >> 15;
+    h = h.wrapping_mul(0x846c_a68b);
+    h ^= h >> 16;
+    (h >> 8) as f32 * (1.0 / 16_777_216.0)
+}
+
+/// `value_noise` of `room_look_common.wgsl`.
+fn value_noise(p: Vec2, scale: f32, salt: u32) -> f32 {
+    let g = p / scale;
+    let i = g.floor();
+    let f = g - i;
+    let f = f * f * (Vec2::splat(3.0) - 2.0 * f);
+    let a = rand_cell(i, salt);
+    let b = rand_cell(i + Vec2::X, salt);
+    let c = rand_cell(i + Vec2::Y, salt);
+    let d = rand_cell(i + Vec2::ONE, salt);
+    (a + (b - a) * f.x) * (1.0 - f.y) + (c + (d - c) * f.x) * f.y
+}
+
+/// Give each door of a room that asks for the look `M` the door of that look.
+fn dress_doors<M: RoomLook>(
+    mut commands: Commands,
+    rooms: LiveRoomSpecs,
+    doors: Query<(Entity, &LoadingZoneVisual, &InRoomInstance), Added<LoadingZoneVisual>>,
+) {
+    for (entity, visual, stamp) in &doors {
+        let Some((_, definition)) = rooms.live_rooms().find(|(room, _)| *room == stamp.0) else {
+            continue;
+        };
+        let spec = rooms.rooms().spec(definition);
+        if !asks_for::<M>(spec) {
+            continue;
+        }
+        let Some(zone) = spec.loading_zones.iter().find(|zone| {
+            zone.id == visual.id && matches!(zone.activation, LoadingZoneActivation::Door)
+        }) else {
+            continue;
+        };
+        // `try_insert`: a room visual can leave before the command flush.
+        commands
+            .entity(entity)
+            .try_insert(EntityArt(M::door_art(&spec.world, zone.aabb.center())));
+    }
 }
 
 /// Give each live room that asks for the look `M` its quads, stamped with the
@@ -417,11 +507,9 @@ fn ink_labels_on_the_clean_side(
             continue;
         }
         let world = &spec.world;
-        let front = room_front(world);
         let at = ae::config::bevy_size_to_world(world.size, ae::Vec2::new(label.anchor.x, label.anchor.y));
-        let behind_front = (at.x - front.x) * front.z + (at.y - front.y) * front.w;
         // The air is pale until about here (`air_state` in the shader).
-        if behind_front > -60.0 {
+        if behind_front(world, at) > -60.0 {
             continue;
         }
         label.text_color = INK_TEXT;

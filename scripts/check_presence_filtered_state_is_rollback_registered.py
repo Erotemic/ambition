@@ -155,9 +155,10 @@ WAIVERS = {
         "`ActorOverlaySet`"
     ),
     "PresentedRoomLook": (
-        "one site, `present_room_look` (`presentation/room_look.rs`), "
-        "registered in `Update` in `SessionScopeSet::Presentation`; the marker is "
-        "the memo that a live room's look quads are spawned, and it leaves "
+        "two sites in `presentation/room_look.rs`, both `Update`: "
+        "`present_room_look` (`SessionScopeSet::Presentation`) reads it as the "
+        "memo that a live room's look quads are spawned, and "
+        "`retire_looks_out_of_budget` despawns the quads it marks; it leaves "
         "with the room as `PresentedRoomVisuals` does in the renderer"
     ),
     "BossDrawnCell": (

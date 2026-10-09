@@ -68,18 +68,21 @@ pub struct BlockVisual {
     pub geo_id: ambition_platformer2d_core::GeoId,
 }
 
-/// This block's art, chosen by the game instead of by its `BlockKind`.
+/// This visual's art, chosen by the game instead of by its kind.
 ///
-/// `spawn_block` resolves art from `BlockKind` alone
-/// (`block_tile_sprite(Solid) -> SolidTile`), so a bonus block, a used bonus
-/// block, and a wall would share one texture. `art_color` can only say "no art
-/// yet" (a flat quad). The identity can also change during play (a `?` block
-/// becomes a used block), which a spawn-time field on `ae::Block` cannot
-/// express.
+/// A room visual resolves its art from its kind alone
+/// (`block_tile_sprite(Solid) -> SolidTile`, `loading_zone_sprite(Door) ->
+/// DoorZone`), so a bonus block, a used bonus block, and a wall would share
+/// one texture, and every door would be one door. `art_color` can only say
+/// "no art yet" (a flat quad). The identity can also change during play (a
+/// `?` block becomes a used block), which a spawn-time field on `ae::Block`
+/// cannot express.
+///
+/// It applies to each visual that has a `BoundEntitySprite`: a block, a door.
 ///
 /// Presentation only. Collision never reads it, like `art_color`.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
-pub struct BlockArt(pub ambition_sprite_sheet::game_assets::EntitySprite);
+pub struct EntityArt(pub ambition_sprite_sheet::game_assets::EntitySprite);
 
 #[derive(Component)]
 pub struct FeatureVisual {

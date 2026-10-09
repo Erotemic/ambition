@@ -4,7 +4,7 @@
 //! updates, permanently. The level paints its stone (now the `block_color`
 //! level field of `mary_o_1_2` in the LDtk file) and `spawn_block` read that authored colour as *"content has said this
 //! shape has no sprite yet"*, dropped the sprite key on the floor and therefore
-//! attached no `BoundEntitySprite`. `apply_block_art`, the ONE system that
+//! attached no `BoundEntitySprite`. `apply_entity_art`, the ONE system that
 //! changes a block's picture mid-run, queries `&mut BoundEntitySprite`. No
 //! binding, no match, no repaint — ever.
 //!

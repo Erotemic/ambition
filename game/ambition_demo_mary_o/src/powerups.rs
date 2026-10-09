@@ -1160,7 +1160,7 @@ fn power_transition_sfx(from: &str, to: &str) -> Option<&'static str> {
 /// despawn with the room.
 /// Dress her bonus blocks so a player can see which ones still hold something.
 ///
-/// `BlockArt` is that seam: this attaches it to a LIVE block and removes it from a spent one, which
+/// `EntityArt` is that seam: this attaches it to a LIVE block and removes it from a spent one, which
 /// falls back to the kind's plain tile — exactly the block a used one becomes, so the used state
 /// needs no art of its own.
 ///
@@ -1178,7 +1178,7 @@ pub fn dress_power_blocks(
     blocks: Query<(
         Entity,
         &ambition_platformer2d::render::rendering::BlockVisual,
-        Option<&ambition_platformer2d::render::rendering::BlockArt>,
+        Option<&ambition_platformer2d::render::rendering::EntityArt>,
     )>,
 ) {
     // ⛔ NOT THROUGH `content`, WHICH IS FEATURE-GATED. `EntitySprite` is sprite
@@ -1187,7 +1187,7 @@ pub fn dress_power_blocks(
     // also names it. This demo enables no `content_pack` feature, so it compiled
     // only when something else in the workspace unified the feature on: `cargo
     // build -p ambition_demo_mary_o` alone has been red on main.
-    use ambition_platformer2d::render::rendering::BlockArt;
+    use ambition_platformer2d::render::rendering::EntityArt;
     use ambition_platformer2d::sprite_sheet::game_assets::EntitySprite;
     for (entity, visual, art) in &blocks {
         // the block's own NAME says what it is. This asked two index tables whether the id
@@ -1204,18 +1204,18 @@ pub fn dress_power_blocks(
         // exactly the beat. A `Brick` is still not dressed at all: its look is
         // the room's, not this dresser's.
         let want = match look {
-            Some(MaryOBlockLook::Question) => Some(BlockArt(if is_spent {
+            Some(MaryOBlockLook::Question) => Some(EntityArt(if is_spent {
                 EntitySprite::SpentBlockTile
             } else {
                 EntitySprite::BonusBlockTile
             })),
             Some(MaryOBlockLook::Hidden) if is_spent => {
-                Some(BlockArt(EntitySprite::SpentBlockTile))
+                Some(EntityArt(EntitySprite::SpentBlockTile))
             }
             // Unspent bricks keep room-authored art/color so they remain visually
             // indistinguishable from masonry. Once a brick pays out, give it the
             // spent-block texture; empty bricks shatter instead of reaching `spent`.
-            Some(MaryOBlockLook::Brick) if is_spent => Some(BlockArt(EntitySprite::SpentBlockTile)),
+            Some(MaryOBlockLook::Brick) if is_spent => Some(EntityArt(EntitySprite::SpentBlockTile)),
             Some(MaryOBlockLook::Brick) => None,
             _ => None,
         };
@@ -2849,7 +2849,7 @@ mod block_dressing_tests {
 
     use super::*;
     use crate::ldtk_vocabulary::{MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup};
-    use ambition_platformer2d::render::rendering::{BlockArt, BlockVisual};
+    use ambition_platformer2d::render::rendering::{EntityArt, BlockVisual};
     use ambition_platformer2d::sprite_sheet::game_assets::EntitySprite;
     use bevy::prelude::{App, Entity, Update};
 
@@ -2866,7 +2866,7 @@ mod block_dressing_tests {
     }
 
     fn art(app: &App, entity: Entity) -> Option<EntitySprite> {
-        app.world().get::<BlockArt>(entity).map(|art| art.0)
+        app.world().get::<EntityArt>(entity).map(|art| art.0)
     }
 
     #[test]

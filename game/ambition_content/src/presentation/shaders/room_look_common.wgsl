@@ -109,6 +109,30 @@ fn sky_line_distance(q: vec2<f32>, turn: f32) -> f32 {
     return dist;
 }
 
+/// A floating island on a sparse lattice: a flat top and steps that go in
+/// below it. `x` = 1.0 inside the island, `y` = the depth below its top in px,
+/// `z` = a value in [0, 1) for the island.
+fn island(q: vec2<f32>) -> vec3<f32> {
+    let period = vec2<f32>(300.0, 230.0);
+    let cell = floor(q / period);
+    let r = rand_cell(cell, 60u);
+    if r > 0.42 {
+        return vec3<f32>(0.0);
+    }
+    let centre = (cell + vec2<f32>(0.25 + 0.5 * rand_cell(cell, 61u), 0.3 + 0.4 * rand_cell(cell, 62u))) * period;
+    let half_w = 26.0 + 44.0 * rand_cell(cell, 63u);
+    let depth = half_w * (0.9 + 0.6 * rand_cell(cell, 64u));
+    let o = q - centre;
+    if o.y < 0.0 || o.y > depth || abs(o.x) > half_w {
+        return vec3<f32>(0.0);
+    }
+    let k = floor(o.y / 12.0) * 12.0 / depth;
+    if abs(o.x) > half_w * (1.0 - k) * (1.0 - 0.25 * k) {
+        return vec3<f32>(0.0);
+    }
+    return vec3<f32>(1.0, o.y, r / 0.42);
+}
+
 /// `a` modulo `b`, in `[0, b)` for a negative `a` also.
 fn pmod(a: f32, b: f32) -> f32 {
     return a - b * floor(a / b);

@@ -135,3 +135,78 @@ fn woken_boss_moves_and_stays_afloat() {
          pattern's desired velocity is not reaching the integrator"
     );
 }
+
+/// ⭐ A4: THE FRAME A HELD BOSS INTEGRATES UNDER IS THE GATED ONE.
+///
+/// The control gate blanks the frame of every body a script holds
+/// (`blank_scripted_control_frames`, for `ControlHolds`). The boss brain wrote
+/// its frame after the gate, after actor integration, so a held boss
+/// integrated under its brain's intent. Nothing writes a boss's frame after its
+/// integration, so the frame read after a step is the one it integrated under.
+///
+/// The control is the same boss without the hold: its brain writes a
+/// non-neutral frame in this fixture, so "neutral" below is the gate and not a
+/// sleeping brain.
+///
+/// ⚠ The PATH cannot tell the two apart here: in this fixture the brain's
+/// `velocity_target` does not move the axis-swept body (measured 2026-10-09:
+/// 174.0 px of path, held or not, all of it the motion model's own hover).
+#[test]
+fn the_frame_a_held_boss_integrates_under_is_the_gated_one() {
+    use ambition_platformer2d::characters::control::{ActorControl, ControlHold, ControlHolds};
+    const FRAMES: usize = 60;
+    for held in [false, true] {
+        let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+            .expect("sandbox sim builds");
+        let start = read_player_pos(sim.world_mut());
+        sim.spawn_boss_at(
+            "test_held_boss",
+            "mockingbird",
+            (start.x, start.y - 60.0),
+            (30.0, 30.0),
+            BossBrain::PhaseScript {
+                script_id: "mockingbird".to_string(),
+            },
+        );
+        let boss = {
+            let world = sim.world_mut();
+            let mut q = world
+                .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<BossConfig>>();
+            q.iter(world).next().expect("boss spawned")
+        };
+        if held {
+            sim.world_mut()
+                .entity_mut(boss)
+                .insert(ControlHolds::only(ControlHold::Sequence));
+        }
+        let mut driven = 0usize;
+        for _ in 0..FRAMES {
+            sim.step(AgentAction::default());
+            let frame = &sim
+                .world()
+                .get::<ActorControl>(boss)
+                .expect("the boss carries a control frame")
+                .0;
+            if frame.velocity_target.0.length() > 0.0 || frame.locomotion.x != 0.0 {
+                driven += 1;
+            }
+        }
+        if held {
+            assert!(
+                sim.world().get::<ControlHolds>(boss).is_some(),
+                "precondition: the hold is still on the boss"
+            );
+            assert_eq!(
+                driven, 0,
+                "a boss a script holds integrated under its brain's frame on {driven} of \
+                 {FRAMES} ticks: the brain wrote after the gate that blanks a held body"
+            );
+        } else {
+            assert!(
+                driven > FRAMES / 2,
+                "control: the unheld boss's brain wrote a moving frame on only {driven} of \
+                 {FRAMES} ticks, so a neutral frame below would prove nothing"
+            );
+        }
+    }
+}

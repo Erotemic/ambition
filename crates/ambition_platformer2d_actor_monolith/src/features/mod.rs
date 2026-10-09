@@ -1034,9 +1034,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // damage are registered below on their owning phase sets.
                 // Ambient NPC chatter (parrot squawks, etc.) on its own timer.
                 tick_npc_idle_barks,
-                // Boss brain decides intent first; integration consumes
-                // `desired_vel` after optional content-side steering.
-                tick_boss_brains_system,
+                // The boss brain decided in front of the control gate (below);
+                // integration consumes the gated frame here.
                 integrate_boss_bodies,
                 update_ecs_bosses,
             )
@@ -1348,15 +1347,27 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                     ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate,
                 ),
         );
-        // Between the brain, which writes each boss's control, and the body
-        // integration, which reads it. After the integration, content steering
-        // is overwritten by the next brain tick before any integration sees it.
+        // ⭐ A4: THE BOSS BRAIN PUBLISHES WITH THE OTHER BRAINS, IN FRONT OF THE
+        // CONTROL GATE. It wrote its frame after actor integration, so the gate
+        // never saw a boss frame: a boss a script held flew its pattern
+        // (`a_boss_a_script_holds_does_not_fly_its_pattern`).
+        app.add_systems(
+            sim,
+            tick_boss_brains_system
+                .after(ActorDecisionSet::Publish)
+                .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
+        );
+        // Script steering of a boss (a commanded move, a conducted facing,
+        // content steering) overrides the brain. It is in the gate after the
+        // blank, as `drive_commanded_moves` is for every other body, so a held
+        // body is walked by the script and not by its brain.
         app.configure_sets(
             sim,
             ambition_platformer2d_shared_tangle::schedule::BossSteerSlot
                 .after(tick_boss_brains_system)
-                .before(integrate_boss_bodies)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
+                .after(crate::avatar::blank_scripted_control_frames)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
         );
         // The cut-rope steer system itself is registered by the content
         // plugin (`crate::content::bosses`), in `BossSteerSlot`.

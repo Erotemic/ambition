@@ -25,8 +25,8 @@ pub fn blank_scripted_control_frames(mut bodies: Query<&mut ActorControl, With<C
 /// ([`ambition_characters::control::CommandedMove`]).
 ///
 /// After the blank, so a held body is walked by the script and not by the
-/// stick. A boss is steered in its own slot, between its brain and its
-/// integrator, because its brain writes its control after this phase.
+/// stick. A boss is steered by `tick_commanded_moves` in `BossSteerSlot`,
+/// which is also in the gate after the blank.
 pub fn drive_commanded_moves(
     mut bodies: Query<
         (

@@ -423,9 +423,8 @@ impl Plugin for AmbitionBossContentPlugin {
         // Generic "lured movement" steering: any boss carrying a `CommandedMove`
         // (e.g. the cut-rope behemoth lured under the anvil by the encounter
         // script's `CommandMoveTo`) is steered toward its target, overriding the
-        // brain. Runs in the machinery-defined `BossSteerSlot` (between
-        // `tick_boss_brains_system` and `update_ecs_bosses` in the WorldPrep boss
-        // chain) — exactly where the old cut-rope-specific steering ran.
+        // brain. Runs in the machinery-defined `BossSteerSlot`, in the control
+        // gate after `tick_boss_brains_system` and after the blank of held bodies.
         app.add_systems(
             sim,
             ambition_boss_encounter::tick_commanded_moves

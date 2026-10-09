@@ -266,7 +266,8 @@ pub fn lower_camera_shakes(
 /// Turn a conducted boss to the side its module chose, through the control
 /// the body integrator applies. Only while the module holds the pose: a
 /// driven boss faces where its participant steers it. Runs in
-/// `BossSteerSlot`, after the brain and before the integration.
+/// `BossSteerSlot`, in the control gate after the brain and before the
+/// integration.
 pub fn face_conducted_bosses(
     mut bosses: Query<(&ConductedFacing, &mut ambition_characters::control::ActorControl), With<ae::PoseOwnedExternally>>,
 ) {

@@ -228,3 +228,26 @@ def test_an_unrelated_edit_during_the_run_does_not_void_it(repo: Path) -> None:
     # so the earlier row still certifies, and the moved one alone would not.
     lane_ledger.ledger_path(repo).write_text(lane_ledger.ledger_path(repo).read_text().splitlines()[-1] + "\n")
     assert verdicts(repo) == {"cargo test -p alpha": (False, "ran only on a tree before this change")}
+
+
+def test_a_moved_submodule_pointer_is_tested_at_its_checkout(repo: Path, tmp_path_factory) -> None:
+    """Measured 2026-10-09: a change that moved `dev/ambition_dev_measurements`
+    was refused after a passing run, because the tested tree took the pointer
+    from the index (the old commit) while the run used the new checkout."""
+    upstream = tmp_path_factory.mktemp("upstream")
+    git(upstream, "init", "-q", "-b", "main")
+    (upstream / "row.txt").write_text("one\n")
+    git(upstream, "add", "-A")
+    git(upstream, "commit", "-q", "-m", "one")
+    git(repo, "-c", "protocol.file.allow=always", "submodule", "add", "-q", str(upstream), "sub")
+    git(repo, "commit", "-q", "-m", "add sub")
+    git(repo, "tag", "-f", "base")
+
+    (repo / "sub" / "row.txt").write_text("two\n")
+    git(repo / "sub", "commit", "-qam", "two")
+    (repo / "crates/alpha/src/lib.rs").write_text("// two\n")
+    ran(repo, ["cargo", "test", "-p", "alpha"])
+    git(repo, "add", "sub", "crates/alpha/src/lib.rs")
+    git(repo, "commit", "-q", "-m", "alpha and the pointer")
+
+    assert verdicts(repo) == {"cargo test -p alpha": (True, "passed on this change")}

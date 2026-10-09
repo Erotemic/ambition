@@ -51,6 +51,18 @@ def gitlinks(repo: Path) -> list[str]:
     ]
 
 
+def _submodule_head(repo: Path, path: str) -> str | None:
+    """The commit a submodule has checked out, or None. A symlink or an empty
+    directory is not a checkout: the index entry stays."""
+    full = repo / path
+    if full.is_symlink() or not (full / ".git").exists():
+        return None
+    try:
+        return _git(full, "rev-parse", "HEAD").decode().strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
 def tested_tree(repo: Path) -> str | None:
     """The git tree of the working tree as a job sees it, or None outside git.
 
@@ -69,9 +81,17 @@ def tested_tree(repo: Path) -> str | None:
             env = dict(os.environ, GIT_INDEX_FILE=str(copy))
             if not index.exists():
                 _git(repo, "read-tree", "HEAD", env=env)
-            # Each submodule keeps the commit HEAD records.
-            keep = [f":(exclude){path}" for path in gitlinks(repo)]
+            links = gitlinks(repo)
+            keep = [f":(exclude){path}" for path in links]
             _git(repo, "add", "-u", "--", ".", *keep, env=env)
+            # A checked-out submodule is tested at the commit it has checked
+            # out, which is not the index entry until its pointer is staged. A
+            # change that moves a pointer was otherwise never certified.
+            for path in links:
+                checked_out = _submodule_head(repo, path)
+                if checked_out is not None:
+                    _git(repo, "update-index", "--cacheinfo",
+                         f"160000,{checked_out},{path}", env=env)
             untracked = [
                 name
                 for name in _git(repo, "ls-files", "--others", "--exclude-standard", "-z")

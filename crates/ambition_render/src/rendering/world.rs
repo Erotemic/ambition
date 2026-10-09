@@ -915,9 +915,10 @@ pub fn spawn_block(
 
 /// Width-to-height aspect of the authored `door_zone.png` (published with
 /// `ground = true`, so its bottom edge is the door's feet). A door keeps this
-/// aspect instead of stretching to the trigger box. Keep in sync with the
-/// `door_zone` drawer in the sprite renderer.
-pub const DOOR_SPRITE_ASPECT: f32 = 0.56;
+/// aspect instead of stretching to the trigger box. The published texture is
+/// 126 x 242 px. Keep in sync with the door drawers in the sprite renderer
+/// (`targets/props/entities.py`): all doors have one shape and one size.
+pub const DOOR_SPRITE_ASPECT: f32 = 126.0 / 242.0;
 
 pub fn spawn_loading_zone(
     commands: &mut Commands,

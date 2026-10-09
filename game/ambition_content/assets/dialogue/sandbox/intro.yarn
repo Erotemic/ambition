@@ -7,6 +7,9 @@ title: alice_intro_stub
     -> What now?
         <<jump alice_after_bob_survey__1>>
     -> ⟨leave⟩
+<<elseif condition("world.flag_set", "alice_route_note_carried")>>
+    Alice: Bob is up the low route. Give him the note, not me.
+    -> ⟨leave⟩
 <<else>>
     Alice: Put the official map away. Patrols use the same one.
     -> Take the note.
@@ -21,6 +24,7 @@ title: alice_intro_stub__1
 <<portrait_clip "speaking">>
 Alice: Take this to Bob. Keep it folded until you're out of sight.
 <<give_item "sealednote" 1>>
+<<command "world.set_flag" "alice_route_note_carried" true>>
 -> ⟨pocket the note⟩
 ===
 

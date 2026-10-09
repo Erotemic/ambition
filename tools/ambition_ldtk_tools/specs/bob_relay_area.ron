@@ -257,21 +257,6 @@
             ),
         ),
         (
-            type: "PickupSpawn",
-            px: [
-                880,
-                584,
-            ],
-            size: [
-                24,
-                24,
-            ],
-            fields: (
-                name: "bob_field_survey",
-                kind: "flag:bob_field_survey_received",
-            ),
-        ),
-        (
             type: "DebugLabel",
             px: [
                 560,

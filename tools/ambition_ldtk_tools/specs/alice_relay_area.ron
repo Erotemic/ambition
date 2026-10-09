@@ -158,21 +158,6 @@
             ),
         ),
         (
-            type: "PickupSpawn",
-            px: [
-                400,
-                696,
-            ],
-            size: [
-                24,
-                24,
-            ],
-            fields: (
-                name: "alice_route_note",
-                kind: "flag:alice_route_note_carried",
-            ),
-        ),
-        (
             type: "DebugLabel",
             px: [
                 40,

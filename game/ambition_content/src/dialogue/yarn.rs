@@ -97,6 +97,25 @@ fn yarn_title_ids(source: &'static str) -> impl Iterator<Item = &'static str> {
     })
 }
 
+/// The flags a `<<command "world.set_flag" "<id>" true>>` in the game's Yarn
+/// sets, read from the executable regions only. The content validator counts
+/// them as authored flags, as it counts a story-flag pickup.
+pub fn dialogue_set_flags() -> Vec<String> {
+    let mut flags: Vec<String> = yarn_sources()
+        .iter()
+        .flat_map(|(_, source)| executable_regions(source))
+        .filter_map(|(_, body)| {
+            let rest = body.strip_prefix("command")?.trim_start();
+            let rest = rest.strip_prefix("\"world.set_flag\"")?.trim_start();
+            let rest = rest.strip_prefix('"')?;
+            Some(rest[..rest.find('"')?].to_string())
+        })
+        .collect();
+    flags.sort_unstable();
+    flags.dedup();
+    flags
+}
+
 /// Validator surface (the LDtk content validator reads this): every Yarn node
 /// id `NpcSpawn.dialogue_id` may reference. Folds in the per-character
 /// Hall-of-Characters dialogue ids declared in the catalog

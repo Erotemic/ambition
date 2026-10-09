@@ -304,7 +304,7 @@ fn developer_screen_surfaces_resource_backed_extra_toggles() {
         assert!(DevToggleId::ALL.contains(&id));
         assert!(id.is_cycle(), "{id:?} is a cycle");
     }
-    assert_eq!(DevToggleId::ALL.len(), 22);
+    assert_eq!(DevToggleId::ALL.len(), 23);
 }
 
 #[test]

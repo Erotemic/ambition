@@ -39,6 +39,9 @@ pub struct DeveloperTools {
     /// from player vectors because the camera rectangles are intentionally huge
     /// and can be visually mistaken for a player-local hitbox.
     pub show_camera_frame: bool,
+    /// Draw the surface graph each navigating body is advised from: where it
+    /// can stand, and its hops and drops.
+    pub show_navigation: bool,
     pub show_rebound_vectors: bool,
     /// Toggle a zoomed-out camera for inspecting large or stitched active areas.
     pub overview_camera: bool,
@@ -105,6 +108,7 @@ impl Default for DeveloperTools {
             show_moving_platform: false,
             show_micro_grid: false,
             show_camera_frame: false,
+            show_navigation: false,
             show_rebound_vectors: false,
             overview_camera: false,
             overview_camera_scale: 2.35,

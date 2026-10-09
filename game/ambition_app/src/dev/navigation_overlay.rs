@@ -3,8 +3,9 @@
 //!
 //! Presentation only. It reads the graphs in use
 //! (`RoomNavigation::graphs_in_use`) and this tick's advice, and writes
-//! nothing to the simulation. Off until [`NavigationOverlay::shown`] is set;
-//! `capture_scene --nav-overlay` sets it.
+//! nothing to the simulation. On when the developer menu's "Navigation Graph"
+//! toggle is on (`DeveloperTools::show_navigation`), or when
+//! [`NavigationOverlay::shown`] is set (`capture_scene --nav-overlay`).
 //!
 //! - green line: a standing surface (where the feet centre can be);
 //! - yellow arrow: a hop, from its take-off to its landing;
@@ -17,7 +18,7 @@ use ambition_platformer2d::engine_core::navigation::NavLegKind;
 use ambition_platformer2d::render::rendering::debug_viz::{cyan, draw_arrow, green, magenta, orange, w2, yellow};
 use bevy::prelude::*;
 
-/// Whether the navigation overlay is drawn.
+/// Draw the navigation overlay, whatever the developer menu says. For a tool.
 #[derive(Resource, Default)]
 pub struct NavigationOverlay {
     pub shown: bool,
@@ -25,12 +26,13 @@ pub struct NavigationOverlay {
 
 pub(crate) fn draw_navigation_overlay(
     overlay: Res<NavigationOverlay>,
+    developer: Option<Res<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>>,
     mut gizmos: Gizmos,
     collision: ambition_platformer2d::world::collision::CollisionWorld,
     navigation: Option<Res<RoomNavigation>>,
     advice: Option<Res<NavigationAdvice>>,
 ) {
-    if !overlay.shown {
+    if !(overlay.shown || developer.is_some_and(|developer| developer.show_navigation)) {
         return;
     }
     let (Some(world), Some(navigation)) = (collision.base(), navigation) else {

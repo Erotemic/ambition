@@ -99,9 +99,10 @@ The overlay draws the graph each navigating body is advised from: a green line
 for each standing surface, a yellow arrow for each hop (take-off to landing),
 an orange arrow for each drop, a magenta cross at the place a body is going
 to, and a cyan cross at the place beside its target. A room with no navigating
-body has no graph, so the overlay draws nothing there. The overlay is
-`NavigationOverlay` in `game/ambition_app/src/dev/navigation_overlay.rs`; no
-menu turns it on yet.
+body has no graph, so the overlay draws nothing there. In the game, the
+developer menu has the same overlay as the "Navigation Graph" toggle
+(`DeveloperTools::show_navigation`). The code is
+`game/ambition_app/src/dev/navigation_overlay.rs`.
 
 A test can read the graph: `RoomNavigation::graphs()` (a resource of the
 session) gives each `NavGraph`, with its `surfaces`, its `links`, the body's

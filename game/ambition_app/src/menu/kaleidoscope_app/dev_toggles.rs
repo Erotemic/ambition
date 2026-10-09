@@ -82,6 +82,7 @@ pub(crate) fn dev_snapshot(ctx: DevToggleRead<'_>) -> DevSnapshot {
     values.push(DevSnapshot::toggle(D::FillDebugBoxes, dev.fill_debug_boxes));
     values.push(DevSnapshot::toggle(D::MicroGrid, dev.show_micro_grid));
     values.push(DevSnapshot::toggle(D::CameraFrame, dev.show_camera_frame));
+    values.push(DevSnapshot::toggle(D::Navigation, dev.show_navigation));
     values.push(DevSnapshot::toggle(D::OverviewCamera, dev.overview_camera));
     values.push(DevSnapshot::cycle(
         D::DebugViewMode,
@@ -163,6 +164,7 @@ pub(crate) fn apply_dev_toggle(ctx: DevToggleWrite<'_>, id: DevToggleId, dir: i3
         D::FillDebugBoxes => dev.fill_debug_boxes = !dev.fill_debug_boxes,
         D::MicroGrid => dev.show_micro_grid = !dev.show_micro_grid,
         D::CameraFrame => dev.show_camera_frame = !dev.show_camera_frame,
+        D::Navigation => dev.show_navigation = !dev.show_navigation,
         D::OverviewCamera => dev.overview_camera = !dev.overview_camera,
         D::DebugViewMode => {
             dev.debug_view_mode = if dir < 0 {

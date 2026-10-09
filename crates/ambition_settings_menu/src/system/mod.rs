@@ -37,6 +37,7 @@ pub enum DevToggleId {
     FillDebugBoxes,
     MicroGrid,
     CameraFrame,
+    Navigation,
     // Camera.
     OverviewCamera,
     // Profiles (cycles).
@@ -72,7 +73,7 @@ impl DevToggleId {
     /// (DebugOverlay/SlowMotion) and the trailing LdtkAutoApply are sourced from
     /// `DeveloperRuntimeState` / `WorldSourceHotReload` (not `DeveloperTools`). Physical
     /// keyboard chords are owned by the central developer-hotkey registry.
-    pub const ALL: [Self; 22] = [
+    pub const ALL: [Self; 23] = [
         // Pinned FIRST so it lands under the cursor the instant you drill into
         // Developer — the menu-frontend toggle is the one developers flip most.
         Self::MenuBackend,
@@ -88,6 +89,7 @@ impl DevToggleId {
         Self::FillDebugBoxes,
         Self::MicroGrid,
         Self::CameraFrame,
+        Self::Navigation,
         Self::OverviewCamera,
         Self::DebugViewMode,
         Self::DebugArtMode,
@@ -113,6 +115,7 @@ impl DevToggleId {
             Self::FillDebugBoxes => "Fill Debug Boxes",
             Self::MicroGrid => "Micro Grid",
             Self::CameraFrame => "Camera Frame",
+            Self::Navigation => "Navigation Graph",
             Self::OverviewCamera => "Overview Camera",
             Self::DebugViewMode => "View Mode",
             Self::DebugArtMode => "Art Mode",
@@ -140,6 +143,7 @@ impl DevToggleId {
             Self::FillDebugBoxes => "Fill gizmo AABBs with a translucent tint.",
             Self::MicroGrid => "Draw an 8px subdivision grid over the tile grid.",
             Self::CameraFrame => "Draw the requested/actual camera frame rectangles.",
+            Self::Navigation => "Draw where each navigating body can stand, and its hops and drops.",
             Self::OverviewCamera => "Zoom out to inspect large or stitched areas.",
             Self::DebugViewMode => "Cycle the debug view preset.",
             Self::DebugArtMode => "Cycle the debug art preset.",

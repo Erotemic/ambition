@@ -966,7 +966,11 @@ fn a_frame_that_fades_as_one_picture_fades_its_cell() {
 #[test]
 fn a_blink_row_warps_its_bodys_cell_and_a_sheet_with_its_own_blink_keeps_it() {
     let (flipbook, mut app, root) = robot();
-    assert!(flipbook.row_draws_the_body_whole("blink_out"), "premise: the robot's blink row is a plain pose");
+    assert!(
+        flipbook.row_draws_the_body_whole("blink_out"),
+        "premise: the robot's blink row is a plain pose. The sheets are untracked: if this machine's is from \
+         before 2026-10-09, publish it again: scripts/regen/sprites.sh --target player_robot_v3"
+    );
     let owner_of = owner(&app, root);
     let last = flipbook.clip("blink_out").expect("a blink clip").frame_count() - 1;
     assert!(last >= 2, "the blink clip has too few frames to be part way through");

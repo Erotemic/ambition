@@ -1648,6 +1648,9 @@ pub fn enable_manual_stepping(app: &mut App) -> std::time::Duration {
 pub fn finish_stepped_app(app: &mut App) {
     use bevy::app::PluginsState;
     while app.plugins_state() == PluginsState::Adding {
+        // The web task pool has one thread and no such tick; Bevy's own
+        // runner leaves the call out there too (`run_once`).
+        #[cfg(not(target_arch = "wasm32"))]
         bevy::tasks::tick_global_task_pools_on_main_thread();
     }
     if app.plugins_state() == PluginsState::Ready {

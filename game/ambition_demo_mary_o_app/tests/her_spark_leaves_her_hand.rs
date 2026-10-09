@@ -44,6 +44,13 @@ const TOLERANCE: f32 = 0.5;
 
 const DOWN: Vec2 = Vec2::new(0.0, 1.0);
 
+/// Her published sprites are not in git: each checkout publishes its own. A
+/// checkout that pulled the `shoot` row and did not publish reads the old
+/// sheet, and these tests fail on it.
+const PUBLISH_HER_SPRITES: &str = "If this checkout did not publish her sprites after the pull, run \
+    `scripts/regen/sprites.sh --target mary_o_v2 --target mary_o_v2_tall --target mary_o_v2_fire` \
+    and build again";
+
 fn step(app: &mut App, frame: ControlFrame) {
     app.world_mut()
         .resource_mut::<ambition_platformer2d::scripted_input::ScriptedControls>()
@@ -87,7 +94,7 @@ fn published_throwing_hand() -> Vec2 {
     );
     assert!(
         rig.0.clip(SHOOT_ROW).is_some(),
-        "the rig of her fire form has no `{SHOOT_ROW}` clip: {:?}",
+        "the rig of her fire form has no `{SHOOT_ROW}` clip: {:?}. {PUBLISH_HER_SPRITES}",
         rig.0.clip_names().collect::<Vec<_>>()
     );
     let row = LandmarkPose::Clip {
@@ -226,7 +233,10 @@ fn her_fire_sheet_has_the_row_a_firing_body_shows() {
     let sheets = ambition_platformer2d::sprite_sheet::shared_baked_sheet_registry();
     let fire = sheets.get("mary_o_v2_fire").expect("her fire sheet is published");
     let rows: Vec<&str> = fire.rows.iter().map(|row| row.animation.as_str()).collect();
-    assert!(rows.contains(&SHOOT_ROW), "her fire sheet has no `{SHOOT_ROW}` row: {rows:?}");
+    assert!(
+        rows.contains(&SHOOT_ROW),
+        "her fire sheet has no `{SHOOT_ROW}` row: {rows:?}. {PUBLISH_HER_SPRITES}"
+    );
     for row in &rows {
         assert!(
             CharacterAnim::from_name(row).is_some(),

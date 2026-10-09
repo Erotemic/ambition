@@ -42,7 +42,7 @@ correctly. The role of a quad selects the layer.
 
 | Role | Quad | Two-state look | Drawing look |
 | --- | --- | --- | --- |
-| backdrop | the room | sky, far towers, a viaduct, construction lines | grid, far outlines, paths with nodes |
+| backdrop | the room | sky, far towers, islands, a viaduct, construction lines | grid, far outlines, paths with nodes |
 | surface | one `Solid` or `OneWay` block | masonry, cap, gold trim, ivy on the corners | outline and hatch; a one-way platform is closed on top only |
 | underside | below one platform | brackets, arches, a banner, ivy, water or light that falls | drop lines; marks that rise below a one-way platform |
 | portal | around one door | an arch on pilasters | the trigger box of the door |
@@ -51,7 +51,11 @@ correctly. The role of a quad selects the layer.
 A look also chooses the door sprite of the room (`RoomLook::door_art`), with
 the renderer's `EntityArt` component. The sprites are `door_stone`,
 `door_voxel` and `door_blueprint` in the sprite renderer
-(`targets/props/entities.py`). All doors have one outer shape.
+(`targets/props/entities.py`). All doors have one outer shape and one size
+(126 x 242 px, `DOOR_SPRITE_ASPECT`). The door PNG files are generated and not
+in Git: publish them with
+`python -m ambition_sprite2d_renderer publish entities --dest-root <sprites>`
+and `scripts/regen/quality_variants.sh --sprites-only --target 'door_*'`.
 
 The block sprites stay below the surface quads. If a material does not draw,
 the room looks as it did before.

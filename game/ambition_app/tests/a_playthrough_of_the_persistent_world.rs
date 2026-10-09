@@ -268,9 +268,7 @@ fn a_session_loaded_from(file: &ambition_platformer2d::persistence::save_data::A
         route: ShellRouteId::new("ambition_gameplay"),
         request: None,
     });
-    for _ in 0..240 {
-        app.update();
-    }
+    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
     app
 }
 

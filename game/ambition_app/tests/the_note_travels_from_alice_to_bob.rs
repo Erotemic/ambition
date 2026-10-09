@@ -44,9 +44,7 @@ pub(crate) fn a_returning_players_session_with_pads(pads: usize) -> App {
         route: ShellRouteId::new("ambition_gameplay"),
         request: None,
     });
-    for _ in 0..240 {
-        app.update();
-    }
+    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
     app
 }
 

@@ -328,8 +328,21 @@ reads cargo output to it.
    it, and the measurement that it needs no waiver are in
    [the heavy lane recipe](../recipes/running-the-heavy-app-it-lane.md#the-demo-host-apps-have-their-own-lane);
    [the check matrix](../recipes/cheapest-sufficient-check.md#the-matrix) has
-   the row. Open: nothing runs the lane for you. It is a rule in prose, and a
-   push that skips it is not refused.
+   the row. **Enforced 2026-10-09:** `run_tests.py` records each finished job
+   against the tree it tested (`target/lane_ledger.jsonl`), and
+   `scripts/required_checks.py` names the checks the change since
+   `origin/main` requires (a changed crate's own tests, the demo host lane for
+   its paths, the repo tooling job for `scripts/`) and refuses until each one
+   passed on a tree with the change in it. The pre-push hook
+   (`scripts/install_pre_push_hook.py`) runs it. Measured: the SG3 commit
+   `1485939ec` changed the rollback host and was pushed without the demo
+   lane; the gate names that lane for it. Witness
+   `scripts/tests/test_required_checks.py` (poisons: freshness ignored, red at
+   `a_pass_before_a_later_edit_is_old`; untracked files left out of the
+   tested tree, red at `a_new_untracked_source_file_is_part_of_the_tested_tree`).
+   Not held: the demo rule's fourth case (an instrument a demo test reads),
+   the external-consumer fixtures, the matrix rows without a path, and a
+   peer's change merged after the run.
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.

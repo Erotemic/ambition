@@ -141,6 +141,12 @@ these, in the engine or in a demo:
   registration
 - an instrument that a demo test reads (a message, a counter, an outcome)
 
+The first four are paths, and `scripts/required_checks.py` reads them
+(`DEMO_HOST_LANE_PATHS`). The pre-push hook
+(`python3 scripts/install_pre_push_hook.py`) refuses a push to `main` whose
+change touches one until `run_tests.py` has recorded the four demo jobs as
+passed on that change. The last one is not a path; no rule holds it.
+
 The last row is how the gap was found. From `f7ecfc019` until `69d29caa0`
 (2026-10-05), three `mary_o_it` arms and one `sanic_it` arm were red on main
 while `app_it` and the pytest lane were green. A restore stopped writing a

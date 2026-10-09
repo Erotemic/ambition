@@ -120,6 +120,24 @@ def _as_posix_relpath(path: Path, start: Path) -> str:
     return str(Path(os.path.relpath(path, start))).replace("\\", "/")
 
 
+def _in_repo_spelling(path: Path, root: Path) -> Path:
+    """``path`` under the resolved repo root ``root``, keeping each symlink
+    inside the repo as it is spelled.
+
+    A checkout can be reached through an alias (a symlink to the repo). The
+    repo root is resolved, so a path through the alias must be re-rooted, or a
+    relative path between the two spellings climbs to ``/``.
+    """
+    for parent in [path, *path.parents]:
+        try:
+            same = parent.resolve() == root
+        except OSError:
+            continue
+        if same:
+            return root / path.relative_to(parent)
+    return path
+
+
 def rel_to_ldtk(ldtk: Path, path: Path) -> str:
     """Return the runtime-safe LDtk path for ``path``.
 
@@ -133,8 +151,9 @@ def rel_to_ldtk(ldtk: Path, path: Path) -> str:
     # Use lexical absolute paths here. ``game/ambition_content/assets/sprites``
     # may itself be a symlink in a developer checkout; resolving it before we
     # recognize the virtual mount would erase the ``game://sprites`` identity.
-    ldtk = Path(os.path.abspath(ldtk))
-    path = Path(os.path.abspath(path))
+    root = _repo_root(Path(os.path.abspath(ldtk)))
+    ldtk = _in_repo_spelling(Path(os.path.abspath(ldtk)), root)
+    path = _in_repo_spelling(Path(os.path.abspath(path)), root)
     shared_sprites = Path(os.path.abspath(default_sprite_assets_dir(ldtk)))
     try:
         sprite_rel = path.relative_to(shared_sprites)

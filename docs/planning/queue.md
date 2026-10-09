@@ -187,6 +187,17 @@ red at "the new App's save is not the file the first App wrote". The words now
 say what runs: one OS process, and a body put inside each exit zone, not
 walked. A walked route is later work.
 
+**WA7 done 2026-10-09:** the playthrough runs in the composition that draws
+it. `the_playthrough_runs_in_the_composition_that_draws_it` builds the shipped
+game with `OffscreenGpu` (a wgpu device, no window), waits for its plugins,
+and plays the Blink, the route to Alice, the note, Bob and the way back. In
+the end Alice's return lock is open. Poison (`NoWindow`): red at "this
+composition has no wgpu device" in 5 s. Found on the way: Bob's published
+sheet had no `air_dodge` row, which panicked neighbour-room preparation in
+the drawn game until the sheets were published again; `sprites.sh --check`
+now says so (`0d5c17f20`). The pixels of the open lock are `capture_scene`'s
+question and are not asserted here.
+
 **Next action:** the fact horizon of a death, when Q164 is ruled. Everything
 else in the scenario has a witness (WA1-WA5), and the workspace lane runs it.
 What the scenario does not exercise, measured 2026-10-09: the note and the

@@ -151,3 +151,26 @@ def test_authoritative_world_tilesets_are_runtime_safe_and_resolvable() -> None:
             if rel.startswith("../sprites/"):
                 expected = default_sprite_assets_dir(ldtk) / rel.removeprefix("../sprites/")
                 assert resolved == expected.absolute(), (ldtk, rel, resolved, expected)
+
+
+def test_a_repo_reached_through_a_symlinked_alias_keeps_the_virtual_mount(tmp_path: Path) -> None:
+    """Measured 2026-10-09: the checkout is also reached as
+    `/home/agent/code/ambition`, a symlink to the real path. The sprite regen
+    passed the world through the alias, and `rel_to_ldtk` resolved the repo
+    root but not the world, so the relative path climbed to `/` and down the
+    other spelling (`../../../../../../../local/...`) in five worlds."""
+    real = tmp_path / "real"
+    (real / "crates").mkdir(parents=True)
+    (real / "tools").mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(real)
+    worlds = real / "game" / "ambition_content" / "assets" / "worlds"
+    sprites = real / "crates" / "ambition_platformer2d_actor_monolith" / "assets" / "sprites"
+    worlds.mkdir(parents=True)
+    sprites.mkdir(parents=True)
+    (worlds / "intro.ldtk").write_text("{}")
+    (sprites / "bob_spritesheet.png").write_bytes(b"png")
+
+    ldtk = alias / "game" / "ambition_content" / "assets" / "worlds" / "intro.ldtk"
+    for sprite in (sprites / "bob_spritesheet.png", alias / sprites.relative_to(real) / "bob_spritesheet.png"):
+        assert rel_to_ldtk(ldtk, sprite) == "../sprites/bob_spritesheet.png", sprite

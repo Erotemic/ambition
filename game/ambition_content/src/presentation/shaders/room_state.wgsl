@@ -642,13 +642,14 @@ fn overlay(p: vec2<f32>) -> vec4<f32> {
         }
         return vec4<f32>(0.0);
     }
-    // Tears: short runs of light, for a few frames, close to the front.
-    let near_t = exp(-abs(field(p)) / 150.0);
+    // Tears: short runs of light, for a few frames, close to the front. Few
+    // of them: motion at the edge of sight takes the eye off the play.
+    let near_t = exp(-abs(field(p)) / 90.0);
     let band = floor(p.y / 2.0);
     let seg = floor(p.x / 56.0 + rand_cell(vec2<f32>(band, 0.0), 33u) * 3.0);
-    let tick = floor(t * 9.0);
+    let tick = floor(t * 6.0);
     let roll = rand_cell(vec2<f32>(seg + tick * 13.0, band), 31u);
-    if roll > 1.0 - 0.030 * near_t * near_t {
+    if roll > 1.0 - 0.010 * near_t * near_t {
         let tone = select(CYAN, MAGENTA, rand_cell(vec2<f32>(seg, band), 37u) > 0.5);
         return vec4<f32>(tone, 0.85);
     }

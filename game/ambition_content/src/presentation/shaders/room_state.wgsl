@@ -243,7 +243,10 @@ fn backdrop_corrupt(p: vec2<f32>) -> vec3<f32> {
 /// How far the open air at `p` is into the corrupted state, 0..1. Built
 /// things break at a hard edge; air changes as haze.
 fn air_state(p: vec2<f32>) -> f32 {
-    return smoothstep(-260.0, 110.0, field(p));
+    // The haze has wisps, and they drift.
+    let t = globals.time;
+    let wisp = (value_noise(p + vec2<f32>(t * 13.0, -t * 5.0), 130.0, 13u) - 0.5) * 110.0;
+    return smoothstep(-260.0, 110.0, field(p) + wisp);
 }
 
 fn backdrop(p: vec2<f32>) -> vec3<f32> {
@@ -464,6 +467,11 @@ fn corrupt_surface(l: vec2<f32>, s: vec2<f32>, p: vec2<f32>) -> vec4<f32> {
     let lit = smoothstep(1.3, 0.4, stone.ornament) + exp(-stone.ornament / 4.0) * 0.18;
     neon = max(neon, (circuit + vec3<f32>(travel * 0.6)) * lit * (0.8 + 0.2 * pulse));
 
+    // The rewrite goes on: a slow wave of light leaves the front and goes
+    // into the mass, one block at a time.
+    let reach = field((cell + vec2<f32>(0.5)) * VOXEL);
+    let wave = fract(reach / 620.0 - t * 0.085);
+    neon = neon + mix(CYAN, MAGENTA, 0.35) * smoothstep(0.045, 0.0, wave) * 0.16;
     // Scanlines.
     ink = ink * (0.93 + 0.07 * (floor(p.y) % 2.0));
     return vec4<f32>(ink + neon, 1.0);

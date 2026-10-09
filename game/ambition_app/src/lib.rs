@@ -11,7 +11,8 @@
 //! and `trace_replay` (rl_sim feature for the stepping drivers).
 
 // Process-wide allocator, declared in the LIB so it covers every entry point that links it: the
-// desktop bin, the headless drivers, AND the Android cdylib (a bin-local declaration never reaches
+// desktop bin, the headless drivers, AND the Android shared library that `build_for_android.sh`
+// asks for (a bin-local declaration never reaches
 // the shared library). Opt out by building without `mimalloc_alloc`.
 #[cfg(all(feature = "mimalloc_alloc", not(target_arch = "wasm32")))]
 #[global_allocator]

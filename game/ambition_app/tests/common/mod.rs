@@ -683,7 +683,7 @@ pub const SETTLE_FRAMES_AFTER_ACTIVATION: usize = 237;
 
 /// How long [`step_until_route_is_active`] waits before it says the route
 /// did not activate.
-const ACTIVATION_CEILING: std::time::Duration = std::time::Duration::from_secs(120);
+pub const ACTIVATION_CEILING: std::time::Duration = std::time::Duration::from_secs(120);
 
 /// Step `app` until the active route of the shell is `route`. Answers the
 /// number of frames it stepped.

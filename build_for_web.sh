@@ -270,7 +270,9 @@ if [[ "$CLEAN" == true && -d "$OUT_DIR" ]]; then
 fi
 
 if [[ "$SKIP_BUILD" != true ]]; then
-    CARGO_ARGS=(build -p ambition_app --lib --target wasm32-unknown-unknown)
+    # `rustc --crate-type cdylib`: the manifest declares an rlib only (see its
+    # `[lib]`), and the browser needs the shared library.
+    CARGO_ARGS=(rustc -p ambition_app --lib --crate-type cdylib --target wasm32-unknown-unknown)
     case "$PROFILE" in
         release) CARGO_ARGS+=(--release) ;;
         web-release) CARGO_ARGS+=(--profile web-release) ;;

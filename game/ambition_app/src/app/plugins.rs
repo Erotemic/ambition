@@ -617,7 +617,6 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     app.add_systems(
         Update,
         crate::dev::navigation_overlay::draw_navigation_overlay
-            .after(camera_follow)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
 }

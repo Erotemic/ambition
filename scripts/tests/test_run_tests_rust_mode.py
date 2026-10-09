@@ -517,3 +517,16 @@ def test_the_maintenance_notice_names_every_job_that_lane_drops():
     # the repo-coupled pytest job left the plan entirely; this pins that the lane
     # gap the notice exists for is the one being named.
     assert "scripts/tests" in notice
+
+
+def test_a_failed_job_keeps_its_evidence_in_the_cost_ledger_row():
+    """The status file is written over by the next run; the per-job row of the
+    cost ledger is the history a recurrence count reads."""
+    failed = run_tests.JobResult(
+        "app job", ["cargo", "test"], False, 3.0, 2.0,
+        failure_evidence=["thread 'arm' panicked at tests/x.rs:1:1:", "the arm failed"],
+    )
+    passed = run_tests.JobResult("other job", ["cargo", "test"], True, 1.0, 1.0)
+    rows = run_tests.timings_payload([failed, passed])
+    assert rows[0]["failure_evidence"] == failed.failure_evidence
+    assert "failure_evidence" not in rows[1], "a passing row keeps the shape it had"

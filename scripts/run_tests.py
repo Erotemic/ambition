@@ -402,6 +402,12 @@ def timings_payload(results: list[JobResult]) -> list[dict]:
                 if r.executed_seconds is not None
                 else None
             ),
+            # Present only on a FAILED job. The status file holds the same lines
+            # until the next run writes over it, so this row is the only
+            # history of what failed: 35 FAILED workspace rows from 2026-09-10
+            # to 2026-10-09 cannot say whether the arm the in-company triage
+            # waits for failed again.
+            **({"failure_evidence": r.failure_evidence} if r.failure_evidence else {}),
         }
         for r in results
     ]

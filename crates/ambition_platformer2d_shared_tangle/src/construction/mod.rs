@@ -2973,6 +2973,54 @@ impl std::fmt::Display for BaselineCaptureError {
 
 impl std::error::Error for BaselineCaptureError {}
 
+/// One identity-bearing entity as a session baseline reads it.
+type BaselineHolder = (
+    Entity,
+    &'static SimId,
+    Option<&'static SpawnOrigin>,
+    Option<&'static crate::lifecycle::SessionScopedEntity>,
+    Option<&'static crate::lifecycle::InRoomInstance>,
+    Option<&'static crate::lifecycle::LiveRoomInstance>,
+);
+
+/// A [`BaselineHolder`] row.
+type BaselineHolderItem<'a> = (
+    Entity,
+    &'a SimId,
+    Option<&'a SpawnOrigin>,
+    Option<&'a crate::lifecycle::SessionScopedEntity>,
+    Option<&'a crate::lifecycle::InRoomInstance>,
+    Option<&'a crate::lifecycle::LiveRoomInstance>,
+);
+
+/// Whether a transaction could open on some live rooms, asked BEFORE the
+/// transaction is staged.
+///
+/// A room transaction captures its baseline when it opens, and a world it
+/// cannot describe ([`BaselineCaptureError`]) refuses the room there. For a
+/// sequence of publications that is too late: the rooms before it are
+/// published. An owner of a sequence asks here for each later room first,
+/// and refuses the whole sequence with the room named.
+///
+/// The answer is of the world now. A fault that comes between the question
+/// and the transaction is not seen here; the transaction still refuses it.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct DescribableRooms<'w, 's> {
+    holders: bevy::prelude::Query<'w, 's, BaselineHolder, bevy::prelude::Without<PresentationOnly>>,
+}
+
+impl DescribableRooms<'_, '_> {
+    /// The refusal the baseline capture of a transaction of `rooms` would
+    /// give now ([`TransactionBaseline::capture_for_session`]), if any.
+    pub fn describe(
+        &self,
+        session: crate::lifecycle::SessionSpawnScope,
+        rooms: crate::lifecycle::TransactionRooms,
+    ) -> Result<(), BaselineCaptureError> {
+        TransactionBaseline::of_holders(self.holders.iter(), session, rooms).map(|_| ())
+    }
+}
+
 impl TransactionBaseline {
     /// Capture every AUTHORITATIVE identity-bearing entity in the world, with
     /// its entity and provenance. Duplicates are a refusal, not a merge.
@@ -3022,19 +3070,20 @@ impl TransactionBaseline {
         session: crate::lifecycle::SessionSpawnScope,
         rooms: crate::lifecycle::TransactionRooms,
     ) -> Result<Self, BaselineCaptureError> {
+        let mut query = world.query_filtered::<BaselineHolder, bevy::prelude::Without<PresentationOnly>>();
+        Self::of_holders(query.iter(world), session, rooms)
+    }
+
+    /// The baseline of the holders `holders`, for one session and one pair of
+    /// live rooms: the one rule [`Self::capture_for_session`] and
+    /// [`DescribableRooms`] ask.
+    fn of_holders<'a>(
+        holders: impl Iterator<Item = BaselineHolderItem<'a>>,
+        session: crate::lifecycle::SessionSpawnScope,
+        rooms: crate::lifecycle::TransactionRooms,
+    ) -> Result<Self, BaselineCaptureError> {
         let mut found: BTreeMap<SimId, Vec<(Entity, Option<SpawnOrigin>)>> = BTreeMap::new();
-        let mut query = world.query_filtered::<
-            (
-                Entity,
-                &SimId,
-                Option<&SpawnOrigin>,
-                Option<&crate::lifecycle::SessionScopedEntity>,
-                Option<&crate::lifecycle::InRoomInstance>,
-                Option<&crate::lifecycle::LiveRoomInstance>,
-            ),
-            bevy::prelude::Without<PresentationOnly>,
-        >();
-        for (entity, sim_id, origin, owner, stamp, root) in query.iter(world) {
+        for (entity, sim_id, origin, owner, stamp, root) in holders {
             if let Some(scope) = session.id() {
                 if owner.is_some_and(|owner| owner.0 != scope) {
                     continue;

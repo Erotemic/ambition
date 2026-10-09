@@ -1853,6 +1853,274 @@ fn name_an_unknown_character(
     panic!("the project has no `{entity}` with a `character_id` in a level of `{room}`");
 }
 
+/// Two holders of one identity in the live room `live`: a room that no
+/// transaction can describe (`BaselineCaptureError::DuplicateIdentity`).
+///
+/// The two carry the room's stamp, so only a transaction of that room has
+/// them in its world (`TransactionRooms::admits`). The existing refusal arm
+/// (`a_refused_world_reload_leaves_the_running_game_untouched`) gives its two
+/// holders no stamp, so each room's transaction has them and the first room
+/// refuses.
+fn put_two_holders_of_one_identity_in(
+    world: &mut bevy::prelude::World,
+    live: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+) -> [bevy::prelude::Entity; 2] {
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    [(); 2].map(|()| world.spawn((SimId::placement("corrupt_twin"), InRoomInstance(live))).id())
+}
+
+/// Whether a transaction of the one live room `live` can describe its world.
+fn the_room_can_be_described(
+    app: &mut bevy::prelude::App,
+    live: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+) -> bool {
+    ambition_platformer2d::platformer::construction::TransactionBaseline::capture_for_session(
+        app.world_mut(),
+        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
+        ambition_platformer2d::platformer::lifecycle::TransactionRooms::only(live),
+    )
+    .is_ok()
+}
+
+/// ⛔ A LIVE ROOM THAT CANNOT BE DESCRIBED STOPS THE RELOAD BEFORE ITS FIRST
+/// ROOM.
+///
+/// The plans of all the live rooms prepare (the edit is a valid one). Bob's
+/// room, which is not the room of the primary seat, holds two bodies of one
+/// identity, so its transaction cannot open. That is found when the reload is
+/// asked for, and no live room and no generation changes.
+///
+/// Measured before the guard (2026-10-09): the room of the primary seat
+/// published, Bob's room was refused when its transaction opened, and the
+/// status was `THE WORLD IS MIXED`.
+#[test]
+fn a_world_reload_with_a_live_room_that_cannot_be_described_rebuilds_none() {
+    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+
+    let (mut app, start) = a_running_shipped_session_with_two_live_rooms(Leaver::Bob, SECOND_LIVE_ROOM);
+    let before = live_room_readings(&mut app);
+    let epoch_before = the_only_prepared_epoch(&mut app);
+    let (first_live, faulty_live) = (before[&start].0, before[SECOND_LIVE_ROOM].0);
+    put_two_holders_of_one_identity_in(app.world_mut(), faulty_live);
+    // ⛔ THE PREMISE: the fault is in the later room only. If the first room
+    // could not be described too, the reload is refused at its first room, and
+    // that is the arm `a_refused_world_reload_leaves_the_running_game_untouched`.
+    assert_eq!(
+        (the_room_can_be_described(&mut app, first_live), the_room_can_be_described(&mut app, faulty_live)),
+        (true, false),
+        "premise: (the room of the primary seat can be described, Bob's room can be described)"
+    );
+    let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
+
+    let _copy = watch_an_edited_copy(&mut app, "undescribed", |project| {
+        move_an_entity(project, SECOND_LIVE_ROOM, "NpcSpawn")
+    });
+    press_apply_reload(&mut app);
+
+    let reload = app.world().resource::<WorldSourceHotReload>().clone();
+    assert!(
+        !reload.last_errors.iter().any(|error| error.contains("THE WORLD IS MIXED")),
+        "⛔ THE RELOAD LEFT A MIXED WORLD: {:?}",
+        reload.last_errors
+    );
+    assert_eq!(
+        (reload.applied_count, reload.last_status.contains("rejected")),
+        (applied, true),
+        "the reload was not refused: {:?} / {:?}",
+        reload.last_status,
+        reload.last_errors
+    );
+    assert!(
+        reload
+            .last_errors
+            .iter()
+            .any(|error| error.contains(&format!("live room '{SECOND_LIVE_ROOM}'")) && error.contains("corrupt_twin")),
+        "the refusal does not name the live room and the identity that two bodies hold: {:?}",
+        reload.last_errors
+    );
+    assert_eq!(
+        (live_room_readings(&mut app), the_only_prepared_epoch(&mut app)),
+        (before.clone(), epoch_before),
+        "⛔ A REFUSED RELOAD REBUILT A LIVE ROOM, or moved the generation of the session"
+    );
+    assert_eq!(
+        (
+            ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+            ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
+        ),
+        (0, 0),
+        "(publication receipts, hidden candidates) left after the refusal"
+    );
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(live_room_readings(&mut app), before, "the live rooms changed after the refusal");
+}
+
+/// The fault of [`a_later_room_refused_after_the_first_room_published_is_a_named_mixed_world`]:
+/// when the reload builds the first body of a live room that is not `first`
+/// and not `into` (a candidate of the room it mints first), it puts two
+/// holders of one identity in the live room `into`.
+#[derive(bevy::prelude::Resource)]
+struct FaultWhenTheFirstRoomIsBuilt {
+    first: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+    into: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+    made: Vec<bevy::prelude::Entity>,
+}
+
+/// ⛔ THE ONE STATE THE RELOAD CANNOT TAKE BACK, HELD BY NAME.
+///
+/// A multi-room reload publishes one room at a time. When a later room is
+/// refused after the first room published, the session is on the new
+/// generation and the later room keeps the content of the old one. The reload
+/// is not transactional across rooms, and this arm does not say that it is:
+/// it holds what the reload does in that state.
+///
+/// No production road is known to reach it: each fault that is present when
+/// the reload is asked for is refused before the first room
+/// (`a_world_reload_that_cannot_rebuild_one_live_room_rebuilds_none`,
+/// `a_world_reload_with_a_live_room_that_cannot_be_described_rebuilds_none`).
+/// So the fault is injected after the reload is asked for, by an observer of
+/// this test: when the reload builds the first body of its first room, it
+/// puts two holders of one identity in Bob's room. The transaction of the
+/// first room does not have Bob's room in its world, so it publishes.
+///
+/// ⚠ A reload keeps the entity of a live room root and gives it its new
+/// identity in place: `Add` and `Insert` of `LiveRoomInstance` and of
+/// `RoomInstanceRoot` do not fire in a reload (measured). The stamp of a body
+/// (`InRoomInstance`) is added, so the observer watches that.
+///
+/// What is held:
+/// - the status says `THE WORLD IS MIXED` and names the room that was kept;
+/// - the first room is rebuilt and of the new generation, the later room
+///   keeps its live instance and the old generation, and the generation of
+///   the session moved one time;
+/// - no publication receipt and no hidden candidate is left, and the game
+///   runs on;
+/// - the advice of the status is true: with the fault gone, the reload
+///   applied again rebuilds each live room to one generation.
+#[test]
+fn a_later_room_refused_after_the_first_room_published_is_a_named_mixed_world() {
+    use ambition_platformer2d::dev_tools::WorldSourceHotReload;
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    use bevy::prelude::*;
+
+    let (mut app, start) = a_running_shipped_session_with_two_live_rooms(Leaver::Bob, SECOND_LIVE_ROOM);
+    let before = live_room_readings(&mut app);
+    let epoch_before = the_only_prepared_epoch(&mut app);
+    let (first_live, later_live) = (before[&start].0, before[SECOND_LIVE_ROOM].0);
+    let old_term = before[&start].1.iter().next().expect("the first room has stamped content").clone();
+    assert_eq!(
+        before[SECOND_LIVE_ROOM].1.iter().collect::<Vec<_>>(),
+        vec![&old_term],
+        "premise: the two live rooms are of one generation"
+    );
+
+    app.insert_resource(FaultWhenTheFirstRoomIsBuilt {
+        first: first_live,
+        into: later_live,
+        made: Vec::new(),
+    });
+    app.world_mut().add_observer(
+        |stamped: On<Add, InRoomInstance>, mut world: bevy::ecs::world::DeferredWorld| {
+            // Asked of the entity and not of a query: a candidate is hidden
+            // from a query.
+            let Some(room) = world.get::<InRoomInstance>(stamped.entity).map(|stamp| stamp.0) else {
+                return;
+            };
+            let fault = world.resource::<FaultWhenTheFirstRoomIsBuilt>();
+            if !fault.made.is_empty() || room == fault.first || room == fault.into {
+                return;
+            }
+            let into = fault.into;
+            let twins = [(); 2].map(|()| {
+                world
+                    .commands()
+                    .spawn((
+                        ambition_platformer2d::platformer::sim_id::SimId::placement("corrupt_twin"),
+                        InRoomInstance(into),
+                    ))
+                    .id()
+            });
+            world.resource_mut::<FaultWhenTheFirstRoomIsBuilt>().made.extend(twins);
+        },
+    );
+    // ⛔ THE PREMISE: no fault is present when the reload is asked for.
+    assert!(
+        the_room_can_be_described(&mut app, first_live) && the_room_can_be_described(&mut app, later_live),
+        "premise: each live room can be described before the reload"
+    );
+    let applied = app.world().resource::<WorldSourceHotReload>().applied_count;
+
+    let _copy = watch_an_edited_copy(&mut app, "mixed", |project| {
+        move_an_entity(project, SECOND_LIVE_ROOM, "NpcSpawn")
+    });
+    press_apply_reload(&mut app);
+
+    let twins = app.world().resource::<FaultWhenTheFirstRoomIsBuilt>().made.clone();
+    assert_eq!(twins.len(), 2, "premise: the fault was injected when the first room was built");
+    let reload = app.world().resource::<WorldSourceHotReload>().clone();
+    let mixed: Vec<&String> =
+        reload.last_errors.iter().filter(|error| error.contains("THE WORLD IS MIXED")).collect();
+    assert!(
+        mixed.len() == 1 && mixed[0].contains(SECOND_LIVE_ROOM) && mixed[0].contains(&format!("'{start}'")),
+        "the status does not name the mixed world, the room that published and the room that was kept: \
+         {:?} / {:?}",
+        reload.last_status,
+        reload.last_errors
+    );
+    assert_eq!(reload.applied_count, applied, "a reload that left a mixed world counted itself as applied");
+
+    let after = live_room_readings(&mut app);
+    let (first, later) = (&after[&start], &after[SECOND_LIVE_ROOM]);
+    assert!(
+        first.0 != first_live && !first.1.contains(&old_term) && first.1.len() == 1,
+        "the first room was not rebuilt to the new generation: {first:?}"
+    );
+    assert_eq!(
+        later,
+        &before[SECOND_LIVE_ROOM],
+        "the room that was refused does not keep its live instance and the old generation"
+    );
+    assert_eq!(
+        the_only_prepared_epoch(&mut app),
+        epoch_before + 1,
+        "the generation of the session did not move one time"
+    );
+    assert_eq!(
+        (
+            ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
+            ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
+        ),
+        (0, 0),
+        "(publication receipts, hidden candidates) left after the mixed reload"
+    );
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(live_room_readings(&mut app), after, "the live rooms changed in the 30 frames after");
+
+    // The advice of the status: with the fault gone, apply the reload again.
+    for twin in twins {
+        app.world_mut().despawn(twin);
+    }
+    press_apply_reload(&mut app);
+    let reload = app.world().resource::<WorldSourceHotReload>().clone();
+    assert!(
+        reload.last_status.contains("applied") && reload.last_errors.is_empty(),
+        "the second reload did not apply: {:?} / {:?}",
+        reload.last_status,
+        reload.last_errors
+    );
+    let repaired = live_room_readings(&mut app);
+    let terms: std::collections::BTreeSet<&String> = repaired.values().flat_map(|(_, terms)| terms).collect();
+    assert!(
+        terms.len() == 1 && !terms.contains(&old_term) && repaired[SECOND_LIVE_ROOM].0 != later_live,
+        "the second reload did not bring each live room to one new generation: {repaired:?}"
+    );
+}
+
 /// ⛔⛤ **AND A REFUSED RELOAD COSTS THE RUNNING GAME NOTHING.**
 ///
 /// The refusal is a production one: two process-resident holders of one identity

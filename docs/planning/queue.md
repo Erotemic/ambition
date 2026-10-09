@@ -325,16 +325,34 @@ capability it needs turns the first into a refusal.
 multi-room hot reload row.
 
 **Current failure:** a multi-room reload publishes one room at a time. A later
-room refused at verification, after the first published, leaves a mixed world;
-the status says `THE WORLD IS MIXED`. No known road reaches it past the guards.
+room refused after the first published leaves a mixed world; the status says
+`THE WORLD IS MIXED`. The reload is not transactional across rooms.
 
-**Next action:** a fault-injection regression arm that forces the later room's
-verification to fail, then either make the reload transactional across rooms or
-pin today's named failure as the asserted behaviour.
+**Done 2026-10-09 (branch `publication-fault`):**
 
-**Acceptance:** the injected fault is caught by an assertion that names the
-mixed state, and multi-room publication is called transactional only when that
-arm shows no mixed world.
+- A road to the mixed world was open, and is closed. A later live room that
+  two bodies of one identity are in cannot open its transaction. With that
+  fault present when the reload was asked for, the first room published
+  (measured). Each later live room is now asked whether its world can be
+  described before the first room is staged (`DescribableRooms`), and the
+  whole reload is refused with the room named
+  (`a_world_reload_with_a_live_room_that_cannot_be_described_rebuilds_none`).
+- The named failure is held as the asserted behaviour, with a fault that a
+  test injects after the reload is asked for
+  (`a_later_room_refused_after_the_first_room_published_is_a_named_mixed_world`).
+  The arm also holds that the advice of the status is true: with the fault
+  gone, the reload applied again brings each live room to one generation.
+
+**Next action (open, not started):** make the sequence transactional. The
+later rooms are built against state that the first room's finalization makes
+(the room set, the live room counter), so the rooms cannot simply be verified
+before one of them is finalized. A design is owed before code: hold each
+room's `FrozenPublicationEffects` behind a hold that the reload owns, and
+verify the later rooms against the projected set.
+
+**Acceptance:** met for the first half: the injected fault is caught by an
+assertion that names the mixed state. Multi-room publication is called
+transactional only when that arm shows no mixed world; it does not.
 
 ### AP14 — semantic actor-monolith SCC decomposition (continuous; deferred 2026-10-09)
 

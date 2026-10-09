@@ -73,6 +73,32 @@ Two rules keep the look honest about collision:
 - The top row of a corrupted block is always solid, and it has one bright line.
 - Ornament below a platform is behind the surfaces and has less contrast.
 
+## The state of a two-state room
+
+A room with the `clean_corrupted` look has a state: pure, balanced or corrupt.
+The state is a fact in the save, as two world flags
+(`look.<room>.pure`, `look.<room>.corrupt`; both off is balanced), so it is
+saved and rolled back as each flag is. `game/ambition_content/src/room_look_state.rs`
+owns it.
+
+The authored verb `look.cycle <room>` moves a room to its next state: balanced,
+corrupt, pure. A `Switch` authors it in `on_activate`. The hub has one
+(`hub_state_switch`, next to the spawn).
+
+The look reads the state and moves its front toward it at a constant speed, so
+a change of state spreads across the room. The doors and the ink of the signs
+follow the front. A room starts in the state the save records.
+
+To photograph a state, record its flag in a capture:
+
+```bash
+cargo run -p ambition_app_tools --bin capture_scene -- central_hub_complex player out.png 1280x720 \
+    --warmup 320 --flag look.central_hub_complex.corrupt
+```
+
+`--flag NAME@TICK` records the flag on a later tick, so `--frames` films the
+front as it moves.
+
 ## How to add a look
 
 1. Write a material with the three uniforms (`piece`, `room`, `front`) and a
@@ -84,8 +110,8 @@ Two rules keep the look honest about collision:
 
 ## Limits
 
-- The front of the two-state look is not authored. It goes through the centre
-  of the room with a fixed lean.
+- The shape of the front is not authored. It is a line with a fixed lean, and
+  the state of the room says how far it has gone.
 - A look is all or nothing for the visual quality tier. A tier with no budget
   for screen shaders (`screen_shader_scale` of zero: Potato) draws no look, and
   the room is its block sprites. A sign or a door that the look dressed before

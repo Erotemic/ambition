@@ -150,6 +150,7 @@ pub mod projectiles;
 #[cfg(test)]
 mod pugnacious_polygon_moveset;
 pub mod quest;
+pub mod room_look_state;
 pub mod quests;
 /// This game's Yarn vocabulary — `<<give_item>>`, `<<buy_item>>`,
 /// `<<challenge>>` and the save-state mirror its `<<if>>` functions read.

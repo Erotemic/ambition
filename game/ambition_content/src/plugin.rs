@@ -134,6 +134,7 @@ impl Plugin for AmbitionContentPlugin {
         >::default());
 
         app.add_plugins(super::quests::AmbitionQuestContentPlugin);
+        app.add_plugins(super::room_look_state::RoomLookStatePlugin);
         app.add_plugins(super::bosses::AmbitionBossContentPlugin);
         app.add_plugins(super::encounters::AmbitionEncounterContentPlugin);
         app.add_plugins(super::dialogue::AmbitionDialogueContentPlugin);

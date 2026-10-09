@@ -23,6 +23,11 @@
 //! | `clean_corrupted` | [`RoomStateMaterial`]: one architecture in two states. The corrupted state is DERIVED in the shader from the same construction as the clean state, and a scalar field with a blocky front decides which state a point shows. |
 //! | `debug_beautiful` | [`RoomBlueprintMaterial`]: the collision truth of the room, drawn as a drawing. A solid is a closed outline, a one-way platform has an open underside. |
 //!
+//! The front of the two-state look moves. The state of the room is a fact in
+//! the save (`crate::room_look_state`: pure, balanced or corrupt), and
+//! [`spread_room_states`] moves the front toward it, so a change of state
+//! spreads across the room.
+//!
 //! A look also chooses the door of the room ([`RoomLook::door_art`]), with the
 //! renderer's `EntityArt` seam.
 //!
@@ -46,6 +51,7 @@ use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, InRoomInstance, SessionScopeSet, SessionSpawnScope, SpawnSessionScopedExt,
 };
+use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::settings::ResolvedVisualQuality;
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, LoadingZoneActivation, RoomSpec};
 use ambition_render::rendering::label_layout::{MirroredWorldLabel, StaticWorldLabel, WorldLabel};
@@ -53,6 +59,8 @@ use ambition_render::rendering::{
     BlockVisual, EntityArt, LoadingZoneVisual, RoomVisual, DOOR_SPRITE_ASPECT,
 };
 use ambition_sprite_sheet::game_assets::EntitySprite;
+
+use crate::room_look_state::RoomLookState;
 
 /// Above the parallax panels (`-18.0..=-15.0`), below the blocks.
 const BACKDROP_Z: f32 = -14.5;
@@ -76,6 +84,15 @@ const OVERLAY_Z: f32 = WORLD_Z_BLOCK + 3.0;
 const SURFACE_PAD: f32 = 16.0;
 /// How far the backdrop reaches past the room, for a camera at the room edge.
 const BACKDROP_PAD: f32 = 1200.0;
+
+/// How fast the front of the two-state look moves when the state of the room
+/// changes, in world px per second. The hub is about 2400 px across its front,
+/// so a change of state spreads across it in about four seconds.
+const SPREAD_SPEED: f32 = 620.0;
+/// How far past the last corner of the room the front goes for a state that
+/// fills the room. The shader's front is ragged by about this much: its
+/// wobble, its wisps, and the depth at which its largest blocks start.
+const SPREAD_MARGIN: f32 = 640.0;
 
 const ROLE_BACKDROP: f32 = 0.0;
 const ROLE_SURFACE: f32 = 1.0;
@@ -113,8 +130,9 @@ pub trait RoomLook: Material2d {
     ///   (`z, w`).
     fn window(piece: Vec4, room: Vec4, front: Vec4) -> Self;
 
-    /// The door this look gives to a door at `at` in `world`.
-    fn door_art(world: &ae::World, at: ae::Vec2) -> EntitySprite;
+    /// The door this look gives to a door at `at` in `world`, while the
+    /// front of the room has gone `advance` px into its clean side.
+    fn door_art(world: &ae::World, at: ae::Vec2, advance: f32) -> EntitySprite;
 }
 
 /// One architecture in two states: clean and corrupted.
@@ -146,8 +164,8 @@ impl RoomLook for RoomStateMaterial {
         Self { piece, room, front }
     }
 
-    fn door_art(world: &ae::World, at: ae::Vec2) -> EntitySprite {
-        if behind_front(world, at) > 0.0 {
+    fn door_art(world: &ae::World, at: ae::Vec2, advance: f32) -> EntitySprite {
+        if behind_front(world, at, advance) > 0.0 {
             EntitySprite::DoorVoxel
         } else {
             EntitySprite::DoorStone
@@ -184,13 +202,31 @@ impl RoomLook for RoomBlueprintMaterial {
         Self { piece, room, front }
     }
 
-    fn door_art(_world: &ae::World, _at: ae::Vec2) -> EntitySprite {
+    fn door_art(_world: &ae::World, _at: ae::Vec2, _advance: f32) -> EntitySprite {
         EntitySprite::DoorBlueprint
     }
 }
 
 #[derive(Resource, Default)]
 struct RoomLookInstalled;
+
+/// Where the front of a two-state room is now: how far it has gone into the
+/// clean side from the centre of the room, in world px. Negative is into the
+/// corrupted side. One for each live room with a look, on an entity of its
+/// own; a look with one state does not read it.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+struct RoomLookSpread {
+    advance: f32,
+}
+
+/// The ink of a static sign on the pale side: what the sign looked like
+/// before, and the halo that the ink added.
+#[derive(Component)]
+struct LabelInk {
+    text_color: Color,
+    outline_color: Option<Color>,
+    halo: [Entity; 4],
+}
 
 /// Marks each entity of a spawned look. It is stamped with the room, so it
 /// leaves with the room, and the look is spawned again on a replay. A live
@@ -248,7 +284,8 @@ pub fn install(app: &mut App) {
     app.add_systems(
         Update,
         (
-            ink_labels_on_the_clean_side
+            (spread_room_states, ink_labels_on_the_clean_side)
+                .chain()
                 .run_if(resource_exists::<Assets<RoomStateMaterial>>)
                 .run_if(looks_are_in_budget),
             retire_looks_out_of_budget.run_if(not(looks_are_in_budget)),
@@ -288,22 +325,44 @@ fn asks_for<M: RoomLook>(spec: &RoomSpec) -> bool {
     spec.metadata.visual_profile.palette.as_deref() == Some(M::PALETTE)
 }
 
-/// The front of a room: through the room centre, with a lean. A room has no
-/// authored front yet, so each room that asks for a look gets the same one.
-fn room_front(world: &ae::World) -> Vec4 {
-    let normal = Vec2::new(1.0, 0.32).normalize();
-    Vec4::new(world.size.x * 0.5, world.size.y * 0.5, normal.x, normal.y)
+/// The normal of a room's front: it points into the corrupted side.
+fn front_normal() -> Vec2 {
+    Vec2::new(1.0, 0.32).normalize()
 }
 
-/// How far `at` is behind the front of `world`, in world px. Positive is the
-/// corrupted side of the two-state look.
+/// The front of a room: a line with a lean, `advance` px into the clean side
+/// from the centre of the room. A room has no authored front yet, so each
+/// room that asks for a look gets the same one.
+fn room_front(world: &ae::World, advance: f32) -> Vec4 {
+    let normal = front_normal();
+    let at = Vec2::new(world.size.x, world.size.y) * 0.5 - normal * advance;
+    Vec4::new(at.x, at.y, normal.x, normal.y)
+}
+
+/// How far the front goes from the centre of `world` for a state that fills
+/// the room: past its last corner, and past the ragged edge of the front.
+fn full_advance(world: &ae::World) -> f32 {
+    let normal = front_normal();
+    0.5 * (normal.x.abs() * world.size.x + normal.y.abs() * world.size.y) + SPREAD_MARGIN
+}
+
+/// Where the front of the room `spec` wants to be, by the state the save
+/// records for it. A composition with no save has balanced rooms.
+fn wanted_advance(spec: &RoomSpec, save: Option<&AmbitionGameSave>) -> f32 {
+    let state = save.map_or(RoomLookState::Balanced, |save| RoomLookState::of(save, &spec.id));
+    state.level() * full_advance(&spec.world)
+}
+
+/// How far `at` is behind the front of `world`, in world px, while the front
+/// has gone `advance` px into the clean side. Positive is the corrupted side
+/// of the two-state look.
 ///
 /// The shader is the authority on the front (`field` in `room_state.wgsl`).
-/// This is its part that does not move: the plane and the large wobble. The
-/// part that moves is at most 65 px, so a sign or a door that close to the
-/// front can be dressed for the other side.
-fn behind_front(world: &ae::World, at: ae::Vec2) -> f32 {
-    let front = room_front(world);
+/// This is its part that does not move by itself: the plane and the large
+/// wobble. The part that moves is at most 65 px, so a sign or a door that
+/// close to the front can be dressed for the other side.
+fn behind_front(world: &ae::World, at: ae::Vec2, advance: f32) -> f32 {
+    let front = room_front(world, advance);
     let wobble = (value_noise(Vec2::new(at.x, at.y), 260.0, 7) - 0.5) * 260.0;
     (at.x - front.x) * front.z + (at.y - front.y) * front.w + wobble
 }
@@ -338,12 +397,15 @@ fn value_noise(p: Vec2, scale: f32, salt: u32) -> f32 {
 }
 
 /// Give each door of a room that asks for the look `M` the door of that look.
+/// The door of a two-state room follows the front, so this asks again each
+/// frame and writes only a door that changes.
 fn dress_doors<M: RoomLook>(
     mut commands: Commands,
     rooms: LiveRoomSpecs,
-    doors: Query<(Entity, &LoadingZoneVisual, &InRoomInstance), Added<LoadingZoneVisual>>,
+    spreads: Query<(&InRoomInstance, &RoomLookSpread)>,
+    doors: Query<(Entity, &LoadingZoneVisual, &InRoomInstance, Option<&EntityArt>)>,
 ) {
-    for (entity, visual, stamp) in &doors {
+    for (entity, visual, stamp, dressed) in &doors {
         let Some((_, definition)) = rooms.live_rooms().find(|(room, _)| *room == stamp.0) else {
             continue;
         };
@@ -356,10 +418,57 @@ fn dress_doors<M: RoomLook>(
         }) else {
             continue;
         };
-        // `try_insert`: a room visual can leave before the command flush.
-        commands
-            .entity(entity)
-            .try_insert(EntityArt(M::door_art(&spec.world, zone.aabb.center())));
+        let advance = advance_of(&spreads, stamp);
+        let art = EntityArt(M::door_art(&spec.world, zone.aabb.center(), advance));
+        if dressed != Some(&art) {
+            // `try_insert`: a room visual can leave before the command flush.
+            commands.entity(entity).try_insert(art);
+        }
+    }
+}
+
+/// Where the front of the live room `stamp` is now. A room with no spread
+/// record (its look is not spawned) has its front at the centre.
+fn advance_of(spreads: &Query<(&InRoomInstance, &RoomLookSpread)>, stamp: &InRoomInstance) -> f32 {
+    spreads
+        .iter()
+        .find(|(room, _)| room.0 == stamp.0)
+        .map_or(0.0, |(_, spread)| spread.advance)
+}
+
+/// Move the front of each two-state room toward the state the save records
+/// for it, and tell the room's quads where it is.
+fn spread_room_states(
+    time: Res<Time>,
+    save: Option<Res<AmbitionGameSave>>,
+    rooms: LiveRoomSpecs,
+    mut spreads: Query<(&InRoomInstance, &mut RoomLookSpread)>,
+    quads: Query<(&InRoomInstance, &MeshMaterial2d<RoomStateMaterial>)>,
+    mut materials: ResMut<Assets<RoomStateMaterial>>,
+) {
+    for (stamp, mut spread) in &mut spreads {
+        let Some((_, definition)) = rooms.live_rooms().find(|(room, _)| *room == stamp.0) else {
+            continue;
+        };
+        let spec = rooms.rooms().spec(definition);
+        if !asks_for::<RoomStateMaterial>(spec) {
+            continue;
+        }
+        let wanted = wanted_advance(spec, save.as_deref());
+        if spread.advance == wanted {
+            continue;
+        }
+        let step = SPREAD_SPEED * time.delta_secs();
+        spread.advance += (wanted - spread.advance).clamp(-step, step);
+        let front = room_front(&spec.world, spread.advance);
+        for (quad_stamp, material) in &quads {
+            if quad_stamp.0 != stamp.0 {
+                continue;
+            }
+            if let Some(mut material) = materials.get_mut(&material.0) {
+                material.front = front;
+            }
+        }
     }
 }
 
@@ -372,6 +481,7 @@ fn present_room_look<M: RoomLook>(
     quad: Option<Res<RoomLookQuad>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<M>>,
+    save: Option<Res<AmbitionGameSave>>,
     active_session: Option<Res<ActiveSessionScope>>,
 ) {
     let Some(session_scope) =
@@ -394,7 +504,10 @@ fn present_room_look<M: RoomLook>(
         };
         let scope = session_scope.in_room(Some(room));
         let world = &spec.world;
-        let front = room_front(world);
+        // A room starts in the state the save records: the front moves only
+        // when the state changes while the room is live.
+        let advance = wanted_advance(spec, save.as_deref());
+        let front = room_front(world, advance);
         let mut spawn = |name: String,
                          min: Vec2,
                          size: Vec2,
@@ -511,18 +624,29 @@ fn present_room_look<M: RoomLook>(
             OVERLAY_Z,
             None,
         );
+        commands.spawn_session_scoped(
+            scope,
+            (
+                RoomLookSpread { advance },
+                PresentedRoomLook,
+                RoomVisual,
+                Name::new("room look spread"),
+            ),
+        );
     }
 }
 
 /// Write the static signs of the pale side of the two-state look in ink.
 ///
 /// A static label is white, which the clean sky hides. The placement pass
-/// reads the colour from [`WorldLabel`], so this writes there, one time, when
-/// the label appears. The copy of a label for a second view is a label that
-/// appears also, so it gets its own ink and its own halo.
+/// reads the colour from [`WorldLabel`], so this writes there. The front
+/// moves, so each sign is asked again each frame: a sign the front passes
+/// gets its ink, or gets back the colours it had ([`LabelInk`]). The copy of
+/// a label for a second view is a label also, with its own ink and halo.
 fn ink_labels_on_the_clean_side(
     mut commands: Commands,
     rooms: LiveRoomSpecs,
+    spreads: Query<(&InRoomInstance, &RoomLookSpread)>,
     mut labels: Query<
         (
             Entity,
@@ -531,12 +655,13 @@ fn ink_labels_on_the_clean_side(
             &TextFont,
             Option<&InRoomInstance>,
             Option<&MirroredWorldLabel>,
+            Option<&LabelInk>,
         ),
-        (With<StaticWorldLabel>, Added<WorldLabel>),
+        With<StaticWorldLabel>,
     >,
     stamps: Query<&InRoomInstance>,
 ) {
-    for (entity, mut label, text, font, stamp, copy) in &mut labels {
+    for (entity, mut label, text, font, stamp, copy, ink) in &mut labels {
         let stamp = stamp.or_else(|| copy.and_then(|copy| stamps.get(copy.root).ok()));
         let Some(stamp) = stamp else {
             continue;
@@ -551,20 +676,37 @@ fn ink_labels_on_the_clean_side(
         let world = &spec.world;
         let at = ae::config::bevy_size_to_world(world.size, ae::Vec2::new(label.anchor.x, label.anchor.y));
         // The air is pale until about here (`air_state` in the shader).
-        if behind_front(world, at) > -60.0 {
-            continue;
-        }
-        label.text_color = INK_TEXT;
-        label.outline_color = Some(INK_HALO);
-        commands.entity(entity).with_children(|parent| {
-            for offset in [Vec2::X, -Vec2::X, Vec2::Y, -Vec2::Y] {
-                parent.spawn((
-                    text.clone(),
-                    font.clone(),
-                    TextColor(INK_HALO),
-                    Transform::from_xyz(offset.x * 1.2, offset.y * 1.2, -0.1),
-                ));
+        let pale = behind_front(world, at, advance_of(&spreads, stamp)) <= -60.0;
+        match (pale, ink) {
+            (true, None) => {
+                let halo = [Vec2::X, -Vec2::X, Vec2::Y, -Vec2::Y].map(|offset| {
+                    commands
+                        .spawn((
+                            text.clone(),
+                            font.clone(),
+                            TextColor(INK_HALO),
+                            Transform::from_xyz(offset.x * 1.2, offset.y * 1.2, -0.1),
+                            ChildOf(entity),
+                        ))
+                        .id()
+                });
+                commands.entity(entity).try_insert(LabelInk {
+                    text_color: label.text_color,
+                    outline_color: label.outline_color,
+                    halo,
+                });
+                label.text_color = INK_TEXT;
+                label.outline_color = Some(INK_HALO);
             }
-        });
+            (false, Some(ink)) => {
+                label.text_color = ink.text_color;
+                label.outline_color = ink.outline_color;
+                for halo in ink.halo {
+                    commands.entity(halo).try_despawn();
+                }
+                commands.entity(entity).try_remove::<LabelInk>();
+            }
+            _ => {}
+        }
     }
 }

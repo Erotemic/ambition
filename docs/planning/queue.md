@@ -305,8 +305,12 @@ reads cargo output to it.
    selection still exits 1), and a full gate on a machine without
    `wasm32-unknown-unknown` dropped the web check from the plan and wrote
    `done` (it is now planned as unrunnable, `Job.missing`, so the run is
-   `incomplete`). Next: the receipts outside `run_tests.py` (the commit
-   messages and queue rows that quote a lane), and each lane's cadence in
+   `incomplete`). The receipt for a push exists (2026-10-09):
+   `scripts/required_checks.py` prints, for each check the change requires,
+   `passed on this change`, `FAILED on this change`, `NOT RUN`, `NOT RUN:
+   <remedy>` or `ran only on a tree before this change`; whether a push must
+   wait for it is Q166. Next: the commit messages and queue rows that quote a
+   lane by hand, and each lane's cadence in
    [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence).
 
 5. **A sync test did not see an effect that only the first run of a frame

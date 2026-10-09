@@ -91,12 +91,12 @@ pub fn posed_body_world_per_pixel(
             idle(&current).map(|pixels| height / pixels.y)
         }
         PosedBodyScale::Width(width) => idle(&current).map(|pixels| width / pixels.x),
-        PosedBodyScale::AsWideAs(other) => {
+        PosedBodyScale::TimesAsWideAs(times, other) => {
             let other_scale = posed_body_world_per_pixel(catalog, &other).unwrap_or_else(|| {
-                panic!("`{current}` is as wide as `{other}`, whose row states no posed_body")
+                panic!("`{current}` takes its width from `{other}`, whose row states no posed_body")
             });
             match (idle(&other), idle(&current)) {
-                (Some(ruler), Some(pixels)) => Some(ruler.x * other_scale / pixels.x),
+                (Some(ruler), Some(pixels)) => Some(times * ruler.x * other_scale / pixels.x),
                 _ => None,
             }
         }

@@ -1337,6 +1337,24 @@ fn a_grown_mary_o_bonks_a_question_block_and_wears_the_fire_flower() {
     let mut app = boot();
     settle_until_playable(&mut app);
     assert_scripted_input_reaches_the_sim(&mut app);
+    // This run's claims are about the block ladder, so the walkers are taken
+    // out of the question, as `scripted_level_run` takes them out of the pipe
+    // run. The controller stomps by the phase of its hops. That stomped a
+    // walker 28 px wide; it meets the leading edge of one 56 px wide
+    // (2026-10-08, the enemies doubled) and the attempt ends under the first
+    // block. `course_playthrough` is the run that plays against the walkers.
+    {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&mut ambition_platformer2d::characters::actor::BodyHealth, With<PrimaryPlayer>>();
+        let world = app.world_mut();
+        for mut health in q.iter_mut(world) {
+            health.health.invulnerable.set(
+                ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED,
+                true,
+            );
+        }
+    }
 
     let ladder = ladder_blocks();
     assert!(

@@ -340,9 +340,14 @@ fn the_pinned_death_pose_reflags_the_world_reset_every_frame_of_the_beat() {
     let mut reflag_causes: Vec<String> = Vec::new();
     let mut previous_active = false;
     let mut previous_lives = start_lives;
-    // Two dwells' worth of frames: one whole beat, plus room to see what the
-    // frame after it does.
-    let frames = ((ambition_demo_mary_o::death::DEATH_DWELL * 2.0 + 2.0) * 60.0) as usize;
+    // One whole beat, and two seconds to see what the frames after it do.
+    //
+    // The window ends before a walker can reach her. She comes back at her
+    // start, and the first snake of 1-1 walks to it. In a window of two
+    // dwells the snake killed her at frame 559, which read as a second beat
+    // from one fall. Measured 2026-10-08, when the snake became two times as
+    // wide and so reached her sooner.
+    let frames = ((ambition_demo_mary_o::death::DEATH_DWELL + 2.0) * 60.0) as usize;
     for _ in 0..frames {
         app.update();
         let frame = app.world().resource::<FrameCounter>().0;

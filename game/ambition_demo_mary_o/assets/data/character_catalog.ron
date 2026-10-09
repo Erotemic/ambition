@@ -162,10 +162,10 @@
             manifest: "sprites/solid_snake_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
-            // As WIDE as Mary-O, the only dimension a corridor cares about: a
-            // snake occupies the corridor width she does, as a Koopa does beside
-            // Mario. Derived from her row, so it moves when she does.
-            posed_body: Some(AsWideAs("mary_o")),
+            // Two times as WIDE as Mary-O (Jon, 2026-10-08: at her width the
+            // snake was too small to see). Width is the dimension a corridor
+            // cares about. Derived from her row, so it moves when she does.
+            posed_body: Some(TimesAsWideAs(2.0, "mary_o")),
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["enemy"],
@@ -195,10 +195,11 @@
             manifest: "sprites/ai_slop_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
-            // Width is what the level sees: a slop patrols a corridor, and 28
-            // is the width the rooms were authored against. Its height follows
-            // from the art.
-            posed_body: Some(Width(28.0)),
+            // Width is what the level sees: a slop patrols a corridor. Its
+            // height follows from the art. The width was 28 until 2026-10-08
+            // (Jon: the enemies were too small), and the rooms were authored
+            // against 28.
+            posed_body: Some(Width(56.0)),
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["enemy"],

@@ -109,11 +109,11 @@ fn the_mary_o_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it()
             "{id}"
         );
     }
-    // The snake is as wide as she is; the slop is 28 wide.
+    // The snake is two times as wide as she is; the slop is 56 wide.
     let snake = idle_body("solid_snake", get("solid_snake").body.as_ref());
-    assert!((snake.x - her.x).abs() < 1e-3, "snake {snake:?}, Mary-O {her:?}");
+    assert!((snake.x - 2.0 * her.x).abs() < 1e-3, "snake {snake:?}, Mary-O {her:?}");
     let slop = idle_body("ai_slop", get("ai_slop").body.as_ref());
-    assert!((slop.x - 28.0).abs() < 1e-3, "slop {slop:?}");
+    assert!((slop.x - 56.0).abs() < 1e-3, "slop {slop:?}");
 
     // The plane swarms: free flight at full effort, which a body that cannot
     // see it would lose and fall.

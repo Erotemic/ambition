@@ -64,6 +64,56 @@ fn no_enemy_of_1_1_falls_when_the_level_starts() {
     );
 }
 
+/// Each enemy of 1-1 stands with its feet on a surface from its first frame,
+/// at the size its character authors (Jon, 2026-10-08: the Solid Snake and the
+/// AI Slop are two times as large, "make sure feet are on the ground").
+#[test]
+fn each_enemy_of_1_1_starts_with_its_feet_on_a_surface() {
+    use ae::AabbExt;
+
+    let room = ambition_demo_mary_o::level_1_1();
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    // The frames in which the session is published and its room is built.
+    let mut bodies = Vec::new();
+    for _ in 0..10 {
+        app.update();
+        let mut query = app
+            .world_mut()
+            .query_filtered::<(&FeatureId, &ae::BodyKinematics), Without<PrimaryPlayer>>();
+        bodies = query.iter(app.world()).map(|(id, kin)| (id.0.clone(), kin.aabb())).collect();
+        if !bodies.is_empty() {
+            break;
+        }
+    }
+    assert!(
+        bodies.len() >= room.enemy_spawns.len() && !bodies.is_empty(),
+        "premise: the placed enemies of 1-1 are built ({} bodies)",
+        bodies.len()
+    );
+    let in_the_air: Vec<_> = bodies
+        .iter()
+        .filter(|(_, body)| {
+            !room.world.blocks.iter().any(|block| {
+                ae::collision_semantics::is_support_surface(block.kind)
+                    && block.aabb.left() < body.right()
+                    && block.aabb.right() > body.left()
+                    && (block.aabb.top() - body.bottom()).abs() < 0.5
+            })
+        })
+        .collect();
+    assert!(in_the_air.is_empty(), "these bodies have no surface under their feet: {in_the_air:?}");
+    let in_a_wall: Vec<_> = bodies
+        .iter()
+        .filter(|(_, body)| {
+            room.world.blocks.iter().any(|block| {
+                ae::collision_semantics::is_full_collision_surface(block.kind)
+                    && body.strict_intersects(block.aabb)
+            })
+        })
+        .collect();
+    assert!(in_a_wall.is_empty(), "these bodies start in a solid block: {in_a_wall:?}");
+}
+
 #[test]
 fn the_level_starts_with_no_landing_sound() {
     let (landings, _) = the_first_frames();

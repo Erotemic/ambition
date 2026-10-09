@@ -872,9 +872,10 @@ pub enum PosedBodyScale {
     /// The idle body is this many world units wide. For a creature whose width
     /// is what a level cares about (a walker in a corridor).
     Width(f32),
-    /// The idle body is as wide as the named character's idle body. A value
-    /// derived from another character moves when that character does.
-    AsWideAs(String),
+    /// The idle body is this many times as wide as the named character's idle
+    /// body. A value derived from another character moves when that character
+    /// does.
+    TimesAsWideAs(f32, String),
     /// The art is drawn at this many world units per sheet pixel. For a body
     /// whose scale other bodies share (a giant and its fists).
     WorldPerPixel(f32),

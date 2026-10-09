@@ -31,9 +31,15 @@ pub(crate) fn a_returning_players_session() -> App {
 /// session opens its handles when it starts (`declare_ambition_seating`).
 pub(crate) fn a_returning_players_session_with_pads(pads: usize) -> App {
     use ambition_app::app::{build_visible_app, VisibleRenderMode};
-    use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     app.finish();
+    a_returning_player_enters(app, pads)
+}
+
+/// The gameplay route of `app`, an App whose plugins are finished, for a
+/// player who has seen the hub's intro, with `pads` gamepads connected first.
+pub(crate) fn a_returning_player_enters(mut app: App, pads: usize) -> App {
+    use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
     app.update();
     for _ in 0..pads {
         app.world_mut().spawn(bevy::input::gamepad::Gamepad::default());

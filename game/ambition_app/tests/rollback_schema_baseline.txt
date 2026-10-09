@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v332
+ggrs-rollback-schema-v333
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -454,7 +454,7 @@ resource.quest_registry	resource-clone-custom-checksum	QuestRegistry	bevy_ggrs c
 resource.requested_clock_scale	resource-canonical	RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.reward_grants_since_checkpoint	resource-clone-custom-checksum	RewardGrantsSinceCheckpoint	bevy_ggrs clone snapshot + the grants of the pickups collected and the chests opened since the last checkpoint: a retracted boss defeat takes back a mint's and its reward chest's, and a death keeps a placed source's while one of its owners is spared
 resource.sandbox_save	resource-clone-custom-checksum	AmbitionGameSave	bevy_ggrs clone snapshot + serialized whole-save checksum projection, its dormant-record rows hashed once per Arc
-resource.sandbox_sim_state	resource-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.sandbox_sim_state	component-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.save_restored	resource-clone	SaveRestored	bevy_ggrs clone snapshot; not in the session checksum
 resource.session_checkpoint_operations	component-clone-custom-checksum	SessionCheckpointOperations	bevy_ggrs clone snapshot + how many checkpoint restores this session has admitted
 resource.session_checkpoint_outcomes	component-clone-custom-checksum	SessionCheckpointOutcomes	bevy_ggrs clone snapshot + the terminal outcome of the last answered checkpoint operation

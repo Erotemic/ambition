@@ -1108,7 +1108,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `feature.world_time_schedule` (`WorldTimeSchedule`) are components of the
 /// session root (C03), under the same keys; their kinds are
 /// `component-canonical` and `component-clone-custom-checksum`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 332;
+/// ⛔⛤ 332 -> 333: `resource.sandbox_sim_state` (`RoomTransitionCooldown`) is a
+/// component of the session root (C03), under the same key; its kind is
+/// `component-canonical`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 333;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

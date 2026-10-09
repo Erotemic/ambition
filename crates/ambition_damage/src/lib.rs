@@ -1399,7 +1399,7 @@ pub fn apply_player_hit_events(
     // (`rollback_ggrs/src/lib.rs`), so there is no concurrency to permit. Two
     // systems here with no edge between them were already unordered; this makes
     // that visible rather than true.
-    sim_state: Res<RoomTransitionCooldown>,
+    sim_state: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut banner_requests: MessageWriter<GameplayBannerRequested>,
     // The rollback-registered FIFO `stage_player_victim_hit_events` filled at

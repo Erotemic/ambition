@@ -9,8 +9,9 @@
 //!   ([`PlayerEntity`], [`PlayerMovementAuthority`], [`PlayerBody`],
 //!   [`BodyHealth`], [`BodyCombat`], [`BodyAnimFacts`],
 //!   [`PlayerInteractionState`], [`PlayerBlinkCameraState`]);
-//! - the canonical sim resources ([`RoomTransitionCooldown`], [`ControlFrame`],
-//!   [`RoomGeometry`], [`RoomSet`], [`MovingPlatformSet`]) are present;
+//! - the canonical sim resources ([`ControlFrame`], [`RoomGeometry`],
+//!   [`RoomSet`], [`MovingPlatformSet`]) are present, and a session root is
+//!   born with its [`RoomTransitionCooldown`];
 //! - no deleted god-object resource (`SandboxRuntime`, `FeatureRuntime`)
 //!   is silently re-introduced — this is the runtime companion to the
 //!   `legacy_runtime_guardrail` static-text scanner.
@@ -71,15 +72,27 @@ fn minimal_sim_app() -> App {
     app
 }
 
+/// The door countdown is a component of the session root (C03), so the
+/// plugins install a requirement, not a resource: a root is born with every
+/// seat free.
+#[test]
+fn sandbox_simulation_plugin_gives_a_session_root_its_door_countdown() {
+    use ambition_platformer2d::platformer::lifecycle::{SessionRoot, SessionScopeId};
+
+    let mut app = minimal_sim_app();
+    let root = app.world_mut().spawn(SessionRoot(SessionScopeId(1))).id();
+    assert_eq!(
+        app.world().get::<RoomTransitionCooldown>(root),
+        Some(&RoomTransitionCooldown::default()),
+        "a session root built by the simulation plugins has no door countdown"
+    );
+}
+
 #[test]
 fn sandbox_simulation_plugin_inserts_core_resources() {
     let app = minimal_sim_app();
     let world = app.world();
 
-    assert!(
-        world.get_resource::<RoomTransitionCooldown>().is_some(),
-        "RoomTransitionCooldown resource missing after add_simulation_plugins"
-    );
     assert!(
         world.get_resource::<ControlFrame>().is_some(),
         "ControlFrame resource missing — sim/presentation input seam broken"

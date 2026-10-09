@@ -104,7 +104,6 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_time::ClockState>()
             .register_type::<ambition_platformer2d_shared_tangle::schedule::GameMode>()
             .init_resource::<ambition_gameplay_trace::GameplayTraceBuffer>()
-            .init_resource::<ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>()
             // The session's movement-tuning authority. Engine-owned with a
             // neutral default so EVERY sim composition has one; content seeds
             // the authored values over it, and a developer build's inspector
@@ -206,6 +205,11 @@ impl Plugin for SimCoreResourcesPlugin {
         // The room the quest producer last announced: a component of each session
         // root (C03), born empty with the root.
         ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<ambition_persistence::quest::LastQuestRoom>(app);
+        // Each seat's door countdown: a component of each session root (C03),
+        // born with every seat free.
+        ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<
+            ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown,
+        >(app);
 
         // ── The world-state log ───────────────────────────────────────────
         //

@@ -860,9 +860,9 @@ pub(super) fn reload_ldtk_world_from_disk(
         {
             dialogue.close();
         }
-        if let Some(mut cooldown) = world.get_resource_mut::<
+        if let Some(mut cooldown) = ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<
             ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown,
-        >() {
+        >(world) {
             // The dev reload moves the primary player: the primary seat waits.
             cooldown.hold(0, 0.10);
         }

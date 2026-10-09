@@ -33,9 +33,12 @@ pub struct RoomTransitionEffects<'w> {
 /// ceiling can reach both through one slot. The reset is emitted as DATA and
 /// consumed by the time-control owner — no system here mutates `time_scale`.
 #[derive(SystemParam)]
-pub struct RoomClock<'w> {
-    pub sim_state:
-        ResMut<'w, ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown>,
+pub struct RoomClock<'w, 's> {
+    pub sim_state: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
+        'w,
+        's,
+        ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown,
+    >,
     pub clock_resets: MessageWriter<'w, ClockResetRequest>,
 }
 
@@ -638,7 +641,7 @@ pub struct StagedRoomTransition {
 #[derive(SystemParam)]
 pub struct RoomTransitionFinalize<'w, 's> {
     effects: RoomTransitionEffects<'w>,
-    clock: RoomClock<'w>,
+    clock: RoomClock<'w, 's>,
     dev_state: ResMut<'w, ambition_dev_tools::DeveloperRuntimeState>,
     // `Option`: the dialogue capability is removable (`Capability::Dialogue`), and a
     // transition in a composition without it has no text box or conversation to close.

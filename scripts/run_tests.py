@@ -832,6 +832,13 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                     [CARGO, "check", "--all-targets"],
                     cwd=str(REPO / "fixtures" / "external_consumer")))
 
+    # ⭐ AND THE WINDOWED BUILD OF THE SDK GAME. The check above runs at default
+    # features, and `outlander_visible` needs `visible`, so it never compiled the
+    # windowed game a player runs (SDK-GAME).
+    jobs.append(Job("external consumer: outlander's windowed build COMPILES",
+                    [CARGO, "check", "--features", "visible", "--bins"],
+                    cwd=str(REPO / "fixtures" / "external_consumer")))
+
     # ⛔ AND THE FEATURELESS ONE COMPILES TOO, for the same seconds-not-minutes
     # reason. A capability edge that stops being optional breaks this consumer
     # and nothing else: every other fixture asks for enough features to hide it.

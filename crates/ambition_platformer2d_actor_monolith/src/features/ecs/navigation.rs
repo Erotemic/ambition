@@ -107,32 +107,27 @@ impl RoomNavigation {
     }
 }
 
-/// One number for the geometry a graph is built from: each block's box and
-/// kind. Two rooms with the same blocks have the same graph.
+/// One number for the geometry a graph is built from: each block's box, and
+/// what the graph reads of its kind (a support, a wall, a hazard, a one-way
+/// surface, a block that moves). Two rooms with the same blocks have the same
+/// graph.
 fn geometry_stamp(world: &ae::World) -> u64 {
+    use ae::collision_semantics::{is_full_collision_surface, is_support_surface};
     let mut stamp = ae::navigation::mix(world.blocks.len() as u64);
     let mut fold = |value: u64| stamp = ae::navigation::mix(stamp ^ value);
     fold(((world.size.x.to_bits() as u64) << 32) | world.size.y.to_bits() as u64);
     for block in &world.blocks {
         fold(((block.aabb.min.x.to_bits() as u64) << 32) | block.aabb.min.y.to_bits() as u64);
         fold(((block.aabb.max.x.to_bits() as u64) << 32) | block.aabb.max.y.to_bits() as u64);
-        fold(std::mem::discriminant(&block.kind).hash_u64());
+        fold(
+            u64::from(is_support_surface(block.kind))
+                | u64::from(is_full_collision_surface(block.kind)) << 1
+                | u64::from(block.kind == ae::BlockKind::Hazard) << 2
+                | u64::from(block.kind == ae::BlockKind::OneWay) << 3
+                | u64::from(block.velocity != ae::Vec2::ZERO) << 4,
+        );
     }
     stamp
-}
-
-trait DiscriminantNumber {
-    fn hash_u64(&self) -> u64;
-}
-
-impl<T> DiscriminantNumber for std::mem::Discriminant<T> {
-    fn hash_u64(&self) -> u64 {
-        use std::hash::{Hash, Hasher};
-        // A fixed-key hasher: the same number in each process.
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        self.hash(&mut hasher);
-        hasher.finish()
-    }
 }
 
 /// OBSERVE: write this tick's [`NavAdvice`] for each body whose brain
@@ -219,7 +214,14 @@ pub fn advise_navigation(
                 .iter()
                 .filter(|(player, _)| *player != entity && rooms.of(*player) == live_room)
                 .map(|(_, player)| player.pos)
-                .min_by(|a, b| a.distance_squared(kinematics.pos).total_cmp(&b.distance_squared(kinematics.pos)))
+                // The nearest; of two as near, the one at the lesser point,
+                // so the choice is a fact of positions and of no query order.
+                .min_by(|a, b| {
+                    a.distance_squared(kinematics.pos)
+                        .total_cmp(&b.distance_squared(kinematics.pos))
+                        .then(a.x.total_cmp(&b.x))
+                        .then(a.y.total_cmp(&b.y))
+                })
         });
         let target_place = attended
             .and_then(|at| graph.place_beside(feet, at, kinematics.size.x + TARGET_ROOM, TARGET_DEPTH));

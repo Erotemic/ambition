@@ -630,21 +630,35 @@ fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
             .unwrap_or_else(|| panic!("`{target}` has a published flipbook"))
             .row_draws_the_body_whole(row)
     };
+    // ⚠ The sheets are untracked, so this reads the sheet THIS machine last
+    // published. A machine that has not published the robot since its blink
+    // rows became plain poses fails here, and the cure is not in the code.
     for row in ["blink_out", "blink_in", "blink_out~mirrored", "idle"] {
-        assert!(whole("player_robot_v3", row), "player_robot_v3 {row}");
+        assert!(
+            whole("player_robot_v3", row),
+            "player_robot_v3 does not draw its body whole in `{row}`. If this machine's sheet is from \
+             before 2026-10-09, publish it again: scripts/regen/sprites.sh --target player_robot_v3"
+        );
     }
     // Its death fades the frame as one picture.
     assert!(!whole("player_robot_v3", "death"));
     assert!(!whole("player_robot_v3", "no_such_row"));
     // Each other sheet with a blink row, and what it says. Printed so the
     // set is read from the sheets and not from a list.
-    let mut own_blink = Vec::new();
-    for target in ["robot", "player_robot_v2", "alice", "bob", "goblin", "performer"] {
+    let (mut own_blink, mut engine_blink) = (Vec::new(), Vec::new());
+    for target in crate::baked_part_flipbooks::baked_part_flipbook_targets() {
         let Some(flipbook) = RiggedSpriteAsset::baked(target) else { continue };
-        if flipbook.clip("blink_out").is_some() && !flipbook.row_draws_the_body_whole("blink_out") {
+        if flipbook.clip("blink_out").is_none() {
+            continue;
+        }
+        if flipbook.row_draws_the_body_whole("blink_out") {
+            engine_blink.push(target);
+        } else {
             own_blink.push(target);
         }
     }
     assert!(!own_blink.is_empty(), "control: no sheet takes its own body apart in blink_out");
-    eprintln!("sheets that keep their own blink: {own_blink:?}");
+    assert!(engine_blink.contains(&"player_robot_v3"));
+    eprintln!("the engine's blink: {engine_blink:?}");
+    eprintln!("their own blink: {own_blink:?}");
 }

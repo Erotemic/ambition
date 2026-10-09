@@ -33,6 +33,16 @@ no safety.
 
 Notes:
 
+- **Some rows are enforced.** `python3 scripts/required_checks.py` reads the
+  paths your branch changed since `origin/main` and names the checks three
+  rows require: `cargo test -p <crate>` for each crate you changed, the demo
+  host lane for death, restore, replay and rollback-host paths, and the repo
+  tooling job for `scripts/`. A check counts only when `run_tests.py` recorded
+  it as passed on a tree with your change in it
+  (`target/lane_ledger.jsonl`); a plain `cargo test` records nothing. It
+  prints the `./run_tests.sh` command for each check that is missing. The
+  pre-push hook (`python3 scripts/install_pre_push_hook.py`) runs it and
+  refuses the push. The other rows are still prose.
 - **To go faster, go narrower, not to another lane.** `--rust` keeps the two
   heavy jobs (`workspace (default features)` and the `capture_scene` acceptance
   run) and drops the no-warnings check, doc links, planning citations and the

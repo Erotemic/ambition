@@ -68,6 +68,7 @@ ABORT_FREE_GB = 6.0
 
 # Keep shared measurement paths in the small dependency-free helper.
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
+import lane_ledger  # noqa: E402
 import measurement_paths  # noqa: E402
 from cargo_output import strip_ansi  # noqa: E402
 
@@ -2663,10 +2664,15 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
                                   "current_job": j.name,
                                   "current_started": time.time(),
                                   "completed": completed_rows(results)})
+            tree_before = lane_ledger.tested_tree(REPO)
             rc, executed, blocked, evidence = run_job_streaming(j, env)
             results.append(
                 JobResult(j.name, j.argv, rc == 0, time.monotonic() - start,
                           executed, blocked, evidence))
+            # The row is evidence for one tree. When the tree moved while the
+            # job ran, the job tested neither tree, so it records nothing.
+            if tree_before is not None and lane_ledger.tested_tree(REPO) == tree_before:
+                lane_ledger.record(REPO, tree_before, j.name, j.argv, rc == 0, blocked)
             if blocked:
                 print(f"\033[33m    INCOMPLETE ({j.name}) — {blocked}\033[0m")
             elif rc != 0:

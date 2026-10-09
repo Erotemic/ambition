@@ -129,6 +129,26 @@ target's true position. A brute asks for it only while it chases, and it
 chases only a foe it believes in, but the place is where the foe IS and not
 where the brute believes it is.
 
+CLOSED 2026-10-09, from a review of f0409fcc (two contracts that were not
+what they said):
+
+- The advisor kept a graph under the body's NET acceleration. A graph is
+  built from the whole motion frame: which way is down, the gravity a jump law
+  can scale, and the external acceleration it cannot. Two bodies with one sum
+  and two frames shared the graph of the one that asked first. The key is the
+  whole `MotionFrame` now. Guard:
+  `navigation::tests::two_frames_with_one_net_acceleration_are_two_graphs_in_each_order`
+  (actor monolith).
+- A leg in the air "arrived" on any surface at the height of its landing.
+  The graph's rollouts had a second test of their own (the surface the leg
+  names); the live follower had none, took the leg as done, and forgot its
+  misses, so it could not give a goal up. A leg carries the span of its
+  landing surface now (`NavLeg::land_span`), and `follow_leg` asks for it: the
+  one rule holds for the builder and for a live brain. Guards:
+  `a_landing_at_the_right_height_on_another_surface_has_failed` (core) and
+  `a_follower_that_lands_on_another_surface_counts_a_miss_and_gives_up_after_three`
+  (characters). Rollback schema 338: two more `f32` for a leg in progress.
+
 LIMIT, the checksum: a brute's follower is rewound (the `Brain` is stored by
 clone) and is NOT in the brain's checksum cursor. `MeleeBrute` has no cursor
 arm (`SnapshotCursor for Brain` writes tag 0 for it; its `mode` was not

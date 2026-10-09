@@ -176,6 +176,51 @@ mod tests {
         out
     }
 
+    /// A hop that comes down at the landing's height on ANOTHER surface is a
+    /// miss: the follower plans again, and gives the goal up after three in a
+    /// row. With the height alone as the test it was an arrival each time, the
+    /// misses went back to zero, and the follower never gave up.
+    #[test]
+    fn a_follower_that_lands_on_another_surface_counts_a_miss_and_gives_up_after_three() {
+        use super::super::nav_follower::{Followed, NavFollower};
+        // `THERE` is on a surface from x 360 to 440. The other surface of
+        // that height is under x 100.
+        let leg = NavLeg {
+            kind: NavLegKind::Hop,
+            start: HERE,
+            takeoff: HERE,
+            land: THERE,
+            land_span: [360.0, 440.0],
+        };
+        let landed_at = |x: f32| {
+            let mut snapshot = standing(5.0);
+            snapshot.navigation.feet = Vec2::new(x, THERE.y);
+            snapshot
+        };
+        let in_the_air = |misses: u8| NavFollower {
+            goal: Some(THERE),
+            leg: Some(leg),
+            phase: LegPhase::Air,
+            until: 100.0,
+            misses,
+        };
+        let mut out = ActorControlFrame::neutral();
+        // The control: on the landing's surface, short of the point. The leg
+        // is done and the misses are forgotten.
+        let mut nav = in_the_air(2);
+        assert_eq!(nav.drive(&landed_at(380.0), |_| 50.0, &mut out), Followed::Going);
+        assert_eq!((nav.leg, nav.misses), (None, 0));
+
+        let mut nav = in_the_air(0);
+        for miss in 1..=3 {
+            nav.leg = Some(leg);
+            nav.phase = LegPhase::Air;
+            assert_eq!(nav.drive(&landed_at(100.0), |_| 50.0, &mut out), Followed::Going);
+            assert_eq!((nav.leg, nav.misses), (None, miss), "landing {miss} on the other surface");
+        }
+        assert_eq!(nav.drive(&landed_at(100.0), |_| 50.0, &mut out), Followed::GaveUp);
+    }
+
     #[test]
     fn a_roamer_rests_chooses_a_place_takes_its_leg_and_rests_again() {
         let mut state = RoamState::default();
@@ -194,6 +239,7 @@ mod tests {
             start: HERE,
             takeoff: HERE,
             land: THERE,
+            land_span: [THERE.x - 40.0, THERE.x + 40.0],
         };
         let mut answered = standing(3.1);
         answered.navigation.goal = Some(THERE);

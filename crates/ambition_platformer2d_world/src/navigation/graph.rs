@@ -144,7 +144,9 @@ impl NavGraph {
     /// A leg whose points are (along, below) pairs, as world points.
     fn in_world(&self, leg: NavLeg) -> NavLeg {
         let point = |p: Vec2| self.frame.point(p.x, p.y);
-        NavLeg { kind: leg.kind, start: point(leg.start), takeoff: point(leg.takeoff), land: point(leg.land) }
+        // The span is places on the side axis, and they are the same in
+        // each of the two forms.
+        NavLeg { start: point(leg.start), takeoff: point(leg.takeoff), land: point(leg.land), ..leg }
     }
 
     /// The seconds `leg` takes in the kernel, when the body arrives on
@@ -332,7 +334,9 @@ impl NavGraph {
             if (self.frame.along(land) - self.frame.along(feet)).abs() <= ARRIVE_TOLERANCE {
                 return NavNext::Arrived;
             }
-            return NavNext::Leg(NavLeg { kind: NavLegKind::Walk, start: land, takeoff: land, land });
+            let span = &self.surfaces[to];
+            let land_span = [span.left - self.half.x, span.right + self.half.x];
+            return NavNext::Leg(NavLeg { kind: NavLegKind::Walk, start: land, takeoff: land, land, land_span });
         }
         match self.route(feet, goal).and_then(|route| route.first().copied()) {
             Some(link) => NavNext::Leg(self.links[link].leg),
@@ -398,6 +402,8 @@ fn proposals(a: &StandSurface, b: &StandSurface, half_width: f32, hop: bool, dro
         start: Vec2::new(a.clamp(start), a.top),
         takeoff: Vec2::new(takeoff, a.top),
         land: Vec2::new(b.clamp(land), b.top),
+        // What `surface_at` takes for `b`: its ends, each a half body wider.
+        land_span: [b.left - half_width, b.right + half_width],
     };
     // How far onto a surface a landing aims, from the end the body comes by.
     let onto = (half_width + 4.0).min(b.width() * 0.5);

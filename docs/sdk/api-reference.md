@@ -18,6 +18,7 @@ directions: documented methods must exist, and public methods must be documented
 | `with_game_assets()` | prepare art on a headless host (a window implies it) |
 | `start_at_launcher()` | boot into a launcher over all mounted experiences, not into the first |
 | `rollback(participants)` | compose for rollback, seating `participants` local players — see [Rollback](#rollback) |
+| `profile(profile)` | compose a supported engine profile (`app::profile`, for example `COMBAT_WITHOUT_INVENTORY_BOSS_DIALOGUE`): the engine installs none of the capabilities it omits, fixed-tick or under `rollback`, and a module's content pack that requires one is refused at declaration |
 | `mount(module)` | fold in a `GameModule`; the FIRST mounted owns the host's home |
 | `try_build()` | the `App`, or a `CompositionError` listing every problem at once |
 | `build()` | same, panicking with those problems |
@@ -42,6 +43,7 @@ composition may hold several, keyed by id.
 | `actions(&[..])` | optional — semantic actions the capability contributes; the composition REFUSES if two claim the same id |
 | `requires_rollback(&[..])` | optional — rollback state the capability must have restored; refused at assembly if nothing registered it |
 | `provides_rollback(owner, name, probe)` | the other half — the typed registration that SATISFIES a requirement |
+| `content_pack(&PACK)` | optional (feature `content_pack`) — an `EmbeddedPack` the module ships; compiled at declaration against what the composition installs, so a pack that needs an omitted capability is refused there |
 
 ### What a capability CONTRIBUTES, beside its systems
 

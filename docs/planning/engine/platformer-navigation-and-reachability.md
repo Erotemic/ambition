@@ -148,8 +148,12 @@ the first proposal that arrives" (total route cost +12.6 %). The census is
 
 OPEN, cost:
 - 17 builds are still over 20 ms (the worst: `central_hub_complex` for the
-  dog, 112 ms). The next step is to build at room load, not on the first
-  advice.
+  dog, 112 ms). A body that is placed in a room is advised on the room's first
+  tick, so today the build is at room load already. A body that starts to
+  navigate in the middle of play (a spawn, a brain change) pays it then, as a
+  hitch. The graph is a pure function of authored geometry and a body's
+  tuning, so it can be built when content is built and shipped as data. That
+  is the direction; nothing builds it yet.
 - A body is born with a motion model that is not its character's own, and the
   advisor builds a graph for that one too: one build for nothing for each
   navigating kind. Two things I tried do not find the moment the body is

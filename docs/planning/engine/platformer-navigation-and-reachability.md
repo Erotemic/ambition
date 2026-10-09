@@ -134,8 +134,29 @@ An author's page is [`docs/systems/npc-navigation.md`](../../systems/npc-navigat
 Build cost, measured by YardratAmbition 2026-10-09 on 76 shipped rooms and two
 bodies, before any cut: about 0.25 to 0.3 ms for each rollout; 25 builds are
 over 20 ms; the worst is `hall_of_characters` at 185 ms. A graph is built on
-the first tick a navigating body is in the room. OPEN: cut the rollouts that
-fall to the step cap, then decide if the build moves to room load.
+the first tick a navigating body is in the room.
+
+After the cut (YardratAmbition, `nav-census`, merged 2026-10-09): a rollout
+that stands still on the ground in its run-up has failed (a walk-off into a
+wall: these were most of the wasted steps), and a body below its landing and
+falling has missed (`follow_leg`, so a live brain plans again sooner too).
+Links are unchanged in all 152 rows; kernel steps 1,263,906 to 988,461; the
+slowest build 184 to 112 ms; builds over 20 ms, 25 to 17. Rejected on
+measurement: a tighter envelope prefilter (lost links in 6 rooms), and "keep
+the first proposal that arrives" (total route cost +12.6 %). The census is
+`game/ambition_app/tests/nav_graph_census.rs` (`--ignored --nocapture`).
+
+OPEN, cost:
+- 17 builds are still over 20 ms (the worst: `central_hub_complex` for the
+  dog, 112 ms). The next step is to build at room load, not on the first
+  advice.
+- A body is born with a motion model that is not its character's own, and the
+  advisor builds a graph for that one too: one build for nothing for each
+  navigating kind. Two things I tried do not find the moment the body is
+  ready: the `PosedBody` marker is there before the model changes, and
+  `PreparedCharacterDefinition::motion_model` is not the final model either
+  (the dog's run speed of 120 arrives by another road). It needs the owner of
+  the spawn order to say what "this body has its tuning" is.
 
 The rules the slice holds:
 

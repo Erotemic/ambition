@@ -142,18 +142,20 @@ pub fn advise_navigation(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut cache: ResMut<RoomNavigation>,
     mut advice: ResMut<NavigationAdvice>,
-    bodies: Query<(
-        Entity,
-        &ambition_characters::brain::Brain,
-        &ae::movement::MotionModel,
-        &ae::BodyAbilities,
-        &ae::BodyKinematics,
-        &ae::BodyBaseSize,
-        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-        // Whom the body attends to, when it has a foe: the same read-model
-        // its brain's `target_pos` comes from.
-        Option<&ambition_combat::components::ActorTarget>,
-    )>,
+    bodies: Query<
+        (
+            Entity,
+            &ambition_characters::brain::Brain,
+            &ae::movement::MotionModel,
+            &ae::BodyAbilities,
+            &ae::BodyKinematics,
+            &ae::BodyBaseSize,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            // Whom the body attends to, when it has a foe: the same read-model
+            // its brain's `target_pos` comes from.
+            Option<&ambition_combat::components::ActorTarget>,
+        ),
+    >,
     // The players, for a body with no foe: it attends to the nearest one in
     // its room. A peaceful body has no combat target, and a companion keeps
     // near a friend.

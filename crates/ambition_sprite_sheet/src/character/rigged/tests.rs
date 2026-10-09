@@ -638,13 +638,20 @@ fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
     assert!(!whole("player_robot_v3", "no_such_row"));
     // Each other sheet with a blink row, and what it says. Printed so the
     // set is read from the sheets and not from a list.
-    let mut own_blink = Vec::new();
-    for target in ["robot", "player_robot_v2", "alice", "bob", "goblin", "performer"] {
+    let (mut own_blink, mut engine_blink) = (Vec::new(), Vec::new());
+    for target in crate::baked_part_flipbooks::baked_part_flipbook_targets() {
         let Some(flipbook) = RiggedSpriteAsset::baked(target) else { continue };
-        if flipbook.clip("blink_out").is_some() && !flipbook.row_draws_the_body_whole("blink_out") {
+        if flipbook.clip("blink_out").is_none() {
+            continue;
+        }
+        if flipbook.row_draws_the_body_whole("blink_out") {
+            engine_blink.push(target);
+        } else {
             own_blink.push(target);
         }
     }
     assert!(!own_blink.is_empty(), "control: no sheet takes its own body apart in blink_out");
-    eprintln!("sheets that keep their own blink: {own_blink:?}");
+    assert!(engine_blink.contains(&"player_robot_v3"));
+    eprintln!("the engine's blink: {engine_blink:?}");
+    eprintln!("their own blink: {own_blink:?}");
 }

@@ -956,6 +956,55 @@ fn a_frame_that_fades_as_one_picture_fades_its_cell() {
     assert_eq!(atlas(&app).cells.opacity[cell / 4][cell % 4], 1.0);
 }
 
+/// A body on a blink row is taken apart in its cell by the engine's warp, by
+/// the ROW it draws (no preview): the cell's warp says a departure and how far
+/// through the row the frame is, and it is gone when the row ends. The row's
+/// own frame is drawn whole, for the warp to cut.
+///
+/// The control is a sheet that takes its own body apart in that row (the old
+/// robot): its cell has no warp, and it keeps its own blink.
+#[test]
+fn a_blink_row_warps_its_bodys_cell_and_a_sheet_with_its_own_blink_keeps_it() {
+    let (flipbook, mut app, root) = robot();
+    assert!(flipbook.row_draws_the_body_whole("blink_out"), "premise: the robot's blink row is a plain pose");
+    let owner_of = owner(&app, root);
+    let last = flipbook.clip("blink_out").expect("a blink clip").frame_count() - 1;
+    assert!(last >= 2, "the blink clip has too few frames to be part way through");
+    pin_clip(&mut app, root, "blink_out", last / 2);
+    app.update();
+    let cell = app.world().get::<RiggedPresentation>(owner_of).unwrap().impostor.expect("an impostor cell").cell as usize;
+    let warp = atlas(&app).cells.warp[cell];
+    assert_eq!(warp.x, 1.0, "the cell has no departure warp: {warp:?}");
+    assert!(warp.y > 0.2 && warp.y < 0.8, "the warp is not part way through the row: {warp:?}");
+    assert!(warp.w > warp.z, "the warp has no span to cut: {warp:?}");
+    let others = (0..IMPOSTOR_MAX_CELLS).filter(|other| *other != cell);
+    assert!(others.into_iter().all(|other| atlas(&app).cells.warp[other] == Vec4::ZERO));
+    pin_clip(&mut app, root, "blink_in", 0);
+    app.update();
+    assert_eq!(atlas(&app).cells.warp[cell].x, 2.0, "the arrival row has the arrival warp");
+    pin_clip(&mut app, root, "idle", 0);
+    app.update();
+    assert_eq!(atlas(&app).cells.warp[cell], Vec4::ZERO, "the warp stays after the row ends");
+
+    // The control.
+    let own = RiggedSpriteAsset::baked("robot").expect("the old robot publishes a flipbook");
+    assert!(!own.row_draws_the_body_whole("blink_out"), "control: the old robot draws a plain blink row now");
+    let (mut app, root) = app_with(true, sheet_with("robot", Some(own)));
+    app.update();
+    pin_clip(&mut app, root, "blink_out", 2);
+    app.update();
+    // Its body is not composited for the warp, so there can be no atlas at
+    // all; when there is one, no cell of it has a warp.
+    let warped = app
+        .world()
+        .resource::<RiggedImpostorAtlas>()
+        .0
+        .iter()
+        .flatten()
+        .any(|atlas| atlas.cells.warp.iter().any(|warp| *warp != Vec4::ZERO));
+    assert!(!warped, "a sheet with its own blink got the engine's on top of it");
+}
+
 /// A body's colour shift (`CharacterColorShift`: an enemy variant, a buff)
 /// reaches its cell of the page's material, and only its cell: one sheet
 /// draws every coloured variant. A body without one is drawn as painted.

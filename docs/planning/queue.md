@@ -140,8 +140,19 @@ writer of `bob_field_survey_received`. The content validator now counts a Yarn
 `the_note_travels_from_alice_to_bob` (real key presses in the shell session;
 the old map makes it red at "the note's flag was set with no note handed
 over"). Bob's reward is already a world consequence: the flag opens the two
-`LockWall`s gated by it. Next: the scenario itself (rooms walked through their
-exits, a capability, the death/return/save/reload steps).
+`LockWall`s gated by it.
+
+**WA2 done 2026-10-09:** `a_playthrough_of_the_persistent_world` runs the
+shipped shell session from the hub to Alice through six real exits (doors by
+Interact, edge exits by standing in them), the note to Bob, back to a wall
+that is now open, out to another room, a save, a NEW process loaded from the
+file (bag, flags, quest step), and the walk back to the open wall. Poison
+(the survey flag cleared from the file): red at the after-load assertion.
+Found: a death before any checkpoint takes the survey back and keeps the
+facts it made, two horizons in one death; filed as
+[Q164](awaiting-maintainer-decision.md). Next: the death step (after Q164),
+a capability on the route (the hub basement's Blink, a held item), and a
+second participant.
 
 **Next action:** one reproducible headless playthrough of the shipped game, on
 the real composition: explore connected rooms, acquire a meaningful capability,

@@ -381,6 +381,41 @@ world authors water today; the sandbox has slugs and pools.
 
 **Default in force until you rule:** (a) and (c), the current behaviour.
 
+## Q164 — when the player dies, does the story it made since the checkpoint go back too?
+
+Filed 2026-10-09. Blocks the death step of the WORLD-ACCEPTANCE scenario
+([the queue](queue.md)); the rest of the scenario goes on without it.
+
+Measured with the shipped game (`a_playthrough_of_the_persistent_world`): the
+player takes Alice's note, gives it to Bob, gets his survey, and dies before
+any checkpoint. After the death the survey is gone from the bag, but
+`bob_field_survey_received`, the quest step it advanced and the wall it opened
+all stay. Bob cannot give the survey again (the note is gone), so the object
+is lost for good while the world says it was received.
+
+The cause is two horizons in one death. The bag goes back to the checkpoint
+(`OwnedItemsBaseline`, Q124: each object by which side of the checkpoint it
+was acquired on). Flags, quest steps and the walls they open have no
+checkpoint copy, so a death never takes them back. Q151 says the live world
+and durable state share one rewind horizon, and here they do not.
+
+* **(a) Leave it (current).** Objects go back; facts stay. The survey is lost
+  and its quest is still done.
+* **(b) Facts go back too.** A checkpoint also copies the flags and quest
+  steps, and a death restores them with the bag (only the dying
+  participant's, per Q151). Coherent. With no checkpoint in the intro, one
+  death there undoes all of the intro's story, so the intro would need
+  authored checkpoints.
+* **(c) An authored hand-over banks what it moves.** A dialogue that writes a
+  fact also makes the objects it gives and takes part of the checkpoint, as a
+  shrine rest does. Coherent for this case, and the intro keeps its progress.
+  It is a rule about the road an object came by, not its kind, so Q124 still
+  holds.
+
+**Recommendation:** (c). It keeps both halves of one act on one horizon
+without making the intro punishing, and it is small: the hand-over already
+runs through `world.set_flag` and the bag commands in one choice.
+
 ## Q163 — when Alice talks to someone, does Bob beside her keep playing?
 
 Filed 2026-10-06. Blocks nothing: (a) is what the game does today.

@@ -22,7 +22,7 @@ use leafwing_input_manager::prelude::Buttonlike;
 
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, room_of};
 use crate::the_note_travels_from_alice_to_bob::{
-    a_returning_players_session, bag, flag, put_body_at, quest_step, talk_and_choose, NOTE_FLAG,
+    a_returning_player_enters, a_returning_players_session, bag, flag, put_body_at, quest_step, talk_and_choose, NOTE_FLAG,
     SURVEY_FLAG,
 };
 
@@ -261,16 +261,21 @@ fn the_note_reaches_bob_and_opens_alices_return() {
 /// The save file the autosave wrote for `app`, read back from disk, and the
 /// persistence root it is under. Asserts that the bytes on disk are the live
 /// save: what a new App reads is what this App held.
-fn the_save_file(app: &mut App) -> (std::path::PathBuf, ambition_platformer2d::persistence::save_data::AmbitionGameSaveData) {
+///
+/// The root is the App's own resource, cloned: an isolated root is removed
+/// with its last holder, and this one must be there after the App is dropped.
+fn the_save_file(
+    app: &mut App,
+) -> (ambition_platformer2d::persistence::PersistenceRoot, ambition_platformer2d::persistence::save_data::AmbitionGameSaveData) {
     use ambition_platformer2d::persistence::save;
     // The autosave runs in `Update`; give it frames to see the last change.
     for _ in 0..5 {
         app.update();
     }
     let world = app.world();
-    let root = world.resource::<ambition_platformer2d::persistence::PersistenceRoot>().0.clone();
+    let root = world.resource::<ambition_platformer2d::persistence::PersistenceRoot>().clone();
     let owner = world.resource::<save::SaveOwner>().current().to_owned();
-    let path = save::save_path_for(&root, &owner).expect("the live save's owner has a file of its own");
+    let path = save::save_path_for(&root.0, &owner).expect("the live save's owner has a file of its own");
     let loaded = save::load_save(&path);
     assert!(loaded.present, "the autosave wrote no file at {}", path.display());
     assert_eq!(
@@ -282,14 +287,76 @@ fn the_save_file(app: &mut App) -> (std::path::PathBuf, ambition_platformer2d::p
     (root, loaded.data)
 }
 
+/// The shipped game with a render app: `OffscreenGpu`, a real wgpu backend
+/// (a software adapter is enough) and no window. `NoWindow` has no render
+/// app, so nothing in it is drawn.
+fn a_rendered_returning_players_session() -> App {
+    use ambition_app::app::{build_visible_app_with, VisibleRenderMode};
+    let mut app = build_visible_app_with(VisibleRenderMode::OffscreenGpu, true, |_| {});
+    // The surface a window would give the camera. Without it the camera has
+    // no size to frame the room with.
+    app.insert_resource(ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
+        ae::Vec2::new(960.0, 540.0),
+    ));
+    // `app.run()` waits for the wgpu device that plugin finish creates on
+    // another task; a stepped App must wait for it too. Wait only while the
+    // plugins are being added: a composition that finished them already is
+    // past `Ready`, and a wait for `Ready` would not end.
+    let started = std::time::Instant::now();
+    while app.plugins_state() == bevy::app::PluginsState::Adding {
+        assert!(
+            started.elapsed() < crate::common::ACTIVATION_CEILING,
+            "the plugins of the rendered App were not ready in {:?}",
+            crate::common::ACTIVATION_CEILING
+        );
+        bevy::tasks::tick_global_task_pools_on_main_thread();
+    }
+    if app.plugins_state() == bevy::app::PluginsState::Ready {
+        app.finish();
+        app.cleanup();
+    }
+    a_returning_player_enters(app, 0)
+}
+
+/// ⭐ PLAYABLE WHERE IT IS DRAWN. The same capability, route and hand-over in
+/// the composition with a render app, and the same facts: the Blink in the
+/// hand at Alice, the note to Bob, and Alice's return lock open. The render
+/// app runs on its own thread after `cleanup` (pipelined rendering), so the
+/// test holds the wgpu device that the render app was given; a pixel of the
+/// lock is `capture_scene`'s question. The control is `NoWindow`, which has
+/// no device and no render app.
+#[test]
+fn the_playthrough_runs_in_the_composition_that_draws_it() {
+    let mut app = a_rendered_returning_players_session();
+    assert!(
+        app.world().contains_resource::<bevy::render::renderer::RenderDevice>(),
+        "this composition has no wgpu device, so nothing in it is drawn"
+    );
+    assert_eq!(live_room(&mut app), "central_hub_complex");
+    let blink = SimId::placement(BLINK);
+    take(&mut app, &blink);
+    for room in ROUTE_TO_ALICE {
+        go_through(&mut app, room);
+    }
+    assert!(the_player_holds(&mut app, &blink), "the Blink did not come along to Alice");
+    talk_and_choose(&mut app, "npc_alice", "Take the note.");
+    go_through(&mut app, "bob_relay");
+    talk_and_choose(&mut app, "npc_bob", "Hand him the sealed note.");
+    go_through(&mut app, "alice_relay");
+    assert!(
+        flag(&app, SURVEY_FLAG) && !gate_stands(&app, RETURN_LOCK),
+        "in the drawn game, the survey was handed over and Alice's return lock still stands"
+    );
+}
+
 /// A new App, in this process, whose persistence root is `root`: its Startup
 /// reads the save file there (`load_save_at_startup`), before the gameplay
 /// route starts.
-fn a_session_loaded_from(root: &std::path::Path) -> App {
+fn a_session_loaded_from(root: &ambition_platformer2d::persistence::PersistenceRoot) -> App {
     use ambition_app::app::{build_visible_app, VisibleRenderMode};
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    app.insert_resource(ambition_platformer2d::persistence::PersistenceRoot(root.to_path_buf()));
+    app.insert_resource(root.clone());
     app.finish();
     app.update();
     app.world_mut().write_message(ShellCommand::ReplaceWith {

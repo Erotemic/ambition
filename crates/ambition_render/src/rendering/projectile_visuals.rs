@@ -46,12 +46,54 @@ pub struct ProjectileVisualLink(#[allow(dead_code)] pub Entity);
 /// source rects (read once from the manifest at spawn) and steps them on the
 /// row's authored cadence, scaled by `PresentationTime` so bullet-time slows the
 /// animation with the sim.
+///
+/// The packer trims each frame to its own drawn box, so two frames of one row
+/// can differ in size and in place (a saber that spins). Each frame is drawn
+/// at its own size and at its own place in the row's logical frame
+/// ([`PlacedFrame`]).
 #[derive(Component)]
 pub struct ProjectileFrameAnim {
-    frames: Vec<Rect>,
+    frames: Vec<PlacedFrame>,
     frame_dur: f32,
     elapsed: f32,
     index: usize,
+}
+
+/// One frame of an animated row: its source rect, the size it is drawn at,
+/// and the anchor that puts it at its place in the logical frame.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PlacedFrame {
+    pub rect: Rect,
+    pub size: Vec2,
+    pub anchor: Vec2,
+}
+
+/// Place each frame of a row. `first_size` is the size the row's first frame
+/// is drawn at: each frame is drawn at that scale. `cell` is the logical frame
+/// the trim offsets are measured in. The centre of the logical frame is at
+/// the sprite's origin, so a trimmed frame is drawn where the full frame had
+/// it.
+///
+/// AMBITION_REVIEW(spatial): frame-local pixels (y down) to a normalized
+/// sprite anchor (y up), so y is negated.
+pub fn place_frames(rects: &[ambition_sprite_sheet::FrameRect], cell: Vec2, first_size: Vec2) -> Vec<PlacedFrame> {
+    let Some(first) = rects.first() else {
+        return Vec::new();
+    };
+    let scale = first_size / Vec2::new(first.w.max(1) as f32, first.h.max(1) as f32);
+    rects
+        .iter()
+        .map(|r| {
+            let trimmed = Vec2::new(r.w.max(1) as f32, r.h.max(1) as f32);
+            // From the logical frame's centre to this frame's centre.
+            let shift = Vec2::new(r.off.0 as f32, r.off.1 as f32) + trimmed * 0.5 - cell * 0.5;
+            PlacedFrame {
+                rect: frame_rect(r),
+                size: trimmed * scale,
+                anchor: Vec2::new(-shift.x / trimmed.x, shift.y / trimmed.y),
+            }
+        })
+        .collect()
 }
 
 /// Marker on the transient charge-indicator sprite in front of the player.
@@ -233,15 +275,24 @@ fn build_sheet_visual(
     ));
     sprite.rect = Some(first);
 
-    let anchor = matches!(rotation, ProjectileRotation::VelocityAligned)
-        .then(|| pommel_anchor(&row.rects[0]));
-
     let anim = (animate && frames.len() > 1).then(|| ProjectileFrameAnim {
-        frames,
+        frames: place_frames(
+            &row.rects,
+            Vec2::new(record.frame_width as f32, record.frame_height as f32),
+            sprite.custom_size.unwrap_or(Vec2::ONE),
+        ),
         frame_dur: row.duration_secs.max(1.0 / 1000.0),
         elapsed: 0.0,
         index: 0,
     });
+
+    // A velocity-aligned blade turns about its pommel. An animated row has an
+    // anchor for each frame, so it starts with its first frame's.
+    let anchor = if matches!(rotation, ProjectileRotation::VelocityAligned) {
+        Some(pommel_anchor(&row.rects[0]))
+    } else {
+        anim.as_ref().and_then(|anim| anim.frames.first()).map(|frame| Anchor(frame.anchor))
+    };
 
     BuiltVisual {
         sprite,
@@ -276,6 +327,7 @@ pub fn sync_projectile_visuals(
             &VisualProjectile,
             &ProjectileVisualId,
             Option<&mut ProjectileFrameAnim>,
+            Option<&mut Anchor>,
             &mut Transform,
             &mut Sprite,
         ),
@@ -327,7 +379,7 @@ pub fn sync_projectile_visuals(
 
     // Refresh existing visuals from their live view; despawn orphans.
     let dt = presentation_time.scaled_dt();
-    for (visual_entity, link, visual_id, anim, mut transform, mut sprite) in &mut visuals {
+    for (visual_entity, link, visual_id, anim, anchor, mut transform, mut sprite) in &mut visuals {
         let Ok(view) = bodies.get(link.0) else {
             commands.entity(visual_entity).despawn();
             continue;
@@ -338,7 +390,8 @@ pub fn sync_projectile_visuals(
         transform.translation =
             ambition_platformer2d_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
 
-        match visual_catalog.rotation(visual_id.as_str()) {
+        let rotation = visual_catalog.rotation(visual_id.as_str());
+        match rotation {
             ProjectileRotation::FlipToTravel => {
                 sprite.flip_x = view.vel.x < 0.0;
             }
@@ -361,7 +414,15 @@ pub fn sync_projectile_visuals(
                     anim.elapsed -= anim.frame_dur;
                     anim.index = (anim.index + 1) % anim.frames.len();
                 }
-                sprite.rect = Some(anim.frames[anim.index]);
+                let frame = anim.frames[anim.index];
+                sprite.rect = Some(frame.rect);
+                sprite.custom_size = Some(frame.size);
+                // A velocity-aligned blade keeps its pommel anchor.
+                if let Some(mut anchor) = anchor.filter(|_| !matches!(rotation, ProjectileRotation::VelocityAligned)) {
+                    // A flipped sprite is flipped about its own centre.
+                    let flip = if sprite.flip_x { -1.0 } else { 1.0 };
+                    anchor.0 = Vec2::new(frame.anchor.x * flip, frame.anchor.y);
+                }
             }
         }
     }
@@ -439,5 +500,40 @@ pub fn sync_projectile_charge_visuals(
                 Name::new("Player projectile charge indicator"),
             ),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn trimmed(x: i32, w: i32, h: i32, off: (i32, i32)) -> ambition_sprite_sheet::FrameRect {
+        ambition_sprite_sheet::FrameRect { x, y: 0, w, h, page: 0, off, anchors: Default::default() }
+    }
+
+    /// A saber that spins in a 100 px logical frame: flat in its first frame
+    /// and upright in its second. Each is drawn at its own size and at one
+    /// scale, and the logical frame's centre stays at the sprite's origin.
+    #[test]
+    fn each_trimmed_frame_is_drawn_at_its_own_size_and_place() {
+        let rects = [trimmed(0, 80, 20, (10, 40)), trimmed(80, 20, 80, (50, 10))];
+        let placed = place_frames(&rects, Vec2::splat(100.0), Vec2::new(160.0, 40.0));
+        assert_eq!(placed[0].size, Vec2::new(160.0, 40.0));
+        assert_eq!(placed[1].size, Vec2::new(40.0, 160.0), "the upright frame is drawn in the flat frame's box");
+        // The first frame is centred in the logical frame: no shift.
+        assert_eq!(placed[0].anchor, Vec2::ZERO);
+        // The second frame's centre is 10 px right of the logical centre and
+        // level with it: the sprite is shifted right by half its own width.
+        assert_eq!(placed[1].anchor, Vec2::new(-0.5, 0.0));
+    }
+
+    /// An untrimmed row is drawn as before: each frame the first frame's size,
+    /// with no shift.
+    #[test]
+    fn an_untrimmed_row_is_not_moved() {
+        let rects = [trimmed(0, 64, 64, (0, 0)), trimmed(64, 64, 64, (0, 0))];
+        for frame in place_frames(&rects, Vec2::splat(64.0), Vec2::splat(38.0)) {
+            assert_eq!((frame.size, frame.anchor), (Vec2::splat(38.0), Vec2::ZERO));
+        }
     }
 }

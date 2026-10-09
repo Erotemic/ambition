@@ -336,40 +336,50 @@ pub(super) struct OtherLiveRoom {
     room_id: String,
 }
 
-/// Replace one more live room with the room `plan` prepared from the set the
-/// session holds now: a later publication of a reload whose first room is
-/// published. Answers whether it published.
-///
-/// The live instance it mints is read here, after the publication before it
-/// moved the counter. The receipt is retired on the two arms.
-fn republish_live_room(
+/// Stage one later live room of a reload as a held publication, checked
+/// against `projected`: the new room set, whose live-room counter has moved
+/// past each mint before this room. It promotes nothing; the reload commits
+/// or refuses it with the other rooms.
+fn stage_held_live_room(
     world: &mut World,
     replaces: world_rooms::LiveRoomInstance,
     plan: &rooms::RoomConstructionPlan,
     residents: Vec<(Entity, bool)>,
-) -> bool {
-    let Some(mints) = ambition_platformer2d::platformer::lifecycle::session_world_component::<
-        world_rooms::RoomSet,
-    >(world)
-    .map(|rooms| rooms.next_live_room()) else {
-        return false;
-    };
+    projected: world_rooms::RoomSet,
+    mints: world_rooms::LiveRoomInstance,
+) -> rooms::PublicationHandle {
     let mut queue = bevy::ecs::world::CommandQueue::default();
     let publication = {
         let mut commands = Commands::new(&mut queue, world);
-        plan.replace_live_world(
+        plan.replace_live_world_held(
             &mut commands,
             residents,
             None,
-            // The set is the one the first room brought.
-            None,
+            Some(projected),
             None,
             Some(rooms::LiveRoomSuccession::replacing(replaces, mints)),
             Vec::new(),
         )
     };
     queue.apply(world);
-    rooms::settle_publication(world, publication, |_| {}, |_| {})
+    publication
+}
+
+/// The violations a room's last verification recorded, for a status line.
+fn verification_reasons(world: &World, room: &str) -> Vec<String> {
+    world
+        .get_resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
+        .filter(|verification| verification.room_id == room)
+        .map(|verification| {
+            verification
+                .violations
+                .iter()
+                .map(|v| format!("{v:?}"))
+                .chain(verification.projection_violations.iter().map(|v| format!("{v:?}")))
+                .chain(verification.staged_violations.iter().map(|v| format!("{v:?}")))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 #[derive(Resource, Clone, Copy, Debug)]
@@ -661,19 +671,17 @@ pub(super) fn reload_ldtk_world_from_disk(
     )
     .map_err(|error| vec![error.to_string()])?;
 
-    // ⛔⛤ **ALL THE PLANS, BEFORE THE FIRST ROOM IS STAGED.** A reload with N
-    // live rooms is N publications in sequence, and the first one moves the
-    // session to the new room set. A room that fails AFTER that leaves a
-    // mixed world: one live room of the new generation and one of the old.
-    // So each thing that can fail without the world is done here, for each
-    // live room, and a failure refuses the whole reload with the room named.
-    // Nothing is staged, and each live room keeps the generation it has.
+    // ⛔ **ALL THE PLANS, BEFORE THE FIRST ROOM IS STAGED.** A reload with N
+    // live rooms is N publications, which are held until every room passed
+    // (the queued closure below), so a room refused later refuses them all.
+    // Each thing that can fail without the world is still done here, for
+    // each live room: a failure refuses the whole reload with the room named
+    // before anything is built.
     //
     // ⛔ AND ONE THING THAT FAILS WITH THE WORLD: a live room that two bodies
     // of one identity are in cannot be described, so its transaction cannot
-    // open. Measured 2026-10-09: with that fault in the second live room the
-    // first room published and the status was `THE WORLD IS MIXED`. It is
-    // asked here, of the world now.
+    // open. It is asked here, of the world now. A fault that comes after this
+    // question is refused by the hold.
     let mut other_plans = Vec::with_capacity(other_rooms.len());
     for other in &other_rooms {
         describable
@@ -749,7 +757,14 @@ pub(super) fn reload_ldtk_world_from_disk(
     // why `next_rooms` is `Some` here and `None` at the two walk-within-a-set
     // callers. The staged replacement applies the set first and then seats
     // the live room's definition, because the index is into the NEW set.
-    let publication = construction_plan.replace_live_world(
+    // The set each later room is checked against: the new set, with the
+    // counter the session holds after the first room mints.
+    let mut projected = transaction.next_room_set.clone();
+    projected.inherit_live_room_counter(room_set);
+    if live_room.is_some() {
+        projected.mint_live_room(room_set.next_live_room());
+    }
+    let publication = construction_plan.replace_live_world_held(
         commands,
         outgoing,
         None,
@@ -908,50 +923,27 @@ pub(super) fn reload_ldtk_world_from_disk(
     // other guarantee on this road unobservable. It reports THIS publication's
     // verdict, which `settle_publication` returns.
     let status_room = active_room.clone();
+    // `refused` names a later room that was refused, with its violations.
+    // Then no room was published: the first room is held until each room
+    // passed.
     let report_status = move |world: &mut bevy::prelude::World,
                               published: bool,
-                              kept_the_old_generation: Vec<String>| {
-        // The REASONS are cosmetic and come from the last verification record;
-        // the DECISION above comes from this publication's own verdict. If that
-        // record is about some other room, the message says only what is certain.
-        let reasons = world
-            .get_resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
-            .filter(|verification| verification.room_id == status_room)
-            .map(|verification| {
-                let mut reasons: Vec<String> = Vec::new();
-                reasons.extend(verification.violations.iter().map(|v| format!("{v:?}")));
-                reasons.extend(
-                    verification
-                        .projection_violations
-                        .iter()
-                        .map(|v| format!("{v:?}")),
-                );
-                reasons.extend(
-                    verification
-                        .staged_violations
-                        .iter()
-                        .map(|v| format!("{v:?}")),
-                );
-                reasons
-            })
-            .unwrap_or_default();
+                              refused: Option<(String, Vec<String>)>| {
+        let reasons = verification_reasons(world, &status_room);
         let Some(mut ldtk_reload) = world
             .get_resource_mut::<ambition_platformer2d::dev_tools::WorldSourceHotReload>()
         else {
             return;
         };
-        if published && !kept_the_old_generation.is_empty() {
-            // ⛔ THE ONE CASE THAT LEAVES A MIXED WORLD, SAID IN THOSE WORDS.
-            // Each plan prepared, the first room published, and the
-            // transaction of a later room was refused when it was verified.
-            ldtk_reload.mark_failed(vec![format!(
-                "THE WORLD IS MIXED: the reload published '{status_room}' and the session is on \
-                 the new generation, and the live room(s) [{}] were refused and keep the \
-                 content of the old generation. Apply the reload again, or leave those rooms",
-                kept_the_old_generation.join(", ")
-            )]);
-        } else if published {
+        if published {
             ldtk_reload.mark_applied(&status_room);
+        } else if let Some((room, reasons)) = refused {
+            let mut lines = vec![format!(
+                "the live room '{room}' was refused, so no room was reloaded and the \
+                 running world is unchanged"
+            )];
+            lines.extend(reasons);
+            ldtk_reload.mark_failed(lines);
         } else {
             let reasons = if reasons.is_empty() {
                 vec![format!(
@@ -964,46 +956,57 @@ pub(super) fn reload_ldtk_world_from_disk(
         }
     };
 
-    // ⛔ **THIS EXACT PUBLICATION, not "the last verdict for a room with this
-    // name".** `LastConstructionVerification` is last-writer-wins and cannot
-    // tell two operations on one room apart, and it was nevertheless deciding
-    // whether the session's content generation could advance. Settling it runs
-    // the effects only on success and retires the receipt on both arms — nothing
-    // else ends a publication, so an unretired refusal would leak.
+    // ⛔ **ALL THE ROOMS OR NONE.** The first room is held after its check,
+    // and each later room is staged and checked against `projected`, the set
+    // and counter the session will hold when the rooms before it are
+    // committed. Only when every room passed is any room promoted. A room
+    // refused anywhere refuses each held room by the refusal road, so the
+    // world is not left with some rooms on the new generation and some on
+    // the old.
     //
     // ⭐ Queued rather than written: the closure runs when this frame's commands
-    // apply, which is after `transaction::close` has recorded its verdict — the
-    // same flush, in queue order, so there is no window and nothing to poll.
-    //
-    // ⭐ THE OTHER LIVE ROOMS FOLLOW IN THE SAME FLUSH, behind the first
-    // room's verdict. No tick runs between two of these publications, so no
-    // system sees one live room on the new generation and another on the old.
+    // apply, which is after `transaction::close` has recorded the first room's
+    // verdict. It is one exclusive call, so no system runs between two rooms.
     commands.queue(move |world: &mut bevy::prelude::World| {
-        let mut kept_the_old_generation = Vec::new();
-        let published = ambition_platformer2d::actors::rooms::settle_publication(
-            world,
-            publication,
-            |world| {
-                // ⛔ THE OTHER ROOMS FIRST, THE GENERATION LAST. Each plan
-                // states the generation it is committed INTO, which is N for
-                // all the rooms of this reload. The live binding moves to
-                // N+1 in `commit_generation`. Run before the loop, it made
-                // each later room a `ContentBindingMismatch` (planned N, live
-                // N+1): measured, the first room published and the second
-                // was refused. So the generation moves one time, after the
-                // last room, as it does after the one room of a reload with
-                // one live room.
-                for (replaces, plan, residents) in other_rooms {
-                    if !republish_live_room(world, replaces, &plan, residents) {
-                        kept_the_old_generation.push(plan.room_id().to_string());
-                    }
-                }
-                commit_generation(world);
-                rehome_and_dress(world);
-            },
-            |_| {},
-        );
-        report_status(world, published, kept_the_old_generation);
+        use ambition_platformer2d::actors::rooms as held;
+        if !held::publication_is_held(world, publication) {
+            held::retire_publication(world, publication);
+            report_status(world, false, None);
+            return;
+        }
+        let mut checked = vec![publication];
+        let mut refused = None;
+        let mut projected = projected;
+        for (replaces, plan, residents) in other_rooms {
+            let mints = projected.next_live_room();
+            let later = stage_held_live_room(world, replaces, &plan, residents, projected.clone(), mints);
+            if held::publication_is_held(world, later) {
+                projected.mint_live_room(mints);
+                checked.push(later);
+            } else {
+                refused = Some((plan.room_id().to_string(), verification_reasons(world, plan.room_id())));
+                held::retire_publication(world, later);
+                break;
+            }
+        }
+        if refused.is_some() {
+            for publication in checked {
+                held::refuse_held_publication(world, publication);
+                held::retire_publication(world, publication);
+            }
+            report_status(world, false, refused);
+            return;
+        }
+        for publication in checked {
+            held::commit_held_publication(world, publication);
+            held::retire_publication(world, publication);
+        }
+        // ⛔ THE ROOMS FIRST, THE GENERATION LAST. Each plan states the
+        // generation it is committed INTO, which is N for all the rooms of
+        // this reload; the live binding moves to N+1 here, one time.
+        commit_generation(world);
+        rehome_and_dress(world);
+        report_status(world, true, None);
     });
 
     Ok(active_room)

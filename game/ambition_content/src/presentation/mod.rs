@@ -15,6 +15,7 @@
 
 pub mod deep_dream;
 pub mod fsm_sauce;
+pub mod mockingbird_sky;
 pub mod room_look;
 pub mod dialog;
 pub mod vanity_card_made_this_meme;
@@ -36,6 +37,7 @@ impl Plugin for AmbitionPresentationPlugin {
         app.add_plugins(vanity_card_made_this_meme::MadeThisMemeCardPlugin);
         deep_dream::install(app);
         fsm_sauce::install(app);
+        mockingbird_sky::install(app);
         room_look::install(app);
     }
 }

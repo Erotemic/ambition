@@ -18,15 +18,37 @@ pub use rollback_registration::register_rollback_state;
 /// it exists so that "where my files are" is an APP fact. As a global it
 /// was shared by every test in a binary and by every process on the machine.
 #[derive(bevy::prelude::Resource, Clone, Debug)]
-pub struct PersistenceRoot(pub std::path::PathBuf);
+pub struct PersistenceRoot(
+    pub std::path::PathBuf,
+    // Held for its `Drop` only, which removes an isolated directory: nothing
+    // reads it.
+    #[allow(dead_code)] Option<std::sync::Arc<IsolatedRoot>>,
+);
+
+/// The directory of an isolated root, removed when the last holder of the
+/// root is dropped (the App's resource, and each clone of it).
+#[derive(Debug)]
+pub struct IsolatedRoot(std::path::PathBuf);
+
+impl Drop for IsolatedRoot {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
 
 impl Default for PersistenceRoot {
     fn default() -> Self {
-        Self(settings::platform_paths::data_dir_root())
+        Self::at(settings::platform_paths::data_dir_root())
     }
 }
 
 impl PersistenceRoot {
+    /// A root at a path that somebody else owns: the player's data directory,
+    /// a directory a test made. It is never removed here.
+    pub fn at(path: impl Into<std::path::PathBuf>) -> Self {
+        Self(path.into(), None)
+    }
+
     /// A private directory nobody else writes — for an App that is not a
     /// player's session.
     ///
@@ -36,20 +58,25 @@ impl PersistenceRoot {
     /// have — writing the user's settings and save.
     ///
     /// Unique per call: process id plus a counter, so two Apps in one test
-    /// binary do not share a root either. Nothing cleans these up, deliberately
-    /// — a few empty directories under the temp dir are cheaper than a harness
-    /// that deletes paths, and the OS reclaims them.
+    /// binary do not share a root either.
     ///
-    /// ⛔ AND NEVER THE LEFTOVER OF A DEAD PROCESS. A process id is used again,
-    /// and nothing cleans the roots, so `<pid>-<counter>` alone named the
-    /// directory of an earlier process with this id: its `sandbox_save.ron`
-    /// was read at `Startup` (`load_save_at_startup`) over the save the
-    /// harness was given, and a test started in another world. Measured
-    /// 2026-10-09 on a machine with 54,893 leftover roots (712 of them in the
-    /// next 100,000 process ids): about 1 test process in 500 went red, on a
-    /// different premise each time. So a native root is CLAIMED: the
-    /// directory is made here, and a name that is taken is passed over. No
-    /// path is deleted.
+    /// ⛔ IT IS REMOVED WHEN ITS LAST HOLDER IS DROPPED ([`IsolatedRoot`]). To
+    /// read what an App wrote after the App is gone, keep a clone of its
+    /// `PersistenceRoot`. This comment said "nothing cleans these up,
+    /// deliberately ... cheaper than a harness that deletes paths", and that
+    /// was a rule nobody gave: the roots grew with no bound (54,893 on one
+    /// machine and 133,576 on another in two weeks, 0.9 and 2.3 GB). Jon,
+    /// 2026-10-09: an agent may always delete in its own temp directory.
+    ///
+    /// ⛔ AND NEVER THE LEFTOVER OF A DEAD PROCESS. A process that is killed
+    /// leaves its root, and a process id is used again, so `<pid>-<counter>`
+    /// alone named the directory of an earlier process with this id: its
+    /// `sandbox_save.ron` was read at `Startup` (`load_save_at_startup`) over
+    /// the save the harness was given, and a test started in another world.
+    /// Measured 2026-10-09 (712 leftovers in the next 100,000 process ids):
+    /// about 1 test process in 500 went red, on a different premise each
+    /// time. So a native root is CLAIMED: the directory is made here, and a
+    /// name that is taken is passed over.
     pub fn isolated() -> Self {
         use std::sync::atomic::{AtomicU64, Ordering};
         static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -58,7 +85,8 @@ impl PersistenceRoot {
             let unique = NEXT.fetch_add(1, Ordering::Relaxed);
             let root = base.join(format!("{}-{unique}", std::process::id()));
             if Self::claim(&root) {
-                return Self(root);
+                let guard = cfg!(not(target_arch = "wasm32")).then(|| std::sync::Arc::new(IsolatedRoot(root.clone())));
+                return Self(root, guard);
             }
         }
     }
@@ -95,7 +123,8 @@ mod isolated_root_tests {
     /// pass the leftovers over too.)
     #[test]
     fn an_isolated_root_is_never_the_leftover_of_an_earlier_process() {
-        let first = PersistenceRoot::isolated().0;
+        let first_root = PersistenceRoot::isolated();
+        let first = first_root.0.clone();
         let name = first.file_name().unwrap().to_str().unwrap().to_owned();
         let (pid, counter) = name.rsplit_once('-').expect("a root is <pid>-<counter>");
         let counter: u64 = counter.parse().expect("a counter");
@@ -114,15 +143,39 @@ mod isolated_root_tests {
         assert!(planted.len() >= 32, "premise: only {} leftovers were planted", planted.len());
 
         for _ in 0..8 {
-            let root = PersistenceRoot::isolated().0;
-            assert!(!planted.contains(&root), "`isolated()` gave the directory of an earlier process: {root:?}");
-            let entries = std::fs::read_dir(&root).expect("the root is a directory this call made").count();
+            // Held: a root is removed with its last holder.
+            let held = PersistenceRoot::isolated();
+            let root = &held.0;
+            assert!(!planted.contains(root), "`isolated()` gave the directory of an earlier process: {root:?}");
+            let entries = std::fs::read_dir(root).expect("the root is a directory this call made").count();
             assert_eq!(entries, 0, "a new root has {entries} entries: {root:?}");
         }
         // Take away what this test planted, and no other path.
         for leftover in planted {
             let _ = std::fs::remove_dir_all(leftover);
         }
+    }
+
+    /// An isolated root is a directory while a holder of it lives, and it is
+    /// gone when the last holder is dropped. A clone is a holder: it is how a
+    /// test reads what an App wrote after the App is gone. A root at a path
+    /// somebody else owns (`at`) is not removed.
+    #[test]
+    fn an_isolated_root_is_removed_with_its_last_holder_and_no_other_root_is() {
+        let root = PersistenceRoot::isolated();
+        let path = root.0.clone();
+        std::fs::write(path.join("a_file"), "written").expect("the root is a directory");
+        let kept = root.clone();
+        drop(root);
+        assert!(path.join("a_file").exists(), "a clone holds the root, and the root is gone");
+        drop(kept);
+        assert!(!path.exists(), "the root is there after its last holder was dropped");
+
+        let owned = std::env::temp_dir().join(format!("ambition-root-somebody-owns-{}", std::process::id()));
+        std::fs::create_dir_all(&owned).unwrap();
+        drop(PersistenceRoot::at(&owned));
+        assert!(owned.exists(), "a root at a path somebody else owns was removed");
+        let _ = std::fs::remove_dir_all(owned);
     }
 }
 pub mod save_data;

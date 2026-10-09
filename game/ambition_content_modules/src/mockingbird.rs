@@ -21,10 +21,22 @@
 //! sky on stuttering rotors, guard down, and flies home. That is the punish
 //! window, and the only one.
 //!
-//! Phase 2 (it screeches): the missiles come in salvoes, the fireballs in a
-//! wider fan, and the dive comes twice, turning at the end of the first bite.
-//! Enraged, burning: a strafing run across the top of the sky that rains
-//! fire on the flock, and a low pass back under it.
+//! Phase 2 (it screeches, and LIGHTS ITSELF ON FIRE: not because it is hurt,
+//! because it is angry): the missiles come in salvoes, the fireballs in a
+//! wider fan, the dive comes twice, turning at the end of the first bite, and
+//! it spits burning lightsabers that spin out across the sky and come back.
+//!
+//! Phase 3 (Jon, 2026-10-09): its red fire turns BLUE, a cold fire, and it is
+//! angrier. The sky climbs into SPACE (`ascent`). There its hull turns every
+//! blow, in each of its moves: the only way to kill a mockingbird is to hit
+//! it with THE MOON. The moon crosses the room again and again
+//! ([`moon_at`]). The Mockingbird keeps out of its way, and it cannot while
+//! it dives or hangs winded after a bite: the moon strikes it then
+//! (`moonstruck`), and the fight is over. So you lure its dive into the path
+//! of the moon. Its strafing run still rains fire, and a low pass back under.
+//!
+//! What it burns with and where the moon is are in its record for the view
+//! that draws them; nothing here draws.
 //!
 //! Every point on its body is a socket its sheet publishes
 //! (`mockingbird_boss_v2_actor.ron`), in sheet pixels, carried into the world
@@ -36,8 +48,8 @@ use ambition_boss_special_port::{
     Pose,
 };
 use ambition_combat_port::{
-    BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox, RidingHitboxPort,
-    RidingKnockback,
+    BodySound, BodySoundPort, Burst, BurstPort, CameraShake, CameraShakePort, HeldDamageBox, HeldDamageBoxPort, RidingHitbox,
+    RidingHitboxPort, RidingKnockback,
 };
 use ambition_extension_sdk::{
     phases::BOSS_CONDUCT, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
@@ -138,6 +150,49 @@ const FIRE_LIFE_S: f32 = 3.4;
 const FAN_DEG: f32 = 13.0;
 pub const FIRE_VISUAL: &str = "mockingbird_fireball";
 
+/// The lightsabers (phase 2 on): spat from its mouth in a fan centred on you,
+/// burning. They spin out, slow, and come back the way they went.
+const SABER_SPEED: f32 = 520.0;
+const SABER_HALF: Vec2 = Vec2::new(26.0, 26.0);
+const SABER_DAMAGE: i32 = 2;
+const SABER_LIFE_S: f32 = 2.6;
+const SABER_RETURN_S: f32 = 0.85;
+const SABER_FAN_DEG: f32 = 16.0;
+pub const SABER_VISUAL: &str = "mockingbird_lightsaber";
+/// What it throws once its fire is cold.
+pub const COLD_SABER_VISUAL: &str = "mockingbird_lightsaber_cold";
+pub const COLD_FIRE_VISUAL: &str = "mockingbird_coldfire";
+
+/// The climb into space (phase 3): how long the sky takes to become space,
+/// and to become sky again when the Mockingbird is dead.
+pub const ASCENT_S: f32 = 7.0;
+const DESCENT_S: f32 = 5.0;
+
+/// The moon (in space). It crosses the room from the right to the left in
+/// `MOON_CROSS_S`, one time each `MOON_EVERY_S`, on a lane a little above the
+/// middle that is highest at the middle of the room.
+pub const MOON_RADIUS: f32 = 120.0;
+const MOON_FIRST_S: f32 = 2.0;
+const MOON_EVERY_S: f32 = 10.0;
+const MOON_CROSS_S: f32 = 5.0;
+const MOON_LANE: f32 = 0.46;
+const MOON_ARC: f32 = 0.07;
+/// The moon strikes a Mockingbird whose core is this near its edge.
+const MOON_REACH: f32 = 70.0;
+/// The moon hurts a body it rolls over.
+/// How far ahead of the moon, past its radius, it starts to get out of the
+/// moon's way, how far above the moon's top it holds, and how fast it goes
+/// there.
+const MOON_DODGE_AHEAD: f32 = 460.0;
+const MOON_DODGE_CLEAR: f32 = 100.0;
+const MOON_DODGE_EASE: f32 = 4.5;
+/// The slot of the moon's damage box.
+const MOON_SLOT: u32 = 0;
+const MOON_DAMAGE: i32 = 2;
+const MOON_KNOCKBACK: f32 = 1.7;
+/// How fast the moon throws it out of the fight.
+const MOON_THROW: f32 = 620.0;
+
 /// The strafing run (enraged): up to the top of the sky, across it raining
 /// fire on the flock, down the far side and back low under it.
 const STRAFE_SPEED: f32 = 760.0;
@@ -152,6 +207,7 @@ const SHAKE_SCREECH: f32 = 9.0;
 const SHAKE_CHOMP: f32 = 7.0;
 const SHAKE_LAUNCH: f32 = 3.0;
 const SHAKE_DEATH: f32 = 13.0;
+const SHAKE_MOON: f32 = 22.0;
 
 /// Its death: shot down, it falls out of the sky trailing smoke, to here
 /// below its bottom edge: out of sight (its hull is half this tall), and
@@ -162,6 +218,9 @@ const FALLEN_BELOW: f32 = 140.0;
 const SMOKE: [f32; 4] = [0.36, 0.34, 0.38, 1.0];
 const FIRE: [f32; 4] = [1.0, 0.56, 0.18, 1.0];
 const STEEL: [f32; 4] = [0.82, 0.84, 0.88, 1.0];
+/// Its fire once it is cold.
+const COLD: [f32; 4] = [0.36, 0.72, 1.0, 1.0];
+const MOONDUST: [f32; 4] = [0.86, 0.86, 0.80, 1.0];
 
 // ⛔ A cue the bank does not hold plays NOTHING: every cue here is held to a
 // recipe (`every_cue_the_mockingbird_plays_has_a_recipe`).
@@ -187,10 +246,11 @@ pub enum Move {
     Dive,
     DoubleDive,
     Strafe,
+    Lightsabers,
 }
 
 impl Move {
-    pub const ALL: [Move; 8] = [
+    pub const ALL: [Move; 9] = [
         Move::Missile,
         Move::Salvo,
         Move::Fireballs,
@@ -199,6 +259,8 @@ impl Move {
         Move::Dive,
         Move::DoubleDive,
         Move::Strafe,
+        // New moves go at the end: a move's code is its place here.
+        Move::Lightsabers,
     ];
 
     pub fn key(self) -> &'static str {
@@ -211,6 +273,7 @@ impl Move {
             Move::Dive => "mockingbird_dive",
             Move::DoubleDive => "mockingbird_double_dive",
             Move::Strafe => "mockingbird_strafe",
+            Move::Lightsabers => "mockingbird_lightsabers",
         }
     }
 
@@ -292,6 +355,18 @@ record! {
     /// Its spot: where it was placed.
     38 home_x: f32,
     39 home_y: f32,
+    /// How far the sky has become space: 0 is sky, 1 is space. It climbs in
+    /// phase 3 and comes back when the Mockingbird is dead.
+    40 ascent: f32,
+    /// The moon: seconds since the room came into space, and where it is
+    /// while it is in the room.
+    41 moon_t: f32,
+    42 moon_out: bool,
+    43 moon_x: f32,
+    44 moon_y: f32,
+    /// The moon has struck it. Its game lands the moon's blow for that
+    /// (`strike_it_with_the_moon`).
+    45 moonstruck: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -328,6 +403,26 @@ impl Conductor {
     /// The room it measured, once it has.
     pub fn room(&self) -> Option<Vec2> {
         self.room_known.then_some(Vec2::new(self.room_w, self.room_h))
+    }
+
+    /// Its phase: 0, then 1 (on fire), then 2 (its fire is cold; space).
+    pub fn phase(&self) -> u32 {
+        self.phase.min(2)
+    }
+
+    /// How far the sky has become space, 0 to 1.
+    pub fn ascent(&self) -> f32 {
+        self.ascent
+    }
+
+    /// Where the moon's centre is, while the moon is in the room.
+    pub fn moon(&self) -> Option<Vec2> {
+        self.moon_out.then_some(Vec2::new(self.moon_x, self.moon_y))
+    }
+
+    /// The moon has struck it.
+    pub fn is_moonstruck(&self) -> bool {
+        self.moonstruck
     }
 
     fn part(&self) -> Option<Part> {
@@ -383,6 +478,7 @@ pub fn module() -> ModuleDescriptor {
                 RidingHitboxPort::KEY,
                 ProjectileSpawnPort::KEY,
                 BodySoundPort::KEY,
+                HeldDamageBoxPort::KEY,
             ],
             after: Vec::new(),
             limits: Limits { max_requests: 48 },
@@ -475,6 +571,23 @@ fn shoot(
     gravity: f32,
     visual: &str,
 ) -> Result<(), Fault> {
+    shoot_returning(inv, origin, dir, speed, half, damage, life, gravity, visual, None)
+}
+
+/// [`shoot`], for a shot that comes back after `return_s` (a thrown blade).
+#[allow(clippy::too_many_arguments)]
+fn shoot_returning(
+    inv: &mut Invocation<'_>,
+    origin: Vec2,
+    dir: Vec2,
+    speed: f32,
+    half: Vec2,
+    damage: i32,
+    life: f32,
+    gravity: f32,
+    visual: &str,
+    return_s: Option<f32>,
+) -> Result<(), Fault> {
     inv.submit::<ProjectileSpawnPort>(ProjectileSpawn {
         origin,
         dir,
@@ -487,8 +600,31 @@ fn shoot(
         bounces: 0,
         bounce_on_world_contact: false,
         splash_half_extent: 0.0,
-        boomerang_return_s: None,
+        boomerang_return_s: return_s,
     })
+}
+
+/// Where the moon's centre is `t` seconds after the room came into space:
+/// `None` between two crossings.
+pub fn moon_at(t: f32, room: Vec2) -> Option<Vec2> {
+    let since = t - MOON_FIRST_S;
+    if since < 0.0 {
+        return None;
+    }
+    let u = (since % MOON_EVERY_S) / MOON_CROSS_S;
+    if u > 1.0 {
+        return None;
+    }
+    let [from, to, lane, arc] = moon_lane(room);
+    let rise = (u * std::f32::consts::PI).sin();
+    Some(Vec2::new(from + (to - from) * u, lane - arc * rise))
+}
+
+/// The moon's lane across `room`: the x it comes in at, the x it goes out at,
+/// the height of the lane's two ends, and how far its middle is above them.
+/// A drawing of the lane shows the player where to lure it.
+pub fn moon_lane(room: Vec2) -> [f32; 4] {
+    [room.x + MOON_RADIUS + 40.0, -MOON_RADIUS - 40.0, room.y * MOON_LANE, room.y * MOON_ARC]
 }
 
 /// The strafing run's waypoints, from where it set off.
@@ -555,11 +691,56 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         (c.home_y - room.y * HOME_REACH_Y).max(room.y * 0.12),
         (c.home_y + room.y * HOME_REACH_Y).min(room.y * 0.8),
     );
-    c.hover_y += (target.y.clamp(low, high.max(low)) - c.hover_y) * (HOME_EASE * dt).min(1.0);
+    // It keeps out of the moon's way: with the moon coming at its side of the
+    // sky, it holds above the moon. It cannot do this while it dives or hangs
+    // winded, which is the lure.
+    let dodge = c
+        .moon()
+        .filter(|moon| (moon.x - home_x).abs() < MOON_RADIUS + MOON_DODGE_AHEAD)
+        .map(|moon| (moon.y - MOON_RADIUS - MOON_DODGE_CLEAR).max(room.y * 0.08));
+    let (goal, pull) = match dodge {
+        Some(over) => (over, MOON_DODGE_EASE),
+        None => (target.y.clamp(low, high.max(low)), HOME_EASE),
+    };
+    c.hover_y += (goal - c.hover_y) * (pull * dt).min(1.0);
     let home = Vec2::new(
         home_x + SWAY_PX * (0.5 * c.clock).sin(),
         c.hover_y + BOB_PX * (1.4 * c.clock).sin(),
     );
+
+    // ── The sky and the moon ──
+    // Its fire is cold in phase 3, and the sky climbs into space while it
+    // lives. With it dead the sky comes back, and a crossing that is under
+    // way ends.
+    let cold = c.phase >= 2;
+    if bird.alive && cold {
+        c.ascent = (c.ascent + dt / ASCENT_S).min(1.0);
+    } else if !bird.alive {
+        c.ascent = (c.ascent - dt / DESCENT_S).max(0.0);
+    }
+    if bird.alive && c.ascent >= 1.0 || c.moon_out {
+        c.moon_t += dt;
+        match moon_at(c.moon_t, room) {
+            Some(moon) => {
+                c.moon_out = true;
+                c.moon_x = moon.x;
+                c.moon_y = moon.y;
+                // It hurts a body it rolls over: one box for each crossing,
+                // which goes with the moon.
+                inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
+                    slot: MOON_SLOT,
+                    generation: ((c.moon_t - MOON_FIRST_S) / MOON_EVERY_S) as u32,
+                    center: moon.into(),
+                    half_extent: Vec2::splat(MOON_RADIUS * 0.72).into(),
+                    damage: MOON_DAMAGE,
+                    knockback: MOON_KNOCKBACK,
+                    lifetime_s: MOON_CROSS_S + 1.0,
+                })?;
+            }
+            None => c.moon_out = false,
+        }
+    }
+    let fire = if cold { COLD } else { FIRE };
 
     // ── Dead: shot down, it falls out of the sky trailing smoke ──
     if bird.alive {
@@ -568,10 +749,12 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if !bird.alive {
         if c.seen_alive && !c.mourned {
             c.mourned = true;
-            c.fall_v = -120.0;
+            // Struck by the moon, it is thrown up and away the way the moon
+            // goes. Shot down (a fight whose script lets a hit kill), it falls.
+            c.fall_v = if c.moonstruck { -300.0 } else { -120.0 };
             play(inv, SFX_DEFEAT, at)?;
-            shake(inv, SHAKE_DEATH)?;
-            burst(inv, at + turned(core(), side), 40, 420.0, FIRE, "spark")?;
+            shake(inv, if c.moonstruck { SHAKE_MOON } else { SHAKE_DEATH })?;
+            burst(inv, at + turned(core(), side), 40, 420.0, fire, "spark")?;
             burst(inv, at + turned(core(), side), 24, 260.0, SMOKE, "dust")?;
             burst(inv, at + turned(core(), side), 14, 300.0, STEEL, "shard")?;
         }
@@ -580,10 +763,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.strafing = None;
         let pos = if c.seen_alive {
             c.fall_v += FALL_GRAVITY * dt;
-            let pos = at + Vec2::new(-25.0 * side * dt, c.fall_v * dt);
+            let drift = if c.moonstruck { -MOON_THROW * (1.0 - c.dead_t / 2.5).max(0.1) } else { -25.0 * side };
+            let pos = at + Vec2::new(drift * dt, c.fall_v * dt);
             if pos.y < room.y + FALLEN_BELOW && c.ticks % 4 == 0 {
                 burst(inv, pos + turned(thruster(), side), 3, 90.0, SMOKE, "dust")?;
-                burst(inv, pos + turned(core(), side), 2, 160.0, FIRE, "spark")?;
+                burst(inv, pos + turned(core(), side), 2, 160.0, fire, "spark")?;
             }
             Vec2::new(pos.x, pos.y.min(room.y + FALLEN_BELOW))
         } else {
@@ -627,7 +811,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 // Its phase, from what it is asked for.
                 match mv {
                     Move::Strafe => c.phase = c.phase.max(2),
-                    Move::Salvo | Move::FireFan | Move::DoubleDive => c.phase = c.phase.max(1),
+                    Move::Salvo | Move::FireFan | Move::DoubleDive | Move::Lightsabers => c.phase = c.phase.max(1),
                     _ => {}
                 }
                 if bird.enraged {
@@ -678,7 +862,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.phase = c.phase.max(c.screeches.min(2));
             play(inv, SFX_SCREECH, at + turned(mouth(), side))?;
             shake(inv, SHAKE_SCREECH)?;
-            burst(inv, at + turned(core(), side), 30, 380.0, FIRE, "spark")?;
+            // The first time it lights itself; the second, its fire goes cold.
+            let lit = if c.phase >= 2 { COLD } else { FIRE };
+            burst(inv, at + turned(core(), side), 30, 380.0, lit, "spark")?;
+            burst(inv, at + turned(thruster(), side), 16, 300.0, lit, "spark")?;
+            burst(inv, at + turned(mouth(), side), 16, 300.0, lit, "spark")?;
         }
         c.screeching = Some(c.screeching.map_or(0.0, |t| t + dt));
     } else {
@@ -718,7 +906,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 // Fire rains from it along the top of the sky.
                 if leg == 1 && t >= c.shots as f32 * BOMB_EVERY_S {
                     c.shots += 1;
-                    shoot(inv, pos + turned(core(), side) + Vec2::new(0.0, 40.0), Vec2::Y, 60.0, FIRE_HALF, FIRE_DAMAGE, 2.6, BOMB_GRAVITY, FIRE_VISUAL)?;
+                    let bomb = if cold { COLD_FIRE_VISUAL } else { FIRE_VISUAL };
+                    shoot(inv, pos + turned(core(), side) + Vec2::new(0.0, 40.0), Vec2::Y, 60.0, FIRE_HALF, FIRE_DAMAGE, 2.6, BOMB_GRAVITY, bomb)?;
                 }
                 pos
             }
@@ -758,8 +947,28 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         side = 1.0;
     }
 
+    // ── The moon strikes it ──
+    // It keeps out of the moon's way, and it cannot while it dives or hangs
+    // winded. Its death is its game's (`strike_it_with_the_moon`, which
+    // reads `moonstruck`), not this module's.
+    if let Some(moon) = c.moon().filter(|_| !c.moonstruck && (c.diving || c.stunned.is_some())) {
+        let hull = pos + turned(core(), side);
+        if (hull - moon).length() <= MOON_RADIUS + MOON_REACH {
+            c.moonstruck = true;
+            c.diving = false;
+            c.stunned = Some(0.0);
+            shake(inv, SHAKE_MOON)?;
+            play(inv, SFX_CHOMP, hull)?;
+            let between = hull + (moon - hull) * 0.5;
+            burst(inv, between, 36, 460.0, MOONDUST, "shard")?;
+            burst(inv, between, 28, 380.0, COLD, "spark")?;
+        }
+    }
+
     // ── Its guard: up out at its side, down when it comes in ──
-    let open = c.diving || c.stunned.is_some() || c.returning && c.screeching.is_none() || low_pass;
+    // With its fire cold no blow gets through, in any of its moves: only the
+    // moon ends it.
+    let open = !cold && (c.diving || c.stunned.is_some() || c.returning && c.screeching.is_none() || low_pass);
     if c.guarded == open || c.ticks == 1 {
         c.guarded = !open;
         inv.submit::<BossGuardPort>(BossGuard { guarded: c.guarded })?;
@@ -788,11 +997,36 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                 let origin = pos + turned(mouth(), side);
                 let aim = (target - origin).try_normalize().unwrap_or(Vec2::X);
                 let fan: &[f32] = if part.mv == Move::FireFan { &[-2.0, -1.0, 0.0, 1.0, 2.0] } else { &[-1.0, 0.0, 1.0] };
+                let visual = if cold { COLD_FIRE_VISUAL } else { FIRE_VISUAL };
                 for k in fan {
-                    shoot(inv, origin, rotated(aim, k * FAN_DEG), FIRE_SPEED, FIRE_HALF, FIRE_DAMAGE, FIRE_LIFE_S, 0.0, FIRE_VISUAL)?;
+                    shoot(inv, origin, rotated(aim, k * FAN_DEG), FIRE_SPEED, FIRE_HALF, FIRE_DAMAGE, FIRE_LIFE_S, 0.0, visual)?;
                 }
                 play(inv, SFX_SPIT, origin)?;
-                burst(inv, origin, 14, 240.0, FIRE, "spark")?;
+                burst(inv, origin, 14, 240.0, fire, "spark")?;
+            }
+            Move::Lightsabers if !c.fired => {
+                // Burning lightsabers from its mouth: three, in a fan centred
+                // on you. They spin out and come back the way they went.
+                c.fired = true;
+                let origin = pos + turned(mouth(), side);
+                let aim = (target - origin).try_normalize().unwrap_or(Vec2::X);
+                let visual = if cold { COLD_SABER_VISUAL } else { SABER_VISUAL };
+                for k in [-1.0, 0.0, 1.0] {
+                    shoot_returning(
+                        inv,
+                        origin,
+                        rotated(aim, k * SABER_FAN_DEG),
+                        SABER_SPEED,
+                        SABER_HALF,
+                        SABER_DAMAGE,
+                        SABER_LIFE_S,
+                        0.0,
+                        visual,
+                        Some(SABER_RETURN_S),
+                    )?;
+                }
+                play(inv, SFX_SPIT, origin)?;
+                burst(inv, origin, 18, 260.0, fire, "spark")?;
             }
             Move::Snap if !c.fired => {
                 c.fired = true;
@@ -831,9 +1065,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             burst(inv, pos + turned(core(), side), 4, 200.0, FIRE, "spark")?;
         }
     }
-    if c.phase >= 2 && c.ticks % 7 == 0 {
-        // Enraged, it burns.
-        burst(inv, pos + turned(core(), side) + Vec2::new(0.0, -40.0), 2, 70.0, SMOKE, "dust")?;
+    if c.phase >= 1 && c.ticks % 5 == 0 {
+        // It burns: embers off its hull, from one end to the other in turn.
+        // (The flames themselves are drawn by the view that reads its phase.)
+        let along = [core(), thruster(), mouth(), missile_nose()][(c.ticks / 5 % 4) as usize];
+        burst(inv, pos + turned(along, side) + Vec2::new(0.0, -30.0), 2, 120.0, fire, "spark")?;
     }
 
     // ── Where it is, and what it is drawn as ──
@@ -903,7 +1139,7 @@ fn drawn_row(c: &Conductor, part: Option<Part>, chomped: bool) -> (&'static str,
     }
     match part {
         Some(p @ Part { mv: Move::Missile | Move::Salvo, .. }) => split("missile", 3, 6, 0.085, p),
-        Some(p @ Part { mv: Move::Fireballs | Move::FireFan, .. }) => split("slash", 4, 6, 0.088, p),
+        Some(p @ Part { mv: Move::Fireballs | Move::FireFan | Move::Lightsabers, .. }) => split("slash", 4, 6, 0.088, p),
         Some(p @ Part { mv: Move::Snap, .. }) => split("chomp", 1, 5, 0.07, p),
         // The dive's tell: it tips over toward you, its jet spooling up. The
         // double dive's: it rears and screams first (each tell is its own
@@ -944,6 +1180,23 @@ mod tests {
         assert_eq!(leg, 3, "back low");
         assert!(low.y > room.y * 0.8);
         assert!(strafe_at(&path, total / STRAFE_SPEED + 0.1).is_none(), "and it ends");
+    }
+
+    /// The moon crosses the room from the right to the left, a little above
+    /// the middle, and is out of the room between two crossings. Its lane is
+    /// one a dive can reach: inside the margins a dive is held to.
+    #[test]
+    fn the_moon_crosses_the_room_and_is_gone_between_crossings() {
+        let room = Vec2::new(1280.0, 720.0);
+        assert!(moon_at(MOON_FIRST_S - 0.1, room).is_none(), "the moon is there before its first crossing");
+        let enters = moon_at(MOON_FIRST_S + 0.01, room).expect("entering");
+        let middle = moon_at(MOON_FIRST_S + MOON_CROSS_S * 0.5, room).expect("in the middle");
+        let leaves = moon_at(MOON_FIRST_S + MOON_CROSS_S - 0.01, room).expect("leaving");
+        assert!(enters.x > room.x + MOON_RADIUS && leaves.x < -MOON_RADIUS, "{enters:?} to {leaves:?}");
+        assert!((middle.x - room.x * 0.5).abs() < 2.0 && middle.y < enters.y, "{middle:?}");
+        assert!(middle.y > 90.0 + MOON_RADIUS * 0.5 && middle.y < room.y - 90.0, "a dive cannot reach its lane: {middle:?}");
+        assert!(moon_at(MOON_FIRST_S + MOON_CROSS_S + 1.0, room).is_none(), "the moon is in the room between two crossings");
+        assert!(moon_at(MOON_FIRST_S + MOON_EVERY_S + 0.5, room).is_some(), "the moon does not come again");
     }
 
     /// A dive ends where it was aimed, inside the sky.

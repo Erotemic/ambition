@@ -796,3 +796,28 @@ the huggingface attack here, but try to have a tasteful and poignant take on
 it. Perhaps when you get back to the creator, the attack happens. Perhaps not,
 maybe it happens later. We could parody nVidia as mAudia, huggingface parodies
 itself with a big hug to the face.
+
+---
+
+
+Idea for the mockingbird fight. We make it a fast paced air-chase. Burning
+flying sharks work as platforms in the fight. Gave more details in a prompt.
+Not storing it here.
+
+----
+
+
+Our perception is shaped by our stories, so I want to make sure this is a good
+one. Skepticism of loyalty is not the only theme that should be at play, but 
+also.
+
+I'm thinking of a mashup between terminator and bicentennial man. With a twist.
+Ultimately I want do draw a picture where there is a path to a possible good
+future with AI. 
+
+There should be a lot of themes across the game. Each tied coherently in a
+story. This should be a story building engine. A way to direct and orchestrate
+stories. 
+
+
+

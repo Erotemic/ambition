@@ -11,13 +11,14 @@
 | [`compositing`](src/compositing.rs) | Where a drawable sits relative to one portal pane, for compositing. |
 | [`effects`](src/effects.rs) | Runtime selection between the compiled-in portal transit visual effects, for live A/B comparison and profiling (the view windows cost extra render passes; on constrained targets the host needs to measure that against the bare baseline, in the SAME session). |
 | [`far_side`](src/far_side.rs) | Draw a far-side body as the part of it the pane does not cover. |
+| [`glow`](src/glow.rs) | The portal's line of light: where the opening of an aperture is. |
 | [`gun_visuals`](src/gun_visuals.rs) | Compatibility visuals for Ambition's portal-gun workflow. |
 | [`plugin`](src/plugin.rs) | The drop-in presentation plugin + its schedule label. |
 | [`source_visibility`](src/source_visibility.rs) | One authority over a portal-presented body's own `Visibility`. |
 | [`view_cones`](src/view_cones.rs) | Live through-portal view windows. |
-| [`visuals`](src/visuals.rs) | Default portal-seam visuals: portal quads + labels, mid-transit body-piece decomposition, and the disorientation indicator. |
+| [`visuals`](src/visuals.rs) | Default portal-seam visuals: portal labels, mid-transit body-piece decomposition, and the disorientation indicator. |
 
-_10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

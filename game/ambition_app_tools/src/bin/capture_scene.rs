@@ -73,6 +73,10 @@ struct SceneCaptureConfig {
     /// a state the world gets from a flag (a room's look, a gate) can be
     /// photographed, and a change of it can be filmed.
     flags: Vec<(String, u64)>,
+    /// Portal shots to fire, each on its sim tick
+    /// (`--portal-shot TICK:X,Y:DX,DY[:b]`), so a portal that is placed
+    /// and a portal that is replaced can be filmed.
+    portal_shots: Vec<PortalShotAt>,
     /// Take every part-drawn body apart by a teleport warp, again and again
     /// (`--body-warp out|in[@SECONDS]`), so the warp can be photographed
     /// without a blink.
@@ -229,6 +233,13 @@ OPTIONS:
     --flag NAME[@TICK]  record the world flag NAME on sim tick TICK
                         [default: 1]; repeat for more flags. A room that reads
                         its state from a flag is photographed in that state.
+    --portal-shot TICK:X,Y:DX,DY[:b]
+                        fire a portal shot on sim tick TICK from world X,Y
+                        along DX,DY: end A of the capture's own pair, or end
+                        B; repeat for more shots. A second shot of one end
+                        replaces the first portal of that end. The pair is
+                        not a gun's: a gun's portals go when no gun is in the
+                        room.
     --press-during N    open the shutter N press-driving frames in, INSTEAD of
                         after the sequence finishes — the only way to photograph
                         a frame that exists only WHILE an input is being
@@ -414,6 +425,67 @@ fn record_flags(
     }
 }
 
+/// One `--portal-shot`: a shot of the capture's own pair, fired on a sim tick.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct PortalShotAt {
+    tick: u64,
+    origin: Vec2,
+    dir: Vec2,
+    /// End B of the pair, and not end A.
+    end_b: bool,
+}
+
+/// End A of the pair `--portal-shot` opens: the last generated pair. It is an
+/// authored channel, which no gun owns, so its portals stay with no gun in
+/// the room (`despawn_orphaned_portals`).
+const CAPTURE_PORTAL_PAIR: u8 = 254;
+
+impl PortalShotAt {
+    /// `TICK:X,Y:DX,DY[:b]`.
+    fn parse(value: &str) -> Result<Self, String> {
+        let bad = || format!("--portal-shot wants TICK:X,Y:DX,DY[:b], got '{value}'");
+        let pair = |text: &str| -> Option<Vec2> {
+            let (x, y) = text.split_once(',')?;
+            Some(Vec2::new(x.trim().parse().ok()?, y.trim().parse().ok()?))
+        };
+        let parts: Vec<&str> = value.split(':').collect();
+        let (tick, origin, dir, end_b) = match parts.as_slice() {
+            [tick, origin, dir] => (tick, origin, dir, false),
+            [tick, origin, dir, "b"] => (tick, origin, dir, true),
+            _ => return Err(bad()),
+        };
+        Ok(Self {
+            tick: tick.parse().map_err(|_| bad())?,
+            origin: pair(origin).ok_or_else(bad)?,
+            dir: pair(dir).filter(|dir| *dir != Vec2::ZERO).ok_or_else(bad)?,
+            end_b,
+        })
+    }
+}
+
+/// `--portal-shot`: fire each configured shot on its tick, through the portal
+/// domain's own intent, as a gun does. A sim system that names its tick: a
+/// replay of that tick fires again, and a replay of any other does not. The
+/// shot has no identity and no room: a capture has one live room.
+fn fire_portal_shots(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut intents: MessageWriter<ambition_platformer2d::portal::PortalFireIntent>,
+) {
+    use ambition_platformer2d::portal::{PortalChannel, PortalChannelColor};
+    for shot in config.portal_shots.iter().filter(|shot| shot.tick == tick.get()) {
+        let end = PortalChannelColor::Indexed(CAPTURE_PORTAL_PAIR + u8::from(shot.end_b));
+        intents.write(ambition_platformer2d::portal::PortalFireIntent {
+            origin: shot.origin,
+            dir: shot.dir,
+            channel: PortalChannel::Authored(end),
+            id: None,
+            room: None,
+        });
+        eprintln!("capture_scene: fired a portal shot on tick {}: {shot:?}", shot.tick);
+    }
+}
+
 /// The systems a room capture adds on top of [`build_capture_app`].
 fn install_room_capture(app: &mut App) {
     let sim = app.sim_schedule();
@@ -422,7 +494,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, place_player_beside, record_flags),
+        (hold_boss_health, place_player_beside, record_flags, fire_portal_shots),
     );
     if app.world().resource::<SceneCaptureConfig>().nav_overlay {
         app.insert_resource(ambition_app::dev::navigation_overlay::NavigationOverlay { shown: true });
@@ -603,6 +675,7 @@ impl SceneCaptureConfig {
         let mut player_beside: Option<(String, u64)> = None;
         let mut interact_on_arrival = false;
         let mut flags: Vec<(String, u64)> = Vec::new();
+        let mut portal_shots: Vec<PortalShotAt> = Vec::new();
         let mut body_warp = None;
         let mut i = 0usize;
         while i < args.len() {
@@ -696,6 +769,13 @@ impl SceneCaptureConfig {
                         ),
                         None => (value.clone(), 1),
                     });
+                    2
+                }
+                "--portal-shot" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--portal-shot requires TICK:X,Y:DX,DY[:b]".to_string());
+                    };
+                    portal_shots.push(PortalShotAt::parse(value)?);
                     2
                 }
                 "--player-beside" => {
@@ -874,6 +954,7 @@ impl SceneCaptureConfig {
                 player_beside: None,
                 interact_on_arrival: false,
                 flags: Vec::new(),
+                portal_shots: Vec::new(),
                 body_warp: None,
                 dev_overlays,
                 combat_overlay,
@@ -930,6 +1011,7 @@ impl SceneCaptureConfig {
             player_beside,
             interact_on_arrival,
             flags,
+            portal_shots,
             body_warp,
             route: None,
             press,

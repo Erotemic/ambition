@@ -133,6 +133,40 @@ pub(super) fn register(app: &mut App) {
             ..energy_ball([1.0, 0.44, 0.14, 1.0], "mockingbird_fireball")
         },
     );
+    // Its fireball once its fire is cold (phase 3): the same ball, blue.
+    app.register_projectile_visual(
+        "mockingbird_coldfire",
+        ProjectileArt {
+            expiry_vfx: Some(ProjectileExpiryBurst {
+                fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                scale: 0.6,
+            }),
+            ..energy_ball([0.36, 0.72, 1.0, 1.0], "mockingbird_coldfire")
+        },
+    );
+    // The burning lightsabers it spits from its mouth: its own sheet, one row
+    // for each fire it burns with. The saber's turn is in the row's frames
+    // (the flames trail the spin), so the sprite is not turned to its flight.
+    for (id, animation) in [("mockingbird_lightsaber", "fly"), ("mockingbird_lightsaber_cold", "fly_cold")] {
+        app.register_projectile_visual(
+            id,
+            ProjectileArt {
+                source: ProjectileArtSource::Sheet {
+                    target: "mockingbird_lightsaber".to_string(),
+                    animation: animation.to_string(),
+                    animate: true,
+                },
+                size: ProjectileRenderSize::FixedWidth(150.0),
+                rotation: ProjectileRotation::GravityUpright,
+                debug_tint: if animation == "fly" { [1.0, 0.3, 0.15, 1.0] } else { [0.3, 0.6, 1.0, 1.0] },
+                label: id.to_string(),
+                expiry_vfx: Some(ProjectileExpiryBurst {
+                    fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                    scale: 0.7,
+                }),
+            },
+        );
+    }
 
     // The Projectile Polygon's charge shot, in five tiers.
     //
@@ -285,6 +319,9 @@ mod tests {
             "trex_rock",
             "mockingbird_missile",
             "mockingbird_fireball",
+            "mockingbird_coldfire",
+            "mockingbird_lightsaber",
+            "mockingbird_lightsaber_cold",
             "lasersword",
             "glider",
         ] {

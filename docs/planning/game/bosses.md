@@ -255,6 +255,66 @@ ceiling.
   `boss.mockingbird.*` SFX.
 - **Tests:** `game/ambition_app/tests/mockingbird_fight.rs` (12).
 
+**Asked (Jon, 2026-10-09), built the same day: anger, cold fire, space and
+the moon.** "After enough damage the mockingbird needs to light itself on fire
+(not because it is damaged, but because it is angry). That is phase 2. Then
+after more damage it triggers phase 3 where the red fire turns into blue fire
+(cold fire) and the mockingbird gets even angrier. The mockingbird also needs
+to shoot lightsabers from its mouth, which are also on fire. And it turns out
+that the only way to kill a mockingbird is by hitting it with the moon."
+
+- **Phase 2 (60% HP): it lights itself on fire.** Red flames come off its own
+  drawn body (`presentation/mockingbird_sky.rs`, `mockingbird_fire.wgsl`: a
+  quad over its sprite that asks, for each pixel, whether there is body below
+  it and downwind). New move `mockingbird_lightsabers`: three burning
+  lightsabers spat from its mouth in a fan. They spin, fly out and come back
+  (`ProjectileSpawn::boomerang_return_s`). Prop sheet
+  `mockingbird_lightsaber`, rows `fly` and `fly_cold`. The spin showed an
+  engine defect, now fixed: an animated projectile drew each trimmed frame in
+  its first frame's box. Each frame is now drawn at its own size and place
+  (`projectile_visuals::place_frames`).
+- **Phase 3 (25% HP): cold fire, and the fight leaves the sky.** The fire
+  turns blue and burns higher; its fireballs and lightsabers are cold. Its
+  pattern gains a single dive and the lightsabers. Its hull now turns each
+  blow, also while it dives and while it hangs winded: no blow of yours hurts
+  it again. The sky climbs into space in `ASCENT_S` (7 s): the dark comes
+  down from the top, the stars come out and the planet's limb falls to the
+  bottom of the room (`mockingbird_space.wgsl`). The sharks stay: the footing
+  does not change.
+- **The moon.** In space the moon crosses the room from right to left on a
+  lane (a 5 s crossing each 10 s; the lane is drawn as a dashed arc). It hurts
+  a body it rolls over. It kills the Mockingbird if it reaches it while it
+  dives or hangs winded after a dive. So the finish is a lure: stand where its
+  dive at you ends on the lane while the moon is coming. A dive that ends off
+  the lane changes nothing, and it does not go to the lane by itself: when
+  the moon comes at its side of the sky, it climbs over the moon and holds
+  there until the moon is past.
+- **The death is the usual one.** The moon's blow is a real hit, an
+  environmental one (`HitSource::Hazard`, which no guard turns), sent by
+  `strike_it_with_the_moon`. So its bounty and gauntlet fall as for each boss,
+  the sky comes back down in 5 s, and you fall to the shore where the chest
+  lands.
+- **State.** The phase, the climb (`ascent`), the moon's clock and position
+  and `moonstruck` are fields of the conductor's record, which is rollback
+  state. Presentation reads the record and decides nothing.
+- **Tests:** three more in `mockingbird_fight.rs` (15): the lightsabers fly out
+  and come back; cold fire, the climb and the turned blows; and the moon
+  (control: two crossings with the player under the lane leave it alive;
+  lured, it dies).
+
+Limits, stated:
+
+- "Only the moon kills it" holds in play, not as an engine rule. One blow
+  larger than a quarter of its health, landed in phase 2, would kill it with
+  no moon. No weapon the player has does that. The hall's kill switch and a
+  test's 9,999 blow still kill it, as they must.
+- Gravity does not change in space. A lower gravity needs a room-rule port
+  that the conductor does not have.
+- No new sound: the lightsabers use the fan's charge and spit cues, and the
+  moon's strike uses the chomp cue and then the defeat cue. New cues wait for
+  an audition.
+- The looks are checked with `capture_scene`. A window on a GPU was not seen.
+
 Open:
 
 - The SFX are first picks and have not been auditioned.

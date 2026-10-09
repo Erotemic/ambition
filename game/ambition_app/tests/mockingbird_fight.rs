@@ -357,7 +357,8 @@ fn wounded_it_screeches_and_then_fires_salvoes_and_dives_twice() {
 }
 
 /// Enraged, it leaves its side: a strafing run along the top of the sky,
-/// raining fire on the flock, and back low under it.
+/// raining fire on the flock, and back low under it. Its fire is cold by
+/// then, so the rain is cold fire.
 #[test]
 fn enraged_it_strafes_the_top_of_the_sky_raining_fire() {
     let mut sim = sky();
@@ -370,11 +371,126 @@ fn enraged_it_strafes_the_top_of_the_sky_raining_fire() {
         let b = bird(&mut sim);
         highest = highest.min(b.kin.pos.y);
         furthest = furthest.max(b.kin.pos.x);
-        bombs = bombs.max(shots(&mut sim).iter().filter(|(v, _, vel)| v == module::FIRE_VISUAL && vel.y > 0.0).count());
+        bombs = bombs.max(shots(&mut sim).iter().filter(|(v, _, vel)| v == module::COLD_FIRE_VISUAL && vel.y > 0.0).count());
     }
     assert!(highest < room.y * 0.2, "it stayed low ({highest})");
     assert!(furthest > room.x * 0.7, "it stayed on its side ({furthest})");
-    assert!(bombs >= 4, "it rained only {bombs} fireballs");
+    assert!(bombs >= 4, "it rained only {bombs} cold fireballs");
+}
+
+/// Where a test holds the player in phase 3 when it does not lure: low in
+/// the sky, far under the moon's lane, so a dive at the player ends where the
+/// moon does not go.
+fn under_the_lane(room: ae::Vec2) -> ae::Vec2 {
+    ae::Vec2::new(room.x * 0.8, room.y * 0.88)
+}
+
+/// Step with the player held where `at` says, until `until`.
+fn step_held(
+    sim: &mut Platformer2dSimHarness,
+    frames: usize,
+    what: &str,
+    mut at: impl FnMut(&Bird) -> ae::Vec2,
+    mut until: impl FnMut(&mut Platformer2dSimHarness) -> bool,
+) {
+    for _ in 0..frames {
+        let to = at(&bird(sim));
+        place_player(sim, to);
+        sim.step(AgentAction::default());
+        if until(sim) {
+            return;
+        }
+    }
+    panic!("waited {frames} frames for {what}; last: {:?}", bird(sim));
+}
+
+/// On fire (phase 2), it spits burning lightsabers from its mouth: three, in
+/// a fan at you, that fly out and come back the way they went.
+#[test]
+fn on_fire_it_spits_burning_lightsabers_that_fly_out_and_come_back() {
+    let mut sim = sky();
+    wound(&mut sim, 0.5);
+    step_until(&mut sim, 60 * 45, "the lightsabers", |sim| matches!(bird(sim).view.performing, Some((Move::Lightsabers, true))));
+    assert_eq!(bird(&mut sim).view.phase, 1, "it spits lightsabers and is not on fire");
+    let (mut most, mut went_out, mut came_back) = (0, false, false);
+    for _ in 0..60 * 3 {
+        step_across(&mut sim);
+        let sabers: Vec<_> = shots(&mut sim).into_iter().filter(|(v, ..)| v == module::SABER_VISUAL).collect();
+        most = most.max(sabers.len());
+        went_out |= sabers.iter().any(|(_, _, vel)| vel.x > 100.0);
+        came_back |= went_out && sabers.iter().any(|(_, _, vel)| vel.x < -100.0);
+    }
+    assert_eq!(most, 3, "it spat {most} lightsabers");
+    assert!(went_out && came_back, "the lightsabers flew out ({went_out}) and came back ({came_back})");
+}
+
+/// Phase 3: its fire goes cold, the sky climbs into space, and no blow hurts
+/// it, in the window after its dive too. (The control is phase 1, where that
+/// window is the punish window:
+/// `out_at_its_side_its_hull_turns_blows_and_after_its_dive_it_is_open`.)
+#[test]
+fn its_fire_goes_cold_the_sky_climbs_into_space_and_no_blow_hurts_it() {
+    let mut sim = sky();
+    assert_eq!((bird(&mut sim).view.phase, bird(&mut sim).view.ascent), (0, 0.0), "premise: it starts in the sky, not on fire");
+    wound(&mut sim, 0.2);
+    step_held(&mut sim, 60 * 25, "its fire to go cold", |b| under_the_lane(b.view.room.unwrap()), |sim| bird(sim).view.phase == 2);
+    let mut last = 0.0;
+    step_held(&mut sim, 60 * 12, "the sky to become space", |b| under_the_lane(b.view.room.unwrap()), |sim| {
+        let ascent = bird(sim).view.ascent;
+        assert!(ascent >= last, "the sky came back down while it lives: {last} to {ascent}");
+        last = ascent;
+        ascent >= 1.0
+    });
+    step_held(&mut sim, 60 * 40, "it to hang winded after a dive", |b| under_the_lane(b.view.room.unwrap()), |sim| bird(sim).view.stunned);
+    let winded = bird(&mut sim);
+    assert!(winded.guarded && !winded.view.open, "winded in space its guard is down");
+    assert_eq!(strike(&mut sim, 5), 0, "a blow hurt it in space");
+    assert!(bird(&mut sim).hp > 0);
+}
+
+/// ⭐ THE ONLY WAY TO KILL A MOCKINGBIRD IS TO HIT IT WITH THE MOON.
+///
+/// In space the moon crosses the room again and again. The Mockingbird keeps
+/// out of its way, and it cannot while it dives or hangs winded. So a dive
+/// that is lured into the moon's path is its end.
+///
+/// The control comes first: with the player held far under the moon's lane,
+/// the moon crosses twice, the Mockingbird dives in that time, and it lives.
+#[test]
+fn the_moon_strikes_it_when_its_dive_is_lured_into_the_moons_path() {
+    let mut sim = sky();
+    wound(&mut sim, 0.2);
+    step_held(&mut sim, 60 * 40, "the moon", |b| under_the_lane(b.view.room.unwrap()), |sim| bird(sim).view.moon.is_some());
+    let room = bird(&mut sim).view.room.expect("room");
+    let hp = bird(&mut sim).hp;
+
+    // The control.
+    let (mut crossings, mut was_out, mut dived) = (0, true, false);
+    step_held(&mut sim, 60 * 40, "two crossings of the moon", |b| under_the_lane(b.view.room.unwrap()), |sim| {
+        let b = bird(sim);
+        dived |= b.view.stunned;
+        let out = b.view.moon.is_some();
+        crossings += usize::from(was_out && !out);
+        was_out = out;
+        crossings >= 2
+    });
+    let b = bird(&mut sim);
+    assert!(dived, "premise: it did not dive while the moon crossed twice");
+    assert!(!b.view.moonstruck && b.hp == hp, "the moon struck it with nobody luring it: {b:?}");
+
+    // The lure: while the moon is over the middle of the room, the player
+    // stands on its lane a little ahead of it. A dive at the player ends
+    // there, and the moon comes.
+    let lure = |b: &Bird| match b.view.moon {
+        Some(moon) if moon.x > room.x * 0.3 && moon.x < room.x * 0.9 => moon + ae::Vec2::new(-170.0, 20.0),
+        _ => under_the_lane(room),
+    };
+    step_held(&mut sim, 60 * 90, "the moon to strike it", lure, |sim| bird(sim).view.moonstruck);
+    step_held(&mut sim, 60 * 3, "it to die of the moon", lure, |sim| bird(sim).hp == 0);
+    // Thrown out of the fight, the way the moon goes; and the sky comes back.
+    let struck_at = bird(&mut sim).kin.pos;
+    step_held(&mut sim, 60 * 12, "the sky to come back", |_| ae::Vec2::new(room.x * 0.6, room.y * 0.3), |sim| bird(sim).view.ascent <= 0.0);
+    assert!(bird(&mut sim).kin.pos.x < struck_at.x - 100.0, "the moon did not throw it: {struck_at:?} to {:?}", bird(&mut sim).kin.pos);
 }
 
 /// Shot down, it falls out of the sky, and its treasure is not left falling

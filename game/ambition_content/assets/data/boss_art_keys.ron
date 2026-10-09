@@ -61,6 +61,7 @@
         "mockingbird_dive": ["dive"],
         "mockingbird_double_dive": ["dive"],
         "mockingbird_strafe": ["thrust"],
+        "mockingbird_lightsabers": ["slash"],
     },
     // The sheet rows each geometry strike claims. The first row is the
     // canonical runtime key; the others are row-name aliases, so a

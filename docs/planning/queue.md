@@ -340,7 +340,16 @@ reads cargo output to it.
    run that writes the default status records evidence, so a test's fake
    jobs do not. Not held: the demo rule's fourth case (an instrument a demo
    test reads), the external-consumer fixtures, the matrix rows without a
-   path, and a peer's change merged after the run.
+   path, and a peer's change merged after the run. Two more rows are held
+   (2026-10-09): a change to `game/ambition_content/assets` or the map
+   assets requires the content arms (`declared_art_resolves`,
+   `registered_character_art`), and a rollback registration or
+   `sim_phase_pins.rs` requires the `rollback_` arms and the repo tooling
+   job. A check named by test name counts for a run whose filter is part of
+   that name. Found on the way: a filtered nextest run certified the whole
+   crate, because `run_tests.py` gives nextest its filter as a bare word and
+   the rule looked for it after `--` (witness: the nextest rows of
+   `test_only_a_default_feature_run_of_every_target_covers_a_package`).
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.

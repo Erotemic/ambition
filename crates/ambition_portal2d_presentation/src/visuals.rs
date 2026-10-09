@@ -1,5 +1,6 @@
-//! Default portal-seam visuals: portal quads + labels, mid-transit body-piece
-//! decomposition, and the disorientation indicator.
+//! Default portal-seam visuals: portal labels, mid-transit body-piece
+//! decomposition, and the disorientation indicator. A portal's own look is in
+//! `glow.rs`.
 //!
 //! Gun-specific sprites and shot/pickup markers live in `gun_visuals.rs` so the
 //! reusable portal presentation surface can move toward static portals, scripted
@@ -20,7 +21,7 @@ use ambition_platformer2d_shared_tangle::orientation::ActorRoll;
 use ambition_portal2d::pieces as pp;
 use ambition_portal2d::{
     copy_transform, find_portal, PlacedPortal, PortalGunPickup, PortalInputWarp, PortalShot,
-    PortalTransit, PORTAL_VISUAL_THICKNESS,
+    PortalTransit,
 };
 
 use crate::clip_material::{
@@ -316,14 +317,12 @@ pub fn sync_portal_body_pieces(
     }
 }
 
-/// Colored quad per portal so linked apertures are legible. Clear-and-rebuild
-/// each frame — portal counts are expected to stay small in ordinary rooms, and
-/// rebuilding from sim entities avoids presentation drift.
+/// The colour-name label of each portal, and the gun's shot and pickup
+/// markers. Clear-and-rebuild each frame: portal counts stay small in ordinary
+/// rooms, and rebuilding from sim entities avoids presentation drift.
 ///
-/// FIXME(portal-api): this visual is intentionally simple and currently assumes
-/// a 2D side-profile doorway. The data model should be ready for authored,
-/// runtime-opened, moving, and eventually non-axis-aligned portals, with richer
-/// renderers allowed to replace this system.
+/// The portal's own look is its line of light (`crate::glow`), which is kept
+/// from frame to frame because it has effects that take time.
 pub fn sync_portal_visuals(
     mut commands: Commands,
     frames: PortalFrames,
@@ -347,125 +346,73 @@ pub fn sync_portal_visuals(
         let Some(placement) = frames.in_room(room) else {
             continue;
         };
-        // The eye of this room: the frame of a portal is over or under the
-        // glass by where that eye is.
-        let viewer = viewers.as_deref().and_then(|viewers| viewers.in_room(room));
-        spawn_room_portal_visuals(&mut commands, placement, room_portals, viewer, &rigs);
-    }
-}
-
-/// The rim, core and label of each portal of one live room.
-fn spawn_room_portal_visuals(
-    commands: &mut Commands,
-    placement: crate::PortalPlacement,
-    all_portals: &[PlacedPortal],
-    viewer: Option<&crate::PortalViewer>,
-    rigs: &Query<&crate::PortalViewRig>,
-) {
-    let frame = placement.frame;
-    for portal in all_portals {
-        let partner = find_portal(all_portals, portal.channel.partner());
-        // Frame z rides the PANE-DOMINANCE decision (the rig's sticky winner,
-        // or the stateless sign when no window rig serves this portal): the
-        // frame of the portal you are in front of draws ABOVE the glass —
-        // always whole — while the far portal's frame drops back UNDER the
-        // window band, so the open pane hides it exactly like the rest of the
-        // far side (a frame punching through the glass reads as a second
-        // portal). No viewer / no partner  dominant (nothing overlaps).
-        let dominant = rigs
-            .iter()
-            .find(|rig| rig.serves(placement.room, portal.channel))
-            .map(|rig| rig.pane_dominant())
-            .or_else(|| {
-                let (partner, v) = (partner.as_ref()?, viewer?);
-                v.present
-                    .then(|| crate::view_cones::pane_dominance(portal, partner, v.eye) >= 0.0)
-            })
-            .unwrap_or(true);
-        let frame_z = if dominant {
-            crate::PORTAL_RIM_OVERLAY_Z
-        } else {
-            9.0
-        };
-        // Draw this portal's OWN channel on the side its normal points toward,
-        // and the paired channel on the back side. That makes every individual
-        // aperture read the same way: the front/entering side is named by the
-        // portal's own color, regardless of pair name ordering.
-        let negative_channel = partner.map_or(portal.channel, |partner| partner.channel);
-        let positive_channel = portal.channel;
-        // A portal is a thin doorway seen in side profile (2D): a bar lying
-        // ALONG the wall (perpendicular to the surface normal), thin in the
-        // normal direction. `along` rotates with the normal, so a slanted
-        // surface yields a slanted portal for free.
-        let n = portal.normal.normalize_or_zero();
-        let along = Vec2::new(-n.y, n.x);
-        // Opening half-length = the portal extent projected onto the wall
-        // direction: a wall portal (horizontal normal) shows its full height,
-        // a floor / ceiling portal shows its width.
-        let opening_half =
-            along.x.abs() * portal.half_extent.x + along.y.abs() * portal.half_extent.y;
-        let length = (opening_half * 2.0).max(PORTAL_VISUAL_THICKNESS);
-        // World is y-down, render space is y-up — flip y to get the on-screen
-        // direction of the bar's long axis, then rotate the sprite to match.
-        let angle = (-along.y).atan2(along.x);
-        let rotation = Quat::from_rotation_z(angle);
-        // Rim (outer) + brighter thin core, both split into pair-colored halves. Split ACROSS
-        // the portal face (along the normal), not along the portal's long axis. For a wall
-        // portal this gives left/right halves instead of top/bottom halves, so the color sheet
-        // that the actor enters lines up with the mapped exit-side portal texture. The
-        // positive-normal side is this portal's own channel; the negative-normal side is its
-        // partner. All three (rim/core/label) draw at the dominance-resolved `frame_z` (above
-        // the glass for the near portal, under it for the far one) on the WORLD layer, so
-        // portal captures photograph them — portals seen through a window must look like
-        // portals.
-        for (channel, sign, side) in [
-            (negative_channel, -1.0, "negative-normal"),
-            (positive_channel, 1.0, "positive-normal"),
-        ] {
-            let (rim, core) = channel.display();
-            let rim_thickness = PORTAL_VISUAL_THICKNESS;
-            let rim_center = portal.pos + n * (sign * rim_thickness * 0.25);
-            let rim_translation = frame.to_render(rim_center, frame_z);
+        for portal in room_portals {
+            let frame_z = portal_frame_z(placement, room_portals, portal, viewers.as_deref(), &rigs);
+            // A small color-name label just out in front of the face, so portals can
+            // be referred to precisely (each linked pair is a distinct complementary
+            // color: purple↔yellow, teal↔red, …). The color name IS the identifier.
+            let n = portal.normal.normalize_or_zero();
+            let label_pos = portal.pos + n * 24.0;
+            let label_translation = placement.frame.to_render(label_pos, frame_z + 0.1);
+            let (_, core) = portal.channel.display();
             commands.spawn((
                 PortalVisual,
-                Sprite::from_color(rim, Vec2::new(length, rim_thickness * 0.5)),
-                Transform::from_translation(rim_translation).with_rotation(rotation),
+                Text2d::new(portal.channel.name()),
+                TextFont {
+                    font_size: FontSize::Px(12.0),
+                    ..default()
+                },
+                TextColor(core),
+                Transform::from_translation(label_translation),
                 placement.stamp(),
-                Name::new(format!("Portal visual (rim {side})")),
-            ));
-
-            let core_length = length * 0.86;
-            let core_thickness = PORTAL_VISUAL_THICKNESS * 0.42;
-            let core_center = portal.pos + n * (sign * core_thickness * 0.25);
-            let core_translation = frame.to_render(core_center, frame_z + 0.05);
-            commands.spawn((
-                PortalVisual,
-                Sprite::from_color(core, Vec2::new(core_length, core_thickness * 0.5)),
-                Transform::from_translation(core_translation).with_rotation(rotation),
-                placement.stamp(),
-                Name::new(format!("Portal visual (core {side})")),
+                Name::new("Portal label"),
             ));
         }
-        // A small color-name label just out in front of the face, so portals can
-        // be referred to precisely (each linked pair is a distinct complementary
-        // color: purple↔yellow, teal↔red, …). The color name IS the identifier.
-        let label_pos = portal.pos + n * 24.0;
-        let label_translation = frame.to_render(label_pos, frame_z + 0.1);
-        let (_, core) = portal.channel.display();
-        commands.spawn((
-            PortalVisual,
-            Text2d::new(portal.channel.name()),
-            TextFont {
-                font_size: FontSize::Px(12.0),
-                ..default()
-            },
-            TextColor(core),
-            Transform::from_translation(label_translation),
-            placement.stamp(),
-            Name::new("Portal label"),
-        ));
     }
 }
+
+/// The z a portal's frame (its line of light and its label) is drawn at.
+///
+/// Frame z rides the PANE-DOMINANCE decision (the rig's sticky winner, or the
+/// stateless sign when no window rig serves this portal): the frame of the
+/// portal you are in front of draws ABOVE the glass — always whole — while the
+/// far portal's frame drops back UNDER the window band, so the open pane hides
+/// it exactly like the rest of the far side (a frame punching through the
+/// glass reads as a second portal). No viewer / no partner: dominant (nothing
+/// overlaps).
+///
+/// The frame is on the WORLD layer, so portal captures photograph it: portals
+/// seen through a window must look like portals.
+pub(crate) fn portal_frame_z(
+    placement: crate::PortalPlacement,
+    room_portals: &[PlacedPortal],
+    portal: &PlacedPortal,
+    viewers: Option<&crate::PortalViewers>,
+    rigs: &Query<&crate::PortalViewRig>,
+) -> f32 {
+    let partner = find_portal(room_portals, portal.channel.partner());
+    // The eye of this room: the frame of a portal is over or under the glass
+    // by where that eye is.
+    let viewer = viewers.and_then(|viewers| viewers.in_room(Some(placement.room)));
+    let dominant = rigs
+        .iter()
+        .find(|rig| rig.serves(placement.room, portal.channel))
+        .map(|rig| rig.pane_dominant())
+        .or_else(|| {
+            let (partner, v) = (partner.as_ref()?, viewer?);
+            v.present
+                .then(|| crate::view_cones::pane_dominance(portal, partner, v.eye) >= 0.0)
+        })
+        .unwrap_or(true);
+    if dominant {
+        crate::PORTAL_RIM_OVERLAY_Z
+    } else {
+        PORTAL_FRAME_UNDER_GLASS_Z
+    }
+}
+
+/// Where the frame of the far portal is drawn: under the window band.
+const PORTAL_FRAME_UNDER_GLASS_Z: f32 = 9.0;
 
 #[cfg(test)]
 mod tests;

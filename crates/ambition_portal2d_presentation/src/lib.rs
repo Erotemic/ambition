@@ -22,6 +22,7 @@ mod compositing;
 mod far_side;
 mod clip_material;
 mod effects;
+mod glow;
 mod gun_visuals;
 mod plugin;
 mod source_visibility;
@@ -56,6 +57,7 @@ pub use compositing::{
     UncoveredPiece, UncoveredPieces,
 };
 pub use effects::{PortalEffectSelection, PortalVisualEffect};
+pub use glow::{opening_length, sync_portal_glows, PortalGlow, PortalGlowMaterial, APPEAR_S, DISSOLVE_S, ROOM_SETTLE_S};
 pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};
 pub use plugin::{PortalPresentationPlugin, PortalPresentationSet};
 #[cfg(feature = "effect_view_cones")]
@@ -90,9 +92,10 @@ pub struct PortalObservationSet;
 pub const PORTAL_WINDOW_Z: f32 = 9.5;
 /// The exit-side body slice z (just below [`PORTAL_WINDOW_Z`]).
 pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
-/// Portal rim/core/label overlay z: above the window and exit slice, below
-/// actors. The thin rim therefore stays intact while near-side bodies can still
-/// occlude the whole portal.
+/// The z of a portal's frame, which is its line of light (`glow`) and its
+/// label: above the window and exit slice, below actors. The thin line
+/// therefore stays intact while near-side bodies can still occlude the whole
+/// portal.
 pub const PORTAL_RIM_OVERLAY_Z: f32 = 10.0;
 
 // Compile-time checks of the z stack that the three doc comments above
@@ -180,6 +183,11 @@ impl PortalFrames<'_, '_> {
     /// The live room of `entity`, by the rule [`Self::of`] uses.
     pub fn room_of(&self, entity: Entity) -> ambition_portal2d::PortalRoom {
         self.live.of(entity)
+    }
+
+    /// Each live room.
+    pub fn live_rooms(&self) -> impl Iterator<Item = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> + '_ {
+        self.roots.iter().map(|(live, _)| *live)
     }
 
     /// The placed portals grouped by live room, as the mechanic pairs them: a

@@ -189,6 +189,9 @@ struct SceneCaptureRuntime {
     /// different idle tick each run, and because nameplate opacity is ranked
     /// by distance from the focus, small drift reorders the labels.
     world_ready: bool,
+    /// Frames a capture that follows the player has waited, after its press
+    /// sequence, for a player that is not there.
+    no_player_after_press: u32,
 }
 
 const USAGE: &str = "\
@@ -301,7 +304,11 @@ fn main() {
         Some(route_id) => install_route_capture(&mut app, route_id),
         None => install_room_capture(&mut app),
     }
-    app.run();
+    // The app's exit is the tool's. Dropped, each failure below exited 0, and
+    // a script that asked `$?` was told a capture with no image had passed.
+    if let AppExit::Error(code) = app.run() {
+        std::process::exit(i32::from(code.get()));
+    }
 }
 
 /// The one app this tool builds.
@@ -1726,6 +1733,20 @@ fn request_capture(
     if !runtime.world_ready {
         let art = art_demand.as_deref().zip(art_states.as_deref());
         if !world_is_ready(&player_q, config.follow_player, art) {
+            // A press sequence can end the session (a quit to the title).
+            // Then no player comes, and this wait had no end (measured
+            // 2026-10-09: two runs of 25 minutes with no image).
+            if config.follow_player && runtime.press_done_frame.is_some() && player_q.iter().next().is_none() {
+                runtime.no_player_after_press += 1;
+                if runtime.no_player_after_press > ROUTE_CAMERA_GRACE_FRAMES {
+                    eprintln!(
+                        "capture_scene: the press sequence is complete and there is no player to follow \
+                         after {ROUTE_CAMERA_GRACE_FRAMES} frames. If the sequence ends the session (a quit \
+                         to the title), name the focus as X,Y and not `player`. No image is written."
+                    );
+                    commands.write_message(AppExit::from_code(2));
+                }
+            }
             return;
         }
         runtime.world_ready = true;

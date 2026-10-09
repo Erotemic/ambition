@@ -840,15 +840,25 @@ pub struct PartPose {
 /// of a blink. The body's image is cut into vertical slivers that slide
 /// apart, rise and fade (departure), or come together and solidify (arrival).
 ///
-/// It is a property of the ROW, by its engine name: a blink is an engine
-/// mechanic and `blink_out` / `blink_in` are the engine's rows for it
-/// (`CharacterAnim::BlinkOut` / `BlinkIn`). It applies to a row that draws
-/// the body whole ([`RiggedSpriteAsset::row_draws_the_body_whole`]): a sheet
-/// that takes its own body apart in those rows keeps its own blink. A sheet
-/// draws a plain pose in those rows; the pass that finishes the body's composited image
-/// (`ImpostorUnpremultiply`) does the rest, so each reader of the body sees
-/// the same slivers, and no art is authored piece by piece. A warp row is
-/// read as one image, as a row that fades is.
+/// It is a property of the BLINK, and of no row. A blink is an engine
+/// mechanic, and the warp is on the body in three cases, on whatever row the
+/// body draws then:
+///
+/// - Something performs a blink ON the body ([`PerformedBodyWarp`]): the body
+///   keeps the animation it has.
+/// - The body draws one of the engine's blink rows (`blink_out`, `blink_in`):
+///   a sheet MAY have a pose for a blink, and the warp runs over the row.
+/// - The body asks for a blink pose (`CharacterAnim::BlinkOut` / `BlinkIn`)
+///   and its sheet has no such row: the warp runs over the row the sheet
+///   draws for it (its idle), for [`BLINK_WARP_S`].
+///
+/// So no sheet needs a blink row. In each case the row the body draws must
+/// draw the body whole ([`RiggedSpriteAsset::row_draws_the_body_whole`]): a
+/// sheet that takes its own body apart in a blink row keeps its own blink.
+/// The pass that finishes the body's composited image (`ImpostorUnpremultiply`)
+/// cuts the image, so each reader of the body sees the same slivers, and no
+/// art is authored piece by piece. A body under a warp is read as one image,
+/// as a row that fades is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BodyWarp {
     /// The body goes: slivers slide apart, rise and fade.
@@ -858,15 +868,52 @@ pub enum BodyWarp {
 }
 
 impl BodyWarp {
-    /// The warp of the row named `row`, if it has one.
+    /// The warp of a body that asks for the pose `anim`, if a blink.
+    pub fn of_anim(anim: super::CharacterAnim) -> Option<Self> {
+        match anim {
+            super::CharacterAnim::BlinkOut => Some(Self::TeleportOut),
+            super::CharacterAnim::BlinkIn => Some(Self::TeleportIn),
+            _ => None,
+        }
+    }
+
+    /// The warp of the row named `row`, if it is one of the engine's blink
+    /// rows.
     pub fn of_row(row: &str) -> Option<Self> {
         // A mirrored row (`blink_out~mirrored`) is the same motion.
         let row = row.split_once('~').map_or(row, |(name, _)| name);
-        match super::CharacterAnim::from_name(row) {
-            Some(super::CharacterAnim::BlinkOut) => Some(Self::TeleportOut),
-            Some(super::CharacterAnim::BlinkIn) => Some(Self::TeleportIn),
-            _ => None,
-        }
+        super::CharacterAnim::from_name(row).and_then(Self::of_anim)
+    }
+}
+
+/// How long a blink's warp is on a body whose sheet has no blink row (s): the
+/// length of the engine's blink rows (6 frames of 62 ms).
+pub const BLINK_WARP_S: f32 = 0.37;
+
+/// A teleport warp that something performs ON a body: the body is taken apart
+/// (or comes together) on whatever row it draws, with the animation it has.
+/// Presentation only. The one who performs it inserts this on the body's
+/// sprite root; the renderer runs its clock and takes it off at its end.
+#[derive(bevy::ecs::component::Component, Clone, Copy, Debug, PartialEq)]
+pub struct PerformedBodyWarp {
+    pub warp: BodyWarp,
+    pub elapsed_s: f32,
+    pub duration_s: f32,
+}
+
+impl PerformedBodyWarp {
+    /// `warp`, from its start, for `duration_s`.
+    pub fn new(warp: BodyWarp, duration_s: f32) -> Self {
+        Self { warp, elapsed_s: 0.0, duration_s }
+    }
+
+    /// How far through the warp the body is, 0 to 1.
+    pub fn progress(&self) -> f32 {
+        if self.duration_s > 0.0 { (self.elapsed_s / self.duration_s).clamp(0.0, 1.0) } else { 1.0 }
+    }
+
+    pub fn is_over(&self) -> bool {
+        self.elapsed_s >= self.duration_s
     }
 }
 

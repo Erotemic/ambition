@@ -115,7 +115,8 @@ use ambition_platformer2d_shared_tangle::camera_layers::RIGGED_IMPOSTOR_LAYER;
 
 use crate::rendering::{impostor_compositing, ART_COMPOSITING};
 use ambition_sprite_sheet::character::rigged::{
-    BodyWarp, ComposedBodyDemand, FrameInSprite, PartDraw, PartPose, PartPresentation, PosedParts, RiggedSpriteAdmission, RiggedSpritePages,
+    BodyWarp, ComposedBodyDemand, FrameInSprite, PartDraw, PartPose, PartPresentation, PerformedBodyWarp, PosedParts,
+    RiggedSpriteAdmission, RiggedSpriteAsset, RiggedSpritePages, BLINK_WARP_S,
 };
 use ambition_sprite_sheet::character::{CharacterAnimator, CharacterColorShift};
 use ambition_sprite_sheet::game_assets::GameAssets;
@@ -555,9 +556,61 @@ type Roots<'w, 's> = Query<
         Option<&'static RenderLayers>,
         Option<&'static PartPose>,
         Option<&'static FrameInSprite>,
+        Option<&'static PerformedBodyWarp>,
     ),
     (Without<RiggedPresentation>, Without<RiggedPartSlot>),
 >;
+
+/// The teleport warp a body is under this frame, and how far through it
+/// (0 to 1). `row` is the row the body draws.
+///
+/// One rule for each reader ([`BodyWarp`] states it): a blink performed on
+/// the body, then a blink row the body draws (its progress is the row's),
+/// then a blink the body asks for with no row for it (its progress is the
+/// time since it asked). A row that does not draw the body whole has no
+/// warp: the sheet takes its own body apart there, or the body fades.
+fn body_warp(
+    animator: &CharacterAnimator,
+    flipbook: &RiggedSpriteAsset,
+    row: Option<&str>,
+    performed: Option<&PerformedBodyWarp>,
+) -> Option<(BodyWarp, f32)> {
+    let row = row?;
+    if !flipbook.row_draws_the_body_whole(row) {
+        return None;
+    }
+    if let Some(performed) = performed {
+        return Some((performed.warp, performed.progress()));
+    }
+    if let (Some(warp), Some(clip)) = (BodyWarp::of_row(row), flipbook.clip(row)) {
+        let last = clip.frame_count().saturating_sub(1).max(1) as f32;
+        let within = if clip.frame_duration_s > 0.0 {
+            (animator.elapsed / clip.frame_duration_s).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        return Some((warp, (animator.frame as f32 + within) / last));
+    }
+    let (asked, asked_for) = animator.asked();
+    Some((BodyWarp::of_anim(asked)?, (asked_for / BLINK_WARP_S).clamp(0.0, 1.0)))
+}
+
+/// Run the clock of each blink performed on a body, and take it off the body
+/// at its end. Before [`drive_rigged_presentations`], which reads it.
+pub fn advance_performed_body_warps(
+    mut commands: Commands,
+    time: Option<Res<Time>>,
+    mut bodies: Query<(Entity, &mut PerformedBodyWarp)>,
+) {
+    let dt = time.map_or(0.0, |time| time.delta_secs());
+    for (body, mut performed) in &mut bodies {
+        if performed.is_over() {
+            commands.entity(body).try_remove::<PerformedBodyWarp>();
+        } else {
+            performed.elapsed_s += dt;
+        }
+    }
+}
 
 /// What says whether a root is shown this frame: its own visibility, and, for
 /// a root under a parent, what propagation last made of it.
@@ -938,7 +991,7 @@ pub fn drive_rigged_presentations(
     // so a body given a cell in one draws directly once more.
     let mut fresh_pages: Vec<(usize, usize)> = Vec::new();
     for (_, &RiggedPresentationOf(root), mut presentation, _, _) in &mut owners {
-        let Ok((animator, _, _, _, _, _, root_layers, pose, _)) = roots.get(root) else {
+        let Ok((animator, _, _, _, _, _, root_layers, pose, _, performed)) = roots.get(root) else {
             continue;
         };
         let flipbook = presentation.pages.flipbook.clone();
@@ -947,10 +1000,9 @@ pub fn drive_rigged_presentations(
         // it (alice's blink drew her arm through her coat).
         let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
         let fades = row.is_some_and(|row| flipbook.frame_opacity(row, animator.frame) < 1.0);
-        // A row with a warp is taken apart as one picture, in the pass that
-        // finishes the composited image (`ImpostorCellOpacity::warp`).
-        let warps = preview.is_some()
-            || row.is_some_and(|row| BodyWarp::of_row(row).is_some() && flipbook.row_draws_the_body_whole(row));
+        // A body under a warp is taken apart as one picture, in the pass
+        // that finishes the composited image (`ImpostorCellOpacity::warp`).
+        let warps = preview.is_some() || body_warp(animator, &flipbook, row, performed).is_some();
         let wanted = always || fades || warps || demand.as_ref().is_some_and(|demand| demand.is_declared(root));
         presentation.composed_hold = if wanted {
             COMPOSED_HOLD_FRAMES
@@ -1060,8 +1112,18 @@ pub fn drive_rigged_presentations(
     // cells hold this frame's draws under its new generation.
     let mut drawn_into: Vec<(Entity, usize, usize)> = Vec::new();
     for (owner, &RiggedPresentationOf(root), mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
-        let Ok((animator, mut root_sprite, root_anchor, color_shift, root_transform, root_visibility, _, pose, frame_in_sprite)) =
-            roots.get_mut(root)
+        let Ok((
+            animator,
+            mut root_sprite,
+            root_anchor,
+            color_shift,
+            root_transform,
+            root_visibility,
+            _,
+            pose,
+            frame_in_sprite,
+            performed,
+        )) = roots.get_mut(root)
         else {
             continue;
         };
@@ -1149,22 +1211,8 @@ pub fn drive_rigged_presentations(
             continue;
         };
         drawing[class][page] = true;
-        // The row's warp and how far through the row this frame is.
-        let row_warp = row.and_then(|row| {
-            let (warp, clip) = (BodyWarp::of_row(row)?, flipbook.clip(row)?);
-            // A sheet that takes its own body apart in this row has its blink.
-            if !flipbook.row_draws_the_body_whole(row) {
-                return None;
-            }
-            let last = clip.frame_count().saturating_sub(1).max(1) as f32;
-            let within = if clip.frame_duration_s > 0.0 {
-                (animator.elapsed / clip.frame_duration_s).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-            Some((warp, (animator.frame as f32 + within) / last))
-        });
-        match preview.or(row_warp) {
+        // The body's warp and how far through it this frame is.
+        match preview.or_else(|| body_warp(animator, &flipbook, row, performed)) {
             // The warp fades its slivers itself: the row's own fade, which a
             // sheet authored before the warp was the engine's, is not applied
             // a second time.

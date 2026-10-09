@@ -55,6 +55,11 @@ pub struct CharacterAnimator {
     /// How long the body has asked for its idle pose with no clip (s). A
     /// sheet that can sit sits when this passes [`SIT_AFTER_IDLE_S`].
     idle_for: f32,
+    /// The pose the body last asked for, AS ASKED: before the sheet resolved
+    /// it to a row it has ([`Self::asked`]).
+    asked: CharacterAnim,
+    /// How long the body has asked for `asked` (s).
+    asked_for: f32,
     /// Base render size + anchor, set at spawn.
     pub render_basis: Option<RenderBasis>,
     /// The sprite samples half a texel inside each frame
@@ -87,6 +92,8 @@ impl CharacterAnimator {
             clip_held: false,
             social_pose: SocialPose::Stand,
             idle_for: 0.0,
+            asked: CharacterAnim::Idle,
+            asked_for: 0.0,
             render_basis: None,
             samples_inside_frame: false,
         }
@@ -219,7 +226,25 @@ impl CharacterAnimator {
         self.spec.page_of_at(self.drawn_slot(), self.frame)
     }
 
+    /// The pose the body last asked for, and for how long (s).
+    ///
+    /// This is the pose as asked, and [`Self::current`] is the pose the sheet
+    /// has for it. A sheet with no blink row draws its idle for a blink, and
+    /// the body performs a blink all the same: what the engine does to a body
+    /// that blinks (`BodyWarp`) reads this, and not the row.
+    pub fn asked(&self) -> (CharacterAnim, f32) {
+        (self.asked, self.asked_for)
+    }
+
+    fn note_asked(&mut self, anim: CharacterAnim) {
+        if self.asked != anim {
+            self.asked = anim;
+            self.asked_for = 0.0;
+        }
+    }
+
     pub fn request(&mut self, anim: CharacterAnim) {
+        self.note_asked(anim);
         let anim = self.spec.resolve_anim(anim);
         if self.current == anim && self.clip_slot.is_none() {
             return;
@@ -316,6 +341,8 @@ impl CharacterAnimator {
             self.request(fallback);
             return;
         };
+        // The pose behind the clip is what the body asks for.
+        self.note_asked(fallback);
         if self.clip_slot == Some(slot) {
             return;
         }
@@ -403,6 +430,7 @@ impl CharacterAnimator {
 
     /// Advance the animation. Returns the flat atlas index for the current frame.
     pub fn tick(&mut self, dt: f32) -> usize {
+        self.asked_for += dt.max(0.0);
         self.advance(dt);
         // Whatever advanced, the index is the row actually DRAWN: the authored
         // row, or its mirror while the character shows its other side.

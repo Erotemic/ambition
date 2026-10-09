@@ -904,8 +904,8 @@ def report(current: dict, frozen: dict) -> None:
             )
     carried = frozen.get("carried_from")
     if carried and carried != frozen.get("commit"):
-        print(f"  ⚠ every UN-adopted number above was measured at {carried}, not "
-              f"at {frozen.get('commit')} — a regression against one of those is "
+        print(f"  ⚠ an UN-adopted number above can be from any commit from {carried} "
+              f"to {frozen.get('commit')} — a regression against one of those is "
               "a change since the OLDER commit, so `--diff`'s range understates "
               "where to look.")
 
@@ -1644,7 +1644,14 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
     #
     # ⭐ ONE FIELD CANNOT STAND FOR TWO PROVENANCES. A partially adopted baseline
     # holds numbers from two commits, so it records both.
-    merged["carried_from"] = frozen.get("commit")
+    #
+    # ⚠ AND A BASELINE THAT WAS ITSELF PARTLY ADOPTED ALREADY CARRIES OLDER
+    # NUMBERS. Measured 2026-10-09: the baseline at `b3bd00a4a` held numbers
+    # from `11ef33c5b5a5`, and an adopt over it wrote `carried_from: b3bd00a4a`,
+    # so the report no longer named the commit where those numbers came from.
+    # Keep the oldest commit of the chain: a `--diff` from there covers each held
+    # number.
+    merged["carried_from"] = frozen.get("carried_from") or frozen.get("commit")
     adopted: list[str] = []
     held: list[str] = []
     #: Canonical `ACCEPTABLE_METRICS` names whose number IMPROVED and was banked.
@@ -1724,10 +1731,19 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
     # The table row a held scalar was derived from is held with it. ⚠ Only for
     # crates whose scalar was actually held: an ADOPTED crate keeps the current
     # row, because there the scalar and the table already agree on the new value.
+    #
+    # ⚠ The cost fields are held, the `depth` is not. Depth is the shape of the
+    # graph as measured now, and `critical_path_crates` is the max over it. A
+    # held row that kept its old depth made the written file say path 15 beside
+    # a row of depth 16 (measured 2026-10-09, `ambition_geometry`).
     frozen_table = frozen.get("crates") or {}
+    current_table = current.get("crates") or {}
     for crate in sorted(held_crates):
         if crate in frozen_table:
-            merged.setdefault("crates", {})[crate] = frozen_table[crate]
+            row = dict(frozen_table[crate])
+            if "depth" in current_table.get(crate, {}):
+                row["depth"] = current_table[crate]["depth"]
+            merged.setdefault("crates", {})[crate] = row
 
     # ⛔⛤ AND CARRYING EVERY REASON FORWARD IS THE OPPOSITE MISTAKE TO DROPPING
     # THEM. A reason answers "why is this number what it is" -- the file says so

@@ -189,6 +189,9 @@ struct SceneCaptureRuntime {
     /// different idle tick each run, and because nameplate opacity is ranked
     /// by distance from the focus, small drift reorders the labels.
     world_ready: bool,
+    /// The world was ready one time or more. A press sequence sets
+    /// `world_ready` back to wait for the state it asked for; this stays.
+    ever_ready: bool,
     /// Frames a capture that follows the player has waited, after its press
     /// sequence, for a player that is not there.
     no_player_after_press: u32,
@@ -438,6 +441,7 @@ fn install_room_capture(app: &mut App) {
             adopt_menu_camera,
             finish_after_capture,
             fail_after_timeout,
+            fail_when_the_shell_refuses_the_route,
         ),
     );
 }
@@ -1175,6 +1179,7 @@ fn install_route_capture(app: &mut App, route_id: String) {
             request_capture,
             finish_after_capture,
             fail_after_timeout,
+            fail_when_the_shell_refuses_the_route,
         )
             .chain(),
     );
@@ -1752,6 +1757,7 @@ fn request_capture(
             return;
         }
         runtime.world_ready = true;
+        runtime.ever_ready = true;
     }
     runtime.frames += 1;
     if runtime.frames < config.warmup_frames.max(1) {
@@ -1982,6 +1988,31 @@ fn fail_after_timeout(
         );
         commands.write_message(AppExit::from_code(1));
     }
+}
+
+/// A refused route never gives the capture its world, and the wait for the
+/// world counts no frame toward [`fail_after_timeout`]. So the shell's own
+/// reason ends the capture (measured 2026-10-09: `--character alice`, an id
+/// the catalog does not have, waited out six timeouts of five minutes).
+///
+/// Only before the world is ready the first time: a press sequence can ask
+/// for a route the shell refuses, and that is the subject of its photograph.
+fn fail_when_the_shell_refuses_the_route(
+    mut commands: Commands,
+    runtime: Res<SceneCaptureRuntime>,
+    failures: Option<Res<ambition_platformer2d::game_shell::ShellFailureLog>>,
+) {
+    if runtime.ever_ready || runtime.completed {
+        return;
+    }
+    let Some(reason) = failures.as_ref().and_then(|failures| failures.latest()) else {
+        return;
+    };
+    eprintln!(
+        "capture_scene: the shell refused a route before the world was ready, so there is nothing to \
+         photograph. No image is written. The shell's reason: {reason}"
+    );
+    commands.write_message(AppExit::from_code(2));
 }
 
 fn parse_vec2(text: &str) -> Option<ae::Vec2> {

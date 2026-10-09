@@ -9,13 +9,15 @@
 | authoritative world and actor facts | exists: `world_facts`, `WorldFactConditionsPlugin` |
 | observations and memory | exist: `WorldMemory`, `PerceptionMemory`, `AgentObservation`, `CombatObservation` |
 | goals | absent |
-| navigation and reachability over world geometry | absent; owner: [`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md) |
+| navigation and reachability over world geometry | in one room, for one body: exists since 2026-10-09 (a surface graph checked in the kernel, and a brain that follows it). Between rooms: absent. Owner: [`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md) |
 | planner or policy | exists but closed (see below) |
 | typed engine action intent | exists and is live: `ActionRequest` in `ActorActionMessage`, consumed by traversal abilities, `brain_effects.rs` and `ambition_held_items` |
 
 The implementation waits for two things, not one:
 
-1. **Navigation.** The reachability code that exists is not world navigation:
+1. **Navigation between rooms.** In-room navigation landed 2026-10-09 (the
+   owner page has "The first slice"). The other reachability code that exists
+   is not world navigation:
    `reachable_from_start` / `reaches_finish` in `ambition_entity_catalog` walk
    an authored flow graph, the rollback session walks the system dependency
    graph, and the fighter recovery code reasons over local perceived terrain.
@@ -26,6 +28,18 @@ The implementation waits for two things, not one:
    or `Custom` arm. A new policy provider must therefore edit
    `ambition_characters`, and an LLM adapter crate cannot supply a brain. No
    plan owns this work; it changes a type, not a subsystem.
+
+   MEASURED 2026-10-09, the cost of the closed seam: the `Roam` brain, one new
+   policy, is nine edits in seven files of two crates. In `ambition_characters`:
+   the `StateMachineCfg` variant, its hostility, its perception requirement and
+   its dispatch (`state_machine/mod.rs`), its label and its authored-equality
+   arm (`brain/mod.rs`), the `BrainPreset` variant (`entry.rs`), its resolver
+   arm (`resolver.rs`) and its checksum cursor (`snapshot_impls.rs`). In the
+   actor monolith: the second dispatcher's exhaustive match (`brain_tick.rs`).
+   The compiler finds each one, which is the good half. The bad half is that a
+   game cannot add a policy from its own crate. `Roam` is a catalog-preset
+   brain (`BrainPreset` / `StateMachineCfg`); it is not a
+   `CharacterBrainTemplate`, so an enemy archetype cannot name it.
 
 `entity_catalog::placements::CharacterBrain::Custom(String)` is not that seam.
 It names a character archetype, whose `BrainProfile.template` resolves back to

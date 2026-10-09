@@ -89,12 +89,15 @@ def tested_tree(repo: Path) -> str | None:
 
 
 def record(repo: Path, tree: str, job: str, argv: list[str], ok: bool,
-           unrunnable: str | None) -> None:
-    """Append one finished job. A row is evidence only for the tree it names."""
+           unrunnable: str | None, tree_after: str | None = None) -> None:
+    """Append one finished job: the tree when it started and when it ended.
+
+    A row is evidence only for paths that both trees hold the same way."""
     path = ledger_path(repo)
     path.parent.mkdir(parents=True, exist_ok=True)
     row = {
         "tree": tree,
+        "tree_after": tree_after or tree,
         "job": job,
         # The program by its name, not its path: the cargo or python binary
         # differs between machines, and the coverage reads only the arguments.

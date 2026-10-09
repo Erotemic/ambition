@@ -199,7 +199,12 @@ def judge(repo: Path, base: str, rev: str) -> tuple[list[str], list[Verdict]]:
     verdicts = []
     for requirement, by in sorted(triggers.items(), key=lambda item: item[0].label()):
         relevant = [row for row in ledger if covers(row, requirement)]
-        current = [row for row in relevant if agrees(repo, row["tree"], rev, paths)]
+        # Both ends of the run: a path of the change that moved while the job
+        # ran was tested in neither state.
+        current = [
+            row for row in relevant
+            if all(agrees(repo, row.get(end) or row["tree"], rev, paths) for end in ("tree", "tree_after"))
+        ]
         # The newest row on a current tree is the verdict: a later failure
         # after an earlier pass on the same content is a failure.
         if current:

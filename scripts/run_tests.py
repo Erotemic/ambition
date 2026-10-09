@@ -2674,10 +2674,14 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             results.append(
                 JobResult(j.name, j.argv, rc == 0, time.monotonic() - start,
                           executed, blocked, evidence))
-            # The row is evidence for one tree. When the tree moved while the
-            # job ran, the job tested neither tree, so it records nothing.
-            if tree_before is not None and lane_ledger.tested_tree(REPO) == tree_before:
-                lane_ledger.record(REPO, tree_before, j.name, j.argv, rc == 0, blocked)
+            # Both trees: a file can change while the job runs (an editor, or
+            # the host of a shared folder). The gate asks whether BOTH trees
+            # hold the paths of a change, so a docs edit during a test run does
+            # not void the run, and an edit to the change itself does.
+            tree_after = lane_ledger.tested_tree(REPO) if tree_before is not None else None
+            if tree_before is not None and tree_after is not None:
+                lane_ledger.record(REPO, tree_before, j.name, j.argv, rc == 0, blocked,
+                                   tree_after=tree_after)
             if blocked:
                 print(f"\033[33m    INCOMPLETE ({j.name}) — {blocked}\033[0m")
             elif rc != 0:

@@ -8,7 +8,7 @@
 #   ./scripts/regen/sprites.sh --force
 #   ./scripts/regen/sprites.sh --list
 #   ./scripts/regen/sprites.sh --target <name>   # repeatable
-#   ./scripts/regen/sprites.sh --check           # list missing outputs; render nothing
+#   ./scripts/regen/sprites.sh --check           # list missing or stale outputs; render nothing
 #
 # Environment:
 #   AMBITION_SPRITE_PYTHON=/path/to/python
@@ -26,8 +26,11 @@
 # --check answers "is anything not generated yet?" in about a second: it derives
 # the same runtime-required file list the cache and the postcondition use, and
 # reports which files are absent, grouped by the target that produces them.
-# Existence only — it does not validate contents or staleness, and does not
-# look at the reduced-resolution tiers. Exit 0 when complete, 1 when not.
+# It also says whether the published sheets are STALE: whether the renderer,
+# its configs, this script or the toolchain changed since the last full
+# publish (the saved fingerprint). It does not read the files' contents, and it
+# does not look at the reduced-resolution tiers. Exit 0 when complete and
+# current, 1 when not.
 set -euo pipefail
 
 # ⚠ TWO LEVELS UP: this script lives in `scripts/regen/`, not the repo root.
@@ -940,8 +943,7 @@ if [ "$check_only" -eq 1 ]; then
     echo "part flipbooks: ${#flipbooks[@]} published${flipbooks[*]:+ (${flipbooks[*]})}"
     if [ "$missing_count" -eq 0 ]; then
         echo "ok: all ${#expected_files[@]} runtime-required sprite files present in ${sprites_dir#"$repo_root"/}"
-        exit 0
-    fi
+    else
     echo "missing ${missing_count} of ${#expected_files[@]} runtime-required sprite files" \
         "(${#missing_owners[@]} target(s)) in ${sprites_dir#"$repo_root"/}:"
     for owner in "${missing_owners[@]}"; do
@@ -952,7 +954,9 @@ if [ "$check_only" -eq 1 ]; then
     done
     echo ""
     echo "Generate them with: ./scripts/regen/sprites.sh  (current sheets are reused from the per-sheet cache)"
-    exit 1
+    fi
+    # The staleness half needs the fingerprint functions below; it runs
+    # there and exits.
 fi
 
 # --- Fingerprint cache ----------------------------------------------------
@@ -1347,6 +1351,28 @@ run_quality_variants() {
         --asset-root "$repo_root/crates/ambition_platformer2d_actor_monolith/assets" \
         --sprites-only 2>&1 | sed 's/^/  /'
 }
+
+# `--check`, second half: are the published sheets older than the renderer?
+# The fingerprint is saved only after a full publish succeeds, so a different
+# one means that the renderer, its configs, this script or the toolchain moved
+# since then. A file can be present and still be drawn by an old renderer: the
+# game then asks a sheet for a row it does not have.
+if [ "$check_only" -eq 1 ]; then
+    check_fingerprint="$(compute_fingerprint)"
+    check_saved=""
+    [ -f "$fingerprint_file" ] && check_saved="$(cat "$fingerprint_file")"
+    check_status="$(( missing_count > 0 ? 1 : 0 ))"
+    if [ "$check_fingerprint" = "$check_saved" ]; then
+        echo "ok: the published sheets are from this renderer (fingerprint ${check_saved})"
+    else
+        echo "stale: the renderer, its configs, this script or the toolchain changed since the last full publish" \
+            "(saved ${check_saved:-none}, now ${check_fingerprint})."
+        echo "The files above can be present and still be what an older renderer drew."
+        echo "Publish again with: ./scripts/regen/sprites.sh  (unchanged sheets are reused from the per-sheet cache)"
+        check_status=1
+    fi
+    exit "$check_status"
+fi
 
 core_shared_fingerprint="$(compute_core_shared)"
 

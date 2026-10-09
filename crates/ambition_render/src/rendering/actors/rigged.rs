@@ -115,7 +115,7 @@ use ambition_platformer2d_shared_tangle::camera_layers::RIGGED_IMPOSTOR_LAYER;
 
 use crate::rendering::{impostor_compositing, ART_COMPOSITING};
 use ambition_sprite_sheet::character::rigged::{
-    ComposedBodyDemand, FrameInSprite, PartDraw, PartPose, PartPresentation, PosedParts, RiggedSpriteAdmission, RiggedSpritePages,
+    BodyWarp, ComposedBodyDemand, FrameInSprite, PartDraw, PartPose, PartPresentation, PosedParts, RiggedSpriteAdmission, RiggedSpritePages,
 };
 use ambition_sprite_sheet::character::{CharacterAnimator, CharacterColorShift};
 use ambition_sprite_sheet::game_assets::GameAssets;
@@ -369,20 +369,70 @@ pub struct ImpostorCellOpacity {
     /// Per cell: (hue in turns, saturation, value, 0)
     /// (`CharacterColorShift::as_uniform`).
     pub shift: [Vec4; IMPOSTOR_MAX_CELLS],
+    /// Per cell: the teleport warp of its body's row ([`BodyWarp`]), as
+    /// (kind, progress, left, right). Kind is 0 for none, 1 for a departure, 2
+    /// for an arrival; progress is 0..1 through the row; left and right are
+    /// the span of the body across the cell, in sheet pixels from the cell's
+    /// left edge.
+    ///
+    /// ⭐ THE BODY IS TAKEN APART HERE, as one picture, after its parts are
+    /// composited. Each reader of the body (its own quad, the hit flash, a
+    /// portal piece, an overlay) then sees the same slivers. Taken apart part
+    /// by part in the art, a teleport was a fade: the parts are few and they
+    /// overlap.
+    pub warp: [Vec4; IMPOSTOR_MAX_CELLS],
     /// Cells per side.
     pub side: u32,
     /// 1 when the parts were blended in gamma space (`ART_COMPOSITING`): the
     /// stored colour is encoded back to the values blended, divided there.
     pub gamma: u32,
+    /// Sheet pixels on a side of one cell.
+    pub cell_px: f32,
 }
 
+/// A developer preview of a [`BodyWarp`]: each part-drawn body is taken apart
+/// by it on the row it draws, again and again, one time each `period_s`. It
+/// shows the warp without a blink (`capture_scene --body-warp`). No game
+/// inserts it.
+#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+pub struct BodyWarpPreview {
+    pub warp: BodyWarp,
+    pub period_s: f32,
+}
+
+/// The half-widths of the span a teleport warp cuts into slivers, behind and
+/// ahead of the feet, as fractions of the frame width. They are the player
+/// robot's own (28 and 32 px of a 256 px frame), which the baked effect used.
+const WARP_SPAN_BEHIND: f32 = 28.0 / 256.0;
+const WARP_SPAN_AHEAD: f32 = 32.0 / 256.0;
+
 impl ImpostorCellOpacity {
-    fn opaque(side: u32) -> Self {
+    fn opaque(side: u32, cell_px: f32) -> Self {
         Self {
             opacity: [Vec4::ONE; IMPOSTOR_MAX_CELLS / 4],
             shift: [CharacterColorShift::NONE.as_uniform(); IMPOSTOR_MAX_CELLS],
+            warp: [Vec4::ZERO; IMPOSTOR_MAX_CELLS],
             side,
             gamma: u32::from(impostor_compositing() == ART_COMPOSITING),
+            cell_px,
+        }
+    }
+
+    /// Take the body in `cell` apart by `warp`, `progress` (0..1) of the way
+    /// through its row. `feet_x` is the feet in the cell and `frame_width`
+    /// the width of the body's frame, both in sheet pixels.
+    fn set_warp(&mut self, cell: u32, warp: BodyWarp, progress: f32, feet_x: f32, frame_width: f32) {
+        if let Some(slot) = self.warp.get_mut(cell as usize) {
+            let kind = match warp {
+                BodyWarp::TeleportOut => 1.0,
+                BodyWarp::TeleportIn => 2.0,
+            };
+            *slot = Vec4::new(
+                kind,
+                progress.clamp(0.0, 1.0),
+                feet_x - WARP_SPAN_BEHIND * frame_width,
+                feet_x + WARP_SPAN_AHEAD * frame_width,
+            );
         }
     }
 
@@ -726,7 +776,7 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
             let quad = centre + IMPOSTOR_QUAD_OFFSET;
             let handle = materials.add(ImpostorUnpremultiply {
                 premultiplied: premultiplied.clone(),
-                cells: ImpostorCellOpacity::opaque(cells),
+                cells: ImpostorCellOpacity::opaque(cells, cell),
             });
             material = Some(handle.clone());
             entities.push(
@@ -765,7 +815,7 @@ fn build_atlas(commands: &mut Commands, assets: &mut ImpostorAssets, class: usiz
         layout,
         cameras,
         material,
-        cells: ImpostorCellOpacity::opaque(cells),
+        cells: ImpostorCellOpacity::opaque(cells, cell),
         entities,
         taken: vec![false; (cells * cells) as usize],
         generation: 0,
@@ -872,7 +922,15 @@ pub fn drive_rigged_presentations(
     mut slots: Slots,
     mut too_large: Local<HashSet<String>>,
     mut posed_past_cell: Local<HashSet<String>>,
+    preview: Option<Res<BodyWarpPreview>>,
+    time: Option<Res<Time>>,
 ) {
+    // The preview's warp and how far through it this frame is. The clock is
+    // only the preview's: a row's own warp runs on the animator.
+    let preview = preview.map(|preview| {
+        let elapsed = time.as_ref().map_or(0.0, |time| time.elapsed_secs());
+        (preview.warp, (elapsed / preview.period_s.max(0.05)).fract())
+    });
     // Which bodies are composited this frame, and where their slots draw.
     let always = PartPresentation::current() == PartPresentation::Impostor;
     let can_composite = impostors.images.is_some();
@@ -889,7 +947,10 @@ pub fn drive_rigged_presentations(
         // it (alice's blink drew her arm through her coat).
         let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
         let fades = row.is_some_and(|row| flipbook.frame_opacity(row, animator.frame) < 1.0);
-        let wanted = always || fades || demand.as_ref().is_some_and(|demand| demand.is_declared(root));
+        // A row with a warp is taken apart as one picture, in the pass that
+        // finishes the composited image (`ImpostorCellOpacity::warp`).
+        let warps = preview.is_some() || row.is_some_and(|row| BodyWarp::of_row(row).is_some());
+        let wanted = always || fades || warps || demand.as_ref().is_some_and(|demand| demand.is_declared(root));
         presentation.composed_hold = if wanted {
             COMPOSED_HOLD_FRAMES
         } else {
@@ -992,7 +1053,7 @@ pub fn drive_rigged_presentations(
         std::array::from_fn(|class| vec![false; atlases.0[class].len()]);
     let mut changed = drawing.clone();
     let mut cells: [Vec<ImpostorCellOpacity>; IMPOSTOR_CELL_CLASSES.len()] = std::array::from_fn(|class| {
-        atlases.0[class].iter().map(|atlas| ImpostorCellOpacity::opaque(atlas.side)).collect()
+        atlases.0[class].iter().map(|atlas| ImpostorCellOpacity::opaque(atlas.side, atlas.cell_size())).collect()
     });
     // The bodies drawn into their page this frame: if the page renders, their
     // cells hold this frame's draws under its new generation.
@@ -1087,8 +1148,33 @@ pub fn drive_rigged_presentations(
             continue;
         };
         drawing[class][page] = true;
-        if let Some(row) = row {
-            cells[class][page].set(impostor.cell, flipbook.frame_opacity(row, animator.frame));
+        // The row's warp and how far through the row this frame is.
+        let row_warp = row.and_then(|row| {
+            let (warp, clip) = (BodyWarp::of_row(row)?, flipbook.clip(row)?);
+            let last = clip.frame_count().saturating_sub(1).max(1) as f32;
+            let within = if clip.frame_duration_s > 0.0 {
+                (animator.elapsed / clip.frame_duration_s).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            Some((warp, (animator.frame as f32 + within) / last))
+        });
+        match preview.or(row_warp) {
+            // The warp fades its slivers itself: the row's own fade, which a
+            // sheet authored before the warp was the engine's, is not applied
+            // a second time.
+            Some((warp, progress)) => cells[class][page].set_warp(
+                impostor.cell,
+                warp,
+                progress,
+                impostor.feet.x,
+                flipbook.frame_size.x as f32,
+            ),
+            None => {
+                if let Some(row) = row {
+                    cells[class][page].set(impostor.cell, flipbook.frame_opacity(row, animator.frame));
+                }
+            }
         }
         if let Some(shift) = color_shift {
             cells[class][page].set_shift(impostor.cell, shift);

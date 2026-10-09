@@ -809,6 +809,38 @@ pub struct PartPose {
     pub joints: Vec<bevy::math::Affine2>,
 }
 
+/// How a composited body is taken apart while it draws a row: the teleport
+/// of a blink. The body's image is cut into vertical slivers that slide
+/// apart, rise and fade (departure), or come together and solidify (arrival).
+///
+/// It is a property of the ROW, by its engine name: a blink is an engine
+/// mechanic and `blink_out` / `blink_in` are the engine's rows for it
+/// (`CharacterAnim::BlinkOut` / `BlinkIn`). A sheet draws a plain pose in
+/// those rows; the pass that finishes the body's composited image
+/// (`ImpostorUnpremultiply`) does the rest, so each reader of the body sees
+/// the same slivers, and no art is authored piece by piece. A warp row is
+/// read as one image, as a row that fades is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BodyWarp {
+    /// The body goes: slivers slide apart, rise and fade.
+    TeleportOut,
+    /// The body arrives: slivers come together and the body solidifies.
+    TeleportIn,
+}
+
+impl BodyWarp {
+    /// The warp of the row named `row`, if it has one.
+    pub fn of_row(row: &str) -> Option<Self> {
+        // A mirrored row (`blink_out~mirrored`) is the same motion.
+        let row = row.split_once('~').map_or(row, |(name, _)| name);
+        match super::CharacterAnim::from_name(row) {
+            Some(super::CharacterAnim::BlinkOut) => Some(Self::TeleportOut),
+            Some(super::CharacterAnim::BlinkIn) => Some(Self::TeleportIn),
+            _ => None,
+        }
+    }
+}
+
 /// Where [`ComposedBodyDemand`] is declared: before the rigged-sprite driver
 /// reads it.
 #[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]

@@ -308,8 +308,8 @@ reads cargo output to it.
    `incomplete`). The receipt for a push exists (2026-10-09):
    `scripts/required_checks.py` prints, for each check the change requires,
    `passed on this change`, `FAILED on this change`, `NOT RUN`, `NOT RUN:
-   <remedy>` or `ran only on a tree before this change`; whether a push must
-   wait for it is Q166. Next: the commit messages and queue rows that quote a
+   <remedy>` or `ran only on a tree before this change`. A push does not wait
+   for it (Q166, ruled no 2026-10-09): it reports. Next: the commit messages and queue rows that quote a
    lane by hand, and each lane's cadence in
    [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence).
 
@@ -342,13 +342,13 @@ reads cargo output to it.
    it, and the measurement that it needs no waiver are in
    [the heavy lane recipe](../recipes/running-the-heavy-app-it-lane.md#the-demo-host-apps-have-their-own-lane);
    [the check matrix](../recipes/cheapest-sufficient-check.md#the-matrix) has
-   the row. **Enforced 2026-10-09:** `run_tests.py` records each finished job
+   the row. **Reported 2026-10-09:** `run_tests.py` records each finished job
    against the tree it tested (`target/lane_ledger.jsonl`), and
    `scripts/required_checks.py` names the checks the change since
    `origin/main` requires (a changed crate's own tests, the demo host lane for
-   its paths, the repo tooling job for `scripts/`) and refuses until each one
-   passed on a tree with the change in it. The pre-push hook
-   (`scripts/install_pre_push_hook.py`) runs it. Measured: the SG3 commit
+   its paths, the repo tooling job for `scripts/`) and says for each one
+   whether it passed on a tree with the change in it. It reports and does not
+   refuse a push (Q166). Measured: the SG3 commit
    `1485939ec` changed the rollback host and was pushed without the demo
    lane; the gate names that lane for it. Witness
    `scripts/tests/test_required_checks.py` (poisons: freshness ignored, red at
@@ -363,8 +363,7 @@ reads cargo output to it.
    run that writes the default status records evidence, so a test's fake
    jobs do not. Not held: the demo rule's fourth case (an instrument a demo
    test reads), the external-consumer fixtures, the matrix rows without a
-   path, and a peer's change merged after the run. The pre-push hook is
-   written and NOT installed; it waits for the three sessions to agree.
+   path, and a peer's change merged after the run.
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
@@ -382,6 +381,19 @@ whether the published sheets are older than the renderer (the fingerprint
 saved by the last full publish) and prints the command to run (`0d5c17f20`).
 It cannot tell which row a test needs; a red test still reads as a defect
 until someone runs the check.
+
+A full regen took more than 2.5 h on one process, and now takes 74 min on 7
+(2026-10-09, `38865ba48`). `AMBITION_SPRITE_JOBS` defaults to half the cores,
+at most 8. A batch with one failure keeps the cache key of each target that
+published. Still serial: the faction-leader lineup, the review canonical
+gallery, the ultrapack and the quality variants. Also found in that regen:
+- a run through the `/home/agent/code/ambition` alias wrote `relPath`s that
+  climb to `/` into five worlds. Fixed in `rel_to_ldtk`, which now keeps both
+  paths in one spelling (`test_a_repo_reached_through_a_symlinked_alias_keeps_the_virtual_mount`).
+- the regen rewrites `mary_o.ldtk`'s editor-art tile ids: 22 rule tiles
+  moved by +256 and 4 by +3, with their auto-layer tiles. These are editor
+  visuals; why the atlas moved is not measured, and the change was not
+  committed (Q62: a delta needs a domain-aware reading first).
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a
@@ -430,35 +442,34 @@ capability it needs turns the first into a refusal.
 **Owner:** [residency plan](engine/open-world-runtime-and-residency.md), the
 multi-room hot reload row.
 
-**Current failure:** a multi-room reload publishes one room at a time. A later
-room refused after the first published leaves a mixed world; the status says
-`THE WORLD IS MIXED`. The reload is not transactional across rooms.
+**Done 2026-10-09: a multi-room reload publishes all its rooms or none.** It
+used to publish one room at a time, so a later room refused after the first
+had published left a mixed world (the status said `THE WORLD IS MIXED`). Now
+each room is held after its check (`replace_live_world_held`,
+`HeldForOwner`): nothing is promoted and its effects wait on the
+publication. Each later room is checked against the projected set and
+counter. Then every room is committed (`commit_held_publication`) or every
+room is refused by the refusal road (`refuse_held_publication`), so no undo
+is needed. The design is in
+[the residency plan](engine/open-world-runtime-and-residency.md#design-a-multi-room-publication-checks-every-room-then-commits-every-room).
+Deleted: `republish_live_room`, the `THE WORLD IS MIXED` status and
+`kept_the_old_generation`.
 
-**Done 2026-10-09 (branch `publication-fault`):**
+- Witness `a_later_room_refused_after_the_first_room_passed_rebuilds_none`.
+  The fault is injected while the first room is built; each live room keeps
+  its instance and generation, the epoch does not move, no receipt or
+  candidate is left, and with the fault gone the reload applies.
+- Poison (commit the first room before the later rooms are checked): red at
+  "the first room was published although a later room was refused".
+- Control: the rest of the reload family passed (48 passed), including
+  `a_world_reload_rebuilds_every_live_room`.
+- The guard before staging stays (`DescribableRooms`,
+  `a_world_reload_with_a_live_room_that_cannot_be_described_rebuilds_none`):
+  it refuses before anything is built.
 
-- A road to the mixed world was open, and is closed. A later live room that
-  two bodies of one identity are in cannot open its transaction. With that
-  fault present when the reload was asked for, the first room published
-  (measured). Each later live room is now asked whether its world can be
-  described before the first room is staged (`DescribableRooms`), and the
-  whole reload is refused with the room named
-  (`a_world_reload_with_a_live_room_that_cannot_be_described_rebuilds_none`).
-- The named failure is held as the asserted behaviour, with a fault that a
-  test injects after the reload is asked for
-  (`a_later_room_refused_after_the_first_room_published_is_a_named_mixed_world`).
-  The arm also holds that the advice of the status is true: with the fault
-  gone, the reload applied again brings each live room to one generation.
-
-**Next action:** build the design (written 2026-10-09, in
-[the residency plan](engine/open-world-runtime-and-residency.md#design-a-multi-room-publication-checks-every-room-then-commits-every-room)).
-First check every room and promote none, with each later room checked
-against the projected set and counter; then commit every room or refuse
-every room. First measure the three reads it names, then change the
-mixed-world arm into a "rebuilds none" arm.
-
-**Acceptance:** met for the first half: the injected fault is caught by an
-assertion that names the mixed state. Multi-room publication is called
-transactional only when that arm shows no mixed world; it does not.
+Not done: an apply-time refusal after every room passed is logged
+(`apply_world_replacement`), not failed loudly. With a correct projection it
+cannot happen.
 
 ### AP14 — semantic actor-monolith SCC decomposition (continuous; deferred 2026-10-09)
 

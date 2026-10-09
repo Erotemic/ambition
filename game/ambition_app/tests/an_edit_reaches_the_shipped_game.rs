@@ -2004,7 +2004,7 @@ fn a_world_reload_with_a_live_room_that_cannot_be_described_rebuilds_none() {
     assert_eq!(live_room_readings(&mut app), before, "the live rooms changed after the refusal");
 }
 
-/// The fault of [`a_later_room_refused_after_the_first_room_published_is_a_named_mixed_world`]:
+/// The fault of [`a_later_room_refused_after_the_first_room_passed_rebuilds_none`]:
 /// when the reload builds the first body of a live room that is not `first`
 /// and not `into` (a candidate of the room it mints first), it puts two
 /// holders of one identity in the live room `into`.
@@ -2015,22 +2015,23 @@ struct FaultWhenTheFirstRoomIsBuilt {
     made: Vec<bevy::prelude::Entity>,
 }
 
-/// ⛔ THE ONE STATE THE RELOAD CANNOT TAKE BACK, HELD BY NAME.
+/// ⛔ A MULTI-ROOM RELOAD PUBLISHES ALL ITS ROOMS OR NONE.
 ///
-/// A multi-room reload publishes one room at a time. When a later room is
-/// refused after the first room published, the session is on the new
-/// generation and the later room keeps the content of the old one. The reload
-/// is not transactional across rooms, and this arm does not say that it is:
-/// it holds what the reload does in that state.
+/// The first room is held after its check, and each later room is checked
+/// against the set and counter the session will hold when the rooms before it
+/// are committed. A later room refused after the first room passed refuses
+/// every room. Before the hold, this state was a named mixed world: the first
+/// room published and the session moved to the new generation while the later
+/// room kept the old one.
 ///
-/// No production road is known to reach it: each fault that is present when
-/// the reload is asked for is refused before the first room
+/// Each fault that is present when the reload is asked for is refused before
+/// the first room
 /// (`a_world_reload_that_cannot_rebuild_one_live_room_rebuilds_none`,
 /// `a_world_reload_with_a_live_room_that_cannot_be_described_rebuilds_none`).
 /// So the fault is injected after the reload is asked for, by an observer of
 /// this test: when the reload builds the first body of its first room, it
 /// puts two holders of one identity in Bob's room. The transaction of the
-/// first room does not have Bob's room in its world, so it publishes.
+/// first room does not have Bob's room in its world, so it passes.
 ///
 /// ⚠ A reload keeps the entity of a live room root and gives it its new
 /// identity in place: `Add` and `Insert` of `LiveRoomInstance` and of
@@ -2038,16 +2039,15 @@ struct FaultWhenTheFirstRoomIsBuilt {
 /// (`InRoomInstance`) is added, so the observer watches that.
 ///
 /// What is held:
-/// - the status says `THE WORLD IS MIXED` and names the room that was kept;
-/// - the first room is rebuilt and of the new generation, the later room
-///   keeps its live instance and the old generation, and the generation of
-///   the session moved one time;
+/// - the status names the refused room and says no room was reloaded;
+/// - each live room keeps its live instance and the old generation, and the
+///   generation of the session did not move;
 /// - no publication receipt and no hidden candidate is left, and the game
 ///   runs on;
-/// - the advice of the status is true: with the fault gone, the reload
-///   applied again rebuilds each live room to one generation.
+/// - with the fault gone, the reload applied again brings each live room to
+///   one new generation.
 #[test]
-fn a_later_room_refused_after_the_first_room_published_is_a_named_mixed_world() {
+fn a_later_room_refused_after_the_first_room_passed_rebuilds_none() {
     use ambition_platformer2d::dev_tools::WorldSourceHotReload;
     use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
     use bevy::prelude::*;
@@ -2107,47 +2107,42 @@ fn a_later_room_refused_after_the_first_room_published_is_a_named_mixed_world() 
     let twins = app.world().resource::<FaultWhenTheFirstRoomIsBuilt>().made.clone();
     assert_eq!(twins.len(), 2, "premise: the fault was injected when the first room was built");
     let reload = app.world().resource::<WorldSourceHotReload>().clone();
-    let mixed: Vec<&String> =
-        reload.last_errors.iter().filter(|error| error.contains("THE WORLD IS MIXED")).collect();
     assert!(
-        mixed.len() == 1 && mixed[0].contains(SECOND_LIVE_ROOM) && mixed[0].contains(&format!("'{start}'")),
-        "the status does not name the mixed world, the room that published and the room that was kept: \
-         {:?} / {:?}",
+        !reload.last_errors.iter().any(|error| error.contains("MIXED"))
+            && reload
+                .last_errors
+                .iter()
+                .any(|error| error.contains(&format!("'{SECOND_LIVE_ROOM}'")) && error.contains("no room was reloaded")),
+        "the status does not say that the later room was refused and no room was reloaded: {:?} / {:?}",
         reload.last_status,
         reload.last_errors
     );
-    assert_eq!(reload.applied_count, applied, "a reload that left a mixed world counted itself as applied");
+    assert_eq!(reload.applied_count, applied, "a refused reload counted itself as applied");
 
     let after = live_room_readings(&mut app);
-    let (first, later) = (&after[&start], &after[SECOND_LIVE_ROOM]);
-    assert!(
-        first.0 != first_live && !first.1.contains(&old_term) && first.1.len() == 1,
-        "the first room was not rebuilt to the new generation: {first:?}"
+    assert_eq!(
+        after[&start], before[&start],
+        "the first room was published although a later room was refused"
     );
     assert_eq!(
-        later,
-        &before[SECOND_LIVE_ROOM],
-        "the room that was refused does not keep its live instance and the old generation"
+        after[SECOND_LIVE_ROOM], before[SECOND_LIVE_ROOM],
+        "the refused room does not keep its live instance and the old generation"
     );
-    assert_eq!(
-        the_only_prepared_epoch(&mut app),
-        epoch_before + 1,
-        "the generation of the session did not move one time"
-    );
+    assert_eq!(the_only_prepared_epoch(&mut app), epoch_before, "the generation of the session moved");
     assert_eq!(
         (
             ambition_platformer2d::actors::rooms::outstanding_publications(app.world_mut()),
             ambition_platformer2d::platformer::construction::outstanding_candidates(app.world_mut()),
         ),
         (0, 0),
-        "(publication receipts, hidden candidates) left after the mixed reload"
+        "(publication receipts, hidden candidates) left after the refused reload"
     );
     for _ in 0..30 {
         app.update();
     }
     assert_eq!(live_room_readings(&mut app), after, "the live rooms changed in the 30 frames after");
 
-    // The advice of the status: with the fault gone, apply the reload again.
+    // With the fault gone, the reload applies onto the world the refusal kept.
     for twin in twins {
         app.world_mut().despawn(twin);
     }

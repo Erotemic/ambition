@@ -37,7 +37,8 @@ pub use systems::{
     detect_room_transition_system, tick_portal_phases_system,
 };
 pub use transaction::{
-    finalize_room_publication, outstanding_publications, publication_succeeded, settle_publication,
+    commit_held_publication, finalize_room_publication, outstanding_publications,
+    publication_is_held, publication_succeeded, refuse_held_publication, settle_publication,
     publications_holding_frozen_effects,
     retire_publication, ActiveContentBinding,
     LastConstructionVerification,

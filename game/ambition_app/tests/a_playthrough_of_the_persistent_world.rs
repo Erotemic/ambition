@@ -1,9 +1,10 @@
 //! WORLD-ACCEPTANCE: one headless playthrough of the shipped game.
 //!
 //! The player takes the Blink in the hub's basement (a held item: Attack
-//! becomes a blink), walks from the hub to Alice through the real exits of each room
-//! (a door is entered with Interact, an edge exit by standing in it), takes her
-//! note, carries it to Bob, and hands it over. Each step asserts its fact
+//! becomes a blink), goes from the hub to Alice through the real exits of each
+//! room, takes her note, carries it to Bob, and hands it over. The route is
+//! not walked: the test puts the body inside each exit zone (and presses
+//! Interact at a door), and the room transition after that is the shipped one. Each step asserts its fact
 //! against the authority that owns it: the live room, the bag, the save's
 //! flags, the quest registry, the collision overlay of the live room, and the
 //! custody of the one Blink.
@@ -108,8 +109,9 @@ fn live_room(app: &mut App) -> String {
     room_of(app, body).expect("the player is in a live room")
 }
 
-/// Leave the live room through its exit to `target`: stand in the exit and,
-/// for a door, hold Interact.
+/// Leave the live room through its exit to `target`. The body is put inside
+/// the exit zone, not walked to it; a door then takes Interact. The crossing
+/// is the shipped room transition.
 fn go_through(app: &mut App, target: &str) {
     let from = live_room(app);
     let (center, door) = {
@@ -177,8 +179,9 @@ fn gate_stands(app: &App, block: &str) -> bool {
 
 /// ⭐ ONE PLAYTHROUGH: from the hub to Alice through six real exits, the note to
 /// Bob, the wall the survey opens is open when the player comes back, and a
-/// save taken in another room loads into a new process with all of it: the
-/// bag, the flags, the quest step, and the open wall at the end of the walk.
+/// save taken in another room is written to its file, and a new App in this
+/// process reads that file with all of it: the bag, the flags, the quest step,
+/// and the open wall at the end of the route.
 #[test]
 fn the_note_reaches_bob_and_opens_alices_return() {
     let mut app = a_returning_players_session();
@@ -225,16 +228,18 @@ fn the_note_reaches_bob_and_opens_alices_return() {
         "the survey was handed over and Alice's return lock still stands"
     );
 
-    // Leave, and save in another room. A new process loads the file.
+    // Leave, and save in another room: the autosave writes the file, and a
+    // new App reads it.
     go_through(&mut app, "bob_relay");
     go_through(&mut app, "drain_alley");
-    let file = app
-        .world()
-        .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
-        .data()
-        .clone();
+    let (root, written) = the_save_file(&mut app);
     drop(app);
-    let mut app = a_session_loaded_from(&file);
+    let mut app = a_session_loaded_from(&root);
+    assert_eq!(
+        app.world().resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data(),
+        &written,
+        "the new App's save is not the file the first App wrote"
+    );
     // With no checkpoint, a load starts in the hub.
     assert_eq!(live_room(&mut app), "central_hub_complex");
     assert_eq!(
@@ -253,17 +258,40 @@ fn the_note_reaches_bob_and_opens_alices_return() {
     // the facts it made (two horizons).
 }
 
-/// A new process that loads `file`: the shipped shell session, booted with the
-/// save's bytes in `AmbitionGameSave` before the gameplay route starts.
-fn a_session_loaded_from(file: &ambition_platformer2d::persistence::save_data::AmbitionGameSaveData) -> App {
+/// The save file the autosave wrote for `app`, read back from disk, and the
+/// persistence root it is under. Asserts that the bytes on disk are the live
+/// save: what a new App reads is what this App held.
+fn the_save_file(app: &mut App) -> (std::path::PathBuf, ambition_platformer2d::persistence::save_data::AmbitionGameSaveData) {
+    use ambition_platformer2d::persistence::save;
+    // The autosave runs in `Update`; give it frames to see the last change.
+    for _ in 0..5 {
+        app.update();
+    }
+    let world = app.world();
+    let root = world.resource::<ambition_platformer2d::persistence::PersistenceRoot>().0.clone();
+    let owner = world.resource::<save::SaveOwner>().current().to_owned();
+    let path = save::save_path_for(&root, &owner).expect("the live save's owner has a file of its own");
+    let loaded = save::load_save(&path);
+    assert!(loaded.present, "the autosave wrote no file at {}", path.display());
+    assert_eq!(
+        &loaded.data,
+        world.resource::<save::AmbitionGameSave>().data(),
+        "the file at {} is not the live save",
+        path.display()
+    );
+    (root, loaded.data)
+}
+
+/// A new App, in this process, whose persistence root is `root`: its Startup
+/// reads the save file there (`load_save_at_startup`), before the gameplay
+/// route starts.
+fn a_session_loaded_from(root: &std::path::Path) -> App {
     use ambition_app::app::{build_visible_app, VisibleRenderMode};
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    app.insert_resource(ambition_platformer2d::persistence::PersistenceRoot(root.to_path_buf()));
     app.finish();
     app.update();
-    app.world_mut()
-        .resource_mut::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
-        .0 = file.clone();
     app.world_mut().write_message(ShellCommand::ReplaceWith {
         route: ShellRouteId::new("ambition_gameplay"),
         request: None,

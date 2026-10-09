@@ -177,6 +177,16 @@ with the survey flag. Poison (the restore keeps the dying player's held
 objects as a spared room's): red at "a Blink is in the live world", the Blink
 still `Held`. Next: the fact horizon of a death, when Q164 is ruled.
 
+**WA6 done 2026-10-09 (review of f0409fcc):** the reload goes through the
+file. It used to clone `AmbitionGameSaveData` into a new App in the same
+process while the docs said "a new process loads the file". Now the first App's
+autosave writes the save under its `PersistenceRoot`, the test reads the file
+back and requires it to equal the live save, and a new App on that root loads
+it at Startup (`load_save_at_startup`). Poison (the new App without the root):
+red at "the new App's save is not the file the first App wrote". The words now
+say what runs: one OS process, and a body put inside each exit zone, not
+walked. A walked route is later work.
+
 **Next action:** the fact horizon of a death, when Q164 is ruled. Everything
 else in the scenario has a witness (WA1-WA5), and the workspace lane runs it.
 What the scenario does not exercise, measured 2026-10-09: the note and the

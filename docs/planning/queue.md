@@ -177,13 +177,13 @@ with the survey flag. Poison (the restore keeps the dying player's held
 objects as a spared room's): red at "a Blink is in the live world", the Blink
 still `Held`. Next: the fact horizon of a death, when Q164 is ruled.
 
-**Next action:** one reproducible headless playthrough of the shipped game, on
-the real composition: explore connected rooms, acquire a meaningful capability,
-obtain and carry a persistent item, deliver it from Alice to Bob, produce a
-durable world consequence, then leave, die, return, save and reload. Verify
-identities, custody, facts and outcomes at each step against the authority, not
-against a second reading of the same state. Fix what it exposes, each in its
-own slice. Then add a second participant to the same scenario.
+**Next action:** the fact horizon of a death, when Q164 is ruled. Everything
+else in the scenario has a witness (WA1-WA5), and the workspace lane runs it.
+What the scenario does not exercise, measured 2026-10-09: the note and the
+survey are `KeyItem` bag quantities (`items.ron`, no `held_item_id`), so they
+are accounted by count and have no instance identity. The object with an
+identity and a custody is the Blink. A note as an object is a content
+decision, not a defect.
 
 **Acceptance:** the scenario runs headless in a standing lane and is playable in
 the rendered game; each step asserts its fact against the authority that owns

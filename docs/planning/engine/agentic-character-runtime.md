@@ -30,7 +30,7 @@ The implementation waits for two things, not one:
    plan owns this work; it changes a type, not a subsystem.
 
    MEASURED 2026-10-09, the cost of the closed seam: the `Roam` brain, one new
-   policy, is nine edits in seven files of two crates. In `ambition_characters`:
+   policy, is ten edits in six files of two crates, and its own file. In `ambition_characters`:
    the `StateMachineCfg` variant, its hostility, its perception requirement and
    its dispatch (`state_machine/mod.rs`), its label and its authored-equality
    arm (`brain/mod.rs`), the `BrainPreset` variant (`entry.rs`), its resolver

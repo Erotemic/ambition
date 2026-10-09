@@ -2674,9 +2674,11 @@ fn a_hazard_respawn_keeps_the_worlds_clock_while_another_room_is_live() {
 /// The crossing cooldown of seat `seat`: whether it must wait before it
 /// crosses again.
 fn seat_waits(sim: &Platformer2dSimHarness, seat: usize) -> bool {
-    sim.world()
-        .resource::<ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown>()
-        .holds(seat)
+    ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown,
+    >(sim.world())
+    .expect("the live session root carries the door countdown")
+    .holds(seat)
 }
 
 /// Whether a crossing is accepted and waits to commit.
@@ -2806,10 +2808,11 @@ fn a_seat_cannot_cross_back_inside_its_own_cooldown() {
     let mut accepted_while_waiting = None;
     let mut accepted = false;
     for tick in 1..=60 {
-        let waits = sim
-            .world()
-            .resource::<ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown>()
-            .remaining(0)
+        let waits = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::platformer::safe_position::RoomTransitionCooldown,
+        >(sim.world())
+        .expect("the live session root carries the door countdown")
+        .remaining(0)
             > step;
         let room = sim
             .step(ambition_app::AgentAction {

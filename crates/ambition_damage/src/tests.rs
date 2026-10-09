@@ -2370,3 +2370,51 @@ fn a_hazard_respawn_does_not_turn_the_body_around() {
         );
     }
 }
+
+/// SETTINGS-ROLLBACK: a settings change reaches the policy the simulation reads
+/// only when the timeline admits it. The control arm shows that the road
+/// publishes at all; a road that never publishes would pass the refused arm.
+#[test]
+fn a_settings_change_reaches_the_simulated_policy_only_when_the_timeline_admits_it() {
+    use bevy::prelude::IntoScheduleConfigs;
+
+    let mut app = App::new();
+    app.init_resource::<ae::PendingMechanicalEdits>();
+    app.init_resource::<PlayerDamagePolicy>();
+    app.init_resource::<ProposedPlayerDamagePolicy>();
+    app.insert_resource(ae::MechanicalEditAdmission::Refuse);
+    let mut settings = ambition_persistence::settings::UserSettings::default();
+    settings.gameplay.player_damage_multiplier = 2.0;
+    app.insert_resource(settings);
+    app.add_systems(
+        Update,
+        (propose_player_damage_policy, publish_player_damage_policy).chain(),
+    );
+
+    app.update();
+    assert_eq!(
+        app.world().resource::<PlayerDamagePolicy>().outgoing,
+        1.0,
+        "a timeline that refuses the edit still reads the old policy"
+    );
+    assert!(
+        app.world()
+            .resource::<ae::PendingMechanicalEdits>()
+            .is_pending(player_damage_policy_domain()),
+        "the refused edit waits"
+    );
+
+    app.insert_resource(ae::MechanicalEditAdmission::Publish);
+    app.update();
+    assert_eq!(
+        app.world().resource::<PlayerDamagePolicy>().outgoing,
+        2.0,
+        "the admitted edit reaches the policy the simulation reads"
+    );
+    assert!(
+        !app.world()
+            .resource::<ae::PendingMechanicalEdits>()
+            .is_pending(player_damage_policy_domain()),
+        "the published edit is no longer pending"
+    );
+}

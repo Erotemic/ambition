@@ -179,8 +179,13 @@ def production_files(paths: tuple[str, ...] = DEFAULT_PATHS) -> list[str]:
 #: write is SPELLED goes blind when a refactor respells it"*) and that the
 #: optional lifetime is not cosmetic. A lesson written down in one guard while its
 #: neighbour repeats the defect is the shape this repository keeps paying for.
+#:
+#: ⚠ ANY NUMBER OF LIFETIMES, NOT ONE. The alias is `SessionWorldMut<'w, 's, T>`,
+#: and a `SystemParam` field spells both (`RoomClock::sim_state` in
+#: `room_transition/commit.rs`). With `?` here that writer was invisible, and the
+#: census read three writer files of `RoomTransitionCooldown` where there are four.
 SESSION_WORLD_MUT = re.compile(
-    r"SessionWorldMut\s*<\s*(?:'[a-z_][a-z0-9_]*\s*,\s*)?"
+    r"SessionWorldMut\s*<\s*(?:'[a-z_][a-z0-9_]*\s*,\s*)*"
     r"((?:[A-Za-z_][A-Za-z0-9_]*::)*[A-Z][A-Za-z0-9_]*)\s*,?\s*>"
 )
 

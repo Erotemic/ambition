@@ -43,7 +43,6 @@ use ambition_characters::control::SlotInteractionState;
 use ambition_encounter::switches::SwitchActivationQueue;
 use ambition_encounter::EncounterView;
 use ambition_persistence::quest::QuestRegistry;
-use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
 
 /// The process-global resources that mirror ONE live session's state.
 ///
@@ -84,8 +83,6 @@ pub struct SessionScopedResources<'w> {
     bag_spends: Option<ResMut<'w, ambition_held_items::BagSpendsSinceCheckpoint>>,
     /// Quest progress; the next activation reloads it from the session save.
     quest_registry: ResMut<'w, QuestRegistry>,
-    /// Transient per-room bookkeeping (room-transition cooldown, etc.).
-    sim_state: ResMut<'w, RoomTransitionCooldown>,
     /// Slot-level buffered gestures belong to the retired control session.
     slot_interactions: ResMut<'w, SlotInteractionState>,
     /// Switch activations intentionally cross one simulation-frame boundary.
@@ -481,7 +478,6 @@ fn reset(resources: SessionScopedResources) {
         reward_grants,
         bag_spends,
         mut quest_registry,
-        mut sim_state,
         mut slot_interactions,
         mut switch_activations,
         mut save_restored,
@@ -527,7 +523,6 @@ fn reset(resources: SessionScopedResources) {
         spends.forget_all();
     }
     *quest_registry = QuestRegistry::default();
-    *sim_state = RoomTransitionCooldown::default();
     *slot_interactions = SlotInteractionState::default();
     *switch_activations = SwitchActivationQueue::default();
     *save_restored = crate::session::durable_horizon::SaveRestored::default();

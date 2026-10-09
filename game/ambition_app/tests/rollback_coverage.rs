@@ -1619,19 +1619,16 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // READS.** `apply_player_hit_events`, `charge_projectile_input` and
     // `apply_feature_hit_events` each held `Res<UserSettings>` — the whole
     // persisted, menu-mutable resource — inside the simulation schedule. They now
-    // read TWO f32s resolved once per host frame by
-    // `project_player_damage_policy`, registered in literal `Update`. With this
-    // and `SeatControlFrameModes`, `scripts/measure_user_settings_in_simulation.py`
-    // reports ZERO simulation readers of `UserSettings`.
+    // read TWO f32s. With this and `SeatControlFrameModes`,
+    // `scripts/measure_user_settings_in_simulation.py` reports ZERO simulation
+    // readers of `UserSettings`.
     //
-    // ⛔ **STILL FORWARD-ONLY, NOT CLOSED**: the policy is read DURING simulation,
-    // so a resimulation of frame N scales by whatever the difficulty slider holds
-    // now. Closing it needs the ruling the architecture review says is Jon's —
-    // whether difficulty / assist / damage are a MATCH-WIDE rule or
-    // PARTICIPANT-SPECIFIC accessibility policy — because that decides whether
-    // the canonical form is one value agreed at match activation or a per-seat
-    // row travelling with each peer. This resource is the seam that ruling lands
-    // on; see `docs/planning/queue.md`'s `UserSettings` row.
+    // The two f32s change only through the mechanical-edit chain (`Q120`): the
+    // settings propose, and `publish_player_damage_policy` writes the policy
+    // when the timeline admits it, before the advance. A local timeline is
+    // rebased on the new policy and a foreign one refuses, so a resimulation of
+    // frame N reads the policy frame N had. Whether the policy is match-wide or
+    // per participant (`Q127`) changes the shape of this resource, not the road.
     // ⭐ THE EDITOR MIRROR, NOT THE AUTHORITY — and that is the whole point of it.
     // `Platformer2dFeelTuningMonolith` is waived below as forward-only feel
     // tuning; this resource is what the INSPECTOR writes, and it reaches that
@@ -1654,9 +1651,17 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     (
         "ambition_damage::PlayerDamagePolicy",
-        "the two damage scalars resolved from user settings at a host-side \
-         boundary; forward-only like the settings they come from, and narrowed \
-         from four readers of a 30-field resource to one writer of two f32s",
+        "the two damage scalars from user settings. One admitted publisher \
+         writes them, in `MechanicalEditSet::Publish` before the advance, so \
+         a change stops and rebases a local timeline or waits behind a foreign \
+         one (Q120), and no resimulated frame reads a policy its timeline did \
+         not have",
+    ),
+    (
+        "ambition_damage::ProposedPlayerDamagePolicy",
+        "the settings' proposal for the damage policy; the publisher copies it \
+         into `PlayerDamagePolicy` when the timeline admits it, so simulation \
+         does not read it",
     ),
     // ⚠ **THE SAME WAIVER, NARROWED ON PURPOSE — AND IT IS NOT YET THE FIX.**
     // Four simulation systems used to evaluate

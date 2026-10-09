@@ -24,7 +24,8 @@ where
     // `player.safety_state` are identities on the wire; the schema fingerprint
     // deliberately excludes owner labels so an ownership repoint is not a
     // wire-format event.
-    registrar.rollback_resource_canonical::<crate::safe_position::RoomTransitionCooldown>(
+    // A component of the session root (C03), under the same key.
+    registrar.rollback_component_canonical::<crate::safe_position::RoomTransitionCooldown>(
         OWNER,
         "resource.sandbox_sim_state",
     );

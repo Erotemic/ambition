@@ -10,7 +10,6 @@ use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
 use ambition_encounter::switches::SwitchActivationQueue;
 use ambition_encounter::SwitchActivation;
-use ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown;
 
 /// ⛔⛔ THIS LIST IS THE SECOND HALF OF `SessionScopedResources`, AND IT IS
 /// HAND-KEPT WHERE THE OTHER HALF IS NOT. The `reset` function destructures the
@@ -34,7 +33,6 @@ fn app_with_populated_mirrors() -> App {
     app.init_resource::<ambition_encounter::EncounterView>();
     app.init_resource::<BossEncounterRegistry>();
     app.init_resource::<ambition_persistence::quest::QuestRegistry>();
-    app.init_resource::<RoomTransitionCooldown>();
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<SwitchActivationQueue>();
     app.init_resource::<crate::session::durable_horizon::SaveRestored>();
@@ -75,12 +73,6 @@ fn app_with_populated_mirrors() -> App {
     // Populate the mirrors with distinctive session-A state.
     let ghost = app.world_mut().spawn_empty().id();
     app.world_mut().resource_mut::<PossessionState>().possessed = Some(ghost);
-    {
-        // Two seats inside a cooldown: teardown clears every seat, not one.
-        let mut cooldown = app.world_mut().resource_mut::<RoomTransitionCooldown>();
-        cooldown.hold(0, 5.0);
-        cooldown.hold(2, 5.0);
-    }
     app.world_mut()
         .resource_mut::<SlotInteractionState>()
         .primary_mut()
@@ -255,11 +247,6 @@ fn retirement_clears_every_session_scoped_mirror() {
         None,
         "possession still points at a despawned session-A body after teardown"
     );
-    assert_eq!(
-        *app.world().resource::<RoomTransitionCooldown>(),
-        RoomTransitionCooldown::default(),
-        "transient room state carried across teardown"
-    );
     assert!(
         !app.world()
             .resource::<SlotInteractionState>()
@@ -333,12 +320,6 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
             .primary()
             .buffered(),
         "session B started with a buffered interact nobody pressed in it"
-    );
-    assert_eq!(
-        *app.world().resource::<RoomTransitionCooldown>(),
-        RoomTransitionCooldown::default(),
-        "session B started inside A's room-transition cooldown, which refuses \
-         every door for as long as it lasts"
     );
     assert!(
         app.world().resource::<SwitchActivationQueue>().0.is_empty(),

@@ -140,47 +140,6 @@ before the death).
   object lies, the custody restore moves it into the banked hand whatever
   the row says, so only a held object needs the precedence.
 
-### SETTINGS-ROLLBACK — finish the settings/mechanics admission boundary
-
-**Owner:** rollback/mechanical-policy owners.
-
-**Current state:** no simulation system reads `UserSettings`
-(`scripts/measure_user_settings_in_simulation.py`). The frame-mode half is
-closed: `ControlFrame` carries `control_frame_modes`, stamped at capture in
-`populate_seat_control_frames`, and GGRS replays it per frame. The damage half is
-open: `project_player_damage_policy` writes `PlayerDamagePolicy` from
-`UserSettings.gameplay` in `Update`, the policy has no rollback registration, and
-three simulation systems read it (`apply_player_hit_events`,
-`apply_feature_hit_events`, `charge_projectile_input`). The in-game System
-overlay can change `Difficulty`, `Assist` and `PlayerDamage` during a live
-timeline, so a resimulation of frame N reads the policy that holds now.
-
-**Ruling (`Q127`, 2026-09-19): deprioritised.** There is no generic
-one-dimensional difficulty architecture. Difficulty is game policy expressed as
-presets. Participant handicaps and CPU brain levels are separate concepts from
-match policy. Spend no substantial effort here until the default game plays
-exceptionally well, and do not box the design in.
-
-**Ruling (`Q68`, 2026-10-03):** difficulty, gameplay modifiers and combat
-behaviour are game-owned settings; the shell owns audio, display, bindings,
-reusable accessibility and localization. `UserSettings.gameplay` is in the shell
-crate today.
-
-**Next action (when picked up):** use the `PortalTuning` precedent (the `Q120`
-admission protocol). The settings road writes a mirror and proposes in
-`MechanicalEditSet::Propose`, and the publisher is the only writer of the
-authority. A match-wide policy is admitted at match activation; a
-per-participant policy travels with deterministic per-seat input. Do not
-reintroduce simulation reads of mutable `UserSettings`. Peers must not have to
-share accessibility settings, so input interpretation travels with the input.
-
-**Blocked by:** nothing.
-
-**Acceptance:** rewinding/resimulating frame N observes the policy admitted for
-that timeline, not whatever the settings UI contains now; the settings-to-policy
-projection remains witnessed end to end; and no `sim`-schedule system takes
-either policy resource as a parameter.
-
 ### A4 — separate control authority from body execution on the real schedule
 
 **Owner:** accepted control writer map and actor-monolith frontier.
@@ -1071,6 +1030,22 @@ production invariant.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### SETTINGS-ROLLBACK — a settings change reaches simulation only at an admitted rebase — ✅ DONE 2026-10-08
+
+The frame-mode half was closed earlier (`ControlFrame` carries
+`control_frame_modes`). The damage half: `PlayerDamagePolicy` was written from
+`UserSettings` in `Update` and read by three simulation systems, so a
+resimulated frame read the current difficulty. It is now a `Q120` mechanical
+domain. `propose_player_damage_policy` writes `ProposedPlayerDamagePolicy` and
+proposes; `publish_player_damage_policy`, the only writer of the policy, copies
+it in `MechanicalEditSet::Publish` when the timeline admits it. A local
+timeline is stopped and rebased; a foreign or unhealthy one refuses, and the
+proposal waits. No simulation system reads `UserSettings` or the proposal.
+Witness: `a_settings_change_reaches_the_simulated_policy_only_when_the_timeline_admits_it`
+(poisons: a publisher that ignores the admission; a proposer that never
+proposes). `Q127` (match-wide or per participant) changes the shape of the
+policy, not this road.
 
 ### CANDIDATE-GENERATION-ORDER — a candidate session is prepared from the generation before its own activation — ✅ DONE 2026-10-08
 

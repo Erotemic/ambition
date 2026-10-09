@@ -134,18 +134,19 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ## 3. C03 — Consolidate session-owned state and reduce reset-only App globals
 
-**State:** IN PROGRESS. Three families have landed (see "Landed families"
+**State:** IN PROGRESS. Four families have landed (see "Landed families"
 below); the others are not started.
 
 ### Scope and current authority
 
-Source explicitly groups **36** App resources as gameplay-session or
+Source explicitly groups **35** App resources as gameplay-session or
 activated-generation state (46 until the checkpoint family and the room memories
-left on 2026-10-07, 38 until the session clock left on 2026-10-08):
+left on 2026-10-07, 38 until the session clock left and 36 until the door
+countdown left on 2026-10-08):
 
-<!-- session-owner-census: SessionScopedResources=35 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=34 SessionMechanics=1 -->
 <!-- session-root-family: SessionCheckpointState=6 -->
-- `SessionScopedResources` (**35**) in `actor_monolith/src/session/teardown.rs`;
+- `SessionScopedResources` (**34**) in `actor_monolith/src/session/teardown.rs`;
 - (`SessionOwnedCheckpointState`, the third bundle of six, is DELETED: its values are
   components of the session root, `SessionCheckpointState` (6) in
   `actor_monolith/src/session/checkpoint.rs`, and no reset runs for them.)
@@ -194,7 +195,7 @@ The census page lists the member names. The guard counts the optional
 
 | category | members | n |
 | --- | --- | ---: |
-| current room / world / session state | ~~`LastCutsceneRoom`, `LastQuestRoom`~~ (LANDED, on the root), `RoomTransitionCooldown`, `SlotInteractionState` | 2 |
+| current room / world / session state | ~~`LastCutsceneRoom`, `LastQuestRoom`, `RoomTransitionCooldown`~~ (LANDED, on the root), `SlotInteractionState` | 1 |
 | participant state | `ControlledSubject`, `PossessionState` | 2 |
 | encounter state | `EncounterView`, `BossEncounterRegistry`, `AuthoredOccurrences` | 3 |
 | simulation clocks / timeline state | `GameplayElapsed`, `LiveMatchTicks`, `SessionMatchOrdinal`, `ProjectileSeqCounter` | 4 |
@@ -209,11 +210,11 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=30/16 SessionWorldMut=28/15 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
+<!-- alias-split: SessionWorldRef=32/18 SessionWorldMut=31/18 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 30 / 16 |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 28 / 15 |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 32 / 18 |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 31 / 18 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
 | `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |
 | `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 9 / 9 |
@@ -236,7 +237,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 36 values. Work owner by owner:
+Do not begin by moving all 35 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
@@ -314,10 +315,11 @@ session ended in would otherwise skip its first room's quest event and cutscene.
   (A live and having announced `hall`; a candidate beside it has no memory and
   changes none; after the swap B announces `hall`). Each poisoned by giving B A's
   memory at the swap: the arm fails on "B was born with A's memory".
-- Not done, and why: `RoomTransitionCooldown` and `SlotInteractionState`, the other
-  two of the group, are read from crates below `SessionRoot` (`ambition_damage`,
-  `ambition_characters::control`), so a root component would need those crates to
-  name an upward type or a new seam. They are a different family.
+- `RoomTransitionCooldown`, the third of the group, landed as family 4. The
+  reason first given for leaving it (its readers sit below `SessionRoot`) did not
+  hold: the type and `SessionRoot` are both in `shared_tangle`.
+  `SlotInteractionState` lives in `ambition_characters::control`, below
+  `shared_tangle`, so it does need a seam.
 
 **3. The session clock, 2026-10-08.** `GameplayElapsed` (the session's sum of the
 scaled simulation dt, which the brain reads for its reaction-latency lookback) and
@@ -329,7 +331,7 @@ components of the session root, each required by `SessionRoot`.
   `component-canonical` and `component-clone-custom-checksum`. The schema version
   moves 331 -> 332.
 - **Deleted:** the two members of `SessionScopedResources` and their two reset lines.
-  `SessionScopedResources` is 35 and the App-resource total 36.
+  `SessionScopedResources` was 35 and the App-resource total 36.
 - **Witness:**
   `world_time_schedule::tests::two_session_roots_hold_two_clocks_and_two_schedules`
   (A runs and schedules a return; a candidate beside it has neither and changes
@@ -341,6 +343,24 @@ components of the session root, each required by `SessionRoot`.
   teardown removes it), but it is the same family. Measured 2026-10-08: about 360
   references in 40 files (189 for `ActiveMatch` alone), the Smash demo's presentation
   reads included.
+
+**4. The door countdown, 2026-10-08.** `RoomTransitionCooldown` (one countdown per
+seat: the seat whose body crossed a door waits before it crosses again) is a
+component of the session root, required by `SessionRoot`.
+
+- **Rollback identity did not move:** `resource.sandbox_sim_state` keeps its key;
+  its kind is `component-canonical`. The schema version moves 332 -> 333.
+- **Deleted:** the member of `SessionScopedResources` and its reset line.
+  `SessionScopedResources` was 34 and the App-resource total 35.
+- **Witness:**
+  `room_transition_cooldown_tests::two_session_roots_hold_two_door_countdowns`
+  (A's seat 0 waits and counts down; a candidate beside it has no countdown and
+  changes none; after the swap every seat of B is free). Poisoned by a default
+  that holds seat 0: the arm fails on "B was born inside A's door countdown".
+- **An instrument fix it needed:** the session-world writer census matched one
+  lifetime in `SessionWorldMut<..>`, and the alias takes two. The `RoomClock`
+  field was invisible, and so was a ninth `EncounterMusicRequest` writer (the
+  audio context reset). Both are recorded with verdicts.
 
 ### Constraints
 

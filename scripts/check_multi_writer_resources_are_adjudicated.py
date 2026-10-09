@@ -117,7 +117,6 @@ already carry a verdict or are named below:
     OwnedItems               9 files  grant 2
     QuestRegistry            7 files  push_event 4, quests 2
     PendingLifecycleCommit   7 files  record 2, take 2                   ADJUDICATED
-    RoomTransitionCooldown   5 files  remaining 2
     RoomTransitionLoadState  5 files  active 4 (3 certain)
     SlotInteractionState     4 files  primary_mut 2 (2 certain)          ADJUDICATED
     BaseGravity              4 files  nothing shared
@@ -375,13 +374,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
         "game/ambition_content/src/quest.rs",
     ),
-    "RoomTransitionCooldown": (
-        "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
-        "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
-        "game/ambition_app/src/app/dev_runtime.rs",
-    ),
     "SeatRawFrames": (
         "crates/ambition_platformer2d/src/scripted_input.rs",
         "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
@@ -484,6 +476,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "PendingMechanicalEdits": (
         "crates/ambition_combat/src/feel.rs",
+        "crates/ambition_damage/src/lib.rs",
         "crates/ambition_dev_tools/src/dev_tools/editable.rs",
         "crates/ambition_dev_tools/src/lib.rs",
         "crates/ambition_platformer2d_runtime/src/extension_composition.rs",
@@ -1690,57 +1683,6 @@ ADJUDICATED: dict[str, str] = {
         "waiver next door was written on the false premise that "
         "`maintain_local_session` gates on a live BODY, and it does not — see "
         "that guard's comment for what replaced it."
-    ),
-    "RoomTransitionCooldown": (
-        "CORRECT — ONE TICKER, TWO ARMERS, THREE CLEARS, AND THE SEVENTH WRITER "
-        "WAS NOT A WRITER AT ALL. One `f32` countdown (`remaining`, "
-        "`shared_tangle/src/safe_position.rs`), and the reason it reads as "
-        "contested is that six systems each own one EVENT in its life rather "
-        "than one value. The ticker: `tick_room_transition_cooldown` "
-        "(`actor_monolith/src/control/input_systems.rs`) is "
-        "`remaining = (remaining - wall_dt).max(0.0)` and nothing else. Two "
-        "ARMERS, and they arm for different reasons: "
-        "`RoomClock::...` in `runtime/src/room_transition/commit.rs` sets it on a "
-        "crossing, conditional on `edge_exit`, and "
-        "`reload_ldtk_world_from_disk` (`game/ambition_app/src/app/dev_runtime.rs`) "
-        "sets `0.10` after a dev hot-reload. Two CLEARS to zero on two "
-        "distinct lifecycle edges: `return_the_replay_subject_to_spawn` "
-        "(`runtime/src/sandbox_reset.rs`, which also assigns `default()` — the "
-        "same zero; a New Game reaches it too, since 2026-09-29 it is admitted "
-        "as a replay), and `SessionScopedResources::reset`. ⇒ An armer and a clear "
-        "cannot disagree about a VALUE; the countdown's only invariant is that it "
-        "reaches zero, and every writer either starts it, ends it, or walks it "
-        "down.\n"
-        "    ⛔⛤ AND THE SEVENTH WAS A MUTABLE BORROW FEEDING A PARAMETER NOBODY "
-        "READ — REMOVED 2026-09-18, WHICH IS WHY THE BASELINE SAYS SIX. "
-        "`apply_player_hit_events` (`ambition_damage/src/lib.rs`) took "
-        "`ResMut<RoomTransitionCooldown>` and its only use of the resource is the "
-        "read `remaining > 0.0`, which becomes `SafePositionContext { "
-        "room_transitioning, .. }`. The `ResMut` existed solely to pass `&mut` "
-        "into `handle_player_damage_events`, whose signature spelled that "
-        "parameter `_sim_state` — an underscore, so the compiler had already been "
-        "told it was unused. The parameter is gone and the system asks for `Res`.\n"
-        "    ⚠ TWO COSTS, AND ONLY ONE OF THEM WAS THE CENSUS'S. An exclusive "
-        "borrow serialises the damage system against every real writer of the "
-        "cooldown in the same schedule, for a read. And a writer census that "
-        "reads PARAMETER LISTS counted it as one of seven authorities over a "
-        "value it never touches — which is the same lesson as `BaseGravity`'s "
-        "sixth writer from the other side: the instrument measures MUTABLE REACH, "
-        "and reach is not authorship.\n"
-        "    ⭐ THE TELL IS MACHINE-CHECKABLE, SO IT WAS SWEPT RATHER THAN "
-        "RECOMMENDED — AND THE ANSWER IS A NEGATIVE WORTH RECORDING. An "
-        "`_`-prefixed `&mut` parameter over the 1,294 production files: EIGHT "
-        "remain after this repair, and none is this defect. Four are cheap or "
-        "dictated (`_context: &mut LoadContext` is an asset-loader trait method; "
-        "three `_commands: &mut Commands`, which no system holds exclusively). "
-        "Two name COMPONENTS and bundles (`_anim: &mut BodyAnimFacts`, `_writers: "
-        "&mut BodyDeathWriters`), which this census is silent about by "
-        "construction. One is a render-app hook (`_render_world: &mut World`). And "
-        "one is DELIBERATE with its reason in place: `load_character_sprites_in` "
-        "keeps `_layouts: &mut Assets<TextureAtlasLayout>` because *\"this is still "
-        "where a caller proves it HAS an asset pipeline, and dropping them would "
-        "silently make the art-free path look identical\"*. ⇒ Do not re-run this "
-        "sweep expecting a list; it was one."
     ),
     "SlotControls": (
         "CORRECT — THREE COMMITTERS, ONE PER HOST AND MUTUALLY EXCLUSIVE; THREE "
@@ -3215,7 +3157,11 @@ ADJUDICATED: dict[str, str] = {
         "for the OTHER fields but was retracted for `reorient_facing` in "
         "`38f05f5f9` — see the `EditablePortalTuning` row. The quote is "
         "dropped here; the idempotent-insert argument does not need it. "
-        "Measured by CalculexAmbition, 2026-09-18."
+        "Measured by CalculexAmbition, 2026-09-18.\n"
+        "    2026-10-08: a seventh production writer, `PlayerDamagePolicyDomain` "
+        "(`crates/ambition_damage/src/lib.rs`, SETTINGS-ROLLBACK). Its own "
+        "proposer and its own publisher, the only writer of `PlayerDamagePolicy`; "
+        "the same per-domain argument holds."
     ),
     "BossEncounterRegistry": (
         "THREE WRITERS, TWO OF WHICH CONVERGE TO THE SAME DEFAULT AND ONE OF "
@@ -3745,11 +3691,18 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/encounter_script.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter_features/src/systems.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/audio/plugin.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
         "game/ambition_demo_mary_o/src/death.rs",
         "game/ambition_demo_mary_o/src/flag.rs",
         "game/ambition_demo_mary_o/src/star.rs",
+    ),
+    "RoomTransitionCooldown": (
+        "crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+        "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
+        "game/ambition_app/src/app/dev_runtime.rs",
     ),
 }
 
@@ -3770,6 +3723,9 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
 #: the room publication (`apply_world_replacement`, which writes the root of the
 #: live room it replaces) and `SimHarness::add_block`, a setup road that rebases
 #: after it writes. ⇒ ONE type is left in this population, `EncounterMusicRequest`.
+#: 2026-10-08: C03 moved `RoomTransitionCooldown` onto the root, and the scan
+#: learned that the alias takes two lifetimes, which made a ninth
+#: `EncounterMusicRequest` writer visible (the audio context reset).
 
 #: ⭐⛤ **VERDICTS FOR THE OTHER POPULATION, which had a ratchet and no way to
 #: record an answer until 2026-09-18.** Same rule as [`ADJUDICATED`] and a
@@ -3792,7 +3748,7 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "`rollback_coverage.rs`."
     ),
     "EncounterMusicRequest": (
-        "CORRECT — EIGHT WRITERS, A TWO-TIER PROTOCOL, AND THE PRIORITY TIER IS "
+        "CORRECT — NINE WRITERS, A TWO-TIER PROTOCOL, AND THE PRIORITY TIER IS "
         "OWNER-CHECKED BY THE COMPILER SINCE 2026-09-18. The component is built "
         "for many writers on purpose: the priority tier holds one candidate per "
         "source (a focused fight's claim, with the tick it began; since "
@@ -3811,7 +3767,11 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "deleted with its field 2026-09-24 (AP12/W021): a presentation adapter's "
         "mirror inside gameplay state, and nothing read it; and ONE is "
         "the session reset clearing it at a boundary "
-        "(`actor_monolith/src/session/reset/mod.rs`). ⇒ Nobody wrote the "
+        "(`actor_monolith/src/session/reset/mod.rs`); and ONE is the audio "
+        "context reset, which replaces the whole component with its default when "
+        "the audio owner changes (`reset_audio_request_state_on_context_change`, "
+        "`actor_monolith/src/audio/plugin.rs`; seen 2026-10-08, when the scan "
+        "learned the alias's two lifetimes). ⇒ Nobody wrote the "
         "priority tier's fields directly. A perfect separation, "
         "held entirely by convention over `pub` fields.\n"
         "    ⛤ SO THE FIELDS ARE PRIVATE NOW. The tier can only be reached "
@@ -3825,6 +3785,22 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "fails with `error[E0616]`. The module doc had already recorded shipping "
         "the un-owned clear once; the discipline was universal and nothing kept "
         "it that way."
+    ),
+    "RoomTransitionCooldown": (
+        "CORRECT — ONE TICKER, TWO ARMERS, ONE CLEAR, ON THE SESSION ROOT SINCE "
+        "C03 (2026-10-08). One countdown per seat (`remaining`, "
+        "`shared_tangle/src/safe_position.rs`), and each writer owns one EVENT in "
+        "its life rather than one value. The ticker: "
+        "`tick_room_transition_cooldown` (`actor_monolith/src/control/input_systems.rs`) "
+        "counts every seat down and does nothing else. Two ARMERS: "
+        "`RoomClock::sim_state` in `runtime/src/room_transition/commit.rs` holds "
+        "the crossing seat after a crossing, and `reload_ldtk_world_from_disk` "
+        "(`game/ambition_app/src/app/dev_runtime.rs`) holds seat 0 for `0.10` after "
+        "a dev hot-reload. One CLEAR: `return_the_replay_subject_to_spawn` "
+        "(`runtime/src/sandbox_reset.rs`) releases the subject's seat. The "
+        "session-edge reset is deleted with the move: a new root is born with "
+        "every seat free. ⇒ An armer and a clear cannot disagree about a value; "
+        "the countdown's only invariant is that it reaches zero."
     ),
 }
 

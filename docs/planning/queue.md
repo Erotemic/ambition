@@ -292,7 +292,7 @@ reads cargo output to it.
 
 **Open items:**
 
-1. **The compile-cost ratchet fails the full gate** (`scripts/compile_ratchet.py`, measured 2026-09-18). Its baseline records commit `b3bd00a4a` (2026-09-05), which no ref reaches, and it disagrees with itself in three places. Over budget: `ambition_platformer2d_actor_monolith`'s largest unit (100,742 → 115,105 lines) and edit cost, and `ambition_geometry`'s worst edit cost (94.9% of the workspace). ⛔ Do not re-freeze to go green. Next: find which part of the monolith's largest unit belongs in its own crate, and repair the baseline's self-disagreement before any deliberate re-freeze. <!-- cite-ok: `b3bd00a4a` is quoted BECAUSE it resolves nowhere; it is `dev/compile_ratchet_baseline.json`'s own recorded `commit` field -->
+1. **The compile-cost ratchet reports and does not fail the gate** (re-measured 2026-10-09: 8 findings, 0 gating, exit 0). Since `a614327fe` (2026-09-25, Jon: "line-count should not be a gate") only PATH and GONE gate; the size and seconds rows are reports. The critical path of 15 crates is banked (2026-10-09, `--adopt-wins`). The carve was `d56c46de9`, which removed `ambition_items`'s dead dependency on `ambition_combat`; the old 16-crate chain went through that edge. Two `--adopt-wins` defects found on the way are fixed: a held row kept its old `depth` (path 15 beside a row of depth 16), and `carried_from` dropped the older commit of a chain (`scripts/tests/test_compile_ratchet.py`, each arm red under its poison). Still open: the baseline disagrees with itself in three places (`ambition_geometry`, the monolith, `ambition_platformer2d_core`). The held numbers are from `11ef33c5b5a5`, and their table rows were already different, so no adopt can repair this; only a deliberate re-freeze can. Reported: the monolith's largest unit (100,742 → 132,359 lines). ⛔ Do not re-freeze with `--update` as bookkeeping: it banks the regressions, and that is a judgement to state in its own commit.
 2. **An arm fails only in company** (see [the triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)): `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps` failed once on 2026-09-10, and its assertion was never captured. Three other instances of the signature were per-arm measurements reading process-global state (`app_it` runs arms as threads of one process); they are fixed, and `scripts/a_test_static_is_a_channel_between_arms.py` guards the class. Next: capture this arm's assertion. `hall_redecode_census.rs` asserts over a delta of a process-wide counter, and it is not a candidate: it is `#[ignore]`d and run alone by `scripts/measure_hall_redecodes.sh` (read 2026-10-08). The A9 probe found and repaired two couplings that fail a composition without `BossEncounters` (`simulation_world` required `BossCatalog`; the progression plugin registered `populate_boss_encounter_registry`); whether either was this failure is not known. ⛔ Do not add a retry.
 3. **The reload family failed under load, and its waits for the first activation now wait on the condition (2026-10-09).** The family is `an_edit_reaches_the_shipped_game`. Measured with the family alone at 30 test threads, five runs for each state: on main `0e2c22f9e`, five of five runs were red (two or three arms for each run, ten different arms, 13 failures), and each failure was a premise that the first session is live. With the waits changed, five of five runs were green. The cause: the gameplay route becomes active after work on other threads, so a fixed 240 frames is not a wait. Alone, the route was active on frame 3; in company it was seen on frame 83, and the red runs are the cases later than frame 240. The waits are in `game/ambition_app/tests/common/mod.rs`: `step_until_route_is_active`, `step_until_route_is_active_and_settled` and `ActivationWindow`. Each waits on the route under a ceiling of 120 seconds of wall time and then steps the frames the old loop stepped after frame 3. Two arms in that file hold the ceiling (`a_wait_for_a_route_that_never_activates_ends_at_its_ceiling` and the one for the window); with a ceiling check removed, its arm does not end. Converted 2026-10-09 (CalculexAmbition, `4cfe4e476` and the next commit): 16 candidate arms wait until `PendingGeneration` is gone and first assert that one was pending; two arms refused at request time assert that none is pending; two handoff waits wait on the activation id and on the handoff, under the same ceiling. Measured: a generation settled in 2-3 frames alone and at 30 test threads, so these arms were not short of frames; the change is that a negative arm now fails if the refusal was never decided. Left: the census probe, one handoff whose premise check fails loudly when its transaction has not run, three loops that assert on each frame, and each other family (63 loops of 240 frames outside this file). No failure of those was seen in the ten runs after the change; that is not a proof that they hold. One older session-root handoff failure did not reproduce in four full runs, and its assertion was never captured. One of its two candidate arms (`the_shipped_app_never_holds_two_session_roots_across_a_handoff`) had this window; whether that was the failure is not known. ⛔ Do not add a retry, and do not make the 240 larger: wait on the condition.
 
@@ -356,7 +356,10 @@ reads cargo output to it.
    tested tree, red at `a_new_untracked_source_file_is_part_of_the_tested_tree`).
    A row holds the tree at both ends of its job, and a check counts when
    both hold the change's paths (`36eb555ee`): a file the host of a shared
-   folder edited during a 14-job run had voided two passing jobs. Only the
+   folder edited during a 14-job run had voided two passing jobs. A
+   checked-out submodule is recorded at the commit it has checked out
+   (`8ac789621`): the index entry had made a change that moved a pointer
+   impossible to certify. Only the
    run that writes the default status records evidence, so a test's fake
    jobs do not. Not held: the demo rule's fourth case (an instrument a demo
    test reads), the external-consumer fixtures, the matrix rows without a
@@ -446,12 +449,12 @@ room refused after the first published leaves a mixed world; the status says
   The arm also holds that the advice of the status is true: with the fault
   gone, the reload applied again brings each live room to one generation.
 
-**Next action (open, not started):** make the sequence transactional. The
-later rooms are built against state that the first room's finalization makes
-(the room set, the live room counter), so the rooms cannot simply be verified
-before one of them is finalized. A design is owed before code: hold each
-room's `FrozenPublicationEffects` behind a hold that the reload owns, and
-verify the later rooms against the projected set.
+**Next action:** build the design (written 2026-10-09, in
+[the residency plan](engine/open-world-runtime-and-residency.md#design-a-multi-room-publication-checks-every-room-then-commits-every-room)).
+First check every room and promote none, with each later room checked
+against the projected set and counter; then commit every room or refuse
+every room. First measure the three reads it names, then change the
+mixed-world arm into a "rebuilds none" arm.
 
 **Acceptance:** met for the first half: the injected fault is caught by an
 assertion that names the mixed state. Multi-room publication is called

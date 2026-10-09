@@ -752,6 +752,41 @@ def test_an_adopted_crate_keeps_the_current_table_row():
     )
 
 
+def test_an_adopt_over_a_partly_adopted_baseline_keeps_the_oldest_commit():
+    """Measured 2026-10-09: the baseline at `b3bd00a4a` carried numbers from
+    `11ef33c5b5a5`. An adopt over it wrote `carried_from: b3bd00a4a`, and the
+    report then named no commit where the held numbers were measured."""
+    frozen = _snapshot("middlesha", critical_path=14, largest=100)
+    frozen["carried_from"] = "oldestsha"
+    current = _snapshot("newersha", critical_path=13, largest=120)
+    merged, adopted, held = ratchet.adopt_wins(current, frozen)
+    assert adopted and held, f"premise: a mixed adopt; adopted={adopted} held={held}"
+    assert merged["carried_from"] == "oldestsha"
+
+
+def test_a_held_row_takes_the_current_depth():
+    """The cost fields of a held row are held; its `depth` is the graph as
+    measured now. Measured 2026-10-09: an adopt banked path 16 -> 15 and kept
+    `ambition_geometry` at depth 16, so the file disagreed with itself again."""
+    frozen = _with_table(_snapshot("oldersha", critical_path=16, largest=100),
+                         ambition_mono=100)
+    frozen["watched_edit_cost"] = {"ambition_mono": {"lines": 100}}
+    frozen["crates"]["ambition_mono"]["depth"] = 16
+    current = _with_table(_snapshot("newersha", critical_path=15, largest=100),
+                          ambition_mono=130)
+    current["watched_edit_cost"] = {"ambition_mono": {"lines": 130}}
+    current["crates"]["ambition_mono"]["depth"] = 15
+
+    merged, adopted, held = ratchet.adopt_wins(current, frozen)
+
+    assert any("critical_path_crates" in row for row in adopted), adopted
+    assert any("ambition_mono" in row for row in held), held
+    row = merged["crates"]["ambition_mono"]
+    assert row["edit_cost_lines"] == 100, "premise: the held cost stays"
+    assert row["depth"] == 15
+    assert max(r["depth"] for r in merged["crates"].values()) == merged["critical_path_crates"]
+
+
 def test_only_the_graph_shape_gates():
     """Jon, 2026-09-25: "line-count should not be a gate". Lines, and seconds
     priced from lines, are reported; a longer critical path still fails."""

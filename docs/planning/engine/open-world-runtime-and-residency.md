@@ -276,6 +276,77 @@ per-room rollback clocks are not part of this plan.
 | Remote peers | Two peers run in one process (`two_peers.rs`, netcode N2) and agree at every confirmed frame in one room. A CROSSING UNDER A PEER SESSION COMMITS BEHIND A PEER BARRIER (2026-10-04, shape A). The barrier has three parts. (1) The freeze: a session started by `start_peer_session` has the ownership `Peer`, and under it the gameplay simulation does not run from C = R + `PEER_COMMIT_FREEZE_DELAY` (1) while an operation waits (`lifecycle_commit::a_peer_commit_holds_the_simulation`, one run condition on `GameplaySimulationRoot`). When the recording frame was confirmed the two peers were at different frames (36 and 31), so the sync-test rule would run on two worlds; with the freeze those frames hold one state. (2) The commit: each peer commits alone, with the same executor as a sync test, when ITS confirmed frame reaches C, its world is at a frozen frame and its plan is authorized. (3) The rebase: each peer starts the next generation of its peer session at frame zero (`PeerLineage`), on a socket of that generation (`PeerTransport`: a socket receives only its own generation, see `netcode.md`); a peer that committed first runs no frame of the next session until the other is there (measured: it stays at frame 0). Witness `two_peers::a_door_under_a_peer_session_commits_on_each_peer_and_so_does_the_next`: Alice's crossing leaves two live rooms on each peer, the slot is free, Bob's crossing in the second session commits the same way and retires `switch_lab`, and no probed row differs at any frame of the three sessions. A same-room replay commits the same way (the `portal_bridge` walk of `two_peers_agree_in_the_rooms_that_carry_the_float_rows` runs two sessions). Poisons, as arms: one frozen frame that simulates moves the census; the commit with no freeze starts the next sessions from two worlds (the tick differs at frame zero, GGRS reports a desync). A sync test does not freeze (6 ticks from recording to commit). The readiness gate counts passes, not ticks, so a held simulation still authorizes its plan (`readiness_gate.rs`). MEASURED COST at a link latency of 3 updates each way: a peer's simulation is held 23 to 43 updates for one crossing (0.38 s to 0.72 s at 60 Hz): 2 to 7 until the commit, 21 to 36 for the GGRS handshake of the next session | Q155 (is that hold acceptable, or does the crossing keep its session). Named remainders: a link that loses parcels needs a linger before the old session ends (the in-memory link loses none); the freeze stops each live room, also the room nobody leaves; A PREPARATION THAT FAILS HAS NO RULE (measured 2026-10-04, Q156; a probe that is not in the tree): (1) on one peer, for a door: the other peer commits and waits at frame 0 of a session that never starts, the peer that failed stays held, the two worlds differ, and NOTHING is reported (`rollback_health` is `Ok` on both; my earlier text said the next session reports a desync, and it does not start); (2) on one peer, for a checkpoint restore: the same, and the note of the failure is never spent (the sync-test road ends it, and that is a host decision a peer cannot make alone); (3) on each peer: both stay held with no end, where a sync test goes on. THE VERDICT OF EACH PEER TRAVELS IN THE PEER INPUT (built 2026-10-05, `PeerInput`, `netcode.md`): a peer commits only when each handle said `Prepared` in a confirmed input, and a machine that cannot prepare is reported by handle. A `Failed` then ends the operation on each peer at the frame of that input, and each peer simulates again in agreement (2026-10-05; the default in force until Q156 is ruled; `two_peers::a_peer_does_not_commit_a_crossing_the_other_peer_could_not_prepare`, which was frozen with no end before); a door's plan is lowered from this machine's save (`minted_baseline_from_save`), so peers with different saves build different plans: plans must lower from a durable horizon that the peers agree on (read, not measured); a real transport owes the generation rule |
 | Product policy | Q153 (join road): a default is in force until it is ruled (the Join road row). Still open: whether a world clock survives a save | Rulings in `maintainer-decisions.md` |
 
+### Design: a multi-room publication checks every room, then commits every room
+
+Written 2026-10-09 for the PUBLICATION-FAULT queue row. No code yet.
+
+**The defect.** `reload_ldtk_world_from_disk` publishes the room of the
+primary seat, and then each other live room in turn (`republish_live_room`).
+`verify_and_publish` (`world/rooms/transaction.rs`) checks a room, promotes its
+candidates (`publish_candidate`) and finalizes it (`finalize_room_publication`)
+in one call. So when a later room is refused, the first room is already the
+world's, and the result is a mixed world.
+
+**Why the rooms cannot simply be checked first.** A later room is checked
+against state that the first room's finalization writes:
+- the `RoomSet` of the session (`apply_world_replacement` swaps it in);
+- its live-room counter (`next_live_room()` gives the instance the later room
+  mints, and `StaleMint` checks it again when the room is applied);
+- the `LiveRoomDefinition` and `LiveRoomInstance` of the first room's root
+  (`DefinitionAlreadyLive` reads them).
+
+**The design: two phases in the one command flush that runs today.**
+1. **Check.** Stage and check each room, and promote none of them. A room
+   that passes keeps its transactions as candidates and keeps its
+   `FrozenPublicationEffects` on the publication. The reload asks for this
+   with a retention that holds after the verdict (as
+   `PublicationRetention::UntilOwnerRetires` already holds the receipt). A
+   later room is checked against a projection, not against the live session:
+   - the new set, whose counter is the old counter moved on by each mint
+     before it;
+   - each live room that an earlier room replaces, named by its room id in
+     the new set (the rule `apply_world_replacement` already uses).
+
+   The check code already takes a set (`next_rooms: Some(..)`) for the first
+   room. A later room passes the projected set the same way.
+2. **Commit or refuse, for every room.** If each room passed, promote and
+   finalize them in order. The apply-time checks (`StaleMint` and the
+   others) then run against real state. If one of them refuses there, the
+   projection was wrong: that is a defect to fail loudly, not a third result.
+   If one room was refused in phase 1, run the refusal arm for each room
+   (`retire_candidate` and `discard_custody_handoffs`). Nothing has been
+   promoted, and a held bundle is discarded with its publication, having done
+   nothing (the deferral rule at `finalize_room_publication`). The world stays
+   as it was.
+
+No system runs between the phases, because the flush is one exclusive call.
+Holding the rooms before promotion, not after it, means that a refusal is the
+refusal road that exists today, and it needs no undo.
+
+**Measure before code.** These are reads, not facts yet:
+- whether a later room's baseline excludes the first room's unpromoted
+  candidates. Session-level holders are admitted into each room's baseline
+  (`TransactionRooms::admits`), so a staged session-level candidate would read
+  as a second holder of its identity;
+- whether the custody handoffs that the first room stages can be discarded
+  after the later rooms are checked (today they are applied in finalization or
+  discarded on refusal, in the same call);
+- whether the deferral for a candidate session (`entity_is_still_a_candidate`)
+  and the new hold are one rule or two. Make them one rule: a publication
+  whose effects wait for an owner.
+
+**Witness.** `a_later_room_refused_after_the_first_room_published_is_a_named_mixed_world`
+becomes a "rebuilds none" arm, with the assertions of
+`a_world_reload_with_a_live_room_that_cannot_be_described_rebuilds_none`: no
+`MIXED` status, the first room still on its old live instance, the epoch not
+moved, and no receipts or candidates left. **Poison:** commit the first room
+before the later rooms are checked; the arm must go red at the first room's
+live instance. **Control:** the two-room reload with no fault still brings
+each room to one generation (`a_world_reload_rebuilds_every_live_room`).
+When this lands, delete the `THE WORLD IS MIXED` status and
+`kept_the_old_generation`: they are the record of a state that can then no
+longer happen.
+
 ## Forbidden regressions
 
 - No `Single` fast path and no fallback to "the live room" in a reader that has

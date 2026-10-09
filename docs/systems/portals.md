@@ -90,6 +90,15 @@ opposed faces a wall's thickness apart) is not a special case:
   (`pane_dominant`), so the far portal's line and label are under the glass
   after a crossing too.
 
+- The window's capture is the mapped camera snapshot
+  (`PortalCaptureCameraMode::MappedCameraSnapshot`, the default): the host
+  view mapped through the pair, at the screen's density. Each texel of it is
+  one pixel of the pane, so the far half of a body joins its near half with no
+  step. The cone rect, the default before, is drawn into a texture of a fixed
+  size at a scale that is not the screen's; the far half sat about a pixel
+  off. The cost is a capture of the size of the view for each open window,
+  under the same capture budget.
+
 What cannot be removed: away from a door, its window is a wedge, and the far
 side inside the wedge is moved by the wall's thickness against the far side
 outside it. The screen has the wall's thickness more space than the two sides

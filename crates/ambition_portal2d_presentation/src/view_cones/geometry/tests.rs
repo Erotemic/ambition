@@ -281,12 +281,17 @@ fn view_cone_defaults_to_low_aperture_los() {
     );
 }
 
+/// The capture is the mapped camera snapshot by default: the host view mapped
+/// through the pair at the screen's density, so the far half of a body joins
+/// its near half at the seam with no step (Jon, 2026-10-09: a gap of about a
+/// pixel in the head's outline with the cone rect, whose texture is a fixed
+/// size at a scale that is not the screen's).
 #[test]
-fn view_cone_defaults_to_cone_rect_and_full_half_plane() {
+fn view_cone_defaults_to_the_mapped_camera_snapshot_and_full_half_plane() {
     let config = dynamic_config();
     assert_eq!(
         config.capture_camera_mode,
-        PortalCaptureCameraMode::ConeRect
+        PortalCaptureCameraMode::MappedCameraSnapshot
     );
     assert_eq!(config.half_plane_preview_max_lateral, 0.0);
     assert!(config.half_plane_preview_full_distance > 0.0);

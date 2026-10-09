@@ -454,9 +454,14 @@ impl PortalCaptureCameraMode {
 
 impl Default for PortalCaptureCameraMode {
     fn default() -> Self {
-        // Parallax copies anchor at the rig's `parallax_anchor` (the mapped host
-        // camera), so the framing centre does not affect the background.
-        Self::ConeRect
+        // The capture is what the main camera would draw from the far side:
+        // the host view mapped through the pair, at the screen's own density.
+        // Each texel of it is one pixel of the pane, so the far half of a
+        // body that crosses joins its near half at the seam with no step. The
+        // cone rect is drawn into a texture of a fixed size, at a scale that
+        // is not the screen's on either axis: the far half was resampled and
+        // sat up to half a texel off (about a pixel on screen).
+        Self::MappedCameraSnapshot
     }
 }
 
@@ -625,7 +630,7 @@ impl Default for PortalViewConeConfig {
             visibility_mode: PortalViewConeVisibilityMode::FaceLosWithContinuity,
             aperture_los_quality: PortalApertureLosQuality::Low,
             source_clip_policy: PortalViewConeSourceClipPolicy::ClampToFrame,
-            capture_camera_mode: PortalCaptureCameraMode::ConeRect,
+            capture_camera_mode: PortalCaptureCameraMode::default(),
             // Large but not so deep it punches through thin "door" walls into
             // the far room (which is what drives the heaviest recursion); also
             // keeps the near-face↔deep-content parallax modest.

@@ -114,8 +114,14 @@ front as it moves.
   the state of the room says how far it has gone.
 - A look is all or nothing for the visual quality tier. A tier with no budget
   for screen shaders (`screen_shader_scale` of zero: Potato) draws no look, and
-  the room is its block sprites. A sign or a door that the look dressed before
-  the tier changed keeps its dress until the room loads again.
+  the room is its block sprites. When the tier changes in a room that is
+  presented, the look takes back what it gave to things that are not its own:
+  each door gets the art of its kind, and each inked sign gets its own colours
+  and loses its halo. When the budget comes back, the look is presented again
+  and dresses them again. The systems that dress are the ones that undress
+  (`dress_doors`, `ink_labels_on_the_clean_side`), so they run in each budget.
+  Guard: `a_room_look_undresses_when_its_budget_goes` (Full, Potato, Full, with
+  no room load).
 - The glow is drawn in the shader. There is no bloom pass.
 - A look dresses the static blocks of the room. A moving platform is not a block of the room, and it keeps its own art.
 - A door that a portal hides keeps its frame.

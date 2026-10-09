@@ -58,7 +58,7 @@ use ambition_render::rendering::label_layout::{MirroredWorldLabel, StaticWorldLa
 use ambition_render::rendering::{
     BlockVisual, EntityArt, LoadingZoneVisual, RoomVisual, DOOR_SPRITE_ASPECT,
 };
-use ambition_sprite_sheet::game_assets::EntitySprite;
+use ambition_sprite_sheet::game_assets::{loading_zone_sprite, EntitySprite};
 
 use crate::room_look_state::RoomLookState;
 
@@ -240,11 +240,22 @@ struct PresentedRoomLook;
 /// says if a device draws such shaders (the Potato tier does not), and the
 /// screen filter reads the same number.
 fn looks_are_in_budget(quality: Option<Res<ResolvedVisualQuality>>) -> bool {
+    draws_looks(quality.as_deref())
+}
+
+/// [`looks_are_in_budget`], for a system that runs in each budget.
+fn draws_looks(quality: Option<&ResolvedVisualQuality>) -> bool {
     quality.is_none_or(|quality| quality.budget.shaders.screen_shader_scale > 0.0)
 }
 
 /// Take each look away when the budget for it goes. The block sprites below
 /// are then the room.
+///
+/// A look also dresses things that are not its own: a door's art and a sign's
+/// ink. Those are undressed by the systems that dress them ([`dress_doors`],
+/// [`ink_labels_on_the_clean_side`]), which run in each budget for that
+/// reason. With them gated on the budget, a room that was presented when the
+/// tier changed kept its look's doors and its inked signs over plain blocks.
 fn retire_looks_out_of_budget(
     mut commands: Commands,
     pieces: Query<Entity, With<PresentedRoomLook>>,
@@ -284,10 +295,14 @@ pub fn install(app: &mut App) {
     app.add_systems(
         Update,
         (
-            (spread_room_states, ink_labels_on_the_clean_side)
+            (
+                spread_room_states.run_if(looks_are_in_budget),
+                // In each budget: out of budget it gives each sign its own
+                // colours back.
+                ink_labels_on_the_clean_side,
+            )
                 .chain()
-                .run_if(resource_exists::<Assets<RoomStateMaterial>>)
-                .run_if(looks_are_in_budget),
+                .run_if(resource_exists::<Assets<RoomStateMaterial>>),
             retire_looks_out_of_budget.run_if(not(looks_are_in_budget)),
         ),
     );
@@ -312,12 +327,8 @@ where
             .run_if(resource_exists::<Assets<M>>)
             .run_if(looks_are_in_budget),
     );
-    app.add_systems(
-        Update,
-        dress_doors::<M>
-            .run_if(resource_exists::<Assets<M>>)
-            .run_if(looks_are_in_budget),
-    );
+    // In each budget: out of budget it gives each door its plain art back.
+    app.add_systems(Update, dress_doors::<M>.run_if(resource_exists::<Assets<M>>));
 }
 
 /// Whether a room asks for the look `M`.
@@ -399,8 +410,12 @@ fn value_noise(p: Vec2, scale: f32, salt: u32) -> f32 {
 /// Give each door of a room that asks for the look `M` the door of that look.
 /// The door of a two-state room follows the front, so this asks again each
 /// frame and writes only a door that changes.
+///
+/// With no budget for the look, a door this dressed gets the art of its kind
+/// back: the look is all or nothing, and its door on plain blocks is half.
 fn dress_doors<M: RoomLook>(
     mut commands: Commands,
+    quality: Option<Res<ResolvedVisualQuality>>,
     rooms: LiveRoomSpecs,
     spreads: Query<(&InRoomInstance, &RoomLookSpread)>,
     doors: Query<(Entity, &LoadingZoneVisual, &InRoomInstance, Option<&EntityArt>)>,
@@ -418,8 +433,14 @@ fn dress_doors<M: RoomLook>(
         }) else {
             continue;
         };
-        let advance = advance_of(&spreads, stamp);
-        let art = EntityArt(M::door_art(&spec.world, zone.aabb.center(), advance));
+        let art = if draws_looks(quality.as_deref()) {
+            EntityArt(M::door_art(&spec.world, zone.aabb.center(), advance_of(&spreads, stamp)))
+        } else if dressed.is_some() {
+            EntityArt(loading_zone_sprite(zone.activation))
+        } else {
+            // Never dressed: the door has the art of its kind already.
+            continue;
+        };
         if dressed != Some(&art) {
             // `try_insert`: a room visual can leave before the command flush.
             commands.entity(entity).try_insert(art);
@@ -645,6 +666,7 @@ fn present_room_look<M: RoomLook>(
 /// a label for a second view is a label also, with its own ink and halo.
 fn ink_labels_on_the_clean_side(
     mut commands: Commands,
+    quality: Option<Res<ResolvedVisualQuality>>,
     rooms: LiveRoomSpecs,
     spreads: Query<(&InRoomInstance, &RoomLookSpread)>,
     mut labels: Query<
@@ -661,6 +683,9 @@ fn ink_labels_on_the_clean_side(
     >,
     stamps: Query<&InRoomInstance>,
 ) {
+    // With no budget no look is drawn and no air is pale: each sign that has
+    // ink gets its own colours back, by the arm that takes ink off below.
+    let in_budget = draws_looks(quality.as_deref());
     for (entity, mut label, text, font, stamp, copy, ink) in &mut labels {
         let stamp = stamp.or_else(|| copy.and_then(|copy| stamps.get(copy.root).ok()));
         let Some(stamp) = stamp else {
@@ -676,7 +701,7 @@ fn ink_labels_on_the_clean_side(
         let world = &spec.world;
         let at = ae::config::bevy_size_to_world(world.size, ae::Vec2::new(label.anchor.x, label.anchor.y));
         // The air is pale until about here (`air_state` in the shader).
-        let pale = behind_front(world, at, advance_of(&spreads, stamp)) <= -60.0;
+        let pale = in_budget && behind_front(world, at, advance_of(&spreads, stamp)) <= -60.0;
         match (pale, ink) {
             (true, None) => {
                 let halo = [Vec2::X, -Vec2::X, Vec2::Y, -Vec2::Y].map(|offset| {

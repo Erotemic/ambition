@@ -129,6 +129,15 @@ target's true position. A brute asks for it only while it chases, and it
 chases only a foe it believes in, but the place is where the foe IS and not
 where the brute believes it is.
 
+LIMIT, the checksum: a brute's follower is rewound (the `Brain` is stored by
+clone) and is NOT in the brain's checksum cursor. `MeleeBrute` has no cursor
+arm (`SnapshotCursor for Brain` writes tag 0 for it; its `mode` was not
+written before this slice). Roam's follower is written. So two peers whose
+brutes hold different legs agree on the checksum until the bodies move apart.
+No shipped profile navigates, so each shipped brute's follower is idle. The
+content that first sets `navigates` adds the arm, which is a payload schema
+bump (three baselines).
+
 An author's page is [`docs/systems/npc-navigation.md`](../../systems/npc-navigation.md).
 
 Build cost, measured by YardratAmbition 2026-10-09 on 76 shipped rooms and two

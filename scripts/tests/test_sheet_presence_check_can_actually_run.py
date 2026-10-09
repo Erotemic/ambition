@@ -56,7 +56,9 @@ def test_the_module_puts_the_renderer_within_reach_when_it_is_checked_out():
     if not RENDERER.is_dir():
         pytest.skip("the sprite renderer submodule is not checked out")
     load()
-    assert str(RENDERER.resolve()) in sys.path, (
+    # Compared resolved, on both sides: a worktree links the submodule, and the
+    # module may put either spelling of the one directory on the path.
+    assert any(Path(entry).resolve() == RENDERER.resolve() for entry in sys.path if entry), (
         "the renderer submodule must be reachable, or claimed_install_names "
         "returns None and the presence check exits 0 without checking anything"
     )

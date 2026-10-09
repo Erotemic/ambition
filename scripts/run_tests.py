@@ -2373,11 +2373,11 @@ def coverage_notice(
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
             "      - tests behind an OPT-IN #[cfg(feature = \"...\")] — MEASURED\n"
-            "        2026-10-09 by `scripts/feature_gated_tests.py`, 519 tests\n"
+            "        2026-10-09 by `scripts/feature_gated_tests.py`, 520 tests\n"
             "        across 31 crates, the largest single omission this\n"
             "        footer names — though the scanner counts `#[cfg(feature)]`\n"
             "        STATICALLY, and a feature another workspace member turns on\n"
-            "        IS unified into `--workspace`, so some of the 519 do run\n"
+            "        IS unified into `--workspace`, so some of the 520 do run\n"
             "        here (MEASURED 2026-09-12: `ambition_characters`'\n"
             "        content_pack arms execute, via `game/ambition_content`).\n"
             "        footer names. `python3 scripts/feature_gated_tests.py` prints\n"
@@ -2589,6 +2589,11 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         status = Path(tempfile.gettempdir()) / f"run_tests_status.nested.{os.getpid()}.json"
     else:
         status = REPO / "target" / STATUS_NAME
+    # The ledger is evidence a push is judged by (`required_checks.py`), so
+    # only the run that writes the default status writes it. A test drives
+    # this loop with fake jobs under real job names and a status of its own;
+    # its rows would certify checks that never ran.
+    records_evidence = status == REPO / "target" / STATUS_NAME
     results: list[JobResult] = []
     # `free_gb` travels in the status file so a long autonomous run can WATCH
     # the headroom fall instead of discovering it at zero.
@@ -2664,7 +2669,7 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
                                   "current_job": j.name,
                                   "current_started": time.time(),
                                   "completed": completed_rows(results)})
-            tree_before = lane_ledger.tested_tree(REPO)
+            tree_before = lane_ledger.tested_tree(REPO) if records_evidence else None
             rc, executed, blocked, evidence = run_job_streaming(j, env)
             results.append(
                 JobResult(j.name, j.argv, rc == 0, time.monotonic() - start,

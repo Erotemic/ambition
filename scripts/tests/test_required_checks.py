@@ -190,3 +190,17 @@ def test_the_hook_checks_a_push_to_main_from_the_remote_tip(repo: Path) -> None:
         f"(delete) {zero} refs/heads/main {base}",
     ]
     assert required_checks.pre_push_base(repo, lines) == [(base, head)]
+
+
+def test_a_run_with_a_status_of_its_own_records_no_evidence(monkeypatch, tmp_path: Path) -> None:
+    """Tests drive `run_tests.run` with fake jobs under real job names. Only
+    the run that writes the default status may write the ledger, or a fake
+    `python -c pass` certifies the repo tooling job."""
+    import run_tests
+
+    monkeypatch.setattr(run_tests, "free_gb_on_target", lambda: 500.0)
+    monkeypatch.setattr(run_tests, "append_cost_ledger", lambda *a, **k: None)
+    before = len(lane_ledger.rows(REPO))
+    fake = run_tests.Job(REPO_TOOLING_JOB, [sys.executable, "-c", "pass"])
+    assert run_tests.run([fake], False, status_json=str(tmp_path / "status.json")) == 0
+    assert len(lane_ledger.rows(REPO)) == before, "a test's fake job was recorded as evidence"

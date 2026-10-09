@@ -974,6 +974,18 @@ pub enum BrainPreset {
         attack_range: f32,
         roam_radius: f32,
     },
+    /// Go to places in the room by the navigation graph, and rest at each.
+    /// `company` is how often the next place is the one nearest the player.
+    Roam {
+        speed: f32,
+        trot_speed: f32,
+        rest_min_s: f32,
+        rest_max_s: f32,
+        #[serde(default)]
+        company: f32,
+        #[serde(default)]
+        notice_radius: f32,
+    },
     BossPattern {
         aggressiveness: f32,
         encounter_id: String,

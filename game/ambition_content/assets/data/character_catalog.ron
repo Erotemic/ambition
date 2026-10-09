@@ -190,14 +190,15 @@
     },
     brain_presets: {
         "stand_still": StandStill,
-        "companion_dog_roam": Patrol(
-            spawn_local_x: 0.0,
-            radius: 96.0,
+        // Goes to places in its room by the room's surfaces, rests at each,
+        // and goes to the player's side some of the time.
+        "companion_dog_roam": Roam(
             speed: 54.0,
-            aggressiveness: 0.0,
-            aggro_radius: 80.0,
-            attack_range: 0.0,
-            hop_interval_s: 3.0,
+            trot_speed: 105.0,
+            rest_min_s: 1.2,
+            rest_max_s: 4.0,
+            company: 0.3,
+            notice_radius: 120.0,
         ),
         "patrol_peaceful": Patrol(
             spawn_local_x: 0.0,

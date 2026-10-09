@@ -19,6 +19,9 @@ use ambition_platformer2d_core as ae;
 use super::smash::{SmashCfg, SmashState};
 use super::snapshot::BrainSnapshot;
 
+pub mod roam;
+pub use roam::{RoamCfg, RoamState};
+
 // ===== Top-level state-machine variant =====
 
 /// A reusable AI policy + its per-actor runtime state.
@@ -82,6 +85,9 @@ pub enum StateMachineCfg {
     /// Lively flyer: peaceful (perch/fly/walk/land-by-player) or hostile
     /// (stalk/dive/recover), selected by `cfg.aggressiveness`.
     Aerial { cfg: AerialCfg, state: AerialState },
+    /// Go to places in the room, by the routes the navigation advisor gives,
+    /// and rest at each. See [`roam`].
+    Roam { cfg: RoamCfg, state: RoamState },
 }
 
 impl StateMachineCfg {
@@ -107,6 +113,8 @@ impl StateMachineCfg {
             // gate moves into `SmashCfg`.
             Self::Smash { .. } => true,
             Self::Aerial { cfg, .. } => cfg.aggressiveness > 0.0,
+            // A roamer presses no attack.
+            Self::Roam { .. } => false,
         }
     }
 }
@@ -140,6 +148,9 @@ impl StateMachineCfg {
             | Self::Sniper { .. }
             | Self::ChargeCrash { .. }
             | Self::Aerial { .. } => Need::TargetBelief,
+            // Faces a near target and can choose the place nearest it
+            // (`target_pos`, `target_alive`, `target_delta_local`).
+            Self::Roam { .. } => Need::TargetBelief,
             // Reads it through `to_character_ai_snapshot`.
             Self::MeleeBrute { .. } => Need::TargetBelief,
             // `tick.rs` copies `target_pos` into the boss pattern's own snapshot.
@@ -173,6 +184,7 @@ pub fn tick_simple_state_machine(
         StateMachineCfg::Sniper { cfg, state } => tick_sniper(cfg, state, snapshot, out),
         StateMachineCfg::ChargeCrash { cfg, state } => tick_charge_crash(cfg, state, snapshot, out),
         StateMachineCfg::Aerial { cfg, state } => tick_aerial(cfg, state, snapshot, out),
+        StateMachineCfg::Roam { cfg, state } => roam::tick_roam(cfg, state, snapshot, out),
         // ⚠ NAMED, not a `_` arm. A new variant has to come here and say which
         // side of the split it is on, instead of silently becoming somebody
         // else's problem at runtime.

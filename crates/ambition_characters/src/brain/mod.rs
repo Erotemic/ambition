@@ -81,6 +81,17 @@ pub enum Brain {
     StateMachine(StateMachineCfg),
 }
 
+/// What a brain that navigates asks of the navigation advisor.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NavigationRequest {
+    /// The place the brain is going to, when it holds one.
+    pub goal: Option<ambition_platformer2d_core::Vec2>,
+    /// The number of the brain's next choice of place. It seeds the places
+    /// the advisor offers, so the offer is a function of the brain's own
+    /// state and of no clock.
+    pub choice: u64,
+}
+
 impl Brain {
     /// Construct a `Brain::StateMachine(StandStill)`. Used by spawn
     /// sites that want a no-op AI brain (sandbags, dialogue-only
@@ -167,6 +178,19 @@ impl Brain {
         }
     }
 
+    /// What this brain asks of the navigation advisor, when it is a brain
+    /// that navigates; `None` for a brain that does not. The advisor reads it
+    /// to know which bodies to advise, and for what.
+    pub fn navigation_request(&self) -> Option<NavigationRequest> {
+        match self {
+            Brain::StateMachine(StateMachineCfg::Roam { state, .. }) => Some(NavigationRequest {
+                goal: state.goal,
+                choice: state.picks as u64,
+            }),
+            Brain::StateMachine(_) => None,
+        }
+    }
+
     /// Short label for this brain backend — useful in debug overlays
     /// and trace dumps. Single word per backend.
     pub fn label(&self) -> &'static str {
@@ -183,6 +207,7 @@ impl Brain {
                 StateMachineCfg::Smash { .. } => "smash",
                 StateMachineCfg::Fighter { .. } => "fighter",
                 StateMachineCfg::Aerial { .. } => "aerial",
+                StateMachineCfg::Roam { .. } => "roam",
             },
         }
     }
@@ -221,6 +246,7 @@ impl Brain {
                 (C::Sniper { cfg: x, .. }, C::Sniper { cfg: y, .. }) => x == y,
                 (C::ChargeCrash { cfg: x, .. }, C::ChargeCrash { cfg: y, .. }) => x == y,
                 (C::Aerial { cfg: x, .. }, C::Aerial { cfg: y, .. }) => x == y,
+                (C::Roam { cfg: x, .. }, C::Roam { cfg: y, .. }) => x == y,
                 // The full authored SmashCfg — differing tuning is a different preset.
                 (C::Smash { cfg: x, .. }, C::Smash { cfg: y, .. }) => x == y,
                 // The authored preset inputs; the rest of the cfg is derived from

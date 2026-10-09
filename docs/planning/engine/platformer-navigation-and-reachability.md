@@ -1,6 +1,7 @@
 # Platformer navigation and reachability
 
-**State:** OPEN strategic capability; advance from concrete movement/AI/world
+**State:** OPEN strategic capability. The first slice landed 2026-10-09 (one
+room, one body, walk/jump/drop). Advance from concrete movement/AI/world
 customers rather than the current fighter rollout regression.
 
 ## Goal
@@ -40,11 +41,9 @@ Substrate locations: `RecoveryLens`
 `CollisionWorld` questions `solids`, `carves_only`, `hostable_surfaces` and
 `base` (`crates/ambition_platformer2d_world/src/collision.rs`).
 
-**No navigation exists:** no reachability type, nav graph or pathfinding in
-`crates/` or `game/`. Search hits for `navigation` are menu
-navigation, and `a_star` and `reachability` hits are substrings. This page is
-also the one missing foundation for
-[`agentic-character-runtime.md`](agentic-character-runtime.md).
+**Navigation exists for one room and one body (2026-10-09).** The first
+slice is below ("The first slice"). It is also the foundation
+[`agentic-character-runtime.md`](agentic-character-runtime.md) needed.
 
 **Explanation vocabulary.** For "why is this route shut", reuse `WhyNot { term,
 subject, observed }` (`shared_tangle/src/authored_logic/mod.rs`), which
@@ -91,6 +90,55 @@ outcome. The current next step is a fighter decision trace, owned by
 Do not respond by redesigning generic navigation or by adding a Smash-specific
 "committed fall means dead" heuristic. A body may still recover through drift,
 jumps, flight, walls, ledges, recovery moves, impulses, portals or grapples.
+
+## The first slice: a surface graph a brain can follow (2026-10-09)
+
+Customer: the companion dog in the basement of the central hub. Jon,
+2026-10-09: the dog must "navigate to random waypoints, and not jump in a fixed
+pattern". Nothing in the slice is about the dog.
+
+| Part | Where | What it is |
+| --- | --- | --- |
+| Traversal envelope | `ambition_platformer2d_world::navigation::envelope` | How far and how high one body's running jump and walk-off go. Measured by the kernel in an empty probe world. |
+| Standing surfaces | `...::navigation::surfaces` | Where a body of a given size can stand in a room. Blocks that touch at one height are one surface. A wall, a low ceiling or a hazard takes its stretch out. |
+| Surface graph | `...::navigation::graph` | The legs between surfaces. A leg is proposed from the geometry and the envelope, and kept only when a rollout in the room, in the kernel, arrives on the surface it names. Routes are a shortest-path search over the legs. |
+| Leg contract | `ambition_platformer2d_core::navigation` | `NavLeg`, and `follow_leg`: the ONE rule that turns a leg and the body's state into input. The graph builder and the brain both call it. |
+| Advisor | `actor_monolith::features::ecs::navigation` | A system in `ActorDecisionSet::Observe`. For each body whose brain navigates it writes a `NavAdvice`: places the body can reach, and the next leg to the brain's goal. Keeps the graphs (`RoomNavigation`). |
+| Roam brain | `ambition_characters::brain::state_machine::roam` | Policy. Chooses a place, follows legs, rests. Catalog preset `Roam(...)`. |
+
+The rules the slice holds:
+
+- **No second physics, and no second follower.** A leg is in the graph because
+  the body did it in the kernel with `follow_leg`. A brain follows it with
+  `follow_leg`. A second copy of either makes the graph a guess.
+- **A brain reads no room.** The advisor is perception: it writes a plain value
+  into the `BrainSnapshot`. The brain owns the goal and the rhythm.
+- **Intent, not position.** A leg becomes ordinary locomotion and jump intent in
+  `ActorControlFrame`. The control gate and the body's abilities apply as they
+  do to any brain.
+- **The graph is derived, and built whole.** It is a pure function of the room's
+  authored geometry, the body's tuning and the motion frame. It is not in a
+  snapshot. It is never built a part at a time: an answer that depends on when
+  the graph was asked for is different after a rewind.
+- **The brain's state is rewound.** `RoamState` (goal, leg, phase, clocks) is in
+  the `Brain` component, which is stored by clone, and in its checksum cursor.
+
+Guards: `navigation::envelope::tests::a_gap_inside_the_envelope_is_crossed_and_one_outside_is_not`
+(the envelope against the kernel) and
+`navigation::graph::tests::a_body_that_follows_the_advice_arrives` (a body that
+follows the advice arrives at each reachable surface, and a surface out of
+reach is said to be unreachable).
+
+Not modelled, each a seam:
+
+- a drop through a one-way surface, an air jump, a dash, a wall verb, flight;
+- a slope or a surface chain, a surface that moves;
+- geometry that is not authored in the room (a gate, a breakable). A leg such a
+  thing stops fails, and the brain plans again;
+- a hazard in the air of a leg;
+- a route to another room (the door graph below is a different graph);
+- a gravity frame that is not axis-aligned;
+- `WhyNot`: an unreachable goal is `NavNext::Unreachable` with no reason.
 
 ## Architecture direction
 

@@ -422,7 +422,7 @@ mod actor_decision_phase_tests {
         ActorDecisionSet::Publish,
     ];
 
-    const DECISION_MEMBERSHIP: [(&str, ActorDecisionSet); 10] = [
+    const DECISION_MEMBERSHIP: [(&str, ActorDecisionSet); 11] = [
         ("dissolve_settled_grudges", ActorDecisionSet::Targeting),
         ("select_actor_targets", ActorDecisionSet::Targeting),
         ("assess_dormancy", ActorDecisionSet::Prepare),
@@ -430,6 +430,7 @@ mod actor_decision_phase_tests {
         ("collect_perception_peers", ActorDecisionSet::Observe),
         ("collect_perception_projectiles", ActorDecisionSet::Observe),
         ("observe_actor_decision_inputs", ActorDecisionSet::Observe),
+        ("advise_navigation", ActorDecisionSet::Observe),
         (
             "maintain_actor_pre_decision_state",
             ActorDecisionSet::StateMaintenance,
@@ -1118,6 +1119,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // same-phase deferred commands or write-after-read order require them.
         app.init_resource::<ActorDecisionFacts>();
         app.init_resource::<ActorDecisionFrames>();
+        app.init_resource::<crate::features::ecs::navigation::NavigationAdvice>();
+        app.init_resource::<crate::features::ecs::navigation::RoomNavigation>();
         app.init_resource::<ActorSteering>();
         // Every solid body's contact box, resampled before every movement
         // phase. Empty in every composition that grants no body the
@@ -1144,6 +1147,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 crate::features::ecs::perception::collect_perception_peers,
                 crate::features::ecs::perception::collect_perception_projectiles,
                 observe_actor_decision_inputs,
+                crate::features::ecs::navigation::advise_navigation,
             )
                 .in_set(ActorDecisionSet::Observe),
         );

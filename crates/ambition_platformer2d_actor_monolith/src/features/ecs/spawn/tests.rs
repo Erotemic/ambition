@@ -611,6 +611,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
         player_input: None,
         crowding: None,
         terrain: None,
+        navigation: Default::default(),
         air_jumps_remaining: 0,
     };
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();

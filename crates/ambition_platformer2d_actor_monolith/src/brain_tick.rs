@@ -70,7 +70,8 @@ pub fn tick_brain_with_actions(
         | StateMachineCfg::Skirmisher { .. }
         | StateMachineCfg::Sniper { .. }
         | StateMachineCfg::ChargeCrash { .. }
-        | StateMachineCfg::Aerial { .. } => {
+        | StateMachineCfg::Aerial { .. }
+        | StateMachineCfg::Roam { .. } => {
             unreachable!("the simple dispatcher answers these and returns true")
         }
     }

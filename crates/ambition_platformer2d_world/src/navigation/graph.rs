@@ -19,8 +19,8 @@
 use ambition_platformer2d_core as ae;
 use ae::movement::{step_motion, ActionEdges, Edge, InputState, MotionStepContext, MovementAction};
 use ae::navigation::{
-    follow_leg, LegFacts, LegPhase, LegProgress, NavLeg, NavLegKind, NavNext, ARRIVE_TOLERANCE, LAND_TOLERANCE,
-    NAV_WAYPOINTS,
+    follow_leg, mix, LegFacts, LegPhase, LegProgress, NavLeg, NavLegKind, NavNext, ARRIVE_TOLERANCE,
+    LAND_TOLERANCE, NAV_WAYPOINTS,
 };
 use ae::{BodyClusterScratch, LocalAxes, MotionFrame, Vec2, World};
 
@@ -50,6 +50,10 @@ pub struct NavGraph {
     pub half: Vec2,
     /// The body's top speed along a surface, for the cost of a walk.
     pub run_speed: f32,
+    /// The highest the body's feet rise in a jump, and the farthest its
+    /// leading edge goes in one. What an author sizes a room by.
+    pub apex_rise: f32,
+    pub jump_reach: f32,
     pub surfaces: Vec<StandSurface>,
     pub links: Vec<NavLink>,
     /// The links that leave each surface.
@@ -66,17 +70,19 @@ impl NavGraph {
         let nav = NavFrame { side: frame.side(), down: frame.down() };
         let half = Vec2::new(envelope.body_width * 0.5, envelope.body_height * 0.5);
         let surfaces = standing_surfaces(world, nav, half * 2.0);
+        let jump_reach = envelope.jump.iter().map(|sample| sample.lead).fold(0.0, f32::max);
+        let drop_reach = envelope.drop.iter().map(|sample| sample.lead).fold(0.0, f32::max);
+        let apex = envelope.apex_rise();
         let mut graph = Self {
             frame: nav,
             half,
             run_speed: envelope.takeoff_speed.max(1.0),
+            apex_rise: apex,
+            jump_reach,
             out: vec![Vec::new(); surfaces.len()],
             surfaces,
             links: Vec::new(),
         };
-        let jump_reach = envelope.jump.iter().map(|sample| sample.lead).fold(0.0, f32::max);
-        let drop_reach = envelope.drop.iter().map(|sample| sample.lead).fold(0.0, f32::max);
-        let apex = envelope.apex_rise();
         for from in 0..graph.surfaces.len() {
             for to in 0..graph.surfaces.len() {
                 if from == to {
@@ -378,14 +384,6 @@ fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f3
             recovery_commitment_outstanding: false,
         },
     );
-}
-
-/// SplitMix64: one well-mixed number from one number.
-fn mix(seed: u64) -> u64 {
-    let mut z = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
-    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    z ^ (z >> 31)
 }
 
 #[cfg(test)]

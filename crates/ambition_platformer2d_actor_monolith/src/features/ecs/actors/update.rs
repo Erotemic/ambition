@@ -266,6 +266,9 @@ pub fn tick_actor_brains(
     // decision loop reads the resulting values and does not rescan the actor
     // population itself.
     decision_facts: Res<ActorDecisionFacts>,
+    // The routes each navigating body can know this tick, observed in the
+    // preceding phase (`navigation::advise_navigation`).
+    navigation: Res<crate::features::ecs::navigation::NavigationAdvice>,
     // ⭐ THE STAGE'S DECLARED COMBAT LAW, so a fighter ranking its finishers
     // spends the same percent curve the hit resolver does. `None` is the
     // undeclared world — every Ambition room — and resolves to the identity
@@ -628,6 +631,7 @@ pub fn tick_actor_brains(
                             }),
                         aerial,
                     );
+                    snapshot.navigation = navigation.of(this_actor_entity);
                     // An `Unmirrored` mount shows no turn, so its rider turns
                     // by its own box.
                     if let Some((mount, false)) = riding.and_then(|riding| bodies.get(riding.mount).ok()) {
@@ -2485,6 +2489,8 @@ fn build_enemy_brain_snapshot(
         player_input: None,
         crowding,
         terrain: None,
+        // `tick_actor_brains` fills it from this tick's advice.
+        navigation: Default::default(),
         air_jumps_remaining: body.jump.air_jumps_available,
     }
 }

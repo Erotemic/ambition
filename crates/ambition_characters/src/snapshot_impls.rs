@@ -550,6 +550,32 @@ impl SnapshotCursor for crate::brain::Brain {
                     },
                 );
             }
+            // Every field of `RoamState` decides what the body does next: the
+            // place it goes to, the leg it is on, and when its rest ends.
+            Brain::StateMachine(StateMachineCfg::Roam { state, .. }) => {
+                put_u8(out, 4);
+                match state.goal {
+                    None => put_bool(out, false),
+                    Some(goal) => {
+                        put_bool(out, true);
+                        put_vec2(out, goal);
+                    }
+                }
+                match state.leg {
+                    None => put_bool(out, false),
+                    Some(leg) => {
+                        put_bool(out, true);
+                        put_u8(out, leg.kind as u8);
+                        put_vec2(out, leg.start);
+                        put_vec2(out, leg.takeoff);
+                        put_vec2(out, leg.land);
+                    }
+                }
+                put_u8(out, state.phase as u8);
+                put_f32(out, state.until);
+                put_u32(out, state.picks);
+                put_u8(out, state.misses);
+            }
             _ => put_u8(out, 0),
         }
     }

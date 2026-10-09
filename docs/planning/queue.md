@@ -263,9 +263,11 @@ production invariant.
 **Owner:** [navigation and reachability](engine/platformer-navigation-and-reachability.md),
 with the [agentic character runtime](engine/agentic-character-runtime.md) (P6).
 
-**Current failure:** typed actions, world facts, memory and combat policy exist;
-general world navigation and an open custom-brain policy interface do not, so
-the world-fact architecture has no consumer.
+**Current failure:** typed actions, world facts, memory and combat policy exist.
+In-room navigation exists since 2026-10-09 (a surface graph, checked in the
+kernel, that a brain follows; the owner doc has "The first slice"). A route to
+another room and an open custom-brain policy interface do not exist, so the
+world-fact architecture has no consumer.
 
 **Next action:** a character observes that an item exists in another room,
 decides whether it can reach it with its real movement capabilities, moves there

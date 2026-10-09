@@ -2,10 +2,11 @@
 //! `tuning:` over the passed-in Rust `SheetTuning` const.
 
 use super::*;
+use crate::character::animator::SIT_AFTER_IDLE_S;
 use crate::character::CharacterAnimator;
 
-#[test]
-fn a_sheet_with_sit_rows_enters_and_leaves_a_conversation_pose() {
+/// An animator of a sheet that can sit, bark, walk and die.
+fn social_animator() -> CharacterAnimator {
     let record: SheetRecord = ron::from_str(r#"(
         target: "social_fixture", image: "social.png", label_width: 0,
         frame_width: 16, frame_height: 16,
@@ -16,6 +17,7 @@ fn a_sheet_with_sit_rows_enters_and_leaves_a_conversation_pose() {
             (animation: "stand_up", row_index: 3, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
             (animation: "bark", row_index: 4, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
             (animation: "death", row_index: 5, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
+            (animation: "walk", row_index: 6, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
         ],
     )"#).expect("the social sheet parses");
     let asset = CharacterSpriteAsset {
@@ -27,7 +29,12 @@ fn a_sheet_with_sit_rows_enters_and_leaves_a_conversation_pose() {
         resolved_tier: Default::default(),
         rigged: None,
     };
-    let mut animator = CharacterAnimator::new(&asset);
+    CharacterAnimator::new(&asset)
+}
+
+#[test]
+fn a_sheet_with_sit_rows_enters_and_leaves_a_conversation_pose() {
+    let mut animator = social_animator();
     let request = |animator: &mut CharacterAnimator, held, bark| {
         animator.request_actor_pose(CharacterAnim::Idle, [], false, held, bark)
     };
@@ -47,6 +54,32 @@ fn a_sheet_with_sit_rows_enters_and_leaves_a_conversation_pose() {
     request(&mut animator, false, false);
     animator.request_actor_pose(CharacterAnim::Death, [], false, true, true);
     assert_eq!(animator.current, CharacterAnim::Death);
+}
+
+/// A sheet that can sit sits when its body has stood idle for a moment, and
+/// is on its feet at once when the body moves. A body that is idle for less
+/// than that stays on its feet.
+#[test]
+fn a_body_that_can_sit_sits_when_it_stands_idle_and_is_up_when_it_moves() {
+    let mut animator = social_animator();
+    let idle = |animator: &mut CharacterAnimator, dt: f32| {
+        animator.note_idle(true, dt);
+        animator.request_actor_pose(CharacterAnim::Idle, [], false, false, false);
+    };
+    idle(&mut animator, SIT_AFTER_IDLE_S * 0.5);
+    assert_eq!(animator.current, CharacterAnim::Idle);
+    idle(&mut animator, SIT_AFTER_IDLE_S);
+    assert_eq!(animator.current, CharacterAnim::SitDown);
+    animator.tick(0.21);
+    idle(&mut animator, 0.1);
+    assert_eq!(animator.current, CharacterAnim::SitIdle);
+    // It moves: no stand-up row, it walks.
+    animator.note_idle(false, 0.016);
+    animator.request_actor_pose(CharacterAnim::Walk, [], false, false, false);
+    assert_eq!(animator.current, CharacterAnim::Walk);
+    // And the count starts again.
+    idle(&mut animator, SIT_AFTER_IDLE_S * 0.5);
+    assert_eq!(animator.current, CharacterAnim::Idle);
 }
 
 /// When the manifest has a `tuning:` block, `spec_from_record` uses it, not the

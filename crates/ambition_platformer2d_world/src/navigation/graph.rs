@@ -29,6 +29,9 @@ use super::surfaces::{standing_surfaces, NavFrame, StandSurface};
 
 /// The most kernel steps one leg may take in its rollout.
 const MAX_LEG_STEPS: usize = 360;
+/// Steps a body may stand still on the ground in `Commit` before its leg has
+/// failed. It starts the leg at rest, and it moves on its first steps.
+const STALL_STEPS: usize = 15;
 /// How far back from an edge a running jump starts, when the surface has room.
 const RUN_UP: f32 = 140.0;
 
@@ -40,6 +43,25 @@ pub struct NavLink {
     pub leg: NavLeg,
     /// Seconds from `leg.start`, at rest, to the landing.
     pub cost: f32,
+}
+
+/// What one [`NavGraph::build`] cost, in kernel work.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct BuildCost {
+    /// Leg rollouts run.
+    pub rollouts: usize,
+    /// Kernel steps over all rollouts.
+    pub steps: usize,
+    /// The part of `steps` spent in rollouts that did not arrive.
+    pub failed_steps: usize,
+}
+
+impl BuildCost {
+    fn add(&mut self, other: Self) {
+        self.rollouts += other.rollouts;
+        self.steps += other.steps;
+        self.failed_steps += other.failed_steps;
+    }
 }
 
 /// The standing surfaces of a room and the legs between them, for one body.
@@ -56,6 +78,8 @@ pub struct NavGraph {
     pub jump_reach: f32,
     pub surfaces: Vec<StandSurface>,
     pub links: Vec<NavLink>,
+    /// What the build cost.
+    pub cost: BuildCost,
     /// The links that leave each surface.
     out: Vec<Vec<usize>>,
 }
@@ -82,6 +106,7 @@ impl NavGraph {
             out: vec![Vec::new(); surfaces.len()],
             surfaces,
             links: Vec::new(),
+            cost: BuildCost::default(),
         };
         for from in 0..graph.surfaces.len() {
             for to in 0..graph.surfaces.len() {
@@ -98,13 +123,15 @@ impl NavGraph {
                 if rise < -envelope.probe.max_drop || !(hop || drop) {
                     continue;
                 }
+                let mut cost = BuildCost::default();
                 let best = proposals(a, b, half.x, hop, drop)
                     .into_iter()
                     .filter_map(|leg| {
                         let leg = graph.in_world(leg);
-                        graph.rollout(world, body, frame, &leg, to).map(|cost| (leg, cost))
+                        graph.rollout(world, body, frame, &leg, to, &mut cost).map(|seconds| (leg, seconds))
                     })
                     .min_by(|x, y| x.1.total_cmp(&y.1));
+                graph.cost.add(cost);
                 if let Some((leg, cost)) = best {
                     graph.out[from].push(graph.links.len());
                     graph.links.push(NavLink { from, to, leg, cost });
@@ -122,12 +149,26 @@ impl NavGraph {
 
     /// The seconds `leg` takes in the kernel, when the body arrives on
     /// surface `to` from each place the follower can start it at.
-    fn rollout(&self, world: &World, body: &BodyClusterScratch, frame: MotionFrame, leg: &NavLeg, to: usize) -> Option<f32> {
+    fn rollout(
+        &self,
+        world: &World,
+        body: &BodyClusterScratch,
+        frame: MotionFrame,
+        leg: &NavLeg,
+        to: usize,
+        cost: &mut BuildCost,
+    ) -> Option<f32> {
         let mut slowest = 0.0_f32;
         // The follower starts a leg in the tolerance of its start point, so
         // the leg must hold at both ends of the tolerance.
         for offset in [0.0, ARRIVE_TOLERANCE, -ARRIVE_TOLERANCE] {
-            slowest = slowest.max(self.rollout_from(world, body, frame, leg, to, offset)?);
+            let (seconds, steps) = self.rollout_from(world, body, frame, leg, to, offset);
+            cost.rollouts += 1;
+            cost.steps += steps;
+            if seconds.is_none() {
+                cost.failed_steps += steps;
+            }
+            slowest = slowest.max(seconds?);
         }
         Some(slowest)
     }
@@ -140,7 +181,7 @@ impl NavGraph {
         leg: &NavLeg,
         to: usize,
         offset: f32,
-    ) -> Option<f32> {
+    ) -> (Option<f32>, usize) {
         let dt = EnvelopeProbe::default().dt;
         let mut body = body.clone();
         {
@@ -158,11 +199,25 @@ impl NavGraph {
             step(&mut body, world, frame, dt, ae::navigation::LegInput::default());
         }
         if !body.ground.on_ground {
-            return None;
+            return (None, 3);
         }
         let mut phase = LegPhase::Commit;
+        // Where the feet were when the body last moved on the ground.
+        let mut moved_at = (0, self.frame.along(body.kinematics.pos));
         for index in 0..MAX_LEG_STEPS {
             let feet = body.kinematics.pos + self.frame.down * self.half.y;
+            // A body that runs into a wall in `Commit` stands there until the
+            // step limit: a walk-off with a wall past the edge. Measured, that
+            // was most of the steps of the failed rollouts. Stopped for
+            // STALL_STEPS on the ground means it has failed.
+            if phase == LegPhase::Commit && body.ground.on_ground {
+                let along = self.frame.along(feet);
+                if (along - moved_at.1).abs() > 1.0 {
+                    moved_at = (index, along);
+                } else if index - moved_at.0 >= STALL_STEPS {
+                    return (None, index + 3);
+                }
+            }
             let facts = LegFacts {
                 feet,
                 vel: body.kinematics.vel,
@@ -174,15 +229,15 @@ impl NavGraph {
             let (input, progress) = follow_leg(leg, phase, &facts);
             match progress {
                 LegProgress::Going(next) => phase = next,
-                LegProgress::Failed => return None,
+                LegProgress::Failed => return (None, index + 3),
                 LegProgress::Arrived => {
                     // On the surface the leg names, not another at its height.
-                    return (self.surface_at(feet) == Some(to)).then_some(index as f32 * dt);
+                    return ((self.surface_at(feet) == Some(to)).then_some(index as f32 * dt), index + 3);
                 }
             }
             step(&mut body, world, frame, dt, input);
         }
-        None
+        (None, MAX_LEG_STEPS + 3)
     }
 
     /// The surface the feet point `feet` stands on.

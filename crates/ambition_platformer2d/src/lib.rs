@@ -1060,7 +1060,7 @@ pub mod world {
     pub use ambition_platformer2d_world::prelude;
 
     pub use ambition_platformer2d_world::{
-        collision, debug_label, placements, platforms, rooms, world_manifest,
+        collision, debug_label, navigation, placements, platforms, rooms, world_manifest,
     };
 }
 // Re-exported so a game can name bevy TYPES through `crate::bevy::…`. NOTE:

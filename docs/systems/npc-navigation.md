@@ -38,6 +38,21 @@ Give the character a `Roam` brain preset in
 The character needs the `Walk` and `Jump` abilities. A run-up and a jump are
 at the body's top speed (`run_speed` in its `locomotion`).
 
+## What the dog does
+
+- It starts with a rest. At each place it rests for a time by chance.
+- It goes to places by chance among those it can reach, at a walk when the
+  place is near and at a trot when it is far. A run-up and a jump are at its
+  top speed.
+- It keeps near the player: more than `stay_within` away, its next place is
+  beside the player, when a route goes there. A player in the hall above the
+  basement has no route to them, so the dog roams.
+- In a playful mood (`playful`) it runs four places with no rest.
+- It sits down when it has stood idle for 1.5 s, and it is on its feet at once
+  when it moves. This is presentation (`CharacterAnimator::note_idle`): each
+  sheet with `sit_down`, `sit_idle` and `stand_up` rows does it, and the dog's
+  is the only one.
+
 ## A hostile body
 
 A `MeleeBrute` can go to a foe on another surface by the same routes. Set
@@ -74,9 +89,16 @@ default player body rises about 130 px.
 - A body walks off an end to drop. It does not drop through a one-way platform.
 - A hazard block takes its part of a floor out. The body does not stand there.
 - A platform that moves is not a place to go.
+- ⛔ Keep the end of a low step away from a door. A body that arrives through
+  a door falls a short way to the floor. If the end of a step is next to the
+  door at head height, the body grabs it as a ledge and hangs there. Measured
+  in the hub basement: a step 64 px above the floor whose end was 1 px from a
+  door caught each arrival through that door; with its end 17 px or more
+  outside the door's sides it does not. A step is a ledge to the player, as
+  each platform is.
 
 The basement of the central hub has twelve one-way stones in 64 px steps for
-this (`central_hub_basement` in `sandbox.ldtk`).
+this; the three lowest are two tiles wide, to fit between the doors (`central_hub_basement` in `sandbox.ldtk`).
 
 To paint a step:
 

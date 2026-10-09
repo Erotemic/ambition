@@ -75,6 +75,7 @@ pub(crate) fn apply_character_frame(
     } else {
         stance
     };
+    animator.note_idle(anim == ambition_sprite_sheet::character::CharacterAnim::Idle && clip.is_none(), dt);
     animator.request_actor_pose(
         anim,
         clip.into_iter().flat_map(|request| request.chain()),

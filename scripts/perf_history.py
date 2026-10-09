@@ -26,6 +26,7 @@ Plain JSONL in, Markdown out. No database, no server, no index."""
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -467,10 +468,18 @@ def cmd_report(args) -> int:
     # page named `/home/joncrall/...`, a path that does not exist on the box that
     # would next regenerate it. Anything outside the repo still prints whole: a
     # ledger somewhere else is a fact a reader needs.
-    try:
-        shown = args.ledger.resolve().relative_to(history.measurement_paths.REPO.resolve()).as_posix()
-    except (ValueError, OSError):
-        shown = str(args.ledger)
+    # Relative before links are followed: a worktree links the measurements
+    # submodule to another checkout, and the resolved path leaves the repo.
+    shown = str(args.ledger)
+    for ledger, repo in (
+        (Path(os.path.abspath(args.ledger)), Path(os.path.abspath(history.measurement_paths.REPO))),
+        (args.ledger.resolve(), history.measurement_paths.REPO.resolve()),
+    ):
+        try:
+            shown = ledger.relative_to(repo).as_posix()
+            break
+        except (ValueError, OSError):
+            continue
     lines = [
         "# Runtime frame cost — measured history",
         "",

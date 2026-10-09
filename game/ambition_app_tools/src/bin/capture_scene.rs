@@ -69,6 +69,14 @@ struct SceneCaptureConfig {
     /// (`--interact-on-arrival`). A room capture's keys reach menus and
     /// lobbies, not gameplay, so this is how an interaction is filmed.
     interact_on_arrival: bool,
+    /// World flags to record, each on its sim tick (`--flag NAME[@TICK]`), so
+    /// a state the world gets from a flag (a room's look, a gate) can be
+    /// photographed, and a change of it can be filmed.
+    flags: Vec<(String, u64)>,
+    /// Take every part-drawn body apart by a teleport warp, again and again
+    /// (`--body-warp out|in[@SECONDS]`), so the warp can be photographed
+    /// without a blink.
+    body_warp: Option<ambition_platformer2d::render::rendering::actors::rigged::BodyWarpPreview>,
     /// Keep the developer overlays in the shot (`--dev-overlays`). By default a
     /// verification screenshot shows the product.
     dev_overlays: bool,
@@ -204,6 +212,13 @@ OPTIONS:
                         [default: 60]
     --interact-on-arrival
                         press Interact on the tick --player-beside arrives
+    --body-warp out|in[@SECONDS]
+                        take every part-drawn body apart by the teleport warp
+                        of a blink, one time each SECONDS [default: 1.0], on
+                        the row it draws
+    --flag NAME[@TICK]  record the world flag NAME on sim tick TICK
+                        [default: 1]; repeat for more flags. A room that reads
+                        its state from a flag is photographed in that state.
     --press-during N    open the shutter N press-driving frames in, INSTEAD of
                         after the sequence finishes — the only way to photograph
                         a frame that exists only WHILE an input is being
@@ -334,6 +349,9 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
     // group, so it applies to both capture modes.
     app.add_plugins(bevy::log::LogPlugin::default());
     app.insert_resource(config.clone());
+    if let Some(preview) = config.body_warp {
+        app.insert_resource(preview);
+    }
     app.insert_resource(SceneCaptureRuntime::default());
     app
 }
@@ -360,6 +378,26 @@ fn hold_boss_health(
     }
 }
 
+/// `--flag`: record each configured world flag on its tick, through the
+/// world-fact domain's own request, as an authored `world.set_flag` does. A
+/// sim system that names its tick: a replay of that tick asks again, and a
+/// replay of any other does not.
+fn record_flags(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut requests: MessageWriter<ambition_platformer2d::combat::events::SetFlagRequested>,
+) {
+    for (id, on_tick) in &config.flags {
+        if tick.get() == *on_tick {
+            requests.write(ambition_platformer2d::combat::events::SetFlagRequested {
+                id: id.clone(),
+                on: true,
+            });
+            eprintln!("capture_scene: recorded the flag {id} on tick {on_tick}");
+        }
+    }
+}
+
 /// The systems a room capture adds on top of [`build_capture_app`].
 fn install_room_capture(app: &mut App) {
     let sim = app.sim_schedule();
@@ -368,7 +406,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, place_player_beside),
+        (hold_boss_health, place_player_beside, record_flags),
     );
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
@@ -543,6 +581,8 @@ impl SceneCaptureConfig {
         let mut press_during: Option<u32> = None;
         let mut player_beside: Option<(String, u64)> = None;
         let mut interact_on_arrival = false;
+        let mut flags: Vec<(String, u64)> = Vec::new();
+        let mut body_warp = None;
         let mut i = 0usize;
         while i < args.len() {
             // Each arm returns how many arguments it consumed, so an arm that
@@ -599,6 +639,39 @@ impl SceneCaptureConfig {
                 "--interact-on-arrival" => {
                     interact_on_arrival = true;
                     1
+                }
+                "--body-warp" => {
+                    use ambition_platformer2d::render::rendering::actors::rigged::BodyWarpPreview;
+                    use ambition_platformer2d::sprite_sheet::character::rigged::BodyWarp;
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--body-warp requires `out` or `in`".to_string());
+                    };
+                    let (kind, period) = value.split_once('@').unwrap_or((value.as_str(), "1.0"));
+                    let warp = match kind {
+                        "out" => BodyWarp::TeleportOut,
+                        "in" => BodyWarp::TeleportIn,
+                        other => return Err(format!("--body-warp wants `out` or `in`, got '{other}'")),
+                    };
+                    let period_s = period
+                        .parse::<f32>()
+                        .map_err(|_| format!("--body-warp KIND@SECONDS wants seconds, got '{period}'"))?;
+                    body_warp = Some(BodyWarpPreview { warp, period_s });
+                    2
+                }
+                "--flag" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--flag requires a flag name".to_string());
+                    };
+                    flags.push(match value.split_once('@') {
+                        Some((id, tick)) => (
+                            id.to_string(),
+                            tick.parse::<u64>().map_err(|_| {
+                                format!("--flag NAME@TICK wants a sim tick, got '{tick}'")
+                            })?,
+                        ),
+                        None => (value.clone(), 1),
+                    });
+                    2
                 }
                 "--player-beside" => {
                     let Some(value) = args.get(i + 1) else {
@@ -775,6 +848,8 @@ impl SceneCaptureConfig {
                 follow_player: false,
                 player_beside: None,
                 interact_on_arrival: false,
+                flags: Vec::new(),
+                body_warp: None,
                 dev_overlays,
                 combat_overlay,
                 boss_hp,
@@ -827,6 +902,8 @@ impl SceneCaptureConfig {
             follow_player,
             player_beside,
             interact_on_arrival,
+            flags,
+            body_warp,
             route: None,
             press,
             press_during,

@@ -23,7 +23,7 @@ pub mod yarn;
 
 #[cfg(feature = "ui")]
 pub use yarn::yarn_spinner_plugin;
-pub use yarn::{known_dialogue_ids, yarn_sources};
+pub use yarn::{dialogue_set_flags, known_dialogue_ids, yarn_sources};
 
 /// Installs Ambition dialogue voices, cutscenes, and combat-banter content.
 pub struct AmbitionDialogueContentPlugin;

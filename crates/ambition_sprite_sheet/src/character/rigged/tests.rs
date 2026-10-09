@@ -610,3 +610,11 @@ fn no_in_between_of_a_published_flipbook_reaches_past_its_overhang() {
     }
     assert!(tweened > 0, "premise: no published flipbook has a tweened clip, so this checked nothing");
 }
+
+#[test]
+fn a_blink_row_and_its_mirror_have_the_teleport_warp() {
+    assert_eq!(BodyWarp::of_row("blink_out"), Some(BodyWarp::TeleportOut));
+    assert_eq!(BodyWarp::of_row("blink_in~mirrored"), Some(BodyWarp::TeleportIn));
+    assert_eq!(BodyWarp::of_row("idle"), None);
+    assert_eq!(BodyWarp::of_row("walk~mirrored"), None);
+}

@@ -583,6 +583,9 @@ fn composed_quest_ids(
             _ => {}
         }
     }
+    // A dialogue choice can set a flag (`world.set_flag`): the hand-over of
+    // Alice's note is the one writer of the flag its quest step reads.
+    flags.extend(crate::dialogue::dialogue_set_flags());
     // The reward chest of an encounter is keyed by the id that the loader gives
     // the encounter.
     for (encounter_id, _, _) in loaded_encounters {

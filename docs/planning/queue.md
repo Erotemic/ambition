@@ -132,6 +132,17 @@ custody is exercised. The first slice gives the fact one road (the hand-over
 the quest reads) and makes Bob's reward a world consequence rather than a
 flag.
 
+**WA1 done 2026-10-09:** the note has one road. The two flag `PickupSpawn`s
+are deleted (`intro.ldtk` and the two room specs); Alice's choice writes
+`alice_route_note_carried` as it gives the note, and Bob's hand-over is the one
+writer of `bob_field_survey_received`. The content validator now counts a Yarn
+`world.set_flag` as an authored flag (`dialogue::dialogue_set_flags`). Witness:
+`the_note_travels_from_alice_to_bob` (real key presses in the shell session;
+the old map makes it red at "the note's flag was set with no note handed
+over"). Bob's reward is already a world consequence: the flag opens the two
+`LockWall`s gated by it. Next: the scenario itself (rooms walked through their
+exits, a capability, the death/return/save/reload steps).
+
 **Next action:** one reproducible headless playthrough of the shipped game, on
 the real composition: explore connected rooms, acquire a meaningful capability,
 obtain and carry a persistent item, deliver it from Alice to Bob, produce a

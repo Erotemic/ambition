@@ -211,6 +211,8 @@ OPTIONS:
     --press SEQ         drive input first, e.g. `Down,Enter` or `touch:167x523`
                         (`hold:up` / `release:up` / `wait:30` also work).
                         Keys reach menus and lobbies, not gameplay.
+                        A sequence that ends the session (a quit to the
+                        title) leaves no player: name the focus as X,Y.
     --player-beside ID[@TICK]
                         stand the player at the edge of the first body
                         wearing catalog character ID on sim tick TICK

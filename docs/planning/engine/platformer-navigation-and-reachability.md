@@ -129,6 +129,15 @@ target's true position. A brute asks for it only while it chases, and it
 chases only a foe it believes in, but the place is where the foe IS and not
 where the brute believes it is.
 
+LIMIT, the checksum: a brute's follower is rewound (the `Brain` is stored by
+clone) and is NOT in the brain's checksum cursor. `MeleeBrute` has no cursor
+arm (`SnapshotCursor for Brain` writes tag 0 for it; its `mode` was not
+written before this slice). Roam's follower is written. So two peers whose
+brutes hold different legs agree on the checksum until the bodies move apart.
+No shipped profile navigates, so each shipped brute's follower is idle. The
+content that first sets `navigates` adds the arm, which is a payload schema
+bump (three baselines).
+
 An author's page is [`docs/systems/npc-navigation.md`](../../systems/npc-navigation.md).
 
 Build cost, measured by YardratAmbition 2026-10-09 on 76 shipped rooms and two
@@ -188,6 +197,13 @@ The rules the slice holds:
   the graph was asked for is different after a rewind.
 - **The brain's state is rewound.** `RoamState` (goal, leg, phase, clocks) is in
   the `Brain` component, which is stored by clone, and in its checksum cursor.
+
+These two rules are held by
+`companion_dog::a_dog_that_navigates_resimulates_to_the_same_world_with_its_graph_dropped`
+(2026-10-09): 40 seconds of the basement under a sync test that rewinds and
+replays each frame, while a system outside the timeline drops the graphs. The
+dog goes by legs and the session stays healthy. Its control is a nudge of the
+dog's body from outside the timeline, which is a mismatch.
 
 Guards: `navigation::envelope::tests::a_gap_inside_the_envelope_is_crossed_and_one_outside_is_not`
 (the envelope against the kernel) and

@@ -179,6 +179,24 @@ impl PauseMenuContext<'_> {
     }
 }
 
+/// Where the footer line of the open menu starts (percent of the panel).
+const FOOTER_TOP: f32 = 90.0;
+/// Where the first row starts, how much of the panel the rows and their gaps
+/// have, and the gap between two rows (percent of the panel). The rows end 2
+/// above the footer.
+const ROWS_TOP: f32 = 30.0;
+const ROWS_SPAN: f32 = FOOTER_TOP - 2.0 - ROWS_TOP;
+const ROW_GAP: f32 = 2.0;
+
+/// The height of each of `count` rows that share `span` with `gap` between
+/// two of them, and no more than `most`.
+///
+/// `span / count` is not it: `count` rows of that height and their gaps are
+/// `span + gap * (count - 1)`, and the last rows go past the span.
+pub(crate) fn row_height_that_fits(span: f32, gap: f32, count: usize, most: f32) -> f32 {
+    ((span + gap) / count.max(1) as f32 - gap).min(most)
+}
+
 /// Page id for the single-page pause menu model.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum PausePage {
@@ -539,13 +557,13 @@ fn render_shell_pause_menu(
     );
     let rows = context.rows();
     let abandon = context.abandon();
-    // Shrink rows to fit.
-    let row_height = (52.0 / rows.len().max(1) as f32).min(10.0);
+    // Shrink rows to fit: the rows and the gaps between them share the span.
+    let row_height = row_height_that_fits(ROWS_SPAN, ROW_GAP, rows.len(), 10.0);
     for (index, entry) in rows.iter().enumerate() {
         page.control(
             MenuRect::new(
                 28.0,
-                30.0 + index as f32 * (row_height + 2.0),
+                ROWS_TOP + index as f32 * (row_height + ROW_GAP),
                 44.0,
                 row_height,
             ),
@@ -559,7 +577,7 @@ fn render_shell_pause_menu(
     }
     page.text(
         50.0,
-        90.0,
+        FOOTER_TOP,
         2.6,
         if in_session {
             "Up / Down select \u{b7} Left / Right adjust \u{b7} Enter confirms \u{b7} Esc resumes"
@@ -885,6 +903,60 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Each row of the open menu ends above the footer line, in a session
+    /// (7 rows) and with no session.
+    ///
+    /// The rows were sized to share a span and then spaced with a gap the
+    /// span did not count, so from 6 rows on the last row was under the
+    /// footer (measured 2026-10-09 in Mary-O: "Quit to Desktop" under "Up /
+    /// Down select").
+    #[test]
+    fn the_last_row_of_the_open_menu_ends_above_the_footer() {
+        for in_session in [false, true] {
+            let mut app = app();
+            if in_session {
+                with_live_session(&mut app);
+            }
+            press_start(&mut app);
+            let mut controls = app
+                .world_mut()
+                .query::<(&Node, &ambition_menu::AmbitionMenuControl<PauseEntry>)>();
+            let bottoms: Vec<f32> = controls
+                .iter(app.world())
+                .map(|(node, _)| match (node.top, node.height) {
+                    (Val::Percent(top), Val::Percent(height)) => top + height,
+                    other => panic!("a row is laid out in {other:?}, and this test reads percent"),
+                })
+                .collect();
+            assert!(
+                bottoms.len() >= 6,
+                "premise: the open menu (in session: {in_session}) has {} rows",
+                bottoms.len()
+            );
+            let lowest = bottoms.iter().copied().fold(0.0, f32::max);
+            assert!(
+                lowest <= FOOTER_TOP,
+                "in session: {in_session}: the last of {} rows ends at {lowest:.1}% and the \
+                 footer starts at {FOOTER_TOP}%",
+                bottoms.len()
+            );
+        }
+    }
+
+    /// Rows of the height that fits, and their gaps, are in the span for
+    /// each count, and few rows keep the cap. The launcher's five rows keep
+    /// the height they had.
+    #[test]
+    fn rows_and_their_gaps_are_in_the_span() {
+        for count in 1..=12usize {
+            let height = row_height_that_fits(ROWS_SPAN, ROW_GAP, count, 10.0);
+            let used = height * count as f32 + ROW_GAP * (count - 1) as f32;
+            assert!(height > 0.0 && used <= ROWS_SPAN + 1e-3, "{count} rows use {used} of {ROWS_SPAN}");
+        }
+        assert_eq!(row_height_that_fits(ROWS_SPAN, ROW_GAP, 3, 10.0), 10.0);
+        assert!((row_height_that_fits(72.0, 1.5, 5, 16.0) - 13.2).abs() < 1e-4);
     }
 
     /// Left / right edit the focused setting through the shared settings code.

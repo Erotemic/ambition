@@ -884,13 +884,13 @@ fn a_hosted_game_plays_the_bank_cues_its_moves_name() {
 /// launcher AND the label of the first game in the roster, which is the game
 /// called Ambition. The title is a `MenuNode::Text`, authored as a PERCENTAGE
 /// of viewport height and spawned as `FontSize::Vh`; the row label is a
-/// control's child (Bevy's `TextFont` default, `FontSize::Px(20.0)` —
-/// `spawn_control` sets the font HANDLE and nothing else). A global
-/// `find(label == "Ambition")` therefore returns whichever of the two the
-/// query's archetype order reaches first, which is not a property of the
-/// launcher at all — display text is not identity. THE UNIT IS THE ROLE: a
-/// `Vh` size is one of the menu's own typographic nodes, a `Px` one is a
-/// control's label.
+/// control's child. A global `find(label == "Ambition")` therefore returns
+/// whichever of the two the query's archetype order reaches first, which is
+/// not a property of the launcher at all — display text is not identity. THE
+/// SPAWN PATH IS THE ROLE: the backend names each `MenuNode::Text` node
+/// `"text"`, and a control's label has no name. (The unit was the role until
+/// 2026-10-09: a label was `FontSize::Px(20.0)`. A label is `Vh` now, because
+/// a row is a percent of the viewport and its label must follow it.)
 #[test]
 fn the_title_screen_says_choose_game_and_is_readable() {
     let mut app = rendered_app();
@@ -925,11 +925,17 @@ fn the_title_screen_says_choose_game_and_is_readable() {
         false
     };
 
-    let mut texts = app.world_mut().query::<(Entity, &Text, &TextFont)>();
-    let rendered: Vec<(String, FontSize)> = texts
+    let mut texts = app
+        .world_mut()
+        .query::<(Entity, &Text, &TextFont, Option<&Name>)>();
+    // Each text, its size, and whether it is one of the menu's own
+    // typographic nodes (`MenuNode::Text`, which the backend names "text").
+    let rendered: Vec<(String, FontSize, bool)> = texts
         .iter(app.world())
         .filter(|(entity, ..)| under_launcher(*entity))
-        .map(|(_, text, font)| (text.0.clone(), font.font_size))
+        .map(|(_, text, font, name)| {
+            (text.0.clone(), font.font_size, name.is_some_and(|name| name.as_str() == "text"))
+        })
         .collect();
     assert!(
         !rendered.is_empty(),
@@ -938,12 +944,12 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     );
 
     assert!(
-        rendered.iter().any(|(label, _)| label == "Choose Game"),
+        rendered.iter().any(|(label, ..)| label == "Choose Game"),
         "the game-select screen still heads itself with a verb: {:?}",
-        rendered.iter().map(|(l, _)| l).collect::<Vec<_>>()
+        rendered.iter().map(|(l, ..)| l).collect::<Vec<_>>()
     );
     assert!(
-        !rendered.iter().any(|(label, _)| label == "Play"),
+        !rendered.iter().any(|(label, ..)| label == "Play"),
         "'Play' is still on the select screen; it belongs on the confirm button"
     );
 
@@ -964,13 +970,10 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     let typography_sized = |matches: &dyn Fn(&str) -> bool, wanted: &str| -> f32 {
         let hits: Vec<FontSize> = rendered
             .iter()
-            // "NOT Px", not "is Vh": a control's label is Bevy's `TextFont`
-            // default, `FontSize::Px(20.0)`, and the menu's own typographic
-            // nodes are the ones authored in a viewport unit. Asking for `Vh`
-            // by name would let a wrong axis leave the population silently
-            // rather than fail on its resolved size.
-            .filter(|(label, size)| !matches!(size, FontSize::Px(_)) && matches(label))
-            .map(|(_, size)| *size)
+            // By role, and with no filter on the unit: a node authored on a
+            // wrong axis stays in the population and fails on its size.
+            .filter(|(label, _, typographic)| *typographic && matches(label))
+            .map(|(_, size, _)| *size)
             .collect();
         assert_eq!(
             hits.len(),
@@ -1011,6 +1014,18 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     assert!(
         footer < title,
         "the footer ({footer:.1}px) is no smaller than the title ({title:.1}px)"
+    );
+
+    // A row is a percent of the viewport, so its label is also: in pixels, a
+    // short viewport put each description over the row below it.
+    let labels_in_pixels: Vec<&String> = rendered
+        .iter()
+        .filter(|(_, size, _)| matches!(size, FontSize::Px(_)))
+        .map(|(label, ..)| label)
+        .collect();
+    assert!(
+        labels_in_pixels.is_empty(),
+        "launcher text sized in pixels does not follow the rows it is in: {labels_in_pixels:?}"
     );
 }
 

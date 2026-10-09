@@ -167,14 +167,8 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
             // RELOAD's own correlator is minted inside `request_reload`.
             request: None,
         });
-    let mut settled = None;
-    for _ in 0..240 {
-        app.update();
-        if active_route(&app).as_deref() == Some("ambition_gameplay") {
-            settled = active_route(&app);
-            break;
-        }
-    }
+    crate::common::step_until_route_is_active(&mut app, "ambition_gameplay");
+    let settled = active_route(&app);
     assert_eq!(
         settled.as_deref(),
         Some("ambition_gameplay"),
@@ -565,7 +559,11 @@ fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
     let mut seen_one = false;
     let mut worst = 0usize;
     let mut worst_frame = 0usize;
-    for frame in 0..240 {
+    let mut window = crate::common::ActivationWindow::new("ambition_gameplay");
+    for frame in 0.. {
+        if window.closed(&app) {
+            break;
+        }
         app.update();
         let roots = roots_now(&mut app);
         if roots > worst {
@@ -581,7 +579,7 @@ fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
     // a run that failed to activate any session at all would pass silently.
     assert!(
         seen_one,
-        "no session root ever appeared in 240 frames, so this measured a route \
+        "no session root ever appeared in the activation window, so this measured a route \
          that never activated rather than a handoff"
     );
 
@@ -673,9 +671,7 @@ fn probe_process_resident_canonical_identities_in_the_visible_app() {
         route: gameplay.clone(),
         request: None,
     });
-    for _ in 0..240 {
-        app.update();
-    }
+    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
     census(&mut app, "first session live");
 
     app.world_mut().write_message(ShellCommand::ReplaceWith {
@@ -950,9 +946,7 @@ pub(crate) fn a_running_shipped_session() -> bevy::prelude::App {
         route: ShellRouteId::new("ambition_gameplay"),
         request: None,
     });
-    for _ in 0..240 {
-        app.update();
-    }
+    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
     app
 }
 
@@ -2276,9 +2270,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         route: gameplay.clone(),
         request: None,
     });
-    for _ in 0..240 {
-        app.update();
-    }
+    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
 
     // ── world N, playable ────────────────────────────────────────────────────
     let live_activation = activation_id(&app).expect("the first session activated");
@@ -2567,9 +2559,7 @@ fn a_candidate_session_does_not_retire_the_playing_sessions_world() {
         route: gameplay.clone(),
         request: None,
     });
-    for _ in 0..240 {
-        app.update();
-    }
+    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
     let live = scope(&app).expect("the first session activated");
     let before = population(&mut app, live);
     assert!(
@@ -2646,9 +2636,7 @@ fn a_shell_handoff_publishes_the_incoming_sessions_room() {
         route: gameplay.clone(),
         request: None,
     });
-    for _ in 0..240 {
-        app.update();
-    }
+    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
     let before = activation_id(&app);
 
     app.world_mut().write_message(ShellCommand::ReplaceWith {
@@ -2996,7 +2984,11 @@ fn a_published_room_inside_a_pending_candidate_session_stays_invisible() {
     let mut room_published_at = None;
     let mut session_started_at = None;
     let mut worst: Option<(usize, usize)> = None;
-    for frame in 0..240 {
+    let mut window = crate::common::ActivationWindow::new("ambition_gameplay");
+    for frame in 0.. {
+        if window.closed(&app) {
+            break;
+        }
         app.update();
         let published = app
             .world()
@@ -3143,7 +3135,11 @@ fn a_candidate_reconstructs_a_mint_only_its_own_save_describes() {
     let wanted = SimId::from_snapshot(minted_id.to_string());
     let mut candidate_built_it = false;
     let mut pending_frames = 0usize;
-    for _ in 0..240 {
+    let mut window = crate::common::ActivationWindow::new("ambition_gameplay");
+    for _ in 0.. {
+        if window.closed(&app) {
+            break;
+        }
         app.update();
         if ambition_platformer2d::platformer::construction::outstanding_candidates(
             app.world_mut(),
@@ -3711,7 +3707,11 @@ fn a_prepared_candidate_never_counts_as_a_canonical_session_root() {
     let mut worst_frame = 0usize;
     let mut saw_canonical = false;
     let mut candidate_frames = Vec::new();
-    for frame in 0..240 {
+    let mut window = crate::common::ActivationWindow::new("ambition_gameplay");
+    for frame in 0.. {
+        if window.closed(&app) {
+            break;
+        }
         app.update();
         let world = app.world_mut();
         // ⛔ INCLUDING HIDDEN, WHICH IS THE WHOLE ASSERTION. An ordinary query
@@ -3736,7 +3736,7 @@ fn a_prepared_candidate_never_counts_as_a_canonical_session_root() {
     // ⚠ THE PREMISE, and without it "never two" is satisfied by "never one".
     assert!(
         saw_canonical,
-        "no canonical session root ever appeared in 240 frames, so this measured \
+        "no canonical session root ever appeared in the activation window, so this measured \
          a route that never activated rather than a handoff"
     );
 
@@ -3775,14 +3775,7 @@ fn app_playing_gameplay() -> bevy::prelude::App {
         route: ShellRouteId::new("ambition_gameplay"),
         request: None,
     });
-    for _ in 0..240 {
-        app.update();
-    }
-    assert_eq!(
-        active_route(&app).as_deref(),
-        Some("ambition_gameplay"),
-        "the shipped composition never activated its gameplay route"
-    );
+    crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
     app
 }
 

@@ -641,19 +641,21 @@ fn menu_text_is_sized_as_a_percentage_of_the_live_viewport() {
         };
     }
 
+    /// Each size the page's text resolves to, least first, each one time.
+    /// No text is left out: a label in pixels is in the list as its pixels,
+    /// and the lists below do not hold it.
     fn text_sizes(app: &mut App) -> Vec<f32> {
         let rem = app.world().resource::<bevy::text::RemSize>().0;
         let mut query = app
             .world_mut()
             .query::<(&TextFont, &bevy::ui::ComputedUiRenderTargetInfo)>();
-        query
+        let mut sizes: Vec<f32> = query
             .iter(app.world())
-            // "Not Px", not "is Vh": control labels keep Bevy's default
-            // `FontSize::Px(20.0)`. Filtering for `Vh` would drop a wrong
-            // unit (`Vw`) from the set instead of failing on it.
-            .filter(|(font, _)| !matches!(font.font_size, FontSize::Px(_)))
             .map(|(font, target)| font.font_size.eval(target.logical_size(), rem))
-            .collect()
+            .collect();
+        sizes.sort_by(f32::total_cmp);
+        sizes.dedup();
+        sizes
     }
 
     let mut app = build_app();
@@ -686,9 +688,11 @@ fn menu_text_is_sized_as_a_percentage_of_the_live_viewport() {
     app.update();
     assert_eq!(
         text_sizes(&mut app),
-        vec![AUTHORED_PERCENT / 100.0 * 1080.0],
+        vec![CONTROL_TEXT_VH / 100.0 * 1080.0, AUTHORED_PERCENT / 100.0 * 1080.0],
         "the sample page's one text node is authored at {AUTHORED_PERCENT}% of \
-         viewport height, so on a 1080-tall target it must resolve to {:.1}px",
+         viewport height, so on a 1080-tall target it must resolve to {:.1}px; \
+         each label of a control and of a tab is {CONTROL_TEXT_VH:.2}%, and no \
+         text is a number of pixels",
         AUTHORED_PERCENT / 100.0 * 1080.0
     );
 
@@ -697,7 +701,7 @@ fn menu_text_is_sized_as_a_percentage_of_the_live_viewport() {
     app.update();
     assert_eq!(
         text_sizes(&mut app),
-        vec![AUTHORED_PERCENT / 100.0 * 2160.0],
+        vec![CONTROL_TEXT_VH / 100.0 * 2160.0, AUTHORED_PERCENT / 100.0 * 2160.0],
         "the size did not follow the viewport, which is the only reason the \
          authored unit is a percentage rather than a number of pixels"
     );

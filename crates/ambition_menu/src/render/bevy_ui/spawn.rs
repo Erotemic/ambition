@@ -229,6 +229,7 @@ fn spawn_control<Action>(
                 // required component: the ASCII-only `FiraMono-subset.ttf`.
                 TextFont {
                     font: font.cloned().unwrap_or_default(),
+                    font_size: FontSize::Vh(CONTROL_TEXT_VH),
                     ..default()
                 },
                 TextColor(label_color),
@@ -242,12 +243,13 @@ fn spawn_control<Action>(
         control.with_children(|c| {
             c.spawn((
                 Node {
-                    margin: UiRect::left(Val::Px(12.0)),
+                    margin: UiRect::left(Val::Vh(12.0 / 7.2)),
                     ..default()
                 },
                 Text::new(detail.to_string()),
                 TextFont {
                     font: font.cloned().unwrap_or_default(),
+                    font_size: FontSize::Vh(CONTROL_TEXT_VH),
                     ..default()
                 },
                 TextColor(label_color),

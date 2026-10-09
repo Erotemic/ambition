@@ -279,6 +279,24 @@ decides whether it can reach it with its real movement capabilities, moves there
 and performs a typed action. Deterministic; no model call inside the
 simulation.
 
+What the in-room slice gives this row, and what it does not (2026-10-09):
+
+- HAVE: "can this body reach that point with its real capabilities" in one
+  room (`NavGraph::next`: a leg, `Arrived` or `Unreachable`), and a body that
+  goes there (`NavFollower`). A door is a point, so a route to a door in the
+  body's room exists today. The acceptance's third arm holds in one room: the
+  same body with no jump cannot reach what needs one
+  (`a_body_with_no_jump_cannot_reach_what_needs_one`).
+- MISSING, in the order they block: (1) a non-player body that goes through a
+  `LoadingZone` into another live room. I found no code that does it; my
+  search was for the room stamp's writers and for a transfer by name, so this
+  is not a proof. (2) A route over rooms at run time: the door graph is known
+  to `scripts/check_world_graph_is_navigable.py` and not to the engine.
+  (3) A goal a brain can be given from outside ("fetch that"): `Roam` chooses
+  its own places, and the brain seam is closed
+  ([agentic character runtime](engine/agentic-character-runtime.md)).
+  (4) The typed action at the goal.
+
 **Acceptance:** a headless arm with a reachable and an unreachable item: the
 character fetches the first and refuses the second, and removing a movement
 capability it needs turns the first into a refusal.

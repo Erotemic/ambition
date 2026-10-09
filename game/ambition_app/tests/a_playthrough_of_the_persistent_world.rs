@@ -261,16 +261,21 @@ fn the_note_reaches_bob_and_opens_alices_return() {
 /// The save file the autosave wrote for `app`, read back from disk, and the
 /// persistence root it is under. Asserts that the bytes on disk are the live
 /// save: what a new App reads is what this App held.
-fn the_save_file(app: &mut App) -> (std::path::PathBuf, ambition_platformer2d::persistence::save_data::AmbitionGameSaveData) {
+///
+/// The root is the App's own resource, cloned: an isolated root is removed
+/// with its last holder, and this one must be there after the App is dropped.
+fn the_save_file(
+    app: &mut App,
+) -> (ambition_platformer2d::persistence::PersistenceRoot, ambition_platformer2d::persistence::save_data::AmbitionGameSaveData) {
     use ambition_platformer2d::persistence::save;
     // The autosave runs in `Update`; give it frames to see the last change.
     for _ in 0..5 {
         app.update();
     }
     let world = app.world();
-    let root = world.resource::<ambition_platformer2d::persistence::PersistenceRoot>().0.clone();
+    let root = world.resource::<ambition_platformer2d::persistence::PersistenceRoot>().clone();
     let owner = world.resource::<save::SaveOwner>().current().to_owned();
-    let path = save::save_path_for(&root, &owner).expect("the live save's owner has a file of its own");
+    let path = save::save_path_for(&root.0, &owner).expect("the live save's owner has a file of its own");
     let loaded = save::load_save(&path);
     assert!(loaded.present, "the autosave wrote no file at {}", path.display());
     assert_eq!(
@@ -285,11 +290,11 @@ fn the_save_file(app: &mut App) -> (std::path::PathBuf, ambition_platformer2d::p
 /// A new App, in this process, whose persistence root is `root`: its Startup
 /// reads the save file there (`load_save_at_startup`), before the gameplay
 /// route starts.
-fn a_session_loaded_from(root: &std::path::Path) -> App {
+fn a_session_loaded_from(root: &ambition_platformer2d::persistence::PersistenceRoot) -> App {
     use ambition_app::app::{build_visible_app, VisibleRenderMode};
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
-    app.insert_resource(ambition_platformer2d::persistence::PersistenceRoot(root.to_path_buf()));
+    app.insert_resource(root.clone());
     app.finish();
     app.update();
     app.world_mut().write_message(ShellCommand::ReplaceWith {

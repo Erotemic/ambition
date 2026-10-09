@@ -1174,7 +1174,7 @@ mod tests {
         hand_the_save_to("sanic", &mut ownership, &mut save, &mut last, &mut writable, Some(&root));
         save.0.set_flag("room_visited_sanic_speedway", true);
         let mut app = App::new();
-        app.insert_resource(crate::PersistenceRoot(root.clone()))
+        app.insert_resource(crate::PersistenceRoot::at(root.clone()))
             .insert_resource(save)
             .insert_resource(last)
             .insert_resource(writable)

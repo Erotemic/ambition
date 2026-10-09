@@ -158,6 +158,18 @@ are accounted by count and have no instance identity. The object with an
 identity and a custody is the Blink. A note as an object is a content
 decision, not a defect.
 
+**A walked route waits on NAVIGATION (measured 2026-10-09).** The route is
+placed, not walked (WA6). A temporary probe built the in-room `NavGraph` for
+the player's own body (its `MotionModel`, abilities and box) at each of the
+playthrough's ten crossings, with the goal on the surface nearest the exit
+zone. It routed 5 of 10: drain_alley to under_town_pipes, under_town_pipes
+to alice_relay, both alice_relay to bob_relay crossings, and bob_relay to
+alice_relay. The other five (the hub to intro_wake_room, out of
+intro_wake_room, intro_raid_corridor and intro_escape_shaft, and bob_relay
+to drain_alley) need a climb above one jump's apex (83 px): the graph links
+walk, hop and drop, and the player's double jump, wall jump and dash are no
+leg. A walked playthrough needs those legs first.
+
 **Acceptance:** the scenario runs headless in a standing lane and is playable in
 the rendered game; each step asserts its fact against the authority that owns
 it; a poison at each step reddens that step's assertion.

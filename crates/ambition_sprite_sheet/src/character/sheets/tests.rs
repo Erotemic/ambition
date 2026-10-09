@@ -980,3 +980,27 @@ fn the_fitted_quad_of_a_sheet_is_the_renderers_fit_under_any_tuning() {
     }
     assert_eq!(fitted_render_size("no_such_sheet", standing), None);
 }
+
+/// The animator keeps the pose a body asked for apart from the pose its sheet
+/// has for it, and for how long the body has asked. A sheet with no blink row
+/// draws its idle for a blink, and the body performs a blink all the same.
+#[test]
+fn the_animator_keeps_the_pose_a_body_asked_for_and_for_how_long() {
+    use crate::character::CharacterAnim;
+    let mut animator = social_animator();
+    animator.request(CharacterAnim::BlinkOut);
+    assert_eq!(animator.current, CharacterAnim::Idle, "premise: the fixture has no blink row");
+    assert_eq!(animator.asked(), (CharacterAnim::BlinkOut, 0.0));
+    animator.tick(0.2);
+    // The same request again is the same request: its clock goes on.
+    animator.request(CharacterAnim::BlinkOut);
+    animator.tick(0.1);
+    let (asked, asked_for) = animator.asked();
+    assert_eq!(asked, CharacterAnim::BlinkOut);
+    assert!((asked_for - 0.3).abs() < 1e-5, "{asked_for}");
+    animator.request(CharacterAnim::Walk);
+    assert_eq!(animator.asked(), (CharacterAnim::Walk, 0.0));
+    // A clip is played for the pose behind it.
+    animator.request_clip(["sit_down"], CharacterAnim::BlinkIn);
+    assert_eq!(animator.asked().0, CharacterAnim::BlinkIn);
+}

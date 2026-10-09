@@ -1038,6 +1038,90 @@ fn a_blink_row_warps_its_bodys_cell_and_a_sheet_with_its_own_blink_keeps_it() {
     assert!(!warped, "a sheet with its own blink got the engine's on top of it");
 }
 
+/// The drawn row of `root`, by name.
+fn drawn_row(app: &App, root: Entity) -> String {
+    let animator = app.world().get::<CharacterAnimator>(root).unwrap();
+    animator.spec.row_name(animator.drawn_row().unwrap()).unwrap().to_owned()
+}
+
+/// The warp of `root`'s cell.
+fn warp_of(app: &App, root: Entity) -> Vec4 {
+    let owner = owner(app, root);
+    let cell = app.world().get::<RiggedPresentation>(owner).unwrap().impostor.expect("an impostor cell").cell as usize;
+    atlas(app).cells.warp[cell]
+}
+
+/// A body that performs a blink needs no blink row. A sheet with none draws
+/// its idle for the request, and the engine's warp is on the body over that
+/// row, by the time since the body asked (Jon, 2026-10-09: "just using the
+/// engine effect on a idle pose might be fine").
+///
+/// The control is the same body when it asks for its idle: the same row, and
+/// no warp.
+#[test]
+fn a_body_with_no_blink_row_that_asks_for_a_blink_is_warped_on_the_row_it_draws() {
+    use ambition_sprite_sheet::character::rigged::BLINK_WARP_S;
+    use ambition_sprite_sheet::character::CharacterAnim;
+    let flipbook = RiggedSpriteAsset::baked("pirate_raider").expect("the raider publishes a flipbook");
+    assert!(
+        flipbook.clip("blink_out").is_none() && flipbook.clip("blink_in").is_none(),
+        "premise: the raider has no blink row; choose another sheet"
+    );
+    let (mut app, root) = app_with(true, sheet_with("pirate_raider", Some(flipbook)));
+    settle(&mut app);
+    let idle = drawn_row(&app, root);
+    assert_eq!(warp_of(&app, root), Vec4::ZERO, "control: a body that asks for its idle has a warp");
+
+    let ask = |app: &mut App, anim: CharacterAnim, for_s: f32| {
+        let mut animator = app.world_mut().get_mut::<CharacterAnimator>(root).unwrap();
+        animator.request(anim);
+        animator.tick(for_s);
+        app.update();
+    };
+    ask(&mut app, CharacterAnim::BlinkOut, BLINK_WARP_S * 0.5);
+    assert_eq!(drawn_row(&app, root), idle, "premise: the sheet draws its idle for a blink it has no row for");
+    let warp = warp_of(&app, root);
+    assert_eq!(warp.x, 1.0, "no departure warp on a body that asks for a blink: {warp:?}");
+    assert!((warp.y - 0.5).abs() < 0.05, "the warp is not half way after half its time: {warp:?}");
+    // It stays apart while the body asks, as a blink row holds its last frame.
+    ask(&mut app, CharacterAnim::BlinkOut, BLINK_WARP_S * 4.0);
+    assert_eq!(warp_of(&app, root).y, 1.0);
+    ask(&mut app, CharacterAnim::BlinkIn, 0.0);
+    let warp = warp_of(&app, root);
+    assert_eq!((warp.x, warp.y), (2.0, 0.0), "the arrival starts from its start: {warp:?}");
+    ask(&mut app, CharacterAnim::Idle, 0.0);
+    assert_eq!(warp_of(&app, root), Vec4::ZERO, "the warp stays after the body asks for its idle");
+}
+
+/// A blink that something performs ON a body is on whatever row the body
+/// draws, with the animation it has (`PerformedBodyWarp`): the body asks for
+/// nothing. The renderer runs its clock and takes it off at its end.
+#[test]
+fn a_blink_performed_on_a_body_warps_it_on_the_row_it_draws_and_ends() {
+    use ambition_sprite_sheet::character::rigged::PerformedBodyWarp;
+    let (_flipbook, mut app, root) = robot();
+    app.init_resource::<Time>();
+    app.add_systems(Update, advance_performed_body_warps.before(drive_rigged_presentations));
+    pin_clip(&mut app, root, "walk", 1);
+    settle(&mut app);
+    assert_eq!(warp_of(&app, root), Vec4::ZERO, "control: a walking body has a warp");
+
+    app.world_mut().entity_mut(root).insert(PerformedBodyWarp::new(BodyWarp::TeleportIn, 0.4));
+    let step = |app: &mut App, seconds: f32| {
+        app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_secs_f32(seconds));
+        app.update();
+    };
+    step(&mut app, 0.1);
+    assert_eq!(drawn_row(&app, root), "walk", "the body keeps the animation it has");
+    let warp = warp_of(&app, root);
+    assert_eq!(warp.x, 2.0, "no arrival warp: {warp:?}");
+    assert!((warp.y - 0.25).abs() < 0.01, "the warp is not a quarter through: {warp:?}");
+    step(&mut app, 0.4);
+    step(&mut app, 0.0);
+    assert!(app.world().get::<PerformedBodyWarp>(root).is_none(), "the warp is on the body after its end");
+    assert_eq!(warp_of(&app, root), Vec4::ZERO);
+}
+
 /// A body's colour shift (`CharacterColorShift`: an enemy variant, a buff)
 /// reaches its cell of the page's material, and only its cell: one sheet
 /// draws every coloured variant. A body without one is drawn as painted.

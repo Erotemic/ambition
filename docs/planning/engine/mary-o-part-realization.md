@@ -253,6 +253,26 @@ What it added, all of it general:
   a row that fades is. Player robot v3 is the first sheet with plain rows.
   `capture_scene --body-warp out|in[@SECONDS]` shows the warp on each
   part-drawn body.
+  - ⭐ THE BLINK IS OF THE BODY, AND OF NO ROW (Jon, 2026-10-09: "only bodies
+    that perform blink need any sort of pose associated with it, and even that
+    might not be necessary ... Often, a blink might be performed on a
+    character, which would just use whatever animation it is currently
+    using"). One rule (`body_warp` in the rigged driver) says when a body is
+    under the warp, on whatever row it draws:
+    1. Something performs a blink ON the body: `PerformedBodyWarp` on its
+       sprite root (a warp and a length). The body keeps its animation. The
+       renderer runs the clock and takes it off at its end. No game system
+       inserts one yet; the test does.
+    2. The body draws a blink row. A sheet MAY have a pose for a blink, and
+       the warp runs over the row.
+    3. The body asks for a blink pose and its sheet has no row for it. The
+       animator keeps the pose as asked (`CharacterAnimator::asked`), the
+       sheet draws its idle, and the warp runs over that for `BLINK_WARP_S`.
+    So no sheet needs a blink row, and a part-drawn body with none has the
+    engine's blink. Guards (render): `a_body_with_no_blink_row_that_asks_for_a_blink_is_warped_on_the_row_it_draws`
+    and `a_blink_performed_on_a_body_warps_it_on_the_row_it_draws_and_ends`.
+    NOT SEEN: a body with no blink row that blinks in the game (the path from
+    the sim's blink telegraph to the request is the one the rows had).
   - Before (2026-10-04) the body's own pieces each drifted and faded
     (`robot_side._teleport_warp`). The parts are few and they overlap, so the
     blink read as a fade.

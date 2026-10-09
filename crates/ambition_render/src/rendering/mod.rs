@@ -614,6 +614,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 actors::pose_boss_part_animators
                     .after(actors::BossAnimation)
                     .before(actors::rigged::drive_rigged_presentations),
+                actors::rigged::advance_performed_body_warps.before(actors::rigged::drive_rigged_presentations),
                 actors::rigged::drive_rigged_presentations
                     .after(actors::animate_player)
                     .after(actors::animate_characters)

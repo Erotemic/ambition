@@ -133,20 +133,17 @@ update the declared wire-format baseline intentionally.
 Use the repository's rollback baseline/checks; do not copy their counts into this
 page.
 
-**Open: the schema fingerprint hashes prose.** `schema_dump()` emits name, kind,
-wire type and a human-readable `detail`, and `compute_schema_fingerprint` hashes
-the whole dump. So correcting a description is indistinguishable from changing an
-encoding, to the guard and to every peer. `Q122` is
-[ruled](../maintainer-decisions.md): mechanical identity fingerprints mechanical
-facts, not explanatory prose.
-
-Excluding `detail` wholesale is refuted: for many kinds, `detail` carries facts
-that `kind` does not encode (for example, entity handle versus entity set versus
-keyed entity map remapping, or what a custom checksum function covers). The rule
-that fits both halves keeps `detail` exactly where it distinguishes rows of the
-same kind and drops it where one sentence covers the whole kind. The peer-checksum
-tooling ratchet already applies that rule; `compute_schema_fingerprint` does not
-yet, so the repository still answers this question two ways.
+**Settled (`Q122`, schema 303): the schema fingerprint hashes mechanical facts,
+not prose.** `schema_dump()` keeps each row's human-readable `detail` for readers
+and for the recorded baseline. `compute_schema_fingerprint` hashes
+`mechanical_dump()` instead, which replaces each `detail` with its mechanism
+token (`rollback_kind::mechanism_of`). A `(kind, detail)` pair that is one of the
+declared roads (`rollback_kind::spelling::ALL`) gets that road's token, so moving
+a row to another road (for example, entity set remapping instead of entity
+handle remapping) changes peer identity. A `detail` that its caller wrote (a
+custom checksum's description, a derived row's reason) gets the token
+`described`, so rewording it does not. Excluding `detail` wholesale was refuted
+for this reason: within one kind, the road is a mechanical fact.
 
 ### Explicit simulation phases
 

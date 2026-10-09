@@ -2902,7 +2902,7 @@ impl PreparedCandidateSession {
         // candidate read the save into a value; this is the line that makes it
         // the world's. A refused candidate never reaches it, so the session that
         // was playing keeps the checkpoint semantics it had.
-        horizon.install(world);
+        let checkpoint = horizon.install(world);
         // ⛔⛤ **THE FIRST ROOM'S EFFECTS ON THE WORLD OUTSIDE IT HAPPEN HERE, AND
         // NOWHERE EARLIER — 2026-09-15 REVIEW, FINDING 1.** That room verified
         // and admitted its own population frames ago, while this session was
@@ -2925,6 +2925,9 @@ impl PreparedCandidateSession {
             ambition_platformer2d_shared_tangle::construction::publish_candidate_session(
                 world, root, scope,
             );
+        // The checkpoint half is the root's own state, so it waits for the
+        // promotion: before it, the live root is the outgoing session's.
+        checkpoint.adopt_onto(world, root);
         // ⛔ THE OWNER CONSUMES ITS RECEIPT. The room published and its effects
         // are the world's; the receipt has done its work.
         ambition_platformer2d_actor_monolith::rooms::retire_publication(world, publication);

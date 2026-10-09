@@ -7,8 +7,9 @@ Before you implement a row, re-check it against the current tree. When the work
 is selected, put the executable task in [`queue.md`](../queue.md) and the durable
 design in its owner page. Remove the row here when another live page owns it or
 when the defect is fixed. The
-[AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel)
-row is the execution order for open rows and the receipt for closed ones.
+[AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel---done-2026-10-09)
+receipt closed the campaign on a fresh census (2026-10-09); an open row here is
+fixed when a queue slice reaches it.
 
 The index looks for four failure shapes:
 

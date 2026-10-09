@@ -31,8 +31,10 @@ These are settled. Code against them; do not reopen them without a new ruling.
 - **One canonical `SessionRoot`.** A candidate carries `CandidateSessionRoot`
   until it is published (`Q132`).
 - **Several live rooms.** Each live room is a root entity; entities carry an
-  `InRoomInstance` stamp; each view draws the room it frames. Ambition has no
-  production join road for a second seat yet (`Q153`). Owner:
+  `InRoomInstance` stamp; each view draws the room it frames. A second seat
+  joins with a Jump press at the primary's room
+  (`session/join.rs::seat_a_joining_participant`); that is the default in force
+  until `Q153` is ruled. Owner:
   [`engine/open-world-runtime-and-residency.md`](engine/open-world-runtime-and-residency.md).
 - **Content is data, and it reloads.** Content packs compile through
   `ambition_content_pack::compile`. A running session reads the content
@@ -55,7 +57,7 @@ These are settled. Code against them; do not reopen them without a new ruling.
 
 | Campaign | Where it is tracked |
 | --- | --- |
-| One owner per mechanical fact | [AUTHORITY-POLISH](queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) (C11) |
+| One owner per mechanical fact | [AUTHORITY-POLISH](queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel---done-2026-10-09) (C11, closed on a fresh census 2026-10-09) |
 | Session-owned App state | C03 in [`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md) — in progress |
 | Safe reload across every registry | [I2/I3](queue.md#i2i3--finish-independent-content-authoring-and-safe-reload) |
 | Truthful minimal engine profiles | A9 in the queue |

@@ -1185,9 +1185,7 @@ fn probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule() {
     }
 
     let latched = sim.world().resource::<SaveRestored>().0;
-    let rows = sim
-        .world()
-        .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+    let rows = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>(sim.world()).unwrap()
         .remembered()
         .rows()
         .count();
@@ -1198,9 +1196,7 @@ fn probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule() {
     // ⇒ A false derived declaration removes its own subject from the guard named
     // after the problem.
     // ⭐ THE SECOND BASELINE, UNDER THE SAME PRESSURE FOR THE FIRST TIME.
-    let custody_rows = sim
-        .world()
-        .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+    let custody_rows = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>(sim.world()).unwrap()
         .rows()
         .count();
     let save_rows = sim
@@ -1269,7 +1265,7 @@ fn probe_what_a_mid_session_load_writes_outside_the_rewinding_schedule() {
 struct PeakBaselineRows(usize, Vec<(bool, usize, usize, usize)>);
 
 fn record_peak_baseline_rows(
-    baseline: bevy::prelude::Res<
+    baseline: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline,
     >,
     authored: Option<
@@ -2196,10 +2192,10 @@ fn record_the_latch_every_frame(
 /// inside the rewinding schedule, which is where the shipped reset lives.
 fn seed_both_baselines_then_start_a_new_game(
     tick: bevy::prelude::Res<ambition_platformer2d::time::SimTick>,
-    mut occurrence_baseline: bevy::prelude::ResMut<
+    mut occurrence_baseline: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
         ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline,
     >,
-    mut custody_baseline: bevy::prelude::ResMut<
+    mut custody_baseline: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
         ambition_platformer2d::platformer::lifecycle::CustodyBaseline,
     >,
     mut new_games: bevy::prelude::MessageWriter<
@@ -2314,9 +2310,7 @@ fn a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch() {
             latch_lowered_at.push(frame);
         }
         if !baselines_seeded
-            && sim
-                .world()
-                .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+            && ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>(sim.world()).unwrap()
                 .remembered()
                 .rows()
                 .count()
@@ -2326,15 +2320,11 @@ fn a_new_game_clears_the_occurrence_baselines_without_lowering_the_latch() {
         }
     }
 
-    let occurrence_rows = sim
-        .world()
-        .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+    let occurrence_rows = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>(sim.world()).unwrap()
         .remembered()
         .rows()
         .count();
-    let custody_rows = sim
-        .world()
-        .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+    let custody_rows = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>(sim.world()).unwrap()
         .rows()
         .count();
     let roster_after = feature_roster(&mut sim);
@@ -4012,15 +4002,11 @@ fn a_startup_load_is_applied_on_the_timeline_and_resimulates_identically() {
     }
     // The premise: the load happened, and both baselines hold the seeded rows.
     assert!(sim.world().resource::<SaveRestored>().0, "the startup load never completed");
-    let occurrence_rows = sim
-        .world()
-        .resource::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>()
+    let occurrence_rows = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::OccurrenceBaseline>(sim.world()).unwrap()
         .remembered()
         .rows()
         .count();
-    let custody_rows = sim
-        .world()
-        .resource::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>()
+    let custody_rows = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::platformer::lifecycle::CustodyBaseline>(sim.world()).unwrap()
         .rows()
         .count();
     assert!(

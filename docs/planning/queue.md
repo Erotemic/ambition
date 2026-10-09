@@ -34,111 +34,32 @@ awk '/^### /{if(n)printf "%s %s\n", c, n; n=$2; c=0} {c++} END{printf "%s %s\n",
   docs/planning/queue.md | sort -rn | head
 ```
 
+## Priority order (Jon, 2026-10-09)
+
+The risk now is improving components one at a time without exercising the
+whole engine. Work in this order, and fix an authoritative-state defect found on
+the way in its own slice:
+
+1. **P0 below:** A4 (BAG-RECORD-HORIZON and AUTHORITY-POLISH are receipts;
+   the first's open line is Q161). C03 stops as a
+   campaign after its family 7: a remaining session resource moves only when a
+   two-session witness shows it leaks
+   ([consolidation plan §3](consolidation/consolidation-plan.md#3-c03--consolidate-session-owned-state-and-reduce-reset-only-app-globals)).
+2. [WORLD-ACCEPTANCE](#world-acceptance--one-headless-playthrough-of-the-persistent-world).
+3. [SDK-GAME](#sdk-game--a-small-independent-game-on-the-supported-api).
+4. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable).
+5. [NAVIGATION](#navigation--a-character-reaches-an-item-in-another-room).
+
+Short slice at any point: [PUBLICATION-FAULT](#publication-fault--a-refused-later-room-must-not-leave-a-mixed-world).
+The two owner pages the 2026-10-08 review found stale (the fingerprint and the
+second-seat join) were corrected against the tree on 2026-10-09.
+
+Deferred, not queued: a 3D migration, the cube menu's second camera, crate
+renames, a full monolith decomposition, online netplay, a plugin marketplace, a
+universal planner and the Bevy 0.20 upgrade. Q157 is Jon's decision; build
+neither side of it.
+
 ## P0 — architecture and correctness
-
-### BAG-RECORD-HORIZON — a bag record is owned by what is left of its consequence
-
-**Owner:** `items::pickup::minted_horizon` (the grant and spend records),
-`session::checkpoint` (the restore's bag fold), the occurrence ledger
-(`AuthoredOccurrences::end`, the `Placed` index) and
-`features::ecs::pickups` (`ConsumedSinceCheckpoint`). Part of
-DEATH-IS-ROOM-LOCAL (Q151). Review of 2026-10-05, findings 1 and 2.
-
-**Finding 1, built 2026-10-05:** a restore kept in the bag what a spared
-participant's grant gave and what a kept object's throw spent, and then
-forgot both records. A second death of the same checkpoint had nothing to
-keep: it took back the coin Alice took in Bob's live room while the coin
-stayed gone (money 25 → 0), and put back the javelin quantity while the
-javelin stayed in his room (javelins 1, 1, 2). The acceptance now pins the
-records it keeps beside the bag (`ItemCheckpointRestoreInputs.grants` and
-`.spends`), and the reducer writes them back. An authored grant stays owned
-only by its spared owners, as a kept boss defeat shrinks its participants.
-Witnesses: `a_second_death_keeps_the_coin_taken_in_another_players_live_room`,
-`a_second_death_does_not_put_back_in_the_bag_what_was_thrown_into_another_players_room`.
-Poisons, each red on its own arm: forget the grants, forget the spends, no
-owner shrink (owners `[0, 1]` for `[1]`).
-
-**Finding 2, built 2026-10-05:** the spend of a throw stood only while its
-object was an entity. Measured before the change:
-
-- An object that ENDS (a bomb explodes) kept its `Placed` row, so its room
-  built it again when the room was live again, with the bag already spent:
-  a duplicate with no death at all. And Alice's death put a bomb that
-  exploded in Bob's live room back in the bag.
-- An object lying in a room that is NOT LIVE (Bob left) was conserved: the
-  restore's pinned ledger has no row for it, so the object goes and the
-  quantity comes back. The spend got that answer from the absence of an
-  entity, not from the row.
-
-Now an occurrence that a row places in a live room, and that no entity is
-any longer, has ended there: its row becomes `Consumed`
-(`AuthoredOccurrences::end`, read by `record_ended_occurrences` through a
-per-room `Placed` index), and the participants in the room own the ending
-(`ConsumedSinceCheckpoint`, as a consumed pickup). Nothing names the item
-or the system that ended it. A spend stands when its object is in a room the
-restore spares, or when the ledger the restore pins still holds the object's
-end. Witnesses:
-`a_death_does_not_put_back_in_the_bag_a_bomb_that_exploded_in_another_players_room`,
-`an_object_that_ended_is_not_built_again_when_its_room_is_live_again`,
-`a_death_takes_back_a_javelin_whose_room_is_not_live_with_its_row`.
-Poisons, each red: no `end` (the exploded bomb is lying in its room again,
-and the bag gets it back); no owners recorded for the ending (bombs 0, 1, 1
-after Bob's room kept the explosion); the spend reads the live object only
-(the same).
-
-**Open:**
-
-- A dormant row is not owned by participants. Another participant's death
-  takes back a javelin Bob's room held after Bob left it, while a one-time
-  pickup he consumed in that room stays consumed (Q151 keeps the second by
-  owners). The spend reads the row, so it follows if the ledger comes to
-  keep a spared participant's dormant rows. Filed as Q161 (2026-10-06),
-  default in force: (a), the current behaviour.
-
-**Built 2026-10-08 (mint-row compaction):** a `Consumed` row of an ended
-runtime mint no longer stays in the ledger and the save for the run. The
-ledger records mint-ness as provenance BESIDE the row (`AuthoredOccurrences`
-`mints`, not a new variant of `OccurrenceWhereabouts`), marked from
-`SpawnOrigin::Dynamic` by `record_placed_ground_items` and by `admit_mints`;
-`compact_ended_mints_at_checkpoint` drops the `Consumed` row of a marked id
-when a checkpoint commits, before `capture_occurrence_baseline`, so only a
-row ended before the committed checkpoint goes. An authored `Consumed` (a
-taken pickup) and a `Spent` (an opened chest) are never marked and stay. The
-mark is rollback state (hashed in `encode_rows`, schema 328) and a save field
-(`PersistedOccurrence.mint`, default false, absent from old files). Witness:
-`a_bomb_that_exploded_leaves_no_ledger_row_once_a_checkpoint_commits`
-(live ledger, pinned baseline and save carry no row; controls: authored
-`Consumed` and `Spent` survive; a death afterwards leaves the bag alone), and
-the unit tests beside `compact_ended_mints` in `continuity.rs`. The three
-bomb/javelin tests stay green. Poisons, each red: compaction never runs; it
-drops every `Consumed` row (the authored control goes).
-Review 2026-10-08: a restore that keeps a spared room's live row keeps its
-mint mark too (`session/checkpoint.rs`, from the live ledger). Measured
-before: the pinned ledger held the javelin's row and no mark.
-Witness: `a_death_keeps_the_mint_mark_of_what_it_keeps_in_another_players_room`
-(read on the frame the restore is accepted; control: the live ledger
-before the death).
-
-**Built 2026-10-06:**
-
-- An object in a room the restore spares stays where it
-  is. Bob takes the hub's gun-sword after Alice's checkpoint. Measured
-  before: when he carried it out after her death, the restore took it out of
-  his hand and authored it on its pedestal again; when he put it down in
-  `duel_arena` before her death, it lay twice (next door and on the pedestal).
-  The acceptance now pins, for each object lying in a spared room or held by
-  a body there, its live ledger row, and for a held one its holder in the
-  pinned custody. An object the checkpoint had in a hand still goes back to
-  that hand. When Bob dies in Alice's room with it in his hand, nobody is
-  spared: it goes back to the pedestal and his hand is empty. Witness:
-  `a_death_with_bob_holding_an_object_in_the_room_keeps_one_copy` (three
-  arms); the precedence: `a_death_takes_back_from_bobs_hand_what_alice_banked_in_hers`.
-  Poisons, each red: keep nothing (the two copies and the empty hand come
-  back); keep the row but not the hand (no copy at all); no precedence (Bob
-  keeps what Alice banked). The precedence poison is green on
-  `a_death_takes_back_what_was_put_down_in_another_players_room`: when the
-  object lies, the custody restore moves it into the banked hand whatever
-  the row says, so only a held object needs the precedence.
 
 ### A4 — separate control authority from body execution on the real schedule
 
@@ -171,44 +92,184 @@ invariant that a body is advanced once per tick.
 second body tick or hidden writer is introduced; schedule witnesses are placed
 between actual neighboring phases rather than only `.after(...)` an abstract set.
 
-### AUTHORITY-POLISH — one owner per mechanical fact, and no mirror in the rollback kernel
+## P1 — ownership, composition and iteration
 
-**Owner:** the architecture-completion campaign (C11 in
-[`consolidation-plan.md`](consolidation/consolidation-plan.md)). Evidence for
-`W0xx` rows stays in [`architecture-warts/README.md`](architecture-warts/README.md)
-until the row closes. This row is the execution order. It does not displace
-ID-PEER, A4 or the rollback rows.
+### WORLD-ACCEPTANCE — one headless playthrough of the persistent world
 
-**The question every item answers:** what owns this semantic fact? Target shape:
-authoring/ruleset → preparation → one construction or transition → one canonical
-live authority → disposable read models → presentation. Prefer deleting the
-field, the writer and the reconciler over a stronger sync.
+**Owner:** [open-world roadmap](game/open-world-roadmap.md) (P4), with the
+[residency plan](engine/open-world-runtime-and-residency.md) and
+[item custody](engine/item-custody-and-accounting.md).
 
-**Current state (2026-09-27):** steps 1–5 of the review order are done. Step 6
-was reassessed: `measure_kernel_module_graph.py --scc` gives the 6-module kernel
-(`abilities features items projectile session world`) plus
-`assets ↔ character_sprites`, and each kernel leg has a recorded verdict in
-AP14. The discovery passes then pointed at game expression. Closed items
-(receipts in Git history): AP3, AP8, AP10–AP13, AP15, AP17–AP19, AP28–AP34,
-AP36, AP37, AP45, AP48, AP54, AP56–AP58, AP62, AP66–AP71, AP76–AP85, AP93,
-AP101, AP102, AP104, AP108, AP109, AP128, AP133, AP137, AP140, AP146–AP148.
+**Current failure:** each mechanism has its own passing arm (room transitions,
+item custody, persisted switches, spawned actors, saves), but no single run of
+the real game proves they compose. A set of passing arms does not prove the
+game.
+
+**Measured 2026-10-09, the content it can run on:** the intro world authors the
+route as `intro_cartography_route` (`data/quests.ron`): Alice's sealed note in
+`alice_relay`, Bob's field survey in `bob_relay`, then the first system boss and
+the P5 route-memory pickup. The note has two roads: Alice's dialogue
+(`dialogue/sandbox/intro.yarn`) puts a `sealednote` quantity in the bag and
+Bob's takes it (`sell_item "sealednote" 0`, then `give_item "fieldsurvey"`), but
+the quest steps read flags that separate `PickupSpawn`s (`flag:<name>`) set. So
+the quest can advance with no note handed over, and no persistent object or
+custody is exercised. The first slice gives the fact one road (the hand-over
+the quest reads) and makes Bob's reward a world consequence rather than a
+flag.
+
+**Next action:** one reproducible headless playthrough of the shipped game, on
+the real composition: explore connected rooms, acquire a meaningful capability,
+obtain and carry a persistent item, deliver it from Alice to Bob, produce a
+durable world consequence, then leave, die, return, save and reload. Verify
+identities, custody, facts and outcomes at each step against the authority, not
+against a second reading of the same state. Fix what it exposes, each in its
+own slice. Then add a second participant to the same scenario.
+
+**Acceptance:** the scenario runs headless in a standing lane and is playable in
+the rendered game; each step asserts its fact against the authority that owns
+it; a poison at each step reddens that step's assertion.
+
+### SDK-GAME — a small independent game on the supported API
+
+**Owner:** [Public SDK 1.0](engine/public-sdk-1.0.md) and
+[capability and runtime composition](engine/capability-and-runtime-composition.md)
+(P3); release artifact per
+[build and distribution](engine/project-build-and-distribution.md).
+
+**Current failure:** A9's named profiles construct and step bodies with
+capabilities left out, but a left-out capability can stay in the Cargo graph,
+and reduced profiles have not been run through every shipped content-admission
+path. Clean internal ownership does not yet prove a reusable engine.
+
+**Next action:** build a small game that uses only the supported public API and
+does not name `shared_tangle`, the actor monolith or Ambition content. It leaves
+out capabilities it does not use, so they are absent from its Cargo graph. It
+runs headless and visibly and produces a release artifact.
+
+**Acceptance:** a dependency check shows the omitted capability crates absent
+from the game's graph; its headless test and its windowed build both run in a
+lane; a release artifact is produced by a documented command.
+
+### TEST-LANES — keep required test lanes executable
+
+**Owner:** test runner / app integration lane. Operational rules and what a
+green lane does not clear:
+[`running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md).
+How a check can fail to run: [`checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md).
+
+**Current state:** the `app_it` lane runs (re-run 2026-10-08; read the count
+from a fresh run, not from here). Cargo diagnostics are read through
+`scripts/lib/cargo_output.py`, which disables colour and strips ANSI codes, and
+`scripts/tests/test_cargo_diagnostics_are_read_plain.py` holds every script that
+reads cargo output to it.
 
 **Open items:**
 
+1. **The compile-cost ratchet fails the full gate** (`scripts/compile_ratchet.py`, measured 2026-09-18). Its baseline records commit `b3bd00a4a` (2026-09-05), which no ref reaches, and it disagrees with itself in three places. Over budget: `ambition_platformer2d_actor_monolith`'s largest unit (100,742 → 115,105 lines) and edit cost, and `ambition_geometry`'s worst edit cost (94.9% of the workspace). ⛔ Do not re-freeze to go green. Next: find which part of the monolith's largest unit belongs in its own crate, and repair the baseline's self-disagreement before any deliberate re-freeze. <!-- cite-ok: `b3bd00a4a` is quoted BECAUSE it resolves nowhere; it is `dev/compile_ratchet_baseline.json`'s own recorded `commit` field -->
+2. **An arm fails only in company** (see [the triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)): `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps` failed once on 2026-09-10, and its assertion was never captured. Three other instances of the signature were per-arm measurements reading process-global state (`app_it` runs arms as threads of one process); they are fixed, and `scripts/a_test_static_is_a_channel_between_arms.py` guards the class. Next: capture this arm's assertion. `hall_redecode_census.rs` asserts over a delta of a process-wide counter, and it is not a candidate: it is `#[ignore]`d and run alone by `scripts/measure_hall_redecodes.sh` (read 2026-10-08). The A9 probe found and repaired two couplings that fail a composition without `BossEncounters` (`simulation_world` required `BossCatalog`; the progression plugin registered `populate_boss_encounter_registry`); whether either was this failure is not known. ⛔ Do not add a retry.
+3. **One older session-root handoff failure** did not reproduce in four full runs, and its assertion was never captured. Both candidate arms (`the_shipped_app_never_holds_two_session_roots_across_a_handoff`, `a_candidate_session_replaced_while_pending_is_discarded`) assert their own premises, so a new failure carries its cause. The next step is not more runs.
+
+4. **`NOT RUN` is a first-class receipt state** (Q59 ruling, 2026-10-03). A
+   ledger or receipt must tell PASS, FAIL, "not run, not required now" and "not
+   run, required at this boundary" apart; a gate blocks only where its policy
+   requires it at the current boundary. Two collapses repaired (2026-10-08):
+   `last_test_run.py` read a `--only-job` status as the lane's PASS (it now
+   says `NOT RUN: n of the lane's m job(s)` and exits 2; a FAIL in the
+   selection still exits 1), and a full gate on a machine without
+   `wasm32-unknown-unknown` dropped the web check from the plan and wrote
+   `done` (it is now planned as unrunnable, `Job.missing`, so the run is
+   `incomplete`). Next: the receipts outside `run_tests.py` (the commit
+   messages and queue rows that quote a lane), and each lane's cadence in
+   [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence).
+
+5. **A sync test did not see an effect that only the first run of a frame
+   has; the rollback host now does (2026-10-05).** GGRS never saves the state
+   that the first run of a frame leaves, so each of its compares is between
+   two resimulations. `first_run_witness` (in the GGRS host crate) takes the
+   checksum of the first-run state and compares it with the first save of
+   that frame; `the_sync_test_sees_a_first_run_only_effect` holds it, with
+   the measurement before the repair in its doc. The full app lane found no
+   first-run-only effect in the tree. Named limits, not built: only a sync
+   test with a check distance above zero; a peer session is not covered (GGRS
+   saves its first run when no rollback is owed). The witness covers the last
+   advance of a host tick only, and that limit is closed for the harnesses by
+   measurement (2026-10-05, one mark for each host tick of a sync test that
+   rewinds, over the full `app_it` lane and the four demo host binaries):
+   23,372 ticks advanced one frame, 236 advanced none, none advanced two or
+   more. A pinned host adds one frame for each update. The proof pulse of
+   the rollback observatory (a developer affordance) runs a sync test under
+   the real clock, and it is the one host where a long render frame advances
+   twice; the first of those two advances has no witness.
+6. **The demo host apps' own integration tests were in no standing lane;
+   the recipe now names their lane and when it is required (2026-10-05).**
+   `mary_o_it`, `sanic_it`, `smash_it` and `twintrack_it` run only under the
+   whole-workspace lane, so a change that both agents' standing lanes
+   (`app_it`, pytest) pass can leave them red. Found that way: four death and
+   room-replay arms were red on main from `f7ecfc019` (P1) until `69d29caa0`:
+   instruments counted the message a restore no longer writes. The behaviour
+   held; only the counters were blind. The command, the changes that require
+   it, and the measurement that it needs no waiver are in
+   [the heavy lane recipe](../recipes/running-the-heavy-app-it-lane.md#the-demo-host-apps-have-their-own-lane);
+   [the check matrix](../recipes/cheapest-sufficient-check.md#the-matrix) has
+   the row. Open: nothing runs the lane for you. It is a rule in prose, and a
+   push that skips it is not refused.
+
+The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
+on one checkout) is machine state. ⛔ Do not lower the floor.
+
+**Acceptance:** the failing population is reproducible or explicitly classified,
+and the production cause is fixed or the harness proves why the failure is not a
+production invariant.
+
+### NAVIGATION — a character reaches an item in another room
+
+**Owner:** [navigation and reachability](engine/platformer-navigation-and-reachability.md),
+with the [agentic character runtime](engine/agentic-character-runtime.md) (P6).
+
+**Current failure:** typed actions, world facts, memory and combat policy exist;
+general world navigation and an open custom-brain policy interface do not, so
+the world-fact architecture has no consumer.
+
+**Next action:** a character observes that an item exists in another room,
+decides whether it can reach it with its real movement capabilities, moves there
+and performs a typed action. Deterministic; no model call inside the
+simulation.
+
+**Acceptance:** a headless arm with a reachable and an unreachable item: the
+character fetches the first and refuses the second, and removing a movement
+capability it needs turns the first into a refusal.
+
+### PUBLICATION-FAULT — a refused later room must not leave a mixed world
+
+**Owner:** [residency plan](engine/open-world-runtime-and-residency.md), the
+multi-room hot reload row.
+
+**Current failure:** a multi-room reload publishes one room at a time. A later
+room refused at verification, after the first published, leaves a mixed world;
+the status says `THE WORLD IS MIXED`. No known road reaches it past the guards.
+
+**Next action:** a fault-injection regression arm that forces the later room's
+verification to fail, then either make the reload transactional across rooms or
+pin today's named failure as the asserted behaviour.
+
+**Acceptance:** the injected fault is caught by an assertion that names the
+mixed state, and multi-room publication is called transactional only when that
+arm shows no mixed world.
+
+### AP14 — semantic actor-monolith SCC decomposition (continuous; deferred 2026-10-09)
+
+**Owner:** [`actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md)
+and [`actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md).
+Jon's 2026-10-09 order defers a full decomposition: take a cut only when a slice
+above already moves the state it names.
+
 | # | Item | Next step |
 |---|---|---|
-| AP9 | Stale architecture docs (continuous) | Remove closed wart rows as items land. Keep a one-line receipt only where another row depends on it. |
 | AP14 | Semantic actor-monolith SCC decomposition (continuous, Jon 2026-09-24) | Measured 2026-10-08: the SCC is 9 modules (`abilities avatar character_runtime construction features items projectile session world`); `avatar`, `character_runtime` and `construction` joined it after 2026-09-27. One leg was a spelling: 17 readers named `SessionCast` through a `session::mechanics` re-export of `ambition_characters::prepared::SessionCast`; they name the owner now and the re-export is deleted. The single-edge cuts left are genuine reads: `avatar→session` (1 ref, `RulesOf`, the per-room rules authority; removing it would leave 7), `construction→session` (1 ref, `CommitFactsSource::AfterTheRestore` names a checkpoint operation), `features→projectile` (1 ref, perception reads `ProjectileAllegiance`, which cannot sink below `ambition_combat`'s `MatchTeam`), `character_runtime→avatar` (1), `session→world` (3). The 2026-09-27 kernel was 6 modules; its legs were walked and judged genuine; the one misplaced leg, `abilities→features` (the puppy-slug gun asks the actor domain to spawn a minion), is not inverted only for the graph. Open question: is the runtime-mint description in `session→items` (`MintedItemBaseline`, `OwnedItemsBaseline`, `ItemCheckpointRestoreInputs`) item knowledge or occurrence-lifecycle knowledge? When an owner is clear, move state, behavior and installation together and delete the old edge (no callbacks, no compatibility re-exports). After each migration run `python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80`. See [`actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md) and [`actor-monolith-work-frontier.md`](engine/actor-monolith-work-frontier.md). |
 
-`WorldTime` is recomputed from `Time.delta` × `ClockState.time_scale` at the
-head of each step. That is the canonical clock, not a defect.
-
-**Acceptance for the lane:** no mechanical fact has two mutable canonical
-owners; rollback rows are authorities, not projections; construction publishes
-no plausible-but-incomplete object; required mechanical policy does not fail
-open. Close with a fresh census rather than a checked list.
-
-## P1 — ownership, composition and iteration
+**Acceptance:** each cut moves state, behaviour and installation together and
+deletes the old edge; `python3 scripts/measure_kernel_module_graph.py --scc --cuts --edges 80`
+is run after it.
 
 ### I2/I3 — finish independent content authoring and safe reload
 
@@ -956,80 +1017,32 @@ nothing loads them.
 the dialog draw size; potato portraits are smaller than full and still fill
 their box.
 
-### TEST-LANES — keep required test lanes executable
-
-**Owner:** test runner / app integration lane. Operational rules and what a
-green lane does not clear:
-[`running-the-heavy-app-it-lane.md`](../recipes/running-the-heavy-app-it-lane.md).
-How a check can fail to run: [`checks-that-did-not-run.md`](../recipes/checks-that-did-not-run.md).
-
-**Current state:** the `app_it` lane runs (re-run 2026-10-08; read the count
-from a fresh run, not from here). Cargo diagnostics are read through
-`scripts/lib/cargo_output.py`, which disables colour and strips ANSI codes, and
-`scripts/tests/test_cargo_diagnostics_are_read_plain.py` holds every script that
-reads cargo output to it.
-
-**Open items:**
-
-1. **The compile-cost ratchet fails the full gate** (`scripts/compile_ratchet.py`, measured 2026-09-18). Its baseline records commit `b3bd00a4a` (2026-09-05), which no ref reaches, and it disagrees with itself in three places. Over budget: `ambition_platformer2d_actor_monolith`'s largest unit (100,742 → 115,105 lines) and edit cost, and `ambition_geometry`'s worst edit cost (94.9% of the workspace). ⛔ Do not re-freeze to go green. Next: find which part of the monolith's largest unit belongs in its own crate, and repair the baseline's self-disagreement before any deliberate re-freeze. <!-- cite-ok: `b3bd00a4a` is quoted BECAUSE it resolves nowhere; it is `dev/compile_ratchet_baseline.json`'s own recorded `commit` field -->
-2. **An arm fails only in company** (see [the triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)): `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps` failed once on 2026-09-10, and its assertion was never captured. Three other instances of the signature were per-arm measurements reading process-global state (`app_it` runs arms as threads of one process); they are fixed, and `scripts/a_test_static_is_a_channel_between_arms.py` guards the class. Next: capture this arm's assertion. `hall_redecode_census.rs` asserts over a delta of a process-wide counter, and it is not a candidate: it is `#[ignore]`d and run alone by `scripts/measure_hall_redecodes.sh` (read 2026-10-08). The A9 probe found and repaired two couplings that fail a composition without `BossEncounters` (`simulation_world` required `BossCatalog`; the progression plugin registered `populate_boss_encounter_registry`); whether either was this failure is not known. ⛔ Do not add a retry.
-3. **One older session-root handoff failure** did not reproduce in four full runs, and its assertion was never captured. Both candidate arms (`the_shipped_app_never_holds_two_session_roots_across_a_handoff`, `a_candidate_session_replaced_while_pending_is_discarded`) assert their own premises, so a new failure carries its cause. The next step is not more runs.
-
-4. **`NOT RUN` is a first-class receipt state** (Q59 ruling, 2026-10-03). A
-   ledger or receipt must tell PASS, FAIL, "not run, not required now" and "not
-   run, required at this boundary" apart; a gate blocks only where its policy
-   requires it at the current boundary. Two collapses repaired (2026-10-08):
-   `last_test_run.py` read a `--only-job` status as the lane's PASS (it now
-   says `NOT RUN: n of the lane's m job(s)` and exits 2; a FAIL in the
-   selection still exits 1), and a full gate on a machine without
-   `wasm32-unknown-unknown` dropped the web check from the plan and wrote
-   `done` (it is now planned as unrunnable, `Job.missing`, so the run is
-   `incomplete`). Next: the receipts outside `run_tests.py` (the commit
-   messages and queue rows that quote a lane), and each lane's cadence in
-   [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence).
-
-5. **A sync test did not see an effect that only the first run of a frame
-   has; the rollback host now does (2026-10-05).** GGRS never saves the state
-   that the first run of a frame leaves, so each of its compares is between
-   two resimulations. `first_run_witness` (in the GGRS host crate) takes the
-   checksum of the first-run state and compares it with the first save of
-   that frame; `the_sync_test_sees_a_first_run_only_effect` holds it, with
-   the measurement before the repair in its doc. The full app lane found no
-   first-run-only effect in the tree. Named limits, not built: only a sync
-   test with a check distance above zero; a peer session is not covered (GGRS
-   saves its first run when no rollback is owed). The witness covers the last
-   advance of a host tick only, and that limit is closed for the harnesses by
-   measurement (2026-10-05, one mark for each host tick of a sync test that
-   rewinds, over the full `app_it` lane and the four demo host binaries):
-   23,372 ticks advanced one frame, 236 advanced none, none advanced two or
-   more. A pinned host adds one frame for each update. The proof pulse of
-   the rollback observatory (a developer affordance) runs a sync test under
-   the real clock, and it is the one host where a long render frame advances
-   twice; the first of those two advances has no witness.
-6. **The demo host apps' own integration tests were in no standing lane;
-   the recipe now names their lane and when it is required (2026-10-05).**
-   `mary_o_it`, `sanic_it`, `smash_it` and `twintrack_it` run only under the
-   whole-workspace lane, so a change that both agents' standing lanes
-   (`app_it`, pytest) pass can leave them red. Found that way: four death and
-   room-replay arms were red on main from `f7ecfc019` (P1) until `69d29caa0`:
-   instruments counted the message a restore no longer writes. The behaviour
-   held; only the counters were blind. The command, the changes that require
-   it, and the measurement that it needs no waiver are in
-   [the heavy lane recipe](../recipes/running-the-heavy-app-it-lane.md#the-demo-host-apps-have-their-own-lane);
-   [the check matrix](../recipes/cheapest-sufficient-check.md#the-matrix) has
-   the row. Open: nothing runs the lane for you. It is a rule in prose, and a
-   push that skips it is not refused.
-
-The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
-on one checkout) is machine state. ⛔ Do not lower the floor.
-
-**Acceptance:** the failing population is reproducible or explicitly classified,
-and the production cause is fixed or the harness proves why the failure is not a
-production invariant.
-
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### AUTHORITY-POLISH — one owner per mechanical fact, and no mirror in the rollback kernel — ✅ DONE 2026-10-09
+
+Closed on a fresh census, as its acceptance asked (2026-10-09): every
+multi-writer App resource and session-world component carries a verdict
+(`check_multi_writer_resources_are_adjudicated.py`: 8 of 23 session-world
+components are multi-writer, all adjudicated; the rollback-registered queue is
+spent), every optional read of a session authority says what its `None` means
+(`check_session_authority_none_arms.py`: 141 sites, 99 rows), and no resource
+crosses the rewind boundary unclassified (`resources_crossing_the_rewind_boundary.py`).
+Its continuous items: AP9 (stale docs) is ordinary hygiene; AP14 is its own row
+under P1. C11 in [`consolidation-plan.md`](consolidation/consolidation-plan.md)
+owns the history.
+
+### BAG-RECORD-HORIZON — a bag record is owned by what is left of its consequence — ✅ DONE 2026-10-09
+
+A restore keeps the grant and spend records it keeps beside the bag
+(`ItemCheckpointRestoreInputs.grants`/`.spends`), an occurrence that ends in a
+live room becomes `Consumed` with its room's participants as owners, an ended
+mint's row is compacted at the next checkpoint, and an object in a spared room
+stays where it is. Witnesses are in `death_restores_the_checkpoint.rs`. The one
+open line, whether a dormant row is owned by participants, is Q161 (default (a),
+today's behaviour, in force); nothing is buildable before its answer.
 
 ### SETTINGS-ROLLBACK — a settings change reaches simulation only at an admitted rebase — ✅ DONE 2026-10-08
 

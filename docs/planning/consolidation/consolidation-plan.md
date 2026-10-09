@@ -22,7 +22,7 @@ Executable slices go to [`queue.md`](../queue.md).
 | 8 | C08 | Prune compatibility facades and forwarding mirrors | OPEN — later cleanup | medium | stay off identity surfaces while ID-PEER runs |
 | 9 | C09 | Review crate boundaries by semantic ownership, not size | OPEN — later structural review | medium-large | after C03 settles owners (C07 converged) |
 | 10 | C10 | Separate current planning state from history | ✅ DONE 2026-09-14 | small | — |
-| 11 | C11 | Authority polish: one owner per mechanical fact, no mirror in the rollback kernel | ACTIVE as [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel); the queue row owns the order | medium | runs beside C03 and C07 |
+| 11 | C11 | Authority polish: one owner per mechanical fact, no mirror in the rollback kernel | CLOSED 2026-10-09 on a fresh census ([AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel---done-2026-10-09) receipt); AP14 continues as its own deferred queue row | medium | — |
 
 ## Converged shapes (closed campaigns)
 
@@ -134,20 +134,22 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ## 3. C03 — Consolidate session-owned state and reduce reset-only App globals
 
-**State:** IN PROGRESS. Six families have landed (see "Landed families"
-below); the others are not started.
+**State:** IN PROGRESS, AND NO LONGER A CAMPAIGN. Seven families have landed (see
+"Landed families" below). From 2026-10-09 (Jon's integration reorder) a remaining
+member moves only when a two-session witness shows its value leaks from one
+session into the next; the count is not the goal.
 
 ### Scope and current authority
 
-Source explicitly groups **33** App resources as gameplay-session or
+Source explicitly groups **29** App resources as gameplay-session or
 activated-generation state (46 until the checkpoint family and the room memories
 left on 2026-10-07; on 2026-10-08, 38 until the session clock left, 36 until the
-door countdown left, 35 until the switch queue left and 34 until the encounter
-view left):
+door countdown left, 35 until the switch queue left, 34 until the encounter
+view left and 33 until the four checkpoint baselines left):
 
-<!-- session-owner-census: SessionScopedResources=32 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=28 SessionMechanics=1 -->
 <!-- session-root-family: SessionCheckpointState=6 -->
-- `SessionScopedResources` (**32**) in `actor_monolith/src/session/teardown.rs`;
+- `SessionScopedResources` (**28**) in `actor_monolith/src/session/teardown.rs`;
 - (`SessionOwnedCheckpointState`, the third bundle of six, is DELETED: its values are
   components of the session root, `SessionCheckpointState` (6) in
   `actor_monolith/src/session/checkpoint.rs`, and no reset runs for them.)
@@ -200,7 +202,7 @@ The census page lists the member names. The guard counts the optional
 | participant state | `ControlledSubject`, `PossessionState` | 2 |
 | encounter state | ~~`EncounterView`~~ (LANDED, on the root), `BossEncounterRegistry`, `AuthoredOccurrences` | 2 |
 | simulation clocks / timeline state | `GameplayElapsed`, `LiveMatchTicks`, `SessionMatchOrdinal`, `ProjectileSeqCounter` | 4 |
-| checkpoint / restore state | ~~the six `SessionOwnedCheckpointState` members~~ (LANDED, on the root), `SaveRestored`, `CustodyBaseline`, `MintedItemBaseline`, `OccurrenceBaseline` | 4 |
+| checkpoint / restore state | ~~the six `SessionOwnedCheckpointState` members~~, ~~`CustodyBaseline`, `MintedItemBaseline`, `OccurrenceBaseline`, `OwnedItemsBaseline`~~ (LANDED, on the root), `SaveRestored` | 1 |
 | session request / admission queues | `CutsceneTriggerQueue`, ~~`SwitchActivationQueue`~~ (LANDED, on the root), `PendingLifecycleCommit` | 2 |
 | admitted mechanics / configuration | `SessionMechanics`, `BaseGravity` | 2 |
 | cutscene / session gameplay state | `ActiveCutscene`, `ActiveConversation`, `CutsceneSkipHold` | 3 |
@@ -211,11 +213,11 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=33/19 SessionWorldMut=34/20 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
+<!-- alias-split: SessionWorldRef=43/19 SessionWorldMut=48/26 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 33 / 19 |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 34 / 20 |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 43 / 19 |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 48 / 26 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
 | `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |
 | `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 9 / 9 |
@@ -238,7 +240,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 33 values. Work owner by owner:
+Do not begin by moving all 29 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
@@ -394,6 +396,36 @@ camera reads `Option<SessionWorldRef<..>>`, so with no session there is no zoom.
   encounter zooms A's room, the control; a candidate has no view; after the swap
   B's room is not zoomed). Poisoned by a default that zooms the room: the arm
   fails on "B was born framing A's encounter".
+
+**7. The four checkpoint baselines, 2026-10-08.** `OccurrenceBaseline`,
+`CustodyBaseline`, `MintedItemBaseline` and `OwnedItemsBaseline` (what a death
+restores to) are components of the session root, required by `SessionRoot`
+through the lifecycle and item checkpoint offers. They moved together because
+the checkpoint offer pins all four as one tuple.
+
+- **Rollback identity did not move:** the four keys stay; their kind is
+  `component-clone-custom-checksum`. The schema version moves 334 -> 335.
+- **Deleted:** the three members of `SessionScopedResources`, the optional
+  fourth, and their reset lines. `SessionScopedResources` was 32 and the
+  App-resource total 33.
+- **A hazard the move exposed:** a load installs the candidate's durable
+  horizon BEFORE the candidate root is promoted, while the outgoing root is
+  still the `SessionRoot`. A direct port wrote the file's checkpoint onto the
+  session that ends. `CandidateDurableHorizon::install` now installs only the
+  ledger and gives back the checkpoint half, which
+  `CandidateCheckpointBaselines::adopt_onto` writes onto the candidate's root
+  after the promotion.
+- **Witness:**
+  `durable_horizon::tests::a_load_writes_its_checkpoint_onto_the_session_it_builds`
+  (B holds the file's checkpoint and none of A's rows; A's own checkpoint is
+  untouched, the control). Poisoned by writing the half through the live root
+  at `install`: the arm fails on "the new session was born without the file's
+  checkpoint". `session_isolation` (Sanic) also asserts that session B is born
+  without A's three baselines.
+- **An instrument fix it needed:** the C07 `None`-arm scan matched
+  `Option<SessionWorldRef<..>>` only with no path before the alias. With the
+  path allowed it found eight older optional reads with no row; they are rows
+  now.
 
 ### Constraints
 

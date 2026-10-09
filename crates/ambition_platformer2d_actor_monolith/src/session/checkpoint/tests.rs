@@ -2175,7 +2175,7 @@ fn a_new_game_is_admitted_as_a_fresh_restore_at_the_start_room() {
             SimId::from_snapshot("room:rest_room:axe".into()),
             OccurrenceWhereabouts::Consumed,
         )]));
-        app.world_mut().resource_mut::<OccurrenceBaseline>().adopt(remembered);
+        held_mut::<OccurrenceBaseline>(app.world_mut()).adopt(remembered);
 
         app.world_mut().write_message(ResetToCheckpoint);
         if new_game {
@@ -2312,7 +2312,7 @@ fn an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits() {
         );
         let mut baseline = OccurrenceBaseline::default();
         baseline.adopt(later);
-        world.insert_resource(baseline);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(world, baseline);
     }
     app.world_mut().run_schedule(sim);
 
@@ -2334,7 +2334,7 @@ fn an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits() {
         );
     }
     assert_ne!(
-        app.world().resource::<OccurrenceBaseline>().remembered(),
+        held::<OccurrenceBaseline>(app.world()).remembered(),
         pinned
             .lifecycle
             .as_ref()

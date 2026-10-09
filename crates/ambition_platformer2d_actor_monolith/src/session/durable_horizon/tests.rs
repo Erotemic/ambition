@@ -27,11 +27,16 @@ fn horizon_app() -> App {
         .init_resource::<AmbitionGameSave>()
         .init_resource::<SaveRestored>()
         .init_resource::<AuthoredOccurrences>()
-        .init_resource::<OccurrenceBaseline>()
-        .init_resource::<CustodyBaseline>()
-        .init_resource::<MintedItemBaseline>()
-        .init_resource::<OwnedItemsBaseline>()
         .init_resource::<ambition_items::OwnedItems>();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        (
+            OccurrenceBaseline::default(),
+            CustodyBaseline::default(),
+            MintedItemBaseline::default(),
+            OwnedItemsBaseline::default(),
+        ),
+    );
     app.world_mut()
         .spawn((PlayerEntity, PrimaryPlayer, BodyWallet { balance: 0 }));
     app
@@ -188,21 +193,18 @@ fn a_load_seeds_every_domain_baseline_and_requests_the_resume() {
     app.update();
 
     assert_eq!(
-        app.world()
-            .resource::<OccurrenceBaseline>()
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<OccurrenceBaseline>(app.world()).unwrap()
             .remembered()
             .whereabouts(&SimId::placement("carried")),
         Some(&OccurrenceWhereabouts::InCustody),
     );
     assert_eq!(
-        app.world()
-            .resource::<CustodyBaseline>()
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<CustodyBaseline>(app.world()).unwrap()
             .custodian_of(&SimId::placement("carried")),
         Some(&SimId::player_slot(0)),
     );
     assert_eq!(
-        app.world()
-            .resource::<MintedItemBaseline>()
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<MintedItemBaseline>(app.world()).unwrap()
             .description_of(&SimId::from_snapshot("slot:0/0".into())),
         Some(&MintedItemDescription {
             origin: SpawnOrigin::Dynamic {
@@ -338,8 +340,7 @@ fn a_population_the_restore_cannot_complete_on_is_written_to_by_nobody() {
     app.update();
 
     assert_eq!(
-        app.world()
-            .resource::<OccurrenceBaseline>()
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<OccurrenceBaseline>(app.world()).unwrap()
             .remembered()
             .whereabouts(&SimId::placement("carried")),
         None,
@@ -348,8 +349,7 @@ fn a_population_the_restore_cannot_complete_on_is_written_to_by_nobody() {
          stop the repeat never rises",
     );
     assert_eq!(
-        app.world()
-            .resource::<CustodyBaseline>()
+        ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<CustodyBaseline>(app.world()).unwrap()
             .custodian_of(&SimId::placement("carried")),
         None,
     );
@@ -531,4 +531,100 @@ fn a_dormant_mint_taken_up_leaves_the_minted_rows() {
     let minted = app.world().resource::<AmbitionGameSave>().data().minted_items().to_vec();
     assert_eq!(minted.len(), 999, "the minted rows did not follow the ledger");
     assert!(!minted.iter().any(|row| row.occurrence == taken.as_str()));
+}
+
+/// ⭐ A LOAD WRITES ITS CHECKPOINT ONTO THE SESSION IT BUILDS (C03).
+///
+/// The baselines are the session root's. At adoption the candidate root is not
+/// yet a `SessionRoot` and the outgoing root still is, so a write through "the
+/// live root" at `install` puts the file's checkpoint on the session that ends,
+/// and the new session is born with an empty one: its first death takes back
+/// everything the save remembered. The control is A's own checkpoint, which the
+/// load must not touch.
+#[test]
+fn a_load_writes_its_checkpoint_onto_the_session_it_builds() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        require_on_session_root, CandidateSessionRoot, SessionRoot, SessionScopeId,
+    };
+    let mut app = App::new();
+    app.init_resource::<AuthoredOccurrences>();
+    require_on_session_root::<OccurrenceBaseline>(&mut app);
+    require_on_session_root::<CustodyBaseline>(&mut app);
+    require_on_session_root::<MintedItemBaseline>(&mut app);
+
+    let a = app.world_mut().spawn(SessionRoot(SessionScopeId(1))).id();
+    let mut a_ledger = AuthoredOccurrences::default();
+    a_ledger.adopt_rows(
+        [(SimId::placement("a_thing"), OccurrenceWhereabouts::Consumed)]
+            .into_iter()
+            .collect(),
+    );
+    app.world_mut()
+        .get_mut::<OccurrenceBaseline>(a)
+        .unwrap()
+        .adopt(a_ledger.clone());
+    let b = app.world_mut().spawn(CandidateSessionRoot(SessionScopeId(2))).id();
+
+    let mut data = AmbitionGameSave::default().data().clone();
+    data.set_durable_horizon(
+        vec![PersistedOccurrence::new(
+            "placement:carried",
+            PersistedWhereabouts::InCustody,
+        )],
+        vec![PersistedCustody::new("placement:carried", "slot:0")],
+    );
+    data.set_minted_items(vec![PersistedMintedItem {
+        occurrence: "slot:0/0".into(),
+        parent: "slot:0".into(),
+        sequence: 0,
+        held_item: "javelin".into(),
+    }]);
+    let horizon = CandidateDurableHorizon::from_save(&data);
+
+    // The adoption's order: install, promote, then the root's own half.
+    let world = app.world_mut();
+    let checkpoint = horizon.install(world);
+    ambition_platformer2d_shared_tangle::construction::publish_candidate_session(
+        world,
+        b,
+        SessionScopeId(2),
+    );
+    checkpoint.adopt_onto(world, b);
+
+    let world = app.world();
+    assert_eq!(
+        world
+            .get::<OccurrenceBaseline>(b)
+            .unwrap()
+            .remembered()
+            .whereabouts(&SimId::placement("carried")),
+        Some(&OccurrenceWhereabouts::InCustody),
+        "the new session was born without the file's checkpoint",
+    );
+    assert_eq!(
+        world
+            .get::<CustodyBaseline>(b)
+            .unwrap()
+            .custodian_of(&SimId::placement("carried")),
+        Some(&SimId::player_slot(0)),
+    );
+    assert!(world
+        .get::<MintedItemBaseline>(b)
+        .unwrap()
+        .description_of(&SimId::from_snapshot("slot:0/0".into()))
+        .is_some());
+    assert_eq!(
+        world
+            .get::<OccurrenceBaseline>(b)
+            .unwrap()
+            .remembered()
+            .whereabouts(&SimId::placement("a_thing")),
+        None,
+        "the new session inherited the old session's checkpoint",
+    );
+    assert_eq!(
+        world.get::<OccurrenceBaseline>(a).unwrap().remembered(),
+        &a_ledger,
+        "the load wrote its checkpoint onto the session that ends",
+    );
 }

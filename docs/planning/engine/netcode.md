@@ -233,10 +233,9 @@ closed set of spellings.
   build advertise one fingerprint. The instrument is still cleared on rewind.
   `the_causal_instrument_is_registered_and_outside_the_peer_schema` first
   requires the channels to be present in `deterministic_dump`.
-- Open (`Q122` ruled): the fingerprint hashes prose `detail`. Split each row's
-  `detail` into the mechanical facts the fingerprint hashes and the explanation
-  it does not. Do not just drop `detail`. Tracked as ID-PEER in
-  [`../queue.md`](../queue.md).
+- Settled (`Q122`, schema 303): the fingerprint hashes `mechanical_dump()`, each
+  row's mechanism token in place of its prose `detail`. See
+  [simulation authority](simulation-authority-and-determinism.md).
 
 **Input identity.** See "The input payload two peers exchange".
 

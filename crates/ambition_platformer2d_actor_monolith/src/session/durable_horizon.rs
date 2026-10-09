@@ -20,7 +20,7 @@ use ambition_persistence::save_data::{
 use ambition_platformer2d_shared_tangle::lifecycle::{
     live_custody_rows, AuthoredOccurrences, CustodyBaseline, CustodyDurability, InCustodyOf,
     OccurrenceBaseline,
-    OccurrenceWhereabouts, ResetToCheckpoint, RoomScopedEntity,
+    OccurrenceWhereabouts, ResetToCheckpoint, RoomScopedEntity, SessionWorldMut,
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
@@ -46,8 +46,8 @@ pub fn adopt_occurrence_checkpoint_from_save(
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     occurrences: Option<ResMut<AuthoredOccurrences>>,
-    occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
-    custody_baseline: Option<ResMut<CustodyBaseline>>,
+    occurrence_baseline: Option<SessionWorldMut<OccurrenceBaseline>>,
+    custody_baseline: Option<SessionWorldMut<CustodyBaseline>>,
 ) {
     // ⛔ THE POPULATION IS "EXACTLY ONE", NOT "AT LEAST ONE", AND THE SPELLING
     // IS `complete_durable_restore`'S ON PURPOSE. The completer raises the
@@ -260,7 +260,17 @@ impl CandidateDurableHorizon {
     }
 
     /// Make this horizon authoritative. Called by ADOPTION and by nothing else.
-    pub fn install(self, world: &mut bevy::prelude::World) {
+    ///
+    /// It installs the ledger and gives back the checkpoint half, which is the
+    /// candidate root's own state.
+    ///
+    /// ⛔ THE CHECKPOINT HALF IS NOT WRITTEN HERE. At this point the candidate
+    /// root is not yet a `SessionRoot` and the outgoing root still is, so a
+    /// write through "the live root" lands on the session that ends. The
+    /// caller adopts the half with [`CandidateCheckpointBaselines::adopt_onto`]
+    /// after the candidate's root is promoted.
+    #[must_use = "the checkpoint half belongs on the candidate's root"]
+    pub fn install(self, world: &mut bevy::prelude::World) -> CandidateCheckpointBaselines {
         let Self {
             occurrences,
             custody,
@@ -270,14 +280,46 @@ impl CandidateDurableHorizon {
         if let Some(mut live) = world.get_resource_mut::<AuthoredOccurrences>() {
             *live = occurrences.clone();
         }
-        if let Some(mut baseline) = world.get_resource_mut::<OccurrenceBaseline>() {
+        CandidateCheckpointBaselines {
+            occurrences,
+            custody,
+            minted,
+        }
+    }
+}
+
+/// The checkpoint half of a candidate's durable horizon: what a death after
+/// the load restores to.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CandidateCheckpointBaselines {
+    occurrences: AuthoredOccurrences,
+    custody: BTreeMap<SimId, SimId>,
+    minted: crate::items::pickup::minted_horizon::MintedItemBaseline,
+}
+
+impl CandidateCheckpointBaselines {
+    /// Write the half onto `root`, which must be a promoted `SessionRoot`.
+    ///
+    /// A baseline is written only where the root carries it. The checkpoint
+    /// offers require their baselines on every root, so a composition that
+    /// leaves an offer out has no baseline to write, and the restore pins
+    /// nothing for that domain: absent is not empty.
+    pub fn adopt_onto(self, world: &mut bevy::prelude::World, root: Entity) {
+        use ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut_at;
+        let Self {
+            occurrences,
+            custody,
+            minted,
+        } = self;
+        if let Some(mut baseline) = session_world_component_mut_at::<OccurrenceBaseline>(world, root) {
             baseline.adopt(occurrences);
         }
-        if let Some(mut baseline) = world.get_resource_mut::<CustodyBaseline>() {
+        if let Some(mut baseline) = session_world_component_mut_at::<CustodyBaseline>(world, root) {
             baseline.adopt(custody);
         }
-        if let Some(mut baseline) = world
-            .get_resource_mut::<crate::items::pickup::minted_horizon::MintedItemBaseline>()
+        if let Some(mut baseline) = session_world_component_mut_at::<
+            crate::items::pickup::minted_horizon::MintedItemBaseline,
+        >(world, root)
         {
             *baseline = minted;
         }
@@ -336,8 +378,8 @@ fn ledger_from_save(
 fn adopt_the_ledger(
     data: &ambition_persistence::save_data::AmbitionGameSaveData,
     mut occurrences: ResMut<AuthoredOccurrences>,
-    occurrence_baseline: Option<ResMut<OccurrenceBaseline>>,
-    custody_baseline: Option<ResMut<CustodyBaseline>>,
+    occurrence_baseline: Option<SessionWorldMut<OccurrenceBaseline>>,
+    custody_baseline: Option<SessionWorldMut<CustodyBaseline>>,
 ) {
     let (ledger_rows, held, mints) = ledger_from_save(data);
     occurrences.adopt_rows(ledger_rows);

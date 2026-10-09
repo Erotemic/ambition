@@ -82,7 +82,7 @@ MIN_SITES = 40  # anti-vacuity: a scan that finds fewer has lost the tree
 MIN_REASON = 30
 
 OPT = re.compile(
-    r"Option<\s*(?:Res|ResMut|SessionWorldRef|SessionWorldMut)\s*<\s*(?:'\w+\s*,\s*)?(?:\w+::)*(\w+)\s*>"
+    r"Option<\s*(?:\w+::)*(?:Res|ResMut|SessionWorldRef|SessionWorldMut)\s*<\s*(?:'\w+\s*,\s*)*(?:\w+::)*(\w+)\s*>"
 )
 GET = re.compile(r"\.(?:get_resource|get_resource_mut)::<\s*(?:\w+::)*(\w+)\s*>")
 SWC = re.compile(r"session_world_component(?:_mut)?::<\s*(?:\w+::)*(\w+)\s*>")

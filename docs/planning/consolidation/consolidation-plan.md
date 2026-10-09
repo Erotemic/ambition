@@ -22,7 +22,7 @@ Executable slices go to [`queue.md`](../queue.md).
 | 8 | C08 | Prune compatibility facades and forwarding mirrors | OPEN — later cleanup | medium | stay off identity surfaces while ID-PEER runs |
 | 9 | C09 | Review crate boundaries by semantic ownership, not size | OPEN — later structural review | medium-large | after C03 settles owners (C07 converged) |
 | 10 | C10 | Separate current planning state from history | ✅ DONE 2026-09-14 | small | — |
-| 11 | C11 | Authority polish: one owner per mechanical fact, no mirror in the rollback kernel | ACTIVE as [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel); the queue row owns the order | medium | runs beside C03 and C07 |
+| 11 | C11 | Authority polish: one owner per mechanical fact, no mirror in the rollback kernel | CLOSED 2026-10-09 on a fresh census ([AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel---done-2026-10-09) receipt); AP14 continues as its own deferred queue row | medium | — |
 
 ## Converged shapes (closed campaigns)
 

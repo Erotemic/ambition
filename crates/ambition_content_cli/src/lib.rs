@@ -50,6 +50,11 @@ pub struct Invocation {
     /// links, which is how a game with its own capabilities uses this tool
     /// before it has its own.
     pub extra_capabilities: Vec<CapabilityId>,
+    /// Content capabilities the composition does not install: the pack is
+    /// checked against what a reduced engine profile admits
+    /// (`EngineProfile::omitted_content_capabilities`), so a pack that requires
+    /// one is refused here as the game refuses it at composition.
+    pub without_capabilities: Vec<String>,
     /// Skip asset existence checks — explicit, so a pack validated this way is
     /// visibly not making a claim about its assets.
     pub skip_asset_check: bool,
@@ -98,6 +103,9 @@ OPTIONS:
                           refuses, which is what packaging wants.
     --capability <id>     Treat <id> as installed. Use it to validate against a
                           composition larger than this binary links.
+    --without <id>        Do not install the engine capability <id> or its
+                          schemas. Repeatable. Use it to validate a pack for
+                          a game that composes a reduced engine profile.
     --fingerprint         Print only the content fingerprint.
     --list-schemas        List the installed schemas and exit.
     -h, --help            This text.
@@ -113,6 +121,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
     let mut pack_root = None;
     let mut asset_roots = Vec::new();
     let mut extra_capabilities = Vec::new();
+    let mut without_capabilities = Vec::new();
     let mut skip_asset_check = false;
     let mut advisory_assets = false;
     let mut list_schemas = false;
@@ -129,6 +138,9 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
                 .push(CapabilityId::new(args.next().ok_or_else(|| {
                     ArgError::MissingValue("--capability".into())
                 })?)),
+            "--without" => without_capabilities.push(
+                args.next().ok_or_else(|| ArgError::MissingValue("--without".into()))?,
+            ),
             "--no-asset-check" => skip_asset_check = true,
             "--advisory-assets" => advisory_assets = true,
             "--list-schemas" => list_schemas = true,
@@ -143,6 +155,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
             pack_root: pack_root.unwrap_or_default(),
             asset_roots,
             extra_capabilities,
+            without_capabilities,
             skip_asset_check,
             advisory_assets,
             list_schemas,
@@ -154,6 +167,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
         pack_root: pack_root.ok_or(ArgError::MissingPackRoot)?,
         asset_roots,
         extra_capabilities,
+        without_capabilities,
         skip_asset_check,
         advisory_assets,
         list_schemas,
@@ -162,13 +176,21 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
 }
 
 impl Invocation {
-    /// Run it. The registry is built here, so the capabilities named on the
-    /// command line and the ones the binary links go through one path.
-    pub fn run(&self) -> Result<PreparedContentPack, CompileFailure> {
-        let mut registry = default_registry();
+    /// The composition this invocation names: the engine's schemas without
+    /// `--without`, plus each `--capability`.
+    pub fn registry(&self) -> SchemaRegistry {
+        let without: Vec<&str> = self.without_capabilities.iter().map(String::as_str).collect();
+        let mut registry = ambition_engine_schemas::engine_schemas_without(&without);
         for capability in &self.extra_capabilities {
             registry.install_capability(capability.clone());
         }
+        registry
+    }
+
+    /// Run it. The registry is built here, so the capabilities named on the
+    /// command line and the ones the binary links go through one path.
+    pub fn run(&self) -> Result<PreparedContentPack, CompileFailure> {
+        let registry = self.registry();
         let assets: Box<dyn AssetSource> = if self.skip_asset_check {
             Box::new(AssetsUnchecked)
         } else {

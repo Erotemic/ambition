@@ -263,8 +263,9 @@ host's `dialog_pointer_input` ran unconditionally; it now runs only when the
 dialogue state exists. Outlander's full suite under `--features visible` is
 green (29 tests). The absence contract now prints cargo's error and the
 `cargo fetch` remedy when the fixture's dependencies were never fetched.
-Open: `ambition_content_cli` checks a pack against the full registry only (no
-profile flag).
+The content CLI takes `--without <capability>` (repeatable) and checks a pack
+against that reduced registry; witness `a_pack_is_refused_for_a_composition_without_its_capability`
+(control: no flag admits; poison, the flag ignored: red at the exit code).
 
 **Acceptance:** a dependency check shows the omitted capability crates absent
 from the game's graph; its headless test and its windowed build both run in a

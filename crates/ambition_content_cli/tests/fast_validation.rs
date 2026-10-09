@@ -253,3 +253,16 @@ fn the_tool_lists_what_it_installs() {
         "the schema and its owning capability are both named:\n{text}"
     );
 }
+
+/// A pack checked for a reduced engine profile (SDK-GAME SG3): `--without`
+/// removes a capability and its schemas, so the shipped catalog, which needs
+/// `characters`, is refused. The control is the same pack with no flag.
+#[test]
+fn a_pack_is_refused_for_a_composition_without_its_capability() {
+    let sandbox = Sandbox::with_shipped_catalog("without_capability");
+    let (code, text, _) = sandbox.validate(&[]);
+    assert_eq!(code, 0, "control: the full composition admits the pack:\n{text}");
+    let (code, text, _) = sandbox.validate(&["--without", "characters"]);
+    assert_eq!(code, 1, "a composition without `characters` admitted its catalog:\n{text}");
+    assert!(text.contains("character_catalog"), "the refusal names the schema it cannot read:\n{text}");
+}

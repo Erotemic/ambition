@@ -5,7 +5,7 @@
 //! development reload and in packaging; this binary exists so an author gets
 //! the answer in milliseconds instead of a ten-minute rebuild.
 
-use ambition_content_cli::{default_registry, parse_args, USAGE};
+use ambition_content_cli::{parse_args, USAGE};
 
 fn main() -> std::process::ExitCode {
     let raw: Vec<String> = std::env::args().skip(1).collect();
@@ -23,7 +23,7 @@ fn main() -> std::process::ExitCode {
     };
 
     if invocation.list_schemas {
-        let registry = default_registry();
+        let registry = invocation.registry();
         println!("installed schemas:");
         for schema in registry.schemas() {
             println!(

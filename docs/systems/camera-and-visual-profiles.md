@@ -45,7 +45,7 @@ Supported level fields:
 | --- | --- |
 | `visual_profile` or `visual_profile_id` | Stable authored profile id, such as `intro_wakeup_room`. |
 | `parallax_theme` | Explicit generated parallax/background theme. Prefer this over inferring from `biome`, `music_track`, or `visual_theme`. |
-| `palette` | Palette / color-grading hint for future renderer passes. |
+| `palette` | The named look of the room's architecture. `clean_corrupted` draws the room in two states of one architecture (`game/ambition_content/src/presentation/room_state.rs`). No other value has a reader. |
 | `lighting_hint` | Lighting mood hint for future post-process or shader passes. |
 | `foreground_treatment` | Foreground/atmosphere treatment hint. |
 

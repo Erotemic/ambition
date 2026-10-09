@@ -154,6 +154,12 @@ WAIVERS = {
         "`Without<…>` idempotence and `cleanup_sauce_overlays`, both `Update` in "
         "`ActorOverlaySet`"
     ),
+    "PresentedRoomState": (
+        "one site, `present_room_states` (`presentation/room_state.rs`), "
+        "registered in `Update` in `SessionScopeSet::Presentation`; the marker is "
+        "the memo that a live room's state-look quads are spawned, and it leaves "
+        "with the room as `PresentedRoomVisuals` does in the renderer"
+    ),
     "BossDrawnCell": (
         "the boss sprite's drawn (row, frame), written by `animate_bosses` and "
         "read by the sauce overlay, all in `Update`; rebuilt every frame from the "

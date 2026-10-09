@@ -350,9 +350,14 @@ reads cargo output to it.
    `scripts/tests/test_required_checks.py` (poisons: freshness ignored, red at
    `a_pass_before_a_later_edit_is_old`; untracked files left out of the
    tested tree, red at `a_new_untracked_source_file_is_part_of_the_tested_tree`).
-   Not held: the demo rule's fourth case (an instrument a demo test reads),
-   the external-consumer fixtures, the matrix rows without a path, and a
-   peer's change merged after the run.
+   A row holds the tree at both ends of its job, and a check counts when
+   both hold the change's paths (`36eb555ee`): a file the host of a shared
+   folder edited during a 14-job run had voided two passing jobs. Only the
+   run that writes the default status records evidence, so a test's fake
+   jobs do not. Not held: the demo rule's fourth case (an instrument a demo
+   test reads), the external-consumer fixtures, the matrix rows without a
+   path, and a peer's change merged after the run. The pre-push hook is
+   written and NOT installed; it waits for the three sessions to agree.
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
@@ -363,9 +368,13 @@ that machine publishes the sheet again: the sheets are untracked. Measured
 job ran 9730 tests, 9728 passed, and the 2 that failed
 (`her_spark_leaves_her_hand::*` in the Mary-O app) said "her fire sheet has no
 `shoot` row" on a machine that had not regenerated `mary_o_v2_fire`. The other
-red job was the wasm check (a native-only call, fixed by its owner). Open: such
-a test says what is missing and not what to run; the failure reads as a
-defect.
+red job was the wasm check (a native-only call, fixed by its owner). The same
+day Bob's sheet had no `air_dodge` row, and the rendered game panicked in
+neighbour-room preparation. `scripts/regen/sprites.sh --check` now says
+whether the published sheets are older than the renderer (the fingerprint
+saved by the last full publish) and prints the command to run (`0d5c17f20`).
+It cannot tell which row a test needs; a red test still reads as a defect
+until someone runs the check.
 
 **Acceptance:** the failing population is reproducible or explicitly classified,
 and the production cause is fixed or the harness proves why the failure is not a

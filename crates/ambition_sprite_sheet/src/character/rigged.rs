@@ -655,6 +655,33 @@ impl RiggedSpriteAsset {
             .unwrap_or(1.0)
     }
 
+    /// Does `row` draw the body whole in each frame: no frame fades as one
+    /// picture, and no part of the body fades on its own?
+    ///
+    /// The body's parts are the tracks the `idle` row draws (the parts
+    /// themselves, in an untracked flipbook). An effect piece (a portal ring)
+    /// is no part of the body, and it can fade.
+    ///
+    /// This is how a sheet says its blink rows are plain poses, with no new
+    /// field: the engine's teleport warp ([`BodyWarp`]) takes apart a body
+    /// that is drawn whole. A sheet that fades or takes apart its own body in
+    /// those rows already has a blink, and a second one over it is wrong.
+    pub fn row_draws_the_body_whole(&self, row: &str) -> bool {
+        let Some(clip) = self.clips.get(row) else {
+            return false;
+        };
+        if clip.frame_opacity.iter().any(|opacity| *opacity < 1.0) {
+            return false;
+        }
+        let key = |draw: &PartDraw| draw.track.unwrap_or(draw.part);
+        let body: Vec<u16> = self.frame("idle", 0).unwrap_or_default().iter().map(key).collect();
+        clip.frames.iter().all(|(start, len)| {
+            self.draws[*start as usize..(*start + *len) as usize]
+                .iter()
+                .all(|draw| draw.color[3] >= 254 || !body.contains(&key(draw)))
+        })
+    }
+
     /// How far, in sheet pixels, `draws` reach past this flipbook's frame on
     /// their farthest side; `0` when every draw stays inside. The measure
     /// behind [`Self::art_overhang`], for draws that are not a published
@@ -815,8 +842,10 @@ pub struct PartPose {
 ///
 /// It is a property of the ROW, by its engine name: a blink is an engine
 /// mechanic and `blink_out` / `blink_in` are the engine's rows for it
-/// (`CharacterAnim::BlinkOut` / `BlinkIn`). A sheet draws a plain pose in
-/// those rows; the pass that finishes the body's composited image
+/// (`CharacterAnim::BlinkOut` / `BlinkIn`). It applies to a row that draws
+/// the body whole ([`RiggedSpriteAsset::row_draws_the_body_whole`]): a sheet
+/// that takes its own body apart in those rows keeps its own blink. A sheet
+/// draws a plain pose in those rows; the pass that finishes the body's composited image
 /// (`ImpostorUnpremultiply`) does the rest, so each reader of the body sees
 /// the same slivers, and no art is authored piece by piece. A warp row is
 /// read as one image, as a row that fades is.

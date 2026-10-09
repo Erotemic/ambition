@@ -48,16 +48,17 @@ fn the_basement_dog_is_peaceful_and_goes_to_places_on_the_rooms_surfaces() {
         .expect("the dog has a feature id")
         .as_str()
         .to_string();
-    // The graph for the dog's own tuning. (A body is born with a motion
-    // model that is not its character's own, and the advisor builds a graph
-    // for that one too: one build for nothing, an open cost.)
-    let graph = sim
-        .world()
-        .resource::<RoomNavigation>()
-        .graphs()
-        .find(|graph| (graph.run_speed - 120.0).abs() < 1.0)
-        .cloned()
-        .expect("the advisor built a graph for a body that runs at the dog's 120");
+    // One graph: the dog's body, with the dog's own tuning. A body is born
+    // with a motion model that is not its own, and the advisor does not build
+    // a graph for it before the kernel has stepped it.
+    let navigation = sim.world().resource::<RoomNavigation>();
+    assert_eq!(navigation.len(), 1, "the advisor built {} graphs for one dog", navigation.len());
+    let graph = navigation.graphs().next().cloned().expect("the advisor built a graph for the dog");
+    assert!(
+        (graph.run_speed - 120.0).abs() < 1.0,
+        "the graph is for a body that runs at {}, and the dog runs at 120",
+        graph.run_speed
+    );
     let feet = |sim: &ambition_app::Platformer2dSimHarness| {
         let kin = sim.world().get::<BodyKinematics>(dog).expect("the dog stays in the room");
         kin.pos + bevy::math::Vec2::Y * kin.size.y * 0.5

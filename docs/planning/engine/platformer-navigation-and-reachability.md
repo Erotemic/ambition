@@ -154,13 +154,18 @@ OPEN, cost:
   hitch. The graph is a pure function of authored geometry and a body's
   tuning, so it can be built when content is built and shipped as data. That
   is the direction; nothing builds it yet.
-- A body is born with a motion model that is not its character's own, and the
-  advisor builds a graph for that one too: one build for nothing for each
-  navigating kind. Two things I tried do not find the moment the body is
-  ready: the `PosedBody` marker is there before the model changes, and
-  `PreparedCharacterDefinition::motion_model` is not the final model either
-  (the dog's run speed of 120 arrives by another road). It needs the owner of
-  the spawn order to say what "this body has its tuning" is.
+- CLOSED 2026-10-09: a body is born with a motion model that is not its own.
+  The integrator writes the body's tuning into the model on each step
+  (`step_body`), so the model is right from the first step on. The advisor
+  does not advise a body the kernel has not stepped
+  (`BodyGroundState::contact_initialized`), and one dog is one graph
+  (`companion_dog::the_basement_dog_...` holds it). YardratAmbition found the
+  cause by reading the integrator; two signals I tried first (`PosedBody`, the
+  prepared character's motion model) were wrong.
+- OPEN, found on the way and not measured: the brain snapshot's
+  `movement_tuning` is `body_tuning(max_run_speed)` and does not read
+  `AuthoredMovementTuning`, which the integrator prefers. Its comment says it
+  is the same projection. For a body that authors its feel they can differ.
 
 The rules the slice holds:
 

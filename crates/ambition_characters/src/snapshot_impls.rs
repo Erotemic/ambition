@@ -554,27 +554,9 @@ impl SnapshotCursor for crate::brain::Brain {
             // place it goes to, the leg it is on, and when its rest ends.
             Brain::StateMachine(StateMachineCfg::Roam { state, .. }) => {
                 put_u8(out, 4);
-                match state.goal {
-                    None => put_bool(out, false),
-                    Some(goal) => {
-                        put_bool(out, true);
-                        put_vec2(out, goal);
-                    }
-                }
-                match state.leg {
-                    None => put_bool(out, false),
-                    Some(leg) => {
-                        put_bool(out, true);
-                        put_u8(out, leg.kind as u8);
-                        put_vec2(out, leg.start);
-                        put_vec2(out, leg.takeoff);
-                        put_vec2(out, leg.land);
-                    }
-                }
-                put_u8(out, state.phase as u8);
+                put_nav_follower(out, &state.nav);
                 put_f32(out, state.until);
                 put_u32(out, state.picks);
-                put_u8(out, state.misses);
             }
             _ => put_u8(out, 0),
         }
@@ -968,6 +950,30 @@ impl SnapshotState for crate::actor::attack_gesture::AttackGestureTuning {
             action_buffer_s: r.f32()?,
         })
     }
+}
+
+/// A route follower, whole: each field decides what its body does next.
+fn put_nav_follower(out: &mut Vec<u8>, nav: &crate::brain::state_machine::NavFollower) {
+    match nav.goal {
+        None => put_bool(out, false),
+        Some(goal) => {
+            put_bool(out, true);
+            put_vec2(out, goal);
+        }
+    }
+    match nav.leg {
+        None => put_bool(out, false),
+        Some(leg) => {
+            put_bool(out, true);
+            put_u8(out, leg.kind as u8);
+            put_vec2(out, leg.start);
+            put_vec2(out, leg.takeoff);
+            put_vec2(out, leg.land);
+        }
+    }
+    put_u8(out, nav.phase as u8);
+    put_f32(out, nav.until);
+    put_u8(out, nav.misses);
 }
 
 fn put_opt_profile(out: &mut Vec<u8>, v: &Option<crate::brain::boss_pattern::BossAttackProfile>) {

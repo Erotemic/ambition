@@ -606,6 +606,16 @@ where
         "derived.actor_decision_frames",
         "rebuilt by autonomous decision and consumed by same-tick control publication",
     );
+    registrar.declare_rollback_derived_resource::<crate::features::ecs::navigation::NavigationAdvice>(
+        OWNER,
+        "derived.navigation_advice",
+        "rebuilt in the Observe phase from the room's surface graph, each body and its brain's goal",
+    );
+    registrar.declare_rollback_derived_resource::<crate::features::ecs::navigation::RoomNavigation>(
+        OWNER,
+        "derived.room_navigation",
+        "a cache of surface graphs, each a pure function of a room's authored geometry and a body's tuning",
+    );
     registrar.declare_rollback_derived_resource::<crate::features::ActorSteering>(
         OWNER,
         "derived.actor_steering",

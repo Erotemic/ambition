@@ -184,7 +184,7 @@ impl Brain {
     pub fn navigation_request(&self) -> Option<NavigationRequest> {
         match self {
             Brain::StateMachine(StateMachineCfg::Roam { state, .. }) => Some(NavigationRequest {
-                goal: state.goal,
+                goal: state.nav.goal,
                 choice: state.picks as u64,
             }),
             Brain::StateMachine(_) => None,

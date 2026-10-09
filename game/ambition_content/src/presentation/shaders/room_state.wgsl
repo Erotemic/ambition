@@ -445,18 +445,150 @@ fn corrupt_surface(l: vec2<f32>, s: vec2<f32>, p: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(ink + neon, 1.0);
 }
 
+// ------------------------------------------------------------------- ivy --
+
+const LEAF_DARK: vec3<f32> = vec3<f32>(0.205, 0.345, 0.225);
+const LEAF_MID: vec3<f32> = vec3<f32>(0.305, 0.470, 0.270);
+const LEAF_LIT: vec3<f32> = vec3<f32>(0.470, 0.625, 0.340);
+
+fn leaf_colour(leaf: i32) -> vec3<f32> {
+    if leaf == 1 { return LEAF_DARK; }
+    if leaf == 2 { return LEAF_MID; }
+    return LEAF_LIT;
+}
+
+/// What ivy is at `q`, which is from a top corner of a block: x goes into
+/// the block from its end, y goes down. 0 = none, 1..3 = a leaf, dark to lit.
+/// The ivy is thick on the corner and thin away from it.
+fn ivy_clump(q: vec2<f32>, key: vec2<f32>, salt: u32) -> i32 {
+    if q.x < -11.0 || q.x > 52.0 || q.y < -8.0 || q.y > 44.0 {
+        return 0;
+    }
+    let from_corner = length(vec2<f32>(q.x - 6.0, (q.y - 5.0) * 0.75));
+    // Thin to nothing at the edge of the quad, so no cut shows.
+    let fringe = smoothstep(-8.0, -1.0, q.y) * smoothstep(-11.0, -4.0, q.x);
+    let density = exp(-max(from_corner - 9.0, 0.0) / 12.0) * 0.95 * fringe;
+    let cell = floor(q / 6.0);
+    let id = cell + key;
+    if rand_cell(id, salt) > density {
+        return 0;
+    }
+    let jitter = vec2<f32>(rand_cell(id, salt + 1u), rand_cell(id, salt + 2u)) - vec2<f32>(0.5);
+    let o = q - (cell + vec2<f32>(0.5)) * 6.0 - jitter * 2.4;
+    let angle = rand_cell(id, salt + 3u) * 3.1416;
+    let cs = vec2<f32>(cos(angle), sin(angle));
+    let e = vec2<f32>(o.x * cs.x + o.y * cs.y, o.y * cs.x - o.x * cs.y) / vec2<f32>(3.9, 2.4);
+    if dot(e, e) > 1.0 {
+        return 0;
+    }
+    return 1 + i32(floor(rand_cell(id, salt + 4u) * 2.99));
+}
+
+/// The key of the block this quad draws, the same for its surface quad and
+/// its underside quad: the left edge and the bottom edge of the block.
+fn ivy_key(bottom: f32) -> vec2<f32> {
+    return vec2<f32>(piece.x, bottom);
+}
+
+/// Whether an end of the block has ivy. `end` is 0.0 for the left end.
+fn has_ivy(key: vec2<f32>, end: f32) -> bool {
+    return rand_cell(key + vec2<f32>(end * 13.0, 0.0), 700u) < 0.55;
+}
+
+/// The ivy on the corners of the block of this surface quad.
+fn ivy_on_surface(l: vec2<f32>, s: vec2<f32>) -> i32 {
+    if s.x < 96.0 || l.y > 44.0 || (l.x > 52.0 && l.x < s.x - 52.0) {
+        return 0;
+    }
+    let key = ivy_key(piece.y + s.y);
+    if has_ivy(key, 0.0) {
+        let leaf = ivy_clump(l, key, 710u);
+        if leaf != 0 { return leaf; }
+    }
+    if has_ivy(key, 1.0) {
+        return ivy_clump(vec2<f32>(s.x - l.x, l.y), key + vec2<f32>(7.0, 3.0), 720u);
+    }
+    return 0;
+}
+
+/// The ivy that hangs below the ends of a platform: three strands at each end
+/// that has ivy, and they move in the wind. `l` is from the lower left corner
+/// of the platform, `w` is its width.
+fn ivy_strands(l: vec2<f32>, w: f32) -> i32 {
+    if l.y < 0.0 || l.y > 120.0 || (l.x > 40.0 && l.x < w - 40.0) {
+        return 0;
+    }
+    let t = globals.time;
+    let key = ivy_key(piece.y);
+    for (var end = 0; end < 2; end++) {
+        if !has_ivy(key, f32(end)) {
+            continue;
+        }
+        let x = select(l.x, w - l.x, end == 1);
+        for (var k = 0; k < 3; k++) {
+            let id = key + vec2<f32>(f32(k) * 5.0 + f32(end) * 31.0, 0.0);
+            let len = 34.0 + 84.0 * rand_cell(id, 730u);
+            if l.y > len {
+                continue;
+            }
+            let wind = sin(t * 1.2 + key.x * 0.07 + l.y * 0.045 + f32(k)) * 2.2 * (l.y / len);
+            let sx = 4.0 + f32(k) * 9.0 + (rand_cell(id, 731u) - 0.5) * 5.0 + wind;
+            let dx = x - sx;
+            if abs(dx) < 0.7 {
+                return 1;
+            }
+            // A leaf on each side in turn, every 7 px, with some left out.
+            let row = floor(l.y / 7.0);
+            if rand_cell(id + vec2<f32>(0.0, row), 732u) < 0.78 {
+                let side = select(-1.0, 1.0, (i32(row) + k) % 2 == 0);
+                let o = vec2<f32>(dx - side * 3.4, l.y - (row + 0.5) * 7.0);
+                let e = vec2<f32>(o.x + o.y * 0.35 * side, o.y) / vec2<f32>(3.6, 2.2);
+                if dot(e, e) < 1.0 {
+                    return 2 + i32(rand_cell(id + vec2<f32>(1.0, row), 733u) * 1.99);
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+/// A leaf after the rewrite: a dead block, and a few of them are lit.
+fn dead_leaf(p: vec2<f32>) -> vec3<f32> {
+    let r = rand_cell(floor(p / 4.0), 740u);
+    if r > 0.92 {
+        return CYAN * 0.9;
+    }
+    return vec3<f32>(0.020, 0.070, 0.060) * (0.6 + r);
+}
+
 fn surface(p: vec2<f32>) -> vec4<f32> {
     let l = p - piece.xy;
     let s = piece.zw;
     let inside = l.x >= 0.0 && l.y >= 0.0 && l.x < s.x && l.y < s.y;
     let c = claim(p);
     if c.state == 1 {
+        // The ivy in blocks of 4 px.
+        let lq = (floor(p / 4.0) + vec2<f32>(0.5)) * 4.0 - piece.xy;
+        if ivy_on_surface(lq, s) != 0 {
+            return vec4<f32>(dead_leaf(p), 1.0);
+        }
         var col = corrupt_surface(l, s, p);
+        // The blocks that changed last are hot still: the light of the front
+        // is in them, and it fades into the mass.
+        if col.a > 0.0 && inside {
+            let heat = exp(-max(field(p), 0.0) / 46.0);
+            let cell_heat = heat * (0.45 + 0.55 * rand_cell(floor(p / VOXEL), 603u));
+            col = vec4<f32>(col.rgb + MAGENTA * cell_heat * 0.42 + vec3<f32>(cell_heat * cell_heat * 0.20), 1.0);
+        }
         // The mass burns where it meets clean stone.
         if col.a > 0.0 && inside && claim(p - front.zw * 3.0).state != 1 {
             col = vec4<f32>(MAGENTA * 0.95 + vec3<f32>(0.25), 1.0);
         }
         return col;
+    }
+    let leaf = ivy_on_surface(l, s);
+    if leaf != 0 {
+        return vec4<f32>(leaf_colour(leaf), 1.0);
     }
     if !inside {
         return vec4<f32>(0.0);
@@ -576,7 +708,19 @@ fn underside(p: vec2<f32>) -> vec4<f32> {
     let t = globals.time;
     let l = p - piece.xy;
     let w = piece.z;
-    if claim(p).state == 1 {
+    let corrupted = claim(p).state == 1;
+    if corrupted {
+        let lq = (floor(p / 4.0) + vec2<f32>(0.5)) * 4.0 - piece.xy;
+        if ivy_strands(lq, w) != 0 {
+            return vec4<f32>(dead_leaf(p), 1.0);
+        }
+    } else {
+        let leaf = ivy_strands(l, w);
+        if leaf != 0 {
+            return vec4<f32>(leaf_colour(leaf), 1.0);
+        }
+    }
+    if corrupted {
         // The same ornament, in blocks half the size of the architecture's.
         let vox = VOXEL * 0.5;
         let cell = floor(p / vox);

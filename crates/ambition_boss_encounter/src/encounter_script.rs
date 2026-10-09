@@ -19,7 +19,7 @@
 
 use bevy::prelude::*;
 
-use crate::{BossClusterRef, BossEncounter};
+use crate::BossEncounter;
 use ambition_combat::CenteredAabb;
 use ambition_encounter::{EncounterEffect, EncounterGate, EncounterParticipants, EncounterScript};
 use ambition_platformer2d_core as ae;
@@ -241,33 +241,6 @@ pub fn drop_hazard(
 /// walk-to-a-mark command, and the encounter removes it (for example when the
 /// member dies or the script ends).
 pub use ambition_characters::control::CommandedMove;
-
-/// Steer every [`CommandedMove`] boss toward its target, overriding the
-/// brain's `ActorControl` and clearing its attack intent, so no new move
-/// starts and a windup in progress is interrupted; a committed strike runs
-/// out. Runs in the boss steer slot (between brain tick and body integrate).
-pub fn tick_commanded_moves(
-    mut bosses: Query<(
-        BossClusterRef,
-        &ambition_characters::actor::BodyHealth,
-        &mut ambition_characters::control::ActorControl,
-        &mut ambition_characters::brain::BossAttackIntent,
-        &CommandedMove,
-    )>,
-) {
-    for (feature, health, mut control, mut attack_intent, cmd) in &mut bosses {
-        let boss = feature.as_boss_ref();
-        if !health.alive() {
-            continue;
-        }
-        attack_intent.clear();
-        control.0.melee_pressed = false;
-        control.0.special_pressed = false;
-        // The boss integrator reads `velocity_target` only, so the walk leaves
-        // the brain's `locomotion` alone.
-        cmd.steer(boss.kin.pos, boss.kin.facing, None, &mut control.0);
-    }
-}
 
 /// A generic hazard that hangs at its spawn point until its `target` is
 /// aligned under it (within `align_tolerance` in x), then falls under

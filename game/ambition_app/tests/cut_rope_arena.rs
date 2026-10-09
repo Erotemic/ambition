@@ -112,7 +112,8 @@ fn slashing_the_rope_publishes_the_gate_the_encounter_script_waits_on() {
 
 /// The rope's beat walks the boss to its mark under the anvil. The script
 /// gives it a `CommandedMove`; the boss integrator must move it by that
-/// steering, which runs in `BossSteerSlot`.
+/// steering, which is the one walk road of every body
+/// (`drive_commanded_moves`).
 #[test]
 fn the_cut_rope_walks_the_boss_to_its_mark() {
     use ambition_platformer2d::boss_encounter::CommandedMove;

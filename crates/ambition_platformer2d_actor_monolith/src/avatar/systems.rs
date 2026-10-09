@@ -22,24 +22,33 @@ pub fn blank_scripted_control_frames(mut bodies: Query<&mut ActorControl, With<C
 }
 
 /// Walk every body a script commands to its mark
-/// ([`ambition_characters::control::CommandedMove`]).
+/// ([`ambition_characters::control::CommandedMove`]): the one road for a
+/// player, an NPC and a boss.
 ///
 /// After the blank, so a held body is walked by the script and not by the
-/// stick. A boss is steered by `tick_commanded_moves` in `BossSteerSlot`,
-/// which is also in the gate after the blank.
+/// stick. A boss that is lured starts no attack: the walk clears its attack
+/// intent and the presses of its frame, so a windup in progress is
+/// interrupted and a committed strike runs out. A dead body is not walked.
 pub fn drive_commanded_moves(
-    mut bodies: Query<
-        (
-            &BodyKinematics,
-            &ambition_characters::control::CommandedMove,
-            &mut ActorControl,
-            Option<&ambition_platformer2d_core::MotionModel>,
-            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-        ),
-        Without<ambition_characters::brain::boss_pattern::BossAttackIntent>,
-    >,
+    mut bodies: Query<(
+        &BodyKinematics,
+        &ambition_characters::control::CommandedMove,
+        &mut ActorControl,
+        Option<&ambition_platformer2d_core::MotionModel>,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        Option<&mut ambition_characters::brain::boss_pattern::BossAttackIntent>,
+        Option<&BodyHealth>,
+    )>,
 ) {
-    for (kin, command, mut control, motion_model, frame) in &mut bodies {
+    for (kin, command, mut control, motion_model, frame, attack_intent, health) in &mut bodies {
+        if health.is_some_and(|health| !health.alive()) {
+            continue;
+        }
+        if let Some(mut attack_intent) = attack_intent {
+            attack_intent.clear();
+            control.0.melee_pressed = false;
+            control.0.special_pressed = false;
+        }
         let walker = motion_model.map(|model| {
             (
                 model.commanded_top_speed(),

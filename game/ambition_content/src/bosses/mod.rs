@@ -428,17 +428,6 @@ impl Plugin for AmbitionBossContentPlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::ContentFlavor),
         );
 
-        // Generic "lured movement" steering: any boss carrying a `CommandedMove`
-        // (e.g. the cut-rope behemoth lured under the anvil by the encounter
-        // script's `CommandMoveTo`) is steered toward its target, overriding the
-        // brain. Runs in the machinery-defined `BossSteerSlot`, in the control
-        // gate after `tick_boss_brains_system` and after the blank of held bodies.
-        app.add_systems(
-            sim,
-            ambition_boss_encounter::tick_commanded_moves
-                .in_set(ambition_platformer2d_shared_tangle::schedule::BossSteerSlot),
-        );
-
         // Content progression systems hang on the engine's labeled Progression
         // slots — the host anchors each slot into the Progression chain at the
         // exact former position; this plugin never depends on that position, only

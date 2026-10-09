@@ -674,3 +674,86 @@ fn a_commanded_walk_faces_its_mark_on_the_side_axis_of_the_walker() {
         assert_eq!(control.velocity_target, ae::WorldVec2::new(60.0, 0.0), "down {down:?}");
     }
 }
+
+/// A lured boss on the one walk road ([`drive_commanded_moves`]): a boss
+/// carrying `BossAttackIntent` walks toward its mark, and starts no attack.
+fn a_lured_boss(app: &mut App, current_hp: i32) -> (Entity, ambition_characters::brain::BossAttackState) {
+    let wanted = ambition_characters::brain::BossAttackProfile::Strike("floor_slam".into());
+    let projected = ambition_characters::brain::BossAttackState {
+        active_profile: Some(wanted.clone()),
+        active_remaining: 0.5,
+        ..Default::default()
+    };
+    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    let boss = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::splat(40.0),
+                facing: -1.0,
+            },
+            BodyHealth::new(ambition_characters::actor::Health {
+                current: current_hp,
+                max: 100,
+                invulnerable: Default::default(),
+            }),
+            ActorControl(frame),
+            projected.clone(),
+            ambition_characters::brain::BossAttackIntent {
+                telegraph_profile: Some(wanted.clone()),
+                active_profile: Some(wanted),
+            },
+            ambition_characters::control::CommandedMove {
+                target: ae::Vec2::new(300.0, 0.0),
+                speed: 150.0,
+                arrive_tolerance: 10.0,
+            },
+        ))
+        .id();
+    (boss, projected)
+}
+
+#[test]
+fn a_lured_boss_walks_to_its_mark_and_starts_no_attack() {
+    let mut app = App::new();
+    app.add_systems(Update, drive_commanded_moves);
+    let (boss, projected) = a_lured_boss(&mut app, 100);
+    app.update();
+
+    let world = app.world();
+    let control = world.get::<ActorControl>(boss).expect("control").0;
+    assert!(control.velocity_target.x > 0.0, "the boss is lured toward the +x mark");
+    assert_eq!(control.facing, 1.0, "and faces the mark");
+    assert!(!control.melee_pressed, "a lured boss presses nothing");
+    assert_eq!(
+        world.get::<ambition_characters::brain::BossAttackIntent>(boss),
+        Some(&ambition_characters::brain::BossAttackIntent::default()),
+        "a lured boss still wants to attack, so the trigger would start its move"
+    );
+    assert_eq!(
+        world.get::<ambition_characters::brain::BossAttackState>(boss).map(|state| &state.active_profile),
+        Some(&projected.active_profile),
+        "the walk wrote the move projection's read-model"
+    );
+}
+
+#[test]
+fn a_dead_body_is_not_walked() {
+    let mut app = App::new();
+    app.add_systems(Update, drive_commanded_moves);
+    let (boss, _) = a_lured_boss(&mut app, 0);
+    app.update();
+
+    let world = app.world();
+    let control = world.get::<ActorControl>(boss).expect("control").0;
+    assert_eq!(control.velocity_target.x, 0.0, "a dead boss was walked");
+    assert!(
+        world
+            .get::<ambition_characters::brain::BossAttackIntent>(boss)
+            .is_some_and(|intent| intent.active_profile.is_some()),
+        "a dead boss's intent was cleared by a walk it does not take"
+    );
+}

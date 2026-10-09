@@ -1362,19 +1362,19 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
-        // Script steering of a boss (a commanded move, a conducted facing,
-        // content steering) overrides the brain. It is in the gate after the
-        // blank, as `drive_commanded_moves` is for every other body, so a held
-        // body is walked by the script and not by its brain.
+        // Script steering of a boss (a conducted facing, content steering)
+        // overrides the brain. It is in the gate after the blank and after
+        // `drive_commanded_moves`, the one walk to a mark for every body, so a
+        // held body is walked by the script and a more specific steer has the
+        // last word.
         app.configure_sets(
             sim,
             ambition_platformer2d_shared_tangle::schedule::BossSteerSlot
                 .after(tick_boss_brains_system)
                 .after(crate::avatar::blank_scripted_control_frames)
+                .after(crate::avatar::drive_commanded_moves)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
         );
-        // The cut-rope steer system itself is registered by the content
-        // plugin (`crate::content::bosses`), in `BossSteerSlot`.
     }
 }
 

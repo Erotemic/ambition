@@ -77,7 +77,7 @@ pub use encounter_entity::{
     ReleaseOnDeath, BOSS_ENCOUNTER_MEMBERS,
 };
 pub use encounter_script::{
-    drop_hazard, tick_commanded_moves, tick_encounter_scripts, tick_falling_hazards, CommandedMove,
+    drop_hazard, tick_encounter_scripts, tick_falling_hazards, CommandedMove,
     FallingHazard,
 };
 // The generic timeline vocabulary lives in `ambition_encounter` (the one

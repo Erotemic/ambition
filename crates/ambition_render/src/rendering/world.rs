@@ -277,7 +277,45 @@ pub(crate) fn prop_sprite_geometry(
     }
 }
 
+/// How Bevy draws a column that tiles in a box `size`: the cap at the top,
+/// the end at the bottom, and whole tiles between them
+/// ([`ambition_sprite_sheet::character::ColumnSlices::fill`]).
+///
+/// The slicer cuts the atlas rect of the frame in three rows. Its corners
+/// have no width, so its top and bottom sides are the cap and the end, and
+/// its centre is the tile.
+pub(crate) fn column_image_mode(
+    slices: ambition_sprite_sheet::character::ColumnSlices,
+    size: BVec2,
+) -> bevy::sprite::SpriteImageMode {
+    use bevy::sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer};
+    let fill = slices.fill(size);
+    // The slicer tiles the centre across also, by the same scale. A tile as
+    // wide as the box is one column. In a box too short for a whole tile the
+    // scale is less than the width asks for, and a tile would repeat across:
+    // there the one tile is stretched.
+    let one_column = slices.rect.x * fill.tile_scale + 1e-3 >= size.x;
+    SpriteImageMode::Sliced(TextureSlicer {
+        border: BorderRect {
+            min_inset: BVec2::new(0.0, slices.cap),
+            max_inset: BVec2::new(0.0, slices.end),
+        },
+        center_scale_mode: if one_column {
+            // A little more than the scale, so that a rounding of the last
+            // tile does not leave a row for one more.
+            SliceScaleMode::Tile { stretch_value: fill.tile_scale * (1.0 + 1e-5) }
+        } else {
+            SliceScaleMode::Stretch
+        },
+        sides_scale_mode: SliceScaleMode::Stretch,
+        max_corner_scale: fill.scale,
+    })
+}
+
 /// Build the sprite, anchor and animator for a prop sheet at its collision size.
+///
+/// A sheet that is a column that tiles (a rope) fills the box, whatever the
+/// prop is: the box gives the column its length.
 pub(crate) fn prop_sprite_bundle(
     draw: PropDraw,
     flip_y: bool,
@@ -287,6 +325,14 @@ pub(crate) fn prop_sprite_bundle(
     let (render_size, anchor) = prop_sprite_geometry(draw, &asset.spec, collision);
     let (mut sprite, mut anchor, mut animator) =
         build_character_presentation_with_render_size(asset, render_size, anchor);
+    if let Some(slices) = asset.spec.column_slices() {
+        sprite.custom_size = Some(collision);
+        sprite.image_mode = column_image_mode(slices, collision);
+        sprite.flip_y = flip_y;
+        // The box is the quad: no frame sizes it again.
+        animator.keeps_its_quad = true;
+        return (sprite, Anchor::CENTER, animator);
+    }
     // A prop that fills its box is a piece of built world, and the next piece
     // touches it. It samples inside its frame, so its edge row is opaque and
     // the pieces show no line between them (`CharacterAnimator::sample_rect`).
@@ -1772,6 +1818,220 @@ mod prop_geometry_tests {
             // Scenery is sized like a character and touches nothing.
             let (sprite, _, animator) = prop_sprite_bundle(PropDraw::Decoration, false, &asset, authored);
             assert!(!animator.samples_inside_frame && sprite.rect.is_none(), "{target} as scenery");
+        }
+    }
+
+    /// A prop sheet with no rig and no pages, as the tests here build it.
+    fn baked_prop_asset(target: &str) -> ambition_sprite_sheet::character::CharacterSpriteAsset {
+        use ambition_sprite_sheet::character::{CharacterSpriteAsset, CharacterSpritePage};
+        CharacterSpriteAsset {
+            texture: Handle::default(),
+            layout: Handle::default(),
+            spec: try_load_spec_for_target(target, &SheetTuning::new(1.0, 0))
+                .unwrap_or_else(|| panic!("the sheet `{target}` is baked into the manifest")),
+            pages: vec![CharacterSpritePage { texture: Handle::default(), layout: Handle::default() }],
+            requested_tier: Default::default(),
+            resolved_tier: Default::default(),
+            rigged: None,
+        }
+    }
+
+    /// What to run when a rope arm is red on a machine that has the rope
+    /// sheet of an older renderer. Published sheets are not tracked: each
+    /// checkout draws its own.
+    const PUBLISH_THE_ROPE: &str =
+        "the published rope sheet states no column tile: run `./scripts/regen/sprites.sh --target cut_rope_rope`";
+
+    /// `(top, bottom)` of the quad a prop is drawn at, about the middle of
+    /// its box, +y up.
+    fn drawn_span(sprite: &Sprite, anchor: &Anchor) -> (f32, f32) {
+        let size = sprite.custom_size.expect("a sized sprite");
+        let middle = -anchor.0.y * size.y;
+        (middle + size.y * 0.5, middle - size.y * 0.5)
+    }
+
+    /// The rope of the cut-the-rope arena hangs from the top of its box to
+    /// the bottom, for a box of any height: the map gives the rope its
+    /// length.
+    ///
+    /// Measured before (Jon, 2026-10-09: "the rope is disconnected from the
+    /// ceiling"): the frame was fitted to the box as one picture. The box is
+    /// 8 x 160 and the art was 20 x 192 texels, so the width set the scale
+    /// (0.4), and the rope was drawn 76.8 high from the bottom of its box. Its
+    /// top was 83.2 under the ceiling.
+    #[test]
+    fn a_rope_is_drawn_from_the_top_of_its_box_to_the_bottom() {
+        let asset = baked_prop_asset("cut_rope_rope");
+        assert!(asset.spec.column_slices().is_some(), "{PUBLISH_THE_ROPE}");
+        // The box the arena authors, a short one, a long one and a wide one.
+        for authored in [
+            BVec2::new(8.0, 160.0),
+            BVec2::new(8.0, 48.0),
+            BVec2::new(8.0, 700.0),
+            BVec2::new(16.0, 320.0),
+        ] {
+            let (sprite, anchor, _) = prop_sprite_bundle(PropDraw::Decoration, false, &asset, authored);
+            let (top, bottom) = drawn_span(&sprite, &anchor);
+            assert!(
+                (top - authored.y * 0.5).abs() < 0.01 && (bottom + authored.y * 0.5).abs() < 0.01,
+                "in a box of {authored:?} the rope is drawn from {top} to {bottom} about the middle \
+                 of its box; the box is from {} to {}",
+                authored.y * 0.5,
+                -authored.y * 0.5
+            );
+            assert!(
+                (sprite.custom_size.expect("a sized sprite").x - authored.x).abs() < 0.01,
+                "the rope is as wide as its box: {:?} in {authored:?}",
+                sprite.custom_size
+            );
+        }
+    }
+
+    /// The rope is its tie at the top of the box, its knot at the bottom, and
+    /// whole tiles of braid between them, in one column. These are the
+    /// slices Bevy draws for the sprite.
+    #[test]
+    fn a_rope_is_its_cap_then_whole_tiles_then_its_end() {
+        use bevy::sprite::SpriteImageMode;
+        let asset = baked_prop_asset("cut_rope_rope");
+        let slices = asset.spec.column_slices().expect(PUBLISH_THE_ROPE);
+        assert!(
+            slices.cap > 1.0 && slices.end > 1.0 && (slices.cap + slices.tile + slices.end - slices.rect.y).abs() < 1e-3,
+            "premise: the rope has a cap, a tile and an end, and they are its rect: {slices:?}"
+        );
+        let rect = Rect::from_corners(BVec2::ZERO, slices.rect);
+        for (authored, at_least) in [
+            (BVec2::new(8.0, 160.0), 10),
+            (BVec2::new(8.0, 700.0), 60),
+            (BVec2::new(16.0, 320.0), 10),
+            // A box that holds the cap, the end and less than two tiles.
+            (BVec2::new(8.0, 40.0), 1),
+        ] {
+            let (sprite, _, animator) = prop_sprite_bundle(PropDraw::Decoration, false, &asset, authored);
+            assert!(animator.keeps_its_quad, "a frame may size the rope's quad again");
+            let SpriteImageMode::Sliced(slicer) = &sprite.image_mode else {
+                panic!("the rope is not drawn in slices: {:?}", sprite.image_mode);
+            };
+            // Slices that have an area, from the top of the box down.
+            let mut drawn: Vec<_> = slicer
+                .compute_slices(rect, sprite.custom_size)
+                .into_iter()
+                .filter(|slice| slice.draw_size.x > 1e-3 && slice.draw_size.y > 1e-3)
+                .collect();
+            drawn.sort_by(|a, b| b.offset.y.total_cmp(&a.offset.y));
+            let fill = slices.fill(authored);
+            assert!(fill.tiles as usize >= at_least, "{authored:?} holds {} tiles", fill.tiles);
+            assert_eq!(
+                drawn.len(),
+                fill.tiles as usize + 2,
+                "in {authored:?}: the cap, {} tiles and the end. A slice more is a tile cut short \
+                 or a second column: {drawn:#?}",
+                fill.tiles
+            );
+            // Each slice is as wide as the box, and they stack with no gap
+            // from the top of the box to its bottom.
+            let mut edge = authored.y * 0.5;
+            for slice in &drawn {
+                assert!((slice.draw_size.x - authored.x).abs() < 1e-3, "in {authored:?} a slice is not as wide as the box: {slice:?}");
+                let top = slice.offset.y + slice.draw_size.y * 0.5;
+                assert!((top - edge).abs() < 1e-2, "in {authored:?} a slice starts at {top}, and the one above ended at {edge}");
+                edge = top - slice.draw_size.y;
+            }
+            assert!((edge + authored.y * 0.5).abs() < 1e-2, "in {authored:?} the slices end at {edge}");
+            // The first is the cap, the last is the end, and each one between
+            // is the whole tile.
+            let (cap, end) = (&drawn[0], &drawn[drawn.len() - 1]);
+            assert!(
+                cap.texture_rect.min.y.abs() < 1e-3 && (cap.texture_rect.max.y - slices.cap).abs() < 1e-3,
+                "the first slice is not the cap: {cap:?}"
+            );
+            assert!(
+                (end.texture_rect.min.y - (slices.rect.y - slices.end)).abs() < 1e-3
+                    && (end.texture_rect.max.y - slices.rect.y).abs() < 1e-3,
+                "the last slice is not the end: {end:?}"
+            );
+            // (The last tile gives up the little that
+            // `column_image_mode` adds to each tile: under 0.02 of a texel.)
+            for tile in &drawn[1..drawn.len() - 1] {
+                assert!(
+                    (tile.texture_rect.min.y - slices.cap).abs() < 1e-3
+                        && (tile.texture_rect.max.y - (slices.cap + slices.tile)).abs() < 0.02,
+                    "in {authored:?} a tile is cut: it shows rows {}..{} of {}..{}",
+                    tile.texture_rect.min.y,
+                    tile.texture_rect.max.y,
+                    slices.cap,
+                    slices.cap + slices.tile
+                );
+            }
+            // The braid keeps its shape: a tile is not more than one tile's
+            // share taller than it is wide for.
+            assert!(
+                fill.tile_scale >= fill.scale - 1e-4 && fill.tile_scale <= fill.scale * (1.0 + 1.0 / fill.tiles as f32) + 1e-4,
+                "in {authored:?} a tile is drawn at {} for a width scale of {}",
+                fill.tile_scale,
+                fill.scale
+            );
+        }
+    }
+
+    /// The prop tick draws the rope's frame each frame. It leaves the quad
+    /// that fills the box: a frame's trimmed rect does not size the rope
+    /// again.
+    #[test]
+    fn the_frame_tick_does_not_size_a_rope_again() {
+        let asset = baked_prop_asset("cut_rope_rope");
+        assert!(asset.spec.column_slices().is_some(), "{PUBLISH_THE_ROPE}");
+        let authored = BVec2::new(8.0, 160.0);
+        let (mut sprite, mut anchor, mut animator) = prop_sprite_bundle(PropDraw::Decoration, false, &asset, authored);
+        // What `animate_props` does with a prop each frame.
+        crate::rendering::actors::draw_held_frame(&mut sprite, &mut animator, &mut anchor, false);
+        assert_eq!(
+            (sprite.custom_size, anchor),
+            (Some(authored), Anchor::CENTER),
+            "after one frame the rope does not fill its box"
+        );
+        assert!(matches!(sprite.image_mode, bevy::sprite::SpriteImageMode::Sliced(_)));
+    }
+
+    /// A reduced copy of the rope sheet has the same cap, tile and end, as
+    /// parts of its own smaller rect, and each boundary is on a whole texel.
+    #[test]
+    fn each_quality_tier_of_the_rope_has_the_same_parts() {
+        use ambition_sprite_sheet::character::sheets::try_load_spec_for_target_scaled;
+        use ambition_sprite_sheet::character::TextureResolutionScale as Scale;
+        let full = baked_prop_asset("cut_rope_rope").spec.column_slices().expect(PUBLISH_THE_ROPE);
+        let parts = |slices: ambition_sprite_sheet::character::ColumnSlices| {
+            [slices.cap / slices.rect.y, slices.tile / slices.rect.y, slices.end / slices.rect.y]
+        };
+        let mut reduced = 0;
+        for scale in [Scale::Half, Scale::Quarter, Scale::Potato] {
+            let Some(spec) = try_load_spec_for_target_scaled("cut_rope_rope", &SheetTuning::new(1.0, 0), scale) else {
+                continue;
+            };
+            reduced += 1;
+            let slices = spec.column_slices().unwrap_or_else(|| panic!("the {scale:?} copy of the rope declares no column tile"));
+            assert!(slices.rect.y < full.rect.y, "premise: the {scale:?} copy is smaller: {slices:?}");
+            for (part, (here, there)) in parts(slices).into_iter().zip(parts(full)).enumerate() {
+                assert!((here - there).abs() < 1e-4, "{scale:?}: part {part} is {here} of the rect; the full sheet has {there}");
+            }
+            for rows in [slices.cap, slices.tile, slices.end] {
+                assert!((rows - rows.round()).abs() < 1e-3, "{scale:?}: a boundary is inside a texel: {slices:?}");
+            }
+        }
+        assert!(reduced > 0, "no reduced copy of the rope sheet is baked, so this arm compared nothing");
+    }
+
+    /// A sheet that declares no column tile is one picture, as before.
+    #[test]
+    fn a_sheet_with_no_column_tile_is_one_picture() {
+        for target in ["cut_rope_anvil", "super_mary_o_pipe_top"] {
+            let asset = baked_prop_asset(target);
+            assert_eq!(asset.spec.column_slices(), None, "{target}");
+            let (sprite, _, animator) = prop_sprite_bundle(PropDraw::Decoration, false, &asset, BVec2::new(64.0, 32.0));
+            assert!(
+                matches!(sprite.image_mode, bevy::sprite::SpriteImageMode::Auto) && !animator.keeps_its_quad,
+                "{target} is drawn in slices"
+            );
         }
     }
 

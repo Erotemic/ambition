@@ -66,6 +66,10 @@ pub struct CharacterAnimator {
     /// ([`Self::sample_rect`]). For a piece of built world that touches the
     /// next piece.
     pub samples_inside_frame: bool,
+    /// The owner of the sprite sized its quad, and a frame does not size it
+    /// again: a column that tiles fills its box
+    /// (`CharacterSheetSpec::column_slices`), not the trimmed rect of a frame.
+    pub keeps_its_quad: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -96,6 +100,7 @@ impl CharacterAnimator {
             asked_for: 0.0,
             render_basis: None,
             samples_inside_frame: false,
+            keeps_its_quad: false,
         }
     }
 

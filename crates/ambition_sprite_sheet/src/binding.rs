@@ -99,6 +99,7 @@ mod tests {
             body_metrics: None,
             tuning: None,
             authored_faces_left: false,
+            column_tile: None,
             rows,
         }
     }

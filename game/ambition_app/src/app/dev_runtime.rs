@@ -86,6 +86,9 @@ pub(super) fn handle_ldtk_hot_reload(
         (&world_rooms::LiveRoomInstance, Has<RoomGeometry>),
         With<ambition_platformer2d::session::RoomInstanceRoot>,
     >,
+    // ⛔ A GUARD. A live room that cannot be described cannot open its
+    // transaction; see where the plans of the later rooms are prepared.
+    describable: ambition_platformer2d::platformer::construction::DescribableRooms,
     mut ldtk_reload: ResMut<ambition_platformer2d::dev_tools::WorldSourceHotReload>,
     tuning: Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
     // RESIDENTS of the room being replaced — an object in a body's custody rides
@@ -300,6 +303,7 @@ pub(super) fn handle_ldtk_hot_reload(
             snapshot_schema,
             session_scope,
             restart_local_ggrs,
+            &describable,
         );
         match result {
             Ok(active_room) => {
@@ -508,6 +512,9 @@ pub(super) fn reload_ldtk_world_from_disk(
     // ⛔ A REQUEST, NOT A DONE DEED. The local rollback baseline is rebased only
     // if the candidate room publishes; see the caller.
     restart_local_ggrs: bool,
+    // Whether each later live room can open its transaction, asked before the
+    // first room is staged.
+    describable: &ambition_platformer2d::platformer::construction::DescribableRooms<'_, '_>,
 ) -> Result<String, Vec<String>> {
     let current_room_id = current_room.id.clone();
     let preserved_pos = clusters.kinematics.pos;
@@ -661,8 +668,26 @@ pub(super) fn reload_ldtk_world_from_disk(
     // So each thing that can fail without the world is done here, for each
     // live room, and a failure refuses the whole reload with the room named.
     // Nothing is staged, and each live room keeps the generation it has.
+    //
+    // ⛔ AND ONE THING THAT FAILS WITH THE WORLD: a live room that two bodies
+    // of one identity are in cannot be described, so its transaction cannot
+    // open. Measured 2026-10-09: with that fault in the second live room the
+    // first room published and the status was `THE WORLD IS MIXED`. It is
+    // asked here, of the world now.
     let mut other_plans = Vec::with_capacity(other_rooms.len());
     for other in &other_rooms {
+        describable
+            .describe(
+                session_scope,
+                ambition_platformer2d::platformer::lifecycle::TransactionRooms::only(other.live),
+            )
+            .map_err(|error| {
+                vec![format!(
+                    "the live room '{}' (live room {}) cannot be described, so no room was \
+                     reloaded: {error}",
+                    other.room_id, other.live
+                )]
+            })?;
         let Some(index) = transaction.next_room_set.room_index_by_id(&other.room_id) else {
             return Err(vec![format!(
                 "LDtk reload would delete the live room '{}' (live room {}). Move the \

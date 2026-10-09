@@ -200,7 +200,7 @@ The rules the slice holds:
 
 These two rules are held by
 `companion_dog::a_dog_that_navigates_resimulates_to_the_same_world_with_its_graph_dropped`
-(2026-10-09): 40 seconds of the basement under a sync test that rewinds and
+(2026-10-09): as much as 40 seconds of the basement under a sync test that rewinds and
 replays each frame, while a system outside the timeline drops the graphs. The
 dog goes by legs and the session stays healthy. Its control is a nudge of the
 dog's body from outside the timeline, which is a mismatch.

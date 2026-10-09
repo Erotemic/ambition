@@ -586,7 +586,16 @@ fn spawn_launcher_menu(
         // cursor onto the full list when deciding what to highlight.
         let exit_rows = usize::from(presentation.exit_label.is_some());
         // The cap applies only with few rows; many rows still share the height.
-        let row_height = (66.0 / (catalog.len() + exit_rows).max(1) as f32).min(16.0);
+        // The rows and their gaps have 72 of the panel (18 to 90, above the
+        // footer at 92). With the five rows of today that is the 13.2 it was;
+        // the gaps were not counted, and an eighth row went under the footer.
+        let row_gap = 1.5;
+        let row_height = crate::pause_menu::row_height_that_fits(
+            72.0,
+            row_gap,
+            catalog.len() + exit_rows,
+            16.0,
+        );
         let row_left = 12.0;
         let row_width = 76.0;
         let mut available_index = 0usize;
@@ -619,7 +628,7 @@ fn spawn_launcher_menu(
             page.control(
                 MenuRect::new(
                     row_left,
-                    18.0 + index as f32 * (row_height + 1.5),
+                    18.0 + index as f32 * (row_height + row_gap),
                     row_width,
                     row_height,
                 ),
@@ -638,7 +647,7 @@ fn spawn_launcher_menu(
             page.control(
                 MenuRect::new(
                     row_left,
-                    18.0 + catalog.len() as f32 * (row_height + 1.5),
+                    18.0 + catalog.len() as f32 * (row_height + row_gap),
                     row_width,
                     row_height,
                 ),

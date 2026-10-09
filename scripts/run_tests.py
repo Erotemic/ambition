@@ -39,6 +39,7 @@ import os
 import tempfile
 import collections
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -866,9 +867,22 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     jobs.extend(post_rust_repo_jobs)
 
     if not only and everything:
+        # `--features visible`, or its three windowed tests (`#![cfg(feature =
+        # "visible")]`) are not compiled at all. Measured 2026-10-09: they were
+        # red and nothing ran them (they stepped an unfinished app, SDK-GAME SG2).
         jobs.append(Job("external consumer: outlander",
-                        [CARGO, "test"],
+                        [CARGO, "test", "--features", "visible"],
                         cwd=str(REPO / "fixtures" / "external_consumer")))
+
+        # THE SDK GAME'S RELEASE ARTIFACT (SDK-GAME SG2): a release build, the
+        # artifact directory and its tarball, and a smoke run from the artifact
+        # that must read every asset from inside it. It traces the run with
+        # strace; without strace it cannot prove that, so it does not run.
+        jobs.append(Job("external consumer: outlander release artifact",
+                        [sys.executable, "scripts/package_outlander.py"],
+                        cwd=str(REPO), builds=True,
+                        missing=None if shutil.which("strace") else
+                        "install strace: the artifact check traces which asset files the game opens"))
 
         # `minimal_game` is its own workspace, so `cargo test --workspace` does
         # not execute it. Run it explicitly to cover the minimal consumer's boot

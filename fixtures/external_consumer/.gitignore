@@ -6,3 +6,6 @@ Cargo.lock
 # assets — and generating it is what makes "a consumer owns its art" a fact the
 # fixture can exercise instead of a claim about plumbing.
 /assets/sprites/outlander.png
+
+# The release artifact, built by scripts/package_outlander.py.
+/dist

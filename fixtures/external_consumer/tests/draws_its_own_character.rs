@@ -23,10 +23,10 @@
 
 use bevy::prelude::*;
 
-use outlander::build_windowed_app;
+use outlander::stepped_windowed_app;
 
 fn drawn() -> App {
-    build_windowed_app(false)
+    stepped_windowed_app()
 }
 
 /// Long enough for shell routing, session activation, asset binding and the

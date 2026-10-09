@@ -15,10 +15,21 @@ use ambition_platformer2d::world::prelude::*;
 /// its own sprites had nowhere to live. `layered_asset_source` is the answer,
 /// and a fixture whose whole job is to be a third party has to exercise it.
 ///
-/// Absolute, from this crate's manifest dir, because a consumer is built from
-/// wherever it likes and a relative path would resolve against the process CWD.
+/// In a checkout it is absolute, from this crate's manifest dir, because a
+/// consumer is built from wherever it likes and a relative path would resolve
+/// against the process CWD. In a packaged build it is the relative `assets`,
+/// the rule the engine's own root follows (`actors_desktop_asset_root`): the
+/// launcher sets `BEVY_ASSET_ROOT`, both roots become the one `assets/` tree
+/// beside the binary, and a build machine's path is never read.
 pub fn outlander_asset_root() -> String {
-    concat!(env!("CARGO_MANIFEST_DIR"), "/assets").to_string()
+    if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
+        return "assets".to_string();
+    }
+    let checkout = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+    match checkout.canonicalize() {
+        Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
+        _ => "assets".to_string(),
+    }
 }
 
 // `register_outlander_asset_source` stood here: a free function rather than a
@@ -527,6 +538,65 @@ pub fn build_windowed_app(gpu: bool) -> App {
         composed.without_gpu()
     };
     composed.mount(OutlanderModule).build()
+}
+
+/// What a smoke run of the windowed game found.
+#[cfg(feature = "visible")]
+#[derive(Debug)]
+pub struct OutlanderSmokeReport {
+    pub walk: OutlanderRunReport,
+    /// Every asset load that failed, as `path: error`.
+    pub failed_loads: Vec<String>,
+    /// Whether Outlander's own sprite loaded. Zero failures with nothing
+    /// loaded would prove nothing.
+    pub own_sprite_loaded: bool,
+}
+
+/// The windowed game with no GPU: the walk, then `frames` more ticks for the
+/// asset loads to finish. A packaged build runs this from its own directory to
+/// show that it stands alone (`scripts/package_outlander.py`).
+#[cfg(feature = "visible")]
+pub fn smoke_windowed_app(frames: usize) -> Result<OutlanderSmokeReport, String> {
+    #[derive(Resource, Default)]
+    struct FailedLoads(Vec<String>);
+    fn record(
+        mut failed: MessageReader<bevy::asset::UntypedAssetLoadFailedEvent>,
+        mut out: ResMut<FailedLoads>,
+    ) {
+        for failure in failed.read() {
+            out.0.push(format!("{}: {}", failure.path, failure.error));
+        }
+    }
+    let mut app = stepped_windowed_app();
+    app.init_resource::<FailedLoads>();
+    app.add_systems(Update, record);
+    let walk = run_outlander_walkthrough(&mut app)?;
+    for _ in 0..frames {
+        app.update();
+    }
+    let own_sprite_loaded = app
+        .world()
+        .resource::<AssetServer>()
+        .get_handle::<Image>("game://sprites/outlander.png")
+        .is_some_and(|handle| app.world().resource::<AssetServer>().is_loaded(&handle));
+    let failed_loads = std::mem::take(&mut app.world_mut().resource_mut::<FailedLoads>().0);
+    Ok(OutlanderSmokeReport {
+        walk,
+        failed_loads,
+        own_sprite_loaded,
+    })
+}
+
+/// [`build_windowed_app`] with no GPU, finished for a caller that steps it
+/// with `App::update`. `App::run` finishes the plugins before the first frame
+/// and `update` does not, so a stepped app that skipped this ran without what
+/// plugins register in `finish` (the trail gizmo groups), and its first frame
+/// panicked: not the composition a player runs.
+#[cfg(feature = "visible")]
+pub fn stepped_windowed_app() -> App {
+    let mut app = build_windowed_app(false);
+    ambition_platformer2d::app::finish_stepped_app(&mut app);
+    app
 }
 
 /// Drive one frame of input, through the engine's own driver seam.

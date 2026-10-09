@@ -224,8 +224,26 @@ mary_o_app `her_spark_leaves_her_hand` (3 tests, the fire sheet's published
 rows) and smash_app `nothing_a_match_created_survives_into_the_next_one`
 under `--features visible`. Still linked through the monolith and not used by
 Outlander: menu, items, encounter, boss_encounter, cutscene, conversation,
-held_items, audio (the deferred monolith carve). Next: SG2, a relocatable
-release artifact (`outlander_asset_root` bakes `CARGO_MANIFEST_DIR` in).
+held_items, audio (the deferred monolith carve).
+
+**SG2 done 2026-10-09:** the release artifact. `python3
+scripts/package_outlander.py` builds `outlander_visible` (release,
+`--features visible`) and writes `fixtures/external_consumer/dist/outlander/`
+(binary, `run.sh`, `assets/`, `MANIFEST.json` with the engine revision and a
+sha256 per file) and `outlander.tar.gz` (72.5 MB; 37 engine assets, 1.5 MB).
+It then runs `run.sh --smoke 300` from the artifact under strace and refuses
+it when an asset load failed or a file was read outside the artifact. Exit 2
+is a missing prerequisite, 3 a failed build, 1 a failed artifact. The full lane
+runs it (unrunnable without strace). Measured on the way:
+`outlander_asset_root` baked `CARGO_MANIFEST_DIR` in, so it now follows the
+engine's rule (`BEVY_ASSET_ROOT` → `assets`). Outlander's three windowed tests
+were red and no lane compiled them (`#![cfg(feature = "visible")]`): they
+stepped an app whose plugins were never finished, so the trail gizmo groups
+were never registered. `stepped_windowed_app` finishes it, and the full lane
+runs `cargo test --features visible`. The shrine sheet path was wrong in the
+engine (180f89923). Poisons: an asset dropped from `package_assets.txt`, red
+naming that file inside the artifact; a launcher without `BEVY_ASSET_ROOT`,
+red naming the checkout files read. `--measure` writes the asset list again.
 
 **Acceptance:** a dependency check shows the omitted capability crates absent
 from the game's graph; its headless test and its windowed build both run in a

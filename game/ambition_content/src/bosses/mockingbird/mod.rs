@@ -91,7 +91,7 @@ pub fn strike_it_with_the_moon(
     birds: Query<(
         Entity,
         &ambition_boss_encounter::BossConfig,
-        &ae::BodyKinematics,
+        &ae::CenteredAabb,
         &ambition_platformer2d::characters::actor::BodyHealth,
         &ambition_extension_host::BodyRecords,
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
@@ -100,7 +100,7 @@ pub fn strike_it_with_the_moon(
 ) {
     use ambition_combat::events::{HitMode, HitSource, HitTarget};
     use ambition_content_modules::mockingbird::Conductor;
-    for (bird, config, kin, health, records, room) in &birds {
+    for (bird, config, footprint, health, records, room) in &birds {
         if config.behavior.id != MOCKINGBIRD_ID || !health.alive() {
             continue;
         }
@@ -112,7 +112,8 @@ pub fn strike_it_with_the_moon(
             continue;
         }
         hits.write(ambition_combat::HitEvent {
-            volume: ae::Aabb::new(kin.pos, kin.size * 0.5).into(),
+            // Its published footprint: the box it has in its room's gravity.
+            volume: ae::Aabb::new(footprint.center, footprint.half_size).into(),
             damage: MOON_BLOW,
             source: HitSource::Hazard,
             attacker: None,

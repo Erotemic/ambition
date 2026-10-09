@@ -18,6 +18,9 @@ pub struct RenderBasis {
     pub feet_anchor: Vec2,
 }
 
+/// A body whose sheet can sit sits when it has stood idle this long (s).
+pub const SIT_AFTER_IDLE_S: f32 = 1.5;
+
 /// Per-character animation cursor.
 #[derive(Component)]
 pub struct CharacterAnimator {
@@ -49,6 +52,9 @@ pub struct CharacterAnimator {
     /// we hold there until `set` switches to a new animation.
     pub clip_held: bool,
     social_pose: SocialPose,
+    /// How long the body has asked for its idle pose with no clip (s). A
+    /// sheet that can sit sits when this passes [`SIT_AFTER_IDLE_S`].
+    idle_for: f32,
     /// Base render size + anchor, set at spawn.
     pub render_basis: Option<RenderBasis>,
     /// The sprite samples half a texel inside each frame
@@ -80,6 +86,7 @@ impl CharacterAnimator {
             elapsed: 0.0,
             clip_held: false,
             social_pose: SocialPose::Stand,
+            idle_for: 0.0,
             render_basis: None,
             samples_inside_frame: false,
         }
@@ -231,7 +238,19 @@ impl CharacterAnimator {
         self.clip_held = false;
     }
 
+    /// Count the time the body stands idle. `idle`: it asks for its idle pose
+    /// and no clip this frame. Call it each frame before
+    /// [`Self::request_actor_pose`].
+    pub fn note_idle(&mut self, idle: bool, dt: f32) {
+        self.idle_for = if idle { self.idle_for + dt.max(0.0) } else { 0.0 };
+    }
+
     /// Select a sheet-authored social pose for the addressed actor.
+    ///
+    /// A sheet that can sit sits in a conversation, and when the body has
+    /// stood idle for [`SIT_AFTER_IDLE_S`]. It gets up with its stand-up row
+    /// when the conversation ends, and at once when the body moves: a body
+    /// that walks does not wait for a pose.
     pub fn request_actor_pose<'a>(
         &mut self,
         anim: CharacterAnim,
@@ -249,7 +268,11 @@ impl CharacterAnimator {
             return;
         }
         if can_sit {
-            self.social_pose = match (conversation_held, self.social_pose) {
+            if !conversation_held && anim != CharacterAnim::Idle {
+                self.social_pose = SocialPose::Stand;
+            }
+            let settled = conversation_held || (anim == CharacterAnim::Idle && self.idle_for >= SIT_AFTER_IDLE_S);
+            self.social_pose = match (settled, self.social_pose) {
                 (true, SocialPose::Stand | SocialPose::StandingUp) => SocialPose::SittingDown,
                 (true, SocialPose::SittingDown) if self.clip_held => SocialPose::Sitting,
                 (false, SocialPose::Sitting | SocialPose::SittingDown) => SocialPose::StandingUp,

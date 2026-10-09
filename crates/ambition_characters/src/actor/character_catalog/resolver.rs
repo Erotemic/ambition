@@ -41,7 +41,6 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             aggressiveness,
             aggro_radius,
             attack_range,
-            hop_interval_s,
         } => StateMachineCfg::Patrol {
             cfg: PatrolCfg {
                 lane: AuthoredWorldPatrolLane::new(spawn_world_x + spawn_local_x, *radius),
@@ -49,7 +48,6 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
                 aggressiveness: *aggressiveness,
                 aggro_radius: *aggro_radius,
                 attack_range: *attack_range,
-                hop_interval_s: *hop_interval_s,
             },
             state: PatrolState::default(),
         },
@@ -259,7 +257,6 @@ pub fn brain_from_preset_with_context(
         aggressiveness,
         aggro_radius,
         attack_range,
-        hop_interval_s,
     } = preset
     {
         let lane_radius = ctx.patrol_radius.unwrap_or(*radius);
@@ -270,7 +267,6 @@ pub fn brain_from_preset_with_context(
                 aggressiveness: *aggressiveness,
                 aggro_radius: *aggro_radius,
                 attack_range: *attack_range,
-                hop_interval_s: *hop_interval_s,
             },
             state: PatrolState::default(),
         });

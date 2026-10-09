@@ -38,6 +38,21 @@ Give the character a `Roam` brain preset in
 The character needs the `Walk` and `Jump` abilities. A run-up and a jump are
 at the body's top speed (`run_speed` in its `locomotion`).
 
+## What the dog does
+
+- It starts with a rest. At each place it rests for a time by chance.
+- It goes to places by chance among those it can reach, at a walk when the
+  place is near and at a trot when it is far. A run-up and a jump are at its
+  top speed.
+- It keeps near the player: more than `stay_within` away, its next place is
+  beside the player, when a route goes there. A player in the hall above the
+  basement has no route to them, so the dog roams.
+- In a playful mood (`playful`) it runs four places with no rest.
+- It sits down when it has stood idle for 1.5 s, and it is on its feet at once
+  when it moves. This is presentation (`CharacterAnimator::note_idle`): each
+  sheet with `sit_down`, `sit_idle` and `stand_up` rows does it, and the dog's
+  is the only one.
+
 ## A hostile body
 
 A `MeleeBrute` can go to a foe on another surface by the same routes. Set

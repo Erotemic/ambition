@@ -118,35 +118,6 @@ fn patrol_lane_is_authored_world_route_not_local_side() {
 }
 
 #[test]
-fn peaceful_patrol_hops_only_on_a_grounded_interval_crossing() {
-    let mut cfg = PatrolCfg::NPC_DEFAULT;
-    cfg.hop_interval_s = 2.0;
-    let mut sm = StateMachineCfg::Patrol {
-        cfg,
-        state: PatrolState::default(),
-    };
-    let mut snapshot = snap_at(0.0, 5000.0);
-    snapshot.actor_on_ground = true;
-    snapshot.dt = 1.0 / 60.0;
-    let mut out = crate::actor::control::ActorControlFrame::neutral();
-
-    snapshot.sim_time = 1.5;
-    tick_simple_state_machine(&mut sm, &snapshot, &mut out);
-    assert!(!out.jump_pressed);
-    assert!(out.locomotion.x > 0.0);
-    assert!(!out.melee_pressed);
-
-    snapshot.sim_time = 2.0 - snapshot.dt / 2.0;
-    tick_simple_state_machine(&mut sm, &snapshot, &mut out);
-    assert!(out.jump_pressed);
-
-    snapshot.actor_on_ground = false;
-    snapshot.sim_time = 4.0 - snapshot.dt / 2.0;
-    tick_simple_state_machine(&mut sm, &snapshot, &mut out);
-    assert!(!out.jump_pressed);
-}
-
-#[test]
 fn patrol_state_mode_mirrors_evaluator_intent() {
     // tick_patrol writes state.mode = ai.mode from the engine
     // evaluator. The NPC code at npcs.rs:230 reads PatrolState

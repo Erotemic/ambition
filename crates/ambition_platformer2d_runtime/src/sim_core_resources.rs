@@ -134,7 +134,6 @@ impl Plugin for SimCoreResourcesPlugin {
             // Every in-flight projectile is an ECS entity; one monotonic
             // spawn-id source orders the unified live-projectile population.
             .init_resource::<ambition_projectiles::ProjectileSeqCounter>()
-            .init_resource::<ambition_encounter::switches::SwitchActivationQueue>()
             .init_resource::<ambition_encounter::switches::EncounterSwitchIndex>()
             // Victim-side hits staged in Combat, drained by the player resolver
             // NEXT frame — cross-frame combat truth, so a registered FIFO
@@ -209,6 +208,11 @@ impl Plugin for SimCoreResourcesPlugin {
         // born with every seat free.
         ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<
             ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown,
+        >(app);
+        // The switch presses waiting for the encounter drain: a component of
+        // each session root (C03), born empty.
+        ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<
+            ambition_encounter::switches::SwitchActivationQueue,
         >(app);
 
         // ── The world-state log ───────────────────────────────────────────

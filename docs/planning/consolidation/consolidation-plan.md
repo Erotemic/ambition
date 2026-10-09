@@ -134,19 +134,19 @@ file grows case files again, compress it in place. Do not add an archive page.
 
 ## 3. C03 — Consolidate session-owned state and reduce reset-only App globals
 
-**State:** IN PROGRESS. Four families have landed (see "Landed families"
+**State:** IN PROGRESS. Five families have landed (see "Landed families"
 below); the others are not started.
 
 ### Scope and current authority
 
-Source explicitly groups **35** App resources as gameplay-session or
+Source explicitly groups **34** App resources as gameplay-session or
 activated-generation state (46 until the checkpoint family and the room memories
-left on 2026-10-07, 38 until the session clock left and 36 until the door
-countdown left on 2026-10-08):
+left on 2026-10-07; on 2026-10-08, 38 until the session clock left, 36 until the
+door countdown left and 35 until the switch queue left):
 
-<!-- session-owner-census: SessionScopedResources=34 SessionMechanics=1 -->
+<!-- session-owner-census: SessionScopedResources=33 SessionMechanics=1 -->
 <!-- session-root-family: SessionCheckpointState=6 -->
-- `SessionScopedResources` (**34**) in `actor_monolith/src/session/teardown.rs`;
+- `SessionScopedResources` (**33**) in `actor_monolith/src/session/teardown.rs`;
 - (`SessionOwnedCheckpointState`, the third bundle of six, is DELETED: its values are
   components of the session root, `SessionCheckpointState` (6) in
   `actor_monolith/src/session/checkpoint.rs`, and no reset runs for them.)
@@ -200,7 +200,7 @@ The census page lists the member names. The guard counts the optional
 | encounter state | `EncounterView`, `BossEncounterRegistry`, `AuthoredOccurrences` | 3 |
 | simulation clocks / timeline state | `GameplayElapsed`, `LiveMatchTicks`, `SessionMatchOrdinal`, `ProjectileSeqCounter` | 4 |
 | checkpoint / restore state | ~~the six `SessionOwnedCheckpointState` members~~ (LANDED, on the root), `SaveRestored`, `CustodyBaseline`, `MintedItemBaseline`, `OccurrenceBaseline` | 4 |
-| session request / admission queues | `CutsceneTriggerQueue`, `SwitchActivationQueue`, `PendingLifecycleCommit` | 3 |
+| session request / admission queues | `CutsceneTriggerQueue`, ~~`SwitchActivationQueue`~~ (LANDED, on the root), `PendingLifecycleCommit` | 2 |
 | admitted mechanics / configuration | `SessionMechanics`, `BaseGravity` | 2 |
 | cutscene / session gameplay state | `ActiveCutscene`, `ActiveConversation`, `CutsceneSkipHold` | 3 |
 | transient progression | `QuestRegistry`, `StocksMatchSettled`, `SuddenDeathEntered` | 3 |
@@ -210,11 +210,11 @@ with its ingress question (Q136 ruling: choose ingress by semantic ownership).
 
 ### The session-root aliases
 
-<!-- alias-split: SessionWorldRef=32/18 SessionWorldMut=31/18 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
+<!-- alias-split: SessionWorldRef=32/18 SessionWorldMut=33/20 live_session_world_root=3/1 session_root_for_scope=2/2 SoleLiveRoom=9/9 SoleLiveRoomSpec=5/5 -->
 | spelling | what it is | production uses / files |
 | --- | --- | ---: |
 | `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 32 / 18 |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 31 / 18 |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 33 / 20 |
 | `live_session_world_root` | the root whose scope is the active scope | 3 / 1 |
 | `session_root_for_scope` | a named scope's root, through the disabling marker | 2 / 2 |
 | `SoleLiveRoom<T>` | `Single<Ref<T>, With<RoomInstanceRoot>>`; one-live-room debt, not a session alias | 9 / 9 |
@@ -237,7 +237,7 @@ for lifecycle code that sees both sides of a handoff. Guards:
 
 ### Sequence
 
-Do not begin by moving all 35 values. Work owner by owner:
+Do not begin by moving all 34 values. Work owner by owner:
 
 1. Re-run `python3 scripts/architecture_census.py` and confirm the list.
 2. For each family, state whether the value must exist before `SessionRoot`, only
@@ -361,6 +361,23 @@ component of the session root, required by `SessionRoot`.
   lifetime in `SessionWorldMut<..>`, and the alias takes two. The `RoomClock`
   field was invisible, and so was a ninth `EncounterMusicRequest` writer (the
   audio context reset). Both are recorded with verdicts.
+
+**5. The switch queue, 2026-10-08.** `SwitchActivationQueue` (the switch presses
+waiting for the encounter drain, which runs one tick after the producer) is a
+component of the session root, required by `SessionRoot`.
+
+- **Rollback identity did not move:** `resource.switch_activation_queue` keeps
+  its key; its kind is `component-clone-custom-checksum`. The schema version
+  moves 333 -> 334.
+- **Deleted:** the member of `SessionScopedResources` and its reset line.
+  `SessionScopedResources` was 33 and the App-resource total 34.
+- **Witness:**
+  `one_drain_one_author::a_press_queued_in_one_session_is_not_delivered_into_the_next`
+  (A's press is drained on A, the control; a press waiting on A at the swap is
+  not drained on B). It reads the presses the drain resolved, not the switch
+  flag: the first poison passed against a flag reading, because a toggle applied
+  twice reads like one never applied. Poisoned by a default that holds a press:
+  the arm fails on "A's waiting press was delivered into session B".
 
 ### Constraints
 

@@ -40,7 +40,6 @@ use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use crate::control::possession::PossessionState;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
-use ambition_encounter::switches::SwitchActivationQueue;
 use ambition_encounter::EncounterView;
 use ambition_persistence::quest::QuestRegistry;
 
@@ -85,10 +84,6 @@ pub struct SessionScopedResources<'w> {
     quest_registry: ResMut<'w, QuestRegistry>,
     /// Slot-level buffered gestures belong to the retired control session.
     slot_interactions: ResMut<'w, SlotInteractionState>,
-    /// Switch activations intentionally cross one simulation-frame boundary.
-    /// Retirement between production and consumption must not deliver a
-    /// session-A activation into session B.
-    switch_activations: ResMut<'w, SwitchActivationQueue>,
     /// Whether the loaded save has been applied to the current world.
     /// Retirement resets the latch so the next session restores into its fresh world.
     save_restored: ResMut<'w, crate::session::durable_horizon::SaveRestored>,
@@ -479,7 +474,6 @@ fn reset(resources: SessionScopedResources) {
         bag_spends,
         mut quest_registry,
         mut slot_interactions,
-        mut switch_activations,
         mut save_restored,
         mut occurrences,
         mut occurrence_baseline,
@@ -524,7 +518,6 @@ fn reset(resources: SessionScopedResources) {
     }
     *quest_registry = QuestRegistry::default();
     *slot_interactions = SlotInteractionState::default();
-    *switch_activations = SwitchActivationQueue::default();
     *save_restored = crate::session::durable_horizon::SaveRestored::default();
     *occurrences = ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences::default();
     *occurrence_baseline =

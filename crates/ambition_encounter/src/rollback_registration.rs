@@ -93,7 +93,8 @@ where
     // PRESENCE-ONLY probe, so the sync test could not SEE the case the author
     // was worried about. A queue is the sharpest form of this: presence cannot
     // distinguish one entry from five.
-    registrar.rollback_resource_clone_checksum::<crate::switches::SwitchActivationQueue>(
+    // A component of the session root (C03), under the same key.
+    registrar.rollback_component_clone_checksum::<crate::switches::SwitchActivationQueue>(
         OWNER,
         "resource.switch_activation_queue",
         "queued switch activations, in order, by id/action/target",

@@ -54,7 +54,9 @@ pub fn apply_quest_effects(
 /// click SFX.
 pub fn apply_switch_effects(
     mut effects: MessageReader<SwitchActivated>,
-    mut switch_activations: ResMut<ambition_encounter::switches::SwitchActivationQueue>,
+    mut switch_activations: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
+        ambition_encounter::switches::SwitchActivationQueue,
+    >,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
     for effect in effects.read() {

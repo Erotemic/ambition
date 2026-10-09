@@ -643,11 +643,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
         "crates/ambition_platformer2d_runtime/src/input_drive.rs",
     ),
-    "SwitchActivationQueue": (
-        "crates/ambition_encounter/src/switches.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    ),
     "Warmup": (
         "game/ambition_demo_mary_o_app/src/bin/capture_mary_o.rs",
         "game/ambition_demo_sanic_app/src/bin/capture_sanic.rs",
@@ -2015,40 +2010,6 @@ ADJUDICATED: dict[str, str] = {
         "TWO files by the census and THREE sites by `write_sites`, which is the "
         "distinction that matters here — the two telemetry systems are the pair, "
         "and they are in one module by design."
-    ),
-    "SwitchActivationQueue": (
-        "CORRECT — ONE PRODUCER, ONE CONSUMER, AND IT IS A CROSS-TICK CHANNEL BY "
-        "CONSTRUCTION. `apply_switch_effects` (`features/ecs/effect_bus.rs`) "
-        "PUSHES, inside `Platformer2dSimulationPhase::GameplayEffects`; "
-        "`drain_switch_activations` (`ambition_encounter/src/switches.rs`) "
-        "`std::mem::take`s the whole queue, `.in_set(SwitchActivationDrained)`; the "
-        "third writer is `SESSION_SCOPE_RESET`. One pusher, one taker, one "
-        "session-edge clear.\n"
-        "    ⚠ `SwitchActivationDrained` is never `configure_sets`'d into any "
-        "phase, so *\"nothing orders the drain against the producer\"* is literally "
-        "true — and I first wrote that down as *\"executor order, stable per build "
-        "and arbitrary\"*, which is WRONG and is the correction worth keeping. The "
-        "drain's position is pinned by its CONSUMERS: `drive_wave_encounters` is "
-        "`.in_set(EncounterSimulation).after(SwitchActivationDrained)`, and the "
-        "phase chain is `... EncounterSimulation -> Cutscene -> GameplayEffects -> "
-        "Progression`. ⇒ The drain must precede a system two phases BEFORE the "
-        "producer, so an activation is always resolved on the FOLLOWING tick. "
-        "Deterministic, peer-stable, and forced.\n"
-        "    ⛔ AND THE OBVIOUS REPAIR IS A SCHEDULE CYCLE. Adding "
-        "`.after(apply_switch_effects)` would put the drain after "
-        "`GameplayEffects` and before `drive_wave_encounters` in "
-        "`EncounterSimulation`, which is earlier in the same frame. The one-tick "
-        "delay is the price of the phase order, not a missing edge.\n"
-        "    ⭐ MEASURED AND PINNED: "
-        "`a_switch_activation_is_drained_on_the_tick_after_it_was_pushed` "
-        "(`game/ambition_app/tests/symmetry_attunement.rs`) reads "
-        "`(queued, resolved) == (1, 0)` one step after a real `SwitchActivated` "
-        "through the shipped composition, and `(0, 1)` the step after — so the "
-        "delay is a DELAY and not a loss. ⚠ This is NOT the ordering gap "
-        "`switches.rs` records at line 437: that one is two writers of the SAVE's "
-        "switch family (`drain_switch_activations` vs "
-        "`content/src/falling_sand_sim.rs`), routed to "
-        "`world-facts-observations-and-memory.md`, and it is still open."
     ),
     "OccurrenceBaseline": (
         "CORRECT — ONE WRITER PER LIFECYCLE EVENT, AND THE EVENTS ARE DISJOINT. "
@@ -3704,6 +3665,10 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
         "game/ambition_app/src/app/dev_runtime.rs",
     ),
+    "SwitchActivationQueue": (
+        "crates/ambition_encounter/src/switches.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/effect_bus.rs",
+    ),
 }
 
 #: ⛤ **IT WAS FOUR TYPES AND EIGHT WRITERS ON 2026-09-17; IT IS TWO AND NINE.**
@@ -3801,6 +3766,41 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "session-edge reset is deleted with the move: a new root is born with "
         "every seat free. ⇒ An armer and a clear cannot disagree about a value; "
         "the countdown's only invariant is that it reaches zero."
+    ),
+    "SwitchActivationQueue": (
+        "CORRECT — ONE PRODUCER, ONE CONSUMER, AND IT IS A CROSS-TICK CHANNEL BY "
+        "CONSTRUCTION. `apply_switch_effects` (`features/ecs/effect_bus.rs`) "
+        "PUSHES, inside `Platformer2dSimulationPhase::GameplayEffects`; "
+        "`drain_switch_activations` (`ambition_encounter/src/switches.rs`) "
+        "`std::mem::take`s the whole queue, `.in_set(SwitchActivationDrained)`; the "
+        "session-edge clear is deleted: since C03 (2026-10-08) the queue is a "
+        "component of the session root, and a new root is born empty. One "
+        "pusher, one taker.\n"
+        "    ⚠ `SwitchActivationDrained` is never `configure_sets`'d into any "
+        "phase, so *\"nothing orders the drain against the producer\"* is literally "
+        "true — and I first wrote that down as *\"executor order, stable per build "
+        "and arbitrary\"*, which is WRONG and is the correction worth keeping. The "
+        "drain's position is pinned by its CONSUMERS: `drive_wave_encounters` is "
+        "`.in_set(EncounterSimulation).after(SwitchActivationDrained)`, and the "
+        "phase chain is `... EncounterSimulation -> Cutscene -> GameplayEffects -> "
+        "Progression`. ⇒ The drain must precede a system two phases BEFORE the "
+        "producer, so an activation is always resolved on the FOLLOWING tick. "
+        "Deterministic, peer-stable, and forced.\n"
+        "    ⛔ AND THE OBVIOUS REPAIR IS A SCHEDULE CYCLE. Adding "
+        "`.after(apply_switch_effects)` would put the drain after "
+        "`GameplayEffects` and before `drive_wave_encounters` in "
+        "`EncounterSimulation`, which is earlier in the same frame. The one-tick "
+        "delay is the price of the phase order, not a missing edge.\n"
+        "    ⭐ MEASURED AND PINNED: "
+        "`a_switch_activation_is_drained_on_the_tick_after_it_was_pushed` "
+        "(`game/ambition_app/tests/symmetry_attunement.rs`) reads "
+        "`(queued, resolved) == (1, 0)` one step after a real `SwitchActivated` "
+        "through the shipped composition, and `(0, 1)` the step after — so the "
+        "delay is a DELAY and not a loss. ⚠ This is NOT the ordering gap "
+        "`switches.rs` records at line 437: that one is two writers of the SAVE's "
+        "switch family (`drain_switch_activations` vs "
+        "`content/src/falling_sand_sim.rs`), routed to "
+        "`world-facts-observations-and-memory.md`, and it is still open."
     ),
 }
 

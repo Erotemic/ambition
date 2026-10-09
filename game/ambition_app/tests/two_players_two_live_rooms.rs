@@ -460,7 +460,10 @@ fn a_gravity_switch_turns_only_the_live_room_it_is_in() {
     assert_eq!((alice, bob), (Some(first.next()), Some(Some(first))), "Alice in the hub, Bob in switch_lab");
     let down = ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0);
     assert_eq!(downs(&mut sim), (down, down), "precondition: both players fall down");
-    sim.world_mut().resource_mut::<SwitchActivationQueue>().0.push(QueuedSwitchActivation {
+    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SwitchActivationQueue>(sim.world_mut())
+        .expect("the live session root carries the switch queue")
+        .0
+        .push(QueuedSwitchActivation {
         activation: ambition_platformer2d::encounter::registry::SwitchActivation {
             id: "ow1_bobs_flip".to_string(),
             action: "FlipGravity".to_string(),

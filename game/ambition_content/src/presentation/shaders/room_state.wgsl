@@ -5,7 +5,7 @@
 
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_sprite::mesh2d_view_bindings::{view, globals}
-#import ambition_content::room_look::{rand_cell, value_noise, towers, arcade, sky_line_distance}
+#import ambition_content::room_look::{rand_cell, value_noise, towers, arcade, island, sky_line_distance}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -115,6 +115,14 @@ fn backdrop_clean(p: vec2<f32>) -> vec3<f32> {
     col = mix(col, vec3<f32>(0.822, 0.850, 0.902), far_t * 0.85);
     let near_t = towers(p - cam * 0.42 + vec2<f32>(97.0, 60.0), 370.0, 24u, room.y);
     col = mix(col, vec3<f32>(0.770, 0.805, 0.872), near_t * 0.90);
+    // Islands that float between the towers and the viaduct.
+    let isle = island(p - cam * 0.36 + vec2<f32>(140.0, 40.0));
+    if isle.x > 0.5 {
+        var stone = mix(vec3<f32>(0.800, 0.828, 0.888), vec3<f32>(0.740, 0.772, 0.846), isle.z);
+        if isle.y < 4.0 { stone = vec3<f32>(0.940, 0.945, 0.955); }
+        if isle.y >= 5.0 && isle.y < 6.5 { stone = vec3<f32>(0.820, 0.730, 0.500); }
+        col = mix(col, stone, 0.90);
+    }
     // A viaduct of arches, nearer again.
     let via = arcade(p - cam * 0.28);
     col = mix(col, vec3<f32>(0.735, 0.770, 0.845), via * 0.92);
@@ -170,6 +178,22 @@ fn backdrop_corrupt(p: vec2<f32>) -> vec3<f32> {
         }
         if (u.x > 0.96 || u.y > 0.96) && r > 0.8 {
             col = mix(col, MAGENTA, 0.35);
+        }
+    }
+    // The islands, in blocks, with light below them.
+    let qi = p - cam * 0.36 + vec2<f32>(140.0, 40.0);
+    let ci = floor(qi / 12.0);
+    let isle = island((ci + vec2<f32>(0.5)) * 12.0);
+    if isle.x > 0.5 && rand_cell(ci, 540u) > 0.10 {
+        let r = rand_cell(ci, 541u);
+        col = col * (0.40 + 0.14 * r);
+        let u = qi / 12.0 - ci;
+        if isle.y < 12.0 && u.y < 0.3 { col = col * 1.7 + vec3<f32>(0.030, 0.025, 0.060); }
+        if r > 0.93 { col = mix(col, select(CYAN, MAGENTA, isle.z > 0.5), 0.55); }
+    } else {
+        let above = island(qi - vec2<f32>(0.0, 16.0));
+        if above.x > 0.5 {
+            col = col + MAGENTA * 0.20 * (0.7 + 0.3 * sin(t * 1.5 + above.z * 6.283));
         }
     }
     // The viaduct, in blocks.

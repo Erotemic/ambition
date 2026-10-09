@@ -51,6 +51,10 @@ pub struct CharacterAnimator {
     social_pose: SocialPose,
     /// Base render size + anchor, set at spawn.
     pub render_basis: Option<RenderBasis>,
+    /// The sprite samples half a texel inside each frame
+    /// ([`Self::sample_rect`]). For a piece of built world that touches the
+    /// next piece.
+    pub samples_inside_frame: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -77,7 +81,31 @@ impl CharacterAnimator {
             clip_held: false,
             social_pose: SocialPose::Stand,
             render_basis: None,
+            samples_inside_frame: false,
         }
+    }
+
+    /// The part of the current frame that a sprite samples, measured from the
+    /// corner of the frame's atlas rect (`Sprite::rect`), when this animator
+    /// samples inside its frames. `None`: sample the whole frame.
+    ///
+    /// A filtered sample at the edge of a quad takes part of its colour from
+    /// the texel outside the frame, and that texel is transparent padding. So
+    /// the edge row of the quad is drawn part transparent and darker, and two
+    /// pieces that touch or overlap show a line between them. Half a texel
+    /// inside the frame, the edge sample is the centre of the frame's own edge
+    /// texel.
+    ///
+    /// A sheet with a whole-texel inset (`frame_sample_inset`) has moved its
+    /// edge off the padding already, so it has no rect here.
+    pub fn sample_rect(&self) -> Option<bevy::math::Rect> {
+        if !self.samples_inside_frame || self.spec.frame_sample_inset > 0 {
+            return None;
+        }
+        let texels = self.spec.frame_trim_at(self.drawn_slot(), self.frame).trimmed.as_vec2();
+        // A frame of one texel has no inside.
+        (texels.x > 1.0 && texels.y > 1.0)
+            .then(|| bevy::math::Rect::new(0.5, 0.5, texels.x - 0.5, texels.y - 0.5))
     }
 
     /// Initialize the full-logical trim basis once.

@@ -371,8 +371,9 @@ fn both_snake_forms_follow_one_scale() {
 /// ⛔⛔ THE SILENT FALLBACK IS A SECOND SIZE.
 ///
 /// The scale resolver reads 1.0 when the baked sheet does not resolve, and the
-/// art derives about 0.18. A snake sized by the fallback is five times the size
-/// of one sized by the art, and nothing at runtime says which happened.
+/// art derives 0.365 (measured 2026-10-08, at two times Mary-O's width). A
+/// snake sized by the fallback is almost three times the size of one sized by
+/// the art, and nothing at runtime says which happened.
 ///
 /// Jon, 2026-09-05: *"the size of the snake has seemed to vary depending on the
 /// global game state"*. That is the shape of a fallback that fires in some
@@ -388,7 +389,7 @@ fn the_snake_is_sized_by_its_art_and_not_by_the_no_sheet_fallback() {
     assert!(
         geometry.is_some(),
         "the `{}` sheet did not resolve, so the scale is the 1.0 fallback \
-         instead of the ~0.18 the art derives, with nothing at runtime saying so",
+         instead of the 0.365 the art derives, with nothing at runtime saying so",
         super::SNAKE_SHEET_TARGET
     );
     let scale = crate::pack::PACK.posed_body_world_per_pixel(super::SNAKE_SHEET_TARGET);
@@ -399,8 +400,10 @@ fn the_snake_is_sized_by_its_art_and_not_by_the_no_sheet_fallback() {
     // ⚠ A range, not an equality: the number moves when the art is redrawn, and
     // pinning it exactly would make an art change look like a defect. What must
     // never happen is landing back near the fallback.
+    // The row asks for two times Mary-O's width (2026-10-08), so the range is
+    // two times the one that held while the snake was as wide as she is.
     assert!(
-        (0.10..0.30).contains(&scale),
+        (0.20..0.60).contains(&scale),
         "world_per_pixel {scale} is outside the range the authored art implies"
     );
 }

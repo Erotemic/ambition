@@ -132,6 +132,11 @@ pub(crate) fn draw_animator_frame(
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
+    // A piece that touches the next piece samples inside its frame, and each
+    // frame has its own size.
+    if animator.samples_inside_frame {
+        sprite.rect = animator.sample_rect();
+    }
     sprite.flip_x = flip;
     // Compatibility fallback for legacy sprite construction. Normal construction
     // seeds this basis before the sprite is drawable, so frame zero of a packed

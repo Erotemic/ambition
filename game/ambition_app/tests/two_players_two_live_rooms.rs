@@ -415,7 +415,11 @@ fn a_wave_zooms_only_the_views_of_its_own_live_room() {
         sim.teleport_player((center.x, center.y));
     }
     let zooms = |sim: &mut Platformer2dSimHarness| {
-        let view = sim.world_mut().resource::<ambition_platformer2d::encounter::EncounterView>().clone();
+        let view = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::encounter::EncounterView,
+        >(sim.world())
+        .expect("the live session root carries the encounter view")
+        .clone();
         (view.camera_zoom_in(Some(first)), view.camera_zoom_in(Some(second)))
     };
     let mut seen = zooms(&mut sim);

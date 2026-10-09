@@ -28,7 +28,6 @@ fn app_with_populated_mirrors() -> App {
     app.add_message::<SessionScopeActivated>();
     app.init_resource::<PossessionState>();
     app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
-    app.init_resource::<ambition_encounter::EncounterView>();
     app.init_resource::<BossEncounterRegistry>();
     app.init_resource::<ambition_persistence::quest::QuestRegistry>();
     app.init_resource::<SlotInteractionState>();

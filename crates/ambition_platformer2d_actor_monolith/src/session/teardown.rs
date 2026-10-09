@@ -40,7 +40,6 @@ use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use crate::control::possession::PossessionState;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
-use ambition_encounter::EncounterView;
 use ambition_persistence::quest::QuestRegistry;
 
 /// The process-global resources that mirror ONE live session's state.
@@ -59,9 +58,6 @@ pub struct SessionScopedResources<'w> {
     /// without an explicit reset it would hold the retired session's dead body
     /// across the whole frontend visit.
     controlled_subject: ResMut<'w, ControlledSubject>,
-    /// The encounter read model — cleared so no published view describes the dead
-    /// session between retirement and the next activation's first rebuild.
-    encounter_view: ResMut<'w, EncounterView>,
     /// Boss profiles; `specs_loaded` re-arms the populate pass on next activation.
     /// `Option`: named bosses are removable (`Capability::BossEncounters`).
     boss_registry: Option<ResMut<'w, BossEncounterRegistry>>,
@@ -466,7 +462,6 @@ fn reset(resources: SessionScopedResources) {
     let SessionScopedResources {
         mut possession,
         mut controlled_subject,
-        mut encounter_view,
         mut boss_registry,
         boss_defeats_since_checkpoint,
         consumed_since_checkpoint,
@@ -500,7 +495,6 @@ fn reset(resources: SessionScopedResources) {
     } = resources;
     *possession = PossessionState::default();
     *controlled_subject = ControlledSubject::default();
-    *encounter_view = EncounterView::default();
     if let Some(boss_registry) = boss_registry.as_deref_mut() {
         *boss_registry = BossEncounterRegistry::default();
     }

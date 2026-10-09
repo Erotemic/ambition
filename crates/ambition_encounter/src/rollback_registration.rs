@@ -53,7 +53,8 @@ where
         "cursor and beat-elapsed bits",
         |script| script.progress_bits(),
     );
-    registrar.declare_rollback_derived_resource::<crate::entity::EncounterView>(
+    // A component of the session root (C03), under the same key.
+    registrar.declare_rollback_derived_component::<crate::entity::EncounterView>(
         OWNER,
         "derived.encounter_view",
         "presentation-intent read model republished each tick",

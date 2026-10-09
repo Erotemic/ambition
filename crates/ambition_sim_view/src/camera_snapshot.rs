@@ -1180,7 +1180,10 @@ pub fn resolve_camera_observation(
     room_specs: ambition_platformer2d_world::rooms::LiveRoomSpecs,
     time: bevy::prelude::Res<bevy::prelude::Time>,
     developer_tools: bevy::prelude::Res<ambition_dev_tools::dev_tools::DeveloperTools>,
-    encounter_view: bevy::prelude::Res<ambition_encounter::EncounterView>,
+    // `Option`: with no live session there is no encounter, and no zoom.
+    encounter_view: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_encounter::EncounterView>,
+    >,
     user_settings: bevy::prelude::Res<ambition_persistence::settings::UserSettings>,
     ease_tuning: bevy::prelude::Res<
         ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning,
@@ -1644,7 +1647,10 @@ pub fn resolve_camera_observation(
                 framing: user_settings.video.camera_framing,
                 overview_scale,
                 // The zoom of the encounters of the room this view frames.
-                encounter_scale: encounter_view.camera_zoom_in(Some(room)).max(1.0),
+                encounter_scale: encounter_view
+                    .as_deref()
+                    .map_or(1.0, |view| view.camera_zoom_in(Some(room)))
+                    .max(1.0),
                 overview_camera: developer_tools.overview_camera,
                 snap_camera,
                 blink,
@@ -3161,7 +3167,6 @@ mod resolved_snapshot_lifetime_tests {
         let mut app = App::new();
         app.add_plugins(bevy::time::TimePlugin);
         app.init_resource::<ambition_dev_tools::dev_tools::DeveloperTools>();
-        app.init_resource::<ambition_encounter::EncounterView>();
         app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning>();
         app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();

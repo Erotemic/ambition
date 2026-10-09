@@ -97,7 +97,8 @@ impl bevy::prelude::Plugin for EncounterRegistryPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
         use bevy::prelude::IntoScheduleConfigs;
-        app.init_resource::<crate::entity::EncounterView>();
+        // The encounter read model: a component of each session root (C03).
+        ambition_platformer2d_shared_tangle::lifecycle::require_on_session_root::<crate::entity::EncounterView>(app);
         // The generic clock mirror the reducer reads (the host overwrites it
         // each frame; init never clobbers a pre-inserted resource).
         app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>();

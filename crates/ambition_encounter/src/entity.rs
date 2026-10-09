@@ -36,7 +36,10 @@ impl Encounter {
 /// ⭐ THE ZOOM IS KEPT PER LIVE ROOM (customer 2). An encounter zooms the
 /// views that frame its own room: a wave in Bob's room does not zoom Alice's
 /// view of the hub.
-#[derive(Resource, Clone, Debug, Default)]
+///
+/// A component of the session root (C03): the view describes one session, and
+/// when that session's root goes, so does its view.
+#[derive(bevy::prelude::Component, Clone, Debug, Default)]
 pub struct EncounterView {
     /// Camera zoom the active encounters of each live room want this frame,
     /// for the rooms that want one (`None`: a composition with no live room).
@@ -105,5 +108,41 @@ mod tests {
             (1.2, 1.0, 1.0),
             "(the room with an active encounter, the room with none in flight, no room)"
         );
+    }
+
+    /// ⭐ C03: TWO SESSION ROOTS HOLD TWO ENCOUNTER VIEWS. Session A's view
+    /// zooms its room. A candidate root B beside it has no view. After the
+    /// swap the live view is B's, and B's room is not zoomed. Before C03 the
+    /// view was an App resource, and a reset at retirement was what kept B's
+    /// camera from framing A's encounter until B's first rebuild.
+    #[test]
+    fn two_session_roots_hold_two_encounter_views() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            require_on_session_root, session_world_component, CandidateSessionRoot, SessionRoot,
+            SessionScopeId,
+        };
+        use bevy::prelude::App;
+        let room = Some(LiveRoomInstance::ACTIVATION.next());
+        let mut app = App::new();
+        require_on_session_root::<EncounterView>(&mut app);
+        let zoom = |app: &App| session_world_component::<EncounterView>(app.world()).map(|view| view.camera_zoom_in(room));
+
+        // A states its view, so only B is born from the requirement.
+        let mut zoomed = EncounterView::default();
+        zoomed.set_camera_zooms([(room, crate::EncounterPhase::Active, 1.2)]);
+        let a = app.world_mut().spawn((SessionRoot(SessionScopeId(1)), zoomed)).id();
+        assert_eq!(zoom(&app), Some(1.2), "the control: A's encounter zooms A's room");
+
+        let b = app.world_mut().spawn(CandidateSessionRoot(SessionScopeId(2))).id();
+        assert!(
+            app.world().get::<EncounterView>(b).is_none(),
+            "a candidate root is not a session root, so it carries no view yet"
+        );
+        assert_eq!(zoom(&app), Some(1.2), "preparing a candidate changed A's view");
+
+        app.world_mut().despawn(a);
+        app.world_mut().entity_mut(b).remove::<CandidateSessionRoot>();
+        app.world_mut().entity_mut(b).insert(SessionRoot(SessionScopeId(2)));
+        assert_eq!(zoom(&app), Some(1.0), "B was born framing A's encounter");
     }
 }

@@ -719,10 +719,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/dev/portal_inspector.rs",
         "game/ambition_content/src/portal/reorient_setting.rs",
     ),
-    "EncounterView": (
-        "crates/ambition_encounter_features/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    ),
     "FallingSandRoomState": (
         "game/ambition_content/src/falling_sand.rs",
         "game/ambition_content/src/falling_sand_sim.rs",
@@ -2131,16 +2127,6 @@ ADJUDICATED: dict[str, str] = {
         "its default at the session edge. It is rollback-registered "
         "(`cutscene.skip_hold`) and accumulates from the seat's `cancel_held`, so a "
         "rewind restores the hold with the tick that grew it. MEASURED 2026-09-28 per SYSTEM rather than "
-        "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
-        "one function, with comments and test modules stripped. ⇒ Nothing here is "
-        "two owners of one fact."
-    ),
-    "EncounterView": (
-        "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
-        "\"writer\" is not an authority. `apply_wave_encounter_effects` (`ambition_encounter_features/src/systems.rs`) is the "
-        "only production system that writes it inside a session; the other file is "
-        "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
-        "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "
         "per file: exactly one `ResMut`/`resource_mut` site in that file, in that "
         "one function, with comments and test modules stripped. ⇒ Nothing here is "
         "two owners of one fact."
@@ -3853,7 +3839,6 @@ SESSION_SCOPE_RESET = (
 SOLE_IN_SESSION_OWNER: dict[str, str] = {
     "ControlledSubject": "resolve_controlled_subject",
     "CutsceneSkipHold": "tick_active_cutscene",
-    "EncounterView": "apply_wave_encounter_effects",
     "LiveMatchTicks": "count_the_live_match_ticks",
     "SaveRestored": "complete_durable_restore",
     "SessionMatchOrdinal": "activate_the_prepared_match",

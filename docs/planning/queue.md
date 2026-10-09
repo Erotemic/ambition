@@ -73,25 +73,35 @@ is not an implementation guide.
 
 **Measured 2026-10-08:** `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
 reads the declared access of every system in the shipped `GgrsSchedule`. It found
-22 `ActorControl` writers. None is unordered against `PlayerInputSet::ControlGate`.
-Ten are in the gate or before it. Twelve are after it, and the test pins them
-as a declared list. Eight of the twelve spend a press, integrate, or derive from
-a gated frame. Four produced intent that no restriction saw:
-- The boss road (`tick_boss_brains_system`, `tick_commanded_moves`,
-  `face_conducted_bosses`) decides and integrates after actor integration and
-  contact damage. Still open.
-- `shark_ride::tick_departures` wrote its velocity in `BeforeIntegrate`. Moved
-  2026-10-09: it runs after `ActorDecisionSet::Publish` and before the gate.
-  Poison (the old placement): the pin fails on the extra `tick_departures`.
+22 `ActorControl` writers, none unordered against `PlayerInputSet::ControlGate`.
+Four produced intent after the gate. All four are moved (2026-10-09):
 
-**Next implementation:** move the boss road's decision in front of the gate.
-That makes bosses one more publication into the one integration road. Remove
-each row from `WRITES_CONTROL_AFTER_THE_GATE` as its writer moves. Keep the
-measured invariant that a body is advanced once per tick. Witness to write
-first: a boss a script holds (`ControlHolds`) must not fly its pattern; today
-its brain writes after the blank. Then fold `tick_commanded_moves` into the one
-commanded-move road (`drive_commanded_moves` excludes bosses today, and the two
-walk at different speeds).
+- `shark_ride::tick_departures` runs after `ActorDecisionSet::Publish` and before
+  the gate.
+- The boss brain (`tick_boss_brains_system`) runs after `ActorDecisionSet::Publish`
+  and before the gate, and `BossSteerSlot` (`tick_commanded_moves`,
+  `face_conducted_bosses`, content steering) is in the gate after
+  `blank_scripted_control_frames`, beside `drive_commanded_moves`.
+  `integrate_boss_bodies` stays after contact damage. Witness:
+  `boss_motion_parity::the_frame_a_held_boss_integrates_under_is_the_gated_one`
+  (control: the unheld brain writes a moving frame). Poison (the old schedule):
+  red, 60 of 60 ticks under the brain's frame.
+
+`WRITES_CONTROL_AFTER_THE_GATE` now lists only systems that spend a press,
+integrate, or derive from a gated frame.
+
+**Open:**
+
+- **Two commanded-move roads.** `drive_commanded_moves` excludes bosses
+  (`Without<BossAttackIntent>`); `tick_commanded_moves` walks a boss with no
+  motion-model speed and clears its attack intent. Fold them into one road; the
+  walk speed of a boss changes when they fold, so measure the cut-rope lure.
+- **A boss fixture the brain does not move.** In the harness boss
+  (`spawn_boss_at`, mockingbird), the brain writes a moving `velocity_target`,
+  but the body's path is the same with or without a hold: 174.0 px over 300
+  ticks, all of it the axis-swept model's own hover. So
+  `woken_boss_moves_and_stays_afloat` passes without the brain. Measure a
+  shipped boss room before calling it a defect of the boss road.
 
 **Acceptance:** one accepted control fact feeds one body execution road; no
 second body tick or hidden writer is introduced; schedule witnesses are placed

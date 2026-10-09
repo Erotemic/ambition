@@ -209,14 +209,6 @@ const WRITES_CONTROL_AFTER_THE_GATE: &[(&str, &str)] = &[
     // the second body does not apply to the copy.
     ("steer_mount_from_rider", "derives from the rider's gated frame"),
     ("fan_out_limb_intents", "derives from the boss's routed strikes"),
-    // ⛔ OPEN A4 DEBT: these PRODUCE intent after the gate. The boss road
-    // decides and integrates after actor integration and contact damage
-    // (`apply_actor_contact_damage` -> `tick_npc_idle_barks` -> the boss
-    // chain), so no restriction sees a boss frame. Remove a row when its
-    // writer moves in front of the gate.
-    ("tick_boss_brains_system", "produces: the boss road"),
-    ("tick_commanded_moves", "produces: the boss road"),
-    ("face_conducted_bosses", "produces: the boss road"),
 ];
 
 /// ⭐ A4: ONE ACCEPTED CONTROL FACT FEEDS ONE BODY EXECUTION ROAD.

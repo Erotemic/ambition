@@ -78,8 +78,9 @@ pub struct AudioInitSet;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct SimulationSetupSet;
 
-/// Slot inside the `WorldPrep` boss tick chain where the content layer inserts per-boss
-/// steering systems (e.g. the cut-rope boss tracking its anvil).
+/// Slot inside [`PlayerInputSet::ControlGate`] where the content layer inserts per-boss
+/// steering systems (e.g. the cut-rope boss tracking its anvil). It runs after the
+/// boss brain and after the blank of held bodies, so a script overrides the brain.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct BossSteerSlot;
 

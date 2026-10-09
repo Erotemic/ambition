@@ -375,8 +375,8 @@ pub fn tick_departures(
         departure.remaining -= dt;
         // Write an intent, not a position: one integrator owns the position.
         // `velocity_target` is the world-space seam an aerial body steers by
-        // (as `steer_mount_from_rider` uses). This runs in
-        // `WorldPrepSet::BeforeIntegrate`, so this tick's pass reads it.
+        // (as `steer_mount_from_rider` uses). This runs before the control
+        // gate and integration, so this tick's pass reads it.
         control.0.velocity_target =
             ambition_platformer2d::engine_core::WorldVec2(departure.velocity);
         control.0.locomotion = Default::default();

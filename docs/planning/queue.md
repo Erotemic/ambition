@@ -76,17 +76,22 @@ reads the declared access of every system in the shipped `GgrsSchedule`. It foun
 22 `ActorControl` writers. None is unordered against `PlayerInputSet::ControlGate`.
 Ten are in the gate or before it. Twelve are after it, and the test pins them
 as a declared list. Eight of the twelve spend a press, integrate, or derive from
-a gated frame. Four produce intent that no restriction sees:
+a gated frame. Four produced intent that no restriction saw:
 - The boss road (`tick_boss_brains_system`, `tick_commanded_moves`,
   `face_conducted_bosses`) decides and integrates after actor integration and
-  contact damage.
-- `shark_ride::tick_departures` writes its velocity in `BeforeIntegrate`.
+  contact damage. Still open.
+- `shark_ride::tick_departures` wrote its velocity in `BeforeIntegrate`. Moved
+  2026-10-09: it runs after `ActorDecisionSet::Publish` and before the gate.
+  Poison (the old placement): the pin fails on the extra `tick_departures`.
 
 **Next implementation:** move the boss road's decision in front of the gate.
-That makes bosses one more publication into the one integration road. Then
-move the shark departure, and remove each row from
-`WRITES_CONTROL_AFTER_THE_GATE` as its writer moves. Keep the measured
-invariant that a body is advanced once per tick.
+That makes bosses one more publication into the one integration road. Remove
+each row from `WRITES_CONTROL_AFTER_THE_GATE` as its writer moves. Keep the
+measured invariant that a body is advanced once per tick. Witness to write
+first: a boss a script holds (`ControlHolds`) must not fly its pattern; today
+its brain writes after the blank. Then fold `tick_commanded_moves` into the one
+commanded-move road (`drive_commanded_moves` excludes bosses today, and the two
+walk at different speeds).
 
 **Acceptance:** one accepted control fact feeds one body execution road; no
 second body tick or hidden writer is introduced; schedule witnesses are placed

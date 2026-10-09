@@ -1058,13 +1058,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .after(ambition_platformer2d::mount::DismountRequestsApplied)
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
-        // Departure writes intent in `BeforeIntegrate`. In `Settle`, the
-        // riderless shark's brain would overwrite `ActorControl` on the next
-        // tick before movement.
+        // Departure writes intent after the actor brains publish, so the
+        // riderless shark's brain cannot overwrite it before movement, and
+        // before the control gate, so every restriction sees the frame (A4).
         app.add_systems(
             sim,
             crate::shark_ride::tick_departures
-                .in_set(ambition_platformer2d::platformer::schedule::WorldPrepSet::BeforeIntegrate),
+                .after(ambition_platformer2d::platformer::schedule::ActorDecisionSet::Publish)
+                .before(ambition_platformer2d::platformer::schedule::PlayerInputSet::ControlGate)
+                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
         // The capture interruption release is in `CombatSchedulePlugin`. Do
         // not add it here; it would run twice.

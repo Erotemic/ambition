@@ -39,15 +39,90 @@ impl PersistenceRoot {
     /// binary do not share a root either. Nothing cleans these up, deliberately
     /// — a few empty directories under the temp dir are cheaper than a harness
     /// that deletes paths, and the OS reclaims them.
+    ///
+    /// ⛔ AND NEVER THE LEFTOVER OF A DEAD PROCESS. A process id is used again,
+    /// and nothing cleans the roots, so `<pid>-<counter>` alone named the
+    /// directory of an earlier process with this id: its `sandbox_save.ron`
+    /// was read at `Startup` (`load_save_at_startup`) over the save the
+    /// harness was given, and a test started in another world. Measured
+    /// 2026-10-09 on a machine with 54,893 leftover roots (712 of them in the
+    /// next 100,000 process ids): about 1 test process in 500 went red, on a
+    /// different premise each time. So a native root is CLAIMED: the
+    /// directory is made here, and a name that is taken is passed over. No
+    /// path is deleted.
     pub fn isolated() -> Self {
         use std::sync::atomic::{AtomicU64, Ordering};
         static NEXT: AtomicU64 = AtomicU64::new(0);
-        let unique = NEXT.fetch_add(1, Ordering::Relaxed);
-        Self(
-            std::env::temp_dir()
-                .join("ambition-app-state")
-                .join(format!("{}-{unique}", std::process::id())),
-        )
+        let base = std::env::temp_dir().join("ambition-app-state");
+        loop {
+            let unique = NEXT.fetch_add(1, Ordering::Relaxed);
+            let root = base.join(format!("{}-{unique}", std::process::id()));
+            if Self::claim(&root) {
+                return Self(root);
+            }
+        }
+    }
+
+    /// Make `root` as a new directory. `false`: it is there already, so it is
+    /// not this call's. A temp dir that cannot be written gives the name
+    /// unclaimed, as before: there is no leftover to read where nothing can be
+    /// written.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn claim(root: &std::path::Path) -> bool {
+        if let Some(parent) = root.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        match std::fs::create_dir(root) {
+            Err(error) => error.kind() != std::io::ErrorKind::AlreadyExists,
+            Ok(()) => true,
+        }
+    }
+
+    /// The web has no directories: a root is a key prefix there.
+    #[cfg(target_arch = "wasm32")]
+    fn claim(_root: &std::path::Path) -> bool {
+        true
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod isolated_root_tests {
+    use super::PersistenceRoot;
+
+    /// A root from `isolated()` is empty, when an earlier process with this
+    /// process id left its files under the names the next calls would have
+    /// had. (Other tests of this binary take roots at the same time; they
+    /// pass the leftovers over too.)
+    #[test]
+    fn an_isolated_root_is_never_the_leftover_of_an_earlier_process() {
+        let first = PersistenceRoot::isolated().0;
+        let name = first.file_name().unwrap().to_str().unwrap().to_owned();
+        let (pid, counter) = name.rsplit_once('-').expect("a root is <pid>-<counter>");
+        let counter: u64 = counter.parse().expect("a counter");
+        let base = first.parent().unwrap().to_owned();
+        // The leftovers: the next 64 names, each with a save in it.
+        let leftovers: Vec<_> = (counter + 1..=counter + 64).map(|n| base.join(format!("{pid}-{n}"))).collect();
+        let mut planted = Vec::new();
+        for leftover in &leftovers {
+            // A name another test took in this instant is not a leftover.
+            if std::fs::create_dir(leftover).is_ok() {
+                std::fs::create_dir_all(leftover.join("ambition")).unwrap();
+                std::fs::write(leftover.join("ambition").join("sandbox_save.ron"), "(stale)").unwrap();
+                planted.push(leftover.clone());
+            }
+        }
+        assert!(planted.len() >= 32, "premise: only {} leftovers were planted", planted.len());
+
+        for _ in 0..8 {
+            let root = PersistenceRoot::isolated().0;
+            assert!(!planted.contains(&root), "`isolated()` gave the directory of an earlier process: {root:?}");
+            let entries = std::fs::read_dir(&root).expect("the root is a directory this call made").count();
+            assert_eq!(entries, 0, "a new root has {entries} entries: {root:?}");
+        }
+        // Take away what this test planted, and no other path.
+        for leftover in planted {
+            let _ = std::fs::remove_dir_all(leftover);
+        }
     }
 }
 pub mod save_data;

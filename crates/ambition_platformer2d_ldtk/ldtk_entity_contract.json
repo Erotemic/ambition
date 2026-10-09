@@ -681,6 +681,18 @@
           "on_invalid": "refused",
           "sample": "Left",
           "note": "which way this occurrence starts. Facing is PLACEMENT context: the character and its brain are reusable, and two instances of the same pair may enter a room looking opposite ways. Absent or blank keeps the historical Right/+1 default; a misspelling is refused rather than silently changing initial locomotion."
+        },
+        {
+          "name": "grounding",
+          "presence": "optional",
+          "values": [
+            "Auto",
+            "Ground",
+            "Exact"
+          ],
+          "on_invalid": "refused",
+          "sample": "Exact",
+          "note": "where this occurrence starts against the ground under it. Auto (also absent or blank) lets the character decide: a body that walks starts on the ground, a body that flies starts where it is placed. Ground puts it on the ground. Exact starts it exactly where it is placed, for a body that must drop in. A body that starts above its floor falls when the room starts, and plays a landing sound."
         }
       ]
     },

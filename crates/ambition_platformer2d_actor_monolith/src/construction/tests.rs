@@ -4610,3 +4610,70 @@ fn a_practice_room_plans_its_bosses_as_practice_copies() {
     assert!(practice_of(true), "a practice room's boss is a practice copy");
     assert!(!practice_of(false), "a boss anywhere else is not");
 }
+
+/// A placement is planned where its body starts (`SpawnGrounding`): a walker
+/// on the ground under it, a flyer and an `Exact` placement where they are
+/// placed, a rider where it is placed (it starts on its mount).
+///
+/// Jon, 2026-10-08: each actor was built above its floor and fell to it, so a
+/// room started with a burst of landing sounds.
+#[test]
+fn a_placement_is_planned_where_its_body_starts() {
+    use ambition_platformer2d_world::rooms::SpawnGrounding;
+
+    let mut flyer = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    flyer.insert_prepared(
+        crate::character_runtime::prepare_and_finalize_for_test(
+            ambition_characters::actor::definition::CharacterDefinition::new("fixture_flyer", "Flyer", "test")
+                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                    baseline_free_flight: Some(true),
+                    ..Default::default()
+                }),
+            &ambition_characters::prepared::CharacterBindings::default(),
+        )
+        .prepared,
+    );
+    // The floor's top is at 500, and each placement's feet are at 460.
+    let placed_feet = 460.0;
+    let floor_top = 500.0;
+    let planned_feet = |character: &str, grounding: SpawnGrounding, rides: bool, cast| {
+        let mut room = empty_room("room");
+        room.world.blocks.push(ae::Block::solid(
+            "floor",
+            ae::Vec2::new(0.0, floor_top),
+            ae::Vec2::new(1000.0, 100.0),
+        ));
+        let mut payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Passive,
+            character,
+        );
+        payload.grounding = grounding;
+        room.enemy_spawns.push(ambition_platformer2d_world::rooms::Authored::new(
+            "placed",
+            "Placed",
+            ae::aabb_from_min_size(ae::Vec2::new(100.0, placed_feet - 28.0), ae::Vec2::splat(28.0)),
+            payload,
+        ));
+        if rides {
+            room.mount_links.push(("placed".to_string(), "its_mount".to_string()));
+        }
+        let requests = super::authored_actor_requests(&room, &[], cast);
+        let [request] = requests.as_slice() else {
+            panic!("one placement plans one row, not {}", requests.len());
+        };
+        let ActorConstructionParams::AuthoredEnemy { authored, .. } = &request.parameters else {
+            panic!("the placement plans an ordinary enemy row");
+        };
+        use ae::AabbExt;
+        authored.aabb.bottom()
+    };
+    let walkers = Some(fixture_cast());
+
+    assert_eq!(planned_feet("fixture_walker", SpawnGrounding::Auto, false, walkers), floor_top);
+    assert_eq!(planned_feet("fixture_walker", SpawnGrounding::Ground, false, walkers), floor_top);
+    assert_eq!(planned_feet("fixture_walker", SpawnGrounding::Exact, false, walkers), placed_feet);
+    assert_eq!(planned_feet("fixture_walker", SpawnGrounding::Auto, true, walkers), placed_feet, "a rider");
+
+    assert_eq!(planned_feet("fixture_flyer", SpawnGrounding::Auto, false, Some(&flyer)), placed_feet);
+    assert_eq!(planned_feet("fixture_flyer", SpawnGrounding::Ground, false, Some(&flyer)), floor_top);
+}

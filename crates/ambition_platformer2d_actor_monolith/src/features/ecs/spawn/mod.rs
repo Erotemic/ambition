@@ -650,8 +650,9 @@ impl RoomFeatureConstructionPlan {
         // Custom payloads) are skipped by the builder, preserving behavior.
         requests.extend(crate::construction::placement_requests(
             &placements,
-            &room.id,
+            room,
             &paths,
+            construction.prepared,
         ));
         requests.extend(crate::construction::authored_static_requests(room));
         requests.extend(crate::construction::authored_actor_requests(
@@ -756,8 +757,9 @@ impl RoomFeatureConstructionPlan {
                         .map_err(RoomFeatureConstructionError::Placement)?;
                     candidates.extend(crate::construction::placement_requests(
                         &planned,
-                        &foreign.id,
+                        foreign,
                         &foreign_paths,
+                        construction.prepared,
                     ));
                 }
                 for mut request in candidates {

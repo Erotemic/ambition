@@ -103,6 +103,7 @@ mod gnu_ton_fight;
 mod fsm_fight;
 mod mockingbird_fight;
 mod the_mockingbirds_sharks_flee;
+mod placed_actors_start_on_the_ground;
 mod trex_fight;
 mod the_trex_is_drawn_from_his_parts;
 mod cut_rope_victory_identity;

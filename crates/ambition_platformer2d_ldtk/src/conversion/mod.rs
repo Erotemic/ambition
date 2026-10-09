@@ -1709,6 +1709,34 @@ mod tests {
             "a misspelled orientation must refuse rather than silently choose a direction: {bad_facing}"
         );
 
+        use ambition_platformer2d_world::rooms::SpawnGrounding;
+        assert_eq!(
+            authored.payload.grounding,
+            SpawnGrounding::Auto,
+            "a placement with no grounding field lets its character decide"
+        );
+        for (written, read) in [
+            ("Auto", SpawnGrounding::Auto),
+            ("Ground", SpawnGrounding::Ground),
+            ("Exact", SpawnGrounding::Exact),
+        ] {
+            let placed = convert(&enemy(vec![
+                named("brain", "mary_o_snake"),
+                named("character_id", "solid_snake"),
+                named("grounding", written),
+            ]));
+            assert_eq!(placed.payload.grounding, read, "grounding `{written}`");
+        }
+        let bad_grounding = convert_err(&enemy(vec![
+            named("brain", "mary_o_snake"),
+            named("character_id", "solid_snake"),
+            named("grounding", "Floor"),
+        ]));
+        assert!(
+            bad_grounding.contains("not one of Auto / Ground / Exact"),
+            "a misspelled grounding must be refused: {bad_grounding}"
+        );
+
         assert_eq!(
             authored.payload.plane,
             ambition_platformer2d_world::rooms::SpawnPlane::Playable,

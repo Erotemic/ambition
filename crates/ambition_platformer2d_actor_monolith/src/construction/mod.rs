@@ -2099,6 +2099,7 @@ pub fn authored_actor_requests(
 ) -> Vec<ActorConstructionRequest> {
     let mut requests = Vec::new();
     for enemy in &room.enemy_spawns {
+        let enemy = &placed_as_it_starts(room, enemy, prepared);
         // See the twin in `staged_actor_requests`: a character states its limbs,
         // and nothing else does.
         if let Some(limbs) = ambition_platformer2d_actor_spawn::limbs_of(resolve_planned_character(prepared, &enemy.payload.character_id)) {
@@ -2159,6 +2160,49 @@ pub fn authored_actor_requests(
         });
     }
     requests
+}
+
+/// `enemy` as it starts in `room`: on the ground under its placement, when its
+/// placement and its character say so
+/// ([`ambition_platformer2d_world::rooms::SpawnGrounding`]).
+///
+/// A body is built with its feet on the bottom of its placement box, so the
+/// box is moved and the body follows. A body that starts above its floor
+/// falls when the room starts, and plays a landing sound (Jon, 2026-10-08:
+/// a room started with a burst of them).
+///
+/// The placement is kept where it is authored when:
+///
+/// - the room has no answer ([`RoomSpec::settled_on_ground`] is `None`);
+/// - the body is a rider (`RoomSpec::mount_links`): it starts on its mount.
+///
+/// The search uses the placement box. A body that is wider than its box can
+/// reach a surface that the box does not.
+///
+/// [`RoomSpec::settled_on_ground`]: ambition_platformer2d_world::rooms::RoomSpec::settled_on_ground
+/// [`RoomSpec`]: ambition_platformer2d_world::rooms::RoomSpec
+fn placed_as_it_starts(
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    enemy: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::EnemySpawnSpec,
+    >,
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
+) -> ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::EnemySpawnSpec>
+{
+    // The same read that gives the body its gravity (`ActorClusterSeed`): a
+    // character that does not state that it flies falls.
+    let flies = resolve_planned_character(prepared, &enemy.payload.character_id)
+        .and_then(|character| character.locomotion)
+        .and_then(|locomotion| locomotion.baseline_free_flight)
+        .unwrap_or(false);
+    let rides = room.mount_links.iter().any(|(rider, _)| *rider == enemy.id);
+    let mut placed = enemy.clone();
+    if enemy.payload.grounding.puts_on_ground(flies) && !rides {
+        if let Some(settled) = room.settled_on_ground(enemy.aabb) {
+            placed.aabb = settled;
+        }
+    }
+    placed
 }
 
 /// The shared lowering for a limbed host (a character that states
@@ -2288,15 +2332,37 @@ pub fn placement_requests(
     placements: &ambition_platformer2d_world::placements::PlacementLoweringPlan<
         crate::construction::placements::ActorPlacementContext,
     >,
-    room_id: &str,
+    // The room that the records are placed in.
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
+    // See [`staged_actor_requests`].
+    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
 ) -> Vec<ActorConstructionRequest> {
     use ambition_entity_catalog::placements::{InteractionKindSpec, PlacementSchema};
+    let room_id = room.id.as_str();
     let mut requests = Vec::new();
     for (record, lower) in placements.planned() {
+        let mut record = record.clone();
         if let PlacementSchema::Interactable(spec) = &record.schema {
             let spawns = match &spec.kind {
-                InteractionKindSpec::Npc { .. } => true,
+                // A placed person starts on the ground as a placed enemy does
+                // (`placed_as_it_starts`). An `NpcSpawn` has no `grounding`
+                // field, so its character decides.
+                InteractionKindSpec::Npc { character_id, .. } => {
+                    let flies = character_id
+                        .as_deref()
+                        .and_then(|id| prepared.and_then(|cast| cast.get(id)))
+                        .and_then(|character| character.locomotion)
+                        .and_then(|locomotion| locomotion.baseline_free_flight)
+                        .unwrap_or(false);
+                    let grounding = ambition_platformer2d_world::rooms::SpawnGrounding::Auto;
+                    if grounding.puts_on_ground(flies) {
+                        if let Some(settled) = room.settled_on_ground(record.aabb) {
+                            record.aabb = settled;
+                        }
+                    }
+                    true
+                }
                 InteractionKindSpec::Custom(payload) => {
                     ambition_encounter::SwitchActivation::parse_custom(payload).is_some()
                 }
@@ -2316,7 +2382,7 @@ pub fn placement_requests(
                 instance: record.id.as_str().to_string(),
             },
             parameters: ActorConstructionParams::Placement {
-                record: record.clone(),
+                record,
                 paths: paths.to_vec(),
                 lower,
             },

@@ -1263,7 +1263,13 @@ mod route_pursuit_tests {
         assert_eq!(follower(&brain).goal, Some(BESIDE_TARGET));
         assert_eq!(waiting.locomotion.x, 0.0);
         // The answer: a hop from where it stands.
-        let leg = NavLeg { kind: NavLegKind::Hop, start: FEET, takeoff: FEET, land: BESIDE_TARGET };
+        let leg = NavLeg {
+            kind: NavLegKind::Hop,
+            start: FEET,
+            takeoff: FEET,
+            land: BESIDE_TARGET,
+            land_span: [BESIDE_TARGET.x - 40.0, BESIDE_TARGET.x + 40.0],
+        };
         snapshot.navigation.goal = Some(BESIDE_TARGET);
         snapshot.navigation.next = NavNext::Leg(leg);
         tick(&mut brain, &snapshot);

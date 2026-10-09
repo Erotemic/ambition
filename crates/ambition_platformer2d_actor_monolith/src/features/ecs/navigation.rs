@@ -57,7 +57,12 @@ struct GraphKey {
     spec: ae::movement::MotionModelSpec,
     abilities: ae::AbilitySet,
     size: ae::Vec2,
-    gravity: ae::Vec2,
+    /// The whole frame, and not its net acceleration: the graph is built from
+    /// which way is down, from the gravity a jump law can scale, and from the
+    /// external acceleration it cannot. Two frames with one sum are two rooms
+    /// to a body (found in review, 2026-10-09: the key held the sum, so the
+    /// body that asked first gave its graph to the other).
+    frame: ae::MotionFrame,
 }
 
 /// The surface graphs in use: a derived cache, never rollback state.
@@ -90,6 +95,32 @@ impl RoomNavigation {
     /// The graphs that were built. For tests and instruments.
     pub fn graphs(&self) -> impl Iterator<Item = &NavGraph> {
         self.graphs.iter().filter_map(|(_, graph)| graph.as_ref())
+    }
+
+    /// The graph for a body of this tuning, in this room and this motion
+    /// frame: kept, or built whole now. `None`: the body has no graph there.
+    fn graph_of(
+        &mut self,
+        world: &ae::World,
+        spec: ae::movement::MotionModelSpec,
+        abilities: ae::AbilitySet,
+        size: ae::Vec2,
+        base_size: ae::BodyBaseSize,
+        frame: ae::MotionFrame,
+    ) -> Option<&NavGraph> {
+        let key = GraphKey { room: geometry_stamp(world), spec, abilities, size, frame };
+        if !self.in_use.contains(&key) {
+            self.in_use.push(key);
+        }
+        self.graph(key, || {
+            // The body's tuning with no history: a graph is not a fact about
+            // what this body was doing when it was first asked for.
+            let mut body = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities);
+            ae::movement::switch_motion_model(&mut body.model, spec);
+            body.kinematics.size = size;
+            body.base_size = base_size;
+            NavGraph::build(world, &body, frame)
+        })
     }
 
     fn graph(&mut self, key: GraphKey, build: impl FnOnce() -> Option<NavGraph>) -> Option<&NavGraph> {
@@ -181,27 +212,14 @@ pub fn advise_navigation(
         let Some(room) = collision.room(stamp.as_ref()) else {
             continue;
         };
-        let world = room.base();
-        let frame = frame.get();
-        let key = GraphKey {
-            room: geometry_stamp(world),
-            spec: model.spec(),
-            abilities: abilities.abilities,
-            size: kinematics.size,
-            gravity: frame.acceleration(),
-        };
-        if !cache.in_use.contains(&key) {
-            cache.in_use.push(key);
-        }
-        let graph = cache.graph(key, || {
-            // The body's tuning with no history: a graph is not a fact about
-            // what this body was doing when it was first asked for.
-            let mut body = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, abilities.abilities);
-            ae::movement::switch_motion_model(&mut body.model, model.spec());
-            body.kinematics.size = kinematics.size;
-            body.base_size = *base_size;
-            NavGraph::build(world, &body, frame)
-        });
+        let graph = cache.graph_of(
+            room.base(),
+            model.spec(),
+            abilities.abilities,
+            kinematics.size,
+            *base_size,
+            frame.get(),
+        );
         let Some(graph) = graph else {
             continue;
         };
@@ -241,5 +259,78 @@ pub fn advise_navigation(
                 target_shares_surface,
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ae::movement::GRAVITY;
+    use ae::{AbilitySet, AccelerationFrame, Block, MotionFrame, Vec2, World};
+
+    fn room() -> World {
+        World::new(
+            "advisor fixture",
+            Vec2::new(2000.0, 1200.0),
+            Vec2::ZERO,
+            vec![
+                Block::solid("floor", Vec2::new(0.0, 1000.0), Vec2::new(2000.0, 64.0)),
+                Block::one_way("perch", Vec2::new(400.0, 940.0), Vec2::new(300.0, 16.0)),
+                Block::solid("wall", Vec2::new(1936.0, 0.0), Vec2::new(64.0, 1000.0)),
+            ],
+        )
+    }
+
+    /// What a test reads of a graph: which way is down in it, and its size.
+    fn read(graph: Option<&NavGraph>) -> Option<(Vec2, usize, usize)> {
+        graph.map(|graph| (graph.frame.down, graph.surfaces.len(), graph.links.len()))
+    }
+
+    fn ask(cache: &mut RoomNavigation, world: &World, frame: MotionFrame) -> Option<(Vec2, usize, usize)> {
+        let abilities = AbilitySet { move_horizontal: true, jump: true, ..AbilitySet::NONE };
+        let body = ae::BodyClusterScratch::new_with_abilities(Vec2::ZERO, abilities);
+        read(cache.graph_of(world, body.model.spec(), abilities, body.kinematics.size, body.base_size, frame))
+    }
+
+    /// Two bodies whose frames have one net acceleration and are not one
+    /// frame get two graphs, each its own, whichever asks first.
+    ///
+    /// `upright` and `sideways` pull the same way with the same strength; in
+    /// `sideways` the feet point along +x (a basis that an acceleration does
+    /// not turn). `split` is upright, with half of its pull an external
+    /// acceleration, which a jump law does not scale.
+    #[test]
+    fn two_frames_with_one_net_acceleration_are_two_graphs_in_each_order() {
+        let world = room();
+        let pull = Vec2::new(0.0, GRAVITY);
+        let upright = MotionFrame::from_acceleration(pull).expect("a pull");
+        let sideways = MotionFrame::new(AccelerationFrame::new(Vec2::X), pull);
+        let split = MotionFrame::with_accelerations(AccelerationFrame::new(Vec2::Y), pull * 0.5, pull * 0.5);
+        // ⛔ THE PREMISE: one net acceleration, three frames.
+        assert_eq!(upright.acceleration(), sideways.acceleration());
+        assert_eq!(upright.acceleration(), split.acceleration());
+        assert!(upright != sideways && upright != split);
+
+        // What each frame's graph is with nothing kept.
+        let alone = |frame| ask(&mut RoomNavigation::default(), &world, frame);
+        let (of_upright, of_sideways) = (alone(upright), alone(sideways));
+        assert!(of_upright.is_some(), "premise: an upright walker has a graph in the fixture");
+        assert_ne!(of_upright, of_sideways, "premise: the two frames do not have one graph");
+
+        for (first, second) in [(upright, sideways), (sideways, upright)] {
+            let mut cache = RoomNavigation::default();
+            assert_eq!(ask(&mut cache, &world, first), alone(first));
+            assert_eq!(
+                ask(&mut cache, &world, second),
+                alone(second),
+                "the second body was given the graph of the first"
+            );
+            assert_eq!(cache.len(), 2);
+        }
+        // The decomposition is in the key too.
+        let mut cache = RoomNavigation::default();
+        ask(&mut cache, &world, upright);
+        ask(&mut cache, &world, split);
+        assert_eq!(cache.len(), 2, "a frame with an external acceleration shared the upright graph");
     }
 }

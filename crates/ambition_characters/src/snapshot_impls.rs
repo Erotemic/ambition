@@ -969,6 +969,8 @@ fn put_nav_follower(out: &mut Vec<u8>, nav: &crate::brain::state_machine::NavFol
             put_vec2(out, leg.start);
             put_vec2(out, leg.takeoff);
             put_vec2(out, leg.land);
+            put_f32(out, leg.land_span[0]);
+            put_f32(out, leg.land_span[1]);
         }
     }
     put_u8(out, nav.phase as u8);

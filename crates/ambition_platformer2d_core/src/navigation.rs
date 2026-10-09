@@ -51,6 +51,19 @@ pub struct NavLeg {
     pub takeoff: Vec2,
     /// Where the body stands when the leg is done.
     pub land: Vec2,
+    /// The surface `land` is on, along the body's side axis: the least and
+    /// the most place the feet point of a body that stands on it can be. A
+    /// body that comes down at the height of `land` and not in this span
+    /// stands on another surface of the same height, and the leg has failed.
+    pub land_span: [f32; 2],
+}
+
+impl NavLeg {
+    /// Is a feet point at `along` (its place on the side axis) on the
+    /// surface this leg lands on?
+    pub fn lands_at(&self, along: f32) -> bool {
+        along >= self.land_span[0] && along <= self.land_span[1]
+    }
 }
 
 /// Where a body is in a leg.
@@ -178,7 +191,12 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
         }
         LegPhase::Air => {
             if facts.on_ground {
-                let landed = below(leg.land).abs() <= LAND_TOLERANCE;
+                // At the height of the landing AND on its surface. The height
+                // alone said "arrived" on any surface of that height (found
+                // in review, 2026-10-09), and the follower then dropped the
+                // leg as done and forgot its misses.
+                let landed =
+                    below(leg.land).abs() <= LAND_TOLERANCE && leg.lands_at(facts.feet.dot(facts.side));
                 let progress = if landed { LegProgress::Arrived } else { LegProgress::Failed };
                 return (LegInput::default(), progress);
             }
@@ -283,6 +301,7 @@ mod tests {
             start: Vec2::ZERO,
             takeoff: Vec2::new(100.0, 0.0),
             land: Vec2::new(180.0, -40.0),
+            land_span: [150.0, 300.0],
         };
         let running = facts(Vec2::new(50.0, 0.0), Vec2::new(120.0, 0.0), true);
         let (input, progress) = follow_leg(&leg, LegPhase::Commit, &running);
@@ -307,10 +326,32 @@ mod tests {
             start: Vec2::new(0.0, 100.0),
             takeoff: Vec2::new(0.0, 100.0),
             land: Vec2::new(80.0, 60.0),
+            land_span: [50.0, 200.0],
         };
         let below_the_top = Vec2::new(60.0, 60.0 + LAND_TOLERANCE + 1.0);
         let falling = follow_leg(&leg, LegPhase::Air, &facts(below_the_top, Vec2::new(100.0, 50.0), false));
         let rising = follow_leg(&leg, LegPhase::Air, &facts(below_the_top, Vec2::new(100.0, -50.0), false));
         assert_eq!((falling.1, rising.1), (LegProgress::Failed, LegProgress::Going(LegPhase::Air)));
+    }
+
+    /// Two platforms of one height. A hop to the far one that comes down on
+    /// the near one has not arrived: the height is right and the surface is
+    /// not.
+    #[test]
+    fn a_landing_at_the_right_height_on_another_surface_has_failed() {
+        // The near platform is x 0 to 80, the far one 180 to 260, both y 200.
+        let leg = NavLeg {
+            kind: NavLegKind::Hop,
+            start: Vec2::new(-60.0, 260.0),
+            takeoff: Vec2::new(-60.0, 260.0),
+            land: Vec2::new(200.0, 200.0),
+            land_span: [180.0, 260.0],
+        };
+        let on_the_near_one = facts(Vec2::new(40.0, 200.0), Vec2::ZERO, true);
+        let on_the_far_one = facts(Vec2::new(190.0, 200.0), Vec2::ZERO, true);
+        // Short of the point and on its surface is an arrival: a walk leg
+        // takes the body the rest of the way.
+        assert_eq!(follow_leg(&leg, LegPhase::Air, &on_the_far_one).1, LegProgress::Arrived);
+        assert_eq!(follow_leg(&leg, LegPhase::Air, &on_the_near_one).1, LegProgress::Failed);
     }
 }

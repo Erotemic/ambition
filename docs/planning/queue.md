@@ -40,8 +40,8 @@ The risk now is improving components one at a time without exercising the
 whole engine. Work in this order, and fix an authoritative-state defect found on
 the way in its own slice:
 
-1. **P0 below:** A4 (BAG-RECORD-HORIZON and AUTHORITY-POLISH are receipts;
-   the first's open line is Q161). C03 stops as a
+1. **P0:** A4, BAG-RECORD-HORIZON and AUTHORITY-POLISH are receipts
+   (BAG-RECORD-HORIZON's open line is Q161). C03 stops as a
    campaign after its family 7: a remaining session resource moves only when a
    two-session witness shows it leaks
    ([consolidation plan §3](consolidation/consolidation-plan.md#3-c03--consolidate-session-owned-state-and-reduce-reset-only-app-globals)).
@@ -60,74 +60,6 @@ universal planner and the Bevy 0.20 upgrade. Q157 is Jon's decision; build
 neither side of it.
 
 ## P0 — architecture and correctness
-
-### A4 — separate control authority from body execution on the real schedule
-
-**Owner:** accepted control writer map and actor-monolith frontier.
-
-**Current state:** the prerequisite writer census is complete and did not find a
-competing control authority. The old `PlatformerRuntimeSet` vocabulary is gone; <!-- cite-ok: the DELETED `PlatformerRuntimeSet` vocabulary, named on purpose: a resolvable citation here would mean the deletion did not happen -->
-the real realization places body integration inside
-`WorldPrepSet::Integrate`. Prior prose that mapped old and new set names by name
-is not an implementation guide.
-
-**Measured 2026-10-08:** `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
-reads the declared access of every system in the shipped `GgrsSchedule`. It found
-22 `ActorControl` writers, none unordered against `PlayerInputSet::ControlGate`.
-Four produced intent after the gate. All four are moved (2026-10-09):
-
-- `shark_ride::tick_departures` runs after `ActorDecisionSet::Publish` and before
-  the gate.
-- The boss brain (`tick_boss_brains_system`) runs after `ActorDecisionSet::Publish`
-  and before the gate, and `BossSteerSlot` (`face_conducted_bosses`, content
-  steering) is in the gate after `blank_scripted_control_frames` and after
-  `drive_commanded_moves`.
-  `integrate_boss_bodies` stays after contact damage. Witness:
-  `boss_motion_parity::the_frame_a_held_boss_integrates_under_is_the_gated_one`
-  (control: the unheld brain writes a moving frame). Poison (the old schedule):
-  red, 60 of 60 ticks under the brain's frame.
-
-`WRITES_CONTROL_AFTER_THE_GATE` now lists only systems that spend a press,
-integrate, or derive from a gated frame.
-
-**Open:**
-
-- **One commanded-move road (done 2026-10-09).** `drive_commanded_moves`
-  walks every body that carries a `CommandedMove`, a boss too: a boss's
-  attack intent and presses are cleared, and a dead body is not walked.
-  Deleted: the boss crate's own commanded-move system and its registration by
-  the content plugin.
-  The `BossSteerSlot` now runs after the walk, so a conducted facing or content
-  steering has the last word. Measured: the cut-rope lure's trajectory is
-  byte-identical over 240 ticks with the two roads and with the one (the boss
-  integrator reads `velocity_target`, which the walker does not change on a
-  normal frame). Witnesses: `a_lured_boss_walks_to_its_mark_and_starts_no_attack`,
-  `a_dead_body_is_not_walked` and `the_cut_rope_walks_the_boss_to_its_mark`.
-  Poisons: the walk skips bosses, red at "did not walk to its mark ... no
-  nearer than 320"; the intent kept, red at "a lured boss still wants to
-  attack".
-- **The Mockingbird's brain moves nothing (measured 2026-10-09).** In its
-  shipped sky the conductor owns the bird's pose (`ConductedPose`, then
-  `PoseOwnedExternally`), and the path with a `ControlHold` equals the path
-  without, to the pixel, while the unheld brain writes a moving frame
-  (`its_path_is_its_conductors_and_a_hold_on_its_brain_changes_nothing`).
-  With the conductor made never to submit a pose, the bird does not move at
-  all (0.0 px over 300 ticks), so the brain's movement frame has no reader
-  for this boss. The harness boss of `boss_motion_parity` is the same: 174.0
-  px held or not. `woken_boss_moves_and_stays_afloat` says "the pattern's
-  desired velocity is ... reaching the integrator", and for this boss it is
-  not.
-  Decided 2026-10-09: the brain keeps its write. The body road declines
-  locomotion for a held body in one place (`integrate_actor_body` passes
-  `pose_owned_externally` to the body update), for a rider and a conducted
-  boss alike. A brain that also skips its write for a conducted boss would be
-  a second copy of that rule.
-
-**Acceptance:** one accepted control fact feeds one body execution road; no
-second body tick or hidden writer is introduced; schedule witnesses are placed
-between actual neighboring phases rather than only `.after(...)` an abstract set.
-
-## P1 — ownership, composition and iteration
 
 ### WORLD-ACCEPTANCE — one headless playthrough of the persistent world
 
@@ -1274,6 +1206,25 @@ their box.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### A4 — separate control authority from body execution on the real schedule — ✅ DONE 2026-10-09
+
+`sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
+reads the declared access of every system in the shipped `GgrsSchedule`
+(2026-10-08: 22 `ActorControl` writers, none unordered against
+`PlayerInputSet::ControlGate`). The four that produced intent after the gate
+moved before it: `shark_ride::tick_departures` and the boss brain
+(`tick_boss_brains_system`) run after `ActorDecisionSet::Publish`; `BossSteerSlot`
+runs in the gate after `drive_commanded_moves`. `WRITES_CONTROL_AFTER_THE_GATE`
+lists only systems that spend a press, integrate, or derive from a gated frame.
+Witness: `boss_motion_parity::the_frame_a_held_boss_integrates_under_is_the_gated_one`.
+One commanded-move road walks every body, a boss too
+(`a_lured_boss_walks_to_its_mark_and_starts_no_attack`, `a_dead_body_is_not_walked`).
+The Mockingbird's path is its conductor's
+(`its_path_is_its_conductors_and_a_hold_on_its_brain_changes_nothing`). Its
+brain keeps its movement write: the body road declines locomotion for a held
+body in one place (`integrate_actor_body`), for a rider and a conducted boss
+alike.
 
 ### AUTHORITY-POLISH — one owner per mechanical fact, and no mirror in the rollback kernel — ✅ DONE 2026-10-09
 

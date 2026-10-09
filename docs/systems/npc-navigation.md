@@ -65,10 +65,24 @@ python -m ambition_ldtk_tools.edit.intgrid paint --level central_hub_basement \
 
 ## How to see what a body can reach
 
-There is no overlay yet. A test can read the graph:
-`RoomNavigation::graphs()` (a resource of the session) gives each
-`NavGraph`, with its `surfaces`, its `links`, the body's `apex_rise`, and
-`reachable_from(surface)`.
+Photograph the room with the navigation overlay:
+
+```bash
+cargo run -p ambition_app_tools --bin capture_scene -- central_hub_complex 950,1500 out.png 1500x1584 \
+    --fit-room --warmup 900 --nav-overlay
+```
+
+The overlay draws the graph each navigating body is advised from: a green line
+for each standing surface, a yellow arrow for each hop (take-off to landing),
+an orange arrow for each drop, a magenta cross at the place a body is going
+to, and a cyan cross at the place beside its target. A room with no navigating
+body has no graph, so the overlay draws nothing there. The overlay is
+`NavigationOverlay` in `game/ambition_app/src/dev/navigation_overlay.rs`; no
+menu turns it on yet.
+
+A test can read the graph: `RoomNavigation::graphs()` (a resource of the
+session) gives each `NavGraph`, with its `surfaces`, its `links`, the body's
+`apex_rise`, and `reachable_from(surface)`.
 
 ## Validation
 

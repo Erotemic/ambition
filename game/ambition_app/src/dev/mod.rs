@@ -4,6 +4,7 @@
 //! platform-neutral so desktop keys and future Android developer UI can share
 //! one proof-request seam.
 pub mod debug_overlay;
+pub mod navigation_overlay;
 pub mod diagnostics_panel;
 pub mod fps_overlay;
 #[cfg(feature = "dev_tools")]

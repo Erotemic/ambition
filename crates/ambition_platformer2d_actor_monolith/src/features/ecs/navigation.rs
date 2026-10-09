@@ -41,6 +41,11 @@ impl NavigationAdvice {
     pub fn of(&self, body: Entity) -> NavAdvice {
         self.by_body.get(&body).copied().unwrap_or_default()
     }
+
+    /// Each body advised this tick, in no order. For instruments.
+    pub fn iter(&self) -> impl Iterator<Item = (Entity, &NavAdvice)> {
+        self.by_body.iter().map(|(body, advice)| (*body, advice))
+    }
 }
 
 /// What a graph is a function of.
@@ -58,6 +63,9 @@ struct GraphKey {
 #[derive(Resource, Default)]
 pub struct RoomNavigation {
     graphs: Vec<(GraphKey, Option<NavGraph>)>,
+    /// The graphs a body was advised from this tick. For instruments: a
+    /// graph that is kept and not in use is no fact about the room now.
+    in_use: Vec<GraphKey>,
 }
 
 impl RoomNavigation {
@@ -68,6 +76,14 @@ impl RoomNavigation {
 
     pub fn is_empty(&self) -> bool {
         self.graphs.is_empty()
+    }
+
+    /// The graphs a body was advised from on the last tick.
+    pub fn graphs_in_use(&self) -> impl Iterator<Item = &NavGraph> {
+        self.graphs
+            .iter()
+            .filter(|(key, _)| self.in_use.contains(key))
+            .filter_map(|(_, graph)| graph.as_ref())
     }
 
     /// The graphs that were built. For tests and instruments.
@@ -139,6 +155,7 @@ pub fn advise_navigation(
     )>,
 ) {
     advice.by_body.clear();
+    cache.in_use.clear();
     for (entity, brain, model, abilities, kinematics, base_size, frame, target) in &bodies {
         let Some(request) = brain.navigation_request() else {
             continue;
@@ -158,6 +175,9 @@ pub fn advise_navigation(
             size: kinematics.size,
             gravity: frame.acceleration(),
         };
+        if !cache.in_use.contains(&key) {
+            cache.in_use.push(key);
+        }
         let graph = cache.graph(key, || {
             // The body's tuning with no history: a graph is not a fact about
             // what this body was doing when it was first asked for.

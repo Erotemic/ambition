@@ -613,6 +613,13 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
         Update,
         overlay.run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
+    app.init_resource::<crate::dev::navigation_overlay::NavigationOverlay>();
+    app.add_systems(
+        Update,
+        crate::dev::navigation_overlay::draw_navigation_overlay
+            .after(camera_follow)
+            .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
+    );
 }
 
 fn install_fx_and_hud_systems(app: &mut App) {

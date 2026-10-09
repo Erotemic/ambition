@@ -149,6 +149,7 @@ pub fn advise_navigation(
             &ae::movement::MotionModel,
             &ae::BodyAbilities,
             &ae::BodyKinematics,
+            &ae::BodyGroundState,
             &ae::BodyBaseSize,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             // Whom the body attends to, when it has a foe: the same read-model
@@ -166,10 +167,19 @@ pub fn advise_navigation(
 ) {
     advice.by_body.clear();
     cache.in_use.clear();
-    for (entity, brain, model, abilities, kinematics, base_size, frame, target) in &bodies {
+    for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target) in &bodies {
         let Some(request) = brain.navigation_request() else {
             continue;
         };
+        // A body the movement kernel has not stepped yet has the motion model
+        // it was born with. The integrator writes the body's own tuning into
+        // the model on each step (`step_body`), so before the first step the
+        // model is of a body that does not exist, and a graph for it is a
+        // build for nothing (measured: 54 to 112 ms for each dog). The kernel
+        // marks the body's ground contact on that first step.
+        if !ground.contact_initialized {
+            continue;
+        }
         let stamp = rooms
             .stamped(entity)
             .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);

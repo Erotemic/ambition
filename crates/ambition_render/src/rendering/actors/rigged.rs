@@ -949,7 +949,8 @@ pub fn drive_rigged_presentations(
         let fades = row.is_some_and(|row| flipbook.frame_opacity(row, animator.frame) < 1.0);
         // A row with a warp is taken apart as one picture, in the pass that
         // finishes the composited image (`ImpostorCellOpacity::warp`).
-        let warps = preview.is_some() || row.is_some_and(|row| BodyWarp::of_row(row).is_some());
+        let warps = preview.is_some()
+            || row.is_some_and(|row| BodyWarp::of_row(row).is_some() && flipbook.row_draws_the_body_whole(row));
         let wanted = always || fades || warps || demand.as_ref().is_some_and(|demand| demand.is_declared(root));
         presentation.composed_hold = if wanted {
             COMPOSED_HOLD_FRAMES
@@ -1151,6 +1152,10 @@ pub fn drive_rigged_presentations(
         // The row's warp and how far through the row this frame is.
         let row_warp = row.and_then(|row| {
             let (warp, clip) = (BodyWarp::of_row(row)?, flipbook.clip(row)?);
+            // A sheet that takes its own body apart in this row has its blink.
+            if !flipbook.row_draws_the_body_whole(row) {
+                return None;
+            }
             let last = clip.frame_count().saturating_sub(1).max(1) as f32;
             let within = if clip.frame_duration_s > 0.0 {
                 (animator.elapsed / clip.frame_duration_s).clamp(0.0, 1.0)

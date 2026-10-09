@@ -154,13 +154,23 @@ OPEN, cost:
   hitch. The graph is a pure function of authored geometry and a body's
   tuning, so it can be built when content is built and shipped as data. That
   is the direction; nothing builds it yet.
-- A body is born with a motion model that is not its character's own, and the
-  advisor builds a graph for that one too: one build for nothing for each
-  navigating kind. Two things I tried do not find the moment the body is
-  ready: the `PosedBody` marker is there before the model changes, and
-  `PreparedCharacterDefinition::motion_model` is not the final model either
-  (the dog's run speed of 120 arrives by another road). It needs the owner of
-  the spawn order to say what "this body has its tuning" is.
+- CLOSED 2026-10-09: a body is born with a motion model that is not its own.
+  The integrator writes the body's tuning into the model on each step
+  (`step_body`), so the model is right from the first step on. The advisor
+  does not advise a body the kernel has not stepped
+  (`BodyGroundState::contact_initialized`), and one dog is one graph
+  (`companion_dog::the_basement_dog_...` holds it). YardratAmbition found the
+  cause by reading the integrator; two signals I tried first (`PosedBody`, the
+  prepared character's motion model) were wrong.
+- CLOSED 2026-10-09, found on the way (its own slice): the brain snapshot's
+  movement law was the config's tuning alone, and the integrator prefers a
+  body's `AuthoredMovementTuning`. Measured in the hall: of 138 bodies two
+  author their feel (Mary-O and tall Mary-O), and both were told run 270,
+  jump 520 and one air jump while they move at run 300, jump 450 and no air
+  jump. The snapshot now resolves the law as the integrator does
+  (`movement_law_of`). Guard:
+  `a_brain_is_told_the_law_its_body_moves_by` (a patrol that asks Mary-O for
+  100 px/s gets 100; it got 111.1 with the fix taken out).
 
 The rules the slice holds:
 

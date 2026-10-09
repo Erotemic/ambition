@@ -256,11 +256,16 @@ What it added, all of it general:
   - Before (2026-10-04) the body's own pieces each drifted and faded
     (`robot_side._teleport_warp`). The parts are few and they overlap, so the
     blink read as a fade.
-  - OPEN: the other part-drawn sheets (alice, bob, the robots before v3, the
-    polygons, and more) still draw their own blink in those rows, so the
-    warp is applied on top of it. Each becomes a plain pose when it is
-    published again. The baked fallback frame of player robot v3 (a tier with
-    no parts) is the plain pose with its portal pieces.
+  - The warp is for a row that draws the body whole
+    (`RiggedSpriteAsset::row_draws_the_body_whole`): no frame fades as one
+    picture, and no part the `idle` row draws fades on its own. A sheet says
+    so with its own draws; there is no flag and no list. The other sheets with
+    a blink row (17 part tables have one) still fade or take apart their own
+    body there, so they keep their own blink, as before. Each gets the
+    engine's when it is published again with plain rows.
+  - The baked fallback frame of player robot v3 (drawn only when a body fits
+    no cell, or its pages are not ready) is the plain pose with its portal
+    pieces.
 - Every other effect (jets, shield quarters, line blade, orb, beam) is a piece.
   Effects went from 475k to 32k texels, and the body is unchanged.
 - `IMPOSTOR_CELL` is 288 (the robot's 256 px frame plus margins);

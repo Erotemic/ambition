@@ -618,3 +618,33 @@ fn a_blink_row_and_its_mirror_have_the_teleport_warp() {
     assert_eq!(BodyWarp::of_row("idle"), None);
     assert_eq!(BodyWarp::of_row("walk~mirrored"), None);
 }
+
+/// The engine's blink is for a sheet whose blink rows draw the body whole.
+/// Player robot v3 draws plain poses there (its portal pieces fade, and they
+/// are no part of its body). A sheet that still fades its own body in those
+/// rows keeps its own blink: the control.
+#[test]
+fn the_blink_warp_is_for_a_row_that_draws_the_body_whole() {
+    let whole = |target: &str, row: &str| {
+        RiggedSpriteAsset::baked(target)
+            .unwrap_or_else(|| panic!("`{target}` has a published flipbook"))
+            .row_draws_the_body_whole(row)
+    };
+    for row in ["blink_out", "blink_in", "blink_out~mirrored", "idle"] {
+        assert!(whole("player_robot_v3", row), "player_robot_v3 {row}");
+    }
+    // Its death fades the frame as one picture.
+    assert!(!whole("player_robot_v3", "death"));
+    assert!(!whole("player_robot_v3", "no_such_row"));
+    // Each other sheet with a blink row, and what it says. Printed so the
+    // set is read from the sheets and not from a list.
+    let mut own_blink = Vec::new();
+    for target in ["robot", "player_robot_v2", "alice", "bob", "goblin", "performer"] {
+        let Some(flipbook) = RiggedSpriteAsset::baked(target) else { continue };
+        if flipbook.clip("blink_out").is_some() && !flipbook.row_draws_the_body_whole("blink_out") {
+            own_blink.push(target);
+        }
+    }
+    assert!(!own_blink.is_empty(), "control: no sheet takes its own body apart in blink_out");
+    eprintln!("sheets that keep their own blink: {own_blink:?}");
+}

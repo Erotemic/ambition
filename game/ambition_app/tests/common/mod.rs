@@ -674,3 +674,136 @@ pub fn strengthen_the_float_rows(world: &mut bevy::prelude::World) -> Vec<&'stat
     );
     strengthened
 }
+
+/// The frames a session is stepped after its route is active, for a caller
+/// that wants a settled session. An unloaded run has the gameplay route
+/// active on frame 3 (measured 2026-10-09), so this is the 240 frames the
+/// fixtures stepped before, counted from the activation.
+pub const SETTLE_FRAMES_AFTER_ACTIVATION: usize = 237;
+
+/// How long [`step_until_route_is_active`] waits before it says the route
+/// did not activate.
+const ACTIVATION_CEILING: std::time::Duration = std::time::Duration::from_secs(120);
+
+/// Step `app` until the active route of the shell is `route`. Answers the
+/// number of frames it stepped.
+///
+/// ⛔ A FIXED NUMBER OF FRAMES IS NOT A WAIT FOR AN ACTIVATION. A route is
+/// active when work on other threads is done, and a frame of an idle app is
+/// short. Measured 2026-10-09 on a box with 30 test threads: alone, the
+/// gameplay route is active on frame 3; with the 48 arms of
+/// `an_edit_reaches_the_shipped_game` in one process it was active on frame
+/// 3 in most arms and on frame 83 in one, and in 5 runs of 5 two or three
+/// arms had no active route after the 240 frames they stepped.
+///
+/// The ceiling is a time, because the wait is for a time. After the frames
+/// an unloaded run needs, each frame gives the other threads the processor.
+///
+/// # Panics
+///
+/// When the route is not active after [`ACTIVATION_CEILING`].
+pub fn step_until_route_is_active(app: &mut bevy::prelude::App, route: &str) -> usize {
+    let active = |app: &bevy::prelude::App| {
+        app.world()
+            .get_resource::<ambition_platformer2d::game_shell::ShellRouter>()
+            .and_then(|router| router.active.as_ref())
+            .map(|active| active.route_id.as_str().to_string())
+    };
+    let started = std::time::Instant::now();
+    let mut frames = 0;
+    loop {
+        app.update();
+        frames += 1;
+        if active(app).as_deref() == Some(route) {
+            return frames;
+        }
+        assert!(
+            started.elapsed() < ACTIVATION_CEILING,
+            "the route `{route}` is not active after {frames} frames and {:?}; the active route is {:?}",
+            started.elapsed(),
+            active(app)
+        );
+        if frames > 240 {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+    }
+}
+
+/// [`step_until_route_is_active`], then [`SETTLE_FRAMES_AFTER_ACTIVATION`]
+/// frames: a session that is live and settled. Answers the frame the route
+/// was active on.
+pub fn step_until_route_is_active_and_settled(app: &mut bevy::prelude::App, route: &str) -> usize {
+    let active_on = step_until_route_is_active(app, route);
+    for _ in 0..SETTLE_FRAMES_AFTER_ACTIVATION {
+        app.update();
+    }
+    active_on
+}
+
+/// The frames of a loop that watches an activation: the 240 frames the loops
+/// stepped before, and on until the route has been active for
+/// [`SETTLE_FRAMES_AFTER_ACTIVATION`] frames. See
+/// [`step_until_route_is_active`] for why 240 frames is not a wait.
+///
+/// ```ignore
+/// let mut window = ActivationWindow::new("ambition_gameplay");
+/// for frame in 0.. {
+///     if window.closed(&app) {
+///         break;
+///     }
+///     app.update();
+///     // what the arm reads on each frame
+/// }
+/// ```
+pub struct ActivationWindow {
+    route: &'static str,
+    started: std::time::Instant,
+    frames: usize,
+    active_on: Option<usize>,
+}
+
+impl ActivationWindow {
+    pub fn new(route: &'static str) -> Self {
+        Self {
+            route,
+            started: std::time::Instant::now(),
+            frames: 0,
+            active_on: None,
+        }
+    }
+
+    /// Asked before each frame of the loop. `true` when the loop has stepped
+    /// its frames.
+    ///
+    /// # Panics
+    ///
+    /// When the route is not active after [`ACTIVATION_CEILING`].
+    pub fn closed(&mut self, app: &bevy::prelude::App) -> bool {
+        let active = app
+            .world()
+            .get_resource::<ambition_platformer2d::game_shell::ShellRouter>()
+            .and_then(|router| router.active.as_ref())
+            .is_some_and(|active| active.route_id.as_str() == self.route);
+        if active && self.active_on.is_none() {
+            self.active_on = Some(self.frames);
+        }
+        let closed = self.frames >= 240
+            && self
+                .active_on
+                .is_some_and(|active_on| self.frames >= active_on + SETTLE_FRAMES_AFTER_ACTIVATION);
+        if !closed {
+            assert!(
+                self.active_on.is_some() || self.started.elapsed() < ACTIVATION_CEILING,
+                "the route `{}` is not active after {} frames and {:?}",
+                self.route,
+                self.frames,
+                self.started.elapsed()
+            );
+            if self.frames > 240 {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+            self.frames += 1;
+        }
+        closed
+    }
+}

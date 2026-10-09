@@ -63,7 +63,7 @@ pub enum ShrineVisualSource {
 }
 
 /// Draw each shrine as its obelisk prop sprite so the player reads it as a
-/// "rest here" landmark. Uses `sprites/shrine_spritesheet.png` (with a flat
+/// "rest here" landmark. Uses `sprites/props/shrine_spritesheet.png` (with a flat
 /// `sprites/props/shrine.png` fallback), scaled to the shrine's collision
 /// footprint so its base sits at the floor.
 pub fn sync_shrine_visual(
@@ -280,10 +280,14 @@ fn shrine_visual_source_from_record(
     // stamps the demand road, so the residency census can attribute the
     // sheet, and it takes the `RENDER_WORLD`-only path, so no CPU copy stays
     // alive.
+    // In `props/`, where `scripts/regen/sprites.sh` writes the shrine prop
+    // (`write_shrine_prop`). The record's `image` is a bare file name. A load
+    // of `sprites/shrine_spritesheet.png` failed in every game with a shrine,
+    // and the shrine drew from a handle with no image.
     let image = ambition_sprite_sheet::game_assets::load_sheet_image(
         asset_server,
         "shrine-sheet",
-        "sprites/shrine_spritesheet.png",
+        format!("sprites/props/{}", record.image),
     );
 
     let mut ledger = BindingLedger::new();

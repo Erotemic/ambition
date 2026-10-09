@@ -197,7 +197,28 @@ pub mod content {
         /// Compile the pack now, without the cache: the road a test takes to
         /// read a refusal.
         pub fn compile(&self) -> Result<PreparedContentPack, CompileFailure> {
-            let draft = match &self.texts {
+            let draft = self.compile_draft()?;
+            self.compile_against(draft, &engine_schemas())
+        }
+
+        /// Compile the pack against `schemas`: the road a composition takes,
+        /// with the schemas of what it installed (`PlatformerApp::profile`).
+        pub fn compile_with(&self, schemas: &SchemaRegistry) -> Result<PreparedContentPack, CompileFailure> {
+            let draft = self.compile_draft()?;
+            self.compile_against(draft, schemas)
+        }
+
+        fn compile_against(
+            &self,
+            draft: ContentPackDraft,
+            schemas: &SchemaRegistry,
+        ) -> Result<PreparedContentPack, CompileFailure> {
+            compile(&draft, schemas, &AssetsUnchecked)
+        }
+
+        /// The pack's draft, from its texts.
+        fn compile_draft(&self) -> Result<ContentPackDraft, CompileFailure> {
+            Ok(match &self.texts {
                 PackTexts::Embedded { manifest_ron, sources } => ContentPackDraft::from_manifest_ron(
                     manifest_ron,
                     sources
@@ -222,8 +243,7 @@ pub mod content {
                     }
                     ContentPackDraft::from_manifest_ron(&manifest, read)?
                 }
-            };
-            compile(&draft, &engine_schemas(), &AssetsUnchecked)
+            })
         }
 
         /// The compiled pack, compiled once.

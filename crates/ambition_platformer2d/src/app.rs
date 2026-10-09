@@ -22,6 +22,11 @@ use bevy::prelude::*;
 
 use crate::world::rooms::RoomMetadata;
 
+/// The supported engine profiles: named sets of capabilities a game leaves
+/// out. Here, beside [`PlatformerApp::profile`] that takes one, so a game
+/// names a profile through the composition surface.
+pub use ambition_platformer2d_runtime::profile;
+
 /// Curated imports for a game's `main`.
 ///
 /// This domain prelude avoids exposing the broader implementation topology of
@@ -322,9 +327,8 @@ type RollbackContribution = Box<dyn FnOnce(&mut App) + Send + Sync>;
 /// installs anything. That is what makes "is the declaration complete?" an
 /// answerable question, and it is why this is not `&mut App`.
 ///
-/// Slice A holds only what host assembly consumes. `ContentPackDraft` and
-/// everything under it is slice B; a content method here would be a method
-/// whose input nothing can yet validate.
+/// A content pack is declared here ([`Self::content_pack`]) and admitted when
+/// the composition is built, against the schemas of what it installs.
 #[derive(Default)]
 pub struct ModuleDraft {
     /// Which module is currently being defined, so a conflict can name both
@@ -347,9 +351,21 @@ pub struct ModuleDraft {
     /// [`ModuleDraft::actions`].
     actions: Vec<&'static [ambition_input::SemanticActionDef]>,
     conflicts: Vec<String>,
+    /// Each content pack a module ships, with the module that declared it.
+    #[cfg(feature = "content_pack")]
+    content_packs: Vec<(String, &'static crate::content::EmbeddedPack)>,
 }
 
 impl ModuleDraft {
+    /// Declare a content pack this module ships. The composition admits it
+    /// when it is built, against the schemas of the capabilities it installs
+    /// ([`PlatformerApp::profile`]), and refuses to build when it cannot.
+    #[cfg(feature = "content_pack")]
+    pub fn content_pack(&mut self, pack: &'static crate::content::EmbeddedPack) -> &mut Self {
+        self.content_packs.push((self.defining.clone(), pack));
+        self
+    }
+
     /// Begin declaring an experience. Subsequent calls apply to it.
     ///
     /// A composition may declare several distinct experience ids; redeclaring an
@@ -740,6 +756,9 @@ pub struct PlatformerApp {
     start_at: StartAt,
     manifests: Vec<ModuleManifest>,
     draft: ModuleDraft,
+    /// The supported profile this game composes, when it leaves capabilities
+    /// out. `None` installs every capability.
+    profile: Option<profile::EngineProfile>,
 }
 
 impl PlatformerApp {
@@ -859,6 +878,7 @@ impl PlatformerApp {
             start_at,
             manifests,
             draft,
+            profile,
         } = self;
 
         let sources: Vec<AssetSource> = manifests
@@ -945,6 +965,24 @@ impl PlatformerApp {
                 Ok(Some(prepared)) => prepared_casts.push((experience.id.clone(), prepared)),
                 Ok(None) => {}
                 Err(reasons) => problems.extend(reasons),
+            }
+        }
+
+        // ── ADMIT the declared content packs, against what this composition
+        // installs. The same pack compiles against every engine schema in a full
+        // composition; under a profile, a pack that requires an omitted
+        // capability is refused with `MissingCapability`.
+        #[cfg(feature = "content_pack")]
+        {
+            let omitted = profile.as_ref().map(|profile| profile.omitted_content_capabilities()).unwrap_or_default();
+            let schemas = ambition_engine_schemas::engine_schemas_without(&omitted);
+            for (module, pack) in &draft.content_packs {
+                if let Err(failure) = pack.compile_with(&schemas) {
+                    problems.push(format!(
+                        "module `{module}` declares a content pack this composition cannot admit{}:\n{failure}",
+                        profile.as_ref().map(|profile| format!(" (profile `{}`)", profile.name)).unwrap_or_default()
+                    ));
+                }
             }
         }
 
@@ -1049,7 +1087,10 @@ impl PlatformerApp {
         // ── Rule 5 ── engine, then host, then shell.
         #[cfg(feature = "rollback")]
         if let Some(participants) = rollback_participants {
-            app.add_plugins(crate::rollback::RollbackEnginePlugin);
+            match profile {
+                Some(profile) => app.add_plugins(crate::rollback::RollbackProfilePlugin(profile)),
+                None => app.add_plugins(crate::rollback::RollbackEnginePlugin),
+            };
             // The declaration travels with the composition, so a restart reads
             // the count the game stated rather than re-sampling live devices.
             app.insert_resource(crate::rollback::DeclaredParticipants(participants));
@@ -1063,10 +1104,10 @@ impl PlatformerApp {
             policy.autostart = false;
             app.insert_resource(policy);
         } else {
-            app.add_plugins(crate::engine::PlatformerEnginePlugins::fixed_tick());
+            app.add_plugins(engine_group(profile.as_ref()));
         }
         #[cfg(not(feature = "rollback"))]
-        app.add_plugins(crate::engine::PlatformerEnginePlugins::fixed_tick());
+        app.add_plugins(engine_group(profile.as_ref()));
         app.add_plugins(crate::windowed_host::PlatformerHostPlugins);
 
         // Every experience's authoring, lowered into one capability bundle so
@@ -1399,6 +1440,21 @@ impl PlatformerApp {
     /// A public API that reports a topology the running session does not have is worse than one
     /// that refuses, so this refuses.
     #[cfg(feature = "rollback")]
+    /// Compose a supported profile: the engine installs none of the
+    /// capabilities it omits, and a content pack a module declares
+    /// ([`ModuleDraft::content_pack`]) is admitted against the schemas of what
+    /// is installed. A pack that needs an omitted capability refuses the
+    /// composition (Q146: content that needs a capability the composition
+    /// lacks is refused, not left inert).
+    ///
+    /// Only the named profiles (`app::profile::SUPPORTED_PROFILES`) are
+    /// offered: each is stepped by a test, and an arbitrary set of omissions is
+    /// not.
+    pub fn profile(mut self, profile: profile::EngineProfile) -> Self {
+        self.profile = Some(profile);
+        self
+    }
+
     pub fn rollback(mut self, participants: usize) -> Self {
         let seats = crate::characters::control::SlotControls::MAX_SLOTS;
         if participants == 0 || participants > seats {
@@ -1423,7 +1479,16 @@ impl PlatformerApp {
             start_at: StartAt::PrimaryGameplay,
             manifests: Vec::new(),
             draft: ModuleDraft::default(),
+            profile: None,
         }
+    }
+}
+
+/// The fixed-tick engine group, without what `profile` omits.
+fn engine_group(profile: Option<&profile::EngineProfile>) -> crate::engine::PlatformerEnginePlugins {
+    match profile {
+        Some(profile) => crate::engine::PlatformerEnginePlugins::for_profile(crate::engine::SimulationHost::Fixed60Hz, profile),
+        None => crate::engine::PlatformerEnginePlugins::fixed_tick(),
     }
 }
 
@@ -1779,6 +1844,60 @@ mod tests {
         fn define(&self, module: &mut ModuleDraft) {
             module.gameplay_route("second/play");
         }
+    }
+
+    /// ⭐ A PROFILE REFUSES, AT COMPOSITION, A PACK THAT NEEDS WHAT IT OMITS
+    /// (SDK-GAME SG3, Q146). A module ships a pack that requires the cutscene
+    /// capability. Under `WORLD_WITHOUT_CUTSCENES` the composition is refused
+    /// at declaration with `missing-capability`. The control: with no profile
+    /// the same pack passes declaration. That the profile installs none of
+    /// what it omits is Outlander's witness (`a_reduced_profile_omits_...`).
+    #[cfg(feature = "content_pack")]
+    #[test]
+    fn a_profile_refuses_a_pack_that_needs_a_capability_it_omits() {
+        use crate::app::profile::WORLD_WITHOUT_CUTSCENES;
+        static NEEDS_CUTSCENES: crate::content::EmbeddedPack = crate::content::EmbeddedPack::new(
+            r#"(id: "needs_cutscenes", version: "1.0.0", namespace: "profile_test", requires: ["cutscene"], sources: [])"#,
+            &[],
+        );
+        struct ShipsAPack;
+        impl GameModule for ShipsAPack {
+            fn manifest(&self) -> ModuleManifest {
+                ModuleManifest::new("ships_a_pack")
+            }
+            fn define(&self, module: &mut ModuleDraft) {
+                module
+                    .experience("ships_a_pack")
+                    .launcher_route("home")
+                    .gameplay_route("ships_a_pack/play")
+                    .content_pack(&NEEDS_CUTSCENES);
+            }
+        }
+
+        let refused = PlatformerApp::headless()
+            .profile(WORLD_WITHOUT_CUTSCENES)
+            .mount(ShipsAPack)
+            .try_build()
+            .expect_err("a profile without cutscenes admitted a pack that requires them");
+        assert_eq!(refused.stage, CompositionStage::Declaration);
+        let message = refused.to_string();
+        assert!(
+            message.contains("module `ships_a_pack` declares a content pack this composition cannot admit")
+                && message.contains("cutscene"),
+            "the refusal must name the module and the capability: {message}"
+        );
+
+        // The control: with every capability, the same pack is admitted. This
+        // module is not playable, so the composition still fails, later and
+        // for that reason only.
+        let later = PlatformerApp::headless()
+            .mount(ShipsAPack)
+            .try_build()
+            .expect_err("the module declares no playable definition");
+        assert!(
+            later.stage == CompositionStage::Assembly && !later.to_string().contains("content pack"),
+            "control: a full composition refused the pack: {later}"
+        );
     }
 
     /// A module cannot modify the experience the PREVIOUS module declared.

@@ -219,10 +219,36 @@ pub struct RollbackEnginePlugin;
 
 impl Plugin for RollbackEnginePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ambition_platformer2d_runtime::SimulationHost::Rollback);
-        app.add_plugins(AmbitionRollbackPlugin);
-        app.add_plugins(ambition_platformer2d_runtime::PlatformerEnginePlugins::new(
-            ambition_platformer2d_runtime::SimulationHost::Rollback,
-        ));
+        install_rollback_engine(
+            app,
+            ambition_platformer2d_runtime::PlatformerEnginePlugins::new(
+                ambition_platformer2d_runtime::SimulationHost::Rollback,
+            ),
+        );
     }
+}
+
+/// [`RollbackEnginePlugin`] without the capabilities a supported profile
+/// omits, so a profiled game composes the same capabilities under rollback as
+/// under the fixed tick.
+pub struct RollbackProfilePlugin(pub ambition_platformer2d_runtime::profile::EngineProfile);
+
+impl Plugin for RollbackProfilePlugin {
+    fn build(&self, app: &mut App) {
+        install_rollback_engine(
+            app,
+            ambition_platformer2d_runtime::PlatformerEnginePlugins::for_profile(
+                ambition_platformer2d_runtime::SimulationHost::Rollback,
+                &self.0,
+            ),
+        );
+    }
+}
+
+/// The host, the backend (which owns the concrete `GgrsSchedule`), then the
+/// engine group, in that order.
+fn install_rollback_engine(app: &mut App, engine: ambition_platformer2d_runtime::PlatformerEnginePlugins) {
+    app.insert_resource(ambition_platformer2d_runtime::SimulationHost::Rollback);
+    app.add_plugins(AmbitionRollbackPlugin);
+    app.add_plugins(engine);
 }

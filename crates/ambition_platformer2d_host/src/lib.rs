@@ -305,7 +305,12 @@ impl Plugin for HostInputBindingsPlugin {
                     // they had drifted.
                     populate_seat_control_frames.in_set(ambition_input::InputSet::Route),
                     toggle_player_trail_emission_from_actions,
-                    dialog_pointer_input,
+                    // Only where the dialogue capability is installed: its
+                    // state is that capability's, and a profile that omits it
+                    // has no conversation to point at. Without the condition a
+                    // windowed game under such a profile panicked on its first
+                    // frame (`ResMut<DialogState>` does not exist).
+                    dialog_pointer_input.run_if(bevy::prelude::resource_exists::<ambition_platformer2d_runtime::host_input::DialogState>),
                 )
                     .chain()
                     //  LOAD-BEARING ONLY under the `RenderFrame` host, where the

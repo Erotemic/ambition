@@ -1587,10 +1587,12 @@ SDK_GAME_FLOOR = ("ambition_platformer2d", "ambition_render")
 
 
 @functools.cache
-def sdk_game_closure(root: Path, features: tuple[str, ...]) -> set[str]:
-    """The `ambition_*` crates the SDK game links in the build `features` selects."""
+def _sdk_game_tree(root: Path, features: tuple[str, ...]) -> tuple[frozenset[str], str]:
+    """`(closure, cargo's error)`: the error is empty when `cargo tree` ran."""
     # `--offline`, not `--locked`: this lockfile is git-ignored, so a fresh clone
-    # has none to hold, and the resolver writes it from the manifests.
+    # has none to hold, and the resolver writes it from the manifests. Offline,
+    # so a check does not download: a machine that never fetched the fixture's
+    # dependencies gets cargo's own error and the remedy, not a silent pass.
     command = [cargo_binary(), "tree", "--prefix", "none", "--edges", "normal", "--offline"]
     if features:
         command += ["--features", ",".join(features)]
@@ -1598,12 +1600,32 @@ def sdk_game_closure(root: Path, features: tuple[str, ...]) -> set[str]:
         command, cwd=root / SDK_GAME, capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
-        return set()
-    return {
+        # cargo's first `error:` line and its innermost cause; the last line is
+        # usually a generic `help:` hint.
+        lines = [line.strip() for line in result.stderr.splitlines() if line.strip()]
+        first = next((line for line in lines if line.startswith("error")), "(no error line)")
+        causes = [line for line in lines if not line.startswith(("error", "help", "Caused by", "warning"))]
+        return frozenset(), first + (f" ({causes[-1]})" if causes else "")
+    return frozenset(
         line.split(" ", 1)[0]
         for line in result.stdout.splitlines()
         if line.startswith("ambition_")
-    }
+    ), ""
+
+
+def sdk_game_closure(root: Path, features: tuple[str, ...]) -> set[str]:
+    """The `ambition_*` crates the SDK game links in the build `features` selects."""
+    return set(_sdk_game_tree(root, features)[0])
+
+
+def sdk_game_tree_errors(root: Path) -> list[str]:
+    """cargo's error for each build whose tree did not resolve."""
+    errors = []
+    for features in SDK_GAME_BUILDS:
+        error = _sdk_game_tree(root, features)[1]
+        if error:
+            errors.append(f"{'+'.join(features) or 'headless'}: {error}")
+    return errors
 
 
 def sdk_game_report(root: Path) -> tuple[list[str], list[str]]:
@@ -2696,11 +2718,12 @@ def main() -> int:
     if missing:
         broken += 1
         print("  RED  the-sdk-game-links-no-capability-it-omits  (INSTRUMENT BROKEN)")
-        print(
-            "       The SDK game's closure is missing crates it names, so "
-            "`cargo tree` measured nothing (a stale `Cargo.lock` in "
-            f"{SDK_GAME} is the usual cause):"
-        )
+        print("       The SDK game's closure is missing crates it names, so `cargo tree` measured nothing.")
+        errors = sdk_game_tree_errors(root)
+        for error in errors:
+            print(f"       cargo: {error}")
+        if any("offline" in error or "download" in error for error in errors):
+            print(f"       Its dependencies are not fetched on this machine: run `cargo fetch` in {SDK_GAME}.")
         for crate in missing:
             print(f"       ABSENT {crate}")
     elif present:

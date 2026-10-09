@@ -487,9 +487,16 @@ impl ambition_platformer2d::app::GameModule for OutlanderModule {
     }
 }
 
+/// The supported profile Outlander composes: a sentry to fight, and no
+/// collectibles, held items, named bosses or dialogue, so the engine installs
+/// none of those (SDK-GAME SG3).
+pub const OUTLANDER_PROFILE: ambition_platformer2d::app::profile::EngineProfile =
+    ambition_platformer2d::app::profile::COMBAT_WITHOUT_INVENTORY_BOSS_DIALOGUE;
+
 /// Outlander under a headless fixed-tick host. One `update()` is one sim tick.
 pub fn build_outlander_app() -> App {
     ambition_platformer2d::app::PlatformerApp::headless()
+        .profile(OUTLANDER_PROFILE)
         .mount(OutlanderModule)
         .build()
 }
@@ -506,6 +513,7 @@ pub fn build_outlander_rollback_app() -> Result<App, String> {
     // composition, so a restart reuses it instead of re-sampling live devices.
     let mut app = ambition_platformer2d::app::PlatformerApp::headless()
         .rollback(1)
+        .profile(OUTLANDER_PROFILE)
         .mount(OutlanderModule)
         .build();
 
@@ -537,7 +545,7 @@ pub fn build_windowed_app(gpu: bool) -> App {
     } else {
         composed.without_gpu()
     };
-    composed.mount(OutlanderModule).build()
+    composed.profile(OUTLANDER_PROFILE).mount(OutlanderModule).build()
 }
 
 /// What a smoke run of the windowed game found.

@@ -187,3 +187,21 @@ fn probe_what_the_refusals_tell_a_stranger() {
         .expect_err("a gameplay route no capability registers must not compose");
     println!("--- a gameplay route nobody registers ---\n{route}");
 }
+
+/// ⭐ THE SDK GAME COMPOSES A REDUCED PROFILE (SDK-GAME SG3). The capabilities
+/// `OUTLANDER_PROFILE` omits are not installed, in the fixed-tick and the
+/// windowed composition; one it keeps (cutscenes) is, the control. The walk
+/// and the rollback promise run on these same builders.
+#[test]
+fn a_reduced_profile_omits_what_it_names() {
+    use ambition_platformer2d::app::profile::Capability;
+    let app = outlander::build_outlander_app();
+    let installed: Vec<&str> = outlander::OUTLANDER_PROFILE
+        .omits
+        .iter()
+        .filter(|capability| capability.is_installed(&app))
+        .map(|capability| capability.name())
+        .collect();
+    assert!(installed.is_empty(), "the profile omits these and they are installed: {installed:?}");
+    assert!(Capability::Cutscenes.is_installed(&app), "control: a capability the profile keeps is installed");
+}

@@ -44,7 +44,7 @@ pub use ambition_platformer2d_rollback_ggrs::{
     AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession, AmbitionRollbackApp,
     AmbitionRollbackPlugin, Checksum, ChecksumPart, ConfirmedFrameCount, FirstRunWitness,
     GgrsRollbackRegistrar, GgrsSchedule, LoadWorld, LoadWorldSystems, Rollback,
-    RollbackChecksumProbes, RollbackEnginePlugin, RollbackFrameCount, RollbackId, RollbackOrdered,
+    RollbackChecksumProbes, RollbackEnginePlugin, RollbackProfilePlugin, RollbackFrameCount, RollbackId, RollbackOrdered,
     RollbackRestoreAudit, RunGgrsSystems, SaveWorld, SaveWorldSystems,
 };
 /// May THIS host stop and rebuild the live rollback timeline? Published because

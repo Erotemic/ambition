@@ -138,7 +138,7 @@ pub mod host_input {
     pub use ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit;
     // Frame-to-tick latch re-exported through the host-facing input seam.
     pub use ambition_characters::control::SlotControlLatches;
-    pub use ambition_dialog::dialog_pointer_input;
+    pub use ambition_dialog::{dialog_pointer_input, DialogState};
 }
 
 pub mod host_seams {

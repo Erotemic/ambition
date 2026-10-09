@@ -245,6 +245,27 @@ engine (180f89923). Poisons: an asset dropped from `package_assets.txt`, red
 naming that file inside the artifact; a launcher without `BEVY_ASSET_ROOT`,
 red naming the checkout files read. `--measure` writes the asset list again.
 
+**SG3 done 2026-10-09:** reduced profiles through the shipped composition.
+`PlatformerApp::profile(EngineProfile)` (profiles at `app::profile`) installs
+`PlatformerEnginePlugins::for_profile`, or `RollbackProfilePlugin` under
+`.rollback`. A module's `ModuleDraft::content_pack` is admitted at declaration
+against `engine_schemas_without(profile.omitted_content_capabilities())`, so a
+pack that requires an omitted capability is refused there, naming the profile.
+Outlander composes `COMBAT_WITHOUT_INVENTORY_BOSS_DIALOGUE` in all three
+builders. Witnesses: `a_reduced_profile_omits_what_it_names` (Outlander,
+control: cutscenes stay installed; poison, the headless builder without
+`.profile`: red at the omits assertion, naming inventory, held-use,
+boss-encounters, dialogue) and the facade's
+`a_profile_refuses_a_pack_that_needs_a_capability_it_omits` (poison, admission
+against the full registry: red at the stage assertion). Measured on the way: a
+windowed game without dialogue panicked on `ResMut<DialogState>`, because the
+host's `dialog_pointer_input` ran unconditionally; it now runs only when the
+dialogue state exists. Outlander's full suite under `--features visible` is
+green (29 tests). The absence contract now prints cargo's error and the
+`cargo fetch` remedy when the fixture's dependencies were never fetched.
+Open: `ambition_content_cli` checks a pack against the full registry only (no
+profile flag).
+
 **Acceptance:** a dependency check shows the omitted capability crates absent
 from the game's graph; its headless test and its windowed build both run in a
 lane; a release artifact is produced by a documented command.

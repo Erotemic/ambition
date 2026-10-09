@@ -284,9 +284,11 @@ reads cargo output to it.
    `scripts/required_checks.py` prints, for each check the change requires,
    `passed on this change`, `FAILED on this change`, `NOT RUN`, `NOT RUN:
    <remedy>` or `ran only on a tree before this change`. A push does not wait
-   for it (Q166, ruled no 2026-10-09): it reports. Next: the commit messages and queue rows that quote a
-   lane by hand, and each lane's cadence in
-   [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence).
+   for it (Q166, ruled no 2026-10-09): it reports. Each boundary's lane is
+   listed in
+   [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence)
+   (2026-10-09), pointing at the owner of each rule. Next: the commit
+   messages and queue rows that quote a lane by hand.
 
 5. **A sync test did not see an effect that only the first run of a frame
    has; the rollback host now does (2026-10-05).** GGRS never saves the state

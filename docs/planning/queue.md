@@ -156,8 +156,18 @@ facts it made, two horizons in one death; filed as
 basement. Attack moves the player 0 px before the take and 170 px after it,
 and the one `ground_blink` is `Held` by the player at Alice and after the
 load. Poisons: no take, red at the capability assertion (0 px and 0 px); a
-stow before the route, red at "did not come along to Alice". Next: the death
-step (after Q164), and a second participant.
+stow before the route, red at "did not come along to Alice".
+
+**WA4 done 2026-10-09:** a second participant.
+`the_hand_over_opens_the_wall_in_the_other_participants_room` starts the shell
+session with two pads, so it holds two seats (`declare_ambition_seating`).
+Seat 1 joins at Alice and stays there while the player hands Bob the note in
+`bob_relay`. With the two rooms live at once, Alice's return lock is open in
+the second participant's room. Poison (gated walls re-evaluated only in the
+primary's live room): red at the after-hand-over assertion, with the lock
+still standing in `alice_relay`. Control: with no pads, the same Jump presses
+give seat 1 no body in 120 frames, because the session opened one handle.
+Next: the death step (after Q164).
 
 **Next action:** one reproducible headless playthrough of the shipped game, on
 the real composition: explore connected rooms, acquire a meaningful capability,

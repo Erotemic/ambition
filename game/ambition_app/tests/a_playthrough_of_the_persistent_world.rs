@@ -7,6 +7,10 @@
 //! against the authority that owns it: the live room, the bag, the save's
 //! flags, the quest registry, the collision overlay of the live room, and the
 //! custody of the one Blink.
+//!
+//! A second participant joins on a second pad, stays at Alice while the
+//! player carries the note to Bob, and sees Alice's return lock open in its
+//! own live room.
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
@@ -266,4 +270,105 @@ fn a_session_loaded_from(file: &ambition_platformer2d::persistence::save_data::A
         app.update();
     }
     app
+}
+
+/// The seat a second participant joins on.
+const SECOND_SEAT: ambition_platformer2d::characters::control::PlayerSlot =
+    ambition_platformer2d::characters::control::PlayerSlot(1);
+
+/// The body seat `SECOND_SEAT` drives, if it has one.
+fn the_second_body(app: &mut App) -> Option<Entity> {
+    use ambition_platformer2d::characters::control::DrivingParticipant;
+    let world = app.world_mut();
+    world
+        .query_filtered::<(Entity, &DrivingParticipant), bevy::prelude::With<ambition_platformer2d::platformer::markers::PlayerEntity>>()
+        .iter(world)
+        .find(|(_, driver)| driver.0 == SECOND_SEAT)
+        .map(|(entity, _)| entity)
+}
+
+/// The second seat presses Jump until it has a body (the Q153 join road).
+fn join_the_second_seat(app: &mut App) -> Entity {
+    let jump = ae::ControlFrame {
+        jump_pressed: true,
+        jump_held: true,
+        ..ae::ControlFrame::default()
+    };
+    for frame in 0..120 {
+        let press = if frame % 4 == 0 { jump } else { ae::ControlFrame::default() };
+        ambition_platformer2d::rollback::drive_slot_frame(app.world_mut(), SECOND_SEAT, press);
+        app.update();
+        if let Some(body) = the_second_body(app) {
+            for _ in 0..30 {
+                app.update();
+            }
+            return body;
+        }
+    }
+    panic!("the second seat pressed Jump for 120 frames and got no body");
+}
+
+/// The live rooms by id, each with whether `block` stands as a gate solid in
+/// it. One row per live room, so a room live twice is visible.
+fn gates_by_live_room(app: &mut App, block: &str) -> Vec<(String, bool)> {
+    use ambition_platformer2d::platformer::lifecycle::RoomInstanceRoot;
+    use ambition_platformer2d::world::rooms::LiveRoomDefinition;
+    let world = app.world_mut();
+    let rooms: Vec<(LiveRoomDefinition, bool)> = world
+        .query_filtered::<(&LiveRoomDefinition, &ambition_platformer2d::world::FeatureEcsWorldOverlay), bevy::prelude::With<RoomInstanceRoot>>()
+        .iter(world)
+        .map(|(definition, overlay)| (*definition, overlay.gate_solids.iter().any(|solid| solid.name.contains(block))))
+        .collect();
+    let set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(world)
+    .expect("the session keeps its room set");
+    let mut named: Vec<(String, bool)> =
+        rooms.into_iter().map(|(definition, stands)| (set.spec(definition).id.clone(), stands)).collect();
+    named.sort();
+    named
+}
+
+/// ⭐ TWO PARTICIPANTS, APART: a second seat joins beside the player at Alice
+/// and stays there while the player carries the note to Bob in the next room.
+/// The hand-over opens Alice's return lock in the second participant's live
+/// room, while the two rooms are live at once and neither body moves between
+/// them.
+#[test]
+fn the_hand_over_opens_the_wall_in_the_other_participants_room() {
+    // Two pads, so the session holds a seat for a second player.
+    let mut app = crate::the_note_travels_from_alice_to_bob::a_returning_players_session_with_pads(2);
+    for room in ROUTE_TO_ALICE {
+        go_through(&mut app, room);
+    }
+    talk_and_choose(&mut app, "npc_alice", "Take the note.");
+
+    let second = join_the_second_seat(&mut app);
+    assert_eq!(room_of(&app, second).as_deref(), Some("alice_relay"), "the second seat joins in the player's room");
+
+    go_through(&mut app, "bob_relay");
+    assert_eq!(room_of(&app, second).as_deref(), Some("alice_relay"), "the second participant stayed at Alice");
+    let apart = gates_by_live_room(&mut app, RETURN_LOCK);
+    assert_eq!(
+        apart,
+        vec![("alice_relay".to_string(), true), ("bob_relay".to_string(), false)],
+        "(live room, return lock stands) with the two participants apart, before the hand-over"
+    );
+
+    talk_and_choose(&mut app, "npc_bob", "Hand him the sealed note.");
+    assert_eq!(flag(&app, SURVEY_FLAG), true, "Bob took the note");
+    for _ in 0..10 {
+        app.update();
+    }
+    let player = primary_body(&mut app);
+    assert_eq!(
+        (room_of(&app, player).as_deref(), room_of(&app, second).as_deref()),
+        (Some("bob_relay"), Some("alice_relay")),
+        "the two participants are still apart"
+    );
+    assert_eq!(
+        gates_by_live_room(&mut app, RETURN_LOCK),
+        vec![("alice_relay".to_string(), false), ("bob_relay".to_string(), false)],
+        "(live room, return lock stands) after the hand-over in the other room"
+    );
 }

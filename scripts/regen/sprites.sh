@@ -331,6 +331,18 @@ esac
 # summary alone makes you guess the filenames. `both` prints the paths AND the
 # count. Either is still overridable from the environment.
 export AMBITION_SPRITE_PROGRESS="${AMBITION_SPRITE_PROGRESS:-1}"
+
+# The renderer is single-threaded Python. With one process, a full regen took
+# more than 2.5 h on a 14-core machine at a load average of 1.45. `draw-all`,
+# `draw-review` and `publish-many` render each job or target in its own process
+# when this is above 1; each one writes only its own files. Half the cores, at
+# most 8, because one long publish process grew to 3.7 GB.
+if [ -z "${AMBITION_SPRITE_JOBS:-}" ]; then
+    sprite_jobs=$(( $(nproc 2>/dev/null || echo 2) / 2 ))
+    [ "$sprite_jobs" -ge 1 ] || sprite_jobs=1
+    [ "$sprite_jobs" -le 8 ] || sprite_jobs=8
+    export AMBITION_SPRITE_JOBS="$sprite_jobs"
+fi
 if [ "${#target_names[@]}" -gt 0 ]; then
     export AMBITION_SPRITE_PATH_OUTPUT="${AMBITION_SPRITE_PATH_OUTPUT:-both}"
 else
@@ -1308,17 +1320,30 @@ publish_cached_batch() {
 
     [ "${#stale[@]}" -gt 0 ] || return 0
 
-    echo "  publishing ${#stale[@]} target(s) in one process"
+    echo "  publishing ${#stale[@]} target(s) on ${AMBITION_SPRITE_JOBS} process(es)"
+    local published_list
+    published_list="$(mktemp "${TMPDIR:-/tmp}/sprite-published.XXXXXX")"
     if run_renderer_python "publish-batch-$label" \
         -m ambition_sprite2d_renderer publish-many \
-        --quiet --dest-root "$sprites_dir" "${stale[@]}"; then
+        --quiet --dest-root "$sprites_dir" --published-list "$published_list" \
+        "${stale[@]}"; then
         for target in "${stale[@]}"; do
             sheet_cache_store "$target" "$(unit_key "$target")" \
                 "${install_records[$target]-}"
         done
     else
-        echo "  [warn] batch '$label' had one or more publish failures; cache keys were not advanced" >&2
+        # A target that published is current. Keep its key, so that the next
+        # run renders only the targets that failed.
+        local kept=0
+        while IFS= read -r target; do
+            [ -n "$target" ] || continue
+            sheet_cache_store "$target" "$(unit_key "$target")" \
+                "${install_records[$target]-}"
+            kept=$((kept + 1))
+        done < "$published_list"
+        echo "  [warn] batch '$label' had one or more publish failures; cache keys advanced for the $kept of ${#stale[@]} target(s) that published" >&2
     fi
+    rm -f "$published_list"
 }
 
 # --- Reduced-resolution quality variants ----------------------------------

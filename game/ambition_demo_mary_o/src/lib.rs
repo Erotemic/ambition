@@ -712,10 +712,13 @@ fn scenery_for_authored_room(room: &RoomSpec) -> Vec<PropSpec> {
         while laid < size.y - 0.5 {
             let height = (size.y - laid).min(T);
             // A shaft tile reaches back under the tile before it, so no two
-            // tiles only touch. A sprite fades over half a texel at its edge,
-            // and a row of edges that touch is a row of seams. The shaft's art
-            // is the same on every row, and the head's neck is the shaft, so
-            // the part that is under is the same picture.
+            // tiles only touch: a tile's edge lies on a pixel boundary only at
+            // some zooms, and at the others a row of edges that touch shows
+            // the room behind them. The shaft's art is the same on every row,
+            // and the head's neck is the shaft, so the part that is under is
+            // the same picture. (The line that a tile's own edge row drew is a
+            // different cause, removed where a prop is drawn:
+            // `CharacterAnimator::sample_rect`.)
             let under = if row == 0 { 0.0 } else { PIPE_TILE_OVERLAP };
             let top = if mouth_down {
                 min.y + size.y - laid - height

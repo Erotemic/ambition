@@ -285,8 +285,15 @@ pub(crate) fn prop_sprite_bundle(
     collision: BVec2,
 ) -> (Sprite, Anchor, CharacterAnimator) {
     let (render_size, anchor) = prop_sprite_geometry(draw, &asset.spec, collision);
-    let (mut sprite, mut anchor, animator) =
+    let (mut sprite, mut anchor, mut animator) =
         build_character_presentation_with_render_size(asset, render_size, anchor);
+    // A prop that fills its box is a piece of built world, and the next piece
+    // touches it. It samples inside its frame, so its edge row is opaque and
+    // the pieces show no line between them (`CharacterAnimator::sample_rect`).
+    if draw.fills_box() {
+        animator.samples_inside_frame = true;
+        sprite.rect = animator.sample_rect();
+    }
     // Which way the prop points is authored data, not a second sheet.
     sprite.flip_y = flip_y;
     if flip_y {
@@ -1720,6 +1727,50 @@ mod prop_geometry_tests {
             -top,
             -bottom
         );
+    }
+
+    /// A piece of built world samples inside its frame, so its edge row is
+    /// opaque and the pieces of a pipe show no line between them.
+    ///
+    /// Measured before, in a capture of the first pipe of 1-1 at 1280x720:
+    /// a line across the shaft where its first tile starts, with the tiles
+    /// overlapped by 2 px. The edge row of a tile was filtered against the
+    /// transparent padding of its atlas, and drawn part transparent and
+    /// darker (Jon, 2026-10-08: "many seams in the pipe parts").
+    #[test]
+    fn a_prop_that_fills_its_box_samples_inside_its_frame() {
+        use ambition_sprite_sheet::character::{CharacterSpriteAsset, CharacterSpritePage};
+        let asset = |target: &str| CharacterSpriteAsset {
+            texture: Handle::default(),
+            layout: Handle::default(),
+            spec: try_load_spec_for_target(target, &SheetTuning::new(1.0, 0))
+                .expect("the pipe sheets are baked into the manifest"),
+            pages: vec![CharacterSpritePage { texture: Handle::default(), layout: Handle::default() }],
+            requested_tier: Default::default(),
+            resolved_tier: Default::default(),
+            rigged: None,
+        };
+        let authored = BVec2::new(64.0, 32.0);
+        // The shaft's frame is 53 x 32 texels and the head's is 61 x 30
+        // (their published sheet records).
+        for (target, texels) in [
+            ("super_mary_o_pipe_body", BVec2::new(53.0, 32.0)),
+            ("super_mary_o_pipe_top", BVec2::new(61.0, 30.0)),
+        ] {
+            let asset = asset(target);
+            for draw in [PropDraw::Structure, PropDraw::Enclosure] {
+                let (sprite, _, animator) = prop_sprite_bundle(draw, false, &asset, authored);
+                assert!(animator.samples_inside_frame, "{target} as {draw:?}");
+                assert_eq!(
+                    sprite.rect,
+                    Some(Rect::new(0.5, 0.5, texels.x - 0.5, texels.y - 0.5)),
+                    "{target} as {draw:?} samples half a texel inside its frame"
+                );
+            }
+            // Scenery is sized like a character and touches nothing.
+            let (sprite, _, animator) = prop_sprite_bundle(PropDraw::Decoration, false, &asset, authored);
+            assert!(!animator.samples_inside_frame && sprite.rect.is_none(), "{target} as scenery");
+        }
     }
 
     /// A pipe's art must match the surface a body stands on.

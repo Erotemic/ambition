@@ -7,6 +7,7 @@
 
 pub mod collision;
 pub mod debug_label;
+pub mod navigation;
 pub mod placements;
 pub mod platforms;
 pub mod ron_room;

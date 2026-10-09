@@ -316,7 +316,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // Its one death: the moon. With the other fights' authored kills,
         // after this tick's hits are resolved; the blow lands on the next.
         app.add_systems(
-            sim.clone(),
+            sim,
             mockingbird::strike_it_with_the_moon
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::CombatSet::ContentFlavor),

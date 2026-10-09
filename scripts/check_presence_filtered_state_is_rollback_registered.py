@@ -154,6 +154,22 @@ WAIVERS = {
         "`Without<…>` idempotence and `cleanup_sauce_overlays`, both `Update` in "
         "`ActorOverlaySet`"
     ),
+    "FlameOverlay": (
+        "the Mockingbird's flame quad (`presentation/mockingbird_sky.rs`); "
+        "filtered by `sync_flames` and `cleanup_flames`, both `Update` in "
+        "`BossOverlaySet`; its two eases are a look on the presentation clock"
+    ),
+    "FlameSource": (
+        "the flame quad's back-pointer on the boss sprite; `attach_flames`'s "
+        "`Without<…>` idempotence and `cleanup_flames`, both `Update` in "
+        "`BossOverlaySet`"
+    ),
+    "SpaceSky": (
+        "the space quad over the Mockingbird's sky, one for each live room; "
+        "filtered by `present_space` only, `Update` in "
+        "`SessionScopeSet::Presentation`, which draws it from the conductor's "
+        "record each frame and keeps no state in it"
+    ),
     "PresentedRoomLook": (
         "two sites in `presentation/room_look.rs`, both `Update`: "
         "`present_room_look` (`SessionScopeSet::Presentation`) reads it as the "

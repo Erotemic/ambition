@@ -1,10 +1,11 @@
-// One architecture in two states: clean and corrupted. See `room_state.rs`.
+// One architecture in two states: clean and corrupted. See `room_look.rs`.
 //
 // All work is in engine world coordinates (y down). Colours are written as
 // display values and converted once, at the end.
 
 #import bevy_sprite::mesh2d_vertex_output::VertexOutput
 #import bevy_sprite::mesh2d_view_bindings::{view, globals}
+#import ambition_content::room_look::{rand_cell, value_noise, towers, arcade, sky_line_distance}
 #ifdef SRGB_OUTPUT
 #import bevy_render::color_operations::linear_to_srgb
 #endif
@@ -26,38 +27,6 @@ const INK_HI: vec3<f32> = vec3<f32>(0.120, 0.104, 0.240);
 
 /// The voxel edge of the corrupted architecture, in world px.
 const VOXEL: f32 = 16.0;
-
-// ---------------------------------------------------------------- hashes --
-
-fn hash_u32(value: u32) -> u32 {
-    var h = value;
-    h = h ^ (h >> 16u);
-    h = h * 0x7feb352du;
-    h = h ^ (h >> 15u);
-    h = h * 0x846ca68bu;
-    h = h ^ (h >> 16u);
-    return h;
-}
-
-/// A value in [0, 1) for one integer cell.
-fn rand_cell(cell: vec2<f32>, salt: u32) -> f32 {
-    let x = bitcast<u32>(i32(floor(cell.x)));
-    let y = bitcast<u32>(i32(floor(cell.y)));
-    let n = (x * 1597334677u) ^ (y * 3812015801u) ^ (salt * 668265263u);
-    return f32(hash_u32(n) >> 8u) * (1.0 / 16777216.0);
-}
-
-fn value_noise(p: vec2<f32>, scale: f32, salt: u32) -> f32 {
-    let g = p / scale;
-    let i = floor(g);
-    var f = g - i;
-    f = f * f * (3.0 - 2.0 * f);
-    let a = rand_cell(i, salt);
-    let b = rand_cell(i + vec2<f32>(1.0, 0.0), salt);
-    let c = rand_cell(i + vec2<f32>(0.0, 1.0), salt);
-    let d = rand_cell(i + vec2<f32>(1.0, 1.0), salt);
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
 
 fn luma(c: vec3<f32>) -> f32 {
     return dot(c, vec3<f32>(0.2126, 0.7152, 0.0722));
@@ -130,77 +99,6 @@ fn camera_engine() -> vec2<f32> {
     return vec2<f32>(c.x + room.x * 0.5, room.y * 0.5 - c.y);
 }
 
-/// 1.0 inside the silhouette of a row of far towers.
-fn towers(q: vec2<f32>, period: f32, salt: u32) -> f32 {
-    let i = floor(q.x / period);
-    let r = rand_cell(vec2<f32>(i, 0.0), salt);
-    let r2 = rand_cell(vec2<f32>(i, 1.0), salt);
-    let half_w = period * (0.14 + 0.16 * r2);
-    let cx = (i + 0.5) * period + (r - 0.5) * period * 0.25;
-    let top = room.y * (0.10 + 0.72 * r);
-    let dx = abs(q.x - cx);
-    let spire_h = 50.0 + 90.0 * r2;
-    let body = dx < half_w && q.y > top;
-    let cap = dx < half_w + 7.0 && q.y > top - 12.0 && q.y <= top;
-    let up = (q.y - (top - 12.0 - spire_h)) / spire_h;
-    let spire = q.y <= top - 12.0 && up > 0.0 && dx < (half_w - 4.0) * up;
-    // An arched window row, so the tower is not a plain bar.
-    let wy = (q.y - top - 40.0) % 150.0;
-    let window = body && dx < half_w * 0.34 && wy > 0.0 && wy < 46.0 && q.y > top + 40.0
-        && (wy > half_w * 0.34 || length(vec2<f32>(dx, wy - half_w * 0.34)) < half_w * 0.34);
-    return select(0.0, 1.0, (body || cap || spire) && !window);
-}
-
-/// 1.0 inside a viaduct: tiers of round arches on piers, every 620 px of
-/// height.
-fn arcade(q: vec2<f32>) -> f32 {
-    let tier_h = 470.0;
-    let tier = floor(q.y / tier_h);
-    if rand_cell(vec2<f32>(tier, 7.0), 26u) < 0.18 {
-        return 0.0;
-    }
-    let y = q.y - tier * tier_h - 120.0;
-    if y < 0.0 || y > 250.0 {
-        return 0.0;
-    }
-    // The deck, then arches below it.
-    if y < 26.0 {
-        return select(1.0, 0.0, y > 8.0 && y < 12.0);
-    }
-    let span = 190.0;
-    let x = q.x - floor(q.x / span) * span - span * 0.5;
-    let radius = span * 0.5 - 20.0;
-    let spring = 26.0 + radius + 10.0;
-    let open = (y > spring && abs(x) < radius) || length(vec2<f32>(x, y - spring)) < radius;
-    return select(1.0, 0.0, open);
-}
-
-/// Distance to the nearest construction line of the sky: rings and axes on a
-/// sparse lattice. The clean state draws them in gold, the corrupted state
-/// lights them.
-fn sky_line_distance(q: vec2<f32>) -> f32 {
-    let period = 560.0;
-    let cell = floor(q / period);
-    let r = rand_cell(cell, 40u);
-    if r > 0.48 {
-        return 1.0e4;
-    }
-    let centre = (cell + vec2<f32>(0.3 + 0.4 * rand_cell(cell, 41u), 0.3 + 0.4 * rand_cell(cell, 42u))) * period;
-    let d = q - centre;
-    let big = 110.0 + 70.0 * rand_cell(cell, 43u);
-    let len = length(d);
-    var dist = abs(len - big);
-    dist = min(dist, abs(len - big * 0.62));
-    dist = min(dist, abs(len - big * 0.14));
-    // A diamond inscribed in the inner ring.
-    let dia = abs(abs(d.x) + abs(d.y) - big * 0.62) * 0.7071;
-    dist = min(dist, dia);
-    // The axes, a little longer than the outer ring.
-    if abs(d.y) < big * 1.45 { dist = min(dist, abs(d.x)); }
-    if abs(d.x) < big * 1.45 { dist = min(dist, abs(d.y)); }
-    return dist;
-}
-
 fn backdrop_clean(p: vec2<f32>) -> vec3<f32> {
     let cam = camera_engine();
     let g = clamp(p.y / room.y, 0.0, 1.0);
@@ -211,11 +109,11 @@ fn backdrop_clean(p: vec2<f32>) -> vec3<f32> {
         col = col * 0.975;
     }
     // A far city, then towers at two depths.
-    let city = towers(p - cam * 0.78 + vec2<f32>(31.0, -140.0), 88.0, 28u);
+    let city = towers(p - cam * 0.78 + vec2<f32>(31.0, -140.0), 88.0, 28u, room.y);
     col = mix(col, vec3<f32>(0.868, 0.888, 0.925), city * 0.70);
-    let far_t = towers(p - cam * 0.62, 170.0, 20u);
+    let far_t = towers(p - cam * 0.62, 170.0, 20u, room.y);
     col = mix(col, vec3<f32>(0.822, 0.850, 0.902), far_t * 0.85);
-    let near_t = towers(p - cam * 0.42 + vec2<f32>(97.0, 60.0), 370.0, 24u);
+    let near_t = towers(p - cam * 0.42 + vec2<f32>(97.0, 60.0), 370.0, 24u, room.y);
     col = mix(col, vec3<f32>(0.770, 0.805, 0.872), near_t * 0.90);
     // A viaduct of arches, nearer again.
     let via = arcade(p - cam * 0.28);
@@ -223,8 +121,19 @@ fn backdrop_clean(p: vec2<f32>) -> vec3<f32> {
     let mist = value_noise(p - cam * 0.3 + vec2<f32>(globals.time * 7.0, 0.0), 340.0, 30u);
     col = mix(col, vec3<f32>(0.975, 0.965, 0.945), smoothstep(0.45, 0.95, mist) * 0.55);
     // Construction lines.
-    let ld = sky_line_distance(p - cam * 0.30);
+    let ld = sky_line_distance(p - cam * 0.30, globals.time * 0.04);
     col = mix(col, vec3<f32>(0.800, 0.690, 0.420), smoothstep(1.3, 0.3, ld) * 0.75);
+    // Light from the upper left, in soft shafts.
+    let shaft = sin((p.x + p.y * 0.7 - cam.x * 0.2) * 0.0065 + globals.time * 0.05);
+    col = col + smoothstep(0.55, 1.0, shaft) * vec3<f32>(0.030, 0.026, 0.012);
+    // Gold dust in the light.
+    let dq = p - cam * 0.1 + vec2<f32>(globals.time * 5.0, -globals.time * 8.0);
+    let dc = floor(dq / 52.0);
+    if rand_cell(dc, 94u) < 0.10 {
+        let o = (dq / 52.0 - dc) - vec2<f32>(0.2 + 0.6 * rand_cell(dc, 95u), 0.2 + 0.6 * rand_cell(dc, 96u));
+        let twinkle = 0.5 + 0.5 * sin(globals.time * 2.0 + rand_cell(dc, 97u) * 6.283);
+        col = mix(col, vec3<f32>(0.930, 0.800, 0.470), smoothstep(0.035, 0.012, length(o)) * twinkle);
+    }
     return col;
 }
 
@@ -238,12 +147,12 @@ fn backdrop_corrupt(p: vec2<f32>) -> vec3<f32> {
     // The same city and towers, rebuilt in blocks. Some blocks are missing.
     let qc = p - cam * 0.78 + vec2<f32>(31.0, -140.0);
     let cc = floor(qc / 16.0);
-    if towers((cc + vec2<f32>(0.5)) * 16.0, 88.0, 28u) > 0.5 && rand_cell(cc, 530u) > 0.10 {
+    if towers((cc + vec2<f32>(0.5)) * 16.0, 88.0, 28u, room.y) > 0.5 && rand_cell(cc, 530u) > 0.10 {
         col = col * (0.88 + 0.06 * rand_cell(cc, 531u));
     }
     let qa = p - cam * 0.62;
     let ca = floor(qa / 24.0);
-    let far_t = towers((ca + vec2<f32>(0.5)) * 24.0, 170.0, 20u);
+    let far_t = towers((ca + vec2<f32>(0.5)) * 24.0, 170.0, 20u, room.y);
     if far_t > 0.5 && rand_cell(ca, 500u) > 0.13 {
         col = col * (0.78 + 0.08 * rand_cell(ca, 501u));
         let ua = qa / 24.0 - ca;
@@ -251,7 +160,7 @@ fn backdrop_corrupt(p: vec2<f32>) -> vec3<f32> {
     }
     let qb = p - cam * 0.42 + vec2<f32>(97.0, 60.0);
     let cb = floor(qb / 32.0);
-    let near_t = towers((cb + vec2<f32>(0.5)) * 32.0, 370.0, 24u);
+    let near_t = towers((cb + vec2<f32>(0.5)) * 32.0, 370.0, 24u, room.y);
     if near_t > 0.5 && rand_cell(cb, 510u) > 0.16 {
         let r = rand_cell(cb, 511u);
         col = col * (0.66 + 0.10 * r);
@@ -281,7 +190,7 @@ fn backdrop_corrupt(p: vec2<f32>) -> vec3<f32> {
         col = col + vec3<f32>(0.010, 0.030, 0.045);
     }
     // The construction lines are a glyph now, and it is on.
-    let ld = sky_line_distance(p - cam * 0.30);
+    let ld = sky_line_distance(p - cam * 0.30, t * 0.22);
     let pulse = 0.72 + 0.28 * sin(t * 1.7 + p.x * 0.004);
     let glyph = mix(MAGENTA, CYAN, 0.28);
     col = col + glyph * (smoothstep(1.0, 0.2, ld) * 0.50 + exp(-ld / 7.0) * 0.10) * pulse;
@@ -382,6 +291,12 @@ fn clean_surface(l: vec2<f32>, s: vec2<f32>, p: vec2<f32>) -> Stone {
         col = STONE * (1.0 - 0.05 * (l.y / s.y));
         let joint = (p.x + 24.0) % 96.0;
         if joint < 1.0 && l.y > 10.0 { col = MORTAR; }
+        // An engraved line with a gold stud in each stone.
+        let mid = (11.0 + s.y - 7.0) * 0.5;
+        if abs(l.y - mid) < 0.6 { col = col * 0.90; }
+        let sx = (p.x + 24.0) % 96.0 - 48.0;
+        let stud = abs(sx) + abs(l.y - mid) - 3.2;
+        ornament = min(ornament, max(stud, 0.0) + 0.45);
     } else {
         // Coursed masonry, half-bond.
         let course = 16.0;

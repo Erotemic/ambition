@@ -224,9 +224,14 @@ pub struct NavAdvice {
     /// the goal it holds now.
     pub goal: Option<Vec2>,
     pub next: NavNext,
-    /// A place beside the body's target that the body can reach, when the
-    /// target stands over a surface in reach. A feet point.
+    /// A place beside the body the navigating body attends to, when that
+    /// body stands over a surface in reach. A feet point. The attended body
+    /// is the navigating body's combat target; a body with no combat target
+    /// (a friendly one) attends to the nearest player in its room.
     pub target_place: Option<Vec2>,
+    /// The attended body stands over the surface the body stands on: a walk
+    /// gets there, and no leg is needed.
+    pub target_shares_surface: bool,
 }
 
 impl NavAdvice {

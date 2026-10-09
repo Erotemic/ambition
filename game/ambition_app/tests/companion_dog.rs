@@ -133,15 +133,31 @@ fn the_dog_climbs_to_a_player_who_stands_far_away_on_the_upper_deck() {
         "the fixture did not stand the player far up the deck: player {stands:?}, dog {:?}",
         at(&sim, dog)
     );
+    // ⛔ THE MECHANISM, not only the outcome. A dog that roams by chance
+    // gets near the player in time too (this test passed that way before the
+    // dog knew where the player was). So: the FIRST place the dog chooses,
+    // with the player far away, is beside the player.
+    let mut first_goal = None;
     let mut arrived = None;
     for tick in 0..3000 {
         sim.step(base());
+        let goal = sim
+            .world()
+            .get::<ambition_platformer2d::characters::brain::Brain>(dog)
+            .and_then(|brain| brain.navigation_request())
+            .and_then(|request| request.goal);
+        first_goal = first_goal.or(goal);
         let gap = at(&sim, dog) - at(&sim, player);
         if gap.x.abs() < 200.0 && gap.y.abs() < 40.0 {
             arrived = Some(tick);
             break;
         }
     }
+    let beside = first_goal.map(|goal| goal - stands);
+    assert!(
+        beside.is_some_and(|offset| offset.x.abs() < 160.0 && offset.y.abs() < 80.0),
+        "the dog's first place was {first_goal:?}, not beside the player at {stands:?}"
+    );
     assert!(
         arrived.is_some(),
         "in 50 s the dog did not come to the player: dog {:?}, player {:?}, brain {:?}",

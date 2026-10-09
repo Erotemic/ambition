@@ -142,6 +142,12 @@ pub struct BrainProfile {
     /// The same, for a committed chase.
     #[serde(default = "default_chase_effort")]
     pub chase_effort: f32,
+    /// The driver goes to a foe that stands on another surface by the room's
+    /// routes (jumps and drops), and does not only run at it. Read by the
+    /// `MeleeBrute` template; it needs the navigation advisor. A decision
+    /// about how to PLAY a body, so it is here and not on the body.
+    #[serde(default)]
+    pub navigates: bool,
     /// Which rung of the fighter ladder a [`CharacterBrainTemplate::Fighter`]
     /// driver plays at — difficulty, which is a controller fact. Ignored by
     /// every other template.
@@ -200,6 +206,7 @@ impl Default for BrainProfile {
             turns_at_ledges: false,
             patrol_effort: default_patrol_effort(),
             chase_effort: default_chase_effort(),
+            navigates: false,
             fighter_level: default_fighter_level(),
             smash_heavy: false,
             smash_sprint_to_close: false,

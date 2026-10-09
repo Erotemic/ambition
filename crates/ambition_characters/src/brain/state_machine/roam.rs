@@ -35,11 +35,11 @@ pub struct RoamCfg {
     /// The shortest and the longest rest at a place (s).
     pub rest_min_s: f32,
     pub rest_max_s: f32,
-    /// How often the next place is beside the body's target (the player,
-    /// for a friendly body) and not a place by chance, 0 to 1.
+    /// How often the next place is beside the body it attends to (the
+    /// nearest player, for a friendly body) and not a place by chance, 0 to 1.
     pub company: f32,
-    /// A body farther than this from its target goes to it next, when a
-    /// route goes there (px). Zero: the body does not keep near its target.
+    /// A body farther than this from the one it attends to goes to it next,
+    /// when a route goes there (px). Zero: the body does not keep near.
     pub stay_within: f32,
     /// How often the body is in a playful mood, 0 to 1. A mood lasts four
     /// places: the body runs to each and does not rest between them.
@@ -101,10 +101,12 @@ pub(super) fn tick_roam(cfg: &RoamCfg, state: &mut RoamState, snapshot: &BrainSn
         Followed::Idle => {}
     }
 
-    // At rest. Look at a target that is near.
-    let to_target = snapshot.target_delta_local();
-    if snapshot.target_alive && to_target.vec().length() <= cfg.notice_radius {
-        out.facing = snapshot.face_toward(to_target.x);
+    // At rest. Look at the attended body when it is near. The advice's place
+    // is beside it, and a friendly body has no combat target to read.
+    let frame = snapshot.acceleration_frame();
+    let to_company = advice.target_place.map(|place| frame.to_local(place - advice.feet));
+    if let Some(offset) = to_company.filter(|offset| offset.length() <= cfg.notice_radius) {
+        out.facing = snapshot.face_toward(offset.x);
     }
     // A body starts with a rest, not with a journey.
     if state.picks == 0 && state.until == 0.0 {
@@ -123,10 +125,10 @@ pub(super) fn tick_roam(cfg: &RoamCfg, state: &mut RoamState, snapshot: &BrainSn
     }
     // Beside the target, when the body wants company or is too far from it,
     // and a route goes there. If not, a place by chance.
-    let lonely = cfg.stay_within > 0.0 && to_target.vec().length() > cfg.stay_within;
+    let lonely = cfg.stay_within > 0.0 && to_company.is_some_and(|offset| offset.length() > cfg.stay_within);
     let beside_target = advice
         .target_place
-        .filter(|place| snapshot.target_alive && place.distance(advice.feet) > SAME_PLACE)
+        .filter(|place| place.distance(advice.feet) > SAME_PLACE)
         .filter(|_| lonely || chance(state.picks, 0xC0) < cfg.company);
     let place = beside_target.unwrap_or_else(|| *pool[(mix(state.picks as u64 ^ 0xA7) % pool.len() as u64) as usize]);
     state.nav.go_to(place);
@@ -235,10 +237,9 @@ mod tests {
     fn a_roamer_too_far_from_its_target_goes_beside_it_when_a_route_goes_there() {
         let keeps_near = RoamCfg { stay_within: 200.0, ..CFG };
         let beside = Vec2::new(700.0, 500.0);
+        // A friendly body: no combat target. What it attends to is in the advice.
         let far_target = |place: Option<Vec2>| {
             let mut snapshot = standing(5.0);
-            snapshot.target_alive = true;
-            snapshot.target_pos = Vec2::new(760.0, 468.0);
             snapshot.navigation.target_place = place;
             snapshot
         };

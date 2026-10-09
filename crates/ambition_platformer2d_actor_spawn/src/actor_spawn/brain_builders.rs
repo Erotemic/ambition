@@ -203,6 +203,7 @@ fn forced_hostile_melee_brute_brain(
             aggro_radius,
             attack_range,
             chase_speed,
+            navigates: policy.navigates,
         },
         state: MeleeBruteState::default(),
     })
@@ -224,6 +225,7 @@ pub(super) fn melee_brute_brain_for_enemy(
             aggro_radius,
             attack_range,
             chase_speed,
+            navigates: policy.navigates,
         },
         state: MeleeBruteState::default(),
     })

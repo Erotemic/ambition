@@ -187,6 +187,9 @@ impl Brain {
                 goal: state.nav.goal,
                 choice: state.picks as u64,
             }),
+            Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, state }) if cfg.navigates => {
+                Some(NavigationRequest { goal: state.nav.goal, choice: 0 })
+            }
             Brain::StateMachine(_) => None,
         }
     }

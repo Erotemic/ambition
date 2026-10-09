@@ -1217,3 +1217,97 @@ mod melee_reach_tests {
         );
     }
 }
+
+mod route_pursuit_tests {
+    use super::*;
+    use ae::navigation::{LegPhase, NavAdvice, NavLeg, NavLegKind, NavNext};
+    use ae::Vec2;
+
+    const FEET: Vec2 = Vec2::new(100.0, 500.0);
+    const BESIDE_TARGET: Vec2 = Vec2::new(210.0, 420.0);
+
+    fn brute(navigates: bool) -> StateMachineCfg {
+        StateMachineCfg::MeleeBrute {
+            cfg: MeleeBruteCfg { navigates, ..MeleeBruteCfg::STRIKER_DEFAULT },
+            state: MeleeBruteState::default(),
+        }
+    }
+
+    /// A brute on the ground, its target alive on a ledge up and to the right.
+    fn sees_a_target_on_a_ledge(shares_surface: bool) -> BrainSnapshot {
+        BrainSnapshot {
+            alive: true,
+            actor_pos: FEET - Vec2::Y * 32.0,
+            actor_on_ground: true,
+            actor_facing: 1.0,
+            target_pos: Vec2::new(260.0, 388.0),
+            target_alive: true,
+            sim_time: 1.0,
+            dt: 1.0 / 60.0,
+            max_run_speed: 200.0,
+            navigation: NavAdvice {
+                feet: FEET,
+                target_place: Some(BESIDE_TARGET),
+                target_shares_surface: shares_surface,
+                ..Default::default()
+            },
+            ..BrainSnapshot::idle()
+        }
+    }
+
+    fn tick(brain: &mut StateMachineCfg, snapshot: &BrainSnapshot) -> crate::actor::control::ActorControlFrame {
+        let mut out = crate::actor::control::ActorControlFrame::neutral();
+        assert!(tick_simple_state_machine(brain, snapshot, &mut out));
+        out
+    }
+
+    fn follower(brain: &StateMachineCfg) -> NavFollower {
+        match brain {
+            StateMachineCfg::MeleeBrute { state, .. } => state.nav,
+            _ => unreachable!("a brute"),
+        }
+    }
+
+    /// A brute that navigates goes to a target on another surface by a leg
+    /// the advisor gives it: it runs up and jumps. The same brute that does
+    /// not navigate runs at the target along the floor, and so does one whose
+    /// target stands on its own surface.
+    #[test]
+    fn a_brute_that_navigates_takes_the_route_to_a_target_on_another_surface() {
+        // The controls first: the plain chase.
+        for (name, mut plain, snapshot) in [
+            ("does not navigate", brute(false), sees_a_target_on_a_ledge(false)),
+            ("shares the surface", brute(true), sees_a_target_on_a_ledge(true)),
+        ] {
+            let out = tick(&mut plain, &snapshot);
+            assert!(out.locomotion.x > 0.0 && !out.jump_pressed, "{name}: {out:?}");
+            assert_eq!(follower(&plain), NavFollower::default(), "{name}");
+        }
+
+        let mut brain = brute(true);
+        let mut snapshot = sees_a_target_on_a_ledge(false);
+        // It takes the place beside the target as its goal, and waits for the
+        // advisor's answer to that goal.
+        let waiting = tick(&mut brain, &snapshot);
+        assert_eq!(follower(&brain).goal, Some(BESIDE_TARGET));
+        assert_eq!(waiting.locomotion.x, 0.0);
+        // The answer: a hop from where it stands.
+        let leg = NavLeg { kind: NavLegKind::Hop, start: FEET, takeoff: FEET, land: BESIDE_TARGET };
+        snapshot.navigation.goal = Some(BESIDE_TARGET);
+        snapshot.navigation.next = NavNext::Leg(leg);
+        tick(&mut brain, &snapshot);
+        assert_eq!(follower(&brain).leg, Some(leg));
+        tick(&mut brain, &snapshot);
+        assert_eq!(follower(&brain).phase, LegPhase::Commit);
+        let jump = tick(&mut brain, &snapshot);
+        assert!(jump.jump_pressed && jump.locomotion.x > 0.0, "{jump:?}");
+        // In the air it keeps the leg, with the target out of sight too.
+        snapshot.actor_on_ground = false;
+        snapshot.target_alive = false;
+        snapshot.navigation.target_place = None;
+        tick(&mut brain, &snapshot);
+        let in_the_air = tick(&mut brain, &snapshot);
+        assert_eq!(follower(&brain).phase, LegPhase::Air);
+        assert!(in_the_air.jump_held, "{in_the_air:?}");
+    }
+}

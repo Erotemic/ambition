@@ -951,6 +951,9 @@ pub enum BrainPreset {
         aggro_radius: f32,
         attack_range: f32,
         chase_speed: f32,
+        /// Goes to a target on another surface by the room's routes.
+        #[serde(default)]
+        navigates: bool,
     },
     Skirmisher {
         aggressiveness: f32,

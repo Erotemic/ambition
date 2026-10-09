@@ -291,10 +291,20 @@ impl NavGraph {
     /// when no surface in reach is under the point within `depth`.
     pub fn place_beside(&self, feet: Vec2, point: Vec2, beside: f32, depth: f32) -> Option<Vec2> {
         let from = self.surface_at(feet)?;
-        let reachable = self.reachable_from(from);
+        let under = self.surface_under(point, depth)?;
+        if !self.reachable_from(from).contains(&under) {
+            return None;
+        }
+        let along = self.frame.along(point);
+        let side = if self.frame.along(feet) < along { -1.0 } else { 1.0 };
+        Some(self.point_on(under, along + side * beside))
+    }
+
+    /// The nearest surface under `point` (a body's centre, or its feet),
+    /// no more than `depth` below it.
+    pub fn surface_under(&self, point: Vec2, depth: f32) -> Option<usize> {
         let (along, below) = (self.frame.along(point), self.frame.below(point));
-        let under = reachable
-            .into_iter()
+        (0..self.surfaces.len())
             .filter(|index| {
                 let surface = &self.surfaces[*index];
                 along >= surface.left - self.half.x
@@ -302,9 +312,7 @@ impl NavGraph {
                     && surface.top >= below - LAND_TOLERANCE
                     && surface.top <= below + depth
             })
-            .min_by(|a, b| self.surfaces[*a].top.total_cmp(&self.surfaces[*b].top).then(a.cmp(b)))?;
-        let side = if self.frame.along(feet) < along { -1.0 } else { 1.0 };
-        Some(self.point_on(under, along + side * beside))
+            .min_by(|a, b| self.surfaces[*a].top.total_cmp(&self.surfaces[*b].top).then(a.cmp(b)))
     }
 
     /// Up to [`NAV_WAYPOINTS`] points a body at `feet` can get to, one on each

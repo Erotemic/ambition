@@ -446,6 +446,10 @@ pub struct MeleeBruteCfg {
     /// [`BrainSnapshot::melee_reach`].
     pub attack_range: f32,
     pub chase_speed: f32,
+    /// The body goes to a target that stands on another surface by the
+    /// room's routes (jumps, drops), and does not only run at it. Needs the
+    /// navigation advisor.
+    pub navigates: bool,
 }
 
 impl MeleeBruteCfg {
@@ -454,12 +458,14 @@ impl MeleeBruteCfg {
         aggro_radius: 220.0,
         attack_range: 36.0,
         chase_speed: 110.0,
+        navigates: false,
     };
     pub const BRUTE_DEFAULT: Self = Self {
         aggressiveness: 1.0,
         aggro_radius: 240.0,
         attack_range: 44.0,
         chase_speed: 75.0,
+        navigates: false,
     };
 }
 
@@ -467,6 +473,38 @@ impl MeleeBruteCfg {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct MeleeBruteState {
     pub mode: crate::actor::ai::CharacterAiMode,
+    /// The route to a target on another surface, for a brute that navigates.
+    pub nav: NavFollower,
+}
+
+/// A target's place that moved less than this is the same goal (px).
+const PURSUIT_SAME_PLACE: f32 = 48.0;
+
+/// One tick of a pursuit by the room's routes. `true`: the frame is written
+/// and the brute does nothing more this tick.
+fn pursue_by_route(
+    cfg: &MeleeBruteCfg,
+    state: &mut MeleeBruteState,
+    chasing: bool,
+    snapshot: &BrainSnapshot,
+    out: &mut crate::actor::control::ActorControlFrame,
+) -> bool {
+    let pace = |_far: bool| cfg.chase_speed;
+    // A body in a run-up or in the air finishes its leg.
+    if state.nav.committed() {
+        return state.nav.drive(snapshot, pace, out) == Followed::Going;
+    }
+    let advice = &snapshot.navigation;
+    let place = advice.target_place.filter(|_| chasing && !advice.target_shares_surface);
+    let Some(place) = place else {
+        // A walk gets there, or no route does: the plain chase.
+        state.nav.stop();
+        return false;
+    };
+    if state.nav.goal.is_none_or(|goal| goal.distance(place) > PURSUIT_SAME_PLACE) {
+        state.nav.go_to(place);
+    }
+    state.nav.drive(snapshot, pace, out) == Followed::Going
 }
 
 fn tick_melee_brute(
@@ -484,6 +522,14 @@ fn tick_melee_brute(
     ));
     state.mode = ai.mode;
     *out = crate::actor::control::ActorControlFrame::neutral();
+    if cfg.navigates {
+        let chasing = matches!(ai.intent, crate::actor::ai::CharacterAiIntent::Chase { .. });
+        out.facing = snapshot.actor_facing;
+        if pursue_by_route(cfg, state, chasing, snapshot, out) {
+            return;
+        }
+        *out = crate::actor::control::ActorControlFrame::neutral();
+    }
     match ai.intent {
         crate::actor::ai::CharacterAiIntent::Hold => {}
         crate::actor::ai::CharacterAiIntent::Patrol => {

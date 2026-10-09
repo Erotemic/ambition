@@ -16,7 +16,7 @@
 //! a sandbox solid) and a platform that moves. A leg such a thing stops fails,
 //! and the brain plans again.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use ambition_platformer2d_core as ae;
 use ae::navigation::{NavAdvice, NavNext};
@@ -34,7 +34,8 @@ const GRAPHS_KEPT: usize = 16;
 /// decide; a body with no entry has the default (no place, no answer).
 #[derive(Resource, Default)]
 pub struct NavigationAdvice {
-    by_body: HashMap<Entity, NavAdvice>,
+    // Ordered: an instrument that reads each row must read them in one order.
+    by_body: BTreeMap<Entity, NavAdvice>,
 }
 
 impl NavigationAdvice {
@@ -42,7 +43,7 @@ impl NavigationAdvice {
         self.by_body.get(&body).copied().unwrap_or_default()
     }
 
-    /// Each body advised this tick, in no order. For instruments.
+    /// Each body advised this tick, in entity order. For instruments.
     pub fn iter(&self) -> impl Iterator<Item = (Entity, &NavAdvice)> {
         self.by_body.iter().map(|(body, advice)| (*body, advice))
     }
@@ -149,10 +150,17 @@ pub fn advise_navigation(
         &ae::BodyKinematics,
         &ae::BodyBaseSize,
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
-        // Whom the body attends to: the same read-model its brain's
-        // `target_pos` comes from.
+        // Whom the body attends to, when it has a foe: the same read-model
+        // its brain's `target_pos` comes from.
         Option<&ambition_combat::components::ActorTarget>,
     )>,
+    // The players, for a body with no foe: it attends to the nearest one in
+    // its room. A peaceful body has no combat target, and a companion keeps
+    // near a friend.
+    players: Query<
+        (Entity, &ae::BodyKinematics),
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
 ) {
     advice.by_body.clear();
     cache.in_use.clear();
@@ -193,12 +201,31 @@ pub fn advise_navigation(
         let feet = kinematics.pos + graph.frame.down * graph.half.y;
         let (waypoints, waypoint_count) = graph.waypoints(feet, request.choice);
         let next = request.goal.map_or(NavNext::Unknown, |goal| graph.next(feet, goal));
-        let target_place = target
-            .filter(|target| target.entity.is_some())
-            .and_then(|target| graph.place_beside(feet, target.pos, kinematics.size.x + TARGET_ROOM, TARGET_DEPTH));
+        let live_room = rooms.of(entity);
+        let attended = target.filter(|target| target.entity.is_some()).map(|target| target.pos).or_else(|| {
+            players
+                .iter()
+                .filter(|(player, _)| *player != entity && rooms.of(*player) == live_room)
+                .map(|(_, player)| player.pos)
+                .min_by(|a, b| a.distance_squared(kinematics.pos).total_cmp(&b.distance_squared(kinematics.pos)))
+        });
+        let target_place = attended
+            .and_then(|at| graph.place_beside(feet, at, kinematics.size.x + TARGET_ROOM, TARGET_DEPTH));
+        let target_shares_surface = attended.is_some_and(|at| {
+            let under = graph.surface_under(at, TARGET_DEPTH);
+            under.is_some() && under == graph.surface_at(feet)
+        });
         advice.by_body.insert(
             entity,
-            NavAdvice { feet, waypoints, waypoint_count, goal: request.goal, next, target_place },
+            NavAdvice {
+                feet,
+                waypoints,
+                waypoint_count,
+                goal: request.goal,
+                next,
+                target_place,
+                target_shares_surface,
+            },
         );
     }
 }

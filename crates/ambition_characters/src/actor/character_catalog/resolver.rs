@@ -67,12 +67,14 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             aggro_radius,
             attack_range,
             chase_speed,
+            navigates,
         } => StateMachineCfg::MeleeBrute {
             cfg: MeleeBruteCfg {
                 aggressiveness: *aggressiveness,
                 aggro_radius: *aggro_radius,
                 attack_range: *attack_range,
                 chase_speed: *chase_speed,
+                navigates: *navigates,
             },
             state: MeleeBruteState::default(),
         },

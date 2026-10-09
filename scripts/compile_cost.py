@@ -88,6 +88,11 @@ class Scenario:
     #: changes the marker without changing the class writes a row whose own
     #: column contradicts it.
     marker: str = MARKER
+    #: Steps after the build, each timed alone: `(name, command)`. They run
+    #: while the edit is in place, so they test and load the edited build
+    #: (the rest of M0's loop: a targeted test, then a first frame). Each one
+    #: also runs after the warm no-op, as its control.
+    then: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 SCENARIOS: list[Scenario] = [
@@ -127,6 +132,24 @@ SCENARIOS: list[Scenario] = [
         why="link + one crate only; isolates the link step from the graph",
     ),
 ]
+
+SCENARIOS.append(
+    Scenario(
+        name="edit-cycle",
+        edit="crates/ambition_platformer2d_actor_monolith/src/lib.rs",
+        command=["cargo", "test", "-p", "ambition_app", "--test", "app_it", "--no-run"],
+        why="the whole engine loop: build the tests, run one targeted arm, draw the game's first frame",
+        then=(
+            ("targeted_test", ("cargo", "test", "-p", "ambition_app", "--test", "app_it", "--", "isolated_persistence")),
+            # The acceptance job's command (`run_tests.py`). It builds the
+            # capture binary for the edit too, which is part of seeing it.
+            ("first_frame", (
+                "cargo", "run", "-p", "ambition_app_tools", "--bin", "capture_scene", "--",
+                "central_hub_complex", "player", "target/edit_cycle_frame.png", "320x180", "--warmup", "20",
+            )),
+        ),
+    )
+)
 
 BY_NAME = {scenario.name: scenario for scenario in SCENARIOS}
 
@@ -306,6 +329,45 @@ def run_timed(command: list[str], env: dict[str, str]) -> BuildCost:
     )
 
 
+def run_phase(command: list[str], env: dict[str, str]) -> tuple[float, int | None]:
+    """Wall seconds and largest-process peak RSS of one step after the build.
+
+    Not `run_timed`: that adds cargo's JSON message flag, and a phase is judged
+    by its own exit code, not by the units it built.
+    """
+    merged = {**os.environ, **env}
+    with tempfile.TemporaryFile() as out:
+        start = time.monotonic()
+        proc = subprocess.Popen(command, cwd=ROOT, stdout=out, stderr=subprocess.STDOUT, env=merged)
+        try:
+            _, status, usage = os.wait4(proc.pid, 0)
+        except BaseException:
+            proc.kill()
+            _, killed_status, _ = os.wait4(proc.pid, 0)
+            proc.returncode = os.waitstatus_to_exitcode(killed_status)
+            raise
+        elapsed = time.monotonic() - start
+        proc.returncode = os.waitstatus_to_exitcode(status)
+        if proc.returncode != 0:
+            out.seek(0)
+            tail = "\n".join(out.read().decode("utf-8", errors="replace").strip().splitlines()[-12:])
+            raise SystemExit(f"⛔ `{' '.join(command)}` failed, so its timing is meaningless:\n{tail}")
+    peak = usage.ru_maxrss * 1024 if sys.platform.startswith("linux") else None
+    return elapsed, peak
+
+
+def run_phases(scenario: "Scenario", env: dict[str, str], when: str, verbose: bool) -> dict:
+    """`{<when>_<phase>_seconds, <when>_<phase>_peak_rss_bytes}` for each phase."""
+    row: dict = {}
+    for name, command in scenario.then:
+        if verbose:
+            print(f"  {when}: {name} ({' '.join(command)}) …", flush=True)
+        seconds, peak = run_phase(list(command), env)
+        row[f"{when}_{name}_seconds"] = round(seconds, 2)
+        row[f"{when}_{name}_peak_rss_bytes"] = peak
+    return row
+
+
 def job_limit(command: list[str], env: dict[str, str]) -> int | None:
     """The `-j` cap actually in force, or `None` for "uncapped; `machine_cores` applies".
 
@@ -449,11 +511,13 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
         if verbose:
             print("  measuring the warm no-op (the control) …", flush=True)
         warm = run_timed(scenario.command, merged_env)
+        phases = run_phases(scenario, merged_env, "warm_noop", verbose)
 
         if verbose:
             print(f"  editing {scenario.edit} and rebuilding …", flush=True)
         target.write_bytes(original + scenario.marker.format(salt=17).encode("utf-8"))
         edited = run_timed(scenario.command, merged_env)
+        phases.update(run_phases(scenario, merged_env, "after_edit", verbose))
     finally:
         target.write_bytes(original)
 
@@ -513,6 +577,11 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
         "warm_noop_host_link_invocations": warm.host_link_invocations,
         "after_edit_host_link_invocations": edited.host_link_invocations,
         "restore_host_link_invocations": settle.host_link_invocations,
+        # The steps after the build (`Scenario.then`); absent for a scenario
+        # that has none. `after_edit_<phase>` beside `warm_noop_<phase>` is the
+        # phase's cost of the edit: a phase that rebuilt something is slower
+        # after the edit than in the control.
+        **phases,
     }
 
 
@@ -658,6 +727,11 @@ def main(argv: list[str] | None = None) -> int:
             f"   AFTER EDIT {row['after_edit_seconds']:>7.2f}s"
             + largest
         )
+        for name, _ in scenario.then:
+            print(
+                f"  {name:<18} warm {row[f'warm_noop_{name}_seconds']:>7.2f}s"
+                f"   AFTER EDIT {row[f'after_edit_{name}_seconds']:>7.2f}s"
+            )
         if args.no_record:
             # ⛔ A DRY RUN THAT HIDES THE ROW CANNOT VERIFY THE ROW. Without
             # this, the first sight of a newly added column is inside an

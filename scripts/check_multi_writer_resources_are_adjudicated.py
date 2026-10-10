@@ -447,6 +447,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_held_items/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/body_whereabouts.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/chests.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/errand.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/pickups.rs",
         "crates/ambition_platformer2d_actor_monolith/src/items/pickup/minted_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
@@ -1951,7 +1952,22 @@ ADJUDICATED: dict[str, str] = {
         "BEFORE the baseline is captured. The last removes the `Consumed` row of "
         "a MARKED id and nothing else: an authored `Consumed` (a taken pickup) "
         "and a `Spent` (an opened chest) are never marked, so they stay for the "
-        "run. No new writer file, and `admit_mints` marks the ids it admits.\n"
+        "run. No new writer file, and `admit_mints` marks the ids it admits. "
+        "The eleventh METHOD and ninth FILE, added 2026-10-09 (NAVIGATION slice "
+        "2), is `admit_crossing(id, room, at)`, taken by `cross_on_errands` "
+        "(`actor_monolith/src/features/ecs/errand.rs`) when a persistent "
+        "authored body on an errand goes into another live room by its own "
+        "movement. It is a deliberate third entry for a LIVE occurrence, beside "
+        "custody and a mint: a body is no longer moved between rooms only by "
+        "being carried, so \"an object cannot change rooms without being "
+        "carried\" stays true of objects and not of bodies. It writes `Placed` "
+        "in the room the body went into, from no row or from a `Placed` row; a "
+        "row in custody and a terminal row are refused (`#[must_use]`). The "
+        "crossing writes it, not `record_placed_bodies`, because only the "
+        "crossing knows the move happened: a `Placed` row in another room is a "
+        "stale duplicate to that producer. Witness: "
+        "`a_dog_that_went_next_door_is_not_built_again_at_home` (with the write "
+        "removed, the rebuilt hub has a second dog).\n"
         "    ⛔⛤ AND THE REGISTRATION HISTORY IS THE OPPOSITE OF A FIX TO REACH "
         "FOR. This was `declare_rollback_derived_resource` — in no snapshot — "
         "while `adopt_rows` was already a non-rederived producer, which its own "

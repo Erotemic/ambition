@@ -296,6 +296,30 @@ The slices, each with its own witness:
    of the destination by the second-seat road: custody closure stamped,
    `transit_body` to the zone's arrival. Only into a room that is live, so no
    room is opened or retired for a body no slot drives.
+   **Done 2026-10-09.** The advisor sees an item in another live room as
+   `ErrandSight::Door(place)`: a route of live rooms (`RoomSet::route`, each
+   room on it live) starts at a zone of the body's room, and `place` is the
+   feet point under that zone when the body can get to it (else `NoRoute`).
+   The `Roam` brain goes there as it goes to an item. `cross_on_errands`
+   moves a body that stands in the zone into the next live room by the
+   second-seat road, and gives a body with durable whereabouts its `Placed`
+   row in that room (`AuthoredOccurrences::admit_crossing`, a third way for a
+   live occurrence to enter the ledger, beside custody and a mint). A body on
+   an errand crosses a Door zone with no press: the press is how a player
+   says "go through", and the errand has said it. Witnesses in
+   `a_dog_sent_for_an_item`: Alice carries the Blink to `basement_npcs` while
+   Bob holds the hub, and the dog, from the far end of the basement, goes
+   through the door and takes it there (control: from the same start with no
+   errand it never comes within 200 px of the door); after that Bob leaves,
+   the hub retires, Alice walks back, and the hub built again has no second
+   dog; and under a sync test with two players the crossing and the take
+   resimulate to the same world. Poisons: no crossing, red at "the dog did
+   not fetch the Blink from the other room"; `Roam` deaf to `Door`, red at
+   the same line; no ledger row, red at "the bodies of the dog's identity, by
+   room" (two dogs); a crossing made only on the first run, red at "the
+   replayed world differs" (a checksum mismatch at frame 196). Found: from
+   the dog's authored start the roam goes through the door by chance, so the
+   arm needs a start with the door behind the dog.
 3. **A crossing into a room that is not live.** The body leaves through the
    ledger: despawned, with a `Placed` row in the destination at the arrival.
    Only for a body whose whereabouts are durable.

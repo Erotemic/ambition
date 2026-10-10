@@ -271,10 +271,26 @@ pub enum ErrandSight {
     /// The item lies over a surface the body can get to: the feet point under
     /// the item on that surface.
     At(Vec2),
-    /// The item lies in the body's room, and no route gets there.
+    /// The item lies in another live room, and the route there starts at a
+    /// zone of this room that the body can get to: the feet point under the
+    /// zone. The body goes there, and its errand takes it through.
+    Door(Vec2),
+    /// The item lies in the body's room, or behind a zone of it, and no route
+    /// gets there.
     NoRoute,
-    /// The item does not lie in the body's room.
+    /// The item lies in no live room that a route of live rooms gets to.
     Gone,
+}
+
+impl ErrandSight {
+    /// Where the body goes for its errand this tick: to the item, or to the
+    /// zone that leads to it.
+    pub fn place(self) -> Option<Vec2> {
+        match self {
+            Self::At(place) | Self::Door(place) => Some(place),
+            Self::None | Self::NoRoute | Self::Gone => None,
+        }
+    }
 }
 
 impl NavAdvice {

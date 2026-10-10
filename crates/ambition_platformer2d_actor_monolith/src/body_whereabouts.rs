@@ -38,7 +38,7 @@ use bevy::prelude::*;
 /// [`record_bodies_away_from_home`]. A persistent enemy or boss has no row,
 /// so it is held as carried like a population body while it lives, and its
 /// home builds it when its room retires.
-fn keeps_durable_whereabouts(
+pub(crate) fn keeps_durable_whereabouts(
     room_set: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
     config: &ambition_combat::actor_tuning::ActorConfig,
     origin: Option<&ambition_platformer2d_shared_tangle::construction::SpawnOrigin>,

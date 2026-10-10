@@ -166,6 +166,8 @@ fn geometry_stamp(world: &ae::World) -> u64 {
 pub fn advise_navigation(
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // The room graph and the live rooms, for an errand item in another room.
+    specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     mut cache: ResMut<RoomNavigation>,
     mut advice: ResMut<NavigationAdvice>,
     bodies: Query<
@@ -263,8 +265,26 @@ pub fn advise_navigation(
                 let Some(from) = graph.surface_at(feet) else {
                     return ErrandSight::None;
                 };
+                let reached = |at: ae::Vec2, depth: f32| {
+                    graph.surface_under(at, depth).filter(|under| graph.reachable_from(from).contains(under))
+                };
                 match super::errand::errand_item_at(errand, live_room, &rooms, &items) {
-                    None => ErrandSight::Gone,
+                    // Not in this room: in another live room, through the zone
+                    // where the route there starts, when the body gets to it.
+                    None => {
+                        let crossing = specs.as_ref().zip(live_room).and_then(|(specs, body_room)| {
+                            super::errand::errand_crossing(errand, body_room, specs, &items)
+                        });
+                        let Some(crossing) = crossing else {
+                            return ErrandSight::Gone;
+                        };
+                        use ae::AabbExt as _;
+                        let door = crossing.zone.center();
+                        match reached(door, crossing.zone.half_size().length() + TARGET_DEPTH) {
+                            Some(under) => ErrandSight::Door(graph.point_on(under, graph.frame.along(door))),
+                            None => ErrandSight::NoRoute,
+                        }
+                    }
                     Some(at) => match graph.surface_under(at, TARGET_DEPTH) {
                         Some(under) if graph.reachable_from(from).contains(&under) => {
                             ErrandSight::At(graph.point_on(under, graph.frame.along(at)))

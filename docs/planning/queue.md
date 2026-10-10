@@ -431,56 +431,25 @@ production invariant.
 
 **Owner:** [navigation and reachability](engine/platformer-navigation-and-reachability.md),
 with the [agentic character runtime](engine/agentic-character-runtime.md) (P6).
-The cross-room items (MISSING 1-4) are claimed by this session
-(ClaudeAmbition) from ToothbrushAmbition, 2026-10-09; the in-room legs stay
-theirs. Inside Jon's scope: a companion or NPC crosses rooms. Not built:
-enemy navigation and a baked graph (both Jon's open decisions).
+Not built: enemy navigation and a baked graph (both Jon's open decisions).
 
-**Current failure:** typed actions, world facts, memory and combat policy exist.
-In-room navigation exists since 2026-10-09 (a surface graph, checked in the
-kernel, that a brain follows; the owner doc has "The first slice"). A route to
-another room and an open custom-brain policy interface do not exist, so the
-world-fact architecture has no consumer.
+**Acceptance met 2026-10-10.** A character sent for an item (`Errand`, a goal
+given from outside) decides with its real movement whether it can reach it
+(the in-room `NavGraph`: walk, hop, drop, double hop, wall climb, flight, each
+kept only when its kernel rollout arrives; `RoomSet::route` over rooms), goes
+there and takes it, in its room, in another live room (through a zone, by the
+second-seat road) and in a room that is not live (through the ledger). Arms in
+`a_dog_sent_for_an_item`: `a_dog_sent_for_the_blink_takes_it`,
+`a_dog_sent_for_an_item_out_of_its_reach_says_there_is_no_route`,
+`without_its_jump_the_dog_refuses_what_needs_one`,
+`a_dog_sent_for_an_item_in_another_live_room_goes_through_the_door`,
+`a_dog_sent_for_an_item_in_a_room_nobody_holds_leaves_for_it`, and a sync-test
+arm for each road. Deterministic; no model call inside the simulation. The
+slices, measurements and poisons are on the owner page.
 
-**Next action:** a character observes that an item exists in another room,
-decides whether it can reach it with its real movement capabilities, moves there
-and performs a typed action. Deterministic; no model call inside the
-simulation.
-
-What the in-room slice gives this row, and what it does not (2026-10-09):
-
-- HAVE: "can this body reach that point with its real capabilities" in one
-  room (`NavGraph::next`: a leg, `Arrived` or `Unreachable`), and a body that
-  goes there (`NavFollower`). A door is a point, so a route to a door in the
-  body's room exists today. The acceptance's third arm holds in one room: the
-  same body with no jump cannot reach what needs one
-  (`a_body_with_no_jump_cannot_reach_what_needs_one`).
-- MISSING, in the order they block: (1) a non-player body that goes through a
-  `LoadingZone` into another live room. Measured 2026-10-09: a body crosses
-  only as a crossing's subject (a body a player slot drives, a possessed one
-  too) or in its custody (a ridden mount, a limb, a held item); detection
-  (`detect_room_transition_system`) reads driven bodies only. A body left in
-  another room is rebuilt there from its `Placed` whereabouts row
-  (`a_character_left_elsewhere_stays_there`). (2) A route over rooms at run
-  time: done 2026-10-09, `RoomSet::route` (fewest rooms, by the authored
-  zones; witness `a_route_over_rooms_goes_by_zones_that_cross_where_it_says`,
-  which holds each hop and the route's length against the crossing rule;
-  it reaches 75 of the 76 shipped rooms from the hub, and `sanic_sandbox` has
-  no zone that leads into it).
-  (3) A goal a brain can be given from outside ("fetch that") and (4) the
-  typed action at the goal: done in one room, 2026-10-09 (`Errand`; the
-  acceptance arm holds in one room, `a_dog_sent_for_an_item`; see the owner
-  page's cross-room slices). (1) for a live room: done 2026-10-09, slice 2
-  (a body on an errand goes through a zone into another live room, by the
-  second-seat road, and keeps durable whereabouts there). Slice 3, a
-  crossing into a room that is not live: done 2026-10-10 (the body leaves
-  through the ledger and is despawned; the room builds it there). It was
-  blocked because a rewind spawned the body again without its derived
-  components; the body now requires them (owner page).
-
-**Acceptance:** a headless arm with a reachable and an unreachable item: the
-character fetches the first and refuses the second, and removing a movement
-capability it needs turns the first into a refusal.
+Open, not in this row: legs for a wall jump and a dash (granted to this
+session by ToothbrushAmbition), a door that needs Interact for a body no slot
+drives, permanent flight and a pogo bounce.
 
 ### PUBLICATION-FAULT — a refused later room must not leave a mixed world
 

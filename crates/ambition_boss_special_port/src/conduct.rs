@@ -31,8 +31,14 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   phase): the boss is invulnerable and its pattern runs no move. `room`
 ///   is the size of the boss's live room (its origin is the top left): a
 ///   boss with no floor under it (one that flies an open sky) stages its
-///   moves against the room itself.
-/// * **Absence** — `target` is `None` when the boss tracks nothing; `hall`
+///   moves against the room itself. `health` is the boss's current health.
+///   `invulnerable` says the encounter refuses damage to the boss now (a
+///   transition lock, or the `Dormant`, `Intro`, `Transition` or `Death`
+///   phase): it is wider than `between_phases`. `target_body` is where the
+///   tracked body is now and its size; `target` is where the boss last saw
+///   it, and the two differ when the body moved after the boss looked.
+/// * **Absence** — `target` is `None` when the boss tracks nothing, and
+///   `target_body` also when the tracked entity has no body; `hall`
 ///   is `None` when the room cannot be told or has no floor under the boss;
 ///   `room` is `None` when the room cannot be told.
 /// * **Replay** — derived each tick from rollback state.
@@ -81,6 +87,19 @@ pub struct BossConduct {
     pub between_phases: bool,
     /// The size of the boss's live room.
     pub room: Option<[f32; 2]>,
+    /// The boss's current health.
+    pub health: i32,
+    /// The encounter refuses damage to the boss now.
+    pub invulnerable: bool,
+    /// The tracked body, now.
+    pub target_body: Option<BodyBox>,
+}
+
+/// A body's centre and size.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BodyBox {
+    pub position: [f32; 2],
+    pub size: [f32; 2],
 }
 
 fn put_move(out: &mut Vec<u8>, m: Option<&LiveMove>) {
@@ -104,7 +123,8 @@ fn move_of(r: &mut WireReader<'_>) -> Result<Option<LiveMove>, WireError> {
 impl Port for BossConductPort {
     /// Version 2 (2026-10-06): `holding` and `minions`. Version 3
     /// (2026-10-06): `between_phases`. Version 4 (2026-10-06): `room`.
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 4);
+    /// Version 5 (2026-10-10): `health`, `invulnerable`, `target_body`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 5);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -129,6 +149,12 @@ impl Port for BossConductPort {
         wire::put_u32(out, v.minions);
         wire::put_bool(out, v.between_phases);
         wire::put_opt(out, v.room, wire::put_vec2);
+        wire::put_i32(out, v.health);
+        wire::put_bool(out, v.invulnerable);
+        wire::put_opt(out, v.target_body, |out, b| {
+            wire::put_vec2(out, b.position);
+            wire::put_vec2(out, b.size);
+        });
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossConduct, WireError> {
@@ -156,6 +182,9 @@ impl Port for BossConductPort {
             minions: r.u32()?,
             between_phases: r.bool()?,
             room: r.opt(WireReader::vec2)?,
+            health: r.i32()?,
+            invulnerable: r.bool()?,
+            target_body: r.opt(|r| Ok(BodyBox { position: r.vec2()?, size: r.vec2()? }))?,
         })
     }
 }
@@ -254,30 +283,67 @@ impl Port for BossGuardPort {
 ///
 /// Port card:
 ///
-/// * **Operation** — draw the body with the named sheet row, `elapsed`
-///   seconds in, looping or holding its last frame; with no `name`, draw it
-///   as the engine would. Presentation: no simulation state reads it, and it
-///   is derived again each tick (the module's own clock is the elapsed time).
-/// * **Owner** — `ambition_boss_encounter::extension` (`PinnedRow`).
-/// * **Scope** — the body the invocation ran for.
+/// * **Operation** — draw the part with the first of `names` its sheet has,
+///   `elapsed` seconds in, looping or holding its last frame; with no names,
+///   draw it as the engine would. Presentation: no simulation state reads it,
+///   and it is derived again each tick (the module's own clock is the elapsed
+///   time).
+/// * **Owner** — `ambition_boss_encounter::conduct` (`PinnedRow`).
+/// * **Scope** — the body the invocation ran for, the mount it rides, or a
+///   limb of that mount's rig ([`DrawnPart`]). A part that is not there is
+///   refused with a warning.
 /// * **Time** — `boss_conduct`.
 pub struct DrawnRowPort;
 
+/// The part a [`DrawnRow`] draws.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DrawnPart {
+    /// The body the invocation ran for.
+    Body,
+    /// The mount that body rides.
+    Mount,
+    /// The limb in this slot of that mount's rig.
+    Limb(String),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct DrawnRow {
-    pub name: Option<String>,
+    pub on: DrawnPart,
+    /// Rows in order of preference: a sheet without the first is drawn with
+    /// the next.
+    pub names: Vec<String>,
     pub elapsed: f32,
     pub looping: bool,
 }
 
+impl DrawnRow {
+    /// Draw the body with one row.
+    pub fn body(name: &str, elapsed: f32, looping: bool) -> Self {
+        Self { on: DrawnPart::Body, names: vec![name.into()], elapsed, looping }
+    }
+
+    /// Draw the body as the engine would.
+    pub fn body_as_engine() -> Self {
+        Self { on: DrawnPart::Body, names: Vec::new(), elapsed: 0.0, looping: false }
+    }
+}
+
 impl Port for DrawnRowPort {
-    const KEY: PortKey = PortKey::new("ambition.presentation.drawn_row", 1);
+    const KEY: PortKey = PortKey::new("ambition.presentation.drawn_row", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = DrawnRow;
 
     fn encode(v: &DrawnRow, out: &mut Vec<u8>) {
-        wire::put_bool(out, v.name.is_some());
-        if let Some(name) = &v.name {
+        match &v.on {
+            DrawnPart::Body => wire::put_u8(out, 0),
+            DrawnPart::Mount => wire::put_u8(out, 1),
+            DrawnPart::Limb(slot) => {
+                wire::put_u8(out, 2);
+                wire::put_str(out, slot);
+            }
+        }
+        wire::put_u32(out, v.names.len() as u32);
+        for name in &v.names {
             wire::put_str(out, name);
         }
         wire::put_f32(out, v.elapsed);
@@ -285,12 +351,18 @@ impl Port for DrawnRowPort {
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<DrawnRow, WireError> {
-        let name = if r.bool()? { Some(r.str()?.to_owned()) } else { None };
-        Ok(DrawnRow {
-            name,
-            elapsed: r.f32()?,
-            looping: r.bool()?,
-        })
+        let on = match r.u8()? {
+            0 => DrawnPart::Body,
+            1 => DrawnPart::Mount,
+            2 => DrawnPart::Limb(r.str()?.to_owned()),
+            other => return Err(WireError::BadTag(other)),
+        };
+        let count = r.read_len()?;
+        let mut names = Vec::new();
+        for _ in 0..count {
+            names.push(r.str()?.to_owned());
+        }
+        Ok(DrawnRow { on, names, elapsed: r.f32()?, looping: r.bool()? })
     }
 }
 
@@ -411,6 +483,62 @@ impl Port for MountViewPort {
     }
 }
 
+/// The request port marker for the pose of a limb of the mount a boss rides.
+///
+/// Port card:
+///
+/// * **Operation** — with a `hold`, put the limb there with that velocity
+///   and facing (an external kinematic constraint, ADR 0024), and hold its
+///   pose: the body integrator leaves it alone (`PoseOwnedExternally`), and
+///   its ground contact is cleared, so the next step finds the ground again.
+///   Without one, let go: the limb keeps where it is and its own vertical
+///   speed and falls under its own gravity.
+/// * **Owner** — `ambition_boss_encounter::conduct`.
+/// * **Scope** — the boss the invocation ran for. The limb is `slot` of the
+///   rig of the mount the boss rides (`ambition.boss.mount`). A boss that
+///   rides nothing, or a slot the rig does not have, is refused with a
+///   warning.
+/// * **Time** — `boss_conduct`, this tick: the last word before combat
+///   reads the limb.
+pub struct LimbPosePort;
+
+/// Where a held limb is.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LimbHold {
+    pub position: [f32; 2],
+    pub velocity: [f32; 2],
+    /// `1.0` draws the limb as authored, `-1.0` as its mirror.
+    pub facing: f32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LimbPose {
+    pub slot: String,
+    pub hold: Option<LimbHold>,
+}
+
+impl Port for LimbPosePort {
+    const KEY: PortKey = PortKey::new("ambition.boss.limb_pose", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = LimbPose;
+
+    fn encode(v: &LimbPose, out: &mut Vec<u8>) {
+        wire::put_str(out, &v.slot);
+        wire::put_opt(out, v.hold, |out, h| {
+            wire::put_vec2(out, h.position);
+            wire::put_vec2(out, h.velocity);
+            wire::put_f32(out, h.facing);
+        });
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<LimbPose, WireError> {
+        Ok(LimbPose {
+            slot: r.str()?.to_owned(),
+            hold: r.opt(|r| Ok(LimbHold { position: r.vec2()?, velocity: r.vec2()?, facing: r.f32()? }))?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -442,9 +570,12 @@ mod tests {
             minions: 3,
             between_phases: true,
             room: Some([1280.0, 720.0]),
+            health: -2,
+            invulnerable: true,
+            target_body: Some(BodyBox { position: [9.5, 7.0], size: [24.0, 40.0] }),
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
-        let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, ..conduct };
+        let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, target_body: None, ..conduct };
         assert_eq!(round::<BossConductPort>(&bare), bare);
         for guarded in [false, true] {
             assert_eq!(round::<BossGuardPort>(&BossGuard { guarded }), BossGuard { guarded });
@@ -453,9 +584,11 @@ mod tests {
             let v = ConductedPose { pose, side: -1.0 };
             assert_eq!(round::<ConductedPosePort>(&v), v);
         }
-        for name in [None, Some("drift".to_string())] {
-            let v = DrawnRow { name, elapsed: 0.25, looping: true };
-            assert_eq!(round::<DrawnRowPort>(&v), v);
+        for on in [DrawnPart::Body, DrawnPart::Mount, DrawnPart::Limb("hand_left".into())] {
+            for names in [Vec::new(), vec!["hit".to_string(), "rest".to_string()]] {
+                let v = DrawnRow { on: on.clone(), names, elapsed: 0.25, looping: true };
+                assert_eq!(round::<DrawnRowPort>(&v), v);
+            }
         }
     }
 
@@ -482,5 +615,9 @@ mod tests {
         assert_eq!(round::<MountViewPort>(&view), view);
         let bare = MountView { back: None, hall: None, limbs: Vec::new(), ..view };
         assert_eq!(round::<MountViewPort>(&bare), bare);
+        for hold in [None, Some(LimbHold { position: [630.0, 970.0], velocity: [12.0, -3.0], facing: -1.0 })] {
+            let v = LimbPose { slot: "hand_left".into(), hold };
+            assert_eq!(round::<LimbPosePort>(&v), v);
+        }
     }
 }

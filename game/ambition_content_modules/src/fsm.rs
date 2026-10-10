@@ -430,7 +430,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     if !god.alive {
         c.wave0_x = None;
         c.wave1_x = None;
-        inv.submit::<DrawnRowPort>(DrawnRow { name: None, elapsed: 0.0, looping: false })?;
+        inv.submit::<DrawnRowPort>(DrawnRow::body_as_engine())?;
         let rest = Vec2::new(at.x, hall.floor - STRANDED_ABOVE_FLOOR);
         let pos = glide(at, rest, 120.0, dt);
         inv.submit::<ConductedPosePort>(ConductedPose {
@@ -702,8 +702,8 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let speed = if conducts { (pos - at).length() / dt } else { Vec2::from(god.velocity).length() };
     let row = drawn_row(&c, part, speed);
     inv.submit::<DrawnRowPort>(match row {
-        Some((name, elapsed, looping)) => DrawnRow { name: Some(name.into()), elapsed, looping },
-        None => DrawnRow { name: None, elapsed: 0.0, looping: false },
+        Some((name, elapsed, looping)) => DrawnRow::body(name, elapsed, looping),
+        None => DrawnRow::body_as_engine(),
     })?;
     c.store(inv)
 }

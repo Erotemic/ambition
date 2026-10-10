@@ -407,6 +407,34 @@ def test_the_named_rules_name_what_the_live_tree_has() -> None:
         assert f"mod {arm}" in modules, f"no app_it module name holds `{arm}`"
 
 
+def test_a_module_change_requires_the_harnesses_that_run_it() -> None:
+    from required_checks import APP_PACKAGE, MODULE_ARMS, MODULE_HARNESS_PACKAGE, CargoTestNamed, requirements_for
+
+    members = {"game/ambition_content_modules": "ambition_content_modules"}
+    required = requirements_for("game/ambition_content_modules/src/fsm.rs", members)
+    assert required == {
+        CargoTest("ambition_content_modules"),
+        CargoTest(MODULE_HARNESS_PACKAGE),
+        *(CargoTestNamed(APP_PACKAGE, arm) for arm in MODULE_ARMS),
+    }
+    # The control: a crate the modules do not live in asks only for its own tests.
+    assert requirements_for("game/ambition_content_modules_x/src/a.rs", {}) == set()
+
+
+def test_every_app_arm_that_names_the_modules_is_held() -> None:
+    from required_checks import MODULE_ARMS
+
+    modules = (REPO / "game/ambition_app/tests/app_it.rs").read_text()
+    for arm in MODULE_ARMS:
+        assert f"mod {arm};" in modules, f"no app_it module `{arm}`"
+    naming = sorted(
+        path.stem for path in (REPO / "game/ambition_app/tests").glob("*.rs")
+        if "ambition_content_modules" in path.read_text(errors="replace") and f"mod {path.stem};" in modules
+    )
+    missing = [arm for arm in naming if arm not in MODULE_ARMS]
+    assert naming and not missing, f"app_it arms that run a module and are not held: {missing}"
+
+
 def test_run_runs_only_the_checks_that_are_not_certified_and_judges_again(repo: Path) -> None:
     """⭐ `--run`: the change selects the checks. A change to `alpha` and `beta`
     with a pass of `alpha` only runs the command for `beta`, and the verdict

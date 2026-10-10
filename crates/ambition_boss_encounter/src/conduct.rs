@@ -9,7 +9,7 @@
 //! flying spaghetti monster is the first (`ambition_content_modules::fsm`).
 
 use ambition_boss_special_port::{
-    BossConduct, BossConductPort, ConductedPosePort, DrawnRowPort, LiveMove, RoomHall,
+    BodyBox, BossConduct, BossConductPort, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LiveMove, RoomHall,
 };
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::{BossAttackProfile, BossAttackState};
@@ -73,6 +73,8 @@ pub fn queue_boss_conducts(
         Without<BossConfig>,
     >,
     live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // The tracked body, read now: `ActorTarget` holds where the boss last saw it.
+    bodies: Query<&ae::BodyKinematics>,
 ) {
     if time.sim_dt() <= 0.0 {
         return;
@@ -129,6 +131,11 @@ pub fn queue_boss_conducts(
                     .count() as u32,
                 between_phases: encounter.between_phases(),
                 room,
+                health: health.current(),
+                invulnerable: encounter.encounter.as_ref().is_some_and(|state| state.boss_invulnerable()),
+                target_body: target.and_then(|t| t.entity).and_then(|tracked| bodies.get(tracked).ok()).map(|body| {
+                    BodyBox { position: [body.pos.x, body.pos.y], size: [body.size.x, body.size.y] }
+                }),
             },
         );
     }
@@ -182,6 +189,83 @@ pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_po
         hall,
         limbs,
     })
+}
+
+/// The limb in `slot` of the rig of the mount `rider` rides.
+fn ridden_limb(
+    rider: Entity,
+    slot: &str,
+    riders: &Query<&ambition_mount::RidingOn>,
+    rigs: &Query<&ambition_characters::actor::LimbRig>,
+) -> Option<Entity> {
+    let rig = rigs.get(riders.get(rider).ok()?.mount).ok()?;
+    rig.limbs.iter().find(|(name, _)| name.as_str() == slot).map(|(_, &limb)| limb)
+}
+
+/// The `ambition.boss.limb_pose` requests of this tick, for [`pose_limbs`].
+pub fn drain_limb_poses(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbPose>> {
+    outbox.drain::<ambition_boss_special_port::LimbPosePort>(&BOSS_CONDUCT)
+}
+
+/// Lower `ambition.boss.limb_pose`: hold a limb of the ridden mount at a
+/// pose, or let it go. The adapter is `drain_limb_poses.pipe(pose_limbs)`,
+/// so a test can give requests without a module.
+#[allow(clippy::type_complexity)]
+pub fn pose_limbs(
+    In(requests): In<Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbPose>>>,
+    riders: Query<&ambition_mount::RidingOn>,
+    rigs: Query<&ambition_characters::actor::LimbRig>,
+    mut limbs: Query<(
+        &mut ae::BodyKinematics,
+        &mut ae::CenteredAabb,
+        &mut ae::BodyGroundState,
+        Option<&mut ae::SweepSample>,
+        Has<ae::PoseOwnedExternally>,
+    )>,
+    mut commands: Commands,
+) {
+    for submitted in requests {
+        let pose = submitted.value;
+        let Some(limb) = ridden_limb(submitted.scope, &pose.slot, &riders, &rigs) else {
+            warn!(
+                "extension entry {} asked to pose limb {:?} of the mount {:?} rides, which it does not have; refused",
+                submitted.entry, pose.slot, submitted.scope
+            );
+            continue;
+        };
+        let Ok((mut kin, mut aabb, mut ground, mut sweep, held)) = limbs.get_mut(limb) else {
+            continue;
+        };
+        match pose.hold {
+            Some(hold) => {
+                ae::movement::constrain_body_pose(
+                    &mut kin,
+                    sweep.as_deref_mut(),
+                    ae::Vec2::from(hold.position),
+                    ae::Vec2::from(hold.velocity),
+                );
+                kin.facing = hold.facing;
+                if !held {
+                    commands.entity(limb).try_insert(ae::PoseOwnedExternally);
+                }
+                // A discrete pose change: the next step finds the ground again.
+                ground.invalidate();
+            }
+            None => {
+                if held {
+                    commands.entity(limb).try_remove::<ae::PoseOwnedExternally>();
+                }
+                // It falls straight down from where it is.
+                let (pos, fall) = (kin.pos, kin.vel.y);
+                ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, ae::Vec2::new(0.0, fall));
+            }
+        }
+        // The centre only: body integration publishes the size of the
+        // footprint, turned to the limb's down.
+        aabb.center = kin.pos;
+    }
 }
 
 /// Lower `ambition.boss.conducted_pose`: hold the boss's pose, or release it;
@@ -245,26 +329,45 @@ pub fn lower_boss_guards(mut outbox: ResMut<ExtensionOutbox>, mut bosses: Query<
     }
 }
 
-/// Lower `ambition.presentation.drawn_row` into the body's `PinnedRow`.
-pub fn lower_drawn_rows(
-    mut outbox: ResMut<ExtensionOutbox>,
+/// The `ambition.presentation.drawn_row` requests of this tick, for
+/// [`draw_rows`].
+pub fn drain_drawn_rows(mut outbox: ResMut<ExtensionOutbox>) -> Vec<ambition_extension_host::Submitted<DrawnRow>> {
+    outbox.drain::<DrawnRowPort>(&BOSS_CONDUCT)
+}
+
+/// Lower `ambition.presentation.drawn_row` into the part's `PinnedRow`. The
+/// adapter is `drain_drawn_rows.pipe(draw_rows)`.
+pub fn draw_rows(
+    In(requests): In<Vec<ambition_extension_host::Submitted<DrawnRow>>>,
+    riders: Query<&ambition_mount::RidingOn>,
+    rigs: Query<&ambition_characters::actor::LimbRig>,
     mut rows: Query<Option<&mut ambition_sprite_sheet::character::PinnedRow>>,
     mut commands: Commands,
 ) {
-    for submitted in outbox.drain::<DrawnRowPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
-        let Ok(row) = rows.get_mut(submitted.scope) else {
+    for submitted in requests {
+        let drawn = submitted.value;
+        let part = match &drawn.on {
+            DrawnPart::Body => Some(submitted.scope),
+            DrawnPart::Mount => riders.get(submitted.scope).ok().map(|riding| riding.mount),
+            DrawnPart::Limb(slot) => ridden_limb(submitted.scope, slot, &riders, &rigs),
+        };
+        let Some((part, Ok(row))) = part.map(|part| (part, rows.get_mut(part))) else {
+            warn!(
+                "extension entry {} asked to draw {:?} of {:?}, which is not there; refused",
+                submitted.entry, drawn.on, submitted.scope
+            );
             continue;
         };
-        let drawn = submitted.value;
-        match (row, &drawn.name) {
-            (Some(mut row), Some(name)) => row.pin(&[name.as_str()], drawn.elapsed, drawn.looping),
-            (Some(mut row), None) => row.clear(),
-            (None, Some(name)) => {
+        let names: Vec<&str> = drawn.names.iter().map(String::as_str).collect();
+        match (row, names.is_empty()) {
+            (Some(mut row), false) => row.pin(&names, drawn.elapsed, drawn.looping),
+            (Some(mut row), true) => row.clear(),
+            (None, false) => {
                 let mut row = ambition_sprite_sheet::character::PinnedRow::default();
-                row.pin(&[name.as_str()], drawn.elapsed, drawn.looping);
-                commands.entity(submitted.scope).try_insert(row);
+                row.pin(&names, drawn.elapsed, drawn.looping);
+                commands.entity(part).try_insert(row);
             }
-            (None, None) => {}
+            (None, true) => {}
         }
     }
 }
@@ -399,5 +502,99 @@ mod mount_view_tests {
         );
         let walker = world.spawn(body(ae::Vec2::ZERO, ae::Vec2::ONE)).id();
         assert_eq!(mount_of(&world, walker), None, "a boss that rides nothing has no mount");
+    }
+}
+
+#[cfg(test)]
+mod limb_pose_tests {
+    use super::*;
+    use ambition_boss_special_port::{LimbHold, LimbPose};
+    use ambition_characters::actor::{LimbRig, LimbSlot};
+    use ambition_extension_host::Submitted;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    fn submit(world: &mut World, boss: Entity, pose: LimbPose) {
+        let request = Submitted { scope: boss, occurrence: None, entry: "test::gnu/conduct".into(), value: pose };
+        world.run_system_once_with(pose_limbs, vec![request]).unwrap();
+    }
+
+    /// ⭐ A hold poses the limb, holds it and clears its ground; a release
+    /// lets it fall straight down from where it is. The control: a slot the
+    /// rig does not have changes nothing.
+    #[test]
+    fn a_held_limb_is_where_it_was_put_and_a_released_one_falls() {
+        let mut world = World::new();
+        let mut fist = ae::BodyKinematics::default();
+        fist.pos = ae::Vec2::new(600.0, 1000.0);
+        fist.vel = ae::Vec2::new(40.0, 90.0);
+        let mut ground = ae::BodyGroundState::default();
+        ground.on_ground = true;
+        let limb = world.spawn((fist, ae::CenteredAabb::new(fist.pos, ae::Vec2::new(65.0, 50.0)), ground)).id();
+        let mount = world.spawn(LimbRig::from_pairs([(LimbSlot::HAND_LEFT, limb)])).id();
+        let boss = world.spawn(ambition_mount::RidingOn { mount }).id();
+
+        submit(&mut world, boss, LimbPose { slot: "hand_right".into(), hold: Some(LimbHold { position: [1.0, 1.0], velocity: [0.0; 2], facing: -1.0 }) });
+        let kin = *world.get::<ae::BodyKinematics>(limb).unwrap();
+        assert_eq!((kin.pos, kin.vel), (ae::Vec2::new(600.0, 1000.0), ae::Vec2::new(40.0, 90.0)), "another slot moved the limb");
+        assert!(world.get::<ae::PoseOwnedExternally>(limb).is_none(), "another slot held the limb");
+
+        submit(&mut world, boss, LimbPose { slot: "hand_left".into(), hold: Some(LimbHold { position: [630.0, 970.0], velocity: [12.0, -3.0], facing: -1.0 }) });
+        let kin = *world.get::<ae::BodyKinematics>(limb).unwrap();
+        assert_eq!((kin.pos, kin.vel, kin.facing), (ae::Vec2::new(630.0, 970.0), ae::Vec2::new(12.0, -3.0), -1.0));
+        assert_eq!(world.get::<ae::CenteredAabb>(limb).unwrap().center, ae::Vec2::new(630.0, 970.0));
+        assert!(!world.get::<ae::BodyGroundState>(limb).unwrap().on_ground, "a posed limb's ground is cleared");
+        assert!(world.get::<ae::PoseOwnedExternally>(limb).is_some(), "a posed limb is held");
+
+        submit(&mut world, boss, LimbPose { slot: "hand_left".into(), hold: None });
+        let kin = *world.get::<ae::BodyKinematics>(limb).unwrap();
+        assert_eq!((kin.pos, kin.vel), (ae::Vec2::new(630.0, 970.0), ae::Vec2::new(0.0, -3.0)), "a released limb falls straight down");
+        assert!(world.get::<ae::PoseOwnedExternally>(limb).is_none(), "a released limb is not held");
+    }
+}
+
+#[cfg(test)]
+mod drawn_row_tests {
+    use super::*;
+    use ambition_characters::actor::{LimbRig, LimbSlot};
+    use ambition_extension_host::Submitted;
+    use ambition_sprite_sheet::character::PinnedRow;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    fn draw(world: &mut World, boss: Entity, row: DrawnRow) {
+        let request = Submitted { scope: boss, occurrence: None, entry: "test::gnu/conduct".into(), value: row };
+        world.run_system_once_with(draw_rows, vec![request]).unwrap();
+    }
+
+    fn rows(world: &World, part: Entity) -> Option<Vec<String>> {
+        world.get::<PinnedRow>(part).map(|row| row.rows.clone())
+    }
+
+    /// ⭐ A row is pinned on the part it names: the boss, the mount it rides,
+    /// or a limb of that mount, with every fallback name kept in order; no
+    /// names clears it. The control: a slot the rig does not have draws
+    /// nothing anywhere.
+    #[test]
+    fn a_row_is_drawn_on_the_part_it_names() {
+        let mut world = World::new();
+        let fist = world.spawn_empty().id();
+        let gnu = world.spawn((LimbRig::from_pairs([(LimbSlot::HAND_LEFT, fist)]), PinnedRow::default())).id();
+        let scholar = world.spawn(ambition_mount::RidingOn { mount: gnu }).id();
+
+        let names = |names: &[&str]| names.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+        draw(&mut world, scholar, DrawnRow { on: DrawnPart::Limb("hand_right".into()), names: names(&["hit"]), elapsed: 0.0, looping: false });
+        assert_eq!((rows(&world, scholar), rows(&world, gnu), rows(&world, fist)), (None, Some(Vec::new()), None), "a missing slot drew a row");
+
+        draw(&mut world, scholar, DrawnRow { on: DrawnPart::Limb("hand_left".into()), names: names(&["hit", "rest"]), elapsed: 0.0, looping: false });
+        draw(&mut world, scholar, DrawnRow { on: DrawnPart::Mount, names: names(&["buck"]), elapsed: 0.3, looping: false });
+        draw(&mut world, scholar, DrawnRow::body("tumble", 0.1, true));
+        assert_eq!(rows(&world, fist), Some(names(&["hit", "rest"])), "the limb keeps its fallback");
+        assert_eq!(rows(&world, gnu), Some(names(&["buck"])));
+        assert_eq!(rows(&world, scholar), Some(names(&["tumble"])));
+        let pinned = world.get::<PinnedRow>(gnu).unwrap();
+        assert_eq!((pinned.elapsed, pinned.looping), (0.3, false));
+
+        draw(&mut world, scholar, DrawnRow { on: DrawnPart::Mount, names: Vec::new(), elapsed: 0.0, looping: false });
+        assert_eq!(rows(&world, gnu), Some(Vec::new()), "no names draws the mount as the engine would");
+        assert_eq!(rows(&world, scholar), Some(names(&["tumble"])), "the mount's clear left the rider alone");
     }
 }

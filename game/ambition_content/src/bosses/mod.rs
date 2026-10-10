@@ -495,6 +495,9 @@ impl Plugin for AmbitionBossContentPlugin {
 }
 
 #[cfg(test)]
+mod conduct_trigger_tests;
+
+#[cfg(test)]
 mod apple_rain_animation_key_tests {
     use ambition_characters::brain::BossAttackProfile;
 

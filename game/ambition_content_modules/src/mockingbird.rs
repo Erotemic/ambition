@@ -781,7 +781,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         c.dead_t += dt;
         c.pos_x = pos.x;
         c.pos_y = pos.y;
-        inv.submit::<DrawnRowPort>(DrawnRow { name: Some("death".into()), elapsed: c.dead_t, looping: false })?;
+        inv.submit::<DrawnRowPort>(DrawnRow::body("death", c.dead_t, false))?;
         inv.submit::<ConductedPosePort>(ConductedPose {
             pose: Some(Pose { position: pos.into(), velocity: [0.0, 0.0] }),
             side,
@@ -1088,7 +1088,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         side,
     })?;
     let row = drawn_row(&c, part, chomped);
-    inv.submit::<DrawnRowPort>(DrawnRow { name: Some(row.0.into()), elapsed: row.1, looping: row.2 })?;
+    inv.submit::<DrawnRowPort>(DrawnRow::body(row.0, row.1, row.2))?;
     c.store(inv)
 }
 

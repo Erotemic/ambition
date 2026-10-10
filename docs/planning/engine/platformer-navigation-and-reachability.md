@@ -255,6 +255,18 @@ control, with no climb the top is out of reach). Poison: no hold-up, red at
 the wall-climb link. A wall jump (a kick off one face to another) is still
 no leg.
 
+Flight is one leg, the fly leg (2026-10-10), for a body that can toggle
+flight: toggle at the start, rise to 32 px above the landing
+(`FLIGHT_CLEARANCE`), go along to it, toggle off at half that height and fall
+onto it. It is proposed last, only where nothing else arrives, and only up.
+A flight rises straight from its start, so besides the hop proposals it
+starts beside each end of a block it rises past: an opening in a ceiling
+starts there. A flight that stops in the air for 15 steps fails. Guards:
+`a_body_that_flies_gets_up_to_what_no_jump_reaches` (control: no flight, out
+of reach; poison: no fly proposal, red at the fly link) and
+`a_flight_goes_up_through_a_grate_from_under_it` (control: no gap, out of
+reach; poison: no block-end starts, red at the fly link).
+
 A leg whose body the kernel resets fails its rollout (2026-10-10): a hazard
 in its air, or a fall out of the world. The rollout reads the kernel's own
 reset flag, so a leg is never kept that the body survives only in the probe.
@@ -271,7 +283,8 @@ exit assertion.
 The walked route (2026-10-10):
 `a_walked_route_of_the_persistent_world::the_player_walks_from_the_hub_to_alice_and_bob`
 (`app_it`) walks the player from the hub to Alice and Bob through seven
-crossings. In each room it builds the graph for the player's own body over
+crossings, and the playthrough walks the same road by keys in the shipped App
+(`common::walk`, both drivers). In each room it builds the graph for the player's own body over
 the room as the body collides with it (the authored blocks and each standing
 gate solid, `world_with_gate_solids_and_carves`), with the other overlap exits
 avoided, and it gives the player the stick and jump that
@@ -291,7 +304,7 @@ blocks only, red at `alice_relay` (the body walks into the lock and stops).
 Not modelled, each a seam:
 
 - a drop through a one-way surface, a second air jump, an air jump in a drop,
-  a dash, a wall jump, flight;
+  a dash, a wall jump, permanent flight, a pogo bounce;
 - a slope or a surface chain, a surface that moves;
 - geometry that is not authored in the room (a gate, a breakable). A leg such a
   thing stops fails, and the brain plans again;

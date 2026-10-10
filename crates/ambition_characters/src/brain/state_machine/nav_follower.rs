@@ -109,6 +109,7 @@ impl NavFollower {
             }
             out.jump_pressed = input.jump_pressed;
             out.jump_held = input.jump_held;
+            out.fly_toggle_pressed = input.fly_toggle;
             match progress {
                 LegProgress::Going(phase) => self.phase = phase,
                 LegProgress::Arrived => {

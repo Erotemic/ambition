@@ -6,6 +6,8 @@
 //! end-to-end scripts, but the neutral `AgentAction` and fixed-60Hz sim setup are
 //! common enough that copying them into every test obscures the scenario logic.
 
+pub mod walk;
+
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};

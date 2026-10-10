@@ -262,7 +262,7 @@ fn height_of(world: &World, scope: Entity) -> Option<f32> {
 }
 
 fn lower_emits(mut outbox: ResMut<ExtensionOutbox>, mut lowered: ResMut<Lowered>) {
-    for s in outbox.drain::<Emit>() {
+    for s in outbox.drain::<Emit>(&PHASE) {
         lowered.0.push((s.scope, s.occurrence, s.value));
     }
 }
@@ -285,6 +285,98 @@ fn app() -> App {
 fn step(app: &mut App) {
     app.world_mut().run_schedule(Sim);
     app.world_mut().resource_mut::<SimTick>().0 += 1;
+}
+
+/// A port offered in two phases has an adapter in each, and each lowers only
+/// what its own phase's invocations submitted. Here the schedule runs phase
+/// A's lowering after phase B's invocation, which nothing in a composition
+/// forbids: A's adapter must leave B's request for B's adapter.
+#[test]
+fn each_phase_lowers_only_the_requests_its_own_invocations_submitted() {
+    const A: Phase = Phase::new("phase_a");
+    const B: Phase = Phase::new("phase_b");
+    struct InA;
+    impl LowersIn for InA {
+        const PHASE: Phase = A;
+    }
+    struct InB;
+    impl LowersIn for InB {
+        const PHASE: Phase = B;
+    }
+    /// (lowered by phase A's adapter, the poke it carried).
+    #[derive(Resource, Default)]
+    struct ByPhase(Vec<(bool, u32)>);
+
+    fn emit(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+        let poke = *inv.trigger::<Poke>()?;
+        inv.submit::<Emit>((poke, 0, 0.0))
+    }
+    fn collect<L: LowersIn>(mut invocations: ResMut<ExtensionInvocations>, bodies: Query<(Entity, &Poked)>) {
+        // Phase B's pokes are 1000 more, to tell them apart.
+        let tag = if L::PHASE == A { 0 } else { 1000 };
+        for (entity, poked) in &bodies {
+            invocations.trigger::<Poke>(&L::PHASE, "go", entity, None, false, poked.0 + tag);
+        }
+    }
+    fn lower<L: LowersIn>(mut outbox: ResMut<ExtensionOutbox>, mut by: ResMut<ByPhase>) {
+        for s in outbox.drain::<Emit>(&L::PHASE) {
+            by.0.push((L::PHASE == A, s.value.0));
+        }
+    }
+    let entry_in = |key: &'static str, phase: Phase| EntryDescriptor {
+        key: key.into(),
+        phase,
+        trigger: TriggerBinding {
+            port: Poke::KEY,
+            selector: "go".into(),
+        },
+        reads: Vec::new(),
+        writes: Vec::new(),
+        requests: vec![Emit::KEY],
+        after: Vec::new(),
+        limits: Limits { max_requests: 1 },
+        on_idle: IdlePolicy::Invoke,
+        run: EntryCode::Native(emit),
+    };
+    let mut app = App::new();
+    app.init_schedule(Sim);
+    app.add_plugins(ExtensionHostPlugin::new(Sim))
+        .init_resource::<ByPhase>()
+        .init_resource::<SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
+        .install_extension_trigger::<Poke, _>(A, "test", collect::<InA>)
+        .install_extension_trigger::<Poke, _>(B, "test", collect::<InB>)
+        .install_extension_request::<Emit, _>(A, "test", lower::<InA>)
+        .install_extension_request::<Emit, _>(B, "test", lower::<InB>)
+        .add_extension_module(ModuleDescriptor {
+            key: ModuleKey::new("test", "phases"),
+            api: API_VERSION,
+            code: CodeIdentity::StaticNative {
+                crate_name: "test".into(),
+                version: "0".into(),
+            },
+            schemas: Vec::new(),
+            entries: vec![entry_in("a", A), entry_in("b", B)],
+        })
+        .configure_sets(
+            Sim,
+            (
+                ExtensionSet::Collect(A),
+                ExtensionSet::Invoke(A),
+                ExtensionSet::Collect(B),
+                ExtensionSet::Invoke(B),
+                ExtensionSet::Lower(A),
+                ExtensionSet::Lower(B),
+            )
+                .chain(),
+        );
+    app.finish();
+    app.world_mut().spawn(Poked(1));
+    step(&mut app);
+    let mut by = app.world().resource::<ByPhase>().0.clone();
+    by.sort();
+    assert_eq!(by, vec![(false, 1001), (true, 1)], "a request was lowered by the other phase's adapter");
+    assert!(app.world().resource::<ExtensionOutbox>().is_empty());
 }
 
 #[test]

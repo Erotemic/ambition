@@ -5,7 +5,9 @@
 //! the invocation's body as owner and the invocation's move use as credit.
 //! The module cannot name another owner or another move use.
 
-use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox};
+use ambition_extension_host::{
+    ExtensionAppExt, ExtensionOutbox, InBossConduct, InModuleEntityTick, InTechniqueExecution, InWieldedUse, LowersIn,
+};
 use ambition_extension_sdk::phases::{BOSS_CONDUCT, MODULE_ENTITY_TICK, TECHNIQUE_EXECUTION, WIELDED_USE};
 use ambition_projectile_spec::ProjectileSpawnPort;
 use bevy::prelude::*;
@@ -51,21 +53,11 @@ pub fn install_for_boss_conduct(app: &mut App) {
     );
 }
 
-/// The phase a request adapter instance lowers for: one port offered in two
-/// phases has two named adapter systems, not one system registered twice.
-pub struct InTechniqueExecution;
-/// See [`InTechniqueExecution`].
-pub struct InWieldedUse;
-/// See [`InTechniqueExecution`].
-pub struct InModuleEntityTick;
-/// See [`InTechniqueExecution`].
-pub struct InBossConduct;
-
-fn lower_projectile_spawns<Phase: Send + Sync + 'static>(
+fn lower_projectile_spawns<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut spawns: MessageWriter<ProjectileSpawnRequest>,
 ) {
-    for submitted in outbox.drain::<ProjectileSpawnPort>() {
+    for submitted in outbox.drain::<ProjectileSpawnPort>(&L::PHASE) {
         spawns.write(
             ProjectileSpawnRequest::open(
                 submitted.scope,

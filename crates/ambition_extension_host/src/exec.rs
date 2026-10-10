@@ -98,6 +98,9 @@ pub struct Submitted<T> {
 
 struct OutboxItem {
     port: PortKey,
+    /// The phase whose invocation submitted it: only that phase's adapter
+    /// lowers it.
+    phase: Phase,
     scope: Entity,
     occurrence: Option<u32>,
     entry: Arc<str>,
@@ -111,12 +114,20 @@ pub struct ExtensionOutbox {
 }
 
 impl ExtensionOutbox {
-    /// Remove and return every submitted request of port `P`, in submit order.
-    pub fn drain<P: Port>(&mut self) -> Vec<Submitted<P::Value>> {
+    /// Remove and return every request of port `P` that an invocation of
+    /// `phase` submitted, in submit order.
+    ///
+    /// ⛔ THE PHASE IS PART OF THE ADDRESS. A port offered in two phases has an
+    /// adapter in each. Nothing orders one phase's adapter against the other
+    /// phase's invocations, so a drain by port alone could take the other
+    /// phase's requests and lower them with this phase's rules, or drop them.
+    /// Measured 2026-10-10 in a harness that left its phases unordered: the
+    /// `technique_execution` held-box adapter took the `boss_conduct` shocks.
+    pub fn drain<P: Port>(&mut self, phase: &Phase) -> Vec<Submitted<P::Value>> {
         let mut out = Vec::new();
         let mut keep = Vec::with_capacity(self.items.len());
         for item in self.items.drain(..) {
-            if item.port != P::KEY {
+            if item.port != P::KEY || item.phase != *phase {
                 keep.push(item);
                 continue;
             }
@@ -139,6 +150,36 @@ impl ExtensionOutbox {
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
+}
+
+/// The phase a request adapter lowers for. A port offered in two phases has
+/// one adapter system for each, generic over its phase marker: two named
+/// systems, not one system registered twice, and each drains only its own
+/// phase's requests ([`ExtensionOutbox::drain`]).
+pub trait LowersIn: Send + Sync + 'static {
+    const PHASE: Phase;
+}
+
+/// The marker of `technique_execution`. See [`LowersIn`].
+pub struct InTechniqueExecution;
+/// The marker of `wielded_use`. See [`LowersIn`].
+pub struct InWieldedUse;
+/// The marker of `module_entity_tick`. See [`LowersIn`].
+pub struct InModuleEntityTick;
+/// The marker of `boss_conduct`. See [`LowersIn`].
+pub struct InBossConduct;
+
+impl LowersIn for InTechniqueExecution {
+    const PHASE: Phase = ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
+}
+impl LowersIn for InWieldedUse {
+    const PHASE: Phase = ambition_extension_sdk::phases::WIELDED_USE;
+}
+impl LowersIn for InModuleEntityTick {
+    const PHASE: Phase = ambition_extension_sdk::phases::MODULE_ENTITY_TICK;
+}
+impl LowersIn for InBossConduct {
+    const PHASE: Phase = ambition_extension_sdk::phases::BOSS_CONDUCT;
 }
 
 /// A recorded fault. Diagnostic only: it is not rollback state.
@@ -269,6 +310,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                         let mut outbox = world.resource_mut::<ExtensionOutbox>();
                         outbox.items.extend(requests.into_iter().map(|(port, value)| OutboxItem {
                             port,
+                            phase: phase.clone(),
                             scope: invocation.scope,
                             occurrence: invocation.occurrence,
                             entry: path.clone(),

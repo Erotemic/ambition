@@ -12,7 +12,10 @@ use ambition_boss_special_port::{BossCaster, BossSpecialCast, BossSummonPort};
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_characters::brain::{ActorActionMessage, BossAttackProfile, BossAttackState};
 use ambition_combat::components::ActorTarget;
-use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
+use ambition_extension_host::{
+    AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox, InBossConduct, InTechniqueExecution,
+    LowersIn,
+};
 use ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
 use ambition_extension_sdk::Port;
 use ambition_platformer2d_core::{AabbExt, BodyKinematics};
@@ -87,18 +90,12 @@ pub fn install_conduct(app: &mut App) {
     );
 }
 
-/// The phase a request adapter instance lowers for: one port offered in two
-/// phases has two named adapter systems, not one system registered twice.
-pub struct InTechniqueExecution;
-/// See [`InTechniqueExecution`].
-pub struct InBossConduct;
-
-fn lower_boss_summons<Phase: Send + Sync + 'static>(
+fn lower_boss_summons<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     bosses: Query<&BossConfig>,
 ) {
-    for submitted in outbox.drain::<BossSummonPort>() {
+    for submitted in outbox.drain::<BossSummonPort>(&L::PHASE) {
         // ⛔ SUBMITTED IS NOT APPLIED. Only a boss has an encounter to put a
         // minion in.
         let Ok(boss) = bosses.get(submitted.scope) else {

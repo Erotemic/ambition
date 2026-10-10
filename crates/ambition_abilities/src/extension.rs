@@ -13,7 +13,10 @@ use ambition_combat_port::{
     BodySoundPort, EndModuleEntityPort, ModuleEntityTickPort, PullBodiesPort, SpawnModuleEntityPort, SpendManaPort,
     WieldedUsePort, Wielder,
 };
-use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
+use ambition_extension_host::{
+    AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox, InBossConduct, InModuleEntityTick,
+    InWieldedUse, LowersIn,
+};
 use ambition_extension_sdk::phases::{BOSS_CONDUCT, MODULE_ENTITY_TICK, WIELDED_USE};
 use ambition_extension_sdk::Port;
 use ambition_platformer2d_core::resources::ActorResources;
@@ -73,14 +76,6 @@ pub fn install_for_boss_conduct(app: &mut App) {
         lower_body_sounds::<InBossConduct>,
     );
 }
-
-/// The phase a request adapter instance lowers for: one port offered in two
-/// phases has two named adapter systems, not one system registered twice.
-pub struct InWieldedUse;
-/// See [`InWieldedUse`].
-pub struct InModuleEntityTick;
-/// See [`InWieldedUse`].
-pub struct InBossConduct;
 
 /// One invocation for each body holding a bound item, in an order a rewind
 /// reproduces (the body's simulation identity, then its entity).
@@ -146,7 +141,7 @@ pub fn queue_wielded_uses(
 }
 
 fn lower_mana_spends(mut outbox: ResMut<ExtensionOutbox>, mut banks: Query<Option<&mut ActorResources>>) {
-    for submitted in outbox.drain::<SpendManaPort>() {
+    for submitted in outbox.drain::<SpendManaPort>(&WIELDED_USE) {
         let Ok(bank) = banks.get_mut(submitted.scope) else {
             continue;
         };
@@ -160,8 +155,8 @@ fn lower_mana_spends(mut outbox: ResMut<ExtensionOutbox>, mut banks: Query<Optio
     }
 }
 
-fn lower_body_sounds<Phase: Send + Sync + 'static>(mut outbox: ResMut<ExtensionOutbox>, mut sfx: ambition_sfx::BodySfxWriter) {
-    for submitted in outbox.drain::<BodySoundPort>() {
+fn lower_body_sounds<L: LowersIn>(mut outbox: ResMut<ExtensionOutbox>, mut sfx: ambition_sfx::BodySfxWriter) {
+    for submitted in outbox.drain::<BodySoundPort>(&L::PHASE) {
         let sound = submitted.value;
         sfx.write_for(
             submitted.scope,

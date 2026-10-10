@@ -88,7 +88,7 @@ pub fn lower_module_entity_spawns(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut commands: Commands,
 ) {
-    for submitted in outbox.drain::<SpawnModuleEntityPort>() {
+    for submitted in outbox.drain::<SpawnModuleEntityPort>(&ambition_extension_sdk::phases::WIELDED_USE) {
         let Ok((id, counter, session, side, driver, team)) = spawners.get_mut(submitted.scope) else {
             continue;
         };
@@ -236,7 +236,7 @@ pub fn lower_module_entity_ends(
     entities: Query<(), With<ModuleEntity>>,
     mut commands: Commands,
 ) {
-    for submitted in outbox.drain::<EndModuleEntityPort>() {
+    for submitted in outbox.drain::<EndModuleEntityPort>(&ambition_extension_sdk::phases::MODULE_ENTITY_TICK) {
         if entities.contains(submitted.scope) {
             commands.entity(submitted.scope).despawn();
         } else {
@@ -274,7 +274,7 @@ pub fn lower_body_pulls(
         With<FeatureSimEntity>,
     >,
 ) {
-    let pulls = outbox.drain::<PullBodiesPort>();
+    let pulls = outbox.drain::<PullBodiesPort>(&ambition_extension_sdk::phases::MODULE_ENTITY_TICK);
     let dt = world_time.sim_dt();
     if dt <= 0.0 {
         return;

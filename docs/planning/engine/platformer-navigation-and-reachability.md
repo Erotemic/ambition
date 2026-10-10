@@ -242,6 +242,50 @@ Not modelled, each a seam:
 - a gravity frame that is not axis-aligned;
 - `WhyNot`: an unreachable goal is `NavNext::Unreachable` with no reason.
 
+## The cross-room slices: a character fetches an item from another room (design, 2026-10-09)
+
+The queue's NAVIGATION row asks for a character that sees an item in another
+room, decides whether it can reach it, goes there with its real movement, and
+does a typed action. What the tree has, measured 2026-10-09:
+
+- A route over rooms: `RoomSet::route` (fewest rooms, by authored zones).
+- A body moves from one live room to another only as a crossing's subject (a
+  driven body) or in its custody. The player road
+  (`RoomTransitionIntent` and the room transaction) is not for a body that no
+  slot drives: with no participant, `another_player_stays` is false and the
+  crossing would retire the room the body leaves, and the road runs the room
+  load. The second-seat return (`sandbox_reset.rs`) moves a body between two
+  live rooms directly: it stamps the body's custody closure with the
+  destination's `InRoomInstance` and calls `transit_body`.
+- A body left in a room that is not live is rebuilt there from its `Placed`
+  whereabouts row (`a_character_left_elsewhere_stays_there`).
+- A held item is taken only by a driven body, on an Attack press
+  (`pickup_held_item_system`). `ActionRequest` has no take.
+- Goals: absent ([agentic character runtime](agentic-character-runtime.md)).
+
+The slices, each with its own witness:
+
+1. **A goal given from outside, in one room.** A deterministic goal on a
+   body (fetch the item with this `SimId`), rollback state, that a navigating
+   brain honours: it goes to the item by the in-room graph and ends the goal
+   as done or refused, with the reason (no route, the item is gone). The take
+   is a typed request, not a press, so a brain that attacks near an item does
+   not take it. Acceptance arm in one room: a reachable item is fetched, an
+   unreachable one is refused, and a body without the jump it needs refuses
+   the first.
+2. **A crossing into a live room.** A body whose goal is behind a zone goes to
+   the zone (the first hop of the route) and, in it, moves into the live room
+   of the destination by the second-seat road: custody closure stamped,
+   `transit_body` to the zone's arrival. Only into a room that is live, so no
+   room is opened or retired for a body no slot drives.
+3. **A crossing into a room that is not live.** The body leaves through the
+   ledger: despawned, with a `Placed` row in the destination at the arrival.
+   Only for a body whose whereabouts are durable.
+
+Not in these slices: enemy navigation and a baked graph (Jon's open
+decisions), a door that needs Interact (a body crosses edge zones first), and
+legs for an air jump, a wall verb or a dash.
+
 ## Architecture direction
 
 ### Use real body capabilities

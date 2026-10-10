@@ -340,7 +340,16 @@ reads cargo output to it.
    run that writes the default status records evidence, so a test's fake
    jobs do not. Not held: the demo rule's fourth case (an instrument a demo
    test reads), the external-consumer fixtures, the matrix rows without a
-   path, and a peer's change merged after the run.
+   path, and a peer's change merged after the run. Two more rows are held
+   (2026-10-09): a change to `game/ambition_content/assets` or the map
+   assets requires the content arms (`declared_art_resolves`,
+   `registered_character_art`), and a rollback registration or
+   `sim_phase_pins.rs` requires the `rollback_` arms and the repo tooling
+   job. A check named by test name counts for a run whose filter is part of
+   that name. Found on the way: a filtered nextest run certified the whole
+   crate, because `run_tests.py` gives nextest its filter as a bare word and
+   the rule looked for it after `--` (witness: the nextest rows of
+   `test_only_a_default_feature_run_of_every_target_covers_a_package`).
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
@@ -388,6 +397,10 @@ production invariant.
 
 **Owner:** [navigation and reachability](engine/platformer-navigation-and-reachability.md),
 with the [agentic character runtime](engine/agentic-character-runtime.md) (P6).
+The cross-room items (MISSING 1-4) are claimed by this session
+(ClaudeAmbition) from ToothbrushAmbition, 2026-10-09; the in-room legs stay
+theirs. Inside Jon's scope: a companion or NPC crosses rooms. Not built:
+enemy navigation and a baked graph (both Jon's open decisions).
 
 **Current failure:** typed actions, world facts, memory and combat policy exist.
 In-room navigation exists since 2026-10-09 (a surface graph, checked in the
@@ -409,10 +422,17 @@ What the in-room slice gives this row, and what it does not (2026-10-09):
   same body with no jump cannot reach what needs one
   (`a_body_with_no_jump_cannot_reach_what_needs_one`).
 - MISSING, in the order they block: (1) a non-player body that goes through a
-  `LoadingZone` into another live room. I found no code that does it; my
-  search was for the room stamp's writers and for a transfer by name, so this
-  is not a proof. (2) A route over rooms at run time: the door graph is known
-  to `scripts/check_world_graph_is_navigable.py` and not to the engine.
+  `LoadingZone` into another live room. Measured 2026-10-09: a body crosses
+  only as a crossing's subject (a body a player slot drives, a possessed one
+  too) or in its custody (a ridden mount, a limb, a held item); detection
+  (`detect_room_transition_system`) reads driven bodies only. A body left in
+  another room is rebuilt there from its `Placed` whereabouts row
+  (`a_character_left_elsewhere_stays_there`). (2) A route over rooms at run
+  time: done 2026-10-09, `RoomSet::route` (fewest rooms, by the authored
+  zones; witness `a_route_over_rooms_goes_by_zones_that_cross_where_it_says`,
+  which holds each hop and the route's length against the crossing rule;
+  it reaches 75 of the 76 shipped rooms from the hub, and `sanic_sandbox` has
+  no zone that leads into it).
   (3) A goal a brain can be given from outside ("fetch that"): `Roam` chooses
   its own places, and the brain seam is closed
   ([agentic character runtime](engine/agentic-character-runtime.md)).

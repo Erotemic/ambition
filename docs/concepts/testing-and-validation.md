@@ -87,7 +87,7 @@ list only says when to ask them:
 | Boundary | Run | Owner of the rule |
 | --- | --- | --- |
 | Each edit | The cheapest check that can fail for the change | [cheapest sufficient check](../recipes/cheapest-sufficient-check.md#the-matrix) |
-| Each push | The checks `python3 scripts/required_checks.py` names for the change (a changed crate's own tests, the demo host lane for its paths, the repo tooling job for `scripts/`, the LDtk tool job for its tool), and `cargo check --workspace --all-targets` | `scripts/required_checks.py`; it reports and a push does not wait for it (Q166) |
+| Each push | The checks `python3 scripts/required_checks.py` names for the change, and `cargo check --workspace --all-targets` | `scripts/required_checks.py`; it reports and a push does not wait for it (Q166) |
 | Handoff or milestone | The default plan, `./run_tests.sh` | `scripts/run_tests.py`; its footer names what the plan does not cover |
 | Release, or a change to features, an SDK surface or the web path | `./run_tests.sh --run-everything-you-probably-dont-need-this` | the same footer |
 

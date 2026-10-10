@@ -231,6 +231,59 @@ impl RoomSet {
         neighbors
     }
 
+    /// The fewest-rooms route from room `from` to room `to`: each hop is a
+    /// room, the zone in it that leads on, and the room that zone leads to.
+    /// Empty when `from` is `to`; `None` when no chain of zones gets there.
+    ///
+    /// A route over the authored zones only. A zone that a gate or a body's
+    /// movement keeps shut is still a hop here: the in-room navigation of each
+    /// room says whether the body can get to the zone.
+    ///
+    /// Deterministic: rooms and zones are taken in index and id order, so the
+    /// same set gives the same route on each peer.
+    pub fn route(&self, from: usize, to: usize) -> Option<Vec<RoomHop>> {
+        if from >= self.rooms.len() || to >= self.rooms.len() {
+            return None;
+        }
+        let mut came_by: Vec<Option<RoomHop>> = vec![None; self.rooms.len()];
+        let mut seen = vec![false; self.rooms.len()];
+        let mut queue = std::collections::VecDeque::from([from]);
+        seen[from] = true;
+        while let Some(room) = queue.pop_front() {
+            if room == to {
+                break;
+            }
+            let Some(&node) = self.room_nodes.get(room) else {
+                continue;
+            };
+            let mut out: Vec<(usize, &str)> = self
+                .graph
+                .edges_directed(node, Direction::Outgoing)
+                .map(|edge| (edge.target().index(), edge.weight().from_zone.as_str()))
+                .filter(|(target, _)| *target < self.rooms.len())
+                .collect();
+            out.sort_unstable();
+            for (target, zone) in out {
+                if !seen[target] {
+                    seen[target] = true;
+                    came_by[target] = Some(RoomHop { from: room, zone: zone.to_string(), to: target });
+                    queue.push_back(target);
+                }
+            }
+        }
+        if !seen[to] {
+            return None;
+        }
+        let mut hops = Vec::new();
+        let mut at = to;
+        while let Some(hop) = came_by[at].clone() {
+            at = hop.from;
+            hops.push(hop);
+        }
+        hops.reverse();
+        Some(hops)
+    }
+
     /// [`Self::neighboring_room_indices_of`], nearest first: each neighbour by
     /// the distance from the nearest of `standing` (points in `room`'s
     /// coordinates: the bodies the players drive there) to the nearest door of

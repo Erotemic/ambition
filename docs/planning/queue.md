@@ -40,8 +40,8 @@ The risk now is improving components one at a time without exercising the
 whole engine. Work in this order, and fix an authoritative-state defect found on
 the way in its own slice:
 
-1. **P0 below:** A4 (BAG-RECORD-HORIZON and AUTHORITY-POLISH are receipts;
-   the first's open line is Q161). C03 stops as a
+1. **P0:** A4, BAG-RECORD-HORIZON and AUTHORITY-POLISH are receipts
+   (BAG-RECORD-HORIZON's open line is Q161). C03 stops as a
    campaign after its family 7: a remaining session resource moves only when a
    two-session witness shows it leaks
    ([consolidation plan §3](consolidation/consolidation-plan.md#3-c03--consolidate-session-owned-state-and-reduce-reset-only-app-globals)).
@@ -60,70 +60,6 @@ universal planner and the Bevy 0.20 upgrade. Q157 is Jon's decision; build
 neither side of it.
 
 ## P0 — architecture and correctness
-
-### A4 — separate control authority from body execution on the real schedule
-
-**Owner:** accepted control writer map and actor-monolith frontier.
-
-**Current state:** the prerequisite writer census is complete and did not find a
-competing control authority. The old `PlatformerRuntimeSet` vocabulary is gone; <!-- cite-ok: the DELETED `PlatformerRuntimeSet` vocabulary, named on purpose: a resolvable citation here would mean the deletion did not happen -->
-the real realization places body integration inside
-`WorldPrepSet::Integrate`. Prior prose that mapped old and new set names by name
-is not an implementation guide.
-
-**Measured 2026-10-08:** `sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
-reads the declared access of every system in the shipped `GgrsSchedule`. It found
-22 `ActorControl` writers, none unordered against `PlayerInputSet::ControlGate`.
-Four produced intent after the gate. All four are moved (2026-10-09):
-
-- `shark_ride::tick_departures` runs after `ActorDecisionSet::Publish` and before
-  the gate.
-- The boss brain (`tick_boss_brains_system`) runs after `ActorDecisionSet::Publish`
-  and before the gate, and `BossSteerSlot` (`face_conducted_bosses`, content
-  steering) is in the gate after `blank_scripted_control_frames` and after
-  `drive_commanded_moves`.
-  `integrate_boss_bodies` stays after contact damage. Witness:
-  `boss_motion_parity::the_frame_a_held_boss_integrates_under_is_the_gated_one`
-  (control: the unheld brain writes a moving frame). Poison (the old schedule):
-  red, 60 of 60 ticks under the brain's frame.
-
-`WRITES_CONTROL_AFTER_THE_GATE` now lists only systems that spend a press,
-integrate, or derive from a gated frame.
-
-**Open:**
-
-- **One commanded-move road (done 2026-10-09).** `drive_commanded_moves`
-  walks every body that carries a `CommandedMove`, a boss too: a boss's
-  attack intent and presses are cleared, and a dead body is not walked.
-  Deleted: `tick_commanded_moves` and its registration by the content plugin.
-  The `BossSteerSlot` now runs after the walk, so a conducted facing or content
-  steering has the last word. Measured: the cut-rope lure's trajectory is
-  byte-identical over 240 ticks with the two roads and with the one (the boss
-  integrator reads `velocity_target`, which the walker does not change on a
-  normal frame). Witnesses: `a_lured_boss_walks_to_its_mark_and_starts_no_attack`,
-  `a_dead_body_is_not_walked` and `the_cut_rope_walks_the_boss_to_its_mark`.
-  Poisons: the walk skips bosses, red at "did not walk to its mark ... no
-  nearer than 320"; the intent kept, red at "a lured boss still wants to
-  attack".
-- **The Mockingbird's brain moves nothing (measured 2026-10-09).** In its
-  shipped sky the conductor owns the bird's pose (`ConductedPose`, then
-  `PoseOwnedExternally`), and the path with a `ControlHold` equals the path
-  without, to the pixel, while the unheld brain writes a moving frame
-  (`its_path_is_its_conductors_and_a_hold_on_its_brain_changes_nothing`).
-  With the conductor made never to submit a pose, the bird does not move at
-  all (0.0 px over 300 ticks), so the brain's movement frame has no reader
-  for this boss. The harness boss of `boss_motion_parity` is the same: 174.0
-  px held or not. `woken_boss_moves_and_stays_afloat` says "the pattern's
-  desired velocity is ... reaching the integrator", and for this boss it is
-  not. Open: whether the brain should write no movement frame for a
-  conducted boss. That frame is a write with no reader; deleting it is
-  allowed (Q74: an inert parameter is deletable for lying).
-
-**Acceptance:** one accepted control fact feeds one body execution road; no
-second body tick or hidden writer is introduced; schedule witnesses are placed
-between actual neighboring phases rather than only `.after(...)` an abstract set.
-
-## P1 — ownership, composition and iteration
 
 ### WORLD-ACCEPTANCE — one headless playthrough of the persistent world
 
@@ -221,6 +157,18 @@ survey are `KeyItem` bag quantities (`items.ron`, no `held_item_id`), so they
 are accounted by count and have no instance identity. The object with an
 identity and a custody is the Blink. A note as an object is a content
 decision, not a defect.
+
+**A walked route waits on NAVIGATION (measured 2026-10-09).** The route is
+placed, not walked (WA6). A temporary probe built the in-room `NavGraph` for
+the player's own body (its `MotionModel`, abilities and box) at each of the
+playthrough's ten crossings, with the goal on the surface nearest the exit
+zone. It routed 5 of 10: drain_alley to under_town_pipes, under_town_pipes
+to alice_relay, both alice_relay to bob_relay crossings, and bob_relay to
+alice_relay. The other five (the hub to intro_wake_room, out of
+intro_wake_room, intro_raid_corridor and intro_escape_shaft, and bob_relay
+to drain_alley) need a climb above one jump's apex (83 px): the graph links
+walk, hop and drop, and the player's double jump, wall jump and dash are no
+leg. A walked playthrough needs those legs first.
 
 **Acceptance:** the scenario runs headless in a standing lane and is playable in
 the rendered game; each step asserts its fact against the authority that owns
@@ -320,7 +268,7 @@ reads cargo output to it.
 **Open items:**
 
 1. **The compile-cost ratchet reports and does not fail the gate** (re-measured 2026-10-09: 8 findings, 0 gating, exit 0). Since `a614327fe` (2026-09-25, Jon: "line-count should not be a gate") only PATH and GONE gate; the size and seconds rows are reports. The critical path of 15 crates is banked (2026-10-09, `--adopt-wins`). The carve was `d56c46de9`, which removed `ambition_items`'s dead dependency on `ambition_combat`; the old 16-crate chain went through that edge. Two `--adopt-wins` defects found on the way are fixed: a held row kept its old `depth` (path 15 beside a row of depth 16), and `carried_from` dropped the older commit of a chain (`scripts/tests/test_compile_ratchet.py`, each arm red under its poison). Still open: the baseline disagrees with itself in three places (`ambition_geometry`, the monolith, `ambition_platformer2d_core`). The held numbers are from `11ef33c5b5a5`, and their table rows were already different, so no adopt can repair this; only a deliberate re-freeze can. Reported: the monolith's largest unit (100,742 → 132,359 lines). ⛔ Do not re-freeze with `--update` as bookkeeping: it banks the regressions, and that is a judgement to state in its own commit.
-2. **An arm fails only in company** (see [the triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)): `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps` failed once on 2026-09-10, and its assertion was never captured. Three other instances of the signature were per-arm measurements reading process-global state (`app_it` runs arms as threads of one process); they are fixed, and `scripts/a_test_static_is_a_channel_between_arms.py` guards the class. Next: capture this arm's assertion. `hall_redecode_census.rs` asserts over a delta of a process-wide counter, and it is not a candidate: it is `#[ignore]`d and run alone by `scripts/measure_hall_redecodes.sh` (read 2026-10-08). The A9 probe found and repaired two couplings that fail a composition without `BossEncounters` (`simulation_world` required `BossCatalog`; the progression plugin registered `populate_boss_encounter_registry`); whether either was this failure is not known. ⛔ Do not add a retry.
+2. **An arm fails only in company** (see [the triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)): `composes_through_the_sdk::a_host_that_omits_boss_encounters_still_builds_and_steps` failed once on 2026-09-10, and its assertion was never captured. Three other instances of the signature were per-arm measurements reading process-global state (`app_it` runs arms as threads of one process); they are fixed, and `scripts/a_test_static_is_a_channel_between_arms.py` guards the class. Next: capture this arm's assertion. `hall_redecode_census.rs` asserts over a delta of a process-wide counter, and it is not a candidate: it is `#[ignore]`d and run alone by `scripts/measure_hall_redecodes.sh` (read 2026-10-08). Counted 2026-10-09 from this machine's cost ledger (`run_tests_cost.jsonl`) since 2026-09-10: 56 job runs that run `app_it` in company passed and 35 failed, and no failed row says which arm failed: the evidence was only in a status file that the next run writes over. The ledger row of a failed job now keeps its `failure_evidence` (`test_a_failed_job_keeps_its_evidence_in_the_cost_ledger_row`), so a recurrence can be counted from here on. The A9 probe found and repaired two couplings that fail a composition without `BossEncounters` (`simulation_world` required `BossCatalog`; the progression plugin registered `populate_boss_encounter_registry`); whether either was this failure is not known. ⛔ Do not add a retry.
 3. **The reload family failed under load, and its waits for the first activation now wait on the condition (2026-10-09).** The family is `an_edit_reaches_the_shipped_game`. Measured with the family alone at 30 test threads, five runs for each state: on main `0e2c22f9e`, five of five runs were red (two or three arms for each run, ten different arms, 13 failures), and each failure was a premise that the first session is live. With the waits changed, five of five runs were green. The cause: the gameplay route becomes active after work on other threads, so a fixed 240 frames is not a wait. Alone, the route was active on frame 3; in company it was seen on frame 83, and the red runs are the cases later than frame 240. The waits are in `game/ambition_app/tests/common/mod.rs`: `step_until_route_is_active`, `step_until_route_is_active_and_settled` and `ActivationWindow`. Each waits on the route under a ceiling of 120 seconds of wall time and then steps the frames the old loop stepped after frame 3. Two arms in that file hold the ceiling (`a_wait_for_a_route_that_never_activates_ends_at_its_ceiling` and the one for the window); with a ceiling check removed, its arm does not end. Converted 2026-10-09 (CalculexAmbition, `4cfe4e476` and the next commit): 16 candidate arms wait until `PendingGeneration` is gone and first assert that one was pending; two arms refused at request time assert that none is pending; two handoff waits wait on the activation id and on the handoff, under the same ceiling. Measured: a generation settled in 2-3 frames alone and at 30 test threads, so these arms were not short of frames; the change is that a negative arm now fails if the refusal was never decided. Left: the census probe, one handoff whose premise check fails loudly when its transaction has not run, three loops that assert on each frame, and each other family (63 loops of 240 frames outside this file). No failure of those was seen in the ten runs after the change; that is not a proof that they hold. One older session-root handoff failure did not reproduce in four full runs, and its assertion was never captured. One of its two candidate arms (`the_shipped_app_never_holds_two_session_roots_across_a_handoff`) had this window; whether that was the failure is not known. ⛔ Do not add a retry, and do not make the 240 larger: wait on the condition.
 
 4. **`NOT RUN` is a first-class receipt state** (Q59 ruling, 2026-10-03). A
@@ -336,9 +284,11 @@ reads cargo output to it.
    `scripts/required_checks.py` prints, for each check the change requires,
    `passed on this change`, `FAILED on this change`, `NOT RUN`, `NOT RUN:
    <remedy>` or `ran only on a tree before this change`. A push does not wait
-   for it (Q166, ruled no 2026-10-09): it reports. Next: the commit messages and queue rows that quote a
-   lane by hand, and each lane's cadence in
-   [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence).
+   for it (Q166, ruled no 2026-10-09): it reports. Each boundary's lane is
+   listed in
+   [testing and validation](../concepts/testing-and-validation.md#validation-states-and-cadence)
+   (2026-10-09), pointing at the owner of each rule. Next: the commit
+   messages and queue rows that quote a lane by hand.
 
 5. **A sync test did not see an effect that only the first run of a frame
    has; the rollback host now does (2026-10-05).** GGRS never saves the state
@@ -390,7 +340,16 @@ reads cargo output to it.
    run that writes the default status records evidence, so a test's fake
    jobs do not. Not held: the demo rule's fourth case (an instrument a demo
    test reads), the external-consumer fixtures, the matrix rows without a
-   path, and a peer's change merged after the run.
+   path, and a peer's change merged after the run. Two more rows are held
+   (2026-10-09): a change to `game/ambition_content/assets` or the map
+   assets requires the content arms (`declared_art_resolves`,
+   `registered_character_art`), and a rollback registration or
+   `sim_phase_pins.rs` requires the `rollback_` arms and the repo tooling
+   job. A check named by test name counts for a run whose filter is part of
+   that name. Found on the way: a filtered nextest run certified the whole
+   crate, because `run_tests.py` gives nextest its filter as a bare word and
+   the rule looked for it after `--` (witness: the nextest rows of
+   `test_only_a_default_feature_run_of_every_target_covers_a_package`).
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
@@ -416,8 +375,10 @@ published. The run's own "render cost" line: 3392 s of the 4436 s in 7
 renderer processes (tack-ons 1374 s, draw-review 893 s, draw-all 700 s, late
 targets 287 s, factions 136 s). The other ~1044 s are stages outside the
 renderer (ultrapack, quality variants, LDtk). The tack-on batch was at 143 of
-144 after 1145 s, so its last target held about 230 s alone; starting the
-longest targets first would cut that tail. Still serial: the faction-leader
+144 after 1145 s, so its last target held about 230 s alone. Since renderer
+`890c457` a batch starts the slowest known targets first (each target's last
+publish seconds, kept in `.cache/publish_seconds.json`); its effect on a full
+regen is not measured yet. Still serial: the faction-leader
 lineup, the review canonical gallery, the ultrapack and the quality
 variants. Also found in that regen:
 - a run through the `/home/agent/code/ambition` alias wrote `relPath`s that
@@ -1268,6 +1229,25 @@ their box.
 ## Receipts
 
 Closed rows that an open row, a script or an inbound link still names.
+
+### A4 — separate control authority from body execution on the real schedule — ✅ DONE 2026-10-09
+
+`sim_phase_pins::every_control_writer_is_ordered_against_the_gate_and_the_gate_before_integration`
+reads the declared access of every system in the shipped `GgrsSchedule`
+(2026-10-08: 22 `ActorControl` writers, none unordered against
+`PlayerInputSet::ControlGate`). The four that produced intent after the gate
+moved before it: `shark_ride::tick_departures` and the boss brain
+(`tick_boss_brains_system`) run after `ActorDecisionSet::Publish`; `BossSteerSlot`
+runs in the gate after `drive_commanded_moves`. `WRITES_CONTROL_AFTER_THE_GATE`
+lists only systems that spend a press, integrate, or derive from a gated frame.
+Witness: `boss_motion_parity::the_frame_a_held_boss_integrates_under_is_the_gated_one`.
+One commanded-move road walks every body, a boss too
+(`a_lured_boss_walks_to_its_mark_and_starts_no_attack`, `a_dead_body_is_not_walked`).
+The Mockingbird's path is its conductor's
+(`its_path_is_its_conductors_and_a_hold_on_its_brain_changes_nothing`). Its
+brain keeps its movement write: the body road declines locomotion for a held
+body in one place (`integrate_actor_body`), for a rider and a conducted boss
+alike.
 
 ### AUTHORITY-POLISH — one owner per mechanical fact, and no mirror in the rollback kernel — ✅ DONE 2026-10-09
 

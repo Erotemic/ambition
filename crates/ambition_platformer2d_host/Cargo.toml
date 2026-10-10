@@ -13,6 +13,9 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 ambition_portal2d_presentation = { path = "../ambition_portal2d_presentation", optional = true }
 ambition_render = { path = "../ambition_render", optional = true }
+# `FeatureId`: the portal bridge matches a body in transit to the visual that
+# draws it by its id (`publish_transiting_feature_bodies`).
+ambition_combat = { path = "../ambition_combat", optional = true }
 # Named directly so the host can hand the menu crate the font the render side
 # resolved. `ambition_render` must NOT depend on `ambition_menu` — presentation
 # does not own the menu IR — and the menu crate must not know an asset path, so
@@ -83,6 +86,7 @@ portal_render = [
     # through an optional dependency that may not be there.
     "render",
     "dep:ambition_portal2d_presentation",
+    "dep:ambition_combat",
     "ambition_render/portal_render",
 ]
 

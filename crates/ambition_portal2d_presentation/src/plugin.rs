@@ -32,9 +32,10 @@ pub struct PortalPresentationSet;
 /// not by forking.
 #[derive(Clone, Copy, Debug)]
 pub struct PortalPresentationPlugin {
-    /// Placed-portal quads + channel labels. For compatibility, this system
-    /// still calls sequestered gun helpers for in-flight shot and pickup
-    /// markers; split that flag after behavior is stable.
+    /// Each placed portal's line of light ([`crate::sync_portal_glows`]) and
+    /// its channel label. For compatibility, the label system still calls
+    /// sequestered gun helpers for in-flight shot and pickup markers; split
+    /// that flag after behavior is stable.
     pub portal_quads: bool,
     /// The mid-transit body pieces over the host-tagged
     /// [`crate::PortalSceneBody`] ([`visuals::sync_portal_body_pieces`]):
@@ -100,6 +101,16 @@ impl Plugin for PortalPresentationPlugin {
             app.add_systems(
                 Update,
                 visuals::sync_portal_visuals.in_set(PortalPresentationSet),
+            );
+            // Each portal's line of light, with its placed and dissolved
+            // effects. A host with no asset registry draws none.
+            crate::glow::add_portal_glow_material_plugin(app);
+            app.add_systems(
+                Update,
+                crate::glow::sync_portal_glows
+                    .in_set(PortalPresentationSet)
+                    .run_if(resource_exists::<Assets<Mesh>>)
+                    .run_if(resource_exists::<Assets<crate::glow::PortalGlowMaterial>>),
             );
         }
         if self.body_pieces {

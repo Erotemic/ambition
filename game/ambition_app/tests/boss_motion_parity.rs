@@ -77,7 +77,9 @@ fn dormant_boss_floats_and_does_not_fall() {
 }
 
 /// Over a longer run a woken boss must (a) still be afloat — never plummeting far below its
-/// spawn — and (b) actually MOVE (its pattern steers it around its anchor).
+/// spawn — and (b) actually MOVE. The Mockingbird's conductor owns its pose, so the
+/// path is the conductor's: with the conductor off the bird moves 0.0 px, whatever its
+/// brain writes (`mockingbird_fight::its_path_is_its_conductors_and_a_hold_on_its_brain_changes_nothing`).
 #[test]
 fn woken_boss_moves_and_stays_afloat() {
     const FRAMES: usize = 300;
@@ -131,8 +133,8 @@ fn woken_boss_moves_and_stays_afloat() {
     // path); it only has to be clearly non-zero.
     assert!(
         path_len > 40.0,
-        "boss barely moved ({path_len:.1}px of path over {ticked} frames) — the \
-         pattern's desired velocity is not reaching the integrator"
+        "boss barely moved ({path_len:.1}px of path over {ticked} frames) — its \
+         conductor's pose is not reaching the body"
     );
 }
 

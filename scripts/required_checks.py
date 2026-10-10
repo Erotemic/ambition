@@ -47,6 +47,9 @@ LDTK_TOOLS_JOB = "ldtk authoring tool tests"
 #: Jobs that only the detached tool lane plans (`run_tests.py --tool-tests`).
 DETACHED_TOOL_JOBS = {LDTK_TOOLS_JOB}
 
+#: The shipped game's package; `app_it` is one of its test targets.
+APP_PACKAGE = "ambition_app"
+
 #: The demo host apps. `app_it` and the pytest lane run none of their tests.
 DEMO_HOST_APPS = (
     "ambition_demo_mary_o_app",
@@ -70,6 +73,23 @@ DEMO_HOST_LANE_PATHS = (
     "*/sandbox_reset.rs",
     "*/death_rules.rs",
     "*/death_traits.rs",
+)
+
+#: Authored content the shipped game loads: its worlds, catalogs and
+#: characters (the matrix row "authored CONTENT"), and the map assets.
+CONTENT_PATHS = (
+    "game/ambition_content/assets/*",
+    "game/ambition_map_assets",
+)
+#: The arms that row names for a content change.
+CONTENT_ARMS = ("declared_art_resolves", "registered_character_art")
+
+#: The matrix row "a rollback registration, a schedule pin, a message
+#: channel": the `rollback_` arms and the repo tooling job. A channel is not
+#: a path, so only the first two are held.
+ROLLBACK_REGISTRATION_PATHS = (
+    "*/rollback_registration.rs",
+    "*/sim_phase_pins.rs",
 )
 
 #: A path whose change requires no check: prose and pictures. A test that
@@ -97,7 +117,19 @@ class Job:
         return f"run_tests job `{self.name}`"
 
 
-Requirement = CargoTest | Job
+@dataclass(frozen=True)
+class CargoTestNamed:
+    """The tests of `package` whose names contain `name`: what
+    `cargo test -p <package> -- <name>` runs."""
+
+    package: str
+    name: str
+
+    def label(self) -> str:
+        return f"cargo test -p {self.package} -- {self.name}"
+
+
+Requirement = CargoTest | CargoTestNamed | Job
 
 
 def workspace_members(repo: Path) -> dict[str, str]:
@@ -126,6 +158,10 @@ def requirements_for(path: str, members: dict[str, str]) -> set[Requirement]:
             required.add(CargoTest(package))
     if any(fnmatch.fnmatch(path, pattern) for pattern in DEMO_HOST_LANE_PATHS):
         required.update(CargoTest(app) for app in DEMO_HOST_APPS)
+    if any(fnmatch.fnmatch(path, pattern) for pattern in CONTENT_PATHS):
+        required.update(CargoTestNamed(APP_PACKAGE, arm) for arm in CONTENT_ARMS)
+    if any(fnmatch.fnmatch(path, pattern) for pattern in ROLLBACK_REGISTRATION_PATHS):
+        required.update({CargoTestNamed(APP_PACKAGE, "rollback_"), Job(REPO_TOOLING_JOB)})
     if path.startswith("scripts/") and path.endswith(".py"):
         required.add(Job(REPO_TOOLING_JOB))
     if path.startswith(LDTK_TOOLS_DIR + "/") and path.endswith(".py"):
@@ -141,6 +177,52 @@ NARROWING_FLAGS = {
 }
 
 
+#: nextest flags that take a value: the word after one is not a filter.
+NEXTEST_VALUE_FLAGS = {
+    "-p", "--package", "--exclude", "--features", "-F", "--run-ignored", "-E",
+    "--filterset", "--filter-expr", "-j", "--jobs", "--test-threads", "--profile",
+    "-P", "--partition", "--retries", "--target", "--manifest-path", "--color",
+    "--message-format", "--bin", "--test", "--example", "--bench",
+}
+
+
+def nextest_filters(after: list[str]) -> list[str]:
+    """The bare-word name filters of a `cargo nextest run`."""
+    filters, taken = [], False
+    for arg in after:
+        if taken:
+            taken = False
+        elif arg in NEXTEST_VALUE_FLAGS:
+            taken = True
+        elif not arg.startswith("-"):
+            filters.append(arg)
+    return filters
+
+
+def nextest_narrows(after: list[str]) -> bool:
+    """Whether a `cargo nextest run` selects fewer tests than its packages have.
+
+    `run_tests.py` gives nextest a name filter as a bare word, with no `--`
+    before it (`cargo_test`), so the libtest rule below cannot see it.
+    """
+    taken = False
+    for index, arg in enumerate(after):
+        if taken:
+            taken = False
+            continue
+        flag = arg.split("=", 1)[0]
+        value = arg.split("=", 1)[1] if "=" in arg else (after[index + 1] if index + 1 < len(after) else "")
+        if flag in ("-E", "--filterset", "--filter-expr", "--partition"):
+            return True
+        if flag == "--run-ignored" and value == "only":
+            return True
+        if arg in NEXTEST_VALUE_FLAGS:
+            taken = True
+        elif not arg.startswith("-"):
+            return True
+    return False
+
+
 def covers(row: dict, requirement: Requirement) -> bool:
     """Whether a ledger row is the check `requirement` names."""
     if isinstance(requirement, Job):
@@ -150,6 +232,8 @@ def covers(row: dict, requirement: Requirement) -> bool:
     # and this rule does not ask for that job.
     if argv[1:3] == ["nextest", "run"]:
         after = argv[3:]
+        if isinstance(requirement, CargoTest) and nextest_narrows(after):
+            return False
     elif argv[1:2] == ["test"]:
         after = argv[2:]
     else:
@@ -158,8 +242,23 @@ def covers(row: dict, requirement: Requirement) -> bool:
         cargo_args, libtest = after[: after.index("--")], after[after.index("--") + 1:]
     else:
         cargo_args, libtest = after, []
+    filters = [arg for arg in libtest if not arg.startswith("-")]
+    if isinstance(requirement, CargoTestNamed):
+        if argv[1:3] == ["nextest", "run"]:
+            # The same filter as a bare word; a filter expression is not read.
+            if any(arg in ("-E", "--filterset", "--filter-expr", "--partition") for arg in after):
+                return False
+            if any(a == "--run-ignored" and b == "only" for a, b in zip(after, after[1:])):
+                return False
+            filters = nextest_filters(after)
+        # libtest runs a test when ANY filter is in its name, so a filter
+        # that is part of `name` runs every test whose name holds `name`.
+        if filters and not any(f in requirement.name for f in filters):
+            return False
+        if {"--exact", "--skip", "--ignored"} & set(libtest):
+            return False
     # A positional libtest argument is a name filter: some of the tests ran.
-    if any(not arg.startswith("-") for arg in libtest) or "--ignored" in libtest:
+    elif filters or "--ignored" in libtest:
         return False
     if any(arg.split("=", 1)[0] in NARROWING_FLAGS for arg in cargo_args):
         return False
@@ -233,11 +332,17 @@ def judge(repo: Path, base: str, rev: str) -> tuple[list[str], list[Verdict]]:
 
 def remedy(missing: list[Requirement]) -> str:
     packages = [r.package for r in missing if isinstance(r, CargoTest)]
+    named = [r for r in missing if isinstance(r, CargoTestNamed)]
     jobs = [r.name for r in missing if isinstance(r, Job)]
     lines = []
     if packages:
         flags = " ".join(f"-p {package}" for package in packages)
         lines.append(f"./run_tests.sh {flags} --only-job '(default features)'")
+    # `-k` takes one filter, so each named check is a run of its own.
+    for requirement in named:
+        lines.append(
+            f"./run_tests.sh -p {requirement.package} -k {requirement.name} --only-job '(default features)'"
+        )
     for job in jobs:
         lane = "--tool-tests " if job in DETACHED_TOOL_JOBS else ""
         lines.append(f"./run_tests.sh {lane}--only-job '{job}'")

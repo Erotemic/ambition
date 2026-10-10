@@ -117,6 +117,12 @@ def test_a_new_untracked_source_file_is_part_of_the_tested_tree(repo: Path) -> N
         (["cargo", "test", "-p", "alpha"], True),
         (["cargo", "test", "--workspace"], True),
         (["cargo", "nextest", "run", "-p", "alpha"], True),
+        (["cargo", "nextest", "run", "-p", "alpha", "--run-ignored", "all"], True),
+        (["cargo", "nextest", "run", "-p", "alpha", "-P", "ci"], True),
+        # `run_tests.py -k` gives nextest its filter as a bare word.
+        (["cargo", "nextest", "run", "-p", "alpha", "some_filter"], False),
+        (["cargo", "nextest", "run", "-p", "alpha", "--run-ignored", "only"], False),
+        (["cargo", "nextest", "run", "-p", "alpha", "-E", "test(x)"], False),
         (["cargo", "test", "-p", "alpha", "--", "--test-threads=4"], True),
         (["cargo", "test", "-p", "beta"], False),
         (["cargo", "test", "-p", "alpha", "--", "some_filter"], False),
@@ -250,3 +256,60 @@ def test_each_job_a_rule_names_is_a_job_of_the_runner() -> None:
     for name in (REPO_TOOLING_JOB, LDTK_TOOLS_JOB):
         assert name in (detached if name in DETACHED_TOOL_JOBS else planned), name
     assert "--tool-tests --only-job 'ldtk authoring tool tests'" in remedy([Job(LDTK_TOOLS_JOB)])
+
+
+@pytest.mark.parametrize(
+    ("argv", "name", "expected"),
+    [
+        (["cargo", "test", "-p", "ambition_app"], "rollback_", True),
+        (["cargo", "test", "--workspace"], "rollback_", True),
+        (["cargo", "test", "-p", "ambition_app", "--", "rollback_"], "rollback_", True),
+        # A shorter filter runs more: every test that holds `rollback_` holds it.
+        (["cargo", "test", "-p", "ambition_app", "--", "declared"], "declared_art_resolves", True),
+        (["cargo", "test", "-p", "ambition_app", "--", "rollback_contact"], "rollback_", False),
+        (["cargo", "test", "-p", "ambition_app", "--", "other", "rollback_"], "rollback_", True),
+        (["cargo", "test", "-p", "ambition_app", "--", "other"], "rollback_", False),
+        (["cargo", "test", "-p", "ambition_app", "--", "rollback_", "--exact"], "rollback_", False),
+        (["cargo", "test", "-p", "ambition_app", "--", "rollback_", "--skip", "x"], "rollback_", False),
+        (["cargo", "test", "-p", "ambition_app", "--lib", "--", "rollback_"], "rollback_", False),
+        (["cargo", "test", "-p", "other", "--", "rollback_"], "rollback_", False),
+        (["cargo", "nextest", "run", "-p", "ambition_app", "rollback_"], "rollback_", True),
+        (["cargo", "nextest", "run", "-p", "ambition_app", "rollback_contact"], "rollback_", False),
+        (["cargo", "nextest", "run", "-p", "ambition_app", "--run-ignored", "only"], "rollback_", False),
+    ],
+)
+def test_a_named_check_is_covered_by_a_run_that_ran_every_test_with_that_name(
+    argv: list[str], name: str, expected: bool
+) -> None:
+    from required_checks import CargoTestNamed
+
+    assert covers({"argv": argv}, CargoTestNamed("ambition_app", name)) is expected
+
+
+def test_a_content_change_requires_the_content_arms_and_a_registration_the_rollback_arms() -> None:
+    from required_checks import APP_PACKAGE, CargoTestNamed, remedy, requirements_for
+
+    content = requirements_for("game/ambition_content/assets/worlds/intro.ldtk", {})
+    assert content == {
+        CargoTestNamed(APP_PACKAGE, "declared_art_resolves"),
+        CargoTestNamed(APP_PACKAGE, "registered_character_art"),
+    }
+    assert requirements_for("game/ambition_map_assets", {}) == content
+    registration = requirements_for("crates/ambition_combat/src/rollback_registration.rs", {})
+    assert {CargoTestNamed(APP_PACKAGE, "rollback_"), Job(REPO_TOOLING_JOB)} <= registration
+    assert "./run_tests.sh -p ambition_app -k rollback_ --only-job '(default features)'" in remedy(
+        [CargoTestNamed(APP_PACKAGE, "rollback_")]
+    )
+
+
+def test_the_named_rules_name_what_the_live_tree_has() -> None:
+    """A pattern that matches no file, or an arm no module holds, can never
+    be met or never asks."""
+    from required_checks import CONTENT_ARMS, CONTENT_PATHS, ROLLBACK_REGISTRATION_PATHS
+
+    tracked = git(REPO, "ls-files", "--", "crates", "game").splitlines()
+    for pattern in (*CONTENT_PATHS, *ROLLBACK_REGISTRATION_PATHS):
+        assert any(required_checks.fnmatch.fnmatch(path, pattern) for path in tracked), pattern
+    modules = (REPO / "game/ambition_app/tests/app_it.rs").read_text()
+    for arm in (*CONTENT_ARMS, "rollback_"):
+        assert f"mod {arm}" in modules, f"no app_it module name holds `{arm}`"

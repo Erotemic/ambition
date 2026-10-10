@@ -181,9 +181,9 @@ phase. Useful evidence includes:
 A `SystemParam` or `QueryData` is useful when it names one concept. Hiding many
 unrelated resources behind one parameter is not decomposition.
 
-The current A4 control/body packet is one concrete customer; use the actual Bevy
-schedule realization rather than retired abstract set names. See
-[A4 in the queue](../queue.md#a4--separate-control-authority-from-body-execution-on-the-real-schedule).
+The A4 control/body packet (done 2026-10-09) was one concrete customer; use
+the actual Bevy schedule realization rather than retired abstract set names. See
+[the A4 receipt](../queue.md#a4--separate-control-authority-from-body-execution-on-the-real-schedule---done-2026-10-09).
 
 ### S6 — move session-owned state toward session ownership
 

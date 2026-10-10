@@ -73,10 +73,7 @@ fn spawn_body(app: &mut App, sprite: Sprite, transiting: bool) -> Entity {
         Transform::from_translation(translation),
     ));
     if transiting {
-        body.insert(PortalTransit {
-            straddling: left.channel,
-            crossed: false,
-        });
+        body.insert(crate::PortalTransitView { straddling: left.channel });
     }
     let body = body.id();
     let (left, right) = thin_wall_pair();
@@ -188,6 +185,28 @@ fn transit_replaces_sprite_with_two_clipped_pieces() {
     );
 }
 
+/// Each body that straddles a portal is cut, not one body only: two bodies in
+/// transit give two pairs of pieces, and both real sprites are hidden. The
+/// control is a third body that does not transit, which stays whole.
+#[test]
+fn each_body_in_transit_is_cut_into_its_own_two_pieces() {
+    let mut app = test_app();
+    let sprite = loaded_sprite(&mut app);
+    let first = spawn_body(&mut app, sprite.clone(), true);
+    let second = spawn_body(&mut app, sprite.clone(), true);
+    let whole = spawn_body(&mut app, sprite, false);
+    app.update();
+    app.update();
+    assert_eq!(piece_materials(&mut app).len(), 4, "two pieces for each of two bodies in transit");
+    for (body, hidden) in [(first, true), (second, true), (whole, false)] {
+        assert_eq!(
+            app.world().get::<crate::source_visibility::PortalTransitHidden>(body).is_some(),
+            hidden,
+            "the body in transit is drawn as its pieces, and the other as itself"
+        );
+    }
+}
+
 /// No transit: no pieces, the real sprite shows whole.
 #[test]
 fn no_transit_keeps_real_sprite_visible() {
@@ -240,11 +259,10 @@ fn missing_texture_falls_back_to_sprite_copy() {
 /// With a viewer in front of one face of the thin-wall pair, the NEAR portal's frame draws
 /// above the glass (always whole) while the FAR portal's frame drops under the window band —
 /// the open pane hides it with the rest of the far side, instead of the frame punching through
-/// the glass as a second portal.
+/// the glass as a second portal. The frame is the line of light and the label.
 #[test]
 fn far_portal_frame_hides_under_the_glass() {
-    let mut app = test_app();
-    app.add_systems(Update, sync_portal_visuals);
+    let mut app = frame_app();
     let (left, right) = thin_wall_pair();
     app.world_mut().spawn(left);
     app.world_mut().spawn(right);
@@ -257,23 +275,12 @@ fn far_portal_frame_hides_under_the_glass() {
         occluders: Vec::new(),
     }));
     app.update();
+    app.update();
 
     let window_band_top =
         crate::PORTAL_WINDOW_Z + crate::PortalViewConeConfig::default().z_proximity_span;
-    let parts: Vec<(String, Vec3)> = app
-        .world_mut()
-        .query_filtered::<(&Name, &Transform), With<PortalVisual>>()
-        .iter(app.world())
-        .filter(|(n, _)| {
-            let n = n.to_string();
-            n.contains("rim") || n.contains("core") || n.contains("label")
-        })
-        .map(|(n, t)| (n.to_string(), t.translation))
-        .collect();
-    assert!(
-        parts.len() >= 10,
-        "both portals' frames spawn, got {parts:?}"
-    );
+    let parts = frame_parts(&mut app);
+    assert_eq!(parts.len(), 4, "a line and a label for each of two portals, got {parts:?}");
     // Left portal (world x 500) renders near x 0; right (532) near x 32.
     for (name, t) in &parts {
         if t.x < 16.0 {
@@ -294,41 +301,49 @@ fn far_portal_frame_hides_under_the_glass() {
     }
 }
 
-/// The identifying frame (rim/core/label) is an OVERLAY: every portal
+/// An app that draws each portal's frame: its line of light and its label.
+fn frame_app() -> App {
+    let mut app = test_app();
+    app.insert_resource(Assets::<crate::PortalGlowMaterial>::default());
+    app.init_resource::<Time>();
+    app.add_systems(Update, (sync_portal_visuals, crate::sync_portal_glows));
+    app
+}
+
+/// The name and place of each part of each portal's frame.
+fn frame_parts(app: &mut App) -> Vec<(String, Vec3)> {
+    app.world_mut()
+        .query_filtered::<(&Name, &Transform), Or<(With<PortalVisual>, With<crate::PortalGlow>)>>()
+        .iter(app.world())
+        .filter(|(n, _)| n.contains("glow") || n.contains("label"))
+        .map(|(n, t)| (n.to_string(), t.translation))
+        .collect()
+}
+
+/// The identifying frame (line/label) is an OVERLAY: every portal
 /// visual draws ABOVE the whole window z band, so a pane of takeover
 /// glass can never hide half a portal (the c136/c137 "portal only half
 /// appearing"), and BELOW actors, so a body in front still occludes it.
 #[test]
 fn portal_frame_draws_above_the_window_band_and_below_actors() {
-    let mut app = test_app();
-    app.add_systems(Update, sync_portal_visuals);
+    let mut app = frame_app();
     let (left, right) = thin_wall_pair();
     app.world_mut().spawn(left);
     app.world_mut().spawn(right);
     app.update();
+    app.update();
 
     let window_band_top =
         crate::PORTAL_WINDOW_Z + crate::PortalViewConeConfig::default().z_proximity_span;
-    let zs: Vec<(String, f32)> = app
-        .world_mut()
-        .query_filtered::<(&Name, &Transform), With<PortalVisual>>()
-        .iter(app.world())
-        .map(|(n, t)| (n.to_string(), t.translation.z))
-        .collect();
-    let frame_parts: Vec<&(String, f32)> = zs
-        .iter()
-        .filter(|(n, _)| n.contains("rim") || n.contains("core") || n.contains("label"))
-        .collect();
-    assert!(
-        frame_parts.len() >= 10,
-        "two portals × (2 rims + 2 cores) + labels, got {zs:?}"
-    );
-    for (name, z) in &frame_parts {
+    let parts = frame_parts(&mut app);
+    assert_eq!(parts.len(), 4, "a line and a label for each of two portals, got {parts:?}");
+    for (name, at) in &parts {
         assert!(
-            *z > window_band_top,
-            "{name} must draw above the window band top {window_band_top}, got {z}"
+            at.z > window_band_top,
+            "{name} must draw above the window band top {window_band_top}, got {}",
+            at.z
         );
-        assert!(*z < 20.0, "{name} must stay below the actor band, got {z}");
+        assert!(at.z < 20.0, "{name} must stay below the actor band, got {}", at.z);
     }
 
     // And the frame stays on the WORLD layer: portal captures must
@@ -336,7 +351,7 @@ fn portal_frame_draws_above_the_window_band_and_below_actors() {
     // still look like portals.
     let layered = app
         .world_mut()
-        .query_filtered::<(), (With<PortalVisual>, With<RenderLayers>)>()
+        .query_filtered::<(), (Or<(With<PortalVisual>, With<crate::PortalGlow>)>, With<RenderLayers>)>()
         .iter(app.world())
         .count();
     assert_eq!(

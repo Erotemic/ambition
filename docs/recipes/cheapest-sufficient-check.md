@@ -34,10 +34,14 @@ no safety.
 Notes:
 
 - **Some rows are enforced.** `python3 scripts/required_checks.py` reads the
-  paths your branch changed since `origin/main` and names the checks three
+  paths your branch changed since `origin/main` and names the checks these
   rows require: `cargo test -p <crate>` for each crate you changed, the demo
-  host lane for death, restore, replay and rollback-host paths, and the repo
-  tooling job for `scripts/`. A check counts only when `run_tests.py` recorded
+  host lane for death, restore, replay and rollback-host paths, the repo
+  tooling job for `scripts/`, the LDtk tool tests for that tool, the two
+  content arms for `game/ambition_content/assets` and the map assets, and the
+  `rollback_` arms with the repo tooling job for a rollback registration or
+  `sim_phase_pins.rs`. A check named by test name counts for a run whose
+  filter is part of that name, or that had no filter. A check counts only when `run_tests.py` recorded
   it as passed on a tree with your change in it
   (`target/lane_ledger.jsonl`); a plain `cargo test` records nothing. It
   prints the `./run_tests.sh` command for each check that is missing. It

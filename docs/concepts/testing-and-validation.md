@@ -81,6 +81,19 @@ A gate blocks only where its policy requires it at the current boundary. Do not
 run a long suite after each of N edits to keep every receipt green: that costs
 implementation time and buys no correctness.
 
+Which lane belongs to which boundary. The path rules have one owner each; this
+list only says when to ask them:
+
+| Boundary | Run | Owner of the rule |
+| --- | --- | --- |
+| Each edit | The cheapest check that can fail for the change | [cheapest sufficient check](../recipes/cheapest-sufficient-check.md#the-matrix) |
+| Each push | The checks `python3 scripts/required_checks.py` names for the change, and `cargo check --workspace --all-targets` | `scripts/required_checks.py`; it reports and a push does not wait for it (Q166) |
+| Handoff or milestone | The default plan, `./run_tests.sh` | `scripts/run_tests.py`; its footer names what the plan does not cover |
+| Release, or a change to features, an SDK surface or the web path | `./run_tests.sh --run-everything-you-probably-dont-need-this` | the same footer |
+
+A change to prose or pictures only (`.md`, `.png`, `.svg`, `.txt`) requires no
+check.
+
 ## What to test
 
 Prefer invariants and properties over tuned values:

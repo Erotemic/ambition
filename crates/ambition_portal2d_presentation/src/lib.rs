@@ -22,6 +22,7 @@ mod compositing;
 mod far_side;
 mod clip_material;
 mod effects;
+mod glow;
 mod gun_visuals;
 mod plugin;
 mod source_visibility;
@@ -56,6 +57,7 @@ pub use compositing::{
     UncoveredPiece, UncoveredPieces,
 };
 pub use effects::{PortalEffectSelection, PortalVisualEffect};
+pub use glow::{opening_length, sync_portal_glows, PortalGlow, PortalGlowMaterial, APPEAR_S, DISSOLVE_S, ROOM_SETTLE_S};
 pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};
 pub use plugin::{PortalPresentationPlugin, PortalPresentationSet};
 #[cfg(feature = "effect_view_cones")]
@@ -83,16 +85,17 @@ pub struct PortalObservationSet;
 /// Through-portal composite z. The captured far-side image draws above the
 /// exit body copy but below actors and the portal rim, so near-side actors still
 /// occlude the aperture and the rim remains intact. Transiting body pieces stay
-/// on world layers and are captured by disjoint wormhole views; doorway pairs
-/// clip direct slices outside the thin slab. Overlapping panes use front-side
+/// on world layers and are captured by each pair's view window.
+/// Overlapping panes use front-side
 /// dominance with hysteresis (`view_cones::mesh::pane_z`) rather than radial
 /// distance.
 pub const PORTAL_WINDOW_Z: f32 = 9.5;
 /// The exit-side body slice z (just below [`PORTAL_WINDOW_Z`]).
 pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
-/// Portal rim/core/label overlay z: above the window and exit slice, below
-/// actors. The thin rim therefore stays intact while near-side bodies can still
-/// occlude the whole portal.
+/// The z of a portal's frame, which is its line of light (`glow`) and its
+/// label: above the window and exit slice, below actors. The thin line
+/// therefore stays intact while near-side bodies can still occlude the whole
+/// portal.
 pub const PORTAL_RIM_OVERLAY_Z: f32 = 10.0;
 
 // Compile-time checks of the z stack that the three doc comments above
@@ -182,6 +185,11 @@ impl PortalFrames<'_, '_> {
         self.live.of(entity)
     }
 
+    /// Each live room.
+    pub fn live_rooms(&self) -> impl Iterator<Item = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> + '_ {
+        self.roots.iter().map(|(live, _)| *live)
+    }
+
     /// The placed portals grouped by live room, as the mechanic pairs them: a
     /// portal's partner is in its own room.
     pub fn portals_by_room<'a>(
@@ -216,10 +224,11 @@ impl PortalPlacement {
     }
 }
 
-/// Host seam: marks the visual entity whose sprite the mid-transit body-piece
-/// decomposition draws (in Ambition, the player's sprite entity). The entity
-/// must also carry a [`PortalBodyView`] plus `Sprite` + `Visibility`;
-/// `PortalTransit` / `ActorRoll` are read when present.
+/// Host seam: marks a visual entity whose sprite the mid-transit body-piece
+/// decomposition draws (in Ambition, the player's sprite entity, and the
+/// sprite of each other body while it is in transit). The entity must also
+/// carry a [`PortalBodyView`] plus `Sprite` + `Visibility`;
+/// [`PortalTransitView`] / `ActorRoll` are read when present.
 #[derive(Component)]
 pub struct PortalSceneBody;
 
@@ -289,6 +298,21 @@ pub struct PortalBodyView {
     pub size: Vec2,
     /// Facing sign: `>= 0.0` faces +x. Only the sign is read.
     pub facing: f32,
+}
+
+/// Host seam: this visual's body is straddling a portal plane right now.
+///
+/// Published by the host onto the visual of each body in transit, and taken
+/// off when the transit ends. The body's own transit state is the portal
+/// simulation's (`ambition_portal2d::PortalTransit`), and it can be on another
+/// entity than the one that is drawn (an NPC's body and its sprite are two
+/// entities). So presentation reads this fact and not that component, and
+/// each body that crosses is cut the same way: a player, an NPC, a dog.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PortalTransitView {
+    /// Channel of the portal whose plane the body straddles: the entry before
+    /// its centre crosses, the exit after.
+    pub straddling: PortalChannel,
 }
 
 /// Host seam: the loaded portal-gun art (blue / orange mode sprites). The

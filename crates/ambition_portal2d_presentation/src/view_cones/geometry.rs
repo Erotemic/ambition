@@ -678,17 +678,14 @@ pub(crate) fn compute_cone(
         return closed(min);
     }
 
-    // The half-plane takeover below stays unclipped for genuinely disjoint pairs — crossing a
-    // teleport, the whole view becomes the exit chart — but NOT for a DOORWAY pair (opposed faces
-    // across a thin slab): its two charts are the same visual space, so a takeover pane photographs
-    // a region that is ALSO directly on screen and double-images everything in it (the world
-    // shimmered at a parallax offset, the far frame showed twice, the transiting body doubled — the
-    // c136/c137 artifact family). A doorway is a HOLE, not a wormhole: its pane covers only the
-    // slab (the wall material is the one thing to hide), and inside the slab the mapped capture
-    // reconstructs exactly the occluded middle of whatever straddles the wall — while the body's
-    // clipped pieces and the far side draw direct, crisp, exactly once.
-    let doorway_pair = enter.frame.normal.dot(exit.frame.normal) < -0.9
-        && enter.frame.origin.distance(exit.frame.origin) <= config.doorway_pair_max_gap;
+    // No pair is a special case here. A door through a thin wall (opposed
+    // faces a wall's thickness apart) takes over the half-plane as each other
+    // pair does. Its map is a translation by the wall's thickness, so a pane
+    // held to the slab showed the far side moved by that thickness BESIDE the
+    // far side itself: a body that crossed was drawn two times, once in the
+    // slab and once past it. With the takeover the pane covers the far side
+    // too, and the picture is the viewer's chart: the near side as it is, and
+    // the far side joined to it at the one seam.
     let host_limit = host_depth_limit(
         &enter,
         &v.occluders,
@@ -735,12 +732,6 @@ pub(crate) fn compute_cone(
         world_size.x.max(world_size.y).max(finite_depth)
     } else {
         finite_depth
-    };
-    // Doorway pairs never take over: the pane is the slab (see above).
-    let half_depth = if doorway_pair {
-        half_depth.min(host_limit)
-    } else {
-        half_depth
     };
     let half_plane_lateral_limit = if full_half_plane {
         RAY_LATERAL_CLAMP

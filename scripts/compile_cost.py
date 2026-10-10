@@ -141,10 +141,13 @@ SCENARIOS.append(
         why="the whole engine loop: build the tests, run one targeted arm, draw the game's first frame",
         then=(
             ("targeted_test", ("cargo", "test", "-p", "ambition_app", "--test", "app_it", "--", "isolated_persistence")),
-            # The acceptance job's command (`run_tests.py`). It builds the
-            # capture binary for the edit too, which is part of seeing it.
+            # The acceptance job's `cargo run` (`run_tests.py`), in two steps.
+            # Building the capture binary for the edit is part of seeing it,
+            # but it costs much more than the drawing, so the row keeps the two
+            # numbers apart.
+            ("first_frame_build", ("cargo", "build", "-p", "ambition_app_tools", "--bin", "capture_scene")),
             ("first_frame", (
-                "cargo", "run", "-p", "ambition_app_tools", "--bin", "capture_scene", "--",
+                "target/debug/capture_scene",
                 "central_hub_complex", "player", "target/edit_cycle_frame.png", "320x180", "--warmup", "20",
             )),
         ),
@@ -208,6 +211,11 @@ def instrumented_for_link_count(command: list[str]) -> tuple[list[str], bool]:
     """
     if any(token.startswith("--message-format") for token in command):
         return command, False
+    # A phase such as `cargo test ... -- <filter>` gives everything after `--`
+    # to the test binary, so the flag goes before it.
+    if "--" in command:
+        at = command.index("--")
+        return [*command[:at], LINK_COUNT_FLAG, *command[at:]], True
     return [*command, LINK_COUNT_FLAG], True
 
 
@@ -357,15 +365,43 @@ def run_phase(command: list[str], env: dict[str, str]) -> tuple[float, int | Non
 
 
 def run_phases(scenario: "Scenario", env: dict[str, str], when: str, verbose: bool) -> dict:
-    """`{<when>_<phase>_seconds, <when>_<phase>_peak_rss_bytes}` for each phase."""
+    """`{<when>_<phase>_seconds, _peak_rss_bytes, _units_rebuilt}` for each phase.
+
+    A cargo phase gives the units it compiled, so its control can show that it
+    was warm. `units_rebuilt` is null for a phase that is not cargo.
+    """
     row: dict = {}
     for name, command in scenario.then:
         if verbose:
             print(f"  {when}: {name} ({' '.join(command)}) …", flush=True)
-        seconds, peak = run_phase(list(command), env)
+        if command[0] == "cargo":
+            cost = run_timed(list(command), env)
+            seconds, peak, units = cost.seconds, cost.peak_rss_bytes, cost.units_rebuilt
+        else:
+            (seconds, peak), units = run_phase(list(command), env), None
         row[f"{when}_{name}_seconds"] = round(seconds, 2)
         row[f"{when}_{name}_peak_rss_bytes"] = peak
+        row[f"{when}_{name}_units_rebuilt"] = units
     return row
+
+
+def refuse_a_phase_control_that_rebuilt(scenario: "Scenario", phases: dict) -> None:
+    """A warm phase compiles nothing, the same rule as the build's baseline.
+
+    Measured 2026-10-09: the `edit-cycle` row's control gave 16.88 s for the
+    targeted test and 12.48 s for the first frame. Warm, the two take 2.9 s and
+    4.2 s with no unit compiled. The control was slower than the edit and
+    nothing in the row said that it had compiled.
+    """
+    for name, _ in scenario.then:
+        units = phases.get(f"warm_noop_{name}_units_rebuilt")
+        if units:
+            raise SystemExit(
+                f"⛔ `{scenario.name}`'s warm `{name}` phase REBUILT {units} unit(s), "
+                f"so it is not a control. The tree changed during the measurement, "
+                f"or one phase invalidated the build of another. Settle the tree "
+                f"and re-run."
+            )
 
 
 def job_limit(command: list[str], env: dict[str, str]) -> int | None:
@@ -516,6 +552,7 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
         # its control (measured 2026-10-09: 227 s against 33 s after the edit).
         run_phases(scenario, merged_env, "warming", verbose)
         phases = run_phases(scenario, merged_env, "warm_noop", verbose)
+        refuse_a_phase_control_that_rebuilt(scenario, phases)
 
         if verbose:
             print(f"  editing {scenario.edit} and rebuilding …", flush=True)

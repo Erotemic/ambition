@@ -124,6 +124,22 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
   character targets on a rig pipeline, a redesign is a new `_v2` target with
   the old one kept, and a full sheet regen is longer than this run had left
   after the scenery. It needs its own lane, and a choice of which characters.
+  To see the whole cast as the game draws it, photograph the hall of
+  characters (138 of them, in rows; 36 captures, about 4 minutes):
+
+  ```bash
+  for y in 230 614 998 1382 1790 2174 2558 2942 3470; do
+    for x in 284 852 1420 1764; do
+      AMBITION_QUALITY_PROFILE=ultra xvfb-run -a target/debug/capture_scene \
+        hall_of_characters $x,$y hall_${y}_${x}.png 1280x720 --warmup 120
+    done
+  done
+  ```
+
+  One thing seen in those pictures, at a small scale: the four pirate
+  officers (Admiral, Raider, Quartermaster, Navigator) are one thin body in
+  four palettes, and they look slight next to the two heavy pirates. They
+  are a place to start.
 - **Ambience sound.** The game has no ambience channel. Eleven beds to
   listen to are in `untracked/sfx-candidates/room_ambience/` (not in git),
   with a reel and a script that makes them again. They wait for Jon's ear:

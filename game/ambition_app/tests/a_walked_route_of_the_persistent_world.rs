@@ -1,9 +1,11 @@
 #![cfg(feature = "rl_sim")]
 //! WORLD-ACCEPTANCE, the walked route: the player goes from the hub to Alice
-//! with its own inputs, room by room, and is never put anywhere.
+//! and on to Bob with its own inputs, room by room, and is never put anywhere.
 //!
 //! In each room the test builds the surface graph for the player's own body
-//! (its `MotionModel`, abilities and box), aims at the place where the body
+//! (its `MotionModel`, abilities and box) over the room as the body collides
+//! with it (the standing gate solids too), with the other exits that fire on
+//! overlap avoided. It aims at the place where the body
 //! overlaps the exit to the next room, and follows the legs with the rule a
 //! brain follows them by (`follow_leg`): each leg's input is the player's
 //! stick and jump for that step. A door then takes Interact. The crossing
@@ -21,8 +23,10 @@ use crate::common::{a_save_that_has_seen_the_hub_intro, base, fixed_60hz_room_op
 
 const HUB: &str = "central_hub_complex";
 
-/// The rooms from the hub to Alice, each through an exit of the room before:
-/// the placed playthrough's route.
+/// The rooms from the hub to Alice and Bob, each through an exit of the room
+/// before: the placed playthrough's route. Before Bob's survey, the lock wall
+/// of Alice's private return stands on the floor between Alice and the exit
+/// to Bob (112 px tall). The player gets over it with the air jump.
 const ROUTE_TO_ALICE: &[&str] = &[
     "intro_wake_room",
     "intro_raid_corridor",
@@ -30,6 +34,7 @@ const ROUTE_TO_ALICE: &[&str] = &[
     "drain_alley",
     "under_town_pipes",
     "alice_relay",
+    "bob_relay",
 ];
 
 /// The most steps one room may take to walk (60 s).
@@ -108,8 +113,20 @@ fn walk_to(sim: &mut ambition_app::Platformer2dSimHarness, target: &str) -> Resu
         .filter(|other| other.is_ready(false) && other.aabb != zone)
         .map(|other| other.aabb)
         .collect();
-    let graph = NavGraph::build_avoiding(&rooms.spec(definition).world, &exits, &body, frame)
-        .ok_or("the room has no graph for the player")?;
+    // The room as the body collides with it: the authored blocks and each
+    // gate solid (a lock wall) that stands now.
+    let overlay = ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
+        ambition_platformer2d::world::FeatureEcsWorldOverlay,
+    >(sim.world())
+    .expect("the live room has a collision overlay");
+    let world = ambition_platformer2d::world::collision::world_with_gate_solids_and_carves(
+        &rooms.spec(definition).world,
+        &overlay.gate_solids,
+        &[],
+        &[],
+    )
+    .into_owned();
+    let graph = NavGraph::build_avoiding(&world, &exits, &body, frame).ok_or("the room has no graph for the player")?;
     let goal = nearest_the_zone(&graph, zone).ok_or("no surface near the exit")?;
     let player = the_player_entity(sim);
     let mut leg: Option<(NavLeg, LegPhase)> = None;
@@ -168,12 +185,12 @@ fn walk_to(sim: &mut ambition_app::Platformer2dSimHarness, target: &str) -> Resu
     Err(format!("still in `{from}` after {STEPS_FOR_A_ROOM} steps, at {at:?}, aiming at {goal:?}"))
 }
 
-/// ⭐ THE PLAYER WALKS FROM THE HUB TO ALICE. Each crossing is the shipped
+/// ⭐ THE PLAYER WALKS FROM THE HUB TO ALICE AND BOB. Each crossing is the shipped
 /// room transition, and the body got to each exit by its own movement: the
 /// live room changes to each room of the route in turn. No step puts the body
 /// anywhere.
 #[test]
-fn the_player_walks_from_the_hub_to_alice() {
+fn the_player_walks_from_the_hub_to_alice_and_bob() {
     let mut sim = ambition_app::Platformer2dSimHarness::new_with_options(
         fixed_60hz_room_options(HUB).with_save(a_save_that_has_seen_the_hub_intro()),
     )
@@ -185,5 +202,5 @@ fn the_player_walks_from_the_hub_to_alice() {
         eprintln!("WALKED `{from}` to `{target}` in {steps} steps");
         sim.step_n(base(), 30);
     }
-    assert_eq!(sim.observation().active_room, "alice_relay");
+    assert_eq!(sim.observation().active_room, "bob_relay");
 }

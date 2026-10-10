@@ -30,6 +30,7 @@
         (id: "broken_transmitter", display_name: "Broken Transmitter"),
         (id: "burn_rate_bossa", display_name: "Burn Rate Bossa"),
         (id: "busy_beaver", display_name: "Busy Beaver"),
+        (id: "carry_the_one", display_name: "Carry the One"),
         (id: "cartridge_constables", display_name: "Cartridge Constables"),
         (id: "cedar_light_guitar_study", display_name: "Cedar Light Guitar Study"),
         (id: "cedar_light_many_rooms", display_name: "Cedar Light Many Rooms"),

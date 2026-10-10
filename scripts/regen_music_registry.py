@@ -103,6 +103,7 @@ def is_denied(cue: str) -> bool:
 # (see ``title_case``). Keep guild/faction cues to their short stage name.
 DISPLAY_NAMES = {
     "artists_guild_chiaroscuro": "Chiaroscuro",
+    "carry_the_one": "Carry the One",
     "elves_faction_silverleaf_reverie": "Silverleaf Reverie",
     "env_advocacy_solace": "Env Advocacy — Solace",
     "fighters_guild_oath_of_steel": "Oath of Steel",

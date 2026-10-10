@@ -6,8 +6,8 @@
 // constructor's numeric fields per ADR 0017 (Rust = behavior, RON = content).
 // Behaviour lives in `assets/data/boss_profiles.ron`.
 //
-// Music: reuses `dinosaur_liberators` (a melee-bruiser cue) as a placeholder; a
-// bespoke "overflow" track is a handoff.
+// Music: `carry_the_one`, its own track. The melody climbs past the top while
+// the bass goes down.
 (
     id: "overflow_boss",
     name: "Overflow",
@@ -16,8 +16,8 @@
     phase2_to_enrage_hp: 0.25,
     intro_seconds: 2.4,
     transition_seconds: 1.8,
-    music_intro: "dinosaur_liberators",
-    music_phase1: "dinosaur_liberators",
-    music_phase2: "dinosaur_liberators",
-    music_enrage: "dinosaur_liberators",
+    music_intro: "carry_the_one",
+    music_phase1: "carry_the_one",
+    music_phase2: "carry_the_one",
+    music_enrage: "carry_the_one",
 )

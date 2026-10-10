@@ -35,6 +35,10 @@ pub const INTRO_PORTAL_SWITCH_ID: &str = "intro_portal_switch";
 pub const INTRO_PORTAL_SPRITE_NAME: &str = "Interdimensional Gate Portal";
 pub const INTRO_PORTAL_RING_NAME: &str = "Interdimensional Gate Ring";
 
+/// The landing pad of the wake room: the zone the door of the hub arrives at.
+/// It names no target, so nothing leaves through it.
+pub const WAKE_ROOM_ARRIVAL_ZONE_ID: &str = "wake_room_arrival";
+
 pub struct IntroPlugin;
 
 impl Plugin for IntroPlugin {
@@ -49,6 +53,25 @@ impl Plugin for IntroPlugin {
                     pack_target: pack_target.map(str::to_string),
                 },
             );
+        }
+        // The cart is a platform: its bed is what a body stands on.
+        {
+            use ambition_render::rendering::moving_platforms::PlatformLooksAppExt;
+            app.register_platform_look(
+                super::sprites::INTRO_CART_KIND,
+                super::sprites::intro_cart_platform_look(),
+            );
+            app.register_platform_look(
+                super::sprites::INTRO_CART_RAMP_KIND,
+                super::sprites::intro_cart_ramp_look(),
+            );
+        }
+        // The hub has a door to this room and this room has no door back: the
+        // zone a body arrives at is a place and not a door, so it has no
+        // picture.
+        {
+            use ambition_render::rendering::gate_portal_visuals::HiddenLoadingZonesAppExt;
+            app.hide_loading_zone(WAKE_ROOM_ARRIVAL_ZONE_ID);
         }
         // The flag chains are not an installer. They re-derive a table from
         // the save every frame.

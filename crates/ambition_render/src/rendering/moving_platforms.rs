@@ -14,7 +14,7 @@
 //! followed on the next frame by matching visuals.
 
 use ambition_platformer2d_core as ae;
-use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_BLOCK};
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, RoomVisual, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -32,12 +32,44 @@ use bevy::sprite::Anchor;
 /// shark is the platform, so a body stands on the saddle, not on the fin.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlatformLook {
+    /// The prop sheet this look draws, when it is not the sheet of its own
+    /// kind: a kind that is one part of the picture of another (the ramp of
+    /// the cart is a row of the sheet of the cart).
+    pub sheet: Option<String>,
     pub row: String,
+    /// The frame `span_px` and `top_px` were measured in: the frame of the
+    /// full-size sheet. A reduced copy of the sheet (a lower quality tier, a
+    /// pack) has a smaller frame, and the platform is drawn at the same size
+    /// from it. Measured 2026-10-10: the placement was read against the frame
+    /// of the copy in use, so a half-size sheet was drawn at twice the size.
+    pub frame_px: [f32; 2],
     pub span_px: [f32; 2],
     pub top_px: f32,
     /// The sheet is drawn facing right (it is flipped to fly left).
     pub faces_right: bool,
+    /// A second row of the same frame, drawn in front of each body: the near
+    /// side of a thing a body stands IN. The cart of the intro: its near rail
+    /// is this row, so a body on its bed is in the cart and not on it.
+    pub front_row: Option<String>,
 }
+
+impl PlatformLook {
+    /// The row of a layer, and the depth it is drawn at: `None` for the front
+    /// layer of a look that has none.
+    fn layer(&self, front: bool) -> Option<(&str, f32)> {
+        if front {
+            self.front_row.as_deref().map(|row| (row, FRONT_LAYER_Z))
+        } else {
+            Some((self.row.as_str(), BACK_LAYER_Z))
+        }
+    }
+}
+
+/// Where a platform is drawn: over the blocks of the room, behind each body.
+const BACK_LAYER_Z: f32 = WORLD_Z_BLOCK + 4.0;
+/// Where the front row of a platform's sheet is drawn: in front of each body,
+/// behind what is drawn over a body (its name and its health).
+const FRONT_LAYER_Z: f32 = WORLD_Z_PLAYER + 6.0;
 
 /// The looks a game registers for its platform sheets, by kind.
 #[derive(Resource, Default, Clone, Debug)]
@@ -61,7 +93,8 @@ impl PlatformLooksAppExt for App {
 /// The quad and anchor a platform's sheet is drawn at, and where: the frame
 /// scaled so its `span_px` is the platform's width, anchored so frame row
 /// `top_px` (at the span's middle) is the platform's top centre.
-fn sheet_geometry(look: &PlatformLook, frame_px: Vec2, platform: &MovingPlatformState) -> (Vec2, Anchor) {
+fn sheet_geometry(look: &PlatformLook, platform: &MovingPlatformState) -> (Vec2, Anchor) {
+    let frame_px = Vec2::from(look.frame_px);
     let span = (look.span_px[1] - look.span_px[0]).max(1.0);
     let k = platform.size.x / span;
     let anchor_px = Vec2::new((look.span_px[0] + look.span_px[1]) * 0.5, look.top_px);
@@ -78,8 +111,18 @@ fn sheet_look<'a>(
 ) -> Option<(&'a str, &'a PlatformLook, &'a ambition_sprite_sheet::character::CharacterSpriteAsset)> {
     let kind = platform.visual.as_deref()?;
     let look = looks?.0.get(kind)?;
-    let asset = assets?.characters.prop_asset_for_kind(kind)?;
+    let asset = assets?.characters.prop_asset_for_kind(look.sheet.as_deref().unwrap_or(kind))?;
     Some((kind, look, asset))
+}
+
+/// The `visual` of a platform that has no picture of its own: it is under the
+/// picture of another thing (a step of the collision under the drawn ramp of
+/// the cart). A platform with no `visual` is drawn as a plain rectangle, so
+/// "no picture" needs a word.
+pub const HIDDEN_PLATFORM_VISUAL: &str = "none";
+
+fn is_hidden(platform: &MovingPlatformState) -> bool {
+    platform.visual.as_deref() == Some(HIDDEN_PLATFORM_VISUAL)
 }
 
 /// Where a sheet-drawn platform's picture stands: its top centre.
@@ -115,6 +158,8 @@ pub struct MovingPlatformVisual {
     /// The sheet it is drawn as, when it is one: a slot whose platform now
     /// wants another look is drawn again.
     pub sheet: Option<String>,
+    /// This is the front layer of its sheet ([`PlatformLook::front_row`]).
+    pub front: bool,
 }
 
 /// Reconcile the moving-platform visuals against the authoritative set.
@@ -162,9 +207,10 @@ pub fn sync_moving_platform_visuals(
     let sheet_of = |platform| sheet_look(platform, looks, assets);
     // Retire first, so a vanished index is not mistaken for a survivor when a
     // shorter roster reuses its slot.
-    let mut drawn = vec![false; platforms.len()];
+    // For each platform: its picture, and the front layer of its sheet.
+    let mut drawn = vec![[false; 2]; platforms.len()];
     for (entity, visual, mut transform, mut sprite, animator, anchor) in &mut existing {
-        let Some(platform) = platforms.get(visual.index) else {
+        let Some(platform) = platforms.get(visual.index).filter(|platform| !is_hidden(platform)) else {
             commands.entity(entity).despawn();
             continue;
         };
@@ -175,12 +221,18 @@ pub fn sync_moving_platform_visuals(
             commands.entity(entity).despawn();
             continue;
         }
-        drawn[visual.index] = true;
-        match (sheet, animator) {
-            (Some((_, look, _)), Some(mut animator)) => {
-                transform.translation = world_to_bevy(&world.0, sheet_point(platform), WORLD_Z_BLOCK + 4.0);
+        let layer = sheet.and_then(|(_, look, _)| look.layer(visual.front));
+        if visual.front && layer.is_none() {
+            // A front layer of a look that has none now.
+            commands.entity(entity).despawn();
+            continue;
+        }
+        drawn[visual.index][usize::from(visual.front)] = true;
+        match (sheet.zip(layer), animator) {
+            (Some(((_, look, _), (row, z))), Some(mut animator)) => {
+                transform.translation = world_to_bevy(&world.0, sheet_point(platform), z);
                 // A loop: no move plays a platform's row, so nothing ends it.
-                animator.request_loop([look.row.as_str()], ambition_sprite_sheet::character::CharacterAnim::Walk);
+                animator.request_loop([row], ambition_sprite_sheet::character::CharacterAnim::Walk);
                 super::actors::draw_animator_frame(
                     &mut sprite,
                     &mut animator,
@@ -191,7 +243,7 @@ pub fn sync_moving_platform_visuals(
                 );
             }
             _ => {
-                transform.translation = world_to_bevy(&world.0, platform.pos, WORLD_Z_BLOCK + 4.0);
+                transform.translation = world_to_bevy(&world.0, platform.pos, BACK_LAYER_Z);
                 sprite.custom_size = Some(Vec2::new(platform.size.x, platform.size.y));
             }
         }
@@ -205,34 +257,39 @@ pub fn sync_moving_platform_visuals(
         return;
     };
     for (index, platform) in platforms.iter().enumerate() {
-        if drawn[index] {
+        if is_hidden(platform) {
             continue;
         }
         if let Some((kind, look, asset)) = sheet_of(platform) {
-            let (render_size, anchor) = sheet_geometry(look, asset.spec.frame_pixels(), platform);
-            let (mut sprite, anchor, animator) =
-                ambition_sprite_sheet::character::build_character_presentation_with_render_size(
-                    asset,
-                    render_size,
-                    anchor,
+            for front in [false, true] {
+                let Some((_, z)) = look.layer(front).filter(|_| !drawn[index][usize::from(front)]) else {
+                    continue;
+                };
+                let (render_size, anchor) = sheet_geometry(look, platform);
+                let (mut sprite, anchor, animator) =
+                    ambition_sprite_sheet::character::build_character_presentation_with_render_size(
+                        asset,
+                        render_size,
+                        anchor,
+                    );
+                sprite.flip_x = sheet_flipped(look, platform, air_x);
+                let layer = if front { " front" } else { "" };
+                commands.spawn_session_scoped(
+                    session_scope,
+                    (
+                        sprite,
+                        anchor,
+                        animator,
+                        Transform::from_translation(world_to_bevy(&world.0, sheet_point(platform), z)),
+                        Name::new(format!("Moving platform {index}: {} ({kind}{layer})", platform.name)),
+                        MovingPlatformVisual { index, sheet: Some(kind.to_string()), front },
+                        RoomVisual,
+                    ),
                 );
-            sprite.flip_x = sheet_flipped(look, platform, air_x);
-            commands.spawn_session_scoped(
-                session_scope,
-                (
-                    sprite,
-                    anchor,
-                    animator,
-                    Transform::from_translation(world_to_bevy(
-                        &world.0,
-                        sheet_point(platform),
-                        WORLD_Z_BLOCK + 4.0,
-                    )),
-                    Name::new(format!("Moving platform {index}: {} ({kind})", platform.name)),
-                    MovingPlatformVisual { index, sheet: Some(kind.to_string()) },
-                    RoomVisual,
-                ),
-            );
+            }
+            continue;
+        }
+        if drawn[index][0] {
             continue;
         }
         commands.spawn_session_scoped(
@@ -245,10 +302,10 @@ pub fn sync_moving_platform_visuals(
                 Transform::from_translation(world_to_bevy(
                     &world.0,
                     platform.pos,
-                    WORLD_Z_BLOCK + 4.0,
+                    BACK_LAYER_Z,
                 )),
                 Name::new(format!("Moving platform {index}: {}", platform.name)),
-                MovingPlatformVisual { index, sheet: None },
+                MovingPlatformVisual { index, sheet: None, front: false },
                 RoomVisual,
             ),
         );
@@ -348,7 +405,15 @@ mod tests {
     }
 
     fn shark_look() -> PlatformLook {
-        PlatformLook { row: "idle".into(), span_px: [40.0, 176.0], top_px: 60.0, faces_right: true }
+        PlatformLook {
+            sheet: None,
+            row: "idle".into(),
+            frame_px: [217.0, 125.0],
+            span_px: [40.0, 176.0],
+            top_px: 60.0,
+            faces_right: true,
+            front_row: None,
+        }
     }
 
     /// A platform that sweeps `dx` at 130 px/s: right for a positive `dx`.
@@ -438,6 +503,90 @@ mod tests {
             last_third.iter().any(|frame| *frame != last_third[0]),
             "the drawing stopped on frame {} in the third cycle",
             last_third[0]
+        );
+    }
+
+    /// A platform whose `visual` is the word for no picture is not drawn: it
+    /// is under the picture of another thing.
+    #[test]
+    fn a_hidden_platform_has_no_picture() {
+        let mut app = app_with_platforms(vec![
+            platform("a step", 100.0).with_visual(HIDDEN_PLATFORM_VISUAL),
+            platform("plain", 400.0),
+        ]);
+        app.update();
+        let drawn = visuals(&mut app);
+        assert_eq!(drawn.len(), 1, "the hidden platform has no visual: {drawn:?}");
+        assert_eq!(drawn[0].0, 1, "the plain one is drawn");
+    }
+
+    /// A platform is drawn at one size from a sheet of any size: the look is
+    /// measured in the frame of the full-size sheet, and a reduced copy of the
+    /// sheet has a smaller frame.
+    #[test]
+    fn the_size_of_the_picture_is_the_size_of_the_platform_and_not_of_the_sheet() {
+        let look = shark_look();
+        let platform = platform("shark", 400.0);
+        let (size, anchor) = sheet_geometry(&look, &platform);
+        // The span of the look (136 px) is the width of the platform (96).
+        let k = 96.0 / 136.0;
+        assert!((size - Vec2::new(217.0 * k, 125.0 * k)).length() < 1e-3, "{size:?}");
+        assert!((anchor.0 - Vec2::new(108.0 / 217.0 - 0.5, 0.5 - 60.0 / 125.0)).length() < 1e-4, "{:?}", anchor.0);
+    }
+
+    /// A look with a front row draws two pictures of one platform: the row of
+    /// the look behind each body, and the front row in front of each body
+    /// (Jon, 2026-10-10: a body on the cart of the intro must be IN the cart,
+    /// behind its near rail).
+    #[test]
+    fn a_front_row_is_drawn_in_front_of_a_body_and_the_row_behind_it() {
+        use ambition_sprite_sheet::character::{try_load_spec_for_target, CharacterSpriteAsset, SheetTuning};
+        const CART: &str = "intro_cart";
+
+        let spec = try_load_spec_for_target(CART, &SheetTuning::new(1.0, 0)).expect("the cart's baked sheet");
+        let (back, front) = (
+            spec.clip_slot(["idle"]).expect("the cart's idle row"),
+            spec.clip_slot(["front"]).expect("the cart's front row"),
+        );
+        assert_ne!(back, front, "premise: the two rows are two pictures");
+        let page = ambition_sprite_sheet::character::CharacterSpritePage {
+            texture: Handle::default(),
+            layout: Handle::default(),
+        };
+        let asset = CharacterSpriteAsset {
+            texture: Handle::default(),
+            layout: Handle::default(),
+            spec,
+            pages: vec![page],
+            requested_tier: Default::default(),
+            resolved_tier: Default::default(),
+            rigged: None,
+        };
+        let look = PlatformLook { front_row: Some("front".into()), ..shark_look() };
+
+        let mut app = app_with_platforms(vec![platform("cart", 400.0).with_visual(CART)]);
+        let mut assets = GameAssets::default();
+        assets.characters.props.insert(CART.to_string(), asset);
+        app.insert_resource(assets);
+        app.world_mut().get_resource_or_init::<PlatformLooks>().0.insert(CART.to_string(), look);
+        app.init_resource::<Time>();
+        // The first update draws them, the second gives each its row.
+        app.update();
+        app.update();
+        app.update();
+
+        let mut q = app.world_mut().query::<(&MovingPlatformVisual, &Transform, &CharacterAnimator)>();
+        let mut layers: Vec<(bool, f32, Option<usize>)> = q
+            .iter(app.world())
+            .map(|(visual, transform, animator)| (visual.front, transform.translation.z, animator.drawn_row()))
+            .collect();
+        layers.sort_by_key(|(front, ..)| *front);
+        assert_eq!(layers.len(), 2, "one platform with a front row is two pictures, and no more: {layers:?}");
+        let ((_, back_z, back_row), (_, front_z, front_row)) = (layers[0], layers[1]);
+        assert_eq!((back_row, front_row), (Some(back), Some(front)), "each layer draws its own row");
+        assert!(
+            back_z < WORLD_Z_PLAYER && WORLD_Z_PLAYER < front_z,
+            "a body (z {WORLD_Z_PLAYER}) is between the two layers: back {back_z}, front {front_z}"
         );
     }
 

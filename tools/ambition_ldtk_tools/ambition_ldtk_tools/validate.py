@@ -737,6 +737,11 @@ def validate(
     if secondary_worlds is None:
         secondary_worlds = sibling_worlds(path)
     secondary_index: dict[str, set[str]] = defaultdict(set)
+    # The `(activeArea, zone_id)` pairs that a zone of a secondary world
+    # arrives at. A landing pad of THIS file that only a door of another file
+    # arrives through (the wake room of the intro: its door is in the hub of
+    # the sandbox) is not dead geometry.
+    secondary_arrivals: set[tuple[str, str]] = set()
     for secondary_path in secondary_worlds:
         if not secondary_path.exists():
             warnings.append(
@@ -763,7 +768,11 @@ def validate(
             for sec_entity in sec_amb_layer.get("entityInstances") or []:
                 if sec_entity.get("__identifier") != "LoadingZone":
                     continue
-                sec_zone_id = field_value(sec_entity.get("fieldInstances") or [], "id")
+                sec_fields = sec_entity.get("fieldInstances") or []
+                sec_target = (field_value(sec_fields, "target_room"), field_value(sec_fields, "target_zone"))
+                if all(value is not None and str(value).strip() for value in sec_target):
+                    secondary_arrivals.add((str(sec_target[0]), str(sec_target[1])))
+                sec_zone_id = field_value(sec_fields, "id")
                 if sec_zone_id is None:
                     continue
                 secondary_index[sec_area].add(str(sec_zone_id))
@@ -1245,7 +1254,7 @@ def validate(
 
     # A targetless zone is valid only when another zone arrives through it;
     # otherwise it is dead geometry or an incompletely authored exit.
-    arrived_through = {(room, zone) for _, _, _, room, zone in requested_links}
+    arrived_through = {(room, zone) for _, _, _, room, zone in requested_links} | secondary_arrivals
     for source_level, area, zone_id in arrival_only_zones:
         if (area, zone_id) not in arrived_through:
             errors.append(

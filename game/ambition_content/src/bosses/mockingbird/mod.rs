@@ -48,7 +48,15 @@ pub fn register_shark_platforms(app: &mut App) {
     );
     app.register_platform_look(
         SHARK_SHEET,
-        PlatformLook { row: "idle".into(), span_px: [40.0, 176.0], top_px: 60.0, faces_right: true },
+        PlatformLook {
+            sheet: None,
+            row: "idle".into(),
+            frame_px: [217.0, 125.0],
+            span_px: [40.0, 176.0],
+            top_px: 60.0,
+            faces_right: true,
+            front_row: None,
+        },
     );
 }
 

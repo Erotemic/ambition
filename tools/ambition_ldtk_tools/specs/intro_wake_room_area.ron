@@ -4,11 +4,21 @@
 // in the creator's basement lab. Creator says "Hey you, you're
 // finally awake."
 //
+// The cart (2026-10-10): the cart is not a prop on a platform. Its bed IS
+// the platform: a `MovingPlatform` that stands still (`speed: 0`), one-way,
+// drawn as the sheet `intro_cart`. The near rail of the cart is drawn in
+// front of each body, so the player wakes IN the cart. Its back end is a
+// ramp: 14 more `MovingPlatform`s that stand still, each a step.
+//
+// ⚠ The map was changed with the entity tools after this spec made the
+// room. This spec has the cart, the spawn and the landing pad of the map,
+// and it does NOT have the 14 steps of the ramp. The map is the authority:
+// do not make the room again from this spec.
+//
 // Transitions:
-// - Incoming: hub-side door (sandbox.ldtk central_hub_main upper
-//   platform) targets `wake_room_arrival`, which sits on top of the
-//   cart so the entry beat reads as "the door opens and you are
-//   already on the cart."
+// - Incoming: the door of the hub (sandbox.ldtk, `intro_wake_door`) is one
+//   way. It arrives at `wake_room_arrival`, a landing pad on the bed of the
+//   cart that names no target and has no picture.
 // - Outgoing: right-edge EdgeExit zone `wake_to_raid` (a thin slice
 //   at x=1008) so walking off the right edge scrolls into
 //   `intro_raid_corridor` without a door prompt. EdgeExit is the
@@ -79,25 +89,28 @@
             ),
         ),
         (
-            type: "Prop",
+            type: "MovingPlatform",
             px: [
-                120,
-                224,
+                48,
+                294,
             ],
             size: [
-                192,
-                128,
+                176,
+                12,
             ],
             fields: (
+                id: "intro_cart",
                 name: "Diagnostic Cart",
-                kind: "intro_cart",
+                speed: 0.0,
+                visual: "intro_cart",
+                one_way: true,
             ),
         ),
         (
             type: "PlayerStart",
             px: [
-                200,
-                178,
+                122,
+                248,
             ],
             size: [
                 28,
@@ -171,20 +184,18 @@
         (
             type: "LoadingZone",
             px: [
-                180,
-                224,
+                112,
+                198,
             ],
             size: [
                 48,
-                128,
+                96,
             ],
             fields: (
                 id: "wake_room_arrival",
-                name: "wake_room_arrival",
+                name: "wake room arrival",
                 activation: "Door",
-                target_room: "central_hub_complex",
-                target_zone: "intro_wake_door",
-                bidirectional: true,
+                bidirectional: false,
             ),
         ),
         (

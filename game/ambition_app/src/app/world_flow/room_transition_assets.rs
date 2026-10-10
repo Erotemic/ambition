@@ -551,6 +551,16 @@ fn add_room_specific_sprites(
         }
     }
 
+    // A platform that is drawn as a sheet (the cart of the intro, a shark).
+    // Without this the room shows before its art, and the platform is a plain
+    // rectangle for its first frames.
+    for platform in &room.moving_platforms {
+        let asset = platform.visual.as_deref().and_then(|kind| assets.characters.prop_asset_for_kind(kind));
+        if let Some(asset) = asset {
+            add_character_asset(draft, &format!("platform:{}", platform.id), asset);
+        }
+    }
+
     // Every vfx sheet the process has DEMANDED so far: the core set at boot,
     // plus the sheets a realized character owns (demanded the frame its sprite
     // realized, `character_sprites::demand_character_fx_sheets`). A fighter

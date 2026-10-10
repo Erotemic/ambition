@@ -136,10 +136,13 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
   done
   ```
 
-  One thing seen in those pictures, at a small scale: the four pirate
-  officers (Admiral, Raider, Quartermaster, Navigator) are one thin body in
-  four palettes, and they look slight next to the two heavy pirates. They
-  are a place to start.
+  One thing seen in those pictures, and then in the canonical pose of each
+  target (`python -m ambition_sprite2d_renderer canonical pirate_admiral
+  --out-dir DIR`): five pirates (Admiral, Raider, Quartermaster, Navigator,
+  Lookout) are one thin body in five palettes, with a round head and a face
+  of a few marks. The Cutlass Viper and the two heavy pirates are drawn in
+  the fuller style of the later cast. The five are a place to start: one
+  `_v2` body in that fuller style would lift all of them.
 - **Ambience sound.** The game has no ambience channel. Twelve beds to
   listen to are in `untracked/sfx-candidates/room_ambience/` (not in git),
   with a reel and a script that makes them again. They wait for Jon's ear:

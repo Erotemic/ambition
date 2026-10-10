@@ -111,7 +111,8 @@ impl Plugin for SessionRoomVisualsPlugin {
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
         // The shadow of each body on the ground under it, at the place the body is drawn this
-        // frame.
+        // frame. Only in the rooms of a game that asked for it.
+        app.init_resource::<crate::rendering::ground_shadows::GroundShadowRooms>();
         app.add_systems(
             Update,
             crate::rendering::ground_shadows::sync_ground_shadows.after(ambition_sim_view::PresentedPoseSet),

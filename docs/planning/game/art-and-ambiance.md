@@ -81,8 +81,9 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
 - [x] A door for each biome.
 - [x] A room with a look takes the skin of its theme on a device that does not
   draw the look (`hub_clean` is marble).
-- [x] A shadow on the ground under each actor and the player, in the colour
-  of the biome, smaller and fainter when the body is in the air.
+- [x] A shadow on the ground under each actor and the player. **Turned off
+  2026-10-10** (Jon: it does not suit the style of the game). The system is an
+  opt-in for each game (`GroundShadowRooms`), and no game asks.
 - [x] Ladders and water take the art of the biome (steel rungs in the lab, a
   rope ladder in the cove and the forest).
 - [x] About half of the rooms that share a scene show it mirrored, so two
@@ -118,12 +119,47 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
 - [x] The dressing of a room is in the room's load manifest: the cover stays
   until the skin is there (it came in a few frames late).
 
+## Characters and props, 2026-10-10
+
+Jon: the pirates and the props can be made again completely, the posing too.
+A sprite never has a drop shadow in it, and a shadow under each body does not
+suit the style of the game.
+
+- [x] The five pirates (admiral, raider, quartermaster, lookout, navigator)
+  are five characters: a look for each (`LOOKS` in `_pirate_common.py`), full
+  bodies, a head with a face. The head is a bone of the chest, so no pose
+  takes it away from the body. The arm with the sword is on the side the
+  pirate looks to, and the two arms are in front of the body. Each pose is
+  made again, and each but the death has a foot on the ground. The sheet
+  frame is 220x164.
+- [x] Thirteen entity props are drawn with form and light: the crate (three
+  states), the spikes, the terminal, the boss core, the practice bag, the
+  moving platform, the pogo orb, the catwalk (one-way platform), the bolt of
+  energy, the spike ball and the ability pickup.
+- [x] No published sprite that the game loads has a ground shadow in it. It
+  is gone from eight entity props, the two chests, the shrine, the gate, the
+  Sanic ring and spring, the town tiles, Marie Curry, Admiral Grass Hopper,
+  the parrot and the heavy ninja. Two checks found them: a count of flat
+  blobs of translucent black in the published sheets, and a search of the SVG
+  drawings for a layer with the name shadow (the scan did not see the chests).
+  The copies of the entity props at the top of `assets/sprites/` are old
+  files that no loader reads (the loader reads `sprites/entities/`): they
+  still have the old pictures.
+- [x] The shadow of the engine under each body is off (`GroundShadowRooms`,
+  an opt-in for each game that no game takes).
+- [ ] **Not seen in the game.** These pictures were seen in the renderer
+  only. The sheets of a character are compiled in, so the game shows them
+  after its next build.
+- [ ] The other entity props (the heart, the coin, the switches, the morph
+  ball, the save point, the doors, the tiles) are as they were.
+
 ## Not done
 
-- **Characters.** No character art changed. The sprite renderer has 165
-  character targets on a rig pipeline, a redesign is a new `_v2` target with
-  the old one kept, and a full sheet regen is longer than this run had left
-  after the scenery. It needs its own lane, and a choice of which characters.
+- **Characters.** Started 2026-10-10 with the pirate crew: see "Characters
+  and props, 2026-10-10" below. The other targets (about 160 of them, on a
+  rig pipeline) are as they were. A redesign is made in place on its target,
+  and the two looks are one entry in the design history of the renderer
+  (`tools/ambition_sprite2d_renderer/design_history/lineages.yaml`).
   To see the whole cast as the game draws it, photograph the hall of
   characters (138 of them, in rows; 36 captures, about 4 minutes):
 
@@ -135,14 +171,6 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
     done
   done
   ```
-
-  One thing seen in those pictures, and then in the canonical pose of each
-  target (`python -m ambition_sprite2d_renderer canonical pirate_admiral
-  --out-dir DIR`): five pirates (Admiral, Raider, Quartermaster, Navigator,
-  Lookout) are one thin body in five palettes, with a round head and a face
-  of a few marks. The Cutlass Viper and the two heavy pirates are drawn in
-  the fuller style of the later cast. The five are a place to start: one
-  `_v2` body in that fuller style would lift all of them.
 - **Ambience sound.** The game has no ambience channel. Twelve beds to
   listen to are in `untracked/sfx-candidates/room_ambience/` (not in git),
   with a reel and a script that makes them again. They wait for Jon's ear:
@@ -171,13 +199,7 @@ comes and goes.
   boss rooms too bright, the strength of each is in `LIGHTS` in
   `terrain/decor.py`.
 - **Motion.** The motes (count, speed and size are `AmbientMoteStyles`), the
-  foreground panel when the camera goes along a room, and the shadow of a
-  body that jumps (it gets smaller and fainter up to 150 units).
-- **Shadows on dark ground.** They show on grass, sand, moss and marble. On
-  the steel of the lab and of the alarm rooms, and on the brick of the boss
-  rooms, they are nearly not there. Say if they must show there too: the
-  colour of each is `SHADOWS` in `terrain/motes.py`, and a dark picture can
-  not show on dark ground, so it would need a light rim or another idea.
+  foreground panel when the camera goes along a room.
 - **The first frame of a room.** The dressing is in the load manifest of the
   room now. In a capture the parallax and the dressing are still counted as
   drawn after the cover, because a capture has no cover: look at a real room

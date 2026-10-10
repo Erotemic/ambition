@@ -18,6 +18,10 @@
 //!   another body has its shadow on the ground under that.
 //! - Down is down the screen: a room with another gravity has shadows that
 //!   are not under the feet.
+//! - A room of a game that did not ask for shadows has none
+//!   ([`GroundShadowRooms`]). No game asks now: Jon, 2026-10-10, a shadow
+//!   under each body does not suit the style of the game. The system stays for
+//!   a game that wants one.
 //! - A room that names no theme, or a theme with no shadow picture, has none.
 
 use bevy::prelude::*;
@@ -56,6 +60,31 @@ pub struct GroundShadow {
 }
 
 const PLAYER_KEY: &str = "\u{0}player";
+
+/// The rooms that draw ground shadows: the rooms of each game that asked.
+///
+/// A ground shadow is a look that one game wants and another does not, and
+/// one binary hosts more than one game. Thus the answer is for each room, by
+/// the game mode of the room. A room with no mode is a room of the host, and
+/// the host does not ask.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct GroundShadowRooms {
+    modes: Vec<&'static str>,
+}
+
+impl GroundShadowRooms {
+    /// Draw ground shadows in each room that has this game mode.
+    pub fn allow_mode(&mut self, mode: &'static str) {
+        if !self.modes.contains(&mode) {
+            self.modes.push(mode);
+        }
+    }
+
+    /// Whether a room with this game mode draws ground shadows.
+    pub fn draws_in(&self, mode: Option<&str>) -> bool {
+        mode.is_some_and(|mode| self.modes.contains(&mode))
+    }
+}
 
 /// The top of the ground under a body whose feet are at `feet`: the nearest
 /// top of a solid block, a blink wall or a one-way platform that is at the
@@ -101,6 +130,7 @@ pub fn sync_ground_shadows(
     rooms: LiveRoomOf<ae::RoomGeometry>,
     specs: Option<LiveRoomSpecs>,
     assets: Option<Res<GameAssets>>,
+    allowed: Option<Res<GroundShadowRooms>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     active_session: Option<Res<ActiveSessionScope>>,
     feature_views: Option<Res<ambition_sim_view::FeatureViewIndex>>,
@@ -117,11 +147,15 @@ pub fn sync_ground_shadows(
     else {
         return;
     };
-    // The shadow picture of each live room whose theme has one.
+    // The shadow picture of each live room of a game that asked for shadows.
     let pictures: Vec<(LiveRoomInstance, Handle<Image>)> = specs
         .live_rooms()
         .filter_map(|(room, definition)| {
-            let theme = ParallaxTheme::named_by_room_metadata(&specs.rooms().spec(definition).metadata)?;
+            let metadata = &specs.rooms().spec(definition).metadata;
+            if !allowed.as_deref()?.draws_in(metadata.mode.as_deref()) {
+                return None;
+            }
+            let theme = ParallaxTheme::named_by_room_metadata(metadata)?;
             Some((room, assets.room_dressing.get(theme, RoomDressingPart::Shadow)?.clone()))
         })
         .collect();
@@ -267,5 +301,17 @@ mod tests {
         assert_eq!(stand_alpha, FULL_ALPHA);
         assert!(mid.x < stand.x && mid.y < stand.y && mid_alpha < stand_alpha && mid_alpha > 0.0);
         assert_eq!(gone, 0.0);
+    }
+
+    /// Only the rooms of a game that asked draw shadows. A room with no mode
+    /// is a room of the host, and it draws none.
+    #[test]
+    fn only_the_rooms_of_a_game_that_asked_draw_shadows() {
+        let mut rooms = GroundShadowRooms::default();
+        assert!(!rooms.draws_in(Some("mary_o")));
+        rooms.allow_mode("mary_o");
+        assert!(rooms.draws_in(Some("mary_o")));
+        assert!(!rooms.draws_in(Some("sanic")));
+        assert!(!rooms.draws_in(None));
     }
 }

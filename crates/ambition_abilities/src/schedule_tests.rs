@@ -10,7 +10,7 @@
 //!
 //! Verified poisons: removing `.in_set(PlayerSimulation)` fails the phase
 //! test; removing `traversal::grapple::grapple_system` from the wielded tuple
-//! makes the count 2.
+//! makes the count 1.
 
 use super::AbilitySimulationPlugin;
 use ambition_platformer2d_shared_tangle::schedule::{
@@ -24,10 +24,10 @@ use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemSet};
 /// 2026-10-01: the shockwave, the beam, the volley, the meteor, the sentry
 /// (its deploy and its turret tick) and the vortex (its cast and its well)
 /// are procedural modules (`ambition_content_modules`), run by the extension
-/// host in the same set. The blink and the dive left on 2026-10-10 the same
-/// way.
+/// host in the same set. The blink, the dive and the mark/recall left on
+/// 2026-10-10 the same way.
 const THROWN_MEMBERS: usize = 5;
-const WIELDED_MEMBERS: usize = 3;
+const WIELDED_MEMBERS: usize = 2;
 
 fn set_key<S: SystemSet + Copy + std::fmt::Debug>(graph: &ScheduleGraph, set: S) -> NodeId {
     NodeId::Set(

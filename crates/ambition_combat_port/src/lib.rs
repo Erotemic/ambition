@@ -27,11 +27,14 @@ pub use module_entity::{
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use hold::{BodyHold, BodyHoldPort};
 pub use motion::{
-    Effect, EffectPort, MovementCooldown, MovementCooldownPort, Place, Strike, StrikeKnockback, StrikePort, StrikeVolume,
-    Transit, TransitPort,
+    Destination, Effect, EffectPort, MovementCooldown, MovementCooldownPort, Place, Strike, StrikeKnockback, StrikePort,
+    StrikeVolume, Transit, TransitPort,
 };
 pub use riding::{Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox, RidingHitboxPort, RidingKnockback};
-pub use wielded::{BodySound, BodySoundPort, SpendMana, SpendManaPort, WieldedUsePort, Wielder};
+pub use wielded::{
+    BodySound, BodySoundPort, MarkPort, MarkView, SetMark, SetMarkPort, SpendMana, SpendManaPort, WieldedAlternatePort,
+    WieldedUsePort, Wielder,
+};
 
 use ambition_extension_sdk::wire::{self, WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};

@@ -52,14 +52,15 @@ impl Place {
 ///
 /// Port card (`docs/planning/engine/extension-domain-contracts.md`):
 ///
-/// * **Operation** — move the body up to `distance` along the unit
-///   `direction` (world). The body stops a body-half short of the first wall
-///   of its own live room and never ends inside a solid
-///   (`ambition_abilities::traversal::blink::blink_target`); the half is of
-///   the box the body has, turned to the DOWN of its last step. Its velocity
-///   is kept. Then, if `facing` is given, the body faces that way
-///   (body-local, `1.0` is +x). The transit is a scripted teleport for the
-///   Class-B ranking.
+/// * **Operation** — move the body at once to `to`. [`Destination::Along`]:
+///   up to `distance` along the unit `direction` (world); the body stops a
+///   body-half short of the first wall of its own live room and never ends
+///   inside a solid (`ambition_abilities::traversal::blink::blink_target`);
+///   the half is of the box the body has, turned to the DOWN of its last
+///   step. [`Destination::To`]: to the point, as it is (a place the module
+///   knows the body can be, for example its mark). Its velocity is kept.
+///   Then, if `facing` is given, the body faces that way (body-local, `1.0`
+///   is +x). The transit is a scripted teleport for the Class-B ranking.
 /// * **Owner** — `ambition_abilities::extension` (`transit_body`, the
 ///   discrete-transit authority).
 /// * **Scope** — the body the invocation ran for.
@@ -71,29 +72,53 @@ impl Place {
 ///   the module's (blink asks [`crate::Wielder::swept`]).
 pub struct TransitPort;
 
+/// Where a transit takes the body.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Destination {
+    /// Along a line, walls permitting.
+    Along { direction: [f32; 2], distance: f32 },
+    /// To a point.
+    To([f32; 2]),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Transit {
-    pub direction: [f32; 2],
-    pub distance: f32,
+    pub to: Destination,
     /// The facing to take at the arrival, or `None` to keep it.
     pub facing: Option<f32>,
 }
 
 impl Port for TransitPort {
-    const KEY: PortKey = PortKey::new("ambition.motion.transit", 2);
+    const KEY: PortKey = PortKey::new("ambition.motion.transit", 3);
     const ROLE: PortRole = PortRole::Request;
     type Value = Transit;
 
     fn encode(v: &Transit, out: &mut Vec<u8>) {
-        wire::put_vec2(out, v.direction);
-        wire::put_f32(out, v.distance);
+        match v.to {
+            Destination::Along { direction, distance } => {
+                wire::put_u8(out, 0);
+                wire::put_vec2(out, direction);
+                wire::put_f32(out, distance);
+            }
+            Destination::To(at) => {
+                wire::put_u8(out, 1);
+                wire::put_vec2(out, at);
+            }
+        }
         wire::put_opt(out, v.facing, wire::put_f32);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Transit, WireError> {
+        let to = match r.u8()? {
+            0 => Destination::Along {
+                direction: r.vec2()?,
+                distance: r.f32()?,
+            },
+            1 => Destination::To(r.vec2()?),
+            tag => return Err(WireError::BadTag(tag)),
+        };
         Ok(Transit {
-            direction: r.vec2()?,
-            distance: r.f32()?,
+            to,
             facing: r.opt(WireReader::f32)?,
         })
     }
@@ -274,8 +299,13 @@ mod tests {
 
     #[test]
     fn each_body_motion_value_survives_the_wire() {
-        let transit = Transit { direction: [0.6, -0.8], distance: 150.0, facing: Some(-1.0) };
+        let transit = Transit {
+            to: Destination::Along { direction: [0.6, -0.8], distance: 150.0 },
+            facing: Some(-1.0),
+        };
         assert_eq!(round_trip::<TransitPort>(&transit), transit);
+        let recall = Transit { to: Destination::To([3.0, 4.0]), facing: None };
+        assert_eq!(round_trip::<TransitPort>(&recall), recall);
         let cooldown = MovementCooldown { seconds: 0.45 };
         assert_eq!(round_trip::<MovementCooldownPort>(&cooldown), cooldown);
         let strike = Strike {

@@ -8,7 +8,7 @@
 //! `Place::Body`: the transit port is lowered first, so that is the arrival.
 
 use ambition_combat_port::{
-    BodySound, BodySoundPort, Effect, EffectPort, MovementCooldown, MovementCooldownPort, Place, Strike, StrikePort,
+    BodySound, BodySoundPort, Destination, Effect, EffectPort, MovementCooldown, MovementCooldownPort, Place, Strike, StrikePort,
     StrikeVolume, Transit, TransitPort, WieldedUsePort, Wielder,
 };
 use ambition_extension_sdk::{Fault, Invocation, ModuleDescriptor, Port};
@@ -56,7 +56,10 @@ fn blink(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         return Ok(());
     }
     inv.submit::<MovementCooldownPort>(MovementCooldown { seconds: COOLDOWN_S })?;
-    inv.submit::<TransitPort>(Transit { direction, distance: DISTANCE, facing: None })?;
+    inv.submit::<TransitPort>(Transit {
+        to: Destination::Along { direction, distance: DISTANCE },
+        facing: None,
+    })?;
     inv.submit::<StrikePort>(Strike {
         volume: StrikeVolume::Circle { at: Place::Body, radius: STRIKE_RADIUS },
         damage: STRIKE_DAMAGE,

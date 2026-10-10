@@ -257,8 +257,8 @@ fn each_wasm_build_uses_its_item_as_its_native_system_did() {
     }
 }
 
-/// The body-motion modules (`ambition.motion.transit`): the blink and the
-/// dive, run the same three ways. Their output is a moved body, so the trace
+/// The body-motion modules (`ambition.motion.transit`): the blink, the dive
+/// and the mark/recall, run the same three ways. Their output is a moved body, so the trace
 /// is each body's position, velocity, facing, mana and movement cooldown, the
 /// Class-B record, the strikes, the effects and the sounds, tick for tick.
 ///
@@ -270,7 +270,9 @@ fn each_wasm_build_uses_its_item_as_its_native_system_did() {
 /// last step was into its wall, so its box lies along the wall, 20 deep on x
 /// where its gravity frame makes it 12: a transit must stop it by the box it
 /// has. The presses come faster than the blink's cooldown, so some are
-/// refused.
+/// refused. Blink is pressed on its own schedule; body 1 starts with a mark
+/// in the OTHER live room and presses Blink before its first Attack, so its
+/// first recall must do nothing.
 mod transits {
     use super::*;
     use ambition_extension_host::ExtensionSet;
@@ -304,6 +306,16 @@ mod transits {
         native: fn(&mut App),
         /// How many times each body is moved on the reference road.
         moves: fn(&[usize]) -> bool,
+        /// The item moves a body along a line, so the walls stop it.
+        along: bool,
+    }
+
+    /// The mark body 1 starts with: a place in #1, while body 1 is in #0.
+    const MARK_IN_THE_OTHER_ROOM: ae::Vec2 = ae::Vec2::new(500.0, 300.0);
+
+    /// Blink is pressed on its own schedule.
+    fn blink_on(tick: usize, body: usize) -> bool {
+        (tick + body) % 7 == 3
     }
 
     const BLINK: TransitItem = TransitItem {
@@ -321,6 +333,7 @@ mod transits {
         // The cooldown ran out between moves; the brain's body and the body
         // off the swept kernel do not blink.
         moves: |m| m[0] >= 2 && m[1] >= 2 && m[3] >= 2 && m[2] == 0 && m[4] == 0,
+        along: true,
     };
     const DIVE: TransitItem = TransitItem {
         item: "dive",
@@ -338,6 +351,24 @@ mod transits {
         // dives once, the body off the swept kernel dives, the brain's does
         // not.
         moves: |m| m[0] >= 3 && m[1] >= 3 && m[3] == 1 && m[4] >= 3 && m[2] == 0,
+        along: true,
+    };
+    const MARK_RECALL: TransitItem = TransitItem {
+        item: "mark_recall",
+        native: |app| {
+            app.add_systems(
+                Sim,
+                (
+                    super::super::wielded_ability_reference_tests::mark_recall::mark_recall_system,
+                    ambition_platformer2d::abilities::ability_cooldown::tick_ability_cooldown,
+                )
+                    .chain(),
+            );
+        },
+        // Each driven body recalls to a mark it set; the brain's body does
+        // not.
+        moves: |m| m[0] >= 2 && m[1] >= 1 && m[3] >= 1 && m[4] >= 1 && m[2] == 0,
+        along: false,
     };
 
     /// More than the cooldown (0.45 s, 27 ticks), so a press is refused and a
@@ -451,6 +482,12 @@ mod transits {
                 let kin = *entity.get::<BodyKinematics>().unwrap();
                 entity.insert(ae::SweepSample::at_rest(kin, INTO_THE_WALL));
             }
+            if i == 1 {
+                entity.insert(ambition_platformer2d::abilities::traversal::mark_recall::PlayerMark {
+                    pos: Some(MARK_IN_THE_OTHER_ROOM),
+                    room: Some(walled),
+                });
+            }
             if spec.driven {
                 entity.insert(DrivingParticipant(PlayerSlot(i as u8)));
             }
@@ -476,6 +513,7 @@ mod transits {
                 control.0.shield_held = shield;
                 control.0.aim = ae::LocalAxes::new(aim[0], aim[1]);
                 control.0.locomotion = ae::LocalAxes::new(movement[0], movement[1]);
+                control.0.blink_pressed = blink_on(tick, i);
             }
             app.world_mut().run_schedule(Sim);
             let mut out: BTreeMap<usize, Vec<String>> = BTreeMap::new();
@@ -507,6 +545,13 @@ mod transits {
             for (i, remap) in remaps {
                 out.entry(i).or_default().push(remap);
             }
+            // A tick's effects and sounds are compared as a set. The module
+            // orders them by entry (every mark, then every recall) and the
+            // native system by body; the simulation reads none of them. The
+            // hits, which it reads, keep their order.
+            if let Some(presented) = out.get_mut(&usize::MAX) {
+                presented.sort();
+            }
             for (i, body) in bodies.iter().enumerate() {
                 let kin = app.world().get::<BodyKinematics>(*body).unwrap();
                 let cooldown = app
@@ -517,8 +562,12 @@ mod transits {
                     app.world().get::<ambition_platformer2d_core::resources::ActorResources>(*body),
                 )
                 .map(|l| l.current);
+                let mark = app
+                    .world()
+                    .get::<ambition_platformer2d::abilities::traversal::mark_recall::PlayerMark>(*body)
+                    .map(|m| (m.pos, m.room));
                 out.entry(i).or_default().push(format!(
-                    "at {:?} moving {:?} facing {} mana {mana:?} cooldown {cooldown:?}",
+                    "at {:?} moving {:?} facing {} mana {mana:?} cooldown {cooldown:?} mark {mark:?}",
                     kin.pos, kin.vel, kin.facing
                 ));
             }
@@ -537,7 +586,7 @@ mod transits {
 
     #[test]
     fn each_transit_module_moves_each_body_as_its_native_system_did() {
-        for item in [&BLINK, &DIVE] {
+        for item in [&BLINK, &DIVE, &MARK_RECALL] {
             let native = run(Road::NativeSystem, item);
             let moved = blinks(&native);
             // ⭐ The premise: the reference moved the bodies it should.
@@ -548,8 +597,18 @@ mod transits {
             let x = |line: &str| -> Option<f32> { line.strip_prefix("at Vec2(")?.split(',').next()?.parse().ok() };
             let xs: Vec<f32> = native.iter().filter_map(|t| t[&0].last().and_then(|s| x(s))).collect();
             assert!(
-                xs.windows(2).any(|w| w[1] > w[0] && w[1] - w[0] < 139.0 && w[1] + 12.0 <= 380.0 && w[1] + 12.0 > 360.0),
+                !item.along
+                    || xs.windows(2).any(|w| w[1] > w[0] && w[1] - w[0] < 139.0 && w[1] + 12.0 <= 380.0 && w[1] + 12.0 > 360.0),
                 "{}: no move of the body in #1 stopped at the wall: {xs:?}",
+                item.item
+            );
+            // The premise of the room rule: body 1 pressed Blink while its only
+            // mark was in the other room.
+            let first_mark_of_its_own = native.iter().position(|t| t[&1].iter().any(|l| l.contains("mark Some((Some(Vec2(") && !l.contains("500.0, 300.0")));
+            let early_blink = (0..TICKS).find(|&t| blink_on(t, 1)).expect("body 1 presses Blink");
+            assert!(
+                first_mark_of_its_own.is_none_or(|t| t > early_blink),
+                "{}: body 1 marked before its first Blink",
                 item.item
             );
             let module = run(Road::Module, item);
@@ -559,7 +618,7 @@ mod transits {
 
     #[test]
     fn each_transit_wasm_build_moves_each_body_as_its_native_system_did() {
-        for item in [&BLINK, &DIVE] {
+        for item in [&BLINK, &DIVE, &MARK_RECALL] {
             let native = run(Road::NativeSystem, item);
             let wasm = run(Road::Wasm, item);
             assert_eq!(

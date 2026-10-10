@@ -15,6 +15,7 @@
 | [`fsm`](src/fsm.rs) | The Flying Spaghetti Monster's conductor: it flies the god and performs its moves. |
 | [`gradient_cascade`](src/gradient_cascade.rs) | Gradient cascade: on the first strike tick, minions drop in from the top of the arena, spread evenly about the boss. |
 | [`gradient_nova`](src/gradient_nova.rs) | The gradient nova: on the first tick of a strike, sixteen shots burst out of the boss in a full circle, at three speed tiers so the ring tears into layers. |
+| [`mark_recall`](src/mark_recall.rs) | Mark / Recall: while the body holds the mark/recall item, Attack puts its mark where it stands, and Blink takes it back to the mark at once and strikes there. |
 | [`meteor`](src/meteor.rs) | Meteor: Attack while holding the meteor drops a line of falling rocks on a zone ahead of the body, across its gravity. |
 | [`minima_trap`](src/minima_trap.rs) | Minima trap: on the first strike tick a pit of damage opens where the boss's target is, and a crawler appears beside it, on the boss's side. |
 | [`mockingbird`](src/mockingbird.rs) | The Mockingbird's conductor: the air chase. |
@@ -31,7 +32,7 @@
 | [`vortex`](src/vortex.rs) | Vortex: Attack while holding the vortex gauntlet opens a singularity ahead of the body along the aim. |
 | [`wielded`](src/wielded.rs) | What the wielded abilities share: the descriptor of a stateless entry on the `wielded_use` trigger, and the payment rule. |
 
-_24 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

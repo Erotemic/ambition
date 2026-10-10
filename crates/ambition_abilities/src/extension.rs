@@ -12,8 +12,8 @@
 use ambition_characters::control::ActorControl;
 use ambition_combat::held_items::HeldItem;
 use ambition_combat_port::{
-    BodySoundPort, EffectPort, EndModuleEntityPort, ModuleEntityTickPort, MovementCooldownPort, PullBodiesPort,
-    SpawnModuleEntityPort, SpendManaPort, WieldedUsePort, Wielder,
+    BodySoundPort, EffectPort, EndModuleEntityPort, MarkPort, MarkView, ModuleEntityTickPort, MovementCooldownPort,
+    PullBodiesPort, SetMarkPort, SpawnModuleEntityPort, SpendManaPort, WieldedAlternatePort, WieldedUsePort, Wielder,
 };
 /// The composition orders this port's lowering as a carry of the travelled
 /// path.
@@ -33,6 +33,12 @@ use bevy::prelude::*;
 /// Install the trigger port and the request ports in `wielded_use`.
 pub fn install(app: &mut App) {
     app.install_extension_trigger::<WieldedUsePort, _>(WIELDED_USE, "ambition_abilities", queue_wielded_uses);
+    app.install_extension_trigger::<WieldedAlternatePort, _>(
+        WIELDED_USE,
+        "ambition_abilities",
+        queue_wielded_alternates,
+    );
+    app.install_extension_observation::<MarkPort>(WIELDED_USE, "ambition_abilities", mark_of);
     // First of the phase's request ports: the host lowers them in install
     // order, so a `Place::Body` of a later port is the arrival.
     app.install_extension_request::<TransitPort, _>(WIELDED_USE, "ambition_abilities", lower_transits);
@@ -45,6 +51,7 @@ pub fn install(app: &mut App) {
     // with the port has it, whether or not a module shows an effect.
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.install_extension_request::<EffectPort, _>(WIELDED_USE, "ambition_abilities", lower_effects);
+    app.install_extension_request::<SetMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_set_marks);
     app.install_extension_request::<SpendManaPort, _>(WIELDED_USE, "ambition_abilities", lower_mana_spends);
     app.install_extension_request::<BodySoundPort, _>(
         WIELDED_USE,
@@ -94,8 +101,73 @@ pub fn install_for_boss_conduct(app: &mut App) {
     );
 }
 
-/// One invocation for each body holding a bound item, in an order a rewind
-/// reproduces (the body's simulation identity, then its entity).
+/// The bodies that hold an item an entry of `port` is bound to, in an order
+/// a rewind reproduces (the body's simulation identity, then its entity),
+/// each with its trigger value.
+#[allow(clippy::type_complexity)]
+fn wielders_bound_to(
+    port: &ambition_extension_sdk::PortKey,
+    admitted: &AdmittedExtensions,
+    driven: &ambition_held_items::DrivenBodies,
+    wielders: &Query<(
+        Entity,
+        &ActorControl,
+        &HeldItem,
+        &BodyKinematics,
+        &ResolvedMotionFrame,
+        Option<&ActorResources>,
+        Option<&SimId>,
+        Has<ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
+        Option<&crate::ability_cooldown::AbilityCooldown>,
+        Option<&ambition_platformer2d_core::movement::MotionModel>,
+    )>,
+) -> Vec<(Entity, String, ambition_characters::actor::control::ActorControlFrame, Wielder)> {
+    let bound: Vec<&str> = admitted
+        .0
+        .entries
+        .iter()
+        .filter(|e| e.descriptor.trigger.port == *port)
+        .map(|e| e.descriptor.trigger.selector.as_ref())
+        .collect();
+    if bound.is_empty() {
+        return Vec::new();
+    }
+    let driven = driven.entities();
+    let mut using: Vec<_> = wielders
+        .iter()
+        .filter(|(_, _, held, ..)| bound.contains(&held.id()))
+        .collect();
+    using.sort_by(|a, b| {
+        (a.6.map(SimId::as_str), a.0.to_bits()).cmp(&(b.6.map(SimId::as_str), b.0.to_bits()))
+    });
+    using
+        .into_iter()
+        .map(|(entity, control, held, kin, frame, bank, id, counts, cooldown, model)| {
+            let c = control.0;
+            let basis = frame.basis();
+            let aim = ambition_held_items::ability_aim_local(&c, kin.facing);
+            let wielder = Wielder {
+                pressed: c.melee_pressed && !c.shield_held,
+                driven: driven.contains(&entity),
+                position: [kin.pos.x, kin.pos.y],
+                size: [kin.size.x, kin.size.y],
+                facing: kin.facing,
+                frame_side: [basis.side.x, basis.side.y],
+                frame_down: [basis.down.x, basis.down.y],
+                aim_local: [aim.x, aim.y],
+                mana: crate::mana::level(bank).map(|level| level.current),
+                names_spawns: id.is_some() && counts,
+                cooldown_ready: cooldown.is_none_or(|cooldown| cooldown.ready()),
+                swept: matches!(model, Some(ambition_platformer2d_core::movement::MotionModel::AxisSwept(_))),
+            };
+            (entity, held.id().to_owned(), c, wielder)
+        })
+        .collect()
+}
+
+/// One invocation for each body holding a bound item: IDLE when Attack is
+/// not pressed.
+#[allow(clippy::type_complexity)]
 pub fn queue_wielded_uses(
     admitted: Res<AdmittedExtensions>,
     mut invocations: ResMut<ExtensionInvocations>,
@@ -113,51 +185,76 @@ pub fn queue_wielded_uses(
         Option<&ambition_platformer2d_core::movement::MotionModel>,
     )>,
 ) {
-    let bound: Vec<&str> = admitted
-        .0
-        .entries
-        .iter()
-        .filter(|e| e.descriptor.trigger.port == WieldedUsePort::KEY)
-        .map(|e| e.descriptor.trigger.selector.as_ref())
-        .collect();
-    if bound.is_empty() {
-        return;
+    for (entity, item, _, wielder) in wielders_bound_to(&WieldedUsePort::KEY, &admitted, &driven, &wielders) {
+        let idle = !wielder.pressed;
+        invocations.trigger::<WieldedUsePort>(&WIELDED_USE, item, entity, None, idle, wielder);
     }
-    let driven = driven.entities();
-    let mut using: Vec<_> = wielders
-        .iter()
-        .filter(|(_, _, held, ..)| bound.contains(&held.id()))
-        .collect();
-    using.sort_by(|a, b| {
-        (a.6.map(SimId::as_str), a.0.to_bits()).cmp(&(b.6.map(SimId::as_str), b.0.to_bits()))
-    });
-    for (entity, control, held, kin, frame, bank, id, counts, cooldown, model) in using {
-        let c = control.0;
-        let pressed = c.melee_pressed && !c.shield_held;
-        let basis = frame.basis();
-        let aim = ambition_held_items::ability_aim_local(&c, kin.facing);
-        invocations.trigger::<WieldedUsePort>(
-            &WIELDED_USE,
-            held.id().to_owned(),
-            entity,
-            None,
-            // The port's IDLE: the item is not used this tick.
-            !pressed,
-            Wielder {
-                pressed,
-                driven: driven.contains(&entity),
-                position: [kin.pos.x, kin.pos.y],
-                size: [kin.size.x, kin.size.y],
-                facing: kin.facing,
-                frame_side: [basis.side.x, basis.side.y],
-                frame_down: [basis.down.x, basis.down.y],
-                aim_local: [aim.x, aim.y],
-                mana: crate::mana::level(bank).map(|level| level.current),
-                names_spawns: id.is_some() && counts,
-                cooldown_ready: cooldown.is_none_or(|cooldown| cooldown.ready()),
-                swept: matches!(model, Some(ambition_platformer2d_core::movement::MotionModel::AxisSwept(_))),
-            },
-        );
+}
+
+/// One invocation for each body holding a bound item: IDLE when Blink is not
+/// pressed.
+#[allow(clippy::type_complexity)]
+pub fn queue_wielded_alternates(
+    admitted: Res<AdmittedExtensions>,
+    mut invocations: ResMut<ExtensionInvocations>,
+    driven: ambition_held_items::DrivenBodies,
+    wielders: Query<(
+        Entity,
+        &ActorControl,
+        &HeldItem,
+        &BodyKinematics,
+        &ResolvedMotionFrame,
+        Option<&ActorResources>,
+        Option<&SimId>,
+        Has<ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
+        Option<&crate::ability_cooldown::AbilityCooldown>,
+        Option<&ambition_platformer2d_core::movement::MotionModel>,
+    )>,
+) {
+    for (entity, item, control, wielder) in wielders_bound_to(&WieldedAlternatePort::KEY, &admitted, &driven, &wielders) {
+        let idle = !control.blink_pressed;
+        invocations.trigger::<WieldedAlternatePort>(&WIELDED_USE, item, entity, None, idle, wielder);
+    }
+}
+
+/// The body's mark, if it is in the live room the body is in now: a mark is
+/// a place in one live room.
+fn mark_of(world: &World, scope: Entity) -> Option<MarkView> {
+    let room = world
+        .get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(scope)
+        .map(|stamp| stamp.0);
+    let mark = world.get::<crate::traversal::mark_recall::PlayerMark>(scope);
+    Some(MarkView {
+        at: mark.filter(|m| m.room == room).and_then(|m| m.pos).map(|at| [at.x, at.y]),
+    })
+}
+
+/// Put each body's mark where the module asked, in the live room the body is
+/// in, in place of any mark it had.
+fn lower_set_marks(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut commands: Commands,
+    mut bodies: Query<(
+        &BodyKinematics,
+        Option<&mut crate::traversal::mark_recall::PlayerMark>,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    )>,
+) {
+    for submitted in outbox.drain::<SetMarkPort>(&WIELDED_USE) {
+        let Ok((kin, mark, room)) = bodies.get_mut(submitted.scope) else {
+            continue;
+        };
+        let at = submitted.value.at.resolve([kin.pos.x, kin.pos.y]);
+        let dropped = crate::traversal::mark_recall::PlayerMark {
+            pos: Some(at.into()),
+            room: room.map(|stamp| stamp.0),
+        };
+        match mark {
+            Some(mut existing) => *existing = dropped,
+            None => {
+                commands.entity(submitted.scope).insert(dropped);
+            }
+        }
     }
 }
 
@@ -182,20 +279,24 @@ pub fn lower_transits(
             continue;
         };
         let transit = submitted.value;
-        let dir = ae::Vec2::from(transit.direction);
         let mut clusters = cluster_item.as_clusters_mut();
         let from = clusters.kinematics.pos;
-        // The box the body has: turned to the DOWN of its last step. For a
-        // body the axis arm moves that is the DOWN of its resolved frame; a
-        // crawler on a wall lies along the wall, and only the record of its
-        // step says so.
-        let down = ae::SweepSample::down_or(clusters.sweep.as_deref(), frame.down());
-        let half = clusters.kinematics.half_oriented(down);
-        let collision = world.room(room).and_then(|room| room.solids());
-        let target = match collision.as_ref() {
-            Some(w) => crate::traversal::blink::blink_target(&**w, from, dir, transit.distance, half),
-            // No collision world (a minimal test app): the full distance.
-            None => from + dir * transit.distance,
+        let target = match transit.to {
+            ambition_combat_port::Destination::To(at) => ae::Vec2::from(at),
+            ambition_combat_port::Destination::Along { direction, distance } => {
+                let dir = ae::Vec2::from(direction);
+                // The box the body has: turned to the DOWN of its last step.
+                // For a body the axis arm moves that is the DOWN of its
+                // resolved frame; a crawler on a wall lies along the wall,
+                // and only the record of its step says so.
+                let down = ae::SweepSample::down_or(clusters.sweep.as_deref(), frame.down());
+                let half = clusters.kinematics.half_oriented(down);
+                match world.room(room).and_then(|room| room.solids()).as_ref() {
+                    Some(w) => crate::traversal::blink::blink_target(&**w, from, dir, distance, half),
+                    // No collision world (a minimal test app): the full distance.
+                    None => from + dir * distance,
+                }
+            }
         };
         ae::movement::transit_body(&mut model, &mut clusters, target, ae::movement::TransitVelocity::Keep);
         if let Some(facing) = transit.facing {

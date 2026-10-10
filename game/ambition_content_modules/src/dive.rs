@@ -8,7 +8,7 @@
 //! transit port is lowered first, so that is the arrival.
 
 use ambition_combat_port::{
-    BodySound, BodySoundPort, Place, SpendManaPort, Strike, StrikeKnockback, StrikePort, StrikeVolume, Transit,
+    BodySound, BodySoundPort, Destination, Place, SpendManaPort, Strike, StrikeKnockback, StrikePort, StrikeVolume, Transit,
     TransitPort, WieldedUsePort, Wielder,
 };
 use ambition_extension_sdk::{Fault, Invocation, ModuleDescriptor, Port};
@@ -58,8 +58,7 @@ fn dive(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let local = direction(w.aim_local, w.facing);
     let world = wielded::unit_or_zero(w.to_world(local));
     inv.submit::<TransitPort>(Transit {
-        direction: world,
-        distance: LUNGE,
+        to: Destination::Along { direction: world, distance: LUNGE },
         // A sideways lunge turns the body to face along it.
         facing: (local[0].abs() > 0.001).then(|| local[0].signum()),
     })?;

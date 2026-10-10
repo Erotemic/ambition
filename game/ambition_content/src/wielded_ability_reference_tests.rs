@@ -1,5 +1,5 @@
 //! The NATIVE wielded abilities (shockwave, beam, volley, meteor, sentry,
-//! vortex, blink, dive), kept as the
+//! vortex, blink, dive, mark/recall), kept as the
 //! reference traces of their procedural modules (`ambition_content_modules`).
 //! Test-only: the game runs the modules. `wielded_ability_parity_tests` holds
 //! each module to its reference on the linked and the WASM road.
@@ -1419,6 +1419,140 @@ pub mod dive {
                     pos: target,
                 },
             );
+        }
+    }
+}
+
+pub mod mark_recall {
+    use bevy::prelude::*;
+
+    use ambition_combat::held_items::HeldItem;
+    use ambition_characters::control::ActorControl;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
+
+    /// The held-item id the Mark/Recall ability grants (see `brain::action_set`
+    /// `HELD_ITEMS` and `items::Item::held_item_id`).
+    pub const MARK_RECALL_ID: &str = "mark_recall";
+
+    /// Half-extent of the recall-strike shockwave at the mark.
+    const RECALL_SHOCKWAVE_HALF: f32 = 36.0;
+    /// Recall-strike damage: modest, like Blink's arrival shockwave.
+    const RECALL_SHOCKWAVE_DAMAGE: i32 = 2;
+
+    /// While holding the Mark/Recall item: a plain `Attack` drops or moves the
+    /// mark at the player's feet, and `Blink` recalls to the mark if set. A frame
+    /// that drops a mark does not also recall, so a simultaneous press means "set
+    /// the mark here".
+    pub fn mark_recall_system(
+        mut commands: Commands,
+        // Every driven body, not only the primary seat's `ControlledSubject`, so
+        // a possessed body or a second seat can use it.
+        driven: ambition_held_items::DrivenBodies,
+        mut players: Query<(
+            Entity,
+            &ActorControl,
+            ae::BodyClusterQueryData,
+            &mut ambition_platformer2d_core::movement::MotionModel,
+            &HeldItem,
+            Option<&mut ambition_platformer2d::abilities::traversal::mark_recall::PlayerMark>,
+            // The live room the body is in: its effects are drawn there.
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        )>,
+        mut sfx: ambition_sfx::BodySfxWriter,
+        mut vfx: ambition_vfx::vfx::VfxWriter,
+        mut hits: MessageWriter<ambition_combat::events::HitEvent>,
+        // Optional diagnostic Class-B ledger (§3.2), so a minimal test app still
+        // recalls.
+        mut class_b: Option<ResMut<ClassBRemapLog>>,
+    ) {
+        for subject in driven.entities() {
+            let Ok((player, control, mut cluster_item, mut motion_model, held, mut mark, room)) =
+                players.get_mut(subject)
+            else {
+                continue;
+            };
+            let room = room.map(|stamp| stamp.0);
+            let mut vfx = vfx.for_room(room);
+            let mut clusters = cluster_item.as_clusters_mut();
+            let c = control.0;
+            if held.spec.id != MARK_RECALL_ID {
+                continue;
+            }
+
+            // Plain Attack drops or moves the mark. Shield+Attack throws the item
+            // away, so a shielded frame does not mark.
+            if c.melee_pressed && !c.shield_held {
+                let pos = clusters.kinematics.pos;
+                let dropped = ambition_platformer2d::abilities::traversal::mark_recall::PlayerMark { pos: Some(pos), room };
+                match mark.as_deref_mut() {
+                    Some(existing) => *existing = dropped,
+                    None => {
+                        commands.entity(player).insert(dropped);
+                    }
+                }
+                sfx.write_for(
+                    player,
+                    ambition_sfx::SfxMessage::Play {
+                        id: ambition_sfx::ids::PLAYER_DASH,
+                        pos,
+                    },
+                );
+                vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+                    pos,
+                    fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                    scale: 0.4,
+                    pose: ambition_vfx::FxPose::UPRIGHT,
+                });
+                continue;
+            }
+
+            // Blink recalls to the mark, if one is set in the room the body is in.
+            if c.blink_pressed {
+                if let Some(target) = mark.filter(|m| m.room == room).and_then(|m| m.pos) {
+                    // The discrete-transit authority: momentum kept, departure
+                    // contacts and attachment reconciled (ADR 0024).
+                    ae::movement::transit_body(
+                        &mut motion_model,
+                        &mut clusters,
+                        target,
+                        ae::movement::TransitVelocity::Keep,
+                    );
+                    // Class-B transit (`docs/concepts/movement-collision.md`):
+                    // the recall moves the body, so it is a scripted teleport.
+                    if let Some(log) = class_b.as_mut() {
+                        log.record(player, ClassBRemap::ScriptedTeleport);
+                    }
+                    // Recall strike: a player-side shockwave at the mark, so you
+                    // can lure enemies onto it and recall in to hit them.
+                    hits.write(ambition_combat::events::HitEvent {
+                        strike_sfx: None,
+                        volume: ae::CombatVolume::circle(target, RECALL_SHOCKWAVE_HALF),
+                        damage: RECALL_SHOCKWAVE_DAMAGE,
+                        source: ambition_combat::events::HitSource::Melee,
+                        attacker: Some(player),
+                        room: None,
+                        target: ambition_combat::events::HitTarget::Volume,
+                        mode: ambition_combat::events::HitMode::Knockback,
+                        knockback: None,
+                        ignored_targets: Vec::new(),
+                                        attacker_move_instance: None,
+                    });
+                    sfx.write_for(
+                        player,
+                        ambition_sfx::SfxMessage::Play {
+                            id: ambition_sfx::ids::PLAYER_BLINK,
+                            pos: target,
+                        },
+                    );
+                    vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+                        pos: target,
+                        fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                        scale: 0.6,
+                        pose: ambition_vfx::FxPose::UPRIGHT,
+                    });
+                }
+            }
         }
     }
 }

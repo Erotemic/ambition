@@ -13,7 +13,7 @@
 | [`ranged`](src/ranged/mod.rs) | Ranged abilities: the bomb. |
 | [`test_support`](src/test_support.rs) | Test-only fixtures for ability modules. |
 | [`thrown`](src/thrown/mod.rs) | Thrown abilities: the gravity grenade. |
-| [`traversal`](src/traversal/mod.rs) | Traversal abilities a held item FIRES: grapple and mark/recall, and the blink rule (the blink and the dive are procedural modules that ask for a transit). |
+| [`traversal`](src/traversal/mod.rs) | Traversal abilities a held item FIRES: the grapple; and the blink rule and the mark, which the blink, dive and mark/recall modules use through their ports. |
 
 _8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

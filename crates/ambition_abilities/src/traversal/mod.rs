@@ -1,6 +1,6 @@
-//! Traversal abilities a held item FIRES: grapple and mark/recall, and the
-//! blink rule (the blink and the dive are procedural modules that ask for a
-//! transit).
+//! Traversal abilities a held item FIRES: the grapple; and the blink rule
+//! and the mark, which the blink, dive and mark/recall modules use through
+//! their ports.
 //!
 //! Possession, teleport, trapdoor, and flyline are not here. They share the
 //! kernel's `abilities/traversal/` directory, but they are runtime-registered

@@ -413,6 +413,15 @@ def timings_payload(results: list[JobResult]) -> list[dict]:
     ]
 
 
+def has_lib_target(crate: Path) -> bool:
+    """Whether the package has a library target, so `cargo test --doc` has
+    something to run: Cargo finds `src/lib.rs`, or the manifest names a `[lib]`.
+    """
+    if (crate / "src" / "lib.rs").exists():
+        return True
+    return re.search(r"^\[lib\]", (crate / "Cargo.toml").read_text(), re.M) is not None
+
+
 def selected_members(only: list[str]) -> list[Path]:
     """Workspace members with a `Cargo.toml`, rejecting unknown requested packages."""
     members = [c for c in workspace_members() if (c / "Cargo.toml").exists()]
@@ -700,9 +709,15 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
             if crate.name in only:
                 jobs.append(Job(f"{crate.name} (default features)",
                                 cargo_test(["-p", crate.name], list(libtest_args))))
-                if NEXTEST:
+                # A package with no library has no doctests: `cargo test
+                # --doc` exits 101 ("no library targets found"), and the job
+                # failed a run whose tests all passed.
+                if NEXTEST and has_lib_target(crate):
                     jobs.append(Job(f"{crate.name} doctests",
                                     [CARGO, "test", "-p", crate.name, "--doc"]))
+                elif NEXTEST:
+                    print(f"run_tests: {crate.name} has no library target, so no doctest job",
+                          file=sys.stderr)
     else:
         jobs.append(Job("workspace (default features)",
                         cargo_test(["--workspace"], list(libtest_args))))

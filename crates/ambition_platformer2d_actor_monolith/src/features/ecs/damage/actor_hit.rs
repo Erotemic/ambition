@@ -718,11 +718,16 @@ pub(crate) fn apply_actor_hit(
                 pos: em.kin.pos,
                 cue: PhysicsDebrisCue::EnemyRagdoll,
             });
-            // A body dies in its OWN voice.
-            writers.sfx.write_for_body(
-                victim_source.as_ref(),
-                SfxMessage::Death { pos: em.kin.pos },
-            );
+            // A body dies in its OWN voice: the cue its character authors, or
+            // the death cue of the game that owns the body.
+            let death_cue = match caps.death_sound.as_deref() {
+                Some(sound) => SfxMessage::Play {
+                    id: ambition_sfx::SfxId::new(sound),
+                    pos: em.kin.pos,
+                },
+                None => SfxMessage::Death { pos: em.kin.pos },
+            };
+            writers.sfx.write_for_body(victim_source.as_ref(), death_cue);
         }
         true
     }

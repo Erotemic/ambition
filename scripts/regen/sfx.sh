@@ -3,8 +3,10 @@
 # the runtime.
 #
 # Pipeline:
-#   1. ambition_sfx_renderer render-all  →  tools/ambition_sfx_renderer/output/<cue>/
-#   2. ambition_sfx_pack                 →  crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank
+#   1. ambition_sfx_renderer fetch-samples  →  tools/ambition_sfx_renderer/public_samples/
+#      (the public recordings in sounds/public_samples.yaml; downloads only absent files)
+#   2. ambition_sfx_renderer render-all  →  tools/ambition_sfx_renderer/output/<cue>/
+#   3. ambition_sfx_pack                 →  crates/ambition_platformer2d_actor_monolith/assets/audio/sfx.bank
 #
 # Usage:
 # ./scripts/regen/sfx.sh              # render (incremental) + repack (default)
@@ -51,6 +53,8 @@ ambition_require_python_module \
     "run ./run_developer_setup.sh or set AMBITION_SFX_PYTHON=/path/to/python"
 
 if [ "$skip_render" -eq 0 ]; then
+    echo "==> fetch public samples"
+    (cd "$renderer_dir" && "$renderer_py" -m ambition_sfx_renderer fetch-samples)
     echo "==> render-all sfx cues (jobs=auto$([ "$force" -eq 1 ] && echo ', force'))"
     render_args=(render-all --jobs auto)
     if [ "$force" -eq 1 ]; then

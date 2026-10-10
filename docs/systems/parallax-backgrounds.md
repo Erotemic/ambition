@@ -172,11 +172,18 @@ are in front of the play and the others are behind the blocks.
 
 ## Ground shadows
 
-`rendering/ground_shadows.rs`. Each actor and the player has one soft dark
-ellipse on the ground under it (`RoomDressingPart::Shadow`, a published
-picture in the colour of the theme: no shader). The shadow is smaller and
-fainter the higher the body is over the ground, and gone at `REACH` (150
-units). It is behind each actor and in front of the terrain.
+**Off in each game now.** Jon, 2026-10-10: a shadow under each body does not
+suit the style of the game, and a sprite has no drop shadow in it. The system
+stays for a game that wants one: a game asks with
+`GroundShadowRooms::allow_mode(<its room mode>)`, and no game asks. A room
+with no mode (a room of Ambition) can not have one.
+
+`rendering/ground_shadows.rs`. In a room of a game that asked, each actor and
+the player has one soft dark ellipse on the ground under it
+(`RoomDressingPart::Shadow`, a published picture in the colour of the theme:
+no shader). The shadow is smaller and fainter the higher the body is over the
+ground, and gone at `REACH` (150 units). It is behind each actor and in front
+of the terrain.
 
 - The ground is the nearest top of a solid block, a blink wall or a one-way
   platform under the middle of the body (`ground_below`). The shadow is not

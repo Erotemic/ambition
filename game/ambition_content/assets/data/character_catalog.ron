@@ -1658,6 +1658,9 @@
             // be made: a tutorial NPC is a person, and a person has four.
             locomotion_preset: Some("hall_walk"),
             max_health: Some(4),
+            // The guide dies with the Wilhelm scream, a public recording and
+            // not a synthesized cue.
+            death_traits: Some((death_sound: Some("voice.wilhelm_scream"))),
             tags: ["hub", "guide"],
         barks: (
             on_hit: ["Ow. Tutorial says: don't.", "Input received. Annoyance rising.", "Debug friendship failed."],

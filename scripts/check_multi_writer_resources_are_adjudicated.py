@@ -296,7 +296,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_demo_smash_app/src/tools/ladder_probe.rs",
     ),
     "ClassBRemapLog": (
-        "crates/ambition_abilities/src/traversal/blink.rs",
+        "crates/ambition_abilities/src/extension.rs",
         "crates/ambition_abilities/src/traversal/dive.rs",
         "crates/ambition_abilities/src/traversal/mark_recall.rs",
         "crates/ambition_damage/src/lib.rs",

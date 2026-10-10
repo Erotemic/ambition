@@ -167,6 +167,13 @@ comes and goes.
   the dark red one is the point of that biome. If the story wants the raid
   to start later, the three rooms name the theme in `intro.ldtk`
   (`parallax_theme`).
+- **The lower gate stack is the choice I am least sure of.** It has a label
+  "lab ruins - collapsed", and I gave it `alarm` for that. Its other labels
+  are those of a gate station that works (a delayed gate, tolls), and it is
+  the room that joins the under-town to the hub and to the sky arena. If it
+  is a station and not a part of the raided lab, `lab` or `hub` is nearer.
+  The combat calibration lab and the first system boss are `lab`, as they
+  were.
 
 ## Not seen
 

@@ -25,11 +25,13 @@ die() { printf 'agent_worktree: %s\n' "$*" >&2; exit 2; }
 slot_path() { printf '%s/.worktrees/agent-worktree%s' "$MAIN" "$1"; }
 
 # ── CPU budget ────────────────────────────────────────────────────────────────
-# main gets the machine; each slot gets half of the one above it. A coordinator
+# main gets at most 6 jobs (the machine is shared: at most 6 parallel jobs, Jon
+# 2026-10-03); each slot gets half of the one above it. A coordinator
 # overrules by passing -j explicitly. The point is not precision, it is that
 # three agents building at once must not each believe they own 12 cores.
 slot_jobs() {
     local n total; total="$(nproc)"
+    [ "$total" -le 6 ] || total=6
     case "$1" in
         main|0) printf '%s' "$total" ;;
         1) printf '%s' "$(( total / 2 > 0 ? total / 2 : 1 ))" ;;
@@ -119,9 +121,8 @@ target_state() {
 cmd_list() {
     printf '%-6s %-4s %-22s %-7s %-8s %-6s %s\n' \
         SLOT JOBS HEAD TARGET SIZE BUSY PATH
-    local total; total="$(nproc)"
     printf '%-6s %-4s %-22s %-7s %-8s %-6s %s\n' \
-        main "$total" "$(git -C "$MAIN" rev-parse --abbrev-ref HEAD)" \
+        main "$(slot_jobs main)" "$(git -C "$MAIN" rev-parse --abbrev-ref HEAD)" \
         "$(target_state "$MAIN")" \
         "$(human "$MAIN/target")" \
         "$(busy "$MAIN" && echo yes || echo no)" "$MAIN"

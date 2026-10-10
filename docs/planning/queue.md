@@ -368,8 +368,13 @@ reads cargo output to it.
    skipped; 224-231 s through `run_tests.sh` with 14. `run_tests.py` adds
    `-n auto` when pytest-xdist is importable (`pytest_worker_args`), and
    `scripts/setup/python_tools.sh` installs it. The count is the `-j` cap, or
-   at most 6 with none (`PYTEST_WORKERS_UNCAPPED`: the shared machine's rule
+   at most 6 with none (`DEFAULT_JOB_CAP`: the shared machine's rule
    is at most 6 parallel jobs and no pool that takes every CPU by default).
+   Since 2026-10-10 the same default caps cargo's build jobs and test threads
+   when no `-j` and no exported value is given (cargo took every core before,
+   and `required_checks.py --run` runs the lanes with no `-j`). The sprite
+   publish pool, the audio-level pool and the worktree budget of main take at
+   most 6 too (`test_no_pool_takes_more_than_six_jobs_by_default.py`).
    Without xdist the job runs serially and prints why: the same tests run.
    Witness `scripts/tests/test_the_repo_tooling_job_runs_on_every_core.py`
    (poisons: no workers, red at "the job runs serially"; no default cap, red
@@ -404,7 +409,7 @@ until someone runs the check.
 
 A full regen took more than 2.5 h on one process, and now takes 74 min on 7
 (2026-10-09, `38865ba48`). `AMBITION_SPRITE_JOBS` defaults to half the cores,
-at most 8. A batch with one failure keeps the cache key of each target that
+at most 6 (8 when this was measured). A batch with one failure keeps the cache key of each target that
 published. The run's own "render cost" line: 3392 s of the 4436 s in 7
 renderer processes (tack-ons 1374 s, draw-review 893 s, draw-all 700 s, late
 targets 287 s, factions 136 s). The other ~1044 s are stages outside the

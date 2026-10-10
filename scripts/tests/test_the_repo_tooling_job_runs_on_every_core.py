@@ -71,9 +71,9 @@ def test_the_workers_obey_the_cap_and_take_at_most_six_with_none(monkeypatch, tm
     """⭐ A worker pool on a shared machine does not take every CPU by default
     (at most 6 parallel jobs there, Jon 2026-10-03). `-j` caps the workers as
     it caps cargo's jobs and test threads; with no `-j`, at most
-    `PYTEST_WORKERS_UNCAPPED`."""
+    `DEFAULT_JOB_CAP`."""
     assert _workers_seen(monkeypatch, tmp_path, job_limit=3) == "3"
     uncapped = _workers_seen(monkeypatch, tmp_path)
-    assert uncapped.isdigit() and 1 <= int(uncapped) <= run_tests.PYTEST_WORKERS_UNCAPPED == 6, (
+    assert uncapped.isdigit() and 1 <= int(uncapped) <= run_tests.DEFAULT_JOB_CAP == 6, (
         f"with no -j the pool is not capped: {uncapped}"
     )

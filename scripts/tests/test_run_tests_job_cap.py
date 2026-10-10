@@ -11,7 +11,9 @@ lets one binary saturate a shared machine.
 
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -59,7 +61,10 @@ def _probe_job():
 
 
 def _run(capsys, **kwargs):
-    code = run_tests.run([_probe_job()], False, **kwargs)
+    # A status of its own: the run that writes the default status records its
+    # jobs in the lane ledger, and a probe is not evidence.
+    with tempfile.TemporaryDirectory() as tmp:
+        code = run_tests.run([_probe_job()], False, status_json=str(Path(tmp) / "status.json"), **kwargs)
     return code, capsys.readouterr().out
 
 
@@ -101,12 +106,27 @@ def test_a_cap_reaches_the_child_for_both_compile_and_test_threads(capsys):
     )
 
 
-def test_without_the_flag_nothing_is_capped(capsys):
-    """⚠ The default must stay 'every core'. A cap that leaked in unasked would
-    silently halve everyone's suite and read as a machine getting slower."""
+def test_without_the_flag_each_consumer_takes_at_most_the_default_cap(capsys):
+    """⭐ The shared machine's rule is at most 6 parallel jobs, and no pool that
+    takes every CPU by default (Jon, 2026-10-03). Before 2026-10-10 a run with
+    no `-j` gave cargo every core: `required_checks.py --run` runs the lanes
+    that way."""
     code, out = _run(capsys)
     assert code == 0, _why(code, out)
-    assert "CAP None None None" in out, out
+    cap = min(run_tests.DEFAULT_JOB_CAP, os.cpu_count() or 1)
+    assert run_tests.DEFAULT_JOB_CAP == 6
+    assert f"CAP {cap} {cap} {cap}" in out, out
+
+
+def test_without_the_flag_an_exported_cap_wins(capsys, monkeypatch):
+    """The control: a value the caller exported is the caller's choice for
+    this machine, and the default does not replace it."""
+    monkeypatch.setenv("CARGO_BUILD_JOBS", "64")
+    monkeypatch.setenv("RUST_TEST_THREADS", "64")
+    monkeypatch.setenv("NEXTEST_TEST_THREADS", "64")
+    code, out = _run(capsys)
+    assert code == 0, _why(code, out)
+    assert "CAP 64 64 64" in out, out
 
 
 def test_the_run_announces_the_cap(capsys):

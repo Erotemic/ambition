@@ -335,12 +335,13 @@ export AMBITION_SPRITE_PROGRESS="${AMBITION_SPRITE_PROGRESS:-1}"
 # The renderer is single-threaded Python. With one process, a full regen took
 # more than 2.5 h on a 14-core machine at a load average of 1.45. `draw-all`,
 # `draw-review` and `publish-many` render each job or target in its own process
-# when this is above 1; each one writes only its own files. Half the cores, at
-# most 8, because one long publish process grew to 3.7 GB.
+# when this is above 1; each one writes only its own files. Half the cores,
+# because one long publish process grew to 3.7 GB, and at most 6: the machine is
+# shared (at most 6 parallel jobs, Jon 2026-10-03).
 if [ -z "${AMBITION_SPRITE_JOBS:-}" ]; then
     sprite_jobs=$(( $(nproc 2>/dev/null || echo 2) / 2 ))
     [ "$sprite_jobs" -ge 1 ] || sprite_jobs=1
-    [ "$sprite_jobs" -le 8 ] || sprite_jobs=8
+    [ "$sprite_jobs" -le 6 ] || sprite_jobs=6
     export AMBITION_SPRITE_JOBS="$sprite_jobs"
 fi
 if [ "${#target_names[@]}" -gt 0 ]; then

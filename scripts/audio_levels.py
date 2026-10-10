@@ -1548,7 +1548,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument('--only', choices=('music', 'sfx'), help='measure one population')
     parser.add_argument('--limit', type=int, help='cap items per cohort (smoke run)')
     parser.add_argument('--top', type=int, default=25, help='rows per ranked table')
-    parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 4))
+    # At most 6: the machine is shared (at most 6 parallel jobs, Jon 2026-10-03).
+    parser.add_argument('--jobs', type=int, default=min(6, os.cpu_count() or 4))
     parser.add_argument('--no-cache', action='store_true')
     args = parser.parse_args(argv)
 

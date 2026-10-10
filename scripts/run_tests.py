@@ -481,16 +481,17 @@ def repo_coupled_python_job() -> Job:
     )
 
 
-#: The most pytest workers of the repo tooling job when `-j` gives no cap.
-#: The rule of the shared machine is at most 6 parallel jobs, and no pool that
-#: takes every CPU by default (Jon, 2026-10-03, relayed by ToothbrushAmbition).
-PYTEST_WORKERS_UNCAPPED = 6
+#: The cap of each consumer (cargo build jobs, test threads, pytest workers)
+#: when `-j` gives none and the environment sets none. The rule of the shared
+#: machine is at most 6 parallel jobs, and no pool that takes every CPU by
+#: default (Jon, 2026-10-03, relayed by ToothbrushAmbition). `-j N` gives more.
+DEFAULT_JOB_CAP = 6
 
 
 def pytest_worker_args() -> list[str]:
     """`-n auto` when this interpreter has pytest-xdist: the repo tooling job
     runs on several cores. `auto` reads `PYTEST_XDIST_AUTO_NUM_WORKERS`, which
-    the runner sets from `-j`, or to at most `PYTEST_WORKERS_UNCAPPED`.
+    the runner sets from `-j`, or to at most `DEFAULT_JOB_CAP`.
     Measured 2026-10-10 on 14 cores: 1160 s serial, 232 s and 236 s with 8
     workers, the same 1776 passed and 19 skipped.
 
@@ -2292,7 +2293,8 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
         # `CARGO_BUILD_JOBS` in the CHILD environment without touching the
         # parent, so an env read here answers about the wrong process -- the
         # exact trap the `incremental` field above documents. `None` means
-        # uncapped, which is what every historical row already means.
+        # no `-j`: uncapped before 2026-10-10, `DEFAULT_JOB_CAP` or the
+        # exported value since.
         "job_limit": job_limit,
         "per_job": timings_payload(results),
     }
@@ -2545,9 +2547,12 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     # ⛔ Assigned, not `setdefault`: an explicit `-j` is the caller telling this
     # machine what it may use, and it must beat an ambient value.
     # The pytest workers of the repo tooling job (`-n auto`) obey the same
-    # cap. With no cap, at most PYTEST_WORKERS_UNCAPPED: a worker pool does not
-    # take every core of a shared machine by default.
-    env.setdefault("PYTEST_XDIST_AUTO_NUM_WORKERS", str(min(PYTEST_WORKERS_UNCAPPED, os.cpu_count() or 1)))
+    # cap. With no `-j`, each consumer gets at most DEFAULT_JOB_CAP: a pool does
+    # not take every core of a shared machine by default. `setdefault`: a value
+    # the caller exported still wins when no flag is given.
+    default_cap = str(min(DEFAULT_JOB_CAP, os.cpu_count() or 1))
+    for name in ("CARGO_BUILD_JOBS", "RUST_TEST_THREADS", "NEXTEST_TEST_THREADS", "PYTEST_XDIST_AUTO_NUM_WORKERS"):
+        env.setdefault(name, default_cap)
     if job_limit is not None:
         env["CARGO_BUILD_JOBS"] = str(job_limit)
         env["RUST_TEST_THREADS"] = str(job_limit)
@@ -2954,9 +2959,9 @@ def main() -> int:
                          "maintainer checks do not block ordinary code validation")
     ap.add_argument("-j", "--jobs", type=int, default=None, metavar="N",
                     help="cap CPU use: at most N cargo build jobs AND N test "
-                         "threads. Use when the machine is shared -- `-j5` "
-                         "leaves the rest of the cores alone. Unset means "
-                         "cargo's default, which is every core.")
+                         "threads. Unset means a value exported in "
+                         "CARGO_BUILD_JOBS and the test-thread variables, or "
+                         f"at most {DEFAULT_JOB_CAP} (the shared machine's rule).")
     ap.add_argument("--list", action="store_true", help="print job plan, run nothing")
     ap.add_argument("--only-job", metavar="SUBSTR", default=None,
                     help="run only the jobs in this lane whose NAME contains "

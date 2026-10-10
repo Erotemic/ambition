@@ -462,8 +462,8 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
-        // Blink has no melee/ranged verb — its plain `Attack` is intercepted by
-        // `blink::blink_system` (a short collision-clamped teleport along aim),
+        // Blink has no melee/ranged verb — its plain `Attack` is used by the
+        // blink module (a short collision-clamped teleport along aim),
         // so it opts out of throw-on-attack like the other pure-use abilities.
         items.insert(
             "blink",

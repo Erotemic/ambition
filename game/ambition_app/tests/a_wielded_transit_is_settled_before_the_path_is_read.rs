@@ -24,8 +24,9 @@ use bevy::ecs::schedule::{NodeId, Schedules};
 
 use crate::derived_custody_is_read_after_it_is_derived::after;
 
-/// The wielded abilities that transit a body.
-const TRANSITS: [&str; 3] = ["::blink_system", "::fire_dive_system", "::mark_recall_system"];
+/// The wielded abilities that transit a body: the native dive and recall,
+/// and the adapter of `ambition.motion.transit` (a blink module asks it).
+const TRANSITS: [&str; 3] = ["::lower_transits", "::fire_dive_system", "::mark_recall_system"];
 /// The readers of the record: the ECS hazards and the loading zones.
 const READERS: [&str; 2] = ["::apply_hazard_contacts", "::detect_room_transition_system"];
 

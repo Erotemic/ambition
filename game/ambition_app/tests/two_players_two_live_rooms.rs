@@ -2063,7 +2063,8 @@ fn a_blink_stops_at_a_wall_of_its_own_live_room() {
         .map(|held| held.spec.id.clone());
     assert_eq!(
         held.as_deref(),
-        Some(ambition_platformer2d::abilities::traversal::blink::BLINK_ID),
+        // The authored held-item id the blink module is bound to.
+        Some("blink"),
         "precondition: Alice does not hold the blink"
     );
     let half = sim

@@ -87,7 +87,7 @@ fn cast(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     })?;
     inv.submit::<ambition_combat_port::BodySoundPort>(ambition_combat_port::BodySound {
         cue: "player.blink".into(),
-        at: center.into(),
+        at: ambition_combat_port::Place::World(center.into()),
     })
 }
 

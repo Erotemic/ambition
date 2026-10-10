@@ -25,6 +25,7 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 /// * **Absence** — `mana` is `None` when the body has no mana pool.
 ///   `names_spawns` is false when the body has no simulation identity or no
 ///   mint stream: a spawn it asks for is refused (ADR 0030).
+///   `cooldown_ready` is true when the body has no movement cooldown yet.
 /// * **Replay** — derived each tick from rollback state.
 pub struct WieldedUsePort;
 
@@ -49,6 +50,13 @@ pub struct Wielder {
     /// `SimIdCounter`). A module that asked is never refused by
     /// `ambition.world.spawn_module_entity`.
     pub names_spawns: bool,
+    /// The shared movement-ability cooldown does not run (after it ticks
+    /// this tick). A module that asked is never refused by
+    /// `ambition.abilities.movement_cooldown`.
+    pub cooldown_ready: bool,
+    /// The body moves by the swept kernel. A module that asked is never
+    /// refused by `ambition.motion.transit`.
+    pub transits: bool,
 }
 
 /// A bank pays a cost when it holds at least the cost less this. The bank's
@@ -81,7 +89,7 @@ impl Wielder {
 }
 
 impl Port for WieldedUsePort {
-    const KEY: PortKey = PortKey::new("ambition.items.wielded_use", 2);
+    const KEY: PortKey = PortKey::new("ambition.items.wielded_use", 3);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = Wielder;
 
@@ -96,6 +104,8 @@ impl Port for WieldedUsePort {
         wire::put_vec2(out, v.aim_local);
         wire::put_opt(out, v.mana, wire::put_f32);
         wire::put_bool(out, v.names_spawns);
+        wire::put_bool(out, v.cooldown_ready);
+        wire::put_bool(out, v.transits);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Wielder, WireError> {
@@ -110,6 +120,8 @@ impl Port for WieldedUsePort {
             aim_local: r.vec2()?,
             mana: r.opt(WireReader::f32)?,
             names_spawns: r.bool()?,
+            cooldown_ready: r.bool()?,
+            transits: r.bool()?,
         })
     }
 }
@@ -152,7 +164,8 @@ impl Port for SpendManaPort {
 /// Port card:
 ///
 /// * **Operation** — play the cue `cue` (an authored sound id, for example
-///   `world.rock.hit`) at `at`, as the body's sound.
+///   `world.rock.hit`) at `at`, as the body's sound. `Place::Body` is where
+///   the body is when the request is lowered (after a transit of this tick).
 /// * **Owner** — `ambition_abilities::extension` (the body's sound writer).
 /// * **Time** — `wielded_use`. Presentation: no simulation state reads it.
 pub struct BodySoundPort;
@@ -160,23 +173,23 @@ pub struct BodySoundPort;
 #[derive(Clone, Debug, PartialEq)]
 pub struct BodySound {
     pub cue: String,
-    pub at: [f32; 2],
+    pub at: crate::motion::Place,
 }
 
 impl Port for BodySoundPort {
-    const KEY: PortKey = PortKey::new("ambition.feedback.body_sound", 1);
+    const KEY: PortKey = PortKey::new("ambition.feedback.body_sound", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = BodySound;
 
     fn encode(v: &BodySound, out: &mut Vec<u8>) {
         wire::put_str(out, &v.cue);
-        wire::put_vec2(out, v.at);
+        v.at.put(out);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BodySound, WireError> {
         Ok(BodySound {
             cue: r.str()?.to_owned(),
-            at: r.vec2()?,
+            at: crate::motion::Place::read(r)?,
         })
     }
 }
@@ -198,6 +211,8 @@ mod tests {
             aim_local: [0.5, 0.5],
             mana: Some(42.0),
             names_spawns: true,
+            cooldown_ready: false,
+            transits: true,
         };
         let mut out = Vec::new();
         WieldedUsePort::encode(&w, &mut out);

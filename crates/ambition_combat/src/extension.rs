@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use ambition_combat_port::{
     BodyAttachment, BodyAttachments, BodyAttachmentsPort, BodyHold, BodyHoldPort, DamageBoxPort, HeldDamageBoxPort,
-    RidingHitboxPort, RidingKnockback,
+    RidingHitboxPort, RidingKnockback, StrikePort,
 };
 use ambition_extension_host::{
     AdmittedExtensions, ExtensionAppExt, ExtensionOutbox, InBossConduct, InTechniqueExecution, InWieldedUse, LowersIn,
@@ -80,14 +80,52 @@ fn body_attachments_of(world: &World, scope: Entity) -> Option<BodyAttachments> 
     Some(BodyAttachments { points })
 }
 
-/// Install the damage box port in `wielded_use` (a held item's use), before
-/// the effect executor as in `technique_execution`.
+/// Install the damage box port and the strike port in `wielded_use` (a held
+/// item's use), before the effect executor and the hit resolution, as in
+/// `technique_execution`.
 pub fn install_for_wielded_use(app: &mut App) {
     app.install_extension_request::<DamageBoxPort, _>(
         WIELDED_USE,
         "ambition_combat",
         lower_damage_boxes::<InWieldedUse>,
     );
+    // The strike adapter writes the hit message: a composition with the port
+    // has it, whether or not a module strikes.
+    app.add_message::<crate::events::HitEvent>();
+    app.install_extension_request::<StrikePort, _>(WIELDED_USE, "ambition_combat", lower_strikes);
+}
+
+/// One hit, this tick, by the body, on what is in the circle. The body is the
+/// attacker, so the hit resolution reads its side.
+fn lower_strikes(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut hits: MessageWriter<crate::events::HitEvent>,
+    bodies: Query<&ae::BodyKinematics>,
+) {
+    for submitted in outbox.drain::<StrikePort>(&WIELDED_USE) {
+        let strike = submitted.value;
+        let body = bodies.get(submitted.scope).ok().map(|kin| [kin.pos.x, kin.pos.y]);
+        let at = match (strike.at, body) {
+            (ambition_combat_port::Place::Body, None) => {
+                warn!("extension entry {} asked for a strike at a body with no position; refused", submitted.entry);
+                continue;
+            }
+            (place, body) => place.resolve(body.unwrap_or_default()),
+        };
+        hits.write(crate::events::HitEvent {
+            strike_sfx: None,
+            volume: ae::CombatVolume::circle(ae::Vec2::from(at), strike.radius),
+            damage: strike.damage,
+            source: crate::events::HitSource::Melee,
+            attacker: Some(submitted.scope),
+            room: None,
+            target: crate::events::HitTarget::Volume,
+            mode: crate::events::HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+    }
 }
 
 

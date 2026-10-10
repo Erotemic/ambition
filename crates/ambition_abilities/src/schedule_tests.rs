@@ -24,9 +24,9 @@ use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemSet};
 /// 2026-10-01: the shockwave, the beam, the volley, the meteor, the sentry
 /// (its deploy and its turret tick) and the vortex (its cast and its well)
 /// are procedural modules (`ambition_content_modules`), run by the extension
-/// host in the same set.
+/// host in the same set. The blink left on 2026-10-10 the same way.
 const THROWN_MEMBERS: usize = 5;
-const WIELDED_MEMBERS: usize = 5;
+const WIELDED_MEMBERS: usize = 4;
 
 fn set_key<S: SystemSet + Copy + std::fmt::Debug>(graph: &ScheduleGraph, set: S) -> NodeId {
     NodeId::Set(

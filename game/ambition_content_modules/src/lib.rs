@@ -12,6 +12,7 @@
 
 pub mod apple_rain;
 pub mod beam;
+pub mod blink;
 pub mod echo_fan;
 pub mod eye_beam;
 pub mod fsm;
@@ -41,6 +42,7 @@ pub const PROVIDER: &str = "ambition";
 pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     apple_rain::module,
     beam::module,
+    blink::module,
     echo_fan::module,
     eye_beam::module,
     fsm::module,

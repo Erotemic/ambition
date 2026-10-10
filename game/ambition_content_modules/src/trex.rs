@@ -575,7 +575,7 @@ fn voice(inv: &mut Invocation<'_>, c: &mut Conductor, takes: &[&str; 2], at: Vec
 }
 
 fn play(inv: &mut Invocation<'_>, cue: &str, at: Vec2) -> Result<(), Fault> {
-    inv.submit::<BodySoundPort>(BodySound { cue: cue.into(), at: at.into() })
+    inv.submit::<BodySoundPort>(BodySound { cue: cue.into(), at: ambition_combat_port::Place::World(at.into()) })
 }
 
 fn shake(inv: &mut Invocation<'_>, amplitude_px: f32) -> Result<(), Fault> {

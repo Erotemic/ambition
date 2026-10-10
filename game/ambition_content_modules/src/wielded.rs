@@ -55,6 +55,6 @@ pub fn pay(inv: &mut Invocation<'_>, wielder: &Wielder, cost: f32) -> Result<boo
 pub fn rock_hit(inv: &mut Invocation<'_>, wielder: &Wielder) -> Result<(), Fault> {
     inv.submit::<BodySoundPort>(BodySound {
         cue: "world.rock.hit".into(),
-        at: wielder.position,
+        at: ambition_combat_port::Place::World(wielder.position),
     })
 }

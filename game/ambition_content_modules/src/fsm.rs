@@ -352,7 +352,7 @@ pub fn lob(origin: Vec2, target: Vec2) -> (Vec2, f32) {
 }
 
 fn play(inv: &mut Invocation<'_>, cue: &str, at: Vec2) -> Result<(), Fault> {
-    inv.submit::<BodySoundPort>(BodySound { cue: cue.into(), at: at.into() })
+    inv.submit::<BodySoundPort>(BodySound { cue: cue.into(), at: ambition_combat_port::Place::World(at.into()) })
 }
 
 fn burst(inv: &mut Invocation<'_>, at: Vec2, count: u32, speed: f32, color: [f32; 4], kind: &str) -> Result<(), Fault> {

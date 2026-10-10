@@ -17,6 +17,7 @@
 pub mod attachments;
 pub mod hold;
 pub mod module_entity;
+pub mod motion;
 pub mod riding;
 pub mod wielded;
 pub use module_entity::{
@@ -25,6 +26,9 @@ pub use module_entity::{
 };
 pub use attachments::{BodyAttachment, BodyAttachments, BodyAttachmentsPort};
 pub use hold::{BodyHold, BodyHoldPort};
+pub use motion::{
+    Effect, EffectPort, MovementCooldown, MovementCooldownPort, Place, Strike, StrikePort, Transit, TransitPort,
+};
 pub use riding::{Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox, RidingHitboxPort, RidingKnockback};
 pub use wielded::{BodySound, BodySoundPort, SpendMana, SpendManaPort, WieldedUsePort, Wielder};
 

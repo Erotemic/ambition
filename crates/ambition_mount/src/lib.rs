@@ -1570,7 +1570,14 @@ where
     });
     registrar.rollback_map_entities::<MountSlot>(OWNER, "map.mount_slot");
     registrar.rollback_component_clone::<Mountable>(OWNER, "mount.mountable");
-    registrar.rollback_component_clone::<BackLedge>(OWNER, "mount.back_ledge");
+    // Probe the back's numbers, not only presence: they place the ground a
+    // body stands on.
+    registrar.rollback_component_clone_probed::<BackLedge>(OWNER, "mount.back_ledge", |back| {
+        let b = back.0;
+        [b.left, b.right, b.top, b.thickness]
+            .iter()
+            .fold(0u64, |h, v| h.rotate_left(16) ^ u64::from(v.to_bits()))
+    });
     registrar.rollback_component_clone::<Mounted>(OWNER, "mount.mounted");
     // ⚠ OWNED HERE, NOT BY `_core`, and the split is deliberate: `_core` DEFINES
     // the marker so both domains can name it, and whoever maintains its

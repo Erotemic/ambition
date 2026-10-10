@@ -392,7 +392,7 @@ message.trail_continuity_break	message-clear	TrailContinuityBreak	clear abandone
 message.vfx	message-clear	VfxInRoom	clear abandoned-future message buffer in LoadWorld::Mapping
 message.wallet_shield_spent	message-clear	WalletShieldSpent	clear abandoned-future message buffer in LoadWorld::Mapping
 mount.authored_size	component-clone	MountedSize	bevy_ggrs clone snapshot; not in the session checksum
-mount.back_ledge	component-clone	BackLedge	bevy_ggrs clone snapshot; not in the session checksum
+mount.back_ledge	component-clone	BackLedge	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 mount.brain_cache	component-clone	MountedBrainCache	bevy_ggrs clone snapshot; not in the session checksum
 mount.can_pilot	component-clone	CanPilot	bevy_ggrs clone snapshot; not in the session checksum
 mount.mass	component-clone	Mass	bevy_ggrs clone snapshot; not in the session checksum

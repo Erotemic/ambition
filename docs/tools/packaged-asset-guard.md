@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-07-21
+last_verified: 2026-10-10
 related_docs:
   - docs/recipes/adding-an-asset.md
   - docs/recipes/android-build.md
@@ -23,7 +23,9 @@ package reproduces the desktop-resolvable view.
 
 A package build fails when:
 
-- a runtime catalog or manifest declares an asset absent from both roots;
+- a sheet, parallax or LDtk manifest, or an asset constant in Rust, declares
+  an asset absent from both roots;
+- the content pack (`pack.ron`) does not compile;
 - two roots provide different bytes at the same package-relative path;
 - paths collide after case folding;
 - an absolute path, root escape, or non-canonical package path is declared;
@@ -34,6 +36,32 @@ A package build fails when:
 
 Spritesheet and portrait manifests are expanded through their page-image lists,
 so a present page zero cannot hide a missing secondary page.
+
+## Who says what a file declares
+
+A file the content pack lists is read by a typed schema, and only the schema
+knows how its asset paths resolve: a music cue joins each section `path` to the
+cue's `asset_root`, and a music track derives its file from its id. The guard
+does not pattern-match those files. It runs the content compiler and takes its
+answer:
+
+```bash
+cargo run -q -p ambition_content_cli --bin ambition_content -- \
+    game/ambition_content/assets --no-asset-check --package-inputs
+```
+
+The first run builds the binary; later runs cost milliseconds.
+`AMBITION_CONTENT_BIN` names a built binary to use without cargo. A new schema
+that calls `need_asset` reaches the package with no change here.
+
+The pattern match over field names (`spritesheet`, `image`, `path`, ...) stays
+for the manifests no schema owns. A new manifest kind whose paths are not
+package-relative belongs in a schema, not in a new pattern.
+
+A pack asset that is in neither root is reported and the package ships without
+it: a development checkout may lack rendered music that the registry lists, and
+the desktop game runs without it too. `compose --strict-pack-assets` refuses
+instead, which a release wants.
 
 ## Commands
 

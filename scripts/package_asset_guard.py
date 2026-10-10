@@ -12,6 +12,20 @@ contract against the finished APK ZIP. Steam Deck deployment verifies the same
 contract with ``sha256sum`` after rsync. The served-web page consumes the same
 composed tree over HTTP.
 
+Declared paths
+--------------
+
+A file the content pack lists (``pack.ron``) is read by a typed schema, and
+only that schema knows how its asset paths resolve: a music cue joins each
+section path to the cue's ``asset_root``, and a music track derives its path
+from its id. So the pack's declarations come from the content compiler
+(``ambition_content --package-inputs``), never from a pattern match over its
+files. The pattern match stays for the manifests no schema owns yet: sheet and
+parallax manifests, LDtk worlds, and asset constants in Rust.
+
+A pack asset that is in neither root is reported and the package ships without
+it, as the desktop game runs without it. ``--strict-pack-assets`` refuses.
+
 Materialization
 ---------------
 
@@ -39,8 +53,10 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import shlex
 import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 import zipfile
@@ -91,6 +107,15 @@ QUOTED_RUNTIME_PATH_RE = re.compile(
 
 PROVENANCE_SIDECAR_NAMES = {"FONT_ASSET_MANIFEST.json"}
 
+# The content pack's manifest, at the root of the composed view.
+PACK_MANIFEST = "pack.ron"
+# The content compiler. `AMBITION_CONTENT_BIN` names a built one; the default
+# builds it on first use and costs milliseconds after.
+CONTENT_COMPILER = ("cargo", "run", "--quiet", "-p", "ambition_content_cli", "--bin", "ambition_content", "--")
+CONTENT_COMPILER_ENV = "AMBITION_CONTENT_BIN"
+PACK_SOURCE_ORIGIN = f"pack-source:{PACK_MANIFEST}"
+PACK_ASSET_ORIGIN = "pack-asset:"
+
 COMMON_EXCLUDES = (
     ".git/**",
     ".*",
@@ -137,6 +162,15 @@ class SourceFile:
     root_name: str
     sha256: str
     size: int
+
+
+@dataclasses.dataclass
+class PackInputs:
+    """What the content compiler says the pack needs, as package paths."""
+
+    sources: set[str]
+    # Asset path to the content identities that require it.
+    assets: dict[str, set[str]]
 
 
 @dataclasses.dataclass
@@ -379,15 +413,64 @@ def add_declaration(
     declarations[normalized].add(origin)
 
 
-def scan_manifest_declarations(repo: Path, source_files: dict[str, SourceFile]) -> dict[str, set[str]]:
+def read_pack_inputs(repo: Path, source_files: dict[str, SourceFile]) -> PackInputs | None:
+    """Ask the content compiler which files the content pack needs.
+
+    `None` when the composed view holds no pack. The compiler does not check
+    that the assets exist (`--no-asset-check`): this guard checks that itself,
+    against the view its profile ships.
+    """
+    manifest = source_files.get(PACK_MANIFEST)
+    if manifest is None:
+        return None
+    command = shlex.split(os.environ.get(CONTENT_COMPILER_ENV, "")) or list(CONTENT_COMPILER)
+    command += [str(manifest.source.parent), "--no-asset-check", "--package-inputs"]
+    print(
+        f"asset contract: asking the content compiler what {PACK_MANIFEST} needs "
+        "(the first run builds it)",
+        file=sys.stderr,
+    )
+    try:
+        result = subprocess.run(command, cwd=repo, stdout=subprocess.PIPE, text=True)
+    except OSError as error:
+        raise AssetContractError(
+            f"cannot run the content compiler ({command[0]}): {error}\n"
+            f"It says which assets {PACK_MANIFEST} needs. Set {CONTENT_COMPILER_ENV} to a built "
+            "`ambition_content` to use one without cargo."
+        ) from error
+    if result.returncode != 0:
+        raise AssetContractError(
+            f"the content compiler refused {manifest.source} (exit {result.returncode}); "
+            "its report is above. The game compiles the same pack when it starts.\n"
+            f"  ran: {shlex.join(command)}"
+        )
+    inputs = PackInputs(sources=set(), assets={})
+    for line in result.stdout.splitlines():
+        kind, _, rest = line.partition("\t")
+        raw, *required_by = rest.split("\t")
+        path = normalize_package_path(raw) if raw else None
+        if kind == "source" and path:
+            inputs.sources.add(path)
+        elif kind == "asset" and path:
+            inputs.assets.setdefault(path, set()).update(required_by)
+        else:
+            raise AssetContractError(f"unreadable line from the content compiler: {line!r}")
+    return inputs
+
+
+def scan_manifest_declarations(
+    repo: Path, source_files: dict[str, SourceFile], pack: PackInputs | None = None
+) -> dict[str, set[str]]:
     declarations: dict[str, set[str]] = defaultdict(set)
+    # A pack file is its schema's to read; see "Declared paths" above.
+    pack_owned = set() if pack is None else pack.sources | {PACK_MANIFEST}
 
     # Authored package manifests. Scan only runtime-facing fields rather than
     # arbitrary string literals, so generator/audit sidecars may name source
     # inputs without turning those inputs into shipped runtime dependencies.
     for rel, source_file in source_files.items():
         suffix = PurePosixPath(rel).suffix.lower()
-        if suffix not in TEXT_MANIFEST_SUFFIXES:
+        if suffix not in TEXT_MANIFEST_SUFFIXES or rel in pack_owned:
             continue
         if PurePosixPath(rel).name in PROVENANCE_SIDECAR_NAMES:
             continue
@@ -450,13 +533,39 @@ def scan_manifest_declarations(repo: Path, source_files: dict[str, SourceFile]) 
                         f"rust:{rel_source}:{line}:{label}",
                     )
 
+    if pack is not None:
+        for path in pack.sources:
+            declarations[path].add(PACK_SOURCE_ORIGIN)
+        for path, required_by in pack.assets.items():
+            declarations[path].update(PACK_ASSET_ORIGIN + content_id for content_id in sorted(required_by))
+
     return declarations
 
 
-def build_contract(repo: Path, profile: str) -> tuple[AssetContract, dict[str, SourceFile]]:
+def report_absent_pack_assets(absent: Sequence[ContractEntry]) -> None:
+    lines = [
+        f"asset contract WARNING: the content pack names {len(absent)} asset(s) that are in "
+        "neither asset root. This package ships without them, as the desktop game runs "
+        "without them:",
+    ]
+    for entry in sorted(absent, key=lambda item: item.path):
+        lines.append(f"  - {entry.path}")
+        for origin in sorted(entry.origins):
+            lines.append(f"      required by {origin[len(PACK_ASSET_ORIGIN):]}")
+    lines.append(
+        "Generated assets are rendered by ./scripts/regen/assets.sh. "
+        "`compose --strict-pack-assets` refuses instead of reporting."
+    )
+    print("\n".join(lines), file=sys.stderr)
+
+
+def build_contract(
+    repo: Path, profile: str, *, strict_pack_assets: bool = False
+) -> tuple[AssetContract, dict[str, SourceFile]]:
     repo = repo.resolve()
     source_files = collect_source_files(repo, profile)
-    declarations = scan_manifest_declarations(repo, source_files)
+    pack = read_pack_inputs(repo, source_files)
+    declarations = scan_manifest_declarations(repo, source_files, pack)
     entries: dict[str, ContractEntry] = {}
 
     for rel, item in source_files.items():
@@ -471,6 +580,19 @@ def build_contract(repo: Path, profile: str) -> tuple[AssetContract, dict[str, S
         entry.origins.update(origins)
 
     missing_source = [entry for entry in entries.values() if entry.sha256 is None]
+    if not strict_pack_assets:
+        # An asset only the pack asks for is the pack's to miss: the compiler
+        # warns about it on a development checkout and so does this.
+        absent = [
+            entry
+            for entry in missing_source
+            if all(origin.startswith(PACK_ASSET_ORIGIN) for origin in entry.origins)
+        ]
+        if absent:
+            report_absent_pack_assets(absent)
+            for entry in absent:
+                del entries[entry.path]
+            missing_source = [entry for entry in missing_source if entry.path in entries]
     if missing_source:
         lines = [
             "runtime-declared assets are absent from the composed desktop source roots:",
@@ -692,7 +814,9 @@ def artifact_links(paths: Sequence[Path]) -> None:
 
 def command_compose(args: argparse.Namespace) -> None:
     repo = args.repo.resolve()
-    contract, source_files = build_contract(repo, args.profile)
+    contract, source_files = build_contract(
+        repo, args.profile, strict_pack_assets=args.strict_pack_assets
+    )
     materialize_composed_tree(source_files, args.output, mode=args.materialize)
     audit_tree(
         contract,
@@ -742,6 +866,14 @@ def make_parser() -> argparse.ArgumentParser:
             "copy: real bytes, what a shipped package must contain (default). "
             "link: symlinks into the source roots, for the served-web dev loop. "
             "The contract and its hash audit are identical either way."
+        ),
+    )
+    compose.add_argument(
+        "--strict-pack-assets",
+        action="store_true",
+        help=(
+            "refuse when the content pack names an asset that is in neither root. "
+            "The default reports it and ships without it; a release wants this."
         ),
     )
     compose.set_defaults(func=command_compose)

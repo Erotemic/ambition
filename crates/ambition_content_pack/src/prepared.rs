@@ -191,6 +191,27 @@ impl PreparedContentPack {
         out
     }
 
+    /// What a package must hold for this pack to load, one tab-separated line
+    /// each: `source <path>` for each source the manifest lists, and
+    /// `asset <path> <content id>...` for each asset a schema required and the
+    /// identities that required it. `scripts/package_asset_guard.py` reads
+    /// this, so the packager asks the schema how an asset path resolves and
+    /// holds no second copy of the rule.
+    pub fn package_inputs(&self) -> String {
+        let mut out = String::new();
+        for source in &self.sources {
+            let _ = writeln!(out, "source\t{}", source.declared_path);
+        }
+        for (path, provenance) in &self.assets {
+            let _ = write!(out, "asset\t{path}");
+            for id in &provenance.required_by {
+                let _ = write!(out, "\t{id}");
+            }
+            out.push('\n');
+        }
+        out
+    }
+
     /// A one-screen summary for a CLI.
     pub fn summary(&self) -> String {
         let mut out = String::new();

@@ -9,7 +9,7 @@
 //! flying spaghetti monster is the first (`ambition_content_modules::fsm`).
 
 use ambition_boss_special_port::{
-    BossConduct, BossConductPort, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LiveMove, RoomHall,
+    BodyBox, BossConduct, BossConductPort, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LiveMove, RoomHall,
 };
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::{BossAttackProfile, BossAttackState};
@@ -73,6 +73,8 @@ pub fn queue_boss_conducts(
         Without<BossConfig>,
     >,
     live_rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // The tracked body, read now: `ActorTarget` holds where the boss last saw it.
+    bodies: Query<&ae::BodyKinematics>,
 ) {
     if time.sim_dt() <= 0.0 {
         return;
@@ -129,6 +131,11 @@ pub fn queue_boss_conducts(
                     .count() as u32,
                 between_phases: encounter.between_phases(),
                 room,
+                health: health.current(),
+                invulnerable: encounter.encounter.as_ref().is_some_and(|state| state.boss_invulnerable()),
+                target_body: target.and_then(|t| t.entity).and_then(|tracked| bodies.get(tracked).ok()).map(|body| {
+                    BodyBox { position: [body.pos.x, body.pos.y], size: [body.size.x, body.size.y] }
+                }),
             },
         );
     }

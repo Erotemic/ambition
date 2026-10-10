@@ -31,8 +31,14 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   phase): the boss is invulnerable and its pattern runs no move. `room`
 ///   is the size of the boss's live room (its origin is the top left): a
 ///   boss with no floor under it (one that flies an open sky) stages its
-///   moves against the room itself.
-/// * **Absence** — `target` is `None` when the boss tracks nothing; `hall`
+///   moves against the room itself. `health` is the boss's current health.
+///   `invulnerable` says the encounter refuses damage to the boss now (a
+///   transition lock, or the `Dormant`, `Intro`, `Transition` or `Death`
+///   phase): it is wider than `between_phases`. `target_body` is where the
+///   tracked body is now and its size; `target` is where the boss last saw
+///   it, and the two differ when the body moved after the boss looked.
+/// * **Absence** — `target` is `None` when the boss tracks nothing, and
+///   `target_body` also when the tracked entity has no body; `hall`
 ///   is `None` when the room cannot be told or has no floor under the boss;
 ///   `room` is `None` when the room cannot be told.
 /// * **Replay** — derived each tick from rollback state.
@@ -81,6 +87,19 @@ pub struct BossConduct {
     pub between_phases: bool,
     /// The size of the boss's live room.
     pub room: Option<[f32; 2]>,
+    /// The boss's current health.
+    pub health: i32,
+    /// The encounter refuses damage to the boss now.
+    pub invulnerable: bool,
+    /// The tracked body, now.
+    pub target_body: Option<BodyBox>,
+}
+
+/// A body's centre and size.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BodyBox {
+    pub position: [f32; 2],
+    pub size: [f32; 2],
 }
 
 fn put_move(out: &mut Vec<u8>, m: Option<&LiveMove>) {
@@ -104,7 +123,8 @@ fn move_of(r: &mut WireReader<'_>) -> Result<Option<LiveMove>, WireError> {
 impl Port for BossConductPort {
     /// Version 2 (2026-10-06): `holding` and `minions`. Version 3
     /// (2026-10-06): `between_phases`. Version 4 (2026-10-06): `room`.
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 4);
+    /// Version 5 (2026-10-10): `health`, `invulnerable`, `target_body`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 5);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -129,6 +149,12 @@ impl Port for BossConductPort {
         wire::put_u32(out, v.minions);
         wire::put_bool(out, v.between_phases);
         wire::put_opt(out, v.room, wire::put_vec2);
+        wire::put_i32(out, v.health);
+        wire::put_bool(out, v.invulnerable);
+        wire::put_opt(out, v.target_body, |out, b| {
+            wire::put_vec2(out, b.position);
+            wire::put_vec2(out, b.size);
+        });
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossConduct, WireError> {
@@ -156,6 +182,9 @@ impl Port for BossConductPort {
             minions: r.u32()?,
             between_phases: r.bool()?,
             room: r.opt(WireReader::vec2)?,
+            health: r.i32()?,
+            invulnerable: r.bool()?,
+            target_body: r.opt(|r| Ok(BodyBox { position: r.vec2()?, size: r.vec2()? }))?,
         })
     }
 }
@@ -541,9 +570,12 @@ mod tests {
             minions: 3,
             between_phases: true,
             room: Some([1280.0, 720.0]),
+            health: -2,
+            invulnerable: true,
+            target_body: Some(BodyBox { position: [9.5, 7.0], size: [24.0, 40.0] }),
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
-        let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, ..conduct };
+        let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, target_body: None, ..conduct };
         assert_eq!(round::<BossConductPort>(&bare), bare);
         for guarded in [false, true] {
             assert_eq!(round::<BossGuardPort>(&BossGuard { guarded }), BossGuard { guarded });

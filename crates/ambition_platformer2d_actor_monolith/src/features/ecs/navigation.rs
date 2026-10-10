@@ -184,8 +184,14 @@ pub fn advise_navigation(
             // its brain's `target_pos` comes from.
             Option<&ambition_combat::components::ActorTarget>,
             Option<&super::errand::Errand>,
+            // Whether the body may leave the live rooms for its errand: a
+            // body with durable whereabouts.
+            Option<&ambition_combat::actor_tuning::ActorConfig>,
+            Option<&ambition_platformer2d_shared_tangle::construction::SpawnOrigin>,
         ),
     >,
+    // Where an errand item lies when it lies in no live room.
+    ledger: Option<bevy::prelude::Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
     // The items an errand can name: in the world, by their stable identity.
     items: Query<(
         Entity,
@@ -203,7 +209,7 @@ pub fn advise_navigation(
 ) {
     advice.by_body.clear();
     cache.in_use.clear();
-    for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand) in &bodies {
+    for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, config, origin) in &bodies {
         let Some(request) = brain.navigation_request() else {
             continue;
         };
@@ -273,7 +279,17 @@ pub fn advise_navigation(
                     // where the route there starts, when the body gets to it.
                     None => {
                         let crossing = specs.as_ref().zip(live_room).and_then(|(specs, body_room)| {
-                            super::errand::errand_crossing(errand, body_room, specs, &items)
+                            let may_leave = config.is_some_and(|config| {
+                                crate::body_whereabouts::keeps_durable_whereabouts(specs, config, origin)
+                            });
+                            super::errand::errand_crossing(
+                                errand,
+                                body_room,
+                                may_leave,
+                                specs,
+                                ledger.as_deref(),
+                                &items,
+                            )
                         });
                         let Some(crossing) = crossing else {
                             return ErrandSight::Gone;

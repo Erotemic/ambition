@@ -472,10 +472,18 @@ def repo_coupled_python_job() -> Job:
     )
 
 
+#: The most pytest workers of the repo tooling job when `-j` gives no cap.
+#: The rule of the shared machine is at most 6 parallel jobs, and no pool that
+#: takes every CPU by default (Jon, 2026-10-03, relayed by ToothbrushAmbition).
+PYTEST_WORKERS_UNCAPPED = 6
+
+
 def pytest_worker_args() -> list[str]:
     """`-n auto` when this interpreter has pytest-xdist: the repo tooling job
-    runs on every core. Measured 2026-10-10 on 14 cores: 1160 s serial, 232 s
-    and 236 s with 8 workers, the same 1776 passed and 19 skipped.
+    runs on several cores. `auto` reads `PYTEST_XDIST_AUTO_NUM_WORKERS`, which
+    the runner sets from `-j`, or to at most `PYTEST_WORKERS_UNCAPPED`.
+    Measured 2026-10-10 on 14 cores: 1160 s serial, 232 s and 236 s with 8
+    workers, the same 1776 passed and 19 skipped.
 
     Without xdist the job runs serially and says so. The tests that run are the
     same: only the time differs, so this is not a check that is skipped.
@@ -2521,10 +2529,15 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     #
     # ⛔ Assigned, not `setdefault`: an explicit `-j` is the caller telling this
     # machine what it may use, and it must beat an ambient value.
+    # The pytest workers of the repo tooling job (`-n auto`) obey the same
+    # cap. With no cap, at most PYTEST_WORKERS_UNCAPPED: a worker pool does not
+    # take every core of a shared machine by default.
+    env.setdefault("PYTEST_XDIST_AUTO_NUM_WORKERS", str(min(PYTEST_WORKERS_UNCAPPED, os.cpu_count() or 1)))
     if job_limit is not None:
         env["CARGO_BUILD_JOBS"] = str(job_limit)
         env["RUST_TEST_THREADS"] = str(job_limit)
         env["NEXTEST_TEST_THREADS"] = str(job_limit)
+        env["PYTEST_XDIST_AUTO_NUM_WORKERS"] = str(job_limit)
         print(f"run_tests: capped at {job_limit} build job(s) and "
               f"{job_limit} test thread(s) [-j{job_limit}]. "
               "⚠ Wall-clock timings from this run are NOT comparable with an "

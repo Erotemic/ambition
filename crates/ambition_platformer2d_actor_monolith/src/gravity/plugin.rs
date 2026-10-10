@@ -94,6 +94,14 @@ impl Plugin for GravityPlugin {
                 .after(GravitySet::ZoneSnapshot)
                 .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
         );
+        // Every body carries the frame this phase publishes. A rewind spawns
+        // a body again from its snapshot, which holds no derived state, so the
+        // frame is required by the body, as `BodyKinematics` requires its other
+        // derived facts.
+        app.register_required_components::<
+            ambition_platformer2d_core::BodyKinematics,
+            ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+        >();
         // Ambient-gravity changes arrive as REQUESTS from outside the sim and
         // are applied here, in the sim, before the resolver copies the ambient
         // into each body's frame — see `AmbientGravityRequest` for why a dev

@@ -564,3 +564,241 @@ fn a_dog_that_goes_through_a_door_on_an_errand_resimulates_to_the_same_world() {
         "premise: the errand ended in Alice's room with the Blink in the dog's custody"
     );
 }
+
+/// The ledger row of `id`, if any.
+fn whereabouts_of(
+    sim: &ambition_app::Platformer2dSimHarness,
+    id: &SimId,
+) -> Option<ambition_platformer2d::platformer::lifecycle::OccurrenceWhereabouts> {
+    sim.world()
+        .resource::<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>()
+        .whereabouts(id)
+        .cloned()
+}
+
+/// The live rooms the bodies of `id` are stamped with.
+fn bodies_of(sim: &mut ambition_app::Platformer2dSimHarness, id: &SimId) -> Vec<Option<String>> {
+    let live = crate::two_players_two_live_rooms::live_rooms(sim);
+    let world = sim.world_mut();
+    let mut bodies: Vec<_> = world
+        .query::<(&SimId, Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>)>()
+        .iter(world)
+        .filter(|(sim_id, _)| *sim_id == id)
+        .map(|(_, room)| {
+            room.and_then(|room| live.iter().find(|(instance, _)| *instance == room.0).map(|(_, name)| name.clone()))
+        })
+        .collect();
+    bodies.sort();
+    bodies
+}
+
+/// Alice alone: she carries the Blink through the basement's door, puts it
+/// down in `basement_npcs`, and walks back to the hub, so `basement_npcs`
+/// retires and the Blink lies in a room that is not live, where its ledger
+/// row puts it. Returns the harness and the dog.
+fn the_blink_in_a_room_nobody_holds() -> (ambition_app::Platformer2dSimHarness, Entity) {
+    use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options};
+    use ambition_app::rl_sim::AmbitionSim as _;
+    let sim = ambition_app::Platformer2dSimHarness::new_with_options(
+        fixed_60hz_room_options(HUB).with_save(a_save_that_has_seen_the_hub_intro()),
+    )
+    .expect("the hub boots");
+    leave_the_blink_in_a_room_nobody_holds(sim)
+}
+
+/// [`the_blink_in_a_room_nobody_holds`], in a harness the caller built.
+fn leave_the_blink_in_a_room_nobody_holds(
+    mut sim: ambition_app::Platformer2dSimHarness,
+) -> (ambition_app::Platformer2dSimHarness, Entity) {
+    use crate::common::walk_through_the_door_to;
+    sim.step_n(base(), 10);
+    let (dog, blink) = the_dog_and_the_blink_in(&mut sim);
+    let at = sim_blink_at(&sim, blink);
+    sim.teleport_player((at.x, at.y - 8.0));
+    for _ in 0..20 {
+        sim.step(ambition_app::AgentAction { attack: true, attack_held: true, ..base() });
+        sim.step(base());
+        if sim.world().get::<ItemCustody>(blink).is_some_and(|custody| !custody.in_world()) {
+            break;
+        }
+    }
+    assert_eq!(walk_through_the_door_to(&mut sim, NEXT_DOOR), NEXT_DOOR, "premise: Alice carries the Blink next door");
+    for _ in 0..40 {
+        sim.step(ambition_app::AgentAction { move_x: 1.0, ..base() });
+    }
+    sim.step_frame(ae::ControlFrame { grab_pressed: true, ..Default::default() });
+    sim.step_n(base(), 30);
+    assert_eq!(walk_through_the_door_to(&mut sim, HUB), HUB, "premise: Alice walks back to the hub");
+    sim.step_n(base(), 30);
+    let live: Vec<String> =
+        crate::two_players_two_live_rooms::live_rooms(&mut sim).into_iter().map(|(_, id)| id).collect();
+    assert_eq!(live, vec![HUB.to_string()], "premise: with nobody in it, `basement_npcs` retired");
+    assert!(
+        matches!(
+            whereabouts_of(&sim, &SimId::placement(BLINK)),
+            Some(ambition_platformer2d::platformer::lifecycle::OccurrenceWhereabouts::Placed { room, .. }) if room == NEXT_DOOR
+        ),
+        "premise: the ledger puts the Blink in `basement_npcs`: {:?}",
+        whereabouts_of(&sim, &SimId::placement(BLINK))
+    );
+    let dog = sim
+        .world()
+        .get_entity(dog)
+        .ok()
+        .map(|_| dog)
+        .unwrap_or_else(|| the_dog_and_the_blink_in_hub_only(&mut sim));
+    (sim, dog)
+}
+
+/// The dog, found again after the hub was built again.
+fn the_dog_and_the_blink_in_hub_only(sim: &mut ambition_app::Platformer2dSimHarness) -> Entity {
+    let world = sim.world_mut();
+    world
+        .query::<(Entity, &WornCharacter)>()
+        .iter(world)
+        .find(|(_, worn)| worn.id() == "npc_companion_dog")
+        .map(|(entity, _)| entity)
+        .expect("the hub stages the authored dog")
+}
+
+/// ⭐ SENT FOR AN ITEM IN A ROOM NOBODY HOLDS, THE DOG LEAVES FOR IT. The dog
+/// walks to the door and leaves the live world through the ledger: no body of
+/// its identity is live, and its row puts it in `basement_npcs`. When Alice
+/// goes there, the room builds the dog beside the Blink; when she comes back,
+/// the hub does not build it again. The authorities: the ledger row, and the
+/// bodies of the dog's identity in each live room.
+///
+/// The control is the same start with no errand: the dog is still in the
+/// hub after the same time.
+#[test]
+fn a_dog_sent_for_an_item_in_a_room_nobody_holds_leaves_for_it() {
+    use crate::common::walk_through_the_door_to;
+    use ambition_platformer2d::platformer::lifecycle::OccurrenceWhereabouts;
+
+    let (mut roaming, dog) = the_blink_in_a_room_nobody_holds();
+    let identity = roaming.world().get::<SimId>(dog).cloned().expect("the dog has a stable identity");
+    put_the_dog_at(&mut roaming, dog, FAR_FROM_THE_DOOR);
+    roaming.step_n(base(), PATIENCE);
+    assert_eq!(bodies_of(&mut roaming, &identity), vec![Some(HUB.to_string())], "control: with no errand the dog stays");
+
+    let (mut sim, dog) = the_blink_in_a_room_nobody_holds();
+    put_the_dog_at(&mut sim, dog, FAR_FROM_THE_DOOR);
+    send_for_the_blink(&mut sim, dog);
+    for _ in 0..PATIENCE {
+        sim.step(base());
+        if sim.world().get_entity(dog).is_err() {
+            break;
+        }
+    }
+    assert_eq!(bodies_of(&mut sim, &identity), Vec::<Option<String>>::new(), "the dog did not leave the live world");
+    assert!(
+        matches!(whereabouts_of(&sim, &identity), Some(OccurrenceWhereabouts::Placed { ref room, .. }) if room == NEXT_DOOR),
+        "the dog's row: {:?}",
+        whereabouts_of(&sim, &identity)
+    );
+    assert_eq!(walk_through_the_door_to(&mut sim, NEXT_DOOR), NEXT_DOOR);
+    sim.step_n(base(), 30);
+    assert_eq!(
+        bodies_of(&mut sim, &identity),
+        vec![Some(NEXT_DOOR.to_string())],
+        "`basement_npcs` did not build the dog that went there"
+    );
+    assert_eq!(walk_through_the_door_to(&mut sim, HUB), HUB);
+    sim.step_n(base(), 30);
+    assert_eq!(bodies_of(&mut sim, &identity), Vec::<Option<String>>::new(), "the hub built the dog again");
+}
+
+/// Send the dog for the Blink from inside the timeline when the Blink lies in
+/// no live room.
+fn send_the_dog_away_from_inside_the_timeline(
+    mut commands: bevy::prelude::Commands,
+    dogs: bevy::prelude::Query<(Entity, &WornCharacter), bevy::prelude::Without<Errand>>,
+    items: bevy::prelude::Query<&SimId, bevy::prelude::With<GroundItem>>,
+    ledger: bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences>,
+) {
+    let blink = SimId::placement(BLINK);
+    let away = !items.iter().any(|id| *id == blink)
+        && matches!(
+            ledger.whereabouts(&blink),
+            Some(ambition_platformer2d::platformer::lifecycle::OccurrenceWhereabouts::Placed { .. })
+        );
+    if !away {
+        return;
+    }
+    for (dog, worn) in &dogs {
+        if worn.id() == "npc_companion_dog" {
+            commands.entity(dog).insert(Errand::fetch(blink.clone()));
+        }
+    }
+}
+
+/// ⭐ A DOG THAT LEAVES THE LIVE WORLD RESIMULATES TO THE SAME WORLD. Under a
+/// sync test the frames around the departure are rewound and replayed: the
+/// despawned body comes back with a rewind, and the ledger row with it. The
+/// premise: the dog left, and its row puts it in `basement_npcs`.
+#[test]
+fn a_dog_that_leaves_for_a_room_nobody_holds_resimulates_to_the_same_world() {
+    use crate::common::{a_save_that_has_seen_the_hub_intro, fixed_60hz_room_options};
+    use ambition_platformer2d::platformer::lifecycle::OccurrenceWhereabouts;
+    use ambition_platformer2d::sim::SimScheduleExt;
+
+    let options = fixed_60hz_room_options(HUB)
+        .with_save(a_save_that_has_seen_the_hub_intro())
+        .with_sync_test_rollback_settings(4, 10);
+    let sim = ambition_app::Platformer2dSimHarness::build(options, |app, options| {
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        let label = app.sim_schedule();
+        app.add_systems(label, send_the_dog_away_from_inside_the_timeline);
+        app.add_systems(ambition_platformer2d::rollback::SaveWorld, probe_census);
+        Ok(())
+    })
+    .expect("the hub boots under a sync test");
+    let (mut sim, dog) = leave_the_blink_in_a_room_nobody_holds(sim);
+    sim.world_mut().init_resource::<ProbeCensus>();
+    let identity = sim.world().get::<SimId>(dog).cloned().expect("the dog has a stable identity");
+    let mut after = 0;
+    for _ in 0..PATIENCE {
+        if sim.try_step(base()).is_err() {
+            break;
+        }
+        if bodies_of(&mut sim, &identity).is_empty() {
+            after += 1;
+            if after > 30 {
+                break;
+            }
+        }
+    }
+    assert_eq!(
+        (
+            ambition_platformer2d::rollback::session_is_active(sim.world()),
+            ambition_platformer2d::rollback::session_health(sim.world())
+        ),
+        (true, Ok(())),
+        "the replayed world differs from the world that ran first"
+    );
+    assert!(
+        bodies_of(&mut sim, &identity).is_empty()
+            && matches!(whereabouts_of(&sim, &identity), Some(OccurrenceWhereabouts::Placed { ref room, .. }) if room == NEXT_DOOR),
+        "premise: the dog left for `basement_npcs`: bodies {:?}, row {:?}",
+        bodies_of(&mut sim, &identity),
+        whereabouts_of(&sim, &identity)
+    );
+}
+
+#[derive(bevy::prelude::Resource, Default)]
+struct ProbeCensus(std::collections::BTreeMap<i32, std::collections::BTreeMap<&'static str, (usize, u64)>>);
+fn probe_census(world: &mut bevy::prelude::World) {
+    let frame = world.resource::<ambition_platformer2d::rollback::RollbackFrameCount>().0;
+    let probes = world.resource::<ambition_platformer2d::rollback::RollbackChecksumProbes>().clone();
+    let census: std::collections::BTreeMap<_, _> = probes.census_all_as_peers_compare(world).into_iter().map(|(row, r)| (row, (r.count, r.xor))).collect();
+    let Some(mut store) = world.get_resource_mut::<ProbeCensus>() else { return; };
+    if let Some(first) = store.0.get(&frame) {
+        for (row, value) in &census {
+            if first.get(row) != Some(value) {
+                eprintln!("PROBE frame {frame} row {row}: first {:?} again {value:?}", first.get(row));
+            }
+        }
+    } else {
+        store.0.insert(frame, census);
+    }
+}

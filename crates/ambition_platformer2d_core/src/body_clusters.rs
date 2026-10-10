@@ -151,7 +151,15 @@ pub struct AuthoredMovementTuning(pub crate::movement::MovementTuning);
 /// provably disjoint with marker filters rather than introducing parallel body
 /// components. Boss brains emit `desired_vel`; their stored `vel` remains
 /// [`Vec2::ZERO`].
+///
+/// A body carries its per-tick derived facts. They are required here, not
+/// only put in a spawn bundle, because a rewind spawns a body again from its
+/// snapshot, and a snapshot holds only rollback state: without the
+/// requirement that body comes back without its derived facts, and moves
+/// another way (measured 2026-10-09, a sync test of a despawned body). The
+/// gravity plugin requires the resolved motion frame the same way.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
+#[require(BodyEnvironmentContact, crate::BodyMotionFacts)]
 pub struct BodyKinematics {
     pub pos: Vec2,
     pub vel: Vec2,

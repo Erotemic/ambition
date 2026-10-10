@@ -429,6 +429,13 @@ impl RoomSet {
         self.transition_from_zone(room, zone)
     }
 
+    /// The transition through the zone `zone` of `room`, whatever body is in
+    /// it: for a body that goes through a zone by a route, not by a press.
+    pub fn transition_through(&self, room: LiveRoomDefinition, zone: &str) -> Option<RoomTransition> {
+        let zone = self.spec(room).loading_zones.iter().find(|candidate| candidate.id == zone)?.clone();
+        self.transition_from_zone(room, zone)
+    }
+
     fn transition_from_zone(
         &self,
         room: LiveRoomDefinition,

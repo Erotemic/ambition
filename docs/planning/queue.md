@@ -440,7 +440,10 @@ What the in-room slice gives this row, and what it does not (2026-10-09):
   (3) A goal a brain can be given from outside ("fetch that") and (4) the
   typed action at the goal: done in one room, 2026-10-09 (`Errand`; the
   acceptance arm holds in one room, `a_dog_sent_for_an_item`; see the owner
-  page's cross-room slices). Next: slice 2, a crossing into a live room.
+  page's cross-room slices). (1) for a live room: done 2026-10-09, slice 2
+  (a body on an errand goes through a zone into another live room, by the
+  second-seat road, and keeps durable whereabouts there). Next: slice 3, a
+  crossing into a room that is not live.
 
 **Acceptance:** a headless arm with a reachable and an unreachable item: the
 character fetches the first and refuses the second, and removing a movement

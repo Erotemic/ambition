@@ -91,7 +91,7 @@ pub(super) fn tick_roam(cfg: &RoamCfg, state: &mut RoamState, snapshot: &BrainSn
     // An errand comes before rest and before a place by chance. The place is
     // a fact of where the item lies, so it is the same each tick, and the
     // follower is not sent again while it goes there.
-    if let ae::navigation::ErrandSight::At(place) = advice.errand {
+    if let Some(place) = advice.errand.place() {
         if state.nav.goal != Some(place) && !state.nav.committed() {
             state.nav.go_to(place);
         }
@@ -316,6 +316,10 @@ mod tests {
         let mut idle = RoamState { until: 100.0, picks: 1, ..Default::default() };
         tick(&CFG, &mut idle, &errand(ae::navigation::ErrandSight::NoRoute));
         assert_eq!(idle.nav.goal, None);
+        // The zone that leads to the item is a place to go to.
+        let mut idle = RoamState { until: 100.0, picks: 1, ..Default::default() };
+        tick(&CFG, &mut idle, &errand(ae::navigation::ErrandSight::Door(THERE)));
+        assert_eq!(idle.nav.goal, Some(THERE), "a body goes to the zone that leads to its errand");
     }
 
     #[test]

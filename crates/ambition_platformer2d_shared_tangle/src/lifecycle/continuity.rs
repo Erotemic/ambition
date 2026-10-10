@@ -607,6 +607,27 @@ impl AuthoredOccurrences {
         refused
     }
 
+    /// A body that went into `room` by its own movement lies there, at `at`:
+    /// its row is `Placed` in `room`, from no row or from a `Placed` row in
+    /// any room. Returns whether it wrote.
+    ///
+    /// The third way a live occurrence enters this ledger, beside custody and
+    /// a mint. A body that walks out of the room that authored it is moved as
+    /// surely as one carried out, so when that room is built again it must
+    /// not author the body a second time while the body lives in `room`. The
+    /// crossing is the evidence of the move. A row in custody is refused (a
+    /// carried body does not cross by itself), and a terminal row is refused.
+    #[must_use = "a refused crossing is a body the durable world will not remember in its new room"]
+    pub fn admit_crossing(&mut self, sim_id: SimId, room: &str, at: Vec2) -> bool {
+        if !matches!(self.rows.get(&sim_id), None | Some(OccurrenceWhereabouts::Placed { .. })) {
+            return false;
+        }
+        let row = OccurrenceWhereabouts::Placed { room: room.to_string(), at };
+        let old = Arc::make_mut(&mut self.rows).insert(sim_id.clone(), row.clone());
+        self.reindex_placed(&sim_id, old.as_ref(), Some(&row));
+        true
+    }
+
     /// Remember that these authored occurrences are gone for good. Only an id
     /// with no row is written: a pickup is never carried, so it has no other
     /// row, and a `Consumed` row is terminal. Returns how many rows it wrote.
@@ -1109,6 +1130,13 @@ mod tests {
             .republish_placements("next door", [(a.clone(), Vec2::new(3.0, 4.0))].into_iter().collect())
             .is_empty());
         check(&ledger, "one moved to another room");
+        let walker = SimId::placement("walker");
+        assert!(ledger.admit_crossing(walker.clone(), "next door", Vec2::ZERO), "a body with no row crosses");
+        check(&ledger, "a body crossed into another room");
+        assert!(ledger.admit_crossing(walker.clone(), "room", Vec2::ONE));
+        check(&ledger, "the body crossed back");
+        assert!(!ledger.admit_crossing(b.clone(), "room", Vec2::ZERO), "a carried body does not cross by itself");
+        check(&ledger, "a crossing of a carried id refused");
         assert_eq!(ledger.end([a.clone(), b.clone()]), [a.clone()].into_iter().collect());
         check(&ledger, "a placed id ended, a carried one kept");
         ledger.republish_custody([c.clone()].into_iter().collect());
@@ -1122,7 +1150,7 @@ mod tests {
         );
         check(&ledger, "rows adopted");
         assert_eq!(*ledger.in_custody(), [a].into_iter().collect::<BTreeSet<_>>());
-        assert_eq!(steps, 8);
+        assert_eq!(steps, 11);
     }
 
     /// A checkpoint's older ledger, with the occurrences that still live in a

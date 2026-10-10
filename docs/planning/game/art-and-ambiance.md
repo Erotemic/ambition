@@ -58,12 +58,18 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
   their own (skybridge, eclipse, boss, basement, cave, cove, forest). 22
   sandbox rooms stay `lab`.
 - [x] Portals: the capture of an end draws its own window when its pair looks
-  at itself (the row of images between two portals that face). The rule is
-  tested; the picture is NOT confirmed: see `docs/systems/portals.md`.
-- [ ] `capture_scene --camera-zoom` shows no portal window at a wider zoom.
-  Find out if a wide camera zone in the game has the same fault.
-- [ ] Props and characters.
-- [ ] Gizmos in portal captures (optional).
+  at itself (the row of images between two portals that face). Seen in a
+  capture with a pair shot onto two faces: five images of the player in the
+  view. The command is in `docs/systems/portals.md`.
+- [x] `capture_scene --camera-zoom`: a wider zoom shows the portal windows
+  (seven images of the player at `arena`). The note that it showed none was
+  wrong: it was the pair of that capture, not the zoom.
+- [x] Props that are part of a room: doors, ladders, water, blink walls,
+  hazards, decor and its light, ground shadows (see the items below).
+- [ ] Characters. Not started: see "Not done".
+- [x] Gizmos in portal captures: they are drawn. Seen in a capture of two
+  portals that face with `--combat-overlay`: each image of the player in a
+  window has its boxes, its arrows and its bars. No code changed for it.
 - [x] The intro rooms show the skin of their biome: the uniform painted tile
   layer that hid it is cleared, and the pattern of a skin is fixed to the room
   (the intro ground is cells of 16).
@@ -100,8 +106,22 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
 - [x] A pool of light round each thing of the decor that gives light
   (lanterns, braziers, floor lights, crystals): a published picture, no
   shader.
+- [x] The rebound pad is a plate on two springs with two arrows that point
+  up. It had a row of gold triangles, which a player reads as spikes.
 - [x] The dressing of a room is in the room's load manifest: the cover stays
   until the skin is there (it came in a few frames late).
+
+## Not done
+
+- **Characters.** No character art changed. The sprite renderer has 165
+  character targets on a rig pipeline, a redesign is a new `_v2` target with
+  the old one kept, and a full sheet regen is longer than this run had left
+  after the scenery. It needs its own lane, and a choice of which characters.
+- **A ladder wider than 16 units** draws two ladders side by side.
+- **Ambience sound.** The game has no ambience channel. Eleven beds to
+  listen to are in `untracked/sfx-candidates/room_ambience/` (not in git),
+  with a reel and a script that makes them again. They wait for Jon's ear:
+  nothing plays them.
 
 ## For Jon to decide
 
@@ -115,3 +135,9 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
 
 Each item above was looked at in `capture_scene` captures only. A window on a
 GPU was not seen.
+
+The rooms of the other games were looked at through their routes
+(`capture_scene --route sanic_gameplay`, `mary_o_gameplay`, `smash_gameplay`,
+`versus_gameplay`), one view of each: they keep their own ground and take the
+new scenes behind it. The Sanic rooms name a theme, so a one-way platform
+there takes the skin of that theme.

@@ -100,6 +100,12 @@ Generates and publishes 2D character/entity sprite sheets, optional independent 
   the parallax scenes, one for each biome. They are art, so they are in the
   authoring submodule. `scenes.py` has the table and says what a view shows of
   a panel; `artkit.py` is the paint box.
+- `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/terrain/`: what
+  the game lays on the blocks of a room and stands on them. `skins.py` (fill
+  and trims), `decor.py` (things on the ground, and their light), `doors.py`,
+  `fixtures.py` (ladders, water, blink walls, hazard spikes), `motes.py`
+  (motes and ground shadows). Published to `assets/room_dressing/`. A look
+  without the game: `python -m ambition_sprite2d_renderer.terrain preview OUT.png lab cave`.
 
 `./scripts/regen/backgrounds.sh` runs both: placeholder profile backgrounds go
 under `crates/ambition_platformer2d_actor_monolith/assets/backgrounds/<profile>/`,

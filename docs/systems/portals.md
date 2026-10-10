@@ -179,11 +179,28 @@ window. On a thin wall the window of an end is in the same place as the room
 in front of its partner, and a capture that drew it would film its own
 picture in place of the room.
 
-Not seen (2026-10-10): the second image of the row is out of the view of a
-default `capture_scene` capture, and at a wider `--camera-zoom` the capture
-shows no portal window at all. The rule is pinned by
-`a_capture_draws_its_own_window_only_when_its_pair_looks_at_itself`; the
-picture is not confirmed.
+Seen in a capture (2026-10-10), with a pair shot onto two faces 144 units
+apart in `portal_lab` and the player between them: the row of images goes on,
+with five images of the player in the view.
+
+```bash
+capture_scene portal_lab player OUT.png 1280x720 --warmup 240 \
+    --player-at 2136,864@60 \
+    --portal-shot 80:2136,850:-1,0 --portal-shot 90:2136,850:1,0:b
+```
+
+The same capture with `--camera-zoom combat` and `--camera-zoom arena` shows
+the row too (seven images at `arena`). An earlier note here said that a wider
+zoom shows no portal window: that was the pair of that capture, whose windows
+are shut when the eye is far from the two ends, and not the zoom.
+
+The gizmos of the developer overlays are drawn in a window too: the same
+capture with `--combat-overlay` shows the boxes, the arrows and the bars of
+each image of the player. A capture camera is on the world layer, and the
+gizmos are on that layer.
+
+Not seen: a window on a GPU. The rule is pinned by
+`a_capture_draws_its_own_window_only_when_its_pair_looks_at_itself`.
 
 ## Validation
 

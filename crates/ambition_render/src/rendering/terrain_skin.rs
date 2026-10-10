@@ -382,13 +382,29 @@ fn edge_lines(image: &Handle<Image>, surface: &TerrainSurface, others: &[Terrain
     };
     let mut out = Vec::new();
     for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
-        let through = match edge {
-            Edge::Top | Edge::Bottom => surface.size.y,
-            Edge::Left | Edge::Right => surface.size.x,
+        let depth_of = |edge: Edge| {
+            let through = match edge {
+                Edge::Top | Edge::Bottom => surface.size.y,
+                Edge::Left | Edge::Right => surface.size.x,
+            };
+            let room_for_it = if open(across(edge)).is_empty() { through } else { through * 0.5 };
+            height.min(room_for_it)
         };
-        let room_for_it = if open(across(edge)).is_empty() { through } else { through * 0.5 };
-        let depth = height.min(room_for_it);
+        let depth = depth_of(edge);
+        // A line on a side stops where the line of the top or of the bottom
+        // is: the two would be one on the other in the corner.
+        let (from, to) = match edge {
+            Edge::Top | Edge::Bottom => (f32::NEG_INFINITY, f32::INFINITY),
+            Edge::Left | Edge::Right => (
+                if open(Edge::Top).is_empty() { f32::NEG_INFINITY } else { surface.min.y + depth_of(Edge::Top) },
+                if open(Edge::Bottom).is_empty() { f32::INFINITY } else { surface.max().y - depth_of(Edge::Bottom) },
+            ),
+        };
         for (a, b) in open(edge) {
+            let (a, b) = (a.max(from), b.min(to));
+            if b - a < 0.5 {
+                continue;
+            }
             for (lo, hi, offset) in anchored_pieces(a, b, SKIN_PERIOD) {
                 let line = piece(image.clone(), Vec2::new(offset, 0.0), Vec2::new(hi - lo, depth), false);
                 let along = (lo + hi) * 0.5;
@@ -975,17 +991,19 @@ mod tests {
                 trims.iter().filter(|(trim, ..)| *trim == kind).map(|(_, size, _)| size.x * size.y).sum()
             };
             assert_eq!(area(TerrainTrim::Fill), 32.0 * 40.0);
-            // The top (32) and the two sides (40 each) are open.
-            assert_eq!(area(TerrainTrim::Rim), (32.0 + 40.0 + 40.0) * BLINK_EDGE_HEIGHT);
+            // The top (32) and the two sides are open. A side is 40, less
+            // the corner the line of the top is in.
+            let side = 40.0 - BLINK_EDGE_HEIGHT;
+            assert_eq!(area(TerrainTrim::Rim), (32.0 + side + side) * BLINK_EDGE_HEIGHT);
             // Each line is inside the wall, against its edge. The wall is 32
             // by 40 with its centre at (0, 0), and a line is cut where the
-            // pattern repeats (x 128, y 64): two pieces on each edge.
+            // pattern repeats (x 128): two pieces on the top, one on a side.
             let rims: Vec<_> = trims.iter().filter(|(trim, ..)| *trim == TerrainTrim::Rim).map(|(_, _, at)| at.truncate()).collect();
             let inset = BLINK_EDGE_HEIGHT * 0.5;
             assert_eq!(rims.iter().filter(|at| at.y == 20.0 - inset).count(), 2, "the top: {rims:?}");
-            assert_eq!(rims.iter().filter(|at| at.x == inset - 16.0).count(), 2, "the left: {rims:?}");
-            assert_eq!(rims.iter().filter(|at| at.x == 16.0 - inset).count(), 2, "the right: {rims:?}");
-            assert_eq!(rims.len(), 6);
+            assert_eq!(rims.iter().filter(|at| at.x == inset - 16.0).count(), 1, "the left: {rims:?}");
+            assert_eq!(rims.iter().filter(|at| at.x == 16.0 - inset).count(), 1, "the right: {rims:?}");
+            assert_eq!(rims.len(), 4);
             let caps: f32 = trims_of(&mut world, floor)
                 .iter()
                 .filter(|(trim, ..)| *trim == TerrainTrim::Cap)
@@ -1009,12 +1027,12 @@ mod tests {
         world.run_system_once(skin_terrain_surfaces).unwrap();
         let trims = trims_of(&mut world, strip);
         let rims: Vec<_> = trims.iter().filter(|(trim, ..)| *trim == TerrainTrim::Rim).collect();
-        // The top: 64 long and the full height of the spikes. Each end: 16
-        // long and 12 deep.
+        // The top: 64 long and the full height of the spikes. Each end is
+        // 16, less the corner the spikes of the top are in: 4 long.
         let top: Vec<_> = rims.iter().filter(|(_, size, at)| size.x == 64.0 && at.y == 8.0 - HAZARD_EDGE_HEIGHT * 0.5).collect();
         assert_eq!(top.len(), 1, "{rims:?}");
         assert_eq!(top[0].1.y, HAZARD_EDGE_HEIGHT);
-        assert_eq!(rims.iter().filter(|(_, size, _)| size.x == 16.0).count(), 2, "the two ends: {rims:?}");
+        assert_eq!(rims.iter().filter(|(_, size, _)| size.x == 16.0 - HAZARD_EDGE_HEIGHT).count(), 2, "the two ends: {rims:?}");
         assert_eq!(rims.len(), 3, "no spikes on the floor side: {rims:?}");
         let caps: f32 = trims_of(&mut world, floor)
             .iter()

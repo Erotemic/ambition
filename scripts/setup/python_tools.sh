@@ -330,7 +330,7 @@ install_scripts_env() {
         pytest "tree-sitter>=0.25,<0.26" "tree-sitter-rust>=0.24,<0.25" \
         numpy soundfile rich pillow "resvg-py>=0.3" pytest-xdist
     # `pytest-xdist` is not a collection-time dependency: it is how the repo
-    # tooling job runs on every core (`run_tests.py`, `pytest_worker_args`).
+    # tooling job runs on several cores (`run_tests.py`, `pytest_worker_args`).
     # Measured 2026-10-10, 14 cores: 1160 s serial, 232-236 s with 8 workers,
     # the same 1776 passed and 19 skipped. Without it the job runs serially.
     # The moveset inspector is imported directly out of `tools/` by

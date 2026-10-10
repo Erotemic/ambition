@@ -48,3 +48,32 @@ def test_without_xdist_the_job_runs_serially_and_says_so(monkeypatch, capsys):
     # The same suite and the same marker: only the workers differ.
     assert "scripts/tests" in argv
     assert argv[argv.index("-m", argv.index("pytest")) + 1] == "not detached_tool"
+
+
+def _workers_seen(monkeypatch, tmp_path, job_limit=None) -> str:
+    """The `PYTEST_XDIST_AUTO_NUM_WORKERS` a job gets from the real `run()`:
+    what `-n auto` turns into a count of workers."""
+    monkeypatch.setattr(run_tests, "free_gb_on_target", lambda: 500.0)
+    monkeypatch.setattr(run_tests, "append_cost_ledger", lambda *a, **k: None)
+    monkeypatch.delenv("PYTEST_XDIST_AUTO_NUM_WORKERS", raising=False)
+    seen = tmp_path / "workers"
+    probe = f"import os; open({str(seen)!r}, 'w').write(os.environ.get('PYTEST_XDIST_AUTO_NUM_WORKERS', 'unset'))"
+    run_tests.run(
+        [run_tests.Job("repo tooling (scripts/tests)", [sys.executable, "-c", probe])],
+        False,
+        status_json=str(tmp_path / "status.json"),
+        job_limit=job_limit,
+    )
+    return seen.read_text()
+
+
+def test_the_workers_obey_the_cap_and_take_at_most_six_with_none(monkeypatch, tmp_path):
+    """⭐ A worker pool on a shared machine does not take every CPU by default
+    (at most 6 parallel jobs there, Jon 2026-10-03). `-j` caps the workers as
+    it caps cargo's jobs and test threads; with no `-j`, at most
+    `PYTEST_WORKERS_UNCAPPED`."""
+    assert _workers_seen(monkeypatch, tmp_path, job_limit=3) == "3"
+    uncapped = _workers_seen(monkeypatch, tmp_path)
+    assert uncapped.isdigit() and 1 <= int(uncapped) <= run_tests.PYTEST_WORKERS_UNCAPPED == 6, (
+        f"with no -j the pool is not capped: {uncapped}"
+    )

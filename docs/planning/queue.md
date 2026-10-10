@@ -362,15 +362,18 @@ reads cargo output to it.
    voided that crate's pass (`738d7c3da`, witness
    `test_a_doc_edited_after_a_crate_ran_does_not_void_the_crate`).
 
-7. **The repo tooling job runs on every core (2026-10-10).** It ran
+7. **The repo tooling job runs on several cores (2026-10-10).** It ran
    `scripts/tests` serially, and each push waits on it. Measured on 14 cores:
    1160 s serial; 232 s and 236 s with 8 workers, the same 1776 passed and 19
-   skipped; 231 s through `run_tests.sh` with `-n auto`. `run_tests.py` adds
+   skipped; 224-231 s through `run_tests.sh` with 14. `run_tests.py` adds
    `-n auto` when pytest-xdist is importable (`pytest_worker_args`), and
-   `scripts/setup/python_tools.sh` installs it. Without it the job runs
-   serially and prints why: the same tests run. Witness
-   `scripts/tests/test_the_repo_tooling_job_runs_on_every_core.py` (poison: no
-   workers, red at "the job runs serially"). The pre-push measurement is in
+   `scripts/setup/python_tools.sh` installs it. The count is the `-j` cap, or
+   at most 6 with none (`PYTEST_WORKERS_UNCAPPED`: the shared machine's rule
+   is at most 6 parallel jobs and no pool that takes every CPU by default).
+   Without xdist the job runs serially and prints why: the same tests run.
+   Witness `scripts/tests/test_the_repo_tooling_job_runs_on_every_core.py`
+   (poisons: no workers, red at "the job runs serially"; no default cap, red
+   at "with no -j the pool is not capped"). The pre-push measurement is in
    [extension evidence M0](engine/extension-iteration-evidence.md#m0-results):
    `app_it`'s 890-913 s is now the largest part of a push.
 

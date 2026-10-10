@@ -40,6 +40,13 @@ no theme. The sky uses the first: a room must have a sky. The terrain skin and
 the motes use the second: a room of another game that names no theme keeps its
 own block art.
 
+The themes with a scene and a skin are `hub`, `lab`, `alarm` (the lab with
+its power out and its beacons on: the rooms of the raid), `undertown` (the
+brick drains and the pipes under the town), `basement`, `cave`,
+`cove`, `water`, `forest`, `skybridge`, `boss` and `eclipse`. `open_sky` has
+a scene and no skin. `hub_clean` is the sky of the two-state look and has a
+skin for a device that does not draw the look.
+
 The art of a theme is loaded by `ensure_parallax_layers_for_room` when a room
 of the theme is prepared, and it is retired by the residency rule of the app
 (`parallax_residency.rs`) when no live room and no neighbour has the theme.
@@ -97,6 +104,12 @@ platform draws the platform of the skin.
   on one. `TerrainDecorDensity` (a reflected resource) has the mean distance
   between two things; 0 puts none. A thing of the decor is scenery: nothing
   reads it, and its art must not look like a thing a player can use.
+- **Light.** A thing of the decor that gives light (a lantern, a brazier, a
+  floor light, a crystal) has a pool of light round it:
+  `RoomDressingPart::DecorGlow`, a picture with the same squares as the decor
+  picture, drawn three times as large behind the thing. The art says which
+  things give light: the square of each other thing is empty. It is a
+  picture and not a light: it does not light an actor.
 - A theme with no skin on disk changes nothing: its blocks keep the tile of
   their kind.
 - A room with a look of its own (a `palette`,
@@ -113,6 +126,13 @@ platform draws the platform of the skin.
   same in each biome: violet is the colour of a blink in each room, and a
   player must know the wall at a look. A blink wall covers the edges of the
   blocks it is in contact with, as a solid block does.
+- **Hazards.** A hazard block (the surface that sends a body back to its
+  start) takes a danger fill (`RoomDressingPart::HazardFill`, part clear) and
+  a row of spikes on each open edge (`HazardEdge`). The spikes point out of
+  the block: up on a strip on the floor, to the side on a strip on a wall.
+  They are inside the block, so the picture is not larger than what a body
+  can touch. The art is the same in each biome. A hazard covers no edge of a
+  block next to it. A hazard with `EntityArt` (lava, acid) keeps that art.
 - **Ladders and water.** A ladder and a body of water of a room that names a
   theme take the art of the theme (`dress_themed_fixtures`,
   `RoomDressingPart::Ladder`, `WaterClear`, `WaterMurky`, `WaterSurface`). The

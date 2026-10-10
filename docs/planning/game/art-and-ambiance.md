@@ -80,6 +80,26 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
 - [x] Blink walls are a field of violet light with a line of light on each
   open edge (the soft kind) and plates of violet armour (the hard kind), in
   place of a flat tile with a hatch.
+- [x] A biome for the raid in the main game: `alarm`, the lab with its power
+  out, dark, in the red of its beacons, with smoke under the roof, a beam of
+  the gantry down and sparks at the ends of the cut cables. The raid
+  corridor, the escape shaft and the lower gate stack name it. The wake room
+  and the two labs after stay `lab`, so the raid is a change the player sees.
+- [x] A biome for the rooms under the town in the main game: `undertown`,
+  brick drains with the mouths of other drains in the far wall, the mains of
+  the town, lamps in cages, day through the grates of the street, and water
+  that gives a green light. The two relay rooms, the drain alley and the
+  under-town pipes name it. They had the crystal cave, which stays the biome
+  of the cave rooms of the sandbox.
+- [x] Hazard blocks are a danger fill with a row of spikes on each open edge
+  that point out of it, in place of a tile of spikes that pointed up on each
+  side of a block.
+- [x] The foreground of the lab, the basement and the boss room has no long
+  dark thing along the bottom: it was a band on the floor of each room whose
+  camera is low.
+- [x] A pool of light round each thing of the decor that gives light
+  (lanterns, braziers, floor lights, crystals): a published picture, no
+  shader.
 - [x] The dressing of a room is in the room's load manifest: the cover stays
   until the skin is there (it came in a few frames late).
 

@@ -227,6 +227,13 @@ pub(crate) fn prepare_first_room_art_system(
         );
 
         let state = if !readiness.failed.is_empty() {
+            // The screen shows the title only. This line is where a phone
+            // (`adb logcat`) says which asset it was.
+            bevy::log::error!(
+                "[first-room-art] room '{}' refused: failed {}",
+                job.room.id,
+                readiness.failed.join(", ")
+            );
             LoadWorkState::Failed(
                 LoadFailure::new(
                     "A required asset for the first room failed to load",

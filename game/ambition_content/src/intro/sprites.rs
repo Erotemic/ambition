@@ -26,6 +26,60 @@ fn intro_sheet(target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec>
 // Props keep their table below: a `Prop` is keyed by `Prop.kind`, which the
 // world authors.
 
+/// The kind of the cart of the wake room: a prop sheet, and the `visual` of
+/// the platform that is the cart.
+pub const INTRO_CART_KIND: &str = "intro_cart";
+
+/// How the cart is drawn on its platform.
+///
+/// The cart is not a prop that stands on a platform: its bed IS the platform
+/// (`MovingPlatform` with `visual: intro_cart` and `speed: 0`), and the sheet
+/// is laid on it. The numbers are frame pixels of the sheet, and the art
+/// module states them (`FRAME_SIZE`, `BED_SPAN_PX`, `BED_TOP_PX` in
+/// `tools/ambition_sprite2d_renderer/.../targets/props/intro_cart.py`): the
+/// span of the bed along the frame, and the row of its surface. The row
+/// `front` is the near rail of the cart, drawn in front of each body, so a
+/// body on the bed is in the cart.
+pub fn intro_cart_platform_look() -> ambition_render::rendering::moving_platforms::PlatformLook {
+    ambition_render::rendering::moving_platforms::PlatformLook {
+        sheet: None,
+        row: "idle".into(),
+        frame_px: INTRO_CART_FRAME_PX,
+        span_px: [108.0, 636.0],
+        top_px: 126.0,
+        faces_right: true,
+        front_row: Some("front".into()),
+    }
+}
+
+/// The frame of the sheet of the cart (`FRAME_SIZE` of the art module).
+const INTRO_CART_FRAME_PX: [f32; 2] = [960.0, 312.0];
+
+/// The `visual` of the platform that is the first step of the ramp of the
+/// cart: it is drawn as the row `ramp` of the sheet of the cart.
+///
+/// The ramp is the back end of the cart, let down. Its collision is a row of
+/// one-way steps (each 7 long and 4 under the one before), and all but the
+/// first have no picture (`visual: none`). The numbers are those of the art
+/// module (`RAMP_STEP_SPAN_PX`, `RAMP_STEP_TOP_PX`): the first step in frame
+/// pixels. A cart with its ramp up has no such platform, and the row `gate`
+/// of the sheet is the picture of its shut back end (not drawn yet: the cart
+/// does not roll yet).
+pub const INTRO_CART_RAMP_KIND: &str = "intro_cart_ramp";
+
+/// How the ramp of the cart is drawn on its first step. See [`INTRO_CART_RAMP_KIND`].
+pub fn intro_cart_ramp_look() -> ambition_render::rendering::moving_platforms::PlatformLook {
+    ambition_render::rendering::moving_platforms::PlatformLook {
+        sheet: Some(INTRO_CART_KIND.into()),
+        row: "ramp".into(),
+        frame_px: INTRO_CART_FRAME_PX,
+        span_px: [636.0, 657.0],
+        top_px: 138.0,
+        faces_right: true,
+        front_row: None,
+    }
+}
+
 /// Prop tuning: props render at their authored AABB size.
 const PROP_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
 
@@ -152,5 +206,35 @@ pub fn extend_with_intro_sprite_entries(manifest: &mut AssetManifest, sprite_fol
                 .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
                 .with_preload_group(PreloadGroup::SandboxCore),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The look of the cart names the bed in pixels of the frame of its sheet,
+    /// and the art module makes that frame (`intro_cart.py`: `FRAME_SIZE`,
+    /// `BED_SPAN_PX`, `BED_TOP_PX`). A sheet with another frame, or with no
+    /// `front` row, puts the cart in the wrong place with no error: this reads
+    /// the published sheet.
+    #[test]
+    fn the_look_of_the_cart_is_in_the_frame_of_its_published_sheet() {
+        let spec = intro_sheet(INTRO_CART_KIND, &PROP_TUNING).expect("the cart's baked sheet");
+        let frame = spec.frame_pixels();
+        let (cart, ramp) = (intro_cart_platform_look(), intro_cart_ramp_look());
+        for look in [&cart, &ramp] {
+            assert_eq!([frame.x, frame.y], look.frame_px, "the frame the look was measured in");
+            assert!(spec.clip_slot([look.row.as_str()]).is_some(), "the sheet has the row `{}`", look.row);
+            assert!(0.0 <= look.span_px[0] && look.span_px[0] < look.span_px[1] && look.span_px[1] <= frame.x);
+            assert!(0.0 < look.top_px && look.top_px < frame.y);
+        }
+        let front = cart.front_row.as_deref().expect("the cart has a near rail");
+        assert!(spec.clip_slot([front]).is_some(), "the sheet has the row `{front}`");
+        assert_ne!(spec.clip_slot([cart.row.as_str()]), spec.clip_slot([front]));
+        assert_ne!(spec.clip_slot([cart.row.as_str()]), spec.clip_slot([ramp.row.as_str()]));
+        // The ramp starts where the bed ends, one step under it.
+        assert_eq!(ramp.span_px[0], cart.span_px[1]);
+        assert!(ramp.top_px > cart.top_px);
     }
 }

@@ -160,6 +160,28 @@ suit the style of the game.
   `tools/ambition_ldtk_tools/specs/hall_of_biomes/make_specs.py`: a new biome
   is one row there. Two of the rooms are room looks (`palette`): the
   clean / corrupted look with its state switch, and the blueprint look.
+- [x] The cart of the intro is drawn again, and it is a platform (Jon,
+  2026-10-10). It is a wooden wagon in a lab of steel: that is the joke, and
+  it is not made to fit the lab. Its bed is a `MovingPlatform` that stands
+  still (`speed: 0`, `one_way`, `visual: intro_cart`), as a shark of the
+  Mockingbird is. Its sheet has four rows of one frame: `idle` is drawn behind
+  each body and `front` (the near rail and the wheels) in front of each body
+  (`PlatformLook::front_row`), so a body on the bed is IN the cart. The back
+  end of the cart is let down as a ramp (the row `ramp`; the row `gate` is the
+  back end shut, for a cart that rolls: not in the game yet). The mover of the
+  player has no slopes, so the collision of the ramp is 14 one-way steps, each
+  7 long and 4 under the one before: a body on the ground lands on a one-way
+  face less than 8 over its feet, so it walks the steps in the two directions
+  (`the_cart_of_the_wake_room.rs`). The first step draws the ramp
+  (`visual: intro_cart_ramp`, a look that names the sheet of the cart) and the
+  others have no picture (`visual: none`). The wake room has no door back to
+  the hub: the door of the hub is one way, and its zone in the wake room is a
+  landing pad on the bed with no picture (`hide_loading_zone`). A look
+  states the frame its numbers were measured in (`frame_px`), so a sheet of a
+  lower tier or of a pack is drawn at the same size. After a new sheet of a
+  packed target (`data/pack_plan.yaml`), build the packs again (the
+  `ultrapack` stage of `scripts/regen/sprites.sh`): the game draws a packed
+  target from its pack, and a stale pack draws the old picture.
 - [x] The boss vault has no dark sun (that is the mark of the eclipse): its
   scene is the shut gate of a vault with fire behind it. Ground that is not
   plain brick: `basalt` (boss), `monolith` (eclipse, slabs with signs),

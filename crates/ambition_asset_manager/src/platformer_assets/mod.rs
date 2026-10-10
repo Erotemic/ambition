@@ -259,8 +259,12 @@ impl Platformer2dAssetCatalog {
     ///   to colored rectangles / Bevy's default font before Bevy logs a
     ///   load failure. Required assets always attempt the load so the
     ///   `MissingAssetPolicy::Error` path can surface a useful error.
-    /// - Android / iOS bundle: trust the packager; let Bevy's platform
-    ///   `AssetReader` try the load.
+    /// - Android bundle: ask the APK (`android_bundle_holds`), as desktop
+    ///   asks the disk. An optional image with no file is then a placeholder
+    ///   and not a failed load, and a failed load refuses the room that waits
+    ///   on it.
+    /// - iOS bundle: trust the packager; let Bevy's platform `AssetReader`
+    ///   try the load.
     /// - Web / BundledStatic: attempt the load when the entry has an
     ///   authored embedded candidate (the bytes are packaged via
     ///   `embedded_asset!`); skip otherwise to preserve colored-rectangle
@@ -291,7 +295,12 @@ impl Platformer2dAssetCatalog {
                         None => self.resolve_local_file_path(path).is_some(),
                     }
             }
-            AssetProfile::AndroidBundle | AssetProfile::IosBundle => true,
+            AssetProfile::AndroidBundle => {
+                resolved.missing_policy.is_required()
+                    || is_source_qualified(path)
+                    || android_bundle_holds(path)
+            }
+            AssetProfile::IosBundle => true,
             AssetProfile::WebStatic | AssetProfile::BundledStatic => {
                 resolved.authored_candidate
                     && matches!(
@@ -421,6 +430,27 @@ pub fn actors_desktop_asset_root() -> String {
         Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
         _ => "assets".to_string(),
     }
+}
+
+/// Whether the APK holds `path`: Android's `AssetManager` is asked, the one
+/// Bevy's Android reader loads through, with the same path. Before the
+/// activity is set there is nobody to ask, and the answer is "attempt it".
+#[cfg(target_os = "android")]
+fn android_bundle_holds(path: &str) -> bool {
+    let Some(app) = bevy::android::ANDROID_APP.get() else {
+        return true;
+    };
+    let Ok(name) = std::ffi::CString::new(path) else {
+        return false;
+    };
+    app.asset_manager().open(&name).is_some()
+}
+
+/// Off Android there is no APK. The Android profile is only chosen by hand
+/// there (a test), and the reader answers.
+#[cfg(not(target_os = "android"))]
+fn android_bundle_holds(_path: &str) -> bool {
+    true
 }
 
 #[cfg(test)]

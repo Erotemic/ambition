@@ -84,6 +84,7 @@ impl Plugin for PortalPresentationPlugin {
         // it is initialised HERE, not by the headless mechanic's plugin; the
         // host's input adapter writes it each frame.
         app.init_resource::<PortalAimHint>();
+        app.init_resource::<crate::PortalGlowStyle>().register_type::<crate::PortalGlowStyle>();
         // The live effect choice (view cones / off), cycled from the host's
         // developer menu for in-session A/B profiling.
         app.init_resource::<PortalEffectSelection>();

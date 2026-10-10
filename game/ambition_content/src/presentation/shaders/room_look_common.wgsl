@@ -1,7 +1,9 @@
 #define_import_path ambition_content::room_look
 
-// What the room looks share: hashes, noise, and the far architecture that
-// each look draws in its own way. See `room_look.rs`.
+// What the room looks share: hashes, noise, the front of a two-state room,
+// and the far outlines of the drawing look (`room_blueprint.wgsl`: a debug
+// look, which draws the collision truth of a room and is not art).
+// See `room_look.rs`.
 //
 // All positions are in engine world coordinates (y down).
 
@@ -37,8 +39,6 @@ fn value_noise(p: vec2<f32>, scale: f32, salt: u32) -> f32 {
 
 /// How much of a point is inside an edge that is `soft` px wide, where `d` is
 /// the distance of the point into the shape. A `soft` of 0.0 is a hard edge.
-/// The far architecture takes its blur from this: a thing that is behind the
-/// play is out of focus.
 fn soft_edge(d: f32, soft: f32) -> f32 {
     let half = max(soft, 0.001) * 0.5;
     return smoothstep(-half, half, d);
@@ -121,36 +121,6 @@ fn sky_line_distance(q: vec2<f32>, turn: f32) -> f32 {
     if abs(d.y) < big * 1.45 { dist = min(dist, abs(d.x)); }
     if abs(d.x) < big * 1.45 { dist = min(dist, abs(d.y)); }
     return dist;
-}
-
-/// A floating island on a sparse lattice: a flat top and steps that go in
-/// below it. `x` = how much of `q` is inside the island (0..1), `y` = the
-/// depth below its top in px, `z` = a value in [0, 1) for the island. `soft`
-/// is the width of its edge in px.
-fn island(q: vec2<f32>, soft: f32) -> vec3<f32> {
-    let period = vec2<f32>(300.0, 230.0);
-    let cell = floor(q / period);
-    let r = rand_cell(cell, 60u);
-    if r > 0.42 {
-        return vec3<f32>(0.0);
-    }
-    let centre = (cell + vec2<f32>(0.25 + 0.5 * rand_cell(cell, 61u), 0.3 + 0.4 * rand_cell(cell, 62u))) * period;
-    let half_w = 26.0 + 44.0 * rand_cell(cell, 63u);
-    let depth = half_w * (0.9 + 0.6 * rand_cell(cell, 64u));
-    let o = q - centre;
-    if o.y < -soft || o.y > depth + soft || abs(o.x) > half_w + soft {
-        return vec3<f32>(0.0);
-    }
-    // A step each 12 px. Between two steps the width goes from one to the
-    // other across the soft edge.
-    let g = o.y / 12.0 - 0.5;
-    let n = floor(g);
-    let t = soft_edge((g - n - 0.5) * 12.0, soft);
-    let k0 = max(n, 0.0) * 12.0 / depth;
-    let k1 = (n + 1.0) * 12.0 / depth;
-    let width = mix(half_w * (1.0 - k0) * (1.0 - 0.25 * k0), half_w * (1.0 - k1) * (1.0 - 0.25 * k1), t);
-    let cover = soft_edge(o.y, soft) * soft_edge(depth - o.y, soft) * soft_edge(width - abs(o.x), soft);
-    return vec3<f32>(cover, o.y, r / 0.42);
 }
 
 /// `a` modulo `b`, in `[0, b)` for a negative `a` also.

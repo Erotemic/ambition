@@ -64,8 +64,11 @@ A portal is drawn as a thin line of light along its opening
 (`crates/ambition_portal2d_presentation/src/glow.rs`, shader
 `portal_glow.wgsl`): a bright core, a glow that is wider on the room side, a
 node at each end of the opening, and faint streaks drawn into it from the room
-side. The room side has the portal's own colour and the other side has its
-partner's. The colour-name label stays.
+side. The line has one colour, the portal's own. The colour of its partner is
+seen through the portal, when its window opens and shows the far side with
+the partner's line in it. `PortalGlowStyle { partner_colour: true }` draws the
+far side of each line in its partner's colour, for a game with no windows or
+one that wants each line to say where it leads. The colour-name label stays.
 
 - A portal that is added to a room opens from its middle (0.42 s). A portal
   that is removed breaks up and closes (0.5 s) where it was.

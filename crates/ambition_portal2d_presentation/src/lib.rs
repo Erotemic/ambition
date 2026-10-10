@@ -57,7 +57,9 @@ pub use compositing::{
     UncoveredPiece, UncoveredPieces,
 };
 pub use effects::{PortalEffectSelection, PortalVisualEffect};
-pub use glow::{opening_length, sync_portal_glows, PortalGlow, PortalGlowMaterial, APPEAR_S, DISSOLVE_S, ROOM_SETTLE_S};
+pub use glow::{
+    opening_length, sync_portal_glows, PortalGlow, PortalGlowMaterial, PortalGlowStyle, APPEAR_S, DISSOLVE_S, ROOM_SETTLE_S,
+};
 pub use gun_visuals::{sync_portal_mode_indicator, PortalModeIndicator};
 pub use plugin::{PortalPresentationPlugin, PortalPresentationSet};
 #[cfg(feature = "effect_view_cones")]

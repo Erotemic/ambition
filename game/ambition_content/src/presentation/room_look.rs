@@ -136,6 +136,10 @@ pub trait RoomLook: Material2d {
     /// material.
     const ARCHITECTURE_IS_PLATES: bool = false;
 
+    /// Whether the sky of this look is authored parallax layers
+    /// ([`RoomSkyMaterial`]) and not drawn by this material.
+    const SKY_IS_AUTHORED_LAYERS: bool = false;
+
     /// One window into the look's scene.
     ///
     /// - `piece`: what this quad draws, `min.x, min.y, size.x, size.y`.
@@ -162,27 +166,62 @@ pub struct RoomStateMaterial {
     /// The normal points into the corrupted side.
     #[uniform(2)]
     pub front: Vec4,
-    /// How far behind the play the sky is drawn ([`RoomLookDepth::uniform`]).
-    #[uniform(3)]
+}
+
+/// The corrupted sky of the two-state look, over the clean one.
+///
+/// The sky is authored: two parallax themes of four layers each
+/// (`ParallaxTheme::HubClean`, `ParallaxTheme::HubCorrupt`), made by the
+/// parallax renderer (`room_look_sky.py`). A room with the look names
+/// `hub_clean` as its `parallax_theme`, and the parallax system draws it.
+/// This material is one quad over that: it lays the layers of `hub_corrupt`
+/// where the air of the room is corrupted, and the fog between the sky and
+/// the play. Its shader draws no art.
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+pub struct RoomSkyMaterial {
+    /// `x, y` = the room size.
+    #[uniform(0)]
+    pub room: Vec4,
+    /// A point on the room's front (`x, y`) and its normal (`z, w`), which
+    /// points into the corrupted side.
+    #[uniform(1)]
+    pub front: Vec4,
+    /// The fog ([`RoomLookDepth::uniform`]).
+    #[uniform(2)]
     pub depth: Vec4,
+    #[texture(3)]
+    #[sampler(4)]
+    pub sky: Handle<Image>,
+    #[texture(5)]
+    pub far: Handle<Image>,
+    #[texture(6)]
+    pub near: Handle<Image>,
+    #[texture(7)]
+    pub atmosphere: Handle<Image>,
+}
+
+impl Material2d for RoomSkyMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "embedded://ambition_content/presentation/shaders/room_sky.wgsl".into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
 }
 
 /// How far behind the play the sky of the two-state look is drawn.
 ///
 /// The play is sharp and clear. The sky is behind it, and it reads so when it
-/// is a little out of focus and has fog in front of it. These are the numbers
-/// of that effect, to tune by eye: the developer inspector shows them
-/// (`ambition_app::dev`), `capture_scene --look-depth` photographs them, and
-/// each change is drawn in the next frame.
+/// is a little out of focus and has fog in front of it. The blur is in the
+/// art (`BLUR` in the parallax renderer's `room_look_sky.py`: change it there
+/// and regenerate). The fog is drawn over the sky, and these are its numbers,
+/// to tune by eye: the developer inspector shows them (`ambition_app::dev`),
+/// `capture_scene --look-depth` photographs them, and each change is drawn in
+/// the next frame.
 #[derive(Resource, Reflect, Debug, Clone, Copy, PartialEq)]
 #[reflect(Resource)]
 pub struct RoomLookDepth {
-    /// The width of the edge of the nearest far architecture (the viaduct),
-    /// in world px. 0 is a hard edge.
-    pub blur_px: f32,
-    /// How many times wider the edge of the farthest architecture (the city)
-    /// is. The rows between them are between the two.
-    pub far_blur: f32,
     /// How much fog is in front of the sky, from 0 (none) to 1.
     pub fog: f32,
     /// How much the fog is in patches, from 0 (even) to 1.
@@ -191,29 +230,24 @@ pub struct RoomLookDepth {
 
 impl Default for RoomLookDepth {
     fn default() -> Self {
-        Self { blur_px: 3.0, far_blur: 2.0, fog: 0.22, fog_patches: 0.5 }
+        Self { fog: 0.14, fog_patches: 0.5 }
     }
 }
 
 impl RoomLookDepth {
-    /// The numbers as the shader reads them (`depth` in `room_state.wgsl`).
+    /// The numbers as the shader reads them (`depth` in `room_sky.wgsl`).
     pub fn uniform(&self) -> Vec4 {
-        Vec4::new(
-            self.blur_px.max(0.0),
-            self.far_blur.max(0.0),
-            self.fog.clamp(0.0, 1.0),
-            self.fog_patches.clamp(0.0, 1.0),
-        )
+        Vec4::new(self.fog.clamp(0.0, 1.0), self.fog_patches.clamp(0.0, 1.0), 0.0, 0.0)
     }
 }
 
-/// Tell each quad of the two-state look how far behind the play its sky is:
-/// when the numbers change, and when a quad comes.
+/// Tell the sky of each two-state room how much fog is in front of it: when
+/// the numbers change, and when a sky comes.
 fn apply_look_depth(
     depth: Res<RoomLookDepth>,
-    new_quads: Query<(), Added<MeshMaterial2d<RoomStateMaterial>>>,
-    quads: Query<&MeshMaterial2d<RoomStateMaterial>>,
-    mut materials: ResMut<Assets<RoomStateMaterial>>,
+    new_quads: Query<(), Added<MeshMaterial2d<RoomSkyMaterial>>>,
+    quads: Query<&MeshMaterial2d<RoomSkyMaterial>>,
+    mut materials: ResMut<Assets<RoomSkyMaterial>>,
 ) {
     if !depth.is_changed() && new_quads.is_empty() {
         return;
@@ -242,10 +276,10 @@ impl Material2d for RoomStateMaterial {
 impl RoomLook for RoomStateMaterial {
     const PALETTE: &'static str = "clean_corrupted";
     const ARCHITECTURE_IS_PLATES: bool = true;
+    const SKY_IS_AUTHORED_LAYERS: bool = true;
 
     fn window(piece: Vec4, room: Vec4, front: Vec4) -> Self {
-        // `apply_look_depth` writes the numbers of the session.
-        Self { piece, room, front, depth: RoomLookDepth::default().uniform() }
+        Self { piece, room, front }
     }
 
     fn door_art(world: &ae::World, at: ae::Vec2, advance: f32) -> EntitySprite {
@@ -369,6 +403,7 @@ pub fn install(app: &mut App) {
     app.insert_resource(RoomLookInstalled);
     embedded_asset!(app, "shaders/room_state.wgsl");
     embedded_asset!(app, "shaders/room_plate.wgsl");
+    embedded_asset!(app, "shaders/room_sky.wgsl");
     embedded_asset!(app, "shaders/room_blueprint.wgsl");
     // `ambition_content::room_look`: what the looks share. A composition with
     // no shader assets draws no look to import it.
@@ -377,6 +412,7 @@ pub fn install(app: &mut App) {
     }
     if app.get_sub_app(bevy::render::RenderApp).is_some() {
         app.add_plugins(Material2dPlugin::<RoomPlateMaterial>::default());
+        app.add_plugins(Material2dPlugin::<RoomSkyMaterial>::default());
     }
     // The unit quad is made now and not with the first room. A mesh that goes
     // to the GPU in a frame whose upload budget is spent arrives late, and
@@ -398,7 +434,7 @@ pub fn install(app: &mut App) {
     install_look::<RoomBlueprintMaterial>(app);
     app.init_resource::<RoomLookDepth>()
         .register_type::<RoomLookDepth>()
-        .add_systems(Update, apply_look_depth.run_if(resource_exists::<Assets<RoomStateMaterial>>));
+        .add_systems(Update, apply_look_depth.run_if(resource_exists::<Assets<RoomSkyMaterial>>));
     app.add_systems(
         Update,
         (
@@ -575,6 +611,8 @@ fn spread_room_states(
     mut materials: ResMut<Assets<RoomStateMaterial>>,
     plate_quads: Query<(&InRoomInstance, &MeshMaterial2d<RoomPlateMaterial>)>,
     mut plate_materials: Option<ResMut<Assets<RoomPlateMaterial>>>,
+    sky_quads: Query<(&InRoomInstance, &MeshMaterial2d<RoomSkyMaterial>)>,
+    mut sky_materials: Option<ResMut<Assets<RoomSkyMaterial>>>,
 ) {
     for (stamp, mut spread) in &mut spreads {
         let Some((_, definition)) = rooms.live_rooms().find(|(room, _)| *room == stamp.0) else {
@@ -597,6 +635,16 @@ fn spread_room_states(
             }
             if let Some(mut material) = materials.get_mut(&material.0) {
                 material.front = front;
+            }
+        }
+        if let Some(sky_materials) = sky_materials.as_deref_mut() {
+            for (quad_stamp, material) in &sky_quads {
+                if quad_stamp.0 != stamp.0 {
+                    continue;
+                }
+                if let Some(mut material) = sky_materials.get_mut(&material.0) {
+                    material.front = front;
+                }
             }
         }
         let Some(plate_materials) = plate_materials.as_deref_mut() else {
@@ -628,6 +676,7 @@ fn present_room_look<M: RoomLook>(
     plate_quads: Query<&InRoomInstance, With<MeshMaterial2d<RoomPlateMaterial>>>,
     plates: Option<Res<RoomPlates>>,
     mut plate_materials: Option<ResMut<Assets<RoomPlateMaterial>>>,
+    mut sky: SkyLayers,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -706,16 +755,18 @@ fn present_room_look<M: RoomLook>(
             }
         };
         let room_size = Vec2::new(world.size.x, world.size.y);
-        spawn(
-            "room look backdrop".to_string(),
-            Vec2::ZERO,
-            room_size,
-            BACKDROP_PAD,
-            ROLE_BACKDROP,
-            KIND_SOLID,
-            BACKDROP_Z,
-            None,
-        );
+        if !M::SKY_IS_AUTHORED_LAYERS {
+            spawn(
+                "room look backdrop".to_string(),
+                Vec2::ZERO,
+                room_size,
+                BACKDROP_PAD,
+                ROLE_BACKDROP,
+                KIND_SOLID,
+                BACKDROP_Z,
+                None,
+            );
+        }
         for block in &world.blocks {
             let Some(kind) = look_kind(block) else {
                 continue;
@@ -780,6 +831,27 @@ fn present_room_look<M: RoomLook>(
             OVERLAY_Z,
             None,
         );
+        if M::SKY_IS_AUTHORED_LAYERS {
+            if let Some(material) = sky.corrupted_over_clean(room_size, front) {
+                let size = room_size + Vec2::splat(BACKDROP_PAD * 2.0);
+                commands.spawn_session_scoped(
+                    scope,
+                    (
+                        Mesh2d(quad.clone()),
+                        MeshMaterial2d(material),
+                        Transform::from_translation(world_to_bevy(
+                            world,
+                            ae::Vec2::new(room_size.x * 0.5, room_size.y * 0.5),
+                            BACKDROP_Z,
+                        ))
+                        .with_scale(Vec3::new(size.x, size.y, 1.0)),
+                        Name::new("room look sky"),
+                        RoomVisual,
+                        PresentedRoomLook,
+                    ),
+                );
+            }
+        }
         commands.spawn_session_scoped(
             scope,
             (
@@ -789,6 +861,38 @@ fn present_room_look<M: RoomLook>(
                 Name::new("room look spread"),
             ),
         );
+    }
+}
+
+/// What a look needs to lay its authored corrupted sky over the clean one. A
+/// composition that does not render, or that has no art on disk, has none of
+/// it and draws no sky of its own: the room's parallax theme is its sky.
+#[derive(bevy::ecs::system::SystemParam)]
+struct SkyLayers<'w> {
+    assets: Option<Res<'w, ambition_sprite_sheet::game_assets::GameAssets>>,
+    materials: Option<ResMut<'w, Assets<RoomSkyMaterial>>>,
+    depth: Option<Res<'w, RoomLookDepth>>,
+}
+
+impl SkyLayers<'_> {
+    /// The material of the sky quad of a room of `room_size`: the four layers
+    /// of the corrupted theme. `None` when a layer is not to be had.
+    fn corrupted_over_clean(&mut self, room_size: Vec2, front: Vec4) -> Option<Handle<RoomSkyMaterial>> {
+        use ambition_sprite_sheet::game_assets::{ParallaxLayerAsset, ParallaxTheme};
+        let (assets, materials) = (self.assets.as_deref()?, self.materials.as_deref_mut()?);
+        // The room's theme names this one as its corrupted state, and the
+        // loader of the room's theme loads it and keeps it
+        // (`ParallaxTheme::corrupted`). This only reads it.
+        let layer = |asset| assets.parallax_layers.get(ParallaxTheme::HubCorrupt, asset).cloned();
+        Some(materials.add(RoomSkyMaterial {
+            room: Vec4::new(room_size.x, room_size.y, 0.0, 0.0),
+            front,
+            depth: self.depth.as_deref().copied().unwrap_or_default().uniform(),
+            sky: layer(ParallaxLayerAsset::Sky)?,
+            far: layer(ParallaxLayerAsset::FarBackplate)?,
+            near: layer(ParallaxLayerAsset::NearBackground)?,
+            atmosphere: layer(ParallaxLayerAsset::ForegroundAtmosphere)?,
+        }))
     }
 }
 
@@ -1178,29 +1282,34 @@ mod tests {
         assert!(lift[1] > lift[0] && lift[3] > lift[1], "a higher piece is not in front: {lift:?}");
     }
 
-    /// The numbers of the sky reach each quad of the look: a quad that comes
+    /// The numbers of the fog reach the sky of the look: a sky that comes
     /// gets the numbers of the session, and a change of the numbers reaches
-    /// the quads that are there. This is the road a developer tunes by.
+    /// the sky that is there. This is the road a developer tunes by.
     #[test]
-    fn the_depth_numbers_reach_a_quad_that_comes_and_a_quad_that_is_there() {
+    fn the_fog_numbers_reach_a_sky_that_comes_and_a_sky_that_is_there() {
         let mut app = App::new();
-        app.init_resource::<Assets<RoomStateMaterial>>()
-            .insert_resource(RoomLookDepth { blur_px: 5.0, far_blur: 3.0, fog: 0.4, fog_patches: 0.1 })
+        app.init_resource::<Assets<RoomSkyMaterial>>()
+            .insert_resource(RoomLookDepth { fog: 0.4, fog_patches: 0.1 })
             .add_systems(Update, apply_look_depth);
-        let material = app
-            .world_mut()
-            .resource_mut::<Assets<RoomStateMaterial>>()
-            .add(RoomStateMaterial::window(Vec4::ZERO, Vec4::ZERO, Vec4::ZERO));
+        let layer = Handle::<Image>::default();
+        let material = app.world_mut().resource_mut::<Assets<RoomSkyMaterial>>().add(RoomSkyMaterial {
+            room: Vec4::ZERO,
+            front: Vec4::ZERO,
+            depth: RoomLookDepth::default().uniform(),
+            sky: layer.clone(),
+            far: layer.clone(),
+            near: layer.clone(),
+            atmosphere: layer,
+        });
         app.world_mut().spawn(MeshMaterial2d(material.clone()));
-        let depth_of = |app: &App| app.world().resource::<Assets<RoomStateMaterial>>().get(&material).unwrap().depth;
-        assert_ne!(depth_of(&app), Vec4::new(5.0, 3.0, 0.4, 0.1), "premise: a new quad has the default numbers");
+        let depth_of = |app: &App| app.world().resource::<Assets<RoomSkyMaterial>>().get(&material).unwrap().depth;
+        assert_ne!(depth_of(&app), Vec4::new(0.4, 0.1, 0.0, 0.0), "premise: a new sky has the default numbers");
         app.update();
-        assert_eq!(depth_of(&app), Vec4::new(5.0, 3.0, 0.4, 0.1));
+        assert_eq!(depth_of(&app), Vec4::new(0.4, 0.1, 0.0, 0.0));
 
         // Out of range: the shader gets a fog it can use.
-        *app.world_mut().resource_mut::<RoomLookDepth>() =
-            RoomLookDepth { blur_px: -2.0, far_blur: 1.0, fog: 7.0, fog_patches: 0.5 };
+        *app.world_mut().resource_mut::<RoomLookDepth>() = RoomLookDepth { fog: 7.0, fog_patches: -1.0 };
         app.update();
-        assert_eq!(depth_of(&app), Vec4::new(0.0, 1.0, 1.0, 0.5));
+        assert_eq!(depth_of(&app), Vec4::new(1.0, 0.0, 0.0, 0.0));
     }
 }

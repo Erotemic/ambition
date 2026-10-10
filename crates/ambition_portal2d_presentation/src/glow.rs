@@ -67,6 +67,21 @@ const PAD_ACROSS: f32 = 46.0;
 /// Two poses nearer than this, in px, are one place.
 const SAME_PLACE_PX: f32 = 1.0;
 
+/// How the line of a portal is coloured.
+///
+/// By default a line has one colour, its own. The colour of its partner is
+/// seen where it belongs: through the portal, when its window opens and shows
+/// the far side with the partner's line in it. A game that has no windows, or
+/// that wants each line to say where it leads, turns the partner's colour on:
+/// insert this resource with `partner_colour` set.
+#[derive(Resource, Reflect, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[reflect(Resource)]
+pub struct PortalGlowStyle {
+    /// Draw the side of the line that is away from the room in the colour of
+    /// the partner portal.
+    pub partner_colour: bool,
+}
+
 /// `shape`: `x` the opening's length in px, `y` and `z` the quad's size along
 /// and across the opening, `w` a seed. `phase`: `x` how far it has opened (0
 /// to 1), `y` how far it has dissolved (0 to 1). `front` and `back`: the
@@ -204,6 +219,7 @@ pub fn sync_portal_glows(
     frames: PortalFrames,
     portals: Query<(Entity, &PlacedPortal)>,
     active_session: Option<Res<ActiveSessionScope>>,
+    style: Option<Res<PortalGlowStyle>>,
     mut glows: Query<(
         Entity,
         &mut PortalGlow,
@@ -303,7 +319,7 @@ pub fn sync_portal_glows(
             dissolve: 0.0,
         };
         let room_portals = by_room.in_room(Some(placement.room));
-        let partner = partner_channel(room_portals, portal.channel);
+        let partner = far_side_channel(style.as_deref(), room_portals, portal.channel);
         let mesh = unit_mesh.get_or_insert_with(|| meshes.add(Rectangle::default())).clone();
         // Of this session and of this room: it leaves with either.
         commands.spawn_session_scoped(scope.in_room(Some(placement.room)), (
@@ -348,7 +364,7 @@ pub fn sync_portal_glows(
             *transform = placed;
         }
         // Written only when it changes: a portal at rest costs no upload.
-        let wanted = material_of(&glow, partner_channel(room_portals, glow.channel));
+        let wanted = material_of(&glow, far_side_channel(style.as_deref(), room_portals, glow.channel));
         if materials.get(&material.0).is_some_and(|current| *current != wanted) {
             if let Some(mut current) = materials.get_mut(&material.0) {
                 *current = wanted;
@@ -357,8 +373,24 @@ pub fn sync_portal_glows(
     }
 }
 
-/// The channel drawn on the far side of the line of a portal on `channel`:
-/// its partner's when the partner is placed, and its own when it is not.
+/// The channel whose colour the far side of the line of a portal on `channel`
+/// has: its own, or its partner's when the style asks for that
+/// ([`PortalGlowStyle`]).
+fn far_side_channel(
+    style: Option<&PortalGlowStyle>,
+    room_portals: &[PlacedPortal],
+    channel: PortalChannel,
+) -> PortalChannel {
+    if style.is_some_and(|style| style.partner_colour) {
+        partner_channel(room_portals, channel)
+    } else {
+        channel
+    }
+}
+
+/// The channel of the partner of a portal on `channel`, for the far side of
+/// its line: its partner's when the partner is placed, and its own when it is
+/// not.
 fn partner_channel(room_portals: &[PlacedPortal], channel: PortalChannel) -> PortalChannel {
     find_portal(room_portals, channel.partner()).map_or(channel, |partner| partner.channel)
 }

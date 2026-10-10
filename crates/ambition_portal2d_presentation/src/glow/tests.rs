@@ -234,3 +234,34 @@ fn no_glow_stays_with_no_session() {
     step(&mut app, 2);
     assert!(glows(&mut app).is_empty(), "a glow stayed after its session");
 }
+
+/// A line has one colour, its own, unless the style asks for its partner's
+/// on its far side. The partner's colour is seen through the portal.
+#[test]
+fn a_line_has_its_own_colour_and_its_partners_only_when_the_style_asks() {
+    let mut app = test_app();
+    app.world_mut().spawn(purple_at(100.0));
+    app.world_mut().spawn(yellow_at(400.0));
+    step(&mut app, 3);
+    let colours = |app: &mut App| -> Vec<(Vec4, Vec4)> {
+        let handles: Vec<_> = app
+            .world_mut()
+            .query::<&MeshMaterial2d<PortalGlowMaterial>>()
+            .iter(app.world())
+            .map(|material| material.0.clone())
+            .collect();
+        let materials = app.world().resource::<Assets<PortalGlowMaterial>>();
+        handles.iter().map(|handle| materials.get(handle).map(|m| (m.front, m.back)).unwrap()).collect()
+    };
+    let plain = colours(&mut app);
+    assert_eq!(plain.len(), 2, "premise: two lines");
+    assert!(plain.iter().all(|(front, back)| front == back), "a line has its partner's colour by default: {plain:?}");
+    assert_ne!(plain[0].0, plain[1].0, "premise: the two portals have two colours");
+
+    app.insert_resource(PortalGlowStyle { partner_colour: true });
+    step(&mut app, 2);
+    let paired = colours(&mut app);
+    assert!(paired.iter().all(|(front, back)| front != back), "the style did not reach the lines: {paired:?}");
+    // The far side of each line is the near side of the other.
+    assert!(paired.iter().all(|(_, back)| paired.iter().any(|(front, _)| front == back)));
+}

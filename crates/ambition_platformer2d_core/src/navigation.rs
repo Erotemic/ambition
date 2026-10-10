@@ -38,6 +38,9 @@ pub enum NavLegKind {
     Hop,
     /// Walk off the surface past `takeoff` and steer to `land` in the air.
     Drop,
+    /// Jump at `takeoff`, jump again in the air at the top of the first
+    /// arc, and steer to `land`: for a body with an air jump.
+    DoubleHop,
 }
 
 /// One leg of a route.
@@ -78,6 +81,8 @@ pub enum LegPhase {
     Launch,
     /// In the air, steering to `land`.
     Air,
+    /// In the air after the air jump of a [`NavLegKind::DoubleHop`].
+    SecondAir,
 }
 
 /// What [`follow_leg`] reads of the body.
@@ -153,7 +158,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
             let running = LegInput { axis: direction, full_speed: true, ..Default::default() };
             match leg.kind {
                 NavLegKind::Walk => (LegInput::default(), LegProgress::Going(LegPhase::Approach)),
-                NavLegKind::Hop => {
+                NavLegKind::Hop | NavLegKind::DoubleHop => {
                     if !facts.on_ground {
                         return (LegInput::default(), LegProgress::Failed);
                     }
@@ -189,7 +194,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
             let next = if facts.on_ground { LegPhase::Launch } else { LegPhase::Air };
             (input, LegProgress::Going(next))
         }
-        LegPhase::Air => {
+        LegPhase::Air | LegPhase::SecondAir => {
             if facts.on_ground {
                 // At the height of the landing AND on its surface. The height
                 // alone said "arrived" on any surface of that height (found
@@ -200,20 +205,34 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                 let progress = if landed { LegProgress::Arrived } else { LegProgress::Failed };
                 return (LegInput::default(), progress);
             }
+            let falling = facts.vel.dot(facts.down) > 0.0;
+            // The air jump of a double hop: at the top of the first arc, where
+            // it lifts the body highest. Before it, the body is below a
+            // landing that one jump does not reach, and that is not a miss.
+            if leg.kind == NavLegKind::DoubleHop && phase == LegPhase::Air {
+                let input = LegInput {
+                    axis: steer_to(leg.land, 16.0),
+                    full_speed: true,
+                    jump_pressed: falling,
+                    jump_held: true,
+                };
+                let next = if falling { LegPhase::SecondAir } else { LegPhase::Air };
+                return (input, LegProgress::Going(next));
+            }
             // Below the landing top and still falling: the body has missed,
             // and it cannot come back up. Fail now, not where it lands. A hop
             // to a higher surface is below the top on its way up too, so the
             // test also needs downward motion.
-            if below(leg.land) < -LAND_TOLERANCE && facts.vel.dot(facts.down) > 0.0 {
+            if below(leg.land) < -LAND_TOLERANCE && falling {
                 return (LegInput::default(), LegProgress::Failed);
             }
             let input = LegInput {
                 axis: steer_to(leg.land, 16.0),
                 full_speed: true,
                 jump_pressed: false,
-                jump_held: leg.kind == NavLegKind::Hop,
+                jump_held: matches!(leg.kind, NavLegKind::Hop | NavLegKind::DoubleHop),
             };
-            (input, LegProgress::Going(LegPhase::Air))
+            (input, LegProgress::Going(phase))
         }
     }
 }

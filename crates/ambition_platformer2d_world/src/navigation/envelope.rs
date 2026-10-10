@@ -16,8 +16,9 @@
 //!
 //! The envelope answers for full throttle only. A shorter landing by releasing
 //! the stick is a seam ([`TraversalEnvelope::reaches`] does not claim it), and
-//! so are air jumps, dashes, wall verbs and flight: the jump rollout presses
-//! jump one time.
+//! so are dashes, wall verbs and flight. A third rollout presses jump again at
+//! the top of the first arc (the air jump of a body that has one, as the
+//! follower does it); for a body with no air jump it is the jump arc again.
 //!
 //! HOW HONEST IT IS, measured on two tunings at 60 Hz (the guard in `tests.rs`):
 //! the widest gap the kernel really crosses is between 1.5 px less and 3.75 px
@@ -81,6 +82,9 @@ pub struct TraversalEnvelope {
     pub jump: Vec<ArcSample>,
     /// The walk-off rollout: no jump.
     pub drop: Vec<ArcSample>,
+    /// The double jump rollout: jump pressed on the takeoff step and held,
+    /// and pressed again on the first step the body falls.
+    pub air_jump: Vec<ArcSample>,
 }
 
 impl TraversalEnvelope {
@@ -148,11 +152,16 @@ impl TraversalEnvelope {
         // Cut the floor at the leading edge and roll out each verb from there.
         let edge = (runner.kinematics.pos - origin).dot(side) + half_along;
         let takeoff_world = world_of(vec![floor(edge - run_up, edge)]);
-        let rollout = |jump: bool| {
+        let rollout = |jump: bool, again: bool| {
             let mut body = runner.clone();
             let mut samples = Vec::new();
+            let mut air_jumped = false;
             for index in 0..probe.max_arc_steps {
-                step(&mut body, &takeoff_world, frame, probe.dt, run_input(jump && index == 0, jump));
+                // The follower's rule: the second press on the first step the
+                // body falls.
+                let second = again && !air_jumped && index > 0 && body.kinematics.vel.dot(down) > 0.0;
+                air_jumped |= second;
+                step(&mut body, &takeoff_world, frame, probe.dt, run_input((jump && index == 0) || second, jump));
                 let lead = (body.kinematics.pos - origin).dot(side) + half_along - edge;
                 let rise = -((body.kinematics.pos - origin).dot(down) + half_tall);
                 samples.push(ArcSample { step: (index + 1) as u16, lead, rise });
@@ -167,14 +176,20 @@ impl TraversalEnvelope {
             body_width: half_along * 2.0,
             body_height: half_tall * 2.0,
             takeoff_speed: speed,
-            jump: rollout(true),
-            drop: rollout(false),
+            jump: rollout(true, false),
+            drop: rollout(false, false),
+            air_jump: rollout(true, true),
         })
     }
 
     /// The highest the feet rise above the takeoff surface in the jump.
     pub fn apex_rise(&self) -> f32 {
         self.jump.iter().map(|sample| sample.rise).fold(0.0, f32::max)
+    }
+
+    /// [`Self::apex_rise`] for the double jump.
+    pub fn air_jump_apex_rise(&self) -> f32 {
+        self.air_jump.iter().map(|sample| sample.rise).fold(0.0, f32::max)
     }
 
     /// Can a running jump land on a surface whose near edge is `gap` past the

@@ -12,9 +12,13 @@
 //! cache and no part of a snapshot. It must be built whole: a graph that is
 //! built a part at a time gives an answer that depends on when it was asked.
 //!
-//! NOT MODELLED: a drop through a one-way surface, an air jump, a dash, a wall
-//! verb, flight, a surface that moves, a slope, and a hazard in the air of a
-//! leg (a hazard on a surface takes that stretch out).
+//! An air jump is modelled as one double hop: the second press at the top of
+//! the first arc, proposed only where one jump does not reach.
+//!
+//! NOT MODELLED: a drop through a one-way surface, a second air jump, an air
+//! jump in a drop, a dash, a wall verb, flight, a surface that moves, a slope,
+//! and a hazard in the air of a leg (a hazard on a surface takes that stretch
+//! out).
 
 use ambition_platformer2d_core as ae;
 use ae::movement::{step_motion, ActionEdges, Edge, InputState, MotionStepContext, MovementAction};
@@ -97,6 +101,9 @@ impl NavGraph {
         let jump_reach = envelope.jump.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         let drop_reach = envelope.drop.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         let apex = envelope.apex_rise();
+        let air_jump_reach = envelope.air_jump.iter().map(|sample| sample.lead).fold(0.0, f32::max);
+        // A body with no air jump measures the jump arc again: no double hop.
+        let air_jump_apex = envelope.air_jump_apex_rise();
         let mut graph = Self {
             frame: nav,
             half,
@@ -120,17 +127,35 @@ impl NavGraph {
                 let slack = envelope.body_width + 16.0;
                 let hop = rise < apex - 1.0 && gap <= jump_reach + slack;
                 let drop = rise < -1.0 && gap <= drop_reach + slack;
-                if rise < -envelope.probe.max_drop || !(hop || drop) {
+                let double = air_jump_apex > apex + 1.0
+                    && rise < air_jump_apex - 1.0
+                    && gap <= air_jump_reach + slack;
+                if rise < -envelope.probe.max_drop || !(hop || drop || double) {
                     continue;
                 }
                 let mut cost = BuildCost::default();
-                let best = proposals(a, b, half.x, hop, drop)
-                    .into_iter()
-                    .filter_map(|leg| {
-                        let leg = graph.in_world(leg);
-                        graph.rollout(world, body, frame, &leg, to, &mut cost).map(|seconds| (leg, seconds))
-                    })
-                    .min_by(|x, y| x.1.total_cmp(&y.1));
+                let mut arrived = |legs: Vec<NavLeg>, cost: &mut BuildCost| {
+                    legs.into_iter()
+                        .filter_map(|leg| {
+                            let leg = graph.in_world(leg);
+                            graph.rollout(world, body, frame, &leg, to, cost).map(|seconds| (leg, seconds))
+                        })
+                        .min_by(|x, y| x.1.total_cmp(&y.1))
+                };
+                // A double hop only where no hop or drop arrives: each
+                // proposal costs rollouts, and the leg with one jump is the
+                // cheaper one to follow.
+                let best = arrived(proposals(a, b, half.x, hop, drop), &mut cost).or_else(|| {
+                    double
+                        .then(|| {
+                            let doubles = proposals(a, b, half.x, true, false)
+                                .into_iter()
+                                .map(|leg| NavLeg { kind: NavLegKind::DoubleHop, ..leg })
+                                .collect();
+                            arrived(doubles, &mut cost)
+                        })
+                        .flatten()
+                });
                 graph.cost.add(cost);
                 if let Some((leg, cost)) = best {
                     graph.out[from].push(graph.links.len());

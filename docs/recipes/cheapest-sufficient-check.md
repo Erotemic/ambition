@@ -13,7 +13,7 @@ no safety.
 
 | what you changed | run this | what it does NOT cover |
 |---|---|---|
-| a doc, a plan, a ledger | nothing, unless a test reads the doc (the goal file and `AGENTS.md` are read by `scripts/tests`) | — |
+| a doc, a plan | per edit, the planning guards (`python3 scripts/check_planning_citations.py --strict`, `python3 scripts/check_planning_anchors_resolve.py`, `python3 scripts/check_doc_links.py`); at a push, the repo tooling job, which runs them and reads `AGENTS.md` and the goal file | a crate: no crate compiles prose |
 | Rust inside ONE crate, no public API moved | `cargo test -p <crate>` | anything composing that crate; feature-gated tests |
 | anything the app composes | `cargo check -p ambition_app` | behaviour. A per-crate `cargo check` can be green while the app build fails. |
 | anything a `#[cfg(feature = …)]` gates | `cargo test -p <crate> --features <f>` (or `cargo check -p <crate> --features <combo> --all-targets`) | that the app still builds; other feature combinations |
@@ -35,7 +35,7 @@ Notes:
 
 - **Some rows are enforced.** `python3 scripts/required_checks.py` reads the
   paths your branch changed since `origin/main` and names the checks these
-  rows require: `cargo test -p <crate>` for each crate you changed, the demo
+  rows require: the repo tooling job for a doc, `cargo test -p <crate>` for each crate you changed, the demo
   host lane for death, restore, replay and rollback-host paths, the repo
   tooling job for `scripts/`, the LDtk tool tests for that tool, the two
   content arms for `game/ambition_content/assets` and the map assets, and the

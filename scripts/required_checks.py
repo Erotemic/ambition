@@ -7,7 +7,9 @@
 The change is what `--rev` adds since it left `--base` (`git diff base...rev`).
 Each rule below names paths and the checks a change to them requires. A check is
 CERTIFIED when `run_tests.py` recorded it as passed (`target/lane_ledger.jsonl`)
-on a tree that agrees with `--rev` on every path of the change.
+on a tree that agrees with `--rev` on every path of the change. A doc (`.md`)
+counts only for the repo tooling job, which reads docs: a doc edited after a
+crate's run does not void that run.
 
 It reports. A push does not wait for it (Q166, ruled 2026-10-09).
 
@@ -92,9 +94,11 @@ ROLLBACK_REGISTRATION_PATHS = (
     "*/sim_phase_pins.rs",
 )
 
-#: A path whose change requires no check: prose and pictures. A test that
-#: reads one of these is named by a rule of its own.
-NO_CHECK_SUFFIXES = (".md", ".png", ".svg", ".txt")
+#: Prose. No crate compiles it, so a crate's check is not asked to agree with
+#: it; the repo tooling job's guards read it (citations, anchors, `AGENTS.md`),
+#: so a change to it requires that job. A picture or a `.txt` is not prose: an
+#: art guard reads a sheet, and a test reads its `.txt` baseline.
+PROSE_SUFFIX = ".md"
 
 
 @dataclass(frozen=True)
@@ -149,8 +153,8 @@ def workspace_members(repo: Path) -> dict[str, str]:
 
 def requirements_for(path: str, members: dict[str, str]) -> set[Requirement]:
     """The checks a change to `path` requires."""
-    if path.endswith(NO_CHECK_SUFFIXES):
-        return set()
+    if path.endswith(PROSE_SUFFIX):
+        return {Job(REPO_TOOLING_JOB)}
     required: set[Requirement] = set()
     # A member's own files: its own tests (the matrix row "Rust inside ONE crate").
     for directory, package in members.items():
@@ -162,7 +166,9 @@ def requirements_for(path: str, members: dict[str, str]) -> set[Requirement]:
         required.update(CargoTestNamed(APP_PACKAGE, arm) for arm in CONTENT_ARMS)
     if any(fnmatch.fnmatch(path, pattern) for pattern in ROLLBACK_REGISTRATION_PATHS):
         required.update({CargoTestNamed(APP_PACKAGE, "rollback_"), Job(REPO_TOOLING_JOB)})
-    if path.startswith("scripts/") and path.endswith(".py"):
+    # A guard's script and the baselines it reads (`scripts/baselines`,
+    # `scripts/tests/*.txt`).
+    if path.startswith("scripts/"):
         required.add(Job(REPO_TOOLING_JOB))
     if path.startswith(LDTK_TOOLS_DIR + "/") and path.endswith(".py"):
         required.add(Job(LDTK_TOOLS_JOB))
@@ -307,11 +313,16 @@ def judge(repo: Path, base: str, rev: str) -> tuple[list[str], list[Verdict]]:
     verdicts = []
     for requirement, by in sorted(triggers.items(), key=lambda item: item[0].label()):
         relevant = [row for row in ledger if covers(row, requirement)]
+        # The paths the run must have held as `rev` does: every path of the
+        # change, but prose only for the job that reads prose. A doc edited
+        # while a crate's tests ran did not change what they tested.
+        held = paths if requirement == Job(REPO_TOOLING_JOB) else [p for p in paths if not p.endswith(PROSE_SUFFIX)]
         # Both ends of the run: a path of the change that moved while the job
         # ran was tested in neither state.
         current = [
             row for row in relevant
-            if all(agrees(repo, row.get(end) or row["tree"], rev, paths) for end in ("tree", "tree_after"))
+            if not held
+            or all(agrees(repo, row.get(end) or row["tree"], rev, held) for end in ("tree", "tree_after"))
         ]
         # The newest row on a current tree is the verdict: a later failure
         # after an earlier pass on the same content is a failure.

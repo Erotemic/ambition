@@ -62,8 +62,20 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
   Find out if a wide camera zone in the game has the same fault.
 - [ ] Props and characters.
 - [ ] Gizmos in portal captures (optional).
-- [ ] The intro rooms have an authored tile layer over their blocks, so they
-  show no terrain skin.
+- [x] The intro rooms show the skin of their biome: the uniform painted tile
+  layer that hid it is cleared, and the pattern of a skin is fixed to the room
+  (the intro ground is cells of 16).
+- [x] A door for each biome.
+- [x] A room with a look takes the skin of its theme on a device that does not
+  draw the look (`hub_clean` is marble).
+
+## For Jon to decide
+
+- **The lowest tier draws no parallax at all** (`potato.parallax.enabled` is
+  false, and a test pins it). So with shaders off a room has its skin, its
+  doors and its decor, and a black sky. One sky layer is one sprite of a
+  256 px texture. If "levels should look good with shaders off" means that
+  tier, it should draw the sky layer, and perhaps the far one.
 
 ## Not seen
 

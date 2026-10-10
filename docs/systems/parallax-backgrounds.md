@@ -26,7 +26,7 @@ The art is authored in the art submodule and published by
 | Art | Authored in `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/` | Published under `crates/ambition_platformer2d_actor_monolith/assets/` |
 | --- | --- | --- |
 | Parallax layers and the foreground | `backgrounds/` | `backgrounds/parallax_layers/<theme>_<layer>.png` |
-| Terrain skins, motes and decor | `terrain/` | `room_dressing/<theme>_<part>.png` |
+| Terrain skins, motes, decor and doors | `terrain/` | `room_dressing/<theme>_<part>.png` |
 
 `quality_variants.sh --backgrounds-only` makes the smaller tiers of the parallax
 layers. The room dressing has no tiers.
@@ -101,6 +101,15 @@ platform draws the platform of the skin.
   their kind.
 - A room with a look of its own (a `palette`,
   [`room-looks.md`](room-looks.md)) takes no skin: the look draws its blocks.
+  On a device that draws no screen shader (`ShaderBudget::draws_screen_shaders`)
+  the look is not drawn, and the room takes the skin of its theme (`hub_clean`
+  is marble). The choice is made when the room is presented.
+- **Doors.** A door of a room that names a theme takes the door of the theme
+  (`dress_themed_doors`, `RoomDressingPart::Door`). Each door has the shape of
+  the door of the entity sheet, so it keeps its size and its place.
+- A painted LDtk tile layer draws over the skin (it is at `WORLD_Z_BLOCK + 0.5`).
+  The intro rooms had the fill of `tileset paint` there, one tile over the whole
+  collision, and it hid the skin: it was cleared 2026-10-10.
 - A block with an authored placeholder colour, a lock wall, and a block with
   `EntityArt` keep their own art.
 - The sizes of the parts are constants of `terrain_skin.rs` and of

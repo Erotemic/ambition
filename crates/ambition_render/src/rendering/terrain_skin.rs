@@ -181,6 +181,11 @@ pub fn decor_on_span(a: f32, b: f32, surface: f32, spacing: f32, keep_out: Optio
     out
 }
 
+/// A door visual of a room that names a theme: it takes the door of the
+/// theme when the theme has one. `spawn_loading_zone` puts it on.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ThemedDoor(pub ParallaxTheme);
+
 /// The skin question of this block is answered: it has its skin, or its
 /// theme has none.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -483,10 +488,66 @@ pub fn skin_terrain_surfaces(
     }
 }
 
+/// Give each door of a room that names a theme the door of that theme.
+///
+/// A door keeps its size and its place: the door of each theme has the shape
+/// of the door of the entity sheet. A door the look of a room has dressed
+/// (`EntityArt`) keeps that art.
+pub fn dress_themed_doors(
+    mut commands: Commands,
+    assets: Option<Res<GameAssets>>,
+    mut doors: Query<(Entity, &ThemedDoor, &mut Sprite), (Without<TerrainSkinned>, Without<EntityArt>)>,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    for (entity, ThemedDoor(theme), mut sprite) in &mut doors {
+        if !assets.room_dressing.attempted(*theme) {
+            continue;
+        }
+        commands.entity(entity).try_insert(TerrainSkinned);
+        if let Some(image) = assets.room_dressing.get(*theme, RoomDressingPart::Door) {
+            sprite.image = image.clone();
+            // The quality refresh rebinds a `BoundEntitySprite` to the door
+            // of the entity sheet.
+            commands.entity(entity).try_remove::<BoundEntitySprite>();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use bevy::ecs::system::RunSystemOnce;
+
+    /// A door of a room whose theme has a door takes it and keeps its size.
+    /// The controls: a theme with no door leaves the sprite as it is, and a
+    /// door the look of a room has dressed keeps that art.
+    #[test]
+    fn a_door_takes_the_door_of_its_theme_and_keeps_its_size() {
+        let mut world = World::new();
+        let mut images = Assets::<Image>::default();
+        let themed = images.add(Image::default());
+        let plain = images.add(Image::default());
+        let mut assets = GameAssets::default();
+        assets.room_dressing.insert(ParallaxTheme::Cave, RoomDressingPart::Door, themed.clone());
+        assets.room_dressing.mark_attempted(ParallaxTheme::Lab);
+        world.insert_resource(assets);
+        let door = |world: &mut World, theme: ParallaxTheme| {
+            world
+                .spawn((ThemedDoor(theme), Sprite { image: plain.clone(), custom_size: Some(Vec2::new(40.0, 80.0)), ..Default::default() }))
+                .id()
+        };
+        let (cave, lab) = (door(&mut world, ParallaxTheme::Cave), door(&mut world, ParallaxTheme::Lab));
+        let dressed = door(&mut world, ParallaxTheme::Cave);
+        world.entity_mut(dressed).insert(EntityArt(ambition_sprite_sheet::game_assets::EntitySprite::DoorZone));
+        world.run_system_once(dress_themed_doors).unwrap();
+        let sprite = |world: &World, entity: Entity| world.entity(entity).get::<Sprite>().unwrap().clone();
+        assert_eq!(sprite(&world, cave).image, themed);
+        assert_eq!(sprite(&world, cave).custom_size, Some(Vec2::new(40.0, 80.0)));
+        assert_eq!(sprite(&world, lab).image, plain, "a theme with no door");
+        assert_eq!(sprite(&world, dressed).image, plain, "a door with art of its own");
+    }
 
     fn surface(kind: TerrainSurfaceKind, x: f32, y: f32, w: f32, h: f32) -> TerrainSurface {
         TerrainSurface { theme: ParallaxTheme::Cave, kind, min: Vec2::new(x, y), size: Vec2::new(w, h) }

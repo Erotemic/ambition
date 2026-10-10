@@ -49,12 +49,16 @@ pub fn present_live_room_visuals(
     >,
     assets: Option<Res<GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
         return;
     };
+    // A device that draws no screen shader draws no room look: a room with a
+    // look then has its blocks only, and they take the skin of its theme.
+    let looks_are_drawn = quality.is_none_or(|quality| quality.budget.shaders.draws_screen_shaders());
     for (room, definition) in rooms.live_rooms() {
         if presented.iter().any(|stamp| stamp.0 == room) {
             continue;
@@ -65,6 +69,7 @@ pub fn present_live_room_visuals(
             scope,
             rooms.rooms().spec(definition),
             assets.as_deref(),
+            looks_are_drawn,
         );
         commands.spawn_session_scoped(
             scope,
@@ -78,15 +83,21 @@ pub fn spawn_room_visuals(
     session_scope: SessionSpawnScope,
     spec: &ambition_platformer2d_world::rooms::RoomSpec,
     assets: Option<&GameAssets>,
+    // Whether this device draws the look of a room that has one
+    // (`ShaderBudget::draws_screen_shaders`).
+    looks_are_drawn: bool,
 ) {
     let world = &spec.world;
     spawn_grid(commands, session_scope, world);
     spawn_surface_chain_visuals(commands, session_scope, world);
     // The theme the room names: its blocks take the terrain skin of it.
     // A room with a look of its own (a `palette`) draws its blocks its own way:
-    // no skin goes on them.
+    // no skin goes on them. On a device that does not draw the look, the
+    // blocks are the room, and they take the skin. (The choice is made when
+    // the room is presented: a room that is live when the tier changes keeps
+    // what it has until it is presented again.)
     let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::named_by_room_metadata(&spec.metadata)
-        .filter(|_| spec.metadata.visual_profile.palette.is_none());
+        .filter(|_| spec.metadata.visual_profile.palette.is_none() || !looks_are_drawn);
     if theme.is_some() {
         // Where the decor of the skin must not stand: on a thing of the play.
         let rect = |aabb: &ae::Aabb| {
@@ -143,7 +154,7 @@ pub fn spawn_room_visuals(
         spawn_climbable_region(commands, session_scope, world, region);
     }
     for zone in &spec.loading_zones {
-        spawn_loading_zone(commands, session_scope, world, zone, assets);
+        spawn_loading_zone(commands, session_scope, world, zone, assets, theme);
     }
     // Per-family authored visuals. Each family carries an `Authored<T>`
     // payload; `spawn_authored_visual` builds the sprite and label.
@@ -1046,6 +1057,9 @@ pub fn spawn_loading_zone(
     world: &ae::World,
     zone: &LoadingZone,
     assets: Option<&GameAssets>,
+    // The theme the room names, if its doors take the door of the theme
+    // (`terrain_skin::dress_themed_doors`).
+    theme: Option<ambition_sprite_sheet::game_assets::ParallaxTheme>,
 ) {
     let size = zone.aabb.half_size() * 2.0;
     let fallback_color = match zone.activation {
@@ -1092,6 +1106,9 @@ pub fn spawn_loading_zone(
             BoundEntitySprite::new(sprite_key),
         ),
     );
+    if let (LoadingZoneActivation::Door, Some(theme)) = (zone.activation, theme) {
+        visual.insert(super::terrain_skin::ThemedDoor(theme));
+    }
     if matches!(zone.activation, LoadingZoneActivation::Door) {
         visual.insert(DoorNameplateSource::new(
             zone.id.clone(),

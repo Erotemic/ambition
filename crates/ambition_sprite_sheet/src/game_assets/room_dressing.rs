@@ -45,6 +45,9 @@ pub enum RoomDressingPart {
     /// each a small thing that stands on the ground (a barrel, a crystal, a
     /// stone lantern).
     Decor,
+    /// The door of the theme: the art of a door of a room of that theme. It
+    /// has the shape and the size of the door of the entity sheet.
+    Door,
 }
 
 /// How many squares the decor picture of a theme has, side by side.
@@ -58,7 +61,7 @@ pub const MOTE_CELL_PX: u32 = 32;
 
 impl RoomDressingPart {
     pub const ALL: &'static [Self] =
-        &[Self::Fill, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor];
+        &[Self::Fill, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor, Self::Door];
 
     pub const fn key(self) -> &'static str {
         match self {
@@ -69,6 +72,7 @@ impl RoomDressingPart {
             Self::OneWay => "oneway",
             Self::Motes => "motes",
             Self::Decor => "decor",
+            Self::Door => "door",
         }
     }
 

@@ -89,38 +89,45 @@ pub(crate) fn errand_item_at<'a>(
 }
 
 /// The first crossing of the route from the live room `body_room` to the
-/// errand's item in another live room: the zone of `body_room` it starts at,
-/// the live room that zone leads into, and where a body comes out there.
+/// errand's item in another room: the zone of `body_room` it starts at, the
+/// room that zone leads into, and where a body comes out there.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ErrandCrossing {
     pub zone: ae::Aabb,
-    pub into: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    pub into: CrossInto,
     pub into_id: String,
     pub arrival: ae::Vec2,
 }
 
-/// [`ErrandCrossing`] for `errand`. `None` when the item lies in no live
-/// room, lies in `body_room`, or when no route of live rooms gets to it: a
-/// body that no slot drives does not open a room.
+/// The room a crossing leads into.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum CrossInto {
+    /// A live room: the body goes into it.
+    Live(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance),
+    /// A room that is not live: the body leaves through the ledger, and the
+    /// room builds it when it is live again.
+    Dormant,
+}
+
+/// [`ErrandCrossing`] for `errand`. The item lies in another live room, or,
+/// for a body that `may_leave` the live rooms (one with durable whereabouts),
+/// in a room that is not live, where the ledger puts it.
+///
+/// `None` when the item lies in `body_room`, lies nowhere a route gets to, or
+/// when the item is in a live room and a room on the route is not live: a
+/// body that no slot drives does not open a room, and it leaves the live
+/// rooms only for its item.
 pub(crate) fn errand_crossing<'a>(
     errand: &Errand,
     body_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    may_leave: bool,
     specs: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    ledger: Option<&ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
     items: impl IntoIterator<Item = (Entity, &'a SimId, &'a ambition_held_items::GroundItem, &'a ambition_held_items::ItemCustody)>,
 ) -> Option<ErrandCrossing> {
-    let item_room = items
-        .into_iter()
-        .find(|(_, id, _, custody)| **id == errand.fetch && custody.in_world())
-        .and_then(|(item, ..)| specs.live().of(item))?;
-    if item_room == body_room {
-        return None;
-    }
     let rooms = specs.rooms();
-    let from = specs.definition_in(body_room)?;
-    let to = specs.definition_in(item_room)?;
-    let route = rooms.route(from.index(), to.index())?;
-    // The live room of each room on the route. When one definition is live
-    // twice, the least instance, so each peer picks the same.
+    // The live room of a definition. When one definition is live twice, the
+    // least instance, so each peer picks the same.
     let live_of = |index: usize| {
         specs
             .live_rooms()
@@ -128,7 +135,39 @@ pub(crate) fn errand_crossing<'a>(
             .map(|(live, _)| live)
             .min()
     };
-    if route.iter().any(|hop| live_of(hop.to).is_none()) {
+    let from = specs.definition_in(body_room)?;
+    let live_item = items
+        .into_iter()
+        .find(|(_, id, _, custody)| **id == errand.fetch && custody.in_world())
+        .map(|(item, ..)| specs.live().of(item));
+    let (to, dormant) = match live_item {
+        Some(item_room) => {
+            let item_room = item_room?;
+            if item_room == body_room {
+                return None;
+            }
+            (specs.definition_in(item_room)?, false)
+        }
+        // Not lying in a live room: where the ledger puts it, when that room
+        // is not live.
+        None => {
+            if !may_leave {
+                return None;
+            }
+            let ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed { room, .. } =
+                ledger?.whereabouts(&errand.fetch)?
+            else {
+                return None;
+            };
+            let to = rooms.definition_by_id(room)?;
+            if live_of(to.index()).is_some() {
+                return None;
+            }
+            (to, true)
+        }
+    };
+    let route = rooms.route(from.index(), to.index())?;
+    if !dormant && route.iter().any(|hop| live_of(hop.to).is_none()) {
         return None;
     }
     let first = route.first()?;
@@ -136,7 +175,7 @@ pub(crate) fn errand_crossing<'a>(
     let transition = rooms.transition_through(from, &first.zone)?;
     Some(ErrandCrossing {
         zone: zone.aabb,
-        into: live_of(first.to)?,
+        into: live_of(first.to).map_or(CrossInto::Dormant, CrossInto::Live),
         into_id: rooms.rooms[first.to].id.clone(),
         arrival: transition.arrival,
     })
@@ -153,6 +192,13 @@ pub(crate) fn errand_crossing<'a>(
 /// A body that keeps durable whereabouts gets its `Placed` row in the room it
 /// went into, so the room that authored it does not author it again while it
 /// lives there. The advisor sees the item in the new room on the next tick.
+///
+/// Into a room that is not live, a body with durable whereabouts leaves
+/// through the ledger: its `Placed` row names that room at the arrival, and
+/// it is despawned. The room builds it there when it is live again (the
+/// outlook reinstates it), and the errand ends with the body. A body that
+/// holds or wears something does not leave: what it carries has no road to a
+/// room that is not live.
 #[allow(clippy::type_complexity)]
 pub fn cross_on_errands(
     mut commands: Commands,
@@ -187,7 +233,10 @@ pub fn cross_on_errands(
         let Some(body_room) = specs.live().of(body) else {
             continue;
         };
-        let Some(crossing) = errand_crossing(errand, body_room, &specs, &items) else {
+        let durable = crate::body_whereabouts::keeps_durable_whereabouts(&specs, config, origin);
+        let Some(crossing) =
+            errand_crossing(errand, body_room, durable, &specs, occurrences.as_deref(), &items)
+        else {
             continue;
         };
         // The reach of the body is its collision box, as for a take.
@@ -195,15 +244,33 @@ pub fn cross_on_errands(
             continue;
         }
         let edges = edges.get_or_insert_with(|| custody.iter().map(|(entity, held)| (entity, held.custodian)).collect());
-        for moving in ambition_platformer2d_shared_tangle::lifecycle::custody_closure([body], edges) {
+        let moving = ambition_platformer2d_shared_tangle::lifecycle::custody_closure([body], edges);
+        let into = match crossing.into {
+            CrossInto::Live(into) => into,
+            CrossInto::Dormant => {
+                let Some(occurrences) = occurrences.as_deref_mut() else {
+                    continue;
+                };
+                if moving.len() != 1 {
+                    continue;
+                }
+                let size = cluster.kinematics.size;
+                let feet = ae::Vec2::new(crossing.arrival.x, crossing.arrival.y + size.y * 0.5);
+                if occurrences.admit_crossing(sim_id.clone(), &crossing.into_id, feet) {
+                    commands.entity(body).despawn();
+                }
+                continue;
+            }
+        };
+        for moving in moving {
             commands
                 .entity(moving)
-                .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(crossing.into));
+                .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(into));
         }
         let mut clusters = cluster.as_clusters_mut();
         ae::movement::transit_body(&mut model, &mut clusters, crossing.arrival, ae::movement::TransitVelocity::Zero);
         if let Some(occurrences) = occurrences.as_deref_mut() {
-            if crate::body_whereabouts::keeps_durable_whereabouts(&specs, config, origin) {
+            if durable {
                 let feet = ae::Vec2::new(crossing.arrival.x, crossing.arrival.y + clusters.kinematics.size.y * 0.5);
                 let admitted = occurrences.admit_crossing(sim_id.clone(), &crossing.into_id, feet);
                 // A body that walks is in no custody, and a body with a

@@ -393,29 +393,22 @@ The slices, each with its own witness:
 3. **A crossing into a room that is not live.** The body leaves through the
    ledger: despawned, with a `Placed` row in the destination at the arrival.
    Only for a body whose whereabouts are durable.
-   **Blocked 2026-10-09: a body cannot leave the live world by a despawn in
-   the simulation.** Built and measured, then reverted. The advisor found the
-   item's room from its ledger row, the dog walked to the door, its row was
-   written in `basement_npcs` and it was despawned; without rollback the arm
-   held (the room built the dog beside the Blink, and the hub did not build
-   it again). Under a sync test it desynced (a checksum mismatch at frame
-   182). A census of each re-save against the first save of its frame showed
-   why: from frame 179 the dog's registered rows came back, but four derived
-   rows (`BodyEnvironmentContact`, `BodyMotionFacts`, `ResolvedMotionFrame`,
-   `SurfaceUpright`) had a count of 2 where the first run had 3. bevy_ggrs
-   spawns a despawned entity again from its snapshot only, so a rewind past
-   the despawn gives back a dog with no derived components, and it moves
-   another way. A room does not meet this, because a room changes only by a
-   lifecycle commit, which commits at a confirmed boundary and rebases the
-   history; `LifecycleIntent` has room variants only (`Transition`,
-   `ReconstituteRoom`). `OutOfPlay` is not a road: it is the death marker,
-   and the body stays in the world. The two roads: (a) a lifecycle intent in
-   which one body leaves through the ledger (recommended: it is the road the
-   engine already trusts for a structural change, and a departure is rare);
-   (b) a rewind that builds the derived components of a body it spawns
-   again, which also closes the older note that a rebuild on a speculative
-   frame loses its `derived` components. Either is engine work above this
-   row's size, so the row stops here.
+   **Done 2026-10-10.** The advisor finds the item's room from its ledger
+   row, the dog walks to the door, its row is written in `basement_npcs` and
+   it is despawned. That room builds the dog beside the Blink, and the hub
+   does not build it again (`a_dog_sent_for_an_item_in_a_room_nobody_holds_leaves_for_it`,
+   control: no errand, the dog stays). It was blocked on 2026-10-09: under a
+   sync test it desynced at frame 182, because bevy_ggrs spawns a despawned
+   entity again from its snapshot only, and four derived components
+   (`BodyEnvironmentContact`, `BodyMotionFacts`, `ResolvedMotionFrame`,
+   `SurfaceUpright`) did not come back. Road (b) was taken: the body requires
+   them (`#[require]` on `BodyKinematics`, and the gravity plugin registers
+   the frame), so the insert that restores a body inserts them too. Measured
+   first: in 7 rooms each `BodyKinematics` carrier had all four and none had
+   some, so an ordinary spawn does not change. Witness
+   `a_dog_that_leaves_for_a_room_nobody_holds_resimulates_to_the_same_world`;
+   poison (no requirement): red at "the replayed world differs", the
+   mismatch at frame 182 again.
 
 Not in these slices: enemy navigation and a baked graph (Jon's open
 decisions), a door that needs Interact (a body crosses edge zones first), and

@@ -138,7 +138,8 @@ platform draws the platform of the skin.
   `RoomDressingPart::Ladder`, `WaterClear`, `WaterMurky`, `WaterSurface`). The
   art is laid in pieces fixed to the room, as the fill is, and the flat
   placeholder goes when the picture is there. A theme with no such picture
-  keeps the placeholder.
+  keeps the placeholder. A ladder wider than its picture (16 units) is one
+  ladder: a rail at each side, and the middle of each rung made longer.
 - A painted LDtk tile layer draws over the skin (it is at `WORLD_Z_BLOCK + 0.5`).
   The intro rooms had the fill of `tileset paint` there, one tile over the whole
   collision, and it hid the skin: it was cleared 2026-10-10.

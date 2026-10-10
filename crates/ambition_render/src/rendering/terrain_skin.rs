@@ -382,13 +382,29 @@ fn edge_lines(image: &Handle<Image>, surface: &TerrainSurface, others: &[Terrain
     };
     let mut out = Vec::new();
     for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
-        let through = match edge {
-            Edge::Top | Edge::Bottom => surface.size.y,
-            Edge::Left | Edge::Right => surface.size.x,
+        let depth_of = |edge: Edge| {
+            let through = match edge {
+                Edge::Top | Edge::Bottom => surface.size.y,
+                Edge::Left | Edge::Right => surface.size.x,
+            };
+            let room_for_it = if open(across(edge)).is_empty() { through } else { through * 0.5 };
+            height.min(room_for_it)
         };
-        let room_for_it = if open(across(edge)).is_empty() { through } else { through * 0.5 };
-        let depth = height.min(room_for_it);
+        let depth = depth_of(edge);
+        // A line on a side stops where the line of the top or of the bottom
+        // is: the two would be one on the other in the corner.
+        let (from, to) = match edge {
+            Edge::Top | Edge::Bottom => (f32::NEG_INFINITY, f32::INFINITY),
+            Edge::Left | Edge::Right => (
+                if open(Edge::Top).is_empty() { f32::NEG_INFINITY } else { surface.min.y + depth_of(Edge::Top) },
+                if open(Edge::Bottom).is_empty() { f32::INFINITY } else { surface.max().y - depth_of(Edge::Bottom) },
+            ),
+        };
         for (a, b) in open(edge) {
+            let (a, b) = (a.max(from), b.min(to));
+            if b - a < 0.5 {
+                continue;
+            }
             for (lo, hi, offset) in anchored_pieces(a, b, SKIN_PERIOD) {
                 let line = piece(image.clone(), Vec2::new(offset, 0.0), Vec2::new(hi - lo, depth), false);
                 let along = (lo + hi) * 0.5;
@@ -643,6 +659,37 @@ pub struct ThemedFixture {
 const WATER_SURFACE_HEIGHT: f32 = 8.0;
 const WATER_SURFACE_LINE: f32 = 2.6;
 
+/// The width of the ladder picture, and how much of it at each side is a rail
+/// with the end of a rung (`terrain/fixtures.py`: a rail is at 2.2 and at
+/// 13.8, and what holds a rung to it is 1.2 each way).
+const LADDER_WIDTH: f32 = 16.0;
+const LADDER_RAIL: f32 = 5.0;
+
+/// The pieces of a ladder that is wider than its picture: one ladder with
+/// long rungs, and not two ladders side by side. Each row of the picture is
+/// cut in three: the left rail, the right rail, and the middle of the rung,
+/// which is made as long as the ladder needs.
+fn wide_ladder_pieces(image: &Handle<Image>, min: Vec2, size: Vec2, z: f32) -> Vec<(TerrainTrim, Sprite, Vec3)> {
+    let centre = min + size * 0.5;
+    let middle = size.x - LADDER_RAIL * 2.0;
+    // (start in the picture, width in the picture, start in the room, width
+    // in the room)
+    let across = [
+        (0.0, LADDER_RAIL, min.x, LADDER_RAIL),
+        (LADDER_RAIL, LADDER_WIDTH - LADDER_RAIL * 2.0, min.x + LADDER_RAIL, middle),
+        (LADDER_WIDTH - LADDER_RAIL, LADDER_RAIL, min.x + LADDER_RAIL + middle, LADDER_RAIL),
+    ];
+    let mut out = Vec::new();
+    for (y0, y1, oy) in anchored_pieces(min.y, min.y + size.y, 32.0) {
+        for (tx, tw, x0, w) in across {
+            let mut sprite = piece(image.clone(), Vec2::new(tx, oy), Vec2::new(tw, y1 - y0), false);
+            sprite.custom_size = Some(Vec2::new(w, y1 - y0));
+            out.push((TerrainTrim::Fill, sprite, Vec3::new(x0 + w * 0.5 - centre.x, centre.y - (y0 + y1) * 0.5, z)));
+        }
+    }
+    out
+}
+
 /// Give each ladder and each body of water of a room that names a theme the
 /// art of that theme, in pieces that are fixed to the room.
 ///
@@ -680,7 +727,12 @@ pub fn dress_themed_fixtures(
         // The pieces are placed from the middle of the rectangle they fill,
         // and the sprite is at the middle of the fixture: the difference.
         let shift = (min + size * 0.5) - (fixture.min + fixture.size * 0.5);
-        let Some(pieces) = pieces_of(image, min, size, period, 0.005) else {
+        let pieces = if fixture.kind == ThemedFixtureKind::Ladder && size.x > LADDER_WIDTH {
+            Some(wide_ladder_pieces(image, min, size, 0.005))
+        } else {
+            pieces_of(image, min, size, period, 0.005)
+        };
+        let Some(pieces) = pieces else {
             continue;
         };
         *sprite = Sprite::from_color(Color::NONE, fixture.size);
@@ -768,6 +820,14 @@ mod tests {
         // water, so its middle is 4 - 2.6 = 1.4 below the top: 0.6 over the
         // middle of the strip.
         assert!(strip.iter().all(|(_, _, at)| (at.y - 0.6).abs() < 1e-4), "{strip:?}");
+
+        // A ladder wider than its picture is one ladder: a rail at each
+        // side, and the middle of each rung made as long as the ladder needs.
+        let wide = fixture(&mut world, ParallaxTheme::Cave, ThemedFixtureKind::Ladder, Vec2::new(200.0, 0.0), Vec2::new(40.0, 32.0));
+        world.run_system_once(dress_themed_fixtures).unwrap();
+        let mut widths: Vec<f32> = trims_of(&mut world, wide).iter().map(|(_, size, _)| size.x).collect();
+        widths.sort_by(f32::total_cmp);
+        assert_eq!(widths, vec![LADDER_RAIL, LADDER_RAIL, 40.0 - LADDER_RAIL * 2.0]);
 
         assert_eq!(world.entity(plain).get::<Sprite>().unwrap().color, Color::WHITE, "a theme with no ladder");
         assert_eq!(world.entity(plain).get::<Children>().unwrap().len(), 1, "and its rung stays");
@@ -975,17 +1035,19 @@ mod tests {
                 trims.iter().filter(|(trim, ..)| *trim == kind).map(|(_, size, _)| size.x * size.y).sum()
             };
             assert_eq!(area(TerrainTrim::Fill), 32.0 * 40.0);
-            // The top (32) and the two sides (40 each) are open.
-            assert_eq!(area(TerrainTrim::Rim), (32.0 + 40.0 + 40.0) * BLINK_EDGE_HEIGHT);
+            // The top (32) and the two sides are open. A side is 40, less
+            // the corner the line of the top is in.
+            let side = 40.0 - BLINK_EDGE_HEIGHT;
+            assert_eq!(area(TerrainTrim::Rim), (32.0 + side + side) * BLINK_EDGE_HEIGHT);
             // Each line is inside the wall, against its edge. The wall is 32
             // by 40 with its centre at (0, 0), and a line is cut where the
-            // pattern repeats (x 128, y 64): two pieces on each edge.
+            // pattern repeats (x 128): two pieces on the top, one on a side.
             let rims: Vec<_> = trims.iter().filter(|(trim, ..)| *trim == TerrainTrim::Rim).map(|(_, _, at)| at.truncate()).collect();
             let inset = BLINK_EDGE_HEIGHT * 0.5;
             assert_eq!(rims.iter().filter(|at| at.y == 20.0 - inset).count(), 2, "the top: {rims:?}");
-            assert_eq!(rims.iter().filter(|at| at.x == inset - 16.0).count(), 2, "the left: {rims:?}");
-            assert_eq!(rims.iter().filter(|at| at.x == 16.0 - inset).count(), 2, "the right: {rims:?}");
-            assert_eq!(rims.len(), 6);
+            assert_eq!(rims.iter().filter(|at| at.x == inset - 16.0).count(), 1, "the left: {rims:?}");
+            assert_eq!(rims.iter().filter(|at| at.x == 16.0 - inset).count(), 1, "the right: {rims:?}");
+            assert_eq!(rims.len(), 4);
             let caps: f32 = trims_of(&mut world, floor)
                 .iter()
                 .filter(|(trim, ..)| *trim == TerrainTrim::Cap)
@@ -1009,12 +1071,12 @@ mod tests {
         world.run_system_once(skin_terrain_surfaces).unwrap();
         let trims = trims_of(&mut world, strip);
         let rims: Vec<_> = trims.iter().filter(|(trim, ..)| *trim == TerrainTrim::Rim).collect();
-        // The top: 64 long and the full height of the spikes. Each end: 16
-        // long and 12 deep.
+        // The top: 64 long and the full height of the spikes. Each end is
+        // 16, less the corner the spikes of the top are in: 4 long.
         let top: Vec<_> = rims.iter().filter(|(_, size, at)| size.x == 64.0 && at.y == 8.0 - HAZARD_EDGE_HEIGHT * 0.5).collect();
         assert_eq!(top.len(), 1, "{rims:?}");
         assert_eq!(top[0].1.y, HAZARD_EDGE_HEIGHT);
-        assert_eq!(rims.iter().filter(|(_, size, _)| size.x == 16.0).count(), 2, "the two ends: {rims:?}");
+        assert_eq!(rims.iter().filter(|(_, size, _)| size.x == 16.0 - HAZARD_EDGE_HEIGHT).count(), 2, "the two ends: {rims:?}");
         assert_eq!(rims.len(), 3, "no spikes on the floor side: {rims:?}");
         let caps: f32 = trims_of(&mut world, floor)
             .iter()

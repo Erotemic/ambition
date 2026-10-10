@@ -318,6 +318,15 @@ pub struct ShaderBudget {
     pub allow_expensive_materials: bool,
 }
 
+impl ShaderBudget {
+    /// Whether this device draws a shader that fills the screen: a screen
+    /// filter, or the look of a room. A reader that has a road for each
+    /// answer asks this, and does not compare the scale again.
+    pub fn draws_screen_shaders(&self) -> bool {
+        self.screen_shader_scale > 0.0
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ParticleBudget {
     pub max_particles: u32,

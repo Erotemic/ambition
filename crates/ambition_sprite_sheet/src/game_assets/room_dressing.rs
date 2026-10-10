@@ -45,6 +45,27 @@ pub enum RoomDressingPart {
     /// each a small thing that stands on the ground (a barrel, a crystal, a
     /// stone lantern).
     Decor,
+    /// The door of the theme: the art of a door of a room of that theme. It
+    /// has the shape and the size of the door of the entity sheet.
+    Door,
+    /// The shadow a body throws on the ground: a soft ellipse of the dark of
+    /// the theme.
+    Shadow,
+    /// A ladder: it repeats down the ladder, and along one that is wide.
+    Ladder,
+    /// The body of clear water. It repeats each way.
+    WaterClear,
+    /// The body of murky water. It repeats each way.
+    WaterMurky,
+    /// The line of the surface of a body of water. It repeats along it.
+    WaterSurface,
+    /// A wall a blink goes through: a field of light. It repeats each way.
+    BlinkSoft,
+    /// A wall no blink goes through: armour. It repeats each way.
+    BlinkHard,
+    /// The line of light on an open edge of a blink wall. It repeats along
+    /// it, and its top row is the outer side.
+    BlinkEdge,
 }
 
 /// How many squares the decor picture of a theme has, side by side.
@@ -58,7 +79,9 @@ pub const MOTE_CELL_PX: u32 = 32;
 
 impl RoomDressingPart {
     pub const ALL: &'static [Self] =
-        &[Self::Fill, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor];
+        &[Self::Fill, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor, Self::Door,
+            Self::Shadow, Self::Ladder, Self::WaterClear, Self::WaterMurky, Self::WaterSurface,
+            Self::BlinkSoft, Self::BlinkHard, Self::BlinkEdge];
 
     pub const fn key(self) -> &'static str {
         match self {
@@ -69,6 +92,15 @@ impl RoomDressingPart {
             Self::OneWay => "oneway",
             Self::Motes => "motes",
             Self::Decor => "decor",
+            Self::Door => "door",
+            Self::Shadow => "shadow",
+            Self::Ladder => "ladder",
+            Self::WaterClear => "water_clear",
+            Self::WaterMurky => "water_murky",
+            Self::WaterSurface => "water_surface",
+            Self::BlinkSoft => "blink_soft",
+            Self::BlinkHard => "blink_hard",
+            Self::BlinkEdge => "blink_edge",
         }
     }
 

@@ -50,7 +50,12 @@ impl Plugin for SessionRoomVisualsPlugin {
         // said so.
         app.add_systems(
             Update,
-            crate::rendering::terrain_skin::skin_terrain_surfaces.after(crate::rendering::apply_entity_art),
+            (
+                crate::rendering::terrain_skin::skin_terrain_surfaces,
+                crate::rendering::terrain_skin::dress_themed_doors,
+                crate::rendering::terrain_skin::dress_themed_fixtures,
+            )
+                .after(crate::rendering::apply_entity_art),
         );
         app.add_systems(Update, crate::rendering::build_filled_ground_meshes);
         // The host tells portal presentation what it draws. That crate sees only the
@@ -104,6 +109,12 @@ impl Plugin for SessionRoomVisualsPlugin {
             )
                 .chain()
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
+        );
+        // The shadow of each body on the ground under it, at the place the body is drawn this
+        // frame.
+        app.add_systems(
+            Update,
+            crate::rendering::ground_shadows::sync_ground_shadows.after(ambition_sim_view::PresentedPoseSet),
         );
         // The motes of each live room's air, and their motion.
         app.init_resource::<crate::rendering::ambient_motes::AmbientMoteStyles>();

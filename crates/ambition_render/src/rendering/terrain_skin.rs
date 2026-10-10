@@ -68,6 +68,9 @@ const MOST_FILL_PIECES: usize = 400;
 const SHORTEST_TRIM: f32 = 4.0;
 /// Two blocks this near are in contact.
 const CONTACT: f32 = 0.5;
+/// How far into a blink wall the line of light on its edge goes, in world
+/// units (`terrain/fixtures.py`, `BLINK_EDGE`).
+const BLINK_EDGE_HEIGHT: f32 = 6.0;
 
 /// What a block is to the skin of its room.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -77,9 +80,15 @@ pub enum TerrainSurfaceKind {
     /// A one-way platform: it takes the platform picture. It covers no edge
     /// of a block next to it.
     OneWay,
-    /// A wall that is drawn its own way (a blink wall). It takes no skin, and
-    /// it covers the edges of the solid blocks it is in contact with.
+    /// A wall that is drawn its own way. It takes no skin, and it covers the
+    /// edges of the solid blocks it is in contact with.
     Cover,
+    /// A wall a blink goes through. It takes the field of light and a line
+    /// of light on each open edge, and it covers edges as [`Self::Cover`]
+    /// does.
+    BlinkSoft,
+    /// A wall no blink goes through. It takes the armour and the line.
+    BlinkHard,
 }
 
 /// A block visual the skin of its room can be laid on. `spawn_block` puts it
@@ -100,7 +109,7 @@ impl TerrainSurface {
     }
 
     fn covers_edges(&self) -> bool {
-        matches!(self.kind, TerrainSurfaceKind::Solid | TerrainSurfaceKind::Cover)
+        !matches!(self.kind, TerrainSurfaceKind::OneWay)
     }
 }
 
@@ -181,6 +190,11 @@ pub fn decor_on_span(a: f32, b: f32, surface: f32, spacing: f32, keep_out: Optio
     out
 }
 
+/// A door visual of a room that names a theme: it takes the door of the
+/// theme when the theme has one. `spawn_loading_zone` puts it on.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ThemedDoor(pub ParallaxTheme);
+
 /// The skin question of this block is answered: it has its skin, or its
 /// theme has none.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -195,6 +209,8 @@ pub enum TerrainTrim {
     Under,
     SideLeft,
     SideRight,
+    /// The line of light on an edge of a blink wall.
+    Rim,
 }
 
 /// An edge of a block.
@@ -306,13 +322,22 @@ fn repeated(image: Handle<Image>, size: Vec2) -> Sprite {
 /// pattern of `period`: `(sprite, place in the block)` for each. `None` when
 /// there would be more than [`MOST_FILL_PIECES`].
 fn fill_pieces(image: &Handle<Image>, surface: &TerrainSurface, period: Vec2, z: f32) -> Option<Vec<(TerrainTrim, Sprite, Vec3)>> {
-    let max = surface.max();
-    let across = anchored_pieces(surface.min.x, max.x, period.x);
-    let down = anchored_pieces(surface.min.y, max.y, period.y);
+    pieces_of(image, surface.min, surface.size, period, z)
+}
+
+/// [`fill_pieces`] for a rectangle that is not a block. A period of 0 on an
+/// axis is a picture that does not repeat on it: one piece, from its start.
+fn pieces_of(image: &Handle<Image>, min: Vec2, size: Vec2, period: Vec2, z: f32) -> Option<Vec<(TerrainTrim, Sprite, Vec3)>> {
+    let max = min + size;
+    let cut = |lo: f32, hi: f32, period: f32| {
+        if period > 0.0 { anchored_pieces(lo, hi, period) } else { vec![(lo, hi, 0.0)] }
+    };
+    let across = cut(min.x, max.x, period.x);
+    let down = cut(min.y, max.y, period.y);
     if across.len() * down.len() > MOST_FILL_PIECES {
         return None;
     }
-    let centre = surface.min + surface.size * 0.5;
+    let centre = min + size * 0.5;
     let mut out = Vec::with_capacity(across.len() * down.len());
     for &(x0, x1, ox) in &across {
         for &(y0, y1, oy) in &down {
@@ -363,12 +388,63 @@ pub fn skin_terrain_surfaces(
         let centre = surface.min + surface.size * 0.5;
         let half = surface.size * 0.5;
         let mut trims: Vec<(TerrainTrim, Sprite, Vec3)> = Vec::new();
+        // The pieces that are turned: the line on a left or right edge.
+        let mut turned: Vec<(TerrainTrim, Sprite, Transform)> = Vec::new();
         let mut decor_items: Vec<(Sprite, Vec3)> = Vec::new();
         // The sprite of the block is kept, with its size, and draws nothing:
         // the pieces are its children and go where it goes.
         let hidden = Sprite::from_color(Color::NONE, surface.size);
         match surface.kind {
             TerrainSurfaceKind::Cover => {}
+            TerrainSurfaceKind::BlinkSoft | TerrainSurfaceKind::BlinkHard => {
+                let field = if surface.kind == TerrainSurfaceKind::BlinkSoft {
+                    RoomDressingPart::BlinkSoft
+                } else {
+                    RoomDressingPart::BlinkHard
+                };
+                let Some(fill) = part(field) else {
+                    continue;
+                };
+                commands.entity(entity).try_remove::<BoundEntitySprite>();
+                match fill_pieces(&fill, surface, Vec2::splat(SKIN_PERIOD), 0.005) {
+                    Some(pieces) => {
+                        *sprite = hidden;
+                        trims.extend(pieces);
+                    }
+                    None => *sprite = repeated(fill, surface.size),
+                }
+                if let Some(image) = part(RoomDressingPart::BlinkEdge) {
+                    let room = room.map(|stamp| stamp.0);
+                    let others: Vec<TerrainSurface> = all
+                        .iter()
+                        .filter(|(_, stamp)| stamp.map(|stamp| stamp.0) == room)
+                        .map(|(other, _)| *other)
+                        .collect();
+                    let depth = BLINK_EDGE_HEIGHT.min(surface.size.x).min(surface.size.y);
+                    for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+                        for (a, b) in open_edge_spans(surface, edge, &others) {
+                            for (lo, hi, offset) in anchored_pieces(a, b, SKIN_PERIOD) {
+                                let line = piece(image.clone(), Vec2::new(offset, 0.0), Vec2::new(hi - lo, depth), false);
+                                let along = (lo + hi) * 0.5;
+                                // The top row of the picture is the outer
+                                // side: the piece is turned so that row is
+                                // on the edge.
+                                let (at, turn) = match edge {
+                                    Edge::Top => (Vec2::new(along - centre.x, half.y - depth * 0.5), 0.0),
+                                    Edge::Bottom => (Vec2::new(along - centre.x, depth * 0.5 - half.y), std::f32::consts::PI),
+                                    Edge::Left => (Vec2::new(depth * 0.5 - half.x, centre.y - along), std::f32::consts::FRAC_PI_2),
+                                    Edge::Right => (Vec2::new(half.x - depth * 0.5, centre.y - along), -std::f32::consts::FRAC_PI_2),
+                                };
+                                turned.push((
+                                    TerrainTrim::Rim,
+                                    line,
+                                    Transform::from_translation(at.extend(0.02)).with_rotation(Quat::from_rotation_z(turn)),
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
             TerrainSurfaceKind::OneWay => {
                 if let Some(image) = part(RoomDressingPart::OneWay) {
                     // The quality refresh rebinds a `BoundEntitySprite` to the
@@ -463,7 +539,7 @@ pub fn skin_terrain_surfaces(
                 decor_items = decor;
             }
         }
-        if trims.is_empty() && decor_items.is_empty() {
+        if trims.is_empty() && decor_items.is_empty() && turned.is_empty() {
             continue;
         }
         commands.queue(move |world: &mut World| {
@@ -475,6 +551,9 @@ pub fn skin_terrain_surfaces(
                 for (trim, sprite, at) in trims {
                     parent.spawn((sprite, Transform::from_translation(at), trim, Name::new("Terrain skin piece")));
                 }
+                for (trim, sprite, at) in turned {
+                    parent.spawn((sprite, at, trim, Name::new("Terrain skin piece")));
+                }
                 for (sprite, at) in decor_items {
                     parent.spawn((sprite, Transform::from_translation(at), TerrainDecorItem, Name::new("Terrain decor")));
                 }
@@ -483,10 +562,190 @@ pub fn skin_terrain_surfaces(
     }
 }
 
+/// What a fixture of a room is to the art of its theme.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ThemedFixtureKind {
+    Ladder,
+    WaterClear,
+    WaterMurky,
+    WaterSurface,
+}
+
+/// A fixture visual of a room that names a theme (a ladder, a body of water,
+/// the line of its surface): it is drawn as a flat colour until the art of
+/// the theme takes its place. `min` and `size` are its rectangle in the
+/// coordinates of its room (y is down).
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct ThemedFixture {
+    pub theme: ParallaxTheme,
+    pub kind: ThemedFixtureKind,
+    pub min: Vec2,
+    pub size: Vec2,
+}
+
+/// The height of the surface picture of water, and how far below its top the
+/// line of the water is (`terrain/fixtures.py`).
+const WATER_SURFACE_HEIGHT: f32 = 8.0;
+const WATER_SURFACE_LINE: f32 = 2.6;
+
+/// Give each ladder and each body of water of a room that names a theme the
+/// art of that theme, in pieces that are fixed to the room.
+///
+/// The flat colour and the rungs of the placeholder go when the art comes.
+/// A theme with no art for a fixture leaves the placeholder as it is.
+pub fn dress_themed_fixtures(
+    mut commands: Commands,
+    assets: Option<Res<GameAssets>>,
+    mut fixtures: Query<(Entity, &ThemedFixture, &mut Sprite), Without<TerrainSkinned>>,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    for (entity, fixture, mut sprite) in &mut fixtures {
+        if !assets.room_dressing.attempted(fixture.theme) {
+            continue;
+        }
+        commands.entity(entity).try_insert(TerrainSkinned);
+        let (part, period, min, size) = match fixture.kind {
+            ThemedFixtureKind::Ladder => (RoomDressingPart::Ladder, Vec2::new(16.0, 32.0), fixture.min, fixture.size),
+            ThemedFixtureKind::WaterClear => (RoomDressingPart::WaterClear, Vec2::splat(SKIN_PERIOD), fixture.min, fixture.size),
+            ThemedFixtureKind::WaterMurky => (RoomDressingPart::WaterMurky, Vec2::splat(SKIN_PERIOD), fixture.min, fixture.size),
+            // The picture is higher than the strip it takes the place of, and
+            // its line goes on the top of the water.
+            ThemedFixtureKind::WaterSurface => (
+                RoomDressingPart::WaterSurface,
+                Vec2::new(SKIN_PERIOD, 0.0),
+                Vec2::new(fixture.min.x, fixture.min.y - WATER_SURFACE_LINE),
+                Vec2::new(fixture.size.x, WATER_SURFACE_HEIGHT),
+            ),
+        };
+        let Some(image) = assets.room_dressing.get(fixture.theme, part) else {
+            continue;
+        };
+        // The pieces are placed from the middle of the rectangle they fill,
+        // and the sprite is at the middle of the fixture: the difference.
+        let shift = (min + size * 0.5) - (fixture.min + fixture.size * 0.5);
+        let Some(pieces) = pieces_of(image, min, size, period, 0.005) else {
+            continue;
+        };
+        *sprite = Sprite::from_color(Color::NONE, fixture.size);
+        commands.queue(move |world: &mut World| {
+            let Ok(mut body) = world.get_entity_mut(entity) else {
+                return;
+            };
+            body.despawn_related::<Children>();
+            body.with_children(|parent| {
+                for (trim, sprite, at) in pieces {
+                    let at = at + Vec3::new(shift.x, -shift.y, 0.0);
+                    parent.spawn((sprite, Transform::from_translation(at), trim, Name::new("Fixture art piece")));
+                }
+            });
+        });
+    }
+}
+
+/// Give each door of a room that names a theme the door of that theme.
+///
+/// A door keeps its size and its place: the door of each theme has the shape
+/// of the door of the entity sheet. A door the look of a room has dressed
+/// (`EntityArt`) keeps that art.
+pub fn dress_themed_doors(
+    mut commands: Commands,
+    assets: Option<Res<GameAssets>>,
+    mut doors: Query<(Entity, &ThemedDoor, &mut Sprite), (Without<TerrainSkinned>, Without<EntityArt>)>,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    for (entity, ThemedDoor(theme), mut sprite) in &mut doors {
+        if !assets.room_dressing.attempted(*theme) {
+            continue;
+        }
+        commands.entity(entity).try_insert(TerrainSkinned);
+        if let Some(image) = assets.room_dressing.get(*theme, RoomDressingPart::Door) {
+            sprite.image = image.clone();
+            // The quality refresh rebinds a `BoundEntitySprite` to the door
+            // of the entity sheet.
+            commands.entity(entity).try_remove::<BoundEntitySprite>();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use bevy::ecs::system::RunSystemOnce;
+
+    /// A ladder takes the ladder of its theme in pieces that cover it, and its
+    /// placeholder rungs go. The surface of a body of water is higher than the
+    /// strip it takes the place of, and its line is on the top of the water.
+    /// The control is a theme with no art: the placeholder stays.
+    #[test]
+    fn a_fixture_takes_the_art_of_its_theme_and_its_placeholder_goes() {
+        let mut world = World::new();
+        let mut assets = GameAssets::default();
+        for &part in RoomDressingPart::ALL {
+            assets.room_dressing.insert(ParallaxTheme::Cave, part, Handle::default());
+        }
+        assets.room_dressing.mark_attempted(ParallaxTheme::Lab);
+        world.insert_resource(assets);
+        let fixture = |world: &mut World, theme: ParallaxTheme, kind: ThemedFixtureKind, min: Vec2, size: Vec2| {
+            let body = world.spawn((ThemedFixture { theme, kind, min, size }, Sprite::from_color(Color::WHITE, size))).id();
+            world.entity_mut(body).with_children(|parent| {
+                parent.spawn(Name::new("rung"));
+            });
+            body
+        };
+        let ladder = fixture(&mut world, ParallaxTheme::Cave, ThemedFixtureKind::Ladder, Vec2::new(96.0, 64.0), Vec2::new(16.0, 96.0));
+        let surface = fixture(&mut world, ParallaxTheme::Cave, ThemedFixtureKind::WaterSurface, Vec2::new(0.0, 200.0), Vec2::new(128.0, 4.0));
+        let plain = fixture(&mut world, ParallaxTheme::Lab, ThemedFixtureKind::Ladder, Vec2::new(96.0, 64.0), Vec2::new(16.0, 96.0));
+        world.run_system_once(dress_themed_fixtures).unwrap();
+
+        let pieces = trims_of(&mut world, ladder);
+        assert_eq!(pieces.iter().map(|(_, size, _)| size.x * size.y).sum::<f32>(), 16.0 * 96.0, "the pieces cover the ladder");
+        assert_eq!(world.entity(ladder).get::<Children>().unwrap().len(), pieces.len(), "the rung of the placeholder is gone");
+        assert_eq!(world.entity(ladder).get::<Sprite>().unwrap().color, Color::NONE);
+
+        let strip = trims_of(&mut world, surface);
+        assert!(strip.iter().all(|(_, size, _)| size.y == WATER_SURFACE_HEIGHT));
+        // The strip is 4 high with its middle 2 below the top of the water.
+        // The top of the picture is `WATER_SURFACE_LINE` over the top of the
+        // water, so its middle is 4 - 2.6 = 1.4 below the top: 0.6 over the
+        // middle of the strip.
+        assert!(strip.iter().all(|(_, _, at)| (at.y - 0.6).abs() < 1e-4), "{strip:?}");
+
+        assert_eq!(world.entity(plain).get::<Sprite>().unwrap().color, Color::WHITE, "a theme with no ladder");
+        assert_eq!(world.entity(plain).get::<Children>().unwrap().len(), 1, "and its rung stays");
+    }
+
+    /// A door of a room whose theme has a door takes it and keeps its size.
+    /// The controls: a theme with no door leaves the sprite as it is, and a
+    /// door the look of a room has dressed keeps that art.
+    #[test]
+    fn a_door_takes_the_door_of_its_theme_and_keeps_its_size() {
+        let mut world = World::new();
+        let mut images = Assets::<Image>::default();
+        let themed = images.add(Image::default());
+        let plain = images.add(Image::default());
+        let mut assets = GameAssets::default();
+        assets.room_dressing.insert(ParallaxTheme::Cave, RoomDressingPart::Door, themed.clone());
+        assets.room_dressing.mark_attempted(ParallaxTheme::Lab);
+        world.insert_resource(assets);
+        let door = |world: &mut World, theme: ParallaxTheme| {
+            world
+                .spawn((ThemedDoor(theme), Sprite { image: plain.clone(), custom_size: Some(Vec2::new(40.0, 80.0)), ..Default::default() }))
+                .id()
+        };
+        let (cave, lab) = (door(&mut world, ParallaxTheme::Cave), door(&mut world, ParallaxTheme::Lab));
+        let dressed = door(&mut world, ParallaxTheme::Cave);
+        world.entity_mut(dressed).insert(EntityArt(ambition_sprite_sheet::game_assets::EntitySprite::DoorZone));
+        world.run_system_once(dress_themed_doors).unwrap();
+        let sprite = |world: &World, entity: Entity| world.entity(entity).get::<Sprite>().unwrap().clone();
+        assert_eq!(sprite(&world, cave).image, themed);
+        assert_eq!(sprite(&world, cave).custom_size, Some(Vec2::new(40.0, 80.0)));
+        assert_eq!(sprite(&world, lab).image, plain, "a theme with no door");
+        assert_eq!(sprite(&world, dressed).image, plain, "a door with art of its own");
+    }
 
     fn surface(kind: TerrainSurfaceKind, x: f32, y: f32, w: f32, h: f32) -> TerrainSurface {
         TerrainSurface { theme: ParallaxTheme::Cave, kind, min: Vec2::new(x, y), size: Vec2::new(w, h) }
@@ -637,6 +896,48 @@ mod tests {
         assert_eq!(world.entity(floor).get::<Sprite>().unwrap().color, Color::WHITE);
         assert!(trims_of(&mut world, floor).is_empty());
         assert!(world.entity(floor).contains::<TerrainSkinned>(), "and it stops asking");
+    }
+
+    /// A blink wall takes the field of its kind and a line of light on each
+    /// open edge. The wall stands on the floor, so its bottom edge has no
+    /// line, and the floor has no cap under it. The control is a theme with
+    /// no art: the wall keeps its sprite.
+    #[test]
+    fn a_blink_wall_takes_its_field_and_a_line_on_each_open_edge() {
+        for with_skin in [true, false] {
+            let (mut world, floor, _) = skinned_world(with_skin);
+            let blink = world
+                .spawn((surface(TerrainSurfaceKind::BlinkSoft, 100.0, 60.0, 32.0, 40.0), Sprite::from_color(Color::WHITE, Vec2::new(32.0, 40.0))))
+                .id();
+            world.run_system_once(skin_terrain_surfaces).unwrap();
+            let trims = trims_of(&mut world, blink);
+            if !with_skin {
+                assert!(trims.is_empty());
+                assert_eq!(world.entity(blink).get::<Sprite>().unwrap().color, Color::WHITE);
+                continue;
+            }
+            let area = |kind: TerrainTrim| -> f32 {
+                trims.iter().filter(|(trim, ..)| *trim == kind).map(|(_, size, _)| size.x * size.y).sum()
+            };
+            assert_eq!(area(TerrainTrim::Fill), 32.0 * 40.0);
+            // The top (32) and the two sides (40 each) are open.
+            assert_eq!(area(TerrainTrim::Rim), (32.0 + 40.0 + 40.0) * BLINK_EDGE_HEIGHT);
+            // Each line is inside the wall, against its edge. The wall is 32
+            // by 40 with its centre at (0, 0), and a line is cut where the
+            // pattern repeats (x 128, y 64): two pieces on each edge.
+            let rims: Vec<_> = trims.iter().filter(|(trim, ..)| *trim == TerrainTrim::Rim).map(|(_, _, at)| at.truncate()).collect();
+            let inset = BLINK_EDGE_HEIGHT * 0.5;
+            assert_eq!(rims.iter().filter(|at| at.y == 20.0 - inset).count(), 2, "the top: {rims:?}");
+            assert_eq!(rims.iter().filter(|at| at.x == inset - 16.0).count(), 2, "the left: {rims:?}");
+            assert_eq!(rims.iter().filter(|at| at.x == 16.0 - inset).count(), 2, "the right: {rims:?}");
+            assert_eq!(rims.len(), 6);
+            let caps: f32 = trims_of(&mut world, floor)
+                .iter()
+                .filter(|(trim, ..)| *trim == TerrainTrim::Cap)
+                .map(|(_, size, _)| size.x)
+                .sum();
+            assert_eq!(caps, 200.0 - 48.0 - 32.0, "no cap under the wall of the room or under the blink wall");
+        }
     }
 
     /// The decor of a span is the same each time, each thing is inside the

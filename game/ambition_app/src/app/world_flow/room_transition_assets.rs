@@ -34,7 +34,7 @@ use ambition_platformer2d::render::quality::ResolvedVisualQuality;
 use ambition_platformer2d::sprite_sheet::boss::BossSpriteAsset;
 use ambition_platformer2d::sprite_sheet::character::CharacterSpriteAsset;
 use ambition_platformer2d::sprite_sheet::game_assets::{
-    ensure_parallax_layers_for_room, EntitySprite, GameAssets, ParallaxLayerAsset, ParallaxTheme,
+    ensure_parallax_layers_for_room, EntitySprite, GameAssets, ParallaxLayerAsset, ParallaxTheme, RoomDressingPart,
 };
 use ambition_platformer2d::world::rooms::{InteractionKindSpec, RoomSet, RoomSpec};
 
@@ -707,6 +707,19 @@ pub(crate) fn build_loaded_room_asset_manifest(
                 format!("parallax:{}:{}", theme.key(), layer.key()),
                 handle,
             );
+        }
+    }
+    // The dressing of the room's theme is as much of the picture as the sky:
+    // a room that shows before its skin is there shows flat blocks first.
+    if let Some(named) = ParallaxTheme::named_by_room_metadata(&room.metadata) {
+        for &part in RoomDressingPart::ALL {
+            if let Some(handle) = assets.room_dressing.get(named, part) {
+                add_image_handle(
+                    &mut draft,
+                    format!("room-dressing:{}:{}", named.key(), part.key()),
+                    handle,
+                );
+            }
         }
     }
 
@@ -2224,6 +2237,35 @@ mod tests {
         assert_eq!(readiness.settled, 1);
         assert_eq!(readiness.pending, vec!["reserved".to_owned()]);
         assert!(readiness.failed.is_empty());
+    }
+
+    /// The dressing of the theme a room names is in the manifest of the room,
+    /// so the cover stays until the skin is there. The control is a room that
+    /// names no theme: it takes no skin, so it waits for none.
+    #[test]
+    fn a_room_that_names_a_theme_waits_for_the_dressing_of_that_theme() {
+        use ambition_platformer2d::world::prelude::{AuthoredWorld, Vec2};
+        let mut images = Assets::<Image>::default();
+        let mut assets = GameAssets::default();
+        for theme in [ParallaxTheme::Cave, ParallaxTheme::Hub] {
+            assets.room_dressing.insert(theme, RoomDressingPart::Fill, images.add(Image::default()));
+        }
+        let room = |theme: Option<&str>| {
+            let world = AuthoredWorld::new("D Dressing", Vec2::new(320.0, 180.0), Vec2::new(64.0, 96.0), Vec::new());
+            let mut room = RoomSpec::new("d_dressing", world);
+            room.metadata.visual_profile.parallax_theme = theme.map(str::to_string);
+            room
+        };
+        let labels = |room: &RoomSpec| -> Vec<String> {
+            build_loaded_room_asset_manifest(room, &[], &assets)
+                .dependencies
+                .into_iter()
+                .map(|dependency| dependency.label)
+                .filter(|label| label.starts_with("room-dressing:"))
+                .collect()
+        };
+        assert_eq!(labels(&room(Some("cave"))), vec!["room-dressing:cave:fill".to_string()]);
+        assert!(labels(&room(None)).is_empty());
     }
 
     #[test]

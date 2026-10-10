@@ -363,7 +363,7 @@ fn looks_are_in_budget(quality: Option<Res<ResolvedVisualQuality>>) -> bool {
 
 /// [`looks_are_in_budget`], for a system that runs in each budget.
 fn draws_looks(quality: Option<&ResolvedVisualQuality>) -> bool {
-    quality.is_none_or(|quality| quality.budget.shaders.screen_shader_scale > 0.0)
+    quality.is_none_or(|quality| quality.budget.shaders.draws_screen_shaders())
 }
 
 /// Take each look away when the budget for it goes. The block sprites below

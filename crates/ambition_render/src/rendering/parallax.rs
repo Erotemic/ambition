@@ -192,6 +192,23 @@ const RUNTIME_PARALLAX_LAYERS: &[RuntimeParallaxLayerSpec] = &[
     },
 ];
 
+/// Whether the backdrop of the room `name` is drawn mirrored. Each theme has
+/// one scene, and many rooms have one theme (22 sandbox rooms are `lab`): the
+/// landmark of the scene would be in the same place in each one. A mirrored
+/// panel moves with the camera as an unmirrored one does.
+///
+/// A theme with a corrupted state is never mirrored: the look of its room
+/// lays the corrupted layers over the clean ones in a shader that has the
+/// placement of the panel, and not its mirror (`room_sky.wgsl`).
+pub fn room_mirrors_its_backdrop(name: &str, theme: ParallaxTheme) -> bool {
+    if theme.corrupted().is_some() {
+        return false;
+    }
+    // FNV-1a: the answer for a room is the same in each run and each build.
+    let hash = name.bytes().fold(0x811C_9DC5u32, |hash, byte| (hash ^ byte as u32).wrapping_mul(0x0100_0193));
+    (hash >> 7) & 1 == 1
+}
+
 /// The z of the foreground layer: in front of the actors and of their effects
 /// (`WORLD_Z_FX` is 30).
 pub const FOREGROUND_PARALLAX_Z: f32 = 45.0;
@@ -247,8 +264,14 @@ pub fn spawn_parallax_layers(
         // scope. `sync_parallax_layers` sizes it against the owning view.
         let mut sprite = Sprite::from_image(image.clone());
         sprite.custom_size = None;
-        // Every other panel mirrored, so each seam meets its own edge.
-        sprite.flip_x = slot.is_some_and(|slot| slot.rem_euclid(2) == 1);
+        // Every other panel mirrored, so each seam meets its own edge. A
+        // room whose sky does not scroll is mirrored as a whole, or not, by
+        // its name: two rooms of one theme do not have the same wall behind
+        // them.
+        sprite.flip_x = match slot {
+            Some(slot) => slot.rem_euclid(2) == 1,
+            None => room_mirrors_its_backdrop(&world.name, theme),
+        };
         let mut layer = commands.spawn_session_scoped(
             session_scope,
             (
@@ -1244,6 +1267,21 @@ mod two_views_one_backdrop_tests {
             .expect("a panel keeps its transform")
             .translation
             .x
+    }
+
+    /// The backdrop of a room is mirrored or not by its name, the same each
+    /// time, about half of the rooms each way, and never for a theme whose
+    /// look registers a second sky on it.
+    #[test]
+    fn a_room_mirrors_its_backdrop_by_its_name() {
+        let rooms = ["scroll_lab", "crawl_lab", "morph_lab", "ladder_lab", "portal_lab", "tiny_chamber", "square_arena", "vertical_shaft", "quest_lab", "switch_lab", "cutscene_lab", "sanic_sandbox"];
+        let mirrored = rooms.iter().filter(|name| room_mirrors_its_backdrop(name, ParallaxTheme::Lab)).count();
+        assert!((3..=9).contains(&mirrored), "{mirrored} of {} are mirrored", rooms.len());
+        assert_eq!(
+            room_mirrors_its_backdrop("scroll_lab", ParallaxTheme::Lab),
+            room_mirrors_its_backdrop("scroll_lab", ParallaxTheme::Lab)
+        );
+        assert!(rooms.iter().all(|name| !room_mirrors_its_backdrop(name, ParallaxTheme::HubClean)));
     }
 
     /// A panel is sized against what its camera shows of the world, not against

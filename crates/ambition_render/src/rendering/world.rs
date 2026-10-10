@@ -49,12 +49,16 @@ pub fn present_live_room_visuals(
     >,
     assets: Option<Res<GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
         return;
     };
+    // A device that draws no screen shader draws no room look: a room with a
+    // look then has its blocks only, and they take the skin of its theme.
+    let looks_are_drawn = quality.is_none_or(|quality| quality.budget.shaders.draws_screen_shaders());
     for (room, definition) in rooms.live_rooms() {
         if presented.iter().any(|stamp| stamp.0 == room) {
             continue;
@@ -65,6 +69,7 @@ pub fn present_live_room_visuals(
             scope,
             rooms.rooms().spec(definition),
             assets.as_deref(),
+            looks_are_drawn,
         );
         commands.spawn_session_scoped(
             scope,
@@ -78,15 +83,21 @@ pub fn spawn_room_visuals(
     session_scope: SessionSpawnScope,
     spec: &ambition_platformer2d_world::rooms::RoomSpec,
     assets: Option<&GameAssets>,
+    // Whether this device draws the look of a room that has one
+    // (`ShaderBudget::draws_screen_shaders`).
+    looks_are_drawn: bool,
 ) {
     let world = &spec.world;
     spawn_grid(commands, session_scope, world);
     spawn_surface_chain_visuals(commands, session_scope, world);
     // The theme the room names: its blocks take the terrain skin of it.
     // A room with a look of its own (a `palette`) draws its blocks its own way:
-    // no skin goes on them.
+    // no skin goes on them. On a device that does not draw the look, the
+    // blocks are the room, and they take the skin. (The choice is made when
+    // the room is presented: a room that is live when the tier changes keeps
+    // what it has until it is presented again.)
     let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::named_by_room_metadata(&spec.metadata)
-        .filter(|_| spec.metadata.visual_profile.palette.is_none());
+        .filter(|_| spec.metadata.visual_profile.palette.is_none() || !looks_are_drawn);
     if theme.is_some() {
         // Where the decor of the skin must not stand: on a thing of the play.
         let rect = |aabb: &ae::Aabb| {
@@ -137,13 +148,13 @@ pub fn spawn_room_visuals(
         );
     }
     for region in &world.water_regions {
-        spawn_water_region(commands, session_scope, world, region);
+        spawn_water_region(commands, session_scope, world, region, theme);
     }
     for region in &world.climbable_regions {
-        spawn_climbable_region(commands, session_scope, world, region);
+        spawn_climbable_region(commands, session_scope, world, region, theme);
     }
     for zone in &spec.loading_zones {
-        spawn_loading_zone(commands, session_scope, world, zone, assets);
+        spawn_loading_zone(commands, session_scope, world, zone, assets, theme);
     }
     // Per-family authored visuals. Each family carries an `Authored<T>`
     // payload; `spawn_authored_visual` builds the sprite and label.
@@ -465,7 +476,15 @@ fn spawn_water_region(
     session_scope: SessionSpawnScope,
     world: &ae::World,
     region: &ae::WaterRegion,
+    // The theme the room names, if its water takes the art of the theme
+    // (`terrain_skin::dress_themed_fixtures`).
+    theme: Option<ambition_sprite_sheet::game_assets::ParallaxTheme>,
 ) {
+    use super::terrain_skin::{ThemedFixture, ThemedFixtureKind};
+    let fixture = |kind: ThemedFixtureKind, min: ae::Vec2, size: BVec2| {
+        theme.map(|theme| ThemedFixture { theme, kind, min: BVec2::new(min.x, min.y), size })
+    };
+    let region_min = region.aabb.center() - region.aabb.half_size();
     let size = region.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
     let (body_color, body_z) = match region.kind {
@@ -474,7 +493,7 @@ fn spawn_water_region(
         // Dark teal, near-opaque, above the player so it hides what is below.
         ae::WaterKind::Murky => (Color::srgba(0.10, 0.20, 0.18, 0.88), WORLD_Z_PLAYER + 5.0),
     };
-    commands.spawn_session_scoped(
+    let mut body = commands.spawn_session_scoped(
         session_scope,
         (
             Sprite::from_color(body_color, render),
@@ -483,6 +502,13 @@ fn spawn_water_region(
             RoomVisual,
         ),
     );
+    let body_kind = match region.kind {
+        ae::WaterKind::Clear => ThemedFixtureKind::WaterClear,
+        ae::WaterKind::Murky => ThemedFixtureKind::WaterMurky,
+    };
+    if let Some(fixture) = fixture(body_kind, region_min, render) {
+        body.insert(fixture);
+    }
 
     // Surface strip: a 4px band at the top of the region, above the body and
     // the player, so the surface shows even through Murky.
@@ -493,7 +519,7 @@ fn spawn_water_region(
     let strip_h = 4.0;
     let strip_size = BVec2::new(size.x, strip_h);
     let strip_center = ae::Vec2::new(region.aabb.center().x, region.aabb.top() + strip_h * 0.5);
-    commands.spawn_session_scoped(
+    let mut strip = commands.spawn_session_scoped(
         session_scope,
         (
             Sprite::from_color(strip_color, strip_size),
@@ -502,6 +528,9 @@ fn spawn_water_region(
             RoomVisual,
         ),
     );
+    if let Some(fixture) = fixture(ThemedFixtureKind::WaterSurface, region_min, strip_size) {
+        strip.insert(fixture);
+    }
 }
 
 /// Render a single `ClimbableRegion` as a tinted overlay quad with rung
@@ -512,6 +541,9 @@ fn spawn_climbable_region(
     session_scope: SessionSpawnScope,
     world: &ae::World,
     region: &ae::ClimbableRegion,
+    // The theme the room names, if its ladders take the art of the theme
+    // (`terrain_skin::dress_themed_fixtures`).
+    theme: Option<ambition_sprite_sheet::game_assets::ParallaxTheme>,
 ) {
     let size = region.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
@@ -534,7 +566,7 @@ fn spawn_climbable_region(
             Color::srgba(0.45, 0.35, 0.20, 0.0), // alpha=0 = no rungs
         ),
     };
-    commands.spawn_session_scoped(
+    let mut body = commands.spawn_session_scoped(
         session_scope,
         (
             Sprite::from_color(body_color, render),
@@ -543,25 +575,37 @@ fn spawn_climbable_region(
             RoomVisual,
         ),
     );
+    if let (Some(theme), ae::ClimbableKind::Ladder) = (theme, region.kind) {
+        let min = region.aabb.center() - region.aabb.half_size();
+        body.insert(super::terrain_skin::ThemedFixture {
+            theme,
+            kind: super::terrain_skin::ThemedFixtureKind::Ladder,
+            min: BVec2::new(min.x, min.y),
+            size: render,
+        });
+    }
 
-    // Rung stripes every 16 px on y. Skipped for Wall (rung alpha 0).
+    // Rung stripes every 16 px on y. Skipped for Wall (rung alpha 0). They
+    // are children of the body: the art of a theme takes the place of the
+    // body and of its rungs.
     if rung_color.alpha() > 0.0 {
         let rung_h = 3.0;
         let rung_size = BVec2::new(size.x, rung_h);
-        let mut y = region.aabb.top() + 8.0;
-        while y < region.aabb.bottom() - 4.0 {
-            let center = ae::Vec2::new(region.aabb.center().x, y);
-            commands.spawn_session_scoped(
-                session_scope,
-                (
+        let centre_y = region.aabb.center().y;
+        let (top, bottom) = (region.aabb.top(), region.aabb.bottom());
+        let label = format!("Climbable rung ({:?})", region.kind);
+        body.with_children(|parent| {
+            let mut y = top + 8.0;
+            while y < bottom - 4.0 {
+                parent.spawn((
                     Sprite::from_color(rung_color, rung_size),
-                    Transform::from_translation(world_to_bevy(world, center, body_z + 0.5)),
-                    Name::new(format!("Climbable rung ({:?})", region.kind)),
-                    RoomVisual,
-                ),
-            );
-            y += 16.0;
-        }
+                    // Room y is down and the y of a child is up.
+                    Transform::from_xyz(0.0, centre_y - y, 0.5),
+                    Name::new(label.clone()),
+                ));
+                y += 16.0;
+            }
+        });
     }
 }
 
@@ -1017,7 +1061,12 @@ pub fn spawn_block(
     let surface_kind = match block.kind {
         ae::BlockKind::Solid => Some(super::terrain_skin::TerrainSurfaceKind::Solid),
         ae::BlockKind::OneWay => Some(super::terrain_skin::TerrainSurfaceKind::OneWay),
-        ae::BlockKind::BlinkWall { .. } => Some(super::terrain_skin::TerrainSurfaceKind::Cover),
+        ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Soft } => {
+            Some(super::terrain_skin::TerrainSurfaceKind::BlinkSoft)
+        }
+        ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Hard } => {
+            Some(super::terrain_skin::TerrainSurfaceKind::BlinkHard)
+        }
         _ => None,
     };
     if let (Some(theme), Some(kind), None, false) =
@@ -1046,6 +1095,9 @@ pub fn spawn_loading_zone(
     world: &ae::World,
     zone: &LoadingZone,
     assets: Option<&GameAssets>,
+    // The theme the room names, if its doors take the door of the theme
+    // (`terrain_skin::dress_themed_doors`).
+    theme: Option<ambition_sprite_sheet::game_assets::ParallaxTheme>,
 ) {
     let size = zone.aabb.half_size() * 2.0;
     let fallback_color = match zone.activation {
@@ -1092,6 +1144,9 @@ pub fn spawn_loading_zone(
             BoundEntitySprite::new(sprite_key),
         ),
     );
+    if let (LoadingZoneActivation::Door, Some(theme)) = (zone.activation, theme) {
+        visual.insert(super::terrain_skin::ThemedDoor(theme));
+    }
     if matches!(zone.activation, LoadingZoneActivation::Door) {
         visual.insert(DoorNameplateSource::new(
             zone.id.clone(),

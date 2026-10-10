@@ -75,6 +75,8 @@ impl Default for AmbientMoteStyles {
             [
                 // Dust in the light of the reactor: slow, a little up.
                 (T::Lab, MoteStyle::new(30, 3.0, 4.0, 7.0, 0.11, 1.8, 3.6, 0.50, 0.45, 0.7, 0.3)),
+                // Dust in the light of the halls of the clean hub.
+                (T::HubClean, MoteStyle::new(20, 2.0, 3.0, 8.0, 0.08, 1.6, 3.4, 0.55, 0.4, 0.5, 0.3)),
                 (T::Hub, MoteStyle::new(22, -4.0, 1.5, 6.0, 0.09, 1.6, 3.2, 0.42, 0.4, 0.6, 0.3)),
                 // Embers go up fast and flicker.
                 (T::Basement, MoteStyle::new(34, 5.0, 26.0, 9.0, 0.3, 1.8, 3.8, 0.85, 0.6, 3.1, 0.4)),

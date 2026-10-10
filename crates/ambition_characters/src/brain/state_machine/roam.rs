@@ -88,6 +88,16 @@ pub(super) fn tick_roam(cfg: &RoamCfg, state: &mut RoamState, snapshot: &BrainSn
         (false, true) => cfg.trot_speed,
         (false, false) => cfg.speed,
     };
+    // An errand comes before rest and before a place by chance. The place is
+    // a fact of where the item lies, so it is the same each tick, and the
+    // follower is not sent again while it goes there.
+    if let ae::navigation::ErrandSight::At(place) = advice.errand {
+        if state.nav.goal != Some(place) && !state.nav.committed() {
+            state.nav.go_to(place);
+        }
+        state.nav.drive(snapshot, pace, out);
+        return;
+    }
     match state.nav.drive(snapshot, pace, out) {
         Followed::Going => return,
         Followed::Arrived => {
@@ -277,6 +287,35 @@ mod tests {
         stale.navigation.goal = Some(THERE);
         tick(&CFG, &mut state, &stale);
         assert!(state.nav.leg.is_some());
+    }
+
+    /// An errand is before rest: a resting body goes to the errand's place,
+    /// and is not sent again while it goes there. The control: with no
+    /// errand, the same resting body stays.
+    #[test]
+    fn a_resting_roamer_goes_on_its_errand() {
+        let errand = |sight| {
+            let mut snapshot = standing(1.0);
+            snapshot.navigation.errand = sight;
+            snapshot
+        };
+        let mut resting = RoamState { until: 100.0, picks: 1, ..Default::default() };
+        tick(&CFG, &mut resting, &errand(ae::navigation::ErrandSight::None));
+        assert_eq!(resting.nav.goal, None, "control: a resting body with no errand stays");
+        tick(&CFG, &mut resting, &errand(ae::navigation::ErrandSight::At(THERE)));
+        assert_eq!(resting.nav.goal, Some(THERE));
+        let mut going = errand(ae::navigation::ErrandSight::At(THERE));
+        going.navigation.goal = Some(THERE);
+        going.navigation.next = NavNext::Leg(NavLeg::default());
+        tick(&CFG, &mut resting, &going);
+        let leg = resting.nav.leg;
+        assert!(leg.is_some(), "the body follows the leg to its errand");
+        tick(&CFG, &mut resting, &going);
+        assert_eq!(resting.nav.goal, Some(THERE), "the errand did not send the follower again");
+        // A place the errand cannot reach is not a place to go to.
+        let mut idle = RoamState { until: 100.0, picks: 1, ..Default::default() };
+        tick(&CFG, &mut idle, &errand(ae::navigation::ErrandSight::NoRoute));
+        assert_eq!(idle.nav.goal, None);
     }
 
     #[test]

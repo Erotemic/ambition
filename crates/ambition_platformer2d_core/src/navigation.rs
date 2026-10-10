@@ -257,6 +257,24 @@ pub struct NavAdvice {
     /// The attended body stands over the surface the body stands on: a walk
     /// gets there, and no leg is needed.
     pub target_shares_surface: bool,
+    /// What the advisor sees of the item the body's errand asks for.
+    pub errand: ErrandSight,
+}
+
+/// What a body's errand item is to the body this tick: perception, written by
+/// the navigation advisor. The errand's owner settles the errand from it.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum ErrandSight {
+    /// The body has no errand, or the advisor did not look.
+    #[default]
+    None,
+    /// The item lies over a surface the body can get to: the feet point under
+    /// the item on that surface.
+    At(Vec2),
+    /// The item lies in the body's room, and no route gets there.
+    NoRoute,
+    /// The item does not lie in the body's room.
+    Gone,
 }
 
 impl NavAdvice {

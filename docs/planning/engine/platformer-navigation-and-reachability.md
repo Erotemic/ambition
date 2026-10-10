@@ -273,6 +273,24 @@ The slices, each with its own witness:
    not take it. Acceptance arm in one room: a reachable item is fetched, an
    unreachable one is refused, and a body without the jump it needs refuses
    the first.
+   **Done 2026-10-09.** `Errand` (actor monolith, `features::ecs::errand`)
+   names the item by `SimId`; the advisor writes what it sees of the item
+   (`ErrandSight`: at a place, no route, gone) into the body's `NavAdvice`;
+   the `Roam` brain goes to the place before it rests or roams;
+   `settle_errands` ends the errand after the press pickup, by the one take
+   of a ground item (`ambition_held_items::take_ground_item`, which the press
+   now calls too). Witnesses in `a_dog_sent_for_an_item`: the basement dog
+   fetches the hub's Blink (control: from the same start with no errand it
+   never comes within 96 px of it); a Blink put on a surface out of reach is
+   refused `NoRoute`; a Blink put where only a jump gets to is fetched, and
+   the same dog under a keyed ceiling with no jump refuses it; and under a
+   sync test the errand ends with the Blink held. Poisons: the brain ignores
+   the errand, red at "the dog did not fetch the Blink"; the advisor never
+   judges reach, red at both refusals; the errand not rewound, red with the
+   errand done and the Blink back on the ground. Found: an errand given from
+   outside the timeline is undone by the first rewind past it, so a giver
+   must be a system in the simulation; and the advisor reads the verbs the
+   body had on the tick before (the ability projection runs after it).
 2. **A crossing into a live room.** A body whose goal is behind a zone goes to
    the zone (the first hop of the route) and, in it, moves into the live room
    of the destination by the second-seat road: custody closure stamped,

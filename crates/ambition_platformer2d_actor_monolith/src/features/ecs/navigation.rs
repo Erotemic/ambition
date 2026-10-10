@@ -19,7 +19,7 @@
 use std::collections::BTreeMap;
 
 use ambition_platformer2d_core as ae;
-use ae::navigation::{NavAdvice, NavNext};
+use ae::navigation::{ErrandSight, NavAdvice, NavNext};
 use ambition_platformer2d_world::navigation::NavGraph;
 use bevy::prelude::{Entity, Query, ResMut, Resource};
 
@@ -181,8 +181,16 @@ pub fn advise_navigation(
             // Whom the body attends to, when it has a foe: the same read-model
             // its brain's `target_pos` comes from.
             Option<&ambition_combat::components::ActorTarget>,
+            Option<&super::errand::Errand>,
         ),
     >,
+    // The items an errand can name: in the world, by their stable identity.
+    items: Query<(
+        Entity,
+        &ambition_platformer2d_shared_tangle::sim_id::SimId,
+        &ambition_held_items::GroundItem,
+        &ambition_held_items::ItemCustody,
+    )>,
     // The players, for a body with no foe: it attends to the nearest one in
     // its room. A peaceful body has no combat target, and a companion keeps
     // near a friend.
@@ -193,7 +201,7 @@ pub fn advise_navigation(
 ) {
     advice.by_body.clear();
     cache.in_use.clear();
-    for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target) in &bodies {
+    for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand) in &bodies {
         let Some(request) = brain.navigation_request() else {
             continue;
         };
@@ -247,9 +255,28 @@ pub fn advise_navigation(
             let under = graph.surface_under(at, TARGET_DEPTH);
             under.is_some() && under == graph.surface_at(feet)
         });
+        let errand = errand
+            .filter(|errand| errand.outcome == super::errand::ErrandOutcome::Pending)
+            .map_or(ErrandSight::None, |errand| {
+                // A body in the air stands on no surface: no route is judged
+                // from there, and the errand waits for the body to land.
+                let Some(from) = graph.surface_at(feet) else {
+                    return ErrandSight::None;
+                };
+                match super::errand::errand_item_at(errand, live_room, &rooms, &items) {
+                    None => ErrandSight::Gone,
+                    Some(at) => match graph.surface_under(at, TARGET_DEPTH) {
+                        Some(under) if graph.reachable_from(from).contains(&under) => {
+                            ErrandSight::At(graph.point_on(under, graph.frame.along(at)))
+                        }
+                        _ => ErrandSight::NoRoute,
+                    },
+                }
+            });
         advice.by_body.insert(
             entity,
             NavAdvice {
+                errand,
                 feet,
                 waypoints,
                 waypoint_count,

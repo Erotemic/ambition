@@ -96,10 +96,38 @@ def test_a_failure_after_a_pass_on_the_same_tree_is_a_failure(repo: Path) -> Non
     assert verdicts(repo) == {"cargo test -p alpha": (False, "FAILED on this change")}
 
 
-def test_a_doc_change_requires_nothing(repo: Path) -> None:
+def test_a_doc_change_requires_the_job_whose_guards_read_docs(repo: Path) -> None:
     commit(repo, "docs/a.md", "two\n")
-    assert verdicts(repo) == {}
+    assert verdicts(repo) == {f"run_tests job `{REPO_TOOLING_JOB}`": (False, "NOT RUN")}
+    ran(repo, ["python", "-m", "pytest", "scripts/tests"], job=REPO_TOOLING_JOB)
     assert required_checks.report(*judge(repo, "base", "HEAD")) == 0
+
+
+def test_a_doc_edited_after_a_crate_ran_does_not_void_the_crate(repo: Path) -> None:
+    """A crate's tests compile no prose: the doc commit after the run asks the
+    tooling job again and leaves the crate's pass standing. The control: a
+    source edit after the run voids it."""
+    commit(repo, "crates/alpha/src/lib.rs", "// two\n")
+    ran(repo, ["cargo", "test", "-p", "alpha"])
+    ran(repo, ["python", "-m", "pytest", "scripts/tests"], job=REPO_TOOLING_JOB)
+    commit(repo, "docs/a.md", "two\n")
+    assert verdicts(repo) == {
+        "cargo test -p alpha": (True, "passed on this change"),
+        f"run_tests job `{REPO_TOOLING_JOB}`": (False, "ran only on a tree before this change"),
+    }
+    commit(repo, "crates/alpha/src/lib.rs", "// three\n")
+    assert verdicts(repo)["cargo test -p alpha"] == (False, "ran only on a tree before this change")
+
+
+def test_a_test_baseline_and_a_guard_baseline_are_not_prose() -> None:
+    from required_checks import requirements_for
+
+    members = {"game/ambition_app": "ambition_app"}
+    assert requirements_for("game/ambition_app/tests/rollback_schema_baseline.txt", members) == {
+        CargoTest("ambition_app")
+    }
+    assert requirements_for("scripts/baselines/rollback-schema-baseline.json", {}) == {Job(REPO_TOOLING_JOB)}
+    assert requirements_for("scripts/tests/rollback_codec_shape.txt", {}) == {Job(REPO_TOOLING_JOB)}
 
 
 def test_a_new_untracked_source_file_is_part_of_the_tested_tree(repo: Path) -> None:
@@ -240,7 +268,7 @@ def test_a_change_to_the_ldtk_tool_requires_its_tests() -> None:
     assert requirements_for("tools/ambition_ldtk_tools/ambition_ldtk_tools/ldtk/paths.py", {}) == {
         Job(LDTK_TOOLS_JOB)
     }
-    assert requirements_for("tools/ambition_ldtk_tools/README.md", {}) == set()
+    assert requirements_for("tools/ambition_ldtk_tools/README.md", {}) == {Job(REPO_TOOLING_JOB)}
 
 
 def test_each_job_a_rule_names_is_a_job_of_the_runner() -> None:

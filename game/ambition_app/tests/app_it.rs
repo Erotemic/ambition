@@ -159,6 +159,7 @@ mod mary_o_lap_in_the_host;
 mod movement_axis;
 mod neighbor_prefetch_prepares_rooms;
 mod a_route_over_rooms;
+mod a_dog_sent_for_an_item;
 mod nav_graph_census;
 mod no_character_resolves_art_by_an_ambiguous_root;
 mod one_character_two_contexts;

@@ -350,6 +350,10 @@ reads cargo output to it.
    crate, because `run_tests.py` gives nextest its filter as a bare word and
    the rule looked for it after `--` (witness: the nextest rows of
    `test_only_a_default_feature_run_of_every_target_covers_a_package`).
+   A doc (`.md`) requires the repo tooling job, whose guards read docs, and
+   counts for no other check: a doc committed while a crate's lane ran
+   voided that crate's pass (`738d7c3da`, witness
+   `test_a_doc_edited_after_a_crate_ran_does_not_void_the_crate`).
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
@@ -433,10 +437,10 @@ What the in-room slice gives this row, and what it does not (2026-10-09):
   which holds each hop and the route's length against the crossing rule;
   it reaches 75 of the 76 shipped rooms from the hub, and `sanic_sandbox` has
   no zone that leads into it).
-  (3) A goal a brain can be given from outside ("fetch that"): `Roam` chooses
-  its own places, and the brain seam is closed
-  ([agentic character runtime](engine/agentic-character-runtime.md)).
-  (4) The typed action at the goal.
+  (3) A goal a brain can be given from outside ("fetch that") and (4) the
+  typed action at the goal: done in one room, 2026-10-09 (`Errand`; the
+  acceptance arm holds in one room, `a_dog_sent_for_an_item`; see the owner
+  page's cross-room slices). Next: slice 2, a crossing into a live room.
 
 **Acceptance:** a headless arm with a reachable and an unreachable item: the
 character fetches the first and refuses the second, and removing a movement

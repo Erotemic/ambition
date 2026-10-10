@@ -68,6 +68,7 @@ mod fighter_harness;
 mod interact;
 mod pet;
 mod talk_spacing;
+pub mod errand;
 pub mod navigation;
 pub mod perception;
 pub mod pickups;

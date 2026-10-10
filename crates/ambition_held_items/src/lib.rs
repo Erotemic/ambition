@@ -1101,6 +1101,31 @@ pub fn equip_held_spec(
     commands.entity(player).insert(held);
 }
 
+/// A body takes an item that lies in the world into its empty hand: the one
+/// take of a ground item, for a press and for an errand alike.
+pub fn take_ground_item(
+    commands: &mut Commands,
+    body: Entity,
+    repertoire: &mut RepertoireQueryItem<'_, '_>,
+    item: Entity,
+    ground: &mut GroundItem,
+    custody: &mut ItemCustody,
+) {
+    // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
+    equip_held_spec(commands, body, repertoire, ground.spec.clone());
+    *custody = ItemCustody::Held { holder: body };
+    // ⭐ THE RELEASE IS OVER, so the fact it recorded is retracted —
+    // and `arm_thrown_bombs` puts out the fuse on the same tick,
+    // because it is chained ahead of the ticker. Catching a live bomb
+    // is now a defined outcome rather than a race the ticker wins.
+    commands.entity(item).remove::<ReleasedAs>();
+    // A carried item is not in flight. This is no longer what keeps
+    // the fuse honest — `ReleasedAs` is — but a held object with a
+    // stale world velocity would resume mid-arc the moment it is put
+    // back down.
+    ground.vel = Vec2::ZERO;
+}
+
 /// Empty a body's hand of whatever it holds — a held item, the portal gun, or
 /// both — as ONE transition, so the repertoire is folded once for the hand it is
 /// left with rather than once per queued removal.
@@ -1325,8 +1350,7 @@ pub fn pickup_held_item_system(
                 // same reset that retracts the object, and impossible to disagree
                 // with. See [`OwnedItems`](ambition_items::OwnedItems)'s own docs.
                 //
-                // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
-                equip_held_spec(&mut commands, player, &mut repertoire, ground.spec.clone());
+                take_ground_item(&mut commands, player, &mut repertoire, item, &mut ground, &mut custody);
                 // The Attack press is *consumed* by the pickup so the same press
                 // doesn't also fire the just-equipped item this frame. Clear the
                 // brain-resolved `ActorControl` (the subject-generic held-item / ability
@@ -1334,17 +1358,6 @@ pub fn pickup_held_item_system(
                 // input is immutable intent for this tick; action consumers arbitrate
                 // on body state and commit by spending the semantic control edge.
                 control.0.melee_pressed = false;
-                *custody = ItemCustody::Held { holder: player };
-                // ⭐ THE RELEASE IS OVER, so the fact it recorded is retracted —
-                // and `arm_thrown_bombs` puts out the fuse on the same tick,
-                // because it is chained ahead of the ticker. Catching a live bomb
-                // is now a defined outcome rather than a race the ticker wins.
-                commands.entity(item).remove::<ReleasedAs>();
-                // A carried item is not in flight. This is no longer what keeps
-                // the fuse honest — `ReleasedAs` is — but a held object with a
-                // stale world velocity would resume mid-arc the moment it is put
-                // back down.
-                ground.vel = Vec2::ZERO;
                 break;
             }
         }

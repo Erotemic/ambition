@@ -337,3 +337,64 @@ fn a_body_that_climbs_gets_up_a_wall_no_jump_clears() {
         "control: with no climb the pillar's top is out of reach"
     );
 }
+
+/// ⭐ A LEG THROUGH A HAZARD IS NO LEG. A gap the body hops, with a hazard
+/// hung in the air over it: the kernel resets a body that touches it, so the
+/// rollout fails and there is no link. Found on the walked route: legs of
+/// `intro_escape_shaft` flew through its hazards, and the room reset the
+/// player. The control is the same room with no hazard: the hop is there.
+#[test]
+fn a_leg_through_a_hazard_is_no_leg() {
+    let body = walker();
+    let envelope = TraversalEnvelope::measure(&body, normal_frame(), EnvelopeProbe::default()).expect("measured");
+    let gap = envelope.landing_lead(0.0).expect("a level jump lands") * 0.6;
+    let blocks = |hazard: bool| {
+        let mut blocks = vec![
+            Block::solid("floor", Vec2::new(0.0, FLOOR), Vec2::new(1000.0, 64.0)),
+            Block::solid("ledge", Vec2::new(1000.0 + gap, FLOOR), Vec2::new(1000.0, 64.0)),
+        ];
+        if hazard {
+            // Across the whole gap, at the height the arc crosses it.
+            let height = envelope.apex_rise() * 0.5;
+            blocks.push(Block::hazard("thorns", Vec2::new(1000.0, FLOOR - height - 8.0), Vec2::new(gap, 16.0)));
+        }
+        blocks
+    };
+    let linked = |hazard: bool| {
+        let world = World::new("a gap", Vec2::new(4000.0, 3000.0), Vec2::ZERO, blocks(hazard));
+        let graph = NavGraph::build(&world, &body, normal_frame()).expect("a walker has a graph");
+        let fixture = Fixture { graph, world, body: body.clone() };
+        fixture.linked("floor", "ledge")
+    };
+    assert_eq!(linked(false), Some(NavLegKind::Hop), "control: with no hazard the hop is there");
+    assert_eq!(linked(true), None, "a hop through the hazard is a link");
+}
+
+/// A body that a zone takes to another room is not on the far side of that
+/// zone: a leg whose body enters an exit is no leg. The same gap with no exit
+/// in its air is the control.
+#[test]
+fn a_leg_through_an_exit_is_no_leg_for_a_body_the_exit_takes() {
+    let body = walker();
+    let envelope = TraversalEnvelope::measure(&body, normal_frame(), EnvelopeProbe::default()).expect("measured");
+    let gap = envelope.landing_lead(0.0).expect("a level jump lands") * 0.6;
+    let world = World::new(
+        "a gap",
+        Vec2::new(4000.0, 3000.0),
+        Vec2::ZERO,
+        vec![
+            Block::solid("floor", Vec2::new(0.0, FLOOR), Vec2::new(1000.0, 64.0)),
+            Block::solid("ledge", Vec2::new(1000.0 + gap, FLOOR), Vec2::new(1000.0, 64.0)),
+        ],
+    );
+    // Across the whole gap, from the arc's height down into the pit.
+    let height = envelope.apex_rise() * 0.5;
+    let exit = ae::Aabb { min: Vec2::new(1000.0, FLOOR - height), max: Vec2::new(1000.0 + gap, FLOOR + 400.0) };
+    let linked = |exits: &[ae::Aabb]| {
+        let graph = NavGraph::build_avoiding(&world, exits, &body, normal_frame()).expect("a walker has a graph");
+        let fixture = Fixture { graph, world: world.clone(), body: body.clone() };
+        fixture.linked("floor", "ledge")
+    };
+    assert_eq!(linked(&[]), Some(NavLegKind::Hop), "control: with no exit the hop is there");
+    assert_eq!(linked(&[exit]), None, "a hop through the exit is a link");
+}

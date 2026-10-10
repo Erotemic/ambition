@@ -119,9 +119,18 @@ fn walked_route_census() {
     for (from, to) in CROSSINGS {
         let world = &rooms.rooms[rooms.definition_by_id(from).expect("an authored room").index()].world;
         let (zone, arrival) = exit(from, to);
+        // The other exits that fire on overlap take the body to another
+        // room: a leg through one is no leg.
+        let exits: Vec<ae::Aabb> = rooms
+            .spec(rooms.definition_by_id(from).expect("an authored room"))
+            .loading_zones
+            .iter()
+            .filter(|other| other.is_ready(false) && other.aabb != zone)
+            .map(|other| other.aabb)
+            .collect();
         let mut row = Vec::new();
         for (column, (name, body)) in [("player", &player), ("no air jump", &one_jump), ("no wall verb", &no_wall)].into_iter().enumerate() {
-            let graph = NavGraph::build(world, body, frame).expect("the room builds a graph");
+            let graph = NavGraph::build_avoiding(world, &exits, body, frame).expect("the room builds a graph");
             let feet = on_a_surface(&graph, start);
             let goal = nearest_the_zone(&graph, zone);
             let route = feet.zip(goal).and_then(|(feet, goal)| graph.route(feet, goal));

@@ -158,9 +158,9 @@ are accounted by count and have no instance identity. The object with an
 identity and a custody is the Blink. A note as an object is a content
 decision, not a defect.
 
-**The route from the hub to Alice is walked (2026-10-10).**
-`a_walked_route_of_the_persistent_world::the_player_walks_from_the_hub_to_alice`
-(`app_it`) walks the player through six crossings with its own stick and jump,
+**The route from the hub to Alice and Bob is walked (2026-10-10).**
+`a_walked_route_of_the_persistent_world::the_player_walks_from_the_hub_to_alice_and_bob`
+(`app_it`) walks the player through seven crossings with its own stick and jump,
 by the in-room `NavGraph` legs and the shipped room transitions. No step puts
 the body anywhere. It found a content defect: in `drain_alley` the main street
 was solid across the room, and the door to `under_town_pipes` is on the floor
@@ -168,10 +168,16 @@ below it. The grate the room's spec describes is now three open cells over the
 door. `walked_route_census` (ignored, a measurement) routes 9 of 9 crossings
 (8 with the air jump taken away, 8 with the wall verbs taken away). Its earlier
 9 of 9 was wrong for `drain_alley`: the route went out through the back edge
-exit. Graphs for the player now avoid the other overlap exits. The rest of the
-placed route is not walked: the edge from `alice_relay` to `bob_relay` is
-behind a `LockWall` gated by `bob_field_survey_received`, a gate the graph does
-not see. Next: walk the Bob half in the order the placed playthrough uses.
+exit. Graphs for the player now avoid the other overlap exits. The walked
+graph also has the standing gate solids. Before the survey, the `LockWall` of
+Alice's private return (`bob_field_survey_received`) stands on the floor
+before the exit to Bob, 112 px tall, and the walk gets over it with the air
+jump. Measured, not changed: a body with one jump (83 px) has no road from
+Alice to Bob before the survey. The wall is above one jump, and the other road
+(back to `drain_alley` and up to its street door to Bob) has no route from
+the pipes layer up to the street. The spec calls the wall a placeholder for
+a door. Next: the steps of the placed playthrough that are not crossings
+(the note, the survey, the return) on the walked route.
 
 **Acceptance:** the scenario runs headless in a standing lane and is playable in
 the rendered game; each step asserts its fact against the authority that owns

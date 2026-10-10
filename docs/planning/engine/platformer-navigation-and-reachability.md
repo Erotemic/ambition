@@ -269,10 +269,12 @@ graph has no exits. Guard:
 exit assertion.
 
 The walked route (2026-10-10):
-`a_walked_route_of_the_persistent_world::the_player_walks_from_the_hub_to_alice`
-(`app_it`) walks the player from the hub to Alice through six crossings. In
-each room it builds the graph for the player's own body with the other
-overlap exits avoided, and it gives the player the stick and jump that
+`a_walked_route_of_the_persistent_world::the_player_walks_from_the_hub_to_alice_and_bob`
+(`app_it`) walks the player from the hub to Alice and Bob through seven
+crossings. In each room it builds the graph for the player's own body over
+the room as the body collides with it (the authored blocks and each standing
+gate solid, `world_with_gate_solids_and_carves`), with the other overlap exits
+avoided, and it gives the player the stick and jump that
 `follow_leg` says. A door takes Interact, and the crossing is the shipped room
 transition. No step puts the body anywhere. Before the exits were avoided,
 legs in `intro_escape_shaft` and `drain_alley` went through the back edge exit,
@@ -281,7 +283,10 @@ route: its main street was solid across the room, and the door to
 `under_town_pipes` is on the floor of the pipes layer below. The room's spec
 says the player goes down through a grate in the street. Three 16 px cells of
 the street over the door are now open (collision and tiles), and the body
-drops through them.
+drops through them. In `alice_relay` the lock wall of Alice's private return
+stands on the floor before the exit to Bob until the survey (112 px tall), and
+the walk goes over it with a double hop. Poison: the graph over the authored
+blocks only, red at `alice_relay` (the body walks into the lock and stops).
 
 Not modelled, each a seam:
 

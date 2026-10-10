@@ -1,8 +1,6 @@
 //! What `ambition.boss.conduct` gives a conductor, read by a probe module
 //! bound to a boss built as the game builds it.
 
-use std::sync::Mutex;
-
 use ambition_boss_encounter::{BossClusterScratch, BossEncounterPhase};
 use ambition_boss_special_port::{BodyBox, BossConduct, BossConductPort};
 use ambition_characters::brain::BossAttackState;
@@ -23,10 +21,14 @@ struct Sim;
 
 const BEHAVIOUR: &str = "flying_spaghetti_monster";
 
-static SEEN: Mutex<Vec<BossConduct>> = Mutex::new(Vec::new());
+thread_local! {
+    // The schedule is single-threaded, so the probe runs on the test's thread.
+    static SEEN: std::cell::RefCell<Vec<BossConduct>> = const { std::cell::RefCell::new(Vec::new()) };
+}
 
 fn record(inv: &mut Invocation<'_>) -> Result<(), Fault> {
-    SEEN.lock().unwrap().push(inv.trigger::<BossConductPort>()?.clone());
+    let conduct = inv.trigger::<BossConductPort>()?.clone();
+    SEEN.with(|seen| seen.borrow_mut().push(conduct));
     Ok(())
 }
 
@@ -61,6 +63,9 @@ fn a_conductor_reads_the_boss_health_its_refusal_and_the_tracked_body_now() {
     let dt = 1.0 / 60.0;
     let mut app = App::new();
     app.init_schedule(Sim);
+    app.edit_schedule(Sim, |schedule| {
+        schedule.set_executor(bevy::ecs::schedule::SingleThreadedExecutor::new());
+    });
     app.add_message::<ambition_characters::brain::ActorActionMessage>()
         .add_message::<ambition_projectiles::ProjectileSpawnRequest>()
         .add_message::<ambition_vfx::EffectRequest>()
@@ -112,9 +117,8 @@ fn a_conductor_reads_the_boss_health_its_refusal_and_the_tracked_body_now() {
         ambition_boss_encounter::conduct::ConductedFacing::of_facing(kin.facing),
     ));
 
-    SEEN.lock().unwrap().clear();
     app.world_mut().run_schedule(Sim);
-    let seen = SEEN.lock().unwrap().clone();
+    let seen = SEEN.with(|seen| seen.borrow().clone());
     assert_eq!(seen.len(), 1, "the probe ran once: {seen:?}");
     let conduct = &seen[0];
     assert_eq!(conduct.health, health);

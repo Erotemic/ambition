@@ -37,6 +37,21 @@ desktop_dev = [
     "mimalloc_alloc",
 ]
 
+# The build a player gets (`scripts/package_single_exe.py`): the window, no
+# developer tools, and the maps and the content data compiled in, because no
+# source tree is beside the program. It is the `android` set with the desktop
+# platform. The art, the music and the sound bank are written after the
+# program in the same file (`ambition_asset_manager::exe_bundle`).
+desktop_player = [
+    "visible",
+    "desktop_platform",
+    "mobile_touch",
+    "rl_sim",
+    "static_map",
+    "static_content",
+    "mimalloc_alloc",
+]
+
 # Swap the game binary's global allocator to mimalloc. Opt-in so profiling
 # can A/B it: `./run_game.sh --features mimalloc_alloc`.
 mimalloc_alloc = ["dep:mimalloc"]

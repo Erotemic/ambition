@@ -147,6 +147,12 @@ pub struct Platformer2dAssetCatalogInputs {
 pub struct Platformer2dAssetCatalog {
     catalog: AmbitionAssetCatalog,
     profile: AssetProfile,
+    /// The asset tree inside the running program, when it carries one
+    /// ([`crate::exe_bundle`]). Then that tree is the only one: the catalog
+    /// looks for no asset on the disk. The directory of the checkout is an
+    /// absolute path of the machine that built the program, and a file found
+    /// there is a file the player does not have.
+    exe_bundle: Option<&'static crate::exe_bundle::ExeBundle>,
 }
 
 impl Platformer2dAssetCatalog {
@@ -155,7 +161,24 @@ impl Platformer2dAssetCatalog {
     /// production code; this is the seam for unit tests that author
     /// a partial manifest.
     pub fn new(catalog: AmbitionAssetCatalog, profile: AssetProfile) -> Self {
-        Self { catalog, profile }
+        Self {
+            catalog,
+            profile,
+            exe_bundle: crate::exe_bundle::ExeBundle::of_running_exe(),
+        }
+    }
+
+    /// The same catalog with `bundle` as the asset tree of the program, or
+    /// with none. [`Self::new`] reads it from the running program; this is
+    /// the seam for a test, which cannot be a packaged program.
+    pub fn with_exe_bundle(mut self, bundle: Option<&'static crate::exe_bundle::ExeBundle>) -> Self {
+        self.exe_bundle = bundle;
+        self
+    }
+
+    /// The asset tree inside the running program, when it carries one.
+    pub fn exe_bundle(&self) -> Option<&'static crate::exe_bundle::ExeBundle> {
+        self.exe_bundle
     }
 
     pub fn catalog(&self) -> &AmbitionAssetCatalog {
@@ -260,7 +283,13 @@ impl Platformer2dAssetCatalog {
                     // cannot see inside a source, so let the reader answer, as
                     // the Android/iOS arms do.
                     || is_source_qualified(path)
-                    || self.resolve_local_file_path(path).is_some()
+                    // A packaged game holds its asset tree inside its own
+                    // file, and that tree is the whole answer: the walk of
+                    // the disk does not run (`resolve_local_file_path`).
+                    || match self.exe_bundle {
+                        Some(bundle) => bundle.contains(path),
+                        None => self.resolve_local_file_path(path).is_some(),
+                    }
             }
             AssetProfile::AndroidBundle | AssetProfile::IosBundle => true,
             AssetProfile::WebStatic | AssetProfile::BundledStatic => {
@@ -328,6 +357,12 @@ impl Platformer2dAssetCatalog {
                 | AssetProfile::DesktopInstalled
                 | AssetProfile::SteamDeckInstalled
         ) {
+            return None;
+        }
+        // A packaged game has no asset file on the disk. Its assets are in
+        // its own file, and a caller that needs bytes reads them from
+        // [`Self::exe_bundle`].
+        if self.exe_bundle.is_some() {
             return None;
         }
         desktop_candidate_roots(rel)
@@ -439,7 +474,11 @@ pub fn build_sandbox_catalog_with(
     extend: impl FnOnce(&mut AssetManifest),
 ) -> Platformer2dAssetCatalog {
     let mut manifest = image_manifest;
-    extend_with_world_entries(&mut manifest, &inputs.worlds);
+    extend_with_world_entries(
+        &mut manifest,
+        &inputs.worlds,
+        crate::exe_bundle::ExeBundle::of_running_exe().is_some(),
+    );
     extend_with_data_entries(&mut manifest);
     extend_with_sfx_bank_entry(&mut manifest);
     extend_with_font_entries(&mut manifest);
@@ -564,5 +603,145 @@ mod authored_path_tests {
                 "a scaled sibling was invented inside somebody else's asset source"
             );
         }
+    }
+}
+
+/// A program that carries its asset tree reads no asset from the disk.
+///
+/// The packager checks the same rule on the real file: it runs the Linux
+/// program under strace and refuses it for one open outside itself. These
+/// arms hold the rule where a change to the catalog shows it first.
+#[cfg(test)]
+mod packaged_program_tests {
+    use super::*;
+    use crate::exe_bundle::{write_bundle, ExeBundle};
+    use crate::{AssetEntry, AssetKind};
+
+    /// A tracked file of the engine tree: on the disk of each checkout.
+    const ON_THE_DISK: &str = "ambition/platformer_defaults.ron";
+    /// A path no checkout has.
+    const IN_THE_BUNDLE: &str = "sprites/only_the_packaged_program_has_this.png";
+
+    fn bundle_with(files: &[(&str, &[u8])]) -> &'static ExeBundle {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let exe = dir.path().join("game");
+        write_bundle(b"program", files, &exe).expect("the bundle is written");
+        let bundle = ExeBundle::open(&exe).expect("the file is read").expect("the file carries a bundle");
+        // The catalog holds the bundle of the running program, which lives as
+        // long as the program. The index is in memory, so these arms do not
+        // read the file again.
+        Box::leak(Box::new(bundle))
+    }
+
+    fn catalog() -> Platformer2dAssetCatalog {
+        let mut manifest = AssetManifest::new();
+        manifest.insert(AssetEntry::new("test.on_the_disk", AssetKind::RonData, ON_THE_DISK));
+        manifest.insert(AssetEntry::new("test.in_the_bundle", AssetKind::Image, IN_THE_BUNDLE));
+        // A smaller quality tier of the bundle's file. The packager leaves
+        // the tiers out, and the checkout that built the program has them.
+        manifest.insert(AssetEntry::new("test.in_the_bundle.0_5x", AssetKind::RonData, ON_THE_DISK));
+        Platformer2dAssetCatalog::new(AmbitionAssetCatalog::new(manifest), AssetProfile::DesktopDevLoose)
+    }
+
+    #[test]
+    fn a_development_build_finds_its_assets_on_the_disk() {
+        let catalog = catalog().with_exe_bundle(None);
+        assert_eq!(
+            catalog.try_path_for_load(&AssetId::new("test.on_the_disk")).as_deref(),
+            Some(ON_THE_DISK),
+            "the control: this file is in the checkout, and the arms below \
+             prove nothing if a development build does not find it"
+        );
+        assert!(catalog.resolve_local_file_path(ON_THE_DISK).is_some());
+        assert_eq!(catalog.try_path_for_load(&AssetId::new("test.in_the_bundle")), None);
+    }
+
+    #[test]
+    fn a_packaged_program_loads_what_its_bundle_holds() {
+        let catalog = catalog().with_exe_bundle(Some(bundle_with(&[(IN_THE_BUNDLE, b"png")])));
+        assert_eq!(
+            catalog.try_path_for_load(&AssetId::new("test.in_the_bundle")).as_deref(),
+            Some(IN_THE_BUNDLE)
+        );
+    }
+
+    #[test]
+    fn a_packaged_program_does_not_find_a_file_of_the_checkout() {
+        let catalog = catalog().with_exe_bundle(Some(bundle_with(&[(IN_THE_BUNDLE, b"png")])));
+        assert_eq!(
+            catalog.try_path_for_load(&AssetId::new("test.on_the_disk")),
+            None,
+            "the file is on the disk of the machine that built the program, \
+             and the player does not have that disk"
+        );
+        assert_eq!(catalog.resolve_local_file_path(ON_THE_DISK), None);
+    }
+
+    /// The packager leaves the smaller quality tiers out. A player who
+    /// selects a lower quality must get the full-resolution file. On the
+    /// machine that built the program the tier file is in the checkout: if
+    /// the catalog finds it there, it hands the loader a path the bundle
+    /// does not hold, and the sprite does not draw.
+    #[test]
+    fn an_absent_tier_falls_back_to_the_full_resolution_file() {
+        let id = AssetId::new("test.in_the_bundle");
+        let packaged = catalog().with_exe_bundle(Some(bundle_with(&[(IN_THE_BUNDLE, b"png")])));
+        assert_eq!(
+            packaged.try_quality_path_for_load(&id, Some("0_5x"), true).as_deref(),
+            Some(IN_THE_BUNDLE)
+        );
+        let with_the_tier = catalog().with_exe_bundle(Some(bundle_with(&[
+            (IN_THE_BUNDLE, b"png"),
+            (ON_THE_DISK, b"the tier"),
+        ])));
+        assert_eq!(
+            with_the_tier.try_quality_path_for_load(&id, Some("0_5x"), true).as_deref(),
+            Some(ON_THE_DISK),
+            "a bundle that holds the tier serves the tier"
+        );
+    }
+
+    fn world_location(row: WorldCatalogRow, program_carries_assets: bool) -> ResolvedAsset {
+        let id = row.id.clone();
+        let mut manifest = AssetManifest::new();
+        extend_with_world_entries(&mut manifest, &[row], program_carries_assets);
+        AmbitionAssetCatalog::new(manifest)
+            .resolve(&id, AssetProfile::DesktopDevLoose)
+            .expect("the world resolves")
+    }
+
+    fn world_row(embedded_bevy_path: Option<&'static str>) -> WorldCatalogRow {
+        WorldCatalogRow {
+            id: AssetId::new("world.test"),
+            asset_path: "game://worlds/test.ldtk".to_string(),
+            required: true,
+            loose_path: Some(PathBuf::from("/the/build/machine/worlds/test.ldtk")),
+            embedded_bevy_path,
+        }
+    }
+
+    #[test]
+    fn a_development_build_reads_its_world_from_the_checkout() {
+        let resolved = world_location(world_row(Some("game/worlds/test.ldtk")), false);
+        assert_eq!(
+            resolved.location.as_local_path(),
+            Some(std::path::Path::new("/the/build/machine/worlds/test.ldtk"))
+        );
+    }
+
+    #[test]
+    fn a_packaged_program_reads_its_embedded_world_and_not_the_checkout() {
+        let resolved = world_location(world_row(Some("game/worlds/test.ldtk")), true);
+        assert_eq!(resolved.location.as_local_path(), None);
+        assert_eq!(resolved.source_used, Some(AssetSourceProfile::EmbeddedBinary));
+    }
+
+    /// With no embedded copy the loose path is the only candidate. To drop
+    /// it would make the world resolve to nothing with no message; kept, the
+    /// loader says which file it did not find.
+    #[test]
+    fn a_world_with_no_embedded_copy_keeps_its_loose_path() {
+        let resolved = world_location(world_row(None), true);
+        assert!(resolved.location.as_local_path().is_some());
     }
 }

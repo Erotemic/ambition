@@ -938,6 +938,12 @@ fn a_door_under_a_peer_session_commits_on_each_peer_and_so_does_the_next() {
     // GGRS times its handshake retries on the wall clock, so the second part
     // is not the same in each run; the band holds the measured range with
     // room, and it fails on a freeze of seconds.
+    //
+    // The first part is not the same on a loaded machine: measured 2026-10-09
+    // in the full lane beside a 30-process render (load average 23),
+    // (10..17, 22..32), and the band of 14 that held the first measurement
+    // failed. The band of the first part is now one second of updates, which
+    // is the claim: a crossing does not hold a peer for seconds.
     let held: Vec<(u32, u32)> = outcome
         .crossings
         .iter()
@@ -945,7 +951,7 @@ fn a_door_under_a_peer_session_commits_on_each_peer_and_so_does_the_next() {
         .map(|crossing| crossing.freeze_in_updates().expect("each crossing committed and resumed"))
         .collect();
     assert!(
-        held.iter().all(|(to_commit, handshake)| (1..=14).contains(to_commit) && (10..=70).contains(handshake)),
+        held.iter().all(|(to_commit, handshake)| (1..=60).contains(to_commit) && (10..=70).contains(handshake)),
         "(updates frozen until the commit, updates of the handshake) of each \
          crossing on each peer: {held:?}"
     );

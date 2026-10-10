@@ -929,7 +929,14 @@ pub fn build_visible_app_with(
 ) -> App {
     let asset_config = GameAssetConfig::from_args();
     let asset_root = desktop_asset_root();
-    eprintln!("ambition_app: asset root = {asset_root}");
+    match ambition_platformer2d::asset_manager::exe_bundle::ExeBundle::of_running_exe() {
+        Some(bundle) => eprintln!(
+            "ambition_app: assets = {} files inside {}",
+            bundle.len(),
+            bundle.file().display()
+        ),
+        None => eprintln!("ambition_app: asset root = {asset_root}"),
+    }
     let mut app = App::new();
     // The simulation host, the boot curtain, and every other game-side choice
     // are made once for all platforms by `compose_ambition_visible_game` at the
@@ -973,7 +980,19 @@ pub fn build_visible_app_with(
     // tile-render spine loads content-owned files without the engine's
     // asset root ever containing a world. Must register before
     // DefaultPlugins builds AssetPlugin.
-    app.register_asset_source("game", game_asset_source_builder());
+    //
+    // A PACKAGED GAME HOLDS ITS ASSET TREE INSIDE ITS OWN FILE
+    // (`asset_manager::exe_bundle`). That tree is the one flat `assets/` tree
+    // of a packaged build, so the default source and `game://` are the same
+    // reader, and no root on the disk is read. `file_path` below is then not
+    // used: the default source is registered here first.
+    if let Some(bundle) = ambition_platformer2d::asset_manager::exe_bundle::ExeBundle::of_running_exe() {
+        use ambition_platformer2d::asset_manager::exe_bundle::exe_bundle_asset_source;
+        app.register_asset_source(bevy::asset::io::AssetSourceId::Default, exe_bundle_asset_source(bundle));
+        app.register_asset_source("game", exe_bundle_asset_source(bundle));
+    } else {
+        app.register_asset_source("game", game_asset_source_builder());
+    }
     let plugins = DefaultPlugins
         .set(ambition_log_plugin())
         .set(ambition_task_pool_plugin())

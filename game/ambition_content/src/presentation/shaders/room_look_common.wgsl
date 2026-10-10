@@ -35,9 +35,19 @@ fn value_noise(p: vec2<f32>, scale: f32, salt: u32) -> f32 {
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-/// 1.0 inside the silhouette of a row of far towers. `room_h` is the room
-/// height: the towers stand on the room floor.
-fn towers(q: vec2<f32>, period: f32, salt: u32, room_h: f32) -> f32 {
+/// How much of a point is inside an edge that is `soft` px wide, where `d` is
+/// the distance of the point into the shape. A `soft` of 0.0 is a hard edge.
+/// The far architecture takes its blur from this: a thing that is behind the
+/// play is out of focus.
+fn soft_edge(d: f32, soft: f32) -> f32 {
+    let half = max(soft, 0.001) * 0.5;
+    return smoothstep(-half, half, d);
+}
+
+/// How much of `q` is inside the silhouette of a row of far towers, 0..1.
+/// `room_h` is the room height: the towers stand on the room floor. `soft` is
+/// the width of the edge of the silhouette in px.
+fn towers(q: vec2<f32>, period: f32, salt: u32, room_h: f32, soft: f32) -> f32 {
     let i = floor(q.x / period);
     let r = rand_cell(vec2<f32>(i, 0.0), salt);
     let r2 = rand_cell(vec2<f32>(i, 1.0), salt);
@@ -46,39 +56,43 @@ fn towers(q: vec2<f32>, period: f32, salt: u32, room_h: f32) -> f32 {
     let top = room_h * (0.10 + 0.72 * r);
     let dx = abs(q.x - cx);
     let spire_h = 50.0 + 90.0 * r2;
-    let body = dx < half_w && q.y > top;
-    let cap = dx < half_w + 7.0 && q.y > top - 12.0 && q.y <= top;
+    let body = soft_edge(half_w - dx, soft) * soft_edge(q.y - top, soft);
+    let cap = soft_edge(half_w + 7.0 - dx, soft) * soft_edge(q.y - (top - 12.0), soft) * soft_edge(top - q.y, soft);
     let up = (q.y - (top - 12.0 - spire_h)) / spire_h;
-    let spire = q.y <= top - 12.0 && up > 0.0 && dx < (half_w - 4.0) * up;
+    let spire = soft_edge((half_w - 4.0) * up - dx, soft) * soft_edge(top - 12.0 - q.y, soft);
     // An arched window row, so the tower is not a plain bar.
     let wy = (q.y - top - 40.0) % 150.0;
-    let window = body && dx < half_w * 0.34 && wy > 0.0 && wy < 46.0 && q.y > top + 40.0
-        && (wy > half_w * 0.34 || length(vec2<f32>(dx, wy - half_w * 0.34)) < half_w * 0.34);
-    return select(0.0, 1.0, (body || cap || spire) && !window);
+    let wr = half_w * 0.34;
+    let arch = max(soft_edge(wy - wr, soft), soft_edge(wr - length(vec2<f32>(dx, wy - wr)), soft));
+    let window = soft_edge(wr - dx, soft) * soft_edge(wy, soft) * soft_edge(46.0 - wy, soft)
+        * soft_edge(q.y - (top + 40.0), soft) * arch;
+    return max(max(body, cap), spire) * (1.0 - window);
 }
 
-/// 1.0 inside a viaduct: tiers of round arches on piers, every 620 px of
-/// height.
-fn arcade(q: vec2<f32>) -> f32 {
+/// How much of `q` is inside a viaduct, 0..1: tiers of round arches on piers,
+/// every 470 px of height. `soft` is the width of its edge in px.
+fn arcade(q: vec2<f32>, soft: f32) -> f32 {
     let tier_h = 470.0;
     let tier = floor(q.y / tier_h);
     if rand_cell(vec2<f32>(tier, 7.0), 26u) < 0.18 {
         return 0.0;
     }
     let y = q.y - tier * tier_h - 120.0;
-    if y < 0.0 || y > 250.0 {
+    let band = soft_edge(y, soft) * soft_edge(250.0 - y, soft);
+    if band <= 0.0 {
         return 0.0;
     }
-    // The deck, then arches below it.
-    if y < 26.0 {
-        return select(1.0, 0.0, y > 8.0 && y < 12.0);
-    }
+    // The deck, with a groove in it, then arches below it.
+    let deck = 1.0 - soft_edge(y - 8.0, soft) * soft_edge(12.0 - y, soft);
     let span = 190.0;
     let x = q.x - floor(q.x / span) * span - span * 0.5;
     let radius = span * 0.5 - 20.0;
     let spring = 26.0 + radius + 10.0;
-    let open = (y > spring && abs(x) < radius) || length(vec2<f32>(x, y - spring)) < radius;
-    return select(1.0, 0.0, open);
+    let open = max(
+        soft_edge(y - spring, soft) * soft_edge(radius - abs(x), soft),
+        soft_edge(radius - length(vec2<f32>(x, y - spring)), soft),
+    );
+    return band * mix(deck, 1.0 - open, soft_edge(y - 26.0, soft));
 }
 
 /// Distance to the nearest construction line of the sky: rings and axes on a
@@ -110,9 +124,10 @@ fn sky_line_distance(q: vec2<f32>, turn: f32) -> f32 {
 }
 
 /// A floating island on a sparse lattice: a flat top and steps that go in
-/// below it. `x` = 1.0 inside the island, `y` = the depth below its top in px,
-/// `z` = a value in [0, 1) for the island.
-fn island(q: vec2<f32>) -> vec3<f32> {
+/// below it. `x` = how much of `q` is inside the island (0..1), `y` = the
+/// depth below its top in px, `z` = a value in [0, 1) for the island. `soft`
+/// is the width of its edge in px.
+fn island(q: vec2<f32>, soft: f32) -> vec3<f32> {
     let period = vec2<f32>(300.0, 230.0);
     let cell = floor(q / period);
     let r = rand_cell(cell, 60u);
@@ -123,14 +138,19 @@ fn island(q: vec2<f32>) -> vec3<f32> {
     let half_w = 26.0 + 44.0 * rand_cell(cell, 63u);
     let depth = half_w * (0.9 + 0.6 * rand_cell(cell, 64u));
     let o = q - centre;
-    if o.y < 0.0 || o.y > depth || abs(o.x) > half_w {
+    if o.y < -soft || o.y > depth + soft || abs(o.x) > half_w + soft {
         return vec3<f32>(0.0);
     }
-    let k = floor(o.y / 12.0) * 12.0 / depth;
-    if abs(o.x) > half_w * (1.0 - k) * (1.0 - 0.25 * k) {
-        return vec3<f32>(0.0);
-    }
-    return vec3<f32>(1.0, o.y, r / 0.42);
+    // A step each 12 px. Between two steps the width goes from one to the
+    // other across the soft edge.
+    let g = o.y / 12.0 - 0.5;
+    let n = floor(g);
+    let t = soft_edge((g - n - 0.5) * 12.0, soft);
+    let k0 = max(n, 0.0) * 12.0 / depth;
+    let k1 = (n + 1.0) * 12.0 / depth;
+    let width = mix(half_w * (1.0 - k0) * (1.0 - 0.25 * k0), half_w * (1.0 - k1) * (1.0 - 0.25 * k1), t);
+    let cover = soft_edge(o.y, soft) * soft_edge(depth - o.y, soft) * soft_edge(width - abs(o.x), soft);
+    return vec3<f32>(cover, o.y, r / 0.42);
 }
 
 /// `a` modulo `b`, in `[0, b)` for a negative `a` also.

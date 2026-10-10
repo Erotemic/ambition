@@ -21,7 +21,6 @@ use ambition_platformer2d_shared_tangle::orientation::ActorRoll;
 use ambition_portal2d::pieces as pp;
 use ambition_portal2d::{
     copy_transform, find_portal, PlacedPortal, PortalGunPickup, PortalInputWarp, PortalShot,
-    PortalTransit,
 };
 
 use crate::clip_material::{
@@ -112,7 +111,9 @@ pub fn sync_portal_disorientation_indicator(
 /// gun) are not decomposed; a hit flash mid-transit draws the whole silhouette
 /// unclipped for its few frames.
 ///
-/// Operates on the host-tagged [`PortalSceneBody`] visual entity.
+/// Operates on each host-tagged [`PortalSceneBody`] visual entity that the
+/// host says is straddling a portal ([`crate::PortalTransitView`]): the
+/// player, an NPC, a dog. Each body that crosses is cut the same way.
 pub fn sync_portal_body_pieces(
     mut commands: Commands,
     frames: PortalFrames,
@@ -120,14 +121,14 @@ pub fn sync_portal_body_pieces(
     portals: Query<(Entity, &PlacedPortal)>,
     images: Option<Res<Assets<Image>>>,
     layouts: Option<Res<Assets<TextureAtlasLayout>>>,
-    meshes: Option<ResMut<Assets<Mesh>>>,
-    clip_materials: Option<ResMut<Assets<PortalClipMaterial>>>,
+    mut meshes: Option<ResMut<Assets<Mesh>>>,
+    mut clip_materials: Option<ResMut<Assets<PortalClipMaterial>>>,
     mut unit_mesh: Local<Option<Handle<Mesh>>>,
-    body_visual: Query<
+    body_visuals: Query<
         (
             Entity,
             &crate::PortalBodyView,
-            Option<&PortalTransit>,
+            Option<&crate::PortalTransitView>,
             Option<&ActorRoll>,
             &Sprite,
             Option<&Anchor>,
@@ -145,175 +146,171 @@ pub fn sync_portal_body_pieces(
     for entity in &pieces {
         commands.entity(entity).despawn();
     }
-    let Ok((source_body, kin, transit, roll, sprite, source_anchor, source_transform)) =
-        body_visual.single()
-    else {
-        return;
-    };
-    // Outside transit the real character sprite shows whole; the pieces are a
-    // transit-only replacement. Withdraw the reason instead of writing
-    // `Visibility`, so the far-side compositor's hide is not overruled:
-    // `resolve_portal_source_visibility` shows the body only when no reason
-    // remains.
-    commands
-        .entity(source_body)
-        .remove::<crate::source_visibility::PortalTransitHidden>();
-    // The body is transiting exactly one portal — decompose against that pair.
-    let Some(transit) = transit else {
-        return;
-    };
-    // The body's own room: its frame, and the pair it is crossing in it.
-    let Some(placement) = frames.of(source_body) else {
-        return;
-    };
-    let frame = placement.frame;
     let by_room = frames.portals_by_room(portals.iter());
-    let all = by_room.in_room(Some(placement.room));
-    let (Some(enter_portal), Some(exit_portal)) = (
-        find_portal(all, transit.straddling),
-        find_portal(all, transit.straddling.partner()),
-    ) else {
-        return;
-    };
-    let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
-    // Decompose via the tested Core-invariant function so the pieces can never
-    // drift from the collision / gameplay decomposition.
-    let pieces = pp::compute_body_pieces(
-        body,
-        Some((enter_portal.aperture(), exit_portal.aperture())),
-        convention,
-    );
-    let Some(through) = pieces.through else {
-        // Touching a portal but nothing has crossed the plane yet.
-        return;
-    };
-    let (enter, exit) = (through.enter, through.exit);
-    let base_roll = roll.map_or(0.0, |r| r.angle);
+    for (source_body, kin, transit, roll, sprite, source_anchor, source_transform) in &body_visuals {
+        // Outside transit the real character sprite shows whole; the pieces are a
+        // transit-only replacement. Withdraw the reason instead of writing
+        // `Visibility`, so the far-side compositor's hide is not overruled:
+        // `resolve_portal_source_visibility` shows the body only when no reason
+        // remains.
+        commands
+            .entity(source_body)
+            .remove::<crate::source_visibility::PortalTransitHidden>();
+        // The body is transiting exactly one portal — decompose against that pair.
+        let Some(transit) = transit else {
+            continue;
+        };
+        // The body's own room: its frame, and the pair it is crossing in it.
+        let Some(placement) = frames.of(source_body) else {
+            continue;
+        };
+        let frame = placement.frame;
+        let all = by_room.in_room(Some(placement.room));
+        let (Some(enter_portal), Some(exit_portal)) = (
+            find_portal(all, transit.straddling),
+            find_portal(all, transit.straddling.partner()),
+        ) else {
+            continue;
+        };
+        let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
+        // Decompose via the tested Core-invariant function so the pieces can never
+        // drift from the collision / gameplay decomposition.
+        let pieces = pp::compute_body_pieces(
+            body,
+            Some((enter_portal.aperture(), exit_portal.aperture())),
+            convention,
+        );
+        let Some(through) = pieces.through else {
+            // Touching a portal but nothing has crossed the plane yet.
+            continue;
+        };
+        let (enter, exit) = (through.enter, through.exit);
+        // The roll the host states, and for a body with none stated, the roll
+        // its sprite is drawn with.
+        let base_roll = roll.map_or_else(|| source_transform.rotation.to_euler(EulerRot::ZYX).0, |r| r.angle);
 
-    // The through pose: the sprite emerging from the exit, placed by the BODY
-    // map exactly. The active convention decides whether that map factors as a
-    // pure rotation or as rotation plus one x-reflection.
-    let exit_center = pp::map_point(kin.pos, &enter.frame, &exit.frame, convention);
-    let copy = copy_transform(&enter.frame, &exit.frame, convention);
-    let exit_roll = base_roll + copy.roll;
-    // `apply_character_frame` has already mirrored the anchor to match the
-    // source sprite's current `flip_x` value. If the portal copy toggles the
-    // sprite flip, mirror the anchor too; otherwise trimmed/off-centre frames
-    // render from the wrong basis and can look stretched or scaled as the
-    // copy emerges.
-    let source_anchor_v = source_anchor.map_or(Vec2::ZERO, |a| a.0);
-    let mut through_flip = sprite.flip_x;
-    let mut through_anchor = source_anchor_v;
-    if copy.flip_x {
-        through_flip = !through_flip;
-        through_anchor.x = -through_anchor.x;
-    }
-
-    // Texture-clipped piece path: both charts as clip-material quads, on the
-    // WORLD layer so portal captures photograph them — through a DISJOINT
-    // pair's window you must see your own copy emerging (the wormhole view).
-    // The `here` slice draws at the body's z; the `through` slice sits just
-    // below the window band: where a wormhole pane covers its region, the
-    // pane's captured copy is the one image shown; where no pane covers it,
-    // the direct draw shows. At a DOORWAY pair no pane ever covers either
-    // slice — the pane is clipped to the wall slab (see the doorway clamp in
-    // `compute_cone`) and the slices are clipped to be OUTSIDE the slab — so
-    // both slices draw direct and crisp, and the chart swap at the centroid
-    // snap trades like for like: nothing pops.
-    let mut drew_clipped = false;
-    if let (Some(images), Some(layouts), Some(mut meshes), Some(mut materials)) =
-        (images, layouts, meshes, clip_materials)
-    {
-        if let Some(basis) = sprite_frame_basis(sprite, &layouts, &images) {
-            let mesh = unit_mesh
-                .get_or_insert_with(|| meshes.add(Rectangle::default()))
-                .clone();
-            let tint = crate::piece_tint(sprite);
-            let flip_flag = |flip: bool| Vec4::new(if flip { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0);
-
-            // `here`: the real pose, keeping only what is still in front of
-            // the entry plane (the sunk slice belongs to the exit chart).
-            commands.spawn((
-                PortalBodyPiece,
-                Mesh2d(mesh.clone()),
-                MeshMaterial2d(materials.add(PortalClipMaterial {
-                    uv_rect: basis.uv_rect,
-                    control: flip_flag(sprite.flip_x),
-                    tint,
-                    clip0: clip_plane_render(&frame, enter.frame.origin, enter.frame.normal),
-                    clip1: CLIP_PLANE_OFF,
-                    clip2: CLIP_PLANE_OFF,
-                    color_texture: sprite.image.clone(),
-                })),
-                clip_piece_transform(source_transform, source_anchor_v, basis.size),
-                placement.stamp(),
-                Name::new("Portal body piece (here)"),
-            ));
-
-            // `through`: the mapped pose, keeping only what has emerged in
-            // front of the exit plane, laterally bounded by the doorway.
-            let through_base = Transform {
-                translation: frame.to_render(exit_center, crate::PORTAL_EXIT_COPY_Z),
-                rotation: Quat::from_rotation_z(exit_roll),
-                scale: source_transform.scale,
-            };
-            let along = Vec2::new(-exit.frame.normal.y, exit.frame.normal.x);
-            let aperture_half = exit.half_length;
-            commands.spawn((
-                PortalBodyPiece,
-                Mesh2d(mesh),
-                MeshMaterial2d(materials.add(PortalClipMaterial {
-                    uv_rect: basis.uv_rect,
-                    control: flip_flag(through_flip),
-                    tint,
-                    clip0: clip_plane_render(&frame, exit.frame.origin, exit.frame.normal),
-                    clip1: clip_plane_render(
-                        &frame,
-                        exit.frame.origin - along * aperture_half,
-                        along,
-                    ),
-                    clip2: clip_plane_render(
-                        &frame,
-                        exit.frame.origin + along * aperture_half,
-                        -along,
-                    ),
-                    color_texture: sprite.image.clone(),
-                })),
-                clip_piece_transform(&through_base, through_anchor, basis.size),
-                placement.stamp(),
-                Name::new("Portal body piece (through)"),
-            ));
-
-            // The pieces ARE the body this frame — the whole real sprite would
-            // re-add the sunk slice (the pop this path exists to remove).
-            commands
-                .entity(source_body)
-                .insert(crate::source_visibility::PortalTransitHidden);
-            drew_clipped = true;
+        // The through pose: the sprite emerging from the exit, placed by the BODY
+        // map exactly. The active convention decides whether that map factors as a
+        // pure rotation or as rotation plus one x-reflection.
+        let exit_center = pp::map_point(kin.pos, &enter.frame, &exit.frame, convention);
+        let copy = copy_transform(&enter.frame, &exit.frame, convention);
+        let exit_roll = base_roll + copy.roll;
+        // `apply_character_frame` has already mirrored the anchor to match the
+        // source sprite's current `flip_x` value. If the portal copy toggles the
+        // sprite flip, mirror the anchor too; otherwise trimmed/off-centre frames
+        // render from the wrong basis and can look stretched or scaled as the
+        // copy emerges.
+        let source_anchor_v = source_anchor.map_or(Vec2::ZERO, |a| a.0);
+        let mut through_flip = sprite.flip_x;
+        let mut through_anchor = source_anchor_v;
+        if copy.flip_x {
+            through_flip = !through_flip;
+            through_anchor.x = -through_anchor.x;
         }
-    }
 
-    if !drew_clipped {
-        // Fallback (texture not loaded / headless host): visible real sprite +
-        // unclipped whole-sprite exit copy, just BELOW the view window — an
-        // open window captures the copy on the far side (one seamless body)
-        // and hides the redundant world draw behind itself; a closed window
-        // leaves it as the emerging-body visual over the rim. See
-        // [`crate::PORTAL_EXIT_COPY_Z`].
-        let mut exit_sprite = sprite.clone();
-        exit_sprite.flip_x = through_flip;
-        let exit_translation = frame.to_render(exit_center, crate::PORTAL_EXIT_COPY_Z);
-        let exit_transform = Transform::from_translation(exit_translation)
-            .with_rotation(Quat::from_rotation_z(exit_roll))
-            .with_scale(source_transform.scale);
-        commands.spawn((
-            PortalBodyPiece,
-            exit_sprite,
-            exit_transform,
-            Anchor(through_anchor),
-            placement.stamp(),
-            Name::new("Portal body copy (exit)"),
-        ));
+        // Texture-clipped piece path: both charts as clip-material quads, on the
+        // WORLD layer so portal captures photograph them: through a pair's
+        // window you see your own copy emerging. The `here` slice draws at the
+        // body's z. The `through` slice sits just below the window band: where
+        // the pane covers its region, the pane's captured copy is the one
+        // image shown, joined to the `here` slice at the seam; where no pane
+        // covers it, the direct draw shows. This is so for each pair, a door
+        // through a thin wall included (`view_cones::geometry::compute_cone`).
+        let mut drew_clipped = false;
+        if let (Some(images), Some(layouts), Some(meshes), Some(materials)) =
+            (images.as_deref(), layouts.as_deref(), meshes.as_deref_mut(), clip_materials.as_deref_mut())
+        {
+            if let Some(basis) = sprite_frame_basis(sprite, layouts, images) {
+                let mesh = unit_mesh
+                    .get_or_insert_with(|| meshes.add(Rectangle::default()))
+                    .clone();
+                let tint = crate::piece_tint(sprite);
+                let flip_flag = |flip: bool| Vec4::new(if flip { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0);
+
+                // `here`: the real pose, keeping only what is still in front of
+                // the entry plane (the sunk slice belongs to the exit chart).
+                commands.spawn((
+                    PortalBodyPiece,
+                    Mesh2d(mesh.clone()),
+                    MeshMaterial2d(materials.add(PortalClipMaterial {
+                        uv_rect: basis.uv_rect,
+                        control: flip_flag(sprite.flip_x),
+                        tint,
+                        clip0: clip_plane_render(&frame, enter.frame.origin, enter.frame.normal),
+                        clip1: CLIP_PLANE_OFF,
+                        clip2: CLIP_PLANE_OFF,
+                        color_texture: sprite.image.clone(),
+                    })),
+                    clip_piece_transform(source_transform, source_anchor_v, basis.size),
+                    placement.stamp(),
+                    Name::new("Portal body piece (here)"),
+                ));
+
+                // `through`: the mapped pose, keeping only what has emerged in
+                // front of the exit plane, laterally bounded by the doorway.
+                let through_base = Transform {
+                    translation: frame.to_render(exit_center, crate::PORTAL_EXIT_COPY_Z),
+                    rotation: Quat::from_rotation_z(exit_roll),
+                    scale: source_transform.scale,
+                };
+                let along = Vec2::new(-exit.frame.normal.y, exit.frame.normal.x);
+                let aperture_half = exit.half_length;
+                commands.spawn((
+                    PortalBodyPiece,
+                    Mesh2d(mesh),
+                    MeshMaterial2d(materials.add(PortalClipMaterial {
+                        uv_rect: basis.uv_rect,
+                        control: flip_flag(through_flip),
+                        tint,
+                        clip0: clip_plane_render(&frame, exit.frame.origin, exit.frame.normal),
+                        clip1: clip_plane_render(
+                            &frame,
+                            exit.frame.origin - along * aperture_half,
+                            along,
+                        ),
+                        clip2: clip_plane_render(
+                            &frame,
+                            exit.frame.origin + along * aperture_half,
+                            -along,
+                        ),
+                        color_texture: sprite.image.clone(),
+                    })),
+                    clip_piece_transform(&through_base, through_anchor, basis.size),
+                    placement.stamp(),
+                    Name::new("Portal body piece (through)"),
+                ));
+
+                // The pieces ARE the body this frame — the whole real sprite would
+                // re-add the sunk slice (the pop this path exists to remove).
+                commands
+                    .entity(source_body)
+                    .insert(crate::source_visibility::PortalTransitHidden);
+                drew_clipped = true;
+            }
+        }
+
+        if !drew_clipped {
+            // Fallback (texture not loaded / headless host): visible real sprite +
+            // unclipped whole-sprite exit copy, just BELOW the view window — an
+            // open window captures the copy on the far side (one seamless body)
+            // and hides the redundant world draw behind itself; a closed window
+            // leaves it as the emerging-body visual over the rim. See
+            // [`crate::PORTAL_EXIT_COPY_Z`].
+            let mut exit_sprite = sprite.clone();
+            exit_sprite.flip_x = through_flip;
+            let exit_translation = frame.to_render(exit_center, crate::PORTAL_EXIT_COPY_Z);
+            let exit_transform = Transform::from_translation(exit_translation)
+                .with_rotation(Quat::from_rotation_z(exit_roll))
+                .with_scale(source_transform.scale);
+            commands.spawn((
+                PortalBodyPiece,
+                exit_sprite,
+                exit_transform,
+                Anchor(through_anchor),
+                placement.stamp(),
+                Name::new("Portal body copy (exit)"),
+            ));
+        }
     }
 }
 

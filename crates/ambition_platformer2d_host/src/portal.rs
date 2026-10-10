@@ -15,7 +15,7 @@ mod host_adapter {
         PortalCameraContinuityConfig, PortalCameraContinuityFocus, PortalCameraContinuityHostView,
         PortalCameraContinuityState, PortalCameraTransitMode,
         PortalDebugOverlay, PortalFrames, PortalGunArt, PortalObservationSet, PortalSceneBody,
-        PortalViewer, PortalViewers,
+        PortalTransitView, PortalViewer, PortalViewers,
     };
 
     use ambition_platformer2d_core::RoomGeometry;
@@ -149,19 +149,97 @@ mod host_adapter {
     pub fn publish_portal_body_views(
         mut commands: Commands,
         bodies: Query<
-            (Entity, &BodyKinematics, Option<&ambition_platformer2d_core::SweepSample>),
+            (
+                Entity,
+                &BodyKinematics,
+                Option<&ambition_platformer2d_core::SweepSample>,
+                Option<&ambition_portal2d::PortalTransit>,
+                Has<PortalTransitView>,
+            ),
             Or<(With<PortalSceneBody>, With<PortalAffordanceBody>)>,
         >,
     ) {
+        for (entity, kin, last_step, transit, shown_in_transit) in &bodies {
+            commands.entity(entity).try_insert(body_view(kin, last_step));
+            // Whether it straddles a portal, for the piece builder.
+            match transit {
+                Some(transit) => {
+                    commands.entity(entity).try_insert(PortalTransitView { straddling: transit.straddling });
+                }
+                None if shown_in_transit => {
+                    commands.entity(entity).remove::<PortalTransitView>();
+                }
+                None => {}
+            }
+        }
+    }
+
+    /// The pose facts of one body, for [`PortalBodyView`].
+    fn body_view(kin: &BodyKinematics, last_step: Option<&ambition_platformer2d_core::SweepSample>) -> PortalBodyView {
         use ambition_platformer2d_core::AabbExt;
-        for (entity, kin, last_step) in &bodies {
-            commands.entity(entity).try_insert(PortalBodyView {
-                pos: kin.pos,
-                // The box the body has, turned as its last step turned it:
-                // the box the portal core transits.
-                size: kin.collision_box(last_step).half_size() * 2.0,
-                facing: kin.facing,
-            });
+        PortalBodyView {
+            pos: kin.pos,
+            // The box the body has, turned as its last step turned it: the box
+            // the portal core transits.
+            size: kin.collision_box(last_step).half_size() * 2.0,
+            facing: kin.facing,
+        }
+    }
+
+    /// Each body that crosses a portal is cut at the seam, not the player
+    /// only. A body that is not the player is drawn by another entity than
+    /// its own (a `FeatureVisual` with its id), so the facts the piece
+    /// builder cuts by are published onto that visual while its body
+    /// straddles a portal: the scene-body tag, the pose, and the transit.
+    ///
+    /// The tag and the pose stay after the transit (the piece builder gives
+    /// the whole sprite back on the frame after, and it visits tagged
+    /// visuals only). The transit fact goes when the transit ends.
+    ///
+    /// A visual is matched to a body by id in its own live room: two live
+    /// rooms can hold the same id.
+    pub fn publish_transiting_feature_bodies(
+        mut commands: Commands,
+        live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+        bodies: Query<(
+            Entity,
+            &ambition_combat::FeatureId,
+            &BodyKinematics,
+            Option<&ambition_platformer2d_core::SweepSample>,
+            &ambition_portal2d::PortalTransit,
+        )>,
+        visuals: Query<
+            (Entity, &ambition_render::rendering::FeatureVisual, Has<PortalTransitView>),
+            Without<PlayerVisual>,
+        >,
+    ) {
+        if bodies.is_empty() {
+            // No body is in transit: take the fact off each visual that has it.
+            for (visual, _, shown_in_transit) in &visuals {
+                if shown_in_transit {
+                    commands.entity(visual).remove::<PortalTransitView>();
+                }
+            }
+            return;
+        }
+        for (visual, feature, shown_in_transit) in &visuals {
+            let room = live.of(visual);
+            let body = bodies
+                .iter()
+                .find(|(body, id, ..)| id.0 == feature.id && live.of(*body) == room);
+            match body {
+                Some((_, _, kin, last_step, transit)) => {
+                    commands.entity(visual).try_insert((
+                        PortalSceneBody,
+                        body_view(kin, last_step),
+                        PortalTransitView { straddling: transit.straddling },
+                    ));
+                }
+                None if shown_in_transit => {
+                    commands.entity(visual).remove::<PortalTransitView>();
+                }
+                None => {}
+            }
         }
     }
 
@@ -441,38 +519,12 @@ mod host_adapter {
             );
             let correction = desired_camera_world - host_camera_world;
 
-            // Doorway gate: the screen-anchor is a deliberate hard CUT — it
-            // pins the body's screen position and jumps the camera (the whole
-            // visible world) to the exit side in one frame. That is right for
-            // a genuine teleport, but below `min_anchor_camera_cut` the pair
-            // is a thin-wall doorway: the transiting body's clipped pieces
-            // already tile continuously across the seam, so the seamless
-            // camera is the one that treats the crossing as a NON-EVENT and
-            // lets ordinary eased follow absorb the small authoritative snap.
-            // Engaging the anchor here lurched the world by the pair
-            // separation behind a pinned character (c136/c137).
-            let camera_cut = desired_camera_world - previous_host_camera_world;
-            if camera_cut.length() < config.min_anchor_camera_cut {
-                if config.debug_log {
-                    bevy::log::info!(
-                        target: "ambition_platformer2d::portal::camera",
-                        "portal camera continuity skip: doorway-scale cut body={:?} enter={:?} exit={:?} camera_cut=({:.1},{:.1}) |cut|={:.1} < min_anchor_camera_cut={:.1} — ordinary eased follow handles it",
-                        ev.body,
-                        enter_channel,
-                        exit_channel,
-                        camera_cut.x,
-                        camera_cut.y,
-                        camera_cut.length(),
-                        config.min_anchor_camera_cut,
-                    );
-                }
-                // Drop any previous anchor (this crossing supersedes the seam
-                // it preserved) and leave the ease state untouched: no cut, no
-                // mapped target, no release pop.
-                state.clear_effect();
-                continue;
-            }
-
+            // No pair is a special case: a door through a thin wall cuts as
+            // a teleport does. The cut is by the same translation the portal
+            // map is, and the view window shows the far side already joined
+            // to the near side at the seam, so the picture on screen is the
+            // same before and after it. With no cut, the whole picture would
+            // jump by the wall's thickness when the charts change over.
             let raw_roll = ambition_portal2d_presentation::camera_roll_for_portal_transit(
                 ev.enter_normal,
                 ev.exit_normal,
@@ -818,6 +870,9 @@ mod host_adapter {
                             publish_portal_body_views,
                         )
                             .chain(),
+                        // Each other body that crosses: its facts go onto the
+                        // visual that draws it.
+                        publish_transiting_feature_bodies,
                     )
                         .in_set(PortalObservationSet)
                         .run_if(
@@ -863,6 +918,59 @@ mod tests {
             size: Vec2::new(24.0, 40.0),
             facing: 1.0,
         }
+    }
+
+    /// A body that is not the player (a dog) is drawn by a visual with its
+    /// id. While the body straddles a portal the visual has the three facts
+    /// the piece builder cuts it by; when the transit ends the transit fact
+    /// goes and the tag stays, so the builder gives the whole sprite back. The
+    /// control is a second body that does not transit: its visual gets none.
+    #[test]
+    fn a_body_that_is_not_the_player_is_cut_while_it_is_in_transit() {
+        use super::host_adapter::publish_transiting_feature_bodies;
+        use ambition_portal2d::{PortalChannel, PortalChannelColor, PortalTransit};
+        use ambition_portal2d_presentation::{PortalSceneBody, PortalTransitView};
+        use ambition_render::rendering::FeatureVisual;
+        let mut app = App::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            RoomGeometry(ambition_platformer2d_core::World::new(
+                "portal transit room",
+                Vec2::new(1000.0, 600.0),
+                Vec2::new(500.0, 300.0),
+                Vec::new(),
+            )),
+        );
+        app.add_systems(Update, publish_transiting_feature_bodies);
+        let purple = PortalChannel::Authored(PortalChannelColor::Purple);
+        let dog = app
+            .world_mut()
+            .spawn((
+                ambition_combat::FeatureId("dog".into()),
+                body(Vec2::new(500.0, 300.0)),
+                PortalTransit { straddling: purple, crossed: false },
+            ))
+            .id();
+        app.world_mut().spawn((ambition_combat::FeatureId("cat".into()), body(Vec2::new(100.0, 300.0))));
+        let dog_visual = app.world_mut().spawn(FeatureVisual { id: "dog".into() }).id();
+        let cat_visual = app.world_mut().spawn(FeatureVisual { id: "cat".into() }).id();
+        app.update();
+
+        let world = app.world();
+        assert_eq!(world.get::<PortalTransitView>(dog_visual), Some(&PortalTransitView { straddling: purple }));
+        assert!(world.get::<PortalSceneBody>(dog_visual).is_some());
+        assert_eq!(world.get::<PortalBodyView>(dog_visual).map(|view| view.pos), Some(Vec2::new(500.0, 300.0)));
+        assert!(world.get::<PortalSceneBody>(cat_visual).is_none(), "a body that does not transit was tagged");
+        assert!(world.get::<PortalTransitView>(cat_visual).is_none());
+
+        app.world_mut().entity_mut(dog).remove::<PortalTransit>();
+        app.update();
+        let world = app.world();
+        assert!(world.get::<PortalTransitView>(dog_visual).is_none(), "the transit fact stayed after the transit");
+        assert!(
+            world.get::<PortalSceneBody>(dog_visual).is_some(),
+            "the tag went with the transit, so the piece builder cannot give the sprite back"
+        );
     }
 
     /// The portal affordances (held gun, disorientation indicator) follow the
@@ -1149,7 +1257,7 @@ mod tests {
 
 pub use host_adapter::{
     apply_portal_camera_continuity, load_portal_gun_art, portal_dev_toggle_system,
-    publish_portal_body_views, sync_portal_camera_continuity_focus,
+    publish_portal_body_views, publish_transiting_feature_bodies, sync_portal_camera_continuity_focus,
     sync_portal_debug_overlay_to_f1, sync_portal_viewer,
     tag_portal_affordance_body, tag_portal_camera_continuity_camera, tag_portal_scene_bodies,
     PortalContinuityCameraTagged, PortalObservationPlugin,

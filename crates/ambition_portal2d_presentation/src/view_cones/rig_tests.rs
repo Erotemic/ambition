@@ -290,3 +290,59 @@ fn a_live_room_has_the_eye_of_the_first_observer_the_host_publishes() {
     viewers.clear();
     assert!(viewers.first().is_none());
 }
+
+/// A window that closes is still the near one or the far one. The viewer
+/// stands at the left face of a door through a thin wall, and then at the
+/// right face: the left window closes (the wall hides its face), and it is the
+/// far one now, so the left portal's frame is drawn under the right window's
+/// glass. A closed window kept its old answer, and its frame was drawn over
+/// its partner's takeover. The control is the first stand, where the answers
+/// are the other way round.
+#[test]
+fn a_window_that_closed_when_the_viewer_crossed_is_the_far_pane() {
+    let mut app = App::new();
+    crate::one_live_room(&mut app, WORLD);
+    app.insert_resource(Assets::<Image>::default())
+        .insert_resource(Assets::<Mesh>::default())
+        .insert_resource(Assets::<ColorMaterial>::default())
+        .insert_resource(crate::PortalEffectSelection {
+            active: crate::PortalVisualEffect::ViewCones,
+        })
+        .init_resource::<PortalViewConeConfig>()
+        .init_resource::<PortalCaptureQualityBudget>()
+        .init_resource::<Time>();
+    let (left, right) = thin_wall_pair();
+    let (left_channel, right_channel) = (left.channel, right.channel);
+    app.world_mut().spawn(left);
+    app.world_mut().spawn(right);
+    let wall = ae::Aabb::new(Vec2::new(516.0, 300.0), Vec2::new(16.0, 300.0));
+    app.add_systems(Update, sync_portal_view_cones);
+    let near_panes = |app: &mut App, eye_x: f32| {
+        app.insert_resource(PortalViewers::one(PortalViewer {
+            present: true,
+            eye: Vec2::new(eye_x, 300.0),
+            room: Some(LiveRoomInstance::ACTIVATION),
+            half_size: Vec2::splat(12.0),
+            occluders: vec![wall],
+            ..default()
+        }));
+        app.update();
+        app.update();
+        let room = LiveRoomInstance::ACTIVATION;
+        let mut near_of = |channel| {
+            app.world_mut()
+                .query::<&PortalViewRig>()
+                .iter(app.world())
+                .find(|rig| rig.serves(room, channel))
+                .expect("a rig for each portal")
+                .pane_dominant()
+        };
+        (near_of(left_channel), near_of(right_channel))
+    };
+    assert_eq!(near_panes(&mut app, 470.0), (true, false), "at the left face, the left pane is the near one");
+    assert_eq!(
+        near_panes(&mut app, 562.0),
+        (false, true),
+        "at the right face the left window is closed, and it is the far pane"
+    );
+}

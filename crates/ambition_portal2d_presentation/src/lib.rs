@@ -85,8 +85,8 @@ pub struct PortalObservationSet;
 /// Through-portal composite z. The captured far-side image draws above the
 /// exit body copy but below actors and the portal rim, so near-side actors still
 /// occlude the aperture and the rim remains intact. Transiting body pieces stay
-/// on world layers and are captured by disjoint wormhole views; doorway pairs
-/// clip direct slices outside the thin slab. Overlapping panes use front-side
+/// on world layers and are captured by each pair's view window.
+/// Overlapping panes use front-side
 /// dominance with hysteresis (`view_cones::mesh::pane_z`) rather than radial
 /// distance.
 pub const PORTAL_WINDOW_Z: f32 = 9.5;
@@ -224,10 +224,11 @@ impl PortalPlacement {
     }
 }
 
-/// Host seam: marks the visual entity whose sprite the mid-transit body-piece
-/// decomposition draws (in Ambition, the player's sprite entity). The entity
-/// must also carry a [`PortalBodyView`] plus `Sprite` + `Visibility`;
-/// `PortalTransit` / `ActorRoll` are read when present.
+/// Host seam: marks a visual entity whose sprite the mid-transit body-piece
+/// decomposition draws (in Ambition, the player's sprite entity, and the
+/// sprite of each other body while it is in transit). The entity must also
+/// carry a [`PortalBodyView`] plus `Sprite` + `Visibility`;
+/// [`PortalTransitView`] / `ActorRoll` are read when present.
 #[derive(Component)]
 pub struct PortalSceneBody;
 
@@ -297,6 +298,21 @@ pub struct PortalBodyView {
     pub size: Vec2,
     /// Facing sign: `>= 0.0` faces +x. Only the sign is read.
     pub facing: f32,
+}
+
+/// Host seam: this visual's body is straddling a portal plane right now.
+///
+/// Published by the host onto the visual of each body in transit, and taken
+/// off when the transit ends. The body's own transit state is the portal
+/// simulation's (`ambition_portal2d::PortalTransit`), and it can be on another
+/// entity than the one that is drawn (an NPC's body and its sprite are two
+/// entities). So presentation reads this fact and not that component, and
+/// each body that crosses is cut the same way: a player, an NPC, a dog.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PortalTransitView {
+    /// Channel of the portal whose plane the body straddles: the entry before
+    /// its centre crosses, the exit after.
+    pub straddling: PortalChannel,
 }
 
 /// Host seam: the loaded portal-gun art (blue / orange mode sprites). The

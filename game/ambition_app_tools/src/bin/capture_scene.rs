@@ -73,6 +73,11 @@ struct SceneCaptureConfig {
     /// a state the world gets from a flag (a room's look, a gate) can be
     /// photographed, and a change of it can be filmed.
     flags: Vec<(String, u64)>,
+    /// Put the primary player at a world point on a sim tick
+    /// (`--player-at X,Y[@TICK]`), at rest, one time for each use of the
+    /// option: a body that stands in a portal's plane can be photographed
+    /// there, and a walk through it can be filmed step by step.
+    player_at: Vec<(Vec2, u64)>,
     /// Portal shots to fire, each on its sim tick
     /// (`--portal-shot TICK:X,Y:DX,DY[:b]`), so a portal that is placed
     /// and a portal that is replaced can be filmed.
@@ -233,6 +238,9 @@ OPTIONS:
     --flag NAME[@TICK]  record the world flag NAME on sim tick TICK
                         [default: 1]; repeat for more flags. A room that reads
                         its state from a flag is photographed in that state.
+    --player-at X,Y[@TICK]
+                        put the player at world X,Y (its centre) on sim tick
+                        TICK [default: 60], at rest; repeat for more places
     --portal-shot TICK:X,Y:DX,DY[:b]
                         fire a portal shot on sim tick TICK from world X,Y
                         along DX,DY: end A of the capture's own pair, or end
@@ -425,6 +433,28 @@ fn record_flags(
     }
 }
 
+/// `--player-at`: put the primary player at the configured point on its tick,
+/// at rest, through the motion authority (ADR 0024). A sim system that names
+/// its tick, as [`place_player_beside`] is.
+fn place_player_at(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut player: Query<
+        (ae::BodyClusterQueryData, &mut ambition_platformer2d::actor::MotionModel),
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+    >,
+) {
+    let Some((at, arrival)) = config.player_at.iter().copied().find(|(_, arrival)| *arrival == tick.get()) else {
+        return;
+    };
+    let Ok((mut clusters, mut model)) = player.single_mut() else {
+        return;
+    };
+    let mut clusters = clusters.as_clusters_mut();
+    ae::movement::transit_body(&mut model, &mut clusters, ae::Vec2::new(at.x, at.y), ae::movement::TransitVelocity::Zero);
+    eprintln!("capture_scene: put the player at {at:?} on tick {arrival}");
+}
+
 /// One `--portal-shot`: a shot of the capture's own pair, fired on a sim tick.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct PortalShotAt {
@@ -494,7 +524,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, place_player_beside, record_flags, fire_portal_shots),
+        (hold_boss_health, place_player_beside, place_player_at, record_flags, fire_portal_shots),
     );
     if app.world().resource::<SceneCaptureConfig>().nav_overlay {
         app.insert_resource(ambition_app::dev::navigation_overlay::NavigationOverlay { shown: true });
@@ -676,6 +706,7 @@ impl SceneCaptureConfig {
         let mut interact_on_arrival = false;
         let mut flags: Vec<(String, u64)> = Vec::new();
         let mut portal_shots: Vec<PortalShotAt> = Vec::new();
+        let mut player_at: Vec<(Vec2, u64)> = Vec::new();
         let mut body_warp = None;
         let mut i = 0usize;
         while i < args.len() {
@@ -769,6 +800,23 @@ impl SceneCaptureConfig {
                         ),
                         None => (value.clone(), 1),
                     });
+                    2
+                }
+                "--player-at" => {
+                    let bad = |value: &str| format!("--player-at wants X,Y[@TICK], got '{value}'");
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--player-at requires X,Y[@TICK]".to_string());
+                    };
+                    let (point, tick) = match value.split_once('@') {
+                        Some((point, tick)) => (point, tick.parse::<u64>().map_err(|_| bad(value))?),
+                        None => (value.as_str(), DEFAULT_ARRIVAL_TICK),
+                    };
+                    let (x, y) = point.split_once(',').ok_or_else(|| bad(value))?;
+                    let at = Vec2::new(
+                        x.trim().parse().map_err(|_| bad(value))?,
+                        y.trim().parse().map_err(|_| bad(value))?,
+                    );
+                    player_at.push((at, tick));
                     2
                 }
                 "--portal-shot" => {
@@ -954,6 +1002,7 @@ impl SceneCaptureConfig {
                 player_beside: None,
                 interact_on_arrival: false,
                 flags: Vec::new(),
+                player_at: Vec::new(),
                 portal_shots: Vec::new(),
                 body_warp: None,
                 dev_overlays,
@@ -1011,6 +1060,7 @@ impl SceneCaptureConfig {
             player_beside,
             interact_on_arrival,
             flags,
+            player_at,
             portal_shots,
             body_warp,
             route: None,

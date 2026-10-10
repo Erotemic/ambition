@@ -105,6 +105,7 @@ pub mod tether;
 pub mod limb_trail;
 pub mod gate_portal_visuals;
 pub mod gravity_visuals;
+pub mod ground_shadows;
 mod health;
 /// Public so the shipped schedule can be asked, by type, whether its writer
 /// sits in `BodyOwnedDrawableSync`.

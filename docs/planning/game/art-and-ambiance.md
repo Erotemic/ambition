@@ -32,6 +32,8 @@ rooms, sprites and props get better art, and some areas get a light foreground.
 | Foreground layer | `backgrounds/foregrounds.py` | the last parallax panel, in front of the play |
 | Terrain skin (fill, cap, underside, side, one-way) | `terrain/skins.py` | `rendering/terrain_skin.rs` |
 | Motes | `terrain/motes.py` | `rendering/ambient_motes.rs` |
+| Ground shadow | `terrain/motes.py` | `rendering/ground_shadows.rs` |
+| Door, ladder, water | `terrain/doors.py`, `terrain/fixtures.py` | `rendering/terrain_skin.rs` |
 
 The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/parallax-backgrounds.md).
 
@@ -68,6 +70,18 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
 - [x] A door for each biome.
 - [x] A room with a look takes the skin of its theme on a device that does not
   draw the look (`hub_clean` is marble).
+- [x] A shadow on the ground under each actor and the player, in the colour
+  of the biome, smaller and fainter when the body is in the air.
+- [x] Ladders and water take the art of the biome (steel rungs in the lab, a
+  rope ladder in the cove and the forest).
+- [x] About half of the rooms that share a scene show it mirrored, so two
+  rooms of one biome are less alike.
+- [x] The marble hub has motes of its own.
+- [x] Blink walls are a field of violet light with a line of light on each
+  open edge (the soft kind) and plates of violet armour (the hard kind), in
+  place of a flat tile with a hatch.
+- [x] The dressing of a room is in the room's load manifest: the cover stays
+  until the skin is there (it came in a few frames late).
 
 ## For Jon to decide
 

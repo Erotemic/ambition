@@ -107,6 +107,18 @@ platform draws the platform of the skin.
 - **Doors.** A door of a room that names a theme takes the door of the theme
   (`dress_themed_doors`, `RoomDressingPart::Door`). Each door has the shape of
   the door of the entity sheet, so it keeps its size and its place.
+- **Blink walls.** A blink wall takes the field of its kind
+  (`RoomDressingPart::BlinkSoft`: light, part clear; `BlinkHard`: armour, not
+  clear) and a line of light on each open edge (`BlinkEdge`). The art is the
+  same in each biome: violet is the colour of a blink in each room, and a
+  player must know the wall at a look. A blink wall covers the edges of the
+  blocks it is in contact with, as a solid block does.
+- **Ladders and water.** A ladder and a body of water of a room that names a
+  theme take the art of the theme (`dress_themed_fixtures`,
+  `RoomDressingPart::Ladder`, `WaterClear`, `WaterMurky`, `WaterSurface`). The
+  art is laid in pieces fixed to the room, as the fill is, and the flat
+  placeholder goes when the picture is there. A theme with no such picture
+  keeps the placeholder.
 - A painted LDtk tile layer draws over the skin (it is at `WORLD_Z_BLOCK + 0.5`).
   The intro rooms had the fill of `tileset paint` there, one tile over the whole
   collision, and it hid the skin: it was cleared 2026-10-10.
@@ -136,6 +148,39 @@ are in front of the play and the others are behind the blocks.
 - A tier with parallax off has no motes.
 - The field goes with the first main camera: in a split view the motes of a
   room are around that camera only.
+
+## Ground shadows
+
+`rendering/ground_shadows.rs`. Each actor and the player has one soft dark
+ellipse on the ground under it (`RoomDressingPart::Shadow`, a published
+picture in the colour of the theme: no shader). The shadow is smaller and
+fainter the higher the body is over the ground, and gone at `REACH` (150
+units). It is behind each actor and in front of the terrain.
+
+- The ground is the nearest top of a solid block, a blink wall or a one-way
+  platform under the middle of the body (`ground_below`). The shadow is not
+  less than 30 units wide: the box of a body is narrower than its picture.
+- A shadow shows on a light floor (grass, sand, marble). On a dark floor (the
+  steel of the lab) it is hard to see: it is a dark picture, and it adds no
+  light. A body on a moving
+  platform or on another body has its shadow on the ground under that.
+- Down is down the screen. A room with another gravity has shadows that are
+  not under the feet.
+- A room that names no theme has none, and a tier with parallax off has none.
+- It reads the read models of the renderer only (`BodyPoseView`,
+  `FeatureViewIndex`, the presented poses). Nothing in the simulation reads a
+  shadow.
+
+## A backdrop can be mirrored
+
+`room_mirrors_its_backdrop(name, theme)` says if a room draws its panels
+mirrored left to right. It is a pure function of the room's name, so about
+half of the rooms that share a theme show the scene the other way round and
+two rooms next to each other are less alike. A scene with writing or a thing
+that has a hand (a clock) must not be mirrored: there is none now.
+A theme with a corrupted state (`hub_clean`) is never mirrored: the look of
+its room lays the corrupted layers over the clean ones in a shader that has
+the placement of the panel and not its mirror.
 
 ## Invariants
 

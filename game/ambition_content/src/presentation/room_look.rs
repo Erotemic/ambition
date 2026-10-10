@@ -4,9 +4,9 @@
 //! presentation only. It reads the room's blocks and draws over them;
 //! collision does not change.
 //!
-//! One material draws a whole look. Each quad is a world-space window into the
-//! same procedural scene, so a pan of the camera does not move the art on the
-//! architecture. The quad's ROLE selects the layer:
+//! Each quad of a look is a world-space window into one scene, so a pan of
+//! the camera does not move the art on the architecture. The quad's ROLE
+//! selects the layer:
 //!
 //! | role | quad | what it is for |
 //! |---|---|---|
@@ -20,8 +20,15 @@
 //!
 //! | palette | look |
 //! |---|---|
-//! | `clean_corrupted` | [`RoomStateMaterial`]: one architecture in two states. The corrupted state is DERIVED in the shader from the same construction as the clean state, and a scalar field with a blocky front decides which state a point shows. |
+//! | `clean_corrupted` | One architecture in two states. The corrupted state is DERIVED from the same construction as the clean state, and a scalar field with a blocky front decides which state a point shows. |
 //! | `debug_beautiful` | [`RoomBlueprintMaterial`]: the collision truth of the room, drawn as a drawing. A solid is a closed outline, a one-way platform has an open underside. |
+//!
+//! The architecture of the two-state look is not drawn by a shader each
+//! frame. It is drawn one time for each room into textures
+//! ([`architecture`] says what it looks like, [`plates`] makes the textures),
+//! and [`RoomPlateMaterial`] shows them: surfaces, undersides and door frames.
+//! [`RoomStateMaterial`] draws what is left, which moves or is not a thing of
+//! the room: the sky, a blink wall's veil and the overlay.
 //!
 //! The front of the two-state look moves. The state of the room is a fact in
 //! the save (`crate::room_look_state`: pure, balanced or corrupt), and
@@ -61,6 +68,11 @@ use ambition_render::rendering::{
 use ambition_sprite_sheet::game_assets::{loading_zone_sprite, EntitySprite};
 
 use crate::room_look_state::RoomLookState;
+
+mod architecture;
+mod plates;
+
+pub use plates::RoomPlateMaterial;
 
 /// Above the parallax panels (`-18.0..=-15.0`), below the blocks.
 const BACKDROP_Z: f32 = -14.5;
@@ -119,6 +131,11 @@ pub trait RoomLook: Material2d {
     /// The `palette` level-field value that asks for this look.
     const PALETTE: &'static str;
 
+    /// Whether the architecture of this look (terrain surfaces, undersides,
+    /// door frames) is drawn from plates ([`plates`]) and not by this
+    /// material.
+    const ARCHITECTURE_IS_PLATES: bool = false;
+
     /// One window into the look's scene.
     ///
     /// - `piece`: what this quad draws, `min.x, min.y, size.x, size.y`.
@@ -159,6 +176,7 @@ impl Material2d for RoomStateMaterial {
 
 impl RoomLook for RoomStateMaterial {
     const PALETTE: &'static str = "clean_corrupted";
+    const ARCHITECTURE_IS_PLATES: bool = true;
 
     fn window(piece: Vec4, room: Vec4, front: Vec4) -> Self {
         Self { piece, room, front }
@@ -284,12 +302,32 @@ pub fn install(app: &mut App) {
     }
     app.insert_resource(RoomLookInstalled);
     embedded_asset!(app, "shaders/room_state.wgsl");
+    embedded_asset!(app, "shaders/room_plate.wgsl");
     embedded_asset!(app, "shaders/room_blueprint.wgsl");
     // `ambition_content::room_look`: what the looks share. A composition with
     // no shader assets draws no look to import it.
     if app.world().contains_resource::<Assets<bevy::shader::Shader>>() {
         bevy::shader::load_shader_library!(app, "shaders/room_look_common.wgsl");
     }
+    if app.get_sub_app(bevy::render::RenderApp).is_some() {
+        app.add_plugins(Material2dPlugin::<RoomPlateMaterial>::default());
+    }
+    // The unit quad is made now and not with the first room. A mesh that goes
+    // to the GPU in a frame whose upload budget is spent arrives late, and
+    // Bevy does not try again to draw a quad whose MESH was late (it does for
+    // a late material). Each quad of the look would stay undrawn.
+    if let Some(mut meshes) = app.world_mut().get_resource_mut::<Assets<Mesh>>() {
+        let quad = meshes.add(Rectangle::new(1.0, 1.0));
+        app.insert_resource(RoomLookQuad(quad));
+    }
+    app.init_resource::<RoomPlates>().add_systems(
+        Update,
+        prepare_room_plates
+            .before(SessionScopeSet::Presentation)
+            .run_if(resource_exists::<Assets<Image>>)
+            .run_if(resource_exists::<Assets<RoomPlateMaterial>>)
+            .run_if(looks_are_in_budget),
+    );
     install_look::<RoomStateMaterial>(app);
     install_look::<RoomBlueprintMaterial>(app);
     app.add_systems(
@@ -466,6 +504,8 @@ fn spread_room_states(
     mut spreads: Query<(&InRoomInstance, &mut RoomLookSpread)>,
     quads: Query<(&InRoomInstance, &MeshMaterial2d<RoomStateMaterial>)>,
     mut materials: ResMut<Assets<RoomStateMaterial>>,
+    plate_quads: Query<(&InRoomInstance, &MeshMaterial2d<RoomPlateMaterial>)>,
+    mut plate_materials: Option<ResMut<Assets<RoomPlateMaterial>>>,
 ) {
     for (stamp, mut spread) in &mut spreads {
         let Some((_, definition)) = rooms.live_rooms().find(|(room, _)| *room == stamp.0) else {
@@ -490,6 +530,17 @@ fn spread_room_states(
                 material.front = front;
             }
         }
+        let Some(plate_materials) = plate_materials.as_deref_mut() else {
+            continue;
+        };
+        for (quad_stamp, material) in &plate_quads {
+            if quad_stamp.0 != stamp.0 {
+                continue;
+            }
+            if let Some(mut material) = plate_materials.get_mut(&material.0) {
+                material.front = front;
+            }
+        }
     }
 }
 
@@ -504,6 +555,10 @@ fn present_room_look<M: RoomLook>(
     mut materials: ResMut<Assets<M>>,
     save: Option<Res<AmbitionGameSave>>,
     active_session: Option<Res<ActiveSessionScope>>,
+    spreads: Query<(&InRoomInstance, &RoomLookSpread)>,
+    plate_quads: Query<&InRoomInstance, With<MeshMaterial2d<RoomPlateMaterial>>>,
+    plates: Option<Res<RoomPlates>>,
+    mut plate_materials: Option<ResMut<Assets<RoomPlateMaterial>>>,
 ) {
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
@@ -512,7 +567,7 @@ fn present_room_look<M: RoomLook>(
     };
     for (room, definition) in rooms.live_rooms() {
         let spec = rooms.rooms().spec(definition);
-        if !asks_for::<M>(spec) || presented.iter().any(|stamp| stamp.0 == room) {
+        if !asks_for::<M>(spec) {
             continue;
         }
         let quad = match quad.as_deref() {
@@ -525,6 +580,23 @@ fn present_room_look<M: RoomLook>(
         };
         let scope = session_scope.in_room(Some(room));
         let world = &spec.world;
+        // The plates of the room come when they are drawn, which can be after
+        // the rest of its look.
+        if M::ARCHITECTURE_IS_PLATES && !plate_quads.iter().any(|stamp| stamp.0 == room) {
+            let ready = plates.as_deref().and_then(|plates| plates.ready(spec));
+            if let (Some(ready), Some(materials)) = (ready, plate_materials.as_deref_mut()) {
+                // Where the front is now, or where a room that comes this
+                // frame starts.
+                let advance = spreads
+                    .iter()
+                    .find(|(stamp, _)| stamp.0 == room)
+                    .map_or_else(|| wanted_advance(spec, save.as_deref()), |(_, spread)| spread.advance);
+                spawn_plates(&mut commands, scope, spec, room_front(world, advance), &quad, ready, materials);
+            }
+        }
+        if presented.iter().any(|stamp| stamp.0 == room) {
+            continue;
+        }
         // A room starts in the state the save records: the front moves only
         // when the state changes while the room is live.
         let advance = wanted_advance(spec, save.as_deref());
@@ -576,24 +648,15 @@ fn present_room_look<M: RoomLook>(
             None,
         );
         for block in &world.blocks {
-            // Terrain and blink walls. A look must keep a blink wall a thing
-            // of its own, not stone: a blink goes through it. A hazard or a
-            // pad says what it is with its own art, and that art stays.
-            let kind = match block.kind {
-                ae::BlockKind::Solid => KIND_SOLID,
-                ae::BlockKind::OneWay => KIND_ONE_WAY,
-                ae::BlockKind::BlinkWall {
-                    tier: ae::BlinkWallTier::Soft,
-                } => KIND_BLINK_SOFT,
-                ae::BlockKind::BlinkWall {
-                    tier: ae::BlinkWallTier::Hard,
-                } => KIND_BLINK_HARD,
-                _ => continue,
+            let Some(kind) = look_kind(block) else {
+                continue;
             };
-            let half = block.aabb.half_size();
-            let center = block.aabb.center();
-            let min = Vec2::new(center.x - half.x, center.y - half.y);
-            let size = Vec2::new(half.x * 2.0, half.y * 2.0);
+            let (min, size) = block_rect(block);
+            let is_terrain = kind == KIND_SOLID || kind == KIND_ONE_WAY;
+            if M::ARCHITECTURE_IS_PLATES && is_terrain {
+                // Drawn from a plate ([`architecture_of`]).
+                continue;
+            }
             spawn(
                 format!("room look surface: {}", block.name),
                 min,
@@ -604,8 +667,7 @@ fn present_room_look<M: RoomLook>(
                 SURFACE_Z,
                 Some(block),
             );
-            let is_terrain = kind == KIND_SOLID || kind == KIND_ONE_WAY;
-            if is_terrain && size.y <= PLATFORM_MAX_HEIGHT && size.x >= 96.0 {
+            if is_terrain && is_platform(size) {
                 spawn(
                     format!("room look underside: {}", block.name),
                     Vec2::new(min.x, min.y + size.y),
@@ -624,6 +686,10 @@ fn present_room_look<M: RoomLook>(
             }
             let half = zone.aabb.half_size();
             let center = zone.aabb.center();
+            if M::ARCHITECTURE_IS_PLATES {
+                // Drawn from a plate ([`architecture_of`]).
+                continue;
+            }
             spawn(
                 format!("room look portal: {}", zone.name),
                 Vec2::new(center.x - half.x, center.y - half.y),
@@ -654,6 +720,262 @@ fn present_room_look<M: RoomLook>(
                 Name::new("room look spread"),
             ),
         );
+    }
+}
+
+/// The block kind a look draws `block` as, if it draws it. Terrain and blink
+/// walls. A look must keep a blink wall a thing of its own, not stone: a
+/// blink goes through it. A hazard or a pad says what it is with its own art,
+/// and that art stays.
+fn look_kind(block: &ae::Block) -> Option<f32> {
+    Some(match block.kind {
+        ae::BlockKind::Solid => KIND_SOLID,
+        ae::BlockKind::OneWay => KIND_ONE_WAY,
+        ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Soft } => KIND_BLINK_SOFT,
+        ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Hard } => KIND_BLINK_HARD,
+        _ => return None,
+    })
+}
+
+/// The upper left corner and the size of `block`.
+fn block_rect(block: &ae::Block) -> (Vec2, Vec2) {
+    let half = block.aabb.half_size();
+    let center = block.aabb.center();
+    (Vec2::new(center.x - half.x, center.y - half.y), Vec2::new(half.x * 2.0, half.y * 2.0))
+}
+
+/// Whether a terrain block of `size` is a platform, which has an underside.
+fn is_platform(size: Vec2) -> bool {
+    size.y <= PLATFORM_MAX_HEIGHT && size.x >= 96.0
+}
+
+/// One piece of the architecture of a room: the block it is the look of (its
+/// index in the room's blocks), if it is one, and a name.
+struct ArchitecturePiece {
+    piece: architecture::Piece,
+    block: Option<usize>,
+    name: String,
+}
+
+/// The architecture of `spec` that the two-state look draws from plates: the
+/// surface of each terrain block, the underside of each platform, and the
+/// frame of each door.
+fn architecture_of(spec: &RoomSpec) -> Vec<ArchitecturePiece> {
+    use architecture::{Part, Piece};
+    let mut pieces = Vec::new();
+    for (index, block) in spec.world.blocks.iter().enumerate() {
+        if !matches!(look_kind(block), Some(kind) if kind == KIND_SOLID || kind == KIND_ONE_WAY) {
+            continue;
+        }
+        let (min, size) = block_rect(block);
+        pieces.push(ArchitecturePiece {
+            piece: Piece { part: Part::Surface, min, size },
+            block: Some(index),
+            name: format!("room look surface: {}", block.name),
+        });
+        if is_platform(size) {
+            pieces.push(ArchitecturePiece {
+                piece: Piece {
+                    part: Part::Underside,
+                    min: Vec2::new(min.x, min.y + size.y),
+                    size: Vec2::new(size.x, UNDERSIDE_REACH),
+                },
+                block: Some(index),
+                name: format!("room look underside: {}", block.name),
+            });
+        }
+    }
+    for zone in &spec.loading_zones {
+        if !matches!(zone.activation, LoadingZoneActivation::Door) {
+            continue;
+        }
+        let half = zone.aabb.half_size();
+        let center = zone.aabb.center();
+        pieces.push(ArchitecturePiece {
+            piece: Piece {
+                part: Part::Door { aspect: DOOR_SPRITE_ASPECT },
+                min: Vec2::new(center.x - half.x, center.y - half.y),
+                size: Vec2::new(half.x * 2.0, half.y * 2.0),
+            },
+            block: None,
+            name: format!("room look portal: {}", zone.name),
+        });
+    }
+    pieces
+}
+
+/// The pieces of [`architecture_of`], with no names: what a plate is drawn
+/// from, and what says that a plate is of the room as it is now.
+fn architecture_pieces(spec: &RoomSpec) -> Vec<architecture::Piece> {
+    architecture_of(spec).into_iter().map(|piece| piece.piece).collect()
+}
+
+/// The pages of a room, drawn and not yet textures.
+struct DrawnPlates {
+    placed: Vec<plates::Placed>,
+    pages: Vec<(UVec2, Vec<u8>)>,
+    seconds: f32,
+}
+
+/// The plates of a room that are drawn.
+struct ReadyPlates {
+    placed: Vec<plates::Placed>,
+    pages: Vec<Handle<Image>>,
+}
+
+enum PlateWork {
+    Drawing(bevy::tasks::Task<DrawnPlates>),
+    Ready(ReadyPlates),
+}
+
+/// The plates of one room, and the pieces they were drawn from.
+struct RoomPlateSet {
+    pieces: Vec<architecture::Piece>,
+    work: PlateWork,
+}
+
+/// The plates of the two-state rooms that are live and of the two-state rooms
+/// next to them, by room id.
+///
+/// A room's plates are drawn before the room comes, while the room next to it
+/// is played, so that the room comes with its look and with no frame that
+/// pays for the drawing. The drawing is a task off the main thread. A room
+/// that comes with no plate (the first room of a session, a room that a
+/// warp reaches) shows its block sprites until its plates are drawn.
+///
+/// The set is of the session's rooms as they are: a room that is not live and
+/// not next to a live room has no entry, and an entry whose room has other
+/// pieces now (a level that was loaded again) is drawn again.
+#[derive(Resource, Default)]
+struct RoomPlates {
+    by_room: std::collections::HashMap<String, RoomPlateSet>,
+}
+
+impl RoomPlates {
+    /// The plates of `spec`, if they are drawn.
+    fn ready(&self, spec: &RoomSpec) -> Option<&ReadyPlates> {
+        match &self.by_room.get(&spec.id)?.work {
+            PlateWork::Ready(ready) => Some(ready),
+            PlateWork::Drawing(_) => None,
+        }
+    }
+}
+
+/// Draw the plates of each two-state room that is live or next to a live
+/// room, and forget the plates of each other room. See [`RoomPlates`].
+fn prepare_room_plates(
+    rooms: LiveRoomSpecs,
+    mut plates: ResMut<RoomPlates>,
+    mut images: ResMut<Assets<Image>>,
+    device: Option<Res<bevy::render::renderer::RenderDevice>>,
+) {
+    let set = rooms.rooms();
+    let mut wanted: Vec<(&RoomSpec, Vec<architecture::Piece>)> = Vec::new();
+    for (_, definition) in rooms.live_rooms() {
+        let near = set.neighboring_room_indices_of(definition.index());
+        for index in std::iter::once(definition.index()).chain(near) {
+            let Some(spec) = set.definition(index).map(|definition| set.spec(definition)) else {
+                continue;
+            };
+            if asks_for::<RoomStateMaterial>(spec) && !wanted.iter().any(|(known, _)| known.id == spec.id) {
+                wanted.push((spec, architecture_pieces(spec)));
+            }
+        }
+    }
+    plates
+        .by_room
+        .retain(|id, set| wanted.iter().any(|(spec, pieces)| &spec.id == id && *pieces == set.pieces));
+    let page = device
+        .as_deref()
+        .map_or(plates::PAGE_MAX, |device| device.limits().max_texture_dimension_2d.min(plates::PAGE_MAX));
+    for (spec, pieces) in wanted {
+        if plates.by_room.contains_key(&spec.id) || pieces.is_empty() {
+            continue;
+        }
+        let art = pieces.clone();
+        let task = bevy::tasks::AsyncComputeTaskPool::get_or_init(bevy::tasks::TaskPool::default).spawn(async move {
+            let started = std::time::Instant::now();
+            let windows = plates::windows_of(&art, page);
+            let (placed, sizes) = plates::pack(&windows, page);
+            let data = plates::draw_pages(&art, &placed, &sizes);
+            DrawnPlates {
+                placed,
+                pages: sizes.into_iter().zip(data).collect(),
+                seconds: started.elapsed().as_secs_f32(),
+            }
+        });
+        plates.by_room.insert(spec.id.clone(), RoomPlateSet { pieces, work: PlateWork::Drawing(task) });
+    }
+    for (id, set) in &mut plates.by_room {
+        let PlateWork::Drawing(task) = &mut set.work else {
+            continue;
+        };
+        let Some(drawn) = bevy::tasks::futures::check_ready(task) else {
+            continue;
+        };
+        let texels: u32 = drawn.pages.iter().map(|(size, _)| size.x * size.y).sum();
+        info!(
+            "room look plates of '{id}': {} pieces in {} quads on {} pages, {:.1} Mpx, drawn in {:.0} ms off the main thread",
+            set.pieces.len(),
+            drawn.placed.len(),
+            drawn.pages.len(),
+            texels as f32 / 1.0e6,
+            drawn.seconds * 1000.0,
+        );
+        let pages = drawn.pages.into_iter().map(|(size, data)| images.add(plates::page_image(size, data))).collect();
+        set.work = PlateWork::Ready(ReadyPlates { placed: drawn.placed, pages });
+    }
+}
+
+/// Give the room `spec` one quad for each window of its plates.
+fn spawn_plates(
+    commands: &mut Commands,
+    scope: SessionSpawnScope,
+    spec: &RoomSpec,
+    front: Vec4,
+    quad: &Handle<Mesh>,
+    ready: &ReadyPlates,
+    materials: &mut Assets<RoomPlateMaterial>,
+) {
+    let pieces = architecture_of(spec);
+    for cell in &ready.placed {
+        let ArchitecturePiece { piece, block, name } = &pieces[cell.window.piece];
+        let (role, z) = match piece.part {
+            architecture::Part::Surface => (ROLE_SURFACE, SURFACE_Z),
+            architecture::Part::Underside => (ROLE_UNDERSIDE, UNDERSIDE_Z),
+            architecture::Part::Door { .. } => (ROLE_PORTAL, PORTAL_Z),
+        };
+        let held = cell.window.size.as_vec2();
+        let extent = cell.window.extent;
+        let centre = cell.window.min + extent * 0.5;
+        let corrupt = cell.corrupt();
+        let mut quad = commands.spawn_session_scoped(
+            scope,
+            (
+                Mesh2d(quad.clone()),
+                MeshMaterial2d(materials.add(RoomPlateMaterial {
+                    piece: Vec4::new(piece.min.x, piece.min.y, piece.size.x, piece.size.y),
+                    window: Vec4::new(cell.window.min.x, cell.window.min.y, extent.x, extent.y),
+                    kind: Vec4::new(role, held.x, held.y, 0.0),
+                    front,
+                    cells: Vec4::new(cell.clean.x as f32, cell.clean.y as f32, corrupt.x as f32, corrupt.y as f32),
+                    plate: ready.pages[cell.page].clone(),
+                })),
+                Transform::from_translation(world_to_bevy(&spec.world, ae::Vec2::new(centre.x, centre.y), z))
+                    .with_scale(Vec3::new(extent.x, extent.y, 1.0)),
+                Name::new(name.clone()),
+                RoomVisual,
+                PresentedRoomLook,
+            ),
+        );
+        // As a quad that draws a block with a shader: it leaves when the
+        // block is removed, and it flinches when the block is struck.
+        if let Some(block) = block.map(|index| &spec.world.blocks[index]) {
+            quad.insert(BlockVisual {
+                block_name: block.name.clone(),
+                geo_id: block.id.clone(),
+            });
+        }
     }
 }
 

@@ -58,8 +58,14 @@ partner's. The colour-name label stays.
   channel at the same place in one frame are one aperture, because a rollback
   gives a restored portal a new entity.
 - The line is on the world layer and in its room's render band, so a portal
-  capture photographs it. Its z follows the pane-dominance rule: over the
-  glass for the portal you are in front of, under it for the far one.
+  capture photographs it. It has one depth (`PORTAL_FRAME_Z`): over the world,
+  and under the far slice of a body and under each view window. A body that
+  crosses is thus drawn whole over the line, and the line does not cut it.
+- A line belongs to the session that drew it and to its room
+  (`spawn_session_scoped` with the room). A new session keeps no line and no
+  room age of the old one: the next session's rooms can have the same
+  ordinals, and a line or an age kept by ordinal would be given to a
+  different room.
 
 ### A body that crosses
 
@@ -90,6 +96,13 @@ opposed faces a wall's thickness apart) is not a special case:
   (`pane_dominant`), so the far portal's line and label are under the glass
   after a crossing too.
 
+- The far slice of a body is put where the map sends the point its sprite is
+  drawn at, and not where it sends the body's centre. A sprite can be drawn
+  off its body (a foot anchor, a pose), and the two slices then did not meet
+  by that offset.
+- A window opens only for a viewer whose centre is in front of its face. At
+  the aperture it is the whole takeover at once, with no ease: an eased
+  window showed, for some frames, the far side beside the near side.
 - The window's capture is the mapped camera snapshot
   (`PortalCaptureCameraMode::MappedCameraSnapshot`, the default): the host
   view mapped through the pair, at the screen's density. Each texel of it is
@@ -104,6 +117,14 @@ side inside the wedge is moved by the wall's thickness against the far side
 outside it. The screen has the wall's thickness more space than the two sides
 have between them, so a picture that shows both has one seam where they do
 not meet. At the door the seam is the door's own line.
+
+A second case: a body that crosses the END of the opening of a door in a wall
+that stands free. The part of it inside the opening is through the door and
+the part of it past the end is above the wall, and the two are the wall's
+thickness apart. `straddles` admits each body that overlaps the opening, so
+this state can occur, and no picture joins it. The repair is a simulation
+rule (a body goes through only where its box is inside the opening), not a
+presentation one.
 
 To see it: `capture_scene portal_lab X,Y out.png` and
 `--portal-shot TICK:X,Y:DX,DY[:b]`, which fires a shot of a pair that no gun

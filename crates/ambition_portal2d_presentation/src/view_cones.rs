@@ -754,29 +754,49 @@ impl PortalViewRig {
 
 /// Physical screen pixels the main camera spends per world pixel — the density
 /// a "pixel-perfect" capture must match, or the window reads blurrier than the
-/// world around it. Falls back to 1.0 when the window or host view is
-/// unavailable (headless, first frame).
+/// world around it. With no window (a host that draws to a texture: a capture
+/// tool, a stream) it is the size of the main camera's own target. Falls back
+/// to 1.0 when neither is known, or the host view is not (headless, first
+/// frame).
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct GameplayScreenDensity<'w, 's> {
     windows: Query<'w, 's, &'static Window, With<bevy::window::PrimaryWindow>>,
     presentation: Option<Res<'w, ResolvedGameplayPresentation>>,
+    cameras: Query<
+        'w,
+        's,
+        &'static Camera,
+        (
+            With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
+            // Disjoint from the capture rigs' cameras, which the same system
+            // writes.
+            Without<PortalViewRig>,
+        ),
+    >,
 }
 
 impl GameplayScreenDensity<'_, '_> {
     fn texels_per_world(&self, host_view: Option<&PortalCameraContinuityHostView>) -> f32 {
-        let (Ok(window), Some(view)) = (
-            self.windows.single(),
-            host_view
-                .filter(|v| v.initialized && v.visible_view.x >= 1.0 && v.visible_view.y >= 1.0),
-        ) else {
+        let Some(view) =
+            host_view.filter(|v| v.initialized && v.visible_view.x >= 1.0 && v.visible_view.y >= 1.0)
+        else {
             return 1.0;
         };
-        let logical = self
-            .presentation
-            .as_deref()
-            .map(|presentation| presentation.gameplay_rect.size())
-            .unwrap_or_else(|| Vec2::new(window.width(), window.height()));
-        let physical = logical * window.scale_factor().max(f32::EPSILON);
+        let physical = match self.windows.single() {
+            Ok(window) => {
+                let logical = self
+                    .presentation
+                    .as_deref()
+                    .map(|presentation| presentation.gameplay_rect.size())
+                    .unwrap_or_else(|| Vec2::new(window.width(), window.height()));
+                logical * window.scale_factor().max(f32::EPSILON)
+            }
+            // No window: the pixels of the target the main camera draws to.
+            Err(_) => match self.cameras.iter().find_map(|camera| camera.physical_viewport_size()) {
+                Some(size) => size.as_vec2(),
+                None => return 1.0,
+            },
+        };
         let sx = physical.x / view.visible_view.x;
         let sy = physical.y / view.visible_view.y;
         sx.max(sy).clamp(1.0, 4.0)

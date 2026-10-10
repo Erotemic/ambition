@@ -617,7 +617,7 @@ mod band_tests {
         for (name, z) in [
             ("PORTAL_EXIT_COPY_Z", crate::PORTAL_EXIT_COPY_Z),
             ("PORTAL_WINDOW_Z", crate::PORTAL_WINDOW_Z),
-            ("PORTAL_RIM_OVERLAY_Z", crate::PORTAL_RIM_OVERLAY_Z),
+            ("PORTAL_FRAME_Z", crate::PORTAL_FRAME_Z),
         ] {
             assert!(
                 z <= datum,
@@ -635,6 +635,6 @@ mod band_tests {
     #[test]
     fn the_portal_band_is_ordered_within_itself() {
         assert!(crate::PORTAL_EXIT_COPY_Z < crate::PORTAL_WINDOW_Z);
-        assert!(crate::PORTAL_WINDOW_Z < crate::PORTAL_RIM_OVERLAY_Z);
+        assert!(crate::PORTAL_FRAME_Z < crate::PORTAL_EXIT_COPY_Z);
     }
 }

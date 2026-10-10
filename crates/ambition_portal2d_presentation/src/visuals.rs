@@ -192,7 +192,13 @@ pub fn sync_portal_body_pieces(
         // The through pose: the sprite emerging from the exit, placed by the BODY
         // map exactly. The active convention decides whether that map factors as a
         // pure rotation or as rotation plus one x-reflection.
-        let exit_center = pp::map_point(kin.pos, &enter.frame, &exit.frame, convention);
+        // Where the sprite is drawn, and not where the body's centre is: a
+        // sprite can be drawn off its body (a foot anchor, a presented pose),
+        // and the far slice must be the image of the near one. Placed from the
+        // body's centre, the two slices did not meet at the seam by that
+        // offset.
+        let drawn_at = ae::config::bevy_size_to_world(frame.size, source_transform.translation.truncate());
+        let exit_center = pp::map_point(drawn_at, &enter.frame, &exit.frame, convention);
         let copy = copy_transform(&enter.frame, &exit.frame, convention);
         let exit_roll = base_roll + copy.roll;
         // `apply_character_frame` has already mirrored the anchor to match the
@@ -324,8 +330,6 @@ pub fn sync_portal_visuals(
     mut commands: Commands,
     frames: PortalFrames,
     art: Option<Res<PortalGunArt>>,
-    viewers: Option<Res<crate::PortalViewers>>,
-    rigs: Query<&crate::PortalViewRig>,
     visuals: Query<Entity, With<PortalVisual>>,
     portals: Query<(Entity, &PlacedPortal)>,
     pickups: Query<(Entity, &PortalGunPickup)>,
@@ -344,13 +348,12 @@ pub fn sync_portal_visuals(
             continue;
         };
         for portal in room_portals {
-            let frame_z = portal_frame_z(placement, room_portals, portal, viewers.as_deref(), &rigs);
             // A small color-name label just out in front of the face, so portals can
             // be referred to precisely (each linked pair is a distinct complementary
             // color: purple↔yellow, teal↔red, …). The color name IS the identifier.
             let n = portal.normal.normalize_or_zero();
             let label_pos = portal.pos + n * 24.0;
-            let label_translation = placement.frame.to_render(label_pos, frame_z + 0.1);
+            let label_translation = placement.frame.to_render(label_pos, crate::PORTAL_FRAME_Z + 0.05);
             let (_, core) = portal.channel.display();
             commands.spawn((
                 PortalVisual,
@@ -367,49 +370,6 @@ pub fn sync_portal_visuals(
         }
     }
 }
-
-/// The z a portal's frame (its line of light and its label) is drawn at.
-///
-/// Frame z rides the PANE-DOMINANCE decision (the rig's sticky winner, or the
-/// stateless sign when no window rig serves this portal): the frame of the
-/// portal you are in front of draws ABOVE the glass — always whole — while the
-/// far portal's frame drops back UNDER the window band, so the open pane hides
-/// it exactly like the rest of the far side (a frame punching through the
-/// glass reads as a second portal). No viewer / no partner: dominant (nothing
-/// overlaps).
-///
-/// The frame is on the WORLD layer, so portal captures photograph it: portals
-/// seen through a window must look like portals.
-pub(crate) fn portal_frame_z(
-    placement: crate::PortalPlacement,
-    room_portals: &[PlacedPortal],
-    portal: &PlacedPortal,
-    viewers: Option<&crate::PortalViewers>,
-    rigs: &Query<&crate::PortalViewRig>,
-) -> f32 {
-    let partner = find_portal(room_portals, portal.channel.partner());
-    // The eye of this room: the frame of a portal is over or under the glass
-    // by where that eye is.
-    let viewer = viewers.and_then(|viewers| viewers.in_room(Some(placement.room)));
-    let dominant = rigs
-        .iter()
-        .find(|rig| rig.serves(placement.room, portal.channel))
-        .map(|rig| rig.pane_dominant())
-        .or_else(|| {
-            let (partner, v) = (partner.as_ref()?, viewer?);
-            v.present
-                .then(|| crate::view_cones::pane_dominance(portal, partner, v.eye) >= 0.0)
-        })
-        .unwrap_or(true);
-    if dominant {
-        crate::PORTAL_RIM_OVERLAY_Z
-    } else {
-        PORTAL_FRAME_UNDER_GLASS_Z
-    }
-}
-
-/// Where the frame of the far portal is drawn: under the window band.
-const PORTAL_FRAME_UNDER_GLASS_Z: f32 = 9.0;
 
 #[cfg(test)]
 mod tests;

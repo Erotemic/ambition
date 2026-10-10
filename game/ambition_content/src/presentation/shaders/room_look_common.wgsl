@@ -137,3 +137,115 @@ fn island(q: vec2<f32>) -> vec3<f32> {
 fn pmod(a: f32, b: f32) -> f32 {
     return a - b * floor(a / b);
 }
+
+// ------------------------------------------------- the front of a room --
+//
+// The two-state look has a front: a line across the room with a ragged edge
+// made of blocks. `front` is a point on the line (`xy`) and its normal
+// (`zw`), which points into the corrupted side. `t` is the time in seconds.
+
+/// Signed world distance behind the front. Positive is corrupted.
+fn look_field(p: vec2<f32>, front: vec4<f32>, t: f32) -> f32 {
+    let wobble = (value_noise(p, 260.0, 7u) - 0.5) * 260.0
+        + (value_noise(p + vec2<f32>(t * 5.0, t * 2.0), 90.0, 11u) - 0.5) * 70.0;
+    let breathe = sin(t * 0.33) * 30.0;
+    return dot(p - front.xy, front.zw) + wobble + breathe;
+}
+
+struct LookLevel {
+    size: f32,
+    // How far behind the front the solid mass of this level starts.
+    depth: f32,
+    // How ragged that start is, per cell.
+    jitter: f32,
+    // How far the loose blocks of this level scatter ahead of the mass.
+    reach: f32,
+    // How many of them, at the mass edge.
+    loose: f32,
+}
+
+fn look_level(k: i32) -> LookLevel {
+    if k == 0 { return LookLevel(128.0, 360.0, 180.0, 0.0, 0.0); }
+    if k == 1 { return LookLevel(64.0, 90.0, 110.0, 150.0, 0.09); }
+    if k == 2 { return LookLevel(32.0, 10.0, 56.0, 280.0, 0.15); }
+    return LookLevel(16.0, -6.0, 28.0, 340.0, 0.09);
+}
+
+struct LookClaim {
+    // 0 = clean, 1 = the corrupted mass, 2 = a loose block.
+    state: i32,
+    size: f32,
+    cell: vec2<f32>,
+    // Two values in [0, 1) for the block. (A field name must not end in a
+    // digit: the shader composer writes such a name with a suffix, and a
+    // shader that imports the struct then does not find the field.)
+    seed: f32,
+    tone: f32,
+}
+
+/// Which block of the front claims `p`: the coarsest level that is corrupt.
+fn look_claim(p: vec2<f32>, front: vec4<f32>, t: f32) -> LookClaim {
+    for (var k = 0; k < 4; k++) {
+        let lv = look_level(k);
+        let cell = floor(p / lv.size);
+        let salt = u32(k);
+        let fc = look_field((cell + vec2<f32>(0.5)) * lv.size, front, t);
+        let ra = rand_cell(cell, 100u + salt);
+        let rb = rand_cell(cell, 150u + salt);
+        let mass = fc + (ra - 0.5) * lv.jitter > lv.depth;
+        let gap = clamp((lv.depth - fc) / max(lv.reach, 1.0), 0.0, 1.0);
+        let stray = fc > lv.depth - lv.reach && rb < lv.loose * (1.0 - gap) * (1.0 - gap);
+        if mass || stray {
+            let r = rand_cell(cell, 200u + salt);
+            let r2 = rand_cell(cell, 300u + salt);
+            return LookClaim(select(2, 1, mass), lv.size, cell, r, r2);
+        }
+    }
+    return LookClaim(0, 0.0, vec2<f32>(0.0), 0.0, 0.0);
+}
+
+// How far `look_field` can be from the plane distance: its wobble (130 and
+// 35) and its breath (30).
+const LOOK_FIELD_SWING: f32 = 195.0;
+// Past this plane distance behind the front, each point is of the corrupted
+// mass: the largest blocks (128 px, whose middle is at most 91 px from the
+// point) are of the mass from a field of 450.
+const LOOK_SURELY_CORRUPT: f32 = 740.0;
+// Past this plane distance ahead of the front, each point is clean: the
+// loose blocks that go farthest ahead (16 px, at most 12 px away) stop at a
+// field of -346.
+const LOOK_SURELY_CLEAN: f32 = -560.0;
+
+/// Plane distance behind the front. Positive is the corrupted side.
+fn look_plane(p: vec2<f32>, front: vec4<f32>) -> f32 {
+    return dot(p - front.xy, front.zw);
+}
+
+/// Whether `p` is far from the front: its state is known from the plane
+/// alone, and nothing the front does to the things near it reaches it. A
+/// room that is all clean or all corrupted is far from its front at each
+/// point, so it pays for no noise.
+fn look_is_settled(p: vec2<f32>, front: vec4<f32>) -> bool {
+    let d = look_plane(p, front);
+    return d > LOOK_SURELY_CORRUPT || d < LOOK_SURELY_CLEAN;
+}
+
+/// Whether the block of the front that claims `p` is of the corrupted mass.
+fn look_is_corrupt(p: vec2<f32>, front: vec4<f32>, t: f32) -> bool {
+    let d = look_plane(p, front);
+    if d > LOOK_SURELY_CORRUPT { return true; }
+    if d < LOOK_SURELY_CLEAN { return false; }
+    return look_claim(p, front, t).state == 1;
+}
+
+/// How far the open air at `p` is into the corrupted state, 0..1. Built
+/// things break at a hard edge; air changes as haze.
+fn look_air_state(p: vec2<f32>, front: vec4<f32>, t: f32) -> f32 {
+    // Far from the front the haze is all or nothing (its wisps are 55).
+    let d = look_plane(p, front);
+    if d > 110.0 + 55.0 + LOOK_FIELD_SWING { return 1.0; }
+    if d < -260.0 - 55.0 - LOOK_FIELD_SWING { return 0.0; }
+    // The haze has wisps, and they drift.
+    let wisp = (value_noise(p + vec2<f32>(t * 13.0, -t * 5.0), 130.0, 13u) - 0.5) * 110.0;
+    return smoothstep(-260.0, 110.0, look_field(p, front, t) + wisp);
+}

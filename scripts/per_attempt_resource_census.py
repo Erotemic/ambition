@@ -87,6 +87,12 @@ NOT_PER_ATTEMPT = {
     # Catalogs and registries: authored data, must SURVIVE a death.
     "AmbitionDialogPortraitCatalog": "authored catalog",
     "FallingSandTypeIds": "id table built once from the type registry",
+    "RoomPlates": (
+        "the textures of a two-state room's architecture, drawn from the room's "
+        "blocks and doors, which a death does not change; the set is of the rooms "
+        "that are live and next to live, and an entry whose room has other pieces "
+        "is drawn again (`prepare_room_plates`)"
+    ),
     "YarnSourceWatch": (
         "developer file watch over the running Yarn project's files: modification "
         "times on disk and a reload count, which a death does not change"

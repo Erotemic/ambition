@@ -25,6 +25,14 @@
 //!    at the same place in the same frame are one aperture (a rollback gives a
 //!    restored portal a new entity). It does not open again, and the old one
 //!    does not dissolve.
+//!
+//! ## Whose it is
+//!
+//! A glow is of one gameplay session: it is spawned under that session's
+//! scope, and what this system knows of rooms ([`GlowMemory`]) is of that
+//! session too. A new session has the same room ordinals, so neither may go
+//! from one session to the next: the old glows are taken away, and each room
+//! of the new session is new.
 
 use std::collections::HashMap;
 
@@ -35,7 +43,10 @@ use bevy::render::render_resource::AsBindGroup;
 use bevy::shader::ShaderRef;
 use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d};
 
-use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    ActiveSessionScope, LiveRoomInstance, SessionScopeId, SessionScopedEntity, SessionSpawnScope,
+    SpawnSessionScopedExt,
+};
 use ambition_portal2d::{find_portal, PlacedPortal, PortalChannel, PORTAL_VISUAL_THICKNESS};
 
 use crate::PortalFrames;
@@ -141,11 +152,11 @@ pub fn opening_length(portal: &PlacedPortal) -> f32 {
 ///
 /// AMBITION_REVIEW(spatial): the engine is y-down and render space is y-up, so
 /// the wall direction's y is negated before the angle is taken.
-fn glow_transform(frame: &crate::PortalWorldFrame, pos: Vec2, normal: Vec2, length: f32, z: f32) -> Transform {
+fn glow_transform(frame: &crate::PortalWorldFrame, pos: Vec2, normal: Vec2, length: f32) -> Transform {
     let along = Vec2::new(-normal.y, normal.x);
     let angle = (-along.y).atan2(along.x);
     Transform {
-        translation: frame.to_render(pos, z),
+        translation: frame.to_render(pos, crate::PORTAL_FRAME_Z),
         rotation: Quat::from_rotation_z(angle),
         scale: quad_size(length).extend(1.0),
     }
@@ -175,6 +186,15 @@ fn material_of(glow: &PortalGlow, partner: PortalChannel) -> PortalGlowMaterial 
     }
 }
 
+/// What [`sync_portal_glows`] knows from frame to frame: how long each live
+/// room has been seen, in the session it was seen in. A room ordinal is not
+/// an identity over sessions, so the ages are of one session.
+#[derive(Default)]
+pub struct GlowMemory {
+    session: Option<SessionScopeId>,
+    room_ages: HashMap<LiveRoomInstance, f32>,
+}
+
 /// Keep one [`PortalGlow`] for each portal: open the ones that are added,
 /// dissolve the ones that are removed, and follow the ones that move.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -182,16 +202,44 @@ pub fn sync_portal_glows(
     mut commands: Commands,
     time: Res<Time>,
     frames: PortalFrames,
-    viewers: Option<Res<crate::PortalViewers>>,
-    rigs: Query<&crate::PortalViewRig>,
     portals: Query<(Entity, &PlacedPortal)>,
-    mut glows: Query<(Entity, &mut PortalGlow, &mut Transform, &MeshMaterial2d<PortalGlowMaterial>)>,
+    active_session: Option<Res<ActiveSessionScope>>,
+    mut glows: Query<(
+        Entity,
+        &mut PortalGlow,
+        &mut Transform,
+        &MeshMaterial2d<PortalGlowMaterial>,
+        Option<&SessionScopedEntity>,
+    )>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<PortalGlowMaterial>>,
     mut unit_mesh: Local<Option<Handle<Mesh>>>,
-    mut room_ages: Local<HashMap<LiveRoomInstance, f32>>,
+    mut memory: Local<GlowMemory>,
 ) {
     let dt = time.delta_secs().min(0.1);
+    // The session this frame draws. With no session lifecycle installed (a
+    // legacy app, a test) there is one unscoped world. With the lifecycle and
+    // no current session there is no gameplay to draw.
+    let Some(scope) = SessionSpawnScope::for_optional_active_session(active_session.as_deref()) else {
+        for (entity, ..) in &glows {
+            commands.entity(entity).despawn();
+        }
+        *memory = GlowMemory::default();
+        return;
+    };
+    if memory.session != scope.id() {
+        // A new session: its rooms are new, whatever their ordinals are.
+        *memory = GlowMemory { session: scope.id(), room_ages: HashMap::new() };
+    }
+    let room_ages = &mut memory.room_ages;
+    // A glow of another session is not of this world: it goes, and it is not
+    // matched to a portal of this one.
+    let of_this_session = |owner: Option<&SessionScopedEntity>| owner.map(|owner| owner.0) == scope.id();
+    for (entity, _, _, _, owner) in &glows {
+        if !of_this_session(owner) {
+            commands.entity(entity).despawn();
+        }
+    }
     let by_room = frames.portals_by_room(portals.iter());
 
     // Each portal that can be drawn: its room is live.
@@ -212,7 +260,10 @@ pub fn sync_portal_glows(
     // Glows whose portal is gone. One that went this frame can be the same
     // aperture as a portal that came this frame (rule 3).
     let mut left_this_frame: Vec<Entity> = Vec::new();
-    for (entity, mut glow, ..) in &mut glows {
+    for (entity, mut glow, _, _, owner) in &mut glows {
+        if !of_this_session(owner) {
+            continue;
+        }
         let gone = glow.portal.is_some_and(|portal| !live.iter().any(|(e, ..)| *e == portal));
         if gone {
             glow.portal = None;
@@ -222,7 +273,10 @@ pub fn sync_portal_glows(
 
     // A glow for each portal that has none.
     for (entity, placement, portal) in &live {
-        if glows.iter().any(|(_, glow, ..)| glow.portal == Some(*entity)) {
+        if glows
+            .iter()
+            .any(|(_, glow, _, _, owner)| of_this_session(owner) && glow.portal == Some(*entity))
+        {
             continue;
         }
         let same = left_this_frame
@@ -250,27 +304,28 @@ pub fn sync_portal_glows(
         };
         let room_portals = by_room.in_room(Some(placement.room));
         let partner = partner_channel(room_portals, portal.channel);
-        let z = crate::visuals::portal_frame_z(*placement, room_portals, portal, viewers.as_deref(), &rigs);
         let mesh = unit_mesh.get_or_insert_with(|| meshes.add(Rectangle::default())).clone();
-        commands.spawn((
+        // Of this session and of this room: it leaves with either.
+        commands.spawn_session_scoped(scope.in_room(Some(placement.room)), (
             Mesh2d(mesh),
             MeshMaterial2d(materials.add(material_of(&glow, partner))),
-            glow_transform(&placement.frame, glow.pos, glow.normal, glow.length, z),
-            placement.stamp(),
+            glow_transform(&placement.frame, glow.pos, glow.normal, glow.length),
             Name::new(format!("Portal glow ({})", portal.channel.name())),
             glow,
         ));
     }
 
     // Each glow: follow its portal and open, or dissolve and go.
-    for (entity, mut glow, mut transform, material) in &mut glows {
+    for (entity, mut glow, mut transform, material, owner) in &mut glows {
+        if !of_this_session(owner) {
+            continue;
+        }
         let Some(placement) = frames.in_room(Some(glow.room)) else {
             // Its room is not live: nothing of it is drawn.
             commands.entity(entity).despawn();
             continue;
         };
         let room_portals = by_room.in_room(Some(glow.room));
-        let mut z = transform.translation.z;
         match glow.portal.and_then(|portal| live.iter().find(|(e, ..)| *e == portal)) {
             Some((_, _, portal)) => {
                 glow.pos = portal.pos;
@@ -279,7 +334,6 @@ pub fn sync_portal_glows(
                 glow.channel = portal.channel;
                 glow.appear = (glow.appear + dt / APPEAR_S).min(1.0);
                 glow.dissolve = 0.0;
-                z = crate::visuals::portal_frame_z(placement, room_portals, portal, viewers.as_deref(), &rigs);
             }
             None => {
                 glow.dissolve += dt / DISSOLVE_S;
@@ -289,7 +343,7 @@ pub fn sync_portal_glows(
                 }
             }
         }
-        let placed = glow_transform(&placement.frame, glow.pos, glow.normal, glow.length, z);
+        let placed = glow_transform(&placement.frame, glow.pos, glow.normal, glow.length);
         if *transform != placed {
             *transform = placed;
         }

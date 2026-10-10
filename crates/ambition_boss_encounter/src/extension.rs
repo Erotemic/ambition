@@ -67,6 +67,11 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::lower_conducted_poses,
     );
+    app.install_extension_request::<ambition_boss_special_port::LimbPosePort, _>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::drain_limb_poses.pipe(crate::conduct::pose_limbs),
+    );
     app.install_extension_request::<DrawnRowPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",

@@ -184,6 +184,83 @@ pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_po
     })
 }
 
+/// The limb in `slot` of the rig of the mount `rider` rides.
+fn ridden_limb(
+    rider: Entity,
+    slot: &str,
+    riders: &Query<&ambition_mount::RidingOn>,
+    rigs: &Query<&ambition_characters::actor::LimbRig>,
+) -> Option<Entity> {
+    let rig = rigs.get(riders.get(rider).ok()?.mount).ok()?;
+    rig.limbs.iter().find(|(name, _)| name.as_str() == slot).map(|(_, &limb)| limb)
+}
+
+/// The `ambition.boss.limb_pose` requests of this tick, for [`pose_limbs`].
+pub fn drain_limb_poses(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbPose>> {
+    outbox.drain::<ambition_boss_special_port::LimbPosePort>(&BOSS_CONDUCT)
+}
+
+/// Lower `ambition.boss.limb_pose`: hold a limb of the ridden mount at a
+/// pose, or let it go. The adapter is `drain_limb_poses.pipe(pose_limbs)`,
+/// so a test can give requests without a module.
+#[allow(clippy::type_complexity)]
+pub fn pose_limbs(
+    In(requests): In<Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbPose>>>,
+    riders: Query<&ambition_mount::RidingOn>,
+    rigs: Query<&ambition_characters::actor::LimbRig>,
+    mut limbs: Query<(
+        &mut ae::BodyKinematics,
+        &mut ae::CenteredAabb,
+        &mut ae::BodyGroundState,
+        Option<&mut ae::SweepSample>,
+        Has<ae::PoseOwnedExternally>,
+    )>,
+    mut commands: Commands,
+) {
+    for submitted in requests {
+        let pose = submitted.value;
+        let Some(limb) = ridden_limb(submitted.scope, &pose.slot, &riders, &rigs) else {
+            warn!(
+                "extension entry {} asked to pose limb {:?} of the mount {:?} rides, which it does not have; refused",
+                submitted.entry, pose.slot, submitted.scope
+            );
+            continue;
+        };
+        let Ok((mut kin, mut aabb, mut ground, mut sweep, held)) = limbs.get_mut(limb) else {
+            continue;
+        };
+        match pose.hold {
+            Some(hold) => {
+                ae::movement::constrain_body_pose(
+                    &mut kin,
+                    sweep.as_deref_mut(),
+                    ae::Vec2::from(hold.position),
+                    ae::Vec2::from(hold.velocity),
+                );
+                kin.facing = hold.facing;
+                if !held {
+                    commands.entity(limb).try_insert(ae::PoseOwnedExternally);
+                }
+                // A discrete pose change: the next step finds the ground again.
+                ground.invalidate();
+            }
+            None => {
+                if held {
+                    commands.entity(limb).try_remove::<ae::PoseOwnedExternally>();
+                }
+                // It falls straight down from where it is.
+                let (pos, fall) = (kin.pos, kin.vel.y);
+                ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, ae::Vec2::new(0.0, fall));
+            }
+        }
+        // The centre only: body integration publishes the size of the
+        // footprint, turned to the limb's down.
+        aabb.center = kin.pos;
+    }
+}
+
 /// Lower `ambition.boss.conducted_pose`: hold the boss's pose, or release it;
 /// keep the side it faces.
 #[allow(clippy::type_complexity)]
@@ -399,5 +476,52 @@ mod mount_view_tests {
         );
         let walker = world.spawn(body(ae::Vec2::ZERO, ae::Vec2::ONE)).id();
         assert_eq!(mount_of(&world, walker), None, "a boss that rides nothing has no mount");
+    }
+}
+
+#[cfg(test)]
+mod limb_pose_tests {
+    use super::*;
+    use ambition_boss_special_port::{LimbHold, LimbPose};
+    use ambition_characters::actor::{LimbRig, LimbSlot};
+    use ambition_extension_host::Submitted;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    fn submit(world: &mut World, boss: Entity, pose: LimbPose) {
+        let request = Submitted { scope: boss, occurrence: None, entry: "test::gnu/conduct".into(), value: pose };
+        world.run_system_once_with(pose_limbs, vec![request]).unwrap();
+    }
+
+    /// ⭐ A hold poses the limb, holds it and clears its ground; a release
+    /// lets it fall straight down from where it is. The control: a slot the
+    /// rig does not have changes nothing.
+    #[test]
+    fn a_held_limb_is_where_it_was_put_and_a_released_one_falls() {
+        let mut world = World::new();
+        let mut fist = ae::BodyKinematics::default();
+        fist.pos = ae::Vec2::new(600.0, 1000.0);
+        fist.vel = ae::Vec2::new(40.0, 90.0);
+        let mut ground = ae::BodyGroundState::default();
+        ground.on_ground = true;
+        let limb = world.spawn((fist, ae::CenteredAabb::new(fist.pos, ae::Vec2::new(65.0, 50.0)), ground)).id();
+        let mount = world.spawn(LimbRig::from_pairs([(LimbSlot::HAND_LEFT, limb)])).id();
+        let boss = world.spawn(ambition_mount::RidingOn { mount }).id();
+
+        submit(&mut world, boss, LimbPose { slot: "hand_right".into(), hold: Some(LimbHold { position: [1.0, 1.0], velocity: [0.0; 2], facing: -1.0 }) });
+        let kin = *world.get::<ae::BodyKinematics>(limb).unwrap();
+        assert_eq!((kin.pos, kin.vel), (ae::Vec2::new(600.0, 1000.0), ae::Vec2::new(40.0, 90.0)), "another slot moved the limb");
+        assert!(world.get::<ae::PoseOwnedExternally>(limb).is_none(), "another slot held the limb");
+
+        submit(&mut world, boss, LimbPose { slot: "hand_left".into(), hold: Some(LimbHold { position: [630.0, 970.0], velocity: [12.0, -3.0], facing: -1.0 }) });
+        let kin = *world.get::<ae::BodyKinematics>(limb).unwrap();
+        assert_eq!((kin.pos, kin.vel, kin.facing), (ae::Vec2::new(630.0, 970.0), ae::Vec2::new(12.0, -3.0), -1.0));
+        assert_eq!(world.get::<ae::CenteredAabb>(limb).unwrap().center, ae::Vec2::new(630.0, 970.0));
+        assert!(!world.get::<ae::BodyGroundState>(limb).unwrap().on_ground, "a posed limb's ground is cleared");
+        assert!(world.get::<ae::PoseOwnedExternally>(limb).is_some(), "a posed limb is held");
+
+        submit(&mut world, boss, LimbPose { slot: "hand_left".into(), hold: None });
+        let kin = *world.get::<ae::BodyKinematics>(limb).unwrap();
+        assert_eq!((kin.pos, kin.vel), (ae::Vec2::new(630.0, 970.0), ae::Vec2::new(0.0, -3.0)), "a released limb falls straight down");
+        assert!(world.get::<ae::PoseOwnedExternally>(limb).is_none(), "a released limb is not held");
     }
 }

@@ -411,6 +411,62 @@ impl Port for MountViewPort {
     }
 }
 
+/// The request port marker for the pose of a limb of the mount a boss rides.
+///
+/// Port card:
+///
+/// * **Operation** — with a `hold`, put the limb there with that velocity
+///   and facing (an external kinematic constraint, ADR 0024), and hold its
+///   pose: the body integrator leaves it alone (`PoseOwnedExternally`), and
+///   its ground contact is cleared, so the next step finds the ground again.
+///   Without one, let go: the limb keeps where it is and its own vertical
+///   speed and falls under its own gravity.
+/// * **Owner** — `ambition_boss_encounter::conduct`.
+/// * **Scope** — the boss the invocation ran for. The limb is `slot` of the
+///   rig of the mount the boss rides (`ambition.boss.mount`). A boss that
+///   rides nothing, or a slot the rig does not have, is refused with a
+///   warning.
+/// * **Time** — `boss_conduct`, this tick: the last word before combat
+///   reads the limb.
+pub struct LimbPosePort;
+
+/// Where a held limb is.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LimbHold {
+    pub position: [f32; 2],
+    pub velocity: [f32; 2],
+    /// `1.0` draws the limb as authored, `-1.0` as its mirror.
+    pub facing: f32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LimbPose {
+    pub slot: String,
+    pub hold: Option<LimbHold>,
+}
+
+impl Port for LimbPosePort {
+    const KEY: PortKey = PortKey::new("ambition.boss.limb_pose", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = LimbPose;
+
+    fn encode(v: &LimbPose, out: &mut Vec<u8>) {
+        wire::put_str(out, &v.slot);
+        wire::put_opt(out, v.hold, |out, h| {
+            wire::put_vec2(out, h.position);
+            wire::put_vec2(out, h.velocity);
+            wire::put_f32(out, h.facing);
+        });
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<LimbPose, WireError> {
+        Ok(LimbPose {
+            slot: r.str()?.to_owned(),
+            hold: r.opt(|r| Ok(LimbHold { position: r.vec2()?, velocity: r.vec2()?, facing: r.f32()? }))?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -482,5 +538,9 @@ mod tests {
         assert_eq!(round::<MountViewPort>(&view), view);
         let bare = MountView { back: None, hall: None, limbs: Vec::new(), ..view };
         assert_eq!(round::<MountViewPort>(&bare), bare);
+        for hold in [None, Some(LimbHold { position: [630.0, 970.0], velocity: [12.0, -3.0], facing: -1.0 })] {
+            let v = LimbPose { slot: "hand_left".into(), hold };
+            assert_eq!(round::<LimbPosePort>(&v), v);
+        }
     }
 }

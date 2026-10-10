@@ -323,7 +323,9 @@ before you add a port.
   harness and the deletion of the native conductor are one slice. Landed:
   observation `ambition.boss.mount` (the ridden body, its back, the hall under
   it, its limbs with rest, lost health and hold), with `boss_conduct` ordered
-  after the rider sync. Next: limb poses, drawn rows for the mount and limbs,
+  after the rider sync; request `ambition.boss.limb_pose` (hold a limb of the
+  ridden mount at a pose, or release it to fall straight down). Next: drawn
+  rows for the mount and limbs,
   the limb opening and the blow it passes on, limb hit volumes, travelling
   shocks, the mount's launch, the speech bubble.
 

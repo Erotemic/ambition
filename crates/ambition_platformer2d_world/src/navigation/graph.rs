@@ -16,15 +16,18 @@
 //! the first arc, proposed only where one jump does not reach. A wall verb is
 //! modelled as one wall climb: a hop to the face under a higher surface, a
 //! cling, a climb, the ledge and the pull-up, proposed only where nothing else
-//! arrives and only for a body that can cling and climb.
+//! arrives and only for a body that can cling and climb. Flight is modelled as
+//! one fly leg: toggle flight on, rise to the air above a higher surface, go
+//! along to it, toggle flight off and fall onto it, proposed last and only for
+//! a body that can toggle flight.
 //!
 //! A leg whose body the kernel resets (a hazard in its air, a fall out of the
 //! world) fails its rollout, by the kernel's own reset flag. A leg whose body
 //! enters an exit of [`NavGraph::build_avoiding`] fails too.
 //!
 //! NOT MODELLED: a drop through a one-way surface, a second air jump, an air
-//! jump in a drop, a dash, a wall jump, flight, a surface that moves, and a
-//! slope.
+//! jump in a drop, a dash, a wall jump, permanent flight, a pogo bounce, a
+//! surface that moves, and a slope.
 
 use ambition_platformer2d_core as ae;
 use ae::movement::{step_motion, ActionEdges, Edge, InputState, MotionStepContext, MovementAction};
@@ -129,6 +132,7 @@ impl NavGraph {
         let air_jump_apex = envelope.air_jump_apex_rise();
         let verbs = body.abilities.abilities;
         let can_climb = verbs.wall_cling && verbs.wall_climb;
+        let can_fly = verbs.fly && verbs.fly_toggle;
         let mut graph = Self {
             frame: nav,
             half,
@@ -156,7 +160,9 @@ impl NavGraph {
                     && rise < air_jump_apex - 1.0
                     && gap <= air_jump_reach + slack;
                 let climb = can_climb && rise > 1.0 && rise <= MAX_CLIMB && gap <= air_jump_reach.max(jump_reach) + slack;
-                if rise < -envelope.probe.max_drop || !(hop || drop || double || climb) {
+                // Flight is for going up: a drop gets down.
+                let fly = can_fly && rise > 1.0;
+                if rise < -envelope.probe.max_drop || !(hop || drop || double || climb || fly) {
                     continue;
                 }
                 let mut cost = BuildCost::default();
@@ -175,10 +181,19 @@ impl NavGraph {
                     proposals(a, b, half.x, true, false).into_iter().map(move |leg| NavLeg { kind, ..leg }).collect()
                 };
                 // The cheaper leg first: one jump, then the air jump, then a
-                // climb, each only where the one before it does not arrive.
+                // climb, then flight, each only where the one before it does
+                // not arrive.
                 let best = arrived(proposals(a, b, half.x, hop, drop), &mut cost)
                     .or_else(|| double.then(|| arrived(as_kind(NavLegKind::DoubleHop), &mut cost)).flatten())
-                    .or_else(|| climb.then(|| arrived(as_kind(NavLegKind::WallClimb), &mut cost)).flatten());
+                    .or_else(|| climb.then(|| arrived(as_kind(NavLegKind::WallClimb), &mut cost)).flatten())
+                    .or_else(|| {
+                        fly.then(|| {
+                            let mut legs: Vec<NavLeg> = as_kind(NavLegKind::Fly);
+                            legs.extend(graph.fly_proposals(world, a, b));
+                            arrived(legs, &mut cost)
+                        })
+                        .flatten()
+                    });
                 graph.cost.add(cost);
                 if let Some((leg, cost)) = best {
                     graph.out[from].push(graph.links.len());
@@ -187,6 +202,46 @@ impl NavGraph {
             }
         }
         Some(graph)
+    }
+
+    /// Flights from `a` up to `b` that start beside each end of a block the
+    /// body rises past, with points as (along, below) pairs. A flight rises straight up
+    /// from its start, so it gets through an opening in a ceiling (a grate)
+    /// only from under it, and an opening starts beside the end of a block.
+    fn fly_proposals(&self, world: &World, a: &StandSurface, b: &StandSurface) -> Vec<NavLeg> {
+        // What the body passes through when it rises from `a` to above `b`.
+        let band = (b.top - self.half.y * 2.0 - ae::navigation::FLIGHT_CLEARANCE, a.top);
+        let mut starts: Vec<f32> = Vec::new();
+        for block in &world.blocks {
+            if matches!(block.kind, ae::BlockKind::OneWay | ae::BlockKind::PogoOrb) {
+                continue;
+            }
+            let along = [self.frame.along(block.aabb.min), self.frame.along(block.aabb.max)];
+            let below = [self.frame.below(block.aabb.min), self.frame.below(block.aabb.max)];
+            let (top, bottom) = (below[0].min(below[1]), below[0].max(below[1]));
+            if bottom <= band.0 || top >= band.1 {
+                continue;
+            }
+            let (left, right) = (along[0].min(along[1]), along[0].max(along[1]));
+            // Clear of the end by the follower's tolerance too: it starts the
+            // leg anywhere in it.
+            let clear = self.half.x + ARRIVE_TOLERANCE + 2.0;
+            starts.push(left - clear);
+            starts.push(right + clear);
+        }
+        starts.retain(|start| *start >= a.left && *start <= a.right);
+        starts.sort_by(|x, y| x.total_cmp(y));
+        starts.dedup_by(|x, y| (*x - *y).abs() < 1.0);
+        starts
+            .into_iter()
+            .map(|start| NavLeg {
+                kind: NavLegKind::Fly,
+                start: Vec2::new(start, a.top),
+                takeoff: Vec2::new(start, a.top),
+                land: Vec2::new(b.clamp(start), b.top),
+                land_span: [b.left - self.half.x, b.right + self.half.x],
+            })
+            .collect()
     }
 
     /// A leg whose points are (along, below) pairs, as world points.
@@ -260,6 +315,8 @@ impl NavGraph {
         let mut phase = LegPhase::Commit;
         // Where the feet were when the body last moved on the ground.
         let mut moved_at = (0, self.frame.along(body.kinematics.pos));
+        // Where the feet were when the body last moved in flight.
+        let mut flown_at = (0, body.kinematics.pos + self.frame.down * self.half.y);
         for index in 0..MAX_LEG_STEPS {
             let feet = body.kinematics.pos + self.frame.down * self.half.y;
             // A body that runs into a wall in `Commit` stands there until the
@@ -271,6 +328,15 @@ impl NavGraph {
                 if (along - moved_at.1).abs() > 1.0 {
                     moved_at = (index, along);
                 } else if index - moved_at.0 >= STALL_STEPS {
+                    return (None, index + 3);
+                }
+            }
+            // A flight under a ceiling hovers there until the step limit.
+            // Stopped in the air for STALL_STEPS means it has failed.
+            if leg.kind == ae::navigation::NavLegKind::Fly && phase == LegPhase::Air {
+                if (feet - flown_at.1).length() > 1.0 {
+                    flown_at = (index, feet);
+                } else if index - flown_at.0 >= STALL_STEPS {
                     return (None, index + 3);
                 }
             }
@@ -518,10 +584,9 @@ fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f3
     let input = InputState {
         // Up is toward -y in the body's local axes.
         axes: LocalAxes::new(input.axis, if input.up { -1.0 } else { 0.0 }),
-        movement: ActionEdges::<MovementAction>::EMPTY.with(
-            MovementAction::Jump,
-            Edge { pressed: input.jump_pressed, held: input.jump_held, released: false },
-        ),
+        movement: ActionEdges::<MovementAction>::EMPTY
+            .with(MovementAction::Jump, Edge { pressed: input.jump_pressed, held: input.jump_held, released: false })
+            .with(MovementAction::FlyToggle, Edge { pressed: input.fly_toggle, held: input.fly_toggle, released: false }),
         ..Default::default()
     };
     let facing_intent = input.local_axis().x;

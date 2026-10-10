@@ -25,6 +25,9 @@ pub const ARRIVE_TOLERANCE: f32 = 4.0;
 pub const REST_SPEED: f32 = 12.0;
 /// A body is on a surface when its feet are this near the top of it.
 pub const LAND_TOLERANCE: f32 = 6.0;
+/// How far above a landing a [`NavLegKind::Fly`] goes before it goes along to
+/// it: half of it is where the body turns flight off.
+pub const FLIGHT_CLEARANCE: f32 = 32.0;
 /// The most waypoints one [`NavAdvice`] holds.
 pub const NAV_WAYPOINTS: usize = 8;
 
@@ -46,6 +49,10 @@ pub enum NavLegKind {
     /// the body clings, climbs, takes the ledge and pulls itself up onto it.
     /// For a body that can cling and climb.
     WallClimb,
+    /// Toggle flight at `start`, fly up and along to the air above `land`,
+    /// toggle flight off there and fall onto it. For a body that can toggle
+    /// flight.
+    Fly,
 }
 
 /// One leg of a route.
@@ -84,9 +91,10 @@ pub enum LegPhase {
     Commit,
     /// The jump is pressed; the body is not off the ground yet.
     Launch,
-    /// In the air, steering to `land`.
+    /// In the air, steering to `land`. A [`NavLegKind::Fly`] is in flight.
     Air,
-    /// In the air after the air jump of a [`NavLegKind::DoubleHop`].
+    /// In the air after the air jump of a [`NavLegKind::DoubleHop`], or
+    /// falling after the flight of a [`NavLegKind::Fly`].
     SecondAir,
 }
 
@@ -114,6 +122,8 @@ pub struct LegInput {
     pub jump_held: bool,
     /// Hold up: climb a wall, and pull up from a ledge.
     pub up: bool,
+    /// Press the flight toggle.
+    pub fly_toggle: bool,
 }
 
 /// What a step of a leg came to.
@@ -177,11 +187,19 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                             full_speed: true,
                             jump_pressed: true,
                             jump_held: true,
-                            up: false,
+                            ..LegInput::default()
                         };
                         return (input, LegProgress::Going(LegPhase::Launch));
                     }
                     (running, LegProgress::Going(LegPhase::Commit))
+                }
+                // Flight starts where the body stands: no run-up.
+                NavLegKind::Fly => {
+                    if !facts.on_ground {
+                        return (LegInput::default(), LegProgress::Failed);
+                    }
+                    let input = LegInput { fly_toggle: true, ..LegInput::default() };
+                    (input, LegProgress::Going(LegPhase::Air))
                 }
                 NavLegKind::Drop => {
                     if direction == 0.0 {
@@ -198,10 +216,31 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                 full_speed: true,
                 jump_pressed: facts.on_ground,
                 jump_held: true,
-                up: false,
+                ..LegInput::default()
             };
             let next = if facts.on_ground { LegPhase::Launch } else { LegPhase::Air };
             (input, LegProgress::Going(next))
+        }
+        // In flight: rise to the air above the landing and go along to it,
+        // then toggle flight off and fall onto it. The body is on the ground
+        // on the first steps, and that is not a landing.
+        LegPhase::Air if leg.kind == NavLegKind::Fly => {
+            // How far the feet are above the landing's height.
+            let above = below(leg.land);
+            let over = along(leg.land).abs() <= ARRIVE_TOLERANCE * 2.0;
+            if above >= FLIGHT_CLEARANCE * 0.5 && over {
+                let input = LegInput { fly_toggle: true, ..LegInput::default() };
+                return (input, LegProgress::Going(LegPhase::SecondAir));
+            }
+            let input = LegInput {
+                // Go along only when clear of the landing's height, so the
+                // body does not fly into the side of the surface.
+                axis: if above >= FLIGHT_CLEARANCE * 0.5 { steer_to(leg.land, 16.0) } else { 0.0 },
+                full_speed: true,
+                up: above < FLIGHT_CLEARANCE,
+                ..LegInput::default()
+            };
+            (input, LegProgress::Going(LegPhase::Air))
         }
         LegPhase::Air | LegPhase::SecondAir => {
             if facts.on_ground {
@@ -227,6 +266,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                     jump_pressed: falling,
                     jump_held: !climb,
                     up: climb,
+                    fly_toggle: false,
                 };
                 let next = if falling { LegPhase::SecondAir } else { LegPhase::Air };
                 return (input, LegProgress::Going(next));
@@ -255,7 +295,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                 full_speed: true,
                 jump_pressed: false,
                 jump_held: matches!(leg.kind, NavLegKind::Hop | NavLegKind::DoubleHop),
-                up: false,
+                ..LegInput::default()
             };
             (input, LegProgress::Going(phase))
         }

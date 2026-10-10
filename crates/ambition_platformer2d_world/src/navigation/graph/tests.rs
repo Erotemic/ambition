@@ -398,3 +398,103 @@ fn a_leg_through_an_exit_is_no_leg_for_a_body_the_exit_takes() {
     assert_eq!(linked(&[]), Some(NavLegKind::Hop), "control: with no exit the hop is there");
     assert_eq!(linked(&[exit]), None, "a hop through the exit is a link");
 }
+
+/// ⭐ A BODY THAT FLIES GETS UP TO WHAT NO JUMP OR CLIMB REACHES. A one-way
+/// loft four jumps above the floor, with no wall under it: a fly link that
+/// arrives in the kernel, and a body that follows it gets there. The control
+/// is the same body with no flight: the loft is out of reach.
+#[test]
+fn a_body_that_flies_gets_up_to_what_no_jump_reaches() {
+    let flier = || {
+        let mut body = walker();
+        let verbs = &mut body.abilities.abilities;
+        verbs.fly = true;
+        verbs.fly_toggle = true;
+        body
+    };
+    let apex = TraversalEnvelope::measure(&flier(), normal_frame(), EnvelopeProbe::default())
+        .expect("measured")
+        .apex_rise();
+    let high = apex * 4.0;
+    let world = World::new(
+        "a loft no jump reaches",
+        Vec2::new(4000.0, 3000.0),
+        Vec2::ZERO,
+        vec![
+            Block::solid("floor", Vec2::new(0.0, FLOOR), Vec2::new(1600.0, 64.0)),
+            Block::one_way("loft", Vec2::new(900.0, FLOOR - high), Vec2::new(300.0, 16.0)),
+        ],
+    );
+    let fixture = Fixture {
+        graph: NavGraph::build(&world, &flier(), normal_frame()).expect("an upright flier has a graph"),
+        world,
+        body: flier(),
+    };
+    assert_eq!(fixture.linked("floor", "loft"), Some(NavLegKind::Fly));
+    fixture
+        .travel(fixture.middle("floor") - Vec2::X * 300.0, fixture.middle("loft"))
+        .unwrap_or_else(|why| panic!("floor to the loft by flight: {why}"));
+
+    let mut grounded = flier();
+    grounded.abilities.abilities.fly = false;
+    let graph = NavGraph::build(&fixture.world, &grounded, normal_frame()).expect("a walker has a graph");
+    assert_eq!(
+        graph.next(fixture.middle("floor") - Vec2::X * 300.0, fixture.middle("loft")),
+        NavNext::Unreachable,
+        "control: with no flight the loft is out of reach"
+    );
+}
+
+/// ⭐ A FLIGHT GOES UP THROUGH A GRATE FROM UNDER IT. A solid deck four jumps
+/// above the floor, with one gap in it two bodies wide: a fly link from the
+/// floor to the deck, that a body which follows it gets up. Found on the
+/// walked route: in `drain_alley` the way up from the pipes layer to the
+/// street is a grate, and no flight from a hop's start stood under it. The
+/// control is the same deck with no gap: the deck's top is out of reach.
+#[test]
+fn a_flight_goes_up_through_a_grate_from_under_it() {
+    let flier = || {
+        let mut body = walker();
+        let verbs = &mut body.abilities.abilities;
+        verbs.fly = true;
+        verbs.fly_toggle = true;
+        body
+    };
+    let apex = TraversalEnvelope::measure(&flier(), normal_frame(), EnvelopeProbe::default())
+        .expect("measured")
+        .apex_rise();
+    let width = TraversalEnvelope::measure(&flier(), normal_frame(), EnvelopeProbe::default())
+        .expect("measured")
+        .body_width;
+    let deck = FLOOR - apex * 4.0;
+    let room = |gap: f32| {
+        World::new(
+            "a deck with a grate",
+            Vec2::new(4000.0, 3000.0),
+            Vec2::ZERO,
+            vec![
+                Block::solid("floor", Vec2::new(0.0, FLOOR), Vec2::new(1600.0, 64.0)),
+                Block::solid("deck", Vec2::new(0.0, deck), Vec2::new(700.0, 32.0)),
+                Block::solid("deck_east", Vec2::new(700.0 + gap, deck), Vec2::new(900.0 - gap, 32.0)),
+            ],
+        )
+    };
+    let world = room(width * 2.0);
+    let fixture = Fixture {
+        graph: NavGraph::build(&world, &flier(), normal_frame()).expect("an upright flier has a graph"),
+        world,
+        body: flier(),
+    };
+    assert_eq!(fixture.linked("floor", "deck"), Some(NavLegKind::Fly), "no flight up through the grate");
+    fixture
+        .travel(fixture.middle("floor") + Vec2::X * 200.0, fixture.middle("deck"))
+        .unwrap_or_else(|why| panic!("floor to the deck through the grate: {why}"));
+
+    let sealed = room(0.0);
+    let graph = NavGraph::build(&sealed, &flier(), normal_frame()).expect("an upright flier has a graph");
+    assert_eq!(
+        graph.next(fixture.middle("floor") + Vec2::X * 200.0, fixture.middle("deck")),
+        NavNext::Unreachable,
+        "control: with no grate the deck's top is out of reach"
+    );
+}

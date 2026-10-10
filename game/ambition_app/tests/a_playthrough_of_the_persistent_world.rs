@@ -2,9 +2,11 @@
 //!
 //! The player takes the Blink in the hub's basement (a held item: Attack
 //! becomes a blink), goes from the hub to Alice through the real exits of each
-//! room, takes her note, carries it to Bob, and hands it over. The route is
-//! not walked: the test puts the body inside each exit zone (and presses
-//! Interact at a door), and the room transition after that is the shipped one. Each step asserts its fact
+//! room, takes her note, carries it to Bob, and hands it over. The player
+//! walks by keys (`common::walk`): to the Blink, and to and through each exit,
+//! with Interact at a door and confirm on a cutscene's beats. The room
+//! transition after that is the shipped one, and no step puts the body
+//! anywhere. Each step asserts its fact
 //! against the authority that owns it: the live room, the bag, the save's
 //! flags, the quest registry, the collision overlay of the live room, and the
 //! custody of the one Blink.
@@ -15,14 +17,12 @@
 //! lay.
 
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::{App, Entity, KeyCode};
-use leafwing_input_manager::prelude::Buttonlike;
 
 use crate::neighbor_prefetch_prepares_rooms::{alice as primary_body, room_of};
 use crate::the_note_travels_from_alice_to_bob::{
-    a_returning_player_enters, a_returning_players_session, bag, flag, put_body_at, quest_step, talk_and_choose, NOTE_FLAG,
+    a_returning_player_enters, a_returning_players_session, bag, flag, quest_step, talk_and_choose, NOTE_FLAG,
     SURVEY_FLAG,
 };
 
@@ -61,8 +61,8 @@ fn the_player_holds(app: &mut App, id: &SimId) -> bool {
     matches!(occurrences(app, id).as_slice(), [(_, Custody::Held { holder })] if *holder == player)
 }
 
-/// Stand on the Blink and press Attack until it is in hand. Answers where it
-/// lay.
+/// Walk to the Blink by keys and press Attack until it is in hand. Answers
+/// where it lay.
 fn take(app: &mut App, id: &SimId) -> ae::Vec2 {
     let at = {
         let world = app.world_mut();
@@ -75,8 +75,9 @@ fn take(app: &mut App, id: &SimId) -> ae::Vec2 {
         assert_eq!(found.len(), 1, "exactly one `{}` lies in the world", id.as_str());
         found[0]
     };
-    let body = primary_body(app);
-    put_body_at(app, body, at);
+    if let Err(why) = crate::common::walk::walk_to(&mut crate::common::walk::Keys::new(app), at) {
+        panic!("the player did not walk to `{}`: {why}", id.as_str());
+    }
     for _ in 0..40 {
         crate::the_note_travels_from_alice_to_bob::tap(app, KeyCode::KeyX);
         if the_player_holds(app, id) {
@@ -109,58 +110,14 @@ fn live_room(app: &mut App) -> String {
     room_of(app, body).expect("the player is in a live room")
 }
 
-/// Leave the live room through its exit to `target`. The body is put inside
-/// the exit zone, not walked to it; a door then takes Interact. The crossing
-/// is the shipped room transition.
+/// Leave the live room through its exit to `target`: the player walks there
+/// by keys, the way a player at the keyboard does (`common::walk`), and a
+/// door takes Interact. The crossing is the shipped room transition.
 fn go_through(app: &mut App, target: &str) {
     let from = live_room(app);
-    let (center, door) = {
-        let world = app.world_mut();
-        let live = ambition_platformer2d::world::rooms::sole_live_room_definition(world).expect("one live room");
-        let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
-            ambition_platformer2d::world::rooms::RoomSet,
-        >(world)
-        .expect("the session keeps its room set");
-        let zone = rooms
-            .spec(live)
-            .loading_zones
-            .iter()
-            .find(|zone| {
-                rooms
-                    .transition_for_player(live, zone.aabb, ae::Vec2::ZERO, true)
-                    .is_some_and(|transition| rooms.rooms[transition.target_room].id == target)
-            })
-            .unwrap_or_else(|| panic!("`{from}` has no exit to `{target}`"));
-        (
-            zone.aabb.center(),
-            matches!(zone.activation, ambition_platformer2d::world::rooms::LoadingZoneActivation::Door),
-        )
-    };
-    let body = primary_body(app);
-    put_body_at(app, body, center);
-    // A door takes a fresh press. One held from the first frame can land in
-    // the cooldown after the last crossing, so press again every 10 frames.
-    let mut arrived = false;
-    for frame in 0..600 {
-        if door && frame % 10 == 0 {
-            Buttonlike::press(&KeyCode::KeyF, app.world_mut());
-        }
-        if door && frame % 10 == 2 {
-            Buttonlike::release(&KeyCode::KeyF, app.world_mut());
-        }
-        app.update();
-        if room_of(app, body).as_deref() == Some(target) {
-            arrived = true;
-            break;
-        }
+    if let Err(why) = crate::common::walk::walk_through(&mut crate::common::walk::Keys::new(app), target) {
+        panic!("the player did not walk from `{from}` to `{target}`: {why}");
     }
-    Buttonlike::release(&KeyCode::KeyF, app.world_mut());
-    assert!(
-        arrived,
-        "the exit of `{from}` to `{target}` did not take the player there in 600 frames (player at {:?}, room {:?})",
-        app.world().get::<ae::BodyKinematics>(body).map(|k| k.pos),
-        room_of(app, body)
-    );
     for _ in 0..30 {
         app.update();
     }

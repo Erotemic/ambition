@@ -136,8 +136,7 @@ autosave writes the save under its `PersistenceRoot`, the test reads the file
 back and requires it to equal the live save, and a new App on that root loads
 it at Startup (`load_save_at_startup`). Poison (the new App without the root):
 red at "the new App's save is not the file the first App wrote". The words now
-say what runs: one OS process, and a body put inside each exit zone, not
-walked. A walked route is later work.
+say what runs: one OS process. The route is walked since 2026-10-10 (WA8).
 
 **WA7 done 2026-10-09:** the playthrough runs in the composition that draws
 it. `the_playthrough_runs_in_the_composition_that_draws_it` builds the shipped
@@ -158,26 +157,25 @@ are accounted by count and have no instance identity. The object with an
 identity and a custody is the Blink. A note as an object is a content
 decision, not a defect.
 
-**The route from the hub to Alice and Bob is walked (2026-10-10).**
-`a_walked_route_of_the_persistent_world::the_player_walks_from_the_hub_to_alice_and_bob`
-(`app_it`) walks the player through seven crossings with its own stick and jump,
-by the in-room `NavGraph` legs and the shipped room transitions. No step puts
-the body anywhere. It found a content defect: in `drain_alley` the main street
-was solid across the room, and the door to `under_town_pipes` is on the floor
-below it. The grate the room's spec describes is now three open cells over the
-door. `walked_route_census` (ignored, a measurement) routes 9 of 9 crossings
-(8 with the air jump taken away, 8 with the wall verbs taken away). Its earlier
-9 of 9 was wrong for `drain_alley`: the route went out through the back edge
-exit. Graphs for the player now avoid the other overlap exits. The walked
-graph also has the standing gate solids. Before the survey, the `LockWall` of
-Alice's private return (`bob_field_survey_received`) stands on the floor
-before the exit to Bob, 112 px tall, and the walk gets over it with the air
-jump. Measured, not changed: a body with one jump (83 px) has no road from
-Alice to Bob before the survey. The wall is above one jump, and the other road
-(back to `drain_alley` and up to its street door to Bob) has no route from
-the pipes layer up to the street. The spec calls the wall a placeholder for
-a door. Next: the steps of the placed playthrough that are not crossings
-(the note, the survey, the return) on the walked route.
+**WA8 done 2026-10-10: the playthrough is walked.** Each arm of
+`a_playthrough_of_the_persistent_world` walks by keys in the shipped App
+(`common::walk`): the in-room `NavGraph` for the player's own body, the input
+`follow_leg` gives pressed as the arrows-and-ZXC keys, Interact at a door,
+confirm on a cutscene's beats. The player walks to the Blink and through each
+exit, back from Alice after a death too, and no step puts the body anywhere.
+`a_walked_route_of_the_persistent_world` walks the hub to Bob through the sim
+harness (an analog stick, the agent's input). Found and fixed on the way:
+a leg through a hazard or another exit was kept (the rollout now fails on the
+kernel's reset, and `build_avoiding` takes the exits); `drain_alley` had no
+road down to the under-town door (the grate in the street is open); the graph
+did not see a standing lock wall; the hub basement has no road up but flight
+(a 512 px void; its pogo orb and moving platform are not in the graph), so
+flight is a leg now, with starts beside block ends so that it goes up
+through a grate. Measured, not changed: a body with one jump has no road from
+Alice to Bob before the survey, and none out of the hub basement. Poisons: no
+fly leg, red at the hub basement ("no route"); the graph over the authored
+blocks only, red at `alice_relay`. `walked_route_census` (ignored) routes 9
+of 9 crossings.
 
 **Acceptance:** the scenario runs headless in a standing lane and is playable in
 the rendered game; each step asserts its fact against the authority that owns

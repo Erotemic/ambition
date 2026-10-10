@@ -254,30 +254,67 @@ impl Port for BossGuardPort {
 ///
 /// Port card:
 ///
-/// * **Operation** — draw the body with the named sheet row, `elapsed`
-///   seconds in, looping or holding its last frame; with no `name`, draw it
-///   as the engine would. Presentation: no simulation state reads it, and it
-///   is derived again each tick (the module's own clock is the elapsed time).
-/// * **Owner** — `ambition_boss_encounter::extension` (`PinnedRow`).
-/// * **Scope** — the body the invocation ran for.
+/// * **Operation** — draw the part with the first of `names` its sheet has,
+///   `elapsed` seconds in, looping or holding its last frame; with no names,
+///   draw it as the engine would. Presentation: no simulation state reads it,
+///   and it is derived again each tick (the module's own clock is the elapsed
+///   time).
+/// * **Owner** — `ambition_boss_encounter::conduct` (`PinnedRow`).
+/// * **Scope** — the body the invocation ran for, the mount it rides, or a
+///   limb of that mount's rig ([`DrawnPart`]). A part that is not there is
+///   refused with a warning.
 /// * **Time** — `boss_conduct`.
 pub struct DrawnRowPort;
 
+/// The part a [`DrawnRow`] draws.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DrawnPart {
+    /// The body the invocation ran for.
+    Body,
+    /// The mount that body rides.
+    Mount,
+    /// The limb in this slot of that mount's rig.
+    Limb(String),
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct DrawnRow {
-    pub name: Option<String>,
+    pub on: DrawnPart,
+    /// Rows in order of preference: a sheet without the first is drawn with
+    /// the next.
+    pub names: Vec<String>,
     pub elapsed: f32,
     pub looping: bool,
 }
 
+impl DrawnRow {
+    /// Draw the body with one row.
+    pub fn body(name: &str, elapsed: f32, looping: bool) -> Self {
+        Self { on: DrawnPart::Body, names: vec![name.into()], elapsed, looping }
+    }
+
+    /// Draw the body as the engine would.
+    pub fn body_as_engine() -> Self {
+        Self { on: DrawnPart::Body, names: Vec::new(), elapsed: 0.0, looping: false }
+    }
+}
+
 impl Port for DrawnRowPort {
-    const KEY: PortKey = PortKey::new("ambition.presentation.drawn_row", 1);
+    const KEY: PortKey = PortKey::new("ambition.presentation.drawn_row", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = DrawnRow;
 
     fn encode(v: &DrawnRow, out: &mut Vec<u8>) {
-        wire::put_bool(out, v.name.is_some());
-        if let Some(name) = &v.name {
+        match &v.on {
+            DrawnPart::Body => wire::put_u8(out, 0),
+            DrawnPart::Mount => wire::put_u8(out, 1),
+            DrawnPart::Limb(slot) => {
+                wire::put_u8(out, 2);
+                wire::put_str(out, slot);
+            }
+        }
+        wire::put_u32(out, v.names.len() as u32);
+        for name in &v.names {
             wire::put_str(out, name);
         }
         wire::put_f32(out, v.elapsed);
@@ -285,12 +322,18 @@ impl Port for DrawnRowPort {
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<DrawnRow, WireError> {
-        let name = if r.bool()? { Some(r.str()?.to_owned()) } else { None };
-        Ok(DrawnRow {
-            name,
-            elapsed: r.f32()?,
-            looping: r.bool()?,
-        })
+        let on = match r.u8()? {
+            0 => DrawnPart::Body,
+            1 => DrawnPart::Mount,
+            2 => DrawnPart::Limb(r.str()?.to_owned()),
+            other => return Err(WireError::BadTag(other)),
+        };
+        let count = r.read_len()?;
+        let mut names = Vec::new();
+        for _ in 0..count {
+            names.push(r.str()?.to_owned());
+        }
+        Ok(DrawnRow { on, names, elapsed: r.f32()?, looping: r.bool()? })
     }
 }
 
@@ -509,9 +552,11 @@ mod tests {
             let v = ConductedPose { pose, side: -1.0 };
             assert_eq!(round::<ConductedPosePort>(&v), v);
         }
-        for name in [None, Some("drift".to_string())] {
-            let v = DrawnRow { name, elapsed: 0.25, looping: true };
-            assert_eq!(round::<DrawnRowPort>(&v), v);
+        for on in [DrawnPart::Body, DrawnPart::Mount, DrawnPart::Limb("hand_left".into())] {
+            for names in [Vec::new(), vec!["hit".to_string(), "rest".to_string()]] {
+                let v = DrawnRow { on: on.clone(), names, elapsed: 0.25, looping: true };
+                assert_eq!(round::<DrawnRowPort>(&v), v);
+            }
         }
     }
 

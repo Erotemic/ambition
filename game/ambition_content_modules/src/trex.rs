@@ -653,7 +653,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.mourned = true;
             play(inv, SFX_DEATH, at + Vec2::new(side * head_front(), -40.0))?;
         }
-        inv.submit::<DrawnRowPort>(DrawnRow { name: None, elapsed: 0.0, looping: false })?;
+        inv.submit::<DrawnRowPort>(DrawnRow::body_as_engine())?;
         let pos = Vec2::new(at.x, stand_y);
         inv.submit::<ConductedPosePort>(ConductedPose {
             pose: Some(Pose { position: pos.into(), velocity: ((pos - at) / dt).into() }),
@@ -1128,7 +1128,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         side,
     })?;
     let row = drawn_row(&c, part, walking);
-    inv.submit::<DrawnRowPort>(DrawnRow { name: Some(row.0.into()), elapsed: row.1, looping: row.2 })?;
+    inv.submit::<DrawnRowPort>(DrawnRow::body(row.0, row.1, row.2))?;
     c.store(inv)
 }
 

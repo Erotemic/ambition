@@ -1,4 +1,4 @@
-// biome_forest: the exhibit room of the biome `forest` in the hall of biomes.
+// biome_forest: the exhibit room of the biome `Forest` in the hall of biomes.
 // Made by specs/hall_of_biomes/make_specs.py: do not edit by hand.
 (
     id: "biome_forest",

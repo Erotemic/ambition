@@ -1,4 +1,4 @@
-// biome_skybridge: the exhibit room of the biome `skybridge` in the hall of biomes.
+// biome_skybridge: the exhibit room of the biome `Skybridge` in the hall of biomes.
 // Made by specs/hall_of_biomes/make_specs.py: do not edit by hand.
 (
     id: "biome_skybridge",

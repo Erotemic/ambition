@@ -149,13 +149,23 @@ suit the style of the game.
   an opt-in for each game that no game takes).
 - [x] The Kernel Guide is a character on the rig of the pirate crew
   (`targets/characters/kernel_guide.py`): a hooded robe, glasses of light, a
-  slate. It was a preset of the toon rig with four short rows. It has six
-  rows now: idle, walk, talk, interact, hurt and death.
+  slate. It was a preset of the toon rig with four short rows. It has eight
+  rows now: idle, walk, talk, interact, slash, shoot, hurt and death. It is
+  drawn larger than the pirates (catalog `collision_scale` 1.9). A provoked
+  guide fights (Jon, 2026-10-10): the action set `kernel_guide_slate` is a
+  hit with the slate and a bolt from its screen.
 - [x] The hall of biomes: a hall in the sandbox with a door for each biome
   (15), from a door in the hub. Each door goes to the same small room in the
   art of that biome. The rooms are made by
   `tools/ambition_ldtk_tools/specs/hall_of_biomes/make_specs.py`: a new biome
-  is one row there.
+  is one row there. Two of the rooms are room looks (`palette`): the
+  clean / corrupted look with its state switch, and the blueprint look.
+- [x] The boss vault has no dark sun (that is the mark of the eclipse): its
+  scene is the shut gate of a vault with fire behind it. Ground that is not
+  plain brick: `basalt` (boss), `monolith` (eclipse, slabs with signs),
+  `ruin` (deep water), `rock` (skybridge, and `open_sky`, which had no
+  ground dressing and has each part now). `basement`, `undertown` and
+  `hub_clean` are laid courses still.
 - [x] Seen in the game with `capture_scene` (not in a window on a GPU): the
   five pirates in the hall of characters and in the cove, the crate, the
   spikes, the pogo orb, and no shadow under a body.

@@ -1,4 +1,4 @@
-// biome_water: the exhibit room of the biome `water` in the hall of biomes.
+// biome_water: the exhibit room of the biome `Deep water` in the hall of biomes.
 // Made by specs/hall_of_biomes/make_specs.py: do not edit by hand.
 (
     id: "biome_water",

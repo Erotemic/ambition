@@ -1,4 +1,4 @@
-// biome_boss: the exhibit room of the biome `boss` in the hall of biomes.
+// biome_boss: the exhibit room of the biome `Boss vault` in the hall of biomes.
 // Made by specs/hall_of_biomes/make_specs.py: do not edit by hand.
 (
     id: "biome_boss",

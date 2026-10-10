@@ -1,4 +1,4 @@
-// biome_open_sky: the exhibit room of the biome `open_sky` in the hall of biomes.
+// biome_open_sky: the exhibit room of the biome `Open sky` in the hall of biomes.
 // Made by specs/hall_of_biomes/make_specs.py: do not edit by hand.
 (
     id: "biome_open_sky",

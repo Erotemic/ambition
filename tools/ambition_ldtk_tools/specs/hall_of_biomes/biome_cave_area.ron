@@ -1,4 +1,4 @@
-// biome_cave: the exhibit room of the biome `cave` in the hall of biomes.
+// biome_cave: the exhibit room of the biome `Cave` in the hall of biomes.
 // Made by specs/hall_of_biomes/make_specs.py: do not edit by hand.
 (
     id: "biome_cave",

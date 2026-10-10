@@ -3,7 +3,9 @@
 
 The hall is one long room with a door for each biome. Each door has the name of
 its biome over it and goes to a small exhibit room that names that biome as its
-`parallax_theme`. Each exhibit room is the same room: a floor, a block, a block
+`parallax_theme`. A biome that is a room look (`docs/systems/room-looks.md`)
+names its `palette` also, and a look with states has a switch that goes round
+them. Each exhibit room is the same room: a floor, a block, a block
 in the air, two one-way platforms, a ladder, a pool of water, a soft and a hard blink wall and a strip of hazard. So each part of the
 dressing of a biome (the sky, the skin of the ground, the decor, the motes, the
 door, the ladder, the water) is in view in one place.
@@ -32,24 +34,32 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 LDTK = "../../game/ambition_map_assets/ambition_content/worlds/sandbox.ldtk"
 
-#: (the key of `ParallaxTheme`, the name on the door, the `biome` of the room).
+#: (the key of the room, the name on the door, the `biome` of the room, the
+#: key of `ParallaxTheme` or None, the `palette` (the room look) or None).
+#:
+#: The themes `hub_clean` and `hub_corrupt` have no room of their own: they are
+#: the two skies of the look `clean_corrupted`, and that room shows them.
 BIOMES = [
-    ("hub", "Hub", "hub"),
-    ("hub_clean", "Hub, clean", "hub"),
-    ("hub_corrupt", "Hub, corrupt", "hub"),
-    ("lab", "Lab", "lab"),
-    ("alarm", "Lab, raided", "lab"),
-    ("basement", "Basement", "basement"),
-    ("undertown", "Under-town", "basement"),
-    ("boss", "Boss vault", "boss"),
-    ("cave", "Cave", "cave"),
-    ("forest", "Forest", "forest"),
-    ("cove", "Cove", "cove"),
-    ("water", "Deep water", "water"),
-    ("skybridge", "Skybridge", "hub"),
-    ("open_sky", "Open sky", "cove"),
-    ("eclipse", "Eclipse", "lab"),
+    ("hub", "Hub", "hub", "hub", None),
+    ("clean_corrupted", "Clean / corrupted", "hub", "hub_clean", "clean_corrupted"),
+    ("blueprint", "Blueprint", "basement", None, "debug_beautiful"),
+    ("lab", "Lab", "lab", "lab", None),
+    ("alarm", "Lab, raided", "lab", "alarm", None),
+    ("basement", "Basement", "basement", "basement", None),
+    ("undertown", "Under-town", "basement", "undertown", None),
+    ("boss", "Boss vault", "boss", "boss", None),
+    ("cave", "Cave", "cave", "cave", None),
+    ("forest", "Forest", "forest", "forest", None),
+    ("cove", "Cove", "cove", "cove", None),
+    ("water", "Deep water", "water", "water", None),
+    ("skybridge", "Skybridge", "hub", "skybridge", None),
+    ("open_sky", "Open sky", "cove", "open_sky", None),
+    ("eclipse", "Eclipse", "lab", "eclipse", None),
 ]
+
+#: A look that has states: the room gets a switch that goes round them
+#: (`look.cycle`, `game/ambition_content/src/room_look_state.rs`).
+LOOKS_WITH_STATES = {"clean_corrupted"}
 
 HALL = "hall_of_biomes"
 #: Free world space under the last row of rooms of the sandbox world.
@@ -72,7 +82,7 @@ def door_x(index: int) -> int:
 def hall_spec() -> str:
     doors = []
     back = []
-    for i, (key, name, _biome) in enumerate(BIOMES):
+    for i, (key, name, *_rest) in enumerate(BIOMES):
         # The door of the room, back to the hall: made with the hall, in the
         # room (`connect_to`). A door to a door that does not exist is refused,
         # so the two doors of a pair are made in one step.
@@ -117,11 +127,20 @@ def hall_spec() -> str:
 '''
 
 
-def exhibit_spec(index: int, key: str, name: str, biome: str) -> str:
+def exhibit_spec(index: int, key: str, name: str, biome: str, theme: str | None, palette: str | None) -> str:
     rid = room_id(key)
+    what = ", ".join(f"{field}: {value}" for field, value in (("parallax_theme", theme), ("palette", palette)) if value)
+    switch = ""
+    if palette in LOOKS_WITH_STATES:
+        what += ". The switch changes the state"
+        # The argument of the verb is the id of the room at run time (`activeArea`).
+        switch = (
+            f'\n        ( type: "Switch", px: [240, 592], size: [24, 32], fields: ( id: "{rid}_state_switch", '
+            f'name: "State switch", prompt: "Shift the room", action: "ToggleFlag", on_activate: "look.cycle {rid}" ) ),'
+        )
     wx = WORLD_X + (index % 8) * (ROOM_W + 64)
     wy = WORLD_Y + HALL_H + 64 + (index // 8) * (ROOM_H + 64)
-    return f'''// {rid}: the exhibit room of the biome `{key}` in the hall of biomes.
+    return f'''// {rid}: the exhibit room of the biome `{name}` in the hall of biomes.
 // Made by specs/hall_of_biomes/make_specs.py: do not edit by hand.
 (
     id: "{rid}",
@@ -150,7 +169,7 @@ def exhibit_spec(index: int, key: str, name: str, biome: str) -> str:
         ( type: "OneWayPlatform", px: [928, 432], size: [128, 16], fields: ( name: "one_way_high" ) ),
         ( type: "PlayerStart", px: [128, 578], size: [28, 46], fields: ( name: "{rid}_spawn" ) ),
         // The door back to the hall is made with the hall (its `connect_to`).
-        ( type: "DebugLabel", px: [112, 48], size: [900, 24], fields: ( name: "{rid}_sign", text: "{name}  (parallax_theme: {key})", category: "Custom" ) ),
+        ( type: "DebugLabel", px: [112, 48], size: [900, 24], fields: ( name: "{rid}_sign", text: "{name}  ({what})", category: "Custom" ) ),{switch}
     ],
 )
 '''
@@ -169,9 +188,9 @@ PAINT = [
 def write_specs() -> list[Path]:
     paths = [HERE / f"{HALL}_area.ron"]
     paths[0].write_text(hall_spec())
-    for i, (key, name, biome) in enumerate(BIOMES):
+    for i, (key, name, biome, theme, palette) in enumerate(BIOMES):
         path = HERE / f"{room_id(key)}_area.ron"
-        path.write_text(exhibit_spec(i, key, name, biome))
+        path.write_text(exhibit_spec(i, key, name, biome, theme, palette))
         paths.append(path)
     return paths
 
@@ -186,12 +205,13 @@ def apply(paths: list[Path]) -> None:
     # of each pair: its own, and the one in the room.
     for path in paths[1:] + paths[:1]:
         run("ambition_ldtk_tools", "area", "create", str(path), "--ldtk", LDTK, "--replace-existing")
-    for key, _name, _biome in BIOMES:
+    for key, _name, _biome, theme, palette in BIOMES:
         for layer, value, _what, (x, y), (w, h) in PAINT:
             run("ambition_ldtk_tools", "intgrid", "paint", "--ldtk", LDTK, "--level", room_id(key),
                 "--layer", layer, "--value", str(value), "--px", f"{x},{y}", "--size", f"{w},{h}")
+        fields = [f"{field}={value}" for field, value in (("parallax_theme", theme), ("palette", palette)) if value]
         run("ambition_ldtk_tools.edit.level_set_field", "--ldtk", LDTK, "--level", room_id(key),
-            "--set", f"parallax_theme={key}", "--in-place")
+            *[arg for field in fields for arg in ("--set", field)], "--in-place")
 
 
 def main() -> int:

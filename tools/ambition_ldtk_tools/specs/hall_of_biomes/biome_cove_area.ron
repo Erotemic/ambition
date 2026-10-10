@@ -1,4 +1,4 @@
-// biome_cove: the exhibit room of the biome `cove` in the hall of biomes.
+// biome_cove: the exhibit room of the biome `Cove` in the hall of biomes.
 // Made by specs/hall_of_biomes/make_specs.py: do not edit by hand.
 (
     id: "biome_cove",

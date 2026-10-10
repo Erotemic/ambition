@@ -333,7 +333,8 @@ fn catalog_tuning_reproduces_the_old_hardcoded_sheets() {
         ("npc_ninja_shadow_oni_leader", 1.5, 1),
         ("npc_ninja_shadow_duelist", 1.5, 1),
         ("npc_architect", 1.10, 2),
-        ("npc_kernel_guide", 1.10, 2),
+        // Retuned 2026-10-10 with the redrawn guide (on the rig of the pirates, and larger).
+        ("npc_kernel_guide", 1.9, 1),
         ("npc_vault_keeper", 1.10, 2),
         ("npc_merchant_prototype", 1.10, 2),
     ];

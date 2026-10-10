@@ -431,6 +431,15 @@
             ranged: Some(Arrow(speed: 520.0, damage: 2)),
             special: None,
         ),
+        // The Kernel Guide, when it was hit too many times: it hits with its
+        // slate, and it sends a bolt of light from the screen of the slate.
+        // With the two, its provoked mind shoots from the middle distance and
+        // comes in to hit.
+        "kernel_guide_slate": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.30, active_s: 0.08, recover_s: 0.34, damage: 1, reach_px: 30.0)),
+            ranged: Some(Bolt(speed: 420.0, damage: 1)),
+        ),
         "pirate_pistol": (
             move_style: Walk,
             melee: Some(Swipe(
@@ -1641,9 +1650,9 @@
             hall_dialogue_id: Some("hall_architect"),
         ),
         "npc_kernel_guide": (
-            // The same scale as the pirates: the guide is on their rig, and the
-            // box of its idle pose is as wide as theirs (the slate is held out).
-            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
+            // The guide is on the rig of the pirates (1.6) and is drawn larger
+            // than they are: taller than the player (Jon, 2026-10-10).
+            sprite_tuning: Some((collision_scale: 1.9, frame_sample_inset: 1)),
             display_name: "Kernel Guide NPC",
             spritesheet: "sprites/kernel_guide_spritesheet.png",
             manifest: "sprites/kernel_guide_spritesheet.ron",
@@ -1651,13 +1660,16 @@
             body_kind: Standard,
             composition: None,
             default_brain: "patrol_peaceful",
-            default_action_set: "peaceful",
-            // THE BODY, AND DELIBERATELY NO COMBAT KIT (Jon, closing D56): "Kernel
-            // Guide gets its own CharacterDefinition ... Do not invent a combat kit or
-            // capabilities merely to fill the definition." Its `patrol_peaceful` policy
-            // ambles well under the hall walk; the speed is what the body could do if
-            // something drove it. The humanoid four is not a balance decision waiting to
-            // be made: a tutorial NPC is a person, and a person has four.
+            // THE KIT (Jon, 2026-10-10, after he fought the guide): "They should have
+            // the ability to be offensive." A guide that is provoked fights with its
+            // slate. This replaces the ruling that closed D56 ("Do not invent a combat
+            // kit or capabilities merely to fill the definition"): the kit is here
+            // because Jon asked for it, and it is two attacks and no ability.
+            default_action_set: "kernel_guide_slate",
+            // THE BODY: its `patrol_peaceful` policy ambles well under the hall walk;
+            // the speed is what the body could do if something drove it. The humanoid
+            // four is not a balance decision waiting to be made: a tutorial NPC is a
+            // person, and a person has four.
             locomotion_preset: Some("hall_walk"),
             max_health: Some(4),
             // The guide dies with the Wilhelm scream, a public recording and

@@ -42,6 +42,8 @@ fn main() -> std::process::ExitCode {
         Ok(pack) => {
             if invocation.fingerprint_only {
                 println!("{}", pack.fingerprint);
+            } else if invocation.package_inputs_only {
+                print!("{}", pack.package_inputs());
             } else {
                 print!("{}", pack.summary());
             }

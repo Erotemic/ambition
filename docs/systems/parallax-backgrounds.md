@@ -43,8 +43,9 @@ own block art.
 The themes with a scene and a skin are `hub`, `lab`, `alarm` (the lab with
 its power out and its beacons on: the rooms of the raid), `undertown` (the
 brick drains and the pipes under the town), `basement`, `cave`,
-`cove`, `water`, `forest`, `skybridge`, `boss` and `eclipse`. `open_sky` has
-a scene and no skin. `hub_clean` is the sky of the two-state look and has a
+`cove`, `water`, `forest`, `skybridge`, `open_sky`, `boss` and `eclipse`.
+The dark sun is the mark of `eclipse` and of no other scene: `boss` has the
+shut gate of a vault with fire behind it. `hub_clean` is the sky of the two-state look and has a
 skin for a device that does not draw the look.
 
 The art of a theme is loaded by `ensure_parallax_layers_for_room` when a room
@@ -169,6 +170,27 @@ are in front of the play and the others are behind the blocks.
 - A tier with parallax off has no motes.
 - The field goes with the first main camera: in a split view the motes of a
   room are around that camera only.
+
+## Where to see each biome: the hall of biomes
+
+The sandbox has a hall with a door for each biome (`hall_of_biomes`, from the
+door "to hall of biomes" in the hub). Each door has the name of its biome and
+goes to one small exhibit room, `biome_<key>`, that names the biome as its
+`parallax_theme`. A biome that is a room look (`docs/systems/room-looks.md`)
+names its `palette` also: `biome_clean_corrupted` is the two-state look of the
+hub, with a switch that goes round its three states, and `biome_blueprint` is
+the look of the basement of the tech bros. The themes `hub_clean` and
+`hub_corrupt` have no room of their own: they are the two skies of that look,
+and with no look they are a sky with the wrong ground. Each exhibit room is the same room: a floor, a block, a block
+in the air, two one-way platforms, a ladder, a pool, a soft and a hard blink
+wall and a strip of hazard. So the sky, the skin of the ground, the decor, the
+motes, the door, the ladder and the water of a biome are in view in one place,
+and two biomes can be compared part for part.
+
+The hall and its rooms are made, not drawn by hand:
+`tools/ambition_ldtk_tools/specs/hall_of_biomes/make_specs.py` writes one area
+spec for each and applies them. A new biome is one row in its `BIOMES` table
+(and its rows in the art tables above).
 
 ## Ground shadows
 

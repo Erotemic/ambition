@@ -1,0 +1,33 @@
+// biome_clean_corrupted: the exhibit room of the biome `Clean / corrupted` in the hall of biomes.
+// Made by specs/hall_of_biomes/make_specs.py: do not edit by hand.
+(
+    id: "biome_clean_corrupted",
+    level_id: "biome_clean_corrupted",
+    world_x: 1344,
+    world_y: 9184,
+    px_wid: 1280,
+    px_hei: 720,
+    fill_collision: "empty",
+    bg_color: "#141019",
+    biome: "hub",
+    entities: [
+        // The shell.
+        ( type: "Solid", px: [0, 624], size: [1280, 96], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1280, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 608], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1264, 16], size: [16, 608], fields: ( name: "right_wall" ) ),
+        // A block on the floor and a block in the air: the cap, the sides and the under side of the ground.
+        ( type: "Solid", px: [336, 528], size: [160, 96], fields: ( name: "block" ) ),
+        ( type: "Solid", px: [640, 384], size: [224, 48], fields: ( name: "block_in_the_air" ) ),
+        // Two rims that hold the pool.
+        ( type: "Solid", px: [976, 560], size: [16, 64], fields: ( name: "pool_rim_left" ) ),
+        ( type: "Solid", px: [1200, 560], size: [16, 64], fields: ( name: "pool_rim_right" ) ),
+        ( type: "WaterVolume", px: [992, 576], size: [208, 48], fields: ( id: "biome_clean_corrupted_pool", name: "pool" ) ),
+        ( type: "OneWayPlatform", px: [192, 448], size: [112, 16], fields: ( name: "one_way_low" ) ),
+        ( type: "OneWayPlatform", px: [928, 432], size: [128, 16], fields: ( name: "one_way_high" ) ),
+        ( type: "PlayerStart", px: [128, 578], size: [28, 46], fields: ( name: "biome_clean_corrupted_spawn" ) ),
+        // The door back to the hall is made with the hall (its `connect_to`).
+        ( type: "DebugLabel", px: [112, 48], size: [900, 24], fields: ( name: "biome_clean_corrupted_sign", text: "Clean / corrupted  (parallax_theme: hub_clean, palette: clean_corrupted. The switch changes the state)", category: "Custom" ) ),
+        ( type: "Switch", px: [240, 592], size: [24, 32], fields: ( id: "biome_clean_corrupted_state_switch", name: "State switch", prompt: "Shift the room", action: "ToggleFlag", on_activate: "look.cycle biome_clean_corrupted" ) ),
+    ],
+)

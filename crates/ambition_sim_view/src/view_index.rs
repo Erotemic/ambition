@@ -530,8 +530,15 @@ pub fn rebuild_feature_view_index(
         // state and its placeholder shifts to the fighting tint with no type flip.
         let hostile = disposition.is_hostile();
         let alive = health.is_some_and(|h| h.alive());
-        // Peaceful actors are always visible (they don't die); hostile actors are
-        // visible while alive.
+        // A body whose health says it is dead is not drawn, whatever its
+        // disposition. A hostile actor is drawn while it is alive. A peaceful
+        // actor with no health (a prop of a person) is always drawn.
+        //
+        // The rule was "peaceful actors are always visible (they don't die)".
+        // They do: a person has health, a hit kills it, and its death is
+        // recorded. A dead person stood in the room, drawn, with no touch and
+        // no talk (Jon, 2026-10-10: the Kernel Guide).
+        let dead = health.is_some_and(|h| !h.alive());
         // ⛔⛔ AND A SUBMERGED BODY IS NOT DRAWN, whoever is driving it. This
         // line is the actor road's ONLY visibility authority, and the submerged
         // rule was missing from it — stated only in `sync_submerged_visibility`,
@@ -539,7 +546,7 @@ pub fn rebuild_feature_view_index(
         // fighter. `BodyMode::hides_the_body` is where the sentence lives now so
         // the two roads cannot drift apart again.
         let submerged = body_mode.is_some_and(|m| m.body_mode.hides_the_body());
-        let visible = (!hostile || alive) && !submerged && !out_of_the_world;
+        let visible = !dead && (!hostile || alive) && !submerged && !out_of_the_world;
         let flash = combat.is_some_and(|c| c.hit_flash > 0.0)
             || (hostile
                 && ambition_combat::moveset::melee_swing_of(playback, moveset)

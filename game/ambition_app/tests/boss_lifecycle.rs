@@ -1051,6 +1051,97 @@ fn a_new_game_brings_back_every_boss_the_run_defeated() {
     }
 }
 
+/// Reset Sandbox is a New Game: a person the run killed is alive again after
+/// ONE reset.
+///
+/// The Kernel Guide stands in the hub, which is the start room. Its death is a
+/// record in the save, and the start room of a New Game is built before the
+/// save is wiped. Built from the old save, the first reset left the guide dead
+/// and only the second, on the save the first had wiped, brought it back (Jon,
+/// 2026-10-10). The room of a fresh run is built from the save a fresh run
+/// begins with (`session::checkpoint::prospective_commit_fates`).
+///
+/// The premise is asserted with the result: the record is one that
+/// construction reads as a death, so a reset that built the room from the old
+/// save would have built the guide dead.
+#[test]
+fn a_new_game_brings_back_a_person_the_run_killed() {
+    use ambition_app::Platformer2dSimHarnessOptions;
+    use ambition_platformer2d::actors::construction::PersistedFates;
+    use ambition_platformer2d::actors::fate_flags::enemy_dead_flag;
+    use ambition_platformer2d::characters::actor::{BodyHealth, WornCharacter};
+    use ambition_platformer2d::combat::components::ActorIdentity;
+
+    const HUB: &str = "central_hub_complex";
+    const GUIDE: &str = "npc_kernel_guide";
+    let opts = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room(HUB);
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the hub builds");
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    // The placement id of the guide and whether its body is alive.
+    let guide = |sim: &mut Platformer2dSimHarness| -> Option<(String, bool)> {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&WornCharacter, &ActorIdentity, &BodyHealth)>();
+        q.iter(world)
+            .find(|(worn, ..)| worn.0.to_string() == GUIDE)
+            .map(|(_, identity, health)| (identity.id.clone(), health.alive()))
+    };
+    let (id, alive) = guide(&mut sim).expect("the hub authors the Kernel Guide");
+    assert!(alive, "premise: the guide of a new save is alive");
+
+    // The record its death leaves in the save.
+    sim.world_mut()
+        .resource_mut::<AmbitionGameSave>()
+        .data_mut()
+        .set_flag(enemy_dead_flag(&id), true);
+    // By its `Debug`: the engine facade does not name the type of a fate.
+    assert_eq!(
+        format!("{:?}", PersistedFates::of_world(sim.world()).npc_fate(&id)),
+        "Dead",
+        "premise: construction reads this record as the death of `{id}`, so a room built from this save has \
+         a dead guide"
+    );
+
+    let before = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+        .expect("the live session root carries the checkpoint coordinator")
+        .latest()
+        .cloned();
+    ambition_platformer2d::actors::session::host_intents::write_host_intent(
+        sim.world_mut(),
+        ambition_platformer2d::actors::session::reset::NewGameRequested,
+    );
+    let mut committed = false;
+    for _ in 0..120 {
+        sim.step(AgentAction::default());
+        let latest = ambition_platformer2d::platformer::lifecycle::session_world_component::<ambition_platformer2d::actors::session::checkpoint::SessionCheckpointOutcomes>(sim.world())
+            .expect("the live session root carries the checkpoint coordinator")
+            .latest()
+            .cloned();
+        if latest != before {
+            committed = true;
+            break;
+        }
+    }
+    assert!(committed, "the New Game published no checkpoint outcome in 120 frames");
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+
+    assert_eq!(sim.observation().active_room, HUB, "the New Game starts in the hub");
+    assert!(
+        !sim.world().resource::<AmbitionGameSave>().data().flag(&enemy_dead_flag(&id)),
+        "the New Game left the death of `{id}` in the save"
+    );
+    assert_eq!(
+        guide(&mut sim).map(|(_, alive)| alive),
+        Some(true),
+        "the guide must be alive after ONE New Game: its room was built from the save the reset wipes"
+    );
+}
+
 /// ⭐ A BOSS'S MUSIC CLAIM IS THE SAME AFTER A REWIND (MUSIC-CANDIDATES). The
 /// mockingbird wakes inside a GGRS sync-test session, so its claim begins on a
 /// tick that the session rewinds and resimulates. The music request is in the

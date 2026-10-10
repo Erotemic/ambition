@@ -266,3 +266,62 @@ fn a_pack_is_refused_for_a_composition_without_its_capability() {
     assert_eq!(code, 1, "a composition without `characters` admitted its catalog:\n{text}");
     assert!(text.contains("character_catalog"), "the refusal names the schema it cannot read:\n{text}");
 }
+
+/// `--package-inputs` is what `scripts/package_asset_guard.py` reads to learn
+/// which files the pack needs. The paths are the ones the SCHEMA resolved: a
+/// music cue's section file is under the cue's `asset_root`, which no reader
+/// of the bare `path:` field can know.
+#[test]
+fn package_inputs_are_the_paths_the_schemas_resolved() {
+    let root = std::env::temp_dir().join("ambition_fast_validation/package_inputs");
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("audio")).expect("temp pack");
+    std::fs::write(
+        root.join("audio/cues.ron"),
+        r#"(
+            cues: [(
+                id: "siege",
+                asset_root: "audio/music/generated/siege",
+                bpm: 120.0,
+                beats_per_bar: 4.0,
+                relative_volume: 1.0,
+                sections: [(id: "loop", duration_beats: 16.0, looped: true,
+                    sources: [(layer_id: "full", path: "adaptive/loop/loop.full.ogg")])],
+                layers: [(id: "full", slot: 0)],
+                states: [(id: "loop", section_id: "loop", gains: [(layer_id: "full", gain: 1.0)])],
+            )],
+            encounter_bindings: [],
+        )"#,
+    )
+    .expect("write cues");
+    std::fs::write(
+        root.join("pack.ron"),
+        r#"(
+            id: "inputs",
+            version: "0.1.0",
+            namespace: "inputs",
+            requires: [],
+            sources: [(path: "audio/cues.ron", schema: "music_cue_catalog", version: 1)],
+        )"#,
+    )
+    .expect("write manifest");
+
+    let output = Command::new(CLI)
+        .arg(&root)
+        .args(["--no-asset-check", "--package-inputs"])
+        .output()
+        .expect("CLI runs");
+    let text = String::from_utf8_lossy(&output.stdout);
+    let errors = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "the pack compiles:\n{errors}"
+    );
+    assert_eq!(
+        text,
+        "source\taudio/cues.ron\n\
+         asset\taudio/music/generated/siege/adaptive/loop/loop.full.ogg\tinputs:music_cue/siege\n",
+        "one tab-separated line per source and per asset, and nothing else"
+    );
+}

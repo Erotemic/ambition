@@ -65,6 +65,8 @@ pub struct Invocation {
     pub list_schemas: bool,
     /// Print only the fingerprint, for a build script or a cache key.
     pub fingerprint_only: bool,
+    /// Print only the files a package needs (`PreparedContentPack::package_inputs`).
+    pub package_inputs_only: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -107,6 +109,11 @@ OPTIONS:
                           schemas. Repeatable. Use it to validate a pack for
                           a game that composes a reduced engine profile.
     --fingerprint         Print only the content fingerprint.
+    --package-inputs      Print only the files a package must hold for this
+                          pack, tab-separated: a `source <path>` line per
+                          listed source and an `asset <path> <content id>...`
+                          line per asset a schema required. The package asset
+                          guard reads this.
     --list-schemas        List the installed schemas and exit.
     -h, --help            This text.
 
@@ -126,6 +133,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
     let mut advisory_assets = false;
     let mut list_schemas = false;
     let mut fingerprint_only = false;
+    let mut package_inputs_only = false;
 
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
@@ -145,6 +153,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
             "--advisory-assets" => advisory_assets = true,
             "--list-schemas" => list_schemas = true,
             "--fingerprint" => fingerprint_only = true,
+            "--package-inputs" => package_inputs_only = true,
             other if other.starts_with('-') => return Err(ArgError::Unknown(other.to_string())),
             other => pack_root = Some(PathBuf::from(other)),
         }
@@ -160,6 +169,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
             advisory_assets,
             list_schemas,
             fingerprint_only,
+            package_inputs_only,
         });
     }
 
@@ -172,6 +182,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
         advisory_assets,
         list_schemas,
         fingerprint_only,
+        package_inputs_only,
     })
 }
 

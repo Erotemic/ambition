@@ -95,6 +95,8 @@ impl Default for AmbientMoteStyles {
                 (T::Cove, MoteStyle::new(20, -11.0, 2.0, 5.0, 0.2, 1.6, 3.2, 0.46, 0.4, 0.9, 0.3)),
                 // Petals on the wind of the high air.
                 (T::Skybridge, MoteStyle::new(18, -28.0, -9.0, 10.0, 0.25, 3.0, 5.4, 0.85, 0.2, 0.7, 0.45)),
+                // Seeds on the wind of the open sky: few, small and fast.
+                (T::OpenSky, MoteStyle::new(12, -34.0, -4.0, 8.0, 0.2, 1.4, 2.6, 0.6, 0.2, 0.7, 0.35)),
             ]
             .into_iter()
             .collect(),

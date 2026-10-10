@@ -177,3 +177,26 @@ fn every_hall_body_is_provoked_into_its_policy_or_stays_peaceful() {
          a stale one"
     );
 }
+
+/// A provoked Kernel Guide can strike.
+///
+/// Its provoked mind swings only when its body has a melee slot, and shoots
+/// only when its body has a ranged slot (`ambition_combat::brain::smash`).
+/// With the `peaceful` action set it had before 2026-10-10 the guide turned
+/// hostile and did nothing: Jon fought it and it had no attack.
+#[test]
+fn the_kernel_guide_has_the_two_attacks_its_provoked_mind_looks_for() {
+    use ambition_platformer2d::characters::brain::ActionSet;
+
+    let mut sim = fixed_60hz_room_sim("central_hub_complex");
+    sim.step_n(base(), 30);
+    let world = sim.world_mut();
+    let mut q = world.query::<(&WornCharacter, &ActionSet)>();
+    let (melee, ranged) = q
+        .iter(world)
+        .find(|(worn, _)| worn.0.to_string() == "npc_kernel_guide")
+        .map(|(_, actions)| (actions.melee.is_some(), actions.ranged.is_some()))
+        .expect("the hub authors the Kernel Guide");
+    assert!(melee, "the guide has no melee slot: its provoked mind never swings");
+    assert!(ranged, "the guide has no ranged slot: its provoked mind never shoots");
+}

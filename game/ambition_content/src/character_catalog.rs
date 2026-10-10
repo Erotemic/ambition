@@ -411,10 +411,11 @@ mod tests {
         );
     }
 
-    /// The kernel guide has its own `CharacterDefinition`, and no kit (D56).
+    /// The kernel guide has its own `CharacterDefinition`, and no abilities (D56).
     ///
     /// It authors identity (its walk, its four health) and nothing about its body
-    /// or abilities. `register_characters` excludes exploration NPCs because a
+    /// or abilities. It has two attacks for when it is provoked (its action set,
+    /// `kernel_guide_slate`: Jon, 2026-10-10), and an action set is not an ability. `register_characters` excludes exploration NPCs because a
     /// bare registration would replace the archetype-authored body, so the
     /// archetype road must stay in charge of both.
     ///
@@ -422,7 +423,7 @@ mod tests {
     /// control (the vault keeper, which has not), so the change is one
     /// character's, not a sweep of the hall.
     #[test]
-    fn the_kernel_guide_authors_an_identity_and_no_combat_kit() {
+    fn the_kernel_guide_authors_an_identity_and_no_abilities() {
         let mut app = bevy::prelude::App::new();
         crate::character_catalog::register_cast(&mut app);
         // A content question, not an admission one. This fixture installs no

@@ -294,6 +294,18 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 #[derive(bevy::prelude::Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NewGameRequested;
 
+/// The save a fresh run begins with: nothing recorded.
+///
+/// One function for two readers. [`begin_fresh_run`] puts it in the live
+/// save when a New Game commits. The start room of that New Game is built
+/// before the commit (`session::checkpoint::prospective_commit_fates`), and
+/// it is built from this save too. With two spellings, a New Game built its
+/// start room from the old save: a person the last run killed stayed dead
+/// until the second reset (Jon, 2026-10-10: the Kernel Guide).
+pub fn fresh_run_save() -> ambition_persistence::save_data::AmbitionGameSaveData {
+    ambition_persistence::save_data::AmbitionGameSaveData::default()
+}
+
 /// Wipe the run: the save, the registries built from it, and the live
 /// encounters. (fresh-run reducer, `CheckpointDomainApply`)
 ///
@@ -310,7 +322,7 @@ pub fn begin_fresh_run(world: &mut World) {
     );
     // The save. Change detection makes the autosave write the empty save.
     if let Some(mut save) = world.get_resource_mut::<AmbitionGameSave>() {
-        *save.data_mut() = ambition_persistence::save_data::AmbitionGameSaveData::default();
+        *save.data_mut() = fresh_run_save();
     }
     // The registries. `Default` clears `specs_loaded` / `initialized`, so the
     // populate systems build them again from the empty save on the next tick.

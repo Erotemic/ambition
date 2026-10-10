@@ -1323,6 +1323,16 @@ impl AcceptedRestore {
 /// - the records `forget_scheduled_returns_on_replay` and
 ///   `disown_scheduled_returns_on_restore` remove, on a copy of the schedule.
 ///
+/// A restore that begins a new run (`AcceptedRestore::fresh`, a New Game) has
+/// a third consequence that construction reads, and it is the largest: the
+/// fresh-run reducers wipe the save and forget each scheduled return
+/// (`reset::begin_fresh_run`, `forget_scheduled_returns_on_restore`). They run
+/// after the start room is built too. So the room of a fresh run is built from
+/// the save a fresh run begins with (`reset::fresh_run_save`) and from an
+/// empty schedule. Built from the live save, the first New Game left each
+/// recorded death in the start room (a killed person stayed dead) and only
+/// the second New Game, on the save the first had wiped, brought them back.
+///
 /// The live world is not changed. With no replay pinned, these are the facts
 /// at the commit.
 pub fn prospective_commit_fates(
@@ -1331,10 +1341,14 @@ pub fn prospective_commit_fates(
 ) -> crate::construction::PersistedFates {
     use crate::features::ecs::world_time_schedule::{remaining_in, remaining_scheduled_returns, WorldTimeSchedule};
     let facts = crate::construction::PersistedFates::of_world(world);
-    let Some(replay) = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
-        .and_then(|accepted| accepted.inputs_for_key(key))
-        .and_then(|accepted| accepted.replay.clone())
-    else {
+    let accepted = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<AcceptedCheckpointRestore>(world)
+        .and_then(|accepted| accepted.inputs_for_key(key));
+    if accepted.is_some_and(|accepted| accepted.fresh) {
+        return facts
+            .with_save_edited(|save| *save = crate::session::reset::fresh_run_save())
+            .with_scheduled_returns(Default::default());
+    }
+    let Some(replay) = accepted.and_then(|accepted| accepted.replay.clone()) else {
         return facts.with_scheduled_returns(remaining_scheduled_returns(world));
     };
     // The schedule as the two timer consequences will leave it.

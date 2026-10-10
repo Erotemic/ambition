@@ -404,6 +404,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_extension_sdk",
  "ambition_platformer2d_core",
+ "ambition_sim_schedule",
  "ambition_time",
  "bevy",
 ]

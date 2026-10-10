@@ -30,4 +30,7 @@ pub struct CharacterDeathTraits {
     pub never_dies: bool,
     /// Whether the body drops its live held item on death.
     pub drops_held_item: bool,
+    /// The cue this body plays when it dies, as an SFX bank id. `None` plays
+    /// the death cue of the game that owns the body.
+    pub death_sound: Option<String>,
 }

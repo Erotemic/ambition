@@ -673,6 +673,70 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     );
 }
 
+/// A killed body plays the death cue its character authors, and only that
+/// one. A body that authors none plays the death cue of its game.
+#[test]
+fn a_killed_body_plays_the_death_cue_its_character_authors() {
+    use bevy::ecs::message::Messages;
+
+    fn death_cues(authored: Option<&str>) -> Vec<ambition_sfx::SfxMessage> {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+        app.init_resource::<crate::session::mechanics::SessionMechanics>();
+        register_hit_pipeline_messages(&mut app);
+        app.add_systems(Update, apply_feature_hit_events);
+        let actor_entity = spawn_hostile_actor(&mut app); // HP 5
+        app.world_mut()
+            .entity_mut(actor_entity)
+            .insert(ambition_combat::CombatCapabilities {
+                death_sound: authored.map(str::to_string),
+                ..Default::default()
+            });
+        app.world_mut().write_message(HitEvent {
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 5,
+            source: HitSource::Melee,
+            attacker: None,
+            room: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+        app.update();
+        assert!(!app.world().get::<BodyHealth>(actor_entity).unwrap().alive());
+        let msgs = app
+            .world()
+            .resource::<Messages<ambition_sfx::OwnedSfxMessage>>();
+        let scream = ambition_sfx::SfxId::new("voice.wilhelm_scream");
+        msgs.get_cursor()
+            .read(msgs)
+            .map(|message| message.request)
+            .filter(|request| match request {
+                ambition_sfx::SfxMessage::Death { .. } => true,
+                ambition_sfx::SfxMessage::Play { id, .. } => *id == scream,
+                _ => false,
+            })
+            .collect()
+    }
+
+    let scream = ambition_sfx::SfxId::new("voice.wilhelm_scream");
+    assert!(
+        matches!(
+            death_cues(Some("voice.wilhelm_scream"))[..],
+            [ambition_sfx::SfxMessage::Play { id, .. }] if id == scream
+        ),
+        "the authored cue must replace the death cue of the game"
+    );
+    assert!(
+        matches!(death_cues(None)[..], [ambition_sfx::SfxMessage::Death { .. }]),
+        "a body that authors no cue must play the death cue of its game"
+    );
+}
+
 /// OW1 cut 4b: a hit that names no victim (`Volume`) reaches only the
 /// bodies of its attacker's live room.
 ///

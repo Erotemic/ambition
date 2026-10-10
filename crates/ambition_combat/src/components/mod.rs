@@ -80,6 +80,9 @@ pub struct CombatCapabilities {
     /// [`crate::held_items::HeldItem`] at death, so a body that changed weapons
     /// drops the one it actually has.
     pub drops_held_item: bool,
+    /// The SFX bank id this body plays when it dies. `None` plays the death
+    /// cue of the game that owns the body.
+    pub death_sound: Option<String>,
 }
 
 impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilities {
@@ -92,6 +95,7 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
             charge_crash_explodes,
             never_dies,
             drops_held_item,
+            death_sound,
         } = traits;
         Self {
             explodes_on_death: *explodes_on_death,
@@ -99,6 +103,7 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
             charge_crash_explodes: *charge_crash_explodes,
             never_dies: *never_dies,
             drops_held_item: *drops_held_item,
+            death_sound: death_sound.clone(),
         }
     }
 }

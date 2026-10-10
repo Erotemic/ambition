@@ -67,7 +67,7 @@ machine with stale content.
 | `sprites.sh` | the sprite suite and shared atlases | the long one |
 | `quality_variants.sh` | reduced-resolution tiers of the above | `--sprites-only`, `--backgrounds-only`, `--tier`, `--target`, `--force` |
 | `music.sh` | in-game music cues | needs the music renderer submodule |
-| `sfx.sh` | SFX cues and the packed `.sfxbank` | needs the SFX renderer submodule |
+| `sfx.sh` | SFX cues and the packed `.sfxbank` | needs the SFX renderer submodule; downloads the public samples that are absent |
 | `source_navigation.sh` | the generated `.agent/` navigation index | not content; regenerates agent aids |
 
 ## ⛔ The trap: "the setup ran" is not "the content is current"

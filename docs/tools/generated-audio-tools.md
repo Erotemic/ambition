@@ -107,6 +107,26 @@ python -m ambition_sfx_renderer --help
 python -m pytest tests
 ```
 
+### Public samples
+
+The SFX builder makes almost every cue. The exception is a recording that is
+public and free to use, for example the Wilhelm scream (`voice.wilhelm_scream`).
+
+- `tools/ambition_sfx_renderer/sounds/public_samples.yaml` is the one list. Each
+  entry pins the URL, the sha256, the license, and the page that states the
+  license.
+- A cue uses an entry with a `sample` layer that has `public_sample: <id>`.
+- The files are not in git. The renderer downloads an absent file into
+  `tools/ambition_sfx_renderer/public_samples/` and refuses a file with a
+  different sha256.
+- `scripts/regen/sfx.sh` runs `fetch-samples` before it renders, so
+  `scripts/setup/generated_content.sh` gets the files on a new clone. This step
+  needs a network connection the first time.
+
+To add one: add the entry, add the cue under `sounds/active/`, and run
+`./scripts/regen/sfx.sh`. Add a recording only when its license permits free use
+and redistribution.
+
 ## SFX packer
 
 Location: `tools/ambition_sfx_pack/`

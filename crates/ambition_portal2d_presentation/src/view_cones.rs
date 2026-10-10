@@ -695,6 +695,9 @@ pub struct PortalViewRig {
     /// approaches the 4-corner visibility fraction at `blend_rate`/s and is
     /// shaped by a smoothstep before use, so opening/closing feels smooth.
     blend: f32,
+    /// The cones of the last plan that was open (its minimum and its wedge):
+    /// what a window that eases shut is drawn from, after its plan is closed.
+    last_open: Option<(ViewCone, ViewCone)>,
     /// Keep-alive for the offscreen target (also referenced by the camera's
     /// `RenderTarget` and the window material; held here so the rig owns its
     /// asset lifetime explicitly).
@@ -886,7 +889,7 @@ mod mesh;
 // `view_cones::<item>` paths stay valid.
 mod debug;
 pub use debug::*;
-use geometry::{
+use geometry::{came_through, eased_blend, 
     aperture_los_rays, aperture_visibility_fraction, capture_dims, compute_cone, cone_render,
     inset_viewer_corners, visibility_route_summary, ApertureLosRay, ConeRender, RebuildKey,
 };
@@ -994,6 +997,16 @@ pub fn sync_portal_view_cones(
     let mut active_captures = 0u32;
     let mut updates_this_frame = 0u32;
 
+    // The blend each window had, before this frame changes it: a window that
+    // takes its viewer from its partner goes on from the partner's blend, and
+    // a rig that is built again goes on from its own.
+    let before: Vec<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, PortalChannel, f32)> =
+        rigs.iter().map(|(_, rig, ..)| (rig.room, rig.channel, rig.blend)).collect();
+    let blend_before = |room, channel: PortalChannel| {
+        before.iter().find(|(r, c, _)| *r == room && *c == channel).map_or(0.0, |(_, _, blend)| *blend)
+    };
+    let step = (config.blend_rate * time.delta_secs()).clamp(0.0, 1.0);
+
     // First pass: update each live rig in place, or despawn it if its pair is
     // gone / it needs a full rebuild.
     let mut served: Vec<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, PortalChannel)> =
@@ -1060,24 +1073,33 @@ pub fn sync_portal_view_cones(
         let (z, pane_dominant) =
             pane_z(&config, viewer, &portal, &partner, Some(rig.pane_dominant));
         rig.pane_dominant = pane_dominant;
-        if plan.target <= 0.0 {
+        // Temporal approach to the visibility fraction, smoothstep-shaped: a
+        // window opens with an ease and closes with one.
+        // A window that takes its viewer from its partner goes on from the
+        // partner's blend.
+        let taken_over = if viewer.is_some_and(|viewer| came_through(viewer.eye, &partner)) {
+            blend_before(rig.room, rig.channel.partner())
+        } else {
+            0.0
+        };
+        rig.blend = eased_blend(rig.blend, &plan, taken_over, step);
+        if plan.target > 0.0 {
+            rig.last_open = Some((plan.min, plan.wedge));
+        }
+        // A window whose plan is closed and that is not shut yet eases shut
+        // on the cones it had.
+        let Some((min, wedge)) = rig.last_open.filter(|_| rig.blend > 0.0) else {
             rig.blend = 0.0;
+            rig.last_open = None;
             cam.is_active = false;
             if let Ok((_, mut vis)) = cones.get_mut(rig.cone) {
                 *vis = Visibility::Hidden;
             }
             continue;
-        }
-        // Temporal approach to the visibility fraction, smoothstep-shaped.
-        if plan.immediate {
-            rig.blend = plan.target;
-        } else {
-            let step = (config.blend_rate * time.delta_secs()).clamp(0.0, 1.0);
-            rig.blend += (plan.target - rig.blend) * step;
-        }
+        };
         let cone = blend_cones(
-            &plan.min,
-            &plan.wedge,
+            &min,
+            &wedge,
             smooth01(rig.blend),
             &enter,
             &exit,
@@ -1189,12 +1211,19 @@ pub fn sync_portal_view_cones(
             None,
         ));
         let plan = compute_cone(portal, &partner, &config, viewer, frame.size, convention);
-        // Spawn at the target blend (no opening animation on appear).
-        let cone = if plan.target > 0.0 {
+        // A rig that is built again goes on from the blend it had. A window
+        // that is new opens with the ease, from nothing or from its partner.
+        let taken_over = if viewer.is_some_and(|viewer| came_through(viewer.eye, &partner)) {
+            blend_before(placement.room, portal.channel.partner())
+        } else {
+            0.0
+        };
+        let blend = eased_blend(blend_before(placement.room, portal.channel), &plan, taken_over, step);
+        let cone = if plan.target > 0.0 && blend > 0.0 {
             Some(blend_cones(
                 &plan.min,
                 &plan.wedge,
-                smooth01(plan.target),
+                smooth01(blend),
                 &enter,
                 &exit,
                 convention,
@@ -1330,7 +1359,8 @@ pub fn sync_portal_view_cones(
                     )
                     .truncate(),
                 rebuild,
-                blend: if plan.target > 0.0 { plan.target } else { 0.0 },
+                blend,
+                last_open: (plan.target > 0.0).then_some((plan.min, plan.wedge)),
                 _image: image,
                 mesh,
                 cone: cone_entity,

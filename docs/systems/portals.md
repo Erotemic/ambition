@@ -100,9 +100,20 @@ opposed faces a wall's thickness apart) is not a special case:
   drawn at, and not where it sends the body's centre. A sprite can be drawn
   off its body (a foot anchor, a pose), and the two slices then did not meet
   by that offset.
-- A window opens only for a viewer whose centre is in front of its face. At
-  the aperture it is the whole takeover at once, with no ease: an eased
-  window showed, for some frames, the far side beside the near side.
+- A window opens only for a viewer whose centre is in front of its face. The
+  window of the other end is cut at once: it would draw its image of the
+  viewer's own side over that side.
+- A window opens with an ease and closes with one, each time
+  (`eased_blend`): a snap reads as a fault in the world. A window whose view
+  is lost eases shut on the cones it had. A rig that is built again goes on
+  from the blend it had.
+- At a crossing the window of the far end goes on from the blend of the near
+  one (`came_through`): the two are one window seen from its two sides, and
+  the picture does not change. The measure is the crossing, and not a whole
+  line of sight: at the door of a thin wall two corners of the body are past
+  the plane when the centre crosses, and a rule that asked for the whole view
+  opened the far window from nothing, so each crossing showed the bare world
+  for some frames.
 - The window's capture is the mapped camera snapshot
   (`PortalCaptureCameraMode::MappedCameraSnapshot`, the default): the host
   view mapped through the pair, at the screen's density. Each texel of it is

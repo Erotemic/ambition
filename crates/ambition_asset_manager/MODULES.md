@@ -9,6 +9,7 @@
 | [`asset_publish`](src/asset_publish/mod.rs) | Publish/install boundary for generated sprite assets. |
 | [`bevy_integration`](src/bevy_integration.rs) | Bevy plugin / resource / helper layer. |
 | [`consumer_source`](src/consumer_source.rs) | Layered asset source for consumer-owned game art with shared engine fallback. |
+| [`exe_bundle`](src/exe_bundle.rs) | The asset tree inside the executable: one file to give a player. |
 | [`id`](src/id.rs) | [`AssetId`] — stable logical identifier for an asset entry. |
 | [`image_stages`](src/image_stages.rs) | Per-image stage ledger: when an image was demanded, when its decoded pixels reached `Assets<Image>`, and when the GPU copy was prepared. |
 | [`kind`](src/kind.rs) | [`AssetKind`] — coarse Ambition-side classification of an asset. |
@@ -20,7 +21,7 @@
 | [`profile`](src/profile.rs) | [`AssetProfile`] — the active platform/runtime persona that drives which [`crate::location::AssetLocation`] the resolver returns for a given [`crate::AssetId`]. |
 | [`resolver`](src/resolver.rs) | Resolve `(AssetId, AssetProfile)` into a runtime asset location. |
 
-_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

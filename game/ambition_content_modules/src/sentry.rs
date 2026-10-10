@@ -133,6 +133,6 @@ fn fire(inv: &mut Invocation<'_>, tick: &ModuleEntityTick, c: &mut Cadence) -> R
     c.cooldown_s = FIRE_INTERVAL_S;
     inv.submit::<BodySoundPort>(BodySound {
         cue: "world.rock.hit".into(),
-        at: tick.position,
+        at: ambition_combat_port::Place::World(tick.position),
     })
 }

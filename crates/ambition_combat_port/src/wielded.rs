@@ -25,6 +25,7 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 /// * **Absence** — `mana` is `None` when the body has no mana pool.
 ///   `names_spawns` is false when the body has no simulation identity or no
 ///   mint stream: a spawn it asks for is refused (ADR 0030).
+///   `cooldown_ready` is true when the body has no movement cooldown yet.
 /// * **Replay** — derived each tick from rollback state.
 pub struct WieldedUsePort;
 
@@ -49,6 +50,12 @@ pub struct Wielder {
     /// `SimIdCounter`). A module that asked is never refused by
     /// `ambition.world.spawn_module_entity`.
     pub names_spawns: bool,
+    /// The shared movement-ability cooldown does not run (after it ticks
+    /// this tick). A module that asked is never refused by
+    /// `ambition.abilities.movement_cooldown`.
+    pub cooldown_ready: bool,
+    /// The body moves by the swept kernel (`MotionModel::AxisSwept`).
+    pub swept: bool,
 }
 
 /// A bank pays a cost when it holds at least the cost less this. The bank's
@@ -81,7 +88,7 @@ impl Wielder {
 }
 
 impl Port for WieldedUsePort {
-    const KEY: PortKey = PortKey::new("ambition.items.wielded_use", 2);
+    const KEY: PortKey = PortKey::new("ambition.items.wielded_use", 4);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = Wielder;
 
@@ -96,6 +103,8 @@ impl Port for WieldedUsePort {
         wire::put_vec2(out, v.aim_local);
         wire::put_opt(out, v.mana, wire::put_f32);
         wire::put_bool(out, v.names_spawns);
+        wire::put_bool(out, v.cooldown_ready);
+        wire::put_bool(out, v.swept);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Wielder, WireError> {
@@ -110,7 +119,102 @@ impl Port for WieldedUsePort {
             aim_local: r.vec2()?,
             mana: r.opt(WireReader::f32)?,
             names_spawns: r.bool()?,
+            cooldown_ready: r.bool()?,
+            swept: r.bool()?,
         })
+    }
+}
+
+/// The trigger port marker for the alternate use of a wielded item: the
+/// Blink press.
+///
+/// Port card (`docs/planning/engine/extension-domain-contracts.md`):
+///
+/// * **Operation** — a body holds an item and presses Blink. The selector is
+///   the held item's id. The value is the same [`Wielder`] as
+///   [`WieldedUsePort`]'s: `pressed` says whether Attack is pressed in the
+///   same tick.
+/// * **Owner** — `ambition_abilities::extension`.
+/// * **Scope** — one invocation for EACH body holding a bound item, EACH tick
+///   the phase runs. An invocation is IDLE when Blink is not pressed.
+/// * **Time** — `wielded_use`; every value is this tick's settled value.
+/// * **Replay** — derived each tick from rollback state.
+pub struct WieldedAlternatePort;
+
+impl Port for WieldedAlternatePort {
+    const KEY: PortKey = PortKey::new("ambition.items.wielded_alternate", 1);
+    const ROLE: PortRole = PortRole::Trigger;
+    type Value = Wielder;
+
+    fn encode(v: &Wielder, out: &mut Vec<u8>) {
+        WieldedUsePort::encode(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<Wielder, WireError> {
+        WieldedUsePort::decode(r)
+    }
+}
+
+/// The observation port marker for a body's mark: the place a mark/recall
+/// item marked.
+///
+/// Port card:
+///
+/// * **Operation** — where the body's mark is, if it has one in the live room
+///   the body is in now. A mark is a place in ONE live room: a mark of
+///   another room is no mark here (`PlayerMark::room`).
+/// * **Owner** — `ambition_abilities::extension` (`PlayerMark`).
+/// * **Time** — `wielded_use`, at the read cut.
+/// * **Absence** — never absent for a body: `at` is `None` when it has no
+///   mark here.
+pub struct MarkPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct MarkView {
+    pub at: Option<[f32; 2]>,
+}
+
+impl Port for MarkPort {
+    const KEY: PortKey = PortKey::new("ambition.items.mark", 1);
+    const ROLE: PortRole = PortRole::Observation;
+    type Value = MarkView;
+
+    fn encode(v: &MarkView, out: &mut Vec<u8>) {
+        wire::put_opt(out, v.at, wire::put_vec2);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<MarkView, WireError> {
+        Ok(MarkView { at: r.opt(WireReader::vec2)? })
+    }
+}
+
+/// The request port marker for setting a body's mark.
+///
+/// Port card:
+///
+/// * **Operation** — put the body's mark at `at`, in the live room the body
+///   is in (its stamp), in place of any mark it had.
+/// * **Owner** — `ambition_abilities::extension` (`PlayerMark`, which the
+///   beacon visual, the session reset and the simulation view read).
+/// * **Time** — `wielded_use`, this tick.
+pub struct SetMarkPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SetMark {
+    pub at: crate::motion::Place,
+}
+
+impl Port for SetMarkPort {
+    const KEY: PortKey = PortKey::new("ambition.items.set_mark", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = SetMark;
+
+    fn encode(v: &SetMark, out: &mut Vec<u8>) {
+        v.at.put(out);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<SetMark, WireError> {
+        Ok(SetMark { at: crate::motion::Place::read(r)? })
     }
 }
 
@@ -152,7 +256,8 @@ impl Port for SpendManaPort {
 /// Port card:
 ///
 /// * **Operation** — play the cue `cue` (an authored sound id, for example
-///   `world.rock.hit`) at `at`, as the body's sound.
+///   `world.rock.hit`) at `at`, as the body's sound. `Place::Body` is where
+///   the body is when the request is lowered (after a transit of this tick).
 /// * **Owner** — `ambition_abilities::extension` (the body's sound writer).
 /// * **Time** — `wielded_use`. Presentation: no simulation state reads it.
 pub struct BodySoundPort;
@@ -160,23 +265,23 @@ pub struct BodySoundPort;
 #[derive(Clone, Debug, PartialEq)]
 pub struct BodySound {
     pub cue: String,
-    pub at: [f32; 2],
+    pub at: crate::motion::Place,
 }
 
 impl Port for BodySoundPort {
-    const KEY: PortKey = PortKey::new("ambition.feedback.body_sound", 1);
+    const KEY: PortKey = PortKey::new("ambition.feedback.body_sound", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = BodySound;
 
     fn encode(v: &BodySound, out: &mut Vec<u8>) {
         wire::put_str(out, &v.cue);
-        wire::put_vec2(out, v.at);
+        v.at.put(out);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BodySound, WireError> {
         Ok(BodySound {
             cue: r.str()?.to_owned(),
-            at: r.vec2()?,
+            at: crate::motion::Place::read(r)?,
         })
     }
 }
@@ -184,6 +289,23 @@ impl Port for BodySoundPort {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_mark_and_a_set_mark_survive_the_wire() {
+        for view in [MarkView { at: Some([5.0, -6.0]) }, MarkView { at: None }] {
+            let mut out = Vec::new();
+            MarkPort::encode(&view, &mut out);
+            let mut r = WireReader::new(&out);
+            assert_eq!(MarkPort::decode(&mut r).unwrap(), view);
+            r.finish().unwrap();
+        }
+        let set = SetMark { at: crate::motion::Place::World([1.0, 2.0]) };
+        let mut out = Vec::new();
+        SetMarkPort::encode(&set, &mut out);
+        let mut r = WireReader::new(&out);
+        assert_eq!(SetMarkPort::decode(&mut r).unwrap(), set);
+        r.finish().unwrap();
+    }
 
     #[test]
     fn a_wielder_survives_the_wire() {
@@ -198,6 +320,8 @@ mod tests {
             aim_local: [0.5, 0.5],
             mana: Some(42.0),
             names_spawns: true,
+            cooldown_ready: false,
+            swept: true,
         };
         let mut out = Vec::new();
         WieldedUsePort::encode(&w, &mut out);

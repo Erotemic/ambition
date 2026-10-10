@@ -12,11 +12,14 @@
 
 pub mod apple_rain;
 pub mod beam;
+pub mod blink;
+pub mod dive;
 pub mod echo_fan;
 pub mod eye_beam;
 pub mod fsm;
 pub mod gradient_cascade;
 pub mod gradient_nova;
+pub mod mark_recall;
 pub mod meteor;
 pub mod minima_trap;
 pub mod mockingbird;
@@ -41,11 +44,14 @@ pub const PROVIDER: &str = "ambition";
 pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     apple_rain::module,
     beam::module,
+    blink::module,
+    dive::module,
     echo_fan::module,
     eye_beam::module,
     fsm::module,
     gradient_cascade::module,
     gradient_nova::module,
+    mark_recall::module,
     meteor::module,
     minima_trap::module,
     mockingbird::module,

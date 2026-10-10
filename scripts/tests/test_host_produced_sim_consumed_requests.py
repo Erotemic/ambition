@@ -562,10 +562,17 @@ def test_the_schedule_map_gap_is_measured_not_assumed():
     band that treats them alike would have read a 30% growth in what the
     instrument admits it cannot see as a regression, and a real regression
     hiding under a simultaneous widening would read as neither.
+
+    **54** on 2026-10-10: the POPULATION widened by two. The body-motion ports
+    added two extension request adapters that write messages, `lower_strikes`
+    (`HitEvent`) and `lower_effects` (`VfxInRoom`). They are registered through
+    `install_extension_request`, the same road as `lower_bursts` and
+    `lower_body_holds`, which the scan does not follow. The scan did not change.
     """
     unlocated = guard.unlocated_message_systems()
-    assert 34 <= len(unlocated) <= 52, (
-        f"{len(unlocated)} unlocated message systems; the 2026-09-19 reading after "
+    assert 34 <= len(unlocated) <= 54, (
+        f"{len(unlocated)} unlocated message systems; 54 on 2026-10-10 (two extension "
+        "request adapters joined); the 2026-09-19 reading after "
         "the local-tuple road is 42 (61 before it, 47 before bundle fields joined "
         "the population, 77 before the wrapper road). A fall means another "
         "attribution road landed — name it here and re-measure the exposed-type "

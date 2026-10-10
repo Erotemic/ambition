@@ -55,6 +55,18 @@ pub fn pay(inv: &mut Invocation<'_>, wielder: &Wielder, cost: f32) -> Result<boo
 pub fn rock_hit(inv: &mut Invocation<'_>, wielder: &Wielder) -> Result<(), Fault> {
     inv.submit::<BodySoundPort>(BodySound {
         cue: "world.rock.hit".into(),
-        at: wielder.position,
+        at: ambition_combat_port::Place::World(wielder.position),
     })
+}
+
+/// `v` with length one, or zero when it has no direction. The same
+/// arithmetic as the engine's `normalize_or_zero`: a multiply by the
+/// reciprocal of the length.
+pub fn unit_or_zero(v: [f32; 2]) -> [f32; 2] {
+    let recip = 1.0 / (v[0] * v[0] + v[1] * v[1]).sqrt();
+    if recip.is_finite() && recip > 0.0 {
+        [v[0] * recip, v[1] * recip]
+    } else {
+        [0.0, 0.0]
+    }
 }

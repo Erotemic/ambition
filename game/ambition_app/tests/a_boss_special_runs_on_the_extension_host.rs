@@ -485,6 +485,132 @@ fn a_wielded_shockwave_runs_on_the_extension_host() {
     }
 }
 
+/// ⭐ A WIELDED TRANSIT RUNS ON THE EXTENSION HOST, in the assembled game:
+/// Attack while holding the blink → the `blink` module → the transit, the
+/// movement cooldown and the strike adapters → the body is moved along its
+/// facing, at most 150 px, and the cooldown runs. A second press while the
+/// cooldown runs does not move it. The second arm runs it under a GGRS
+/// sync-test session: a replayed tick that moved the body twice would carry
+/// it past 150 px, or desync the checksum.
+#[test]
+fn a_wielded_blink_runs_on_the_extension_host() {
+    use ambition_platformer2d::abilities::ability_cooldown::AbilityCooldown;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    for rollback in [false, true] {
+        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+        if rollback {
+            options = options.with_sync_test_rollback_settings(4, 10);
+        }
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+        let player = arm_the_player(&mut sim, "blink");
+        for _ in 0..30 {
+            sim.step(AgentAction::default());
+        }
+        let x = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos.x;
+        let press = |sim: &mut Platformer2dSimHarness| {
+            sim.step(AgentAction { attack: true, ..AgentAction::default() });
+            for _ in 0..3 {
+                sim.step(AgentAction::default());
+            }
+        };
+        let before = x(&sim);
+        press(&mut sim);
+        let blinked = (x(&sim) - before).abs();
+        assert!(
+            blinked > 1.0 && blinked <= 150.5,
+            "rollback={rollback}: one blink moved the body {blinked} px along its facing"
+        );
+        let cooldown = sim.world().get::<AbilityCooldown>(player).map(|c| c.remaining);
+        assert!(cooldown.is_some_and(|r| r > 0.0), "rollback={rollback}: the cooldown runs: {cooldown:?}");
+        let between = x(&sim);
+        press(&mut sim);
+        assert!(
+            (x(&sim) - between).abs() < 1.0,
+            "rollback={rollback}: a press while the cooldown runs moved the body"
+        );
+        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    }
+}
+
+/// ⭐ THE DIVE RUNS ON THE EXTENSION HOST, in the assembled game: Attack
+/// while holding the dive gauntlet → the `dive` module → the mana, transit
+/// and strike adapters → 26 mana paid and the body moved along its facing,
+/// at most 140 px. The second arm runs it under a GGRS sync-test session: a
+/// replayed tick that moved the body twice would carry it past 140 px.
+#[test]
+fn a_wielded_dive_runs_on_the_extension_host() {
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    for rollback in [false, true] {
+        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+        if rollback {
+            options = options.with_sync_test_rollback_settings(4, 10);
+        }
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+        let player = arm_the_player(&mut sim, "dive");
+        for _ in 0..30 {
+            sim.step(AgentAction::default());
+        }
+        let x = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos.x;
+        let (before, mana_before) = (x(&sim), mana_of(&sim, player).expect("the home body holds mana"));
+        sim.step(AgentAction { attack: true, ..AgentAction::default() });
+        for _ in 0..3 {
+            sim.step(AgentAction::default());
+        }
+        let dived = (x(&sim) - before).abs();
+        assert!(dived > 1.0 && dived <= 140.5, "rollback={rollback}: one dive moved the body {dived} px");
+        let mana_after = mana_of(&sim, player).expect("the home body holds mana");
+        assert!(
+            (mana_before - mana_after - 26.0).abs() < 1.0,
+            "rollback={rollback}: the dive paid its 26 mana ({mana_before} -> {mana_after}, regen aside)"
+        );
+        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    }
+}
+
+/// ⭐ MARK AND RECALL RUN ON THE EXTENSION HOST, in the assembled game:
+/// Attack while holding the mark/recall item → the `mark` entry → the mark
+/// adapter puts the body's mark where it stands. The body walks away; Blink
+/// → the `recall` entry reads the mark → the transit adapter takes the body
+/// back to it. The second arm runs it under a GGRS sync-test session.
+#[test]
+fn a_wielded_mark_and_recall_run_on_the_extension_host() {
+    use ambition_platformer2d::abilities::traversal::mark_recall::PlayerMark;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    for rollback in [false, true] {
+        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+        if rollback {
+            options = options.with_sync_test_rollback_settings(4, 10);
+        }
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+        let player = arm_the_player(&mut sim, "mark_recall");
+        for _ in 0..30 {
+            sim.step(AgentAction::default());
+        }
+        let pos = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos;
+        let marked_at = pos(&sim);
+        sim.step(AgentAction { attack: true, ..AgentAction::default() });
+        sim.step(AgentAction::default());
+        let mark = sim.world().get::<PlayerMark>(player).and_then(|m| m.pos);
+        assert!(
+            mark.is_some_and(|at| at.distance(marked_at) < 1.0),
+            "rollback={rollback}: Attack put the mark where the body stood ({marked_at:?}): {mark:?}"
+        );
+        for _ in 0..30 {
+            sim.step(AgentAction::move_x(1.0));
+        }
+        let away = pos(&sim);
+        assert!(away.distance(marked_at) > 20.0, "rollback={rollback}: the premise: the body walked away: {away:?}");
+        sim.step(AgentAction { blink: true, ..AgentAction::default() });
+        let back = pos(&sim);
+        assert!(
+            back.distance(mark.unwrap()) < 1.0,
+            "rollback={rollback}: Blink took the body back to its mark ({:?}): {back:?}",
+            mark
+        );
+        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    }
+}
+
 /// ⭐ A MODULE-OWNED ENTITY, in the assembled game: Attack while holding the
 /// sentry gauntlet → the `sentry` module's `deploy` entry → 28 mana paid and a
 /// turret spawned by the world (its identity minted from the player's, its

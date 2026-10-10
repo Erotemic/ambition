@@ -1481,19 +1481,19 @@ fn defeated_boss_drops_its_signature_ability() {
 
 #[test]
 fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
-    use ambition_abilities::traversal::dive;
     use ambition_boss_encounter::pattern::profile::BossBehaviorProfile;
     // Signature gauntlets are content data (`boss_profiles.ron`): each must resolve to a real
     // held-item spec so the dropped GroundItem is pick-up-able. The expected values pin the RON
     // against the ability id consts so the two can't drift apart. The shockwave, volley, beam
-    // meteor, sentry and vortex are procedural modules (2026-10-01); their ids are the held-item ids spelled.
+    // meteor, sentry, vortex (2026-10-01) and dive (2026-10-10) are procedural modules; their ids are the
+    // held-item ids spelled.
     let expect: &[(&str, Option<&str>)] = &[
         ("trex_boss", Some("shockwave")),
         ("mockingbird", Some("volley")),
         ("smirking_behemoth_boss", Some("beam")),
         ("mode_collapse_boss", Some("vortex")),
         ("exploding_gradient_boss", Some("sentry")),
-        ("overflow_boss", Some(dive::DIVE_ID)),
+        ("overflow_boss", Some("dive")),
         ("gnu_ton_rider", Some("meteor")),
         ("clockwork_warden", None),
         ("flying_spaghetti_monster_boss", None),

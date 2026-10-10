@@ -9,10 +9,11 @@
 | [`attachments`](src/attachments.rs) | The named points of a body's rig: a jaw, a saddle, a grip, a muzzle, a hand. |
 | [`hold`](src/hold.rs) | A body held by another: seized, carried at a point, pummelled, thrown, released. |
 | [`module_entity`](src/module_entity.rs) | Module-owned entities: a module asks the world for an entity of a kind it names (a turret, a well), and the world ticks each such entity through the module, until the entity's lifetime ends. |
+| [`motion`](src/motion.rs) | The body-motion ports of a wielded item: a body moves itself, arms the shared movement cooldown, strikes where it is, and shows an effect. |
 | [`riding`](src/riding.rs) | A volume that rides its owner, and a burst of particles: what a conducted boss swings and shows. |
 | [`wielded`](src/wielded.rs) | The held-item domain's extension ports: a body uses the item it holds, pays for it from its resource bank, and is heard doing it. |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

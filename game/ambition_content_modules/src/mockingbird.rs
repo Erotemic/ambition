@@ -517,7 +517,7 @@ fn glide(from: Vec2, to: Vec2, speed: f32, dt: f32) -> Vec2 {
 }
 
 fn play(inv: &mut Invocation<'_>, cue: &str, at: Vec2) -> Result<(), Fault> {
-    inv.submit::<BodySoundPort>(BodySound { cue: cue.into(), at: at.into() })
+    inv.submit::<BodySoundPort>(BodySound { cue: cue.into(), at: ambition_combat_port::Place::World(at.into()) })
 }
 
 fn shake(inv: &mut Invocation<'_>, amplitude_px: f32) -> Result<(), Fault> {

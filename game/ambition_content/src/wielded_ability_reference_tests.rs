@@ -1,5 +1,5 @@
 //! The NATIVE wielded abilities (shockwave, beam, volley, meteor, sentry,
-//! vortex), kept as the
+//! vortex, blink, dive, mark/recall), kept as the
 //! reference traces of their procedural modules (`ambition_content_modules`).
 //! Test-only: the game runs the modules. `wielded_ability_parity_tests` holds
 //! each module to its reference on the linked and the WASM road.
@@ -1050,6 +1050,507 @@ pub mod vortex {
             if well.remaining_s <= 0.0 {
                 if let Ok(mut ec) = commands.get_entity(entity) {
                     ec.despawn();
+                }
+            }
+        }
+    }
+}
+
+pub mod blink {
+    use bevy::prelude::*;
+
+    use ambition_combat::held_items::HeldItem;
+    use ambition_characters::control::ActorControl;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
+
+    /// Held-item id of the blink.
+    pub const BLINK_ID: &str = "blink";
+
+    /// How far a blink carries the player along the aim direction, walls permitting.
+    const BLINK_DISTANCE: f32 = 150.0;
+
+    /// Cooldown between blinks, so it is a deliberate reposition, not spam.
+    const BLINK_COOLDOWN_S: f32 = 0.45;
+
+    /// Half-extent of the arrival shockwave that lets you blink offensively into a
+    /// cluster of enemies.
+    const BLINK_SHOCKWAVE_HALF: f32 = 36.0;
+    /// Shockwave damage: modest; Blink is mobility first, a light strike second.
+    const BLINK_SHOCKWAVE_DAMAGE: i32 = 2;
+
+    /// `Attack` while holding the Blink ability teleports the player up to
+    /// [`BLINK_DISTANCE`] along the aim direction, stopping a body-half short of the
+    /// first solid wall so the teleport never lands inside geometry.
+    pub fn blink_system(
+        world: ambition_platformer2d_world::collision::CollisionWorld,
+        mut commands: Commands,
+        // Every driven body, not only the primary seat's `ControlledSubject`, so
+        // a possessed body or a second seat can use it.
+        driven: ambition_held_items::DrivenBodies,
+        mut bodies: Query<(
+            Entity,
+            ae::BodyClusterQueryData,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &HeldItem,
+            &ActorControl,
+            Option<&mut ambition_platformer2d::abilities::ability_cooldown::AbilityCooldown>,
+            &mut ambition_platformer2d_core::movement::MotionModel,
+            // The live room the body is in: it blinks against that room's walls.
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        )>,
+        mut sfx: ambition_sfx::BodySfxWriter,
+        mut vfx: ambition_vfx::vfx::VfxWriter,
+        mut hits: MessageWriter<ambition_combat::events::HitEvent>,
+        // Optional diagnostic Class-B ledger (§3.2), so a minimal test app still
+        // blinks.
+        mut class_b: Option<ResMut<ClassBRemapLog>>,
+    ) {
+        for subject in driven.entities() {
+            let Ok((
+                player,
+                mut cluster_item,
+                resolved_frame,
+                held,
+                control,
+                mut cooldown,
+                mut motion_model,
+                room,
+            )) = bodies.get_mut(subject)
+            else {
+                continue;
+            };
+            if !matches!(
+                *motion_model,
+                ambition_platformer2d_core::movement::MotionModel::AxisSwept(_)
+            ) {
+                continue;
+            }
+            let c = control.0;
+            // Plain Attack blinks; Shield+Attack throws the item away.
+            if !c.melee_pressed || c.shield_held {
+                continue;
+            }
+            if held.spec.id != BLINK_ID {
+                continue;
+            }
+            // Aim from the brain-resolved frame (aim stick, then movement stick,
+            // then facing), rotated to world. Uses the body's per-tick resolved
+            // frame (ADR 0024).
+            let gravity_dir = resolved_frame.down();
+            let facing = cluster_item.kinematics.facing;
+            let dir =
+                ambition_held_items::ability_aim_world(&c, facing, gravity_dir).normalize_or_zero();
+            if dir == ae::Vec2::ZERO {
+                continue;
+            }
+            // Check the shared movement-ability cooldown only after a real blink
+            // is confirmed, so an aimless press does not use it.
+            if !ambition_platformer2d::abilities::ability_cooldown::try_use_ability(
+                &mut cooldown,
+                &mut commands,
+                player,
+                BLINK_COOLDOWN_S,
+            ) {
+                continue;
+            }
+            let mut clusters = cluster_item.as_clusters_mut();
+            let from = clusters.kinematics.pos;
+            // The box the body has: turned to the DOWN of its resolved frame, as
+            // the kernel turns it for the step.
+            let half = clusters.kinematics.half_oriented(gravity_dir);
+            // One collision view (moving platforms and ECS solids included) for
+            // the clamp raycast and the embed check in `blink_target`: the walls
+            // of the body's own live room, not of "the" room.
+            let collision = world.room(room).and_then(|room| room.solids());
+            let target = match collision.as_ref() {
+                Some(w) => ambition_platformer2d::abilities::traversal::blink::blink_target(&**w, from, dir, BLINK_DISTANCE, half),
+                // No collision world (tests): blink the full distance.
+                None => from + dir * BLINK_DISTANCE,
+            };
+            // The discrete-transit authority: arrive with momentum kept, and
+            // reconcile departure contacts and attachment (ADR 0024).
+            ae::movement::transit_body(
+                &mut motion_model,
+                &mut clusters,
+                target,
+                ae::movement::TransitVelocity::Keep,
+            );
+            // Class-B transit (`docs/concepts/movement-collision.md`): a
+            // traversal ability that moves a body is a scripted teleport, ranked
+            // weakest, so dying mid-blink is a death, not a blink.
+            if let Some(log) = class_b.as_mut() {
+                log.record(player, ClassBRemap::ScriptedTeleport);
+            }
+            // Offensive blink: a small player-side shockwave at the arrival point,
+            // so you can blink into enemies to hit them (PlayerSlash spares the
+            // player).
+            hits.write(ambition_combat::events::HitEvent {
+                strike_sfx: None,
+                volume: ae::CombatVolume::circle(target, BLINK_SHOCKWAVE_HALF),
+                damage: BLINK_SHOCKWAVE_DAMAGE,
+                source: ambition_combat::events::HitSource::Melee,
+                attacker: Some(player),
+                room: None,
+                target: ambition_combat::events::HitTarget::Volume,
+                mode: ambition_combat::events::HitMode::Knockback,
+                knockback: None,
+                ignored_targets: Vec::new(),
+                        attacker_move_instance: None,
+            });
+            sfx.write_for(
+                player,
+                ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::PLAYER_BLINK,
+                    pos: target,
+                },
+            );
+            // A wisp where you left, a flash where you arrive, in the live room
+            // of the body.
+            let mut vfx = vfx.for_room(room.map(|stamp| stamp.0));
+            vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+                pos: from,
+                fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                scale: 0.35,
+                pose: ambition_vfx::FxPose::UPRIGHT,
+            });
+            vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+                pos: target,
+                fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                scale: 0.5,
+                pose: ambition_vfx::FxPose::UPRIGHT,
+            });
+        }
+    }
+}
+
+pub mod dive {
+    use bevy::prelude::*;
+
+    use ambition_combat::held_items::HeldItem;
+    use ambition_characters::control::ActorControl;
+    use ambition_platformer2d_core::{self as ae, AabbExt};
+    use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
+
+    /// Held-item id of the dive gauntlet.
+    pub const DIVE_ID: &str = "dive";
+
+    /// Mana per lunge (out of 100), so it cannot be spammed across a room.
+    const DIVE_MANA_COST: f32 = 26.0;
+
+    /// How far (px) the player lunges along the aim, absent a wall.
+    const DIVE_LUNGE: f32 = 140.0;
+    /// Half-thickness (px) of the damaging corridor swept by the lunge.
+    const DIVE_WIDTH: f32 = 48.0;
+    /// Damage dealt to everything in the corridor.
+    const DIVE_DAMAGE: i32 = 4;
+    /// Horizontal shove imparted to struck enemies (signed by the lunge direction).
+    const DIVE_KNOCKBACK: f32 = 1.4;
+
+    /// Snap an aim and facing to a lunge direction (a unit vector on the
+    /// dominant axis). A null aim uses `facing`, so a plain Attack still lunges;
+    /// the blink, in contrast, needs an explicit aim.
+    fn dive_dir(aim: ae::Vec2, facing: f32) -> ae::Vec2 {
+        let horizontal = if aim == ae::Vec2::ZERO {
+            true
+        } else {
+            aim.x.abs() >= aim.y.abs()
+        };
+        if horizontal {
+            let s = if aim.x.abs() > 0.001 {
+                aim.x.signum()
+            } else {
+                facing.signum()
+            };
+            ae::Vec2::new(s, 0.0)
+        } else {
+            ae::Vec2::new(0.0, aim.y.signum())
+        }
+    }
+
+    /// The damaging corridor from `from` to `to`: an axis-aligned box around both
+    /// endpoints, padded by a body width. For a snapped lunge this is a thin
+    /// rectangle.
+    fn dive_corridor(from: ae::Vec2, to: ae::Vec2) -> ae::Aabb {
+        let center = (from + to) * 0.5;
+        let half = ae::Vec2::new(
+            (to.x - from.x).abs() * 0.5 + DIVE_WIDTH * 0.5,
+            (to.y - from.y).abs() * 0.5 + DIVE_WIDTH * 0.5,
+        );
+        ae::Aabb::new(center, half)
+    }
+
+    /// `Attack` while holding the dive gauntlet lunges the player along the aim
+    /// and emits a one-shot `Player`-faction hit over the corridor. Plain Attack
+    /// only; `Shield + Attack` drops the item (the id is `UseSystem`, excluded from
+    /// throw-on-plain-Attack in `throw_held_item_system`).
+    pub fn fire_dive_system(
+        world: ambition_platformer2d_world::collision::CollisionWorld,
+        // Every driven body, not only the primary seat's `ControlledSubject`, so
+        // a possessed body or a second seat can act.
+        driven: ambition_held_items::DrivenBodies,
+        mut players: Query<(
+            Entity,
+            &ActorControl,
+            ae::BodyClusterQueryData,
+            &mut ambition_platformer2d_core::movement::MotionModel,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            &HeldItem,
+            // The live room the body is in: it lunges against that room's walls.
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        )>,
+        mut sfx: ambition_sfx::BodySfxWriter,
+        mut hits: MessageWriter<ambition_combat::events::HitEvent>,
+        // Optional diagnostic Class-B ledger (§3.2), so a minimal test app still
+        // dives.
+        mut class_b: Option<ResMut<ClassBRemapLog>>,
+    ) {
+        for subject in driven.entities() {
+            let Ok((player, control, mut cluster_item, mut motion_model, resolved_frame, held, room)) =
+                players.get_mut(subject)
+            else {
+                continue;
+            };
+            let mut clusters = cluster_item.as_clusters_mut();
+            let c = control.0;
+            if !c.melee_pressed || c.shield_held {
+                continue;
+            }
+            if held.spec.id != DIVE_ID {
+                continue;
+            }
+            if !ambition_platformer2d::abilities::mana::spend(clusters.resources.as_deref_mut(), DIVE_MANA_COST) {
+                continue;
+            }
+            // The body's per-tick resolved frame (ADR 0024 frame law).
+            let frame = resolved_frame.basis();
+            let facing = clusters.kinematics.facing;
+            let local_aim = ambition_held_items::ability_aim_local(&c, facing);
+            let local_dir = dive_dir(local_aim, facing).normalize_or_zero();
+            let dir = frame.to_world(local_dir).normalize_or_zero();
+            let from = clusters.kinematics.pos;
+            // Stop a body-half short of the wall so the lunge never embeds. Use
+            // the body's extent in the lunge direction (half-height for a vertical
+            // dive), as the blink does, or a downward dive embeds in the floor
+            // and trips the OOB detector.
+            // The half is of the box the body has: turned to the DOWN of its last
+            // step. For a body the axis arm moves that is the DOWN of its
+            // resolved frame. A crawler on a wall lies along the wall, and only
+            // the record of its step says so; the dive does not turn it.
+            let down = ae::SweepSample::down_or(clusters.sweep.as_deref(), resolved_frame.down());
+            let half = clusters.kinematics.half_oriented(down);
+            let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
+            // One collision view for the clamp raycast and the embed check, so
+            // moving platforms and ECS solids also stop the lunge.
+            let collision = world.room(room).and_then(|room| room.solids());
+            let mut target = match collision.as_ref().and_then(|w| {
+                ambition_platformer2d_core::cast::raycast_solids(
+                    &**w,
+                    from,
+                    dir,
+                    DIVE_LUNGE + margin,
+                    false,
+                )
+            }) {
+                Some((hit, _normal)) => hit - dir * margin,
+                None => from + dir * DIVE_LUNGE,
+            };
+            // Safety net: if the landing AABB still overlaps a solid (a corner
+            // the center ray missed), stay at the start instead of embedding.
+            if let Some(w) = collision.as_ref() {
+                let landing = ae::Aabb::new(target, half);
+                let embeds = w.blocks.iter().any(|b| {
+                    ae::collision_semantics::is_full_collision_surface(b.kind) && landing.strict_intersects(b.aabb)
+                });
+                if embeds {
+                    target = from;
+                }
+            }
+            // The discrete-transit authority: arrive with momentum kept, and
+            // reconcile departure contacts and attachment (ADR 0024).
+            ae::movement::transit_body(
+                &mut motion_model,
+                &mut clusters,
+                target,
+                ae::movement::TransitVelocity::Keep,
+            );
+            // Class-B transit (`docs/concepts/movement-collision.md`): a
+            // traversal ability that moves a body is a scripted teleport, ranked
+            // weakest, so dying mid-dive is a death, not a dive.
+            if let Some(log) = class_b.as_mut() {
+                log.record(player, ClassBRemap::ScriptedTeleport);
+            }
+            if local_dir.x.abs() > 0.001 {
+                clusters.kinematics.facing = local_dir.x.signum();
+            }
+            // The corridor hits everything between start and landing: a one-shot
+            // PlayerSlash volume that spares the player and pushes enemies along
+            // the dash. The push uses `DIVE_KNOCKBACK` above.
+            let corridor: ambition_platformer2d_core::CombatVolume = dive_corridor(from, target).into();
+            let corridor_center = corridor.center();
+            hits.write(ambition_combat::events::HitEvent {
+                strike_sfx: None,
+                volume: corridor,
+                damage: DIVE_DAMAGE,
+                source: ambition_combat::events::HitSource::Melee,
+                attacker: Some(player),
+                room: None,
+                target: ambition_combat::events::HitTarget::Volume,
+                mode: ambition_combat::events::HitMode::Knockback,
+                knockback: Some(ambition_combat::events::HitKnockback {
+                    // An ordinary hit: it stuns.
+                    reaction: ambition_platformer2d_core::hit_response::HitReaction::Strike,
+                    dir: local_dir.x.signum(),
+                    magnitude: ambition_combat::events::HitKnockbackMagnitude::FeelScale(
+                        DIVE_KNOCKBACK,
+                    ),
+                    source_pos: corridor_center,
+                    impact_pos: corridor_center,
+                    launch_dir: None,
+                    follow: None,
+                }),
+                ignored_targets: Vec::new(),
+                        attacker_move_instance: None,
+            });
+            sfx.write_for(
+                player,
+                ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::ids::PLAYER_BLINK,
+                    pos: target,
+                },
+            );
+        }
+    }
+}
+
+pub mod mark_recall {
+    use bevy::prelude::*;
+
+    use ambition_combat::held_items::HeldItem;
+    use ambition_characters::control::ActorControl;
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
+
+    /// The held-item id the Mark/Recall ability grants (see `brain::action_set`
+    /// `HELD_ITEMS` and `items::Item::held_item_id`).
+    pub const MARK_RECALL_ID: &str = "mark_recall";
+
+    /// Half-extent of the recall-strike shockwave at the mark.
+    const RECALL_SHOCKWAVE_HALF: f32 = 36.0;
+    /// Recall-strike damage: modest, like Blink's arrival shockwave.
+    const RECALL_SHOCKWAVE_DAMAGE: i32 = 2;
+
+    /// While holding the Mark/Recall item: a plain `Attack` drops or moves the
+    /// mark at the player's feet, and `Blink` recalls to the mark if set. A frame
+    /// that drops a mark does not also recall, so a simultaneous press means "set
+    /// the mark here".
+    pub fn mark_recall_system(
+        mut commands: Commands,
+        // Every driven body, not only the primary seat's `ControlledSubject`, so
+        // a possessed body or a second seat can use it.
+        driven: ambition_held_items::DrivenBodies,
+        mut players: Query<(
+            Entity,
+            &ActorControl,
+            ae::BodyClusterQueryData,
+            &mut ambition_platformer2d_core::movement::MotionModel,
+            &HeldItem,
+            Option<&mut ambition_platformer2d::abilities::traversal::mark_recall::PlayerMark>,
+            // The live room the body is in: its effects are drawn there.
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+        )>,
+        mut sfx: ambition_sfx::BodySfxWriter,
+        mut vfx: ambition_vfx::vfx::VfxWriter,
+        mut hits: MessageWriter<ambition_combat::events::HitEvent>,
+        // Optional diagnostic Class-B ledger (§3.2), so a minimal test app still
+        // recalls.
+        mut class_b: Option<ResMut<ClassBRemapLog>>,
+    ) {
+        for subject in driven.entities() {
+            let Ok((player, control, mut cluster_item, mut motion_model, held, mut mark, room)) =
+                players.get_mut(subject)
+            else {
+                continue;
+            };
+            let room = room.map(|stamp| stamp.0);
+            let mut vfx = vfx.for_room(room);
+            let mut clusters = cluster_item.as_clusters_mut();
+            let c = control.0;
+            if held.spec.id != MARK_RECALL_ID {
+                continue;
+            }
+
+            // Plain Attack drops or moves the mark. Shield+Attack throws the item
+            // away, so a shielded frame does not mark.
+            if c.melee_pressed && !c.shield_held {
+                let pos = clusters.kinematics.pos;
+                let dropped = ambition_platformer2d::abilities::traversal::mark_recall::PlayerMark { pos: Some(pos), room };
+                match mark.as_deref_mut() {
+                    Some(existing) => *existing = dropped,
+                    None => {
+                        commands.entity(player).insert(dropped);
+                    }
+                }
+                sfx.write_for(
+                    player,
+                    ambition_sfx::SfxMessage::Play {
+                        id: ambition_sfx::ids::PLAYER_DASH,
+                        pos,
+                    },
+                );
+                vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+                    pos,
+                    fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                    scale: 0.4,
+                    pose: ambition_vfx::FxPose::UPRIGHT,
+                });
+                continue;
+            }
+
+            // Blink recalls to the mark, if one is set in the room the body is in.
+            if c.blink_pressed {
+                if let Some(target) = mark.filter(|m| m.room == room).and_then(|m| m.pos) {
+                    // The discrete-transit authority: momentum kept, departure
+                    // contacts and attachment reconciled (ADR 0024).
+                    ae::movement::transit_body(
+                        &mut motion_model,
+                        &mut clusters,
+                        target,
+                        ae::movement::TransitVelocity::Keep,
+                    );
+                    // Class-B transit (`docs/concepts/movement-collision.md`):
+                    // the recall moves the body, so it is a scripted teleport.
+                    if let Some(log) = class_b.as_mut() {
+                        log.record(player, ClassBRemap::ScriptedTeleport);
+                    }
+                    // Recall strike: a player-side shockwave at the mark, so you
+                    // can lure enemies onto it and recall in to hit them.
+                    hits.write(ambition_combat::events::HitEvent {
+                        strike_sfx: None,
+                        volume: ae::CombatVolume::circle(target, RECALL_SHOCKWAVE_HALF),
+                        damage: RECALL_SHOCKWAVE_DAMAGE,
+                        source: ambition_combat::events::HitSource::Melee,
+                        attacker: Some(player),
+                        room: None,
+                        target: ambition_combat::events::HitTarget::Volume,
+                        mode: ambition_combat::events::HitMode::Knockback,
+                        knockback: None,
+                        ignored_targets: Vec::new(),
+                                        attacker_move_instance: None,
+                    });
+                    sfx.write_for(
+                        player,
+                        ambition_sfx::SfxMessage::Play {
+                            id: ambition_sfx::ids::PLAYER_BLINK,
+                            pos: target,
+                        },
+                    );
+                    vfx.write(ambition_vfx::vfx::VfxMessage::Effect {
+                        pos: target,
+                        fx: ambition_vfx::fx::ids::CLASSIC_BURST,
+                        scale: 0.6,
+                        pose: ambition_vfx::FxPose::UPRIGHT,
+                    });
                 }
             }
         }

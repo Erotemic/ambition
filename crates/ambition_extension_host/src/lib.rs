@@ -39,8 +39,9 @@ pub use admission::{
     ModuleCode, PortOffer, Refusal,
 };
 pub use exec::{
-    run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord,
-    InstalledPortCodecs, PendingInvocation, Submitted, Supplier,
+    run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InBossConduct,
+    InModuleEntityTick, InTechniqueExecution, InWieldedUse, InstalledPortCodecs, LowersIn,
+    PendingInvocation, Submitted, Supplier,
 };
 pub use store::{register_rollback_state, BodyRecords, RecordSet, SessionRecords, StoredRecord};
 

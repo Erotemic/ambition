@@ -151,7 +151,7 @@ pub fn lower_conducted_poses(
     >,
     mut commands: Commands,
 ) {
-    for submitted in outbox.drain::<ConductedPosePort>() {
+    for submitted in outbox.drain::<ConductedPosePort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
         let Ok((mut kin, mut aabb, mut sweep, owned, facing)) = bosses.get_mut(submitted.scope) else {
             warn!(
                 "extension entry {} asked to conduct {:?}, which is not a boss; refused",
@@ -186,7 +186,7 @@ pub fn lower_conducted_poses(
 
 /// Lower `ambition.boss.guard` into the boss's `BossEncounter::guarded`.
 pub fn lower_boss_guards(mut outbox: ResMut<ExtensionOutbox>, mut bosses: Query<&mut BossEncounter>) {
-    for submitted in outbox.drain::<ambition_boss_special_port::BossGuardPort>() {
+    for submitted in outbox.drain::<ambition_boss_special_port::BossGuardPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
         if let Ok(mut status) = bosses.get_mut(submitted.scope) {
             if status.guarded != submitted.value.guarded {
                 status.guarded = submitted.value.guarded;
@@ -201,7 +201,7 @@ pub fn lower_drawn_rows(
     mut rows: Query<Option<&mut ambition_sprite_sheet::character::PinnedRow>>,
     mut commands: Commands,
 ) {
-    for submitted in outbox.drain::<DrawnRowPort>() {
+    for submitted in outbox.drain::<DrawnRowPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
         let Ok(row) = rows.get_mut(submitted.scope) else {
             continue;
         };
@@ -227,7 +227,7 @@ pub fn lower_bursts(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     use ambition_vfx::vfx::ParticleKind;
-    for submitted in outbox.drain::<BurstPort>() {
+    for submitted in outbox.drain::<BurstPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
         let burst = submitted.value;
         let kind = match burst.kind.as_str() {
             "spark" => ParticleKind::Spark,
@@ -256,7 +256,7 @@ pub fn lower_camera_shakes(
     mut outbox: ResMut<ExtensionOutbox>,
     mut shake: MessageWriter<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>,
 ) {
-    for submitted in outbox.drain::<ambition_combat_port::CameraShakePort>() {
+    for submitted in outbox.drain::<ambition_combat_port::CameraShakePort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
         shake.write(ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest {
             amplitude_px: submitted.value.amplitude_px,
         });

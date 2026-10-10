@@ -12,11 +12,12 @@ use std::sync::Arc;
 
 use ambition_combat_port::{
     BodyAttachment, BodyAttachments, BodyAttachmentsPort, BodyHold, BodyHoldPort, DamageBoxPort, HeldDamageBoxPort,
-    RidingHitboxPort, RidingKnockback,
+    RidingHitboxPort, RidingKnockback, StrikePort,
 };
-use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionOutbox};
+use ambition_extension_host::{
+    AdmittedExtensions, ExtensionAppExt, ExtensionOutbox, InBossConduct, InTechniqueExecution, InWieldedUse, LowersIn,
+};
 use ambition_extension_sdk::phases::{BOSS_CONDUCT, TECHNIQUE_EXECUTION, WIELDED_USE};
-use ambition_extension_sdk::Phase;
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
@@ -79,39 +80,77 @@ fn body_attachments_of(world: &World, scope: Entity) -> Option<BodyAttachments> 
     Some(BodyAttachments { points })
 }
 
-/// Install the damage box port in `wielded_use` (a held item's use), before
-/// the effect executor as in `technique_execution`.
+/// Install the damage box port and the strike port in `wielded_use` (a held
+/// item's use), before the effect executor and the hit resolution, as in
+/// `technique_execution`.
 pub fn install_for_wielded_use(app: &mut App) {
     app.install_extension_request::<DamageBoxPort, _>(
         WIELDED_USE,
         "ambition_combat",
         lower_damage_boxes::<InWieldedUse>,
     );
+    // The strike adapter writes the hit message: a composition with the port
+    // has it, whether or not a module strikes.
+    app.add_message::<crate::events::HitEvent>();
+    app.install_extension_request::<StrikePort, _>(WIELDED_USE, "ambition_combat", lower_strikes);
 }
 
-/// The phase a request adapter instance lowers for. One port offered in two
-/// phases has two adapter systems, one after each phase's invocations; the
-/// marker makes them two named systems, not one system registered twice.
-pub struct InTechniqueExecution;
-/// See [`InTechniqueExecution`].
-pub struct InWieldedUse;
-/// See [`InTechniqueExecution`].
-pub struct InBossConduct;
+/// One hit, this tick, by the body, on what is in the volume. The body is the
+/// attacker, so the hit resolution reads its side.
+fn lower_strikes(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut hits: MessageWriter<crate::events::HitEvent>,
+    bodies: Query<&ae::BodyKinematics>,
+) {
+    use ambition_combat_port::{Place, StrikeVolume};
+    for submitted in outbox.drain::<StrikePort>(&WIELDED_USE) {
+        let strike = submitted.value;
+        let body = bodies.get(submitted.scope).ok().map(|kin| [kin.pos.x, kin.pos.y]);
+        // Where a place is: `Place::Body` is where the body is now, after a
+        // transit of this tick.
+        let at = |place: Place| match (place, body) {
+            (Place::Body, None) => None,
+            (place, body) => Some(ae::Vec2::from(place.resolve(body.unwrap_or_default()))),
+        };
+        let volume = match strike.volume {
+            StrikeVolume::Circle { at: place, radius } => at(place).map(|c| ae::CombatVolume::circle(c, radius)),
+            StrikeVolume::Span { from, to, pad } => at(from).zip(at(to)).map(|(from, to)| {
+                let half = ae::Vec2::new((to.x - from.x).abs() * 0.5 + pad * 0.5, (to.y - from.y).abs() * 0.5 + pad * 0.5);
+                ae::CombatVolume::from(ae::Aabb::new((from + to) * 0.5, half))
+            }),
+        };
+        let Some(volume) = volume else {
+            warn!("extension entry {} asked for a strike at a body with no position; refused", submitted.entry);
+            continue;
+        };
+        let center = volume.center();
+        hits.write(crate::events::HitEvent {
+            strike_sfx: None,
+            volume,
+            damage: strike.damage,
+            source: crate::events::HitSource::Melee,
+            attacker: Some(submitted.scope),
+            room: None,
+            target: crate::events::HitTarget::Volume,
+            mode: crate::events::HitMode::Knockback,
+            knockback: strike.knockback.map(|k| crate::events::HitKnockback {
+                // An ordinary hit: it stuns.
+                reaction: ae::hit_response::HitReaction::Strike,
+                dir: k.dir,
+                magnitude: crate::events::HitKnockbackMagnitude::FeelScale(k.feel_scale),
+                source_pos: center,
+                impact_pos: center,
+                launch_dir: None,
+                follow: None,
+            }),
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+    }
+}
 
-/// The phase an adapter instance lowers for, for an adapter whose state spans
-/// phases: the held boxes of one phase's entries are not the other's to
-/// release.
-pub trait LowersIn: Send + Sync + 'static {
-    const PHASE: Phase;
-}
-impl LowersIn for InTechniqueExecution {
-    const PHASE: Phase = TECHNIQUE_EXECUTION;
-}
-impl LowersIn for InBossConduct {
-    const PHASE: Phase = BOSS_CONDUCT;
-}
 
-fn lower_damage_boxes<Phase: Send + Sync + 'static>(
+fn lower_damage_boxes<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     factions: Query<(
@@ -119,7 +158,7 @@ fn lower_damage_boxes<Phase: Send + Sync + 'static>(
         Option<&ambition_characters::control::DrivingParticipant>,
     )>,
 ) {
-    for submitted in outbox.drain::<DamageBoxPort>() {
+    for submitted in outbox.drain::<DamageBoxPort>(&L::PHASE) {
         // ⛔ SUBMITTED IS NOT APPLIED. A body with no faction cannot say whom
         // its box hurts, and the module may not say it either.
         let Ok((authored, driver)) = factions.get(submitted.scope) else {
@@ -199,7 +238,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
         Option<&ambition_characters::control::DrivingParticipant>,
     )>,
 ) {
-    let submitted = outbox.drain::<HeldDamageBoxPort>();
+    let submitted = outbox.drain::<HeldDamageBoxPort>(&P::PHASE);
     // Only this phase's entries' boxes: the other phase's adapter releases
     // its own.
     let mine: Vec<&str> = admitted
@@ -314,7 +353,7 @@ fn lower_riding_hitboxes(
         Option<&ambition_characters::control::DrivingParticipant>,
     )>,
 ) {
-    for s in outbox.drain::<RidingHitboxPort>() {
+    for s in outbox.drain::<RidingHitboxPort>(&BOSS_CONDUCT) {
         // ⛔ SUBMITTED IS NOT APPLIED: a body with no faction cannot say whom
         // its hitbox hurts.
         let Ok((authored, driver)) = factions.get(s.scope) else {
@@ -444,7 +483,7 @@ fn lower_body_holds(
 ) {
     // One seize per captor per tick, and a captor holds one body.
     let mut seized: Vec<Entity> = Vec::new();
-    for s in outbox.drain::<BodyHoldPort>() {
+    for s in outbox.drain::<BodyHoldPort>(&BOSS_CONDUCT) {
         let captor = s.scope;
         let held = crate::capture::captive_of(captor, &captives).or_else(|| {
             seized.contains(&captor).then_some(Entity::PLACEHOLDER)

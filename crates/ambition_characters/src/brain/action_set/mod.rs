@@ -391,9 +391,9 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
-        // The dive gauntlet has no melee/ranged verb — `Attack` is intercepted
-        // by `dive::fire_dive_system`, which lunges the player along the aim and
-        // cuts a damage corridor (the overflow boss's crash, wielded).
+        // The dive gauntlet has no melee/ranged verb — `Attack` is used by the
+        // dive module, which lunges the body along the aim and cuts a damage
+        // corridor (the overflow boss's crash, wielded).
         items.insert(
             "dive",
             HeldItemSpec {
@@ -427,8 +427,8 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
             },
         );
         // The Mark/Recall ability has no melee/ranged verb either — its plain
-        // `Attack` is intercepted by `mark_recall::mark_recall_system` (drop a
-        // teleport mark) and `Blink` recalls to it. Like the puppy-slug gun it
+        // `Attack` is used by the mark/recall module (drop a teleport mark) and
+        // `Blink` recalls to it. Like the puppy-slug gun it
         // opts out of throw-on-attack via `throw_held_item_system`.
         items.insert(
             "mark_recall",
@@ -462,8 +462,8 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::Auto,
             },
         );
-        // Blink has no melee/ranged verb — its plain `Attack` is intercepted by
-        // `blink::blink_system` (a short collision-clamped teleport along aim),
+        // Blink has no melee/ranged verb — its plain `Attack` is used by the
+        // blink module (a short collision-clamped teleport along aim),
         // so it opts out of throw-on-attack like the other pure-use abilities.
         items.insert(
             "blink",

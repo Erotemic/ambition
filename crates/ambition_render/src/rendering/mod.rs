@@ -87,6 +87,7 @@ pub fn require_world_compositing(app: &mut bevy::app::App) {
 }
 
 pub mod actors;
+pub mod ambient_motes;
 pub mod window_camera_stack;
 pub mod body_clock;
 pub mod body_cues;
@@ -119,6 +120,7 @@ pub mod moving_platforms;
 mod nameplates;
 mod parallax;
 mod primitives;
+pub mod terrain_skin;
 pub mod projectile_visuals;
 pub(crate) mod sheet_atlas;
 pub mod shrine_visuals;

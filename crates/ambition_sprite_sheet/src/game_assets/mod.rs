@@ -161,11 +161,13 @@ impl GameAssetConfig {
 
 mod entity_sprite;
 mod resolvers;
+mod room_dressing;
 
 /// The per-image stage ledger the funnel below feeds; see its module docs.
 pub use ambition_asset_manager::image_stages;
 pub use entity_sprite::*;
 pub use resolvers::*;
+pub use room_dressing::*;
 
 /// Biome/theme key for generated parallax layers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -238,7 +240,19 @@ impl ParallaxTheme {
         }
     }
 
+    /// The theme of a room: the one its metadata names, or the hub theme
+    /// when it names none.
     pub fn from_room_metadata(metadata: &RoomMetadata) -> Self {
+        Self::named_by_room_metadata(metadata).unwrap_or(Self::Hub)
+    }
+
+    /// The theme the metadata of a room names, if it names one.
+    ///
+    /// [`Self::from_room_metadata`] gives a room that names none the hub
+    /// theme, which is right for a sky: a room must have one. It is wrong for
+    /// art that goes on the blocks of the room (a terrain skin): a room of
+    /// another game that names no theme must keep its own block art.
+    pub fn named_by_room_metadata(metadata: &RoomMetadata) -> Option<Self> {
         // Explicit room visual profiles are the preferred authoring seam for
         // real rooms. `visual_profile` is a stable id, while `parallax_theme`
         // chooses the generated art stack directly.
@@ -248,7 +262,7 @@ impl ParallaxTheme {
             .as_deref()
             .and_then(Self::from_key)
         {
-            return theme;
+            return Some(theme);
         }
         if let Some(theme) = metadata
             .visual_profile
@@ -256,7 +270,7 @@ impl ParallaxTheme {
             .as_deref()
             .and_then(Self::from_key)
         {
-            return theme;
+            return Some(theme);
         }
 
         // Compatibility fallback for older rooms that only have loose metadata.
@@ -273,19 +287,19 @@ impl ParallaxTheme {
         {
             let key = value.trim().to_ascii_lowercase().replace('-', "_");
             if key.contains("ninja") || key.contains("dojo") || key.contains("forest") {
-                return Self::Forest;
+                return Some(Self::Forest);
             }
         }
         if let Some(theme) = metadata.biome.as_deref().and_then(Self::from_key) {
-            return theme;
+            return Some(theme);
         }
         if let Some(theme) = metadata.visual_theme.as_deref().and_then(Self::from_key) {
-            return theme;
+            return Some(theme);
         }
         if let Some(theme) = metadata.ambient_profile.as_deref().and_then(Self::from_key) {
-            return theme;
+            return Some(theme);
         }
-        Self::Hub
+        None
     }
 
     fn from_key(value: &str) -> Option<Self> {
@@ -319,7 +333,13 @@ pub enum ParallaxLayerAsset {
     Sky,
     FarBackplate,
     NearBackground,
+    /// The air between the scene and the play: mist, beams, dust. It is behind
+    /// the play, in spite of its name.
     ForegroundAtmosphere,
+    /// A few dark things between the eye and the play: the one layer that is
+    /// drawn in front of the play. A theme with no foreground publishes an
+    /// empty picture for it.
+    Foreground,
 }
 
 impl ParallaxLayerAsset {
@@ -328,6 +348,7 @@ impl ParallaxLayerAsset {
         Self::FarBackplate,
         Self::NearBackground,
         Self::ForegroundAtmosphere,
+        Self::Foreground,
     ];
 
     pub const fn key(self) -> &'static str {
@@ -336,6 +357,7 @@ impl ParallaxLayerAsset {
             Self::FarBackplate => "far_backplate",
             Self::NearBackground => "near_background",
             Self::ForegroundAtmosphere => "foreground_atmosphere",
+            Self::Foreground => "foreground",
         }
     }
 
@@ -469,6 +491,9 @@ pub struct GameAssets {
     /// are fine: room rendering simply skips the extra layers and keeps the
     /// existing clear-color/grid/block visuals.
     pub parallax_layers: ParallaxLayerSet,
+    /// The terrain skin of each resident theme: the art a room lays on its
+    /// blocks. Loaded and retired with the parallax layers of the theme.
+    pub room_dressing: RoomDressingSet,
 }
 
 /// Decoded FX spritesheets, keyed by manifest target.
@@ -622,6 +647,11 @@ pub fn ensure_parallax_layers_for_room(
         added += assets
             .parallax_layers
             .ensure_theme_loaded(catalog, asset_server, corrupted, quality);
+    }
+    // The skin of the room's blocks comes with its sky, and is kept as long.
+    // A room that names no theme has no skin: see `named_by_room_metadata`.
+    if let Some(named) = ParallaxTheme::named_by_room_metadata(metadata) {
+        assets.room_dressing.ensure_theme_loaded(catalog, asset_server, named);
     }
     if added > 0 {
         bevy::log::debug!(

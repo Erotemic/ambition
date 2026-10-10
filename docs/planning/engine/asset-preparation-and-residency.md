@@ -51,10 +51,11 @@ every content-art demand. The vocabulary, every string literal reaching
 ```text
 asset-manifest   boss-sheet   character-parts   character-sheet   entity-sprite
 fx-sheet         held-item    parallax          portrait          projectile-art
-shrine-sheet     vanity-card
+room-dressing    shrine-sheet vanity-card
 ```
 
-**TWELVE live roads.** `character-parts` (a part flipbook's pages,
+**THIRTEEN live roads.** `room-dressing` (the terrain skin, motes and decor of
+a room's theme, `RoomDressingSet`) is the thirteenth, 2026-10-10. `character-parts` (a part flipbook's pages,
 `RIGGED_SPRITE_ROAD`) was stamped all along through a constant the scan does not
 read; it surfaced when the pages moved onto `load_sheet_image` (2026-10-05). Derived from the call sites by
 `scripts/tests/test_demand_road_vocabulary_is_derived.py`; a road added in code

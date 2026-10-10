@@ -29,9 +29,11 @@ rooms, sprites and props get better art, and some areas get a light foreground.
 | Part | Where it is authored | How the game draws it |
 | --- | --- | --- |
 | Four parallax layers | `backgrounds/scenes.py` in the submodule | `ambition_render` parallax panels |
-| Terrain skin (fill, cap, underside) | submodule (planned) | block sprites and trim (planned) |
-| Foreground layer | submodule (planned) | a panel in front of the play (planned) |
-| Ambient motes | submodule (planned) | drifting sprites (planned) |
+| Foreground layer | `backgrounds/foregrounds.py` | the last parallax panel, in front of the play |
+| Terrain skin (fill, cap, underside, side, one-way) | `terrain/skins.py` | `rendering/terrain_skin.rs` |
+| Motes | `terrain/motes.py` | `rendering/ambient_motes.rs` |
+
+The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/parallax-backgrounds.md).
 
 ## Run progress (8 h run, armed 2026-10-10T05:22Z)
 
@@ -43,13 +45,25 @@ rooms, sprites and props get better art, and some areas get a light foreground.
   cave, cove, water, forest, skybridge, open_sky, boss, eclipse.
 - [x] The old parallax tool in the main repository is retired; the sky of the
   two-state room look moved to the submodule with the scenes.
-- [ ] Terrain skins for each biome (each room has the same grey brick now).
-- [ ] A foreground layer for some biomes.
-- [ ] Ambient motes.
-- [ ] Biomes assigned to more sandbox and main-game rooms (40 rooms are `lab`).
+- [x] Terrain skins for ten biomes, laid on the blocks of each room that names
+  a theme: a fill, and a trim on each open edge.
+- [x] A foreground layer for ten biomes: the one panel in front of the play.
+- [x] Motes that drift in the air of ten biomes (dust, embers, fireflies,
+  bubbles, petals).
+- [x] Ground decor for ten biomes: a few small things on the open top edges of
+  a room's blocks, clear of each thing of the play.
+- [x] Biomes assigned: 28 sandbox rooms and one intro room name a scene of
+  their own (skybridge, eclipse, boss, basement, cave, cove, forest). 22
+  sandbox rooms stay `lab`.
+- [x] Portals: the capture of an end draws its own window when its pair looks
+  at itself (the row of images between two portals that face). The rule is
+  tested; the picture is NOT confirmed: see `docs/systems/portals.md`.
+- [ ] `capture_scene --camera-zoom` shows no portal window at a wider zoom.
+  Find out if a wide camera zone in the game has the same fault.
 - [ ] Props and characters.
-- [ ] Portals: the third instance between two portals that face; gizmos in
-  portal captures.
+- [ ] Gizmos in portal captures (optional).
+- [ ] The intro rooms have an authored tile layer over their blocks, so they
+  show no terrain skin.
 
 ## Not seen
 

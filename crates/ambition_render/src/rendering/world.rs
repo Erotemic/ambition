@@ -82,6 +82,50 @@ pub fn spawn_room_visuals(
     let world = &spec.world;
     spawn_grid(commands, session_scope, world);
     spawn_surface_chain_visuals(commands, session_scope, world);
+    // The theme the room names: its blocks take the terrain skin of it.
+    // A room with a look of its own (a `palette`) draws its blocks its own way:
+    // no skin goes on them.
+    let theme = ambition_sprite_sheet::game_assets::ParallaxTheme::named_by_room_metadata(&spec.metadata)
+        .filter(|_| spec.metadata.visual_profile.palette.is_none());
+    if theme.is_some() {
+        // Where the decor of the skin must not stand: on a thing of the play.
+        let rect = |aabb: &ae::Aabb| {
+            let (centre, half) = (aabb.center(), aabb.half_size());
+            (BVec2::new(centre.x - half.x, centre.y - half.y), BVec2::new(centre.x + half.x, centre.y + half.y))
+        };
+        let around = |pos: ae::Vec2| (BVec2::new(pos.x - 28.0, pos.y - 44.0), BVec2::new(pos.x + 28.0, pos.y + 44.0));
+        let mut keep_out: Vec<(BVec2, BVec2)> = Vec::new();
+        keep_out.extend(spec.loading_zones.iter().map(|zone| rect(&zone.aabb)));
+        keep_out.extend(spec.placements.iter().map(|record| rect(&record.aabb)));
+        keep_out.extend(spec.enemy_spawns.iter().map(|spawn| rect(&spawn.aabb)));
+        keep_out.extend(spec.boss_spawns.iter().map(|spawn| rect(&spawn.aabb)));
+        keep_out.extend(spec.props.iter().map(|prop| around(prop.pos)));
+        keep_out.extend(spec.shrines.iter().map(|shrine| around(shrine.pos)));
+        keep_out.extend(spec.ground_items.iter().map(|item| around(item.pos)));
+        keep_out.extend(spec.portal_gun_spawns.iter().map(|spawn| around(spawn.pos)));
+        // A block that is not ground (a hazard, an orb, a pad) is a thing of
+        // the play too.
+        keep_out.extend(
+            world
+                .blocks
+                .iter()
+                .filter(|block| {
+                    !matches!(
+                        block.kind,
+                        ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
+                    )
+                })
+                .map(|block| rect(&block.aabb)),
+        );
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                super::terrain_skin::TerrainKeepOut(keep_out),
+                RoomVisual,
+                Name::new("Terrain decor keep-out"),
+            ),
+        );
+    }
     for block in &world.blocks {
         spawn_block(
             commands,
@@ -89,6 +133,7 @@ pub fn spawn_room_visuals(
             world,
             block,
             assets,
+            theme,
         );
     }
     for region in &world.water_regions {
@@ -894,6 +939,9 @@ pub fn spawn_block(
     world: &ae::World,
     block: &ae::Block,
     assets: Option<&GameAssets>,
+    // The theme the room of the block names, if it names one
+    // (`terrain_skin`).
+    theme: Option<ambition_sprite_sheet::game_assets::ParallaxTheme>,
 ) {
     let size = block.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
@@ -963,6 +1011,25 @@ pub fn spawn_block(
     );
     if let Some(key) = sprite_key {
         entity.insert(BoundEntitySprite::new(key));
+    }
+    // A block that draws the tile of its kind can take the skin of its room.
+    // A placeholder colour is authored and a lock wall has its own art.
+    let surface_kind = match block.kind {
+        ae::BlockKind::Solid => Some(super::terrain_skin::TerrainSurfaceKind::Solid),
+        ae::BlockKind::OneWay => Some(super::terrain_skin::TerrainSurfaceKind::OneWay),
+        ae::BlockKind::BlinkWall { .. } => Some(super::terrain_skin::TerrainSurfaceKind::Cover),
+        _ => None,
+    };
+    if let (Some(theme), Some(kind), None, false) =
+        (theme, surface_kind, block.art_color, is_lock_wall_block(&block.name))
+    {
+        let min = block.aabb.center() - block.aabb.half_size();
+        entity.insert(super::terrain_skin::TerrainSurface {
+            theme,
+            kind,
+            min: BVec2::new(min.x, min.y),
+            size: render,
+        });
     }
 }
 

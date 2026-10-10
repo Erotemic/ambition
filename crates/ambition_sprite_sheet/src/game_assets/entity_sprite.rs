@@ -274,6 +274,7 @@ pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
             }
         }
     }
+    insert_room_dressing_entries(&mut manifest);
     manifest
 }
 

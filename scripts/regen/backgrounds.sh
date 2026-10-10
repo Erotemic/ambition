@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Regenerate every procedural background family used by the desktop game.
+# Regenerate the scenery of the rooms: the placeholder background profiles,
+# the parallax scenes and the terrain skins.
 #
 # Usage:
 # ./scripts/regen/backgrounds.sh
@@ -62,11 +63,22 @@ echo "==> parallax scenes -> $parallax_dir"
         --out-dir "$parallax_dir"
 )
 
+# The terrain skin of each biome: what the game lays on the blocks of a room.
+terrain_dir="$repo_root/crates/ambition_platformer2d_actor_monolith/assets/room_dressing"
+mkdir -p "$terrain_dir"
+echo "==> terrain skins -> $terrain_dir"
+(
+    cd "$scene_renderer_dir"
+    "$scene_python" -m ambition_sprite2d_renderer.terrain draw \
+        --out-dir "$terrain_dir"
+)
+
 required_outputs=(
     "$background_root/default/sky.png"
     "$background_root/default/manifest.txt"
     "$parallax_dir/hub_sky.png"
     "$parallax_dir/hub_clean_sky.png"
+    "$terrain_dir/lab_fill.png"
 )
 for output in "${required_outputs[@]}"; do
     if [ ! -s "$output" ]; then

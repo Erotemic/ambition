@@ -136,6 +136,9 @@ pub struct PortalCaptureParallaxLayerVisual {
 struct RuntimeParallaxLayerSpec {
     asset: ParallaxLayerAsset,
     factor: f32,
+    /// The factor of the layer for the height of the camera, when it is not
+    /// `factor`.
+    factor_y: Option<f32>,
     z: f32,
     panel_scale: f32,
 }
@@ -144,28 +147,54 @@ const RUNTIME_PARALLAX_LAYERS: &[RuntimeParallaxLayerSpec] = &[
     RuntimeParallaxLayerSpec {
         asset: ParallaxLayerAsset::Sky,
         factor: 0.10,
+        factor_y: None,
         z: -18.0,
         panel_scale: 1.20,
     },
     RuntimeParallaxLayerSpec {
         asset: ParallaxLayerAsset::FarBackplate,
         factor: 0.20,
+        factor_y: None,
         z: -17.0,
         panel_scale: 1.34,
     },
     RuntimeParallaxLayerSpec {
         asset: ParallaxLayerAsset::NearBackground,
         factor: 0.42,
+        factor_y: None,
         z: -16.0,
         panel_scale: 1.52,
     },
     RuntimeParallaxLayerSpec {
         asset: ParallaxLayerAsset::ForegroundAtmosphere,
         factor: 0.60,
+        factor_y: None,
         z: -15.0,
         panel_scale: 1.72,
     },
+    // The one layer in front of the play. It is the last, so a tier that
+    // draws fewer layers drops it first. Its panel is large and it uses its
+    // whole overhang, so it moves a little more than the room does in a room
+    // two views wide: it reads as nearer than the play.
+    //
+    // It follows the height of the camera only a little. Its art is things
+    // that hang into the top of the view and things that stand into the
+    // bottom of it, and the middle of the view is empty
+    // (`backgrounds/foregrounds.py` in the art submodule). A panel that
+    // followed the height of the camera would show its lower part in a view
+    // near the floor of a room: the plants, over the whole view.
+    RuntimeParallaxLayerSpec {
+        asset: ParallaxLayerAsset::Foreground,
+        factor: 1.0,
+        factor_y: Some(0.1),
+        z: FOREGROUND_PARALLAX_Z,
+        panel_scale: 2.20,
+    },
 ];
+
+/// The z of the foreground layer: in front of the actors and of their effects
+/// (`WORLD_Z_FX` is 30).
+pub const FOREGROUND_PARALLAX_Z: f32 = 45.0;
 
 /// The layers every main camera renders the room's backdrop on.
 ///
@@ -227,7 +256,7 @@ pub fn spawn_parallax_layers(
                 Transform::from_translation(Vec3::new(0.0, 0.0, spec.z)),
                 Visibility::Inherited,
                 ParallaxLayerVisual {
-                    factor: Vec2::splat(spec.factor),
+                    factor: Vec2::new(spec.factor, spec.factor_y.unwrap_or(spec.factor)),
                     z: spec.z,
                     panel_scale: spec.panel_scale,
                     travel: Vec2::ZERO,
@@ -419,10 +448,15 @@ pub fn ensure_active_room_parallax_theme(
             continue;
         }
         // Resident. Do not touch `GameAssets` mutably: a mutable deref marks it
-        // changed, and the refresh system would respawn every layer.
-        if ParallaxLayerAsset::ALL
-            .iter()
-            .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
+        // changed, and the refresh system would respawn every layer. The skin
+        // of the room's blocks comes by the same loader: a theme whose skin
+        // was not asked for is not resident.
+        let skin_asked = ParallaxTheme::named_by_room_metadata(&metadata)
+            .is_none_or(|named| assets.room_dressing.attempted(named));
+        if skin_asked
+            && ParallaxLayerAsset::ALL
+                .iter()
+                .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
         {
             continue;
         }

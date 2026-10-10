@@ -212,14 +212,25 @@ pub fn load_game_assets(
         );
     }
 
-    GameAssets {
+    let mut assets = GameAssets {
         characters,
         entities,
         fx,
         boss,
         boss_sprites,
         parallax_layers,
-    }
+        room_dressing: Default::default(),
+    };
+    // The rest of the art of the start room's theme (the terrain skin, a
+    // corrupted state of the sky) comes by the road each later room takes.
+    ambition_sprite_sheet::game_assets::ensure_parallax_layers_for_room(
+        &mut assets,
+        catalog,
+        asset_server,
+        active_room_metadata,
+        quality,
+    );
+    assets
 }
 
 #[cfg(test)]

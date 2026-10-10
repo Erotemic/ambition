@@ -44,6 +44,14 @@ impl Plugin for SessionRoomVisualsPlugin {
         );
         // The composition that spawns blocks also applies authored per-block art overrides.
         app.add_systems(Update, crate::rendering::apply_entity_art);
+        app.init_resource::<crate::rendering::terrain_skin::TerrainDecorDensity>();
+        app.register_type::<crate::rendering::terrain_skin::TerrainDecorDensity>();
+        // The skin of the room's theme goes on its blocks, after a block with art of its own has
+        // said so.
+        app.add_systems(
+            Update,
+            crate::rendering::terrain_skin::skin_terrain_surfaces.after(crate::rendering::apply_entity_art),
+        );
         app.add_systems(Update, crate::rendering::build_filled_ground_meshes);
         // The host tells portal presentation what it draws. That crate sees only the
         // decomposed scene body and the affordance body, so an ordinary NPC behind an
@@ -96,6 +104,15 @@ impl Plugin for SessionRoomVisualsPlugin {
             )
                 .chain()
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
+        );
+        // The motes of each live room's air, and their motion.
+        app.init_resource::<crate::rendering::ambient_motes::AmbientMoteStyles>();
+        app.add_systems(
+            Update,
+            (
+                crate::rendering::ambient_motes::present_room_motes.in_set(SessionScopeSet::Presentation),
+                crate::rendering::ambient_motes::drift_room_motes.after(crate::rendering::camera_follow),
+            ),
         );
         // Each live room's parallax, after the refresh has taken stale layers
         // (the edge is also the flush that makes the despawn visible).

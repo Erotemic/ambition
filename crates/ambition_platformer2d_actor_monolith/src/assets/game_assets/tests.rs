@@ -124,7 +124,11 @@ fn sandbox_image_manifest_registers_every_entity_and_parallax_entry() {
         1 + ambition_persistence::settings::TextureResolutionScale::MANIFEST_VARIANTS.len();
     let base_count =
         EntitySprite::ALL.len() + ParallaxTheme::ALL.len() * ParallaxLayerAsset::ALL.len();
-    let expected = base_count * ENTRIES_PER_BASE;
+    // The room dressing of each theme (terrain skin, motes, decor) has one
+    // entry for each part and no resolution variants.
+    let dressing = ParallaxTheme::ALL.len()
+        * ambition_sprite_sheet::game_assets::RoomDressingPart::ALL.len();
+    let expected = base_count * ENTRIES_PER_BASE + dressing;
     assert_eq!(
         manifest.len(),
         expected,

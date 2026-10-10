@@ -86,6 +86,8 @@ pub(crate) fn retire_departed_parallax_themes(
     *kept = keep.clone();
 
     let before = assets.parallax_layers.resident_themes();
+    // The terrain skin of a theme is kept as long as its parallax.
+    assets.room_dressing.retain_themes(|theme| keep.contains(&theme));
     let retired = assets
         .parallax_layers
         .retain_themes(|theme| keep.contains(&theme));

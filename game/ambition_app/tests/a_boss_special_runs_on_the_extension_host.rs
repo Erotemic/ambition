@@ -532,6 +532,41 @@ fn a_wielded_blink_runs_on_the_extension_host() {
     }
 }
 
+/// ⭐ THE DIVE RUNS ON THE EXTENSION HOST, in the assembled game: Attack
+/// while holding the dive gauntlet → the `dive` module → the mana, transit
+/// and strike adapters → 26 mana paid and the body moved along its facing,
+/// at most 140 px. The second arm runs it under a GGRS sync-test session: a
+/// replayed tick that moved the body twice would carry it past 140 px.
+#[test]
+fn a_wielded_dive_runs_on_the_extension_host() {
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    for rollback in [false, true] {
+        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+        if rollback {
+            options = options.with_sync_test_rollback_settings(4, 10);
+        }
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+        let player = arm_the_player(&mut sim, "dive");
+        for _ in 0..30 {
+            sim.step(AgentAction::default());
+        }
+        let x = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos.x;
+        let (before, mana_before) = (x(&sim), mana_of(&sim, player).expect("the home body holds mana"));
+        sim.step(AgentAction { attack: true, ..AgentAction::default() });
+        for _ in 0..3 {
+            sim.step(AgentAction::default());
+        }
+        let dived = (x(&sim) - before).abs();
+        assert!(dived > 1.0 && dived <= 140.5, "rollback={rollback}: one dive moved the body {dived} px");
+        let mana_after = mana_of(&sim, player).expect("the home body holds mana");
+        assert!(
+            (mana_before - mana_after - 26.0).abs() < 1.0,
+            "rollback={rollback}: the dive paid its 26 mana ({mana_before} -> {mana_after}, regen aside)"
+        );
+        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    }
+}
+
 /// ⭐ A MODULE-OWNED ENTITY, in the assembled game: Attack while holding the
 /// sentry gauntlet → the `sentry` module's `deploy` entry → 28 mana paid and a
 /// turret spawned by the world (its identity minted from the player's, its

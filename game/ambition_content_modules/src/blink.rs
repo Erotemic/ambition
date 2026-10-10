@@ -9,7 +9,7 @@
 
 use ambition_combat_port::{
     BodySound, BodySoundPort, Effect, EffectPort, MovementCooldown, MovementCooldownPort, Place, Strike, StrikePort,
-    Transit, TransitPort, WieldedUsePort, Wielder,
+    StrikeVolume, Transit, TransitPort, WieldedUsePort, Wielder,
 };
 use ambition_extension_sdk::{Fault, Invocation, ModuleDescriptor, Port};
 
@@ -44,34 +44,23 @@ pub fn module() -> ModuleDescriptor {
     )
 }
 
-/// `v` with length one, or zero when it has no direction. The same
-/// arithmetic as the engine's `normalize_or_zero`: a multiply by the
-/// reciprocal of the length.
-fn unit_or_zero(v: [f32; 2]) -> [f32; 2] {
-    let recip = 1.0 / (v[0] * v[0] + v[1] * v[1]).sqrt();
-    if recip.is_finite() && recip > 0.0 {
-        [v[0] * recip, v[1] * recip]
-    } else {
-        [0.0, 0.0]
-    }
-}
-
 fn blink(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let w: Wielder = inv.trigger::<WieldedUsePort>()?.clone();
-    if !w.driven || !w.transits {
+    // A body that does not move by the swept kernel does not blink.
+    if !w.driven || !w.swept {
         return Ok(());
     }
-    let direction = unit_or_zero(w.to_world(w.aim_local));
+    let direction = wielded::unit_or_zero(w.to_world(w.aim_local));
     // An aimless press does not use the cooldown.
     if direction == [0.0, 0.0] || !w.cooldown_ready {
         return Ok(());
     }
     inv.submit::<MovementCooldownPort>(MovementCooldown { seconds: COOLDOWN_S })?;
-    inv.submit::<TransitPort>(Transit { direction, distance: DISTANCE })?;
+    inv.submit::<TransitPort>(Transit { direction, distance: DISTANCE, facing: None })?;
     inv.submit::<StrikePort>(Strike {
-        at: Place::Body,
-        radius: STRIKE_RADIUS,
+        volume: StrikeVolume::Circle { at: Place::Body, radius: STRIKE_RADIUS },
         damage: STRIKE_DAMAGE,
+        knockback: None,
     })?;
     inv.submit::<BodySoundPort>(BodySound {
         cue: "player.blink".into(),

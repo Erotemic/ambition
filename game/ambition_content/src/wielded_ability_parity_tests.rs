@@ -257,18 +257,21 @@ fn each_wasm_build_uses_its_item_as_its_native_system_did() {
     }
 }
 
-/// Blink, the first body-motion module (`ambition.motion.transit`), run the
-/// same three ways. Its output is a moved body, so the trace is each body's
-/// position, velocity and movement cooldown, the Class-B record, the
-/// strikes, the effects and the sounds, tick for tick.
+/// The body-motion modules (`ambition.motion.transit`): the blink and the
+/// dive, run the same three ways. Their output is a moved body, so the trace
+/// is each body's position, velocity, facing, mana and movement cooldown, the
+/// Class-B record, the strikes, the effects and the sounds, tick for tick.
 ///
 /// Two live rooms: #0 open, #1 with a wall whose left side is at x = 380.
-/// The bodies: a driven body in #1 that blinks into the wall; driven bodies
-/// in gravity sideways and up in #0; a body a brain drives (it does not
-/// blink); and a driven body that does not move by the swept kernel (it does
-/// not blink either). The presses come faster than the cooldown, so some are
+/// The bodies: a driven body in #1 that moves into the wall; driven bodies
+/// in gravity sideways and up in #0 (the one in gravity up has mana for one
+/// dive); a body a brain drives (it does neither); and a driven crawler on a
+/// wall, off the swept kernel (it dives and does not blink). The crawler's
+/// last step was into its wall, so its box lies along the wall, 20 deep on x
+/// where its gravity frame makes it 12: a transit must stop it by the box it
+/// has. The presses come faster than the blink's cooldown, so some are
 /// refused.
-mod blink {
+mod transits {
     use super::*;
     use ambition_extension_host::ExtensionSet;
     use ambition_extension_sdk::phases::WIELDED_USE;
@@ -277,20 +280,65 @@ mod blink {
         insert_live_room_component, spawn_live_room, InRoomInstance, LiveRoomInstance,
     };
 
-    struct BlinkBody {
+    struct TransitBody {
         driven: bool,
         gravity: ae::Vec2,
         room: usize,
         swept: bool,
+        mana: f32,
     }
 
-    const BODIES: [BlinkBody; 5] = [
-        BlinkBody { driven: true, gravity: ae::Vec2::new(0.0, 1.0), room: 1, swept: true },
-        BlinkBody { driven: true, gravity: ae::Vec2::new(1.0, 0.0), room: 0, swept: true },
-        BlinkBody { driven: false, gravity: ae::Vec2::new(0.0, 1.0), room: 1, swept: true },
-        BlinkBody { driven: true, gravity: ae::Vec2::new(0.0, -1.0), room: 0, swept: true },
-        BlinkBody { driven: true, gravity: ae::Vec2::new(0.0, 1.0), room: 1, swept: false },
+    const BODIES: [TransitBody; 5] = [
+        TransitBody { driven: true, gravity: ae::Vec2::new(0.0, 1.0), room: 1, swept: true, mana: 100.0 },
+        TransitBody { driven: true, gravity: ae::Vec2::new(1.0, 0.0), room: 0, swept: true, mana: 100.0 },
+        TransitBody { driven: false, gravity: ae::Vec2::new(0.0, 1.0), room: 1, swept: true, mana: 100.0 },
+        TransitBody { driven: true, gravity: ae::Vec2::new(0.0, -1.0), room: 0, swept: true, mana: 30.0 },
+        TransitBody { driven: true, gravity: ae::Vec2::new(0.0, 1.0), room: 1, swept: false, mana: 100.0 },
     ];
+
+    /// The crawler's wall is on its left: its last step was toward -x.
+    const INTO_THE_WALL: ae::Vec2 = ae::Vec2::new(-1.0, 0.0);
+
+    struct TransitItem {
+        item: &'static str,
+        native: fn(&mut App),
+        /// How many times each body is moved on the reference road.
+        moves: fn(&[usize]) -> bool,
+    }
+
+    const BLINK: TransitItem = TransitItem {
+        item: "blink",
+        native: |app| {
+            app.add_systems(
+                Sim,
+                (
+                    super::super::wielded_ability_reference_tests::blink::blink_system,
+                    ambition_platformer2d::abilities::ability_cooldown::tick_ability_cooldown,
+                )
+                    .chain(),
+            );
+        },
+        // The cooldown ran out between moves; the brain's body and the body
+        // off the swept kernel do not blink.
+        moves: |m| m[0] >= 2 && m[1] >= 2 && m[3] >= 2 && m[2] == 0 && m[4] == 0,
+    };
+    const DIVE: TransitItem = TransitItem {
+        item: "dive",
+        native: |app| {
+            app.add_systems(
+                Sim,
+                (
+                    super::super::wielded_ability_reference_tests::dive::fire_dive_system,
+                    ambition_platformer2d::abilities::ability_cooldown::tick_ability_cooldown,
+                )
+                    .chain(),
+            );
+        },
+        // Each press that the mana pays for: the body with mana for one dive
+        // dives once, the body off the swept kernel dives, the brain's does
+        // not.
+        moves: |m| m[0] >= 3 && m[1] >= 3 && m[3] == 1 && m[4] >= 3 && m[2] == 0,
+    };
 
     /// More than the cooldown (0.45 s, 27 ticks), so a press is refused and a
     /// later one is not.
@@ -305,6 +353,11 @@ mod blink {
             _ => [0.9, 0.9],
         };
         let movement = if tick % 5 == 1 { [-1.0, 0.0] } else { [0.0, 0.0] };
+        // The crawler aims at the wall of #1 on each press: its box decides
+        // where it stops.
+        if body == 4 {
+            return (attack, false, [0.9, 0.0], [0.0, 0.0]);
+        }
         (attack, false, aim, movement)
     }
 
@@ -317,7 +370,7 @@ mod blink {
         ))
     }
 
-    fn world(road: Road) -> (App, Vec<Entity>) {
+    fn world(road: Road, item: &TransitItem) -> (App, Vec<Entity>) {
         let mut app = App::new();
         app.init_schedule(Sim);
         app.add_message::<ProjectileSpawnRequest>()
@@ -334,12 +387,7 @@ mod blink {
         let tick_cooldowns = ambition_platformer2d::abilities::ability_cooldown::tick_ability_cooldown;
         match road {
             // The shipped order: the native chain, then the cooldowns tick.
-            Road::NativeSystem => {
-                app.add_systems(
-                    Sim,
-                    (super::super::wielded_ability_reference_tests::blink::blink_system, tick_cooldowns).chain(),
-                );
-            }
+            Road::NativeSystem => (item.native)(&mut app),
             // The shipped order: `wielded_use`, then the cooldowns tick.
             Road::Module | Road::Wasm => {
                 app.add_plugins(ExtensionHostPlugin::new(Sim));
@@ -364,17 +412,22 @@ mod blink {
             room(vec![ae::Block::solid("wall", ae::Vec2::new(380.0, 0.0), ae::Vec2::new(20.0, 600.0))]),
         );
         let rooms = [LiveRoomInstance::ACTIVATION, walled];
-        let held = ambition_characters::brain::held_item_by_id("blink").expect("a known item");
+        let held = ambition_characters::brain::held_item_by_id(item.item).expect("a known item");
         let mut bodies = Vec::new();
         for (i, spec) in BODIES.iter().enumerate() {
             let pos = ae::Vec2::new(150.0 + 20.0 * i as f32, 300.0);
             let mut frame = ResolvedMotionFrame::default();
             frame.publish_resolved_frame(ae::MotionFrame::from_direction(spec.gravity, 900.0));
-            let model = if spec.swept {
-                ambition_platformer2d_core::movement::MotionModel::default()
-            } else {
-                ambition_platformer2d_core::movement::MotionModel::surface_momentum(Default::default())
-            };
+            let mut model = ambition_platformer2d_core::movement::MotionModel::default();
+            if !spec.swept {
+                ae::movement::switch_motion_model(
+                    &mut model,
+                    ae::MotionModelSpec::AdhesiveCrawler(ae::CrawlerParams::default()),
+                );
+                if let ae::movement::MotionModel::AdhesiveCrawler(crawler) = &mut model {
+                    crawler.state = ae::movement::CrawlerState::attached(-INTO_THE_WALL);
+                }
+            }
             let mut entity = app.world_mut().spawn((
                 BodyKinematics {
                     pos,
@@ -394,17 +447,24 @@ mod blink {
             ));
             // The bundle's own frame is replaced by the one with this gravity.
             entity.insert(frame);
+            if !spec.swept {
+                let kin = *entity.get::<BodyKinematics>().unwrap();
+                entity.insert(ae::SweepSample::at_rest(kin, INTO_THE_WALL));
+            }
             if spec.driven {
                 entity.insert(DrivingParticipant(PlayerSlot(i as u8)));
             }
+            let mut bank = ambition_platformer2d::abilities::mana::bank();
+            assert!(ambition_platformer2d::abilities::mana::spend(Some(&mut bank), 100.0 - spec.mana));
+            entity.insert(bank);
             bodies.push(entity.id());
         }
         app.insert_resource(ControlledSubject(None));
         (app, bodies)
     }
 
-    fn run(road: Road) -> Trace {
-        let (mut app, bodies) = world(road);
+    fn run(road: Road, item: &TransitItem) -> Trace {
+        let (mut app, bodies) = world(road, item);
         let index = |e: Entity| bodies.iter().position(|b| *b == e).map_or(usize::MAX, |i| i);
         let mut trace = Vec::new();
         for tick in 0..TICKS {
@@ -453,9 +513,14 @@ mod blink {
                     .world()
                     .get::<ambition_platformer2d::abilities::ability_cooldown::AbilityCooldown>(*body)
                     .map(|c| c.remaining);
-                out.entry(i)
-                    .or_default()
-                    .push(format!("at {:?} moving {:?} cooldown {cooldown:?}", kin.pos, kin.vel));
+                let mana = ambition_platformer2d::abilities::mana::level(
+                    app.world().get::<ambition_platformer2d_core::resources::ActorResources>(*body),
+                )
+                .map(|l| l.current);
+                out.entry(i).or_default().push(format!(
+                    "at {:?} moving {:?} facing {} mana {mana:?} cooldown {cooldown:?}",
+                    kin.pos, kin.vel, kin.facing
+                ));
             }
             trace.push(out);
             app.world_mut().resource_mut::<ambition_time::SimTick>().0 += 1;
@@ -471,34 +536,38 @@ mod blink {
     }
 
     #[test]
-    fn the_blink_module_moves_each_body_as_its_native_system_did() {
-        let native = run(Road::NativeSystem);
-        let moved = blinks(&native);
-        // ⭐ The premise: the driven swept bodies blinked more than once (the
-        // cooldown ran out), and the brain's body and the body off the swept
-        // kernel did not.
-        assert!(moved[0] >= 2 && moved[1] >= 2 && moved[3] >= 2, "the reference blinked: {moved:?}");
-        assert_eq!((moved[2], moved[4]), (0, 0), "{moved:?}");
-        // The premise of the wall: a blink of the body in #1 stopped short of
-        // the wall at x = 380 (its right side at the wall, less a margin), not
-        // 150 px on.
-        let x = |line: &str| -> Option<f32> { line.strip_prefix("at Vec2(")?.split(',').next()?.parse().ok() };
-        let xs: Vec<f32> = native.iter().filter_map(|t| t[&0].last().and_then(|s| x(s))).collect();
-        assert!(
-            xs.windows(2).any(|w| w[1] > w[0] && w[1] - w[0] < 149.0 && w[1] + 12.0 <= 380.0 && w[1] + 12.0 > 360.0),
-            "no blink of the body in #1 stopped at the wall: {xs:?}"
-        );
-        let module = run(Road::Module);
-        assert_eq!(module, native, "the linked module");
+    fn each_transit_module_moves_each_body_as_its_native_system_did() {
+        for item in [&BLINK, &DIVE] {
+            let native = run(Road::NativeSystem, item);
+            let moved = blinks(&native);
+            // ⭐ The premise: the reference moved the bodies it should.
+            assert!((item.moves)(&moved), "{}: the reference moved {moved:?}", item.item);
+            // The premise of the wall: a move of the body in #1 stopped short
+            // of the wall at x = 380 (its right side at the wall, less a
+            // margin), not the full distance on.
+            let x = |line: &str| -> Option<f32> { line.strip_prefix("at Vec2(")?.split(',').next()?.parse().ok() };
+            let xs: Vec<f32> = native.iter().filter_map(|t| t[&0].last().and_then(|s| x(s))).collect();
+            assert!(
+                xs.windows(2).any(|w| w[1] > w[0] && w[1] - w[0] < 139.0 && w[1] + 12.0 <= 380.0 && w[1] + 12.0 > 360.0),
+                "{}: no move of the body in #1 stopped at the wall: {xs:?}",
+                item.item
+            );
+            let module = run(Road::Module, item);
+            assert_eq!(module, native, "{}: the linked module", item.item);
+        }
     }
 
     #[test]
-    fn the_blink_wasm_build_moves_each_body_as_its_native_system_did() {
-        let native = run(Road::NativeSystem);
-        let wasm = run(Road::Wasm);
-        assert_eq!(
-            crate::bosses::specials::module_parity_tests::quantize(&wasm),
-            crate::bosses::specials::module_parity_tests::quantize(&native),
-        );
+    fn each_transit_wasm_build_moves_each_body_as_its_native_system_did() {
+        for item in [&BLINK, &DIVE] {
+            let native = run(Road::NativeSystem, item);
+            let wasm = run(Road::Wasm, item);
+            assert_eq!(
+                crate::bosses::specials::module_parity_tests::quantize(&wasm),
+                crate::bosses::specials::module_parity_tests::quantize(&native),
+                "{}",
+                item.item
+            );
+        }
     }
 }

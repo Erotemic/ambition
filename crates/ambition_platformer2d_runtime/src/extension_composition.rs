@@ -103,7 +103,7 @@ impl Plugin for ExtensionCompositionPlugin {
             )
                 .in_set(GameplayGated)
                 .in_set(ItemPickupSet::WieldedAbilities)
-                .after(ambition_abilities::traversal::dive::fire_dive_system),
+                .after(ambition_abilities::traversal::grapple::grapple_system),
         );
         app.configure_sets(
             sim,

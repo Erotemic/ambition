@@ -155,15 +155,10 @@ pub fn queue_wielded_uses(
                 mana: crate::mana::level(bank).map(|level| level.current),
                 names_spawns: id.is_some() && counts,
                 cooldown_ready: cooldown.is_none_or(|cooldown| cooldown.ready()),
-                transits: transits(model),
+                swept: matches!(model, Some(ambition_platformer2d_core::movement::MotionModel::AxisSwept(_))),
             },
         );
     }
-}
-
-/// A transit moves a body that moves by the swept kernel, and no other.
-fn transits(model: Option<&ambition_platformer2d_core::movement::MotionModel>) -> bool {
-    matches!(model, Some(ambition_platformer2d_core::movement::MotionModel::AxisSwept(_)))
 }
 
 /// Move each body along its line, walls of its own live room permitting, by
@@ -186,20 +181,16 @@ pub fn lower_transits(
         let Ok((mut cluster_item, frame, mut model, room)) = bodies.get_mut(submitted.scope) else {
             continue;
         };
-        if !transits(Some(&model)) {
-            warn!(
-                "extension entry {} asked {:?}, which does not move by the swept kernel, to transit; refused",
-                submitted.entry, submitted.scope
-            );
-            continue;
-        }
         let transit = submitted.value;
         let dir = ae::Vec2::from(transit.direction);
         let mut clusters = cluster_item.as_clusters_mut();
         let from = clusters.kinematics.pos;
-        // The box the body has: turned to the DOWN of its resolved frame, as
-        // the kernel turns it for the step.
-        let half = clusters.kinematics.half_oriented(frame.down());
+        // The box the body has: turned to the DOWN of its last step. For a
+        // body the axis arm moves that is the DOWN of its resolved frame; a
+        // crawler on a wall lies along the wall, and only the record of its
+        // step says so.
+        let down = ae::SweepSample::down_or(clusters.sweep.as_deref(), frame.down());
+        let half = clusters.kinematics.half_oriented(down);
         let collision = world.room(room).and_then(|room| room.solids());
         let target = match collision.as_ref() {
             Some(w) => crate::traversal::blink::blink_target(&**w, from, dir, transit.distance, half),
@@ -207,6 +198,9 @@ pub fn lower_transits(
             None => from + dir * transit.distance,
         };
         ae::movement::transit_body(&mut model, &mut clusters, target, ae::movement::TransitVelocity::Keep);
+        if let Some(facing) = transit.facing {
+            clusters.kinematics.facing = facing;
+        }
         // A transit is a scripted teleport, ranked weakest
         // (`docs/concepts/movement-collision.md`): dying in one is a death.
         if let Some(log) = class_b.as_mut() {

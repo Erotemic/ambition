@@ -9,6 +9,7 @@
 | [`apple_rain`](src/apple_rain.rs) | Apple rain: while the boss presses the key, an apple falls every interval of gameplay time, its lane spread across the boss's room by a golden-ratio sequence and moved out from under the boss. |
 | [`beam`](src/beam.rs) | Focus Beam: Attack while holding the beam fires a short line of damage along the aim, snapped to the body's horizontal or vertical axis. |
 | [`blink`](src/blink.rs) | Blink: Attack while holding the blink moves the body at once up to [`DISTANCE`] along the aim, walls permitting, and strikes where it arrives. |
+| [`dive`](src/dive.rs) | Overflow Crash: Attack while holding the dive gauntlet lunges the body up to [`LUNGE`] along the aim, snapped to its larger body axis, walls permitting, and hits everything in the corridor it crossed. |
 | [`echo_fan`](src/echo_fan.rs) | The Mockingbird's echo fan: one strike copies a shot across a cone aimed at the boss's target. |
 | [`eye_beam`](src/eye_beam.rs) | The Smirking Behemoth's eye beam: during the telegraph the boss locks where its target is; on the first strike tick it fires a short line of fast bubble-laser boxes from its eye toward that point. |
 | [`fsm`](src/fsm.rs) | The Flying Spaghetti Monster's conductor: it flies the god and performs its moves. |
@@ -30,7 +31,7 @@
 | [`vortex`](src/vortex.rs) | Vortex: Attack while holding the vortex gauntlet opens a singularity ahead of the body along the aim. |
 | [`wielded`](src/wielded.rs) | What the wielded abilities share: the descriptor of a stateless entry on the `wielded_use` trigger, and the payment rule. |
 
-_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_24 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

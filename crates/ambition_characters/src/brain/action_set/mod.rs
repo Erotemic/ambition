@@ -391,9 +391,9 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::UseSystem,
             },
         );
-        // The dive gauntlet has no melee/ranged verb — `Attack` is intercepted
-        // by `dive::fire_dive_system`, which lunges the player along the aim and
-        // cuts a damage corridor (the overflow boss's crash, wielded).
+        // The dive gauntlet has no melee/ranged verb — `Attack` is used by the
+        // dive module, which lunges the body along the aim and cuts a damage
+        // corridor (the overflow boss's crash, wielded).
         items.insert(
             "dive",
             HeldItemSpec {

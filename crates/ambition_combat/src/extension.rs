@@ -95,33 +95,54 @@ pub fn install_for_wielded_use(app: &mut App) {
     app.install_extension_request::<StrikePort, _>(WIELDED_USE, "ambition_combat", lower_strikes);
 }
 
-/// One hit, this tick, by the body, on what is in the circle. The body is the
+/// One hit, this tick, by the body, on what is in the volume. The body is the
 /// attacker, so the hit resolution reads its side.
 fn lower_strikes(
     mut outbox: ResMut<ExtensionOutbox>,
     mut hits: MessageWriter<crate::events::HitEvent>,
     bodies: Query<&ae::BodyKinematics>,
 ) {
+    use ambition_combat_port::{Place, StrikeVolume};
     for submitted in outbox.drain::<StrikePort>(&WIELDED_USE) {
         let strike = submitted.value;
         let body = bodies.get(submitted.scope).ok().map(|kin| [kin.pos.x, kin.pos.y]);
-        let at = match (strike.at, body) {
-            (ambition_combat_port::Place::Body, None) => {
-                warn!("extension entry {} asked for a strike at a body with no position; refused", submitted.entry);
-                continue;
-            }
-            (place, body) => place.resolve(body.unwrap_or_default()),
+        // Where a place is: `Place::Body` is where the body is now, after a
+        // transit of this tick.
+        let at = |place: Place| match (place, body) {
+            (Place::Body, None) => None,
+            (place, body) => Some(ae::Vec2::from(place.resolve(body.unwrap_or_default()))),
         };
+        let volume = match strike.volume {
+            StrikeVolume::Circle { at: place, radius } => at(place).map(|c| ae::CombatVolume::circle(c, radius)),
+            StrikeVolume::Span { from, to, pad } => at(from).zip(at(to)).map(|(from, to)| {
+                let half = ae::Vec2::new((to.x - from.x).abs() * 0.5 + pad * 0.5, (to.y - from.y).abs() * 0.5 + pad * 0.5);
+                ae::CombatVolume::from(ae::Aabb::new((from + to) * 0.5, half))
+            }),
+        };
+        let Some(volume) = volume else {
+            warn!("extension entry {} asked for a strike at a body with no position; refused", submitted.entry);
+            continue;
+        };
+        let center = volume.center();
         hits.write(crate::events::HitEvent {
             strike_sfx: None,
-            volume: ae::CombatVolume::circle(ae::Vec2::from(at), strike.radius),
+            volume,
             damage: strike.damage,
             source: crate::events::HitSource::Melee,
             attacker: Some(submitted.scope),
             room: None,
             target: crate::events::HitTarget::Volume,
             mode: crate::events::HitMode::Knockback,
-            knockback: None,
+            knockback: strike.knockback.map(|k| crate::events::HitKnockback {
+                // An ordinary hit: it stuns.
+                reaction: ae::hit_response::HitReaction::Strike,
+                dir: k.dir,
+                magnitude: crate::events::HitKnockbackMagnitude::FeelScale(k.feel_scale),
+                source_pos: center,
+                impact_pos: center,
+                launch_dir: None,
+                follow: None,
+            }),
             ignored_targets: Vec::new(),
             attacker_move_instance: None,
         });

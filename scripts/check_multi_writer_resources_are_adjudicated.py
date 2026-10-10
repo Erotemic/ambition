@@ -297,7 +297,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     ),
     "ClassBRemapLog": (
         "crates/ambition_abilities/src/extension.rs",
-        "crates/ambition_abilities/src/traversal/dive.rs",
         "crates/ambition_abilities/src/traversal/mark_recall.rs",
         "crates/ambition_damage/src/lib.rs",
         "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/teleport.rs",
@@ -2002,13 +2001,13 @@ ADJUDICATED: dict[str, str] = {
     ),
     "ClassBRemapLog": (
         "CORRECT — AND IT IS THE CASE WHERE MANY WRITERS ARE THE DESIGN, ENFORCED BY "
-        "THE TYPE. Nine files write it and that is the contract: "
+        "THE TYPE. Eight files write it and that is the contract: "
         "`ambition_platformer2d_shared_tangle/src/class_b.rs` holds a PRIVATE "
         "`entries: Vec<ClassBRemapEntry>` whose only `&mut self` methods are "
         "`record(body, kind)` and `clear()`, so a Class-B writer cannot reach the "
         "ledger any other way — measured 2026-09-18, the impl has exactly those two. "
-        "⇒ Nine appenders and one clearer is not nine authorities; it is one "
-        "append-only ledger with nine reporters. ⭐ AND THE MULTIPLICITY IS THE "
+        "⇒ Eight appenders and one clearer is not eight authorities; it is one "
+        "append-only ledger with eight reporters. ⭐ AND THE MULTIPLICITY IS THE "
         "SUBJECT OF ITS OWN ORACLE: `contentions()` reports every body that took two "
         "or more remaps in one frame, which is §6.1 invariant 5's violation shape, "
         "and it scans the append-ordered `Vec` rather than a hash container (ADR "

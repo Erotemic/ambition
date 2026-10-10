@@ -54,9 +54,8 @@ pub struct Wielder {
     /// this tick). A module that asked is never refused by
     /// `ambition.abilities.movement_cooldown`.
     pub cooldown_ready: bool,
-    /// The body moves by the swept kernel. A module that asked is never
-    /// refused by `ambition.motion.transit`.
-    pub transits: bool,
+    /// The body moves by the swept kernel (`MotionModel::AxisSwept`).
+    pub swept: bool,
 }
 
 /// A bank pays a cost when it holds at least the cost less this. The bank's
@@ -89,7 +88,7 @@ impl Wielder {
 }
 
 impl Port for WieldedUsePort {
-    const KEY: PortKey = PortKey::new("ambition.items.wielded_use", 3);
+    const KEY: PortKey = PortKey::new("ambition.items.wielded_use", 4);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = Wielder;
 
@@ -105,7 +104,7 @@ impl Port for WieldedUsePort {
         wire::put_opt(out, v.mana, wire::put_f32);
         wire::put_bool(out, v.names_spawns);
         wire::put_bool(out, v.cooldown_ready);
-        wire::put_bool(out, v.transits);
+        wire::put_bool(out, v.swept);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<Wielder, WireError> {
@@ -121,7 +120,7 @@ impl Port for WieldedUsePort {
             mana: r.opt(WireReader::f32)?,
             names_spawns: r.bool()?,
             cooldown_ready: r.bool()?,
-            transits: r.bool()?,
+            swept: r.bool()?,
         })
     }
 }
@@ -212,7 +211,7 @@ mod tests {
             mana: Some(42.0),
             names_spawns: true,
             cooldown_ready: false,
-            transits: true,
+            swept: true,
         };
         let mut out = Vec::new();
         WieldedUsePort::encode(&w, &mut out);

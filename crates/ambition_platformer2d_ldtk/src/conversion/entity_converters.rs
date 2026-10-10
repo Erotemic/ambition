@@ -575,7 +575,8 @@ pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     let (entity, name, min, size) = ctx.parts();
     // `color` names the pair (its partner is the linked exit). `normal` is the
     // surface the portal sits on (up = floor, down = ceiling, left = right wall,
-    // right = left wall; y is down). The box center is the face.
+    // right = left wall; y is down). The box is drawn on the wall, and
+    // `settle_portals_on_faces` puts its center on the face of that wall.
     let color_str = field_string(entity, "color").unwrap_or_default();
     let color = ambition_platformer2d_world::rooms::PortalChannelColorSpec::from_name(&color_str)
         .ok_or_else(|| format!("Portal '{name}' has unknown color '{color_str}'"))?;
@@ -610,6 +611,68 @@ pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     );
     record.name = name;
     Ok(RoomEmission::placement(record))
+}
+
+/// How far past the authored box of a portal its wall's face can be, in px.
+#[cfg(feature = "portal_ldtk")]
+const PORTAL_FACE_SLACK: f32 = 2.0;
+
+/// Put each authored portal on the face of the wall it is drawn on.
+///
+/// The aperture of a portal is ON its wall, not in it (Jon, 2026-10-10): a
+/// body goes into the face of a wall and comes out of the face of the other.
+/// An author draws a box on the wall, some px thick, and the center of the
+/// box was the plane. But a box is drawn in the wall, or against it, or
+/// across its face, so its center was some px behind the face or in front of
+/// it (`portal_lab`, measured: from 10 px in the wall to 8 px in front of
+/// it). The line of the portal was drawn off the wall, and a body crossed
+/// off the wall.
+///
+/// So the box says which face, and the face says where: the box moves along
+/// its normal until its center is on the nearest face of that normal that
+/// goes through the box (with [`PORTAL_FACE_SLACK`]). A box with no such
+/// face keeps its center: a portal in open air.
+#[cfg(feature = "portal_ldtk")]
+pub(super) fn settle_portals_on_faces(
+    placements: &mut [ambition_platformer2d_world::placements::PlacementRecord],
+    blocks: &[ae::Block],
+) {
+    for record in placements {
+        let PlacementSchema::Portal(schema) = &record.schema else {
+            continue;
+        };
+        let normal = ae::Vec2::new(schema.normal[0], schema.normal[1]);
+        let tangent = ae::Vec2::new(normal.y.abs(), normal.x.abs());
+        let center = (record.aabb.min + record.aabb.max) * 0.5;
+        let half = (record.aabb.max - record.aabb.min) * 0.5;
+        let reach = half.dot(ae::Vec2::new(normal.x.abs(), normal.y.abs())) + PORTAL_FACE_SLACK;
+        // How far along the normal the nearest face is: negative is behind
+        // the center of the box.
+        let mut nearest: Option<f32> = None;
+        for block in blocks {
+            if !matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::OneWay) {
+                continue;
+            }
+            // The face of the block that looks along `normal`.
+            let face = ae::Vec2::new(
+                if normal.x > 0.0 { block.aabb.max.x } else { block.aabb.min.x },
+                if normal.y > 0.0 { block.aabb.max.y } else { block.aabb.min.y },
+            );
+            let along = center.dot(tangent);
+            let (from, to) = (block.aabb.min.dot(tangent), block.aabb.max.dot(tangent));
+            if along < from || along > to {
+                continue;
+            }
+            let offset = (face - center).dot(normal);
+            if offset.abs() <= reach && nearest.is_none_or(|best| offset.abs() < best.abs()) {
+                nearest = Some(offset);
+            }
+        }
+        if let Some(offset) = nearest {
+            record.aabb.min += normal * offset;
+            record.aabb.max += normal * offset;
+        }
+    }
 }
 
 // Portal entities need the `portal_ldtk` feature. Without it, register
@@ -1070,3 +1133,63 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
 /// launch off or clip.
 #[cfg(test)]
 mod surface_ramp_winding_oracle;
+
+#[cfg(all(test, feature = "portal_ldtk"))]
+mod portal_face_tests {
+    use super::*;
+    use ambition_platformer2d_world::placements::PlacementRecord;
+
+    fn portal(min: ae::Vec2, size: ae::Vec2, normal: [f32; 2]) -> PlacementRecord {
+        PlacementRecord::new(
+            "portal",
+            PlacementSchema::Portal(ambition_entity_catalog::placements::PortalSchema {
+                color: ambition_platformer2d_world::rooms::PortalChannelColorSpec::from_name("purple").unwrap(),
+                normal,
+                link: None,
+                half_length: None,
+            }),
+            ae::aabb_from_min_size(min, size),
+        )
+    }
+
+    fn center(record: &PlacementRecord) -> ae::Vec2 {
+        (record.aabb.min + record.aabb.max) * 0.5
+    }
+
+    /// The ways the boxes of `portal_lab` are drawn (measured 2026-10-09):
+    /// in the wall, against the wall, and in a floor. Each comes to rest with
+    /// its center on the face, and keeps its place along the face. A box in
+    /// open air does not move, and a box against a thin wall takes the face
+    /// that looks its own way, not the far one.
+    #[test]
+    fn an_authored_portal_comes_to_rest_on_the_face_of_its_wall() {
+        let blocks = vec![
+            // A wall whose right face is at x = 1200.
+            ae::Block::solid("wall", ae::Vec2::new(1100.0, 400.0), ae::Vec2::new(100.0, 600.0)),
+            // A thin wall, 16 px, from x = 2208 to x = 2224.
+            ae::Block::solid("thin", ae::Vec2::new(2208.0, 800.0), ae::Vec2::new(16.0, 96.0)),
+            // A floor whose top is at y = 896.
+            ae::Block::solid("floor", ae::Vec2::new(0.0, 896.0), ae::Vec2::new(3000.0, 160.0)),
+        ];
+        let mut placements = vec![
+            // In the wall: its center is 10 px behind the face.
+            portal(ae::Vec2::new(1181.0, 504.0), ae::Vec2::new(18.0, 92.0), [1.0, 0.0]),
+            // Against the thin wall, on each side: 8 px in front of the face.
+            portal(ae::Vec2::new(2192.0, 816.0), ae::Vec2::new(16.0, 80.0), [-1.0, 0.0]),
+            portal(ae::Vec2::new(2224.0, 816.0), ae::Vec2::new(16.0, 80.0), [1.0, 0.0]),
+            // In the floor: 4 px in it.
+            portal(ae::Vec2::new(254.0, 891.0), ae::Vec2::new(92.0, 18.0), [0.0, -1.0]),
+            // In open air.
+            portal(ae::Vec2::new(1600.0, 300.0), ae::Vec2::new(18.0, 92.0), [1.0, 0.0]),
+        ];
+        settle_portals_on_faces(&mut placements, &blocks);
+        let centers: Vec<ae::Vec2> = placements.iter().map(center).collect();
+        assert_eq!(centers[0], ae::Vec2::new(1200.0, 550.0));
+        assert_eq!(centers[1], ae::Vec2::new(2208.0, 856.0), "the left face of the thin wall");
+        assert_eq!(centers[2], ae::Vec2::new(2224.0, 856.0), "the right face of the thin wall, and not the left");
+        assert_eq!(centers[3], ae::Vec2::new(300.0, 896.0));
+        assert_eq!(centers[4], ae::Vec2::new(1609.0, 346.0), "a portal in open air moved");
+        // The box keeps its size: its length is the opening.
+        assert_eq!(placements[0].aabb.max - placements[0].aabb.min, ae::Vec2::new(18.0, 92.0));
+    }
+}

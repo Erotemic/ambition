@@ -39,6 +39,25 @@ SFX, camera treatment, and interpolation.
 - Reset/room replacement/snapshot restore cannot retain stale connections or
   cooldown markers.
 
+## An aperture is on its wall
+
+The aperture of a portal is a plane, and the plane is the face of a wall: a
+body goes into the face of one wall and comes out of the face of the other.
+It is on the wall, not in it and not in front of it.
+
+- A portal the gun places is on the face its shot hit (2 px out, which the
+  host adapter keeps as the lift).
+- A portal of a level is an LDtk `Portal` box drawn on a wall. The box says
+  which face, and the face says where: the conversion moves the box along its
+  normal until its center is on the nearest face of that normal that goes
+  through the box (`settle_portals_on_faces` in
+  `ambition_platformer2d_ldtk`). Before this, the center of the box was the
+  plane, and the boxes of `portal_lab` were drawn from 10 px in the wall to
+  8 px in front of it: the line of a portal was drawn off its wall, and a
+  body crossed off the wall.
+- A box with no face of its normal through it keeps its center: a portal in
+  open air.
+
 ## Presentation
 
 A portal is drawn as a thin line of light along its opening

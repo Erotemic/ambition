@@ -262,13 +262,15 @@ fn assert_near_vec(label: &str, got: Vec2, expected: Vec2, epsilon: f32) {
 #[test]
 fn c141_to_c140_preserves_screen_position_and_continues_right() {
     let mut harness = HeadlessCameraHarness::new();
-    let entry = harness.portal_near(Vec2::new(2792.0, 248.0));
+    let entry = harness.portal_near(Vec2::new(2800.0, 248.0));
     let exit = harness.portal_by_channel(entry.channel.partner());
     let convention = harness.convention();
 
-    assert_near_vec("c141 position", entry.pos, Vec2::new(2792.0, 248.0), 2.0);
+    // On the faces of their walls (`settle_portals_on_faces`), not at the
+    // centers of their authored boxes.
+    assert_near_vec("c141 position", entry.pos, Vec2::new(2800.0, 248.0), 2.0);
     assert_near_vec("c141 normal", entry.normal, Vec2::new(-1.0, 0.0), 0.01);
-    assert_near_vec("c140 position", exit.pos, Vec2::new(2552.0, 248.0), 2.0);
+    assert_near_vec("c140 position", exit.pos, Vec2::new(2544.0, 248.0), 2.0);
     assert_near_vec("c140 normal", exit.normal, Vec2::new(1.0, 0.0), 0.01);
 
     let start = entry.pos + entry.normal * 32.0;
@@ -370,13 +372,13 @@ fn c141_to_c140_preserves_screen_position_and_continues_right() {
 #[test]
 fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
     let mut harness = HeadlessCameraHarness::new();
-    let entry = harness.portal_near(Vec2::new(900.0, 900.0));
+    let entry = harness.portal_near(Vec2::new(900.0, 896.0));
     let exit = harness.portal_by_channel(entry.channel.partner());
     let convention = harness.convention();
 
-    assert_near_vec("c135 position", entry.pos, Vec2::new(900.0, 900.0), 2.0);
+    assert_near_vec("c135 position", entry.pos, Vec2::new(900.0, 896.0), 2.0);
     assert_near_vec("c135 normal", entry.normal, Vec2::new(0.0, -1.0), 0.01);
-    assert_near_vec("c134 position", exit.pos, Vec2::new(900.0, 220.0), 2.0);
+    assert_near_vec("c134 position", exit.pos, Vec2::new(900.0, 224.0), 2.0);
     assert_near_vec("c134 normal", exit.normal, Vec2::new(0.0, 1.0), 0.01);
 
     let start = entry.pos + entry.normal * 32.0;

@@ -350,6 +350,10 @@ reads cargo output to it.
    crate, because `run_tests.py` gives nextest its filter as a bare word and
    the rule looked for it after `--` (witness: the nextest rows of
    `test_only_a_default_feature_run_of_every_target_covers_a_package`).
+   A doc (`.md`) requires the repo tooling job, whose guards read docs, and
+   counts for no other check: a doc committed while a crate's lane ran
+   voided that crate's pass (`738d7c3da`, witness
+   `test_a_doc_edited_after_a_crate_ran_does_not_void_the_crate`).
 
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.

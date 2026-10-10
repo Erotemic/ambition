@@ -294,6 +294,123 @@ impl Port for DrawnRowPort {
     }
 }
 
+fn put_hall(out: &mut Vec<u8>, hall: Option<RoomHall>) {
+    wire::put_opt(out, hall, |out, h| {
+        wire::put_f32(out, h.floor);
+        wire::put_f32(out, h.left);
+        wire::put_f32(out, h.right);
+    });
+}
+
+fn hall_of(r: &mut WireReader<'_>) -> Result<Option<RoomHall>, WireError> {
+    r.opt(|r| Ok(RoomHall { floor: r.f32()?, left: r.f32()?, right: r.f32()? }))
+}
+
+/// The observation port marker for the mount a conducted boss rides.
+///
+/// Port card:
+///
+/// * **Operation** — the body the boss rides (its `RidingOn`): where it is,
+///   how fast it moves, its size, the side it faces and whether its art
+///   turns with it; its back, when its character authors one
+///   (`ambition_mount::BackLedge`), as a world box; the floor and walls
+///   under it in its own live room; and its limbs (its `LimbRig`), each with
+///   where it is, its size, where it rests about the mount
+///   (`Limb::home_offset`), the health it lost since it was last full, and
+///   whether the rider holds its pose (`PoseOwnedExternally`).
+/// * **Owner** — `ambition_boss_encounter::conduct`.
+/// * **Scope** — the boss the invocation ran for.
+/// * **Time** — `boss_conduct`, at the read cut: after the riders are
+///   synced to their mounts.
+/// * **Read model** — world units, +Y down; a box is `[min x, min y, max x,
+///   max y]`. Limbs are in the rig's slot order.
+/// * **Absence** — no value when the boss rides nothing, or its mount has no
+///   body. `back` is `None` for a mount whose character authors no back;
+///   `hall` is `None` when the room cannot be told or has no floor under it.
+/// * **Replay** — derived each tick from rollback state.
+pub struct MountViewPort;
+
+/// One limb of the mount.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MountLimb {
+    /// The rig's slot name (`hand_left`, `hand_right`).
+    pub slot: String,
+    pub position: [f32; 2],
+    pub size: [f32; 2],
+    /// Where it rests, as an offset from the mount's position.
+    pub home_offset: [f32; 2],
+    /// Its maximum health less its health now.
+    pub lost_health: i32,
+    /// The rider holds its pose.
+    pub held: bool,
+}
+
+/// The mount a boss rides, at the read cut.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MountView {
+    pub position: [f32; 2],
+    pub velocity: [f32; 2],
+    pub size: [f32; 2],
+    pub facing: f32,
+    /// Its art does not turn with it (`Unmirrored`).
+    pub unmirrored: bool,
+    pub back: Option<[f32; 4]>,
+    pub hall: Option<RoomHall>,
+    pub limbs: Vec<MountLimb>,
+}
+
+impl Port for MountViewPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.mount", 1);
+    const ROLE: PortRole = PortRole::Observation;
+    type Value = MountView;
+
+    fn encode(v: &MountView, out: &mut Vec<u8>) {
+        wire::put_vec2(out, v.position);
+        wire::put_vec2(out, v.velocity);
+        wire::put_vec2(out, v.size);
+        wire::put_f32(out, v.facing);
+        wire::put_bool(out, v.unmirrored);
+        wire::put_opt(out, v.back, |out, b| {
+            for c in b {
+                wire::put_f32(out, c);
+            }
+        });
+        put_hall(out, v.hall);
+        wire::put_u32(out, v.limbs.len() as u32);
+        for limb in &v.limbs {
+            wire::put_str(out, &limb.slot);
+            wire::put_vec2(out, limb.position);
+            wire::put_vec2(out, limb.size);
+            wire::put_vec2(out, limb.home_offset);
+            wire::put_i32(out, limb.lost_health);
+            wire::put_bool(out, limb.held);
+        }
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<MountView, WireError> {
+        let position = r.vec2()?;
+        let velocity = r.vec2()?;
+        let size = r.vec2()?;
+        let facing = r.f32()?;
+        let unmirrored = r.bool()?;
+        let back = r.opt(|r| Ok([r.f32()?, r.f32()?, r.f32()?, r.f32()?]))?;
+        let hall = hall_of(r)?;
+        let count = r.u32()?;
+        let mut limbs = Vec::new();
+        for _ in 0..count {
+            limbs.push(MountLimb {
+                slot: r.str()?.to_owned(),
+                position: r.vec2()?,
+                size: r.vec2()?,
+                home_offset: r.vec2()?,
+                lost_health: r.i32()?,
+                held: r.bool()?,
+            });
+        }
+        Ok(MountView { position, velocity, size, facing, unmirrored, back, hall, limbs })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,5 +457,30 @@ mod tests {
             let v = DrawnRow { name, elapsed: 0.25, looping: true };
             assert_eq!(round::<DrawnRowPort>(&v), v);
         }
+    }
+
+    #[test]
+    fn a_mount_view_survives_the_wire() {
+        let fist = MountLimb {
+            slot: "hand_left".into(),
+            position: [700.0, 1000.0],
+            size: [130.0, 100.0],
+            home_offset: [-270.0, -70.0],
+            lost_health: 3,
+            held: true,
+        };
+        let view = MountView {
+            position: [900.0, 1040.0],
+            velocity: [0.0, -520.0],
+            size: [439.4, 414.7],
+            facing: -1.0,
+            unmirrored: true,
+            back: Some([692.0, 1030.25, 1069.0, 1044.25]),
+            hall: Some(RoomHall { floor: 1250.0, left: 48.0, right: 1800.0 }),
+            limbs: vec![fist.clone(), MountLimb { slot: "hand_right".into(), held: false, lost_health: 0, ..fist }],
+        };
+        assert_eq!(round::<MountViewPort>(&view), view);
+        let bare = MountView { back: None, hall: None, limbs: Vec::new(), ..view };
+        assert_eq!(round::<MountViewPort>(&bare), bare);
     }
 }

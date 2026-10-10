@@ -57,6 +57,11 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::queue_boss_conducts,
     );
+    app.install_extension_observation::<ambition_boss_special_port::MountViewPort>(
+        BOSS_CONDUCT,
+        "ambition_boss_encounter",
+        crate::conduct::mount_of,
+    );
     app.install_extension_request::<ConductedPosePort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",

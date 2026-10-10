@@ -200,6 +200,7 @@ mod a_character_left_elsewhere_stays_there;
 mod a_carried_population_body_is_not_built_twice;
 mod a_turned_body_collects_what_its_own_box_touches;
 mod a_wielded_transit_is_settled_before_the_path_is_read;
+mod a_conducted_boss_reads_its_mount_after_the_rider_is_synced;
 mod a_world_reload_draws_its_room_once;
 mod a_challenged_body_is_provoked_whole;
 mod a_still_brain_keeps_its_body_still;

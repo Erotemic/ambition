@@ -134,6 +134,56 @@ pub fn queue_boss_conducts(
     }
 }
 
+/// `ambition.boss.mount`: the body the boss rides, its back and its limbs.
+pub fn mount_of(world: &World, scope: Entity) -> Option<ambition_boss_special_port::MountView> {
+    use ambition_boss_special_port::{MountLimb, MountView};
+    let mount = world.get::<ambition_mount::RidingOn>(scope)?.mount;
+    let kin = world.get::<ae::BodyKinematics>(mount)?;
+    let unmirrored = world.get::<ae::Unmirrored>(mount).is_some();
+    let back = world.get::<ambition_mount::BackLedge>(mount).map(|back| {
+        let b = back.aabb(kin, unmirrored);
+        [b.min.x, b.min.y, b.max.x, b.max.y]
+    });
+    // The floor and walls under the mount, in its own live room.
+    let room = world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(mount);
+    let hall = ambition_platformer2d_world::collision::with_room_in_world(world, room, |room| {
+        crate::hall::measure_hall(room.base(), kin.pos)
+    })
+    .flatten()
+    .map(|h| RoomHall { floor: h.floor, left: h.left, right: h.right });
+    let limbs = world
+        .get::<ambition_characters::actor::LimbRig>(mount)
+        .map(|rig| {
+            rig.limbs
+                .iter()
+                .filter_map(|(slot, &limb)| {
+                    let limb_kin = world.get::<ae::BodyKinematics>(limb)?;
+                    let home = world.get::<ambition_characters::actor::Limb>(limb).map_or(ae::Vec2::ZERO, |l| l.home_offset);
+                    let lost = world.get::<BodyHealth>(limb).map_or(0, |h| h.max() - h.current());
+                    Some(MountLimb {
+                        slot: slot.as_str().to_owned(),
+                        position: [limb_kin.pos.x, limb_kin.pos.y],
+                        size: [limb_kin.size.x, limb_kin.size.y],
+                        home_offset: [home.x, home.y],
+                        lost_health: lost,
+                        held: world.get::<ae::PoseOwnedExternally>(limb).is_some(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Some(MountView {
+        position: [kin.pos.x, kin.pos.y],
+        velocity: [kin.vel.x, kin.vel.y],
+        size: [kin.size.x, kin.size.y],
+        facing: kin.facing,
+        unmirrored,
+        back,
+        hall,
+        limbs,
+    })
+}
+
 /// Lower `ambition.boss.conducted_pose`: hold the boss's pose, or release it;
 /// keep the side it faces.
 #[allow(clippy::type_complexity)]
@@ -265,5 +315,89 @@ pub fn face_conducted_bosses(
 ) {
     for (facing, mut control) in &mut bosses {
         control.0.facing = facing.0;
+    }
+}
+
+#[cfg(test)]
+mod mount_view_tests {
+    use super::*;
+    use ambition_characters::actor::{Health, Limb, LimbRig, LimbSlot};
+    use ambition_platformer2d_shared_tangle::lifecycle::{insert_live_room_component, InRoomInstance, LiveRoomInstance};
+
+    fn body(pos: ae::Vec2, size: ae::Vec2) -> ae::BodyKinematics {
+        let mut kin = ae::BodyKinematics::default();
+        kin.pos = pos;
+        kin.size = size;
+        kin
+    }
+
+    /// ⭐ The view is the mount's components as they are: its body, its back
+    /// where it is drawn, the hall under it, and each limb with its rest, its
+    /// lost health and whether it is held. The control: a boss that rides
+    /// nothing has no view.
+    #[test]
+    fn the_mount_view_is_the_mount_as_it_is() {
+        let mut world = World::new();
+        let floor = ae::Block::solid("floor", ae::Vec2::new(0.0, 1250.0), ae::Vec2::new(2000.0, 50.0));
+        let wall_l = ae::Block::solid("wall_l", ae::Vec2::new(0.0, 0.0), ae::Vec2::new(48.0, 1300.0));
+        let wall_r = ae::Block::solid("wall_r", ae::Vec2::new(1800.0, 0.0), ae::Vec2::new(48.0, 1300.0));
+        insert_live_room_component(
+            &mut world,
+            ae::RoomGeometry(ae::World::new("hall", ae::Vec2::new(2000.0, 1300.0), ae::Vec2::new(100.0, 100.0), vec![floor, wall_l, wall_r])),
+        );
+        let room = InRoomInstance(LiveRoomInstance::ACTIVATION);
+        let mut left_health = Health::new(10);
+        left_health.current = 7;
+        let left = world
+            .spawn((body(ae::Vec2::new(630.0, 970.0), ae::Vec2::new(130.0, 100.0)), ambition_characters::actor::BodyHealth::new(left_health), ae::PoseOwnedExternally))
+            .id();
+        let right = world
+            .spawn((body(ae::Vec2::new(1170.0, 970.0), ae::Vec2::new(130.0, 100.0)), ambition_characters::actor::BodyHealth::new(Health::new(10))))
+            .id();
+        let mut gnu_kin = body(ae::Vec2::new(900.0, 1040.0), ae::Vec2::new(439.0, 414.0));
+        gnu_kin.vel = ae::Vec2::new(0.0, -520.0);
+        gnu_kin.facing = -1.0;
+        let back = ambition_mount::BackLedge(ambition_characters::actor::MountBack { left: -208.0, right: 169.0, top: -9.75, thickness: 14.0 });
+        let gnu = world
+            .spawn((gnu_kin, ae::Unmirrored, back, room, LimbRig::from_pairs([(LimbSlot::HAND_LEFT, left), (LimbSlot::HAND_RIGHT, right)])))
+            .id();
+        world.entity_mut(left).insert(Limb { of: gnu, slot: LimbSlot::HAND_LEFT, home_offset: ae::Vec2::new(-270.0, -70.0) });
+        world.entity_mut(right).insert(Limb { of: gnu, slot: LimbSlot::HAND_RIGHT, home_offset: ae::Vec2::new(270.0, -70.0) });
+        let scholar = world.spawn((body(ae::Vec2::new(950.0, 1000.0), ae::Vec2::new(40.0, 60.0)), ambition_mount::RidingOn { mount: gnu })).id();
+
+        let view = mount_of(&world, scholar).expect("the scholar rides the gnu");
+        let drawn = back.aabb(&gnu_kin, true);
+        assert_eq!(
+            view,
+            ambition_boss_special_port::MountView {
+                position: [900.0, 1040.0],
+                velocity: [0.0, -520.0],
+                size: [439.0, 414.0],
+                facing: -1.0,
+                unmirrored: true,
+                back: Some([drawn.min.x, drawn.min.y, drawn.max.x, drawn.max.y]),
+                hall: Some(RoomHall { floor: 1250.0, left: 48.0, right: 1800.0 }),
+                limbs: vec![
+                    ambition_boss_special_port::MountLimb {
+                        slot: "hand_left".into(),
+                        position: [630.0, 970.0],
+                        size: [130.0, 100.0],
+                        home_offset: [-270.0, -70.0],
+                        lost_health: 3,
+                        held: true,
+                    },
+                    ambition_boss_special_port::MountLimb {
+                        slot: "hand_right".into(),
+                        position: [1170.0, 970.0],
+                        size: [130.0, 100.0],
+                        home_offset: [270.0, -70.0],
+                        lost_health: 0,
+                        held: false,
+                    },
+                ],
+            }
+        );
+        let walker = world.spawn(body(ae::Vec2::ZERO, ae::Vec2::ONE)).id();
+        assert_eq!(mount_of(&world, walker), None, "a boss that rides nothing has no mount");
     }
 }

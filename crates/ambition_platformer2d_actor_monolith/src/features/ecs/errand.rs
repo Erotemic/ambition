@@ -152,8 +152,7 @@ pub(crate) fn errand_crossing<'a>(
 ///
 /// A body that keeps durable whereabouts gets its `Placed` row in the room it
 /// went into, so the room that authored it does not author it again while it
-/// lives there. Runs before [`settle_errands`]: the advisor sees the item in
-/// the new room on the next tick.
+/// lives there. The advisor sees the item in the new room on the next tick.
 #[allow(clippy::type_complexity)]
 pub fn cross_on_errands(
     mut commands: Commands,

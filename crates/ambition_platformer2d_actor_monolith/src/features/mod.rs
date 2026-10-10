@@ -1157,16 +1157,26 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         );
         // An errand ends where a press takes an item, and after it: a body that
         // took something by a press this tick has a full hand. Before the use
-        // of a held item, as a press pickup is. A body that crosses to its
-        // item's room crosses first, so its errand waits for the advice of
-        // the new room.
+        // of a held item, as a press pickup is.
         app.add_systems(
             sim,
-            (crate::features::ecs::errand::cross_on_errands, crate::features::ecs::errand::settle_errands)
-                .chain()
+            crate::features::ecs::errand::settle_errands
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
                 .after(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Pickup)
                 .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Use),
+        );
+        // A body crosses to its item's room after the held items and after
+        // this tick's custody is derived: it reads `InCustodyOf` (what goes
+        // with it), which is derived and not rolled back, so before its
+        // derivers a resimulated frame reads the latest forward frame's
+        // custody. Its errand waits for the advice of the new room, on the
+        // next tick.
+        app.add_systems(
+            sim,
+            crate::features::ecs::errand::cross_on_errands
+                .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
+                .after(ambition_platformer2d_shared_tangle::schedule::ItemPickupSet::CoreHeldItems)
+                .after(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
         );
         app.add_systems(sim, tick_actor_brains.in_set(ActorDecisionSet::Decide));
         app.add_systems(

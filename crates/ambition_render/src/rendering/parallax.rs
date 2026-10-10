@@ -30,9 +30,9 @@ pub struct ParallaxLayerVisual {
     /// 0.0 is screen locked; 1.0 tracks gameplay/world motion.
     pub factor: Vec2,
     pub z: f32,
-    /// Panel extent as a multiple of the longer side of the drawing view's
-    /// viewport. Each layer is one large panel that shifts inside its overhang,
-    /// so no tiles repeat.
+    /// Panel extent as a multiple of the longer side of what the drawing view
+    /// shows of the world. Each layer is one large panel that shifts inside
+    /// its overhang, so no tiles repeat.
     pub panel_scale: f32,
     /// Screen-space room-relative travel budget, derived each frame. Zero until
     /// the first sync, and zero for a panel that no view draws.
@@ -41,15 +41,40 @@ pub struct ParallaxLayerVisual {
 }
 
 impl ParallaxLayerVisual {
-    /// The square panel this layer wants in a viewport of `viewport_px`.
-    pub fn panel_size(&self, viewport_px: Vec2) -> Vec2 {
-        Vec2::splat(viewport_px.x.max(viewport_px.y) * self.panel_scale)
+    /// The square panel this layer wants for a view that shows `visible` of
+    /// the world (world units, not pixels: [`visible_world`]).
+    pub fn panel_size(&self, visible: Vec2) -> Vec2 {
+        Vec2::splat(visible.x.max(visible.y) * self.panel_scale)
     }
 
-    /// How far the panel may slide inside that viewport before its edge shows:
+    /// How far the panel may slide inside that view before its edge shows:
     /// half the overhang, per axis, never negative.
-    pub fn travel_in(&self, viewport_px: Vec2) -> Vec2 {
-        ((self.panel_size(viewport_px) - viewport_px) * 0.5).max(Vec2::ZERO)
+    pub fn travel_in(&self, visible: Vec2) -> Vec2 {
+        ((self.panel_size(visible) - visible) * 0.5).max(Vec2::ZERO)
+    }
+}
+
+/// How much of the world a camera shows in a viewport of `viewport_px`.
+///
+/// A panel is sized against this, not against the pixels of the viewport. The
+/// play camera shows less of the world than the window has pixels (the base
+/// view is 640 by 360 in a window of 1600 by 900), and a panel sized in
+/// pixels was drawn two and a half times as large as the view: the view showed
+/// only the middle of the art, enlarged. `room_sky.wgsl` has the same rule.
+pub fn visible_world(projection: Option<&Projection>, viewport_px: Vec2) -> Vec2 {
+    match projection {
+        Some(Projection::Orthographic(orthographic)) => match orthographic.scaling_mode {
+            // The play camera: a world unit for each pixel, times its scale.
+            // Not `area`: that is one frame late, and it is 2 by 2 before the
+            // camera system has run one time.
+            bevy::camera::ScalingMode::WindowSize => viewport_px * orthographic.scale,
+            // A camera that fits a rectangle (`capture_scene --fit-room`).
+            _ => {
+                let area = orthographic.area.size();
+                if area.x > 2.0 && area.y > 2.0 { area } else { viewport_px * orthographic.scale }
+            }
+        },
+        _ => viewport_px,
     }
 }
 
@@ -608,7 +633,7 @@ pub fn sync_parallax_layers(
     // cameras. Capture rigs get copies through
     // `sync_portal_capture_parallax_layers`.
     cameras: Query<
-        (&Transform, Option<&ambition_sim_view::PresentsView>),
+        (&Transform, Option<&Projection>, Option<&ambition_sim_view::PresentsView>),
         (
             With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
             Without<ParallaxLayerVisual>,
@@ -631,7 +656,7 @@ pub fn sync_parallax_layers(
     let elapsed_s = time.map_or(0.0, |time| time.elapsed_secs());
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
 
-    // Where each view's camera stands, and how big that view's rectangle is.
+    // Where each view's camera stands, and how much of the world it shows.
     //
     // Two cameras on one view get the same framing from `camera_follow`, so
     // `or_insert` is order-independent. Two views give two rows.
@@ -639,7 +664,7 @@ pub fn sync_parallax_layers(
         Entity,
         (Vec2, Vec2, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>),
     > = std::collections::HashMap::new();
-    for (camera_transform, link) in &cameras {
+    for (camera_transform, projection, link) in &cameras {
         let Some(view) = on_hand.presented_by(link.copied()) else {
             continue;
         };
@@ -659,7 +684,7 @@ pub fn sync_parallax_layers(
             .entry(view)
             .or_insert((
                 camera_transform.translation.truncate(),
-                viewport.px,
+                visible_world(projection, viewport.px),
                 resolved.and_then(|resolved| resolved.frame()).map(|frame| frame.room),
             ));
     }
@@ -674,7 +699,7 @@ pub fn sync_parallax_layers(
                 (Some(stamp), Some(frame)) => stamp.0 == *frame,
                 _ => true,
             });
-        let Some((camera_xy, viewport_px, _)) = resolved else {
+        let Some((camera_xy, visible, _)) = resolved else {
             // No view claims this panel, or its view has no camera. Decline (see the
             // system doc).
             if *visibility != Visibility::Hidden {
@@ -688,11 +713,11 @@ pub fn sync_parallax_layers(
 
         // Write only when the viewport changed, so a settled panel makes no change
         // ticks.
-        let panel_size = layer.panel_size(viewport_px);
+        let panel_size = layer.panel_size(visible);
         if sprite.custom_size != Some(panel_size) {
             sprite.custom_size = Some(panel_size);
         }
-        let travel = layer.travel_in(viewport_px);
+        let travel = layer.travel_in(visible);
         if layer.travel != travel {
             layer.travel = travel;
         }
@@ -1185,6 +1210,38 @@ mod two_views_one_backdrop_tests {
             .expect("a panel keeps its transform")
             .translation
             .x
+    }
+
+    /// A panel is sized against what its camera shows of the world, not against
+    /// the pixels of its viewport. The play camera shows 640 by 360 of the world
+    /// in a viewport of 1600 by 900 (scale 0.4): a panel of `panel_scale` 2 is
+    /// 1280 across. Sized in pixels it was 3200, and the view showed the middle
+    /// fifth of the art. The control is a camera with no projection, which
+    /// shows a world unit for each pixel.
+    #[test]
+    fn a_panel_is_sized_against_what_its_camera_shows_of_the_world() {
+        let mut world = World::new();
+        let zoomed = spawn_view(&mut world, 0, viewport(1600.0, 900.0));
+        let plain = spawn_view(&mut world, 1, viewport(1600.0, 900.0));
+        world.spawn((
+            MainCamera,
+            PresentsView(zoomed),
+            Transform::from_xyz(CAMERA_X, 0.0, 0.0),
+            Projection::Orthographic(OrthographicProjection { scale: 0.4, ..OrthographicProjection::default_2d() }),
+        ));
+        spawn_camera(&mut world, plain, CAMERA_X);
+        let zoomed_panel = spawn_panel(&mut world, Some(zoomed));
+        let plain_panel = spawn_panel(&mut world, Some(plain));
+
+        world
+            .run_system_once(sync_parallax_layers)
+            .expect("the sync reads only components the fixture spawns");
+
+        let size = |panel: Entity| world.entity(panel).get::<Sprite>().unwrap().custom_size;
+        assert_eq!(size(plain_panel), Some(Vec2::splat(3200.0)), "control: a unit for each pixel");
+        assert_eq!(size(zoomed_panel), Some(Vec2::splat(1280.0)), "twice the 640 units the camera shows");
+        let travel = world.entity(zoomed_panel).get::<ParallaxLayerVisual>().unwrap().travel;
+        assert_eq!(travel, Vec2::new(320.0, 460.0), "and it slides inside what the camera shows");
     }
 
     /// A panel is sized and offset by its own view's viewport, not a window global.

@@ -95,15 +95,29 @@ Generates and publishes 2D character/entity sprite sheets, optional independent 
 
 ## Background and parallax renderers
 
-- `tools/ambition_background_renderer/`
-- `tools/ambition_parallax_renderer/`
+- `tools/ambition_background_renderer/`: the placeholder background profiles.
+- `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/backgrounds/`:
+  the parallax scenes, one for each biome. They are art, so they are in the
+  authoring submodule. `scenes.py` has the table and says what a view shows of
+  a panel; `artkit.py` is the paint box.
 
-`./scripts/regen/backgrounds.sh` runs both isolated producers: placeholder profile
-backgrounds go under `crates/ambition_platformer2d_actor_monolith/assets/backgrounds/<profile>/`,
-and the active biome parallax layers go under
+`./scripts/regen/backgrounds.sh` runs both: placeholder profile backgrounds go
+under `crates/ambition_platformer2d_actor_monolith/assets/backgrounds/<profile>/`,
+and the parallax layers go under
 `crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers/`. These
 deliberately live under `assets/backgrounds/`, **not** `assets/sprites/` —
-`scripts/regen/sprites.sh` neither creates nor publishes them.
+`scripts/regen/sprites.sh` neither creates nor publishes them. Then
+`./scripts/regen/quality_variants.sh --backgrounds-only` makes the smaller tiers.
+
+To look at a scene without the game:
+
+```bash
+cd tools/ambition_sprite2d_renderer
+python -m ambition_sprite2d_renderer.backgrounds preview /tmp/scenes.png lab cove --cameras -1,0,1
+```
+
+It draws what a 16:9 view shows with the camera at the top, the middle and the
+bottom of its room.
 
 ## Promo / vanity tools
 

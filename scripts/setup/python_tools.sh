@@ -196,7 +196,6 @@ tools/ambition_sprite2d_renderer ambition_sprite2d_renderer AMBITION_SPRITE_PYTH
 tools/ambition_music_renderer ambition_music_renderer AMBITION_MUSIC_PYTHON .[all]
 tools/ambition_sfx_renderer ambition_sfx_renderer AMBITION_SFX_PYTHON .
 tools/ambition_background_renderer ambition_background_renderer AMBITION_BACKGROUND_PYTHON .
-tools/ambition_parallax_renderer ambition_parallax_renderer AMBITION_PARALLAX_PYTHON .
 tools/ambition_ldtk_tools ambition_ldtk_tools AMBITION_LDTK_PYTHON .
 EOF
 }

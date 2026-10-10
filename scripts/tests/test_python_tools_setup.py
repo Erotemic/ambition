@@ -148,7 +148,7 @@ def test_the_setup_table_names_the_variables_the_regen_scripts_read():
     for row in body.strip().splitlines():
         project, _module, variable, _editable = row.split()
         table[variable] = project
-    assert len(table) == 6, table
+    assert len(table) == 5, table
 
     called = set()
     shell_files = [*REPO.glob("*.sh"), *(REPO / "scripts").rglob("*.sh")]

@@ -147,11 +147,11 @@ each parallax theme is (`docs/systems/parallax-backgrounds.md`):
 | `hub_corrupt` | The same city rebuilt in blocks, in violet air, with soft beams of light. |
 
 The parallax renderer draws them
-(`tools/ambition_parallax_renderer/ambition_parallax_renderer/room_look_sky.py`),
+(`tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/backgrounds/room_look_sky.py`),
 from one layout, so a tower of one state is the same tower in the other.
 Publish them with `scripts/regen/backgrounds.sh`; the PNG files are generated
 and not in Git, as each parallax layer is. To look at the two states with no
-game: `python -m ambition_parallax_renderer.room_look_sky out.png`.
+game: `python -m ambition_sprite2d_renderer.backgrounds.room_look_sky out.png`.
 
 How the game shows them:
 

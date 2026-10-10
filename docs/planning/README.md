@@ -73,6 +73,8 @@ links to.
   capability-first progression.
 - [`game/reactive-characters-and-dialogue.md`](game/reactive-characters-and-dialogue.md)
   — character reactions to world state.
+- [`game/art-and-ambiance.md`](game/art-and-ambiance.md) — backgrounds, terrain
+  skins, foregrounds and motes for each biome; the rules of the art lane.
 - [`game/bosses.md`](game/bosses.md) — boss design language and specific bosses.
 - [`game/multiplayer.md`](game/multiplayer.md) — Ambition multiplayer product
   intent.

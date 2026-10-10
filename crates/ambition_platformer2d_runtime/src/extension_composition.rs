@@ -9,7 +9,7 @@
 //! |---|---|---|
 //! | `technique_execution` | `CombatSet::ContentSpecials`, gameplay-gated | trigger `ambition.boss.special_cast` (boss domain); requests `ambition.projectiles.spawn` (projectile domain), `ambition.combat.damage_box` and `ambition.combat.held_damage_box` (combat domain), `ambition.boss.summon` (boss domain) |
 //! | `wielded_use` | `ItemPickupSet::WieldedAbilities`, before the movement cooldown ticks, gameplay-gated | triggers `ambition.items.wielded_use` and `ambition.items.wielded_alternate`; observations `ambition.items.mark` and `ambition.items.aim_cast`; requests `ambition.motion.transit` (lowered first, in `BodyPathSet::Carry`), `ambition.abilities.movement_cooldown`, `ambition.feedback.effect`, `ambition.feedback.burst`, `ambition.feedback.hit_mark`, `ambition.motion.velocity`, `ambition.items.set_mark`, `ambition.resources.spend_mana`, `ambition.feedback.body_sound` and `ambition.world.spawn_module_entity` (held-item domain, `ambition_abilities`), `ambition.combat.damage_box` and `ambition.combat.strike`, `ambition.projectiles.spawn` |
-//! | `boss_conduct` | `WorldPrepSet::AfterIntegrate`, gameplay-gated | trigger `ambition.boss.conduct`; requests `ambition.boss.conducted_pose`, `ambition.presentation.drawn_row`, `ambition.feedback.burst`, `ambition.boss.summon` (boss domain), `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox` (combat), `ambition.projectiles.spawn`, `ambition.feedback.body_sound` |
+//! | `boss_conduct` | `WorldPrepSet::AfterIntegrate`, after the rider sync, gameplay-gated | trigger `ambition.boss.conduct`; observations `ambition.body.attachments` and `ambition.boss.mount`; requests `ambition.boss.conducted_pose`, `ambition.presentation.drawn_row`, `ambition.feedback.burst`, `ambition.boss.summon` (boss domain), `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox` (combat), `ambition.projectiles.spawn`, `ambition.feedback.body_sound` |
 //! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; requests `ambition.feedback.body_sound`, `ambition.world.pull_bodies` (lowered in `BodyPathSet::Carry`) and `ambition.world.end_module_entity` (`ambition_abilities`), `ambition.projectiles.spawn` |
 
 use ambition_extension_host::{ExtensionHostPlugin, ExtensionSet};
@@ -142,8 +142,9 @@ impl Plugin for ExtensionCompositionPlugin {
         );
         // `boss_conduct` guarantees: every non-boss body has integrated (the
         // boss integration runs later in `WorldPrep` and leaves a held pose
-        // alone), and a request is consumed this tick (the effect and
-        // projectile executors run in the combat phase, after it).
+        // alone), a rider is synced to its mount (`ambition.boss.mount` reads
+        // the pair as it stands), and a request is consumed this tick (the
+        // effect and projectile executors run in the combat phase, after it).
         app.configure_sets(
             sim,
             (
@@ -153,6 +154,10 @@ impl Plugin for ExtensionCompositionPlugin {
             )
                 .in_set(GameplayGated)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
+        );
+        app.configure_sets(
+            sim,
+            ExtensionSet::Collect(BOSS_CONDUCT).after(ambition_mount::RidersSyncedToMounts),
         );
         // The side a conducted boss's module chose reaches the body through
         // its control, which the boss integration applies.

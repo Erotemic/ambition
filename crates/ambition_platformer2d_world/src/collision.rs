@@ -139,17 +139,24 @@ pub fn with_room_in_world<R>(
     room: Option<&InRoomInstance>,
     read: impl FnOnce(RoomCollision<'_>) -> R,
 ) -> Option<R> {
-    let state = world.try_query_filtered::<RoomParts, With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>()?;
+    // Only what every room root has is queried: a query that names a
+    // component type the world never registered (an `Option` part, too) is
+    // refused whole. The optional parts are read per root.
+    let state = world.try_query_filtered::<
+        (bevy_ecs::entity::Entity, &ae::RoomGeometry),
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >()?;
     let rooms = state.query_manual(world);
-    room_of(rooms.iter(), room).map(read)
+    let parts = rooms.iter().map(|(root, geometry)| {
+        (
+            world.get::<LiveRoomInstance>(root),
+            geometry,
+            world.get::<MovingPlatformSet>(root),
+            world.get::<FeatureEcsWorldOverlay>(root),
+        )
+    });
+    room_of(parts, room).map(read)
 }
-
-type RoomParts = (
-    Option<&'static LiveRoomInstance>,
-    &'static ae::RoomGeometry,
-    Option<&'static MovingPlatformSet>,
-    Option<&'static FeatureEcsWorldOverlay>,
-);
 
 fn room_of<'a>(
     rooms: impl Iterator<

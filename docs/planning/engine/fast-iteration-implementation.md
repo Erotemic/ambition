@@ -319,6 +319,13 @@ before you add a port.
   (`ambition_mount::mount_backs_are_ground`), so a module does not need to
   add collision. Still native: the fists (pose, opening, the blow they pass
   on, their hit volumes), the stomp's travelling shocks, the buck, eureka.
+  Ports land first, each with its adapter witness; the module, its parity
+  harness and the deletion of the native conductor are one slice. Landed:
+  observation `ambition.boss.mount` (the ridden body, its back, the hall under
+  it, its limbs with rest, lost health and hold), with `boss_conduct` ordered
+  after the rider sync. Next: limb poses, drawn rows for the mount and limbs,
+  the limb opening and the blow it passes on, limb hit volumes, travelling
+  shocks, the mount's launch, the speech bubble.
 
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and

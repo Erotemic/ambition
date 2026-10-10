@@ -172,6 +172,16 @@ pub fn sync_portal_quality_budget(
     }
 }
 
+/// Whether the app decides how many pixels its window surface has.
+///
+/// The scale cap works by asking for a smaller surface at the same logical
+/// size. A phone's surface is the screen: the request is refused, the surface
+/// keeps its pixels, and the lower scale factor makes each logical pixel one
+/// physical pixel. Nothing is saved, and the whole UI is drawn at a third of
+/// its size (the touch stick was 140 px of a 1080 px screen). So the cap is
+/// not asked for there.
+const SURFACE_SIZE_IS_THE_APPS: bool = !cfg!(any(target_os = "android", target_os = "ios"));
+
 /// Apply the [`RasterBudget`](ambition_persistence::settings::RasterBudget): the
 /// DPI-scale cap on the window, and MSAA on every camera that draws to it.
 ///
@@ -190,6 +200,8 @@ pub fn sync_portal_quality_budget(
 /// `render/upscaling/fragment_shader_invocations` in a profiling bundle: it
 /// equals the framebuffer's pixel count. If capping does not reduce it, the
 /// cap did not apply, and the next step is an explicit reduced render target.
+///
+/// A phone is the platform where it cannot apply (`SURFACE_SIZE_IS_THE_APPS`).
 pub fn sync_raster_budget(
     quality: Res<ResolvedVisualQuality>,
     mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
@@ -202,7 +214,11 @@ pub fn sync_raster_budget(
         // Read through `Deref` so an unchanged window is not marked changed;
         // only the assignment below uses `DerefMut`.
         let reported = window.resolution.base_scale_factor();
-        let desired = raster.effective_scale_factor(reported);
+        let desired = if SURFACE_SIZE_IS_THE_APPS {
+            raster.effective_scale_factor(reported)
+        } else {
+            None
+        };
         if window.resolution.scale_factor_override() != desired {
             window.resolution.set_scale_factor_override(desired);
         }

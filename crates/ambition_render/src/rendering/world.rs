@@ -862,16 +862,68 @@ pub fn spawn_grid(commands: &mut Commands, session_scope: SessionSpawnScope, wor
     }
 }
 
-/// Pick a `Tiled` stretch value that keeps the slice count under
-/// `MAX_TILES_PER_AXIS²`. Tiles are `source × stretch`, so a larger stretch
-/// gives fewer tiles. Returns 1.0 (native size) when the block fits the cap.
-fn tiled_block_stretch(render: BVec2, source_px: f32) -> f32 {
+/// The side of one tile of a tiled block, in world units: the size of the
+/// tile art at full resolution, one pixel to a unit.
+const BLOCK_TILE_UNITS: f32 = 32.0;
+
+/// The side of one tile of a block of `render` size, in world units:
+/// [`BLOCK_TILE_UNITS`], or a whole multiple of it that keeps the count of
+/// tiles on an axis under `MAX_TILES_PER_AXIS` (the sprite slicer warns over
+/// that; a 3072 by 3328 floor would be 9984 tiles).
+fn tiled_block_tile_units(render: BVec2) -> f32 {
     const MAX_TILES_PER_AXIS: f32 = 32.0;
-    let source = source_px.max(1.0);
-    let tiles_x = (render.x / source).max(1.0);
-    let tiles_y = (render.y / source).max(1.0);
-    let needed = (tiles_x.max(tiles_y) / MAX_TILES_PER_AXIS).max(1.0);
-    needed.ceil()
+    let tiles = (render.x.max(render.y) / BLOCK_TILE_UNITS).max(1.0);
+    BLOCK_TILE_UNITS * (tiles / MAX_TILES_PER_AXIS).max(1.0).ceil()
+}
+
+/// A block that repeats its tile, and the side of one tile in world units.
+///
+/// `SpriteImageMode::Tiled` sizes a tile as `texture px * stretch_value`, so
+/// the stretch that gives this side depends on the texture. The texture of a
+/// lower quality tier is smaller (16 px at half, 8 px at quarter), and with a
+/// stretch chosen for the 32 px one a `?` block drew four or sixteen `?`.
+/// [`fit_tiled_block_tiles`] sets the stretch from the image that is bound.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct TiledBlockTile {
+    pub tile_units: f32,
+}
+
+impl TiledBlockTile {
+    /// The stretch that draws a tile of this side from a texture `texture_px`
+    /// wide.
+    pub fn stretch_for(self, texture_px: u32) -> f32 {
+        self.tile_units / (texture_px.max(1) as f32)
+    }
+}
+
+/// Keep each tiled block's tile at its world size for the image it has now:
+/// at spawn, when the image arrives, and when a quality change or
+/// [`EntityArt`] binds another.
+///
+/// It reads each tiled block on each frame and writes only one whose stretch
+/// is wrong, so a settled room marks no sprite changed. A skinned block draws
+/// nothing itself (`terrain_skin`), and its pieces have their own scale.
+pub fn fit_tiled_block_tiles(
+    images: Res<Assets<Image>>,
+    mut blocks: Query<
+        (&TiledBlockTile, &mut Sprite),
+        Without<super::terrain_skin::TerrainSkinned>,
+    >,
+) {
+    for (tile, mut sprite) in &mut blocks {
+        let Some(image) = images.get(&sprite.image) else {
+            continue;
+        };
+        let want = tile.stretch_for(image.width());
+        let bevy::sprite::SpriteImageMode::Tiled { tile_x, tile_y, stretch_value } = sprite.image_mode
+        else {
+            continue;
+        };
+        if (stretch_value - want).abs() > f32::EPSILON {
+            sprite.image_mode =
+                bevy::sprite::SpriteImageMode::Tiled { tile_x, tile_y, stretch_value: want };
+        }
+    }
 }
 
 /// Marker for spawned single-image entity sprites whose `Handle<Image>` is
@@ -994,6 +1046,7 @@ pub fn spawn_block(
     // back to a coloured quad. `EntityArt` can replace the default later.
     let tile_key = game_assets::block_tile_sprite(block.kind);
     let is_tiled_surface = tile_key.is_some();
+    let tile = TiledBlockTile { tile_units: tiled_block_tile_units(render) };
     let sprite_key = tile_key.or_else(|| game_assets::point_block_sprite(block.kind));
     // An authored placeholder colour wins over every art path at spawn: the
     // shape has no sprite yet. Read it before the art lookup so no texture is
@@ -1021,10 +1074,9 @@ pub fn spawn_block(
                 image_mode: bevy::sprite::SpriteImageMode::Tiled {
                     tile_x: true,
                     tile_y: true,
-                    // Clamp the slice count for very large IntGrid surfaces:
-                    // at 1.0 stretch a 3072×3328 floor gives ~9984 slices and
-                    // a bevy_sprite performance warning.
-                    stretch_value: tiled_block_stretch(render, 32.0),
+                    // For the full-resolution tile, until the image is
+                    // here to say its size (`fit_tiled_block_tiles`).
+                    stretch_value: tile.stretch_for(BLOCK_TILE_UNITS as u32),
                 },
                 ..Default::default()
             },
@@ -1055,6 +1107,9 @@ pub fn spawn_block(
     );
     if let Some(key) = sprite_key {
         entity.insert(BoundEntitySprite::new(key));
+    }
+    if is_tiled_surface && block.art_color.is_none() {
+        entity.insert(tile);
     }
     // A block that draws the tile of its kind can take the skin of its room.
     // A placeholder colour is authored and a lock wall has its own art.
@@ -1574,6 +1629,71 @@ pub fn sync_removed_block_visuals(
             continue;
         }
         commands.entity(entity).despawn();
+    }
+}
+
+#[cfg(test)]
+mod tiled_block_tile_tests {
+    use super::*;
+
+    /// A `?` block is 32 units and its tile is 32 px at full quality, 16 px at
+    /// half and 8 px at quarter. At each, the block is one tile.
+    #[test]
+    fn a_tile_keeps_its_world_size_at_each_texture_tier() {
+        for texture_px in [32_u32, 16, 8] {
+            let mut app = App::new();
+            app.add_plugins(bevy::asset::AssetPlugin::default());
+            app.init_asset::<Image>();
+            app.add_systems(Update, fit_tiled_block_tiles);
+            let image = app.world_mut().resource_mut::<Assets<Image>>().add(Image::new_fill(
+                bevy::render::render_resource::Extent3d {
+                    width: texture_px,
+                    height: texture_px,
+                    depth_or_array_layers: 1,
+                },
+                bevy::render::render_resource::TextureDimension::D2,
+                &[0, 0, 0, 255],
+                bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+                bevy::asset::RenderAssetUsages::default(),
+            ));
+            let render = BVec2::splat(32.0);
+            let tile = TiledBlockTile { tile_units: tiled_block_tile_units(render) };
+            let block = app
+                .world_mut()
+                .spawn((
+                    tile,
+                    Sprite {
+                        image,
+                        custom_size: Some(render),
+                        image_mode: bevy::sprite::SpriteImageMode::Tiled {
+                            tile_x: true,
+                            tile_y: true,
+                            stretch_value: tile.stretch_for(BLOCK_TILE_UNITS as u32),
+                        },
+                        ..Default::default()
+                    },
+                ))
+                .id();
+            app.update();
+            let sprite = app.world().entity(block).get::<Sprite>().expect("the block's sprite");
+            let bevy::sprite::SpriteImageMode::Tiled { stretch_value, .. } = sprite.image_mode else {
+                panic!("the block stopped tiling");
+            };
+            assert_eq!(
+                texture_px as f32 * stretch_value,
+                32.0,
+                "a {texture_px} px tile must still be 32 units on a side"
+            );
+        }
+    }
+
+    /// The cap on the count of tiles is a whole multiple of the tile, so a
+    /// large floor keeps whole tiles.
+    #[test]
+    fn a_large_surface_takes_a_whole_multiple_of_the_tile() {
+        assert_eq!(tiled_block_tile_units(BVec2::new(32.0, 32.0)), 32.0);
+        assert_eq!(tiled_block_tile_units(BVec2::new(1024.0, 64.0)), 32.0);
+        assert_eq!(tiled_block_tile_units(BVec2::new(3072.0, 3328.0)), 128.0);
     }
 }
 

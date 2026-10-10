@@ -44,6 +44,11 @@ impl Plugin for SessionRoomVisualsPlugin {
         );
         // The composition that spawns blocks also applies authored per-block art overrides.
         app.add_systems(Update, crate::rendering::apply_entity_art);
+        // After it, so a tile a game names is sized in the frame it is bound.
+        app.add_systems(
+            Update,
+            crate::rendering::fit_tiled_block_tiles.after(crate::rendering::apply_entity_art),
+        );
         app.init_resource::<crate::rendering::terrain_skin::TerrainDecorDensity>();
         app.register_type::<crate::rendering::terrain_skin::TerrainDecorDensity>();
         // The skin of the room's theme goes on its blocks, after a block with art of its own has

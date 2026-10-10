@@ -13,5 +13,8 @@ description = "The Bevy host for procedural extension modules: port installation
 [dependencies]
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# `SimulationReplayState`: the fact that a rollback host replays a tick, so a
+# fault is counted once.
+ambition_sim_schedule = { path = "../ambition_sim_schedule" }
 ambition_time = { path = "../ambition_time" }
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }

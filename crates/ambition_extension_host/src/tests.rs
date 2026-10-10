@@ -324,6 +324,26 @@ fn a_fault_discards_the_staged_state_and_the_staged_request() {
     assert_eq!(faults.recent[0].fault, Fault::Module("thirteen".into()));
 }
 
+/// A rollback replays a tick and the entry faults again on it: the fault is
+/// counted once. The rollback host says that a tick is a replay with
+/// `SimulationReplayState`.
+#[test]
+fn a_fault_on_a_replayed_tick_is_not_counted_again() {
+    use ambition_sim_schedule::SimulationReplayState;
+    let mut app = app();
+    app.world_mut().spawn((Poked(13), Tall(1.0)));
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(app.world().resource::<ExtensionFaults>().total, 1, "the premise: the entry faults");
+    app.world_mut().insert_resource(SimulationReplayState { replaying_history: true });
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(app.world().resource::<ExtensionFaults>().total, 1, "the replay counted the fault again");
+    // The control: the next tick runs for the first time, and its fault counts.
+    app.world_mut().insert_resource(SimulationReplayState { replaying_history: false });
+    app.world_mut().resource_mut::<SimTick>().0 += 1;
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(app.world().resource::<ExtensionFaults>().total, 2, "a first execution counts its fault");
+}
+
 #[test]
 fn a_missing_observation_faults_rather_than_reading_a_default() {
     let mut app = app();

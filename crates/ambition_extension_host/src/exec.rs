@@ -150,8 +150,12 @@ pub struct FaultRecord {
     pub fault: Fault,
 }
 
-/// Every fault of this App. `total` is exact; `recent` keeps the last
-/// [`ExtensionFaults::RECENT`] records.
+/// The faults of this App, each counted on the first execution of its tick:
+/// a rollback that replays a tick does not count its faults again.
+/// `recent` keeps the last [`ExtensionFaults::RECENT`] records.
+///
+/// A first execution can run on a predicted input. So under netplay `total`
+/// counts the faults of what ran first, not of the confirmed timeline.
 #[derive(Resource, Default, Debug)]
 pub struct ExtensionFaults {
     pub total: u64,
@@ -211,6 +215,10 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
         // The one session store, when there is exactly one. Read once: no
         // entry spawns or removes a session.
         let session = session_home(world);
+        // A replayed tick ran before, and its faults were counted then.
+        let replaying = world
+            .get_resource::<ambition_sim_schedule::SimulationReplayState>()
+            .is_some_and(|replay| replay.replaying_history);
 
         for entry in admitted.entries_in(&phase) {
             let descriptor = &entry.descriptor;
@@ -267,6 +275,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                             value,
                         }));
                     }
+                    Err(_) if replaying => {}
                     Err(fault) => {
                         warn!(
                             "extension entry {path} faulted for {:?} at tick {tick}: {fault}; \

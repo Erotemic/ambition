@@ -276,6 +276,7 @@ admission fails. FI2-FI4 give the independent assertions.
 | Modules: all eleven boss specials (shared strike rules in `strike`), the shockwave, beam, volley, meteor, sentry, vortex and the FSM conductor. The native systems are test-only references | `game/ambition_content_modules/src/` | `specials::module_parity_tests`, `wielded_ability_parity_tests`, `sentry_parity_tests`, `vortex_parity_tests`, `bosses::fsm::fsm_parity_tests` (each on the linked and the WASM road); `app_it::a_boss_special_runs_on_the_extension_host` (GGRS sync-test arms, driving the clockwork warden's `overfit_volley`; the arms drove the Mockingbird's `echo_fan` until `ea9bf8e71` removed it from that profile) |
 | D6 module identity: the declared modules are the `extension.modules` section of the prepared content identity (code identity of a loaded module is the digest of its bytes) | `ambition_extension_host::ExtensionGeneration` | `the_prepared_content_identity_names_the_module_code_the_session_runs` |
 | D6 local reload: a published module reload re-mints the session content (new section, fingerprint, epoch, identity and binding); same bytes keep the generation; a session whose timeline another owner holds refuses | `extension_composition::remint_session_content` at `MechanicalEditSet::Publish`; `publish_session_content` | `a_module_reload_rebases_the_local_timeline_onto_the_new_identity`; `a_module_file_replaced_while_the_game_runs_takes_over` |
+| Fault policy: a fault discards the invocation's staged state and requests, is counted in `ExtensionFaults` on the first execution of its tick (a replayed tick does not count it again: `SimulationReplayState`), and does not stop the session | `ambition_extension_host::exec::run_phase` | `a_fault_discards_the_staged_state_and_the_staged_request`; `a_fault_on_a_replayed_tick_is_not_counted_again` |
 | Inspection: composition and per-body records as text; dry-run `--try-replace` | `ambition_extension_host::inspect`; `ambition_app_tools --bin extension_inspect` | `a_call_that_leaves_its_record_initial_stores_nothing` |
 
 Deliberate behavior changes from the native code: a module's box is on the
@@ -308,10 +309,6 @@ before you add a port.
 
 **Open:**
 
-- Fault policy: a fault discards the invocation's output and is counted in
-  `ExtensionFaults`; it does not stop the session. `ExtensionFaults::record`
-  has no replay gate, so under rollback a fault is counted again on each
-  resimulated tick (reasoned from the code, not measured).
 - No production observation port exists; every module reads its trigger.
 - Ports for body motion, so that dive, blink, grapple and mark/recall can
   become modules.

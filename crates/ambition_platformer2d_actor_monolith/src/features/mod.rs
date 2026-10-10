@@ -1156,12 +1156,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             maintain_actor_pre_decision_state.in_set(ActorDecisionSet::StateMaintenance),
         );
         // An errand ends where a press takes an item, and after it: a body that
-        // took something by a press this tick has a full hand.
+        // took something by a press this tick has a full hand. Before the use
+        // of a held item, as a press pickup is.
         app.add_systems(
             sim,
             crate::features::ecs::errand::settle_errands
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplayGated)
-                .after(ambition_held_items::pickup_held_item_system),
+                .after(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Pickup)
+                .before(ambition_platformer2d_shared_tangle::schedule::HeldItemStep::Use),
         );
         app.add_systems(sim, tick_actor_brains.in_set(ActorDecisionSet::Decide));
         app.add_systems(

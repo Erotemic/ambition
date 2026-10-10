@@ -13,12 +13,18 @@
 //! built a part at a time gives an answer that depends on when it was asked.
 //!
 //! An air jump is modelled as one double hop: the second press at the top of
-//! the first arc, proposed only where one jump does not reach.
+//! the first arc, proposed only where one jump does not reach. A wall verb is
+//! modelled as one wall climb: a hop to the face under a higher surface, a
+//! cling, a climb, the ledge and the pull-up, proposed only where nothing else
+//! arrives and only for a body that can cling and climb.
+//!
+//! A leg whose body the kernel resets (a hazard in its air, a fall out of the
+//! world) fails its rollout, by the kernel's own reset flag. A leg whose body
+//! enters an exit of [`NavGraph::build_avoiding`] fails too.
 //!
 //! NOT MODELLED: a drop through a one-way surface, a second air jump, an air
-//! jump in a drop, a dash, a wall verb, flight, a surface that moves, a slope,
-//! and a hazard in the air of a leg (a hazard on a surface takes that stretch
-//! out).
+//! jump in a drop, a dash, a wall jump, flight, a surface that moves, and a
+//! slope.
 
 use ambition_platformer2d_core as ae;
 use ae::movement::{step_motion, ActionEdges, Edge, InputState, MotionStepContext, MovementAction};
@@ -38,6 +44,9 @@ const MAX_LEG_STEPS: usize = 360;
 const STALL_STEPS: usize = 15;
 /// How far back from an edge a running jump starts, when the surface has room.
 const RUN_UP: f32 = 140.0;
+/// The most a wall climb rises: a leg rollout has `MAX_LEG_STEPS`, and a
+/// climb of this height at the kernel's climb speed fits in it.
+const MAX_CLIMB: f32 = 600.0;
 
 /// A leg the body can do, from one surface to another.
 #[derive(Clone, Debug, PartialEq)]
@@ -94,6 +103,20 @@ impl NavGraph {
     /// `None` when the frame is not axis-aligned, or the body does not run:
     /// the envelope does not measure such a body.
     pub fn build(world: &World, body: &BodyClusterScratch, frame: MotionFrame) -> Option<Self> {
+        Self::build_avoiding(world, &[], body, frame)
+    }
+
+    /// [`Self::build`] for a body that leaves the room when it enters one of
+    /// `exits`: a leg whose body enters one fails, because the body is in
+    /// another room then. For a body a player drives, whose room transition an
+    /// overlap fires (an edge exit, a walk zone). A body no slot drives does
+    /// not cross by a zone, and its graph has no exits.
+    pub fn build_avoiding(
+        world: &World,
+        exits: &[ae::Aabb],
+        body: &BodyClusterScratch,
+        frame: MotionFrame,
+    ) -> Option<Self> {
         let envelope = TraversalEnvelope::measure(body, frame, EnvelopeProbe::default())?;
         let nav = NavFrame { side: frame.side(), down: frame.down() };
         let half = Vec2::new(envelope.body_width * 0.5, envelope.body_height * 0.5);
@@ -104,6 +127,8 @@ impl NavGraph {
         let air_jump_reach = envelope.air_jump.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         // A body with no air jump measures the jump arc again: no double hop.
         let air_jump_apex = envelope.air_jump_apex_rise();
+        let verbs = body.abilities.abilities;
+        let can_climb = verbs.wall_cling && verbs.wall_climb;
         let mut graph = Self {
             frame: nav,
             half,
@@ -130,32 +155,30 @@ impl NavGraph {
                 let double = air_jump_apex > apex + 1.0
                     && rise < air_jump_apex - 1.0
                     && gap <= air_jump_reach + slack;
-                if rise < -envelope.probe.max_drop || !(hop || drop || double) {
+                let climb = can_climb && rise > 1.0 && rise <= MAX_CLIMB && gap <= air_jump_reach.max(jump_reach) + slack;
+                if rise < -envelope.probe.max_drop || !(hop || drop || double || climb) {
                     continue;
                 }
                 let mut cost = BuildCost::default();
-                let mut arrived = |legs: Vec<NavLeg>, cost: &mut BuildCost| {
+                let arrived = |legs: Vec<NavLeg>, cost: &mut BuildCost| {
                     legs.into_iter()
                         .filter_map(|leg| {
                             let leg = graph.in_world(leg);
-                            graph.rollout(world, body, frame, &leg, to, cost).map(|seconds| (leg, seconds))
+                            graph.rollout(world, exits, body, frame, &leg, to, cost).map(|seconds| (leg, seconds))
                         })
                         .min_by(|x, y| x.1.total_cmp(&y.1))
                 };
                 // A double hop only where no hop or drop arrives: each
                 // proposal costs rollouts, and the leg with one jump is the
                 // cheaper one to follow.
-                let best = arrived(proposals(a, b, half.x, hop, drop), &mut cost).or_else(|| {
-                    double
-                        .then(|| {
-                            let doubles = proposals(a, b, half.x, true, false)
-                                .into_iter()
-                                .map(|leg| NavLeg { kind: NavLegKind::DoubleHop, ..leg })
-                                .collect();
-                            arrived(doubles, &mut cost)
-                        })
-                        .flatten()
-                });
+                let as_kind = |kind: NavLegKind| {
+                    proposals(a, b, half.x, true, false).into_iter().map(move |leg| NavLeg { kind, ..leg }).collect()
+                };
+                // The cheaper leg first: one jump, then the air jump, then a
+                // climb, each only where the one before it does not arrive.
+                let best = arrived(proposals(a, b, half.x, hop, drop), &mut cost)
+                    .or_else(|| double.then(|| arrived(as_kind(NavLegKind::DoubleHop), &mut cost)).flatten())
+                    .or_else(|| climb.then(|| arrived(as_kind(NavLegKind::WallClimb), &mut cost)).flatten());
                 graph.cost.add(cost);
                 if let Some((leg, cost)) = best {
                     graph.out[from].push(graph.links.len());
@@ -176,9 +199,11 @@ impl NavGraph {
 
     /// The seconds `leg` takes in the kernel, when the body arrives on
     /// surface `to` from each place the follower can start it at.
+    #[allow(clippy::too_many_arguments)]
     fn rollout(
         &self,
         world: &World,
+        exits: &[ae::Aabb],
         body: &BodyClusterScratch,
         frame: MotionFrame,
         leg: &NavLeg,
@@ -189,7 +214,7 @@ impl NavGraph {
         // The follower starts a leg in the tolerance of its start point, so
         // the leg must hold at both ends of the tolerance.
         for offset in [0.0, ARRIVE_TOLERANCE, -ARRIVE_TOLERANCE] {
-            let (seconds, steps) = self.rollout_from(world, body, frame, leg, to, offset);
+            let (seconds, steps) = self.rollout_from(world, exits, body, frame, leg, to, offset);
             cost.rollouts += 1;
             cost.steps += steps;
             if seconds.is_none() {
@@ -200,9 +225,11 @@ impl NavGraph {
         Some(slowest)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn rollout_from(
         &self,
         world: &World,
+        exits: &[ae::Aabb],
         body: &BodyClusterScratch,
         frame: MotionFrame,
         leg: &NavLeg,
@@ -223,7 +250,9 @@ impl NavGraph {
         }
         // The body finds its floor before the leg starts.
         for _ in 0..3 {
-            step(&mut body, world, frame, dt, ae::navigation::LegInput::default());
+            if step(&mut body, world, frame, dt, ae::navigation::LegInput::default()) {
+                return (None, 3);
+            }
         }
         if !body.ground.on_ground {
             return (None, 3);
@@ -262,7 +291,16 @@ impl NavGraph {
                     return ((self.surface_at(feet) == Some(to)).then_some(index as f32 * dt), index + 3);
                 }
             }
-            step(&mut body, world, frame, dt, input);
+            // A leg that touches a hazard (or leaves the world) fails: the
+            // body that does it is reset, and it does not arrive.
+            if step(&mut body, world, frame, dt, input) {
+                return (None, index + 4);
+            }
+            // A body in an exit is in another room: the leg did not arrive.
+            let reach = body.kinematics.collision_box(None);
+            if exits.iter().any(|exit| ae::AabbExt::strict_intersects(reach, *exit)) {
+                return (None, index + 4);
+            }
         }
         (None, MAX_LEG_STEPS + 3)
     }
@@ -474,9 +512,12 @@ fn proposals(a: &StandSurface, b: &StandSurface, half_width: f32, hop: bool, dro
     legs
 }
 
-fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f32, input: ae::navigation::LegInput) {
+/// One kernel step of a rollout. `true` when the kernel asks for the body to
+/// be reset: it touched a hazard or left the world.
+fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f32, input: ae::navigation::LegInput) -> bool {
     let input = InputState {
-        axes: LocalAxes::new(input.axis, 0.0),
+        // Up is toward -y in the body's local axes.
+        axes: LocalAxes::new(input.axis, if input.up { -1.0 } else { 0.0 }),
         movement: ActionEdges::<MovementAction>::EMPTY.with(
             MovementAction::Jump,
             Edge { pressed: input.jump_pressed, held: input.jump_held, released: false },
@@ -499,7 +540,10 @@ fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f3
             pose_owned_externally: false,
             recovery_commitment_outstanding: false,
         },
-    );
+    )
+    .events
+    .reset
+    .is_some()
 }
 
 #[cfg(test)]

@@ -7,10 +7,11 @@
 //! `cargo test -p ambition_app --test app_it walked_route_census -- --ignored --nocapture`.
 //! For each crossing it builds the graph of the room for the player's body
 //! (its `MotionModel`, abilities and box, read off the live body), starts at
-//! the arrival from the room before, and asks for a route to the surface
-//! under the exit zone. It prints one row per crossing, with the body's real
-//! abilities and with its air jump taken away, so the share of the double hop
-//! is a measured delta. It asserts only that each room builds.
+//! the arrival from the room before, and asks for a route to the place where
+//! the body overlaps the exit zone. It prints one row per crossing, with the body's real
+//! abilities, with its air jump taken away, and with its wall verbs taken
+//! away, so the share of each leg is a measured delta. It asserts only that
+//! each room builds.
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt as _;
@@ -89,6 +90,9 @@ fn walked_route_census() {
     let (player, spawn) = the_player(&mut sim);
     let mut one_jump = player.clone();
     one_jump.abilities.abilities.double_jump = false;
+    let mut no_wall = player.clone();
+    no_wall.abilities.abilities.wall_cling = false;
+    no_wall.abilities.abilities.wall_climb = false;
     eprintln!("WALKED abilities={:?}", player.abilities.abilities);
     let frame = ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, ae::movement::GRAVITY)).expect("gravity");
     let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
@@ -111,13 +115,22 @@ fn walked_route_census() {
             .unwrap_or_else(|| panic!("`{from}` has no exit to `{to}`"))
     };
     let mut start = spawn;
-    let (mut routed, mut routed_one_jump) = (0, 0);
+    let mut routed = [0; 3];
     for (from, to) in CROSSINGS {
         let world = &rooms.rooms[rooms.definition_by_id(from).expect("an authored room").index()].world;
         let (zone, arrival) = exit(from, to);
+        // The other exits that fire on overlap take the body to another
+        // room: a leg through one is no leg.
+        let exits: Vec<ae::Aabb> = rooms
+            .spec(rooms.definition_by_id(from).expect("an authored room"))
+            .loading_zones
+            .iter()
+            .filter(|other| other.is_ready(false) && other.aabb != zone)
+            .map(|other| other.aabb)
+            .collect();
         let mut row = Vec::new();
-        for (name, body) in [("player", &player), ("one jump", &one_jump)] {
-            let graph = NavGraph::build(world, body, frame).expect("the room builds a graph");
+        for (column, (name, body)) in [("player", &player), ("no air jump", &one_jump), ("no wall verb", &no_wall)].into_iter().enumerate() {
+            let graph = NavGraph::build_avoiding(world, &exits, body, frame).expect("the room builds a graph");
             let feet = on_a_surface(&graph, start);
             let goal = nearest_the_zone(&graph, zone);
             let route = feet.zip(goal).and_then(|(feet, goal)| graph.route(feet, goal));
@@ -127,11 +140,7 @@ fn walked_route_census() {
                 .map(|link| format!("{:?}", graph.links[*link].leg.kind))
                 .collect();
             if route.is_some() {
-                if name == "player" {
-                    routed += 1;
-                } else {
-                    routed_one_jump += 1;
-                }
+                routed[column] += 1;
             }
             // Why a crossing has no route: where the body starts, the goal,
             // and the highest surface (least `top`) the body gets to.
@@ -150,5 +159,11 @@ fn walked_route_census() {
         eprintln!("WALKED {from} -> {to}: {}", row.join(" | "));
         start = arrival;
     }
-    eprintln!("WALKED routed {routed} of {} (one jump: {routed_one_jump})", CROSSINGS.len());
+    eprintln!(
+        "WALKED routed {} of {} (no air jump: {}, no wall verb: {})",
+        routed[0],
+        CROSSINGS.len(),
+        routed[1],
+        routed[2]
+    );
 }

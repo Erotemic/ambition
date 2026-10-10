@@ -241,14 +241,55 @@ jump has none. Guard:
 low step stays a hop; with no air jump the ledge is out of reach). Poison:
 no second press, red at the double-hop link.
 
+A wall verb is one leg, the wall climb (2026-10-10): a hop to the face under
+a higher surface (with the air jump on the first falling step, when the body
+has one), then hold into the face and up. The kernel does the rest: a cling,
+a climb at its climb speed, the ledge grab, the pull-up. The follower judges
+no early miss on it, because a climbing body is below its landing the whole
+way up. It is proposed for a body that can cling and climb, only where no
+hop, drop or double hop arrives, up to 600 px. `LegInput.up` carries the
+hold-up (local -y) to the kernel, in the rollout and in the brain. Guard:
+`navigation::graph::tests::a_body_that_climbs_gets_up_a_wall_no_jump_clears`
+(a pillar three jumps tall: a wall-climb link that arrives in the kernel;
+control, with no climb the top is out of reach). Poison: no hold-up, red at
+the wall-climb link. A wall jump (a kick off one face to another) is still
+no leg.
+
+A leg whose body the kernel resets fails its rollout (2026-10-10): a hazard
+in its air, or a fall out of the world. The rollout reads the kernel's own
+reset flag, so a leg is never kept that the body survives only in the probe.
+Guard: `navigation::graph::tests::a_leg_through_a_hazard_is_no_leg` (control:
+the same gap with no hazard is a hop). For a body that a zone takes to another
+room, `NavGraph::build_avoiding` takes the room's exits: a leg whose body
+enters one fails, because that body is in another room then. Only a body a
+player drives crosses by an overlap (an edge exit, a walk zone), so a brain's
+graph has no exits. Guard:
+`navigation::graph::tests::a_leg_through_an_exit_is_no_leg_for_a_body_the_exit_takes`
+(control: no exits, the hop is there). Poison: the exit test off, red at the
+exit assertion.
+
+The walked route (2026-10-10):
+`a_walked_route_of_the_persistent_world::the_player_walks_from_the_hub_to_alice`
+(`app_it`) walks the player from the hub to Alice through six crossings. In
+each room it builds the graph for the player's own body with the other
+overlap exits avoided, and it gives the player the stick and jump that
+`follow_leg` says. A door takes Interact, and the crossing is the shipped room
+transition. No step puts the body anywhere. Before the exits were avoided,
+legs in `intro_escape_shaft` and `drain_alley` went through the back edge exit,
+and the body went back a room. With the exits avoided, `drain_alley` had no
+route: its main street was solid across the room, and the door to
+`under_town_pipes` is on the floor of the pipes layer below. The room's spec
+says the player goes down through a grate in the street. Three 16 px cells of
+the street over the door are now open (collision and tiles), and the body
+drops through them.
+
 Not modelled, each a seam:
 
 - a drop through a one-way surface, a second air jump, an air jump in a drop,
-  a dash, a wall verb, flight;
+  a dash, a wall jump, flight;
 - a slope or a surface chain, a surface that moves;
 - geometry that is not authored in the room (a gate, a breakable). A leg such a
   thing stops fails, and the brain plans again;
-- a hazard in the air of a leg;
 - a route to another room (the door graph below is a different graph);
 - a gravity frame that is not axis-aligned;
 - `WhyNot`: an unreachable goal is `NavNext::Unreachable` with no reason.
@@ -360,7 +401,7 @@ The slices, each with its own witness:
 
 Not in these slices: enemy navigation and a baked graph (Jon's open
 decisions), a door that needs Interact (a body crosses edge zones first), and
-legs for a wall verb or a dash (the air jump has its leg, above).
+legs for a wall jump or a dash (the air jump and the climb have legs, above).
 
 ## Architecture direction
 

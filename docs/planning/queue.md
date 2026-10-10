@@ -158,23 +158,20 @@ are accounted by count and have no instance identity. The object with an
 identity and a custody is the Blink. A note as an object is a content
 decision, not a defect.
 
-**A walked route waits on NAVIGATION (measured 2026-10-09, again
-2026-10-10).** The route is placed, not walked (WA6). `walked_route_census`
-(an ignored measurement in `app_it`) builds the in-room `NavGraph` for the
-player's own body at each of the playthrough's nine crossings, from the
-arrival out of the room before to the surface where the body overlaps the
-exit zone. It routes 8 of 9 (7 with the air jump taken away). The first
-probe said 5 of 10, and part of that was its goal: an edge exit beside the
-end of a floor had no surface under its centre, and the goal fell on the
-roof, so the exits of `intro_wake_room`, `intro_raid_corridor` and
-`bob_relay` to `drain_alley` read as climbs, and they are walks. The double
-hop (the in-room legs are this session's since 2026-10-10, from
-ToothbrushAmbition) routes `intro_escape_shaft`: one-way steps 128 px apart,
-above one jump's 83 px apex and under the double jump's 139 px. Left: the
-hub's door to `intro_wake_room`, on a one-way 208 px above the start, with
-two soft blink-wall pillars beside it (their tops link down to it); a wall
-verb or the Blink is the road. Next: a wall leg, then a walked playthrough
-that follows the legs with the player's own inputs.
+**The route from the hub to Alice is walked (2026-10-10).**
+`a_walked_route_of_the_persistent_world::the_player_walks_from_the_hub_to_alice`
+(`app_it`) walks the player through six crossings with its own stick and jump,
+by the in-room `NavGraph` legs and the shipped room transitions. No step puts
+the body anywhere. It found a content defect: in `drain_alley` the main street
+was solid across the room, and the door to `under_town_pipes` is on the floor
+below it. The grate the room's spec describes is now three open cells over the
+door. `walked_route_census` (ignored, a measurement) routes 9 of 9 crossings
+(8 with the air jump taken away, 8 with the wall verbs taken away). Its earlier
+9 of 9 was wrong for `drain_alley`: the route went out through the back edge
+exit. Graphs for the player now avoid the other overlap exits. The rest of the
+placed route is not walked: the edge from `alice_relay` to `bob_relay` is
+behind a `LockWall` gated by `bob_field_survey_received`, a gate the graph does
+not see. Next: walk the Bob half in the order the placed playthrough uses.
 
 **Acceptance:** the scenario runs headless in a standing lane and is playable in
 the rendered game; each step asserts its fact against the authority that owns

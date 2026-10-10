@@ -23,6 +23,7 @@ mod the_sync_test_sees_a_first_run_only_effect;
 
 mod a_bag_changed_mid_window_reaches_the_save;
 mod a_playthrough_of_the_persistent_world;
+mod a_walked_route_of_the_persistent_world;
 mod a_body_drawn_from_parts_turns_with_gravity;
 mod a_cancelled_restore_changes_nothing;
 mod a_dropped_item_falls;

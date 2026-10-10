@@ -102,6 +102,10 @@ struct SceneCaptureConfig {
     /// so art a boss wears by its wounds — the Flying Spaghetti Monster's sauce
     /// — can be photographed without fighting it there.
     boss_hp: Option<f32>,
+    /// The blur and the fog of the sky of the two-state room look
+    /// (`--look-depth BLUR,FAR,FOG,PATCHES`), to tune them with photographs:
+    /// the numbers of `RoomLookDepth`, in its field order.
+    look_depth: Option<[f32; 4]>,
     /// Screen post-process effects to force on (`--screen-effect crt,vignette`).
     ///
     /// Without this flag a capture cannot show post-process. The effects are
@@ -262,6 +266,12 @@ OPTIONS:
     --nav-overlay       draw the surface graph a navigating body is advised from
                         (surfaces green, hops yellow, drops orange)
     --combat-overlay    force the COMBAT gizmos on (hitboxes, collision boxes)
+    --look-depth BLUR,FAR,FOG,PATCHES
+                        the blur and the fog of the sky of the two-state room
+                        look (`RoomLookDepth`): the edge width of the nearest
+                        far architecture in world px, how many times wider the
+                        farthest is, the fog from 0 to 1, and how much it is
+                        in patches from 0 to 1. The default is 3,2,0.22,0.5.
     --boss-hp F         hold every boss's health at fraction F of its max, to
                         photograph art it wears by its wounds
     --screen-effect E   force screen post-process effects on, comma separated:
@@ -395,6 +405,21 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
 /// frame, so nothing the fight does moves it off the state being photographed.
 /// A sim system: health is rollback state, and a write from outside the
 /// rewinding schedule would survive a rewind.
+/// `--look-depth`: write the numbers of the sky of the two-state look. The
+/// developer inspector writes the same resource in a window.
+fn force_look_depth(
+    config: Res<SceneCaptureConfig>,
+    depth: Option<ResMut<ambition_content::presentation::room_look::RoomLookDepth>>,
+) {
+    let (Some([blur_px, far_blur, fog, fog_patches]), Some(mut depth)) = (config.look_depth, depth) else {
+        return;
+    };
+    let wanted = ambition_content::presentation::room_look::RoomLookDepth { blur_px, far_blur, fog, fog_patches };
+    if *depth != wanted {
+        *depth = wanted;
+    }
+}
+
 fn hold_boss_health(
     config: Res<SceneCaptureConfig>,
     mut bosses: Query<
@@ -536,6 +561,7 @@ fn install_room_capture(app: &mut App) {
             silence_dev_overlays,
             force_combat_overlay,
             force_screen_effects,
+            force_look_depth,
             apply_capture_snapshot
                 .after(camera_follow)
                 .before(sync_parallax_layers),
@@ -693,6 +719,7 @@ impl SceneCaptureConfig {
         let mut combat_overlay = false;
         let mut nav_overlay = false;
         let mut boss_hp: Option<f32> = None;
+        let mut look_depth: Option<[f32; 4]> = None;
         let mut screen_effects: Vec<ScreenEffect> = Vec::new();
         // One shot every frame by default.
         let mut frames: usize = 1;
@@ -739,6 +766,16 @@ impl SceneCaptureConfig {
                                 format!("--boss-hp wants a fraction in [0, 1], got '{value}'")
                             })?,
                     );
+                    2
+                }
+                "--look-depth" => {
+                    let numbers: Vec<f32> = args
+                        .get(i + 1)
+                        .map(|value| value.split(',').filter_map(|n| n.trim().parse().ok()).collect())
+                        .unwrap_or_default();
+                    look_depth = Some(<[f32; 4]>::try_from(numbers).map_err(|_| {
+                        "--look-depth wants four numbers: BLUR,FAR,FOG,PATCHES (e.g. 3,2,0.22,0.5)".to_string()
+                    })?);
                     2
                 }
                 "--dev-overlays" => {
@@ -1009,6 +1046,7 @@ impl SceneCaptureConfig {
                 combat_overlay,
                 nav_overlay,
                 boss_hp,
+                look_depth,
                 screen_effects,
                 press,
                 press_during,
@@ -1055,6 +1093,7 @@ impl SceneCaptureConfig {
             combat_overlay,
             nav_overlay,
             boss_hp,
+            look_depth,
             screen_effects,
             follow_player,
             player_beside,

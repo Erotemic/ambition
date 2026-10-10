@@ -129,6 +129,41 @@ Rules that keep the corrupted state readable as a place to play:
   platform, a block that grew past its box, a dead leaf, a loose block of the
   front (which is hollow).
 
+### The sky is behind the play
+
+The play is sharp and clear. The sky of the two-state look is the opposite, so
+that the eye sorts the two with no effort:
+
+- Its far architecture is out of focus. Each row (city, towers, islands,
+  viaduct) has an edge that is some px wide and not a hard edge
+  (`soft_edge` in `room_look_common.wgsl`); a farther row has a wider edge.
+  The blocks of the corrupted sky blend into each other across the same
+  width. The blur is computed with the shape, so it costs no more samples.
+- There is fog between the sky and the play: slow, wide patches, pale in
+  clean air and lilac in corrupted air.
+
+`RoomLookDepth` holds the numbers, to tune by eye:
+
+| Field | Default | What it is |
+| --- | --- | --- |
+| `blur_px` | 3.0 | The width of the edge of the nearest far architecture (the viaduct), in world px. 0 is a hard edge. |
+| `far_blur` | 2.0 | How many times wider the edge of the farthest (the city) is. |
+| `fog` | 0.22 | How much fog is in front of the sky, 0 to 1. |
+| `fog_patches` | 0.5 | How much the fog is in patches, 0 (even) to 1. |
+
+To tune them in a window, open the developer inspector: `RoomLookDepth` has a
+window of its own, and each change is drawn in the next frame. To photograph a
+set of numbers:
+
+```bash
+capture_scene central_hub_complex player out.png 1280x720 --warmup 100 \
+    --flag look.central_hub_complex.corrupt --look-depth 3,2,0.22,0.5
+```
+
+`--look-depth 0,1,0,0` is the sky with no blur and no fog. The numbers are a
+session resource and are not saved: when they are right, write them as the
+defaults in `room_look.rs`.
+
 Rules that keep the clean state still:
 
 - Nothing of the architecture moves. The ivy does not sway: a strand one px
@@ -212,7 +247,7 @@ cargo run -p ambition_app_tools --bin capture_scene -- tech_bros_basement player
 ```
 
 `capture_scene` prints one line when a room's plates are drawn: the pieces,
-the pages, the size and the time.
+the pages and the size.
 
 To measure a flicker, film a still scene and count the pixels that change:
 

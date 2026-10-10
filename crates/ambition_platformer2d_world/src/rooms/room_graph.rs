@@ -307,6 +307,15 @@ pub fn unresolved_links(rooms: &[RoomSpec], links: &[RoomLink]) -> Vec<Unresolve
     unresolved
 }
 
+/// One hop of a route over rooms ([`RoomSet::route`]): leave room `from`
+/// by its zone `zone`, and arrive in room `to`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RoomHop {
+    pub from: usize,
+    pub zone: String,
+    pub to: usize,
+}
+
 /// Resolved transition from the active room to a graph-linked destination room.
 #[derive(Clone, Debug)]
 pub struct RoomTransition {

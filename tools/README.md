@@ -13,7 +13,7 @@ For agent routing, start with [`../docs/tools/index.md`](../docs/tools/index.md)
 | Music renderer | `ambition_music_renderer/` | Render/audit generated music and transition material. |
 | SFX renderer / packer | `ambition_sfx_renderer/`, `ambition_sfx_pack/` | Render/audit generated SFX and pack runtime banks. |
 | Sprite renderer | `ambition_sprite2d_renderer/` | Generate/publish gameplay and dialogue-portrait sprite sheets plus runtime-facing metadata through plural authoring families. |
-| Background/parallax renderers | `ambition_background_renderer/`, `ambition_parallax_renderer/` | Generate static and parallax visual assets. |
+| Background renderer | `ambition_background_renderer/` | Generate the placeholder background profiles. The parallax scenes are art: `ambition_sprite2d_renderer/ambition_sprite2d_renderer/backgrounds/`. |
 | Optimization reports | `optimization_report/` | Collect LLM-readable performance/build diagnostics. |
 
 ## Experimental

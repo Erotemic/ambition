@@ -32,9 +32,11 @@
 /// (`ambition_render`): the two must agree, or the two states of the sky do
 /// not register.
 fn panel_uv(w: vec2<f32>, factor: f32, scale: f32) -> vec2<f32> {
-    let viewport = view.viewport.zw;
-    let panel = max(viewport.x, viewport.y) * scale;
-    let travel = max((vec2<f32>(panel) - viewport) * 0.5, vec2<f32>(0.0));
+    // What the camera shows of the world, in world units
+    // (`visible_world` in `ambition_render`): the play camera is orthographic.
+    let visible = vec2<f32>(2.0 / view.clip_from_view[0][0], 2.0 / abs(view.clip_from_view[1][1]));
+    let panel = max(visible.x, visible.y) * scale;
+    let travel = max((vec2<f32>(panel) - visible) * 0.5, vec2<f32>(0.0));
     let camera = view.world_position.xy;
     let across = clamp(camera / max(room.xy, vec2<f32>(1.0)) + vec2<f32>(0.5), vec2<f32>(0.0), vec2<f32>(1.0)) * 2.0
         - vec2<f32>(1.0);

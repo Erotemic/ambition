@@ -328,7 +328,11 @@ install_scripts_env() {
     # the tool run again on the first try.
     uv pip install --python "$venv_python" \
         pytest "tree-sitter>=0.25,<0.26" "tree-sitter-rust>=0.24,<0.25" \
-        numpy soundfile rich pillow "resvg-py>=0.3"
+        numpy soundfile rich pillow "resvg-py>=0.3" pytest-xdist
+    # `pytest-xdist` is not a collection-time dependency: it is how the repo
+    # tooling job runs on every core (`run_tests.py`, `pytest_worker_args`).
+    # Measured 2026-10-10, 14 cores: 1160 s serial, 232-236 s with 8 workers,
+    # the same 1776 passed and 19 skipped. Without it the job runs serially.
     # The moveset inspector is imported directly out of `tools/` by
     # `scripts/tests/test_moveset_inspector_renderer.py`, so it belongs in THIS
     # environment rather than one of its own. Installed editable so its

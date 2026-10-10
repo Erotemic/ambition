@@ -467,8 +467,30 @@ def repo_coupled_python_job() -> Job:
         [
             sys.executable, "-m", "pytest", "scripts/tests", "-q",
             "-m", f"not {DETACHED_TOOL_MARKER}", *PYTEST_TIMING_ARGS,
+            *pytest_worker_args(),
         ],
     )
+
+
+def pytest_worker_args() -> list[str]:
+    """`-n auto` when this interpreter has pytest-xdist: the repo tooling job
+    runs on every core. Measured 2026-10-10 on 14 cores: 1160 s serial, 232 s
+    and 236 s with 8 workers, the same 1776 passed and 19 skipped.
+
+    Without xdist the job runs serially and says so. The tests that run are the
+    same: only the time differs, so this is not a check that is skipped.
+    `scripts/setup/python_tools.sh` installs it.
+    """
+    import importlib.util
+
+    if importlib.util.find_spec("xdist") is not None:
+        return ["-n", "auto"]
+    print(
+        f"note: the repo tooling job runs serially: pytest-xdist is not importable "
+        f"from {sys.executable} (scripts/setup/python_tools.sh installs it)",
+        file=sys.stderr,
+    )
+    return []
 
 
 def unchecked_by_maintenance() -> list[Job]:

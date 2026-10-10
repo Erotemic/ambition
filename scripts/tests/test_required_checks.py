@@ -341,3 +341,32 @@ def test_the_named_rules_name_what_the_live_tree_has() -> None:
     modules = (REPO / "game/ambition_app/tests/app_it.rs").read_text()
     for arm in (*CONTENT_ARMS, "rollback_"):
         assert f"mod {arm}" in modules, f"no app_it module name holds `{arm}`"
+
+
+def test_run_runs_only_the_checks_that_are_not_certified_and_judges_again(repo: Path) -> None:
+    """⭐ `--run`: the change selects the checks. A change to `alpha` and `beta`
+    with a pass of `alpha` only runs the command for `beta`, and the verdict
+    after it is read from the ledger the run wrote. The control: with every
+    check certified, nothing runs."""
+    from required_checks import certify
+
+    (repo / "crates/alpha/src/lib.rs").write_text("// two\n")
+    (repo / "crates/beta/src/lib.rs").write_text("// two\n")
+    ran(repo, ["cargo", "test", "-p", "alpha"])
+    git(repo, "commit", "-qam", "alpha and beta")
+    commands: list[list[str]] = []
+
+    def runner(command: list[str], cwd: Path) -> None:
+        commands.append(command)
+        ran(repo, ["cargo", "test", "-p", "beta"])
+
+    _, found = certify(repo, "base", "HEAD", run=runner)
+    assert commands == [["./run_tests.sh", "-p", "beta", "--only-job", "(default features)"]]
+    assert {v.requirement.label(): v.certified for v in found} == {
+        "cargo test -p alpha": True,
+        "cargo test -p beta": True,
+    }
+
+    commands.clear()
+    certify(repo, "base", "HEAD", run=runner)
+    assert commands == [], "control: with every check certified, nothing runs"

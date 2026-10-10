@@ -362,6 +362,26 @@ reads cargo output to it.
    voided that crate's pass (`738d7c3da`, witness
    `test_a_doc_edited_after_a_crate_ran_does_not_void_the_crate`).
 
+7. **The repo tooling job runs on every core (2026-10-10).** It ran
+   `scripts/tests` serially, and each push waits on it. Measured on 14 cores:
+   1160 s serial; 232 s and 236 s with 8 workers, the same 1776 passed and 19
+   skipped; 231 s through `run_tests.sh` with `-n auto`. `run_tests.py` adds
+   `-n auto` when pytest-xdist is importable (`pytest_worker_args`), and
+   `scripts/setup/python_tools.sh` installs it. Without it the job runs
+   serially and prints why: the same tests run. Witness
+   `scripts/tests/test_the_repo_tooling_job_runs_on_every_core.py` (poison: no
+   workers, red at "the job runs serially"). The pre-push measurement is in
+   [extension evidence M0](engine/extension-iteration-evidence.md#m0-results):
+   `app_it`'s 890-913 s is now the largest part of a push.
+
+8. **The change selects its checks, and one command runs them (2026-10-10).**
+   `python3 scripts/required_checks.py --run` runs the `run_tests.sh` command
+   of each required check that is not certified, then judges again from the
+   ledger the runs wrote. Witness
+   `test_run_runs_only_the_checks_that_are_not_certified_and_judges_again`
+   (control: all certified, nothing runs; poison: run every required check,
+   red at the commands assertion).
+
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
 

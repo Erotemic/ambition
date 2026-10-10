@@ -106,6 +106,10 @@ struct SceneCaptureConfig {
     /// (`--look-depth FOG,PATCHES`), to tune it with photographs: the numbers
     /// of `RoomLookDepth`, in its field order.
     look_depth: Option<[f32; 2]>,
+    /// `--camera-zoom NAME`: how much of the world the camera shows
+    /// (`CameraZoomPreset`). A wider view shows what a default capture can
+    /// not, like the second image in a row of portal images.
+    camera_zoom: Option<ambition_platformer2d::persistence::settings::video::CameraZoomPreset>,
     /// Screen post-process effects to force on (`--screen-effect crt,vignette`).
     ///
     /// Without this flag a capture cannot show post-process. The effects are
@@ -270,6 +274,9 @@ OPTIONS:
                         the fog in front of the sky of the two-state room look
                         (`RoomLookDepth`): how much, from 0 to 1, and how much
                         it is in patches, from 0 to 1. The default is 0.22,0.5.
+    --camera-zoom NAME  how much of the world the camera shows: duel (the
+                        default, 568 by 320 units), tight, combat, arena,
+                        cinematic or debug (1600 by 900)
                         The blur of the sky is in its art (`room_look_sky.py`).
     --boss-hp F         hold every boss's health at fraction F of its max, to
                         photograph art it wears by its wounds
@@ -419,6 +426,19 @@ fn force_look_depth(
     }
 }
 
+/// `--camera-zoom`: write the zoom of the user settings. Every frame, as
+/// `force_screen_effects` does: the settings load writes this state too.
+fn force_camera_zoom(
+    config: Res<SceneCaptureConfig>,
+    mut settings: ResMut<ambition_platformer2d::persistence::settings::UserSettings>,
+) {
+    if let Some(zoom) = config.camera_zoom {
+        if settings.video.camera_zoom != zoom {
+            settings.video.camera_zoom = zoom;
+        }
+    }
+}
+
 fn hold_boss_health(
     config: Res<SceneCaptureConfig>,
     mut bosses: Query<
@@ -561,6 +581,7 @@ fn install_room_capture(app: &mut App) {
             force_combat_overlay,
             force_screen_effects,
             force_look_depth,
+            force_camera_zoom,
             apply_capture_snapshot
                 .after(camera_follow)
                 .before(sync_parallax_layers),
@@ -719,6 +740,7 @@ impl SceneCaptureConfig {
         let mut nav_overlay = false;
         let mut boss_hp: Option<f32> = None;
         let mut look_depth: Option<[f32; 2]> = None;
+        let mut camera_zoom = None;
         let mut screen_effects: Vec<ScreenEffect> = Vec::new();
         // One shot every frame by default.
         let mut frames: usize = 1;
@@ -775,6 +797,23 @@ impl SceneCaptureConfig {
                     look_depth = Some(<[f32; 2]>::try_from(numbers).map_err(|_| {
                         "--look-depth wants two numbers: FOG,PATCHES (e.g. 0.22,0.5)".to_string()
                     })?);
+                    2
+                }
+                "--camera-zoom" => {
+                    use ambition_platformer2d::persistence::settings::video::CameraZoomPreset as Zoom;
+                    camera_zoom = Some(match args.get(i + 1).map(String::as_str) {
+                        Some("duel") => Zoom::Duel,
+                        Some("tight") => Zoom::Tight,
+                        Some("combat") => Zoom::Combat,
+                        Some("arena") => Zoom::Arena,
+                        Some("cinematic") => Zoom::Cinematic,
+                        Some("debug") => Zoom::Debug,
+                        other => {
+                            return Err(format!(
+                                "--camera-zoom wants duel, tight, combat, arena, cinematic or debug, not {other:?}"
+                            ))
+                        }
+                    });
                     2
                 }
                 "--dev-overlays" => {
@@ -1046,6 +1085,7 @@ impl SceneCaptureConfig {
                 nav_overlay,
                 boss_hp,
                 look_depth,
+                camera_zoom,
                 screen_effects,
                 press,
                 press_during,
@@ -1093,6 +1133,7 @@ impl SceneCaptureConfig {
             nav_overlay,
             boss_hp,
             look_depth,
+            camera_zoom,
             screen_effects,
             follow_player,
             player_beside,

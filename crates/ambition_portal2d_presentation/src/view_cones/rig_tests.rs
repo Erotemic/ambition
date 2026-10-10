@@ -264,11 +264,50 @@ fn a_capture_sees_no_other_window_while_two_rooms_are_live() {
     let (left, right) = thin_wall_pair();
     let all = [left.clone(), right.clone()];
     assert_eq!(
-        windows_a_capture_may_see(&all, left.channel, None),
+        windows_a_capture_may_see(&all, &left, &right, None),
         vec![portal_window_self_layer(right.channel)],
         "one live room: the other window of the room"
     );
-    assert!(windows_a_capture_may_see(&all, left.channel, Some(live_room_render_layer(1))).is_empty());
+    assert!(windows_a_capture_may_see(&all, &left, &right, Some(live_room_render_layer(1))).is_empty());
+}
+
+/// Two portals that face each other across a room show a row of images of
+/// what is between them: the window of an end shows the room in front of its
+/// partner, and that room has the end in it, with its window. So the capture
+/// of an end draws its own window. The control is the pair of a thin wall,
+/// whose two ends are back to back: its window is where the room it films
+/// is, and a capture that drew it would film its own picture.
+#[test]
+fn a_capture_draws_its_own_window_only_when_its_pair_looks_at_itself() {
+    let (left, right) = thin_wall_pair();
+    assert!(!pair_looks_at_itself(&left, &right) && !pair_looks_at_itself(&right, &left));
+    let own = portal_window_self_layer(left.channel);
+    assert!(!windows_a_capture_may_see(&[left.clone(), right.clone()], &left, &right, None).contains(&own));
+
+    // The same two ends, 224 px apart, each one turned to the other.
+    let mut west = left.clone();
+    let mut east = right.clone();
+    west.pos = Vec2::new(2560.0, 248.0);
+    west.normal = Vec2::new(1.0, 0.0);
+    east.pos = Vec2::new(2784.0, 248.0);
+    east.normal = Vec2::new(-1.0, 0.0);
+    assert!(pair_looks_at_itself(&west, &east) && pair_looks_at_itself(&east, &west));
+    let all = [west.clone(), east.clone()];
+    let layers = windows_a_capture_may_see(&all, &west, &east, None);
+    assert!(layers.contains(&portal_window_self_layer(west.channel)), "its own window");
+    assert!(layers.contains(&portal_window_self_layer(east.channel)), "and the other one, as before");
+    assert!(
+        windows_a_capture_may_see(&all, &west, &east, Some(live_room_render_layer(1))).is_empty(),
+        "two live rooms: none, as before"
+    );
+
+    // Two ends on one wall, side by side, do not look at each other.
+    let mut beside = west.clone();
+    beside.pos = Vec2::new(2560.0, 448.0);
+    let mut other = east.clone();
+    other.pos = Vec2::new(2560.0, 248.0);
+    other.normal = Vec2::new(1.0, 0.0);
+    assert!(!pair_looks_at_itself(&beside, &other));
 }
 
 /// A live room has one eye: the first the host publishes. A second eye in

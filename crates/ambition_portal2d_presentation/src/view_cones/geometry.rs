@@ -342,6 +342,26 @@ pub(crate) fn came_through(eye: Vec2, partner: &PlacedPortal) -> bool {
     (eye - partner.pos).dot(partner.normal) < 0.0
 }
 
+/// True when the two ends of a pair look at each other across open space:
+/// each one is in front of the other.
+///
+/// The window of such an end shows the room in front of its partner, and that
+/// room has the end itself in it, with its window: the picture in the picture
+/// (two portals that face give a row of images of what is between them). So
+/// the capture of this end may draw this end's own window. The window is
+/// behind the surface of the end, in its wall, so it covers no part of the
+/// room that the capture films.
+///
+/// A pair that does not look at itself must not: on a thin wall the window of
+/// an end is in the same place as the room in front of its partner, and a
+/// capture that drew it would film its own picture in place of the room.
+pub(crate) fn pair_looks_at_itself(portal: &PlacedPortal, partner: &PlacedPortal) -> bool {
+    /// More than the two ends of a thin wall are apart.
+    const CLEAR: f32 = 8.0;
+    (partner.pos - portal.pos).dot(portal.normal) > CLEAR
+        && (portal.pos - partner.pos).dot(partner.normal) > CLEAR
+}
+
 /// Below this blend a window that eases shut is shut.
 const BLEND_SHUT: f32 = 0.01;
 

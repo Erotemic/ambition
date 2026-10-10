@@ -165,6 +165,26 @@ owns, and `--player-at X,Y[@TICK]`, which puts the player at a point (repeat
 it to step the player through a portal). A gun's portals go when no gun is in the room, so a gun shot in a
 capture leaves nothing to photograph.
 
+### Two portals that face each other
+
+The window of a portal shows the room in front of its partner. When the two
+ends of a pair look at each other across open space, that room has the first
+end in it, with its window: a body between them is seen again and again, in a
+row. So the capture of an end draws that end's own window
+(`pair_looks_at_itself` in `view_cones/geometry.rs`). The picture in the
+picture is one frame late, and each level is darker by the tint.
+
+A capture of an end whose pair does not look at itself never draws its own
+window. On a thin wall the window of an end is in the same place as the room
+in front of its partner, and a capture that drew it would film its own
+picture in place of the room.
+
+Not seen (2026-10-10): the second image of the row is out of the view of a
+default `capture_scene` capture, and at a wider `--camera-zoom` the capture
+shows no portal window at all. The rule is pinned by
+`a_capture_draws_its_own_window_only_when_its_pair_looks_at_itself`; the
+picture is not confirmed.
+
 ## Validation
 
 Prefer transformation properties:

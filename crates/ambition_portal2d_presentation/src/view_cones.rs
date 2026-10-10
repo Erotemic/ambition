@@ -42,8 +42,9 @@ const PORTAL_CAPTURE_PARALLAX_LAYER_BASE: usize = 32;
 /// Base of the per-portal window layers. Every window mesh carries the shared
 /// [`PORTAL_WINDOW_RENDER_LAYER`] (rendered by the main camera) and its own
 /// `base + slot` layer. A capture camera can then see every other portal's
-/// window (recursion) but not its own. A self-capture is never correct optics;
-/// on a thin-wall pair it shows as a nested window with one frame of lag.
+/// window (recursion). It sees its own only when the pair looks at itself
+/// (`pair_looks_at_itself`): on a thin-wall pair a self-capture shows as a
+/// nested window with one frame of lag, and it is not correct optics.
 /// Base 512 keeps clear of the parallax layers (32 + slot, slot ≤ ~300).
 const PORTAL_WINDOW_SELF_LAYER_BASE: usize = 512;
 
@@ -889,7 +890,7 @@ mod mesh;
 // `view_cones::<item>` paths stay valid.
 mod debug;
 pub use debug::*;
-use geometry::{came_through, eased_blend, 
+use geometry::{came_through, eased_blend, pair_looks_at_itself, 
     aperture_los_rays, aperture_visibility_fraction, capture_dims, compute_cone, cone_render,
     inset_viewer_corners, visibility_route_summary, ApertureLosRay, ConeRender, RebuildKey,
 };
@@ -1059,7 +1060,7 @@ pub fn sync_portal_view_cones(
             effective.recursion_depth,
             effective.include_parallax,
             rig.parallax_layer,
-            &windows_a_capture_may_see(all, rig.channel, room_band),
+            &windows_a_capture_may_see(all, &portal, &partner, room_band),
             room_band,
         );
         sync_cone_material_tint(&cone_materials, materials, rig.cone, config.tint);
@@ -1333,7 +1334,7 @@ pub fn sync_portal_view_cones(
                 effective.recursion_depth,
                 effective.include_parallax,
                 portal_capture_parallax_layer(portal.channel),
-                &windows_a_capture_may_see(all, portal.channel, room_band),
+                &windows_a_capture_may_see(all, portal, &partner, room_band),
                 room_band,
             ),
             Projection::Orthographic(OrthographicProjection {
@@ -1389,16 +1390,29 @@ struct RoomEye<'a> {
 }
 
 /// The per-portal window layers a capture of `own` may see when recursion is
-/// on: each other window of its room, while one room is live.
+/// on: each other window of its room, while one room is live, and its own
+/// window when it and its partner look at each other
+/// ([`pair_looks_at_itself`]).
 ///
 /// While two or more rooms are live it sees none. A per-portal layer is the
 /// layer of a channel, and two live rooms can each hold a portal of one
 /// channel at the same coordinates, so a capture would draw a window of the
 /// other room.
-fn windows_a_capture_may_see(all: &[PlacedPortal], own: PortalChannel, room_band: Option<usize>) -> Vec<usize> {
+fn windows_a_capture_may_see(
+    all: &[PlacedPortal],
+    own: &PlacedPortal,
+    partner: &PlacedPortal,
+    room_band: Option<usize>,
+) -> Vec<usize> {
     match room_band {
         Some(_) => Vec::new(),
-        None => other_window_layers(all, own),
+        None => {
+            let mut layers = other_window_layers(all, own.channel);
+            if pair_looks_at_itself(own, partner) {
+                layers.push(portal_window_self_layer(own.channel));
+            }
+            layers
+        }
     }
 }
 

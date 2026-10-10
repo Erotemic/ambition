@@ -13,10 +13,13 @@
 //! built a part at a time gives an answer that depends on when it was asked.
 //!
 //! An air jump is modelled as one double hop: the second press at the top of
-//! the first arc, proposed only where one jump does not reach.
+//! the first arc, proposed only where one jump does not reach. A wall verb is
+//! modelled as one wall climb: a hop to the face under a higher surface, a
+//! cling, a climb, the ledge and the pull-up, proposed only where nothing else
+//! arrives and only for a body that can cling and climb.
 //!
 //! NOT MODELLED: a drop through a one-way surface, a second air jump, an air
-//! jump in a drop, a dash, a wall verb, flight, a surface that moves, a slope,
+//! jump in a drop, a dash, a wall jump, flight, a surface that moves, a slope,
 //! and a hazard in the air of a leg (a hazard on a surface takes that stretch
 //! out).
 
@@ -38,6 +41,9 @@ const MAX_LEG_STEPS: usize = 360;
 const STALL_STEPS: usize = 15;
 /// How far back from an edge a running jump starts, when the surface has room.
 const RUN_UP: f32 = 140.0;
+/// The most a wall climb rises: a leg rollout has `MAX_LEG_STEPS`, and a
+/// climb of this height at the kernel's climb speed fits in it.
+const MAX_CLIMB: f32 = 600.0;
 
 /// A leg the body can do, from one surface to another.
 #[derive(Clone, Debug, PartialEq)]
@@ -104,6 +110,8 @@ impl NavGraph {
         let air_jump_reach = envelope.air_jump.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         // A body with no air jump measures the jump arc again: no double hop.
         let air_jump_apex = envelope.air_jump_apex_rise();
+        let verbs = body.abilities.abilities;
+        let can_climb = verbs.wall_cling && verbs.wall_climb;
         let mut graph = Self {
             frame: nav,
             half,
@@ -130,7 +138,8 @@ impl NavGraph {
                 let double = air_jump_apex > apex + 1.0
                     && rise < air_jump_apex - 1.0
                     && gap <= air_jump_reach + slack;
-                if rise < -envelope.probe.max_drop || !(hop || drop || double) {
+                let climb = can_climb && rise > 1.0 && rise <= MAX_CLIMB && gap <= air_jump_reach.max(jump_reach) + slack;
+                if rise < -envelope.probe.max_drop || !(hop || drop || double || climb) {
                     continue;
                 }
                 let mut cost = BuildCost::default();
@@ -145,17 +154,14 @@ impl NavGraph {
                 // A double hop only where no hop or drop arrives: each
                 // proposal costs rollouts, and the leg with one jump is the
                 // cheaper one to follow.
-                let best = arrived(proposals(a, b, half.x, hop, drop), &mut cost).or_else(|| {
-                    double
-                        .then(|| {
-                            let doubles = proposals(a, b, half.x, true, false)
-                                .into_iter()
-                                .map(|leg| NavLeg { kind: NavLegKind::DoubleHop, ..leg })
-                                .collect();
-                            arrived(doubles, &mut cost)
-                        })
-                        .flatten()
-                });
+                let as_kind = |kind: NavLegKind| {
+                    proposals(a, b, half.x, true, false).into_iter().map(move |leg| NavLeg { kind, ..leg }).collect()
+                };
+                // The cheaper leg first: one jump, then the air jump, then a
+                // climb, each only where the one before it does not arrive.
+                let best = arrived(proposals(a, b, half.x, hop, drop), &mut cost)
+                    .or_else(|| double.then(|| arrived(as_kind(NavLegKind::DoubleHop), &mut cost)).flatten())
+                    .or_else(|| climb.then(|| arrived(as_kind(NavLegKind::WallClimb), &mut cost)).flatten());
                 graph.cost.add(cost);
                 if let Some((leg, cost)) = best {
                     graph.out[from].push(graph.links.len());
@@ -476,7 +482,8 @@ fn proposals(a: &StandSurface, b: &StandSurface, half_width: f32, hop: bool, dro
 
 fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f32, input: ae::navigation::LegInput) {
     let input = InputState {
-        axes: LocalAxes::new(input.axis, 0.0),
+        // Up is toward -y in the body's local axes.
+        axes: LocalAxes::new(input.axis, if input.up { -1.0 } else { 0.0 }),
         movement: ActionEdges::<MovementAction>::EMPTY.with(
             MovementAction::Jump,
             Edge { pressed: input.jump_pressed, held: input.jump_held, released: false },

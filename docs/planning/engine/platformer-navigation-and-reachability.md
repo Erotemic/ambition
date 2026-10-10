@@ -241,10 +241,24 @@ jump has none. Guard:
 low step stays a hop; with no air jump the ledge is out of reach). Poison:
 no second press, red at the double-hop link.
 
+A wall verb is one leg, the wall climb (2026-10-10): a hop to the face under
+a higher surface (with the air jump on the first falling step, when the body
+has one), then hold into the face and up. The kernel does the rest: a cling,
+a climb at its climb speed, the ledge grab, the pull-up. The follower judges
+no early miss on it, because a climbing body is below its landing the whole
+way up. It is proposed for a body that can cling and climb, only where no
+hop, drop or double hop arrives, up to 600 px. `LegInput.up` carries the
+hold-up (local -y) to the kernel, in the rollout and in the brain. Guard:
+`navigation::graph::tests::a_body_that_climbs_gets_up_a_wall_no_jump_clears`
+(a pillar three jumps tall: a wall-climb link that arrives in the kernel;
+control, with no climb the top is out of reach). Poison: no hold-up, red at
+the wall-climb link. A wall jump (a kick off one face to another) is still
+no leg.
+
 Not modelled, each a seam:
 
 - a drop through a one-way surface, a second air jump, an air jump in a drop,
-  a dash, a wall verb, flight;
+  a dash, a wall jump, flight;
 - a slope or a surface chain, a surface that moves;
 - geometry that is not authored in the room (a gate, a breakable). A leg such a
   thing stops fails, and the brain plans again;
@@ -360,7 +374,7 @@ The slices, each with its own witness:
 
 Not in these slices: enemy navigation and a baked graph (Jon's open
 decisions), a door that needs Interact (a body crosses edge zones first), and
-legs for a wall verb or a dash (the air jump has its leg, above).
+legs for a wall jump or a dash (the air jump and the climb have legs, above).
 
 ## Architecture direction
 

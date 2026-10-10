@@ -288,3 +288,52 @@ fn a_body_with_an_air_jump_reaches_what_one_jump_does_not() {
         "control: with no air jump the ledge is out of reach"
     );
 }
+
+/// ⭐ A BODY THAT CAN CLIMB GETS UP A WALL NO JUMP CLEARS. A pillar beside the
+/// floor, three jumps tall: the body that clings, climbs and takes ledges has
+/// a wall climb to its top, and arrives in the kernel by the follower's rule
+/// (it jumps to the face, holds into it and up, takes the ledge and pulls
+/// itself up). The control is the same body with no climb: the top is out of
+/// reach.
+#[test]
+fn a_body_that_climbs_gets_up_a_wall_no_jump_clears() {
+    let climber = || {
+        let mut body = walker();
+        let verbs = &mut body.abilities.abilities;
+        verbs.wall_cling = true;
+        verbs.wall_climb = true;
+        verbs.ledge_grab = true;
+        body
+    };
+    let apex = TraversalEnvelope::measure(&climber(), normal_frame(), EnvelopeProbe::default())
+        .expect("measured")
+        .apex_rise();
+    let tall = apex * 3.0;
+    let world = World::new(
+        "a pillar no jump clears",
+        Vec2::new(4000.0, 3000.0),
+        Vec2::ZERO,
+        vec![
+            Block::solid("floor", Vec2::new(0.0, FLOOR), Vec2::new(1600.0, 64.0)),
+            Block::solid("pillar", Vec2::new(1200.0, FLOOR - tall), Vec2::new(160.0, tall)),
+        ],
+    );
+    let fixture = Fixture {
+        graph: NavGraph::build(&world, &climber(), normal_frame()).expect("an upright climber has a graph"),
+        world,
+        body: climber(),
+    };
+    assert_eq!(fixture.linked("floor", "pillar"), Some(NavLegKind::WallClimb));
+    fixture
+        .travel(fixture.middle("floor") - Vec2::X * 300.0, fixture.middle("pillar"))
+        .unwrap_or_else(|why| panic!("floor to the pillar's top by a wall climb: {why}"));
+
+    let mut no_climb = climber();
+    no_climb.abilities.abilities.wall_climb = false;
+    let graph = NavGraph::build(&fixture.world, &no_climb, normal_frame()).expect("a walker has a graph");
+    assert_eq!(
+        graph.next(fixture.middle("floor") - Vec2::X * 300.0, fixture.middle("pillar")),
+        NavNext::Unreachable,
+        "control: with no climb the pillar's top is out of reach"
+    );
+}

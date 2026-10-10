@@ -163,18 +163,19 @@ decision, not a defect.
 (an ignored measurement in `app_it`) builds the in-room `NavGraph` for the
 player's own body at each of the playthrough's nine crossings, from the
 arrival out of the room before to the surface where the body overlaps the
-exit zone. It routes 8 of 9 (7 with the air jump taken away). The first
+exit zone. It routes 9 of 9 (2026-10-10; 9 with the air jump taken away,
+8 with the wall verbs taken away). It was 8 of 9 before the wall climb. The first
 probe said 5 of 10, and part of that was its goal: an edge exit beside the
 end of a floor had no surface under its centre, and the goal fell on the
 roof, so the exits of `intro_wake_room`, `intro_raid_corridor` and
 `bob_relay` to `drain_alley` read as climbs, and they are walks. The double
 hop (the in-room legs are this session's since 2026-10-10, from
 ToothbrushAmbition) routes `intro_escape_shaft`: one-way steps 128 px apart,
-above one jump's 83 px apex and under the double jump's 139 px. Left: the
-hub's door to `intro_wake_room`, on a one-way 208 px above the start, with
-two soft blink-wall pillars beside it (their tops link down to it); a wall
-verb or the Blink is the road. Next: a wall leg, then a walked playthrough
-that follows the legs with the player's own inputs.
+above one jump's 83 px apex and under the double jump's 139 px. The hub's
+door to `intro_wake_room` is on a one-way 208 px above the start, with two
+soft blink-wall pillars beside it: the wall climb gets up a pillar, and a
+drop from its top gets to the door. Next: a walked playthrough that follows
+the legs with the player's own inputs.
 
 **Acceptance:** the scenario runs headless in a standing lane and is playable in
 the rendered game; each step asserts its fact against the authority that owns

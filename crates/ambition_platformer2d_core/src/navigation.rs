@@ -41,6 +41,11 @@ pub enum NavLegKind {
     /// Jump at `takeoff`, jump again in the air at the top of the first
     /// arc, and steer to `land`: for a body with an air jump.
     DoubleHop,
+    /// Jump at `takeoff` (and again at the top of the arc, when the body
+    /// has an air jump) to the wall face under `land`, hold into it and up:
+    /// the body clings, climbs, takes the ledge and pulls itself up onto it.
+    /// For a body that can cling and climb.
+    WallClimb,
 }
 
 /// One leg of a route.
@@ -107,6 +112,8 @@ pub struct LegInput {
     pub full_speed: bool,
     pub jump_pressed: bool,
     pub jump_held: bool,
+    /// Hold up: climb a wall, and pull up from a ledge.
+    pub up: bool,
 }
 
 /// What a step of a leg came to.
@@ -158,7 +165,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
             let running = LegInput { axis: direction, full_speed: true, ..Default::default() };
             match leg.kind {
                 NavLegKind::Walk => (LegInput::default(), LegProgress::Going(LegPhase::Approach)),
-                NavLegKind::Hop | NavLegKind::DoubleHop => {
+                NavLegKind::Hop | NavLegKind::DoubleHop | NavLegKind::WallClimb => {
                     if !facts.on_ground {
                         return (LegInput::default(), LegProgress::Failed);
                     }
@@ -170,6 +177,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                             full_speed: true,
                             jump_pressed: true,
                             jump_held: true,
+                            up: false,
                         };
                         return (input, LegProgress::Going(LegPhase::Launch));
                     }
@@ -190,6 +198,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                 full_speed: true,
                 jump_pressed: facts.on_ground,
                 jump_held: true,
+                up: false,
             };
             let next = if facts.on_ground { LegPhase::Launch } else { LegPhase::Air };
             (input, LegProgress::Going(next))
@@ -206,18 +215,33 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                 return (LegInput::default(), progress);
             }
             let falling = facts.vel.dot(facts.down) > 0.0;
+            let climb = leg.kind == NavLegKind::WallClimb;
             // The air jump of a double hop: at the top of the first arc, where
             // it lifts the body highest. Before it, the body is below a
             // landing that one jump does not reach, and that is not a miss.
-            if leg.kind == NavLegKind::DoubleHop && phase == LegPhase::Air {
+            // A wall climb takes it too, to come to the face higher.
+            if matches!(leg.kind, NavLegKind::DoubleHop | NavLegKind::WallClimb) && phase == LegPhase::Air {
                 let input = LegInput {
                     axis: steer_to(leg.land, 16.0),
                     full_speed: true,
                     jump_pressed: falling,
-                    jump_held: true,
+                    jump_held: !climb,
+                    up: climb,
                 };
                 let next = if falling { LegPhase::SecondAir } else { LegPhase::Air };
                 return (input, LegProgress::Going(next));
+            }
+            // A climbing body is below its landing the whole way up, and it
+            // slides down a little before it climbs: no early miss. A climb
+            // that does not get there ends on the ground somewhere else.
+            if climb {
+                let input = LegInput {
+                    axis: steer_to(leg.land, 16.0),
+                    full_speed: true,
+                    up: true,
+                    ..LegInput::default()
+                };
+                return (input, LegProgress::Going(phase));
             }
             // Below the landing top and still falling: the body has missed,
             // and it cannot come back up. Fail now, not where it lands. A hop
@@ -231,6 +255,7 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
                 full_speed: true,
                 jump_pressed: false,
                 jump_held: matches!(leg.kind, NavLegKind::Hop | NavLegKind::DoubleHop),
+                up: false,
             };
             (input, LegProgress::Going(phase))
         }

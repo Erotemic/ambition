@@ -98,7 +98,8 @@ impl NavFollower {
             };
             let (input, progress) = follow_leg(&leg, self.phase, &facts);
             out.locomotion = if input.full_speed {
-                ae::LocalAxes::new(input.axis, 0.0)
+                // Up is toward -y in the body's local axes.
+                ae::LocalAxes::new(input.axis, if input.up { -1.0 } else { 0.0 })
             } else {
                 let far = (approach_point(&leg) - facts.feet).dot(side).abs() > FAR_BEYOND;
                 snapshot.locomotion_for(ae::LocalAxes::new(input.axis * pace(far), 0.0))

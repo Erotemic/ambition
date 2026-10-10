@@ -51,6 +51,8 @@ When a command changes, update or delete the recipe in the same patch.
 
 - [`android-build.md`](android-build.md)
 - [`web-build.md`](web-build.md)
+- [`single-executable.md`](single-executable.md) — the game as one file to
+  give a player, for Linux and for Windows, with its assets inside.
 - [`web-audio-manual-test.md`](web-audio-manual-test.md)
 - [`profiling.md`](profiling.md)
 - [`rollback-proof-mode.md`](rollback-proof-mode.md)

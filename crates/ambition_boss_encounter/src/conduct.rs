@@ -226,19 +226,11 @@ pub fn lower_bursts(
     // A burst is drawn in the live room of the body its entry runs for.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
-    use ambition_vfx::vfx::ParticleKind;
     for submitted in outbox.drain::<BurstPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
         let burst = submitted.value;
-        let kind = match burst.kind.as_str() {
-            "spark" => ParticleKind::Spark,
-            "dust" => ParticleKind::Dust,
-            "shard" => ParticleKind::Shard,
-            "heart" => ParticleKind::Heart,
-            "streak" => ParticleKind::Streak,
-            other => {
-                warn!("extension entry {} asked for a burst of {other:?}; refused", submitted.entry);
-                continue;
-            }
+        let Some(kind) = ambition_vfx::vfx::ParticleKind::named(&burst.kind) else {
+            warn!("extension entry {} asked for a burst of {:?}; refused", submitted.entry, burst.kind);
+            continue;
         };
         vfx.for_room(rooms.of(submitted.scope)).write(ambition_vfx::vfx::VfxMessage::Burst {
             pos: ae::Vec2::from(burst.at),

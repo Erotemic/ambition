@@ -539,7 +539,7 @@ Rust move tables are migration scaffolding.
 **Open work:**
 
 - The three families that did not reload (music cues, cutscenes, quests) all take part since 2026-10-07. The references a candidate can break (a room naming a removed cutscene; a quest step naming a boss or room that does not exist) are judged at request time by the startup validator itself (`ContentGraphRefused`, 2026-10-07). Supersession of an in-flight generation is done (2026-10-07), and the quest book is asked again at the activation gate with the save as it is then, so a save that moves while a generation waits cancels it instead of being clamped.
-- I4: save eligibility; the grapple as a module (blink, dive and mark/recall are, 2026-10-10; the grapple needs a cast the module can ask for: see I4 Open); GNU-ton's conductor as a module.
+- I4: save eligibility; GNU-ton's conductor as a module. Every held traversal item is a module (blink, dive, mark/recall and the grapple, 2026-10-10; the grapple reads the first wall along its aim through `ambition.items.aim_cast`).
 
 **Blocked by:** nothing.
 

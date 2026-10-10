@@ -3,9 +3,9 @@
 //! * [`ranged`]: the bomb
 //! * [`extension`] and [`module_entity`]: the extension adapters of the
 //!   wielded abilities that are procedural modules (shockwave, beam, volley,
-//!   meteor, sentry, vortex, blink, dive, mark/recall)
+//!   meteor, sentry, vortex, blink, dive, mark/recall, grapple)
 //! * [`thrown`]: the gravity grenade
-//! * [`traversal`]: the blink rule, grapple, the mark of mark/recall
+//! * [`traversal`]: the blink rule, the mark of mark/recall
 //! * [`ability_cooldown`]: the shared cooldown
 //!
 //! Not here on purpose: `possession`, `teleport`, `trapdoor`, and `flyline`.
@@ -85,12 +85,7 @@ impl Plugin for AbilitySimulationPlugin {
         // the chained tuple arity cap of the core held-item group.
         app.add_systems(
             sim,
-            (
-                traversal::grapple::grapple_system.in_set(GameplayGated),
-                ability_cooldown::tick_ability_cooldown,
-            )
-                .chain()
-                .in_set(ItemPickupSet::WieldedAbilities),
+            ability_cooldown::tick_ability_cooldown.in_set(ItemPickupSet::WieldedAbilities),
         );
     }
 }

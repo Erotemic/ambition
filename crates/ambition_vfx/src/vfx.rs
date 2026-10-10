@@ -33,6 +33,20 @@ pub enum ParticleKind {
     Streak,
 }
 
+impl ParticleKind {
+    /// The kind a module names on the burst port (`ambition.feedback.burst`).
+    pub fn named(name: &str) -> Option<ParticleKind> {
+        Some(match name {
+            "spark" => ParticleKind::Spark,
+            "dust" => ParticleKind::Dust,
+            "shard" => ParticleKind::Shard,
+            "heart" => ParticleKind::Heart,
+            "streak" => ParticleKind::Streak,
+            _ => return None,
+        })
+    }
+}
+
 /// High-level physics-debris recipe a gameplay event handler emits
 /// (breakable shatter, ragdoll burst). Pure data — the physics adapter owns
 /// the subscriber that spawns actual debris bodies (`ambition_platformer2d_actor_monolith::

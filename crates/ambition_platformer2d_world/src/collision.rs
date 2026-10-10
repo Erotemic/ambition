@@ -107,19 +107,7 @@ impl CollisionWorld<'_, '_> {
     /// sessions can each have a room with one ordinal until the identity is
     /// per session (OW1 cut 5); that is ambiguous, and so is `None`.
     pub fn room(&self, room: Option<&InRoomInstance>) -> Option<RoomCollision<'_>> {
-        let mut matching = self.rooms.iter().filter(|(live, ..)| match room {
-            Some(room) => live.copied() == Some(room.0),
-            None => true,
-        });
-        let (_, geometry, platforms, overlay) = matching.next()?;
-        if matching.next().is_some() {
-            return None;
-        }
-        Some(RoomCollision {
-            geometry,
-            platforms: platforms.map_or(&[][..], |platforms| &platforms.0),
-            overlay,
-        })
+        room_of(self.rooms.iter(), room)
     }
 
     /// [`RoomCollision::solids`] of the sole live room.
@@ -141,6 +129,52 @@ impl CollisionWorld<'_, '_> {
     pub fn base(&self) -> Option<&ae::World> {
         self.room(None).map(RoomCollision::base)
     }
+}
+
+/// [`CollisionWorld::room`] for a reader that has the world and not a system
+/// parameter (an extension observation reads `&World`): the same rule picks
+/// the room. `None` when no room matches, as there.
+pub fn with_room_in_world<R>(
+    world: &bevy_ecs::world::World,
+    room: Option<&InRoomInstance>,
+    read: impl FnOnce(RoomCollision<'_>) -> R,
+) -> Option<R> {
+    let state = world.try_query_filtered::<RoomParts, With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>>()?;
+    let rooms = state.query_manual(world);
+    room_of(rooms.iter(), room).map(read)
+}
+
+type RoomParts = (
+    Option<&'static LiveRoomInstance>,
+    &'static ae::RoomGeometry,
+    Option<&'static MovingPlatformSet>,
+    Option<&'static FeatureEcsWorldOverlay>,
+);
+
+fn room_of<'a>(
+    rooms: impl Iterator<
+        Item = (
+            Option<&'a LiveRoomInstance>,
+            &'a ae::RoomGeometry,
+            Option<&'a MovingPlatformSet>,
+            Option<&'a FeatureEcsWorldOverlay>,
+        ),
+    >,
+    room: Option<&InRoomInstance>,
+) -> Option<RoomCollision<'a>> {
+    let mut matching = rooms.filter(|(live, ..)| match room {
+        Some(room) => live.copied() == Some(room.0),
+        None => true,
+    });
+    let (_, geometry, platforms, overlay) = matching.next()?;
+    if matching.next().is_some() {
+        return None;
+    }
+    Some(RoomCollision {
+        geometry,
+        platforms: platforms.map_or(&[][..], |platforms| &platforms.0),
+        overlay,
+    })
 }
 
 /// The composed walls ([`RoomCollision::solids`]) of each live room that the

@@ -188,6 +188,56 @@ impl Port for MarkPort {
     }
 }
 
+/// How far the host casts along a body's aim for [`AimCastPort`]. A module
+/// that reaches less far reads [`AimHit::distance`].
+pub const AIM_CAST_REACH: f32 = 600.0;
+
+/// The observation port marker for the first wall along a body's aim.
+///
+/// Port card:
+///
+/// * **Operation** — the first solid of the live room the body is in, along
+///   the body's aim (`Wielder::aim_local` in the world, made unit) from its
+///   position, within [`AIM_CAST_REACH`]: where the line meets it and how
+///   far that is. The composed walls: a moving platform or an ECS solid
+///   stops the line; a one-way platform does not.
+/// * **Owner** — `ambition_abilities::extension` (the collision world).
+/// * **Time** — `wielded_use`, at the read cut. The host casts only for an
+///   entry that runs, so an idle tick costs nothing.
+/// * **Absence** — never absent for a body: `hit` is `None` when the aim has
+///   no direction or meets no solid within the reach.
+pub struct AimCastPort;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AimHit {
+    pub at: [f32; 2],
+    pub distance: f32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AimCast {
+    pub hit: Option<AimHit>,
+}
+
+impl Port for AimCastPort {
+    const KEY: PortKey = PortKey::new("ambition.items.aim_cast", 1);
+    const ROLE: PortRole = PortRole::Observation;
+    type Value = AimCast;
+
+    fn encode(v: &AimCast, out: &mut Vec<u8>) {
+        wire::put_opt(out, v.hit, |out, hit| {
+            wire::put_vec2(out, hit.at);
+            wire::put_f32(out, hit.distance);
+        });
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<AimCast, WireError> {
+        Ok(AimCast {
+            hit: r.opt(|r| Ok(AimHit { at: r.vec2()?, distance: r.f32()? }))?,
+        })
+    }
+}
+
 /// The request port marker for setting a body's mark.
 ///
 /// Port card:
@@ -305,6 +355,17 @@ mod tests {
         let mut r = WireReader::new(&out);
         assert_eq!(SetMarkPort::decode(&mut r).unwrap(), set);
         r.finish().unwrap();
+    }
+
+    #[test]
+    fn an_aim_cast_survives_the_wire() {
+        for cast in [AimCast { hit: Some(AimHit { at: [380.0, 300.0], distance: 230.0 }) }, AimCast { hit: None }] {
+            let mut out = Vec::new();
+            AimCastPort::encode(&cast, &mut out);
+            let mut r = WireReader::new(&out);
+            assert_eq!(AimCastPort::decode(&mut r).unwrap(), cast);
+            r.finish().unwrap();
+        }
     }
 
     #[test]

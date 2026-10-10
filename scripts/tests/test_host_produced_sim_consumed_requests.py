@@ -568,10 +568,17 @@ def test_the_schedule_map_gap_is_measured_not_assumed():
     (`HitEvent`) and `lower_effects` (`VfxInRoom`). They are registered through
     `install_extension_request`, the same road as `lower_bursts` and
     `lower_body_holds`, which the scan does not follow. The scan did not change.
+
+    **56** on 2026-10-10: the POPULATION widened by two more, by the same road.
+    The grapple module's adapters write messages: `lower_wielded_bursts` and
+    `lower_hit_marks` (`VfxInRoom`); the native `grapple_system` they replace
+    was located. ⚠ The census keys a system by its NAME: the burst adapter was
+    first named `lower_bursts`, as the boss domain's is, and the count rose by
+    one only, because the two were one row.
     """
     unlocated = guard.unlocated_message_systems()
-    assert 34 <= len(unlocated) <= 54, (
-        f"{len(unlocated)} unlocated message systems; 54 on 2026-10-10 (two extension "
+    assert 34 <= len(unlocated) <= 56, (
+        f"{len(unlocated)} unlocated message systems; 56 on 2026-10-10 (four extension "
         "request adapters joined); the 2026-09-19 reading after "
         "the local-tuple road is 42 (61 before it, 47 before bundle fields joined "
         "the population, 77 before the wrapper road). A fall means another "

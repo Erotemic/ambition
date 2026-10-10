@@ -394,12 +394,13 @@ fn full_half_plane_render_clips_to_the_full_active_frame_at_the_aperture() {
     }
 }
 
-/// In the aperture the window is the whole takeover, and it is whole at once
-/// (`immediate`): a viewer that has just crossed a pair arrives in the far
-/// aperture, and the far window must be whole on that frame. The control is
-/// a viewer inside the blend distance, whose window eases.
+/// Each window of a moving viewer has the ease: no plan is `immediate`, in
+/// the aperture also (a viewer that drops beside a portal must not see a
+/// snap). A viewer that has just crossed a pair arrives at the far end, and
+/// the far window goes on from the blend of the near one, so the picture
+/// does not change at the crossing.
 #[test]
-fn a_window_is_the_whole_takeover_at_once_for_a_viewer_in_its_aperture() {
+fn a_window_eases_each_time_and_takes_its_partners_blend_at_a_crossing() {
     let world = Vec2::new(1600.0, 900.0);
     let enter = placed(
         PortalGunColor::BLUE.channel(),
@@ -430,14 +431,40 @@ fn a_window_is_the_whole_takeover_at_once_for_a_viewer_in_its_aperture() {
         world,
         MapConvention::Reflection,
     );
-    assert!(plan.immediate, "in the aperture the window does not ease");
+    assert!(!plan.immediate && !plan.cut, "in the aperture: the takeover, with the ease");
     assert_eq!(plan.target, 1.0);
     let approaching = PortalViewer {
         eye: enter.pos + enter.normal * (config.half_plane_preview_full_distance + 40.0),
         ..viewer.clone()
     };
     let eased = compute_cone(&enter, &exit, &config, Some(&approaching), world, MapConvention::Reflection);
-    assert!(eased.target > 0.0 && !eased.immediate, "a viewer that walks up to it gets the ease");
+    assert!(eased.target > 0.0 && !eased.immediate);
+
+    // A viewer in front of an end has not come through to it; one behind it
+    // has. No line of sight is asked for.
+    assert!(!came_through(enter.pos + enter.normal * 3.0, &enter));
+    assert!(came_through(enter.pos - enter.normal * 3.0, &enter));
+
+    // A window that was closed and takes a viewer goes on from its partner's
+    // blend, with the ease from there.
+    assert_eq!(eased_blend(0.0, &plan, 0.8, 0.0), 0.8, "the crossing changed the picture");
+    let next = eased_blend(0.0, &plan, 0.8, 0.25);
+    assert!(next > 0.8 && next < 1.0, "{next}");
+    // So does one whose plan has half a view, as at the door of a thin wall.
+    let half = ConePlan { target: 0.5, ..plan };
+    assert_eq!(eased_blend(0.0, &half, 0.74, 0.0), 0.74, "a window with half a view opened from nothing");
+    // A window that is open has its own ease: in its aperture also, it does
+    // not snap to the takeover.
+    let own = eased_blend(0.2, &plan, 0.0, 0.25);
+    assert!(own > 0.2 && own < 0.5, "a window in its aperture snapped: {own}");
+    // A window that took no viewer starts from nothing.
+    let fresh = eased_blend(0.0, &eased, 0.0, 0.25);
+    assert!(fresh > 0.0 && fresh < eased.target, "{fresh}");
+    // A window whose plan is closed eases shut, and is then shut.
+    let shut = ConePlan { target: 0.0, ..eased };
+    let closing = eased_blend(0.6, &shut, 0.0, 0.25);
+    assert!(closing > 0.0 && closing < 0.6, "a window that lost its view snapped shut: {closing}");
+    assert_eq!(eased_blend(0.012, &shut, 0.0, 0.5), 0.0);
     // The window of the side the viewer's centre is not on stays closed: a
     // body that straddles the pair has corners on both sides, and the far
     // window would draw its image of the near side over the near side.
@@ -448,6 +475,9 @@ fn a_window_is_the_whole_takeover_at_once_for_a_viewer_in_its_aperture() {
     };
     let behind = compute_cone(&exit, &enter, &config, Some(&straddling), world, MapConvention::Reflection);
     assert_eq!(behind.target, 0.0, "a window opened for a viewer whose centre is behind its face");
+    // It goes at once, with no ease: it is of the other chart.
+    assert!(behind.cut);
+    assert_eq!(eased_blend(0.9, &behind, 0.9, 0.25), 0.0);
     let min_x = plan
         .wedge
         .entry_quad
@@ -510,7 +540,7 @@ fn near_doorway_view_cone_opens_only_inside_the_proximity_band() {
         (
             span_x(&plan.wedge),
             plan.target,
-            plan.immediate,
+            plan.immediate || plan.debug.half_plane_preview_alpha >= 1.0,
             plan.debug.half_plane_preview_alpha,
         )
     };
@@ -519,8 +549,7 @@ fn near_doorway_view_cone_opens_only_inside_the_proximity_band() {
     let (mid_span, mid_target, mid_immediate, mid_half) = span_at((start_dist + full_dist) * 0.5);
     let (full_span, full_target, full_immediate, full_half) = span_at(full_dist * 0.5);
 
-    // The window eases while the viewer walks up to it, and is whole at once
-    // in the aperture.
+    // Only in the aperture is the viewer at the face.
     assert!(!far_immediate && !mid_immediate && full_immediate);
     assert_eq!(far_target, 0.0);
     assert_eq!(far_half, 0.0);

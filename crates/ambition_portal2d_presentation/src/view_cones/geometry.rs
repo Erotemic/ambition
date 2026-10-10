@@ -319,8 +319,61 @@ pub(crate) struct ConePlan {
     pub(crate) min: ViewCone,
     pub(crate) wedge: ViewCone,
     pub(crate) target: f32,
+    /// The window has no ease: a window of a fixed size (`Static`).
     pub(crate) immediate: bool,
+    /// The window is closed because the viewer's centre is not in front of
+    /// its face. It goes at once: it would draw its image of the viewer's own
+    /// side over that side.
+    pub(crate) cut: bool,
     pub(crate) debug: ConePlanDebug,
+}
+
+/// Whether a viewer at `eye` has come through the pair to `partner`'s other
+/// end: its centre is behind `partner`'s face. With a partner window that was
+/// open the frame before, that is a crossing (a viewer in front of a face is
+/// behind it one frame later only when the pair carried it), and the window
+/// of this end takes the partner's blend.
+///
+/// The measure does not ask for a line of sight. At the door of a thin wall
+/// two corners of the body are past the plane when the centre crosses, and a
+/// rule that waited for the whole view opened the far window from nothing:
+/// the picture was the bare world for some frames at each crossing.
+pub(crate) fn came_through(eye: Vec2, partner: &PlacedPortal) -> bool {
+    (eye - partner.pos).dot(partner.normal) < 0.0
+}
+
+/// Below this blend a window that eases shut is shut.
+const BLEND_SHUT: f32 = 0.01;
+
+/// The blend a window goes on with this frame, from the blend it had
+/// (`before`, 0.0 for a closed window) toward its plan's target. 0.0 is a
+/// closed window.
+///
+/// A window opens and closes with an ease, each time: a snap reads as a
+/// fault in the world. Two cases are not an ease from the window's own blend:
+///
+/// - A window that opens when its viewer has come through the pair took the
+///   viewer from its partner. The two are one window seen from its two
+///   sides, so it goes on from the partner's blend (`taken_over`), and the
+///   picture does not change at the crossing. `taken_over` is 0.0 for a
+///   window that took no viewer ([`came_through`]).
+/// - A window that is `cut` goes at once.
+///
+/// `step` is the part of the way to the target that one frame goes.
+pub(crate) fn eased_blend(before: f32, plan: &ConePlan, taken_over: f32, step: f32) -> f32 {
+    if plan.cut {
+        return 0.0;
+    }
+    if plan.immediate {
+        return plan.target;
+    }
+    let from = if before <= 0.0 { taken_over } else { before };
+    let next = from + (plan.target - from) * step.clamp(0.0, 1.0);
+    if plan.target <= 0.0 && next < BLEND_SHUT {
+        0.0
+    } else {
+        next
+    }
 }
 
 /// Derived per-frame geometry diagnostics for a [`ConePlan`]. These values are
@@ -580,6 +633,7 @@ pub(crate) fn compute_cone(
             wedge: min,
             target: 0.0,
             immediate: false,
+            cut: false,
             debug: ConePlanDebug::default(),
         }
     };
@@ -593,6 +647,7 @@ pub(crate) fn compute_cone(
                 wedge: c,
                 target: 1.0,
                 immediate: true,
+                cut: false,
                 debug: ConePlanDebug::default(),
             };
         }
@@ -607,6 +662,7 @@ pub(crate) fn compute_cone(
         wedge: min,
         target: 0.0,
         immediate: false,
+        cut: false,
         debug: ConePlanDebug::default(),
     };
     let Some(v) = viewer.filter(|v| v.present) else {
@@ -619,13 +675,14 @@ pub(crate) fn compute_cone(
     // side, moved by the pair's map, over that side. So a window opens only
     // for a viewer whose centre is in front of its face. The body changes
     // side when its centre crosses (the portal core's rule), and on that
-    // frame the two windows change over (`immediate`, below).
+    // frame the two windows change over: this one is `cut`, and its partner
+    // goes on from this one's blend (`eased_blend`).
     //
     // "Behind" has a tolerance: a viewer a hair past a face (the frame its
     // centre crosses, before its position is the far one) still has that
     // face's window, or the picture would show one frame with no window.
     if (v.eye - enter.frame.origin).dot(enter.frame.normal) < -BEHIND_FACE_TOLERANCE {
-        return closed(min);
+        return ConePlan { cut: true, ..closed(min) };
     }
     let corners = inset_viewer_corners(v.eye, v.half_size);
     let mut eyes: Vec<Vec2> = Vec::with_capacity(corners.len() * 3);
@@ -812,13 +869,8 @@ pub(crate) fn compute_cone(
         min,
         wedge,
         target: target * config.viewer_blend.clamp(0.0, 1.0),
-        // At the aperture the window is the whole takeover, with no ease: a
-        // viewer that has just crossed arrives at the far aperture, and its
-        // window must be whole on that frame, as the near one was the frame
-        // before. An ease there would show the far side at its own place for
-        // some frames and then move it. A viewer that walks up to a portal
-        // has opened the window by distance before it gets here.
-        immediate: half_plane_alpha >= 1.0,
+        immediate: false,
+        cut: false,
         debug,
     }
 }

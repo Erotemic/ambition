@@ -183,9 +183,27 @@ pub enum ParallaxTheme {
     /// An open daylight sky of cloud banks and wind streaks: the Mockingbird's
     /// air chase, drawn wrapping as it scrolls (`sky_scroll`).
     OpenSky,
+    /// The sky of the two-state room look in its clean state: a pale city on
+    /// drawing paper (`room_look_sky.py` in the parallax renderer). A room
+    /// with that look names it as its `parallax_theme`.
+    HubClean,
+    /// The same sky in its corrupted state: the city rebuilt in blocks. No
+    /// room names it. The look draws it over [`Self::HubClean`] where the air
+    /// of its room is corrupted.
+    HubCorrupt,
 }
 
 impl ParallaxTheme {
+    /// The theme of the same sky in its corrupted state, for a theme that has
+    /// one. A room that names a theme loads that one with it, and keeps it for
+    /// as long: the look of the room draws it, and no room names it.
+    pub const fn corrupted(self) -> Option<Self> {
+        match self {
+            Self::HubClean => Some(Self::HubCorrupt),
+            _ => None,
+        }
+    }
+
     pub const ALL: &'static [Self] = &[
         Self::Hub,
         Self::Lab,
@@ -198,6 +216,8 @@ impl ParallaxTheme {
         Self::Forest,
         Self::Cave,
         Self::OpenSky,
+        Self::HubClean,
+        Self::HubCorrupt,
     ];
 
     pub const fn key(self) -> &'static str {
@@ -213,6 +233,8 @@ impl ParallaxTheme {
             Self::Forest => "forest",
             Self::Cave => "cave",
             Self::OpenSky => "open_sky",
+            Self::HubClean => "hub_clean",
+            Self::HubCorrupt => "hub_corrupt",
         }
     }
 
@@ -282,6 +304,8 @@ impl ParallaxTheme {
             }
             "cave" | "damp" => Some(Self::Cave),
             "open_sky" | "clouds" | "air_chase" => Some(Self::OpenSky),
+            "hub_clean" => Some(Self::HubClean),
+            "hub_corrupt" => Some(Self::HubCorrupt),
             _ => None,
         }
     }
@@ -591,9 +615,14 @@ pub fn ensure_parallax_layers_for_room(
     quality: Option<&VisualQualityBudget>,
 ) {
     let theme = ParallaxTheme::from_room_metadata(metadata);
-    let added = assets
+    let mut added = assets
         .parallax_layers
         .ensure_theme_loaded(catalog, asset_server, theme, quality);
+    if let Some(corrupted) = theme.corrupted() {
+        added += assets
+            .parallax_layers
+            .ensure_theme_loaded(catalog, asset_server, corrupted, quality);
+    }
     if added > 0 {
         bevy::log::debug!(
             target: "ambition_platformer2d::assets",

@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-10-09
+last_verified: 2026-10-10
 related_docs:
   - docs/systems/camera-and-visual-profiles.md
   - docs/systems/parallax-backgrounds.md
@@ -43,7 +43,7 @@ the layer.
 
 | Role | Quad | Two-state look | Drawing look |
 | --- | --- | --- | --- |
-| backdrop | the room | sky, far towers, islands, a viaduct, construction lines | grid, far outlines, paths with nodes |
+| backdrop | the room | the corrupted sky over the clean one, and fog (authored parallax layers) | grid, far outlines, paths with nodes |
 | surface | one `Solid`, `OneWay` or `BlinkWall` block | masonry, cap, gold trim, ivy on the corners; a blink wall is a veil of glass in a gold lattice | outline and hatch; a one-way platform is closed on top only; a blink wall has no closed side |
 | underside | below one platform | brackets, arches, a banner, ivy, water or light that falls | drop lines; marks that rise below a one-way platform |
 | portal | around one door | an arch on pilasters | the trigger box of the door |
@@ -66,6 +66,12 @@ room looks as it did before.
 The drawing look (`debug_beautiful`) draws each role with one shader, each
 frame (`room_blueprint.wgsl`).
 
+**No shader of the two-state look draws art** (Jon, 2026-10-10: "we should
+not be generating art in shaders. They should be authored assets"). A shader
+of the look composites: it reads authored textures, and the front of the room
+says what shows. What it adds is of the front, not art: the heat and the burn
+of the stone near it, the veil of a blink wall, loose blocks, fog.
+
 The two-state look (`clean_corrupted`) does not draw its architecture with a
 shader each frame. The surfaces of terrain blocks, the undersides and the door
 frames are drawn one time for each room into textures, and shown from them:
@@ -75,7 +81,8 @@ frames are drawn one time for each room into textures, and shown from them:
 | the art | `room_look/architecture.rs` | The colour of one world point of one piece, in each state. Rust, no time, no front. The one authority on the architecture. |
 | the plates | `room_look/plates.rs` | Puts each piece, in its two states, on a page of an atlas (a plate), and draws the pages on the compute pool. A texel is one world px. |
 | the quads | `RoomPlateMaterial`, `room_plate.wgsl` | Reads the two states from the plate. The front of the room says which one a point shows. Adds what the front does to the stone near it, and what falls from a platform. |
-| the rest | `RoomStateMaterial`, `room_state.wgsl` | The sky, the veil of a blink wall and the overlay. These move, or they are not things of the room. |
+| the sky | `RoomSkyMaterial`, `room_sky.wgsl` | Lays the authored corrupted sky over the authored clean one where the air is corrupted, and the fog. See "The sky is authored". |
+| the rest | `RoomStateMaterial`, `room_state.wgsl` | The veil of a blink wall and the overlay: effects of the front. |
 
 The cost of the architecture for each pixel is two texture reads and the
 front. Far from the front (`look_is_settled`: all of a room that is all clean
@@ -129,40 +136,61 @@ Rules that keep the corrupted state readable as a place to play:
   platform, a block that grew past its box, a dead leaf, a loose block of the
   front (which is hollow).
 
-### The sky is behind the play
+### The sky is authored
 
-The play is sharp and clear. The sky of the two-state look is the opposite, so
-that the eye sorts the two with no effort:
+The sky of the two-state look is two parallax themes, of four layers each, as
+each parallax theme is (`docs/systems/parallax-backgrounds.md`):
 
-- Its far architecture is out of focus. Each row (city, towers, islands,
-  viaduct) has an edge that is some px wide and not a hard edge
-  (`soft_edge` in `room_look_common.wgsl`); a farther row has a wider edge.
-  The blocks of the corrupted sky blend into each other across the same
-  width. The blur is computed with the shape, so it costs no more samples.
-- There is fog between the sky and the play: slow, wide patches, pale in
-  clean air and lilac in corrupted air.
+| Theme | What it is |
+| --- | --- |
+| `hub_clean` | A pale city of towers, floating islands and a viaduct, on drawing paper, with gold construction lines. |
+| `hub_corrupt` | The same city rebuilt in blocks, in violet air, with soft beams of light. |
 
-`RoomLookDepth` holds the numbers, to tune by eye:
+The parallax renderer draws them
+(`tools/ambition_parallax_renderer/ambition_parallax_renderer/room_look_sky.py`),
+from one layout, so a tower of one state is the same tower in the other.
+Publish them with `scripts/regen/backgrounds.sh`; the PNG files are generated
+and not in Git, as each parallax layer is. To look at the two states with no
+game: `python -m ambition_parallax_renderer.room_look_sky out.png`.
+
+How the game shows them:
+
+- A room with the look names `hub_clean` as its `parallax_theme` level field,
+  and the parallax system draws it as it draws each sky. On a tier with no
+  budget for the look, that is the room's sky.
+- `RoomSkyMaterial` is one quad over it. It lays the four layers of
+  `hub_corrupt` where the air of the room is corrupted, each at the place the
+  parallax system puts the same layer of the clean theme (`panel_uv` in
+  `room_sky.wgsl` is the rule of `sync_parallax_transform_to_camera`), so the
+  two states register. The change is through a lilac mist.
+
+The sky is behind the play, and it must read so. The play is sharp, has the
+darkest values and the bright lines. The sky is the opposite:
+
+- It is out of focus. The blur is in the art: `BLUR` in `room_look_sky.py`, a
+  radius for each layer, more for a farther one. Change it there and publish.
+- It has mid values and low contrast, and a block of the corrupted sky has no
+  lit edge.
+- There is fog between it and the play: slow, wide patches, pale over the
+  clean sky and lilac over the corrupted one. `RoomLookDepth` holds its
+  numbers, to tune by eye:
 
 | Field | Default | What it is |
 | --- | --- | --- |
-| `blur_px` | 3.0 | The width of the edge of the nearest far architecture (the viaduct), in world px. 0 is a hard edge. |
-| `far_blur` | 2.0 | How many times wider the edge of the farthest (the city) is. |
-| `fog` | 0.22 | How much fog is in front of the sky, 0 to 1. |
+| `fog` | 0.14 | How much fog is in front of the sky, 0 to 1. |
 | `fog_patches` | 0.5 | How much the fog is in patches, 0 (even) to 1. |
 
-To tune them in a window, open the developer inspector: `RoomLookDepth` has a
-window of its own, and each change is drawn in the next frame. To photograph a
-set of numbers:
+To tune the fog in a window, open the developer inspector: `RoomLookDepth` has
+a window of its own, and each change is drawn in the next frame. To photograph
+a set of numbers:
 
 ```bash
 capture_scene central_hub_complex player out.png 1280x720 --warmup 100 \
-    --flag look.central_hub_complex.corrupt --look-depth 3,2,0.22,0.5
+    --flag look.central_hub_complex.corrupt --look-depth 0.14,0.5
 ```
 
-`--look-depth 0,1,0,0` is the sky with no blur and no fog. The numbers are a
-session resource and are not saved: when they are right, write them as the
-defaults in `room_look.rs`.
+The numbers are a session resource and are not saved: when they are right,
+write them as the defaults in `room_look.rs`.
 
 Rules that keep the clean state still:
 
@@ -223,10 +251,11 @@ front as it moves.
   (`dress_doors`, `ink_labels_on_the_clean_side`), so they run in each budget.
   Guard: `a_room_look_undresses_when_its_budget_goes` (Full, Potato, Full, with
   no room load).
-- The sky of the two-state look is still one shader that fills the screen:
-  five rows of far architecture at five parallax depths, in each state. It
-  could be parallax layers (`docs/systems/parallax-backgrounds.md`). The hub
-  has four authored parallax images that this sky covers.
+- The architecture of the two-state look is drawn by code when a room comes
+  (`architecture.rs`), into textures. It is not a shader, and it is not an
+  authored tileset.
+- The drawing look (`debug_beautiful`) is still one shader: it draws the
+  collision truth of a room, for a developer.
 - On a build with one thread (web), the task that draws the plates runs on the
   main thread.
 - A field name of a struct in a shader library must not end in a digit. The

@@ -102,10 +102,10 @@ struct SceneCaptureConfig {
     /// so art a boss wears by its wounds — the Flying Spaghetti Monster's sauce
     /// — can be photographed without fighting it there.
     boss_hp: Option<f32>,
-    /// The blur and the fog of the sky of the two-state room look
-    /// (`--look-depth BLUR,FAR,FOG,PATCHES`), to tune them with photographs:
-    /// the numbers of `RoomLookDepth`, in its field order.
-    look_depth: Option<[f32; 4]>,
+    /// The fog in front of the sky of the two-state room look
+    /// (`--look-depth FOG,PATCHES`), to tune it with photographs: the numbers
+    /// of `RoomLookDepth`, in its field order.
+    look_depth: Option<[f32; 2]>,
     /// Screen post-process effects to force on (`--screen-effect crt,vignette`).
     ///
     /// Without this flag a capture cannot show post-process. The effects are
@@ -266,12 +266,11 @@ OPTIONS:
     --nav-overlay       draw the surface graph a navigating body is advised from
                         (surfaces green, hops yellow, drops orange)
     --combat-overlay    force the COMBAT gizmos on (hitboxes, collision boxes)
-    --look-depth BLUR,FAR,FOG,PATCHES
-                        the blur and the fog of the sky of the two-state room
-                        look (`RoomLookDepth`): the edge width of the nearest
-                        far architecture in world px, how many times wider the
-                        farthest is, the fog from 0 to 1, and how much it is
-                        in patches from 0 to 1. The default is 3,2,0.22,0.5.
+    --look-depth FOG,PATCHES
+                        the fog in front of the sky of the two-state room look
+                        (`RoomLookDepth`): how much, from 0 to 1, and how much
+                        it is in patches, from 0 to 1. The default is 0.22,0.5.
+                        The blur of the sky is in its art (`room_look_sky.py`).
     --boss-hp F         hold every boss's health at fraction F of its max, to
                         photograph art it wears by its wounds
     --screen-effect E   force screen post-process effects on, comma separated:
@@ -411,10 +410,10 @@ fn force_look_depth(
     config: Res<SceneCaptureConfig>,
     depth: Option<ResMut<ambition_content::presentation::room_look::RoomLookDepth>>,
 ) {
-    let (Some([blur_px, far_blur, fog, fog_patches]), Some(mut depth)) = (config.look_depth, depth) else {
+    let (Some([fog, fog_patches]), Some(mut depth)) = (config.look_depth, depth) else {
         return;
     };
-    let wanted = ambition_content::presentation::room_look::RoomLookDepth { blur_px, far_blur, fog, fog_patches };
+    let wanted = ambition_content::presentation::room_look::RoomLookDepth { fog, fog_patches };
     if *depth != wanted {
         *depth = wanted;
     }
@@ -719,7 +718,7 @@ impl SceneCaptureConfig {
         let mut combat_overlay = false;
         let mut nav_overlay = false;
         let mut boss_hp: Option<f32> = None;
-        let mut look_depth: Option<[f32; 4]> = None;
+        let mut look_depth: Option<[f32; 2]> = None;
         let mut screen_effects: Vec<ScreenEffect> = Vec::new();
         // One shot every frame by default.
         let mut frames: usize = 1;
@@ -773,8 +772,8 @@ impl SceneCaptureConfig {
                         .get(i + 1)
                         .map(|value| value.split(',').filter_map(|n| n.trim().parse().ok()).collect())
                         .unwrap_or_default();
-                    look_depth = Some(<[f32; 4]>::try_from(numbers).map_err(|_| {
-                        "--look-depth wants four numbers: BLUR,FAR,FOG,PATCHES (e.g. 3,2,0.22,0.5)".to_string()
+                    look_depth = Some(<[f32; 2]>::try_from(numbers).map_err(|_| {
+                        "--look-depth wants two numbers: FOG,PATCHES (e.g. 0.22,0.5)".to_string()
                     })?);
                     2
                 }

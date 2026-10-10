@@ -17,6 +17,8 @@ from typing import Iterable, List, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter
 
+from . import room_look_sky
+
 RGB = Tuple[int, int, int]
 RGBA = Tuple[int, int, int, int]
 SIZE = 768
@@ -179,6 +181,33 @@ THEMES: tuple[Theme, ...] = (
         (186, 166, 224),
         "none",
         "crystal_cave",
+        0,
+    ),
+    # The sky of the two-state room look (`room_look_sky.py`): one sky in two
+    # states, drawn from one layout. The colours here are for the manifest and
+    # for a reader; the art is drawn by `room_look_sky.render_look_layer`.
+    Theme(
+        "hub_clean",
+        (248, 243, 231),
+        (236, 236, 236),
+        (221, 228, 239),
+        (192, 202, 221),
+        (204, 176, 107),
+        (250, 247, 240),
+        "none",
+        "room_look_clean",
+        0,
+    ),
+    Theme(
+        "hub_corrupt",
+        (40, 23, 72),
+        (70, 36, 104),
+        (100, 48, 134),
+        (52, 31, 92),
+        (255, 70, 180),
+        (150, 84, 196),
+        "none",
+        "room_look_corrupt",
         0,
     ),
 )
@@ -1445,6 +1474,10 @@ def _draw_foreground_atmosphere(theme: Theme) -> Image.Image:
 
 
 def render_layer(theme: Theme, layer: Layer) -> Image.Image:
+    if theme.key in room_look_sky.THEME_KEYS:
+        # The sky of the two-state room look has its own art, and its own
+        # alpha: it is behind the play by its blur and its values.
+        return room_look_sky.render_look_layer(theme.key, layer.key)
     if layer.opaque:
         image = _draw_sky(theme)
     elif layer.key == "far_backplate":

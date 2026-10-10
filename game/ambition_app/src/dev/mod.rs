@@ -223,8 +223,8 @@ fn install_egui_inspectors(app: &mut App) {
                 .run_if(inspector_visible),
         )
         .add_plugins(
-            // Presentation numbers to tune by eye: the blur and the fog of
-            // the sky of the two-state room look. No simulation reads them.
+            // Presentation numbers to tune by eye: the fog in front of the
+            // sky of the two-state room look. No simulation reads them.
             ResourceInspectorPlugin::<ambition_content::presentation::room_look::RoomLookDepth>::default()
                 .run_if(inspector_visible),
         )

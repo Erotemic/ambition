@@ -122,8 +122,12 @@ pub(crate) fn parallax_keep_set(
     let mut add = |index: usize| {
         if let Some(room) = rooms.rooms.get(index) {
             let theme = ParallaxTheme::from_room_metadata(&room.metadata);
-            if !keep.contains(&theme) {
-                keep.push(theme);
+            // A theme with a corrupted state is loaded with it
+            // (`ensure_parallax_layers_for_room`), and is kept with it.
+            for theme in std::iter::once(theme).chain(theme.corrupted()) {
+                if !keep.contains(&theme) {
+                    keep.push(theme);
+                }
             }
         }
     };
@@ -207,5 +211,21 @@ mod tests {
             vec![ParallaxTheme::Hub, ParallaxTheme::Lab, ParallaxTheme::Cave, ParallaxTheme::Basement],
             "two live rooms keep both themes and both neighbourhoods, and not Boss"
         );
+    }
+
+    /// A theme that has a corrupted state keeps it: the look of the room
+    /// draws it and no room names it. The control is `Hub`, which has none.
+    #[test]
+    fn a_theme_keeps_its_corrupted_state_with_it() {
+        let rooms = RoomSet::from_parts_or_panic(
+            "a",
+            vec![room("a", ParallaxTheme::HubClean, &["b"]), room("b", ParallaxTheme::Hub, &["a"])],
+            vec![link("a", "b")],
+        );
+        assert_eq!(
+            parallax_keep_set(&rooms, &[0]),
+            vec![ParallaxTheme::HubClean, ParallaxTheme::HubCorrupt, ParallaxTheme::Hub],
+        );
+        assert_eq!(parallax_keep_set(&rooms, &[1])[0], ParallaxTheme::Hub);
     }
 }

@@ -559,6 +559,10 @@ pub(crate) fn visibility_route_summary(
 /// visible LOS geometry; setting
 /// [`PortalViewConeConfig::half_plane_preview_full_distance`] to `0.0` leaves
 /// only exact LOS-derived geometry at the configured ray fidelity.
+/// How far behind a face a viewer's centre can be, in world px, and still be
+/// in front of it for its window (`compute_cone`).
+const BEHIND_FACE_TOLERANCE: f32 = 2.0;
+
 pub(crate) fn compute_cone(
     portal: &PlacedPortal,
     partner: &PlacedPortal,
@@ -608,6 +612,21 @@ pub(crate) fn compute_cone(
     let Some(v) = viewer.filter(|v| v.present) else {
         return closed(min);
     };
+    // The picture is ONE chart: the chart of the side the viewer's centre is
+    // on. A body that straddles a pair has corners on both sides, and each
+    // such corner is an eye that can admit a window; but the window of the
+    // side the centre is NOT on would draw its image of the viewer's own
+    // side, moved by the pair's map, over that side. So a window opens only
+    // for a viewer whose centre is in front of its face. The body changes
+    // side when its centre crosses (the portal core's rule), and on that
+    // frame the two windows change over (`immediate`, below).
+    //
+    // "Behind" has a tolerance: a viewer a hair past a face (the frame its
+    // centre crosses, before its position is the far one) still has that
+    // face's window, or the picture would show one frame with no window.
+    if (v.eye - enter.frame.origin).dot(enter.frame.normal) < -BEHIND_FACE_TOLERANCE {
+        return closed(min);
+    }
     let corners = inset_viewer_corners(v.eye, v.half_size);
     let mut eyes: Vec<Vec2> = Vec::with_capacity(corners.len() * 3);
     let mut coverage: f32 = 0.0;
@@ -793,7 +812,13 @@ pub(crate) fn compute_cone(
         min,
         wedge,
         target: target * config.viewer_blend.clamp(0.0, 1.0),
-        immediate: false,
+        // At the aperture the window is the whole takeover, with no ease: a
+        // viewer that has just crossed arrives at the far aperture, and its
+        // window must be whole on that frame, as the near one was the frame
+        // before. An ease there would show the far side at its own place for
+        // some frames and then move it. A viewer that walks up to a portal
+        // has opened the window by distance before it gets here.
+        immediate: half_plane_alpha >= 1.0,
         debug,
     }
 }

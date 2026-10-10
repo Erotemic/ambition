@@ -20,7 +20,18 @@ pub mod room_look;
 pub mod dialog;
 pub mod vanity_card_made_this_meme;
 
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, SessionScopedEntity, SessionSpawnScope};
 use bevy::prelude::{App, Plugin};
+
+/// The scope an overlay of a visual is spawned under: the session and the live
+/// room of the visual it decorates.
+///
+/// An overlay is a different entity from its visual, so it gets no stamp from
+/// it. Without the room stamp the camera of each live room draws the overlay,
+/// and room retirement does not remove it with its room.
+pub(crate) fn overlay_scope_of(owner: Option<&SessionScopedEntity>, room: Option<&InRoomInstance>) -> SessionSpawnScope {
+    SessionSpawnScope::new(owner.map(|owner| owner.0)).in_room(room.map(|room| room.0))
+}
 
 /// Installs every named Ambition presentation pass: the one concrete dialogue
 /// presenter plus actor overlays. Add AFTER (or beside)
@@ -39,5 +50,30 @@ impl Plugin for AmbitionPresentationPlugin {
         fsm_sauce::install(app);
         mockingbird_sky::install(app);
         room_look::install(app);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, SpawnSessionScopedExt};
+    use bevy::prelude::*;
+
+    /// An overlay is in the room of the visual it decorates, and in no room
+    /// when that visual is in none.
+    #[test]
+    fn an_overlay_is_stamped_with_the_room_of_its_visual() {
+        let mut world = World::new();
+        let room = InRoomInstance(LiveRoomInstance::ACTIVATION);
+        let (in_room, in_none) = {
+            let mut commands = world.commands();
+            (
+                commands.spawn_session_scoped(overlay_scope_of(None, Some(&room)), Name::new("overlay")).id(),
+                commands.spawn_session_scoped(overlay_scope_of(None, None), Name::new("overlay")).id(),
+            )
+        };
+        world.flush();
+        assert_eq!(world.get::<InRoomInstance>(in_room).map(|stamp| stamp.0), Some(room.0));
+        assert!(world.get::<InRoomInstance>(in_none).is_none());
     }
 }

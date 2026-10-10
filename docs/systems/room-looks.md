@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-10-08
+last_verified: 2026-10-09
 related_docs:
   - docs/systems/camera-and-visual-profiles.md
   - docs/systems/parallax-backgrounds.md
@@ -13,8 +13,9 @@ A room look is a named style for the architecture of one room. It is
 presentation only. A look reads the blocks and doors of the room and draws over
 them. Collision does not change, and a headless simulation does not install it.
 
-The looks are content: `game/ambition_content/src/presentation/room_look.rs` and
-the shaders in `presentation/shaders/`. The renderer crate names no look.
+The looks are content: `game/ambition_content/src/presentation/room_look.rs`,
+its modules in `presentation/room_look/`, and the shaders in
+`presentation/shaders/`. The renderer crate names no look.
 
 ## How a room asks for a look
 
@@ -35,10 +36,10 @@ A room with no `palette` value looks as it did before.
 
 ## How a look is built
 
-One `Material2d` draws a whole look. Each quad is a window, in world space,
-into one procedural scene. Thus the art stays on the architecture when the
-camera moves, and each camera (a split view, a portal capture) draws the look
-correctly. The role of a quad selects the layer.
+Each quad of a look is a window, in world space, into one scene. Thus the art
+stays on the architecture when the camera moves, and each camera (a split
+view, a portal capture) draws the look correctly. The role of a quad selects
+the layer.
 
 | Role | Quad | Two-state look | Drawing look |
 | --- | --- | --- | --- |
@@ -57,21 +58,84 @@ in Git: publish them with
 `python -m ambition_sprite2d_renderer publish entities --dest-root <sprites>`
 and `scripts/regen/quality_variants.sh --sprites-only --target 'door_*'`.
 
-The block sprites stay below the surface quads. If a material does not draw,
-the room looks as it did before.
+The block sprites stay below the surface quads. If a look does not draw, the
+room looks as it did before.
+
+### What draws each role
+
+The drawing look (`debug_beautiful`) draws each role with one shader, each
+frame (`room_blueprint.wgsl`).
+
+The two-state look (`clean_corrupted`) does not draw its architecture with a
+shader each frame. The surfaces of terrain blocks, the undersides and the door
+frames are drawn one time for each room into textures, and shown from them:
+
+| Part | File | What it does |
+| --- | --- | --- |
+| the art | `room_look/architecture.rs` | The colour of one world point of one piece, in each state. Rust, no time, no front. The one authority on the architecture. |
+| the plates | `room_look/plates.rs` | Puts each piece, in its two states, on a page of an atlas (a plate), and draws the pages on the compute pool. A texel is one world px. |
+| the quads | `RoomPlateMaterial`, `room_plate.wgsl` | Reads the two states from the plate. The front of the room says which one a point shows. Adds what the front does to the stone near it, and what falls from a platform. |
+| the rest | `RoomStateMaterial`, `room_state.wgsl` | The sky, the veil of a blink wall and the overlay. These move, or they are not things of the room. |
+
+The cost of the architecture for each pixel is two texture reads and the
+front. Far from the front (`look_is_settled`: all of a room that is all clean
+or all corrupted) the front is one dot product, and the overlay draws nothing.
+
+The plate is read with a filter that keeps a texel sharp and blends only at
+its edge. The art has lines one px wide, and with no filter each of them
+changed pixels when the camera moved by a part of a pixel.
+
+### When the plates are drawn
+
+`prepare_room_plates` keeps the plates of each two-state room that is live and
+of each two-state room next to a live room (`RoomPlates`). It draws them in a
+task off the main thread, so a room's plates are ready before the room comes
+and no frame pays for the drawing. The hub's 84 pieces are 10.5 Mpx on three
+pages and take about 60 ms of the compute pool (measured in `capture_scene`,
+2026-10-09).
+
+A page is at most 2048 x 2048 texels. That is the unit of the upload budget
+for a frame of visible gameplay (`render_asset_budget.rs`, 16 MiB), so the
+pages go to the GPU one for each frame.
+
+A room that comes with no plates (the first room of a session, a room a warp
+reaches) shows its block sprites until its plates are drawn. An entry whose
+room has other pieces now (a level loaded again) is drawn again.
+
+The unit quad of the looks is made at install and not with the first room. A
+mesh that goes to the GPU in a frame whose upload budget is spent arrives
+late, and Bevy does not try again to draw a quad whose mesh was late (it does
+for a late material). With the quad made in the frame of a large upload, no
+quad of the look was drawn until its material changed.
 
 ## The two states are one drawing
 
-The corrupted state of `clean_corrupted` is not a second set of art. The shader
-computes it from the construction of the clean state: the same silhouette in
-blocks, the same gold lines as lit lines, the same streams as light and not
-water. A scalar field in world space selects the state of each point. Built
+The corrupted state of `clean_corrupted` is not a second set of art.
+`architecture.rs` computes it from the construction of the clean state: the
+same silhouette in blocks, the same gold lines as lit lines, the same streams
+as light and not water. A scalar field in world space selects the state of
+each point (`look_field` and `look_claim` in `room_look_common.wgsl`). Built
 things break at a hard edge made of blocks. Open air changes as haze.
 
-Two rules keep the look honest about collision:
+Rules that keep the corrupted state readable as a place to play:
 
-- The top row of a corrupted block is always solid, and it has one bright line.
-- Ornament below a platform is behind the surfaces and has less contrast.
+- The top of a corrupted block has one bright line, and each other side of
+  its collision box has a rim. The box is opaque: a block that the mass lost
+  is a dark hollow, not the sky.
+- The darkest values and the hard bright lines are for what a body touches.
+  The sky has mid values, low contrast and soft light; a tower of the sky has
+  no lit edge.
+- What is not a place to stand lets the sky through: the ornament below a
+  platform, a block that grew past its box, a dead leaf, a loose block of the
+  front (which is hollow).
+
+Rules that keep the clean state still:
+
+- Nothing of the architecture moves. The ivy does not sway: a strand one px
+  wide that moved changed pixels each frame, which reads as a flicker.
+- The cracks in clean stone near the front are where the front is, and not
+  where its edge is this frame.
+- The tears of the front are on its corrupted side only.
 
 ## The state of a two-state room
 
@@ -104,7 +168,9 @@ front as it moves.
 1. Write a material with the three uniforms (`piece`, `room`, `front`) and a
    shader that draws each role. Import `ambition_content::room_look` for the
    hashes, the noise and the far architecture.
-2. Implement `RoomLook` for it: the `palette` value and the door.
+2. Implement `RoomLook` for it: the `palette` value and the door. A look whose
+   architecture is static sets `ARCHITECTURE_IS_PLATES` and gives its art as
+   pixels, as the two-state look does.
 3. Call `install_look::<YourMaterial>` in `room_look::install`.
 4. Set `palette` on a level.
 
@@ -122,6 +188,15 @@ front as it moves.
   (`dress_doors`, `ink_labels_on_the_clean_side`), so they run in each budget.
   Guard: `a_room_look_undresses_when_its_budget_goes` (Full, Potato, Full, with
   no room load).
+- The sky of the two-state look is still one shader that fills the screen:
+  five rows of far architecture at five parallax depths, in each state. It
+  could be parallax layers (`docs/systems/parallax-backgrounds.md`). The hub
+  has four authored parallax images that this sky covers.
+- On a build with one thread (web), the task that draws the plates runs on the
+  main thread.
+- A field name of a struct in a shader library must not end in a digit. The
+  shader composer writes such a name with a suffix, and a shader that imports
+  the struct does not find the field (`LookClaim`).
 - The glow is drawn in the shader. There is no bloom pass.
 - A look dresses the static blocks of the room. A moving platform is not a block of the room, and it keeps its own art.
 - A door that a portal hides keeps its frame.
@@ -134,6 +209,17 @@ front as it moves.
 cargo run -p ambition_app_tools --bin capture_scene -- central_hub_complex player out.png 1280x720 --warmup 60
 cargo run -p ambition_app_tools --bin capture_scene -- central_hub_complex player out.png 1280x1350 --fit-room
 cargo run -p ambition_app_tools --bin capture_scene -- tech_bros_basement player out.png 1280x720 --warmup 60
+```
+
+`capture_scene` prints one line when a room's plates are drawn: the pieces,
+the pages, the size and the time.
+
+To measure a flicker, film a still scene and count the pixels that change:
+
+```bash
+capture_scene central_hub_complex player /tmp/t.png 1280x720 --warmup 100 \
+    --flag look.central_hub_complex.pure --frames 3 --stride 1
+python scripts/measure_capture_frame_delta.py /tmp/t.0001.png /tmp/t.0002.png
 ```
 
 A capture shows that the shaders compile and what they draw. It does not show

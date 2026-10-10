@@ -256,51 +256,6 @@ fn missing_texture_falls_back_to_sprite_copy() {
     );
 }
 
-/// With a viewer in front of one face of the thin-wall pair, the NEAR portal's frame draws
-/// above the glass (always whole) while the FAR portal's frame drops under the window band —
-/// the open pane hides it with the rest of the far side, instead of the frame punching through
-/// the glass as a second portal. The frame is the line of light and the label.
-#[test]
-fn far_portal_frame_hides_under_the_glass() {
-    let mut app = frame_app();
-    let (left, right) = thin_wall_pair();
-    app.world_mut().spawn(left);
-    app.world_mut().spawn(right);
-    app.insert_resource(crate::PortalViewers::one(crate::PortalViewer {
-        observer: None,
-        present: true,
-        room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
-        eye: Vec2::new(460.0, 300.0), // left of the left face
-        half_size: Vec2::new(12.0, 20.0),
-        occluders: Vec::new(),
-    }));
-    app.update();
-    app.update();
-
-    let window_band_top =
-        crate::PORTAL_WINDOW_Z + crate::PortalViewConeConfig::default().z_proximity_span;
-    let parts = frame_parts(&mut app);
-    assert_eq!(parts.len(), 4, "a line and a label for each of two portals, got {parts:?}");
-    // Left portal (world x 500) renders near x 0; right (532) near x 32.
-    for (name, t) in &parts {
-        if t.x < 16.0 {
-            assert!(
-                t.z > window_band_top,
-                "near frame part {name} at x={:.1} must draw over the glass, z={}",
-                t.x,
-                t.z
-            );
-        } else {
-            assert!(
-                t.z < crate::PORTAL_WINDOW_Z,
-                "far frame part {name} at x={:.1} must hide under the glass, z={}",
-                t.x,
-                t.z
-            );
-        }
-    }
-}
-
 /// An app that draws each portal's frame: its line of light and its label.
 fn frame_app() -> App {
     let mut app = test_app();
@@ -320,44 +275,56 @@ fn frame_parts(app: &mut App) -> Vec<(String, Vec3)> {
         .collect()
 }
 
-/// The identifying frame (line/label) is an OVERLAY: every portal
-/// visual draws ABOVE the whole window z band, so a pane of takeover
-/// glass can never hide half a portal (the c136/c137 "portal only half
-/// appearing"), and BELOW actors, so a body in front still occludes it.
+/// Each portal's frame (its line of light and its label) draws UNDER the
+/// exit-side body slice and under the whole window band, and over the world:
+/// a body is over the light on each side of a seam, and a window covers the
+/// half of its own line that is behind its face. With a viewer or with none:
+/// the frame's z does not follow the viewer.
 #[test]
-fn portal_frame_draws_above_the_window_band_and_below_actors() {
-    let mut app = frame_app();
-    let (left, right) = thin_wall_pair();
-    app.world_mut().spawn(left);
-    app.world_mut().spawn(right);
-    app.update();
-    app.update();
+fn a_portals_frame_draws_under_the_exit_slice_and_the_window_and_over_the_world() {
+    for viewer in [false, true] {
+        let mut app = frame_app();
+        let (left, right) = thin_wall_pair();
+        app.world_mut().spawn(left);
+        app.world_mut().spawn(right);
+        if viewer {
+            app.insert_resource(crate::PortalViewers::one(crate::PortalViewer {
+                observer: None,
+                present: true,
+                room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
+                eye: Vec2::new(460.0, 300.0), // left of the left face
+                half_size: Vec2::new(12.0, 20.0),
+                occluders: Vec::new(),
+            }));
+        }
+        app.update();
+        app.update();
 
-    let window_band_top =
-        crate::PORTAL_WINDOW_Z + crate::PortalViewConeConfig::default().z_proximity_span;
-    let parts = frame_parts(&mut app);
-    assert_eq!(parts.len(), 4, "a line and a label for each of two portals, got {parts:?}");
-    for (name, at) in &parts {
-        assert!(
-            at.z > window_band_top,
-            "{name} must draw above the window band top {window_band_top}, got {}",
-            at.z
-        );
-        assert!(at.z < 20.0, "{name} must stay below the actor band, got {}", at.z);
+        let parts = frame_parts(&mut app);
+        assert_eq!(parts.len(), 4, "a line and a label for each of two portals, got {parts:?}");
+        for (name, at) in &parts {
+            assert!(
+                at.z < crate::PORTAL_EXIT_COPY_Z && at.z < crate::PORTAL_WINDOW_Z,
+                "{name} must draw under the exit slice and the window (viewer: {viewer}), z={}",
+                at.z
+            );
+            assert!(
+                at.z > ambition_platformer2d_core::config::WORLD_Z_BLOCK,
+                "{name} must draw over the world, z={}",
+                at.z
+            );
+        }
+
+        // And the frame stays on the WORLD layer: portal captures must
+        // photograph it, so portals seen through a window still look like
+        // portals, and the far portal's line is the other half of a seam.
+        let layered = app
+            .world_mut()
+            .query_filtered::<(), (Or<(With<PortalVisual>, With<crate::PortalGlow>)>, With<RenderLayers>)>()
+            .iter(app.world())
+            .count();
+        assert_eq!(layered, 0, "frame parts live on the default WORLD layer so captures photograph them");
     }
-
-    // And the frame stays on the WORLD layer: portal captures must
-    // photograph it, so portals seen through a disjoint pair's window
-    // still look like portals.
-    let layered = app
-        .world_mut()
-        .query_filtered::<(), (Or<(With<PortalVisual>, With<crate::PortalGlow>)>, With<RenderLayers>)>()
-        .iter(app.world())
-        .count();
-    assert_eq!(
-        layered, 0,
-        "frame parts live on the default WORLD layer so captures photograph them"
-    );
 }
 
 /// Two live rooms of different sizes, and the same portal pair in each (view

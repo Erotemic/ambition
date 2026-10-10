@@ -163,7 +163,7 @@ fn the_line_follows_its_portal_and_is_drawn_in_its_room() {
         .query_filtered::<(&Transform, Option<&InRoomInstance>, Option<&RenderLayers>), With<PortalGlow>>()
         .single(app.world())
         .expect("one line");
-    let at = frame.to_render(Vec2::new(500.0, 340.0), crate::PORTAL_RIM_OVERLAY_Z);
+    let at = frame.to_render(Vec2::new(500.0, 340.0), crate::PORTAL_FRAME_Z);
     assert_eq!(transform.translation, at, "the line did not follow its portal");
     assert_eq!(stamp.map(|stamp| stamp.0), Some(LiveRoomInstance::ACTIVATION));
     assert!(layers.is_none(), "the line is on the world layer, so captures photograph it");
@@ -173,4 +173,64 @@ fn the_line_follows_its_portal_and_is_drawn_in_its_room() {
     // Its local +y, the room side, is the portal's normal in render space.
     let room_side = transform.rotation * Vec3::Y;
     assert!((room_side.x - -1.0).abs() < 1e-4, "{room_side:?}");
+}
+
+/// A new session has the same room ordinals. Its room is new, so a portal
+/// that is there with it does not open; and the glow of the old session is
+/// taken away and is not the new portal's. The control is the same steps in
+/// one session (`the_first_portal_of_an_old_room_opens`): there the portal
+/// was added to an old room, and it opens.
+#[test]
+fn a_new_session_has_new_rooms_and_none_of_the_old_sessions_glows() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{ActiveSessionScope, SessionScopedEntity};
+    let mut app = test_app();
+    app.init_resource::<ActiveSessionScope>();
+    let first = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    let old_portal = app.world_mut().spawn(purple_at(500.0)).id();
+    step(&mut app, frames_of(ROOM_SETTLE_S));
+    let old_glow = app
+        .world_mut()
+        .query::<(Entity, &PortalGlow, &SessionScopedEntity)>()
+        .single(app.world())
+        .map(|(entity, _, owner)| (entity, owner.0))
+        .expect("the first session's glow, owned by it");
+    assert_eq!(old_glow.1, first);
+
+    // The next session: the old portal is gone, and a portal of the new
+    // session's level is at another place in the room of the same ordinal.
+    app.world_mut().despawn(old_portal);
+    let second = app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    assert_ne!(first, second);
+    app.world_mut().spawn(yellow_at(700.0));
+    step(&mut app, 2);
+
+    assert!(app.world().get_entity(old_glow.0).is_err(), "the old session's glow went into the new session");
+    let glows: Vec<(PortalGlow, SessionScopedEntity)> = app
+        .world_mut()
+        .query::<(&PortalGlow, &SessionScopedEntity)>()
+        .iter(app.world())
+        .map(|(glow, owner)| (glow.clone(), *owner))
+        .collect();
+    assert_eq!(glows.len(), 1, "one portal in the new session, one glow: {glows:?}");
+    assert_eq!(glows[0].1 .0, second, "the glow is the new session's");
+    assert_eq!(
+        glows[0].0.appear, 1.0,
+        "a portal that was there with the new session's room opened: the room's age came from the old session"
+    );
+}
+
+/// With the session lifecycle installed and no session current, there is no
+/// gameplay to draw: no glow stays.
+#[test]
+fn no_glow_stays_with_no_session() {
+    use ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope;
+    let mut app = test_app();
+    app.init_resource::<ActiveSessionScope>();
+    app.world_mut().resource_mut::<ActiveSessionScope>().begin();
+    app.world_mut().spawn(purple_at(500.0));
+    step(&mut app, 2);
+    assert_eq!(glows(&mut app).len(), 1);
+    app.world_mut().resource_mut::<ActiveSessionScope>().clear();
+    step(&mut app, 2);
+    assert!(glows(&mut app).is_empty(), "a glow stayed after its session");
 }

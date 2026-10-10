@@ -8,7 +8,7 @@
 //! the pieces were despawned and the doors and signs kept their dress over
 //! plain blocks (review of f0409fcc, 2026-10-09).
 
-use ambition_content::presentation::room_look::RoomStateMaterial;
+use ambition_content::presentation::room_look::{RoomPlateMaterial, RoomStateMaterial};
 use ambition_platformer2d::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition_platformer2d::render::rendering::label_layout::{StaticWorldLabel, WorldLabel};
 use ambition_platformer2d::render::rendering::{EntityArt, LoadingZoneVisual};
@@ -19,8 +19,10 @@ use bevy::sprite_render::MeshMaterial2d;
 /// What the look has put in the room.
 #[derive(Debug, Clone, PartialEq)]
 struct Dress {
-    /// Quads that draw the look.
+    /// Quads that draw the look with a shader: the sky, the overlay.
     pieces: usize,
+    /// Quads that draw the look's architecture from its plates.
+    plates: usize,
     /// Doors whose art is the look's and not the art of their kind.
     look_doors: usize,
     /// Each static sign's colours, by owner, and the text copies under it.
@@ -30,6 +32,7 @@ struct Dress {
 fn dress(app: &mut App) -> Dress {
     let world = app.world_mut();
     let pieces = world.query_filtered::<(), With<MeshMaterial2d<RoomStateMaterial>>>().iter(world).count();
+    let plates = world.query_filtered::<(), With<MeshMaterial2d<RoomPlateMaterial>>>().iter(world).count();
     let look_doors = world
         .query_filtered::<&EntityArt, With<LoadingZoneVisual>>()
         .iter(world)
@@ -49,7 +52,7 @@ fn dress(app: &mut App) -> Dress {
         })
         .collect();
     signs.sort();
-    Dress { pieces, look_doors, signs }
+    Dress { pieces, plates, look_doors, signs }
 }
 
 fn set_tier(app: &mut App, profile: VisualQualityProfile) {
@@ -66,12 +69,21 @@ fn a_look_takes_its_doors_and_its_ink_back_on_potato_and_gives_them_again() {
     // material, and the look's systems wait for it. With it they run as in a
     // window: they spawn, dress and ink, and nothing is drawn.
     app.init_asset::<RoomStateMaterial>();
+    app.init_asset::<RoomPlateMaterial>();
     let full = app.world().resource::<UserSettings>().video.quality.profile;
     assert_ne!(full, VisualQualityProfile::Potato, "premise: the round trip needs two tiers");
     for _ in 0..30 {
         app.update();
     }
+    // The plates are drawn by a task off the main thread. Wait for the task,
+    // and not for a number of updates.
+    let waited = std::time::Instant::now();
+    while dress(&mut app).plates == 0 && waited.elapsed() < std::time::Duration::from_secs(60) {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        app.update();
+    }
     let dressed = dress(&mut app);
+    assert!(dressed.plates > 0, "premise: the hub's architecture is drawn from plates: {dressed:?}");
     // ⛔ THE PREMISES: the hub has a look, the look dressed a door, and it
     // inked a sign. With none of these the round trip compares nothing.
     assert!(dressed.pieces > 0, "premise: the hub's look is presented: {dressed:?}");
@@ -82,7 +94,7 @@ fn a_look_takes_its_doors_and_its_ink_back_on_potato_and_gives_them_again() {
     set_tier(&mut app, VisualQualityProfile::Potato);
     let plain = dress(&mut app);
     assert_eq!(
-        (plain.pieces, plain.look_doors),
+        (plain.pieces + plain.plates, plain.look_doors),
         (0, 0),
         "on Potato the look left pieces or dressed doors behind: {plain:?}"
     );

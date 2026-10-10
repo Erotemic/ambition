@@ -659,6 +659,37 @@ pub struct ThemedFixture {
 const WATER_SURFACE_HEIGHT: f32 = 8.0;
 const WATER_SURFACE_LINE: f32 = 2.6;
 
+/// The width of the ladder picture, and how much of it at each side is a rail
+/// with the end of a rung (`terrain/fixtures.py`: a rail is at 2.2 and at
+/// 13.8, and what holds a rung to it is 1.2 each way).
+const LADDER_WIDTH: f32 = 16.0;
+const LADDER_RAIL: f32 = 5.0;
+
+/// The pieces of a ladder that is wider than its picture: one ladder with
+/// long rungs, and not two ladders side by side. Each row of the picture is
+/// cut in three: the left rail, the right rail, and the middle of the rung,
+/// which is made as long as the ladder needs.
+fn wide_ladder_pieces(image: &Handle<Image>, min: Vec2, size: Vec2, z: f32) -> Vec<(TerrainTrim, Sprite, Vec3)> {
+    let centre = min + size * 0.5;
+    let middle = size.x - LADDER_RAIL * 2.0;
+    // (start in the picture, width in the picture, start in the room, width
+    // in the room)
+    let across = [
+        (0.0, LADDER_RAIL, min.x, LADDER_RAIL),
+        (LADDER_RAIL, LADDER_WIDTH - LADDER_RAIL * 2.0, min.x + LADDER_RAIL, middle),
+        (LADDER_WIDTH - LADDER_RAIL, LADDER_RAIL, min.x + LADDER_RAIL + middle, LADDER_RAIL),
+    ];
+    let mut out = Vec::new();
+    for (y0, y1, oy) in anchored_pieces(min.y, min.y + size.y, 32.0) {
+        for (tx, tw, x0, w) in across {
+            let mut sprite = piece(image.clone(), Vec2::new(tx, oy), Vec2::new(tw, y1 - y0), false);
+            sprite.custom_size = Some(Vec2::new(w, y1 - y0));
+            out.push((TerrainTrim::Fill, sprite, Vec3::new(x0 + w * 0.5 - centre.x, centre.y - (y0 + y1) * 0.5, z)));
+        }
+    }
+    out
+}
+
 /// Give each ladder and each body of water of a room that names a theme the
 /// art of that theme, in pieces that are fixed to the room.
 ///
@@ -696,7 +727,12 @@ pub fn dress_themed_fixtures(
         // The pieces are placed from the middle of the rectangle they fill,
         // and the sprite is at the middle of the fixture: the difference.
         let shift = (min + size * 0.5) - (fixture.min + fixture.size * 0.5);
-        let Some(pieces) = pieces_of(image, min, size, period, 0.005) else {
+        let pieces = if fixture.kind == ThemedFixtureKind::Ladder && size.x > LADDER_WIDTH {
+            Some(wide_ladder_pieces(image, min, size, 0.005))
+        } else {
+            pieces_of(image, min, size, period, 0.005)
+        };
+        let Some(pieces) = pieces else {
             continue;
         };
         *sprite = Sprite::from_color(Color::NONE, fixture.size);
@@ -784,6 +820,14 @@ mod tests {
         // water, so its middle is 4 - 2.6 = 1.4 below the top: 0.6 over the
         // middle of the strip.
         assert!(strip.iter().all(|(_, _, at)| (at.y - 0.6).abs() < 1e-4), "{strip:?}");
+
+        // A ladder wider than its picture is one ladder: a rail at each
+        // side, and the middle of each rung made as long as the ladder needs.
+        let wide = fixture(&mut world, ParallaxTheme::Cave, ThemedFixtureKind::Ladder, Vec2::new(200.0, 0.0), Vec2::new(40.0, 32.0));
+        world.run_system_once(dress_themed_fixtures).unwrap();
+        let mut widths: Vec<f32> = trims_of(&mut world, wide).iter().map(|(_, size, _)| size.x).collect();
+        widths.sort_by(f32::total_cmp);
+        assert_eq!(widths, vec![LADDER_RAIL, LADDER_RAIL, 40.0 - LADDER_RAIL * 2.0]);
 
         assert_eq!(world.entity(plain).get::<Sprite>().unwrap().color, Color::WHITE, "a theme with no ladder");
         assert_eq!(world.entity(plain).get::<Children>().unwrap().len(), 1, "and its rung stays");

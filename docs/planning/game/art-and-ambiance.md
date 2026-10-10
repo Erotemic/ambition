@@ -44,10 +44,11 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
   1600 by 900 window) showed the middle of each panel two and a half times too
   large. This was the main cause of the "muddy" backgrounds.
 - [x] Eleven scenes drawn again with a numpy paint box: hub, lab, basement,
-  cave, cove, water, forest, skybridge, open_sky, boss, eclipse.
+  cave, cove, water, forest, skybridge, open_sky, boss, eclipse. Two more
+  came later in the run: alarm and undertown.
 - [x] The old parallax tool in the main repository is retired; the sky of the
   two-state room look moved to the submodule with the scenes.
-- [x] Terrain skins for ten biomes, laid on the blocks of each room that names
+- [x] Terrain skins for ten biomes (twelve at the end of the run), laid on the blocks of each room that names
   a theme: a fill, and a trim on each open edge.
 - [x] A foreground layer for ten biomes: the one panel in front of the play.
 - [x] Motes that drift in the air of ten biomes (dust, embers, fireflies,
@@ -55,8 +56,12 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
 - [x] Ground decor for ten biomes: a few small things on the open top edges of
   a room's blocks, clear of each thing of the play.
 - [x] Biomes assigned: 28 sandbox rooms and one intro room name a scene of
-  their own (skybridge, eclipse, boss, basement, cave, cove, forest). 22
-  sandbox rooms stay `lab`.
+  their own (skybridge, eclipse, boss, basement, cave, cove, forest). The
+  count of rooms for each theme at the end of the run: sandbox, 13 `lab`,
+  11 `basement`, 10 `boss`, 8 `skybridge`, 6 `eclipse`, 5 `cave`, 4 `cove`,
+  2 `hub`, 2 `open_sky`, 1 `forest`, 1 `water`, 1 `hub_clean`; intro, 4
+  `undertown`, 3 `alarm`, 3 `lab`, 1 `skybridge`. The hall of characters is
+  `hub` and the rope room is `cave`.
 - [x] Portals: the capture of an end draws its own window when its pair looks
   at itself (the row of images between two portals that face). Seen in a
   capture with a pair shot onto two faces: five images of the player in the
@@ -106,6 +111,8 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
 - [x] A pool of light round each thing of the decor that gives light
   (lanterns, braziers, floor lights, crystals): a published picture, no
   shader.
+- [x] A ladder wider than its picture is one ladder with long rungs. It was
+  two ladders side by side.
 - [x] The rebound pad is a plate on two springs with two arrows that point
   up. It had a row of gold triangles, which a player reads as spikes.
 - [x] The dressing of a room is in the room's load manifest: the cover stays
@@ -117,7 +124,6 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
   character targets on a rig pipeline, a redesign is a new `_v2` target with
   the old one kept, and a full sheet regen is longer than this run had left
   after the scenery. It needs its own lane, and a choice of which characters.
-- **A ladder wider than 16 units** draws two ladders side by side.
 - **Ambience sound.** The game has no ambience channel. Eleven beds to
   listen to are in `untracked/sfx-candidates/room_ambience/` (not in git),
   with a reel and a script that makes them again. They wait for Jon's ear:
@@ -130,6 +136,37 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
   doors and its decor, and a black sky. One sky layer is one sprite of a
   256 px texture. If "levels should look good with shaders off" means that
   tier, it should draw the sky layer, and perhaps the far one.
+
+## To look at first in a window on a GPU
+
+None of this was seen in a window. A capture is one still frame from a
+software rasteriser, so it says nothing about motion, bloom or a seam that
+comes and goes.
+
+- **Seams.** The fill of a block, the water and the trims are many sprites
+  that meet edge to edge (`anchored_pieces`). Look for a thin line between
+  two pieces when the camera moves slowly, most of all in the part-clear
+  ones: water, a soft blink wall, the danger fill of a hazard.
+- **The light pools and bloom.** A pool is a plain sprite at an alpha of 0.4
+  or less. If bloom makes the lanterns of the forest or the braziers of the
+  boss rooms too bright, the strength of each is in `LIGHTS` in
+  `terrain/decor.py`.
+- **Motion.** The motes (count, speed and size are `AmbientMoteStyles`), the
+  foreground panel when the camera goes along a room, and the shadow of a
+  body that jumps (it gets smaller and fainter up to 150 units).
+- **Shadows on dark ground.** They show on grass, sand, moss and marble. On
+  the steel of the lab and of the alarm rooms, and on the brick of the boss
+  rooms, they are nearly not there. Say if they must show there too: the
+  colour of each is `SHADOWS` in `terrain/motes.py`, and a dark picture can
+  not show on dark ground, so it would need a light rim or another idea.
+- **The first frame of a room.** The dressing is in the load manifest of the
+  room now. In a capture the parallax and the dressing are still counted as
+  drawn after the cover, because a capture has no cover: look at a real room
+  transition.
+- **The alarm rooms after the wake room.** The change from the calm lab to
+  the dark red one is the point of that biome. If the story wants the raid
+  to start later, the three rooms name the theme in `intro.ldtk`
+  (`parallax_theme`).
 
 ## Not seen
 

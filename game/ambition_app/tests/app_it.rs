@@ -161,6 +161,7 @@ mod neighbor_prefetch_prepares_rooms;
 mod a_route_over_rooms;
 mod a_dog_sent_for_an_item;
 mod nav_graph_census;
+mod walked_route_census;
 mod no_character_resolves_art_by_an_ambiguous_root;
 mod one_character_two_contexts;
 mod parallax_theme_retires_on_walk;

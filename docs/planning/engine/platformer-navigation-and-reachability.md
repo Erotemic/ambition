@@ -231,9 +231,20 @@ Guards: `navigation::envelope::tests::a_gap_inside_the_envelope_is_crossed_and_o
 follows the advice arrives at each reachable surface, and a surface out of
 reach is said to be unreachable).
 
+An air jump is one leg, the double hop (2026-10-09): the follower presses
+jump again on the first step the body falls, and the envelope measures that
+arc in the kernel. The graph proposes a double hop only where no hop or drop
+arrives, and keeps it only when its rollout arrives, so a body with no air
+jump has none. Guard:
+`navigation::graph::tests::a_body_with_an_air_jump_reaches_what_one_jump_does_not`
+(a ledge between the two apexes: a double hop that arrives in the kernel; a
+low step stays a hop; with no air jump the ledge is out of reach). Poison:
+no second press, red at the double-hop link.
+
 Not modelled, each a seam:
 
-- a drop through a one-way surface, an air jump, a dash, a wall verb, flight;
+- a drop through a one-way surface, a second air jump, an air jump in a drop,
+  a dash, a wall verb, flight;
 - a slope or a surface chain, a surface that moves;
 - geometry that is not authored in the room (a gate, a breakable). A leg such a
   thing stops fails, and the brain plans again;
@@ -349,7 +360,7 @@ The slices, each with its own witness:
 
 Not in these slices: enemy navigation and a baked graph (Jon's open
 decisions), a door that needs Interact (a body crosses edge zones first), and
-legs for an air jump, a wall verb or a dash.
+legs for a wall verb or a dash (the air jump has its leg, above).
 
 ## Architecture direction
 

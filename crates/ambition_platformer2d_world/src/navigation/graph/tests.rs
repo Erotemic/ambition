@@ -245,3 +245,46 @@ fn a_leg_into_a_wall_fails_when_the_body_stops() {
         graph.cost.rollouts
     );
 }
+
+/// ⭐ AN AIR JUMP REACHES WHAT ONE JUMP DOES NOT. A ledge across a short gap,
+/// higher than the body's jump and lower than its double jump: the body with
+/// an air jump has a double hop to it, and arrives in the kernel by the
+/// follower's rule. A low step on the other side stays a hop: a double hop
+/// is proposed only where one jump does not reach. The control is the same
+/// body with no air jump: the ledge is out of reach.
+#[test]
+fn a_body_with_an_air_jump_reaches_what_one_jump_does_not() {
+    let mut jumper = walker();
+    jumper.abilities.abilities.double_jump = true;
+    let envelope = TraversalEnvelope::measure(&jumper, normal_frame(), EnvelopeProbe::default()).expect("measured");
+    let (apex, air_apex) = (envelope.apex_rise(), envelope.air_jump_apex_rise());
+    assert!(air_apex > apex + 16.0, "premise: the air jump lifts the body higher: {apex} then {air_apex}");
+    let high = (apex + air_apex) * 0.5;
+    let world = World::new(
+        "a ledge only an air jump reaches",
+        Vec2::new(4000.0, 3000.0),
+        Vec2::ZERO,
+        vec![
+            Block::solid("floor", Vec2::new(600.0, FLOOR), Vec2::new(1000.0, 64.0)),
+            Block::solid("ledge", Vec2::new(1640.0, FLOOR - high), Vec2::new(600.0, 64.0 + high)),
+            Block::solid("step", Vec2::new(0.0, FLOOR - apex * 0.5), Vec2::new(560.0, 64.0 + apex * 0.5)),
+        ],
+    );
+    let fixture = Fixture {
+        graph: NavGraph::build(&world, &jumper, normal_frame()).expect("an upright jumper has a graph"),
+        world,
+        body: jumper,
+    };
+    assert_eq!(fixture.linked("floor", "ledge"), Some(NavLegKind::DoubleHop));
+    assert_eq!(fixture.linked("floor", "step"), Some(NavLegKind::Hop));
+    fixture
+        .travel(fixture.middle("floor"), fixture.middle("ledge"))
+        .unwrap_or_else(|why| panic!("floor to ledge by a double hop: {why}"));
+
+    let one_jump = NavGraph::build(&fixture.world, &walker(), normal_frame()).expect("a walker has a graph");
+    assert_eq!(
+        one_jump.next(fixture.middle("floor"), fixture.middle("ledge")),
+        NavNext::Unreachable,
+        "control: with no air jump the ledge is out of reach"
+    );
+}

@@ -102,6 +102,12 @@ ROLLBACK_REGISTRATION_PATHS = (
 #: art guard reads a sheet, and a test reads its `.txt` baseline.
 PROSE_SUFFIX = ".md"
 
+#: Tooling. No Rust source reads or runs a file under `scripts/` (it names one
+#: only in a message; `test_no_rust_source_reads_or_runs_a_script` holds this),
+#: so a crate's cargo test is not asked to agree with it. A job can run a
+#: script, so a job still is.
+TOOLING_PREFIX = "scripts/"
+
 
 @dataclass(frozen=True)
 class CargoTest:
@@ -316,9 +322,12 @@ def judge(repo: Path, base: str, rev: str) -> tuple[list[str], list[Verdict]]:
     for requirement, by in sorted(triggers.items(), key=lambda item: item[0].label()):
         relevant = [row for row in ledger if covers(row, requirement)]
         # The paths the run must have held as `rev` does: every path of the
-        # change, but prose only for the job that reads prose. A doc edited
-        # while a crate's tests ran did not change what they tested.
+        # change, but prose only for the job that reads prose, and scripts
+        # not for a cargo test. A doc or a script edited while a crate's tests
+        # ran did not change what they tested.
         held = paths if requirement == Job(REPO_TOOLING_JOB) else [p for p in paths if not p.endswith(PROSE_SUFFIX)]
+        if isinstance(requirement, (CargoTest, CargoTestNamed)):
+            held = [p for p in held if not p.startswith(TOOLING_PREFIX)]
         # Both ends of the run: a path of the change that moved while the job
         # ran was tested in neither state.
         current = [

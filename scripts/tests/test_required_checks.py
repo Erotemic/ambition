@@ -6,6 +6,7 @@ witness does not depend on what this checkout has run.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -117,6 +118,45 @@ def test_a_doc_edited_after_a_crate_ran_does_not_void_the_crate(repo: Path) -> N
     }
     commit(repo, "crates/alpha/src/lib.rs", "// three\n")
     assert verdicts(repo)["cargo test -p alpha"] == (False, "ran only on a tree before this change")
+
+def test_a_script_edited_after_a_crate_ran_does_not_void_the_crate(repo: Path) -> None:
+    """⭐ No cargo test reads or runs a file under `scripts/`, so a script
+    commit after the run asks the tooling job again and leaves the crate's
+    pass standing. The control: a source edit after the run voids it."""
+    commit(repo, "crates/alpha/src/lib.rs", "// two\n")
+    ran(repo, ["cargo", "test", "-p", "alpha"])
+    commit(repo, "scripts/guard.py", "print('two')\n")
+    assert verdicts(repo) == {
+        "cargo test -p alpha": (True, "passed on this change"),
+        f"run_tests job `{REPO_TOOLING_JOB}`": (False, "NOT RUN"),
+    }
+    commit(repo, "crates/alpha/src/lib.rs", "// three\n")
+    assert verdicts(repo)["cargo test -p alpha"] == (False, "ran only on a tree before this change")
+
+
+def test_a_script_edited_after_the_tooling_job_ran_voids_it(repo: Path) -> None:
+    """The tooling job runs the scripts, so it still holds every script."""
+    commit(repo, "scripts/guard.py", "print('one')\n")
+    ran(repo, ["python", "-m", "pytest", "scripts/tests"], job=REPO_TOOLING_JOB)
+    commit(repo, "scripts/guard.py", "print('two')\n")
+    assert verdicts(repo) == {f"run_tests job `{REPO_TOOLING_JOB}`": (False, "ran only on a tree before this change")}
+
+
+#: A Rust use of a path that reads or runs it, not a message that names it.
+_READS = re.compile(r"include_str!|include_bytes!|\.join\(|Path::new|PathBuf::from|read_to_string|File::open|Command::new|concat!")
+
+
+def test_no_rust_source_reads_or_runs_a_script() -> None:
+    """The premise of the exemption above: Rust names `scripts/` only in
+    messages. A test that reads a script or its baseline makes the crate's
+    check depend on it again, and then `TOOLING_PREFIX` must not exempt it."""
+    listed = subprocess.run(
+        ["git", "grep", "-n", "-E", r'scripts/|"scripts"', "--", "*.rs"],
+        cwd=REPO, capture_output=True, text=True,
+    ).stdout.splitlines()
+    readers = [line for line in listed if _READS.search(line)]
+    assert listed, "the scan found no Rust mention of scripts/ at all: the search is wrong"
+    assert readers == [], "Rust reads or runs a file under scripts/:\n" + "\n".join(readers)
 
 
 def test_a_test_baseline_and_a_guard_baseline_are_not_prose() -> None:

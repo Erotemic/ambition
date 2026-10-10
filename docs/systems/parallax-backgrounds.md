@@ -170,6 +170,22 @@ are in front of the play and the others are behind the blocks.
 - The field goes with the first main camera: in a split view the motes of a
   room are around that camera only.
 
+## Where to see each biome: the hall of biomes
+
+The sandbox has a hall with a door for each biome (`hall_of_biomes`, from the
+door "to hall of biomes" in the hub). Each door has the name of its biome and
+goes to one small exhibit room, `biome_<key>`, that names the biome as its
+`parallax_theme`. Each exhibit room is the same room: a floor, a block, a block
+in the air, two one-way platforms, a ladder, a pool, a soft and a hard blink
+wall and a strip of hazard. So the sky, the skin of the ground, the decor, the
+motes, the door, the ladder and the water of a biome are in view in one place,
+and two biomes can be compared part for part.
+
+The hall and its rooms are made, not drawn by hand:
+`tools/ambition_ldtk_tools/specs/hall_of_biomes/make_specs.py` writes one area
+spec for each and applies them. A new biome is one row in its `BIOMES` table
+(and its rows in the art tables above).
+
 ## Ground shadows
 
 **Off in each game now.** Jon, 2026-10-10: a shadow under each body does not

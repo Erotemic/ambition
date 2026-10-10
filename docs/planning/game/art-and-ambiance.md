@@ -147,9 +147,18 @@ suit the style of the game.
   still have the old pictures.
 - [x] The shadow of the engine under each body is off (`GroundShadowRooms`,
   an opt-in for each game that no game takes).
-- [ ] **Not seen in the game.** These pictures were seen in the renderer
-  only. The sheets of a character are compiled in, so the game shows them
-  after its next build.
+- [x] The Kernel Guide is a character on the rig of the pirate crew
+  (`targets/characters/kernel_guide.py`): a hooded robe, glasses of light, a
+  slate. It was a preset of the toon rig with four short rows. It has six
+  rows now: idle, walk, talk, interact, hurt and death.
+- [x] The hall of biomes: a hall in the sandbox with a door for each biome
+  (15), from a door in the hub. Each door goes to the same small room in the
+  art of that biome. The rooms are made by
+  `tools/ambition_ldtk_tools/specs/hall_of_biomes/make_specs.py`: a new biome
+  is one row there.
+- [x] Seen in the game with `capture_scene` (not in a window on a GPU): the
+  five pirates in the hall of characters and in the cove, the crate, the
+  spikes, the pogo orb, and no shadow under a body.
 - [ ] The other entity props (the heart, the coin, the switches, the morph
   ball, the save point, the doors, the tiles) are as they were.
 

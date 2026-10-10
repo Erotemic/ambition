@@ -1641,7 +1641,9 @@
             hall_dialogue_id: Some("hall_architect"),
         ),
         "npc_kernel_guide": (
-            sprite_tuning: Some((collision_scale: 1.1, frame_sample_inset: 2)),
+            // The same scale as the pirates: the guide is on their rig, and the
+            // box of its idle pose is as wide as theirs (the slate is held out).
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Kernel Guide NPC",
             spritesheet: "sprites/kernel_guide_spritesheet.png",
             manifest: "sprites/kernel_guide_spritesheet.ron",

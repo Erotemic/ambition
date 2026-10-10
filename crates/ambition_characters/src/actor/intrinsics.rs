@@ -100,6 +100,24 @@ pub struct CharacterMount {
     /// `false`: the hands are the mount's own, ridden or not.
     #[serde(default)]
     pub rider_conducts: bool,
+    /// The mount's back is one-way ground while it is ridden: a body can climb
+    /// onto it to reach the rider. `None` = its back is not ground.
+    #[serde(default)]
+    pub back: Option<MountBack>,
+}
+
+/// A mount's back as one-way ground, in world units about the mount's centre
+/// (+y down), authored for a mount FACING RIGHT and mirrored with the side it
+/// is drawn facing, as [`CharacterMount::saddle`] is.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MountBack {
+    /// The back's two ends along x.
+    pub left: f32,
+    pub right: f32,
+    /// The back's top: where a body stands.
+    pub top: f32,
+    pub thickness: f32,
 }
 
 /// This body's two hands. Each hand is a body of its own, built from

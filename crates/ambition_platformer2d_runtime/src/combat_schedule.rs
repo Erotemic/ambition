@@ -764,6 +764,16 @@ impl Plugin for CombatSchedulePlugin {
             )
                 .in_set(CombatSet::Settle),
         );
+        // A ridden mount's back is ground: a collision-overlay contribution,
+        // after the overlay rebuild and before every body that collides with
+        // it, as the lock walls are.
+        app.configure_sets(
+            sim,
+            ambition_mount::MountBacksContributed
+                .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
+                .before(ambition_combat::hazards::HazardTickSet)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
+        );
         // The dismounted-rider rebuild installs itself against the mount crate's
         // PUBLISHED set; this composition supplies only the schedule. The
         // reference defect that line used to carry, and why both anchors are the

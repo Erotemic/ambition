@@ -313,7 +313,12 @@ before you add a port.
 
 **Open:**
 
-- GNU-ton's conductor as a module.
+- GNU-ton's conductor as a module. Its back is not the conductor's any more
+  (2026-10-10): the gnu's character authors it (`CharacterMount::back`) and
+  the mount domain makes a ridden mount's back one-way ground
+  (`ambition_mount::mount_backs_are_ground`), so a module does not need to
+  add collision. Still native: the fists (pose, opening, the blow they pass
+  on, their hit volumes), the stomp's travelling shocks, the buck, eureka.
 
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and

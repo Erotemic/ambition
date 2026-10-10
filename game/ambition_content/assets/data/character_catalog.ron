@@ -1469,10 +1469,14 @@
                 // The seat: where a rider's soles rest. The scholar stands on the
                 // gnu's shoulders, at the base of its neck (x: the sheet's shoulder
                 // point, 388 px against the body-box centre's 350, is 49.4 wu), ON
-                // the back the player stands on (`gnu_ton::conductor::back_platform`,
-                // top 7.5 px above the centre at 1.3 wu/px = 9.75 wu). His own height
-                // is the mount sync's business, not this number.
+                // the back the player stands on (`back` below: its top). His own
+                // height is the mount sync's business, not this number.
                 saddle: Some((50.0, -9.75)),
+                // Its back is ground while it is ridden: the way to reach the
+                // scholar is to stand on the shoulders of a giant. Where the sheet
+                // draws it: -160..130 px about the body-box centre, its top 7.5 px
+                // above it, at 1.3 wu/px; 14 wu thick.
+                back: Some((left: -208.0, right: 169.0, top: -9.75, thickness: 14.0)),
                 // Whoever rides it conducts its fists and chooses its rows: in
                 // the arena, the fists are GNU-ton's.
                 rider_conducts: true,

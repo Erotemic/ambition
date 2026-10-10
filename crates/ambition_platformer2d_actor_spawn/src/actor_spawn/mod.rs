@@ -1483,6 +1483,7 @@ pub fn spawn_runtime_minion_into(
             Some(aabb.half_size() * 2.0),
             mount.death_splash,
             mount.saddle,
+            mount.back,
             1.0,
             &mount.pilotable_classes,
         );
@@ -1715,6 +1716,7 @@ pub fn spawn_enemy_with_faction_into(
                 Some(body_size),
                 mount.death_splash,
                 mount.saddle,
+                mount.back,
                 definition.vitals.mass.unwrap_or(1.0),
                 &mount.pilotable_classes,
             );
@@ -1862,6 +1864,7 @@ fn attach_mount_role_from(
     default_size: Option<ae::Vec2>,
     death_splash: Option<i32>,
     saddle: Option<(f32, f32)>,
+    back: Option<ambition_characters::actor::MountBack>,
     mass: f32,
     pilotable: &[String],
 ) {
@@ -1888,6 +1891,9 @@ fn attach_mount_role_from(
             // the lighter rider orbits it under a gravity flip (sync reads Mass).
             ambition_platformer2d_shared_tangle::body::Mass(mass),
         ));
+        if let Some(back) = back {
+            scope.insert(ambition_mount::BackLedge(back));
+        }
     }
     if !pilotable.is_empty() {
         scope.insert((

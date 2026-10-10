@@ -6,11 +6,13 @@
 //! facts a beat needs when it begins, asks [`super::choreography`] where each
 //! fist is, and writes the result — pose, hit volume, telegraph ink, sound.
 //!
-//! Three more things the fight needs that no generic system knows:
+//! Three more things the fight needs:
 //!
-//! * **The giant's back is ground.** A one-way platform rides the gnu's back,
-//!   so the way to reach the scholar is literally to stand on the shoulders of a
-//!   giant. When he `buck`s, it throws you off.
+//! * **The giant's back is ground.** The gnu's character authors its back
+//!   (`CharacterMount::back`), and the mount domain makes it one-way ground
+//!   while it is ridden (`ambition_mount::mount_backs_are_ground`), so the way
+//!   to reach the scholar is literally to stand on the shoulders of a giant.
+//!   When he `buck`s, it throws you off: that is the conductor's.
 //! * **The fists are his.** A fist is only hittable while it is stuck in the
 //!   floor (or limp), and the first blow to it each time it sticks lands on
 //!   him: a punish, not a farm.
@@ -75,13 +77,6 @@ const WAVE_SPEED: f32 = 540.0;
 const WAVE_HALF: Vec2 = Vec2::new(26.0, 20.0);
 const WAVE_DAMAGE: i32 = 2;
 const WAVE_KNOCKBACK: f32 = 1.3;
-/// The gnu's back, in its sprite's pixels about the body box centre, facing
-/// right (the sheet's body box is 338×319 px). The body's own posed scale
-/// turns these into world units, so the back follows the gnu's row.
-const BACK_SPAN_PX: (f32, f32) = (-160.0, 130.0);
-const BACK_TOP_PX: f32 = -7.5;
-const BACK_THICKNESS: f32 = 14.0;
-
 const INK: [f32; 4] = [1.0, 0.86, 0.45, 0.95];
 const WARNING: [f32; 4] = [1.0, 0.42, 0.25, 1.0];
 const GOLD: [f32; 4] = [1.0, 0.84, 0.2, 1.0];
@@ -275,19 +270,6 @@ fn live_part(attack: &BossAttackState) -> Option<(Move, bool, f32)> {
     special(&attack.telegraph_profile).map(|mv| (mv, false, attack.telegraph_remaining))
 }
 
-/// The gnu's back, as the one-way ground the player stands on: where the
-/// sprite draws it, so by the gnu's drawn side ([`ae::mirror_side`]), at the
-/// scale its body is drawn at (`SpritePosedBody::world_per_pixel`).
-pub fn back_platform(giant: &ae::BodyKinematics, unmirrored: bool, world_per_pixel: f32) -> ae::Aabb {
-    let side = ae::mirror_side(giant.facing, unmirrored);
-    let (a, b) = (
-        giant.pos.x + side * BACK_SPAN_PX.0 * world_per_pixel,
-        giant.pos.x + side * BACK_SPAN_PX.1 * world_per_pixel,
-    );
-    let top = giant.pos.y + BACK_TOP_PX * world_per_pixel;
-    ae::aabb_from_min_size(Vec2::new(a.min(b), top), Vec2::new((a - b).abs(), BACK_THICKNESS))
-}
-
 /// Where each fist rests: its limb's `home_offset` about the gnu — the gnu's
 /// authored hands' `rest`, which spawn built the fists at. One authority, read
 /// here and never restated (a second one here eased the fists from where they
@@ -404,7 +386,7 @@ pub fn conduct_gnu_ton(
             &mut ae::BodyFlightState,
             Option<&mut PinnedRow>,
             Has<ae::Unmirrored>,
-            &ambition_sprite_sheet::character::sheets::SpritePosedBody,
+            Option<&ambition_mount::BackLedge>,
         ),
         (With<MountSlot>, Without<Limb>, Without<BossConfig>),
     >,
@@ -450,7 +432,7 @@ pub fn conduct_gnu_ton(
         foe,
     ) in &mut scholars
     {
-        let Ok((rig, giant_kin, mut giant_flight, mut giant_row, giant_unmirrored, giant_posed)) =
+        let Ok((rig, giant_kin, mut giant_flight, mut giant_row, giant_unmirrored, giant_back)) =
             giants.get_mut(riding.mount)
         else {
             continue;
@@ -610,7 +592,9 @@ pub fn conduct_gnu_ton(
                                 // Through the launch gateway: the kernel spends it on
                                 // the gnu's next step. Flinchless — a hop, not a hit.
                                 giant_flight.stage_launch(Vec2::new(0.0, -BUCK_HOP), true);
-                                commands.spawn(buck_throw(scholar, scholar_kin.pos, back_platform(&giant_kin, giant_unmirrored, giant_posed.world_per_pixel)));
+                                if let Some(back) = giant_back {
+                                    commands.spawn(buck_throw(scholar, scholar_kin.pos, back.aabb(&giant_kin, giant_unmirrored)));
+                                }
                                 play(&mut sfx, scholar, SFX_SNORT, giant_kin.pos);
                             }
                             Move::Stomp => {
@@ -666,13 +650,15 @@ pub fn conduct_gnu_ton(
             clock,
         });
         // ── The gnu's reflex: hurt its rider from its back and it throws you ──
-        let back = back_platform(&giant_kin, giant_unmirrored, giant_posed.world_per_pixel);
+        let back = giant_back.map(|back| back.aabb(&giant_kin, giant_unmirrored));
         let hurt = conductor.last_scholar_hp.is_some_and(|hp| scholar_health.current() < hp);
         conductor.last_scholar_hp = Some(scholar_health.current());
         conductor.reflex_cooldown = (conductor.reflex_cooldown - dt).max(0.0);
-        let foe_on_back = foe.entity.and_then(|foe| bodies.get(foe).ok()).is_some_and(|kin| {
-            let feet = kin.pos.y + kin.size.y * 0.5;
-            (feet - back.min.y).abs() <= 4.0 && (back.min.x..=back.max.x).contains(&kin.pos.x)
+        let foe_on_back = back.is_some_and(|back| {
+            foe.entity.and_then(|foe| bodies.get(foe).ok()).is_some_and(|kin| {
+                let feet = kin.pos.y + kin.size.y * 0.5;
+                (feet - back.min.y).abs() <= 4.0 && (back.min.x..=back.max.x).contains(&kin.pos.x)
+            })
         });
         if hurt && foe_on_back && conductor.reflex.is_none() && conductor.reflex_cooldown <= 0.0 {
             conductor.reflex = Some(0.0);
@@ -682,7 +668,9 @@ pub fn conduct_gnu_ton(
             let next = t + dt;
             if t < REFLEX_TELL && next >= REFLEX_TELL {
                 giant_flight.stage_launch(Vec2::new(0.0, -BUCK_HOP), true);
-                commands.spawn(buck_throw(scholar, scholar_kin.pos, back));
+                if let Some(back) = back {
+                    commands.spawn(buck_throw(scholar, scholar_kin.pos, back));
+                }
             }
             conductor.reflex = (next < REFLEX_LEN).then_some(next);
             if conductor.reflex.is_none() {
@@ -952,60 +940,9 @@ pub fn conduct_gnu_ton(
     }
 }
 
-/// The gnu's back is ground: a one-way ledge riding the giant. (Its buck
-/// throws whoever stands on it: `buck_throw`, spawned by the conductor.)
-pub fn gnu_back_is_ground(
-    scholars: Query<(&GnuTonConductor, &RidingOn)>,
-    giants: Query<
-        (
-            &ae::BodyKinematics,
-            Has<ae::Unmirrored>,
-            &ambition_sprite_sheet::character::sheets::SpritePosedBody,
-            Option<&ambition_platformer2d::platformer::lifecycle::InRoomInstance>,
-        ),
-        With<MountSlot>,
-    >,
-    mut overlays: ambition_platformer2d::world::RoomOverlays,
-) {
-    for (_, riding) in &scholars {
-        let Ok((giant, unmirrored, posed, room)) = giants.get(riding.mount) else {
-            continue;
-        };
-        // The back is ground in the giant's own live room. A rider in
-        // another live room must not stand on it.
-        let Some(mut overlay) = overlays.for_room(room) else {
-            continue;
-        };
-        let back = back_platform(giant, unmirrored, posed.world_per_pixel);
-        overlay.blocks.push(ae::Block {
-            id: ae::GeoId::anon(),
-            name: "gnu_back".to_string(),
-            aabb: back,
-            kind: ae::BlockKind::OneWay,
-            velocity: giant.vel,
-            art_color: None,
-        });
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_back_platform_is_where_the_gnu_is_drawn() {
-        let mut kin = ae::BodyKinematics::default();
-        kin.pos = Vec2::new(900.0, 1040.0);
-        kin.facing = 1.0;
-        let right = back_platform(&kin, false, 1.3);
-        kin.facing = -1.0;
-        let left = back_platform(&kin, false, 1.3);
-        assert!((right.min.x - 900.0 + 208.0).abs() < 0.5, "{right:?}");
-        assert!((left.max.x - 900.0 - 208.0).abs() < 0.5, "{left:?}");
-        assert_eq!(right.min.y, left.min.y);
-        // Unmirrored, a turn draws nothing different, so the back stays put.
-        assert_eq!(back_platform(&kin, true, 1.3), right);
-    }
 
     #[test]
     fn the_fists_rest_on_either_side() {

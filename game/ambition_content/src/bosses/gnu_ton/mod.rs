@@ -20,7 +20,7 @@ use ambition_platformer2d_core::RoomGeometry;
 pub mod choreography;
 pub mod conductor;
 
-pub use conductor::{conduct_gnu_ton, gnu_back_is_ground, GnuTonConductor};
+pub use conductor::{conduct_gnu_ton, GnuTonConductor};
 
 /// LDtk level identifier of the arena room whose ladder this system
 /// gates. Held as a constant so it's grep-able alongside the matching

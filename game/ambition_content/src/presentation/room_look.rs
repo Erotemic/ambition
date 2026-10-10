@@ -162,6 +162,71 @@ pub struct RoomStateMaterial {
     /// The normal points into the corrupted side.
     #[uniform(2)]
     pub front: Vec4,
+    /// How far behind the play the sky is drawn ([`RoomLookDepth::uniform`]).
+    #[uniform(3)]
+    pub depth: Vec4,
+}
+
+/// How far behind the play the sky of the two-state look is drawn.
+///
+/// The play is sharp and clear. The sky is behind it, and it reads so when it
+/// is a little out of focus and has fog in front of it. These are the numbers
+/// of that effect, to tune by eye: the developer inspector shows them
+/// (`ambition_app::dev`), `capture_scene --look-depth` photographs them, and
+/// each change is drawn in the next frame.
+#[derive(Resource, Reflect, Debug, Clone, Copy, PartialEq)]
+#[reflect(Resource)]
+pub struct RoomLookDepth {
+    /// The width of the edge of the nearest far architecture (the viaduct),
+    /// in world px. 0 is a hard edge.
+    pub blur_px: f32,
+    /// How many times wider the edge of the farthest architecture (the city)
+    /// is. The rows between them are between the two.
+    pub far_blur: f32,
+    /// How much fog is in front of the sky, from 0 (none) to 1.
+    pub fog: f32,
+    /// How much the fog is in patches, from 0 (even) to 1.
+    pub fog_patches: f32,
+}
+
+impl Default for RoomLookDepth {
+    fn default() -> Self {
+        Self { blur_px: 3.0, far_blur: 2.0, fog: 0.22, fog_patches: 0.5 }
+    }
+}
+
+impl RoomLookDepth {
+    /// The numbers as the shader reads them (`depth` in `room_state.wgsl`).
+    pub fn uniform(&self) -> Vec4 {
+        Vec4::new(
+            self.blur_px.max(0.0),
+            self.far_blur.max(0.0),
+            self.fog.clamp(0.0, 1.0),
+            self.fog_patches.clamp(0.0, 1.0),
+        )
+    }
+}
+
+/// Tell each quad of the two-state look how far behind the play its sky is:
+/// when the numbers change, and when a quad comes.
+fn apply_look_depth(
+    depth: Res<RoomLookDepth>,
+    new_quads: Query<(), Added<MeshMaterial2d<RoomStateMaterial>>>,
+    quads: Query<&MeshMaterial2d<RoomStateMaterial>>,
+    mut materials: ResMut<Assets<RoomStateMaterial>>,
+) {
+    if !depth.is_changed() && new_quads.is_empty() {
+        return;
+    }
+    let wanted = depth.uniform();
+    for quad in &quads {
+        // Read first: a write marks the material for the renderer again.
+        if materials.get(&quad.0).is_some_and(|material| material.depth != wanted) {
+            if let Some(mut material) = materials.get_mut(&quad.0) {
+                material.depth = wanted;
+            }
+        }
+    }
 }
 
 impl Material2d for RoomStateMaterial {
@@ -179,7 +244,8 @@ impl RoomLook for RoomStateMaterial {
     const ARCHITECTURE_IS_PLATES: bool = true;
 
     fn window(piece: Vec4, room: Vec4, front: Vec4) -> Self {
-        Self { piece, room, front }
+        // `apply_look_depth` writes the numbers of the session.
+        Self { piece, room, front, depth: RoomLookDepth::default().uniform() }
     }
 
     fn door_art(world: &ae::World, at: ae::Vec2, advance: f32) -> EntitySprite {
@@ -330,6 +396,9 @@ pub fn install(app: &mut App) {
     );
     install_look::<RoomStateMaterial>(app);
     install_look::<RoomBlueprintMaterial>(app);
+    app.init_resource::<RoomLookDepth>()
+        .register_type::<RoomLookDepth>()
+        .add_systems(Update, apply_look_depth.run_if(resource_exists::<Assets<RoomStateMaterial>>));
     app.add_systems(
         Update,
         (
@@ -814,7 +883,6 @@ fn architecture_pieces(spec: &RoomSpec) -> Vec<architecture::Piece> {
 struct DrawnPlates {
     placed: Vec<plates::Placed>,
     pages: Vec<(UVec2, Vec<u8>)>,
-    seconds: f32,
 }
 
 /// The plates of a room that are drawn.
@@ -894,14 +962,12 @@ fn prepare_room_plates(
         }
         let art = pieces.clone();
         let task = bevy::tasks::AsyncComputeTaskPool::get_or_init(bevy::tasks::TaskPool::default).spawn(async move {
-            let started = std::time::Instant::now();
             let windows = plates::windows_of(&art, page);
             let (placed, sizes) = plates::pack(&windows, page);
             let data = plates::draw_pages(&art, &placed, &sizes);
             DrawnPlates {
                 placed,
                 pages: sizes.into_iter().zip(data).collect(),
-                seconds: started.elapsed().as_secs_f32(),
             }
         });
         plates.by_room.insert(spec.id.clone(), RoomPlateSet { pieces, work: PlateWork::Drawing(task) });
@@ -915,16 +981,40 @@ fn prepare_room_plates(
         };
         let texels: u32 = drawn.pages.iter().map(|(size, _)| size.x * size.y).sum();
         info!(
-            "room look plates of '{id}': {} pieces in {} quads on {} pages, {:.1} Mpx, drawn in {:.0} ms off the main thread",
+            "room look plates of '{id}': {} pieces in {} quads on {} pages, {:.1} Mpx, drawn off the main thread",
             set.pieces.len(),
             drawn.placed.len(),
             drawn.pages.len(),
             texels as f32 / 1.0e6,
-            drawn.seconds * 1000.0,
         );
         let pages = drawn.pages.into_iter().map(|(size, data)| images.add(plates::page_image(size, data))).collect();
         set.work = PlateWork::Ready(ReadyPlates { placed: drawn.placed, pages });
     }
+}
+
+/// The most that [`plate_lifts`] adds to the depth of a piece. The roles of a
+/// look are 0.05 apart.
+const PLATE_LIFT_MAX: f32 = 0.04;
+
+/// A small depth for each piece, all different: a piece that is higher in the
+/// room is nearer to the eye.
+///
+/// The art of a piece goes past its block (ivy hangs from a corner), so two
+/// pieces that are near each other overlap. With one depth for both, the
+/// renderer drew them in an order that was not the same in each frame, and
+/// the ivy flickered. Ivy hangs down, so the piece above is the one in front.
+fn plate_lifts(pieces: &[ArchitecturePiece]) -> Vec<f32> {
+    let mut order: Vec<usize> = (0..pieces.len()).collect();
+    // The lowest piece first (y is down), and from the left in one row.
+    order.sort_by(|&a, &b| {
+        let (a, b) = (pieces[a].piece.min, pieces[b].piece.min);
+        b.y.total_cmp(&a.y).then(a.x.total_cmp(&b.x))
+    });
+    let mut lift = vec![0.0; pieces.len()];
+    for (rank, &index) in order.iter().enumerate() {
+        lift[index] = PLATE_LIFT_MAX * rank as f32 / pieces.len().max(1) as f32;
+    }
+    lift
 }
 
 /// Give the room `spec` one quad for each window of its plates.
@@ -938,6 +1028,7 @@ fn spawn_plates(
     materials: &mut Assets<RoomPlateMaterial>,
 ) {
     let pieces = architecture_of(spec);
+    let lift = plate_lifts(&pieces);
     for cell in &ready.placed {
         let ArchitecturePiece { piece, block, name } = &pieces[cell.window.piece];
         let (role, z) = match piece.part {
@@ -945,6 +1036,7 @@ fn spawn_plates(
             architecture::Part::Underside => (ROLE_UNDERSIDE, UNDERSIDE_Z),
             architecture::Part::Door { .. } => (ROLE_PORTAL, PORTAL_Z),
         };
+        let z = z + lift[cell.window.piece];
         let held = cell.window.size.as_vec2();
         let extent = cell.window.extent;
         let centre = cell.window.min + extent * 0.5;
@@ -1055,5 +1147,60 @@ fn ink_labels_on_the_clean_side(
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// No two pieces have one depth, and a piece that is higher in the room
+    /// is in front, in each role: the order two pieces that overlap are drawn
+    /// in does not change from frame to frame.
+    #[test]
+    fn each_plate_has_a_depth_of_its_own_and_a_higher_piece_is_in_front() {
+        let piece = |x: f32, y: f32| ArchitecturePiece {
+            piece: architecture::Piece {
+                part: architecture::Part::Surface,
+                min: Vec2::new(x, y),
+                size: Vec2::new(128.0, 32.0),
+            },
+            block: None,
+            name: String::new(),
+        };
+        let pieces = vec![piece(0.0, 400.0), piece(64.0, 380.0), piece(300.0, 400.0), piece(0.0, 100.0)];
+        let lift = plate_lifts(&pieces);
+        let mut sorted = lift.clone();
+        sorted.sort_by(f32::total_cmp);
+        sorted.dedup();
+        assert_eq!(sorted.len(), pieces.len(), "two pieces share a depth: {lift:?}");
+        assert!(lift.iter().all(|lift| (0.0..PLATE_LIFT_MAX).contains(lift)), "{lift:?}");
+        assert!(lift[1] > lift[0] && lift[3] > lift[1], "a higher piece is not in front: {lift:?}");
+    }
+
+    /// The numbers of the sky reach each quad of the look: a quad that comes
+    /// gets the numbers of the session, and a change of the numbers reaches
+    /// the quads that are there. This is the road a developer tunes by.
+    #[test]
+    fn the_depth_numbers_reach_a_quad_that_comes_and_a_quad_that_is_there() {
+        let mut app = App::new();
+        app.init_resource::<Assets<RoomStateMaterial>>()
+            .insert_resource(RoomLookDepth { blur_px: 5.0, far_blur: 3.0, fog: 0.4, fog_patches: 0.1 })
+            .add_systems(Update, apply_look_depth);
+        let material = app
+            .world_mut()
+            .resource_mut::<Assets<RoomStateMaterial>>()
+            .add(RoomStateMaterial::window(Vec4::ZERO, Vec4::ZERO, Vec4::ZERO));
+        app.world_mut().spawn(MeshMaterial2d(material.clone()));
+        let depth_of = |app: &App| app.world().resource::<Assets<RoomStateMaterial>>().get(&material).unwrap().depth;
+        assert_ne!(depth_of(&app), Vec4::new(5.0, 3.0, 0.4, 0.1), "premise: a new quad has the default numbers");
+        app.update();
+        assert_eq!(depth_of(&app), Vec4::new(5.0, 3.0, 0.4, 0.1));
+
+        // Out of range: the shader gets a fog it can use.
+        *app.world_mut().resource_mut::<RoomLookDepth>() =
+            RoomLookDepth { blur_px: -2.0, far_blur: 1.0, fog: 7.0, fog_patches: 0.5 };
+        app.update();
+        assert_eq!(depth_of(&app), Vec4::new(0.0, 1.0, 1.0, 0.5));
     }
 }

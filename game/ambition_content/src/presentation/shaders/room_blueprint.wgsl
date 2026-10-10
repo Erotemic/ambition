@@ -45,7 +45,7 @@ fn line_of_kind() -> vec3<f32> {
 
 /// 1.0 inside the far architecture: towers and a viaduct.
 fn far_shape(q: vec2<f32>) -> f32 {
-    return max(towers(q, 300.0, 20u, room.y), arcade(q));
+    return max(towers(q, 300.0, 20u, room.y, 0.0), arcade(q, 0.0));
 }
 
 /// The height of the path of lane `lane` at `x`.

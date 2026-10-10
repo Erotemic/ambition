@@ -222,6 +222,12 @@ fn install_egui_inspectors(app: &mut App) {
             ResourceInspectorPlugin::<ambition_platformer2d::combat::feel::EditableFeelTuning>::default()
                 .run_if(inspector_visible),
         )
+        .add_plugins(
+            // Presentation numbers to tune by eye: the blur and the fog of
+            // the sky of the two-state room look. No simulation reads them.
+            ResourceInspectorPlugin::<ambition_content::presentation::room_look::RoomLookDepth>::default()
+                .run_if(inspector_visible),
+        )
         .add_plugins(portal_inspector::PortalInspectorPlugin)
         .add_plugins(frame_step::FrameStepPanelPlugin)
         .add_plugins(presentation_probe::PresentationProbePlugin);

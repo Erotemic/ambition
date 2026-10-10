@@ -278,11 +278,12 @@ mod source {
 #[cfg(feature = "bevy")]
 pub use source::exe_bundle_asset_source;
 
-/// Write `files` after the bytes of `program` as a bundle, to `out`. For the
-/// tests of this crate; `scripts/package_single_exe.py` writes the same
-/// layout for a real package.
-#[cfg(test)]
-pub(crate) fn write_bundle_for_test(program: &[u8], files: &[(&str, &[u8])], out: &Path) {
+/// Write `files` after the bytes of `program` as a bundle, to `out`.
+///
+/// `scripts/package_single_exe.py` writes a real package: it copies each file
+/// as a stream, and this function holds the whole bundle in memory. This one
+/// is for a test that needs a small bundle, in this crate or in another.
+pub fn write_bundle(program: &[u8], files: &[(&str, &[u8])], out: &Path) -> std::io::Result<()> {
     let mut bytes = program.to_vec();
     let payload_start = bytes.len() as u64;
     let mut index = (files.len() as u32).to_le_bytes().to_vec();
@@ -301,7 +302,7 @@ pub(crate) fn write_bundle_for_test(program: &[u8], files: &[(&str, &[u8])], out
     bytes.extend_from_slice(&index_start.to_le_bytes());
     bytes.extend_from_slice(&(index.len() as u64).to_le_bytes());
     bytes.extend_from_slice(&FOOTER_MAGIC);
-    std::fs::write(out, bytes).expect("the bundle is written");
+    std::fs::write(out, bytes)
 }
 
 #[cfg(test)]
@@ -319,7 +320,7 @@ mod tests {
     fn bundle() -> (tempfile::TempDir, ExeBundle) {
         let dir = tempfile::tempdir().expect("a temp dir");
         let exe = dir.path().join("game");
-        write_bundle_for_test(PROGRAM, FILES, &exe);
+        write_bundle(PROGRAM, FILES, &exe).expect("the bundle is written");
         let bundle = ExeBundle::open(&exe).expect("the file is read").expect("the file carries a bundle");
         (dir, bundle)
     }
@@ -410,7 +411,7 @@ mod tests {
     fn a_damaged_bundle_is_refused() {
         let dir = tempfile::tempdir().expect("a temp dir");
         let exe = dir.path().join("game");
-        write_bundle_for_test(PROGRAM, FILES, &exe);
+        write_bundle(PROGRAM, FILES, &exe).expect("the bundle is written");
         let good = std::fs::read(&exe).unwrap();
         let footer = good.len() - FOOTER_LEN as usize;
 
@@ -439,7 +440,7 @@ mod tests {
     #[cfg(feature = "bevy")]
     #[test]
     fn the_asset_reader_serves_the_bundle() {
-        use bevy::asset::io::{AssetReader as _, AssetReaderError, AssetSourceId, Reader as _};
+        use bevy::asset::io::{AssetReaderError, AssetSourceId, Reader as _};
         use futures_lite::{future::block_on, StreamExt as _};
 
         let (_dir, bundle) = bundle();

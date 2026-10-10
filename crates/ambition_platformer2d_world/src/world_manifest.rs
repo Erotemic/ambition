@@ -100,7 +100,34 @@ impl WorldManifest {
 /// row: the embedded copy when this build carries one, else the row's
 /// authored `asset_path` (typically a game-registered asset source on
 /// desktop, e.g. `game://worlds/sandbox.ldtk`).
+///
+/// A program that carries its asset tree
+/// ([`ambition_asset_manager::exe_bundle`]) loads the world file of that tree
+/// ([`world_bevy_asset_path_in`]).
 pub fn world_bevy_asset_path(source: &WorldSource) -> String {
+    world_bevy_asset_path_in(source, ambition_asset_manager::exe_bundle::ExeBundle::of_running_exe())
+}
+
+/// [`world_bevy_asset_path`] for a program whose asset tree is `bundle`.
+///
+/// A world file names each tileset image by a path from itself
+/// (`../sprites/tiles.png`). The embedded copy is one file with nothing
+/// beside it, so its images resolve to `embedded://<crate>/sprites/tiles.png`
+/// and do not load. The world file of the bundle has the images beside it,
+/// so a row that the bundle holds loads from there, embedded copy or not.
+pub fn world_bevy_asset_path_in(
+    source: &WorldSource,
+    bundle: Option<&ambition_asset_manager::exe_bundle::ExeBundle>,
+) -> String {
+    // Each asset source of a packaged program reads the one flat tree, so
+    // the path in the tree is the authored path with no source name.
+    let in_the_tree = source
+        .asset_path
+        .split_once("://")
+        .map_or(source.asset_path.as_str(), |(_, path)| path);
+    if bundle.is_some_and(|bundle| bundle.contains(in_the_tree)) {
+        return source.asset_path.clone();
+    }
     match (source.embedded_text, source.embedded_bevy_path) {
         (Some(_), Some(path)) => format!("embedded://{path}"),
         _ => source.asset_path.clone(),
@@ -179,6 +206,48 @@ mod tests {
             world_bevy_asset_path(&source),
             "embedded://worlds/primary.ldtk",
             "a row that carries embedded bytes loads them, not the loose source"
+        );
+    }
+
+    /// A packaged program holds the world file beside the tileset images the
+    /// file names, and the embedded copy has no file beside it. The first
+    /// packaged build loaded the embedded copy and logged `Path not found:
+    /// ambition_content/sprites/intro_lab_tileset.png`.
+    #[test]
+    fn a_packaged_program_loads_the_world_file_of_its_own_tree() {
+        let bundle = |name: &str, files: &[(&str, &[u8])]| {
+            let exe = std::env::temp_dir().join(format!("ambition-world-manifest-{}-{name}", std::process::id()));
+            ambition_asset_manager::exe_bundle::write_bundle(b"program", files, &exe).expect("the bundle is written");
+            let bundle = ambition_asset_manager::exe_bundle::ExeBundle::open(&exe)
+                .expect("the file is read")
+                .expect("the file carries a bundle");
+            // The index is in memory, and this arm asks only what it holds.
+            std::fs::remove_file(&exe).expect("the file is removed");
+            bundle
+        };
+        let source = WorldSource {
+            id: AssetId::new("world.primary"),
+            asset_path: "game://worlds/primary.ldtk".to_string(),
+            loose_path: None,
+            embedded_text: Some("{}"),
+            embedded_bevy_path: Some("worlds/primary.ldtk"),
+            required: true,
+        };
+        assert_eq!(
+            world_bevy_asset_path_in(&source, None),
+            "embedded://worlds/primary.ldtk",
+            "the control: with no bundle the embedded copy wins, as before"
+        );
+        let holds_the_world = bundle("holds", &[("worlds/primary.ldtk", b"{}"), ("sprites/tiles.png", b"png")]);
+        assert_eq!(
+            world_bevy_asset_path_in(&source, Some(&holds_the_world)),
+            "game://worlds/primary.ldtk"
+        );
+        let holds_another_world = bundle("another", &[("worlds/another.ldtk", b"{}")]);
+        assert_eq!(
+            world_bevy_asset_path_in(&source, Some(&holds_another_world)),
+            "embedded://worlds/primary.ldtk",
+            "a bundle that does not hold this world cannot serve it"
         );
     }
 }

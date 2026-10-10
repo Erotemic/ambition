@@ -614,7 +614,7 @@ mod authored_path_tests {
 #[cfg(test)]
 mod packaged_program_tests {
     use super::*;
-    use crate::exe_bundle::{write_bundle_for_test, ExeBundle};
+    use crate::exe_bundle::{write_bundle, ExeBundle};
     use crate::{AssetEntry, AssetKind};
 
     /// A tracked file of the engine tree: on the disk of each checkout.
@@ -625,7 +625,7 @@ mod packaged_program_tests {
     fn bundle_with(files: &[(&str, &[u8])]) -> &'static ExeBundle {
         let dir = tempfile::tempdir().expect("a temp dir");
         let exe = dir.path().join("game");
-        write_bundle_for_test(b"program", files, &exe);
+        write_bundle(b"program", files, &exe).expect("the bundle is written");
         let bundle = ExeBundle::open(&exe).expect("the file is read").expect("the file carries a bundle");
         // The catalog holds the bundle of the running program, which lives as
         // long as the program. The index is in memory, so these arms do not

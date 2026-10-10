@@ -361,6 +361,14 @@ reads cargo output to it.
    counts for no other check: a doc committed while a crate's lane ran
    voided that crate's pass (`738d7c3da`, witness
    `test_a_doc_edited_after_a_crate_ran_does_not_void_the_crate`).
+   A change under `crates/` or `game/`, or to the root manifest, requires
+   `cargo test -p ambition_workspace_policy` (2026-10-10): the policies read
+   every crate, and three of them named a file the dive module deleted, red on
+   main for a day while each lane the receipt asked for passed (witness
+   `test_a_change_in_any_crate_requires_the_workspace_policies`; replayed on
+   `7174d8015`, the receipt now names the policy check). A script under
+   `scripts/` no longer voids a crate's pass: no Rust source reads one
+   (`test_no_rust_source_reads_or_runs_a_script`).
 
 7. **The repo tooling job runs on several cores (2026-10-10).** It ran
    `scripts/tests` serially, and each push waits on it. Measured on 14 cores:

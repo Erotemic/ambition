@@ -96,6 +96,15 @@ ROLLBACK_REGISTRATION_PATHS = (
     "*/sim_phase_pins.rs",
 )
 
+#: The workspace policies (`tests/ambition_workspace_policy`) read sources
+#: across these trees and the root manifest: a file a policy names, a line a
+#: policy forbids, a module's size. A change in any crate can redden them, so
+#: each requires their tests. Measured 2026-10-10: the policies named
+#: `crates/*` and `game/*` paths and `Cargo.toml` only, and three policies
+#: named a file a crate change deleted, red on main for a day.
+POLICY_PACKAGE = "ambition_workspace_policy"
+POLICY_READS = ("crates/", "game/")
+
 #: Prose. No crate compiles it, so a crate's check is not asked to agree with
 #: it; the repo tooling job's guards read it (citations, anchors, `AGENTS.md`),
 #: so a change to it requires that job. A picture or a `.txt` is not prose: an
@@ -174,6 +183,9 @@ def requirements_for(path: str, members: dict[str, str]) -> set[Requirement]:
         required.update(CargoTestNamed(APP_PACKAGE, arm) for arm in CONTENT_ARMS)
     if any(fnmatch.fnmatch(path, pattern) for pattern in ROLLBACK_REGISTRATION_PATHS):
         required.update({CargoTestNamed(APP_PACKAGE, "rollback_"), Job(REPO_TOOLING_JOB)})
+    # The workspace policies read every crate, when the workspace has them.
+    if (path.startswith(POLICY_READS) or path == "Cargo.toml") and POLICY_PACKAGE in members.values():
+        required.add(CargoTest(POLICY_PACKAGE))
     # A guard's script and the baselines it reads (`scripts/baselines`,
     # `scripts/tests/*.txt`).
     if path.startswith("scripts/"):

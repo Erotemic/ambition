@@ -25,7 +25,6 @@ ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_combat = { path = "../ambition_combat" }
 ambition_held_items = { path = "../ambition_held_items" }
-ambition_items = { path = "../ambition_items" }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_vfx = { path = "../ambition_vfx" }

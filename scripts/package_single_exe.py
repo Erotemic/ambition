@@ -92,7 +92,9 @@ PLATFORMS = {
     "windows": {"target": WINDOWS_TARGET, "built": f"{BINARY}.exe", "name": "ambition-windows-x86_64.exe"},
 }
 
-SMOKE_TICKS = "240"
+# The run that proves the file stands alone: the first room of the campaign.
+SMOKE_ROOM = "central_hub_complex"
+SMOKE_TICKS = "600"
 
 
 def fail(code: int, message: str) -> None:
@@ -287,55 +289,68 @@ def library_needs(binary: Path) -> list[str]:
     return re.findall(r"\(NEEDED\)\s+Shared library: \[([^\]]+)\]", listing)
 
 
+def opens_in_trace(trace: str, exe: str, asset_roots: tuple[str, ...]) -> tuple[int, list[str]]:
+    """From an strace log of `open`/`openat`: how many times the program
+    opened `exe`, and each asset file it opened that is not `exe`. An asset
+    file is a file under one of `asset_roots` or under a directory `assets`.
+    A call that failed opened nothing."""
+    own_reads = 0
+    outside = set()
+    for line in trace.splitlines():
+        if "= -1" in line:
+            continue
+        match = re.search(r'"([^"]*)"', line)
+        if not match:
+            continue
+        opened = match.group(1)
+        if opened == exe:
+            own_reads += 1
+        elif opened.startswith(asset_roots) or "/assets/" in opened:
+            outside.add(opened)
+    return own_reads, sorted(outside)
+
+
 def verify_stands_alone(out: Path) -> None:
-    """Run the Linux file with no window from an empty directory and refuse
-    it if it opened an asset file outside itself."""
+    """Run the Linux file with no window from an empty directory, into the
+    first room of the game, and refuse it if it opened an asset file outside
+    itself."""
     if shutil.which("strace") is None:
         fail(2, "strace is not on PATH; it is how the file proves it stands alone")
     asset_roots = (
         str(REPO / package_asset_guard.ACTOR_ASSET_ROOT),
         str(REPO / package_asset_guard.CONTENT_ASSET_ROOT),
     )
-    env = {
-        key: value
-        for key, value in os.environ.items()
-        if key not in ("BEVY_ASSET_ROOT", "CARGO_MANIFEST_DIR", "AMBITION_ASSET_ROOT")
-    }
+    env = {key: value for key, value in os.environ.items() if key not in ("BEVY_ASSET_ROOT", "CARGO_MANIFEST_DIR")}
+    exe = str(out.resolve())
     with tempfile.TemporaryDirectory() as scratch:
         home = Path(scratch) / "home"
         cwd = Path(scratch) / "cwd"
-        home.mkdir()
-        cwd.mkdir()
-        # The saves and the settings of the run go to the scratch directory,
-        # not to the person's own.
-        env.update(HOME=str(home), XDG_DATA_HOME=str(home / "data"), XDG_CONFIG_HOME=str(home / "config"))
+        temp = Path(scratch) / "tmp"
+        for directory in (home, cwd, temp):
+            directory.mkdir()
+        # The saves, the settings and the temporary files of the run go to
+        # the scratch directory, not to the person's own.
+        env.update(
+            HOME=str(home),
+            XDG_DATA_HOME=str(home / "data"),
+            XDG_CONFIG_HOME=str(home / "config"),
+            TMPDIR=str(temp),
+            AMBITION_HEADLESS_GAMEPLAY_ROOM=SMOKE_ROOM,
+        )
         log = Path(scratch) / "strace.log"
         result = subprocess.run(
-            ["strace", "-f", "-e", "trace=openat,open", "-o", str(log),
-             str(out.resolve()), "--headless", "--headless-ticks", SMOKE_TICKS],  # fmt: skip
+            ["strace", "-f", "-e", "trace=openat,open", "-o", str(log), exe, "--headless", "--headless-ticks", SMOKE_TICKS],
             cwd=cwd,
             env=env,
             capture_output=True,
             text=True,
         )
         output = result.stdout + result.stderr
-        outside = set()
-        own_reads = 0
-        for line in log.read_text(errors="replace").splitlines():
-            if "= -1" in line:
-                continue
-            match = re.search(r'"([^"]*)"', line)
-            if not match:
-                continue
-            opened = match.group(1)
-            if opened == str(out.resolve()):
-                own_reads += 1
-            elif opened.startswith(asset_roots) or "/assets/" in opened:
-                outside.add(opened)
+        own_reads, outside = opens_in_trace(log.read_text(errors="replace"), exe, asset_roots)
     if result.returncode != 0:
         fail(1, f"{out} exited {result.returncode} on its run with no window:\n{output[-4000:]}")
     if outside:
-        listing = "\n".join(f"  {path}" for path in sorted(outside)[:40])
+        listing = "\n".join(f"  {path}" for path in outside[:40])
         fail(1, f"{out} opened {len(outside)} asset files outside itself:\n{listing}")
     if own_reads < 2:
         fail(1, f"{out} opened itself {own_reads} times on its run, so it did not read its bundle")
@@ -343,7 +358,12 @@ def verify_stands_alone(out: Path) -> None:
     if missing:
         listing = "\n".join(f"  {path}" for path in missing[:40])
         fail(1, f"{out} asked for {len(missing)} asset files it does not carry:\n{listing}")
-    say(f"{out.name}: ran {SMOKE_TICKS} ticks with no window; it opened itself {own_reads} times and no asset outside itself")
+    if "gameplay_session=true" not in output:
+        fail(1, f"{out} did not reach the room `{SMOKE_ROOM}` on its run with no window:\n{output[-4000:]}")
+    say(
+        f"{out.name}: ran {SMOKE_TICKS} ticks in `{SMOKE_ROOM}` with no window; "
+        f"it opened itself {own_reads} times and no asset file outside itself"
+    )
 
 
 def package(platform: str, program: Path, files: dict[str, Path], out_dir: Path) -> Path:

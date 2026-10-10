@@ -192,3 +192,32 @@ def test_a_tree_with_no_pack_drops_only_the_tiers(tmp_path):
         "backgrounds/parallax_layers/cave_far.png",
         "sprites/robot_spritesheet.png",
     ]
+
+
+TRACE = """\
+7 openat(AT_FDCWD, "/out/game", O_RDONLY|O_CLOEXEC) = 3
+7 openat(AT_FDCWD, "/out/game", O_RDONLY|O_CLOEXEC) = 4
+8 openat(AT_FDCWD, "/repo/engine/assets/sprites/robot.png", O_RDONLY|O_CLOEXEC) = 5
+8 openat(AT_FDCWD, "/repo/content/assets/worlds/sandbox.ldtk", O_RDONLY) = 6
+8 openat(AT_FDCWD, "/repo/engine/assets/sprites/absent.png", O_RDONLY) = -1 ENOENT (No such file or directory)
+9 openat(AT_FDCWD, "/somewhere/else/assets/fonts/a.ttf", O_RDONLY) = 7
+9 openat(AT_FDCWD, "/usr/lib/x86_64-linux-gnu/libasound.so.2", O_RDONLY|O_CLOEXEC) = 8
+9 openat(AT_FDCWD, "/home/player/data/ambition/save.ron", O_WRONLY|O_CREAT, 0666) = 9
+"""
+
+
+def test_the_trace_names_each_asset_the_program_opened_outside_itself():
+    own_reads, outside = packager.opens_in_trace(TRACE, "/out/game", ("/repo/engine/assets", "/repo/content/assets"))
+    assert own_reads == 2
+    # The file that was absent opened nothing. A system library and a save
+    # are not assets.
+    assert outside == [
+        "/repo/content/assets/worlds/sandbox.ldtk",
+        "/repo/engine/assets/sprites/robot.png",
+        "/somewhere/else/assets/fonts/a.ttf",
+    ]
+
+
+def test_a_program_that_reads_only_itself_has_a_clean_trace():
+    clean = "\n".join(line for line in TRACE.splitlines() if "/assets/" not in line)
+    assert packager.opens_in_trace(clean, "/out/game", ("/repo/engine/assets",)) == (2, [])

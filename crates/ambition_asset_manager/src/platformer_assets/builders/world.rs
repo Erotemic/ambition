@@ -20,9 +20,17 @@ use super::super::WorldCatalogRow;
 /// the desktop hot-reload watcher (primary world only) has a `LocalPath` to
 /// inotify; its `embedded_bevy_path` becomes the `EmbeddedBinary` candidate
 /// the static profiles resolve to.
+///
+/// `program_carries_assets`: the running program holds its asset tree
+/// ([`crate::exe_bundle`]). A row with an embedded copy then gets no
+/// `LooseFilesystem` candidate. The loose path is an absolute path of the
+/// machine that built the program; on that machine the file is there, the
+/// desktop profile prefers it, and the packaged game reads a world the player
+/// does not have.
 pub(in super::super) fn extend_with_world_entries(
     manifest: &mut AssetManifest,
     worlds: &[WorldCatalogRow],
+    program_carries_assets: bool,
 ) {
     for source in worlds {
         let mut entry = AssetEntry::new(
@@ -36,7 +44,8 @@ pub(in super::super) fn extend_with_world_entries(
             MissingAssetPolicy::WarnAndPlaceholder
         })
         .with_preload_group(PreloadGroup::Bootstrap);
-        if let Some(loose) = &source.loose_path {
+        let embedded_only = program_carries_assets && source.embedded_bevy_path.is_some();
+        if let Some(loose) = source.loose_path.as_ref().filter(|_| !embedded_only) {
             entry = entry.with_location(
                 AssetSourceProfile::LooseFilesystem,
                 AssetLocation::LocalPath(loose.clone()),

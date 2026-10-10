@@ -160,7 +160,22 @@ fn try_load_sfx_bank_via_catalog(catalog: &Platformer2dAssetCatalog) -> Option<B
     //    located via the catalog's centralized desktop candidate-roots
     //    walker. `resolve_local_file_path` returns None for
     //    non-desktop profiles or when the file isn't present.
+    //    A packaged game holds the bank inside its own file, and that comes
+    //    first: the game then reads no bank from the disk.
     if let Some(rel_path) = resolved.bevy_asset_path() {
+        if let Some(bundle) = catalog.exe_bundle() {
+            match bundle.read(&rel_path) {
+                Ok(Some(bytes)) => match BankProvider::from_bytes(bytes) {
+                    Ok(provider) => {
+                        info!("loaded sfx bank from the program's own file: {} entries", provider.entry_count());
+                        return Some(provider);
+                    }
+                    Err(error) => warn!("the sfx bank inside the program failed to parse: {error}"),
+                },
+                Ok(None) => {}
+                Err(error) => warn!("the sfx bank inside the program could not be read: {error}"),
+            }
+        }
         if let Some(local) = catalog.resolve_local_file_path(&rel_path) {
             return load_bank_from_path(&local);
         }

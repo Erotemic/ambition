@@ -36,6 +36,8 @@ pub mod bevy_integration;
 #[cfg(all(feature = "bevy", not(target_arch = "wasm32")))]
 pub mod consumer_source;
 
+pub mod exe_bundle;
+
 #[cfg(feature = "bevy")]
 pub mod platformer_assets;
 

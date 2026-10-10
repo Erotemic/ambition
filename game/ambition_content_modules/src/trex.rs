@@ -24,9 +24,11 @@
 //! clamped in his jaws and thrashed, then flung across the hall. Mash to break
 //! free (the engine's capture relation, `ambition.combat.body_hold`).
 //!
-//! The call: the king of the dinosaurs shrieks for his kin. Stochastic parrots
-//! swoop in from the high corners; enraged, raptors run in along the floor
-//! too. He calls only while their number is below `MINION_CAP`.
+//! The call: the king of the dinosaurs shrieks for his kin, and birds are
+//! dinosaurs. Each call brings a pair of one kind of his flock ([`FLOCK`]), the
+//! next kind each time: stochastic parrots from the high corners, chickens
+//! along the floor, owls from the high corners. Enraged, raptors run in at the
+//! walls too. He calls only while their number is below `MINION_CAP`.
 //!
 //! Every volume is measured from his art (`scripts/measure_part_track_boxes.py
 //! trex_enemy`), in sheet pixels from the frame's top left, and carried into
@@ -274,17 +276,33 @@ const THROW_ROW_S: f32 = 0.4;
 /// in the hold running out.
 const HOLD_S: f32 = SHAKE_S + 0.6;
 
-/// The call. Birds are dinosaurs: the parrots come down from the high corners
-/// of the hall; enraged, raptors run in at the walls.
-const PARROT: &str = "stochastic_parrot";
-const PARROT_HALF: [f32; 2] = [18.0, 16.0];
-const RAPTOR: &str = "npc_raptor_stalker";
-const RAPTOR_HALF: [f32; 2] = [24.0, 40.0];
+/// One of his kin: the catalog character, half its box, and whether it comes
+/// down from a high corner of the hall or runs in along the floor.
+#[derive(Clone, Copy)]
+struct Kin {
+    character: &'static str,
+    half: [f32; 2],
+    flies: bool,
+}
+
+/// The call. Birds are dinosaurs: each call brings a pair of one kind of his
+/// flock, the next kind each time (`Conductor::calls`). A new kind of bird is
+/// one row here and one buildable row in the character catalog.
+const FLOCK: [Kin; 3] = [
+    Kin { character: "stochastic_parrot", half: [18.0, 16.0], flies: true },
+    Kin { character: "chicken", half: [16.0, 22.0], flies: false },
+    Kin { character: "owl", half: [18.0, 24.0], flies: true },
+];
+/// Enraged, raptors run in at the walls with each call.
+const RAPTOR: Kin = Kin { character: "npc_raptor_stalker", half: [24.0, 40.0], flies: false };
 /// His summons alive at once, at most.
 const MINION_CAP: u32 = 4;
-/// How far in from each wall, and how high the parrots enter.
+/// How far in from each wall his kin enter, how high the flyers enter, and
+/// how much further in a bird of the flock on the floor enters (the raptors
+/// have the walls).
 const CALL_INSET: f32 = 90.0;
-const PARROT_HEIGHT: f32 = 470.0;
+const CALL_HEIGHT: f32 = 470.0;
+const CALL_FLOOR_STEP: f32 = 90.0;
 
 /// How hard each blow shakes the camera (world pixels, before the player's
 /// shake setting caps it).
@@ -426,6 +444,9 @@ record! {
     /// He has been seen alive. A boss cleared before you walked in loads dead
     /// and never was: his wail is for a death, not for a corpse.
     40 seen_alive: bool,
+    /// The calls that brought kin: the next call brings the next kind of his
+    /// flock.
+    41 calls: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -900,20 +921,25 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                     play(inv, SFX_ROAR, mouth)?;
                     c.voiced_at = c.clock;
                     shake(inv, SHAKE_ROAR)?;
-                    let high = hall.floor - PARROT_HEIGHT;
-                    let mut kin: Vec<(&str, [f32; 2], Vec2)> = vec![
-                        (PARROT, PARROT_HALF, Vec2::new(hall.left + CALL_INSET, high)),
-                        (PARROT, PARROT_HALF, Vec2::new(hall.right - CALL_INSET, high)),
-                    ];
+                    // One at each end of the hall: a flyer high, a runner
+                    // on the floor, `inset` in from the wall.
+                    let pair = |kin: Kin, inset: f32| {
+                        let y = if kin.flies { hall.floor - CALL_HEIGHT } else { hall.floor - kin.half[1] - 2.0 };
+                        [(kin, Vec2::new(hall.left + inset, y)), (kin, Vec2::new(hall.right - inset, y))]
+                    };
+                    let bird = FLOCK[c.calls as usize % FLOCK.len()];
+                    let mut kin: Vec<(Kin, Vec2)> = Vec::new();
                     if rex.enraged {
                         // The raptors FIRST: they are the enraged call's new
                         // threat, and the cap spends its room in this order.
-                        let low = hall.floor - RAPTOR_HALF[1] - 2.0;
-                        kin.insert(0, (RAPTOR, RAPTOR_HALF, Vec2::new(hall.right - CALL_INSET, low)));
-                        kin.insert(0, (RAPTOR, RAPTOR_HALF, Vec2::new(hall.left + CALL_INSET, low)));
+                        kin.extend(pair(RAPTOR, CALL_INSET));
                     }
+                    kin.extend(pair(bird, if bird.flies { CALL_INSET } else { CALL_INSET + CALL_FLOOR_STEP }));
                     let room = MINION_CAP.saturating_sub(rex.minions) as usize;
-                    for (i, (character, half, at)) in kin.into_iter().take(room).enumerate() {
+                    if room > 0 {
+                        c.calls += 1;
+                    }
+                    for (i, (Kin { character, half, .. }, at)) in kin.into_iter().take(room).enumerate() {
                         inv.submit::<BossSummonPort>(BossSummon {
                             label: "trex_kin".into(),
                             serial: vec![c.ticks, i as u32],

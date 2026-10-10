@@ -193,6 +193,16 @@ suit the style of the game.
   spikes, the pogo orb, and no shadow under a body.
 - [ ] The other entity props (the heart, the coin, the switches, the morph
   ball, the save point, the doors, the tiles) are as they were.
+- [x] Two new birds for the T-rex's call (Jon, 2026-10-10): the `chicken`
+  (a white cockerel with a dark tail, a ground bird: idle, walk, run, jump,
+  fall, slash, taunt, hurt, death) and the `owl` (a horned owl, its body
+  from the side and its face to the viewer, a flyer: idle, walk, fly, slash,
+  taunt, hurt, death). Each is one SVG posed by a rig on the `bird` anatomy
+  (`scripts/svg_art/{chicken,owl}_art.py` with `birdkit.py`,
+  `scripts/build_{chicken,owl}_rig.py`, `targets/characters/{chicken,owl}.py`
+  with `_bird_fx.py` for the effects). Side view only: the game reads no
+  turnaround row. A further bird is the same four files, one row of the
+  catalog and one row of `FLOCK` in the T-rex's conductor.
 
 ## Not done
 

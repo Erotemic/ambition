@@ -2663,6 +2663,42 @@
         (
             type: "NpcSpawn",
             px: [
+                1456,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "chicken",
+                prompt: "Inspect",
+                dialogue_id: "hall_chicken",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1584,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "owl",
+                prompt: "Inspect",
+                dialogue_id: "hall_owl",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
                 232,
                 1872,
             ],

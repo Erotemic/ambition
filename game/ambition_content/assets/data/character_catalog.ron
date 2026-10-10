@@ -300,6 +300,16 @@
             move_style: Float,
             melee: Some(Bite(windup_s: 0.16, active_s: 0.10, recover_s: 0.28, damage: 1, reach_px: 48.0)),
         ),
+        // The chicken's peck: quick and short.
+        "chicken_peck": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.20, active_s: 0.08, recover_s: 0.30, damage: 1, reach_px: 30.0)),
+        ),
+        // The owl's talons: slower than the parrot's bite, and they hurt more.
+        "owl_talons": (
+            move_style: Float,
+            melee: Some(Swipe(windup_s: 0.26, active_s: 0.10, recover_s: 0.40, damage: 2, reach_px: 52.0)),
+        ),
         "peaceful": (
             move_style: Walk,
             melee: None,
@@ -2654,6 +2664,78 @@
             hall: ["Tick. Tick. That's not a clock. That's me, counting.", "Clever girl. ...You'll do."],
         ),
         hall_dialogue_id: Some("hall_npc_raptor_stalker"),
+        ),
+        // ===== The T-rex's other birds (Jon, 2026-10-10). Birds are dinosaurs:
+        // his call (`trex_call`) brings a pair of one kind of his flock. Each
+        // row states its body and the way it hunts, because a summon refuses a
+        // character the cast cannot build and a body with no profile notices
+        // nobody (see `npc_raptor_stalker`).
+        //
+        // The chicken is a ground bird, and it plays the game of chicken: it
+        // runs straight at you and it does not swerve, so running into it
+        // hurts. Small and weak: two blows end it.
+        "chicken": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Game Chicken",
+            spritesheet: "sprites/chicken_spritesheet.png",
+            manifest: "sprites/chicken_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            standing_height: Some(44.0),
+            composition: None,
+            default_action_set: "chicken_peck",
+            locomotion: Some((run_speed: 215.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.45, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 700.0,
+                attack_range: 30.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["BA-GAWK!", "Bawk. I do not swerve."],
+            provoked: ["You go first. No. YOU go first."],
+            idle: ["Bawk.", "Buk buk buk.", "...bawk?"],
+            hall: ["Two of us run at each other. The one who turns, loses. I have never turned.", "Bawk. That is my whole strategy, and it is dominant."],
+        ),
+        hall_dialogue_id: Some("hall_chicken"),
+        ),
+        // The owl is the parrot's opposite. The parrot says what usually comes
+        // next; the owl keeps the list of what each thing IS (OWL: the Web
+        // Ontology Language). A heavier, slower flyer: it stalks above you
+        // and comes down talons first, and its strike hurts more.
+        "owl": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Ontology Owl",
+            spritesheet: "sprites/owl_spritesheet.png",
+            manifest: "sprites/owl_spritesheet.ron",
+            tier: Basement,
+            // Floating = no gravity, so the Aerial policy flies it.
+            body_kind: Floating,
+            standing_height: Some(48.0),
+            composition: None,
+            default_action_set: "owl_talons",
+            // A bird states its own flight, as the parrot does.
+            locomotion: Some((run_speed: 185.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 0.55, amount: 1)),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 620.0,
+                attack_range: 60.0,
+                shares_sightings: false,
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["Hoo!", "Noted: 'hostile'. Subclass of 'visitor'."],
+            provoked: ["You are now an instance of 'prey'."],
+            idle: ["Hoo.", "Who. Not 'what comes next'. WHO.", "A thing is what it is. I keep the list."],
+            hall: ["The parrot tells you what usually comes next. I tell you what a thing IS. We do not speak.", "Hoo. You are a 'visitor'. A visitor is a kind of 'thing'. I checked."],
+        ),
+        hall_dialogue_id: Some("hall_owl"),
         ),
         // npc_robot_heavy intentionally removed: the renderer's
         // `robot_heavy` target is a multi-variant rig that ships

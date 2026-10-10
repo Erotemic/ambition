@@ -406,6 +406,13 @@ where
     registrar.rollback_component_clone::<crate::features::PickupArt>(OWNER, "feature.pickup_art");
     registrar
         .rollback_component_clone::<ambition_held_items::GroundItem>(OWNER, "item.ground_item");
+    // What a body was sent to fetch, and how that ended. Probed by value: a
+    // restore that brought back another item or another outcome is a mismatch.
+    registrar.rollback_component_clone_probed::<crate::features::ecs::errand::Errand>(
+        OWNER,
+        "actor.errand",
+        |errand| errand.probe(),
+    );
     // ⭐ SLEEP IS SIMULATION STATE, and this one is presence/absence rather than
     // a value. `ground_item_physics` skips a settled object entirely, so a
     // rewind past the frame an object landed must also un-settle it — otherwise

@@ -433,10 +433,10 @@ What the in-room slice gives this row, and what it does not (2026-10-09):
   which holds each hop and the route's length against the crossing rule;
   it reaches 75 of the 76 shipped rooms from the hub, and `sanic_sandbox` has
   no zone that leads into it).
-  (3) A goal a brain can be given from outside ("fetch that"): `Roam` chooses
-  its own places, and the brain seam is closed
-  ([agentic character runtime](engine/agentic-character-runtime.md)).
-  (4) The typed action at the goal.
+  (3) A goal a brain can be given from outside ("fetch that") and (4) the
+  typed action at the goal: done in one room, 2026-10-09 (`Errand`; the
+  acceptance arm holds in one room, `a_dog_sent_for_an_item`; see the owner
+  page's cross-room slices). Next: slice 2, a crossing into a live room.
 
 **Acceptance:** a headless arm with a reachable and an unreachable item: the
 character fetches the first and refuses the second, and removing a movement

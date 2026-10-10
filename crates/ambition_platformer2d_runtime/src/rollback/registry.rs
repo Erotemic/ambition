@@ -1128,7 +1128,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 337 -> 338: a route leg (`NavLeg`, in the follower of the `Roam` arm of
 /// the `actor.brain` cursor) has the span of its landing surface: two more
 /// `f32` for a leg in progress. Payload only; no key moved.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 338;
+/// ⛔⛤ 338 -> 339: `actor.errand` (`Errand`), what a body was sent to fetch and
+/// how that ended: a value-probed clone, not in the session checksum.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 339;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

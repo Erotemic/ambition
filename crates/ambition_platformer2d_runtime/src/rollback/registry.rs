@@ -1130,7 +1130,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `f32` for a leg in progress. Payload only; no key moved.
 /// ⛔⛤ 338 -> 339: `actor.errand` (`Errand`), what a body was sent to fetch and
 /// how that ended: a value-probed clone, not in the session checksum.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 339;
+/// ⛔⛤ 339 -> 340: `mount.back_ledge` (`BackLedge`) joins. A mount's back is
+/// one-way ground while it is ridden, authored on its character; a mount a
+/// rewind re-creates carries it as it carries `mount.mountable`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 340;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

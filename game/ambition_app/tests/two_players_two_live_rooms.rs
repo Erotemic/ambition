@@ -1957,7 +1957,7 @@ fn the_gnu_s_back_is_ground_in_its_own_live_room() {
         >()
         .iter(world)
         .flat_map(|(live, overlay)| {
-            overlay.blocks.iter().filter(|block| block.name == "gnu_back").map(move |_| *live)
+            overlay.blocks.iter().filter(|block| block.name == ambition_platformer2d::mount::BACK_BLOCK).map(move |_| *live)
         })
         .collect();
     backs.dedup();

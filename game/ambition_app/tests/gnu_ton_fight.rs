@@ -7,7 +7,7 @@
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use ambition_content::bosses::gnu_ton::choreography::Move;
-use ambition_content::bosses::gnu_ton::conductor::back_platform;
+use ambition_platformer2d::mount::BackLedge;
 use ambition_content::bosses::gnu_ton::GnuTonConductor;
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::characters::brain::{BossAttackProfile, BossAttackState};
@@ -91,8 +91,8 @@ struct Scene {
     floor: f32,
     giant: ae::BodyKinematics,
     giant_unmirrored: bool,
-    /// The scale the gnu's body is drawn at: its row's posed body.
-    giant_world_per_pixel: f32,
+    /// The gnu's back, as its character authors it.
+    giant_back: BackLedge,
     /// The side the gnu is drawn toward, from the presentation read-model.
     giant_drawn_side: f32,
     /// Left fist first: body, health, max health.
@@ -114,20 +114,12 @@ fn scene(sim: &mut Platformer2dSimHarness) -> Scene {
             )
         })
         .expect("GNU-ton is in the arena, conducted");
-    let (giant, rig, giant_unmirrored, giant_id, giant_world_per_pixel) = world
-        .query_filtered::<(
-            &ae::BodyKinematics,
-            &LimbRig,
-            Has<ae::Unmirrored>,
-            &FeatureId,
-            &ambition_platformer2d::sprite_sheet::character::sheets::SpritePosedBody,
-        ), Without<Limb>>()
+    let (giant, rig, giant_unmirrored, giant_id, giant_back) = world
+        .query_filtered::<(&ae::BodyKinematics, &LimbRig, Has<ae::Unmirrored>, &FeatureId, &BackLedge), Without<Limb>>()
         .iter(world)
         .next()
-        .map(|(kin, rig, unmirrored, id, posed)| {
-            (kin.clone(), rig.clone(), unmirrored, id.clone(), posed.world_per_pixel)
-        })
-        .expect("the giant gnu is in the arena, with a posed body");
+        .map(|(kin, rig, unmirrored, id, back)| (kin.clone(), rig.clone(), unmirrored, id.clone(), *back))
+        .expect("the giant gnu is in the arena, with its back");
     let giant_drawn_side = world
         .resource::<ActorAnimIndex>()
         .get(giant_id.as_str())
@@ -150,7 +142,7 @@ fn scene(sim: &mut Platformer2dSimHarness) -> Scene {
         floor,
         giant,
         giant_unmirrored,
-        giant_world_per_pixel,
+        giant_back,
         giant_drawn_side,
         fists,
     }
@@ -262,7 +254,7 @@ fn the_gnu_stands_on_the_floor_and_carries_a_person_sized_scholar() {
     // Standing ON the gnu's shoulders: his soles on the back the player stands
     // on, not in the air above it (he stood 11.7 wu up, on the art's shoulder
     // point, and read as floating in front of the neck).
-    let back = back_platform(&s.giant, s.giant_unmirrored, s.giant_world_per_pixel);
+    let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
     let soles = s.scholar.pos.y + s.scholar.size.y * 0.5;
     assert!(
         (soles - back.min.y).abs() < 1.0 && (back.min.x..back.max.x).contains(&s.scholar.pos.x),
@@ -379,7 +371,7 @@ fn you_can_stand_on_the_giants_shoulders_until_it_bucks() {
     let mut sim = arena();
     untouchable_player(&mut sim);
     let s = scene(&mut sim);
-    let back = back_platform(&s.giant, s.giant_unmirrored, s.giant_world_per_pixel);
+    let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
     let spot = ae::Vec2::new((back.min.x + back.max.x) * 0.5 - 60.0, back.min.y - 40.0);
     place_player(&mut sim, spot);
     for _ in 0..20 {
@@ -415,7 +407,7 @@ fn hit_him_from_the_gnus_back_and_it_bucks_you_off() {
     // Into Phase 1, well before its own buck (the fourth beat of the cycle).
     step_until(&mut sim, 600, "his first move", |sim| scene(sim).performing.is_some());
     let s = scene(&mut sim);
-    let back = back_platform(&s.giant, s.giant_unmirrored, s.giant_world_per_pixel);
+    let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
     assert_ne!(pattern_move(&mut sim).as_deref(), Some("buck"), "the premise: no buck due yet");
 
     let stand = ae::Vec2::new(s.scholar.pos.x - 45.0, back.min.y - 40.0);
@@ -480,7 +472,7 @@ fn the_scholar_turns_and_the_gnu_under_him_does_not() {
     // What a turn could move, relative to the gnu: the side it is drawn toward,
     // its back, and the saddle while he sits in it.
     let drawn = |s: &Scene| {
-        let back = back_platform(&s.giant, s.giant_unmirrored, s.giant_world_per_pixel);
+        let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
         (s.giant_drawn_side, back.min.x - s.giant.pos.x, back.max.x - s.giant.pos.x)
     };
     let before = drawn(&s);

@@ -183,6 +183,60 @@ pub struct MountSlot {
     pub rider: Option<Entity>,
 }
 
+/// A mount's back is one-way ground while it is ridden: a body can climb
+/// onto it to reach the rider (GNU-ton's gnu: you stand on the shoulders of a
+/// giant). From the mount's character (`CharacterMount::back`), in world units
+/// about the mount's centre, facing right.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct BackLedge(pub ambition_characters::actor::MountBack);
+
+impl BackLedge {
+    /// The back where the mount is drawn: mirrored by the side it is drawn
+    /// facing ([`ae::mirror_side`]), so an unmirrored mount keeps its back
+    /// where its art puts it when it turns.
+    pub fn aabb(&self, mount: &ae::BodyKinematics, unmirrored: bool) -> ae::Aabb {
+        let side = ae::mirror_side(mount.facing, unmirrored);
+        let (a, b) = (mount.pos.x + side * self.0.left, mount.pos.x + side * self.0.right);
+        let top = mount.pos.y + self.0.top;
+        ae::aabb_from_min_size(ae::Vec2::new(a.min(b), top), ae::Vec2::new((a - b).abs(), self.0.thickness))
+    }
+}
+
+/// The name of a mount's back in its room's collision overlay.
+pub const BACK_BLOCK: &str = "mount_back";
+
+/// Each ridden mount's back is one-way ground in the mount's own live room,
+/// moving with the mount. A collision-overlay contribution: the composition
+/// runs it after the overlay rebuild and before the bodies that collide.
+pub fn mount_backs_are_ground(
+    mounts: Query<(
+        &ae::BodyKinematics,
+        &BackLedge,
+        &MountSlot,
+        bevy::prelude::Has<ae::Unmirrored>,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    )>,
+    mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays,
+) {
+    for (mount, back, slot, unmirrored, room) in &mounts {
+        if slot.rider.is_none() {
+            continue;
+        }
+        // A body in another live room must not stand on it.
+        let Some(mut overlay) = overlays.for_room(room) else {
+            continue;
+        };
+        overlay.blocks.push(ae::Block {
+            id: ae::GeoId::anon(),
+            name: BACK_BLOCK.to_string(),
+            aabb: back.aabb(mount, unmirrored),
+            kind: ae::BlockKind::OneWay,
+            velocity: mount.vel,
+            art_color: None,
+        });
+    }
+}
+
 /// Attached to a rider entity. Points at the mount the rider is
 /// currently on. The presence of this component is what tells the
 /// per-tick sync system to lock the rider's pos to the mount.
@@ -1516,6 +1570,14 @@ where
     });
     registrar.rollback_map_entities::<MountSlot>(OWNER, "map.mount_slot");
     registrar.rollback_component_clone::<Mountable>(OWNER, "mount.mountable");
+    // Probe the back's numbers, not only presence: they place the ground a
+    // body stands on.
+    registrar.rollback_component_clone_probed::<BackLedge>(OWNER, "mount.back_ledge", |back| {
+        let b = back.0;
+        [b.left, b.right, b.top, b.thickness]
+            .iter()
+            .fold(0u64, |h, v| h.rotate_left(16) ^ u64::from(v.to_bits()))
+    });
     registrar.rollback_component_clone::<Mounted>(OWNER, "mount.mounted");
     // ⚠ OWNED HERE, NOT BY `_core`, and the split is deliberate: `_core` DEFINES
     // the marker so both domains can name it, and whoever maintains its
@@ -1853,10 +1915,16 @@ pub fn install_mount_simulation_systems(
     app.add_systems(schedule.clone(), board_reserved_mounts.in_set(MountsBoarded));
     app.add_systems(schedule.clone(), tick_ride_leases.in_set(RideLeasesTicked));
     app.add_systems(
-        schedule,
+        schedule.clone(),
         apply_dismount_requests.in_set(DismountRequestsApplied),
     );
+    app.add_systems(schedule, mount_backs_are_ground.in_set(MountBacksContributed));
 }
+
+/// [`mount_backs_are_ground`]: a collision-overlay contribution. The
+/// composition places it where the overlay's contributions run.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct MountBacksContributed;
 
 /// The rider's pose mirrored onto its mount, after whatever moved either of them.
 ///
@@ -2108,5 +2176,60 @@ mod footprint_tests {
         let (rider, _) = pair(&mut app, TURNED_HALF, sideways(), false);
         the_footprint_keeps_the_published_half(&mut app, rider, TURNED_HALF, "the death of a mount");
         assert!(app.world().get::<Mounted>(rider).is_none(), "premise: the rider is off the dead mount");
+    }
+}
+
+#[cfg(test)]
+mod back_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        insert_live_room_component, spawn_live_room, InRoomInstance, LiveRoomInstance,
+    };
+
+    const GNU: ambition_characters::actor::MountBack =
+        ambition_characters::actor::MountBack { left: -208.0, right: 169.0, top: -9.75, thickness: 14.0 };
+
+    #[test]
+    fn the_back_is_where_the_mount_is_drawn() {
+        let mut kin = ae::BodyKinematics::default();
+        kin.pos = ae::Vec2::new(900.0, 1040.0);
+        kin.facing = 1.0;
+        let right = BackLedge(GNU).aabb(&kin, false);
+        kin.facing = -1.0;
+        let left = BackLedge(GNU).aabb(&kin, false);
+        assert_eq!((right.min.x, right.max.x, right.min.y), (692.0, 1069.0, 1030.25), "{right:?}");
+        assert_eq!((left.min.x, left.max.x), (731.0, 1108.0), "{left:?}");
+        // Unmirrored, a turn draws nothing different, so the back stays put.
+        assert_eq!(BackLedge(GNU).aabb(&kin, true), right);
+    }
+
+    /// ⭐ A ridden mount's back is a one-way block in its own live room's
+    /// overlay, and nowhere else; an unridden mount's back is not ground.
+    #[test]
+    fn a_ridden_mount_s_back_is_ground_in_its_own_live_room_only() {
+        let mut world = bevy::prelude::World::new();
+        insert_live_room_component(&mut world, FeatureEcsWorldOverlay::default());
+        let other = LiveRoomInstance::ACTIVATION.next();
+        spawn_live_room(&mut world, other, FeatureEcsWorldOverlay::default());
+        let mut kin = ae::BodyKinematics::default();
+        kin.pos = ae::Vec2::new(900.0, 1040.0);
+        kin.vel = ae::Vec2::new(3.0, -4.0);
+        kin.facing = 1.0;
+        let rider = world.spawn_empty().id();
+        let ridden = world.spawn((kin, BackLedge(GNU), MountSlot { rider: Some(rider) }, InRoomInstance(other))).id();
+        world.spawn((kin, BackLedge(GNU), MountSlot { rider: None }, InRoomInstance(other)));
+        let mut system = bevy::ecs::system::IntoSystem::into_system(mount_backs_are_ground);
+        bevy::ecs::system::System::initialize(&mut system, &mut world);
+        let _ = bevy::ecs::system::System::run(&mut system, (), &mut world);
+        let mut overlays = world.query::<(&LiveRoomInstance, &FeatureEcsWorldOverlay)>();
+        let backs: Vec<(LiveRoomInstance, ae::Aabb, ae::Vec2, ae::BlockKind)> = overlays
+            .iter(&world)
+            .flat_map(|(live, overlay)| {
+                overlay.blocks.iter().filter(|b| b.name == BACK_BLOCK).map(move |b| (*live, b.aabb, b.velocity, b.kind))
+            })
+            .collect();
+        let expected = BackLedge(GNU).aabb(world.get::<ae::BodyKinematics>(ridden).unwrap(), false);
+        assert_eq!(backs, vec![(other, expected, ae::Vec2::new(3.0, -4.0), ae::BlockKind::OneWay)]);
     }
 }

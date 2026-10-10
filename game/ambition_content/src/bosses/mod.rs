@@ -31,7 +31,7 @@ pub use cut_rope::{
     SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
     CUT_ROPE_VICTORY_NPC_ID,
 };
-pub use gnu_ton::{conduct_gnu_ton, gate_gnu_ton_arena_ladder, gnu_back_is_ground};
+pub use gnu_ton::{conduct_gnu_ton, gate_gnu_ton_arena_ladder};
 
 // ⭐ READ OFF DISK IN DESKTOP DEVELOPMENT, EMBEDDED UNDER `static_content`
 // (web, Android, a build without the source tree), like the move tables: a
@@ -442,12 +442,13 @@ impl Plugin for AmbitionBossContentPlugin {
 
         // GNU-ton arena gate: a derived collision-overlay contributor (hides the
         // retreat ladder while the boss is alive; opens the floor-gate on defeat).
+        // The gnu's back is the mount domain's (`ambition_mount::BackLedge`).
         // `FeatureWorldOverlayContributions` runs it after the overlay rebuild
         // and before every body that collides with the overlay, like the lock
         // walls, so this frame's collision sees the derived geometry.
         app.add_systems(
             sim,
-            (gate_gnu_ton_arena_ladder, gnu_back_is_ground)
+            gate_gnu_ton_arena_ladder
                 .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
                 .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),

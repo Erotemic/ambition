@@ -140,7 +140,7 @@ The system doc is [`docs/systems/parallax-backgrounds.md`](../../systems/paralla
   officers (Admiral, Raider, Quartermaster, Navigator) are one thin body in
   four palettes, and they look slight next to the two heavy pirates. They
   are a place to start.
-- **Ambience sound.** The game has no ambience channel. Eleven beds to
+- **Ambience sound.** The game has no ambience channel. Twelve beds to
   listen to are in `untracked/sfx-candidates/room_ambience/` (not in git),
   with a reel and a script that makes them again. They wait for Jon's ear:
   nothing plays them.

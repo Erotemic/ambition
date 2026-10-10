@@ -21,7 +21,7 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
 };
 
-use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt};
+use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, SessionScopedEntity, SpawnSessionScopedExt};
 use ambition_render::rendering::{BossOverlaySet, FeatureVisual, RoomVisual};
 use ambition_sprite_sheet::boss::{BossAnimator, BossDrawnCell};
 
@@ -87,9 +87,12 @@ pub fn attach_sauce_overlays(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<SauceMaterial>>,
-    candidates: Query<(Entity, &FeatureVisual, &Transform, &BossAnimator, Option<&SessionScopedEntity>), (With<BossDrawnCell>, Without<SauceSource>)>,
+    candidates: Query<
+        (Entity, &FeatureVisual, &Transform, &BossAnimator, Option<&SessionScopedEntity>, Option<&InRoomInstance>),
+        (With<BossDrawnCell>, Without<SauceSource>),
+    >,
 ) {
-    for (source, visual, transform, animator, session_owner) in &candidates {
+    for (source, visual, transform, animator, session_owner, room) in &candidates {
         let Some(layer) = animator.layers.iter().find(|l| l.name == SAUCE_LAYER) else {
             continue;
         };
@@ -100,7 +103,7 @@ pub fn attach_sauce_overlays(
         });
         let overlay = commands
             .spawn_session_scoped(
-                SessionSpawnScope::new(session_owner.map(|owner| owner.0)),
+                super::overlay_scope_of(session_owner, room),
                 (
                     Mesh2d(meshes.add(Rectangle::default())),
                     MeshMaterial2d(material),

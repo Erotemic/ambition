@@ -83,8 +83,8 @@ pub use visuals::{
 pub struct PortalObservationSet;
 
 /// Through-portal composite z. The captured far-side image draws above the
-/// exit body copy but below actors and the portal rim, so near-side actors still
-/// occlude the aperture and the rim remains intact. Transiting body pieces stay
+/// portal's frame and the exit body copy, and below actors, so near-side
+/// actors still occlude the aperture. Transiting body pieces stay
 /// on world layers and are captured by each pair's view window.
 /// Overlapping panes use front-side
 /// dominance with hysteresis (`view_cones::mesh::pane_z`) rather than radial
@@ -93,10 +93,17 @@ pub const PORTAL_WINDOW_Z: f32 = 9.5;
 /// The exit-side body slice z (just below [`PORTAL_WINDOW_Z`]).
 pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
 /// The z of a portal's frame, which is its line of light (`glow`) and its
-/// label: above the window and exit slice, below actors. The thin line
-/// therefore stays intact while near-side bodies can still occlude the whole
-/// portal.
-pub const PORTAL_RIM_OVERLAY_Z: f32 = 10.0;
+/// label: under the exit slice and under the window.
+///
+/// A body is drawn over the light on each side of a seam. On the near side
+/// the body is at its own z, far above. On the far side the body is the exit
+/// slice, which is over the far portal's line in the window's capture. The
+/// window covers the half of the near line that is behind its face, and the
+/// capture shows the far portal's line in that place, so the seam is one line
+/// of two halves. With the frame over the window (10.0, the rule before), the
+/// near line's glow was drawn over the far half of a body that crossed and
+/// not over its near half: one half was washed and the other was not.
+pub const PORTAL_FRAME_Z: f32 = 9.3;
 
 // Compile-time checks of the z stack that the three doc comments above
 // describe, so editing one number cannot reorder it.
@@ -105,9 +112,9 @@ const _: () = assert!(
     "the exit-side body slice draws BELOW the through-portal composite"
 );
 const _: () = assert!(
-    PORTAL_WINDOW_Z < PORTAL_RIM_OVERLAY_Z,
-    "the rim/core/label overlay draws ABOVE the window, so the thin rim stays \
-     intact over the captured far-side image"
+    PORTAL_FRAME_Z + 0.05 < PORTAL_EXIT_COPY_Z,
+    "the frame (its line, and its label 0.05 above) draws BELOW the exit-side \
+     body slice, so a body is over the light on the far side of a seam too"
 );
 // The cross-crate check ("the portal band sits at or below `WORLD_Z_DUMMY`")
 // is in `compositing::tests::the_portal_band_stays_at_or_below_the_shared_world_datum`,

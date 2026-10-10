@@ -31,7 +31,7 @@ use bevy::{
 };
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+    InRoomInstance, SessionScopedEntity, SpawnSessionScopedExt,
 };
 use ambition_sprite_sheet::character::rigged::FrameInSprite;
 use ambition_render::rendering::{
@@ -184,6 +184,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
             Option<&Anchor>,
             Option<&FrameInSprite>,
             Option<&SessionScopedEntity>,
+            Option<&InRoomInstance>,
         ),
         (
             Without<PlayerVisual>,
@@ -192,7 +193,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
         ),
     >,
 ) {
-    for (source_entity, visual, transform, sprite, anchor, frame, session_owner) in &candidates {
+    for (source_entity, visual, transform, sprite, anchor, frame, session_owner, room) in &candidates {
         let Some(actor_seed) = puppy_slug_seed(&visual.id, &actor_render) else {
             continue;
         };
@@ -216,7 +217,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
         // Let Bevy's required-component machinery insert Transform's GlobalTransform and
         // Visibility's InheritedVisibility + ViewVisibility with their proper defaults. Same
         // reasoning for ViewVisibility.
-        let session_scope = SessionSpawnScope::new(session_owner.map(|owner| owner.0));
+        let session_scope = super::overlay_scope_of(session_owner, room);
         let overlay_entity = commands
             .spawn_session_scoped(
                 session_scope,

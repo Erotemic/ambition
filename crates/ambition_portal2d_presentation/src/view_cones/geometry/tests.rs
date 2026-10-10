@@ -394,8 +394,12 @@ fn full_half_plane_render_clips_to_the_full_active_frame_at_the_aperture() {
     }
 }
 
+/// In the aperture the window is the whole takeover, and it is whole at once
+/// (`immediate`): a viewer that has just crossed a pair arrives in the far
+/// aperture, and the far window must be whole on that frame. The control is
+/// a viewer inside the blend distance, whose window eases.
 #[test]
-fn doorway_view_cone_reaches_half_plane_without_immediate_snap() {
+fn a_window_is_the_whole_takeover_at_once_for_a_viewer_in_its_aperture() {
     let world = Vec2::new(1600.0, 900.0);
     let enter = placed(
         PortalGunColor::BLUE.channel(),
@@ -426,11 +430,24 @@ fn doorway_view_cone_reaches_half_plane_without_immediate_snap() {
         world,
         MapConvention::Reflection,
     );
-    assert!(
-        !plan.immediate,
-        "doorway cone should now use the continuous spatial/temporal ease"
-    );
+    assert!(plan.immediate, "in the aperture the window does not ease");
     assert_eq!(plan.target, 1.0);
+    let approaching = PortalViewer {
+        eye: enter.pos + enter.normal * (config.half_plane_preview_full_distance + 40.0),
+        ..viewer.clone()
+    };
+    let eased = compute_cone(&enter, &exit, &config, Some(&approaching), world, MapConvention::Reflection);
+    assert!(eased.target > 0.0 && !eased.immediate, "a viewer that walks up to it gets the ease");
+    // The window of the side the viewer's centre is not on stays closed: a
+    // body that straddles the pair has corners on both sides, and the far
+    // window would draw its image of the near side over the near side.
+    let straddling = PortalViewer {
+        eye: exit.pos - exit.normal * 6.0,
+        half_size: Vec2::new(12.0, 20.0),
+        ..viewer.clone()
+    };
+    let behind = compute_cone(&exit, &enter, &config, Some(&straddling), world, MapConvention::Reflection);
+    assert_eq!(behind.target, 0.0, "a window opened for a viewer whose centre is behind its face");
     let min_x = plan
         .wedge
         .entry_quad
@@ -502,7 +519,9 @@ fn near_doorway_view_cone_opens_only_inside_the_proximity_band() {
     let (mid_span, mid_target, mid_immediate, mid_half) = span_at((start_dist + full_dist) * 0.5);
     let (full_span, full_target, full_immediate, full_half) = span_at(full_dist * 0.5);
 
-    assert!(!far_immediate && !mid_immediate && !full_immediate);
+    // The window eases while the viewer walks up to it, and is whole at once
+    // in the aperture.
+    assert!(!far_immediate && !mid_immediate && full_immediate);
     assert_eq!(far_target, 0.0);
     assert_eq!(far_half, 0.0);
     assert!(

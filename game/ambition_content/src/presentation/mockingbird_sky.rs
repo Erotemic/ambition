@@ -154,7 +154,7 @@ pub fn attach_flames(
     mut materials: ResMut<Assets<FlameMaterial>>,
     birds: Query<(&FeatureId, &BossConfig, &BodyRecords, Option<&BodyHealth>)>,
     candidates: Query<
-        (Entity, &FeatureVisual, &Transform, &Sprite, Option<&SessionScopedEntity>),
+        (Entity, &FeatureVisual, &Transform, &Sprite, Option<&SessionScopedEntity>, Option<&InRoomInstance>),
         (With<BossAnimator>, Without<FlameSource>),
     >,
 ) {
@@ -162,7 +162,7 @@ pub fn attach_flames(
         return;
     }
     let birds = birds_by_id(birds.iter());
-    for (source, visual, transform, sprite, session_owner) in &candidates {
+    for (source, visual, transform, sprite, session_owner, room) in &candidates {
         if !birds.contains_key(visual.id.as_str()) {
             continue;
         }
@@ -174,7 +174,7 @@ pub fn attach_flames(
         });
         let overlay = commands
             .spawn_session_scoped(
-                SessionSpawnScope::new(session_owner.map(|owner| owner.0)),
+                super::overlay_scope_of(session_owner, room),
                 (
                     Mesh2d(meshes.add(Rectangle::default())),
                     MeshMaterial2d(material),

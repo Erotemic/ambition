@@ -40,7 +40,10 @@ Notes:
   tooling job for `scripts/`, the LDtk tool tests for that tool, the two
   content arms for `game/ambition_content/assets` and the map assets, and the
   `rollback_` arms with the repo tooling job for a rollback registration or
-  `sim_phase_pins.rs`. A check named by test name counts for a run whose
+  `sim_phase_pins.rs`, and for a procedural module
+  (`game/ambition_content_modules`) the harnesses that run it:
+  `cargo test -p ambition_content` and the `app_it` arms in
+  `MODULE_ARMS`. A check named by test name counts for a run whose
   filter is part of that name, or that had no filter. A check counts only when `run_tests.py` recorded
   it as passed on a tree with your change in it
   (`target/lane_ledger.jsonl`); a plain `cargo test` records nothing. It

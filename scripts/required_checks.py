@@ -96,6 +96,28 @@ ROLLBACK_REGISTRATION_PATHS = (
     "*/sim_phase_pins.rs",
 )
 
+#: Procedural modules (fast-iteration I4). The module crate has no Bevy, and
+#: its own tests check little more than its wire. What a module DOES is
+#: measured where it is composed: the parity and reference harnesses of
+#: `ambition_content` compare a module with its native reference, and the
+#: `app_it` arms below run it in the game. Measured 2026-10-10: a port
+#: version bump moved three boss modules (fsm, trex, mockingbird), and the
+#: change was certified on the module crate's 18 tests alone.
+MODULE_CRATE_DIR = "game/ambition_content_modules"
+MODULE_HARNESS_PACKAGE = "ambition_content"
+#: Each `app_it` arm that names the module crate
+#: (`test_every_app_arm_that_names_the_modules_is_held` holds this), and
+#: `fsm_fight`, which runs the fsm module through content and does not name
+#: the crate. ⚠ An arm that runs a module and does not name the crate is held
+#: only when it is in this list.
+MODULE_ARMS = (
+    "a_boss_special_runs_on_the_extension_host",
+    "a_loaded_module_keeps_session_state",
+    "fsm_fight",
+    "mockingbird_fight",
+    "trex_fight",
+)
+
 #: The workspace policies (`tests/ambition_workspace_policy`) read sources
 #: across these trees and the root manifest: a file a policy names, a line a
 #: policy forbids, a module's size. A change in any crate can redden them, so
@@ -181,6 +203,9 @@ def requirements_for(path: str, members: dict[str, str]) -> set[Requirement]:
         required.update(CargoTest(app) for app in DEMO_HOST_APPS)
     if any(fnmatch.fnmatch(path, pattern) for pattern in CONTENT_PATHS):
         required.update(CargoTestNamed(APP_PACKAGE, arm) for arm in CONTENT_ARMS)
+    if path.startswith(MODULE_CRATE_DIR + "/"):
+        required.add(CargoTest(MODULE_HARNESS_PACKAGE))
+        required.update(CargoTestNamed(APP_PACKAGE, arm) for arm in MODULE_ARMS)
     if any(fnmatch.fnmatch(path, pattern) for pattern in ROLLBACK_REGISTRATION_PATHS):
         required.update({CargoTestNamed(APP_PACKAGE, "rollback_"), Job(REPO_TOOLING_JOB)})
     # The workspace policies read every crate, when the workspace has them.

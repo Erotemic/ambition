@@ -374,6 +374,14 @@ reads cargo output to it.
    [extension evidence M0](engine/extension-iteration-evidence.md#m0-results):
    `app_it`'s 890-913 s is now the largest part of a push.
 
+8. **The change selects its checks, and one command runs them (2026-10-10).**
+   `python3 scripts/required_checks.py --run` runs the `run_tests.sh` command
+   of each required check that is not certified, then judges again from the
+   ledger the runs wrote. Witness
+   `test_run_runs_only_the_checks_that_are_not_certified_and_judges_again`
+   (control: all certified, nothing runs; poison: run every required check,
+   red at the commands assertion).
+
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
 

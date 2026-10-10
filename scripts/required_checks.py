@@ -3,6 +3,7 @@
 
     python3 scripts/required_checks.py                 # HEAD against origin/main
     python3 scripts/required_checks.py --base <rev> --rev <rev>
+    python3 scripts/required_checks.py --run           # run what is not certified
 
 The change is what `--rev` adds since it left `--base` (`git diff base...rev`).
 Each rule below names paths and the checks a change to them requires. A check is
@@ -30,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -341,23 +343,44 @@ def judge(repo: Path, base: str, rev: str) -> tuple[list[str], list[Verdict]]:
     return paths, verdicts
 
 
-def remedy(missing: list[Requirement]) -> str:
+def remedy_commands(missing: list[Requirement]) -> list[list[str]]:
+    """The `run_tests.sh` commands that run each of `missing`. Each records its
+    result in the lane ledger, which is what a verdict reads."""
     packages = [r.package for r in missing if isinstance(r, CargoTest)]
     named = [r for r in missing if isinstance(r, CargoTestNamed)]
     jobs = [r.name for r in missing if isinstance(r, Job)]
-    lines = []
+    commands = []
     if packages:
-        flags = " ".join(f"-p {package}" for package in packages)
-        lines.append(f"./run_tests.sh {flags} --only-job '(default features)'")
+        flags = [flag for package in packages for flag in ("-p", package)]
+        commands.append(["./run_tests.sh", *flags, "--only-job", "(default features)"])
     # `-k` takes one filter, so each named check is a run of its own.
     for requirement in named:
-        lines.append(
-            f"./run_tests.sh -p {requirement.package} -k {requirement.name} --only-job '(default features)'"
+        commands.append(
+            ["./run_tests.sh", "-p", requirement.package, "-k", requirement.name, "--only-job", "(default features)"]
         )
     for job in jobs:
-        lane = "--tool-tests " if job in DETACHED_TOOL_JOBS else ""
-        lines.append(f"./run_tests.sh {lane}--only-job '{job}'")
-    return "\n".join(f"    {line}" for line in lines)
+        lane = ["--tool-tests"] if job in DETACHED_TOOL_JOBS else []
+        commands.append(["./run_tests.sh", *lane, "--only-job", job])
+    return commands
+
+
+def remedy(missing: list[Requirement]) -> str:
+    return "\n".join(f"    {shlex.join(command)}" for command in remedy_commands(missing))
+
+
+def certify(repo: Path, base: str, rev: str, run=subprocess.run) -> tuple[list[str], list[Verdict]]:
+    """Run the commands of each required check that is not certified, then
+    judge again: the change selects the checks, and the ledger the runs write
+    is the verdict. A command that fails does not stop the others; its
+    failure is in the ledger."""
+    paths, verdicts = judge(repo, base, rev)
+    missing = [verdict.requirement for verdict in verdicts if not verdict.certified]
+    for command in remedy_commands(missing):
+        print(f"required_checks: running {shlex.join(command)}", flush=True)
+        run(command, cwd=repo)
+    if missing:
+        paths, verdicts = judge(repo, base, rev)
+    return paths, verdicts
 
 
 def report(paths: list[str], verdicts: list[Verdict]) -> int:
@@ -379,9 +402,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--base", default="origin/main")
     parser.add_argument("--rev", default="HEAD")
+    parser.add_argument(
+        "--run",
+        action="store_true",
+        help="run the checks that are not certified, then report again",
+    )
     args = parser.parse_args()
     try:
-        paths, verdicts = judge(REPO, args.base, args.rev)
+        if args.run:
+            paths, verdicts = certify(REPO, args.base, args.rev)
+        else:
+            paths, verdicts = judge(REPO, args.base, args.rev)
         return report(paths, verdicts)
     except subprocess.CalledProcessError as error:
         print(f"required_checks: git refused: {error.stderr.decode() if isinstance(error.stderr, bytes) else error.stderr}")

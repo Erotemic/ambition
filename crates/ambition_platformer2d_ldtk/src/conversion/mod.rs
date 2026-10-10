@@ -390,6 +390,11 @@ impl LdtkProject {
             return Err(errors);
         }
 
+        // With each block of the area known: an authored portal is on the
+        // face of the wall it is drawn on.
+        #[cfg(feature = "portal_ldtk")]
+        entity_converters::settle_portals_on_faces(&mut placements, &blocks);
+
         let mut resolved_moving_platforms = Vec::new();
         for platform in moving_platforms {
             match platform.resolve(&kinematic_paths) {

@@ -567,6 +567,56 @@ fn a_wielded_dive_runs_on_the_extension_host() {
     }
 }
 
+/// ⭐ THE GRAPPLE RUNS ON THE EXTENSION HOST, in the assembled game: Attack
+/// while the body holds the grapple → the `grapple` module reads where the
+/// line meets a wall (the aim-cast observation) → a line that meets none
+/// plays its sound; a line that meets the wall arms the movement cooldown and
+/// pulls the body toward the wall. The second arm runs it under a GGRS
+/// sync-test session.
+#[test]
+fn a_wielded_grapple_runs_on_the_extension_host() {
+    use ambition_platformer2d::abilities::ability_cooldown::AbilityCooldown;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    for rollback in [false, true] {
+        let mut options = Platformer2dSimHarnessOptions::default().with_timestep(TimestepMode::fixed_60hz());
+        if rollback {
+            options = options.with_sync_test_rollback_settings(4, 10);
+        }
+        let mut sim = Platformer2dSimHarness::new_with_options(options).expect("the sandbox builds");
+        let player = arm_the_player(&mut sim, "grapple");
+        // The hub stands the body on a one-way platform, which a line goes
+        // through, with no wall within the range. On the solid floor of the
+        // basement the left wall (x < 48) is 152 px away and the right wall
+        // 1656 px away. Moved before the first step, so no saved state is
+        // from before the move.
+        sim.world_mut().get_mut::<BodyKinematics>(player).expect("a body").pos = ambition_platformer2d::engine_core::Vec2::new(200.0, 1920.0);
+        for _ in 0..30 {
+            sim.step(AgentAction::default());
+        }
+        let cooldown = |sim: &Platformer2dSimHarness| sim.world().get::<AbilityCooldown>(player).map_or(0.0, |c| c.remaining);
+        let x = |sim: &Platformer2dSimHarness| sim.world().get::<BodyKinematics>(player).expect("a body").pos.x;
+        // The movement stick aims the line.
+        sim.step(AgentAction { attack: true, move_x: 1.0, ..AgentAction::default() });
+        assert_eq!(cooldown(&sim), 0.0, "rollback={rollback}: a line toward the far wall is a miss, and a miss costs nothing");
+        for _ in 0..3 {
+            sim.step(AgentAction::default());
+        }
+        let before = x(&sim);
+        sim.step(AgentAction { attack: true, move_x: -1.0, ..AgentAction::default() });
+        let left = cooldown(&sim);
+        assert!(left > 0.5, "rollback={rollback}: the line met the left wall and the pull armed the cooldown ({left} s left)");
+        // `wielded_use` runs after the body stepped: the press tick leaves
+        // the pull's velocity, and the next tick moves the body by it (about
+        // 10 px at 620 px/s; ground friction then stops a body with no input).
+        let vel = sim.world().get::<BodyKinematics>(player).expect("a body").vel;
+        assert!((vel.x + 620.0).abs() < 1.0, "rollback={rollback}: the press tick left the velocity {vel:?}, not the pull");
+        sim.step(AgentAction::default());
+        let pulled = before - x(&sim);
+        assert!(pulled > 5.0, "rollback={rollback}: the pull moved the body {pulled} px toward the wall");
+        assert_eq!(ambition_platformer2d::rollback::session_health(sim.world()), Ok(()));
+    }
+}
+
 /// ⭐ MARK AND RECALL RUN ON THE EXTENSION HOST, in the assembled game:
 /// Attack while holding the mark/recall item → the `mark` entry → the mark
 /// adapter puts the body's mark where it stands. The body walks away; Blink

@@ -4,16 +4,18 @@
 //! The trigger: for each item id an admitted entry is bound to, one
 //! [`WieldedUsePort`] invocation for each body that holds that item, each tick,
 //! with the body's resolved control (press, aim), kinematics, gravity frame
-//! and mana. The requests: move the body (a transit), arm the shared movement
-//! cooldown, pay mana from the body's bank, play a sound as the body, and
-//! show an effect. See the port cards in `ambition_combat_port::wielded` and
-//! `ambition_combat_port::motion`.
+//! and mana. The observations: the body's mark, and the first wall along its
+//! aim. The requests: move the body (a transit) or set its velocity, arm the
+//! shared movement cooldown, pay mana from the body's bank, play a sound as
+//! the body, and show an effect, a burst or a hit mark. See the port cards in
+//! `ambition_combat_port::wielded` and `ambition_combat_port::motion`.
 
 use ambition_characters::control::ActorControl;
 use ambition_combat::held_items::HeldItem;
 use ambition_combat_port::{
-    BodySoundPort, EffectPort, EndModuleEntityPort, MarkPort, MarkView, ModuleEntityTickPort, MovementCooldownPort,
-    PullBodiesPort, SetMarkPort, SpawnModuleEntityPort, SpendManaPort, WieldedAlternatePort, WieldedUsePort, Wielder,
+    AimCast, AimCastPort, AimHit, BodySoundPort, BurstPort, EffectPort, EndModuleEntityPort, HitMarkPort, MarkPort,
+    MarkView, ModuleEntityTickPort, MovementCooldownPort, PullBodiesPort, SetMarkPort, SetVelocityPort,
+    SpawnModuleEntityPort, SpendManaPort, WieldedAlternatePort, WieldedUsePort, Wielder, AIM_CAST_REACH,
 };
 /// The composition orders this port's lowering as a carry of the travelled
 /// path.
@@ -39,6 +41,7 @@ pub fn install(app: &mut App) {
         queue_wielded_alternates,
     );
     app.install_extension_observation::<MarkPort>(WIELDED_USE, "ambition_abilities", mark_of);
+    app.install_extension_observation::<AimCastPort>(WIELDED_USE, "ambition_abilities", aim_cast_of);
     // First of the phase's request ports: the host lowers them in install
     // order, so a `Place::Body` of a later port is the arrival.
     app.install_extension_request::<TransitPort, _>(WIELDED_USE, "ambition_abilities", lower_transits);
@@ -51,6 +54,9 @@ pub fn install(app: &mut App) {
     // with the port has it, whether or not a module shows an effect.
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
     app.install_extension_request::<EffectPort, _>(WIELDED_USE, "ambition_abilities", lower_effects);
+    app.install_extension_request::<BurstPort, _>(WIELDED_USE, "ambition_abilities", lower_wielded_bursts);
+    app.install_extension_request::<HitMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_hit_marks);
+    app.install_extension_request::<SetVelocityPort, _>(WIELDED_USE, "ambition_abilities", lower_velocities);
     app.install_extension_request::<SetMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_set_marks);
     app.install_extension_request::<SpendManaPort, _>(WIELDED_USE, "ambition_abilities", lower_mana_spends);
     app.install_extension_request::<BodySoundPort, _>(
@@ -229,6 +235,29 @@ fn mark_of(world: &World, scope: Entity) -> Option<MarkView> {
     })
 }
 
+/// The first solid of the body's live room along its aim, within
+/// [`AIM_CAST_REACH`]. The aim is the one a native held item reads
+/// (`ability_aim_world`), and the walls are the composed walls of the room.
+fn aim_cast_of(world: &World, scope: Entity) -> Option<AimCast> {
+    let (Some(control), Some(kin), Some(frame)) = (
+        world.get::<ActorControl>(scope),
+        world.get::<BodyKinematics>(scope),
+        world.get::<ResolvedMotionFrame>(scope),
+    ) else {
+        return Some(AimCast { hit: None });
+    };
+    let dir = ambition_held_items::ability_aim_world(&control.0, kin.facing, frame.down()).normalize_or_zero();
+    let room = world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(scope);
+    let hit = ambition_platformer2d_world::collision::with_room_in_world(world, room, |room| {
+        room.solids().and_then(|walls| {
+            ambition_platformer2d_core::cast::raycast_solids_far(&*walls, kin.pos, dir, AIM_CAST_REACH, false)
+        })
+    })
+    .flatten()
+    .map(|(distance, at, _normal)| AimHit { at: [at.x, at.y], distance });
+    Some(AimCast { hit })
+}
+
 /// Put each body's mark where the module asked, in the live room the body is
 /// in, in place of any mark it had.
 fn lower_set_marks(
@@ -364,6 +393,56 @@ fn lower_effects(
             scale: effect.scale,
             pose: ambition_vfx::FxPose::UPRIGHT,
         });
+    }
+}
+
+fn lower_wielded_bursts(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
+    rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+) {
+    for submitted in outbox.drain::<BurstPort>(&WIELDED_USE) {
+        let burst = submitted.value;
+        let Some(kind) = ambition_vfx::vfx::ParticleKind::named(&burst.kind) else {
+            warn!("extension entry {} asked for a burst of {:?}; refused", submitted.entry, burst.kind);
+            continue;
+        };
+        // Drawn in the live room of the body.
+        vfx.for_room(rooms.get(submitted.scope).ok().map(|stamp| stamp.0)).write(
+            ambition_vfx::vfx::VfxMessage::Burst {
+                pos: Vec2::from(burst.at),
+                count: burst.count,
+                speed: burst.speed,
+                color: burst.color,
+                kind,
+            },
+        );
+    }
+}
+
+fn lower_hit_marks(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
+    bodies: Query<(Option<&BodyKinematics>, Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>)>,
+) {
+    for submitted in outbox.drain::<HitMarkPort>(&WIELDED_USE) {
+        let (kin, room) = bodies.get(submitted.scope).unwrap_or((None, None));
+        let Some(pos) = resolve_place(submitted.value.at, kin) else {
+            warn!("extension entry {} asked for a hit mark at a body with no position; refused", submitted.entry);
+            continue;
+        };
+        // Drawn in the live room of the body.
+        vfx.for_room(room.map(|stamp| stamp.0)).write(ambition_vfx::vfx::VfxMessage::Impact { pos });
+    }
+}
+
+fn lower_velocities(mut outbox: ResMut<ExtensionOutbox>, mut bodies: Query<&mut BodyKinematics>) {
+    for submitted in outbox.drain::<SetVelocityPort>(&WIELDED_USE) {
+        let Ok(mut kin) = bodies.get_mut(submitted.scope) else {
+            warn!("extension entry {} asked to set the velocity of a body with none; refused", submitted.entry);
+            continue;
+        };
+        kin.vel = Vec2::from(submitted.value.velocity);
     }
 }
 

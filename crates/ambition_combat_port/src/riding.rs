@@ -105,8 +105,10 @@ impl Port for RidingHitboxPort {
 /// * **Operation** — show `count` particles of `kind` (`"dust"`, `"spark"`)
 ///   bursting from `at` at `speed`, in `color` (RGBA, 0..1). Presentation: no
 ///   simulation state reads it. An unknown kind is refused and logged.
-/// * **Owner** — `ambition_boss_encounter::extension` (`VfxMessage::Burst`).
-/// * **Time** — offered in `boss_conduct`.
+/// * **Owner** — `ambition_boss_encounter::extension` in `boss_conduct` and
+///   `ambition_abilities::extension` in `wielded_use` (`VfxMessage::Burst`,
+///   the kind by `ParticleKind::named`), each in the live room of the body.
+/// * **Time** — offered in `boss_conduct` and `wielded_use`.
 pub struct BurstPort;
 
 #[derive(Clone, Debug, PartialEq)]

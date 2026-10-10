@@ -106,6 +106,19 @@ pub fn raycast_solids<W: SolidWorldQuery + ?Sized>(
     max_dist: f32,
     include_one_way: bool,
 ) -> Option<(Vec2, Vec2)> {
+    raycast_solids_far(world, origin, dir, max_dist, include_one_way).map(|(_, hit, normal)| (hit, normal))
+}
+
+/// [`raycast_solids`], with how far along the ray the hit is: the distance the
+/// cast compared, so a caller that compares it with a shorter reach gets the
+/// answer a cast of that reach gives.
+pub fn raycast_solids_far<W: SolidWorldQuery + ?Sized>(
+    world: &W,
+    origin: Vec2,
+    dir: Vec2,
+    max_dist: f32,
+    include_one_way: bool,
+) -> Option<(f32, Vec2, Vec2)> {
     let dir = dir.normalize_or_zero();
     if dir == Vec2::ZERO {
         return None;
@@ -123,7 +136,7 @@ pub fn raycast_solids<W: SolidWorldQuery + ?Sized>(
     if best_normal == Vec2::ZERO {
         None
     } else {
-        Some((origin + dir * best_t, best_normal))
+        Some((best_t, origin + dir * best_t, best_normal))
     }
 }
 

@@ -2113,11 +2113,11 @@ id = "engine.non-portal-mechanics-runtime-raycast"
 scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
+watch_paths = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/extension.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
 rationale = "non-portal mechanics use the proto-runtime raycast seam, not the portal mechanic"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-roots = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
+roots = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/extension.rs", "crates/ambition_platformer2d_actor_monolith/src/items/pickup/mod.rs"]
 forbid = ["ambition_portal2d::raycast_solids"]
 
 
@@ -2769,9 +2769,10 @@ skip_paths = [
     # combat/ability seams." These are those seams.
     "ambition_combat/src/moveset/mod.rs",
     "ambition_platformer2d_actor_monolith/src/features/ecs/damage/actor_hit.rs",
-    # Traversal abilities that SET a velocity rather than adding an impulse: a
-    # grapple pull is a commanded speed toward the anchor, not a nudge.
-    "ambition_abilities/src/traversal/grapple.rs",
+    # The held-item domain's velocity request (`lower_velocities`): a module
+    # SETS a velocity rather than adding an impulse. The grapple's pull is a
+    # commanded speed toward the anchor, not a nudge.
+    "ambition_abilities/src/extension.rs",
     # Domain integrator: a projectile reflecting off a surface, mirroring its own
     # velocity. The same class as the projectile paths already listed above.
     "ambition_platformer2d_actor_monolith/src/projectile/systems.rs",

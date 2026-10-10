@@ -1,7 +1,9 @@
-//! The body-motion ports of a wielded item: a body moves itself, arms the
-//! shared movement cooldown, strikes where it is, and shows an effect.
+//! The body-motion ports of a wielded item: a body moves itself or sets its
+//! velocity, arms the shared movement cooldown, strikes where it is, and
+//! shows an effect or a hit mark.
 //!
-//! A module cannot see the walls, so it cannot know where a transit ends.
+//! A module sees only the first wall along its aim ([`crate::AimCastPort`]),
+//! so it cannot know where a transit ends.
 //! The ports after the transit take a [`Place`]: [`Place::Body`] is where the
 //! body is when the request is lowered. The transit port is lowered first in
 //! its phase, so `Place::Body` is the arrival.
@@ -284,6 +286,68 @@ impl Port for EffectPort {
     }
 }
 
+/// The request port marker for a body's velocity.
+///
+/// Port card:
+///
+/// * **Operation** — the body's velocity becomes `velocity` (world frame, px
+///   per second). The kernel integrates it and collision settles the body,
+///   so a pull toward a wall stops at the wall.
+/// * **Owner** — `ambition_abilities::extension` (`BodyKinematics::vel`).
+/// * **Time** — `wielded_use`, after the body stepped this tick: the kernel
+///   moves the body by it on the next tick, as it does for a native held
+///   item that sets the velocity.
+pub struct SetVelocityPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SetVelocity {
+    pub velocity: [f32; 2],
+}
+
+impl Port for SetVelocityPort {
+    const KEY: PortKey = PortKey::new("ambition.motion.velocity", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = SetVelocity;
+
+    fn encode(v: &SetVelocity, out: &mut Vec<u8>) {
+        wire::put_vec2(out, v.velocity);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<SetVelocity, WireError> {
+        Ok(SetVelocity { velocity: r.vec2()? })
+    }
+}
+
+/// The request port marker for a hit mark: the mark that shows where a hit
+/// or a catch landed.
+///
+/// Port card:
+///
+/// * **Operation** — show the hit mark at `at` (`VfxMessage::Impact`), in
+///   the live room of the body. Presentation: no simulation state reads it.
+/// * **Owner** — `ambition_abilities::extension`.
+/// * **Time** — `wielded_use`.
+pub struct HitMarkPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct HitMark {
+    pub at: Place,
+}
+
+impl Port for HitMarkPort {
+    const KEY: PortKey = PortKey::new("ambition.feedback.hit_mark", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = HitMark;
+
+    fn encode(v: &HitMark, out: &mut Vec<u8>) {
+        v.at.put(out);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<HitMark, WireError> {
+        Ok(HitMark { at: Place::read(r)? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,5 +386,9 @@ mod tests {
         assert_eq!(round_trip::<StrikePort>(&span), span);
         let effect = Effect { at: Place::World([1.0, 2.0]), fx: "classic_burst".into(), scale: 0.35 };
         assert_eq!(round_trip::<EffectPort>(&effect), effect);
+        let pull = SetVelocity { velocity: [-620.0, 0.5] };
+        assert_eq!(round_trip::<SetVelocityPort>(&pull), pull);
+        let mark = HitMark { at: Place::World([380.0, 300.0]) };
+        assert_eq!(round_trip::<HitMarkPort>(&mark), mark);
     }
 }

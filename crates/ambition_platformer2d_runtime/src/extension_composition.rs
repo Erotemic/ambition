@@ -8,7 +8,7 @@
 //! | phase | placement | ports |
 //! |---|---|---|
 //! | `technique_execution` | `CombatSet::ContentSpecials`, gameplay-gated | trigger `ambition.boss.special_cast` (boss domain); requests `ambition.projectiles.spawn` (projectile domain), `ambition.combat.damage_box` and `ambition.combat.held_damage_box` (combat domain), `ambition.boss.summon` (boss domain) |
-//! | `wielded_use` | `ItemPickupSet::WieldedAbilities`, after the native wielded users and before the movement cooldown ticks, gameplay-gated | trigger `ambition.items.wielded_use`; requests `ambition.motion.transit` (lowered first, in `BodyPathSet::Carry`), `ambition.abilities.movement_cooldown`, `ambition.feedback.effect`, `ambition.resources.spend_mana`, `ambition.feedback.body_sound` and `ambition.world.spawn_module_entity` (held-item domain, `ambition_abilities`), `ambition.combat.damage_box` and `ambition.combat.strike`, `ambition.projectiles.spawn` |
+//! | `wielded_use` | `ItemPickupSet::WieldedAbilities`, before the movement cooldown ticks, gameplay-gated | triggers `ambition.items.wielded_use` and `ambition.items.wielded_alternate`; observations `ambition.items.mark` and `ambition.items.aim_cast`; requests `ambition.motion.transit` (lowered first, in `BodyPathSet::Carry`), `ambition.abilities.movement_cooldown`, `ambition.feedback.effect`, `ambition.feedback.burst`, `ambition.feedback.hit_mark`, `ambition.motion.velocity`, `ambition.items.set_mark`, `ambition.resources.spend_mana`, `ambition.feedback.body_sound` and `ambition.world.spawn_module_entity` (held-item domain, `ambition_abilities`), `ambition.combat.damage_box` and `ambition.combat.strike`, `ambition.projectiles.spawn` |
 //! | `boss_conduct` | `WorldPrepSet::AfterIntegrate`, gameplay-gated | trigger `ambition.boss.conduct`; requests `ambition.boss.conducted_pose`, `ambition.presentation.drawn_row`, `ambition.feedback.burst`, `ambition.boss.summon` (boss domain), `ambition.combat.held_damage_box`, `ambition.combat.riding_hitbox` (combat), `ambition.projectiles.spawn`, `ambition.feedback.body_sound` |
 //! | `module_entity_tick` | `ItemPickupSet::WieldedAbilities`, after `wielded_use`, gameplay-gated | trigger `ambition.world.module_entity_tick`; requests `ambition.feedback.body_sound`, `ambition.world.pull_bodies` (lowered in `BodyPathSet::Carry`) and `ambition.world.end_module_entity` (`ambition_abilities`), `ambition.projectiles.spawn` |
 
@@ -90,8 +90,7 @@ impl Plugin for ExtensionCompositionPlugin {
         // `wielded_use` guarantees: the body's control frame, kinematics and
         // gravity frame are settled (the player phase), and a request is
         // consumed this tick (the effect and projectile executors run in the
-        // combat phase, after it). After the native wielded users, so mana
-        // has one order of spenders. Before the movement cooldown ticks: a
+        // combat phase, after it). Before the movement cooldown ticks: a
         // module reads and arms the cooldown at the same point of the tick as
         // a native user, so a cooldown armed this tick also ticks this tick.
         app.configure_sets(
@@ -102,8 +101,7 @@ impl Plugin for ExtensionCompositionPlugin {
                 ExtensionSet::Lower(WIELDED_USE),
             )
                 .in_set(GameplayGated)
-                .in_set(ItemPickupSet::WieldedAbilities)
-                .after(ambition_abilities::traversal::grapple::grapple_system),
+                .in_set(ItemPickupSet::WieldedAbilities),
         );
         app.configure_sets(
             sim,

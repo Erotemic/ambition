@@ -159,6 +159,30 @@ def test_no_rust_source_reads_or_runs_a_script() -> None:
     assert readers == [], "Rust reads or runs a file under scripts/:\n" + "\n".join(readers)
 
 
+def test_a_change_in_any_crate_requires_the_workspace_policies(repo: Path) -> None:
+    """⭐ The policies read every crate (a path a policy names, a forbidden
+    line), so a change to `alpha` asks for their tests as well as its own. A
+    doc does not. The control: a workspace without the policy package asks for
+    none (the other tests here)."""
+    policy = "tests/ambition_workspace_policy"
+    (repo / "Cargo.toml").write_text(
+        '[workspace]\nmembers = [\n    "crates/alpha",\n    "crates/beta",\n    "%s",\n]\n' % policy
+    )
+    (repo / policy / "src").mkdir(parents=True)
+    (repo / policy / "src" / "lib.rs").write_text("// policies\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "policies")
+    git(repo, "tag", "-f", "base")
+    commit(repo, "crates/alpha/src/lib.rs", "// two\n")
+    assert verdicts(repo) == {
+        "cargo test -p alpha": (False, "NOT RUN"),
+        f"cargo test -p {required_checks.POLICY_PACKAGE}": (False, "NOT RUN"),
+    }
+    git(repo, "tag", "-f", "base")
+    commit(repo, "docs/a.md", "two\n")
+    assert f"cargo test -p {required_checks.POLICY_PACKAGE}" not in verdicts(repo)
+
+
 def test_a_test_baseline_and_a_guard_baseline_are_not_prose() -> None:
     from required_checks import requirements_for
 

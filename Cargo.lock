@@ -157,7 +157,6 @@ dependencies = [
  "ambition_extension_host",
  "ambition_extension_sdk",
  "ambition_held_items",
- "ambition_items",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_platformer2d_world",

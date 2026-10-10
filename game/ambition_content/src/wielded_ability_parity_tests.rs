@@ -304,6 +304,8 @@ mod transits {
     struct TransitItem {
         item: &'static str,
         native: fn(&mut App),
+        /// How many times each body is moved, read from a trace.
+        count: fn(&Trace) -> Vec<usize>,
         /// How many times each body is moved on the reference road.
         moves: fn(&[usize]) -> bool,
         /// The item moves a body along a line, so the walls stop it.
@@ -330,6 +332,7 @@ mod transits {
                     .chain(),
             );
         },
+        count: blinks,
         // The cooldown ran out between moves; the brain's body and the body
         // off the swept kernel do not blink.
         moves: |m| m[0] >= 2 && m[1] >= 2 && m[3] >= 2 && m[2] == 0 && m[4] == 0,
@@ -347,6 +350,7 @@ mod transits {
                     .chain(),
             );
         },
+        count: blinks,
         // Each press that the mana pays for: the body with mana for one dive
         // dives once, the body off the swept kernel dives, the brain's does
         // not.
@@ -365,9 +369,31 @@ mod transits {
                     .chain(),
             );
         },
+        count: blinks,
         // Each driven body recalls to a mark it set; the brain's body does
         // not.
         moves: |m| m[0] >= 2 && m[1] >= 1 && m[3] >= 1 && m[4] >= 1 && m[2] == 0,
+        along: false,
+    };
+
+    const GRAPPLE: TransitItem = TransitItem {
+        item: "grapple",
+        native: |app| {
+            app.add_systems(
+                Sim,
+                (
+                    super::super::wielded_ability_reference_tests::grapple::grapple_system,
+                    ambition_platformer2d::abilities::ability_cooldown::tick_ability_cooldown,
+                )
+                    .chain(),
+            );
+        },
+        count: pulls,
+        // The bodies in #1 have the wall within the range: the driven ones
+        // are pulled, the crawler (which aims at the wall on each of its eight
+        // presses) twice, as the cooldown permits. The brain's body is not.
+        // #0 has no wall: each press there is a miss.
+        moves: |m| m[0] >= 1 && m[4] == 2 && m[2] == 0 && m[1] == 0 && m[3] == 0,
         along: false,
     };
 
@@ -584,11 +610,25 @@ mod transits {
             .collect()
     }
 
+    /// How many times each body was pulled: each pull arms the cooldown, so
+    /// it is a tick on which the cooldown went up.
+    fn pulls(trace: &Trace) -> Vec<usize> {
+        let cooldown = |line: &str| -> f32 {
+            line.split("cooldown Some(").nth(1).and_then(|rest| rest.split(')').next()?.parse().ok()).unwrap_or(0.0)
+        };
+        (0..BODIES.len())
+            .map(|i| {
+                let left: Vec<f32> = trace.iter().map(|t| cooldown(t[&i].last().unwrap())).collect();
+                std::iter::once(0.0).chain(left.iter().copied()).zip(&left).filter(|(was, now)| **now > *was).count()
+            })
+            .collect()
+    }
+
     #[test]
     fn each_transit_module_moves_each_body_as_its_native_system_did() {
-        for item in [&BLINK, &DIVE, &MARK_RECALL] {
+        for item in [&BLINK, &DIVE, &MARK_RECALL, &GRAPPLE] {
             let native = run(Road::NativeSystem, item);
-            let moved = blinks(&native);
+            let moved = (item.count)(&native);
             // ⭐ The premise: the reference moved the bodies it should.
             assert!((item.moves)(&moved), "{}: the reference moved {moved:?}", item.item);
             // The premise of the wall: a move of the body in #1 stopped short
@@ -611,6 +651,15 @@ mod transits {
                 "{}: body 1 marked before its first Blink",
                 item.item
             );
+            // The premise of the miss: a grapple line that met no wall plays
+            // its sound and pulls nothing.
+            // A sound line names its id by hash.
+            let dash = format!("{:?}", ambition_sfx::ids::PLAYER_DASH);
+            let dashes = native.iter().flat_map(|t| t.get(&usize::MAX).into_iter().flatten()).filter(|l| l.contains(&dash)).count();
+            assert!(
+                item.item != "grapple" || dashes > moved.iter().sum::<usize>(),
+                "grapple: {dashes} sounds and {moved:?} pulls: no miss"
+            );
             let module = run(Road::Module, item);
             assert_eq!(module, native, "{}: the linked module", item.item);
         }
@@ -618,7 +667,7 @@ mod transits {
 
     #[test]
     fn each_transit_wasm_build_moves_each_body_as_its_native_system_did() {
-        for item in [&BLINK, &DIVE, &MARK_RECALL] {
+        for item in [&BLINK, &DIVE, &MARK_RECALL, &GRAPPLE] {
             let native = run(Road::NativeSystem, item);
             let wasm = run(Road::Wasm, item);
             assert_eq!(

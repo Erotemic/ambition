@@ -75,6 +75,10 @@ impl Default for AmbientMoteStyles {
             [
                 // Dust in the light of the reactor: slow, a little up.
                 (T::Lab, MoteStyle::new(30, 3.0, 4.0, 7.0, 0.11, 1.8, 3.6, 0.50, 0.45, 0.7, 0.3)),
+                // Sparks from the cut cables: few, they fall, and they flicker.
+                (T::Alarm, MoteStyle::new(16, 2.0, -14.0, 8.0, 0.3, 1.6, 3.2, 0.90, 0.5, 3.4, 0.4)),
+                // Drops of water from the vault: few, they fall straight.
+                (T::Undertown, MoteStyle::new(14, 0.0, -34.0, 1.5, 0.1, 1.4, 2.6, 0.55, 0.2, 0.8, 0.3)),
                 // Dust in the light of the halls of the clean hub.
                 (T::HubClean, MoteStyle::new(20, 2.0, 3.0, 8.0, 0.08, 1.6, 3.4, 0.55, 0.4, 0.5, 0.3)),
                 (T::Hub, MoteStyle::new(22, -4.0, 1.5, 6.0, 0.09, 1.6, 3.2, 0.42, 0.4, 0.6, 0.3)),

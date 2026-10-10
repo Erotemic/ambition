@@ -1067,6 +1067,7 @@ pub fn spawn_block(
         ae::BlockKind::BlinkWall { tier: ae::BlinkWallTier::Hard } => {
             Some(super::terrain_skin::TerrainSurfaceKind::BlinkHard)
         }
+        ae::BlockKind::Hazard => Some(super::terrain_skin::TerrainSurfaceKind::Hazard),
         _ => None,
     };
     if let (Some(theme), Some(kind), None, false) =

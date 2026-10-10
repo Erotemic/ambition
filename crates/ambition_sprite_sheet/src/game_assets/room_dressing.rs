@@ -66,6 +66,16 @@ pub enum RoomDressingPart {
     /// The line of light on an open edge of a blink wall. It repeats along
     /// it, and its top row is the outer side.
     BlinkEdge,
+    /// The body of a surface that sends a body back to its start. It repeats
+    /// each way.
+    HazardFill,
+    /// The row of spikes on an open edge of that surface. It repeats along
+    /// it, and its top row is the outer side.
+    HazardEdge,
+    /// The pools of light of the decor: the same squares as [`Self::Decor`],
+    /// one for each thing. The square of a thing that gives no light is
+    /// empty.
+    DecorGlow,
 }
 
 /// How many squares the decor picture of a theme has, side by side.
@@ -81,7 +91,8 @@ impl RoomDressingPart {
     pub const ALL: &'static [Self] =
         &[Self::Fill, Self::Cap, Self::Under, Self::Side, Self::OneWay, Self::Motes, Self::Decor, Self::Door,
             Self::Shadow, Self::Ladder, Self::WaterClear, Self::WaterMurky, Self::WaterSurface,
-            Self::BlinkSoft, Self::BlinkHard, Self::BlinkEdge];
+            Self::BlinkSoft, Self::BlinkHard, Self::BlinkEdge, Self::HazardFill, Self::HazardEdge,
+            Self::DecorGlow];
 
     pub const fn key(self) -> &'static str {
         match self {
@@ -101,6 +112,9 @@ impl RoomDressingPart {
             Self::BlinkSoft => "blink_soft",
             Self::BlinkHard => "blink_hard",
             Self::BlinkEdge => "blink_edge",
+            Self::HazardFill => "hazard_fill",
+            Self::HazardEdge => "hazard_edge",
+            Self::DecorGlow => "decor_glow",
         }
     }
 

@@ -174,6 +174,12 @@ pub use room_dressing::*;
 pub enum ParallaxTheme {
     Hub,
     Lab,
+    /// The lab with its power out and its alarm on: the rooms of the raid.
+    /// The same hall as [`Self::Lab`], dark, in the red of its beacons.
+    Alarm,
+    /// The drains and the pipes under the town: old brick, moss, and water
+    /// that gives a green light. The relay rooms and the drains name it.
+    Undertown,
     Basement,
     Cove,
     Skybridge,
@@ -209,6 +215,8 @@ impl ParallaxTheme {
     pub const ALL: &'static [Self] = &[
         Self::Hub,
         Self::Lab,
+        Self::Alarm,
+        Self::Undertown,
         Self::Basement,
         Self::Cove,
         Self::Skybridge,
@@ -226,6 +234,8 @@ impl ParallaxTheme {
         match self {
             Self::Hub => "hub",
             Self::Lab => "lab",
+            Self::Alarm => "alarm",
+            Self::Undertown => "undertown",
             Self::Basement => "basement",
             Self::Cove => "cove",
             Self::Skybridge => "skybridge",
@@ -307,6 +317,8 @@ impl ParallaxTheme {
         match key.as_str() {
             "hub" | "default" | "cantina" | "orange" => Some(Self::Hub),
             "lab" | "laboratory" | "teal" => Some(Self::Lab),
+            "alarm" | "raid" => Some(Self::Alarm),
+            "undertown" | "under_town" | "drain" | "sewer" => Some(Self::Undertown),
             "basement" | "ruins" | "pink" => Some(Self::Basement),
             "cove" | "coast" | "beach" => Some(Self::Cove),
             "skybridge" | "sky" | "blue" => Some(Self::Skybridge),

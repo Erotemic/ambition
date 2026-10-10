@@ -70,7 +70,13 @@ const SHORTEST_TRIM: f32 = 4.0;
 const CONTACT: f32 = 0.5;
 /// How far into a blink wall the line of light on its edge goes, in world
 /// units (`terrain/fixtures.py`, `BLINK_EDGE`).
+/// How many times the side of a thing of the decor the side of its pool of
+/// light is (`GLOW_SCALE` in `terrain/decor.py`).
+const DECOR_GLOW_SCALE: f32 = 3.0;
 const BLINK_EDGE_HEIGHT: f32 = 6.0;
+/// How far into a hazard the spikes on its edge go, in world units
+/// (`terrain/fixtures.py`, `HAZARD_EDGE`).
+const HAZARD_EDGE_HEIGHT: f32 = 12.0;
 
 /// What a block is to the skin of its room.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -89,6 +95,10 @@ pub enum TerrainSurfaceKind {
     BlinkSoft,
     /// A wall no blink goes through. It takes the armour and the line.
     BlinkHard,
+    /// A surface that sends a body back to its start. It takes the danger
+    /// fill and a row of spikes on each open edge, which point out of it. It
+    /// covers no edge of a block next to it.
+    Hazard,
 }
 
 /// A block visual the skin of its room can be laid on. `spawn_block` puts it
@@ -109,7 +119,7 @@ impl TerrainSurface {
     }
 
     fn covers_edges(&self) -> bool {
-        !matches!(self.kind, TerrainSurfaceKind::OneWay)
+        !matches!(self.kind, TerrainSurfaceKind::OneWay | TerrainSurfaceKind::Hazard)
     }
 }
 
@@ -154,6 +164,10 @@ impl Default for TerrainDecorDensity {
 /// A thing of the decor: a child of the block it stands on.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct TerrainDecorItem;
+
+/// The pool of light of a thing of the decor: a child of the same block.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct TerrainDecorGlow;
 
 /// A number from 0 to 1 for `n`, the same each time.
 fn dice(n: u32) -> f32 {
@@ -209,7 +223,7 @@ pub enum TerrainTrim {
     Under,
     SideLeft,
     SideRight,
-    /// The line of light on an edge of a blink wall.
+    /// The line on an edge of a blink wall, or the spikes of a hazard.
     Rim,
 }
 
@@ -351,6 +365,50 @@ fn pieces_of(image: &Handle<Image>, min: Vec2, size: Vec2, period: Vec2, z: f32)
     Some(out)
 }
 
+/// The line on each open edge of `surface` (the light of a blink wall, the
+/// spikes of a hazard): the pieces, each turned so that the top row of the
+/// picture is on the edge. A line goes `height` into the block, and half of
+/// the block at most when the edge across from it is open too.
+fn edge_lines(image: &Handle<Image>, surface: &TerrainSurface, others: &[TerrainSurface], height: f32) -> Vec<(TerrainTrim, Sprite, Transform)> {
+    use std::f32::consts::{FRAC_PI_2, PI};
+    let centre = surface.min + surface.size * 0.5;
+    let half = surface.size * 0.5;
+    let open = |edge: Edge| open_edge_spans(surface, edge, others);
+    let across = |edge: Edge| match edge {
+        Edge::Top => Edge::Bottom,
+        Edge::Bottom => Edge::Top,
+        Edge::Left => Edge::Right,
+        Edge::Right => Edge::Left,
+    };
+    let mut out = Vec::new();
+    for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+        let through = match edge {
+            Edge::Top | Edge::Bottom => surface.size.y,
+            Edge::Left | Edge::Right => surface.size.x,
+        };
+        let room_for_it = if open(across(edge)).is_empty() { through } else { through * 0.5 };
+        let depth = height.min(room_for_it);
+        for (a, b) in open(edge) {
+            for (lo, hi, offset) in anchored_pieces(a, b, SKIN_PERIOD) {
+                let line = piece(image.clone(), Vec2::new(offset, 0.0), Vec2::new(hi - lo, depth), false);
+                let along = (lo + hi) * 0.5;
+                let (at, turn) = match edge {
+                    Edge::Top => (Vec2::new(along - centre.x, half.y - depth * 0.5), 0.0),
+                    Edge::Bottom => (Vec2::new(along - centre.x, depth * 0.5 - half.y), PI),
+                    Edge::Left => (Vec2::new(depth * 0.5 - half.x, centre.y - along), FRAC_PI_2),
+                    Edge::Right => (Vec2::new(half.x - depth * 0.5, centre.y - along), -FRAC_PI_2),
+                };
+                out.push((
+                    TerrainTrim::Rim,
+                    line,
+                    Transform::from_translation(at.extend(0.02)).with_rotation(Quat::from_rotation_z(turn)),
+                ));
+            }
+        }
+    }
+    out
+}
+
 /// Lay the skin on each block visual whose skin question is open.
 ///
 /// It waits for the skin of the theme to be asked for (the room's loader does
@@ -391,16 +449,17 @@ pub fn skin_terrain_surfaces(
         // The pieces that are turned: the line on a left or right edge.
         let mut turned: Vec<(TerrainTrim, Sprite, Transform)> = Vec::new();
         let mut decor_items: Vec<(Sprite, Vec3)> = Vec::new();
+        let mut glows: Vec<(Sprite, Vec3)> = Vec::new();
         // The sprite of the block is kept, with its size, and draws nothing:
         // the pieces are its children and go where it goes.
         let hidden = Sprite::from_color(Color::NONE, surface.size);
         match surface.kind {
             TerrainSurfaceKind::Cover => {}
-            TerrainSurfaceKind::BlinkSoft | TerrainSurfaceKind::BlinkHard => {
-                let field = if surface.kind == TerrainSurfaceKind::BlinkSoft {
-                    RoomDressingPart::BlinkSoft
-                } else {
-                    RoomDressingPart::BlinkHard
+            TerrainSurfaceKind::BlinkSoft | TerrainSurfaceKind::BlinkHard | TerrainSurfaceKind::Hazard => {
+                let (field, line, height) = match surface.kind {
+                    TerrainSurfaceKind::BlinkSoft => (RoomDressingPart::BlinkSoft, RoomDressingPart::BlinkEdge, BLINK_EDGE_HEIGHT),
+                    TerrainSurfaceKind::BlinkHard => (RoomDressingPart::BlinkHard, RoomDressingPart::BlinkEdge, BLINK_EDGE_HEIGHT),
+                    _ => (RoomDressingPart::HazardFill, RoomDressingPart::HazardEdge, HAZARD_EDGE_HEIGHT),
                 };
                 let Some(fill) = part(field) else {
                     continue;
@@ -413,36 +472,14 @@ pub fn skin_terrain_surfaces(
                     }
                     None => *sprite = repeated(fill, surface.size),
                 }
-                if let Some(image) = part(RoomDressingPart::BlinkEdge) {
+                if let Some(image) = part(line) {
                     let room = room.map(|stamp| stamp.0);
                     let others: Vec<TerrainSurface> = all
                         .iter()
                         .filter(|(_, stamp)| stamp.map(|stamp| stamp.0) == room)
                         .map(|(other, _)| *other)
                         .collect();
-                    let depth = BLINK_EDGE_HEIGHT.min(surface.size.x).min(surface.size.y);
-                    for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
-                        for (a, b) in open_edge_spans(surface, edge, &others) {
-                            for (lo, hi, offset) in anchored_pieces(a, b, SKIN_PERIOD) {
-                                let line = piece(image.clone(), Vec2::new(offset, 0.0), Vec2::new(hi - lo, depth), false);
-                                let along = (lo + hi) * 0.5;
-                                // The top row of the picture is the outer
-                                // side: the piece is turned so that row is
-                                // on the edge.
-                                let (at, turn) = match edge {
-                                    Edge::Top => (Vec2::new(along - centre.x, half.y - depth * 0.5), 0.0),
-                                    Edge::Bottom => (Vec2::new(along - centre.x, depth * 0.5 - half.y), std::f32::consts::PI),
-                                    Edge::Left => (Vec2::new(depth * 0.5 - half.x, centre.y - along), std::f32::consts::FRAC_PI_2),
-                                    Edge::Right => (Vec2::new(half.x - depth * 0.5, centre.y - along), -std::f32::consts::FRAC_PI_2),
-                                };
-                                turned.push((
-                                    TerrainTrim::Rim,
-                                    line,
-                                    Transform::from_translation(at.extend(0.02)).with_rotation(Quat::from_rotation_z(turn)),
-                                ));
-                            }
-                        }
-                    }
+                    turned.extend(edge_lines(&image, surface, &others, height));
                 }
             }
             TerrainSurfaceKind::OneWay => {
@@ -517,6 +554,7 @@ pub fn skin_terrain_surfaces(
                     }
                 }
                 let mut decor: Vec<(Sprite, Vec3)> = Vec::new();
+                let glow = part(RoomDressingPart::DecorGlow);
                 if let Some(image) = part(RoomDressingPart::Decor) {
                     let keep_out = keep_outs.iter().find(|(_, stamp)| stamp.map(|stamp| stamp.0) == room).map(|(keep_out, _)| keep_out);
                     let cell = DECOR_CELL_PX as f32;
@@ -533,6 +571,20 @@ pub fn skin_terrain_surfaces(
                                 // It stands on the surface, one unit into the cap.
                                 Vec3::new(x - centre.x, half.y + DECOR_SIZE * 0.5 - 1.5, 0.04),
                             ));
+                            // The pool of light of the thing: the same
+                            // square of its own picture, larger, behind it.
+                            // The square of a thing with no light is empty.
+                            if let Some(glow) = &glow {
+                                glows.push((
+                                    Sprite {
+                                        image: glow.clone(),
+                                        rect: Some(Rect::new(variant * cell, 0.0, (variant + 1.0) * cell, cell)),
+                                        custom_size: Some(Vec2::splat(DECOR_SIZE * DECOR_GLOW_SCALE)),
+                                        ..Default::default()
+                                    },
+                                    Vec3::new(x - centre.x, half.y + DECOR_SIZE * 0.5 - 1.5, 0.035),
+                                ));
+                            }
                         }
                     }
                 }
@@ -556,6 +608,9 @@ pub fn skin_terrain_surfaces(
                 }
                 for (sprite, at) in decor_items {
                     parent.spawn((sprite, Transform::from_translation(at), TerrainDecorItem, Name::new("Terrain decor")));
+                }
+                for (sprite, at) in glows {
+                    parent.spawn((sprite, Transform::from_translation(at), TerrainDecorGlow, Name::new("Terrain decor light")));
                 }
             });
         });
@@ -938,6 +993,35 @@ mod tests {
                 .sum();
             assert_eq!(caps, 200.0 - 48.0 - 32.0, "no cap under the wall of the room or under the blink wall");
         }
+    }
+
+    /// A hazard takes the danger fill and a row of spikes on each open edge.
+    /// A strip that lies on the floor has spikes on its top and its two
+    /// ends, and none on the floor side. The spikes of two edges that are
+    /// across from each other share the strip: each row is half of it deep.
+    /// The floor keeps its cap under the strip: a hazard covers no edge.
+    #[test]
+    fn a_hazard_takes_spikes_that_point_out_of_each_open_edge() {
+        let (mut world, floor, _) = skinned_world(true);
+        let strip = world
+            .spawn((surface(TerrainSurfaceKind::Hazard, 64.0, 84.0, 64.0, 16.0), Sprite::from_color(Color::WHITE, Vec2::new(64.0, 16.0))))
+            .id();
+        world.run_system_once(skin_terrain_surfaces).unwrap();
+        let trims = trims_of(&mut world, strip);
+        let rims: Vec<_> = trims.iter().filter(|(trim, ..)| *trim == TerrainTrim::Rim).collect();
+        // The top: 64 long and the full height of the spikes. Each end: 16
+        // long and 12 deep.
+        let top: Vec<_> = rims.iter().filter(|(_, size, at)| size.x == 64.0 && at.y == 8.0 - HAZARD_EDGE_HEIGHT * 0.5).collect();
+        assert_eq!(top.len(), 1, "{rims:?}");
+        assert_eq!(top[0].1.y, HAZARD_EDGE_HEIGHT);
+        assert_eq!(rims.iter().filter(|(_, size, _)| size.x == 16.0).count(), 2, "the two ends: {rims:?}");
+        assert_eq!(rims.len(), 3, "no spikes on the floor side: {rims:?}");
+        let caps: f32 = trims_of(&mut world, floor)
+            .iter()
+            .filter(|(trim, ..)| *trim == TerrainTrim::Cap)
+            .map(|(_, size, _)| size.x)
+            .sum();
+        assert_eq!(caps, 200.0 - 48.0, "the floor keeps its cap under the strip");
     }
 
     /// The decor of a span is the same each time, each thing is inside the

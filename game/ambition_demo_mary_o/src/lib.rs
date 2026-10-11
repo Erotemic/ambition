@@ -1628,7 +1628,7 @@ impl Plugin for MaryORulesPlugin {
         );
         app.add_systems(
             sim,
-            cosmic::play_cosmic_music
+            (cosmic::shorten_her_hit_stop, cosmic::play_cosmic_music)
                 .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects)
                 .run_if(gate.clone()),
         );

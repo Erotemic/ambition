@@ -217,6 +217,7 @@ fn attach_quasar_overlays(
             Option<&Anchor>,
             Option<&FrameInSprite>,
             Option<&SessionScopedEntity>,
+            Has<ambition_platformer2d::actors::features::empowerment::Empowered>,
         ),
         (With<PlayerVisual>, Without<MaryOQuasarSource>),
     >,
@@ -225,8 +226,8 @@ fn attach_quasar_overlays(
     mut waiting: Local<HashMap<Entity, (u32, bool)>>,
 ) {
     waiting.retain(|entity, _| candidates.get(*entity).is_ok());
-    for (source_entity, worn, health, visibility, transform, sprite, anchor, frame, session_owner) in &candidates {
-        if !quasar_shows(worn, health, visibility, &settings) {
+    for (source_entity, worn, health, visibility, transform, sprite, anchor, frame, session_owner, star) in &candidates {
+        if !quasar_shows(worn, health, star, visibility, &settings) {
             waiting.remove(&source_entity);
             continue;
         }
@@ -299,20 +300,29 @@ fn attach_quasar_overlays(
 }
 
 /// Whether the quasar draws over this body: her form, empowered, visible, and
-/// the effect turned up. Her cosmic form is empowered at all times and has a
-/// look of its own, so the quasar does not draw over it.
+/// the effect turned up.
+///
+/// Her cosmic form is empowered at all times by its row, and has a look of
+/// its own. So in that form the quasar draws only while she holds a quasar:
+/// `star` is whether she has the timed state the quasar gives (the
+/// `Empowered` component), which the row does not give.
 fn quasar_shows(
     worn: &WornCharacter,
     health: &BodyHealth,
+    star: bool,
     visibility: Option<&Visibility>,
     settings: &MaryOQuasarShaderSettings,
 ) -> bool {
-    crate::powerups::is_her_form(worn.id())
-        && !crate::cosmic::is_cosmic(worn.id())
-        && health
+    let empowered = if crate::cosmic::is_cosmic(worn.id()) {
+        star
+    } else {
+        health
             .health
             .invulnerable
             .holds(ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED)
+    };
+    crate::powerups::is_her_form(worn.id())
+        && empowered
         && !matches!(visibility, Some(Visibility::Hidden))
         && !settings.disabled
         && settings.strength > 0.0
@@ -329,14 +339,14 @@ fn quasar_shows(
 /// (`the_first_quasar_is_drawn::her_first_quasar_is_drawn_at_once`).
 fn declare_quasar_demand(
     settings: Res<MaryOQuasarShaderSettings>,
-    bodies: Query<(Entity, &WornCharacter, &BodyHealth, Option<&Visibility>), With<PlayerVisual>>,
+    bodies: Query<(Entity, &WornCharacter, &BodyHealth, Option<&Visibility>, Has<ambition_platformer2d::actors::features::empowerment::Empowered>), With<PlayerVisual>>,
     demand: Option<ResMut<ambition_platformer2d::sprite_sheet::character::rigged::ComposedBodyDemand>>,
 ) {
     let Some(mut demand) = demand else {
         return;
     };
-    for (body, worn, health, visibility) in &bodies {
-        if quasar_shows(worn, health, visibility, &settings) {
+    for (body, worn, health, visibility, star) in &bodies {
+        if quasar_shows(worn, health, star, visibility, &settings) {
             demand.declare(body);
         }
     }
@@ -359,6 +369,7 @@ fn sync_quasar_overlays(
             Option<&FrameInSprite>,
             &MaryOQuasarSource,
             Option<&Visibility>,
+            Has<ambition_platformer2d::actors::features::empowerment::Empowered>,
         ),
         Without<MaryOQuasarOverlay>,
     >,
@@ -383,6 +394,7 @@ fn sync_quasar_overlays(
         frame,
         source,
         source_visibility,
+        star,
     ) in &sources
     {
         let Ok((mut overlay_transform, mut overlay_visibility, material_handle, overlay)) =
@@ -395,7 +407,7 @@ fn sync_quasar_overlays(
         }
 
         let source_visible = !matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
-        let enabled = quasar_shows(worn, health, source_visibility, &settings);
+        let enabled = quasar_shows(worn, health, star, source_visibility, &settings);
         // Say it ONCE per transition, naming every condition. "I got the quasar
         // and saw nothing" has five possible causes and no way to tell them
         // apart from the outside; this line distinguishes them.

@@ -54,6 +54,12 @@ const COSMIC_MUSIC_OWNER: &str = "mary_o_cosmic";
 /// music renderer), whose intro is as long as the transformation.
 pub const COSMIC_MUSIC_TRACK: &str = "eternal_cosmic";
 
+/// The longest stop of the world for a hit that she lands in the form, in
+/// seconds. Each body she touches in the form is a hit, and the stop of a
+/// hit is 0.1 s: a flight through a line of enemies was a row of stops
+/// (Jon, 2026-10-11: "considerably less hit stun").
+const COSMIC_HIT_STOP_MAX: f32 = 0.02;
+
 /// The key of the form's entry in her ability contributions.
 const COSMIC_ABILITY_SOURCE: &str = "mary_o_cosmic";
 
@@ -167,6 +173,19 @@ pub fn lend_the_jump_in_the_air(mut bodies: Query<(&WornCharacter, &mut ae::Abil
             contributions.set(COSMIC_ABILITY_SOURCE, ae::AbilityContribution::Lend(lent_verbs()));
         } else if !wanted && lent {
             contributions.clear(COSMIC_ABILITY_SOURCE);
+        }
+    }
+}
+
+/// Cut short the stop of the world for a hit she lands in the form. It runs
+/// after the hits of the tick are resolved, and the clock reads the timer on
+/// the next tick.
+pub fn shorten_her_hit_stop(
+    mut bodies: Query<(&WornCharacter, &mut ambition_platformer2d::characters::actor::BodyCombat), With<PrimaryPlayer>>,
+) {
+    for (worn, mut combat) in &mut bodies {
+        if is_cosmic(worn.id()) && combat.hitstop_timer > COSMIC_HIT_STOP_MAX {
+            combat.hitstop_timer = COSMIC_HIT_STOP_MAX;
         }
     }
 }

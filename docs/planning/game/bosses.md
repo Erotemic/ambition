@@ -451,11 +451,18 @@ level part of each horn); each shoulder has an epaulet.
   an upright one; `punch.gif`: the stiff arm, for comparison). With the
   warp the lines stay flat or upright, which the engine does exactly: a
   line at an angle is not needed for this.
-- After a few hits the scholar is angry. He calls portals that STAY. Each
-  arm goes into one, and its fore arm and fist come out of another that
-  floats: the choreography of today's two fists, with a reason in the
-  story. These portals are the portal LOOK only: the arm fills them, so the
-  player can not use them.
+- After a few hits the scholar is angry (Jon, 2026-10-11, the second
+  telling). He calls two portals and the arms go through them. Then he does
+  a new thing: the portals CLAMP DOWN about the arms until they are tight
+  to them. From then they are not real portals: they are the portal LOOK
+  only, the arm fills them, and the player can not use them. The far ends
+  move about the room with the fore arms and the fists, in the patterns
+  that today's two fists have.
+
+**The order of the work (Jon, 2026-10-11).** First the new giant goes into
+the game, with the fight of today. Then the fight is made again, in these
+phases. A portal at an angle may look better and Jon wants angled portals
+in time; they are not a part of this.
 
 **What the engine has for this (read from the code, 2026-10-11; not run).**
 

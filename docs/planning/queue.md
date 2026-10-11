@@ -50,9 +50,9 @@ the way in its own slice:
 4. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable).
 5. [NAVIGATION](#navigation--a-character-reaches-an-item-in-another-room).
 
-**Next (review of `1d668f4a..9c6318bc7`, 2026-10-11):** the five
+**Done (review of `1d668f4a..9c6318bc7`, 2026-10-11):** the five
 [REVIEW-1011](#review-1011--five-boundaries-where-one-subsystem-reconstructs-anothers-fact)
-rows, in their order, before the rest of the queue.
+rows.
 
 Short slice at any point: [PUBLICATION-FAULT](#publication-fault--a-refused-later-room-must-not-leave-a-mixed-world).
 The two owner pages the 2026-10-08 review found stale (the fingerprint and the
@@ -126,8 +126,15 @@ row starts with a failing production-path witness.
    instance a door leads into when its definition is live twice (OW1); the
    witnesses make the second instance by hand, as no road of the game makes
    one yet.
-5. PLATE-LIFETIME. `RoomPlates` keeps its strong image handles when the
-   quality budget turns off the system that evicts them (high -> Potato).
+5. ✅ 2026-10-11, PLATE-LIFETIME. `RoomPlates` kept its strong image handles
+   when the quality budget turned off the system that evicts them (high ->
+   Potato): 3 pages of up to 2048 x 2048 stayed loaded. Out of budget,
+   `forget_plates_out_of_budget` drops them; back in budget they are drawn
+   again off the main thread. Witness: the high -> Potato -> high arm of
+   `a_room_look_undresses_when_its_budget_goes` counts the pages held
+   (`room_look::plate_pages_held`; poison: the system unscheduled, red at 3).
+   Not done, acceptance work per the review: profile terrain-skin setup in a
+   large room before changing it.
 
 ### WORLD-ACCEPTANCE — one headless playthrough of the persistent world
 

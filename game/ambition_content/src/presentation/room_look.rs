@@ -383,6 +383,32 @@ fn retire_looks_out_of_budget(
     }
 }
 
+/// Forget the plates when the budget for the looks goes: their pages are
+/// textures of up to 2048 x 2048 that nothing draws then. `prepare_room_plates`
+/// forgets the plates of a room that is not wanted, but it does not run out of
+/// budget, so the pages stayed loaded until the session ended. Back in budget,
+/// it draws them again, off the main thread.
+fn forget_plates_out_of_budget(mut plates: ResMut<RoomPlates>) {
+    if !plates.by_room.is_empty() {
+        plates.by_room.clear();
+    }
+}
+
+/// How many plate pages the room look holds now: textures it keeps loaded for
+/// the rooms that are live and next to a live room.
+pub fn plate_pages_held(world: &World) -> usize {
+    world.get_resource::<RoomPlates>().map_or(0, |plates| {
+        plates
+            .by_room
+            .values()
+            .map(|set| match &set.work {
+                PlateWork::Ready(ready) => ready.pages.len(),
+                PlateWork::Drawing(_) => 0,
+            })
+            .sum()
+    })
+}
+
 /// The unit quad every piece of a look scales.
 #[derive(Resource)]
 struct RoomLookQuad(Handle<Mesh>);
@@ -446,7 +472,7 @@ pub fn install(app: &mut App) {
             )
                 .chain()
                 .run_if(resource_exists::<Assets<RoomStateMaterial>>),
-            retire_looks_out_of_budget.run_if(not(looks_are_in_budget)),
+            (retire_looks_out_of_budget, forget_plates_out_of_budget).run_if(not(looks_are_in_budget)),
         ),
     );
 }

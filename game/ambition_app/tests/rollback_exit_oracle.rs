@@ -1631,7 +1631,10 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
         .world()
         .resource::<ambition_platformer2d::rollback::RollbackRegistry>()
         .descriptors()
-        .filter(|d| d.kind == ambition_platformer2d::rollback::RollbackEntryKind::MessageClear)
+        // The instrument channels (`MessageClearInstrument`, compiled in by
+        // the `causal` feature) are cleared too; they are only outside the
+        // peer schema.
+        .filter(|d| d.kind.clears_message_on_rollback())
         .map(|d| d.type_name.clone())
         .collect();
 

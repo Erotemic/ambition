@@ -623,6 +623,24 @@ Raptor Stalker: You dodged after the second swipe last time. I saw it.
     Raptor Stalker: You look at exits after you look at teeth. Change the order.
 ===
 
+title: hall_chicken
+---
+Chicken: Bawk. You know the game. Two of us run straight at each other. The one who turns away, loses.
+-> And if nobody turns?
+    Chicken: Then both lose, worse. So you must believe I will not turn. Look at my eye. Does this eye turn?
+-> Have you ever swerved?
+    Chicken: Never. I had the part that swerves taken out. Now it is your move, and you only have one. Bawk.
+===
+
+title: hall_owl
+---
+Owl: Hoo. Before you ask: you are a "visitor". A visitor is a kind of "agent". An agent is a kind of "thing". I keep the whole list.
+-> Is the parrot on your list?
+    Owl: Under "bird", and under "talks". Not under "knows". It says what usually comes next. I say what a thing is. We do not speak.
+-> What if a thing is not on the list?
+    Owl: Then it is not. ...That is the weak place in my method. Do not tell the parrot.
+===
+
 title: hall_npc_smart_house
 ---
 Smart House: Current temperature: acceptable. Lighting: poor. No occupancy sensors anywhere in this hall. Primitive.

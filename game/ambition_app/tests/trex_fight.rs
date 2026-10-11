@@ -494,6 +494,7 @@ fn wounded_he_grabs_you_thrashes_you_and_flings_you() {
     stand_in_front_until(&mut sim, 60 * 40, "him to lunge for a grab", |sim| {
         matches!(rex(sim).view.performing, Some((Move::JawGrab, false)))
     });
+    alone_with_him(&mut sim);
     untouchable_player(&mut sim, false);
     let (_, before) = player(&mut sim);
     stand_in_front_until(&mut sim, 60 * 2, "his jaws to close on the player", |sim| held(sim));
@@ -595,6 +596,7 @@ fn the_body_in_his_jaws_is_where_his_rig_says_his_jaw_is() {
     stand_in_front_until(&mut sim, 60 * 40, "him to lunge for a grab", |sim| {
         matches!(rex(sim).view.performing, Some((Move::JawGrab, false)))
     });
+    alone_with_him(&mut sim);
     untouchable_player(&mut sim, false);
     stand_in_front_until(&mut sim, 60 * 2, "his jaws to close on the player", |sim| held(sim));
 
@@ -655,6 +657,7 @@ fn mashing_breaks_his_jaw_grab() {
     stand_in_front_until(&mut sim, 60 * 40, "him to lunge for a grab", |sim| {
         matches!(rex(sim).view.performing, Some((Move::JawGrab, false)))
     });
+    alone_with_him(&mut sim);
     untouchable_player(&mut sim, false);
     stand_in_front_until(&mut sim, 60 * 2, "his jaws to close on the player", |sim| held(sim));
     let mut freed_after = None;
@@ -730,8 +733,107 @@ fn enraged_his_call_brings_raptors_and_no_more_than_four() {
     for _ in 0..4 {
         sim.step(AgentAction::default());
     }
-    let all = kin(&mut sim, "stochastic_parrot").len() + kin(&mut sim, "npc_raptor_stalker").len();
+    let all: usize = HIS_KIN.iter().map(|id| kin(&mut sim, id).len()).sum();
     assert!(all <= 4, "{all} of his kin are alive at once");
+}
+
+/// Every catalog character his call can bring.
+const HIS_KIN: [&str; 4] = ["stochastic_parrot", "chicken", "owl", "npc_raptor_stalker"];
+
+/// End his kin. A test of his jaw grab waits through his calls for the grab,
+/// and a capture ends when the held body takes a hit from any body
+/// (`release_interrupted_captures`): a chicken that pecks the player out of
+/// his jaws is the law of the hold, and it is not what that test measures.
+fn alone_with_him(sim: &mut Platformer2dSimHarness) {
+    for id in HIS_KIN {
+        end_kin(sim, id);
+    }
+}
+
+/// End every living body that wears catalog character `id`.
+fn end_kin(sim: &mut Platformer2dSimHarness, id: &str) {
+    let world = sim.world_mut();
+    let mut q = world.query::<(&ambition_platformer2d::characters::actor::WornCharacter, &mut BodyHealth)>();
+    for (worn, mut health) in q.iter_mut(world) {
+        if worn.id() == id {
+            health.health.current = 0;
+        }
+    }
+}
+
+/// Step to the shriek of his next call, and through the ticks its kin take to
+/// stand in the hall.
+fn step_to_his_next_call(sim: &mut Platformer2dSimHarness) {
+    step_until(sim, 60 * 40, "the tell of his call", |sim| matches!(rex(sim).view.performing, Some((Move::Call, false))));
+    step_until(sim, 60 * 3, "the shriek of his call", |sim| matches!(rex(sim).view.performing, Some((Move::Call, true))));
+    for _ in 0..4 {
+        sim.step(AgentAction::default());
+    }
+}
+
+/// Each call brings the next kind of his flock: parrots from the high corners,
+/// then chickens along the floor, then owls from the high corners.
+#[test]
+fn each_call_brings_the_next_kind_of_his_flock() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    wound(&mut sim, 0.5);
+    let hall_of = |sim: &mut Platformer2dSimHarness| rex(sim).view.hall.expect("hall");
+
+    step_to_his_next_call(&mut sim);
+    assert_eq!(kin(&mut sim, "stochastic_parrot").len(), 2, "his first call brings parrots");
+    end_kin(&mut sim, "stochastic_parrot");
+
+    step_to_his_next_call(&mut sim);
+    let hall = hall_of(&mut sim);
+    let chickens = kin(&mut sim, "chicken");
+    assert_eq!(chickens.len(), 2, "his second call brings chickens, and it brought {chickens:?}");
+    for c in &chickens {
+        assert!(c.y > hall.floor - 80.0, "a chicken is a ground bird, and one came in at {c:?}");
+    }
+    assert!(chickens[0].x.min(chickens[1].x) < hall.left + 400.0, "one chicken comes in at the left end: {chickens:?}");
+    assert!(chickens[0].x.max(chickens[1].x) > hall.right - 400.0, "one chicken comes in at the right end: {chickens:?}");
+    end_kin(&mut sim, "chicken");
+
+    step_to_his_next_call(&mut sim);
+    let hall = hall_of(&mut sim);
+    let owls = kin(&mut sim, "owl");
+    assert_eq!(owls.len(), 2, "his third call brings owls, and it brought {owls:?}");
+    for o in &owls {
+        assert!(o.y < hall.floor - 300.0, "an owl came in at {o:?}, not high");
+    }
+}
+
+/// His chickens run at you and his owls come down for you (as his parrots do,
+/// `his_parrots_come_for_you`).
+#[test]
+fn his_chickens_and_his_owls_come_for_you() {
+    let mut sim = arena();
+    untouchable_player(&mut sim, true);
+    wound(&mut sim, 0.5);
+    step_to_his_next_call(&mut sim);
+    for (bird, near) in [("chicken", 70.0), ("owl", 90.0)] {
+        for id in HIS_KIN {
+            end_kin(&mut sim, id);
+        }
+        step_to_his_next_call(&mut sim);
+        assert_eq!(kin(&mut sim, bird).len(), 2, "premise: this call brought the {bird}s");
+        let hall = rex(&mut sim).view.hall.expect("hall");
+        let mut closest = f32::MAX;
+        for _ in 0..60 * 8 {
+            let (pk, _) = player(&mut sim);
+            // Out in the open, mid-hall, away from him.
+            let r = rex(&mut sim);
+            let x = if r.kin.pos.x > (hall.left + hall.right) * 0.5 { hall.left + 400.0 } else { hall.right - 400.0 };
+            place_player(&mut sim, ae::Vec2::new(x, hall.floor - pk.size.y * 0.5 - 1.0));
+            sim.step(AgentAction::default());
+            let p = player(&mut sim).0.pos;
+            for at in kin(&mut sim, bird) {
+                closest = closest.min(at.distance(p));
+            }
+        }
+        assert!(closest < near, "his {bird}s came no nearer than {closest} to a player in the open");
+    }
 }
 
 /// His kin hunt you: a parrot called from a high corner comes down for a

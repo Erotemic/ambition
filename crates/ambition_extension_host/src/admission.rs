@@ -6,14 +6,35 @@
 //! composition with any refusal does not start (see
 //! [`crate::ExtensionHostPlugin`]).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
 use ambition_extension_sdk::digest::Digest;
 use ambition_extension_sdk::{
-    ApiVersion, EntryCode, EntryDescriptor, EntryFn, ModuleDescriptor, ModuleKey,
+    ApiVersion, Attachment, EntryCode, EntryDescriptor, EntryFn, ModuleDescriptor, ModuleKey,
     Phase, PortKey, PortRole, SaveEligibility, SchemaKey, StateSchema,
 };
+
+/// A save road the composition installs: the adapter that keeps the records
+/// of one attachment in one save, and gives them back on a load. Like a port
+/// offer, a road exists only with its adapter, so a schema that needs a road
+/// this composition did not install is refused, never kept transient.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum SaveRoad {
+    /// Session-attached records in the durable world save.
+    SessionDurable,
+}
+
+impl SaveRoad {
+    /// The road that keeps records of `attachment` under `save`. `None` for
+    /// `Transient`, which needs no road, and for a pair no road exists for.
+    pub fn of(attachment: Attachment, save: SaveEligibility) -> Option<Self> {
+        match (attachment, save) {
+            (Attachment::Session, SaveEligibility::Durable) => Some(Self::SessionDurable),
+            _ => None,
+        }
+    }
+}
 
 /// The code of a loaded module file: something that runs entry `entry` of
 /// module `module` from `ambition-ext-1` input bytes and returns output bytes.
@@ -212,11 +233,21 @@ impl Admitted {
     }
 }
 
-/// Admit `modules` against `offers`. All refusals are reported, not only the
-/// first.
+/// Admit `modules` against `offers`, in a composition with no save road. All
+/// refusals are reported, not only the first.
 pub fn admit(
     host_api: ApiVersion,
     offers: &[PortOffer],
+    declared: &[DeclaredModule],
+) -> Result<Admitted, Vec<Refusal>> {
+    admit_with_roads(host_api, offers, &BTreeSet::new(), declared)
+}
+
+/// [`admit`] in a composition that installs the save roads `roads`.
+pub fn admit_with_roads(
+    host_api: ApiVersion,
+    offers: &[PortOffer],
+    roads: &BTreeSet<SaveRoad>,
     declared: &[DeclaredModule],
 ) -> Result<Admitted, Vec<Refusal>> {
     let mut refusals = Vec::new();
@@ -252,7 +283,7 @@ pub fn admit(
         }
 
         for schema in &module.schemas {
-            if let Some(refusal) = schema_refusal(module, schema) {
+            if let Some(refusal) = schema_refusal(module, schema, roads) {
                 refusals.push(refusal);
                 continue;
             }
@@ -394,7 +425,7 @@ fn role_code(role: PortRole) -> u8 {
     }
 }
 
-fn schema_refusal(module: &ModuleDescriptor, schema: &StateSchema) -> Option<Refusal> {
+fn schema_refusal(module: &ModuleDescriptor, schema: &StateSchema, roads: &BTreeSet<SaveRoad>) -> Option<Refusal> {
     if let Err(reason) = schema.validate() {
         return Some(Refusal::InvalidSchema {
             schema: schema.key.clone(),
@@ -408,12 +439,17 @@ fn schema_refusal(module: &ModuleDescriptor, schema: &StateSchema) -> Option<Ref
         });
     }
     // Body- and session-attached transient state have a host store and a
-    // retirement road (`store`). The save roads are I5 work; until they exist,
-    // a module that needs one is refused, never silently downgraded.
-    if schema.save != SaveEligibility::Transient {
+    // retirement road (`store`). A saved record needs the road that keeps it,
+    // installed by this composition; without it the module is refused, never
+    // silently downgraded to transient.
+    let road = SaveRoad::of(schema.attachment, schema.save);
+    if schema.save != SaveEligibility::Transient && !road.is_some_and(|road| roads.contains(&road)) {
         return Some(Refusal::UnsupportedPolicy {
             schema: schema.key.clone(),
-            policy: format!("save {:?}", schema.save),
+            policy: format!(
+                "save {:?} of a {:?} record: this composition installs no save road for it",
+                schema.save, schema.attachment
+            ),
         });
     }
     None

@@ -46,7 +46,7 @@ I5 -> M2 -> I8 measured runtime/snapshot optimizations -> I9 cost evidence
 | I2 | Every data source of the Ambition pack and the demo packs is read off disk |
 | I3 | Data reload is implemented for the participating families; open items below |
 | I4 | First cut landed: every boss special, the wielded kit, the sentry, the vortex and the FSM conductor are modules |
-| I5 | Body and session records, schema migration on reload; save eligibility open |
+| I5 | Body and session records, schema migration on reload; durable session records; body and checkpoint save roads open |
 | I6 | One backend (wasmi) chosen; the native shared-library comparison is not done |
 | I7 | Loaded road, hot reload, inspection tool and graph fixture landed; cancellation and source maps open |
 | I8 | Not started |
@@ -371,7 +371,21 @@ these tests do not sandbox unsafe native code.
 | Schema evolution on reload: `StateSchema::migrate` carries each live record by field tag; a changed attachment or save policy is refused | `ambition_extension_sdk::schema`; `ambition_extension_host::reload` | `a_reload_that_reshapes_a_record_migrates_the_live_records_by_tag`; `a_record_migrates_by_tag_not_by_position_or_name` |
 | Idle ticks: `IdlePolicy::ResetState` and `ResetStateExcept(keep)` reset records without a call | `ambition_extension_host::admission` | host tests; module parity suites |
 
-**Open:** save eligibility (`SaveEligibility::Checkpoint` and `Durable` are
+**Durable session records (2026-10-11):** a session record declared `kept
+durable` is kept in the durable world save (`module_records`, save v5) and
+comes back when the save loads; a transient record beside it does not; a New
+Game clears the session's records. The host admits the schema only where the
+composition offers `SaveRoad::SessionDurable` with its adapter
+(`a_policy_without_a_host_road_is_refused`). A row carries its schema, so a
+load after a module edit migrates it by tag, and a row of a module that is not
+loaded stays in the save (`a_saved_row_comes_back_and_a_row_of_an_older_shape_migrates`).
+Witness: `a_durable_session_record_comes_back_with_its_save_and_a_transient_one_does_not`
+(the loaded fixture, through the file; poisons: no restore, no mirror, no New
+Game reducer, each red at its own assertion; no offer, refused at admission).
+A death keeps the record, as it keeps the durable facts (Q164).
+
+**Open:** save eligibility for body records and checkpoints (`Body` +
+`Durable` and `Checkpoint` are
 refused at admission); durable references to unloaded entities; measurement of
 record visits and copied bytes.
 

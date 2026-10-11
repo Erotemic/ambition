@@ -17,12 +17,13 @@ not always Rust items.
 | Session-attached state | `SessionRecords` (`extension.session_records`), a required component of `SessionRoot` |
 | Idle ticks | `IdlePolicy::{Invoke, ResetState, ResetStateExcept}` |
 | Schema evolution on reload | `StateSchema::migrate` by field tag; a changed attachment or save policy is refused |
-| Save eligibility | `SaveEligibility::{Checkpoint, Durable}` are declared but refused at admission |
+| Save eligibility | A save road (`SaveRoad`) is offered with its adapter. `SessionDurable` keeps a `per session, kept durable` record in the durable world save (`ambition_platformer2d_runtime::module_save_road`), as the schema and the values in wire form, and a load migrates it by tag. Body records and `Checkpoint` have no road and are refused at admission |
 | Module identity in the generation | `extension.modules` section of the prepared content identity (`ExtensionGeneration`) |
 | Loaded code | `ambition_extension_wasm` (wasmi, deterministic, fuel, a new instance per call; an importing module is refused) |
 
 Open against this contract: the deterministic fault policy (today a fault is
-counted in `ExtensionFaults` and the session continues), save eligibility,
+counted in `ExtensionFaults` and the session continues), save eligibility for
+body records and for checkpoints,
 durable references to unloaded entities and a production observation port.
 
 ## Contract boundary

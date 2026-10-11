@@ -11,6 +11,11 @@
 //! declares one record for the whole session instead, shared by every
 //! invocation of the module (a session tally, a cursor across bodies).
 //!
+//! A record is transient: it lives in the simulation only. `, kept durable;`
+//! after the attachment asks the durable world save to keep it (a session
+//! record only, and only in a composition that installs that save road; the
+//! host refuses it elsewhere).
+//!
 //! ```
 //! use ambition_extension_sdk::{record, SchemaKey};
 //!
@@ -153,7 +158,7 @@ impl<T: RecordField> RecordField for Vec<T> {
 macro_rules! record {
     (
         $(#[$meta:meta])*
-        $vis:vis struct $name:ident = $key:expr $(, per $attach:ident)?;
+        $vis:vis struct $name:ident = $key:expr $(, per $attach:ident)? $(, kept $save:ident)?;
         $(
             $(#[$fmeta:meta])*
             $tag:literal $field:ident : $ty:ty $([max $max:expr])?
@@ -169,12 +174,12 @@ macro_rules! record {
             pub const KEY: $crate::SchemaKey = $key;
 
             /// The schema: one record for each body (or, with `per session`,
-            /// one for the session), transient.
+            /// one for the session), transient unless `kept` names a save.
             pub fn schema() -> $crate::StateSchema {
                 $crate::StateSchema {
                     key: Self::KEY,
                     attachment: $crate::record!(@attach $($attach)?),
-                    save: $crate::SaveEligibility::Transient,
+                    save: $crate::record!(@save $($save)?),
                     fields: vec![
                         $(
                             $crate::FieldDecl::new(
@@ -247,6 +252,9 @@ macro_rules! record {
     (@attach session) => { $crate::Attachment::Session };
     (@attach body) => { $crate::Attachment::Body };
     (@attach) => { $crate::Attachment::Body };
+    (@save durable) => { $crate::SaveEligibility::Durable };
+    (@save checkpoint) => { $crate::SaveEligibility::Checkpoint };
+    (@save) => { $crate::SaveEligibility::Transient };
 }
 
 #[cfg(test)]

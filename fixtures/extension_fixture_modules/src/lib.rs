@@ -5,7 +5,9 @@
 //! `session_tally` proves fast-iteration I5 on the loaded road: a schema the
 //! host was never compiled with, attached to the SESSION, counts every use of
 //! the shockwave in the session, and every third use fires a bolt — a record
-//! field that decides a later spawn.
+//! field that decides a later spawn. A second session record, which the
+//! durable world save keeps, counts every use in the world's life: it comes
+//! back when the save loads, and the session count does not.
 //!
 //! `trail_loop` is I7.3's graph fixture: an algorithm the technique vocabulary
 //! cannot say. While a body holds the shockwave, the module keeps the cells
@@ -34,6 +36,12 @@ record! {
     1 uses: u32,
 }
 
+record! {
+    /// Every shockwave use in the world's life, across saves and loads.
+    pub struct Lifetime = SchemaKey::new(PROVIDER, "session_tally.lifetime", 1), per session, kept durable;
+    1 uses: u32,
+}
+
 pub fn session_tally() -> ModuleDescriptor {
     ModuleDescriptor {
         key: ModuleKey::new(PROVIDER, "session_tally"),
@@ -42,7 +50,7 @@ pub fn session_tally() -> ModuleDescriptor {
             crate_name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
         },
-        schemas: vec![Tally::schema()],
+        schemas: vec![Tally::schema(), Lifetime::schema()],
         entries: vec![EntryDescriptor {
             key: "count".into(),
             phase: WIELDED_USE,
@@ -51,7 +59,7 @@ pub fn session_tally() -> ModuleDescriptor {
                 selector: "shockwave".into(),
             },
             reads: Vec::new(),
-            writes: vec![Tally::KEY],
+            writes: vec![Tally::KEY, Lifetime::KEY],
             requests: vec![ProjectileSpawnPort::KEY],
             after: Vec::new(),
             limits: Limits { max_requests: 1 },
@@ -65,6 +73,9 @@ pub fn session_tally() -> ModuleDescriptor {
 
 fn count(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let w: Wielder = inv.trigger::<WieldedUsePort>()?.clone();
+    let mut lifetime = Lifetime::load(inv)?;
+    lifetime.uses += 1;
+    lifetime.store(inv)?;
     let mut tally = Tally::load(inv)?;
     tally.uses += 1;
     if tally.uses % EVERY == 0 {

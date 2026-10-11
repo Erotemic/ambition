@@ -24,6 +24,7 @@ mod admission;
 mod exec;
 pub mod inspect;
 pub mod reload;
+pub mod save;
 mod store;
 
 use std::collections::{BTreeSet, HashMap};
@@ -35,8 +36,8 @@ use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
 pub use admission::{
-    admit, Admitted, AdmittedEntry, AdmittedSchema, DeclaredModule, EntryRunner, ModuleBackend,
-    ModuleCode, PortOffer, Refusal,
+    admit, admit_with_roads, Admitted, AdmittedEntry, AdmittedSchema, DeclaredModule, EntryRunner,
+    ModuleBackend, ModuleCode, PortOffer, Refusal, SaveRoad,
 };
 pub use exec::{
     run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InBossConduct,
@@ -79,6 +80,7 @@ pub struct AdmittedExtensions(pub Arc<Admitted>);
 #[derive(Resource, Clone)]
 pub struct ExtensionComposition {
     pub(crate) offers: Vec<PortOffer>,
+    pub(crate) save_roads: BTreeSet<SaveRoad>,
     pub(crate) declared: Vec<DeclaredModule>,
 }
 
@@ -127,6 +129,8 @@ struct ExtensionSchedule(Interned<dyn ScheduleLabel>);
 #[derive(Resource, Default)]
 struct ExtensionInstallation {
     offers: Vec<PortOffer>,
+    /// The save roads whose adapters the composition installed.
+    save_roads: BTreeSet<SaveRoad>,
     suppliers: HashMap<ambition_extension_sdk::PortKey, (Supplier, ambition_extension_sdk::EncodeFn)>,
     request_decoders: HashMap<ambition_extension_sdk::PortKey, ambition_extension_sdk::DecodeFn>,
     modules: Vec<DeclaredModule>,
@@ -181,7 +185,12 @@ pub fn admit_world(world: &mut World) {
     let installation = world
         .remove_resource::<ExtensionInstallation>()
         .expect("ExtensionHostPlugin::build inserted the installation");
-    let admitted = match admit(API_VERSION, &installation.offers, &installation.modules) {
+    let admitted = match admit_with_roads(
+        API_VERSION,
+        &installation.offers,
+        &installation.save_roads,
+        &installation.modules,
+    ) {
         Ok(admitted) => admitted,
         Err(refusals) => {
             let lines: Vec<String> = refusals.iter().map(|r| format!("  - {r}")).collect();
@@ -196,6 +205,7 @@ pub fn admit_world(world: &mut World) {
     }
     world.insert_resource(ExtensionComposition {
         offers: installation.offers.clone(),
+        save_roads: installation.save_roads.clone(),
         declared: installation.modules.clone(),
     });
     world.init_resource::<reload::StagedModuleReplacement>();
@@ -238,6 +248,12 @@ pub trait ExtensionAppExt {
     /// pay. Only the settle, which pays them in invocation order, knows which
     /// one the body can afford.
     fn install_extension_cost<P: Port>(&mut self, phase: Phase, owner: &'static str) -> &mut Self;
+
+    /// Offer save road `road`. Call it from the plugin that installs the
+    /// road's adapter (the systems that keep the records in the save and give
+    /// them back on a load), and only there: an offer without its adapter
+    /// admits a saved schema whose records nothing keeps.
+    fn offer_extension_save_road(&mut self, road: SaveRoad) -> &mut Self;
 
     /// Add the domain system that settles the cost ports of `phase`. It runs
     /// in `ExtensionSet::Settle(phase)`.
@@ -393,6 +409,12 @@ impl ExtensionAppExt for App {
             .request_decoders
             .insert(P::KEY, ambition_extension_sdk::decode_erased::<P>);
         ensure_phase(self, schedule, &phase);
+        self
+    }
+
+    fn offer_extension_save_road(&mut self, road: SaveRoad) -> &mut Self {
+        let (_, mut installation) = installation(self);
+        installation.save_roads.insert(road);
         self
     }
 

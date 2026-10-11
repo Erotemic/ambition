@@ -17,6 +17,7 @@ mod combat_schedule;
 pub mod extension_composition;
 pub mod content_identity;
 pub mod durable_save_horizon;
+pub mod module_save_road;
 /// The reset horizon's composition: where checkpoint capture and restore sit in
 /// the tick, and the ordering edges that make them one transaction.
 pub mod encounter_spawn_service;

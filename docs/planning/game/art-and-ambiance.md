@@ -309,6 +309,21 @@ suit the style of the game.
 
 ## Not done
 
+- **The giant gnu, redrawn.** In candidates only (Jon, 2026-10-11): stills
+  in `untracked/giant-gnu-candidate/` (not in git), each from a script
+  beside it. Nothing of the game changed. What Jon chose so far: a giant
+  that is like a gnu and is not one, almost a centaur (a beast on four
+  legs, a chest that stands up at its front, the two fists for hands); the
+  great curled horns of the first design; a face whose parts make its
+  expression (serious, mean, silly); its back and its two shoulders are
+  floors, and the art shows a floor with moss (the back, the top of each
+  horn) or with an epaulet (each shoulder), not with a slab. Open: which
+  face it has at rest (six to choose from), then the real target and its
+  rows.
+- **A bird for the giant gnu.** Wanted later (Jon, 2026-10-11): a small
+  bird that rides the giant. It is NOT a part of the giant's sprite: it is
+  to be an actor of its own, with its own simulation (it sits, it moves, it
+  flies off). Not started, and not to be started with the redraw.
 - **Characters.** Started 2026-10-10 with the pirate crew: see "Characters
   and props, 2026-10-10" below. The other targets (about 160 of them, on a
   rig pipeline) are as they were. A redesign is made in place on its target,

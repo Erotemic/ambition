@@ -28,7 +28,7 @@
 //! dinosaurs. Each call brings a pair of one kind of his flock ([`FLOCK`]), the
 //! next kind each time: the flyers come down from the high corners (parrots,
 //! owls, swallows, vultures) and the runners come in along the floor (chickens,
-//! kiwis, emus, ostriches, cassowaries, shoebills). Where the two sexes of a
+//! kiwis, emus, ostriches, cassowaries, shoebills, penguins). Where the two sexes of a
 //! bird do not look alike, the pair is a cock and a hen. Enraged, raptors run
 //! in at the walls too. He calls only while their number is below `MINION_CAP`.
 //!
@@ -296,7 +296,7 @@ const fn kin(character: &'static str, half: [f32; 2], flies: bool) -> Kin {
 /// The call. Birds are dinosaurs: each call brings a pair of one kind of his
 /// flock, the next kind each time (`Conductor::calls`). A new kind of bird is
 /// one row here and one buildable row in the character catalog.
-const FLOCK: [Kin; 11] = [
+const FLOCK: [Kin; 12] = [
     kin("stochastic_parrot", [18.0, 16.0], true),
     Kin { pair: ["chicken", "chicken_hen"], half: [16.0, 22.0], flies: false },
     kin("owl", [18.0, 24.0], true),
@@ -308,6 +308,7 @@ const FLOCK: [Kin; 11] = [
     kin("cassowary", [20.0, 41.0], false),
     kin("shoebill", [18.0, 40.0], false),
     kin("vulture", [22.0, 33.0], true),
+    kin("penguin", [14.0, 20.0], false),
 ];
 /// Enraged, raptors run in at the walls with each call.
 const RAPTOR: Kin = kin("npc_raptor_stalker", [24.0, 40.0], false);

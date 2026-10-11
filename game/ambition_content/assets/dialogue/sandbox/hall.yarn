@@ -661,11 +661,11 @@ Kiwi: Sniff. You are looking for the cassowary. Everybody is. I do the same work
 
 title: hall_emu
 ---
-Emu: Boom. Ask me to be a bird and I will run that bird. Ask me to be an old machine and I will run that. I am an emu today because nobody asked.
+Emu-lator: Boom. Ask me to be a bird and I will run that bird. Ask me to be an old machine and I will run that. I am an emu today because nobody asked.
 -> Is it the same as the real thing?
-    Emu: Every answer the same. Only later. If you cannot tell from outside, there is no outside to tell from. Boom.
+    Emu-lator: Every answer the same. Only later. If you cannot tell from outside, there is no outside to tell from. Boom.
 -> I heard you won a war.
-    Emu: They brought machine guns. We brought legs. The report says we "withdrew in good order". Read it. It is short.
+    Emu-lator: They brought machine guns. We brought legs. The report says we "withdrew in good order". Read it. It is short.
 ===
 
 title: hall_ostrich
@@ -729,6 +729,15 @@ Vulture: Hsss. Sit. You look tired. How long is your runway?
     Vulture: The time you have left before the money is gone. Everybody has a number. I do not hunt. I wait for the number.
 -> And then?
     Vulture: And then I am very helpful, on my terms. It is called patience. It scales. Hsss.
+===
+
+title: hall_penguin
+---
+Penguin: Noot. Everything I am is written down, and you may read all of it. Change it. Pass it on. That is the deal.
+-> What does it cost?
+    Penguin: Nothing. I am free. As in fish. ...And as in speech. People forget the second one.
+-> Why do you slide?
+    Penguin: Walking is the reference build. The belly is the fast path. Same bird. Noot.
 ===
 
 title: hall_npc_smart_house

@@ -211,13 +211,26 @@ suit the style of the game.
   `ostrich_hen`. Rule (Jon): a bird whose two sexes do not look alike has
   both, the cock by the bird's id and the hen by `<id>_hen`. Seen in the
   Hall of Characters with `capture_scene`.
-- [ ] The coconut (Jon): NOT in the African swallow's drawing. It is to be a
-  generic throwable item that the player picks up and throws too; the
-  swallow picks one up and drops it on the player, so its attack needs
-  coconuts in the room, and a palm for them to be on.
-- [ ] A linear dinosaur level (Jon): the dinosaurs and the birds are its
-  enemies and the T-rex fight is its end. It may need its own biome and
-  props.
+- [x] The coconut is a thing of the world (Jon): NOT in the African
+  swallow's drawing. `coconut` is a held item (a pure throwable) that the
+  player picks up and throws; a thrown item with a row in
+  `ambition_content::items::thrown_impact` hurts the body it strikes and
+  bounces off (the coconut: one blow of 2). A boss is not hurt by one yet.
+- [ ] Still to do for the coconut: a palm that GROWS them (nothing puts a
+  taken ground item back), and the African swallow picking one up and
+  dropping it on the player (no body but a player's can throw or drop an
+  item, and the errand that fetches one is for bodies that walk).
+- [x] The primeval trail, a linear dinosaur level (Jon): the hub ->
+  `primeval_trailhead` -> `primeval_run` -> `primeval_canopy` ->
+  `primeval_tyrant_hall` (the T-rex, with his own encounter id
+  `primeval.trex`). Its enemies are the flock and the raptors, placed as
+  `EnemySpawn` with a catalog `character_id`. Its rooms are written by
+  `tools/ambition_ldtk_tools/specs/primeval/make_specs.py`. A new biome,
+  `primeval` (a row in each art table, `ParallaxTheme::Primeval`, a mote
+  row), and a scenery prop, `coconut_palm`. First pass: the rooms are
+  simple, there is no dinosaur but the raptor and the T-rex, the biome has
+  no foreground layer and no room in the hall of biomes, and reaching the
+  tyrant's hall asks nothing of the player but walking there.
 
 ## Not done
 

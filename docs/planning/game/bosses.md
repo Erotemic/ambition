@@ -133,9 +133,9 @@ stochastic parrots, raptors").**
   its own: the body moves as `grab_shake` moves his jaw
   (`trex_fight::the_body_in_his_jaws_is_where_his_rig_says_his_jaw_is`).
 - The call (`trex_call`, phase 2 on): a pair of one kind of his flock, the
-  next kind each call (`FLOCK` in his conductor, eleven kinds): parrots,
+  next kind each call (`FLOCK` in his conductor, twelve kinds): parrots,
   chickens, owls, kiwis, emus, European swallows, ostriches, African
-  swallows, cassowaries, shoebills, vultures. The flyers come down from the
+  swallows, cassowaries, shoebills, vultures, penguins. The flyers come down from the
   high corners and the runners come in along the floor. A kind whose two
   sexes do not look alike comes as a cock and a hen (the chicken, the
   ostrich). Enraged, raptors along the floor first; at most four alive

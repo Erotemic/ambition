@@ -581,6 +581,8 @@ tackon_targets=(
     pirate_heavy_axe
     throwing_javelin
     coconut
+    # Scenery of the primeval trail (an LDtk `Prop`).
+    coconut_palm
     portal_gun_blue
     portal_gun_orange
     hunting_bow

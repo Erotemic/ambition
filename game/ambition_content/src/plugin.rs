@@ -144,6 +144,8 @@ impl Plugin for AmbitionContentPlugin {
 
         // Intro story content and visible-build presentation rows.
         app.add_plugins(crate::intro::IntroPlugin);
+        // The primeval trail: the scenery its rooms name.
+        app.add_plugins(crate::primeval::PrimevalPlugin);
 
         // Ambition-specific portal adapters; the reusable portal core is installed
         // separately in `add_simulation_plugins`.

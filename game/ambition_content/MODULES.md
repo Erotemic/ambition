@@ -29,6 +29,7 @@
 | [`plugin`](src/plugin.rs) | Ambition game-content registration. |
 | [`portal`](src/portal/mod.rs) | Ambition-specific portal adapters. |
 | [`presentation`](src/presentation/mod.rs) | Content-owned presentation plugins — named Ambition looks layered onto the reusable renderer's PUBLIC seams. |
+| [`primeval`](src/primeval.rs) | The primeval trail: the level of the dinosaurs. |
 | [`projectiles`](src/projectiles.rs) | Ambition-owned projectile visual registrations. |
 | [`provider`](src/provider.rs) | Reusable Ambition gameplay provider. |
 | [`quest`](src/quest.rs) | Ambition's authored quests + their completion payouts. |
@@ -38,7 +39,7 @@
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command, function, and markup registrations available to authored `.yarn` content. |
 
-_31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_32 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

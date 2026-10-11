@@ -742,7 +742,7 @@ fn enraged_his_call_brings_raptors_and_no_more_than_four() {
 /// kind flies in from the high corners. This restates `FLOCK` of his
 /// conductor on purpose: a kind that the conductor loses or reorders is a
 /// change to the fight, and this is where it is seen.
-const HIS_FLOCK: [([&str; 2], bool); 11] = [
+const HIS_FLOCK: [([&str; 2], bool); 12] = [
     (["stochastic_parrot", "stochastic_parrot"], true),
     (["chicken", "chicken_hen"], false),
     (["owl", "owl"], true),
@@ -754,6 +754,7 @@ const HIS_FLOCK: [([&str; 2], bool); 11] = [
     (["cassowary", "cassowary"], false),
     (["shoebill", "shoebill"], false),
     (["vulture", "vulture"], true),
+    (["penguin", "penguin"], false),
 ];
 
 /// Every catalog character his call can bring.

@@ -1,0 +1,31 @@
+// Written by specs/primeval/make_specs.py. Change the script, not this file.
+(
+    id: "primeval_tyrant_hall",
+    level_id: "primeval_tyrant_hall",
+    world_x: 28000,
+    world_y: 0,
+    px_wid: 1792,
+    px_hei: 704,
+    fill_collision: "empty",
+    bg_color: "#16200F",
+    biome: "primeval",
+    music_track: "dinosaur_liberators",
+    entities: [
+        ( type: "Solid", px: [0, 672], size: [1792, 32], fields: ( name: "floor" ) ),
+        ( type: "Solid", px: [0, 0], size: [1792, 16], fields: ( name: "ceiling" ) ),
+        ( type: "Solid", px: [0, 16], size: [16, 656], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [1776, 16], size: [16, 656], fields: ( name: "right_wall" ) ),
+        ( type: "OneWayPlatform", px: [16, 464], size: [192, 16], fields: ( name: "ledge_left" ) ),
+        ( type: "OneWayPlatform", px: [240, 560], size: [128, 16], fields: ( name: "step_left" ) ),
+        ( type: "OneWayPlatform", px: [1424, 560], size: [128, 16], fields: ( name: "step_right" ) ),
+        ( type: "OneWayPlatform", px: [1584, 464], size: [192, 16], fields: ( name: "ledge_right" ) ),
+        ( type: "PlayerStart", px: [112, 624], size: [24, 48], fields: ( name: "primeval_tyrant_hall_spawn" ) ),
+        ( type: "LoadingZone", px: [40, 576], size: [48, 96], fields: ( id: "primeval_tyrant_hall_entry", name: "back to the canopy", activation: "Door", target_room: "primeval_canopy", target_zone: "primeval_canopy_east", bidirectional: true ) ),
+        ( type: "BossSpawn", px: [1120, 560], size: [140, 112], fields: ( name: "T-Rex", brain: "PhaseScript:trex_boss", encounter_id: "primeval.trex" ) ),
+        ( type: "CameraZone", px: [0, 0], size: [1792, 704], fields: ( id: "primeval_tyrant_hall_camera", name: "primeval_tyrant_hall_camera", mode: "Default" ) ),
+        ( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "primeval_tyrant_hall_label", text: "The Tyrant King.", category: "Custom" ) ),
+    ],
+    connect_to: [
+        ( target_room: "primeval_canopy", px: [1936, 576], size: [48, 96], id: "primeval_canopy_east", target_zone: "primeval_tyrant_hall_entry", activation: "Door", bidirectional: true ),
+    ],
+)

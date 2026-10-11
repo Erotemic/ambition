@@ -31,7 +31,7 @@ pub use cut_rope::{
     SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
     CUT_ROPE_VICTORY_NPC_ID,
 };
-pub use gnu_ton::{conduct_gnu_ton, gate_gnu_ton_arena_ladder};
+pub use gnu_ton::gate_gnu_ton_arena_ladder;
 
 // ⭐ READ OFF DISK IN DESKTOP DEVELOPMENT, EMBEDDED UNDER `static_content`
 // (web, Android, a build without the source tree), like the move tables: a
@@ -205,7 +205,7 @@ pub fn boss_catalog_fragment_from(
     .map_err(|error| error.to_string())?
     // The conducted bosses are built with their conductors, and the behemoth
     // with the payload it frees.
-    .with_birth_kit(gnu_ton::conductor::GNU_TON_ID, gnu_ton::conductor::birth)
+    .with_birth_kit(gnu_ton::GNU_TON_ID, gnu_ton::birth)
     .with_birth_kit(fsm::conductor::FSM_ID, fsm::birth)
     .with_birth_kit(trex::TREX_ID, trex::birth)
     .with_birth_kit(mockingbird::MOCKINGBIRD_ID, mockingbird::birth)
@@ -279,22 +279,14 @@ pub fn register_rollback_state(
             "ambition_content::bosses",
             "message.cut_rope_room_replay_requested",
         );
-    // GNU-ton's conductor: the beat he is performing and the fists' latched
-    // aims are sim state (a rewind that kept them would land a slam where the
-    // player stood on the other timeline); its hit-volume handles are remapped.
-    registrar
-        .rollback_component_cursor::<gnu_ton::GnuTonConductor>(
-            "ambition_content::bosses",
-            "content.gnu_ton_conductor",
-        )
-        .rollback_map_entities::<gnu_ton::GnuTonConductor>(
-            "ambition_content::bosses",
-            "map.content.gnu_ton_conductor",
-        );
     // The Flying Spaghetti Monster's conductor is a procedural module
     // (`ambition_content_modules::fsm`): its memory is a record in the
     // extension host's `extension.body_records`, its facing the boss domain's
     // `boss.conducted_facing`, and its shocks the combat domain's held boxes.
+    // GNU-ton's conductor is a procedural module too
+    // (`ambition_content_modules::gnu_ton::conductor`), and its memory is a
+    // record in the same store. Its fists' and shocks' hit volumes are held
+    // boxes.
     // The cut-rope celebrant's identity. The victory road spawns it only when
     // none has this marker, so a restored celebrant without it would be
     // spawned a second time.
@@ -453,22 +445,12 @@ impl Plugin for AmbitionBossContentPlugin {
                 .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
-        // GNU-ton's conductor performs the scholar's live move with his fists.
-        // After the saddle pin (so he is on the gnu this tick unless Eureka says
-        // otherwise), in the post-integration phase, so the poses written here
-        // are the last word before combat reads them.
-        app.add_systems(
-            sim,
-            conduct_gnu_ton
-                .after(ambition_mount::RidersSyncedToMounts)
-                .in_set(GameplayGated)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
-        );
-
         // The Flying Spaghetti Monster's conductor is the `fsm` procedural
         // module, a conducted boss: the extension composition runs it in
         // `boss_conduct` (after every non-boss body has integrated) and turns
-        // the god to the side it chose in `BossSteerSlot`.
+        // the god to the side it chose in `BossSteerSlot`. GNU-ton's conductor is
+        // the `gnu_ton` conductor module, in the same phase, which runs after
+        // the riders are synced to their mounts.
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the
         // dialog runtime's content-bindings seam, plus the per-frame extras

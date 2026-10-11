@@ -313,12 +313,13 @@ before you add a port.
 
 **Open:**
 
-- GNU-ton's conductor as a module. Its back is not the conductor's any more
-  (2026-10-10): the gnu's character authors it (`CharacterMount::back`) and
+- ✅ 2026-10-11, GNU-ton's conductor as a module. Its back stopped being the
+  conductor's first (2026-10-10): the gnu's character authors it (`CharacterMount::back`) and
   the mount domain makes a ridden mount's back one-way ground
   (`ambition_mount::mount_backs_are_ground`), so a module does not need to
-  add collision. Still native: the fists (pose, opening, the blow they pass
-  on, their hit volumes), the stomp's travelling shocks, the buck, eureka.
+  add collision. The rest moved with the module: the fists (pose, opening,
+  the blow they pass on, their hit volumes), the stomp's travelling shocks,
+  the buck, eureka.
   Ports land first, each with its adapter witness; the module, its parity
   harness and the deletion of the native conductor are one slice. Landed:
   observation `ambition.boss.mount` (the ridden body, its back, the hall under
@@ -339,11 +340,14 @@ before you add a port.
   (`ambition_content_modules::gnu_ton`, its choreography beside it) and its
   parity harness (`bosses::gnu_ton::conductor_parity_tests`: identical to the
   native conductor for 1420 ticks of every move, the blows, the buck, the
-  shocks, eureka and death) are landed; the module is NOT composed yet. The
-  harness found that the native stomp threw no shock (the wave was dropped
-  on the tick it began); fixed. Next: compose the module, make the native
-  conductor the harness's test-only reference, and drop
-  `content.gnu_ton_conductor` from the rollback registry.
+  shocks, eureka and death) are landed. The harness found that the native
+  stomp threw no shock (the wave was dropped on the tick it began); fixed.
+  ✅ 2026-10-11: the module is composed and conducts the fight. The native
+  conductor is the harness's test-only reference
+  (`bosses::gnu_ton::conductor_reference_tests`), `content.gnu_ton_conductor`
+  left the rollback registry (schema 341), and the app reads the module's
+  record (`bosses::gnu_ton::conductor_of`). Poison: the module removed from
+  `MODULES` reddens 12 `gnu_ton_fight` arms and the two-room hall arm.
 
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and

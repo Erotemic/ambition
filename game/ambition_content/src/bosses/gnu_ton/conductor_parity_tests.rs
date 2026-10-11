@@ -34,7 +34,7 @@ use bevy::ecs::message::Messages;
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
-use super::conductor::{conduct_gnu_ton, GnuTonConductor, GNU_TON_ID};
+use super::conductor_reference_tests::{conduct_gnu_ton, GnuTonConductor, GNU_TON_ID};
 
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 struct Sim;

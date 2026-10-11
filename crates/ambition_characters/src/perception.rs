@@ -371,6 +371,24 @@ pub struct PerceivedSolid {
     pub open_for_self: bool,
 }
 
+/// Where a recovering body is against the floor it goes back to
+/// ([`WorldView::recovery_ledge`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RecoveryLedge {
+    /// From the centre of the body to the centre of the floor, on the side
+    /// axis of the body (the `x` of its local stick).
+    pub toward: f32,
+    /// The feet of the body are lower than the top of the floor: it cannot
+    /// land there yet.
+    pub below_top: bool,
+    /// Below the top AND the footprint is over the floor: the body is under
+    /// it, and the floor stops a jump.
+    pub under: bool,
+}
+
+/// Feet this near the top of a floor are on it, not below it.
+const RECOVERY_LEDGE_TOLERANCE: f32 = 0.5;
+
 /// A portal aperture perceived in the viewport — the data a brain needs to
 /// route through it (invariant I10 / S5's portal navigation). Plain data: no
 /// dependency on the portal crate, so the perception value stays headless and
@@ -843,6 +861,48 @@ impl WorldView {
             half_width: me.half_extent.x,
             height: me.half_extent.y,
         }
+    }
+
+    /// The floor a recovering body goes back to, and where the body is
+    /// against it: the standable solid nearest the body on its side axis.
+    /// `None` when the view has no floor.
+    ///
+    /// A body below the top of that floor cannot land on it. If it goes in,
+    /// it goes UNDER the floor, and the floor stops its jumps. So the
+    /// recovery needs the height of the body against the top, and not only
+    /// the side the floor is on.
+    pub fn recovery_ledge(&self) -> Option<RecoveryLedge> {
+        let at = self.footing();
+        let ahead = |solid: &ae::Aabb| {
+            let (low, high) = Self::span_on(solid, at.side);
+            ((low + high) * 0.5 - at.centre) * self.self_view.facing
+        };
+        let floor = self
+            .terrain
+            .iter()
+            .filter(|solid| Self::stands_on(solid))
+            .min_by(|a, b| {
+                at.gap_to(&a.aabb)
+                    .total_cmp(&at.gap_to(&b.aabb))
+                    // Two floors at one side distance: the one nearer the
+                    // feet. Not the list order (see `horizontal_gap`).
+                    .then_with(|| {
+                        (at.top_of(&a.aabb) - at.feet)
+                            .abs()
+                            .total_cmp(&(at.top_of(&b.aabb) - at.feet).abs())
+                    })
+                    // ⛔ MIRROR (Q49): twin floors seen from the centre line
+                    // tie on both, and the list order is not a fact about
+                    // the body. The floor on the side the body faces wins.
+                    .then_with(|| ahead(&b.aabb).total_cmp(&ahead(&a.aabb)))
+            })?;
+        let (low, high) = Self::span_on(&floor.aabb, at.side);
+        let below_top = at.feet > at.top_of(&floor.aabb) + RECOVERY_LEDGE_TOLERANCE;
+        Some(RecoveryLedge {
+            toward: (low + high) * 0.5 - at.centre,
+            below_top,
+            under: below_top && at.is_over(&floor.aabb),
+        })
     }
 
     pub fn floor_below(&self) -> Option<ae::Aabb> {

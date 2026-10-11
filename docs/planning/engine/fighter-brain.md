@@ -308,6 +308,16 @@ rather than add a second outcome test:
    facings aim at the left shelf). The Emmy match does not reach it: two
    mirrored supports are at one distance only from a body on the centre line,
    and only a carry route asks.
+   The `Recover` verb steered to the centre of the room (2026-10-11): from
+   below the top of the stage that is under the floor, and the floor stopped
+   the jumps (George mirror, seat 0 at x = 571, y = 353, fell out of the room;
+   the S0.2 parry made the bout reach it). It steers by
+   `WorldView::recovery_ledge` now: out from under the floor, hold the side
+   below the top, go in above it; twin floors are told apart by the facing.
+   Witnesses: `a_recovering_body_below_the_top_does_not_steer_under_the_floor`
+   (poison: the old rule; red at "beside and below") and
+   `twin_floors_are_told_apart_by_the_facing_and_not_by_the_list` (poison: the
+   facing tie removed; red at "facing right").
 
 The current requirement that two ordinary fighters MUST break the mirror stays
 only while per-seat streams are policy; it is a fact about that policy, not a

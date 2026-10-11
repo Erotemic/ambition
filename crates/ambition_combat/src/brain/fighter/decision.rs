@@ -1253,14 +1253,35 @@ fn apply_movement(
             frame.blink_pressed = true;
         }
         MovementVerb::Recover => {
-            // Recover toward the stage center, resolving that world-space direction into the
-            // body's local side axis, and jump for vertical gain.
-            let centre = Vec2::new(
-                (view.stage.bounds.min.x + view.stage.bounds.max.x) * 0.5,
-                view.self_view.pos.y,
-            );
-            let home = side_toward(centre - view.self_view.pos);
-            frame.locomotion = ae::LocalAxes::new(home, 0.0);
+            // Jump for height, and steer by the floor, not by the room. The
+            // centre of the room is over the floor, so a body below the top
+            // that steers to it goes under the floor, and the floor stops its
+            // jumps. Below the top, go out from under the floor or hold the
+            // side; above the top, go in.
+            let (steer, home) = match view.recovery_ledge() {
+                Some(ledge) => {
+                    let home = crate::util::SignumOr::signum_or(ledge.toward, 0.0);
+                    let steer = if ledge.under {
+                        -home
+                    } else if ledge.below_top {
+                        0.0
+                    } else {
+                        home
+                    };
+                    (steer, home)
+                }
+                None => {
+                    let centre = Vec2::new(
+                        (view.stage.bounds.min.x + view.stage.bounds.max.x) * 0.5,
+                        view.self_view.pos.y,
+                    );
+                    let home = side_toward(centre - view.self_view.pos);
+                    (home, home)
+                }
+            };
+            frame.locomotion = ae::LocalAxes::new(steer, 0.0);
+            // Face the floor in all three cases: a recovery move goes the
+            // way the body faces.
             frame.facing = home;
             frame.jump_pressed = true;
             frame.jump_held = true;

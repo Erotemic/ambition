@@ -13,6 +13,7 @@
 | [`echo_fan`](src/echo_fan.rs) | The Mockingbird's echo fan: one strike copies a shot across a cone aimed at the boss's target. |
 | [`eye_beam`](src/eye_beam.rs) | The Smirking Behemoth's eye beam: during the telegraph the boss locks where its target is; on the first strike tick it fires a short line of fast bubble-laser boxes from its eye toward that point. |
 | [`fsm`](src/fsm.rs) | The Flying Spaghetti Monster's conductor: it flies the god and performs its moves. |
+| [`gnu_ton`](src/gnu_ton/mod.rs) | GNU-ton, the scholar who rides the giant gnu and lectures with its fists. |
 | [`gradient_cascade`](src/gradient_cascade.rs) | Gradient cascade: on the first strike tick, minions drop in from the top of the arena, spread evenly about the boss. |
 | [`gradient_nova`](src/gradient_nova.rs) | The gradient nova: on the first tick of a strike, sixteen shots burst out of the boss in a full circle, at three speed tiers so the ring tears into layers. |
 | [`grapple`](src/grapple.rs) | Grapple: Attack while holding the grapple casts a line along the aim. |
@@ -33,7 +34,7 @@
 | [`vortex`](src/vortex.rs) | Vortex: Attack while holding the vortex gauntlet opens a singularity ahead of the body along the aim. |
 | [`wielded`](src/wielded.rs) | What the wielded abilities share: the descriptor of a stateless entry on the `wielded_use` trigger, and the payment rule. |
 
-_26 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_27 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

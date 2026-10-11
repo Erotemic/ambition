@@ -106,14 +106,16 @@ ROLLBACK_REGISTRATION_PATHS = (
 MODULE_CRATE_DIR = "game/ambition_content_modules"
 MODULE_HARNESS_PACKAGE = "ambition_content"
 #: Each `app_it` arm that names the module crate
-#: (`test_every_app_arm_that_names_the_modules_is_held` holds this), and
-#: `fsm_fight`, which runs the fsm module through content and does not name
-#: the crate. ⚠ An arm that runs a module and does not name the crate is held
-#: only when it is in this list.
+#: (`test_every_app_arm_that_names_the_modules_is_held` holds this), and the
+#: arms that run module code through content and do not name the crate:
+#: `fsm_fight` (the fsm module) and `gnu_ton_fight` (GNU-ton's choreography).
+#: ⚠ An arm that runs a module and does not name the crate is held only when
+#: it is in this list.
 MODULE_ARMS = (
     "a_boss_special_runs_on_the_extension_host",
     "a_loaded_module_keeps_session_state",
     "fsm_fight",
+    "gnu_ton_fight",
     "mockingbird_fight",
     "trex_fight",
 )

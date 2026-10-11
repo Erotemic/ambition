@@ -361,9 +361,9 @@ pub fn world_with_sandbox_solids(
     // the base/platform solids BEFORE the carve so a portal aperture splits them
     // exactly as it would a base wall.
     extend_in_canonical_order(&mut collision_world.blocks, &ecs_overlay.gate_solids);
-    // Additive liquid (falling-sand settled pools) folds in alongside the base
-    // water regions — keeps the authored base immutable while the projection is a
-    // per-frame overlay contribution like the solids above.
+    // Additive liquid folds in alongside the base water regions. This keeps the
+    // authored base immutable while a contributor's liquid is a per-frame overlay
+    // contribution like the solids above.
     collision_world
         .water_regions
         .extend(ecs_overlay.water_regions.iter().cloned());

@@ -163,7 +163,7 @@ links to.
   — deferred trigger.
 - [`engine/reusable-authored-world-composition.md`](engine/reusable-authored-world-composition.md)
   — incubating.
-- [`engine/falling-sand.md`](engine/falling-sand.md)
+- [`engine/falling-sand.md`](engine/falling-sand.md) — removed; not a work item.
 - [`engine/relativity.md`](engine/relativity.md)
 - [`engine/frame-awareness.md`](engine/frame-awareness.md) — maintainer
   manifesto.

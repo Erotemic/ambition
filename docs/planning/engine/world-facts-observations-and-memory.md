@@ -67,8 +67,7 @@ the authored verbs bound over a field, not only the field.
 **Switch writers.** The save's switch family has two writing roads, disjoint
 by action kind: `drain_switch_activations` (`ambition_encounter/src/switches.rs`)
 and `apply_wave_encounter_effects` (`ambition_encounter_features/src/systems.rs`,
-which greens every switch of a completed encounter). The falling-sand spouts
-only read (`FallingSandSpoutState::from_save`). The activation queue is a
+which greens every switch of a completed encounter). The activation queue is a
 cross-tick channel: the drain is ordered before `EncounterSimulation` by its
 consumers, and `apply_switch_effects` pushes in `GameplayEffects`, so an
 activation resolves on the next tick

@@ -1155,8 +1155,7 @@ fn record_confirmed_verdicts(
 /// A fact, not a policy. Most consumers now use
 /// [`ambition_platformer2d_runtime::external_effects`], which defers instead
 /// of suppressing. The rest need to know a frame is revisited: the forensic
-/// trace (so it does not consume per-frame suppression windows twice) and
-/// the falling-sand grid (as a step guard).
+/// trace (so it does not consume per-frame suppression windows twice).
 fn publish_replay_pass(
     replay: &mut ambition_platformer2d_shared_tangle::schedule::SimulationReplayState,
     simulated_before: bool,
@@ -2709,8 +2708,8 @@ mod replay_pass_tests {
 
     /// A rollback re-runs frames 3 and 4 and then simulates 5 for the first
     /// time. The distinction still matters for the consumers that legitimately
-    /// want "don't do this twice" — the trace's duplicate append and the
-    /// falling-sand step guard. External effects no longer read it at all.
+    /// want "don't do this twice" — the trace's duplicate append. External
+    /// effects no longer read it at all.
     #[test]
     fn only_the_re_simulated_frames_are_marked_as_replay() {
         let mut world = rollback_world();

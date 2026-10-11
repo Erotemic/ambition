@@ -292,10 +292,10 @@ pub enum WorldPrepSet {
 /// against a NAME instead of against a function in the actor kernel.
 ///
 /// ⭐ IT LIVES HERE, NOT IN THE ACTOR KERNEL, and the evidence is older than the
-/// encounter carve that finally moved it. FIVE ordering edges outside the
-/// monolith already name this set — three in `ambition_content`
-/// (`bosses`, `falling_sand`, `falling_sand_sim`) and one each in the Mary-O and
-/// Sanic demos — and to say WHEN their own systems run they had to name
+/// encounter carve that finally moved it. Ordering edges outside the
+/// monolith name this set — `ambition_content`'s `bosses`, and one each in the
+/// Mary-O and Sanic demos (the falling-sand room's two were deleted with it,
+/// 2026-10-11) — and to say WHEN their own systems run they had to name
 /// `ambition_platformer2d_actor_monolith`, or the facade's `actors` alias for it.
 /// ⛔ AND TWO MORE COULD NOT NAME IT AT ALL: `ambition_combat::hazards` and
 /// `ambition_damage` each describe this set in PROSE, citing it as the precedent

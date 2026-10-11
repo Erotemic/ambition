@@ -1,8 +1,8 @@
 """The features whose ONLY coverage is the union run must not be denied from it.
 
-⛔⛔ MEASURED 2026-09-06: `kira`, `basic_presentation` and `falling_sand` are NOT in
-`ambition_app`'s `default` feature closure (`ambition_content`'s own default is
-`[]`, and `falling_sand = ["dep:bevy_falling_sand"]` is optional). So a
+⛔⛔ MEASURED 2026-09-06: `kira` and `basic_presentation` are NOT in
+`ambition_app`'s `default` feature closure. (A third, `falling_sand`, was
+deleted with its room's code on 2026-10-11.) So a
 default-features run compiles none of their code, and the ONE thing that does is
 the union run — which reaches them precisely because they are absent from
 `run_tests.DENY_EXACT`.
@@ -13,7 +13,7 @@ test, an ABSENT one.
 
 ⚠ WHY THE HAZARD IS REAL RATHER THAN THEORETICAL. `run_tests.py`'s own comment used
 to justify that list by saying the suite "already exercises them via default
-features" — false for exactly these three. A future reader denying `falling_sand`
+features" — false for exactly these. A future reader denying `kira`
 for some headless reason would read that sentence, believe default features still
 cover it, and be wrong. The sentence is fixed; this is the part a sentence cannot do.
 """
@@ -36,7 +36,7 @@ _spec.loader.exec_module(run_tests)
 
 # Measured, not assumed — `test_they_are_still_outside_the_default_closure` below
 # re-derives this from the manifests every run.
-UNION_ONLY = ("kira", "basic_presentation", "falling_sand")
+UNION_ONLY = ("kira", "basic_presentation")
 
 
 def _default_closure() -> set[str]:
@@ -105,7 +105,7 @@ def test_the_comment_no_longer_claims_default_features_exercise_them():
     asserted = [l for l in lines if claim in l and "It said" not in l]
     assert not asserted, (
         f"the false justification is being MADE again, not quoted: {asserted}. "
-        f"Default features do NOT compile kira, basic_presentation or falling_sand."
+        f"Default features do NOT compile kira or basic_presentation."
     )
     # And the replacement must still name what DOES cover them.
     assert any("THE UNION RUN" in l for l in lines), "the corrected reason went missing"

@@ -90,15 +90,14 @@ deterministic motion driver.
 ## K6: the second-customer census
 
 `MovingPlatformState::as_collision_block` is the only site that originates a
-non-zero `Block::velocity`. Every other dynamic solid (lock walls, falling sand,
+non-zero `Block::velocity`. Every other dynamic solid (lock walls,
 breakables, portal carves) toggles existence or kind at a fixed place.
 Everything that moves per frame (patrolling hazard volumes, the cut-rope anvil,
 gravity zones, hosted portal apertures) is not solid. Geometry can move without
 being kinematic.
 
 Rejected candidates: lock walls appear, they do not slide; no conveyor is
-authored; the Smash stage is one static block. Falling sand is a field, not a
-body, with no tile identity across frames.
+authored; the Smash stage is one static block.
 
 **The falsifier.** `Block::velocity` means both the solid's per-frame
 displacement and the drag it gives a rider. Only a belt (zero displacement,

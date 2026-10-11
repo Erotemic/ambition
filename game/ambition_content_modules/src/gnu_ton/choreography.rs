@@ -601,18 +601,48 @@ pub mod arms {
 
     /// The two lines the arms are in after phase 1 (left, right): each stands
     /// up, out from its shoulder.
-    pub const SHOULDER_LINES: [Vec2; 2] = [Vec2::new(-89.0, -143.7), Vec2::new(389.4, -143.7)];
-    pub const SHOULDER_HALF: f32 = 52.0;
+    /// Each is at the middle of the arm that is in it (MEASURED in the drawing,
+    /// 2026-10-11: the arm is 57 wide there, and the fore arm behind a wrist
+    /// is 60 wide).
+    pub const SHOULDER_LINES: [Vec2; 2] = [Vec2::new(-89.0, -152.1), Vec2::new(389.4, -152.1)];
+    /// Half the length of a shoulder's line: when it opens, and when it is
+    /// tight on the arm.
+    pub const SHOULDER_WIDE: f32 = 78.0;
+    pub const SHOULDER_TIGHT: f32 = 32.0;
     /// The line behind the wrist of a fist that is a body of its own.
     pub const WRIST_LINE: f32 = 97.5;
-    pub const WRIST_HALF: f32 = 42.0;
+    pub const WRIST_WIDE: f32 = 72.0;
+    pub const WRIST_TIGHT: f32 = 33.0;
     /// Where such a fist rests: this far out and down from the line its arm
     /// is in.
     pub const REST_OUT: Vec2 = Vec2::new(230.0, 20.0);
-    /// The row `clamp`, and when in it the arms are in their lines: the fists
-    /// are bodies of their own from then.
-    pub const CLAMP: f32 = 0.64;
+
+    /// Where the fist of a shoulder (0 left, 1 right) rests, from the middle
+    /// of the giant, as the giant is drawn.
+    pub fn rest(shoulder: usize) -> Vec2 {
+        let out = if shoulder == 1 { REST_OUT.x } else { -REST_OUT.x };
+        SHOULDER_LINES[shoulder] + Vec2::new(out, REST_OUT.y)
+    }
+    /// The clamp. The arms go out and into two wide lines (the row `clamp`);
+    /// at `CLAMP_THROUGH` they are through, and the fists are bodies of their
+    /// own from then. From `SQUEEZE` to `SNAP` the lines close on the arms. At
+    /// `SNAP` they are tight, and the giant flinches (its row `hit`) for
+    /// `FLINCH`. `CLAMP` is all of it; the encounter's beat between its phases
+    /// (`transition_seconds`) is longer.
     pub const CLAMP_THROUGH: f32 = 0.45;
+    pub const SQUEEZE: f32 = 0.85;
+    pub const SNAP: f32 = 1.05;
+    pub const FLINCH: f32 = 0.48;
+    pub const CLAMP: f32 = SNAP + FLINCH;
+
+    /// How tight the lines are on the arms `clamp` seconds into the clamp
+    /// (`None`: it is over), from 0 (as wide as they open) to 1.
+    pub fn tight(clamp: Option<f32>) -> f32 {
+        clamp.map_or(1.0, |t| {
+            let u = ((t - SQUEEZE) / (SNAP - SQUEEZE)).clamp(0.0, 1.0);
+            u * u * u
+        })
+    }
 
     /// Where the far line of a punch at `aim` is: over the floor by a fist
     /// and `LINE_OVER`, and clear of the giant.

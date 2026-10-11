@@ -415,12 +415,20 @@
             // on it. It punches down into a portal by its shoulder, and the
             // fist comes down out of the pair's far line, over the player. The
             // pair is a real one: the way up to the giant's back, and to him.
-            // The phase is short (`phase1_to_transition_hp`).
+            // A slow punch with a long time to go up through the pair, then a
+            // quick one.
             phase1: (steps: [
                 Rest(duration: 1.0),
+                // Its tell is its own (pose and cue): not the tell of a
+                // demonstration.
                 Telegraph(profile: Special("portal_punch"), duration: 1.0,
-                    telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.charge")))),
-                Strike(profile: Special("portal_punch"), duration: 2.6),
+                    telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
+                // 2.0 is the longest strike of a slam (`boss_seeds.ron`).
+                Strike(profile: Special("portal_punch"), duration: 2.0),
+                Rest(duration: 0.8),
+                Telegraph(profile: Special("portal_punch"), duration: 0.8,
+                    telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.charge")))),
+                Strike(profile: Special("portal_punch"), duration: 1.6),
                 Rest(duration: 0.6),
             ]),
             // The clamp: two lines take the arms and close on them. The

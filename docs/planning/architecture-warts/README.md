@@ -31,6 +31,7 @@ on intended product behaviour.
 | W020 | OPEN | placement | A room has copies of a body's size and of its art's height: the giant's `EnemySpawn` box, the scholar's `BossSpawn` place, the hall's `GIANT_SLOT_HEIGHT_PX`; `specs/gnu_ton_arena_area.ron` is behind its level. | A spawn says where the feet are; tools read the sheet's `reach`: same page, step 3. |
 | W021 | OPEN | GNU-ton fight | The choreography's heights are numbers of the room, and the fists' rest is typed from the body's width; the fight was not tuned for the larger giant. | A conductor measures from its mount's places. With the fight's rework: same page, step 4. |
 | W022 | OPEN | giant gnu art | The giant is posed by Python (`giant_art.py`), not an SVG with a rig; `_svg.py` is a copy of the reference kit; five pages of 6311 x 5301 are made and two are read; two stale JSON files are in git. | An SVG rig and one sheet per reader: same page, steps 5 and 6. |
+| W023 | OPEN | GNU-ton fight | The fight with arms and portals has eleven debts: the fist does not go through the pair (two sheets in step), a module can not open a portal (its record is read by a native system), a look line is a second concept beside a portal, the lines' places and widths are typed from the drawing, the fists are hidden bodies in phase 1, a pinned row does not loop. | See `../game/gnu-ton-fight-debts.md`: each debt with what it should be, and an order. |
 
 ## Owned elsewhere
 

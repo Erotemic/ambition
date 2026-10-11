@@ -159,6 +159,44 @@ record! {
     /// The lines that are a look and no way through: the left shoulder's, the
     /// right shoulder's, the left wrist's, the right wrist's.
     40 lines: Vec<Option<[f32; 2]>> [max 4],
+    /// Half the length of each of them: wide when it opens, tight on the arm
+    /// after the clamp.
+    41 line_half: Vec<f32> [max 4],
+    /// What he has said (a bit for each line of `Bark`): he says each once.
+    42 said: u32,
+}
+
+/// What he says at the turns of the fight, once each.
+#[derive(Clone, Copy)]
+enum Bark {
+    /// The first punch through the pair begins.
+    Punch,
+    /// The player is on the giant's back while its arms are on it.
+    Boarded,
+    /// The clamp begins.
+    Clamp,
+    /// The lines are tight on the arms.
+    Clamped,
+}
+
+impl Bark {
+    fn text(self) -> &'static str {
+        match self {
+            Bark::Punch => "Observe: action at a distance.",
+            Bark::Boarded => "Off the shoulders of my giant!",
+            Bark::Clamp => "Enough! Hold still.",
+            Bark::Clamped => "Now we shall be rigorous.",
+        }
+    }
+}
+
+fn say(inv: &mut Invocation<'_>, c: &mut Conductor, bark: Bark, head: Vec2) -> Result<(), Fault> {
+    let bit = 1u32 << bark as u32;
+    if c.said & bit != 0 {
+        return Ok(());
+    }
+    c.said |= bit;
+    inv.submit::<SpeechBubblePort>(SpeechBubble { at: a(head - Vec2::new(0.0, 30.0)), text: bark.text().to_string() })
 }
 
 /// The part of a beat being performed.
@@ -230,6 +268,7 @@ impl Conductor {
         self.wave_dir.resize(WAVES, 0.0);
         self.wave_generation.resize(WAVES, 0);
         self.lines.resize(4, None);
+        self.line_half.resize(4, 0.0);
         self
     }
 
@@ -238,9 +277,13 @@ impl Conductor {
         self.punch_open.then(|| [v(self.punch_near), v(self.punch_far)])
     }
 
-    /// The lines that are a look and no way through (see `lines`).
-    pub fn look_lines(&self) -> [Option<Vec2>; 4] {
-        std::array::from_fn(|i| self.lines.get(i).copied().flatten().map(v))
+    /// The lines that are a look and no way through (see `lines`): the middle
+    /// of each, and half its length.
+    pub fn look_lines(&self) -> [Option<(Vec2, f32)>; 4] {
+        std::array::from_fn(|i| {
+            let half = self.line_half.get(i).copied().unwrap_or(0.0);
+            self.lines.get(i).copied().flatten().map(|at| (v(at), half))
+        })
     }
 
     fn part(&self) -> Option<Part> {
@@ -435,20 +478,19 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let turn = if giant.unmirrored { 1.0 } else { -1.0 };
     let from_giant = |offset: Vec2| giant_pos + Vec2::new(offset.x * turn, offset.y);
     // The line each fist's arm is in: the shoulder on its own side.
-    let shoulder = |fist: Fist| from_giant(ch::arms::SHOULDER_LINES[usize::from(fist.side() * turn > 0.0)]);
+    let shoulder_of = |fist: Fist| usize::from(fist.side() * turn > 0.0);
+    let shoulder = |fist: Fist| from_giant(ch::arms::SHOULDER_LINES[shoulder_of(fist)]);
     let mut stage = Stage { hall, homes: homes(giant_pos, rests), scholar: scholar_pos, fist: fist_size };
     if c.loosed || c.clamp.is_some() {
         // A fist that is a body of its own rests out from the line its arm is in.
-        stage.homes = std::array::from_fn(|i| {
-            let fist = Fist::BOTH[i];
-            shoulder(fist) + Vec2::new(fist.side() * ch::arms::REST_OUT.x, ch::arms::REST_OUT.y)
-        });
+        stage.homes = std::array::from_fn(|i| from_giant(ch::arms::rest(shoulder_of(Fist::BOTH[i]))));
     }
     if !c.seated {
         // A fist that is gone starts at its home.
         c.seat(std::array::from_fn(|i| limb(Fist::BOTH[i]).map_or(stage.homes[i], |l| v(l.position))));
     }
     let aim_now = scholar.target.map_or(scholar_pos, v);
+    let head = scholar_pos - Vec2::new(0.0, scholar_size.y * 0.5);
 
     // ── Which part of which beat, and did it just begin? ──
     let live = live_part(&scholar);
@@ -508,6 +550,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                         if mv == Move::PortalPunch {
                             // The far line opens over where the player is now, and stays.
                             c.punch_far = a(ch::arms::far_line(&stage, giant_pos, giant_size, aim_now));
+                            // Not a punch the pattern starts after the clamp began.
+                            if !c.loosed && c.clamp.is_none() {
+                                say(inv, &mut c, Bark::Punch, head)?;
+                            }
                         }
                         c.set_part(Some(Part { mv, striking, t: 0.0, tel_dur: 0.0, beat_t: 0.0 }));
                     }
@@ -545,6 +591,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         if scholar.between_phases && c.clamp.is_none() {
             c.clamp = Some(0.0);
             play(inv, SFX_SNORT, giant_pos)?;
+            say(inv, &mut c, Bark::Clamp, head)?;
         }
         // A move of the free fists, with no clamp before it (a fight that
         // starts late): the arms are in their lines now.
@@ -554,7 +601,6 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             c.loosed = true;
             // Each fist comes out of its line where it rests.
             c.latch_from = vec![a(stage.homes[0]), a(stage.homes[1])];
-            c.resting = 1.0;
             c.last_pos = vec![None; 2];
             for fist in Fist::BOTH {
                 spark(inv, stage.home(fist), GOLD, 16, 240.0)?;
@@ -562,6 +608,15 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
     }
     if let Some(t) = c.clamp {
+        if t < ch::arms::SNAP && t + dt >= ch::arms::SNAP {
+            // The lines are tight on the arms.
+            for fist in Fist::BOTH {
+                spark(inv, shoulder(fist), GOLD, 18, 260.0)?;
+                spark(inv, stage.home(fist) - Vec2::new(fist.side() * ch::arms::WRIST_LINE, 0.0), GOLD, 12, 200.0)?;
+            }
+            play(inv, SFX_STOMP, giant_pos)?;
+            say(inv, &mut c, Bark::Clamped, head)?;
+        }
         c.clamp = (t + dt < ch::arms::CLAMP).then_some(t + dt);
     }
     let arms_on = !c.loosed;
@@ -593,6 +648,9 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             (feet - min_y).abs() <= 4.0 && (min_x..=max_x).contains(&body.position[0])
         })
     });
+    if foe_on_back && arms_on {
+        say(inv, &mut c, Bark::Boarded, head)?;
+    }
     if hurt && foe_on_back && c.reflex.is_none() && c.reflex_cooldown <= 0.0 {
         c.reflex = Some(0.0);
         play(inv, SFX_SNORT, giant_pos)?;
@@ -610,15 +668,17 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
     // ── What he and the gnu are drawn as ──
     match c.clamp {
-        // He calls the two lines that take the arms.
-        Some(t) => draw(inv, DrawnPart::Body, Some((&["invoke"], t, false)))?,
-        None => draw(inv, DrawnPart::Body, ch::rows::scholar(cue.as_ref()))?,
+        // He calls the two lines that take the arms, and closes them.
+        Some(t) if t < ch::arms::SNAP => draw(inv, DrawnPart::Body, Some((&["invoke"], t, false)))?,
+        _ => draw(inv, DrawnPart::Body, ch::rows::scholar(cue.as_ref()))?,
     }
     match (c.reflex, c.clamp) {
         // The reflex rears and bucks, whatever his fists are doing.
         (Some(t), _) if arms_on => draw(inv, DrawnPart::Mount, Some((&["armed_buck", "buck"], t, false)))?,
         (Some(t), _) => draw(inv, DrawnPart::Mount, Some((&["buck"], t, false)))?,
-        (None, Some(t)) => draw(inv, DrawnPart::Mount, Some((&["clamp"], t, false)))?,
+        (None, Some(t)) if t < ch::arms::SNAP => draw(inv, DrawnPart::Mount, Some((&["clamp"], t, false)))?,
+        // The lines closed on its arms: it flinches.
+        (None, Some(t)) => draw(inv, DrawnPart::Mount, Some((&["hit"], t - ch::arms::SNAP, false)))?,
         (None, None) if arms_on => draw(inv, DrawnPart::Mount, Some(ch::arms::gnu(cue.as_ref(), clock)))?,
         (None, None) => draw(inv, DrawnPart::Mount, ch::rows::gnu(cue.as_ref()))?,
     }
@@ -769,8 +829,11 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 
     // ── The lines that are a look: one at each shoulder, one behind each wrist ──
     let shoulders = c.loosed || c.clamp.is_some();
+    let tight = ch::arms::tight(c.clamp);
     for fist in Fist::BOTH {
         let i = fist.index();
+        c.line_half[i] = ch::arms::SHOULDER_WIDE + (ch::arms::SHOULDER_TIGHT - ch::arms::SHOULDER_WIDE) * tight;
+        c.line_half[2 + i] = ch::arms::WRIST_WIDE + (ch::arms::WRIST_TIGHT - ch::arms::WRIST_WIDE) * tight;
         c.lines[i] = shoulders.then(|| a(shoulder(fist)));
         // The wrist of a fist is on the side of it that is not its own side.
         let wrist = poses[i].pos - Vec2::new(fist.side() * ch::arms::WRIST_LINE, 0.0);

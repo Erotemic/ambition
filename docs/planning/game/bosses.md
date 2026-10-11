@@ -514,7 +514,7 @@ on all fours, 46 reared; not checked against the engine). Which shoulder
 the scholar stands on. Where the two fists rest.
 
 **Built 2026-10-11 (first cut; seen in `capture_scene`, not in a window on
-a GPU, and no test was run or changed).**
+a GPU). What is not elegant in it: `gnu-ton-fight-debts.md`.**
 
 - Phase 1: the giant's arms are on it (rows `armed_*`, `punch_*`). The
   pattern is one move, `portal_punch`. A real pair opens: the near line by
@@ -522,10 +522,17 @@ a GPU, and no test was run or changed).**
   telegraph began. The fist's body is put under the far line (rows
   `through_*` of the fist's sheet) and hurts there. A player that was put on
   the near line came out of the far line (seen). The way UP was not played.
-- Phase 1 ends at 86% of his health (`phase1_to_transition_hp`).
-- The clamp: the encounter's lock between the phases (2 s). Row `clamp`;
-  then the fists are bodies of their own and the fight of before goes on
-  (its phase 1 and its phase 2 are now ONE phase 2).
+- Phase 1 ends at 64% of his health (`phase1_to_transition_hp`): Jon wants
+  it a full phase, not a short one. Its pattern is a slow punch and a quick
+  one; it needs more moves (the left arm, a punch to the side).
+- The clamp: the encounter's lock between the phases (2 s). Two wide lines
+  open and the arms go out into them (row `clamp`); the fists come out as
+  bodies of their own; the lines close on the arms until they are as wide
+  as the arm (`arms::tight`); the giant flinches (row `hit`). Then the
+  fight of before goes on (its phase 1 and its phase 2 are now ONE phase 2).
+- He says four lines, once each (`Bark` in the conductor): at the first
+  punch, when the player is on the giant's back, at the clamp, and when
+  the lines are tight. First words; Jon has not read them.
 - The lines at the shoulders and behind the wrists are a look
   (`PortalLightLine` of the portal presentation crate), not portals: a free
   portal that moves pushes each body on its plane.
@@ -535,9 +542,8 @@ a GPU, and no test was run or changed).**
 
 **Known, not done.**
 
-- Tests are behind the fight: the parity test of the conductor (its script
-  starts with free fists; a record now starts with the arms on), the app's
-  tests of the arena, the tests of row names. For the big run.
+- The tests of the fight were brought up to it (the conductor's parity
+  test, the arena's tests, the two-room apple rain). No test plays phase 1.
 - The limb trail (wisps from the giant to each fist) is still drawn: to the
   far fist of the punch, and beside the arms in phase 2. It needs a way for
   a body to say it has no trail.

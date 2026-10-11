@@ -123,6 +123,38 @@ fn go_through(app: &mut App, target: &str) {
     }
 }
 
+/// The gate stack's portal to the hub, and the switch that powers it.
+const HUB_PORTAL: &str = "intro_portal_zone";
+const HUB_PORTAL_SWITCH: &str = "intro_portal_switch";
+
+/// Walk to the gate's switch by keys, press Interact, and wait while the
+/// portal boots: its door takes Interact only when the portal is on.
+fn power_the_hub_portal(app: &mut App) {
+    use ambition_platformer2d::world::rooms::GatePortalPhases;
+    let at = {
+        let world = app.world_mut();
+        world
+            .query::<(&ambition_platformer2d::encounter::switches::SwitchFeature, &ae::geometry::CenteredAabb)>()
+            .iter(world)
+            .find(|(feature, _)| feature.activation.id == HUB_PORTAL_SWITCH)
+            .map(|(_, aabb)| aabb.center)
+            .expect("the gate stack authors the portal's switch")
+    };
+    if let Err(why) = crate::common::walk::walk_to(&mut crate::common::walk::Keys::new(app), at) {
+        panic!("the player did not walk to the portal's switch: {why}");
+    }
+    let phase = |app: &App| app.world().resource::<GatePortalPhases>().phase(HUB_PORTAL);
+    assert!(!phase(app).allows_traversal(), "control: the portal is shut before the switch");
+    crate::the_note_travels_from_alice_to_bob::tap(app, KeyCode::KeyF);
+    for _ in 0..120 {
+        if phase(app).allows_traversal() {
+            return;
+        }
+        app.update();
+    }
+    panic!("the portal did not open after its switch: {:?}", phase(app));
+}
+
 /// Is `block` a standing gate solid of the live room?
 fn gate_stands(app: &App, block: &str) -> bool {
     ambition_platformer2d::platformer::lifecycle::sole_live_room_component::<
@@ -487,9 +519,14 @@ fn a_death_sends_the_blink_back_to_where_it_lay() {
         "after the death, Alice's return lock disagrees with the survey flag"
     );
 
-    for room in ["under_town_pipes", "drain_alley", "intro_escape_shaft", "intro_raid_corridor", "intro_wake_room", "central_hub_complex"] {
+    // The wake room is the start of the game, and no door leads back from it
+    // to the hub (Jon, 2026-10-10: the hub's door to it is one way). The road
+    // home is the gate stack beside the drain alley, through its portal.
+    for room in ["under_town_pipes", "drain_alley", "gate_stack_lower"] {
         go_through(&mut app, room);
     }
+    power_the_hub_portal(&mut app);
+    go_through(&mut app, "central_hub_complex");
     let lying: Vec<ae::Vec2> = {
         let world = app.world_mut();
         world

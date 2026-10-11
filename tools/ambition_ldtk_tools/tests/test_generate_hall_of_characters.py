@@ -202,9 +202,10 @@ def test_make_entity_shape():
 
 
 def test_a_giant_stands_in_its_own_row_below_the_basement():
-    """The giant gnu stands 415 px and draws ~725 px wide. On a 128x192 main-hall
-    pedestal it covered eight neighbours and two floors; a basement slot is 47 px
-    too short for it. A `Giant` gets a row of its own at the very bottom."""
+    """The giant gnu's horns are 760 px above the floor and it draws ~700 px
+    wide. On a 128x192 main-hall pedestal it covered eight neighbours and
+    several floors; a basement slot is too short for it. A `Giant` gets a row
+    of its own at the very bottom, as tall as its horns."""
     spec = build_spec(["alpha"], ["boss_one"], {}, ["npc_giant_gnu"])
     npcs = {e["fields"]["character_id"]: e for e in spec["entities"] if e["type"] == "NpcSpawn"}
     assert set(npcs) == {"alpha", "boss_one", "npc_giant_gnu"}
@@ -219,7 +220,7 @@ def test_a_giant_stands_in_its_own_row_below_the_basement():
     # Clear height above the giant's feet: up to the basement floor over its row.
     over = floors["basement_row_1_floor_left"]
     clear = feet("npc_giant_gnu") - (over["px"][1] + over["size"][1])
-    assert clear >= 480, clear
+    assert clear >= 780, clear
     # The basement's last row now drops through to the giants.
     assert "basement_row_1_floor" not in floors
     assert spec["px_hei"] == derived_dims(1, 1, 1)[1]

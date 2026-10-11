@@ -309,25 +309,34 @@ suit the style of the game.
 
 ## Not done
 
-- **The giant gnu, redrawn.** In candidates only (Jon, 2026-10-11): stills
-  in `untracked/giant-gnu-candidate/` (not in git), each from a script
-  beside it. Nothing of the game changed. What Jon chose so far: a giant
-  that is like a gnu and is not one, almost a centaur (a beast on four long
-  legs, a chest that stands up at its front, two arms to two fists); the
-  horns of a gnu, out and then up to a point (the curled horns of the first
-  design are kept as an option); its back is a slope from a low rump to
-  the left shoulder, in two stances (on all fours, reared up); the art
-  shows where an actor can stand with moss (the slope, the level part of
-  each horn) or with an epaulet (each shoulder), not with a slab. Its face has
-  no brows and shows no teeth. It has two faces at rest: `ordered` when it
-  does what the scholar says (a small lid on each eye, tilted in a little:
-  focused), and `free` when it is on its own (no lids, the eyes drifting:
-  more vacant). Five more are kept for a giant that reacts (`smile`,
-  `serious`, `angry`, `dazed`, `sleepy`); it does not smile at rest. The
-  design is one drawing script in the renderer
-  (`scripts/svg_art/giant_gnu_art.py`, its `EXPRESSIONS` and `STANCES`
-  tables). Open: the real target and its rows. The fight this body is for
-  is in `bosses.md` ("GNU-ton — a giant with arms, and portals").
+- **The giant gnu, redrawn: in the game, with the fight of today** (Jon,
+  2026-10-11). A giant that is like a gnu and is not one, almost a centaur
+  (a beast on four long legs, a chest that stands up at its front, two
+  shoulders with an epaulet on each); the horns of a gnu; its back is a
+  slope from a low rump to the left shoulder. Its face has no brows and
+  shows no teeth, and its parts make its expression. The drawing, its poses
+  and its rows are the target's own module in the renderer
+  (`targets/characters/gnu_ton_boss/giant_art.py`); `scripts/svg_art/
+  giant_gnu_art.py` draws one pose of it to look at. It is larger than the
+  first giant: its body is 630 x 464 and the tips of its horns are 760
+  above the floor (the first one was 415 tall). The arena's stones moved
+  for it, and the hall's row of giants is taller.
+  - Moss is where an actor can stand, and the game agrees: the slope is ten
+    steps of one-way ground and each horn has a ledge
+    (`mount.ledges` of `npc_giant_gnu`). NOT YET TRUE TO THE PICTURE: the
+    slope is steps, so a body goes up it in hops and does not walk it. A
+    mount's ground is flat blocks; a slope that moves with a mount is work
+    for the fight's rework.
+  - The sheets have NO ARMS: the fists are bodies of their own, as in the
+    fight of today. The arms, the stance `reared` as a stance of the fight,
+    and the portals are the fight's rework (`bosses.md`, "GNU-ton — a giant
+    with arms, and portals").
+  - Its faces: `ordered` at rest (what the sheets draw: it is ridden), and
+    `free`, `smile`, `serious`, `angry`, `dazed`, `sleepy` for when it
+    reacts. The rows use `angry`, `serious`, `dazed` and `sleepy`. `free`
+    (the giant on its own) is not drawn by a row yet.
+  - The candidates and the concept animations of the fight are in
+    `untracked/giant-gnu-candidate/` (not in git).
 - **A bird for the giant gnu.** Wanted later (Jon, 2026-10-11): a small
   bird that rides the giant. It is NOT a part of the giant's sprite: it is
   to be an actor of its own, with its own simulation (it sits, it moves, it

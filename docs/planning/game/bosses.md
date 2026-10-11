@@ -413,10 +413,19 @@ So a hall placement does not fire these archetype-keyed consequences:
 
 ## GNU-ton — a giant with arms, and portals (proposed 2026-10-11, Jon)
 
-Not built. The giant's new look is a candidate (see `art-and-ambiance.md`,
-"The giant gnu, redrawn"; `scripts/svg_art/giant_gnu_art.py` in the sprite
-renderer). Concept stills are in `untracked/giant-gnu-candidate/` (not in
-git).
+The giant's new look is in the game, with the fight of today (see
+`art-and-ambiance.md`, "The giant gnu, redrawn"). The fight below is NOT
+built. Concept stills and animations are in `untracked/giant-gnu-candidate/`
+(not in git).
+
+**What the new giant changed in the fight of today (2026-10-11).** The
+giant is larger, so its numbers moved: the scholar's seat is the right
+shoulder, 464 above the floor (it was 217); the `back` the conductor reads
+is the line of the two shoulders; the fists rest 400 to each side of its
+centre (270). The choreography's own heights did not move: `HOVER`,
+`CEILING`, the pivots, and the orbit about the scholar are numbers of the
+room, and with the scholar higher the orbit is higher over the floor than
+it was. The fight was not tuned again for this: that is the rework.
 
 **The body.** A giant like a gnu, almost a centaur: a beast on four long
 legs, a chest that stands up at its front, two arms to two fists, a gnu's

@@ -187,18 +187,42 @@ pub struct MountSlot {
 /// onto it to reach the rider (GNU-ton's gnu: you stand on the shoulders of a
 /// giant). From the mount's character (`CharacterMount::back`), in world units
 /// about the mount's centre, facing right.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct BackLedge(pub ambition_characters::actor::MountBack);
+///
+/// `ledges` are more one-way ground on the same mount (`CharacterMount::ledges`):
+/// the places its art shows that a body can stand. They are ground and no
+/// more: "on its back" is `back`.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct BackLedge {
+    pub back: ambition_characters::actor::MountBack,
+    pub ledges: Vec<ambition_characters::actor::MountBack>,
+}
 
 impl BackLedge {
+    /// A back with no other ledge.
+    pub fn new(back: ambition_characters::actor::MountBack) -> Self {
+        Self { back, ledges: Vec::new() }
+    }
+
     /// The back where the mount is drawn: mirrored by the side it is drawn
     /// facing ([`ae::mirror_side`]), so an unmirrored mount keeps its back
     /// where its art puts it when it turns.
     pub fn aabb(&self, mount: &ae::BodyKinematics, unmirrored: bool) -> ae::Aabb {
+        Self::ledge_aabb(&self.back, mount, unmirrored)
+    }
+
+    /// The back and each other ledge, where the mount is drawn.
+    pub fn ground(&self, mount: &ae::BodyKinematics, unmirrored: bool) -> impl Iterator<Item = ae::Aabb> + '_ {
+        let mount = mount.clone();
+        std::iter::once(&self.back)
+            .chain(self.ledges.iter())
+            .map(move |ledge| Self::ledge_aabb(ledge, &mount, unmirrored))
+    }
+
+    fn ledge_aabb(ledge: &ambition_characters::actor::MountBack, mount: &ae::BodyKinematics, unmirrored: bool) -> ae::Aabb {
         let side = ae::mirror_side(mount.facing, unmirrored);
-        let (a, b) = (mount.pos.x + side * self.0.left, mount.pos.x + side * self.0.right);
-        let top = mount.pos.y + self.0.top;
-        ae::aabb_from_min_size(ae::Vec2::new(a.min(b), top), ae::Vec2::new((a - b).abs(), self.0.thickness))
+        let (a, b) = (mount.pos.x + side * ledge.left, mount.pos.x + side * ledge.right);
+        let top = mount.pos.y + ledge.top;
+        ae::aabb_from_min_size(ae::Vec2::new(a.min(b), top), ae::Vec2::new((a - b).abs(), ledge.thickness))
     }
 }
 
@@ -226,14 +250,16 @@ pub fn mount_backs_are_ground(
         let Some(mut overlay) = overlays.for_room(room) else {
             continue;
         };
-        overlay.blocks.push(ae::Block {
-            id: ae::GeoId::anon(),
-            name: BACK_BLOCK.to_string(),
-            aabb: back.aabb(mount, unmirrored),
-            kind: ae::BlockKind::OneWay,
-            velocity: mount.vel,
-            art_color: None,
-        });
+        for aabb in back.ground(mount, unmirrored) {
+            overlay.blocks.push(ae::Block {
+                id: ae::GeoId::anon(),
+                name: BACK_BLOCK.to_string(),
+                aabb,
+                kind: ae::BlockKind::OneWay,
+                velocity: mount.vel,
+                art_color: None,
+            });
+        }
     }
 }
 
@@ -1573,9 +1599,9 @@ where
     // Probe the back's numbers, not only presence: they place the ground a
     // body stands on.
     registrar.rollback_component_clone_probed::<BackLedge>(OWNER, "mount.back_ledge", |back| {
-        let b = back.0;
-        [b.left, b.right, b.top, b.thickness]
-            .iter()
+        std::iter::once(&back.back)
+            .chain(back.ledges.iter())
+            .flat_map(|b| [b.left, b.right, b.top, b.thickness])
             .fold(0u64, |h, v| h.rotate_left(16) ^ u64::from(v.to_bits()))
     });
     registrar.rollback_component_clone::<Mounted>(OWNER, "mount.mounted");
@@ -2195,13 +2221,13 @@ mod back_tests {
         let mut kin = ae::BodyKinematics::default();
         kin.pos = ae::Vec2::new(900.0, 1040.0);
         kin.facing = 1.0;
-        let right = BackLedge(GNU).aabb(&kin, false);
+        let right = BackLedge::new(GNU).aabb(&kin, false);
         kin.facing = -1.0;
-        let left = BackLedge(GNU).aabb(&kin, false);
+        let left = BackLedge::new(GNU).aabb(&kin, false);
         assert_eq!((right.min.x, right.max.x, right.min.y), (692.0, 1069.0, 1030.25), "{right:?}");
         assert_eq!((left.min.x, left.max.x), (731.0, 1108.0), "{left:?}");
         // Unmirrored, a turn draws nothing different, so the back stays put.
-        assert_eq!(BackLedge(GNU).aabb(&kin, true), right);
+        assert_eq!(BackLedge::new(GNU).aabb(&kin, true), right);
     }
 
     /// ⭐ A ridden mount's back is a one-way block in its own live room's
@@ -2217,8 +2243,8 @@ mod back_tests {
         kin.vel = ae::Vec2::new(3.0, -4.0);
         kin.facing = 1.0;
         let rider = world.spawn_empty().id();
-        let ridden = world.spawn((kin, BackLedge(GNU), MountSlot { rider: Some(rider) }, InRoomInstance(other))).id();
-        world.spawn((kin, BackLedge(GNU), MountSlot { rider: None }, InRoomInstance(other)));
+        let ridden = world.spawn((kin, BackLedge::new(GNU), MountSlot { rider: Some(rider) }, InRoomInstance(other))).id();
+        world.spawn((kin, BackLedge::new(GNU), MountSlot { rider: None }, InRoomInstance(other)));
         let mut system = bevy::ecs::system::IntoSystem::into_system(mount_backs_are_ground);
         bevy::ecs::system::System::initialize(&mut system, &mut world);
         let _ = bevy::ecs::system::System::run(&mut system, (), &mut world);
@@ -2229,7 +2255,7 @@ mod back_tests {
                 overlay.blocks.iter().filter(|b| b.name == BACK_BLOCK).map(move |b| (*live, b.aabb, b.velocity, b.kind))
             })
             .collect();
-        let expected = BackLedge(GNU).aabb(world.get::<ae::BodyKinematics>(ridden).unwrap(), false);
+        let expected = BackLedge::new(GNU).aabb(world.get::<ae::BodyKinematics>(ridden).unwrap(), false);
         assert_eq!(backs, vec![(other, expected, ae::Vec2::new(3.0, -4.0), ae::BlockKind::OneWay)]);
     }
 }

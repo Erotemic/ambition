@@ -60,10 +60,11 @@ BASEMENT_SLOT_WIDTH_PX = 512
 BASEMENT_SLOT_HEIGHT_PX = 384
 BASEMENT_SLOTS_PER_ROW = 4
 # The giants' row, at the very bottom. A basement slot is 368 px clear; the
-# giant gnu stands 415 px tall and draws about 725 px wide, so on a main-hall
-# pedestal it covered eight neighbours and two floors.
+# giant gnu's body is 464 px tall, the tips of its horns are 760 px above the
+# floor, and it draws about 700 px wide, so on a main-hall pedestal it covered
+# eight neighbours and several floors. Its row is as tall as its horns.
 GIANT_SLOT_WIDTH_PX = 1024
-GIANT_SLOT_HEIGHT_PX = 512
+GIANT_SLOT_HEIGHT_PX = 832
 GIANT_SLOTS_PER_ROW = 2
 #: The catalog's `CharacterTier`s, in the order the hall stacks them.
 TIERS = ("MainHall", "Basement", "Giant")

@@ -16,7 +16,7 @@
     world_x: 40000,
     world_y: 0,
     px_wid: 2048,
-    px_hei: 3840,
+    px_hei: 4160,
     fill_collision: "empty",
     bg_color: "#0F121A",
     biome: "hall",
@@ -43,7 +43,7 @@
             type: "Solid",
             px: [
                 0,
-                3824,
+                4144,
             ],
             size: [
                 2048,
@@ -61,7 +61,7 @@
             ],
             size: [
                 16,
-                3840,
+                4160,
             ],
             fields: (
                 name: "hall_left_wall",
@@ -75,7 +75,7 @@
             ],
             size: [
                 16,
-                3840,
+                4160,
             ],
             fields: (
                 name: "hall_right_wall",
@@ -449,7 +449,7 @@
             type: "Solid",
             px: [
                 16,
-                3824,
+                4144,
             ],
             size: [
                 2016,
@@ -3250,7 +3250,7 @@
             type: "NpcSpawn",
             px: [
                 488,
-                3744,
+                4064,
             ],
             size: [
                 48,
@@ -3268,7 +3268,7 @@
             type: "NpcSpawn",
             px: [
                 1512,
-                3744,
+                4064,
             ],
             size: [
                 48,
@@ -3290,7 +3290,7 @@
             ],
             size: [
                 2048,
-                3840,
+                4160,
             ],
             fields: (
                 id: "hall_of_characters_camera",

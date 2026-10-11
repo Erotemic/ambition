@@ -57,11 +57,6 @@ pub const COSMIC_MUSIC_TRACK: &str = crate::provider::MARY_O_STAR_MUSIC_TRACK;
 /// The key of the form's entry in her ability contributions.
 const COSMIC_ABILITY_SOURCE: &str = "mary_o_cosmic";
 
-/// Ticks from one sparkle of the form to the next.
-const SPARKLE_EVERY_TICKS: u64 = 7;
-/// How far from the middle of her body a sparkle starts, in px.
-const SPARKLE_RADIUS: f32 = 26.0;
-
 /// Whether `character_id` is the form.
 pub fn is_cosmic(character_id: &str) -> bool {
     character_id == COSMIC_CHARACTER_ID
@@ -176,44 +171,6 @@ pub fn lend_the_jump_in_the_air(mut bodies: Query<(&WornCharacter, &mut ae::Abil
     }
 }
 
-/// Where the sparkle of `tick` starts, from the middle of her body: each one
-/// a golden angle on from the one before it, so they go round her evenly.
-fn sparkle_offset(tick: u64) -> ae::Vec2 {
-    let turn = (tick / SPARKLE_EVERY_TICKS) as f32 * 2.399_963;
-    ae::Vec2::new(turn.cos(), turn.sin()) * SPARKLE_RADIUS
-}
-
-/// Sparkles about her while she is in the form. They are the engine's own
-/// particles, so they are no picture of hers and no state: the tick says when
-/// and where.
-pub fn sparkle_while_cosmic(
-    tick: Option<Res<ambition_platformer2d::time::SimTick>>,
-    rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
-    mut vfx: ambition_platformer2d::vfx::VfxWriter,
-    players: Query<(Entity, &WornCharacter, &ae::BodyKinematics), With<PrimaryPlayer>>,
-) {
-    let Some(tick) = tick.map(|tick| tick.get()) else {
-        return;
-    };
-    if tick % SPARKLE_EVERY_TICKS != 0 {
-        return;
-    }
-    for (body, worn, kin) in &players {
-        if !is_cosmic(worn.id()) {
-            continue;
-        }
-        // Gold, then pink, then cyan: the colours of her wings.
-        let color = [[1.0, 0.86, 0.42, 1.0], [1.0, 0.56, 0.80, 1.0], [0.55, 0.90, 1.0, 1.0]][((tick / SPARKLE_EVERY_TICKS) % 3) as usize];
-        vfx.for_room(rooms.of(body)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
-            pos: kin.pos + sparkle_offset(tick),
-            count: 2,
-            speed: 46.0,
-            color,
-            kind: ambition_platformer2d::vfx::ParticleKind::Spark,
-        });
-    }
-}
-
 /// The theme of the form, on the priority-music seam the quasar uses: claimed
 /// in the live room of each body in the form, and released when no body in
 /// that room is in it, so the theme of the level comes back with no record
@@ -262,13 +219,5 @@ mod tests {
             }
         );
         assert_eq!(lent.air_jump_count(255), 255);
-    }
-
-    /// The sparkles go round her: no two in a row start at one place.
-    #[test]
-    fn two_sparkles_in_a_row_start_at_two_places() {
-        let (a, b) = (sparkle_offset(0), sparkle_offset(SPARKLE_EVERY_TICKS));
-        assert!((a - b).length() > 1.0, "{a:?} and {b:?}");
-        assert!((a.length() - SPARKLE_RADIUS).abs() < 1e-3);
     }
 }

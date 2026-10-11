@@ -22,12 +22,13 @@ use ambition_platformer2d::render::rendering::PlayerVisual;
 use ambition_platformer2d::render::void_field::{VoidAura, VoidFieldPlugin, VoidWard};
 use ambition_platformer2d::sim_view::ProjectileView;
 
-/// The field of a void thing ends this many of its sizes from its middle.
-const AURA_SIZES: f32 = 2.2;
+/// The field of a void thing ends this many of its sizes from its middle. It
+/// is wide: a field the size of the thing is not seen in play (Jon, 2026-10-11).
+const AURA_SIZES: f32 = 4.4;
 /// The size of a void thing whose sprite states no size, in world px.
 const DEFAULT_VOID_SIZE: f32 = 40.0;
 /// How much of the colour the field takes at its middle.
-const AURA_STRENGTH: f32 = 0.92;
+const AURA_STRENGTH: f32 = 1.0;
 /// How far the ward of the quasar goes from her middle, in world px.
 const QUASAR_WARD_RADIUS: f32 = 150.0;
 

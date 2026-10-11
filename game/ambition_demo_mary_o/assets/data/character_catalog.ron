@@ -127,9 +127,10 @@
                     boomerang_return_s: None,
                 )),
                 visual: Some("mary_o_void_orb"),
-                refire_s: 1.2,
+                // A volley is three orbs, 34 ticks apart.
+                refire_s: 0.4,
                 discharge: Some((muzzle: Offset(x: 0.5, y: -0.05), recoil: 0.0)),
-                max_live: Some(2),
+                max_live: Some(5),
             ))),
             special: None,
         ),

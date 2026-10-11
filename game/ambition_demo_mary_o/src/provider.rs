@@ -305,6 +305,14 @@ impl Plugin for MaryOExperiencePlugin {
                         .with_font_size(34.0)
                         .with_color([1.0, 0.96, 0.72, 1.0])
                         .centered(),
+                )
+                // The boss of a castle: its name and a gauge of its health.
+                .slot(
+                    ambition_platformer2d::presentation::HudSlotSpec::new(BOSS_HUD_SLOT)
+                        .with_order(98)
+                        .with_font_size(26.0)
+                        .with_color([0.94, 0.94, 0.98, 1.0])
+                        .centered(),
                 ),
         )
         .with_defense_presentation(
@@ -339,6 +347,8 @@ pub const COINS_HUD_SLOT: &str = "mary_o_coins";
 pub const TIME_HUD_SLOT: &str = "mary_o_time";
 pub const LIVES_HUD_SLOT: &str = "mary_o_lives";
 pub const CARD_HUD_SLOT: &str = "mary_o_card";
+/// The name and the health of a boss, while the player is in its fight.
+pub const BOSS_HUD_SLOT: &str = "mary_o_boss";
 
 /// One readout in Mary-O's house style: top surround, chunky, white.
 fn hud_slot(id: &str) -> ambition_platformer2d::presentation::HudSlotSpec {
@@ -364,11 +374,39 @@ fn publish_mary_o_readouts(
         bevy::prelude::Entity,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
+    // The boss she fights, when she is near one that is alive.
+    bodies: bevy::prelude::Query<(
+        &ambition_platformer2d::combat::actor_tuning::ActorConfig,
+        &ambition_platformer2d::characters::actor::BodyHealth,
+        &ambition_platformer2d::engine_core::BodyKinematics,
+    )>,
+    her: bevy::prelude::Query<
+        &ambition_platformer2d::engine_core::BodyKinematics,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+    >,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
     let Ok((level, flag)) = level.single() else {
         return;
     };
+    let boss = her.single().ok().and_then(|her| {
+        bodies.iter().find(|(config, health, kin)| {
+            crate::void_lizard::is_void_lizard_brain(&config.brain)
+                && health.alive()
+                && (kin.pos.x - her.pos.x).abs() <= crate::void_lizard::SIGHT
+        })
+    });
+    match boss {
+        Some((_, health, _)) => readouts.set(
+            BOSS_HUD_SLOT,
+            ambition_platformer2d::presentation::HudReadout::gauge(
+                crate::void_lizard::VOID_LIZARD_DISPLAY_NAME.to_uppercase(),
+                format!("{}/{}", health.health.current, health.health.max),
+                health.health.current as f32 / (health.health.max.max(1)) as f32,
+            ),
+        ),
+        None => readouts.clear_slot(BOSS_HUD_SLOT),
+    }
     let title = rooms
         .as_ref()
         .zip(player.single().ok())

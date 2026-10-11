@@ -132,11 +132,12 @@ def bridge(lv: Level) -> None:
     """Columns 138 to 175. The bridge of planks, the Void Lizard on it, and the pole past it.
 
     A post of rock at each end of the bridge turns the Void Lizard, so it stays on
-    the bridge. The planks fall when the pole is taken."""
-    lv.column(138, 1, 1)
+    the bridge. A post is three tiles high: its hop does not go over it, and a
+    jump of the player does. The planks fall when the pole is taken."""
+    lv.column(138, 1, 3)
     pit(lv, 139, 16)
     lv.planks(139, FLOOR, 16)
-    lv.column(155, 1, 1)
+    lv.column(155, 1, 3)
     lv.enemy("void_lizard", 149)
     lv.coins(141, up(4), 4, step=3)
     lv.pole(164, 8)

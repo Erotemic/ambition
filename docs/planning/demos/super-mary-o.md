@@ -109,10 +109,11 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
     body. A jump is one beat of her wings. The row `transform` is the
     transformation from her fire form, 36 frames; the game holds her in it
     for as long as it takes to draw, and a second press ends it.
-  - Light is not in her sheet: sparkles are the engine's particles
-    (`cosmic::sparkle_while_cosmic`), and the glow with stars behind her is a
-    shader that reads the starlight shimmer picture (`cosmic_aura.rs`). She
-    has the ward against the void at all times in the form (`void_look.rs`).
+  - Light is not in her sheet: the glow with stars behind her is a shader
+    that reads the starlight shimmer picture (`cosmic_aura.rs`). The engine's
+    spark particles are squares and were taken out; a star particle is not
+    made. She has the ward against the void at all times in the form
+    (`void_look.rs`), and the overlay of the quasar does not draw over her.
   - Her theme is the cue `eternal_cosmic` of the music renderer: an intro as
     long as the transformation, then a loop. Until it is published the form
     plays the theme of the quasar (`cosmic::COSMIC_MUSIC_TRACK`).

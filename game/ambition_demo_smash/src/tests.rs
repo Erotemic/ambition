@@ -241,6 +241,8 @@ fn the_stages_body_opens_a_window_for_every_verb_the_stage_grants() {
             "ledge_grab (the momentum carry)",
         ),
         (kit.pogo, body.pogo_speed, "pogo"),
+        (kit.wall_jump, body.wall_jump_x, "wall_jump"),
+        (kit.wall_cling, body.wall_slide_speed, "wall_cling"),
     ]
     .into_iter()
     .filter(|(granted, window, _)| *granted && *window <= 0.0)
@@ -263,6 +265,35 @@ fn the_stages_body_opens_a_window_for_every_verb_the_stage_grants() {
         body.air_dodge_time > 0.0,
         "the stage's body no longer opens the one window the engine \
          deliberately leaves shut"
+    );
+}
+
+/// A fighter that authors the wall jump and the wall cling keeps them in a
+/// Smash match, and a fighter that does not author them does not get them
+/// (S0.7). Before, the ceiling admitted neither, so the two default fighters
+/// (robot v3 and v2 author `WallMobility`) lost them at the stage.
+#[test]
+fn a_fighter_keeps_the_wall_verbs_it_authors_and_no_other_fighter_gets_them() {
+    use ambition_platformer2d::engine_core::{AbilityGrant, AbilitySet};
+    let rules = smash_roster(["player_robot_v3", "player_robot_v2"])
+        .rules
+        .abilities
+        .expect("the smash stage declares what a fighter on it may do");
+    let effective = |grants: &[AbilityGrant]| {
+        let authored = grants.iter().fold(AbilitySet::NONE, |set, grant| set.union(grant.to_set()));
+        ambition_platformer2d::versus_match::effective_abilities(Some(authored), Some(rules))
+            .expect("a declaring stage always answers")
+    };
+    let climber = effective(&[AbilityGrant::RunJump, AbilityGrant::WallMobility]);
+    assert!(
+        climber.wall_jump && climber.wall_cling,
+        "a fighter that authors the wall verbs lost them at the stage: {climber:?}"
+    );
+    // Control: the same fighter without the grant has neither.
+    let walker = effective(&[AbilityGrant::RunJump]);
+    assert!(
+        !walker.wall_jump && !walker.wall_cling,
+        "the stage gave the wall verbs to a fighter that does not author them: {walker:?}"
     );
 }
 

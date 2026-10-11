@@ -325,6 +325,14 @@ impl LdtkProject {
 
         // A landing pad that nothing arrives through is dead geometry, and it looks
         // the same as an exit whose target fields were never filled in.
+        //
+        // A WARNING, not an error: this project is ONE composition, and the
+        // door that arrives through a pad can be in another one. The wake room
+        // of the intro world is arrived at from the hub of the sandbox world
+        // (a one-way door), and the intro world must compose alone too
+        // (`world_manifest_parameterization`). In that composition the pad is
+        // dead and harms nothing. The tool that sees every world file refuses a
+        // pad that no world arrives through (`ambition_ldtk_tools.validate`).
         if !landing_pads.is_empty() {
             let arrivals: BTreeSet<(String, String)> = self
                 .collect_room_links()
@@ -333,10 +341,10 @@ impl LdtkProject {
                 .collect();
             for (area, zone_id, iid) in landing_pads {
                 if !arrivals.contains(&(area.clone(), zone_id.clone())) {
-                    report.errors.push(format!(
+                    report.warnings.push(format!(
                         "LoadingZone {iid} ('{zone_id}' in area '{area}') names no target and \
-                         nothing arrives through it; give it a target_room/target_zone or point \
-                         a zone at it"
+                         nothing in this composition arrives through it; if it is an exit, give \
+                         it a target_room/target_zone"
                     ));
                 }
             }

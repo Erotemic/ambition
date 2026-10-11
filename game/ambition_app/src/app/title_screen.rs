@@ -11,14 +11,24 @@
 //! parallax layers of each biome. Nothing here is drawn by code.
 //!
 //! A device with no budget for parallax (`ParallaxBudget::enabled`) has no
-//! backdrop, and the launcher is then the plain menu.
+//! backdrop. The menu keeps its title-screen shape there, on its usual dark
+//! window.
+//!
+//! The menu itself is the flat renderer's (`ambition_menu`), which draws each
+//! menu of the app the same way. [`style_the_launcher_menu`] gives the one on
+//! the title screen its shape: a narrow glass window with round corners, rows
+//! with round corners and a thin edge, and an edge on the cursor's row that
+//! breathes. It changes the shape and the edges only. The fill of a row and
+//! the colour of its text stay the renderer's, so the cursor is gold here as
+//! it is in each other menu.
 
 use bevy::prelude::*;
 
 use ambition_platformer2d::game_shell::{
     BasicShellUiRoot, LauncherTab, ShellExperienceRegistry, ShellLauncherState,
 };
-use ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuPanel;
+use ambition_platformer2d::menu::render::bevy_ui::{AmbitionMenuControlKind, BevyUiMenuPanel, BevyUiMenuTab};
+use ambition_platformer2d::menu::{MenuControlKind, MenuVisualState};
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
 use ambition_platformer2d::sprite_sheet::game_assets::ParallaxTheme;
 
@@ -42,6 +52,25 @@ const FADE_S: f32 = 0.9;
 const SCRIM: Color = Color::srgba(0.0, 0.0, 0.02, 0.20);
 /// The menu's window, on the title screen: dark glass over the backdrop.
 const WINDOW: Color = Color::srgba(0.035, 0.045, 0.085, 0.70);
+
+/// The width of the window, in parts of a hundred of the view's height. Text
+/// is sized by the height of the view, so the window is too: a row keeps its
+/// shape on a view of any aspect. On a 16:9 view this is 54 of its width.
+const WINDOW_WIDTH_VH: f32 = 96.0;
+/// The most of the view's width the window takes (a tall, narrow view).
+const WINDOW_MOST_PERCENT: f32 = 94.0;
+const WINDOW_RADIUS_VH: f32 = 2.4;
+const WINDOW_EDGE_VH: f32 = 0.28;
+const WINDOW_EDGE: Color = Color::srgba(0.78, 0.85, 1.0, 0.30);
+const ROW_RADIUS_VH: f32 = 1.6;
+const ROW_EDGE_VH: f32 = 0.32;
+/// The edge of a row the cursor is not on.
+const ROW_EDGE: Color = Color::srgba(0.72, 0.80, 1.0, 0.22);
+/// The edge of the cursor's row at its brightest. Its alpha goes between
+/// [`CURSOR_EDGE_LOW`] and 1 once each [`CURSOR_BREATH_S`].
+const CURSOR_EDGE: Color = Color::srgb(1.0, 0.98, 0.86);
+const CURSOR_EDGE_LOW: f32 = 0.45;
+const CURSOR_BREATH_S: f32 = 1.8;
 
 /// The scene behind the row of `route`. `None` is the Exit row.
 ///
@@ -85,13 +114,22 @@ impl Plugin for TitleScreenPlugin {
             (
                 (show_the_scene_of_the_cursor, fade_and_drift_the_scenes).chain().run_if(the_launcher_is_up),
                 take_the_backdrop_away.run_if(not(the_launcher_is_up)),
-                thin_the_menu_over_the_backdrop,
             )
                 // An app that does not draw has no backdrop.
                 .run_if(resource_exists::<AssetServer>)
                 .run_if(resource_exists::<Time>)
                 .run_if(resource_exists::<ShellLauncherState>)
                 .run_if(resource_exists::<ShellExperienceRegistry>),
+        );
+        // After the menu is made (`Update`) and before its layout, so a menu
+        // is never drawn for one frame in the renderer's shape: a change of
+        // tab makes the menu again, and that frame would show as a blink.
+        app.add_systems(
+            PostUpdate,
+            style_the_launcher_menu
+                .before(bevy::ui::UiSystems::Layout)
+                .run_if(the_launcher_is_up)
+                .run_if(resource_exists::<Time>),
         );
     }
 }
@@ -234,25 +272,121 @@ fn take_the_backdrop_away(mut commands: Commands, roots: Query<Entity, With<Titl
     }
 }
 
-/// With a backdrop behind it, the launcher's menu dims it less and its window
-/// lets it through. With none, the menu is as its renderer made it.
-fn thin_the_menu_over_the_backdrop(
+/// `entity` is a part of the launcher's menu: one of the `steps` entities
+/// above it is the launcher's root.
+fn in_the_launcher(entity: Entity, steps: usize, parents: &Query<&ChildOf>, roots: &Query<(), With<BasicShellUiRoot>>) -> bool {
+    parents.iter_ancestors(entity).take(steps).any(|above| roots.contains(above))
+}
+
+/// The alpha of the cursor's edge at `seconds`.
+fn cursor_edge_alpha(seconds: f32) -> f32 {
+    let breath = 0.5 + 0.5 * (seconds * std::f32::consts::TAU / CURSOR_BREATH_S).sin();
+    CURSOR_EDGE_LOW + (1.0 - CURSOR_EDGE_LOW) * breath
+}
+
+/// Give the launcher's menu the shape of a title screen (see the module doc).
+///
+/// Each write is only on a difference, so a menu at rest changes one thing in
+/// a frame: the edge of the cursor's row.
+fn style_the_launcher_menu(
+    mut commands: Commands,
+    time: Res<Time>,
     backdrops: Query<(), With<TitleBackdrop>>,
-    mut scrims: Query<&mut BackgroundColor, (With<BasicShellUiRoot>, Without<BevyUiMenuPanel>)>,
-    mut windows: Query<(&ChildOf, &mut BackgroundColor), With<BevyUiMenuPanel>>,
+    roots: Query<(), With<BasicShellUiRoot>>,
+    root_ids: Query<Entity, With<BasicShellUiRoot>>,
+    parents: Query<&ChildOf>,
+    windows: Query<Entity, With<BevyUiMenuPanel>>,
+    tabs: Query<(Entity, &BevyUiMenuTab)>,
+    rows: Query<(Entity, &MenuVisualState, &AmbitionMenuControlKind)>,
+    mut nodes: Query<&mut Node>,
+    mut fills: Query<&mut BackgroundColor>,
+    mut edges: Query<&mut BorderColor>,
 ) {
-    if backdrops.is_empty() {
-        return;
-    }
-    for (parent, mut window) in &mut windows {
-        if scrims.contains(parent.parent()) && window.0 != WINDOW {
-            window.0 = WINDOW;
+    let mut edge = |entity: Entity, colour: Color| {
+        let wanted = BorderColor::all(colour);
+        match edges.get_mut(entity) {
+            Ok(mut edge) if *edge != wanted => *edge = wanted,
+            Ok(_) => {}
+            Err(_) => {
+                commands.entity(entity).try_insert(wanted);
+            }
+        }
+    };
+    let has_backdrop = !backdrops.is_empty();
+
+    // With a backdrop behind it, the menu dims it less and the window lets it
+    // through. With none, the scrim and the window are as the renderer made them.
+    if has_backdrop {
+        for root in &root_ids {
+            if let Ok(mut scrim) = fills.get_mut(root) {
+                if scrim.0 != SCRIM {
+                    scrim.0 = SCRIM;
+                }
+            }
         }
     }
-    for mut scrim in &mut scrims {
-        if scrim.0 != SCRIM {
-            scrim.0 = SCRIM;
+
+    for window in &windows {
+        if !in_the_launcher(window, 1, &parents, &roots) {
+            continue;
         }
+        if has_backdrop {
+            if let Ok(mut fill) = fills.get_mut(window) {
+                if fill.0 != WINDOW {
+                    fill.0 = WINDOW;
+                }
+            }
+        }
+        if let Ok(mut node) = nodes.get_mut(window) {
+            let radius = BorderRadius::all(Val::Vh(WINDOW_RADIUS_VH));
+            let border = UiRect::all(Val::Vh(WINDOW_EDGE_VH));
+            if node.width != Val::Vh(WINDOW_WIDTH_VH) || node.border_radius != radius || node.border != border {
+                node.width = Val::Vh(WINDOW_WIDTH_VH);
+                node.max_width = Val::Percent(WINDOW_MOST_PERCENT);
+                node.border_radius = radius;
+                node.border = border;
+            }
+        }
+        edge(window, WINDOW_EDGE);
+    }
+
+    // The two end tabs are in the top corners of the window: they take its
+    // corners, inside its edge.
+    let last_tab = tabs.iter().filter(|(tab, _)| in_the_launcher(*tab, 3, &parents, &roots)).map(|(_, tab)| tab.index).max();
+    for (entity, tab) in &tabs {
+        if !in_the_launcher(entity, 3, &parents, &roots) {
+            continue;
+        }
+        let corner = Val::Vh(WINDOW_RADIUS_VH - WINDOW_EDGE_VH);
+        let mut radius = BorderRadius::ZERO;
+        if tab.index == 0 {
+            radius.top_left = corner;
+        }
+        if Some(tab.index) == last_tab {
+            radius.top_right = corner;
+        }
+        if let Ok(mut node) = nodes.get_mut(entity) {
+            if node.border_radius != radius {
+                node.border_radius = radius;
+            }
+        }
+    }
+
+    let cursor_edge = CURSOR_EDGE.with_alpha(cursor_edge_alpha(time.elapsed_secs()));
+    for (entity, state, kind) in &rows {
+        // A scrollbar is not a row.
+        if matches!(kind.0, MenuControlKind::Scrollbar) || !in_the_launcher(entity, 3, &parents, &roots) {
+            continue;
+        }
+        if let Ok(mut node) = nodes.get_mut(entity) {
+            let radius = BorderRadius::all(Val::Vh(ROW_RADIUS_VH));
+            let border = UiRect::all(Val::Vh(ROW_EDGE_VH));
+            if node.border_radius != radius || node.border != border {
+                node.border_radius = radius;
+                node.border = border;
+            }
+        }
+        edge(entity, if state.focused && !state.disabled { cursor_edge } else { ROW_EDGE });
     }
 }
 
@@ -274,6 +408,14 @@ mod tests {
                 assert_ne!(a, b, "two rows of the launcher show one scene");
             }
         }
+    }
+
+    #[test]
+    fn the_edge_of_the_cursor_breathes_and_never_goes_out() {
+        let alphas: Vec<f32> = (0..=180).map(|hundredth| cursor_edge_alpha(hundredth as f32 * 0.01)).collect();
+        let (low, high) = alphas.iter().fold((f32::MAX, f32::MIN), |(low, high), a| (low.min(*a), high.max(*a)));
+        assert!(low >= CURSOR_EDGE_LOW - 1e-4, "the edge of the cursor went down to {low}");
+        assert!(high > 0.99 && high <= 1.0, "the edge of the cursor went up to {high}");
     }
 
     #[test]

@@ -41,7 +41,9 @@ pub struct ShellLauncherPresentation {
 impl Default for ShellLauncherPresentation {
     fn default() -> Self {
         Self {
-            title: "Ambition".to_owned(),
+            // The heading says what the screen is for. "Ambition" is also the name
+            // of the first row, and the two looked like one thing said twice.
+            title: "Choose Game".to_owned(),
             empty_message: "No experiences registered".to_owned(),
             // With Bevy's default font, the menu draws `·` here as a box; the
             // menu font (`MenuFont`) fixes it. The cause is not known:
@@ -78,7 +80,7 @@ impl LauncherTab {
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::Home => "Choose Game",
+            Self::Home => "Games",
             Self::Settings => "Settings",
         }
     }

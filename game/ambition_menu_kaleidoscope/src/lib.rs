@@ -333,25 +333,53 @@ fn seed_text3d_android_fonts(mut renderer: ResMut<TextRenderer>) {
     );
 }
 
-/// Redraw every [`Text3d`] when the glyph raster scale changes.
+/// Redraw every [`Text3d`] when the shared glyph atlas is rebuilt.
 ///
-/// `bevy_rich_text3d` follows the window scale factor, and on a change it
-/// empties the glyph atlas without redrawing the text that was laid out in it.
-/// That text keeps its old glyph rectangles, so it draws nothing, or pieces of
-/// whatever glyphs are packed there next. Marking the text changed makes the
-/// renderer lay it out again at the new scale.
+/// `bevy_rich_text3d` 0.7 rebuilds the atlas in two cases and leaves text that
+/// was already drawn wrong in both. Measured on desktop at a phone's raster
+/// scale; a phone grows the atlas on the first long page, because its glyphs
+/// are about 2.6 times the desktop size.
 ///
-/// Any scale change after menu text exists does this, for example a window
-/// moved to a monitor with another density.
-fn redraw_text3d_on_scale_change(
+/// - **The window scale factor changes.** The atlas is emptied, and drawn text
+///   keeps its old glyph rectangles.
+/// - **A full atlas doubles in height.** That makes a new GPU texture. The
+///   library tells each text's material by calling `Assets::get_mut` and
+///   dropping the result, which Bevy 0.19 no longer counts as a change, so
+///   the material keeps the old texture and the text shows squashed pieces of
+///   the wrong glyphs. Also, the glyph that did not fit is given a rectangle
+///   but never drawn, and stays blank.
+///
+/// So on either rebuild this lays all text out again and really marks its
+/// materials changed. After a growth it first empties the atlas, so the blank
+/// glyph is drawn too. The redraw lands one frame after the rebuild.
+fn redraw_text3d_when_the_atlas_is_rebuilt(
     settings: Res<Text3dPlugin>,
-    mut drawn_at: Local<Option<f32>>,
-    mut texts: Query<&mut Text3d>,
+    mut images: ResMut<Assets<Image>>,
+    mut atlases: ResMut<Assets<TextAtlas>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut drawn_in: Local<Option<(f32, UVec2)>>,
+    mut texts: Query<(&mut Text3d, Option<&MeshMaterial3d<StandardMaterial>>)>,
 ) {
-    let scale = settings.scale_factor;
-    if drawn_at.replace(scale).is_some_and(|drawn| drawn != scale) {
-        for mut text in &mut texts {
-            text.set_changed();
+    let atlas_size = images
+        .get(&TextAtlas::DEFAULT_IMAGE)
+        .map_or(UVec2::ZERO, Image::size);
+    let now = (settings.scale_factor, atlas_size);
+    let Some(before) = drawn_in.replace(now) else {
+        return;
+    };
+    if before == now {
+        return;
+    }
+    if before.1 != now.1 {
+        for (_, atlas) in atlases.iter_mut() {
+            atlas.clear(&mut images);
+        }
+    }
+    for (mut text, material) in &mut texts {
+        text.set_changed();
+        if let Some(mut material) = material.and_then(|held| materials.get_mut(&held.0)) {
+            // The mutable borrow is what reports the change.
+            let _: &mut StandardMaterial = &mut material;
         }
     }
 }
@@ -376,7 +404,7 @@ where
             Update,
             seed_text3d_android_fonts.run_if(resource_added::<TextRenderer>),
         );
-        app.add_systems(Update, redraw_text3d_on_scale_change);
+        app.add_systems(Update, redraw_text3d_when_the_atlas_is_rebuilt);
         if !app.world().contains_resource::<KaleidoscopeMenuConfig>() {
             app.insert_resource(KaleidoscopeMenuConfig::default());
         }

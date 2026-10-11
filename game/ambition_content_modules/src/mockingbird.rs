@@ -784,7 +784,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         inv.submit::<DrawnRowPort>(DrawnRow::body("death", c.dead_t, false))?;
         inv.submit::<ConductedPosePort>(ConductedPose {
             pose: Some(Pose { position: pos.into(), velocity: [0.0, 0.0] }),
-            side,
+            side: Some(side),
         })?;
         return c.store(inv);
     }
@@ -1085,7 +1085,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     // the flock it flies through (a shark is a solid to a body that moves).
     inv.submit::<ConductedPosePort>(ConductedPose {
         pose: conducts.then(|| Pose { position: pos.into(), velocity: [0.0, 0.0] }),
-        side,
+        side: Some(side),
     })?;
     let row = drawn_row(&c, part, chomped);
     inv.submit::<DrawnRowPort>(DrawnRow::body(row.0, row.1, row.2))?;

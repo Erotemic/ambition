@@ -105,6 +105,8 @@ struct Wave {
     hitbox: Entity,
     x: f32,
     dir: f32,
+    /// The tick it was spawned: its box exists from the next one (commands).
+    born: u32,
 }
 
 /// The conductor's memory, on the scholar.
@@ -605,11 +607,14 @@ pub fn conduct_gnu_ton(
                                     let Some(slot) = conductor.waves.iter().position(Option::is_none) else {
                                         break;
                                     };
+                                    // Spawned where this tick's roll below puts it: the box
+                                    // does not exist until the commands apply, so the roll
+                                    // cannot move it this tick.
                                     let hitbox = ambition_combat::strike::spawn_damage_box(
                                         &mut commands,
                                         scholar,
                                         HitSide::Boss,
-                                        Vec2::new(x, feet.y),
+                                        Vec2::new(x + dir * WAVE_SPEED * dt, feet.y),
                                         ambition_combat::strike::DamageBox {
                                             half_extent: WAVE_HALF,
                                             shape: None,
@@ -619,7 +624,7 @@ pub fn conduct_gnu_ton(
                                             name: Some("gnu_ton_shock"),
                                         },
                                     );
-                                    conductor.waves[slot] = Some(Wave { hitbox, x, dir });
+                                    conductor.waves[slot] = Some(Wave { hitbox, x, dir, born: ticks });
                                 }
                                 play(&mut sfx, scholar, SFX_STOMP, feet);
                                 vfx.write(VfxMessage::Burst {
@@ -918,7 +923,11 @@ pub fn conduct_gnu_ton(
             };
             wave.x += wave.dir * WAVE_SPEED * dt;
             let gone = wave.x < hall.left + WAVE_HALF.x || wave.x > hall.right - WAVE_HALF.x;
-            if gone || hitboxes.get(wave.hitbox).is_err() {
+            // A box spawned this tick does not exist yet. A box spawned before
+            // that and missing now ran out or was taken. Checked on every tick,
+            // it dropped every shock on the tick it began, so a stomp threw none.
+            let ended = wave.born != ticks && hitboxes.get(wave.hitbox).is_err();
+            if gone || ended {
                 commands.entity(wave.hitbox).try_despawn();
                 conductor.waves[slot] = None;
                 continue;

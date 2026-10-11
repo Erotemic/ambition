@@ -133,8 +133,8 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.resources.spend_mana` v1 | request | `ambition_combat_port::SpendMana` (ask `Wielder::can_pay_mana` first) |
 | `ambition.feedback.body_sound` v1 | request | `ambition_combat_port::BodySound` (a cue id, as the body) |
 | `ambition.boss.summon` v2 | request | `ambition_boss_special_port::BossSummon` (a boss only; the minion joins its encounter; `on_boss_side` lets the boss's volumes pass it) |
-| `ambition.boss.conduct` v5 | trigger (phase `boss_conduct`) | `ambition_boss_special_port::BossConduct` (selector: the boss's behaviour id; one call each tick; v2: `holding` and `minions`; v3: `between_phases`; v4: `room`; v5: `health`, `invulnerable` and `target_body`, the tracked body now) |
-| `ambition.boss.conducted_pose` v1 | request (`boss_conduct`) | `ambition_boss_special_port::ConductedPose` (hold the boss's pose, or release it; the side it faces) |
+| `ambition.boss.conduct` v5 | trigger (phase `boss_conduct`) | `ambition_boss_special_port::BossConduct` (selector: the boss's behaviour id; one call each tick; v2: `holding` and `minions`; v3: `between_phases`; v4: `room`; v5: `health`, `invulnerable` and `target_body`, the tracked body now; v6: `size`, the boss's own) |
+| `ambition.boss.conducted_pose` v2 | request (`boss_conduct`) | `ambition_boss_special_port::ConductedPose` (hold the boss's pose, or release it; the side it faces; v2: no side leaves its facing to whoever drives it) |
 | `ambition.presentation.drawn_row` v2 | request (`boss_conduct`) | `ambition_boss_special_port::DrawnRow` (the sheet row a part is drawn with; v2: the part is the boss, the mount it rides or a limb of that mount, and the names are a fallback list) |
 | `ambition.boss.mount` v1 | observation (`boss_conduct`) | `ambition_boss_special_port::MountView` (the body the boss rides: its pose, its back, the hall under it, its limbs with their rest, lost health and hold) |
 | `ambition.boss.limb_pose` v1 | request (`boss_conduct`) | `ambition_boss_special_port::LimbPose` (hold a limb of the ridden mount at a pose, or release it to fall straight down) |

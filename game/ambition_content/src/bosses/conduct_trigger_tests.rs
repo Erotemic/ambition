@@ -122,6 +122,8 @@ fn a_conductor_reads_the_boss_health_its_refusal_and_the_tracked_body_now() {
     assert_eq!(seen.len(), 1, "the probe ran once: {seen:?}");
     let conduct = &seen[0];
     assert_eq!(conduct.health, health);
+    assert_eq!(conduct.size, [kin.size.x, kin.size.y], "the boss's own size");
+    assert_ne!(conduct.size, [20.0, 30.0], "the premise: the boss is not the size of its target");
     assert_eq!(health, full - 3, "the premise: the boss was hurt");
     assert!(conduct.invulnerable, "a boss in its intro refuses damage");
     assert!(!conduct.between_phases, "an intro is not between two phases");

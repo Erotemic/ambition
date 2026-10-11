@@ -37,6 +37,7 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   phase): it is wider than `between_phases`. `target_body` is where the
 ///   tracked body is now and its size; `target` is where the boss last saw
 ///   it, and the two differ when the body moved after the boss looked.
+///   `size` is the boss's own body size (its feet are `position.y + size.y / 2`).
 /// * **Absence** — `target` is `None` when the boss tracks nothing, and
 ///   `target_body` also when the tracked entity has no body; `hall`
 ///   is `None` when the room cannot be told or has no floor under the boss;
@@ -93,6 +94,8 @@ pub struct BossConduct {
     pub invulnerable: bool,
     /// The tracked body, now.
     pub target_body: Option<BodyBox>,
+    /// The boss's own body size.
+    pub size: [f32; 2],
 }
 
 /// A body's centre and size.
@@ -124,7 +127,8 @@ impl Port for BossConductPort {
     /// Version 2 (2026-10-06): `holding` and `minions`. Version 3
     /// (2026-10-06): `between_phases`. Version 4 (2026-10-06): `room`.
     /// Version 5 (2026-10-10): `health`, `invulnerable`, `target_body`.
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 5);
+    /// Version 6 (2026-10-10): `size`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 6);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -155,6 +159,7 @@ impl Port for BossConductPort {
             wire::put_vec2(out, b.position);
             wire::put_vec2(out, b.size);
         });
+        wire::put_vec2(out, v.size);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossConduct, WireError> {
@@ -185,6 +190,7 @@ impl Port for BossConductPort {
             health: r.i32()?,
             invulnerable: r.bool()?,
             target_body: r.opt(|r| Ok(BodyBox { position: r.vec2()?, size: r.vec2()? }))?,
+            size: r.vec2()?,
         })
     }
 }
@@ -198,8 +204,10 @@ impl Port for BossConductPort {
 ///   (an external kinematic constraint, ADR 0024) and hold its pose: the
 ///   body integrator leaves its locomotion alone (`PoseOwnedExternally`).
 ///   Without one, release the pose to whoever drives the body. Either way,
-///   `side` is the side the boss faces while its pose is held, and the side
-///   the next tick's trigger reports.
+///   a `side` is the side the boss faces while its pose is held, and the side
+///   the next tick's trigger reports; with no `side` the conductor leaves the
+///   boss's facing to whoever drives it (a rider: GNU-ton's scholar).
+/// * **Version 2** (2026-10-10): `side` is optional.
 /// * **Owner** — `ambition_boss_encounter::extension`.
 /// * **Scope** — the boss the invocation ran for. A scope that is not a boss
 ///   is refused.
@@ -215,11 +223,11 @@ pub struct Pose {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConductedPose {
     pub pose: Option<Pose>,
-    pub side: f32,
+    pub side: Option<f32>,
 }
 
 impl Port for ConductedPosePort {
-    const KEY: PortKey = PortKey::new("ambition.boss.conducted_pose", 1);
+    const KEY: PortKey = PortKey::new("ambition.boss.conducted_pose", 2);
     const ROLE: PortRole = PortRole::Request;
     type Value = ConductedPose;
 
@@ -229,7 +237,7 @@ impl Port for ConductedPosePort {
             wire::put_vec2(out, p.position);
             wire::put_vec2(out, p.velocity);
         }
-        wire::put_f32(out, v.side);
+        wire::put_opt(out, v.side, wire::put_f32);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<ConductedPose, WireError> {
@@ -241,7 +249,7 @@ impl Port for ConductedPosePort {
         } else {
             None
         };
-        Ok(ConductedPose { pose, side: r.f32()? })
+        Ok(ConductedPose { pose, side: r.opt(WireReader::f32)? })
     }
 }
 
@@ -683,6 +691,7 @@ mod tests {
             health: -2,
             invulnerable: true,
             target_body: Some(BodyBox { position: [9.5, 7.0], size: [24.0, 40.0] }),
+            size: [40.0, 60.0],
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
         let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, target_body: None, ..conduct };
@@ -691,8 +700,10 @@ mod tests {
             assert_eq!(round::<BossGuardPort>(&BossGuard { guarded }), BossGuard { guarded });
         }
         for pose in [None, Some(Pose { position: [1.0, 1.0], velocity: [0.0, 2.0] })] {
-            let v = ConductedPose { pose, side: -1.0 };
-            assert_eq!(round::<ConductedPosePort>(&v), v);
+            for side in [None, Some(-1.0)] {
+                let v = ConductedPose { pose, side };
+                assert_eq!(round::<ConductedPosePort>(&v), v);
+            }
         }
         for on in [DrawnPart::Body, DrawnPart::Mount, DrawnPart::Limb("hand_left".into())] {
             for names in [Vec::new(), vec!["hit".to_string(), "rest".to_string()]] {

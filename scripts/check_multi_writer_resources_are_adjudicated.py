@@ -507,6 +507,10 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_render/src/rendering/actors/boss.rs",
         "game/ambition_app/src/app/versus.rs",
     ),
+    "MainScheduleOrder": (
+        "crates/ambition_dev_tools/src/runtime_census.rs",
+        "crates/ambition_render/src/ui_fonts.rs",
+    ),
     "MapMenuState": (
         "crates/ambition_menu/src/map/input.rs",
         "crates/ambition_menu/src/map/pointer.rs",

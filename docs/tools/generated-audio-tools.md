@@ -65,33 +65,43 @@ provably postdate the library tree; anything older is left alone rather than
 inventing a record that would make a stale cue claim to be current. Exits
 non-zero when anything has drifted, so it works as a pipeline check.
 
-### Pruning superseded renders
+### Pruning old renders
 
-`generated/<track>/` keeps EVERY render ever made under `.versioned/<hash>/`,
-and a single orchestral render can exceed 700 MB. Nothing prunes them
-automatically, so this tree grows without bound.
+`generated/<cue>/` keeps EVERY render ever made under `.versioned/<hash>/`, and
+`agent/` keeps a full copy of each render that was bundled for a reviewer. One
+orchestral render can exceed 700 MB. Nothing prunes them automatically.
 
 ```bash
-python3 scripts/prune_generated_music.py                 # dry run, renders older than 14 days
-python3 scripts/prune_generated_music.py --days 0        # dry run, everything except each track's newest
-python3 scripts/prune_generated_music.py --days 0 --apply
+python3 scripts/prune_generated_music.py            # dry run, items older than 2 days
+python3 scripts/prune_generated_music.py --apply
+python3 scripts/prune_generated_music.py --days 0 --cue my_cue --apply   # the drafts of one cue, now
 ```
 
-The rule is one line: **if `latest` does not point at it and it is older than
-`--days`, it goes**, along with the matching `agent/<track>_<hash>_bundle*`
-files. `--days 0` is the "keep only the newest render per track" mode; the
-14-day default instead keeps recent supersedes around for A/B comparison, which
-is usually what you want mid-authoring.
+An item goes when it is older than `--days` and it is one of these:
+
+- **superseded**: a render that `latest` does not point at.
+- **bundle**: `agent/<cue>_<hash>_bundle` and its zip files. The current render
+  of each cue stays in `generated/`, thus its copy has no more use.
+- **stems**: the raw group stems (`scratch_stems/`) in a render of a cue that
+  has no score. They are most of the size of a render. The mastered audio
+  stays, because a cue with no score cannot be rendered again.
+
+Two options delete more:
+
+- `--stems` also deletes the raw stems of the current render of each cue that
+  has a score. The stem lab and the stem audits read them; render the cue again
+  to get them back.
+- `--orphans` deletes all renders of a cue that has no score, the mastered
+  audio included. This cannot be undone.
 
 ⚠ **Dry run is the default and `--apply` is required to delete anything.** Keep
-it that way. A track whose `latest` symlink is missing is skipped entirely
-rather than guessed at, because a half-rendered track has no defensible "newest".
+it that way. A cue whose `latest` symlink is missing keeps all its renders, and
+the render that `building` points at stays. Do not use `--days 0` while a render
+runs.
 
-Everything it removes is gitignored and reproduced by re-rendering the score —
-but note that re-rendering a cue whose score no longer exists is impossible, so
-prune retired tracks knowingly. Old renders are also the only surviving record
-of how a cue sounded under previous instruments; see the drift section above
-before clearing them if that comparison still matters.
+Everything it removes is gitignored. Old renders are also the only record of
+how a cue sounded under previous instruments; see the drift section above
+before you clear them if that comparison still matters.
 
 ## SFX renderer
 

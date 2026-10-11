@@ -30,6 +30,18 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
   blocks draw as nothing). `test_course.rs` builds a synthetic room in code on
   purpose. Do not grow the programmatic path. A missing authoring concept goes
   into LDtk and the tooling.
+- World 1-2 is 240 tiles long (it was 60), built by
+  `game/ambition_demo_mary_o/tools/author_mary_o_1_2_ldtk.py`: one function
+  for each part of the level, `--preview` prints it as text, `--apply`
+  replaces the level in the LDtk file. Its parts are in the header of
+  `level_1_2.rs`. The room is as high as the corridor and an attic over the
+  roof; a `CameraZone` (`clamp_mode: zone_bounds`) holds the camera on the
+  corridor. The way into the attic is the lift that goes up through a hole in
+  the roof; its pipe comes out before the ferry.
+- A moving platform has art: the clockwork lift (`super_mary_o_lift` in the
+  sprite renderer). A `MovingPlatform` names it in its `visual` field, and
+  `scenery.rs` registers its `PlatformLook`. A lift in a line is `one_way`, so
+  the rock that stops its rider does not crush the rider.
 - Physics: one `classic` entry in `axis_tuning_presets`
   (`data/character_catalog.ron`), which every form names. Launch bands are
   offsets on `jump_speed`, so one ground-jump height authority exists, and a
@@ -96,7 +108,23 @@ This list is the single source. [`status.md`](../status.md) and
   so that the diff shows one added entity and no other change. Acceptance: the
   fire arm of `weaker_form_refusal.rs` (absent today for this reason) runs in
   1-1 from the ground.
-- **Further authored levels** beyond 1-3.
+- **The world, made larger (Jon, 2026-10-11).** 1-1 stays as it is. Done:
+  1-2. Not done:
+  - 1-3 as a more interesting platform level, with its problems repaired.
+  - More enemy kinds. AI Slop is the walker and the Solid Snake is the shell;
+    the snakes on a plane are our own. There is no plant in a pipe, no
+    thrower in the air (Jon: the African swallow can drop coconuts, or
+    enemies) and no turning bar of fire. Use sprites that exist where they
+    fit; draw new ones where they do not.
+  - World 1-4: a castle level with a boss.
+  - A level has no checkpoint: a death at the end of 1-2 is a start from its
+    first column. Not asked for; a level of this length shows the need.
+- **1-2 is hard for a first world (Jon, 2026-10-11, after he played it).**
+  "Pretty good. Some of the jumps are a bit technical for an early world, but
+  I think that's fine for now. We can always make that a world 2-2 or
+  something later and swap in an easier 1-2." No test plays it to its end:
+  its tests are about its shape (the ferry reaches the two lips of its pit,
+  no block is in rock, the roof is closed, a lift wraps out of the room).
 
 ## How to run
 

@@ -170,6 +170,70 @@ impl bevy::prelude::Plugin for UiFontsPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::IntoScheduleConfigs;
         app.add_systems(bevy::prelude::Startup, load_ui_fonts.in_set(UiFontsLoaded));
+
+        // Keep system font files loaded; see `ShelterFontSources`.
+        app.init_resource::<ShelteredFontSources>()
+            .init_schedule(ShelterFontSources)
+            .add_systems(ShelterFontSources, shelter_font_sources)
+            .add_systems(bevy::prelude::First, return_font_sources);
+        if let Some(mut order) = app
+            .world_mut()
+            .get_resource_mut::<bevy::app::MainScheduleOrder>()
+        {
+            order.insert_after(bevy::prelude::PostUpdate, ShelterFontSources);
+        }
+    }
+}
+
+/// Runs between `PostUpdate` and `Last`, to hide the loaded system font files
+/// from Bevy's `trim_source_cache`.
+///
+/// Bevy 0.19 unloads a system font file that no text used for two frames, and
+/// loads it again on the next use. A reloaded file is a new font to Bevy's
+/// glyph cache: [`bevy::text::FontAtlasKey`] contains the file's blob id, and
+/// each load gets a fresh id. So a text that falls back to a system font and
+/// changes a few times a second gets a new 512 px atlas image per change, and
+/// [`bevy::text::FontAtlasSet`] never drops one. Measured on a Pixel 5: one
+/// atlas about every frame, 3% of all samples spent filling them, until the
+/// process ran out of memory.
+///
+/// Bundled fonts are not affected: they are loaded from memory and keep one
+/// id. Only a build with `bevy/system_font_discovery` has system fonts, and
+/// Android is the one composition that asks for it.
+///
+/// The trim is a private system in `Last`, so it cannot be ordered against or
+/// removed. Instead the cache is taken out after the last text layout
+/// (`PostUpdate`) and put back in [`First`]. The trim sees an empty cache. The
+/// cost is that each system font file a text used stays mapped for the run.
+#[derive(bevy::ecs::schedule::ScheduleLabel, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ShelterFontSources;
+
+/// The font source cache while it is out of [`bevy::text::FontCx`].
+///
+/// Boxed as `Any` because the cache's type is Parley's, and this crate does
+/// not depend on Parley. The downcast target is inferred from the field it is
+/// assigned back to.
+#[derive(Resource, Default)]
+struct ShelteredFontSources(Option<Box<dyn std::any::Any + Send + Sync>>);
+
+fn shelter_font_sources(
+    font_cx: Option<ResMut<bevy::text::FontCx>>,
+    mut sheltered: ResMut<ShelteredFontSources>,
+) {
+    if let Some(mut font_cx) = font_cx {
+        sheltered.0 = Some(Box::new(std::mem::take(&mut font_cx.source_cache)));
+    }
+}
+
+fn return_font_sources(
+    font_cx: Option<ResMut<bevy::text::FontCx>>,
+    mut sheltered: ResMut<ShelteredFontSources>,
+) {
+    let (Some(mut font_cx), Some(sources)) = (font_cx, sheltered.0.take()) else {
+        return;
+    };
+    if let Ok(sources) = sources.downcast() {
+        font_cx.source_cache = *sources;
     }
 }
 
@@ -282,6 +346,99 @@ fn load_first_available_font(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// One system font family, and the blob id each use of it resolved to.
+    #[derive(Resource, Default)]
+    struct SystemFontProbe {
+        family: String,
+        frame: u32,
+        ids: Vec<u64>,
+    }
+
+    /// Use the family on every fourth frame, as a slowly changing text does.
+    /// The gap is longer than the two frames Bevy's trim allows.
+    fn probe_system_font(
+        mut font_cx: ResMut<bevy::text::FontCx>,
+        mut probe: ResMut<SystemFontProbe>,
+    ) {
+        probe.frame += 1;
+        if probe.frame % 4 != 1 {
+            return;
+        }
+        let context = &mut font_cx.context;
+        let Some(family) = context.collection.family_by_name(&probe.family) else {
+            return;
+        };
+        let blob = family
+            .fonts()
+            .first()
+            .and_then(|font| context.source_cache.get(font.source()));
+        if let Some(blob) = blob {
+            probe.ids.push(blob.id());
+        }
+    }
+
+    /// The ids three spaced uses of one system font resolve to, or `None`
+    /// when the build discovers no system fonts.
+    fn system_font_ids(sheltered: bool) -> Option<Vec<u64>> {
+        let mut app = App::new();
+        app.add_plugins((
+            bevy::app::TaskPoolPlugin::default(),
+            bevy::asset::AssetPlugin::default(),
+            bevy::text::TextPlugin,
+        ));
+        if sheltered {
+            app.add_plugins(UiFontsPlugin);
+        }
+        // Chosen before the first frame, so only system families are registered.
+        let family = {
+            let mut font_cx = app.world_mut().resource_mut::<bevy::text::FontCx>();
+            let context = &mut font_cx.context;
+            let names: Vec<String> = context
+                .collection
+                .family_names()
+                .map(str::to_owned)
+                .collect();
+            names.into_iter().find(|name| {
+                context
+                    .collection
+                    .family_by_name(name)
+                    .is_some_and(|family| !family.fonts().is_empty())
+            })?
+        };
+        app.insert_resource(SystemFontProbe {
+            family,
+            ..default()
+        })
+        .add_systems(PostUpdate, probe_system_font);
+        for _ in 0..9 {
+            app.update();
+        }
+        Some(app.world().resource::<SystemFontProbe>().ids.clone())
+    }
+
+    #[test]
+    fn a_system_font_keeps_one_identity_between_spaced_uses() {
+        let (Some(trimmed), Some(sheltered)) = (system_font_ids(false), system_font_ids(true))
+        else {
+            // Only the Android composition asks for `bevy/system_font_discovery`.
+            // Run with `--features bevy/system_font_discovery` to exercise this.
+            eprintln!("skipped: this build discovers no system fonts");
+            return;
+        };
+        // The premise. If this fails, Bevy no longer reloads an idle system
+        // font under a new id, and `ShelterFontSources` can be deleted.
+        assert_eq!(trimmed.len(), 3);
+        assert!(
+            trimmed.windows(2).all(|pair| pair[0] != pair[1]),
+            "without the shelter each spaced use should reload the file: {trimmed:?}"
+        );
+        assert_eq!(sheltered.len(), 3);
+        assert!(
+            sheltered.windows(2).all(|pair| pair[0] == pair[1]),
+            "with the shelter the file must stay loaded under one id: {sheltered:?}"
+        );
+    }
 
     #[test]
     fn default_has_no_fonts() {

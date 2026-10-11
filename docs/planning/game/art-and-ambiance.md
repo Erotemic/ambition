@@ -337,6 +337,8 @@ suit the style of the game.
     (the giant on its own) is not drawn by a row yet.
   - The candidates and the concept animations of the fight are in
     `untracked/giant-gnu-candidate/` (not in git).
+  - What was done the cheap way to get it in, and the design that should
+    replace it, is in `../engine/the-art-says-where-a-body-stands.md`.
 - **A bird for the giant gnu.** Wanted later (Jon, 2026-10-11): a small
   bird that rides the giant. It is NOT a part of the giant's sprite: it is
   to be an actor of its own, with its own simulation (it sits, it moves, it

@@ -379,7 +379,7 @@ eventually will, but not right now."*). The machinery is built and tested.
 | Deterministic match item spawning | ✔ | M | E1 | Tick-derived, no countdown resource; identity `SimId::match_spawn`. |
 | Weighted spawn table | ✔ | M | — | `MatchItemSpawns`; points are the stage's. |
 | Items on/off and rate | ✔ | S/M | E1 | `item_spawns: Option<..>`; `active()` knows all four ways to be off. |
-| Directional / smash item throws | ▢ | M | E1 | Body-local throw direction. |
+| Directional / smash item throws | ✔ | M | E1 | 2026-10-11: forward (and a centred stick), back, up and down, from the press as the body's gesture interpreter reads it; a flick with the press is a smash throw (×1.7); the item keeps half the thrower's velocity. Back does not turn the body. `ambition_held_items::throw_launch`, witness `a_throw_goes_the_way_the_stick_points_and_a_flick_throws_harder`. |
 | Z-drop | ✔ | S | E1 | Same custody transition as a throw. |
 | Item catch | ▢ | M | E1 | Deterministic interception; not inventory acquisition. |
 | Thrown-item damage/knockback | ◐ | M | E1 | Route free-flight contact through normal hit attribution. |

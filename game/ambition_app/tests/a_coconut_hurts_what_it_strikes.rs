@@ -153,3 +153,42 @@ fn a_coconut_that_crosses_the_player_in_one_tick_is_one_blow() {
     assert_eq!(before - after, 2, "the coconut that crossed the player is one blow of 2; health went {before} -> {after}");
     assert!(item.vel.x < 0.0, "the coconut bounces back off the body it crossed; it left at {:?}", item.vel);
 }
+
+/// The player throws a coconut the way the stick points, as in Smash: up with
+/// the stick held up, and ahead with it centred. Up is also the first half of
+/// a door tap, so this room has no door where she stands.
+#[test]
+fn the_player_throws_a_coconut_the_way_the_stick_points() {
+    // The launch of a coconut thrown with the stick at `move_y`.
+    fn thrown(move_y: f32) -> ae::Vec2 {
+        let mut sim = fixed_60hz_room_sim(ROOM);
+        for _ in 0..60 {
+            sim.step(base());
+        }
+        let (kin, _) = player(&mut sim);
+        let nut = loose_coconut(&mut sim, kin.pos + ae::Vec2::new(0.0, kin.size.y * 0.5 - 12.0));
+        for _ in 0..30 {
+            sim.step(base());
+        }
+        sim.step(AgentAction { attack: true, ..base() });
+        sim.step(base());
+        assert!(
+            matches!(sim.world().get::<ItemCustody>(nut), Some(ItemCustody::Held { .. })),
+            "premise: an Attack press over a coconut picks it up"
+        );
+        // The stick is held for a while first, so this is a tilt throw.
+        for _ in 0..10 {
+            sim.step(AgentAction { move_y, ..base() });
+        }
+        sim.step(AgentAction { move_y, attack: true, ..base() });
+        assert!(
+            !matches!(sim.world().get::<ItemCustody>(nut), Some(ItemCustody::Held { .. })),
+            "premise: an Attack press with a coconut in hand throws it"
+        );
+        sim.world().get::<GroundItem>(nut).expect("the thrown coconut is in the world").vel
+    }
+    let ahead = thrown(0.0);
+    let up = thrown(-1.0);
+    assert!(ahead.x.abs() > 300.0, "a centred stick throws ahead: {ahead:?}");
+    assert!(up.x.abs() < 1.0 && up.y < -500.0, "the stick held up throws straight up: {up:?}");
+}

@@ -14,6 +14,14 @@
 //!   `PropDraw::Structure`, so their art fills the collider a body stands on
 //!   exactly AND draws in front of the cast — which is what lets a pipe swallow a
 //!   body sliding into it instead of pasting that body on top of it.
+//! * The body says that its pose is not its own: it has
+//!   [`ae::PoseOwnedExternally`] for each tick of the transit, the fact a
+//!   rider on a mount has. The movement step still runs for it (its clocks
+//!   go on), and that step gives a held body no pull and reports no landing
+//!   for it. Without the fact the step took her as a body that fell: with her
+//!   feet 6 to 14 px in the top of the pipe it put her back on the pipe and
+//!   reported a landing, one for each tick (MEASURED in the flagship app: 4
+//!   landing cues and 4 puffs of dust in one ride down, Jon 2026-10-11).
 //! * The lock is [`BodyCombat::recoil_lock_timer`], the engine's existing
 //!   "carried, can't steer" gate, re-held every tick of the transit — the same
 //!   lever the snake's shell uses to be frozen. You cannot jump out of a pipe.
@@ -247,10 +255,13 @@ pub fn run_pipe_transits(
                 // Held every tick: you cannot steer, jump, or fall out of a pipe.
                 combat.recoil_lock_timer = TRANSIT_LOCK;
                 *transit = next;
+                // Said again each tick, so a transit that a restore brings
+                // back has the fact on its next tick.
+                commands.entity(entity).try_insert(ae::PoseOwnedExternally);
             }
             None => {
                 combat.recoil_lock_timer = 0.0;
-                commands.entity(entity).remove::<PipeTransit>();
+                commands.entity(entity).remove::<(PipeTransit, ae::PoseOwnedExternally)>();
             }
         }
     }

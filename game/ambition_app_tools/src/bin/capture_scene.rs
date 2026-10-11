@@ -25,7 +25,11 @@ use ambition_platformer2d::sim_view::camera_snapshot::{
 };
 use bevy::app::AppExit;
 use bevy::camera::{ImageRenderTarget, RenderTarget};
+use bevy::ecs::system::SystemParam;
 use bevy::input::touch::{TouchInput, TouchPhase};
+use bevy::picking::pointer::{
+    Location, PointerAction, PointerButton, PointerId, PointerInput, PointerLocation,
+};
 use bevy::prelude::*;
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
 use bevy::render::render_resource::{TextureFormat, TextureUsages};
@@ -131,6 +135,10 @@ struct SceneCaptureConfig {
     /// `touch_screen_input_system`, the seam `select_screen::touch_tests`
     /// covers. See [`PressStep::Touch`]. Arrow keys still suit lists (launcher
     /// rows, menus) and gameplay.
+    ///
+    /// A finger also drives a Bevy picking pointer on the capture image (see
+    /// [`Glass`]), so a tap reaches the cube menu and is blocked by whatever
+    /// node covers it, as on a phone. `touch:AxB>CxD` is a drag.
     press: Vec<PressStep>,
     /// Open the shutter N press-driving frames in, instead of after the
     /// sequence completes (`--press-during N`).
@@ -179,6 +187,8 @@ struct SceneCaptureRuntime {
     /// two-frame shape as a key tap, but separate from `press_held` because
     /// the two use different seams.
     touch_held: Option<Vec2>,
+    /// Where a `touch:A>B` drag still has to pass through, last point first.
+    touch_path: Vec<Vec2>,
     /// The id the next finger goes down with. Fresh per tap: `Touches` keys
     /// everything by id, and reusing an id not yet retired is a state a phone
     /// never produces.
@@ -230,6 +240,7 @@ OPTIONS:
     --route ID          photograph a shell route instead of a room
     --press SEQ         drive input first, e.g. `Down,Enter` or `touch:167x523`
                         (`hold:up` / `release:up` / `wait:30` also work).
+                        `touch:AxB>CxD` drags a finger from A,B to C,D.
                         Keys reach menus and lobbies, not gameplay.
                         A sequence that ends the session (a quit to the
                         title) leaves no player: name the focus as X,Y.
@@ -620,7 +631,15 @@ enum PressStep {
     /// (the pair winit emits), folded by Bevy's `touch_screen_input_system`,
     /// so it drives the same phone path the product ships.
     Touch(Vec2),
+    /// Put a finger down, slide it, and lift it (`touch:600x400>600x150`).
+    ///
+    /// The slide takes [`DRAG_FRAMES`] frames, because a drag is recognized by
+    /// how far the finger has travelled since it went down.
+    Drag(Vec2, Vec2),
 }
+
+/// Frames a `touch:A>B` drag spends moving between its two points.
+const DRAG_FRAMES: u32 = 8;
 
 /// Parse `--press-during N` into the press-driving frame the shutter opens on.
 ///
@@ -661,6 +680,9 @@ fn parse_press_sequence(text: &str) -> Result<Vec<PressStep>, String> {
                 return parse_key(rest).map(PressStep::Release);
             }
             if let Some(rest) = lower.strip_prefix("touch:") {
+                if let Some((from, to)) = rest.split_once('>') {
+                    return Ok(PressStep::Drag(parse_point(from)?, parse_point(to)?));
+                }
                 return parse_point(rest).map(PressStep::Touch);
             }
             if let Some(rest) = lower.strip_prefix("tap:") {
@@ -1803,6 +1825,83 @@ fn world_is_ready(
     }
 }
 
+/// The glass a `touch:` step presses on.
+///
+/// A finger reaches the app two ways, and a phone drives both:
+///
+/// - `TouchInput` messages, which Bevy folds into `Touches`. The touch overlay
+///   and the select screen read that.
+/// - A picking pointer. Bevy makes one from the window's touch events, but a
+///   capture has no window, so this spawns the pointer on the capture image.
+///   Without it a tap never reaches a widget that uses Bevy picking (the cube
+///   menu, Lunex controls, picked `bevy_ui` nodes), and a tap that should be
+///   blocked by a node on top is not blocked.
+#[derive(SystemParam)]
+struct Glass<'w, 's> {
+    fingers: MessageWriter<'w, TouchInput>,
+    pointers: MessageWriter<'w, PointerInput>,
+    target: Option<Res<'w, SceneCaptureTarget>>,
+    commands: Commands<'w, 's>,
+}
+
+impl Glass<'_, '_> {
+    fn location(&self, at: Vec2) -> Option<Location> {
+        let image = self.target.as_ref()?.image.clone();
+        let target = RenderTarget::Image(ImageRenderTarget::from(image)).normalize(None)?;
+        Some(Location {
+            target,
+            position: at,
+        })
+    }
+
+    fn touch(&mut self, phase: TouchPhase, id: u64, at: Vec2) {
+        self.fingers.write(TouchInput {
+            phase,
+            position: at,
+            window: Entity::PLACEHOLDER,
+            force: None,
+            id,
+        });
+    }
+
+    fn down(&mut self, id: u64, at: Vec2) {
+        self.touch(TouchPhase::Started, id, at);
+        if let Some(location) = self.location(at) {
+            let pointer = PointerId::Touch(id);
+            // Bevy retires the pointer itself once `Touches` reports the lift.
+            self.commands
+                .spawn((pointer, PointerLocation::new(location.clone())));
+            self.pointers.write(PointerInput::new(
+                pointer,
+                location,
+                PointerAction::Press(PointerButton::Primary),
+            ));
+        }
+    }
+
+    fn slide(&mut self, id: u64, from: Vec2, to: Vec2) {
+        self.touch(TouchPhase::Moved, id, to);
+        if let Some(location) = self.location(to) {
+            self.pointers.write(PointerInput::new(
+                PointerId::Touch(id),
+                location,
+                PointerAction::Move { delta: to - from },
+            ));
+        }
+    }
+
+    fn up(&mut self, id: u64, at: Vec2) {
+        self.touch(TouchPhase::Ended, id, at);
+        if let Some(location) = self.location(at) {
+            self.pointers.write(PointerInput::new(
+                PointerId::Touch(id),
+                location,
+                PointerAction::Release(PointerButton::Primary),
+            ));
+        }
+    }
+}
+
 /// Deliver one frame of the `--press` sequence: a countdown tick, a pending
 /// release, or the next step. Separate from `request_capture` because
 /// `--press-during` can photograph a press frame instead of driving it.
@@ -1810,7 +1909,7 @@ fn drive_press_frame(
     config: &SceneCaptureConfig,
     runtime: &mut SceneCaptureRuntime,
     keys: &mut ButtonInput<KeyCode>,
-    fingers: &mut MessageWriter<TouchInput>,
+    glass: &mut Glass,
 ) {
     if runtime.press_wait > 0 {
         runtime.press_wait -= 1;
@@ -1821,15 +1920,15 @@ fn drive_press_frame(
         keys.release(key);
         complete_press_sequence_if_spent(config, runtime);
     } else if let Some(at) = runtime.touch_held.take() {
-        // Lift at the same point the finger went down. A touch that ends
-        // elsewhere is a drag, which means "drop it here" to this screen.
-        fingers.write(TouchInput {
-            phase: TouchPhase::Ended,
-            position: at,
-            window: Entity::PLACEHOLDER,
-            force: None,
-            id: runtime.next_touch_id - 1,
-        });
+        let id = runtime.next_touch_id - 1;
+        if let Some(next) = runtime.touch_path.pop() {
+            glass.slide(id, at, next);
+            runtime.touch_held = Some(next);
+            return;
+        }
+        // Lift where the finger now is. For a tap that is where it went down:
+        // a touch that ends elsewhere is a drag.
+        glass.up(id, at);
         complete_press_sequence_if_spent(config, runtime);
     } else {
         match config.press[runtime.press_cursor] {
@@ -1860,16 +1959,29 @@ fn drive_press_frame(
                     config.press.len()
                 );
             }
+            PressStep::Drag(from, to) => {
+                let id = runtime.next_touch_id;
+                runtime.next_touch_id += 1;
+                glass.down(id, from);
+                runtime.touch_held = Some(from);
+                runtime.touch_path = (1..=DRAG_FRAMES)
+                    .rev()
+                    .map(|step| from.lerp(to, step as f32 / DRAG_FRAMES as f32))
+                    .collect();
+                eprintln!(
+                    "capture_scene: dragging ({:.0}, {:.0}) to ({:.0}, {:.0}) ({} of {})",
+                    from.x,
+                    from.y,
+                    to.x,
+                    to.y,
+                    runtime.press_cursor + 1,
+                    config.press.len()
+                );
+            }
             PressStep::Touch(at) => {
                 let id = runtime.next_touch_id;
                 runtime.next_touch_id += 1;
-                fingers.write(TouchInput {
-                    phase: TouchPhase::Started,
-                    position: at,
-                    window: Entity::PLACEHOLDER,
-                    force: None,
-                    id,
-                });
+                glass.down(id, at);
                 runtime.touch_held = Some(at);
                 eprintln!(
                     "capture_scene: touched ({:.0}, {:.0}) ({} of {})",
@@ -1909,7 +2021,7 @@ fn request_capture(
     art_demand: Option<Res<CharacterLoadDemand>>,
     art_states: Option<Res<CharacterLoadStates>>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
-    mut fingers: MessageWriter<TouchInput>,
+    mut glass: Glass,
 ) {
     if runtime.requested || runtime.completed {
         if runtime.requested {
@@ -1986,7 +2098,7 @@ fn request_capture(
         // The photograph shows the world as the previous frame's input
         // left it; for a tap, the key is still down.
         if !press_during_shutter_is_open(&config, &runtime) {
-            drive_press_frame(&config, &mut runtime, &mut keys, &mut fingers);
+            drive_press_frame(&config, &mut runtime, &mut keys, &mut glass);
             return;
         }
         // A shutter frame drives nothing, so it is not a press frame. Counting

@@ -1454,7 +1454,14 @@ pub fn integrate_sim_bodies(
             // Has this participant's attempt already ended (ADR 0033)? The
             // world's reset gate must not act on a body that has already lost —
             // see the guard inside `integrate_home_body`.
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            //
+            // And: does something else have this body's pose? The same fact
+            // the actor query above reads. A home body in a scripted transit
+            // has it.
+            (
+                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
+            ),
         ),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
@@ -1564,7 +1571,7 @@ pub fn integrate_sim_bodies(
         playback,
         authored_tuning,
         mut surface_upright,
-        out_of_play,
+        (out_of_play, pose_owned_externally),
     ) in &mut players
     {
         // Per-body feel: an authored protagonist keeps its own tuning; the
@@ -1591,6 +1598,7 @@ pub fn integrate_sim_bodies(
             motion_facts.evading(),
             motion_facts.tumbling,
             out_of_play,
+            pose_owned_externally,
             &mut hurtbox,
             &mut frame_out,
             &mut motion_model,

@@ -84,6 +84,10 @@ pub fn integrate_home_body(
     tumbling: bool,
     // Whether participant rules have removed this body from play.
     out_of_play: bool,
+    // Something else has this body's pose (`ae::PoseOwnedExternally`): a
+    // scripted transit, a saddle, a grab. The step still runs, and it gives
+    // the body no landing of its own. The same fact the actor road reads.
+    pose_owned_externally: bool,
     hurtbox: &mut ae::CenteredAabb,
     frame_out: &mut PlayerBodyFrameOutput,
     motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
@@ -132,9 +136,11 @@ pub fn integrate_home_body(
         combat,
         axis_tuning,
         out_of_play,
-        // The home/player body is never externally held today; a lift or a
-        // grab that wants this reads the same marker the actor road does.
-        false,
+        // A home body can be held: Mary-O in a pipe is (Jon, 2026-10-11:
+        // a landing sound and dust on each tick of the ride). This was a
+        // literal `false`, so the marker did nothing on the body a human
+        // drives.
+        pose_owned_externally,
         ae::MotionStepContext {
             world,
             input,
@@ -142,7 +148,7 @@ pub fn integrate_home_body(
             facing_intent: actor_control.facing,
             dt: scaled_dt,
             contact: contact_field,
-            pose_owned_externally: false,
+            pose_owned_externally,
             // See the actor road's note: the same playback, asked whether this
             // body is mid-recovery so the grounded refresh does not refund it.
             recovery_commitment_outstanding:

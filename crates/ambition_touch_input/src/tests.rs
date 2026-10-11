@@ -283,6 +283,54 @@ fn genuine_touch_activity_marks_touch_active() {
     );
 }
 
+/// A drag outside the controls reaches the menu frame twice: in the shared
+/// scroll lane, and alone, for a list that scrolls its window under the finger
+/// and reads the wheel from its own events.
+#[cfg(feature = "mobile_touch")]
+#[test]
+fn a_drag_outside_the_controls_is_reported_as_a_drag() {
+    use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
+    use super::menu_bridge::fold_touch_gestures;
+    use ambition_input::{MenuControlFrame, SeatActiveDevices};
+    use bevy::input::touch::Touches;
+    use bevy::input::ButtonInput;
+    use bevy::prelude::*;
+    use bevy::window::PrimaryWindow;
+
+    let mut app = App::new();
+    app.init_resource::<Touches>();
+    app.init_resource::<ButtonInput<MouseButton>>();
+    app.init_resource::<MobileTouchState>();
+    app.init_resource::<MenuTouchGestureState>();
+    app.init_resource::<super::placement::TouchControlPlacement>();
+    app.init_resource::<MenuControlFrame>();
+    app.init_resource::<ambition_persistence::settings::UserSettings>();
+    app.init_resource::<SeatActiveDevices>();
+    app.add_systems(Update, fold_touch_gestures);
+    let window = app
+        .world_mut()
+        .spawn((Window::default(), PrimaryWindow))
+        .id();
+
+    // A held mouse button is the same gesture, and needs no touch plumbing.
+    app.world_mut()
+        .resource_mut::<ButtonInput<MouseButton>>()
+        .press(MouseButton::Left);
+    for y in [300.0, 240.0] {
+        *app.world_mut().resource_mut::<MenuControlFrame>() = MenuControlFrame::default();
+        app.world_mut()
+            .entity_mut(window)
+            .get_mut::<Window>()
+            .unwrap()
+            .set_cursor_position(Some(Vec2::new(400.0, y)));
+        app.update();
+    }
+
+    let frame = *app.world().resource::<MenuControlFrame>();
+    assert_eq!(frame.drag_scroll_y, -2.0, "60 px up is two 30 px rows");
+    assert_eq!(frame.scroll_y, frame.drag_scroll_y);
+}
+
 #[cfg(feature = "mobile_touch")]
 #[test]
 fn axis_override_drives_knob_only_while_gameplay_owns_the_controls() {

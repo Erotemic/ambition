@@ -1608,6 +1608,52 @@ fn mouse_wheel_scrolls_window_not_selection() {
     );
 }
 
+/// A finger dragged up the list scrolls the System window down by the rows it
+/// travelled, and leaves the selection where it was. The touch layer folds the
+/// drag into the menu frame; a phone has no wheel, so this is its only way to
+/// reach the rows below the fold without the stick.
+#[test]
+fn a_finger_drag_scrolls_the_window_not_the_selection() {
+    let mut app = scroll_app();
+    assert!(scroll_total_rows(&app) > SYSTEM_VISIBLE_ROWS);
+    let cursor_before = app.world().resource::<KaleidoscopeCursor>().focus;
+
+    // Three rows of upward travel, as `fold_touch_gestures` reports it.
+    {
+        let mut frame = app.world_mut().resource_mut::<MenuControlFrame>();
+        frame.scroll_y = -3.0;
+        frame.drag_scroll_y = -3.0;
+    }
+    app.update();
+
+    assert_eq!(
+        app.world()
+            .resource::<KaleidoscopeScroll>()
+            .system_window_start,
+        Some(3),
+        "a drag up the screen moves the window down"
+    );
+    assert_eq!(
+        app.world().resource::<KaleidoscopeCursor>().focus,
+        cursor_before,
+        "a drag must not move the selection"
+    );
+
+    // And back down again, clamped at the top.
+    {
+        let mut frame = app.world_mut().resource_mut::<MenuControlFrame>();
+        frame.scroll_y = 5.0;
+        frame.drag_scroll_y = 5.0;
+    }
+    app.update();
+    assert_eq!(
+        app.world()
+            .resource::<KaleidoscopeScroll>()
+            .system_window_start,
+        Some(0)
+    );
+}
+
 /// Feature C: applying a scrollbar drag fraction (the lib's neutral signal) moves
 /// the window_start proportionally across the scrollable range.
 #[test]

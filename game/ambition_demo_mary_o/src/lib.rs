@@ -602,8 +602,8 @@ pub fn authored_zone<'a>(
 ///
 /// The blocks whose look is not a colour, BY NAME: a warp pipe and the flagpole are collision
 /// only (their look comes from the props below, laid over them), and a hidden block is drawn as
-/// nothing. A colour is data: a level's `block_color`, or a block's own `color` (the vault's
-/// masonry).
+/// nothing. A colour is data: a level's `block_color`, or a block's own `color`. No level of
+/// Mary-O has one now: a block with a colour gets no skin of the biome.
 fn dress_authored_blocks(room: &mut RoomSpec) {
     for block in &mut room.world.blocks {
         // a HIDDEN block is drawn as nothing until it is struck. Same seam the pipes and the
@@ -1719,6 +1719,9 @@ fn warp_through_secret_pipe(
         (
             ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
             bevy::prelude::Without<pipe::PipeTransit>,
+            // A body that something holds does not go in: the transit would
+            // take the pose from its holder, and give it to nobody at its end.
+            bevy::prelude::Without<ae::PoseOwnedExternally>,
         ),
     >,
 ) {
@@ -1765,12 +1768,10 @@ fn warp_through_secret_pipe(
             continue;
         }
 
-        commands.entity(entity).try_insert(pipe::PipeTransit::begin(
-            kin.pos,
-            tube.entrance.centre(),
-            tube.exit.arrival(),
-            tube.entrance.travel_axis(),
-            T,
+        commands.entity(entity).try_insert((
+            pipe::PipeTransit::begin(kin.pos, tube.entrance.centre(), tube.exit.arrival(), tube.entrance.travel_axis(), T),
+            // The transit has her pose from this tick (see `pipe.rs`).
+            ae::PoseOwnedExternally,
         ));
         // H2: the warp is the entering BODY's — she is the one sliding down it.
         sfx.write_for(
@@ -2441,18 +2442,20 @@ mod tests {
         assert_ne!(MARY_O_MODE, "sanic", "two demos, two modes, one binary");
     }
 
-    /// Each authored area says its mode and its stone in the LDtk file (the
-    /// `mode` and `block_color` level fields, and a block's own `color`), not
-    /// in Rust. 1-2 is cut from one stone; the vault's masonry in 1-1 and 1-3
-    /// is its own stone; any other block there that the game does not dress
-    /// has no colour.
+    /// Each authored area says its mode and its biome in the LDtk file (the
+    /// `mode` and `biome` level fields), not in Rust. No plain block has a
+    /// colour of its own: the skin of the biome is its look, and a block
+    /// with a colour gets no skin (`spawn_block`). 1-2 and the two vaults
+    /// each had a flat colour, and were flat boxes in a room of textured
+    /// ground (Jon, 2026-10-11).
     #[test]
-    fn each_area_says_its_mode_and_its_stone_in_data() {
-        let cavern_stone = [51.0 / 255.0, 43.0 / 255.0, 71.0 / 255.0, 1.0];
-        let vault_stone = [61.0 / 255.0, 51.0 / 255.0, 77.0 / 255.0, 1.0];
+    fn each_area_says_its_mode_and_its_biome_in_data() {
+        use ambition_platformer2d::sprite_sheet::game_assets::ParallaxTheme;
         let mut vault_blocks = 0;
         for room in authored_levels() {
             assert_eq!(room.metadata.mode.as_deref(), Some(MARY_O_MODE), "{} claims no mode", room.id);
+            let expected = if room.id == level_1_2::LEVEL_1_2_ROOM_ID { ParallaxTheme::Starless } else { ParallaxTheme::Starlight };
+            assert_eq!(ParallaxTheme::named_by_room_metadata(&room.metadata), Some(expected), "the biome of {}", room.id);
             let undressed: Vec<_> = room
                 .world
                 .blocks
@@ -2463,13 +2466,8 @@ mod tests {
                 .collect();
             assert!(!undressed.is_empty(), "{} authors no plain block", room.id);
             for block in undressed {
-                let expected = if block.name.starts_with("vault_") {
-                    vault_blocks += 1;
-                    Some(vault_stone)
-                } else {
-                    (room.id == level_1_2::LEVEL_1_2_ROOM_ID).then_some(cavern_stone)
-                };
-                assert_eq!(block.art_color, expected, "{} block `{}`", room.id, block.name);
+                vault_blocks += usize::from(block.name.starts_with("vault_"));
+                assert_eq!(block.art_color, None, "{} block `{}` has a colour, so it gets no skin", room.id, block.name);
             }
         }
         assert_eq!(vault_blocks, 6, "1-1 and 1-3 each author a vault floor and two walls");

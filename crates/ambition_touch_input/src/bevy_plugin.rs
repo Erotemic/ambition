@@ -653,6 +653,9 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         Name::new("MobileTouchActionBezel"),
         MobileTouchUiRoot,
         TouchSurface::ActionBezel,
+        // A backdrop, not a control. Unpicked, so a tap between the buttons
+        // reaches what is under it (on a phone, the menu's right-hand tab).
+        bevy::picking::Pickable::IGNORE,
     ));
     cmd.spawn((
         Node {
@@ -668,6 +671,8 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         Name::new("MobileTouchActionCluster"),
         MobileTouchUiRoot,
         TouchSurface::ActionCluster,
+        // The buttons inside are picked; the box that lays them out is not.
+        bevy::picking::Pickable::IGNORE,
     ))
     .with_children(|parent| {
         for spec in touch_action_layout() {
@@ -705,6 +710,7 @@ fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
         Name::new("MobileTouchMenuRow"),
         MobileTouchUiRoot,
         TouchSurface::MenuRow,
+        bevy::picking::Pickable::IGNORE,
     ))
     .with_children(|parent| {
         for action in [TouchActionButton::Start, TouchActionButton::Reset] {

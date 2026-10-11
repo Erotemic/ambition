@@ -129,6 +129,19 @@ pub(super) fn text_node(x: f32, y: f32, align: MenuTextAlign) -> Node {
     }
 }
 
+/// The colour of a control's text. Black only on the bright gold highlight:
+/// the teal selected-only background is dark, so it keeps light text.
+///
+/// One rule for the spawn and for the restyle. A control whose focus came
+/// after its spawn (the launcher's cursor) kept light text on gold.
+pub(super) fn control_text_color(focused: bool) -> Color {
+    if focused {
+        Color::BLACK
+    } else {
+        Color::srgba(0.90, 0.94, 1.0, 0.98)
+    }
+}
+
 /// Spawn one interactive control. Tagged like the cube renderer, so the
 /// host's picking and navigation map entity to action and focus the same way
 /// in both backends.
@@ -162,13 +175,7 @@ fn spawn_control<Action>(
         // pointer in place.
         control_bg(kind, focused, selected, false, important)
     };
-    // Black text only on the bright gold highlight. The teal selected-only
-    // background is dark, so it keeps light text.
-    let label_color = if focused {
-        Color::BLACK
-    } else {
-        Color::srgba(0.90, 0.94, 1.0, 0.98)
-    };
+    let label_color = control_text_color(focused);
 
     let mut control = body.spawn((
         Button,

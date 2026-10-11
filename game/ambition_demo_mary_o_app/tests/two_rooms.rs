@@ -455,7 +455,7 @@ fn she_crosses_wearing_the_form_she_earned() {
 /// instead of being inserted at a guessed height.
 const DROP_HEIGHT_PX: f32 = 100.0;
 
-fn earn_the_star_wand(app: &mut App) {
+pub(crate) fn earn_the_star_wand(app: &mut App) {
     let block = first_power_block();
     // `+y` is screen-down, so the block's `max.y` is the face she bonks.
     let underside = block.aabb.max.y;

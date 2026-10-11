@@ -2077,6 +2077,18 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "a marker inserted during PLUGIN BUILD to make the shader install          idempotent. Composition state, written once before any frame runs",
     ),
     (
+        "ambition_demo_mary_o::shimmer_shader::ShimmerInstalled",
+        "a marker inserted during PLUGIN BUILD to make the shimmer install \
+         idempotent, as `QuasarShaderInstalled` above. Composition state, \
+         written once before any frame runs",
+    ),
+    (
+        "ambition_demo_mary_o::shimmer_shader::ShimmerQuad",
+        "the handle of the unit quad mesh each shimmer scales, made one time \
+         during PLUGIN BUILD and only read after. Presentation: the shimmer is \
+         a quad behind the blocks of a room, and no simulation reads it",
+    ),
+    (
         "ambition_demo_mary_o::quasar_shader::MaryOQuasarShaderSettings",
         "its own doc: \"runtime tuning for development and capture tooling\", and          the field that disables the overlay says it does so \"without changing          the authoritative invincible fact\". The invincibility IS rollback state          and is registered as such; how brightly it is DRAWN is not. ⚠ read          rather than assumed because both real defects this sweep has caught          were in a demo namespace",
     ),

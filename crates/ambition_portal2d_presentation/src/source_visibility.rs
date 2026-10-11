@@ -26,8 +26,31 @@ pub struct PortalTransitHidden;
 
 /// Bookkeeping, not a reason: this module applied the current hide, so the
 /// resolver restores only what it took away.
+///
+/// ⛔ IT SAYS THE PORTAL HID THE BODY, NOT THAT NOTHING ELSE DOES. Another
+/// owner (death, a morph, submerged presentation) can hide the body while it
+/// carries this marker, and a reader that took the marker as "visible but for
+/// the portal" drew far-side pieces of a dead body. So the marker keeps the
+/// change tick of the resolver's own `Hidden` write: a later write to
+/// `Visibility` is another owner's answer ([`Self::portal_alone_hides`]).
 #[derive(Component, Debug, Clone, Copy)]
-pub struct PortalSourceHidden;
+pub struct PortalSourceHidden {
+    /// The change tick of the resolver's last `Hidden` write. `None`: the body
+    /// was already `Hidden` when the portal claimed it, so another owner hid
+    /// it.
+    pub wrote: Option<bevy::ecs::change_detection::Tick>,
+}
+
+impl PortalSourceHidden {
+    /// The drawable is `Hidden` by the portal alone: the portal hid it, and
+    /// nothing wrote its `Visibility` since. Then the clipped pieces are the
+    /// body, and it is still a compositing candidate. `false` for a drawable
+    /// the portal did not hide, or one another owner wrote after it.
+    pub fn portal_alone_hides(marker: Option<&Self>, visibility: &Ref<Visibility>) -> bool {
+        matches!(**visibility, Visibility::Hidden)
+            && marker.is_some_and(|marker| marker.wrote == Some(visibility.last_changed()))
+    }
+}
 
 /// Bookkeeping for a dependant drawable. It is separate from
 /// [`PortalSourceHidden`] for two reasons.
@@ -57,7 +80,7 @@ pub fn resolve_portal_source_visibility(
             &mut Visibility,
             Has<crate::far_side::PortalFarSideHidden>,
             Has<PortalTransitHidden>,
-            Has<PortalSourceHidden>,
+            Option<&mut PortalSourceHidden>,
         ),
         Or<(
             With<crate::far_side::PortalFarSideHidden>,
@@ -105,7 +128,7 @@ pub fn resolve_portal_source_visibility(
     // settled in the same pass.
     let mut hidden_bodies: bevy::platform::collections::HashSet<Entity> =
         bevy::platform::collections::HashSet::new();
-    for (entity, mut visibility, far_side, transit, we_hid_it) in &mut bodies {
+    for (entity, mut visibility, far_side, transit, mut ours) in &mut bodies {
         // Any reason hides. Reasons are not ranked, and a body can hold both
         // during the handoff frame.
         let hide = far_side || transit;
@@ -114,14 +137,25 @@ pub fn resolve_portal_source_visibility(
             // writes `Visible`/`Hidden` for every `FeatureVisual` each frame and
             // runs before portal presentation, so a one-time write would be undone
             // on the next frame.
-            if *visibility != Visibility::Hidden {
+            //
+            // Keep the tick of our own write only. A body another owner left
+            // `Hidden` this frame is not ours to vouch for.
+            let wrote = (*visibility != Visibility::Hidden).then(|| {
                 *visibility = Visibility::Hidden;
-            }
+                visibility.last_changed()
+            });
             hidden_bodies.insert(entity);
-            if !we_hid_it {
-                commands.entity(entity).insert(PortalSourceHidden);
+            match ours.as_deref_mut() {
+                Some(marker) => {
+                    if wrote.is_some() {
+                        marker.wrote = wrote;
+                    }
+                }
+                None => {
+                    commands.entity(entity).insert(PortalSourceHidden { wrote });
+                }
             }
-        } else if we_hid_it {
+        } else if ours.is_some() {
             // Release the claim without asserting a value. Other owners hide this
             // body too (morph-ball and submerged presentation). This resolver runs
             // late in `PortalPresentationSet`, after `sync_visuals` and the other

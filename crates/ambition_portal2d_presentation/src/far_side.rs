@@ -90,6 +90,15 @@ pub fn composite_far_side_bodies(
     for entity in &stale {
         commands.entity(entity).despawn();
     }
+    // A body that is no longer a candidate has no pieces this frame, so the
+    // reason "pieces replace it" is false now: give it back. Without this, a
+    // body that stopped being a candidate (it died behind the pane) kept the
+    // reason, and the portal kept its claim after the pane was gone.
+    for entity in &hidden {
+        if !candidates.contains(entity) {
+            give_back(&mut commands, entity, &hidden);
+        }
+    }
 
     // Near and far are relative to a viewpoint. Without one, every body
     // draws as it did before.

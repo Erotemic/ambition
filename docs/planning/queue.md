@@ -100,9 +100,19 @@ row starts with a failing production-path witness.
    `(280, 4, 2)`; no same-tick cooldown memory, red at 300 px. Not
    witnessed: a rewind across the settle (the settle keeps no state of its
    own; the bank and the cooldown are rollback state).
-3. PORTAL-VISIBILITY. `PortalSourceHidden` records the portal's own hide, not
-   that nothing else hides the body. A body killed or hidden behind a portal
-   gets far-side fragments. A stale `PortalCompositingCandidate` stays.
+3. ✅ 2026-10-11, PORTAL-VISIBILITY. `PortalSourceHidden` recorded the
+   portal's own hide, and the publisher read it as "visible but for the
+   portal": a body that died behind a pane kept its candidate and its pieces.
+   The marker keeps the change tick of the resolver's own `Hidden` write; a
+   later write is another owner's answer
+   (`PortalSourceHidden::portal_alone_hides`, also read by hit-flash). The
+   publisher removes the candidate of a drawable that is not one this frame,
+   and the compositor gives back the far-side reason of a body that is no
+   longer a candidate, so the portal lets go when the pane goes. Witness:
+   `a_body_that_dies_behind_a_pane_draws_no_pieces` (poisons: the old marker
+   rule, and no candidate removal, both red at "pieces draw the dead body";
+   without the give-back, red at the marker after the pane is gone). Not
+   witnessed: the hit-flash overlay of a body that dies behind a pane.
 4. ERRAND-INSTANCE. A cross-room errand routes by room definition and takes
    the lowest live instance. An item in the second live instance of a room is
    reached in the wrong instance, or reported `Gone`.

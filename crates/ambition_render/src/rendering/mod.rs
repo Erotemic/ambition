@@ -122,7 +122,6 @@ mod nameplates;
 mod parallax;
 mod primitives;
 pub mod terrain_skin;
-pub mod chain_skin;
 pub mod projectile_visuals;
 pub(crate) mod sheet_atlas;
 pub mod shrine_visuals;
@@ -211,7 +210,7 @@ pub use wielded_item_visuals::{
     WieldedItemVisualAppExt, WieldedItemVisualCatalog, WieldedItemVisualSpec,
 };
 pub use world::{
-    apply_entity_art, fit_tiled_block_tiles, flinch_struck_blocks, refresh_entity_sprite_handles_on_game_assets_change, TiledBlockTile,
+    apply_entity_art, build_filled_ground_meshes, fit_tiled_block_tiles, flinch_struck_blocks, refresh_entity_sprite_handles_on_game_assets_change, TiledBlockTile,
     present_live_room_visuals, spawn_room_visuals, spawn_surface_chain_visuals,
     DOOR_SPRITE_ASPECT,
     sync_lock_wall_visuals, sync_removed_block_visuals, PresentedRoomVisuals,

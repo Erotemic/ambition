@@ -325,7 +325,11 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 #[cfg(feature = "input")]
                 capture_armed_rebind.run_if(kaleidoscope_menu_visible),
                 // Scroll the System window independently of selection before republish.
-                kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
+                // After the touch layer has folded this frame's drag into the
+                // menu frame, which is what the consume set is pinned behind.
+                kaleidoscope_scroll_wheel
+                    .run_if(kaleidoscope_menu_visible)
+                    .in_set(ambition_platformer2d::actors::schedule::MenuFrameConsume),
                 kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
                 // Build the System model + radio/dev snapshots ONCE per frame; the
                 // republish + both in-place sync systems read this cache instead of

@@ -64,24 +64,28 @@ pub fn fold_touch_gestures(
         devices.mark_primary(ActiveDevice::Touch);
     }
 
-    let Ok(window) = windows.single() else {
-        gesture.drag_scroll.reset();
-        return;
-    };
-
     let occupied = |pos: &Vec2| touch_control_area_contains(*pos, &placement);
     let touch_pos = touches
         .iter()
         .map(|touch| touch.position())
         .find(|pos| !occupied(pos));
+    // Only the mouse needs the window, for its cursor. A finger carries its
+    // own position, so a drag still scrolls where there is no primary window
+    // (an offscreen capture).
     let mouse_pos = if mouse_buttons.pressed(MouseButton::Left) {
-        window.cursor_position().filter(|pos| !occupied(pos))
+        windows
+            .single()
+            .ok()
+            .and_then(Window::cursor_position)
+            .filter(|pos| !occupied(pos))
     } else {
         None
     };
     let menu_pos = touch_pos.or(mouse_pos);
 
-    frame.scroll_y += gesture.drag_scroll.update(menu_pos, 30.0, 3.0, 5.0);
+    let dragged = gesture.drag_scroll.update(menu_pos, 30.0, 3.0, 5.0);
+    frame.scroll_y += dragged;
+    frame.drag_scroll_y += dragged;
 }
 
 /// Should `pos` count as occupied by an on-screen touch control?

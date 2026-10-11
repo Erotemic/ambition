@@ -138,6 +138,9 @@ pub fn sync_cutscene_ui(
             ZIndex(50),
             Name::new("Cutscene Overlay Root"),
             CutsceneOverlayRoot,
+            // A full-screen layout box with nothing to press. Picked, it would
+            // sit over a pause menu and take every click and tap meant for it.
+            bevy::picking::Pickable::IGNORE,
         ))
         .with_children(|root| {
             // Top: banner card. The runtime advances it on its own timer; the

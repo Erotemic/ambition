@@ -89,6 +89,13 @@ pub struct MenuControlFrame {
     /// Positive values mean “navigate/scroll up”, negative values mean
     /// “navigate/scroll down”. Mouse wheels and touch drags both add here.
     pub scroll_y: f32,
+    /// The part of [`Self::scroll_y`] a pointer drag added this frame (a finger,
+    /// or a held mouse button), in the same units and sign.
+    ///
+    /// A list that moves its selection reads `scroll_y` and treats wheel and
+    /// drag alike. A list that scrolls its window reads the wheel from its own
+    /// events, and needs the drag alone to follow the finger.
+    pub drag_scroll_y: f32,
     /// The analog stick's held deflection, in screen space: `+x` right, `+y`
     /// down. Only the stick writes this field.
     ///

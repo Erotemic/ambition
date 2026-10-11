@@ -29,6 +29,10 @@ fn system_row_count(
 /// later keyboard move clears the override and the window snaps back to the cursor.
 /// Only acts on a scrollable System list (more rows than fit); a short list ignores
 /// the wheel. Mouse OR touchpad scroll both arrive as `MouseWheel`.
+///
+/// A finger dragged over the list scrolls the same window, so the rows follow
+/// the finger. The drag arrives on the menu frame, already folded into row
+/// steps; the tap it began as is cancelled by the pointer observers.
 pub(crate) fn kaleidoscope_scroll_wheel(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
@@ -40,6 +44,7 @@ pub(crate) fn kaleidoscope_scroll_wheel(
     cursor: Res<KaleidoscopeCursor>,
     mut scroll: ResMut<KaleidoscopeScroll>,
     mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
+    menu_frame: Res<MenuControlFrame>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
     if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
@@ -57,6 +62,8 @@ pub(crate) fn kaleidoscope_scroll_wheel(
             0
         };
     }
+    // A drag up the screen is negative on the frame and moves the window down.
+    steps -= menu_frame.drag_scroll_y.round() as i32;
     if steps == 0 {
         return;
     }

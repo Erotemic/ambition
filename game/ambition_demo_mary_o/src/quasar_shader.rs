@@ -299,7 +299,8 @@ fn attach_quasar_overlays(
 }
 
 /// Whether the quasar draws over this body: her form, empowered, visible, and
-/// the effect turned up.
+/// the effect turned up. Her cosmic form is empowered at all times and has a
+/// look of its own, so the quasar does not draw over it.
 fn quasar_shows(
     worn: &WornCharacter,
     health: &BodyHealth,
@@ -307,6 +308,7 @@ fn quasar_shows(
     settings: &MaryOQuasarShaderSettings,
 ) -> bool {
     crate::powerups::is_her_form(worn.id())
+        && !crate::cosmic::is_cosmic(worn.id())
         && health
             .health
             .invulnerable
@@ -570,6 +572,7 @@ mod tests {
         assert!(is_mary_o_form("mary_o"));
         assert!(is_mary_o_form("mary_o_tall"));
         assert!(is_mary_o_form("mary_o_fire"));
+        assert!(is_mary_o_form("mary_o_cosmic"));
         assert!(!is_mary_o_form("sanic"));
     }
 

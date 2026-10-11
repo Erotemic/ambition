@@ -12,6 +12,12 @@
 //! the scholar the same way, draw them with the same rows, hold the same
 //! volumes and refuse and pass the same blows, tick for tick.
 //!
+//! The module has a phase the native conductor did not: the giant's arms are
+//! ON it until the encounter leaves phase 1. The trace is of the fight after
+//! that, with the fists as bodies of their own: one tick of an enraged
+//! encounter before the trace puts the arms in their lines (`run`), and each
+//! fist rests where the module rests it (`ch::arms::rest`).
+//!
 //! ⚠ Deliberately different, and so not compared:
 //! - the OWNER of a fist's hit volume: the native conductor gave it to the
 //!   fist, the held-box port gives it to the scholar the module runs for;
@@ -174,7 +180,9 @@ fn world(road: Road) -> (App, Cast) {
             .id()
     };
     let gnu_pos = ae::Vec2::new(900.0, 1040.0);
-    let fists = [fist(world, gnu_pos + ae::Vec2::new(-270.0, -70.0)), fist(world, gnu_pos + ae::Vec2::new(270.0, -70.0))];
+    // Each fist rests out from the line its arm is in.
+    let rests = [ch::arms::rest(0), ch::arms::rest(1)].map(|rest| ae::Vec2::new(rest.x, rest.y));
+    let fists = [fist(world, gnu_pos + rests[0]), fist(world, gnu_pos + rests[1])];
     let gnu = world
         .spawn((
             body(gnu_pos, ae::Vec2::new(439.0, 414.0), -1.0),
@@ -186,8 +194,8 @@ fn world(road: Road) -> (App, Cast) {
             room,
         ))
         .id();
-    for (i, (slot, home)) in [(LimbSlot::HAND_LEFT, -270.0), (LimbSlot::HAND_RIGHT, 270.0)].into_iter().enumerate() {
-        world.entity_mut(fists[i]).insert(Limb { of: gnu, slot, home_offset: ae::Vec2::new(home, -70.0) });
+    for (i, slot) in [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].into_iter().enumerate() {
+        world.entity_mut(fists[i]).insert(Limb { of: gnu, slot, home_offset: rests[i] });
     }
     let catalog = crate::bosses::shipped_boss_catalog();
     let mut boss = BossClusterScratch::new(
@@ -235,6 +243,16 @@ fn run(road: Road) -> Trace {
         let gnu = world.get::<BodyKinematics>(cast.gnu).unwrap();
         world.get::<ambition_mount::BackLedge>(cast.gnu).unwrap().aabb(gnu, true)
     };
+    // Before the trace: one tick of an enraged encounter. The module puts the
+    // giant's arms in their lines then, and the fight of the trace is the
+    // fight of the fists as bodies of their own. Each road runs the tick, so
+    // their clocks agree.
+    app.world_mut().get_mut::<BossEncounter>(cast.scholar).unwrap().encounter.as_mut().unwrap().phase =
+        BossEncounterPhase::Enrage;
+    app.world_mut().run_schedule(Sim);
+    app.world_mut().flush();
+    observe(&mut app, &cast, &mut seen);
+    app.world_mut().resource_mut::<ambition_time::SimTick>().0 += 1;
     let mut trace = Vec::new();
     for tick in 0..TICKS {
         // The player walks the floor, and climbs onto the gnu's back for the

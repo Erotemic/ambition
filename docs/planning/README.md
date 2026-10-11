@@ -76,6 +76,9 @@ links to.
 - [`game/art-and-ambiance.md`](game/art-and-ambiance.md) — backgrounds, terrain
   skins, foregrounds and motes for each biome; the rules of the art lane.
 - [`game/bosses.md`](game/bosses.md) — boss design language and specific bosses.
+- [`game/gnu-ton-fight-debts.md`](game/gnu-ton-fight-debts.md) — what is
+  not elegant in GNU-ton's fight with arms and portals, what each part
+  should be, and an order for the refactor.
 - [`game/multiplayer.md`](game/multiplayer.md) — Ambition multiplayer product
   intent.
 

@@ -265,11 +265,29 @@ fn the_gnu_stands_on_the_floor_and_carries_a_person_sized_scholar() {
     }
 }
 
+/// The arena with the fight past its phase 1: the giant's arms are in their
+/// two lines and its fists are bodies of their own. The encounter is put in
+/// phase 2; no blow is dealt, so the scholar's health is whole.
+fn arena_with_free_fists() -> Platformer2dSimHarness {
+    use ambition_platformer2d::boss_encounter::{BossEncounter, BossEncounterPhase};
+    let mut sim = arena();
+    {
+        let world = sim.world_mut();
+        let mut bosses = world.query::<(&BossConfig, &mut BossEncounter)>();
+        let (_, mut encounter) = bosses
+            .iter_mut(world)
+            .find(|(config, _)| config.behavior.id == GNU_TON_ID)
+            .expect("GNU-ton is in the arena");
+        encounter.encounter.as_mut().expect("his encounter has its phases").phase = BossEncounterPhase::Phase2;
+    }
+    sim
+}
+
 /// A demonstration hovers over the player, falls where they stood, hurts them,
 /// and stays in the floor; a blow to the stuck fist lands on the scholar.
 #[test]
 fn a_slam_lands_where_you_stood_and_the_stuck_fist_carries_your_blow_to_him() {
-    let mut sim = arena();
+    let mut sim = arena_with_free_fists();
     place_player(&mut sim, ae::Vec2::new(400.0, 1200.0));
     let (_, hp_before) = player(&mut sim);
     step_until(&mut sim, 900, "a fist stuck in the floor after a demonstration", |sim| {
@@ -366,7 +384,7 @@ fn his_own_fists_never_hurt_him() {
 /// bucks it throws whoever is standing there.
 #[test]
 fn you_can_stand_on_the_giants_shoulders_until_it_bucks() {
-    let mut sim = arena();
+    let mut sim = arena_with_free_fists();
     untouchable_player(&mut sim);
     let s = scene(&mut sim);
     let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
@@ -457,7 +475,7 @@ fn hit_him_from_the_gnus_back_and_it_bucks_you_off() {
 /// the floor, then climbs back to the saddle.
 #[test]
 fn eureka_puts_him_on_the_floor_and_he_climbs_back() {
-    let mut sim = arena();
+    let mut sim = arena_with_free_fists();
     untouchable_player(&mut sim);
     place_player(&mut sim, ae::Vec2::new(300.0, 1200.0));
     step_until(&mut sim, 3000, "him dazed on the floor after the apple rain", |sim| {
@@ -539,14 +557,16 @@ fn the_scholar_turns_and_the_gnu_under_him_does_not() {
     }
 }
 
-/// Entering the arena, the fists start where they stand and stay at the giant.
+/// Entering the arena, the fists are on the giant's arms and stay there until
+/// his first move: the fight starts with the arms on it (phase 1), and a fist
+/// that is in the giant's picture has its body inside the giant.
 ///
 /// The conductor eased its fists from a defaulted latch at the world origin, so
 /// two frames after the room loaded both jumped ~1300 px to the room's top-left
 /// corner and slid back (Jon: "the hands start in the upper left corner, and
 /// then very quickly move into the correct location").
 #[test]
-fn entering_the_arena_the_fists_start_where_they_stand() {
+fn entering_the_arena_the_fists_are_on_the_giants_arms() {
     let opts = Platformer2dSimHarnessOptions::default()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_required_start_room("hall_of_bosses");
@@ -600,22 +620,34 @@ fn entering_the_arena_the_fists_start_where_they_stand() {
         let performing = scholar.and_then(|e| conductor_of(world, e)).is_some_and(|view| view.performing.is_some());
         (fists, homes, giant, performing)
     };
+    let (built, ..) = fists(&mut sim);
+    assert_eq!(built.len(), 2, "the premise: both fists are in the arena from its first frame");
+    // A fist is built at its limb's home. The first tick he conducts puts it
+    // on the giant's arm, drawn as nothing. That tick is not the first tick
+    // of the room (MEASURED 2026-10-11: the second), so for those ticks a
+    // fist is at its home. It is a debt of the fight
+    // (`docs/planning/game/gnu-ton-fight-debts.md`), and this is its bound.
+    let mut waited = 0;
+    loop {
+        sim.step(AgentAction::default());
+        let (now, _, giant, _) = fists(&mut sim);
+        if now.iter().all(|at| (*at - giant.pos).length() <= 1.0) {
+            break;
+        }
+        waited += 1;
+        assert!(waited < 3, "after {waited} ticks in the arena the fists are not on the giant's arms: {now:?}");
+    }
     let (mut last, ..) = fists(&mut sim);
-    assert_eq!(last.len(), 2, "the premise: both fists are in the arena from its first frame");
     let mut resting = 0;
     for frame in 0..60 {
         sim.step(AgentAction::default());
-        let (now, homes, giant, performing) = fists(&mut sim);
-        // Resting before his first move, a fist bobs (10 px) about its limb's
-        // home: the one the spawn built it with. A second statement of the
-        // home would park it somewhere else. (It is built ~15 px low — spawn
-        // places it from the placement's box, before the gnu's body takes its
-        // sheet's height — and eases up over the first 0.6 s.)
-        if !performing && frame >= 40 {
+        let (now, _homes, giant, performing) = fists(&mut sim);
+        // Before his first move each fist's body is in the middle of the giant.
+        if !performing {
             resting += 1;
-            for (at, home) in now.iter().zip(&homes) {
-                let off = *at - (giant.pos + *home);
-                assert!(off.length() <= 10.5, "frame {frame}: a resting fist is {off:?} from its home {home:?}");
+            for at in &now {
+                let off = *at - giant.pos;
+                assert!(off.length() <= 1.0, "frame {frame}: a fist on its arm is {off:?} from the giant's middle");
             }
         }
         for (before, after) in last.iter().zip(&now) {

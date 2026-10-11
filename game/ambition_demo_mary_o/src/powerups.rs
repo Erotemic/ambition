@@ -774,9 +774,16 @@ fn worn_form_rank(worn: Option<&WornEquipment>) -> u8 {
         .unwrap_or(0) as u8
 }
 
-/// Whether `character_id` is one of her forms: a rung of her ladder.
+/// Whether `character_id` is one of her forms: a rung of her ladder, or the
+/// form that is off the ladder (`cosmic`).
 pub(crate) fn is_her_form(character_id: &str) -> bool {
-    FORM_LADDER.iter().any(|rung| rung.character == character_id)
+    FORM_LADDER.iter().any(|rung| rung.character == character_id) || crate::cosmic::is_cosmic(character_id)
+}
+
+/// The character of the rung her equipment puts her on: the form she has
+/// when no other rule says what she wears.
+pub(crate) fn ladder_character(worn: Option<&WornEquipment>) -> &'static str {
+    FORM_LADDER[worn_form_rank(worn) as usize].character
 }
 
 /// The rung a worn-character id draws. An id off the ladder is the bottom rung.
@@ -1027,8 +1034,14 @@ pub fn sync_grown_form(
     // (wand) forms are the SAME height: the beacon downgrades INTO the wand on a
     // hit, so across that transition she stays tall and only her look and spark
     // loadout change. Only the final grown -> small hit changes her size.
-    let target_id = FORM_LADDER[worn_form_rank(worn) as usize].character;
+    let target_id = ladder_character(worn);
     if worn_char.id() == target_id {
+        return;
+    }
+    // The cosmic form is off the ladder: what she wears while she is in it
+    // changes the rung she comes back to, and not the form she has now
+    // (`cosmic::toggle_cosmic_form`).
+    if crate::cosmic::is_cosmic(worn_char.id()) {
         return;
     }
     // No size is written here, and that is the fix.
@@ -1139,7 +1152,7 @@ fn transition_anim(from_tier: u8, to_tier: u8) -> CharacterAnim {
 /// Resolved through the sheet's anim set exactly as the drawing will be, so a
 /// form that never drew the clip answers with the length of whatever it falls
 /// back to — the beat then lasts as long as what the player actually sees.
-fn clip_seconds(
+pub(crate) fn clip_seconds(
     catalog: Option<&ambition_platformer2d::character::CharacterCatalog>,
     authored: Option<&ambition_platformer2d::character::AuthoredSheets>,
     character_id: &str,

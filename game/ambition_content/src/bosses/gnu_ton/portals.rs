@@ -76,14 +76,6 @@ impl GnuTonLine {
         }
     }
 
-    fn half_length(self) -> f32 {
-        match self {
-            GnuTonLine::PunchNear | GnuTonLine::PunchFar => arms::PUNCH_HALF,
-            GnuTonLine::Shoulder(_) => arms::SHOULDER_HALF,
-            GnuTonLine::Wrist(_) => arms::WRIST_HALF,
-        }
-    }
-
     fn name(self) -> &'static str {
         match self {
             GnuTonLine::PunchNear => "punch_near",
@@ -166,7 +158,7 @@ pub fn open_gnu_ton_portals(
                         line.channel(),
                         at,
                         normal,
-                        portal_half_extent_with_length(normal, line.half_length()),
+                        portal_half_extent_with_length(normal, arms::PUNCH_HALF),
                     ),
                     GnuTonPortal(line),
                     Name::new(format!("GNU-ton portal: {}", line.name())),
@@ -189,27 +181,30 @@ pub fn light_gnu_ton_lines(
     let Some(scope) = commands.spawn_scope() else {
         return;
     };
-    let mut wanted: Vec<(LiveRoomInstance, GnuTonLine, ae::Vec2)> = Vec::new();
+    // Each line: its room, which it is, its middle, its length. The length
+    // changes: the lines open wide and close on the arms (the clamp).
+    let mut wanted: Vec<(LiveRoomInstance, GnuTonLine, ae::Vec2, f32)> = Vec::new();
     for (room, conductor) in conductors(&scholars, &live) {
-        for (line, at) in GnuTonLine::LOOKS.into_iter().zip(conductor.look_lines()) {
-            if let Some(at) = at {
-                wanted.push((room, line, ae::Vec2::new(at.x, at.y)));
+        for (line, placed) in GnuTonLine::LOOKS.into_iter().zip(conductor.look_lines()) {
+            if let Some((at, half)) = placed {
+                wanted.push((room, line, ae::Vec2::new(at.x, at.y), half * 2.0));
             }
         }
     }
     for (entity, tag, mut light) in &mut lines {
         let room = live.of(entity);
-        match wanted.iter().position(|(r, line, _)| Some(*r) == room && *line == tag.0) {
+        match wanted.iter().position(|(r, line, ..)| Some(*r) == room && *line == tag.0) {
             Some(index) => {
-                let (_, _, at) = wanted.swap_remove(index);
-                if light.pos != at {
+                let (_, _, at, length) = wanted.swap_remove(index);
+                if light.pos != at || light.length != length {
                     light.pos = at;
+                    light.length = length;
                 }
             }
             None => commands.entity(entity).despawn(),
         }
     }
-    for (room, line, at) in wanted {
+    for (room, line, at, length) in wanted {
         commands
             .spawn_room_in_session(
                 scope,
@@ -218,7 +213,7 @@ pub fn light_gnu_ton_lines(
                         channel: line.channel(),
                         pos: at,
                         normal: line.normal(),
-                        length: line.half_length() * 2.0,
+                        length,
                     },
                     GnuTonPortal(line),
                     Name::new(format!("GNU-ton light line: {}", line.name())),

@@ -97,6 +97,29 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
   - The quasar is a ward (`VoidWard`, `void_look.rs`): near Mary-O with the
     quasar the field of the void takes nothing. A quasar is in a brick at
     the start of the garden of 1-4.
+- Eternal Cosmic Mary-O (Jon, 2026-10-11): her ultimate form, and today the
+  tool a tester moves through a level with. The Utility control (the `d` key)
+  puts her in the form and takes her out of it (`cosmic.rs`).
+  - The form is the catalog row `mary_o_cosmic`: she is not hurt and she
+    harms what she touches (`empowered`), each press of jump in the air is a
+    jump (`AirJump`, and 255 air jumps in the `cosmic` tuning), and she is
+    faster. The form is off her ladder of forms: she is in it while she wears
+    its row, and she comes back to the rung her equipment gives her.
+  - Her sheet is `mary_o_v2_cosmic` of the sprite renderer, drawn on her v2
+    body. A jump is one beat of her wings. The row `transform` is the
+    transformation from her fire form, 36 frames; the game holds her in it
+    for as long as it takes to draw, and a second press ends it.
+  - Light is not in her sheet: the glow with stars behind her is a shader
+    that reads the starlight shimmer picture (`cosmic_aura.rs`). The engine's
+    spark particles are squares and were taken out; a star particle is not
+    made. She has the ward against the void at all times in the form
+    (`void_look.rs`), and the overlay of the quasar does not draw over her.
+  - Her theme is the cue `eternal_cosmic` of the music renderer: an intro as
+    long as the transformation, then a loop. Until it is published the form
+    plays the theme of the quasar (`cosmic::COSMIC_MUSIC_TRACK`).
+  - Not decided: what gives her the form in the game (today each player has
+    it at all times), a transformation from each of her other forms (the one
+    row starts from fire), and a clip for her way out of the form.
 - Physics: one `classic` entry in `axis_tuning_presets`
   (`data/character_catalog.ron`), which every form names. Launch bands are
   offsets on `jump_speed`, so one ground-jump height authority exists, and a

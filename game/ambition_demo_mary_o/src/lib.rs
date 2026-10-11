@@ -18,6 +18,8 @@ pub mod ai_slop;
 #[cfg(test)]
 mod binding_tests;
 pub mod bricks;
+pub mod cosmic;
+pub mod cosmic_aura;
 pub mod death;
 pub mod fire_shader;
 pub mod flag;
@@ -1155,6 +1157,7 @@ impl Plugin for MaryODemoContentPlugin {
         shimmer_shader::install(app);
         fire_shader::install(app);
         void_look::install(app);
+        cosmic_aura::install(app);
         let room = level_1_1();
         let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
             provider::MARY_O_EXPERIENCE,
@@ -1395,6 +1398,8 @@ impl Plugin for MaryORulesPlugin {
                 scope,
                 ambition_platformer2d::characters::action_scheme::DrivenTechniques(vec![
                     movement::run_technique("Run"),
+                    // Her ultimate form, on the Utility control.
+                    cosmic::transform_technique(),
                 ]),
             );
         }
@@ -1611,6 +1616,22 @@ impl Plugin for MaryORulesPlugin {
         app.add_systems(sim, after_the_star.run_if(gate.clone()));
         app.add_systems(sim, bricks.run_if(gate.clone()));
         app.add_systems(sim, gait.run_if(gate.clone()));
+        // After the gate: the press of her transformation is a technique edge
+        // that the gate resolved. The gate is in `WorldPrep`.
+        app.add_systems(
+            sim,
+            (cosmic::toggle_cosmic_form, cosmic::lend_the_jump_in_the_air)
+                .chain()
+                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)
+                .after(ambition_platformer2d::actors::avatar::WornControlGateSet)
+                .run_if(gate.clone()),
+        );
+        app.add_systems(
+            sim,
+            cosmic::play_cosmic_music
+                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::GameplayEffects)
+                .run_if(gate.clone()),
+        );
         app.add_systems(sim, brick_overlay.run_if(gate.clone()));
         // Mary-O's per-attempt block state. Which bricks are smashed and which
         // ?-blocks are spent is exactly the "content-named per-attempt state"

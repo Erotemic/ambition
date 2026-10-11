@@ -1831,7 +1831,12 @@ fn gnu_ton_s_apple_rain_falls_in_its_own_live_room() {
     let (rooms, second) = a_boss_fires_beside_bob(
         "gnu_ton_arena",
         "gnu_ton_rider",
-        |_| {},
+        // The apple rain is a move of phase 2 (the fists as bodies of their
+        // own), and phase 1 ends at a part of his health
+        // (`gnu_ton_rider.ron`). Half is under that and over the enrage.
+        |health| {
+            health.damage(health.max() / 2);
+        },
         |visual, _| visual == "apple",
         // Where `gnu_ton_fight` stands its player for the apple rain.
         |_| ambition_platformer2d::engine_core::Vec2::new(300.0, 1200.0),

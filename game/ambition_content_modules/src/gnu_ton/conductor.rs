@@ -11,6 +11,15 @@
 //! Its first blow passes on to the scholar; then it is spent until it sticks
 //! again, so a phase lasts as long as its rhythm, not as long as the player
 //! swings. Hurt him from the gnu's back and the gnu bucks you off.
+//!
+//! The giant's arms: the fight starts with them ON it (phase 1), and its fists
+//! are in its picture. It punches down into a portal by its shoulder, and the
+//! fist comes out of the pair's far line, over the player; the pair is a real
+//! one, so the player can go up through it to the giant's back. When the
+//! encounter leaves phase 1 the arms go into two lines that close on them
+//! (the clamp), and from then the fists are bodies of their own. This module
+//! says where each line is in its record; the game opens the portals
+//! (`ambition_content::bosses::gnu_ton::portals`).
 
 use ambition_boss_special_port::{
     BossConduct, BossConductPort, ConductedPose, ConductedPosePort, DrawnPart, DrawnRow, DrawnRowPort, LimbBlow,
@@ -137,6 +146,19 @@ record! {
     33 landing: [f32; 2],
     /// Eureka held his pose last tick: release it when it ends.
     34 posed: bool,
+    /// The giant's arms are in their two lines, and its fists are bodies of
+    /// their own. Not yet: its arms are on it (phase 1).
+    35 loosed: bool,
+    /// Seconds into the clamp: the arms go into their lines.
+    36 clamp: Option<f32>,
+    /// The punch's pair is open: its near line (by the giant's shoulder, the
+    /// fist goes down into it) and its far line (the fist comes down out of it).
+    37 punch_open: bool,
+    38 punch_near: [f32; 2],
+    39 punch_far: [f32; 2],
+    /// The lines that are a look and no way through: the left shoulder's, the
+    /// right shoulder's, the left wrist's, the right wrist's.
+    40 lines: Vec<Option<[f32; 2]>> [max 4],
 }
 
 /// The part of a beat being performed.
@@ -207,7 +229,18 @@ impl Conductor {
         self.wave_x.resize(WAVES, None);
         self.wave_dir.resize(WAVES, 0.0);
         self.wave_generation.resize(WAVES, 0);
+        self.lines.resize(4, None);
         self
+    }
+
+    /// The pair of the punch, when it is open: its near line and its far line.
+    pub fn punch_pair(&self) -> Option<[Vec2; 2]> {
+        self.punch_open.then(|| [v(self.punch_near), v(self.punch_far)])
+    }
+
+    /// The lines that are a look and no way through (see `lines`).
+    pub fn look_lines(&self) -> [Option<Vec2>; 4] {
+        std::array::from_fn(|i| self.lines.get(i).copied().flatten().map(v))
     }
 
     fn part(&self) -> Option<Part> {
@@ -397,7 +430,20 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     let fist_size = Fist::BOTH.iter().find_map(|f| limb(*f).map(|l| v(l.size))).unwrap_or(DEFAULT_FIST);
     let current: [Vec2; 2] = std::array::from_fn(|i| limb(Fist::BOTH[i]).map_or(giant_pos, |l| v(l.position)));
     let rests = std::array::from_fn(|i| limb(Fist::BOTH[i]).map(|l| v(l.home_offset)));
-    let stage = Stage { hall, homes: homes(giant_pos, rests), scholar: scholar_pos, fist: fist_size };
+    // The drawing faces one way; a giant that is turned has each place on
+    // the other side.
+    let turn = if giant.unmirrored { 1.0 } else { -1.0 };
+    let from_giant = |offset: Vec2| giant_pos + Vec2::new(offset.x * turn, offset.y);
+    // The line each fist's arm is in: the shoulder on its own side.
+    let shoulder = |fist: Fist| from_giant(ch::arms::SHOULDER_LINES[usize::from(fist.side() * turn > 0.0)]);
+    let mut stage = Stage { hall, homes: homes(giant_pos, rests), scholar: scholar_pos, fist: fist_size };
+    if c.loosed || c.clamp.is_some() {
+        // A fist that is a body of its own rests out from the line its arm is in.
+        stage.homes = std::array::from_fn(|i| {
+            let fist = Fist::BOTH[i];
+            shoulder(fist) + Vec2::new(fist.side() * ch::arms::REST_OUT.x, ch::arms::REST_OUT.y)
+        });
+    }
     if !c.seated {
         // A fist that is gone starts at its home.
         c.seat(std::array::from_fn(|i| limb(Fist::BOTH[i]).map_or(stage.homes[i], |l| v(l.position))));
@@ -459,6 +505,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
                             curve_phase: ch::fluxions::phase_for(&stage, aim_now.x, lead.side()),
                         });
                         c.aims = vec![a(aim_now); 2];
+                        if mv == Move::PortalPunch {
+                            // The far line opens over where the player is now, and stays.
+                            c.punch_far = a(ch::arms::far_line(&stage, giant_pos, giant_size, aim_now));
+                        }
                         c.set_part(Some(Part { mv, striking, t: 0.0, tel_dur: 0.0, beat_t: 0.0 }));
                     }
                 }
@@ -488,6 +538,36 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
             }
             c.last_remaining = remaining;
         }
+    }
+
+    // ── The giant's arms: on it, or in their lines ──
+    if !c.loosed {
+        if scholar.between_phases && c.clamp.is_none() {
+            c.clamp = Some(0.0);
+            play(inv, SFX_SNORT, giant_pos)?;
+        }
+        // A move of the free fists, with no clamp before it (a fight that
+        // starts late): the arms are in their lines now.
+        let skipped = scholar.enraged || live.is_some_and(|(mv, ..)| mv.frees_the_fists());
+        let through = c.clamp.is_some_and(|t| t + dt >= ch::arms::CLAMP_THROUGH);
+        if skipped || through {
+            c.loosed = true;
+            // Each fist comes out of its line where it rests.
+            c.latch_from = vec![a(stage.homes[0]), a(stage.homes[1])];
+            c.resting = 1.0;
+            c.last_pos = vec![None; 2];
+            for fist in Fist::BOTH {
+                spark(inv, stage.home(fist), GOLD, 16, 240.0)?;
+            }
+        }
+    }
+    if let Some(t) = c.clamp {
+        c.clamp = (t + dt < ch::arms::CLAMP).then_some(t + dt);
+    }
+    let arms_on = !c.loosed;
+    c.punch_open = arms_on && c.part().is_some_and(|p| p.mv == Move::PortalPunch);
+    if c.punch_open {
+        c.punch_near = a(from_giant(ch::arms::NEAR_LINE));
     }
 
     // ── The fists ──
@@ -529,11 +609,18 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
 
     // ── What he and the gnu are drawn as ──
-    draw(inv, DrawnPart::Body, ch::rows::scholar(cue.as_ref()))?;
-    match c.reflex {
+    match c.clamp {
+        // He calls the two lines that take the arms.
+        Some(t) => draw(inv, DrawnPart::Body, Some((&["invoke"], t, false)))?,
+        None => draw(inv, DrawnPart::Body, ch::rows::scholar(cue.as_ref()))?,
+    }
+    match (c.reflex, c.clamp) {
         // The reflex rears and bucks, whatever his fists are doing.
-        Some(t) => draw(inv, DrawnPart::Mount, Some((&["buck"], t, false)))?,
-        None => draw(inv, DrawnPart::Mount, ch::rows::gnu(cue.as_ref()))?,
+        (Some(t), _) if arms_on => draw(inv, DrawnPart::Mount, Some((&["armed_buck", "buck"], t, false)))?,
+        (Some(t), _) => draw(inv, DrawnPart::Mount, Some((&["buck"], t, false)))?,
+        (None, Some(t)) => draw(inv, DrawnPart::Mount, Some((&["clamp"], t, false)))?,
+        (None, None) if arms_on => draw(inv, DrawnPart::Mount, Some(ch::arms::gnu(cue.as_ref(), clock)))?,
+        (None, None) => draw(inv, DrawnPart::Mount, ch::rows::gnu(cue.as_ref()))?,
     }
     let mut poses = [Pose::idle(Vec2::ZERO); 2];
     for fist in Fist::BOTH {
@@ -556,7 +643,60 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         };
     }
 
-    for fist in Fist::BOTH {
+    // ── The fists on their arms (phase 1) ──
+    for fist in Fist::BOTH.into_iter().filter(|_| arms_on) {
+        let i = fist.index();
+        let Some(body) = limb(fist) else {
+            continue;
+        };
+        let slot = FIST_SLOTS[i].to_string();
+        // The right fist is the one that goes through the pair. A fist that
+        // is not through is in the giant's picture: its body waits inside the
+        // giant, drawn as nothing, and is no opening.
+        let through = cue.as_ref().filter(|_| fist == Fist::Right).and_then(ch::arms::through);
+        let pos = if through.is_some() { ch::arms::far_fist(v(c.punch_far)) } else { giant_pos };
+        inv.submit::<LimbPosePort>(LimbPose {
+            slot: slot.clone(),
+            hold: Some(LimbHold { position: a(pos), velocity: [0.0, 0.0], facing: fist.side() }),
+        })?;
+        draw(inv, fist_part(fist), Some(through.map_or(ch::arms::NO_FIST, |(row, _)| row)))?;
+        if body.lost_health > 0 {
+            inv.submit::<LimbBlowPort>(LimbBlow { slot: slot.clone(), pass: false })?;
+        }
+        inv.submit::<LimbOpeningPort>(LimbOpening { slot, open: false })?;
+        if through.is_some_and(|(_, harmful)| harmful) {
+            if !c.armed[i] {
+                c.armed[i] = true;
+                c.armed_at[i] = clock;
+                c.fist_generation[i] = c.fist_generation[i].wrapping_add(1);
+            }
+            inv.submit::<HeldDamageBoxPort>(HeldDamageBox {
+                slot: FIST_BOX_SLOT + i as u32,
+                generation: c.fist_generation[i],
+                center: a(pos),
+                half_extent: a(v(body.size) * 0.5 * FIST_HIT_SCALE),
+                damage: FIST_DAMAGE,
+                knockback: FIST_KNOCKBACK,
+                lifetime_s: REARM + 0.5,
+            })?;
+        } else {
+            c.armed[i] = false;
+        }
+        // The blow lands.
+        if let (Some(cue), true) = (cue.as_ref(), through.is_some()) {
+            if cue.t < ch::arms::LANDS && cue.t + dt >= ch::arms::LANDS {
+                let at = Vec2::new(pos.x, hall.floor);
+                dust(inv, at, 22, 300.0, [0.6, 0.5, 0.4, 1.0])?;
+                play(inv, SFX_STOMP, at)?;
+            }
+        }
+        poses[i] = Pose::idle(pos);
+        c.last_pos[i] = Some(a(pos));
+        c.last_stuck[i] = false;
+    }
+
+    // ── The fists that are bodies of their own ──
+    for fist in Fist::BOTH.into_iter().filter(|_| !arms_on) {
         let i = fist.index();
         let pose = poses[i];
         let Some(body) = limb(fist) else {
@@ -625,6 +765,16 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         }
         c.last_pos[i] = Some(a(pose.pos));
         c.last_stuck[i] = pose.stuck;
+    }
+
+    // ── The lines that are a look: one at each shoulder, one behind each wrist ──
+    let shoulders = c.loosed || c.clamp.is_some();
+    for fist in Fist::BOTH {
+        let i = fist.index();
+        c.lines[i] = shoulders.then(|| a(shoulder(fist)));
+        // The wrist of a fist is on the side of it that is not its own side.
+        let wrist = poses[i].pos - Vec2::new(fist.side() * ch::arms::WRIST_LINE, 0.0);
+        c.lines[2 + i] = (c.loosed && limb(fist).is_some()).then(|| a(wrist));
     }
 
     // ── Telegraph ink ──
@@ -747,6 +897,13 @@ fn ink(
 ) -> Result<(), Fault> {
     let hall = stage.hall;
     match cue.mv {
+        Move::PortalPunch if !cue.striking => {
+            // A plumb line from the far line to where the fist will land.
+            let far = v(c.punch_far);
+            for k in 1..=6 {
+                spark(inv, Vec2::new(far.x, far.y + (hall.floor - far.y) * k as f32 / 6.0), WARNING, 1, 4.0)?;
+            }
+        }
         Move::Demonstrate | Move::DemonstratePair => {
             // A plumb line from each hovering fist to where it will land.
             for fist in Fist::BOTH {

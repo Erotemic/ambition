@@ -445,6 +445,19 @@ impl Plugin for AmbitionBossContentPlugin {
                 .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
         );
+        // The portals of GNU-ton's fight: opened where his conductor's record
+        // says each line is (`gnu_ton::portals`).
+        app.add_systems(
+            sim,
+            gnu_ton::portals::open_gnu_ton_portals
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
+        );
+        #[cfg(feature = "portal_render")]
+        app.add_systems(
+            sim,
+            gnu_ton::portals::light_gnu_ton_lines
+                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep),
+        );
         // The Flying Spaghetti Monster's conductor is the `fsm` procedural
         // module, a conducted boss: the extension composition runs it in
         // `boss_conduct` (after every non-boss body has integrated) and turns

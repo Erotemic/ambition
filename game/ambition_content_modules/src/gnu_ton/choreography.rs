@@ -527,7 +527,7 @@ pub mod rows {
     pub fn scholar(cue: Option<&Cue>) -> Option<Pin> {
         let cue = cue?;
         Some(match cue.mv {
-            Move::Demonstrate | Move::DemonstratePair => (&["point"], cue.beat_t, false),
+            Move::Demonstrate | Move::DemonstratePair | Move::PortalPunch => (&["point"], cue.beat_t, false),
             Move::Pendulum | Move::Cradle | Move::Orbit | Move::Fluxions | Move::FluxionsPair => {
                 (&["conduct"], cue.beat_t, true)
             }
@@ -566,6 +566,107 @@ pub mod rows {
         };
         (row, clock, true)
     }
+}
+
+/// Phase 1 and its end: the giant's arms are on it, then go into two portals.
+///
+/// The places are of the giant's DRAWING (`giant_art.py` of the sprite
+/// renderer: `PUNCH_LINE`, `CLAMP_LINE_L`, `CLAMP_LINE_R`, `FIST_LINE_OVER`,
+/// `FIST_STUB_LINE`), in world units from the middle of its body, typed here
+/// by hand. That is a debt: `docs/planning/engine/
+/// the-art-says-where-a-body-stands.md`.
+pub mod arms {
+    use super::*;
+
+    /// The punch's near line: flat, by the right shoulder. The fist goes DOWN
+    /// into it.
+    pub const NEAR_LINE: Vec2 = Vec2::new(381.6, -140.4);
+    /// Half the length of each line of the punch's pair.
+    pub const PUNCH_HALF: f32 = 65.0;
+    /// The far line is this far over the middle of the fist that came out of it.
+    pub const LINE_OVER: f32 = 156.0;
+    /// The far line is no nearer to the giant's flank than this.
+    pub const CLEAR_OF_FLANK: f32 = 110.0;
+    /// The blow: the row `punch_strike`, and the part of it that hurts.
+    pub const STRIKE: f32 = 0.35;
+    pub const HARM: (f32, f32) = (0.1, 0.42);
+    /// The fist is down at this time of the blow.
+    pub const LANDS: f32 = 0.28;
+    /// The row `punch_recover`, at the end of the strike.
+    pub const RECOVER: f32 = 0.42;
+    /// The row `armed_rest`, and its copy: a pinned row does not loop.
+    pub const REST_ROW: f32 = 0.88;
+
+    /// The two lines the arms are in after phase 1 (left, right): each stands
+    /// up, out from its shoulder.
+    pub const SHOULDER_LINES: [Vec2; 2] = [Vec2::new(-89.0, -143.7), Vec2::new(389.4, -143.7)];
+    pub const SHOULDER_HALF: f32 = 52.0;
+    /// The line behind the wrist of a fist that is a body of its own.
+    pub const WRIST_LINE: f32 = 97.5;
+    pub const WRIST_HALF: f32 = 42.0;
+    /// Where such a fist rests: this far out and down from the line its arm
+    /// is in.
+    pub const REST_OUT: Vec2 = Vec2::new(230.0, 20.0);
+    /// The row `clamp`, and when in it the arms are in their lines: the fists
+    /// are bodies of their own from then.
+    pub const CLAMP: f32 = 0.64;
+    pub const CLAMP_THROUGH: f32 = 0.45;
+
+    /// Where the far line of a punch at `aim` is: over the floor by a fist
+    /// and `LINE_OVER`, and clear of the giant.
+    pub fn far_line(stage: &Stage, giant: Vec2, giant_size: Vec2, aim: Vec2) -> Vec2 {
+        let side = if aim.x < giant.x { -1.0 } else { 1.0 };
+        let clear = giant_size.x * 0.5 + CLEAR_OF_FLANK;
+        let x = if (aim.x - giant.x).abs() < clear { giant.x + side * clear } else { aim.x };
+        let x = x.clamp(stage.hall.left + PUNCH_HALF + 8.0, stage.hall.right - PUNCH_HALF - 8.0);
+        Vec2::new(x, stage.on_floor(x).y - LINE_OVER)
+    }
+
+    /// The middle of the fist that came out of the far line at `line`.
+    pub fn far_fist(line: Vec2) -> Vec2 {
+        line + Vec2::new(0.0, LINE_OVER)
+    }
+
+    /// The giant with its arms on it: the punch, the buck, and its rest.
+    pub fn gnu(cue: Option<&Cue>, clock: f32) -> rows::Pin {
+        match cue.map(|cue| (cue.mv, cue.striking, cue)) {
+            Some((Move::PortalPunch, false, cue)) => (&["punch_windup"], cue.t, false),
+            Some((Move::PortalPunch, true, cue)) => {
+                if cue.t < STRIKE {
+                    (&["punch_strike"], cue.t, false)
+                } else if cue.dur - cue.t > RECOVER {
+                    (&["punch_hold"], cue.t - STRIKE, false)
+                } else {
+                    (&["punch_recover"], RECOVER - (cue.dur - cue.t), false)
+                }
+            }
+            Some((Move::Buck, true, cue)) => (&["armed_buck", "buck"], cue.t, false),
+            _ => {
+                let turn = (clock / REST_ROW) as u32 % 2 == 0;
+                let row: &'static [&'static str] = if turn { &["armed_rest"] } else { &["armed_rest_b", "armed_rest"] };
+                (row, clock % REST_ROW, true)
+            }
+        }
+    }
+
+    /// The fist that comes out of the far line, and if it hurts. `None`: it
+    /// is not through.
+    pub fn through(cue: &Cue) -> Option<(rows::Pin, bool)> {
+        if cue.mv != Move::PortalPunch || !cue.striking {
+            return None;
+        }
+        let harmful = (HARM.0..HARM.1).contains(&cue.t);
+        Some(if cue.t < STRIKE {
+            ((&["through_strike"], cue.t, false), harmful)
+        } else if cue.dur - cue.t > RECOVER {
+            ((&["through_hold"], cue.t - STRIKE, false), harmful)
+        } else {
+            ((&["through_recover"], RECOVER - (cue.dur - cue.t), false), false)
+        })
+    }
+
+    /// A fist that is on its arm: the giant's picture has it.
+    pub const NO_FIST: rows::Pin = (&["none"], 0.0, false);
 }
 
 pub mod eureka {
@@ -657,10 +758,14 @@ pub enum Move {
     /// stomps (the conductor performs those on the giant).
     Buck,
     Stomp,
+    /// Phase 1, his arms on him: the right fist goes down into a portal by its
+    /// shoulder and comes down out of the pair's far line, over the player.
+    PortalPunch,
 }
 
 impl Move {
-    pub const ALL: [Move; 11] = [
+    /// A new move goes at the END: a record holds a move as its place here.
+    pub const ALL: [Move; 12] = [
         Move::Demonstrate,
         Move::DemonstratePair,
         Move::Pendulum,
@@ -672,6 +777,7 @@ impl Move {
         Move::Eureka,
         Move::Buck,
         Move::Stomp,
+        Move::PortalPunch,
     ];
 
     pub const fn key(self) -> &'static str {
@@ -687,11 +793,18 @@ impl Move {
             Move::Eureka => "eureka",
             Move::Buck => "buck",
             Move::Stomp => "stomp",
+            Move::PortalPunch => "portal_punch",
         }
     }
 
     pub fn from_key(key: &str) -> Option<Move> {
         Move::ALL.into_iter().find(|mv| mv.key() == key)
+    }
+
+    /// The fists perform it as bodies of their own: the giant's arms are in
+    /// their portals. The giant's own moves and the punch of phase 1 are not.
+    pub fn frees_the_fists(self) -> bool {
+        !matches!(self, Move::Buck | Move::Stomp | Move::PortalPunch)
     }
 }
 

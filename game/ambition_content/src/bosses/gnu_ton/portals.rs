@@ -1,0 +1,229 @@
+//! The portals of GNU-ton's fight.
+//!
+//! His conductor (the module `ambition_content_modules::gnu_ton::conductor`)
+//! says in its record where each line is. This opens each one, moves it,
+//! and closes it. A module has no port that opens a portal, and the record
+//! holds the clock, so this adds no rollback state.
+//!
+//! * The pair of the punch (phase 1) is a REAL pair: two [`PlacedPortal`]s
+//!   on partner channels. The giant's fist goes down into the near line; the
+//!   drawing of the fist comes down out of the far line. A body that goes up
+//!   into the far line comes up out of the near line, by the giant's
+//!   shoulder.
+//! * The line at each shoulder and behind each wrist (after phase 1) is a
+//!   LOOK: a `PortalLightLine`, which the simulation does not know. The arm
+//!   is in it. It is not a portal with no partner: a free portal that moves
+//!   pushes each body on its plane to one side, and these lines move with
+//!   the fists and are on the giant.
+//!
+//! The engine draws each line (`ambition_portal2d_presentation`). No sprite
+//! has a portal in it.
+
+use ambition_platformer2d_core as ae;
+use bevy::prelude::*;
+
+use ambition_boss_encounter::BossClusterRef;
+use ambition_content_modules::gnu_ton::choreography::arms;
+use ambition_content_modules::gnu_ton::conductor::Conductor;
+use ambition_platformer2d::platformer::lifecycle::{
+    InRoomInstance, LiveRoomInstance, LiveRooms, SessionCommands, SpawnSessionScopedExt,
+};
+use ambition_portal2d::{portal_half_extent_with_length, PlacedPortal, PortalChannel, PortalChannelColor};
+
+/// Which line of the fight a portal is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GnuTonLine {
+    /// The punch's line by the giant's shoulder: the fist goes down into it.
+    PunchNear,
+    /// The punch's line over the player: the fist comes down out of it.
+    PunchFar,
+    /// The line an arm is in, on the side of the left fist (0) or the right (1).
+    Shoulder(u8),
+    /// The line behind the wrist of the left fist (0) or the right (1).
+    Wrist(u8),
+}
+
+impl GnuTonLine {
+    /// The look lines, in the order of the record's `lines`.
+    #[cfg(feature = "portal_render")]
+    const LOOKS: [GnuTonLine; 4] =
+        [GnuTonLine::Shoulder(0), GnuTonLine::Shoulder(1), GnuTonLine::Wrist(0), GnuTonLine::Wrist(1)];
+
+    /// Its channel. The pair of the punch is two partners (24 and 25: blue
+    /// and orange). A look line has the colour of the end it looks like: a
+    /// shoulder's is blue, a wrist's is orange.
+    fn channel(self) -> PortalChannel {
+        let index = match self {
+            GnuTonLine::PunchNear | GnuTonLine::Shoulder(_) => 24,
+            GnuTonLine::PunchFar | GnuTonLine::Wrist(_) => 25,
+        };
+        PortalChannel::Authored(PortalChannelColor::Indexed(index))
+    }
+
+    /// The side of the line that the room is on.
+    fn normal(self) -> ae::Vec2 {
+        match self {
+            // The fist goes down into it; a body comes up out of it.
+            GnuTonLine::PunchNear => ae::Vec2::new(0.0, -1.0),
+            // The fist comes down out of it; a body goes up into it.
+            GnuTonLine::PunchFar => ae::Vec2::new(0.0, 1.0),
+            // The giant is between its two shoulders' lines.
+            GnuTonLine::Shoulder(0) => ae::Vec2::new(1.0, 0.0),
+            GnuTonLine::Shoulder(_) => ae::Vec2::new(-1.0, 0.0),
+            // A fist is out from its wrist's line, away from the giant.
+            GnuTonLine::Wrist(0) => ae::Vec2::new(-1.0, 0.0),
+            GnuTonLine::Wrist(_) => ae::Vec2::new(1.0, 0.0),
+        }
+    }
+
+    fn half_length(self) -> f32 {
+        match self {
+            GnuTonLine::PunchNear | GnuTonLine::PunchFar => arms::PUNCH_HALF,
+            GnuTonLine::Shoulder(_) => arms::SHOULDER_HALF,
+            GnuTonLine::Wrist(_) => arms::WRIST_HALF,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            GnuTonLine::PunchNear => "punch_near",
+            GnuTonLine::PunchFar => "punch_far",
+            GnuTonLine::Shoulder(0) => "shoulder_left",
+            GnuTonLine::Shoulder(_) => "shoulder_right",
+            GnuTonLine::Wrist(0) => "wrist_left",
+            GnuTonLine::Wrist(_) => "wrist_right",
+        }
+    }
+}
+
+/// A portal of GNU-ton's fight: this system opened it and closes it.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GnuTonPortal(pub GnuTonLine);
+
+/// A living GNU-ton's scholar: his body, his encounter, his conductor's
+/// record.
+type Scholars<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        BossClusterRef,
+        &'static ambition_extension_host::BodyRecords,
+        &'static ambition_characters::actor::BodyHealth,
+    ),
+>;
+
+/// The conductor's record of each living GNU-ton, with his live room.
+fn conductors(scholars: &Scholars, live: &LiveRooms) -> Vec<(LiveRoomInstance, Conductor)> {
+    scholars
+        .iter()
+        .filter(|(_, boss, _, health)| super::boss_is_gnu_ton(&boss.as_boss_ref()) && health.alive())
+        .filter_map(|(scholar, _, records, _)| {
+            let conductor = Conductor::from_record(records.get(&Conductor::KEY)?).ok()?;
+            Some((live.of(scholar)?, conductor))
+        })
+        .collect()
+}
+
+/// Keep the pair of the punch open while a living GNU-ton's conductor says
+/// it is, in his live room.
+pub fn open_gnu_ton_portals(
+    mut commands: SessionCommands,
+    live: LiveRooms,
+    scholars: Scholars,
+    mut portals: Query<(Entity, &GnuTonPortal, &mut PlacedPortal)>,
+) {
+    let Some(scope) = commands.spawn_scope() else {
+        return;
+    };
+    let mut wanted: Vec<(LiveRoomInstance, GnuTonLine, ae::Vec2)> = Vec::new();
+    for (room, conductor) in conductors(&scholars, &live) {
+        if let Some([near, far]) = conductor.punch_pair() {
+            wanted.push((room, GnuTonLine::PunchNear, ae::Vec2::new(near.x, near.y)));
+            wanted.push((room, GnuTonLine::PunchFar, ae::Vec2::new(far.x, far.y)));
+        }
+    }
+    for (entity, tag, mut portal) in &mut portals {
+        let room = live.of(entity);
+        match wanted.iter().position(|(r, line, _)| Some(*r) == room && *line == tag.0) {
+            Some(index) => {
+                let (_, _, at) = wanted.swap_remove(index);
+                if portal.pos != at {
+                    portal.pos = at;
+                    portal.prev_pos = at;
+                }
+            }
+            None => commands.entity(entity).despawn(),
+        }
+    }
+    for (room, line, at) in wanted {
+        let normal = line.normal();
+        commands
+            .spawn_room_in_session(
+                scope,
+                (
+                    PlacedPortal::fixed(
+                        line.channel(),
+                        at,
+                        normal,
+                        portal_half_extent_with_length(normal, line.half_length()),
+                    ),
+                    GnuTonPortal(line),
+                    Name::new(format!("GNU-ton portal: {}", line.name())),
+                    ambition_platformer2d::platformer::sim_id::SimId::singleton("gnu_ton_portal", line.name()),
+                ),
+            )
+            .insert(InRoomInstance(room));
+    }
+}
+
+/// Keep a line of light at each shoulder and behind each wrist while a living
+/// GNU-ton's conductor says the giant's arms are in their lines.
+#[cfg(feature = "portal_render")]
+pub fn light_gnu_ton_lines(
+    mut commands: SessionCommands,
+    live: LiveRooms,
+    scholars: Scholars,
+    mut lines: Query<(Entity, &GnuTonPortal, &mut ambition_portal2d_presentation::PortalLightLine)>,
+) {
+    let Some(scope) = commands.spawn_scope() else {
+        return;
+    };
+    let mut wanted: Vec<(LiveRoomInstance, GnuTonLine, ae::Vec2)> = Vec::new();
+    for (room, conductor) in conductors(&scholars, &live) {
+        for (line, at) in GnuTonLine::LOOKS.into_iter().zip(conductor.look_lines()) {
+            if let Some(at) = at {
+                wanted.push((room, line, ae::Vec2::new(at.x, at.y)));
+            }
+        }
+    }
+    for (entity, tag, mut light) in &mut lines {
+        let room = live.of(entity);
+        match wanted.iter().position(|(r, line, _)| Some(*r) == room && *line == tag.0) {
+            Some(index) => {
+                let (_, _, at) = wanted.swap_remove(index);
+                if light.pos != at {
+                    light.pos = at;
+                }
+            }
+            None => commands.entity(entity).despawn(),
+        }
+    }
+    for (room, line, at) in wanted {
+        commands
+            .spawn_room_in_session(
+                scope,
+                (
+                    ambition_portal2d_presentation::PortalLightLine {
+                        channel: line.channel(),
+                        pos: at,
+                        normal: line.normal(),
+                        length: line.half_length() * 2.0,
+                    },
+                    GnuTonPortal(line),
+                    Name::new(format!("GNU-ton light line: {}", line.name())),
+                ),
+            )
+            .insert(InRoomInstance(room));
+    }
+}

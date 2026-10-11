@@ -187,6 +187,9 @@ pub enum ParallaxTheme {
     Eclipse,
     Water,
     Forest,
+    /// The land of the dinosaurs: a jungle of palms and tree ferns under a
+    /// volcano that smokes.
+    Primeval,
     Cave,
     /// An open daylight sky of cloud banks and wind streaks: the Mockingbird's
     /// air chase, drawn wrapping as it scrolls (`sky_scroll`).
@@ -224,6 +227,7 @@ impl ParallaxTheme {
         Self::Eclipse,
         Self::Water,
         Self::Forest,
+        Self::Primeval,
         Self::Cave,
         Self::OpenSky,
         Self::HubClean,
@@ -243,6 +247,7 @@ impl ParallaxTheme {
             Self::Eclipse => "eclipse",
             Self::Water => "water",
             Self::Forest => "forest",
+            Self::Primeval => "primeval",
             Self::Cave => "cave",
             Self::OpenSky => "open_sky",
             Self::HubClean => "hub_clean",
@@ -328,6 +333,7 @@ impl ParallaxTheme {
             "forest" | "woods" | "grove" | "bamboo" | "dojo" | "ninja" | "ninja_dojo" => {
                 Some(Self::Forest)
             }
+            "primeval" | "jungle" | "dinosaur" | "prehistoric" => Some(Self::Primeval),
             "cave" | "damp" => Some(Self::Cave),
             "open_sky" | "clouds" | "air_chase" => Some(Self::OpenSky),
             "hub_clean" => Some(Self::HubClean),

@@ -529,18 +529,25 @@ fn spawn_launcher_menu(
     // `MenuNode::Text`).
     page.text(
         50.0,
-        8.0,
+        5.0,
         5.6,
         presentation.title.clone(),
         MenuTextAlign::Center,
         MenuColor::WHITE,
+    );
+    // A short gold rule under the heading: it divides the heading from the
+    // rows, in the colour of the cursor.
+    page.panel(
+        MenuRect::new(42.0, 16.2, 16.0, 0.55),
+        MenuColor::rgba(0.99, 0.82, 0.34, 0.90),
+        None,
     );
     // The settings tab is a different page body in the same menu. Both tabs
     // share the tab strip, view, and spawn below.
     if launcher.tab == LauncherTab::Settings {
         page.text(
             50.0,
-            15.0,
+            18.6,
             2.6,
             "Audio".to_owned(),
             MenuTextAlign::Center,
@@ -586,12 +593,13 @@ fn spawn_launcher_menu(
         // cursor onto the full list when deciding what to highlight.
         let exit_rows = usize::from(presentation.exit_label.is_some());
         // The cap applies only with few rows; many rows still share the height.
-        // The rows and their gaps have 72 of the panel (18 to 90, above the
-        // footer at 92). With the five rows of today that is the 13.2 it was;
-        // the gaps were not counted, and an eighth row went under the footer.
-        let row_gap = 1.5;
+        // The rows and their gaps have 69 of the panel (21 to 90, above the
+        // footer at 92.5). The gaps are counted, so an eighth row does not go
+        // under the footer.
+        let rows_top = 21.0;
+        let row_gap = 1.8;
         let row_height = crate::pause_menu::row_height_that_fits(
-            72.0,
+            90.0 - rows_top,
             row_gap,
             catalog.len() + exit_rows,
             16.0,
@@ -632,7 +640,7 @@ fn spawn_launcher_menu(
             page.control(
                 MenuRect::new(
                     row_left,
-                    18.0 + index as f32 * (row_height + row_gap),
+                    rows_top + index as f32 * (row_height + row_gap),
                     row_width,
                     row_height,
                 ),
@@ -651,7 +659,7 @@ fn spawn_launcher_menu(
             page.control(
                 MenuRect::new(
                     row_left,
-                    18.0 + catalog.len() as f32 * (row_height + row_gap),
+                    rows_top + catalog.len() as f32 * (row_height + row_gap),
                     row_width,
                     row_height,
                 ),
@@ -669,11 +677,11 @@ fn spawn_launcher_menu(
             // A footer stays smaller than the rows; it is not supposed to compete with them.
             page.text(
                 50.0,
-                92.0,
+                92.5,
                 2.2,
                 presentation.footer.clone(),
                 MenuTextAlign::Center,
-                MenuColor::WHITE,
+                MenuColor::rgba(0.78, 0.83, 0.95, 0.85),
             );
         }
     }

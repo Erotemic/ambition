@@ -271,6 +271,15 @@ suit the style of the game.
   it was light, because the menu renderer gave a focus that came after the
   spawn its background and not its text colour. Not done: a character of
   the game on the screen, a wordmark, a layout that is not the flat menu.
+- [x] The launcher's menu has the shape of a title screen (Jon, 2026-10-11:
+  "style the menu a bit"). The heading is "Choose Game" (it was "Ambition",
+  the name of the first row also) and the tab is "Games". The window is
+  narrow, with round corners and a thin edge; a gold rule is under the
+  heading; each row has round corners and an edge, and the edge of the
+  cursor's row breathes. The host gives the shape
+  (`style_the_launcher_menu`, before the layout of the frame, so a change
+  of tab does not show the renderer's shape for one frame). The fill of a
+  row and its text colour stay the flat renderer's.
 - [x] A ride through a Mary-O pipe makes no landing sound and no dust (Jon,
   2026-10-11). The transit puts her on its path each tick, and the movement
   step took her as a body that fell. The pipe now says her pose is not her

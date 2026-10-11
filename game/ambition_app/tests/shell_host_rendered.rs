@@ -880,9 +880,10 @@ fn a_hosted_game_plays_the_bank_cues_its_moves_name() {
 /// footer is legible next to the thing it sits under.
 ///
 /// and it may never identify a text node by its STRING alone.
-/// `"Ambition"` is on this screen TWICE and always was: it is the title of the
-/// launcher AND the label of the first game in the roster, which is the game
-/// called Ambition. The title is a `MenuNode::Text`, authored as a PERCENTAGE
+/// `"Ambition"` was on this screen TWICE until 2026-10-11: it was the title of
+/// the launcher AND the label of the first game in the roster. The title is
+/// "Choose Game" now, but the rule stays: a row can have the words of a
+/// heading. The title is a `MenuNode::Text`, authored as a PERCENTAGE
 /// of viewport height and spawned as `FontSize::Vh`; the row label is a
 /// control's child. A global `find(label == "Ambition")` therefore returns
 /// whichever of the two the query's archetype order reaches first, which is
@@ -996,7 +997,7 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     // as a percentage, so every heading the flat renderer drew was two to five
     // pixels tall. `FontSize::Vh` is that percentage, spelled in the engine's
     // own vocabulary, so there is no longer a conversion to get wrong.
-    let title = typography_sized(&|label| label == "Ambition", "the title");
+    let title = typography_sized(&|label| label == "Choose Game", "the title");
     assert!(
         title >= 32.0,
         "the title renders at {title:.1}px — this is the units bug, not a taste \

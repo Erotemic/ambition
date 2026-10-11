@@ -27,6 +27,7 @@ mod a_playthrough_of_the_persistent_world;
 mod a_walked_route_of_the_persistent_world;
 mod a_body_drawn_from_parts_turns_with_gravity;
 mod a_cancelled_restore_changes_nothing;
+mod a_coconut_hurts_what_it_strikes;
 mod a_dropped_item_falls;
 mod a_home_body_is_built_for_a_seat;
 mod a_joined_seat_has_a_view_and_a_hud;

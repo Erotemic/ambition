@@ -16,6 +16,7 @@
 use bevy::prelude::*;
 
 mod held_visuals;
+pub mod thrown_impact;
 mod wielded_visuals;
 
 /// Installs the starter Ambition item-ownership roster.

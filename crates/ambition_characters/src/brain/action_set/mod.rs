@@ -535,6 +535,17 @@ static HELD_ITEMS: std::sync::LazyLock<std::collections::HashMap<&'static str, H
                 use_behavior: HeldUseBehavior::ThrowOnUse,
             },
         );
+        // A coconut: a pure throwable, as the javelin is. What it does to the
+        // body it strikes is the game's rule, not this registry's.
+        items.insert(
+            "coconut",
+            HeldItemSpec {
+                id: "coconut".into(),
+                melee: None,
+                ranged: None,
+                use_behavior: HeldUseBehavior::ThrowOnUse,
+            },
+        );
         items
     });
 

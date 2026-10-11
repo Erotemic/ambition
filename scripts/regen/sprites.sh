@@ -580,6 +580,7 @@ tackon_targets=(
     # anchor and rotates to the swing/aim direction at runtime.
     pirate_heavy_axe
     throwing_javelin
+    coconut
     portal_gun_blue
     portal_gun_orange
     hunting_bow
@@ -784,6 +785,7 @@ pirate_targets=(
 held_prop_map=(
     "pirate_heavy_axe:axe"
     "throwing_javelin:javelin"
+    "coconut:coconut"
     "lasersword_with_guns:gunsword"
     "portal_gun_blue:portal_gun_blue"
     "portal_gun_orange:portal_gun_orange"

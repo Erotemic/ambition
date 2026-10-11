@@ -39,6 +39,7 @@
         (id: "dinosaur_liberators_long", display_name: "Dinosaur Liberators (Long)"),
         (id: "doves_of_the_commons", display_name: "Doves of the Commons"),
         (id: "elves_faction_silverleaf_reverie", display_name: "Silverleaf Reverie"),
+        (id: "embedded_theme", display_name: "Embedded Theme"),
         (id: "env_advocacy_solace", display_name: "Env Advocacy — Solace"),
         (id: "everything_is_fine_please_dance", display_name: "Everything is Fine Please Dance"),
         (id: "fable", display_name: "Fable"),

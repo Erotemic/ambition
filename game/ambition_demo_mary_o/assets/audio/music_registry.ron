@@ -14,6 +14,9 @@
             display_name: "Support Theme",
             asset_path: Some("audio/music/generated/support_theme/full.ogg"),
         ),
+        // World 1-2, the level below the ground. The room names it in its
+        // `music_track`.
+        (id: "embedded_theme", display_name: "Embedded Theme"),
         // Over her death: its own score with a `death_sting` section.
         (id: "mary_o_you_died", display_name: "Mary O You Died", one_shot: true),
         // The course-clear sting over the flagpole: two bars at 156 bpm, about

@@ -333,6 +333,29 @@ fn seed_text3d_android_fonts(mut renderer: ResMut<TextRenderer>) {
     );
 }
 
+/// Redraw every [`Text3d`] when the glyph raster scale changes.
+///
+/// `bevy_rich_text3d` follows the window scale factor, and on a change it
+/// empties the glyph atlas without redrawing the text that was laid out in it.
+/// That text keeps its old glyph rectangles, so it draws nothing, or pieces of
+/// whatever glyphs are packed there next. Marking the text changed makes the
+/// renderer lay it out again at the new scale.
+///
+/// Any scale change after menu text exists does this, for example a window
+/// moved to a monitor with another density.
+fn redraw_text3d_on_scale_change(
+    settings: Res<Text3dPlugin>,
+    mut drawn_at: Local<Option<f32>>,
+    mut texts: Query<&mut Text3d>,
+) {
+    let scale = settings.scale_factor;
+    if drawn_at.replace(scale).is_some_and(|drawn| drawn != scale) {
+        for mut text in &mut texts {
+            text.set_changed();
+        }
+    }
+}
+
 impl<PageId, Action> Plugin for KaleidoscopeMenuPlugin<PageId, Action>
 where
     PageId: Clone + PartialEq + Send + Sync + 'static,
@@ -353,6 +376,7 @@ where
             Update,
             seed_text3d_android_fonts.run_if(resource_added::<TextRenderer>),
         );
+        app.add_systems(Update, redraw_text3d_on_scale_change);
         if !app.world().contains_resource::<KaleidoscopeMenuConfig>() {
             app.insert_resource(KaleidoscopeMenuConfig::default());
         }

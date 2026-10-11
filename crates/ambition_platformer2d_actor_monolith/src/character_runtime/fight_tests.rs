@@ -120,6 +120,7 @@ fn hurtboxes(move_id: &str) -> HurtboxDoc {
                     offset: (0.0, 0.0),
                     half_extents: (10.0, half_h),
                 },
+                defense: Default::default(),
             }],
         }],
     };

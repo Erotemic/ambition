@@ -113,6 +113,7 @@ impl BodyRigPose {
                             offset: (center.x + feet.x, center.y + feet.y),
                             half_extents: (half.x, half.y),
                         },
+                        defense: Default::default(),
                     }
                 })
                 .collect(),

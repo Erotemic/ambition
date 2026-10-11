@@ -1056,11 +1056,40 @@ fn default_autolink_max_speed() -> f32 {
 /// One damageable body volume in entity-local logical space.
 ///
 /// Kept distinct from [`HitVolume`] even though both reuse [`VolumeShape`]: a
-/// hurtbox carries no attack payload. The wrapper leaves room for future
-/// per-region hurt behavior without changing the timeline container.
+/// hurtbox carries no attack payload, only what the region does to a strike
+/// ([`HurtDefense`]).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct HurtboxVolume {
     pub shape: VolumeShape,
+    /// What this region does to a strike that reaches it. Absent in data:
+    /// [`HurtDefense::Vulnerable`].
+    #[serde(default, skip_serializing_if = "HurtDefense::is_vulnerable")]
+    pub defense: HurtDefense,
+}
+
+/// What a hurt region does to a strike that reaches it (S0.6, localized
+/// intangibility: an arm that a blade passes through while the torso beside
+/// it is hit).
+///
+/// The damageable publisher reads it, so every hit road that asks
+/// `strike_reaches_victim` sees it: an intangible region is not published.
+/// A strike that also reaches a vulnerable region of the same body lands on
+/// that region. A body whose regions are all intangible publishes none, which
+/// is the intangible body.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HurtDefense {
+    /// A strike that reaches the region lands.
+    #[default]
+    Vulnerable,
+    /// A strike passes through the region.
+    Intangible,
+}
+
+impl HurtDefense {
+    /// The default, which data does not write.
+    pub fn is_vulnerable(&self) -> bool {
+        *self == Self::Vulnerable
+    }
 }
 
 /// One piecewise-constant hurtbox keyframe.

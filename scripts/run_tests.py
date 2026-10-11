@@ -71,6 +71,7 @@ sys.path.insert(0, str(REPO / "scripts" / "lib"))
 import lane_ledger  # noqa: E402
 import measurement_paths  # noqa: E402
 from cargo_output import strip_ansi  # noqa: E402
+from cargo_package import package_name  # noqa: E402
 
 def tool_python(project_dir: Path, override_env: str = "") -> str:
     """Resolve a tool's interpreter the way every other caller in the repo does.
@@ -426,13 +427,13 @@ def selected_members(only: list[str]) -> list[Path]:
     """Workspace members with a `Cargo.toml`, rejecting unknown requested packages."""
     members = [c for c in workspace_members() if (c / "Cargo.toml").exists()]
     if only:
-        known = {c.name for c in members}
+        known = {package_name(c) for c in members}
         unknown = [p for p in only if p not in known]
         if unknown:
             raise SystemExit(
                 "run_tests: unknown package(s): " + ", ".join(sorted(unknown))
                 + "\n  known packages: "
-                + ", ".join(sorted(c.name for c in members)))
+                + ", ".join(sorted(package_name(c) for c in members)))
     return members
 
 
@@ -707,17 +708,18 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # already runs them.
     if only:
         for crate in members:
-            if crate.name in only:
-                jobs.append(Job(f"{crate.name} (default features)",
-                                cargo_test(["-p", crate.name], list(libtest_args))))
+            package = package_name(crate)
+            if package in only:
+                jobs.append(Job(f"{package} (default features)",
+                                cargo_test(["-p", package], list(libtest_args))))
                 # A package with no library has no doctests: `cargo test
                 # --doc` exits 101 ("no library targets found"), and the job
                 # failed a run whose tests all passed.
                 if NEXTEST and has_lib_target(crate):
-                    jobs.append(Job(f"{crate.name} doctests",
-                                    [CARGO, "test", "-p", crate.name, "--doc"]))
+                    jobs.append(Job(f"{package} doctests",
+                                    [CARGO, "test", "-p", package, "--doc"]))
                 elif NEXTEST:
-                    print(f"run_tests: {crate.name} has no library target, so no doctest job",
+                    print(f"run_tests: {package} has no library target, so no doctest job",
                           file=sys.stderr)
     else:
         jobs.append(Job("workspace (default features)",
@@ -813,7 +815,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     union_features: list[str] = []
     if everything:
         for crate in members:
-            name = crate.name
+            name = package_name(crate)
             if only and name not in only:
                 continue
             if name in SKIP_FEATURE_JOB:

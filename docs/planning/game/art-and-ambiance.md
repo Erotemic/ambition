@@ -312,20 +312,22 @@ suit the style of the game.
 - **The giant gnu, redrawn.** In candidates only (Jon, 2026-10-11): stills
   in `untracked/giant-gnu-candidate/` (not in git), each from a script
   beside it. Nothing of the game changed. What Jon chose so far: a giant
-  that is like a gnu and is not one, almost a centaur (a beast on four
-  legs, a chest that stands up at its front, the two fists for hands); the
-  great curled horns of the first design; a face whose parts make its
-  expression (serious, mean, silly); its back and its two shoulders are
-  floors, and the art shows a floor with moss (the back, the top of each
-  horn) or with an epaulet (each shoulder), not with a slab. Its face has
+  that is like a gnu and is not one, almost a centaur (a beast on four long
+  legs, a chest that stands up at its front, two arms to two fists); the
+  horns of a gnu, out and then up to a point (the curled horns of the first
+  design are kept as an option); its back is a slope from a low rump to
+  the left shoulder, in two stances (on all fours, reared up); the art
+  shows where an actor can stand with moss (the slope, the level part of
+  each horn) or with an epaulet (each shoulder), not with a slab. Its face has
   no brows and shows no teeth. It has two faces at rest: `ordered` when it
   does what the scholar says (a small lid on each eye, tilted in a little:
   focused), and `free` when it is on its own (no lids, the eyes drifting:
   more vacant). Five more are kept for a giant that reacts (`smile`,
   `serious`, `angry`, `dazed`, `sleepy`); it does not smile at rest. The
   design is one drawing script in the renderer
-  (`scripts/svg_art/giant_gnu_art.py`, its `EXPRESSIONS` table). Open: the
-  real target and its rows, and what the new shoulders mean for the fight.
+  (`scripts/svg_art/giant_gnu_art.py`, its `EXPRESSIONS` and `STANCES`
+  tables). Open: the real target and its rows. The fight this body is for
+  is in `bosses.md` ("GNU-ton — a giant with arms, and portals").
 - **A bird for the giant gnu.** Wanted later (Jon, 2026-10-11): a small
   bird that rides the giant. It is NOT a part of the giant's sprite: it is
   to be an actor of its own, with its own simulation (it sits, it moves, it

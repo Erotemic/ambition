@@ -107,12 +107,17 @@ type Scholars<'w, 's> = Query<
 
 /// The conductor's record of each living GNU-ton, with his live room.
 fn conductors(scholars: &Scholars, live: &LiveRooms) -> Vec<(LiveRoomInstance, Conductor)> {
+    conductors_of(scholars, live).into_iter().map(|(_, room, conductor)| (room, conductor)).collect()
+}
+
+/// The same, with the scholar.
+fn conductors_of(scholars: &Scholars, live: &LiveRooms) -> Vec<(Entity, LiveRoomInstance, Conductor)> {
     scholars
         .iter()
         .filter(|(_, boss, _, health)| super::boss_is_gnu_ton(&boss.as_boss_ref()) && health.alive())
         .filter_map(|(scholar, _, records, _)| {
             let conductor = Conductor::from_record(records.get(&Conductor::KEY)?).ok()?;
-            Some((live.of(scholar)?, conductor))
+            Some((scholar, live.of(scholar)?, conductor))
         })
         .collect()
 }
@@ -220,5 +225,43 @@ pub fn light_gnu_ton_lines(
                 ),
             )
             .insert(InRoomInstance(room));
+    }
+}
+
+/// The trail of each fist is part of his spell: it joins the two lines the
+/// arm is in. It starts at the shoulder's line (after phase 1), or at the
+/// near line of the punch for the fist that is through the pair. A fist on
+/// its arm has its trail from the giant, where its body is: no length.
+pub fn join_gnu_ton_lines(
+    live: LiveRooms,
+    scholars: Scholars,
+    riders: Query<&ambition_mount::RidingOn>,
+    rigs: Query<&ambition_characters::actor::LimbRig>,
+    ids: Query<&ambition_combat::components::FeatureId>,
+    starts: Option<ResMut<ambition_render::rendering::limb_trail::LimbTrailStarts>>,
+) {
+    use ambition_characters::actor::LimbSlot;
+    let Some(mut starts) = starts else {
+        return;
+    };
+    let mut wanted = bevy::platform::collections::HashMap::new();
+    for (scholar, _, conductor) in conductors_of(&scholars, &live) {
+        let Some(rig) = riders.get(scholar).ok().and_then(|riding| rigs.get(riding.mount).ok()) else {
+            continue;
+        };
+        let lines = conductor.look_lines();
+        for (index, slot) in [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].into_iter().enumerate() {
+            let Some(id) = rig.get(slot).and_then(|fist| ids.get(fist).ok()) else {
+                continue;
+            };
+            // The right fist is the one that goes through the pair of the punch.
+            let through = conductor.punch_pair().filter(|_| index == 1).map(|[near, _]| near);
+            if let Some(from) = lines[index].map(|(at, _)| at).or(through) {
+                wanted.insert(id.as_str().to_string(), Vec2::new(from.x, from.y));
+            }
+        }
+    }
+    if starts.0 != wanted {
+        starts.0 = wanted;
     }
 }

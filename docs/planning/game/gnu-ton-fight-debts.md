@@ -96,14 +96,20 @@ Status of each: OPEN. The content comes first.
   view, nothing to hit. Loosing it makes the body. (Or: the conductor can
   say a body is not presented, which is less.)
 
-### 6. The limb trail is still drawn
+### 6. The trail of a fist joins two lines, by a resource
 
-- The wisps from a host to its limb (`limb_trail.rs`) go from the giant to
-  the far fist of the punch, and from the giant to each fist in phase 2,
-  where the arm in its portal says the same thing better.
-- **Should be:** a body says if its limbs have a trail (data of the
-  character, through the limb's row), or the trail starts at the limb's
-  LINE when it has one.
+- Jon (2026-10-11): the trail is part of the scholar's spell, and joins the
+  two portals an arm is in. So the wisps (`limb_trail.rs`) start at the
+  shoulder's line (or at the near line of the punch), not in the giant.
+- How: a presentation resource, `LimbTrailStarts` (a start by the limb's
+  feature id), which a system of the game writes each tick from the
+  conductor's record (`join_gnu_ton_lines`). A simulation system writes a
+  presentation resource.
+- The trail ends at the middle of the fist, not at the line behind its
+  wrist (the fist's picture covers the rest).
+- **Should be:** with the port of debt 2, a line that a module holds can be
+  "the start of this limb's bond" and "its end", and the presentation reads
+  both from the view of the limb.
 
 ### 7. A pinned row does not loop
 
@@ -141,17 +147,21 @@ Status of each: OPEN. The content comes first.
 - **Should be:** the hall shows a character's states (arms on; arms in
   lines with the lines), from the same data the fight uses.
 
-### 11. Not played
+### 11. The way up is a narrow thing
 
-- No test and no person has gone UP through the far line to the giant's
-  back. A body that was put on the near line came out of the far line
-  (`capture_scene`). The height of the far line is reasoned from the
-  jump's numbers. It needs an arena test that plays it.
+- A test plays it (two jumps up into the far line, out of the near line,
+  to the side onto the back). No person has played it.
+- It works by numbers that are near their limits: two jumps rise about 148
+  and the far line needs 117; out of the near line the player has about
+  0.45 s to go 60 to the side.
+- **Should be:** a way up with room in it. With the arm through the pair by
+  the engine (debt 1) the near line can be where the design wants it, and
+  the pair can give a body that comes out a push along its normal.
 
 ## An order
 
-1. An arena test of the way up (11). Small, and it is the point of phase 1.
-2. The actor road reads `looping` (7). Small; one copy of a row goes.
+1. The actor road reads `looping` (7). Small; one copy of a row goes.
+2. A person plays the way up (11), and its numbers get room.
 3. A limb "on its host" (5), and the trail (6).
 4. The port for a pair and a line (2), with the decision of 3.
 5. The lines from the sheet (4), with step 1 of the other document.

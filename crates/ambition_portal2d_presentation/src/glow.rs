@@ -373,6 +373,87 @@ pub fn sync_portal_glows(
     }
 }
 
+/// A line of a portal's light that is NO portal: nothing goes through it, and
+/// the simulation does not know it. A game puts one where a portal is a look
+/// (an arm that stays in its portal): on an entity of a live room, and moves
+/// it by writing `pos`. [`sync_portal_light_lines`] draws it with the material
+/// of a portal's line, and opens it as a portal that was added opens.
+///
+/// A [`PlacedPortal`] with no partner is not this: a free portal that moves
+/// pushes each body on its plane to one side of it.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct PortalLightLine {
+    /// The channel whose colour the line has.
+    pub channel: PortalChannel,
+    /// Its middle, in engine world coordinates.
+    pub pos: Vec2,
+    /// The side of the line that the room is on.
+    pub normal: Vec2,
+    /// Its length in px.
+    pub length: f32,
+}
+
+/// Draw each [`PortalLightLine`]: give it its quad, open it, and follow it.
+pub fn sync_portal_light_lines(
+    mut commands: Commands,
+    time: Res<Time>,
+    frames: PortalFrames,
+    mut lines: Query<(
+        Entity,
+        &PortalLightLine,
+        Option<&MeshMaterial2d<PortalGlowMaterial>>,
+        Option<&mut Transform>,
+    )>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<PortalGlowMaterial>>,
+    mut unit_mesh: Local<Option<Handle<Mesh>>>,
+) {
+    let dt = time.delta_secs().min(0.1);
+    for (entity, line, material, transform) in &mut lines {
+        let Some(placement) = frames.of(entity) else {
+            continue;
+        };
+        let normal = line.normal.normalize_or_zero();
+        let length = line.length.max(PORTAL_VISUAL_THICKNESS);
+        let placed = glow_transform(&placement.frame, line.pos, normal, length);
+        let size = quad_size(length);
+        let colour = linear(line.channel.display().1);
+        let (Some(material), Some(mut transform)) = (material, transform) else {
+            let mesh = unit_mesh.get_or_insert_with(|| meshes.add(Rectangle::default())).clone();
+            commands.entity(entity).insert((
+                Mesh2d(mesh),
+                MeshMaterial2d(materials.add(PortalGlowMaterial {
+                    shape: Vec4::new(length, size.x, size.y, seed_of(line.pos)),
+                    phase: Vec4::ZERO,
+                    front: colour,
+                    back: colour,
+                })),
+                placed,
+                Visibility::default(),
+            ));
+            continue;
+        };
+        if *transform != placed {
+            *transform = placed;
+        }
+        let Some(current) = materials.get(&material.0) else {
+            continue;
+        };
+        // The seed stays: a line that moves does not shimmer by its place.
+        let wanted = PortalGlowMaterial {
+            shape: Vec4::new(length, size.x, size.y, current.shape.w),
+            phase: Vec4::new((current.phase.x + dt / APPEAR_S).min(1.0), 0.0, 0.0, 0.0),
+            front: colour,
+            back: colour,
+        };
+        if *current != wanted {
+            if let Some(mut current) = materials.get_mut(&material.0) {
+                *current = wanted;
+            }
+        }
+    }
+}
+
 /// The channel whose colour the far side of the line of a portal on `channel`
 /// has: its own, or its partner's when the style asks for that
 /// ([`PortalGlowStyle`]).

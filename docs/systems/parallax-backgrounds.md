@@ -251,4 +251,6 @@ cargo test -p ambition_sprite_sheet
 ```
 
 A look is checked with `capture_scene <room> player out.png 1280x720` under
-`AMBITION_QUALITY_PROFILE=ultra`. A capture is not a window on a GPU.
+`AMBITION_QUALITY_PROFILE=ultra`. A capture with no profile named is at `low`
+(two layers of the stack, at half resolution): see
+`docs/recipes/headless-room-verification.md`.

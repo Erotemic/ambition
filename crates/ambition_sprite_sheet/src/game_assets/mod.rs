@@ -198,6 +198,10 @@ pub enum ParallaxTheme {
     /// girl: a moon eaten to a ring in a rift, arches, the wheels of a clock
     /// that does not turn. The underground room of Mary-O names it.
     Starless,
+    /// The castle at the end of Mary-O's land: a hall of plum stone, coloured
+    /// glass and red banners over fire, with the void in its vault. The
+    /// castle room of Mary-O names it.
+    VoidCastle,
     Cave,
     /// An open daylight sky of cloud banks and wind streaks: the Mockingbird's
     /// air chase, drawn wrapping as it scrolls (`sky_scroll`).
@@ -238,6 +242,7 @@ impl ParallaxTheme {
         Self::Primeval,
         Self::Starlight,
         Self::Starless,
+        Self::VoidCastle,
         Self::Cave,
         Self::OpenSky,
         Self::HubClean,
@@ -260,6 +265,7 @@ impl ParallaxTheme {
             Self::Primeval => "primeval",
             Self::Starlight => "starlight",
             Self::Starless => "starless",
+            Self::VoidCastle => "void_castle",
             Self::Cave => "cave",
             Self::OpenSky => "open_sky",
             Self::HubClean => "hub_clean",
@@ -348,6 +354,7 @@ impl ParallaxTheme {
             "primeval" | "jungle" | "dinosaur" | "prehistoric" => Some(Self::Primeval),
             "starlight" | "magical_girl" | "magical" => Some(Self::Starlight),
             "starless" | "dark_magical_girl" => Some(Self::Starless),
+            "void_castle" | "castle" => Some(Self::VoidCastle),
             "cave" | "damp" => Some(Self::Cave),
             "open_sky" | "clouds" | "air_chase" => Some(Self::OpenSky),
             "hub_clean" => Some(Self::HubClean),

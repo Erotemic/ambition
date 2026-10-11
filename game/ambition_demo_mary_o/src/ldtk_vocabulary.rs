@@ -37,6 +37,10 @@ pub enum MaryOBlockLook {
     /// needs runtime geometry mutation, which is rollback-relevant. Documented
     /// as missing rather than as finished.
     Hidden,
+    /// A plank of a bridge. It is masonry to a body: no head breaks it and it
+    /// holds nothing. All the planks of a room fall when the goal of the room
+    /// is taken (`bricks::drop_planks_when_the_goal_is_taken`).
+    Plank,
 }
 
 /// What an author may put between a prefix and its argument. THE ONE SET.
@@ -63,6 +67,7 @@ impl MaryOBlockLook {
             Self::Question => "Question",
             Self::Brick => "Brick",
             Self::Hidden => "Hidden",
+            Self::Plank => "Plank",
         }
     }
 
@@ -75,6 +80,7 @@ impl MaryOBlockLook {
             "question" | "power" | "power_block" | "bonus" | "?" => Some(Self::Question),
             "brick" => Some(Self::Brick),
             "hidden" | "invisible" | "cammo" => Some(Self::Hidden),
+            "plank" | "bridge" => Some(Self::Plank),
             _ => None,
         }
     }
@@ -208,6 +214,7 @@ impl MaryOBlock {
             // A hidden block that held nothing would be indistinguishable from
             // empty air, so its default is the classic one: a coin.
             MaryOBlockLook::Hidden => MaryOBlockContents::Always(MaryOPickup::Coin),
+            MaryOBlockLook::Plank => MaryOBlockContents::Empty,
         }
     }
 
@@ -306,7 +313,7 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
             ""
         };
         return Err(format!(
-            "MaryOBlock `{}` has kind {authored:?}, which is not one of Question, Brick, Hidden{hint}",
+            "MaryOBlock `{}` has kind {authored:?}, which is not one of Question, Brick, Hidden, Plank{hint}",
             entity.iid
         ));
     };
@@ -397,6 +404,10 @@ pub enum MaryOPipeRole {
     Entrance,
     /// The mouth you come OUT of. Exactly one per link.
     Exit,
+    /// A pipe that goes nowhere: the pot of a plant, or a pipe that only
+    /// stands in the level. It is a half of no tube, so its `link` pairs it
+    /// with nothing.
+    Sealed,
 }
 
 impl MaryOPipeRole {
@@ -404,6 +415,7 @@ impl MaryOPipeRole {
         match self {
             Self::Entrance => "Entrance",
             Self::Exit => "Exit",
+            Self::Sealed => "Sealed",
         }
     }
 
@@ -411,6 +423,7 @@ impl MaryOPipeRole {
         match value.trim().to_ascii_lowercase().as_str() {
             "entrance" | "enter" | "in" => Some(Self::Entrance),
             "exit" | "out" => Some(Self::Exit),
+            "sealed" | "none" => Some(Self::Sealed),
             _ => None,
         }
     }
@@ -529,9 +542,10 @@ pub fn convert_mary_o_pipe(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Stri
         ambition_platformer2d::ldtk_map::field_string(entity, "role").unwrap_or_default();
     let Some(role) = MaryOPipeRole::parse(&authored_role) else {
         return Err(format!(
-            "MaryOPipe `{}` has role {authored_role:?}, which is not Entrance \
-             or Exit. Each link needs exactly one of each — the tube is a trip, \
-             not a doorway",
+            "MaryOPipe `{}` has role {authored_role:?}, which is not Entrance, \
+             Exit or Sealed. Each link of a tube needs exactly one Entrance and \
+             one Exit — the tube is a trip, not a doorway. A Sealed pipe goes \
+             nowhere",
             entity.iid
         ));
     };
@@ -739,7 +753,7 @@ mod tests {
     #[test]
     fn every_pipe_half_survives_the_name_it_is_encoded_into() {
         for mouth in [MaryOPipeMouth::Up, MaryOPipeMouth::Down] {
-            for role in [MaryOPipeRole::Entrance, MaryOPipeRole::Exit] {
+            for role in [MaryOPipeRole::Entrance, MaryOPipeRole::Exit, MaryOPipeRole::Sealed] {
                 // a link with a hyphen and one with a digit, because a link is
                 // whatever an author types and the encoding must not care.
                 for link in ["descent", "ascent", "vault-2", "b3"] {

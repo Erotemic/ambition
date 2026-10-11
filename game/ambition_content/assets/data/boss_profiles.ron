@@ -397,6 +397,7 @@
             Special("buck"),
             Special("stomp"),
             Special("apple_rain"),
+            Special("portal_punch"),
         ],
         attack_cooldown: 0.0,
         attack_windup: 0.0,
@@ -405,15 +406,30 @@
         // The scholar deals no contact damage: his fists are the threat.
         body_damage: 0,
         attack_pattern: Scripted(
+            // He stands on the giant, and its arms are on it. No move of the
+            // free fists here: one would put the arms in their portals.
             intro: (steps: [
-                Rest(duration: 1.0),
-                Telegraph(profile: Special("demonstrate"), duration: 1.0,
-                    telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.charge")))),
-                Strike(profile: Special("demonstrate"), duration: 1.5),
-                Rest(duration: 1.0),
+                Rest(duration: 2.5),
             ]),
-            // Phase 1 — "Lectures on Motion": one fist at a time.
+            // Phase 1 — "A Demonstration at a Distance": the giant's arms are
+            // on it. It punches down into a portal by its shoulder, and the
+            // fist comes down out of the pair's far line, over the player. The
+            // pair is a real one: the way up to the giant's back, and to him.
+            // The phase is short (`phase1_to_transition_hp`).
             phase1: (steps: [
+                Rest(duration: 1.0),
+                Telegraph(profile: Special("portal_punch"), duration: 1.0,
+                    telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.charge")))),
+                Strike(profile: Special("portal_punch"), duration: 2.6),
+                Rest(duration: 0.6),
+            ]),
+            // The clamp: two lines take the arms and close on them. The
+            // conductor performs it while the encounter holds its beat.
+            transition: (steps: [Rest(duration: 3.0)]),
+            // Phase 2 — "Lectures on Motion", then "Principia": the fists are
+            // bodies of their own. One fist at a time, then both hands and the
+            // curve he draws.
+            phase2: (steps: [
                 Telegraph(profile: Special("demonstrate"), duration: 1.0,
                     telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.charge")))),
                 Strike(profile: Special("demonstrate"), duration: 1.5),
@@ -440,15 +456,6 @@
                         Rest(duration: 0.8),
                     ]),
                 ]),
-                Telegraph(profile: Special("apple_rain"), duration: 1.0,
-                    telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
-                Strike(profile: Special("apple_rain"), duration: 3.0),
-                // Eureka: the golden apple, the tumble, the daze, the climb.
-                Rest(duration: 3.5),
-            ]),
-            transition: (steps: [Rest(duration: 3.0)]),
-            // Phase 2 — "Principia": both hands, and the curve he draws.
-            phase2: (steps: [
                 Telegraph(profile: Special("fluxions"), duration: 1.5,
                     telegraph: Some((pose: Some("spike_halo"), cue: Some("boss.gnu_ton.charge")))),
                 Strike(profile: Special("fluxions"), duration: 1.4),

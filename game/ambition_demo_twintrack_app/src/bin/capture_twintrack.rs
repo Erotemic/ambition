@@ -52,6 +52,7 @@ struct Warmup {
 struct SplitObservers(bool);
 
 fn main() {
+    ambition_platformer2d::render::capture::name_capture_quality_profile();
     let mut args = std::env::args().skip(1);
     let mut output = PathBuf::from("twintrack.png");
     let mut size = UVec2::new(1280, 720);

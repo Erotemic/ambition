@@ -513,6 +513,46 @@ when the giant bucks or rears.
 on all fours, 46 reared; not checked against the engine). Which shoulder
 the scholar stands on. Where the two fists rest.
 
+**Built 2026-10-11 (first cut; seen in `capture_scene`, not in a window on
+a GPU, and no test was run or changed).**
+
+- Phase 1: the giant's arms are on it (rows `armed_*`, `punch_*`). The
+  pattern is one move, `portal_punch`. A real pair opens: the near line by
+  the right shoulder, the far line over where the player was when the
+  telegraph began. The fist's body is put under the far line (rows
+  `through_*` of the fist's sheet) and hurts there. A player that was put on
+  the near line came out of the far line (seen). The way UP was not played.
+- Phase 1 ends at 86% of his health (`phase1_to_transition_hp`).
+- The clamp: the encounter's lock between the phases (2 s). Row `clamp`;
+  then the fists are bodies of their own and the fight of before goes on
+  (its phase 1 and its phase 2 are now ONE phase 2).
+- The lines at the shoulders and behind the wrists are a look
+  (`PortalLightLine` of the portal presentation crate), not portals: a free
+  portal that moves pushes each body on its plane.
+- Where: the module `ambition_content_modules::gnu_ton` (`choreography::arms`,
+  `conductor`), `ambition_content::bosses::gnu_ton::portals`, the rows of
+  `giant_art.py`, `boss_profiles.ron`.
+
+**Known, not done.**
+
+- Tests are behind the fight: the parity test of the conductor (its script
+  starts with free fists; a record now starts with the arms on), the app's
+  tests of the arena, the tests of row names. For the big run.
+- The limb trail (wisps from the giant to each fist) is still drawn: to the
+  far fist of the punch, and beside the arms in phase 2. It needs a way for
+  a body to say it has no trail.
+- The places of the lines are typed in `choreography::arms` from the
+  drawing (debt 5 of `engine/the-art-says-where-a-body-stands.md`).
+- When the giant bucks, the lines stay at the place of the giant at rest.
+- The hall of characters shows the giant with its arms cut at two lines
+  that are not drawn (no conductor is there).
+- The far line is 145 over the floor (the fist's sheet says it:
+  `FIST_BBOX`). REASONED, not played: a player's two jumps from the floor
+  rise about 148 (`jump_speed` 630, `double_jump_speed` 520, gravity 2250),
+  so its middle goes through the line. The way up needs a test that plays
+  it (the arena's tests can drive a player; `capture_scene` can not).
+- Not tuned: the times, the damage, how many blows end phase 1.
+
 ## Mode Collapse music (Q148)
 
 Mode Collapse (`boss_encounters/mode_collapse_boss.ron`, a summoner that floods

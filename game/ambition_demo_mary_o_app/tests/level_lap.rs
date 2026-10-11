@@ -1,4 +1,4 @@
-//! Runs the authored 1-1 -> 1-2 -> 1-3 -> 1-1 circuit in one session.
+//! Runs the authored 1-1 -> 1-2 -> 1-3 -> 1-4 -> 1-1 circuit in one session.
 //!
 //! Each leg reaches that room's authored pole and lets the real end-of-level
 //! transition run. The expected chain is written explicitly so the transition
@@ -13,6 +13,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
 const LEVEL_1_3_ROOM_ID: &str = "mary_o_1_3";
+const LEVEL_1_4_ROOM_ID: &str = "mary_o_1_4";
 
 /// Frames a leg may take before we call the transition wedged. A liveness
 /// backstop, not a measurement: the assertions are about WHICH room.
@@ -113,16 +114,17 @@ fn finishing_each_level_lands_in_the_next_one_and_the_lap_closes() {
 
     leg(&mut app, LEVEL_1_1_ROOM_ID, LEVEL_1_2_ROOM_ID);
     leg(&mut app, LEVEL_1_2_ROOM_ID, LEVEL_1_3_ROOM_ID);
-    // the return leg. `mary_o_1_3` authors `next_room = mary_o_1_1`, so the
+    leg(&mut app, LEVEL_1_3_ROOM_ID, LEVEL_1_4_ROOM_ID);
+    // the return leg. `mary_o_1_4` authors `next_room = mary_o_1_1`, so the
     // lap closes rather than dead-ending -- and a destination installed once at
     // Startup would have sent this one to 1-2.
-    leg(&mut app, LEVEL_1_3_ROOM_ID, LEVEL_1_1_ROOM_ID);
+    leg(&mut app, LEVEL_1_4_ROOM_ID, LEVEL_1_1_ROOM_ID);
 }
 
 /// ⭐⛤ **THE ROOM YOU COME BACK TO IS NOT THE ROOM YOU LEFT, AND UNTIL
 /// 2026-09-20 NOTHING IN THIS WORLD COULD SAY SO.**
 ///
-/// The lap above closes: 1-1 → 1-2 → 1-3 → 1-1. `RoomSet` therefore reports
+/// The lap above closes: 1-1 → 1-2 → 1-3 → 1-4 → 1-1. `RoomSet` therefore reports
 /// the SAME active index at both ends, because an index selects a
 /// DEFINITION — and `RoomConstructionPlanId` reports the same thing for the
 /// same reason, being a content hash whose own doc excludes commit-time
@@ -134,10 +136,10 @@ fn finishing_each_level_lands_in_the_next_one_and_the_lap_closes() {
 /// the room it started in, "the index repeated and the instance did not" would
 /// be true of any two different rooms and would prove nothing.
 ///
-/// ⭐ MEASURED, so the shape is on the record rather than only the relation:
-/// `opened=#0 midway=#1 closed=#3 index=0`. Three legs, three publications,
-/// and the activation room is `#0` because a session's first live room is not
-/// published by the road that seats a crossing — it IS the session.
+/// Each leg is one publication. The activation room is `#0` because a
+/// session's first live room is not published by the road that seats a
+/// crossing — it IS the session. (Measured with three legs, before 1-4:
+/// `opened=#0 midway=#1 closed=#3 index=0`.)
 ///
 /// This is OW1's precondition in
 /// `docs/planning/engine/open-world-runtime-and-residency.md`, exercised on the
@@ -167,7 +169,8 @@ fn a_lap_comes_back_to_the_same_room_definition_and_a_different_live_room() {
     leg(&mut app, LEVEL_1_1_ROOM_ID, LEVEL_1_2_ROOM_ID);
     let midway_instance = live_room(&mut app);
     leg(&mut app, LEVEL_1_2_ROOM_ID, LEVEL_1_3_ROOM_ID);
-    leg(&mut app, LEVEL_1_3_ROOM_ID, LEVEL_1_1_ROOM_ID);
+    leg(&mut app, LEVEL_1_3_ROOM_ID, LEVEL_1_4_ROOM_ID);
+    leg(&mut app, LEVEL_1_4_ROOM_ID, LEVEL_1_1_ROOM_ID);
 
     let closing_index = ambition_platformer2d::world::rooms::sole_live_room_definition(app.world())
         .expect("the live room names its definition")

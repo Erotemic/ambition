@@ -91,7 +91,20 @@ cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [O
 ```
 
 This runs the actual presentation plugins, so it is the only path that shows
-sprite ART. Two flags matter for combat work:
+sprite ART.
+
+**Quality.** A capture tool takes its picture at the `low` visual quality
+profile unless `AMBITION_QUALITY_PROFILE` names another
+(`name_capture_quality_profile` in `crates/ambition_render/src/capture.rs`;
+`capture_scene`, the capture tool of each demo, and the Smash match shots call
+it). `low` is the lowest tier a player is expected to choose: the backdrop with
+two layers, sprites at half resolution, screen shaders at half strength. Name
+`high` or `ultra` to judge art. Do not look at the game through `potato`: it is
+the tier for a machine that can not run the game, with no backdrop and no
+screen shader, and it is what a machine with no GPU gets on a first run of the
+game itself.
+
+Two flags matter for combat work:
 
 - `--combat-overlay` puts the `DebugViewMode::Combat` preset in the shot. The
   volumes are off by default, so without it a swing is photographable and its
@@ -106,10 +119,9 @@ sprite ART. Two flags matter for combat work:
   ⛔ Without it a post-process capture photographs nothing: every screen-shader
   strength is zero by default, and a windowless host uses
   `PersistenceRoot::isolated()` (a fresh temp directory), so a `settings.ron` in
-  the player's data directory does not reach it. Pair it with
-  `AMBITION_QUALITY_PROFILE=ultra`: the Potato tier, which a software rasteriser
-  gets on a first run, scales screen shaders to zero. The tool prints a refusal
-  in that case.
+  the player's data directory does not reach it. The default `low` profile draws
+  the effect at half strength; name `high` or `ultra` for all of it. The tool
+  prints a refusal when the profile scales screen shaders to zero (`potato`).
 - `--press` drives input, and takes `hold:KEY` / `release:KEY` as well as taps.
   Every tilt and aerial is *a direction held while attack is pressed*, so
   `--press up,x` taps Up, releases it, and then attacks — resolving forward.

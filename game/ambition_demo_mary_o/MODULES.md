@@ -9,6 +9,7 @@
 | [`ai_slop`](src/ai_slop.rs) | Mary-O's AI Slop — the plain stompable walker, authored as pure content. |
 | [`bricks`](src/bricks.rs) | Mary-O's breakable bricks — the SECOND consumer of the reactive-block primitive. |
 | [`death`](src/death.rs) | The death beat. |
+| [`fire_shader`](src/fire_shader.rs) | The glow of a fire in Mary-O: her spark blossom, and each orb of a bar of fire. |
 | [`flag`](src/flag.rs) | — the flagpole sequence. |
 | [`ldtk_vocabulary`](src/ldtk_vocabulary.rs) | Mary-O-specific LDtk vocabulary. |
 | [`level_1_2`](src/level_1_2.rs) | World 1-2: the level under the ground. |
@@ -16,17 +17,22 @@
 | [`pack`](src/pack.rs) | The Mary-O demo's content pack. |
 | [`pipe`](src/pipe.rs) | The pipe transit — the scripted slide into one tube and out of the other. |
 | [`plane`](src/plane.rs) | Flying Mary-O enemy archetypes. |
+| [`plant`](src/plant.rs) | The Snake Plant: the plant that comes up out of a pipe. |
 | [`powerups`](src/powerups.rs) | Super Mary-O's powerups — the equipment chain, authored as A3 data. |
 | [`provider`](src/provider.rs) | The Mary-O experience provider. |
 | [`quasar_shader`](src/quasar_shader.rs) | Mary-O's invincible rainbow-quasar presentation pass. |
 | [`scenery`](src/scenery.rs) | Mary-O scenery props — the flagpole and the warp pipes, drawn from their generated construction sheets instead of flat placeholder quads. |
-| [`shimmer_shader`](src/shimmer_shader.rs) | The shimmer in the air of a Mary-O room: sparkles and ribbons of light in the starlight rooms, embers and a low mist in the starless room. |
+| [`shimmer_shader`](src/shimmer_shader.rs) | The shimmer in the air of a Mary-O room: sparkles and ribbons of light in the starlight rooms, embers and a low mist in the starless room, sparks and red heat in the castle. |
 | [`snake`](src/snake.rs) | Mary-O's Solid Snake walker and shell state machine. |
 | [`star`](src/star.rs) | Mary-O's pocket-quasar super state. |
 | [`stomp`](src/stomp.rs) | The ONE top/side contact authority for Mary-O's enemies. |
+| [`swallow`](src/swallow.rs) | The Laden Swallow: the bird that stays over the player and lets coconuts go. |
 | [`test_course`](src/test_course.rs) | A level for the TESTS to play, which nobody authors. |
+| [`void_lizard`](src/void_lizard.rs) | The Void Lizard: the boss of the castle. |
+| [`void_look`](src/void_look.rs) | The field of the void about each void thing of Mary-O: the Void Star, the Void Lizard, and the orb the Void Lizard throws. |
+| [`void_star`](src/void_star.rs) | The Void Star: the enemy that no stomp can hurt. |
 
-_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

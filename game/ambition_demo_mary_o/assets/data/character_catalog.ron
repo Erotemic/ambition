@@ -55,6 +55,56 @@
             ranged: None,
             special: None,
         ),
+        // The coconut of the Laden Swallow. It has gravity and almost no
+        // launch speed, so a shot that is fired down is a thing that is let
+        // go. The weapon's recharge and its two live shots are the limit on
+        // how many fall; `swallow.rs` says when and which way.
+        "coconut_drop": (
+            move_style: Float,
+            melee: None,
+            ranged: Some(Weapon((
+                style: Rock,
+                speed: 30.0,
+                damage: 1,
+                flight: Some((
+                    gravity: 760.0,
+                    bounces: 0,
+                    bounce_on_world_contact: false,
+                    max_lifetime: 4.0,
+                    half_extent: (9.0, 9.0),
+                    boomerang_return_s: None,
+                )),
+                visual: Some("mary_o_coconut"),
+                refire_s: 1.0,
+                discharge: Some((muzzle: BodyOrigin, recoil: 0.0)),
+                max_live: Some(2),
+            ))),
+            special: None,
+        ),
+        // The orb of the Void Lizard: a slow ball that goes along the bridge
+        // with no fall. `void_lizard.rs` says when and which way.
+        "void_orb": (
+            move_style: Walk,
+            melee: None,
+            ranged: Some(Weapon((
+                style: Bolt,
+                speed: 170.0,
+                damage: 1,
+                flight: Some((
+                    gravity: 0.0,
+                    bounces: 0,
+                    bounce_on_world_contact: false,
+                    max_lifetime: 3.5,
+                    half_extent: (12.0, 12.0),
+                    boomerang_return_s: None,
+                )),
+                visual: Some("mary_o_void_orb"),
+                refire_s: 1.2,
+                discharge: Some((muzzle: Offset(x: 0.5, y: -0.05), recoil: 0.0)),
+                max_live: Some(2),
+            ))),
+            special: None,
+        ),
     },
     characters: {
         "mary_o": (
@@ -211,6 +261,102 @@
                 "I walk left. It is a complete philosophy.",
                 "Statistically, one of us is about to be stomped.",
                 "I was trained on a thousand walkers and became the average one.",
+            ],
+        ),
+        // The plant in a pipe: a snake that wears leaves. It stands still; its
+        // rule (`plant.rs`) moves it up out of its pipe and down again. No
+        // rule makes its head safe, so a stomp on it is a hit.
+        "snake_plant": (
+            display_name: "Snake Plant",
+            spritesheet: "sprites/snake_plant_spritesheet.png",
+            manifest: "sprites/snake_plant_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // It fits in the mouth of a pipe, which is three tiles wide.
+            posed_body: Some(Width(44.0)),
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy"],
+            locomotion: Some((run_speed: 0.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((template: StandStill)),
+            max_health: Some(1),
+            fallback_dialogue: [
+                "I am a plant. Plants do not bite. Come closer.",
+                "The leaves are real. I grew them myself.",
+                "Photosynthesis is slow. Lunch is faster.",
+            ],
+        ),
+        // The bird that stays over the player and lets coconuts go. The
+        // African swallow of Ambition's catalog is another row with the same
+        // sheet: this one carries. It is the flyer the planes are (no attack
+        // range, so it flies to a place over the body it sees and never
+        // dives); `swallow.rs` asks for the drop.
+        "laden_swallow": (
+            display_name: "Laden Swallow",
+            spritesheet: "sprites/african_swallow_spritesheet.png",
+            manifest: "sprites/african_swallow_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            composition: None,
+            posed_body: Some(Width(54.0)),
+            default_action_set: "coconut_drop",
+            tags: ["enemy", "flying", "bird"],
+            locomotion: Some((run_speed: 170.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((template: Aerial, patrol_effort: 1.0, chase_effort: 1.0)),
+            max_health: Some(1),
+            fallback_dialogue: [
+                "I grip it by the husk.",
+                "It is not a question of where I got it.",
+                "Mind your head.",
+            ],
+        ),
+        // The enemy that no stomp can hurt: a small star of the void that goes
+        // along the ground on its points. It is the walker the AI Slop is, and
+        // no rule makes its top safe (`void_star.rs`).
+        "void_star": (
+            display_name: "Void Star",
+            spritesheet: "sprites/void_star_spritesheet.png",
+            manifest: "sprites/void_star_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            posed_body: Some(Width(46.0)),
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy"],
+            locomotion: Some((run_speed: 42.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((template: Wanderer, patrol_effort: 1.0)),
+            max_health: Some(1),
+            fallback_dialogue: [
+                "I point at nothing. I am what it points at.",
+                "There was a star here. I am where it was.",
+                "You may not take my address.",
+            ],
+        ),
+        // The boss of the castle: a lizard made of the void (a working title).
+        // It is the walker the AI Slop is, large, with the health of five
+        // sparks; `void_lizard.rs` asks for its orb and its hop. It stays on its
+        // bridge because the level puts a post at each end.
+        "void_lizard": (
+            display_name: "Void Lizard",
+            spritesheet: "sprites/void_lizard_spritesheet.png",
+            manifest: "sprites/void_lizard_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            posed_body: Some(Width(92.0)),
+            default_brain: "stand_still",
+            default_action_set: "void_orb",
+            tags: ["enemy", "boss"],
+            locomotion: Some((run_speed: 40.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            autonomous_profile: Some((template: Wanderer, patrol_effort: 1.0)),
+            max_health: Some(20),
+            fallback_dialogue: [
+                "I am what is left when the light goes out.",
+                "There were stars here. I ate them.",
+                "This bridge goes nowhere. So do you.",
             ],
         ),
         // The two flying swarms. Their Hall pedestals and dialogue stay in

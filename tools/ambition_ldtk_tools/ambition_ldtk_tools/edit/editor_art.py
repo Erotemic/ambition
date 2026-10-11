@@ -962,6 +962,17 @@ def apply_field_art(
                 f"{spec['enum']!r} but the field is {enum_identifier!r}"
             )
             continue
+        if spec.get("enum"):
+            # The sidecar owns the words of an enum that it declares: a word
+            # it lists and the enum does not have is added. No word is removed
+            # here, so a value that a level authors stays sayable.
+            have = [str(value.get("id")) for value in enum.get("values") or []]
+            gained = [value for value in art_by_value if value not in have]
+            if gained:
+                from ambition_ldtk_tools.edit.defs import ensure_enum_def
+
+                enum = ensure_enum_def(project, enum_identifier, have + gained)
+                messages.append(f"{path}: enum {enum_identifier} gained {', '.join(gained)}")
         painted = 0
         for value in enum.get("values") or []:
             key = art_by_value.get(str(value.get("id")))

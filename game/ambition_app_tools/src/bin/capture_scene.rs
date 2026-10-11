@@ -293,19 +293,19 @@ OPTIONS:
                         photograph art it wears by its wounds
     --screen-effect E   force screen post-process effects on, comma separated:
                         crt, grain, vignette, robot, underwater, deep_dream.
-                        ⛔ PAIR IT WITH `AMBITION_QUALITY_PROFILE=ultra`: the
-                        Potato tier scales screen shaders to zero, and Potato is
-                        what a software rasteriser gets seeded to. The tool says
-                        so rather than photographing nothing quietly.
+                        The `low` tier draws them at half strength; name
+                        `high` or `ultra` for the full effect. The tool says
+                        so when a tier scales them to nothing.
 
-⛔⛔ THE PARALLAX BACKDROP GOES THE SAME WAY, AND IT IS 96% OF THE DRAWN AREA.
-    `spawn_parallax_layers` early-returns when the parallax budget is disabled,
-    and Potato disables it — so a capture taken WITHOUT
-    `AMBITION_QUALITY_PROFILE=ultra` on a machine with no GPU is a photograph of
-    the room with its sky missing. Measured 2026-09-01 in `water_world`: total
-    sprite coverage 631,267 px at the default tier against 14,564,876 px at
-    ultra, a 23x difference decided by an environment variable this command line
-    does not mention. (World units, not pixels — the ratio is the reading.)
+QUALITY:
+    A capture is taken at the `low` visual quality profile unless
+    `AMBITION_QUALITY_PROFILE` names another (potato, low, medium, high,
+    ultra). `low` has the backdrop (two layers), sprites at half resolution
+    and screen shaders at half strength. To judge art, name `high` or `ultra`.
+    Do not use `potato` to look at the game: it is the tier for a machine that
+    can not run it, with no backdrop and no screen shader. Measured 2026-09-01
+    in `water_world`: sprite coverage 631,267 at potato against 14,564,876 at
+    ultra (world units).
     --fit-room          frame the whole room instead of a point
     -h, --help          print this and exit
 
@@ -331,6 +331,10 @@ fn main() {
         }
     };
 
+    eprintln!(
+        "capture_scene: visual quality `{}`",
+        ambition_platformer2d::render::capture::name_capture_quality_profile()
+    );
     match config.route.as_deref() {
         Some(route) => eprintln!(
             "capture_scene: route={route} size={}x{} out={}",
@@ -1343,7 +1347,7 @@ fn force_screen_effects(
                 eprintln!(
                     "capture_scene: ⛔ the {:?} visual-quality tier scales screen \
                      shaders to {scale:.2}, so --screen-effect will photograph \
-                     NOTHING. Re-run with AMBITION_QUALITY_PROFILE=ultra.",
+                     NOTHING. Re-run with AMBITION_QUALITY_PROFILE=high.",
                     quality.profile
                 );
             }

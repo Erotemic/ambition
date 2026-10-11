@@ -34,6 +34,14 @@ pub const FLAG_SPRITE: &str = "super_mary_o_flag";
 /// drawn as it.
 pub const LIFT_SPRITE: &str = "super_mary_o_lift";
 
+/// The top of a pit of lava: the wave, and the light in the air over it.
+pub const LAVA_TOP_SPRITE: &str = "super_mary_o_lava_top";
+/// The lava under the top.
+pub const LAVA_BODY_SPRITE: &str = "super_mary_o_lava_body";
+/// A damage volume whose name starts with this is a pit of lava: the level
+/// draws it as lava (`lava_pools_of`), and not as a ball of fire.
+pub const LAVA_PREFIX: &str = "lava";
+
 /// Every construction-prop kind this level draws, so the loader below can walk
 /// them uniformly.
 const CONSTRUCTION_PROPS: &[&str] = &[
@@ -43,6 +51,8 @@ const CONSTRUCTION_PROPS: &[&str] = &[
     POLE_TOP_SPRITE,
     FLAG_SPRITE,
     LIFT_SPRITE,
+    LAVA_TOP_SPRITE,
+    LAVA_BODY_SPRITE,
 ];
 
 /// A fully transparent block-art override. Applied to the pole/pipe collision
@@ -128,5 +138,71 @@ pub fn register_mary_o_construction_props(app: &mut App) {
                 front_row: None,
             },
         );
+    }
+}
+
+/// Each pit of lava of a room: the name and the box of each damage volume the
+/// level names as lava. The top of the box is the top of the lava.
+pub fn lava_pools_of(room: &ambition_platformer2d::world::rooms::RoomSpec) -> Vec<(String, ae::Aabb)> {
+    use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
+    let mut pools: Vec<_> = room
+        .placements
+        .iter()
+        .filter(|placement| {
+            matches!(placement.schema, PlacementSchema::Hazard(_)) && placement.name.starts_with(LAVA_PREFIX)
+        })
+        .map(|placement| (placement.name.clone(), placement.aabb))
+        .collect();
+    // Sorted so the props a level produces do not depend on placement order.
+    pools.sort_by(|a, b| a.0.cmp(&b.0));
+    pools
+}
+
+/// On the visual of a pit of lava: its picture is the lava props, so the
+/// engine's picture of a hazard is hidden.
+#[derive(Component)]
+pub struct LavaVisual;
+
+/// In a room of Mary-O a damage volume is fire: each one is drawn as the fire
+/// orb, and not as the spikes that are the engine's picture of a hazard. A
+/// pit of lava is drawn by its props, so its own visual is hidden.
+///
+/// A bar of fire is a row of damage volumes that the level puts on paths
+/// about one pivot. Their art is the `fire_orb` entity sprite of the sprite
+/// renderer; this names it on each hazard's visual, one time.
+pub fn dress_fire(
+    mut commands: Commands,
+    rooms: Option<ambition_platformer2d::world::rooms::LiveRoomSpecs>,
+    subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
+    visuals: Query<
+        (Entity, &ambition_platformer2d::render::rendering::FeatureVisual),
+        (
+            Without<ambition_platformer2d::render::rendering::EntityArt>,
+            Without<LavaVisual>,
+        ),
+    >,
+) {
+    use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
+    use ambition_platformer2d::render::rendering::EntityArt;
+    use ambition_platformer2d::sprite_sheet::game_assets::EntitySprite;
+    let room = subject
+        .and_then(|subject| subject.0)
+        .and_then(|body| rooms.as_ref()?.spec_of(body));
+    let Some(room) = room.filter(|room| room.metadata.mode.as_deref() == Some(crate::MARY_O_MODE)) else {
+        return;
+    };
+    for (entity, visual) in &visuals {
+        let hazard = room.placements.iter().find(|placement| {
+            matches!(placement.schema, PlacementSchema::Hazard(_)) && placement.id.as_str() == visual.id
+        });
+        match hazard {
+            Some(placement) if placement.name.starts_with(LAVA_PREFIX) => {
+                commands.entity(entity).try_insert((LavaVisual, Visibility::Hidden));
+            }
+            Some(_) => {
+                commands.entity(entity).try_insert(EntityArt(EntitySprite::FireOrb));
+            }
+            None => {}
+        }
     }
 }

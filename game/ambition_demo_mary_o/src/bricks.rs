@@ -213,6 +213,56 @@ fn break_bricks_struck_by(
     }
 }
 
+/// A bridge falls when the goal of its room is taken.
+///
+/// Each plank (`MaryOBlockLook::Plank`) of the room of the body on the pole is
+/// marked broken, one time, with the shards of a brick. A plank then goes the
+/// way a broken brick goes (the overlay below), and it is whole again in the
+/// next attempt. What stood on the bridge falls.
+pub fn drop_planks_when_the_goal_is_taken(
+    mut broken: ResMut<BrokenBricks>,
+    mut vfx: ambition_platformer2d::vfx::VfxWriter,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
+    sequences: Query<&crate::flag::FlagSequence>,
+    subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
+    geometry: ambition_platformer2d::platformer::lifecycle::LiveRoomOf<ae::RoomGeometry>,
+) {
+    if !sequences.single().is_ok_and(|sequence| sequence.active()) {
+        return;
+    }
+    let Some(body) = subject.and_then(|subject| subject.0) else {
+        return;
+    };
+    let (Some(room), Some(room_geometry)) = (geometry.room_of(body), geometry.of(body)) else {
+        return;
+    };
+    let mut first = None;
+    for block in &room_geometry.0.blocks {
+        if crate::ldtk_vocabulary::block_look_of(&block.name) != Some(MaryOBlockLook::Plank) {
+            continue;
+        }
+        if !broken.mark(room, &block.name) {
+            continue;
+        }
+        let center = (block.aabb.min + block.aabb.max) * 0.5;
+        first.get_or_insert(center);
+        vfx.for_room(Some(room)).write(ambition_platformer2d::vfx::VfxMessage::Burst {
+            pos: center,
+            count: 8,
+            speed: 155.0,
+            color: [0.72, 0.35, 0.22, 1.0],
+            kind: ambition_platformer2d::vfx::ParticleKind::Shard,
+        });
+    }
+    // One crack for the bridge, not one for each plank.
+    if let Some(pos) = first {
+        sfx.write_from(
+            crate::provider::MARY_O_EXPERIENCE,
+            ambition_platformer2d::sfx::SfxMessage::Hit { pos },
+        );
+    }
+}
+
 /// Broken bricks are per-attempt: the next lap — and the next LIFE — is a new
 /// live room, and it starts against a whole wall.
 impl ambition_platformer2d::actors::session::reset::AttemptScoped for BrokenBricks {

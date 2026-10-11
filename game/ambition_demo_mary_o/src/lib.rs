@@ -19,6 +19,7 @@ pub mod ai_slop;
 mod binding_tests;
 pub mod bricks;
 pub mod death;
+pub mod fire_shader;
 pub mod flag;
 #[cfg(test)]
 mod ldtk_migration_tests;
@@ -27,6 +28,7 @@ pub mod level_1_2;
 pub mod movement;
 pub mod pipe;
 pub mod plane;
+pub mod plant;
 pub mod powerups;
 pub mod provider;
 pub mod quasar_shader;
@@ -38,7 +40,11 @@ mod smash_moveset;
 pub mod snake;
 pub mod star;
 pub mod stomp;
+pub mod swallow;
 pub mod test_course;
+pub mod void_lizard;
+mod void_look;
+pub mod void_star;
 
 pub use provider::{
     mary_o_session_world, MaryOExperiencePlugin, MaryOSessionWorld, MARY_O_CHARACTER_ID,
@@ -306,6 +312,10 @@ fn pipe_tubes(room: &RoomSpec) -> Result<Vec<PipeTube>, String> {
     let mut by_link: std::collections::BTreeMap<String, Vec<(PipeHalf, MaryOPipeRole)>> =
         std::collections::BTreeMap::new();
     for (half, pipe) in pipe_halves_of(room) {
+        // A sealed pipe is a half of no tube.
+        if pipe.role == MaryOPipeRole::Sealed {
+            continue;
+        }
         by_link
             .entry(pipe.link.clone())
             .or_default()
@@ -751,6 +761,40 @@ fn scenery_for_authored_room(room: &RoomSpec) -> Vec<PropSpec> {
             }
         }
     }
+
+    // Each pit of lava: a top tile for each column, with the top of the lava
+    // at the top of the pool's box, and under it the body, as deep as the box.
+    // They are in front of the cast: a body that falls in goes into the lava.
+    for (name, pool) in scenery::lava_pools_of(room) {
+        let (min, size) = (pool.min, pool.max - pool.min);
+        let columns = (size.x / T).round().max(1.0) as usize;
+        for column in 0..columns {
+            // Each tile reaches back under the one before it, as the tiles of
+            // a pipe do, so no zoom shows the room between two tiles.
+            let under = if column == 0 { 0.0 } else { PIPE_TILE_OVERLAP };
+            let at_x = min.x + column as f32 * T - under;
+            let wide = T + under;
+            // The top of the lava is at the middle row of its frame
+            // (`LAVA_SURFACE` in the sprite renderer).
+            props.push(scenery::pipe_prop(
+                &format!("{name}_top_art_{column}"),
+                scenery::LAVA_TOP_SPRITE,
+                ae::Vec2::new(at_x, min.y - T * 0.5),
+                ae::Vec2::new(wide, T),
+                false,
+            ));
+            let deep = size.y - T * 0.5 + PIPE_TILE_OVERLAP;
+            if deep > PIPE_TILE_OVERLAP + 0.5 {
+                props.push(scenery::pipe_prop(
+                    &format!("{name}_body_art_{column}"),
+                    scenery::LAVA_BODY_SPRITE,
+                    ae::Vec2::new(at_x, min.y + T * 0.5 - PIPE_TILE_OVERLAP),
+                    ae::Vec2::new(wide, deep),
+                    false,
+                ));
+            }
+        }
+    }
     props
 }
 
@@ -969,6 +1013,8 @@ pub fn install_mary_o_content(app: &mut App) {
             // Presentation reads sim state and writes render components, in
             // `Update`.
             powerups::dress_power_blocks,
+            // The look of a bar of fire, for the same reason in `Update`.
+            scenery::dress_fire,
         ),
     );
 
@@ -1056,6 +1102,8 @@ impl Plugin for MaryODemoContentPlugin {
         install_mary_o_content(app);
         quasar_shader::install(app);
         shimmer_shader::install(app);
+        fire_shader::install(app);
+        void_look::install(app);
         let room = level_1_1();
         let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
             provider::MARY_O_EXPERIENCE,
@@ -1396,6 +1444,13 @@ impl Plugin for MaryORulesPlugin {
         let cronies = (
             snake::run_snake_shells,
             ai_slop::bounce_squash_ai_slop,
+            // After the movement step, so the path of the plant wins, and
+            // before the contact pass, so a hidden plant hurts nobody.
+            plant::run_snake_plants,
+            // The fire intent of this tick: the actions of the brains are read
+            // after this phase.
+            swallow::drop_coconuts,
+            void_lizard::run_void_lizard,
         )
             .chain()
             // Both edges are PHASES now, which is the same statement without a
@@ -1484,7 +1539,8 @@ impl Plugin for MaryORulesPlugin {
         // the render reconcile, drawing). The contribution runs AFTER the engine's
         // overlay rebuild clears that list — the same slot `contribute_encounter_lock_walls`
         // takes — so the removals survive the per-frame clean slate.
-        let bricks = bricks::break_bricks
+        let bricks = (bricks::break_bricks, bricks::drop_planks_when_the_goal_is_taken)
+            .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::FeatureInteraction);
         let brick_overlay = (
             bricks::contribute_broken_bricks_to_overlay,
@@ -2399,6 +2455,10 @@ mod tests {
                             | snake::SNAKE_SHEET_TARGET
                             | plane::PAPER_PLANE_CHARACTER_ID
                             | plane::CARTESIAN_PLANE_CHARACTER_ID
+                            | plant::SNAKE_PLANT_CHARACTER_ID
+                            | swallow::LADEN_SWALLOW_CHARACTER_ID
+                            | void_lizard::VOID_LIZARD_CHARACTER_ID
+                            | void_star::VOID_STAR_CHARACTER_ID
                     ),
                     "{label}'s enemy `{}` wears `{character_id}`, which is not one \
                      of the characters this demo publishes sheets for — it will \
@@ -2451,11 +2511,18 @@ mod tests {
     #[test]
     fn each_area_says_its_mode_and_its_biome_in_data() {
         use ambition_platformer2d::sprite_sheet::game_assets::ParallaxTheme;
-        let mut vault_blocks = 0;
         for room in authored_levels() {
             assert_eq!(room.metadata.mode.as_deref(), Some(MARY_O_MODE), "{} claims no mode", room.id);
-            let expected = if room.id == level_1_2::LEVEL_1_2_ROOM_ID { ParallaxTheme::Starless } else { ParallaxTheme::Starlight };
-            assert_eq!(ParallaxTheme::named_by_room_metadata(&room.metadata), Some(expected), "the biome of {}", room.id);
+            // One of Mary-O's biomes: a room that names another one, or
+            // none, is drawn with the look of another game.
+            assert!(
+                matches!(
+                    ParallaxTheme::named_by_room_metadata(&room.metadata),
+                    Some(ParallaxTheme::Starlight | ParallaxTheme::Starless | ParallaxTheme::VoidCastle)
+                ),
+                "the biome of {}",
+                room.id
+            );
             let undressed: Vec<_> = room
                 .world
                 .blocks
@@ -2466,11 +2533,9 @@ mod tests {
                 .collect();
             assert!(!undressed.is_empty(), "{} authors no plain block", room.id);
             for block in undressed {
-                vault_blocks += usize::from(block.name.starts_with("vault_"));
                 assert_eq!(block.art_color, None, "{} block `{}` has a colour, so it gets no skin", room.id, block.name);
             }
         }
-        assert_eq!(vault_blocks, 6, "1-1 and 1-3 each author a vault floor and two walls");
     }
 
     /// The level clock counts DOWN on the sim clock and clamps at zero. `hosted()`

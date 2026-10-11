@@ -49,6 +49,10 @@ pub enum EntitySprite {
     EdgeExit,
     // Player projectiles (Fireball + Hadouken share the same sprite)
     ProjectileEnergy,
+    /// A round ball of fire, for a hazard that is fire (a bar of fire that
+    /// turns). No hazard draws it by default: a game names it through the
+    /// `EntityArt` component.
+    FireOrb,
     // 32×32 tile sprites for IntGrid block surfaces. Rendered with
     // `Sprite::image_mode = Tiled` so they repeat across long floors and tall
     // walls instead of stretching.
@@ -100,6 +104,7 @@ impl EntitySprite {
             Self::DoorBlueprint => "entities/door_blueprint.png",
             Self::EdgeExit => "entities/edge_exit.png",
             Self::ProjectileEnergy => "entities/projectile_energy.png",
+            Self::FireOrb => "entities/fire_orb.png",
             Self::BonusBlockTile => "entities/bonus_block_tile.png",
             Self::SpentBlockTile => "entities/spent_block_tile.png",
             Self::SolidTile => "entities/solid_tile.png",
@@ -135,6 +140,7 @@ impl EntitySprite {
         Self::DoorBlueprint,
         Self::EdgeExit,
         Self::ProjectileEnergy,
+        Self::FireOrb,
         Self::BonusBlockTile,
         Self::SpentBlockTile,
         Self::SolidTile,
@@ -177,6 +183,7 @@ pub fn entity_sprite_asset_id(key: EntitySprite) -> AssetId {
         EntitySprite::DoorBlueprint => "door_blueprint",
         EntitySprite::EdgeExit => "edge_exit",
         EntitySprite::ProjectileEnergy => "projectile_energy",
+        EntitySprite::FireOrb => "fire_orb",
         EntitySprite::BonusBlockTile => "bonus_block_tile",
         EntitySprite::SpentBlockTile => "spent_block_tile",
         EntitySprite::SolidTile => "solid_tile",

@@ -4,13 +4,17 @@
 // stand on and cannot hurt (its arena placement stands it behind the playable
 // plane), so there is no on-foot phase and no `mount_died` trigger. The phases
 // are his lectures:
-// Phase 1 "Lectures on Motion", Phase 2 "Principia", Enrage "The System of the
-// World" — see the `gnu_ton_rider` row in `boss_profiles.ron`.
+// Phase 1 "A Demonstration at a Distance" (short: the giant's arms are on it,
+// and it punches through a pair of portals), Phase 2 "Lectures on Motion" and
+// "Principia" (its arms are in two portals; its fists are bodies of their
+// own), Enrage "The System of the World" — see the `gnu_ton_rider` row in
+// `boss_profiles.ron`. The beat between phase 1 and phase 2 is the clamp.
 (
     id: "gnu_ton_rider",
     name: "GNU-ton",
     max_hp: 42,
-    phase1_to_transition_hp: 0.65,
+    // Phase 1 ends after a few blows on him.
+    phase1_to_transition_hp: 0.86,
     phase2_to_enrage_hp: 0.28,
     intro_seconds: 2.8,
     transition_seconds: 2.0,

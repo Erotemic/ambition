@@ -5,6 +5,8 @@
 //!   conducted boss on the extension host (`ambition.boss.conduct`).
 //! * [`conductor`] — what the game keeps here: his id, his birth, and a view
 //!   of the module's record for tests and inspectors.
+//! * [`portals`] — the portals of the fight, opened where his conductor's
+//!   record says each line is.
 //! * This file — the arena's exit gating.
 //!
 //! ## Exit gating
@@ -21,6 +23,7 @@ use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_core::RoomGeometry;
 
 pub mod conductor;
+pub mod portals;
 
 pub use conductor::{birth, conductor_of, GnuTonView, Move, GNU_TON_ID};
 

@@ -653,9 +653,15 @@ second authoring source.
   the root of every `root__x` title. Four roots exist only as `__N` jump
   targets, so the validator accepted NpcSpawn ids the runtime cannot start
   (`a_spawn_naming_a_root_that_exists_only_as_variants_is_refused`). The ids
-  are exact titles now. Open: the ids still come from `yarn_title_ids`, a
-  `title:` line scan beside the Yarn compiler. The compiler is an optional
-  dependency (`ui`), so replacing the scan is a dependency decision.
+  are exact titles now. ✅ 2026-10-11, the catalog fold: `known_dialogue_ids`
+  also accepted each catalog `hall_dialogue_id`, so a catalog that named a
+  Hall dialogue with no node made the id valid, and the spawn started nothing.
+  The Yarn titles are the one source now; the catalog's ids are checked
+  against them (`a_hall_dialogue_the_catalog_names_with_no_node_is_refused`,
+  red with the fold put back; the control is `hall_player`). Open: the ids
+  still come from `yarn_title_ids`, a `title:` line scan beside the Yarn
+  compiler. The compiler is an optional dependency (`ui`), so replacing the
+  scan is a dependency decision.
 - LDtk/world cross-reference rules in `content_validation.rs` repeat rules that
   a world owner already checks. ✅ 2026-10-03, the LoadingZone target rule:
   `validate_ldtk_room_links` refused every zone without both targets, which <!-- cite-ok: the function's name on 2026-10-03; it is `validate_room_links` now -->

@@ -129,7 +129,7 @@ pub fn validate_content_graph(
 
     validate_room_links(&rooms, &links, &mut report);
     validate_room_music_tracks(project, music, &mut report);
-    validate_npc_dialogue_ids(project, character_catalog, &mut report);
+    validate_npc_dialogue_ids(project, &mut report);
     validate_npc_brain_overrides(project, character_catalog, &mut report);
     validate_quest_conditions(pack, &rooms, music, &mut report);
     validate_cutscene_bindings(pack, project, &mut report);
@@ -178,12 +178,8 @@ fn validate_room_music_tracks(
     );
 }
 
-fn validate_npc_dialogue_ids(
-    project: &LdtkProject,
-    character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-    report: &mut ContentValidationReport,
-) {
-    let known_ids = crate::dialogue::known_dialogue_ids(character_catalog);
+fn validate_npc_dialogue_ids(project: &LdtkProject, report: &mut ContentValidationReport) {
+    let known_ids = crate::dialogue::known_dialogue_ids();
     let known = known_ids
         .iter()
         .map(String::as_str)
@@ -787,6 +783,51 @@ mod tests {
             1,
             "a dialogue id that no node is titled was accepted: {errors:?}"
         );
+    }
+
+    /// The Yarn titles are the one authority for a dialogue id. A catalog
+    /// that names a Hall dialogue with no node does not make the id valid: the
+    /// runtime starts a title, and there is none.
+    #[test]
+    fn a_hall_dialogue_the_catalog_names_with_no_node_is_refused() {
+        let music = crate::audio_registries::shipped_music_registry();
+        let mut data = crate::character_catalog::shipped_catalog().data().clone();
+        let entry = data.characters.values_mut().next().expect("the catalog has a character");
+        entry.hall_dialogue_id = Some("hall_nobody".into());
+        let character_catalog =
+            ambition_characters::actor::character_catalog::CharacterCatalog::from_data(data);
+        let errors_naming = |dialogue_id: &str| {
+            let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+                .expect("embedded LDtk loads");
+            let spawn = project
+                .levels
+                .iter_mut()
+                .flat_map(|level| level.layer_instances.iter_mut())
+                .flat_map(|layer| layer.entity_instances.iter_mut())
+                .find(|entity| {
+                    entity.identifier == "NpcSpawn"
+                        && field_string(entity, "dialogue_id").is_some_and(|id| !id.trim().is_empty())
+                })
+                .expect("the embedded world has an NPC with a dialogue");
+            let iid = spawn.iid.clone();
+            set_field(
+                &mut spawn.field_instances,
+                "dialogue_id",
+                serde_json::Value::String(dialogue_id.into()),
+            );
+            validate_content_graph(crate::pack::shipped(), &music, &project, &character_catalog)
+                .errors
+                .into_iter()
+                .filter(|error| error.contains(&iid))
+                .collect::<Vec<_>>()
+        };
+        let nobody = errors_naming("hall_nobody");
+        assert!(
+            nobody.len() == 1 && nobody[0].contains("unknown dialogue_id 'hall_nobody'"),
+            "a Hall dialogue with no node was accepted: {nobody:?}"
+        );
+        // Control: a Hall dialogue that has its node is accepted.
+        assert_eq!(errors_naming("hall_player"), Vec::<String>::new());
     }
 
     #[test]

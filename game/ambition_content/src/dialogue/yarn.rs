@@ -117,28 +117,18 @@ pub fn dialogue_set_flags() -> Vec<String> {
 }
 
 /// Validator surface (the LDtk content validator reads this): every Yarn node
-/// id `NpcSpawn.dialogue_id` may reference. Folds in the per-character
-/// Hall-of-Characters dialogue ids declared in the catalog
-/// (`hall_dialogue_id`), so authored `hall_<id>` nodes are accepted without a
-/// second hand-maintained list — the catalog is their single source of truth.
+/// id `NpcSpawn.dialogue_id` may reference. The Yarn titles are the one
+/// authority. A catalog `hall_dialogue_id` is a reference to a title, not a
+/// second source of titles: an id with no node starts nothing.
 ///
 /// Exact titles only. The runtime starts a dialogue id exactly as named
 /// (`DialogueNodeIndex::entry_node`), so the root of a `root__1` title is not
 /// an id that can start unless a node is titled `root` too.
-pub fn known_dialogue_ids(
-    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-) -> Vec<String> {
+pub fn known_dialogue_ids() -> Vec<String> {
     let mut ids: Vec<String> = Vec::new();
     for (_, source) in yarn_sources() {
         ids.extend(yarn_title_ids(source).map(str::to_string));
     }
-    ids.extend(
-        catalog
-            .data()
-            .characters
-            .values()
-            .filter_map(|entry| entry.hall_dialogue_id.clone()),
-    );
     ids.sort_unstable();
     ids.dedup();
     ids

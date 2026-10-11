@@ -1,5 +1,5 @@
-// Ambition's adaptive music: the cues that ship and the encounters that bind
-// to them. Schema `music_cue_catalog` (owned by `ambition_audio`); the content
+// Ambition's adaptive music: the cues that ship, and the encounters and rooms
+// that bind to them. Schema `music_cue_catalog` (owned by `ambition_audio`); the content
 // compiler checks every reference and requires each section's audio file.
 //
 // The audio is rendered by tools/ambition_music_renderer
@@ -44,6 +44,60 @@
             outro_state: Some("outro"),
             post_clear_bridge_state: Some("cleared_bridge"),
         ),
+        (
+            // The primeval trail. The audio is the playback layers of
+            // scores/active/dinosaur_liberators_adaptive.music.yaml: sums of
+            // stems before the master chain, so all layers together are the
+            // level of a mastered track, and gains stay near one. The states
+            // of `trail` are one loop with more layers; a change between them
+            // changes only gains. Measure with the renderer's
+            // dev/measure_playback_layers.py before you change a gain.
+            id: "dinosaur_liberators_adaptive",
+            asset_root: "audio/music/generated/dinosaur_liberators_adaptive",
+            bpm: 110.0,
+            beats_per_bar: 4.0,
+            relative_volume: 1.0,
+            sections: [
+                (id: "intro", duration_beats: 32.0, looped: false, sources: [
+                    (layer_id: "bed", path: "playback/intro/intro.bed.ogg"),
+                    (layer_id: "tune", path: "playback/intro/intro.tune.ogg"),
+                ]),
+                // The verse and the chorus of the song.
+                (id: "trail", duration_beats: 128.0, looped: true, sources: [
+                    (layer_id: "bed", path: "playback/trail/trail.bed.ogg"),
+                    (layer_id: "drums", path: "playback/trail/trail.drums.ogg"),
+                    (layer_id: "tune", path: "playback/trail/trail.tune.ogg"),
+                    (layer_id: "grit", path: "playback/trail/trail.grit.ogg"),
+                ]),
+                // The two solo sections.
+                (id: "fight", duration_beats: 128.0, looped: true, sources: [
+                    (layer_id: "bed", path: "playback/fight/fight.bed.ogg"),
+                    (layer_id: "drums", path: "playback/fight/fight.drums.ogg"),
+                    (layer_id: "tune", path: "playback/fight/fight.tune.ogg"),
+                    (layer_id: "grit", path: "playback/fight/fight.grit.ogg"),
+                    (layer_id: "solo", path: "playback/fight/fight.solo.ogg"),
+                ]),
+            ],
+            layers: [
+                // Arpeggio guitar, bass, organ and piano.
+                (id: "bed", slot: 0),
+                (id: "drums", slot: 1),
+                // The lead guitar and the slide guitar.
+                (id: "tune", slot: 2),
+                // The heavy rhythm guitar and the horns.
+                (id: "grit", slot: 3),
+                (id: "solo", slot: 4),
+            ],
+            states: [
+                (id: "intro", section_id: "intro", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
+                (id: "soft", section_id: "trail", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0)]),
+                (id: "rolling", section_id: "trail", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0)]),
+                // The grit layer adds 0.6 dB at a gain of one: texture and
+                // not level. The gain above one makes the step clear.
+                (id: "driving", section_id: "trail", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "grit", gain: 1.25)]),
+                (id: "fight", section_id: "fight", gains: [(layer_id: "bed", gain: 1.0), (layer_id: "tune", gain: 1.0), (layer_id: "drums", gain: 1.0), (layer_id: "grit", gain: 1.0), (layer_id: "solo", gain: 1.0)]),
+            ],
+        ),
     ],
     encounter_bindings: [
         (
@@ -55,5 +109,15 @@
             wave2_reinforced_state: Some("wave2_brute"),
             cleared_state: "outro",
         ),
+    ],
+    // A room's adaptive music, in place of its `music_track`. The rooms of the
+    // primeval trail share one cue: each room deeper in adds a layer, and the
+    // T-rex fight plays the solo sections. The intro plays one time, when the
+    // cue starts at the trailhead.
+    room_bindings: [
+        (room_id: "primeval_trailhead", cue_id: "dinosaur_liberators_adaptive", state: "soft", entry_state: Some("intro")),
+        (room_id: "primeval_run", cue_id: "dinosaur_liberators_adaptive", state: "rolling"),
+        (room_id: "primeval_canopy", cue_id: "dinosaur_liberators_adaptive", state: "driving"),
+        (room_id: "primeval_tyrant_hall", cue_id: "dinosaur_liberators_adaptive", state: "driving", fight_state: Some("fight")),
     ],
 )

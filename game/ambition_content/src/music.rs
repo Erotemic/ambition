@@ -17,7 +17,10 @@ pub fn music_cue_catalog_from(
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> Option<MusicCueCatalog> {
     let authored = ambition_audio::content_schema::lowered_music_cues(pack).cloned()?;
-    Some(MusicCueCatalog::from_parts(authored.cues, authored.encounter_bindings))
+    Some(
+        MusicCueCatalog::from_parts(authored.cues, authored.encounter_bindings)
+            .with_room_bindings(authored.room_bindings),
+    )
 }
 
 #[cfg(test)]

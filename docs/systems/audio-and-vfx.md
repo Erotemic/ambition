@@ -25,9 +25,16 @@ provider assets. Runtime does not synthesize the whole shipped bank at startup.
 A provider says its audio in content-pack data, and `ambition_audio` owns the
 three schemas: `music_registry` (tracks), `sfx_registry` (procedural cues) and
 `music_cue_catalog` (adaptive cues: sections, layers, states, and the
-encounters that bind to a cue). The compiler refuses a cue file whose states,
-layers or bindings name nothing, and it requires each section's audio file.
-Ambition's cues are in `game/ambition_content/assets/audio/music_cues.ron`.
+encounters and rooms that bind to a cue). The compiler refuses a cue file whose
+states, layers or bindings name nothing, and it requires each section's audio
+file. Ambition's cues are in `game/ambition_content/assets/audio/music_cues.ron`.
+
+Two bindings choose a cue state. An encounter binding follows the phases and
+waves of one fight. A room binding gives a room one state of a cue, in place of
+the room's `music_track`; rooms that bind the same cue share its playback, so a
+walk from room to room changes the state and does not start the cue again. States
+on one section change only the layer gains. A room binding can also name an entry
+state (a section that plays one time when the cue starts) and a fight state.
 
 ## VFX ownership
 

@@ -370,6 +370,42 @@ fn one_encounter_bound_twice_is_refused() {
     assert!(failure.has(DiagnosticCode::DuplicateIdentity), "{:?}", failure.codes());
 }
 
+/// The cue file with a room binding after its encounter binding.
+fn cues_with_room_binding(fields: &str) -> String {
+    let anchor = r#"cleared_state: "done",
+    )],"#;
+    cues_with(anchor, &format!("{anchor}\n    room_bindings: [({fields})],"))
+}
+
+#[test]
+fn a_room_binding_lowers_with_the_cues() {
+    let text = cues_with_room_binding(
+        r#"room_id: "lab", cue_id: "lab", state: "fight", entry_state: Some("done")"#,
+    );
+    let pack = compile(&cue_draft("room_binding", &text), &registry(), &AssetsUnchecked)
+        .expect("a room binding to states of its cue compiles");
+    let cues = lowered_music_cues(&pack).expect("a Runtime schema lowers its artifact");
+    assert_eq!(cues.room_bindings[0].state, "fight");
+    assert_eq!(cues.room_bindings[0].fight_state, None, "an absent option is None");
+}
+
+/// A room binding's references are held to the rules of an encounter's. Its
+/// entry state must also end: the director leaves a section that does not
+/// loop when it runs out, and never leaves one that loops.
+#[test]
+fn a_room_binding_the_director_cannot_follow_refuses_the_cue_file() {
+    for (name, fields) in [
+        ("room_cue", r#"room_id: "lab", cue_id: "gone", state: "fight""#),
+        ("room_state", r#"room_id: "lab", cue_id: "lab", state: "gone""#),
+        ("room_fight_state", r#"room_id: "lab", cue_id: "lab", state: "fight", fight_state: Some("gone")"#),
+        ("room_entry_loops", r#"room_id: "lab", cue_id: "lab", state: "done", entry_state: Some("fight")"#),
+        ("room_unnamed", r#"room_id: " ", cue_id: "lab", state: "fight""#),
+    ] {
+        let failure = refuse_cues(name, &cues_with_room_binding(fields));
+        assert!(failure.has(DiagnosticCode::MalformedSource), "{name}: {:?}", failure.codes());
+    }
+}
+
 /// Each section's audio file is a declared requirement.
 #[test]
 fn a_cue_section_whose_audio_file_is_missing_is_reported() {

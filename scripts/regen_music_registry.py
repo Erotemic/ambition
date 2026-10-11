@@ -86,11 +86,14 @@ CLAIMED_DIRS = {"lofi_study_loop", "first_goblin_tune_v2"}
 # Generated dirs that exist but should NOT appear as radio songs.
 #   - ``flying_spaghetti_monster_fight``: superseded by the ``roots`` family
 #     (the boss now uses ``flying_spaghetti_monster_roots_boss_choir_backing``).
+#   - ``dinosaur_liberators_adaptive``: the layers of the primeval trail's
+#     adaptive cue (``music_cues.ron``). The radio track is ``dinosaur_liberators``.
 # NOTE: ``*_choir_backing`` cues are NOT stems despite the name — they are the
 # fuller boss/stage arrangements (boss + choir) and the cues with live scores
 # under scores/active, so they ARE registered. Add an id here to retire a cue
 # from the radio without deleting its render.
 DENY_IDS = {
+    "dinosaur_liberators_adaptive",
     "flying_spaghetti_monster_fight",
 }
 

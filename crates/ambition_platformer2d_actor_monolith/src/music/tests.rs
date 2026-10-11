@@ -628,3 +628,84 @@ fn adaptive_music_follows_the_heard_rooms_occurrence_in_any_order() {
     );
     assert_eq!(only_other, None, "another room's fight drove the cue: {only_other:?}");
 }
+
+// ---- room bindings ----
+
+/// A catalog of two rooms on one cue: the first has an entry state, the
+/// second has a fight state.
+fn trail_catalog() -> MusicCueCatalog {
+    use ambition_audio::music::RoomMusicBinding;
+    MusicCueCatalog::from_parts(Vec::new(), Vec::new()).with_room_bindings(vec![
+        RoomMusicBinding {
+            room_id: "trailhead".into(),
+            cue_id: "trail".into(),
+            state: "soft".into(),
+            entry_state: Some("intro".into()),
+            fight_state: None,
+        },
+        RoomMusicBinding {
+            room_id: "hall".into(),
+            cue_id: "trail".into(),
+            state: "driving".into(),
+            entry_state: None,
+            fight_state: Some("fight".into()),
+        },
+    ])
+}
+
+fn asked_state(directive: Option<AdaptiveCueDirective>) -> Option<String> {
+    match directive {
+        Some(AdaptiveCueDirective::Play { cue_id, state_id }) => {
+            assert_eq!(cue_id, "trail");
+            Some(state_id)
+        }
+        Some(AdaptiveCueDirective::StopNow) => panic!("a room binding does not stop a cue"),
+        None => None,
+    }
+}
+
+/// The entry state is for a cue that is not playing. The frame after the
+/// director starts it, the room asks for its own state; the director goes
+/// there when the entry section ends. A standing request for the entry
+/// state would hold a section that does not loop.
+#[test]
+fn a_room_asks_for_its_entry_state_only_while_its_cue_is_not_playing() {
+    let catalog = trail_catalog();
+    let idle = MusicDirectorState::default();
+    assert_eq!(
+        asked_state(resolve_room_directive(&catalog, "trailhead", false, &idle)),
+        Some("intro".into())
+    );
+    let mut playing = director_with_active_cue(Some("trail"));
+    playing.mode = MusicDirectorMode::AdaptiveIntro;
+    assert_eq!(
+        asked_state(resolve_room_directive(&catalog, "trailhead", false, &playing)),
+        Some("soft".into())
+    );
+    // The director starts a cue again from `SimpleTrack`, also with the same
+    // cue id, so the room asks for the entry state again.
+    playing.mode = MusicDirectorMode::SimpleTrack;
+    assert_eq!(
+        asked_state(resolve_room_directive(&catalog, "trailhead", false, &playing)),
+        Some("intro".into())
+    );
+    // A room with no entry state starts in its own state.
+    assert_eq!(
+        asked_state(resolve_room_directive(&catalog, "hall", false, &idle)),
+        Some("driving".into())
+    );
+}
+
+/// A fight in a room with a fight state changes the cue's state. In a room
+/// with none, the binding gives the room to the fight's own track.
+#[test]
+fn a_fight_takes_the_rooms_fight_state_or_the_room() {
+    let catalog = trail_catalog();
+    let playing = director_with_active_cue(Some("trail"));
+    assert_eq!(
+        asked_state(resolve_room_directive(&catalog, "hall", true, &playing)),
+        Some("fight".into())
+    );
+    assert_eq!(resolve_room_directive(&catalog, "trailhead", true, &playing), None);
+    assert_eq!(resolve_room_directive(&catalog, "hub", false, &playing), None);
+}

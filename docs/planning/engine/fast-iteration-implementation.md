@@ -175,8 +175,11 @@ affected character tests.
     bincode road, in both builds) and, under `--features static_content`,
     `the_embedded_tables_are_the_tables_a_development_build_projects`
     (poison: one projected table dropped, red at the tables assertion).
-    ⚠ `run_tests.py` denies `static_*` from the union job, so no lane runs
-    that second witness.
+    `run_tests.py` denies `static_*` from the union job, so the job
+    `ambition_sprite_sheet [static_content] — the embedded sprite tree` runs
+    that second witness, and `required_checks.py` requires it for a change
+    to the crate (`test_a_change_to_the_sprite_tree_requires_its_embedded_road`;
+    poison: the rule removed, red).
   - The entity manifest of a demo world (`mary_o.entities.json`): a schema,
     as the LDtk entity contract is. Decided 2026-10-11: it stays. It is a
     `#[cfg(test)]` include in no shipped binary; it pins the manifest the

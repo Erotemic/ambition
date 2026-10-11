@@ -17,9 +17,9 @@ use ambition_platformer2d_shared_tangle::gameplay_presentation::{
     DefensePresentationCatalog, DefensePresentationPolicy, GameplayPresentationProfileCatalog,
     GameplayPresentationProfiles, HudDeclaration, HudDeclarationCatalog,
 };
-use ambition_platformer2d_runtime::PreparedPlatformerSource;
 
 use crate::lifecycle::{self, PlatformerProviderRuntimePlugin, PlatformerStreamingReadiness};
+use crate::world_source::IntoPreparedSource;
 
 /// The catalog identity a provider authors: its starting character, its audio
 /// provider id, and which audio fragments a prepared session must find.
@@ -647,25 +647,28 @@ impl PlatformerExperienceAuthoring {
     /// Register the experience AND its session lifecycle in one call.
     ///
     /// `source` is the provider's whole remaining obligation: a system that
-    /// builds the authored [`PreparedPlatformerSource`] this experience plays in
-    /// (it may read the provider's own resources). The shared lifecycle runs it
-    /// once on an update containing matching preparation requests, gives each
-    /// transaction an owned copy, validates the authored catalogs, publishes
-    /// the typed prepared-session identity, and constructs the live session on
-    /// activation.
-    pub fn install<S, Marker>(self, app: &mut App, source: S)
+    /// builds the authored [`PreparedPlatformerSource`](ambition_platformer2d_runtime::PreparedPlatformerSource) this experience plays in
+    /// (it may read the provider's own resources), or a [`WorldRefusal`]
+    /// ([`IntoPreparedSource`]). The shared lifecycle runs it once on an
+    /// update containing matching preparation requests, gives each transaction
+    /// an owned copy, validates the authored catalogs, publishes the typed
+    /// prepared-session identity, and constructs the live session on
+    /// activation. A refusal fails each transaction's world preparation with
+    /// its reasons, and a retry runs the source again.
+    pub fn install<S, Out, Marker>(self, app: &mut App, source: S)
     where
-        S: IntoSystem<(), PreparedPlatformerSource, Marker>,
+        S: IntoSystem<(), Out, Marker>,
+        Out: IntoPreparedSource,
     {
         self.register(app);
         let experience_id = self.experience_id.clone();
-        let tag = move |In(world): In<PreparedPlatformerSource>| (experience_id.clone(), world);
+        let tag = move |In(world): In<Out>| (experience_id.clone(), world.into_prepared_source());
         app.add_systems(
             Update,
             source
                 .pipe(tag)
-                .pipe(lifecycle::prepare_requested_sessions)
-                .run_if(lifecycle::preparation_requested(self.experience_id))
+                .pipe(crate::world_source::prepare_requested_sessions)
+                .run_if(crate::world_source::preparation_requested(self.experience_id))
                 .in_set(lifecycle::PlatformerPreparationSet),
         );
     }

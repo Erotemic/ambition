@@ -106,6 +106,12 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
 /// a named list of the rooms that exist beats a panic; this is the backstop
 /// behind them.
 pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
+    try_mary_o_session_world_entering(entry).unwrap_or_else(|reasons| panic!("{}", reasons.join("\n")))
+}
+
+/// [`mary_o_session_world_entering`], or every reason the world file cannot
+/// be played: the road a running game takes, since the file is read off disk.
+pub fn try_mary_o_session_world_entering(entry: &str) -> Result<MaryOSessionWorld, Vec<String>> {
     // The fixture course is neither of them: it is a self-contained probe room
     // with no loading zones that loops on its own goal (it names no `next_room`), so a
     // session running it carries it INSTEAD of the shipped levels. Its links go
@@ -115,16 +121,16 @@ pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
     let (rooms, links) = if entry == crate::test_course::TEST_COURSE_ROOM_ID {
         (vec![crate::test_course::test_course()], Vec::new())
     } else {
-        (crate::authored_levels(), crate::authored_room_links())
+        crate::try_authored_levels_and_links()?
     };
     let room_set = RoomSet::from_parts_or_panic(entry, rooms, links);
     let active = room_set.activation_spec();
     let geometry = ae::RoomGeometry(active.world.clone());
-    MaryOSessionWorld {
+    Ok(MaryOSessionWorld {
         geometry,
         room_set,
         starting_character: StartingCharacter::new(MARY_O_CHARACTER_ID),
-    }
+    })
 }
 
 pub fn mary_o_authored_catalogs() -> AuthoredCatalogFragments {
@@ -324,21 +330,24 @@ impl Plugin for MaryOExperiencePlugin {
     }
 }
 
-/// The provider's authored level 1-1 source for the shared preparation lifecycle.
+/// The provider's authored world for the shared preparation lifecycle, or the
+/// reasons the world file cannot be played (a bad save fails the session's
+/// preparation; the game keeps running).
 fn mary_o_prepared_session_world(
     entry: Option<bevy::prelude::Res<MaryOEntryRoom>>,
-) -> PreparedPlatformerSource {
-    let source = mary_o_session_world_entering(
+) -> Result<PreparedPlatformerSource, ambition_platformer2d::provider::WorldRefusal> {
+    let source = try_mary_o_session_world_entering(
         entry
             .as_ref()
             .map_or(LEVEL_1_1_ROOM_ID, |room| room.0.as_str()),
-    );
-    PreparedPlatformerSource::new(
+    )
+    .map_err(ambition_platformer2d::provider::WorldRefusal::new)?;
+    Ok(PreparedPlatformerSource::new(
         MARY_O_EXPERIENCE,
         source.room_set,
         source.geometry,
         source.starting_character,
-    )
+    ))
 }
 
 /// Slot ids Mary-O publishes into. Opaque to the engine.

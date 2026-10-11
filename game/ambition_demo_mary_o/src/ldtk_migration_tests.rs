@@ -405,3 +405,24 @@ fn the_world_is_read_off_disk_unless_the_build_embeds_it() {
         world.file
     );
 }
+
+/// A bad save is a refusal that names every reason on the road a running game
+/// reads, not a panic: the world is read off disk, so a save reaches it with
+/// no build in between.
+#[test]
+fn a_bad_world_save_is_refused_with_every_reason() {
+    let refused = crate::levels_and_links_of("{ not ldtk").expect_err("a file that is not JSON is refused");
+    assert!(
+        refused.len() == 1 && refused[0].contains("could not parse LDtk project JSON"),
+        "{refused:?}"
+    );
+    // A pipe whose partner is a typo: the room is refused by name.
+    let text = crate::mary_o_world_text();
+    let typo = text.replacen("\"descent\"", "\"descnet\"", 1);
+    assert_ne!(typo, text, "premise: the world authors a pipe link `descent`");
+    let refused = crate::levels_and_links_of(&typo).expect_err("a pipe with no partner is refused");
+    assert!(refused.iter().any(|why| why.contains("descnet")), "{refused:?}");
+    // Control: the world as saved is played.
+    let (rooms, _) = crate::levels_and_links_of(&text).expect("the saved world is played");
+    assert!(!rooms.is_empty());
+}

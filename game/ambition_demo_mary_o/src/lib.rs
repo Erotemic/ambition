@@ -501,12 +501,13 @@ pub fn mary_o_world_text() -> std::borrow::Cow<'static, str> {
 
 /// Load one authored area out of [`MARY_O_WORLD`].
 ///
-/// `.expect` on a level file is normally forbidden (the LDtk authoring
-/// contract says startup must print every validator error and exit nonzero, so a
-/// bad edit does not become a panic mid-play). It is acceptable HERE only because
-/// this file is EMBEDDED at compile time: a broken edit cannot reach a running
-/// player without passing the build and this crate's tests first. The moment the
-/// world is loaded from disk instead, this has to become a reported refusal.
+/// The world is read off disk in a development build, so a bad save reaches
+/// this code without a build. The panicking roads ([`authored_room`],
+/// [`authored_levels`], [`authored_room_links`]) are for startup and tests: a
+/// bad file stops the program and the panic names every reason, which is the
+/// LDtk authoring contract (print every error and exit nonzero). A road that
+/// runs while the game plays takes [`try_authored_levels_and_links`], which
+/// refuses and names every reason.
 fn authored_room(area: &str) -> RoomSpec {
     authored_area(area).unwrap_or_else(|| panic!("mary_o.ldtk authors the `{area}` area"))
 }
@@ -558,13 +559,61 @@ pub fn authored_area_ids() -> Vec<String> {
         .collect()
 }
 
-fn finish_authored_room(mut room: RoomSpec) -> RoomSpec {
-    // A `MaryOPipe` whose `link` is a typo makes building the room fail, loudly,
-    // naming the half that is there and the partner it wants.
-    let _ = pipe_tubes(&room).unwrap_or_else(|why| panic!("{why}"));
+fn finish_authored_room(room: RoomSpec) -> RoomSpec {
+    try_finish_authored_room(room).unwrap_or_else(|why| panic!("{why}"))
+}
+
+/// One authored area, finished, or why it cannot be played: a `MaryOPipe`
+/// whose `link` is a typo is refused, naming the half that is there and the
+/// partner it wants.
+fn try_finish_authored_room(mut room: RoomSpec) -> Result<RoomSpec, String> {
+    pipe_tubes(&room)?;
     dress_authored_blocks(&mut room);
     room.props.extend(scenery_for_authored_room(&room));
-    room
+    Ok(room)
+}
+
+/// Every authored area, finished, and the graph between them, as the file is
+/// now; or every reason the file cannot be played. The road for a reader that
+/// runs while the game plays: a bad save is a refusal, not a panic.
+pub fn try_authored_levels_and_links(
+) -> Result<(Vec<RoomSpec>, Vec<ambition_platformer2d::world::rooms::RoomLink>), Vec<String>> {
+    let text = MARY_O_WORLD.text().map_err(|error| vec![error])?;
+    levels_and_links_of(&text)
+}
+
+/// [`try_authored_levels_and_links`] over the world text `text`.
+fn levels_and_links_of(
+    text: &str,
+) -> Result<(Vec<RoomSpec>, Vec<ambition_platformer2d::world::rooms::RoomLink>), Vec<String>> {
+    let room_set = room_set_of(text)?;
+    let links = room_set.canonical_links();
+    let mut rooms = Vec::new();
+    let mut refusals = Vec::new();
+    for room in room_set.rooms {
+        match try_finish_authored_room(room) {
+            Ok(room) => rooms.push(room),
+            Err(why) => refusals.push(why),
+        }
+    }
+    if refusals.is_empty() {
+        Ok((rooms, links))
+    } else {
+        Err(refusals)
+    }
+}
+
+/// The rooms the world text `text` converts to with Mary-O's vocabulary, or
+/// every reason it does not.
+fn room_set_of(text: &str) -> Result<ambition_platformer2d::runtime::demo_fixture::RoomSet, Vec<String>> {
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(text).map_err(|error| {
+        vec![format!(
+            "mary_o.ldtk: {error} (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)"
+        )]
+    })?;
+    project
+        .to_room_set_with_entry(LEVEL_1_1_ROOM_ID, &ldtk_vocabulary::vocabulary())
+        .map_err(|errors| errors.into_iter().map(|error| format!("mary_o.ldtk: {error}")).collect())
 }
 
 /// Every authored area, and the graph between them.
@@ -577,13 +626,7 @@ fn finish_authored_room(mut room: RoomSpec) -> RoomSpec {
 /// vocabulary in ANY of those contexts, so the load is where the requirement
 /// belongs.
 fn authored_world() -> ambition_platformer2d::runtime::demo_fixture::RoomSet {
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&mary_o_world_text())
-        .expect(
-            "mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)",
-        );
-    project
-        .to_room_set_with_entry(LEVEL_1_1_ROOM_ID, &ldtk_vocabulary::vocabulary())
-        .unwrap_or_else(|errors| panic!("mary_o.ldtk converts to rooms: {errors:?}"))
+    room_set_of(&mary_o_world_text()).unwrap_or_else(|errors| panic!("{}", errors.join("\n")))
 }
 
 /// The room graph, as the file declares it.

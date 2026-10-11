@@ -26,7 +26,7 @@ use bevy::prelude::*;
 use ambition_game_shell::{
     ActiveGameplaySession, GameplayInputOwner, GameplaySessionEvent,
     GameplaySessionSet, PreparedSessionIdentity, PreparedSessionRegistry, ProviderLoadTransaction,
-    ShellEvent, PREPARE_ADAPTIVE_WORK_ID, PREPARE_CATALOGS_WORK_ID, PREPARE_DEFAULTS_WORK_ID,
+    PREPARE_ADAPTIVE_WORK_ID, PREPARE_CATALOGS_WORK_ID, PREPARE_DEFAULTS_WORK_ID,
     PREPARE_FIRST_ROOM_ART_WORK_ID, PREPARE_MUSIC_WORK_ID, PREPARE_PACKED_SFX_WORK_ID,
     PREPARE_SESSION_WORK_ID, PREPARE_SFX_WORK_ID, PREPARE_SPRITES_WORK_ID, PREPARE_WORLD_WORK_ID,
 };
@@ -218,42 +218,6 @@ fn update_streamable_packed_sfx(
             state: ambition_load::LoadWorkState::Complete,
         });
         readiness.pending_packed_sfx.remove(&load_id);
-    }
-}
-
-/// True when the shell requested preparation for `experience_id` this frame —
-/// the run gate that keeps a provider's session-world source from building
-/// worlds on frames nobody asked for.
-pub(crate) fn preparation_requested(
-    experience_id: String,
-) -> impl FnMut(MessageReader<ShellEvent>) -> bool {
-    move |mut events: MessageReader<ShellEvent>| {
-        events.read().any(|event| {
-            matches!(
-                event,
-                ShellEvent::PreparationRequested(transaction)
-                    if transaction.experience_id.as_str() == experience_id
-            )
-        })
-    }
-}
-
-/// The shared preparation system body: piped after a provider's session-world
-/// source (tagged with its experience id), it gives every matching transaction
-/// an owned copy of that authored world value.
-pub(crate) fn prepare_requested_sessions(
-    In((experience_id, source)): In<(String, PreparedPlatformerSource)>,
-    mut events: MessageReader<ShellEvent>,
-    mut preparation: PlatformerPreparation,
-) {
-    for event in events.read() {
-        let ShellEvent::PreparationRequested(transaction) = event else {
-            continue;
-        };
-        if transaction.experience_id.as_str() != experience_id {
-            continue;
-        }
-        preparation.prepare(transaction, source.clone());
     }
 }
 
@@ -828,7 +792,7 @@ impl PlatformerPreparation<'_> {
         self.set_state(transaction, work_id, ambition_load::LoadWorkState::Complete);
     }
 
-    fn fail(
+    pub(crate) fn fail(
         &mut self,
         transaction: &ProviderLoadTransaction,
         work_id: &'static str,

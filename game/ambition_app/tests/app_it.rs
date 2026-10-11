@@ -23,6 +23,7 @@ mod the_primeval_trail;
 mod the_session_owns_its_generation;
 mod the_sync_test_sees_a_first_run_only_effect;
 
+mod a_world_that_cannot_be_built_fails_its_preparation;
 mod a_bag_changed_mid_window_reaches_the_save;
 mod a_playthrough_of_the_persistent_world;
 mod a_walked_route_of_the_persistent_world;

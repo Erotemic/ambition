@@ -415,6 +415,32 @@ before you add a port.
   record (`bosses::gnu_ton::conductor_of`). Poison: the module removed from
   `MODULES` reddens 12 `gnu_ton_fight` arms and the two-room hall arm.
 
+- Open (2026-10-11), **a custom brain as a module** (`actor_think`). The
+  ported Ambition behaviour is modules, but a demo's enemy behaviour is still
+  Rust in the demo crate. Measured 2026-10-11: one constant edit in a Mary-O
+  enemy rule compiles `ambition_demo_mary_o` and its app (23.7 s); the same
+  edit in a loaded module is 0.34 s and no relink. The Mary-O enemy rules
+  (`void_lizard`, `swallow`, `plant`, `snake`, `ai_slop`) run in
+  `WorldPrepSet::AfterIntegrate`. Two of them (`void_lizard`, `swallow`)
+  write the body's fire intent there, after the control gate, so the gate
+  never sees it (the A4 debt class; the shipped census in `sim_phase_pins`
+  does not see Mary-O). The route is "Body-control
+  contribution" in `extension-domain-contracts.md` (Source routes):
+  - S1 (engine): the phase `actor_think`, after `ActorDecisionSet::Publish`
+    and before `PlayerInputSet::ControlGate`. The trigger
+    `ambition.actor.think` (selector: the `CharacterBrain::Custom` key) gives
+    the body's position, velocity, facing, ground, health, size and the
+    position of its target. The request `ambition.actor.fire` puts a fire
+    direction into the body's control frame, so the gate restricts it like a
+    brain's own fire. Witness: a loaded fixture module bound to a custom
+    brain key fires through the gated frame, and a body a script holds does
+    not. Poison: the lowering after the gate.
+  - S2 (Mary-O, with the Mary-O owner): the Void Lizard as a module in a
+    Mary-O module crate (its fire, and its hop through
+    `ambition.motion.velocity` offered in `actor_think`); the native
+    `run_void_lizard` is deleted. Then each other enemy rule, one slice each,
+    adding only the ports it needs.
+
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and
 occurrence credit as the native reference. Unsupported ports and phase cycles

@@ -495,6 +495,8 @@ impl Plugin for AmbitionBossContentPlugin {
 }
 
 #[cfg(test)]
+mod conduct_limb_tests;
+#[cfg(test)]
 mod conduct_trigger_tests;
 
 #[cfg(test)]

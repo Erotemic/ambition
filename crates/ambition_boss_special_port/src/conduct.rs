@@ -539,6 +539,81 @@ impl Port for LimbPosePort {
     }
 }
 
+/// The request port marker for whether a limb of the mount a boss rides can
+/// be struck.
+///
+/// Port card:
+///
+/// * **Operation** — `open` lets the limb be struck; closed, it refuses
+///   damage (its scripted invulnerability). Set each tick the module wants
+///   it; the last request of a tick stands, and it stays until the next.
+/// * **Owner** — `ambition_boss_encounter::conduct`.
+/// * **Scope** — the boss the invocation ran for; the limb is `slot` of the
+///   rig of the mount it rides. A boss that rides nothing, or a slot the rig
+///   does not have, is refused with a warning.
+/// * **Time** — `boss_conduct`, this tick: combat reads it after.
+pub struct LimbOpeningPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LimbOpening {
+    pub slot: String,
+    pub open: bool,
+}
+
+impl Port for LimbOpeningPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.limb_opening", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = LimbOpening;
+
+    fn encode(v: &LimbOpening, out: &mut Vec<u8>) {
+        wire::put_str(out, &v.slot);
+        wire::put_bool(out, v.open);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<LimbOpening, WireError> {
+        Ok(LimbOpening { slot: r.str()?.to_owned(), open: r.bool()? })
+    }
+}
+
+/// The request port marker for a blow that a limb of the ridden mount took,
+/// passed on to the boss.
+///
+/// Port card:
+///
+/// * **Operation** — the limb's lost health is healed. With `pass`, unless
+///   the encounter refuses damage to the boss now (`BossConduct::invulnerable`),
+///   the boss flashes and takes that much damage, and its encounter enters
+///   `Death` when the damage kills it. Without `pass` the limb only heals: a
+///   blow the module already passed on does not hurt the boss twice.
+/// * **Owner** — `ambition_boss_encounter::conduct`.
+/// * **Scope** — the boss the invocation ran for; the limb is `slot` of the
+///   rig of the mount it rides. A boss that rides nothing, or a slot the rig
+///   does not have, is refused with a warning. A limb that lost nothing
+///   changes nothing.
+/// * **Time** — `boss_conduct`, this tick.
+pub struct LimbBlowPort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LimbBlow {
+    pub slot: String,
+    pub pass: bool,
+}
+
+impl Port for LimbBlowPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.limb_blow", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = LimbBlow;
+
+    fn encode(v: &LimbBlow, out: &mut Vec<u8>) {
+        wire::put_str(out, &v.slot);
+        wire::put_bool(out, v.pass);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<LimbBlow, WireError> {
+        Ok(LimbBlow { slot: r.str()?.to_owned(), pass: r.bool()? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -615,6 +690,12 @@ mod tests {
         assert_eq!(round::<MountViewPort>(&view), view);
         let bare = MountView { back: None, hall: None, limbs: Vec::new(), ..view };
         assert_eq!(round::<MountViewPort>(&bare), bare);
+        for flag in [false, true] {
+            let opening = LimbOpening { slot: "hand_left".into(), open: flag };
+            assert_eq!(round::<LimbOpeningPort>(&opening), opening);
+            let blow = LimbBlow { slot: "hand_right".into(), pass: flag };
+            assert_eq!(round::<LimbBlowPort>(&blow), blow);
+        }
         for hold in [None, Some(LimbHold { position: [630.0, 970.0], velocity: [12.0, -3.0], facing: -1.0 })] {
             let v = LimbPose { slot: "hand_left".into(), hold };
             assert_eq!(round::<LimbPosePort>(&v), v);

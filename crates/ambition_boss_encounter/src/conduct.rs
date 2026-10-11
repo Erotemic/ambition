@@ -268,6 +268,89 @@ pub fn pose_limbs(
     }
 }
 
+/// The `ambition.boss.limb_opening` requests of this tick, for [`open_limbs`].
+pub fn drain_limb_openings(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbOpening>> {
+    outbox.drain::<ambition_boss_special_port::LimbOpeningPort>(&BOSS_CONDUCT)
+}
+
+/// Lower `ambition.boss.limb_opening`: a closed limb of the ridden mount
+/// refuses damage (its scripted invulnerability).
+pub fn open_limbs(
+    In(requests): In<Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbOpening>>>,
+    riders: Query<&ambition_mount::RidingOn>,
+    rigs: Query<&ambition_characters::actor::LimbRig>,
+    mut limbs: Query<&mut BodyHealth, Without<BossConfig>>,
+) {
+    for submitted in requests {
+        let opening = submitted.value;
+        let Some(Ok(mut health)) = ridden_limb(submitted.scope, &opening.slot, &riders, &rigs).map(|limb| limbs.get_mut(limb))
+        else {
+            warn!(
+                "extension entry {} asked to open limb {:?} of the mount {:?} rides, which it does not have; refused",
+                submitted.entry, opening.slot, submitted.scope
+            );
+            continue;
+        };
+        health.health.invulnerable.set(ambition_characters::actor::Invulnerability::SCRIPTED, !opening.open);
+    }
+}
+
+/// The `ambition.boss.limb_blow` requests of this tick, for [`pass_limb_blows`].
+pub fn drain_limb_blows(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbBlow>> {
+    outbox.drain::<ambition_boss_special_port::LimbBlowPort>(&BOSS_CONDUCT)
+}
+
+/// The flash of a boss that a blow passed on to hurt: the native
+/// conductor's.
+const PASSED_BLOW_FLASH_S: f32 = 0.18;
+
+/// Lower `ambition.boss.limb_blow`: heal what the limb lost, and with `pass`
+/// give it to the boss, unless the encounter refuses damage now.
+#[allow(clippy::type_complexity)]
+pub fn pass_limb_blows(
+    In(requests): In<Vec<ambition_extension_host::Submitted<ambition_boss_special_port::LimbBlow>>>,
+    riders: Query<&ambition_mount::RidingOn>,
+    rigs: Query<&ambition_characters::actor::LimbRig>,
+    mut limbs: Query<&mut BodyHealth, Without<BossConfig>>,
+    mut bosses: Query<(&mut BodyHealth, &mut ambition_characters::actor::BodyCombat, &mut BossEncounter), With<BossConfig>>,
+) {
+    for submitted in requests {
+        let blow = submitted.value;
+        let Some(Ok(mut limb)) = ridden_limb(submitted.scope, &blow.slot, &riders, &rigs).map(|limb| limbs.get_mut(limb))
+        else {
+            warn!(
+                "extension entry {} asked to pass a blow of limb {:?} of the mount {:?} rides, which it does not have; refused",
+                submitted.entry, blow.slot, submitted.scope
+            );
+            continue;
+        };
+        let lost = limb.max() - limb.current();
+        if lost <= 0 {
+            continue;
+        }
+        limb.heal(lost);
+        if !blow.pass {
+            continue;
+        }
+        let Ok((mut health, mut combat, mut encounter)) = bosses.get_mut(submitted.scope) else {
+            continue;
+        };
+        if encounter.encounter.as_ref().is_some_and(|state| state.boss_invulnerable()) {
+            continue;
+        }
+        combat.hit_flash = PASSED_BLOW_FLASH_S;
+        if health.damage(lost) {
+            if let Some(state) = encounter.encounter.as_mut() {
+                let _ = state.kill();
+            }
+        }
+    }
+}
+
 /// Lower `ambition.boss.conducted_pose`: hold the boss's pose, or release it;
 /// keep the side it faces.
 #[allow(clippy::type_complexity)]

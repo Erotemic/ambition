@@ -240,9 +240,10 @@ pub(crate) fn preparation_requested(
 
 /// The shared preparation system body: piped after a provider's session-world
 /// source (tagged with its experience id), it gives every matching transaction
-/// an owned copy of that authored world value.
+/// an owned copy of that authored world value, or fails its world preparation
+/// with the source's refusal.
 pub(crate) fn prepare_requested_sessions(
-    In((experience_id, source)): In<(String, PreparedPlatformerSource)>,
+    In((experience_id, source)): In<(String, Result<PreparedPlatformerSource, crate::WorldRefusal>)>,
     mut events: MessageReader<ShellEvent>,
     mut preparation: PlatformerPreparation,
 ) {
@@ -253,7 +254,12 @@ pub(crate) fn prepare_requested_sessions(
         if transaction.experience_id.as_str() != experience_id {
             continue;
         }
-        preparation.prepare(transaction, source.clone());
+        match &source {
+            Ok(source) => {
+                preparation.prepare(transaction, source.clone());
+            }
+            Err(refusal) => preparation.refuse_world(transaction, refusal),
+        }
     }
 }
 
@@ -826,6 +832,18 @@ impl PlatformerPreparation<'_> {
 
     fn complete(&mut self, transaction: &ProviderLoadTransaction, work_id: &'static str) {
         self.set_state(transaction, work_id, ambition_load::LoadWorkState::Complete);
+    }
+
+    /// Fail `transaction`'s world preparation: the provider could not build
+    /// its world. Retryable, because the usual cause is a file the developer
+    /// can save again.
+    fn refuse_world(&mut self, transaction: &ProviderLoadTransaction, refusal: &crate::WorldRefusal) {
+        self.fail(
+            transaction,
+            PREPARE_WORLD_WORK_ID,
+            ambition_load::LoadFailure::new("This world could not be built.", refusal.reasons.join("\n"))
+                .retryable(true),
+        );
     }
 
     fn fail(

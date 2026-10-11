@@ -21,6 +21,40 @@ use ambition_platformer2d_runtime::PreparedPlatformerSource;
 
 use crate::lifecycle::{self, PlatformerProviderRuntimePlugin, PlatformerStreamingReadiness};
 
+/// Why a provider cannot build its authored world now: each reason, for the
+/// developer. A world read off disk can be a bad save, and a session that
+/// starts from it fails its preparation and names the reasons; the game keeps
+/// running.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct WorldRefusal {
+    pub reasons: Vec<String>,
+}
+
+impl WorldRefusal {
+    pub fn new(reasons: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self { reasons: reasons.into_iter().map(Into::into).collect() }
+    }
+}
+
+/// What a provider's world source gives the shared lifecycle: the authored
+/// world, or a [`WorldRefusal`]. A source that cannot fail returns the world
+/// alone.
+pub trait IntoPreparedSource: Send + Sync + 'static {
+    fn into_prepared_source(self) -> Result<PreparedPlatformerSource, WorldRefusal>;
+}
+
+impl IntoPreparedSource for PreparedPlatformerSource {
+    fn into_prepared_source(self) -> Result<PreparedPlatformerSource, WorldRefusal> {
+        Ok(self)
+    }
+}
+
+impl IntoPreparedSource for Result<PreparedPlatformerSource, WorldRefusal> {
+    fn into_prepared_source(self) -> Result<PreparedPlatformerSource, WorldRefusal> {
+        self
+    }
+}
+
 /// The catalog identity a provider authors: its starting character, its audio
 /// provider id, and which audio fragments a prepared session must find.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -648,18 +682,21 @@ impl PlatformerExperienceAuthoring {
     ///
     /// `source` is the provider's whole remaining obligation: a system that
     /// builds the authored [`PreparedPlatformerSource`] this experience plays in
-    /// (it may read the provider's own resources). The shared lifecycle runs it
-    /// once on an update containing matching preparation requests, gives each
-    /// transaction an owned copy, validates the authored catalogs, publishes
-    /// the typed prepared-session identity, and constructs the live session on
-    /// activation.
-    pub fn install<S, Marker>(self, app: &mut App, source: S)
+    /// (it may read the provider's own resources), or a [`WorldRefusal`]
+    /// ([`IntoPreparedSource`]). The shared lifecycle runs it once on an
+    /// update containing matching preparation requests, gives each transaction
+    /// an owned copy, validates the authored catalogs, publishes the typed
+    /// prepared-session identity, and constructs the live session on
+    /// activation. A refusal fails each transaction's world preparation with
+    /// its reasons, and a retry runs the source again.
+    pub fn install<S, Out, Marker>(self, app: &mut App, source: S)
     where
-        S: IntoSystem<(), PreparedPlatformerSource, Marker>,
+        S: IntoSystem<(), Out, Marker>,
+        Out: IntoPreparedSource,
     {
         self.register(app);
         let experience_id = self.experience_id.clone();
-        let tag = move |In(world): In<PreparedPlatformerSource>| (experience_id.clone(), world);
+        let tag = move |In(world): In<Out>| (experience_id.clone(), world.into_prepared_source());
         app.add_systems(
             Update,
             source

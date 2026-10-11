@@ -14,8 +14,8 @@ pub mod lifecycle;
 pub mod session_contents;
 
 pub use authoring::{
-    AuthoredCatalogFragments, PlatformerAuthoredCatalogRegistry,
-    PlatformerAuthoringRegistrationError, PlatformerExperienceAuthoring,
+    AuthoredCatalogFragments, IntoPreparedSource, PlatformerAuthoredCatalogRegistry,
+    PlatformerAuthoringRegistrationError, PlatformerExperienceAuthoring, WorldRefusal,
 };
 pub use composition::ShellComposition;
 pub use session_contents::{SessionContents, SessionContentsCatalog, SessionContentsFn};

@@ -328,8 +328,10 @@ before you add a port.
   `ambition.presentation.drawn_row` v2 (a row on the boss, its mount or a
   limb, with fallback names); trigger `ambition.boss.conduct` v5 (the
   boss's health, whether the encounter refuses damage now, and the tracked
-  body now). Next:
-  the limb opening and the blow it passes on, limb hit volumes, travelling
+  body now); requests `ambition.boss.limb_opening` and
+  `ambition.boss.limb_blow` (a fist refuses damage until it is an opening;
+  the blow it takes heals and passes on to the scholar once). Next: limb
+  hit volumes, travelling
   shocks, the mount's launch, the speech bubble.
 
 **Acceptance:** an independent module builds against the SDK without Bevy or

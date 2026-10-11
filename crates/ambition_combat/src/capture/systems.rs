@@ -105,7 +105,11 @@ pub fn acquire_captures(
     )>,
     // The rules of each captor's own live room.
     tuning: crate::rules::CombatTuningOf,
+    // A hit beats a grab: a body a hit is moving neither grabs nor is
+    // grabbed (`CapturesAcquired`).
+    combat: Query<&ambition_characters::actor::BodyCombat>,
 ) {
+    let knocked = |body: Entity| combat.get(body).is_ok_and(|c| c.is_knocked());
     //  the WHOLE resolved row, not just the friendly-fire flag: a hold's
     // deadline is a declared rule too, and it is decided at acquisition.
     // ⛔⛔ RESOLVED FIRST, GRANTED SECOND, because `Commands` are DEFERRED and
@@ -142,7 +146,7 @@ pub fn acquire_captures(
         if crate::util::body_is_untouchable(Some(captor.body.health), captor.body.out_of_play, captor.body.plane) {
             continue;
         }
-        if !captor.body.ground.on_ground {
+        if !captor.body.ground.on_ground || knocked(attempt.captor) {
             continue;
         }
         //  a captor already holding somebody is not a captor twice. This is
@@ -188,7 +192,7 @@ pub fn acquire_captures(
             let Ok(victim_body) = participants.get(victim.entity) else {
                 continue;
             };
-            if !victim_body.ground.on_ground {
+            if !victim_body.ground.on_ground || knocked(victim.entity) {
                 continue;
             }
             if already_held.contains(&victim.entity) {
@@ -1176,6 +1180,36 @@ mod tests {
                 > 0.0
         });
         (held, vel(east), vel(west), locked)
+    }
+
+    /// ⭐ A HIT BEATS A GRAB (S0.2): a body a hit is moving neither grabs nor
+    /// is grabbed. The installer runs acquisition after damage resolves
+    /// (`CapturesAcquired`), so a hit that lands on the tick of the grab is
+    /// already in the hitstun this reads. The control is
+    /// `a_grab_that_nobody_returns_holds`: the same grab, nobody knocked.
+    #[test]
+    fn a_body_a_hit_is_moving_neither_grabs_nor_is_grabbed() {
+        for knocked_is_captor in [true, false] {
+            let mut app = capture_app();
+            let east = grounded_body(&mut app, "east", ae::Vec2::new(0.0, 0.0));
+            let west = grounded_body(&mut app, "west", ae::Vec2::new(16.0, 0.0));
+            app.world_mut()
+                .entity_mut(west)
+                .insert(ambition_characters::actor::ActorFaction::Player);
+            let knocked = if knocked_is_captor { east } else { west };
+            app.world_mut()
+                .get_mut::<ambition_characters::actor::BodyCombat>(knocked)
+                .expect("the fixture body has combat state")
+                .hitstun_timer = 0.2;
+            app.world_mut().write_message(attempt(east));
+            app.update();
+            assert_eq!(
+                app.world().get::<CapturedBy>(west).map(|hold| hold.captor),
+                None,
+                "a grab took hold although the {} was in hitstun",
+                if knocked_is_captor { "captor" } else { "victim" }
+            );
+        }
     }
 
     /// The control: one body grabs the other and nobody grabs back. One hold,
@@ -2917,12 +2951,7 @@ pub fn release_interrupted_captures(
     mut grounds: Query<&mut ambition_platformer2d_core::BodyGroundState>,
     mut holds: Query<&mut ambition_characters::control::ControlHolds>,
 ) {
-    let reacted = |body: Entity| {
-        combat
-            .get(body)
-            .map(|c| c.hitstun_timer > 0.0 || c.recoil_lock_timer > 0.0)
-            .unwrap_or(false)
-    };
+    let reacted = |body: Entity| combat.get(body).is_ok_and(|c| c.is_knocked());
     for (victim, held) in &captives {
         // A captor that no longer exists cannot hold anything.
         let captor_gone = bodies.get(held.captor).is_err();

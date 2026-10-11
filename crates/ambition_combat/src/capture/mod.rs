@@ -29,6 +29,20 @@ pub mod systems;
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct GrabInterruptionApplied;
 
+/// **A HIT BEATS A GRAB ON ONE TICK — the slot acquisition runs in.**
+///
+/// Acquisition ends the captive's move. Before damage resolves, that took
+/// away a hit the captive's move landed on the same tick, so a grab won every
+/// tie with a hit. The genre's rule is the other way: an ordinary hit beats
+/// an ordinary grab (S0.2). So the installer puts this set after damage
+/// resolves and after [`GrabInterruptionApplied`], and acquisition refuses a
+/// body a hit is moving (`BodyCombat::is_knocked`), at either end.
+///
+/// A set, not a system name, for the reason [`GrabInterruptionApplied`]
+/// gives: the guard asks the schedule graph about this node.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct CapturesAcquired;
+
 use bevy::prelude::{Component, Entity, Message, Query};
 
 use ambition_platformer2d_core as ae;

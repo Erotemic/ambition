@@ -73,13 +73,15 @@ use ambition_platformer2d::engine_core as ae;
                 // `dispatch_move_events` only writes `FxRequest`s.
                 ambition_platformer2d::render::fx::process_fx_requests,
                 ambition_platformer2d::combat::capture::systems::translate_authored_capture_effects,
-                acquire_captures,
-                ambition_platformer2d::combat::capture::systems::rebound_from_parried_grabs,
                 apply_capture_pummels,
                 apply_capture_throws,
                 ambition_platformer2d::combat::capture::systems::apply_capture_carries,
-                finalize_new_capture_pose,
+                // The shipped order (`CombatSchedulePlugin`): the release, and
+                // then acquisition, after damage resolves.
                 release_interrupted_captures,
+                acquire_captures,
+                ambition_platformer2d::combat::capture::systems::rebound_from_parried_grabs,
+                finalize_new_capture_pose,
             )
                 .chain(),
         );

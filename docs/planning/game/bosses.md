@@ -550,7 +550,8 @@ fight of before).** Each line is a change that can be made alone.
    (today the first blow starts it); a player who stays on the floor gets
    punches that come faster.
 2. *More punches from the same arm.* A punch that follows the player until
-   a lock (as the demonstration does). Two punches with one opening: the
+   a lock (as the demonstration does): BUILT 2026-10-11, the far line
+   follows at 360 through the tell and stays for its last 0.3 s. Two punches with one opening: the
    fist goes back up and comes down again where the player went. Later,
    with art: the left arm, and a punch along the floor out of an upright
    line (a thing to jump over).

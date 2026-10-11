@@ -638,6 +638,21 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         clock,
     });
 
+    // The far line of a punch follows the player through the tell, then locks.
+    if cue.as_ref().is_some_and(|cue| c.punch_open && ch::arms::tracking(cue)) {
+        let want = ch::arms::far_line(&stage, giant_pos, giant_size, aim_now);
+        let mut at = v(c.punch_far);
+        // The line does not go under the giant: when the player is on its
+        // other side, the line is at that flank at once.
+        let side = (want.x - giant_pos.x).signum();
+        if side * (at.x - giant_pos.x) < 0.0 {
+            at.x = giant_pos.x + side * (giant_size.x * 0.5 + ch::arms::CLEAR_OF_FLANK);
+        }
+        let to = want - at;
+        let step = ch::arms::TRACK_SPEED * dt;
+        c.punch_far = a(at + if to.length() <= step { to } else { to.normalize() * step });
+    }
+
     // ── The gnu's reflex: hurt its rider from its back and it throws you ──
     let hurt = c.last_health.is_some_and(|hp| scholar.health < hp);
     c.last_health = Some(scholar.health);
@@ -961,10 +976,12 @@ fn ink(
     let hall = stage.hall;
     match cue.mv {
         Move::PortalPunch if !cue.striking => {
-            // A plumb line from the far line to where the fist will land.
+            // A plumb line from the far line to where the fist will land:
+            // the colour of a warning when the line has locked.
             let far = v(c.punch_far);
+            let colour = if ch::arms::tracking(cue) { INK } else { WARNING };
             for k in 1..=6 {
-                spark(inv, Vec2::new(far.x, far.y + (hall.floor - far.y) * k as f32 / 6.0), WARNING, 1, 4.0)?;
+                spark(inv, Vec2::new(far.x, far.y + (hall.floor - far.y) * k as f32 / 6.0), colour, 1, 4.0)?;
             }
         }
         Move::Demonstrate | Move::DemonstratePair => {

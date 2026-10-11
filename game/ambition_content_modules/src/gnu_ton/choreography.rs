@@ -593,6 +593,16 @@ pub mod arms {
     pub const LINE_OVER: f32 = 96.2;
     /// The far line is no nearer to the giant's flank than this.
     pub const CLEAR_OF_FLANK: f32 = 110.0;
+    /// Through the tell the far line follows the player this fast (a player
+    /// runs at 270), until the last `LOCK` of it: then it stays, and the
+    /// player has a thing to step out from under, and a way that is open.
+    pub const TRACK_SPEED: f32 = 360.0;
+    pub const LOCK: f32 = 0.3;
+
+    /// Does the far line still follow the player?
+    pub fn tracking(cue: &Cue) -> bool {
+        cue.mv == Move::PortalPunch && !cue.striking && cue.t < cue.dur - LOCK
+    }
     /// The blow: the row `punch_strike`, and the part of it that hurts.
     pub const STRIKE: f32 = 0.35;
     pub const HARM: (f32, f32) = (0.1, 0.42);

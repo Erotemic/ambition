@@ -627,7 +627,7 @@ fn tier_partition<'a>(
 fn the_registry_and_the_record_index_are_one_map_built_twice() {
     let index = record_index();
     let registry =
-        crate::SheetRegistry::from_baked_table(crate::baked_sheet_rons::BAKED_SHEET_RONS);
+        crate::SheetRegistry::from_baked_table(crate::baked_sheet_rons::sheet_rons());
 
     // Anti-vacuity check first: two empty maps are equal.
     //

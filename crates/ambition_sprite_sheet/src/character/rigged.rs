@@ -32,7 +32,7 @@ use bevy::ecs::resource::Resource;
 use bevy::math::{URect, UVec2, Vec2, Vec3};
 
 mod posed;
-mod published;
+pub(crate) mod published;
 
 use published::Published;
 pub use posed::{PosedParts, TrackBinding};
@@ -532,8 +532,9 @@ impl RiggedSpriteAsset {
     /// publisher, so a file this build cannot read is a stale or broken publish.
     ///
     /// Decoded once per process and cloned after (the robot's table is 38,418
-    /// draws). The build embeds it decoded from RON already
-    /// ([`Self::from_published_bytes`]).
+    /// draws). A build with no source tree embeds it decoded from RON already
+    /// ([`Self::from_published_bytes`]); a development build parses its RON
+    /// here.
     pub fn baked(target: &str) -> Option<Self> {
         use std::collections::HashMap;
         use std::sync::{Mutex, OnceLock};

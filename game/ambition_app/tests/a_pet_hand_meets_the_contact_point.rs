@@ -314,6 +314,6 @@ fn the_session_content_identity_covers_the_landmark_tables() {
         .expect("the prepared session content has the landmark section");
     assert_eq!(
         section.canonical_bytes(),
-        ambition_platformer2d::sprite_sheet::baked_landmarks::BAKED_LANDMARKS_DIGEST.as_bytes(),
+        ambition_platformer2d::sprite_sheet::baked_landmarks::landmarks_digest().as_bytes(),
     );
 }

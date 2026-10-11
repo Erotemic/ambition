@@ -1,14 +1,17 @@
-//! Compile-time landmark table of every published part flipbook that tracks a
+//! The landmark table of every published part flipbook that tracks a
 //! landmark, `(target, bincode)` sorted by target, and the one digest that
-//! covers them all. `build.rs` projects each full-resolution
-//! `<target>_parts.ron` to its hands, head and feet
-//! (`character::landmarks_published`), so a headless build reads a hand's
-//! place with no image and no draw table loaded.
+//! covers them all. Each full-resolution `<target>_parts.ron` is projected to
+//! its hands, head and feet (`sprite_tree::landmarks_of`), so a headless build
+//! reads a hand's place with no image and no draw table loaded.
 //!
-//! ⚠ A landmark is a SIMULATION input (a pet mark, a muzzle), and this table
-//! is compiled in, so no world resource holds it. Its identity reaches the
-//! content fingerprint as [`BAKED_LANDMARKS_DIGEST`]; see
-//! `MechanicalRegistries::baked_landmarks` in the platformer provider.
+//! Where there is no source tree (`static_content`, wasm, Android), `build.rs`
+//! projects the tables and embeds them. A development build projects them
+//! from the published tree the first time one is asked for.
+//!
+//! ⚠ A landmark is a SIMULATION input (a pet mark, a muzzle), and no world
+//! resource holds this table. Its identity reaches the content fingerprint as
+//! [`landmarks_digest`]; see `MechanicalRegistries::baked_landmarks` in the
+//! platformer provider.
 
 use std::sync::{Arc, OnceLock};
 
@@ -17,7 +20,86 @@ use bevy::math::Vec2;
 
 use crate::character::landmarks_published::{BakedLandmarks, LANDMARK_TRACKS};
 
+#[cfg(embedded_sprites)]
 include!(concat!(env!("OUT_DIR"), "/baked_landmarks.rs"));
+
+/// Every landmark table, as `(target, bincode)` sorted by target.
+pub fn landmarks() -> &'static [(&'static str, &'static [u8])] {
+    #[cfg(embedded_sprites)]
+    {
+        BAKED_LANDMARKS
+    }
+    #[cfg(not(embedded_sprites))]
+    {
+        &projected().0
+    }
+}
+
+/// The identity of [`landmarks`]: `landmark_tables_digest` over the tables
+/// in order.
+pub fn landmarks_digest() -> &'static str {
+    #[cfg(embedded_sprites)]
+    {
+        BAKED_LANDMARKS_DIGEST
+    }
+    #[cfg(not(embedded_sprites))]
+    {
+        &projected().1
+    }
+}
+
+/// A development build's landmark tables and their digest, projected once
+/// per process.
+#[cfg(not(embedded_sprites))]
+fn projected() -> &'static (Vec<(&'static str, &'static [u8])>, String) {
+    static PROJECTED: OnceLock<(Vec<(&'static str, &'static [u8])>, String)> = OnceLock::new();
+    PROJECTED.get_or_init(|| {
+        // The texts the flipbook table already read, full resolution only.
+        let full = crate::baked_part_flipbooks::part_flipbooks()
+            .iter()
+            .filter(|(key, _, _)| !key.contains('.'))
+            .filter_map(|(key, table, _)| match table {
+                crate::baked_part_flipbooks::BakedPartFlipbook::Ron(text) => Some((*key, *text)),
+                crate::baked_part_flipbooks::BakedPartFlipbook::Encoded(_) => None,
+            })
+            .collect();
+        project(full)
+    })
+}
+
+/// The landmark tables of the published full-resolution flipbooks `full`
+/// (`(target, ron_text)`), sorted by target, and their digest.
+///
+/// It parses every flipbook (about 1.5 s of RON on one thread, measured
+/// 2026-10-11), so the texts are parsed on up to six threads.
+#[cfg(any(not(embedded_sprites), test))]
+fn project(full: Vec<(&'static str, &'static str)>) -> (Vec<(&'static str, &'static [u8])>, String) {
+    let threads = std::thread::available_parallelism().map_or(1, |n| n.get()).clamp(1, 6);
+    let chunk = full.len().div_ceil(threads).max(1);
+    let mut tables: Vec<(&'static str, &'static [u8])> = std::thread::scope(|scope| {
+        let workers: Vec<_> = full
+            .chunks(chunk)
+            .map(|part| {
+                scope.spawn(move || {
+                    part.iter()
+                        .filter_map(|(key, text)| {
+                            // A table that does not read is refused where a
+                            // sheet realizes it; it has no landmarks here.
+                            let published = crate::sprite_tree::read_part_flipbook(text).ok()?;
+                            let table = crate::sprite_tree::landmarks_of(&published)?;
+                            let bytes = bincode::serialize(&table).ok()?;
+                            Some((*key, &*Box::leak(bytes.into_boxed_slice())))
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        workers.into_iter().flat_map(|worker| worker.join().expect("a landmark projection thread")).collect()
+    });
+    tables.sort_by(|a, b| a.0.cmp(b.0));
+    let digest = crate::character::landmarks_published::landmark_tables_digest(tables.iter().copied());
+    (tables, digest)
+}
 
 // A slot of the embedded frame is a slot of the semantic frame.
 const _: () = assert!(LANDMARK_TRACKS.len() == Landmark::ALL.len());
@@ -68,14 +150,13 @@ pub fn landmark_table(baked: BakedLandmarks) -> BodyLandmarkTable {
 /// schema, so that is a build defect and not a content error.
 pub fn body_landmarks(target: &str) -> Option<Arc<BodyLandmarkTable>> {
     static DECODED: OnceLock<Vec<OnceLock<Arc<BodyLandmarkTable>>>> = OnceLock::new();
-    let index = BAKED_LANDMARKS
-        .binary_search_by(|(name, _)| (*name).cmp(target))
-        .ok()?;
-    let decoded = DECODED.get_or_init(|| BAKED_LANDMARKS.iter().map(|_| OnceLock::new()).collect());
+    let tables = landmarks();
+    let index = tables.binary_search_by(|(name, _)| (*name).cmp(target)).ok()?;
+    let decoded = DECODED.get_or_init(|| tables.iter().map(|_| OnceLock::new()).collect());
     Some(
         decoded[index]
             .get_or_init(|| {
-                let baked: BakedLandmarks = bincode::deserialize(BAKED_LANDMARKS[index].1)
+                let baked: BakedLandmarks = bincode::deserialize(tables[index].1)
                     .unwrap_or_else(|error| panic!("the embedded landmark table `{target}`: {error}"));
                 Arc::new(landmark_table(baked))
             })
@@ -85,11 +166,27 @@ pub fn body_landmarks(target: &str) -> Option<Arc<BodyLandmarkTable>> {
 
 /// Every target that publishes a landmark table.
 pub fn baked_landmark_targets() -> impl Iterator<Item = &'static str> {
-    BAKED_LANDMARKS.iter().map(|(name, _)| *name)
+    landmarks().iter().map(|(name, _)| *name)
 }
 
 #[cfg(test)]
 mod tests {
+    /// A build with no source tree embeds the tables `build.rs` projected; a
+    /// development build projects them at startup. The content fingerprint
+    /// carries the digest, so the two roads must give the same tables and the
+    /// same digest for one tree. Runs where the build embeds
+    /// (`--features static_content`); in a development build both are the
+    /// same road.
+    #[cfg(embedded_sprites)]
+    #[test]
+    fn the_embedded_tables_are_the_tables_a_development_build_projects() {
+        let tree = crate::published_tree::owner();
+        let (tables, digest) = project(crate::published_tree::texts(crate::sprite_tree::companions(tree, "_parts.ron", false)));
+        assert!(tables.len() >= 10, "only {} projected tables: the tree is not published", tables.len());
+        assert_eq!(landmarks(), tables.as_slice(), "the embedded landmark tables are not the projected ones");
+        assert_eq!(landmarks_digest(), digest, "the embedded digest is not the projected one");
+    }
+
     use super::*;
     use crate::character::landmarks_published::{landmark_frame, landmark_tables_digest, BakedLandmarkClip};
     use crate::character::rigged::RiggedSpriteAsset;
@@ -130,7 +227,7 @@ mod tests {
                 }
             }
         }
-        if BAKED_LANDMARKS.is_empty() {
+        if landmarks().is_empty() {
             eprintln!("no published part flipbook on this checkout: no draw order to compare");
         } else {
             assert!(frames > 1000, "only {frames} frames draw both hands");
@@ -188,7 +285,7 @@ mod tests {
     #[test]
     fn a_landmark_clip_loops_or_holds_as_the_animator_shows_its_row() {
         use crate::character::CharacterAnim;
-        if BAKED_LANDMARKS.is_empty() {
+        if landmarks().is_empty() {
             eprintln!("no published part flipbook on this checkout: no clip to compare");
             return;
         }
@@ -252,19 +349,19 @@ mod tests {
         }
         // A checkout with no published flipbook embeds nothing, and then this
         // arm compared nothing. Say so; do not pass in silence.
-        if BAKED_LANDMARKS.is_empty() {
+        if landmarks().is_empty() {
             eprintln!("no published part flipbook on this checkout: no embedded landmark table to compare");
         } else {
-            assert!(points > 1000, "only {points} landmark points in {} tables", BAKED_LANDMARKS.len());
+            assert!(points > 1000, "only {points} landmark points in {} tables", landmarks().len());
         }
     }
 
     #[test]
     fn the_digest_is_of_the_embedded_tables_and_moves_with_one_point() {
         assert_eq!(
-            BAKED_LANDMARKS_DIGEST,
-            landmark_tables_digest(BAKED_LANDMARKS.iter().copied()),
-            "the digest `build.rs` wrote is not the digest of the tables it embedded",
+            landmarks_digest(),
+            landmark_tables_digest(landmarks().iter().copied()),
+            "the digest is not the digest of the tables",
         );
         let table = |hand_x: f32| {
             let mut frame = crate::character::landmarks_published::BakedLandmarkFrame::default();

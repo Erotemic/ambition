@@ -11,6 +11,12 @@ crate-type = ["rlib"]
 
 [features]
 default = []
+# Embed the published sprite tree (`build.rs`). Off by default, so a
+# development build reads the tree at run time and a sprite publish compiles no
+# crate. Turn it on where there is no source tree to read (a bundled desktop
+# build); `ambition_platformer2d`'s `static_content` forwards it. A wasm or
+# Android target embeds without it: it has no file system to read the tree.
+static_content = []
 # Select WebServedAssets as the wasm default in GameAssetConfig. Forwarded by
 # the app/actor composition features that serve loose assets over HTTP.
 web_served = []

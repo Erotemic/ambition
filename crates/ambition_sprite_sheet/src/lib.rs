@@ -6,10 +6,10 @@
 //! sheets.
 //!
 //! Authoring tools may keep using YAML for inspection; runtime consumers should use
-//! the RON data embedded by `build.rs` through
-//! the host crate's baked sheet table. Re-running sprite generation and
-//! then building is enough to refresh the baked table for desktop, Android, wasm,
-//! and other targets.
+//! the RON tables of the `baked_*` modules. A development build reads them off
+//! the published tree when first asked ([`sprite_tree`]), so a sprite publish
+//! needs a restart and no build. A build with no source tree (`static_content`,
+//! wasm, Android) has them embedded by `build.rs`.
 //!
 //! This crate does not hold:
 //!
@@ -46,6 +46,14 @@ pub use frame_space::{art_is_mirrored, frame_at, FrameToBody, SampledBox};
 
 pub mod baked_body_rigs;
 pub mod baked_landmarks;
+// The scan of the published tree; `build.rs` includes the same file, and
+// reaches the two schema modules as `super::published` and
+// `super::landmarks_published`, as these two imports let the crate do.
+pub(crate) mod sprite_tree;
+#[cfg(any(not(embedded_sprites), test))]
+mod published_tree;
+use character::landmarks_published;
+use character::rigged::published;
 pub mod baked_part_flipbooks;
 pub mod baked_portrait_rons;
 pub mod baked_sheet_rons;
@@ -800,7 +808,7 @@ fn quality_variant_marker(file_root: &str) -> Option<&'static str> {
 /// This is headless-friendly and keeps render/tooling callers from depending on
 /// the actor crate just to inspect generated sprite metadata.
 pub fn baked_sheet_registry() -> SheetRegistry {
-    SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS)
+    SheetRegistry::from_baked_table(baked_sheet_rons::sheet_rons())
 }
 
 /// The baked registry, built once. Construction reads it, so a headless and a

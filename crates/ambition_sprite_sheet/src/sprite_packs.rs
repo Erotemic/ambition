@@ -4,7 +4,7 @@
 //! shared, uniformly-sized atlas pages per quality tier and installs them
 //! under `assets/sprite_packs/<tier>/` (`ultrapack_<n>.png` pages + an
 //! `ultrapack.json` [`SpritePackCatalog`]). `build.rs` bakes each tier's
-//! catalog into [`BAKED_PACK_CATALOGS`] the same way sheet RONs are baked, so
+//! catalog into `baked::pack_catalogs` the same way sheet RONs are baked, so
 //! Android/wasm carry the same data desktop does.
 //!
 //! Tier dir names match the [`TextureResolutionScale`] vocabulary — `full` /
@@ -24,7 +24,24 @@ use crate::SpritePackCatalog;
 use crate::character::TextureResolutionScale;
 
 mod baked {
+    #[cfg(embedded_sprites)]
     include!(concat!(env!("OUT_DIR"), "/baked_pack_catalogs.rs"));
+
+    /// Each tier's catalog, as `(tier, json_text)` sorted by tier: embedded
+    /// where there is no source tree, read from the tree in a development
+    /// build.
+    pub fn pack_catalogs() -> &'static [(&'static str, &'static str)] {
+        #[cfg(embedded_sprites)]
+        {
+            BAKED_PACK_CATALOGS
+        }
+        #[cfg(not(embedded_sprites))]
+        {
+            use crate::published_tree;
+            static READ: std::sync::OnceLock<Vec<(&'static str, &'static str)>> = std::sync::OnceLock::new();
+            READ.get_or_init(|| published_tree::texts(crate::sprite_tree::pack_catalogs(published_tree::owner())))
+        }
+    }
 }
 
 /// The pack tier directory for a texture-resolution scale. Every scale has a
@@ -59,13 +76,13 @@ pub fn scale_for_pack_tier(tier: &str) -> Option<TextureResolutionScale> {
 /// Parse-once index of every baked pack catalog, keyed by tier name.
 ///
 /// §5 classification: immutable asset cache. It is derived from the
-/// compile-time [`BAKED_PACK_CATALOGS`] table, so it is a process-global
+/// compile-time `baked::pack_catalogs` table, so it is a process-global
 /// `OnceLock` (like the sheet `record_index`).
 fn catalogs() -> &'static HashMap<&'static str, SpritePackCatalog> {
     static CATALOGS: OnceLock<HashMap<&'static str, SpritePackCatalog>> = OnceLock::new();
     CATALOGS.get_or_init(|| {
         let mut map = HashMap::new();
-        for (tier, json) in baked::BAKED_PACK_CATALOGS {
+        for (tier, json) in baked::pack_catalogs() {
             match SpritePackCatalog::parse(json) {
                 Ok(catalog) => {
                     let errors = catalog.validate();
@@ -135,7 +152,7 @@ mod tests {
         // Every baked tier survived parse+validate into the index.
         assert_eq!(
             catalogs().len(),
-            baked::BAKED_PACK_CATALOGS.len(),
+            baked::pack_catalogs().len(),
             "a baked pack catalog failed parse/validate"
         );
         let mut coverage: Vec<(&str, usize)> = catalogs()

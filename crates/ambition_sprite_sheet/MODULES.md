@@ -7,11 +7,11 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`actor_sprite_metrics`](src/actor_sprite_metrics.rs) | What a generated sheet says about the BODY inside its frames: frame size, the per-animation pixel rectangles, and the render size those imply. |
-| [`baked_body_rigs`](src/baked_body_rigs.rs) | Compile-time table of every published semantic body rig, `(target, ron_text)` sorted by target. |
-| [`baked_landmarks`](src/baked_landmarks.rs) | Compile-time landmark table of every published part flipbook that tracks a landmark, `(target, bincode)` sorted by target, and the one digest that covers them all. |
-| [`baked_part_flipbooks`](src/baked_part_flipbooks.rs) | Compile-time table of every published part-flipbook draw table, sorted by key: `<target>` for the full-resolution table, `<target>.<tier>` for a quality tier's. |
-| [`baked_portrait_rons`](src/baked_portrait_rons.rs) | Compile-time table of `(asset_relative_manifest_path, ron_text)` pairs for every independently published `*_portraits.ron` under `assets/sprites/`. |
-| [`baked_sheet_rons`](src/baked_sheet_rons.rs) | Compile-time table of `(filename_root, ron_text)` pairs for every `*_spritesheet.ron` under `assets/sprites/`. |
+| [`baked_body_rigs`](src/baked_body_rigs.rs) | The table of every published semantic body rig, `(target, ron_text)` sorted by target, from the full-resolution `assets/sprites` tree. |
+| [`baked_landmarks`](src/baked_landmarks.rs) | The landmark table of every published part flipbook that tracks a landmark, `(target, bincode)` sorted by target, and the one digest that covers them all. |
+| [`baked_part_flipbooks`](src/baked_part_flipbooks.rs) | The table of every published part-flipbook draw table, sorted by key: `<target>` for the full-resolution table, `<target>.<tier>` for a quality tier's, from the `assets/sprites*` trees. |
+| [`baked_portrait_rons`](src/baked_portrait_rons.rs) | The table of `(asset_relative_manifest_path, ron_text)` pairs for every independently published `*_portraits.ron` under `assets/sprites/`. |
+| [`baked_sheet_rons`](src/baked_sheet_rons.rs) | The table of `(key, ron_text)` pairs for every published `*_spritesheet.ron`, sorted by key ([`crate::sprite_tree::sheet_manifests`]: `assets/sprites/`, its quality tiers, and one level of subdirectories). |
 | [`binding`](src/binding.rs) | Typed animation-row binding for one sprite sheet. |
 | [`boss`](src/boss.rs) | Boss spritesheet animation, parallel to `character_sprites` but with the boss generator's own animation rows (rest / floor_slam / side_sweep / spike_halo / dash_echo / hit / death) instead of the standard 8-row `CharacterAnim` grid. |
 | [`character`](src/character/mod.rs) | Character sprite-sheet vocabulary and Bevy-side animation helpers. |
@@ -21,12 +21,14 @@
 | [`game_assets`](src/game_assets/mod.rs) | Game asset wiring for character sheets, entity sprites, and parallax art. |
 | [`pack`](src/pack.rs) | [`SpritePackCatalog`]: the runtime schema for a cross-target *ultrapack*. |
 | [`portrait`](src/portrait.rs) | Runtime vocabulary for separately published dialogue portrait sheets. |
+| [`published_tree`](src/published_tree.rs) | A development build's read of the published sprite tree. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_sprite_sheet`. |
 | [`sheet_mechanics`](src/sheet_mechanics.rs) | The mechanical projection of a sheet record: the part of it the simulation reads, for the content identity. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotCursor` for this crate's own types — the rollback checksum wire. |
 | [`sprite_packs`](src/sprite_packs.rs) | Quality-tiered shared-page sprite packs (ultrapacks) — the runtime side. |
+| [`sprite_tree`](src/sprite_tree.rs) | The published sprite tree: which files the sprite publisher wrote, and the key each one is read by. |
 
-_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

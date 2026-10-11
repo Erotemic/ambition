@@ -964,8 +964,9 @@ projection boundary.
 **Current failure (read 2026-10-05, not poisoned):** a sprite-authored body
 takes its collision box, its per-pose boxes and its attack polygons from the
 baked sheet index (`record_for_sheet_key`: `sprite_body_collision_for_sheet`,
-`posed_body_geometry`). The index is `BAKED_SHEET_RONS`, compiled in and held
-behind a process `OnceLock`. No content-identity section reads it:
+`posed_body_geometry`). The index is `baked_sheet_rons::sheet_rons()` (compiled in under
+`static_content`, read from the published tree at startup in a development
+build since 2026-10-11), held behind a process `OnceLock`. No content-identity section reads it:
 `characters.authored-sheets` is `AuthoredSheets::deterministic_dump`, which
 holds only the sheets a provider registers (one production caller,
 `room_transition_assets.rs`). Published sprites are not in version control,

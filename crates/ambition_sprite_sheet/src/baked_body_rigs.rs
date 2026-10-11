@@ -1,17 +1,32 @@
-//! Compile-time table of every published semantic body rig,
-//! `(target, ron_text)` sorted by target. `build.rs` fills it with
-//! `include_str!` from the full-resolution `assets/sprites` tree, so every
-//! platform carries the same rigs and a headless build reads them with no file
-//! access. The table is empty on a checkout that never published a rig.
+//! The table of every published semantic body rig, `(target, ron_text)`
+//! sorted by target, from the full-resolution `assets/sprites` tree. Embedded
+//! by `build.rs` where there is no source tree (`static_content`, wasm,
+//! Android); read from the tree in a development build. The table is empty on
+//! a checkout that never published a rig.
 
+#[cfg(embedded_sprites)]
 include!(concat!(env!("OUT_DIR"), "/baked_body_rigs.rs"));
+
+/// Every published body rig, as `(target, ron_text)` sorted by target.
+pub fn body_rigs() -> &'static [(&'static str, &'static str)] {
+    #[cfg(embedded_sprites)]
+    {
+        BAKED_BODY_RIGS
+    }
+    #[cfg(not(embedded_sprites))]
+    {
+        use crate::published_tree;
+        static READ: std::sync::OnceLock<Vec<(&'static str, &'static str)>> = std::sync::OnceLock::new();
+        READ.get_or_init(|| {
+            published_tree::texts(crate::sprite_tree::companions(published_tree::owner(), "_body_rig.ron", false))
+        })
+    }
+}
 
 /// The published body rig of sheet target `target`, as RON text.
 pub fn baked_body_rig(target: &str) -> Option<&'static str> {
-    BAKED_BODY_RIGS
-        .binary_search_by(|(name, _)| (*name).cmp(target))
-        .ok()
-        .map(|index| BAKED_BODY_RIGS[index].1)
+    let rigs = body_rigs();
+    rigs.binary_search_by(|(name, _)| (*name).cmp(target)).ok().map(|index| rigs[index].1)
 }
 
 #[cfg(test)]
@@ -29,13 +44,13 @@ mod tests {
     /// a player sees (queue row LANDMARK-CLIP-TIME).
     #[test]
     fn the_rows_a_rig_and_the_animator_time_differently_are_these() {
-        if BAKED_BODY_RIGS.is_empty() {
+        if body_rigs().is_empty() {
             eprintln!("no published body rig on this checkout: nothing to compare");
             return;
         }
         let mut rows = 0;
         let mut differ = BTreeSet::new();
-        for (target, text) in BAKED_BODY_RIGS {
+        for (target, text) in body_rigs() {
             let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
                 .unwrap_or_else(|error| panic!("{target}: {error}"))
                 .prepare()

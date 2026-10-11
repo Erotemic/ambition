@@ -153,6 +153,7 @@ fn shoot_when_asked(
 }
 
 pub fn run(args: MatchShotsArgs) {
+    ambition_platformer2d::render::capture::name_capture_quality_profile();
     let shots: Shots = args.into();
     if let Err(error) = std::fs::create_dir_all(&shots.out) {
         eprintln!(

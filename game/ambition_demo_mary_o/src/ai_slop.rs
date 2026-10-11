@@ -116,7 +116,10 @@ pub fn bounce_squash_ai_slop(
     };
     let (p, pvel) = (player.aabb(), player.vel);
     for (entity, mob_kin, mut health, config) in &mut mobs {
-        if !is_ai_slop_brain(&config.brain) || !health.alive() {
+        // A swallow is squashed the way a walker is.
+        let squashable = is_ai_slop_brain(&config.brain)
+            || crate::swallow::is_laden_swallow_brain(&config.brain);
+        if !squashable || !health.alive() {
             continue;
         }
         // The shared top/side rule: only a TOP contact squashes. A side (or an

@@ -12,6 +12,32 @@ use bevy::render::view::Msaa;
 
 use ambition_platformer2d_shared_tangle::camera_layers::{FrontHudCamera, MainCamera};
 
+/// The visual quality profile of a capture whose caller names none.
+///
+/// A capture is not a play session. On a machine with no GPU the first-run
+/// seed is Potato (`seed_profile_for_gpu`), which is the tier for a machine
+/// that can not run the game: it has no backdrop and no screen shader. A
+/// picture of that tier does not show the game a player sees. Low is the
+/// lowest tier a player is expected to choose, so it is the default here.
+pub const DEFAULT_CAPTURE_QUALITY_PROFILE: &str = "low";
+
+/// State the quality profile of this capture, and return its label.
+///
+/// The profile is the one `AMBITION_QUALITY_PROFILE` names, or
+/// [`DEFAULT_CAPTURE_QUALITY_PROFILE`] when the variable is not set. Call it
+/// first in the `main` of a capture tool: the profile is read while the app
+/// starts, and textures are loaded for it.
+pub fn name_capture_quality_profile() -> String {
+    let variable = ambition_persistence::settings::QUALITY_PROFILE_ENV;
+    match std::env::var(variable) {
+        Ok(named) if !named.trim().is_empty() => named,
+        _ => {
+            std::env::set_var(variable, DEFAULT_CAPTURE_QUALITY_PROFILE);
+            DEFAULT_CAPTURE_QUALITY_PROFILE.to_string()
+        }
+    }
+}
+
 /// Where the picture goes and how big it is. Everything a capture needs to know
 /// that has nothing to do with which game is being captured.
 #[derive(Resource, Clone, Debug)]

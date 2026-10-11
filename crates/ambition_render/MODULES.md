@@ -20,8 +20,9 @@
 | [`runtime_census`](src/runtime_census.rs) | Profiling-only presentation census: the views, targets and draw population Ambition hands the renderer. |
 | [`screen_effects`](src/screen_effects.rs) | Whole-screen post-processing effects for presentation cameras. |
 | [`ui_fonts`](src/ui_fonts.rs) | UI font loading for the presentation layer. |
+| [`void_field`](src/void_field.rs) | The field of the void: the picture loses its colour, and a part of its light, near each void thing. |
 
-_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

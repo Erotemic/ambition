@@ -179,6 +179,11 @@
       "class": "a game with no turned gravity"
     },
     {
+      "file": "game/ambition_demo_mary_o/src/plant.rs",
+      "code": "let player = players.single().ok().map(|kin| kin.aabb());",
+      "class": "a game with no turned gravity"
+    },
+    {
       "file": "game/ambition_demo_sanic/src/badnik.rs",
       "code": "let g = badnik_kin.aabb();",
       "class": "a game with no turned gravity"

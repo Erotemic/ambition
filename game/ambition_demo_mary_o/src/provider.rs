@@ -138,6 +138,8 @@ impl Plugin for MaryOExperiencePlugin {
         crate::install_mary_o_content(app);
         crate::quasar_shader::install(app);
         crate::shimmer_shader::install(app);
+        crate::fire_shader::install(app);
+        crate::void_look::install(app);
         // Declare the star wand pickup art (pure id → path + size DATA; no render
         // dependency here). The render layer resolves it into a real sprite through
         // the shared `WorldItem` art seam, so the ?-block's wand draws as a wand
@@ -192,20 +194,72 @@ impl Plugin for MaryOExperiencePlugin {
             app.register_projectile_visual(
                 crate::powerups::SPARK_VISUAL,
                 ProjectileArt {
-                    source: ProjectileArtSource::EnergyTinted {
-                        rgba: [1.0, 0.62, 0.16, 0.96],
+                    // The spark blossom: a flower of fire that turns, from its
+                    // own sheet (`super_mary_o_spark` in the sprite renderer).
+                    source: ProjectileArtSource::Sheet {
+                        target: "super_mary_o_spark".to_string(),
+                        animation: "idle".to_string(),
+                        animate: true,
                     },
-                    // The floor exists to keep a sub-pixel projectile visible; a spark is 20 px and
-                    // does not need one.
+                    // The art has a glow about the blossom, so it is drawn
+                    // larger than the body of the shot.
                     size: ProjectileRenderSize::Body {
                         min: 0.0,
-                        scale: 1.0,
+                        scale: 1.8,
                     },
                     // It tumbles as it skips rather than pointing along travel —
                     // a spinning ember, not an arrow.
                     rotation: ProjectileRotation::GravityUpright,
                     debug_tint: [1.0, 0.62, 0.16, 1.0],
                     label: "spark".to_string(),
+                    expiry_vfx: None,
+                },
+            );
+        }
+        {
+            // The coconut of the Laden Swallow, under the id its ranged action
+            // authors. The picture is the coconut prop of the sprite renderer.
+            use ambition_platformer2d::projectiles::visual::{
+                ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
+                ProjectileVisualAppExt,
+            };
+            app.register_projectile_visual(
+                crate::swallow::COCONUT_VISUAL,
+                ProjectileArt {
+                    source: ProjectileArtSource::Image {
+                        path: "sprites/props/coconut.png".to_string(),
+                    },
+                    size: ProjectileRenderSize::Body {
+                        min: 0.0,
+                        scale: 1.4,
+                    },
+                    rotation: ProjectileRotation::GravityUpright,
+                    debug_tint: [0.45, 0.30, 0.18, 1.0],
+                    label: "coconut".to_string(),
+                    expiry_vfx: None,
+                },
+            );
+        }
+        {
+            // The orb of the Void Lizard, under the id its ranged action authors.
+            // The picture is the `void_orb` entity sprite of the sprite renderer.
+            use ambition_platformer2d::projectiles::visual::{
+                ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
+                ProjectileVisualAppExt,
+            };
+            app.register_projectile_visual(
+                crate::void_lizard::VOID_ORB_VISUAL,
+                ProjectileArt {
+                    source: ProjectileArtSource::Image {
+                        path: "sprites/entities/void_orb.png".to_string(),
+                    },
+                    size: ProjectileRenderSize::Body {
+                        min: 0.0,
+                        scale: 1.5,
+                    },
+                    rotation: ProjectileRotation::GravityUpright,
+                    debug_tint: [0.85, 0.25, 0.75, 1.0],
+                    label: "void orb".to_string(),
                     expiry_vfx: None,
                 },
             );

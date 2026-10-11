@@ -48,6 +48,7 @@ struct Warmup {
 }
 
 fn main() {
+    ambition_platformer2d::render::capture::name_capture_quality_profile();
     let mut args = std::env::args().skip(1);
     let mut output = PathBuf::from("sanic.png");
     let mut size = UVec2::new(960, 540);

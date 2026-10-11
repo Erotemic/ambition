@@ -23,7 +23,7 @@ shared economy; LDtk authoring of levels, loading zones and pipes.
 Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
 (standalone shell).
 
-- Three levels (1-1, 1-2, 1-3) in the Mary-O LDtk world of the
+- Four levels (1-1, 1-2, 1-3, 1-4) in the Mary-O LDtk world of the
   `ambition_map_assets` submodule, read through `authored_levels`. Each level's fields
   state its game mode; stone colors are level or `Solid` fields. Rust still
   dresses blocks by name in `dress_authored_blocks` (pipes, the pole and hidden
@@ -42,6 +42,61 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
   sprite renderer). A `MovingPlatform` names it in its `visual` field, and
   `scenery.rs` registers its `PlatformLook`. A lift in a line is `one_way`, so
   the rock that stops its rider does not crush the rider.
+- World 1-3 is a level in the sky (208 tiles; it was 64, with one pit and
+  one ferry): pillars, three ferries, a climb of shelves with a low road
+  under it, a bridge of bricks, and steps down to the pole. World 1-4 is the
+  castle (178 tiles): bars of fire over pits, a low hall, a ride under a bar,
+  two plants, and a bridge with the boss on it. The pole is past the bridge.
+  Each has its script beside 1-2's (`author_mary_o_1_3_ldtk.py`,
+  `author_mary_o_1_4_ldtk.py`); the tile language is `tools/mary_o_level.py`.
+- Enemy kinds added 2026-10-11. Each cycle reads the simulation tick, so
+  none has rollback state of its own.
+  - Snake Plant (`plant.rs`): a snake that wears leaves, in a pipe whose
+    `role` is `Sealed` (a pipe that goes nowhere). It comes up and goes down,
+    and stays down while a player is on its pipe or beside it. A stomp on it
+    is a hit.
+  - Laden Swallow (`swallow.rs`): the African swallow's sheet. Its row is the
+    flyer the planes are, which stays over the player; the rule lets a
+    coconut go straight down on its tick. It is squashed as a walker is.
+  - Void Star (`void_star.rs`, data only): a small star of the void that goes
+    along the ground on its points. No stomp hurts it.
+  - Bar of fire: a row of `DamageVolume`s, each on a ring of straight path
+    parts about one pivot (`Level.fire_bar` in the tile language). A damage
+    volume of a Mary-O room is drawn as the `fire_orb` entity sprite
+    (`scenery::dress_fire`).
+  - Void Lizard (`void_lizard.rs`, a working title): the boss of 1-4. An
+    enemy body, not a boss of the engine's boss encounter: a large walker
+    with the health of five sparks that throws an orb along its bridge and
+    hops. Its bridge is `MaryOBlock`s of kind `Plank`, and all the planks of
+    a room fall when its pole is taken (`bricks.rs`), so the boss falls too.
+- Her fireball is the spark blossom (`super_mary_o_spark`, a sheet). A fire
+  has a glow (`fire_shader.rs`): a shader that moves an authored flame
+  picture through a soft light behind the spark and behind each orb of a bar
+  of fire. A device with no budget for shaders draws no glow.
+- A void thing has a field about it (Jon, 2026-10-11): the picture loses its
+  colour, and a part of its light, near a Void Star, the Void Lizard and each
+  orb of the void. The field is the engine's
+  (`crates/ambition_render/src/void_field.rs`: a `VoidAura` on a visual, and
+  a whole-screen pass on a camera only while an aura is in its view);
+  `void_look.rs` says which visuals of Mary-O have one. A device with no
+  budget for shaders draws no field.
+- The castle has a biome of its own, `void_castle` (Jon, 2026-10-11: red
+  lava pits and red bars of fire, so the field of a void thing has colour to
+  take). The story: the void took the castle, and Mary-O fights it with the
+  powers of a magical girl. Its parts:
+  - The scene, the stone and the dressing are rows of the art tables of the
+    sprite renderer (`backgrounds/outdoors.py::void_castle`, `terrain/`): a
+    hall of plum stone with coloured glass and red banners, and the void
+    (black, with a white edge) in its vault. The void is not drawn in the
+    air where the play is: a black thing with a white edge there is an enemy.
+  - Lava: `Level.lava` of the tile language makes a damage volume whose name
+    starts with `lava`. The game draws it with two sheets
+    (`super_mary_o_lava_top`, `super_mary_o_lava_body`; `scenery.rs`), in
+    front of the cast, and hides the engine's picture of the hazard. Lava is
+    a hit, and the fall under it is the death, as a pit was.
+  - The quasar is a ward (`VoidWard`, `void_look.rs`): near Mary-O with the
+    quasar the field of the void takes nothing. A quasar is in a brick at
+    the start of the garden of 1-4.
 - Physics: one `classic` entry in `axis_tuning_presets`
   (`data/character_catalog.ron`), which every form names. Launch bands are
   offsets on `jump_speed`, so one ground-jump height authority exists, and a
@@ -109,16 +164,16 @@ This list is the single source. [`status.md`](../status.md) and
   fire arm of `weaker_form_refusal.rs` (absent today for this reason) runs in
   1-1 from the ground.
 - **The world, made larger (Jon, 2026-10-11).** 1-1 stays as it is. Done:
-  1-2. Not done:
-  - 1-3 as a more interesting platform level, with its problems repaired.
-  - More enemy kinds. AI Slop is the walker and the Solid Snake is the shell;
-    the snakes on a plane are our own. There is no plant in a pipe, no
-    thrower in the air (Jon: the African swallow can drop coconuts, or
-    enemies) and no turning bar of fire. Use sprites that exist where they
-    fit; draw new ones where they do not.
-  - World 1-4: a castle level with a boss.
-  - A level has no checkpoint: a death at the end of 1-2 is a start from its
-    first column. Not asked for; a level of this length shows the need.
+  1-2, 1-3, 1-4, and the enemy kinds above. Not done:
+  - Jon has not played 1-3 and 1-4, and no test plays a level to its end.
+  - The boss is a candidate. Jon on the first two: no fire lizard (it looked
+    like another game's), not a name near to that game's boss; something that
+    evokes the void, white highlights, very desaturated. "Void lizard is a
+    working title." The Void Star was the second candidate for the boss, and
+    Jon kept its name for a small enemy.
+  - No enemy has a sound of its own, and the coconut and the orb have none.
+  - A level has no checkpoint: a death at the end of a level is a start from
+    its first column. Not asked for; levels of this length show the need.
 - **1-2 is hard for a first world (Jon, 2026-10-11, after he played it).**
   "Pretty good. Some of the jumps are a bit technical for an early world, but
   I think that's fine for now. We can always make that a world 2-2 or

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import subprocess
 import sys
 import tempfile
@@ -29,6 +30,10 @@ from typing import Callable
 REPO = Path(__file__).resolve().parents[3]
 TOOLS = REPO / "tools" / "ambition_ldtk_tools"
 TARGET = REPO / "game" / "ambition_map_assets" / "ambition_demo_mary_o" / "worlds" / "mary_o.ldtk"
+# The same file by the path that has Mary-O's editor-art overlay beside it
+# (`mary_o.editor_art.json`). `asset editor-art` reads the overlay that is
+# beside the path it is given.
+EDITOR_ART_VIEW = REPO / "game" / "ambition_demo_mary_o" / "assets" / "worlds" / "mary_o.ldtk"
 
 T = 32
 
@@ -44,6 +49,14 @@ ENEMIES = {
     "snake": ("Solid Snake", "mary_o_snake", "solid_snake", (28, 32), "k"),
     "paper": ("Snakes on a Paper Plane", "mary_o_snakes_on_a_paper_plane", "npc_snakes_on_a_paper_plane", (43, 21), "p"),
     "cartesian": ("Snakes on a Cartesian Plane", "mary_o_snakes_on_a_cartesian_plane", "npc_snakes_on_a_cartesian_plane", (43, 18), "c"),
+    # It stays over the player and lets coconuts go (`swallow.rs`).
+    "swallow": ("Laden Swallow", "mary_o_laden_swallow", "laden_swallow", (40, 28), "w"),
+    # No stomp hurts it: a touch from any side is a hit (`void_star.rs`).
+    "star": ("Void Star", "mary_o_void_star", "void_star", (28, 28), "x"),
+    # The boss of the castle (`void_lizard.rs`).
+    "void_lizard": ("Void Lizard", "mary_o_void_lizard", "void_lizard", (60, 60), "W"),
+    # The plant in a pipe (`plant.rs`). Use `Level.plant`, which gives it its pipe.
+    "plant": ("Snake Plant", "mary_o_snake_plant", "snake_plant", (28, 46), "f"),
 }  # fmt: skip
 
 
@@ -110,6 +123,14 @@ class Level:
         """A hole in the floor that is open to the bottom of the level."""
         self.carve(col, self.floor, wide, self.height - self.floor)
 
+    def lava(self, col: int, wide: int, *, under: float = 1.25) -> None:
+        """Lava in a pit: its top is `under` tiles below the top of the floor, and it goes to the bottom of
+        the level. It is a damage volume the game draws as lava (its name starts with `lava`)."""
+        top = int(round((self.floor + under) * T))
+        self._entity("DamageVolume", (col * T, top), (wide * T, self.height * T - top), name=self._number("lava"))
+        for index in range(wide):
+            self.marks.append((col + index, self.floor + 1, "="))
+
     def pillar(self, col: int, wide: int, tall: int) -> None:
         """Rock that comes up out of a pit to `tall` tiles above the floor."""
         self.rock(col, self.floor - tall, wide, self.height - (self.floor - tall))
@@ -126,12 +147,14 @@ class Level:
         self.counts[stem] = index + 1
         return f"{stem}_{index}"
 
-    def start(self, col: float, name: str) -> None:
-        self._entity("PlayerStart", (col * T, (self.floor - 2) * T), (28, 46), name=name)
-        self.marks.append((col, self.floor - 1, "S"))
+    def start(self, col: float, name: str, *, on: int | None = None) -> None:
+        """Where the player starts: over the floor, or over the surface whose top is the top of row `on`."""
+        surface = self.floor if on is None else on
+        self._entity("PlayerStart", (col * T, (surface - 2) * T), (28, 46), name=name)
+        self.marks.append((col, surface - 1, "S"))
 
     def block(self, col: int, row: int, kind: str, contents: str | None = None) -> None:
-        """A block that reacts to a head: `kind` is Question, Brick or Hidden.
+        """A block that reacts to a head: `kind` is Question, Brick, Hidden or Plank.
 
         A block that holds an item needs open air over it: the item comes out
         of its top."""
@@ -139,7 +162,7 @@ class Level:
         if contents:
             fields["contents"] = contents
         self._entity("MaryOBlock", (col * T, row * T), (T, T), **fields)
-        letter = {"Question": "?", "Brick": "B", "Hidden": "h"}[kind]
+        letter = {"Question": "?", "Brick": "B", "Hidden": "h", "Plank": "_"}[kind]
         if contents and kind == "Brick":
             letter = "b"
         assert self.grid[row][col] == ".", f"a block at {col},{row} is in other collision"
@@ -150,6 +173,11 @@ class Level:
             for c in range(col, col + wide):
                 if self.grid[r][c] == ".":
                     self.block(c, r, "Brick")
+
+    def planks(self, col: int, row: int, wide: int) -> None:
+        """A bridge: all the planks of a level fall when its goal is taken."""
+        for c in range(col, col + wide):
+            self.block(c, row, "Plank")
 
     def coin(self, col: float, row: float, stem: str | None = None) -> None:
         """A coin in the tile at `col`, `row`, low in the tile as the first level has it."""
@@ -182,7 +210,8 @@ class Level:
         self.marks.append((col, feet - 1, letter))
 
     def pipe(self, col: int, link: str, role: str, *, on: int | None = None, under: int | None = None) -> None:
-        """A warp pipe, 3 tiles wide and 2 tall. `role` is Entrance or Exit; two pipes of one `link` are one tube.
+        """A pipe, 3 tiles wide and 2 tall. `role` is Entrance or Exit, and two pipes of one `link` are one
+        tube; or it is Sealed, and the pipe goes nowhere.
 
         `on` is the row of the top of the surface it stands on: its mouth is up.
         `under` is the first row below the ceiling it hangs from: its mouth is down."""
@@ -194,6 +223,60 @@ class Level:
         for index in range(3):
             for row in range(2):
                 self.marks.append((col + index, px[1] / T + row, "P"))
+
+    def plant(self, col: int, *, on: int | None = None) -> None:
+        """A Snake Plant in a pipe of its own, which goes nowhere. The pipe stands on the surface at `on`."""
+        surface = self.floor if on is None else on
+        # A link of its own: the tiles of a pipe are named for its link.
+        self.pipe(col, f"pot_{col}", "Sealed", on=surface)
+        name, brain, character, size, letter = ENEMIES["plant"]
+        top = (surface - 2) * T
+        self._entity(
+            "EnemySpawn",
+            (col * T + 1.5 * T - size[0] / 2, top - size[1]),
+            size,
+            name=name,
+            brain=brain,
+            character_id=character,
+            respawn="OnRoomReenter",
+            facing="Left",
+        )
+        self.marks.append((col + 1, surface - 3, letter))
+
+    def fire_bar(
+        self, col: int, row: int, *, orbs: int = 5, period: float = 4.0, clockwise: bool = True, turn: float = 0.0
+    ) -> None:
+        """A bar of fire that turns about the tile at `col`, `row`, which becomes rock.
+
+        Each orb is a damage volume on a path of its own about the pivot: a
+        ring of straight parts, which is the motion a path has. Each ring takes
+        `period` seconds, so the orbs stay in a line. `turn` is where the bar
+        starts, as a part of a full turn (0 is to the right).
+
+        The game draws a damage volume of a Mary-O room as a ball of fire
+        (`scenery::dress_fire`)."""
+        self.rock(col, row, 1, 1)
+        cx, cy = (col + 0.5) * T, (row + 0.5) * T
+        sides, size = 24, 18
+        for orb in range(1, orbs + 1):
+            radius = orb * 16.0
+            ring = []
+            for side in range(sides):
+                angle = math.tau * (turn + (side / sides if clockwise else -side / sides))
+                ring.append((cx + radius * math.cos(angle), cy + radius * math.sin(angle)))
+            edge = 2.0 * radius * math.sin(math.pi / sides)
+            self._entity(
+                "DamageVolume",
+                (ring[0][0] - size / 2, ring[0][1] - size / 2),
+                (size, size),
+                name=self._number("fire_bar_orb"),
+                path_points=";".join(f"{x:.2f},{y:.2f}" for x, y in ring),
+                path_speed=round(edge * sides / period, 3),
+                path_mode="Loop",
+            )
+        reach = math.ceil(orbs / 2)
+        for step in range(1, reach + 1):
+            self.marks.append((col + step * (1 if math.cos(math.tau * turn) >= 0 else -1), row, "*"))
 
     def platform(self, ident: str, name: str, col: float, row: float, *, wide: int = 3, **motion: float) -> None:
         """A moving platform whose top is at the top of `row`. `motion` is its fields (`sweep_dx`, `speed`)."""
@@ -340,6 +423,9 @@ def apply(lv: Level) -> None:
     run_tool("repair", str(TARGET), "--in-place")
     run_tool("validate", str(TARGET))
     run_tool("vocabulary", "check", "--ldtk", str(TARGET), "--level", lv.area)
+    # A level that `area create` made has no editor-art layers: in the LDtk
+    # editor it is bare collision until this runs.
+    run_tool("asset", "editor-art", str(EDITOR_ART_VIEW), "--in-place")
 
 
 def draw(lv: Level, path: Path, scale: int = 8) -> None:
@@ -350,7 +436,7 @@ def draw(lv: Level, path: Path, scale: int = 8) -> None:
         "?": (250, 200, 60), "h": (120, 120, 120), "o": (255, 235, 120), "s": (230, 80, 80),
         "k": (80, 200, 110), "p": (240, 240, 240), "c": (120, 220, 240), "P": (200, 120, 60),
         "~": (90, 190, 255), "v": (40, 70, 110), "^": (40, 110, 70), "|": (240, 240, 220),
-        "S": (255, 120, 220),
+        "S": (255, 120, 220), "w": (60, 90, 200), "f": (40, 160, 70), "*": (255, 150, 40), "_": (150, 110, 80), "W": (235, 235, 245), "x": (200, 200, 215),
     }  # fmt: skip
     image = Image.new("RGB", (lv.width * scale, lv.height * scale), (20, 16, 28))
     pen = ImageDraw.Draw(image)

@@ -114,7 +114,8 @@ PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity add \
 
 ⚠ **order matters and `--replace-existing` is destructive**: regenerating the
 area wipes the second pass, so re-run `entity add` after every `area create`.
-Worked example: `mary_o_1_3_area.ron` + `mary_o_1_3_named_blocks.yaml`.
+Worked example: `apply` in `game/ambition_demo_mary_o/tools/mary_o_level.py`,
+which runs the two passes for each Mary-O level.
 
 ## A second instance of a room
 

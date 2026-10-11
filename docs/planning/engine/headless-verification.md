@@ -88,8 +88,9 @@ capture_scene --route <ROUTE_ID> [OUT.png] [WIDTHxHEIGHT] [OPTIONS]
   sequence. It exits 2 when the sequence ends before frame N, and it is
   refused without `--press` or with 0. `scripts/verify_press_during_capture.sh`
   checks the pixels.
-- On a machine with no GPU, set `AMBITION_QUALITY_PROFILE=ultra`. The Potato
-  profile scales screen shaders and parallax to nothing.
+- A capture is at the `low` quality profile unless `AMBITION_QUALITY_PROFILE`
+  names another. Name `high` or `ultra` to judge art; do not use `potato`,
+  which scales screen shaders and parallax to nothing.
 
 The geometry-only sibling is
 `ambition_platformer2d_actor_monolith/examples/render_room_geometry.rs capture`.

@@ -623,9 +623,23 @@ tackon_targets=(
     super_mary_o_flag_pole_body
     super_mary_o_flag_pole_top
     super_mary_o_flag
+    # A pit of lava of Mary-O's castle: a top that repeats along the pit, and
+    # the body under it.
+    super_mary_o_lava_top
+    super_mary_o_lava_body
     # The moving platform of Mary-O: a `MovingPlatform` that names it in its
     # `visual` field is drawn as it.
     super_mary_o_lift
+    # Mary-O's plant in a pipe. Its catalog row (game/ambition_demo_mary_o)
+    # names sprites/snake_plant_spritesheet.*.
+    snake_plant
+    # The boss of Mary-O's castle.
+    void_lizard
+    # Mary-O's enemy that no stomp can hurt.
+    void_star
+    # Mary-O's fireball, the spark blossom: `provider.rs` names its sheet as
+    # the look of the shot of the cinder beacon.
+    super_mary_o_spark
     # Reusable hand-authored presentation marks: impacts, dust/poofs, glints,
     # directional release flashes, and charge/release effects. The generated
     # authoring sidecar carries placement/orientation/loop intent for the

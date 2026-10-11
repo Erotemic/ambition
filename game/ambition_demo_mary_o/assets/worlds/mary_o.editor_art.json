@@ -9,7 +9,9 @@
     "A bare name is an engine entity sprite (assets/sprites/entities/<name>.png);",
     "anything with a slash is a path under the sprite folder; and",
     "{sheet, animation, frame} is one frame of a generated sheet, which is how",
-    "you name a CHARACTER or a construction prop. Re-run after editing:",
+    "you name a CHARACTER or a construction prop. Re-run after editing, by",
+    "this path: the tool reads the overlay that is beside the path it is given,",
+    "and the world file itself is in the map submodule with no overlay beside it:",
     "",
     "  PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \\",
     "      asset editor-art game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk --in-place"
@@ -42,7 +44,8 @@
       "Question": "bonus_block_tile",
       "Power": "bonus_block_tile",
       "Brick": "solid_tile",
-      "Hidden": "spent_block_tile"
+      "Hidden": "spent_block_tile",
+      "Plank": "solid_tile"
     },
     "MaryOPipe.mouth": {
       "Up": { "sheet": "super_mary_o_pipe_top", "frame": 0 },
@@ -54,7 +57,11 @@
         "mary_o_ai_slop": { "sheet": "ai_slop", "frame": 0 },
         "mary_o_snake": { "sheet": "solid_snake", "frame": 0 },
         "mary_o_snakes_on_a_paper_plane": { "sheet": "snakes_on_a_paper_plane", "frame": 0 },
-        "mary_o_snakes_on_a_cartesian_plane": { "sheet": "snakes_on_a_cartesian_plane", "frame": 0 }
+        "mary_o_snakes_on_a_cartesian_plane": { "sheet": "snakes_on_a_cartesian_plane", "frame": 0 },
+        "mary_o_snake_plant": { "sheet": "snake_plant", "frame": 0 },
+        "mary_o_laden_swallow": { "sheet": "african_swallow", "frame": 0 },
+        "mary_o_void_lizard": { "sheet": "void_lizard", "frame": 0 },
+        "mary_o_void_star": { "sheet": "void_star", "frame": 0 }
       }
     }
   },

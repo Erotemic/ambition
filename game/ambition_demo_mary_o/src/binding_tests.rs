@@ -132,6 +132,10 @@ fn every_authored_enemy_is_named_something_that_has_a_sheet() {
         AI_SLOP_DISPLAY_NAME,
         crate::plane::PAPER_PLANE_DISPLAY_NAME,
         crate::plane::CARTESIAN_PLANE_DISPLAY_NAME,
+        crate::plant::SNAKE_PLANT_DISPLAY_NAME,
+        crate::swallow::LADEN_SWALLOW_DISPLAY_NAME,
+        crate::void_lizard::VOID_LIZARD_DISPLAY_NAME,
+        crate::void_star::VOID_STAR_DISPLAY_NAME,
     ];
     for (room_id, room) in [
         ("1-1", crate::level_1_1()),

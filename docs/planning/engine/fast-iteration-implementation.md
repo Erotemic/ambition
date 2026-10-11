@@ -150,17 +150,31 @@ affected character tests.
     (`game/ambition_demo_mary_o/src/lib.rs`) is still `include_str!`. The
     F11/F12 world reload serves the Ambition world only, so a demo world
     edit costs a restart.
-  - Each `*_spritesheet.ron` and each body rig: `build.rs` of
-    `ambition_sprite_sheet` bakes them (`baked_sheet_rons.rs`,
-    `baked_body_rigs.rs`) so that Android and wasm have them. A sprite
-    publish compiles that crate and each crate after it. Measured
-    2026-10-11: touching one `*_spritesheet.ron` cost 185 s and compiled 23
-    crates for `cargo build -p ambition_demo_sanic_app --bins` (warm). The
-    build script watches the whole sprite tree, PNGs included.
+  - ✔ The published sprite tree (2026-10-11): each `*_spritesheet.ron`,
+    portrait manifest, body rig, part flipbook, landmark table and
+    ultrapack catalog. `build.rs` of `ambition_sprite_sheet` embeds them
+    only under its `static_content` (forwarded by `ambition_platformer2d`'s,
+    so `desktop_player`, the web build and `android` have them) or on a
+    wasm or Android target, and sets `cfg(embedded_sprites)`. A development
+    build watches no file of the tree: each `baked_*` table is a function
+    that reads the tree on first use (`sprite_tree`, the one scan
+    `build.rs` includes too). Measured with `cargo build -p
+    ambition_demo_sanic_app --bins`, warm, after touching one
+    `*_spritesheet.ron`: 185 s and 23 crates before, 0.67 s and none
+    after. The price: a development build parses a part flipbook's RON
+    when a sheet first realizes it (about 50 ms, against 3.5 ms to decode
+    bincode), and parses the full-resolution flipbooks at startup for the
+    landmark digest, on up to six threads. Witnesses
+    `every_table_decodes_from_its_bincode_to_the_flipbook_its_ron_is` (the
+    bincode road, in both builds) and, under `--features static_content`,
+    `the_embedded_tables_are_the_tables_a_development_build_projects`
+    (poison: one projected table dropped, red at the tables assertion).
+    ⚠ `run_tests.py` denies `static_*` from the union job, so no lane runs
+    that second witness.
   - The entity manifest of a demo world (`mary_o.entities.json`): a schema,
     as the LDtk entity contract is.
-  No packet owns these three. The first two are the ones that cost a build
-  for each level edit and each sprite publish of a demo.
+  No packet owned these three. The first two cost a build for each level
+  edit and each sprite publish of a demo.
 
 Rules:
 

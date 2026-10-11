@@ -80,7 +80,7 @@ ambition_game_bin` after touching the file, with a warm target:
 | Movement defaults and feel (`crates/ambition_platformer2d_actor_monolith/assets/ambition/platformer_defaults.ron`) | 0.49 s, no crate compiled (embedded, it was 14.10 s: the actor monolith and 14 crates after it; a feel value in `ambition_combat`'s `Default` costs 14.98 s and 27 crates) |
 | A demo's move table, catalog or fighter facet (`game/ambition_demo_*/assets/`, the versus pack in `game/ambition_app/assets/`) | 0.43 to 0.45 s, no crate compiled (embedded, it was 6.62 s: the demo crate and the app) |
 | A Sanic world (`game/ambition_demo_sanic/assets/worlds/*.ldtk`) | 0.78 s, no crate compiled, for `cargo build -p ambition_demo_sanic_app --bins` (embedded, it was 10.3 s: the demo crate and its app). Mary-O's world is still embedded. |
-| A published sprite sheet (`*_spritesheet.ron`, or any file under the sprite tree) | 185 s and 23 crates for the Sanic app: `ambition_sprite_sheet`'s build script embeds the tree |
+| A sprite publish (any file under `assets/sprites*` or `assets/sprite_packs` of the actor monolith) | 0.67 s, no crate compiled, for the Sanic app (embedded, it was 185 s and 23 crates). A development build reads the tree at startup. |
 | A file that is still embedded (`include_str!`) | about 6 to 7 s: `ambition_content` and the app compile again |
 
 `assets/pack.ron` itself stays embedded: a new source also needs a new

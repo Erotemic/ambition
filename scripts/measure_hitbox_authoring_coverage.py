@@ -13,7 +13,7 @@ box, and all four are clips with no bone spec. "Author in the `.spec.json`" is t
 wrong instruction for those.
 
 ⛔⛔ **AND WHICH CHARACTERS ARE ON THE BONE ROAD AT ALL IS MACHINE-LOCAL.**
-`ambition_sprite_sheet/build.rs` bakes every `*_spritesheet.ron` under
+`ambition_sprite_sheet/src/sprite_tree.rs` bakes every `*_spritesheet.ron` under
 `..._actor_monolith/assets/sprites{,_0_5x,_0_25x,_potato}` into the binary; those
 directories hold 3,433 files of which SEVEN are tracked, and the rest are
 gitignored DERIVED publish output. A character with no published sheet falls back

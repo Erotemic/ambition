@@ -1,20 +1,21 @@
 //! How long does the game take to read each published part-flipbook draw
 //! table? `RiggedSpriteAsset::baked` reads a table on the main thread the
-//! first time a sheet realizes it. Times the embedded bincode the game decodes
-//! beside a parse of the RON it was built from.
+//! first time a sheet realizes it. Times what this build reads (the embedded
+//! bincode under `static_content`, the RON in a development build) beside a
+//! parse of the RON it was built from.
 //!
-//!     cargo run --profile profiling -p ambition_sprite_sheet --example measure_part_table_parse
+//!     cargo run --profile profiling -p ambition_sprite_sheet --features static_content --example measure_part_table_parse
 //!
 //! Prints the slowest tables and the totals.
 
 use std::time::Instant;
 
-use ambition_sprite_sheet::baked_part_flipbooks::{published_ron_on_build_host, BAKED_PART_FLIPBOOKS};
+use ambition_sprite_sheet::baked_part_flipbooks::{part_flipbooks, published_ron_on_build_host};
 use ambition_sprite_sheet::character::rigged::RiggedSpriteAsset;
 
 fn main() {
     let mut rows = Vec::new();
-    for (key, table, _) in BAKED_PART_FLIPBOOKS {
+    for (key, table, _) in part_flipbooks() {
         if key.contains('.') {
             continue;
         }

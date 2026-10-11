@@ -99,10 +99,10 @@ def stale_pairs(source_dir: Path, tier_dir: Path) -> list[tuple[Path, float]]:
         `asset_publish/classify.rs`, in its own words *"Transitional
         actor-contract sidecar. Installed today, NOT YET CONSUMED by the
         sandbox."*
-      * `*_portraits.ron` — `ambition_sprite_sheet/build.rs` collects portrait
+      * `*_portraits.ron` — `ambition_sprite_sheet/src/sprite_tree.rs` collects portrait
         manifests from `assets/sprites` and never from a reduced tier dir. That
-        is not an inference: `test_build_rs_still_bakes_portrait_manifests_from_
-        full_resolution_only` exists to pin it, and the repo already carries a
+        is not an inference: `test_the_portrait_scan_still_reads_full_resolution_only`
+        exists to pin it, and the repo already carries a
         `reduced_tier_portraits` bucket of 487 files unreachable for exactly
         this reason.
 

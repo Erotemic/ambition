@@ -252,25 +252,27 @@ def test_the_unmanifested_list_does_not_rot():
     )
 
 
-def test_build_rs_still_bakes_portrait_manifests_from_full_resolution_only():
+def test_the_portrait_scan_still_reads_full_resolution_only():
     """⛔⛔ THE FACT THE PORTRAIT BUCKET RESTS ON, PINNED AT ITS SOURCE.
 
     `reduced_tier_portraits` calls 487 files unreachable purely because
-    `bake_portrait_manifests` collects from `assets/sprites` and never from the
+    the portrait scan collects from `assets/sprites` and never from the
     reduced tier dirs. If that changes, the bucket silently becomes a list of
     perfectly live files — and nothing else in this suite would notice, because
     the assets themselves would not move.
 
-    This reads committed Rust, so it runs on every machine.
+    The scan is `portrait_manifests` in `ambition_sprite_sheet/src/sprite_tree.rs`
+    (2026-10-11): `build.rs` embeds what it finds, and a development build
+    reads what it finds. This reads committed Rust, so it runs on every machine.
     """
-    build_rs = REPO / "crates/ambition_sprite_sheet/build.rs"
-    if not build_rs.exists():
-        pytest.skip("ambition_sprite_sheet/build.rs is absent")
-    text = build_rs.read_text()
-    start = text.index("fn bake_portrait_manifests")
-    body = text[start : text.index("\nfn ", start + 1)]
+    scan_rs = REPO / "crates/ambition_sprite_sheet/src/sprite_tree.rs"
+    if not scan_rs.exists():
+        pytest.skip("ambition_sprite_sheet/src/sprite_tree.rs is absent")
+    text = scan_rs.read_text()
+    start = text.index("pub fn portrait_manifests")
+    body = text[start : text.index("\npub fn ", start + 1)]
     assert len(body) > 200, "premise: a real function body was read, not an empty slice"
-    assert 'let sprites_dir = assets_dir.join("sprites");' in body, (
+    assert 'walk(&assets.join("sprites"), &assets, &mut entries);' in body, (
         "the portrait baker no longer roots at the full-resolution sprites dir; "
         "re-check `reduced_tier_portraits`, which calls reduced-tier portraits "
         "unreachable ONLY because this scan never sees them"

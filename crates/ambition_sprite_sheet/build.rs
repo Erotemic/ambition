@@ -1,10 +1,19 @@
-//! Embed gameplay-sheet manifests, portrait manifests, and packed-sheet
-//! catalogs from the actor-owned generated asset tree into the built binary.
+//! Embed the published sprite tree (sheet manifests, portrait manifests,
+//! body rigs, part flipbooks, landmark tables and ultrapack catalogs) in a
+//! build that has no source tree beside it, and nothing in any other build.
 //!
-//! Mirrors the runtime scan: root `assets/sprites/` plus one level of
-//! subdirs (the boss multi-sheet packages live there), and the sibling
-//! quality-variant folders (`sprites_0_5x`, `sprites_0_25x`, `sprites_potato`)
-//! so packaged Android/web builds can resolve variant manifests too.
+//! A build embeds when it turns on this crate's `static_content` (the player
+//! builds: `desktop_player`, the web build and `android` forward it), or when
+//! its target has no file system to read the tree from (wasm, Android). Then it
+//! sets `cfg(embedded_sprites)` and writes the tables the `baked_*` modules
+//! include.
+//!
+//! A development build embeds nothing and watches no file of the tree: the
+//! crate reads the tree at run time (`sprite_tree`), so a sprite publish
+//! compiles no crate. Before 2026-10-11 every build embedded it, and touching
+//! one sheet compiled 23 crates (185 s) for the Sanic demo app.
+//!
+//! The files are found by `src/sprite_tree.rs`, the same scan the crate runs.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -22,90 +31,75 @@ mod published;
 #[path = "src/character/landmarks_published.rs"]
 mod landmarks_published;
 
+// The scan of the published tree, shared with the crate the same way.
+#[allow(dead_code)]
+#[path = "src/sprite_tree.rs"]
+mod sprite_tree;
+
+/// The source files this script reads besides itself.
+const SHARED_SOURCES: [&str; 3] =
+    ["src/character/rigged/published.rs", "src/character/landmarks_published.rs", "src/sprite_tree.rs"];
+
 fn main() {
     // The static-SFX-bank cfg/env is set in `ambition_app/build.rs`: a build
     // script affects only its own crate, and the consumer lives there.
+    println!("cargo:rerun-if-changed=build.rs");
+    for source in SHARED_SOURCES {
+        println!("cargo:rerun-if-changed={source}");
+    }
+    println!("cargo::rustc-check-cfg=cfg(embedded_sprites)");
+    println!("cargo::rustc-check-cfg=cfg(has_baked_packs)");
 
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let asset_owner_dir = manifest_dir.join("../ambition_platformer2d_actor_monolith");
+    let owner = manifest_dir.join("../ambition_platformer2d_actor_monolith");
 
-    let sprite_dirs = [
-        asset_owner_dir.join("assets/sprites"),
-        asset_owner_dir.join("assets/sprites_0_5x"),
-        asset_owner_dir.join("assets/sprites_0_25x"),
-        asset_owner_dir.join("assets/sprites_potato"),
-    ];
+    let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    let embed = std::env::var_os("CARGO_FEATURE_STATIC_CONTENT").is_some()
+        || target_arch == "wasm32"
+        || target_os == "android";
 
-    // Re-run when the directory contents change. Cargo watches a directory
-    // recursively.
-    for dir in &sprite_dirs {
+    // Whether this tree has an ultrapack. Pack output is gitignored, so on a
+    // fresh checkout there is none, and the tests that need packs are
+    // `#[ignore]`d with a reason rather than skipped in silence.
+    //
+    // ⚠ In a development build this is read when the crate builds and not
+    // watched: watching the pack folder would compile the crate on each sprite
+    // publish. After the first publish on a fresh tree the pack tests stay
+    // ignored until this crate builds again (`touch` this file).
+    if !sprite_tree::pack_catalogs(&owner).is_empty() {
+        println!("cargo::rustc-cfg=has_baked_packs");
+    }
+
+    if !embed {
+        return;
+    }
+    println!("cargo::rustc-cfg=embedded_sprites");
+    // Cargo watches a directory recursively.
+    for dir in sprite_tree::sprite_dirs(&owner) {
         println!("cargo:rerun-if-changed={}", dir.display());
     }
-
-    let mut entries: Vec<(String, PathBuf)> = Vec::new();
-    for sprites_dir in &sprite_dirs {
-        if !sprites_dir.is_dir() {
-            continue;
-        }
-        collect_spritesheet_rons(sprites_dir, &mut entries);
-        if let Ok(subdirs) = fs::read_dir(sprites_dir) {
-            for sub in subdirs.flatten() {
-                let path = sub.path();
-                if path.is_dir() {
-                    collect_spritesheet_rons(&path, &mut entries);
-                }
-            }
-        }
-    }
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    println!("cargo:rerun-if-changed={}", owner.join("assets/sprite_packs").display());
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let out_path = out_dir.join("baked_sheet_rons.rs");
-
-    let mut body = String::new();
-    body.push_str("// Auto-generated by build.rs. Do not edit.\n");
-    body.push_str("pub static BAKED_SHEET_RONS: &[(&str, &str)] = &[\n");
-    for (name, path) in &entries {
-        // include_str! needs a path rustc can resolve. Absolute host paths
-        // are safe: the build script always runs on the compiling host,
-        // including for Android cross-compiles.
-        let escaped_path = path.to_string_lossy().replace('\\', "\\\\");
-        body.push_str(&format!(
-            "    (\"{name}\", include_str!(\"{escaped_path}\")),\n",
-        ));
-    }
-    body.push_str("];\n");
-
-    fs::write(&out_path, body).expect("write baked_sheet_rons.rs");
-
-    bake_portrait_manifests(&asset_owner_dir, &out_dir);
-    bake_pack_catalogs(&asset_owner_dir, &out_dir);
-    bake_body_rigs(&asset_owner_dir, &out_dir);
-    bake_part_flipbooks(&asset_owner_dir, &out_dir);
+    write_text_table(&sprite_tree::sheet_manifests(&owner), &out_dir, "BAKED_SHEET_RONS", "baked_sheet_rons.rs");
+    write_text_table(&sprite_tree::portrait_manifests(&owner), &out_dir, "BAKED_PORTRAIT_RONS", "baked_portrait_rons.rs");
+    write_text_table(&sprite_tree::pack_catalogs(&owner), &out_dir, "BAKED_PACK_CATALOGS", "baked_pack_catalogs.rs");
+    write_text_table(
+        &sprite_tree::companions(&owner, "_body_rig.ron", false),
+        &out_dir,
+        "BAKED_BODY_RIGS",
+        "baked_body_rigs.rs",
+    );
+    bake_part_flipbooks(&sprite_tree::companions(&owner, "_parts.ron", true), &out_dir);
 }
 
-/// Embed every published semantic body rig (`<target>_body_rig.ron`) as a
-/// `(target, ron_text)` table sorted by target.
-///
-/// A body rig is gameplay data and has no quality tier, so only the
-/// full-resolution tree is read.
-fn bake_body_rigs(asset_owner_dir: &Path, out_dir: &Path) {
-    let roots = [(asset_owner_dir.join("assets/sprites"), None)];
-    bake_companions(&roots, out_dir, "_body_rig.ron", "BAKED_BODY_RIGS", "baked_body_rigs.rs");
-}
-
-/// Embed every published part-flipbook draw table (`<target>_parts.ron`) as a
-/// `(key, ron_text)` table sorted by key. The key is the target for the
-/// full-resolution table and `<target>.<tier>` for a quality tier's, as a
-/// sheet's is: a tier table has its own part rects on its own atlas pages.
-fn bake_part_flipbooks(asset_owner_dir: &Path, out_dir: &Path) {
-    let mut roots = vec![(asset_owner_dir.join("assets/sprites"), None)];
-    for tier in ["0_5x", "0_25x", "potato"] {
-        roots.push((asset_owner_dir.join(format!("assets/sprites_{tier}")), Some(tier)));
-    }
-    let mut entries = companion_files(&roots, "_parts.ron");
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
-    entries.dedup_by(|a, b| a.0 == b.0);
+/// Each published part-flipbook draw table, parsed here and embedded as
+/// bincode of the crate's schema, so the game decodes it and does not parse
+/// its text (about 50 ms a table, 123 ms to decode all 161, measured
+/// 2026-10-11). A full-resolution table that tracks a landmark also embeds its
+/// landmark table.
+fn bake_part_flipbooks(entries: &[(String, PathBuf)], out_dir: &Path) {
     let encoded_dir = out_dir.join("part_flipbooks");
     fs::create_dir_all(&encoded_dir).unwrap_or_else(|error| panic!("create {}: {error}", encoded_dir.display()));
     let landmarks_dir = out_dir.join("landmarks");
@@ -114,19 +108,17 @@ fn bake_part_flipbooks(asset_owner_dir: &Path, out_dir: &Path) {
     let mut body = String::new();
     body.push_str("// Auto-generated by build.rs. Do not edit.\n");
     body.push_str("pub static BAKED_PART_FLIPBOOKS: &[(&str, BakedPartFlipbook, &str)] = &[\n");
-    for (key, path) in &entries {
-        let escaped_path = path.to_string_lossy().replace('\\', "\\\\");
+    for (key, path) in entries {
+        let escaped_path = escaped(path);
         // A table this build cannot read is embedded as text: the game refuses
-        // it with the error the RON gives, as it did before tables were
-        // encoded, and the build does not fail on one broken publish.
+        // it with the error the RON gives, and the build does not fail on one
+        // broken publish.
         let text = fs::read_to_string(path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
-        let parsed: Result<published::Published, _> = ron::Options::default()
-            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
-            .from_str(&text);
+        let parsed = sprite_tree::read_part_flipbook(&text);
         // A landmark is gameplay data and has no quality tier, so only the
         // full-resolution table publishes one.
         if let (false, Ok(published)) = (key.contains('.'), &parsed) {
-            if let Some(bytes) = landmarks_of(published).and_then(|table| bincode::serialize(&table).ok()) {
+            if let Some(bytes) = sprite_tree::landmarks_of(published).and_then(|table| bincode::serialize(&table).ok()) {
                 let encoded = landmarks_dir.join(format!("{key}.bin"));
                 fs::write(&encoded, &bytes).unwrap_or_else(|error| panic!("write {}: {error}", encoded.display()));
                 landmarks.push((key.clone(), encoded, bytes));
@@ -136,10 +128,9 @@ fn bake_part_flipbooks(asset_owner_dir: &Path, out_dir: &Path) {
             Some(bytes) => {
                 let encoded = encoded_dir.join(format!("{key}.bin"));
                 fs::write(&encoded, bytes).unwrap_or_else(|error| panic!("write {}: {error}", encoded.display()));
-                let escaped = encoded.to_string_lossy().replace('\\', "\\\\");
-                format!("BakedPartFlipbook::Encoded(include_bytes!(\"{escaped}\"))")
+                format!("BakedPartFlipbook::Encoded(include_bytes!(\"{}\"))", escaped(&encoded))
             }
-            None => format!("BakedPartFlipbook::Unread(include_str!(\"{escaped_path}\"))"),
+            None => format!("BakedPartFlipbook::Ron(include_str!(\"{escaped_path}\"))"),
         };
         body.push_str(&format!("    (\"{key}\", {table}, \"{escaped_path}\"),\n"));
     }
@@ -148,55 +139,14 @@ fn bake_part_flipbooks(asset_owner_dir: &Path, out_dir: &Path) {
     write_landmark_tables(&landmarks, out_dir);
 }
 
-/// The landmark table of one published part flipbook: the place of each
-/// landmark track in each frame of each clip. `None` when the flipbook tracks
-/// no landmark, so that such a target embeds nothing.
-///
-/// A mirror row (`<row>~mirrored`) is not read: a body that faces the other
-/// way mirrors the row's points about its feet.
-fn landmarks_of(published: &published::Published) -> Option<landmarks_published::BakedLandmarks> {
-    let track_name = |track: Option<u16>| track.and_then(|track| published.tracks.get(usize::from(track)));
-    let mut clips = std::collections::BTreeMap::new();
-    let mut any = false;
-    for (name, clip) in &published.clips {
-        if name.contains('~') {
-            continue;
-        }
-        let frames: Vec<landmarks_published::BakedLandmarkFrame> = clip
-            .frames
-            .iter()
-            .map(|frame| {
-                landmarks_published::landmark_frame(
-                    frame
-                        .iter()
-                        .filter_map(|draw| track_name(draw.track).map(|name| (name.as_str(), draw.at))),
-                )
-            })
-            .collect();
-        any |= frames.iter().flatten().any(Option::is_some);
-        clips.insert(
-            name.clone(),
-            landmarks_published::BakedLandmarkClip {
-                frame_duration_s: clip.frame_duration_s,
-                frames,
-            },
-        );
-    }
-    any.then_some(landmarks_published::BakedLandmarks {
-        frame_height: published.frame_size.1,
-        clips,
-    })
-}
-
-/// Write the embedded landmark tables, sorted by target as `entries` is, and
-/// the one digest that covers them all.
+/// Write the embedded landmark tables, sorted by target as the flipbooks are,
+/// and the one digest that covers them all.
 fn write_landmark_tables(landmarks: &[(String, PathBuf, Vec<u8>)], out_dir: &Path) {
     let mut body = String::new();
     body.push_str("// Auto-generated by build.rs. Do not edit.\n");
     body.push_str("pub static BAKED_LANDMARKS: &[(&str, &[u8])] = &[\n");
     for (key, encoded, _) in landmarks {
-        let escaped = encoded.to_string_lossy().replace('\\', "\\\\");
-        body.push_str(&format!("    (\"{key}\", include_bytes!(\"{escaped}\")),\n"));
+        body.push_str(&format!("    (\"{key}\", include_bytes!(\"{}\")),\n", escaped(encoded)));
     }
     body.push_str("];\n");
     let digest = landmarks_published::landmark_tables_digest(
@@ -206,196 +156,21 @@ fn write_landmark_tables(landmarks: &[(String, PathBuf, Vec<u8>)], out_dir: &Pat
     fs::write(out_dir.join("baked_landmarks.rs"), body).expect("write baked_landmarks.rs");
 }
 
-/// Embed every `<target><suffix>` file under each root (the root plus one
-/// level of subdirs) as `static <table>: &[(&str, &str)]`, sorted by key, in
-/// `out_dir/<file>`. A root with a tier keys its files `<target>.<tier>`.
-fn bake_companions(
-    roots: &[(PathBuf, Option<&str>)],
-    out_dir: &Path,
-    suffix: &str,
-    table: &str,
-    file: &str,
-) {
-    let mut entries = companion_files(roots, suffix);
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
-    entries.dedup_by(|a, b| a.0 == b.0);
-    write_companion_table(&entries, out_dir, table, file);
-}
-
-/// Every `<target><suffix>` file under each root (the root plus one level of
-/// subdirs), keyed `<target>` or `<target>.<tier>`, unsorted.
-fn companion_files(roots: &[(PathBuf, Option<&str>)], suffix: &str) -> Vec<(String, PathBuf)> {
-    let mut entries: Vec<(String, PathBuf)> = Vec::new();
-    for (root, tier) in roots {
-        println!("cargo:rerun-if-changed={}", root.display());
-        let mut dirs = vec![root.clone()];
-        if let Ok(subdirs) = fs::read_dir(root) {
-            dirs.extend(subdirs.flatten().map(|entry| entry.path()).filter(|path| path.is_dir()));
-        }
-        for dir in dirs {
-            let Ok(files) = fs::read_dir(&dir) else {
-                continue;
-            };
-            for entry in files.flatten() {
-                let path = entry.path();
-                let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-                    continue;
-                };
-                if let Some(target) = name.strip_suffix(suffix) {
-                    let key = match tier {
-                        Some(tier) => format!("{target}.{tier}"),
-                        None => target.to_owned(),
-                    };
-                    entries.push((key, path.clone()));
-                }
-            }
-        }
-    }
-    entries
-}
-
 /// Write `entries` as `static <table>: &[(&str, &str)]` of `include_str!`.
-fn write_companion_table(entries: &[(String, PathBuf)], out_dir: &Path, table: &str, file: &str) {
+fn write_text_table(entries: &[(String, PathBuf)], out_dir: &Path, table: &str, file: &str) {
     let mut body = String::new();
     body.push_str("// Auto-generated by build.rs. Do not edit.\n");
     body.push_str(&format!("pub static {table}: &[(&str, &str)] = &[\n"));
     for (key, path) in entries {
-        let escaped_path = path.to_string_lossy().replace('\\', "\\\\");
-        body.push_str(&format!("    (\"{key}\", include_str!(\"{escaped_path}\")),\n"));
+        body.push_str(&format!("    (\"{key}\", include_str!(\"{}\")),\n", escaped(path)));
     }
     body.push_str("];\n");
     fs::write(out_dir.join(file), body).unwrap_or_else(|error| panic!("write {file}: {error}"));
 }
 
-/// Embed every full-resolution portrait manifest by its asset-relative path.
-/// Portraits are presentation products and currently have no quality-tier
-/// variants; recursive collection covers multipart character subdirectories.
-fn bake_portrait_manifests(asset_owner_dir: &Path, out_dir: &Path) {
-    let assets_dir = asset_owner_dir.join("assets");
-    let sprites_dir = assets_dir.join("sprites");
-    println!("cargo:rerun-if-changed={}", sprites_dir.display());
-
-    let mut entries: Vec<(String, PathBuf)> = Vec::new();
-    collect_portrait_rons(&sprites_dir, &assets_dir, &mut entries);
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
-
-    let mut body = String::new();
-    body.push_str("// Auto-generated by build.rs. Do not edit.\n");
-    body.push_str("pub static BAKED_PORTRAIT_RONS: &[(&str, &str)] = &[\n");
-    for (asset_path, path) in &entries {
-        let escaped_path = path.to_string_lossy().replace('\\', "\\\\");
-        body.push_str(&format!(
-            "    (\"{asset_path}\", include_str!(\"{escaped_path}\")),\n",
-        ));
-    }
-    body.push_str("];\n");
-
-    fs::write(out_dir.join("baked_portrait_rons.rs"), body).expect("write baked_portrait_rons.rs");
-}
-
-fn collect_portrait_rons(dir: &Path, assets_dir: &Path, out: &mut Vec<(String, PathBuf)>) {
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            collect_portrait_rons(&path, assets_dir, out);
-            continue;
-        }
-        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
-        if !name.ends_with("_portraits.ron") {
-            continue;
-        }
-        let Ok(relative) = path.strip_prefix(assets_dir) else {
-            continue;
-        };
-        let key = relative.to_string_lossy().replace('\\', "/");
-        out.push((key, path));
-    }
-}
-
-/// Embed each quality tier's ultrapack catalog (`assets/sprite_packs/<tier>/
-/// ultrapack.json`, written by the regen ultrapack step) as a
-/// `(tier, json_text)` table. Tier dir names match the runtime
-/// `TextureResolutionScale` vocabulary (`full` / `half` / `quarter` /
-/// `potato`). The table is empty on a checkout that never ran regen — the
-/// pack consumer then falls back to the per-target sheet path.
-fn bake_pack_catalogs(asset_owner_dir: &Path, out_dir: &Path) {
-    let packs_dir = asset_owner_dir.join("assets/sprite_packs");
-    println!("cargo:rerun-if-changed={}", packs_dir.display());
-
-    let mut tiers: Vec<(String, PathBuf)> = Vec::new();
-    if let Ok(entries) = fs::read_dir(&packs_dir) {
-        for entry in entries.flatten() {
-            let tier_dir = entry.path();
-            let catalog = tier_dir.join("ultrapack.json");
-            if tier_dir.is_dir() && catalog.is_file() {
-                if let Some(tier) = tier_dir.file_name().and_then(|n| n.to_str()) {
-                    tiers.push((tier.to_owned(), catalog));
-                }
-            }
-        }
-    }
-    tiers.sort_by(|a, b| a.0.cmp(&b.0));
-
-    // Whether this tree has an ultrapack, as a compile-time fact.
-    //
-    // Pack output is gitignored, so on a fresh checkout the table is empty and
-    // `catalog_for_scale` gives `None` for every tier. Tests that need packs
-    // (`a_packed_target_keeps_the_facing_its_artwork_was_drawn_in`,
-    // `baked_pack_tiers_parse_and_agree_on_coverage`) use this cfg to be
-    // `#[ignore]`d. `cargo test` reports an ignored test with its reason; a
-    // skip through `eprintln!` and `return` is invisible on a passing run.
-    println!("cargo::rustc-check-cfg=cfg(has_baked_packs)");
-    if !tiers.is_empty() {
-        println!("cargo::rustc-cfg=has_baked_packs");
-    }
-
-    let mut body = String::new();
-    body.push_str("// Auto-generated by build.rs. Do not edit.\n");
-    body.push_str("pub static BAKED_PACK_CATALOGS: &[(&str, &str)] = &[\n");
-    for (tier, path) in &tiers {
-        let escaped_path = path.to_string_lossy().replace('\\', "\\\\");
-        body.push_str(&format!(
-            "    (\"{tier}\", include_str!(\"{escaped_path}\")),\n",
-        ));
-    }
-    body.push_str("];\n");
-
-    fs::write(out_dir.join("baked_pack_catalogs.rs"), body).expect("write baked_pack_catalogs.rs");
-}
-
-fn collect_spritesheet_rons(dir: &Path, out: &mut Vec<(String, PathBuf)>) {
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-            continue;
-        };
-        let Some(root) = name.strip_suffix("_spritesheet.ron") else {
-            continue;
-        };
-        out.push((baked_key_for_path(root, &path), path));
-    }
-}
-
-fn baked_key_for_path(root: &str, path: &Path) -> String {
-    let marker = path
-        .components()
-        .filter_map(|component| component.as_os_str().to_str())
-        .find_map(|component| match component {
-            "sprites_0_5x" => Some("0_5x"),
-            "sprites_0_25x" => Some("0_25x"),
-            "sprites_potato" => Some("potato"),
-            _ => None,
-        });
-    match marker {
-        Some(marker) => format!("{root}.{marker}"),
-        None => root.to_owned(),
-    }
+/// `path` as a Rust string literal body. An absolute host path is safe for
+/// `include_str!`: the build script runs on the compiling host, also for an
+/// Android cross-compile.
+fn escaped(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "\\\\")
 }

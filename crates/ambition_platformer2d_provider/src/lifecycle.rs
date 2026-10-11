@@ -1531,13 +1531,15 @@ pub struct MechanicalRegistries {
     /// different techniques; without this section they shared one identity.
     /// `None` means the composition has no extension host.
     pub extension_modules: Option<String>,
-    /// ⛔ **THE LANDMARK TABLES THE BUILD EMBEDS**: where each character's art
-    /// publishes its hands, head and feet, per pose —
-    /// `ambition_sprite_sheet::baked_landmarks::BAKED_LANDMARKS_DIGEST`. A
+    /// ⛔ **THE LANDMARK TABLES**: where each character's art publishes its
+    /// hands, head and feet, per pose —
+    /// `ambition_sprite_sheet::baked_landmarks::landmarks_digest()`. A
     /// landmark places a pet mark today and a muzzle later, so it is a
-    /// simulation input, and it is compiled into the binary: no world resource
-    /// holds it, and published sprites are not in version control, so two
-    /// builds can differ in it under one source revision. `None` only in a
+    /// simulation input. No world resource holds it: a build with no source
+    /// tree embeds it, and a development build reads it from the published
+    /// tree at startup. Published sprites are not in version control, so two
+    /// builds, or two starts of one development build, can differ in it under
+    /// one source revision. `None` only in a
     /// fixture that does not go through a provider road.
     ///
     /// ⚠ **THE BAKED SHEET RECORDS ARE NOT COVERED, AND THEY ARE THE SAME
@@ -1548,11 +1550,11 @@ pub struct MechanicalRegistries {
     pub baked_landmarks: Option<String>,
 }
 
-/// The identity of the landmark tables this build embeds, for
+/// The identity of the landmark tables this build reads, for
 /// [`MechanicalRegistries::baked_landmarks`]. One function for both provider
 /// roads, so that they cannot disagree about the material.
 fn baked_landmarks_identity() -> Option<String> {
-    Some(ambition_sprite_sheet::baked_landmarks::BAKED_LANDMARKS_DIGEST.to_string())
+    Some(ambition_sprite_sheet::baked_landmarks::landmarks_digest().to_string())
 }
 
 pub fn prepare_platformer_content(
@@ -4897,7 +4899,7 @@ mod mechanical_registries_reach_the_identity {
             .expect("the provider road adds the landmark section");
         assert_eq!(
             section.canonical_bytes(),
-            ambition_sprite_sheet::baked_landmarks::BAKED_LANDMARKS_DIGEST.as_bytes(),
+            ambition_sprite_sheet::baked_landmarks::landmarks_digest().as_bytes(),
         );
     }
 

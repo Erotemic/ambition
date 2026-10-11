@@ -280,7 +280,7 @@ fn two_manifests_declaring_one_rig_target_each_keep_their_own_page() {
 /// File-root keying guarantees this: `slash` and `slash.potato` are different
 /// keys, so the variant need not be skipped.
 ///
-/// The table is hand-built. The real `BAKED_SHEET_RONS` carries variant rows
+/// The table is hand-built. The real sheet table carries variant rows
 /// only when the gitignored `sprites_*x/` folders exist, so a registry-level
 /// check would pass without testing anything in CI.
 #[test]
@@ -647,7 +647,7 @@ fn a_multi_record_file_root_is_refused_while_its_records_keep_their_targets() {
 /// no art, so the skip cannot hide a failure.
 #[test]
 fn a_shared_rig_target_no_longer_costs_a_sheet_its_own_page() {
-    let reg = SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS);
+    let reg = SheetRegistry::from_baked_table(baked_sheet_rons::sheet_rons());
 
     // (file root, the sheet that used to take the key)
     let pairs = [
@@ -693,7 +693,7 @@ fn a_shared_rig_target_no_longer_costs_a_sheet_its_own_page() {
 /// `shadowed_targets`). `ambition_app` owns that assertion.
 #[test]
 fn the_real_baked_table_still_resolves_the_players_variant() {
-    let reg = SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS);
+    let reg = SheetRegistry::from_baked_table(baked_sheet_rons::sheet_rons());
     // The player's variant is the reason this index exists.
     assert!(
         reg.get("player_robot_v3").is_some(),

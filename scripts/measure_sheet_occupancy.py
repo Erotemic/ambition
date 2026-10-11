@@ -15,7 +15,7 @@ fewer pixels than the quality setting asks for — and repacking does not draw
 fewer pixels, it stops decoding pixels nothing draws. Those are different
 claims and this script only supports the second.
 
-⭐ THE SHEET LIST MIRRORS `crates/ambition_sprite_sheet/build.rs`, which is what
+⭐ THE SHEET LIST MIRRORS `crates/ambition_sprite_sheet/src/sprite_tree.rs`, which is what
 actually bakes the registry: four sprite dirs under the actor-monolith crate,
 each scanned at its top level plus ONE level of subdirectories (boss multi-sheet
 packages live there), for `*_spritesheet.ron`. Keys carry the tier marker the

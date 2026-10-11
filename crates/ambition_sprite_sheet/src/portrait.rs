@@ -279,7 +279,7 @@ fn normalize_manifest_path(path: &str) -> String {
 }
 
 pub fn baked_portrait_registry() -> PortraitSheetRegistry {
-    PortraitSheetRegistry::from_baked_table(crate::baked_portrait_rons::BAKED_PORTRAIT_RONS)
+    PortraitSheetRegistry::from_baked_table(crate::baked_portrait_rons::portrait_rons())
 }
 
 /// Every baked portrait target, sorted: the vocabulary a character's

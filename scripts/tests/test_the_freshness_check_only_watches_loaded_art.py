@@ -8,9 +8,9 @@ are installed and read by nothing:
   * `*_actor.ron` — `ArtifactClass::ActorSidecar`, in its own words
     *"Transitional actor-contract sidecar. Installed today, NOT YET CONSUMED by
     the sandbox."*
-  * `*_portraits.ron` — `ambition_sprite_sheet/build.rs` collects portrait
+  * `*_portraits.ron` — `ambition_sprite_sheet/src/sprite_tree.rs` collects portrait
     manifests from `assets/sprites` and never from a reduced tier dir, which
-    `test_build_rs_still_bakes_portrait_manifests_from_full_resolution_only`
+    `test_the_portrait_scan_still_reads_full_resolution_only`
     exists to pin.
 
 ⇒ Four such files being older than their source made the check fail with

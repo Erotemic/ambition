@@ -43,12 +43,12 @@ const PLAYER_CHARACTER_ID: &str = "player_robot_v3";
 ///
 /// §5 classification (per the old restructuring blueprint, folded into
 /// `docs/architecture/engine-architecture.md`): immutable asset cache —
-/// derived once from the compile-time `BAKED_SHEET_RONS` table, pure and
+/// derived once from the sheet table (`baked_sheet_rons::sheet_rons`), pure and
 /// override-free. Correctly a process-global `OnceLock`; not a content
 /// registry, so it has no `install_*` seam.
 fn file_root_registry() -> &'static SheetRegistry {
     static REG: OnceLock<SheetRegistry> = OnceLock::new();
-    REG.get_or_init(|| SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS))
+    REG.get_or_init(|| SheetRegistry::from_baked_table(baked_sheet_rons::sheet_rons()))
 }
 
 /// Build the file-root index NOW, so the first attack does not.

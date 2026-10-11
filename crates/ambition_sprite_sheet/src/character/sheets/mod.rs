@@ -450,13 +450,14 @@ pub fn warm_record_index() {
 /// record by its own target). [`crate::SheetRegistry`] calls the same rule, so
 /// the two cannot disagree.
 ///
-/// An immutable asset cache derived once from the compile-time
-/// `BAKED_SHEET_RONS` table, so a process-global `OnceLock` is correct. It is
+/// An immutable asset cache derived once from the sheet table
+/// (`baked_sheet_rons::sheet_rons`, fixed for the process), so a
+/// process-global `OnceLock` is correct. It is
 /// not a content registry, so it has no `install_*` seam (see
 /// `docs/architecture/engine-architecture.md`).
 fn record_index() -> &'static HashMap<String, SheetRecord> {
     static INDEX: OnceLock<HashMap<String, SheetRecord>> = OnceLock::new();
-    INDEX.get_or_init(|| crate::index_baked_table(crate::baked_sheet_rons::BAKED_SHEET_RONS).sheets)
+    INDEX.get_or_init(|| crate::index_baked_table(crate::baked_sheet_rons::sheet_rons()).sheets)
 }
 
 /// The digest of the mechanical projection of every baked sheet record, in

@@ -389,27 +389,38 @@ fn a_draw_tint_is_read_and_tweened() {
     assert_eq!(asset.frame("idle", 1).unwrap()[1].tint(), Vec3::ONE, "an absent tint draws as painted");
 }
 
-/// The game decodes each table from the bincode `build.rs` wrote; that must be
-/// the flipbook its RON is. Every embedded table, every tier: a field the
-/// bincode lost, or a table the build could not read (embedded as text, so
-/// parsed in the hall again), fails here.
+/// A build with no source tree decodes each table from the bincode `build.rs`
+/// wrote; that must be the flipbook its RON is. Every table, every tier: a
+/// field the bincode lost fails here.
+///
+/// A development build embeds no bincode, so it encodes each table as
+/// `build.rs` does (`sprite_tree::read_part_flipbook`, then bincode) and
+/// decodes that: the default lanes hold the shipped road too. In an embedded
+/// build a table embedded as text is one the build could not read, and fails.
 #[test]
-fn every_embedded_table_decodes_to_the_flipbook_its_ron_is() {
-    use crate::baked_part_flipbooks::{published_ron_on_build_host, BakedPartFlipbook, BAKED_PART_FLIPBOOKS};
+fn every_table_decodes_from_its_bincode_to_the_flipbook_its_ron_is() {
+    use crate::baked_part_flipbooks::{part_flipbooks, published_ron_on_build_host, BakedPartFlipbook};
     let mut failures = Vec::new();
-    for (key, table, _) in BAKED_PART_FLIPBOOKS {
-        if matches!(table, BakedPartFlipbook::Unread(_)) {
-            failures.push(format!("`{key}`: embedded as text, the build could not read it"));
-            continue;
-        }
+    for (key, table, _) in part_flipbooks() {
         let text = published_ron_on_build_host(key).expect("the published file");
-        let decoded = table.decode().unwrap_or_else(|error| panic!("`{key}` {error}"));
+        let bytes: Vec<u8> = match table {
+            BakedPartFlipbook::Encoded(bytes) => bytes.to_vec(),
+            BakedPartFlipbook::Ron(_) if cfg!(embedded_sprites) => {
+                failures.push(format!("`{key}`: embedded as text, the build could not read it"));
+                continue;
+            }
+            BakedPartFlipbook::Ron(text) => {
+                let published = crate::sprite_tree::read_part_flipbook(text).unwrap_or_else(|error| panic!("`{key}` {error}"));
+                bincode::serialize(&published).unwrap_or_else(|error| panic!("`{key}` {error}"))
+            }
+        };
+        let decoded = RiggedSpriteAsset::from_published_bytes(&bytes).unwrap_or_else(|error| panic!("`{key}` {error}"));
         if decoded != RiggedSpriteAsset::from_published_ron(&text).unwrap_or_else(|error| panic!("`{key}` {error}")) {
             failures.push(format!("`{key}`: decodes to another flipbook than its RON"));
         }
     }
     // ⛔ Premise: the census has a population.
-    assert!(BAKED_PART_FLIPBOOKS.len() >= 100, "only {} embedded tables", BAKED_PART_FLIPBOOKS.len());
+    assert!(part_flipbooks().len() >= 100, "only {} tables", part_flipbooks().len());
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 

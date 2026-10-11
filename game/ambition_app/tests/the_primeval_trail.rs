@@ -57,11 +57,30 @@ fn the_rooms_of_the_trail_are_a_row_with_a_door_each_way() {
 
 /// The cast each room places: the kinds, and how many of each.
 const CAST: [(&str, &[(&str, usize)]); 3] = [
-    ("primeval_trailhead", &[("kiwi", 2), ("chicken", 1), ("chicken_hen", 1)]),
-    ("primeval_run", &[("emu", 2), ("european_swallow", 2), ("ostrich", 1), ("ostrich_hen", 1)]),
+    ("primeval_trailhead", &[("kiwi", 2), ("chicken", 1), ("chicken_hen", 1), ("compsognathus", 3)]),
+    (
+        "primeval_run",
+        &[
+            ("emu", 2),
+            ("european_swallow", 2),
+            ("ostrich", 1),
+            ("ostrich_hen", 1),
+            ("pachycephalosaurus", 1),
+            ("dilophosaurus", 1),
+        ],
+    ),
     (
         "primeval_canopy",
-        &[("owl", 1), ("npc_raptor_stalker", 2), ("shoebill", 1), ("african_swallow", 2), ("cassowary", 1), ("vulture", 1)],
+        &[
+            ("owl", 1),
+            ("npc_raptor_stalker", 2),
+            ("shoebill", 1),
+            ("african_swallow", 2),
+            ("cassowary", 1),
+            ("vulture", 1),
+            ("dilophosaurus", 1),
+            ("triceratops", 1),
+        ],
     ),
 ];
 

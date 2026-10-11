@@ -190,6 +190,14 @@ pub enum ParallaxTheme {
     /// The land of the dinosaurs: a jungle of palms and tree ferns under a
     /// volcano that smokes.
     Primeval,
+    /// Mary-O's land in the colours of a magical girl: round hills, a far
+    /// castle, a rainbow and a crescent moon in a pink sky. The rooms of
+    /// Mary-O name it.
+    Starlight,
+    /// The cavern under Mary-O's land, in the colours of a dark magical
+    /// girl: a moon eaten to a ring in a rift, arches, the wheels of a clock
+    /// that does not turn. The underground room of Mary-O names it.
+    Starless,
     Cave,
     /// An open daylight sky of cloud banks and wind streaks: the Mockingbird's
     /// air chase, drawn wrapping as it scrolls (`sky_scroll`).
@@ -228,6 +236,8 @@ impl ParallaxTheme {
         Self::Water,
         Self::Forest,
         Self::Primeval,
+        Self::Starlight,
+        Self::Starless,
         Self::Cave,
         Self::OpenSky,
         Self::HubClean,
@@ -248,6 +258,8 @@ impl ParallaxTheme {
             Self::Water => "water",
             Self::Forest => "forest",
             Self::Primeval => "primeval",
+            Self::Starlight => "starlight",
+            Self::Starless => "starless",
             Self::Cave => "cave",
             Self::OpenSky => "open_sky",
             Self::HubClean => "hub_clean",
@@ -334,6 +346,8 @@ impl ParallaxTheme {
                 Some(Self::Forest)
             }
             "primeval" | "jungle" | "dinosaur" | "prehistoric" => Some(Self::Primeval),
+            "starlight" | "magical_girl" | "magical" => Some(Self::Starlight),
+            "starless" | "dark_magical_girl" => Some(Self::Starless),
             "cave" | "damp" => Some(Self::Cave),
             "open_sky" | "clouds" | "air_chase" => Some(Self::OpenSky),
             "hub_clean" => Some(Self::HubClean),

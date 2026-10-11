@@ -228,9 +228,49 @@ suit the style of the game.
   `tools/ambition_ldtk_tools/specs/primeval/make_specs.py`. A new biome,
   `primeval` (a row in each art table, `ParallaxTheme::Primeval`, a mote
   row), and a scenery prop, `coconut_palm`. First pass: the rooms are
-  simple, there is no dinosaur but the raptor and the T-rex, the biome has
-  no foreground layer and no room in the hall of biomes, and reaching the
-  tyrant's hall asks nothing of the player but walking there.
+  simple, the biome has no foreground layer and no room in the hall of
+  biomes, and reaching the tyrant's hall asks nothing of the player but
+  walking there.
+- [x] Four dinosaurs that are not birds, for the trail (Jon): the
+  `compsognathus` (tiny, placed in threes), the `dilophosaurus` (it spits
+  from a distance), the `pachycephalosaurus` (it rams) and the `triceratops`
+  (the heavy). The three on two legs are the `ratite` anatomy with arms on
+  the wing bones (`scripts/build_ratite_rigs.py`); the triceratops is the
+  `quadruped` anatomy and a tail bone (`scripts/build_triceratops_rig.py`).
+  The T-rex does not call them: his flock is birds. Not done: the spit of
+  the dilophosaurus is the thrown `Rock`, with no projectile art of its own.
+- [x] Two biomes for Mary-O (Jon, 2026-10-11), in the colours of a magical
+  girl and with the shapes of an old platform game. `starlight` is the land
+  above: a pink sky, a crescent moon, a rainbow, round hills with marks on
+  them, a far castle, round trees and lamps with a star; ground blocks of
+  pink with mint icing. Rooms `mary_o_1_1` and `mary_o_1_3` name it.
+  `starless` is the dark one, for the room under the ground (`mary_o_1_2`):
+  a moon eaten to a ring in a rift, pointed arches, the wheels of a clock,
+  a window of coloured glass, candles; violet brick with a line of magenta
+  light. Each is a row in each art table and a `ParallaxTheme`. Jon on the
+  first look: "the hearts are a bit much", so the trees have round crowns
+  and no decor is a heart.
+- [x] A shader for the two Mary-O biomes: the shimmer
+  (`game/ambition_demo_mary_o/src/shimmer_shader.rs`, `shaders/shimmer.wgsl`).
+  It draws no shape. Each biome has a shimmer picture
+  (`terrain/shimmer.py`, published as `room_dressing/<biome>_shimmer.png`):
+  red is the shapes (sparkles, or embers), green is when each one is bright,
+  blue is ribbons. The shader moves the picture behind the blocks, makes
+  each shape come and go, and gives it its colour. A device with no budget
+  for a shader that fills the screen draws none, and the room is then its
+  scene and its skin.
+- [x] The snake with the box (`solid_snake`) is drawn again in place (Jon):
+  a body with bands that tapers to its tail, a head with a gold eye under a
+  brow, a bandana with two tails, a box of corrugated board in three faces
+  with tape, a hand hole and a "this side up" mark. Boxed, its eyes show in
+  the hand hole. To peek, the box lifts on one side. Its rows, its frame and
+  the place of its body and its box did not change (the sheet's body
+  metrics moved by 5 px or less).
+- [x] The bonus block has an interrobang again (Jon). The drawing had not
+  changed, but its stroke was as thin as its hook and it read as a `?` in
+  play. The stroke is upright, thicker than the hook, and starts four rows
+  above the hook (`bonus_block_tile` in `targets/props/entities.py`, and the
+  16 px copy in the Mary-O tileset).
 
 ## Not done
 

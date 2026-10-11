@@ -333,6 +333,26 @@
             move_style: Walk,
             melee: Some(Bite(windup_s: 0.55, active_s: 0.10, recover_s: 0.60, damage: 3, reach_px: 54.0)),
         ),
+        // The dinosaurs of the primeval trail. A small one bites fast and
+        // weak; the dilophosaurus spits from a distance and bites what comes
+        // close; a skull or a pair of horns is slow, and it hurts.
+        "compsognathus_bite": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.14, active_s: 0.08, recover_s: 0.26, damage: 1, reach_px: 22.0)),
+        ),
+        "dilophosaurus_spit": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.26, active_s: 0.10, recover_s: 0.38, damage: 2, reach_px: 40.0)),
+            ranged: Some(Rock(speed: 420.0, damage: 1)),
+        ),
+        "pachycephalosaurus_butt": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.42, active_s: 0.12, recover_s: 0.52, damage: 3, reach_px: 46.0)),
+        ),
+        "triceratops_gore": (
+            move_style: WalkHeavy,
+            melee: Some(Swipe(windup_s: 0.50, active_s: 0.14, recover_s: 0.62, damage: 4, reach_px: 64.0)),
+        ),
         "swallow_dart": (
             move_style: Float,
             melee: Some(Bite(windup_s: 0.12, active_s: 0.08, recover_s: 0.22, damage: 1, reach_px: 34.0)),
@@ -4407,6 +4427,131 @@
             hall: ["Everything I am is written down, and you may read it. Change it. Pass it on.", "Noot. Walking is the reference build. The belly is the fast path."],
         ),
         hall_dialogue_id: Some("hall_penguin"),
+        ),
+        // The dinosaurs of the primeval trail that are not birds yet.
+        // The compsognathus is tiny and quick. One is a nuisance; a level places
+        // them in threes.
+        "compsognathus": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "CompSci-gnathus",
+            spritesheet: "sprites/compsognathus_spritesheet.png",
+            manifest: "sprites/compsognathus_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(26.0),
+            composition: None,
+            default_action_set: "compsognathus_bite",
+            locomotion: Some((run_speed: 265.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 460.0,
+                attack_range: 22.0,
+                patrol_effort: 0.6,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(1),
+            tags: ["enemy", "dinosaur"],
+        barks: (
+            on_hit: ["Chrrp!", "Segfault!"],
+            provoked: ["Chrrp chrrp chrrp!"],
+            idle: ["Chrrp.", "It compiles.", "It compiles on MY machine."],
+            hall: ["It compiles. I did not say it works. Chrrp.", "There are three of us in every room. That is called redundancy."],
+        ),
+        hall_dialogue_id: Some("hall_compsognathus"),
+        ),
+        // The dilophosaurus keeps its distance and spits (the `shoot` row), and
+        // bites what comes close. Its spit is the thrown `Rock` for now: it has
+        // no projectile art of its own yet.
+        "dilophosaurus": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Dial-up Dilophosaurus",
+            spritesheet: "sprites/dilophosaurus_spritesheet.png",
+            manifest: "sprites/dilophosaurus_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(74.0),
+            composition: None,
+            default_action_set: "dilophosaurus_spit",
+            locomotion: Some((run_speed: 190.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 620.0,
+                attack_range: 360.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "dinosaur"],
+        barks: (
+            on_hit: ["Kshhhh!", "NO CARRIER."],
+            provoked: ["Connecting..."],
+            idle: ["Kshhhh.", "*a long screech, then a hiss*", "Handshake complete."],
+            hall: ["Eeeee-kshhhh. That is not a threat. That is a handshake. The threat comes after.", "Stay on the line. Do not pick up the other phone."],
+        ),
+        hall_dialogue_id: Some("hall_dilophosaurus"),
+        ),
+        // The pachycephalosaurus runs at its target head first. It is slow to
+        // start its blow and the blow is heavy; to run into its skull hurts too.
+        "pachycephalosaurus": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Patchy-cephalosaurus",
+            spritesheet: "sprites/pachycephalosaurus_spritesheet.png",
+            manifest: "sprites/pachycephalosaurus_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(72.0),
+            composition: None,
+            default_action_set: "pachycephalosaurus_butt",
+            locomotion: Some((run_speed: 250.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.6, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 760.0,
+                attack_range: 44.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(6),
+            tags: ["enemy", "dinosaur"],
+        barks: (
+            on_hit: ["THUD.", "Merge conflict!"],
+            provoked: ["Applying patch."],
+            idle: ["Head first. Always head first.", "This will only take one line.", "Thud."],
+            hall: ["Every problem is a wall. Every wall has a fix. The fix is my head.", "It is a small patch. It goes in at speed."],
+        ),
+        hall_dialogue_id: Some("hall_pachycephalosaurus"),
+        ),
+        // The triceratops is the heavy of the trail: slow, a lot of health, and
+        // its horns hit hard. It is on four legs (the `quadruped` anatomy).
+        "triceratops": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Try-ceratops",
+            spritesheet: "sprites/triceratops_spritesheet.png",
+            manifest: "sprites/triceratops_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(92.0),
+            composition: None,
+            default_action_set: "triceratops_gore",
+            locomotion: Some((run_speed: 150.0, move_style: WalkHeavy)),
+            contact_damage: Some((strength: 0.7, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 640.0,
+                attack_range: 62.0,
+                patrol_effort: 0.3,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(12),
+            mass: Some(8.0),
+            tags: ["enemy", "dinosaur"],
+        barks: (
+            on_hit: ["Hrrrmph.", "Caught."],
+            provoked: ["Try me."],
+            idle: ["Hrrrmph.", "Try. Catch. Finally.", "*it paws the ground*"],
+            hall: ["Try. Catch. Finally. Three horns, in that order.", "You may throw what you like. I catch everything."],
+        ),
+        hall_dialogue_id: Some("hall_triceratops"),
         ),
     },
 )

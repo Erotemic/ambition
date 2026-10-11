@@ -26,6 +26,6 @@
         ( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "primeval_tyrant_hall_label", text: "The Tyrant King.", category: "Custom" ) ),
     ],
     connect_to: [
-        ( target_room: "primeval_canopy", px: [1936, 576], size: [48, 96], id: "primeval_canopy_east", target_zone: "primeval_tyrant_hall_entry", activation: "Door", bidirectional: true ),
+        ( target_room: "primeval_canopy", px: [1936, 576], size: [48, 96], id: "primeval_canopy_east", name: "to the tyrant's hall", target_zone: "primeval_tyrant_hall_entry", activation: "Door", bidirectional: true ),
     ],
 )

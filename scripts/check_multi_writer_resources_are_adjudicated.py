@@ -3529,6 +3529,23 @@ ADJUDICATED: dict[str, str] = {
         "flagged by CalculexAmbition, who spotted that it reaches a file this "
         "session holds and was re-merged the same day."
     ),
+    "MainScheduleOrder": (
+        "TWO PLUGINS EDIT A LIST AT BUILD TIME, AND EACH EDIT PRESERVES THE "
+        "OTHER'S. The render crate's `UiFontsPlugin` inserts one schedule, "
+        "`ShelterFontSources`, directly after `PostUpdate`, through Bevy's own "
+        "insert-after method. The dev-tools crate's `install_frame_phase_marks` "
+        "(only when the census env var is set) reads the labels the order holds "
+        "and writes them back with a mark before each one. It does not rebuild "
+        "from a fixed list, and Bevy's insert finds `PostUpdate` in an "
+        "interleaved list. So the "
+        "inserted schedule runs between `PostUpdate` and `Last` in either "
+        "install order, which is all the shelter needs. The only difference is "
+        "reporting: installed after the marks, its time is billed to the "
+        "`PostUpdate` phase instead of a phase of its own. MEASURED 2026-10-11: "
+        "`a_schedule_another_plugin_inserted_keeps_its_place_in_either_install_order` "
+        "in runtime_census.rs runs both orders. Neither writer runs after "
+        "startup, and the resource is not rollback state."
+    ),
 }
 
 #: `{session world component: production writer files}`, MEASURED 2026-09-17.

@@ -20,12 +20,13 @@
 | [`provider`](src/provider.rs) | The Mary-O experience provider. |
 | [`quasar_shader`](src/quasar_shader.rs) | Mary-O's invincible rainbow-quasar presentation pass. |
 | [`scenery`](src/scenery.rs) | Mary-O scenery props — the flagpole and the warp pipes, drawn from their generated construction sheets instead of flat placeholder quads. |
+| [`shimmer_shader`](src/shimmer_shader.rs) | The shimmer in the air of a Mary-O room: sparkles and ribbons of light in the starlight rooms, embers and a low mist in the starless room. |
 | [`snake`](src/snake.rs) | Mary-O's Solid Snake walker and shell state machine. |
 | [`star`](src/star.rs) | Mary-O's pocket-quasar super state. |
 | [`stomp`](src/stomp.rs) | The ONE top/side contact authority for Mary-O's enemies. |
 | [`test_course`](src/test_course.rs) | A level for the TESTS to play, which nobody authors. |
 
-_18 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

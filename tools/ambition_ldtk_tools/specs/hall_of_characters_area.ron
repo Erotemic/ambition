@@ -2861,6 +2861,78 @@
                 48,
             ],
             fields: (
+                character_id: "compsognathus",
+                prompt: "Inspect",
+                dialogue_id: "hall_compsognathus",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                688,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "dilophosaurus",
+                prompt: "Inspect",
+                dialogue_id: "hall_dilophosaurus",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                816,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "pachycephalosaurus",
+                prompt: "Inspect",
+                dialogue_id: "hall_pachycephalosaurus",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                944,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
+                character_id: "triceratops",
+                prompt: "Inspect",
+                dialogue_id: "hall_triceratops",
+                patrol_radius: 0,
+                brain_override: "stand_still",
+            ),
+        ),
+        (
+            type: "NpcSpawn",
+            px: [
+                1072,
+                160,
+            ],
+            size: [
+                32,
+                48,
+            ],
+            fields: (
                 character_id: "sanic",
                 prompt: "Inspect",
                 dialogue_id: "hall_sanic",
@@ -2871,7 +2943,7 @@
         (
             type: "NpcSpawn",
             px: [
-                688,
+                1200,
                 160,
             ],
             size: [
@@ -2889,7 +2961,7 @@
         (
             type: "NpcSpawn",
             px: [
-                816,
+                1328,
                 160,
             ],
             size: [
@@ -2907,7 +2979,7 @@
         (
             type: "NpcSpawn",
             px: [
-                944,
+                1456,
                 160,
             ],
             size: [

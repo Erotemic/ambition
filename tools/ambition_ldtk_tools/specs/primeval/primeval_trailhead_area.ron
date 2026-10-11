@@ -27,10 +27,13 @@
         ( type: "OneWayPlatform", px: [1040, 384], size: [192, 16], fields: ( name: "perch_b" ) ),
         ( type: "EnemySpawn", px: [1100, 436], size: [32, 44], fields: ( name: "primeval_trailhead_chicken_1", brain: "combatant", character_id: "chicken", respawn: "OnRoomReenter" ) ),
         ( type: "EnemySpawn", px: [1260, 436], size: [32, 44], fields: ( name: "primeval_trailhead_chicken_hen_1", brain: "combatant", character_id: "chicken_hen", respawn: "OnRoomReenter" ) ),
+        ( type: "EnemySpawn", px: [1390, 454], size: [24, 26], fields: ( name: "primeval_trailhead_compsognathus_1", brain: "combatant", character_id: "compsognathus", respawn: "OnRoomReenter" ) ),
+        ( type: "EnemySpawn", px: [1440, 454], size: [24, 26], fields: ( name: "primeval_trailhead_compsognathus_2", brain: "combatant", character_id: "compsognathus", respawn: "OnRoomReenter" ) ),
+        ( type: "EnemySpawn", px: [1490, 454], size: [24, 26], fields: ( name: "primeval_trailhead_compsognathus_3", brain: "combatant", character_id: "compsognathus", respawn: "OnRoomReenter" ) ),
         ( type: "CameraZone", px: [0, 0], size: [1600, 512], fields: ( id: "primeval_trailhead_camera", name: "primeval_trailhead_camera", mode: "Default" ) ),
         ( type: "DebugLabel", px: [70, 40], size: [900, 24], fields: ( name: "primeval_trailhead_label", text: "The primeval trail. A coconut: Attack picks it up, Attack throws it.", category: "Custom" ) ),
     ],
     connect_to: [
-        ( target_room: "central_hub_main", px: [1200, 880], size: [48, 96], id: "primeval_hub_door", target_zone: "primeval_trailhead_to_hub", activation: "Door", bidirectional: true ),
+        ( target_room: "central_hub_main", px: [1200, 880], size: [48, 96], id: "primeval_hub_door", name: "to the primeval trail", target_zone: "primeval_trailhead_to_hub", activation: "Door", bidirectional: true ),
     ],
 )

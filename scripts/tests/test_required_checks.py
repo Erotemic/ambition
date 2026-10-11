@@ -77,6 +77,29 @@ def test_a_change_to_a_member_requires_its_tests_and_a_pass_on_it_certifies(repo
     assert verdicts(repo) == {"cargo test -p alpha": (True, "passed on this change")}
 
 
+def test_a_member_is_named_by_its_manifest_not_its_directory(repo: Path) -> None:
+    """`cargo test -p` takes the manifest's package name. The receipt asked for
+    `cargo test -p extension_fixture_modules` for a change under
+    `fixtures/extension_fixture_modules`, whose package is
+    `ambition_extension_fixture_modules`, and the run failed at cargo's
+    "did not match any packages". The control: a member with no manifest name
+    keeps its directory name (`alpha`)."""
+    (repo / "crates/alpha/Cargo.toml").write_text('[package]\nname = "ambition_alpha"\n')
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "alpha manifest")
+    git(repo, "tag", "-f", "base")
+    members = required_checks.workspace_members(repo)
+    assert members == {"crates/alpha": "ambition_alpha", "crates/beta": "beta"}
+    commit(repo, "crates/alpha/src/lib.rs", "// two\n")
+    assert verdicts(repo) == {"cargo test -p ambition_alpha": (False, "NOT RUN")}
+
+
+def test_the_live_fixture_member_is_its_package() -> None:
+    """The one live member whose directory and package differ."""
+    members = required_checks.workspace_members(REPO)
+    assert members["fixtures/extension_fixture_modules"] == "ambition_extension_fixture_modules"
+
+
 def test_with_no_row_the_requirement_is_not_run(repo: Path) -> None:
     commit(repo, "crates/alpha/src/lib.rs", "// two\n")
     assert verdicts(repo) == {"cargo test -p alpha": (False, "NOT RUN")}

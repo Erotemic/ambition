@@ -275,11 +275,14 @@ impl Port for SetMarkPort {
 /// * **Operation** — take `amount` from the body's mana pool.
 /// * **Owner** — `ambition_abilities::extension` (the bank's `pay`).
 /// * **Scope** — the body the invocation ran for.
-/// * **Time** — `wielded_use`, this tick.
-/// * **Result** — a body that cannot pay pays nothing, and the refusal is
-///   logged. A module that read [`Wielder::mana`] and asked
-///   [`Wielder::can_pay_mana`] is never refused: the read and the payment are
-///   one tick and one spender.
+/// * **Time** — `wielded_use`, settled before any request of the phase is
+///   lowered.
+/// * **Result** — a COST: the invocation's costs are paid together or not at
+///   all. A body that cannot pay pays nothing, and the whole invocation is
+///   refused: none of its requests is lowered, and the refusal is logged.
+///   [`Wielder::mana`] is a snapshot, not a reservation: two entries bound to
+///   one item both read the same mana, and the bank pays them in invocation
+///   order.
 pub struct SpendManaPort;
 
 #[derive(Clone, Debug, PartialEq)]

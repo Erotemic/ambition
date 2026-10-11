@@ -278,7 +278,7 @@ pub fn advise_navigation(
                     // Not in this room: in another live room, through the zone
                     // where the route there starts, when the body gets to it.
                     None => {
-                        let crossing = specs.as_ref().zip(live_room).and_then(|(specs, body_room)| {
+                        let crossing = specs.as_ref().zip(live_room).map(|(specs, body_room)| {
                             let may_leave = config.is_some_and(|config| {
                                 crate::body_whereabouts::keeps_durable_whereabouts(specs, config, origin)
                             });
@@ -291,8 +291,12 @@ pub fn advise_navigation(
                                 &items,
                             )
                         });
-                        let Some(crossing) = crossing else {
-                            return ErrandSight::Gone;
+                        // An item that lies somewhere no route reaches is not
+                        // gone: the errand says there is no route.
+                        let crossing = match crossing {
+                            Some(Ok(crossing)) => crossing,
+                            Some(Err(super::errand::ErrandRefusal::NoRoute)) => return ErrandSight::NoRoute,
+                            Some(Err(_)) | None => return ErrandSight::Gone,
                         };
                         use ae::AabbExt as _;
                         let door = crossing.zone.center();

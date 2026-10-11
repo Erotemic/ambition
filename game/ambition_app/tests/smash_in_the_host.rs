@@ -799,15 +799,45 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
         rows.len()
     );
 
-    let (first_seat, first_abilities, first_stocks, first_held) = &rows[0];
-    for (seat, abilities, stocks, held) in &rows[1..] {
+    // Each seat has the stage's levelling of ITS OWN fighter's authored verbs.
+    // Not one set for everybody: a fighter keeps the verbs between the floor
+    // and the ceiling that it authors (pogo, the wall verbs, S0.7), so robot
+    // v3 (seat 0) wall-jumps and George (seat 1) does not.
+    let expected: Vec<String> = {
+        let world = app.world();
+        let roster = world
+            .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+            .expect("the screen decided a match");
+        let registry =
+            world.resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+        rows.iter()
+            .map(|(seat, ..)| {
+                let character = &roster.participants[*seat].character;
+                let authored = registry.get(character.as_str()).and_then(|prepared| prepared.abilities);
+                let effective = ambition_platformer2d::versus_match::effective_abilities(
+                    authored,
+                    roster.rules.abilities,
+                )
+                .expect("the smash stage declares its abilities");
+                format!("{effective:?}")
+            })
+            .collect()
+    };
+    for ((seat, abilities, ..), expected) in rows.iter().zip(&expected) {
         assert_eq!(
-            abilities, first_abilities,
-            "seat {seat} and seat {first_seat} do not have the same verbs, and the \
-             match declared one set for everybody. An adopted seat keeps what the \
-             session gave it unless the roster overrides — that is the bug this \
-             pins, found four times in four different fields."
+            abilities, expected,
+            "seat {seat} does not have the verbs the stage levels its fighter to. \
+             An adopted seat keeps what the session gave it unless the roster \
+             overrides — that is the bug this pins, found four times in four \
+             different fields."
         );
+    }
+    // Non-vacuity: the two fighters author different verbs, so the levelling
+    // is per fighter and a single shared set would fail above.
+    assert_ne!(rows[0].1, rows[1].1, "the two seats' fighters level to one set");
+
+    let (first_seat, _, first_stocks, first_held) = &rows[0];
+    for (seat, _, stocks, held) in &rows[1..] {
         assert_eq!(
             stocks, first_stocks,
             "seat {seat} and seat {first_seat} started with different stocks"

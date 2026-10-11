@@ -98,6 +98,7 @@ impl Plugin for ExtensionCompositionPlugin {
             (
                 ExtensionSet::Collect(WIELDED_USE),
                 ExtensionSet::Invoke(WIELDED_USE),
+                ExtensionSet::Settle(WIELDED_USE),
                 ExtensionSet::Lower(WIELDED_USE),
             )
                 .in_set(GameplayGated)

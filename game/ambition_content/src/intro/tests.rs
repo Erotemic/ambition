@@ -22,10 +22,8 @@ fn every_intro_dialogue_id_is_registered_with_validator() {
     // and a reader has to check both to learn they say one thing.
     // ⚠ The name kept is the one that says WHY the property matters; the
     // deleted name said only what the code did.
-    let catalog = crate::character_catalog::shipped_catalog();
-    let known: std::collections::HashSet<String> = crate::dialogue::known_dialogue_ids(&catalog)
-        .into_iter()
-        .collect();
+    let known: std::collections::HashSet<String> =
+        crate::dialogue::known_dialogue_ids().into_iter().collect();
     for id in intro_dialogue_ids() {
         assert!(
             known.contains(*id),

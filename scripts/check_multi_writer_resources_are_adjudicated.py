@@ -246,6 +246,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/shrine.rs",
+        "crates/ambition_platformer2d_runtime/src/module_save_road.rs",
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
         "game/ambition_content/src/encounters.rs",
         "game/ambition_content/src/quest.rs",
@@ -943,7 +944,10 @@ ADJUDICATED: dict[str, str] = {
         "items (`ExtensionOutbox::drain::<P>`: the projectile domain's "
         "`lower_projectile_spawns`, the combat domain's `lower_damage_boxes` and "
         "the boss domain's `lower_boss_summons`, and the held-item domain's "
-        "`lower_mana_spends` and `lower_body_sounds` (in ambition_abilities), and "
+        "`lower_body_sounds` (in ambition_abilities), and its cost settle "
+        "`settle_wielded_costs`, which drains the cost ports earlier, in "
+        "`ExtensionSet::Settle`, and removes the rest of an invocation it "
+        "refuses (`ExtensionOutbox::refuse_invocation`), and "
         "the module-entity domain's `lower_module_entity_spawns`, `lower_body_pulls` "
         "and `lower_module_entity_ends` (in the abilities crate's module_entity "
         "file), and the conducted-boss adapters `lower_conducted_poses`, "
@@ -2166,7 +2170,12 @@ ADJUDICATED: dict[str, str] = {
         "`hand_the_save_to_the_activating_experience` swaps the whole value at "
         "`SessionScopeSet::Activate`, before any session of the new experience "
         "exists, so it shares no frame with the sim writers (Q129 road 4 of "
-        "ID-PEER)."
+        "ID-PEER).\n"
+        "    2026-10-11: `ambition_platformer2d_runtime/src/module_save_road.rs` "
+        "ARRIVED. `persist_module_records_to_save` writes the `module_records` "
+        "family only, which no other writer touches, from "
+        "`DurableHorizonSet::DomainMirror` beside the other simulation mirrors "
+        "(I4 save eligibility)."
     ),
     "ActiveConversation": (
         "CORRECT — ONE OPENER AND FOUR END CONDITIONS, each on a different event "

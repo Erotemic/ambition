@@ -329,7 +329,7 @@ pub fn sync_hit_flash_overlays(
             &HitFlashSource,
             // The source's own visibility. The overlay is a separate root, so it
             // does not inherit a hidden source. See `overlay_look`.
-            Option<&Visibility>,
+            Option<Ref<Visibility>>,
             // Except when the portal hides the source: then clipped pieces draw
             // the body, and the overlay composites into its own pieces, so it
             // must keep its intensity.
@@ -377,11 +377,9 @@ pub fn sync_hit_flash_overlays(
             &poses,
             defense_policy.0,
         );
-        let source_visibility = if portal_hid_it(portal_hid_source) {
-            None
-        } else {
-            source_visibility.copied()
-        };
+        let source_visibility = source_visibility.and_then(|visibility| {
+            (!portal_alone_hides(portal_hid_source, &visibility)).then_some(*visibility)
+        });
         let (intensity, tint) = overlay_look(facts, tick.0, source_visibility);
 
         let Ok((
@@ -480,7 +478,7 @@ pub fn declare_hit_flash_demand(
             Entity,
             Option<&FeatureVisual>,
             Option<&PlayerVisual>,
-            Option<&Visibility>,
+            Option<Ref<Visibility>>,
             PortalHidIt,
         ),
         (With<HitFlashSource>, Without<HitFlashOverlay>),
@@ -497,30 +495,32 @@ pub fn declare_hit_flash_demand(
             &poses,
             defense_policy.0,
         );
-        let source_visibility = if portal_hid_it(portal_hid_source) {
-            None
-        } else {
-            source_visibility.copied()
-        };
+        let source_visibility = source_visibility.and_then(|visibility| {
+            (!portal_alone_hides(portal_hid_source, &visibility)).then_some(*visibility)
+        });
         if overlay_look(facts, tick.0, source_visibility).0 > 0.0 {
             demand.declare(source_entity);
         }
     }
 }
 
-/// "Is the portal hiding this entity?" The render crate can ask only when
-/// the portal presentation crate is composed in.
+/// "Does the portal alone hide this entity?" (not "did the portal hide it":
+/// a body that dies behind a pane is hidden by its owner too). The render
+/// crate can ask only when the portal presentation crate is composed in.
 #[cfg(feature = "portal_render")]
-type PortalHidIt = Has<ambition_portal2d_presentation::PortalSourceHidden>;
+type PortalHidIt = Option<&'static ambition_portal2d_presentation::PortalSourceHidden>;
 #[cfg(feature = "portal_render")]
-fn portal_hid_it(has: bool) -> bool {
-    has
+fn portal_alone_hides(
+    marker: Option<&ambition_portal2d_presentation::PortalSourceHidden>,
+    visibility: &Ref<Visibility>,
+) -> bool {
+    ambition_portal2d_presentation::PortalSourceHidden::portal_alone_hides(marker, visibility)
 }
 /// Without portals nothing hides a body for the compositor's reasons.
 #[cfg(not(feature = "portal_render"))]
 type PortalHidIt = ();
 #[cfg(not(feature = "portal_render"))]
-fn portal_hid_it((): ()) -> bool {
+fn portal_alone_hides((): (), _: &Ref<Visibility>) -> bool {
     false
 }
 

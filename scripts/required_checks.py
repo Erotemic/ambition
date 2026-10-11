@@ -41,6 +41,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts" / "lib"))
 
 import lane_ledger  # noqa: E402
+from cargo_package import package_name  # noqa: E402
 
 #: The run_tests job that runs `scripts/tests` (the repo tooling lane).
 REPO_TOOLING_JOB = "repo tooling (scripts/tests; repo-coupled)"
@@ -178,8 +179,10 @@ Requirement = CargoTest | CargoTestNamed | Job
 
 
 def workspace_members(repo: Path) -> dict[str, str]:
-    """`{member directory: package name}`. The runner names a package by its
-    directory (`run_tests.py` `-p crate.name`), so this does too."""
+    """`{member directory: package name}`. The name is the manifest's
+    `[package] name` (`cargo_package.package_name`), as `cargo test -p` reads it:
+    `fixtures/extension_fixture_modules` is `ambition_extension_fixture_modules`,
+    and its directory name asked cargo for a package that does not exist."""
     import re
 
     text = (repo / "Cargo.toml").read_text()
@@ -188,7 +191,7 @@ def workspace_members(repo: Path) -> dict[str, str]:
     for line in (body.group(1) if body else "").splitlines():
         line = line.split("#", 1)[0].strip().strip(",").strip().strip('"')
         if line:
-            members[line] = Path(line).name
+            members[line] = package_name(repo / line)
     return members
 
 

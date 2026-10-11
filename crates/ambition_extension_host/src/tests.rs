@@ -198,19 +198,76 @@ fn an_order_cycle_is_refused_and_an_order_is_obeyed() {
     assert_eq!(paths, ["test::counter/b", "test::counter/a"]);
 }
 
+/// A saved schema needs the road that keeps it. Without the road the module
+/// is refused; with it, only the pair the road keeps is admitted.
 #[test]
 fn a_policy_without_a_host_road_is_refused() {
+    let declared = |attachment, save| {
+        let mut m = module(vec![entry("a", vec![])]);
+        m.schemas[0].attachment = attachment;
+        m.schemas[0].save = save;
+        vec![DeclaredModule::from(m)]
+    };
+    let roads: std::collections::BTreeSet<SaveRoad> = [SaveRoad::SessionDurable].into();
     for (attachment, save) in [
         (Attachment::Session, SaveEligibility::Durable),
         (Attachment::Body, SaveEligibility::Durable),
         (Attachment::Body, SaveEligibility::Checkpoint),
+        (Attachment::Session, SaveEligibility::Checkpoint),
     ] {
-        let mut m = module(vec![entry("a", vec![])]);
-        m.schemas[0].attachment = attachment;
-        m.schemas[0].save = save;
-        let refusals = admit(API_VERSION, &offers(), &[DeclaredModule::from(m)]).unwrap_err();
-        assert!(matches!(refusals[0], Refusal::UnsupportedPolicy { .. }));
+        let refusals = admit(API_VERSION, &offers(), &declared(attachment, save)).unwrap_err();
+        assert!(matches!(refusals[0], Refusal::UnsupportedPolicy { .. }), "{attachment:?} {save:?} without a road");
+        let with_road = admit_with_roads(API_VERSION, &offers(), &roads, &declared(attachment, save));
+        assert_eq!(
+            with_road.is_ok(),
+            (attachment, save) == (Attachment::Session, SaveEligibility::Durable),
+            "{attachment:?} {save:?} with the session durable road: {:?}",
+            with_road.err()
+        );
     }
+}
+
+/// A durable session record leaves the store as a row and comes back equal;
+/// a row written under an older shape comes back migrated by field tag; a row
+/// of a schema this composition did not admit stays in the save.
+#[test]
+fn a_saved_row_comes_back_and_a_row_of_an_older_shape_migrates() {
+    let roads: std::collections::BTreeSet<SaveRoad> = [SaveRoad::SessionDurable].into();
+    let durable = |fields: Vec<FieldDecl>| {
+        let mut m = module(vec![entry("a", vec![])]);
+        m.schemas[0].attachment = Attachment::Session;
+        m.schemas[0].save = SaveEligibility::Durable;
+        m.schemas[0].fields = fields;
+        admit_with_roads(API_VERSION, &offers(), &roads, &[DeclaredModule::from(m)]).unwrap()
+    };
+    let old = durable(vec![FieldDecl::new(1, "count", FieldKind::U32)]);
+    let mut live = RecordSet::default();
+    let mut record = old.schemas[&COUNTER].schema.initial_record();
+    record.set(COUNT, Value::U32(7)).unwrap();
+    live.put(COUNTER, old.schemas[&COUNTER].shape, record);
+    let rows = save::saved_rows(&old, SaveRoad::SessionDurable, &live);
+    assert_eq!(rows.len(), 1);
+
+    let mut loaded = RecordSet::default();
+    assert!(save::adopt_saved_rows(&old, SaveRoad::SessionDurable, &mut loaded, &rows).is_empty());
+    assert_eq!(loaded, live, "the same shape comes back equal");
+
+    // The module gained a field before tag 1: the count keeps its tag.
+    let new = durable(vec![
+        FieldDecl::new(2, "best", FieldKind::U32),
+        FieldDecl::new(1, "count", FieldKind::U32),
+    ]);
+    let mut loaded = RecordSet::default();
+    assert!(save::adopt_saved_rows(&new, SaveRoad::SessionDurable, &mut loaded, &rows).is_empty());
+    let stored = loaded.get_stored(&COUNTER).expect("the row was adopted");
+    assert_eq!(stored.shape, new.schemas[&COUNTER].shape);
+    assert_eq!(stored.record.values(), &[Value::U32(0), Value::U32(7)], "(best, count)");
+
+    // A composition without the module keeps its row in the save.
+    let other = admit_with_roads(API_VERSION, &offers(), &roads, &[]).unwrap();
+    assert_eq!(save::merged_rows(&other, SaveRoad::SessionDurable, &rows, Vec::new()), rows);
+    // And one with the module writes its live rows over the saved ones.
+    assert_eq!(save::merged_rows(&old, SaveRoad::SessionDurable, &rows, Vec::new()), Vec::new());
 }
 
 #[test]

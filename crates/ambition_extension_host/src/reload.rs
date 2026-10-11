@@ -23,7 +23,7 @@ use std::sync::Arc;
 use ambition_extension_sdk::ModuleDescriptor;
 use bevy::prelude::*;
 
-use crate::admission::{admit, Admitted, DeclaredModule, ModuleBackend, ModuleCode};
+use crate::admission::{Admitted, DeclaredModule, ModuleBackend, ModuleCode};
 use crate::{AdmittedExtensions, ExtensionComposition, API_VERSION};
 
 /// The candidate waiting for the mechanical-edit admission.
@@ -113,7 +113,8 @@ pub fn stage_loaded_replacements(world: &mut World, artifacts: Vec<LoadedArtifac
             });
         }
     }
-    let candidate = admit(API_VERSION, &composition.offers, &declared).map_err(|refusals| {
+    let candidate = crate::admit_with_roads(API_VERSION, &composition.offers, &composition.save_roads, &declared)
+        .map_err(|refusals| {
         let lines: Vec<String> = refusals.iter().map(|r| format!("  - {r}")).collect();
         format!("the reloaded composition is refused:\n{}", lines.join("\n"))
     })?;

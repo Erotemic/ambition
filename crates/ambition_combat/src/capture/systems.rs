@@ -8,7 +8,7 @@
 use bevy::math::bounding::IntersectsVolume as _;
 use bevy::prelude::*;
 
-use super::{captive_of, CaptureAttemptRequested, CapturedBy};
+use super::{captive_of, CaptureAttemptRequested, CapturedBy, GrabsParried};
 use crate::hitbox::StrikeVictim;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt as _;
@@ -77,6 +77,7 @@ pub struct CaptorView {
 pub fn acquire_captures(
     mut commands: Commands,
     mut attempts: MessageReader<CaptureAttemptRequested>,
+    mut parried: MessageWriter<GrabsParried>,
     captors: Query<CaptorView, Without<ambition_characters::control::ControlHolds>>,
     victims: Query<StrikeVictim, Without<ambition_characters::control::ControlHolds>>,
     captives: Query<(Entity, &CapturedBy)>,
@@ -104,7 +105,11 @@ pub fn acquire_captures(
     )>,
     // The rules of each captor's own live room.
     tuning: crate::rules::CombatTuningOf,
+    // A hit beats a grab: a body a hit is moving neither grabs nor is
+    // grabbed (`CapturesAcquired`).
+    combat: Query<&ambition_characters::actor::BodyCombat>,
 ) {
+    let knocked = |body: Entity| combat.get(body).is_ok_and(|c| c.is_knocked());
     //  the WHOLE resolved row, not just the friendly-fire flag: a hold's
     // deadline is a declared rule too, and it is decided at acquisition.
     // ⛔⛔ RESOLVED FIRST, GRANTED SECOND, because `Commands` are DEFERRED and
@@ -141,7 +146,7 @@ pub fn acquire_captures(
         if crate::util::body_is_untouchable(Some(captor.body.health), captor.body.out_of_play, captor.body.plane) {
             continue;
         }
-        if !captor.body.ground.on_ground {
+        if !captor.body.ground.on_ground || knocked(attempt.captor) {
             continue;
         }
         //  a captor already holding somebody is not a captor twice. This is
@@ -187,7 +192,7 @@ pub fn acquire_captures(
             let Ok(victim_body) = participants.get(victim.entity) else {
                 continue;
             };
-            if !victim_body.ground.on_ground {
+            if !victim_body.ground.on_ground || knocked(victim.entity) {
                 continue;
             }
             if already_held.contains(&victim.entity) {
@@ -258,15 +263,6 @@ pub fn acquire_captures(
     // therefore loses a contest rather than winning one by absence — the same
     // reading the candidate ranking above takes of a missing identity.
     //
-    // ⚠ ANY winner is a per-seat asymmetry on a symmetric stage, and there is no
-    // symmetric alternative — a mirror is a FIXED POINT, so identical inputs
-    // produce identical states however the tie is resolved, and the only
-    // resolution that preserves the reflection is the one that never grants a
-    // grab. Granting NEITHER was tried and MEASURED: 126 attempts over a minute
-    // produced ZERO captures, zero pummels, zero throws. One winner it is, which
-    // is also the genre's answer (Ultimate resolves a same-frame grab by port).
-    // `two_emmys_are_one_fighter_reflected_until_the_first_grab` measures
-    // that reflection and had to learn this rule exists.
     resolved.sort_by(|(a_attempt, a_victim), (b_attempt, b_victim)| {
         let key = |captor: Entity, victim: Entity| {
             (
@@ -293,6 +289,44 @@ pub fn acquire_captures(
     // ONE set. A body that appears in an accepted edge — in EITHER role — is
     // spent for this tick.
     let mut spent: std::collections::HashSet<Entity> = Default::default();
+
+    // ⭐ A MUTUAL GRAB IS A PARRY, NOT A CONTEST (S0.2). Two bodies that grab
+    // each other on one tick are a tie, and the rule for it is the one a clank
+    // has: neither grab holds, both end, and both bodies rebound. A winner by
+    // `SimId` treated two mirrored bodies differently on a symmetric stage, and
+    // Q49 calls that a defect. The cost is known and accepted: a mirror match is
+    // a fixed point, so two identical brains that grab on one tick parry every
+    // time.
+    //
+    // ⚠ BEFORE THE MATCHING, so a parried body is spent for the tick: a third
+    // body's grab on the same tick does not take a body in the middle of a
+    // parry.
+    for (attempt, victim) in &resolved {
+        let (a, b) = (attempt.captor, *victim);
+        if a >= b || spent.contains(&a) || spent.contains(&b) {
+            continue;
+        }
+        if !resolved.iter().any(|(other, back)| other.captor == b && *back == a) {
+            continue;
+        }
+        spent.insert(a);
+        spent.insert(b);
+        for body in [a, b] {
+            if let Ok(mut playback) = playbacks.get_mut(body) {
+                crate::moveset::cancel_move_playback(
+                    &mut commands,
+                    body,
+                    &mut playback,
+                    crate::moveset::MoveEnd::Interrupted,
+                );
+            }
+        }
+        let owners = match (identities.get(a).ok(), identities.get(b).ok()) {
+            (Some(ia), Some(ib)) if ib < ia => (b, a),
+            _ => (a, b),
+        };
+        parried.write(GrabsParried { owners });
+    }
     for (attempt, victim) in &resolved {
         let (attempt, victim) = (*attempt, *victim);
         if spent.contains(&attempt.captor) || spent.contains(&victim) {
@@ -323,6 +357,25 @@ pub fn acquire_captures(
             budgets.get_mut(victim).ok(),
         );
     }
+}
+
+/// The rebound of a parried grab: both bodies are pushed apart and locked, as
+/// two attacks that clank are ([`crate::clank::recoil_apart`]). Runs after
+/// [`acquire_captures`] in the same tick, so the parry and its rebound are one
+/// step and no rewind can fall between them.
+pub fn rebound_from_parried_grabs(
+    mut parried: MessageReader<GrabsParried>,
+    tuning: crate::rules::CombatTuningOf,
+    feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
+    mut bodies: Query<(&mut ae::BodyKinematics, &mut ambition_characters::actor::BodyCombat)>,
+) {
+    let lock = feel.as_deref().copied().unwrap_or_default().knockback_recoil_lock_time;
+    crate::clank::recoil_apart(
+        parried.read().map(|parry| parry.owners),
+        |body| tuning.of(body).unwrap_or_default().clank_rebound_speed,
+        lock,
+        &mut bodies,
+    );
 }
 
 /// Grant a capture: `captor` holds `victim` at `hold_offset_local` (from its
@@ -716,7 +769,8 @@ mod tests {
     fn capture_app() -> App {
         let mut app = App::new();
         app.add_message::<CaptureAttemptRequested>();
-        app.add_systems(Update, acquire_captures);
+        app.add_message::<GrabsParried>();
+        app.add_systems(Update, (acquire_captures, rebound_from_parried_grabs).chain());
         app
     }
 
@@ -1051,53 +1105,45 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ TWO BODIES THAT GRAB EACH OTHER ON ONE TICK MAKE **ONE** HOLD.
+    /// ⭐⭐ TWO BODIES THAT GRAB EACH OTHER ON ONE TICK PARRY: NO HOLD, AND
+    /// BOTH REBOUND (S0.2).
     ///
-    /// ⛔⛔ THE INVARIANT THIS FILE ALREADY CLAIMED, and it held on every tick
-    /// except the one it mattered on. `acquire_captures` asks the `captives`
-    /// QUERY whether a body is already held — and its own inserts go through
-    /// `Commands`, which are deferred, so an attempt granted earlier in the SAME
-    /// pass is invisible to the next one. Two bodies reaching for each other on
-    /// one tick therefore both succeeded, and each became captor AND captive of
-    /// the other.
+    /// ⛔ TWO HOLDS IS THE DEADLOCK this file once had. Its inserts go through
+    /// `Commands`, so a grant earlier in one pass was invisible to the next, and
+    /// each body became captor AND captive of the other. Measured before that
+    /// fix, `npc_pirate_admiral` rung 9 mirror, 3600 ticks: 40 captures, 2028
+    /// capture-ticks, ZERO pummels and ZERO throws.
     ///
-    /// ⛔ IT DEADLOCKS, which is why it cost a third of a match rather than
-    /// looking odd. The brain's capture policy answers "am I captured" first and
-    /// returns, so a body that is both can only ever struggle: neither side
-    /// pummels, neither throws, both are control-held, and the lock ends only
-    /// when the hold clock runs out. Measured in the full app before this fix,
-    /// `npc_pirate_admiral` rung 9 mirror, 3600 ticks: 40 captures, 2028
-    /// capture-ticks (28% of the match), and ZERO pummels and ZERO throws.
+    /// ⛔ ONE HOLD, by the lower `SimId`, was the next rule, and it treated two
+    /// mirrored bodies differently on a symmetric stage (Q49). A mutual grab is
+    /// a tie, as a clank is, and it ends the same way: both grabs end, and both
+    /// bodies are pushed apart at the clank rebound speed and locked.
     ///
-    /// ⚠ ONE, not zero. A CLASH — granting neither — was the first fix and was
-    /// MEASURED before it was believed: it deletes the mechanic, because in a
-    /// mirror match the two brains are identical, so every grab is simultaneous.
-    /// 126 attempts over a minute produced ZERO captures, zero pummels and zero
-    /// throws. A mirror is a fixed point: identical inputs produce identical
-    /// states however a tie is resolved, so the only symmetric resolution is the
-    /// one that never grants a grab at all.
-    ///
-    /// ⭐ MIRROR-SYMMETRY item 4: the winner is the authored rule's (the lower
-    /// `SimId`, the genre's port order), in both spawn orders and both message
-    /// orders. With `east` spawned first, the entity order and the `SimId`
-    /// order agree, so only the other spawn order can show a tie-break by
-    /// entity order.
+    /// Both spawn orders and both message orders: the outcome is a property of
+    /// the world, not of the mailbox.
     #[test]
-    fn two_bodies_grabbing_each_other_on_one_tick_make_one_hold() {
+    fn two_bodies_grabbing_each_other_on_one_tick_parry_and_rebound() {
         for west_first in [false, true] {
-            let captive = the_captive_of_a_mutual_grab(west_first);
-            assert_eq!(
-                captive, "west",
-                "the tie went to the body spawned {} and not to the lower `SimId`",
-                if west_first { "first" } else { "second" }
+            let (held, east_vel, west_vel, locked) = a_mutual_grab(west_first);
+            assert_eq!(held, 0, "west_first={west_first}: a mutual grab made {held} hold(s)");
+            assert!(
+                east_vel.x < 0.0 && west_vel.x > 0.0 && (east_vel + west_vel).length() < 1e-3,
+                "west_first={west_first}: the two bodies were not pushed apart, mirrored: \
+                 east {east_vel:?}, west {west_vel:?}"
             );
+            assert!(locked, "west_first={west_first}: a parried body can act through the rebound");
         }
     }
 
-    /// The name of the body held after `east` and `west` grab each other on one
-    /// tick, with `west` spawned (and its message written) first or second.
-    fn the_captive_of_a_mutual_grab(west_first: bool) -> &'static str {
+    /// `east` and `west` grab each other on one tick, with `west` spawned (and
+    /// its message written) first or second: how many holds came out of it, the
+    /// two velocities after, and whether both bodies are in the rebound lock.
+    fn a_mutual_grab(west_first: bool) -> (usize, ae::Vec2, ae::Vec2, bool) {
         let mut app = capture_app();
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            clank_rebound_speed: 190.0,
+            ..Default::default()
+        });
         let (east, west) = if west_first {
             let west = grounded_body(&mut app, "west", ae::Vec2::new(16.0, 0.0));
             (grounded_body(&mut app, "east", ae::Vec2::new(0.0, 0.0)), west)
@@ -1116,43 +1162,74 @@ mod tests {
             .expect("the fixture body has kinematics")
             .facing = -1.0;
 
-        // ONE pass, both attempts, in spawn order.
         let (first, second) = if west_first { (west, east) } else { (east, west) };
         app.world_mut().write_message(attempt(first));
         app.world_mut().write_message(attempt(second));
         app.update();
 
-        let held: Vec<Entity> = [east, west]
+        let held = [east, west]
             .into_iter()
             .filter(|body| app.world().get::<CapturedBy>(*body).is_some())
-            .collect();
-        assert_eq!(
-            held.len(),
-            1,
-            "two bodies grabbed each other on one tick and {} hold(s) came out of \
-             it. TWO is the deadlock — each is captor and captive of the other, \
-             and no fighter can act out of that. ZERO means the tie clashed, which \
-             measures as a capture kit that can never be reached in a mirror.",
-            held.len()
-        );
-        // The loser is held by the winner — not by itself, and not dangling.
-        let captive = held[0];
-        let captor = app
-            .world()
-            .get::<CapturedBy>(captive)
-            .expect("the hold that exists")
-            .captor;
-        assert_ne!(captor, captive, "a body captured itself");
-        assert!(
-            app.world().get::<CapturedBy>(captor).is_none(),
-            "the winner of the tie is ALSO held, which is the deadlock this guards"
-        );
-        // The winner is the `SimId` tie-break's: `east` sorts before `west`.
-        if captive == west {
-            "west"
-        } else {
-            "east"
+            .count();
+        let vel = |body: Entity| app.world().get::<ae::BodyKinematics>(body).unwrap().vel;
+        let locked = [east, west].into_iter().all(|body| {
+            app.world()
+                .get::<ambition_characters::actor::BodyCombat>(body)
+                .unwrap()
+                .recoil_lock_timer
+                > 0.0
+        });
+        (held, vel(east), vel(west), locked)
+    }
+
+    /// ⭐ A HIT BEATS A GRAB (S0.2): a body a hit is moving neither grabs nor
+    /// is grabbed. The installer runs acquisition after damage resolves
+    /// (`CapturesAcquired`), so a hit that lands on the tick of the grab is
+    /// already in the hitstun this reads. The control is
+    /// `a_grab_that_nobody_returns_holds`: the same grab, nobody knocked.
+    #[test]
+    fn a_body_a_hit_is_moving_neither_grabs_nor_is_grabbed() {
+        for knocked_is_captor in [true, false] {
+            let mut app = capture_app();
+            let east = grounded_body(&mut app, "east", ae::Vec2::new(0.0, 0.0));
+            let west = grounded_body(&mut app, "west", ae::Vec2::new(16.0, 0.0));
+            app.world_mut()
+                .entity_mut(west)
+                .insert(ambition_characters::actor::ActorFaction::Player);
+            let knocked = if knocked_is_captor { east } else { west };
+            app.world_mut()
+                .get_mut::<ambition_characters::actor::BodyCombat>(knocked)
+                .expect("the fixture body has combat state")
+                .hitstun_timer = 0.2;
+            app.world_mut().write_message(attempt(east));
+            app.update();
+            assert_eq!(
+                app.world().get::<CapturedBy>(west).map(|hold| hold.captor),
+                None,
+                "a grab took hold although the {} was in hitstun",
+                if knocked_is_captor { "captor" } else { "victim" }
+            );
         }
+    }
+
+    /// The control: one body grabs the other and nobody grabs back. One hold,
+    /// and no rebound.
+    #[test]
+    fn a_grab_that_nobody_returns_holds() {
+        let mut app = capture_app();
+        app.insert_resource(crate::rules::ResolvedCombatTuning {
+            clank_rebound_speed: 190.0,
+            ..Default::default()
+        });
+        let east = grounded_body(&mut app, "east", ae::Vec2::new(0.0, 0.0));
+        let west = grounded_body(&mut app, "west", ae::Vec2::new(16.0, 0.0));
+        app.world_mut()
+            .entity_mut(west)
+            .insert(ambition_characters::actor::ActorFaction::Player);
+        app.world_mut().write_message(attempt(east));
+        app.update();
+        assert_eq!(app.world().get::<CapturedBy>(west).map(|hold| hold.captor), Some(east));
+        assert_eq!(app.world().get::<ae::BodyKinematics>(east).unwrap().vel, ae::Vec2::ZERO);
     }
 
     /// ⛔⛔ NO BODY IS EVER BOTH A CAPTOR AND A CAPTIVE, and the accepted
@@ -2874,12 +2951,7 @@ pub fn release_interrupted_captures(
     mut grounds: Query<&mut ambition_platformer2d_core::BodyGroundState>,
     mut holds: Query<&mut ambition_characters::control::ControlHolds>,
 ) {
-    let reacted = |body: Entity| {
-        combat
-            .get(body)
-            .map(|c| c.hitstun_timer > 0.0 || c.recoil_lock_timer > 0.0)
-            .unwrap_or(false)
-    };
+    let reacted = |body: Entity| combat.get(body).is_ok_and(|c| c.is_knocked());
     for (victim, held) in &captives {
         // A captor that no longer exists cannot hold anything.
         let captor_gone = bodies.get(held.captor).is_err();

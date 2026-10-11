@@ -21,5 +21,10 @@ impl Plugin for DurableSaveHorizonPlugin {
             app,
         );
         ambition_platformer2d_actor_monolith::items::persist::install_item_durable_horizon(app);
+        // The extension host's durable road, where the composition has the
+        // host. Without this road the host refuses a durable module schema.
+        if app.is_plugin_added::<ambition_extension_host::ExtensionHostPlugin>() {
+            crate::module_save_road::install_module_save_road(app);
+        }
     }
 }

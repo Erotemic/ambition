@@ -5,9 +5,14 @@
 //! [`WieldedUsePort`] invocation for each body that holds that item, each tick,
 //! with the body's resolved control (press, aim), kinematics, gravity frame
 //! and mana. The observations: the body's mark, and the first wall along its
-//! aim. The requests: move the body (a transit) or set its velocity, arm the
-//! shared movement cooldown, pay mana from the body's bank, play a sound as
-//! the body, and show an effect, a burst or a hit mark. See the port cards in
+//! aim. The costs: arm the shared movement cooldown, pay mana from the body's
+//! bank. The requests: move the body (a transit) or set its velocity, play a
+//! sound as the body, and show an effect, a burst or a hit mark.
+//!
+//! ⛔ AN ACTION AND ITS COST ARE ONE ADMISSION. The costs of each invocation
+//! are settled before any request of the phase is lowered
+//! ([`settle_wielded_costs`]); an invocation the body cannot pay for is
+//! refused whole, so its lunge, strike and cues do not happen. See the port cards in
 //! `ambition_combat_port::wielded` and `ambition_combat_port::motion`.
 
 use ambition_characters::control::ActorControl;
@@ -42,14 +47,13 @@ pub fn install(app: &mut App) {
     );
     app.install_extension_observation::<MarkPort>(WIELDED_USE, "ambition_abilities", mark_of);
     app.install_extension_observation::<AimCastPort>(WIELDED_USE, "ambition_abilities", aim_cast_of);
+    // The costs, settled before any request is lowered.
+    app.install_extension_cost::<MovementCooldownPort>(WIELDED_USE, "ambition_abilities");
+    app.install_extension_cost::<SpendManaPort>(WIELDED_USE, "ambition_abilities");
+    app.settle_extension_costs(WIELDED_USE, settle_wielded_costs);
     // First of the phase's request ports: the host lowers them in install
     // order, so a `Place::Body` of a later port is the arrival.
     app.install_extension_request::<TransitPort, _>(WIELDED_USE, "ambition_abilities", lower_transits);
-    app.install_extension_request::<MovementCooldownPort, _>(
-        WIELDED_USE,
-        "ambition_abilities",
-        lower_movement_cooldowns,
-    );
     // The effect adapter writes the room-bound effect message: a composition
     // with the port has it, whether or not a module shows an effect.
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
@@ -58,7 +62,6 @@ pub fn install(app: &mut App) {
     app.install_extension_request::<HitMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_hit_marks);
     app.install_extension_request::<SetVelocityPort, _>(WIELDED_USE, "ambition_abilities", lower_velocities);
     app.install_extension_request::<SetMarkPort, _>(WIELDED_USE, "ambition_abilities", lower_set_marks);
-    app.install_extension_request::<SpendManaPort, _>(WIELDED_USE, "ambition_abilities", lower_mana_spends);
     app.install_extension_request::<BodySoundPort, _>(
         WIELDED_USE,
         "ambition_abilities",
@@ -339,25 +342,72 @@ pub fn lower_transits(
     }
 }
 
-fn lower_movement_cooldowns(
+/// What one invocation asks to pay.
+struct Costs {
+    scope: Entity,
+    entry: std::sync::Arc<str>,
+    mana: f32,
+    cooldown: Option<f32>,
+}
+
+/// Pay each invocation's costs, in the order the host ran the invocations,
+/// all of them or none: an invocation whose cooldown runs, or whose body
+/// cannot pay its mana, is refused whole ([`ExtensionOutbox::refuse_invocation`]).
+///
+/// ⛔ THE SNAPSHOT IS NOT THE BANK. Two entries bound to one item see one
+/// trigger value: the same mana and the same ready cooldown. Each can ask; the
+/// bank pays the first, and the second is refused here, before its lunge is
+/// lowered. A cooldown armed by an earlier invocation this tick runs for a
+/// later one, also when the body had no cooldown component yet.
+pub fn settle_wielded_costs(
     mut outbox: ResMut<ExtensionOutbox>,
     mut commands: Commands,
-    mut cooldowns: Query<Option<&mut crate::ability_cooldown::AbilityCooldown>>,
+    mut bodies: Query<(Option<&mut crate::ability_cooldown::AbilityCooldown>, Option<&mut ActorResources>)>,
 ) {
+    let mut costs: std::collections::BTreeMap<ambition_extension_host::InvocationId, Costs> = Default::default();
+    fn of<'a>(
+        costs: &'a mut std::collections::BTreeMap<ambition_extension_host::InvocationId, Costs>,
+        invocation: ambition_extension_host::InvocationId,
+        scope: Entity,
+        entry: &std::sync::Arc<str>,
+    ) -> &'a mut Costs {
+        costs.entry(invocation).or_insert_with(|| Costs { scope, entry: entry.clone(), mana: 0.0, cooldown: None })
+    }
+    for submitted in outbox.drain::<SpendManaPort>(&WIELDED_USE) {
+        of(&mut costs, submitted.invocation, submitted.scope, &submitted.entry).mana += submitted.value.amount;
+    }
     for submitted in outbox.drain::<MovementCooldownPort>(&WIELDED_USE) {
-        let Ok(mut cooldown) = cooldowns.get_mut(submitted.scope) else {
+        let cost = of(&mut costs, submitted.invocation, submitted.scope, &submitted.entry);
+        cost.cooldown = Some(cost.cooldown.map_or(submitted.value.seconds, |s| s.max(submitted.value.seconds)));
+    }
+    // The bodies whose cooldown an earlier invocation armed this tick, by
+    // inserting the component (a command, not visible to the query yet).
+    let mut armed: Vec<Entity> = Vec::new();
+    for (invocation, cost) in costs {
+        let refuse = |outbox: &mut ExtensionOutbox, why: &str| {
+            warn!(
+                "extension entry {} asked {:?} to pay for an action: {why}; the action is refused",
+                cost.entry, cost.scope
+            );
+            outbox.refuse_invocation(invocation);
+        };
+        let Ok((mut cooldown, bank)) = bodies.get_mut(cost.scope) else {
+            refuse(&mut outbox, "the body is gone");
             continue;
         };
-        if !crate::ability_cooldown::try_use_ability(
-            &mut cooldown,
-            &mut commands,
-            submitted.scope,
-            submitted.value.seconds,
-        ) {
-            warn!(
-                "extension entry {} asked {:?} to arm a movement cooldown that runs; refused",
-                submitted.entry, submitted.scope
-            );
+        if cost.cooldown.is_some()
+            && (armed.contains(&cost.scope) || cooldown.as_ref().is_some_and(|cd| !cd.ready()))
+        {
+            refuse(&mut outbox, "its movement cooldown runs");
+            continue;
+        }
+        if cost.mana > 0.0 && !crate::mana::spend(bank.map(|b| b.into_inner()), cost.mana) {
+            refuse(&mut outbox, "it has not the mana");
+            continue;
+        }
+        if let Some(seconds) = cost.cooldown {
+            crate::ability_cooldown::try_use_ability(&mut cooldown, &mut commands, cost.scope, seconds);
+            armed.push(cost.scope);
         }
     }
 }
@@ -446,20 +496,6 @@ fn lower_velocities(mut outbox: ResMut<ExtensionOutbox>, mut bodies: Query<&mut 
     }
 }
 
-fn lower_mana_spends(mut outbox: ResMut<ExtensionOutbox>, mut banks: Query<Option<&mut ActorResources>>) {
-    for submitted in outbox.drain::<SpendManaPort>(&WIELDED_USE) {
-        let Ok(bank) = banks.get_mut(submitted.scope) else {
-            continue;
-        };
-        // ⛔ SUBMITTED IS NOT APPLIED: a bank that cannot pay pays nothing.
-        if !crate::mana::spend(bank.map(|b| b.into_inner()), submitted.value.amount) {
-            warn!(
-                "extension entry {} asked {:?} to pay {} mana it does not have; refused",
-                submitted.entry, submitted.scope, submitted.value.amount
-            );
-        }
-    }
-}
 
 fn lower_body_sounds<L: LowersIn>(
     mut outbox: ResMut<ExtensionOutbox>,

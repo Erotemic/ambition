@@ -5,7 +5,7 @@
 //! music references. The intent is to catch content typos at startup/test time
 //! instead of letting string ids silently fall back or never fire.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use ambition_platformer2d::content::MusicRegistry;
 use ambition_encounter::encounter_reward_looted_flag;
@@ -129,7 +129,7 @@ pub fn validate_content_graph(
 
     validate_room_links(&rooms, &links, &mut report);
     validate_room_music_tracks(project, music, &mut report);
-    validate_npc_dialogue_ids(project, character_catalog, &mut report);
+    validate_npc_dialogue_ids(project, &mut report);
     validate_npc_brain_overrides(project, character_catalog, &mut report);
     validate_quest_conditions(pack, &rooms, music, &mut report);
     validate_cutscene_bindings(pack, project, &mut report);
@@ -178,12 +178,8 @@ fn validate_room_music_tracks(
     );
 }
 
-fn validate_npc_dialogue_ids(
-    project: &LdtkProject,
-    character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-    report: &mut ContentValidationReport,
-) {
-    let known_ids = crate::dialogue::known_dialogue_ids(character_catalog);
+fn validate_npc_dialogue_ids(project: &LdtkProject, report: &mut ContentValidationReport) {
+    let known_ids = crate::dialogue::known_dialogue_ids();
     let known = known_ids
         .iter()
         .map(String::as_str)
@@ -403,17 +399,16 @@ fn check_quest_steps(
 }
 
 /// A room names its entry cutscene in its world file (the `entry_cutscene`
-/// level field). The field is on the room, so the room half of the check holds
-/// by construction. The other two halves do not: a misspelled script id loads,
-/// and two levels of one active area can both set the field, where the area
-/// merge keeps the first and drops the other with no message.
+/// level field). The field is on the room, so the room end of the binding
+/// holds by construction, and the LDtk owner (`LdtkProject::validate`) refuses
+/// two values in one area. The script end does not hold: a misspelled script
+/// id loads.
 fn validate_cutscene_bindings(
     pack: &ambition_content_pack::PreparedContentPack,
     project: &LdtkProject,
     report: &mut ContentValidationReport,
 ) {
-    let room_ids = active_area_ids(project);
-    // Both endpoints. `drain_cutscene_triggers` does
+    // `drain_cutscene_triggers` does
     // `let Some(script) = library.get(&id) else { continue; }`, so a binding to
     // a missing cutscene is silent at runtime.
     let library = crate::dialogue::cutscene_defaults::cutscene_library_of(pack);
@@ -423,12 +418,11 @@ fn validate_cutscene_bindings(
         .iter()
         .map(|(what, room, cutscene)| (what.as_str(), room.as_str(), cutscene.as_str()))
         .collect();
-    check_cutscene_bindings(&room_ids, &library, &rows, report);
+    check_cutscene_bindings(&library, &rows, report);
 }
 
-/// One row per LEVEL that sets `entry_cutscene`, keyed by its active area. Rows
-/// are read before the area merge so that two levels of one area both appear
-/// and the one-per-room rule can see them.
+/// One row per LEVEL that sets `entry_cutscene`, keyed by its active area, so
+/// an error names the level that holds the bad id.
 fn authored_entry_cutscenes(project: &LdtkProject) -> Vec<(String, String, String)> {
     project
         .levels
@@ -450,41 +444,16 @@ fn authored_entry_cutscenes(project: &LdtkProject) -> Vec<(String, String, Strin
 /// real tables cannot exercise a rule they do not violate. The caller above
 /// supplies the shipped inputs.
 fn check_cutscene_bindings(
-    room_ids: &BTreeSet<String>,
     library: &ambition_cutscene::CutsceneLibrary,
     rows: &[(&str, &str, &str)],
     report: &mut ContentValidationReport,
 ) {
-    // room → how many cutscenes are bound to it, across all its levels.
-    let mut per_room: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-
     for &(what, room, cutscene) in rows {
-        if !room_ids.contains(room) {
-            report.push_error(format!(
-                "{what} for '{cutscene}' references unknown room '{room}'"
-            ));
-        }
         if library.get(cutscene).is_none() {
             report.push_error(format!(
                 "{what} for room '{room}' references unknown cutscene '{cutscene}' — \
                  the runtime skips a binding whose script is missing, so this is a \
                  permanently dead row rather than a failure anybody would see"
-            ));
-        }
-        per_room.entry(room).or_default().push(cutscene);
-    }
-
-    // One cutscene per room. The rows are levels, and the area merge
-    // (`RoomMetadata::merge`) keeps the first level's value, so a second
-    // value in the same area never reaches the trigger.
-    for (room, bound) in &per_room {
-        if bound.len() > 1 {
-            report.push_error(format!(
-                "room '{room}' has {} cutscene bindings ({}) — the area merge keeps the \
-                 first level's `entry_cutscene` and drops the others, so they never play. \
-                 Set `entry_cutscene` on one level of the area",
-                bound.len(),
-                bound.join(", ")
             ));
         }
     }
@@ -525,14 +494,6 @@ fn validate_boss_music_tracks(
             }
         }
     }
-}
-
-fn active_area_ids(project: &LdtkProject) -> BTreeSet<String> {
-    project
-        .levels
-        .iter()
-        .map(|level| level.active_area())
-        .collect()
 }
 
 /// The flags that the shipped world can set, and the ids of its NPCs and its
@@ -824,6 +785,51 @@ mod tests {
         );
     }
 
+    /// The Yarn titles are the one authority for a dialogue id. A catalog
+    /// that names a Hall dialogue with no node does not make the id valid: the
+    /// runtime starts a title, and there is none.
+    #[test]
+    fn a_hall_dialogue_the_catalog_names_with_no_node_is_refused() {
+        let music = crate::audio_registries::shipped_music_registry();
+        let mut data = crate::character_catalog::shipped_catalog().data().clone();
+        let entry = data.characters.values_mut().next().expect("the catalog has a character");
+        entry.hall_dialogue_id = Some("hall_nobody".into());
+        let character_catalog =
+            ambition_characters::actor::character_catalog::CharacterCatalog::from_data(data);
+        let errors_naming = |dialogue_id: &str| {
+            let mut project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
+                .expect("embedded LDtk loads");
+            let spawn = project
+                .levels
+                .iter_mut()
+                .flat_map(|level| level.layer_instances.iter_mut())
+                .flat_map(|layer| layer.entity_instances.iter_mut())
+                .find(|entity| {
+                    entity.identifier == "NpcSpawn"
+                        && field_string(entity, "dialogue_id").is_some_and(|id| !id.trim().is_empty())
+                })
+                .expect("the embedded world has an NPC with a dialogue");
+            let iid = spawn.iid.clone();
+            set_field(
+                &mut spawn.field_instances,
+                "dialogue_id",
+                serde_json::Value::String(dialogue_id.into()),
+            );
+            validate_content_graph(crate::pack::shipped(), &music, &project, &character_catalog)
+                .errors
+                .into_iter()
+                .filter(|error| error.contains(&iid))
+                .collect::<Vec<_>>()
+        };
+        let nobody = errors_naming("hall_nobody");
+        assert!(
+            nobody.len() == 1 && nobody[0].contains("unknown dialogue_id 'hall_nobody'"),
+            "a Hall dialogue with no node was accepted: {nobody:?}"
+        );
+        // Control: a Hall dialogue that has its node is accepted.
+        assert_eq!(errors_naming("hall_player"), Vec::<String>::new());
+    }
+
     #[test]
     fn embedded_content_graph_validates() {
         let report = validate_embedded_content_graph();
@@ -889,73 +895,38 @@ mod tests {
         );
     }
 
-    /// The inputs the three binding rules are checked against, so each arm
-    /// plants exactly one violation and nothing else.
-    fn binding_fixture() -> (BTreeSet<String>, ambition_cutscene::CutsceneLibrary) {
-        let rooms: BTreeSet<String> = ["hub", "lab"].iter().map(|r| r.to_string()).collect();
+    /// The cutscenes a binding is checked against.
+    fn binding_fixture() -> ambition_cutscene::CutsceneLibrary {
         let mut library = ambition_cutscene::CutsceneLibrary::default();
         library.insert(ambition_cutscene::CutsceneScript::new("intro", vec![]));
         library.insert(ambition_cutscene::CutsceneScript::new("second", vec![]));
-        (rooms, library)
+        library
     }
 
     /// The control, and the key test: every assertion below is "this input
     /// produces an error", which a function that always errors would also pass.
     #[test]
     fn a_binding_naming_a_real_room_and_a_real_cutscene_is_accepted() {
-        let (rooms, library) = binding_fixture();
+        let library = binding_fixture();
         let mut report = ContentValidationReport::default();
-        check_cutscene_bindings(&rooms, &library, &[("b", "hub", "intro")], &mut report);
+        check_cutscene_bindings(&library, &[("b", "hub", "intro")], &mut report);
         assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 
     #[test]
     fn a_binding_naming_a_cutscene_that_does_not_exist_is_refused() {
-        let (rooms, library) = binding_fixture();
+        let library = binding_fixture();
         let mut report = ContentValidationReport::default();
         // The room resolves, so the room half passes it, and
         // `drain_cutscene_triggers` skips a missing script silently: a permanently
         // dead binding.
-        check_cutscene_bindings(&rooms, &library, &[("b", "hub", "intr0")], &mut report);
+        check_cutscene_bindings(&library, &[("b", "hub", "intr0")], &mut report);
         assert_eq!(report.errors.len(), 1, "{:?}", report.errors);
         assert!(
             report.errors[0].contains("unknown cutscene 'intr0'"),
             "the error must name the cutscene, not just the row: {:?}",
             report.errors
         );
-    }
-
-    #[test]
-    fn a_room_bound_to_two_cutscenes_is_refused() {
-        let (rooms, library) = binding_fixture();
-        let mut report = ContentValidationReport::default();
-        check_cutscene_bindings(
-            &rooms,
-            &library,
-            &[("b", "hub", "intro"), ("b", "hub", "second")],
-            &mut report,
-        );
-        assert_eq!(report.errors.len(), 1, "{:?}", report.errors);
-        assert!(
-            report.errors[0].contains("room 'hub' has 2 cutscene bindings"),
-            "{:?}",
-            report.errors
-        );
-    }
-
-    /// Two rooms with one cutscene each is the ordinary case and must not trip
-    /// the cardinality rule: the count is per room, not per table.
-    #[test]
-    fn one_cutscene_each_for_two_rooms_is_accepted() {
-        let (rooms, library) = binding_fixture();
-        let mut report = ContentValidationReport::default();
-        check_cutscene_bindings(
-            &rooms,
-            &library,
-            &[("b", "hub", "intro"), ("b", "lab", "second")],
-            &mut report,
-        );
-        assert!(report.errors.is_empty(), "{:?}", report.errors);
     }
 
     /// The shipped worlds name their room cutscenes in data, and the rows the
@@ -965,7 +936,6 @@ mod tests {
     fn each_shipped_room_cutscene_is_read_from_its_world_file() {
         let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
-        let room_ids = active_area_ids(&project);
         let bound: BTreeSet<(String, String)> = authored_entry_cutscenes(&project)
             .into_iter()
             .map(|(_, room, cutscene)| (room, cutscene))
@@ -982,9 +952,6 @@ mod tests {
         .map(|(room, cutscene)| (room.to_string(), cutscene.to_string()))
         .collect();
         assert_eq!(bound, expected);
-        for (room, _) in &bound {
-            assert!(room_ids.contains(room), "{room} is not a room: {room_ids:?}");
-        }
         let mut report = ContentValidationReport::default();
         validate_cutscene_bindings(crate::pack::shipped(), &project, &mut report);
         assert!(report.errors.is_empty(), "{:?}", report.errors);

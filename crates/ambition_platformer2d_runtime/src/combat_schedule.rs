@@ -525,6 +525,7 @@ impl Plugin for CombatSchedulePlugin {
         // demo's own comment had already written the rule: a system that writes
         // four messages does not run in a world that registers three.
         app.add_message::<ambition_combat::capture::CaptureAttemptRequested>();
+        app.add_message::<ambition_combat::capture::GrabsParried>();
         app.add_message::<ambition_combat::capture::CapturePummelRequested>();
         app.add_message::<ambition_combat::capture::CaptureThrowRequested>();
         app.add_message::<ambition_combat::capture::CaptureCarryRequested>();
@@ -577,20 +578,14 @@ impl Plugin for CombatSchedulePlugin {
                 ),
             ],
             (
-                // ⛔ THE TRANSLATOR HEADS THIS CHAIN, and losing that is a bug I
-                // shipped for one suite run. Moving it to the engine WITHOUT the
-                // chain put it in a different set from its consumers, so a
-                // request written after `acquire_captures` had run would be
-                // consumed a tick late. The whole mechanic moves together.
+                // ⛔ THE TRANSLATOR HEADS THIS CHAIN. Each capture request it
+                // writes must be read in the same tick: the pummel, the throw
+                // and the carry below, and acquisition later, in `Settle`. A
+                // reader before the translator reads the request a tick late.
                 ambition_combat::capture::systems::translate_authored_capture_effects,
-                ambition_combat::capture::systems::acquire_captures,
-                // and posed the SAME tick it is caught. The pose sync also
-                // runs in `WorldPrep`, which is EARLIER in the tick than this —
-                // so without this second call a body grabbed now would hang where
-                // it stood until the next frame, one visible frame of a captive
-                // standing free inside somebody's grab animation.
-                // The pummel lands BEFORE the pose sync below, so the damage and
-                // the frame the captive is drawn in belong to the same tick.
+                // The pummel lands BEFORE the pose sync (in `Settle`), so the
+                // damage and the frame the captive is drawn in belong to the
+                // same tick.
                 ambition_combat::capture::systems::apply_capture_pummels,
                 // The throw releases and launches in one step. AFTER the pummel
                 // so a tick carrying both resolves in authored order, and BEFORE
@@ -603,16 +598,6 @@ impl Plugin for CombatSchedulePlugin {
                 // carry applied to a hold the same tick's throw has just ended
                 // would set terms on a relationship that no longer exists.
                 ambition_combat::capture::systems::apply_capture_carries,
-                // After the rig poses resolve: a hold that rides an attachment
-                // of the captor's rig (a jaw) is placed from the pose of THIS
-                // tick, the pose the captor is drawn with.
-                ambition_combat::capture::systems::finalize_new_capture_pose
-                    .after(ambition_combat::body_rig::BodyRigPoseResolved),
-                // the captive's POSE, published beside the constraint that
-                // holds it. `CharacterAnim` has no held row, so this draws the
-                // hurt one — a body in somebody's hands reading as idle was the
-                // last thing about a grab that did not look like one.
-                ambition_combat::capture::systems::mirror_capture_into_anim_facts,
             )
                 .chain()
                 .in_set(CombatSet::Materialize),
@@ -649,6 +634,42 @@ impl Plugin for CombatSchedulePlugin {
                 // `GrabInterruptionApplied`. System NAMES are unavailable in this
                 // build, so the guard below asks the graph about this node.
                 .in_set(ambition_combat::capture::GrabInterruptionApplied)
+                .in_set(CombatSet::Settle),
+        );
+
+        // ⭐ A HIT BEATS A GRAB ON ONE TICK (S0.2), so acquisition comes after
+        // damage resolves. In `Materialize` it ended the captive's move before
+        // `Resolve`, and with the move went a hit the captive landed on that
+        // same tick. Here the hit has already landed, and acquisition refuses
+        // a body it moves (see `CapturesAcquired`). After the release too, so
+        // a hold made this tick is not judged by the release until the next.
+        app.add_systems(
+            sim,
+            (
+                // The translator (in `Materialize`) wrote the attempt this
+                // tick; a message lives until the tick ends.
+                ambition_combat::capture::systems::acquire_captures
+                    .in_set(ambition_combat::capture::CapturesAcquired),
+                // A parried grab rebounds in the tick it was parried.
+                ambition_combat::capture::systems::rebound_from_parried_grabs,
+                // and posed the SAME tick it is caught. The pose sync also
+                // runs in `WorldPrep`, which is EARLIER in the tick than this —
+                // so without this second call a body grabbed now would hang where
+                // it stood until the next frame, one visible frame of a captive
+                // standing free inside somebody's grab animation.
+                // After the rig poses resolve: a hold that rides an attachment
+                // of the captor's rig (a jaw) is placed from the pose of THIS
+                // tick, the pose the captor is drawn with.
+                ambition_combat::capture::systems::finalize_new_capture_pose
+                    .after(ambition_combat::body_rig::BodyRigPoseResolved),
+                // the captive's POSE, published beside the constraint that
+                // holds it. `CharacterAnim` has no held row, so this draws the
+                // hurt one — a body in somebody's hands reading as idle was the
+                // last thing about a grab that did not look like one.
+                ambition_combat::capture::systems::mirror_capture_into_anim_facts,
+            )
+                .chain()
+                .after(ambition_combat::capture::GrabInterruptionApplied)
                 .in_set(CombatSet::Settle),
         );
 
@@ -1106,6 +1127,52 @@ mod tests {
     /// The grace's retraction is an observer, so it is asked by behaviour: a
     /// grace removed by something other than its clock must clear the reason
     /// bit it published.
+    /// **A HIT BEATS A GRAB ON ONE TICK, IN THE SHIPPED ENGINE (S0.2).**
+    ///
+    /// Acquisition must run after damage resolves and after the release. In
+    /// `Materialize` it ended the captive's move before `Resolve`, so a hit
+    /// the captive landed on the tick of the grab never landed. The behaviour
+    /// is `capture::systems`' test
+    /// `a_body_a_hit_is_moving_neither_grabs_nor_is_grabbed`; this asks the
+    /// shipped graph where acquisition sits, because the executor's stable
+    /// order would hide a missing edge from a behavioural test.
+    #[test]
+    fn the_shipped_engine_acquires_captures_after_damage_resolves() {
+        use bevy::ecs::schedule::{NodeId, SystemSet};
+        let mut app = App::new();
+        app.add_plugins(bevy::MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.add_plugins(crate::PlatformerEnginePlugins::fixed_tick());
+        let sim = app.sim_schedule();
+
+        let world = app.world_mut();
+        world.resource_scope::<Schedules, _>(|world, mut schedules| {
+            let schedule = schedules.get_mut(sim).expect("the sim schedule exists");
+            schedule.initialize(world).expect("the sim schedule builds");
+            let graph = schedule.graph();
+            let set = |set: bevy::ecs::schedule::InternedSystemSet| {
+                NodeId::Set(graph.system_sets.get_key(set).expect("a registered set"))
+            };
+            let acquirers = graph
+                .systems_in_set(SystemSet::intern(&ambition_combat::capture::CapturesAcquired))
+                .expect("the shipped sim schedule installs capture acquisition");
+            assert_eq!(acquirers.len(), 1, "capture acquisition installs once");
+            let acquirer = NodeId::System(acquirers[0]);
+            assert!(
+                graph.hierarchy().graph().contains_edge(set(CombatSet::Settle.intern()), acquirer),
+                "capture acquisition is not in `Settle`: before `Resolve`, a grab \
+                 ends the captive's move and takes away its same-tick hit"
+            );
+            assert!(
+                graph
+                    .dependency()
+                    .graph()
+                    .contains_edge(set(ambition_combat::capture::GrabInterruptionApplied.intern()), acquirer),
+                "capture acquisition is not ordered after the grab interruption"
+            );
+        });
+    }
+
     #[test]
     fn the_shipped_engine_runs_the_rules_that_read_versus_data() {
         use ambition_characters::actor::{BodyHealth, Health, Invulnerability};

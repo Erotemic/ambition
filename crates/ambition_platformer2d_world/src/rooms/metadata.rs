@@ -263,9 +263,52 @@ impl RoomMetadata {
             && self.boss_reward_drop.is_none()
     }
 
+    /// The fields that `self` and `other` both set, to different values:
+    /// `(field, self's value, other's value)`. [`Self::merge`] keeps the first
+    /// value and drops the other, so an area whose levels disagree plays only
+    /// one of them, with no message. The LDtk owner refuses such an area
+    /// (`LdtkProject::validate`).
+    ///
+    /// ⚠ The fields with a value each: not `gallery` and `practice` (any
+    /// level sets them), nor the visual profile and the nameplate policy,
+    /// which merge their own fields.
+    pub fn conflicts(&self, other: &RoomMetadata) -> Vec<(&'static str, String, String)> {
+        fn differ<T: PartialEq + std::fmt::Debug>(
+            out: &mut Vec<(&'static str, String, String)>,
+            field: &'static str,
+            mine: &Option<T>,
+            theirs: &Option<T>,
+        ) {
+            if let (Some(mine), Some(theirs)) = (mine, theirs) {
+                if mine != theirs {
+                    out.push((field, format!("{mine:?}"), format!("{theirs:?}")));
+                }
+            }
+        }
+        let mut out = Vec::new();
+        differ(&mut out, "biome", &self.biome, &other.biome);
+        differ(&mut out, "music_track", &self.music_track, &other.music_track);
+        differ(&mut out, "fight_music_track", &self.fight_music_track, &other.fight_music_track);
+        differ(&mut out, "ambient_profile", &self.ambient_profile, &other.ambient_profile);
+        differ(&mut out, "visual_theme", &self.visual_theme, &other.visual_theme);
+        differ(&mut out, "mode", &self.mode, &other.mode);
+        differ(&mut out, "fall_out_margin", &self.fall_out_margin, &other.fall_out_margin);
+        differ(&mut out, "side_out_margin", &self.side_out_margin, &other.side_out_margin);
+        differ(&mut out, "rise_out_margin", &self.rise_out_margin, &other.rise_out_margin);
+        differ(&mut out, "next_room", &self.next_room, &other.next_room);
+        differ(&mut out, "title", &self.title, &other.title);
+        differ(&mut out, "entry_cutscene", &self.entry_cutscene, &other.entry_cutscene);
+        differ(&mut out, "while_live", &self.while_live, &other.while_live);
+        differ(&mut out, "fall_rescue", &self.fall_rescue, &other.fall_rescue);
+        differ(&mut out, "boss_reward_drop", &self.boss_reward_drop, &other.boss_reward_drop);
+        out
+    }
+
     /// Fold `other` into `self`, preferring values already set.
     /// LDtk active areas can span multiple levels; the first level
     /// with a non-empty value wins so author intent is predictable.
+    /// Two levels that set one field to two values are refused before this
+    /// runs ([`Self::conflicts`]).
     pub fn merge(&mut self, other: RoomMetadata) {
         if self.biome.is_none() {
             self.biome = other.biome;

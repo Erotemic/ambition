@@ -18,9 +18,11 @@ the LDtk `dialogue_id`, treats a blank value as absent, and falls through to
 `generic_npc`. That placeholder is correct current behaviour, not a bug.
 
 The Hall is covered by authoring instead: catalog rows carry a
-`hall_dialogue_id`, and `known_dialogue_ids`
-(`game/ambition_content/src/dialogue/yarn.rs`) adds those ids to the validator's
-accepted set. The residual is small, and each item is one line of authoring:
+`hall_dialogue_id`, and each one names a Yarn title
+(`every_catalog_hall_dialogue_id_has_a_yarn_node`). The validator's accepted
+set is the Yarn titles only (`known_dialogue_ids` in
+`game/ambition_content/src/dialogue/yarn.rs`). The residual is small, and each
+item is one line of authoring:
 
 - Some catalog characters have `hall_dialogue_id: None`.
 - A few `NpcSpawn` placements have no `dialogue_id`. The fix is a commit in the

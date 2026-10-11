@@ -533,7 +533,7 @@ fn lower_body_holds(
                     if victim.is_corpse() || victim.is_intangible() {
                         continue;
                     }
-                    if combat.get(victim.entity).is_ok_and(|c| c.hitstun_timer > 0.0 || c.recoil_lock_timer > 0.0) {
+                    if combat.get(victim.entity).is_ok_and(|c| c.is_knocked()) {
                         continue;
                     }
                     if !crate::targeting::damage_lands_between(

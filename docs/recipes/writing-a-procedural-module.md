@@ -130,7 +130,7 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.world.module_entity_tick` v1 | trigger (phase `module_entity_tick`) | `ambition_combat_port::ModuleEntityTick` (selector: the kind; records are the entity's) |
 | `ambition.world.end_module_entity` v1 | request (phase `module_entity_tick`) | `ambition_combat_port::EndModuleEntity` (end the entity before its lifetime) |
 | `ambition.world.pull_bodies` v1 | request (phase `module_entity_tick`) | `ambition_combat_port::PullBodies` (pull `Enemy`-side bodies toward a point) |
-| `ambition.resources.spend_mana` v1 | request | `ambition_combat_port::SpendMana` (ask `Wielder::can_pay_mana` first) |
+| `ambition.resources.spend_mana` v1 | request, a cost (`wielded_use`) | `ambition_combat_port::SpendMana` (ask `Wielder::can_pay_mana` first; it is a snapshot, so a refused payment refuses every request of the invocation) |
 | `ambition.feedback.body_sound` v1 | request | `ambition_combat_port::BodySound` (a cue id, as the body) |
 | `ambition.boss.summon` v2 | request | `ambition_boss_special_port::BossSummon` (a boss only; the minion joins its encounter; `on_boss_side` lets the boss's volumes pass it) |
 | `ambition.boss.conduct` v5 | trigger (phase `boss_conduct`) | `ambition_boss_special_port::BossConduct` (selector: the boss's behaviour id; one call each tick; v2: `holding` and `minions`; v3: `between_phases`; v4: `room`; v5: `health`, `invulnerable` and `target_body`, the tracked body now; v6: `size`, the boss's own) |

@@ -122,6 +122,7 @@ NOT_PER_ATTEMPT = {
     "PresentationProbeState": "dev probe",
     "RollbackProofState": "dev probe",
     "SceneCaptureConfig": "capture-tool CLI config, read once at startup",
+    "SceneCaptureRuntime": "capture-tool driver state for one run (its shots and presses); a capture has no attempt",
     # ⚠ `AttemptsSeen` and `Forced` were listed here on the first pass and the
     # stale check above removed them the same hour: both are `(u32)` tuple
     # structs that only ever appeared in the population through the 40-line

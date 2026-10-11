@@ -287,11 +287,18 @@ pub const SMASH_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
 /// has pogo because it authors pogo; a fighter without pogo does not get one
 /// by entering Smash. Do not move pogo into the floor.
 ///
+/// The wall jump and the wall cling (`AbilityGrant::WallMobility`) are the
+/// same kind of verb (S0.7): the genre gives them to some fighters and not
+/// to others. A fighter that authors them keeps them here, and a fighter that
+/// does not author them does not get them. Do not move them into the floor.
+///
 /// `MatchAbilities::levelled` treats these as floor and ceiling. `fly`, `blink`
 /// and `dash` stay out of both: they are the exploration kit.
 pub const SMASH_FIGHTER_CEILING: ambition_platformer2d::engine_core::AbilitySet =
     ambition_platformer2d::engine_core::AbilitySet {
         pogo: true,
+        wall_jump: true,
+        wall_cling: true,
         ..SMASH_FIGHTER_KIT
     };
 

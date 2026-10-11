@@ -404,3 +404,109 @@ fn a_module_reload_rebases_the_local_timeline_onto_the_new_identity() {
     sim.rollback_health().expect("the rebased timeline is healthy");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+const LIFETIME: SchemaKey = SchemaKey::new("fixture", "session_tally.lifetime", 1);
+
+fn session_value(sim: &mut Platformer2dSimHarness, key: &SchemaKey) -> Option<Value> {
+    let world = sim.world_mut();
+    let mut stores = world.query::<&SessionRecords>();
+    let store = stores.single(world).expect("one session, one store");
+    store.get(key).map(|r| r.get(FieldRef(0)).unwrap().clone())
+}
+
+fn holding_the_shockwave(sim: &mut Platformer2dSimHarness) {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
+    let player = q.single(world).expect("primary player exists");
+    let spec = ambition_platformer2d::characters::brain::held_item_by_id("shockwave").expect("a known item");
+    world
+        .entity_mut(player)
+        .insert(ambition_platformer2d::combat::held_items::HeldItem::new(spec));
+}
+
+fn press(sim: &mut Platformer2dSimHarness, presses: usize) {
+    for frame in 0..presses * GAP {
+        sim.step(AgentAction {
+            attack: frame % GAP == 0,
+            ..AgentAction::default()
+        });
+    }
+}
+
+/// ⭐ I5 SAVE ELIGIBILITY, ON THE LOADED ROAD: a session record whose schema
+/// the durable world save keeps comes back when the save loads, in a new
+/// session, through the file; the session record beside it, transient, does
+/// not. A New Game takes the kept record away with the rest of the world.
+///
+/// The fixture's `session_tally` writes both on each shockwave use: `tally`
+/// (transient) and `lifetime` (`kept durable`).
+#[test]
+fn a_durable_session_record_comes_back_with_its_save_and_a_transient_one_does_not() {
+    use ambition_platformer2d::persistence::save::{load_save, write_save};
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let wasm = ambition_platformer2d::extension::build_module_crate(&root, "ambition_extension_fixture_modules")
+        .expect("the fixture crate builds for wasm32-unknown-unknown");
+    let options = || {
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_extension_module_files(vec![wasm.clone()])
+    };
+
+    let mut sim = Platformer2dSimHarness::new_with_options(options()).expect("the sandbox builds");
+    holding_the_shockwave(&mut sim);
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    press(&mut sim, 4);
+    assert_eq!(
+        (session_value(&mut sim, &TALLY), session_value(&mut sim, &LIFETIME)),
+        (Some(Value::U32(4)), Some(Value::U32(4))),
+        "the premise: (tally, lifetime) after four uses"
+    );
+    let save = sim
+        .world()
+        .resource::<ambition_platformer2d::session::AmbitionGameSave>()
+        .data()
+        .clone();
+    let kept: Vec<&str> = save.module_records().iter().map(|row| row.key.as_str()).collect();
+    assert_eq!(kept, ["fixture::session_tally.lifetime@1"], "the save keeps the durable record only");
+
+    let dir = root.join(format!("target/extension-modules/durable_record_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("sandbox_save.ron");
+    write_save(&file, &save).expect("the save is written");
+    let loaded = load_save(&file);
+    assert_eq!(loaded.data, save, "the file holds the save the game kept");
+
+    let mut sim = Platformer2dSimHarness::new_with_options(options().with_save(loaded.data))
+        .expect("the sandbox builds from the save");
+    holding_the_shockwave(&mut sim);
+    for _ in 0..5 {
+        sim.step(AgentAction::default());
+    }
+    assert_eq!(
+        (session_value(&mut sim, &TALLY), session_value(&mut sim, &LIFETIME)),
+        (None, Some(Value::U32(4))),
+        "(tally, lifetime) after the load: the durable record came back, the transient one did not"
+    );
+    press(&mut sim, 1);
+    assert_eq!(
+        (session_value(&mut sim, &TALLY), session_value(&mut sim, &LIFETIME)),
+        (Some(Value::U32(1)), Some(Value::U32(5))),
+        "and both count on from there"
+    );
+
+    sim.world_mut()
+        .write_message(ambition_platformer2d::actors::session::reset::NewGameRequested);
+    sim.step_n(AgentAction::default(), 240);
+    assert_eq!(session_value(&mut sim, &LIFETIME), None, "a New Game starts the kept record from nothing");
+    assert!(
+        sim.world()
+            .resource::<ambition_platformer2d::session::AmbitionGameSave>()
+            .data()
+            .module_records()
+            .is_empty(),
+        "and the wiped save does not get it back"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

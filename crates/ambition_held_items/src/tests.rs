@@ -2170,3 +2170,71 @@ fn a_level_body_picks_up_with_its_level_box() {
         assert!(!picks_up_at(REACH_UNDER_END, down), "down {down:?}: the item is past the side of the level body");
     }
 }
+
+/// A THROW GOES THE WAY THE STICK POINTS, AS IN SMASH. Forward (and a centred
+/// stick) throws ahead and a little up, back throws behind, up throws straight
+/// up, down throws straight down. The stick flicked with the press is a smash
+/// throw, faster; the same stick already held is a tilt throw. The gesture
+/// interpreter decides which, as it decides a smash attack.
+#[test]
+fn a_throw_goes_the_way_the_stick_points_and_a_flick_throws_harder() {
+    // The launch of a javelin thrown by a body facing right that moves at
+    // `vel`, with the stick at `axis` on the press. `held_before` ticks of the
+    // same stick come first (a stick already held is not a flick).
+    fn launch(axis: ae::LocalAxes, held_before: usize, vel: Vec2) -> Vec2 {
+        let mut app = App::new();
+        app.insert_resource(ControlFrame::default());
+        app.add_systems(
+            Update,
+            (
+                pickup_held_item_system,
+                throw_held_item_system,
+                ambition_combat::moveset::resolve_attack_gestures,
+            )
+                .chain(),
+        );
+        let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
+        let javelin = app
+            .world_mut()
+            .spawn(GroundItem {
+                spec: javelin_spec(),
+                pos: Vec2::new(100.0, 100.0),
+                vel: Vec2::ZERO,
+                half_extent: Vec2::splat(PICKUP_HALF),
+            })
+            .id();
+        set_control(&mut app, player, true, false);
+        app.update();
+        assert!(app.world().get::<HeldItem>(player).is_some(), "premise: the javelin is held");
+        let control = |app: &mut App, pressed: bool| {
+            let mut c = app.world_mut().get_mut::<ambition_characters::control::ActorControl>(player).unwrap();
+            c.0.melee_pressed = pressed;
+            c.0.attack_axis = axis;
+        };
+        for _ in 0..held_before {
+            control(&mut app, false);
+            app.update();
+        }
+        app.world_mut().get_mut::<BodyKinematics>(player).unwrap().vel = vel;
+        control(&mut app, true);
+        app.update();
+        assert!(app.world().get::<HeldItem>(player).is_none(), "premise: the press threw the javelin");
+        app.world().get::<GroundItem>(javelin).expect("the thrown javelin").vel
+    }
+    let held = 8;
+    let forward = launch(ae::LocalAxes::ZERO, held, Vec2::ZERO);
+    assert!(forward.x > 0.0 && forward.y < 0.0, "a centred stick throws ahead and up: {forward:?}");
+    assert_eq!(launch(ae::LocalAxes::X, held, Vec2::ZERO), forward, "a held forward stick is the same tilt throw");
+    let back = launch(ae::LocalAxes::new(-1.0, 0.0), held, Vec2::ZERO);
+    assert_eq!(back, Vec2::new(-forward.x, forward.y), "back throws behind the body, as far");
+    let up = launch(ae::LocalAxes::new(0.0, -1.0), held, Vec2::ZERO);
+    assert!(up.x == 0.0 && up.y < -forward.length(), "up throws straight up, harder than ahead: {up:?}");
+    let down = launch(ae::LocalAxes::new(0.0, 1.0), held, Vec2::ZERO);
+    assert!(down.x == 0.0 && down.y > 0.0, "down throws straight down: {down:?}");
+
+    let smash = launch(ae::LocalAxes::X, 0, Vec2::ZERO);
+    assert_eq!(smash, forward * SMASH_THROW_SCALE, "the stick flicked with the press is a smash throw");
+
+    let running = launch(ae::LocalAxes::ZERO, held, Vec2::new(300.0, 0.0));
+    assert_eq!(running, forward + Vec2::new(300.0 * THROW_MOMENTUM, 0.0), "a throw on the run keeps part of the run");
+}

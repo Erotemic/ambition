@@ -77,7 +77,7 @@ pub fn publish_portal_compositing_candidates(
             &Sprite,
             &Transform,
             Option<&bevy::sprite::Anchor>,
-            &Visibility,
+            Ref<Visibility>,
             Option<&ambition_portal2d_presentation::PortalSourceHidden>,
         ),
         (
@@ -105,7 +105,7 @@ pub fn publish_portal_compositing_candidates(
             Entity,
             &ambition_sprite_fx::DeclaredFrame,
             &Transform,
-            &Visibility,
+            Ref<Visibility>,
             Option<&ambition_portal2d_presentation::PortalSourceHidden>,
         ),
         (
@@ -115,11 +115,26 @@ pub fn publish_portal_compositing_candidates(
         ),
     >,
 ) {
+    use ambition_portal2d_presentation::{PortalCompositingCandidate, PortalSourceHidden};
+    // A drawable that is not a candidate this frame loses last frame's
+    // candidate too: the compositor builds pieces from every candidate it
+    // finds, so a stale one draws a body that nothing draws now.
+    let not_a_candidate = |commands: &mut Commands, entity: Entity| {
+        commands.entity(entity).try_remove::<PortalCompositingCandidate>();
+    };
+    // Hidden by something other than the portal: nothing draws it, so the
+    // compositor must not either. Hidden by the portal alone, it is the body
+    // the clipped pieces replace (see the note in the sprite loop).
+    let hidden_by_another = |visibility: &Ref<Visibility>, marker: Option<&PortalSourceHidden>| {
+        matches!(**visibility, Visibility::Hidden) && !PortalSourceHidden::portal_alone_hides(marker, visibility)
+    };
     for (entity, frame, transform, visibility, portal_hid_it) in &declared {
-        if matches!(visibility, Visibility::Hidden) && portal_hid_it.is_none() {
+        if hidden_by_another(&visibility, portal_hid_it) {
+            not_a_candidate(&mut commands, entity);
             continue;
         }
         let Some(placement) = frames.of(entity) else {
+            not_a_candidate(&mut commands, entity);
             continue;
         };
         commands
@@ -134,14 +149,19 @@ pub fn publish_portal_compositing_candidates(
         // Except when the portal hides it: a far-side body is `Hidden` because
         // clipped pieces replace it. Dropping its candidate would make the
         // compositor show the body again, then hide it next frame, and flicker.
-        // The question is whether something other than the portal hides it.
-        if matches!(visibility, Visibility::Hidden) && portal_hid_it.is_none() {
+        // The question is whether something other than the portal hides it:
+        // a body that dies behind a pane is hidden by its owner too, and the
+        // portal's marker does not say otherwise.
+        if hidden_by_another(&visibility, portal_hid_it) {
+            not_a_candidate(&mut commands, entity);
             continue;
         }
         let Some(drawn) = sprite.custom_size else {
+            not_a_candidate(&mut commands, entity);
             continue;
         };
         let Some(placement) = frames.of(entity) else {
+            not_a_candidate(&mut commands, entity);
             continue;
         };
         commands.entity(entity).insert(candidate_for(
@@ -279,9 +299,11 @@ mod tests {
                 sprite(Vec2::new(24.0, 24.0)),
                 Transform::from_translation(Vec3::new(300.0, 300.0, 20.0)),
                 Visibility::Hidden,
-                PortalSourceHidden,
             ))
             .id();
+        // The portal's own `Hidden`: the resolver keeps the tick of its write.
+        let wrote = app.world().entity(composited).get_ref::<Visibility>().unwrap().last_changed();
+        app.world_mut().entity_mut(composited).insert(PortalSourceHidden { wrote: Some(wrote) });
         app.update();
 
         assert!(
@@ -716,6 +738,69 @@ mod bridge_meets_compositor_tests {
             Visibility::Hidden,
             "the NPC's whole-sprite draw was not withdrawn, so it still punches \
              through the pane — the reported bug"
+        );
+    }
+
+    /// A body that dies behind a pane is hidden by its owner too, and the
+    /// portal's marker does not make it a candidate again: no far-side piece
+    /// draws it, and last frame's candidate does not survive. When the pane
+    /// goes, the portal lets go and the owner's `Hidden` stands.
+    ///
+    /// The marker says the portal hid the body, not that nothing else does: a
+    /// publisher that read it that way drew the pieces of a dead body.
+    #[test]
+    fn a_body_that_dies_behind_a_pane_draws_no_pieces() {
+        #[derive(Resource)]
+        struct Alive(bool);
+        // The body's owner, as `sync_visuals` is: it writes its answer each
+        // frame, before portal presentation.
+        fn owner(alive: Res<Alive>, mut bodies: Query<&mut Visibility, With<PlayerVisual>>) {
+            for mut visibility in &mut bodies {
+                *visibility = if alive.0 { Visibility::Visible } else { Visibility::Hidden };
+            }
+        }
+        let mut app = app();
+        app.insert_resource(Alive(true));
+        app.add_systems(Update, owner.before(publish_portal_compositing_candidates));
+        let body = far_side_player(&mut app);
+        let pieces = |app: &mut App| {
+            let world = app.world_mut();
+            world
+                .query_filtered::<(), With<ambition_portal2d_presentation::PortalFarSidePiece>>()
+                .iter(world)
+                .count()
+        };
+        app.update();
+        app.update();
+        assert!(pieces(&mut app) >= 1, "premise: the living far-side body is drawn as pieces");
+
+        app.insert_resource(Alive(false));
+        for frame in 1..=2 {
+            app.update();
+            assert_eq!(pieces(&mut app), 0, "frame {frame} after its death: pieces draw the dead body");
+            assert!(
+                app.world().get::<ambition_portal2d_presentation::PortalCompositingCandidate>(body).is_none(),
+                "frame {frame} after its death: the body is still a candidate"
+            );
+        }
+
+        let panes: Vec<Entity> = {
+            let world = app.world_mut();
+            world.query_filtered::<Entity, With<PlacedPortal>>().iter(world).collect()
+        };
+        for pane in panes {
+            app.world_mut().despawn(pane);
+        }
+        app.update();
+        app.update();
+        assert_eq!(
+            (
+                app.world().get::<ambition_portal2d_presentation::PortalSourceHidden>(body).is_some(),
+                *app.world().get::<Visibility>(body).unwrap(),
+                pieces(&mut app),
+            ),
+            (false, Visibility::Hidden, 0),
+            "(portal marker, visibility, pieces) once the pane is gone: the owner's Hidden stands"
         );
     }
 

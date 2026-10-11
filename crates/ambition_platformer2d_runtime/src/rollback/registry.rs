@@ -1136,7 +1136,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 340 -> 341: `content.gnu_ton_conductor` and its entity mapping leave.
 /// GNU-ton's conductor is a procedural module: its memory is a record in
 /// `extension.body_records`, and its hit volumes are held boxes.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 341;
+/// ⛔⛤ 341 -> 342: `message.grabs_parried` (`GrabsParried`) joins, cleared on a
+/// rollback. A mutual grab parries, and the acquisition and the rebound read the
+/// pair in one tick.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 342;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

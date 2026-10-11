@@ -91,7 +91,15 @@ fn a_look_takes_its_doors_and_its_ink_back_on_potato_and_gives_them_again() {
     let inked = dressed.signs.iter().filter(|sign| sign.3 >= 4).count();
     assert!(inked > 0, "premise: no sign has the look's ink and halo: {dressed:?}");
 
+    let pages = ambition_content::presentation::room_look::plate_pages_held(app.world());
+    assert!(pages > 0, "premise: the look holds plate pages");
+
     set_tier(&mut app, VisualQualityProfile::Potato);
+    assert_eq!(
+        ambition_content::presentation::room_look::plate_pages_held(app.world()),
+        0,
+        "on Potato the look still holds its plate pages ({pages} before): textures nothing draws"
+    );
     let plain = dress(&mut app);
     assert_eq!(
         (plain.pieces + plain.plates, plain.look_doors),
@@ -104,5 +112,11 @@ fn a_look_takes_its_doors_and_its_ink_back_on_potato_and_gives_them_again() {
     assert_eq!(recoloured, inked, "each inked sign, and no other, has other colours on Potato");
 
     set_tier(&mut app, full);
+    // Back in budget the plates are drawn again, off the main thread.
+    let waited = std::time::Instant::now();
+    while dress(&mut app).plates < dressed.plates && waited.elapsed() < std::time::Duration::from_secs(60) {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        app.update();
+    }
     assert_eq!(dress(&mut app), dressed, "back on the first tier the room is not dressed as it was");
 }

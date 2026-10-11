@@ -649,7 +649,7 @@ mod limb_pose_tests {
     use bevy::ecs::system::RunSystemOnce as _;
 
     fn submit(world: &mut World, boss: Entity, pose: LimbPose) {
-        let request = Submitted { scope: boss, occurrence: None, entry: "test::gnu/conduct".into(), value: pose };
+        let request = Submitted { scope: boss, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value: pose };
         world.run_system_once_with(pose_limbs, vec![request]).unwrap();
     }
 
@@ -696,7 +696,7 @@ mod drawn_row_tests {
     use bevy::ecs::system::RunSystemOnce as _;
 
     fn draw(world: &mut World, boss: Entity, row: DrawnRow) {
-        let request = Submitted { scope: boss, occurrence: None, entry: "test::gnu/conduct".into(), value: row };
+        let request = Submitted { scope: boss, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value: row };
         world.run_system_once_with(draw_rows, vec![request]).unwrap();
     }
 
@@ -741,7 +741,7 @@ mod launch_and_bubble_tests {
     use bevy::ecs::system::RunSystemOnce as _;
 
     fn submitted<T>(scope: Entity, value: T) -> Vec<Submitted<T>> {
-        vec![Submitted { scope, occurrence: None, entry: "test::gnu/conduct".into(), value }]
+        vec![Submitted { scope, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value }]
     }
 
     /// ⭐ The launch is staged on the mount, not on its rider. The control: a

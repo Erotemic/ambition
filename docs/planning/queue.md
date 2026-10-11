@@ -50,9 +50,9 @@ the way in its own slice:
 4. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable).
 5. [NAVIGATION](#navigation--a-character-reaches-an-item-in-another-room).
 
-**Next (review of `1d668f4a..9c6318bc7`, 2026-10-11):** the five
+**Done (review of `1d668f4a..9c6318bc7`, 2026-10-11):** the five
 [REVIEW-1011](#review-1011--five-boundaries-where-one-subsystem-reconstructs-anothers-fact)
-rows, in their order, before the rest of the queue.
+rows.
 
 Short slice at any point: [PUBLICATION-FAULT](#publication-fault--a-refused-later-room-must-not-leave-a-mixed-world).
 The two owner pages the 2026-10-08 review found stale (the fingerprint and the
@@ -79,19 +79,62 @@ row starts with a failing production-path witness.
    `a_coconut_that_crosses_the_player_in_one_tick_is_one_blow` (red with the
    old rule: health 60 -> 60), with the held-items sweep test naming the one
    body it crossed and `the_blow_lands_on_the_bodies_the_item_struck_and_no_other`.
-   Same road, Jon 2026-10-11: a throw takes the stick's direction and strength,
-   as in Smash (open).
-2. ABILITY-COST. Two admitted modules on one trigger see one mana and cooldown
-   snapshot. Movement is lowered before the cost, so the second action runs
-   after its spend is refused. An action and its cost are one admission.
-3. PORTAL-VISIBILITY. `PortalSourceHidden` records the portal's own hide, not
-   that nothing else hides the body. A body killed or hidden behind a portal
-   gets far-side fragments. A stale `PortalCompositingCandidate` stays.
-4. ERRAND-INSTANCE. A cross-room errand routes by room definition and takes
-   the lowest live instance. An item in the second live instance of a room is
-   reached in the wrong instance, or reported `Gone`.
-5. PLATE-LIFETIME. `RoomPlates` keeps its strong image handles when the
-   quality budget turns off the system that evicts them (high -> Potato).
+   ✅ Same road, Jon 2026-10-11: a throw takes the stick's direction and
+   strength, as in Smash (forward, back, up, down; a flick is a smash throw;
+   the item keeps half the thrower's velocity). Witness:
+   `the_player_throws_a_coconut_the_way_the_stick_points` (app) and
+   `a_throw_goes_the_way_the_stick_points_and_a_flick_throws_harder`.
+2. ✅ 2026-10-11, ABILITY-COST. Two admitted modules on one trigger saw one
+   mana and cooldown snapshot, and movement was lowered before the cost, so
+   the second action ran after its spend was refused. The host gives each
+   invocation an id on every request it submits
+   (`ambition_extension_host::InvocationId`) and a `Settle` step before
+   `Lower`. `ambition.resources.spend_mana` and
+   `ambition.abilities.movement_cooldown` are costs
+   (`install_extension_cost`). `settle_wielded_costs` pays each invocation's
+   costs together, in invocation order, or refuses the whole invocation
+   (`ExtensionOutbox::refuse_invocation`). A cooldown armed this tick by an
+   earlier invocation runs for a later one. Witness:
+   `wielded_cost_admission_tests` (two `dive` entries with 30 mana: one lunge;
+   two `blink` entries: one blink). Poisons: no refusal, red at
+   `(280, 4, 2)`; no same-tick cooldown memory, red at 300 px. Not
+   witnessed: a rewind across the settle (the settle keeps no state of its
+   own; the bank and the cooldown are rollback state).
+3. ✅ 2026-10-11, PORTAL-VISIBILITY. `PortalSourceHidden` recorded the
+   portal's own hide, and the publisher read it as "visible but for the
+   portal": a body that died behind a pane kept its candidate and its pieces.
+   The marker keeps the change tick of the resolver's own `Hidden` write; a
+   later write is another owner's answer
+   (`PortalSourceHidden::portal_alone_hides`, also read by hit-flash). The
+   publisher removes the candidate of a drawable that is not one this frame,
+   and the compositor gives back the far-side reason of a body that is no
+   longer a candidate, so the portal lets go when the pane goes. Witness:
+   `a_body_that_dies_behind_a_pane_draws_no_pieces` (poisons: the old marker
+   rule, and no candidate removal, both red at "pieces draw the dead body";
+   without the give-back, red at the marker after the pane is gone). Not
+   witnessed: the hit-flash overlay of a body that dies behind a pane.
+4. ✅ 2026-10-11, ERRAND-INSTANCE. A cross-room errand routed by room
+   definition and entered the least live instance, so a dog sent for an item
+   in the second live instance of a room went into the first, and an item in
+   another instance of the dog's own room read as `Gone`. `errand_crossing`
+   keeps the item's live room: the last hop enters it, a route through a
+   definition live twice is refused (no rule says which instance its door
+   leads into), and a resident item no route reaches is `NoRoute`, not
+   `Gone`. Witness: `a_dog_goes_into_the_live_room_its_item_lies_in` and
+   `an_item_in_another_instance_of_the_dogs_room_has_no_route_and_is_not_gone`
+   (red with the old crossing: instance 1 for 2, and `Gone`). Open: which live
+   instance a door leads into when its definition is live twice (OW1); the
+   witnesses make the second instance by hand, as no road of the game makes
+   one yet.
+5. ✅ 2026-10-11, PLATE-LIFETIME. `RoomPlates` kept its strong image handles
+   when the quality budget turned off the system that evicts them (high ->
+   Potato): 3 pages of up to 2048 x 2048 stayed loaded. Out of budget,
+   `forget_plates_out_of_budget` drops them; back in budget they are drawn
+   again off the main thread. Witness: the high -> Potato -> high arm of
+   `a_room_look_undresses_when_its_budget_goes` counts the pages held
+   (`room_look::plate_pages_held`; poison: the system unscheduled, red at 3).
+   Not done, acceptance work per the review: profile terrain-skin setup in a
+   large room before changing it.
 
 ### WORLD-ACCEPTANCE — one headless playthrough of the persistent world
 
@@ -401,6 +444,15 @@ reads cargo output to it.
    `7174d8015`, the receipt now names the policy check). A script under
    `scripts/` no longer voids a crate's pass: no Rust source reads one
    (`test_no_rust_source_reads_or_runs_a_script`).
+   A member is named by its manifest's `[package] name` (2026-10-11,
+   `scripts/lib/cargo_package.py`, in both `required_checks.py` and
+   `run_tests.py -p`): the receipt asked for `cargo test -p
+   extension_fixture_modules`, a package that does not exist (the package of
+   `fixtures/extension_fixture_modules` is
+   `ambition_extension_fixture_modules`), and the job failed at cargo's
+   "did not match any packages" while every real check passed (witness
+   `test_a_member_is_named_by_its_manifest_not_its_directory`, red with the
+   directory rule back).
 
 7. **The repo tooling job runs on several cores (2026-10-10).** It ran
    `scripts/tests` serially, and each push waits on it. Measured on 14 cores:
@@ -579,7 +631,7 @@ Rust move tables are migration scaffolding.
 **Open work:**
 
 - The three families that did not reload (music cues, cutscenes, quests) all take part since 2026-10-07. The references a candidate can break (a room naming a removed cutscene; a quest step naming a boss or room that does not exist) are judged at request time by the startup validator itself (`ContentGraphRefused`, 2026-10-07). Supersession of an in-flight generation is done (2026-10-07), and the quest book is asked again at the activation gate with the save as it is then, so a save that moves while a generation waits cancels it instead of being clamped.
-- I4: save eligibility. GNU-ton's conductor is a module (2026-10-11). Every held traversal item is a module (blink, dive, mark/recall and the grapple, 2026-10-10; the grapple reads the first wall along its aim through `ambition.items.aim_cast`).
+- I4: save eligibility for body records and checkpoints. A session record `kept durable` is kept by the durable save since 2026-10-11 (`module_save_road`; see the I5 section). GNU-ton's conductor is a module (2026-10-11). Every held traversal item is a module (blink, dive, mark/recall and the grapple, 2026-10-10; the grapple reads the first wall along its aim through `ambition.items.aim_cast`).
 
 **Blocked by:** nothing.
 
@@ -610,9 +662,15 @@ second authoring source.
   the root of every `root__x` title. Four roots exist only as `__N` jump
   targets, so the validator accepted NpcSpawn ids the runtime cannot start
   (`a_spawn_naming_a_root_that_exists_only_as_variants_is_refused`). The ids
-  are exact titles now. Open: the ids still come from `yarn_title_ids`, a
-  `title:` line scan beside the Yarn compiler. The compiler is an optional
-  dependency (`ui`), so replacing the scan is a dependency decision.
+  are exact titles now. ✅ 2026-10-11, the catalog fold: `known_dialogue_ids`
+  also accepted each catalog `hall_dialogue_id`, so a catalog that named a
+  Hall dialogue with no node made the id valid, and the spawn started nothing.
+  The Yarn titles are the one source now; the catalog's ids are checked
+  against them (`a_hall_dialogue_the_catalog_names_with_no_node_is_refused`,
+  red with the fold put back; the control is `hall_player`). Open: the ids
+  still come from `yarn_title_ids`, a `title:` line scan beside the Yarn
+  compiler. The compiler is an optional dependency (`ui`), so replacing the
+  scan is a dependency decision.
 - LDtk/world cross-reference rules in `content_validation.rs` repeat rules that
   a world owner already checks. ✅ 2026-10-03, the LoadingZone target rule:
   `validate_ldtk_room_links` refused every zone without both targets, which <!-- cite-ok: the function's name on 2026-10-03; it is `validate_room_links` now -->
@@ -679,9 +737,18 @@ second authoring source.
   event, so the validator accepted a step on a pickup that could not advance.
   `collect_ecs_pickups` writes `ItemCollected(pickup id)`, the placement id
   the validator reads (`a_collected_pickup_reports_its_id_to_the_quests`).
-  No shipped quest uses it. Open: the cutscene bindings still read `active_area_ids`
-  from the project; that is the level-by-level read the two-per-room rule
-  needs.
+  No shipped quest uses it.
+  ✅ 2026-10-11, an area's metadata has one owner. Two levels of one active
+  area that set one field to two values were refused only for
+  `entry_cutscene`, by a per-room count in the content validator; the other 14
+  fields merged first-wins with no message. `LdtkProject::validate` folds each
+  area's levels in the composer's order and refuses each field that
+  `RoomMetadata::conflicts` names
+  (`two_levels_of_one_area_cannot_give_it_two_entry_cutscenes`, red with the
+  `entry_cutscene` arm removed; the control is one value on two levels). The
+  validator's per-room count and its `active_area_ids` room check, which held
+  by construction, are deleted; it keeps the missing-script check. Shipped
+  worlds: 0 conflicts.
   ✅ 2026-10-07, `scripts/check_world_graph_is_navigable.py` read the zone
   targets untrimmed, so it was stricter than the engine (a `"vault "` target
   resolves in the game and was reported as dangling). It reads them with the
@@ -761,9 +828,13 @@ capability interprets (`BossEncounters` → `boss_pattern`, `Cutscenes` →
 
 **Open:** the claim is *not installed*, not *not linked* (`Q106`: the crates behind
 these capabilities are unconditional dependencies); `Dialogue` has no pack
-capability (Yarn is not a pack schema), so a Yarn script asked of a profile
-without dialogue is not refused at admission; no shipped host admits content
-under a reduced profile (the refusal is witnessed at the profile's schema set);
+capability (Yarn is not a pack schema), and a module has no road to declare a
+Yarn script (`ModuleDraft` declares experiences, capabilities, rollback,
+actions and content packs), so there is nothing to refuse until one exists.
+The shipped facade admits under a profile since SG3: `PlatformerApp::profile`
+admits each module's pack against the profile's schemas
+(`a_profile_refuses_a_pack_that_needs_a_capability_it_omits`), and Outlander
+composes `COMBAT_WITHOUT_INVENTORY_BOSS_DIALOGUE`, with no pack of its own;
 `world-without-cutscenes` (2026-10-08) omits `Cutscenes` and steps; a pack
 that requires `cutscene` is refused under it. Re-entry is witnessed for
 the headless profiles (`a_second_session_in_one_process_steps_as_the_first`:
@@ -1394,10 +1465,9 @@ not worth).
 Q49: symmetry is a correctness property. Plan:
 [`engine/fighter-brain.md`](engine/fighter-brain.md#mirror-symmetry-is-a-correctness-property-q49).
 Two Emmys are one fighter reflected, compared per tick over the full state
-(`two_emmys_are_one_fighter_reflected_until_the_first_grab`), until frame 883,
-when one grab takes the other: the grab tie is an authored rule
-(`two_bodies_grabbing_each_other_on_one_tick_make_one_hold`), and inverting it
-swaps each fighter's split exactly. The decision layer has its reflection test.
+(`two_emmys_are_one_fighter_reflected_through_a_mutual_grab`). They parted on
+frame 883 while a mutual grab went to the lower `SimId`; since 2026-10-11 a
+mutual grab parries (S0.2) and they do not part. The decision layer has its reflection test.
 Each poison of plan item 5 is red: placement and an unmirrored stream in the
 match; the zero-lateral `signum`, the floor list order and the left-first
 `nearest_support` in their unit witnesses, which the match does not reach.

@@ -42,9 +42,9 @@ fn rebound(vel: ae::Vec2, impact: ThrownImpact) -> ae::Vec2 {
     -vel.normalize_or_zero() * speed
 }
 
-/// Ambition's thrown items that hurt, by held-item id. A throw leaves the hand
-/// at about 410 (`THROW_SPEED_X`, `THROW_SPEED_UP`); a fall of a body's height
-/// arrives at about 370.
+/// Ambition's thrown items that hurt, by held-item id. A tilt throw ahead
+/// leaves the hand at about 480 and a smash throw at about 820 (the held-items
+/// throw launch); a fall of a body's height arrives at about 370.
 const IMPACTS: &[(&str, ThrownImpact)] =
     &[("coconut", ThrownImpact { min_speed: 240.0, damage: 2 })];
 

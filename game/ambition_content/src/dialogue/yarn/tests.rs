@@ -7,7 +7,7 @@ fn catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog 
 
 #[test]
 fn known_dialogue_ids_are_derived_from_yarn_titles() {
-    let ids = known_dialogue_ids(&catalog());
+    let ids = known_dialogue_ids();
     assert!(ids.iter().any(|id| id == "creator_intro"));
     // A root that exists only as `__1`/`__2` jump targets cannot start, so it is
     // not an id; its variants are.
@@ -19,36 +19,12 @@ fn known_dialogue_ids_are_derived_from_yarn_titles() {
 }
 
 #[test]
-fn catalog_hall_dialogue_ids_are_known() {
-    // known_dialogue_ids(&catalog()) folds the catalog ids in so the LDtk validator
-    // accepts authored hall_<id> nodes without a second list.
-    let known = known_dialogue_ids(&catalog());
-    for expected in [
-        "hall_pirate_admiral",
-        "hall_stochastic_parrot",
-        "hall_architect",
-    ] {
-        assert!(
-            known.iter().any(|id| id == expected),
-            "{expected} should be in known_dialogue_ids(&catalog()) via the catalog fold-in"
-        );
-    }
-}
-
-#[test]
 fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
     // Pure-text cross-check — no Yarn runtime — so it runs in every config and fails at `cargo
-    // test`.
-    let yarn = yarn_sources()
-        .iter()
-        .find(|(name, _)| name.ends_with("hall.yarn"))
-        .map(|(_, text)| *text)
-        .expect("hall.yarn is a registered source");
-    let nodes: std::collections::HashSet<&str> = yarn
-        .lines()
-        .filter_map(|l| l.strip_prefix("title:"))
-        .map(str::trim)
-        .collect();
+    // test`. The titles are read by the validator's own reader: the runtime loads every source
+    // as one project, so a title in any file starts.
+    let known = known_dialogue_ids();
+    let nodes: std::collections::HashSet<&str> = known.iter().map(String::as_str).collect();
 
     let catalog = catalog();
     let missing: Vec<(&String, &str)> = catalog
@@ -67,7 +43,7 @@ fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
     assert!(
         missing.is_empty(),
         "catalog hall_dialogue_id(s) with no matching `title:` node in \
-         hall.yarn (Inspect would start an unknown node):\n{}",
+         the game's Yarn (Inspect would start an unknown node):\n{}",
         missing
             .iter()
             .map(|(id, hid)| format!("  {id} -> {hid}"))
@@ -93,7 +69,7 @@ fn the_player_pedestal_has_a_self_branch_because_the_default_character_is_the_pl
         "player_robot_v3",
         "this guard assumes the default worn character is the current incarnation",
     );
-    let known = known_dialogue_ids(&catalog());
+    let known = known_dialogue_ids();
     assert!(
         known.iter().any(|id| id == "hall_player__self"),
         "hall.yarn must author `hall_player__self`: the default player wears the \

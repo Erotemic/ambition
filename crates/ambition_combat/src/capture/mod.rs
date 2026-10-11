@@ -29,6 +29,20 @@ pub mod systems;
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct GrabInterruptionApplied;
 
+/// **A HIT BEATS A GRAB ON ONE TICK — the slot acquisition runs in.**
+///
+/// Acquisition ends the captive's move. Before damage resolves, that took
+/// away a hit the captive's move landed on the same tick, so a grab won every
+/// tie with a hit. The genre's rule is the other way: an ordinary hit beats
+/// an ordinary grab (S0.2). So the installer puts this set after damage
+/// resolves and after [`GrabInterruptionApplied`], and acquisition refuses a
+/// body a hit is moving (`BodyCombat::is_knocked`), at either end.
+///
+/// A set, not a system name, for the reason [`GrabInterruptionApplied`]
+/// gives: the guard asks the schedule graph about this node.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct CapturesAcquired;
+
 use bevy::prelude::{Component, Entity, Message, Query};
 
 use ambition_platformer2d_core as ae;
@@ -95,6 +109,19 @@ pub struct CaptureAttemptRequested {
     pub half_extents: ae::Vec2,
     /// Where a caught body will be held, captor-body-local.
     pub hold_offset: ae::Vec2,
+}
+
+/// Two bodies grabbed each other on one tick, and neither grab holds.
+///
+/// ⭐ THE PAIR, not a winner, for the reason [`crate::clank::AttacksClanked`]
+/// names its pair: a mutual grab is a tie, and a tie has no first party. Each
+/// grab ends, and both bodies rebound (`rebound_from_parried_grabs`), as two
+/// attacks that clank do. A rule that gave one of them the hold would treat two
+/// mirrored bodies differently (Q49).
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GrabsParried {
+    /// The two bodies, ascending.
+    pub owners: (Entity, Entity),
 }
 
 /// A carry: the captor takes the captive's weight and keeps hold of it.

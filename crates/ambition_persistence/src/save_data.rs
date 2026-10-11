@@ -367,14 +367,35 @@ pub struct AmbitionGameSaveData {
     /// `Arc`-shared, for the reason `occurrences` is.
     #[serde(default)]
     pub(crate) minted_items: Arc<Vec<PersistedMintedItem>>,
+    /// The session records of extension modules whose schemas the durable
+    /// save keeps (`SaveEligibility::Durable`), in key order. See
+    /// [`PersistedModuleRecord`].
+    #[serde(default)]
+    pub(crate) module_records: Vec<PersistedModuleRecord>,
+}
+
+/// One extension module record the durable save keeps: the schema it was
+/// written under and its values, each in the module ABI's exact wire
+/// encoding, with the schema key as text for a reader. A load after the
+/// module changed its fields migrates the record by field tag, so the row
+/// carries its own schema. A row of a module that is not loaded stays in the
+/// save. The extension host reads and writes these bytes
+/// (`ambition_extension_host::save`); this crate does not decode them.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct PersistedModuleRecord {
+    pub key: String,
+    pub schema: Vec<u8>,
+    pub record: Vec<u8>,
 }
 
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
+/// v5 adds `module_records`.
 ///
-/// The bump is on an additive change. With `#[serde(default)]`, a v3 file loads
-/// with three empty lists, which is the correct reading. The bump makes a v4
-/// file `FromTheFuture` to a v3 build, so that build does not overwrite it.
-pub const CURRENT_SAVE_VERSION: u32 = 4;
+/// The bump is on an additive change. With `#[serde(default)]`, a v4 file loads
+/// with an empty list, which is the correct reading. The bump makes a v5 file
+/// `FromTheFuture` to a v4 build, so that build does not overwrite it and drop
+/// the records it cannot read.
+pub const CURRENT_SAVE_VERSION: u32 = 5;
 
 /// What a file with no `version` field actually is: written by a build from
 /// before the field existed, i.e. v1.
@@ -436,6 +457,7 @@ impl AmbitionGameSaveData {
             occurrences: Arc::default(),
             custody: Vec::new(),
             minted_items: Arc::default(),
+            module_records: Vec::new(),
         }
     }
 
@@ -605,6 +627,16 @@ impl AmbitionGameSaveData {
         self.minted_items = Arc::new(minted_items);
     }
 
+    /// The extension module records the durable save keeps.
+    pub fn module_records(&self) -> &[PersistedModuleRecord] {
+        &self.module_records
+    }
+
+    /// Replace the extension module records.
+    pub fn set_module_records(&mut self, module_records: Vec<PersistedModuleRecord>) {
+        self.module_records = module_records;
+    }
+
     /// Which durable fact families differ between two saves, by name.
     ///
     /// The exhaustive destructure of both sides is the guard. Do not replace it
@@ -626,6 +658,7 @@ impl AmbitionGameSaveData {
             occurrences,
             custody,
             minted_items,
+            module_records,
         } = self;
         let Self {
             version: _,
@@ -642,6 +675,7 @@ impl AmbitionGameSaveData {
             occurrences: o_occurrences,
             custody: o_custody,
             minted_items: o_minted_items,
+            module_records: o_module_records,
         } = other;
         let mut differ = Vec::new();
         let mut check = |name: &'static str, same: bool| {
@@ -662,6 +696,7 @@ impl AmbitionGameSaveData {
         check("occurrences", occurrences == o_occurrences);
         check("custody", custody == o_custody);
         check("minted_items", minted_items == o_minted_items);
+        check("module_records", module_records == o_module_records);
         differ
     }
 
@@ -767,6 +802,8 @@ impl AmbitionGameSaveData {
                 2 => {}
                 // v3 → v4: additive; three empty lists is correct for a v3 file.
                 3 => {}
+                // v4 → v5: additive; no module records is correct for a v4 file.
+                4 => {}
                 // A version bump without a migration step is an incompatibility,
                 // not a panic. The caller preserves the bytes and uses defaults.
                 other => {
@@ -796,6 +833,7 @@ impl AmbitionGameSaveData {
             occurrences,
             custody,
             minted_items,
+            module_records,
         } = self;
         encounters.clear();
         switches.clear();
@@ -810,6 +848,7 @@ impl AmbitionGameSaveData {
         *occurrences = Arc::default();
         custody.clear();
         *minted_items = Arc::default();
+        module_records.clear();
     }
 }
 
@@ -839,6 +878,13 @@ mod tests {
             (vec!["dialog_visits"], |d| d.increment_dialog_visit("dv")),
             (vec!["checkpoint"], |d| {
                 d.set_checkpoint(PersistedCheckpoint::new("room", 1, 2))
+            }),
+            (vec!["module_records"], |d| {
+                d.set_module_records(vec![PersistedModuleRecord {
+                    key: "test::k@1".into(),
+                    schema: vec![1],
+                    record: vec![2],
+                }])
             }),
             (vec!["minted_items"], |d| {
                 d.set_minted_items(vec![PersistedMintedItem {
@@ -904,6 +950,7 @@ mod tests {
             "occurrences",
             "custody",
             "minted_items",
+            "module_records",
         ]
         .into_iter()
         .collect();
@@ -1287,6 +1334,7 @@ mod tests {
             occurrences,
             custody,
             minted_items,
+            module_records,
         } = &data;
 
         // Anti-vacuity: a fresh save must hold no durable facts.
@@ -1300,7 +1348,8 @@ mod tests {
                 && dialog_visits.is_empty()
                 && occurrences.is_empty()
                 && custody.is_empty()
-                && minted_items.is_empty(),
+                && minted_items.is_empty()
+                && module_records.is_empty(),
             "a new save carries no durable world facts to retract"
         );
         assert!(

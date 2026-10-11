@@ -381,8 +381,20 @@ impl GroundItem {
 }
 
 const GROUND_ITEM_GRAVITY: f32 = 1400.0;
-const THROW_SPEED_X: f32 = 320.0;
-const THROW_SPEED_UP: f32 = 260.0;
+
+/// A throw's launch in the thrower's local frame (`x` = facing side, `y` =
+/// toward the feet), for each direction of the stick, as in Smash: forward
+/// (also a centred stick), back, up and down. Back throws behind the body and
+/// does not turn it.
+const THROW_FORWARD: Vec2 = Vec2::new(440.0, -200.0);
+const THROW_UP: Vec2 = Vec2::new(0.0, -700.0);
+const THROW_DOWN: Vec2 = Vec2::new(0.0, 560.0);
+/// A smash throw (the stick flicked with the press, as a smash attack is) is
+/// this much faster than a tilt throw in the same direction.
+const SMASH_THROW_SCALE: f32 = 1.7;
+/// The part of the thrower's own velocity the item keeps: a throw on the run
+/// goes further, and a throw while falling falls with you.
+const THROW_MOMENTUM: f32 = 0.5;
 
 /// THIS ITEM REACHED A BODY THIS TICK, AND HOW FAST IT WAS GOING.
 ///
@@ -1506,6 +1518,13 @@ impl BagSpendsSinceCheckpoint {
 /// press spent where it is spent is what makes "one press, one action" hold
 /// across the phase boundary; the alternative is an ordering constraint between
 /// two phases that exist to be independent.
+///
+/// ⭐ A THROW HAS A DIRECTION AND A STRENGTH, read from the press the way an
+/// attack's are: the body's gesture interpreter classifies it. This runs before
+/// the interpreter's own system this tick (`PlayerSimulation` before `Combat`),
+/// so it asks the interpreter on a COPY of the body's gesture state with this
+/// tick's input, which is the answer the interpreter gives later in the tick.
+/// One set of flick thresholds, not a second one for items.
 pub fn throw_held_item_system(
     mut commands: SessionCommands,
     driven: DrivenBodies,
@@ -1517,6 +1536,11 @@ pub fn throw_held_item_system(
             &BodyKinematics,
             RepertoireQuery,
             Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+            (
+                &ambition_characters::actor::attack_gesture::AttackGestureState,
+                &ambition_characters::actor::attack_gesture::AttackGestureTuning,
+                Option<&ambition_platformer2d_core::BodyGroundState>,
+            ),
         ),
         With<HeldItem>,
     >,
@@ -1541,7 +1565,7 @@ pub fn throw_held_item_system(
         return;
     };
     for player in driven.entities() {
-        let Ok((mut control, kin, mut repertoire, room)) = bodies.get_mut(player) else {
+        let Ok((mut control, kin, mut repertoire, room, (gesture, tuning, ground))) = bodies.get_mut(player) else {
             continue;
         };
         let Some(held) = repertoire.held else {
@@ -1580,6 +1604,23 @@ pub fn throw_held_item_system(
         };
         let spec = held.spec.clone();
         let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
+        // The press as an attack: its direction and its strength.
+        let aimed = {
+            let mut probe = *gesture;
+            let frame = &control.0;
+            ambition_characters::actor::attack_gesture::resolve_attack_gesture(
+                &mut probe,
+                *tuning,
+                frame.attack_axis,
+                facing,
+                ground.map(|g| g.on_ground).unwrap_or(true),
+                true,
+                frame.melee_held,
+                false,
+                frame.melee_strength_hint,
+            )
+            .pressed
+        };
         // The launch is authored in the body's LOCAL frame (x = forward/side,
         // y = toward-feet) and rotated into the body's gravity frame, so the throw
         // arcs "ahead + away from feet" under ANY gravity — identity under normal
@@ -1591,11 +1632,12 @@ pub fn throw_held_item_system(
                 ae::Aabb::new(kin.pos, kin.size * 0.5),
             ));
         let (throw_pos, throw_vel) = match release {
-            // Forward + away-from-feet, in the local frame → world.
-            Release::Throw => (
-                kin.pos + frame.to_world(Vec2::new(facing * THROW_AHEAD, 0.0)),
-                frame.to_world(Vec2::new(facing * THROW_SPEED_X, -THROW_SPEED_UP)),
-            ),
+            // The launch for the press's direction, in the local frame → world,
+            // with part of the thrower's own motion.
+            Release::Throw => {
+                let (from, launch) = throw_launch(aimed, facing, kin.size);
+                (kin.pos + frame.to_world(from), frame.to_world(launch) + kin.vel * THROW_MOMENTUM)
+            }
             // ⭐ WHERE THE BODY IS, WITH NOTHING ADDED. Not "a weak throw": a drop
             // that inherited a fraction of the forward offset would still place the
             // item ahead of the body, and the whole point is that it lands where you
@@ -1696,6 +1738,36 @@ pub fn throw_held_item_system(
             thrown.insert(*room);
         }
     }
+}
+
+/// Where a throw leaves the body and how fast, in the thrower's local frame,
+/// for the press `aimed` (none: a forward tilt throw). An up throw leaves over
+/// the head and a down throw from the body's centre, so neither starts inside
+/// the floor or the ceiling it is aimed at more than the body itself does.
+fn throw_launch(
+    aimed: Option<ambition_characters::actor::attack_gesture::AttackGestureIntent>,
+    facing: f32,
+    body: Vec2,
+) -> (Vec2, Vec2) {
+    use ambition_characters::actor::attack_gesture::{AttackDir, AttackStrength};
+    let direction = aimed.map_or(AttackDir::Neutral, |aimed| aimed.direction);
+    let scale = match aimed.map(|aimed| aimed.strength) {
+        Some(AttackStrength::Smash) => SMASH_THROW_SCALE,
+        _ => 1.0,
+    };
+    let (from, launch) = match direction {
+        AttackDir::Neutral | AttackDir::Forward => (
+            Vec2::new(facing * THROW_AHEAD, 0.0),
+            Vec2::new(facing * THROW_FORWARD.x, THROW_FORWARD.y),
+        ),
+        AttackDir::Back => (
+            Vec2::new(-facing * THROW_AHEAD, 0.0),
+            Vec2::new(-facing * THROW_FORWARD.x, THROW_FORWARD.y),
+        ),
+        AttackDir::Up => (Vec2::new(0.0, -body.y * 0.5), THROW_UP),
+        AttackDir::Down => (Vec2::ZERO, THROW_DOWN),
+    };
+    (from, launch * scale)
 }
 
 // ---------------------------------------------------------------------------

@@ -1862,3 +1862,70 @@ fn the_decision_of_a_reflected_scene_is_the_reflected_decision() {
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+/// A recovering body below the top of the stage does not steer in under it.
+/// It steered to the centre of the room, which is over the floor: from below
+/// the top that is under the floor, and the floor stopped its jumps until it
+/// fell out of the room (the George mirror bout, seat 0, x = 571, y = 353).
+///
+/// The stage is the smash stage: a floor from x = 80 to 560, top at y = 300.
+/// Each case is also asked mirrored about x = 320, so the rule cannot hold on
+/// one side only.
+#[test]
+fn a_recovering_body_below_the_top_does_not_steer_under_the_floor() {
+    let steer_at = |x: f32, y: f32| {
+        let mut view = scene(x, 320.0);
+        view.self_view.pos = ae::Vec2::new(x, y);
+        view.self_view.on_ground = false;
+        view.self_view.half_extent = ae::Vec2::new(12.0, 20.0);
+        view.terrain = vec![ambition_characters::perception::PerceivedSolid {
+            aabb: ae::Aabb::new(ae::Vec2::new(320.0, 316.0), ae::Vec2::new(240.0, 16.0)),
+            kind: ambition_characters::perception::SolidKind::Solid,
+            open_for_self: false,
+        }];
+        let mut out = ActorControlFrame::neutral();
+        apply_movement(
+            MovementVerb::Recover,
+            ambition_characters::perception::Perceived::cheating(&view),
+            &mut out,
+        );
+        assert!(out.jump_held, "a recovery jumps");
+        (out.locomotion.x, out.facing)
+    };
+    for side in [1.0_f32, -1.0] {
+        let x = |right_x: f32| 320.0 + side * (right_x - 320.0);
+        // Beside the floor and below its top: hold the side, face the floor.
+        assert_eq!(steer_at(x(600.0), 360.0), (0.0, -side), "beside and below, side {side}");
+        // Under the floor: go out from under it.
+        assert_eq!(steer_at(x(550.0), 360.0), (side, -side), "under the floor, side {side}");
+        // Control: above the top, go in.
+        assert_eq!(steer_at(x(600.0), 250.0), (-side, -side), "above the top, side {side}");
+    }
+}
+
+/// Twin floors seen from the centre line tie on side distance and on height.
+/// The floor the body faces wins, so two mirrored bodies steer mirrored, and
+/// the list order of the terrain decides nothing (Q49).
+#[test]
+fn twin_floors_are_told_apart_by_the_facing_and_not_by_the_list() {
+    let ledge_for = |facing: f32, reversed: bool| {
+        let mut view = scene(320.0, 500.0);
+        view.self_view.pos = ae::Vec2::new(320.0, 360.0);
+        view.self_view.facing = facing;
+        view.self_view.half_extent = ae::Vec2::new(12.0, 20.0);
+        let shelf = |cx: f32| ambition_characters::perception::PerceivedSolid {
+            aabb: ae::Aabb::new(ae::Vec2::new(cx, 316.0), ae::Vec2::new(48.0, 16.0)),
+            kind: ambition_characters::perception::SolidKind::Solid,
+            open_for_self: false,
+        };
+        view.terrain = vec![shelf(220.0), shelf(420.0)];
+        if reversed {
+            view.terrain.reverse();
+        }
+        view.recovery_ledge().expect("a floor").toward
+    };
+    for reversed in [false, true] {
+        assert_eq!(ledge_for(1.0, reversed), 100.0, "facing right, list reversed {reversed}");
+        assert_eq!(ledge_for(-1.0, reversed), -100.0, "facing left, list reversed {reversed}");
+    }
+}

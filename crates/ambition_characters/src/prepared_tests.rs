@@ -161,6 +161,7 @@ fn a_hurtbox_override_for_an_undeclared_move_is_named() {
                         offset: (0.0, 0.0),
                         half_extents: (4.0, 8.0),
                     },
+                    defense: Default::default(),
                 }],
             }],
         },

@@ -10,6 +10,7 @@ fn boxes(half_w: f32, half_h: f32) -> Vec<HurtboxVolume> {
             offset: (0.0, 0.0),
             half_extents: (half_w, half_h),
         },
+        defense: Default::default(),
     }]
 }
 
@@ -150,6 +151,7 @@ fn a_keyframe_may_carry_several_volumes() {
                             offset: (0.0, -8.0),
                             half_extents: (5.0, 8.0),
                         },
+                        defense: Default::default(),
                     },
                     // A circle beside a rect: both shapes, one body.
                     HurtboxVolume {
@@ -157,6 +159,7 @@ fn a_keyframe_may_carry_several_volumes() {
                             offset: (0.0, 6.0),
                             radius: 5.0,
                         },
+                        defense: Default::default(),
                     },
                 ],
             }],

@@ -211,6 +211,7 @@ fn inset_timeline(
                     offset: (offset.x, offset.y),
                     half_extents: (half_extents.x, half_extents.y),
                 },
+                defense: Default::default(),
             }],
         }],
     }

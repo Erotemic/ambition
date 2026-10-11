@@ -56,6 +56,7 @@ fn narrow_torso() -> HurtboxDoc {
                         offset: (0.0, 0.0),
                         half_extents: AUTHORED_HALF,
                     },
+                    defense: Default::default(),
                 }],
             }],
         }),
@@ -364,6 +365,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
                         offset: (0.0, 0.0),
                         half_extents: (4.0, 18.0),
                     },
+                    defense: Default::default(),
                 }],
             }],
         }),
@@ -379,6 +381,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
                                 offset: (0.0, 0.0),
                                 half_extents: (4.0, 18.0),
                             },
+                            defense: Default::default(),
                         }],
                     },
                     HurtboxKeyframe {
@@ -388,6 +391,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
                                 offset: (0.0, 0.0),
                                 half_extents: (30.0, 18.0),
                             },
+                            defense: Default::default(),
                         }],
                     },
                 ],
@@ -514,4 +518,49 @@ fn widening_swing() -> ambition_entity_catalog::MoveSpec {
         repeat: None,
         flow: None,
     }
+}
+
+/// A body with a torso and an arm, the arm's region of `arm` defense.
+fn torso_and_arm(arm: ambition_entity_catalog::HurtDefense) -> HurtboxDoc {
+    let rect = |offset: (f32, f32), half_extents: (f32, f32), defense| HurtboxVolume {
+        shape: VolumeShape::Rect { offset, half_extents },
+        defense,
+    };
+    HurtboxDoc {
+        default: Some(HurtboxTimeline {
+            keyframes: vec![HurtboxKeyframe {
+                at_s: 0.0,
+                volumes: vec![
+                    rect((0.0, 0.0), AUTHORED_HALF, ambition_entity_catalog::HurtDefense::Vulnerable),
+                    // From x = 6 to x = 14: beside the torso, inside the coarse box.
+                    rect((10.0, 0.0), (4.0, 6.0), arm),
+                ],
+            }],
+        }),
+        poses: Default::default(),
+        moves: Default::default(),
+    }
+}
+
+/// S0.6, localized intangibility: a strike passes through an intangible arm,
+/// and lands on the torso beside it when it reaches that too. Through the
+/// production road: the resolver, the damageable publisher and the damage
+/// system.
+#[test]
+fn a_strike_passes_through_an_intangible_region_and_lands_on_a_vulnerable_one() {
+    use ambition_entity_catalog::HurtDefense::{Intangible, Vulnerable};
+    let hits = |arm, strike_x: f32, half_width: f32| {
+        let mut app = fight_app();
+        let body = spawn_authored_body(&mut app, false);
+        app.world_mut().entity_mut(body).insert(AuthoredHurtboxes(torso_and_arm(arm)));
+        spawn_strike(&mut app, strike_x, half_width);
+        app.update();
+        app.world().resource::<CapturedHits>().0.len()
+    };
+    // The arm only (x from 9 to 13; the torso ends at x = 4).
+    assert_eq!(hits(Intangible, 11.0, 2.0), 0, "a strike that reaches only an intangible arm landed");
+    // Control: the same strike on a vulnerable arm lands.
+    assert_eq!(hits(Vulnerable, 11.0, 2.0), 1, "a strike on a vulnerable arm missed");
+    // The arm and the torso (x from 0 to 12): it lands, on the torso.
+    assert_eq!(hits(Intangible, 6.0, 6.0), 1, "a strike that also reaches the torso missed");
 }

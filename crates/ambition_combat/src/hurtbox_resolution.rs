@@ -426,6 +426,9 @@ impl ResolvedHurtboxes {
         Some(
             self.volumes
                 .iter()
+                // An intangible region is not damageable (S0.6). The
+                // damageable publisher is this method's one caller.
+                .filter(|volume| volume.defense.is_vulnerable())
                 .map(|volume| hurtbox_world_aabb(volume, body_center, facing))
                 .collect(),
         )

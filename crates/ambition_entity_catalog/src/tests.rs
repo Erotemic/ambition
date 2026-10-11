@@ -711,12 +711,14 @@ fn hurt_rect(offset: (f32, f32), half_extents: (f32, f32)) -> HurtboxVolume {
             offset,
             half_extents,
         },
+        defense: Default::default(),
     }
 }
 
 fn hurt_circle(offset: (f32, f32), radius: f32) -> HurtboxVolume {
     HurtboxVolume {
         shape: VolumeShape::Circle { offset, radius },
+        defense: Default::default(),
     }
 }
 

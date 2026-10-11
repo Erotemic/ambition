@@ -17,6 +17,7 @@ pub mod dive;
 pub mod echo_fan;
 pub mod eye_beam;
 pub mod fsm;
+pub mod gnu_ton;
 pub mod gradient_cascade;
 pub mod gradient_nova;
 pub mod grapple;

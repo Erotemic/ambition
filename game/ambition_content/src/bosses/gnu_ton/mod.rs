@@ -1,6 +1,7 @@
 //! GNU-ton: the scholar who stands on the shoulders of a giant.
 //!
-//! * [`choreography`] — what his fists do, as pure functions of time.
+//! * `ambition_content_modules::gnu_ton::choreography` — what his fists do,
+//!   as pure functions of time.
 //! * [`conductor`] — the ECS side: reads his live move and performs it.
 //! * This file — the arena's exit gating.
 //!
@@ -17,7 +18,6 @@ use bevy::prelude::*;
 use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_core::RoomGeometry;
 
-pub mod choreography;
 pub mod conductor;
 
 pub use conductor::{conduct_gnu_ton, GnuTonConductor};

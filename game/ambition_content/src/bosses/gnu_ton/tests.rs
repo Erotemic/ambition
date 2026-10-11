@@ -484,3 +484,98 @@ fn each_live_arena_gates_its_ladder_by_its_own_boss() {
         "(room, ladder carves, floor gate removed): each arena did not follow its own boss"
     );
 }
+
+/// The choreography's rows against the sheets the game ships: the
+/// choreography is in the module crate, and the catalogs are here.
+mod pinned_rows {
+    use ambition_content_modules::gnu_ton::choreography::*;
+    use ambition_platformer2d_core::Vec2;
+
+    fn stage() -> Stage {
+        Stage {
+            hall: Hall { floor: 1248.0, left: 16.0, right: 1776.0 },
+            homes: [Vec2::new(600.0, 1000.0), Vec2::new(1200.0, 1000.0)],
+            scholar: Vec2::new(850.0, 970.0),
+            fist: Vec2::new(130.0, 100.0),
+        }
+    }
+
+    fn latch(aim_x: f32) -> Latch {
+        Latch { aim: Vec2::new(aim_x, 1225.0), lead: Some(Fist::Left), from: stage().homes, curve_phase: 0.0 }
+    }
+
+    fn cue(mv: Move, striking: bool, t: f32, dur: f32) -> Cue {
+        Cue { mv, striking, t, dur, tel_dur: 1.0, beat_t: if striking { 1.0 + t } else { t }, clock: 0.0 }
+    }
+
+    /// Every row a pin can name is on the sheet that body draws with, at every
+    /// quality tier. A pin naming a row the sheet lacks draws the body's slot
+    /// row instead — silently — so a renamed or misspelled row would put the
+    /// scholar back in his resting pose with nothing red. The sheet keys come
+    /// from where the game resolves them (the boss sprite table, the character
+    /// catalog), not a copy here.
+    #[test]
+    fn every_row_a_pin_names_is_on_the_sheet_that_draws_it() {
+        use ambition_sprite_sheet::boss::boss_ron_target;
+        use ambition_sprite_sheet::character::sheets::{available_sheet_keys, record_for_sheet_key};
+        use std::collections::BTreeSet;
+
+        let mut scholar = BTreeSet::new();
+        let mut gnu = BTreeSet::new();
+        let mut fist = BTreeSet::new();
+        let s = stage();
+        let l = latch(900.0);
+        for mv in Move::ALL {
+            for striking in [false, true] {
+                let dur = 3.4;
+                for step in 0..=68 {
+                    let c = cue(mv, striking, dur * step as f32 / 68.0, dur);
+                    scholar.extend(rows::scholar(Some(&c)).into_iter().flat_map(|p| p.0.iter().copied()));
+                    gnu.extend(rows::gnu(Some(&c)).into_iter().flat_map(|p| p.0.iter().copied()));
+                    for f in [Fist::Left, Fist::Right] {
+                        fist.extend(rows::fist(&perform(&s, &l, f, &c), 0.0).0.iter().copied());
+                    }
+                }
+            }
+        }
+        // The sample reaches every pose each body is choreographed into.
+        for (body, named, expected) in [
+            ("scholar", &scholar, &["point", "conduct", "invoke", "brace", "tumble", "dazed", "climb"][..]),
+            ("gnu", &gnu, &["buck", "stomp"][..]),
+            ("fist", &fist, &["rest", "fall", "stuck"][..]),
+        ] {
+            assert_eq!(named, &expected.iter().copied().collect::<BTreeSet<_>>(), "{body}");
+        }
+
+        let catalog = crate::character_catalog::shipped_catalog();
+        let sheet_of_character = |id: &str| {
+            boss_ron_target(&catalog.get(id).expect(id).spritesheet).expect(id).to_string()
+        };
+        let rider = crate::bosses::shipped_boss_catalog()
+            .sprite_filenames()
+            .find(|(sheet, _)| *sheet == crate::bosses::gnu_ton::conductor::GNU_TON_ID)
+            .map(|(_, file)| file.to_owned())
+            .expect("the rider's sheet has a file");
+        let bodies = [
+            (boss_ron_target(&rider).expect("rider sheet").to_string(), &scholar),
+            (sheet_of_character("npc_giant_gnu"), &gnu),
+            (sheet_of_character("npc_giant_gnu_hands"), &fist),
+        ];
+        for (key, named) in bodies {
+            let tiers: Vec<&str> = available_sheet_keys()
+                .into_iter()
+                .filter(|k| *k == key || k.strip_prefix(key.as_str()).is_some_and(|rest| rest.starts_with('.')))
+                .collect();
+            assert!(tiers.len() >= 2, "`{key}` should ship with its quality tiers: {tiers:?}");
+            for tier in tiers {
+                let record = record_for_sheet_key(tier).expect("a listed key has a record");
+                for row in named.iter() {
+                    assert!(
+                        record.first_bound_row([*row]).is_some(),
+                        "`{tier}` has no `{row}` row; the pin would silently draw the slot row"
+                    );
+                }
+            }
+        }
+    }
+}

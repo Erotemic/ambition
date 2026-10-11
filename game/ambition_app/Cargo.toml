@@ -288,6 +288,9 @@ path = "tests/app_it.rs"
 # character, and decline to declare presentation. That proof is worth keeping and
 # the crate is not worth shipping, so it builds for tests and not for the game.
 ambition_demo_pocket = { path = "../ambition_demo_pocket" }
+# `tests/gnu_ton_fight.rs` names the moves of GNU-ton's choreography, which is
+# in the module crate.
+ambition_content_modules = { path = "../ambition_content_modules" }
 # Compiler-confirmed unused under default AND --all-features at [dependencies]
 # (-W unused_crate_dependencies, docs/planning/triage/unused-dependency-census.md,
 # 2026-09-18): only tests/replay_fixture_regression.rs (serde) and

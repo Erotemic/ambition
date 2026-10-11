@@ -6,7 +6,7 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
-use ambition_content::bosses::gnu_ton::choreography::Move;
+use ambition_content_modules::gnu_ton::choreography::Move;
 use ambition_platformer2d::mount::BackLedge;
 use ambition_content::bosses::gnu_ton::GnuTonConductor;
 use ambition_platformer2d::boss_encounter::BossConfig;

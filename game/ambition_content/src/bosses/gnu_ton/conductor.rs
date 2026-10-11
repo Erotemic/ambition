@@ -3,7 +3,7 @@
 //! The boss brain decides WHAT he does (the scripted pattern in
 //! `boss_profiles.ron`, every move a `Special` key). This module decides what
 //! that looks like: it reads the scholar's [`BossAttackState`], latches the
-//! facts a beat needs when it begins, asks [`super::choreography`] where each
+//! facts a beat needs when it begins, asks [`ch`] where each
 //! fist is, and writes the result — pose, hit volume, telegraph ink, sound.
 //!
 //! Three more things the fight needs:
@@ -39,7 +39,8 @@ use ambition_platformer2d::vfx::VfxWriter;
 use ambition_combat::components::ActorTarget;
 use ambition_vfx::HitSide;
 
-use super::choreography::{self as ch, Cue, Fist, Hall, Latch, Move, Pose, Stage};
+use ambition_content_modules::gnu_ton::choreography::{self as ch, Cue, Fist, Latch, Move, Pose, Stage};
+use crate::bosses::hall::Hall;
 
 /// The boss this conducts.
 pub const GNU_TON_ID: &str = "gnu_ton_rider";
@@ -494,7 +495,7 @@ pub fn conduct_gnu_ton(
             fist_entities[i].and_then(|e| fists.get(e).ok().map(|(.., limb)| limb.home_offset))
         });
         let stage = Stage {
-            hall,
+            hall: ch::Hall { floor: hall.floor, left: hall.left, right: hall.right },
             homes: homes(&giant_kin, rests),
             scholar: scholar_kin.pos,
             fist: fist_size,

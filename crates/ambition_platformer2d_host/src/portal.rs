@@ -973,6 +973,64 @@ mod tests {
         );
     }
 
+    /// A body that straddles a portal keeps its own sprite, and the exit copy
+    /// is drawn beside it, through the host's own bridges.
+    ///
+    /// It lived in `ambition_content`, over a hand copy of these bridges (this
+    /// crate is above that one). The copy published no `PortalTransitView`, so
+    /// the piece builder saw no transit and drew nothing, and the test was red
+    /// in the feature job only. Here it runs the shipped bridges.
+    #[test]
+    fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
+        use super::host_adapter::tag_portal_scene_bodies;
+        use ambition_portal2d::{portal_half_extent, PlacedPortal, PortalChannel, PortalGunColor, PortalTransit};
+        use ambition_portal2d_presentation::{sync_portal_body_pieces, PortalBodyPiece};
+        use ambition_render::rendering::PlayerVisual;
+        let blue = PortalChannel::Gun(PortalGunColor::BLUE);
+        let orange = PortalChannel::Gun(PortalGunColor::ORANGE);
+        let mut app = App::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            RoomGeometry(ambition_platformer2d_core::World::new(
+                "portal_test",
+                Vec2::new(400.0, 400.0),
+                Vec2::new(200.0, 360.0),
+                Vec::new(),
+            )),
+        );
+        app.init_resource::<ambition_portal2d_presentation::PortalEffectSelection>();
+        app.add_systems(
+            Update,
+            (tag_portal_scene_bodies, publish_portal_body_views, sync_portal_body_pieces).chain(),
+        );
+        // A floor pair, so a body standing on the blue portal straddles its plane.
+        let floor = Vec2::new(0.0, -1.0);
+        app.world_mut()
+            .spawn(PlacedPortal::fixed(blue, Vec2::new(200.0, 300.0), floor, portal_half_extent(floor)));
+        app.world_mut()
+            .spawn(PlacedPortal::fixed(orange, Vec2::new(300.0, 300.0), floor, portal_half_extent(floor)));
+        // Its feet are below the plane (y 275..315, plane 300).
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerVisual,
+                body(Vec2::new(200.0, 295.0)),
+                ambition_platformer2d_core::BodyBaseSize { base_size: Vec2::new(24.0, 40.0) },
+                Sprite::from_color(Color::WHITE, Vec2::new(24.0, 40.0)),
+                Visibility::Inherited,
+                PortalTransit { straddling: blue, crossed: false },
+            ))
+            .id();
+        app.update();
+        assert_eq!(
+            *app.world().get::<Visibility>(player).unwrap(),
+            Visibility::Inherited,
+            "the real character sprite is hidden"
+        );
+        let pieces = app.world_mut().query::<&PortalBodyPiece>().iter(app.world()).count();
+        assert_eq!(pieces, 1, "exit sprite copy only, no masks");
+    }
+
     /// The portal affordances (held gun, disorientation indicator) follow the
     /// CONTROLLED body, so possessing an actor moves the gun into the possessed
     /// actor's hand — and takes it out of the home avatar's.

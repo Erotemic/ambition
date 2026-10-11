@@ -17,7 +17,8 @@ mod tests;
 
 #[cfg(test)]
 use intent::{
-    resolve_adaptive_directive, resolve_directive_for_binding, LARGE_BRUTE_DELAY_SECONDS,
+    resolve_adaptive_directive, resolve_directive_for_binding, resolve_room_directive,
+    LARGE_BRUTE_DELAY_SECONDS,
 };
 
 #[cfg(test)]

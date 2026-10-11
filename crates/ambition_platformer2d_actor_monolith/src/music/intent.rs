@@ -5,6 +5,10 @@
 //! requests, the radio station, the sandbox default-track config) and resolves
 //! them into the content-agnostic [`MusicIntent`] that the director consumes.
 //!
+//! Two kinds of binding ask for an adaptive cue: an encounter's (its phases
+//! and waves choose the state) and a room's (the room chooses the state, and
+//! rooms that bind one cue share its playback). An encounter's wins.
+//!
 //! The director ([`super::director`]) names no encounter, boss, room, or track
 //! and imports none of these gameplay modules — it only looks up cue/state and
 //! track ids that *this* module decided on. That inversion is the reusable-crate
@@ -24,7 +28,9 @@ use ambition_encounter::{
 use ambition_audio::music::{
     AdaptiveCueDirective, MusicDirectorState, MusicIntent,
 };
-use ambition_audio::music::{AdaptiveMusicCatalogRegistry, EncounterMusicBinding, MusicCueCatalog};
+use ambition_audio::music::{
+    AdaptiveMusicCatalogRegistry, EncounterMusicBinding, MusicCueCatalog, MusicDirectorMode,
+};
 
 /// Delay after wave 2 starts before the music promotes to its "reinforced"
 /// (large-brute) state. Content tuning — owned here, not by the director.
@@ -158,7 +164,21 @@ pub fn compute_music_intent(
     let Some(definition) = rooms.definition_named(heard) else {
         return;
     };
-    let room = &rooms.rooms().spec(definition).metadata;
+    let room_spec = rooms.rooms().spec(definition);
+    let room = &room_spec.metadata;
+    // The room's own adaptive cue is the room's music: a conversation's track
+    // and the radio are above it, as they are above `music_track`.
+    let above_the_room = narrative_music.as_deref().and_then(|music| music.track()).is_some()
+        || radio.as_deref().and_then(|radio| radio.selected_track()).is_some();
+    let adaptive = adaptive.or_else(|| match (active_catalog, director.as_ref()) {
+        (Some(catalog), Some(director)) if !above_the_room => resolve_room_directive(
+            catalog,
+            &room_spec.id,
+            encounter_music.desired_track(heard).is_some(),
+            director,
+        ),
+        _ => None,
+    });
     let candidates = simple_track_candidates(
         room.music_track.as_deref(),
         room.fight_music_track.as_deref(),
@@ -266,6 +286,46 @@ pub(super) fn resolve_adaptive_directive(
         }
     }
     None
+}
+
+/// The adaptive directive of the room the music plays for, from its room
+/// binding. `None` when the room binds no cue, and when a fight is on and the
+/// binding has no `fight_state`: the fight's own track plays then.
+///
+/// The entry state is asked for only while the cue is not playing. The frame
+/// after the director starts it, this asks for the room's state, and the
+/// director goes there when the entry section ends.
+pub(super) fn resolve_room_directive(
+    catalog: &MusicCueCatalog,
+    room_id: &str,
+    fight_on: bool,
+    director: &MusicDirectorState,
+) -> Option<AdaptiveCueDirective> {
+    let binding = catalog
+        .room_bindings()
+        .iter()
+        .find(|binding| binding.room_id == room_id)?;
+    let state_id = if fight_on {
+        binding.fight_state.as_ref()?
+    } else {
+        // The director starts a cue again from these modes, also when the
+        // cue id is the same (`should_restart_adaptive`).
+        let playing = director.active_cue_id.as_deref() == Some(binding.cue_id.as_str())
+            && matches!(
+                director.mode,
+                MusicDirectorMode::AdaptiveIntro
+                    | MusicDirectorMode::AdaptiveLoop
+                    | MusicDirectorMode::AdaptiveOutro
+            );
+        match &binding.entry_state {
+            Some(entry) if !playing => entry,
+            _ => &binding.state,
+        }
+    };
+    Some(AdaptiveCueDirective::Play {
+        cue_id: binding.cue_id.clone(),
+        state_id: state_id.clone(),
+    })
 }
 
 /// Resolve a single encounter binding's adaptive cue directive.

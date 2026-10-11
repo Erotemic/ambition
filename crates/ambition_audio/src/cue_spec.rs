@@ -1,5 +1,5 @@
 //! Adaptive music cues as authored data: the cue graph (sections, layers,
-//! states) and the encounter bindings that choose a cue.
+//! states) and the encounter and room bindings that choose a cue.
 //!
 //! These types do not need the Kira backend, so a headless content compiler
 //! can read and check them. The director (`crate::music`, with the `kira`
@@ -116,6 +116,30 @@ pub struct EncounterMusicBinding {
     pub cleared_state: String,
 }
 
+/// The adaptive music of one room: the cue state the room holds while it is
+/// the room the music plays for. It takes the place of the room's own
+/// `music_track`.
+///
+/// Rooms that bind one cue share its playback. A change of room changes the
+/// state only: states on one section change layer gains while the section
+/// plays on, and a state on another section starts at the next bar.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RoomMusicBinding {
+    pub room_id: String,
+    pub cue_id: String,
+    pub state: String,
+    /// The state the cue starts in when it is not playing: a section that
+    /// does not loop. The director plays that section to its end, then goes
+    /// to `state`. `None` starts in `state`.
+    #[serde(default)]
+    pub entry_state: Option<String>,
+    /// The state while a fight is on in the room. `None` gives the room to
+    /// the fight's own track for that time.
+    #[serde(default)]
+    pub fight_state: Option<String>,
+}
+
 /// One state's authored layer-gain overrides (see
 /// [`MusicCueSpec::runtime_balance_overrides`]).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -125,8 +149,8 @@ pub struct MusicStateBalanceOverride {
     pub layer_gains: Vec<(String, f32)>,
 }
 
-/// One authored file of adaptive music: the cues and the encounters that
-/// bind to them.
+/// One authored file of adaptive music: the cues, and the encounters and
+/// rooms that bind to them.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthoredMusicCues {
@@ -134,15 +158,19 @@ pub struct AuthoredMusicCues {
     pub cues: Vec<MusicCueSpec>,
     #[serde(default)]
     pub encounter_bindings: Vec<EncounterMusicBinding>,
+    #[serde(default)]
+    pub room_bindings: Vec<RoomMusicBinding>,
 }
 
 /// Every reference in `cues` and `bindings` that names nothing: a state's
 /// section, a gain's or a source's layer, a cue's outro and bridge states,
-/// and a binding's cue and states. Also an empty source path. In the order
-/// given, so one input gives one report.
+/// and a binding's cue and states. Also an empty source path, and a room
+/// binding's entry state on a section that loops (the director would never
+/// leave it). In the order given, so one input gives one report.
 pub fn cue_reference_errors<'a>(
     cues: impl IntoIterator<Item = &'a MusicCueSpec>,
     bindings: &[EncounterMusicBinding],
+    room_bindings: &[RoomMusicBinding],
 ) -> Vec<String> {
     let cues: Vec<&MusicCueSpec> = cues.into_iter().collect();
     let mut errors = Vec::new();
@@ -249,6 +277,40 @@ pub fn cue_reference_errors<'a>(
                 errors.push(format!(
                     "encounter binding '{}' wave2_reinforced_state references unknown state '{}' on cue '{}'",
                     binding.encounter_id, state_id, binding.cue_id
+                ));
+            }
+        }
+    }
+
+    for binding in room_bindings {
+        let Some(cue) = cues.iter().find(|cue| cue.id == binding.cue_id) else {
+            errors.push(format!(
+                "room binding '{}' references unknown cue '{}'",
+                binding.room_id, binding.cue_id
+            ));
+            continue;
+        };
+        for (field, state_id) in [
+            ("state", Some(&binding.state)),
+            ("entry_state", binding.entry_state.as_ref()),
+            ("fight_state", binding.fight_state.as_ref()),
+        ] {
+            let Some(state_id) = state_id else { continue };
+            let Some(state) = cue.states.iter().find(|state| &state.id == state_id) else {
+                errors.push(format!(
+                    "room binding '{}' {field} references unknown state '{}' on cue '{}'",
+                    binding.room_id, state_id, binding.cue_id
+                ));
+                continue;
+            };
+            let loops = cue
+                .sections
+                .iter()
+                .any(|section| section.id == state.section_id && section.looped);
+            if field == "entry_state" && loops {
+                errors.push(format!(
+                    "room binding '{}' entry_state '{}' is on a section of cue '{}' that loops",
+                    binding.room_id, state_id, binding.cue_id
                 ));
             }
         }

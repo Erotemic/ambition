@@ -54,7 +54,7 @@ pub use catalog::{
     AdaptiveMusicCatalogAppExt, AdaptiveMusicCatalogError, AdaptiveMusicCatalogRegistry,
     EncounterMusicBinding, LoadedMusicCueAssets, MusicCueCatalog, MusicCueSpec, MusicLayerGainSpec,
     MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec, MusicStateBalanceOverride,
-    MusicStateSpec,
+    MusicStateSpec, RoomMusicBinding,
 };
 pub use channels::{
     MusicLayer0AChannel, MusicLayer0BChannel, MusicLayer1AChannel, MusicLayer1BChannel,

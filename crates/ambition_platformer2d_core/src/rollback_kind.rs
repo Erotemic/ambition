@@ -190,6 +190,17 @@ impl RollbackEntryKind {
         }
     }
 
+    /// Does a rewind clear this message channel, so that a reader resumes on
+    /// an empty buffer and not on an abandoned future's messages?
+    ///
+    /// Both message kinds do. They differ only in whether a peer can observe
+    /// the registration ([`Self::in_peer_schema_identity`]). A guard that
+    /// asked for `MessageClear` alone read each instrument channel as one
+    /// that no rewind clears.
+    pub fn clears_message_on_rollback(self) -> bool {
+        matches!(self, Self::MessageClear | Self::MessageClearInstrument)
+    }
+
     /// Is this registration part of the schema identity two peers negotiate?
     ///
     /// ⛔⛤ **ASKED HERE BECAUSE THE ONLY OTHER PLACE IT WAS ASKED WAS A NAME

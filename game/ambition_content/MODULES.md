@@ -16,8 +16,6 @@
 | [`dormancy`](src/dormancy.rs) | Ambition's dormancy rule: how near an observer must be for a hostile to keep thinking. |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
 | [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |
-| [`falling_sand`](src/falling_sand.rs) | Falling-sand room PRESENTATION + `bevy_falling_sand` bridge for water/oil — CONTENT (a self-gating room plugin: feature-gated, visible-binary only, active only while its authored room is; R3.3 room-mechanics-by-kind). |
-| [`falling_sand_sim`](src/falling_sand_sim.rs) | Falling-sand room SIMULATION — the deterministic, headless-safe half. |
 | [`input_techniques`](src/input_techniques.rs) | Ambition-owned motion-input technique registrations. |
 | [`intro`](src/intro/mod.rs) | Intro sequence story content. |
 | [`items`](src/items/mod.rs) | Named Ambition item-roster / default-inventory registration. |
@@ -39,7 +37,7 @@
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command, function, and markup registrations available to authored `.yarn` content. |
 
-_32 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

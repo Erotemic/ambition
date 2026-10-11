@@ -190,11 +190,6 @@ ADJUDICATED: dict[str, str] = {
         "`field_for` that appended would be a defect with or without rollback "
         "(read 2026-09-18)"
     ),
-    "project_particles_to_movement_world": (
-        "SCRATCH, and it says so in its own first line: `scratch.reset_per_frame()`. "
-        "Its second `Local`, `cap_warned`, is a WARN LATCH — see "
-        "`emit_sand_into_grid` for the same shape (read 2026-09-18)"
-    ),
     "spawn_cut_rope_victory_npc": (
         "SCRATCH. `released_hosts` is a `Vec<Entity>` the system's own comment "
         "calls *\"reused across frames\"* and which is DRAINED where it is used, so "
@@ -208,26 +203,7 @@ ADJUDICATED: dict[str, str] = {
         "rollback-registered — a value about which assets to reload, not about the "
         "simulation (read 2026-09-18)"
     ),
-    # ── A LOG OR WARN LATCH ─────────────────────────────────────────────────
-    "emit_falling_sand_spouts": (
-        "LOG LATCH, verified in the guarded block rather than inferred from the "
-        "name: the body under `if last_logged.as_ref() != Some(&state.spouts)` is a "
-        "`bevy::log::info!` and the assignment, nothing else "
-        "(`falling_sand.rs:607`) (read 2026-09-18)"
-    ),
-    "emit_sand_into_grid": (
-        "WARN LATCH. `budget_warned` is a `bool` flipped once so a budget warning "
-        "is not printed every tick. A rewind can only cause the warning to be "
-        "printed a second time (read 2026-09-18)"
-    ),
     # ── NOT ROLLBACK STATE: nothing it reaches is registered ────────────────
-    "despawn_bfs_particles_when_the_room_changes": (
-        "NOT ROLLBACK STATE. It despawns `Particle`, which belongs to the external "
-        "`bevy_falling_sand` crate and which NOTHING in this workspace registers — "
-        "no `require_rollback`, no component registration — so the entities it "
-        "removes are invisible to the snapshot and no restore can disagree with it "
-        "(read 2026-09-18)"
-    ),
     "rebuild_control_prompt": (
         "NOT ROLLBACK STATE. `last` memoizes the prompt it published so an "
         "unchanged frame skips the rebuild, and `ControlPrompt` carries no rollback "

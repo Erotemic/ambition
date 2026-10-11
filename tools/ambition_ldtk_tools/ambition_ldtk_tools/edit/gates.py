@@ -87,7 +87,7 @@ def main(argv=None) -> int:
                 target = r["fields"].get("target_encounter") or None
                 # A switch with no target_encounter doesn't gate an encounter
                 # — it piggybacks on the switch-activation bus and is consumed
-                # by id elsewhere (e.g. falling_sand spouts). Surface its prompt
+                # by id elsewhere (e.g. a door or a flag). Surface its prompt
                 # so the real purpose is visible instead of an empty arrow.
                 target_str = target if target else "(none — consumed by id)"
                 prompt = r["fields"].get("prompt")

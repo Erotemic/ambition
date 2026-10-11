@@ -151,9 +151,5 @@ impl Plugin for AmbitionContentPlugin {
         // separately in `add_simulation_plugins`.
         #[cfg(feature = "portal")]
         app.add_plugins(super::portal::AmbitionPortalAdaptersPlugin);
-
-        // Deterministic falling-sand simulation, gated with its feature bundle.
-        #[cfg(feature = "falling_sand")]
-        app.add_plugins(crate::falling_sand_sim::FallingSandSimPlugin);
     }
 }

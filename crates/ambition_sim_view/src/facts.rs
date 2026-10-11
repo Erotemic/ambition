@@ -966,7 +966,7 @@ pub fn rebuild_blink_preview_fact(
     // under a comment claiming *"the moving-platform-aware temporary world is
     // what the actual blink resolves against"*. That was true when written and
     // is not: the body integrates against `world_with_sandbox_solids`, which
-    // ALSO carries the ECS overlay (gate lock-walls, falling-sand pools,
+    // ALSO carries the ECS overlay (gate lock-walls, liquid regions,
     // broken-brick subtractions) and the portal carves.
     //
     //  the reticle could show a destination through a lock wall the blink

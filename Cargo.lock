@@ -416,7 +416,6 @@ dependencies = [
  "ambition_ui_nav",
  "ambition_vfx",
  "bevy",
- "bevy_falling_sand",
  "bevy_yarnspinner",
  "ron 0.11.0",
  "serde",
@@ -2424,22 +2423,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_falling_sand"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71d4c371d2acadf0894916784ed94c8736f5424f34e6d90004cb134af9ec9b10"
-dependencies = [
- "bevy",
- "bevy_framepace",
- "bevy_rand",
- "bevy_shader",
- "bevy_sprite_render",
- "rand_core 0.10.1",
- "serde",
- "smallvec",
-]
-
-[[package]]
 name = "bevy_feathers"
 version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3025,41 +3008,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_prng"
-version = "0.15.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25ea191262e57fdec4f33678697cafb7fcdcdb0dba26863ed3405e3511d06c3a"
-dependencies = [
- "bevy_ecs",
- "bevy_reflect",
- "chacha20",
- "getrandom 0.4.2",
- "rand_core 0.10.1",
- "rand_pcg",
- "rand_xoshiro",
- "serde",
- "wyrand",
-]
-
-[[package]]
 name = "bevy_ptr"
 version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1974de4b140f102fded747229ff4a61921acec07f02f0d1dcdadfe9ce177d0ff"
-
-[[package]]
-name = "bevy_rand"
-version = "0.15.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cfdf18abf383e6bb2943d28c8c04e74abd63da492ad057db34ab07cdcfe536d"
-dependencies = [
- "bevy_app",
- "bevy_ecs",
- "bevy_prng",
- "bevy_reflect",
- "getrandom 0.4.2",
- "rand_core 0.10.1",
-]
 
 [[package]]
 name = "bevy_reflect"
@@ -7400,26 +7352,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rand_pcg"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "caa0f4137e1c0a72f4c651489402276c8e8e1cf081f3b0ba156d2cbeef09e86a"
-dependencies = [
- "rand_core 0.10.1",
- "serde",
-]
-
-[[package]]
-name = "rand_xoshiro"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "662effc7698e08ea324d3acccf8d9d7f7bf79b9785e270a174ea36e56900c91d"
-dependencies = [
- "rand_core 0.10.1",
- "serde",
-]
-
-[[package]]
 name = "range-alloc"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10019,16 +9951,6 @@ name = "writeable"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
-
-[[package]]
-name = "wyrand"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5484c3d24f0e2e117d30bce6f8792e193be33e2b6e0b3f8945ccf265c56c6da"
-dependencies = [
- "rand_core 0.10.1",
- "serde",
-]
 
 [[package]]
 name = "x11-dl"

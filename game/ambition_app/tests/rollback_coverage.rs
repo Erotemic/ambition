@@ -1038,57 +1038,6 @@ fn every_component_in_a_live_match_is_registered_derived_or_waived() {
     }
 }
 
-/// The falling-sand room, which nothing swept. (A20)
-///
-/// The sand grid itself is deliberately outside rollback (see the
-/// `::falling_sand_sim::` waiver, which carries its own in-code guard), but the
-/// ROOM authors a spout, a sand switch, and hazard geometry that no other swept
-/// room has. The switch is activated so the room is swept in its ACTIVE state
-/// rather than at rest — a spout that never opened is a population of one idle
-/// entity.
-#[test]
-#[cfg(feature = "falling_sand")]
-fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
-    use ambition_content::falling_sand_sim::{FallingSandWorld, ROOM_ID, SAND_SWITCH};
-
-    let mut sim = crate::common::fixed_60hz_room_sim(ROOM_ID);
-    for _ in 0..10 {
-        sim.step(crate::common::base());
-    }
-    {
-        let world = sim.world_mut();
-        let mut switches =
-            world.query::<&ambition_platformer2d::encounter::switches::SwitchFeature>();
-        let activation = switches
-            .iter(world)
-            .map(|feature| feature.activation.clone())
-            .find(|activation| activation.id == SAND_SWITCH)
-            .unwrap_or_else(|| panic!("authored switch `{SAND_SWITCH}` exists in {ROOM_ID}"));
-        world.write_message(
-            ambition_platformer2d::encounter::switches::SwitchActivated {
-                activation,
-                pos: ambition_platformer2d::engine_core::Vec2::ZERO,
-                room: None,
-            },
-        );
-    }
-    for _ in 0..60 {
-        sim.step(crate::common::base());
-        assert_components_accounted(&mut sim, ROOM_ID);
-    }
-    // Vacuity guard: the spout has to have poured, or this swept an idle room.
-    let emitted = sim
-        .world_mut()
-        .get_resource::<FallingSandWorld>()
-        .and_then(|sand| sand.grid.as_ref().map(|grid| grid.emitted()))
-        .unwrap_or(0);
-    assert!(
-        emitted > 0,
-        "no matter was emitted, so the room was swept in its idle state and this \
-         test says nothing about the sand slice's live population"
-    );
-}
-
 /// Resource type-name substrings that are NOT authoritative simulation state.
 ///
 /// Same contract as [`WAIVED`]: each entry claims rewinding the named resource
@@ -1776,11 +1725,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "developer hotkey message",
     ),
     // Deliberate rollback exclusions, each with an in-code guard.
-    (
-        "::falling_sand_sim::",
-        "deliberately outside rollback: grid/ledger advance only on authoritative passes \
-         (simulation_pass_is_authoritative guard; module-level warning; falling-sand.md)",
-    ),
     (
         "::cut_rope::arena::CutRopeBossArenaState",
         "presentation: the arena's effects state; the rope's gate fires on every hit \

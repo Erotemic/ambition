@@ -86,7 +86,6 @@ NOT_PER_ATTEMPT = {
     "CachedSystemMenu": "menu render cache, rebuilt from the model",
     # Catalogs and registries: authored data, must SURVIVE a death.
     "AmbitionDialogPortraitCatalog": "authored catalog",
-    "FallingSandTypeIds": "id table built once from the type registry",
     "RoomPlates": (
         "the textures of a two-state room's architecture, drawn from the room's "
         "blocks and doors, which a death does not change; the set is of the rooms "

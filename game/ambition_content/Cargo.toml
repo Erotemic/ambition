@@ -28,10 +28,6 @@ static_map = ["ambition_platformer2d_actor_monolith/static_map"]
 # downstream of it. Turn this ON wherever there is no filesystem to read from
 # (web, Android) or the binary ships without the source tree (Steam Deck).
 static_content = []
-# The falling-sand prototype room (bridges bevy_falling_sand into the
-# movement world). Off by default; the room plugin self-gates on its
-# authored room at runtime.
-falling_sand = ["dep:bevy_falling_sand"]
 
 [dependencies]
 # Ambition's procedural extension modules (the echo fan, fast-iteration I4),
@@ -106,16 +102,6 @@ bevy_yarnspinner = { version = "0.9", optional = true }
 # The Yarn compiler bevy_yarnspinner runs, for checking a saved dialogue edit
 # whole before the running project takes it (`content_watch`).
 yarnspinner = { version = "0.9", optional = true }
-# Drop bevy_falling_sand's default `physics` feature: it bundles its OWN
-# avian2d `PhysicsPlugins`, which collides with Ambition's `AmbitionPhysicsPlugin`
-# ("plugin already added" panic when the falling_sand feature is on). Ambition
-# bridges particles into its own movement world (project_particles_to_movement_world),
-# not avian rigid bodies, so it only needs render/movement/reactions.
-bevy_falling_sand = { version = "0.8", optional = true, default-features = false, features = [
-    "render",
-    "movement",
-    "reactions",
-] }
 serde = { workspace = true }
 ron = { workspace = true }
 

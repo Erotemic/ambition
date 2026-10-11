@@ -70,7 +70,6 @@ A source owns one key in the body's `AbilityContributions` and never writes
 | key | source | contribution | lifetime |
 |---|---|---|---|
 | `dev.editable_ability_mask` | `ambition_dev_tools::contribute_editable_ability_mask` | ceiling | while an admitted mask exists |
-| `falling_sand.room_swim` | `falling_sand_sim::lend_room_swim` | lend `swim` | while the falling-sand room is active |
 | `portal.transit` | `portal::withhold_wall_verbs_during_transit` | ceiling without the four wall verbs | while `PortalTransit` |
 
 Sources write in `WorldPrepSet::BeforeIntegrate`; the projection runs between it

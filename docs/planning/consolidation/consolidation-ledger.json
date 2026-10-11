@@ -4010,14 +4010,14 @@
       "complexity": "ACCIDENTAL_COMPLEXITY",
       "current_truth": "The save is the one answer (2026-09-23), and since 2026-09-24 nothing projects it: readers take the save by the activation id. The full account is the `DUP-SWITCH-STATE` row of `architecture-census.md`.",
       "source_paths": [
-        "game/ambition_content/src/falling_sand_sim.rs"
+        "crates/ambition_encounter/src/switches.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "The save is the one answer (2026-09-23), and since 2026-09-24 nothing projects it: readers take the save by the activation id. The full account is the `DUP-SWITCH-STATE` row of `architecture-census.md`.",
           "sources": [
-            "game/ambition_content/src/falling_sand_sim.rs"
+            "crates/ambition_encounter/src/switches.rs"
           ]
         }
       ],

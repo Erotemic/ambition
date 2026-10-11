@@ -221,8 +221,8 @@ These are opportunities, not migration work.
   listener context.
 - ▢ **Character dialogue from suggestions/barks.** Shelved product design; keep
   dormant until a customer exists.
-- ▢ **Falling-sand extensions.** Water/oil/Oiler mechanics remain deferred work.
-  Owner: [`engine/falling-sand.md`](engine/falling-sand.md).
+- ✖ **Falling sand.** Code removed 2026-10-11 (Jon); not a work item. A
+  reimplementation is a new design. Owner: [`engine/falling-sand.md`](engine/falling-sand.md).
 - ▢ **Per-route music.** Preserve as a product capability; do not revive a closed
   audio campaign as its execution authority.
 

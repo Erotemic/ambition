@@ -149,6 +149,27 @@ pub mod content {
     }
 
     impl PackText {
+        /// The file's text: the embedded bytes when the build has them, else
+        /// the file as it is on disk now. Write a [`PackText`] for one file
+        /// with [`crate::content_text!`].
+        ///
+        /// ⚠ Read it where it is used, not once into a `static`: in a
+        /// development build each read sees the file as last saved.
+        pub fn text(&self) -> Result<std::borrow::Cow<'static, str>, String> {
+            match self.embedded {
+                Some(text) => Ok(std::borrow::Cow::Borrowed(text)),
+                None => std::fs::read_to_string(self.file)
+                    .map(std::borrow::Cow::Owned)
+                    .map_err(|error| {
+                        format!(
+                            "{} is not readable: {error}; build with the crate's `static_content` \
+                             feature to embed it",
+                            self.file
+                        )
+                    }),
+            }
+        }
+
         fn read(&self, declared: &str) -> Result<String, Diagnostic> {
             if let Some(text) = self.embedded {
                 return Ok(text.to_string());
@@ -1542,6 +1563,25 @@ macro_rules! content_pack {
                 $(($declared, $crate::__content_pack_text!(concat!($root, "/", $declared))),)*
             ],
         )
+    };
+}
+
+/// One authored file of a game that is not a pack source, such as a world
+/// file: a [`content::PackText`], read off disk in a development build and
+/// embedded under the CALLING crate's `static_content` feature, as each
+/// source of [`content_pack!`] is. Read it with [`content::PackText::text`].
+///
+/// `$file` is relative to the calling crate's directory.
+///
+/// ```ignore
+/// pub static WORLD: PackText = ambition_platformer2d::content_text!("assets/worlds/hero.ldtk");
+/// let project = LdtkProject::from_json_str(&WORLD.text()?)?;
+/// ```
+#[cfg(feature = "content_pack")]
+#[macro_export]
+macro_rules! content_text {
+    ($file:literal $(,)?) => {
+        $crate::__content_pack_text!($file)
     };
 }
 

@@ -152,7 +152,7 @@ This list is the running TODO; add to it as you find friction.
   gating / destructible elements in one view: switches (with action /
   target / prompt), runtime lock walls, encounter triggers, and
   breakable platforms / pogo orbs. A switch that drives terrain by id
-  rather than gating an encounter (e.g. the falling_sand spouts)
+  rather than gating an encounter (e.g. a door or a flag)
   shows `(none — consumed by id)` so you don't mistake it for an
   orphan. (`edit/gates.py`)
 - **Wanted:** `paths describe --level X` — for each LoadingZone /

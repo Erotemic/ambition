@@ -705,10 +705,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "game/ambition_app/src/dev/portal_inspector.rs",
         "game/ambition_content/src/portal/reorient_setting.rs",
     ),
-    "FallingSandRoomState": (
-        "game/ambition_content/src/falling_sand.rs",
-        "game/ambition_content/src/falling_sand_sim.rs",
-    ),
     "FixedStepsTaken": (
         "game/ambition_app/src/app/cli.rs",
         "game/ambition_app/src/headless.rs",
@@ -1427,26 +1423,6 @@ ADJUDICATED: dict[str, str] = {
         "callers are leafwing's simulation entry points, not this repo's "
         "systems."
     ),
-    "FallingSandRoomState": (
-        "CORRECT — ONE ROOM-CHANGE BOUNDARY PLUS ONE LATCH OWNER, read "
-        "field by field rather than system by system, because the file-granular "
-        "count says nothing about which of its three fields a writer touches. "
-        "`sync_falling_sand_room_state` (`ambition_content/src/falling_sand_sim.rs`) "
-        "is the boundary: on a change of active room id it writes "
-        "`last_room_id` and `active_room` and clears `seeded_boundaries`. "
-        "`seed_falling_sand_room_boundaries` (`ambition_content/src/falling_sand.rs`) "
-        "sets `seeded_boundaries` once and is guarded by it. The room's swim "
-        "is a keyed ability contribution (`lend_room_swim`), not a field here. "
-        "⇒ The only field two "
-        "systems write is `seeded_boundaries`, as a SET and a CLEAR, which is a "
-        "latch and its boundary.\n"
-        "    ⭐ THE SECOND AUTHORITY THIS ROW USED TO NAME IS GONE (2026-09-23, "
-        "`DUP-SWITCH-STATE`). The struct carried a `spouts` copy of the save's "
-        "switch flags, toggled by a capture system that also re-wrote the flag "
-        "the switch drain had already toggled. The field, its toggle and the "
-        "capture system are deleted; the room reads `FallingSandSpoutState::"
-        "from_save` where it needs the spouts."
-    ),
     "YarnPresentationCue": (
         "CORRECT ABOUT THE VALUE, AND IT NAMES WHAT IT DOES NOT COVER. Two "
         "writers, one per role: `on_present_line` (`ambition_dialog/src/bridge.rs`) "
@@ -2153,9 +2129,10 @@ ADJUDICATED: dict[str, str] = {
         "through `app.sim_schedule()`, the divergence set is empty, and "
         "`resources_crossing_the_rewind_boundary.py` reports this type DOES NOT "
         "CROSS the rewind boundary. ⇒ The 18 writer FILES are no longer a "
-        "rollback finding at all (2026-09-23: `falling_sand_sim.rs` LEFT — the "
-        "spout capture that re-wrote a switch flag the drain had already toggled "
-        "is deleted, `DUP-SWITCH-STATE` — and `features/npcs.rs` ARRIVED: "
+        "rollback finding at all (2026-09-23: the falling-sand room's spout "
+        "capture that re-wrote a switch flag the drain had already toggled is "
+        "deleted, `DUP-SWITCH-STATE`, and the room's code went on 2026-10-11 — and "
+        "`features/npcs.rs` ARRIVED: "
         "`record_npc_provocations` is the one writer of `npc_<id>_hostile`, which "
         "room construction builds from, `DUP-PERSISTED-FATE`); what keeps this "
         "unadjudicated is the split "
@@ -3790,11 +3767,10 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "(`game/ambition_app/tests/symmetry_attunement.rs`) reads "
         "`(queued, resolved) == (1, 0)` one step after a real `SwitchActivated` "
         "through the shipped composition, and `(0, 1)` the step after — so the "
-        "delay is a DELAY and not a loss. ⚠ This is NOT the ordering gap "
-        "`switches.rs` records at line 437: that one is two writers of the SAVE's "
-        "switch family (`drain_switch_activations` vs "
-        "`content/src/falling_sand_sim.rs`), routed to "
-        "`world-facts-observations-and-memory.md`, and it is still open."
+        "delay is a DELAY and not a loss. ⚠ This is NOT the old ordering gap of "
+        "two writers of the SAVE's switch family (`drain_switch_activations` vs "
+        "the falling-sand room's spout copy): `DUP-SWITCH-STATE` deleted that "
+        "second writer on 2026-09-23, and the room's code is gone (2026-10-11)."
     ),
 }
 

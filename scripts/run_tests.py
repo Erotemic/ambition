@@ -151,13 +151,12 @@ def cargo_test(args: list[str], libtest: list[str]) -> list[str]:
 # Features that cannot run on a headless desktop test host: other-platform
 # selectors, wasm/web, and static-asset embedding (needs generated assets).
 # Everything else (visible, input, ui, audio, kira, portal*, dev_tools,
-# basic_presentation, falling_sand, mobile_touch, ...) is headless-safe here.
+# basic_presentation, mobile_touch, ...) is headless-safe here.
 #
 # ⛔⛔ THE REASON THIS COMMENT USED TO GIVE WAS FALSE FOR A THIRD OF ITS OWN LIST.
 # It said the suite "already exercises them via default features". Measured
 # 2026-09-06 by walking `ambition_app`'s `default` closure: `kira`,
-# `basic_presentation` and `falling_sand` are NOT in it. `ambition_content`'s own
-# default is `[]`, and `falling_sand = ["dep:bevy_falling_sand"]` is optional.
+# `basic_presentation` and `falling_sand` (deleted 2026-10-11) were NOT in it.
 #
 # ⇒ What actually exercises them is THE UNION RUN -- they are absent from
 # `DENY_EXACT`, which is this list's whole job. The "headless-safe" claim stands;
@@ -2428,7 +2427,7 @@ def coverage_notice(
         notices.append(
             f"\n  ⚠ this was {scope}, which does NOT cover:\n"
             "      - tests behind an OPT-IN #[cfg(feature = \"...\")] — MEASURED\n"
-            "        2026-10-11 by `scripts/feature_gated_tests.py`, 533 tests\n"
+            "        2026-10-11 by `scripts/feature_gated_tests.py`, 526 tests\n"
             "        across 31 crates, the largest single omission this\n"
             "        footer names — though the scanner counts `#[cfg(feature)]`\n"
             "        STATICALLY, and a feature another workspace member turns on\n"

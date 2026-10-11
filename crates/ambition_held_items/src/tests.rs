@@ -1548,7 +1548,7 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
     let mut hit = None;
     for _ in 0..20 {
         app.update();
-        if let Some(struck) = app.world().get::<ItemStruckBody>(flying).copied() {
+        if let Some(struck) = app.world().get::<ItemStruckBody>(flying).cloned() {
             hit = Some(struck);
             break;
         }
@@ -1629,7 +1629,11 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
     // goes off.
     let mut app = App::new();
     stage(&mut app);
-    body_at(&mut app, Vec2::new(250.0, 200.0));
+    let crossed = body_at(&mut app, Vec2::new(250.0, 200.0));
+    // ⛔ AND IT NAMES THE BODY IT CROSSED, not the body beside where it ended:
+    // this one is 3px clear of the item's last box, and the item never reaches
+    // it.
+    body_at(&mut app, Vec2::new(300.0 + PICKUP_HALF + 16.0 + 3.0, 200.0));
     let fast = app
         .world_mut()
         .spawn(GroundItem {
@@ -1640,10 +1644,10 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
         })
         .id();
     app.update();
-    assert!(
-        app.world().get::<ItemStruckBody>(fast).is_some(),
-        "a 6000px/s item crossed a fighter between two samples and was \
-         reported as having missed"
+    assert_eq!(
+        app.world().get::<ItemStruckBody>(fast).map(|struck| struck.bodies.clone()),
+        Some(vec![crossed]),
+        "a 6000px/s item crossed one fighter between two samples: it struck that one, and only that one"
     );
 }
 

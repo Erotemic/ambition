@@ -1,6 +1,6 @@
 //! A thrown item hurts the body it strikes.
 //!
-//! The engine's item step says only that an item reached a body and how fast
+//! The engine's item step says which bodies an item reached and how fast
 //! (`ItemStruckBody`); what that does is the game's rule. Ambition's rule is
 //! this table: an item with a row here hurts what it strikes at or above the
 //! row's speed, and bounces off it. An item with no row lands and hurts
@@ -27,8 +27,6 @@ pub struct ThrownImpact {
     /// speed the rebound leaves, so one arrival is one blow.
     pub min_speed: f32,
     pub damage: i32,
-    /// How far past the item's own box the blow reaches.
-    pub reach: f32,
 }
 
 /// The fraction of its velocity an item keeps, reversed, when it strikes, and
@@ -48,7 +46,7 @@ fn rebound(vel: ae::Vec2, impact: ThrownImpact) -> ae::Vec2 {
 /// at about 410 (`THROW_SPEED_X`, `THROW_SPEED_UP`); a fall of a body's height
 /// arrives at about 370.
 const IMPACTS: &[(&str, ThrownImpact)] =
-    &[("coconut", ThrownImpact { min_speed: 240.0, damage: 2, reach: 6.0 })];
+    &[("coconut", ThrownImpact { min_speed: 240.0, damage: 2 })];
 
 /// The impact of the item `id`, if it has one.
 pub fn impact_of(id: &str) -> Option<ThrownImpact> {
@@ -57,18 +55,18 @@ pub fn impact_of(id: &str) -> Option<ThrownImpact> {
 
 /// Each loose item that reached a body fast enough hurts it and bounces off.
 ///
-/// The item step says THAT a body was reached and how fast; it does not say
-/// which. The body is the one the item's box (grown by the blow's reach) is on,
-/// in the item's live room. The blow is a hazard's: it names its victim, it
-/// has no attacker, and it asks no question of sides (a coconut hurts whoever
-/// it lands on, the one who threw it too).
+/// The victims are the bodies the item step's swept path entered. They are not
+/// found again here from where the item is now: a fast item is past the body
+/// it crossed by the end of the tick. The blow is a hazard's: it names its
+/// victim, it has no attacker, and it asks no question of sides (a coconut
+/// hurts whoever it lands on, the one who threw it too).
 ///
 /// ⚠ BODIES ONLY. A boss is not a body to the hit road (`HitTarget::Feature`),
 /// so a coconut does not hurt one yet.
 pub fn thrown_items_strike(
     mut hits: MessageWriter<HitEvent>,
     mut items: Query<(Entity, &mut GroundItem, &ItemCustody, &ItemStruckBody)>,
-    bodies: Query<(Entity, &ae::BodyKinematics, &BodyHealth)>,
+    bodies: Query<&BodyHealth>,
     rooms: LiveRooms,
 ) {
     for (entity, mut item, custody, struck) in &mut items {
@@ -82,17 +80,14 @@ pub fn thrown_items_strike(
             continue;
         }
         let room = rooms.of(entity);
-        let reach = item.half_extent + ae::Vec2::splat(impact.reach);
-        for (body, kin, health) in &bodies {
-            if !health.alive() || rooms.of(body) != room {
+        let mut struck_any = false;
+        for &body in &struck.bodies {
+            if !bodies.get(body).is_ok_and(|health| health.alive()) {
                 continue;
             }
-            let apart = (kin.pos - item.pos).abs();
-            if apart.x > reach.x + kin.size.x * 0.5 || apart.y > reach.y + kin.size.y * 0.5 {
-                continue;
-            }
+            struck_any = true;
             hits.write(HitEvent {
-                volume: ae::Aabb::new(item.pos, reach).into(),
+                volume: ae::Aabb::new(item.pos, item.half_extent).into(),
                 damage: impact.damage,
                 source: HitSource::Hazard,
                 attacker: None,
@@ -107,7 +102,9 @@ pub fn thrown_items_strike(
                 attacker_move_instance: None,
             });
         }
-        item.vel = rebound(item.vel, impact);
+        if struck_any {
+            item.vel = rebound(item.vel, impact);
+        }
     }
 }
 
@@ -137,6 +134,34 @@ mod tests {
                 assert!(left.x < 0.0 && left.y < 0.0, "`{id}` goes back the way it came, not {left:?}");
             }
         }
+    }
+
+    /// The blow lands on the body the item's path entered, not on a body the
+    /// item stands on at the end of the tick: a fast item is past the body it
+    /// crossed, and may stand on another one.
+    #[test]
+    fn the_blow_lands_on_the_bodies_the_item_struck_and_no_other() {
+        use bevy::ecs::system::RunSystemOnce;
+        let mut world = World::new();
+        world.init_resource::<Messages<HitEvent>>();
+        let health = || BodyHealth::new(ambition_characters::actor::Health::new(10));
+        let at = ae::Vec2::new(100.0, 100.0);
+        let crossed = world.spawn((ae::BodyKinematics::default(), health())).id();
+        let mut beside = ae::BodyKinematics::default();
+        beside.pos = at;
+        beside.size = ae::Vec2::new(24.0, 48.0);
+        let beside = world.spawn((beside, health())).id();
+        let spec = ambition_characters::brain::held_item_by_id("coconut").expect("the coconut is a held item");
+        let mut item = GroundItem::at_rest(spec, at, ae::Vec2::new(9.0, 7.5));
+        item.vel = ae::Vec2::new(600.0, 0.0);
+        world.spawn((item, ItemCustody::InWorld, ItemStruckBody { impact_speed: 600.0, bodies: vec![crossed] }));
+        world.run_system_once(thrown_items_strike).expect("the rule runs");
+        let mut cursor = world.resource::<Messages<HitEvent>>().get_cursor();
+        let victims: Vec<_> = cursor
+            .read(world.resource::<Messages<HitEvent>>())
+            .map(|hit| hit.target)
+            .collect();
+        assert_eq!(victims, vec![HitTarget::Body(crossed)], "the struck body, and not {beside:?} under the item");
     }
 
     #[test]

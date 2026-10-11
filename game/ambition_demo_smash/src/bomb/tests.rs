@@ -220,6 +220,7 @@ fn a_bomb_that_reaches_a_fighter_hard_goes_off_and_a_gentle_touch_does_not() {
             ItemCustody::InWorld,
             ItemStruckBody {
                 impact_speed: speed,
+                bodies: vec![bevy::prelude::Entity::PLACEHOLDER],
             },
         ));
         run(&mut app, ticks)

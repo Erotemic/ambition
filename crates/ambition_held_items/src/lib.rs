@@ -404,9 +404,16 @@ const THROW_SPEED_UP: f32 = 260.0;
 /// ⛔ THE SPEED, NOT A BOOLEAN, for the same reason `SettledItem` carries one:
 /// the difference between a hit and a placement is how fast it arrived, and each
 /// consumer sets its own bar.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
+///
+/// ⛔ AND WHICH BODIES. The swept path is the only place that knows them: a
+/// fast item crosses a whole body in one tick and is past it at the end, so a
+/// consumer that looks for a body where the item is now finds none, or finds a
+/// body the item did not touch.
+#[derive(Component, Clone, Debug, PartialEq)]
 pub struct ItemStruckBody {
     pub impact_speed: f32,
+    /// Every body the item's path entered this tick, in entity order.
+    pub bodies: Vec<Entity>,
 }
 
 /// THIS ITEM IS AT REST ON SOMETHING and does not need stepping.
@@ -626,20 +633,25 @@ pub fn ground_item_physics(
         };
         let struck_bodies = || {
             let here = ae::Aabb::new(item.pos, item.half_extent);
-            bodies
+            let mut struck: Vec<Entity> = bodies
                 .iter()
                 .filter(|(victim, _, health, out_of_play, plane)| {
                     live.of(*victim) == room
                         && !ambition_combat::util::body_is_untouchable(Some(*health), *out_of_play, *plane)
                 })
-                .any(|(victim, aabb, _, _, _)| {
+                .filter(|(victim, aabb, _, _, _)| {
                     ambition_platformer2d_core::cast::aabb_path_contacts(
                         end,
                         item.half_extent,
                         travelled,
                         aabb.aabb(),
-                    ) && !entered_now(here, victim)
+                    ) && !entered_now(here, *victim)
                 })
+                .map(|(victim, ..)| victim)
+                .collect();
+            // Query order is storage order; entity order is the same on each run.
+            struck.sort();
+            struck
         };
         // ⛔⛔ AND A BODY IS NOT A WALL. The first version STOPPED the item here,
         // and that turns every fighter into a shelf: an item dropped or falling
@@ -647,8 +659,9 @@ pub fn ground_item_physics(
         // to rest 47px above the floor it used to land on. Being STRUCK by
         // something and STOPPING it are different facts, and only the first is
         // what a thrown bomb asks about.
-        let struck = struck_bodies().then(|| ItemStruckBody {
+        let struck = Some(struck_bodies()).filter(|struck| !struck.is_empty()).map(|bodies| ItemStruckBody {
             impact_speed: item.vel.length(),
+            bodies,
         });
         match struck {
             Some(hit) => {

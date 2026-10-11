@@ -50,6 +50,10 @@ the way in its own slice:
 4. [TEST-LANES](#test-lanes--keep-required-test-lanes-executable).
 5. [NAVIGATION](#navigation--a-character-reaches-an-item-in-another-room).
 
+**Next (review of `1d668f4a..9c6318bc7`, 2026-10-11):** the five
+[REVIEW-1011](#review-1011--five-boundaries-where-one-subsystem-reconstructs-anothers-fact)
+rows, in their order, before the rest of the queue.
+
 Short slice at any point: [PUBLICATION-FAULT](#publication-fault--a-refused-later-room-must-not-leave-a-mixed-world).
 The two owner pages the 2026-10-08 review found stale (the fingerprint and the
 second-seat join) were corrected against the tree on 2026-10-09.
@@ -60,6 +64,34 @@ universal planner and the Bevy 0.20 upgrade. Q157 is Jon's decision; build
 neither side of it.
 
 ## P0 — architecture and correctness
+
+### REVIEW-1011 — five boundaries where one subsystem reconstructs another's fact
+
+**Source:** an external review of `1d668f4a..9c6318bc7` (Jon, 2026-10-11). Each
+row starts with a failing production-path witness.
+
+1. ✅ 2026-10-11, THROWN-CONTACT. `ItemStruckBody` carried only the speed, and
+   the coconut rule found its victim where the item stood at the end of the
+   tick. A coconut that crossed a body in one tick hurt nobody and still
+   bounced. The item step's sweep names the bodies now
+   (`ItemStruckBody::bodies`), and the rule hits those; `ThrownImpact::reach`
+   is deleted. Witness:
+   `a_coconut_that_crosses_the_player_in_one_tick_is_one_blow` (red with the
+   old rule: health 60 -> 60), with the held-items sweep test naming the one
+   body it crossed and `the_blow_lands_on_the_bodies_the_item_struck_and_no_other`.
+   Same road, Jon 2026-10-11: a throw takes the stick's direction and strength,
+   as in Smash (open).
+2. ABILITY-COST. Two admitted modules on one trigger see one mana and cooldown
+   snapshot. Movement is lowered before the cost, so the second action runs
+   after its spend is refused. An action and its cost are one admission.
+3. PORTAL-VISIBILITY. `PortalSourceHidden` records the portal's own hide, not
+   that nothing else hides the body. A body killed or hidden behind a portal
+   gets far-side fragments. A stale `PortalCompositingCandidate` stays.
+4. ERRAND-INSTANCE. A cross-room errand routes by room definition and takes
+   the lowest live instance. An item in the second live instance of a room is
+   reached in the wrong instance, or reported `Gone`.
+5. PLATE-LIFETIME. `RoomPlates` keeps its strong image handles when the
+   quality budget turns off the system that evicts them (high -> Potato).
 
 ### WORLD-ACCEPTANCE — one headless playthrough of the persistent world
 

@@ -485,11 +485,19 @@ pub fn level_1_1() -> RoomSpec {
     authored_level(LEVEL_1_1_ROOM_ID)
 }
 
-/// The authored world file. Embedded, so a demo that ships its own binary needs
-/// no asset root — the same choice Sanic's speedway makes.
-pub const MARY_O_WORLD_JSON: &str = include_str!("../assets/worlds/mary_o.ldtk");
+/// The authored world file, as Sanic's worlds are: a development build reads
+/// it off disk, so a level edit costs a restart and no Rust build;
+/// `static_content` embeds it, so a build with no source tree needs no asset
+/// root.
+pub static MARY_O_WORLD: ambition_platformer2d::content::PackText =
+    ambition_platformer2d::content_text!("assets/worlds/mary_o.ldtk");
 
-/// Load one authored area out of [`MARY_O_WORLD_JSON`].
+/// The world file's text, as it is now.
+pub fn mary_o_world_text() -> std::borrow::Cow<'static, str> {
+    MARY_O_WORLD.text().unwrap_or_else(|error| panic!("{error}"))
+}
+
+/// Load one authored area out of [`MARY_O_WORLD`].
 ///
 /// `.expect` on a level file is normally forbidden (the LDtk authoring
 /// contract says startup must print every validator error and exit nonzero, so a
@@ -567,7 +575,7 @@ fn finish_authored_room(mut room: RoomSpec) -> RoomSpec {
 /// vocabulary in ANY of those contexts, so the load is where the requirement
 /// belongs.
 fn authored_world() -> ambition_platformer2d::runtime::demo_fixture::RoomSet {
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(MARY_O_WORLD_JSON)
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&mary_o_world_text())
         .expect(
             "mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)",
         );

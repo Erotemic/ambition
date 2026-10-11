@@ -614,17 +614,18 @@ manifest = "game/ambition_content_modules/Cargo.toml"
 
 # A demo's world file is read off disk in a development build (`content_text!`)
 # and embedded only under the demo's `static_content`, so a level edit costs a
-# restart and no Rust build. Add a demo's `src` here when its worlds move.
+# restart and no Rust build. The entity manifest (`mary_o.entities.json`) stays
+# a test-only include: it is a schema pinned against the installed converters.
 [[policy]]
 id = "game.demo-worlds-are-not-compiled-in"
 scope = "game"
 kind = "forbidden-source-reference"
-owners = ["ambition_demo_sanic"]
-watch_paths = ["game/ambition_demo_sanic/src"]
+owners = ["ambition_demo_sanic", "ambition_demo_mary_o"]
+watch_paths = ["game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
 rationale = "an include_str! of a world makes each level edit compile the demo crate and the apps after it; content_text! embeds it only where there is no source tree"
 source_doc = "docs/recipes/iterating-without-a-rebuild.md"
 severity = "error"
 production_only = true
 skip_tests = true
-roots = ["game/ambition_demo_sanic/src"]
-forbid = ["include_str!(\"../assets/worlds/"]
+roots = ["game/ambition_demo_sanic/src", "game/ambition_demo_mary_o/src"]
+forbid = ["include_str!(\"../assets/worlds/mary_o.ldtk", "include_str!(\"../assets/worlds/sanic_"]

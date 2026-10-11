@@ -10,10 +10,8 @@
 //! fail on a bad edit; that is the safety net for editing, not friction against
 //! it.
 
-const WORLD_JSON: &str = include_str!("../assets/worlds/mary_o.ldtk");
-
 fn ldtk_room() -> ambition_platformer2d::world::rooms::RoomSpec {
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(WORLD_JSON).expect(
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&crate::mary_o_world_text()).expect(
         "mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)",
     );
     let room_set = project
@@ -269,7 +267,7 @@ fn print_what_the_file_authors() {
 /// vocabulary must not change the engine-only vocabulary's refusal.
 #[test]
 fn the_same_level_reads_differently_to_two_vocabularies_in_one_process() {
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(WORLD_JSON)
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&crate::mary_o_world_text())
         .expect("mary_o.ldtk parses");
 
     let engine_only = project.to_room_set_with_entry(
@@ -388,5 +386,22 @@ fn every_lift_wraps_outside_the_room() {
         looping >= 3,
         "1-2 authors a three-lift conveyor; only {looping} looping platform(s) \
          reached this check, so it is not looking at the shaft"
+    );
+}
+
+/// A development build reads the world off disk, so a level edit is played
+/// after a restart with no crate compiled. `static_content` embeds it for a
+/// build with no source tree.
+#[test]
+fn the_world_is_read_off_disk_unless_the_build_embeds_it() {
+    let world = &crate::MARY_O_WORLD;
+    let on_disk = std::fs::read_to_string(world.file)
+        .unwrap_or_else(|error| panic!("{} is in the source tree: {error}", world.file));
+    assert_eq!(crate::mary_o_world_text(), on_disk, "{}", world.file);
+    assert_eq!(
+        world.embedded.is_some(),
+        cfg!(feature = "static_content"),
+        "{}: a development build compiled the world in, or a static build did not",
+        world.file
     );
 }

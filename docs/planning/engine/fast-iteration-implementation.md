@@ -146,10 +146,16 @@ affected character tests.
     --bins`, warm). Witness
     `each_world_is_read_off_disk_unless_the_build_embeds_it` (poison: one
     world embedded, red at its arm); policy
-    `game.demo-worlds-are-not-compiled-in`. Open: `MARY_O_WORLD_JSON`
-    (`game/ambition_demo_mary_o/src/lib.rs`) is still `include_str!`. The
-    F11/F12 world reload serves the Ambition world only, so a demo world
-    edit costs a restart.
+    `game.demo-worlds-are-not-compiled-in`. ✔ Mary-O (2026-10-11):
+    `MARY_O_WORLD` the same way, and `ldtk_migration_tests` reads it too; a
+    world edit costs 0.69 s and compiles nothing (`cargo build -p
+    ambition_demo_mary_o_app --bins`, warm). Witness
+    `the_world_is_read_off_disk_unless_the_build_embeds_it` (poison: the
+    world embedded, red at its arm and at the policy). A capture
+    (`capture_mary_o`, `capture_scene --route mary_o_gameplay`) reads the
+    world through the same function; not run here. Open: the F11/F12 world
+    reload serves the Ambition world only, so a demo world edit costs a
+    restart.
   - ✔ The published sprite tree (2026-10-11): each `*_spritesheet.ron`,
     portrait manifest, body rig, part flipbook, landmark table and
     ultrapack catalog. `build.rs` of `ambition_sprite_sheet` embeds them
@@ -172,7 +178,10 @@ affected character tests.
     ⚠ `run_tests.py` denies `static_*` from the union job, so no lane runs
     that second witness.
   - The entity manifest of a demo world (`mary_o.entities.json`): a schema,
-    as the LDtk entity contract is.
+    as the LDtk entity contract is. Decided 2026-10-11: it stays. It is a
+    `#[cfg(test)]` include in no shipped binary; it pins the manifest the
+    LDtk tools read against the converters the demo installs, and a real
+    change to it needs a converter change in Rust.
   No packet owned these three. The first two cost a build for each level
   edit and each sprite publish of a demo.
 

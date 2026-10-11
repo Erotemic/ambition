@@ -137,6 +137,7 @@ impl Plugin for MaryOExperiencePlugin {
     fn build(&self, app: &mut App) {
         crate::install_mary_o_content(app);
         crate::quasar_shader::install(app);
+        crate::shimmer_shader::install(app);
         // Declare the star wand pickup art (pure id → path + size DATA; no render
         // dependency here). The render layer resolves it into a real sprite through
         // the shared `WorldItem` art seam, so the ?-block's wand draws as a wand

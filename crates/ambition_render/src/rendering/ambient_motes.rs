@@ -92,6 +92,10 @@ impl Default for AmbientMoteStyles {
                 (T::Forest, MoteStyle::new(22, 0.0, 0.0, 24.0, 0.07, 2.4, 4.4, 0.95, 0.9, 0.9, 0.45)),
                 // Pollen and spores that drift on warm air.
                 (T::Primeval, MoteStyle::new(20, 6.0, -3.0, 16.0, 0.10, 1.6, 3.2, 0.7, 0.4, 0.8, 0.4)),
+                // Embers of a dark light that go up and flicker.
+                (T::Starless, MoteStyle::new(26, 3.0, 12.0, 8.0, 0.2, 1.8, 3.8, 0.75, 0.6, 1.6, 0.4)),
+                // Sparkles that come and go, and go up slowly.
+                (T::Starlight, MoteStyle::new(26, 2.0, 5.0, 10.0, 0.10, 2.4, 5.0, 0.85, 0.85, 0.7, 0.4)),
                 (T::Water, MoteStyle::new(30, 0.0, 22.0, 4.0, 0.35, 2.4, 6.0, 0.62, 0.15, 0.8, 0.4)),
                 // Spray off the sea, on the wind.
                 (T::Cove, MoteStyle::new(20, -11.0, 2.0, 5.0, 0.2, 1.6, 3.2, 0.46, 0.4, 0.9, 0.3)),

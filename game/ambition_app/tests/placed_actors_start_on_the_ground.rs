@@ -13,6 +13,7 @@
 //! platform; two of those fell through it to the floor, 116 px.
 
 use ambition_app::{AmbitionSim, Platformer2dSimHarness};
+use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
@@ -24,8 +25,10 @@ use bevy::prelude::*;
 /// took 22 frames.
 const FRAMES: usize = 120;
 
-/// The bodies that landed in the first frames of `room` (the placement id of
-/// each, or `player`), and the number of placed bodies the room built.
+/// The bodies that landed in the first frames of `room`, and the number of
+/// placed bodies the room built. A body's name is its placement id and, in
+/// brackets, the catalog character it wears (`NpcSpawn-0001 (sanic)`), or
+/// `player`.
 fn the_start_of(room: &str) -> (Vec<String>, usize) {
     let mut sim = Platformer2dSimHarness::new_with_options(crate::common::fixed_60hz_room_options(room))
         .unwrap_or_else(|error| panic!("`{room}` boots: {error:?}"));
@@ -42,15 +45,17 @@ fn the_start_of(room: &str) -> (Vec<String>, usize) {
             })
             .collect();
         let world = sim.world_mut();
-        let mut bodies = world.query::<(&BodyKinematics, Option<&FeatureId>, Has<PrimaryPlayer>)>();
+        let mut bodies =
+            world.query::<(&BodyKinematics, Option<&FeatureId>, Option<&WornCharacter>, Has<PrimaryPlayer>)>();
         let bodies: Vec<(Vec2, String)> = bodies
             .iter(world)
-            .map(|(kin, id, is_player)| {
+            .map(|(kin, id, worn, is_player)| {
                 let feet = kin.pos + Vec2::new(0.0, kin.size.y * 0.5);
-                let name = match id {
-                    Some(id) => id.0.clone(),
-                    None if is_player => "player".to_string(),
-                    None => "a body with no placement".to_string(),
+                let name = match (id, worn) {
+                    (Some(id), Some(worn)) => format!("{} ({})", id.0, worn.id()),
+                    (Some(id), None) => id.0.clone(),
+                    (None, _) if is_player => "player".to_string(),
+                    (None, _) => "a body with no placement".to_string(),
                 };
                 (feet, name)
             })
@@ -76,13 +81,17 @@ fn the_start_of(room: &str) -> (Vec<String>, usize) {
 /// reports its first ground contact as a landing: a crawler (the puppy slug),
 /// a momentum body (Sanic), and the player (built 1 px above its floor in
 /// `basement_enemies`). A body that leaves this list is an improvement.
+///
+/// A row of `still` is a placement id or a catalog character. The hall of
+/// characters is a generated room: a new character moves each placement id
+/// after it, so its rows are characters.
 #[test]
 fn no_placed_walker_lands_when_its_room_starts() {
     let rooms: [(&str, usize, &[&str]); 4] = [
         (
             "hall_of_characters",
             100,
-            &["NpcSpawn-109803", "NpcSpawn-109893", "NpcSpawn-109894", "player"],
+            &["npc_puppy_slug", "sanic", "super_sanic", "player"],
         ),
         ("basement_enemies", 8, &["EnemySpawn-0143", "player"]),
         ("pirate_cove", 9, &[]),
@@ -94,7 +103,10 @@ fn no_placed_walker_lands_when_its_room_starts() {
             placed >= at_least,
             "premise: `{room}` builds its placed bodies ({placed}, and it places {at_least} or more)"
         );
-        let new: Vec<&String> = landed.iter().filter(|name| !still.contains(&name.as_str())).collect();
+        let excused = |name: &str| {
+            still.iter().any(|row| name == *row || name.starts_with(&format!("{row} (")) || name.ends_with(&format!("({row})")))
+        };
+        let new: Vec<&String> = landed.iter().filter(|name| !excused(name)).collect();
         assert!(
             new.is_empty(),
             "these bodies landed in the first {FRAMES} frames of `{room}`: {new:?} (all: {landed:?})"

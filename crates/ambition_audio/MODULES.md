@@ -9,7 +9,7 @@
 | [`bank_asset`](src/bank_asset.rs) | Provider-qualified SFX bank loading and playback. |
 | [`catalog`](src/catalog.rs) | App-local authored-audio catalogs contributed by experience providers. |
 | [`content_schema`](src/content_schema.rs) | Authored-content schemas for the audio capability. |
-| [`cue_spec`](src/cue_spec.rs) | Adaptive music cues as authored data: the cue graph (sections, layers, states) and the encounter bindings that choose a cue. |
+| [`cue_spec`](src/cue_spec.rs) | Adaptive music cues as authored data: the cue graph (sections, layers, states) and the encounter and room bindings that choose a cue. |
 | [`library`](src/library.rs) | Authored-audio playback library: typed SFX cue table, lazily-loaded pre-rendered music tracks, the music/SFX Kira channels, and the track-switch/radio/default-start helpers. |
 | [`mix`](src/mix.rs) | Host-supplied mix levels. |
 | [`music`](src/music/mod.rs) | Adaptive music core: cue catalog, layered Kira channels, the director (simple and adaptive cue playback), and its tuning. |

@@ -7,18 +7,21 @@
 Run it from `tools/ambition_ldtk_tools`.
 
 A linear level of four rooms in a row, in the `primeval` biome. The enemies
-are the T-rex's kin (the birds, and the raptors); the T-rex is at its end.
+are the T-rex's kin (the birds, and the raptors) and the dinosaurs that are
+not birds yet; the T-rex is at its end.
 
     central hub -> trailhead -> run -> canopy -> the tyrant's hall
 
 A coconut palm (a `Prop`, scenery) stands by each coconut on the ground.
 
-- `primeval_trailhead`: the small birds (kiwis, a cockerel and his hen), and
-  a coconut to learn to throw.
+- `primeval_trailhead`: the small birds (kiwis, a cockerel and his hen), a
+  pack of three compsognathus, and a coconut to learn to throw.
 - `primeval_run`: a long flat room for the runners (emus, a pair of
-  ostriches) with swallows over it.
+  ostriches, a pachycephalosaurus) with swallows over it, and a
+  dilophosaurus that spits from the last ledge.
 - `primeval_canopy`: a tall room of ledges. Raptors on the floor, a
-  cassowary, a shoebill that waits on a ledge, an owl and a vulture over it.
+  cassowary, a shoebill and a dilophosaurus on ledges, an owl and a vulture
+  over it, and a triceratops in front of the way out.
 - `primeval_tyrant_hall`: the T-rex. The hall is the one of `trex_arena` (the
   fight needs its width, and its two ledges with a step to each); this
   placement has its own encounter id, so its progress is its own.
@@ -26,7 +29,9 @@ A coconut palm (a `Prop`, scenery) stands by each coconut on the ground.
 Each room after the first has its door back, and puts the door forward in the
 room before it (`connect_to`), so the rooms are made in order. A room that is
 in the map already is replaced, with the doors that other rooms put in it:
-make all four again, in order.
+make all four again, in order (`--apply` does). The central hub is not
+replaced, so its door stays: a second `--apply` makes the trailhead without
+the link that placed it.
 
 An enemy is an `EnemySpawn` with the `character_id` of a row of the character
 catalog; the row's own profile is what makes it hunt. The size of its box is
@@ -34,8 +39,11 @@ the size the T-rex's call summons that kind with.
 """
 from __future__ import annotations
 
+import json
+import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -57,7 +65,8 @@ BOX = {
     "kiwi": (24, 26), "chicken": (32, 44), "chicken_hen": (32, 44), "emu": (36, 84), "ostrich": (40, 104),
     "ostrich_hen": (40, 104), "cassowary": (40, 82), "shoebill": (36, 80), "npc_raptor_stalker": (48, 80),
     "stochastic_parrot": (36, 32), "owl": (36, 48), "european_swallow": (24, 20), "african_swallow": (24, 20),
-    "vulture": (44, 66),
+    "vulture": (44, 66), "compsognathus": (24, 26), "dilophosaurus": (44, 74), "pachycephalosaurus": (44, 72),
+    "triceratops": (96, 92),
 }
 
 
@@ -92,9 +101,10 @@ def door(zone, name, x, floor_y, to_room, to_zone):
             f'activation: "Door", target_room: "{to_room}", target_zone: "{to_zone}", bidirectional: true ) ),')
 
 
-def forward_door(in_level, zone, x, floor_y, to_zone):
-    """The door forward, put in the room before this one."""
-    return (f'( target_room: "{in_level}", px: [{x}, {floor_y - 96}], size: [48, 96], id: "{zone}", '
+def forward_door(in_level, zone, name, x, floor_y, to_zone):
+    """The door forward, put in the room before this one. `name` is what
+    the player reads at the door: prose, not the id of the zone."""
+    return (f'( target_room: "{in_level}", px: [{x}, {floor_y - 96}], size: [48, 96], id: "{zone}", name: "{name}", '
             f'target_zone: "{to_zone}", activation: "Door", bidirectional: true ),')
 
 
@@ -152,8 +162,12 @@ def trailhead():
         ledge("perch_b", 1040, floor - 96, 192),
         enemy(rid, 1, "chicken", 1100, floor),
         enemy(rid, 1, "chicken_hen", 1260, floor),
+        # A pack: one is a nuisance, three are a problem.
+        enemy(rid, 1, "compsognathus", 1390, floor),
+        enemy(rid, 2, "compsognathus", 1440, floor),
+        enemy(rid, 3, "compsognathus", 1490, floor),
     ]
-    connect = [(f'( target_room: "central_hub_main", px: [{HUB_DOOR[0]}, {HUB_DOOR[1]}], size: [48, 96], id: "primeval_hub_door", '
+    connect = [(f'( target_room: "central_hub_main", px: [{HUB_DOOR[0]}, {HUB_DOOR[1]}], size: [48, 96], id: "primeval_hub_door", name: "{HUB_DOOR_NAME}", '
                 f'target_zone: "{rid}_to_hub", activation: "Door", bidirectional: true ),')]
     return rid, room(rid, 20000, w, h, e, connect, "The primeval trail. A coconut: Attack picks it up, Attack throws it.")
 
@@ -175,11 +189,14 @@ def run():
         enemy(rid, 2, "european_swallow", 1240, floor - 290),
         coconut(rid, 2, 1080, floor - 112),
         ledge("rest_b", 1420, floor - 144, 160),
+        enemy(rid, 1, "pachycephalosaurus", 1380, floor),
         enemy(rid, 1, "ostrich", 1640, floor),
         enemy(rid, 1, "ostrich_hen", 1900, floor),
         ledge("rest_c", 2040, floor - 112, 176),
+        # It spits down the last stretch from the top of the ledge.
+        enemy(rid, 1, "dilophosaurus", 2110, floor - 112),
     ]
-    connect = [forward_door("primeval_trailhead", "primeval_trailhead_east", 1600 - WALL - 48, 480, f"{rid}_west")]
+    connect = [forward_door("primeval_trailhead", "primeval_trailhead_east", "to the run", 1600 - WALL - 48, 480, f"{rid}_west")]
     return rid, room(rid, 22000, w, h, e, connect, "The run. The tall birds are fast: a ledge is out of the reach of a kick.")
 
 
@@ -202,12 +219,15 @@ def canopy():
         enemy(rid, 2, "african_swallow", 1280, floor - 360),
         coconut(rid, 2, 1180, floor),
         ledge("branch_d", 1240, floor - 256, 192),
+        enemy(rid, 1, "dilophosaurus", 1330, floor - 256),
         enemy(rid, 2, "npc_raptor_stalker", 1200, floor),
         enemy(rid, 1, "cassowary", 1480, floor),
         ledge("branch_e", 1560, floor - 128, 176),
         enemy(rid, 1, "vulture", 1620, floor - 420),
+        # The heavy stands in front of the way out.
+        enemy(rid, 1, "triceratops", 1790, floor),
     ]
-    connect = [forward_door("primeval_run", "primeval_run_east", 2400 - WALL - 48, 480, f"{rid}_west")]
+    connect = [forward_door("primeval_run", "primeval_run_east", "to the canopy", 2400 - WALL - 48, 480, f"{rid}_west")]
     return rid, room(rid, 25000, w, h, e, connect, "The canopy. Something on that ledge has not moved. It is looking at you.")
 
 
@@ -226,14 +246,23 @@ def tyrant_hall():
         (f'( type: "BossSpawn", px: [1120, {floor - 112}], size: [140, 112], fields: ( name: "T-Rex", '
          f'brain: "PhaseScript:trex_boss", encounter_id: "primeval.trex" ) ),'),
     ]
-    connect = [forward_door("primeval_canopy", "primeval_canopy_east", 2000 - WALL - 48, 672, f"{rid}_entry")]
+    connect = [forward_door("primeval_canopy", "primeval_canopy_east", "to the tyrant's hall", 2000 - WALL - 48, 672, f"{rid}_entry")]
     return rid, room(rid, 28000, w, h, e, connect, "The Tyrant King.")
 
 
 #: Where the door of the level is in the central hub (`door free-spots central_hub_main`).
 HUB_DOOR = (1200, 880)
+#: What the player reads at that door.
+HUB_DOOR_NAME = "to the primeval trail"
 
 ROOMS = (trailhead, run, canopy, tyrant_hall)
+
+
+def hub_door_is_placed():
+    """The central hub has the door of this level already."""
+    world = json.loads(Path(LDTK).read_text())
+    hub = next(level for level in world["levels"] if level["identifier"] == "central_hub_main")
+    return "primeval_hub_door" in json.dumps(hub)
 
 
 def main(argv):
@@ -245,9 +274,25 @@ def main(argv):
         made.append(path)
         print(path.relative_to(TOOLS))
     if "--apply" in argv:
+        if hub_door_is_placed():
+            # The name of a door that is there already (`HUB_DOOR_NAME`).
+            subprocess.run([sys.executable, "-m", "ambition_ldtk_tools", "entity", "set-field", str(HERE / "hub_door_name.yaml"),
+                            "--ldtk", str(LDTK), "--in-place"], cwd=TOOLS, check=True)
         for path in made:
-            subprocess.run([sys.executable, "-m", "ambition_ldtk_tools", "area", "create", str(path), "--ldtk", str(LDTK),
-                            "--replace-existing"], cwd=TOOLS, check=True)
+            spec = path
+            if path == made[0] and hub_door_is_placed():
+                # The hub is not replaced, so its door is there already: make
+                # the trailhead again without the link that would place it.
+                spec = Path(tempfile.mkdtemp()) / path.name
+                spec.write_text(re.sub(r"connect_to: \[.*?\n    \],", "connect_to: [],", path.read_text(), flags=re.S))
+            done = subprocess.run([sys.executable, "-m", "ambition_ldtk_tools", "area", "create", str(spec), "--ldtk",
+                                   str(LDTK), "--replace-existing"], cwd=TOOLS, capture_output=True, text=True)
+            print(done.stdout + done.stderr)
+            # A room made again loses the door that the next room puts in it,
+            # so the map is not whole until the last room is made: before
+            # that, it is enough that the room was written.
+            if done.returncode != 0 and (path == made[-1] or "wrote new level" not in done.stdout + done.stderr):
+                return done.returncode
     return 0
 
 

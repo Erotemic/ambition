@@ -31,6 +31,7 @@ pub mod powerups;
 pub mod provider;
 pub mod quasar_shader;
 pub mod scenery;
+pub mod shimmer_shader;
 pub mod pack;
 #[cfg(test)]
 mod smash_moveset;
@@ -1054,6 +1055,7 @@ impl Plugin for MaryODemoContentPlugin {
 
         install_mary_o_content(app);
         quasar_shader::install(app);
+        shimmer_shader::install(app);
         let room = level_1_1();
         let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
             provider::MARY_O_EXPERIENCE,

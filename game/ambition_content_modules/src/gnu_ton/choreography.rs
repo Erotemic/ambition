@@ -584,7 +584,9 @@ pub mod arms {
     /// Half the length of each line of the punch's pair.
     pub const PUNCH_HALF: f32 = 65.0;
     /// The far line is this far over the middle of the fist that came out of it.
-    pub const LINE_OVER: f32 = 156.0;
+    /// With the fist on the floor the line is 145 over the floor: a player's
+    /// two jumps from the floor reach it.
+    pub const LINE_OVER: f32 = 96.2;
     /// The far line is no nearer to the giant's flank than this.
     pub const CLEAR_OF_FLANK: f32 = 110.0;
     /// The blow: the row `punch_strike`, and the part of it that hurts.

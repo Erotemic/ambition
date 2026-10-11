@@ -546,8 +546,12 @@ a GPU, and no test was run or changed).**
 - When the giant bucks, the lines stay at the place of the giant at rest.
 - The hall of characters shows the giant with its arms cut at two lines
   that are not drawn (no conductor is there).
-- Not tuned: the height of the far line (205 over the floor), the times,
-  the damage, how many blows end phase 1.
+- The far line is 145 over the floor (the fist's sheet says it:
+  `FIST_BBOX`). REASONED, not played: a player's two jumps from the floor
+  rise about 148 (`jump_speed` 630, `double_jump_speed` 520, gravity 2250),
+  so its middle goes through the line. The way up needs a test that plays
+  it (the arena's tests can drive a player; `capture_scene` can not).
+- Not tuned: the times, the damage, how many blows end phase 1.
 
 ## Mode Collapse music (Q148)
 

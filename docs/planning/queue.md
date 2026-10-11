@@ -819,9 +819,13 @@ capability interprets (`BossEncounters` → `boss_pattern`, `Cutscenes` →
 
 **Open:** the claim is *not installed*, not *not linked* (`Q106`: the crates behind
 these capabilities are unconditional dependencies); `Dialogue` has no pack
-capability (Yarn is not a pack schema), so a Yarn script asked of a profile
-without dialogue is not refused at admission; no shipped host admits content
-under a reduced profile (the refusal is witnessed at the profile's schema set);
+capability (Yarn is not a pack schema), and a module has no road to declare a
+Yarn script (`ModuleDraft` declares experiences, capabilities, rollback,
+actions and content packs), so there is nothing to refuse until one exists.
+The shipped facade admits under a profile since SG3: `PlatformerApp::profile`
+admits each module's pack against the profile's schemas
+(`a_profile_refuses_a_pack_that_needs_a_capability_it_omits`), and Outlander
+composes `COMBAT_WITHOUT_INVENTORY_BOSS_DIALOGUE`, with no pack of its own;
 `world-without-cutscenes` (2026-10-08) omits `Cutscenes` and steps; a pack
 that requires `cutscene` is refused under it. Re-entry is witnessed for
 the headless profiles (`a_second_session_in_one_process_steps_as_the_first`:

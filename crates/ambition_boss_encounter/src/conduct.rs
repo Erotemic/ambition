@@ -136,6 +136,7 @@ pub fn queue_boss_conducts(
                 target_body: target.and_then(|t| t.entity).and_then(|tracked| bodies.get(tracked).ok()).map(|body| {
                     BodyBox { position: [body.pos.x, body.pos.y], size: [body.size.x, body.size.y] }
                 }),
+                size: [kin.size.x, kin.size.y],
             },
         );
     }

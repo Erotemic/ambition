@@ -326,9 +326,9 @@ before you add a port.
   after the rider sync; request `ambition.boss.limb_pose` (hold a limb of the
   ridden mount at a pose, or release it to fall straight down);
   `ambition.presentation.drawn_row` v2 (a row on the boss, its mount or a
-  limb, with fallback names); trigger `ambition.boss.conduct` v5 (the
-  boss's health, whether the encounter refuses damage now, and the tracked
-  body now); requests `ambition.boss.limb_opening` and
+  limb, with fallback names); trigger `ambition.boss.conduct` v6 (the
+  boss's health and size, whether the encounter refuses damage now, and the
+  tracked body now); requests `ambition.boss.limb_opening` and
   `ambition.boss.limb_blow` (a fist refuses damage until it is an opening;
   the blow it takes heals and passes on to the scholar once);
   `ambition.boss.mount_launch` (the buck's hop) and

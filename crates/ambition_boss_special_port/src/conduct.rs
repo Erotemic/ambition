@@ -37,6 +37,7 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   phase): it is wider than `between_phases`. `target_body` is where the
 ///   tracked body is now and its size; `target` is where the boss last saw
 ///   it, and the two differ when the body moved after the boss looked.
+///   `size` is the boss's own body size (its feet are `position.y + size.y / 2`).
 /// * **Absence** — `target` is `None` when the boss tracks nothing, and
 ///   `target_body` also when the tracked entity has no body; `hall`
 ///   is `None` when the room cannot be told or has no floor under the boss;
@@ -93,6 +94,8 @@ pub struct BossConduct {
     pub invulnerable: bool,
     /// The tracked body, now.
     pub target_body: Option<BodyBox>,
+    /// The boss's own body size.
+    pub size: [f32; 2],
 }
 
 /// A body's centre and size.
@@ -124,7 +127,8 @@ impl Port for BossConductPort {
     /// Version 2 (2026-10-06): `holding` and `minions`. Version 3
     /// (2026-10-06): `between_phases`. Version 4 (2026-10-06): `room`.
     /// Version 5 (2026-10-10): `health`, `invulnerable`, `target_body`.
-    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 5);
+    /// Version 6 (2026-10-10): `size`.
+    const KEY: PortKey = PortKey::new("ambition.boss.conduct", 6);
     const ROLE: PortRole = PortRole::Trigger;
     type Value = BossConduct;
 
@@ -155,6 +159,7 @@ impl Port for BossConductPort {
             wire::put_vec2(out, b.position);
             wire::put_vec2(out, b.size);
         });
+        wire::put_vec2(out, v.size);
     }
 
     fn decode(r: &mut WireReader<'_>) -> Result<BossConduct, WireError> {
@@ -185,6 +190,7 @@ impl Port for BossConductPort {
             health: r.i32()?,
             invulnerable: r.bool()?,
             target_body: r.opt(|r| Ok(BodyBox { position: r.vec2()?, size: r.vec2()? }))?,
+            size: r.vec2()?,
         })
     }
 }
@@ -683,6 +689,7 @@ mod tests {
             health: -2,
             invulnerable: true,
             target_body: Some(BodyBox { position: [9.5, 7.0], size: [24.0, 40.0] }),
+            size: [40.0, 60.0],
         };
         assert_eq!(round::<BossConductPort>(&conduct), conduct);
         let bare = BossConduct { telegraph: None, active: Some(LiveMove { key: "x".into(), remaining: 1.0 }), target: None, hall: None, target_body: None, ..conduct };

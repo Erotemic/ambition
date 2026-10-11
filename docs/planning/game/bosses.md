@@ -439,6 +439,18 @@ level part of each horn); each shoulder has an epaulet.
   not chosen.
 - The portals are NOT in the sprite. The game draws them with the engine's
   portal effect: a thin line of light, two places of the room made one.
+- The blow is ONE smooth motion, and the arm goes into the line square to
+  it (Jon, 2026-10-11). The arm is one picture at each moment. It is drawn
+  on each side of the pair and cut at the line, so what has gone into the
+  near line is what comes out of the far one, at the same angle. An arm of
+  two stiff bones goes in on a slant, and where it crosses the line moves
+  along it. So the arm WARPS: it is one curve from the shoulder to the
+  wrist, its end held square to the line, and it is longer in the blow than
+  at rest. Concepts as animations: `untracked/giant-gnu-candidate/`
+  (`punch_down.gif`: down into a flat line; `punch_side.gif`: across into
+  an upright one; `punch.gif`: the stiff arm, for comparison). With the
+  warp the lines stay flat or upright, which the engine does exactly: a
+  line at an angle is not needed for this.
 - After a few hits the scholar is angry. He calls portals that STAY. Each
   arm goes into one, and its fore arm and fist come out of another that
   floats: the choreography of today's two fists, with a reason in the

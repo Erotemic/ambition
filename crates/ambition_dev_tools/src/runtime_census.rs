@@ -1711,6 +1711,50 @@ mod tests {
     }
 
     #[test]
+    fn a_schedule_another_plugin_inserted_keeps_its_place_in_either_install_order() {
+        // `MainScheduleOrder` has a second writer: a plugin that inserts its own
+        // schedule (`ambition_render`'s `ShelterFontSources`, after `PostUpdate`).
+        // The marks are interleaved into whatever the order holds, so that
+        // schedule must stay between its neighbours whichever plugin builds first.
+        use bevy::app::MainScheduleOrder;
+        use bevy::ecs::schedule::ScheduleLabel;
+
+        #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+        struct Inserted;
+
+        fn insert(app: &mut App) {
+            app.world_mut()
+                .resource_mut::<MainScheduleOrder>()
+                .insert_after(PostUpdate, Inserted);
+        }
+
+        for marks_first in [true, false] {
+            let mut app = App::new();
+            app.init_resource::<MainScheduleOrder>();
+            if marks_first {
+                install_frame_phase_marks(&mut app);
+                insert(&mut app);
+            } else {
+                insert(&mut app);
+                install_frame_phase_marks(&mut app);
+            }
+            let order: Vec<String> = app
+                .world()
+                .resource::<MainScheduleOrder>()
+                .labels
+                .iter()
+                .map(|label| format!("{label:?}"))
+                .collect();
+            let at = |name: &str| order.iter().position(|label| label == name);
+            let (post_update, inserted, last) = (at("PostUpdate"), at("Inserted"), at("Last"));
+            assert!(
+                post_update < inserted && inserted < last && inserted.is_some(),
+                "marks_first={marks_first}: {order:?}"
+            );
+        }
+    }
+
+    #[test]
     fn a_phase_row_accounts_for_the_whole_frame() {
         // The census earns trust by summing to the frame time it explains, so
         // the transition bookkeeping must lose nothing between marks.

@@ -246,6 +246,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/session/durable_horizon.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
         "crates/ambition_platformer2d_actor_monolith/src/shrine.rs",
+        "crates/ambition_platformer2d_runtime/src/module_save_road.rs",
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
         "game/ambition_content/src/encounters.rs",
         "game/ambition_content/src/quest.rs",
@@ -2169,7 +2170,12 @@ ADJUDICATED: dict[str, str] = {
         "`hand_the_save_to_the_activating_experience` swaps the whole value at "
         "`SessionScopeSet::Activate`, before any session of the new experience "
         "exists, so it shares no frame with the sim writers (Q129 road 4 of "
-        "ID-PEER)."
+        "ID-PEER).\n"
+        "    2026-10-11: `ambition_platformer2d_runtime/src/module_save_road.rs` "
+        "ARRIVED. `persist_module_records_to_save` writes the `module_records` "
+        "family only, which no other writer touches, from "
+        "`DurableHorizonSet::DomainMirror` beside the other simulation mirrors "
+        "(I4 save eligibility)."
     ),
     "ActiveConversation": (
         "CORRECT — ONE OPENER AND FOUR END CONDITIONS, each on a different event "

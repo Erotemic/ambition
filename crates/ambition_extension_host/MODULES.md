@@ -10,9 +10,10 @@
 | [`exec`](src/exec.rs) | Serial invocation: triggers in, staged state and requests out. |
 | [`inspect`](src/inspect.rs) | Text views of the extension host, for a developer or an agent that has no access to the `World` (fast-iteration I7 item 5). |
 | [`reload`](src/reload.rs) | Replacing a loaded module while the game runs. |
+| [`save`](src/save.rs) | The records a save road keeps, as save rows, and their adoption on a load. |
 | [`store`](src/store.rs) | The host-owned stores for module state. |
 
-_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -616,6 +616,7 @@ mod tests {
             MARY_O_DEATH_MUSIC_TRACK,
             MARY_O_VICTORY_MUSIC_TRACK,
             MARY_O_STAR_MUSIC_TRACK,
+            crate::cosmic::COSMIC_MUSIC_TRACK,
         ] {
             assert!(music.track(track).is_some(), "her code claims `{track}` and her pack does not declare it");
         }

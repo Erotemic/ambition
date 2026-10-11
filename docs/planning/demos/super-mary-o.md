@@ -115,8 +115,10 @@ Built: `game/ambition_demo_mary_o` (content) and `game/ambition_demo_mary_o_app`
     made. She has the ward against the void at all times in the form
     (`void_look.rs`), and the overlay of the quasar does not draw over her.
   - Her theme is the cue `eternal_cosmic` of the music renderer: an intro as
-    long as the transformation, then a loop. Until it is published the form
-    plays the theme of the quasar (`cosmic::COSMIC_MUSIC_TRACK`).
+    long as the transformation, then a loop of forty bars
+    (`cosmic::COSMIC_MUSIC_TRACK`). The castle plays `castle_crash_override`
+    (its score is in `game/ambition_demo_mary_o/music/`), by the level field
+    `music_track` of 1-4.
   - Not decided: what gives her the form in the game (today each player has
     it at all times), a transformation from each of her other forms (the one
     row starts from fire), and a clip for her way out of the form.

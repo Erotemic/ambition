@@ -25,5 +25,11 @@
         // The star. It LOOPS while the quasar burns, and the level theme
         // returns when the priority claim is released.
         (id: "invincible_maryo", display_name: "Invincible Mary-O"),
+        // Her cosmic form. An intro as long as her transformation, then a
+        // loop of forty bars (`cosmic::COSMIC_MUSIC_TRACK`).
+        (id: "eternal_cosmic", display_name: "Eternal Cosmic"),
+        // The castle (world 1-4), by its level field `music_track`. The score
+        // is `game/ambition_demo_mary_o/music/castle_crash_override.music.yaml`.
+        (id: "castle_crash_override", display_name: "Castle Crash Override"),
     ],
 )

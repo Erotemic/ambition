@@ -16,8 +16,8 @@
 #   vault_*            -> masonry paint (VAULT_MASONRY_PREFIX)
 #
 # So they are added as entity INSTANCES in a second pass. `entity add` does not
-# lower. Same two-pass shape 1-2's flagpole repair used
-# (mary_o_1_2_goal_pole_dressing.yaml).
+# lower. 1-2's generator adds its pole the same way
+# (game/ambition_demo_mary_o/tools/mary_o_level.py, `Level.pole`).
 #
 #   PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools entity add \
 #       tools/ambition_ldtk_tools/specs/mary_o_1_3_named_blocks.yaml \

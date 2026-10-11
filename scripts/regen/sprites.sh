@@ -623,6 +623,9 @@ tackon_targets=(
     super_mary_o_flag_pole_body
     super_mary_o_flag_pole_top
     super_mary_o_flag
+    # The moving platform of Mary-O: a `MovingPlatform` that names it in its
+    # `visual` field is drawn as it.
+    super_mary_o_lift
     # Reusable hand-authored presentation marks: impacts, dust/poofs, glints,
     # directional release flashes, and charge/release effects. The generated
     # authoring sidecar carries placement/orientation/loop intent for the

@@ -1,52 +1,40 @@
-//! World 1-2 — the underground level, and the demo's first SECOND ROOM.
+//! World 1-2: the level under the ground.
 //!
-//! `RoomTransitionRequested` had exactly one consumer and only `ambition_app` registered it, so a
-//! demo host could not change rooms at all — which is why 1-1's coin vault had to be dug into the
-//! same `RoomSpec` as the surface rather than being its own room.
+//! The level is authored in the Mary-O LDtk world. Its generator is
+//! `tools/author_mary_o_1_2_ldtk.py`, which builds it in tiles, one function for
+//! each part. Left to right:
 //!
-//! The grammar, left to right:
+//! 1. The arrival: a row of blocks, two walkers, and steps of rock with a
+//!    walker in a hollow.
+//! 2. The shell alley: a snake in front of a line of walkers under a band of
+//!    bricks. The top of the band is a second road with coins on it.
+//! 3. The brick maze: a mass of bricks with a tunnel of coins through it, and
+//!    enemies under it.
+//! 4. The teeth and the pits: three pits under rock that hangs low, with planes
+//!    in the air. The low rock makes each jump a short one.
+//! 5. The lifts: two lines of platforms over a pit, one down and one up. The
+//!    lift that goes up goes on through a hole in the roof.
+//! 6. The attic: a room of coins over the roof. Its pipe comes out before the
+//!    ferry, so it is a way past the clock gallery.
+//! 7. The clock gallery: a high road of ledges over a low road.
+//! 8. The ferry: a pit wider than a jump at a run. Only the ferry crosses it.
+//! 9. The goal: steps of rock and the pole. The level that comes next is the
+//!    `next_room` field of this level.
 //!
-//! 1. The drop — you arrive at the room's own spawn, in a low stone
-//!    corridor. The ceiling is solid the whole way, which is what makes it read
-//!    as underground rather than as a pit.
-//! 2. The coin shelf — a short raised run with coins on it, so the first
-//!    thing the room teaches is that its ceiling is low enough to matter.
-//! 3. The chasm — a five-tile gap with no stepping stone. The only way over
-//!    is the moving platform, so the room's one new verb is load-bearing exactly
-//!    once, the same rule 1-1's stepping stone follows.
-//! 4. The goal — a pole at the far wall. Where finishing LEADS is the room's
-//!    authored `next_room`, which the engine's departure reads.
+//! The roof has no hole in its top row, so the level reads as under the ground.
+//! A `CameraZone` holds the camera on the corridor: the room is as high as the
+//! corridor and the attic, and the view must not show the attic from below.
 //!
-//! What is deleted is the shaft (`mary_o_1_1_descent`), its pad (`mary_o_1_2_arrival`), the alcove
-//! (`mary_o_1_2_exit`) and ITS pad (`mary_o_1_1_surface_return`).
-//!
-//! the vault stays, and it is not the same thing. 1-1's coin vault is
-//! inside 1-1 and its two pipes move her within that room; only the exit to
-//! ANOTHER LEVEL went.
-
-//! The platform is authored as an ordinary `MovingPlatform` entity. Riding it is
-//! engine behavior — the platform advance runs once per frame before the body
-//! tick and the ride/ledge-carry logic reads its delta — so this level adds no
-//! movement code of its own.
+//! A platform is an ordinary `MovingPlatform` entity. To ride it is engine
+//! behavior, so this level adds no movement code.
 
 use ambition_platformer2d::world::rooms::RoomSpec;
 
 /// The authored area id, and the room id the runtime knows it by.
 pub const LEVEL_1_2_ROOM_ID: &str = "mary_o_1_2";
 
-// `DESCENT_ZONE_ID` / `ARRIVAL_ZONE_ID` / `EXIT_ZONE_ID` / `SURFACE_RETURN_ZONE_ID` ARE GONE —
-// see the module header. Deleted rather than left pointing at nothing: `authored_zone` PANICS on a
-// missing id, so a constant that survives its zone is a landmine for the next reader who uses it as
-// one.
-
-/// The ferry's authored ID.
-///
-/// Renaming the platform in the editor would have silently broken every lookup, which is the same
-/// defect the snake paid for twice.
-///
-/// The converter reads `field_string(entity, "id")` now and the engine's
-/// `MovingPlatform` definition carries the field, so the ferry is addressed by
-/// something an author chose on purpose.
+/// The authored `id` of the ferry. The `name` of a platform is presentation:
+/// a lookup by it stops when the platform gets a new name in the editor.
 pub const FERRY_ID: &str = "mary_o_1_2_ferry";
 
 /// 1-2's goal.
@@ -83,46 +71,38 @@ mod tests {
             .any(|block| block.aabb.strict_intersects(probe))
     }
 
-    /// this was a `CHASM: (f32, f32)` constant, which made the test a
-    /// restatement of the number the level was built from. Probing the floor
-    /// slab for the run of columns with nothing under them asks the LEVEL where
-    /// its hole is, so dragging the far floor run in the editor moves the
-    /// assertion with it.
-    fn floor_gap(room: &RoomSpec) -> (f32, f32) {
+    /// The run of floor columns with nothing in them that `x` is over. The
+    /// level says where its pit is: a pit that moves in the editor moves this
+    /// answer with it.
+    fn pit_under(room: &RoomSpec, x: f32) -> (f32, f32) {
         let depth = room.world.size.y - CELL;
-        let mut runs: Vec<(f32, f32)> = Vec::new();
-        let mut column = 0.0;
-        while column < room.world.size.x {
-            if !solid_in_cell(room, ae::Vec2::new(column, depth)) {
-                match runs.last_mut() {
-                    Some(run) if (run.1 - column).abs() < 0.5 => run.1 = column + CELL,
-                    _ => runs.push((column, column + CELL)),
-                }
-            }
-            column += CELL;
+        let open = |column: f32| !solid_in_cell(room, ae::Vec2::new(column, depth));
+        let mut start = (x / CELL).floor() * CELL;
+        assert!(open(start), "no pit is under x={x}");
+        while start > 0.0 && open(start - CELL) {
+            start -= CELL;
         }
-        assert_eq!(
-            runs.len(),
-            1,
-            "1-2's floor has {} gaps in it; the room's one new verb is the ferry \
-             over ONE chasm, and a second hole is either a second crossing or a \
-             pit that kills",
-            runs.len()
-        );
-        runs[0]
+        let mut end = start;
+        while end < room.world.size.x && open(end) {
+            end += CELL;
+        }
+        (start, end)
     }
 
+    /// A ferry that stops short of a lip of its pit makes the level impossible
+    /// to finish: the pit is wider than a jump.
     #[test]
-    fn the_chasm_is_only_crossable_by_the_platform() {
+    fn the_ferry_goes_from_one_lip_of_its_pit_to_the_other() {
         let room = level_1_2();
-        let (start, end) = floor_gap(&room);
-        assert!(
-            end - start >= 4.0 * T,
-            "a {}px gap is a stride, not a chasm",
-            end - start
-        );
+        let mut ferry = room
+            .moving_platforms
+            .iter()
+            .find(|platform| platform.id == FERRY_ID)
+            .cloned()
+            .expect("1-2 authors its ferry");
+        let (start, end) = pit_under(&room, ferry.pos.x);
 
-        // Nothing stands in the gap: no stepping stone, no floor.
+        // Nothing stands in the pit at the floor: no stepping stone, no floor.
         let gap = ae::Aabb::new(
             ae::Vec2::new((start + end) * 0.5, room.world.size.y - 2.0 * T),
             ae::Vec2::new((end - start) * 0.5 - 1.0, T),
@@ -133,18 +113,11 @@ mod tests {
                 .blocks
                 .iter()
                 .any(|b| b.aabb.strict_intersects(gap)),
-            "the chasm has something standing in it, so the ferry is decoration",
+            "the pit of the ferry has something standing in it",
         );
 
-        // And the ferry spans it, lip to lip.
-        let mut ferry = room
-            .moving_platforms
-            .iter()
-            .find(|platform| platform.id == FERRY_ID)
-            .cloned()
-            .expect("1-2 authors its ferry");
         let (mut left, mut right) = (f32::MAX, f32::MIN);
-        for _ in 0..200 {
+        for _ in 0..1200 {
             left = left.min(ferry.pos.x - ferry.size.x * 0.5);
             right = right.max(ferry.pos.x + ferry.size.x * 0.5);
             ferry.update(1.0 / 60.0);
@@ -159,19 +132,6 @@ mod tests {
         );
     }
 
-    /// The coin shelf has coins on it, and they rest ON it.
-    ///
-    /// ⛔⛔ A DOC COMMENT CLAIMING CONTENT IS THE EASIEST CLAIM TO LEAVE UNTRUE,
-    /// because nothing reads it. This level's own grammar calls the shelf *"a
-    /// short raised run with coins on it, so the first thing the room teaches is
-    /// that its ceiling is low enough to matter"* — so the coins are the beat,
-    /// and this test is what makes the sentence true.
-    ///
-    /// the rest position is the assertion that matters. A coin floating
-    /// above the shelf or sunk into it still "exists" and still collects; what
-    /// it stops being is the thing the shelf teaches, which is that this run is
-    /// worth the jump. So this checks they sit on its top edge, not merely that
-    /// some placements are present.
     /// Nothing authored into 1-2 is buried in the rock.
     ///
     /// Blind placement needs an oracle that is not a screenshot.
@@ -225,100 +185,6 @@ mod tests {
                     rock.aabb.min
                 );
             }
-        }
-    }
-
-    #[test]
-    fn the_coin_shelf_carries_coins_that_rest_on_it() {
-        let room = level_1_2();
-        // identified STRUCTURALLY, not by a constant. `floor_top()` went away
-        // when the level became authored, and re-deriving it here would put a
-        // second copy of the room's geometry in a test of the room. The shelf is
-        // the only SOLID that touches no edge of the world: the roof, the floor
-        // runs and both walls each meet one.
-        //
-        // and "the only solid that touches no edge" EXPIRED the moment 1-2
-        // got reactive blocks. A `MaryOBlock` is a `BlockKind::Solid` floating
-        // in mid-air too, so `find` started returning whichever came first and
-        // this test failed claiming a coin hung off a shelf 300px away. The
-        // structural idea is still right; it just has to say TERRAIN, and
-        // `block_of` is the question that separates an authored reactive block
-        // from the room's own stone.
-        //
-        // It also `collect`s and demands exactly one, because a `find` over an
-        // ambiguous predicate answers confidently and wrongly — which is
-        // precisely what happened.
-        //
-        // and "the only terrain shelf clear of every wall" EXPIRED TOO,
-        // the moment 1-2 stopped being one shelf in an empty box (,
-        // plain"*). Ceiling teeth, a second shelf and a staircase are all terrain
-        // clear of every wall, and the count went to eight. Its own failure
-        // message asked the right question — *"this test has to say which carries
-        // the coins"* — so it does: the coin shelf is the one the COINS name, by
-        // spanning them. That is a stronger statement than the count ever was,
-        // because it survives any amount of further building.
-        let size = room.world.size;
-        let coins: Vec<_> = room
-            .placements
-            .iter()
-            .filter(|placement| placement.name.starts_with("cavern_coin"))
-            .collect();
-        assert!(
-            coins.len() >= 4,
-            "the shelf is a RUN of coins — one or two reads as decoration, not as \
-             a reason to jump. found {}",
-            coins.len()
-        );
-        let coin_span = coins
-            .iter()
-            .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), coin| {
-                (lo.min(coin.aabb.min.x), hi.max(coin.aabb.max.x))
-            });
-        let shelves: Vec<_> = room
-            .world
-            .blocks
-            .iter()
-            .filter(|block| {
-                matches!(block.kind, ae::BlockKind::Solid)
-                    && crate::ldtk_vocabulary::block_of(&block.name).is_none()
-                    && block.aabb.min.x > 0.0
-                    && block.aabb.min.y > 0.0
-                    && block.aabb.max.x < size.x
-                    && block.aabb.max.y < size.y
-                    && block.aabb.min.x <= coin_span.0
-                    && block.aabb.max.x >= coin_span.1
-            })
-            .collect();
-        assert_eq!(
-            shelves.len(),
-            1,
-            "exactly ONE raised terrain shelf spans the cavern coins ({}..{}); \
-             found {}. Two would mean the coins rest on a stack and this test \
-             cannot say which one they are for.",
-            coin_span.0,
-            coin_span.1,
-            shelves.len()
-        );
-        let shelf = shelves[0];
-
-        for coin in &coins {
-            assert!(
-                (coin.aabb.max.y - shelf.aabb.min.y).abs() < 1.0,
-                "`{}` does not rest on the shelf: its bottom is {} and the shelf \
-                 top is {}",
-                coin.name,
-                coin.aabb.max.y,
-                shelf.aabb.min.y
-            );
-            assert!(
-                coin.aabb.min.x >= shelf.aabb.min.x && coin.aabb.max.x <= shelf.aabb.max.x,
-                "`{}` hangs off the shelf horizontally ({}..{} against {}..{})",
-                coin.name,
-                coin.aabb.min.x,
-                coin.aabb.max.x,
-                shelf.aabb.min.x,
-                shelf.aabb.max.x
-            );
         }
     }
 

@@ -30,6 +30,9 @@ pub const POLE_BODY_SPRITE: &str = "super_mary_o_flag_pole_body";
 pub const POLE_TOP_SPRITE: &str = "super_mary_o_flag_pole_top";
 /// The banner hanging off the pole (its own row is a 4-frame wave).
 pub const FLAG_SPRITE: &str = "super_mary_o_flag";
+/// The clockwork lift: the `visual` a level's `MovingPlatform` names to be
+/// drawn as it.
+pub const LIFT_SPRITE: &str = "super_mary_o_lift";
 
 /// Every construction-prop kind this level draws, so the loader below can walk
 /// them uniformly.
@@ -39,6 +42,7 @@ const CONSTRUCTION_PROPS: &[&str] = &[
     POLE_BODY_SPRITE,
     POLE_TOP_SPRITE,
     FLAG_SPRITE,
+    LIFT_SPRITE,
 ];
 
 /// A fully transparent block-art override. Applied to the pole/pipe collision
@@ -102,6 +106,26 @@ pub fn register_mary_o_construction_props(app: &mut App) {
             PropSheetSource::SpriteFolder {
                 target: (*kind).to_string(),
                 tuning: ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
+            },
+        );
+    }
+    // The lift's deck is the full width of its frame and its top is the row a
+    // body stands at. The numbers are the frame's, as its target states them
+    // (`targets/props/super_mary_o_lift.py` in the sprite renderer).
+    {
+        use ambition_platformer2d::render::rendering::moving_platforms::{
+            PlatformLook, PlatformLooksAppExt,
+        };
+        app.register_platform_look(
+            LIFT_SPRITE,
+            PlatformLook {
+                sheet: None,
+                row: "idle".into(),
+                frame_px: [192.0, 72.0],
+                span_px: [0.0, 192.0],
+                top_px: 4.0,
+                faces_right: true,
+                front_row: None,
             },
         );
     }

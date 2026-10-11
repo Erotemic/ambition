@@ -444,6 +444,15 @@ reads cargo output to it.
    `7174d8015`, the receipt now names the policy check). A script under
    `scripts/` no longer voids a crate's pass: no Rust source reads one
    (`test_no_rust_source_reads_or_runs_a_script`).
+   A member is named by its manifest's `[package] name` (2026-10-11,
+   `scripts/lib/cargo_package.py`, in both `required_checks.py` and
+   `run_tests.py -p`): the receipt asked for `cargo test -p
+   extension_fixture_modules`, a package that does not exist (the package of
+   `fixtures/extension_fixture_modules` is
+   `ambition_extension_fixture_modules`), and the job failed at cargo's
+   "did not match any packages" while every real check passed (witness
+   `test_a_member_is_named_by_its_manifest_not_its_directory`, red with the
+   directory rule back).
 
 7. **The repo tooling job runs on several cores (2026-10-10).** It ran
    `scripts/tests` serially, and each push waits on it. Measured on 14 cores:

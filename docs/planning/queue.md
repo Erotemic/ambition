@@ -482,6 +482,24 @@ reads cargo output to it.
    (control: all certified, nothing runs; poison: run every required check,
    red at the commands assertion).
 
+9. **A test behind an opt-in feature is red only in the union feature job,
+   and no required lane runs that job (2026-10-11).** The job is
+   `./run_tests.sh --run-everything-you-probably-dont-need-this --only-job
+   'every headless-safe feature'`. A per-crate feature job only runs `cargo
+   check`, so this job is the one that runs the 526 feature-gated tests (the
+   footer count from `scripts/feature_gated_tests.py`). One run on 2026-10-11
+   found four reds, all on main and all invisible to the default lanes:
+   - the portal exit-copy test ran on a copy of the host's bridges (moved onto
+     the real bridges, `16bc6f9e8`);
+   - `match_shots.rs` did not compile (`43f958e2d`);
+   - the rollback exit oracle did not count an instrument channel as cleared
+     (`d5168b524`);
+   - the schema-parity test was red under `falling_sand` (the feature is
+     deleted, `645b9d88c`).
+
+   Next: run the job again to green, and decide which change makes it
+   required (`required_checks.py` selects it for no path today).
+
 The published-sheet floor in `ambition_sprite_sheet` (780 below a floor of 800
 on one checkout) is machine state. ⛔ Do not lower the floor.
 

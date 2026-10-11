@@ -11,7 +11,7 @@
 | [`death`](src/death.rs) | The death beat. |
 | [`flag`](src/flag.rs) | — the flagpole sequence. |
 | [`ldtk_vocabulary`](src/ldtk_vocabulary.rs) | Mary-O-specific LDtk vocabulary. |
-| [`level_1_2`](src/level_1_2.rs) | World 1-2 — the underground level, and the demo's first SECOND ROOM. |
+| [`level_1_2`](src/level_1_2.rs) | World 1-2: the level under the ground. |
 | [`movement`](src/movement.rs) | Mary-O Classic presentation/control glue. |
 | [`pack`](src/pack.rs) | The Mary-O demo's content pack. |
 | [`pipe`](src/pipe.rs) | The pipe transit — the scripted slide into one tube and out of the other. |

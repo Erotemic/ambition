@@ -283,6 +283,83 @@ fn arena_with_free_fists() -> Platformer2dSimHarness {
     sim
 }
 
+/// The pair of the punch is the way up. From the floor, two jumps take the
+/// player up into the far line; it comes up out of the near line, over the
+/// giant's right shoulder, and goes to the side onto the giant's back.
+#[test]
+fn the_punchs_pair_is_the_way_up_to_the_giants_back() {
+    use ambition_content::bosses::gnu_ton::portals::{GnuTonLine, GnuTonPortal};
+    use ambition_platformer2d::portal::PlacedPortal;
+    fn line(sim: &mut Platformer2dSimHarness, which: GnuTonLine) -> Option<ae::Vec2> {
+        let world = sim.world_mut();
+        let mut portals = world.query::<(&GnuTonPortal, &PlacedPortal)>();
+        portals.iter(world).find(|(tag, _)| tag.0 == which).map(|(_, portal)| portal.pos)
+    }
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    place_player(&mut sim, ae::Vec2::new(400.0, 1200.0));
+    step_until(&mut sim, 900, "the strike of a punch through the pair", |sim| {
+        scene(sim).performing == Some(("portal_punch", true))
+    });
+    // The blow is over in half a second; the fist stays down, and the pair
+    // stays open.
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let far = line(&mut sim, GnuTonLine::PunchFar).expect("the far line of the pair is open");
+    let near = line(&mut sim, GnuTonLine::PunchNear).expect("the near line of the pair is open");
+    let s = scene(&mut sim);
+    let back = s.giant_back.aabb(&s.giant, s.giant_unmirrored);
+    assert!(near.y < back.min.y, "the premise: the near line {near:?} is over the giant's back {back:?}");
+    assert!(far.x < s.giant.pos.x, "the premise: the far line {far:?} is on the player's side of the giant");
+
+    // On the floor under the far line, by the fist.
+    place_player(&mut sim, ae::Vec2::new(far.x - 40.0, 1200.0));
+    for _ in 0..12 {
+        sim.step(AgentAction::default());
+    }
+    // Two jumps, straight up.
+    let held = AgentAction { jump_held: true, ..AgentAction::default() };
+    let press = AgentAction { jump: true, jump_held: true, ..AgentAction::default() };
+    let release = AgentAction { jump_released: true, ..AgentAction::default() };
+    let mut top = f32::MAX;
+    let mut through = false;
+    'jumps: for jump in 0..2 {
+        sim.step(press.clone());
+        for _ in 0..(if jump == 0 { 15 } else { 40 }) {
+            sim.step(held.clone());
+            let (kin, _) = player(&mut sim);
+            top = top.min(kin.pos.y);
+            if kin.pos.x > s.giant.pos.x {
+                through = true;
+                break 'jumps;
+            }
+        }
+        sim.step(release.clone());
+    }
+    assert!(
+        through,
+        "two jumps from the floor did not take the player up through the far line at {far:?}: it rose to y {top} \
+         (the floor is {})",
+        s.floor
+    );
+    // Out of the near line, and to the side: onto the back.
+    let left = AgentAction { move_x: -1.0, jump_held: true, ..AgentAction::default() };
+    let mut on_back = false;
+    let mut trail = Vec::new();
+    for _ in 0..90 {
+        sim.step(left.clone());
+        let (kin, _) = player(&mut sim);
+        trail.push((kin.pos.x.round(), kin.pos.y.round()));
+        let feet = kin.pos.y + kin.size.y * 0.5;
+        if (feet - back.min.y).abs() <= 4.0 && (back.min.x..=back.max.x).contains(&kin.pos.x) {
+            on_back = true;
+            break;
+        }
+    }
+    assert!(on_back, "out of the near line at {near:?} the player did not get onto the back {back:?}: {trail:?}");
+}
+
 /// A demonstration hovers over the player, falls where they stood, hurts them,
 /// and stays in the floor; a blow to the stuck fist lands on the scholar.
 #[test]

@@ -38,6 +38,14 @@ pub struct LimbTrailWisp {
     pub index: usize,
 }
 
+/// Where a limb's trail starts, when that is not its host's body: by the
+/// limb's feature id, in engine world coordinates. A game says it for a bond
+/// that is its own (a spell that joins two portals: the trail runs from the
+/// one the arm is in). A limb with no row here has its trail from its host.
+/// Presentation only: a game writes it from its state each tick.
+#[derive(Resource, Default, Debug, Clone, PartialEq)]
+pub struct LimbTrailStarts(pub bevy::platform::collections::HashMap<String, Vec2>);
+
 /// The glow's texture handle, built once.
 #[derive(Resource, Clone, Default)]
 pub struct LimbTrailSprite {
@@ -103,6 +111,7 @@ pub fn sync_limb_trails(
     active_session: Option<Res<ActiveSessionScope>>,
     limbs: Query<(Entity, &super::FeatureVisual)>,
     feature_views: Option<Res<ambition_sim_view::FeatureViewIndex>>,
+    starts: Option<Res<LimbTrailStarts>>,
     mut wisps: Query<(Entity, &LimbTrailWisp, &mut Transform, &mut Sprite)>,
 ) {
     let now = time.elapsed_secs();
@@ -112,7 +121,11 @@ pub fn sync_limb_trails(
             continue;
         };
         if let (Some(host), true) = (view.limb_host, view.visible) {
-            trails.push((body, Vec2::new(host.x, host.y), Vec2::new(view.pos.x, view.pos.y)));
+            let from = starts
+                .as_ref()
+                .and_then(|starts| starts.0.get(&visual.id).copied())
+                .unwrap_or(Vec2::new(host.x, host.y));
+            trails.push((body, from, Vec2::new(view.pos.x, view.pos.y)));
         }
     }
 

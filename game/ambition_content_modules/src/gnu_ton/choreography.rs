@@ -578,9 +578,13 @@ pub mod rows {
 pub mod arms {
     use super::*;
 
-    /// The punch's near line: flat, by the right shoulder. The fist goes DOWN
-    /// into it.
-    pub const NEAR_LINE: Vec2 = Vec2::new(381.6, -140.4);
+    /// The punch's near line: flat, over the right shoulder and out from it.
+    /// The fist goes DOWN into it. It is over the height of the giant's back
+    /// (68 over): a body that comes UP out of it can go to the side and stand
+    /// on the back. By the shoulder it was too low: a player's two jumps took
+    /// it into the far line with about 31 of rise left (REASONED from the
+    /// jump's numbers, 2026-10-11).
+    pub const NEAR_LINE: Vec2 = Vec2::new(369.9, -299.6);
     /// Half the length of each line of the punch's pair.
     pub const PUNCH_HALF: f32 = 65.0;
     /// The far line is this far over the middle of the fist that came out of it.

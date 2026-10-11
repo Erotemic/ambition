@@ -50,9 +50,9 @@ const LEAVE_BEAT: TransformBeatPolicy = TransformBeatPolicy {
 
 /// The owner of the form's claim on the music.
 const COSMIC_MUSIC_OWNER: &str = "mary_o_cosmic";
-/// The track the form plays. It is the theme of the quasar until the form has
-/// a theme of its own.
-pub const COSMIC_MUSIC_TRACK: &str = crate::provider::MARY_O_STAR_MUSIC_TRACK;
+/// The track the form plays: its own theme (the cue `eternal_cosmic` of the
+/// music renderer), whose intro is as long as the transformation.
+pub const COSMIC_MUSIC_TRACK: &str = "eternal_cosmic";
 
 /// The key of the form's entry in her ability contributions.
 const COSMIC_ABILITY_SOURCE: &str = "mary_o_cosmic";

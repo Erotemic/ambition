@@ -540,6 +540,38 @@ a GPU). What is not elegant in it: `gnu-ton-fight-debts.md`.**
   `conductor`), `ambition_content::bosses::gnu_ton::portals`, the rows of
   `giant_art.py`, `boss_profiles.ron`.
 
+**How the fight could play better (a proposal, 2026-10-11; Jon: "rework
+and improve how this fight plays out", and phase 2 does not need to be the
+fight of before).** Each line is a change that can be made alone.
+
+1. *Phase 1 has one question: "where is the way up?"* The far line is the
+   threat and the way. Make that plain: the first punch is slow and he says
+   so; a player on the giant's back gets two or three blows before the buck
+   (today the first blow starts it); a player who stays on the floor gets
+   punches that come faster.
+2. *More punches from the same arm.* A punch that follows the player until
+   a lock (as the demonstration does). Two punches with one opening: the
+   fist goes back up and comes down again where the player went. Later,
+   with art: the left arm, and a punch along the floor out of an upright
+   line (a thing to jump over).
+3. *The scholar is in the fight.* On the back with him, he is not a target
+   that waits: he steps to the other shoulder, or he calls the buck. In
+   phase 2 he is who you watch: each move starts with his row and a bark,
+   so the fists are read from him.
+4. *Phase 2 is shorter loops that answer the player.* Today it is one list
+   of 35 seconds. Three short lists, chosen by where the player is: near
+   the giant (cradle, stomp), far (demonstration, pendulum), on a perch
+   (fluxions). The apple rain and the eureka come at a part of his health,
+   not at the end of a list.
+5. *The lines stay part of phase 2.* The trail from a shoulder's line to its
+   fist is his spell (Jon). A fist that is stuck pulls its line tight and
+   the trail goes bright: the sign of the punish window. When he is dazed
+   (eureka) the lines flicker and go wide: the arms nearly come out.
+6. *The enrage is the pair again.* Below the last part of his health the
+   clamp breaks: one arm comes back onto the giant and punches through a
+   real pair while the other fist is still a body of its own. The way up is
+   open again for the last blows.
+
 **Known, not done.**
 
 - The tests of the fight were brought up to it (the conductor's parity
@@ -552,11 +584,12 @@ a GPU). What is not elegant in it: `gnu-ton-fight-debts.md`.**
 - When the giant bucks, the lines stay at the place of the giant at rest.
 - The hall of characters shows the giant with its arms cut at two lines
   that are not drawn (no conductor is there).
-- The far line is 145 over the floor (the fist's sheet says it:
-  `FIST_BBOX`). REASONED, not played: a player's two jumps from the floor
-  rise about 148 (`jump_speed` 630, `double_jump_speed` 520, gravity 2250),
-  so its middle goes through the line. The way up needs a test that plays
-  it (the arena's tests can drive a player; `capture_scene` can not).
+- The way up is PLAYED by a test
+  (`the_punchs_pair_is_the_way_up_to_the_giants_back`): from the floor, two
+  jumps go up into the far line (145 over the floor), the player comes up
+  out of the near line, and goes to the side onto the giant's back. For
+  that the near line is OVER the right shoulder (68 over the back): by the
+  shoulder it was too low, and the player came out with no rise left.
 - Not tuned: the times, the damage, how many blows end phase 1.
 
 ## Mode Collapse music (Q148)

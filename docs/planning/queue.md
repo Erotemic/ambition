@@ -113,9 +113,19 @@ row starts with a failing production-path witness.
    rule, and no candidate removal, both red at "pieces draw the dead body";
    without the give-back, red at the marker after the pane is gone). Not
    witnessed: the hit-flash overlay of a body that dies behind a pane.
-4. ERRAND-INSTANCE. A cross-room errand routes by room definition and takes
-   the lowest live instance. An item in the second live instance of a room is
-   reached in the wrong instance, or reported `Gone`.
+4. ✅ 2026-10-11, ERRAND-INSTANCE. A cross-room errand routed by room
+   definition and entered the least live instance, so a dog sent for an item
+   in the second live instance of a room went into the first, and an item in
+   another instance of the dog's own room read as `Gone`. `errand_crossing`
+   keeps the item's live room: the last hop enters it, a route through a
+   definition live twice is refused (no rule says which instance its door
+   leads into), and a resident item no route reaches is `NoRoute`, not
+   `Gone`. Witness: `a_dog_goes_into_the_live_room_its_item_lies_in` and
+   `an_item_in_another_instance_of_the_dogs_room_has_no_route_and_is_not_gone`
+   (red with the old crossing: instance 1 for 2, and `Gone`). Open: which live
+   instance a door leads into when its definition is live twice (OW1); the
+   witnesses make the second instance by hand, as no road of the game makes
+   one yet.
 5. PLATE-LIFETIME. `RoomPlates` keeps its strong image handles when the
    quality budget turns off the system that evicts them (high -> Potato).
 

@@ -802,3 +802,74 @@ fn probe_census(world: &mut bevy::prelude::World) {
         store.0.insert(frame, census);
     }
 }
+
+/// A second live room of the definition live room `like` instantiates: a
+/// root with that definition, the next instance after every live one. Its
+/// residents are the ones a test stamps into it.
+fn a_second_live_room_like(
+    sim: &mut ambition_app::Platformer2dSimHarness,
+    like: ambition_platformer2d::platformer::lifecycle::LiveRoomInstance,
+) -> ambition_platformer2d::platformer::lifecycle::LiveRoomInstance {
+    use ambition_platformer2d::platformer::lifecycle::{LiveRoomInstance, RoomInstanceRoot};
+    use ambition_platformer2d::world::rooms::LiveRoomDefinition;
+    let world = sim.world_mut();
+    let roots: Vec<(LiveRoomInstance, LiveRoomDefinition)> = world
+        .query_filtered::<(&LiveRoomInstance, &LiveRoomDefinition), bevy::prelude::With<RoomInstanceRoot>>()
+        .iter(world)
+        .map(|(live, definition)| (*live, *definition))
+        .collect();
+    let definition = roots.iter().find(|(live, _)| *live == like).expect("a live room to copy").1;
+    let second = roots.iter().map(|(live, _)| *live).max().expect("a live room").next();
+    world.spawn((RoomInstanceRoot, second, definition));
+    second
+}
+
+/// ⭐ THE DOG GOES INTO THE LIVE ROOM ITS ITEM LIES IN. `basement_npcs` is live
+/// twice, and the Blink lies in the second: the door leads the dog there, not
+/// into the first of its kind. A route chose the least instance of the
+/// definition, so the dog went into Alice's room and the Blink was not there.
+#[test]
+fn a_dog_goes_into_the_live_room_its_item_lies_in() {
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    let (mut sim, dog, blink, hub, alices_room) = the_blink_next_door();
+    let second = a_second_live_room_like(&mut sim, alices_room);
+    assert!(second > alices_room, "premise: the item's room is not the least of its kind");
+    sim.world_mut().entity_mut(blink).insert(InRoomInstance(second));
+    put_the_dog_at(&mut sim, dog, FAR_FROM_THE_DOOR);
+    send_for_the_blink(&mut sim, dog);
+    let mut entered = None;
+    for _ in 0..PATIENCE {
+        sim.step(base());
+        if room_of(&sim, dog) != Some(hub) {
+            entered = Some(room_of(&sim, dog));
+            break;
+        }
+    }
+    assert_eq!(entered, Some(Some(second)), "the room the dog went into (Alice's is {alices_room:?})");
+}
+
+/// An item in another live instance of the dog's own room is there, and no
+/// door leads to it: the errand says there is no route, not that the item is
+/// gone. The control: the same item put in the dog's own instance is taken.
+#[test]
+fn an_item_in_another_instance_of_the_dogs_room_has_no_route_and_is_not_gone() {
+    use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    let (mut sim, dog, blink) = the_dog_and_the_blink();
+    let hub = {
+        let world = sim.world_mut();
+        *world
+            .query_filtered::<&LiveRoomInstance, bevy::prelude::With<RoomInstanceRoot>>()
+            .single(world)
+            .expect("one live room: the hub")
+    };
+    let second = a_second_live_room_like(&mut sim, hub);
+    // Two rooms are live, so each body says which one it is in.
+    sim.world_mut().entity_mut(dog).insert(InRoomInstance(hub));
+    sim.world_mut().entity_mut(blink).insert(InRoomInstance(second));
+    send_for_the_blink(&mut sim, dog);
+    assert_eq!(
+        run_errand(&mut sim, dog, 60),
+        ErrandOutcome::Refused(ErrandRefusal::NoRoute),
+        "the Blink lies in the hub's second instance"
+    );
+}

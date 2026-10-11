@@ -64,11 +64,13 @@ pub enum ErrandOutcome {
 /// Why an errand ended without the item.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ErrandRefusal {
-    /// The item lies in the body's room, over no surface the body can get to
-    /// with its own movement.
+    /// The item lies where the body cannot get to it: in the body's room over
+    /// no surface the body reaches with its own movement, or in a room no
+    /// route of rooms leads into (another live instance of the body's own
+    /// room, or past a room that is live twice).
     NoRoute,
-    /// The item does not lie in the body's room: another body holds it, or it
-    /// is in another room.
+    /// The item lies nowhere the body could go for it: another body holds it,
+    /// or no live room and no ledger row has it.
     Gone,
     /// The body holds something already. A body holds one thing.
     HandFull,
@@ -113,10 +115,17 @@ pub(crate) enum CrossInto {
 /// for a body that `may_leave` the live rooms (one with durable whereabouts),
 /// in a room that is not live, where the ledger puts it.
 ///
-/// `None` when the item lies in `body_room`, lies nowhere a route gets to, or
-/// when the item is in a live room and a room on the route is not live: a
-/// body that no slot drives does not open a room, and it leaves the live
-/// rooms only for its item.
+/// ⛔ THE ITEM'S LIVE ROOM, NOT ITS DEFINITION. A definition can be live
+/// twice, and the item lies in one of the two. The last hop enters the item's
+/// own live room. A route through a definition that is live twice is
+/// refused: no rule says which of the two its door leads into, and the
+/// least instance is not an answer.
+///
+/// `Err(Gone)` when the item lies nowhere the body could go for it.
+/// `Err(NoRoute)` when it lies in a live room no route of live rooms leads
+/// into: another live instance of the body's own room, a room past one that
+/// is not live (a body that no slot drives does not open a room, and it
+/// leaves the live rooms only for its item), or past one that is live twice.
 pub(crate) fn errand_crossing<'a>(
     errand: &Errand,
     body_room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
@@ -124,58 +133,79 @@ pub(crate) fn errand_crossing<'a>(
     specs: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
     ledger: Option<&ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
     items: impl IntoIterator<Item = (Entity, &'a SimId, &'a ambition_held_items::GroundItem, &'a ambition_held_items::ItemCustody)>,
-) -> Option<ErrandCrossing> {
+) -> Result<ErrandCrossing, ErrandRefusal> {
+    use ErrandRefusal::{Gone, NoRoute};
     let rooms = specs.rooms();
-    // The live room of a definition. When one definition is live twice, the
-    // least instance, so each peer picks the same.
-    let live_of = |index: usize| {
+    // The live rooms of a definition.
+    let live_of = |index: usize| -> Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
         specs
             .live_rooms()
             .filter(|(_, definition)| definition.index() == index)
             .map(|(live, _)| live)
-            .min()
+            .collect()
     };
-    let from = specs.definition_in(body_room)?;
+    let from = specs.definition_in(body_room).ok_or(Gone)?;
     let live_item = items
         .into_iter()
         .find(|(_, id, _, custody)| **id == errand.fetch && custody.in_world())
         .map(|(item, ..)| specs.live().of(item));
-    let (to, dormant) = match live_item {
+    // The definition the item lies in, and its live room when it is live.
+    let (to, item_room) = match live_item {
         Some(item_room) => {
-            let item_room = item_room?;
+            let item_room = item_room.ok_or(Gone)?;
             if item_room == body_room {
-                return None;
+                return Err(Gone);
             }
-            (specs.definition_in(item_room)?, false)
+            (specs.definition_in(item_room).ok_or(Gone)?, Some(item_room))
         }
         // Not lying in a live room: where the ledger puts it, when that room
         // is not live.
         None => {
             if !may_leave {
-                return None;
+                return Err(Gone);
             }
             let ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed { room, .. } =
-                ledger?.whereabouts(&errand.fetch)?
+                ledger.ok_or(Gone)?.whereabouts(&errand.fetch).ok_or(Gone)?
             else {
-                return None;
+                return Err(Gone);
             };
-            let to = rooms.definition_by_id(room)?;
-            if live_of(to.index()).is_some() {
-                return None;
+            let to = rooms.definition_by_id(room).ok_or(Gone)?;
+            if !live_of(to.index()).is_empty() {
+                return Err(Gone);
             }
-            (to, true)
+            (to, None)
         }
     };
-    let route = rooms.route(from.index(), to.index())?;
-    if !dormant && route.iter().any(|hop| live_of(hop.to).is_none()) {
-        return None;
+    // Another live instance of the body's own room: no door leads there.
+    if to == from {
+        return Err(NoRoute);
     }
-    let first = route.first()?;
-    let zone = rooms.spec(from).loading_zones.iter().find(|zone| zone.id == first.zone)?;
-    let transition = rooms.transition_through(from, &first.zone)?;
-    Some(ErrandCrossing {
+    let route = rooms.route(from.index(), to.index()).ok_or(NoRoute)?;
+    // The live room the hop into `index` enters, or `None` for a room that
+    // is not live. The last hop of a route to a live item enters the item's
+    // room; any other hop enters the definition's one live room.
+    let enters = |index: usize, last: bool| -> Result<Option<_>, ErrandRefusal> {
+        if last && item_room.is_some() {
+            return Ok(item_room);
+        }
+        match live_of(index).as_slice() {
+            [] => Ok(None),
+            [one] => Ok(Some(*one)),
+            _ => Err(NoRoute),
+        }
+    };
+    for (n, hop) in route.iter().enumerate() {
+        let entered = enters(hop.to, n + 1 == route.len())?;
+        if item_room.is_some() && entered.is_none() {
+            return Err(NoRoute);
+        }
+    }
+    let first = route.first().ok_or(NoRoute)?;
+    let zone = rooms.spec(from).loading_zones.iter().find(|zone| zone.id == first.zone).ok_or(NoRoute)?;
+    let transition = rooms.transition_through(from, &first.zone).ok_or(NoRoute)?;
+    Ok(ErrandCrossing {
         zone: zone.aabb,
-        into: live_of(first.to).map_or(CrossInto::Dormant, CrossInto::Live),
+        into: enters(first.to, route.len() == 1)?.map_or(CrossInto::Dormant, CrossInto::Live),
         into_id: rooms.rooms[first.to].id.clone(),
         arrival: transition.arrival,
     })
@@ -234,7 +264,7 @@ pub fn cross_on_errands(
             continue;
         };
         let durable = crate::body_whereabouts::keeps_durable_whereabouts(&specs, config, origin);
-        let Some(crossing) =
+        let Ok(crossing) =
             errand_crossing(errand, body_room, durable, &specs, occurrences.as_deref(), &items)
         else {
             continue;

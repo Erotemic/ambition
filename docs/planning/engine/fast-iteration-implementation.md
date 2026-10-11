@@ -135,6 +135,23 @@ affected character tests.
   `edit_to_play_through_the_shell::a_movement_tuning_saved_while_the_game_runs_is_played`.
 - Two engine `include_str!` data files remain, and neither is tuning: the LDtk
   entity contract (a schema) and `test_boss_catalog` (behind `test-support`).
+- Not in that count, and still compiled in (seen 2026-10-11, in level and art
+  work on Mary-O; an edit to one needs a build before a capture or a test
+  shows it):
+  - The world file of a demo: `MARY_O_WORLD_JSON`
+    (`game/ambition_demo_mary_o/src/lib.rs`) and the three Sanic worlds
+    (`game/ambition_demo_sanic/src/lib.rs`) are `include_str!`, so that a
+    demo binary needs no asset root. The F11/F12 world reload serves the
+    Ambition world only.
+  - Each `*_spritesheet.ron` and each body rig: `build.rs` of
+    `ambition_sprite_sheet` bakes them (`baked_sheet_rons.rs`,
+    `baked_body_rigs.rs`) so that Android and wasm have them. A sprite
+    publish compiles that crate and each crate after it. The cost is not
+    measured.
+  - The entity manifest of a demo world (`mary_o.entities.json`): a schema,
+    as the LDtk entity contract is.
+  No packet owns these three. The first two are the ones that cost a build
+  for each level edit and each sprite publish of a demo.
 
 Rules:
 

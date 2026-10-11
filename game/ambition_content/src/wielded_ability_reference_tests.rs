@@ -1408,6 +1408,7 @@ pub mod dive {
                     impact_pos: corridor_center,
                     launch_dir: None,
                     follow: None,
+                    guard: Default::default(),
                 }),
                 ignored_targets: Vec::new(),
                         attacker_move_instance: None,

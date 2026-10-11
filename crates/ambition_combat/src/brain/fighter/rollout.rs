@@ -353,6 +353,7 @@ pub fn shadow_step(
             impact_pos: s.me.pos,
             launch_dir: None,
             follow: None,
+            guard: Default::default(),
         };
         strike(
             &mut s.me,
@@ -711,6 +712,7 @@ fn my_knockback(me: &ShadowFighter, foe: &ShadowFighter) -> Option<HitKnockback>
         impact_pos: foe.pos,
         launch_dir: None,
         follow: None,
+        guard: Default::default(),
     })
 }
 

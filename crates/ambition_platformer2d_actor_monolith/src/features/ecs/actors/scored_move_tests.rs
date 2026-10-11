@@ -81,6 +81,7 @@ fn strike_hitting_for(id: &str, reach_offset: f32, damage: i32) -> MoveSpec {
                 vfx: None,
                 hit_sfx: None,
                 reaction: None,
+                guard: Default::default(),
             }],
             sustain_effect: None,
             motion_scale: 1.0,

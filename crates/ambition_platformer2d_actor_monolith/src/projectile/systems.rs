@@ -1517,6 +1517,7 @@ pub fn step_projectiles(
                         impact_pos,
                         launch_dir: None,
                         follow: None,
+                        guard: Default::default(),
                     }),
                     ignored_targets: Vec::new(),
                     attacker_move_instance: fired_by_move,

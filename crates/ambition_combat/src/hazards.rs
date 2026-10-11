@@ -160,6 +160,7 @@ pub fn apply_hazard_contacts(
                     impact_pos: pos,
                     launch_dir: None,
                     follow: None,
+                    guard: Default::default(),
                 }),
                 ignored_targets: Vec::new(),
                             attacker_move_instance: None,

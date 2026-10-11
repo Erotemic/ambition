@@ -286,6 +286,7 @@ pub fn apply_contact_harm(
                     impact_pos: victim_body.center(),
                     launch_dir: None,
                     follow: None,
+                    guard: Default::default(),
                 }),
                 ignored_targets: Vec::new(),
                             attacker_move_instance: None,

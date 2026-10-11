@@ -667,6 +667,7 @@ pub fn multihit(m: MoveSpec, pulses: usize, pulse: Pulse) -> MoveSpec {
                 on_hit: None,
                 vfx: Some(SLASH_POKE_VFX.to_string()),
                 hit_sfx: None,
+                guard: Default::default(),
             }],
             motion_scale: 1.0,
             sustain_effect: None,
@@ -849,6 +850,7 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
                     vfx: Some(SLASH_ARC_VFX.to_string()),
                     hit_sfx: None,
                     reaction: None,
+                    guard: Default::default(),
                 }],
                 motion_scale: 1.0,
                 sustain_effect: None,
@@ -1590,6 +1592,7 @@ pub fn wake(mut m: MoveSpec, wake: Wake) -> MoveSpec {
         // A wake is silent: the move's own cues already mark the kick, and a
         // sound here would play on a body that was not hit.
         hit_sfx: None,
+        guard: Default::default(),
     });
     m
 }
@@ -1678,6 +1681,7 @@ pub fn tipper(mut m: MoveSpec, tip: Tip) -> MoveSpec {
             on_hit: None,
             vfx: None,
             hit_sfx: None,
+            guard: Default::default(),
         },
     );
     m

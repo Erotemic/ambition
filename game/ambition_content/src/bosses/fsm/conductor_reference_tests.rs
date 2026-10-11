@@ -310,6 +310,7 @@ fn riding_hitbox(owner: Entity, offset: Vec2, half: Vec2, shape: Option<ae::Volu
             launch_dir: launch_dir.map(ambition_combat::strike::HitboxLaunch::AwayFromSource),
             frame_down: Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: life },
         HitboxHits::default(),

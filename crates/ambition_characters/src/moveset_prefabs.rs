@@ -196,6 +196,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         // synthetic rect (the rect is the fallback for unmanifested bodies).
         vfx: Some(SLASH_ARC_VFX.to_string()),
         reaction: None,
+        guard: Default::default(),
     };
     MoveSpec {
         display_name: None,
@@ -513,6 +514,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         // A charge is a bladed strike too — same slash + authored-blade rules.
         vfx: Some(SLASH_ARC_VFX.to_string()),
         reaction: None,
+        guard: Default::default(),
     };
     MoveSpec {
         display_name: None,

@@ -179,6 +179,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
                     on_hit: None,
                     vfx: None,
                     reaction: None,
+                    guard: Default::default(),
                 },
                 HitVolume {
                     // Not a windbox: these fixtures are about authored geometry.
@@ -194,6 +195,7 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
                     on_hit: None,
                     vfx: None,
                     reaction: None,
+                    guard: Default::default(),
                 },
             ],
             sustain_effect: None,
@@ -229,6 +231,39 @@ fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
         "reach is the farthest volume: {}",
         fd.reach
     );
+}
+
+/// S0.3: a move that authors an unblockable strike tells the planner so
+/// (`ignores_guard`), from the same field the guard reads. Control: the
+/// same move with an ordinary volume does not.
+#[test]
+fn frame_data_says_a_move_with_an_unblockable_strike_ignores_the_guard() {
+    let with = |guard: VolumeGuard| {
+        let mut m = bare_move("smash_side", None);
+        m.duration_s = 0.4;
+        m.windows = vec![MoveWindow {
+            start_s: 0.1,
+            end_s: 0.2,
+            tag: WindowTag::Active,
+            volumes: vec![HitVolume {
+                hit_sfx: None,
+                shape: VolumeShape::Rect { offset: (28.0, 0.0), half_extents: (16.0, 12.0) },
+                damage: 4,
+                knockback: 100.0,
+                knockback_growth: None,
+                launch_dir: None,
+                on_hit: None,
+                vfx: None,
+                reaction: None,
+                guard,
+            }],
+            sustain_effect: None,
+            motion_scale: 1.0,
+        }];
+        m.frame_data().ignores_guard
+    };
+    assert!(with(VolumeGuard::Unblockable), "an unblockable strike does not ignore the guard");
+    assert!(!with(VolumeGuard::default()), "an ordinary strike ignores the guard");
 }
 
 #[test]
@@ -1108,6 +1143,7 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
                     vfx: None,
                     hit_sfx: None,
                     reaction: None,
+                    guard: Default::default(),
                 }],
                 motion_scale: 1.0,
                 sustain_effect: None,
@@ -1741,6 +1777,7 @@ fn a_windbox_that_authors_damage_is_rejected_and_a_zero_damage_one_is_not() {
                 on_hit: None,
                 vfx: None,
                 reaction: Some(VolumeReaction::Windbox(WindboxVolume { repeating: true })),
+                guard: Default::default(),
             }],
             sustain_effect: None,
             motion_scale: 1.0,
@@ -1809,6 +1846,7 @@ mod effect_sites {
             on_hit,
             vfx: None,
             hit_sfx: None,
+            guard: Default::default(),
         }
     }
 

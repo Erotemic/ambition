@@ -175,6 +175,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
             tuning: ae::ShieldTuning::OFF,
             body_size: TEST_BODY,
             vel: &mut sink(),
+            extra_shield_damage: 0,
         }),
         1.0,
         pos,
@@ -207,6 +208,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
             tuning: ae::ShieldTuning::OFF,
             body_size: TEST_BODY,
             vel: &mut sink(),
+            extra_shield_damage: 0,
         }),
         1.0,
         pos,
@@ -395,6 +397,7 @@ fn goblin_melee_knockback_is_an_absolute_launch_speed() {
         impact_pos: victim_pos,
         launch_dir: None,
         follow: None,
+        guard: Default::default(),
     };
 
     let vel = resolved_body_knockback_velocity(
@@ -434,6 +437,7 @@ fn hitstun_scales_with_the_launch_and_never_with_its_bare_number() {
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,
             follow: None,
+            guard: Default::default(),
         }))
     };
     use ae::hit_response::{MAX_HITSTUN_SCALE, STANDARD_LAUNCH_SPEED};
@@ -480,6 +484,7 @@ fn knockback_impulse_is_frame_equivalent() {
             impact_pos: victim_pos,
             launch_dir: None,
             follow: None,
+            guard: Default::default(),
         };
         let vel = resolved_body_knockback_velocity(
             victim_pos,
@@ -537,6 +542,7 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
             impact_pos: victim_pos,
             launch_dir: None,
             follow: None,
+            guard: Default::default(),
         };
         let vel = resolved_body_knockback_velocity(
             victim_pos,
@@ -575,6 +581,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
         impact_pos: victim_pos,
         launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(ae::Vec2::new(0.0, -1.0), 1.0, down)),
         follow: None,
+        guard: Default::default(),
     };
     let vel = resolved_body_knockback_velocity(
         victim_pos,
@@ -605,6 +612,7 @@ fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
         impact_pos: victim_pos,
         launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(ae::Vec2::new(1.0, -1.0), 1.0, down)),
         follow: None,
+        guard: Default::default(),
     };
     let vel = resolved_body_knockback_velocity(
         victim_pos,
@@ -688,6 +696,7 @@ fn authored_launch_dir_conjugates_under_the_gravity_of_the_source() {
                 impact_pos: victim_pos,
                 launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(n, 1.0, source_down)),
                 follow: None,
+                guard: Default::default(),
             };
             let vel = resolved_body_knockback_velocity(
                 victim_pos,
@@ -724,6 +733,7 @@ fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
         impact_pos: victim_pos,
         launch_dir: None,
         follow: None,
+        guard: Default::default(),
     };
     let degenerate = ambition_combat::HitKnockback {
         launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(ae::Vec2::ZERO, 1.0, down)),
@@ -1386,6 +1396,7 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
                 tuning: ae::ShieldTuning::OFF,
                 body_size: TEST_BODY,
                 vel: &mut scratch_vel,
+                extra_shield_damage: 0,
             }),
             1.0,
             pos,
@@ -1426,6 +1437,7 @@ fn an_unstoppable_hit_passes_every_defence_a_body_has() {
                 tuning: ae::ShieldTuning::OFF,
                 body_size: TEST_BODY,
                 vel: &mut scratch_vel,
+                extra_shield_damage: 0,
             }),
             1.0,
             pos,
@@ -1583,6 +1595,7 @@ fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
         impact_pos: victim_pos,
         launch_dir: None,
         follow: None,
+        guard: Default::default(),
     };
 
     apply_body_hit_reaction(
@@ -1658,6 +1671,7 @@ fn an_autolink_pulse_aims_the_victim_back_at_its_attacker() {
                 impact_pos: VICTIM,
                 launch_dir: None,
                 follow,
+                guard: Default::default(),
             }),
             HIT_DAMAGE,
             ae::Vec2::ZERO,
@@ -1823,6 +1837,7 @@ fn a_raised_shield_blocks_the_hit_and_a_lowered_one_does_not() {
                 tuning: ae::ShieldTuning::OFF,
                 body_size: TEST_BODY,
                 vel: &mut scratch_vel,
+                extra_shield_damage: 0,
             }),
             1.0,
             body,
@@ -1900,6 +1915,7 @@ fn a_blocked_hit_shoves_the_blocker_laterally_away_from_it() {
             tuning,
             vel: &mut vel,
             body_size: TEST_BODY,
+            extra_shield_damage: 0,
         }),
         1.0,
         body,
@@ -1946,6 +1962,7 @@ fn an_unlimited_guard_is_not_pushed() {
             tuning: ae::ShieldTuning::OFF,
             body_size: TEST_BODY,
             vel: &mut vel,
+            extra_shield_damage: 0,
         }),
         1.0,
         body,
@@ -1984,6 +2001,7 @@ fn meteor_reaction(
         impact_pos: body,
         launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(launch_dir, 1.0, ae::Vec2::new(0.0, 1.0))),
         follow: None,
+        guard: Default::default(),
     };
     let mut vel = ae::Vec2::ZERO;
     let mut flight = ae::BodyFlightState::default();
@@ -2031,6 +2049,7 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
             impact_pos: ae::Vec2::ZERO,
             launch_dir: Some(ambition_platformer2d_core::hit_response::WorldLaunchDir::from_source_local(ae::Vec2::new(1.0, 0.0), 1.0, ae::Vec2::new(0.0, 1.0))),
             follow: None,
+            guard: Default::default(),
         };
         let mut feel = Platformer2dFeelTuningMonolith::default();
         feel.crouch_cancel_scale = scale;
@@ -2224,6 +2243,7 @@ fn a_windbox_offers_no_guard_and_a_strike_offers_one() {
             impact_pos: ae::Vec2::new(10.0, 0.0),
             launch_dir: None,
             follow: None,
+            guard: Default::default(),
         }
     }
 
@@ -2416,5 +2436,70 @@ fn a_settings_change_reaches_the_simulated_policy_only_when_the_timeline_admits_
             .resource::<ae::PendingMechanicalEdits>()
             .is_pending(player_damage_policy_domain()),
         "the published edit is no longer pending"
+    );
+}
+
+/// S0.3: how a hit meets a raised guard is the hit's own policy, read where
+/// the guard is offered. An unblockable strike lands through a raised guard
+/// and spends none of it; a blockable one with extra shield damage is blocked
+/// and spends its damage plus the extra. The control is the ordinary strike:
+/// blocked, spending its damage.
+#[test]
+fn an_unblockable_hit_lands_through_a_guard_and_a_guard_breaker_spends_more() {
+    use ae::hit_response::HitGuard;
+    let hit = |guard: HitGuard| {
+        let knockback = ambition_combat::HitKnockback {
+            reaction: ae::hit_response::HitReaction::Strike,
+            dir: 1.0,
+            magnitude: ambition_combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
+            source_pos: ae::Vec2::ZERO,
+            impact_pos: ae::Vec2::new(10.0, 0.0),
+            launch_dir: None,
+            follow: None,
+            guard,
+        };
+        let mut combat = BodyCombat::default();
+        let mut health = test_health(50);
+        let mut state = raised_guard();
+        let mut vel = sink();
+        let pos = ae::Vec2::new(100.0, 200.0);
+        let resolution = resolve_body_hit(
+            &mut combat,
+            Some(&mut health),
+            None,
+            None,
+            GuardUnderFire::offered_to(
+                Some(&knockback),
+                &mut state,
+                ae::ShieldTuning::PLATFORM_FIGHTER,
+                &mut vel,
+                TEST_BODY,
+            ),
+            1.0,
+            pos,
+            pos + ae::Vec2::new(50.0, 0.0),
+            DOWN,
+            3,
+            1.0,
+            false,
+            TEST_FEEL,
+            false,
+            false,
+        );
+        (resolution, state.depleted, health.current())
+    };
+    // Control: an ordinary strike is blocked and spends its damage.
+    assert_eq!(hit(HitGuard::default()), (BodyHitResolution::Blocked, 3.0, 50));
+    // A guard breaker is blocked and spends its damage plus the extra.
+    assert_eq!(
+        hit(HitGuard::Blockable { extra_shield_damage: 6 }),
+        (BodyHitResolution::Blocked, 9.0, 50),
+        "extra shield damage did not reach the guard"
+    );
+    // An unblockable strike lands through the raised guard.
+    let (resolution, depleted, current) = hit(HitGuard::Unblockable);
+    assert!(
+        matches!(resolution, BodyHitResolution::Damaged { .. }) && depleted == 0.0 && current == 47,
+        "an unblockable strike met the guard: {resolution:?}, depleted {depleted}, health {current}"
     );
 }

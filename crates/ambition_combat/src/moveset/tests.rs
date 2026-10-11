@@ -4002,6 +4002,7 @@ fn swept_track(reaches: [f32; 3], segment_s: f32) -> MoveSpec {
         vfx: None,
         hit_sfx: None,
         reaction: None,
+        guard: Default::default(),
     };
     spec.windows = vec![MoveWindow {
         start_s: 0.0,
@@ -4981,6 +4982,7 @@ fn charging_smash() -> MoveSpec {
                     on_hit: None,
                     vfx: None,
                     reaction: None,
+                    guard: Default::default(),
                 }],
                 sustain_effect: None,
                 motion_scale: 1.0,
@@ -6121,6 +6123,7 @@ fn spot(offset: (f32, f32), damage: i32) -> HitVolume {
         on_hit: None,
         vfx: None,
         reaction: None,
+        guard: Default::default(),
     }
 }
 
@@ -6269,6 +6272,7 @@ fn narrow_spot(offset: (f32, f32), damage: i32) -> HitVolume {
         on_hit: None,
         vfx: None,
         reaction: None,
+        guard: Default::default(),
     }
 }
 
@@ -10637,4 +10641,29 @@ fn a_brain_started_swing_arms_its_authored_pace_and_a_driven_one_does_not() {
         0.0,
         "a participant-driven swing must not inherit the brain's pace"
     );
+}
+
+/// S0.3: the volume's guard policy reaches the live strike, where the parry
+/// and the guard read it (`Hitbox::meets_guard`, `Hitbox::hit_guard`).
+#[test]
+fn a_volumes_guard_policy_rides_its_live_strike() {
+    let guards_of = |guard: ambition_entity_catalog::VolumeGuard| {
+        let (mut app, _victim) = app_with_victim();
+        let mut spec = ambition_characters::moveset_prefabs::simple_melee(
+            &ambition_characters::moveset_prefabs::SimpleMeleeParams::default(),
+        );
+        for window in &mut spec.windows {
+            for volume in &mut window.volumes {
+                volume.guard = guard;
+            }
+        }
+        spawn_attacker(&mut app, ae::Vec2::new(100.0, 100.0), ae::Vec2::new(30.0, 48.0), spec);
+        run_seconds(&mut app, 0.14);
+        let mut q = app.world_mut().query::<&Hitbox>();
+        q.iter(app.world()).map(|h| h.guard).collect::<Vec<_>>()
+    };
+    use ambition_entity_catalog::VolumeGuard;
+    assert_eq!(guards_of(VolumeGuard::Unblockable), vec![VolumeGuard::Unblockable]);
+    // Control: the ordinary volume spawns the ordinary strike.
+    assert_eq!(guards_of(VolumeGuard::default()), vec![VolumeGuard::default()]);
 }

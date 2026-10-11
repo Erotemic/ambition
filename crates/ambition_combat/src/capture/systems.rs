@@ -3186,6 +3186,7 @@ pub fn apply_capture_throws(
                     .unwrap_or(ae::DEFAULT_GRAVITY_DIR),
             )),
             follow: None,
+            guard: Default::default(),
         };
         let gravity_dir = gravity
             .get(victim)

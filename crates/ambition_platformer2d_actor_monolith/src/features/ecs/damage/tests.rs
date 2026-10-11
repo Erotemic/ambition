@@ -1734,6 +1734,7 @@ fn slash_knockback(center: ae::Vec2, dir: f32) -> ambition_combat::events::HitKn
         impact_pos: center,
         launch_dir: None,
         follow: None,
+        guard: Default::default(),
     }
 }
 
@@ -1976,6 +1977,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,
             follow: None,
+            guard: Default::default(),
         }),
         ignored_targets: Vec::new(),
             attacker_move_instance: None,
@@ -2034,6 +2036,7 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge() {
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,
             follow: None,
+            guard: Default::default(),
         }),
         None,
     ] {
@@ -2201,6 +2204,7 @@ fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
             impact_pos: ae::Vec2::ZERO,
             launch_dir: None,
             follow: None,
+            guard: Default::default(),
         }),
         ignored_targets: Vec::new(),
             attacker_move_instance: None,
@@ -2520,6 +2524,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
         reaction: None,
+        guard: Default::default(),
     };
     let player_body = app.world().get::<CenteredAabb>(player).unwrap().aabb();
     let enemy_body = app.world().get::<CenteredAabb>(enemy).unwrap().aabb();

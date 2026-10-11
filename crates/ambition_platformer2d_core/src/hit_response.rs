@@ -149,6 +149,26 @@ pub struct HitKnockback {
     /// `apply_body_hit_reaction`, rather than each being remembered separately
     /// by whoever happens to look.
     pub reaction: HitReaction,
+    /// How this pulse meets a raised guard (S0.3). Read once, where the guard
+    /// is offered to the hit (`GuardUnderFire::offered_to`).
+    pub guard: HitGuard,
+}
+
+/// How a pulse meets a raised guard. The runtime twin of the authored
+/// `VolumeGuard`, lowered where the strike becomes a pulse.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HitGuard {
+    /// A raised guard blocks it, and the block spends the guard by the hit's
+    /// damage plus `extra_shield_damage`.
+    Blockable { extra_shield_damage: u16 },
+    /// No guard blocks it.
+    Unblockable,
+}
+
+impl Default for HitGuard {
+    fn default() -> Self {
+        Self::Blockable { extra_shield_damage: 0 }
+    }
 }
 
 /// A pulse's KIND: what the victim is owed for having been touched by it.
@@ -175,6 +195,20 @@ impl HitKnockback {
     /// Is this pulse a gust rather than a blow?
     pub fn is_windbox(&self) -> bool {
         matches!(self.reaction, HitReaction::Windbox)
+    }
+
+    /// Does a raised guard meet this pulse at all? Not a gust (it pushes
+    /// and owes no guard), and not an unblockable strike.
+    pub fn meets_guard(&self) -> bool {
+        !self.is_windbox() && self.guard != HitGuard::Unblockable
+    }
+
+    /// How much more than its damage a block of this pulse spends.
+    pub fn extra_shield_damage(&self) -> u16 {
+        match self.guard {
+            HitGuard::Blockable { extra_shield_damage } => extra_shield_damage,
+            HitGuard::Unblockable => 0,
+        }
     }
 }
 
@@ -619,6 +653,7 @@ mod hitlag_tests {
             impact_pos: Vec2::ZERO,
             launch_dir: None,
             follow: None,
+            guard: Default::default(),
         }
     }
 
@@ -825,6 +860,7 @@ mod launch_direction_tests {
             impact_pos: victim,
             launch_dir,
             follow: None,
+            guard: Default::default(),
         };
         knockback_velocity(
             victim,
@@ -960,6 +996,7 @@ mod launch_direction_tests {
                 impact_pos: victim,
                 launch_dir: Some(WorldLaunchDir::from_source_local(Vec2::new(0.0, -1.0), 1.0, Vec2::new(0.0, 1.0))),
                 follow: None,
+                guard: Default::default(),
             };
             knockback_velocity(victim, 1.0, down, Some(&knockback), hold, &tuning)
         };
@@ -1149,6 +1186,7 @@ mod autolink_tests {
             impact_pos: Vec2::new(20.0, 0.0),
             launch_dir: Some(WorldLaunchDir::from_source_local(Vec2::new(0.0, -1.0), 1.0, Vec2::new(0.0, 1.0))),
             follow: None,
+            guard: Default::default(),
         };
         assert!(kb.follow.is_none());
         let v = knockback_velocity(

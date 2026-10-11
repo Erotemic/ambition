@@ -219,6 +219,7 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
         reaction: None,
+        guard: Default::default(),
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(100.0, 100.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(200.0, 100.0));
@@ -247,6 +248,7 @@ fn world_anchor_hitbox_ignores_owner_position() {
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
         reaction: None,
+        guard: Default::default(),
     };
     let aabb_a = hitbox.world_aabb(ae::Vec2::new(0.0, 0.0));
     let aabb_b = hitbox.world_aabb(ae::Vec2::new(9999.0, 9999.0));
@@ -293,6 +295,7 @@ fn tick_and_despawn_drops_expired_hitboxes() {
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
                 reaction: None,
+                guard: Default::default(),
             },
             HitboxLifetime { remaining_s: 0.01 },
             HitboxHits::default(),
@@ -330,6 +333,7 @@ fn tick_and_despawn_keeps_live_hitboxes() {
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
                 reaction: None,
+                guard: Default::default(),
             },
             HitboxLifetime { remaining_s: 5.0 },
             HitboxHits::default(),
@@ -539,6 +543,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -604,6 +609,7 @@ fn a_world_anchored_box_outlives_its_owner_but_a_following_one_does_not() {
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
                 reaction: None,
+                guard: Default::default(),
             },
             HitboxLifetime { remaining_s: 0.2 },
             HitboxHits::default(),
@@ -684,6 +690,7 @@ fn a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither() {
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
                 reaction: None,
+                guard: Default::default(),
             },
             HitboxLifetime { remaining_s: 0.2 },
             HitboxHits::default(),
@@ -771,6 +778,7 @@ fn a_world_blast_throws_victims_apart_regardless_of_where_its_owner_stands() {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -850,6 +858,7 @@ fn a_following_box_throws_away_from_the_owner_not_from_its_own_volume() {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -910,6 +919,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1072,6 +1082,7 @@ fn enemy_hitbox_over_player_app_dealing(
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1175,6 +1186,7 @@ fn player_faction_hitbox_only_fires_once() {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 1.0 },
         HitboxHits::default(),
@@ -1244,6 +1256,7 @@ fn player_melee_never_targets_its_owner() {
             launch_dir: Some(crate::strike::HitboxLaunch::OwnerLocal(ae::Vec2::new(0.6, -0.8))),
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1327,6 +1340,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
             launch_dir: Some(crate::strike::HitboxLaunch::OwnerLocal(ae::Vec2::new(0.6, -0.8))),
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1418,6 +1432,7 @@ fn landed_launch(
             launch_dir: Some(launch),
             frame_down: owner_down,
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1595,6 +1610,7 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
         reaction: None,
+        guard: Default::default(),
     };
     let owner_body = app.world().get::<ae::CenteredAabb>(owner).unwrap().aabb();
     let victim_body = app.world().get::<ae::CenteredAabb>(victim).unwrap().aabb();
@@ -1689,6 +1705,7 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
         reaction: None,
+        guard: Default::default(),
     };
     let owner_body = app.world().get::<ae::CenteredAabb>(owner).unwrap().aabb();
     let victim_body = app.world().get::<ae::CenteredAabb>(victim).unwrap().aabb();
@@ -1790,6 +1807,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -1858,6 +1876,7 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -2172,6 +2191,7 @@ mod strike_rank {
                             ambition_entity_catalog::WindboxVolume { repeating: false },
                         )
                     }),
+                    guard: Default::default(),
                 },
                 HitboxLifetime { remaining_s: 0.2 },
                 HitboxHits::default(),
@@ -2431,6 +2451,7 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
@@ -2487,6 +2508,25 @@ fn a_parry_window_does_not_catch_a_windbox() {
         "a parry CAUGHT a windbox — a gust says it does not interact with a \
          shield, and a parry is the strongest form of exactly that"
     );
+}
+
+/// AN UNBLOCKABLE STRIKE IS NOT PARRIED (S0.3): a parry is a guard, and the
+/// strike says no guard meets it. The control is the ordinary strike, caught
+/// by the same window (`a_parry_window_does_not_catch_a_windbox` checks it).
+#[test]
+fn a_parry_window_does_not_catch_an_unblockable_strike() {
+    let open = ae::BodyShieldState {
+        active: true,
+        parry_window_timer: 0.05,
+        ..Default::default()
+    };
+    let (mut app, victim) = parry_fixture(open);
+    let mut boxes = app.world_mut().query::<&mut Hitbox>();
+    for mut hitbox in boxes.iter_mut(app.world_mut()) {
+        hitbox.guard = ambition_entity_catalog::VolumeGuard::Unblockable;
+    }
+    app.update();
+    assert!(!caught(&app, victim), "a parry caught an unblockable strike");
 }
 
 /// A successful parry NAMES ITS ATTACKER, which the defender's own state cannot.

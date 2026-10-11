@@ -477,6 +477,7 @@ mod tests {
                 launch_dir: None,
                 frame_down: ae::Vec2::new(0.0, 1.0),
                 reaction: None,
+                guard: Default::default(),
             },
             HitboxOnHit::new(ambition_entity_catalog::EffectRef::new(crate::on_hit::POGO_BOUNCE_KEY)),
         ));

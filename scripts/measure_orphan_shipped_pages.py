@@ -23,7 +23,7 @@ siblings are left from a time the sheet was multi-page. The reachability
 conclusion is stronger that way, not weaker — there is no list to consult.
 
 ⭐ SHEETS WITH NO MANIFEST (high confidence). `<base>_spritesheet.png` with no
-`<base>_spritesheet.ron` beside it. `ambition_sprite_sheet/build.rs` bakes the
+`<base>_spritesheet.ron` beside it. `ambition_sprite_sheet/src/sprite_tree.rs` bakes the
 spec index by scanning these four tier dirs for `*_spritesheet.ron`, and every
 loader goes through a spec (`try_load_spec_for_target(target)?`), so a sheet
 with no manifest has no spec and therefore no road. ⚠ A build made while the
@@ -31,7 +31,7 @@ with no manifest has no spec and therefore no road. ⚠ A build made while the
 build can reach.
 
 ⭐ REDUCED-TIER PORTRAITS (high confidence, and NOT measured by claimedness).
-`bake_portrait_manifests` in `ambition_sprite_sheet/build.rs` collects portrait
+`portrait_manifests` in `ambition_sprite_sheet/src/sprite_tree.rs` collects portrait
 manifests from `assets/sprites` ONLY — the reduced tier dirs are never scanned —
 and says why: *"Portraits are presentation products and currently have no
 quality-tier variants"*. So every `*_portraits.png` under a reduced tier has no

@@ -19,9 +19,12 @@ silently discards.
 
 ## ⛔ If a test fails in a crate you did not touch, check for missing assets FIRST
 
-The sheet table is baked AT COMPILE TIME (`ambition_sprite_sheet/build.rs`
-scans `assets/sprites`), so an assetless tree compiles a binary with an EMPTY
-table and fails tests that mention neither assets nor your change. **The tell is
+The sheet table comes from `assets/sprites` (`ambition_sprite_sheet/src/sprite_tree.rs`
+finds the files): a development build reads it when the game starts, and a
+build with no source tree (`static_content`, wasm, Android) embeds it at
+compile time. An assetless tree has an EMPTY table either way, and fails tests
+that mention neither assets nor your change. Since 2026-10-11 a development
+build sees a publish after a restart, with no crate compiled. **The tell is
 BREADTH** — an empty oracle rejects every name at once, where a real content bug
 names one or two.
 
@@ -36,8 +39,8 @@ A diagnostic that mutates nothing: `find crates/ambition_platformer2d_actor_mono
 Zero means the bake is empty. `./scripts/regen/sprites.sh --check-toolchain`
 says whether this machine can render at all, and exits non-zero when it cannot.
 
-⚠ Do not run a regen concurrently with a cargo build: one writes the files the
-other is baking.
+⚠ Do not run a regen concurrently with a `static_content` build or with a
+running test: one writes the files the other is reading.
 
 ## ⚠ FONTS ARE NOT A CATEGORY HERE
 

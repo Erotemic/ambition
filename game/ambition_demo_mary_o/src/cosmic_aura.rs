@@ -34,7 +34,7 @@ use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
 use ambition_platformer2d::render::rendering::PlayerVisual;
 
 /// The side of the quad, as a part of the height of her frame.
-const AURA_SIZE: f32 = 1.25;
+const AURA_SIZE: f32 = 1.6;
 /// The middle of her body is this far under the middle of her frame, as a
 /// part of the height of the frame (the stage of `mary_o_v2_cosmic` in the
 /// sprite renderer: her body is in the low part of it, under her wings).
@@ -42,7 +42,7 @@ const BODY_UNDER_FRAME_MIDDLE: f32 = 13.67 / 84.0;
 /// Behind her, by less than the depth between two layers of a room.
 const AURA_Z: f32 = -0.06;
 /// The size of one star picture, in world px.
-const STAR_TILE: f32 = 260.0;
+const STAR_TILE: f32 = 190.0;
 
 /// The material of the light. Its fields are the uniforms of `cosmic_aura.wgsl`.
 #[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
@@ -174,7 +174,7 @@ fn light_her_while_she_is_cosmic(
                     .get_or_insert_with(|| {
                         materials.add(MaryOCosmicAuraMaterial {
                             // Display colours: pink at the middle, cyan at the rim, pale gold stars.
-                            inner: Vec4::new(1.0, 0.62, 0.86, 0.42),
+                            inner: Vec4::new(1.0, 0.62, 0.86, 0.64),
                             outer: Vec4::new(0.52, 0.88, 1.0, 2.4),
                             star: Vec4::new(1.0, 0.96, 0.78, STAR_TILE),
                             stars: star_picture(&asset_server),

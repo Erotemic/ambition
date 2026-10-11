@@ -25,7 +25,11 @@ use ambition_app::app::{build_visible_app, VisibleRenderMode};
 const BOOT_MEGAPIXEL_BUDGET: f64 = 40.0;
 
 /// Systems registered across every schedule after the shell host is composed.
-const SYSTEM_COUNT_BUDGET: usize = 3400;
+/// Measured 3401 on 2026-10-10 (five boss-conduct adapters and a thrown-item
+/// system joined; `no_system_is_registered_twice_in_one_schedule` was green),
+/// and the ceiling moved to 3500: it is the blunt guard against a doubled
+/// plugin, which is about 750 systems.
+const SYSTEM_COUNT_BUDGET: usize = 3500;
 
 /// Boot the shipped shell composition and let asset loading settle.
 ///
@@ -142,7 +146,7 @@ fn the_composition_registers_no_more_systems_than_its_budget() {
 }
 /// The precise version of the system-count budget.
 ///
-/// The 3400 ceiling catches a doubled plugin only once the double is ~750 systems large, which is
+/// The 3500 ceiling catches a doubled plugin only once the double is ~750 systems large, which is
 /// why it is described in its own doc comment as a blunt instrument.
 ///
 /// Two exclusions, both principled rather than convenient:

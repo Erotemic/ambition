@@ -118,3 +118,38 @@ fn a_coconut_that_falls_on_a_sandbag_hurts_it() {
     assert!(fastest > 300.0, "premise: the coconut fell; its fastest was {fastest}");
     assert_eq!(before - after, 2, "a coconut that falls on the sandbag is one blow of 2; its health went {before} -> {after}");
 }
+
+/// A coconut fast enough to cross the player's whole body in one tick is one
+/// blow, and bounces back. At the end of that tick it is past the body, so a
+/// rule that looked for the victim where the coconut is then found none: the
+/// coconut bounced and nobody was hurt.
+#[test]
+fn a_coconut_that_crosses_the_player_in_one_tick_is_one_blow() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    for _ in 0..180 {
+        sim.step(base());
+    }
+    let (kin, before) = player(&mut sim);
+    let half = ae::Vec2::new(9.0, 7.5);
+    let body = kin.size * 0.5;
+    // Clear of the body on its left, and one tick later clear of it on its
+    // right: the coconut overlaps it at neither end of the tick.
+    let start = ae::Vec2::new(kin.pos.x - body.x - half.x - 2.0, kin.pos.y);
+    let step = 2.0 * (body.x + half.x) + 12.0;
+    let nut = loose_coconut(&mut sim, start);
+    sim.world_mut().get_mut::<GroundItem>(nut).expect("the coconut").vel = ae::Vec2::new(step * 60.0, 0.0);
+    sim.step(base());
+    let item = sim.world().get::<GroundItem>(nut).expect("the coconut is in the world").clone();
+    assert!(
+        item.pos.x - half.x > kin.pos.x + body.x,
+        "premise: one tick later the coconut is past the body, at {:?} (body right edge {})",
+        item.pos,
+        kin.pos.x + body.x
+    );
+    for _ in 0..3 {
+        sim.step(base());
+    }
+    let (_, after) = player(&mut sim);
+    assert_eq!(before - after, 2, "the coconut that crossed the player is one blow of 2; health went {before} -> {after}");
+    assert!(item.vel.x < 0.0, "the coconut bounces back off the body it crossed; it left at {:?}", item.vel);
+}

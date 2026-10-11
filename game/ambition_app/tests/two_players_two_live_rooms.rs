@@ -1388,23 +1388,9 @@ fn an_item_carried_out_of_a_room_another_player_holds_crosses_whole() {
 /// to `arena` (#1).
 /// The boss's live room, and whether its conductor has measured its hall
 /// within 120 ticks.
-fn a_conducted_boss_beside_bob<C: bevy::prelude::Component>(
-    arena: &str,
-    hall: fn(&C) -> Option<ambition_content::bosses::hall::Hall>,
-) -> (Option<Option<LiveRoomInstance>>, bool, LiveRoomInstance) {
-    a_conducted_boss_beside_bob_by(arena, |world| {
-        world
-            .query::<(&C, Option<&InRoomInstance>)>()
-            .iter(world)
-            .next()
-            .map(|(conductor, room)| (room.map(|room| room.0), hall(conductor).is_some()))
-    })
-}
-
-/// As [`a_conducted_boss_beside_bob`], with the conducted boss and its hall
-/// found by `conducted`: a boss whose conductor is a module keeps its hall in
-/// the module's record, not in a component of its own.
-fn a_conducted_boss_beside_bob_by(
+/// The conducted boss and its hall are found by `conducted`: a conductor
+/// module keeps the hall in its record on the boss.
+fn a_conducted_boss_beside_bob(
     arena: &str,
     conducted: impl Fn(&mut bevy::prelude::World) -> Option<(Option<LiveRoomInstance>, bool)>,
 ) -> (Option<Option<LiveRoomInstance>>, bool, LiveRoomInstance) {
@@ -1438,10 +1424,17 @@ fn a_conducted_boss_beside_bob_by(
 /// not run with two rooms live, and the pair stood still.
 #[test]
 fn gnu_ton_measures_its_hall_in_its_own_live_room() {
-    let (room, measured, second) = a_conducted_boss_beside_bob(
-        "gnu_ton_arena",
-        ambition_content::bosses::gnu_ton::GnuTonConductor::hall,
-    );
+    // The scholar's conductor is the `gnu_ton` module: its hall is in the
+    // module's record on him.
+    let (room, measured, second) = a_conducted_boss_beside_bob("gnu_ton_arena", |world| {
+        let scholar = world
+            .query::<(bevy::prelude::Entity, &ambition_platformer2d::boss_encounter::BossConfig)>()
+            .iter(world)
+            .find(|(_, config)| config.behavior.id == ambition_content::bosses::gnu_ton::GNU_TON_ID)
+            .map(|(scholar, _)| scholar)?;
+        let room = world.get::<InRoomInstance>(scholar).map(|room| room.0);
+        Some((room, ambition_content::bosses::gnu_ton::conductor_of(world, scholar).is_some_and(|v| v.hall.is_some())))
+    });
     assert_eq!(
         (room, measured),
         (Some(Some(second)), true),
@@ -1454,7 +1447,7 @@ fn gnu_ton_measures_its_hall_in_its_own_live_room() {
 fn the_fsm_measures_its_hall_in_its_own_live_room() {
     // The god's conductor is the `fsm` module: its hall is in the module's
     // record on the god.
-    let (room, measured, second) = a_conducted_boss_beside_bob_by("flying_spaghetti_monster_arena", |world| {
+    let (room, measured, second) = a_conducted_boss_beside_bob("flying_spaghetti_monster_arena", |world| {
         let god = world
             .query::<(bevy::prelude::Entity, &ambition_platformer2d::boss_encounter::BossConfig)>()
             .iter(world)

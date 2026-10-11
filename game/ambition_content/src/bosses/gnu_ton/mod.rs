@@ -1,8 +1,10 @@
 //! GNU-ton: the scholar who stands on the shoulders of a giant.
 //!
-//! * `ambition_content_modules::gnu_ton::choreography` — what his fists do,
-//!   as pure functions of time.
-//! * [`conductor`] — the ECS side: reads his live move and performs it.
+//! * His conductor — it performs his live move with the gnu's fists — is the
+//!   procedural module `ambition_content_modules::gnu_ton::conductor`, a
+//!   conducted boss on the extension host (`ambition.boss.conduct`).
+//! * [`conductor`] — what the game keeps here: his id, his birth, and a view
+//!   of the module's record for tests and inspectors.
 //! * This file — the arena's exit gating.
 //!
 //! ## Exit gating
@@ -20,7 +22,7 @@ use ambition_platformer2d_core::RoomGeometry;
 
 pub mod conductor;
 
-pub use conductor::{conduct_gnu_ton, GnuTonConductor};
+pub use conductor::{birth, conductor_of, GnuTonView, Move, GNU_TON_ID};
 
 /// LDtk level identifier of the arena room whose ladder this system
 /// gates. Held as a constant so it's grep-able alongside the matching
@@ -38,7 +40,7 @@ const FLOOR_GATE_BLOCK_NAME: &str = "ladder_floor_gate";
 fn boss_is_gnu_ton(
     boss: &ambition_boss_encounter::BossRef<'_>,
 ) -> bool {
-    boss.config.behavior.id == "gnu_ton_rider"
+    boss.config.behavior.id == GNU_TON_ID
         || boss.config.name.eq_ignore_ascii_case("gnu_ton")
         || boss.config.name.eq_ignore_ascii_case("gnu-ton")
 }
@@ -103,5 +105,7 @@ fn gate_one_arena(
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub(crate) mod conductor_reference_tests;
 #[cfg(test)]
 mod conductor_parity_tests;

@@ -51,6 +51,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     echo_fan::module,
     eye_beam::module,
     fsm::module,
+    gnu_ton::conductor::module,
     gradient_cascade::module,
     gradient_nova::module,
     grapple::module,

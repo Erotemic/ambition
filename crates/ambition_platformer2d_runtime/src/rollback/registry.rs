@@ -1133,7 +1133,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 339 -> 340: `mount.back_ledge` (`BackLedge`) joins. A mount's back is
 /// one-way ground while it is ridden, authored on its character; a mount a
 /// rewind re-creates carries it as it carries `mount.mountable`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 340;
+/// ⛔⛤ 340 -> 341: `content.gnu_ton_conductor` and its entity mapping leave.
+/// GNU-ton's conductor is a procedural module: its memory is a record in
+/// `extension.body_records`, and its hit volumes are held boxes.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 341;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

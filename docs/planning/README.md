@@ -126,6 +126,8 @@ links to.
 ### Engine: simulation, construction and lifetime
 
 - [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md)
+- [`engine/simulation-tick-rate-compatibility.md`](engine/simulation-tick-rate-compatibility.md)
+  — audit and plan: a simulation rate other than 60 Hz (PLANNED).
 - [`engine/netcode.md`](engine/netcode.md) — netcode and the rollback host.
 - [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md)
 - [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)

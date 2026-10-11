@@ -1,13 +1,13 @@
 //! GNU-ton's fight, played headlessly in the real arena: the authored room, the
-//! authored pair, the scripted pattern, and the content conductor that performs
-//! it (`ambition_content::bosses::gnu_ton`).
+//! authored pair, the scripted pattern, and the conductor module that performs
+//! it (`ambition_content_modules::gnu_ton::conductor`).
 
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use ambition_platformer2d::mount::BackLedge;
-use ambition_content::bosses::gnu_ton::GnuTonConductor;
+use ambition_content::bosses::gnu_ton::{conductor_of, GNU_TON_ID};
 use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::characters::brain::{BossAttackProfile, BossAttackState};
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, Limb, LimbRig, LimbSlot};
@@ -102,19 +102,16 @@ struct Scene {
 
 fn scene(sim: &mut Platformer2dSimHarness) -> Scene {
     let world = sim.world_mut();
-    let (scholar, scholar_hp, performing, floor) = world
-        .query::<(&BossConfig, &ae::BodyKinematics, &BodyHealth, &GnuTonConductor)>()
+    let (entity, scholar, scholar_hp) = world
+        .query::<(Entity, &BossConfig, &ae::BodyKinematics, &BodyHealth)>()
         .iter(world)
-        .find(|(config, ..)| config.behavior.id == "gnu_ton_rider")
-        .map(|(_, kin, health, conductor)| {
-            (
-                kin.clone(),
-                health.current(),
-                conductor.performing().map(|(mv, striking)| (mv.key(), striking)),
-                conductor.hall().expect("the conductor measured the hall").floor,
-            )
-        })
-        .expect("GNU-ton is in the arena, conducted");
+        .find(|(_, config, ..)| config.behavior.id == GNU_TON_ID)
+        .map(|(entity, _, kin, health)| (entity, kin.clone(), health.current()))
+        .expect("GNU-ton is in the arena");
+    // His conductor is the `gnu_ton` module; its memory is the module's record.
+    let view = conductor_of(world, entity).expect("GNU-ton, conducted");
+    let performing = view.performing.map(|(mv, striking)| (mv.key(), striking));
+    let floor = view.hall.expect("the conductor measured the hall").floor;
     let (giant, rig, giant_unmirrored, giant_id, giant_back) = world
         .query_filtered::<(&ae::BodyKinematics, &LimbRig, Has<ae::Unmirrored>, &FeatureId, &BackLedge), Without<Limb>>()
         .iter(world)
@@ -459,8 +456,9 @@ fn the_scholar_turns_and_the_gnu_under_him_does_not() {
         let world = sim.world_mut();
         let mut ids = world.query_filtered::<&FeatureId, (With<LimbRig>, Without<Limb>)>();
         let giant = ids.iter(world).next().expect("the giant").clone();
-        let mut ids = world.query_filtered::<&FeatureId, With<GnuTonConductor>>();
-        let scholar = ids.iter(world).next().expect("the conducted scholar").clone();
+        let mut ids = world.query::<(&FeatureId, &BossConfig)>();
+        let scholar =
+            ids.iter(world).find(|(_, config)| config.behavior.id == GNU_TON_ID).expect("the scholar").0.clone();
         let views = world.resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
         let plane = |id: &FeatureId| views.get(id.as_str()).expect("a drawn body").depth_plane;
         (plane(&scholar), plane(&giant))
@@ -564,7 +562,9 @@ fn entering_the_arena_the_fists_start_where_they_stand() {
             .next()
             .cloned()
             .expect("the giant is in the arena");
-        let performing = world.query::<&GnuTonConductor>().iter(world).any(|c| c.performing().is_some());
+        let mut bosses = world.query::<(Entity, &BossConfig)>();
+        let scholar = bosses.iter(world).find(|(_, config)| config.behavior.id == GNU_TON_ID).map(|(e, _)| e);
+        let performing = scholar.and_then(|e| conductor_of(world, e)).is_some_and(|view| view.performing.is_some());
         (fists, homes, giant, performing)
     };
     let (mut last, ..) = fists(&mut sim);
@@ -726,8 +726,9 @@ fn the_gnu_is_built_unmirrored_and_only_its_arena_stands_it_behind() {
     assert!(plane.is_none_or(|plane| plane.is_playable()), "the hall's gnu is an exhibit, got {plane:?}");
 }
 
-/// The scholar is built with his conductor: the first tick he exists, it is on
-/// him. It finds his fists on its first conducted tick
+/// The scholar is built with his drawn row, the one his conductor chooses: the
+/// first tick he exists, it is on him. His conductor module writes its record
+/// on him on the next tick, and finds his fists then
 /// (`entering_the_arena_the_fists_start_where_they_stand`).
 #[test]
 fn the_scholar_is_built_with_his_conductor() {
@@ -737,21 +738,26 @@ fn the_scholar_is_built_with_his_conductor() {
             .with_required_start_room(ARENA),
     )
     .expect("the gnu-ton arena builds headlessly");
-    let first = (0..300)
+    let (scholar, row) = (0..300)
         .find_map(|_| {
             let world = sim.world_mut();
             let found = world
-                .query::<(&BossConfig, Has<GnuTonConductor>, Has<ambition_platformer2d::sprite_sheet::character::PinnedRow>)>()
+                .query::<(Entity, &BossConfig, Has<ambition_platformer2d::sprite_sheet::character::PinnedRow>)>()
                 .iter(world)
-                .find(|(config, ..)| config.behavior.id == ambition_content::bosses::gnu_ton::conductor::GNU_TON_ID)
-                .map(|(_, conductor, row)| (conductor, row));
+                .find(|(_, config, _)| config.behavior.id == GNU_TON_ID)
+                .map(|(entity, _, row)| (entity, row));
             if found.is_none() {
                 sim.step(AgentAction::default());
             }
             found
         })
         .expect("the arena builds GNU-ton");
-    assert_eq!(first, (true, true), "the scholar, on the first tick he exists");
+    assert!(row, "the scholar has his drawn row on the first tick he exists");
+    sim.step(AgentAction::default());
+    assert!(
+        conductor_of(sim.world_mut(), scholar).is_some_and(|view| view.hall.is_some()),
+        "the scholar's conductor has its record on him one tick later, with his hall"
+    );
 }
 
 /// The fists are built as the scholar's, because the gnu's character says its

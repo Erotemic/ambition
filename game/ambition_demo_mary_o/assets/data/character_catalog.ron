@@ -46,6 +46,34 @@
             coyote_time: 0.0,
             jump_buffer: 0.0,
         ),
+        // Eternal Cosmic Mary-O: the feel of `classic`, faster, with a jump
+        // for each press in the air, so a line of jumps is a flight. She
+        // comes down slowly: her wings hold the air.
+        "cosmic": (
+            horizontal_law: Momentum((
+                ground_reverse_accel: 3200.0,
+                ground_coast_decel: 1400.0,
+                air_reverse_accel: 2400.0,
+                air_coast_decel: 700.0,
+            )),
+            jump_law: PhasedGravity((
+                speed_thresholds: (120.0, 187.5, 210.0),
+                launch_offsets: (-30.0, -15.0, 0.0, 30.0),
+                held_rise_gravity_scale: 0.2,
+                released_rise_gravity_scale: 1.0,
+                fall_gravity_scale: 1.0,
+                held_phase_min_upward_speed: 240.0,
+            )),
+            gravity: 2250.0,
+            air_jumps: 255,
+            jump_speed: 520.0,
+            max_run_speed: 620.0,
+            run_accel: 1400.0,
+            air_accel: 1400.0,
+            max_fall_speed: 300.0,
+            coyote_time: 0.0,
+            jump_buffer: 0.0,
+        ),
     },
     brain_presets: { "stand_still": StandStill },
     action_set_presets: {
@@ -201,6 +229,41 @@
                 "The beacon does the talking now.",
                 "Warm opinions, thrown at speed.",
                 "Everything flammable, please step back.",
+            ],
+        ),
+        // Eternal Cosmic Mary-O: her ultimate form (`cosmic.rs`). The row
+        // states what the form is. She is not hurt and she harms what she
+        // touches, each press of jump in the air is a jump, and she is
+        // faster. Her sheet is published at half the pixels to the unit of
+        // her other sheets, so the row states her height: the height of her
+        // grown forms.
+        "mary_o_cosmic": (
+            display_name: "Eternal Cosmic Mary-O",
+            spritesheet: "sprites/mary_o_v2_cosmic_spritesheet.png",
+            manifest: "sprites/mary_o_v2_cosmic_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            posed_body: Some(OwnHeight),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            // A session that starts in the form has the jump in the air from
+            // this row. A body that puts the form on later has it from
+            // `cosmic::lend_the_jump_in_the_air`: to wear a row does not
+            // change the verbs of a body.
+            abilities: Some([RunJump, AirJump]),
+            axis_tuning_preset: Some("cosmic"),
+            max_health: Some(1),
+            empowered: [Untouchable, HarmsOnContact],
+            tags: ["player", "transformation"],
+            barks: (
+                hall: ["The night sky is a dress, if you ask it well.", "I have a star for a hat and no ceiling.", "The void can keep its grey. I brought every colour."],
+            ),
+            fallback_dialogue: [
+                "Each jump is a wing beat now.",
+                "The star came down when I called.",
+                "Nothing here can take my colours.",
             ],
         ),
         // The shelled walker (the Koopa of this game). Its sheet carries the

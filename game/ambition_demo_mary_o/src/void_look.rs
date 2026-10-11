@@ -7,7 +7,8 @@
 //! void thing is whole with no field: it is a sprite.
 //!
 //! Mary-O with the quasar is the light the void can not take: she has a ward
-//! about her (`VoidWard`), and the picture near her keeps its colour.
+//! about her (`VoidWard`), and the picture near her keeps its colour. She has
+//! it in her cosmic form at all times.
 
 use bevy::prelude::*;
 
@@ -91,8 +92,9 @@ fn ward_her_with_the_quasar(
     bodies: Query<(Entity, &WornCharacter, &BodyHealth, Has<VoidWard>), With<PlayerVisual>>,
 ) {
     for (body, worn, health, warded) in &bodies {
-        let has_quasar = crate::powerups::is_her_form(worn.id())
-            && health.health.invulnerable.holds(Invulnerability::EMPOWERED);
+        // The quasar, or the form that is the quasar worn for good.
+        let has_quasar = crate::cosmic::is_cosmic(worn.id())
+            || (crate::powerups::is_her_form(worn.id()) && health.health.invulnerable.holds(Invulnerability::EMPOWERED));
         if has_quasar && !warded {
             commands.entity(body).try_insert(VoidWard {
                 radius: QUASAR_WARD_RADIUS,

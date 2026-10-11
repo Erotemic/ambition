@@ -13,7 +13,7 @@
 //!
 //! ```text
 //! cargo run -p ambition_demo_mary_o_app --features capture --bin capture_mary_o \
-//!     -- OUT.png [WIDTHxHEIGHT] [--room ID] [--warmup N] [--walk N] [--at X,Y] [--no-ui]
+//!     -- OUT.png [WIDTHxHEIGHT] [--room ID] [--warmup N] [--walk N] [--at X,Y] [--transform N] [--no-ui]
 //! ```
 
 use std::path::PathBuf;
@@ -48,6 +48,10 @@ struct Warmup {
     /// brick. Walking there means surviving the route; `capture_scene` takes an
     /// X,Y for exactly this reason and Mary-O's own capture binary did not.
     at: Option<ae::Vec2>,
+    /// Press the Utility key (D) when this many frames of the warmup are left:
+    /// her way into her cosmic form. A shot `N` frames after the press is frame
+    /// `N` of the transformation; a shot more than 3.5 s after it is the form.
+    transform_at: Option<u32>,
 }
 
 fn main() {
@@ -60,6 +64,7 @@ fn main() {
     let mut walk = 0u32;
     let mut debug_boxes = false;
     let mut at: Option<ae::Vec2> = None;
+    let mut transform_at: Option<u32> = None;
     let mut room = ambition_demo_mary_o::LEVEL_1_1_ROOM_ID.to_string();
 
     let mut positional_seen = false;
@@ -120,6 +125,13 @@ fn main() {
                     fail(&format!("expected --at X,Y, got '{raw}'"));
                 };
                 at = Some(ae::Vec2::new(x, y));
+            }
+            "--transform" => {
+                transform_at = Some(
+                    args.next()
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or_else(|| fail("--transform needs the frames from the press to the shot")),
+                );
             }
             "--no-ui" => include_ui = false,
             other if other.starts_with("--") => fail(&format!("unknown flag '{other}'")),
@@ -188,6 +200,7 @@ fn main() {
     app.insert_resource(Warmup {
         remaining: warmup,
         walk_right: walk,
+        transform_at,
         settle: 1,
         at,
     });
@@ -228,6 +241,7 @@ fn main() {
         (
             adopt_cameras_into_capture_target,
             hold_right_while_walking,
+            press_the_utility_key_for_her_form,
             shoot_when_warm,
             finish_after_capture,
         )
@@ -630,11 +644,27 @@ fn hold_right_while_walking(
     }
 }
 
+/// Press D for one frame when the warmup has `--transform` frames left.
+fn press_the_utility_key_for_her_form(
+    mut keys: ResMut<ButtonInput<KeyCode>>,
+    target: Option<Res<CaptureTarget>>,
+    warmup: Res<Warmup>,
+) {
+    if target.is_none_or(|target| target.adopted == 0) {
+        return;
+    }
+    if warmup.transform_at == Some(warmup.remaining) && warmup.remaining > 0 {
+        keys.press(KeyCode::KeyD);
+    } else {
+        keys.release(KeyCode::KeyD);
+    }
+}
+
 fn fail(message: &str) -> ! {
     eprintln!("capture_mary_o: {message}");
     eprintln!(
         "usage: capture_mary_o OUT.png [WIDTHxHEIGHT] [--room ID] [--warmup N] \
-         [--walk N] [--at X,Y] [--no-ui]"
+         [--walk N] [--at X,Y] [--transform N] [--no-ui]"
     );
     std::process::exit(2);
 }

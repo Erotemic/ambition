@@ -2258,5 +2258,14 @@
                 )),
             ),
         ),
+        (
+            id: "mary_o_cosmic",
+            contracts: (
+                borrows: Some((
+                    archetype: "mary_o",
+                    prefixes: [],
+                )),
+            ),
+        ),
     ],
 )

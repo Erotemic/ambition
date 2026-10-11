@@ -570,6 +570,7 @@ mod tests {
         assert!(is_mary_o_form("mary_o"));
         assert!(is_mary_o_form("mary_o_tall"));
         assert!(is_mary_o_form("mary_o_fire"));
+        assert!(is_mary_o_form("mary_o_cosmic"));
         assert!(!is_mary_o_form("sanic"));
     }
 

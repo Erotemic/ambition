@@ -735,6 +735,8 @@ tackon_targets=(
     mary_o_v2
     mary_o_v2_fire
     mary_o_v2_tall
+    # Her ultimate form, and the transformation into it (one sheet).
+    mary_o_v2_cosmic
     # If there are we need to fix that."* There were TWENTY-SIX — every catalog sheet stem this
     # script never named, cross-checked against `sprite2d_renderer list`, and all 26 are registered
     # targets that simply nothing ran.

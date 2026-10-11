@@ -184,6 +184,20 @@ affected character tests.
     change to it needs a converter change in Rust.
   No packet owned these three. The first two cost a build for each level
   edit and each sprite publish of a demo.
+- Census, 2026-10-11, after the three above: every `include_str!` and
+  `include_bytes!` in non-test code of `crates/` and `game/` is behind
+  `static_content`, `static_map` or `static_sfx_bank`, is a test fixture
+  (`#[cfg(test)]`, `test-support`), or is one of the two schemas above. The
+  only other build script that watches content (`game/ambition_app/build.rs`,
+  the packed SFX bank) returns early unless `static_sfx_bank` is on. Measured:
+  touching `character_catalog.ron` then `cargo build -p ambition_app --bin
+  ambition_game_bin` compiles nothing (0.83 s). A content edit that still
+  compiles is content written as Rust (the technique row of the M0 results).
+- A world read off disk can be a bad save: a provider's source may refuse
+  (`ambition_platformer2d_provider::world_source`, `WorldRefusal`), and the
+  session's world preparation fails, retryable, with the reasons. Mary-O's
+  source refuses. Witness
+  `a_world_that_cannot_be_built_fails_its_preparation_and_the_game_keeps_running`.
 
 Rules:
 

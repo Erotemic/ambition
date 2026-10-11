@@ -435,7 +435,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let pos = glide(at, rest, 120.0, dt);
         inv.submit::<ConductedPosePort>(ConductedPose {
             pose: Some(Pose { position: pos.into(), velocity: ((pos - at) / dt).into() }),
-            side,
+            side: Some(side),
         })?;
         return c.store(inv);
     }
@@ -697,7 +697,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     // ── Where it is, and what it is drawn as ──
     inv.submit::<ConductedPosePort>(ConductedPose {
         pose: conducts.then(|| Pose { position: pos.into(), velocity: ((pos - at) / dt).into() }),
-        side,
+        side: Some(side),
     })?;
     let speed = if conducts { (pos - at).length() / dt } else { Vec2::from(god.velocity).length() };
     let row = drawn_row(&c, part, speed);

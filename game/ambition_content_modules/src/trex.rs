@@ -695,7 +695,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
         let pos = Vec2::new(at.x, stand_y);
         inv.submit::<ConductedPosePort>(ConductedPose {
             pose: Some(Pose { position: pos.into(), velocity: ((pos - at) / dt).into() }),
-            side,
+            side: Some(side),
         })?;
         return c.store(inv);
     }
@@ -1171,7 +1171,7 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     }
     inv.submit::<ConductedPosePort>(ConductedPose {
         pose: conducts.then(|| Pose { position: pos.into(), velocity: ((pos - at) / dt).into() }),
-        side,
+        side: Some(side),
     })?;
     let row = drawn_row(&c, part, walking);
     inv.submit::<DrawnRowPort>(DrawnRow::body(row.0, row.1, row.2))?;

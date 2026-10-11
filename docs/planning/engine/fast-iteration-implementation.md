@@ -335,8 +335,15 @@ before you add a port.
   `ambition.feedback.speech_bubble` (eureka). The fist hit volumes and the
   stomp's travelling shocks need no new port: `ambition.combat.held_damage_box`
   v2 keeps a box while it is re-submitted, moves it to the submitted centre,
-  and a new generation re-arms it with a fresh hit memory. Next: the module,
-  its parity harness, and the deletion of the native conductor.
+  and a new generation re-arms it with a fresh hit memory. The module
+  (`ambition_content_modules::gnu_ton`, its choreography beside it) and its
+  parity harness (`bosses::gnu_ton::conductor_parity_tests`: identical to the
+  native conductor for 1420 ticks of every move, the blows, the buck, the
+  shocks, eureka and death) are landed; the module is NOT composed yet. The
+  harness found that the native stomp threw no shock (the wave was dropped
+  on the tick it began); fixed. Next: compose the module, make the native
+  conductor the harness's test-only reference, and drop
+  `content.gnu_ton_conductor` from the rollback registry.
 
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and

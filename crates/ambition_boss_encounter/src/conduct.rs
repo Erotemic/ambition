@@ -442,11 +442,13 @@ pub fn lower_conducted_poses(
                 }
             }
         }
-        match facing {
-            Some(mut facing) => facing.0 = pose.side,
-            None => {
-                commands.entity(submitted.scope).try_insert(ConductedFacing(pose.side));
+        match (facing, pose.side) {
+            (Some(mut facing), Some(side)) => facing.0 = side,
+            (None, Some(side)) => {
+                commands.entity(submitted.scope).try_insert(ConductedFacing(side));
             }
+            // No side: the boss's facing stays whoever drives it.
+            (_, None) => {}
         }
     }
 }

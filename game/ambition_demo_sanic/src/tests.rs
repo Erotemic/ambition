@@ -418,7 +418,7 @@ fn sanic_speedway_composes_through_the_umbrella() {
 
     // THE LOOP IS BUILT WHERE ITS BOX IS: the `SurfaceLoop` entity's box is its
     // circle, so an author sizes a loop by drawing it.
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(SPEEDWAY_WORLD_JSON)
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(&world_text(&SPEEDWAY_WORLD))
         .expect("the speedway world parses");
     let boxed = project
         .levels
@@ -1531,9 +1531,9 @@ fn the_three_acts_form_one_course() {
 #[test]
 fn each_act_says_its_mode_and_look_in_its_world_file() {
     let acts = [
-        (sanic_speedway(), SPEEDWAY_WORLD_JSON, SPEEDWAY_ROOM_ID, "skybridge", "skybridge"),
-        (sanic_highway(), HIGHWAY_WORLD_JSON, HIGHWAY_ROOM_ID, "cove", "cove"),
-        (sanic_darkness(), DARKNESS_WORLD_JSON, DARKNESS_ROOM_ID, "basement", "eclipse"),
+        (sanic_speedway(), &world_text(&SPEEDWAY_WORLD), SPEEDWAY_ROOM_ID, "skybridge", "skybridge"),
+        (sanic_highway(), &world_text(&HIGHWAY_WORLD), HIGHWAY_ROOM_ID, "cove", "cove"),
+        (sanic_darkness(), &world_text(&DARKNESS_WORLD), DARKNESS_ROOM_ID, "basement", "eclipse"),
     ];
     for (room, world, id, biome, theme) in acts {
         let converted = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(world)
@@ -2559,4 +2559,22 @@ fn sanic_states_its_portal_cones_for_its_own_rooms_only() {
         PortalViewConeMode::Dynamic,
         "the engine default chooses a game's cones again"
     );
+}
+
+/// A development build reads each act's world off disk, so a level edit is
+/// played after a restart with no crate compiled. `static_content` embeds it
+/// for a build with no source tree.
+#[test]
+fn each_world_is_read_off_disk_unless_the_build_embeds_it() {
+    for world in [&SPEEDWAY_WORLD, &HIGHWAY_WORLD, &DARKNESS_WORLD] {
+        let on_disk = std::fs::read_to_string(world.file)
+            .unwrap_or_else(|error| panic!("{} is in the source tree: {error}", world.file));
+        assert_eq!(world_text(world), on_disk, "{}", world.file);
+        assert_eq!(
+            world.embedded.is_some(),
+            cfg!(feature = "static_content"),
+            "{}: a development build compiled the world in, or a static build did not",
+            world.file
+        );
+    }
 }

@@ -138,16 +138,25 @@ affected character tests.
 - Not in that count, and still compiled in (seen 2026-10-11, in level and art
   work on Mary-O; an edit to one needs a build before a capture or a test
   shows it):
-  - The world file of a demo: `MARY_O_WORLD_JSON`
-    (`game/ambition_demo_mary_o/src/lib.rs`) and the three Sanic worlds
-    (`game/ambition_demo_sanic/src/lib.rs`) are `include_str!`, so that a
-    demo binary needs no asset root. The F11/F12 world reload serves the
-    Ambition world only.
+  - The world file of a demo. ✔ Sanic (2026-10-11): its three worlds are
+    `content_text!` (`ambition_platformer2d`), one `PackText` each, read off
+    disk unless the demo's `static_content` embeds them. A world edit cost
+    10.3 s and compiled `ambition_demo_sanic` and its app; it now costs
+    0.78 s and compiles nothing (`cargo build -p ambition_demo_sanic_app
+    --bins`, warm). Witness
+    `each_world_is_read_off_disk_unless_the_build_embeds_it` (poison: one
+    world embedded, red at its arm); policy
+    `game.demo-worlds-are-not-compiled-in`. Open: `MARY_O_WORLD_JSON`
+    (`game/ambition_demo_mary_o/src/lib.rs`) is still `include_str!`. The
+    F11/F12 world reload serves the Ambition world only, so a demo world
+    edit costs a restart.
   - Each `*_spritesheet.ron` and each body rig: `build.rs` of
     `ambition_sprite_sheet` bakes them (`baked_sheet_rons.rs`,
     `baked_body_rigs.rs`) so that Android and wasm have them. A sprite
-    publish compiles that crate and each crate after it. The cost is not
-    measured.
+    publish compiles that crate and each crate after it. Measured
+    2026-10-11: touching one `*_spritesheet.ron` cost 185 s and compiled 23
+    crates for `cargo build -p ambition_demo_sanic_app --bins` (warm). The
+    build script watches the whole sprite tree, PNGs included.
   - The entity manifest of a demo world (`mary_o.entities.json`): a schema,
     as the LDtk entity contract is.
   No packet owns these three. The first two are the ones that cost a build

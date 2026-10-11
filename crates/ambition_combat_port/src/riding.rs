@@ -146,6 +146,38 @@ impl Port for BurstPort {
     }
 }
 
+/// The request port marker for a speech bubble.
+///
+/// Port card:
+///
+/// * **Operation** — show `text` in a speech bubble at `at`.
+///   Presentation: no simulation state reads it.
+/// * **Owner** — `ambition_boss_encounter::conduct` (`VfxMessage::SpeechBubble`),
+///   in the live room of the body the invocation ran for.
+/// * **Time** — offered in `boss_conduct`.
+pub struct SpeechBubblePort;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SpeechBubble {
+    pub at: [f32; 2],
+    pub text: String,
+}
+
+impl Port for SpeechBubblePort {
+    const KEY: PortKey = PortKey::new("ambition.feedback.speech_bubble", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = SpeechBubble;
+
+    fn encode(v: &SpeechBubble, out: &mut Vec<u8>) {
+        wire::put_vec2(out, v.at);
+        wire::put_str(out, &v.text);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<SpeechBubble, WireError> {
+        Ok(SpeechBubble { at: r.vec2()?, text: r.str()?.to_owned() })
+    }
+}
+
 /// The request port marker for a shake of the camera.
 ///
 /// Port card:
@@ -188,6 +220,16 @@ mod tests {
         let mut out = Vec::new();
         CameraShakePort::encode(&v, &mut out);
         assert_eq!(CameraShakePort::decode(&mut WireReader::new(&out)).unwrap(), v);
+    }
+
+    #[test]
+    fn a_speech_bubble_survives_the_wire() {
+        let v = SpeechBubble { at: [12.0, -30.0], text: "Eureka!".into() };
+        let mut out = Vec::new();
+        SpeechBubblePort::encode(&v, &mut out);
+        let mut r = WireReader::new(&out);
+        assert_eq!(SpeechBubblePort::decode(&mut r).unwrap(), v);
+        r.finish().unwrap();
     }
 
     #[test]

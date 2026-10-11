@@ -330,9 +330,13 @@ before you add a port.
   boss's health, whether the encounter refuses damage now, and the tracked
   body now); requests `ambition.boss.limb_opening` and
   `ambition.boss.limb_blow` (a fist refuses damage until it is an opening;
-  the blow it takes heals and passes on to the scholar once). Next: limb
-  hit volumes, travelling
-  shocks, the mount's launch, the speech bubble.
+  the blow it takes heals and passes on to the scholar once);
+  `ambition.boss.mount_launch` (the buck's hop) and
+  `ambition.feedback.speech_bubble` (eureka). The fist hit volumes and the
+  stomp's travelling shocks need no new port: `ambition.combat.held_damage_box`
+  v2 keeps a box while it is re-submitted, moves it to the submitted centre,
+  and a new generation re-arms it with a fresh hit memory. Next: the module,
+  its parity harness, and the deletion of the native conductor.
 
 **Acceptance:** an independent module builds against the SDK without Bevy or
 engine code. A ported technique emits the same accepted requests and

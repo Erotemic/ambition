@@ -351,6 +351,55 @@ pub fn pass_limb_blows(
     }
 }
 
+/// The `ambition.boss.mount_launch` requests of this tick, for [`launch_mounts`].
+pub fn drain_mount_launches(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<ambition_boss_special_port::MountLaunch>> {
+    outbox.drain::<ambition_boss_special_port::MountLaunchPort>(&BOSS_CONDUCT)
+}
+
+/// Lower `ambition.boss.mount_launch`: stage a launch of the mount the boss
+/// rides; the body step spends it.
+pub fn launch_mounts(
+    In(requests): In<Vec<ambition_extension_host::Submitted<ambition_boss_special_port::MountLaunch>>>,
+    riders: Query<&ambition_mount::RidingOn>,
+    mut flights: Query<&mut ae::BodyFlightState>,
+) {
+    for submitted in requests {
+        let launch = submitted.value;
+        let Some(Ok(mut flight)) = riders.get(submitted.scope).ok().map(|riding| flights.get_mut(riding.mount)) else {
+            warn!(
+                "extension entry {} asked to launch the mount of {:?}, which rides no body that can fly; refused",
+                submitted.entry, submitted.scope
+            );
+            continue;
+        };
+        flight.stage_launch(ae::Vec2::from(launch.velocity), launch.flinchless);
+    }
+}
+
+/// The `ambition.feedback.speech_bubble` requests of this tick, for
+/// [`show_speech_bubbles`].
+pub fn drain_speech_bubbles(
+    mut outbox: ResMut<ExtensionOutbox>,
+) -> Vec<ambition_extension_host::Submitted<ambition_combat_port::SpeechBubble>> {
+    outbox.drain::<ambition_combat_port::SpeechBubblePort>(&BOSS_CONDUCT)
+}
+
+/// Lower `ambition.feedback.speech_bubble` into `VfxMessage::SpeechBubble`,
+/// in the live room of the body the entry ran for.
+pub fn show_speech_bubbles(
+    In(requests): In<Vec<ambition_extension_host::Submitted<ambition_combat_port::SpeechBubble>>>,
+    mut vfx: ambition_vfx::vfx::VfxWriter,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+) {
+    for submitted in requests {
+        let bubble = submitted.value;
+        vfx.for_room(rooms.of(submitted.scope))
+            .write(ambition_vfx::vfx::VfxMessage::SpeechBubble { pos: ae::Vec2::from(bubble.at), text: bubble.text });
+    }
+}
+
 /// Lower `ambition.boss.conducted_pose`: hold the boss's pose, or release it;
 /// keep the side it faces.
 #[allow(clippy::type_complexity)]
@@ -679,5 +728,58 @@ mod drawn_row_tests {
         draw(&mut world, scholar, DrawnRow { on: DrawnPart::Mount, names: Vec::new(), elapsed: 0.0, looping: false });
         assert_eq!(rows(&world, gnu), Some(Vec::new()), "no names draws the mount as the engine would");
         assert_eq!(rows(&world, scholar), Some(names(&["tumble"])), "the mount's clear left the rider alone");
+    }
+}
+
+#[cfg(test)]
+mod launch_and_bubble_tests {
+    use super::*;
+    use ambition_extension_host::Submitted;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    fn submitted<T>(scope: Entity, value: T) -> Vec<Submitted<T>> {
+        vec![Submitted { scope, occurrence: None, entry: "test::gnu/conduct".into(), value }]
+    }
+
+    /// ⭐ The launch is staged on the mount, not on its rider. The control: a
+    /// boss that rides nothing stages nothing anywhere.
+    #[test]
+    fn a_mount_launch_is_staged_on_the_ridden_body() {
+        use ambition_boss_special_port::MountLaunch;
+        let mut world = World::new();
+        let gnu = world.spawn(ae::BodyFlightState::default()).id();
+        let scholar = world.spawn((ae::BodyFlightState::default(), ambition_mount::RidingOn { mount: gnu })).id();
+        let walker = world.spawn(ae::BodyFlightState::default()).id();
+        let hop = MountLaunch { velocity: [0.0, -520.0], flinchless: true };
+
+        world.run_system_once_with(launch_mounts, submitted(walker, hop)).unwrap();
+        let staged = |world: &World, body: Entity| world.get::<ae::BodyFlightState>(body).unwrap().pending_launch_state();
+        assert_eq!(staged(&world, walker).velocity, ae::Vec2::ZERO, "a boss that rides nothing launched itself");
+
+        world.run_system_once_with(launch_mounts, submitted(scholar, hop)).unwrap();
+        let launch = staged(&world, gnu);
+        assert_eq!((launch.velocity, launch.flinchless), (ae::Vec2::new(0.0, -520.0), true));
+        assert_eq!(staged(&world, scholar).velocity, ae::Vec2::ZERO, "the rider is not launched");
+    }
+
+    /// ⭐ The bubble is written once, with its text, in the room of the body.
+    #[test]
+    fn a_speech_bubble_is_written_in_the_room_of_the_body() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+        let mut world = World::new();
+        world.init_resource::<bevy::ecs::message::Messages<ambition_vfx::vfx::VfxInRoom>>();
+        let scholar = world.spawn(InRoomInstance(LiveRoomInstance::ACTIVATION)).id();
+        let bubble = ambition_combat_port::SpeechBubble { at: [900.0, 700.0], text: "Eureka!".into() };
+        world.run_system_once_with(show_speech_bubbles, submitted(scholar, bubble)).unwrap();
+        let messages = world.resource::<bevy::ecs::message::Messages<ambition_vfx::vfx::VfxInRoom>>();
+        let written: Vec<_> = messages.iter_current_update_messages().collect();
+        assert_eq!(written.len(), 1);
+        assert_eq!(written[0].room, Some(LiveRoomInstance::ACTIVATION));
+        match &written[0].vfx {
+            ambition_vfx::vfx::VfxMessage::SpeechBubble { pos, text } => {
+                assert_eq!((*pos, text.as_str()), (ae::Vec2::new(900.0, 700.0), "Eureka!"));
+            }
+            other => panic!("not a speech bubble: {other:?}"),
+        }
     }
 }

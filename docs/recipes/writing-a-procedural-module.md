@@ -140,6 +140,8 @@ boss's OWN live room. With two live rooms there is no "the" room.
 | `ambition.boss.limb_pose` v1 | request (`boss_conduct`) | `ambition_boss_special_port::LimbPose` (hold a limb of the ridden mount at a pose, or release it to fall straight down) |
 | `ambition.boss.limb_opening` v1 | request (`boss_conduct`) | `ambition_boss_special_port::LimbOpening` (a closed limb of the ridden mount refuses damage) |
 | `ambition.boss.limb_blow` v1 | request (`boss_conduct`) | `ambition_boss_special_port::LimbBlow` (heal what a limb lost; with `pass`, the boss takes it unless it refuses damage now) |
+| `ambition.boss.mount_launch` v1 | request (`boss_conduct`) | `ambition_boss_special_port::MountLaunch` (launch the ridden mount through its launch gateway; `flinchless` for a hop) |
+| `ambition.feedback.speech_bubble` v1 | request (`boss_conduct`) | `ambition_combat_port::SpeechBubble` (text in a bubble, in the body's live room) |
 | `ambition.combat.riding_hitbox` v1 | request (`boss_conduct`) | `ambition_combat_port::RidingHitbox` (a volume that rides its owner) |
 | `ambition.feedback.burst` v1 | request (`boss_conduct`) | `ambition_combat_port::Burst` (particles) |
 | `ambition.feedback.camera_shake` v1 | request (`boss_conduct`) | `ambition_combat_port::CameraShake` (an amplitude; the strongest of a frame wins) |

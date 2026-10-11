@@ -614,6 +614,41 @@ impl Port for LimbBlowPort {
     }
 }
 
+/// The request port marker for a launch of the mount a boss rides.
+///
+/// Port card:
+///
+/// * **Operation** — launch the mount at `velocity` (world units per second,
+///   +Y down), through the body's launch gateway (`BodyFlightState`): the
+///   body step spends it. `flinchless` says the launch is the body's own (a
+///   hop), not a hit: it does not tumble.
+/// * **Owner** — `ambition_boss_encounter::conduct`.
+/// * **Scope** — the boss the invocation ran for; the mount is the body it
+///   rides. A boss that rides nothing is refused with a warning.
+/// * **Time** — `boss_conduct`; the next body step moves the mount.
+pub struct MountLaunchPort;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MountLaunch {
+    pub velocity: [f32; 2],
+    pub flinchless: bool,
+}
+
+impl Port for MountLaunchPort {
+    const KEY: PortKey = PortKey::new("ambition.boss.mount_launch", 1);
+    const ROLE: PortRole = PortRole::Request;
+    type Value = MountLaunch;
+
+    fn encode(v: &MountLaunch, out: &mut Vec<u8>) {
+        wire::put_vec2(out, v.velocity);
+        wire::put_bool(out, v.flinchless);
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<MountLaunch, WireError> {
+        Ok(MountLaunch { velocity: r.vec2()?, flinchless: r.bool()? })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -690,6 +725,10 @@ mod tests {
         assert_eq!(round::<MountViewPort>(&view), view);
         let bare = MountView { back: None, hall: None, limbs: Vec::new(), ..view };
         assert_eq!(round::<MountViewPort>(&bare), bare);
+        for flinchless in [false, true] {
+            let launch = MountLaunch { velocity: [0.0, -520.0], flinchless };
+            assert_eq!(round::<MountLaunchPort>(&launch), launch);
+        }
         for flag in [false, true] {
             let opening = LimbOpening { slot: "hand_left".into(), open: flag };
             assert_eq!(round::<LimbOpeningPort>(&opening), opening);

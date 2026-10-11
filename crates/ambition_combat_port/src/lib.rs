@@ -30,7 +30,10 @@ pub use motion::{
     Destination, Effect, EffectPort, HitMark, HitMarkPort, MovementCooldown, MovementCooldownPort, Place, SetVelocity,
     SetVelocityPort, Strike, StrikeKnockback, StrikePort, StrikeVolume, Transit, TransitPort,
 };
-pub use riding::{Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox, RidingHitboxPort, RidingKnockback};
+pub use riding::{
+    Burst, BurstPort, CameraShake, CameraShakePort, RidingHitbox, RidingHitboxPort, RidingKnockback, SpeechBubble,
+    SpeechBubblePort,
+};
 pub use wielded::{
     AimCast, AimCastPort, AimHit, BodySound, BodySoundPort, MarkPort, MarkView, SetMark, SetMarkPort, SpendMana,
     SpendManaPort, WieldedAlternatePort, WieldedUsePort, Wielder, AIM_CAST_REACH,

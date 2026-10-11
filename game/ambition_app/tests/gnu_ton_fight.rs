@@ -6,7 +6,6 @@
 
 use ambition_app::AmbitionSim;
 use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
-use ambition_content_modules::gnu_ton::choreography::Move;
 use ambition_platformer2d::mount::BackLedge;
 use ambition_content::bosses::gnu_ton::GnuTonConductor;
 use ambition_platformer2d::boss_encounter::BossConfig;
@@ -87,7 +86,9 @@ fn thrown_off_the_back(sim: &mut Platformer2dSimHarness, back: ae::Aabb, within:
 struct Scene {
     scholar: ae::BodyKinematics,
     scholar_hp: i32,
-    performing: Option<(Move, bool)>,
+    /// The move he performs, by the `Special` key his pattern names it with,
+    /// and whether it strikes.
+    performing: Option<(&'static str, bool)>,
     floor: f32,
     giant: ae::BodyKinematics,
     giant_unmirrored: bool,
@@ -109,7 +110,7 @@ fn scene(sim: &mut Platformer2dSimHarness) -> Scene {
             (
                 kin.clone(),
                 health.current(),
-                conductor.performing(),
+                conductor.performing().map(|(mv, striking)| (mv.key(), striking)),
                 conductor.hall().expect("the conductor measured the hall").floor,
             )
         })
@@ -276,7 +277,7 @@ fn a_slam_lands_where_you_stood_and_the_stuck_fist_carries_your_blow_to_him() {
     let (_, hp_before) = player(&mut sim);
     step_until(&mut sim, 900, "a fist stuck in the floor after a demonstration", |sim| {
         let s = scene(sim);
-        s.performing == Some((Move::Demonstrate, true)) && s.fists.iter().any(|(fist, ..)| on_floor(fist, s.floor))
+        s.performing == Some(("demonstrate", true)) && s.fists.iter().any(|(fist, ..)| on_floor(fist, s.floor))
     });
     let s = scene(&mut sim);
     let (stuck, ..) = s.fists.iter().find(|(fist, ..)| on_floor(fist, s.floor)).cloned().expect("a stuck fist");
@@ -388,7 +389,7 @@ fn you_can_stand_on_the_giants_shoulders_until_it_bucks() {
         "the premise: still standing on the gnu's back when it bucks"
     );
     touchable_player(&mut sim);
-    step_until(&mut sim, 120, "the buck to strike", |sim| scene(sim).performing == Some((Move::Buck, true)));
+    step_until(&mut sim, 120, "the buck to strike", |sim| scene(sim).performing == Some(("buck", true)));
     thrown_off_the_back(&mut sim, back, 8);
 }
 
@@ -431,7 +432,7 @@ fn eureka_puts_him_on_the_floor_and_he_climbs_back() {
     place_player(&mut sim, ae::Vec2::new(300.0, 1200.0));
     step_until(&mut sim, 3000, "him dazed on the floor after the apple rain", |sim| {
         let s = scene(sim);
-        s.performing == Some((Move::Eureka, true)) && on_floor(&s.scholar, s.floor)
+        s.performing == Some(("eureka", true)) && on_floor(&s.scholar, s.floor)
     });
     step_until(&mut sim, 400, "him back in the saddle", |sim| {
         let s = scene(sim);

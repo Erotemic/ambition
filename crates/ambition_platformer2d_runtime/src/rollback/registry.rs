@@ -1139,7 +1139,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 341 -> 342: `message.grabs_parried` (`GrabsParried`) joins, cleared on a
 /// rollback. A mutual grab parries, and the acquisition and the rebound read the
 /// pair in one tick.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 342;
+///
+/// ⛔⛤ 342 -> 343: `resource.pending_player_hit_events` hashes the staged
+/// hit's guard policy (`HitKnockback::guard`, S0.3). No row moves; the bytes
+/// of one projection do, so peers of the two versions must not connect.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 343;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -142,6 +142,7 @@ pub fn boss_attack_moveset(
                         // bladed swings: no slash VFX, no manifest override.
                         vfx: None,
                         reaction: None,
+                        guard: Default::default(),
                     }
                 })
                 .collect();

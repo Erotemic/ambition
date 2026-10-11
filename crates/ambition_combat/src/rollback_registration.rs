@@ -665,6 +665,16 @@ fn pending_player_hits_checksum(pending: &crate::events::PendingPlayerHitEvents)
                         ambition_platformer2d_core::hit_response::HitReaction::Windbox => 1,
                     },
                 );
+                // The guard policy decides whether a raised guard blocks the
+                // hit and what the block spends, so it is in the fingerprint.
+                // An explicit tag, as for the reaction.
+                match kb.guard {
+                    ambition_platformer2d_core::hit_response::HitGuard::Blockable { extra_shield_damage } => {
+                        put_u8(&mut bytes, 0);
+                        bytes.extend_from_slice(&extra_shield_damage.to_le_bytes());
+                    }
+                    ambition_platformer2d_core::hit_response::HitGuard::Unblockable => put_u8(&mut bytes, 1),
+                }
                 // AUTOLINK, and it must be IN the fingerprint: it decides the
                 // victim's velocity, so two peers that disagree about whether a
                 // pulse holds or launches disagree about the whole match. One
@@ -725,6 +735,7 @@ mod pending_hit_checksum_tests {
                     impact_pos: ae::Vec2::new(10.0, 0.0),
                     launch_dir: None,
                     follow: None,
+                    guard: Default::default(),
                 }),
                 ignored_targets: Vec::new(),
                 strike_sfx: None,
@@ -767,6 +778,27 @@ mod pending_hit_checksum_tests {
     /// allocated them — which is the property `Entity` could never have, and the
     /// reason hashing it would have been a worse instrument than the blindness
     /// it replaced.
+    /// The guard policy decides whether a raised guard blocks the staged hit
+    /// and what the block spends (S0.3), so two staged hits one policy apart
+    /// fingerprint apart. The equality arm is the premise guard.
+    #[test]
+    fn the_guard_policy_is_in_the_fingerprint() {
+        use ambition_platformer2d_core::hit_response::HitGuard;
+        let with = |guard: HitGuard| {
+            let mut queue = staged(HitReaction::Strike);
+            queue.0[0].event.knockback.as_mut().expect("the staged hit pushes").guard = guard;
+            pending_player_hits_checksum(&queue)
+        };
+        let ordinary = with(HitGuard::default());
+        assert_eq!(ordinary, with(HitGuard::default()), "one queue fingerprinted two ways");
+        assert_ne!(ordinary, with(HitGuard::Unblockable), "an unblockable hit fingerprinted as an ordinary one");
+        assert_ne!(
+            ordinary,
+            with(HitGuard::Blockable { extra_shield_damage: 6 }),
+            "a guard breaker fingerprinted as an ordinary hit"
+        );
+    }
+
     #[test]
     fn who_the_hit_connects_is_in_the_fingerprint_and_it_is_not_the_entity() {
         let baseline = pending_player_hits_checksum(&staged_between(

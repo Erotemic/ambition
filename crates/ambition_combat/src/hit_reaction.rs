@@ -491,6 +491,7 @@ mod super_armor_tests {
             impact_pos: ae::Vec2::new(10.0, 0.0),
             launch_dir: None,
             follow: None,
+            guard: Default::default(),
         }
     }
 

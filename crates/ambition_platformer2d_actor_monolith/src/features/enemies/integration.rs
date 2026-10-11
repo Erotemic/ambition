@@ -514,6 +514,7 @@ impl ContactAttack {
                 impact_pos: impact,
                 launch_dir: None,
                 follow: None,
+                guard: Default::default(),
             }),
             ignored_targets: Vec::new(),
                     attacker_move_instance: None,

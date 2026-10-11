@@ -54,6 +54,7 @@ pub fn slash(id: &str, cue: &str, strike: &str) -> MoveSpec {
                 vfx: Some("slash_arc".to_string()),
                 hit_sfx: Some(strike.to_string()),
                 reaction: None,
+                guard: Default::default(),
             }],
             sustain_effect: None,
             motion_scale: 1.0,

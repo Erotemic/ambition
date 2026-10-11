@@ -1292,6 +1292,7 @@ impl KoProbe {
                             frame_down: EVec2::new(0.0, 1.0),
                             strike_sfx: None,
                             reaction: None,
+                            guard: Default::default(),
                         },
                         ambition_platformer2d::combat::strike::HitboxHits::default(),
                         ambition_platformer2d::combat::strike::HitboxLifetime { remaining_s: 0.1 },
@@ -2919,6 +2920,7 @@ mod tests {
             on_hit: None,
             vfx: None,
             hit_sfx: None,
+            guard: Default::default(),
         }
     }
 }

@@ -905,6 +905,35 @@ pub enum VolumeReaction {
     Windbox(WindboxVolume),
 }
 
+/// How a hit volume meets a raised guard (S0.3).
+///
+/// One sum type, so a volume cannot be unblockable and also cost a guard
+/// more. The genre's two exceptions to an ordinary blocked hit: a strike a
+/// guard cannot stop, and a strike that breaks a guard faster than its
+/// damage. Both are resolved where a guard meets the hit, never by
+/// inflating damage or by a fighter's id.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum VolumeGuard {
+    /// A raised guard blocks it, and the block spends the guard by the hit's
+    /// damage plus `extra_shield_damage`.
+    Blockable { extra_shield_damage: u16 },
+    /// No guard blocks or parries it. Invulnerability and evasion still do.
+    Unblockable,
+}
+
+impl Default for VolumeGuard {
+    fn default() -> Self {
+        Self::Blockable { extra_shield_damage: 0 }
+    }
+}
+
+impl VolumeGuard {
+    /// The ordinary hit, which data does not write.
+    pub fn is_ordinary(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
 /// One hit volume carried by an [`WindowTag::Active`] window, with its hit
 /// payload. Volumes live on their window — where the timeline says they are —
 /// not in a parallel list.
@@ -947,6 +976,10 @@ pub struct HitVolume {
     /// push at once.
     #[serde(default)]
     pub reaction: Option<VolumeReaction>,
+    /// How this volume meets a raised guard. Absent in data: a guard blocks
+    /// it, at its damage.
+    #[serde(default, skip_serializing_if = "VolumeGuard::is_ordinary")]
+    pub guard: VolumeGuard,
     /// Optional technique fired when this volume lands, with owner/victim/contact
     /// context. `None` is an ordinary damage-only volume.
     #[serde(default)]
@@ -2360,6 +2393,7 @@ impl MoveSpec {
                     on_hit,
                     vfx: _,
                     hit_sfx: _,
+                    guard: _,
                 } = v;
                 if let Some(effect) = on_hit {
                     found.push((EffectSite::VolumeOnHit { window, volume }, effect));
@@ -2723,9 +2757,12 @@ impl MoveSpec {
                 .chain(captures().map(|p| capture_box(&p))),
         );
         let push_coverage = union(&mut active_volumes().filter(|v| !hittable(v)).map(box_of));
-        // A shield does not stop a grab. `ignores_guard` stays a
-        // caller-settable field for unblockables this code cannot recognize.
-        let ignores_guard = captures().next().is_some();
+        // A shield does not stop a grab, nor a strike the move authors as
+        // unblockable (`VolumeGuard::Unblockable`, S0.3): the planner reads
+        // the same fact the guard does. A ruleset can still set it for an
+        // unblockable this code cannot recognize.
+        let ignores_guard = captures().next().is_some()
+            || active_volumes().any(|v| hittable(v) && v.guard == VolumeGuard::Unblockable);
         // Reach through something the move spawns: see [`hazard_of`]. Ask
         // every authored effect, one-shot events and window sustains alike,
         // because a technique may use either.

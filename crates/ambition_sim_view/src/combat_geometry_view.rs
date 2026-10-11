@@ -344,6 +344,7 @@ mod tests {
             frame_down: ae::Vec2::new(0.0, 1.0),
             strike_sfx: None,
             reaction: None,
+            guard: Default::default(),
         });
 
         app.update();
@@ -385,6 +386,7 @@ mod tests {
             frame_down: ae::Vec2::new(0.0, 1.0),
             strike_sfx: None,
             reaction: None,
+            guard: Default::default(),
         });
 
         app.update();
@@ -498,6 +500,7 @@ mod tests {
                 frame_down: ae::Vec2::new(0.0, 1.0),
                 strike_sfx: None,
                 reaction: None,
+                guard: Default::default(),
             },
             HitboxHits {
                 hit: std::iter::once(victim).collect(),
@@ -540,6 +543,7 @@ mod tests {
             frame_down: ae::Vec2::new(0.0, 1.0),
             strike_sfx: None,
             reaction: None,
+            guard: Default::default(),
         });
 
         app.update();

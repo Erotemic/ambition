@@ -125,6 +125,7 @@ fn spawn_strike(app: &mut App, strike_x: f32, half_width: f32) {
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),

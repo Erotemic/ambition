@@ -138,6 +138,7 @@ fn main() {
                 frame_down: ambition_platformer2d::engine_core::Vec2::new(0.0, 1.0),
                 reaction: None,
                 strike_sfx: None,
+                guard: Default::default(),
             },
             ambition_platformer2d::combat::strike::HitboxHits::default(),
         ));

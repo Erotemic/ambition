@@ -987,7 +987,9 @@ pub fn apply_hitbox_damage(
                 // knockback, so a gust spends no shield integrity, charges no
                 // shieldstun and applies no pushback. The fact rode the
                 // knockback that was already going there; no channel was added.
-                if hitbox.windbox().is_none() {
+                // An unblockable strike is not parried either: a parry is a
+                // guard (S0.3).
+                if hitbox.meets_guard() {
                     if let Ok(mut shield) = guards.get_mut(victim.entity) {
                         if shield.parrying() {
                             shield.catch_parry();
@@ -1107,6 +1109,7 @@ pub fn apply_hitbox_damage(
                     } else {
                         ae::hit_response::HitReaction::Strike
                     },
+                    guard: hitbox.hit_guard(),
                     dir,
                     magnitude,
                     source_pos: spatial_source,

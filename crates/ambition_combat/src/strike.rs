@@ -73,6 +73,8 @@ pub struct Hitbox {
     /// the pulse is not — the runtime samples it, because that is a fact about
     /// the moment and not about the move.
     pub reaction: Option<ambition_entity_catalog::VolumeReaction>,
+    /// How this strike meets a raised guard, from the volume (S0.3).
+    pub guard: ambition_entity_catalog::VolumeGuard,
     pub frame_down: ae::Vec2,
     /// Authored STRIKE SOUND identity (CM8): the sound THIS attack makes when it
     /// lands, carried from the volume's `hit_sfx` tag so a sword and a goblin
@@ -139,6 +141,22 @@ impl Hitbox {
         match self.reaction {
             Some(ambition_entity_catalog::VolumeReaction::Windbox(wind)) => Some(wind),
             _ => None,
+        }
+    }
+
+    /// Can a guard meet this strike at all (block or parry)? Not a windbox,
+    /// and not an unblockable strike.
+    pub fn meets_guard(&self) -> bool {
+        self.windbox().is_none() && self.guard != ambition_entity_catalog::VolumeGuard::Unblockable
+    }
+
+    /// The pulse's guard policy, lowered from the volume's.
+    pub fn hit_guard(&self) -> ae::hit_response::HitGuard {
+        match self.guard {
+            ambition_entity_catalog::VolumeGuard::Blockable { extra_shield_damage } => {
+                ae::hit_response::HitGuard::Blockable { extra_shield_damage }
+            }
+            ambition_entity_catalog::VolumeGuard::Unblockable => ae::hit_response::HitGuard::Unblockable,
         }
     }
 }
@@ -308,6 +326,7 @@ pub fn spawn_damage_box(
             // hazards); screen-down IS their frame.
             frame_down: ae::Vec2::new(0.0, 1.0),
             reaction: None,
+            guard: Default::default(),
         },
         HitboxLifetime {
             remaining_s: dbox.lifetime_s,
@@ -414,6 +433,7 @@ pub fn spawn_body_strike(
                 launch_dir: None,
                 frame_down: body_frame.down,
                 reaction: None,
+                guard: Default::default(),
             },
             HitboxLifetime {
                 remaining_s: lifetime_s,
@@ -520,6 +540,7 @@ mod hitbox_shape_tests {
             knockback: HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             reaction: None,
+            guard: Default::default(),
         };
         match hb.world_volume(ae::Vec2::new(100.0, 50.0)) {
             ae::CombatVolume::Circle { center, radius } => {
@@ -549,6 +570,7 @@ mod hitbox_shape_tests {
             knockback: HitboxKnockback::FeelScale(0.0),
             launch_dir: None,
             reaction: None,
+            guard: Default::default(),
         };
         assert!(matches!(
             hb.world_volume(ae::Vec2::ZERO),

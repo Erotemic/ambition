@@ -102,6 +102,8 @@ pub struct GuardUnderFire<'a> {
     pub vel: &'a mut ae::Vec2,
     /// The body's size, so a SPENT guard can stop covering all of it.
     pub body_size: ae::Vec2,
+    /// How much more than its damage a block of this hit spends (S0.3).
+    pub extra_shield_damage: u16,
 }
 
 impl<'a> GuardUnderFire<'a> {
@@ -130,7 +132,8 @@ impl<'a> GuardUnderFire<'a> {
         vel: &'a mut ae::Vec2,
         body_size: ae::Vec2,
     ) -> Option<Self> {
-        if knockback.is_some_and(|knockback| knockback.is_windbox()) {
+        // A gust, and an unblockable strike (S0.3), meet no guard.
+        if knockback.is_some_and(|knockback| !knockback.meets_guard()) {
             return None;
         }
         Some(Self {
@@ -138,6 +141,7 @@ impl<'a> GuardUnderFire<'a> {
             tuning,
             vel,
             body_size,
+            extra_shield_damage: knockback.map_or(0, |knockback| knockback.extra_shield_damage()),
         })
     }
 }
@@ -338,7 +342,13 @@ pub fn resolve_body_hit(
         }
         combat.damage_invuln_timer = combat.damage_invuln_timer.max(feel.block_invuln_floor);
         if let Some(guard) = shield {
-            ae::body_clusters::spend_shield_on_block(guard.state, guard.tuning, raw_damage);
+            // The extra spends the guard only; the pushback below stays the
+            // hit's own.
+            ae::body_clusters::spend_shield_on_block(
+                guard.state,
+                guard.tuning,
+                raw_damage + i32::from(guard.extra_shield_damage),
+            );
             // the third cost, and the one that is about SPACE. Integrity
             // is the resource, shieldstun is the tempo, and this is the ground:
             // hold a guard near a ledge and the hits themselves walk you toward

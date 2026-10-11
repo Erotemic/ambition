@@ -87,6 +87,7 @@ fn strike(id: &str, damage: i32) -> MoveSpec {
                 vfx: None,
                 hit_sfx: None,
                 reaction: None,
+                guard: Default::default(),
             }],
             sustain_effect: None,
             motion_scale: 1.0,

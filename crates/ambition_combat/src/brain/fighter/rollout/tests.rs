@@ -193,6 +193,7 @@ fn the_hit_response_is_the_authoritative_kernel_not_an_imitation() {
         impact_pos: foe_before.pos,
         launch_dir: None,
         follow: None,
+        guard: Default::default(),
     };
     let expected_vel = hit_response::knockback_velocity(
         foe_before.pos,

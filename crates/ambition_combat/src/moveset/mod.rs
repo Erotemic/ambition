@@ -1871,6 +1871,7 @@ pub fn advance_move_playback(
                             // does — an intermediate multi-hit pulse authors it,
                             // the final one does not.
                             reaction: volume.reaction,
+                            guard: volume.guard,
                             frame_down,
                         };
                         // §7.2: the slash VFX rides the SAME resolved volume the

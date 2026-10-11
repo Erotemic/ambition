@@ -838,11 +838,23 @@ pub fn restyle_bevy_ui_menu_controls(
             &MenuVisualState,
             &mut BackgroundColor,
             &AmbitionMenuControlKind,
+            Option<&Children>,
         ),
         Changed<MenuVisualState>,
     >,
+    mut texts: Query<&mut TextColor>,
 ) {
-    for (state, mut background, kind) in &mut controls {
+    for (state, mut background, kind, children) in &mut controls {
+        // The text follows the background: dark on the gold of a focus that
+        // came after the spawn, light again when the focus goes.
+        let text = spawn::control_text_color(state.focused && !state.disabled);
+        for child in children.into_iter().flatten() {
+            if let Ok(mut color) = texts.get_mut(*child) {
+                if color.0 != text {
+                    color.0 = text;
+                }
+            }
+        }
         let color = if state.disabled {
             to_color(MenuColor::DISABLED)
         } else {

@@ -518,7 +518,7 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
         .collect();
     assert_eq!(
         entries,
-        vec!["Ambition", "Sanic", "Mary-O", "Smash"],
+        vec!["Ambition", "Sanic", "Mary-O", "Smash Siblings"],
         "launcher entries derive from the registered experiences, MINUS the \
          unlisted ones. An exact list on purpose — a launcher that silently gains \
          or loses a row is the first thing a player sees."
@@ -557,7 +557,7 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
         .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
         .launch_entries()
         .iter()
-        .find(|entry| entry.label == "Smash")
+        .find(|entry| entry.label == "Smash Siblings")
         .expect("the smash row exists")
         .clone();
     assert_eq!(

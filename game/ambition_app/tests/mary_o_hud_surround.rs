@@ -55,7 +55,7 @@ const NARROW: ae::Vec2 = ae::Vec2::new(1400.0, 1024.0);
 /// materials have nothing to do with this question, and pulling them in would
 /// make a HUD-placement failure look like an asset failure. Everything on the
 /// path being tested is the production article.
-fn mary_o_hud_app(display: ae::Vec2) -> App {
+pub(crate) fn mary_o_hud_app(display: ae::Vec2) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.add_plugins(AssetPlugin::default());
@@ -110,7 +110,7 @@ fn window_at(display: ae::Vec2) -> Window {
 
 /// Drive the shell into the real Mary O gameplay route and let the session,
 /// the world and the player settle.
-fn enter_mary_o(app: &mut App) {
+pub(crate) fn enter_mary_o(app: &mut App) {
     for _ in 0..4 {
         app.update();
     }

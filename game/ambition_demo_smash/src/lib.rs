@@ -2688,7 +2688,8 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         ambition_platformer2d::provider::PlatformerExperienceAuthoring::new(
             SMASH_EXPERIENCE,
             SMASH_GAMEPLAY_ROUTE,
-            "Smash",
+            // The name of the game, as its row of a launcher shows it.
+            "Smash Siblings",
             "Stocks, a platform, and nothing underneath it",
             "Prepare Smash",
             // No `.with_procedural_sfx()`: the stage is silent and the

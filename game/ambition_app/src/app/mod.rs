@@ -36,6 +36,7 @@ mod resources;
 mod scene_setup;
 mod setup_systems;
 pub mod shell_host;
+pub mod title_screen;
 mod sim_resources;
 mod sim_systems;
 mod startup_loading;

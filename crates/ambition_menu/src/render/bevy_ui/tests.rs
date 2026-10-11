@@ -1177,6 +1177,36 @@ fn hover_keeps_the_four_control_styles_apart() {
     );
 }
 
+/// The colour of the text of a control.
+fn text_color(app: &App, control: Entity) -> Color {
+    let children = app.world().get::<Children>(control).expect("a control has its label");
+    children
+        .iter()
+        .find_map(|child| app.world().get::<TextColor>(child).map(|color| color.0))
+        .expect("a control has text")
+}
+
+/// A host can move the focus without a respawn (the launcher's cursor does):
+/// the text must follow the background, or it is light text on gold.
+#[test]
+fn a_focus_that_comes_after_the_spawn_darkens_the_text() {
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    spawn_view(&mut app, 0, None);
+    let row = setting_row_entity(&mut app);
+    let light = text_color(&app, row);
+    assert_ne!(light, Color::BLACK, "premise: a row with no focus has light text");
+
+    app.world_mut().get_mut::<MenuVisualState>(row).expect("a control").focused = true;
+    app.update();
+    assert_eq!(background(&app, row), control_bg(MenuControlKind::Action, true, false, false, false), "premise: gold");
+    assert_eq!(text_color(&app, row), Color::BLACK, "the text of a row that took the focus in place");
+
+    app.world_mut().get_mut::<MenuVisualState>(row).expect("a control").focused = false;
+    app.update();
+    assert_eq!(text_color(&app, row), light, "the text of a row that lost the focus");
+}
+
 #[test]
 fn hovering_a_selected_row_does_not_move_the_selection() {
     // Equip is selected (an equipped item); Setting is hovered.

@@ -176,7 +176,7 @@ fn the_title_screen_opens_character_select_and_the_screen_starts_the_match() {
     let mut app = shell_host_app();
     settle(&mut app);
 
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     assert_eq!(
         active_route(&app).as_deref(),
         Some(ambition_demo_smash::SMASH_SELECT_ROUTE),
@@ -272,7 +272,7 @@ fn coming_back_to_the_select_screen_offers_a_fresh_match() {
     let mut app = shell_host_app();
     settle(&mut app);
 
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     decide_a_solo_match(&mut app);
     for _ in 0..40 {
         app.update();
@@ -283,7 +283,7 @@ fn coming_back_to_the_select_screen_offers_a_fresh_match() {
 
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
 
     assert_eq!(
@@ -333,7 +333,7 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
 
     // SPAWN A PAD, do not spawn the participant. The host derives its seats
     // from live `Gamepad` entities every frame and despawns any it did not
@@ -401,7 +401,7 @@ fn a_pad_that_disconnects_on_the_select_screen_moves_no_other_hand() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     let pads: Vec<Entity> = ["pad a", "pad b", "pad c"]
         .iter()
         .map(|name| {
@@ -489,7 +489,7 @@ fn a_seated_fighter_keeps_its_omniscient_senses() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     decide_a_solo_match(&mut app);
     settle(&mut app);
     for _ in 0..40 {
@@ -561,7 +561,7 @@ fn a_seated_fighters_view_carries_the_launch_law_this_stage_declares() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
     // Slot 0 is the keyboard human wearing George; slot 1 is the CPU whose
     // brain this reads. George is seated because his 1.35 is the weight the
@@ -648,7 +648,7 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
 
     decide_a_solo_match(&mut app);
     settle(&mut app);
@@ -758,7 +758,7 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     decide_a_solo_match(&mut app);
     settle(&mut app);
     for _ in 0..40 {
@@ -848,7 +848,7 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
         .spawn(bevy::input::gamepad::Gamepad::default())
         .id();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
 
     // BOTH SOURCES WORK THE SCREEN. One cursor, two hands — the keyboard
@@ -1040,7 +1040,7 @@ fn a_decided_match_freezes_the_local_seating() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     decide_a_solo_match(&mut app);
     settle(&mut app);
 
@@ -1133,7 +1133,7 @@ fn the_puppy_slug_forced_onto_the_stage_keeps_the_body_it_authored() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
 
     // both must be BUILDABLE in this composition before the grid is forced —
@@ -1365,7 +1365,7 @@ fn two_seated_fighters_carry_their_own_frame_data_for_the_same_verb() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
     // A long blade and a short fist: both author `jab`, and the two tables
     // disagree about every number in it.
@@ -1458,7 +1458,7 @@ fn oiler_seated_in_the_host_rides_his_own_geyser() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
     app.world_mut()
         .insert_resource(ambition_demo_smash::select::SmashRoster(vec![
@@ -1737,7 +1737,7 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
 
     let (authored, silent): (Vec<String>, Vec<String>) = {
@@ -1890,7 +1890,7 @@ fn every_component_in_a_hosted_match_is_registered_derived_or_waived() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     decide_a_solo_match(&mut app);
     settle(&mut app);
     for _ in 0..40 {
@@ -1970,7 +1970,7 @@ fn george_carries_the_knockback_weight_his_own_facet_authors() {
     // `CombatTuning::weight`.
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
     let registry =
         app.world()
@@ -2011,7 +2011,7 @@ fn the_smash_demos_cast_is_prepared_from_its_pack_as_the_rust_registration_built
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
     let registry =
         app.world()
@@ -2098,7 +2098,7 @@ fn the_shipped_polygon_carries_both_halves_of_her_ranged_move() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
     pick_and_start(&mut app, "projectile_polygon");
     for _ in 0..240 {
@@ -2223,7 +2223,7 @@ fn a_fighter_picked_in_smash_does_not_follow_the_player_into_ambition() {
     let mut app = shell_host_app();
     settle(&mut app);
 
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     pick_and_start(&mut app, ONI_LEADER);
     for _ in 0..40 {
         app.update();
@@ -3336,7 +3336,7 @@ fn a_respawned_fighter_can_recover_before_it_has_landed() {
 fn open_the_lobby() -> App {
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     app
 }
 
@@ -3601,7 +3601,7 @@ fn a_second_match_in_the_same_session_still_fights() {
 
     let run_a_match = |app: &mut App, which: &str| {
         if active_route(app).as_deref() != Some(ambition_demo_smash::SMASH_SELECT_ROUTE) {
-            launch_row(app, "Smash");
+            launch_row(app, "Smash Siblings");
             settle(app);
         }
         decide_a_solo_match(app);
@@ -3722,7 +3722,7 @@ fn quitting_a_paused_match_to_the_title_does_not_freeze_the_next_one() {
     // many of the seats were drawn at all)
     let run_a_match = |app: &mut App, which: &str, channels: usize| -> (f32, f32, usize) {
         if active_route(app).as_deref() != Some(ambition_demo_smash::SMASH_SELECT_ROUTE) {
-            launch_row(app, "Smash");
+            launch_row(app, "Smash Siblings");
             settle(app);
         }
         set_role(app, 0, channels >= 1);
@@ -4294,7 +4294,7 @@ fn a_fighter_from_another_game_reads_its_percent_against_this_stages_pool() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
 
     // THE POISON, and without it the assertion below is unfalsifiable.
@@ -4533,7 +4533,7 @@ fn report_what_an_unarmed_fighter_swings_once_the_stage_has_armed_it() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
     // Two of the four with no table of their own: a crossover protagonist and a
     // Hall NPC, so the answer is not about one provider.
@@ -4628,7 +4628,7 @@ fn report_the_factions_and_teams_a_seated_fighter_carries() {
 
     let mut app = shell_host_app();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
     app.world_mut()
         .insert_resource(ambition_demo_smash::select::SmashRoster(vec![
@@ -5249,7 +5249,7 @@ fn a_pad_player_fighting_as(fighter: &str) -> (App, Entity, Entity) {
         .spawn(bevy::input::gamepad::Gamepad::default())
         .id();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
 
     cycle_role(&mut app, 0, 1); // keyboard explicitly claims card one
@@ -7988,7 +7988,7 @@ fn a_pad_claiming_the_first_card_leaves_the_keyboard_driving_the_second() {
         .spawn(bevy::input::gamepad::Gamepad::default())
         .id();
     settle(&mut app);
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
 
     let layout = screen(&app);
@@ -8417,7 +8417,7 @@ fn quit_to_title_from_a_smash_match_reaches_the_title_and_stays() {
     let home = active_route(&app);
     assert!(home.is_some(), "the host boots to a title route");
 
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     decide_a_solo_match(&mut app);
     settle(&mut app);
     assert_eq!(
@@ -8555,7 +8555,7 @@ fn the_robot_deals_health_damage_at_home_and_percent_on_a_smash_stage() {
         "the robot's home damage is Ambition's health damage"
     );
 
-    launch_row(&mut app, "Smash");
+    launch_row(&mut app, "Smash Siblings");
     settle(&mut app);
     pick_and_start(&mut app, ROBOT);
     for _ in 0..240 {

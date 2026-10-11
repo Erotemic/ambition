@@ -116,6 +116,10 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
     // plugins, and this composition is the only one where both casts exist.
     crate::app::versus::compose_versus_experience(app);
 
+    // The scene behind the launcher (presentation; an app that does not draw
+    // runs none of it).
+    app.add_plugins(crate::app::title_screen::TitleScreenPlugin);
+
     // Host routing: boot into the launcher; every provider's ReturnHome
     // resolves to the launcher. The home route is a plain shell experience
     // (the basic launcher presentation renders it).

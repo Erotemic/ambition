@@ -609,7 +609,11 @@ fn spawn_launcher_menu(
                 (
                     MenuControlKind::Action,
                     Some(action),
-                    (!entry.description.is_empty()).then_some(entry.description.clone()),
+                    // A row is the name of its game (Jon, 2026-10-11). The
+                    // description of an entry is still its data: a row that
+                    // can not be chosen shows why below, and a host with a
+                    // place for a description can show it there.
+                    None,
                     selected,
                 )
             } else {
@@ -653,7 +657,7 @@ fn spawn_launcher_menu(
                 ),
                 MenuControlKind::Action,
                 exit_label.clone(),
-                Some("Leave the game".to_owned()),
+                None,
                 available_index == launcher.selected,
                 false,
                 // Exit sits after the experiences in the same selection space,

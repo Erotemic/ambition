@@ -250,6 +250,32 @@ suit the style of the game.
   light. Each is a row in each art table and a `ParallaxTheme`. Jon on the
   first look: "the hearts are a bit much", so the trees have round crowns
   and no decor is a heart.
+- [x] After Jon played it (2026-10-11): the two Mary-O scenes have no
+  foreground layer. Each had one (strings of stars; chains with moons), and
+  it went over the blocks and the coins of rooms that have play at each
+  height of the view. And the blocks under the ground have the skin of
+  their biome: 1-2 stated a `block_color` and the two vaults a `color` on
+  each block, and a block with a colour gets no skin, so they were flat
+  boxes. No level of Mary-O states a colour now. A vault is in the room of
+  its level, so it has the skin of that room (`starlight`): a part of a
+  room can not name a biome of its own.
+- [x] The title screen has a backdrop (Jon, 2026-10-11: "very boring right
+  now"). Behind the launcher is the parallax scene of the game the cursor is
+  on: the hub for Ambition, the open sky for Sanic, the starlight kingdom
+  for Mary-O, the eclipse for Smash Siblings, the cove at night for Exit.
+  Its four layers drift at four speeds and a move of the cursor fades one
+  scene into the next (`game/ambition_app/src/app/title_screen.rs`, host
+  presentation; the art is the published layers). A row of the launcher is
+  the name of its game, with no description, and the Smash row is "Smash
+  Siblings". The text of the row the cursor is on is dark on its gold bar:
+  it was light, because the menu renderer gave a focus that came after the
+  spawn its background and not its text colour. Not done: a character of
+  the game on the screen, a wordmark, a layout that is not the flat menu.
+- [x] A ride through a Mary-O pipe makes no landing sound and no dust (Jon,
+  2026-10-11). The transit puts her on its path each tick, and the movement
+  step took her as a body that fell. The pipe now says her pose is not her
+  own (`PoseOwnedExternally`), and the step of a player body reads that
+  fact: it passed a literal `false`.
 - [x] A shader for the two Mary-O biomes: the shimmer
   (`game/ambition_demo_mary_o/src/shimmer_shader.rs`, `shaders/shimmer.wgsl`).
   It draws no shape. Each biome has a shimmer picture

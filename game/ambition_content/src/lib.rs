@@ -25,6 +25,9 @@ pub mod bosses;
 mod wielded_ability_parity_tests;
 #[cfg(test)]
 mod wielded_ability_reference_tests;
+// Two entries on one held item pay for one action at a time.
+#[cfg(test)]
+mod wielded_cost_admission_tests;
 #[cfg(test)]
 mod sentry_parity_tests;
 #[cfg(test)]

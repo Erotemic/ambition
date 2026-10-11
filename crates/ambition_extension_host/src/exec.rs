@@ -83,11 +83,20 @@ impl ExtensionInvocations {
     }
 }
 
+/// One invocation of one entry, as the host ran it. Every request the
+/// invocation submitted carries it, so a domain that refuses one of them can
+/// refuse the rest ([`ExtensionOutbox::refuse_invocation`]). Ids rise in the
+/// order the host ran the invocations: entry order, then queue order.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct InvocationId(pub u64);
+
 /// A request that passed the host's checks. It is SUBMITTED; the domain that
 /// owns the port decides if it is APPLIED.
 pub struct Submitted<T> {
     /// The body the invocation ran for.
     pub scope: Entity,
+    /// The invocation that submitted it.
+    pub invocation: InvocationId,
     /// The move use that asked for the invocation. The host sets it; the
     /// module cannot.
     pub occurrence: Option<u32>,
@@ -102,6 +111,7 @@ struct OutboxItem {
     /// lowers it.
     phase: Phase,
     scope: Entity,
+    invocation: InvocationId,
     occurrence: Option<u32>,
     entry: Arc<str>,
     value: Box<dyn Any + Send + Sync>,
@@ -111,6 +121,8 @@ struct OutboxItem {
 #[derive(Resource, Default)]
 pub struct ExtensionOutbox {
     items: Vec<OutboxItem>,
+    /// The id the next invocation gets.
+    next_invocation: u64,
 }
 
 impl ExtensionOutbox {
@@ -134,6 +146,7 @@ impl ExtensionOutbox {
             match item.value.downcast::<P::Value>() {
                 Ok(value) => out.push(Submitted {
                     scope: item.scope,
+                    invocation: item.invocation,
                     occurrence: item.occurrence,
                     entry: item.entry,
                     value: *value,
@@ -149,6 +162,15 @@ impl ExtensionOutbox {
 
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
+    }
+
+    /// Remove every request of `invocation` that is not lowered yet: a domain
+    /// refused a request the invocation's action depends on (its cost), so
+    /// the action is refused whole. Returns how many were removed.
+    pub fn refuse_invocation(&mut self, invocation: InvocationId) -> usize {
+        let before = self.items.len();
+        self.items.retain(|item| item.invocation != invocation);
+        before - self.items.len()
     }
 }
 
@@ -308,10 +330,13 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                     Ok((state, requests)) => {
                         commit(world, &admitted, invocation.scope, session, state);
                         let mut outbox = world.resource_mut::<ExtensionOutbox>();
+                        let id = InvocationId(outbox.next_invocation);
+                        outbox.next_invocation += 1;
                         outbox.items.extend(requests.into_iter().map(|(port, value)| OutboxItem {
                             port,
                             phase: phase.clone(),
                             scope: invocation.scope,
+                            invocation: id,
                             occurrence: invocation.occurrence,
                             entry: path.clone(),
                             value,

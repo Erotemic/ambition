@@ -40,12 +40,12 @@ pub use admission::{
 };
 pub use exec::{
     run_phase, ExtensionFaults, ExtensionInvocations, ExtensionOutbox, FaultRecord, InBossConduct,
-    InModuleEntityTick, InTechniqueExecution, InWieldedUse, InstalledPortCodecs, LowersIn,
+    InModuleEntityTick, InTechniqueExecution, InWieldedUse, InstalledPortCodecs, InvocationId, LowersIn,
     PendingInvocation, Submitted, Supplier,
 };
 pub use store::{register_rollback_state, BodyRecords, RecordSet, SessionRecords, StoredRecord};
 
-/// The three host-owned steps of one phase. The composition places them in
+/// The host-owned steps of one phase. The composition places them in
 /// its schedule; the host chains them.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ExtensionSet {
@@ -56,6 +56,10 @@ pub enum ExtensionSet {
     Collect(Phase),
     /// The host runs the admitted entries.
     Invoke(Phase),
+    /// The domains settle each invocation's costs (its cost ports, see
+    /// [`ExtensionAppExt::install_extension_cost`]) before any request of the
+    /// phase is lowered. An invocation whose cost is refused is refused whole.
+    Settle(Phase),
     /// Request adapters give submitted requests to their domains.
     Lower(Phase),
     /// One request port's adapter, inside `Lower(phase)`. The host runs the
@@ -222,6 +226,27 @@ pub trait ExtensionAppExt {
         supplier: fn(&World, Entity) -> Option<P::Value>,
     ) -> &mut Self;
 
+    /// Install request port `P` in `phase` as a COST: what an invocation pays
+    /// for its action (mana, a cooldown). It has no adapter of its own. The
+    /// domain's settle system ([`Self::settle_extension_costs`]) drains it in
+    /// `ExtensionSet::Settle`, pays each invocation's costs together or not
+    /// at all, and refuses the whole of an invocation it cannot pay for, so no
+    /// request of that invocation is lowered.
+    ///
+    /// ⛔ A SNAPSHOT IS NOT A RESERVATION. Two invocations in one phase see the
+    /// same trigger value (one mana level, one cooldown), and both can ask to
+    /// pay. Only the settle, which pays them in invocation order, knows which
+    /// one the body can afford.
+    fn install_extension_cost<P: Port>(&mut self, phase: Phase, owner: &'static str) -> &mut Self;
+
+    /// Add the domain system that settles the cost ports of `phase`. It runs
+    /// in `ExtensionSet::Settle(phase)`.
+    fn settle_extension_costs<M>(
+        &mut self,
+        phase: Phase,
+        settle: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self;
+
     /// Install request port `P` in `phase`, with the adapter system that
     /// gives its submitted requests to the domain. The system runs in
     /// `ExtensionSet::Lower`.
@@ -296,6 +321,7 @@ fn ensure_phase(app: &mut App, schedule: Interned<dyn ScheduleLabel>, phase: &Ph
             ExtensionSet::Admit,
             ExtensionSet::Collect(phase.clone()),
             ExtensionSet::Invoke(phase.clone()),
+            ExtensionSet::Settle(phase.clone()),
             ExtensionSet::Lower(phase.clone()),
         )
             .chain(),
@@ -356,6 +382,28 @@ impl ExtensionAppExt for App {
             .suppliers
             .insert(P::KEY, (erased, ambition_extension_sdk::encode_erased::<P>));
         self
+    }
+
+    fn install_extension_cost<P: Port>(&mut self, phase: Phase, owner: &'static str) -> &mut Self {
+        let (schedule, mut installation) = installation(self);
+        installation
+            .offers
+            .push(offer::<P>(PortRole::Request, phase.clone(), owner));
+        installation
+            .request_decoders
+            .insert(P::KEY, ambition_extension_sdk::decode_erased::<P>);
+        ensure_phase(self, schedule, &phase);
+        self
+    }
+
+    fn settle_extension_costs<M>(
+        &mut self,
+        phase: Phase,
+        settle: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self {
+        let (schedule, _) = installation(self);
+        ensure_phase(self, schedule, &phase);
+        self.add_systems(schedule, settle.in_set(ExtensionSet::Settle(phase)))
     }
 
     fn install_extension_request<P: Port, M>(

@@ -84,9 +84,22 @@ row starts with a failing production-path witness.
    the item keeps half the thrower's velocity). Witness:
    `the_player_throws_a_coconut_the_way_the_stick_points` (app) and
    `a_throw_goes_the_way_the_stick_points_and_a_flick_throws_harder`.
-2. ABILITY-COST. Two admitted modules on one trigger see one mana and cooldown
-   snapshot. Movement is lowered before the cost, so the second action runs
-   after its spend is refused. An action and its cost are one admission.
+2. ✅ 2026-10-11, ABILITY-COST. Two admitted modules on one trigger saw one
+   mana and cooldown snapshot, and movement was lowered before the cost, so
+   the second action ran after its spend was refused. The host gives each
+   invocation an id on every request it submits
+   (`ambition_extension_host::InvocationId`) and a `Settle` step before
+   `Lower`. `ambition.resources.spend_mana` and
+   `ambition.abilities.movement_cooldown` are costs
+   (`install_extension_cost`). `settle_wielded_costs` pays each invocation's
+   costs together, in invocation order, or refuses the whole invocation
+   (`ExtensionOutbox::refuse_invocation`). A cooldown armed this tick by an
+   earlier invocation runs for a later one. Witness:
+   `wielded_cost_admission_tests` (two `dive` entries with 30 mana: one lunge;
+   two `blink` entries: one blink). Poisons: no refusal, red at
+   `(280, 4, 2)`; no same-tick cooldown memory, red at 300 px. Not
+   witnessed: a rewind across the settle (the settle keeps no state of its
+   own; the bank and the cooldown are rollback state).
 3. PORTAL-VISIBILITY. `PortalSourceHidden` records the portal's own hide, not
    that nothing else hides the body. A body killed or hidden behind a portal
    gets far-side fragments. A stale `PortalCompositingCandidate` stays.

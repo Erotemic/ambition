@@ -35,7 +35,7 @@ fn rider(phase: BossEncounterPhase) -> (World, Entity, Entity) {
 }
 
 fn submitted<T>(boss: Entity, value: T) -> Vec<Submitted<T>> {
-    vec![Submitted { scope: boss, occurrence: None, entry: "test::gnu/conduct".into(), value }]
+    vec![Submitted { scope: boss, invocation: Default::default(), occurrence: None, entry: "test::gnu/conduct".into(), value }]
 }
 
 fn closed(world: &World, fist: Entity) -> bool {

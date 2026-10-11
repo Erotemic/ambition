@@ -133,10 +133,13 @@ impl Port for TransitPort {
 /// * **Operation** — arm the body's movement-ability cooldown for `seconds`
 ///   (`ambition_abilities::ability_cooldown`, which blink and grapple share).
 /// * **Owner** — `ambition_abilities::extension`.
-/// * **Time** — `wielded_use`, after the cooldown ticks this tick.
-/// * **Result** — a cooldown that runs is not armed again, and the refusal is
-///   logged. A module that asked [`crate::Wielder::cooldown_ready`] is never
-///   refused.
+/// * **Time** — `wielded_use`, settled before any request of the phase is
+///   lowered; a cooldown armed this tick also ticks this tick.
+/// * **Result** — a COST: the invocation's costs are paid together or not at
+///   all. A cooldown that runs, also one an earlier invocation armed this
+///   tick, refuses the whole invocation: none of its requests is lowered, and
+///   the refusal is logged. [`crate::Wielder::cooldown_ready`] is a snapshot,
+///   not a reservation: two entries bound to one item both read it ready.
 pub struct MovementCooldownPort;
 
 #[derive(Clone, Debug, PartialEq)]

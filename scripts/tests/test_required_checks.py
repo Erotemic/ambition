@@ -358,17 +358,27 @@ def test_a_change_to_the_ldtk_tool_requires_its_tests() -> None:
     assert requirements_for("tools/ambition_ldtk_tools/README.md", {}) == {Job(REPO_TOOLING_JOB)}
 
 
+def test_a_change_to_the_sprite_tree_requires_its_embedded_road() -> None:
+    from required_checks import SPRITE_TREE_EMBEDDED_JOB, requirements_for
+
+    members = {"crates/ambition_sprite_sheet": "ambition_sprite_sheet"}
+    assert Job(SPRITE_TREE_EMBEDDED_JOB) in requirements_for("crates/ambition_sprite_sheet/build.rs", members)
+    # Control: another crate's change does not require it.
+    assert Job(SPRITE_TREE_EMBEDDED_JOB) not in requirements_for("crates/other/src/lib.rs", {"crates/other": "other"})
+
+
 def test_each_job_a_rule_names_is_a_job_of_the_runner() -> None:
     """A rule that names a job the runner does not plan can never be met."""
     import run_tests
 
-    from required_checks import LDTK_TOOLS_JOB
+    from required_checks import LDTK_TOOLS_JOB, SPRITE_TREE_EMBEDDED_JOB
 
     from required_checks import DETACHED_TOOL_JOBS, remedy
 
     planned = {job.name for job in run_tests.build_jobs([], heavy=True, libtest_args=[], everything=True)}
     detached = {job.name for job in run_tests.build_detached_tool_jobs()}
-    for name in (REPO_TOOLING_JOB, LDTK_TOOLS_JOB):
+    assert SPRITE_TREE_EMBEDDED_JOB == run_tests.SPRITE_TREE_EMBEDDED_JOB
+    for name in (REPO_TOOLING_JOB, LDTK_TOOLS_JOB, SPRITE_TREE_EMBEDDED_JOB):
         assert name in (detached if name in DETACHED_TOOL_JOBS else planned), name
     assert "--tool-tests --only-job 'ldtk authoring tool tests'" in remedy([Job(LDTK_TOOLS_JOB)])
 

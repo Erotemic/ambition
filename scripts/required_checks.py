@@ -52,6 +52,13 @@ LDTK_TOOLS_JOB = "ldtk authoring tool tests"
 #: Jobs that only the detached tool lane plans (`run_tests.py --tool-tests`).
 DETACHED_TOOL_JOBS = {LDTK_TOOLS_JOB}
 
+#: The sprite tree (`ambition_sprite_sheet`): a development build reads it at
+#: run time, so its own tests at default features never compile the embedded
+#: tables a player build reads. A change to the crate requires the job that
+#: embeds them (`run_tests.SPRITE_TREE_EMBEDDED_JOB`).
+SPRITE_SHEET_DIR = "crates/ambition_sprite_sheet"
+SPRITE_TREE_EMBEDDED_JOB = "ambition_sprite_sheet [static_content] — the embedded sprite tree"
+
 #: The shipped game's package; `app_it` is one of its test targets.
 APP_PACKAGE = "ambition_app"
 
@@ -220,6 +227,8 @@ def requirements_for(path: str, members: dict[str, str]) -> set[Requirement]:
     # `scripts/tests/*.txt`).
     if path.startswith("scripts/"):
         required.add(Job(REPO_TOOLING_JOB))
+    if path.startswith(SPRITE_SHEET_DIR + "/"):
+        required.add(Job(SPRITE_TREE_EMBEDDED_JOB))
     if path.startswith(LDTK_TOOLS_DIR + "/") and path.endswith(".py"):
         required.add(Job(LDTK_TOOLS_JOB))
     return required

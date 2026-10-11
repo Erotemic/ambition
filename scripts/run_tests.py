@@ -196,6 +196,10 @@ DENY_EXACT = {
 }
 DENY_PREFIX = ("android", "web", "visible_web", "static_")
 
+#: The job that runs `ambition_sprite_sheet` with its tables embedded
+#: (`static_content`), the road no other lane compiles.
+SPRITE_TREE_EMBEDDED_JOB = "ambition_sprite_sheet [static_content] — the embedded sprite tree"
+
 # Tests owned by self-contained maintainer tools do not belong to the
 # repo-wide correctness gate: ordinary engine/game edits cannot invalidate
 # them. They remain first-class tests and run explicitly through
@@ -797,6 +801,16 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # a cold one fails.
         jobs.append(Job("clippy (workspace, all targets, deny-by-default lints)",
                         [CARGO, "clippy", "--workspace", "--all-targets"]))
+
+    # The embedded sprite tree. A development build reads the tree at run time,
+    # so the default lanes never compile the road a player build takes (the
+    # embedded tables), and the union job denies `static_*`. This job runs the
+    # crate's tests with the tables embedded; `required_checks.py` selects it
+    # for a change to the crate.
+    if not only or "ambition_sprite_sheet" in only:
+        jobs.append(Job(SPRITE_TREE_EMBEDDED_JOB,
+                        [CARGO, "test", "-p", "ambition_sprite_sheet", "--lib",
+                         "--features", "static_content", *libtest()]))
 
     # The unfiltered default plan also boots visible presentation through a small `capture_scene`;
     # package-filtered runs stay scoped to the requested crate.

@@ -26,7 +26,7 @@
 
 use bevy::dev_tools::diagnostics_overlay::{
     DiagnosticsOverlay, DiagnosticsOverlayItem, DiagnosticsOverlayPlugin,
-    DiagnosticsOverlayStatistic,
+    DiagnosticsOverlayStatistic, DiagnosticsOverlaySystems,
 };
 use bevy::diagnostic::{DiagnosticPath, DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -73,15 +73,26 @@ impl Plugin for AmbitionDiagnosticsPanelPlugin {
             )
             .add_systems(
                 Update,
-                (
-                    follow_the_debug_toggle,
-                    // ⛔ THE ROW SET IS NOT KNOWN WHEN THE PANEL OPENS. See
-                    // `keep_the_render_rows_current`.
-                    keep_the_render_rows_current
-                        .run_if(on_timer(RENDER_ROW_RECONCILE_PERIOD)),
-                ),
+                // ⛔ THE ROW SET IS NOT KNOWN WHEN THE PANEL OPENS. See
+                // `keep_the_render_rows_current`.
+                keep_the_render_rows_current.run_if(on_timer(RENDER_ROW_RECONCILE_PERIOD)),
             );
+        add_the_debug_toggle(app);
     }
+}
+
+/// Schedule [`follow_the_debug_toggle`] after Bevy's rebuild of the overlay.
+///
+/// ⛔ THE ORDER IS THE FIX FOR A CRASH (2026-10-11). Once a second Bevy's
+/// `rebuild_diagnostics_list` queues a command on the entities of every open
+/// overlay. When F1 closed the panel on that same frame and the despawn was
+/// applied first, Bevy's command found a dead entity, and a failed command
+/// panics. After the rebuild, the despawn is the last word on those entities.
+fn add_the_debug_toggle(app: &mut App) {
+    app.add_systems(
+        Update,
+        follow_the_debug_toggle.after(DiagnosticsOverlaySystems::Rebuild),
+    );
 }
 
 /// Show the panel while F1's debug mode is on, and take it away when it is off.
@@ -358,6 +369,47 @@ mod tests {
             1,
             "two windows would land on top of each other and hide one another"
         );
+    }
+
+    /// F1 can close the panel on the frame Bevy rebuilds its rows.
+    ///
+    /// The panic this pins is Bevy's: a command on an entity that the close
+    /// despawned first. Bevy rebuilds on a timer this test cannot read, so
+    /// the panel is opened and closed many times, a different number of
+    /// frames apart each time, and some close is on a rebuild frame.
+    #[test]
+    fn closing_the_panel_on_a_rebuild_frame_does_not_panic() {
+        let mut app = App::new();
+        app.add_plugins(bevy::time::TimePlugin);
+        app.init_resource::<DiagnosticsStore>();
+        app.init_resource::<DeveloperRuntimeState>();
+        app.add_plugins(DiagnosticsOverlayPlugin);
+        add_the_debug_toggle(&mut app);
+        // A quarter second a frame: the most a frame of virtual time may be.
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            Duration::from_millis(250),
+        ));
+        let mut windows = app
+            .world_mut()
+            .query_filtered::<Entity, With<AmbitionDiagnosticsWindow>>();
+        for cycle in 0..16 {
+            app.world_mut()
+                .resource_mut::<DeveloperRuntimeState>()
+                .debug = true;
+            for _ in 0..=(cycle % 5) {
+                app.update();
+            }
+            assert_eq!(
+                windows.iter(app.world()).count(),
+                1,
+                "premise: the panel is open, so there is something to close"
+            );
+            app.world_mut()
+                .resource_mut::<DeveloperRuntimeState>()
+                .debug = false;
+            app.update();
+            assert_eq!(windows.iter(app.world()).count(), 0, "F1 closed it");
+        }
     }
 
     /// A pass that first runs AFTER F1 opened still reaches the open panel.

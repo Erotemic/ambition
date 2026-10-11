@@ -203,6 +203,21 @@ suit the style of the game.
   with `_bird_fx.py` for the effects). Side view only: the game reads no
   turnaround row. A further bird is the same four files, one row of the
   catalog and one row of `FLOCK` in the T-rex's conductor.
+- [x] Ten more birds the same day: `ostrich`, `emu`, `cassowary`, `kiwi` and
+  `shoebill` (one long-legged build: `rigbuild/ratite.py`,
+  `scripts/svg_art/ratites_art.py`, `scripts/build_ratite_rigs.py`),
+  `european_swallow`, `african_swallow` and `vulture` (flyers:
+  `scripts/build_flyer_rigs.py`), and the hens `chicken_hen` and
+  `ostrich_hen`. Rule (Jon): a bird whose two sexes do not look alike has
+  both, the cock by the bird's id and the hen by `<id>_hen`. Seen in the
+  Hall of Characters with `capture_scene`.
+- [ ] The coconut (Jon): NOT in the African swallow's drawing. It is to be a
+  generic throwable item that the player picks up and throws too; the
+  swallow picks one up and drops it on the player, so its attack needs
+  coconuts in the room, and a palm for them to be on.
+- [ ] A linear dinosaur level (Jon): the dinosaurs and the birds are its
+  enemies and the T-rex fight is its end. It may need its own biome and
+  props.
 
 ## Not done
 

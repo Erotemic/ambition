@@ -310,6 +310,37 @@
             move_style: Float,
             melee: Some(Swipe(windup_s: 0.26, active_s: 0.10, recover_s: 0.40, damage: 2, reach_px: 52.0)),
         ),
+        // The rest of the T-rex's flock. A tall bird kicks: the taller, the
+        // longer its reach; the heavier, the slower and the harder.
+        "kiwi_stab": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.18, active_s: 0.08, recover_s: 0.26, damage: 1, reach_px: 28.0)),
+        ),
+        "emu_kick": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.22, active_s: 0.08, recover_s: 0.34, damage: 1, reach_px: 44.0)),
+        ),
+        "ostrich_kick": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.28, active_s: 0.10, recover_s: 0.40, damage: 2, reach_px: 52.0)),
+        ),
+        "cassowary_kick": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.34, active_s: 0.10, recover_s: 0.46, damage: 3, reach_px: 46.0)),
+        ),
+        // The shoebill stands and stares for a long time, and then it does not.
+        "shoebill_lunge": (
+            move_style: Walk,
+            melee: Some(Bite(windup_s: 0.55, active_s: 0.10, recover_s: 0.60, damage: 3, reach_px: 54.0)),
+        ),
+        "swallow_dart": (
+            move_style: Float,
+            melee: Some(Bite(windup_s: 0.12, active_s: 0.08, recover_s: 0.22, damage: 1, reach_px: 34.0)),
+        ),
+        "vulture_tear": (
+            move_style: Float,
+            melee: Some(Bite(windup_s: 0.30, active_s: 0.10, recover_s: 0.44, damage: 2, reach_px: 54.0)),
+        ),
         "peaceful": (
             move_style: Walk,
             melee: None,
@@ -2665,78 +2696,6 @@
         ),
         hall_dialogue_id: Some("hall_npc_raptor_stalker"),
         ),
-        // ===== The T-rex's other birds (Jon, 2026-10-10). Birds are dinosaurs:
-        // his call (`trex_call`) brings a pair of one kind of his flock. Each
-        // row states its body and the way it hunts, because a summon refuses a
-        // character the cast cannot build and a body with no profile notices
-        // nobody (see `npc_raptor_stalker`).
-        //
-        // The chicken is a ground bird, and it plays the game of chicken: it
-        // runs straight at you and it does not swerve, so running into it
-        // hurts. Small and weak: two blows end it.
-        "chicken": (
-            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
-            display_name: "Game Chicken",
-            spritesheet: "sprites/chicken_spritesheet.png",
-            manifest: "sprites/chicken_spritesheet.ron",
-            tier: Basement,
-            body_kind: Standard,
-            standing_height: Some(44.0),
-            composition: None,
-            default_action_set: "chicken_peck",
-            locomotion: Some((run_speed: 215.0, move_style: Walk)),
-            contact_damage: Some((strength: 0.45, amount: 1)),
-            autonomous_profile: Some((
-                template: MeleeBrute,
-                aggro_radius: 700.0,
-                attack_range: 30.0,
-                patrol_effort: 0.5,
-                chase_effort: 1.0,
-            )),
-            max_health: Some(2),
-            tags: ["enemy", "bird", "minion"],
-        barks: (
-            on_hit: ["BA-GAWK!", "Bawk. I do not swerve."],
-            provoked: ["You go first. No. YOU go first."],
-            idle: ["Bawk.", "Buk buk buk.", "...bawk?"],
-            hall: ["Two of us run at each other. The one who turns, loses. I have never turned.", "Bawk. That is my whole strategy, and it is dominant."],
-        ),
-        hall_dialogue_id: Some("hall_chicken"),
-        ),
-        // The owl is the parrot's opposite. The parrot says what usually comes
-        // next; the owl keeps the list of what each thing IS (OWL: the Web
-        // Ontology Language). A heavier, slower flyer: it stalks above you
-        // and comes down talons first, and its strike hurts more.
-        "owl": (
-            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
-            display_name: "Ontology Owl",
-            spritesheet: "sprites/owl_spritesheet.png",
-            manifest: "sprites/owl_spritesheet.ron",
-            tier: Basement,
-            // Floating = no gravity, so the Aerial policy flies it.
-            body_kind: Floating,
-            standing_height: Some(48.0),
-            composition: None,
-            default_action_set: "owl_talons",
-            // A bird states its own flight, as the parrot does.
-            locomotion: Some((run_speed: 185.0, move_style: Float, baseline_free_flight: Some(true))),
-            contact_damage: Some((strength: 0.55, amount: 1)),
-            autonomous_profile: Some((
-                template: Aerial,
-                aggro_radius: 620.0,
-                attack_range: 60.0,
-                shares_sightings: false,
-            )),
-            max_health: Some(4),
-            tags: ["enemy", "bird", "minion"],
-        barks: (
-            on_hit: ["Hoo!", "Noted: 'hostile'. Subclass of 'visitor'."],
-            provoked: ["You are now an instance of 'prey'."],
-            idle: ["Hoo.", "Who. Not 'what comes next'. WHO.", "A thing is what it is. I keep the list."],
-            hall: ["The parrot tells you what usually comes next. I tell you what a thing IS. We do not speak.", "Hoo. You are a 'visitor'. A visitor is a kind of 'thing'. I checked."],
-        ),
-        hall_dialogue_id: Some("hall_owl"),
-        ),
         // npc_robot_heavy intentionally removed: the renderer's
         // `robot_heavy` target is a multi-variant rig that ships
         // bastion/arsenal/etc. The bare name isn't a real
@@ -4020,6 +3979,397 @@
             hall: ["I only wanted a little. There was never a little.", "The pot is empty. The pot has always been empty.", "Bother.", "They put me on a pedestal because the honey ran out down there."],
         ),
         hall_dialogue_id: Some("hall_npc_hunny_horror_boss"),
+        ),
+        // ===== THE T-REX'S FLOCK (Jon, 2026-10-10). Birds are dinosaurs: his call
+        // (`trex_call`) brings a pair of one kind of his flock, the next kind
+        // each call (`FLOCK` in `ambition_content_modules::trex`). Each row
+        // states its body and the way it hunts, because a summon refuses a
+        // character the cast cannot build and a body with no profile notices
+        // nobody (see `npc_raptor_stalker`). The stochastic parrot, the first
+        // of the flock, has its row above.
+        //
+        // Where the two sexes of a bird do not look alike, each is a row (the
+        // cock by the bird's id, the hen by `<id>_hen`), and a pair of that
+        // kind is one of each.
+        //
+        // The rows are at the END of the catalog: the Hall of Characters seats
+        // its exhibits in catalog order, so a row put in the middle moves
+        // every exhibit after it.
+        // The chicken (a cockerel) is a ground bird, and it plays the game of
+        // chicken: it runs straight at you and it does not swerve, so running
+        // into it hurts. Small and weak: two blows end it.
+        "chicken": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Game Chicken",
+            spritesheet: "sprites/chicken_spritesheet.png",
+            manifest: "sprites/chicken_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(44.0),
+            composition: None,
+            default_action_set: "chicken_peck",
+            locomotion: Some((run_speed: 215.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.45, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 700.0,
+                attack_range: 30.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["BA-GAWK!", "Bawk. I do not swerve."],
+            provoked: ["You go first. No. YOU go first."],
+            idle: ["Bawk.", "Buk buk buk.", "...bawk?"],
+            hall: ["Two of us run at each other. The one who turns, loses. I have never turned.", "Bawk. That is my whole strategy, and it is dominant."],
+        ),
+        hall_dialogue_id: Some("hall_chicken"),
+        ),
+        // His hen: the same game, the same numbers.
+        "chicken_hen": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Game Hen",
+            spritesheet: "sprites/chicken_hen_spritesheet.png",
+            manifest: "sprites/chicken_hen_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(42.0),
+            composition: None,
+            default_action_set: "chicken_peck",
+            locomotion: Some((run_speed: 215.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.45, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 700.0,
+                attack_range: 30.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["BA-GAWK!", "Buk. Rude."],
+            provoked: ["He will not swerve. I will not either. Do the sum."],
+            idle: ["Buk buk buk.", "Buk.", "...buk?"],
+            hall: ["He runs at you. I run at you. Now there are two games and you are losing both.", "Buk. Somebody has to count the eggs AND win."],
+        ),
+        hall_dialogue_id: Some("hall_chicken_hen"),
+        ),
+        // The owl is the parrot's opposite. The parrot says what usually comes
+        // next; the owl keeps the list of what each thing IS (OWL: the Web
+        // Ontology Language). A heavier, slower flyer: it stalks above you
+        // and comes down talons first, and its strike hurts more.
+        "owl": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Ontology Owl",
+            spritesheet: "sprites/owl_spritesheet.png",
+            manifest: "sprites/owl_spritesheet.ron",
+            tier: MainHall,
+            // Floating = no gravity, so the Aerial policy flies it.
+            body_kind: Floating,
+            standing_height: Some(48.0),
+            composition: None,
+            default_action_set: "owl_talons",
+            // A bird states its own flight, as the parrot does.
+            locomotion: Some((run_speed: 185.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 0.55, amount: 1)),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 620.0,
+                attack_range: 60.0,
+                shares_sightings: false,
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["Hoo!", "Noted: 'hostile'. Subclass of 'visitor'."],
+            provoked: ["You are now an instance of 'prey'."],
+            idle: ["Hoo.", "Who. Not 'what comes next'. WHO.", "A thing is what it is. I keep the list."],
+            hall: ["The parrot tells you what usually comes next. I tell you what a thing IS. We do not speak.", "Hoo. You are a 'visitor'. A visitor is a kind of 'thing'. I checked."],
+        ),
+        hall_dialogue_id: Some("hall_owl"),
+        ),
+        // The kiwi and the cassowary are one algorithm in two sizes (Cassowary,
+        // the constraint solver, and the small fast `kiwisolver` that does the
+        // same work). The kiwi is tiny, low and quick; it stabs with its beak.
+        "kiwi": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Kiwi Solver",
+            spritesheet: "sprites/kiwi_spritesheet.png",
+            manifest: "sprites/kiwi_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(26.0),
+            composition: None,
+            default_action_set: "kiwi_stab",
+            locomotion: Some((run_speed: 175.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 600.0,
+                attack_range: 26.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(1),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["Kee-wee!", "Eep."],
+            provoked: ["Same answer as the big one. Faster."],
+            idle: ["Sniff. Sniff sniff.", "Kee-wee.", "...sniff."],
+            hall: ["The cassowary solves it. I solve it too, in less room. Nobody thanks the small one.", "Sniff. Your constraints are loose. I can smell it."],
+        ),
+        hall_dialogue_id: Some("hall_kiwi"),
+        ),
+        // The emu: an emulator on two legs. Fast, hard to pin down, and it
+        // kicks.
+        "emu": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Emu-lator",
+            spritesheet: "sprites/emu_spritesheet.png",
+            manifest: "sprites/emu_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(84.0),
+            composition: None,
+            default_action_set: "emu_kick",
+            locomotion: Some((run_speed: 255.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 800.0,
+                attack_range: 42.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["Boom!", "That was not in the original hardware."],
+            provoked: ["Running you at full speed now."],
+            idle: ["Boom. Boom. Boom.", "I can run anything. Slowly.", "...boom."],
+            hall: ["I can run any bird you like. I am, at the moment, running an emu.", "We won that war, you know. Nobody patched us."],
+        ),
+        hall_dialogue_id: Some("hall_emu"),
+        ),
+        // The ostrich algorithm: if a problem is rare enough, ignore it. The
+        // tallest and the fastest of the flock; its kick reaches far. The cock
+        // is black with white plumes.
+        "ostrich": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Ostrich Algorithm",
+            spritesheet: "sprites/ostrich_spritesheet.png",
+            manifest: "sprites/ostrich_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(104.0),
+            composition: None,
+            default_action_set: "ostrich_kick",
+            locomotion: Some((run_speed: 290.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 800.0,
+                attack_range: 48.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["HONK.", "I did not see that. So it did not happen."],
+            provoked: ["This problem I will not ignore."],
+            idle: ["If I do not see the problem, there is no problem.", "Ignore it. It is cheaper.", "Honk."],
+            hall: ["Some problems are so rare that the cheap answer is to put your head in the sand. I am that answer.", "Deadlock? Never heard of it. On purpose."],
+        ),
+        hall_dialogue_id: Some("hall_ostrich"),
+        ),
+        // His hen: grey-brown where he is black. The same bird in every number.
+        "ostrich_hen": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Ostrich Algorithm (Hen)",
+            spritesheet: "sprites/ostrich_hen_spritesheet.png",
+            manifest: "sprites/ostrich_hen_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(104.0),
+            composition: None,
+            default_action_set: "ostrich_kick",
+            locomotion: Some((run_speed: 290.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 800.0,
+                attack_range: 48.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["HONK.", "Not my problem."],
+            provoked: ["Now it is my problem."],
+            idle: ["He ignores it. I ignore it better.", "Honk.", "It is cheaper not to look."],
+            hall: ["He puts his head in the sand. I put mine in deeper. One of us has to be thorough.", "I am the grey one. It is harder to see a problem that is the colour of the ground."],
+        ),
+        hall_dialogue_id: Some("hall_ostrich_hen"),
+        ),
+        // The cassowary: the constraint solver, and the most dangerous bird
+        // alive. Slower than the ostrich and the emu; its kick hurts the most.
+        "cassowary": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Cassowary Solver",
+            spritesheet: "sprites/cassowary_spritesheet.png",
+            manifest: "sprites/cassowary_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(82.0),
+            composition: None,
+            default_action_set: "cassowary_kick",
+            locomotion: Some((run_speed: 200.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 700.0,
+                attack_range: 42.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(5),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["BOOM.", "That constraint was required."],
+            provoked: ["Your position is now over-constrained."],
+            idle: ["Stay. There.", "Every one of my constraints is required.", "Boom."],
+            hall: ["Give me what must be true, and how much you care about each. I will tell you where you stand. You will not like it.", "Required. Strong. Medium. Weak. You are 'weak'."],
+        ),
+        hall_dialogue_id: Some("hall_cassowary"),
+        ),
+        // The shoebill is lazy evaluation: it stands, it stares and it does
+        // nothing until the value is needed. Slow on its feet; its one strike
+        // has a long tell and hurts a lot.
+        "shoebill": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Lazy Shoebill",
+            spritesheet: "sprites/shoebill_spritesheet.png",
+            manifest: "sprites/shoebill_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(80.0),
+            composition: None,
+            default_action_set: "shoebill_lunge",
+            locomotion: Some((run_speed: 105.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 520.0,
+                attack_range: 50.0,
+                patrol_effort: 0.3,
+                chase_effort: 0.7,
+            )),
+            max_health: Some(5),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["...", "CLACK."],
+            provoked: ["The value is needed now."],
+            idle: ["...", "......", "CLACK-CLACK-CLACK-CLACK."],
+            hall: ["I do nothing until the value is needed. Then I do all of it at once.", "... (It has not moved. It is looking at you.)"],
+        ),
+        hall_dialogue_id: Some("hall_shoebill"),
+        ),
+        // The two swallows. The European swallow is unladen: the fastest flyer
+        // of the flock, and one blow ends it.
+        "european_swallow": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "European Swallow",
+            spritesheet: "sprites/european_swallow_spritesheet.png",
+            manifest: "sprites/european_swallow_spritesheet.ron",
+            tier: MainHall,
+            // Floating = no gravity, so the Aerial policy flies it.
+            body_kind: Floating,
+            standing_height: Some(20.0),
+            composition: None,
+            default_action_set: "swallow_dart",
+            // A bird states its own flight, as the parrot does.
+            locomotion: Some((run_speed: 330.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 620.0,
+                attack_range: 44.0,
+                shares_sightings: false,
+            )),
+            max_health: Some(1),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["Tswit!", "Unladen, I said!"],
+            provoked: ["Top speed. No cargo."],
+            idle: ["Tswit.", "Unladen.", "I migrate. That is the whole difference."],
+            hall: ["How fast? It depends what I am carrying. Today: nothing. So: very.", "People ask which kind I am before they ask anything else. European. Next question."],
+        ),
+        hall_dialogue_id: Some("hall_european_swallow"),
+        ),
+        // The African swallow is the one that carries a coconut. The coconut is
+        // NOT in its drawing (Jon, 2026-10-10): it is to be a prop of the room
+        // that the swallow picks up and drops on you, so the attack needs
+        // coconuts (a palm) in the room. Not built yet: until it is, this row
+        // is a swallow a little slower and a little tougher than the European
+        // one, with the same dart.
+        "african_swallow": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "African Swallow",
+            spritesheet: "sprites/african_swallow_spritesheet.png",
+            manifest: "sprites/african_swallow_spritesheet.ron",
+            tier: MainHall,
+            // Floating = no gravity, so the Aerial policy flies it.
+            body_kind: Floating,
+            standing_height: Some(20.0),
+            composition: None,
+            default_action_set: "swallow_dart",
+            // A bird states its own flight, as the parrot does.
+            locomotion: Some((run_speed: 290.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 620.0,
+                attack_range: 44.0,
+                shares_sightings: false,
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["Tswit. Oof.", "I was going to carry something!"],
+            provoked: ["I will find a coconut and put it down ON you."],
+            idle: ["It is a question of weight ratios.", "I do not migrate. I commute.", "Tswit."],
+            hall: ["Yes, I carry coconuts. No, I will not discuss the weight ratio again.", "I grip it by the husk. It is not hard. It is only heavy."],
+        ),
+        hall_dialogue_id: Some("hall_african_swallow"),
+        ),
+        // The vulture capitalist circles what is running out of runway. The
+        // big slow flyer: it takes many blows and its beak hurts.
+        "vulture": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Vulture Capitalist",
+            spritesheet: "sprites/vulture_spritesheet.png",
+            manifest: "sprites/vulture_spritesheet.ron",
+            tier: MainHall,
+            // Floating = no gravity, so the Aerial policy flies it.
+            body_kind: Floating,
+            standing_height: Some(66.0),
+            composition: None,
+            default_action_set: "vulture_tear",
+            // A bird states its own flight, as the parrot does.
+            locomotion: Some((run_speed: 165.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 0.55, amount: 1)),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 700.0,
+                attack_range: 60.0,
+                shares_sightings: false,
+            )),
+            max_health: Some(5),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["Hsss.", "I can wait."],
+            provoked: ["Your runway just ended."],
+            idle: ["You look tired. I like that.", "I do not hunt. I wait.", "Hsssss."],
+            hall: ["I do not hunt. I circle things that are running out of money and I wait. It is called patience, and it scales.", "Hsss. How long is your runway? ...Only asking."],
+        ),
+        hall_dialogue_id: Some("hall_vulture"),
         ),
     },
 )

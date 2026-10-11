@@ -40,6 +40,9 @@ pub(super) fn register(app: &mut App) {
         // Character props: drawn at their native aspect ratio.
         HeldItemArtEntry::new("axe", "sprites/props/axe.png", Vec2::new(40.0, 18.0)),
         HeldItemArtEntry::new("javelin", "sprites/props/javelin.png", Vec2::new(58.0, 7.0)),
+        // The coconut (renderer target `coconut`): a thing to throw, and what
+        // the African swallow carries.
+        HeldItemArtEntry::new("coconut", "sprites/props/coconut.png", Vec2::new(18.0, 15.0)),
         // The heavy archetype authors a distinct item id but the same gun-sword art.
         HeldItemArtEntry::new(
             "gun_sword",
@@ -117,6 +120,7 @@ mod tests {
         for id in [
             "axe",
             "javelin",
+            "coconut",
             "gun_sword",
             "gun_sword_heavy",
             "blink",

@@ -641,6 +641,96 @@ Owl: Hoo. Before you ask: you are a "visitor". A visitor is a kind of "agent". A
     Owl: Then it is not. ...That is the weak place in my method. Do not tell the parrot.
 ===
 
+title: hall_chicken_hen
+---
+Hen: Buk. You have met him. He runs at you and he will not turn. I run at you and I will not turn either.
+-> So there are two of you.
+    Hen: Two games at once, and you are in both. Do the sum. I did, on the way here.
+-> Which of you is worse?
+    Hen: He tells you he will not swerve. I do not tell you anything. Buk.
+===
+
+title: hall_kiwi
+---
+Kiwi: Sniff. You are looking for the cassowary. Everybody is. I do the same work. Give me what must be true and I find where everything goes.
+-> Then why are you so small?
+    Kiwi: Because the work does not need the rest of the bird. Sniff. Less room. Less time. Same answer.
+-> What are you sniffing for?
+    Kiwi: A loose constraint. There is always one. It is usually under your left foot.
+===
+
+title: hall_emu
+---
+Emu: Boom. Ask me to be a bird and I will run that bird. Ask me to be an old machine and I will run that. I am an emu today because nobody asked.
+-> Is it the same as the real thing?
+    Emu: Every answer the same. Only later. If you cannot tell from outside, there is no outside to tell from. Boom.
+-> I heard you won a war.
+    Emu: They brought machine guns. We brought legs. The report says we "withdrew in good order". Read it. It is short.
+===
+
+title: hall_ostrich
+---
+Ostrich: Honk. There is a problem behind you. Do not look. If it happens once in a thousand years, the cheapest fix is not to look.
+-> And when it does happen?
+    Ostrich: Then you start again, and you are still ahead of the bird who spent the thousand years guarding against it.
+-> That sounds irresponsible.
+    Ostrich: It sounds like every machine you have ever used. I only say it out loud.
+===
+
+title: hall_ostrich_hen
+---
+Ostrich Hen: He is the black one with the plumes. I am the colour of the ground. Guess which of us the problem finds first.
+-> So you ignore problems too?
+    Ostrich Hen: Better than he does. He puts his head in the sand. I was never seen at all.
+-> Do you two ever disagree?
+    Ostrich Hen: We would have to look at the same thing first. Honk.
+===
+
+title: hall_cassowary
+---
+Cassowary: Stay. There. Tell me what must be true of you, and how much each thing matters. Required. Strong. Medium. Weak.
+-> What happens then?
+    Cassowary: Then I tell you where you stand, to the unit. When the things you want cannot all be true, the weak ones lose. Boom.
+-> And if I do not like the answer?
+    Cassowary: Change what you asked for. Do not change me. People try. Look at my foot before you try.
+===
+
+title: hall_shoebill
+---
+Shoebill: ...
+-> Hello?
+    Shoebill: ... I heard. I have not answered because nothing needs the answer yet. When something does, you get all of it at once.
+-> Are you going to move?
+    Shoebill: When the value is needed. Not before. Standing costs nothing. CLACK.
+===
+
+title: hall_european_swallow
+---
+European Swallow: Tswit. Before you ask: European. They always ask which kind before they ask anything else.
+-> How fast are you?
+    European Swallow: It depends what I am carrying. Today, nothing. So: faster than anything else in this hall.
+-> And the other swallow?
+    European Swallow: Carries a coconut. By choice. I go south every year, and I have never needed a coconut where I was going.
+===
+
+title: hall_african_swallow
+---
+African Swallow: Yes. Coconuts. Yes. I carry them. I grip one by the husk.
+-> Is it not too heavy?
+    African Swallow: It is a question of weight ratios, and I am tired of the question. It is heavy. I carry it. Both are true. Oof.
+-> Where is your coconut now?
+    African Swallow: There is no palm in this hall. Show me a room with a palm and stand under me. I do not migrate. I commute.
+===
+
+title: hall_vulture
+---
+Vulture: Hsss. Sit. You look tired. How long is your runway?
+-> My what?
+    Vulture: The time you have left before the money is gone. Everybody has a number. I do not hunt. I wait for the number.
+-> And then?
+    Vulture: And then I am very helpful, on my terms. It is called patience. It scales. Hsss.
+===
+
 title: hall_npc_smart_house
 ---
 Smart House: Current temperature: acceptable. Lighting: poor. No occupancy sensors anywhere in this hall. Primitive.

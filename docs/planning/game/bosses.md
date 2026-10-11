@@ -133,9 +133,12 @@ stochastic parrots, raptors").**
   its own: the body moves as `grab_shake` moves his jaw
   (`trex_fight::the_body_in_his_jaws_is_where_his_rig_says_his_jaw_is`).
 - The call (`trex_call`, phase 2 on): a pair of one kind of his flock, the
-  next kind each call (`FLOCK` in his conductor): stochastic parrots from the
-  high corners, chickens along the floor, owls from the high corners.
-  Enraged, raptors along the floor first; at most four alive
+  next kind each call (`FLOCK` in his conductor, eleven kinds): parrots,
+  chickens, owls, kiwis, emus, European swallows, ostriches, African
+  swallows, cassowaries, shoebills, vultures. The flyers come down from the
+  high corners and the runners come in along the floor. A kind whose two
+  sexes do not look alike comes as a cock and a hen (the chicken, the
+  ostrich). Enraged, raptors along the floor first; at most four alive
   (`BossConduct::minions`). A new kind of bird is one row of `FLOCK` and one
   buildable row of the character catalog
   (`trex_fight::each_call_brings_the_next_kind_of_his_flock`).

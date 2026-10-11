@@ -12,11 +12,13 @@ pub mod authoring;
 pub mod composition;
 pub mod lifecycle;
 pub mod session_contents;
+pub mod world_source;
 
 pub use authoring::{
-    AuthoredCatalogFragments, IntoPreparedSource, PlatformerAuthoredCatalogRegistry,
-    PlatformerAuthoringRegistrationError, PlatformerExperienceAuthoring, WorldRefusal,
+    AuthoredCatalogFragments, PlatformerAuthoredCatalogRegistry,
+    PlatformerAuthoringRegistrationError, PlatformerExperienceAuthoring,
 };
+pub use world_source::{IntoPreparedSource, WorldRefusal};
 pub use composition::ShellComposition;
 pub use session_contents::{SessionContents, SessionContentsCatalog, SessionContentsFn};
 pub use lifecycle::{

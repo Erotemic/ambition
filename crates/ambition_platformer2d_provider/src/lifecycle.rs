@@ -26,7 +26,7 @@ use bevy::prelude::*;
 use ambition_game_shell::{
     ActiveGameplaySession, GameplayInputOwner, GameplaySessionEvent,
     GameplaySessionSet, PreparedSessionIdentity, PreparedSessionRegistry, ProviderLoadTransaction,
-    ShellEvent, PREPARE_ADAPTIVE_WORK_ID, PREPARE_CATALOGS_WORK_ID, PREPARE_DEFAULTS_WORK_ID,
+    PREPARE_ADAPTIVE_WORK_ID, PREPARE_CATALOGS_WORK_ID, PREPARE_DEFAULTS_WORK_ID,
     PREPARE_FIRST_ROOM_ART_WORK_ID, PREPARE_MUSIC_WORK_ID, PREPARE_PACKED_SFX_WORK_ID,
     PREPARE_SESSION_WORK_ID, PREPARE_SFX_WORK_ID, PREPARE_SPRITES_WORK_ID, PREPARE_WORLD_WORK_ID,
 };
@@ -218,48 +218,6 @@ fn update_streamable_packed_sfx(
             state: ambition_load::LoadWorkState::Complete,
         });
         readiness.pending_packed_sfx.remove(&load_id);
-    }
-}
-
-/// True when the shell requested preparation for `experience_id` this frame —
-/// the run gate that keeps a provider's session-world source from building
-/// worlds on frames nobody asked for.
-pub(crate) fn preparation_requested(
-    experience_id: String,
-) -> impl FnMut(MessageReader<ShellEvent>) -> bool {
-    move |mut events: MessageReader<ShellEvent>| {
-        events.read().any(|event| {
-            matches!(
-                event,
-                ShellEvent::PreparationRequested(transaction)
-                    if transaction.experience_id.as_str() == experience_id
-            )
-        })
-    }
-}
-
-/// The shared preparation system body: piped after a provider's session-world
-/// source (tagged with its experience id), it gives every matching transaction
-/// an owned copy of that authored world value, or fails its world preparation
-/// with the source's refusal.
-pub(crate) fn prepare_requested_sessions(
-    In((experience_id, source)): In<(String, Result<PreparedPlatformerSource, crate::WorldRefusal>)>,
-    mut events: MessageReader<ShellEvent>,
-    mut preparation: PlatformerPreparation,
-) {
-    for event in events.read() {
-        let ShellEvent::PreparationRequested(transaction) = event else {
-            continue;
-        };
-        if transaction.experience_id.as_str() != experience_id {
-            continue;
-        }
-        match &source {
-            Ok(source) => {
-                preparation.prepare(transaction, source.clone());
-            }
-            Err(refusal) => preparation.refuse_world(transaction, refusal),
-        }
     }
 }
 
@@ -834,19 +792,7 @@ impl PlatformerPreparation<'_> {
         self.set_state(transaction, work_id, ambition_load::LoadWorkState::Complete);
     }
 
-    /// Fail `transaction`'s world preparation: the provider could not build
-    /// its world. Retryable, because the usual cause is a file the developer
-    /// can save again.
-    fn refuse_world(&mut self, transaction: &ProviderLoadTransaction, refusal: &crate::WorldRefusal) {
-        self.fail(
-            transaction,
-            PREPARE_WORLD_WORK_ID,
-            ambition_load::LoadFailure::new("This world could not be built.", refusal.reasons.join("\n"))
-                .retryable(true),
-        );
-    }
-
-    fn fail(
+    pub(crate) fn fail(
         &mut self,
         transaction: &ProviderLoadTransaction,
         work_id: &'static str,

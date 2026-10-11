@@ -428,9 +428,17 @@ level part of each horn); each shoulder has an epaulet.
 **The fight Jon proposed.**
 
 - Phase 1 (short). The fists are on the arms, so they do not reach far. The
-  scholar opens a REAL portal pair for a time. The giant punches through
-  it, and the fist comes out by the player. While the pair is open the
-  player can jump through it to the shoulders and strike the scholar.
+  scholar opens a REAL portal pair for a time: one flat line by the giant's
+  shoulder, one flat line over the player's head. The giant lifts a fist
+  and punches DOWN into the near line, and the fist comes down out of the
+  far one. A punch down needs no turn of the giant's chest. While the pair
+  is open the player can jump up into the far line (a double jump: for now
+  the fight is made for the full set of abilities) and come up out of the
+  near one, by the shoulders, to strike the scholar. A punch up through a
+  line under a player who jumps, or a line at an angle, were thought of and
+  not chosen.
+- The portals are NOT in the sprite. The game draws them with the engine's
+  portal effect: a thin line of light, two places of the room made one.
 - After a few hits the scholar is angry. He calls portals that STAY. Each
   arm goes into one, and its fore arm and fist come out of another that
   floats: the choreography of today's two fists, with a reason in the

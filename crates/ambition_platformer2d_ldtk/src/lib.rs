@@ -365,6 +365,31 @@ impl LdtkProject {
             }
         }
 
+        // An area is one room, so its levels give it one value for each field.
+        // The merge in the composer keeps the first and drops the others, so
+        // two values here would give a room that plays one of them, with no
+        // message. Fold in the composer's order (file order) and refuse each
+        // disagreement.
+        let mut area_metadata: BTreeMap<String, ambition_platformer2d_world::rooms::RoomMetadata> =
+            BTreeMap::new();
+        for level in &self.levels {
+            let next = level.level_metadata();
+            let Some(merged) = area_metadata.get_mut(&level.active_area()) else {
+                area_metadata.insert(level.active_area(), next);
+                continue;
+            };
+            for (field, kept, dropped) in merged.conflicts(&next) {
+                report.errors.push(format!(
+                    "active area '{}' sets `{field}` to {kept} in an earlier level and to \
+                     {dropped} in level '{}'; the room keeps the first and drops the second, \
+                     so set it on one level only",
+                    level.active_area(),
+                    level.identifier
+                ));
+            }
+            merged.merge(next);
+        }
+
         report
     }
 

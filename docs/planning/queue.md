@@ -722,9 +722,18 @@ second authoring source.
   event, so the validator accepted a step on a pickup that could not advance.
   `collect_ecs_pickups` writes `ItemCollected(pickup id)`, the placement id
   the validator reads (`a_collected_pickup_reports_its_id_to_the_quests`).
-  No shipped quest uses it. Open: the cutscene bindings still read `active_area_ids`
-  from the project; that is the level-by-level read the two-per-room rule
-  needs.
+  No shipped quest uses it.
+  ✅ 2026-10-11, an area's metadata has one owner. Two levels of one active
+  area that set one field to two values were refused only for
+  `entry_cutscene`, by a per-room count in the content validator; the other 14
+  fields merged first-wins with no message. `LdtkProject::validate` folds each
+  area's levels in the composer's order and refuses each field that
+  `RoomMetadata::conflicts` names
+  (`two_levels_of_one_area_cannot_give_it_two_entry_cutscenes`, red with the
+  `entry_cutscene` arm removed; the control is one value on two levels). The
+  validator's per-room count and its `active_area_ids` room check, which held
+  by construction, are deleted; it keeps the missing-script check. Shipped
+  worlds: 0 conflicts.
   ✅ 2026-10-07, `scripts/check_world_graph_is_navigable.py` read the zone
   targets untrimmed, so it was stricter than the engine (a `"vault "` target
   resolves in the game and was reported as dangling). It reads them with the

@@ -2022,6 +2022,40 @@ mod tests {
         );
     }
 
+    /// An area is one room, and its levels fold into one metadata. The LDtk
+    /// owner refuses two levels of one area that set one field to two values,
+    /// which the fold would keep one of with no message.
+    #[test]
+    fn two_levels_of_one_area_cannot_give_it_two_entry_cutscenes() {
+        let errors_of = |first: &str, second: &str| {
+            let mut project = synthetic_level(vec![]);
+            let mut east = project.levels[0].clone();
+            east.iid = "east-iid".into();
+            east.identifier = "registry_lab_east".into();
+            east.world_x = 640;
+            east.layer_instances[0].entity_instances.clear();
+            project.levels[0].field_instances.push(level_field("entry_cutscene", text(first)));
+            east.field_instances.push(level_field("entry_cutscene", text(second)));
+            project.levels.push(east);
+            project.validate(&LdtkVocabulary::engine()).errors
+        };
+
+        let two = errors_of("intro", "second");
+        assert_eq!(
+            two.iter().filter(|error| error.contains("sets `entry_cutscene`")).collect::<Vec<_>>(),
+            vec![
+                "active area 'registry_lab' sets `entry_cutscene` to \"intro\" in an earlier level \
+                 and to \"second\" in level 'registry_lab_east'; the room keeps the first and \
+                 drops the second, so set it on one level only"
+            ],
+            "all errors: {two:?}"
+        );
+
+        // Control: the same value twice is one value; the area is accepted.
+        let same = errors_of("intro", "intro");
+        assert!(same.is_empty(), "one value on two levels was refused: {same:?}");
+    }
+
     /// A zone is found by its id in its room. The LDtk owner refuses a blank
     /// id, which names nothing, and a second zone of the area with the same
     /// id, which is never found.

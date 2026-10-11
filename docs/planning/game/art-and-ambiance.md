@@ -317,9 +317,15 @@ suit the style of the game.
   great curled horns of the first design; a face whose parts make its
   expression (serious, mean, silly); its back and its two shoulders are
   floors, and the art shows a floor with moss (the back, the top of each
-  horn) or with an epaulet (each shoulder), not with a slab. Open: which
-  face it has at rest (six to choose from), then the real target and its
-  rows.
+  horn) or with an epaulet (each shoulder), not with a slab. Its face has
+  no brows and shows no teeth. It has two faces at rest: `ordered` when it
+  does what the scholar says (a small lid on each eye, tilted in a little:
+  focused), and `free` when it is on its own (no lids, the eyes drifting:
+  more vacant). Five more are kept for a giant that reacts (`smile`,
+  `serious`, `angry`, `dazed`, `sleepy`); it does not smile at rest. The
+  design is one drawing script in the renderer
+  (`scripts/svg_art/giant_gnu_art.py`, its `EXPRESSIONS` table). Open: the
+  real target and its rows, and what the new shoulders mean for the fight.
 - **A bird for the giant gnu.** Wanted later (Jon, 2026-10-11): a small
   bird that rides the giant. It is NOT a part of the giant's sprite: it is
   to be an actor of its own, with its own simulation (it sits, it moves, it

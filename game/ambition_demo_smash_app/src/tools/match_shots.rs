@@ -328,7 +328,7 @@ fn knockouts_this_frame(app: &mut App) -> Vec<(ambition_platformer2d::engine_cor
     let mut cursor = messages.get_cursor();
     cursor
         .read(messages)
-        .map(|ko| (ko.pos, ko.eliminated, ko.speed))
+        .map(|ko| (ko.pos, ko.eliminated, ko.launch.length()))
         .collect()
 }
 

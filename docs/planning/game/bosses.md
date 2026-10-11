@@ -411,6 +411,99 @@ So a hall placement does not fire these archetype-keyed consequences:
 - Yarn `boss_cleared("cove.mockingbird")` is keyed by placement, so it is
   unaffected.
 
+## GNU-ton — a giant with arms, and portals (proposed 2026-10-11, Jon)
+
+Not built. The giant's new look is a candidate (see `art-and-ambiance.md`,
+"The giant gnu, redrawn"; `scripts/svg_art/giant_gnu_art.py` in the sprite
+renderer). Concept stills are in `untracked/giant-gnu-candidate/` (not in
+git).
+
+**The body.** A giant like a gnu, almost a centaur: a beast on four long
+legs, a chest that stands up at its front, two arms to two fists, a gnu's
+horns. Its back is a slope from a low rump to the left shoulder, not a flat
+floor. It has two stances: on all fours, and reared up (the slope steeper,
+the shoulders higher). Moss shows where an actor can stand (the slope, the
+level part of each horn); each shoulder has an epaulet.
+
+**The fight Jon proposed.**
+
+- Phase 1 (short). The fists are on the arms, so they do not reach far. The
+  scholar opens a REAL portal pair for a time: one flat line by the giant's
+  shoulder, one flat line over the player's head. The giant lifts a fist
+  and punches DOWN into the near line, and the fist comes down out of the
+  far one. A punch down needs no turn of the giant's chest. While the pair
+  is open the player can jump up into the far line (a double jump: for now
+  the fight is made for the full set of abilities) and come up out of the
+  near one, by the shoulders, to strike the scholar. A punch up through a
+  line under a player who jumps, or a line at an angle, were thought of and
+  not chosen.
+- The portals are NOT in the sprite. The game draws them with the engine's
+  portal effect: a thin line of light, two places of the room made one.
+- The blow is ONE smooth motion, and the arm goes into the line square to
+  it (Jon, 2026-10-11). The arm is one picture at each moment. It is drawn
+  on each side of the pair and cut at the line, so what has gone into the
+  near line is what comes out of the far one, at the same angle. An arm of
+  two stiff bones goes in on a slant, and where it crosses the line moves
+  along it. So the arm WARPS: it is one curve from the shoulder to the
+  wrist, its end held square to the line, and it is longer in the blow than
+  at rest. Concepts as animations: `untracked/giant-gnu-candidate/`
+  (`punch_down.gif`: down into a flat line; `punch_side.gif`: across into
+  an upright one; `punch.gif`: the stiff arm, for comparison). With the
+  warp the lines stay flat or upright, which the engine does exactly: a
+  line at an angle is not needed for this.
+- After a few hits the scholar is angry (Jon, 2026-10-11, the second
+  telling). He calls two portals and the arms go through them. Then he does
+  a new thing: the portals CLAMP DOWN about the arms until they are tight
+  to them. From then they are not real portals: they are the portal LOOK
+  only, the arm fills them, and the player can not use them. The far ends
+  move about the room with the fore arms and the fists, in the patterns
+  that today's two fists have.
+
+**The order of the work (Jon, 2026-10-11).** First the new giant goes into
+the game, with the fight of today. Then the fight is made again, in these
+phases. A portal at an angle may look better and Jon wants angled portals
+in time; they are not a part of this.
+
+**What the engine has for this (read from the code, 2026-10-11; not run).**
+
+- A timed portal pair in free air exists: a move of the smash demo opens
+  one and closes it on a clock (`game/ambition_demo_smash/src/portal.rs`).
+  Each body with kinematics transits it, the player also.
+- A portal with no partner is drawn and does nothing. That is the portal
+  look of phase 2.
+- The look of a portal is a line of light from a shader
+  (`ambition_portal2d_presentation`), not a ring. The ovals in the stills
+  stand in for it.
+
+**What it does not have.**
+
+- The conductor is an extension module and has no port that opens a portal.
+- A fist is posed at an absolute place each tick. A fist that transits is
+  put back on the entry side by the next tick's pose.
+- A fist's damage box is a box in the world at the choreography's place.
+  It is not mapped through a portal: a fist half through hurts nobody at
+  the exit.
+- A fist (about 136 x 114) is larger than the default opening (92 long).
+  Both ends of a pair take the smaller size.
+- A portal can not ride the giant. A free portal that moves 1 px or more is
+  taken as a closed plane, and bodies in it are pushed out.
+- No body can refuse a portal: the scholar, a thrown item, a shot use the
+  pair as the player does.
+- A boss's pair needs its own end: a clock in rollback state, an identity,
+  a despawn on defeat and on a reset of the arena.
+
+**The shape that needs least (a proposal, not decided).** In phase 1 the
+pair is real for the player, and the fist does not transit it: the
+choreography poses the fist on the exit side (it is a body of its own, as
+today) and the arm is drawn into the entry. Then the fist's place and its
+damage box are where the choreography says, as they are today. Open: the
+size of the opening against the size of the fist, and what the pair does
+when the giant bucks or rears.
+
+**Open, for Jon.** Whether the player can walk the slope (about 36 degrees
+on all fours, 46 reared; not checked against the engine). Which shoulder
+the scholar stands on. Where the two fists rest.
+
 ## Mode Collapse music (Q148)
 
 Mode Collapse (`boss_encounters/mode_collapse_boss.ron`, a summoner that floods

@@ -40,7 +40,12 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 TOOLS = HERE.parents[1]
-LDTK = TOOLS.parents[1] / "game" / "ambition_map_assets" / "ambition_content" / "worlds" / "sandbox.ldtk"
+if str(TOOLS) not in sys.path:
+    sys.path.insert(0, str(TOOLS))
+
+from ambition_ldtk_tools.ldtk.paths import default_sandbox_ldtk  # noqa: E402
+
+LDTK = default_sandbox_ldtk()
 
 BIOME = "primeval"
 MUSIC = "dinosaur_liberators"

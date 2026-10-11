@@ -341,6 +341,10 @@
             move_style: Float,
             melee: Some(Bite(windup_s: 0.30, active_s: 0.10, recover_s: 0.44, damage: 2, reach_px: 54.0)),
         ),
+        "penguin_slap": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.22, active_s: 0.08, recover_s: 0.32, damage: 1, reach_px: 30.0)),
+        ),
         "peaceful": (
             move_style: Walk,
             melee: None,
@@ -4370,6 +4374,39 @@
             hall: ["I do not hunt. I circle things that are running out of money and I wait. It is called patience, and it scales.", "Hsss. How long is your runway? ...Only asking."],
         ),
         hall_dialogue_id: Some("hall_vulture"),
+        ),
+        // The penguin is free software on two feet (free as in fish). It
+        // waddles; when it wants to go fast it goes down on its belly and
+        // slides, so it comes at you quicker than it looks, and it hurts to be
+        // slid into. One look for both sexes.
+        "penguin": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Open-Source Penguin",
+            spritesheet: "sprites/penguin_spritesheet.png",
+            manifest: "sprites/penguin_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "penguin_slap",
+            locomotion: Some((run_speed: 235.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.45, amount: 1)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 700.0,
+                attack_range: 30.0,
+                patrol_effort: 0.4,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "bird", "minion"],
+        barks: (
+            on_hit: ["NOOT!", "That was not in the licence."],
+            provoked: ["Forking you."],
+            idle: ["Noot.", "I am free. As in fish.", "Read my source. All of it."],
+            hall: ["Everything I am is written down, and you may read it. Change it. Pass it on.", "Noot. Walking is the reference build. The belly is the fast path."],
+        ),
+        hall_dialogue_id: Some("hall_penguin"),
         ),
     },
 )

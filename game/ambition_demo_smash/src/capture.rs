@@ -42,6 +42,7 @@ use ambition_platformer2d::engine_core as ae;
         app.add_message::<ambition_platformer2d::vfx::FxRequest>();
         app.add_message::<ambition_platformer2d::characters::brain::ActorActionMessage>();
         app.add_message::<ambition_platformer2d::combat::capture::CaptureAttemptRequested>();
+        app.add_message::<ambition_platformer2d::combat::capture::GrabsParried>();
         app.add_message::<ambition_platformer2d::combat::capture::CapturePummelRequested>();
         app.add_message::<ambition_platformer2d::combat::capture::CaptureThrowRequested>();
         // The carry message: a system that writes four messages fails parameter
@@ -73,6 +74,7 @@ use ambition_platformer2d::engine_core as ae;
                 ambition_platformer2d::render::fx::process_fx_requests,
                 ambition_platformer2d::combat::capture::systems::translate_authored_capture_effects,
                 acquire_captures,
+                ambition_platformer2d::combat::capture::systems::rebound_from_parried_grabs,
                 apply_capture_pummels,
                 apply_capture_throws,
                 ambition_platformer2d::combat::capture::systems::apply_capture_carries,

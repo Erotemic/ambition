@@ -97,6 +97,19 @@ pub struct CaptureAttemptRequested {
     pub hold_offset: ae::Vec2,
 }
 
+/// Two bodies grabbed each other on one tick, and neither grab holds.
+///
+/// ⭐ THE PAIR, not a winner, for the reason [`crate::clank::AttacksClanked`]
+/// names its pair: a mutual grab is a tie, and a tie has no first party. Each
+/// grab ends, and both bodies rebound (`rebound_from_parried_grabs`), as two
+/// attacks that clank do. A rule that gave one of them the hold would treat two
+/// mirrored bodies differently (Q49).
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GrabsParried {
+    /// The two bodies, ascending.
+    pub owners: (Entity, Entity),
+}
+
 /// A carry: the captor takes the captive's weight and keeps hold of it.
 ///
 /// ⛔ IT CARRIES NO VICTIM, like a pummel and unlike a grab, because the

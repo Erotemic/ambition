@@ -307,6 +307,26 @@ pub fn rebound_from_clanks(
         .copied()
         .unwrap_or_default()
         .knockback_recoil_lock_time;
+    recoil_apart(
+        clanked.read().map(|clank| clank.owners),
+        |body| tuning.of(body).unwrap_or_default().clank_rebound_speed,
+        lock,
+        &mut bodies,
+    );
+}
+
+/// Push each body of `pairs` away from the other body of its pair, and lock it
+/// for `lock` seconds: the rebound of a tie. A clank and a parried grab are two
+/// ties, and they rebound one way.
+pub fn recoil_apart(
+    pairs: impl IntoIterator<Item = (Entity, Entity)>,
+    speed_of: impl Fn(Entity) -> f32,
+    lock: f32,
+    bodies: &mut Query<(
+        &mut ae::BodyKinematics,
+        &mut ambition_characters::actor::BodyCombat,
+    )>,
+) {
     // ⛔⛔ ONE RECOIL PER FIGHTER PER TICK, NOT ONE PER PAIR. Arbitration emits a
     // message for every qualifying PAIR, so three mutually-overlapping attacks
     // announce AB, AC and BC — and applying an impulse per message pushed the
@@ -330,8 +350,7 @@ pub fn rebound_from_clanks(
             None => recoil.push((body, away)),
         }
     };
-    for clank in clanked.read() {
-        let (a, b) = clank.owners;
+    for (a, b) in pairs {
         // The axis, once, from the pair. `get_many` is not used because the two
         // owners are looked up mutably one at a time below.
         let (Ok(a_pos), Ok(b_pos)) = (
@@ -365,8 +384,7 @@ pub fn rebound_from_clanks(
         // through the beat just because the geometry was symmetrical.
         combat.recoil_lock_timer = combat.recoil_lock_timer.max(lock);
         if total.length_squared() > f32::EPSILON {
-            let rules = tuning.of(body).unwrap_or_default();
-            kin.vel += total.normalize() * rules.clank_rebound_speed;
+            kin.vel += total.normalize() * speed_of(body);
         }
     }
 }

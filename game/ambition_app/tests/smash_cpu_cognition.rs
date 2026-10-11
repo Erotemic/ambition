@@ -238,14 +238,21 @@ fn play_mirror_match(
     Vec<(usize, u64)>,
     // The two seats' full state on each frame both are seated.
     Vec<[SeatState; 2]>,
-    // ⭐ WHICH FRAMES A GRAB WAS LIVE ON. A mutual grab is a TIE, and resolving
-    // one is the single gameplay rule on this stage that treats two mirrored
-    // bodies differently — see `acquire_captures`. The mirror below is allowed
-    // to break there and nowhere else, so the reflection test needs to know
-    // where "there" was.
-    Vec<bool>,
+    // How many mutual grabs were parried in the window (`GrabsParried`): the
+    // tie that once parted a mirror.
+    usize,
 ) {
     let mut app = host();
+    #[derive(bevy::prelude::Resource, Default)]
+    struct Parries(usize);
+    fn count_parries(
+        mut parried: bevy::prelude::MessageReader<ambition_platformer2d::combat::capture::GrabsParried>,
+        mut parries: bevy::prelude::ResMut<Parries>,
+    ) {
+        parries.0 += parried.read().count();
+    }
+    app.init_resource::<Parries>();
+    app.add_systems(bevy::prelude::Last, count_parries);
 
     // NON-VACUITY, and it is the whole point of running in this host: the
     // character must be one a player can actually PICK. `SmashRoster::assemble`
@@ -274,7 +281,6 @@ fn play_mirror_match(
         )));
 
     let mut frames: Vec<[SeatState; 2]> = Vec::new();
-    let mut grabbing: Vec<bool> = Vec::new();
 
     // ⛔⛤ **WAIT FOR THE PREMISE, THEN MEASURE — THIS USED TO SPEND A FIXED
     // BUDGET AND COUNT WHATEVER LANDED IN IT, AND THAT IS A MEMBER OF THE P0
@@ -318,12 +324,7 @@ fn play_mirror_match(
     // means this frame is guaranteed to exist, so there is no "not seated yet"
     // state left for an `is_empty()` check to stand for.
     let streams = fighter_streams(&mut app);
-    let held_now = |app: &mut App| {
-        let world = app.world_mut();
-        let mut q = world.query::<&ambition_platformer2d::combat::capture::CapturedBy>();
-        q.iter(world).next().is_some()
-    };
-    grabbing.push(held_now(&mut app));
+    let parries_before = app.world().resource::<Parries>().0;
     frames.push(first_two_seated);
 
     // ⚠ STILL CONDITIONAL ON TWO SEATS, because a body LEAVING mid-window (a KO,
@@ -334,7 +335,6 @@ fn play_mirror_match(
     for tick in 1..ticks {
         app.update();
         if let Some(seated) = seat_states(&mut app) {
-            grabbing.push(held_now(&mut app));
             frames.push(seated);
         } else if left_mid_window.is_none() {
             left_mid_window = Some(tick);
@@ -350,7 +350,8 @@ fn play_mirror_match(
          warmup={warmup} observed={} left_mid_window={left_mid_window:?}",
         frames.len(),
     );
-    (streams, frames, grabbing)
+    let parries = app.world().resource::<Parries>().0 - parries_before;
+    (streams, frames, parries)
 }
 
 /// EMMY'S AUTHORED MIRROR SYMMETRY REACHES THE REAL SELECTABLE CHARACTER,
@@ -407,30 +408,29 @@ fn two_seats_of_an_ordinary_selectable_fighter_do_not_share_a_stream() {
     );
 }
 
-/// ⭐ TWO EMMYS ARE ONE FIGHTER REFLECTED, TICK BY TICK, UNTIL THE FIRST
-/// GRAB (Q49, MIRROR-SYMMETRY).
+/// ⭐ TWO EMMYS ARE ONE FIGHTER REFLECTED, TICK BY TICK, THROUGH A MUTUAL
+/// GRAB (Q49, MIRROR-SYMMETRY, S0.2).
 ///
 /// Each frame compares the state that can part (`first_unreflected_field`):
 /// position, velocity, facing, the move and its clock, the published control
 /// and the stream position. Lateral values must negate about the stage
 /// midline; the others must be equal. A part reports its frame and field.
 ///
-/// The stage has one authored asymmetry: two bodies that grab each other on
-/// one tick are a tie, and the lower `SimId` takes the hold
-/// (`two_bodies_grabbing_each_other_on_one_tick_make_one_hold`). A mirror is
-/// a fixed point, so no tie rule keeps the reflection; granting neither grab
-/// was measured at zero captures in a minute. So the mirror may part when the
-/// first grab holds, and not before. Measured 2026-10-08: the first part is on
-/// frame 883, when seat 0's grab dash takes seat 1 and seat 1's is cancelled.
+/// Two bodies that grab each other on one tick parry: neither grab holds and
+/// both rebound (`two_bodies_grabbing_each_other_on_one_tick_parry_and_rebound`).
+/// The lower `SimId` took the hold before, and the mirror parted there
+/// (measured 2026-10-08: frame 883, when seat 0's grab dash took seat 1). Now
+/// no rule on this stage treats the two seats differently, so they never part,
+/// and the window must hold at least one parry for that to say anything.
 ///
 /// The control: two ordinary fighters, whose streams differ by policy, part
 /// on a body field inside the same window, so the comparison can say no.
 #[test]
-fn two_emmys_are_one_fighter_reflected_until_the_first_grab() {
+fn two_emmys_are_one_fighter_reflected_through_a_mutual_grab() {
     // One window for both pairs.
     const WINDOW: usize = 1200;
 
-    let (emmy_streams, emmy_frames, emmy_grabbing) = play_mirror_match(EMMY, WINDOW);
+    let (emmy_streams, emmy_frames, emmy_parries) = play_mirror_match(EMMY, WINDOW);
     let (ordinary_streams, ordinary_frames, _) = play_mirror_match(ORDINARY, WINDOW);
 
     // Non-vacuity: both matches ran, the spawns are apart, and the pairs
@@ -460,13 +460,10 @@ fn two_emmys_are_one_fighter_reflected_until_the_first_grab() {
     );
 
     let emmy_part = first_part(&emmy_frames, true);
-    let first_grab = emmy_grabbing.iter().position(|held| *held);
     let ordinary_part = first_part(&ordinary_frames, false);
-    // Reported on success too: the grab clause works only when the mirror
-    // parts, and a reader must see where it did.
     println!(
-        "[mirror] emmy first part {emmy_part:?} of {} frames, first grab at \
-         {first_grab:?}; {ORDINARY} first body part {ordinary_part:?}",
+        "[mirror] emmy first part {emmy_part:?} of {} frames, {emmy_parries} parried \
+         grab(s); {ORDINARY} first body part {ordinary_part:?}",
         emmy_frames.len(),
     );
 
@@ -477,17 +474,22 @@ fn two_emmys_are_one_fighter_reflected_until_the_first_grab() {
          body field for {} frames, so this comparison cannot tell one mind from two",
         ordinary_frames.len(),
     );
-    // THE CLAIM: two Emmys part only where the grab tie is resolved.
-    if let Some((part, field)) = &emmy_part {
-        assert!(
-            first_grab.is_some_and(|grab| part + 1 >= grab),
-            "two Emmys parted on frame {part} of {} ({field}) and the first grab \
-             was at frame {first_grab:?}. A mirror that parts before the grab tie \
-             has an asymmetry no authored rule names: a `signum(0)` side, a \
-             list-order tie or a per-seat draw (fighter-brain.md, Q49)",
-            emmy_frames.len(),
-        );
-    }
+    // THE CLAIM: two Emmys never part, and the window held the tie that once
+    // parted them.
+    assert!(
+        emmy_parries > 0,
+        "the Emmys parried no grab in {} frames, so this window never reached the \
+         mutual grab and says nothing about it",
+        emmy_frames.len(),
+    );
+    assert_eq!(
+        emmy_part,
+        None,
+        "two Emmys parted on a frame of {}. A mirror that parts has an asymmetry \
+         no authored rule names: a `signum(0)` side, a list-order tie or a per-seat \
+         draw (fighter-brain.md, Q49)",
+        emmy_frames.len(),
+    );
 }
 
 /// A match of two CPU fighters on the Smash stage, in the real host, after

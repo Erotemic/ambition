@@ -126,14 +126,14 @@ cargo run --release -p ambition_demo_smash_app --bin smash_tool -- ladder-rig \
   --ladder game/ambition_content/assets/data/fighter_brain_ladder.ron
 ```
 
-**Known seat term.** The contested-grab tie-break
-(`ambition_combat::capture::systems`) awards a same-tick mutual grab to the
-lower `SimId`, which is seat 0. Measured 2026-10-08 (rung 6, shipped ladder,
-40 paired seeds, three fighters): seat 0 takes 26 of 45 decided pairs (58%,
-within spread), and with the comparator inverted it takes 19 of 45; each
-fighter's split swaps exactly. So the grab tie is the whole seat term in this
-control. The tie-break itself is correct: a mirror is a fixed point, and
-granting nobody the grab was measured at zero captures. The figures are in
+**Seat term (removed 2026-10-11).** The contested-grab tie-break gave a
+same-tick mutual grab to the lower `SimId`, which is seat 0. Measured
+2026-10-08 (rung 6, shipped ladder, 40 paired seeds, three fighters): seat 0
+took 26 of 45 decided pairs (58%, within spread), and with the comparator
+inverted 19 of 45; each fighter's split swapped exactly, so the grab tie was
+the whole seat term in this control. A mutual grab now parries: neither grab
+holds and both bodies rebound (S0.2), so no rule treats the seats differently.
+The ladder rig has not been run again since; the figures are in
 `ladder_rig.rs` (`--rungs` docs).
 
 **Open rig change.** `--paired` exchanges the two seats' noise streams, which
@@ -189,15 +189,16 @@ only so that CPUs look different is not allowed.
 **Coverage today (2026-10-04).**
 
 - `game/ambition_app/tests/smash_cpu_cognition.rs`,
-  `two_emmys_are_one_fighter_reflected_until_the_first_grab` (2026-10-08,
-  plan item 1): each of 1200 frames compares position, velocity, facing, the
-  move and its clock, the published control and the stream position (lateral
-  values negate about the midline) and reports the first frame and field that
-  part. Two Emmys may part only when the first grab holds (the grab tie). The
-  control: two ordinary fighters part on a body field. Measured: the Emmys
-  part on frame 883, when one grab dash takes the other. It replaced an
-  outcome test that compared positions only and asked Emmy to hold 1.5x
-  longer than an ordinary pair.
+  `two_emmys_are_one_fighter_reflected_through_a_mutual_grab` (2026-10-08,
+  plan item 1; the grab clause 2026-10-11): each of 1200 frames compares
+  position, velocity, facing, the move and its clock, the published control
+  and the stream position (lateral values negate about the midline) and
+  reports the first frame and field that part. Two Emmys must not part, and
+  the window must hold a parried grab. The control: two ordinary fighters part
+  on a body field. Before the parry the Emmys parted on frame 883, when the
+  lower `SimId`'s grab dash took the other. It replaced an outcome test that
+  compared positions only and asked Emmy to hold 1.5x longer than an ordinary
+  pair.
 - The probe above (`--noise 0` trace) finds defects by hand; it is not a test.
 - `two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list`,
   `the_reset_leaves_the_facing_to_its_caller` and
@@ -232,10 +233,10 @@ scene or an authored rule that must be named):**
   in both: they ask `util::SignumOr` (see Coverage).
 - `brain/smash/mod.rs`, perch side: falls back to `toward` only near zero, else
   an absolute `cross.signum()` from a seed phase.
-- Grab contention: `capture/systems.rs` breaks a same-tick tie by `SimId`.
-  Triaged 2026-10-08: an authored rule (the genre's port order), not a
-  defect. `two_bodies_grabbing_each_other_on_one_tick_make_one_hold` runs
-  both spawn orders, so a tie-break by entity order fails it (poisoned).
+- Grab contention: a same-tick mutual grab was a tie broken by `SimId`.
+  Since 2026-10-11 it parries (S0.2), with no winner:
+  `two_bodies_grabbing_each_other_on_one_tick_parry_and_rebound` runs both
+  spawn orders and both message orders.
 - Target selection breaks an exact-distance tie by `SimId`
   (`ambition_combat/src/targeting.rs`). Triaged 2026-10-08: not reachable
   in a two-fighter mirror, where each body has one foe.
@@ -245,10 +246,10 @@ scene or an authored rule that must be named):**
   reports, and no production reader reads those two fields: the brain asks
   `regained()` and `bounded_by()`, which do not depend on the order. A
   reader that wants `steps` must take the minimum over the efforts first.
-- The measured seat term. Triaged 2026-10-08: it is the grab tie above.
-  Inverting the tie swaps each fighter's split exactly (see **Known seat
-  term**). The record before was 69% of decided pairs (40 : 18); it is 58%
-  (26 : 19, within spread) now, and what moved it was not bisected.
+- The measured seat term. Triaged 2026-10-08: it was the grab tie above,
+  which is gone (see **Seat term**). The record was 69% of decided pairs
+  (40 : 18), then 58% (26 : 19, within spread); what moved it was not
+  bisected.
 
 **Per-seat streams.** Ordinary fighters seed cognition per seat
 (`fighter_cognition_seed` in `actor_spawn/brain_builders.rs`), and Emmy opts

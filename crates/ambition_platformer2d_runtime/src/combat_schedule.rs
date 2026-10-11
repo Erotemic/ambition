@@ -525,6 +525,7 @@ impl Plugin for CombatSchedulePlugin {
         // demo's own comment had already written the rule: a system that writes
         // four messages does not run in a world that registers three.
         app.add_message::<ambition_combat::capture::CaptureAttemptRequested>();
+        app.add_message::<ambition_combat::capture::GrabsParried>();
         app.add_message::<ambition_combat::capture::CapturePummelRequested>();
         app.add_message::<ambition_combat::capture::CaptureThrowRequested>();
         app.add_message::<ambition_combat::capture::CaptureCarryRequested>();
@@ -584,6 +585,8 @@ impl Plugin for CombatSchedulePlugin {
                 // consumed a tick late. The whole mechanic moves together.
                 ambition_combat::capture::systems::translate_authored_capture_effects,
                 ambition_combat::capture::systems::acquire_captures,
+                // A parried grab rebounds in the tick it was parried.
+                ambition_combat::capture::systems::rebound_from_parried_grabs,
                 // and posed the SAME tick it is caught. The pose sync also
                 // runs in `WorldPrep`, which is EARLIER in the tick than this —
                 // so without this second call a body grabbed now would hang where

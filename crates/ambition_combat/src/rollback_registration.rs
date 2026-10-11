@@ -335,6 +335,11 @@ where
         OWNER,
         "message.capture_attempt_requested",
     );
+    // Written by the acquisition and read by the rebound after it, in one tick.
+    registrar.clear_message_on_rollback::<crate::capture::GrabsParried>(
+        OWNER,
+        "message.grabs_parried",
+    );
     registrar.clear_message_on_rollback::<crate::capture::CapturePummelRequested>(
         OWNER,
         "message.capture_pummel_requested",

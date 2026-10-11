@@ -1465,10 +1465,9 @@ not worth).
 Q49: symmetry is a correctness property. Plan:
 [`engine/fighter-brain.md`](engine/fighter-brain.md#mirror-symmetry-is-a-correctness-property-q49).
 Two Emmys are one fighter reflected, compared per tick over the full state
-(`two_emmys_are_one_fighter_reflected_until_the_first_grab`), until frame 883,
-when one grab takes the other: the grab tie is an authored rule
-(`two_bodies_grabbing_each_other_on_one_tick_make_one_hold`), and inverting it
-swaps each fighter's split exactly. The decision layer has its reflection test.
+(`two_emmys_are_one_fighter_reflected_through_a_mutual_grab`). They parted on
+frame 883 while a mutual grab went to the lower `SimId`; since 2026-10-11 a
+mutual grab parries (S0.2) and they do not part. The decision layer has its reflection test.
 Each poison of plan item 5 is red: placement and an unmirrored stream in the
 match; the zero-lateral `signum`, the floor list order and the left-first
 `nearest_support` in their unit witnesses, which the match does not reach.

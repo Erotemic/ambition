@@ -116,7 +116,7 @@ fn scene(sim: &mut Platformer2dSimHarness) -> Scene {
         .query_filtered::<(&ae::BodyKinematics, &LimbRig, Has<ae::Unmirrored>, &FeatureId, &BackLedge), Without<Limb>>()
         .iter(world)
         .next()
-        .map(|(kin, rig, unmirrored, id, back)| (kin.clone(), rig.clone(), unmirrored, id.clone(), *back))
+        .map(|(kin, rig, unmirrored, id, back)| (kin.clone(), rig.clone(), unmirrored, id.clone(), back.clone()))
         .expect("the giant gnu is in the arena, with its back");
     let giant_drawn_side = world
         .resource::<ActorAnimIndex>()
@@ -165,7 +165,7 @@ fn fist_drawn_sides(sim: &mut Platformer2dSimHarness) -> [f32; 2] {
 
 /// The scholar's seat — where his soles rest — from the gnu's centre, as the gnu
 /// is drawn: its row's `saddle`.
-const SEAT: ae::Vec2 = ae::Vec2::new(50.0, -9.75);
+const SEAT: ae::Vec2 = ae::Vec2::new(256.0, -232.05);
 
 fn saddle(s: &Scene) -> ae::Vec2 {
     // He stands on the seat: his centre half his height above it.
@@ -388,6 +388,39 @@ fn you_can_stand_on_the_giants_shoulders_until_it_bucks() {
     touchable_player(&mut sim);
     step_until(&mut sim, 120, "the buck to strike", |sim| scene(sim).performing == Some(("buck", true)));
     thrown_off_the_back(&mut sim, back, 8);
+}
+
+/// Where the giant's art has moss, a body can stand: each step of the slope of
+/// its back and the level part of each horn is ground, as its shoulders are.
+#[test]
+fn a_body_stands_where_the_giant_has_moss() {
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    let s = scene(&mut sim);
+    let ground: Vec<ae::Aabb> = s.giant_back.ground(&s.giant, s.giant_unmirrored).collect();
+    assert!(ground.len() > 3, "the giant has its shoulders, the steps of its slope and its horns: {}", ground.len());
+    for ledge in &ground {
+        let spot = ae::Vec2::new((ledge.min.x + ledge.max.x) * 0.5, ledge.min.y - 40.0);
+        place_player(&mut sim, spot);
+        for _ in 0..20 {
+            sim.step(AgentAction::default());
+        }
+        let (kin, _) = player(&mut sim);
+        let feet = kin.pos.y + kin.size.y * 0.5;
+        // A step of the slope is as wide as the body, so the body is also over
+        // the edge of the step on each side of it: it stands on one of the
+        // ledges that are under it. Which one is the kernel's rule for
+        // one-way ground, not a fact of the giant.
+        let (left, right) = (kin.pos.x - kin.size.x * 0.5, kin.pos.x + kin.size.x * 0.5);
+        let stands = ground
+            .iter()
+            .any(|other| other.max.x > left && other.min.x < right && (feet - other.min.y).abs() < 2.0);
+        assert!(
+            stands,
+            "a body put over the ledge {ledge:?} stands on the giant: feet at {feet}, at x {}",
+            kin.pos.x
+        );
+    }
 }
 
 /// Hit him from the gnu's back and the gnu answers at once: it throws you off.

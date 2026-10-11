@@ -595,9 +595,9 @@ mod mount_view_tests {
         let mut gnu_kin = body(ae::Vec2::new(900.0, 1040.0), ae::Vec2::new(439.0, 414.0));
         gnu_kin.vel = ae::Vec2::new(0.0, -520.0);
         gnu_kin.facing = -1.0;
-        let back = ambition_mount::BackLedge(ambition_characters::actor::MountBack { left: -208.0, right: 169.0, top: -9.75, thickness: 14.0 });
+        let back = ambition_mount::BackLedge::new(ambition_characters::actor::MountBack { left: -208.0, right: 169.0, top: -9.75, thickness: 14.0 });
         let gnu = world
-            .spawn((gnu_kin, ae::Unmirrored, back, room, LimbRig::from_pairs([(LimbSlot::HAND_LEFT, left), (LimbSlot::HAND_RIGHT, right)])))
+            .spawn((gnu_kin, ae::Unmirrored, back.clone(), room, LimbRig::from_pairs([(LimbSlot::HAND_LEFT, left), (LimbSlot::HAND_RIGHT, right)])))
             .id();
         world.entity_mut(left).insert(Limb { of: gnu, slot: LimbSlot::HAND_LEFT, home_offset: ae::Vec2::new(-270.0, -70.0) });
         world.entity_mut(right).insert(Limb { of: gnu, slot: LimbSlot::HAND_RIGHT, home_offset: ae::Vec2::new(270.0, -70.0) });

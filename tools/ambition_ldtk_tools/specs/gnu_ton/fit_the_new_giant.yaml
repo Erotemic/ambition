@@ -1,0 +1,23 @@
+# The giant gnu was drawn again, larger (2026-10-11): its body is 630 x 464
+# world units (the beast and its chest), on the floor (y 1248), its centre on
+# the middle of the room (x 896). The scholar's box is on its right shoulder
+# (the seat: 256 to the right of its centre, 464 above the floor); its size
+# is the scholar's scale, so it stays 54 x 96.
+#
+# The stones by the giant moved with it (painted cells, `intgrid`, not here):
+# the two low stones went out from under its flanks (x 432..560 and
+# 1232..1360, y 1120), and the mid-high stone on the right went out from over
+# the right shoulder (x 1312..1472, y 720).
+level_id: gnu_ton_arena
+moves:
+  - target:
+      identifier: EnemySpawn
+      match:
+        name: Giant GNU
+    px: [581, 784]
+    size: [630, 464]
+  - target:
+      identifier: BossSpawn
+      match:
+        name: GNU-ton
+    px: [1125, 688]

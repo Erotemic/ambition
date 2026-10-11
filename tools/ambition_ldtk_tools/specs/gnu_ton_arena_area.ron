@@ -376,12 +376,12 @@
             type: "EnemySpawn",
             ref: "giant_gnu_mount",
             px: [
-                676,
-                832,
+                581,
+                784,
             ],
             size: [
-                440,
-                416,
+                630,
+                464,
             ],
             fields: (
                 name: "Giant GNU",
@@ -395,8 +395,8 @@
         (
             type: "BossSpawn",
             px: [
-                919,
-                925,
+                1125,
+                688,
             ],
             size: [
                 54,

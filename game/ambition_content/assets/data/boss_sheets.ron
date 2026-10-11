@@ -65,12 +65,12 @@
         layers: ["sauce"],
     ),
     // ADR 0020 mount/rider split (G1): the giant GNU MOUNT, without the
-    // scholar (768x576, 6 rows, collision_scale 4.5). The collision anchor is
-    // the shoulder ridge where the rider sits.
+    // scholar (840x680; the six rows a boss sheet reads by index, then
+    // `buck` and `stomp` by name).
     "giant_gnu": (
         label_width: 0,
-        frame_width: 768,
-        frame_height: 576,
+        frame_width: 840,
+        frame_height: 680,
         rows: [
             (Rest, (
                 frame_count: 10,

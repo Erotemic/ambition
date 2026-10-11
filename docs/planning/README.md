@@ -156,6 +156,12 @@ links to.
 - [`engine/performer-up-b-the-wire.md`](engine/performer-up-b-the-wire.md) —
   built; feel is open.
 - [`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md)
+- [`engine/the-art-says-where-a-body-stands.md`](engine/the-art-says-where-a-body-stands.md)
+  The debts of the GNU-ton giant (2026-10-11) and the design that pays
+  them: a sheet says each place on its body. Not built.
+- [`engine/slopes-feet-ride-surfaces.md`](engine/slopes-feet-ride-surfaces.md)
+  A proposal (2026-10-11): a body on the ground keeps a support that
+  lasts; its shape says how it sits on it. Not built; one decision open.
 - [`engine/collision-and-ccd.md`](engine/collision-and-ccd.md)
 - [`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md)
 - [`engine/platformer-navigation-and-reachability.md`](engine/platformer-navigation-and-reachability.md)

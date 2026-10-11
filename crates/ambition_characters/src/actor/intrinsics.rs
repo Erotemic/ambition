@@ -104,6 +104,12 @@ pub struct CharacterMount {
     /// onto it to reach the rider. `None` = its back is not ground.
     #[serde(default)]
     pub back: Option<MountBack>,
+    /// More one-way ground on a mount that has a `back`: each place its art
+    /// shows that a body can stand (the steps of a sloped back, the level
+    /// part of a horn). The `back` is the one a rider's conductor reads as
+    /// "on its back"; these are ground and no more.
+    #[serde(default)]
+    pub ledges: Vec<MountBack>,
 }
 
 /// A mount's back as one-way ground, in world units about the mount's centre

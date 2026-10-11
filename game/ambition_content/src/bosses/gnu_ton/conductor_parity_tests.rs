@@ -180,7 +180,7 @@ fn world(road: Road) -> (App, Cast) {
             body(gnu_pos, ae::Vec2::new(439.0, 414.0), -1.0),
             ae::BodyFlightState::default(),
             ae::Unmirrored,
-            ambition_mount::BackLedge(MountBack { left: -208.0, right: 169.0, top: -9.75, thickness: 14.0 }),
+            ambition_mount::BackLedge::new(MountBack { left: -208.0, right: 169.0, top: -9.75, thickness: 14.0 }),
             LimbRig::from_pairs([(LimbSlot::HAND_LEFT, fists[0]), (LimbSlot::HAND_RIGHT, fists[1])]),
             PinnedRow::default(),
             room,

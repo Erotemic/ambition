@@ -819,5 +819,37 @@ There should be a lot of themes across the game. Each tied coherently in a
 story. This should be a story building engine. A way to direct and orchestrate
 stories. 
 
+----
 
+Oh, it would be really funny if the game started by asking if you were a boy or
+a girl (pokemon opener reference) and then that decision had absolutely no
+impact. I.e. the game didn't even store data on the decision.
+
+The game could then give you a question: do you want a bow or now. So maybe the
+robot character has a bow on its head or not, but that is completely
+independent of if you say you are a boy or a girl.
+
+---
+
+
+Story morals:
+
+* danger of negative attribution bias
+* danger of loyalty bias
+* danger of aversion to bias - bias variance tradeoff can be an element of the game.
+* danger of mob mentality
+* danger of appeal to authority
+* danger of appeal to the masses
+
+---
+
+Ok, a story line, there is data at the center of some facility or fortress or
+effectively its a reason to go deep into a level. So the game can make some
+overt jokes. You have to get to the data at the center. Remember the data
+center.
+
+Talking about it characters could say: you know, they could've worked to build
+it right, (some reference to closed loop cooling, or you know, not destroying
+ecosystems in a rampant rush to build out infrastructure that should have been
+much more intentionally planned).
 
